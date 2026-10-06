@@ -2,7 +2,7 @@
 
 **.NET** là nền tảng cốt lõi để xây dựng các ứng dụng **C#**. 
 Dù dự án sử dụng công nghệ nào:
-- 🖥️ `C# WPF` (Desktop)
+- 🖥️️ `C# WPF` (Desktop)
 - 🌐 `C# ASP.NET` (Web)
 - ⚙️ `C# Web API` (Backend)
 
@@ -17,11 +17,15 @@ graph TD
     
     NET -->|Quản lý bộ nhớ & Logic| C
     NET -->|Kết nối cơ sở dữ liệu| SQL
+```
 
+---
 
+## 🗂️ Cấu trúc phân tầng Project (HorseManagement)
 
+Cấu trúc thư mục được chia theo chuẩn mô hình nhiều tầng (N-Tier/MVC), giúp tách biệt logic nghiệp vụ, giao diện và cơ sở dữ liệu:
 
-🗂️ Cấu trúc phân tầng Project (HorseManagement)
+```bash
 🐎 HorseManagement
 │
 ├── 📂 Models         # Chứa các class đại diện cho cấu trúc dữ liệu
@@ -38,27 +42,28 @@ graph TD
 │
 └── 📂 UI             # Giao diện người dùng
     └── 🖼️ HorsePage.xaml
+```
 
+---
 
+## 🔄 Luồng hoạt động (Data Flow)
 
-Luồng tổng quan (Kiến trúc hệ thống)
+### 1. Luồng tổng quan (Kiến trúc hệ thống)
+
+```mermaid
 graph TD
     User([👤 Người dùng]) -->|Tương tác| UI(🖥️ UI)
     UI -->|Gọi hàm| Service(⚙️ Service)
-    Service -->|Xử lý Logic| DAO(🗄️ DAO)
+    Service -->|Xử lý Logic| DAO(🗄️️ DAO)
     DAO -->|Mở kết nối| DBConn(🔌 DBConnection)
-    DBConn -->|Truy vấn| SQL[(🛢️ SQL Server)]
+    DBConn -->|Truy vấn| SQL[(🛢️️ SQL Server)]
+```
 
+### 2. Ví dụ thực tế: Chức năng "Tìm ngựa"
 
+Khi người dùng bấm nút **"Tìm ngựa"**, dữ liệu sẽ đi qua các tầng sau:
 
-
-
-
-
-
-
-Ví dụ thực tế: Chức năng "Tìm ngựa"
-
+```yaml
 1. 👤 Người dùng     : Bấm nút "Tìm ngựa" trên màn hình.
         ⬇️
 2. 🖥️ UI             : Nhận sự kiện click, truyền từ khóa xuống tầng Service.
@@ -69,11 +74,9 @@ Ví dụ thực tế: Chức năng "Tìm ngựa"
         ⬇️
 5. 🔍 SQL Query      : SELECT * FROM Horses WHERE Name LIKE '%...%'
         ⬇️
-6. 🛢️️ SQL Server     : Thực thi truy vấn, trả về các record thô từ Database.
+6. 🛢 SQL Server     : Thực thi truy vấn, trả về các record thô từ Database.
         ⬇️
 7. 📦 HorseDTO       : Đóng gói (Map) dữ liệu thô SQL thành Object C#.
         ⬇️
 8. 🖥️ UI             : Nhận danh sách List<HorseDTO> và hiển thị lên bảng (DataGrid).
-
-
-
+```
