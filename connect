@@ -1,0 +1,38 @@
+Folder Entities
+    Tải các thư viện
+    - Microsoft.EntityFrameworkCore.SqlServer
+    - Microsoft.EntityFrameworkCore.Design
+    - Microsoft.Extensions.Configuration.Json
+
+
+
+  
+File .json
+      {
+  "ConnectionStrings": {
+    "DefaultConnection": "server=(đổi tên theo database trong máy);uid=sa;pwd=12345;database=(đặt tên database);TrustServerCertificate=True;"
+                        }
+      }
+
+
+
+ public partial class MainWindow : Window
+ {
+     private HorsesDbContext _dbContext;
+     
+     public MainWindow()
+     {
+         InitializeComponent();
+         _dbContext = new HorsesDbContext();
+         
+     }
+ }
+
+  .NET Application
+       |
+       | Connection
+       ↓
+   SQL Server
+       |
+       ↓
+   Horse Database
