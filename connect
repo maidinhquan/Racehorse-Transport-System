@@ -15,7 +15,7 @@ File .json
       }
 
 
-
+## code  .xaml.cs
  public partial class MainWindow : Window
  {
      private HorsesDbContext _dbContext;
@@ -28,7 +28,7 @@ File .json
      }
  }
 
-  .NET Application
+ .NET Application
        |
        | Connection
        ↓
