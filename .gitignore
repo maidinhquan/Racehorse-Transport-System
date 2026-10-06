@@ -1,0 +1,19 @@
+# React
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Visual Studio
+.vs/
+
+# VS Code
+.vscode/
+
+# .NET - dùng sau này
+**/bin/
+**/obj/
+
+# Windows
+Thumbs.db
+Desktop.ini
