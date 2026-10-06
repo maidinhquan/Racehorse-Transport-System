@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
 
 import loginHorseImage from "../../../../assets/images/login-horse.jpg";
 import "./LoginPage.css";
@@ -25,16 +26,36 @@ function LoginPage() {
 
     console.log("Login data:", loginData);
 
-    // Sau này gọi API login tại đây.
+    // Demo frontend.
+    // Sau này sẽ gọi API đăng nhập tại đây.
   };
 
-  const handleGoogleLogin = () => {
-    console.log("Google login");
+  const handleGoogleSuccess = (credentialResponse: {
+    credential?: string;
+  }) => {
+    if (!credentialResponse.credential) {
+      console.error("Không nhận được Google credential.");
+      return;
+    }
+
+    console.log(
+      "Google credential:",
+      credentialResponse.credential
+    );
+
+    alert("Đăng nhập Google thành công - Demo FE");
+  };
+
+  const handleGoogleError = () => {
+    console.error("Google login failed");
+
+    alert("Đăng nhập Google thất bại.");
   };
 
   return (
     <div className="login-page auth-page">
       <div className="login-container">
+        {/* LEFT SIDE */}
         <section
           className="login-hero"
           style={{
@@ -76,6 +97,7 @@ function LoginPage() {
           </div>
         </section>
 
+        {/* RIGHT SIDE */}
         <section className="login-form-section">
           <div className="login-form-wrapper">
             <div className="title-line" />
@@ -115,7 +137,11 @@ function LoginPage() {
                   <input
                     id="password"
                     name="password"
-                    type={showPassword ? "text" : "password"}
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
                     placeholder="Nhập mật khẩu"
                     value={password}
                     onChange={(event) =>
@@ -129,7 +155,9 @@ function LoginPage() {
                     type="button"
                     className="password-toggle-button"
                     onClick={() =>
-                      setShowPassword((current) => !current)
+                      setShowPassword(
+                        (current) => !current
+                      )
                     }
                   >
                     {showPassword ? "Ẩn" : "Hiện"}
@@ -143,7 +171,9 @@ function LoginPage() {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(event) =>
-                      setRememberMe(event.target.checked)
+                      setRememberMe(
+                        event.target.checked
+                      )
                     }
                   />
 
@@ -153,7 +183,9 @@ function LoginPage() {
                 <button
                   type="button"
                   className="forgot-password"
-                  onClick={() => navigate("/forgot-password")}
+                  onClick={() =>
+                    navigate("/forgot-password")
+                  }
                 >
                   Quên mật khẩu?
                 </button>
@@ -173,21 +205,24 @@ function LoginPage() {
               <span />
             </div>
 
-            <button
-              type="button"
-              className="google-button"
-              onClick={handleGoogleLogin}
-            >
-              <span className="google-logo">G</span>
-
-              Tiếp tục với Google
-            </button>
+            <div className="google-login-wrapper">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                shape="rectangular"
+                size="large"
+                width="430"
+              />
+            </div>
 
             <p className="register-text">
               Chưa có tài khoản?{" "}
+
               <button
                 type="button"
-                onClick={() => navigate("/register")}
+                onClick={() =>
+                  navigate("/register")
+                }
               >
                 Đăng ký ngay
               </button>

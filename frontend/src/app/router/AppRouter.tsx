@@ -10,6 +10,7 @@ import RegisterPage from "../../features/auth/pages/register/RegisterPage";
 import VerifyOtpPage from "../../features/auth/pages/verify-otp/VerifyOtpPage";
 import ForgotPasswordPage from "../../features/auth/pages/forgot-password/ForgotPasswordPage";
 import ResetPasswordPage from "../../features/auth/pages/reset-password/ResetPasswordPage";
+import DriveDashboardPage from "../../features/driver/DriverDashboard";
 function AppRouter() {
   return (
     <BrowserRouter>
@@ -39,6 +40,10 @@ function AppRouter() {
         <Route
           path="/reset-password"
           element={<ResetPasswordPage />}
+        />
+        <Route
+          path="/drive-dashboard"
+          element={<DriveDashboardPage />}
         />
       </Routes>
     </BrowserRouter>

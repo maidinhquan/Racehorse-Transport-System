@@ -504,3 +504,115 @@
     font-size: 30px;
   }
 }
+/* ===============================
+   OTP SUCCESS STATE
+   =============================== */
+
+.otp-success-state {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+}
+
+.otp-success-icon {
+  width: 72px;
+  height: 72px;
+
+  border-radius: 50%;
+
+  background: #dcfce7;
+  color: #16a34a;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 34px;
+  font-weight: 700;
+
+  margin-bottom: 24px;
+}
+
+.otp-success-state h2 {
+  margin: 0;
+
+  font-size: 24px;
+  font-weight: 700;
+
+  color: #172033;
+}
+
+.otp-success-description {
+  margin-top: 14px;
+
+  font-size: 13px;
+  line-height: 1.7;
+
+  color: #7a8496;
+}
+
+.otp-redirect-box {
+  width: 100%;
+
+  margin-top: 28px;
+
+  padding: 16px 20px;
+
+  border-radius: 10px;
+
+  background: #fff7ed;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 14px;
+
+  text-align: left;
+}
+
+.otp-redirect-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.otp-redirect-content strong {
+  font-size: 12px;
+  font-weight: 600;
+
+  color: #374151;
+}
+
+.otp-redirect-content span {
+  margin-top: 4px;
+
+  font-size: 11px;
+
+  color: #9ca3af;
+}
+
+.otp-loading-circle {
+  width: 24px;
+  height: 24px;
+
+  border-radius: 50%;
+
+  border: 3px solid #fed7aa;
+  border-top-color: #f57c00;
+
+  flex-shrink: 0;
+
+  animation: otp-loading-spin 0.8s linear infinite;
+}
+
+@keyframes otp-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

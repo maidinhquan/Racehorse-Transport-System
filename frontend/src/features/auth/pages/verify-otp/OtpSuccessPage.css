@@ -1,0 +1,198 @@
+.otp-success-page {
+  min-height: 100vh;
+  background: #202020;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  font-family: Inter, Arial, sans-serif;
+}
+
+.otp-success-container {
+  width: min(920px, 100%);
+  min-height: 560px;
+  display: grid;
+  grid-template-columns: 52% 48%;
+  background: #ffffff;
+  border-radius: 22px;
+  overflow: hidden;
+}
+
+.otp-success-image {
+  position: relative;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.08),
+      rgba(0, 0, 0, 0.42)
+    ),
+    url("/src/assets/images/horse-transport.jpg") center / cover no-repeat;
+  color: white;
+}
+
+.brand {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.brand-icon {
+  width: 30px;
+  height: 30px;
+  background: #ff7900;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: white;
+}
+
+.hero-overlay {
+  position: absolute;
+  left: 32px;
+  right: 32px;
+  bottom: 34px;
+}
+
+.hero-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.hero-label span {
+  width: 24px;
+  height: 2px;
+  background: #ff7900;
+}
+
+.hero-overlay h1 {
+  margin: 12px 0;
+  font-size: 27px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.hero-overlay p {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hero-tag {
+  margin-top: 22px;
+  display: inline-flex;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 9px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.otp-success-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px;
+  text-align: center;
+}
+
+.success-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #16a34a;
+  display: grid;
+  place-items: center;
+  margin-bottom: 24px;
+}
+
+.success-icon svg {
+  width: 34px;
+  height: 34px;
+}
+
+.otp-success-content h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.success-description {
+  margin-top: 14px;
+  color: #7a8496;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.redirect-box {
+  width: 100%;
+  margin-top: 28px;
+  padding: 16px 20px;
+  background: #fff7ed;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: left;
+}
+
+.redirect-box strong {
+  display: block;
+  color: #374151;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.redirect-box span {
+  display: block;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.loading-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid #fed7aa;
+  border-top-color: #f57c00;
+  animation: otp-spin 0.8s linear infinite;
+}
+
+@keyframes otp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .otp-success-page {
+    padding: 0;
+    background: white;
+  }
+
+  .otp-success-container {
+    min-height: 100vh;
+    grid-template-columns: 1fr;
+    border-radius: 0;
+  }
+
+  .otp-success-image {
+    min-height: 300px;
+  }
+
+  .otp-success-content {
+    padding: 40px 24px;
+  }
+}
