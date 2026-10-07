@@ -18,11 +18,14 @@ public class RouteSegmentDAO : BaseDAO<RouteSegment>
         return await _dbSet.AsNoTracking().Where(s => s.TripID == tripId).ToListAsync();
     }
 
+    /// <summary>
+    /// Sắp xếp chặng theo giờ đến dự kiến (ExpectedETA), không phải giờ khởi hành.
+    /// </summary>
     public async Task<List<RouteSegment>> GetByTripIdOrderedAsync(string tripId)
     {
         return await _dbSet.AsNoTracking()
             .Where(s => s.TripID == tripId)
-            .OrderBy(s => s.EstimatedDepartureTime)
+            .OrderBy(s => s.ExpectedETA)
             .ToListAsync();
     }
 

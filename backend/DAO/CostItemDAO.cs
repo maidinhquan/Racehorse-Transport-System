@@ -30,6 +30,6 @@ public class CostItemDAO : BaseDAO<CostItem>
 
     public async Task<decimal> GetTotalMoneyByContractAsync(string contractId)
     {
-        return await _dbSet.Where(c => c.ContractID == contractId).SumAsync(c => c.TotalMoney);
+        return await _dbSet.Where(c => c.ContractID == contractId).SumAsync(c => c.TotalMoney) ?? 0m;
     }
 }

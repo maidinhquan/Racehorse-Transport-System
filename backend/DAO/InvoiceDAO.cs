@@ -15,12 +15,7 @@ public class InvoiceDAO : BaseDAO<Invoice>
 
     public async Task<List<Invoice>> GetByContractIdAsync(string contractId)
     {
-        return await _dbSet.AsNoTracking().Where(i => i.ContractID == contractId).OrderBy(i => i.IssuedAt).ToListAsync();
-    }
-
-    public async Task<Invoice?> GetByInvoiceCodeAsync(string invoiceCode)
-    {
-        return await _dbSet.AsNoTracking().FirstOrDefaultAsync(i => i.InvoiceCode == invoiceCode);
+        return await _dbSet.AsNoTracking().Where(i => i.ContractID == contractId).ToListAsync();
     }
 
     public async Task<List<Invoice>> GetByPaymentStatusAsync(string paymentStatus)

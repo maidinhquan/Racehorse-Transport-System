@@ -23,8 +23,8 @@ public class PartnerFacilityDAO : BaseDAO<PartnerFacility>
         return await _dbSet.AsNoTracking().Where(f => f.CountryCode == countryCode).ToListAsync();
     }
 
-    public async Task<List<PartnerFacility>> GetActiveFacilitiesAsync()
+    public async Task<List<PartnerFacility>> GetByStatusAsync(string status)
     {
-        return await _dbSet.AsNoTracking().Where(f => f.IsActive).ToListAsync();
+        return await _dbSet.AsNoTracking().Where(f => f.Status == status).ToListAsync();
     }
 }

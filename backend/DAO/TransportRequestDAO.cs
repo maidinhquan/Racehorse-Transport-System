@@ -15,7 +15,7 @@ public class TransportRequestDAO : BaseDAO<TransportRequest>
 
     public async Task<List<TransportRequest>> GetByCustomerIdAsync(string customerId)
     {
-        return await _dbSet.AsNoTracking().Where(r => r.CustomerID == customerId).OrderByDescending(r => r.CreatedAt).ToListAsync();
+        return await _dbSet.AsNoTracking().Where(r => r.CustomerID == customerId).ToListAsync();
     }
 
     public async Task<List<TransportRequest>> GetByStatusAsync(string status)

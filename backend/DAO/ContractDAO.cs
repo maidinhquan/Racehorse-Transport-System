@@ -20,7 +20,7 @@ public class ContractDAO : BaseDAO<Contract>
 
     public async Task<List<Contract>> GetByCustomerIdAsync(string customerId)
     {
-        return await _dbSet.AsNoTracking().Where(c => c.CustomerID == customerId).OrderByDescending(c => c.CreatedAt).ToListAsync();
+        return await _dbSet.AsNoTracking().Where(c => c.CustomerID == customerId).ToListAsync();
     }
 
     public async Task<Contract?> GetByContractCodeAsync(string contractCode)

@@ -15,7 +15,7 @@ public class IncidentDAO : BaseDAO<Incident>
 
     public async Task<List<Incident>> GetByTripIdAsync(string tripId)
     {
-        return await _dbSet.AsNoTracking().Where(i => i.TripID == tripId).OrderByDescending(i => i.ReportedAt).ToListAsync();
+        return await _dbSet.AsNoTracking().Where(i => i.TripID == tripId).ToListAsync();
     }
 
     public async Task<List<Incident>> GetPendingApprovalAsync()

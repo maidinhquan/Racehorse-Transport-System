@@ -21,7 +21,7 @@ public class StaffDocumentDAO : BaseDAO<StaffDocument>
     public async Task<List<StaffDocument>> GetExpiringDocumentsAsync(DateTime thresholdDate)
     {
         return await _dbSet.AsNoTracking()
-            .Where(d => d.ExpiryDate.HasValue && d.ExpiryDate.Value <= thresholdDate)
+            .Where(d => d.ExpiryDate <= thresholdDate)
             .ToListAsync();
     }
 
