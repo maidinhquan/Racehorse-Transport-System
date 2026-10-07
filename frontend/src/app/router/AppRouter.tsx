@@ -14,6 +14,7 @@ import HomePage from "../../features/user-dashboard/page/home-page/HomePage";
 import TransportRequestPage from "../../features/user-dashboard/page/transport-request-page/TransportRequestPage";
 import MyHorsesPage from "../../features/user-dashboard/page/my-horses/MyHorsesPage";
 import TripTrackingPage from "../../features/user-dashboard/page/trip-tracking/TripTrackingPage";
+import HistoryPage from "../../features/user-dashboard/page/history/HistoryPage";
 function AppRouter() {
   return (
     <BrowserRouter>
@@ -60,7 +61,10 @@ function AppRouter() {
           path="/customer/tracking"
           element={<TripTrackingPage />}
         />
-
+        <Route
+          path="/customer/history"
+          element={<HistoryPage />}
+        />
       </Routes>
 
     </BrowserRouter>
