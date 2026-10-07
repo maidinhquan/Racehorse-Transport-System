@@ -1,38 +1,22 @@
-Folder Entities
-    Tải các thư viện
-    - Microsoft.EntityFrameworkCore.SqlServer
-    - Microsoft.EntityFrameworkCore.Design
-    - Microsoft.Extensions.Configuration.Json
+# Hướng dẫn thiết lập Database cho dự án .NET (WPF)
 
+Tài liệu này mô tả các bước cấu hình và kết nối ứng dụng .NET với SQL Server thông qua Entity Framework Core cho quản lý dữ liệu (Ví dụ: `HorsesDbContext`).
 
+## 1. Cài đặt các thư viện (NuGet Packages)
 
-  
-File .json
-      {
+Trong thư mục dự án (hoặc thư mục `Entities`), bạn cần cài đặt các package sau để làm việc với Entity Framework Core và đọc file cấu hình:
+
+- `Microsoft.EntityFrameworkCore.SqlServer`
+- `Microsoft.EntityFrameworkCore.Design`
+- `Microsoft.Extensions.Configuration.Json`
+
+## 2. Cấu hình chuỗi kết nối (`appsettings.json`)
+
+Tạo hoặc mở file `.json` (thường là `appsettings.json`) tại thư mục gốc của dự án và khai báo chuỗi kết nối. 
+
+```json
+{
   "ConnectionStrings": {
-    "DefaultConnection": "server=(đổi tên theo database trong máy);uid=sa;pwd=12345;database=(đặt tên database);TrustServerCertificate=True;"
-                        }
-      }
-
-
-## code  .xaml.cs
- public partial class MainWindow : Window
- {
-     private HorsesDbContext _dbContext;
-     
-     public MainWindow()
-     {
-         InitializeComponent();
-         _dbContext = new HorsesDbContext();
-         
-     }
- }
-
- .NET Application
-       |
-       | Connection
-       ↓
-   SQL Server
-       |
-       ↓
-   Horse Database
+    "DefaultConnection": "server=(đổi tên server theo máy);uid=sa;pwd=12345;database=(đặt tên database);TrustServerCertificate=True;"
+  }
+}
