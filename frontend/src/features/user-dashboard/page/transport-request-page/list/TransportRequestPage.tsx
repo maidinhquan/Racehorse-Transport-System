@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import CustomerLayout from "../../../../shared/layouts/CustomerLayout/CustomerLayout";
+import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
 
 import {
   requestStatuses,
   transportRequests,
   type ContractStatus,
   type RequestStatus,
-} from "../../data/transportRequestMockData";
+} from "../../../data/transportRequestMockData";
 
 import "./TransportRequestPage.css";
 

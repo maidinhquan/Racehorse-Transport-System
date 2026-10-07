@@ -1,47 +1,39 @@
+/* =========================
+   LAYOUT
+========================= */
+
 .customer-layout {
   width: 100%;
   min-height: 100vh;
 
-  display: flex;
-
   background: #f8fafc;
-
-  color: #334155;
-
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
 }
 
 /* =========================
-   Sidebar
+   SIDEBAR
 ========================= */
 
 .customer-sidebar {
-  width: 208px;
-  min-height: 100vh;
-
-  flex-shrink: 0;
-
-  background: #ffffff;
-
-  border-right: 1px solid #e5e7eb;
-
-  display: flex;
-  flex-direction: column;
-
   position: fixed;
 
   top: 0;
   left: 0;
   bottom: 0;
 
-  z-index: 20;
+  width: 208px;
+  height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  background: #ffffff;
+
+  border-right: 1px solid #e5e7eb;
+
+  z-index: 100;
 }
+
+/* Brand */
 
 .customer-brand {
   height: 64px;
@@ -50,6 +42,8 @@
 
   display: flex;
   align-items: center;
+
+  flex-shrink: 0;
 
   border-bottom: 1px solid #e5e7eb;
 
@@ -63,13 +57,21 @@
   user-select: none;
 }
 
+/* =========================
+   NAVIGATION
+========================= */
+
 .customer-nav {
+  flex: 1;
+
   padding: 12px;
 
   display: flex;
   flex-direction: column;
 
   gap: 4px;
+
+  overflow-y: auto;
 }
 
 .customer-nav-item {
@@ -116,28 +118,39 @@
 }
 
 /* =========================
-   Main
+   MAIN
 ========================= */
 
 .customer-main {
   width: calc(100% - 208px);
+
   min-height: 100vh;
 
   margin-left: 208px;
 
   display: flex;
   flex-direction: column;
+
+  background: #f8fafc;
 }
 
 /* =========================
-   Topbar
+   TOPBAR
 ========================= */
 
 .customer-topbar {
+  position: sticky;
+
+  top: 0;
+
+  z-index: 90;
+
   width: 100%;
   height: 64px;
 
   padding: 0 32px;
+
+  box-sizing: border-box;
 
   display: flex;
   align-items: center;
@@ -145,15 +158,11 @@
 
   gap: 20px;
 
+  flex-shrink: 0;
+
   background: #ffffff;
 
   border-bottom: 1px solid #e5e7eb;
-
-  position: sticky;
-
-  top: 0;
-
-  z-index: 10;
 }
 
 .customer-topbar h1 {
@@ -166,7 +175,7 @@
 }
 
 /* =========================
-   User
+   USER AREA
 ========================= */
 
 .customer-user-area {
@@ -176,11 +185,16 @@
   gap: 10px;
 }
 
+/* Notification */
+
 .customer-icon-button {
   width: 36px;
   height: 36px;
 
   padding: 0;
+
+  display: grid;
+  place-items: center;
 
   border: none;
 
@@ -188,8 +202,7 @@
 
   background: transparent;
 
-  display: grid;
-  place-items: center;
+  color: #64748b;
 
   cursor: pointer;
 }
@@ -316,7 +329,8 @@
 
   transition:
     background 0.2s ease,
-    color 0.2s ease;
+    color 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .customer-logout-button:hover {
@@ -328,7 +342,7 @@
 }
 
 /* =========================
-   Content
+   CONTENT
 ========================= */
 
 .customer-content {
@@ -339,11 +353,13 @@
 
   padding: 32px;
 
+  box-sizing: border-box;
+
   flex: 1;
 }
 
 /* =========================
-   Responsive
+   RESPONSIVE
 ========================= */
 
 @media (max-width: 900px) {
@@ -368,15 +384,11 @@
 }
 
 @media (max-width: 760px) {
-  .customer-layout {
-    flex-direction: column;
-  }
-
   .customer-sidebar {
-    width: 100%;
-    min-height: auto;
-
     position: static;
+
+    width: 100%;
+    height: auto;
 
     border-right: none;
     border-bottom: 1px solid #e5e7eb;
@@ -390,14 +402,13 @@
     flex-direction: row;
 
     overflow-x: auto;
-
-    scrollbar-width: thin;
+    overflow-y: hidden;
   }
 
   .customer-nav-item {
-    white-space: nowrap;
-
     flex-shrink: 0;
+
+    white-space: nowrap;
   }
 
   .customer-main {
@@ -409,19 +420,11 @@
   .customer-topbar {
     height: 56px;
 
-    position: static;
-
     padding: 0 16px;
   }
 
-  .customer-account-info {
-    display: none;
-  }
-
-  .customer-account-chevron {
-    display: none;
-  }
-
+  .customer-account-info,
+  .customer-account-chevron,
   .customer-logout-button {
     display: none;
   }
