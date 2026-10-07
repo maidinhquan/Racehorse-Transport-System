@@ -236,6 +236,14 @@ function LoginPage() {
               size="large"
               width="100%"
             />
+            {/* Phần này là các nút cho phần demo, sau này sẽ xóa đi. Chỉ để demo thử các trang khác. */}
+            <button
+              type="button"
+              className="demo-user-button"
+              onClick={() => navigate("/customer/home")}
+            >
+              Demo User Page
+            </button>
 
             <p className="register-text">
               Chưa có tài khoản?{" "}
@@ -254,6 +262,7 @@ function LoginPage() {
         </section>
       </div>
     </div>
+
   );
 }
 
