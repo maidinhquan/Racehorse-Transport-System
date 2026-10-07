@@ -4,6 +4,10 @@ frontend/dist/
 frontend/.env
 frontend/.env.local
 
+# Data files & Requirements
+data/
+
+
 # Visual Studio
 .vs/
 
