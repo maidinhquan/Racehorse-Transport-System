@@ -10,10 +10,13 @@ import RegisterPage from "../../features/auth/pages/register/RegisterPage";
 import VerifyOtpPage from "../../features/auth/pages/verify-otp/VerifyOtpPage";
 import ForgotPasswordPage from "../../features/auth/pages/forgot-password/ForgotPasswordPage";
 import ResetPasswordPage from "../../features/auth/pages/reset-password/ResetPasswordPage";
+import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage";
 function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/payment/sandbox" element={<SandboxPaymentPage />} />
+        <Route path="/payment/return" element={<SandboxPaymentPage />} />
         <Route
           path="/"
           element={<Navigate to="/login" replace />}

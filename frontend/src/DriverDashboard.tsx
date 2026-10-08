@@ -1,10 +1,8 @@
-import React from 'react';
-
 const DriverDashboard = () => {
-  return (``
-    // Main Background tối ưu cho thiết bị di động
+  // Main Background tối ưu cho thiết bị di động
+  return (
     <div className="min-h-screen bg-[#F8F9FA] font-inter p-4 pb-8">
-      
+
       {/* Header Thông tin chuyến đi (UC-18) */}
       <header className="bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-sm mb-6">
         <h1 className="text-[20px] font-semibold text-[#111827]">Mã chuyến: TRP-2026</h1>

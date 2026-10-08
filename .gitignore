@@ -21,3 +21,7 @@ data/
 # Windows
 Thumbs.db
 Desktop.ini
+
+# Sandbox credentials and local transaction storage
+backend/appsettings.Local.json
+backend/App_Data/
