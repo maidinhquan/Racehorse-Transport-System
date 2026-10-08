@@ -3,6 +3,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type ClipboardEvent,
   type KeyboardEvent,
 } from "react";
 
@@ -18,6 +19,8 @@ function VerifyOtpPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Email được truyền từ RegisterPage.
+  // Nếu không có thì dùng email mẫu.
   const email =
     (location.state as { email?: string } | null)?.email ??
     "name@example.com";
@@ -112,6 +115,7 @@ function VerifyOtpPage() {
   ) => {
     const value = event.target.value;
 
+    // Chỉ cho nhập số
     if (!/^\d*$/.test(value)) {
       return;
     }
@@ -124,6 +128,7 @@ function VerifyOtpPage() {
 
     setOtp(newOtp);
 
+    // Tự động chuyển sang ô tiếp theo
     if (digit && index < OTP_LENGTH - 1) {
       inputsRef.current[index + 1]?.focus();
     }
@@ -169,7 +174,7 @@ function VerifyOtpPage() {
    */
 
   const handlePaste = (
-    event: React.ClipboardEvent<HTMLInputElement>
+    event: ClipboardEvent<HTMLInputElement>
   ) => {
     event.preventDefault();
 
@@ -283,7 +288,6 @@ function VerifyOtpPage() {
   return (
     <div className="verify-otp-page auth-page">
       <div className="verify-otp-container">
-
         {/* ================= LEFT ================= */}
 
         <section
@@ -295,17 +299,13 @@ function VerifyOtpPage() {
           <div className="otp-hero-overlay" />
 
           <div className="otp-hero-content">
-
             <div className="otp-brand">
-              <div className="otp-brand-icon">
-                ♞
-              </div>
+              <div className="otp-brand-icon">♞</div>
 
               <span>CNB Transport</span>
             </div>
 
             <div className="otp-hero-bottom">
-
               <div className="otp-hero-label">
                 <span className="otp-hero-line" />
 
@@ -328,20 +328,15 @@ function VerifyOtpPage() {
 
                 Chuyên biệt • An toàn • Đúng giờ
               </div>
-
             </div>
-
           </div>
         </section>
 
         {/* ================= RIGHT ================= */}
 
         <section className="otp-form-section">
-
           <div className="otp-form-wrapper">
-
             {isVerified ? (
-
               /*
                * ===============================
                * SUCCESS STATE
@@ -349,14 +344,9 @@ function VerifyOtpPage() {
                */
 
               <div className="otp-success-state">
+                <div className="otp-success-icon">✓</div>
 
-                <div className="otp-success-icon">
-                  ✓
-                </div>
-
-                <h2>
-                  Xác thực email thành công!
-                </h2>
+                <h2>Xác thực email thành công!</h2>
 
                 <p className="otp-success-description">
                   Tài khoản của bạn đã được tạo.
@@ -366,27 +356,18 @@ function VerifyOtpPage() {
                 </p>
 
                 <div className="otp-redirect-box">
-
                   <div className="otp-loading-circle" />
 
                   <div className="otp-redirect-content">
-
                     <strong>
                       Đang chuyển đến trang đăng nhập...
                     </strong>
 
-                    <span>
-                      Vui lòng chờ trong giây lát.
-                    </span>
-
+                    <span>Vui lòng chờ trong giây lát.</span>
                   </div>
-
                 </div>
-
               </div>
-
             ) : (
-
               /*
                * ===============================
                * OTP FORM
@@ -394,11 +375,9 @@ function VerifyOtpPage() {
                */
 
               <>
-
                 {/* STEP INDICATOR */}
 
                 <div className="otp-steps">
-
                   <div className="otp-step">
                     <span>1</span>
 
@@ -410,7 +389,6 @@ function VerifyOtpPage() {
 
                     Xác minh OTP
                   </div>
-
                 </div>
 
                 <div className="otp-title-line" />
@@ -425,7 +403,6 @@ function VerifyOtpPage() {
                 {/* OTP INPUT */}
 
                 <div className="otp-input-group">
-
                   {otp.map((digit, index) => (
                     <input
                       key={index}
@@ -448,16 +425,13 @@ function VerifyOtpPage() {
                       }`}
                     />
                   ))}
-
                 </div>
 
                 {/* COUNTDOWN */}
 
                 <p
                   className={`otp-expire-text ${
-                    timeLeft === 0
-                      ? "otp-expired"
-                      : ""
+                    timeLeft === 0 ? "otp-expired" : ""
                   }`}
                 >
                   {timeLeft > 0 ? (
@@ -479,10 +453,7 @@ function VerifyOtpPage() {
                 <p className="otp-resend-text">
                   Không nhận được mã?{" "}
 
-                  <button
-                    type="button"
-                    onClick={handleResendOtp}
-                  >
+                  <button type="button" onClick={handleResendOtp}>
                     Gửi lại
                   </button>
                 </p>
@@ -507,15 +478,10 @@ function VerifyOtpPage() {
                 >
                   Thay đổi email
                 </button>
-
               </>
-
             )}
-
           </div>
-
         </section>
-
       </div>
     </div>
   );

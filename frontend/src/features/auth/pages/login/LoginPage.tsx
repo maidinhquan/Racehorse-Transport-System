@@ -18,6 +18,7 @@ function LoginPage() {
   ) => {
     event.preventDefault();
 
+
     const loginData = {
       username,
       password,
@@ -43,7 +44,26 @@ function LoginPage() {
       credentialResponse.credential
     );
 
-    alert("Đăng nhập Google thành công - Demo FE");
+    /*
+      HIỆN TẠI FRONTEND DEMO:
+
+      Google đã xác thực tài khoản và trả credential.
+
+      Sau này Backend team sẽ nhận credential này:
+
+      POST /api/auth/google-login
+
+      {
+        credential: credentialResponse.credential
+      }
+
+      Backend trả JWT thì FE mới lưu token.
+    */
+
+    alert("Đăng nhập Google thành công (Demo)");
+
+    // Demo chuyển sang Dashboard.
+    navigate("/dashboard");
   };
 
   const handleGoogleError = () => {
@@ -56,6 +76,7 @@ function LoginPage() {
     <div className="login-page auth-page">
       <div className="login-container">
         {/* LEFT SIDE */}
+
         <section
           className="login-hero"
           style={{
@@ -67,7 +88,6 @@ function LoginPage() {
           <div className="hero-content">
             <div className="brand">
               <div className="brand-icon">♞</div>
-
               <span>CNB Transport</span>
             </div>
 
@@ -90,7 +110,6 @@ function LoginPage() {
 
               <div className="hero-badge">
                 <span>✓</span>
-
                 Chuyên biệt • An toàn • Đúng giờ
               </div>
             </div>
