@@ -29,11 +29,15 @@ import PaymentCancelPage from "../../features/user-dashboard/page/transport-requ
 import TransportInformationPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationPage";
 
 import TransportInformationSuccessPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationSuccessPage";
-
+import CustomerProfilePage from "../../features/user-dashboard/page/profile/CustomerProfilePage";
 function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route
+          path="/customer/profile"
+          element={<CustomerProfilePage />}
+        />
         <Route
           path="/customer/requests/:requestId/information"
           element={<TransportInformationPage />}
