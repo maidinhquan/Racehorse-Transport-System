@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
 
 import loginHorseImage from "../../../../assets/images/login-horse.jpg";
 import "./LoginPage.css";
@@ -17,24 +18,62 @@ function LoginPage() {
   ) => {
     event.preventDefault();
 
-    const loginData = {
+    console.log({
       username,
       password,
       rememberMe,
-    };
+    });
 
-    console.log("Login data:", loginData);
-
-    // Sau này gọi API login tại đây.
+    // Sau này Backend sẽ xử lý login thật.
   };
 
-  const handleGoogleLogin = () => {
-    console.log("Google login");
+  const handleGoogleSuccess = (credentialResponse: {
+    credential?: string;
+  }) => {
+    if (!credentialResponse.credential) {
+      console.error("Không nhận được Google credential.");
+      return;
+    }
+
+    console.log(
+      "Google credential:",
+      credentialResponse.credential
+    );
+
+    /*
+      HIỆN TẠI FRONTEND DEMO:
+
+      Google đã xác thực tài khoản và trả credential.
+
+      Sau này Backend team sẽ nhận credential này:
+
+      POST /api/auth/google-login
+
+      {
+        credential: credentialResponse.credential
+      }
+
+      Backend trả JWT thì FE mới lưu token.
+    */
+
+    alert("Đăng nhập Google thành công (Demo)");
+
+    // Demo chuyển sang Dashboard.
+    navigate("/dashboard"); //Chưa làm tới
+  };
+
+  const handleGoogleError = () => {
+    console.error("Google login failed");
+
+    alert("Đăng nhập Google thất bại.");
   };
 
   return (
     <div className="login-page auth-page">
       <div className="login-container">
+
+        {/* LEFT */}
+
         <section
           className="login-hero"
           style={{
@@ -46,7 +85,6 @@ function LoginPage() {
           <div className="hero-content">
             <div className="brand">
               <div className="brand-icon">♞</div>
-
               <span>CNB Transport</span>
             </div>
 
@@ -64,29 +102,34 @@ function LoginPage() {
               </h1>
 
               <p>
-                Quản lý hành trình vận chuyển an toàn và chuyên nghiệp.
+                Quản lý hành trình vận chuyển an toàn
+                và chuyên nghiệp.
               </p>
 
               <div className="hero-badge">
                 <span>✓</span>
-
                 Chuyên biệt • An toàn • Đúng giờ
               </div>
             </div>
           </div>
         </section>
 
+        {/* RIGHT */}
+
         <section className="login-form-section">
           <div className="login-form-wrapper">
+
             <div className="title-line" />
 
             <h2>Đăng nhập</h2>
 
             <p className="login-description">
-              Tiếp tục quản lý hành trình vận chuyển của bạn.
+              Tiếp tục quản lý hành trình vận chuyển
+              của bạn.
             </p>
 
             <form onSubmit={handleSubmit}>
+
               <div className="form-group">
                 <label htmlFor="username">
                   Email hoặc tên đăng nhập
@@ -94,14 +137,12 @@ function LoginPage() {
 
                 <input
                   id="username"
-                  name="username"
                   type="text"
                   placeholder="Nhập email hoặc tên đăng nhập"
                   value={username}
                   onChange={(event) =>
                     setUsername(event.target.value)
                   }
-                  autoComplete="username"
                   required
                 />
               </div>
@@ -112,16 +153,19 @@ function LoginPage() {
                 </label>
 
                 <div className="password-input-wrapper">
+
                   <input
                     id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
                     placeholder="Nhập mật khẩu"
                     value={password}
                     onChange={(event) =>
                       setPassword(event.target.value)
                     }
-                    autoComplete="current-password"
                     required
                   />
 
@@ -129,21 +173,27 @@ function LoginPage() {
                     type="button"
                     className="password-toggle-button"
                     onClick={() =>
-                      setShowPassword((current) => !current)
+                      setShowPassword(
+                        (current) => !current
+                      )
                     }
                   >
                     {showPassword ? "Ẩn" : "Hiện"}
                   </button>
+
                 </div>
               </div>
 
               <div className="login-options">
+
                 <label className="remember-me">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(event) =>
-                      setRememberMe(event.target.checked)
+                      setRememberMe(
+                        event.target.checked
+                      )
                     }
                   />
 
@@ -153,10 +203,13 @@ function LoginPage() {
                 <button
                   type="button"
                   className="forgot-password"
-                  onClick={() => navigate("/forgot-password")}
+                  onClick={() =>
+                    navigate("/forgot-password")
+                  }
                 >
                   Quên mật khẩu?
                 </button>
+
               </div>
 
               <button
@@ -165,6 +218,7 @@ function LoginPage() {
               >
                 Đăng nhập
               </button>
+
             </form>
 
             <div className="divider">
@@ -173,29 +227,42 @@ function LoginPage() {
               <span />
             </div>
 
+            {/* GOOGLE LOGIN */}
+
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              shape="rectangular"
+              size="large"
+              width="100%"
+            />
+            {/* Phần này là các nút cho phần demo, sau này sẽ xóa đi. Chỉ để demo thử các trang khác. */}
             <button
               type="button"
-              className="google-button"
-              onClick={handleGoogleLogin}
+              className="demo-user-button"
+              onClick={() => navigate("/customer/home")}
             >
-              <span className="google-logo">G</span>
-
-              Tiếp tục với Google
+              Demo User Page
             </button>
 
             <p className="register-text">
               Chưa có tài khoản?{" "}
+
               <button
                 type="button"
-                onClick={() => navigate("/register")}
+                onClick={() =>
+                  navigate("/register")
+                }
               >
                 Đăng ký ngay
               </button>
             </p>
+
           </div>
         </section>
       </div>
     </div>
+
   );
 }
 
