@@ -89,7 +89,7 @@ function LoginPage() {
       if (axios.isAxiosError(error)) {
         setErrorMessage(
           error.response?.data?.message ??
-            "Đăng nhập thất bại."
+          "Đăng nhập thất bại."
         );
       } else {
         setErrorMessage(
@@ -137,7 +137,7 @@ function LoginPage() {
       if (axios.isAxiosError(error)) {
         setErrorMessage(
           error.response?.data?.message ??
-            "Đăng nhập Google thất bại."
+          "Đăng nhập Google thất bại."
         );
       } else {
         setErrorMessage(
@@ -281,15 +281,64 @@ function LoginPage() {
         />
 
         {/* DEMO - xoá khi Backend đã kết nối */}
-        <button
-          type="button"
-          className="demo-user-button"
-          onClick={() =>
-            navigate("/customer/home")
-          }
-        >
-          Demo User Page
-        </button>
+        {/* DEMO ROLE - xoá khi Backend đã kết nối */}
+        <div className="demo-role-section">
+          <p className="demo-role-title">
+            Demo theo vai trò
+          </p>
+
+          <div className="demo-role-grid">
+            <button
+              type="button"
+              className="demo-role-button"
+              onClick={() =>
+                redirectByRole("CUSTOMER")
+              }
+            >
+              Customer
+            </button>
+
+            <button
+              type="button"
+              className="demo-role-button"
+              onClick={() =>
+                redirectByRole("LOGISTICS_MANAGER")
+              }
+            >
+              Logistics Manager
+            </button>
+
+            <button
+              type="button"
+              className="demo-role-button"
+              onClick={() =>
+                redirectByRole("TRANSPORT_SPECIALIST")
+              }
+            >
+              Transport Specialist
+            </button>
+
+            <button
+              type="button"
+              className="demo-role-button"
+              onClick={() =>
+                redirectByRole("FLEET_ROUTE_COORDINATOR")
+              }
+            >
+              Fleet & Route Coordinator
+            </button>
+
+            <button
+              type="button"
+              className="demo-role-button"
+              onClick={() =>
+                redirectByRole("DRIVER_ESCORT")
+              }
+            >
+              Driver / Escort
+            </button>
+          </div>
+        </div>
 
         <p className="register-text">
           Chưa có tài khoản?{" "}

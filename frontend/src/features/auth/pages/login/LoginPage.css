@@ -260,4 +260,71 @@
 
 .register-text button:hover {
   text-decoration: underline;
-} 
+}
+
+/* =========================
+   DEMO ROLE
+========================= */
+
+.demo-role-section {
+  width: 100%;
+
+  margin-top: 18px;
+  padding: 14px;
+
+  border: 1px dashed #dfe3e8;
+  border-radius: 10px;
+
+  background: #fafafa;
+}
+
+.demo-role-title {
+  margin: 0 0 10px;
+
+  color: #7d8490;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  text-align: center;
+}
+
+.demo-role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+
+  gap: 8px;
+}
+
+.demo-role-button {
+  min-height: 38px;
+
+  padding: 8px 10px;
+
+  border: 1px solid #ffd8c2;
+  border-radius: 8px;
+
+  background: #fff7f2;
+  color: #ff6b18;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.demo-role-button:hover {
+  border-color: #ff6b18;
+
+  background: #ff6b18;
+  color: #ffffff;
+}
+
+.demo-role-button:last-child {
+  grid-column: 1 / -1;
+}

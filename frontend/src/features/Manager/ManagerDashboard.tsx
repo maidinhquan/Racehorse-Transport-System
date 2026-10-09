@@ -19,6 +19,40 @@ function ManagerDashboard() {
   ];
 
   return (
-    // ... phần JSX giữ nguyên
+    <div className="manager-dashboard">
+      <h1>Manager Dashboard</h1>
+
+      <div className="dashboard-summary">
+        <div className="summary-card">
+          <h3>Yêu cầu chờ duyệt</h3>
+          <p className="count">{pendingRequestsCount}</p>
+        </div>
+      </div>
+
+      <div className="dashboard-content">
+        <div className="active-trips">
+          <h2>Chuyến đi đang thực hiện</h2>
+          <ul>
+            {activeTrips.map(trip => (
+              <li key={trip.id}>
+                <strong>{trip.id}</strong>: {trip.route} - {trip.status} ({trip.horses} ngựa)
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="pending-requests">
+          <h2>Yêu cầu vận chuyển</h2>
+          <ul>
+            {pendingRequests.map(req => (
+              <li key={req.id}>
+                <strong>{req.id}</strong>: {req.customer} ({req.date}) - {req.route}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
   );
 }
+export default ManagerDashboard;
