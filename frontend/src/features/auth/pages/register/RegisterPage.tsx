@@ -241,7 +241,7 @@ function RegisterPage() {
                 type="submit"
                 className="register-submit-button"
               >
-                Gửi mã OTP
+                Gửi mã xác nhận
               </button>
             </form>
 
