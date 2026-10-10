@@ -6,6 +6,7 @@ frontend/.env.local
 
 # Data files & Requirements
 data/
+landing_page/
 
 
 # Visual Studio
