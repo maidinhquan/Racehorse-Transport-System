@@ -13,20 +13,48 @@ function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
+  // const handleSubmit = (
+  //   event: React.FormEvent<HTMLFormElement>
+  // ) => {
+  //   event.preventDefault();
+
+  //   console.log({
+  //     username,
+  //     password,
+  //     rememberMe,
+  //   });
+
+  //   // Sau này Backend sẽ xử lý login thật.
+  // };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    console.log({
-      username,
-      password,
-      rememberMe,
-    });
+    try {
+      const response = await fetch('http://localhost:5000/api/Auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: username, 
+          password: password 
+        }),
+      });
 
-    // Sau này Backend sẽ xử lý login thật.
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Đăng nhập thành công! Vai trò: " + data.role);
+        // Sau này sẽ code logic lưu token và navigate sang dashboard ở đây
+      } else {
+        alert("Lỗi: " + data.message);
+      }
+    } catch (error) {
+      console.error("Lỗi kết nối:", error);
+      alert("Không thể kết nối đến máy chủ Backend.");
+    }
   };
-
   const handleGoogleSuccess = (credentialResponse: {
     credential?: string;
   }) => {
