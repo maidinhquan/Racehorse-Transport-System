@@ -6,6 +6,8 @@ frontend/.env.local
 
 # Data files & Requirements
 data/
+!backend/Infrastructure/Data/
+!backend/Infrastructure/Data/**
 landing_page/
 spark-AKA-3D-lib-for-render-3D/
 
@@ -27,3 +29,5 @@ Desktop.ini
 # Sandbox credentials and local transaction storage
 backend/appsettings.Local.json
 backend/App_Data/
+backend/WebApi/appsettings.Local.json
+**/TestResults/

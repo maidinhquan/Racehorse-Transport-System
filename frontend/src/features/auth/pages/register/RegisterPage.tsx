@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { registrationErrorMessage, requestRegistrationOtp } from "../../api/registrationApi";
+import { saveRegistrationSession } from "../../api/registrationSession";
 
 import registerHeroImage from "../../../../assets/images/login-horse.jpg";
 import "./RegisterPage.css";
@@ -12,39 +14,45 @@ function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const submittingRef = useRef(false);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
 
-  const handleSubmit = (
+  const handleSubmit = async (
   event: React.FormEvent<HTMLFormElement>
 ) => {
   event.preventDefault();
+  if (submittingRef.current) return;
+  setError("");
 
   if (password !== confirmPassword) {
-    alert("Mật khẩu xác nhận không khớp.");
+    setError("Mật khẩu xác nhận không khớp.");
     return;
   }
 
-  const registerData = {
-    fullName,
-    email,
-    phone,
-    password,
-  };
-
-  console.log("Register data:", registerData);
-
-  // Sau này:
-  // 1. gọi Backend gửi OTP
-  // 2. nếu Backend trả thành công mới navigate
-
-  navigate("/verify-otp", {
-    state: {
-      email: email,
-    },
-  });
+  submittingRef.current = true;
+  setIsSubmitting(true);
+  try {
+    const data = await requestRegistrationOtp({ fullName, email, phoneNumber: phone, password });
+    const session = {
+      email: email.trim().toLowerCase(), registrationToken: data.registrationToken,
+      otpExpiresAt: Date.now() + data.expiresIn * 1000,
+      resendAvailableAt: Date.now() + data.resendAfterSeconds * 1000,
+    };
+    saveRegistrationSession(session);
+    setPassword("");
+    setConfirmPassword("");
+    navigate("/verify-otp", { state: session });
+  } catch (error) {
+    setError(registrationErrorMessage(error));
+  } finally {
+    submittingRef.current = false;
+    setIsSubmitting(false);
+  }
 };
 
   return (
@@ -116,6 +124,7 @@ function RegisterPage() {
             </p>
 
             <form onSubmit={handleSubmit}>
+              {error && <p role="alert">{error}</p>}
               <div className="register-form-group">
                 <label htmlFor="fullName">
                   Họ và tên
@@ -123,6 +132,7 @@ function RegisterPage() {
 
                 <input
                   id="fullName"
+                  maxLength={100}
                   type="text"
                   placeholder="Nhập họ và tên"
                   value={fullName}
@@ -140,6 +150,7 @@ function RegisterPage() {
 
                 <input
                   id="email"
+                  maxLength={100}
                   type="email"
                   placeholder="Nhập địa chỉ email"
                   value={email}
@@ -157,6 +168,7 @@ function RegisterPage() {
 
                 <input
                   id="phone"
+                  maxLength={40}
                   type="tel"
                   placeholder="Nhập số điện thoại"
                   value={phone}
@@ -175,6 +187,8 @@ function RegisterPage() {
                 <div className="register-password-wrapper">
                   <input
                     id="registerPassword"
+                    minLength={6}
+                    autoComplete="new-password"
                     type={
                       showPassword
                         ? "text"
@@ -208,6 +222,7 @@ function RegisterPage() {
                 <div className="register-password-wrapper">
                   <input
                     id="confirmPassword"
+                    autoComplete="new-password"
                     type={
                       showConfirmPassword
                         ? "text"
@@ -240,8 +255,9 @@ function RegisterPage() {
               <button
                 type="submit"
                 className="register-submit-button"
+                disabled={isSubmitting}
               >
-                Gửi mã xác nhận
+                {isSubmitting ? "Đang gửi mã…" : "Gửi mã xác nhận"}
               </button>
             </form>
 

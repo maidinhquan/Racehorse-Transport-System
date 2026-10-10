@@ -1,4 +1,5 @@
 using Application.DTOs;
+using Application.Common.Exceptions;
 using System.Net;
 using System.Text.Json;
 
@@ -27,6 +28,13 @@ namespace WebApi.Middlewares
             try
             {
                 await _next(context);
+            }
+            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested) { }
+            catch (BusinessRuleException ex)
+            {
+                if (context.Response.HasStarted) throw;
+                context.Response.StatusCode = ex.StatusCode;
+                await context.Response.WriteAsJsonAsync(ApiResponse<object?>.Fail(ex.Message), context.RequestAborted);
             }
             catch (Exception ex)
             {

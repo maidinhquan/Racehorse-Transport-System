@@ -6,31 +6,31 @@ import {
   type KeyboardEvent,
 } from "react";
 
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { registrationErrorMessage, resendRegistrationOtp, verifyRegistrationOtp } from "../../api/registrationApi";
+import { clearRegistrationSession, loadRegistrationSession, saveRegistrationSession } from "../../api/registrationSession";
 
 import authHorseImage from "../../../../assets/images/login-horse.jpg";
 import "./VerifyOtpPage.css";
 
 const OTP_LENGTH = 6;
-const OTP_EXPIRE_TIME = 120;
 
 function VerifyOtpPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // Email được truyền từ RegisterPage.
-  // Nếu không có thì dùng email mẫu.
-  const email =
-    (location.state as { email?: string } | null)?.email ??
-    "name@example.com";
+  const [session, setSession] = useState(loadRegistrationSession);
+  const email = session?.email ?? "";
+  const [now, setNow] = useState(Date.now);
+  const [action, setAction] = useState<"verify" | "resend" | null>(null);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const actionRef = useRef(false);
 
   const [otp, setOtp] = useState<string[]>(
     Array(OTP_LENGTH).fill("")
   );
 
-  const [timeLeft, setTimeLeft] = useState(
-    OTP_EXPIRE_TIME
-  );
+  const timeLeft = Math.max(0, Math.ceil(((session?.otpExpiresAt ?? now) - now) / 1000));
+  const resendWait = Math.max(0, Math.ceil(((session?.resendAvailableAt ?? now) - now) / 1000));
 
   const inputsRef = useRef<
     Array<HTMLInputElement | null>
@@ -43,25 +43,13 @@ function VerifyOtpPage() {
    */
 
   useEffect(() => {
-    if (timeLeft <= 0) {
-      return;
-    }
+    if (!session) navigate("/register", { replace: true });
+  }, [session, navigate]);
 
-    const timer = window.setInterval(() => {
-      setTimeLeft((currentTime) => {
-        if (currentTime <= 1) {
-          window.clearInterval(timer);
-          return 0;
-        }
-
-        return currentTime - 1;
-      });
-    }, 1000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [timeLeft]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   /*
    * 120 seconds
@@ -187,38 +175,36 @@ function VerifyOtpPage() {
    * ===============================
    */
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
+    if (!session || actionRef.current) return;
+    setError("");
+    setMessage("");
     const otpCode = otp.join("");
 
     if (otpCode.length !== OTP_LENGTH) {
-      alert("Vui lòng nhập đủ 6 số OTP.");
+      setError("Vui lòng nhập đủ 6 số OTP.");
       return;
     }
 
     if (timeLeft === 0) {
-      alert(
+      setError(
         "Mã OTP đã hết hạn. Vui lòng gửi lại mã."
       );
       return;
     }
 
-    console.log("Verify OTP:", {
-      email,
-      otp: otpCode,
-    });
-
-    /*
-     * Sau này:
-     *
-     * await verifyOtpApi({
-     *   email,
-     *   otp: otpCode
-     * });
-     *
-     * Nếu thành công:
-     *
-     * navigate("/login");
-     */
+    actionRef.current = true;
+    setAction("verify");
+    try {
+      await verifyRegistrationOtp(session.registrationToken, otpCode);
+      clearRegistrationSession();
+      navigate("/login", { replace: true });
+    } catch (error) {
+      setError(registrationErrorMessage(error));
+    } finally {
+      actionRef.current = false;
+      setAction(null);
+    }
   };
 
   /*
@@ -227,23 +213,29 @@ function VerifyOtpPage() {
    * ===============================
    */
 
-  const handleResendOtp = () => {
-    console.log("Resend OTP to:", email);
-
-    // Reset OTP
-    setOtp(Array(OTP_LENGTH).fill(""));
-
-    // Reset countdown về 2 phút
-    setTimeLeft(OTP_EXPIRE_TIME);
-
-    // Focus lại ô đầu tiên
-    inputsRef.current[0]?.focus();
-
-    /*
-     * Sau này:
-     *
-     * await resendOtpApi(email);
-     */
+  const handleResendOtp = async () => {
+    if (!session || actionRef.current || resendWait > 0) return;
+    actionRef.current = true;
+    setAction("resend");
+    setError("");
+    setMessage("");
+    try {
+      const data = await resendRegistrationOtp(session.registrationToken);
+      const currentTime = Date.now();
+      const updated = { ...session, otpExpiresAt: currentTime + data.expiresIn * 1000,
+        resendAvailableAt: currentTime + data.resendAfterSeconds * 1000 };
+      saveRegistrationSession(updated);
+      setSession(updated);
+      setNow(currentTime);
+      setOtp(Array(OTP_LENGTH).fill(""));
+      setMessage("Đã gửi lại mã xác minh.");
+      inputsRef.current[0]?.focus();
+    } catch (error) {
+      setError(registrationErrorMessage(error));
+    } finally {
+      actionRef.current = false;
+      setAction(null);
+    }
   };
 
   /*
@@ -253,6 +245,7 @@ function VerifyOtpPage() {
    */
 
   const handleChangeEmail = () => {
+    clearRegistrationSession();
     navigate("/register");
   };
 
@@ -337,6 +330,8 @@ function VerifyOtpPage() {
             <div className="otp-title-line" />
 
             <h2>Xác thực email</h2>
+            {error && <p role="alert">{error}</p>}
+            {message && <p role="status">{message}</p>}
 
             <p className="otp-description">
               Chúng tôi đã gửi mã xác thực đến{" "}
@@ -356,6 +351,7 @@ function VerifyOtpPage() {
                   type="text"
                   inputMode="numeric"
                   maxLength={1}
+                  disabled={action !== null}
                   value={digit}
                   onChange={(event) =>
                     handleOtpChange(index, event)
@@ -403,8 +399,9 @@ function VerifyOtpPage() {
               <button
                 type="button"
                 onClick={handleResendOtp}
+                disabled={action !== null || resendWait > 0 || !session}
               >
-                Gửi lại
+                {action === "resend" ? "Đang gửi…" : resendWait > 0 ? `Gửi lại sau ${resendWait}s` : "Gửi lại"}
               </button>
             </p>
 
@@ -414,8 +411,9 @@ function VerifyOtpPage() {
               type="button"
               className="otp-submit-button"
               onClick={handleVerifyOtp}
+              disabled={action !== null || timeLeft === 0 || !session}
             >
-              Xác nhận OTP
+              {action === "verify" ? "Đang xác minh…" : "Xác nhận OTP"}
             </button>
 
             {/* CHANGE EMAIL */}
@@ -424,6 +422,7 @@ function VerifyOtpPage() {
               type="button"
               className="change-email-button"
               onClick={handleChangeEmail}
+              disabled={action !== null}
             >
               Thay đổi email
             </button>
