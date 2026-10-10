@@ -165,11 +165,25 @@ Sử dụng ApiResponse hiện có (`success`, `message`, `data` nếu có, `err
 
 ## Kiểm thử
 
+### Unit test RegistrationService
+
+`tests/Registration.Tests/RegistrationServiceTests.cs` có 24 trường hợp gọi trực tiếp service với DAO, store, limiter, hasher và email sender giả; đồng hồ cố định có thể tiến thời gian. Không khởi động WebApi, không kết nối SQL/SMTP và không dùng BCrypt thật. Test kiểm tra quy tắc của service; kiểm tra BCrypt, HTTP pipeline, khóa đồng thời và SQL thật thuộc bộ tích hợp bên dưới.
+
+```powershell
+dotnet test backend/tests/Registration.Tests/Registration.Tests.csproj --filter FullyQualifiedName~RegistrationServiceTests
+```
+
+Các trường hợp unit: chuẩn hóa thông tin và giữ nguyên mật khẩu khi hash; dữ liệu không hợp lệ không tạo tác động bên ngoài; email/SĐT trùng; limiter từ chối; gửi email thất bại; xác minh tạo Customer và không dùng lại phiên; kiểm tra trùng lần cuối và lỗi unique từ DAO; lưu thất bại rồi thử lại; khóa sau 5 OTP sai; ranh giới hết hạn OTP/phiên; ranh giới cooldown; resend thay mã, reset lượt sai và giữ hạn phiên tuyệt đối; gửi lại thất bại giữ mã cũ.
+
+Lần bổ sung unit test đã chạy toàn bộ: **47/47 qua, không skip**, gồm 24 unit, 18 API và 5 SQL tests trên database tạm.
+
+### Chạy toàn bộ
+
 ```powershell
 dotnet test backend/tests/Registration.Tests/Registration.Tests.csproj
 ```
 
-Mặc định chạy API tests với DAO giả, SMTP giả; không truy cập DB nghiệp vụ. SQL tests được skip nếu không có cấu hình instance test.
+Mặc định chạy 24 unit tests và 18 API tests với DAO giả, SMTP giả; không truy cập DB nghiệp vụ. 5 SQL tests được skip nếu không có cấu hình instance test. Khi cấu hình SQL test hợp lệ, tổng cộng 47 trường hợp.
 
 Để chạy thêm SQL tests trên instance LOCAL có quyền tạo DB tạm:
 
