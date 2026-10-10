@@ -1,6 +1,47 @@
-@RaceHorse_Transport_WebApi_HostAddress = http://localhost:5129
+@HostAddress = http://localhost:5129
 
-GET {{RaceHorse_Transport_WebApi_HostAddress}}/weatherforecast/
+### =========================================================================
+### 1. KIỂM TRA KẾT NỐI MẠNG & CORS (PING)
+### Không phụ thuộc Database, luôn chạy nếu Backend đang hoạt động.
+### =========================================================================
+GET {{HostAddress}}/api/connection/ping
 Accept: application/json
 
-###
+### =========================================================================
+### 2. KIỂM TRA KẾT NỐI DATABASE SQL SERVER
+### Kiểm tra Backend có kết nối được tới SQL Server (HorseTransportDB) không.
+### =========================================================================
+GET {{HostAddress}}/api/connection/database
+Accept: application/json
+
+### =========================================================================
+### 3. KIỂM TRA GỬI NHẬN DỮ LIỆU 2 CHIỀU (ECHO)
+### =========================================================================
+POST {{HostAddress}}/api/connection/echo
+Content-Type: application/json
+
+{
+  "client": "Frontend Application",
+  "message": "Kiểm tra gửi nhận dữ liệu 2 chiều giữa Frontend và Backend",
+  "sentAt": "2026-10-10T10:00:00Z"
+}
+
+### =========================================================================
+### 4. ĐĂNG NHẬP MẪU THEO HỢP ĐỒNG API CONTRACT
+### =========================================================================
+POST {{HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+
+  "password": "Password123!"
+}
+
+### =========================================================================
+### 5. LẤY THÔNG TIN USER HIỆN TẠI (GET /api/auth/me)
+### =========================================================================
+GET {{HostAddress}}/api/auth/me
+Accept: application/json
+Authorization: Bearer replace-with-access-token
+
