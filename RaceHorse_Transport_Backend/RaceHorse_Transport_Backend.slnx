@@ -1,8 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="RaceHorse_Transport_Application/RaceHorse_Transport_Application.csproj" />
-    <Project Path="RaceHorse_Transport_Domain/RaceHorse_Transport_Domain.csproj" />
-    <Project Path="RaceHorse_Transport_Infrastructure/RaceHorse_Transport_Infrastructure.csproj" />
-    <Project Path="RaceHorse_Transport_WebApi/RaceHorse_Transport_WebApi.csproj" Id="10f8e871-2cc9-4497-a7f6-c783fb719aa2" />
-  </Folder>
-</Solution>
