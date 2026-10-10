@@ -1,8 +1,4 @@
-Dưới đây là tài liệu quy chuẩn cấu trúc thư mục Backend **sau khi đã tinh gọn**, loại bỏ các thành phần phức tạp vượt quá khả năng của nhóm (như *AutoMapper, FluentValidation, BaseEntity, hệ thống Interface DAO rườm rà, và các folder con chia quá sâu*).
 
-Cấu trúc này giữ lại đúng **4 Project của Clean Architecture** để đảm bảo tiêu chuẩn nộp bài, nhưng cách triển khai bên trong được đơn giản hóa tối đa, dễ hiểu và giống với Java Web (JPA/JDBC):
-
-```markdown
 # Backend Coding Rules (Phiên bản Tinh gọn - Dễ học & Dễ Code)
 
 Tài liệu này chuẩn hóa cấu trúc thư mục và quy tắc lập trình Backend ASP.NET Core Web API cho dự án **Hệ thống Quản lý Vận chuyển Ngựa đua (Racehorse Transport System)**.
@@ -215,8 +211,11 @@ CBN.Transport.WebApi/
 
 4. **Không commit rác:** Tuyệt đối không commit các thư mục `bin/`, `obj/`, `.vs/` hoặc các file dữ liệu SQL vật lý (`.mdf`, `.ldf`) lên GitHub.
 
+5. **Không "nhìn giao diện rồi đoán cách code":** Với Frontend hiện tại, Backend nên dựa vào 4 thứ theo thứ tự ưu tiên:
+* `auth-api.md` — nguồn chính để biết FE và BE giao tiếp thế nào.
+* SRS / Use Case — để biết nghiệp vụ phải xử lý ra sao.
+* Database/Entity design — để biết dữ liệu thật nằm ở đâu.
+* Code FE như `authApi.ts`, `auth.types.ts` — để kiểm tra việc tích hợp có khớp contract hay không.
 
-
-```
 
 ```
