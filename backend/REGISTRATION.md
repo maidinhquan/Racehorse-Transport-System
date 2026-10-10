@@ -6,12 +6,33 @@ Phạm vi: ba API Register và hai trang Register/Verify OTP. Tận dụng `back
 
 Từ thư mục gốc repo:
 
+**Cấu hình DB trước lần chạy đầu tiên.** File `appsettings.json` của nhóm dùng `localhost` với tài khoản `sa`; cấu hình này không tự khớp SQL Server trên máy khác. Với SQL Express và Windows Authentication:
+
+```powershell
+# Chỉ sao chép nếu chưa có file local; nếu đã có thì chỉnh connection string trong file đó.
+if (!(Test-Path backend/WebApi/appsettings.Local.json)) {
+    Copy-Item backend/WebApi/appsettings.Local.example.json backend/WebApi/appsettings.Local.json
+}
+```
+
+Kiểm tra `ConnectionStrings:DefaultConnection` trong file local:
+
+```text
+Server=.\SQLEXPRESS;Database=HorseTransportDB;Trusted_Connection=True;TrustServerCertificate=True
+```
+
+Đổi tên instance/database nếu máy dùng tên khác. Windows đang đăng nhập phải có quyền truy cập database. File local được Git ignore; không đưa mật khẩu vào file tracked. Nếu dùng SQL Authentication thì cần tài khoản và mật khẩu hợp lệ của instance đó. Không sao chép config VNPAY ở `backend/appsettings.Local.json` vào đây. Biến môi trường `ConnectionStrings__DefaultConnection`, nếu có, sẽ ưu tiên hơn file local.
+
+Sau đó chạy:
+
 ```powershell
 dotnet build backend/Backend.slnx
 dotnet run --project backend/WebApi/WebApi.csproj --launch-profile http
 ```
 
-WebApi chạy tại `http://localhost:5129`; Swagger tại `/swagger`. Nếu connection string hiện có không đúng máy, sao chép `backend/WebApi/appsettings.Local.example.json` thành `appsettings.Local.json` trong cùng thư mục và chỉnh `ConnectionStrings:DefaultConnection`. File local được Git ignore. Không sao chép config VNPAY ở `backend/appsettings.Local.json` vào đây.
+WebApi chạy tại `http://localhost:5129`; Swagger tại `/swagger`. Sau khi đổi cấu hình, dừng backend bằng Ctrl+C và chạy lại lệnh trên. Build thành công hoặc mở được Swagger chưa chứng minh kết nối DB thành công: EF chỉ kết nối khi API truy vấn.
+
+Nếu log có `Login failed for user 'sa'` / SQL error `18456`, SQL Server đã từ chối tài khoản đăng nhập. Kiểm tra instance và thông tin xác thực; không phải lỗi OTP. Cảnh báo `Failed to determine the https port for redirect` khi chạy profile HTTP không phải nguyên nhân của lỗi SQL này. Chi tiết lỗi đăng ký nằm trong terminal backend; trang đăng ký chỉ hiển thị thông báo ngắn.
 
 Chạy frontend:
 

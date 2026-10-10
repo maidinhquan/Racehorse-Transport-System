@@ -38,6 +38,7 @@ namespace WebApi.Middlewares
             }
             catch (Exception ex)
             {
+                if (context.Response.HasStarted) throw;
                 _logger.LogError(ex, "Lỗi không xử lý được xảy ra khi xử lý request: {Path}", context.Request.Path);
                 await HandleExceptionAsync(context, ex);
             }
@@ -48,7 +49,10 @@ namespace WebApi.Middlewares
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-            var errorMessage = _env.IsDevelopment()
+            // Registration pages show API messages directly; details belong in server logs.
+            var includeDetails = _env.IsDevelopment()
+                && !context.Request.Path.StartsWithSegments("/api/auth/register");
+            var errorMessage = includeDetails
                 ? exception.Message
                 : "Đã xảy ra lỗi nội bộ từ máy chủ. Vui lòng thử lại sau.";
 
@@ -57,7 +61,7 @@ namespace WebApi.Middlewares
                 Success = false,
                 Message = errorMessage,
                 Data = null,
-                Errors = _env.IsDevelopment()
+                Errors = includeDetails
                     ? new Dictionary<string, string[]>
                     {
                         { "exceptionType", new[] { exception.GetType().Name } },

@@ -180,7 +180,11 @@ public sealed class RegistrationApiTests
         using var client = factory.CreateApiClient();
         var token = await Token(await Request(client));
         factory.Users.FailNextWrite = true;
-        Assert.Equal(HttpStatusCode.InternalServerError, (await Verify(client, token, factory.Email.Codes["user@example.com"])).StatusCode);
+        var failedResponse = await Verify(client, token, factory.Email.Codes["user@example.com"]);
+        Assert.Equal(HttpStatusCode.InternalServerError, failedResponse.StatusCode);
+        var failure = await failedResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Đã xảy ra lỗi nội bộ từ máy chủ. Vui lòng thử lại sau.", failure.GetProperty("message").GetString());
+        Assert.False(failure.TryGetProperty("errors", out var details) && details.ValueKind != JsonValueKind.Null);
         Assert.Empty(factory.Users.Users);
         Assert.Equal(HttpStatusCode.OK, (await Verify(client, token, factory.Email.Codes["user@example.com"])).StatusCode);
     }

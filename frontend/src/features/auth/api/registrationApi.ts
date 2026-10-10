@@ -45,6 +45,9 @@ export async function resendRegistrationOtp(registrationToken: string): Promise<
 export function registrationErrorMessage(error: unknown): string {
   if (axios.isAxiosError<ApiResponse<unknown>>(error)) {
     const response = error.response?.data;
+    if (response?.errors?.exceptionType || response?.errors?.stackTrace) {
+      return "Đã xảy ra lỗi nội bộ từ máy chủ. Vui lòng kiểm tra terminal backend hoặc thử lại sau.";
+    }
     const validationErrors = Object.values(response?.errors ?? {}).flat();
     return validationErrors.length ? validationErrors.join(" ") : response?.message || "Không kết nối được máy chủ. Vui lòng thử lại.";
   }
