@@ -7,6 +7,7 @@ frontend/.env.local
 # Data files & Requirements
 data/
 landing_page/
+spark-AKA-3D-lib-for-render-3D/
 
 
 # Visual Studio
