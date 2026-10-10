@@ -1,135 +1,147 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
-import authHorseImage from "../../../../assets/images/login-horse.jpg";
+import { forgotPassword } from "../../api/authApi";
+import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
+
 import "./ForgotPasswordPage.css";
 
 function ForgotPasswordPage() {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const handleSubmit = (
+  const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
-    console.log("Forgot password email:", email);
+    setErrorMessage("");
+    setSuccessMessage("");
 
-    // Sau này gọi API:
-    // await forgotPasswordApi(email);
+    const normalizedEmail = email.trim().toLowerCase();
 
-    // Tạm thời chuyển sang reset password
-    navigate("/reset-password", {
-      state: {
-        email,
-      },
-    });
+    /*
+      DEMO MODE
+
+      Chỉ hoạt động khi:
+      VITE_ENABLE_AUTH_DEMO=true
+
+      Không gọi Backend.
+    */
+    const isDemoEnabled =
+      import.meta.env.VITE_ENABLE_AUTH_DEMO === "true";
+
+    const demoEmail =
+      import.meta.env.VITE_DEMO_EMAIL?.toLowerCase();
+
+    if (
+      isDemoEnabled &&
+      demoEmail &&
+      normalizedEmail === demoEmail
+    ) {
+      navigate("/reset-password?demo=true", {
+        state: {
+          email: normalizedEmail,
+        },
+      });
+
+      return;
+    }
+
+    /*
+      REAL API
+    */
+    setIsLoading(true);
+
+    try {
+      const response = await forgotPassword({
+        email: normalizedEmail,
+      });
+
+      setSuccessMessage(response.message);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.message ??
+            "Không thể gửi yêu cầu đặt lại mật khẩu."
+        );
+      } else {
+        setErrorMessage(
+          "Đã xảy ra lỗi. Vui lòng thử lại."
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="forgot-password-page auth-page">
-      <div className="forgot-password-container">
+    <AuthLayout>
+      <div className="forgot-password-form-wrapper">
+        <div className="forgot-password-title-line" />
 
-        {/* LEFT SIDE */}
+        <h2>Quên mật khẩu?</h2>
 
-        <section
-          className="forgot-password-hero"
-          style={{
-            backgroundImage: `url(${authHorseImage})`,
-          }}
-        >
-          <div className="forgot-password-overlay" />
+        <p className="forgot-password-description">
+          Nhập email để nhận liên kết đặt lại mật khẩu.
+        </p>
 
-          <div className="forgot-password-hero-content">
-            <div className="forgot-password-brand">
-              <div className="forgot-password-brand-icon">
-                ♞
-              </div>
+        <form onSubmit={handleSubmit}>
+          <div className="forgot-password-form-group">
+            <label htmlFor="email">
+              Email
+            </label>
 
-              <span>CNB Transport</span>
-            </div>
-
-            <div className="forgot-password-hero-bottom">
-              <div className="forgot-password-hero-label">
-                <span className="forgot-password-hero-line" />
-
-                AN TOÀN TRÊN MỌI HÀNH TRÌNH
-              </div>
-
-              <h1>
-                Đồng hành cùng ngựa trên mọi
-                <br />
-                chặng đường
-              </h1>
-
-              <p>
-                Quản lý hành trình vận chuyển an toàn và chuyên nghiệp.
-              </p>
-
-              <div className="forgot-password-hero-badge">
-                <span>✓</span>
-                Chuyên biệt • An toàn • Đúng giờ
-              </div>
-            </div>
+            <input
+              id="email"
+              type="email"
+              placeholder="Nhập địa chỉ email"
+              value={email}
+              onChange={(event) =>
+                setEmail(event.target.value)
+              }
+              autoComplete="email"
+              required
+            />
           </div>
-        </section>
 
-        {/* RIGHT SIDE */}
-
-        <section className="forgot-password-form-section">
-          <div className="forgot-password-form-wrapper">
-
-            <div className="forgot-password-title-line" />
-
-            <h2>Quên mật khẩu?</h2>
-
-            <p className="forgot-password-description">
-              Nhập email để nhận liên kết đặt lại mật khẩu.
+          {errorMessage && (
+            <p className="forgot-password-error">
+              {errorMessage}
             </p>
+          )}
 
-            <form onSubmit={handleSubmit}>
-              <div className="forgot-password-form-group">
-                <label htmlFor="email">
-                  Email
-                </label>
+          {successMessage && (
+            <p className="forgot-password-success">
+              {successMessage}
+            </p>
+          )}
 
-                <input
-                  id="email"
-                  type="email"
-                  placeholder="Nhập địa chỉ email"
-                  value={email}
-                  onChange={(event) =>
-                    setEmail(event.target.value)
-                  }
-                  autoComplete="email"
-                  required
-                />
-              </div>
+          <button
+            type="submit"
+            className="forgot-password-submit-button"
+            disabled={isLoading}
+          >
+            {isLoading
+              ? "Đang gửi..."
+              : "Gửi liên kết đặt lại"}
+          </button>
+        </form>
 
-              <button
-                // type="submit" note lại để thực hiện demo thử, về sau khi bấm là nó sẽ gửi qua mail
-                className="forgot-password-submit-button"
-                 type="button"
-                onClick={() => navigate("/reset-password")}
-              >
-                Gửi liên kết đặt lại
-              </button>
-            </form>
-
-            <button
-              type="button"
-              className="forgot-password-back-button"
-              onClick={() => navigate("/login")}
-            >
-              ← Quay lại đăng nhập
-            </button>
-
-          </div>
-        </section>
-
+        <button
+          type="button"
+          className="forgot-password-back-button"
+          onClick={() => navigate("/login")}
+        >
+          ← Quay lại đăng nhập
+        </button>
       </div>
-    </div>
+    </AuthLayout>
   );
 }
 

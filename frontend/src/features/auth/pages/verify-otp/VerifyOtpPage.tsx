@@ -3,437 +3,737 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type FormEvent,
   type KeyboardEvent,
 } from "react";
 
-import { useLocation, useNavigate } from "react-router-dom";
+import {
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 
-import authHorseImage from "../../../../assets/images/login-horse.jpg";
+import axios from "axios";
+
+import {
+  verifyRegisterOtp,
+  resendRegisterOtp,
+} from "../../api/authApi";
+
+import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
+
 import "./VerifyOtpPage.css";
 
+/* =========================
+   CONSTANTS
+========================= */
+
 const OTP_LENGTH = 6;
-const OTP_EXPIRE_TIME = 120;
+const OTP_EXPIRE_SECONDS = 300;
+
+/* =========================
+   REGISTER STATE
+========================= */
+
+interface RegisterState {
+  mode?: "demo" | "real";
+
+  email?: string;
+
+  registrationToken?: string;
+
+  expiresIn?: number;
+}
 
 function VerifyOtpPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Email được truyền từ RegisterPage.
-  // Nếu không có thì dùng email mẫu.
+  /* =========================
+     DATA FROM REGISTER PAGE
+  ========================= */
+
+  const registerState =
+    location.state as RegisterState | null;
+
   const email =
-    (location.state as { email?: string } | null)?.email ??
+    registerState?.email ??
     "name@example.com";
+
+  const registrationToken =
+    registerState?.registrationToken ?? "";
+
+  /*
+    Demo chỉ được phép hoạt động
+    khi đang chạy development.
+  */
+  const isDemo =
+    import.meta.env.DEV &&
+    registerState?.mode === "demo";
+
+  /*
+    OTP demo lấy từ .env.development
+
+    Nếu chưa khai báo thì mặc định:
+    123456
+  */
+  const demoOtp =
+    import.meta.env.VITE_DEMO_OTP ??
+    "123456";
+
+  /* =========================
+     STATES
+  ========================= */
 
   const [otp, setOtp] = useState<string[]>(
     Array(OTP_LENGTH).fill("")
   );
 
-  const [timeLeft, setTimeLeft] = useState(
-    OTP_EXPIRE_TIME
+  const [
+    remainingSeconds,
+    setRemainingSeconds,
+  ] = useState(
+    registerState?.expiresIn ??
+      OTP_EXPIRE_SECONDS
   );
 
-  const inputsRef = useRef<
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState("");
+
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(false);
+
+  const [
+    isResending,
+    setIsResending,
+  ] = useState(false);
+
+  /*
+    Khi xác minh OTP thành công
+  */
+  const [
+    isSuccess,
+    setIsSuccess,
+  ] = useState(false);
+
+  /*
+    Countdown về Login
+  */
+  const [
+    redirectSeconds,
+    setRedirectSeconds,
+  ] = useState(5);
+
+  /* =========================
+     OTP INPUT REFS
+  ========================= */
+
+  const inputRefs = useRef<
     Array<HTMLInputElement | null>
   >([]);
 
-  /*
-   * ===============================
-   * COUNTDOWN TIMER
-   * ===============================
-   */
+  /* =========================
+     COMPUTED VALUES
+  ========================= */
+
+  const isExpired =
+    remainingSeconds <= 0;
+
+  const otpValue =
+    otp.join("");
+
+  const isOtpComplete =
+    otpValue.length === OTP_LENGTH;
+
+  /* =========================
+     OTP COUNTDOWN
+  ========================= */
 
   useEffect(() => {
-    if (timeLeft <= 0) {
+    if (
+      isSuccess ||
+      remainingSeconds <= 0
+    ) {
       return;
     }
 
-    const timer = window.setInterval(() => {
-      setTimeLeft((currentTime) => {
-        if (currentTime <= 1) {
-          window.clearInterval(timer);
-          return 0;
-        }
-
-        return currentTime - 1;
-      });
+    const timer = window.setTimeout(() => {
+      setRemainingSeconds(
+        (current) =>
+          Math.max(current - 1, 0)
+      );
     }, 1000);
 
     return () => {
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
-  }, [timeLeft]);
+  }, [
+    remainingSeconds,
+    isSuccess,
+  ]);
 
-  /*
-   * 120 seconds
-   * ->
-   * 02:00
-   */
+  /* =========================
+     SUCCESS COUNTDOWN
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
+     5 → 4 → 3 → 2 → 1 → Login
+  ========================= */
 
-    const remainingSeconds = seconds % 60;
+  useEffect(() => {
+    if (!isSuccess) {
+      return;
+    }
 
-    return `${String(minutes).padStart(
-      2,
-      "0"
-    )}:${String(remainingSeconds).padStart(2, "0")}`;
-  };
+    if (redirectSeconds <= 0) {
+      navigate("/login");
+      return;
+    }
 
-  /*
-   * ===============================
-   * OTP INPUT
-   * ===============================
-   */
+    const timer = window.setTimeout(() => {
+      setRedirectSeconds(
+        (current) => current - 1
+      );
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    isSuccess,
+    redirectSeconds,
+    navigate,
+  ]);
+
+  /* =========================
+     OTP INPUT CHANGE
+  ========================= */
 
   const handleOtpChange = (
     index: number,
     event: ChangeEvent<HTMLInputElement>
   ) => {
-    const value = event.target.value;
+    const value =
+      event.target.value
+        .replace(/\D/g, "")
+        .slice(-1);
 
-    // Chỉ cho nhập số
-    if (!/^\d*$/.test(value)) {
-      return;
-    }
+    const nextOtp = [...otp];
 
-    const digit = value.slice(-1);
+    nextOtp[index] = value;
 
-    const newOtp = [...otp];
+    setOtp(nextOtp);
+    setErrorMessage("");
 
-    newOtp[index] = digit;
-
-    setOtp(newOtp);
-
-    // Tự động chuyển sang ô tiếp theo
-    if (digit && index < OTP_LENGTH - 1) {
-      inputsRef.current[index + 1]?.focus();
+    /*
+      Tự focus sang ô tiếp theo
+    */
+    if (
+      value &&
+      index < OTP_LENGTH - 1
+    ) {
+      inputRefs.current[
+        index + 1
+      ]?.focus();
     }
   };
 
-  /*
-   * Backspace:
-   *
-   * Nếu ô hiện tại trống
-   * -> quay lại ô phía trước.
-   */
+  /* =========================
+     BACKSPACE
+  ========================= */
 
   const handleKeyDown = (
     index: number,
     event: KeyboardEvent<HTMLInputElement>
   ) => {
+    /*
+      Nếu ô hiện tại rỗng và bấm Backspace
+      → quay về ô trước.
+    */
     if (
       event.key === "Backspace" &&
       !otp[index] &&
       index > 0
     ) {
-      inputsRef.current[index - 1]?.focus();
-    }
-
-    if (
-      event.key === "ArrowLeft" &&
-      index > 0
-    ) {
-      inputsRef.current[index - 1]?.focus();
-    }
-
-    if (
-      event.key === "ArrowRight" &&
-      index < OTP_LENGTH - 1
-    ) {
-      inputsRef.current[index + 1]?.focus();
+      inputRefs.current[
+        index - 1
+      ]?.focus();
     }
   };
 
-  /*
-   * Cho phép paste:
-   *
-   * 123456
-   */
+  /* =========================
+     VERIFY OTP
+  ========================= */
 
-  const handlePaste = (
-    event: React.ClipboardEvent<HTMLInputElement>
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
-    const pastedValue = event.clipboardData
-      .getData("text")
-      .replace(/\D/g, "")
-      .slice(0, OTP_LENGTH);
+    setErrorMessage("");
 
-    if (!pastedValue) {
-      return;
-    }
+    /* =========================
+       VALIDATION
+    ========================= */
 
-    const newOtp = Array(OTP_LENGTH).fill("");
-
-    pastedValue.split("").forEach((digit, index) => {
-      newOtp[index] = digit;
-    });
-
-    setOtp(newOtp);
-
-    const nextIndex = Math.min(
-      pastedValue.length,
-      OTP_LENGTH - 1
-    );
-
-    inputsRef.current[nextIndex]?.focus();
-  };
-
-  /*
-   * ===============================
-   * VERIFY OTP
-   * ===============================
-   */
-
-  const handleVerifyOtp = () => {
-    const otpCode = otp.join("");
-
-    if (otpCode.length !== OTP_LENGTH) {
-      alert("Vui lòng nhập đủ 6 số OTP.");
-      return;
-    }
-
-    if (timeLeft === 0) {
-      alert(
-        "Mã OTP đã hết hạn. Vui lòng gửi lại mã."
+    if (isExpired) {
+      setErrorMessage(
+        "Mã đã hết hạn. Vui lòng gửi lại mã mới để tiếp tục."
       );
+
       return;
     }
 
-    console.log("Verify OTP:", {
-      email,
-      otp: otpCode,
-    });
+    if (!isOtpComplete) {
+      setErrorMessage(
+        "Vui lòng nhập đầy đủ mã OTP."
+      );
 
-    /*
-     * Sau này:
-     *
-     * await verifyOtpApi({
-     *   email,
-     *   otp: otpCode
-     * });
-     *
-     * Nếu thành công:
-     *
-     * navigate("/login");
-     */
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      /* =========================
+         DEMO FLOW
+      ========================= */
+
+      if (isDemo) {
+        /*
+          Giả lập thời gian xử lý.
+        */
+        await new Promise((resolve) =>
+          setTimeout(resolve, 600)
+        );
+
+        /*
+          Kiểm tra OTP demo.
+        */
+        if (otpValue !== demoOtp) {
+          setErrorMessage(
+            "Mã OTP không chính xác."
+          );
+
+          return;
+        }
+
+        /*
+          OTP demo đúng
+          → đăng ký thành công.
+        */
+        setIsSuccess(true);
+        setRedirectSeconds(5);
+
+        return;
+      }
+
+      /* =========================
+         REAL BACKEND FLOW
+      ========================= */
+
+      /*
+        Nếu không phải demo thì bắt buộc
+        phải có registrationToken
+        do Backend trả từ RegisterPage.
+      */
+      if (!registrationToken) {
+        setErrorMessage(
+          "Phiên đăng ký không hợp lệ. Vui lòng đăng ký lại."
+        );
+
+        return;
+      }
+
+      /*
+        API CONTRACT:
+
+        POST
+        /api/auth/register/verify-otp
+
+        {
+          registrationToken,
+          otp
+        }
+      */
+      await verifyRegisterOtp({
+        registrationToken,
+        otp: otpValue,
+      });
+
+      /*
+        Backend xác minh thành công.
+      */
+      setIsSuccess(true);
+      setRedirectSeconds(5);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.message ??
+            "Không thể xác minh mã OTP."
+        );
+      } else {
+        setErrorMessage(
+          "Đã xảy ra lỗi. Vui lòng thử lại."
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  /*
-   * ===============================
-   * RESEND OTP
-   * ===============================
-   */
+  /* =========================
+     RESEND OTP
+  ========================= */
 
-  const handleResendOtp = () => {
-    console.log("Resend OTP to:", email);
+  const handleResendOtp = async () => {
+    setErrorMessage("");
+    setIsResending(true);
 
-    // Reset OTP
-    setOtp(Array(OTP_LENGTH).fill(""));
+    try {
+      /* =========================
+         DEMO
+      ========================= */
 
-    // Reset countdown về 2 phút
-    setTimeLeft(OTP_EXPIRE_TIME);
+      if (isDemo) {
+        /*
+          Giả lập gửi lại OTP.
+        */
+        await new Promise((resolve) =>
+          setTimeout(resolve, 400)
+        );
 
-    // Focus lại ô đầu tiên
-    inputsRef.current[0]?.focus();
+        setOtp(
+          Array(OTP_LENGTH).fill("")
+        );
 
-    /*
-     * Sau này:
-     *
-     * await resendOtpApi(email);
-     */
+        setRemainingSeconds(
+          OTP_EXPIRE_SECONDS
+        );
+
+        inputRefs.current[0]?.focus();
+
+        return;
+      }
+
+      /* =========================
+         REAL BACKEND
+      ========================= */
+
+      if (!registrationToken) {
+        setErrorMessage(
+          "Phiên đăng ký không hợp lệ. Vui lòng đăng ký lại."
+        );
+
+        return;
+      }
+
+      /*
+        API CONTRACT:
+
+        POST
+        /api/auth/register/resend-otp
+
+        {
+          registrationToken
+        }
+      */
+      const response =
+        await resendRegisterOtp({
+          registrationToken,
+        });
+
+      /*
+        Xóa OTP cũ.
+      */
+      setOtp(
+        Array(OTP_LENGTH).fill("")
+      );
+
+      /*
+        Lấy thời gian OTP mới từ Backend.
+
+        Nếu BE không gửi expiresIn
+        → mặc định 300 giây.
+      */
+      setRemainingSeconds(
+        response.data?.expiresIn ??
+          OTP_EXPIRE_SECONDS
+      );
+
+      inputRefs.current[0]?.focus();
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.message ??
+            "Không thể gửi lại mã OTP."
+        );
+      } else {
+        setErrorMessage(
+          "Đã xảy ra lỗi. Vui lòng thử lại."
+        );
+      }
+    } finally {
+      setIsResending(false);
+    }
   };
 
-  /*
-   * ===============================
-   * CHANGE EMAIL
-   * ===============================
-   */
+  /* =========================
+     FORMAT TIMER
+  ========================= */
 
-  const handleChangeEmail = () => {
-    navigate("/register");
+  const formatTime = (
+    seconds: number
+  ) => {
+    const minutes =
+      Math.floor(seconds / 60);
+
+    const secs =
+      seconds % 60;
+
+    return `${String(
+      minutes
+    ).padStart(2, "0")}:${String(
+      secs
+    ).padStart(2, "0")}`;
   };
+
+  /* =========================
+     SUCCESS SCREEN
+  ========================= */
+
+  if (isSuccess) {
+    return (
+      <AuthLayout>
+        <div className="register-success-wrapper">
+
+          <div className="register-success-icon">
+            ✓
+          </div>
+
+          <h2>
+            Đăng ký thành công!
+          </h2>
+
+          <p>
+            Chúc mừng bạn đã tạo tài khoản
+            CNB Transport thành công.
+          </p>
+
+          <p className="register-success-redirect">
+            Bạn sẽ được chuyển đến trang
+            đăng nhập trong{" "}
+            <strong>
+              {redirectSeconds}
+            </strong>{" "}
+            giây.
+          </p>
+
+          <button
+            type="button"
+            className="register-success-button"
+            onClick={() =>
+              navigate("/login")
+            }
+          >
+            Đăng nhập ngay
+          </button>
+
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  /* =========================
+     VERIFY OTP SCREEN
+  ========================= */
 
   return (
-    <div className="verify-otp-page auth-page">
-      <div className="verify-otp-container">
+    <AuthLayout>
+      <div className="verify-otp-form-wrapper">
 
-        {/* ================= LEFT ================= */}
+        {/* =====================
+            STEP INDICATOR
+        ===================== */}
 
-        <section
-          className="otp-hero"
-          style={{
-            backgroundImage: `url(${authHorseImage})`,
-          }}
-        >
-          <div className="otp-hero-overlay" />
+        <div className="verify-otp-steps">
 
-          <div className="otp-hero-content">
+          <div className="verify-otp-step completed">
 
-            <div className="otp-brand">
-              <div className="otp-brand-icon">
-                ♞
-              </div>
+            <span className="verify-otp-step-number">
+              1
+            </span>
 
-              <span>CNB Transport</span>
-            </div>
-
-            <div className="otp-hero-bottom">
-
-              <div className="otp-hero-label">
-                <span className="otp-hero-line" />
-
-                AN TOÀN TRÊN MỌI HÀNH TRÌNH
-              </div>
-
-              <h1>
-                Đồng hành cùng ngựa trên mọi
-                <br />
-                chặng đường
-              </h1>
-
-              <p>
-                Quản lý hành trình vận chuyển an toàn
-                và chuyên nghiệp.
-              </p>
-
-              <div className="otp-hero-badge">
-                <span>✓</span>
-
-                Chuyên biệt • An toàn • Đúng giờ
-              </div>
-
-            </div>
+            <span>
+              Thông tin tài khoản
+            </span>
 
           </div>
-        </section>
 
-        {/* ================= RIGHT ================= */}
+          <div className="verify-otp-step active">
 
-        <section className="otp-form-section">
+            <span className="verify-otp-step-number">
+              2
+            </span>
 
-          <div className="otp-form-wrapper">
+            <span>
+              Xác minh OTP
+            </span>
 
-            {/* STEP INDICATOR */}
+          </div>
 
-            <div className="otp-steps">
+        </div>
 
-              <div className="otp-step">
-                <span>1</span>
+        {/* =====================
+            TITLE
+        ===================== */}
 
-                Thông tin tài khoản
-              </div>
+        <div className="verify-otp-title-line" />
 
-              <div className="otp-step otp-step-active">
-                <span>2</span>
+        <h2>
+          Xác thực email
+        </h2>
 
-                Xác minh OTP
-              </div>
+        <p className="verify-otp-description">
+          Chúng tôi đã gửi mã xác thực đến{" "}
+          <strong>
+            {email}
+          </strong>
+        </p>
 
-            </div>
+        {/* =====================
+            OTP FORM
+        ===================== */}
 
-            <div className="otp-title-line" />
+        <form onSubmit={handleSubmit}>
 
-            <h2>Xác thực email</h2>
+          <div className="verify-otp-inputs">
 
-            <p className="otp-description">
-              Chúng tôi đã gửi mã xác thực đến{" "}
-              <strong>{email}</strong>
-            </p>
-
-            {/* OTP INPUT */}
-
-            <div className="otp-input-group">
-
-              {otp.map((digit, index) => (
+            {otp.map(
+              (value, index) => (
                 <input
                   key={index}
                   ref={(element) => {
-                    inputsRef.current[index] = element;
+                    inputRefs.current[
+                      index
+                    ] = element;
                   }}
                   type="text"
                   inputMode="numeric"
+                  autoComplete={
+                    index === 0
+                      ? "one-time-code"
+                      : "off"
+                  }
                   maxLength={1}
-                  value={digit}
+                  value={value}
                   onChange={(event) =>
-                    handleOtpChange(index, event)
+                    handleOtpChange(
+                      index,
+                      event
+                    )
                   }
                   onKeyDown={(event) =>
-                    handleKeyDown(index, event)
+                    handleKeyDown(
+                      index,
+                      event
+                    )
                   }
-                  onPaste={handlePaste}
                   aria-label={`OTP digit ${
                     index + 1
                   }`}
                 />
-              ))}
-
-            </div>
-
-            {/* COUNTDOWN */}
-
-            <p
-              className={`otp-expire-text ${
-                timeLeft === 0
-                  ? "otp-expired"
-                  : ""
-              }`}
-            >
-              {timeLeft > 0 ? (
-                <>
-                  Mã hết hạn sau{" "}
-                  <strong>
-                    {formatTime(timeLeft)}
-                  </strong>
-                </>
-              ) : (
-                <>
-                  Mã OTP đã hết hạn
-                </>
-              )}
-            </p>
-
-            {/* RESEND */}
-
-            <p className="otp-resend-text">
-              Không nhận được mã?{" "}
-
-              <button
-                type="button"
-                onClick={handleResendOtp}
-              >
-                Gửi lại
-              </button>
-            </p>
-
-            {/* VERIFY */}
-
-            <button
-              type="button"
-              className="otp-submit-button"
-              onClick={handleVerifyOtp}
-            >
-              Xác nhận OTP
-            </button>
-
-            {/* CHANGE EMAIL */}
-
-            <button
-              type="button"
-              className="change-email-button"
-              onClick={handleChangeEmail}
-            >
-              Thay đổi email
-            </button>
+              )
+            )}
 
           </div>
 
-        </section>
+          {/* =====================
+              OTP TIMER
+          ===================== */}
+
+          {isExpired ? (
+            <p className="verify-otp-expired">
+              Mã đã hết hạn. Vui lòng
+              gửi lại mã mới để tiếp tục.
+            </p>
+          ) : (
+            <p className="verify-otp-countdown">
+              Mã có hiệu lực trong{" "}
+              <strong>
+                {formatTime(
+                  remainingSeconds
+                )}
+              </strong>
+            </p>
+          )}
+
+          {/* =====================
+              ERROR
+          ===================== */}
+
+          {errorMessage && (
+            <p className="verify-otp-error">
+              {errorMessage}
+            </p>
+          )}
+
+          {/* =====================
+              RESEND OTP
+          ===================== */}
+
+          <button
+            type="button"
+            className="verify-otp-resend-button"
+            onClick={handleResendOtp}
+            disabled={
+              isResending ||
+              isLoading
+            }
+          >
+            {isResending
+              ? "Đang gửi lại..."
+              : "Gửi lại mã"}
+          </button>
+
+          {/* =====================
+              VERIFY OTP
+          ===================== */}
+
+          <button
+            type="submit"
+            className="verify-otp-submit-button"
+            disabled={
+              !isOtpComplete ||
+              isExpired ||
+              isLoading ||
+              isResending
+            }
+          >
+            {isLoading
+              ? "Đang xác nhận..."
+              : "Xác nhận OTP"}
+          </button>
+
+        </form>
+
+        {/* =====================
+            CHANGE EMAIL
+        ===================== */}
+
+        <button
+          type="button"
+          className="verify-otp-change-email"
+          onClick={() =>
+            navigate("/register")
+          }
+        >
+          Thay đổi email
+        </button>
 
       </div>
-    </div>
+    </AuthLayout>
   );
 }
 
