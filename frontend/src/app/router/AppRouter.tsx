@@ -40,6 +40,7 @@ import DriverDashboard from "../../features/driver/DriverDashboard";
 // Import các trang của admin
 import AdminDashboard from "../../features/admin/AdminDashboard";
 
+import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage";
 function AppRouter() {
   return (
     <BrowserRouter>
@@ -92,6 +93,8 @@ function AppRouter() {
           element={<PaymentCancelPage />}
         />
         {/* Màn hình login */}
+        <Route path="/payment/sandbox" element={<SandboxPaymentPage />} />
+        <Route path="/payment/return" element={<SandboxPaymentPage />} />
         <Route
           path="/"
           element={<Navigate to="/login" replace />}
@@ -152,8 +155,8 @@ function AppRouter() {
         />
 
 
-      </Routes>
-    </BrowserRouter>
+      </Routes >
+    </BrowserRouter >
   );
 }
 

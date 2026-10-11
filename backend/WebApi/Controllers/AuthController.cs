@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Application.DTOs;
 using Application.Services;
+using Application.Interfaces;
+using Microsoft.AspNetCore.RateLimiting;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data.Context;
@@ -19,15 +21,18 @@ namespace WebApi.Controllers
         private readonly HorseTransportDbContext _context;
         private readonly ITokenService _tokenService;
         private readonly IMemoryCache _memoryCache;
+        private readonly IRegistrationService _registrationService;
 
         public AuthController(
             HorseTransportDbContext context,
             ITokenService tokenService,
-            IMemoryCache memoryCache)
+            IMemoryCache memoryCache,
+            IRegistrationService registrationService)
         {
             _context = context;
             _tokenService = tokenService;
             _memoryCache = memoryCache;
+            _registrationService = registrationService;
         }
 
         // =========================================================================
@@ -143,34 +148,10 @@ namespace WebApi.Controllers
         // POST /api/auth/register/request-otp
         // =========================================================================
         [HttpPost("register/request-otp")]
-        public async Task<IActionResult> RequestOtp([FromBody] RegisterRequestOtpDto dto)
+        [EnableRateLimiting("registration")]
+        public async Task<IActionResult> RequestOtp([FromBody] RegisterRequestOtpDto dto, CancellationToken cancellationToken)
         {
-            var emailExists = await _context.Users.AnyAsync(u => u.Email == dto.Email);
-            if (emailExists)
-            {
-                return Conflict(ApiResponse<object?>.Fail("Email already exists"));
-            }
-
-            var registrationToken = Guid.NewGuid().ToString("N");
-            var otp = "123456"; // Mã OTP mặc định cho kiểm thử môi trường phát triển
-
-            var pending = new PendingRegistration
-            {
-                FullName = dto.FullName,
-                Email = dto.Email,
-                PhoneNumber = dto.PhoneNumber,
-                Password = dto.Password,
-                Otp = otp
-            };
-
-            _memoryCache.Set($"reg_{registrationToken}", pending, TimeSpan.FromSeconds(300));
-
-            var data = new RequestOtpResponseData
-            {
-                RegistrationToken = registrationToken,
-                ExpiresIn = 300
-            };
-
+            var data = await _registrationService.RequestOtpAsync(dto, cancellationToken);
             return Ok(ApiResponse<RequestOtpResponseData>.Ok(data, "OTP sent successfully"));
         }
 
@@ -179,35 +160,10 @@ namespace WebApi.Controllers
         // POST /api/auth/register/verify-otp
         // =========================================================================
         [HttpPost("register/verify-otp")]
-        public async Task<IActionResult> VerifyOtp([FromBody] RegisterVerifyOtpDto dto)
+        [EnableRateLimiting("registration")]
+        public async Task<IActionResult> VerifyOtp([FromBody] RegisterVerifyOtpDto dto, CancellationToken cancellationToken)
         {
-            if (!_memoryCache.TryGetValue($"reg_{dto.RegistrationToken}", out PendingRegistration? pending) || pending == null)
-            {
-                return BadRequest(ApiResponse<object?>.Fail("Invalid or expired registration token"));
-            }
-
-            if (pending.Otp != dto.Otp.Trim())
-            {
-                return BadRequest(ApiResponse<object?>.Fail("Invalid OTP code"));
-            }
-
-            var newUser = new User
-            {
-                UserId = "USR_CUST_" + Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper(),
-                Username = pending.Email.Split('@')[0],
-                FullName = pending.FullName,
-                Email = pending.Email,
-                Phone = pending.PhoneNumber,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(pending.Password),
-                Role = UserRoles.Customer,
-                IsActive = true
-            };
-
-            _context.Users.Add(newUser);
-            await _context.SaveChangesAsync();
-
-            _memoryCache.Remove($"reg_{dto.RegistrationToken}");
-
+            await _registrationService.VerifyOtpAsync(dto, cancellationToken);
             return Ok(ApiResponse<object?>.Ok(null, "Registration completed successfully"));
         }
 
@@ -216,21 +172,10 @@ namespace WebApi.Controllers
         // POST /api/auth/register/resend-otp
         // =========================================================================
         [HttpPost("register/resend-otp")]
-        public IActionResult ResendOtp([FromBody] RegisterResendOtpDto dto)
+        [EnableRateLimiting("registration")]
+        public async Task<IActionResult> ResendOtp([FromBody] RegisterResendOtpDto dto, CancellationToken cancellationToken)
         {
-            if (!_memoryCache.TryGetValue($"reg_{dto.RegistrationToken}", out PendingRegistration? pending) || pending == null)
-            {
-                return BadRequest(ApiResponse<object?>.Fail("Invalid or expired registration token"));
-            }
-
-            pending.Otp = "123456";
-            _memoryCache.Set($"reg_{dto.RegistrationToken}", pending, TimeSpan.FromSeconds(300));
-
-            var data = new ResendOtpResponseData
-            {
-                ExpiresIn = 300
-            };
-
+            var data = await _registrationService.ResendOtpAsync(dto, cancellationToken);
             return Ok(ApiResponse<ResendOtpResponseData>.Ok(data, "OTP resent successfully"));
         }
 

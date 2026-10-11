@@ -1,5 +1,6 @@
-<<<<<<< HEAD
 # Hệ thống quản lý vận chuyển ngựa đua xuyên biên giới (Racehorse-Transport-System)
+
+Cross-Border Racehorse Transport Management System - React frontend and ASP.NET Core backend.
 
 Đây là hệ thống quản lý vận chuyển ngựa đua xuyên biên giới, bao gồm giao diện người dùng (Frontend) xây dựng bằng **React** và máy chủ (Backend) xây dựng bằng **ASP.NET Core**.
 
@@ -73,30 +74,32 @@ Nếu bạn không muốn sử dụng Docker, bạn có thể chạy riêng lẻ
   npm run dev
   ```
 
+## 💳 VNPAY Sandbox
+
+Xem [hướng dẫn chạy API, trang thanh toán thử và cấu hình IPN](backend/README.md).
+
 ## 🤝 Đóng góp
 
 Vui lòng đọc kỹ file [CONTRIBUTING.md](./CONTRIBUTING.md) để biết thêm về quy trình và các nguyên tắc trước khi tạo Pull Request.
 Đồng thời tuân thủ các quy tắc viết code backend trong [backend_coding_rules.md](./backend_coding_rules.md).
-=======
-# Nhật ký Cập nhật Dự án: RaceHorse Transport System
-
-Dưới đây là bảng tổng hợp toàn bộ các công việc, sửa đổi và danh sách file chi tiết mới nhất của hệ thống:
 
 ---
 
-## I. Tổng quan Công việc & Tính năng mới
+## 📝 Nhật ký Cập nhật Dự án
 
-### 1. Phân hệ Backend (`RaceHorse_Transport_Backend`)
+### I. Tổng quan Công việc & Tính năng mới
+
+#### 1. Phân hệ Backend (`RaceHorse_Transport_Backend`)
 - **Tạo mới Admin Dashboard API:** Viết API `GET /api/admin/dashboard` kết nối trực tiếp đến cơ sở dữ liệu `HorseTransportDB`. Truy vấn số liệu thực tế thời gian thực (đếm số lượng người dùng, ngựa đua, yêu cầu vận chuyển, phương tiện xe) và trả về danh sách tài khoản phục vụ bảng quản trị.
 - **Tích hợp Đăng nhập Google:** Bổ sung API `POST /api/auth/google-login` tiếp nhận và xác thực `idToken`. Tự động cấp tài khoản `Customer` và JWT Token cho người dùng mới.
 - **Vận hành:** Kích hoạt server ASP.NET Core tại `http://localhost:5129`.
 
-### 2. Phân hệ Frontend (`frontend`)
+#### 2. Phân hệ Frontend (`frontend`)
 - **Giao diện Admin Dashboard:** Xây dựng bảng điều khiển quản trị gọi API lấy dữ liệu thật từ SQL Server, tích hợp thanh tìm kiếm và bộ lọc theo vai trò. Giao diện responsive, hiện đại.
 - **Định tuyến & Phân quyền:** Khai báo tuyến đường `/admin/dashboard` và bổ sung vai trò `"ADMIN"` vào hệ thống type.
 - **Trang Đăng nhập:** Điều hướng tài khoản quản trị viên vào dashboard và bổ sung nút test "Admin". Tích hợp widget đăng nhập Google qua `.env`.
 
-### 3. Cơ sở dữ liệu & Kiểm thử (`HorseTransportDB`)
+#### 3. Cơ sở dữ liệu & Kiểm thử (`HorseTransportDB`)
 - **Kết nối:** Dịch vụ SQL Server `SQLEXPRESS` kết nối thông suốt với tài khoản `sa`.
 - **Tài khoản mẫu có sẵn:**
   * **Super Admin:** `admin@cbntransport.com` | Pass: `HASH_SECURE_00`
@@ -104,22 +107,16 @@ Dưới đây là bảng tổng hợp toàn bộ các công việc, sửa đổi
   * **Coordinator:** `hai.coord@cbntransport.com` | Pass: `HASH_SECURE_06`
   * **Driver:** `hung.driver@cbntransport.com` | Pass: `HASH_SECURE_07`
 
-### 4. Git Commit
-- **Nhánh:** `Tuan`
-- **Commit:** `[Tuan f30b61d] Co the dang nhap bang google va kem theo co tai khoan super Admin` (9 files changed, 958 insertions).
+### II. Danh sách Chi tiết File Thay đổi
 
----
-
-## II. Danh sách Chi tiết File Thay đổi
-
-### 1. Phía Backend (`RaceHorse_Transport_Backend`)
+#### 1. Phía Backend (`RaceHorse_Transport_Backend`)
 
 | File | Trạng thái | Nội dung thay đổi cụ thể |
 | :--- | :---: | :--- |
 | `AdminController.cs` | **Tạo mới** | Tạo controller quản trị với endpoint `GET /api/admin/dashboard`: kết nối CSDL, thống kê số lượng bảng `USER`, `HORSE`, `TRANSPORT_REQUEST`, `VEHICLE` và lấy danh sách tài khoản. |
 | `AuthController.cs` | **Chỉnh sửa** | • Thêm endpoint `POST /api/auth/google-login` xác thực `idToken`.<br>• Tự động tạo tài khoản `Customer` vào `[USER]` khi đăng nhập lần đầu.<br>• Thêm DTO `GoogleLoginRequest` và `GoogleTokenInfo`. |
 
-### 2. Phía Frontend (`frontend`)
+#### 2. Phía Frontend (`frontend`)
 
 | File | Trạng thái | Nội dung thay đổi cụ thể |
 | :--- | :---: | :--- |
@@ -130,13 +127,9 @@ Dưới đây là bảng tổng hợp toàn bộ các công việc, sửa đổi
 | `auth.types.ts` | **Chỉnh sửa** | Bổ sung vai trò `"ADMIN"` vào kiểu `UserRole`. |
 | `.env` | **Chỉnh sửa** | Bổ sung biến môi trường `VITE_GOOGLE_CLIENT_ID`. |
 
-### 3. File Database & Cấu hình khác
+#### 3. File Database & Cấu hình khác
 
 | File | Trạng thái | Nội dung thay đổi cụ thể |
 | :--- | :---: | :--- |
 | `HorseTransportDB.sql` | **Chỉnh sửa** | Cập nhật định dạng / nội dung truy vấn script cơ sở dữ liệu. |
 | `package-lock.json` | **Tạo mới** | File lock sinh ra ở thư mục gốc repo do cài đặt thêm package phụ thuộc mới. |
-```eof
-
-Bạn chỉ cần nhấn nút Copy ở góc trên bên phải của khối code này và dán trực tiếp vào file `.md` trên GitHub là giao diện sẽ hiển thị các bảng biểu và danh sách rất đẹp mắt.
->>>>>>> d22227e4a55f1d05ff3dec6924a3c2de739bcb47

@@ -1,0 +1,12 @@
+.sandbox-payment { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f2f5f7; color: #182c37; }
+.sandbox-payment section { width: min(100%, 560px); padding: 32px; border-radius: 18px; background: white; box-shadow: 0 12px 40px #182c3712; }
+.sandbox-payment h1 { font-size: 28px; margin: 18px 0; }
+.sandbox-badge { font-size: 12px; font-weight: 700; color: #805900; background: #fff2c5; padding: 6px 10px; border-radius: 6px; }
+.sandbox-payment form { display: grid; gap: 12px; margin: 24px 0; }
+.sandbox-payment input, .sandbox-payment button { padding: 12px; border-radius: 8px; font: inherit; }
+.sandbox-payment input { border: 1px solid #b8c7cf; }
+.sandbox-payment button { background: #005c85; color: white; border: 0; cursor: pointer; }
+.sandbox-payment button:disabled { opacity: .6; cursor: wait; }
+.sandbox-payment dt { font-weight: 600; margin-top: 14px; }
+.sandbox-payment dd { margin: 4px 0; overflow-wrap: anywhere; }
+.sandbox-error { color: #a82020; }
