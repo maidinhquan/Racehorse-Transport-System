@@ -42,7 +42,9 @@ function LoginPage() {
       case "DRIVER_ESCORT":
         navigate("/driver/dashboard");
         break;
-
+      case "ADMIN":
+        navigate("/admin/dashboard");
+        break;
       default:
         navigate("/");
         break;
@@ -57,6 +59,49 @@ function LoginPage() {
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("userRole", role);
     localStorage.setItem("userFullName", fullName);
+  };
+
+  const handleQuickLogin = async (
+    demoEmail: string,
+    demoPassword = "123456"
+  ) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+    setErrorMessage("");
+    setIsLoading(true);
+
+    try {
+      const response = await login({
+        email: demoEmail,
+        password: demoPassword,
+      });
+
+      if (!response.data) {
+        setErrorMessage(response.message);
+        return;
+      }
+
+      saveLoginData(
+        response.data.accessToken,
+        response.data.role,
+        response.data.fullName
+      );
+
+      redirectByRole(response.data.role);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.message ??
+          "Đăng nhập thất bại."
+        );
+      } else {
+        setErrorMessage(
+          "Đã xảy ra lỗi khi đăng nhập."
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSubmit = async (
@@ -280,11 +325,10 @@ function LoginPage() {
           width="100%"
         />
 
-        {/* DEMO - xoá khi Backend đã kết nối */}
-        {/* DEMO ROLE - xoá khi Backend đã kết nối */}
+        {/* DEMO ROLE SECTION - Đăng nhập nhanh tài khoản mẫu */}
         <div className="demo-role-section">
           <p className="demo-role-title">
-            Demo theo vai trò
+            ⚡ Đăng nhập nhanh tài khoản mẫu (Mật khẩu: 123456)
           </p>
 
           <div className="demo-role-grid">
@@ -292,50 +336,66 @@ function LoginPage() {
               type="button"
               className="demo-role-button"
               onClick={() =>
-                redirectByRole("CUSTOMER")
+                handleQuickLogin("vana.horse@gmail.com")
               }
+              title="Khách hàng: vana.horse@gmail.com"
             >
-              Customer
+              🐴 Customer
             </button>
 
             <button
               type="button"
               className="demo-role-button"
               onClick={() =>
-                redirectByRole("LOGISTICS_MANAGER")
+                handleQuickLogin("linh.manager@cbntransport.com")
               }
+              title="Quản lý: linh.manager@cbntransport.com"
             >
-              Logistics Manager
+              📋 Logistics Manager
             </button>
 
             <button
               type="button"
               className="demo-role-button"
               onClick={() =>
-                redirectByRole("TRANSPORT_SPECIALIST")
+                handleQuickLogin("tuan.specialist@cbntransport.com")
               }
+              title="Chuyên viên: tuan.specialist@cbntransport.com"
             >
-              Transport Specialist
+              🩺 Specialist
             </button>
 
             <button
               type="button"
               className="demo-role-button"
               onClick={() =>
-                redirectByRole("FLEET_ROUTE_COORDINATOR")
+                handleQuickLogin("hai.coord@cbntransport.com")
               }
+              title="Điều phối: hai.coord@cbntransport.com"
             >
-              Fleet & Route Coordinator
+              🗺️ Coordinator
             </button>
 
             <button
               type="button"
               className="demo-role-button"
               onClick={() =>
-                redirectByRole("DRIVER_ESCORT")
+                handleQuickLogin("hung.driver@cbntransport.com")
               }
+              title="Tài xế: hung.driver@cbntransport.com"
             >
-              Driver / Escort
+              🚚 Driver / Escort
+            </button>
+
+            <button
+              type="button"
+              className="demo-role-button"
+              onClick={() =>
+                handleQuickLogin("admin@cbntransport.com")
+              }
+              title="Quản trị: admin@cbntransport.com"
+            >
+              👑 Admin Quản Trị
             </button>
           </div>
         </div>

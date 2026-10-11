@@ -651,4 +651,16 @@ INSERT INTO PAYMENT (PaymentID, InvoiceID, ConfirmedByUserID, CurrencyCode, Amou
 ('PAY_003', 'INV_201', 'USR_MGR_01', 'USD', 1680.00,     'STRIPE_GATEWAY', 'TXN_STRIPE_001994', 'SUCCESS', '2026-09-30 09:20:00'),
 ('PAY_004', 'INV_301', 'USR_MGR_01', 'VND', 58000000.00, 'VNPAY_GATEWAY',  'VNPAY_20261007_019', 'SUCCESS', '2026-10-07 14:45:00');
 
+<<<<<<< HEAD
 GO
+=======
+GO
+
+select *
+from [USER]
+INSERT INTO [USER] (Username, UserID, PasswordHash, Role, FullName, Email, Phone, IsActive)
+VALUES 
+('admin', 'USR_ADMIN_01', 'HASH_SECURE_00', 'Admin', 'Admin Test', 'admin@cbntransport.com', '0999999999', 1);
+DELETE [USER]
+Where UserID LIKE 'USR_CUST_20261011061141'
+>>>>>>> d22227e4a55f1d05ff3dec6924a3c2de739bcb47
