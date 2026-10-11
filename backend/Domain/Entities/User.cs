@@ -35,6 +35,21 @@ namespace Domain.Entities
         [StringLength(20)]
         public string? Phone { get; set; }
 
+        [Column("ForgotPasswordRequest")]
+        [StringLength(500)]
+        public string? ForgotPasswordRequest { get; set; }
+
+        [Column("ResetPasswordRequest")]
+        [StringLength(500)]
+        public string? ResetPasswordRequest { get; set; }
+
+        [Column("ResetOtpCode")]
+        [StringLength(10)]
+        public string? ResetOtpCode { get; set; }
+
+        [Column("ResetOtpExpiry")]
+        public DateTime? ResetOtpExpiry { get; set; }
+
         [Column("IsActive")]
         public bool IsActive { get; set; } = true;
 

@@ -30,6 +30,8 @@ namespace WebApi.Controllers
                     FullName = u.FullName,
                     Email = u.Email,
                     Phone = u.Phone,
+                    ForgotPasswordRequest = u.ForgotPasswordRequest,
+                    ResetPasswordRequest = u.ResetPasswordRequest,
                     IsActive = u.IsActive
                 })
                 .ToListAsync();
@@ -56,6 +58,8 @@ namespace WebApi.Controllers
                 FullName = user.FullName,
                 Email = user.Email,
                 Phone = user.Phone,
+                ForgotPasswordRequest = user.ForgotPasswordRequest,
+                ResetPasswordRequest = user.ResetPasswordRequest,
                 IsActive = user.IsActive
             };
 
@@ -82,6 +86,8 @@ namespace WebApi.Controllers
                 FullName = user.FullName,
                 Email = user.Email,
                 Phone = user.Phone,
+                ForgotPasswordRequest = user.ForgotPasswordRequest,
+                ResetPasswordRequest = user.ResetPasswordRequest,
                 IsActive = user.IsActive
             };
 
@@ -107,6 +113,8 @@ namespace WebApi.Controllers
                 FullName = dto.FullName,
                 Email = dto.Email,
                 Phone = dto.Phone,
+                ForgotPasswordRequest = dto.ForgotPasswordRequest,
+                ResetPasswordRequest = dto.ResetPasswordRequest,
                 IsActive = true
             };
 
@@ -121,6 +129,8 @@ namespace WebApi.Controllers
                 FullName = newUser.FullName,
                 Email = newUser.Email,
                 Phone = newUser.Phone,
+                ForgotPasswordRequest = newUser.ForgotPasswordRequest,
+                ResetPasswordRequest = newUser.ResetPasswordRequest,
                 IsActive = newUser.IsActive
             };
 
@@ -142,6 +152,8 @@ namespace WebApi.Controllers
             user.Role = dto.Role;
             user.Email = dto.Email;
             user.Phone = dto.Phone;
+            if (dto.ForgotPasswordRequest != null) user.ForgotPasswordRequest = dto.ForgotPasswordRequest;
+            if (dto.ResetPasswordRequest != null) user.ResetPasswordRequest = dto.ResetPasswordRequest;
             user.IsActive = dto.IsActive;
 
             await _context.SaveChangesAsync();
@@ -157,6 +169,8 @@ namespace WebApi.Controllers
                     FullName = user.FullName,
                     Email = user.Email,
                     Phone = user.Phone,
+                    ForgotPasswordRequest = user.ForgotPasswordRequest,
+                    ResetPasswordRequest = user.ResetPasswordRequest,
                     IsActive = user.IsActive
                 }
             });
