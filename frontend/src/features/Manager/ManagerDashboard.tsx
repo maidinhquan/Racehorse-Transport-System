@@ -18,14 +18,18 @@ function ManagerDashboard() {
     { id: 'TRP-2027', route: 'Hà Nội ➡️ Paris', status: 'Sẵn sàng khởi hành', statusClass: 'status-ready', eta: '09:00, 18/10/2026' },
   ];
 
-  // Tiêu đề động trên Top Bar dựa vào Sidebar đang chọn
   const getTopBarTitle = () => {
     switch (activePage) {
-      case 'dashboard': return 'Home / Dashboard';
-      case 'requests': return 'Transport Requests';
-      case 'trips': return 'Trip Management';
-      case 'incidents': return 'Incident Management';
-      default: return 'Home';
+      case 'dashboard':
+        return 'Home / Dashboard';
+      case 'requests':
+        return 'Transport Requests';
+      case 'trips':
+        return 'Trip Management';
+      case 'incidents':
+        return 'Incident Management';
+      default:
+        return 'Home';
     }
   };
 
@@ -35,7 +39,7 @@ function ManagerDashboard() {
         <h1 className="page-title">Tổng quan Điều hành</h1>
         <p className="page-subtitle">Theo dõi toàn cảnh vận chuyển, phê duyệt yêu cầu và xử lý sự cố.</p>
       </div>
-      
+
       <div className="stats-grid">
         <div className="stat-card">
           <h3 className="stat-title">Yêu cầu chờ duyệt</h3>
@@ -84,7 +88,7 @@ function ManagerDashboard() {
                 <td>{req.horses}</td>
                 <td>{req.date}</td>
                 <td style={{ textAlign: 'right' }}>
-                  <button className="btn-primary">Xem & Duyệt</button>
+                  <button className="btn-primary">Xem &amp; Duyệt</button>
                 </td>
               </tr>
             ))}
@@ -135,39 +139,41 @@ function ManagerDashboard() {
 
   const renderContent = () => {
     switch (activePage) {
-      case 'dashboard': return renderDashboardOverview();
-      case 'requests': return renderRequestsPage();
-      case 'trips': return renderTripsPage();
-      default: return renderDashboardOverview();
+      case 'dashboard':
+        return renderDashboardOverview();
+      case 'requests':
+        return renderRequestsPage();
+      case 'trips':
+        return renderTripsPage();
+      default:
+        return renderDashboardOverview();
     }
   };
 
   return (
     <div className="manager-layout">
-      {/* 1. SIDEBAR BÊN TRÁI */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          {/* Logo CNB TRANSPORT */}
           <h2 className="brand-title">CNB <span>TRANSPORT</span></h2>
         </div>
-        
+
         <nav className="sidebar-nav">
-          <button 
+          <button
             className={`nav-item ${activePage === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActivePage('dashboard')}
           >
             <span>Dashboard</span>
           </button>
-          
-          <button 
+
+          <button
             className={`nav-item ${activePage === 'requests' ? 'active' : ''}`}
             onClick={() => setActivePage('requests')}
           >
             <span>Transport Requests</span>
             {pendingCount > 0 && <span className="badge-alert">{pendingCount}</span>}
           </button>
-          
-          <button 
+
+          <button
             className={`nav-item ${activePage === 'trips' ? 'active' : ''}`}
             onClick={() => setActivePage('trips')}
           >
@@ -177,30 +183,25 @@ function ManagerDashboard() {
           <button className="nav-item"><span>Document Overview</span></button>
           <button className="nav-item"><span>Incident Management</span></button>
           <button className="nav-item"><span>Customer Management</span></button>
-          <button className="nav-item"><span>Reports & Analytics</span></button>
+          <button className="nav-item"><span>Reports &amp; Analytics</span></button>
         </nav>
       </aside>
 
-      {/* 2. KHỐI NỘI DUNG (TOP BAR + MAIN CONTENT) */}
       <div className="content-wrapper">
-        
-        {/* TOP BAR TRÊN CÙNG GIỐNG HÌNH ẢNH */}
         <header className="top-bar">
           <div className="top-bar-left">
             <h1 className="top-bar-title">{getTopBarTitle()}</h1>
           </div>
-          
+
           <div className="top-bar-right">
-            {/* Chuông thông báo */}
-            <button className="notification-btn">
+            <button className="notification-btn" aria-label="Notifications">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
               </svg>
               {pendingCount > 0 && <span className="notification-badge"></span>}
             </button>
-            
-            {/* User Profile */}
+
             <div className="user-profile">
               <div className="avatar">QL</div>
               <div className="user-info">
@@ -214,11 +215,9 @@ function ManagerDashboard() {
           </div>
         </header>
 
-        {/* NỘI DUNG CHÍNH (THAY ĐỔI THEO MENU) */}
         <main className="main-content">
           {renderContent()}
         </main>
-        
       </div>
     </div>
   );

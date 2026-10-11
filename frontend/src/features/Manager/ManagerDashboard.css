@@ -1,6 +1,4 @@
-/* =========================================
-   TỔNG QUAN LAYOUT
-   ========================================= */
+/* Layout tổng thể */
 .manager-layout {
   display: flex;
   height: 100vh;
@@ -9,9 +7,7 @@
   overflow: hidden;
 }
 
-/* =========================================
-   SIDEBAR 
-   ========================================= */
+/* Sidebar Điều hướng */
 .sidebar {
   width: 260px;
   background-color: #FFFFFF;
@@ -40,6 +36,12 @@
 
 .brand-title span {
   color: #111827;
+}
+
+.role-title {
+  color: #6B7280;
+  font-size: 13px;
+  margin: 4px 0 0 0;
 }
 
 .sidebar-nav {
@@ -87,9 +89,7 @@ button.nav-item.active {
   border-radius: 999px;
 }
 
-/* =========================================
-   TOP BAR (HEADER NHƯ HÌNH ẢNH)
-   ========================================= */
+/* Top bar */
 .content-wrapper {
   flex: 1;
   display: flex;
@@ -123,7 +123,6 @@ button.nav-item.active {
   gap: 24px;
 }
 
-/* Nút chuông thông báo */
 .notification-btn {
   background: none;
   border: none;
@@ -155,7 +154,6 @@ button.nav-item.active {
   border: 2px solid #FFFFFF;
 }
 
-/* Khu vực User Profile */
 .user-profile {
   display: flex;
   align-items: center;
@@ -199,9 +197,6 @@ button.nav-item.active {
   color: #6B7280;
 }
 
-/* =========================================
-   MAIN CONTENT & DATA TABLES
-   ========================================= */
 .main-content {
   flex: 1;
   padding: 32px 40px;
@@ -227,7 +222,6 @@ button.nav-item.active {
   margin: 0;
 }
 
-/* Thống kê */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -240,7 +234,7 @@ button.nav-item.active {
   border: 1px solid #E5E7EB;
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .stat-title {
@@ -257,14 +251,24 @@ button.nav-item.active {
   margin: 0;
 }
 
-/* Bảng Dữ liệu */
+.text-danger { color: #EF4444; }
+.text-warning { color: #F57C00; }
+.text-success { color: #10B981; }
+.text-dark { color: #111827; }
+
+.flex-col-full {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .data-section {
   background-color: #FFFFFF;
   border: 1px solid #E5E7EB;
   border-radius: 16px;
   padding: 24px;
   flex: 1;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .section-title {
@@ -274,9 +278,15 @@ button.nav-item.active {
   margin: 0 0 20px 0;
 }
 
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
+  text-align: left;
 }
 
 th {
@@ -312,7 +322,6 @@ tr:hover td {
 .status-transit { background-color: #FEF3C7; color: #D97706; }
 .status-ready { background-color: #D1FAE5; color: #059669; }
 
-/* Nút bấm */
 .btn-primary {
   background-color: #F57C00;
   color: #FFFFFF;
@@ -324,6 +333,7 @@ tr:hover td {
   cursor: pointer;
   transition: 0.2s;
 }
+
 .btn-primary:hover { background-color: #E65100; }
 
 .btn-secondary {
@@ -337,10 +347,15 @@ tr:hover td {
   cursor: pointer;
   transition: 0.2s;
 }
+
 .btn-secondary:hover { background-color: #F9FAFB; }
 
-.fade-in { animation: fadeIn 0.3s ease-in-out; }
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+

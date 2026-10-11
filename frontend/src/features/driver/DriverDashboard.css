@@ -1,7 +1,8 @@
 /* =========================================
    TỔNG QUAN LAYOUT
    ========================================= */
-.driver-layout {
+.driver-layout,
+.manager-layout {
   display: flex;
   height: 100vh;
   font-family: 'Inter', sans-serif;
@@ -10,7 +11,7 @@
 }
 
 /* =========================================
-   SIDEBAR 
+   SIDEBAR
    ========================================= */
 .sidebar {
   width: 260px;
@@ -42,6 +43,12 @@
   color: #111827;
 }
 
+.role-title {
+  color: #6B7280;
+  font-size: 13px;
+  margin: 4px 0 0 0;
+}
+
 .sidebar-nav {
   padding: 20px 16px;
   display: flex;
@@ -59,6 +66,7 @@
   margin: 16px 0 8px 16px;
 }
 
+.nav-item,
 button.nav-item {
   width: 100%;
   text-align: left;
@@ -73,11 +81,32 @@ button.nav-item {
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  text-decoration: none;
 }
 
-button.nav-item:hover { background-color: #F9FAFB; color: #111827; }
-button.nav-item.active { background-color: #FFF3E0; color: #F57C00; font-weight: 600; }
+.nav-item:hover,
+button.nav-item:hover {
+  background-color: #F9FAFB;
+  color: #111827;
+}
+
+.nav-item.active,
+button.nav-item.active {
+  background-color: #FFF3E0;
+  color: #F57C00;
+  font-weight: 600;
+}
+
+.badge-alert {
+  background-color: #EF4444;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
 
 /* =========================================
    TOP BAR (HEADER)
@@ -130,7 +159,11 @@ button.nav-item.active { background-color: #FFF3E0; color: #F57C00; font-weight:
   transition: 0.2s;
 }
 
-.notification-btn:hover { background-color: #F3F4F6; color: #111827; }
+.notification-btn:hover {
+  background-color: #F3F4F6;
+  color: #111827;
+}
+
 .notification-badge {
   position: absolute;
   top: 8px;
@@ -151,7 +184,10 @@ button.nav-item.active { background-color: #FFF3E0; color: #F57C00; font-weight:
   border-radius: 8px;
   transition: 0.2s;
 }
-.user-profile:hover { background-color: #F9FAFB; }
+
+.user-profile:hover {
+  background-color: #F9FAFB;
+}
 
 .avatar {
   width: 36px;
@@ -166,9 +202,21 @@ button.nav-item.active { background-color: #FFF3E0; color: #F57C00; font-weight:
   font-size: 14px;
 }
 
-.user-info { display: flex; flex-direction: column; }
-.user-name { font-size: 14px; font-weight: 600; color: #111827; }
-.user-role { font-size: 12px; color: #6B7280; }
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.user-role {
+  font-size: 12px;
+  color: #6B7280;
+}
 
 /* =========================================
    MAIN CONTENT & CARDS
@@ -176,12 +224,27 @@ button.nav-item.active { background-color: #FFF3E0; color: #F57C00; font-weight:
 .main-content {
   flex: 1;
   padding: 32px 40px;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
 }
 
-.page-header { margin-bottom: 24px; }
-.page-title { font-size: 24px; font-weight: 700; color: #111827; margin: 0 0 8px 0; }
-.page-subtitle { color: #6B7280; font-size: 14px; margin: 0; }
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 8px 0;
+}
+
+.page-subtitle {
+  color: #6B7280;
+  font-size: 14px;
+  margin: 0 0 32px 0;
+}
 
 .dashboard-card {
   background-color: #FFFFFF;
@@ -189,10 +252,15 @@ button.nav-item.active { background-color: #FFF3E0; color: #F57C00; font-weight:
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 24px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
-.card-title { font-size: 16px; font-weight: 600; color: #111827; margin: 0 0 20px 0; }
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 20px 0;
+}
 
 /* Form Elements */
 .form-grid {
@@ -201,10 +269,20 @@ button.nav-item.active { background-color: #FFF3E0; color: #F57C00; font-weight:
   gap: 24px;
 }
 
-.form-group { display: flex; flex-direction: column; gap: 8px; }
-.form-label { font-size: 13px; font-weight: 600; color: #374151; }
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
-.form-input, .form-select {
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-input,
+.form-select {
   height: 44px;
   border: 1px solid #D1D5DB;
   border-radius: 8px;
@@ -216,7 +294,8 @@ button.nav-item.active { background-color: #FFF3E0; color: #F57C00; font-weight:
   transition: all 0.2s;
 }
 
-.form-input:focus, .form-select:focus {
+.form-input:focus,
+.form-select:focus {
   border-color: #F57C00;
   box-shadow: 0 0 0 3px rgba(245, 124, 0, 0.1);
 }
@@ -233,20 +312,43 @@ button.nav-item.active { background-color: #FFF3E0; color: #F57C00; font-weight:
   font-weight: 500;
   transition: all 0.2s;
 }
-.file-upload:hover { border-color: #F57C00; background-color: #FFF3E0; color: #F57C00; }
+
+.file-upload:hover {
+  border-color: #F57C00;
+  background-color: #FFF3E0;
+  color: #F57C00;
+}
 
 /* Buttons */
-.btn-primary {
-  background-color: #F57C00; color: #FFFFFF; border: none; height: 44px; padding: 0 24px;
-  border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s;
+.btn-primary,
+.btn-danger {
+  border: none;
+  height: 44px;
+  padding: 0 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
 }
-.btn-primary:hover { background-color: #E65100; }
+
+.btn-primary {
+  background-color: #F57C00;
+  color: #FFFFFF;
+}
+
+.btn-primary:hover {
+  background-color: #E65100;
+}
 
 .btn-danger {
-  background-color: #EF4444; color: #FFFFFF; border: none; height: 44px; padding: 0 24px;
-  border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s;
+  background-color: #EF4444;
+  color: #FFFFFF;
 }
-.btn-danger:hover { background-color: #DC2626; }
+
+.btn-danger:hover {
+  background-color: #DC2626;
+}
 
 /* Horse Grid (Escort) */
 .horse-grid {
@@ -256,14 +358,115 @@ button.nav-item.active { background-color: #FFF3E0; color: #F57C00; font-weight:
 }
 
 .horse-header {
-  display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #F3F4F6;
-}
-.horse-avatar {
-  font-size: 32px; background: #F9FAFB; border: 1px solid #E5E7EB; padding: 12px; border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #F3F4F6;
 }
 
-.fade-in { animation: fadeIn 0.3s ease-in-out; }
+.horse-avatar {
+  font-size: 32px;
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Thẻ Thống kê (Quick Stats) */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  background-color: #ffffff;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.stat-title {
+  color: #6B7280;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 0 12px 0;
+}
+
+.stat-value {
+  font-size: 36px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.text-danger { color: #EF4444; }
+.text-warning { color: #F57C00; }
+.text-success { color: #10B981; }
+.text-dark { color: #111827; }
+
+/* Bảng dữ liệu duy nhất */
+.data-section {
+  background-color: #ffffff;
+  border: 1px solid #E5E7EB;
+  border-radius: 16px;
+  padding: 24px;
+  flex: 1;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 24px 0;
+}
+
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+th {
+  padding: 12px 16px;
+  color: #6B7280;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+td {
+  padding: 18px 16px;
+  font-size: 14px;
+  color: #111827;
+  border-bottom: 1px solid #F3F4F6;
+  vertical-align: middle;
+}
+
+tr:hover td {
+  background-color: #F9FAFB;
 }
