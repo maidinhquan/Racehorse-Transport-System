@@ -36,6 +36,10 @@ CREATE TABLE [USER] (
     FullName NVARCHAR(100) NOT NULL,
     Email VARCHAR(100) NULL,
     Phone VARCHAR(20) NULL,
+    ForgotPasswordRequest NVARCHAR(500) NULL, -- token / request metadata (nullable)
+    ResetPasswordRequest NVARCHAR(500) NULL,  -- token / reset metadata (nullable)
+    ResetOtpCode VARCHAR(10) NULL,            -- ma OTP 6 so (nullable)
+    ResetOtpExpiry DATETIME2 NULL,            -- thoi gian het han OTP (nullable)
     IsActive BIT NOT NULL DEFAULT 1,
     CONSTRAINT PK_User PRIMARY KEY (UserID)
 );
@@ -440,22 +444,25 @@ CREATE TABLE PAYMENT (
     CONSTRAINT FK_Payment_ConfirmedBy FOREIGN KEY (ConfirmedByUserID) REFERENCES [USER](UserID)
 );
 
+
+-- DataSet
 -- =============================================================================
 -- PHÂN VÙNG 1: QUẢN TRỊ NGƯỜI DÙNG, TÀI SẢN & PHÁP LÝ HỆ THỐNG
 -- =============================================================================
 
 -- 1. Bảng USER: Đầy đủ các Actor theo phân quyền (có cả tài khoản hoạt động và bị khóa)
-INSERT INTO [USER] (UserID, Username, PasswordHash, Role, FullName, Email, Phone, IsActive) VALUES
-('USR_CUST_01', 'nguyenvana',     'HASH_SECURE_01', 'Customer',   N'Nguyễn Văn A (CLB Hà Nội)',         'vana.horse@gmail.com',        '0901234567', 1),
-('USR_CUST_02', 'tranvanb',      'HASH_SECURE_02', 'Customer',   N'Trần Văn B (Trang trại Sài Gòn)',   'tranb.racing@gmail.com',      '0908889999', 1),
-('USR_CUST_03', 'lethic_locked', 'HASH_SECURE_03', 'Customer',   N'Lê Thị C (Khách vi phạm)',          'lethic.locked@gmail.com',     '0911223344', 0),
-('USR_MGR_01',  'manager_linh',  'HASH_SECURE_04', 'Manager',    N'Trần Thị Linh (Logistics Manager)', 'linh.manager@cbntransport.com','0912345678', 1),
-('USR_SPEC_01', 'spec_tuan',     'HASH_SECURE_05', 'Specialist', N'Lê Tuấn (Thẩm định pháp lý/thú y)', 'tuan.specialist@cbntransport.com','0923456789', 1),
-('USR_COORD_01','coord_hai',     'HASH_SECURE_06', 'Coordinator',N'Phạm Hải (Điều phối xe & tuyến)',   'hai.coord@cbntransport.com',  '0934567890', 1),
-('USR_DRV_01',  'driver_hung',   'HASH_SECURE_07', 'Driver',     N'Hoàng Hùng (Tài xế quốc tế 1)',     'hung.driver@cbntransport.com','0945678901', 1),
-('USR_DRV_02',  'driver_thanh',  'HASH_SECURE_08', 'Driver',     N'Vũ Thành (Tài xế quốc tế 2)',       'thanh.driver@cbntransport.com','0946789012', 1),
-('USR_ESC_01',  'escort_hoa',    'HASH_SECURE_09', 'Escort',     N'BS. Đỗ Hoa (Bác sĩ thú y áp tải)', 'hoa.escort@cbntransport.com', '0956789012', 1),
-('USR_ESC_02',  'escort_nam',    'HASH_SECURE_10', 'Escort',     N'BS. Phan Nam (Kỹ thuật viên ngựa)',  'nam.escort@cbntransport.com', '0957890123', 1);
+-- Include new columns ForgotPasswordRequest and ResetPasswordRequest (nullable)
+INSERT INTO [USER] (UserID, Username, PasswordHash, Role, FullName, Email, Phone, ForgotPasswordRequest, ResetPasswordRequest, IsActive) VALUES
+('USR_CUST_01', 'nguyenvana',     'HASH_SECURE_01', 'Customer',   N'Nguyễn Văn A (CLB Hà Nội)',         'vana.horse@gmail.com',        '0901234567', NULL, NULL, 1),
+('USR_CUST_02', 'tranvanb',      'HASH_SECURE_02', 'Customer',   N'Trần Văn B (Trang trại Sài Gòn)',   'tranb.racing@gmail.com',      '0908889999', NULL, NULL, 1),
+('USR_CUST_03', 'lethic_locked', 'HASH_SECURE_03', 'Customer',   N'Lê Thị C (Khách vi phạm)',          'lethic.locked@gmail.com',     '0911223344', NULL, NULL, 0),
+('USR_MGR_01',  'manager_linh',  'HASH_SECURE_04', 'Manager',    N'Trần Thị Linh (Logistics Manager)', 'linh.manager@cbntransport.com','0912345678', NULL, NULL, 1),
+('USR_SPEC_01', 'spec_tuan',     'HASH_SECURE_05', 'Specialist', N'Lê Tuấn (Thẩm định pháp lý/thú y)', 'tuan.specialist@cbntransport.com','0923456789', NULL, NULL, 1),
+('USR_COORD_01','coord_hai',     'HASH_SECURE_06', 'Coordinator',N'Phạm Hải (Điều phối xe & tuyến)',   'hai.coord@cbntransport.com',  '0934567890', NULL, NULL, 1),
+('USR_DRV_01',  'driver_hung',   'HASH_SECURE_07', 'Driver',     N'Hoàng Hùng (Tài xế quốc tế 1)',     'hung.driver@cbntransport.com','0945678901', NULL, NULL, 1),
+('USR_DRV_02',  'driver_thanh',  'HASH_SECURE_08', 'Driver',     N'Vũ Thành (Tài xế quốc tế 2)',       'thanh.driver@cbntransport.com','0946789012', NULL, NULL, 1),
+('USR_ESC_01',  'escort_hoa',    'HASH_SECURE_09', 'Escort',     N'BS. Đỗ Hoa (Bác sĩ thú y áp tải)', 'hoa.escort@cbntransport.com', '0956789012', NULL, NULL, 1),
+('USR_ESC_02',  'escort_nam',    'HASH_SECURE_10', 'Escort',     N'BS. Phan Nam (Kỹ thuật viên ngựa)',  'nam.escort@cbntransport.com', '0957890123', NULL, NULL, 1);
 
 -- 2. Bảng HORSE: Đa dạng cá thể (Ngựa đực Stallion, Ngựa cái Mare, Ngựa thiến Gelding)
 INSERT INTO HORSE (HorseID, OwnerID, Microchip_ISO, FEI_Passport_No, Name, Breed, Sex, ReproductiveStatus, Weight, DOB) VALUES
