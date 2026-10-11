@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../shared/api/apiClient";
+import ThemeToggle from "../../shared/components/ThemeToggle/ThemeToggle";
 import "./AdminDashboard.css";
 
 interface AdminStats {
@@ -95,6 +96,7 @@ const AdminDashboard: React.FC = () => {
           <p>Dữ liệu kết nối trực tiếp cơ sở dữ liệu SQL Server (HorseTransportDB)</p>
         </div>
         <div className="admin-header-actions">
+          <ThemeToggle />
           <span className="admin-user-info">👤 {currentAdminName}</span>
           <button className="admin-refresh-btn" onClick={fetchDashboardData} title="Làm mới dữ liệu">
             🔄 Làm mới

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './ManagerDashboard.css';
+import ThemeToggle from '../../shared/components/ThemeToggle/ThemeToggle';
 
 function ManagerDashboard() {
   // Mock data: Số lượng đơn chờ duyệt
@@ -20,7 +21,10 @@ function ManagerDashboard() {
 
   return (
     <div className="manager-dashboard">
-      <h1>Manager Dashboard</h1>
+      <div className="manager-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h1>Manager Dashboard</h1>
+        <ThemeToggle />
+      </div>
 
       <div className="dashboard-summary">
         <div className="summary-card">
