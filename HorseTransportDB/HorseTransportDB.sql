@@ -655,3 +655,8 @@ GO
 
 select *
 from [USER]
+INSERT INTO [USER] (Username, UserID, PasswordHash, Role, FullName, Email, Phone, IsActive)
+VALUES 
+('admin', 'USR_ADMIN_01', 'HASH_SECURE_00', 'Admin', 'Admin Test', 'admin@cbntransport.com', '0999999999', 1);
+DELETE [USER]
+Where UserID LIKE 'USR_CUST_20261011061141'

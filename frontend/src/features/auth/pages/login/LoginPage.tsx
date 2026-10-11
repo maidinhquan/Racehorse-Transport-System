@@ -42,7 +42,9 @@ function LoginPage() {
       case "DRIVER_ESCORT":
         navigate("/driver/dashboard");
         break;
-
+      case "ADMIN":
+        navigate("/admin/dashboard");
+        break;
       default:
         navigate("/");
         break;
@@ -336,6 +338,16 @@ function LoginPage() {
               }
             >
               Driver / Escort
+            </button>
+
+            <button
+              type="button"
+              className="demo-role-button"
+              onClick={() =>
+                redirectByRole("ADMIN")
+              }
+            >
+              Admin
             </button>
           </div>
         </div>

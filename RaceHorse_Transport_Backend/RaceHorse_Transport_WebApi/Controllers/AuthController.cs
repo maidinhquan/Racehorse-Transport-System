@@ -4,6 +4,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using RaceHorse_Transport_Domain.Entities;
 using RaceHorse_Transport_Infrastructure.Data.Context;
 
 namespace RaceHorse_Transport_WebApi.Controllers
@@ -96,6 +99,117 @@ namespace RaceHorse_Transport_WebApi.Controllers
             {
                 Success = true,
                 Message = "Đăng nhập thành công.",
+                Data = new LoginData
+                {
+                    UserId = user.UserId,
+                    FullName = user.FullName,
+                    Email = user.Email!,
+                    Role = frontendRole,
+                    AccessToken = accessToken
+                }
+            });
+        }
+
+        /* ========================
+           POST /api/auth/google-login
+        ======================== */
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.IdToken))
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Google token không được để trống.",
+                    Data = null
+                });
+            }
+
+            // 1. Xác thực idToken qua Google tokeninfo API
+            GoogleTokenInfo? googleInfo = null;
+            try
+            {
+                using var httpClient = new HttpClient();
+                var response = await httpClient.GetAsync($"https://oauth2.googleapis.com/tokeninfo?id_token={request.IdToken}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    return Unauthorized(new ApiResponse<object>
+                    {
+                        Success = false,
+                        Message = "Xác thực Google thất bại. Token không hợp lệ hoặc đã hết hạn.",
+                        Data = null
+                    });
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                googleInfo = JsonSerializer.Deserialize<GoogleTokenInfo>(json);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = $"Lỗi kết nối tới máy chủ Google: {ex.Message}",
+                    Data = null
+                });
+            }
+
+            if (googleInfo == null || string.IsNullOrWhiteSpace(googleInfo.Email))
+            {
+                return Unauthorized(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Không thể lấy thông tin email từ tài khoản Google.",
+                    Data = null
+                });
+            }
+
+            // 2. Tìm kiếm người dùng trong DB theo Email
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == googleInfo.Email);
+
+            if (user == null)
+            {
+                // Tự động tạo tài khoản Customer mới cho người dùng đăng nhập bằng Google
+                var newUserId = $"USR_CUST_{DateTime.UtcNow:yyyyMMddHHmmss}";
+                var fullName = !string.IsNullOrWhiteSpace(googleInfo.Name)
+                    ? googleInfo.Name
+                    : googleInfo.Email.Split('@')[0];
+
+                user = new User
+                {
+                    UserId = newUserId,
+                    Username = googleInfo.Email.Split('@')[0],
+                    Email = googleInfo.Email,
+                    FullName = fullName,
+                    Role = "Customer",
+                    PasswordHash = "GOOGLE_OAUTH",
+                    IsActive = true
+                };
+
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+            }
+
+            if (!user.IsActive)
+            {
+                return Unauthorized(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Tài khoản của bạn đã bị khóa.",
+                    Data = null
+                });
+            }
+
+            // 3. Tạo JWT Token đăng nhập
+            var frontendRole = MapRole(user.Role);
+            var accessToken = GenerateJwtToken(user.UserId, user.Email!, user.FullName, frontendRole);
+
+            return Ok(new ApiResponse<LoginData>
+            {
+                Success = true,
+                Message = "Đăng nhập Google thành công.",
                 Data = new LoginData
                 {
                     UserId = user.UserId,
@@ -225,5 +339,25 @@ namespace RaceHorse_Transport_WebApi.Controllers
         public string FullName { get; set; } = "";
         public string Email { get; set; } = "";
         public string Role { get; set; } = "";
+    }
+
+    public class GoogleLoginRequest
+    {
+        public string IdToken { get; set; } = "";
+    }
+
+    public class GoogleTokenInfo
+    {
+        [JsonPropertyName("email")]
+        public string? Email { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("sub")]
+        public string? Sub { get; set; }
+
+        [JsonPropertyName("email_verified")]
+        public string? EmailVerified { get; set; }
     }
 }
