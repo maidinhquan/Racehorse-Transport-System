@@ -1,0 +1,393 @@
+.transport-request-page {
+  width: 100%;
+}
+
+.transport-request-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  flex-wrap: wrap;
+}
+
+.transport-request-header h1 {
+  margin: 0;
+
+  color: #0f172a;
+
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.transport-request-header p {
+  margin: 8px 0 0;
+
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+/* Create button */
+
+.create-request-button {
+  height: 40px;
+
+  padding: 0 20px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  border: 1px solid #f57c00;
+
+  border-radius: 6px;
+
+  background: #f57c00;
+
+  color: #ffffff;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+.create-request-button:hover {
+  background: #e87500;
+}
+
+.create-request-button span {
+  font-size: 18px;
+
+  line-height: 1;
+}
+
+/* Toolbar */
+
+.transport-request-toolbar {
+  margin-top: 24px;
+
+  padding: 8px 12px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  flex-wrap: wrap;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 10px;
+
+  background: #ffffff;
+}
+
+.request-search {
+  width: 320px;
+  max-width: 100%;
+
+  height: 34px;
+
+  padding: 0 10px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  border-radius: 6px;
+
+  background: #f8fafc;
+
+  color: #94a3b8;
+}
+
+.request-search svg {
+  width: 14px;
+  height: 14px;
+
+  flex-shrink: 0;
+}
+
+.request-search input {
+  width: 100%;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: #0f172a;
+
+  font-size: 12px;
+}
+
+.request-search input::placeholder {
+  color: #94a3b8;
+}
+
+.request-status-filter {
+  height: 34px;
+
+  min-width: 190px;
+
+  padding: 0 10px;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 6px;
+
+  background: #ffffff;
+
+  color: #334155;
+
+  font-size: 12px;
+
+  outline: none;
+
+  cursor: pointer;
+}
+
+.request-status-filter:focus {
+  border-color: #f57c00;
+}
+
+/* Table */
+
+.transport-request-table-card {
+  margin-top: 20px;
+
+  overflow: hidden;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 12px;
+
+  background: #ffffff;
+
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.transport-request-table-wrapper {
+  width: 100%;
+
+  overflow-x: auto;
+}
+
+.transport-request-table {
+  width: 100%;
+
+  border-collapse: collapse;
+}
+
+.transport-request-table th {
+  padding: 12px 16px;
+
+  border-bottom: 1px solid #e5e7eb;
+
+  background: #f8fafc;
+
+  color: #64748b;
+
+  font-size: 10px;
+  font-weight: 600;
+
+  text-align: left;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.06em;
+
+  white-space: nowrap;
+}
+
+.transport-request-table td {
+  padding: 14px 16px;
+
+  border-bottom: 1px solid #e5e7eb;
+
+  color: #334155;
+
+  font-size: 12px;
+
+  vertical-align: middle;
+}
+
+.transport-request-table tr:last-child td {
+  border-bottom: none;
+}
+
+.transport-request-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.request-id {
+  color: #0f172a !important;
+
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+/* Route */
+
+.route-cell {
+  display: flex;
+  align-items: center;
+
+  gap: 5px;
+
+  min-width: 180px;
+}
+
+.route-arrow {
+  color: #94a3b8;
+}
+
+/* Status */
+
+.request-status,
+.contract-status {
+  display: inline-flex;
+
+  align-items: center;
+
+  padding: 4px 8px;
+
+  border-radius: 4px;
+
+  font-size: 10px;
+  font-weight: 600;
+
+  white-space: nowrap;
+}
+
+.request-status-orange {
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.request-status-green {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.request-status-blue {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.request-status-yellow {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.request-status-red {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.request-status-grey {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* Contract */
+
+.contract-signed {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.contract-ready {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.contract-preparing {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.contract-empty {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* View Details */
+
+.view-details-button {
+  height: 28px;
+
+  padding: 0 12px;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 6px;
+
+  background: #ffffff;
+
+  color: #334155;
+
+  font-size: 11px;
+  font-weight: 500;
+
+  cursor: pointer;
+
+  white-space: nowrap;
+
+  transition: 0.2s;
+}
+
+.view-details-button:hover {
+  border-color: #fed7aa;
+
+  background: #fff7ed;
+
+  color: #ea580c;
+}
+
+/* Empty */
+
+.request-empty {
+  padding: 40px 20px;
+
+  color: #64748b;
+
+  font-size: 12px;
+
+  text-align: center;
+}
+
+/* Responsive */
+
+@media (max-width: 760px) {
+  .transport-request-header {
+    align-items: stretch;
+
+    flex-direction: column;
+  }
+
+  .create-request-button {
+    width: 100%;
+  }
+
+  .transport-request-toolbar {
+    align-items: stretch;
+
+    flex-direction: column;
+  }
+
+  .request-search,
+  .request-status-filter {
+    width: 100%;
+  }
+}

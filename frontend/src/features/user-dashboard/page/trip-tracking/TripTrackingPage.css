@@ -1,0 +1,819 @@
+.tracking-page {
+  width: 100%;
+}
+
+/* =========================
+   Header
+========================= */
+
+.tracking-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  flex-wrap: wrap;
+}
+
+.tracking-page-header h1 {
+  margin: 0;
+
+  color: #0f172a;
+
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.tracking-page-header p {
+  margin: 8px 0 0;
+
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+.tracking-selector label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #64748b;
+
+  font-size: 10px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.06em;
+}
+
+.tracking-selector select {
+  height: 38px;
+
+  min-width: 260px;
+
+  padding: 0 12px;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 6px;
+
+  background: #ffffff;
+
+  color: #334155;
+
+  font-size: 12px;
+
+  outline: none;
+
+  cursor: pointer;
+}
+
+.tracking-selector select:focus {
+  border-color: #f57c00;
+}
+
+/* =========================
+   General Card
+========================= */
+
+.tracking-card {
+  border: 1px solid #e5e7eb;
+
+  border-radius: 12px;
+
+  background: #ffffff;
+
+  box-shadow:
+    0 1px 2px
+    rgba(15, 23, 42, 0.04);
+}
+
+/* =========================
+   Main
+========================= */
+
+.tracking-main-grid {
+  margin-top: 20px;
+
+  display: grid;
+
+  grid-template-columns: 2fr 1fr;
+
+  gap: 20px;
+
+  align-items: start;
+}
+
+/* =========================
+   Map
+========================= */
+
+.tracking-map-card {
+  overflow: hidden;
+}
+
+.tracking-map-header {
+  padding: 18px 20px;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  gap: 16px;
+
+  flex-wrap: wrap;
+}
+
+.tracking-trip-title {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+}
+
+.tracking-trip-title h2 {
+  margin: 0;
+
+  color: #0f172a;
+
+  font-size: 15px;
+}
+
+.tracking-map-header p {
+  margin: 8px 0 0;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+.tracking-map-header p strong {
+  color: #0f172a;
+}
+
+.tracking-status {
+  padding: 4px 8px;
+
+  border-radius: 4px;
+
+  background: #ffedd5;
+
+  color: #ea580c;
+
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.tracking-route {
+  padding: 7px 12px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 6px;
+
+  border-radius: 6px;
+
+  background: #f8fafc;
+
+  color: #0f172a;
+
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tracking-route-arrow {
+  color: #94a3b8;
+}
+
+/* Fake map */
+
+.tracking-map {
+  position: relative;
+
+  height: 390px;
+
+  overflow: hidden;
+
+  background-color: #f8fafc;
+
+  background-image:
+    radial-gradient(
+      #d7dde5 1px,
+      transparent 1px
+    );
+
+  background-size: 14px 14px;
+}
+
+.tracking-route-line {
+  position: absolute;
+
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+}
+
+/* Markers */
+
+.map-location {
+  position: absolute;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  gap: 8px;
+
+  transform: translate(
+    -50%,
+    -50%
+  );
+
+  z-index: 2;
+}
+
+.map-location span {
+  padding: 4px 7px;
+
+  border-radius: 4px;
+
+  background: #ffffff;
+
+  color: #0f172a;
+
+  font-size: 10px;
+  font-weight: 600;
+
+  white-space: nowrap;
+
+  box-shadow:
+    0 1px 3px
+    rgba(15, 23, 42, 0.08);
+}
+
+.map-origin {
+  left: 14%;
+  top: 74%;
+}
+
+.map-current {
+  left: 51%;
+  top: 48%;
+}
+
+.map-destination {
+  left: 85%;
+  top: 24%;
+}
+
+.map-marker {
+  width: 13px;
+  height: 13px;
+
+  border-radius: 50%;
+}
+
+.map-marker-start {
+  background: #0f172a;
+}
+
+.map-marker-current {
+  width: 18px;
+  height: 18px;
+
+  border: 3px solid #ffffff;
+
+  background: #f57c00;
+}
+
+.current-pulse {
+  padding: 7px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(
+      245,
+      124,
+      0,
+      0.18
+    );
+
+  animation:
+    trackingPulse
+    1.8s infinite;
+}
+
+@keyframes trackingPulse {
+  0% {
+    box-shadow:
+      0 0 0 0
+      rgba(
+        245,
+        124,
+        0,
+        0.25
+      );
+  }
+
+  70% {
+    box-shadow:
+      0 0 0 12px
+      rgba(
+        245,
+        124,
+        0,
+        0
+      );
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 0
+      rgba(
+        245,
+        124,
+        0,
+        0
+      );
+  }
+}
+
+.map-current span {
+  background: #0f172a;
+
+  color: #ffffff;
+}
+
+.map-marker-destination {
+  width: 16px;
+  height: 16px;
+
+  border: 3px solid #cbd5e1;
+
+  background: #ffffff;
+}
+
+.map-demo-notice {
+  padding: 10px 20px;
+
+  border-top: 1px solid #e5e7eb;
+
+  color: #94a3b8;
+
+  font-size: 10px;
+}
+
+/* =========================
+   Side
+========================= */
+
+.tracking-side {
+  display: flex;
+  flex-direction: column;
+
+  gap: 20px;
+}
+
+/* Current status */
+
+.tracking-status-card {
+  padding: 20px;
+}
+
+.tracking-eyebrow {
+  color: #64748b;
+
+  font-size: 10px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.06em;
+}
+
+.current-status-header {
+  margin-top: 16px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 14px;
+}
+
+.current-status-icon {
+  width: 40px;
+  height: 40px;
+
+  display: grid;
+  place-items: center;
+
+  flex-shrink: 0;
+
+  border-radius: 8px;
+
+  background: #ffedd5;
+
+  color: #ea580c;
+}
+
+.current-status-header strong {
+  display: block;
+
+  color: #0f172a;
+
+  font-size: 14px;
+}
+
+.current-status-header span {
+  display: block;
+
+  margin-top: 4px;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+/* Details */
+
+.tracking-detail-list {
+  margin-top: 16px;
+}
+
+.tracking-detail-list > div {
+  padding: 7px 8px;
+
+  display: flex;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  border-radius: 4px;
+
+  font-size: 11px;
+}
+
+.tracking-detail-list span {
+  color: #64748b;
+}
+
+.tracking-detail-list strong {
+  max-width: 55%;
+
+  color: #0f172a;
+
+  text-align: right;
+}
+
+.tracking-detail-highlight {
+  background: #fff7ed;
+}
+
+.tracking-detail-highlight strong {
+  color: #ea580c;
+}
+
+/* =========================
+   Timeline
+========================= */
+
+.tracking-updates-card {
+  padding: 20px;
+}
+
+.tracking-updates-card h3 {
+  margin: 0;
+
+  color: #0f172a;
+
+  font-size: 14px;
+}
+
+.tracking-timeline {
+  margin: 18px 0 0;
+
+  padding: 0;
+
+  list-style: none;
+}
+
+.tracking-timeline li {
+  position: relative;
+
+  padding:
+    0 0 20px 24px;
+}
+
+.tracking-timeline li:last-child {
+  padding-bottom: 0;
+}
+
+.tracking-timeline li::before {
+  content: "";
+
+  position: absolute;
+
+  top: 4px;
+  left: 0;
+
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+
+  background: #cbd5e1;
+}
+
+.tracking-timeline li::after {
+  content: "";
+
+  position: absolute;
+
+  top: 15px;
+  bottom: 0;
+  left: 3.5px;
+
+  width: 1px;
+
+  background: #e5e7eb;
+}
+
+.tracking-timeline li:last-child::after {
+  display: none;
+}
+
+.tracking-timeline
+  .timeline-completed::before {
+  background: #16a34a;
+}
+
+.tracking-timeline
+  .timeline-current::before {
+  background: #f57c00;
+}
+
+.tracking-timeline
+  .timeline-warning::before {
+  background: #dc2626;
+}
+
+.tracking-timeline strong {
+  display: block;
+
+  color: #0f172a;
+
+  font-size: 11px;
+}
+
+.tracking-timeline p {
+  margin: 4px 0 0;
+
+  color: #64748b;
+
+  font-size: 10px;
+
+  line-height: 1.5;
+}
+
+.tracking-timeline span {
+  display: block;
+
+  margin-top: 4px;
+
+  color: #94a3b8;
+
+  font-size: 9px;
+}
+
+/* =========================
+   Journey Progress
+========================= */
+
+.journey-card {
+  margin-top: 20px;
+
+  padding: 20px 24px;
+}
+
+.journey-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  gap: 20px;
+}
+
+.journey-header h2 {
+  margin: 0;
+
+  color: #0f172a;
+
+  font-size: 15px;
+}
+
+.journey-header p {
+  margin: 6px 0 0;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+.journey-header > strong {
+  color: #ea580c;
+
+  font-size: 18px;
+}
+
+.journey-progress-bar {
+  height: 6px;
+
+  margin-top: 18px;
+
+  overflow: hidden;
+
+  border-radius: 100px;
+
+  background: #e5e7eb;
+}
+
+.journey-progress-value {
+  height: 100%;
+
+  border-radius: inherit;
+
+  background: #f57c00;
+}
+
+/* Steps */
+
+.journey-steps {
+  margin-top: 26px;
+
+  display: flex;
+
+  overflow-x: auto;
+
+  padding-bottom: 8px;
+}
+
+.journey-step {
+  min-width: 130px;
+
+  flex: 1;
+
+  text-align: center;
+}
+
+.journey-step-top {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+}
+
+.journey-circle {
+  position: relative;
+
+  z-index: 2;
+
+  width: 30px;
+  height: 30px;
+
+  margin: 0 auto;
+
+  display: grid;
+  place-items: center;
+
+  border: 2px solid #e5e7eb;
+
+  border-radius: 50%;
+
+  background: #ffffff;
+
+  color: #94a3b8;
+
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.journey-line {
+  position: absolute;
+
+  top: 50%;
+  left: 50%;
+
+  width: 100%;
+  height: 2px;
+
+  background: #e5e7eb;
+
+  transform:
+    translateY(-50%);
+}
+
+.journey-step > span {
+  display: block;
+
+  margin-top: 10px;
+
+  color: #94a3b8;
+
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.journey-step-completed
+  .journey-circle {
+  border-color: #f57c00;
+
+  background: #f57c00;
+
+  color: #ffffff;
+}
+
+.journey-step-completed
+  .journey-line {
+  background: #f57c00;
+}
+
+.journey-step-completed > span {
+  color: #0f172a;
+}
+
+.journey-step-current
+  .journey-circle {
+  border: 3px solid #f57c00;
+
+  color: #ea580c;
+}
+
+.journey-step-current > span {
+  color: #ea580c;
+}
+
+/* =========================
+   Empty
+========================= */
+
+.tracking-empty {
+  padding: 40px;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 12px;
+
+  background: #ffffff;
+
+  color: #64748b;
+
+  text-align: center;
+}
+
+/* =========================
+   Responsive
+========================= */
+
+@media (max-width: 900px) {
+  .tracking-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .tracking-page-header {
+    align-items: stretch;
+
+    flex-direction: column;
+  }
+
+  .tracking-selector select {
+    width: 100%;
+
+    min-width: 0;
+  }
+
+  .tracking-map {
+    height: 320px;
+  }
+
+  .tracking-map-header {
+    flex-direction: column;
+  }
+
+  .tracking-route {
+    width: 100%;
+
+    justify-content: center;
+  }
+
+  .journey-card {
+    padding:
+      20px 16px;
+  }
+}
