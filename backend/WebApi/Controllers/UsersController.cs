@@ -102,7 +102,7 @@ namespace WebApi.Controllers
             {
                 UserId = "USR_" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper(),
                 Username = dto.Username,
-                PasswordHash = dto.Password, // Ghi chú: có thể bổ sung băm mật khẩu (BCrypt / SHA256) ở bước sau
+                PasswordHash = dto.Password, // Lưu trực tiếp mật khẩu bình thường (plain text)
                 Role = dto.Role ?? "Customer",
                 FullName = dto.FullName,
                 Email = dto.Email,
