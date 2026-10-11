@@ -1,9 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
-using RaceHorse_Transport_Infrastructure.Data.Context;
+using Infrastructure.Data.Context;
+using Application.DTOs;
 
-namespace RaceHorse_Transport_WebApi.Controllers
+namespace WebApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]

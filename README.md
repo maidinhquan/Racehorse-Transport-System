@@ -14,7 +14,7 @@ Cross-Border Racehorse Transport Management System - React frontend and ASP.NET 
 ## 📁 Cấu trúc dự án
 
 - `/frontend/` - Chứa mã nguồn của ứng dụng React.
-- `/RaceHorse_Transport_Backend/` - Chứa mã nguồn của API ASP.NET Core.
+- `/backend/` - Chứa mã nguồn của API ASP.NET Core.
 - `/HorseTransportDB/` - Các tài nguyên hoặc kịch bản liên quan đến Database (nếu có).
 - `compose.yaml` - File cấu hình Docker Compose để khởi chạy toàn bộ hệ thống.
 - `CONTRIBUTING.md` - Hướng dẫn đóng góp cho dự án.
@@ -61,7 +61,7 @@ Nếu bạn không muốn sử dụng Docker, bạn có thể chạy riêng lẻ
 - Cần có .NET SDK và thiết lập chuỗi kết nối (Connection String) trong `appsettings.json` trỏ tới Database cục bộ của bạn.
 - Di chuyển vào thư mục backend và chạy lệnh:
   ```bash
-  cd RaceHorse_Transport_Backend
+  cd backend/WebApi
   dotnet run
   ```
 

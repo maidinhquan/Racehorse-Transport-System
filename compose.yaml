@@ -12,7 +12,7 @@ services:
 
   backend:
     build:
-      context: ./RaceHorse_Transport_Backend
+      context: ./backend
       dockerfile: Dockerfile
     ports:
       # Chạy trên port 5129 để không làm đổi cấu hình hiện tại của bạn
