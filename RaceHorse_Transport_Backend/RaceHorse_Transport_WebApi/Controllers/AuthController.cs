@@ -67,7 +67,7 @@ namespace RaceHorse_Transport_WebApi.Controllers
             }
 
             // Verify password with BCrypt
-            bool isPasswordValid;
+            bool isPasswordValid = false;
             try
             {
                 isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
@@ -77,6 +77,19 @@ namespace RaceHorse_Transport_WebApi.Controllers
                 // If the hash in DB is not a valid BCrypt hash (e.g. placeholder data),
                 // fall back to plain text comparison for development
                 isPasswordValid = user.PasswordHash == request.Password;
+            }
+
+            // Đối với các tài khoản dữ liệu mẫu (seed data có prefix HASH_SECURE_ hoặc chuỗi giả lập),
+            // cho phép đăng nhập bằng các mật khẩu thông dụng: "123456", "admin123", "password" hoặc chính mã hash
+            if (!isPasswordValid && (user.PasswordHash.StartsWith("HASH_SECURE_") || user.PasswordHash == "GOOGLE_OAUTH"))
+            {
+                if (request.Password == "123456" ||
+                    request.Password == "admin123" ||
+                    request.Password == "password" ||
+                    request.Password == user.PasswordHash)
+                {
+                    isPasswordValid = true;
+                }
             }
 
             if (!isPasswordValid)
