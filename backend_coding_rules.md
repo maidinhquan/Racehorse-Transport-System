@@ -1,9 +1,4 @@
-
-# Backend Coding Rules (Phiên bản Tinh gọn - Dễ học & Dễ Code)
-
-Tài liệu này chuẩn hóa cấu trúc thư mục và quy tắc lập trình Backend ASP.NET Core Web API cho dự án **Hệ thống Quản lý Vận chuyển Ngựa đua (Racehorse Transport System)**.
-
----
+# Backend Coding Rules
 
 ## 1. Solution & Project Structure
 
@@ -171,13 +166,18 @@ CBN.Transport.WebApi/
 
 1. **Zero-Trust Logic (Không tin tưởng Client):**
 * Không dựa vào việc Frontend đã validate form. Toàn bộ logic (kiểm tra quyền Actor, ngày khởi hành, sức chứa xe, tính trùng lịch) bắt buộc phải kiểm tra lại tại Service của Backend.
+<<<<<<< HEAD
 
 
 
 
 2. **Chuẩn hóa API Response:**
 * Mọi Endpoint phải trả về định dạng JSON bọc thống nhất `ApiResponse<T>`:
+=======
+>>>>>>> 2cfb285ec7be4b1c48d56c0c85f3e054d3296134
 
+2. **Chuẩn hóa API Response:**
+* Mọi Endpoint phải trả về định dạng JSON bọc thống nhất `ApiResponse<T>`:
 
 ```json
 {
@@ -185,9 +185,42 @@ CBN.Transport.WebApi/
   "message": "Thao tác thành công",
   "data": { ... }
 }
+```
+
+3. **Xử lý Ngoại lệ tập trung (Global Exception Handling):**
+* Ném ngoại lệ nghiệp vụ trực tiếp trong tầng Service (`throw new BusinessRuleException(...)`, `throw new NotFoundException(...)`).
+* Sử dụng `ExceptionHandlingMiddleware` để chuyển đổi ngoại lệ thành HTTP Status Code tương ứng (400, 404, 500), không viết `try-catch` tràn lan trong Controllers.
+
+4. **Quy chuẩn Định danh & Dữ liệu CSDL:**
+* Tất cả Khóa chính (PK) và Khóa ngoại (FK) dùng chuỗi `VARCHAR(50)`.
+* Tất cả dữ liệu tiền tệ và cước phí bắt buộc dùng `DECIMAL(12, 2)` để tránh sai số làm tròn.
+* Các trường file/hình ảnh chỉ lưu chuỗi URL (`VARCHAR(500)`), tệp nhị phân lưu trữ qua Cloud/Storage Service.
+
+5. **Bảo toàn Dữ liệu:**
+* Áp dụng Xóa mềm (Soft Delete) qua cờ `IsDeleted` / `IsActive` cho danh mục tài khoản, phương tiện và lịch sử chuyến đi; tuyệt đối cấm dùng Hard Delete.
+* Bảng `HEALTH_LOG` (nhật ký sức khỏe) và `INCIDENT` (sự cố) tuân thủ cơ chế **Insert-Only** (chỉ cho phép ghi thêm, cấm sửa và cấm xóa).
+
+6. **Quy tắc Git:**
+* Không commit các thư mục build (`bin/`, `obj/`, `.vs/`) hoặc file CSDL vật lý (`.mdf`, `.ldf`).
+* Mọi thay đổi cấu trúc bảng phải thực hiện qua EF Core Migrations hoặc đồng bộ vào `database/init_database.sql`.
+
+7. **Không "nhìn giao diện rồi đoán cách code":** 
+* Với Frontend hiện tại, Backend nên dựa vào 4 thứ theo thứ tự ưu tiên:
+  - `auth-api.md` (hoặc các tài liệu API tương đương) — nguồn chính để biết FE và BE giao tiếp thế nào.
+  - SRS / Use Case — để biết nghiệp vụ phải xử lý ra sao.
+  - Database/Entity design — để biết dữ liệu thật nằm ở đâu.
+  - Code FE như `authApi.ts`, `auth.types.ts` — để kiểm tra việc tích hợp có khớp contract hay không.ng commit các thư mục build (`bin/`, `obj/`, `.vs/`) hoặc file CSDL vật lý (`.mdf`, `.ldf`).
+
+
+* Mọi thay đổi cấu trúc bảng phải thực hiện qua EF Core Migrations hoặc đồng bộ vào `database/init_database.sql`.
+
+
+
+
 
 ```
 
+<<<<<<< HEAD
 
 
 
@@ -234,3 +267,6 @@ CBN.Transport.WebApi/
 * SRS / Use Case — để biết nghiệp vụ phải xử lý ra sao.
 * Database/Entity design — để biết dữ liệu thật nằm ở đâu.
 * Code FE như `authApi.ts`, `auth.types.ts` — để kiểm tra việc tích hợp có khớp contract hay không.
+=======
+```
+>>>>>>> 2cfb285ec7be4b1c48d56c0c85f3e054d3296134
