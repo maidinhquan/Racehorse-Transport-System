@@ -5,6 +5,7 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
   type ClipboardEvent,
+  type FormEvent,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -386,7 +387,7 @@ function VerifyOtpPage() {
           Thay đổi email
         </button>
       </div>
-    </div>
+    </AuthLayout>
   );
 }
 
