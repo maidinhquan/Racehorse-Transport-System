@@ -3,10 +3,10 @@ GO
 
 -- Gán email thật của bạn cho tài khoản USR_CUST_01 để nhận mail
 UPDATE [USER] 
-SET Email = 'vana.horse@gmail.com' 
+SET Email = 'vana.horse@gmail.com' --đổi lại theo email của mình nếu muốn test 
 WHERE UserID = 'USR_CUST_01';
 
-SELECT ResetOtpCode, ResetOtpExpiry FROM [USER] WHERE Email = 'email_cua_ban@gmail.com';
+SELECT ResetOtpCode, ResetOtpExpiry FROM [USER] WHERE Email = 'vana.horse@gmail.com'; --đổi lại theo email của mình nếu muốn test
 
 -- -----------------------------------------------------------------------------
 -- PHÂN VÙNG 1: QUẢN TRỊ NGƯỜI DÙNG, TÀI SẢN & HỆ THỐNG

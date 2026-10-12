@@ -34,6 +34,19 @@ namespace Infrastructure.DAOs
             return await _context.Users.FindAsync(userId);
         }
 
+        public async Task<User?> GetByResetTokenAsync(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return null;
+            }
+
+            var cleanToken = token.Trim();
+            return await _context.Users.FirstOrDefaultAsync(u =>
+                (u.ResetOtpCode != null && u.ResetOtpCode == cleanToken) ||
+                (u.ForgotPasswordRequest != null && u.ForgotPasswordRequest == cleanToken));
+        }
+
         public async Task<bool> UpdateUserAsync(User user)
         {
             _context.Users.Update(user);
