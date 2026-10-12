@@ -1,11 +1,9 @@
-import axios from "axios";
-
-import { requestRegisterOtp } from "../../api/authApi";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { registrationErrorMessage, requestRegistrationOtp } from "../../api/registrationApi";
+import { saveRegistrationSession } from "../../api/registrationSession";
 
-import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
-
+import registerHeroImage from "../../../../assets/images/login-horse.jpg";
 import "./RegisterPage.css";
 
 function RegisterPage() {
@@ -15,8 +13,10 @@ function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] =
-    useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const submittingRef = useRef(false);
 
   const [showPassword, setShowPassword] =
     useState(false);
@@ -24,108 +24,38 @@ function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
 
-  const [errorMessage, setErrorMessage] =
-    useState("");
-
-  const [isLoading, setIsLoading] =
-    useState(false);
-
   const handleSubmit = async (
-  event: React.FormEvent<HTMLFormElement>
-) => {
-  event.preventDefault();
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+    if (submittingRef.current) return;
+    setError("");
 
-  setErrorMessage("");
-
-  const normalizedEmail =
-    email.trim().toLowerCase();
-
-  if (password !== confirmPassword) {
-    setErrorMessage(
-      "Mật khẩu xác nhận không khớp."
-    );
-    return;
-  }
-
-  const demoEmail =
-    import.meta.env.VITE_DEMO_EMAIL
-      ?.trim()
-      .toLowerCase();
-
-  const isDemoAccount =
-    import.meta.env.DEV &&
-    normalizedEmail === demoEmail;
-
-  /*
-    =========================
-    DEMO FLOW
-    =========================
-  */
-
-  if (isDemoAccount) {
-    navigate("/verify-otp", {
-      state: {
-        mode: "demo",
-        email: normalizedEmail,
-        fullName,
-        phoneNumber,
-      },
-    });
-
-    return;
-  }
-
-  /*
-    =========================
-    REAL BACKEND FLOW
-    =========================
-  */
-
-  setIsLoading(true);
-
-  try {
-    const response =
-      await requestRegisterOtp({
-        fullName,
-        email: normalizedEmail,
-        phoneNumber,
-        password,
-      });
-
-    if (!response.data) {
-      setErrorMessage(
-        "Không nhận được thông tin đăng ký từ hệ thống."
-      );
+    if (password !== confirmPassword) {
+      setError("Mật khẩu xác nhận không khớp.");
       return;
     }
 
-    navigate("/verify-otp", {
-      state: {
-        mode: "real",
-        email: normalizedEmail,
-
-        registrationToken:
-          response.data.registrationToken,
-
-        expiresIn:
-          response.data.expiresIn,
-      },
-    });
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      setErrorMessage(
-        error.response?.data?.message ??
-          "Không thể gửi mã OTP."
-      );
-    } else {
-      setErrorMessage(
-        "Đã xảy ra lỗi. Vui lòng thử lại."
-      );
+    submittingRef.current = true;
+    setIsSubmitting(true);
+    try {
+      const data = await requestRegistrationOtp({ fullName, email, phoneNumber: phone, password });
+      const session = {
+        email: email.trim().toLowerCase(), registrationToken: data.registrationToken,
+        otpExpiresAt: Date.now() + data.expiresIn * 1000,
+        resendAvailableAt: Date.now() + data.resendAfterSeconds * 1000,
+      };
+      saveRegistrationSession(session);
+      setPassword("");
+      setConfirmPassword("");
+      navigate("/verify-otp", { state: session });
+    } catch (error) {
+      setError(registrationErrorMessage(error));
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
     }
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   return (
     <AuthLayout>
@@ -161,8 +91,7 @@ function RegisterPage() {
         </p>
 
         <form onSubmit={handleSubmit}>
-
-          {/* FULL NAME */}
+          {error && <p role="alert">{error}</p>}
           <div className="register-form-group">
             <label htmlFor="fullName">
               Họ và tên
@@ -170,13 +99,13 @@ function RegisterPage() {
 
             <input
               id="fullName"
+              maxLength={100}
               type="text"
               placeholder="Nhập họ và tên"
               value={fullName}
               onChange={(event) =>
                 setFullName(event.target.value)
               }
-              autoComplete="name"
               required
             />
           </div>
@@ -189,13 +118,13 @@ function RegisterPage() {
 
             <input
               id="email"
+              maxLength={100}
               type="email"
               placeholder="Nhập địa chỉ email"
               value={email}
               onChange={(event) =>
                 setEmail(event.target.value)
               }
-              autoComplete="email"
               required
             />
           </div>
@@ -207,16 +136,14 @@ function RegisterPage() {
             </label>
 
             <input
-              id="phoneNumber"
+              id="phone"
+              maxLength={40}
               type="tel"
               placeholder="Nhập số điện thoại"
-              value={phoneNumber}
+              value={phone}
               onChange={(event) =>
-                setPhoneNumber(
-                  event.target.value
-                )
+                setPhone(event.target.value)
               }
-              autoComplete="tel"
               required
             />
           </div>
@@ -229,7 +156,9 @@ function RegisterPage() {
 
             <div className="register-password-wrapper">
               <input
-                id="password"
+                id="registerPassword"
+                minLength={6}
+                autoComplete="new-password"
                 type={
                   showPassword
                     ? "text"
@@ -238,11 +167,8 @@ function RegisterPage() {
                 placeholder="Tạo mật khẩu"
                 value={password}
                 onChange={(event) =>
-                  setPassword(
-                    event.target.value
-                  )
+                  setPassword(event.target.value)
                 }
-                autoComplete="new-password"
                 required
               />
 
@@ -274,6 +200,7 @@ function RegisterPage() {
             <div className="register-password-wrapper">
               <input
                 id="confirmPassword"
+                autoComplete="new-password"
                 type={
                   showConfirmPassword
                     ? "text"
@@ -282,11 +209,8 @@ function RegisterPage() {
                 placeholder="Nhập lại mật khẩu"
                 value={confirmPassword}
                 onChange={(event) =>
-                  setConfirmPassword(
-                    event.target.value
-                  )
+                  setConfirmPassword(event.target.value)
                 }
-                autoComplete="new-password"
                 required
               />
 
@@ -320,13 +244,10 @@ function RegisterPage() {
           <button
             type="submit"
             className="register-submit-button"
-            disabled={isLoading}
+            disabled={isSubmitting}
           >
-            {isLoading
-              ? "Đang gửi mã..."
-              : "Gửi mã OTP"}
+            {isSubmitting ? "Đang gửi mã…" : "Gửi mã xác nhận"}
           </button>
-
         </form>
 
         <p className="register-login-text">

@@ -8,11 +8,13 @@ using Application.Services;
 using Infrastructure.Data.Context;
 
 using WebApi.Middlewares;
+using WebApi.Extensions;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true).AddEnvironmentVariables();
 
 // =============================================================================
 // 1. KẾT NỐI DATABASE VỚI SQL SERVER
@@ -28,6 +30,7 @@ builder.Services.AddScoped<Infrastructure.DAOs.UserDAO>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 
 // =============================================================================
 // 3. CẤU HÌNH CORS VĨNH VIỄN (ZERO-MAINTENANCE CORS CHO FRONTEND)
@@ -77,7 +80,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         var errors = actionContext.ModelState
             .Where(e => e.Value?.Errors.Count > 0)
             .ToDictionary(
-                kvp => string.IsNullOrEmpty(kvp.Key) ? "general" : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
+                kvp => string.IsNullOrEmpty(kvp.Key) ? "request" : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
                 kvp => kvp.Value!.Errors.Select(x => x.ErrorMessage).ToArray()
             );
 
@@ -206,7 +209,10 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }

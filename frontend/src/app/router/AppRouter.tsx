@@ -27,8 +27,6 @@ import PaymentCancelPage from "../../features/user-dashboard/page/transport-requ
 import TransportInformationPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationPage";
 import TransportInformationSuccessPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationSuccessPage";
 import CustomerProfilePage from "../../features/user-dashboard/page/profile/CustomerProfilePage";
-
-
 // Import các trang khác của manager
 import ManagerDashboard from "../../features/Manager/ManagerDashboard.tsx";
 
@@ -40,6 +38,7 @@ import DriverDashboard from "../../features/driver/DriverDashboard";
 // Import các trang của admin
 import AdminDashboard from "../../features/admin/AdminDashboard";
 
+import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage";
 function AppRouter() {
   return (
     <BrowserRouter>
@@ -91,6 +90,9 @@ function AppRouter() {
           path="/customer/payment/cancel"
           element={<PaymentCancelPage />}
         />
+        <Route path="/payment/sandbox" element={<SandboxPaymentPage />} />
+        <Route path="/payment/return" element={<SandboxPaymentPage />} />
+
         {/* Màn hình login */}
         <Route
           path="/"
