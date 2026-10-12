@@ -1,0 +1,44 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5129:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=host.docker.internal,1433;Database=HorseTransportDB;User Id=sa;Password=12345;TrustServerCertificate=True;
+      - Smtp__Host=smtp.gmail.com
+      - Smtp__Port=587
+      - Smtp__Username=quangtruong1922@gmail.com
+      - Smtp__Password=scanyaeiddbipgsf
+      - Smtp__FromEmail=quangtruong1922@gmail.com
+      - Smtp__FromName=RaceHorse Transport System
+      - Smtp__EnableSsl=true
+      - RegistrationEmail__Mode=Smtp
+      - RegistrationEmail__Smtp__Host=smtp.gmail.com
+      - RegistrationEmail__Smtp__Port=587
+      - RegistrationEmail__Smtp__Username=quangtruong1922@gmail.com
+      - RegistrationEmail__Smtp__Password=scanyaeiddbipgsf
+      - RegistrationEmail__Smtp__From=quangtruong1922@gmail.com
+      - RegistrationEmail__Smtp__EnableSsl=true
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+    environment:
+      - VITE_API_URL=http://localhost:5129/api
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  frontend_node_modules:

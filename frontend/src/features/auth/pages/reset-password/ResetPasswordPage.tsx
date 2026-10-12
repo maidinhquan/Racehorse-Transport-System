@@ -1,206 +1,284 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import {
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+import axios from "axios";
 
-import authHorseImage from "../../../../assets/images/login-horse.jpg";
+import { resetPassword } from "../../api/authApi";
+import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
+
 import "./ResetPasswordPage.css";
 
 function ResetPasswordPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] =
+  const isDemo =
+    searchParams.get("demo") === "true";
+
+  const resetToken =
+    searchParams.get("token") ?? "";
+
+  const [newPassword, setNewPassword] =
     useState("");
+
+  const [
+    confirmNewPassword,
+    setConfirmNewPassword,
+  ] = useState("");
 
   const [showPassword, setShowPassword] =
     useState(false);
 
-  const [showConfirmPassword, setShowConfirmPassword] =
+  const [isLoading, setIsLoading] =
     useState(false);
 
-  const handleSubmit = (
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  const [isSuccess, setIsSuccess] =
+    useState(false);
+
+  const [redirectSeconds, setRedirectSeconds] =
+    useState(5);
+
+  useEffect(() => {
+    if (!isSuccess) {
+      return;
+    }
+
+    if (redirectSeconds <= 0) {
+      navigate("/login");
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setRedirectSeconds(
+        (current) => current - 1
+      );
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    isSuccess,
+    redirectSeconds,
+    navigate,
+  ]);
+
+  const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
-    if (password !== confirmPassword) {
-      alert("Mật khẩu xác nhận không khớp.");
+    setErrorMessage("");
+
+    if (
+      newPassword !== confirmNewPassword
+    ) {
+      setErrorMessage(
+        "Mật khẩu xác nhận không khớp."
+      );
       return;
     }
 
-    console.log("New password:", password);
+    if (newPassword.length < 8) {
+      setErrorMessage(
+        "Mật khẩu phải có ít nhất 8 ký tự."
+      );
+      return;
+    }
 
-    // Sau này gọi API reset password.
+    setIsLoading(true);
 
-    navigate("/login");
+    try {
+      if (isDemo) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 700)
+        );
+
+        setIsSuccess(true);
+        setRedirectSeconds(5);
+        return;
+      }
+
+      if (!resetToken) {
+        setErrorMessage(
+          "Liên kết đặt lại mật khẩu không hợp lệ."
+        );
+        return;
+      }
+
+      await resetPassword({
+        resetToken,
+        newPassword,
+        confirmNewPassword,
+      });
+
+      setIsSuccess(true);
+      setRedirectSeconds(5);
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        setErrorMessage(
+          error.response?.data?.message ??
+            "Không thể đặt lại mật khẩu."
+        );
+      } else {
+        setErrorMessage(
+          "Đã xảy ra lỗi. Vui lòng thử lại."
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  if (isSuccess) {
+    return (
+      <AuthLayout>
+        <div className="reset-success-wrapper">
+          <div className="reset-success-icon">
+            ✓
+          </div>
+
+          <h2>
+            Đặt lại mật khẩu thành công!
+          </h2>
+
+          <p>
+            Mật khẩu của bạn đã được cập nhật
+            thành công.
+          </p>
+
+          <p className="reset-success-redirect">
+            Bạn sẽ được chuyển đến trang đăng nhập
+            trong{" "}
+            <strong>
+              {redirectSeconds}
+            </strong>{" "}
+            giây.
+          </p>
+
+          <button
+            type="button"
+            className="reset-success-button"
+            onClick={() =>
+              navigate("/login")
+            }
+          >
+            Đăng nhập ngay
+          </button>
+        </div>
+      </AuthLayout>
+    );
+  }
+
   return (
-    <div className="reset-password-page auth-page">
-      <div className="reset-password-container">
+    <AuthLayout>
+      <div className="reset-password-form-wrapper">
+        <div className="reset-password-title-line" />
 
-        <section
-          className="reset-password-hero"
-          style={{
-            backgroundImage: `url(${authHorseImage})`,
-          }}
-        >
-          <div className="reset-password-overlay" />
+        <h2>
+          Đặt lại mật khẩu
+        </h2>
 
-          <div className="reset-password-hero-content">
+        <p className="reset-password-description">
+          Tạo mật khẩu mới cho tài khoản của bạn.
+        </p>
 
-            <div className="reset-password-brand">
-              <div className="reset-password-brand-icon">
-                ♞
-              </div>
+        <form onSubmit={handleSubmit}>
+          <div className="reset-password-form-group">
+            <label htmlFor="newPassword">
+              Mật khẩu mới
+            </label>
 
-              <span>CNB Transport</span>
-            </div>
-
-            <div className="reset-password-hero-bottom">
-
-              <div className="reset-password-hero-label">
-                <span className="reset-password-hero-line" />
-
-                AN TOÀN TRÊN MỌI HÀNH TRÌNH
-              </div>
-
-              <h1>
-                Đồng hành cùng ngựa trên mọi
-                <br />
-                chặng đường
-              </h1>
-
-              <p>
-                Quản lý hành trình vận chuyển an toàn và chuyên nghiệp.
-              </p>
-
-              <div className="reset-password-hero-badge">
-                <span>✓</span>
-                Chuyên biệt • An toàn • Đúng giờ
-              </div>
-
-            </div>
-
+            <input
+              id="newPassword"
+              type={
+                showPassword
+                  ? "text"
+                  : "password"
+              }
+              placeholder="Nhập mật khẩu mới"
+              value={newPassword}
+              onChange={(event) =>
+                setNewPassword(
+                  event.target.value
+                )
+              }
+              autoComplete="new-password"
+              required
+            />
           </div>
-        </section>
 
-        <section className="reset-password-form-section">
+          <div className="reset-password-form-group">
+            <label htmlFor="confirmNewPassword">
+              Xác nhận mật khẩu
+            </label>
 
-          <div className="reset-password-form-wrapper">
+            <input
+              id="confirmNewPassword"
+              type={
+                showPassword
+                  ? "text"
+                  : "password"
+              }
+              placeholder="Nhập lại mật khẩu"
+              value={confirmNewPassword}
+              onChange={(event) =>
+                setConfirmNewPassword(
+                  event.target.value
+                )
+              }
+              autoComplete="new-password"
+              required
+            />
+          </div>
 
-            <div className="reset-password-title-line" />
+          <label className="reset-password-show">
+            <input
+              type="checkbox"
+              checked={showPassword}
+              onChange={(event) =>
+                setShowPassword(
+                  event.target.checked
+                )
+              }
+            />
 
-            <h2>Đặt lại mật khẩu</h2>
+            <span>Hiện mật khẩu</span>
+          </label>
 
-            <p className="reset-password-description">
-              Tạo mật khẩu mới cho tài khoản của bạn.
+          {errorMessage && (
+            <p className="reset-password-error">
+              {errorMessage}
             </p>
+          )}
 
-            <form onSubmit={handleSubmit}>
+          <button
+            type="submit"
+            className="reset-password-submit-button"
+            disabled={isLoading}
+          >
+            {isLoading
+              ? "Đang xử lý..."
+              : "Đặt lại mật khẩu"}
+          </button>
+        </form>
 
-              <div className="reset-password-form-group">
-
-                <label htmlFor="newPassword">
-                  Mật khẩu mới
-                </label>
-
-                <div className="reset-password-input-wrapper">
-
-                  <input
-                    id="newPassword"
-                    type={
-                      showPassword
-                        ? "text"
-                        : "password"
-                    }
-                    placeholder="Nhập mật khẩu mới"
-                    value={password}
-                    onChange={(event) =>
-                      setPassword(event.target.value)
-                    }
-                    required
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowPassword(
-                        (current) => !current
-                      )
-                    }
-                  >
-                    {showPassword ? "Ẩn" : "Hiện"}
-                  </button>
-
-                </div>
-
-              </div>
-
-              <div className="reset-password-form-group">
-
-                <label htmlFor="confirmPassword">
-                  Xác nhận mật khẩu
-                </label>
-
-                <div className="reset-password-input-wrapper">
-
-                  <input
-                    id="confirmPassword"
-                    type={
-                      showConfirmPassword
-                        ? "text"
-                        : "password"
-                    }
-                    placeholder="Nhập lại mật khẩu mới"
-                    value={confirmPassword}
-                    onChange={(event) =>
-                      setConfirmPassword(
-                        event.target.value
-                      )
-                    }
-                    required
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowConfirmPassword(
-                        (current) => !current
-                      )
-                    }
-                  >
-                    {showConfirmPassword
-                      ? "Ẩn"
-                      : "Hiện"}
-                  </button>
-
-                </div>
-
-              </div>
-
-              <button
-                type="submit"
-                className="reset-password-submit-button"
-              >
-                Đặt lại mật khẩu
-              </button>
-
-            </form>
-
-            <button
-              type="button"
-              className="reset-password-back-button"
-              onClick={() => navigate("/login")}
-            >
-              ← Quay lại đăng nhập
-            </button>
-
-          </div>
-
-        </section>
-
+        <button
+          type="button"
+          className="reset-password-back-button"
+          onClick={() =>
+            navigate("/login")
+          }
+        >
+          ← Quay lại đăng nhập
+        </button>
       </div>
-    </div>
+    </AuthLayout>
   );
 }
 
