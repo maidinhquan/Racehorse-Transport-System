@@ -2,20 +2,51 @@
 
 import { useState } from 'react';
 import './ManagerDashboard.css';
+import ThemeToggle from '../../shared/components/ThemeToggle/ThemeToggle';
 
 function ManagerDashboard() {
   const [activePage, setActivePage] = useState('dashboard');
   const [pendingCount] = useState(3);
 
   const pendingRequests = [
-    { id: 'REQ-1001', customer: 'CLB Phù Đổng', route: 'Đà Lạt ➡️ HCM', horses: '2 cá thể', date: '12/10/2026' },
-    { id: 'REQ-1002', customer: 'Trại Ngựa ABC', route: 'HCM ➡️ Bangkok', horses: '5 cá thể', date: '15/10/2026' },
-    { id: 'REQ-1003', customer: 'Khu du lịch XYZ', route: 'Hà Nội ➡️ Seoul', horses: '1 cá thể', date: '16/10/2026' },
+    {
+      id: 'REQ-1001',
+      customer: 'CLB Phù Đổng',
+      route: 'Đà Lạt ➡️ HCM',
+      horses: '2 cá thể',
+      date: '12/10/2026',
+    },
+    {
+      id: 'REQ-1002',
+      customer: 'Trại Ngựa ABC',
+      route: 'HCM ➡️ Bangkok',
+      horses: '5 cá thể',
+      date: '15/10/2026',
+    },
+    {
+      id: 'REQ-1003',
+      customer: 'Khu du lịch XYZ',
+      route: 'Hà Nội ➡️ Seoul',
+      horses: '1 cá thể',
+      date: '16/10/2026',
+    },
   ];
 
   const activeTrips = [
-    { id: 'TRP-2026', route: 'Hồ Chí Minh ➡️ Tokyo', status: 'Đang di chuyển', statusClass: 'status-transit', eta: '18:00, 15/10/2026' },
-    { id: 'TRP-2027', route: 'Hà Nội ➡️ Paris', status: 'Sẵn sàng khởi hành', statusClass: 'status-ready', eta: '09:00, 18/10/2026' },
+    {
+      id: 'TRP-2026',
+      route: 'Hồ Chí Minh ➡️ Tokyo',
+      status: 'Đang di chuyển',
+      statusClass: 'status-transit',
+      eta: '18:00, 15/10/2026',
+    },
+    {
+      id: 'TRP-2027',
+      route: 'Hà Nội ➡️ Paris',
+      status: 'Sẵn sàng khởi hành',
+      statusClass: 'status-ready',
+      eta: '09:00, 18/10/2026',
+    },
   ];
 
   const getTopBarTitle = () => {
@@ -194,6 +225,7 @@ function ManagerDashboard() {
           </div>
 
           <div className="top-bar-right">
+            <ThemeToggle showLabel={false} />
             <button className="notification-btn" aria-label="Notifications">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>

@@ -1,0 +1,185 @@
+/* TỔNG QUAN LAYOUT */
+.coordinator-layout {
+  display: flex;
+  height: 100vh;
+  font-family: 'Inter', sans-serif;
+  background-color: #F8F9FA;
+  overflow: hidden;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width: 260px;
+  background-color: #FFFFFF;
+  border-right: 1px solid #E5E7EB;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.sidebar-header {
+  padding: 24px;
+  border-bottom: 1px solid #F3F4F6;
+}
+
+.brand-title {
+  color: #F57C00;
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.brand-title span { color: #111827; }
+.role-title { font-size: 13px; color: #6B7280; margin: 4px 0 0 0; font-weight: 500; }
+
+.sidebar-nav {
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.nav-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 16px 0 8px 8px;
+}
+
+button.nav-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: #4B5563;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+button.nav-item:hover { background-color: #F9FAFB; color: #111827; }
+button.nav-item.active { background-color: #FFF3E0; color: #F57C00; font-weight: 600; }
+
+.badge-alert {
+  background-color: #EF4444; color: white; font-size: 11px;
+  font-weight: 700; padding: 2px 8px; border-radius: 99px;
+}
+
+/* TOP BAR & CONTENT WRAPPER */
+.content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 72px;
+  padding: 0 40px;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.top-bar-title { font-size: 18px; font-weight: 600; color: #111827; margin: 0; }
+.top-bar-right { display: flex; align-items: center; gap: 24px; }
+
+.notification-btn {
+  background: none; border: none; cursor: pointer; position: relative;
+  color: #6B7280; display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 50%; transition: 0.2s;
+}
+.notification-btn:hover { background-color: #F3F4F6; color: #111827; }
+.notification-badge {
+  position: absolute; top: 8px; right: 8px; background-color: #EF4444;
+  width: 10px; height: 10px; border-radius: 50%; border: 2px solid #FFFFFF;
+}
+
+.user-profile {
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  padding: 6px; border-radius: 8px; transition: 0.2s;
+}
+.user-profile:hover { background-color: #F9FAFB; }
+
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%; background-color: #3B82F6; /* Màu xanh dương cho Coordinator */
+  color: white; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+}
+
+.user-info { display: flex; flex-direction: column; }
+.user-name { font-size: 14px; font-weight: 600; color: #111827; }
+.user-role { font-size: 12px; color: #6B7280; }
+
+/* MAIN CONTENT & CARDS */
+.main-content { flex: 1; padding: 32px 40px; overflow-y: auto; display: flex; flex-direction: column; }
+.page-header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }
+.page-title { font-size: 24px; font-weight: 700; color: #111827; margin: 0 0 8px 0; }
+.page-subtitle { color: #6B7280; font-size: 14px; margin: 0; }
+
+.dashboard-card {
+  background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px;
+  padding: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); margin-bottom: 24px;
+}
+
+/* BẢNG DỮ LIỆU */
+table { width: 100%; border-collapse: collapse; text-align: left; }
+th { padding: 12px 16px; font-size: 12px; font-weight: 600; color: #6B7280; text-transform: uppercase; border-bottom: 1px solid #E5E7EB; }
+td { padding: 16px; font-size: 14px; color: #111827; border-bottom: 1px solid #F3F4F6; vertical-align: middle; }
+tr:hover td { background-color: #F9FAFB; }
+
+.status-pill { padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; display: inline-block; }
+.status-pending { background-color: #FEF3C7; color: #D97706; }
+.status-running { background-color: #DBEAFE; color: #1D4ED8; }
+.status-alert { background-color: #FEE2E2; color: #DC2626; }
+
+/* NÚT BẤM */
+.btn-primary { background: #F57C00; color: white; border: none; height: 36px; padding: 0 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-primary:hover { background: #E65100; }
+.btn-outline { background: white; border: 1px solid #D1D5DB; color: #374151; height: 36px; padding: 0 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-outline:hover { background: #F9FAFB; }
+.btn-danger { background: #EF4444; color: white; border: none; height: 36px; padding: 0 16px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+
+/* =========================================
+   BẢN ĐỒ MÔ PHỎNG (MAP + POLYLINE + MARKER)
+   ========================================= */
+.map-layout { display: flex; gap: 24px; height: 500px; }
+.map-view { flex: 2; border-radius: 12px; border: 1px solid #D1D5DB; position: relative; overflow: hidden; background-color: #E5E7EB; background-image: radial-gradient(#9CA3AF 1px, transparent 1px); background-size: 20px 20px; }
+.map-data-panel { flex: 1; background: #111827; border-radius: 12px; padding: 20px; color: #10B981; font-family: monospace; overflow-y: auto; font-size: 13px; }
+
+/* Polyline (Đường nối) */
+.map-polyline { position: absolute; top: 50%; left: 10%; right: 10%; height: 4px; background-color: #3B82F6; transform: translateY(-50%); z-index: 1; }
+.map-polyline-dashed { position: absolute; top: 50%; left: 50%; right: 10%; height: 4px; background-image: linear-gradient(to right, #9CA3AF 50%, transparent 50%); background-size: 12px 4px; background-repeat: repeat-x; background-color: transparent; transform: translateY(-50%); z-index: 2; }
+
+/* Markers (Điểm đánh dấu) */
+.map-marker { position: absolute; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 3; }
+.marker-icon { width: 28px; height: 28px; background-color: white; border: 3px solid #374151; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.marker-label { margin-top: 8px; font-size: 12px; font-weight: 600; color: #111827; background: rgba(255,255,255,0.9); padding: 4px 8px; border-radius: 6px; border: 1px solid #E5E7EB; white-space: nowrap;}
+
+/* Truck Marker (Icon xe chuyển động) */
+.map-truck { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 32px; z-index: 10; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2)); animation: driveTruck 2s infinite alternate ease-in-out; }
+
+@keyframes driveTruck {
+  0% { transform: translate(-60%, -50%); }
+  100% { transform: translate(-40%, -50%); }
+}
+
+.fade-in { animation: fadeIn 0.3s ease-in-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

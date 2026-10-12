@@ -15,13 +15,13 @@ namespace Application.Services
 
         public async Task SendEmailAsync(string toEmail, string subject, string body)
         {
-            var host = _config["Smtp:Host"];
-            var portString = _config["Smtp:Port"];
-            var username = _config["Smtp:Username"];
-            var password = _config["Smtp:Password"];
-            var fromEmail = _config["Smtp:FromEmail"] ?? "noreply@horsetransport.com";
+            var host = _config["Smtp:Host"] ?? _config["RegistrationEmail:Smtp:Host"] ?? "smtp.gmail.com";
+            var portString = _config["Smtp:Port"] ?? _config["RegistrationEmail:Smtp:Port"] ?? "587";
+            var username = _config["Smtp:Username"] ?? _config["RegistrationEmail:Smtp:Username"];
+            var password = (_config["Smtp:Password"] ?? _config["RegistrationEmail:Smtp:Password"])?.Replace(" ", "");
+            var fromEmail = _config["Smtp:FromEmail"] ?? _config["RegistrationEmail:Smtp:From"] ?? username ?? "noreply@horsetransport.com";
             var fromName = _config["Smtp:FromName"] ?? "RaceHorse Transport System";
-            var enableSsl = bool.TryParse(_config["Smtp:EnableSsl"], out var ssl) ? ssl : true;
+            var enableSsl = bool.TryParse(_config["Smtp:EnableSsl"] ?? _config["RegistrationEmail:Smtp:EnableSsl"], out var ssl) ? ssl : true;
 
             // Nếu chưa cấu hình SMTP trong appsettings.json hoặc thông tin là giá trị mẫu, fallback in ra console để test
             if (string.IsNullOrWhiteSpace(host) || string.IsNullOrWhiteSpace(username) || host.Contains("example.com"))

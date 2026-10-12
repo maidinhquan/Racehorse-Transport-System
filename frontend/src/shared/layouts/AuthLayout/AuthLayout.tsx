@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import authHorseImage from "../../../assets/images/login-horse.jpg";
+import ThemeToggle from "../../components/ThemeToggle/ThemeToggle";
 
 import "./AuthLayout.css";
 
@@ -49,7 +50,10 @@ function AuthLayout({ children }: AuthLayoutProps) {
         </div>
       </section>
 
-      <section className="auth-form-section">
+      <section className="auth-form-section" style={{ position: "relative" }}>
+        <div style={{ position: "absolute", top: "24px", right: "32px", zIndex: 10 }}>
+          <ThemeToggle />
+        </div>
         {children}
       </section>
     </div>
