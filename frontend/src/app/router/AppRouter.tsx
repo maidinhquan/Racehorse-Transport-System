@@ -22,18 +22,38 @@ import CreateTransportRequestPage from "../../features/user-dashboard/page/trans
 import TransportRequestDetailPage from "../../features/user-dashboard/page/transport-request-page/detail/TransportRequestDetailPage";
 import ContractPage from "../../features/user-dashboard/page/transport-request-page/contract/ContractPage";
 import PaymentPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentPage";
-
 import PaymentSuccessPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentSuccessPage";
-
 import PaymentCancelPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentCancelPage";
 import TransportInformationPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationPage";
-
 import TransportInformationSuccessPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationSuccessPage";
 import CustomerProfilePage from "../../features/user-dashboard/page/profile/CustomerProfilePage";
+
+
+// Import các trang khác của manager
+import ManagerDashboard from "../../features/Manager/ManagerDashboard.tsx";
+
+
+// Import các trang khác của driver
+import DriverDashboard from "../../features/driver/DriverDashboard";
+
+
 function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Màn hình driver */}
+        <Route
+          path="/driver/dashboard"
+          element={<DriverDashboard />}
+        />
+
+        {/* Màn hình manager */}
+        <Route
+          path="/manager/dashboard"
+          element={<ManagerDashboard />}
+        />
+
+        {/* Màn hình customer */}
         <Route
           path="/customer/profile"
           element={<CustomerProfilePage />}
@@ -63,6 +83,7 @@ function AppRouter() {
           path="/customer/payment/cancel"
           element={<PaymentCancelPage />}
         />
+        {/* Màn hình login */}
         <Route
           path="/"
           element={<Navigate to="/login" replace />}

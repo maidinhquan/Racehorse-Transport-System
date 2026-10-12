@@ -1,7 +1,11 @@
+import axios from "axios";
+
+import { requestRegisterOtp } from "../../api/authApi";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import registerHeroImage from "../../../../assets/images/login-horse.jpg";
+import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
+
 import "./RegisterPage.css";
 
 function RegisterPage() {
@@ -9,255 +13,337 @@ function RegisterPage() {
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] =
+    useState("");
 
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
+
   const [showConfirmPassword, setShowConfirmPassword] =
     useState(false);
 
-  const handleSubmit = (
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  const [isLoading, setIsLoading] =
+    useState(false);
+
+  const handleSubmit = async (
   event: React.FormEvent<HTMLFormElement>
 ) => {
   event.preventDefault();
 
+  setErrorMessage("");
+
+  const normalizedEmail =
+    email.trim().toLowerCase();
+
   if (password !== confirmPassword) {
-    alert("Mật khẩu xác nhận không khớp.");
+    setErrorMessage(
+      "Mật khẩu xác nhận không khớp."
+    );
     return;
   }
 
-  const registerData = {
-    fullName,
-    email,
-    phone,
-    password,
-  };
+  const demoEmail =
+    import.meta.env.VITE_DEMO_EMAIL
+      ?.trim()
+      .toLowerCase();
 
-  console.log("Register data:", registerData);
+  const isDemoAccount =
+    import.meta.env.DEV &&
+    normalizedEmail === demoEmail;
 
-  // Sau này:
-  // 1. gọi Backend gửi OTP
-  // 2. nếu Backend trả thành công mới navigate
+  /*
+    =========================
+    DEMO FLOW
+    =========================
+  */
 
-  navigate("/verify-otp", {
-    state: {
-      email: email,
-    },
-  });
+  if (isDemoAccount) {
+    navigate("/verify-otp", {
+      state: {
+        mode: "demo",
+        email: normalizedEmail,
+        fullName,
+        phoneNumber,
+      },
+    });
+
+    return;
+  }
+
+  /*
+    =========================
+    REAL BACKEND FLOW
+    =========================
+  */
+
+  setIsLoading(true);
+
+  try {
+    const response =
+      await requestRegisterOtp({
+        fullName,
+        email: normalizedEmail,
+        phoneNumber,
+        password,
+      });
+
+    if (!response.data) {
+      setErrorMessage(
+        "Không nhận được thông tin đăng ký từ hệ thống."
+      );
+      return;
+    }
+
+    navigate("/verify-otp", {
+      state: {
+        mode: "real",
+        email: normalizedEmail,
+
+        registrationToken:
+          response.data.registrationToken,
+
+        expiresIn:
+          response.data.expiresIn,
+      },
+    });
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      setErrorMessage(
+        error.response?.data?.message ??
+          "Không thể gửi mã OTP."
+      );
+    } else {
+      setErrorMessage(
+        "Đã xảy ra lỗi. Vui lòng thử lại."
+      );
+    }
+  } finally {
+    setIsLoading(false);
+  }
 };
 
   return (
-    <div className="register-page auth-page">
-      <div className="register-container">
-        <section
-          className="register-hero"
-          style={{
-            backgroundImage: `url(${registerHeroImage})`,
-          }}
-        >
-          <div className="register-overlay" />
+    <AuthLayout>
+      <div className="register-form-wrapper">
 
-          <div className="register-hero-content">
-            <div className="register-brand">
-              <div className="register-brand-icon">
-                ♞
-              </div>
+        {/* STEP INDICATOR */}
+        <div className="register-steps">
 
-              <span>CNB Transport</span>
-            </div>
+          <div className="register-step active">
+            <span className="register-step-number">
+              1
+            </span>
 
-            <div className="register-hero-bottom">
-              <div className="register-hero-label">
-                <span className="register-hero-line" />
-
-                AN TOÀN TRÊN MỌI HÀNH TRÌNH
-              </div>
-
-              <h1>
-                Đồng hành cùng ngựa trên mọi
-                <br />
-                chặng đường
-              </h1>
-
-              <p>
-                Quản lý hành trình vận chuyển an toàn và chuyên nghiệp.
-              </p>
-
-              <div className="register-hero-badge">
-                <span>✓</span>
-
-                Chuyên biệt • An toàn • Đúng giờ
-              </div>
-            </div>
+            <span>Thông tin tài khoản</span>
           </div>
-        </section>
 
-        <section className="register-form-section">
-          <div className="register-form-wrapper">
-            <div className="register-steps">
-              <div className="register-step register-step-active">
-                <span>1</span>
-                Thông tin tài khoản
-              </div>
+          <div className="register-step">
+            <span className="register-step-number">
+              2
+            </span>
 
-              <div className="register-step">
-                <span>2</span>
-                Xác minh OTP
-              </div>
-            </div>
+            <span>Xác minh OTP</span>
+          </div>
 
-            <div className="register-title-line" />
+        </div>
 
-            <h2>Đăng ký</h2>
+        <div className="register-title-line" />
 
-            <p className="register-description">
-              Tạo tài khoản để bắt đầu quản lý vận chuyển.
-            </p>
+        <h2>Đăng ký</h2>
 
-            <form onSubmit={handleSubmit}>
-              <div className="register-form-group">
-                <label htmlFor="fullName">
-                  Họ và tên
-                </label>
+        <p className="register-description">
+          Tạo tài khoản để bắt đầu quản lý vận chuyển.
+        </p>
 
-                <input
-                  id="fullName"
-                  type="text"
-                  placeholder="Nhập họ và tên"
-                  value={fullName}
-                  onChange={(event) =>
-                    setFullName(event.target.value)
-                  }
-                  required
-                />
-              </div>
+        <form onSubmit={handleSubmit}>
 
-              <div className="register-form-group">
-                <label htmlFor="email">
-                  Email
-                </label>
+          {/* FULL NAME */}
+          <div className="register-form-group">
+            <label htmlFor="fullName">
+              Họ và tên
+            </label>
 
-                <input
-                  id="email"
-                  type="email"
-                  placeholder="Nhập địa chỉ email"
-                  value={email}
-                  onChange={(event) =>
-                    setEmail(event.target.value)
-                  }
-                  required
-                />
-              </div>
+            <input
+              id="fullName"
+              type="text"
+              placeholder="Nhập họ và tên"
+              value={fullName}
+              onChange={(event) =>
+                setFullName(event.target.value)
+              }
+              autoComplete="name"
+              required
+            />
+          </div>
 
-              <div className="register-form-group">
-                <label htmlFor="phone">
-                  Số điện thoại
-                </label>
+          {/* EMAIL */}
+          <div className="register-form-group">
+            <label htmlFor="email">
+              Email
+            </label>
 
-                <input
-                  id="phone"
-                  type="tel"
-                  placeholder="Nhập số điện thoại"
-                  value={phone}
-                  onChange={(event) =>
-                    setPhone(event.target.value)
-                  }
-                  required
-                />
-              </div>
+            <input
+              id="email"
+              type="email"
+              placeholder="Nhập địa chỉ email"
+              value={email}
+              onChange={(event) =>
+                setEmail(event.target.value)
+              }
+              autoComplete="email"
+              required
+            />
+          </div>
 
-              <div className="register-form-group">
-                <label htmlFor="registerPassword">
-                  Mật khẩu
-                </label>
+          {/* PHONE */}
+          <div className="register-form-group">
+            <label htmlFor="phoneNumber">
+              Số điện thoại
+            </label>
 
-                <div className="register-password-wrapper">
-                  <input
-                    id="registerPassword"
-                    type={
-                      showPassword
-                        ? "text"
-                        : "password"
-                    }
-                    placeholder="Tạo mật khẩu"
-                    value={password}
-                    onChange={(event) =>
-                      setPassword(event.target.value)
-                    }
-                    required
-                  />
+            <input
+              id="phoneNumber"
+              type="tel"
+              placeholder="Nhập số điện thoại"
+              value={phoneNumber}
+              onChange={(event) =>
+                setPhoneNumber(
+                  event.target.value
+                )
+              }
+              autoComplete="tel"
+              required
+            />
+          </div>
 
-                  <button
-                    type="button"
-                    className="register-eye-button"
-                    onClick={() =>
-                      setShowPassword((current) => !current)
-                    }
-                  >
-                    {showPassword ? "Ẩn" : "Hiện"}
-                  </button>
-                </div>
-              </div>
+          {/* PASSWORD */}
+          <div className="register-form-group">
+            <label htmlFor="password">
+              Mật khẩu
+            </label>
 
-              <div className="register-form-group">
-                <label htmlFor="confirmPassword">
-                  Xác nhận mật khẩu
-                </label>
+            <div className="register-password-wrapper">
+              <input
+                id="password"
+                type={
+                  showPassword
+                    ? "text"
+                    : "password"
+                }
+                placeholder="Tạo mật khẩu"
+                value={password}
+                onChange={(event) =>
+                  setPassword(
+                    event.target.value
+                  )
+                }
+                autoComplete="new-password"
+                required
+              />
 
-                <div className="register-password-wrapper">
-                  <input
-                    id="confirmPassword"
-                    type={
-                      showConfirmPassword
-                        ? "text"
-                        : "password"
-                    }
-                    placeholder="Nhập lại mật khẩu"
-                    value={confirmPassword}
-                    onChange={(event) =>
-                      setConfirmPassword(event.target.value)
-                    }
-                    required
-                  />
-
-                  <button
-                    type="button"
-                    className="register-eye-button"
-                    onClick={() =>
-                      setShowConfirmPassword(
-                        (current) => !current
-                      )
-                    }
-                  >
-                    {showConfirmPassword
-                      ? "Ẩn"
-                      : "Hiện"}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="register-submit-button"
-              >
-                Gửi mã xác nhận
-              </button>
-            </form>
-
-            <p className="register-login-link">
-              Đã có tài khoản?{" "}
               <button
                 type="button"
-                onClick={() => navigate("/login")}
+                className="register-password-toggle"
+                onClick={() =>
+                  setShowPassword(
+                    (current) => !current
+                  )
+                }
+                aria-label={
+                  showPassword
+                    ? "Ẩn mật khẩu"
+                    : "Hiện mật khẩu"
+                }
               >
-                Đăng nhập
+                {showPassword ? "Ẩn" : "Hiện"}
               </button>
-            </p>
+            </div>
           </div>
-        </section>
+
+          {/* CONFIRM PASSWORD */}
+          <div className="register-form-group">
+            <label htmlFor="confirmPassword">
+              Xác nhận mật khẩu
+            </label>
+
+            <div className="register-password-wrapper">
+              <input
+                id="confirmPassword"
+                type={
+                  showConfirmPassword
+                    ? "text"
+                    : "password"
+                }
+                placeholder="Nhập lại mật khẩu"
+                value={confirmPassword}
+                onChange={(event) =>
+                  setConfirmPassword(
+                    event.target.value
+                  )
+                }
+                autoComplete="new-password"
+                required
+              />
+
+              <button
+                type="button"
+                className="register-password-toggle"
+                onClick={() =>
+                  setShowConfirmPassword(
+                    (current) => !current
+                  )
+                }
+                aria-label={
+                  showConfirmPassword
+                    ? "Ẩn mật khẩu"
+                    : "Hiện mật khẩu"
+                }
+              >
+                {showConfirmPassword
+                  ? "Ẩn"
+                  : "Hiện"}
+              </button>
+            </div>
+          </div>
+
+          {errorMessage && (
+            <p className="register-error-message">
+              {errorMessage}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            className="register-submit-button"
+            disabled={isLoading}
+          >
+            {isLoading
+              ? "Đang gửi mã..."
+              : "Gửi mã OTP"}
+          </button>
+
+        </form>
+
+        <p className="register-login-text">
+          Đã có tài khoản?{" "}
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/login")
+            }
+          >
+            Đăng nhập
+          </button>
+        </p>
+
       </div>
-    </div>
+    </AuthLayout>
   );
 }
 
