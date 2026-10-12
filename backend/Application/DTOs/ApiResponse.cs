@@ -6,6 +6,8 @@ namespace Application.DTOs
     {
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
         public T? Data { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

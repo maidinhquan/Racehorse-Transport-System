@@ -8,6 +8,8 @@ namespace Application.DTOs
         public string FullName { get; set; } = null!;
         public string? Email { get; set; }
         public string? Phone { get; set; }
+        public string? ForgotPasswordRequest { get; set; }
+        public string? ResetPasswordRequest { get; set; }
         public bool IsActive { get; set; }
     }
 
@@ -19,6 +21,8 @@ namespace Application.DTOs
         public string FullName { get; set; } = null!;
         public string? Email { get; set; }
         public string? Phone { get; set; }
+        public string? ForgotPasswordRequest { get; set; }
+        public string? ResetPasswordRequest { get; set; }
     }
 
     public class UpdateUserDto
@@ -28,6 +32,8 @@ namespace Application.DTOs
         public string FullName { get; set; } = null!;
         public string? Email { get; set; }
         public string? Phone { get; set; }
+        public string? ForgotPasswordRequest { get; set; }
+        public string? ResetPasswordRequest { get; set; }
         public bool IsActive { get; set; } = true;
     }
 
