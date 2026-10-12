@@ -8,6 +8,20 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=host.docker.internal,1433;Database=HorseTransportDB;User Id=sa;Password=12345;TrustServerCertificate=True;
+      - Smtp__Host=smtp.gmail.com
+      - Smtp__Port=587
+      - Smtp__Username=quangtruong1922@gmail.com
+      - Smtp__Password=scanyaeiddbipgsf
+      - Smtp__FromEmail=quangtruong1922@gmail.com
+      - Smtp__FromName=RaceHorse Transport System
+      - Smtp__EnableSsl=true
+      - RegistrationEmail__Mode=Smtp
+      - RegistrationEmail__Smtp__Host=smtp.gmail.com
+      - RegistrationEmail__Smtp__Port=587
+      - RegistrationEmail__Smtp__Username=quangtruong1922@gmail.com
+      - RegistrationEmail__Smtp__Password=scanyaeiddbipgsf
+      - RegistrationEmail__Smtp__From=quangtruong1922@gmail.com
+      - RegistrationEmail__Smtp__EnableSsl=true
     restart: unless-stopped
 
   frontend:

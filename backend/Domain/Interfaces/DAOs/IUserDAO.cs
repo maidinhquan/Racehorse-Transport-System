@@ -10,4 +10,5 @@ public interface IUserDAO : IBaseDAO<User>
     Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default);
     Task<bool> ExistsByPhoneAsync(string phone, CancellationToken cancellationToken = default);
     Task<bool> UpdateUserAsync(User user, CancellationToken cancellationToken = default);
+    Task<User?> GetByResetTokenAsync(string resetToken, CancellationToken cancellationToken = default);
 }

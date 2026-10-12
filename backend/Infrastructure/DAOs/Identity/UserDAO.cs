@@ -26,6 +26,8 @@ public sealed class UserDAO(HorseTransportDbContext context) : BaseDAO<User>(con
         await Context.SaveChangesAsync(cancellationToken);
         return true;
     }
+    public Task<User?> GetByResetTokenAsync(string resetToken, CancellationToken cancellationToken = default) =>
+        DbSet.FirstOrDefaultAsync(u => u.ForgotPasswordRequest == resetToken, cancellationToken);
 
     public override async Task<User> AddAsync(User entity, CancellationToken cancellationToken = default)
     {
@@ -57,12 +59,5 @@ public sealed class UserDAO(HorseTransportDbContext context) : BaseDAO<User>(con
             Context.Entry(entity).State = EntityState.Detached;
             throw;
         }
-    }
-
-    public async Task<bool> UpdateUserAsync(User user, CancellationToken cancellationToken = default)
-    {
-        DbSet.Update(user);
-        await Context.SaveChangesAsync(cancellationToken);
-        return true;
     }
 }

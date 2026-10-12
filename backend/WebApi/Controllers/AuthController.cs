@@ -214,14 +214,16 @@ namespace WebApi.Controllers
                 return BadRequest(ApiResponse<object?>.Fail("Dữ liệu yêu cầu không hợp lệ"));
             }
 
-            var email = request.Email ?? string.Empty;
-            var otp = !string.IsNullOrWhiteSpace(request.Otp) ? request.Otp : (request.ResetToken ?? string.Empty);
+            var token = !string.IsNullOrWhiteSpace(request.ResetToken)
+                ? request.ResetToken
+                : (!string.IsNullOrWhiteSpace(request.Otp) ? request.Otp : string.Empty);
             var newPassword = request.NewPassword ?? string.Empty;
-            var confirmPassword = !string.IsNullOrWhiteSpace(request.ConfirmPassword) ? request.ConfirmPassword : (request.ConfirmNewPassword ?? string.Empty);
+            var confirmPassword = !string.IsNullOrWhiteSpace(request.ConfirmNewPassword)
+                ? request.ConfirmNewPassword
+                : (request.ConfirmPassword ?? string.Empty);
 
             var result = await _authService.ResetPasswordAsync(
-                email,
-                otp,
+                token,
                 newPassword,
                 confirmPassword);
 

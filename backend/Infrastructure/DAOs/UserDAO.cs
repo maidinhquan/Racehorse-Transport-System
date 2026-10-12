@@ -40,6 +40,9 @@ namespace Infrastructure.DAOs
             await Context.SaveChangesAsync(cancellationToken);
             return true;
         }
+
+        public Task<User?> GetByResetTokenAsync(string resetToken, CancellationToken cancellationToken = default)
+            => DbSet.FirstOrDefaultAsync(u => u.ForgotPasswordRequest == resetToken, cancellationToken);
     }
 }
 
