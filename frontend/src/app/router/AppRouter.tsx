@@ -36,6 +36,8 @@ import ManagerDashboard from "../../features/Manager/ManagerDashboard.tsx";
 // Import các trang khác của driver
 import DriverDashboard from "../../features/driver/DriverDashboard";
 
+// Import các trang khác của specialist
+import SpecialistDashboard from "../../features/documents/SpecialistDashboard";
 
 function AppRouter() {
   return (
@@ -142,7 +144,11 @@ function AppRouter() {
           path="/customer/requests/:requestId/contract"
           element={<ContractPage />}
         />
-
+       
+        <Route 
+          path="/specialist/documents" 
+          element={<SpecialistDashboard />} 
+        />
 
       </Routes>
     </BrowserRouter>

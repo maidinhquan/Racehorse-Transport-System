@@ -32,7 +32,7 @@ function LoginPage() {
         break;
 
       case "TRANSPORT_SPECIALIST":
-        navigate("/specialist/dashboard");
+        navigate("/specialist/documents");
         break;
 
       case "FLEET_ROUTE_COORDINATOR":
