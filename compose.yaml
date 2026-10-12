@@ -1,28 +1,13 @@
 services:
-  db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    environment:
-      ACCEPT_EULA: "Y"
-      SA_PASSWORD: "12345" # Mật khẩu khớp với appsettings.json
-    ports:
-      - "1433:1433"
-    volumes:
-      - db_data:/var/opt/mssql
-    restart: always
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      # Chạy trên port 5129 để không làm đổi cấu hình hiện tại của bạn
       - "5129:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      # Ghi đè ConnectionString để trỏ sang container 'db' thay vì 'localhost'
-      - ConnectionStrings__DefaultConnection=Server=db;Database=HorseTransportDB;uid=sa;Password=12345;TrustServerCertificate=True;
-    depends_on:
-      - db
+      - ConnectionStrings__DefaultConnection=Server=host.docker.internal,1433;Database=HorseTransportDB;User Id=sa;Password=12345;TrustServerCertificate=True;
     restart: unless-stopped
 
   frontend:
@@ -36,7 +21,6 @@ services:
       - frontend_node_modules:/app/node_modules
     command: npm run dev -- --host 0.0.0.0
     environment:
-      # Truyền URL API để frontend gọi backend
       - VITE_API_URL=http://localhost:5129/api
     depends_on:
       - backend
@@ -44,4 +28,3 @@ services:
 
 volumes:
   frontend_node_modules:
-  db_data: # Volume để lưu trữ dữ liệu database không bị mất khi tắt Docker

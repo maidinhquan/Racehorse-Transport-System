@@ -166,15 +166,6 @@ CBN.Transport.WebApi/
 
 1. **Zero-Trust Logic (Không tin tưởng Client):**
 * Không dựa vào việc Frontend đã validate form. Toàn bộ logic (kiểm tra quyền Actor, ngày khởi hành, sức chứa xe, tính trùng lịch) bắt buộc phải kiểm tra lại tại Service của Backend.
-<<<<<<< HEAD
-
-
-
-
-2. **Chuẩn hóa API Response:**
-* Mọi Endpoint phải trả về định dạng JSON bọc thống nhất `ApiResponse<T>`:
-=======
->>>>>>> 2cfb285ec7be4b1c48d56c0c85f3e054d3296134
 
 2. **Chuẩn hóa API Response:**
 * Mọi Endpoint phải trả về định dạng JSON bọc thống nhất `ApiResponse<T>`:

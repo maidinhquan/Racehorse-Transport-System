@@ -22,17 +22,20 @@ namespace WebApi.Controllers
         private readonly ITokenService _tokenService;
         private readonly IMemoryCache _memoryCache;
         private readonly IAuthService _authService;
+        private readonly IRegistrationService _registrationService;
 
         public AuthController(
             HorseTransportDbContext context,
             ITokenService tokenService,
             IMemoryCache memoryCache,
-            IAuthService authService)
+            IAuthService authService,
+            IRegistrationService registrationService)
         {
             _context = context;
             _tokenService = tokenService;
             _memoryCache = memoryCache;
             _authService = authService;
+            _registrationService = registrationService;
         }
 
         // =========================================================================
@@ -160,35 +163,9 @@ namespace WebApi.Controllers
         // POST /api/auth/register/verify-otp
         // =========================================================================
         [HttpPost("register/verify-otp")]
-        public async Task<IActionResult> VerifyOtp([FromBody] RegisterVerifyOtpDto dto)
+        public async Task<IActionResult> VerifyOtp([FromBody] RegisterVerifyOtpDto dto, CancellationToken cancellationToken)
         {
-            if (!_memoryCache.TryGetValue($"reg_{dto.RegistrationToken}", out PendingRegistration? pending) || pending == null)
-            {
-                return BadRequest(ApiResponse<object?>.Fail("Invalid or expired registration token"));
-            }
-
-            if (pending.Otp != dto.Otp.Trim())
-            {
-                return BadRequest(ApiResponse<object?>.Fail("Invalid OTP code"));
-            }
-
-            var newUser = new User
-            {
-                UserId = "USR_CUST_" + Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper(),
-                Username = pending.Email.Split('@')[0],
-                FullName = pending.FullName,
-                Email = pending.Email,
-                Phone = pending.PhoneNumber,
-                PasswordHash = pending.Password,
-                Role = UserRoles.Customer,
-                IsActive = true
-            };
-
-            _context.Users.Add(newUser);
-            await _context.SaveChangesAsync();
-
-            _memoryCache.Remove($"reg_{dto.RegistrationToken}");
-
+            await _registrationService.VerifyOtpAsync(dto, cancellationToken);
             return Ok(ApiResponse<object?>.Ok(null, "Registration completed successfully"));
         }
 

@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using Application.DTOs;
 using Application.Services;
 using Infrastructure.Data.Context;
+using Domain.Interfaces.DAOs;
 
 using WebApi.Middlewares;
 using WebApi.Extensions;
@@ -26,10 +27,11 @@ builder.Services.AddDbContext<HorseTransportDbContext>(options =>
 // 2. ĐĂNG KÝ CÁC DỊCH VỤ NỀN TẢNG (CACHE, TOKEN, EMAIL, DAO & AUTH SERVICE)
 // =============================================================================
 builder.Services.AddMemoryCache();
-builder.Services.AddScoped<Infrastructure.DAOs.UserDAO>();
+builder.Services.AddScoped<IUserDAO, Infrastructure.DAOs.UserDAO>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 
 // =============================================================================
 // 3. CẤU HÌNH CORS VĨNH VIỄN (ZERO-MAINTENANCE CORS CHO FRONTEND)

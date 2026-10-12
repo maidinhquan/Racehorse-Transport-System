@@ -20,6 +20,12 @@ public sealed class UserDAO(HorseTransportDbContext context) : BaseDAO<User>(con
         await GetByEmailAsync(email, cancellationToken) is not null;
     public async Task<bool> ExistsByPhoneAsync(string phone, CancellationToken cancellationToken = default) =>
         await GetByPhoneAsync(phone, cancellationToken) is not null;
+    public async Task<bool> UpdateUserAsync(User user, CancellationToken cancellationToken = default)
+    {
+        Context.Users.Update(user);
+        await Context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
 
     public override async Task<User> AddAsync(User entity, CancellationToken cancellationToken = default)
     {
