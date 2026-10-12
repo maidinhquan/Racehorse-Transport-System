@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 
 import "./CustomerLayout.css";
 import { useState } from "react";
+import ThemeToggle from "../../components/ThemeToggle/ThemeToggle";
 interface CustomerLayoutProps {
   pageTitle: string;
   children: ReactNode;
@@ -146,6 +147,9 @@ function CustomerLayout({
           <h1>{pageTitle}</h1>
 
           <div className="customer-user-area">
+            {/* Theme Toggle Button */}
+            <ThemeToggle />
+
             {/* Notification */}
             <button
               type="button"

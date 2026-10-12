@@ -1,11 +1,16 @@
 import { type JSX } from 'react';
+import ThemeToggle from '../../shared/components/ThemeToggle/ThemeToggle';
+import './DriverDashboard.css';
 
 const DriverDashboard = (): JSX.Element => {
   return (
-    <div className="min-h-screen bg-[#F8F9FA] font-inter p-4 pb-8">
-      <header className="bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-sm mb-6">
-        <h1 className="text-[20px] font-semibold text-[#111827]">Mã chuyến: TRP-2026</h1>
-        <p className="text-[14px] text-[#6B7280] mt-1">Trạng thái: Đang di chuyển</p>
+    <div className="driver-dashboard-container dashboard-container min-h-screen bg-[#F8F9FA] font-inter p-4 pb-8">
+      <header className="driver-dashboard-header dashboard-header bg-white p-5 rounded-2xl border border-[#E5E7EB] shadow-sm mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="header-title text-[20px] font-semibold text-[#111827]">Mã chuyến: TRP-2026</h1>
+          <p className="header-status text-[14px] text-[#6B7280] mt-1">Trạng thái: Đang di chuyển</p>
+        </div>
+        <ThemeToggle />
       </header>
 
       <div className="space-y-4">

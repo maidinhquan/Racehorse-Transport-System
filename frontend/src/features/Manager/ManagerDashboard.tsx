@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './ManagerDashboard.css';
+import ThemeToggle from '../../shared/components/ThemeToggle/ThemeToggle';
 
 function ManagerDashboard() {
   const [activePage, setActivePage] = useState('dashboard');
@@ -144,24 +145,24 @@ function ManagerDashboard() {
           <h2 className="brand-title">HorseTrans</h2>
           <p className="role-title">Logistics Manager Portal</p>
         </div>
-        
+
         <nav className="sidebar-nav">
-          <button 
+          <button
             className={`nav-item ${activePage === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActivePage('dashboard')}
           >
             <span>Dashboard</span>
           </button>
-          
-          <button 
+
+          <button
             className={`nav-item ${activePage === 'requests' ? 'active' : ''}`}
             onClick={() => setActivePage('requests')}
           >
             <span>Duyệt Yêu cầu (Requests)</span>
             {pendingCount > 0 && <span className="badge-alert">{pendingCount}</span>}
           </button>
-          
-          <button 
+
+          <button
             className={`nav-item ${activePage === 'trips' ? 'active' : ''}`}
             onClick={() => setActivePage('trips')}
           >

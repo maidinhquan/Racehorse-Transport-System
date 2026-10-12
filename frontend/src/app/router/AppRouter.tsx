@@ -37,10 +37,18 @@ import ManagerDashboard from "../../features/Manager/ManagerDashboard.tsx";
 import DriverDashboard from "../../features/driver/DriverDashboard";
 
 
+// Import các trang của admin
+import AdminDashboard from "../../features/admin/AdminDashboard";
+
 function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Màn hình admin */}
+        <Route
+          path="/admin/dashboard"
+          element={<AdminDashboard />}
+        />
         {/* Màn hình driver */}
         <Route
           path="/driver/dashboard"
