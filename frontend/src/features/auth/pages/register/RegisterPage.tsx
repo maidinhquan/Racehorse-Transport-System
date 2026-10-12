@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { registrationErrorMessage, requestRegistrationOtp } from "../../api/registrationApi";
 import { saveRegistrationSession } from "../../api/registrationSession";
 
-import registerHeroImage from "../../../../assets/images/login-horse.jpg";
+import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
 import "./RegisterPage.css";
 
 function RegisterPage() {
@@ -39,7 +39,7 @@ function RegisterPage() {
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      const data = await requestRegistrationOtp({ fullName, email, phoneNumber: phone, password });
+      const data = await requestRegistrationOtp({ fullName, email, phoneNumber, password });
       const session = {
         email: email.trim().toLowerCase(), registrationToken: data.registrationToken,
         otpExpiresAt: Date.now() + data.expiresIn * 1000,
@@ -136,13 +136,13 @@ function RegisterPage() {
             </label>
 
             <input
-              id="phone"
+              id="phoneNumber"
               maxLength={40}
               type="tel"
               placeholder="Nhập số điện thoại"
-              value={phone}
+              value={phoneNumber}
               onChange={(event) =>
-                setPhone(event.target.value)
+                setPhoneNumber(event.target.value)
               }
               required
             />
@@ -235,9 +235,9 @@ function RegisterPage() {
             </div>
           </div>
 
-          {errorMessage && (
+          {error && (
             <p className="register-error-message">
-              {errorMessage}
+              {error}
             </p>
           )}
 

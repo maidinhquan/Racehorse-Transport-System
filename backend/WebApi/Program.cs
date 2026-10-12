@@ -26,11 +26,10 @@ builder.Services.AddDbContext<HorseTransportDbContext>(options =>
 // 2. ĐĂNG KÝ CÁC DỊCH VỤ NỀN TẢNG (CACHE, TOKEN, EMAIL, DAO & AUTH SERVICE)
 // =============================================================================
 builder.Services.AddMemoryCache();
-builder.Services.AddScoped<Infrastructure.DAOs.UserDAO>();
+builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 
 // =============================================================================
 // 3. CẤU HÌNH CORS VĨNH VIỄN (ZERO-MAINTENANCE CORS CHO FRONTEND)

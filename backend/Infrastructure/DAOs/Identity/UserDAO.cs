@@ -52,4 +52,11 @@ public sealed class UserDAO(HorseTransportDbContext context) : BaseDAO<User>(con
             throw;
         }
     }
+
+    public async Task<bool> UpdateUserAsync(User user, CancellationToken cancellationToken = default)
+    {
+        DbSet.Update(user);
+        await Context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
 }

@@ -10,24 +10,32 @@
 /* Sidebar Điều hướng */
 .sidebar {
   width: 260px;
-  background-color: #ffffff;
+  background-color: #FFFFFF;
   border-right: 1px solid #E5E7EB;
   display: flex;
   flex-direction: column;
   height: 100%;
   flex-shrink: 0;
+  z-index: 20;
 }
 
 .sidebar-header {
   padding: 24px;
-  border-bottom: 1px solid #E5E7EB;
+  border-bottom: 1px solid #F3F4F6;
+  display: flex;
+  align-items: center;
 }
 
 .brand-title {
   color: #F57C00;
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
   margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.brand-title span {
+  color: #111827;
 }
 
 .role-title {
@@ -37,25 +45,24 @@
 }
 
 .sidebar-nav {
-  padding: 16px;
+  padding: 20px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   overflow-y: auto;
 }
 
 button.nav-item {
-  border: none;
-  background: none;
   width: 100%;
-  cursor: pointer;
   text-align: left;
-  font-family: inherit;
   padding: 12px 16px;
+  border: none;
+  background: transparent;
   border-radius: 8px;
   color: #4B5563;
-  font-weight: 500;
   font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   justify-content: space-between;
@@ -63,7 +70,7 @@ button.nav-item {
 }
 
 button.nav-item:hover {
-  background-color: #F3F4F6;
+  background-color: #F9FAFB;
   color: #111827;
 }
 
@@ -75,14 +82,121 @@ button.nav-item.active {
 
 .badge-alert {
   background-color: #EF4444;
-  color: #ffffff;
-  font-size: 12px;
+  color: #FFFFFF;
+  font-size: 11px;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
 }
 
-/* Vùng Nội dung chính */
+/* Top bar */
+.content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 72px;
+  padding: 0 40px;
+  background-color: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.top-bar-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.notification-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  color: #6B7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.notification-btn:hover {
+  background-color: #F3F4F6;
+  color: #111827;
+}
+
+.notification-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: #F57C00;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid #FFFFFF;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: 0.2s;
+}
+
+.user-profile:hover {
+  background-color: #F9FAFB;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #FFF3E0;
+  color: #F57C00;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.user-role {
+  font-size: 12px;
+  color: #6B7280;
+}
+
 .main-content {
   flex: 1;
   padding: 32px 40px;
@@ -91,36 +205,23 @@ button.nav-item.active {
   overflow-y: auto;
 }
 
+.page-header {
+  margin-bottom: 24px;
+}
+
 .page-title {
-  font-size: 28px;
-  font-weight: 600;
+  font-size: 24px;
+  font-weight: 700;
   color: #111827;
   margin: 0 0 8px 0;
 }
 
 .page-subtitle {
   color: #6B7280;
-  font-size: 15px;
-  margin: 0 0 32px 0;
+  font-size: 14px;
+  margin: 0;
 }
 
-/* Hiệu ứng chuyển trang mượt */
-.fade-in {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.flex-col-full {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-/* Thẻ Thống kê (Quick Stats) */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -129,22 +230,23 @@ button.nav-item.active {
 }
 
 .stat-card {
-  background-color: #ffffff;
+  background-color: #FFFFFF;
   border: 1px solid #E5E7EB;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .stat-title {
   color: #6B7280;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
   margin: 0 0 12px 0;
 }
 
 .stat-value {
-  font-size: 36px;
+  font-size: 32px;
   font-weight: 700;
   margin: 0;
 }
@@ -154,14 +256,26 @@ button.nav-item.active {
 .text-success { color: #10B981; }
 .text-dark { color: #111827; }
 
-/* Bảng dữ liệu */
+.flex-col-full {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .data-section {
-  background-color: #ffffff;
+  background-color: #FFFFFF;
   border: 1px solid #E5E7EB;
   border-radius: 16px;
   padding: 24px;
   flex: 1;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 20px 0;
 }
 
 .table-container {
@@ -178,10 +292,11 @@ table {
 th {
   padding: 12px 16px;
   color: #6B7280;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   border-bottom: 1px solid #E5E7EB;
+  text-align: left;
 }
 
 td {
@@ -197,7 +312,7 @@ tr:hover td {
 }
 
 .status-pill {
-  padding: 4px 12px;
+  padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
@@ -207,14 +322,13 @@ tr:hover td {
 .status-transit { background-color: #FEF3C7; color: #D97706; }
 .status-ready { background-color: #D1FAE5; color: #059669; }
 
-/* Buttons */
 .btn-primary {
   background-color: #F57C00;
-  color: #ffffff;
+  color: #FFFFFF;
   border: none;
   padding: 8px 20px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: 0.2s;
@@ -223,15 +337,25 @@ tr:hover td {
 .btn-primary:hover { background-color: #E65100; }
 
 .btn-secondary {
-  background-color: #ffffff;
+  background-color: #FFFFFF;
   color: #111827;
   border: 1px solid #D1D5DB;
   padding: 8px 16px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: 0.2s;
 }
 
 .btn-secondary:hover { background-color: #F9FAFB; }
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+

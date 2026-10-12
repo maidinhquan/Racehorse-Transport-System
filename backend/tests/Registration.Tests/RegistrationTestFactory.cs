@@ -52,6 +52,13 @@ public sealed class FakeUserDAO : IUserDAO
         await GetByEmailAsync(email, cancellationToken) is not null;
     public async Task<bool> ExistsByPhoneAsync(string phone, CancellationToken cancellationToken = default) =>
         await GetByPhoneAsync(phone, cancellationToken) is not null;
+    public Task<bool> UpdateUserAsync(User user, CancellationToken cancellationToken = default)
+    {
+        var existing = Users.FirstOrDefault(u => u.UserId == user.UserId);
+        if (existing != null) Users.Remove(existing);
+        Users.Add(user);
+        return Task.FromResult(true);
+    }
     public async Task<User> AddAsync(User entity, CancellationToken cancellationToken = default)
     {
         await Task.Delay(20, cancellationToken);

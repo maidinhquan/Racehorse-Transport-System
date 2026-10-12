@@ -1,14 +1,14 @@
-using Infrastructure.DAOs;
+using Domain.Interfaces.DAOs;
 using System.Security.Cryptography;
 
 namespace Application.Services
 {
     public class AuthService : IAuthService
     {
-        private readonly UserDAO _userDao;
+        private readonly IUserDAO _userDao;
         private readonly IEmailService _emailService;
 
-        public AuthService(UserDAO userDao, IEmailService emailService)
+        public AuthService(IUserDAO userDao, IEmailService emailService)
         {
             _userDao = userDao;
             _emailService = emailService;

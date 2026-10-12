@@ -3,7 +3,6 @@ import {
   useRef,
   useState,
   type ChangeEvent,
-  type FormEvent,
   type KeyboardEvent,
 } from "react";
 
@@ -11,20 +10,8 @@ import { useNavigate } from "react-router-dom";
 import { registrationErrorMessage, resendRegistrationOtp, verifyRegistrationOtp } from "../../api/registrationApi";
 import { clearRegistrationSession, loadRegistrationSession, saveRegistrationSession } from "../../api/registrationSession";
 
-import axios from "axios";
-
-import {
-  verifyRegisterOtp,
-  resendRegisterOtp,
-} from "../../api/authApi";
-
-import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
-
+import authHorseImage from "../../../../assets/images/login-horse.jpg";
 import "./VerifyOtpPage.css";
-
-/* =========================
-   CONSTANTS
-========================= */
 
 const OTP_LENGTH = 6;
 
@@ -38,31 +25,6 @@ function VerifyOtpPage() {
   const [message, setMessage] = useState("");
   const actionRef = useRef(false);
 
-  const registrationToken =
-    registerState?.registrationToken ?? "";
-
-  /*
-    Demo chỉ được phép hoạt động
-    khi đang chạy development.
-  */
-  const isDemo =
-    import.meta.env.DEV &&
-    registerState?.mode === "demo";
-
-  /*
-    OTP demo lấy từ .env.development
-
-    Nếu chưa khai báo thì mặc định:
-    123456
-  */
-  const demoOtp =
-    import.meta.env.VITE_DEMO_OTP ??
-    "123456";
-
-  /* =========================
-     STATES
-  ========================= */
-
   const [otp, setOtp] = useState<string[]>(
     Array(OTP_LENGTH).fill("")
   );
@@ -70,85 +32,15 @@ function VerifyOtpPage() {
   const timeLeft = Math.max(0, Math.ceil(((session?.otpExpiresAt ?? now) - now) / 1000));
   const resendWait = Math.max(0, Math.ceil(((session?.resendAvailableAt ?? now) - now) / 1000));
 
-  const [
-    isLoading,
-    setIsLoading,
-  ] = useState(false);
-
-  const [
-    isResending,
-    setIsResending,
-  ] = useState(false);
-
-  /*
-    Khi xác minh OTP thành công
-  */
-  const [
-    isSuccess,
-    setIsSuccess,
-  ] = useState(false);
-
-  /*
-    Countdown về Login
-  */
-  const [
-    redirectSeconds,
-    setRedirectSeconds,
-  ] = useState(5);
-
-  /* =========================
-     OTP INPUT REFS
-  ========================= */
-
-  const inputRefs = useRef<
+  const inputsRef = useRef<
     Array<HTMLInputElement | null>
   >([]);
 
-  /* =========================
-     COMPUTED VALUES
-  ========================= */
-
-  const isExpired =
-    remainingSeconds <= 0;
-
-  const otpValue =
-    otp.join("");
-
-  const isOtpComplete =
-    otpValue.length === OTP_LENGTH;
-
-  /* =========================
-     OTP COUNTDOWN
-  ========================= */
-
-  useEffect(() => {
-    if (
-      isSuccess ||
-      remainingSeconds <= 0
-    ) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setRemainingSeconds(
-        (current) =>
-          Math.max(current - 1, 0)
-      );
-    }, 1000);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [
-    remainingSeconds,
-    isSuccess,
-  ]);
-
-  /* =========================
-     SUCCESS COUNTDOWN
-
-     5 → 4 → 3 → 2 → 1 → Login
-  ========================= */
+  /*
+   * ===============================
+   * COUNTDOWN TIMER
+   * ===============================
+   */
 
   useEffect(() => {
     if (!session) navigate("/register", { replace: true });
@@ -176,82 +68,88 @@ function VerifyOtpPage() {
     )}:${String(remainingSeconds).padStart(2, "0")}`;
   };
 
-  /* =========================
-     OTP INPUT CHANGE
-  ========================= */
+  /*
+   * ===============================
+   * OTP INPUT
+   * ===============================
+   */
 
   const handleOtpChange = (
     index: number,
     event: ChangeEvent<HTMLInputElement>
   ) => {
-    const value =
-      event.target.value
-        .replace(/\D/g, "")
-        .slice(-1);
+    const value = event.target.value;
 
-    const nextOtp = [...otp];
+    // Chỉ cho nhập số
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
 
-    nextOtp[index] = value;
+    const digit = value.slice(-1);
 
-    setOtp(nextOtp);
-    setErrorMessage("");
+    const newOtp = [...otp];
 
-    /*
-      Tự focus sang ô tiếp theo
-    */
-    if (
-      value &&
-      index < OTP_LENGTH - 1
-    ) {
-      inputRefs.current[
-        index + 1
-      ]?.focus();
+    newOtp[index] = digit;
+
+    setOtp(newOtp);
+
+    // Tự động chuyển sang ô tiếp theo
+    if (digit && index < OTP_LENGTH - 1) {
+      inputsRef.current[index + 1]?.focus();
     }
   };
 
-  /* =========================
-     BACKSPACE
-  ========================= */
+  /*
+   * Backspace:
+   *
+   * Nếu ô hiện tại trống
+   * -> quay lại ô phía trước.
+   */
 
   const handleKeyDown = (
     index: number,
     event: KeyboardEvent<HTMLInputElement>
   ) => {
-    /*
-      Nếu ô hiện tại rỗng và bấm Backspace
-      → quay về ô trước.
-    */
     if (
       event.key === "Backspace" &&
       !otp[index] &&
       index > 0
     ) {
-      inputRefs.current[
-        index - 1
-      ]?.focus();
+      inputsRef.current[index - 1]?.focus();
+    }
+
+    if (
+      event.key === "ArrowLeft" &&
+      index > 0
+    ) {
+      inputsRef.current[index - 1]?.focus();
+    }
+
+    if (
+      event.key === "ArrowRight" &&
+      index < OTP_LENGTH - 1
+    ) {
+      inputsRef.current[index + 1]?.focus();
     }
   };
 
-  /* =========================
-     VERIFY OTP
-  ========================= */
+  /*
+   * Cho phép paste:
+   *
+   * 123456
+   */
 
-  const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>
+  const handlePaste = (
+    event: React.ClipboardEvent<HTMLInputElement>
   ) => {
     event.preventDefault();
 
-    setErrorMessage("");
+    const pastedValue = event.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, OTP_LENGTH);
 
-    /* =========================
-       VALIDATION
-    ========================= */
-
-    if (isExpired) {
-      setErrorMessage(
-        "Mã đã hết hạn. Vui lòng gửi lại mã mới để tiếp tục."
-      );
-
+    if (!pastedValue) {
       return;
     }
 
@@ -324,10 +222,8 @@ function VerifyOtpPage() {
     try {
       const data = await resendRegistrationOtp(session.registrationToken);
       const currentTime = Date.now();
-      const updated = {
-        ...session, otpExpiresAt: currentTime + data.expiresIn * 1000,
-        resendAvailableAt: currentTime + data.resendAfterSeconds * 1000
-      };
+      const updated = { ...session, otpExpiresAt: currentTime + data.expiresIn * 1000,
+        resendAvailableAt: currentTime + data.resendAfterSeconds * 1000 };
       saveRegistrationSession(updated);
       setSession(updated);
       setNow(currentTime);
@@ -342,238 +238,201 @@ function VerifyOtpPage() {
     }
   };
 
-  /* =========================
-     FORMAT TIMER
-  ========================= */
+  /*
+   * ===============================
+   * CHANGE EMAIL
+   * ===============================
+   */
 
   const handleChangeEmail = () => {
     clearRegistrationSession();
     navigate("/register");
   };
 
-  /* =========================
-     SUCCESS SCREEN
-  ========================= */
-
-  if (isSuccess) {
-    return (
-      <AuthLayout>
-        <div className="register-success-wrapper">
-
-          <div className="register-success-icon">
-            ✓
-          </div>
-
-          <h2>
-            Đăng ký thành công!
-          </h2>
-
-          <p>
-            Chúc mừng bạn đã tạo tài khoản
-            CNB Transport thành công.
-          </p>
-
-          <p className="register-success-redirect">
-            Bạn sẽ được chuyển đến trang
-            đăng nhập trong{" "}
-            <strong>
-              {redirectSeconds}
-            </strong>{" "}
-            giây.
-          </p>
-
-          <button
-            type="button"
-            className="register-success-button"
-            onClick={() =>
-              navigate("/login")
-            }
-          >
-            Đăng nhập ngay
-          </button>
-
-        </div>
-      </AuthLayout>
-    );
-  }
-
-  /* =========================
-     VERIFY OTP SCREEN
-  ========================= */
-
   return (
-    <AuthLayout>
-      <div className="verify-otp-form-wrapper">
+    <div className="verify-otp-page auth-page">
+      <div className="verify-otp-container">
 
-        {/* =====================
-            STEP INDICATOR
-        ===================== */}
+        {/* ================= LEFT ================= */}
 
-        <div className="verify-otp-steps">
+        <section
+          className="otp-hero"
+          style={{
+            backgroundImage: `url(${authHorseImage})`,
+          }}
+        >
+          <div className="otp-hero-overlay" />
 
-          <div className="verify-otp-step completed">
+          <div className="otp-hero-content">
 
-            <span className="verify-otp-step-number">
-              1
-            </span>
+            <div className="otp-brand">
+              <div className="otp-brand-icon">
+                ♞
+              </div>
 
-            <span>
-              Thông tin tài khoản
-            </span>
+              <span>CNB Transport</span>
+            </div>
+
+            <div className="otp-hero-bottom">
+
+              <div className="otp-hero-label">
+                <span className="otp-hero-line" />
+
+                AN TOÀN TRÊN MỌI HÀNH TRÌNH
+              </div>
+
+              <h1>
+                Đồng hành cùng ngựa trên mọi
+                <br />
+                chặng đường
+              </h1>
+
+              <p>
+                Quản lý hành trình vận chuyển an toàn
+                và chuyên nghiệp.
+              </p>
+
+              <div className="otp-hero-badge">
+                <span>✓</span>
+
+                Chuyên biệt • An toàn • Đúng giờ
+              </div>
+
+            </div>
 
           </div>
+        </section>
 
-          <div className="verify-otp-step active">
+        {/* ================= RIGHT ================= */}
 
-            <span className="verify-otp-step-number">
-              2
-            </span>
+        <section className="otp-form-section">
 
-            <span>
-              Xác minh OTP
-            </span>
+          <div className="otp-form-wrapper">
 
-          </div>
+            {/* STEP INDICATOR */}
 
-        </div>
+            <div className="otp-steps">
 
-        {/* =====================
-            TITLE
-        ===================== */}
+              <div className="otp-step">
+                <span>1</span>
 
-        <div className="verify-otp-title-line" />
+                Thông tin tài khoản
+              </div>
 
-        <h2>Xác thực email</h2>
-        {error && <p role="alert">{error}</p>}
-        {message && <p role="status">{message}</p>}
+              <div className="otp-step otp-step-active">
+                <span>2</span>
 
-        <p className="verify-otp-description">
-          Chúng tôi đã gửi mã xác thực đến{" "}
-          <strong>
-            {email}
-          </strong>
-        </p>
+                Xác minh OTP
+              </div>
 
-        {/* =====================
-            OTP FORM
-        ===================== */}
+            </div>
 
-        <form onSubmit={handleSubmit}>
+            <div className="otp-title-line" />
 
-          <div className="verify-otp-inputs">
+            <h2>Xác thực email</h2>
+            {error && <p role="alert">{error}</p>}
+            {message && <p role="status">{message}</p>}
 
-            {otp.map(
-              (value, index) => (
+            <p className="otp-description">
+              Chúng tôi đã gửi mã xác thực đến{" "}
+              <strong>{email}</strong>
+            </p>
+
+            {/* OTP INPUT */}
+
+            <div className="otp-input-group">
+
+              {otp.map((digit, index) => (
                 <input
                   key={index}
                   ref={(element) => {
-                    inputRefs.current[
-                      index
-                    ] = element;
+                    inputsRef.current[index] = element;
                   }}
                   type="text"
                   inputMode="numeric"
-                  autoComplete={
-                    index === 0
-                      ? "one-time-code"
-                      : "off"
-                  }
                   maxLength={1}
                   disabled={action !== null}
                   value={digit}
                   onChange={(event) =>
-                    handleOtpChange(
-                      index,
-                      event
-                    )
+                    handleOtpChange(index, event)
                   }
                   onKeyDown={(event) =>
-                    handleKeyDown(
-                      index,
-                      event
-                    )
+                    handleKeyDown(index, event)
                   }
-                  aria-label={`OTP digit ${index + 1
-                    }`}
+                  onPaste={handlePaste}
+                  aria-label={`OTP digit ${
+                    index + 1
+                  }`}
                 />
-              )
-            )}
+              ))}
+
+            </div>
+
+            {/* COUNTDOWN */}
+
+            <p
+              className={`otp-expire-text ${
+                timeLeft === 0
+                  ? "otp-expired"
+                  : ""
+              }`}
+            >
+              {timeLeft > 0 ? (
+                <>
+                  Mã hết hạn sau{" "}
+                  <strong>
+                    {formatTime(timeLeft)}
+                  </strong>
+                </>
+              ) : (
+                <>
+                  Mã OTP đã hết hạn
+                </>
+              )}
+            </p>
+
+            {/* RESEND */}
+
+            <p className="otp-resend-text">
+              Không nhận được mã?{" "}
+
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={action !== null || resendWait > 0 || !session}
+              >
+                {action === "resend" ? "Đang gửi…" : resendWait > 0 ? `Gửi lại sau ${resendWait}s` : "Gửi lại"}
+              </button>
+            </p>
+
+            {/* VERIFY */}
+
+            <button
+              type="button"
+              className="otp-submit-button"
+              onClick={handleVerifyOtp}
+              disabled={action !== null || timeLeft === 0 || !session}
+            >
+              {action === "verify" ? "Đang xác minh…" : "Xác nhận OTP"}
+            </button>
+
+            {/* CHANGE EMAIL */}
+
+            <button
+              type="button"
+              className="change-email-button"
+              onClick={handleChangeEmail}
+              disabled={action !== null}
+            >
+              Thay đổi email
+            </button>
 
           </div>
 
-          {/* =====================
-              OTP TIMER
-          ===================== */}
+        </section>
 
-          {isExpired ? (
-            <p className="verify-otp-expired">
-              Mã đã hết hạn. Vui lòng
-              gửi lại mã mới để tiếp tục.
-            </p>
-          ) : (
-            <p className="verify-otp-countdown">
-              Mã có hiệu lực trong{" "}
-              <strong>
-                {formatTime(
-                  remainingSeconds
-                )}
-              </strong>
-            </p>
-          )}
-
-          {/* =====================
-              ERROR
-          ===================== */}
-
-          {errorMessage && (
-            <p className="verify-otp-error">
-              {errorMessage}
-            </p>
-          )}
-
-          {/* =====================
-              RESEND OTP
-          ===================== */}
-
-          <button
-            type="button"
-            onClick={handleResendOtp}
-            disabled={action !== null || resendWait > 0 || !session}
-          >
-            {action === "resend" ? "Đang gửi…" : resendWait > 0 ? `Gửi lại sau ${resendWait}s` : "Gửi lại"}
-          </button>
-        </p>
-
-        {/* =====================
-              VERIFY OTP
-          ===================== */}
-
-        <button
-          type="button"
-          className="otp-submit-button"
-          onClick={handleVerifyOtp}
-          disabled={action !== null || timeLeft === 0 || !session}
-        >
-          {action === "verify" ? "Đang xác minh…" : "Xác nhận OTP"}
-        </button>
-
-      </form>
-
-      {/* =====================
-            CHANGE EMAIL
-        ===================== */}
-
-      <button
-        type="button"
-        className="change-email-button"
-        onClick={handleChangeEmail}
-        disabled={action !== null}
-      >
-        Thay đổi email
-      </button>
-
+      </div>
     </div>
-    </AuthLayout >
   );
 }
 

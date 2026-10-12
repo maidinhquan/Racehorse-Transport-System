@@ -4,6 +4,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
-  <!-- Existing DAO scaffolding has no Models/DbContext yet. -->
-  <ItemGroup><Compile Remove="DAO/**/*.cs" /></ItemGroup>
+  <ItemGroup>
+    <Compile Remove="DAO/**/*.cs" />
+    <Compile Remove="WebApi/**/*.cs" />
+    <Compile Remove="Application/**/*.cs" />
+    <Compile Remove="Infrastructure/**/*.cs" />
+    <Compile Remove="Domain/**/*.cs" />
+    <Compile Remove="tests/**/*.cs" />
+  </ItemGroup>
 </Project>
