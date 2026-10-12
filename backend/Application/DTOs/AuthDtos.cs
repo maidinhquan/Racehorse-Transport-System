@@ -8,8 +8,7 @@ namespace Application.DTOs
 
     public class LoginRequestDto
     {
-        [Required(ErrorMessage = "Email không được để trống")]
-        [EmailAddress(ErrorMessage = "Email không đúng định dạng")]
+        [Required(ErrorMessage = "Email hoặc tên đăng nhập không được để trống")]
         public string Email { get; set; } = null!;
 
         [Required(ErrorMessage = "Mật khẩu không được để trống")]
