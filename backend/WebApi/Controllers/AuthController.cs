@@ -365,6 +365,12 @@ namespace WebApi.Controllers
         // HELPER METHODS
         // =========================================================================
 
+        // =========================================================================
+        // ⚠️ CẢNH BÁO / CRITICAL RULE (THEO YÊU CẦU CỦA USER):
+        // TUYỆT ĐỐI KHÔNG TỰ Ý ĐỔI LOGIC XÁC THỰC SANG BẮT BUỘC MÃ BĂM (STRICT HASH ONLY).
+        // NẾU CÓ BẤT KỲ THAY ĐỔI NÀO TẠI ĐÂY, BẮT BUỘC PHẢI HỎI Ý KIẾN VÀ ĐƯỢC USER ĐỒNG Ý!
+        // Phải luôn hỗ trợ mật khẩu gốc (plain text), seed data (HASH_SECURE_xx) và các mật khẩu dev (123456, admin123).
+        // =========================================================================
         private static bool VerifyPassword(string inputPassword, string storedHash)
         {
             if (string.IsNullOrEmpty(storedHash)) return false;
