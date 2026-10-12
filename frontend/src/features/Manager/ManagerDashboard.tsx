@@ -9,24 +9,45 @@ function ManagerDashboard() {
   const [pendingCount] = useState(3);
 
   const pendingRequests = [
-    { id: 'REQ-1001', customer: 'CLB Phù Đổng', route: 'Đà Lạt ➡️ HCM', horses: '2 cá thể', date: '12/10/2026' },
-    { id: 'REQ-1002', customer: 'Trại Ngựa ABC', route: 'HCM ➡️ Bangkok', horses: '5 cá thể', date: '15/10/2026' },
-    { id: 'REQ-1003', customer: 'Khu du lịch XYZ', route: 'Hà Nội ➡️ Seoul', horses: '1 cá thể', date: '16/10/2026' },
+    {
+      id: 'REQ-1001',
+      customer: 'CLB Phù Đổng',
+      route: 'Đà Lạt ➡️ HCM',
+      horses: '2 cá thể',
+      date: '12/10/2026',
+    },
+    {
+      id: 'REQ-1002',
+      customer: 'Trại Ngựa ABC',
+      route: 'HCM ➡️ Bangkok',
+      horses: '5 cá thể',
+      date: '15/10/2026',
+    },
+    {
+      id: 'REQ-1003',
+      customer: 'Khu du lịch XYZ',
+      route: 'Hà Nội ➡️ Seoul',
+      horses: '1 cá thể',
+      date: '16/10/2026',
+    },
   ];
 
-<<<<<<< HEAD
-  return (
-    <div className="manager-dashboard">
-      <div className="manager-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1>Manager Dashboard</h1>
-        <ThemeToggle />
-      </div>
-=======
   const activeTrips = [
-    { id: 'TRP-2026', route: 'Hồ Chí Minh ➡️ Tokyo', status: 'Đang di chuyển', statusClass: 'status-transit', eta: '18:00, 15/10/2026' },
-    { id: 'TRP-2027', route: 'Hà Nội ➡️ Paris', status: 'Sẵn sàng khởi hành', statusClass: 'status-ready', eta: '09:00, 18/10/2026' },
+    {
+      id: 'TRP-2026',
+      route: 'Hồ Chí Minh ➡️ Tokyo',
+      status: 'Đang di chuyển',
+      statusClass: 'status-transit',
+      eta: '18:00, 15/10/2026',
+    },
+    {
+      id: 'TRP-2027',
+      route: 'Hà Nội ➡️ Paris',
+      status: 'Sẵn sàng khởi hành',
+      statusClass: 'status-ready',
+      eta: '09:00, 18/10/2026',
+    },
   ];
->>>>>>> 2cfb285ec7be4b1c48d56c0c85f3e054d3296134
 
   const getTopBarTitle = () => {
     switch (activePage) {
