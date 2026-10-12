@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { registrationErrorMessage, requestRegistrationOtp } from "../../api/registrationApi";
 import { saveRegistrationSession } from "../../api/registrationSession";
-
 import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
 import "./RegisterPage.css";
 
@@ -11,22 +10,17 @@ function RegisterPage() {
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const submittingRef = useRef(false);
 
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState(false);
-
-  const handleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
-  ) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submittingRef.current) return;
     setError("");
@@ -39,18 +33,26 @@ function RegisterPage() {
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      const data = await requestRegistrationOtp({ fullName, email, phoneNumber, password });
+      const data = await requestRegistrationOtp({
+        fullName,
+        email: email.trim().toLowerCase(),
+        phoneNumber: phone,
+        password,
+      });
+
       const session = {
-        email: email.trim().toLowerCase(), registrationToken: data.registrationToken,
+        email: email.trim().toLowerCase(),
+        registrationToken: data.registrationToken,
         otpExpiresAt: Date.now() + data.expiresIn * 1000,
         resendAvailableAt: Date.now() + data.resendAfterSeconds * 1000,
       };
+
       saveRegistrationSession(session);
       setPassword("");
       setConfirmPassword("");
       navigate("/verify-otp", { state: session });
-    } catch (error) {
-      setError(registrationErrorMessage(error));
+    } catch (err) {
+      setError(registrationErrorMessage(err));
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
@@ -60,26 +62,17 @@ function RegisterPage() {
   return (
     <AuthLayout>
       <div className="register-form-wrapper">
-
         {/* STEP INDICATOR */}
         <div className="register-steps">
-
           <div className="register-step active">
-            <span className="register-step-number">
-              1
-            </span>
-
+            <span className="register-step-number">1</span>
             <span>Thông tin tài khoản</span>
           </div>
 
           <div className="register-step">
-            <span className="register-step-number">
-              2
-            </span>
-
+            <span className="register-step-number">2</span>
             <span>Xác minh OTP</span>
           </div>
-
         </div>
 
         <div className="register-title-line" />
@@ -91,100 +84,76 @@ function RegisterPage() {
         </p>
 
         <form onSubmit={handleSubmit}>
-          {error && <p role="alert">{error}</p>}
-          <div className="register-form-group">
-            <label htmlFor="fullName">
-              Họ và tên
-            </label>
+          {error && (
+            <p className="register-error-message" role="alert">
+              {error}
+            </p>
+          )}
 
+          {/* FULL NAME */}
+          <div className="register-form-group">
+            <label htmlFor="fullName">Họ và tên</label>
             <input
               id="fullName"
               maxLength={100}
               type="text"
               placeholder="Nhập họ và tên"
               value={fullName}
-              onChange={(event) =>
-                setFullName(event.target.value)
-              }
+              onChange={(event) => setFullName(event.target.value)}
+              autoComplete="name"
               required
             />
           </div>
 
           {/* EMAIL */}
           <div className="register-form-group">
-            <label htmlFor="email">
-              Email
-            </label>
-
+            <label htmlFor="email">Email</label>
             <input
               id="email"
               maxLength={100}
               type="email"
               placeholder="Nhập địa chỉ email"
               value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
-              }
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
               required
             />
           </div>
 
           {/* PHONE */}
           <div className="register-form-group">
-            <label htmlFor="phoneNumber">
-              Số điện thoại
-            </label>
-
+            <label htmlFor="phone">Số điện thoại</label>
             <input
-              id="phoneNumber"
+              id="phone"
               maxLength={40}
               type="tel"
               placeholder="Nhập số điện thoại"
-              value={phoneNumber}
-              onChange={(event) =>
-                setPhoneNumber(event.target.value)
-              }
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              autoComplete="tel"
               required
             />
           </div>
 
           {/* PASSWORD */}
           <div className="register-form-group">
-            <label htmlFor="password">
-              Mật khẩu
-            </label>
-
+            <label htmlFor="registerPassword">Mật khẩu</label>
             <div className="register-password-wrapper">
               <input
                 id="registerPassword"
                 minLength={6}
                 autoComplete="new-password"
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
+                type={showPassword ? "text" : "password"}
                 placeholder="Tạo mật khẩu"
                 value={password}
-                onChange={(event) =>
-                  setPassword(event.target.value)
-                }
+                onChange={(event) => setPassword(event.target.value)}
                 required
               />
-
               <button
                 type="button"
                 className="register-password-toggle"
-                onClick={() =>
-                  setShowPassword(
-                    (current) => !current
-                  )
-                }
-                aria-label={
-                  showPassword
-                    ? "Ẩn mật khẩu"
-                    : "Hiện mật khẩu"
-                }
+                onClick={() => setShowPassword((current) => !current)}
+                aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
                 {showPassword ? "Ẩn" : "Hiện"}
               </button>
@@ -193,53 +162,27 @@ function RegisterPage() {
 
           {/* CONFIRM PASSWORD */}
           <div className="register-form-group">
-            <label htmlFor="confirmPassword">
-              Xác nhận mật khẩu
-            </label>
-
+            <label htmlFor="confirmPassword">Xác nhận mật khẩu</label>
             <div className="register-password-wrapper">
               <input
                 id="confirmPassword"
                 autoComplete="new-password"
-                type={
-                  showConfirmPassword
-                    ? "text"
-                    : "password"
-                }
+                type={showConfirmPassword ? "text" : "password"}
                 placeholder="Nhập lại mật khẩu"
                 value={confirmPassword}
-                onChange={(event) =>
-                  setConfirmPassword(event.target.value)
-                }
+                onChange={(event) => setConfirmPassword(event.target.value)}
                 required
               />
-
               <button
                 type="button"
                 className="register-password-toggle"
-                onClick={() =>
-                  setShowConfirmPassword(
-                    (current) => !current
-                  )
-                }
-                aria-label={
-                  showConfirmPassword
-                    ? "Ẩn mật khẩu"
-                    : "Hiện mật khẩu"
-                }
+                onClick={() => setShowConfirmPassword((current) => !current)}
+                aria-label={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               >
-                {showConfirmPassword
-                  ? "Ẩn"
-                  : "Hiện"}
+                {showConfirmPassword ? "Ẩn" : "Hiện"}
               </button>
             </div>
           </div>
-
-          {error && (
-            <p className="register-error-message">
-              {error}
-            </p>
-          )}
 
           <button
             type="submit"
@@ -252,20 +195,14 @@ function RegisterPage() {
 
         <p className="register-login-text">
           Đã có tài khoản?{" "}
-
-          <button
-            type="button"
-            onClick={() =>
-              navigate("/login")
-            }
-          >
+          <button type="button" onClick={() => navigate("/login")}>
             Đăng nhập
           </button>
         </p>
-
       </div>
     </AuthLayout>
   );
 }
 
 export default RegisterPage;
+

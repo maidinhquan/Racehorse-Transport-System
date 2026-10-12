@@ -1,19 +1,17 @@
 using Domain.Entities;
+using Domain.Interfaces.DAOs;
 using Infrastructure.Data.Context;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.DAOs
 {
-    public class UserDAO
+    public class UserDAO : BaseDAO<User>, IUserDAO
     {
-        private readonly HorseTransportDbContext _context;
-
-        public UserDAO(HorseTransportDbContext context)
+        public UserDAO(HorseTransportDbContext context) : base(context)
         {
-            _context = context;
         }
 
-        public async Task<User?> GetByEmailAsync(string email)
+        public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(email))
             {
@@ -21,23 +19,25 @@ namespace Infrastructure.DAOs
             }
 
             var cleanEmail = email.Trim().ToLower();
-            return await _context.Users.FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == cleanEmail);
+            return await DbSet.FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == cleanEmail, cancellationToken);
         }
 
-        public async Task<User?> GetByIdAsync(string userId)
-        {
-            if (string.IsNullOrWhiteSpace(userId))
-            {
-                return null;
-            }
+        public Task<User?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
+            => DbSet.FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
 
-            return await _context.Users.FindAsync(userId);
-        }
+        public Task<User?> GetByPhoneAsync(string phone, CancellationToken cancellationToken = default)
+            => DbSet.FirstOrDefaultAsync(u => u.Phone == phone, cancellationToken);
 
-        public async Task<bool> UpdateUserAsync(User user)
+        public async Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default)
+            => await GetByEmailAsync(email, cancellationToken) != null;
+
+        public async Task<bool> ExistsByPhoneAsync(string phone, CancellationToken cancellationToken = default)
+            => await GetByPhoneAsync(phone, cancellationToken) != null;
+
+        public async Task<bool> UpdateUserAsync(User user, CancellationToken cancellationToken = default)
         {
-            _context.Users.Update(user);
-            await _context.SaveChangesAsync();
+            Context.Users.Update(user);
+            await Context.SaveChangesAsync(cancellationToken);
             return true;
         }
     }

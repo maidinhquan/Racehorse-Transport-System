@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using Application.DTOs;
 using Application.Services;
 using Infrastructure.Data.Context;
+using Domain.Interfaces.DAOs;
 
 using WebApi.Middlewares;
 using WebApi.Extensions;
@@ -26,10 +27,11 @@ builder.Services.AddDbContext<HorseTransportDbContext>(options =>
 // 2. ĐĂNG KÝ CÁC DỊCH VỤ NỀN TẢNG (CACHE, TOKEN, EMAIL, DAO & AUTH SERVICE)
 // =============================================================================
 builder.Services.AddMemoryCache();
-builder.Services.AddRegistration(builder.Configuration, builder.Environment);
+builder.Services.AddScoped<IUserDAO, Infrastructure.DAOs.UserDAO>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 
 // =============================================================================
 // 3. CẤU HÌNH CORS VĨNH VIỄN (ZERO-MAINTENANCE CORS CHO FRONTEND)
@@ -79,7 +81,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         var errors = actionContext.ModelState
             .Where(e => e.Value?.Errors.Count > 0)
             .ToDictionary(
-                kvp => string.IsNullOrEmpty(kvp.Key) ? "request" : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
+                kvp => string.IsNullOrEmpty(kvp.Key) ? "general" : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
                 kvp => kvp.Value!.Errors.Select(x => x.ErrorMessage).ToArray()
             );
 
@@ -213,5 +215,3 @@ app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();
-
-public partial class Program { }

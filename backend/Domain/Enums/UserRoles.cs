@@ -7,6 +7,7 @@ namespace Domain.Enums
         public const string TransportSpecialist = "TRANSPORT_SPECIALIST";
         public const string FleetRouteCoordinator = "FLEET_ROUTE_COORDINATOR";
         public const string DriverEscort = "DRIVER_ESCORT";
+        public const string Admin = "ADMIN";
 
         /// <summary>
         /// Chuẩn hóa Role từ database (hoặc từ client) về đúng định dạng contract của Frontend
@@ -18,6 +19,7 @@ namespace Domain.Enums
             var r = role.Trim().ToUpperInvariant();
             return r switch
             {
+                "ADMIN" => Admin,
                 "CUSTOMER" or "CUST" => Customer,
                 "MANAGER" or "LOGISTICS_MANAGER" => LogisticsManager,
                 "SPECIALIST" or "TRANSPORT_SPECIALIST" => TransportSpecialist,

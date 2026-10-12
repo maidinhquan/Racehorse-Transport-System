@@ -21,21 +21,21 @@ namespace WebApi.Controllers
         private readonly HorseTransportDbContext _context;
         private readonly ITokenService _tokenService;
         private readonly IMemoryCache _memoryCache;
-        private readonly IRegistrationService _registrationService;
         private readonly IAuthService _authService;
+        private readonly IRegistrationService _registrationService;
 
         public AuthController(
             HorseTransportDbContext context,
             ITokenService tokenService,
             IMemoryCache memoryCache,
-            IRegistrationService registrationService,
-            IAuthService authService)
+            IAuthService authService,
+            IRegistrationService registrationService)
         {
             _context = context;
             _tokenService = tokenService;
             _memoryCache = memoryCache;
-            _registrationService = registrationService;
             _authService = authService;
+            _registrationService = registrationService;
         }
 
         // =========================================================================
@@ -168,7 +168,6 @@ namespace WebApi.Controllers
         // POST /api/auth/register/verify-otp
         // =========================================================================
         [HttpPost("register/verify-otp")]
-        [EnableRateLimiting("registration")]
         public async Task<IActionResult> VerifyOtp([FromBody] RegisterVerifyOtpDto dto, CancellationToken cancellationToken)
         {
             await _registrationService.VerifyOtpAsync(dto, cancellationToken);

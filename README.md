@@ -1,5 +1,7 @@
 # Hệ thống quản lý vận chuyển ngựa đua xuyên biên giới (Racehorse-Transport-System)
 
+Cross-Border Racehorse Transport Management System - React frontend and ASP.NET Core backend.
+
 Đây là hệ thống quản lý vận chuyển ngựa đua xuyên biên giới, bao gồm giao diện người dùng (Frontend) xây dựng bằng **React** và máy chủ (Backend) xây dựng bằng **ASP.NET Core**.
 
 ## 🚀 Công nghệ sử dụng
@@ -12,7 +14,7 @@
 ## 📁 Cấu trúc dự án
 
 - `/frontend/` - Chứa mã nguồn của ứng dụng React.
-- `/RaceHorse_Transport_Backend/` - Chứa mã nguồn của API ASP.NET Core.
+- `/backend/` - Chứa mã nguồn của API ASP.NET Core.
 - `/HorseTransportDB/` - Các tài nguyên hoặc kịch bản liên quan đến Database (nếu có).
 - `compose.yaml` - File cấu hình Docker Compose để khởi chạy toàn bộ hệ thống.
 - `CONTRIBUTING.md` - Hướng dẫn đóng góp cho dự án.
@@ -20,59 +22,83 @@
 
 ## 🛠 Hướng dẫn cài đặt và chạy dự án
 
-Dự án này đã được cấu hình với Docker Compose, giúp việc khởi chạy trở nên dễ dàng và đồng bộ.
+Bạn có thể chạy dự án theo 2 cách:
+1. **Chạy độc lập từng phần (Khuyến nghị cho việc lập trình & phát triển)**.
+2. **Khởi chạy toàn bộ hệ thống bằng Docker Compose**.
 
-### Yêu cầu trước khi cài đặt:
-- [Docker](https://www.docker.com/products/docker-desktop/) và Docker Compose đã được cài đặt và đang hoạt động.
-- (Tùy chọn) Node.js và .NET SDK nếu bạn muốn chạy các thành phần độc lập trên máy local mà không dùng Docker.
+---
 
-### Khởi chạy toàn bộ hệ thống bằng Docker Compose:
+### Yêu cầu môi trường (Prerequisites)
+- **Node.js** (phiên bản 18+ hoặc 20+) và **npm**
+- **.NET 8.0 SDK**
+- **SQL Server 2022** (hoặc cài [Docker Desktop](https://www.docker.com/products/docker-desktop/) để chạy container database)
 
-1. Clone dự án về máy:
-   ```bash
-   git clone <url-repository>
-   cd Racehorse-Transport-System
-   ```
+---
 
-2. Khởi chạy các container bằng lệnh:
+### CÁCH 1: Chạy độc lập từng phần (Local Development)
+
+Mở các cửa sổ Terminal riêng biệt để khởi chạy từng dịch vụ:
+
+#### Bước 1: Khởi động Database (SQL Server)
+Bạn chọn 1 trong 2 cách sau:
+- **Cách A (Khuyên dùng - Dùng Docker chỉ để chạy DB):**
+  Đứng tại thư mục gốc dự án và chạy lệnh sau để bật duy nhất container SQL Server:
+  ```bash
+  docker-compose up -d db
+  ```
+  *(Database sẽ sẵn sàng tại `localhost:1433`, User: `sa`, Password: `12345`)*.
+- **Cách B (Dùng SQL Server cài sẵn trên máy):**
+  Chạy script tạo bảng và dữ liệu mẫu trong file `HorseTransportDB/HorseTransportDB.sql`. Cập nhật chuỗi kết nối trong `backend/WebApi/appsettings.json` nếu cần.
+
+#### Bước 2: Khởi động Backend (ASP.NET Core Web API)
+Mở một cửa sổ Terminal mới:
+```bash
+cd backend/WebApi
+dotnet run
+```
+*(Hoặc đứng từ thư mục gốc gõ: `dotnet run --project backend/WebApi/WebApi.csproj`)*
+
+- **Backend API:** [http://localhost:5129](http://localhost:5129)
+- **Swagger UI (tài liệu API):** [http://localhost:5129/swagger](http://localhost:5129/swagger)
+
+#### Bước 3: Khởi động Frontend (React Vite)
+Mở một cửa sổ Terminal khác:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+- **Frontend App:** [http://localhost:5173](http://localhost:5173)
+
+---
+
+### CÁCH 2: Khởi chạy toàn bộ hệ thống bằng Docker Compose
+
+Nếu bạn muốn khởi chạy đồng bộ toàn bộ (Database, Backend, Frontend) chỉ bằng một lệnh:
+
+1. Đảm bảo **Docker Desktop** đã được mở và đang chạy.
+2. Tại thư mục gốc của dự án, chạy lệnh:
    ```bash
    docker-compose up -d --build
    ```
-   *(Thêm cờ `--build` để đảm bảo các image được build lại từ source code mới nhất).*
+   *(Cờ `--build` giúp build lại image từ mã nguồn mới nhất).*
 
-3. Sau khi Docker khởi chạy xong, bạn có thể truy cập hệ thống qua các địa chỉ sau:
+3. Truy cập các dịch vụ sau khi Docker khởi chạy xong:
    - **Frontend (React):** [http://localhost:5173](http://localhost:5173)
    - **Backend API (ASP.NET Core):** [http://localhost:5129](http://localhost:5129)
-   - **Database (MSSQL):** Truy cập qua port `1433` (Server: `localhost,1433` | User: `sa` | Password: `12345`)
+   - **Database (MSSQL):** `localhost:1433` (User: `sa`, Password: `12345`)
 
-### Dừng hệ thống:
-Để tắt các dịch vụ đang chạy, sử dụng lệnh:
-```bash
-docker-compose down
-```
+4. **Dừng toàn bộ hệ thống Docker:**
+   ```bash
+   docker-compose down
+   ```
 
-## 🔗 Chạy thủ công từng thành phần (Không dùng Docker)
+## 💳 VNPAY Sandbox
 
-Nếu bạn không muốn sử dụng Docker, bạn có thể chạy riêng lẻ frontend và backend.
-
-**1. Chạy Backend:**
-- Cần có .NET SDK và thiết lập chuỗi kết nối (Connection String) trong `appsettings.json` trỏ tới Database cục bộ của bạn.
-- Di chuyển vào thư mục backend và chạy lệnh:
-  ```bash
-  cd RaceHorse_Transport_Backend
-  dotnet run
-  ```
-
-**2. Chạy Frontend:**
-- Cần cài đặt Node.js.
-- Di chuyển vào thư mục frontend, cài đặt dependencies và chạy:
-  ```bash
-  cd frontend
-  npm install
-  npm run dev
-  ```
+Xem [hướng dẫn chạy API, trang thanh toán thử và cấu hình IPN](backend/README.md).
 
 ## 🤝 Đóng góp
 
 Vui lòng đọc kỹ file [CONTRIBUTING.md](./CONTRIBUTING.md) để biết thêm về quy trình và các nguyên tắc trước khi tạo Pull Request.
 Đồng thời tuân thủ các quy tắc viết code backend trong [backend_coding_rules.md](./backend_coding_rules.md).
+
