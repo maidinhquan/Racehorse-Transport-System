@@ -39,6 +39,9 @@ import DriverDashboard from "../../features/driver/DriverDashboard";
 // Import các trang khác của specialist
 import SpecialistDashboard from "../../features/documents/SpecialistDashboard";
 
+// Import các trang khác của specialist
+import CoordinatorDashboard from "../../features/coordinator/CoordinatorDashboard";
+
 function AppRouter() {
   return (
     <BrowserRouter>
@@ -53,6 +56,12 @@ function AppRouter() {
         <Route
           path="/manager/dashboard"
           element={<ManagerDashboard />}
+        />
+
+        {/* Màn hình coordinator */}
+        <Route
+          path="/coordinator/dashboard"
+          element={<CoordinatorDashboard />}
         />
 
         {/* Màn hình customer */}
