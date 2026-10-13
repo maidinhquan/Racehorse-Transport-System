@@ -1,10 +1,10 @@
-# FLOW 03 – API CONTRACT v1.1: Lộ trình, phương tiện, nhân sự và Operations READY
+# FLOW 03 – API CONTRACT v1.2: Lộ trình, phương tiện, nhân sự và Operations READY
 
 > **Dự án:** SWP391 – Cross-Border Racehorse Transport System (CBN Transport).  
 > **Phạm vi demo:** Chỉ `VN → VN` và `VN → JP`; không phục vụ `JP → VN`, `VN → TH`, hoặc quá cảnh qua quốc gia thứ ba trong bản demo.  
 > **Vai trò chính:** `FLEET_COORDINATOR`; phê duyệt bởi `LOGISTICS_MANAGER`; phối hợp `TRANSPORT_SPECIALIST`, `DRIVER`, `ESCORT` (bao gồm người được phân công vị trí `VETERINARIAN`), `CUSTOMER`.  
 > **UC:** `UC-FRC-01`, `UC-FRC-02`, `UC-FRC-03`, `UC-LM-04`; tham chiếu Flow 2 (checklist), Flow 4 (vận hành), Flow 5 (sự cố).  
-> **Nguồn đối chiếu:** `00-conventions.md`, `01-shared-api.md`, `04-manager-api.md`, tài liệu Coordinator hiện lưu `Markdown đã dán (3).md`, Flow 1 v2.0, `flow-02-legal-quarantine-customs-api.md`.  
+> **Nguồn đối chiếu:** `00-conventions.md`, `01-shared-api.md`, `04-manager-api.md`, tài liệu Coordinator hiện lưu `Markdown đã dán (3).md`, Flow 1 v2.3, `flow-02-legal-quarantine-customs-api.md`.  
 > **Tính chất:** Hợp đồng API thiết kế cho FE/BE; không khẳng định endpoint đã implement. Các API được ghi `[BỔ SUNG]` là phần còn thiếu của bộ Role API và cần đồng bộ trước triển khai.  
 > **Route prefix:** Tất cả đường dẫn trong file là đường dẫn **sau** `/api`. Không tạo namespace `/flow3/*`.  
 > **Lưu ý:** Ví dụ ngày, xe, bảng giá, thời gian, chuyến bay và tọa độ chỉ là minh họa; không phải cam kết lịch vận hành hay quy tắc pháp lý.
@@ -111,6 +111,8 @@ COORDINATOR – FLOW 3                            SPECIALIST – FLOW 2
 | `F03-BR-31` | Mỗi confirmation lưu `tripId`, `routeVersionId`, version dữ liệu nguồn, người xác nhận, thời điểm và kiểm tra bằng Backend; không chấp nhận cờ `ready=true` từ FE để vượt validation. |
 | `F03-BR-32` | `Operations READY` **không bao gồm bảo hiểm hoặc hồ sơ**. `Documents READY` thuộc Specialist và phải bao gồm bảo hiểm phù hợp, nhưng không thay thế kiểm tra lại tài liệu ở thời điểm khởi hành. |
 | `F03-BR-33` | Thao tác xác nhận lặp với cùng snapshot không tạo hai quyết định/trip; snapshot stale hoặc quá trình khởi hành đã bắt đầu phải trả xung đột phù hợp. |
+| `F03-BR-34` | Flight booking có `bookingVersion`/ETag và optimistic concurrency khi tạo/sửa; Coordinator confirm Operations lưu cả ID **và version** của booking. Chỉ giữ confirmation nếu phiên bản và nội dung vận hành còn hợp lệ. |
+| `F03-BR-35` | Manager Hold Deployment trước milestone khởi hành làm readiness tổng mất hiệu lực; khi Trip đã READY_TO_DEPART phải re-evaluate về PLANNING. Không thực hiện Flow 1 Hold/Resume để rollback `IN_TRANSIT`; xử lý Flow 4/5. |
 
 ### 2.1. Không thêm Business Rule chưa chốt
 
@@ -828,7 +830,7 @@ Trả `200` với `valid=false` cho dự xem xét; `PUT` phải tự validate l�
 
 ```json
 {
-  "flightBookingId":300,"tripId":9,"routeVersionId":120,"airLegId":52,
+  "flightBookingId":300,"bookingVersion":2,"tripId":9,"routeVersionId":120,"airLegId":52,
   "providerName":"Example air cargo provider","airline":"Example carrier","flightNumber":"EX123",
   "departureAirportCheckpointId":101,"arrivalAirportCheckpointId":201,
   "departureAt":"2026-11-20T05:00:00Z","arrivalAt":"2026-11-20T11:00:00Z",
@@ -844,7 +846,7 @@ Số tiền chỉ là ví dụ; approval record phải có thật, không để 
 
 ### F03-C23. `GET /coordinator/trips/{tripId}/flight-booking` **[BỔ SUNG]**
 
-**200 data:** booking hiện hành nếu có, `null` nếu chưa có. Chỉ dùng khi Trip có AIR leg; nếu không có thì trả `data:null` cùng metadata `applicable:false` tại Trip Detail.
+**200 data:** booking hiện hành gồm **`flightBookingId` và `bookingVersion`** (hoặc ETag tương đương) nếu có, `null` nếu chưa có. Chỉ dùng khi Trip có AIR leg; nếu không có thì trả `data:null` cùng metadata `applicable:false` tại Trip Detail.
 
 ### F03-C24. `PUT /coordinator/trips/{tripId}/flight-booking` **[BỔ SUNG]**
 
@@ -854,7 +856,7 @@ Số tiền chỉ là ví dụ; approval record phải có thật, không để 
 
 ```json
 {
-  "routeVersionId":120,"airLegId":52,"providerName":"Example air cargo provider",
+  "routeVersionId":120,"airLegId":52,"expectedBookingVersion":1,"providerName":"Example air cargo provider",
   "airline":"Example carrier","flightNumber":"EX123",
   "departureAirportCheckpointId":101,"arrivalAirportCheckpointId":201,
   "departureAt":"2026-11-20T05:00:00Z","arrivalAt":"2026-11-20T11:00:00Z",
@@ -863,15 +865,17 @@ Số tiền chỉ là ví dụ; approval record phải có thật, không để 
 }
 ```
 
-Files: booking confirmation, service agreement/evidence theo giới hạn `00-conventions.md`. **200 data:** `{flightBookingId,bookingConfirmed,recordedAt,routeVersionId,readinessReevaluationRequired}`.
+Files: booking confirmation, service agreement/evidence theo giới hạn `00-conventions.md`. **200 data:** `{flightBookingId,bookingVersion,bookingConfirmed,recordedAt,routeVersionId,readinessReevaluationRequired}`. Khi tạo booking mới, `expectedBookingVersion` là `null` và BE xác nhận chưa có bản hiện hành; khi sửa phải gửi đúng version/ETag hiện tại. Mọi cập nhật thành công tăng `bookingVersion` và giữ lịch sử.
 
 **Validation:** Trip/Route/AIR leg hợp lệ; hai đầu airport VN và JP; direct flight; hãng/bên thứ ba tồn tại theo xác nhận; giờ bay hợp lệ; ngân sách/phương án đã được Manager duyệt; bằng chứng booking; số ngựa đúng Trip; một booking hiện hành cho cùng service leg. Nếu thay lịch bay làm Route ETA đổi, phải cập nhật Route Version và báo Specialist (Flow 2) rồi Manager duyệt lại khi cần; không âm thầm sửa route đã approve.
 
-**Errors:** `409 FLIGHT_BUDGET_NOT_APPROVED`, `409 FLIGHT_BOOKING_CONFLICT`, `409 ROUTE_VERSION_CONFLICT`, `400 VALIDATION_ERROR`, `409 INVALID_DIRECT_FLIGHT`.
+**Errors:** `409 FLIGHT_BUDGET_NOT_APPROVED`, `409 FLIGHT_BOOKING_CONFLICT`, `409 FLIGHT_BOOKING_VERSION_CONFLICT`, `409 ROUTE_VERSION_CONFLICT`, `400 VALIDATION_ERROR`, `409 INVALID_DIRECT_FLIGHT`. Cập nhật cùng booking ID nhưng khác `bookingVersion` cũng phải khiến Operations confirmation cũ mất hiệu lực nếu dữ liệu mới ảnh hưởng vận hành.
+
+**Chống stale booking:** Backend lưu `(flightBookingId, bookingVersion)` trong confirmation snapshot. Tất cả mutation của booking phải kiểm tra `expectedBookingVersion`, tương đương ETag concurrency; một booking ID không đại diện cho cùng lịch bay mãi mãi. Khi booking đổi giờ bay/chặng/danh sách ngựa/bằng chứng xác nhận, Backend rút hiệu lực Operations READY cũ và đánh giá ảnh hưởng Route/checklist.
 
 ### 13.2. Budget approval liên kết Flow 1/Manager
 
-- Nếu `approvedBudget`/preliminaryPlan của Flow 1 đã đủ minh chứng Manager phê duyệt mức chi và phương án dịch vụ bay, Booking tham chiếu bản duyệt đó; không yêu cầu thêm một API phê duyệt trùng lặp.
+- Booking tham chiếu `preliminaryPlanId` + `preliminaryPlanVersion` hoặc tham chiếu bản ghi quyết định phê duyệt ngân sách tương đương **do Backend quản lý**, thể hiện phương án và mức chi đã được Manager chấp thuận ở Flow 1. Không tin cờ approved do FE tự gửi; không tạo một API phê duyệt thứ hai nếu nguồn phê duyệt hiện có đã đủ.
 - Nếu hệ thống lưu quyết định ngân sách bay tách khỏi preliminaryPlan, cần thống nhất hình thức biểu diễn trước khi phát triển; **không giả định một bước duyệt thứ hai**.
 - Specialist nhận thông báo để bổ sung/yêu cầu hồ sơ vận chuyển hàng không và kiểm dịch theo Flow 2; không được coi booking là giấy phép.
 
@@ -983,6 +987,7 @@ Coordinator và Specialist không thể sửa hoặc xác nhận thay dữ liệ
     "routeVersionId":120,
     "assignmentVersion":3,
     "flightBookingId":300,
+    "flightBookingVersion":2,
     "eligibleToConfirm":true,
     "ready":true,
     "confirmed":false,
@@ -1013,11 +1018,12 @@ Nếu là Trip ROAD thuần, `FLIGHT_BOOKING_CONFIRMED` trả `met:true, applica
   "routeVersionId":120,
   "expectedAssignmentVersion":3,
   "expectedFlightBookingId":300,
+  "expectedFlightBookingVersion":2,
   "note":"Đã hoàn tất phân công mọi chặng VN và JP, kiểm tra lịch phương tiện và nhân sự"
 }
 ```
 
-`expectedFlightBookingId` có thể `null` cho Trip ROAD thuần. `note` là ghi chú audit tự do; không phải yêu cầu thêm một chứng chỉ hoặc duyệt phụ mới.
+`expectedFlightBookingId` và `expectedFlightBookingVersion` đều `null` cho Trip ROAD thuần; với AIR cả hai phải khớp phiên bản hiện hành. `note` là ghi chú audit tự do; không phải yêu cầu thêm một chứng chỉ hoặc duyệt phụ mới.
 
 **200 OK:**
 
@@ -1033,6 +1039,7 @@ Nếu là Trip ROAD thuần, `FLIGHT_BOOKING_CONFIRMED` trả `met:true, applica
       "routeVersionId":120,
       "assignmentVersion":3,
       "flightBookingId":300,
+      "flightBookingVersion":2,
       "confirmedBy":20,
       "confirmedAt":"2026-11-11T09:30:00Z"
     },
@@ -1049,7 +1056,7 @@ Nếu là Trip ROAD thuần, `FLIGHT_BOOKING_CONFIRMED` trả `met:true, applica
 2. RouteVersion phải là bản hiện hành đang dùng để chuẩn bị, có tính liên tục/hợp lệ; **không** xác nhận nhầm Route Version cũ. Không cần đợi Specialist xác nhận trước.
 3. Từng chặng ROAD tại VN và JP đã phân đủ `vehicleId`, `MAIN_DRIVER`, `CO_DRIVER`, `VETERINARIAN`, ngựa/stall; Xe/người được phân công phù hợp quốc gia chặng, thời gian và sức chứa.
 4. AIR nếu áp dụng có booking bằng chứng hợp lệ, lịch bay đúng chặng và nhân sự đi kèm đáp ứng điều kiện đã được kiểm tra.
-5. `expectedAssignmentVersion`, `expectedFlightBookingId` và `routeVersionId` phải khớp snapshot hiện hành. Backend recheck **trong transaction**; preview GET không cấp quyền bỏ qua validation.
+5. `expectedAssignmentVersion`, `expectedFlightBookingId`, **`expectedFlightBookingVersion`** và `routeVersionId` phải khớp snapshot hiện hành. Backend recheck **trong transaction**; preview GET không cấp quyền bỏ qua validation.
 6. Ghi audit `OPERATIONS_READINESS_CONFIRMED` gồm actor/time/snapshot, phát update sau commit. Retry cùng snapshot không tạo thêm confirmation hoặc Trip.
 
 **Errors:** `400 VALIDATION_ERROR`; `403 FORBIDDEN_ROLE`; `404 NOT_FOUND`; `409 OPERATIONS_NOT_READY`, `OPERATIONS_CONFIRMATION_STALE`, `ROUTE_VERSION_CONFLICT`, `ASSIGNMENT_ROUTE_MISMATCH`, `RESOURCE_SCHEDULE_CONFLICT`, `INVALID_STATE`, `DEPLOYMENT_NOT_CONFIRMED`.
@@ -1273,6 +1280,7 @@ Log chỉ đọc, không công khai PII/license/passport; dữ liệu nhạy c�
 | `ASSIGNMENT_ROUTE_MISMATCH` | Assignment không còn khớp Route Version |
 | `ASSIGNMENT_INVALID` | Dữ liệu phân công không đạt invariant |
 | `OPERATIONS_NOT_READY` | Coordinator chưa phân công đủ/booking chưa hợp lệ để xác nhận |
+| `FLIGHT_BOOKING_VERSION_CONFLICT` | Booking đã thay trên cùng ID, request/confirmation chứa version cũ |
 | `OPERATIONS_CONFIRMATION_STALE` | Coordinator đã xác nhận trên snapshot cũ; phải xác nhận lại sau khi sửa |
 | `DOCUMENTS_NOT_READY` | Specialist chưa xác nhận hồ sơ, bao gồm bảo hiểm, ở Flow 2 |
 | `DOCUMENTS_CONFIRMATION_STALE` | Checklist/insurance/route version thay đổi làm xác nhận Specialist cũ không còn hiệu lực |
@@ -1411,6 +1419,9 @@ DB constraint cụ thể phụ thuộc SQL Server/EF Core; bảng trên là đi�
 | `F03-T63` | Specialist đã confirm nhưng policy mất hiệu lực trước departure | Documents READY invalidated; Trip về PLANNING và thông báo |
 | `F03-T64` | Coordinator đã confirm, sau đó flight schedule/route version thay đổi | Operations READY invalidated; revalidate/reconfirm, không dùng snapshot cũ |
 | `F03-T65` | Coordinator POST confirm trùng cùng snapshot | Idempotent, một confirmation hiện hành, không tạo trùng Trip |
+| `F03-T69` | Booking đổi lịch trên cùng `flightBookingId` nhưng tăng `bookingVersion` | Confirm cũ stale; Coordinator phải revalidate và xác nhận lại nếu bị ảnh hưởng |
+| `F03-T70` | PUT booking với `expectedBookingVersion` cũ | `409 FLIGHT_BOOKING_VERSION_CONFLICT`, không ghi đè lịch của người khác |
+| `F03-T71` | Manager Hold khi Trip đã READY_TO_DEPART nhưng chưa departed | Trip re-evaluate về PLANNING; đang IN_TRANSIT thì Flow 1 Hold từ chối |
 | `F03-T66` | Cả hai xác nhận hợp lệ; route approved; đã khởi hành milestone | Trip IN_TRANSIT qua Flow 4; không nhảy IN_TRANSIT tại Confirm |
 | `F03-T67` | Documents READY không có bảo hiểm thực tế dù Contract đã gồm phí | Backend không READY_TO_DEPART |
 | `F03-T68` | Coordinator sửa staff sau khi Trip đã IN_TRANSIT | Không cho qua Flow 3; chuyển Flow 5 nếu là sự cố |
@@ -1514,7 +1525,7 @@ Trip 1 : N TripReadinessEvaluations
 | `04-manager-api.md` | Manager planning, route approve/return, departure conditions, approved flight budget; **bỏ Manager insurance verify**, giữ policy overview read-only |
 | Coordinator Role API (`Markdown đã dán (3).md`) | Bỏ VN→TH/KH, GPS/polling, mốc lái cứng; bỏ Coordinator insurance upload/verify; thêm Operations READY; phân công ROAD VN/JP và AIR |
 | `flow-02-legal-quarantine-customs-api.md` | Specialist sở hữu insurance upload/verify + Documents READY, checklist FINAL đúng Route Version; xác nhận không thay route approval |
-| Flow 1 v2.0 | Trip PLANNING, deployment CONFIRMED, preliminary plan và budget đã được Manager duyệt |
+| Flow 1 v2.3 | Trip PLANNING, deployment CONFIRMED, preliminary plan và budget đã được Manager duyệt |
 | Driver/Escort API + Flow 4 | Trip READY_TO_DEPART → manual departure milestone; staff view đúng assignments, không GPS |
 | Flow 5 | Thay lộ trình/xe/người sau IN_TRANSIT từ Incident Proposal và Manager approval |
 
