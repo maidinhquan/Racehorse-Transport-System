@@ -30,6 +30,7 @@ namespace Application.Services
             var cleanEmail = email.Trim().ToLower();
             var user = await _userDao.GetByEmailAsync(cleanEmail);
 
+            // 1. Kiểm tra: Email phải tồn tại và tài khoản đang kích hoạt (IsActive == true)
             if (user == null)
             {
                 return (false, "Email của bạn không tồn tại trên hệ thống");
@@ -40,23 +41,38 @@ namespace Application.Services
                 return (false, "Tài khoản của bạn đã bị khóa hoặc chưa được kích hoạt");
             }
 
+            // 2. Sinh mã token ngẫu nhiên bảo mật (URL-safe hex token)
             var token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant();
 
+            // 3. Cập nhật vào User trong CSDL:
             user.ForgotPasswordRequest = token;
-            user.ResetOtpExpiry = DateTime.UtcNow.AddMinutes(15);
+            user.ResetOtpExpiry = DateTime.UtcNow.AddMinutes(15); // Hết hạn sau 15 phút
 
             await _userDao.UpdateUserAsync(user);
 
+            // 4. Tạo đường dẫn liên kết đặt lại mật khẩu dẫn tới frontend
             var clientUrl = _config["ClientUrl"] ?? "http://localhost:5173";
             var resetLink = $"{clientUrl.TrimEnd('/')}/reset-password?token={token}";
-            var subject = "Mã xác thực đặt lại mật khẩu - RaceHorse Transport";
+
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.WriteLine($"\n=======================================================");
+            Console.WriteLine($"[AUTH SERVICE] LIÊN KẾT ĐẶT LẠI MẬT KHẨU CỦA {user.Email}:");
+            Console.WriteLine($">>> {resetLink} <<<");
+            Console.WriteLine($"=======================================================\n");
+            Console.ResetColor();
+
+            // 5. Gửi email chứa liên kết đặt lại mật khẩu cho người dùng
+            var subject = "Yêu cầu đặt lại mật khẩu - RaceHorse Transport";
             var body = $@"<h3>Yêu cầu đặt lại mật khẩu</h3>
 <p>Xin chào <strong>{user.FullName}</strong>,</p>
 <p>Bạn đã gửi yêu cầu đặt lại mật khẩu cho tài khoản tại hệ thống RaceHorse Transport.</p>
-<p>Bấm vào liên kết bên dưới để đặt lại mật khẩu trên website:</p>
-<p><a href='{resetLink}' style='display:inline-block;padding:10px 20px;background-color:#2b6cb0;color:#ffffff;text-decoration:none;border-radius:5px;font-weight:bold;'>Đặt lại mật khẩu ngay</a></p>
-<p style='color: #718096; font-size: 13px;'>Đường dẫn trực tiếp: <a href='{resetLink}'>{resetLink}</a></p>
-<p>Liên kết này có hiệu lực trong vòng <strong>15 phút</strong>. Vui lòng không chia sẻ cho bất kỳ ai.</p>
+<p>Vui lòng bấm vào nút bên dưới để tiến hành đặt lại mật khẩu mới:</p>
+<p style='margin: 20px 0;'>
+    <a href='{resetLink}' style='background-color: #f59e0b; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;'>Đặt lại mật khẩu</a>
+</p>
+<p>Hoặc truy cập trực tiếp bằng đường dẫn sau:<br/>
+<a href='{resetLink}'>{resetLink}</a></p>
+<p>Liên kết này có hiệu lực trong vòng <strong>15 phút</strong>. Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.</p>
 <p>Trân trọng,<br/>Đội ngũ hỗ trợ RaceHorse Transport</p>";
 
             await _emailService.SendEmailAsync(user.Email ?? cleanEmail, subject, body);
@@ -64,11 +80,11 @@ namespace Application.Services
             return (true, successMessage);
         }
 
-        public async Task<(bool Success, string Message)> ResetPasswordAsync(string email, string otpOrToken, string newPassword, string confirmPassword)
+        public async Task<(bool Success, string Message)> ResetPasswordAsync(string token, string newPassword, string confirmPassword)
         {
-            if (string.IsNullOrWhiteSpace(otpOrToken))
+            if (string.IsNullOrWhiteSpace(token))
             {
-                return (false, "Mã OTP / Reset Token không được để trống");
+                return (false, "Liên kết đặt lại mật khẩu không hợp lệ.");
             }
 
             if (string.IsNullOrWhiteSpace(newPassword))
@@ -81,51 +97,41 @@ namespace Application.Services
                 return (false, "Mật khẩu mới phải có tối thiểu 6 ký tự");
             }
 
+            // 1. Kiểm tra: newPassword và confirmPassword phải trùng khớp nhau
             if (newPassword != confirmPassword)
             {
                 return (false, "Mật khẩu mới và xác nhận mật khẩu không khớp");
             }
 
-            var cleanToken = otpOrToken.Trim();
-            User? user = null;
+            var cleanToken = token.Trim();
 
-            if (!string.IsNullOrWhiteSpace(email))
-            {
-                user = await _userDao.GetByEmailAsync(email.Trim().ToLowerInvariant());
-            }
-            else
-            {
-                user = await _userDao.GetByResetTokenAsync(cleanToken);
-            }
-
+            // 2. Tìm User theo token trong CSDL
+            var user = await _userDao.GetByResetTokenAsync(cleanToken);
             if (user == null)
             {
-                return (false, "Không tìm thấy người dùng hoặc mã xác thực không hợp lệ");
+                return (false, "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã qua sử dụng");
             }
 
-            var matchesOtp = !string.IsNullOrEmpty(user.ResetOtpCode) && user.ResetOtpCode.Trim() == cleanToken;
-            var matchesRequestToken = !string.IsNullOrEmpty(user.ForgotPasswordRequest) && user.ForgotPasswordRequest.Trim() == cleanToken;
-
-            if (!matchesOtp && !matchesRequestToken)
+            // 3. Kiểm tra user.ResetOtpExpiry > DateTime.UtcNow
+            if (user.ResetOtpExpiry == null || user.ResetOtpExpiry <= DateTime.UtcNow)
             {
-                return (false, "Mã OTP / Token không chính xác");
+                return (false, "Liên kết đặt lại mật khẩu đã hết hạn, vui lòng yêu cầu liên kết mới");
             }
 
-            if (user.ResetOtpExpiry != null && user.ResetOtpExpiry <= DateTime.UtcNow)
-            {
-                return (false, "Mã OTP / Token đã hết hạn, vui lòng yêu cầu mã mới");
-            }
-
+            // 4. Gán mật khẩu mới
             user.PasswordHash = newPassword;
 
-            user.ResetOtpCode = null;
-            user.ResetOtpExpiry = null;
+            // 5. Vô hiệu hóa token sau khi đổi thành công
             user.ForgotPasswordRequest = null;
-            user.ResetPasswordRequest = cleanToken;
+            user.ResetOtpExpiry = null;
+            user.ResetOtpCode = null;
+            user.ResetPasswordRequest = "COMPLETED";
 
+            // 6. Lưu thay đổi xuống CSDL thông qua UserDAO
             await _userDao.UpdateUserAsync(user);
 
             return (true, "Đặt lại mật khẩu thành công");
         }
     }
 }
+

@@ -42,16 +42,7 @@ namespace Infrastructure.DAOs
         }
 
         public Task<User?> GetByResetTokenAsync(string resetToken, CancellationToken cancellationToken = default)
-        {
-            if (string.IsNullOrWhiteSpace(resetToken))
-            {
-                return Task.FromResult<User?>(null);
-            }
-
-            var cleanToken = resetToken.Trim();
-            return DbSet.FirstOrDefaultAsync(
-                u => u.ForgotPasswordRequest == cleanToken || u.ResetOtpCode == cleanToken,
-                cancellationToken);
-        }
+            => DbSet.FirstOrDefaultAsync(u => u.ForgotPasswordRequest == resetToken, cancellationToken);
     }
 }
+

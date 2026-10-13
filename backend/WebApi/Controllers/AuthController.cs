@@ -216,18 +216,16 @@ namespace WebApi.Controllers
 
             var token = !string.IsNullOrWhiteSpace(request.ResetToken)
                 ? request.ResetToken
-                : request.Otp;
+                : (!string.IsNullOrWhiteSpace(request.Otp) ? request.Otp : string.Empty);
+            var newPassword = request.NewPassword ?? string.Empty;
             var confirmPassword = !string.IsNullOrWhiteSpace(request.ConfirmNewPassword)
                 ? request.ConfirmNewPassword
-                : request.ConfirmPassword;
-            var email = request.Email ?? string.Empty;
-            var newPassword = request.NewPassword ?? string.Empty;
+                : (request.ConfirmPassword ?? string.Empty);
 
             var result = await _authService.ResetPasswordAsync(
-                email,
-                token ?? string.Empty,
+                token,
                 newPassword,
-                confirmPassword ?? string.Empty);
+                confirmPassword);
 
             if (!result.Success)
             {
@@ -349,11 +347,11 @@ namespace WebApi.Controllers
 
     public class ResetPasswordRequest
     {
-        public string? Email { get; set; }
-        public string? Otp { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string Otp { get; set; } = string.Empty;
         public string? ResetToken { get; set; }
-        public string? NewPassword { get; set; }
-        public string? ConfirmPassword { get; set; }
+        public string NewPassword { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
         public string? ConfirmNewPassword { get; set; }
     }
 }
