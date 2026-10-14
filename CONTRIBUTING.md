@@ -1,195 +1,87 @@
+# Hướng dẫn đóng góp (Contributing Guidelines)
 
-```md
-# Frontend Coding Rules
+Chào mừng bạn đến với dự án **Hệ thống quản lý vận chuyển ngựa đua xuyên biên giới (Racehorse-Transport-System)**. Dưới đây là các quy chuẩn để đảm bảo sự đồng bộ khi làm việc nhóm.
 
-## 1. Folder Structure
+---
 
-Toàn bộ code frontend phải nằm trong:
+## 1. Frontend Coding Rules
 
-```text
-frontend/
-└── src/
-```
+Toàn bộ code frontend phải nằm trong thư mục `frontend/src/`.
+
+### 1.1. Folder Structure (Cấu trúc thư mục chính)
 
 Cấu trúc chuẩn:
-
 ```text
 src/
-├── app/
-├── assets/
-├── features/
-├── shared/
+├── app/        # Code cấu hình toàn bộ ứng dụng (Store, Router, v.v.)
+├── assets/     # Hình ảnh, icon, CSS và tài nguyên tĩnh
+├── features/   # Các nghiệp vụ chính của hệ thống
+├── shared/     # Code dùng chung cho nhiều feature (UI components, utils, v.v.)
 ├── App.tsx
 └── main.tsx
 ```
 
-### Quy tắc
+**Quy tắc:** Không tự ý tạo thêm các folder cấp cao trong `src/` (như `pages/`, `services/`, `models/`,...). Nếu thực sự cần thêm, phải thống nhất với team.
 
-Không tự ý tạo thêm các folder cấp cao trong `src/` như:
+### 1.2. Feature Structure (Cấu trúc nghiệp vụ)
 
-```text
-src/pages/
-src/services/
-src/models/
-src/common/
-```
-
-Nếu thực sự cần thêm folder mới ở cấp `src/`, phải thống nhất với team trước.
-
----
-
-## 2. Feature Structure
-
-Mỗi nghiệp vụ chính của hệ thống phải được tổ chức thành một feature riêng trong:
-
-```text
-src/features/
-```
-
-Các feature hiện tại:
-
-```text
-features/
-├── auth/
-├── horse-management/
-├── transport-request/
-├── document-management/
-├── quarantine-customs/
-├── route-planning/
-├── trip-tracking/
-├── incident-management/
-├── payment/
-└── dashboard/
-```
-
+Mỗi nghiệp vụ chính của hệ thống phải được tổ chức thành một feature riêng trong `src/features/`.
 Mỗi feature chỉ chứa code liên quan trực tiếp đến nghiệp vụ đó.
 
-Ví dụ:
+Ví dụ các features hiện tại:
+- `auth/`
+- `horse-management/`
+- `transport-request/`
+- `document-management/`
+- `quarantine-customs/`
+- `route-planning/`
+- `trip-tracking/`
+- `incident-management/`
+- `payment/`
+- `dashboard/`
 
-```text
-features/
-└── horse-management/
-```
+*(Tuyệt đối không đặt code của nghiệp vụ này vào trong thư mục nghiệp vụ khác).*
 
-chỉ chứa các chức năng liên quan đến quản lý ngựa.
+### 1.3. Structure Inside Each Feature (Cấu trúc trong mỗi feature)
 
-Không đặt code của `payment`, `transport-request` hoặc các nghiệp vụ khác vào trong `horse-management`.
-
----
-
-## 3. Structure Inside Each Feature
-
-Cấu trúc tiêu chuẩn của một feature:
-
+Cấu trúc tiêu chuẩn của một feature (Chỉ tạo khi cần, không tạo folder rỗng):
 ```text
 feature-name/
-├── pages/
-├── components/
-├── api/
-├── hooks/
-├── types/
-└── validation/
-```
-
-Ý nghĩa:
-
-- `pages/`: chứa các màn hình hoàn chỉnh của feature.
-- `components/`: chứa các React component chỉ được sử dụng trong feature đó.
-- `api/`: chứa các function dùng để gọi Backend API.
-- `hooks/`: chứa các custom React Hooks của feature.
-- `types/`: chứa các interface và type TypeScript.
-- `validation/`: chứa schema và logic validate form.
-
-Ví dụ:
-
-```text
-horse-management/
-├── pages/
-│   ├── HorseListPage.tsx
-│   ├── HorseDetailPage.tsx
-│   └── CreateHorsePage.tsx
-│
-├── components/
-│   ├── HorseCard.tsx
-│   ├── HorseForm.tsx
-│   └── HorseTable.tsx
-│
-├── api/
-│   └── horseApi.ts
-│
-├── hooks/
-│   └── useHorses.ts
-│
-├── types/
-│   └── horse.types.ts
-│
-└── validation/
-    └── horse.schema.ts
-```
-
-### Lưu ý
-
-Không bắt buộc mọi feature phải có đầy đủ tất cả các folder trên.
-
-Chỉ tạo folder khi thực sự cần sử dụng.
-
-Ví dụ feature chỉ có:
-
-```text
-dashboard/
-├── pages/
-└── components/
-```
-
-thì không cần tạo thêm các folder rỗng như:
-
-```text
-api/
-hooks/
-types/
-validation/
+├── pages/       # Các màn hình hoàn chỉnh của feature.
+├── components/  # Các UI component chỉ dùng riêng trong feature này.
+├── api/         # Function dùng để gọi Backend API.
+├── hooks/       # Custom React Hooks của feature.
+├── types/       # Interface và type TypeScript.
+└── validation/  # Schema và logic validate form.
 ```
 
 ---
 
-## 4. General Rule
+## 2. Backend Coding Rules
 
-Nguyên tắc chung:
+Các quy chuẩn và luật khi viết code backend (ASP.NET Core) được lưu trữ tại file riêng biệt:
+👉 **[backend_coding_rules.md](./backend_coding_rules.md)**
 
-```text
-Code thuộc một nghiệp vụ
-→ đặt trong features/<feature-name>/
+---
 
-Code dùng chung cho nhiều feature
-→ đặt trong shared/
+## 3. Quy trình làm việc với Git & GitHub
 
-Code cấu hình toàn bộ ứng dụng
-→ đặt trong app/
+### 3.1. Phân nhánh (Branching)
 
-Hình ảnh, icon, CSS và tài nguyên tĩnh
-→ đặt trong assets/
-```
+- **`main`**: Nhánh chứa code ổn định, có thể deploy lên production. Tuyệt đối không commit trực tiếp vào nhánh này.
+- **`develop`**: Nhánh chứa code mới nhất đang trong quá trình phát triển (tích hợp các tính năng).
+- **Nhánh tính năng (Feature branches)**: Tạo từ nhánh `develop`.
+  - Cú pháp: `feature/<tên-tính-năng-ngắn-gọn>`
+  - Ví dụ: `feature/login-page`, `feature/horse-crud`
+- **Nhánh sửa lỗi (Bugfix/Hotfix)**:
+  - Cú pháp: `bugfix/<tên-lỗi>` (nếu rẽ từ `develop`)
+  - Cú pháp: `hotfix/<tên-lỗi>` (nếu rẽ từ `main` để sửa lỗi gấp)
 
-Không tự ý thay đổi cấu trúc folder chung nếu chưa thống nhất với team.
-```
 
-Bạn lưu file này ở root repository:
 
-```text
-Racehorse-Transport-System/
-├── frontend/
-├── backend/
-├── README.md
-├── CONTRIBUTING.md
-└── .gitignore
-```
+### 3.2. Quy trình Pull Request (PR)
 
-Sau đó đẩy lên Git bằng:
-
-```bash
-git add CONTRIBUTING.md
-git commit -m "docs: add frontend folder structure rules"
-git push
-```
-
-Nếu muốn dễ quản lý hơn, tôi khuyên `README.md` chỉ để giới thiệu project, còn toàn bộ rule code, branch, commit, pull request để trong `CONTRIBUTING.md`.
+1. Mọi code mới đều phải được đẩy lên một nhánh riêng và tạo Pull Request (PR) gộp vào nhánh `develop`.
+2. PR cần được đặt tên rõ ràng, mô tả chi tiết những gì đã làm.
+3. Chờ ít nhất 1 thành viên khác (hoặc Tech Lead) review và Approve (chấp thuận) trước khi Merge.
+4. Xóa nhánh feature sau khi đã merge thành công để dọn dẹp kho lưu trữ.

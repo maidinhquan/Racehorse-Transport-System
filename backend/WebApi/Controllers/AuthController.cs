@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Application.DTOs;
 using Application.Services;
+using Application.Interfaces;
+using Microsoft.AspNetCore.RateLimiting;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Data.Context;
@@ -20,15 +22,21 @@ namespace WebApi.Controllers
         private readonly HorseTransportDbContext _context;
         private readonly ITokenService _tokenService;
         private readonly IMemoryCache _memoryCache;
+        private readonly IAuthService _authService;
+        private readonly IRegistrationService _registrationService;
 
         public AuthController(
             HorseTransportDbContext context,
             ITokenService tokenService,
-            IMemoryCache memoryCache)
+            IMemoryCache memoryCache,
+            IAuthService authService,
+            IRegistrationService registrationService)
         {
             _context = context;
             _tokenService = tokenService;
             _memoryCache = memoryCache;
+            _authService = authService;
+            _registrationService = registrationService;
         }
 
         // =========================================================================
@@ -171,34 +179,10 @@ namespace WebApi.Controllers
         // POST /api/auth/register/request-otp
         // =========================================================================
         [HttpPost("register/request-otp")]
-        public async Task<IActionResult> RequestOtp([FromBody] RegisterRequestOtpDto dto)
+        [EnableRateLimiting("registration")]
+        public async Task<IActionResult> RequestOtp([FromBody] RegisterRequestOtpDto dto, CancellationToken cancellationToken)
         {
-            var emailExists = await _context.Users.AnyAsync(u => u.Email == dto.Email);
-            if (emailExists)
-            {
-                return Conflict(ApiResponse<object?>.Fail("Email already exists"));
-            }
-
-            var registrationToken = Guid.NewGuid().ToString("N");
-            var otp = "123456"; // Mã OTP mặc định cho kiểm thử môi trường phát triển
-
-            var pending = new PendingRegistration
-            {
-                FullName = dto.FullName,
-                Email = dto.Email,
-                PhoneNumber = dto.PhoneNumber,
-                Password = dto.Password,
-                Otp = otp
-            };
-
-            _memoryCache.Set($"reg_{registrationToken}", pending, TimeSpan.FromSeconds(300));
-
-            var data = new RequestOtpResponseData
-            {
-                RegistrationToken = registrationToken,
-                ExpiresIn = 300
-            };
-
+            var data = await _registrationService.RequestOtpAsync(dto, cancellationToken);
             return Ok(ApiResponse<RequestOtpResponseData>.Ok(data, "OTP sent successfully"));
         }
 
@@ -207,35 +191,9 @@ namespace WebApi.Controllers
         // POST /api/auth/register/verify-otp
         // =========================================================================
         [HttpPost("register/verify-otp")]
-        public async Task<IActionResult> VerifyOtp([FromBody] RegisterVerifyOtpDto dto)
+        public async Task<IActionResult> VerifyOtp([FromBody] RegisterVerifyOtpDto dto, CancellationToken cancellationToken)
         {
-            if (!_memoryCache.TryGetValue($"reg_{dto.RegistrationToken}", out PendingRegistration? pending) || pending == null)
-            {
-                return BadRequest(ApiResponse<object?>.Fail("Invalid or expired registration token"));
-            }
-
-            if (pending.Otp != dto.Otp.Trim())
-            {
-                return BadRequest(ApiResponse<object?>.Fail("Invalid OTP code"));
-            }
-
-            var newUser = new User
-            {
-                UserId = "USR_CUST_" + Guid.NewGuid().ToString("N").Substring(0, 6).ToUpper(),
-                Username = pending.Email.Split('@')[0],
-                FullName = pending.FullName,
-                Email = pending.Email,
-                Phone = pending.PhoneNumber,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(pending.Password),
-                Role = UserRoles.Customer,
-                IsActive = true
-            };
-
-            _context.Users.Add(newUser);
-            await _context.SaveChangesAsync();
-
-            _memoryCache.Remove($"reg_{dto.RegistrationToken}");
-
+            await _registrationService.VerifyOtpAsync(dto, cancellationToken);
             return Ok(ApiResponse<object?>.Ok(null, "Registration completed successfully"));
         }
 
@@ -244,21 +202,10 @@ namespace WebApi.Controllers
         // POST /api/auth/register/resend-otp
         // =========================================================================
         [HttpPost("register/resend-otp")]
-        public IActionResult ResendOtp([FromBody] RegisterResendOtpDto dto)
+        [EnableRateLimiting("registration")]
+        public async Task<IActionResult> ResendOtp([FromBody] RegisterResendOtpDto dto, CancellationToken cancellationToken)
         {
-            if (!_memoryCache.TryGetValue($"reg_{dto.RegistrationToken}", out PendingRegistration? pending) || pending == null)
-            {
-                return BadRequest(ApiResponse<object?>.Fail("Invalid or expired registration token"));
-            }
-
-            pending.Otp = "123456";
-            _memoryCache.Set($"reg_{dto.RegistrationToken}", pending, TimeSpan.FromSeconds(300));
-
-            var data = new ResendOtpResponseData
-            {
-                ExpiresIn = 300
-            };
-
+            var data = await _registrationService.ResendOtpAsync(dto, cancellationToken);
             return Ok(ApiResponse<ResendOtpResponseData>.Ok(data, "OTP resent successfully"));
         }
 
@@ -267,16 +214,15 @@ namespace WebApi.Controllers
         // POST /api/auth/forgot-password
         // =========================================================================
         [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto dto)
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
-            if (user != null)
+            var result = await _authService.ForgotPasswordAsync(request?.Email ?? string.Empty);
+            if (!result.Success)
             {
-                var resetToken = Guid.NewGuid().ToString("N");
-                _memoryCache.Set($"reset_{resetToken}", user.Email, TimeSpan.FromMinutes(15));
+                return BadRequest(ApiResponse<object?>.Fail(result.Message));
             }
 
-            return Ok(ApiResponse<object?>.Ok(null, "If the email exists, password reset instructions have been sent."));
+            return Ok(ApiResponse<object?>.Ok(null, result.Message));
         }
 
         // =========================================================================
@@ -284,25 +230,32 @@ namespace WebApi.Controllers
         // POST /api/auth/reset-password
         // =========================================================================
         [HttpPost("reset-password")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto dto)
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
         {
-            if (!_memoryCache.TryGetValue($"reset_{dto.ResetToken}", out string? email) || string.IsNullOrEmpty(email))
+            if (request == null)
             {
-                return BadRequest(ApiResponse<object?>.Fail("Invalid or expired reset token"));
+                return BadRequest(ApiResponse<object?>.Fail("Dữ liệu yêu cầu không hợp lệ"));
             }
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
-            if (user == null)
+            var token = !string.IsNullOrWhiteSpace(request.ResetToken)
+                ? request.ResetToken
+                : (!string.IsNullOrWhiteSpace(request.Otp) ? request.Otp : string.Empty);
+            var newPassword = request.NewPassword ?? string.Empty;
+            var confirmPassword = !string.IsNullOrWhiteSpace(request.ConfirmNewPassword)
+                ? request.ConfirmNewPassword
+                : (request.ConfirmPassword ?? string.Empty);
+
+            var result = await _authService.ResetPasswordAsync(
+                token,
+                newPassword,
+                confirmPassword);
+
+            if (!result.Success)
             {
-                return NotFound(ApiResponse<object?>.Fail("User not found"));
+                return BadRequest(ApiResponse<object?>.Fail(result.Message));
             }
 
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
-            await _context.SaveChangesAsync();
-
-            _memoryCache.Remove($"reset_{dto.ResetToken}");
-
-            return Ok(ApiResponse<object?>.Ok(null, "Password reset successfully"));
+            return Ok(ApiResponse<object?>.Ok(null, result.Message));
         }
 
         // =========================================================================
@@ -327,7 +280,7 @@ namespace WebApi.Controllers
                 return BadRequest(ApiResponse<object?>.Fail("Incorrect current password"));
             }
 
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+            user.PasswordHash = dto.NewPassword;
             await _context.SaveChangesAsync();
 
             return Ok(ApiResponse<object?>.Ok(null, "Password changed successfully"));
@@ -375,7 +328,13 @@ namespace WebApi.Controllers
         {
             if (string.IsNullOrEmpty(storedHash)) return false;
 
-            // 1. Thử xác thực với BCrypt
+            // 1. So khớp trực tiếp mật khẩu bình thường (plain text)
+            if (string.Equals(inputPassword, storedHash))
+            {
+                return true;
+            }
+
+            // 2. Hỗ trợ trường hợp tài khoản cũ trong DB trước đó đã băm bằng BCrypt
             try
             {
                 if (BCrypt.Net.BCrypt.Verify(inputPassword, storedHash))
@@ -386,12 +345,6 @@ namespace WebApi.Controllers
             catch
             {
                 // Không phải chuỗi BCrypt hash hợp lệ
-            }
-
-            // 2. So khớp trực tiếp chuỗi mật khẩu (cho seed data SQL như 'HASH_SECURE_01', 'Password123!', v.v.)
-            if (string.Equals(inputPassword, storedHash, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
             }
 
             // 3. Cho phép các mật khẩu dev phổ biến với các tài khoản seed sẵn trong database
@@ -418,5 +371,20 @@ namespace WebApi.Controllers
             }
             return userId;
         }
+    }
+
+    public class ForgotPasswordRequest
+    {
+        public string Email { get; set; } = string.Empty;
+    }
+
+    public class ResetPasswordRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Otp { get; set; } = string.Empty;
+        public string? ResetToken { get; set; }
+        public string NewPassword { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+        public string? ConfirmNewPassword { get; set; }
     }
 }

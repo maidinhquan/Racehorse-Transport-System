@@ -24,13 +24,16 @@ namespace Application.DTOs
     public class RegisterRequestOtpDto
     {
         [Required(ErrorMessage = "Họ và tên không được để trống")]
+        [MaxLength(100)]
         public string FullName { get; set; } = null!;
 
         [Required(ErrorMessage = "Email không được để trống")]
         [EmailAddress(ErrorMessage = "Email không đúng định dạng")]
+        [MaxLength(100)]
         public string Email { get; set; } = null!;
 
         [Required(ErrorMessage = "Số điện thoại không được để trống")]
+        [MaxLength(40)]
         public string PhoneNumber { get; set; } = null!;
 
         [Required(ErrorMessage = "Mật khẩu không được để trống")]
@@ -41,15 +44,18 @@ namespace Application.DTOs
     public class RegisterVerifyOtpDto
     {
         [Required(ErrorMessage = "registrationToken không được để trống")]
+        [RegularExpression("^[a-fA-F0-9]{32}$")]
         public string RegistrationToken { get; set; } = null!;
 
         [Required(ErrorMessage = "Mã OTP không được để trống")]
+        [RegularExpression("^[0-9]{6}$")]
         public string Otp { get; set; } = null!;
     }
 
     public class RegisterResendOtpDto
     {
         [Required(ErrorMessage = "registrationToken không được để trống")]
+        [RegularExpression("^[a-fA-F0-9]{32}$")]
         public string RegistrationToken { get; set; } = null!;
     }
 
@@ -113,20 +119,13 @@ namespace Application.DTOs
     {
         public string RegistrationToken { get; set; } = null!;
         public int ExpiresIn { get; set; } = 300;
+        public int ResendAfterSeconds { get; set; } = 60;
     }
 
     public class ResendOtpResponseData
     {
         public int ExpiresIn { get; set; } = 300;
-    }
-
-    public class PendingRegistration
-    {
-        public string FullName { get; set; } = null!;
-        public string Email { get; set; } = null!;
-        public string PhoneNumber { get; set; } = null!;
-        public string Password { get; set; } = null!;
-        public string Otp { get; set; } = null!;
+        public int ResendAfterSeconds { get; set; } = 60;
     }
 }
 
