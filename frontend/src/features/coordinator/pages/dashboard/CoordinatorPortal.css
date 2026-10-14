@@ -1,0 +1,23 @@
+.coordinator-page {
+  min-height: 100vh;
+  background-color: #F8F9FA;
+  font-family: 'Inter', sans-serif;
+  color: #111827;
+  padding: 24px;
+}
+
+.coordinator-card {
+  max-width: 900px;
+  margin: 0 auto;
+  background-color: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.time-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
