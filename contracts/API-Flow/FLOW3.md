@@ -1,11 +1,11 @@
-# FLOW 03 – API CONTRACT v1.2: Lộ trình, phương tiện, nhân sự và Operations READY
+# FLOW 03 – API CONTRACT v1.4: Lộ trình, phương tiện, nhân sự và Operations READY
 
 > **Dự án:** SWP391 – Cross-Border Racehorse Transport System (CBN Transport).  
 > **Phạm vi demo:** Chỉ `VN → VN` và `VN → JP`; không phục vụ `JP → VN`, `VN → TH`, hoặc quá cảnh qua quốc gia thứ ba trong bản demo.  
 > **Vai trò chính:** `FLEET_COORDINATOR`; phê duyệt bởi `LOGISTICS_MANAGER`; phối hợp `TRANSPORT_SPECIALIST`, `DRIVER`, `ESCORT` (bao gồm người được phân công vị trí `VETERINARIAN`), `CUSTOMER`.  
 > **UC:** `UC-FRC-01`, `UC-FRC-02`, `UC-FRC-03`, `UC-LM-04`; tham chiếu Flow 2 (checklist), Flow 4 (vận hành), Flow 5 (sự cố).  
-> **Nguồn đối chiếu:** `00-conventions.md`, `01-shared-api.md`, `04-manager-api.md`, tài liệu Coordinator hiện lưu `Markdown đã dán (3).md`, Flow 1 v2.3, `flow-02-legal-quarantine-customs-api.md`.  
-> **Tính chất:** Hợp đồng API thiết kế cho FE/BE; không khẳng định endpoint đã implement. Các API được ghi `[BỔ SUNG]` là phần còn thiếu của bộ Role API và cần đồng bộ trước triển khai.  
+> **Nguồn đối chiếu:** `00-conventions.md`, `01-shared-api.md`, `04-manager-api.md`, tài liệu Coordinator hiện lưu `Markdown đã dán (3).md`, Flow 1 v2.5, Flow 2 v1.4 (`flow-02-legal-quarantine-customs-api-v1.4.md`).  
+> **Tính chất:** **v1.4 REOPENED** – Hợp đồng API thiết kế cho FE/BE sau thay đổi lịch/checklist/deadline; không khẳng định endpoint đã implement. Các API được ghi `[BỔ SUNG]` là phần còn thiếu của bộ Role API và cần đồng bộ trước triển khai.  
 > **Route prefix:** Tất cả đường dẫn trong file là đường dẫn **sau** `/api`. Không tạo namespace `/flow3/*`.  
 > **Lưu ý:** Ví dụ ngày, xe, bảng giá, thời gian, chuyến bay và tọa độ chỉ là minh họa; không phải cam kết lịch vận hành hay quy tắc pháp lý.
 
@@ -17,7 +17,7 @@ Flow 3 tiếp nhận một Trip đã được kích hoạt ở Flow 1 và đư�
 
 **Điểm bắt đầu:** `RequestStatus = ACTIVATED`, `ContractStatus = EFFECTIVE`, `TripStatus = PLANNING`, `deploymentStatus = CONFIRMED`. Bất kỳ Trip `ON_HOLD` không được coi là đã được phép triển khai tiếp. Không có Trip thì không có Route Version vận hành.
 
-**Điểm kết thúc thành công:** Route Version hiện hành được Manager `APPROVED`; Coordinator xác nhận `Operations READY`, Specialist xác nhận `Documents READY` (bao gồm chứng từ bảo hiểm đã được kiểm tra ở Flow 2), Route Version hiện hành được Manager phê duyệt và Backend kiểm tra lại mọi điều kiện; `TripStatus` chuyển từ `PLANNING` sang `READY_TO_DEPART` khi các điều kiện cùng đạt. Route được bàn giao cho Flow 4 dưới dạng polyline + marker + lịch mốc dự kiến, **không phát GPS**.
+**Điểm kết thúc thành công:** Route Version hiện hành được Manager `APPROVED`; Coordinator xác nhận `Operations READY`, Specialist xác nhận `Documents READY` (bao gồm mục checklist bảo hiểm đã được Specialist xác nhận ở Flow 2), Route Version hiện hành được Manager phê duyệt và Backend kiểm tra lại mọi điều kiện; `TripStatus` chuyển từ `PLANNING` sang `READY_TO_DEPART` khi các điều kiện cùng đạt. Route được bàn giao cho Flow 4 dưới dạng polyline + marker + lịch mốc dự kiến, **không phát GPS**.
 
 **Không thuộc Flow 3:** Quotation/Pricing/Payment (Flow 1), phê duyệt hồ sơ y tế và clearance của cơ quan chức năng (Flow 2), cập nhật đến/rời điểm và ETA phát sinh khi đang vận chuyển (Flow 4), thay đổi tuyến sau khởi hành vì sự cố (Flow 5). Không cung cấp chức năng đặt máy bay trực tiếp trên website hãng bay.
 
@@ -32,7 +32,7 @@ COORDINATOR – FLOW 3                            SPECIALIST – FLOW 2
 - Soạn Route Version                             - Rà checklist FINAL theo Route Version
 - Phân xe và tài xế theo từng ROAD leg VN/JP      - Chuẩn bị/xác minh hồ sơ y tế/pháp lý
 - Phân người chăm sóc, bác sĩ thú y              - Công ty mua bảo hiểm ngoài hệ thống
-- Đặt dịch vụ AIR + gán nhân sự đi kèm            - Lưu và xác minh policy thực tế
+- Đặt dịch vụ AIR + gán nhân sự đi kèm            - Tick mục bảo hiểm checklist sau kiểm tra ngoài hệ thống
 - Kiểm tra lịch, phương tiện, nhân sự             - Xác nhận DOCUMENTS READY
 - Xác nhận OPERATIONS READY                       ↓
     ↓                                                  ↓
@@ -61,10 +61,10 @@ COORDINATOR – FLOW 3                            SPECIALIST – FLOW 2
 | Actor | Quyền / trách nhiệm trong Flow 3 |
 |---|---|
 | `FLEET_COORDINATOR` | Lập/chỉnh/gửi duyệt Route Version; quản lý xe/lịch xe; kiểm tra nhân sự/chứng chỉ; **chọn và phân công** xe, tài xế, bác sĩ thú y, ngựa/stall cho từng chặng ROAD tại cả VN và JP; ghi booking AIR; kiểm tra điều kiện vận hành và **xác nhận Operations READY**. Không upload, mua, duyệt hoặc đánh giá chứng từ bảo hiểm. |
-| `LOGISTICS_MANAGER` | Phê duyệt/trả Route Version; quyết định phương án/ngân sách thuê bay; giám sát tình trạng chuẩn bị qua read-only readiness. Chi phí bảo hiểm nằm trong giá dịch vụ Flow 1; không phải phê duyệt policy lần hai. |
-| `TRANSPORT_SPECIALIST` | Flow 2: quản lý checklist pháp lý, kiểm dịch, thông quan, **lưu và xác minh chứng từ bảo hiểm do công ty mua ngoài hệ thống**, xác nhận `Documents READY` khi toàn bộ nghĩa vụ hồ sơ đến hạn trước khởi hành đã đạt. Không phê duyệt Route. |
+| `LOGISTICS_MANAGER` | Phê duyệt/trả Route Version, quyết định phương án/ngân sách thuê bay, xem tổng readiness. Chi phí bảo hiểm đã nằm trong Contract Flow 1; không duyệt checkbox thay Specialist. |
+| `TRANSPORT_SPECIALIST` | Flow 2: quản lý checklist pháp lý/kiểm dịch/thông quan; khi công ty thu xếp bảo hiểm ngoài hệ thống, Specialist kiểm tra và tick `INSURANCE_VERIFIED` trên checklist; xác nhận Documents READY sau khi mọi yêu cầu đạt. Không phê duyệt Route. |
 | `DRIVER`, `ESCORT` | Đọc phân công đã chốt, chuẩn bị nhiệm vụ; thực tế khởi hành, đến/rời điểm ghi bằng milestone thủ công ở Flow 4. Bác sĩ thú y là vị trí `VETERINARIAN` của account role `ESCORT`, không có auth role riêng. |
-| `CUSTOMER` | Xem kế hoạch/trạng thái được phép công bố; không sửa route, xe, nhân sự hoặc booking. Không tự mua/đăng tải policy bảo hiểm theo quy trình demo. |
+| `CUSTOMER` | Xem kế hoạch/trạng thái được phép công bố; không sửa route, xe, nhân sự hoặc booking. Không tự mua/đăng tải xác nhận bảo hiểm bảo hiểm theo quy trình demo. |
 
 **Giả định nguồn lực:** demo có sẵn phương tiện và nhân sự đủ điều kiện tại VN và JP; **không** suy ra rằng hệ thống đã tự phân công. Mọi leg ROAD vẫn phải có assignment được Coordinator lựa chọn và lưu. Trạng thái AVAILABLE chỉ là điều kiện để chọn, không phải Operations READY.
 
@@ -93,11 +93,11 @@ COORDINATOR – FLOW 3                            SPECIALIST – FLOW 2
 | `F03-BR-14` | Nhân sự phải có quyền/điều kiện chuyên môn phù hợp, không trùng lịch chặng khác, bằng lái/chứng chỉ còn hạn khi tác nghiệp. |
 | `F03-BR-15` | Dịch vụ tính tuyến cung cấp quãng đường, thời gian, ETA và polyline nếu có; trường hợp thất bại có thể nhập giá trị thủ công theo kiểm soát BE, phải ghi nguồn và audit; không dựng GPS hiện tại. |
 | `F03-BR-16` | Thời gian lái liên tục, nghỉ ngơi và thời gian dừng theo **cấu hình vận hành**; không tự chốt số giờ/phút từ ví dụ cũ. |
-| `F03-BR-17` | Nếu ETA dự kiến vượt hạn giao, hiển thị cảnh báo và bắt buộc có `deadlineJustification` khi submit; không tự thay hợp đồng/hạn giao. |
+| `F03-BR-17` | Nếu ETA dự kiến vượt hạn giao theo Contract, BE cảnh báo Manager **ngay khi lưu thay đổi kế hoạch**, hiển thị cảnh báo đỏ khi preview/submit và bắt buộc `deadlineJustification` khi submit; không tự thay hợp đồng/hạn giao. Lý do giải trình không thay thế xác nhận Customer khi thay cam kết. |
 | `F03-BR-18` | Khi route/mode/checkpoint/ETA đổi, Specialist phải re-evaluate checklist; không xóa lịch sử checklist/route cũ. |
 | `F03-BR-19` | Checklist `PRELIMINARY` không thay `FINAL` theo Route Version; `CHECKLIST_READY` đòi điều kiện Flow 2 thực sự đạt. |
-| `F03-BR-20` | Hồ sơ bảo hiểm bắt buộc do công ty thu xếp ngoài hệ thống và `TRANSPORT_SPECIALIST` xác minh tại Flow 2. Flow 3 **chỉ đọc** kết quả `INSURANCE_VERIFIED` từ Flow 2 khi tổng hợp readiness; Coordinator không kiểm tra chứng từ bảo hiểm. |
-| `F03-BR-21` | Chi phí bảo hiểm đã nằm trong giá dịch vụ/Contract do Manager chuẩn bị tại Flow 1, nhưng **chỉ policy thực tế** do Specialist kiểm tra mới đạt `INSURANCE_VERIFIED`; phí trong hợp đồng không phải bằng chứng bảo hiểm. Không xử lý mua hay bồi thường bảo hiểm trong Flow 3. |
+| `F03-BR-20` | Công ty thu xếp bảo hiểm ngoài hệ thống; Flow 2 Specialist tick mục Checklist `INSURANCE_VERIFIED` khi đã kiểm tra. Flow 3 chỉ đọc badge Documents READY hoặc condition tổng hợp, Coordinator không kiểm tra bảo hiểm. |
+| `F03-BR-21` | Chi phí bảo hiểm có trong Contract Flow 1 nhưng không tự đánh dấu checkbox; không có entity/API InsurancePolicy hoặc workflow bồi thường trong demo. |
 | `F03-BR-22` | Readiness tổng hợp yêu cầu **hai xác nhận độc lập**: Coordinator `Operations READY` và Specialist `Documents READY`, thêm Route hiện hành được Manager `APPROVED`, Flow 1/deployment hợp lệ và Backend revalidate tất cả dữ liệu. FE không có API tự set `READY_TO_DEPART`. |
 | `F03-BR-23` | Sau khi `READY_TO_DEPART`, nếu mất điều kiện **trước khởi hành**, Backend đưa về `PLANNING` với audit/notification; sau `IN_TRANSIT` không tự lùi `PLANNING`. |
 | `F03-BR-24` | `originalApprovedEta` gắn thời điểm ETA của lần duyệt Route đầu tiên, giữ nguyên cho KPI; không ghi đè khi sửa Route/ETA. |
@@ -113,6 +113,10 @@ COORDINATOR – FLOW 3                            SPECIALIST – FLOW 2
 | `F03-BR-33` | Thao tác xác nhận lặp với cùng snapshot không tạo hai quyết định/trip; snapshot stale hoặc quá trình khởi hành đã bắt đầu phải trả xung đột phù hợp. |
 | `F03-BR-34` | Flight booking có `bookingVersion`/ETag và optimistic concurrency khi tạo/sửa; Coordinator confirm Operations lưu cả ID **và version** của booking. Chỉ giữ confirmation nếu phiên bản và nội dung vận hành còn hợp lệ. |
 | `F03-BR-35` | Manager Hold Deployment trước milestone khởi hành làm readiness tổng mất hiệu lực; khi Trip đã READY_TO_DEPART phải re-evaluate về PLANNING. Không thực hiện Flow 1 Hold/Resume để rollback `IN_TRANSIT`; xử lý Flow 4/5. |
+| `F03-BR-36` | Khi Coordinator lưu thay đổi ngày khởi hành, booking, legs, ETA hoặc Horses làm ảnh hưởng lịch, BE tạo **Change Impact Assessment** cho tuyến/booking/assignment và gửi event cho Flow 2 đánh giá **từng checklist item**. Hồ sơ còn phù hợp giữ VALID; hồ sơ lỗi đỏ, chưa xác minh NEEDS_REVIEW; không tự gỡ tick bảo hiểm hoặc reset toàn bộ checklist. |
+| `F03-BR-37` | BE tính lại các mốc kế hoạch phụ thuộc Route/Booking đã lưu, có nguồn ETA và timezone; không tự thay `deliveryDeadline` đã cam kết với Customer, ngày hết hạn chứng từ hoặc hạn pháp lý. Nếu ETA mới vượt hạn giao theo Contract hiện hành, **notify Logistics Manager ngay sau commit**, kể cả khi ngày bàn giao thực tế chưa đến. |
+| `F03-BR-38` | Khi hồ sơ bắt buộc trễ hạn hoặc không thể hoàn tất theo lịch mới, Flow 2 phát `DOCUMENT_DEADLINE_OVERDUE/AT_RISK` đến Specialist + Manager; Coordinator chỉ nhận thông tin kế hoạch/readiness theo quyền. Cảnh báo quá hạn **không tự thành Route APPROVED, không tự huỷ Contract hoặc tự xác nhận điều chỉnh hạn giao**. |
+| `F03-BR-39` | Trước khởi hành, chỉ **readiness guard thực sự mất** mới làm `READY_TO_DEPART → PLANNING`; cảnh báo ETA quá hạn đơn độc không đồng nghĩa một hồ sơ bị INVALID. Nếu đã IN_TRANSIT, Flow 4/5 sở hữu thay đổi và không rollback TripStatus. |
 
 ### 2.1. Không thêm Business Rule chưa chốt
 
@@ -185,9 +189,9 @@ COORDINATOR – FLOW 3                            SPECIALIST – FLOW 2
 | Coordinator `/coordinator/trips/:id/operations` | Xem điều kiện vận hành, xác nhận phần Coordinator | `GET /coordinator/trips/{tripId}/operations-readiness`, `POST /coordinator/trips/{tripId}/operations-readiness/confirm` **[BỔ SUNG]** |
 | Manager `/manager/planning` | Danh sách kế hoạch chờ duyệt | `GET /manager/planning` |
 | Manager `/manager/trips/:id/route` | Xem và duyệt/trả tuyến | `GET /manager/trips/{tripId}/route`, `POST /manager/trips/{tripId}/routes/{routeVersionId}/approve`, `POST .../return` |
-| Manager `/manager/trips/:id/insurance` | Chỉ xem policy và tình trạng Specialist xác minh | `GET /manager/trips/{tripId}/insurance` (read-only, tham chiếu Flow 2) |
+| Manager `/manager/trips/:id/checklist` | Xem checklist và badge bảo hiểm | `GET /manager/trips/{tripId}/checklist` (read-only, Flow 2) |
 | Manager `/manager/trips/:id` | Điều kiện khởi hành | `GET /manager/trips/{tripId}/departure-conditions` |
-| Specialist `/specialist/trips/:id/checklist` | Checklist và tài liệu/bảo hiểm | Flow 2 `GET /specialist/trips/{tripId}/checklist`, quản lý insurance và xác nhận `Documents READY` (API thuộc Flow 2) |
+| Specialist `/specialist/trips/:id/checklist` | Checklist và checkbox bảo hiểm | Flow 2 `GET /specialist/trips/{tripId}/checklist`, `PATCH .../checklist/insurance-confirmation` và `POST .../documents-readiness/confirm` |
 | Driver/Escort assigned trip | Đọc phân công đã chốt | `GET /driver/trips`, `GET /driver/trips/{tripId}` (role contract, xem Flow 4) |
 
 **Thứ tự triển khai gợi ý:** Read-only Trip → Route Calculation & Versions → Vehicle CRUD/Schedules → Staff/Assignments → Air booking → Manager route approval → Coordinator Operations confirmation + Specialist Documents confirmation → Readiness engine → SignalR/tests. Đây là ưu tiên kỹ thuật, không bắt buộc trình tự nghiệp vụ cứng; các tác vụ chuẩn bị có thể chạy song song.
@@ -295,7 +299,7 @@ Errors: `404 NOT_FOUND`, `403 FORBIDDEN_ROLE`; `409 DEPLOYMENT_NOT_CONFIRMED` ch
   ],
   "etaDestination": "2026-11-21T08:00:00Z",
   "totals": {"roadDistanceKm": 70, "elapsedMinutes": 1860},
-  "deadlineCheck": {"meetsDeadline": true, "requiresJustification": false},
+  "deadlineCheck": {"meetsDeadline": true, "requiresJustification": false, "committedDeliveryDeadline": "2026-11-22T09:00:00Z", "etaDestination": "2026-11-21T08:00:00Z", "managerAlertRequired": false},
   "plannedPath": {"roadLegs": [51,53], "airLegs": [52]},
   "submittedAt": "2026-11-10T07:00:00Z",
   "approvedAt": null,
@@ -885,15 +889,15 @@ Files: booking confirmation, service agreement/evidence theo giới hạn `00-co
 
 ### 14.1. Trách nhiệm thu xếp bảo hiểm
 
-- **Flow 1:** Manager đã đưa khoản bảo hiểm vào giá dịch vụ trong Draft Contract; đây **không phải** chứng minh bảo hiểm đã phát hành hoặc đã hiệu lực.
-- **Ngoài hệ thống:** CBN Transport thu xếp mua bảo hiểm vận chuyển ngựa từ doanh nghiệp bảo hiểm sau khi Trip được kích hoạt, với phạm vi phù hợp theo hành trình thực tế. **Không** triển khai API mua bảo hiểm trực tiếp hoặc bồi thường bảo hiểm trong demo.
-- **Flow 2 – Specialist:** nhận tài liệu doanh nghiệp bảo hiểm cấp, lưu policy/số hợp đồng/doanh nghiệp bảo hiểm/danh sách ngựa được bảo hiểm/thời hạn/phạm vi và đối chiếu phù hợp; xác minh hồ sơ bảo hiểm. Phần bảo hiểm là **một điều kiện của Documents READY**. Quyền ký/phát hành hợp đồng bảo hiểm thực tế thuộc doanh nghiệp bảo hiểm, không thuộc hệ thống CBN.
-- **Flow 3 – Coordinator:** **không** có endpoint `POST /coordinator/trips/{tripId}/insurance`, không bấm `VERIFY`, không phải đọc file bảo hiểm để tự kiểm tra. Coordinator chỉ hoàn tất điều phối; BE lấy trạng thái hồ sơ từ Flow 2 khi tính readiness tổng.
-- **Manager:** giám sát policy read-only và phê duyệt Route Version. Không thêm một lớp Manager insurance verify gây trùng trách nhiệm với Specialist.
+- **Flow 1:** Manager đã đưa khoản bảo hiểm vào giá dịch vụ trong Draft Contract; điều này **không chứng minh** công ty đã mua bảo hiểm.
+- **Ngoài hệ thống:** CBN Transport liên hệ đơn vị bảo hiểm và hoàn tất việc thu xếp bảo hiểm thực tế cho hành trình và các ngựa thuộc Trip. Demo không phát triển module mua/chi trả quyền lợi bảo hiểm.
+- **Flow 2 – Transport Specialist:** Specialist **kiểm tra chứng từ bảo hiểm ngoài hệ thống**, sau đó tick mục `INSURANCE_VERIFIED` trong checklist `FINAL` (COMPANY/PER_TRIP) qua `PATCH /specialist/trips/{tripId}/checklist/insurance-confirmation`. Không nhập số hợp đồng, hãng bảo hiểm, hạn mức, thời hạn, tải lên policy hay dùng API InsurancePolicy trong demo. Item CHECKED không có nghĩa mọi rủi ro đều được bảo hiểm; đây là xác nhận nội bộ của Specialist.
+- **Flow 3 – Coordinator:** không thao tác/check/đọc bảo hiểm; chỉ hoàn tất phân công, booking và `Operations READY`.
+- **Manager:** xem kết quả Documents READY hoặc checklist khi cần, phê duyệt Route Version; không duyệt lại bảo hiểm.
 
-### 14.2. Dữ liệu tối thiểu Flow 3 nhận từ Flow 2
+### 14.2. Read model tối thiểu Flow 3 nhận từ Flow 2
 
-Đây là **read model nội bộ**, không yêu cầu Coordinator nhập hoặc chỉnh sửa:
+Dữ liệu dưới đây là **projection** để Backend tính readiness, không phải dữ liệu do Coordinator nhập hoặc được chỉnh sửa:
 
 ```json
 {
@@ -903,61 +907,34 @@ Files: booking confirmation, service agreement/evidence theo giới hạn `00-co
   "documentsConfirmed": false,
   "specialistConfirmation": null,
   "checklist": {"stage":"FINAL","status":"NOT_READY","version":4},
-  "insurance": {
-    "verificationStatus":"PENDING",
-    "insuredHorseIds":[31,32],
-    "coverageAdequate":false,
-    "documentVersion":2
+  "insuranceChecklist": {
+    "itemCode":"INSURANCE_VERIFIED",
+    "status":"NOT_SUBMITTED",
+    "isCompleted":false
   },
   "blockingConditions":["INSURANCE_VERIFIED"],
   "evaluatedAt":"2026-11-11T09:00:00Z"
 }
 ```
 
-Các trường summary chỉ phản ánh dữ liệu thật do Flow 2 sở hữu. Không gửi nguyên tài liệu bảo hiểm, thông tin riêng tư hay `policyFileId` cho Coordinator chỉ để hiển thị badge.
+Flow 3 không cần `policyId`, `insuredHorseIds`, `coverageAdequate`, `documentVersion`, hay nội dung giấy tờ bảo hiểm. Thay đổi checkbox làm Backend đánh giá lại `Documents READY`; một xác nhận trên checklist version cũ không dùng để cho khởi hành.
 
-### 14.3. Tham chiếu API Flow 2 và Manager
+### 14.3. Tham chiếu Checkbox bảo hiểm trong Checklist (Flow 2 v1.4)
 
 | Role | API / trách nhiệm | Ghi chú |
 |---|---|---|
-| Specialist | `GET /specialist/trips/{tripId}/checklist` | API hiện có Flow 2; kiểm tra checklist FINAL |
-| Specialist | `GET /specialist/trips/{tripId}/insurance` | **Cần bổ sung tại Flow 2**: xem chứng từ công ty đã thu xếp |
-| Specialist | `POST /specialist/trips/{tripId}/insurance` | **Cần bổ sung tại Flow 2**: upload policy + metadata, không phải giao dịch mua bảo hiểm |
-| Specialist | `POST /specialist/trips/{tripId}/insurance/{policyId}/verify` | **Cần bổ sung tại Flow 2**: Specialist đối chiếu policy hợp lệ/không hợp lệ và lưu audit |
-| Specialist | `POST /specialist/trips/{tripId}/documents-readiness/confirm` | **Cần bổ sung tại Flow 2**: xác nhận Documents READY cho snapshot checklist/policy hiện hành |
-| Manager | `GET /manager/trips/{tripId}/insurance` | Read-only giám sát; được cung cấp bởi service Flow 2 hiện hữu |
+| Specialist | `GET /specialist/trips/{tripId}/checklist` | Xem checklist FINAL, bao gồm item COMPANY/PER_TRIP `INSURANCE_VERIFIED` |
+| Specialist | `PATCH /specialist/trips/{tripId}/checklist/insurance-confirmation` | Tick/bỏ tick sau khi kiểm tra bảo hiểm thực tế ngoài hệ thống; lưu actor/time, version và audit |
+| Specialist | `GET /specialist/trips/{tripId}/documents-readiness` | Xem điều kiện hồ sơ, bao gồm bảo hiểm đã tick |
+| Specialist | `POST /specialist/trips/{tripId}/documents-readiness/confirm` | Xác nhận Documents READY khi all mandatory items đạt |
+| Manager | `GET /manager/trips/{tripId}/checklist`, `GET /manager/trips/{tripId}/departure-conditions` | Chỉ xem kết quả, không có API xác nhận bảo hiểm/insurance riêng |
+| Coordinator | `GET /coordinator/trips/{tripId}/departure-conditions` | Chỉ xem badge Documents READY, không thao tác checklist bảo hiểm |
 
-### F03-M05. `GET /manager/trips/{tripId}/insurance` – Read-only, tham chiếu Flow 2
+**Không còn trong demo:** `GET /manager/trips/{tripId}/insurance`, `GET/POST /specialist/trips/{tripId}/insurance`, `POST /specialist/trips/{tripId}/insurance/{policyId}/verify`, và mọi API Coordinator Insurance. Flow 3 **không** sở hữu checkbox bảo hiểm; sử dụng condition `INSURANCE_VERIFIED` từ checklist/snapshot của Flow 2, không dùng `InsurancePolicy` hay `policyVersion`.
 
-**Role:** `LOGISTICS_MANAGER`. Endpoint giữ lại để Manager theo dõi chứng từ/policy đã được Specialist xác minh; **không** cung cấp `VERIFY` cho Manager. Nếu chưa có policy thì `data:null`, không tự tạo trạng thái phê duyệt. Nếu đã có, trả summary (`policyId`, `tripId`, `verificationStatus`, `insuredHorseIds`, `coverageStartAt`, `coverageEndAt`, `verifiedBy`, `verifiedAt`, `allowedActions:["VIEW"]`) theo quyền; tệp chứng từ chỉ tải qua `GET /files/{fileId}` sau authorization.
+### 14.4. Khi điều kiện bảo hiểm thay đổi
 
-**200 example:**
-
-```json
-{
-  "success":true,
-  "message":"OK",
-  "data":{
-    "policyId":8,
-    "tripId":9,
-    "verificationStatus":"VERIFIED",
-    "insuredHorseIds":[31,32],
-    "coverageStartAt":"2026-11-20T00:00:00Z",
-    "coverageEndAt":"2026-11-23T23:59:59Z",
-    "verifiedBy":18,
-    "verifiedAt":"2026-11-11T09:00:00Z",
-    "allowedActions":["VIEW"]
-  }
-}
-```
-
-**Không còn trong Flow 3:** `GET/POST /coordinator/trips/{tripId}/insurance` và `POST /manager/trips/{tripId}/insurance/verify`. Endpoint Specialist là hợp đồng **đề xuất để đồng bộ khi sửa Flow 2**, chưa được coi là đã implement; Flow 3 chỉ phụ thuộc kết quả và không định nghĩa lại logic Specialist.
-
-### 14.4. Khi bảo hiểm thay đổi
-
-Nếu policy không còn phù hợp vì route/ETA/horses/điểm dừng thay đổi, **Flow 2** phải đánh giá lại và có thể rút `Documents READY`. Backend đồng thời đánh giá lại Departure Readiness; **không** đặt Coordinator vào luồng duyệt bảo hiểm.
-
----
+Nếu route/ETA/horses/điểm dừng thay đổi, Flow 2 đánh giá ảnh hưởng **từng checklist item**. Mục bảo hiểm còn phù hợp giữ `VALID`; nếu thực sự không còn đáp ứng thì hiển thị `INVALID` đỏ; nếu cần đối chiếu hợp đồng bảo hiểm thực tế mà demo không lưu thì hiển thị `NEEDS_REVIEW`. **Không tự bỏ tick lịch sử**. Nếu mục bắt buộc chưa VALID theo snapshot mới thì Documents READY hiện hành stale; Specialist kiểm tra/xác nhận lại ở Flow 2, Coordinator chỉ thấy badge readiness và không được yêu cầu upload xác nhận bảo hiểm.
 
 ## 15. Operations READY, Documents READY và Departure Readiness Engine
 
@@ -966,7 +943,7 @@ Nếu policy không còn phù hợp vì route/ETA/horses/điểm dừng thay đ�
 | Confirmation | Người xác nhận | Nội dung được đánh giá bởi BE | Không bao gồm |
 |---|---|---|---|
 | `Operations READY` | `FLEET_COORDINATOR` | Route có cấu trúc vận hành hợp lệ, mọi ROAD leg VN/JP có xe/người/ngựa/stall đúng, staff/vet đủ chuyên môn, không trùng lịch, AIR booking được xác nhận nếu áp dụng | Hồ sơ pháp lý và bảo hiểm |
-| `Documents READY` | `TRANSPORT_SPECIALIST` (Flow 2) | Checklist FINAL cho Route Version tương ứng, hồ sơ bắt buộc đến mốc khởi hành đầy đủ/hợp lệ, chứng từ bảo hiểm thực tế được xác minh | Phân công xe và nhân sự |
+| `Documents READY` | `TRANSPORT_SPECIALIST` (Flow 2) | Checklist FINAL cho Route Version tương ứng, hồ sơ bắt buộc đến mốc khởi hành đầy đủ/hợp lệ, mục `INSURANCE_VERIFIED` đã được Specialist tick hợp lệ | Phân công xe và nhân sự |
 
 `ready` là đánh giá từ Backend, `confirmed` là quyết định của role phụ trách cho đúng version. **Chỉ một bên bấm OK không làm Trip READY.** Route Version phải được Manager `APPROVED`; `Request=ACTIVATED`, `Contract=EFFECTIVE`, deployment `CONFIRMED` vẫn phải đúng.
 
@@ -1094,11 +1071,11 @@ Không cho FE truyền `confirmed=true`, `tripStatus` hoặc `approvedBy` trong 
 }
 ```
 
-Không tạo `InsuranceStatus` hoặc `TripStatus` mới; `INSURANCE_VERIFIED` chỉ là condition từ Flow 2. Manager có thể xem read-only nhưng không gọi `insurance/verify` để hoàn tất điều kiện.
+Không tạo `InsuranceStatus` hoặc `TripStatus` mới; `INSURANCE_VERIFIED` là condition dẫn xuất từ item checklist của Flow 2. Manager có thể xem read-only nhưng không có API `insurance/verify` để hoàn tất điều kiện.
 
 ### F03-C27. `GET /coordinator/trips/{tripId}/departure-conditions` **[BỔ SUNG]**
 
-**200 data:** projection readiness tương tự Manager, nhưng redacted trường giấy tờ/PII không thuộc Coordinator: chỉ cần `documentsReadiness.ready/confirmed`, `missingConditions` tổng hợp và badges. **Không** hiển thị policy file, insurer private, document number hay quyền duyệt bảo hiểm. Coordinator không gọi Manager API để xem readiness.
+**200 data:** projection readiness tương tự Manager, nhưng redacted trường giấy tờ/PII không thuộc Coordinator: chỉ cần `documentsReadiness.ready/confirmed`, `missingConditions` tổng hợp và badges. **Không** hiển thị xác nhận bảo hiểm file, insurer private, document number hay quyền duyệt bảo hiểm. Coordinator không gọi Manager API để xem readiness.
 
 ### 15.2. Tổng hợp điều kiện và chuyển TripStatus
 
@@ -1113,7 +1090,7 @@ Các conditions nhỏ (`STAFF_ASSIGNED`, `VEHICLE_READY`, `VETERINARIAN_QUALIFIE
 
 Sau khi dữ liệu nguồn thay đổi, domain service re-evaluate và điều chỉnh trạng thái. Nếu toàn bộ cùng đạt khi Trip `PLANNING`, BE chuyển nguyên tử `READY_TO_DEPART`, ghi audit, notification, SignalR. Nếu một điều kiện mất trước milestone khởi hành, BE rút readiness hiện hành, Trip trở về `PLANNING` và thông báo. Sau `IN_TRANSIT`, không tự lùi PLANNING; áp dụng Flow 4/5.
 
-`GET` là read-only, không kích hoạt chuyển state. Re-evaluation chạy từ domain event/outbox khi approve, confirm, đổi tài nguyên, cập nhật hồ sơ/policy hoặc thay đổi lịch.
+`GET` là read-only, không kích hoạt chuyển state. Re-evaluation chạy từ domain event/outbox khi approve, confirm, đổi tài nguyên, cập nhật hồ sơ/xác nhận bảo hiểm hoặc thay đổi lịch.
 
 ### 15.3. Khi nào phải xác nhận lại?
 
@@ -1129,6 +1106,39 @@ Sau khi dữ liệu nguồn thay đổi, domain service re-evaluate và điều 
 Đánh giá lại theo mức ảnh hưởng thực tế, không yêu cầu xác nhận lại vô cớ khi một metadata hiển thị không liên quan thay đổi. Điều kiện đang ở trạng thái lỗi làm `allMet=false` cho tới khi được xử lý.
 
 ---
+
+### 15.4. Dời ngày bay/ETA – cập nhật mốc kế hoạch, cảnh báo hạn và hồ sơ bị ảnh hưởng (v1.4)
+
+**Luồng áp dụng trước khi khởi hành:**
+
+1. Coordinator cập nhật Route Draft/Route Version mới hoặc flight booking (vẫn dùng optimistic concurrency + `bookingVersion`). Khi Preview/Calculate, FE chỉ **hiển thị** dự kiến trễ; không phát thông báo Manager từ request read-only/preview. Khi **lưu thay đổi** làm ETA/lịch nguồn thay đổi, BE đánh giá ngay sau commit.
+2. Tính lại `plannedDepartureAt`, lịch leg/booking/ETA, các mốc vận hành phụ thuộc **từ nguồn cấu hình/schedule đã lưu**, không kéo dài thủ công `Contract.deliveryDeadline`, hiệu lực giấy tờ hoặc deadline ký/cọc. Lưu `previousEta`, `newEta`, `routeVersionId`, `bookingVersion` để audit.
+3. Nếu `newEta > committedDeliveryDeadline`, tạo `DELIVERY_DEADLINE_AT_RISK` và **notify Logistics Manager ngay** sau khi thay đổi được lưu. Phải hiển thị mức chênh và lý do nếu biết. Nếu thời gian thực tế đã vượt hạn giao chưa hoàn tất, cảnh báo `DELIVERY_DEADLINE_OVERDUE` theo trạng thái/Flow 4; không đợi một mốc grace tự đặt. `deadlineJustification` khi submit không coi là quyền sửa cam kết với Customer.
+4. Phát sự kiện thay đổi lịch/route cho Flow 2; Specialist nhìn Checklist với `displayState`: `VALID` xanh, `INVALID` đỏ + lý do + nút bổ sung, `NEEDS_REVIEW` khi thiếu thông tin. Chỉ các mục thật sự bị ảnh hưởng mới chưa đạt; bảo hiểm tick cũ giữ audit nhưng không tính valid current nếu cần kiểm tra lại. Deadline hồ sơ do Flow 2 tính lại theo catalog và gửi cảnh báo Manager ngay nếu đã quá hạn hoặc có rủi ro.
+5. `Operations READY` chỉ rút hiệu lực khi snapshot booking/route/assignments bị thay đổi ảnh hưởng vận hành. `Documents READY` chỉ mất hiệu lực khi có item bắt buộc invalid/needs review hoặc checklist snapshot không còn được xác minh; Manager Route Approval vẫn là guard độc lập cho phiên bản hiện hành. Backend chỉ rollback `READY_TO_DEPART → PLANNING` **nếu mất điều kiện thực tế và chưa departed**.
+6. Sau khi bổ sung/xác minh giấy tờ, Coordinator xác nhận lại phần vận hành nếu bị ảnh hưởng, Specialist xác nhận lại hồ sơ nếu bị ảnh hưởng, Manager duyệt Route Version nếu tuyến đã thay; Backend kiểm tra cả ba điều kiện và Flow 1. Khi `IN_TRANSIT`, không áp dụng sửa Route thông thường hoặc tự rollback; các thay đổi qua Flow 4/5.
+
+**Read model bổ sung trong `GET /coordinator/trips/{tripId}` / route detail / `GET /manager/trips/{tripId}/departure-conditions` (không endpoint mới):**
+
+```json
+{
+  "scheduleImpact": {
+    "routeVersionId": 121,
+    "previousEta": "2026-11-24T08:00:00Z",
+    "newEta": "2026-11-27T08:00:00Z",
+    "committedDeliveryDeadline": "2026-11-25T08:00:00Z",
+    "deadlineExceeded": true,
+    "managerAlertCode": "DELIVERY_DEADLINE_AT_RISK",
+    "affectedDocumentsSummary": {"invalid": 1, "needsReview": 1, "validRetained": 4},
+    "documentsReadinessValid": false,
+    "operationsReadinessValid": false
+  }
+}
+```
+
+`affectedDocumentsSummary` lấy **projection do Flow 2 cung cấp**, không cho Coordinator quyền xem chứng từ nhạy cảm. Các giá trị là ví dụ minh họa. Khi ETA vượt hạn cam kết thì gửi cảnh báo; **không tự sửa thời hạn giao hoặc tự đặt điều khoản bồi thường**. Một warning đơn thuần không tự đánh status Trip về PLANNING nếu tất cả guard chuẩn bị vẫn hợp lệ.
+
+
 
 ## 16. Integration với Flow 2 – Checklist, Route Version, Checkpoint
 
@@ -1154,7 +1164,7 @@ Khi Route submit hoặc approved/changed, BE gửi domain event chứa tối thi
 
 - `PRELIMINARY` từ plan sơ bộ là để chuẩn bị sớm, có thể xuất hiện trước khi Manager duyệt route.
 - `FINAL` gắn RouteVersion hợp lệ, điểm kiểm soát đúng route, thời hạn/cert tương ứng. Checklist không tự động APPROVED chỉ vì Route `PENDING_APPROVAL`/`APPROVED`.
-- `GET /specialist/trips/{tripId}/checklist`/`GET /manager/trips/{tripId}/checklist` là các API của Flow 2; không nhân bản thành checklist Coordinator. Sau khi checklist FINAL và chứng từ bảo hiểm thực tế đủ, **Specialist xác nhận `Documents READY` bằng API Flow 2**; Backend tổng hợp từ confirmation này, không tự suy luận chỉ vì Coordinator đã xong.
+- `GET /specialist/trips/{tripId}/checklist`/`GET /manager/trips/{tripId}/checklist` là các API của Flow 2; không nhân bản thành checklist Coordinator. Sau khi checklist FINAL và mục bảo hiểm checklist đã được xác nhận, **Specialist xác nhận `Documents READY` bằng API Flow 2**; Backend tổng hợp từ confirmation này, không tự suy luận chỉ vì Coordinator đã xong.
 - Nếu Coordinator cần xem trạng thái, `GET /coordinator/trips/{tripId}` và `GET .../departure-conditions` chỉ hiển thị badge `Documents READY/NOT READY` cùng thông tin thiếu được phép công bố; Coordinator không duyệt hoặc yêu cầu file bảo hiểm.
 
 ### 16.3. Clearance tại checkpoint không phải route approval
@@ -1188,7 +1198,9 @@ Khi Route submit hoặc approved/changed, BE gửi domain event chứa tối thi
 | `AssignmentsChanged` | Nhân sự được gán/rút, Coordinator | Assignment, Driver trip list |
 | `VehicleAvailabilityChanged` | Coordinator, Manager nếu ảnh hưởng Trip | Vehicles, readiness |
 | `FlightBookingChanged` | Coordinator, Specialist, Manager | Booking, Route, checklist |
-| `InsuranceSubmitted/Verified/Rejected` (Flow 2) | Specialist, Manager; Coordinator chỉ nhận readiness thay đổi | Documents readiness tổng; không phát nội dung policy cho Coordinator |
+| `DeliveryDeadlineAtRisk/Overdue` | **Logistics Manager ngay sau mutation liên quan**; Coordinator xem cảnh báo kế hoạch | Route, ETA, hạn giao theo Contract |
+| `DocumentDeadlineAtRisk/Overdue` (Flow 2) | Specialist và **Logistics Manager** | Checklist theo quyền, task quá hạn |
+| `InsuranceChecklistChanged` (Flow 2) | Specialist và Manager nhận badge checklist; Coordinator chỉ nhận tổng trạng thái Documents READY |
 | `DocumentsReadinessConfirmed/Invalidated` (Flow 2) | Specialist, Coordinator, Manager | Departure conditions |
 | `OperationsReadinessConfirmed/Invalidated` | Coordinator, Manager, Specialist | Departure conditions |
 | `ChecklistReadyChanged` | Coordinator, Manager | Readiness |
@@ -1218,7 +1230,7 @@ SignalR chỉ thông báo thay đổi, REST là nguồn dữ liệu. Quyền the
 | `ASSIGNMENTS_UPDATED` | routeVersionId, staff/vehicle/horse diff |
 | `FLIGHT_BOOKING_RECORDED`, `FLIGHT_BOOKING_CHANGED` | reference, carrier, version, evidence, actor |
 | `OPERATIONS_READINESS_CONFIRMED`, `OPERATIONS_READINESS_INVALIDATED` | Coordinator, timestamp, routeVersionId, assignmentVersion, flight booking snapshot, reason |
-| `DOCUMENTS_READINESS_CHANGED` (Flow 2) | Specialist confirmation ID, document/checklist/insurance version, reason (tham chiếu, không nhân bản policy) |
+| `DOCUMENTS_READINESS_CHANGED` (Flow 2) | Specialist confirmation ID, checklist version và lý do; không đính kèm chứng từ bảo hiểm ngoài hệ thống |
 | `TRIP_READY_TO_DEPART`, `TRIP_READINESS_REVOKED` | evaluatedAt, conditions snapshot, reason |
 
 Log chỉ đọc, không công khai PII/license/passport; dữ liệu nhạy cảm có masking theo quyền.
@@ -1283,7 +1295,7 @@ Log chỉ đọc, không công khai PII/license/passport; dữ liệu nhạy c�
 | `FLIGHT_BOOKING_VERSION_CONFLICT` | Booking đã thay trên cùng ID, request/confirmation chứa version cũ |
 | `OPERATIONS_CONFIRMATION_STALE` | Coordinator đã xác nhận trên snapshot cũ; phải xác nhận lại sau khi sửa |
 | `DOCUMENTS_NOT_READY` | Specialist chưa xác nhận hồ sơ, bao gồm bảo hiểm, ở Flow 2 |
-| `DOCUMENTS_CONFIRMATION_STALE` | Checklist/insurance/route version thay đổi làm xác nhận Specialist cũ không còn hiệu lực |
+| `DOCUMENTS_CONFIRMATION_STALE` | Checklist version (bao gồm checkbox bảo hiểm) hoặc route version thay đổi làm xác nhận Specialist cũ không còn hiệu lực |
 | `DEPARTURE_NOT_READY` | Không đủ điều kiện để khởi hành |
 
 **Ví dụ `409`:**
@@ -1318,10 +1330,10 @@ Log chỉ đọc, không công khai PII/license/passport; dữ liệu nhạy c�
 
 - Save assignments phải commit nhất quán routeVersionId, vehicle reservations, staff reservations, horse allocations và audit; partial failure không được để slot bị giữ sai.
 - Approve route phải lưu quyết định Manager, `originalApprovedEta` nếu lần đầu, phát checklist sync/readiness event sau commit.
-- Insurance evidence và verification thuộc Flow 2 Specialist; Flow 3 chỉ lưu/đọc readiness projection, không có Coordinator InsuranceWrite hoặc Manager InsuranceVerify.
+- Insurance checklist checkbox thuộc Flow 2 Specialist; Flow 3 chỉ đọc readiness projection, không có InsurancePolicy/Coordinator InsuranceWrite/Manager InsuranceVerify.
 - Confirm Operations READY phải lưu actor/routeVersionId/assignmentVersion/flightBooking reference đúng snapshot, recheck trước commit và phát event sau commit.
-- Confirm Documents READY (Flow 2) phải ràng buộc checklist/insurance version, recheck đúng phạm vi và phát event sau commit.
-- Route/flight change làm thay đổi ETA phải revalidate hồ sơ, tài nguyên và bảo hiểm; không dùng “last write wins”.
+- Confirm Documents READY (Flow 2) phải ràng buộc checklist version (bao gồm trạng thái checkbox bảo hiểm), recheck đúng phạm vi và phát event sau commit.
+- Route/flight change làm thay đổi ETA phải revalidate hồ sơ, tài nguyên và yêu cầu Specialist kiểm tra lại checkbox bảo hiểm nếu có ảnh hưởng; không dùng “last write wins”.
 
 ### 20.3. Database uniqueness/checks tham khảo
 
@@ -1335,7 +1347,7 @@ Log chỉ đọc, không công khai PII/license/passport; dữ liệu nhạy c�
 | `StaffAssignment` | No same required role duplicate in same leg; no time overlap |
 | `HorseStallAllocation` | Unique `(legId,vehicleId,stallNumber)` và không double-assign horse cùng leg |
 | `FlightBooking` | Giữ lịch sử/phiên bản và active booking reference theo trip/service |
-| `InsurancePolicy` (Flow 2) | Giữ version/evidence, trạng thái xác minh do Specialist chịu trách nhiệm; Flow 3 chỉ FK/projection nếu cần |
+| Insurance Checklist Confirmation (Flow 2) | Item `INSURANCE_VERIFIED` thuộc checklist `FINAL`, Specialist xác nhận, không yêu cầu bảng InsurancePolicy riêng |
 | `ReadinessConfirmation` | `tripId`, `kind` (OPERATIONS/DOCUMENTS), source versions, actor/time, validity; không thay enum TripStatus |
 | `TripReadiness` | Cache/projection dựa điều kiện và version nguồn; có timestamp evaluation |
 
@@ -1395,15 +1407,15 @@ DB constraint cụ thể phụ thuộc SQL Server/EF Core; bảng trên là đi�
 | `F03-T40` | Trip AIR thiếu booking | FLIGHT_BOOKING_CONFIRMED false |
 | `F03-T41` | Ghi booking nhưng ngân sách chưa duyệt | Reject FLIGHT_BUDGET_NOT_APPROVED |
 | `F03-T42` | Booking đổi giờ bay | Revalidate route ETA/assignments; rút Operations READY, báo Flow 2 đánh giá checklist/bảo hiểm |
-| `F03-T43` | Specialist upload policy mới ở Flow 2 | Policy chờ kiểm tra, `Documents READY` không được coi là đạt; Coordinator không được yêu cầu upload lại |
-| `F03-T44` | Policy thiếu một Horse | Specialist/Flow 2 không xác nhận hồ sơ đạt; tổng readiness false |
-| `F03-T45` | Policy không bao phủ khoảng vận chuyển thực tế | Flow 2 từ chối/đánh dấu không hợp lệ; Documents READY false |
+| `F03-T43` | Specialist bỏ tick `INSURANCE_VERIFIED` sau khi đã Documents READY | Documents confirmation mất hiệu lực, Trip trước departure về PLANNING nếu mất điều kiện |
+| `F03-T44` | Checklist có mục bảo hiểm chưa được tick | Specialist không thể confirm Documents READY, tổng readiness false |
+| `F03-T45` | Route hoặc ngày thay đổi ảnh hưởng bảo hiểm | Flow 2 phân loại VALID/INVALID/NEEDS_REVIEW; không auto untick lịch sử, chỉ xác nhận lại khi cần; Documents READY theo snapshot mới |
 | `F03-T46` | Route approved; Coordinator và Specialist cùng confirm đúng snapshot; mọi điều kiện thật sự đạt | Trip auto READY_TO_DEPART |
 | `F03-T47` | Một điều kiện mất trước departure | Trip về PLANNING, ghi audit và notification |
 | `F03-T48` | Sau IN_TRANSIT có điều kiện đổi | Không tự lùi trạng thái; dùng Flow 5 |
 | `F03-T49` | Driver chưa có milestone, ETA quá tại Flow 4 | Cảnh báo ngay, không giả lập GPS |
 | `F03-T50` | Customer gọi coordinator API | 403 FORBIDDEN_ROLE |
-| `F03-T51` | Coordinator tìm cách gọi endpoint upload/xác minh policy | Không có quyền trong Flow 3; nếu gọi Flow 2 trả 403 FORBIDDEN_ROLE |
+| `F03-T51` | Coordinator tìm cách tick insurance checklist | Không có quyền Flow 2, `403 FORBIDDEN_ROLE` |
 | `F03-T52` | SignalR bị replay/reconnect | FE GET lại route/readiness; không tự cập nhật state |
 | `F03-T53` | Trip VN→JP bàn giao sau sân bay JP | Phải có ROAD leg tại JP và Coordinator phân công đầy đủ xe/tài xế/vet/ngựa cho chặng đó |
 | `F03-T54` | Specialist Clearance HELD ở Flow 2 | Không coi milestone PASS là chứng cứ thông quan |
@@ -1416,17 +1428,26 @@ DB constraint cụ thể phụ thuộc SQL Server/EF Core; bảng trên là đi�
 | `F03-T60` | Nguồn lực JP AVAILABLE nhưng chưa có assignment | Operations READY false, không tự phân công |
 | `F03-T61` | Coordinator confirm sau khi thay vehicle làm stale assignmentVersion | `409 OPERATIONS_CONFIRMATION_STALE`; reload/confirm lại |
 | `F03-T62` | Cả hai OK nhưng Manager chưa APPROVED Route | Trip PLANNING, thiếu ROUTE_APPROVED |
-| `F03-T63` | Specialist đã confirm nhưng policy mất hiệu lực trước departure | Documents READY invalidated; Trip về PLANNING và thông báo |
+| `F03-T63` | Specialist bỏ tick bảo hiểm trước departure | Documents READY bị invalidated, Trip trước departure về PLANNING và thông báo |
 | `F03-T64` | Coordinator đã confirm, sau đó flight schedule/route version thay đổi | Operations READY invalidated; revalidate/reconfirm, không dùng snapshot cũ |
 | `F03-T65` | Coordinator POST confirm trùng cùng snapshot | Idempotent, một confirmation hiện hành, không tạo trùng Trip |
 | `F03-T69` | Booking đổi lịch trên cùng `flightBookingId` nhưng tăng `bookingVersion` | Confirm cũ stale; Coordinator phải revalidate và xác nhận lại nếu bị ảnh hưởng |
 | `F03-T70` | PUT booking với `expectedBookingVersion` cũ | `409 FLIGHT_BOOKING_VERSION_CONFLICT`, không ghi đè lịch của người khác |
 | `F03-T71` | Manager Hold khi Trip đã READY_TO_DEPART nhưng chưa departed | Trip re-evaluate về PLANNING; đang IN_TRANSIT thì Flow 1 Hold từ chối |
+| `F03-T72` | Đổi booking làm ETA vượt hạn giao đã ký | `DELIVERY_DEADLINE_AT_RISK` notify Manager ngay sau lưu; hạn Contract không tự đổi |
+| `F03-T73` | Dời chuyến, passport vẫn hợp lệ | Flow 2 giữ VALID xanh, không reset toàn checklist |
+| `F03-T74` | Dời ngày, chứng từ kiểm dịch hết hạn và bảo hiểm cần kiểm tra lại | Flow 2 báo đỏ mục invalid, insurance NEEDS_REVIEW; Documents READY current stale |
+| `F03-T75` | Rủi ro deadline hồ sơ do ETA mới | Flow 2 notify Specialist và Manager sau mutation, không đợi cron |
+| `F03-T76` | Đổi lịch khi Trip chưa departed, Operations/Docs mất guard | READY_TO_DEPART → PLANNING; khi đủ xác nhận lại mới READY |
+| `F03-T77` | Booking thay đổi nhưng không ảnh hưởng hồ sơ đã VALID | Không làm tất cả checklist trở INVALID, không phát cảnh báo hạn giả |
+| `F03-T78` | Coordinator preview ETA quá deadline nhưng không commit | FE hiện cảnh báo; không tạo Notification/Task Manager từ preview thuần |
+| `F03-T79` | Sự kiện duplicate cùng route/booking ETA | Không notify Manager lặp vô hạn; idempotent theo version + condition |
+| `F03-T80` | Đổi lịch sau departed | Không sửa Route qua Flow 3 / không rollback TripStatus; Flow 4/5 tiếp nhận |
 | `F03-T66` | Cả hai xác nhận hợp lệ; route approved; đã khởi hành milestone | Trip IN_TRANSIT qua Flow 4; không nhảy IN_TRANSIT tại Confirm |
-| `F03-T67` | Documents READY không có bảo hiểm thực tế dù Contract đã gồm phí | Backend không READY_TO_DEPART |
+| `F03-T67` | Contract đã tính phí bảo hiểm nhưng checklist chưa tick | Backend không READY_TO_DEPART |
 | `F03-T68` | Coordinator sửa staff sau khi Trip đã IN_TRANSIT | Không cho qua Flow 3; chuyển Flow 5 nếu là sự cố |
 
-**Nguyên tắc test:** mỗi acceptance case có cả positive/negative test ở BE (policy + DB + concurrency) và FE (disabled/enabled state + hiển thị lỗi). Test integration giữa Flow 2/3 phải kiểm tra Route Version and Checklist Version khớp; giữa Flow 3/4 phải kiểm tra Trip ready/departed; giữa Flow 3/5 phải kiểm tra sửa route sau khởi hành qua Incident.
+**Nguyên tắc test:** mỗi acceptance case có cả positive/negative test ở BE (xác nhận bảo hiểm + DB + concurrency) và FE (disabled/enabled state + hiển thị lỗi). Test integration giữa Flow 2/3 phải kiểm tra Route Version and Checklist Version khớp; giữa Flow 3/4 phải kiểm tra Trip ready/departed; giữa Flow 3/5 phải kiểm tra sửa route sau khởi hành qua Incident.
 
 ---
 
@@ -1465,10 +1486,11 @@ DB constraint cụ thể phụ thuộc SQL Server/EF Core; bảng trên là đi�
 | `/api` | `F03-M02` | `GET /manager/trips/{tripId}/route` | Kế thừa |
 | `/api` | `F03-M03` | `POST /manager/trips/{tripId}/routes/{routeVersionId}/approve` | Kế thừa |
 | `/api` | `F03-M04` | `POST /manager/trips/{tripId}/routes/{routeVersionId}/return` | Kế thừa |
-| `/api` | `F03-M05` | `GET /manager/trips/{tripId}/insurance` | Kế thừa |
 | `/api` | `F03-M06` | `GET /manager/trips/{tripId}/departure-conditions` | Kế thừa (trước đây `F03-M07`) |
 
-**Endpoint thuộc Flow 2 – chỉ tham chiếu, KHÔNG đếm là Coordinator API:** `GET/POST /specialist/trips/{tripId}/insurance`, `POST /specialist/trips/{tripId}/insurance/{policyId}/verify`, `POST /specialist/trips/{tripId}/documents-readiness/confirm`. Các API này cần được bổ sung/đồng bộ trong Flow 2 khi sửa tiếp. Không xóa logic bảo hiểm của hệ thống, chỉ chuyển owner sang Specialist.
+**F03-M05 retired** (manager insurance GET từ v1.2), không tái dùng mã để tránh nhầm lẫn.
+
+**Endpoint thuộc Flow 2 – chỉ tham chiếu, KHÔNG đếm là Coordinator API:** `GET /specialist/trips/{tripId}/checklist`, `PATCH /specialist/trips/{tripId}/checklist/insurance-confirmation`, `POST /specialist/trips/{tripId}/documents-readiness/confirm`. Không triển khai API policy riêng, Coordinator không được tick mục bảo hiểm.
 
 **Lưu ý:** `GET /coordinator/checkpoints` dùng chung catalog Flow 2. Các API `[BỔ SUNG]` chưa có trong Role API cũ **không được coi là đã implement**. Không tạo `/flow3/*`; đồng bộ endpoint và schema vào Coordinator/Manager Role API và OpenAPI trước triển khai.
 
@@ -1484,13 +1506,13 @@ DB constraint cụ thể phụ thuộc SQL Server/EF Core; bảng trên là đi�
 4. Khi thêm, xóa, đổi thứ tự điểm → `POST /routes/calculate` để dự báo ETA và warnings; không hiển thị số giả làm thời gian thực.
 5. Assignment sử dụng preview validation và lịch xe/staff; sai thì hiển thị theo legId/vehicleId/userId, không bỏ qua lỗi.
 6. Khi kết quả validation Server đổi, `PUT` có thể bị 409 dù FE vừa preview pass; dùng lỗi để reload dữ liệu.
-7. Sau route submit, booking, staff changes, Coordinator confirmation hoặc Specialist documents confirmation → refresh readiness; không tự set `TripStatus`. Coordinator không upload hoặc đọc file insurance.
+7. Sau route submit, booking, staff changes, Coordinator confirmation hoặc Specialist documents confirmation → refresh readiness; không tự set `TripStatus`. Coordinator không tick hoặc đọc chứng từ bảo hiểm.
 8. Khi mất kết nối SignalR → reconnect và reload current Route/Assignments/Readiness.
 
 ### 23.2. BE – Services / Clean Architecture
 
 - **Controller:** xác thực/validate request shape/điều phối command, trả envelope; không trực tiếp tính hoặc phê duyệt bằng string do FE gửi.
-- **Application:** `RoutePlanningService` tính/version/submit; `FleetService` quản lý xe; `ResourceAssignmentService` phân công; `FlightBookingService` lưu bằng chứng thuê bay; `OperationsReadinessService` xác nhận điều phối; `TripReadinessService` đánh giá điều kiện. `InsuranceService` lưu/xác minh thuộc Flow 2 và cung cấp read model liên hệ. Tên class là gợi ý, không áp đặt cấu trúc cụ thể.
+- **Application:** `RoutePlanningService` tính/version/submit; `FleetService` quản lý xe; `ResourceAssignmentService` phân công; `FlightBookingService` lưu bằng chứng thuê bay; `OperationsReadinessService` xác nhận điều phối; `TripReadinessService` đánh giá điều kiện. `InsuranceChecklistService` thuộc Flow 2 và cung cấp read model liên hệ. Tên class là gợi ý, không áp đặt cấu trúc cụ thể.
 - **Domain:** state machine, invariant, owner/role, route/leg identity, resource reservation, snapshot, `originalApprovedEta`.
 - **Infrastructure:** database/transaction, mapping provider, file storage private, SignalR, background jobs/outbox.
 - Giao diện dịch vụ đối tác map/booking nếu chưa chọn provider phải có failure path rõ và test bằng fake data; không hardcode tọa độ/hãng bay để giả tạo điều kiện sẵn sàng.
@@ -1502,7 +1524,7 @@ TransportRequest (ACTIVATED) 1 : 1 Trip
 Trip 1 : N RouteVersion
 RouteVersion 1 : N RoutePoint + RouteLeg
 RouteVersion 1 : N LegAssignments (theo version có hiệu lực)
-Trip 1 : N InsurancePolicyVersion (Flow 2 quản lý)
+Trip 1 : N ChecklistItem confirmation audit (mục `INSURANCE_VERIFIED`, Flow 2; không có InsurancePolicy entity riêng trong demo)
 Trip 1 : N FlightBookingVersion (khi AIR)
 Trip 1 : N ChecklistVersion (Flow 2 theo RouteVersion)
 Trip 1 : N ReadinessConfirmations (OPERATIONS / DOCUMENTS theo version)
@@ -1522,10 +1544,10 @@ Trip 1 : N TripReadinessEvaluations
 | Tài liệu | Phần cần đồng bộ khi đưa vào sử dụng |
 |---|---|
 | `00-conventions.md` | Enums giữ nguyên, Route/TripStatus, no-GPS; SignalR events, ownership, versioning |
-| `04-manager-api.md` | Manager planning, route approve/return, departure conditions, approved flight budget; **bỏ Manager insurance verify**, giữ policy overview read-only |
+| `04-manager-api.md` | Manager route approve/return, departure conditions, đọc insurance checkbox qua checklist; **không** có policy overview riêng |
 | Coordinator Role API (`Markdown đã dán (3).md`) | Bỏ VN→TH/KH, GPS/polling, mốc lái cứng; bỏ Coordinator insurance upload/verify; thêm Operations READY; phân công ROAD VN/JP và AIR |
-| `flow-02-legal-quarantine-customs-api.md` | Specialist sở hữu insurance upload/verify + Documents READY, checklist FINAL đúng Route Version; xác nhận không thay route approval |
-| Flow 1 v2.3 | Trip PLANNING, deployment CONFIRMED, preliminary plan và budget đã được Manager duyệt |
+| `flow-02-legal-quarantine-customs-api-v1.4.md` | Specialist tick insurance checklist qua PATCH và xác nhận Documents READY; không tạo InsurancePolicy REST |
+| Flow 1 v2.5 | Trip PLANNING, deployment CONFIRMED, preliminary plan và budget đã được Manager duyệt |
 | Driver/Escort API + Flow 4 | Trip READY_TO_DEPART → manual departure milestone; staff view đúng assignments, không GPS |
 | Flow 5 | Thay lộ trình/xe/người sau IN_TRANSIT từ Incident Proposal và Manager approval |
 
@@ -1539,16 +1561,29 @@ Trip 1 : N TripReadinessEvaluations
 
 Các cấu hình do nguồn vận hành/công ty quản lý; không được biến con số từ ví dụ thành quy tắc không được duyệt.
 
+### 24.2.1. Bổ sung quy tắc đổi lịch và deadline v1.4
+
+- [ ] ETA mới vượt Contract delivery deadline sẽ tạo cảnh báo Manager **ngay sau khi lưu**, không chỉ hiển thị FE.
+- [ ] Mốc vận hành liên quan route/booking được tính lại nhưng không tự thay ngày giao cam kết hoặc chứng từ pháp lý.
+- [ ] Flow 2 chỉ đánh dấu đỏ checklist item thật sự invalid và NEEDS_REVIEW nếu thiếu cơ sở; item hợp lệ giữ xanh.
+- [ ] Operations/Documents confirmations invalidated theo **mức tác động**, không blanket reset tất cả.
+- [ ] `READY_TO_DEPART → PLANNING` trước departure chỉ khi guard mất; `IN_TRANSIT` giữ nguyên và chuyển Flow 4/5.
+
 ### 24.3. Checklist nghiệm thu trước khi nhóm dùng
 
 1. Mỗi endpoint trong Inventory có role, method, path, validation, response/error, side effect; các API bổ sung đã đồng bộ với Role/API Controller.
 2. Không còn route hợp lệ KH/TH hoặc VN→JP quá cảnh trong ví dụ/case. Chỉ `VN→VN`, `VN→JP`.
 3. Route Version & TripStatus phân biệt tuyệt đối; route được duyệt không tự thành READY nếu còn thiếu tài nguyên/hồ sơ.
-4. Bảo hiểm được công ty thu xếp ngoài hệ thống và Specialist xác minh trong Flow 2; Manager chỉ duyệt Route; Coordinator không thao tác policy. Booking dựa chứng từ thực.
+4. Bảo hiểm được công ty thu xếp ngoài hệ thống và Specialist xác minh trong Flow 2; Manager chỉ duyệt Route; Coordinator không thao tác xác nhận bảo hiểm. Booking dựa chứng từ thực.
 5. **Coordinator phân công ROAD cho cả VN lẫn JP** (xe, MAIN_DRIVER, CO_DRIVER, VETERINARIAN, horse/stall); AIR có bác sĩ thú y và booking; không tạo vet role độc lập.
 6. Original ETA bảo toàn; preview/polyline không phải GPS; milestone actual ở Flow 4 và incident route update ở Flow 5.
 7. Route/assignments/booking/operations confirmation có version/audit; checklist/insurance/documents confirmation thuộc Flow 2; SignalR sau commit; FE nhận 409 biết refresh.
 8. Các tình huống UAT Chương 21 được pass trong test FE/BE liên vai trò.
 
-**Version:** `v1.1` – API Contract Flow 3 cập nhật phân quyền bảo hiểm và xác nhận 2 bên; các nghiệp vụ đã chốt được đưa trực tiếp vào endpoint và state machine. Tài liệu này là bản thiết kế để đồng bộ Role API; **không khẳng định tính pháp lý/điều kiện hãng bay thực tế đã được kiểm tra**, và không khẳng định endpoint đã được implement.
+**Version:** `v1.3` – dùng checkbox bảo hiểm trong checklist Specialist thay cho entity/API InsurancePolicy; giữ Operations READY độc lập, route/booking snapshot, ROAD VN/JP vẫn phân công thủ công. Contract thiết kế, chưa xác nhận đã implement.
 
+
+**Version v1.3:** loại bỏ InsurancePolicy REST khỏi demo; Specialist tick `INSURANCE_VERIFIED` trên Checklist sau khi công ty thu xếp bảo hiểm ngoài hệ thống. Coordinator chỉ kiểm tra điều phối và booking.
+
+
+**v1.4 (REOPENED):** Đổi lịch/ETA/booking sẽ tính lại mốc phụ thuộc, kiểm tra ngay deadline giao theo Contract, cảnh báo Manager khi vượt hạn, giao Flow 2 re-evaluate từng item; không sửa hợp đồng/giấy tờ hoặc reset readiness không liên quan.

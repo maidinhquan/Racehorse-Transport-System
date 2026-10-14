@@ -1,11 +1,11 @@
-# FLOW 01 – API Contract v2.3: Estimate → Transport Request → Draft Contract → OTP → Deposit → Activation
+# FLOW 01 – API Contract v2.5: Estimate → Transport Request → Draft Contract → OTP → Deposit → Activation
 
 > **SWP391 – Cross-Border Racehorse Transport System**  
 > **Use cases:** `UC-CUST-02`, `UC-CUST-03`, `UC-CUST-08` (phụ thuộc), `UC-CUST-10`, `UC-CUST-11`, `UC-CUST-09`, `UC-LM-01`, `UC-LM-02`, `UC-LM-03` (bổ sung).  
 > **Actors:** `CUSTOMER`, `LOGISTICS_MANAGER`; các API Auth/Master/Horse/Document từ Shared và Customer là phụ thuộc.  
 > **Cơ sở:** `00-conventions.md`, `01-shared-api.md`, `02-customer-api.md`, `04-manager-api.md` và các Business Rules đã chốt.  
-> **Phiên bản tài liệu:** **2.3 – Schedule Feasibility & Deployment Hold Alignment**, cập nhật trực tiếp từ v2.1; ngày 13/10/2026.  
-> **Trạng thái:** **Contract thiết kế**, chưa xác nhận endpoint đã implement. **Các tài liệu Role/Shared/Use Case hiện lưu riêng cần được đồng bộ với bản v2.2 trước khi FE/BE dùng làm nguồn triển khai**; adapter VNPay thực tế do nhóm phụ trách.  
+> **Phiên bản tài liệu:** **2.5 – Reopened: Schedule Change / Deadline Impact / Manager Escalation**, tiếp nối v2.4; ngày 13/10/2026.  
+> **Trạng thái:** **REOPENED – cập nhật thiết kế nghiệp vụ**, thay thế baseline Flow 1 v2.4 cho các thay đổi lịch; chưa tái khóa hoặc xác nhận endpoint đã implement. Các tài liệu Role/Shared/Use Case đồng bộ sau; adapter VNPay do nhóm phụ trách.  
 > **Kiến trúc:** Flow 1 là bản đồ API end-to-end; không có prefix `/flow1/*`. Mỗi endpoint chỉ có một định nghĩa hành vi, được tham chiếu cùng `02-customer-api.md`, `04-manager-api.md`, `01-shared-api.md`, `00-conventions.md`.
 
 ## 1. Mục tiêu, phạm vi và luồng tổng thể
@@ -64,6 +64,10 @@ Trip/Pickup/Delivery + Horse Profiles/required PER_HORSE documents
 | `F01-BR-20` | Khi Manager phát hành Contract hoặc gia hạn deadline, BE kiểm tra tính khả thi của `effectiveCompletionDeadline` so với `plannedDepartureAt` và thời gian chuẩn bị do kế hoạch/khả năng vận hành đã được xác nhận. Không hardcode số ngày chuẩn bị; không cho hẹn hoàn tất ký/cọc sau thời điểm dự kiến khởi hành mà vẫn coi lịch đó khả thi. |
 | `F01-BR-21` | Khi ký/cọc trễ làm lịch dự kiến không khả thi, hệ thống gắn cảnh báo và giữ deployment chưa được xác nhận hoặc `ON_HOLD` (nếu đã triển khai); **không tự dời ngày, tự hủy Request hoặc tự sửa Contract đã ký**. Manager đề xuất lịch mới, Customer xác nhận; điều chỉnh kế hoạch/Contract theo tình trạng ký và cơ chế có thẩm quyền. |
 | `F01-BR-22` | `hold-deployment` chỉ cho Trip chưa có milestone khởi hành; khi Trip `READY_TO_DEPART` bị hold, BE đánh giá lại và chuyển về `PLANNING`, giữ audit. Trip `IN_TRANSIT`/`COMPLETED` không được đưa về `PLANNING` bằng Flow 1; xử lý tình huống trên đường thuộc Flow 4/5. |
+| `F01-BR-23` | Khi Flow 3 ghi nhận thay đổi lịch xuất phát, lịch bay hoặc ETA, Backend phải đối chiếu **hạn bàn giao theo Contract hiện hành**; nếu ETA dự kiến vượt hạn, tạo cảnh báo cho Logistics Manager ngay khi thay đổi được lưu, không chờ chuyến thực sự trễ. Không tự thay `deliveryDeadline` trong Contract đã ký. |
+| `F01-BR-24` | Phân biệt `effectiveCompletionDeadline` **ký/cọc** với deadline **hồ sơ** (Flow 2) và deadline **giao hàng** (hợp đồng/kế hoạch Flow 3). Dời lịch vận chuyển không tự gia hạn hạn ký/cọc, hạn pháp lý hoặc hạn bàn giao đã cam kết. Hạn vận hành phụ thuộc có thể tính lại theo kế hoạch mới với nguồn quy tắc hợp lệ; sửa cam kết đã ký cần thỏa thuận Customer và quyết định có thẩm quyền. |
+| `F01-BR-25` | Sau Contract `SIGNED/EFFECTIVE`, thay đổi ngày/horses/hạn giao ảnh hưởng thỏa thuận phải theo quy trình thay đổi có xác nhận Customer và Manager, bảo toàn phiên bản hợp đồng. Đây là **phụ thuộc nghiệp vụ cần đặc tả API riêng khi đồng bộ**; không giả định API Change Request trước ký (F01-C11) có thể tự sửa Contract đã ký. |
+| `F01-BR-26` | Cảnh báo vượt hạn bàn giao không tự hủy Request, không tự rút `Documents READY` nếu không có hồ sơ bị ảnh hưởng và không tự đổi TripStatus. Khi mất điều kiện hồ sơ/điều phối trước khởi hành, Backend tổng hợp và đưa `READY_TO_DEPART → PLANNING`; nếu đã `IN_TRANSIT`, sử dụng Flow 4/5. |
 
 **Không tự thiết lập:** công thức Pricing, biểu giá, tiền tệ/FX, VAT, giá sàn tối thiểu cụ thể, tỷ lệ cọc mặc định/giới hạn, hạn cố định, grace period, phạt hủy, lịch nhắc, chính sách làm tròn và thời điểm cuộc gọi xác nhận người nhận hộ. Chúng thuộc cấu hình hoặc quy trình được đội phụ trách duyệt riêng. Ví dụ giá chỉ là dữ liệu minh họa, không phải quy định.
 
@@ -84,7 +88,7 @@ Hủy hợp lệ theo giai đoạn --> CANCELLED  [không auto]
 ACTIVATED --đóng đơn khi hoàn thành các Flow khác--> CLOSED
 ```
 
-**RequestStatus vẫn dùng enum hiện có** trong `00-conventions.md`: `PENDING`, `CHANGES_REQUESTED`, `ACCEPTED`, `QUOTING`, `AWAITING_CONTRACT`, `AWAITING_DEPOSIT`, `ACTIVATED`, `CLOSED`, `REJECTED`, `CANCELLED`. `QUOTING` được **giữ để tương thích dữ liệu lịch sử**, nhưng **Flow 1 v2.3 không sinh mới** trạng thái này và không có Quote acceptance. Không thêm `ESTIMATED`, `DRAFT`, `EXPIRED` hay `OVERDUE` vào `RequestStatus`.
+**RequestStatus vẫn dùng enum hiện có** trong `00-conventions.md`: `PENDING`, `CHANGES_REQUESTED`, `ACCEPTED`, `QUOTING`, `AWAITING_CONTRACT`, `AWAITING_DEPOSIT`, `ACTIVATED`, `CLOSED`, `REJECTED`, `CANCELLED`. `QUOTING` được **giữ để tương thích dữ liệu lịch sử**, nhưng **Flow 1 v2.4 không sinh mới** trạng thái này và không có Quote acceptance. Không thêm `ESTIMATED`, `DRAFT`, `EXPIRED` hay `OVERDUE` vào `RequestStatus`.
 
 ContractStatus giữ `DRAFT`, `PENDING_SIGNATURE`, `SIGNED`, `EFFECTIVE`, `SIGN_DECLINED`, `SUPERSEDED`, `EXPIRED`, `TERMINATED`. Không biến Contract `SIGNED` thành `EFFECTIVE` trước khi nhận đủ cọc. TripStatus độc lập và ban đầu chỉ `PLANNING`.
 
@@ -798,7 +802,7 @@ Backend phải xác minh chữ ký và toàn vẹn thông tin phù hợp tích h
 
 Contract phát hành chỉ có `completionDeadline`; sau gia hạn, Backend trả `effectiveCompletionDeadline`. Trước ký, Customer chỉ thấy thao tác ký. Sau ký, Customer thấy thao tác thanh toán (VNPay hoặc Bank Transfer). Quá deadline, BE **không cho thực hiện thao tác mới** để hoàn tất nghĩa vụ còn thiếu; dữ liệu chữ ký và giao dịch đã nộp vẫn giữ nguyên. **Không tự đặt số ngày tự gia hạn**, không tự tạo RequestStatus `EXPIRED` và không có job tự hủy.
 
-**Lưu ý:** Flow 1 v2.3 không sử dụng `Quote.validUntil` hoặc thời hạn Accept Quote. **Nguồn thời hạn duy nhất cho ký OTP và đặt cọc là `effectiveCompletionDeadline` của Contract đang áp dụng**.
+**Lưu ý:** Flow 1 v2.5 không sử dụng `Quote.validUntil` hoặc thời hạn Accept Quote. **Nguồn thời hạn duy nhất cho ký OTP và đặt cọc là `effectiveCompletionDeadline` của Contract đang áp dụng**.
 
 ### F01-M23. `POST /manager/requests/{requestId}/deposit-extensions` – Manager gia hạn deadline chung
 
@@ -895,13 +899,26 @@ Hold body `{ "reason":"Cần làm rõ điều kiện an toàn" }`. Resume body `
 **Backend guards:** chỉ hold/resume khi Trip chưa ghi milestone khởi hành (Trip `PLANNING` hoặc `READY_TO_DEPART`). Hold từ `READY_TO_DEPART` làm điều kiện `DEPLOYMENT_CONFIRMED` mất hiệu lực, Domain Readiness Engine đưa Trip về `PLANNING` có audit và notification; không giả định mọi request đang `PLANNING`. Resume không tự đưa Trip lên `READY_TO_DEPART` nếu các xác nhận/snapshot không còn hợp lệ; phải đánh giá lại từ Flow 2/3. Với Trip đã `IN_TRANSIT` hoặc `COMPLETED`, trả `409 TRIP_ALREADY_DEPARTED`/`409 INVALID_STATE` theo trạng thái; xử lý sự cố qua Flow 4/5. Không cho tiến hành phân công chính thức trong thời gian hold. Manager không tùy tiện từ chối hợp đồng có hiệu lực.
 
 
-### 15.1. Chi phí bảo hiểm và ranh giới trách nhiệm Flow 2–3 (đồng bộ v1.1)
+### 15.1. Chi phí bảo hiểm và ranh giới trách nhiệm Flow 2–3 (bản chốt Checklist)
 
-- **Flow 1 / Contract:** phần giá bán chính thức của Contract **bao gồm hạng mục `INSURANCE`** và được Customer thanh toán trong giá dịch vụ theo điều khoản Contract. Manager là người lập/sửa giá; Backend tính toán. Estimate có thể liệt kê chi phí bảo hiểm tham khảo, **không chứng minh đã mua bảo hiểm**.
-- **Sau khi Trip được kích hoạt:** công ty thu xếp mua bảo hiểm vận chuyển ngựa **ngoài hệ thống**, theo phạm vi/ngựa/chặng/ngày phù hợp. Không tạo API mua bảo hiểm, không dùng VNPay của Customer để thanh toán trực tiếp cho doanh nghiệp bảo hiểm, không tự coi `Contract.EFFECTIVE` là policy đã có hiệu lực.
-- **Flow 2 / Transport Specialist:** lưu và xác minh chứng từ bảo hiểm thực tế bằng các API `GET/POST /specialist/trips/{tripId}/insurance`, `POST /specialist/trips/{tripId}/insurance/{policyId}/verify`; sau khi hồ sơ pháp lý, kiểm dịch, thông quan và bảo hiểm đều đạt, Specialist xác nhận bằng `POST /specialist/trips/{tripId}/documents-readiness/confirm` (schema/guards thuộc Flow 2 v1.2). Manager chỉ giám sát read-only phần bảo hiểm.
-- **Flow 3 / Fleet & Route Coordinator:** phân công xe/nhân sự cho **tất cả ROAD legs VN và JP**, phân ngựa vào stall, quản lý booking AIR và xác nhận `POST /coordinator/trips/{tripId}/operations-readiness/confirm`. Dù danh mục nguồn lực được giả định AVAILABLE trong demo, Coordinator vẫn **phải chủ động chọn và lưu phân công cho từng chặng**. Coordinator không upload/xác minh bảo hiểm.
-- **Backend điều kiện khởi hành:** `Documents READY` (Specialist) + `Operations READY` (Coordinator) + Route Version được Manager `APPROVED` + các kiểm tra readiness thực tế hợp lệ → `Trip READY_TO_DEPART`. Nếu thay hồ sơ/bảo hiểm/ngựa/route/assignment làm confirmation cũ mất hiệu lực, Backend phải đánh giá lại. **Flow 1 dừng ở `Trip PLANNING` và xác nhận deployment**, không xác nhận readiness thay Flow 2–3; `IN_TRANSIT` chỉ khi Driver ghi nhận khởi hành thực tế ở Flow 4.
+- **Flow 1 / Contract:** Manager lập giá chính thức có hạng mục `INSURANCE`, tiền bảo hiểm nằm trong giá dịch vụ và được Customer thanh toán theo điều khoản Contract. Giá có bảo hiểm **không phải bằng chứng** công ty đã thu xếp bảo hiểm.
+- **Sau khi Trip được kích hoạt:** công ty liên hệ bên bảo hiểm và hoàn tất việc thu xếp bảo hiểm phù hợp **ngoài hệ thống**. Dự án demo không tích hợp API mua bảo hiểm, không xử lý phí bảo hiểm trực tiếp với insurer hay yêu cầu bồi thường.
+- **Flow 2 / Transport Specialist:** Specialist đối chiếu bảo hiểm thực tế bên ngoài phần mềm; sau khi hợp lệ, đánh dấu duy nhất một **mục checklist `INSURANCE_VERIFIED`** thuộc `COMPANY/PER_TRIP`, có audit actor/time, không bắt nhập số policy, mức bồi thường hoặc upload giấy chứng nhận vào hệ thống. Specialist chỉ xác nhận `Documents READY` sau khi **tất cả** mục hồ sơ cần thiết, bao gồm mục bảo hiểm, đạt yêu cầu. Sử dụng `PATCH /specialist/trips/{tripId}/checklist/insurance-confirmation` và `POST /specialist/trips/{tripId}/documents-readiness/confirm` theo Flow 2 v1.3.
+- **Flow 3 / Fleet & Route Coordinator:** Coordinator phân công xe/người/từng ROAD leg VN/JP, quản lý AIR booking và xác nhận `Operations READY`; không thao tác bảo hiểm. Backend dùng kết quả `Documents READY`/checklist từ Flow 2 để quyết định tính sẵn sàng khởi hành.
+- **Bất biến:** `Documents READY` + `Operations READY` + Route Version Manager `APPROVED` + các guard khác còn hợp lệ → Trip `READY_TO_DEPART`; không suy ra bảo hiểm từ thanh toán Contract, không suy ra Trip xuất phát từ `READY_TO_DEPART`. Nếu tuyến/ngày/ngựa thay đổi có khả năng ảnh hưởng phạm vi bảo hiểm, đánh dấu checklist bảo hiểm `NOT_SUBMITTED`/chưa xác nhận và yêu cầu Specialist kiểm tra/tick lại; không tự bảo đảm bảo hiểm còn hiệu lực.
+
+**Ranh giới bằng chứng:** tick checklist chỉ là xác nhận nội bộ của Specialist rằng họ đã kiểm tra chứng từ ngoài hệ thống. Hệ thống demo **không lưu hợp đồng bảo hiểm** và không thể tự kiểm chứng các điều khoản, hạn mức hay hiệu lực bảo hiểm thực tế. Quy trình thực tế vẫn phải lưu trữ chứng từ theo yêu cầu của doanh nghiệp và cơ quan có thẩm quyền.
+
+### 15.2. Khi đổi lịch/ETA – ranh giới Flow 1 với Flow 2 và Flow 3 (v2.5)
+
+- **Sự kiện nguồn:** Coordinator cập nhật Route Version hoặc flight booking trong Flow 3. Backend đánh giá tác động với `plannedDepartureAt`, `etaDestination`, deadline giao hàng theo Contract đang có hiệu lực và các deadline chuyên môn của Flow 2. Đây là đánh giá **sau mutation đã commit**, không phải side effect của GET/preview.
+- **Ba loại thời hạn không được gộp:** (1) `effectiveCompletionDeadline` cho ký/cọc ở Flow 1, (2) `documentRequiredBy`/thời điểm phải đủ hồ sơ theo nguồn quy định ở Flow 2, (3) `deliveryDeadline` cam kết theo hợp đồng và `etaDestination` dự kiến ở Flow 3. Chỉ thời gian kế hoạch phụ thuộc mới tính lại tự động khi hợp lệ; **deadline pháp lý hoặc cam kết đã ký không tự gia hạn**.
+- **Nếu ETA mới vượt hạn bàn giao cam kết:** Backend tạo `DELIVERY_DEADLINE_AT_RISK` cho Logistics Manager ngay khi lưu thay đổi có hiệu lực, với `tripId`, `routeVersionId`, `previousEta`, `newEta`, `committedDeliveryDeadline`, `detectedAt` và link Trip; idempotent theo Trip/Route Version/tình trạng deadline, không spam do retry. Coordinator vẫn cần `deadlineJustification` khi submit Route quá hạn; giải trình **không có nghĩa Customer đã đồng ý đổi hạn**.
+- **Nếu đã vượt hạn xử lý hồ sơ:** cảnh báo `DOCUMENT_DEADLINE_OVERDUE` từ Flow 2 cũng được gửi Manager ngay khi phát hiện. Manager giám sát và phối hợp; Specialist xử lý hồ sơ, Coordinator điều chỉnh kế hoạch nếu cần. Không chuyển tự động thành Request `CANCELLED` hoặc tạo quy trình bồi thường giả định.
+- **Lịch mới tác động hợp đồng đã ký:** Manager liên hệ Customer và ghi nhận chấp thuận theo quy trình thay đổi hợp đồng có thẩm quyền. Bản thiết kế Flow 1 v2.5 **chưa đặt thêm endpoint sửa hợp đồng sau ký**, không tái sử dụng F01-C11 vốn chỉ cho *trước ký*. Nếu chưa có xác nhận hợp lệ cho thay đổi cam kết, không được xem hạn mới là đã được Customer chấp thuận.
+- **Khởi hành:** nếu giấy tờ/hồ sơ bị ảnh hưởng, Flow 2 rút hiệu lực `Documents READY` cho snapshot hiện hành; nếu xe/người/booking bị ảnh hưởng, Flow 3 rút hiệu lực `Operations READY`. Backend chỉ đưa `READY_TO_DEPART → PLANNING` trước milestone khởi hành khi **thực sự mất guard**. `IN_TRANSIT` được xử lý theo Flow 4/5, không rollback về Planning.
+
+**Ví dụ minh họa:** Contract cam kết bàn giao 25/11, Route dự kiến ETA 24/11; Coordinator cập nhật booking khiến ETA thành 27/11. Backend giữ nguyên hạn hợp đồng 25/11, lập tức cảnh báo Manager dự kiến trễ; Flow 2 chỉ đánh dấu đỏ hồ sơ không còn hợp lệ với lịch mới, hồ sơ còn hợp lệ vẫn giữ nguyên. Manager xử lý phương án/hạn cam kết với Customer; không sửa ngày giao trong hợp đồng một cách ngầm định.
 
 ## 16. SignalR, thông báo và tác vụ tự động
 
@@ -1135,12 +1152,12 @@ Không trả `errors: []` khi không có lỗi field; `errors` chỉ xuất hi�
 | F01-T39 | Public Estimate từ Landing trước Login và Customer tiếp tục | Public không cần JWT, không tạo Request/Quote/Trip; sau Login Wizard prefill phi nhạy cảm |
 | F01-T40 | Customer Submit/Revision không có file `PER_TRIP` nhưng đủ tài liệu ngựa | Chấp nhận theo checklist `CUSTOMER + PER_HORSE + REQUEST_SUBMISSION`; không yêu cầu giấy ủy quyền |
 | F01-T41 | Receiver là người nhận hộ (`isProxy=true`) | Lưu `receiverVerification.required=true`, `confirmed=false` lúc Submit; công ty xác nhận sau qua luồng giao nhận |
-| F01-T42 | Manager soạn Contract có hạng mục `INSURANCE` | `Contract.totalAmount` gồm bảo hiểm; giá đã thu **không** đánh dấu `INSURANCE_VERIFIED` ở Flow 2 |
+| F01-T42 | Manager soạn Contract có hạng mục `INSURANCE` | `Contract.totalAmount` gồm bảo hiểm; giá đã thu **không** đánh dấu `INSURANCE_VERIFIED` trong checklist Flow 2 |
 | F01-T43 | Trip PLANNING sau activation, Specialist/Coordinator chưa xác nhận READY | Không tự `READY_TO_DEPART`; Flow 2–3 xác nhận riêng theo route/version, Manager duyệt route; Driver khởi hành thực tế mới `IN_TRANSIT` |
 
 **Điều kiện nghiệm thu tài liệu trước khi code:** các API ở Chương 18 phải được đồng bộ vào `02-customer-api.md` và `04-manager-api.md`; schema checklist cần khớp Flow 2; VNPay adapter mapping khớp mã nguồn thực tế. Các test này là **kịch bản cần thực hiện**, không phải tuyên bố đã có code/đã kiểm thử.
 
-### 19.1. UAT bổ sung khi khóa Flow 1 v2.3
+### 19.1. UAT kế thừa Flow 1 v2.4
 
 | Mã | Kịch bản | Kết quả |
 |---|---|---|
@@ -1149,6 +1166,18 @@ Không trả `errors: []` khi không có lỗi field; `errors` chỉ xuất hi�
 | `F01-T46` | Cọc được xác minh hợp lệ nhưng thời gian khởi hành đã qua | Ledger ghi tiền đúng; Trip `PLANNING` nếu đủ điều kiện tài chính, không confirm deployment khi lịch chưa khả thi |
 | `F01-T47` | Hold Trip `READY_TO_DEPART` trước milestone khởi hành | Deployment `ON_HOLD`, Trip về `PLANNING` theo readiness event, audit đầy đủ |
 | `F01-T48` | Hold hoặc resume khi Trip `IN_TRANSIT` | `409`, không rollback trạng thái; chuyển xử lý qua Flow 4/5 |
+
+### 19.2. UAT bổ sung khi mở khóa v2.5
+
+| Mã | Kịch bản | Kết quả kỳ vọng |
+|---|---|---|
+| `F01-T49` | Dời chuyến làm ETA mới vượt hạn giao đã cam kết | Manager nhận cảnh báo ngay sau khi thay đổi được lưu; không tự sửa `deliveryDeadline` đã ký |
+| `F01-T50` | Dời ngày nhưng ETA vẫn trong hạn giao và không có hồ sơ bị ảnh hưởng | Không tạo cảnh báo quá hạn giả; không tự rollback Trip |
+| `F01-T51` | Customer/Manager cố dùng F01-C11 để sửa hợp đồng đã `SIGNED` | Từ chối thao tác không phù hợp; lưu quy trình thay đổi hợp đồng sau ký làm phụ thuộc chưa đặc tả API |
+| `F01-T52` | Dời lịch vận chuyển sau khi đã ký/cọc | `effectiveCompletionDeadline` không bị tự gia hạn; hồ sơ/ETA được xử lý ở Flow 2/3 |
+| `F01-T53` | Hồ sơ trước khởi hành đã quá hạn | Manager được thông báo từ Flow 2; không tự `CANCELLED` Request |
+| `F01-T54` | Chỉ có cảnh báo ETA vượt hạn nhưng các điều kiện sẵn sàng vẫn hợp lệ | Không tự giả lập thiếu Documents/Operations READY; Manager xử lý cam kết theo thẩm quyền |
+
 
 ## 20. Thông số cấu hình và phụ thuộc triển khai (không phải vấn đề cần hỏi lại)
 
@@ -1192,3 +1221,9 @@ Các mục dưới đây **không chặn việc giao thiết kế nghiệp vụ*
 7. **Contract testing:** cập nhật và test `00-conventions`, `01-shared`, `02-customer`, `04-manager`, Flow 1 Use Case; kiểm tra toàn bộ ID F01, route/method, error và field schema; acceptance tests Chương 19.
 
 **Version history:** v1.1 — mở rộng Coverage FE Customer; v2.0-DRAFT/v2.0 — tích hợp Pricing/VNPay và chính sách giá sàn, cọc, thời hạn, hủy thủ công; v2.1 — chuyển sang Public Estimate → Draft Contract trực tiếp, không cần Customer Accept Quote, hồ sơ Customer PER_HORSE; **v2.2 — làm sạch bảng endpoint/UI/UAT/configuration còn theo Quote cũ, chuẩn hóa Request Revision và trách nhiệm bảo hiểm, đồng bộ ranh giới Flow 2/3.**
+
+**v2.3:** Kiểm soát feasibility/deployment, Customer PER_TRIP và booking version.
+
+**v2.4:** Bảo hiểm chỉ là checklist item do Specialist xác nhận thủ công sau khi công ty thu xếp ngoài hệ thống; không có InsurancePolicy/upload/verify API riêng (đồng bộ Flow 2 v1.3 và Flow 3 v1.3).
+
+**v2.5 (REOPENED):** Tách hạn ký/cọc, hạn hồ sơ và hạn bàn giao; cảnh báo Manager ngay khi ETA mới vượt hạn hợp đồng; không tự sửa hợp đồng đã ký hoặc tự hủy Trip; đồng bộ logic impact assessment Flow 2 v1.4 / Flow 3 v1.4. Chưa tái khóa.
