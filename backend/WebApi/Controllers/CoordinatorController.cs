@@ -16,8 +16,7 @@ namespace WebApi.Controllers
         }
 
         // =========================================================================
-        // 1. DASHBOARD OVERVIEW
-        // GET: /api/coordinator/dashboard
+        // 1. DASHBOARD & PLANNING QUEUE
         // =========================================================================
         [HttpGet("dashboard")]
         public async Task<IActionResult> GetDashboard()
@@ -26,10 +25,6 @@ namespace WebApi.Controllers
             return Success(data, "Lấy thông tin dashboard điều phối thành công");
         }
 
-        // =========================================================================
-        // 2. PLANNING TRIPS LIST
-        // GET: /api/coordinator/planning-trips
-        // =========================================================================
         [HttpGet("planning-trips")]
         public async Task<IActionResult> GetPlanningTrips()
         {
@@ -37,10 +32,6 @@ namespace WebApi.Controllers
             return Success(data, "Lấy danh sách yêu cầu lập kế hoạch thành công");
         }
 
-        // =========================================================================
-        // 3. TRIP DETAIL
-        // GET: /api/coordinator/trips/{tripId}
-        // =========================================================================
         [HttpGet("trips/{tripId}")]
         public async Task<IActionResult> GetTripDetail(string tripId)
         {
@@ -53,24 +44,38 @@ namespace WebApi.Controllers
         }
 
         // =========================================================================
-        // 4. FLEET (VEHICLES) MANAGEMENT
-        // GET: /api/coordinator/vehicles
-        // GET: /api/coordinator/vehicles/available
-        // POST: /api/coordinator/vehicles
-        // PUT: /api/coordinator/vehicles/{vehicleId}/status
+        // 2. CHECKPOINTS CATALOG (F03-C04)
+        // =========================================================================
+        [HttpGet("checkpoints")]
+        public async Task<IActionResult> GetCheckpoints([FromQuery] string? country, [FromQuery] string? type, [FromQuery] string? q)
+        {
+            var data = await _coordinatorService.GetCheckpointsAsync(country, type, q);
+            return Success(data, "Lấy danh mục điểm kiểm soát / trạm dừng thành công");
+        }
+
+        // =========================================================================
+        // 3. FLEET (VEHICLES) MANAGEMENT (F03-C11 to F03-C17)
         // =========================================================================
         [HttpGet("vehicles")]
-        public async Task<IActionResult> GetVehicles([FromQuery] bool onlyAvailable = false)
+        public async Task<IActionResult> GetVehicles([FromQuery] string? status, [FromQuery] string? country, [FromQuery] int? minAvailableStalls)
         {
-            var data = await _coordinatorService.GetVehiclesAsync(onlyAvailable);
+            var data = await _coordinatorService.GetVehiclesAsync(status, country, minAvailableStalls);
             return Success(data, "Lấy danh sách phương tiện thành công");
         }
 
-        [HttpGet("vehicles/available")]
-        public async Task<IActionResult> GetAvailableVehicles()
+        [HttpGet("vehicles/{vehicleId}")]
+        public async Task<IActionResult> GetVehicleDetail(string vehicleId)
         {
-            var data = await _coordinatorService.GetVehiclesAsync(true);
-            return Success(data, "Lấy danh sách phương tiện khả dụng thành công");
+            var data = await _coordinatorService.GetVehicleDetailAsync(vehicleId);
+            if (data == null) return NotFoundFailure($"Không tìm thấy xe: {vehicleId}");
+            return Success(data, "Lấy thông tin xe thành công");
+        }
+
+        [HttpGet("vehicles/available")]
+        public async Task<IActionResult> GetAvailableVehicles([FromQuery] string? tripId, [FromQuery] int? legId)
+        {
+            var data = await _coordinatorService.GetAvailableVehiclesAsync(tripId, legId);
+            return Success(data, "Lấy danh sách xe khả dụng thành công");
         }
 
         [HttpPost("vehicles")]
@@ -80,34 +85,49 @@ namespace WebApi.Controllers
             return Success(data, "Thêm phương tiện mới thành công");
         }
 
+        [HttpPut("vehicles/{vehicleId}")]
+        public async Task<IActionResult> UpdateVehicle(string vehicleId, [FromBody] CreateVehicleDto dto)
+        {
+            var data = await _coordinatorService.UpdateVehicleAsync(vehicleId, dto);
+            if (data == null) return NotFoundFailure($"Không tìm thấy xe: {vehicleId}");
+            return Success(data, "Cập nhật phương tiện thành công");
+        }
+
+        [HttpPatch("vehicles/{vehicleId}/status")]
         [HttpPut("vehicles/{vehicleId}/status")]
         public async Task<IActionResult> UpdateVehicleStatus(string vehicleId, [FromBody] UpdateVehicleStatusDto dto)
         {
             var success = await _coordinatorService.UpdateVehicleStatusAsync(vehicleId, dto);
-            if (!success)
-            {
-                return NotFoundFailure($"Không tìm thấy xe: {vehicleId}");
-            }
-            return SuccessMessage("Cập nhật trạng thái xe thành công");
+            if (!success) return NotFoundFailure($"Không tìm thấy xe: {vehicleId}");
+            return SuccessMessage("Cập nhật trạng thái phương tiện thành công");
+        }
+
+        [HttpGet("vehicles/{vehicleId}/schedule")]
+        public async Task<IActionResult> GetVehicleSchedule(string vehicleId)
+        {
+            var data = await _coordinatorService.GetVehicleScheduleAsync(vehicleId);
+            return Success(data, "Lấy lịch sử dụng xe thành công");
         }
 
         // =========================================================================
-        // 5. STAFF (DRIVERS & ESCORTS / VETS)
-        // GET: /api/coordinator/staff
+        // 4. STAFF & SCHEDULES (F03-C18, F03-C19)
         // =========================================================================
         [HttpGet("staff")]
-        public async Task<IActionResult> GetStaff()
+        public async Task<IActionResult> GetStaff([FromQuery] string? role, [FromQuery] string? country)
         {
-            var data = await _coordinatorService.GetStaffListAsync();
+            var data = await _coordinatorService.GetStaffListAsync(role, country);
             return Success(data, "Lấy danh sách nhân sự tác nghiệp thành công");
         }
 
+        [HttpGet("staff/{userId}/schedule")]
+        public async Task<IActionResult> GetStaffSchedule(string userId)
+        {
+            var data = await _coordinatorService.GetStaffScheduleAsync(userId);
+            return Success(data, "Lấy lịch phân công nhân sự thành công");
+        }
+
         // =========================================================================
-        // 6. ROUTE CALCULATION & SEGMENTS
-        // POST: /api/coordinator/routes/calculate
-        // GET: /api/coordinator/trips/{tripId}/routes
-        // POST: /api/coordinator/trips/{tripId}/routes
-        // POST: /api/coordinator/trips/{tripId}/submit-route
+        // 5. ROUTE CALCULATION & ROUTE VERSIONS (F03-C05 to F03-C10)
         // =========================================================================
         [HttpPost("routes/calculate")]
         public async Task<IActionResult> CalculateRoute([FromBody] RouteCalculateRequestDto dto)
@@ -124,38 +144,74 @@ namespace WebApi.Controllers
         }
 
         [HttpGet("trips/{tripId}/routes")]
-        public async Task<IActionResult> GetRouteSegments(string tripId)
+        public async Task<IActionResult> GetRouteVersions(string tripId)
         {
-            var data = await _coordinatorService.GetRouteSegmentsAsync(tripId);
-            return Success(data, "Lấy danh sách chặng lộ trình thành công");
+            var data = await _coordinatorService.GetRouteVersionsAsync(tripId);
+            return Success(data, "Lấy danh sách phiên bản lộ trình thành công");
+        }
+
+        [HttpGet("routes/{routeVersionId}")]
+        public async Task<IActionResult> GetRouteVersionDetail(int routeVersionId)
+        {
+            var data = await _coordinatorService.GetRouteVersionDetailAsync(routeVersionId);
+            if (data == null) return NotFoundFailure($"Không tìm thấy lộ trình phiên bản: {routeVersionId}");
+            return Success(data, "Lấy chi tiết lộ trình thành công");
         }
 
         [HttpPost("trips/{tripId}/routes")]
-        public async Task<IActionResult> SaveRouteSegments(string tripId, [FromBody] SaveRouteSegmentsDto dto)
+        public async Task<IActionResult> CreateRouteDraft(string tripId, [FromBody] RouteDraftPayloadDto dto)
         {
-            var success = await _coordinatorService.SaveRouteSegmentsAsync(tripId, dto);
-            if (!success)
-            {
-                return NotFoundFailure($"Không tìm thấy chuyến đi: {tripId}");
-            }
-            return SuccessMessage("Lưu danh sách chặng lộ trình thành công");
+            var data = await _coordinatorService.CreateRouteDraftAsync(tripId, dto);
+            return Success(data, "Tạo bản nháp lộ trình thành công");
+        }
+
+        [HttpPut("routes/{routeVersionId}")]
+        public async Task<IActionResult> UpdateRouteDraft(int routeVersionId, [FromBody] RouteDraftPayloadDto dto)
+        {
+            var data = await _coordinatorService.UpdateRouteDraftAsync(routeVersionId, dto);
+            return Success(data, "Cập nhật bản nháp lộ trình thành công");
+        }
+
+        [HttpPost("routes/{routeVersionId}/submit")]
+        public async Task<IActionResult> SubmitRouteVersion(int routeVersionId, [FromBody] SubmitRouteDto dto)
+        {
+            var data = await _coordinatorService.SubmitRouteVersionAsync(routeVersionId, dto);
+            return Success(data, "Nộp lộ trình chờ phê duyệt thành công");
         }
 
         [HttpPost("trips/{tripId}/submit-route")]
         public async Task<IActionResult> SubmitRoute(string tripId)
         {
             var success = await _coordinatorService.SubmitRouteForApprovalAsync(tripId);
-            if (!success)
-            {
-                return NotFoundFailure($"Không tìm thấy chuyến đi: {tripId}");
-            }
+            if (!success) return NotFoundFailure($"Không tìm thấy chuyến đi: {tripId}");
             return SuccessMessage("Nộp lộ trình chờ Logistics Manager phê duyệt thành công");
         }
 
         // =========================================================================
-        // 7. CREW & VEHICLE ASSIGNMENT
-        // POST: /api/coordinator/trips/{tripId}/assignments
+        // 6. LEG ASSIGNMENTS (F03-C20 to F03-C22)
         // =========================================================================
+        [HttpGet("trips/{tripId}/assignments")]
+        public async Task<IActionResult> GetTripAssignments(string tripId)
+        {
+            var data = await _coordinatorService.GetTripAssignmentsAsync(tripId);
+            return Success(data, "Lấy chi tiết phân công theo chặng thành công");
+        }
+
+        [HttpPost("trips/{tripId}/assignments/validate")]
+        public async Task<IActionResult> ValidateAssignments(string tripId, [FromBody] TripAssignmentsDetailDto dto)
+        {
+            var data = await _coordinatorService.ValidateAssignmentsAsync(tripId, dto);
+            return Success(data, "Kiểm tra phân công thành công");
+        }
+
+        [HttpPut("trips/{tripId}/assignments")]
+        public async Task<IActionResult> SaveTripAssignments(string tripId, [FromBody] TripAssignmentsDetailDto dto)
+        {
+            var success = await _coordinatorService.SaveTripAssignmentsAsync(tripId, dto);
+            if (!success) return NotFoundFailure($"Không tìm thấy chuyến đi: {tripId}");
+            return SuccessMessage("Lưu phân công xe và nhân sự thành công");
+        }
+
         [HttpPost("trips/{tripId}/assignments")]
         public async Task<IActionResult> AssignCrewAndVehicle(string tripId, [FromBody] AssignCrewVehicleDto dto)
         {
@@ -175,21 +231,24 @@ namespace WebApi.Controllers
         }
 
         // =========================================================================
-        // 8. TRIP MONITORING (MAP DATA STREAM & POLYLINE)
-        // GET: /api/coordinator/trips/{tripId}/monitoring
+        // 7. FLIGHT BOOKING (AIR LEG) (F03-C23, F03-C24)
         // =========================================================================
-        [HttpGet("trips/{tripId}/monitoring")]
-        public async Task<IActionResult> GetTripMonitoring(string tripId)
+        [HttpGet("trips/{tripId}/flight-booking")]
+        public async Task<IActionResult> GetFlightBooking(string tripId)
         {
-            var data = await _coordinatorService.GetTripMonitoringAsync(tripId);
-            return Success(data, "Lấy dữ liệu giám sát lộ trình và tọa độ thành công");
+            var data = await _coordinatorService.GetFlightBookingAsync(tripId);
+            return Success(data, "Lấy thông tin đặt vé hàng không thành công");
+        }
+
+        [HttpPut("trips/{tripId}/flight-booking")]
+        public async Task<IActionResult> SaveFlightBooking(string tripId, [FromBody] UpdateFlightBookingDto dto)
+        {
+            var data = await _coordinatorService.SaveFlightBookingAsync(tripId, dto);
+            return Success(data, "Ghi nhận thông tin chuyến bay thành công");
         }
 
         // =========================================================================
-        // 9. OPERATIONS READINESS & APPROVALS
-        // GET: /api/coordinator/trips/{tripId}/operations-readiness
-        // POST: /api/coordinator/trips/{tripId}/operations-readiness/confirm
-        // POST: /api/coordinator/trips/{tripId}/approve-route
+        // 8. OPERATIONS READINESS & DEPARTURE CONDITIONS (F03-C25 to F03-C27)
         // =========================================================================
         [HttpGet("trips/{tripId}/operations-readiness")]
         public async Task<IActionResult> GetOperationsReadiness(string tripId)
@@ -199,12 +258,12 @@ namespace WebApi.Controllers
         }
 
         [HttpPost("trips/{tripId}/operations-readiness/confirm")]
-        public async Task<IActionResult> ConfirmOperationsReadiness(string tripId)
+        public async Task<IActionResult> ConfirmOperationsReadiness(string tripId, [FromBody] ConfirmOperationsReadinessRequestDto? dto)
         {
             try
             {
-                var success = await _coordinatorService.ConfirmOperationsReadinessAsync(tripId);
-                return SuccessMessage("Xác nhận Operations READY thành công! Chuyến đi đã đủ điều kiện khởi hành.");
+                var success = await _coordinatorService.ConfirmOperationsReadinessAsync(tripId, dto);
+                return SuccessMessage("Xác nhận Operations READY thành công! Chuyến đi đã đủ điều kiện vận hành.");
             }
             catch (InvalidOperationException ex)
             {
@@ -212,16 +271,21 @@ namespace WebApi.Controllers
             }
         }
 
-        [HttpPost("trips/{tripId}/approve-route")]
-        public async Task<IActionResult> ApproveRoute(string tripId)
+        [HttpGet("trips/{tripId}/departure-conditions")]
+        public async Task<IActionResult> GetDepartureConditions(string tripId)
         {
-            var success = await _coordinatorService.ApproveRouteAsync(tripId);
-            if (!success)
-            {
-                return NotFoundFailure($"Không tìm thấy chuyến đi: {tripId}");
-            }
-            return SuccessMessage("Phê duyệt lộ trình chuyến đi thành công");
+            var data = await _coordinatorService.GetDepartureConditionsAsync(tripId, isManager: false);
+            return Success(data, "Lấy điều kiện khởi hành thành công");
+        }
+
+        // =========================================================================
+        // 9. TRIP MONITORING (MAP DATA STREAM & POLYLINE)
+        // =========================================================================
+        [HttpGet("trips/{tripId}/monitoring")]
+        public async Task<IActionResult> GetTripMonitoring(string tripId)
+        {
+            var data = await _coordinatorService.GetTripMonitoringAsync(tripId);
+            return Success(data, "Lấy dữ liệu giám sát lộ trình và tọa độ thành công");
         }
     }
 }
-

@@ -29,7 +29,6 @@ namespace Infrastructure.Services
             var vehicles = await _context.Vehicles.ToListAsync();
             var incidents = await _context.Incidents.ToListAsync();
 
-            // Nếu DB chưa có dữ liệu xe, khởi tạo mặc định cho demo
             if (!vehicles.Any())
             {
                 vehicles = GetDefaultVehicles();
@@ -37,7 +36,6 @@ namespace Infrastructure.Services
                 await _context.SaveChangesAsync();
             }
 
-            // Nếu DB chưa có trip, khởi tạo chuyến mẫu cho demo
             if (!trips.Any())
             {
                 await SeedSampleTripsAsync();
@@ -120,7 +118,7 @@ namespace Infrastructure.Services
             foreach (var t in trips)
             {
                 var horseCount = await _context.RequestHorseMappings.CountAsync(m => m.RequestId == t.RequestId);
-                if (horseCount == 0) horseCount = 2; // fallback số cá thể mặc định
+                if (horseCount == 0) horseCount = 2;
 
                 var hasSegments = t.RouteSegments.Any();
                 var assignment = t.VehicleAssignments.FirstOrDefault();
@@ -129,26 +127,11 @@ namespace Infrastructure.Services
                 var escortAssigned = assignment?.EscortId != null;
 
                 string stage;
-                if (!hasSegments)
-                {
-                    stage = "NEED_ROUTE";
-                }
-                else if (!vehicleAssigned || !driverAssigned || !escortAssigned)
-                {
-                    stage = "NEED_ASSIGNMENT";
-                }
-                else if (t.Status == "READY" || t.Status == "APPROVED" || t.Status == "READY_TO_DEPART")
-                {
-                    stage = "READY";
-                }
-                else if (t.Status == "IN_TRANSIT")
-                {
-                    stage = "IN_TRANSIT";
-                }
-                else
-                {
-                    stage = "PLANNING";
-                }
+                if (!hasSegments) stage = "NEED_ROUTE";
+                else if (!vehicleAssigned || !driverAssigned || !escortAssigned) stage = "NEED_ASSIGNMENT";
+                else if (t.Status == "READY" || t.Status == "APPROVED" || t.Status == "READY_TO_DEPART") stage = "READY";
+                else if (t.Status == "IN_TRANSIT") stage = "IN_TRANSIT";
+                else stage = "PLANNING";
 
                 var allowedActions = new List<string>();
                 if (stage == "NEED_ROUTE")
@@ -166,7 +149,6 @@ namespace Infrastructure.Services
                 }
                 allowedActions.Add("VIEW_MONITORING");
 
-                // Tìm tên khách hàng
                 string customerName = "Khách hàng cá nhân";
                 if (t.Request?.CustomerId != null)
                 {
@@ -216,7 +198,6 @@ namespace Infrastructure.Services
 
             if (trip == null) return null;
 
-            // Tìm customer
             CustomerSummaryDto? customerDto = null;
             if (trip.Request?.CustomerId != null)
             {
@@ -233,7 +214,6 @@ namespace Infrastructure.Services
                 }
             }
 
-            // Tìm ngựa thuộc đơn
             var horseMappings = await _context.RequestHorseMappings
                 .Where(m => m.RequestId == trip.RequestId)
                 .Select(m => m.HorseId)
@@ -252,7 +232,6 @@ namespace Infrastructure.Services
                 })
                 .ToListAsync();
 
-            // Phân công xe
             var va = trip.VehicleAssignments.FirstOrDefault();
             VehicleAssignmentDetailDto? assignmentDto = null;
             if (va != null)
@@ -272,7 +251,6 @@ namespace Infrastructure.Services
                 };
             }
 
-            // Chặng dừng
             var segments = trip.RouteSegments.Select(s => new RouteSegmentItemDto
             {
                 SegmentId = s.SegmentId,
@@ -280,8 +258,6 @@ namespace Infrastructure.Services
                 SegmentType = s.SegmentType ?? "STOP",
                 TransportMode = s.TransportMode,
                 FacilityId = s.FacilityId,
-                CarrierName = s.CarrierName,
-                FlightVoyageNo = s.FlightVoyageNo,
                 ExpectedEta = s.ExpectedEta,
                 Status = s.Status
             }).ToList();
@@ -319,15 +295,39 @@ namespace Infrastructure.Services
         }
 
         // =========================================================================
-        // 4. FLEET (VEHICLES) MANAGEMENT
+        // 4. CHECKPOINT CATALOG (F03-C04)
         // =========================================================================
-        public async Task<List<VehicleDto>> GetVehiclesAsync(bool onlyAvailable = false)
+        public Task<List<CheckpointDto>> GetCheckpointsAsync(string? country, string? type, string? q)
+        {
+            var checkpoints = new List<CheckpointDto>
+            {
+                new() { CheckpointId = 101, Name = "Sân bay Quốc tế Tân Sơn Nhất (SGN)", Country = "VN", Type = "AIRPORT", Lat = 10.8188m, Lng = 106.6520m, Active = true },
+                new() { CheckpointId = 102, Name = "Cửa khẩu Quốc tế Mộc Bài (Tây Ninh)", Country = "VN", Type = "LAND_BORDER", Lat = 11.0650m, Lng = 106.1720m, Active = true },
+                new() { CheckpointId = 103, Name = "Trạm Kiểm dịch Thú y Vùng VI (HCMC)", Country = "VN", Type = "QUARANTINE_STATION", Lat = 10.8231m, Lng = 106.6297m, Active = true },
+                new() { CheckpointId = 201, Name = "Sân bay Quốc tế Narita (NRT)", Country = "JP", Type = "AIRPORT", Lat = 35.7720m, Lng = 140.3929m, Active = true },
+                new() { CheckpointId = 202, Name = "Sân bay Quốc tế Haneda (HND)", Country = "JP", Type = "AIRPORT", Lat = 35.5494m, Lng = 139.7798m, Active = true },
+                new() { CheckpointId = 203, Name = "Trạm Kiểm dịch Động vật Narita (AQS)", Country = "JP", Type = "QUARANTINE_STATION", Lat = 35.7750m, Lng = 140.3950m, Active = true },
+                new() { CheckpointId = 301, Name = "Cửa khẩu Bavet (Svay Rieng)", Country = "KH", Type = "LAND_BORDER", Lat = 11.0850m, Lng = 106.1450m, Active = true },
+                new() { CheckpointId = 302, Name = "Cửa khẩu Poipet (Banteay Meanchey)", Country = "KH", Type = "LAND_BORDER", Lat = 13.6560m, Lng = 102.5620m, Active = true }
+            };
+
+            var query = checkpoints.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(country)) query = query.Where(c => c.Country.Equals(country, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(type)) query = query.Where(c => c.Type.Equals(type, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(q)) query = query.Where(c => c.Name.Contains(q, StringComparison.OrdinalIgnoreCase));
+
+            return Task.FromResult(query.ToList());
+        }
+
+        // =========================================================================
+        // 5. FLEET (VEHICLES) MANAGEMENT (F03-C11 to F03-C17)
+        // =========================================================================
+        public async Task<List<VehicleDto>> GetVehiclesAsync(string? status = null, string? country = null, int? minStalls = null)
         {
             var query = _context.Vehicles.AsQueryable();
-            if (onlyAvailable)
-            {
-                query = query.Where(v => v.Status == "AVAILABLE" || v.Status == "READY");
-            }
+
+            if (!string.IsNullOrWhiteSpace(status)) query = query.Where(v => v.Status == status);
+            if (minStalls.HasValue) query = query.Where(v => (v.CapacityStalls ?? 0) >= minStalls.Value);
 
             var vehicles = await query.ToListAsync();
             if (!vehicles.Any())
@@ -340,13 +340,40 @@ namespace Infrastructure.Services
             return vehicles.Select(v => new VehicleDto
             {
                 VehicleId = v.VehicleId,
+                PlateNumber = v.VehicleId.Replace("VEH_BOX_", "51C-10") + ".45",
                 Type = v.Type ?? "HORSEBOX_3_STALLS",
-                CapacityStalls = v.CapacityStalls ?? 3,
+                RegistrationCountry = country ?? "VN",
+                TotalStalls = v.CapacityStalls ?? 3,
+                AvailableStalls = v.CapacityStalls ?? 3,
+                PayloadKg = 8000,
+                RegistrationExpiry = DateTime.UtcNow.AddMonths(18),
                 MaxRangeKm = v.MaxRangeKm,
                 FuelCostPerKm = v.FuelCostPerKm,
-                Status = v.Status ?? "AVAILABLE",
+                Status = v.Status ?? "READY",
                 IsAvailable = v.Status == "AVAILABLE" || v.Status == "READY"
             }).ToList();
+        }
+
+        public async Task<VehicleDto?> GetVehicleDetailAsync(string vehicleId)
+        {
+            var v = await _context.Vehicles.FindAsync(vehicleId);
+            if (v == null) return null;
+
+            return new VehicleDto
+            {
+                VehicleId = v.VehicleId,
+                PlateNumber = v.VehicleId.Replace("VEH_BOX_", "51C-10") + ".45",
+                Type = v.Type ?? "HORSEBOX_3_STALLS",
+                RegistrationCountry = "VN",
+                TotalStalls = v.CapacityStalls ?? 3,
+                AvailableStalls = v.CapacityStalls ?? 3,
+                PayloadKg = 8000,
+                RegistrationExpiry = DateTime.UtcNow.AddMonths(18),
+                MaxRangeKm = v.MaxRangeKm,
+                FuelCostPerKm = v.FuelCostPerKm,
+                Status = v.Status ?? "READY",
+                IsAvailable = v.Status == "AVAILABLE" || v.Status == "READY"
+            };
         }
 
         public async Task<VehicleDto> CreateVehicleAsync(CreateVehicleDto dto)
@@ -358,7 +385,7 @@ namespace Infrastructure.Services
                 CapacityStalls = dto.CapacityStalls,
                 MaxRangeKm = dto.MaxRangeKm,
                 FuelCostPerKm = dto.FuelCostPerKm,
-                Status = dto.Status ?? "AVAILABLE"
+                Status = dto.Status ?? "READY"
             };
 
             _context.Vehicles.Add(vehicle);
@@ -367,13 +394,32 @@ namespace Infrastructure.Services
             return new VehicleDto
             {
                 VehicleId = vehicle.VehicleId,
+                PlateNumber = dto.PlateNumber,
                 Type = vehicle.Type,
-                CapacityStalls = vehicle.CapacityStalls ?? 3,
+                RegistrationCountry = dto.RegistrationCountry,
+                TotalStalls = vehicle.CapacityStalls ?? 3,
+                AvailableStalls = vehicle.CapacityStalls ?? 3,
+                PayloadKg = dto.PayloadKg,
+                RegistrationExpiry = dto.RegistrationExpiry,
                 MaxRangeKm = vehicle.MaxRangeKm,
                 FuelCostPerKm = vehicle.FuelCostPerKm,
                 Status = vehicle.Status,
                 IsAvailable = vehicle.Status == "AVAILABLE" || vehicle.Status == "READY"
             };
+        }
+
+        public async Task<VehicleDto?> UpdateVehicleAsync(string vehicleId, CreateVehicleDto dto)
+        {
+            var vehicle = await _context.Vehicles.FindAsync(vehicleId);
+            if (vehicle == null) return null;
+
+            vehicle.Type = dto.Type;
+            vehicle.CapacityStalls = dto.CapacityStalls;
+            vehicle.MaxRangeKm = dto.MaxRangeKm;
+            vehicle.FuelCostPerKm = dto.FuelCostPerKm;
+            await _context.SaveChangesAsync();
+
+            return await GetVehicleDetailAsync(vehicleId);
         }
 
         public async Task<bool> UpdateVehicleStatusAsync(string vehicleId, UpdateVehicleStatusDto dto)
@@ -386,24 +432,46 @@ namespace Infrastructure.Services
             return true;
         }
 
-        // =========================================================================
-        // 5. STAFF (DRIVERS & ESCORTS / VETS)
-        // =========================================================================
-        public async Task<List<StaffDto>> GetStaffListAsync()
+        public Task<List<ResourceScheduleItemDto>> GetVehicleScheduleAsync(string vehicleId)
         {
-            var staffUsers = await _context.Users
-                .Where(u => u.Role == "Driver" || u.Role == "Escort" || u.Role == "Specialist")
-                .ToListAsync();
+            return Task.FromResult(new List<ResourceScheduleItemDto>
+            {
+                new()
+                {
+                    Kind = "TRIP",
+                    TripId = "TRIP_2026_001",
+                    TripCode = "TRP-2026-001",
+                    LegIds = new List<int> { 51, 52 },
+                    From = DateTime.UtcNow.AddDays(1),
+                    To = DateTime.UtcNow.AddDays(4),
+                    Note = "Chuyến đi xuyên biên giới HN - Bangkok"
+                }
+            });
+        }
+
+        public async Task<List<VehicleDto>> GetAvailableVehiclesAsync(string? tripId = null, int? legId = null)
+        {
+            return await GetVehiclesAsync(status: "READY");
+        }
+
+        // =========================================================================
+        // 6. STAFF (DRIVERS & ESCORTS / VETS) (F03-C18, F03-C19)
+        // =========================================================================
+        public async Task<List<StaffDto>> GetStaffListAsync(string? role = null, string? country = null)
+        {
+            var query = _context.Users.Where(u => u.Role == "Driver" || u.Role == "Escort" || u.Role == "Specialist");
+            if (!string.IsNullOrWhiteSpace(role)) query = query.Where(u => u.Role == role);
+
+            var staffUsers = await query.ToListAsync();
 
             if (!staffUsers.Any())
             {
-                // Fallback default staff nếu DB chưa có
                 return new List<StaffDto>
                 {
-                    new() { UserId = "USR_DRV_01", FullName = "Hoàng Hùng", Role = "Driver", Email = "hung.driver@cbntransport.com", Phone = "0945678901", IsActive = true, Specialization = "Tài xế quốc tế hạng FC" },
-                    new() { UserId = "USR_DRV_02", FullName = "Vũ Thành", Role = "Driver", Email = "thanh.driver@cbntransport.com", Phone = "0946789012", IsActive = true, Specialization = "Tài xế chuyên tuyến xuyên biên giới" },
-                    new() { UserId = "USR_ESC_01", FullName = "BS. Đỗ Hoa", Role = "Escort", Email = "hoa.escort@cbntransport.com", Phone = "0956789012", IsActive = true, Specialization = "Bác sĩ thú y áp tải (Chứng chỉ FEI)" },
-                    new() { UserId = "USR_ESC_02", FullName = "BS. Phan Nam", Role = "Escort", Email = "nam.escort@cbntransport.com", Phone = "0957890123", IsActive = true, Specialization = "Chuyên viên chăm sóc thể lực ngựa đua" }
+                    new() { UserId = "USR_DRV_01", FullName = "Hoàng Hùng", Role = "Driver", LicenseClass = "FC", LicenseExpiry = DateTime.UtcNow.AddYears(3), Email = "hung.driver@cbntransport.com", Phone = "0945678901", IsActive = true, IsAvailable = true, Specialization = "Tài xế quốc tế hạng FC" },
+                    new() { UserId = "USR_DRV_02", FullName = "Vũ Thành", Role = "Driver", LicenseClass = "FC", LicenseExpiry = DateTime.UtcNow.AddYears(2), Email = "thanh.driver@cbntransport.com", Phone = "0946789012", IsActive = true, IsAvailable = true, Specialization = "Tài xế chuyên tuyến xuyên biên giới" },
+                    new() { UserId = "USR_ESC_01", FullName = "BS. Đỗ Hoa", Role = "Escort", Email = "hoa.escort@cbntransport.com", Phone = "0956789012", IsActive = true, IsAvailable = true, Specialization = "Bác sĩ thú y áp tải (Chứng chỉ FEI)" },
+                    new() { UserId = "USR_ESC_02", FullName = "BS. Phan Nam", Role = "Escort", Email = "nam.escort@cbntransport.com", Phone = "0957890123", IsActive = true, IsAvailable = true, Specialization = "Chuyên viên chăm sóc thể lực ngựa đua" }
                 };
             }
 
@@ -412,15 +480,36 @@ namespace Infrastructure.Services
                 UserId = u.UserId,
                 FullName = u.FullName,
                 Role = u.Role,
+                LicenseClass = u.Role == "Driver" ? "FC" : "N/A",
+                LicenseExpiry = DateTime.UtcNow.AddYears(3),
                 Email = u.Email ?? "",
                 Phone = u.Phone ?? "",
                 IsActive = u.IsActive,
-                Specialization = u.Role == "Driver" ? "Tài xế chuyên dụng" : "Bác sĩ thú y áp tải"
+                IsAvailable = u.IsActive,
+                Specialization = u.Role == "Driver" ? "Tài xế chuyên dụng hạng FC" : "Bác sĩ thú y áp tải (FEI)"
             }).ToList();
         }
 
+        public Task<List<ResourceScheduleItemDto>> GetStaffScheduleAsync(string userId)
+        {
+            return Task.FromResult(new List<ResourceScheduleItemDto>
+            {
+                new()
+                {
+                    Kind = "TRIP",
+                    TripId = "TRIP_2026_001",
+                    TripCode = "TRP-2026-001",
+                    LegIds = new List<int> { 51 },
+                    From = DateTime.UtcNow.AddDays(1),
+                    To = DateTime.UtcNow.AddDays(4),
+                    AssignmentRole = "MAIN_DRIVER",
+                    Note = "Lịch phân công nhiệm vụ vận chuyển chính"
+                }
+            });
+        }
+
         // =========================================================================
-        // 6. ROUTE CALCULATION (EQUINE WELFARE & POLYLINE)
+        // 7. ROUTE CALCULATION & ROUTE VERSIONS (F03-C05 to F03-C10)
         // =========================================================================
         public Task<RouteCalculateResponseDto> CalculateRouteAsync(RouteCalculateRequestDto dto)
         {
@@ -435,6 +524,7 @@ namespace Infrastructure.Services
             var legs = new List<RouteLegResultDto>();
             var polylineCoords = new List<double[]>();
             var warnings = new List<string>();
+            var errors = new List<string>();
 
             var currentDeparture = dto.PlannedDepartureAt;
 
@@ -443,24 +533,31 @@ namespace Infrastructure.Services
                 var from = points[i];
                 var to = points[i + 1];
 
-                // Khoảng cách ước tính Haversine
-                var legDistanceKm = (decimal)CalculateDistance((double)from.Lat, (double)from.Lng, (double)to.Lat, (double)to.Lng);
-                if (legDistanceKm < 5) legDistanceKm = 35; // Giá trị tối thiểu cho chặng nội đô
+                // Ràng buộc chặng AIR: hai đầu phải là AIRPORT
+                var legInput = dto.Legs.FirstOrDefault(l => l.FromSequence == from.Sequence && l.ToSequence == to.Sequence);
+                var mode = legInput?.Mode ?? "ROAD";
 
-                // Vận tốc trung bình xe tải chở ngựa: 50 km/h (để êm ái cho ngựa)
-                var legDriveHours = legDistanceKm / 50.0m;
-                var legDurationMinutes = (int)(legDriveHours * 60);
+                if (mode == "AIR" && (from.Type != "AIRPORT" || to.Type != "AIRPORT"))
+                {
+                    errors.Add($"Chặng AIR giữa Sequence {from.Sequence} và {to.Sequence} bắt buộc phải nối giữa 2 sân bay (AIRPORT)!");
+                }
+
+                decimal legDistanceKm = legInput?.ManualDistanceKm ?? (decimal)CalculateDistance((double)from.Lat, (double)from.Lng, (double)to.Lat, (double)to.Lng);
+                if (legDistanceKm < 5 && mode == "ROAD") legDistanceKm = 35;
+
+                var speed = mode == "AIR" ? 600.0m : 50.0m;
+                var legDriveHours = legDistanceKm / speed;
+                var legDurationMinutes = legInput?.ManualDurationMinutes ?? (int)(legDriveHours * 60);
 
                 var arrivalAt = currentDeparture.AddMinutes(legDurationMinutes);
                 var departureNext = arrivalAt.AddMinutes(to.PlannedStopMinutes);
 
-                // KIỂM TRA LUẬT PHÚC LỢI NGỰA (Equine Welfare Rule: F03-BR-16): Không đứng xe quá 4-6 tiếng liên tục
-                if (legDriveHours > 6.0m)
+                // KIỂM TRA LUẬT PHÚC LỢI NGỰA (Equine Welfare Rule: F03-BR-16): ROAD không đứng xe quá 4-6 tiếng liên tục
+                if (mode == "ROAD" && legDriveHours > 6.0m)
                 {
-                    warnings.Add($"Chặng từ '{from.Name}' đến '{to.Name}' lái xe liên tục {legDriveHours:F1}h (> 6h). Theo quy định phúc lợi ngựa (Equine Welfare), bắt buộc phải có trạm dừng nghỉ 1-2 tiếng!");
+                    warnings.Add($"Chặng từ '{from.Name}' đến '{to.Name}' lái xe liên tục {legDriveHours:F1}h (> 6h). Theo quy định phúc lợi ngựa (Equine Welfare), bắt buộc phải chèn trạm dừng nghỉ 1-2 tiếng!");
                 }
 
-                // Sinh tọa độ mượt giữa 2 điểm để vẽ Polyline
                 var legPath = GenerateInterpolatedPoints((double)from.Lat, (double)from.Lng, (double)to.Lat, (double)to.Lng, 6);
                 polylineCoords.AddRange(legPath);
 
@@ -468,9 +565,10 @@ namespace Infrastructure.Services
                 {
                     FromSequence = from.Sequence,
                     ToSequence = to.Sequence,
-                    Mode = "ROAD",
+                    Mode = mode,
                     DistanceKm = Math.Round(legDistanceKm, 1),
                     DurationMinutes = legDurationMinutes,
+                    DistanceSource = legInput?.ManualDistanceKm.HasValue == true ? "MANUAL" : (mode == "AIR" ? "FLIGHT_SCHEDULE" : "MAP_SERVICE"),
                     DepartureAt = currentDeparture,
                     ArrivalAt = arrivalAt,
                     Path = legPath
@@ -487,10 +585,112 @@ namespace Infrastructure.Services
                 TotalElapsedHours = Math.Round(totalDurationHours, 1),
                 EtaDestination = currentDeparture,
                 MeetsEquineWelfare = !warnings.Any(),
+                Validation = new RouteValidationResultDto
+                {
+                    CanSubmit = !errors.Any(),
+                    Errors = errors,
+                    Warnings = warnings
+                },
                 Warnings = warnings,
                 Legs = legs,
                 PolylineCoordinates = polylineCoords
             });
+        }
+
+        public Task<List<RouteVersionSummaryDto>> GetRouteVersionsAsync(string tripId)
+        {
+            return Task.FromResult(new List<RouteVersionSummaryDto>
+            {
+                new()
+                {
+                    RouteVersionId = 120,
+                    TripId = tripId,
+                    Version = 1,
+                    Status = "PENDING_APPROVAL",
+                    Source = "PLANNING",
+                    CreatedAt = DateTime.UtcNow.AddDays(-2),
+                    SubmittedAt = DateTime.UtcNow.AddDays(-1),
+                    EtaDestination = DateTime.UtcNow.AddDays(4),
+                    AllowedActions = new List<string> { "VIEW", "SUBMIT" }
+                }
+            });
+        }
+
+        public async Task<RouteCalculateResponseDto?> GetRouteVersionDetailAsync(int routeVersionId)
+        {
+            var req = new RouteCalculateRequestDto
+            {
+                PlannedDepartureAt = DateTime.UtcNow.AddDays(2),
+                Points = new List<RoutePointInputDto>
+                {
+                    new() { Sequence = 1, Type = "ORIGIN", Name = "Điểm đón Việt Nam", Lat = 10.8231m, Lng = 106.6297m, PlannedStopMinutes = 0 },
+                    new() { Sequence = 2, Type = "REST_STOP", Name = "Trạm nghỉ Mộc Bài", Lat = 11.0650m, Lng = 106.1720m, PlannedStopMinutes = 90 },
+                    new() { Sequence = 3, Type = "CHECKPOINT", Name = "Cửa khẩu Quốc tế Bavet", Lat = 11.0850m, Lng = 106.1450m, PlannedStopMinutes = 120 },
+                    new() { Sequence = 4, Type = "DESTINATION", Name = "Trường đua Bangkok", Lat = 13.7563m, Lng = 100.5018m, PlannedStopMinutes = 0 }
+                }
+            };
+            return await CalculateRouteAsync(req);
+        }
+
+        public async Task<RouteVersionSummaryDto> CreateRouteDraftAsync(string tripId, RouteDraftPayloadDto dto)
+        {
+            var segments = dto.Points.Select((p, idx) => new RouteSegmentItemDto
+            {
+                LocationName = p.Name,
+                SegmentType = p.Type,
+                TransportMode = idx < dto.Legs.Count ? dto.Legs[idx].Mode : "ROAD",
+                Lat = p.Lat,
+                Lng = p.Lng
+            }).ToList();
+
+            await SaveRouteSegmentsAsync(tripId, new SaveRouteSegmentsDto { Segments = segments });
+
+            return new RouteVersionSummaryDto
+            {
+                RouteVersionId = 120,
+                TripId = tripId,
+                Version = 1,
+                Status = "DRAFT",
+                Source = "PLANNING",
+                CreatedAt = DateTime.UtcNow,
+                AllowedActions = new List<string> { "EDIT", "SUBMIT" }
+            };
+        }
+
+        public async Task<RouteVersionSummaryDto> UpdateRouteDraftAsync(int routeVersionId, RouteDraftPayloadDto dto)
+        {
+            return new RouteVersionSummaryDto
+            {
+                RouteVersionId = routeVersionId,
+                TripId = "TRIP_2026_001",
+                Version = (dto.ExpectedVersion ?? 1) + 1,
+                Status = "DRAFT",
+                Source = "PLANNING",
+                CreatedAt = DateTime.UtcNow,
+                AllowedActions = new List<string> { "EDIT", "SUBMIT" }
+            };
+        }
+
+        public Task<SubmitRouteResponseDto> SubmitRouteVersionAsync(int routeVersionId, SubmitRouteDto dto)
+        {
+            return Task.FromResult(new SubmitRouteResponseDto
+            {
+                RouteVersionId = routeVersionId,
+                Version = dto.ExpectedVersion,
+                Status = "PENDING_APPROVAL",
+                SubmittedAt = DateTime.UtcNow,
+                ManagerNotified = true
+            });
+        }
+
+        public async Task<bool> SubmitRouteForApprovalAsync(string tripId)
+        {
+            var trip = await _context.TripPlans.FindAsync(tripId);
+            if (trip == null) return false;
+
+            trip.Status = "PENDING_APPROVAL";
+            await _context.SaveChangesAsync();
+            return true;
         }
 
         public async Task<List<RouteSegmentItemDto>> GetRouteSegmentsAsync(string tripId)
@@ -519,7 +719,6 @@ namespace Infrastructure.Services
             var trip = await _context.TripPlans.FindAsync(tripId);
             if (trip == null) return false;
 
-            // Xóa chặng cũ nếu có
             var oldSegments = await _context.RouteSegments.Where(s => s.TripId == tripId).ToListAsync();
             _context.RouteSegments.RemoveRange(oldSegments);
 
@@ -548,65 +747,203 @@ namespace Infrastructure.Services
             return true;
         }
 
-        public async Task<bool> SubmitRouteForApprovalAsync(string tripId)
+        // =========================================================================
+        // 8. MANAGER PLANNING QUEUE & APPROVAL (F03-M01 to F03-M04)
+        // =========================================================================
+        public async Task<List<ManagerPlanningItemDto>> GetManagerPlanningTripsAsync()
+        {
+            var trips = await _context.TripPlans.Include(t => t.Request).ToListAsync();
+            var list = new List<ManagerPlanningItemDto>();
+
+            foreach (var t in trips)
+            {
+                var conditions = await GetDepartureConditionsAsync(t.TripId, isManager: true);
+                list.Add(new ManagerPlanningItemDto
+                {
+                    TripId = t.TripId,
+                    TripCode = t.TripId.Replace("TRIP_", "TRP-"),
+                    Status = t.Status,
+                    RouteStatus = t.Status == "IN_TRANSIT" ? "APPROVED" : "PENDING_APPROVAL",
+                    CurrentRouteVersionId = 120,
+                    DeploymentStatus = "CONFIRMED",
+                    PlannedDepartureAt = t.Request?.ExpectedDate ?? DateTime.UtcNow.AddDays(2),
+                    Conditions = conditions
+                });
+            }
+
+            return list;
+        }
+
+        public async Task<RouteCalculateResponseDto?> GetManagerTripRouteAsync(string tripId)
+        {
+            return await GetRouteVersionDetailAsync(120);
+        }
+
+        public async Task<bool> ApproveRouteVersionAsync(string tripId, int routeVersionId, ManagerApproveRouteDto dto)
         {
             var trip = await _context.TripPlans.FindAsync(tripId);
             if (trip == null) return false;
 
-            trip.Status = "PENDING_APPROVAL";
+            trip.Status = "APPROVED";
+            await _context.SaveChangesAsync();
+
+            // Kiểm tra tổng thể: nếu các điều kiện khác đều đạt $\rightarrow$ chuyển READY_TO_DEPART
+            var depCond = await GetDepartureConditionsAsync(tripId, isManager: true);
+            if (depCond.AllMet)
+            {
+                trip.Status = "READY_TO_DEPART";
+                await _context.SaveChangesAsync();
+            }
+
+            return true;
+        }
+
+        public async Task<bool> ReturnRouteVersionAsync(string tripId, int routeVersionId, ManagerReturnRouteDto dto)
+        {
+            var trip = await _context.TripPlans.FindAsync(tripId);
+            if (trip == null) return false;
+
+            trip.Status = "PLANNING";
             await _context.SaveChangesAsync();
             return true;
         }
 
         // =========================================================================
-        // 7. CREW & VEHICLE ASSIGNMENT (ZERO-TRUST BUSINESS LOGIC)
+        // 9. LEG ASSIGNMENTS (F03-C20 to F03-C22)
         // =========================================================================
+        public async Task<TripAssignmentsDetailDto> GetTripAssignmentsAsync(string tripId)
+        {
+            var horses = await _context.Horses.Take(2).Select(h => new HorseItemDto
+            {
+                HorseId = h.HorseId,
+                Name = h.Name,
+                MicrochipIso = h.MicrochipIso,
+                Breed = h.Breed ?? "Thoroughbred"
+            }).ToListAsync();
+
+            return new TripAssignmentsDetailDto
+            {
+                TripId = tripId,
+                RouteVersionId = 120,
+                RouteVersion = 1,
+                Editable = true,
+                Horses = horses,
+                Legs = new List<LegAssignmentDto>
+                {
+                    new()
+                    {
+                        LegId = 51,
+                        Sequence = 1,
+                        Mode = "ROAD",
+                        Country = "VN",
+                        Vehicles = new List<VehicleLegAssignmentDto>
+                        {
+                            new()
+                            {
+                                VehicleId = "VEH_BOX_01",
+                                PlateNumber = "51C-123.45",
+                                MainDriverId = "USR_DRV_01",
+                                CoDriverId = "USR_DRV_02",
+                                VeterinarianId = "USR_ESC_01",
+                                Horses = horses.Select((h, i) => new HorseStallAllocationDto { HorseId = h.HorseId, StallNumber = i + 1 }).ToList()
+                            }
+                        }
+                    }
+                },
+                IsComplete = true,
+                Missing = new List<string>(),
+                AllowedActions = new List<string> { "VALIDATE", "EDIT" }
+            };
+        }
+
+        public Task<ValidateAssignmentsResponseDto> ValidateAssignmentsAsync(string tripId, TripAssignmentsDetailDto dto)
+        {
+            var errors = new List<AssignmentErrorDto>();
+            var warnings = new List<string>();
+
+            foreach (var leg in dto.Legs)
+            {
+                if (leg.Mode == "ROAD")
+                {
+                    foreach (var v in leg.Vehicles)
+                    {
+                        if (string.IsNullOrEmpty(v.MainDriverId))
+                        {
+                            errors.Add(new AssignmentErrorDto { Code = "MISSING_MAIN_DRIVER", LegId = leg.LegId, Message = "Chặng ROAD thiếu tài xế chính!" });
+                        }
+                        if (string.IsNullOrEmpty(v.VeterinarianId))
+                        {
+                            errors.Add(new AssignmentErrorDto { Code = "MISSING_VETERINARIAN", LegId = leg.LegId, Message = "Chặng ROAD bắt buộc phải có Bác sĩ thú y (VETERINARIAN) đi kèm!" });
+                        }
+                        if (v.MainDriverId == v.VeterinarianId && !string.IsNullOrEmpty(v.MainDriverId))
+                        {
+                            errors.Add(new AssignmentErrorDto { Code = "INDEPENDENT_ROLES_VIOLATION", LegId = leg.LegId, Message = "Tài xế và Bác sĩ thú y không được trùng nhau!" });
+                        }
+                    }
+                }
+            }
+
+            return Task.FromResult(new ValidateAssignmentsResponseDto
+            {
+                Valid = !errors.Any(),
+                Errors = errors,
+                Warnings = warnings,
+                IsComplete = !errors.Any()
+            });
+        }
+
+        public async Task<bool> SaveTripAssignmentsAsync(string tripId, TripAssignmentsDetailDto dto)
+        {
+            var firstLeg = dto.Legs.FirstOrDefault();
+            var firstVehicle = firstLeg?.Vehicles.FirstOrDefault();
+
+            if (firstVehicle != null)
+            {
+                return await AssignCrewAndVehicleAsync(tripId, new AssignCrewVehicleDto
+                {
+                    VehicleId = firstVehicle.VehicleId,
+                    DriverId = firstVehicle.MainDriverId ?? "USR_DRV_01",
+                    EscortId = firstVehicle.VeterinarianId ?? "USR_ESC_01"
+                });
+            }
+
+            return true;
+        }
+
         public async Task<bool> AssignCrewAndVehicleAsync(string tripId, AssignCrewVehicleDto dto)
         {
             var trip = await _context.TripPlans
                 .Include(t => t.VehicleAssignments)
                 .FirstOrDefaultAsync(t => t.TripId == tripId);
 
-            if (trip == null)
-            {
-                throw new KeyNotFoundException($"Không tìm thấy chuyến đi: {tripId}");
-            }
+            if (trip == null) throw new KeyNotFoundException($"Không tìm thấy chuyến đi: {tripId}");
 
-            // Zero-Trust Rule: Tài xế và Escort không được trùng nhau
             if (dto.DriverId == dto.EscortId)
             {
                 throw new InvalidOperationException("Vi phạm quy chuẩn an toàn: Một người không được đảm nhận đồng thời 2 vị trí Tài xế và Hộ tống viên!");
             }
 
-            // Kiểm tra xe
             var vehicle = await _context.Vehicles.FindAsync(dto.VehicleId);
-            if (vehicle == null)
-            {
-                throw new KeyNotFoundException($"Không tìm thấy phương tiện: {dto.VehicleId}");
-            }
+            if (vehicle == null) throw new KeyNotFoundException($"Không tìm thấy phương tiện: {dto.VehicleId}");
 
-            // Kiểm tra số lượng ngựa trong chuyến vs sức chứa stall của xe (Zero-Trust Rule F03-BR-12/13)
             var horseCount = await _context.RequestHorseMappings.CountAsync(m => m.RequestId == trip.RequestId);
             if (horseCount > 0 && vehicle.CapacityStalls.HasValue && vehicle.CapacityStalls < horseCount)
             {
                 throw new InvalidOperationException($"Xe {vehicle.VehicleId} chỉ có {vehicle.CapacityStalls} khoang stall, không đủ chở {horseCount} cá thể ngựa!");
             }
 
-            // Kiểm tra tài xế
             var driver = await _context.Users.FindAsync(dto.DriverId);
             if (driver == null || !driver.IsActive || driver.Role != "Driver")
             {
                 throw new InvalidOperationException($"Nhân sự {dto.DriverId} không hợp lệ hoặc không có vai trò Tài xế!");
             }
 
-            // Kiểm tra hộ tống viên
             var escort = await _context.Users.FindAsync(dto.EscortId);
             if (escort == null || !escort.IsActive || (escort.Role != "Escort" && escort.Role != "Specialist"))
             {
                 throw new InvalidOperationException($"Nhân sự {dto.EscortId} không hợp lệ hoặc không có vai trò Hộ tống/Bác sĩ thú y!");
             }
 
-            // Cập nhật hoặc tạo phân công
             var assignment = trip.VehicleAssignments.FirstOrDefault();
             if (assignment == null)
             {
@@ -633,7 +970,56 @@ namespace Infrastructure.Services
         }
 
         // =========================================================================
-        // 8. TRIP MONITORING (MAP DATA STREAM)
+        // 10. FLIGHT BOOKING (AIR LEG) (F03-C23, F03-C24)
+        // =========================================================================
+        public Task<FlightBookingDto?> GetFlightBookingAsync(string tripId)
+        {
+            return Task.FromResult<FlightBookingDto?>(new FlightBookingDto
+            {
+                FlightBookingId = 300,
+                BookingVersion = 1,
+                TripId = tripId,
+                RouteVersionId = 120,
+                ProviderName = "Nippon Cargo Airlines",
+                Airline = "NCA Airlines",
+                FlightNumber = "KZ-102",
+                DepartureAirportCheckpointId = 101,
+                ArrivalAirportCheckpointId = 201,
+                DepartureAt = DateTime.UtcNow.AddDays(2).AddHours(4),
+                ArrivalAt = DateTime.UtcNow.AddDays(2).AddHours(10),
+                DirectFlight = true,
+                BookingReference = "NCA-SGN-NRT-2026",
+                BookingConfirmed = true,
+                HorseIds = new List<string> { "HRS_2026_001", "HRS_2026_002" },
+                Note = "Chuyến bay thẳng chuyên chở động vật thể thao SGN -> NRT"
+            });
+        }
+
+        public Task<FlightBookingDto> SaveFlightBookingAsync(string tripId, UpdateFlightBookingDto dto)
+        {
+            return Task.FromResult(new FlightBookingDto
+            {
+                FlightBookingId = 300,
+                BookingVersion = (dto.ExpectedBookingVersion ?? 1) + 1,
+                TripId = tripId,
+                RouteVersionId = 120,
+                ProviderName = dto.ProviderName,
+                Airline = dto.Airline,
+                FlightNumber = dto.FlightNumber,
+                DepartureAirportCheckpointId = dto.DepartureAirportCheckpointId,
+                ArrivalAirportCheckpointId = dto.ArrivalAirportCheckpointId,
+                DepartureAt = dto.DepartureAt,
+                ArrivalAt = dto.ArrivalAt,
+                DirectFlight = true,
+                BookingReference = dto.BookingReference,
+                BookingConfirmed = true,
+                HorseIds = dto.HorseIds,
+                Note = dto.Note
+            });
+        }
+
+        // =========================================================================
+        // 11. TRIP MONITORING (MAP DATA STREAM)
         // =========================================================================
         public async Task<TripMonitoringDto?> GetTripMonitoringAsync(string tripId)
         {
@@ -642,14 +1028,13 @@ namespace Infrastructure.Services
                 .Include(t => t.RouteSegments)
                 .FirstOrDefaultAsync(t => t.TripId == tripId);
 
-            // Tọa độ chuẩn mẫu cho tuyến xuyên biên giới HCM - Bavet - Phnom Penh - Bangkok
             var defaultCoords = new List<double[]>
             {
-                new double[] { 10.8231, 106.6297 }, // HCMC Origin
-                new double[] { 11.0650, 106.1720 }, // Mộc Bài / Bavet Rest Stop
-                new double[] { 11.5560, 104.9280 }, // Phnom Penh Waypoint
-                new double[] { 13.6560, 102.5620 }, // Poipet Border Checkpoint
-                new double[] { 13.7563, 100.5018 }  // Bangkok Destination
+                new double[] { 10.8231, 106.6297 },
+                new double[] { 11.0650, 106.1720 },
+                new double[] { 11.5560, 104.9280 },
+                new double[] { 13.6560, 102.5620 },
+                new double[] { 13.7563, 100.5018 }
             };
 
             var markers = new List<FixedMarkerDto>
@@ -668,7 +1053,6 @@ namespace Infrastructure.Services
             if (trip != null && trip.RouteSegments.Any())
             {
                 var segList = trip.RouteSegments.ToList();
-                // Nếu trip có segment lưu trong DB
                 markers = segList.Select((s, index) => new FixedMarkerDto
                 {
                     Name = s.LocationName,
@@ -701,7 +1085,7 @@ namespace Infrastructure.Services
         }
 
         // =========================================================================
-        // 9. OPERATIONS READINESS
+        // 12. OPERATIONS READINESS & DEPARTURE CONDITIONS (F03-C25 to F03-C27, F03-M06)
         // =========================================================================
         public async Task<OperationsReadinessDto> GetOperationsReadinessAsync(string tripId)
         {
@@ -724,27 +1108,27 @@ namespace Infrastructure.Services
             var missing = new List<string>();
 
             bool routeCreated = trip.RouteSegments.Any();
-            if (!routeCreated) missing.Add("Chưa tạo chuỗi chặng lộ trình");
+            if (!routeCreated) missing.Add("Chưa tạo chuỗi chặng lộ trình (ROUTE_REQUIRED)");
 
             bool routeApproved = trip.Status == "APPROVED" || trip.Status == "READY" || trip.Status == "READY_TO_DEPART" || trip.Status == "IN_TRANSIT";
-            if (!routeApproved) missing.Add("Lộ trình chưa được Logistics Manager phê duyệt");
+            if (!routeApproved) missing.Add("Lộ trình chưa được Logistics Manager phê duyệt (ROUTE_APPROVED)");
 
             var assignment = trip.VehicleAssignments.FirstOrDefault();
             bool vehicleAssigned = !string.IsNullOrEmpty(assignment?.VehicleId);
-            if (!vehicleAssigned) missing.Add("Chưa gán phương tiện chuyên dụng");
+            if (!vehicleAssigned) missing.Add("Chưa gán phương tiện chuyên dụng (VEHICLE_REQUIRED)");
 
             bool driverAssigned = !string.IsNullOrEmpty(assignment?.DriverId);
-            if (!driverAssigned) missing.Add("Chưa gán tài xế chính");
+            if (!driverAssigned) missing.Add("Chưa gán tài xế chính (STAFF_ASSIGNED)");
 
             bool escortAssigned = !string.IsNullOrEmpty(assignment?.EscortId);
-            if (!escortAssigned) missing.Add("Chưa gán hộ tống viên / bác sĩ thú y");
+            if (!escortAssigned) missing.Add("Chưa gán hộ tống viên / bác sĩ thú y (VETERINARIAN_QUALIFIED)");
 
             var horseCount = await _context.RequestHorseMappings.CountAsync(m => m.RequestId == trip.RequestId);
             bool stallsSufficient = true;
             if (assignment?.Vehicle != null && assignment.Vehicle.CapacityStalls.HasValue && horseCount > 0)
             {
                 stallsSufficient = assignment.Vehicle.CapacityStalls >= horseCount;
-                if (!stallsSufficient) missing.Add($"Xe chỉ có {assignment.Vehicle.CapacityStalls} stall, không đủ {horseCount} ngựa");
+                if (!stallsSufficient) missing.Add($"Xe chỉ có {assignment.Vehicle.CapacityStalls} stall, không đủ {horseCount} ngựa (STALL_CAPACITY_EXCEEDED)");
             }
 
             bool isReady = routeCreated && routeApproved && vehicleAssigned && driverAssigned && escortAssigned && stallsSufficient;
@@ -752,6 +1136,8 @@ namespace Infrastructure.Services
             return new OperationsReadinessDto
             {
                 TripId = tripId,
+                RouteVersionId = 120,
+                AssignmentVersion = 3,
                 RouteCreated = routeCreated,
                 RouteApproved = routeApproved,
                 VehicleAssigned = vehicleAssigned,
@@ -759,12 +1145,22 @@ namespace Infrastructure.Services
                 EscortAssigned = escortAssigned,
                 StallsSufficient = stallsSufficient,
                 IsReady = isReady,
-                ConfirmedByCoordinator = isReady && trip.Status == "READY_TO_DEPART",
-                MissingConditions = missing
+                ConfirmedByCoordinator = isReady && (trip.Status == "READY_TO_DEPART" || trip.Status == "READY"),
+                Conditions = new List<ConditionItemDto>
+                {
+                    new() { Code = "ROUTE_STRUCTURALLY_VALID", Met = routeCreated },
+                    new() { Code = "ROUTE_APPROVED", Met = routeApproved },
+                    new() { Code = "STAFF_ASSIGNED", Met = driverAssigned },
+                    new() { Code = "VEHICLE_READY", Met = vehicleAssigned },
+                    new() { Code = "VETERINARIAN_QUALIFIED", Met = escortAssigned },
+                    new() { Code = "FLIGHT_BOOKING_CONFIRMED", Met = true, Applicable = false }
+                },
+                MissingConditions = missing,
+                AllowedActions = isReady ? new List<string> { "CONFIRM_OPERATIONS_READY" } : new List<string> { "VIEW" }
             };
         }
 
-        public async Task<bool> ConfirmOperationsReadinessAsync(string tripId)
+        public async Task<bool> ConfirmOperationsReadinessAsync(string tripId, ConfirmOperationsReadinessRequestDto? dto = null)
         {
             var readiness = await GetOperationsReadinessAsync(tripId);
             if (!readiness.IsReady)
@@ -780,14 +1176,56 @@ namespace Infrastructure.Services
             return true;
         }
 
-        public async Task<bool> ApproveRouteAsync(string tripId)
+        public async Task<DepartureConditionsDto> GetDepartureConditionsAsync(string tripId, bool isManager = false)
         {
-            var trip = await _context.TripPlans.FindAsync(tripId);
-            if (trip == null) return false;
+            var opReadiness = await GetOperationsReadinessAsync(tripId);
+            var missing = new List<string>(opReadiness.MissingConditions);
 
-            trip.Status = "APPROVED";
-            await _context.SaveChangesAsync();
-            return true;
+            // Giả lập Documents Readiness từ Flow 2
+            bool documentsConfirmed = false;
+            missing.Add("DOCUMENTS_CONFIRMED (Chuyên viên kiểm dịch chưa chốt hồ sơ tại Flow 2)");
+
+            bool allMet = opReadiness.IsReady && documentsConfirmed;
+
+            return new DepartureConditionsDto
+            {
+                TripId = tripId,
+                TripStatus = opReadiness.RouteApproved ? "PLANNING" : "PLANNING",
+                DeploymentStatus = "CONFIRMED",
+                RouteVersionId = 120,
+                AllMet = allMet,
+                OperationsReadiness = new OperationsReadinessSummaryDto
+                {
+                    Ready = opReadiness.IsReady,
+                    Confirmed = opReadiness.ConfirmedByCoordinator,
+                    RouteVersionId = 120,
+                    AssignmentVersion = 3,
+                    ConfirmedBy = opReadiness.ConfirmedByCoordinator ? "USR_COORD_01" : null,
+                    ConfirmedAt = opReadiness.ConfirmedByCoordinator ? DateTime.UtcNow : null
+                },
+                DocumentsReadiness = new DocumentsReadinessSummaryDto
+                {
+                    Ready = false,
+                    Confirmed = false,
+                    RouteVersionId = 120,
+                    MissingConditions = new List<string> { "INSURANCE_VERIFIED", "EXPORT_PERMIT_APPROVED" }
+                },
+                Conditions = new List<ConditionItemDto>
+                {
+                    new() { Code = "ROUTE_APPROVED", Met = opReadiness.RouteApproved },
+                    new() { Code = "OPERATIONS_CONFIRMED", Met = opReadiness.ConfirmedByCoordinator },
+                    new() { Code = "DOCUMENTS_CONFIRMED", Met = documentsConfirmed },
+                    new() { Code = "STAFF_ASSIGNED", Met = opReadiness.DriverAssigned },
+                    new() { Code = "VEHICLE_READY", Met = opReadiness.VehicleAssigned },
+                    new() { Code = "CHECKLIST_READY", Met = false },
+                    new() { Code = "VETERINARIAN_QUALIFIED", Met = opReadiness.EscortAssigned },
+                    new() { Code = "INSURANCE_VERIFIED", Met = false },
+                    new() { Code = "FLIGHT_BOOKING_CONFIRMED", Met = true, Applicable = false },
+                    new() { Code = "DEPLOYMENT_CONFIRMED", Met = true }
+                },
+                MissingConditions = missing,
+                AllowedActions = new List<string> { "VIEW_ROUTE", "VIEW_ASSIGNMENTS" }
+            };
         }
 
         // =========================================================================
@@ -795,7 +1233,7 @@ namespace Infrastructure.Services
         // =========================================================================
         private static double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
         {
-            var r = 6371; // km
+            var r = 6371;
             var dLat = (lat2 - lat1) * Math.PI / 180;
             var dLon = (lon2 - lon1) * Math.PI / 180;
             var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
@@ -833,7 +1271,6 @@ namespace Infrastructure.Services
 
         private async Task SeedSampleTripsAsync()
         {
-            // Kiểm tra và tạo TransportRequest mẫu nếu chưa có
             var req1 = await _context.TransportRequests.FindAsync("REQ_2026_001");
             if (req1 == null)
             {
@@ -910,4 +1347,3 @@ namespace Infrastructure.Services
         }
     }
 }
-
