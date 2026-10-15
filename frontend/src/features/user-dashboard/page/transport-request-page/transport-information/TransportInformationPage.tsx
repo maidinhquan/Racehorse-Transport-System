@@ -606,6 +606,11 @@ function TransportInformationPage() {
             documents={
               draft.documents
             }
+            isJapanRoute={Boolean(
+              request.destination?.toLowerCase().includes("japan") ||
+              request.destination?.toLowerCase().includes("tokyo") ||
+              request.destination?.toLowerCase().includes("nhật")
+            )}
             onUpload={
               handleUpload
             }

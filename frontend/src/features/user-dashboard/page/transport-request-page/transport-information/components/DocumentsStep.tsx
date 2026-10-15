@@ -9,6 +9,8 @@ import type {
   TransportDocument,
 } from "../types/transportInformationTypes";
 
+import { JapanRouteModule } from "../../../../../documents/japan-route/JapanRouteModule";
+
 interface DocumentsStepProps {
   horses: Horse[];
 
@@ -23,6 +25,7 @@ interface DocumentsStepProps {
 
   onBack: () => void;
   onContinue: () => void;
+  isJapanRoute?: boolean;
 }
 
 function DocumentsStep({
@@ -32,6 +35,7 @@ function DocumentsStep({
   onUpload,
   onBack,
   onContinue,
+  isJapanRoute = false,
 }: DocumentsStepProps) {
   const customerDocuments =
     documents.filter(
@@ -199,6 +203,13 @@ function DocumentsStep({
             : ""}{" "}
           still need your action. You can continue to review,
           but confirmation will remain disabled.
+        </div>
+      )}
+
+      {/* Phân hệ Đặc thù Tuyến Việt Nam -> Nhật Bản */}
+      {isJapanRoute && (
+        <div style={{ marginTop: "32px", borderTop: "2px dashed #e2e8f0", paddingTop: "24px" }}>
+          <JapanRouteModule />
         </div>
       )}
 

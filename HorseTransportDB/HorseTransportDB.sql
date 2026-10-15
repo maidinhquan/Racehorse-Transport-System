@@ -665,3 +665,6 @@ VALUES
 ('admin', 'USR_ADMIN_01', 'HASH_SECURE_00', 'Admin', 'Admin Test', 'admin@cbntransport.com', '0999999999', 1);
 GO
 
+
+select *
+from [USER]

@@ -1,0 +1,853 @@
+/* ==========================================================================
+   JAPAN ROUTE MODULE STYLES (Chuyên biệt tuyến Việt Nam -> Nhật Bản)
+   ========================================================================== */
+
+.jp-route-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #1e293b;
+}
+
+/* Header Banner Tuyến Nhật Bản */
+.jp-main-banner {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #991b1b 100%);
+  border-radius: 16px;
+  padding: 28px 32px;
+  color: #ffffff;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.jp-banner-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.jp-banner-desc {
+  font-size: 14px;
+  color: #e2e8f0;
+  max-width: 700px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.jp-flag-badge {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* Tabs Chuyển 3 Phân hệ */
+.jp-tab-navigation {
+  display: flex;
+  gap: 12px;
+  background: #f1f5f9;
+  padding: 6px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+  overflow-x: auto;
+}
+
+.jp-tab-btn {
+  flex: 1;
+  padding: 12px 18px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.jp-tab-btn:hover {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.jp-tab-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Section & Card Container */
+.jp-section-header {
+  margin-bottom: 20px;
+}
+
+.jp-section-badge {
+  display: inline-block;
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.jp-badge-red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.jp-badge-blue {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.jp-section-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.jp-section-desc {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.jp-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.jp-card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.jp-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jp-card-subdesc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 18px 0;
+}
+
+.jp-subcard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 14px;
+}
+
+.jp-subcard-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+  margin: 0 0 12px 0;
+}
+
+/* Grids & Form Controls */
+.jp-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.jp-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .jp-grid-2, .jp-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.jp-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.jp-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.jp-required {
+  color: #dc2626;
+}
+
+.jp-input, .jp-select, .jp-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.jp-input:focus, .jp-select:focus, .jp-textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.jp-field-warning {
+  font-size: 12px;
+  color: #b45309;
+  margin-top: 2px;
+}
+
+/* Alerts */
+.jp-alert {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.jp-alert-large {
+  padding: 18px 20px;
+  margin-bottom: 24px;
+}
+
+.jp-alert-icon {
+  font-size: 28px;
+}
+
+.jp-alert-title {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.jp-alert-danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.jp-alert-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+/* Upload Components */
+.jp-upload-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.jp-upload-area {
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 14px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.jp-file-hidden {
+  display: none;
+}
+
+.jp-upload-btn {
+  display: inline-block;
+  padding: 8px 16px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.jp-upload-btn:hover {
+  background: #334155;
+}
+
+.jp-file-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.jp-btn-view {
+  background: #e2e8f0;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #1e293b;
+}
+
+.jp-btn-view:hover {
+  background: #cbd5e1;
+}
+
+/* 4 Disease Cards */
+.jp-disease-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .jp-disease-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.jp-disease-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.jp-disease-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.jp-disease-negative {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.jp-disease-positive {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.jp-disease-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.jp-disease-name {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: #0f172a;
+}
+
+.jp-disease-code {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.jp-status-tag {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 9999px;
+}
+
+.tag-negative {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.tag-positive {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.tag-pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.jp-upload-disease-box {
+  margin-top: 8px;
+}
+
+.jp-dropzone-box {
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  background: #ffffff;
+}
+
+.jp-dropzone-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.jp-dropzone-hint {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.jp-image-preview-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.jp-thumb-img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+}
+
+.jp-thumb-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.jp-btn-action {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.jp-btn-zoom {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.jp-btn-replace {
+  background: #f8fafc;
+  color: #334155;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.jp-btn-delete {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Vaccination Table */
+.jp-table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.jp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.jp-table th {
+  background: #f8fafc;
+  color: #475569;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid #e2e8f0;
+  font-weight: 600;
+}
+
+.jp-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.jp-table-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.jp-btn-delete-row {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.jp-empty-cell {
+  text-align: center;
+  color: #94a3b8;
+  padding: 24px;
+}
+
+.jp-btn-add {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.jp-btn-add:hover {
+  background: #e2e8f0;
+}
+
+.jp-image-gallery {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.jp-gallery-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+}
+
+.jp-gallery-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.jp-gallery-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.jp-gallery-item:hover .jp-gallery-overlay {
+  opacity: 1;
+}
+
+.jp-gallery-btn {
+  background: #ffffff;
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jp-gallery-btn.btn-del {
+  color: #dc2626;
+}
+
+/* Medical Approval */
+.jp-card-approval {
+  border-color: #cbd5e1;
+  background: #fbfcfe;
+}
+
+.jp-approval-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jp-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.jp-checkbox-row input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Legs in Logistics */
+.jp-leg-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.jp-leg-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.jp-leg-num {
+  background: #334155;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.jp-leg-sky { background: #0284c7; }
+.jp-leg-purple { background: #7c3aed; }
+.jp-leg-green { background: #16a34a; }
+
+.jp-leg-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.jp-subcard-header-note {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.jp-note-badge {
+  font-size: 11px;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* Bottom Actions */
+.jp-bottom-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.jp-btn-secondary {
+  padding: 12px 24px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.jp-btn-primary {
+  padding: 12px 28px;
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+  transition: all 0.15s ease;
+}
+
+.jp-btn-primary:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+}
+
+/* ZOOM MODAL */
+.jp-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.jp-modal-content {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 900px;
+  max-width: 95vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+}
+
+.jp-modal-header {
+  padding: 14px 20px;
+  background: #0f172a;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.jp-modal-title {
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jp-modal-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jp-btn-control {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jp-btn-control:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.jp-btn-close {
+  background: #ef4444;
+  border: none;
+  color: #ffffff;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.jp-modal-body {
+  padding: 24px;
+  background: #0b0f19;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 400px;
+}
+
+.jp-image-viewport {
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.jp-modal-footer {
+  padding: 10px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.jp-modal-tip {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}

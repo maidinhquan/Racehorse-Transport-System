@@ -23,6 +23,7 @@ const cities = [
   "Kuala Lumpur",
   "Phnom Penh",
   "Sydney",
+  "Tokyo (Japan)",
 ];
 
 function calculateEstimatedPrice(

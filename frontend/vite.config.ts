@@ -8,8 +8,10 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      '/api/auth/register': 'http://localhost:5129',
-      '/api': 'http://localhost:5080',
+      '/api': {
+        target: 'http://localhost:5129',
+        changeOrigin: true,
+      },
     },
   },
 })
