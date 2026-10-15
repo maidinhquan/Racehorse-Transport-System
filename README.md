@@ -31,27 +31,30 @@ Bạn có thể chạy dự án theo 2 cách:
 ### Yêu cầu môi trường (Prerequisites)
 - **Node.js** (phiên bản 18+ hoặc 20+) và **npm**
 - **.NET 8.0 SDK**
-- **SQL Server 2022** (hoặc cài [Docker Desktop](https://www.docker.com/products/docker-desktop/) để chạy container database)
+- **SQL Server 2022** (cài đặt trực tiếp trên máy - SQL Server Express hoặc Developer)
+- **Docker Desktop** (tùy chọn: chỉ cần khi muốn chạy thử qua Docker Compose)
 
 ---
 
-### CÁCH 1: Chạy độc lập từng phần (Local Development)
+### Cấu hình Database (Bắt buộc cho cả 2 cách)
+Hệ thống sử dụng **SQL Server cài trực tiếp trên máy host** (không sử dụng container SQL Server để tránh nặng máy và tránh mất dữ liệu khi xoá container).
 
-Mở các cửa sổ Terminal riêng biệt để khởi chạy từng dịch vụ:
+1. Khởi động SQL Server trên máy bạn, đảm bảo đã bật **SQL Server Authentication** (tài khoản `sa` hoặc tài khoản có quyền) và bật giao thức **TCP/IP** (port mặc định `1433`).
+2. Mở file [HorseTransportDB/HorseTransportDB.sql](HorseTransportDB/HorseTransportDB.sql) bằng SSMS hoặc Azure Data Studio và chạy toàn bộ script để tạo database `HorseTransportDB` kèm dữ liệu mẫu.
+3. Kiểm tra file `.env` ở thư mục gốc để cấu hình thông tin đăng nhập SQL cho Docker Backend:
+   ```env
+   SQL_USER=sa
+   SQL_PASSWORD=your_password_here
+   ```
 
-#### Bước 1: Khởi động Database (SQL Server)
-Bạn chọn 1 trong 2 cách sau:
-- **Cách A (Khuyên dùng - Dùng Docker chỉ để chạy DB):**
-  Đứng tại thư mục gốc dự án và chạy lệnh sau để bật duy nhất container SQL Server:
-  ```bash
-  docker-compose up -d db
-  ```
-  *(Database sẽ sẵn sàng tại `localhost:1433`, User: `sa`, Password: `12345`)*.
-- **Cách B (Dùng SQL Server cài sẵn trên máy):**
-  Chạy script tạo bảng và dữ liệu mẫu trong file `HorseTransportDB/HorseTransportDB.sql`. Cập nhật chuỗi kết nối trong `backend/WebApi/appsettings.json` nếu cần.
+---
 
-#### Bước 2: Khởi động Backend (ASP.NET Core Web API)
-Mở một cửa sổ Terminal mới:
+### CÁCH 1: Chạy độc lập từng phần (Local Development - Khuyên dùng)
+
+Mở các cửa sổ Terminal riêng biệt:
+
+#### Bước 1: Khởi động Backend (ASP.NET Core Web API)
+Mở terminal tại thư mục backend:
 ```bash
 cd backend/WebApi
 dotnet run
@@ -61,8 +64,10 @@ dotnet run
 - **Backend API:** [http://localhost:5129](http://localhost:5129)
 - **Swagger UI (tài liệu API):** [http://localhost:5129/swagger](http://localhost:5129/swagger)
 
-#### Bước 3: Khởi động Frontend (React Vite)
-Mở một cửa sổ Terminal khác:
+> **Mẹo:** Chuỗi kết nối mặc định trong `backend/WebApi/appsettings.json` là `Server=.\\SQLEXPRESS;Database=HorseTransportDB;Trusted_Connection=True;...`. Bạn có thể tạo file `backend/WebApi/appsettings.Local.json` để ghi đè chuỗi kết nối riêng trên máy mình mà không làm ảnh hưởng đến git commit của nhóm.
+
+#### Bước 2: Khởi động Frontend (React Vite)
+Mở một cửa sổ terminal khác:
 ```bash
 cd frontend
 npm install
@@ -72,25 +77,27 @@ npm run dev
 
 ---
 
-### CÁCH 2: Khởi chạy toàn bộ hệ thống bằng Docker Compose
+### CÁCH 2: Khởi chạy bằng Docker Compose
 
-Nếu bạn muốn khởi chạy đồng bộ toàn bộ (Database, Backend, Frontend) chỉ bằng một lệnh:
+> ⚠️ **LƯU Ý QUAN TRỌNG:**
+> - Docker Compose hiện tại **CHỈ build và chạy 2 dịch vụ: Backend & Frontend**.
+> - **KHÔNG CÓ service Database trong Docker Compose**. Không chạy `docker compose up -d db` và không cần tải image MSSQL về.
+> - Backend trong Docker sẽ tự động kết nối tới SQL Server trên máy bạn qua `host.docker.internal,1433` (sử dụng `SQL_USER` và `SQL_PASSWORD` khai báo trong `.env`).
 
-1. Đảm bảo **Docker Desktop** đã được mở và đang chạy.
-2. Tại thư mục gốc của dự án, chạy lệnh:
+1. Đảm bảo **SQL Server** trên máy bạn đang chạy (port 1433) và file `.env` đã có đúng thông tin tài khoản.
+2. Mở **Docker Desktop**.
+3. Tại thư mục gốc của dự án, chạy lệnh:
    ```bash
-   docker-compose up -d --build
+   docker compose up -d --build
    ```
-   *(Cờ `--build` giúp build lại image từ mã nguồn mới nhất).*
+4. Truy cập các dịch vụ:
+   - **Frontend:** [http://localhost:5173](http://localhost:5173)
+   - **Backend API:** [http://localhost:5129](http://localhost:5129)
+   - **Swagger UI:** [http://localhost:5129/swagger](http://localhost:5129/swagger)
 
-3. Truy cập các dịch vụ sau khi Docker khởi chạy xong:
-   - **Frontend (React):** [http://localhost:5173](http://localhost:5173)
-   - **Backend API (ASP.NET Core):** [http://localhost:5129](http://localhost:5129)
-   - **Database (MSSQL):** `localhost:1433` (User: `sa`, Password: `12345`)
-
-4. **Dừng toàn bộ hệ thống Docker:**
+5. **Dừng toàn bộ hệ thống Docker:**
    ```bash
-   docker-compose down
+   docker compose down
    ```
 
 ## 💳 VNPAY Sandbox

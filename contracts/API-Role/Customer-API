@@ -1,0 +1,1192 @@
+# 02 – API Khách hàng (`CUSTOMER`)
+
+> **SWP391 – Hệ thống Quản lý Vận chuyển Ngựa đua Xuyên Quốc gia**  
+> Đọc [`00-conventions.md`](00-conventions.md), [`01-shared-api.md`](01-shared-api.md), [`flow-01-use-case-specification.md`](flow-01-use-case-specification.md) và [`flow-01-create-approve-transport-request-api.md`](flow-01-create-approve-transport-request-api.md) trước.  
+> Prefix: `/customer`. Các endpoint bên dưới cần `Authorization: Bearer <accessToken>` với role `CUSTOMER`, trừ endpoint `/public/*` được dẫn chiếu.  
+> **BR-OWN-01:** Backend lấy `userId` từ token, không tin `customerId` do FE cung cấp. Truy cập Horse/Request/Trip/Document/Payment/Complaint không thuộc Customer → `404 NOT_FOUND`.
+>
+> **Nguồn nghiệp vụ Flow 1:** Use Case Specification Flow 1 quy định hành vi; API Contract Flow 1 quy định các endpoint/payload. File này **đồng bộ các API của role `CUSTOMER`** và giữ các API của các Flow sau. Nếu có mâu thuẫn, không suy diễn từ bản contract cũ; báo nhóm FE–BE xử lý. Endpoint được ghi trong tài liệu là **hợp đồng thiết kế**, không có nghĩa đã được code.
+>
+> **Phạm vi Flow 1:** Từ dự toán sơ bộ → tạo đơn → Manager xét duyệt/yêu cầu sửa → thương lượng Quote → ký Contract → xác nhận cọc → Request `ACTIVATED` và Trip `PLANNING`. Việc Manager xác nhận triển khai là API role Manager, không phải action của Customer.
+
+## Page → API
+
+| Nhóm | Page FE / chức năng | Endpoint cần dùng | UC |
+|---|---|---|---|
+| Account | `/register`, `/login`, `/customer/profile` | Xem `01-shared-api.md` phần A, B | Shared |
+| Home | `/customer/home` | `GET /customer/dashboard` | Dashboard |
+| My Horses | `/customer/horses`, `/customer/horses/new`, `/customer/horses/:id` | `GET /customer/horses`, `POST /customer/horses`, `GET /customer/horses/{horseId}`, `PUT /customer/horses/{horseId}`, `PATCH /customer/horses/{horseId}/deactivate` | CUST-08 |
+| Tạo yêu cầu | `/customer/requests/new` | `GET /customer/requests/form-options`, `GET /customer/horses/selectable`, `POST /customer/requests`, `POST /customer/estimates` | CUST-02, 03 |
+| Danh sách / Chi tiết đơn | `/customer/requests`, `/customer/requests/:id` | `GET /customer/requests`, `GET /customer/requests/{requestId}` | CUST-03 |
+| Manager yêu cầu sửa đơn | `/customer/requests/:id/edit` | `GET /customer/requests/{requestId}/revision-requests`, `PUT /customer/requests/{requestId}/revision` | UC-F01-01 |
+| Customer đề xuất thay đổi trước ký | `/customer/requests/:id/edit` | `POST /customer/requests/{requestId}/change-requests`, `GET /customer/requests/{requestId}/change-requests` | UC-F01-03 |
+| Hỏi đáp bổ sung (không sửa đơn) | `/customer/requests/:id` – tab thông tin | `GET /customer/requests/{requestId}/info-requests`, `POST /customer/requests/{requestId}/info-responses` | UC-F01-02 |
+| Hủy đơn trước ký / Yêu cầu hủy sau ký | Chi tiết đơn → Hủy | `POST /customer/requests/{requestId}/cancel`, `POST /customer/requests/{requestId}/cancellation-requests`, `GET /customer/requests/{requestId}/cancellation-requests` | CUST-10 |
+| Báo giá | `/customer/requests/:id/quotes` | `GET /customer/requests/{requestId}/quotes`, `GET /customer/quotes/{quoteId}`, `POST /customer/quotes/{quoteId}/accept`, `POST /customer/quotes/{quoteId}/request-adjustment`, `POST /customer/quotes/{quoteId}/reject` | CUST-11 |
+| Hợp đồng | `/customer/requests/:id/contract` | `GET /customer/requests/{requestId}/contract`, `POST /customer/contracts/{contractId}/otp`, `POST /customer/contracts/{contractId}/sign`, `POST /customer/contracts/{contractId}/decline` | CUST-11 |
+| Thanh toán và theo dõi hạn cọc | `/customer/requests/:id/payments` | `GET /customer/requests/{requestId}/payments`, `POST /customer/payments/online`, `GET /customer/payments/bank-info`, `POST /customer/payments/manual`, `GET /customer/payments/transactions/{transactionId}`, `GET /customer/payments/transactions/{transactionId}/receipt` | CUST-09, UC-F01-05 |
+| Xin gia hạn cọc **(tùy chọn, chưa chốt triển khai)** | Trong page thanh toán nếu nhóm bật chức năng | `POST /customer/requests/{requestId}/deposit-extension-requests`, `GET /customer/requests/{requestId}/deposit-extension-requests` | F01-C28, đề xuất |
+| Dự toán sơ bộ | `/customer/estimate` và bước đầu wizard | `GET /customer/estimates/transport-modes`, `POST /customer/estimates`, `POST /customer/estimates/pdf` | CUST-02 |
+| Hồ sơ ngựa | `/customer/horses/:id/documents`, `/customer/documents/:id` | `GET /customer/horses/{horseId}/documents`, `POST /customer/horses/{horseId}/documents`, `GET /customer/documents/{documentId}`, `POST /customer/documents/{documentId}/replace` | CUST-04 |
+| Hồ sơ cần bổ sung | `/customer/documents/action-required`; tab hồ sơ đơn | `GET /customer/documents/action-required`, `GET /customer/requests/{requestId}/checklist` | CUST-04 |
+| Tra cứu quy định | Bước hồ sơ / `/regulations` (nếu hiển thị riêng) | `GET /public/regulations/lookup` – xem `01-shared-api.md` phần G | CUST-01 |
+| Theo dõi Trip | `/customer/trips`, `/customer/trips/:id` | `GET /customer/trips`, `GET /customer/trips/{tripId}/tracking`, `GET /customer/trips/{tripId}/horses/{horseId}/health-logs` | CUST-05 |
+| Bàn giao / Nghiệm thu | `/customer/trips/:id/handover` | `GET /customer/trips/{tripId}/handover`, `POST /customer/trips/{tripId}/acceptance` | CUST-07 |
+| Khiếu nại | `/customer/trips/:id/handover`, `/customer/complaints/:id` | `POST /customer/trips/{tripId}/complaints`, `GET /customer/complaints/{complaintId}`, `POST /customer/complaints/{complaintId}/resolution-response` | CUST-07 (bổ sung) |
+| Thông báo | `/customer/notifications` | Xem `01-shared-api.md` phần C; Hub SignalR `/api/hubs/updates` | CUST-06 |
+| Lịch sử | `/customer/history` | `GET /customer/history` | History |
+
+**Chú ý khi implement Flow 1:** Các thao tác chuyển bước/quay lại/review trong wizard là trạng thái FE, **không yêu cầu API lưu Request `DRAFT`**; chỉ gọi `POST /customer/requests` khi xác nhận gửi. `GET /customer/requests/{id}` là nguồn `allowedActions` và dữ liệu hiện hành; các `GET` lịch sử phụ trợ dùng để mở dialog/tab tương ứng.
+
+**Nguyên tắc tích hợp:** REST là nguồn dữ liệu chính thức. Khi nhận các sự kiện SignalR `RequestUpdated`, `TripUpdated`, `DocumentUpdated`, `PaymentUpdated`, `ComplaintUpdated`, `NotificationCreated`, FE tải lại dữ liệu thuộc quyền truy cập; **không polling GPS/vehicle/live location**.
+
+---
+
+## 1. HOME
+
+### 1.1 `GET /customer/dashboard`
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "counters": {
+      "activeHorses": 6,
+      "openRequests": 2,
+      "tripsInTransit": 1,
+      "unreadNotifications": 4,
+      "documentsNeedAction": 3
+    },
+    "actionItems": [
+      {
+        "type": "QUOTE_WAITING",
+        "requestId": 15,
+        "title": "Báo giá mới cần phản hồi",
+        "dueAt": "2026-10-19T04:30:00Z",
+        "route": "/customer/requests/15/quotes"
+      },
+      {
+        "type": "REQUEST_REVISION_REQUIRED",
+        "requestId": 17,
+        "title": "Manager yêu cầu chỉnh sửa đơn",
+        "dueAt": "2026-10-20T10:00:00Z",
+        "route": "/customer/requests/17/edit"
+      },
+      {
+        "type": "CONTRACT_TO_SIGN",
+        "requestId": 18,
+        "title": "Hợp đồng đang chờ ký",
+        "dueAt": "2026-10-22T02:00:00Z",
+        "route": "/customer/requests/18/contract"
+      },
+      {
+        "type": "DEPOSIT_PAYMENT_DUE",
+        "requestId": 19,
+        "title": "Đặt cọc chờ xác nhận",
+        "dueAt": "2026-10-25T00:00:00Z",
+        "route": "/customer/requests/19/payments"
+      },
+      {
+        "type": "ACCEPTANCE_PAYMENT_DUE",
+        "requestId": 16,
+        "tripId": 9,
+        "title": "Xác nhận bàn giao và thanh toán còn lại",
+        "dueAt": "2026-11-05T08:30:00Z",
+        "route": "/customer/trips/9/handover"
+      }
+    ],
+    "upcomingTrips": [
+      {
+        "tripId": 9,
+        "tripCode": "TRP-20261020-0003",
+        "status": "READY_TO_DEPART",
+        "plannedDepartureAt": "2026-11-01T01:00:00Z",
+        "originCountry": "VN",
+        "destinationCountry": "TH",
+        "horseCount": 2
+      }
+    ]
+  }
+}
+```
+
+- Chỉ trả dữ liệu của Customer đăng nhập; không trả ngân sách, chi phí vận hành nội bộ hay lợi nhuận công ty.
+- `openRequests` không tính các đơn `REJECTED`, `CANCELLED`, `CLOSED`. Đơn đã bàn giao nhưng chưa nghiệm thu/đối soát vẫn `ACTIVATED`.
+- `actionItems` có thể có `REQUEST_REVISION_REQUIRED`, `CHANGE_REQUEST_PENDING`, `QUOTE_WAITING`, `CONTRACT_TO_SIGN`, `DEPOSIT_PAYMENT_DUE`, `DEPOSIT_GRACE_REMINDER`, `CANCELLATION_PENDING` và nghiệp vụ sau bàn giao. Đây là **loại action item cho UI**, không phải `RequestStatus`; `route` chỉ đi tới dữ liệu thuộc Customer.
+- `DEPOSIT_PAYMENT_DUE` thể hiện nghĩa vụ hoặc giao dịch đang chờ xác minh; FE phải lấy tình trạng thật qua `GET /customer/requests/{id}/payments`, không tự đánh dấu đã nhận cọc.
+- FE cập nhật dashboard sau sự kiện SignalR hoặc khi mở lại trang.
+
+---
+
+## 2. HORSE MANAGEMENT (UC-CUST-08)
+
+### 2.1 Horse object
+
+```json
+{
+  "horseId": 31,
+  "microchipId": "985141000123456",
+  "name": "Thunder Bolt",
+  "breed": "Thoroughbred",
+  "sex": "GELDING",
+  "dateOfBirth": "2020-04-12",
+  "color": "Bay",
+  "heightCm": 163,
+  "weightKg": 510,
+  "photoUrl": "/api/files/120",
+  "ownerName": "Saigon Racing Club",
+  "ownerContact": "+84901234567",
+  "passport": {
+    "passportNumber": "EQ-VN-00123",
+    "issuingAuthority": "Cơ quan cấp hộ chiếu",
+    "issueDate": "2025-01-01",
+    "expiryDate": "2029-01-01",
+    "scanDocumentId": 450
+  },
+  "specialCareNotes": "Không dùng cỏ linh lăng",
+  "status": "ACTIVE",
+  "documentSummary": { "approved": 3, "submitted": 1, "rejected": 0, "expired": 1 },
+  "currentTrip": { "tripId": 9, "tripCode": "TRP-20261020-0003", "status": "READY_TO_DEPART" },
+  "isLocked": false,
+  "allowedActions": ["EDIT", "DEACTIVATE", "UPLOAD_DOCUMENT"],
+  "createdAt": "2026-09-01T02:00:00Z",
+  "updatedAt": "2026-10-01T02:00:00Z"
+}
+```
+
+- `microchipId` là định danh duy nhất toàn hệ thống, chuẩn ISO 11784 (15 chữ số). Không cho Customer sửa trực tiếp microchip sau khi tạo.
+- **Ảnh ngựa bắt buộc.** Thông tin hộ chiếu cần nhập tay và có bản scan PDF/JPG/PNG bắt buộc, sử dụng hồ sơ `PER_HORSE` trong nhóm Documents; tránh lưu file scan trùng tại nhiều vị trí.
+- Nếu ngựa đã gắn với một Request đang xử lý hoặc Trip chưa kết thúc, những thay đổi nhận dạng ảnh hưởng vận chuyển phải được hạn chế; FE dựa trên `allowedActions`.
+
+### 2.2 `GET /customer/horses`
+
+Query: `status` (`ACTIVE` mặc định / `INACTIVE` / `ALL`), `q`, `page`, `pageSize`. Trả về envelope chứa `data.items`, `page`, `pageSize`, `totalItems`, `totalPages` theo `00-conventions.md`.
+
+### 2.3 `POST /customer/horses`
+
+`multipart/form-data`: các field thông tin ngựa và `photo` hoặc phần `payload` JSON + file theo `00-conventions.md`.
+
+| Field | Bắt buộc | Quy tắc |
+|---|---|---|
+| `microchipId` | Có | 15 chữ số, duy nhất |
+| `name`, `breed`, `sex`, `dateOfBirth`, `color` | Có | `sex` theo `HorseSex`; ngày sinh không ở tương lai |
+| `heightCm`, `weightKg` | Có | Giá trị hợp lý, kiểm tra cấu hình BE |
+| `ownerName` | Có | Tên chủ sở hữu hợp lệ |
+| `ownerContact`, `specialCareNotes` | Không | Ghi chú chăm sóc để phối hợp vận chuyển |
+| `passportNumber`, `passportIssuingAuthority`, `passportIssueDate`, `passportExpiryDate` | Có | Thông tin Equine Passport |
+| `passportScan` | Có | PDF/JPG/PNG, tối đa 10 MB |
+| `photo` | Có | JPG/PNG, tối đa 10 MB |
+
+**201 Created:** `data` là Horse object. BE đồng thời liên kết scan hộ chiếu thành tài liệu `PER_HORSE` trạng thái `SUBMITTED` để Specialist thẩm định, **không tự đánh dấu `APPROVED`**.
+
+Lỗi: `400 VALIDATION_ERROR`, `409 HORSE_MICROCHIP_DUPLICATE`.
+
+### 2.4 `GET /customer/horses/{horseId}`
+
+Trả Horse object và `tripHistory` của ngựa đó. Khác chủ sở hữu → `404 NOT_FOUND`.
+
+### 2.5 `PUT /customer/horses/{horseId}`
+
+Sửa các trường được BE cho phép; ảnh có thể thay đổi, `microchipId` không cho phép thay đổi và nếu gửi lên thì trả `400 FIELD_NOT_EDITABLE` (không âm thầm bỏ qua). Không cập nhật hay thay scan hộ chiếu bằng cách ghi đè: dùng Document version mới.
+
+`409 HORSE_LOCKED_IN_TRANSIT` nếu thông tin đang bị khóa do chuyến vận chuyển; `409 HORSE_IN_ACTIVE_ORDER` nếu thay đổi định danh có nguy cơ ảnh hưởng Request có hiệu lực; `409 HORSE_INACTIVE` nếu đã ngừng sử dụng.
+
+### 2.6 `PATCH /customer/horses/{horseId}/deactivate`
+
+```json
+{ "reason": "Ngựa không còn thuộc danh sách quản lý" }
+```
+
+200 → `{ "horseId": 31, "status": "INACTIVE" }`. Không cho ngừng sử dụng khi còn thuộc Request/Trip chưa kết thúc (`409 HORSE_IN_ACTIVE_ORDER`). Không cung cấp API xóa vĩnh viễn.
+
+### 2.7 `GET /customer/horses/selectable?departureDate=2026-11-01&deadline=2026-11-05`
+
+Trả ngựa đang `ACTIVE`, cờ `selectable`, `conflict`, `documentWarning`. BE kiểm tra BR-HORSE-02 theo khoảng thời gian và **phải kiểm tra lại khi gửi Transport Request**.
+
+---
+
+## 3. TRANSPORT REQUEST (UC-CUST-03, CUST-10)
+
+### 3.1 `GET /customer/requests/form-options`
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "minLeadDays": 14,
+    "earliestDepartureDate": "2026-10-27",
+    "countries": [{ "code": "VN", "name": "Việt Nam" }],
+    "supportedTransportModes": ["ROAD", "AIR"]
+  }
+}
+```
+
+`minLeadDays` và khả năng áp dụng theo tuyến là **cấu hình BE**, không hardcode trên FE. Có thể dùng `GET /customer/estimates/transport-modes` để lấy mode cho cặp nước cụ thể.
+
+### 3.2 `POST /customer/requests` – Gửi đơn hoàn chỉnh
+
+Sau khi xem dự toán sơ bộ, Customer nhập đầy đủ các trường bắt buộc trước khi gửi; thiếu dữ liệu bắt buộc phải trả lỗi, không dùng luồng Manager yêu cầu sửa để thay việc validate form.
+
+**Request**
+
+```json
+{
+  "originCountry": "VN",
+  "originCity": "Ho Chi Minh City",
+  "pickupAddress": "Trường đua Đại Nam, Bình Dương",
+  "destinationCountry": "TH",
+  "destinationCity": "Bangkok",
+  "deliveryAddress": "Royal Bangkok Sports Club, Bangkok",
+  "receiver": { "fullName": "Somchai P.", "phone": "+66812345678" },
+  "desiredDepartureDate": "2026-11-01",
+  "deliveryDeadline": "2026-11-05",
+  "preferredTransportMode": "ROAD",
+  "horseIds": [31, 32],
+  "specialRequirements": "Ngựa Silver Wind không ăn cỏ linh lăng"
+}
+```
+
+**Validate:** quốc gia/tuyến hợp lệ, địa chỉ và thông tin người nhận bắt buộc, thời gian hợp lệ, `horseIds` không rỗng/không trùng, ngựa thuộc Customer và `ACTIVE`, không xung đột lịch, mode khả dụng. `specialRequirements` để trống nghĩa là không có yêu cầu đặc biệt. Hồ sơ chưa đủ có thể tạo `documentWarnings` nếu không vi phạm điều kiện bắt buộc ở thời điểm gửi; hồ sơ pháp lý bắt buộc phải đạt trước khởi hành.
+
+**201 Created**
+
+```json
+{
+  "success": true,
+  "message": "Transport request created",
+  "data": {
+    "requestId": 15,
+    "requestCode": "REQ-20261012-0001",
+    "status": "PENDING",
+    "documentWarnings": [
+      { "horseId": 32, "message": "Hộ chiếu đang chờ thẩm định" }
+    ],
+    "createdAt": "2026-10-12T04:29:00Z"
+  }
+}
+```
+
+Lỗi: `400 VALIDATION_ERROR`, `400 DEPARTURE_TOO_SOON`, `400 TRANSPORT_MODE_UNAVAILABLE`, `409 HORSE_SCHEDULE_CONFLICT`, `409 NO_HORSE_REGISTERED`. Request mới thuộc duy nhất một Customer và khi được kích hoạt tạo **đúng một Trip**.
+
+### 3.3 `GET /customer/requests`
+
+Query: `status` (nhiều trạng thái phân cách dấu phẩy), `q`, `from`, `to`, `page`, `pageSize`. Trả danh sách phân trang, các trường gồm `requestId`, `requestCode`, `status`, `horseCount`, `originCountry`, `destinationCountry`, `desiredDepartureDate`, `paymentStatus`, `nextAction`, `createdAt`.
+
+Request chưa kết thúc gồm cả `ACTIVATED` có Trip `COMPLETED` nhưng chưa đủ điều kiện đóng đơn. `CLOSED` là trạng thái lưu trữ chính thức, không thay bằng `TripStatus.COMPLETED`.
+
+### 3.4 `GET /customer/requests/{requestId}`
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "requestId": 15,
+    "requestCode": "REQ-20261012-0001",
+    "status": "QUOTING",
+    "originCountry": "VN",
+    "originCity": "Ho Chi Minh City",
+    "pickupAddress": "...",
+    "destinationCountry": "TH",
+    "destinationCity": "Bangkok",
+    "deliveryAddress": "...",
+    "receiver": { "fullName": "Somchai P.", "phone": "+66812345678" },
+    "desiredDepartureDate": "2026-11-01",
+    "deliveryDeadline": "2026-11-05",
+    "preferredTransportMode": "ROAD",
+    "confirmedTransportMode": "ROAD",
+    "specialRequirements": "...",
+    "horses": [{ "horseId": 31, "name": "Thunder Bolt", "microchipId": "985141000123456" }],
+    "currentQuote": { "quoteId": 78, "version": 2, "status": "SENT" },
+    "contract": null,
+    "payment": { "paymentStatus": "UNPAID", "paidAmount": 0 },
+    "trip": null,
+    "requestVersion": 2,
+    "pendingChangeRequest": null,
+    "revisionRequests": [],
+    "changeHistory": [],
+    "infoRequests": [],
+    "cancellationRequests": [],
+    "statusHistory": [{ "status": "PENDING", "at": "2026-10-12T04:29:00Z" }],
+    "allowedActions": ["REQUEST_CHANGE", "CANCEL", "VIEW_QUOTES"],
+    "createdAt": "2026-10-12T04:29:00Z"
+  }
+}
+```
+
+- `status = ACTIVATED`: `trip` là `{ tripId, tripCode, status }`, có thể là `PLANNING`, `READY_TO_DEPART`, `IN_TRANSIT`, `COMPLETED`.
+- `status = CHANGES_REQUESTED`: FE hiển thị danh sách vấn đề Manager yêu cầu sửa và nút `SUBMIT_REVISION`. Danh sách đầy đủ lấy từ `GET /customer/requests/{requestId}/revision-requests`.
+- `requestVersion` là bản canonical mới nhất; các `RevisionRequest`, `ChangeRequest`, `InfoRequest`, `CancellationRequest` là **đối tượng riêng**, không dùng chung trạng thái. FE cần tải lại khi `RequestUpdated`.
+- `pendingChangeRequest != null`: **khóa chấp nhận báo giá/ký hợp đồng** tới khi Manager duyệt hoặc từ chối đề xuất; dữ liệu chính thức chưa bị ghi đè.
+- `allowedActions` do BE quyết định; FE không tự suy luận từ trạng thái.
+
+### 3.5 `GET /customer/requests/{requestId}/revision-requests` – Xem Manager yêu cầu chỉnh sửa **[BỔ SUNG THEO FLOW 1]**
+
+Trả **mọi lần Manager yêu cầu Customer sửa canonical Request**, mới nhất trước; các lần cũ được giữ để audit. Khác biệt với câu hỏi thông tin tại mục 3.8: yêu cầu sửa đơn **đưa Request sang `CHANGES_REQUESTED`**.
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "revisionRequestId": 31,
+      "requestId": 15,
+      "status": "OPEN",
+      "reason": "Điều chỉnh ngày vận chuyển theo khả năng kiểm dịch",
+      "fields": ["desiredDepartureDate", "deliveryDeadline"],
+      "managerSuggestion": { "desiredDepartureDate": "2026-11-03" },
+      "dueAt": "2026-10-20T10:00:00Z",
+      "createdAt": "2026-10-13T05:00:00Z",
+      "respondedAt": null
+    }
+  ]
+}
+```
+
+- `status` của `RevisionRequest`: `OPEN`, `RESUBMITTED`, `SUPERSEDED` (tùy trạng thái bản ghi). **Không nhầm với RequestStatus.**
+- FE chỉ bật form sửa theo bản `OPEN` khi `GET /customer/requests/{requestId}` trả `SUBMIT_REVISION` trong `allowedActions`.
+- Lỗi quyền: `404 NOT_FOUND` nếu Request không thuộc Customer.
+
+### 3.6 `PUT /customer/requests/{requestId}/revision` – Gửi lại đơn theo yêu cầu Manager
+
+Chỉ khi Request ở `CHANGES_REQUESTED` và có `RevisionRequest` trạng thái `OPEN`, Customer gửi **toàn bộ** thông tin đã chỉnh sửa; BE validate như tạo mới, kiểm tra `revisionRequestId`, lưu phiên bản Request và hoàn tất yêu cầu sửa. Không phải quyền sửa tùy ý sau khi Manager đã `ACCEPTED`.
+
+**Request**
+
+```json
+{
+  "revisionRequestId": 31,
+  "originCountry": "VN",
+  "originCity": "Ho Chi Minh City",
+  "pickupAddress": "Địa chỉ nhận ngựa đã điều chỉnh",
+  "destinationCountry": "TH",
+  "destinationCity": "Bangkok",
+  "deliveryAddress": "Địa chỉ giao ngựa",
+  "receiver": { "fullName": "Somchai P.", "phone": "+66812345678" },
+  "desiredDepartureDate": "2026-11-03",
+  "deliveryDeadline": "2026-11-07",
+  "preferredTransportMode": "ROAD",
+  "horseIds": [31, 32],
+  "specialRequirements": "",
+  "revisionNote": "Đã điều chỉnh theo yêu cầu Manager"
+}
+```
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "message": "Request resubmitted",
+  "data": {
+    "requestId": 15,
+    "status": "PENDING",
+    "revisionRequestId": 31,
+    "revisionRequestStatus": "RESUBMITTED",
+    "revisionVersion": 3
+  }
+}
+```
+
+- Side effects: Backend lưu snapshot trước/sau, người sửa và thời điểm; phát `RequestUpdated` và tạo notification/task cho Manager. **Manager phải xét duyệt lại**, không tự đưa đơn về `ACCEPTED`.
+- Lỗi: `400 VALIDATION_ERROR`, `409 REQUEST_REVISION_NOT_ALLOWED`, `409 REVISION_ALREADY_PROCESSED`, `409 HORSE_SCHEDULE_CONFLICT`; sai owner → `404 NOT_FOUND`.
+
+### 3.7 `POST /customer/requests/{requestId}/change-requests` – Customer đề xuất sửa trước ký
+
+Áp dụng cho các thay đổi **quan trọng** sau khi gửi đơn, khi Request chưa có hợp đồng đã ký. BE **chưa cập nhật dữ liệu Request chính thức** khi đề xuất đang chờ Manager.
+
+```json
+{
+  "reason": "Lịch thi đấu thay đổi",
+  "proposedChanges": {
+    "desiredDepartureDate": "2026-11-03",
+    "deliveryDeadline": "2026-11-07",
+    "pickupAddress": "Địa chỉ nhận mới"
+  }
+}
+```
+
+**201 Created** (envelope chuẩn): `data: { "changeRequestId": 51, "status": "PENDING_APPROVAL", "createdAt": "2026-10-15T05:00:00Z" }`. Request giữ nguyên `status` và `requestVersion` tại thời điểm đề xuất.
+
+- FE chỉ gửi các trường được phép; danh sách cho phép gồm địa điểm/quốc gia, thời gian, ngựa, phương thức, chăm sóc đặc biệt, địa chỉ nhận/giao. Backend validate kết quả giả định và phân quyền.
+- Trong lúc chờ: không được `ACCEPT_QUOTE`, `SIGN_CONTRACT`, hay ký bản Contract cũ; Manager duyệt/từ chối theo **Flow 1** tại `POST /manager/requests/{requestId}/change-requests/{changeRequestId}/approve|reject`. Khi duyệt, BE kiểm tra điều kiện/giữ phiên bản lịch sử, áp dụng thay đổi nguyên tử; nếu ảnh hưởng giá/hợp đồng, phiên bản không còn phù hợp phải được thay thế trước khi tiếp tục.
+- Các trường liên lạc/ghi chú nhỏ không tác động giá/điều kiện hợp đồng **chưa có endpoint chỉnh trực tiếp trong Flow 1 đã duyệt**. FE không được dùng `PUT /revision` hay `info-responses` để lách phê duyệt; chỉ bổ sung API cập nhật trực tiếp sau khi được nhóm chốt rõ field, trạng thái và quyền.
+- Lỗi: `409 CHANGE_REQUEST_ALREADY_PENDING`, `409 REQUEST_CHANGE_NOT_ALLOWED`.
+
+### 3.8 `GET /customer/requests/{requestId}/change-requests`
+
+Trả danh sách `{ changeRequestId, status, reason, proposedChanges, managerNote, reviewedAt, createdAt }`, mới nhất trước. Chỉ Customer của Request được xem. Thay đổi quan trọng đã duyệt giữ lịch sử; không ghi đè các quyết định cũ.
+
+### 3.9 `GET /customer/requests/{requestId}/info-requests` – Xem câu hỏi bổ sung **[BỔ SUNG THEO FLOW 1]**
+
+Đây là **trao đổi để làm rõ thông tin**, không phải yêu cầu sửa phiên bản Request. Gọi khi hiển thị tab thông tin/trao đổi hoặc mở thông báo Manager.
+
+**200 OK**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "infoRequestId": 8,
+      "requestId": 15,
+      "status": "OPEN",
+      "message": "Vui lòng xác nhận khẩu phần riêng cho ngựa Thunder Bolt",
+      "dueAt": "2026-10-17T10:00:00Z",
+      "createdAt": "2026-10-13T06:00:00Z",
+      "responses": []
+    }
+  ]
+}
+```
+
+- Chỉ hiển thị câu hỏi thuộc Request của Customer; trả `404 NOT_FOUND` nếu không sở hữu.
+- `InfoRequest` không tự làm Request thành `CHANGES_REQUESTED` và không cho phép cập nhật các trường canonical qua API trả lời.
+
+### 3.10 `POST /customer/requests/{requestId}/info-responses` – Phản hồi thông tin bổ sung **[BỔ SUNG THEO FLOW 1]**
+
+- Không có file: `Content-Type: application/json`, body `{ "infoRequestId": 8, "message": "Không dùng cỏ linh lăng" }`.
+- Có file: `multipart/form-data`, trường `payload` chứa JSON ở trên; `attachments[]` là tệp PDF/JPG/PNG theo giới hạn `00-conventions.md`.
+
+**201 Created**
+
+```json
+{
+  "success": true,
+  "message": "Information response submitted",
+  "data": {
+    "responseId": 9,
+    "infoRequestId": 8,
+    "createdAt": "2026-10-13T06:20:00Z"
+  }
+}
+```
+
+BE lưu audit, gửi notification cho Manager; không tự sửa `pickupAddress`, `horseIds`, ngày hay giá. Lỗi `400 VALIDATION_ERROR`, `409 INFO_REQUEST_CLOSED`, sai ownership `404 NOT_FOUND`.
+
+### 3.11 `POST /customer/requests/{requestId}/cancel` – Hủy trước ký
+
+```json
+{ "reason": "Hủy lịch thi đấu" }
+```
+
+Trước khi ký hợp đồng: Customer được hủy đơn nếu BE trả `CANCEL` trong `allowedActions`; cập nhật `CANCELLED`, vô hiệu phiên bản chưa ký/không còn sử dụng và giải phóng lịch ngựa theo quy tắc. Sau khi ký: `409 CANCELLATION_REQUIRES_APPROVAL`, **không đổi trạng thái**.
+
+### 3.12 `POST /customer/requests/{requestId}/cancellation-requests` – Xin hủy sau ký
+
+```json
+{ "reason": "Không thể tham gia giải" }
+```
+
+**201 Created** (trong envelope): `data: { "cancellationRequestId": 19, "status": "PENDING_APPROVAL" }`. Manager giải quyết theo hợp đồng, lưu phạt/bồi thường nếu áp dụng, khoản phải thu/hoàn cọc; Customer không thể đơn phương yêu cầu dừng Trip hoặc xem việc gửi yêu cầu là đã hủy. **Không áp dụng phạt hợp đồng khi đã ký nhưng chưa có hiệu lực do chưa xác nhận cọc**, theo quy tắc demo đã chốt.
+
+### 3.13 `GET /customer/requests/{requestId}/cancellation-requests` – Xem tiến độ hủy **[BỔ SUNG THEO FLOW 1]**
+
+Trả toàn bộ yêu cầu hủy sau ký và quyết định của Manager; mới nhất trước.
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "cancellationRequestId": 19,
+      "requestId": 15,
+      "status": "PENDING_APPROVAL",
+      "reason": "Không thể tham gia giải",
+      "requestedAt": "2026-10-20T08:00:00Z",
+      "managerDecision": null,
+      "reviewedAt": null,
+      "settlement": null
+    }
+  ]
+}
+```
+
+- Nếu `APPROVED`, Request có thể chuyển `CANCELLED` theo quyết định hợp lệ; chi phí/hoàn tiền chỉ lấy từ settlement đã được xác nhận, không tự tính từ status.
+- Nếu `REJECTED`, Customer thấy lý do và Request giữ trạng thái nghiệp vụ phù hợp; không tự đóng Trip.
+- Khi có yêu cầu đang chờ, FE hiển thị `PENDING_APPROVAL` nhưng **không coi là RequestStatus**. Lỗi quyền `404 NOT_FOUND`.
+
+---
+
+## 4. QUOTATION, CONTRACT VÀ PAYMENT
+
+### 4.1 `POST /customer/estimates` – Dự toán sơ bộ (UC-CUST-02)
+
+Dùng **trước khi nhập hồ sơ chi tiết và tạo đơn**.
+
+```json
+{
+  "originCountry": "VN",
+  "originCity": "Ho Chi Minh City",
+  "destinationCountry": "TH",
+  "destinationCity": "Bangkok",
+  "desiredDepartureDate": "2026-11-01",
+  "horseCount": 2,
+  "preferredTransportMode": "ROAD"
+}
+```
+
+**200:**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "currency": "USD",
+    "estimateAmount": 12900,
+    "lines": [
+      { "code": "TRANSPORT", "label": "Vận chuyển dự kiến", "amount": 9000 },
+      { "code": "PROCEDURES", "label": "Hồ sơ và thủ tục dự kiến", "amount": 2000 },
+      { "code": "VETERINARY_CARE", "label": "Nhân sự thú y bắt buộc", "amount": 1500 },
+      { "code": "MANDATORY_INSURANCE", "label": "Bảo hiểm bắt buộc", "amount": 400 }
+    ],
+    "note": "Chỉ là dự toán tham khảo, không phải báo giá chính thức hay cam kết cung cấp dịch vụ",
+    "calculatedAt": "2026-10-12T04:29:00Z"
+  }
+}
+```
+
+- Không cho Customer bỏ chọn **bác sĩ thú y hoặc bảo hiểm** để giảm giá; chi phí có thể thể hiện thành dòng riêng hoặc đã bao gồm, nhưng luôn thuộc nghĩa vụ cung cấp dịch vụ.
+- Không cần chọn máy bay, hãng bay hay tuyến chính xác ở bước dự toán. Manager quyết định kế hoạch chính thức.
+- Lỗi: `400 VALIDATION_ERROR`, `400 TRANSPORT_MODE_UNAVAILABLE`, `404 PRICE_TABLE_NOT_FOUND`.
+
+### 4.2 `GET /customer/estimates/transport-modes`
+
+Query: `originCountry`, `destinationCountry`; trả `{ "modes": ["ROAD", "AIR"] }` trong envelope. Các mode phụ thuộc tuyến và quy định; FE không hardcode.
+
+### 4.3 `POST /customer/estimates/pdf`
+
+Body giống 4.1. Trả file PDF binary (`Content-Type: application/pdf`, `Content-Disposition: attachment`) kèm nhãn **Dự toán tham khảo**. Không tạo Quote chính thức.
+
+### 4.4 Báo giá chính thức (UC-CUST-11)
+
+**Quote object**
+
+```json
+{
+  "quoteId": 78,
+  "requestId": 15,
+  "quoteCode": "QUO-20261012-0001-v2",
+  "version": 2,
+  "status": "SENT",
+  "isLatest": true,
+  "currency": "USD",
+  "items": [
+    { "category": "TRANSPORT", "description": "Vận chuyển 2 ngựa", "amount": 9000 },
+    { "category": "PROCEDURE", "description": "Hồ sơ, kiểm dịch", "amount": 2000 },
+    { "category": "VETERINARY_CARE", "description": "Bác sĩ thú y đi kèm bắt buộc", "amount": 1100 },
+    { "category": "INSURANCE", "description": "Bảo hiểm vận chuyển bắt buộc", "amount": 400 }
+  ],
+  "totalAmount": 12500,
+  "depositPercent": 30,
+  "depositAmount": 3750,
+  "included": ["Chăm sóc ngựa trong phạm vi vận chuyển"],
+  "excluded": ["Các khoản ngoài phạm vi hợp đồng"],
+  "possibleExtraCosts": ["Phí chờ phát sinh theo trách nhiệm hợp đồng"],
+  "sentAt": "2026-10-14T04:30:00Z",
+  "validUntil": "2026-10-21T04:30:00Z",
+  "negotiation": { "round": 5, "canRequestAdjustment": true },
+  "allowedActions": ["ACCEPT", "REQUEST_ADJUSTMENT", "REJECT"]
+}
+```
+
+| Endpoint | Mục đích / Kết quả |
+|---|---|
+| `GET /customer/requests/{requestId}/quotes` | Lịch sử tất cả phiên bản, mới nhất trước |
+| `GET /customer/quotes/{quoteId}` | Chi tiết Quote có quyền xem |
+| `POST /customer/quotes/{quoteId}/accept` | Không body; 200 `data: { quoteId, quoteStatus: "ACCEPTED", requestStatus: "AWAITING_CONTRACT", contractId, contractStatus: "DRAFT" }`. BE sinh Contract DRAFT gắn đúng Quote version. |
+| `POST /customer/quotes/{quoteId}/request-adjustment` | Body `{ "content": "Đề nghị điều chỉnh phí chờ" }`; 200 `data: { quoteId, quoteStatus: "ADJUSTMENT_REQUESTED", requestStatus: "QUOTING" }`. Manager xử lý thương lượng/version tiếp theo. |
+| `POST /customer/quotes/{quoteId}/reject` | Body `{ "reason": "Giá chưa phù hợp" }`; 200 `data: { quoteId, quoteStatus: "REJECTED", requestStatus: "QUOTING" }`. **Không tự động `CANCELLED` Request.** |
+
+- **Không giới hạn 3 vòng/14 ngày thương lượng.** Mỗi phiên bản Quote có thời hạn 7 ngày; `EXPIRED` thuộc Quote, không tự động hết hạn toàn Request.
+- `GET /customer/requests/{requestId}/quotes` trả **mọi phiên bản** để xem lịch sử; `GET /customer/quotes/{quoteId}` trả chi tiết theo quyền. Quote cũ `SUPERSEDED` chỉ để xem. Customer chỉ được thao tác trên Quote mới nhất, hợp lệ, không có yêu cầu sửa đơn quan trọng đang chờ duyệt.
+- Khi Customer `REJECT` một phiên bản báo giá, có thể tiếp tục thương lượng và gửi bản khác hoặc chủ động hủy Request; không tự đổi Request thành trạng thái đã hủy.
+- Lỗi: `409 QUOTE_NOT_LATEST`, `409 QUOTE_EXPIRED`, `409 REQUEST_CHANGE_PENDING`, `409 INVALID_STATE`. **Bỏ** `NEGOTIATION_LIMIT_REACHED`.
+
+### 4.5 Hợp đồng (UC-CUST-11)
+
+`GET /customer/requests/{requestId}/contract` trả phiên bản hợp đồng hiện hành hoặc `data: null`. Ví dụ:
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "contractId": 40,
+    "contractCode": "CTR-20261015-0001-v2",
+    "version": 2,
+    "status": "PENDING_SIGNATURE",
+    "quoteId": 78,
+    "pdfFile": { "fileId": 700, "url": "/api/files/700" },
+    "customTerms": "Điều kiện chăm sóc và xử lý phát sinh",
+    "deliveryDeadline": "2026-11-05",
+    "depositAmount": 3750,
+    "depositDueDate": "2026-10-18",
+    "sentAt": "2026-10-15T02:00:00Z",
+    "signDeadline": "2026-10-22T02:00:00Z",
+    "signedAt": null,
+    "effectiveAt": null,
+    "history": [{ "contractId": 39, "version": 1, "status": "SUPERSEDED" }],
+    "allowedActions": ["REQUEST_OTP", "SIGN", "DECLINE"]
+  }
+}
+```
+
+| Endpoint | Request | Kết quả |
+|---|---|---|
+| `POST /customer/contracts/{contractId}/otp` | Không body | 200 `data: { sentTo, expiresInSeconds, resendAfterSeconds }`; kiểm tra `PENDING_SIGNATURE`, version mới nhất, còn hạn, không pending change; `409 OTP_RESEND_TOO_SOON` hoặc `429 RATE_LIMITED` khi giới hạn. |
+| `POST /customer/contracts/{contractId}/sign` | `{ "otp": "482913" }` | 200 `data: { contractId, contractStatus: "SIGNED", signedAt, requestStatus: "AWAITING_DEPOSIT" }`; **chưa tạo Trip**. |
+| `POST /customer/contracts/{contractId}/decline` | `{ "reason": "Cần điều chỉnh điều khoản" }` | 200 `data: { contractId, contractStatus: "SIGN_DECLINED", requestStatus: "AWAITING_CONTRACT" }`; Manager tạo **Contract version mới** nếu tiếp tục. |
+
+- Mỗi **phiên bản hợp đồng chưa ký** có thời hạn ký 7 ngày; hết hạn phiên bản không tự `EXPIRED` Request.
+- OTP ký hợp đồng được lưu/tự hết hạn theo bảo mật; BE lưu người ký, thời điểm, bằng chứng xác thực và phiên bản chính xác được ký.
+- Hợp đồng `SIGNED` nhưng **chỉ chuyển `EFFECTIVE` sau xác nhận đủ tiền cọc**. Khi đó Request → `ACTIVATED` và Backend tạo **đúng một** Trip `PLANNING` trong transaction nguyên tử (idempotency/unique `Trip.requestId`). Customer xem thông báo nhưng **không có endpoint Customer tự kích hoạt Trip**.
+- Trip `PLANNING` mới tạo vẫn phải chờ **Manager xác nhận triển khai** qua `/manager/trips/{tripId}/confirm-deployment` trước khi Coordinator/Specialist lập kế hoạch chính thức. Đây là handoff Flow 2/3, không phải `READY_TO_DEPART`.
+- Trong thời gian chờ Manager phê duyệt thay đổi quan trọng của Request, **không được ký phiên bản hợp đồng cũ**.
+- Lỗi: `400 OTP_INVALID_OR_EXPIRED`, `409 CONTRACT_EXPIRED`, `409 CONTRACT_NOT_LATEST`, `409 REQUEST_CHANGE_PENDING`.
+
+### 4.6 Thanh toán và công nợ (UC-CUST-09)
+
+`GET /customer/requests/{requestId}/payments`:
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "requestId": 15,
+    "paymentStatus": "DEPOSIT_PAID",
+    "currency": "USD",
+    "contractAmount": 12500,
+    "adjustedTotalPayable": 12500,
+    "paidAmount": 3750,
+    "outstandingAmount": 8750,
+    "receivables": [
+      { "receivableId": 201, "type": "DEPOSIT", "amount": 3750, "paidAmount": 3750, "status": "PAID", "dueDate": "2026-10-18" },
+      { "receivableId": 202, "type": "BALANCE", "amount": 8750, "paidAmount": 0, "status": "UNPAID", "dueAt": null, "disputedAmount": 0 }
+    ],
+    "depositReminder": {
+      "originalDepositDueDate": "2026-10-18",
+      "effectiveDepositDueDate": "2026-10-18",
+      "graceWorkingDays": 3,
+      "graceWorkingDaysElapsed": 0,
+      "remindersSent": 0,
+      "approvedExtensionUntil": null,
+      "pendingPaymentVerification": false,
+      "managerCancellationEligible": false
+    },
+    "transactions": [{ "transactionId": 501, "receivableId": 201, "method": "BANK_TRANSFER", "amount": 3750, "status": "SUCCESS" }]
+  }
+}
+```
+
+- `contractAmount` là giá trị hợp đồng ban đầu; `adjustedTotalPayable` tính các điều chỉnh hợp lệ, miễn/giảm, phát sinh và hoàn tiền theo hợp đồng. `FULLY_PAID` căn cứ vào **nghĩa vụ sau điều chỉnh**, không mặc định số ban đầu.
+- Tiền cọc chỉ được xác nhận `SUCCESS` khi có kết quả thanh toán đáng tin cậy hoặc Manager xác thực thủ công.
+- Quá hạn cọc: dựa vào `effectiveDepositDueDate` (hạn theo hợp đồng hoặc gia hạn hợp lệ), đếm **3 ngày làm việc Việt Nam** (trừ T7, CN, ngày lễ và nghỉ bù được cấu hình). Trong thời gian grace, Scheduler gửi tối đa **1 nhắc/ngày làm việc**. Hết grace, Manager **chủ động** xem xét hủy nếu không có cọc được xác nhận, gia hạn còn hiệu lực hoặc bằng chứng thanh toán đang xét; Customer **không tự bị hủy đơn**.
+- Manager có API gia hạn chủ động `POST /manager/requests/{requestId}/deposit-extensions` và hủy thủ công `POST /manager/requests/{requestId}/cancel-overdue-deposit` trong Flow 1 contract. Customer xem kết quả thông qua `GET .../payments` và thông báo `RequestUpdated`/`PaymentUpdated`/`NotificationCreated`. **Không cần API Customer tự xin gia hạn để đáp ứng nghiệp vụ đã chốt.**
+- Sau khi Trip bàn giao, `BALANCE.dueAt` được xác định từ mốc bàn giao + 48 giờ liên tục (không trừ cuối tuần/lễ). Khi có khiếu nại hợp lệ, chỉ phần đang tranh chấp được tạm dừng theo hợp đồng; phần không tranh chấp vẫn theo hạn ban đầu. Sau giải quyết hợp lệ, phần phải thanh toán tiếp có hạn mới 48 giờ theo quyết định/thỏa thuận áp dụng.
+- Customer **không xem** operating costs, internal budgets hoặc lợi nhuận doanh nghiệp.
+
+| Endpoint | Request / Response |
+|---|---|
+| `POST /customer/payments/online` | `{ "receivableId": 202, "returnUrl": "http://localhost:5173/customer/payments/result" }` → `{ transactionId, paymentUrl }` (nếu cổng thanh toán hỗ trợ) |
+| `GET /customer/payments/bank-info?requestId=15` | Thông tin tài khoản thụ hưởng và nội dung chuyển khoản theo Request |
+| `POST /customer/payments/manual` | Multipart: `receivableId`, `method` (`BANK_TRANSFER` hoặc phương thức thủ công được cấu hình), `amount`, `paidDate`, `receipt` (bắt buộc), `note` → **201** `data: { transactionId, status: "PENDING_CONFIRMATION" }`; không kích hoạt đơn. |
+| `GET /customer/payments/transactions/{transactionId}` | 200 `data: { transactionId, requestId, receivableId, method, amount, status, rejectReason, createdAt, confirmedAt }`. `PENDING_CONFIRMATION` / `SUCCESS` / `FAILED` / `REJECTED` / `CANCELLED` theo enum. |
+| `GET /customer/payments/transactions/{transactionId}/receipt` | PDF biên nhận khi giao dịch đã xác nhận thành công |
+
+**Tích hợp gateway:** Provider, URL callback, xác minh chữ ký được đặc tả trong module thanh toán do nhóm phụ trách; không hardcode VNPay. `GET /customer/payments/bank-info?requestId=15` trả thông tin thụ hưởng, `transferContent` và `qrPayload`/dữ liệu QR **nếu provider hỗ trợ**; FE **không hardcode tài khoản, merchant hoặc cho rằng hiển thị QR tức đã thanh toán**. Redirect của FE **không phải bằng chứng thanh toán thành công**. BE xác minh callback/webhook hoặc sổ giao dịch, chống xử lý trùng. Không được cộng tiền thu hai lần từ hai callback hoặc hai bằng chứng giống nhau.
+
+Lỗi thường gặp: `409 CONTRACT_NOT_SIGNED`, `409 RECEIVABLE_ALREADY_PAID`, `409 PAYMENT_PENDING_CONFIRMATION`, `409 INVALID_PAYMENT_AMOUNT`, `404 NOT_FOUND`.
+
+### 4.7 Đề xuất mở rộng: Customer chủ động xin gia hạn cọc **[TÙY CHỌN – CHƯA CHỐT]**
+
+Use Case Flow 1 **bắt buộc** Manager được gia hạn chủ động, nhưng **không bắt buộc** Customer có form xin gia hạn. Chỉ hiện chức năng này khi nhóm duyệt mở rộng và Backend triển khai cặp endpoint dưới đây (F01-C28):
+
+| Endpoint | Request / Response đề xuất |
+|---|---|
+| `POST /customer/requests/{requestId}/deposit-extension-requests` | `{ "requestedDueDate": "2026-10-30", "reason": "Ngân hàng cần thêm thời gian" }` → 201 `data: { extensionRequestId: 11, status: "PENDING_APPROVAL" }` |
+| `GET /customer/requests/{requestId}/deposit-extension-requests` | 200 `data: [{ extensionRequestId, requestedDueDate, reason, status, managerNote, reviewedAt, createdAt }]` |
+
+- Các endpoint tương ứng Manager cũng chỉ là đề xuất trong Flow 1 (`F01-M22`). Nếu chưa bật chức năng, Customer vẫn theo dõi hạn cọc và quyết định gia hạn của Manager qua `GET /customer/requests/{requestId}/payments`.
+- Không được coi `PENDING_APPROVAL` là hạn cọc đã được gia hạn; chỉ quyết định đã được Manager phê duyệt mới làm đổi `effectiveDepositDueDate`.
+
+---
+
+## 5. DOCUMENT MANAGEMENT (UC-CUST-04)
+
+### 5.1 Document object
+
+```json
+{
+  "documentId": 455,
+  "horseId": 32,
+  "documentType": { "documentTypeId": 3, "name": "Giấy tiêm phòng", "group": "MEDICAL", "scope": "PER_HORSE" },
+  "documentNumber": "VN-VAC-2026-0091",
+  "issuingAuthority": "Chi cục Thú y vùng VI",
+  "issueDate": "2026-08-01",
+  "expiryDate": "2027-02-01",
+  "status": "REJECTED",
+  "rejectReason": "Ảnh mờ, chưa đọc được thông tin",
+  "files": [{ "fileId": 901, "fileName": "vaccine.pdf", "contentType": "application/pdf", "url": "/api/files/901" }],
+  "replacedDocumentId": null,
+  "uploadedAt": "2026-10-12T05:00:00Z",
+  "allowedActions": ["REPLACE"]
+}
+```
+
+### 5.2 `GET /customer/horses/{horseId}/documents`
+
+Query: `includeHistory=false`, `group`, `status`. Trả tài liệu theo ngựa, gồm hồ sơ hộ chiếu đã upload khi tạo Horse.
+
+### 5.3 `POST /customer/horses/{horseId}/documents`
+
+Multipart theo `00-conventions.md`:
+
+| Field | Bắt buộc | Ràng buộc |
+|---|---|---|
+| `documentTypeId` | Có | `scope = PER_HORSE` |
+| `documentNumber`, `issuingAuthority` | Theo loại giấy tờ | Có thể khác nhau theo catalog |
+| `issueDate`, `expiryDate` | Theo loại giấy tờ | Thời hạn hợp lệ; kiểm tra theo quy định thực tế |
+| `files` | Có | 1–10 tệp PDF/JPG/PNG, tối đa 10 MB/tệp |
+
+201 → `Document` với `status = SUBMITTED`. Specialist thẩm định, BE tự liên kết checklist của Trip nếu phù hợp. `DocumentStatus.APPROVED` chỉ sau kiểm tra.
+
+Lỗi: `400 VALIDATION_ERROR`, `400 FILE_TYPE_NOT_ALLOWED`, `400 FILE_TOO_LARGE`, `409 DOCUMENT_CONFLICT`.
+
+### 5.4 `GET /customer/documents/{documentId}`
+
+Trả Document object, review history và các phiên bản liên quan. Khác chủ sở hữu → `404 NOT_FOUND`.
+
+### 5.5 `POST /customer/documents/{documentId}/replace`
+
+Nộp phiên bản mới khi bị từ chối, hết hạn, sắp hết hạn hoặc quy định yêu cầu cập nhật. Sử dụng multipart như 5.3, **không tự sửa file gốc**. Bản mới `SUBMITTED`, phiên bản cũ `SUPERSEDED` khi thay thế thành công và giữ audit trail. BE quyết định tính hợp lệ của việc thay thế, ví dụ `409 DOCUMENT_NOT_REPLACEABLE`.
+
+### 5.6 `GET /customer/documents/action-required`
+
+Trả danh sách hồ sơ thiếu/bị từ chối/hết hạn/sắp hết hạn hoặc được Specialist yêu cầu bổ sung; mỗi item chứa `reason`, `horseId`, `documentTypeId`, `documentId`, `message`, `dueAt`, `requestId`/`tripId` liên quan.
+
+### 5.7 `GET /customer/requests/{requestId}/checklist`
+
+Trả checklist cho Customer xem: `{ tripId, stage, checklistStatus, progress, items[] }`. `stage` có thể `PRELIMINARY` (kế hoạch sơ bộ) hoặc `FINAL` (theo tuyến đã xác nhận).
+
+- **Chưa có Trip**: có thể trả checklist sơ bộ nếu Specialist đã tạo theo kế hoạch Manager; nếu chưa có, `data: null`.
+- **Đã có Trip**: Checklist được cập nhật dựa theo tuyến/cửa khẩu/chặng thật, hiển thị mục cần Customer bổ sung.
+- Customer chỉ xem những tài liệu theo ngựa thuộc mình và mục theo chuyến được phép công bố. Mục vận hành nội bộ nhạy cảm không xuất hiện.
+
+---
+
+## 6. TRIP TRACKING (UC-CUST-05)
+
+### 6.1 `GET /customer/trips`
+
+Query: `status`, `page`, `pageSize`. Vì một Request → một Trip, chỉ trả chuyến thuộc các Request của Customer. Có thể hiển thị `PLANNING` để Customer theo dõi tiến độ chuẩn bị; `allowedActions`/màn hình sẽ tùy trạng thái.
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "items": [
+      {
+        "tripId": 9,
+        "tripCode": "TRP-20261020-0003",
+        "requestId": 15,
+        "status": "IN_TRANSIT",
+        "horseCount": 2,
+        "originCountry": "VN",
+        "destinationCountry": "TH",
+        "originalEta": "2026-11-03T08:00:00Z",
+        "currentEta": "2026-11-03T09:00:00Z",
+        "lastMilestoneAt": "2026-11-01T12:40:00Z"
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "totalItems": 1,
+    "totalPages": 1
+  }
+}
+```
+
+### 6.2 `GET /customer/trips/{tripId}/tracking` – Timeline, route và vị trí mốc đã xác nhận
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": 9,
+    "requestId": 15,
+    "tripCode": "TRP-20261020-0003",
+    "status": "IN_TRANSIT",
+    "routeVersion": 3,
+    "summary": {
+      "originalEta": "2026-11-03T08:00:00Z",
+      "currentEta": "2026-11-03T09:00:00Z",
+      "actualHandedOverAt": null,
+      "delayAgainstOriginalMinutes": 60,
+      "lastMilestoneAt": "2026-11-01T12:40:00Z",
+      "scheduleState": "DELAYED"
+    },
+    "etaHistory": [
+      {
+        "routeVersion": 2,
+        "eta": "2026-11-03T09:00:00Z",
+        "reason": "Thời tiết xấu",
+        "approvedByRole": "LOGISTICS_MANAGER",
+        "changedAt": "2026-11-01T10:15:00Z"
+      }
+    ],
+    "legs": [
+      {
+        "legId": 51,
+        "sequence": 1,
+        "mode": "ROAD",
+        "status": "IN_PROGRESS",
+        "fromPointId": 1,
+        "toPointId": 3,
+        "plannedDepartureAt": "2026-11-01T01:00:00Z",
+        "actualDepartureAt": "2026-11-01T01:20:00Z"
+      },
+      {
+        "legId": 54,
+        "sequence": 2,
+        "mode": "AIR",
+        "status": "PLANNED",
+        "fromPointId": 3,
+        "toPointId": 4,
+        "flight": {
+          "flightNumber": "TG557",
+          "plannedDepartureAt": "2026-11-02T04:00:00Z",
+          "plannedArrivalAt": "2026-11-02T07:00:00Z",
+          "actualDepartureAt": null,
+          "actualArrivalAt": null,
+          "source": "MANUAL_COORDINATOR_UPDATE"
+        }
+      }
+    ],
+    "points": [
+      { "pointId": 1, "sequence": 1, "type": "ORIGIN", "name": "Điểm nhận", "lat": 11.065, "lng": 106.6297, "status": "DONE" },
+      { "pointId": 3, "sequence": 2, "type": "CHECKPOINT", "name": "Điểm kiểm soát", "lat": 11.0767, "lng": 106.172, "status": "CURRENT" },
+      { "pointId": 4, "sequence": 3, "type": "DESTINATION", "name": "Điểm giao", "lat": 13.7563, "lng": 100.5018, "status": "PLANNED" }
+    ],
+    "milestones": [
+      {
+        "milestoneId": 801,
+        "type": "DEPARTED",
+        "pointId": 1,
+        "occurredAt": "2026-11-01T01:20:00Z",
+        "recordedByRole": "DRIVER",
+        "status": "DONE"
+      }
+    ],
+    "map": {
+      "plannedPath": [[11.065, 106.6297], [11.0767, 106.172], [13.7563, 100.5018]],
+      "completedSegments": [[11.065, 106.6297]],
+      "markers": [
+        { "pointId": 1, "kind": "ORIGIN", "lat": 11.065, "lng": 106.6297, "status": "DONE" },
+        { "pointId": 3, "kind": "CHECKPOINT", "lat": 11.0767, "lng": 106.172, "status": "CURRENT" }
+      ],
+      "lastConfirmedPoint": { "pointId": 3, "lat": 11.0767, "lng": 106.172, "confirmedAt": "2026-11-01T12:40:00Z" },
+      "positionIsRealtime": false
+    },
+    "horses": [{ "horseId": 31, "name": "Thunder Bolt", "lastHealthCheck": { "at": "2026-11-01T12:00:00Z", "condition": "NORMAL" } }]
+  }
+}
+```
+
+**FE hiển thị:**
+
+- `plannedPath`: polyline tuyến dự kiến; `markers`: các điểm nhận, nghỉ, kiểm dịch, sân bay, giao ngựa.
+- `completedSegments`: những chặng được xác nhận hoàn thành; **không suy luận đây là vệt GPS thực tế**.
+- `lastConfirmedPoint`: mốc gần nhất đã xác nhận; biểu tượng xe chỉ thể hiện **tiến độ đến mốc**, không thể hiện tọa độ xe đang chạy liên tục.
+- Chặng AIR hiển thị thông tin chuyến bay và mốc cất/hạ cánh do Coordinator nhập thủ công; không giả định có dữ liệu live của hãng.
+- `originalEta` (phiên bản đầu tiên được Manager duyệt) dùng tính **On-time Delivery**; `currentEta` để Customer dự kiến nhận ngựa. Điều chỉnh ETA phải có lịch sử và nguyên nhân.
+- Không còn endpoint `/customer/trips/{tripId}/tracking/live`, các trường `vehicles[].lat/lng/heading/speedKmh`, `signalLost` hay `appendTraveledPath`.
+
+**SignalR:** FE đăng ký nhận `TripUpdated` theo quyền; khi có sự kiện, gọi lại `GET /customer/trips/{tripId}/tracking`. REST dữ liệu chính thức. Không cần polling 30 giây; nếu reconnect thì lấy lại toàn bộ trạng thái.
+
+### 6.3 `GET /customer/trips/{tripId}/horses/{horseId}/health-logs`
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "healthLogId": 3001,
+      "horseId": 31,
+      "occurredAt": "2026-11-01T12:00:00Z",
+      "recordedBy": "Bác sĩ thú y được phân công",
+      "recordedByPosition": "VETERINARIAN",
+      "condition": "MONITOR",
+      "eating": "REDUCED",
+      "drinking": "NORMAL",
+      "temperatureC": 38.6,
+      "description": "Theo dõi thể trạng, đã chăm sóc phù hợp",
+      "photos": [{ "fileId": 1500, "url": "/api/files/1500" }],
+      "addenda": [{ "addendumId": 12, "content": "Đính chính chỉ số", "createdAt": "2026-11-01T12:20:00Z" }]
+    }
+  ]
+}
+```
+
+Chỉ trả dữ liệu ngựa của Customer trong Trip thuộc Customer. Nhật ký sai sót sử dụng bản bổ sung, không sửa/xóa bản gốc. Không công khai thông tin nhân sự/hồ sơ y tế ngoài phạm vi nghiệp vụ hợp lệ.
+
+---
+
+## 7. BÀN GIAO, NGHIỆM THU VÀ KHIẾU NẠI (UC-CUST-07)
+
+### 7.1 `GET /customer/trips/{tripId}/handover`
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "handoverId": 66,
+    "tripId": 9,
+    "tripStatus": "COMPLETED",
+    "handedOverAt": "2026-11-03T08:30:00Z",
+    "receiver": {
+      "fullName": "Somchai P.",
+      "isRegisteredReceiver": false,
+      "customerConfirmedReplacement": true,
+      "approvalReference": "RCV-2026-001",
+      "signatureUrl": "/api/files/1800"
+    },
+    "horses": [
+      { "horseId": 31, "name": "Thunder Bolt", "microchipId": "985141000123456", "condition": "GOOD", "photos": [{ "fileId": 1801, "url": "/api/files/1801" }] }
+    ],
+    "acceptance": {
+      "status": "PENDING",
+      "deliveryAcknowledgedAt": null,
+      "deadlineAt": "2026-11-05T08:30:00Z",
+      "isOverdue": false,
+      "paymentConfirmed": false,
+      "outstandingAmount": 8750,
+      "currency": "USD"
+    },
+    "complaints": [],
+    "allowedActions": ["ACKNOWLEDGE_DELIVERY", "COMPLAIN", "PAY_BALANCE"]
+  }
+}
+```
+
+- Driver và đội ngựa chỉ hoàn tất bàn giao khi **đủ tất cả ngựa**. Nếu gặp vấn đề sức khỏe, đội dừng lại để bác sĩ chăm sóc và xác nhận đủ điều kiện tiếp tục, **không bỏ lại ngựa để giao những con khác**.
+- Nếu người nhận khác người đăng ký, phải có xác minh và chấp thuận phù hợp từ Customer; trường hợp không liên hệ được hoặc nghi vấn thì Manager xử lý an toàn. Giấy ủy quyền không mặc nhiên cho phép Driver tự bàn giao.
+- Khi biên bản bàn giao hoàn tất, Trip chuyển **`COMPLETED` ngay**. Trạng thái nghiệm thu thuộc `AcceptanceStatus`, **không sửa Trip thành `AWAITING_ACCEPTANCE` hoặc `COMPLAINT_PENDING`**.
+- `deadlineAt` = `handedOverAt` + **48 giờ liên tục**, tính cả cuối tuần và ngày lễ.
+
+### 7.2 `POST /customer/trips/{tripId}/acceptance` – Xác nhận đã nhận ngựa
+
+```json
+{ "acknowledged": true, "rating": 5, "comment": "Đã nhận ngựa theo biên bản" }
+```
+
+**200:**
+
+```json
+{
+  "success": true,
+  "message": "Delivery acknowledged",
+  "data": {
+    "tripId": 9,
+    "tripStatus": "COMPLETED",
+    "deliveryAcknowledgedAt": "2026-11-03T10:00:00Z",
+    "acceptanceStatus": "AWAITING_PAYMENT",
+    "isOverdue": false,
+    "paymentStatus": "DEPOSIT_PAID"
+  }
+}
+```
+
+- Đây là **xác nhận bàn giao**, không phải xác nhận đã trả đủ tiền. `AcceptanceStatus = ACCEPTED` chỉ khi đã xác nhận bàn giao và **BE xác nhận đã nhận đủ khoản tiền phải thanh toán sau điều chỉnh hợp lệ**, đồng thời không còn tranh chấp chưa giải quyết.
+- Nếu đã thanh toán đủ trước lúc xác nhận, BE có thể trả `ACCEPTED` ngay khi mọi điều kiện đã đạt.
+- Quá 48 giờ mà chưa hoàn thành nghĩa vụ: đánh dấu `isOverdue: true`, thông báo Customer/Manager, không tự `AUTO_ACCEPTED`. Khóa mở **khiếu nại mới** sau hạn theo quy tắc Demo, nhưng không tự động coi việc xác nhận hay thanh toán trễ là đã hoàn thành; xử lý quá hạn theo hợp đồng.
+- Lỗi: `409 DELIVERY_NOT_COMPLETED`, `409 DELIVERY_ALREADY_ACKNOWLEDGED`, `409 INVALID_STATE`.
+
+### 7.3 `POST /customer/trips/{tripId}/complaints`
+
+`multipart/form-data`, field `payload`:
+
+```json
+{
+  "horseIds": [31],
+  "type": "HEALTH_CONDITION",
+  "description": "Cần xem xét tình trạng sức khỏe khi nhận ngựa",
+  "disputedAmount": 250,
+  "currency": "USD"
+}
+```
+
+`photos[]` tùy chọn, tối đa 10 file, theo giới hạn `00-conventions.md`. `disputedAmount` là **số tiền Customer đề nghị tạm tranh chấp**, cần Manager xem xét và đối chiếu hợp đồng; không mặc nhiên trở thành khoản được miễn/giảm.
+
+**201:** `{ "complaintId": 14, "status": "NEW", "acceptanceStatus": "DISPUTED", "tripStatus": "COMPLETED" }`.
+
+- Chỉ khiếu nại trong **48 giờ từ bàn giao thực tế**. BE kiểm tra quyền sở hữu Trip/ngựa, loại nội dung, lý do; không đổi TripStatus.
+- Khiếu nại hợp lệ có thể tạm dừng phần công nợ đang tranh chấp theo hợp đồng. Phần **không bị tranh chấp vẫn phải thanh toán đúng hạn**.
+- Không hạn chế cứng “chỉ một khiếu nại duy nhất” nếu nhiều vấn đề khác nhau cùng được gửi trong hạn; BE cần chống gửi trùng và chặn khiếu nại đã quá hạn.
+- Lỗi: `400 VALIDATION_ERROR`, `409 COMPLAINT_WINDOW_CLOSED`, `409 COMPLAINT_DUPLICATE`, `409 INVALID_STATE`.
+
+### 7.4 `GET /customer/complaints/{complaintId}`
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "complaintId": 14,
+    "tripId": 9,
+    "requestId": 15,
+    "status": "PENDING_CUSTOMER_CONFIRMATION",
+    "type": "HEALTH_CONDITION",
+    "horseIds": [31],
+    "description": "Cần xem xét tình trạng sức khỏe khi nhận ngựa",
+    "disputedAmount": 250,
+    "resolutionProposal": {
+      "proposalId": 5,
+      "summary": "Đề xuất hỗ trợ phí chăm sóc",
+      "adjustedPayableAmount": 8500,
+      "currency": "USD",
+      "proposedAt": "2026-11-04T04:00:00Z"
+    },
+    "bindingExternalDecision": null,
+    "resolvedAt": null,
+    "allowedActions": ["RESPOND_TO_RESOLUTION"]
+  }
+}
+```
+
+### 7.5 `POST /customer/complaints/{complaintId}/resolution-response`
+
+```json
+{ "proposalId": 5, "accepted": true, "comment": "Đồng ý phương án xử lý" }
+```
+
+**200:** `{ "complaintId": 14, "status": "RESOLVED", "resolvedAt": "2026-11-04T05:00:00Z", "newPaymentDueAt": "2026-11-06T05:00:00Z" }`.
+
+- `accepted: true`: xác nhận thỏa thuận, BE cập nhật khoản phải thu hợp lệ và **thời hạn 48 giờ mới** cho khoản thanh toán sau khi giải quyết.
+- `accepted: false`: không chuyển `RESOLVED`; Manager tiếp tục trao đổi hoặc ghi nhận quy trình bên ngoài.
+- Quyết định giải quyết tranh chấp bên ngoài có tính ràng buộc có thể được Manager ghi nhận kèm chứng cứ, **không yêu cầu Customer phê duyệt lại** theo luồng thỏa thuận thông thường.
+- Customer không được tự sửa số tiền phải thu hoặc kết quả bảo hiểm. Không tự `CLOSED` chỉ vì khiếu nại `RESOLVED`.
+
+---
+
+## 8. HISTORY
+
+### 8.1 `GET /customer/history`
+
+Query: `from`, `to`, `status` (`CLOSED`, `CANCELLED`, `REJECTED`), `horseId`, `q`, `page`, `pageSize`. Trả danh sách phân trang; với Request không có Trip (ví dụ `REJECTED`) thì `tripId`/`tripCode` là `null`.
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "items": [
+      {
+        "requestId": 10,
+        "requestCode": "REQ-20260801-0003",
+        "requestStatus": "CLOSED",
+        "tripId": 5,
+        "tripCode": "TRP-20260815-0001",
+        "tripStatus": "COMPLETED",
+        "originCountry": "VN",
+        "destinationCountry": "SG",
+        "horseCount": 2,
+        "handedOverAt": "2026-08-16T09:00:00Z",
+        "originalEta": "2026-08-16T08:00:00Z",
+        "onTime": false,
+        "totalPaid": 15800,
+        "currency": "USD",
+        "closedAt": "2026-08-20T02:00:00Z"
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "totalItems": 1,
+    "totalPages": 1
+  }
+}
+```
+
+- `onTime` so sánh `handedOverAt` với **Original ETA trong lịch trình đầu tiên được Manager phê duyệt**, không so với ETA điều chỉnh; bản thân việc trễ không tự động xác lập trách nhiệm bồi thường.
+- Customer vẫn được xem Request, Trip, biên bản, báo giá, hợp đồng, hóa đơn/biên nhận và lịch sử đã đóng trong phạm vi dữ liệu của mình; không xem operating costs/profit nội bộ.
+- Request chỉ `CLOSED` khi **đồng thời**: Trip `COMPLETED`, nghiệm thu và thanh toán đầy đủ theo nghĩa vụ đã điều chỉnh, không có khiếu nại chưa giải quyết, Manager xác nhận đã đối soát chi phí vận hành. Backend là bên tự động chuyển trạng thái khi đủ điều kiện, không do Customer bấm.
+
+---
+
+## 9. MA TRẬN BAO PHỦ CUSTOMER FLOW 1 (Function → API)
+
+> Checklist bắt buộc khi Claude/FE/BE triển khai; đối chiếu với `flow-01-use-case-specification.md` mục 5. Cột **Tính chất** chỉ trạng thái hợp đồng API, **không xác nhận endpoint đã code**.
+
+| # | Chức năng Customer | API / cơ chế bắt buộc | Tính chất |
+|---:|---|---|---|
+| 1 | Đăng ký Email → OTP, đăng nhập | `POST /auth/register/request-otp`, `POST /auth/register/verify-otp`, `POST /auth/register`, `POST /auth/login`, `POST /auth/google-login` | Shared `01` |
+| 2 | Lấy quốc gia và mode tuyến | `GET /public/countries`, `GET /customer/estimates/transport-modes` | Flow 1 |
+| 3 | Xem dự toán sơ bộ | `POST /customer/estimates` | Flow 1 |
+| 4 | Tải dự toán PDF | `POST /customer/estimates/pdf` | Flow 1 |
+| 5 | Lấy cấu hình form | `GET /customer/requests/form-options` | Flow 1 |
+| 6 | Xem ngựa chọn được/không trùng lịch | `GET /customer/horses/selectable` | Flow 1 |
+| 7 | Thêm ngựa ngay trong wizard | `POST /customer/horses`, `GET /customer/horses/{horseId}` | Phụ thuộc UC-CUST-08 |
+| 8 | Upload/xem hộ chiếu/hồ sơ ngựa | `POST /customer/horses/{horseId}/documents`, `GET /customer/horses/{horseId}/documents` | Phụ thuộc UC-CUST-04 |
+| 9 | Qua lại các bước/review dữ liệu wizard | FE state, **không tạo REST Request DRAFT** | FE nội bộ |
+| 10 | Xác nhận và gửi đơn | `POST /customer/requests` | Flow 1 |
+| 11 | Xem danh sách/chi tiết/trạng thái đơn | `GET /customer/requests`, `GET /customer/requests/{requestId}` | Flow 1 |
+| 12 | Xem Manager yêu cầu chỉnh sửa | `GET /customer/requests/{requestId}/revision-requests` | **Bổ sung Flow 1** |
+| 13 | Sửa và nộp lại đơn do Manager trả về | `PUT /customer/requests/{requestId}/revision` | Flow 1 |
+| 14 | Xem câu hỏi bổ sung (không sửa đơn) | `GET /customer/requests/{requestId}/info-requests` | **Bổ sung Flow 1** |
+| 15 | Trả lời câu hỏi/đính kèm | `POST /customer/requests/{requestId}/info-responses` | **Bổ sung Flow 1** |
+| 16 | Chủ động đề xuất thay đổi quan trọng | `POST /customer/requests/{requestId}/change-requests` | Flow 1 |
+| 17 | Theo dõi kết quả/lịch sử đề xuất | `GET /customer/requests/{requestId}/change-requests` | Flow 1 |
+| 18 | Tự hủy đơn **trước ký** | `POST /customer/requests/{requestId}/cancel` | Flow 1 |
+| 19 | Xin Manager duyệt hủy **sau ký** | `POST /customer/requests/{requestId}/cancellation-requests` | Flow 1 |
+| 20 | Theo dõi yêu cầu hủy | `GET /customer/requests/{requestId}/cancellation-requests` | **Bổ sung Flow 1** |
+| 21 | Xem Quote và lịch sử phiên bản | `GET /customer/requests/{requestId}/quotes`, `GET /customer/quotes/{quoteId}` | Flow 1 |
+| 22 | Chấp nhận Quote | `POST /customer/quotes/{quoteId}/accept` | Flow 1 |
+| 23 | Đề nghị thương lượng Quote | `POST /customer/quotes/{quoteId}/request-adjustment` | Flow 1 |
+| 24 | Từ chối Quote (không tự hủy đơn) | `POST /customer/quotes/{quoteId}/reject` | Flow 1 |
+| 25 | Xem Contract, phiên bản, hạn ký | `GET /customer/requests/{requestId}/contract` | Flow 1 |
+| 26 | Xin OTP ký Contract | `POST /customer/contracts/{contractId}/otp` | Flow 1 |
+| 27 | Ký Contract | `POST /customer/contracts/{contractId}/sign` | Flow 1 |
+| 28 | Từ chối Contract | `POST /customer/contracts/{contractId}/decline` | Flow 1 |
+| 29 | Xem cọc/hạn/giao dịch/trạng thái gia hạn | `GET /customer/requests/{requestId}/payments` | Flow 1 |
+| 30 | Xem QR/thông tin chuyển khoản | `GET /customer/payments/bank-info?requestId={requestId}` | Flow 1 |
+| 31 | Thanh toán online nếu provider hỗ trợ | `POST /customer/payments/online` | Phụ thuộc payment provider |
+| 32 | Gửi chứng từ thanh toán thủ công | `POST /customer/payments/manual` | Flow 1 |
+| 33 | Kiểm tra giao dịch và tải biên nhận | `GET /customer/payments/transactions/{transactionId}`, `GET /customer/payments/transactions/{transactionId}/receipt` | Flow 1 |
+| 34 | Theo dõi xác nhận cọc và Trip khởi tạo | `GET /customer/requests/{requestId}`, `GET /customer/requests/{requestId}/payments`; SignalR `RequestUpdated`, `PaymentUpdated` | Backend tự động khi cọc đủ |
+| 35 | Xem thông báo và badge | `GET /notifications`, `GET /notifications/unread-count`; SignalR `NotificationCreated` | Shared `01` |
+| 36 | Xin gia hạn cọc trên giao diện | `POST/GET /customer/requests/{requestId}/deposit-extension-requests` | **Đề xuất tùy chọn, không bắt buộc** |
+
+**Các xử lý backend không được gán nhầm cho Customer:** Manager `accept/reject/request-revision`, duyệt `change-requests` và `cancellation-requests`, tạo Quote/Contract, xác nhận/gia hạn cọc và hủy quá hạn; Backend kích hoạt Request/tạo Trip nguyên tử; Scheduler nhắc quá hạn theo lịch; Manager xác nhận deployment. Tất cả được mô tả trong API Contract Flow 1 và phải có endpoint Manager hoặc trigger tự động tương ứng.
+
+**Điều kiện nghiệm thu API coverage:** Mọi row bắt buộc phải có handler FE hoặc chỉ rõ là API hỗ trợ chức năng từ Shared/Flow khác; API chưa được BE triển khai phải báo **dependency chưa đáp ứng**, không giả lập thành công bằng mock. Endpoint tùy chọn ở row 36 không được âm thầm biến thành phạm vi bắt buộc.
+
+---
+
+## 10. QUY TẮC PHỐI HỢP FE–BE CHO CUSTOMER
+
+1. Mọi Request/Horse/Trip/Document/Payment/Complaint truy cập theo token Customer; không trả dữ liệu của Customer khác. **Một Trip thuộc một Request của một Customer**.
+2. `allowedActions` do BE trả trong resource detail. FE dùng để bật/tắt thao tác; **BE vẫn phải kiểm tra lại** khi nhận action.
+3. Customer không được thay đổi dữ liệu chính thức của Request khi Manager chưa phê duyệt đề xuất quan trọng; không được chấp nhận báo giá hoặc ký hợp đồng khi có đề xuất đang chờ xử lý.
+4. Manager-requested Revision, Customer Change Request, Info Request và Cancellation Request là **bốn đối tượng độc lập**. Không dùng chung API hoặc thay trạng thái Request chỉ vì có câu hỏi thông tin. Hết hạn phiên bản Quote/Contract **không tự động hủy Request**. Sau ký cần Manager xem xét nếu muốn hủy; sau xác nhận cọc Trip được tạo và phải qua bước xác nhận triển khai của Manager.
+5. SignalR dùng Hub `/api/hubs/updates`, các event từ `00-conventions.md`. FE nhận event và gọi REST để đồng bộ; không polling GPS, không hiện vị trí xe như GPS thật.
+6. Trip `COMPLETED` khi bàn giao đủ ngựa; nghiệm thu, thanh toán, khiếu nại và `CLOSED` thuộc quy trình riêng.
+7. Thanh toán thành công phải có xác nhận BE; thời hạn nghiệm thu/thanh toán 48 giờ liên tục từ bàn giao, các hạn cọc theo lịch ngày làm việc Việt Nam và gia hạn được duyệt.
+8. Mọi action Flow 1 tạo/cập nhật từ FE phải dùng status/`allowedActions` vừa tải và xử lý `409` theo trạng thái mới; `404` cho ownership, `400` cho validation có field errors; các response JSON phải dùng envelope thống nhất (ngoại trừ file nhị phân).
+9. Nội dung ví dụ chỉ minh họa schema, không bảo đảm giá, ngày, tuyến, quyền hay hiệu lực bảo hiểm. Backend cần kiểm tra theo dữ liệu và quy định thực tế của chuyến.
+
+**Phạm vi đồng bộ:** Các endpoint Manager xét duyệt thay đổi/hủy, phê duyệt triển khai, đối soát; Specialist thẩm định hồ sơ; Coordinator cập nhật ETA; Driver/Escort bàn giao cần được mô tả tương ứng trong `03`–`06` để luồng end-to-end khớp nhau. Tài liệu này là API Contract, không có nghĩa các endpoint mới đã được triển khai trong code.
