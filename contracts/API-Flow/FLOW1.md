@@ -1,5 +1,7 @@
 # FLOW 01 – API Contract v2.5: Estimate → Transport Request → Draft Contract → OTP → Deposit → Activation
 
+> **Cập nhật MVP 16/10/2026:** cọc cố định 40%; chuẩn bị sàn 2/3/7 ngày theo tuyến/cự ly, Manager được tăng trong kế hoạch; Wizard bắt buộc ảnh + scan passport, không thay thẩm định Flow 2. Database chỉ thêm `CONTRACT.CompletionDeadline`, `CONTRACT.RequestID`, cho `TripID` nullable và thêm index/FK có nhu cầu; không tạo 12 bảng. Version/snapshot/plan/deployment dùng private metadata. Xem [plan 2.0](FLOW1_IMPLEMENTATION_PLAN.md). SQL vẫn là nguồn tiền/trạng thái; metadata và SQL không có một transaction chung. Chi tiết lưu audit/outbox trong các chương cũ là yêu cầu về hành vi/recovery, **không yêu cầu thêm SQL outbox** cho MVP này.
+
 > **SWP391 – Cross-Border Racehorse Transport System**  
 > **Use cases:** `UC-CUST-02`, `UC-CUST-03`, `UC-CUST-08` (phụ thuộc), `UC-CUST-10`, `UC-CUST-11`, `UC-CUST-09`, `UC-LM-01`, `UC-LM-02`, `UC-LM-03` (bổ sung).  
 > **Actors:** `CUSTOMER`, `LOGISTICS_MANAGER`; các API Auth/Master/Horse/Document từ Shared và Customer là phụ thuộc.  
@@ -34,7 +36,7 @@ Trip/Pickup/Delivery + Horse Profiles/required PER_HORSE documents
 
 **QUY TRÌNH CHÍNH THỨC V2.2:** Bỏ hoàn toàn bước **Customer chấp nhận một Quotation chính thức riêng**. Manager đưa **giá chính thức ngay vào Draft Contract**. `GET /manager/requests/{requestId}/quote-suggestion` được giữ như tên endpoint nội bộ hiện có để lấy **gợi ý giá**, không phát hành Quote hoặc bắt Customer accept. `POST /manager/requests/{requestId}/quotes` và `POST /customer/quotes/{quoteId}/accept|reject|request-adjustment` **không nằm trong Flow 1 mới**. Thương lượng/không đồng ý nội dung giá được giải quyết bằng Contract `SIGN_DECLINED` + lý do và Contract Version mới trước ký. Không tự tạo vòng thương lượng tối đa.
 
-**Hồ sơ Customer trước Submit:** hồ sơ nhận dạng, ảnh, hộ chiếu, chứng cứ quyền sở hữu và hồ sơ cơ bản thuộc trách nhiệm Customer của **từng ngựa**, theo checklist của tuyến. Customer không phải upload giấy tờ chung `PER_TRIP` hay giấy ủy quyền cho demo. Thông tin giao nhận gồm pickup contact và receiver. Nếu receiver nhận hộ (`isProxy=true`), **công ty gọi xác nhận và lưu kết quả** trong quy trình giao nhận; không yêu cầu chứng từ ủy quyền giả định. Các thủ tục/hồ sơ chung của Trip do công ty/Specialist chuẩn bị và hoàn thiện trong Flow 2; không bỏ qua yêu cầu hợp pháp do cơ quan có thẩm quyền áp dụng.
+**Hồ sơ Customer trước Submit:** ảnh và scan hộ chiếu của **từng ngựa** cùng basic fields định danh theo schema trong MVP; các yêu cầu pháp lý khác do Flow 2 kiểm tra theo tuyến. Customer không phải upload giấy tờ chung `PER_TRIP` hay giấy ủy quyền cho demo. Thông tin giao nhận gồm pickup contact và receiver. Nếu receiver nhận hộ (`isProxy=true`), **công ty gọi xác nhận và lưu kết quả** trong quy trình giao nhận; không yêu cầu chứng từ ủy quyền giả định. Các thủ tục/hồ sơ chung của Trip do công ty/Specialist chuẩn bị và hoàn thiện trong Flow 2; không bỏ qua yêu cầu hợp pháp do cơ quan có thẩm quyền áp dụng.
 
 **Kết thúc Flow 1:** đủ cọc hợp lệ + đã ký → Contract `EFFECTIVE`, Request `ACTIVATED`, tạo đúng một Trip `PLANNING`. Manager xác nhận deployment mới bàn giao tác vụ chính thức Flow 2/3; không tự coi Trip sẵn sàng khởi hành. Thất bại hợp lệ: `REJECTED` hoặc `CANCELLED`. Không dùng GPS, không xử lý điều phối thực địa trong Flow 1.
 
@@ -47,12 +49,12 @@ Trip/Pickup/Delivery + Horse Profiles/required PER_HORSE documents
 | `F01-BR-03` | Landing và Dashboard đi vào **cùng một Wizard**; login chỉ sau khi khách từ Landing quyết định tiếp tục. Không có Request `DRAFT` trên server. |
 | `F01-BR-04` | Trước Submit phải đủ trip info, pickup/delivery, pickup contact, receiver, Horse đã đăng ký, và hồ sơ Customer `PER_HORSE` bắt buộc theo tuyến. |
 | `F01-BR-05` | **Không** bắt Customer tải hồ sơ chung `PER_TRIP` hay giấy ủy quyền trong demo; `PER_TRIP` công ty làm ở Flow 2. Người nhận hộ cần công ty gọi xác nhận, không tự coi đã xác minh. |
-| `F01-BR-06` | Horse khác chủ không được dùng; Horse `ACTIVE`, không xung đột lịch, mỗi Horse có ảnh/passport/ownership theo checklist; tài liệu `SUBMITTED` chưa Specialist duyệt vẫn được Submit nếu Customer đã nộp đủ. |
+| `F01-BR-06` | Horse khác chủ không được dùng; Horse `ACTIVE`, không xung đột lịch, mỗi Horse có ảnh và scan passport theo checklist MVP; tài liệu `SUBMITTED` chưa Specialist duyệt vẫn được Submit nếu Customer đã nộp đủ. |
 | `F01-BR-07` | Manager xử lý Request `PENDING` bằng `ACCEPT`, `REQUEST_CHANGES`, `REJECT`; `REJECTED` là trạng thái kết thúc, Revision hợp lệ trở lại `PENDING`. |
 | `F01-BR-08` | `ACCEPTED` đi thẳng tới chuẩn bị **Draft Contract** với giá chính thức; **không có** bước Customer accept Quotation chính thức. |
 | `F01-BR-09` | Backend Pricing tính Estimate và giá/chi phí đề xuất; Manager được chỉnh các hạng mục và giá bán trước khi gửi Contract; BE tính lại tổng. |
 | `F01-BR-10` | Có giá sàn theo policy BE; nếu Contract price dưới sàn, Manager phải ghi `priceOverrideReason`, lưu audit; không thêm tầng duyệt thứ hai. |
-| `F01-BR-11` | Manager quyết định `depositPercent` cho từng **Contract Version**; Backend tính `depositAmount`; không mặc định 30%. |
+| `F01-BR-11` | MVP cố định `depositPercent=40` trên mọi Contract Version mới; Manager không đổi tỷ lệ; Backend tính và làm tròn `depositAmount`. |
 | `F01-BR-12` | Contract `DRAFT`/phiên bản mới giữ snapshot `requestVersion`, plan/pricing version, giá, cọc, điều khoản; bản đã gửi/ký không sửa đè. |
 | `F01-BR-13` | Manager chọn một `completionDeadline` khi gửi Contract, dùng chung cho ký OTP và đặt cọc; không mặc định 7 ngày. |
 | `F01-BR-14` | Sau OTP ký thành công BE lưu `SIGNED`, Request → `AWAITING_DEPOSIT`, FE mở trang thanh toán. Quay lại không ký lại nếu Contract vẫn hợp lệ. |
@@ -61,7 +63,7 @@ Trip/Pickup/Delivery + Horse Profiles/required PER_HORSE documents
 | `F01-BR-17` | Chỉ khi Contract `SIGNED` và cọc đã xác minh đủ mới atomic Contract `EFFECTIVE` + Request `ACTIVATED` + một Trip `PLANNING`. |
 | `F01-BR-18` | Customer Change Request chưa được Manager duyệt không ghi đè Request; nếu làm đổi giá/nội dung Contract chưa ký, Manager phát hành Contract Version mới. |
 | `F01-BR-19` | FE dùng `allowedActions`, BE kiểm tra quyền, ownership, status và version; file tư nhân tải bằng Bearer; SignalR chỉ kích hoạt refetch REST. |
-| `F01-BR-20` | Khi Manager phát hành Contract hoặc gia hạn deadline, BE kiểm tra tính khả thi của `effectiveCompletionDeadline` so với `plannedDepartureAt` và thời gian chuẩn bị do kế hoạch/khả năng vận hành đã được xác nhận. Không hardcode số ngày chuẩn bị; không cho hẹn hoàn tất ký/cọc sau thời điểm dự kiến khởi hành mà vẫn coi lịch đó khả thi. |
+| `F01-BR-20` | MVP có chuẩn bị sàn VN→VN <=500km: 2 ngày, >500km: 3 ngày; VN→JP: 7 ngày. Manager được tăng và lưu mức đã chốt trong kế hoạch. Send/gia hạn phải còn đủ thời gian này trước plannedDepartureAt; không hạ mức để lách kiểm tra hoặc tự dời lịch đã ký. |
 | `F01-BR-21` | Khi ký/cọc trễ làm lịch dự kiến không khả thi, hệ thống gắn cảnh báo và giữ deployment chưa được xác nhận hoặc `ON_HOLD` (nếu đã triển khai); **không tự dời ngày, tự hủy Request hoặc tự sửa Contract đã ký**. Manager đề xuất lịch mới, Customer xác nhận; điều chỉnh kế hoạch/Contract theo tình trạng ký và cơ chế có thẩm quyền. |
 | `F01-BR-22` | `hold-deployment` chỉ cho Trip chưa có milestone khởi hành; khi Trip `READY_TO_DEPART` bị hold, BE đánh giá lại và chuyển về `PLANNING`, giữ audit. Trip `IN_TRANSIT`/`COMPLETED` không được đưa về `PLANNING` bằng Flow 1; xử lý tình huống trên đường thuộc Flow 4/5. |
 | `F01-BR-23` | Khi Flow 3 ghi nhận thay đổi lịch xuất phát, lịch bay hoặc ETA, Backend phải đối chiếu **hạn bàn giao theo Contract hiện hành**; nếu ETA dự kiến vượt hạn, tạo cảnh báo cho Logistics Manager ngay khi thay đổi được lưu, không chờ chuyến thực sự trễ. Không tự thay `deliveryDeadline` trong Contract đã ký. |
@@ -69,7 +71,7 @@ Trip/Pickup/Delivery + Horse Profiles/required PER_HORSE documents
 | `F01-BR-25` | Sau Contract `SIGNED/EFFECTIVE`, thay đổi ngày/horses/hạn giao ảnh hưởng thỏa thuận phải theo quy trình thay đổi có xác nhận Customer và Manager, bảo toàn phiên bản hợp đồng. Đây là **phụ thuộc nghiệp vụ cần đặc tả API riêng khi đồng bộ**; không giả định API Change Request trước ký (F01-C11) có thể tự sửa Contract đã ký. |
 | `F01-BR-26` | Cảnh báo vượt hạn bàn giao không tự hủy Request, không tự rút `Documents READY` nếu không có hồ sơ bị ảnh hưởng và không tự đổi TripStatus. Khi mất điều kiện hồ sơ/điều phối trước khởi hành, Backend tổng hợp và đưa `READY_TO_DEPART → PLANNING`; nếu đã `IN_TRANSIT`, sử dụng Flow 4/5. |
 
-**Không tự thiết lập:** công thức Pricing, biểu giá, tiền tệ/FX, VAT, giá sàn tối thiểu cụ thể, tỷ lệ cọc mặc định/giới hạn, hạn cố định, grace period, phạt hủy, lịch nhắc, chính sách làm tròn và thời điểm cuộc gọi xác nhận người nhận hộ. Chúng thuộc cấu hình hoặc quy trình được đội phụ trách duyệt riêng. Ví dụ giá chỉ là dữ liệu minh họa, không phải quy định.
+**Policy MVP đã chốt:** VND, cọc 40%, chuẩn bị sàn 2/3/7 và bảng giá/làm tròn tại plan 2.0. **Ngoài các giá trị đã chốt, không tự thiết lập:** công thức Pricing, biểu giá, tiền tệ/FX, VAT, giá sàn tối thiểu cụ thể, tỷ lệ cọc mặc định/giới hạn, hạn cố định, grace period, phạt hủy, lịch nhắc, chính sách làm tròn và thời điểm cuộc gọi xác nhận người nhận hộ. Chúng thuộc cấu hình hoặc quy trình được đội phụ trách duyệt riêng. Ví dụ giá chỉ là dữ liệu minh họa, không phải quy định.
 
 ## 3. State machine và permission
 
@@ -94,7 +96,7 @@ ContractStatus giữ `DRAFT`, `PENDING_SIGNATURE`, `SIGNED`, `EFFECTIVE`, `SIGN_
 
 `completionDeadline` và `effectiveCompletionDeadline`: hạn chung cho ký và cọc, sau gia hạn bởi Manager có thể có hạn hiệu lực mới; cờ `isCompletionOverdue`/`paymentLocked` là giá trị dẫn xuất. Đã ký + chưa cọc + hết hạn thì chữ ký còn nguyên, payment locked, Request vẫn `AWAITING_DEPOSIT`.
 
-**Thương lượng điều khoản/giá:** Customer từ chối Contract trước khi ký với `reason`, BE lưu `SIGN_DECLINED`. Manager tạo Contract Version mới từ snapshot Request hiện hành, có thể sửa giá/tỷ lệ cọc/điều khoản rồi gửi. Không tạo Quote acceptance, không tự hủy Request vì hợp đồng bị từ chối. Nếu Customer đã ký, mọi thay đổi thuộc chính sách xử lý hợp đồng/hủy có thẩm quyền, không sửa âm thầm.
+**Thương lượng điều khoản/giá:** Customer từ chối Contract trước khi ký với `reason`, BE lưu `SIGN_DECLINED`. Manager tạo Contract Version mới từ snapshot Request hiện hành, có thể sửa giá/điều khoản rồi gửi, giữ cọc 40%. Không tạo Quote acceptance, không tự hủy Request vì hợp đồng bị từ chối. Nếu Customer đã ký, mọi thay đổi thuộc chính sách xử lý hợp đồng/hủy có thẩm quyền, không sửa âm thầm.
 
 ### 3.2. `allowedActions` từ Backend
 
@@ -171,7 +173,7 @@ HTTP thành công `200`/`201`, validate `400`, unauthorized `401`, forbidden `40
   }
 }
 ```
-**Không** trả `depositPercent`/`depositAmount` ở bước Public Estimate; cọc do Manager chọn khi lập Contract. Không có `estimateAccepted`, `quoteId`, `contractId`, `tripId`. Không persist Customer profile từ yêu cầu Public. Không cho FE gửi `estimateAmount` làm dữ liệu giá Contract. `404 PRICE_TABLE_NOT_FOUND` nếu thiếu bảng giá, không tự hiện giá giả; `400` nếu sai route/mode/date/count; rate limiting/bảo vệ endpoint public theo cấu hình an ninh, không tự đặt ngưỡng.
+**Không** trả `depositPercent`/`depositAmount` ở bước Public Estimate; cọc cố định 40% khi lập Contract, không phải nghĩa vụ phải trả ở bước Estimate. Không có `estimateAccepted`, `quoteId`, `contractId`, `tripId`. Không persist Customer profile từ yêu cầu Public. Không cho FE gửi `estimateAmount` làm dữ liệu giá Contract. `404 PRICE_TABLE_NOT_FOUND` nếu thiếu bảng giá, không tự hiện giá giả; `400` nếu sai route/mode/date/count; rate limiting/bảo vệ endpoint public theo cấu hình an ninh, không tự đặt ngưỡng.
 
 ### F01-C01. `GET /customer/estimates/transport-modes` (đã đăng nhập)
 
@@ -602,7 +604,7 @@ Không hiển thị `floorPrice`, `estimatedCost`, margin, budget cho Customer. 
 
 ### F01-M15. `PUT /manager/contracts/{contractId}` – sửa giá/điều khoản trong DRAFT
 
-**Auth:** Manager; chỉ `DRAFT` chưa gửi. Body cho phép `items[]`, `depositPercent`, `included[]`, `excluded[]`, `possibleExtraCosts[]`, `customTerms`, `priceOverrideReason`, `requestVersion`, `preliminaryPlanVersion` (theo snapshot hợp lệ). Không cho FE sửa `totalAmount`, `depositAmount` hoặc `floorPrice` như nguồn xác thực. BE tính lại giá/tỷ lệ cọc, kiểm tra điều kiện giá sàn và lý do ngoại lệ, lập bản PDF khi phát hành. **200:** trả Contract DRAFT hiện hành có tổng/cọc được BE tính; `409 CONTRACT_NOT_EDITABLE`, `409 REQUEST_STATE_CHANGED` nếu stale.
+**Auth:** Manager; chỉ `DRAFT` chưa gửi. Body cho phép `items[]`, `depositPercent` (nếu gửi phải là 40), `included[]`, `excluded[]`, `possibleExtraCosts[]`, `customTerms`, `priceOverrideReason`, `requestVersion`, `preliminaryPlanVersion` (theo snapshot hợp lệ). Không cho FE sửa `totalAmount`, `depositAmount` hoặc `floorPrice` như nguồn xác thực. BE tính lại giá và tiền cọc theo tỷ lệ cố định 40%, kiểm tra điều kiện giá sàn và lý do ngoại lệ, lập bản PDF khi phát hành. **200:** trả Contract DRAFT hiện hành có tổng/cọc được BE tính; `409 CONTRACT_NOT_EDITABLE`, `409 REQUEST_STATE_CHANGED` nếu stale.
 
 ### F01-M16. `POST /manager/contracts/{contractId}/send`
 
@@ -863,14 +865,14 @@ BE kiểm tra `effectiveCompletionDeadline`, điều kiện chưa hoàn tất, c
 1. Request ở `AWAITING_DEPOSIT`, chưa bị hủy/kết thúc; Contract đúng phiên bản đã ký `SIGNED` và gắn Contract Version đã ký.
 2. Tổng số tiền cọc **đã xác minh thực nhận**, sau chống giao dịch trùng, đạt nghĩa vụ tiền cọc của Contract. Giá/tiền tệ đúng ledger; không tin dữ liệu FE.
 3. Nếu có trạng thái chờ xác minh hoặc thông tin quá hạn, xử lý theo kết quả đối soát và guard trước khi quyết định; **không kích hoạt Request đã bị `CANCELLED`**.
-4. Trong một database transaction/atomic unit: cập nhật Contract `EFFECTIVE`, Request `ACTIVATED`, tạo Trip `PLANNING` với **unique** `Trip.requestId`, lưu audit và outbox. Nếu retry callback hoặc confirm bị bấm lại, trả trạng thái hiện hành, **không sinh Trip thứ hai hoặc cộng tiền lần hai**.
+4. Trong một SQL transaction: cập nhật Contract `EFFECTIVE`, Request `ACTIVATED`, tạo Trip `PLANNING` với **unique** `Trip.requestId` và liên kết Contract.TripID. Audit/operation receipt nằm private metadata với prepare/reconciliation; không tuyên bố commit file cùng SQL hoặc thêm SQL outbox. Nếu retry callback hoặc confirm bị bấm lại, trả trạng thái hiện hành, **không sinh Trip thứ hai hoặc cộng tiền lần hai**.
 5. Sau commit phát `PaymentUpdated`, `RequestUpdated`, `TripUpdated`, `NotificationCreated`; FE tải REST nguồn sự thật.
 
 **Kết quả sau kích hoạt:** `TripStatus=PLANNING`, `deployment` chưa được Manager xác nhận. Chưa được đặt `READY_TO_DEPART` hay xem tài liệu chưa duyệt là đủ điều kiện khởi hành. Manager phải xác nhận bước Deployment ở Chương 15 trước khi chính thức bàn giao tác vụ Flow 2/3.
 
 ### 14.1. Trường hợp Customer hoàn tất muộn hoặc lịch không còn khả thi
 
-1. Khi phát hành Contract, Manager chọn `completionDeadline` để còn đủ thời gian chuẩn bị trước `plannedDepartureAt`. Thời gian chuẩn bị là kết quả thẩm định/kế hoạch thực tế, không tự đặt mặc định 3/5/7 ngày.
+1. Khi phát hành Contract, Manager chọn `completionDeadline` để còn đủ thời gian chuẩn bị trước `plannedDepartureAt`. Thời gian chuẩn bị là mức đã chốt trong kế hoạch, không thấp hơn sàn MVP, dùng mức chuẩn bị sàn MVP 2/3/7 ngày theo tuyến/cự ly, Manager được tăng trong kế hoạch.
 2. Chỉ một deadline chung cho ký và đặt cọc. Khi hết hạn, BE không cho khởi tạo thanh toán/chữ ký mới theo quy tắc Chương 13; những giao dịch hợp lệ đã khởi tạo và đến muộn vẫn phải được đối soát, không bỏ tiền thực nhận.
 3. Nếu dự kiến khởi hành đã qua hoặc không còn khả thi tại thời điểm Trip được kích hoạt, Trip vẫn có thể `PLANNING` để xử lý nghiệp vụ tài chính, **nhưng Manager không được confirm deployment khi chưa có lịch khả thi**. Khi cần, ghi `scheduleFeasibility: {feasible:false, requiresCustomerAgreement:true}` là read-model dẫn xuất, **không thêm RequestStatus/TripStatus**.
 4. Manager làm việc với Customer để thống nhất lịch mới; không tự thay ngày trong Contract đã ký. Trước ký, dùng cơ chế Request Change/Contract Version theo Chương 9–11. Sau ký, sự đồng ý thay đổi ngày phải được lưu có bằng chứng và thực hiện qua quy trình sửa đổi hợp đồng phù hợp; tài liệu này **chưa đặc tả API phụ lục hợp đồng sau ký** và không cho phép chỉnh âm thầm chữ ký/PDF.
@@ -1125,8 +1127,8 @@ Không trả `errors: []` khi không có lỗi field; `errors` chỉ xuất hi�
 | F01-T12 | Manager tạo Draft Contract có giá bằng/trên sàn | Không cần `priceOverrideReason`; Backend tính tổng và cọc từ các hạng mục |
 | F01-T13 | Manager tạo Draft Contract dưới sàn không có lý do | `PRICE_OVERRIDE_REASON_REQUIRED` |
 | F01-T14 | Manager tạo Draft Contract dưới sàn có lý do | Thành công, audit `floorPrice`, `totalAmount`, Manager, `priceOverrideReason` |
-| F01-T15 | Manager chọn `depositPercent` theo từng Contract Version | Snapshot hợp đồng và `depositAmount` đúng; không auto-default 30% |
-| F01-T16 | Manager gửi Contract với `completionDeadline` riêng theo phiên bản | Deadline chung ký/cọc do Manager chọn, không default 7 ngày; hết hạn không tự hủy Request |
+| F01-T15 | MVP cố định `depositPercent=40` theo mọi Contract Version mới | Snapshot hợp đồng và `depositAmount` đúng; không auto-default 30% |
+| F01-T16 | Manager gửi Contract với `completionDeadline` riêng theo phiên bản | Deadline chung ký/cọc MVP cố định 40%, không default 7 ngày; hết hạn không tự hủy Request |
 | F01-T17 | Customer từ chối Contract trước ký và Manager lập Contract Version mới | Lưu `SIGN_DECLINED` cùng lý do; version cũ bất biến, chỉ bản mới nhất hợp lệ được ký; không giới hạn vòng trao đổi |
 | F01-T18 | Manager gửi Contract | **Một** `completionDeadline` chung cho ký và cọc; Contract `PENDING_SIGNATURE` |
 | F01-T19 | Customer OTP ký thành công | Contract `SIGNED`, Request `AWAITING_DEPOSIT`; FE chuyển màn hình cọc, không tạo Trip |
@@ -1185,11 +1187,11 @@ Các mục dưới đây **không chặn việc giao thiết kế nghiệp vụ*
 
 | ID | Chủ đề | Cách xử lý trong contract |
 |---|---|---|
-| F01-CONFIG-01 | Bảng giá/tariff VN→VN và VN→JP, phí theo route/mode/horseCount/ngày | Người phụ trách Pricing tự triển khai engine/bảng giá có version; API schema cố định, không hardcode số minh họa |
+| F01-CONFIG-01 | Bảng giá/tariff VN→VN và VN→JP, phí theo route/mode/horseCount/ngày | Dùng định mức MVP và policy version tại plan 2.0; không rải magic number ở controller; thay policy phải version và cập nhật fixture |
 | F01-CONFIG-02 | `floorPrice`, margin/cost policy | BE tính theo chính sách công ty; Manager override khi có `overrideReason`; không chờ phê duyệt ngoại lệ từ role khác |
 | F01-CONFIG-03 | Thuế, phụ phí, quy tắc làm tròn, currency/FX | Dùng chính sách cấu hình và dữ liệu triển khai, không tự lấy mặc định từ ví dụ |
-| F01-CONFIG-04 | Giới hạn đầu vào và lead time | BE lấy cấu hình chính thức, không mặc định 14 ngày từ bản cũ |
-| F01-CONFIG-05 | `depositPercent` | **Manager tự chọn theo mỗi Contract Version**; không mặc định 30%; BE kiểm tra theo quy tắc tài chính được công ty áp dụng |
+| F01-CONFIG-04 | Giới hạn đầu vào và lead time | Dùng sàn 2/3/7 ngày theo tuyến/cự ly đã chốt; Manager được tăng trong plan, không dùng 14 ngày từ bản cũ |
+| F01-CONFIG-05 | `depositPercent` | **MVP cố định 40%**; Manager không đổi; BE tự tính số tiền theo Contract Version |
 | F01-CONFIG-06 | Giá chính thức trong Contract Version | Không có `Quote.validUntil` hay Accept Quote; Contract chứa hạng mục giá (kể cả bảo hiểm), giá tổng và snapshot Pricing; mọi version sau trước ký giữ lịch sử |
 | F01-CONFIG-07 | Contract `completionDeadline` | **Manager tự đặt một deadline chung**, không có hạn ký/hạn chung độc lập; gia hạn phải được Manager ghi nhận |
 | F01-CONFIG-08 | Quá hạn, thông báo và hủy | Khóa thanh toán mới khi hết hạn; hệ thống cảnh báo theo cấu hình; **không tự hủy**; Manager hủy thủ công nếu phù hợp, không áp ngưỡng 3 ngày |
@@ -1213,7 +1215,7 @@ Các mục dưới đây **không chặn việc giao thiết kế nghiệp vụ*
 ### 21.2. Kiểm tra bắt buộc trước merge
 
 1. **Route scope:** mọi JSON và error test chỉ đặt VN→VN/VN→JP; không chấp nhận JP→VN/VN→TH.
-2. **Pricing & Contract:** BE tính Estimate, Pricing Suggestion, floor, `Contract.totalAmount` và `depositAmount`; Manager được override dưới sàn có lý do, chọn `depositPercent` theo **Contract Version** và `completionDeadline` chung khi gửi Contract. **Không có Quote acceptance**.
+2. **Pricing & Contract:** BE tính Estimate, Pricing Suggestion, floor, `Contract.totalAmount` và `depositAmount`; Manager được override dưới sàn có lý do, giữ `depositPercent=40` và chọn `completionDeadline` chung khi gửi Contract. **Không có Quote acceptance**.
 3. **Document:** Submit có đủ hồ sơ Customer, không đòi hồ sơ do công ty phải thực hiện; Specialist xử lý Flow 2 trước khởi hành.
 4. **Contract + Payment:** ký OTP trước, lưu SIGNED khi rời trang; một deadline chung; VNPay hoặc Bank Transfer; quá hạn khóa giao dịch mới/Manager gia hạn; không auto-cancel.
 5. **Activation:** chỉ khi ký + đủ cọc xác minh; BE transaction atomic và `Trip.requestId` unique; Trip mới `PLANNING`.

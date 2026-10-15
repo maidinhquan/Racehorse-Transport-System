@@ -13,7 +13,15 @@ namespace Domain.Entities
 
         [Column("TripID")]
         [StringLength(50)]
-        public string TripId { get; set; } = null!;
+        public string? TripId { get; set; }
+
+        [Column("RequestID")]
+        [StringLength(50)]
+        public string RequestId { get; set; } = null!;
+
+        // UTC. Null for a draft and for legacy contracts without a recorded deadline.
+        [Column("CompletionDeadline", TypeName = "datetime2")]
+        public DateTime? CompletionDeadline { get; set; }
 
         [Column("CustomerID")]
         [StringLength(50)]
@@ -53,6 +61,9 @@ namespace Domain.Entities
         [ForeignKey(nameof(TripId))]
         [InverseProperty(nameof(TripPlan.Contracts))]
         public virtual TripPlan? Trip { get; set; }
+
+        [ForeignKey(nameof(RequestId))]
+        public virtual TransportRequest? Request { get; set; }
 
         [ForeignKey(nameof(CustomerId))]
         [InverseProperty(nameof(Entities.User.CustomerContracts))]

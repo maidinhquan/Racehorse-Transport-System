@@ -31,3 +31,6 @@ backend/appsettings.Local.json
 backend/App_Data/
 backend/WebApi/appsettings.Local.json
 **/TestResults/
+
+# Private Flow 1 metadata, generated contract documents and spike outputs
+backend/WebApi/App_Data/
