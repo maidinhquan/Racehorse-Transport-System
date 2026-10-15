@@ -24,7 +24,8 @@ function LoginPage() {
   const redirectByRole = (role: UserRole) => {
     switch (role) {
       case "CUSTOMER":
-        navigate("/customer/home");
+        navigate((new URLSearchParams(window.location.search).get("returnTo") === "transport-request" || sessionStorage.getItem("flow1-estimate-seed"))
+          ? "/customer/requests/new" : "/customer/home");
         break;
 
       case "LOGISTICS_MANAGER":

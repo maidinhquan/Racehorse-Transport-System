@@ -473,7 +473,7 @@ Frontend dùng frontend/src/shared/api/apiClient.ts và router hiện có. API/t
 
 Sau phase 1 có thể giao adapter Maps/VNPay/PDF cho người phụ trách theo interface. Mỗi task ghi file exact path, input/output, status guards, metadata/SQL boundary và test IDs. Không tự sửa legacy DAO hoặc module đồng đội ngoài hợp đồng bàn giao.
 
-Không triển khai phase 2-6 chỉ vì được yêu cầu phase 1. Báo cáo hiện trạng và kết quả kiểm chứng tại [FLOW1_PHASE1_REPORT.md](FLOW1_PHASE1_REPORT.md).
+Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md) và [phase 2](FLOW1_PHASE2_REPORT.md). Phase 2 đã có Customer API/FE và connected test local, còn thiếu nghiệm thu Maps live/sức chứa xe chuẩn; chưa chuyển phase 3. Payload phase 2 thực tế được ghi trong báo cáo để phân biệt với ví dụ thiết kế ở mục 7.
 
 ## 15. Ma trận kiểm thử và bằng chứng nghiệm thu
 

@@ -15,13 +15,10 @@ import ResetPasswordPage from "../../features/auth/pages/reset-password/ResetPas
 
 // ==================== CUSTOMER ====================
 import HomePage from "../../features/user-dashboard/page/home-page/HomePage";
-import TransportRequestPage from "../../features/user-dashboard/page/transport-request-page/list/TransportRequestPage";
-import CreateTransportRequestPage from "../../features/user-dashboard/page/transport-request-page/create-transport-request/CreateTransportRequestPage";
-import TransportRequestDetailPage from "../../features/user-dashboard/page/transport-request-page/detail/TransportRequestDetailPage";
-import TransportInformationPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationPage";
-import TransportInformationSuccessPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationSuccessPage";
+import { RequestsPage as TransportRequestPage, RequestWizardPage as CreateTransportRequestPage,
+  RequestDetailPage as TransportRequestDetailPage, RequestDetailPage as TransportInformationPage,
+  RequestDetailPage as TransportInformationSuccessPage, HorsesPage as MyHorsesPage, PublicEstimatePage } from "../../features/flow1/CustomerPages";
 
-import MyHorsesPage from "../../features/user-dashboard/page/my-horses/MyHorsesPage";
 import TripTrackingPage from "../../features/user-dashboard/page/trip-tracking/TripTrackingPage";
 import HistoryPage from "../../features/user-dashboard/page/history/HistoryPage";
 import CustomerProfilePage from "../../features/user-dashboard/page/profile/CustomerProfilePage";
@@ -36,7 +33,7 @@ import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage"
 // ==================== ROLE DASHBOARDS ====================
 import AdminDashboard from "../../features/admin/AdminDashboard";
 import DriverDashboard from "../../features/driver/DriverDashboard";
-import ManagerDashboard from "../../features/manager/ManagerDashboard";
+import ManagerDashboard from "../../features/Manager/ManagerDashboard";
 import SpecialistDashboard from "../../features/documents/SpecialistDashboard";
 
 // Import các trang khác của specialist
@@ -46,6 +43,7 @@ function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/estimate" element={<PublicEstimatePage />} />
         {/* ==================== DEFAULT ==================== */}
         <Route
           path="/"

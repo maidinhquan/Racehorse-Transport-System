@@ -1,0 +1,15 @@
+.flow1-page { max-width: 1000px; margin: 0 auto; padding: 28px; color: var(--text-primary, #172b3a); }
+.flow1-page h1 { margin-bottom: 20px; }
+.flow1-page form, .flow1-page fieldset { display: grid; gap: 16px; }
+.flow1-page fieldset { border: 1px solid #9bafbb; border-radius: 8px; padding: 18px; }
+.flow1-page label { display: block; margin: 8px 0; }
+.flow1-page input:not([type=checkbox]), .flow1-page select { display: block; width: 100%; padding: 10px; border: 1px solid #9bafbb; border-radius: 5px; color: inherit; background: var(--bg-secondary, #fff); }
+.flow1-page button { padding: 10px 16px; cursor: pointer; border: 1px solid #54748a; border-radius: 5px; margin: 4px; }
+.flow1-page button:disabled { opacity: .5; cursor: default; }
+.flow1-page [role=alert] { color: #b42318; padding: 12px; background: #fff0ed; border-radius: 5px; }
+.flow1-page .flow1-estimate { padding: 18px; border-left: 4px solid #286059; margin: 18px 0; background: var(--bg-secondary, #eef7f5); }
+.flow1-horse-form { margin-top: 28px; padding: 18px; border: 1px solid #9bafbb; border-radius: 8px; }
+.flow1-actions { display: flex; flex-wrap: wrap; justify-content: space-between; }
+.flow1-page li { margin: 14px 0; }
+.flow1-page dt { font-weight: 600; margin-top: 12px; }
+@media (max-width: 700px) { .flow1-page { padding: 14px; } }
