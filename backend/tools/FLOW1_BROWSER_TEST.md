@@ -35,6 +35,33 @@ This checks the connected Customer stack with fixture maps, not live provider co
 OTP, payment, Manager review or whole-Flow-1 acceptance. Live map configuration must be
 verified separately. The phase-2 report lists the remaining configuration and checks.
 
+## Explicit live-map mode
+
+After local backend keys are configured, use:
+
+```powershell
+$env:RACEHORSE_TEST_SQL_SERVER = '.\SQLEXPRESS'
+$env:FLOW1_BROWSER_MAP_PROVIDER = 'GEOAPIFY'
+$env:FLOW1_BROWSER_LIVE_MAPS = '1'
+dotnet run --project backend/tools/Flow1BrowserHarness -- ABSOLUTE_NODE_EXECUTABLE ABSOLUTE_PLAYWRIGHT_MODULE_DIRECTORY
+```
+
+This mode uses a few real Geoapify and Mapbox requests for public city locations
+(Ho Chi Minh City → Vung Tau). It still creates its own disposable SQL database,
+fictional Customer/horse/passport, private file root and owned API/browser processes.
+There is no business DB migration, real email/SMS, payment or production deployment.
+
+The parent verifies configured providers, key presence and capacity=1 before creating a DB.
+Only the backend process receives real map credentials; Node/browser does not. The API
+uses official HTTPS hosts, Mapbox Permanent=false, Geoapify storage rights and attribution.
+No HTTP fixture listens in live mode, fixture call counts must remain zero, and browser
+provider requests or URLs containing access_token/apiKey fail acceptance. API/browser logs
+are checked for both real credentials without printing their values. Screenshots/result JSON
+remain in ignored App_Data. Marked evidence explicitly distinguishes live maps from test SQL/files.
+
+Unset `FLOW1_BROWSER_LIVE_MAPS` (or set `0`) to return to fixtures. Never claim live provider
+coverage from a default fixture run, or whole Flow 1 E2E from a successful phase-2 run.
+
 Adapter protocol references:
 
 - [OSRM route service](https://project-osrm.org/docs/v5.24.0/api/#route-service)

@@ -10,7 +10,8 @@ const root = process.cwd();
 const base = `http://127.0.0.1:${frontPort}`;
 let vite; let browser;
 const errors = [];
-const mapbox = ['MAPBOX', 'GEOAPIFY'].includes(process.env.FLOW1_BROWSER_MAP_PROVIDER);
+const liveMaps = process.env.FLOW1_BROWSER_LIVE_MAPS === '1';
+const mapbox = liveMaps || ['MAPBOX', 'GEOAPIFY'].includes(process.env.FLOW1_BROWSER_MAP_PROVIDER);
 const calls = { geoSearch: 0, geoReverse: 0, geoRoute: 0, mapboxPreview: 0, forbiddenMapboxData: 0 };
 const fixture = http.createServer((req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${mapPort}`);
@@ -47,7 +48,7 @@ const fixture = http.createServer((req, res) => {
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function ready(url) { for (let i = 0; i < 100; i++) { try { if ((await fetch(url)).ok) return; } catch {} await delay(200); } throw new Error('Local server did not start: ' + url); }
 async function main() {
-  await new Promise(resolve => fixture.listen(Number(mapPort), '127.0.0.1', resolve));
+  if (!liveMaps) await new Promise(resolve => fixture.listen(Number(mapPort), '127.0.0.1', resolve));
   // Independent config: reproducible without committing or depending on user's staged vite.config.ts.
   const config = path.join(output, 'vite.browser.mjs');
   const reactModule = pathToFileURL(path.join(root, 'frontend/node_modules/@vitejs/plugin-react/dist/index.js')).href;
@@ -59,23 +60,35 @@ async function main() {
   const context = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
   await context.addInitScript(token => { localStorage.setItem('accessToken', token); localStorage.setItem('userRole', 'CUSTOMER'); localStorage.setItem('userFullName', 'Browser Demo'); }, process.env.FLOW1_FIXTURE_TOKEN);
   const page = await context.newPage();
+  page.setDefaultTimeout(liveMaps ? 60000 : 30000);
   page.on('pageerror', e => errors.push(e.message));
+  const browserMapRequests = [];
+  page.on('request', request => {
+    // Only retain host/path; never retain query strings or credential headers.
+    const url = new URL(request.url());
+    if (url.hostname === 'api.mapbox.com' || url.hostname === 'api.geoapify.com' ||
+        url.searchParams.has('access_token') || url.searchParams.has('apiKey')) browserMapRequests.push(url.hostname + url.pathname);
+  });
   const departure = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
   const deadline = new Date(Date.now() + 35 * 86400000).toISOString().slice(0, 10);
   await page.goto(base + '/customer/requests/new');
   await page.getByLabel('Ngày khởi hành mong muốn').fill(departure);
   await page.getByLabel('Hạn giao ngựa').fill(deadline);
-  for (const [legend, address] of [['Điểm lấy ngựa (Việt Nam)', 'Điểm lấy demo'], ['Điểm giao ngựa', 'Điểm giao demo']]) {
+  for (const [legend, address] of [['Điểm lấy ngựa (Việt Nam)', liveMaps ? 'Ho Chi Minh City' : 'Điểm lấy demo'], ['Điểm giao ngựa', liveMaps ? 'Vung Tau' : 'Điểm giao demo']]) {
     const group = page.getByRole('group', { name: legend, exact: true });
     await group.getByLabel('Địa chỉ', { exact: true }).fill(address);
     await group.getByRole('button', { name: 'Tìm địa điểm', exact: true }).click();
-    await group.getByRole('button', { name: address + ' (fixture)', exact: true }).click();
+    if (liveMaps) {
+      const candidate = group.locator('ul li button').first(); await candidate.waitFor({ timeout: 25000 }); await candidate.click();
+    } else await group.getByRole('button', { name: address + ' (fixture)', exact: true }).click();
     if (mapbox) {
       await group.getByRole('img', { name: `Bản đồ Mapbox: ${legend}`, exact: true }).waitFor();
       await page.waitForFunction(() => [...document.querySelectorAll('.flow1-map-preview')]
         .every(img => img.complete && img.naturalWidth > 0), null, { timeout: 15000 });
     }
   }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: path.join(output, 'selected-maps.png'), fullPage: true });
   await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
   for (const [legend, name, phone] of [['Người giao ngựa', 'Người giao Demo', '0901234567'], ['Người nhận ngựa', 'Người nhận Demo', '0907654321']]) {
     const group = page.getByRole('group', { name: legend, exact: true });
@@ -111,17 +124,22 @@ async function main() {
   await page.reload(); await page.getByText('Trạng thái: PENDING', { exact: true }).waitFor();
   if (mapbox) {
     await page.getByRole('link', { name: 'Geoapify', exact: true }).waitFor();
-    if (calls.geoSearch < 2 || calls.geoReverse < 2 || calls.geoRoute < 1 || calls.mapboxPreview < 2 || calls.forbiddenMapboxData)
+    if (!liveMaps && (calls.geoSearch < 2 || calls.geoReverse < 2 || calls.geoRoute < 1 || calls.mapboxPreview < 2 || calls.forbiddenMapboxData))
       throw new Error('Hybrid provider boundary failed.');
   }
   await page.screenshot({ path: path.join(output, 'request-reloaded.png'), fullPage: true });
   await page.goto(base + '/customer/requests');
-  await page.getByRole('link', { name: /Điểm lấy demo.*Điểm giao demo/ }).waitFor();
+  if (liveMaps) await page.locator(`a[href="/customer/requests/${saved.requestId}"]`).waitFor();
+  else await page.getByRole('link', { name: /Điểm lấy demo.*Điểm giao demo/ }).waitFor();
   await page.goto(base + '/customer/horses');
   const download = page.waitForEvent('download'); await page.getByRole('button', { name: 'Tải hộ chiếu', exact: true }).click();
   await (await download).saveAs(path.join(output, 'downloaded-passport.pdf'));
   if (errors.length) throw new Error('Browser runtime errors: ' + errors.join('; '));
-  const result = { status: 'PASS', provider: mapbox ? 'LOCAL GEOAPIFY DATA + MAPBOX MAP HTTP FIXTURES - NOT LIVE' : 'LOCAL OSM HTTP FIXTURE - NOT LIVE', requestId: saved.requestId, calls,
+  if (browserMapRequests.length) throw new Error('Browser sent map requests outside our credential-free API boundary.');
+  if (liveMaps && Object.values(calls).some(n => n !== 0)) throw new Error('Live run unexpectedly used a map fixture.');
+  const result = { status: 'PASS', provider: liveMaps ? 'LIVE GEOAPIFY DATA + LIVE MAPBOX MAPS; TEST SQL/FILES/CUSTOMER' : mapbox ? 'LOCAL GEOAPIFY DATA + MAPBOX MAP HTTP FIXTURES - NOT LIVE' : 'LOCAL OSM HTTP FIXTURE - NOT LIVE', requestId: saved.requestId, calls,
+    roadDistanceKm: saved.snapshot.estimate.roadDistanceKm, estimatedPriceVnd: saved.snapshot.estimate.estimatedPrice,
+    browserDirectProviderRequests: browserMapRequests.length,
     mapPreviewChecks: mapbox ? 'both Mapbox preview images loaded through our API, with no token in browser URL' : 'not applicable',
     assertions: ['real multipart horse upload', 'wizard keeps dates/contacts while adding horse', 'server-calculated estimate', 'PENDING before Contract/Trip',
       'proxy receiver not falsely verified', 'detail survives reload', 'list from SQL', 'private authenticated passport download'], pageErrors: errors };

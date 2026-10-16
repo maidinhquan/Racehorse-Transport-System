@@ -17,7 +17,7 @@ Luồng giữ nguyên: Estimate -> Wizard -> PENDING -> Manager Review -> Prelim
 | Cọc | Cố định 40%, BE tính; Manager không thay tỷ lệ |
 | Chuẩn bị | VN->VN <=500km: 2 ngày; >500km: 3 ngày; VN->JP: 7 ngày; Manager chỉ được tăng khi thẩm định |
 | Tuyến/mode | Demo VN->VN/ROAD, VN->JP/AIR và ground legs nếu có |
-| Bản đồ | Tài khoản Mapbox free: Mapbox chỉ hiển thị bản đồ; Geoapify Geocoding/Reverse/Routing cho dữ liệu lưu trong hồ sơ. Sức chứa MVP 1 ngựa/xe do đại ca chốt ngày 16/10/2026. Chờ key Geoapify/nghiệm thu live; không cần Mapbox Permanent |
+| Bản đồ | Tài khoản Mapbox free: Mapbox chỉ hiển thị bản đồ; Geoapify Geocoding/Reverse/Routing cho dữ liệu lưu trong hồ sơ. Sức chứa MVP 1 ngựa/xe do đại ca chốt ngày 16/10/2026. Live smoke và Customer browser với provider thật đã đạt; xem báo cáo phase 2 live |
 | Wizard | Ảnh + scan passport là hai loại file bắt buộc; basic fields vẫn theo schema; không upload Customer PER_TRIP hoặc giấy ủy quyền |
 | PDF/OTP | PDF sinh từ mẫu hiện có, bản phát hành bất biến; OTP gắn đúng khách/Contract/version/hash |
 | Tiền | SQL là nguồn chuẩn cho Invoice/Payment/số thực nhận; không chuyển ledger sang file |
@@ -358,17 +358,19 @@ Tọa độ và ngày trên chỉ minh họa hình dạng payload, không phải
 7. Manager được sửa selling price trong DRAFT; BE tính lại. Dưới floor bắt buộc reason và audit; không thêm tầng duyệt mới.
 8. Customer chỉ nhận selling lines/total; estimated cost, floor, profit và override note là dữ liệu Manager.
 
-Fixture kiểm tra: 300 km, 2 ngựa, 1 xe đủ chỗ, áp dụng đầy đủ phí bảng MVP, không có phụ phí:
+Ví dụ theo policy MVP đã chốt: 300 km, 2 ngựa, sức chứa 1 ngựa/xe nên cần 2 xe,
+áp dụng đầy đủ phí bảng MVP, không có phụ phí. Fixture cũ 2 ngựa/1 xe chỉ dùng kiểm thử
+thuật toán với capacity=2, không phải sức chứa vận hành hiện tại.
 
 ```text
-Road cost       = 300 * 35.000              = 10.500.000
+Road cost       = 300 * 35.000 * 2          = 21.000.000
 Procedure       =                           15.000.000
 Veterinary      =                           10.000.000
 Insurance       = 2 * 5.000.000             = 10.000.000
-EstimatedCost   =                           45.500.000
-Floor           = EstimatedCost * 1.05      = 47.775.000
-Suggested       = EstimatedCost * 1.20      = 54.600.000
-Deposit nếu bán bằng Suggested             = 21.840.000
+EstimatedCost   =                           56.000.000
+Floor           = EstimatedCost * 1.05      = 58.800.000
+Suggested       = EstimatedCost * 1.20      = 67.200.000
+Deposit nếu bán bằng Suggested             = 26.880.000
 ```
 
 Fixture Contract 115.000.000 VND cho khoản cọc 46.000.000 VND. Đây là hai fixture độc lập, không phải một hợp đồng buộc phải có giá đề xuất bằng 115 triệu.
@@ -474,7 +476,7 @@ Frontend dùng frontend/src/shared/api/apiClient.ts và router hiện có. API/t
 
 Sau phase 1 có thể giao adapter Maps/VNPay/PDF cho người phụ trách theo interface. Mỗi task ghi file exact path, input/output, status guards, metadata/SQL boundary và test IDs. Không tự sửa legacy DAO hoặc module đồng đội ngoài hợp đồng bàn giao.
 
-Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md) và [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md). Phase 2 đã có Customer API/FE và connected test local, sức chứa MVP đã chốt 1 ngựa/xe; còn key Geoapify và nghiệm thu Maps live, chưa chuyển phase 3. Payload phase 2 thực tế được ghi trong báo cáo để phân biệt với ví dụ thiết kế ở mục 7.
+Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md) và [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md). **Phase 2 hoàn thành trong phạm vi local/test đã cấp**, gồm live Geoapify/Mapbox và browser Customer nối SQL/file riêng. Lượt lịch tiếp theo bắt đầu phase 3 Manager Review/Preliminary Plan/Quote/Draft; không chờ key hay hỏi lại capacity=1. Payload phase 2 thực tế được ghi trong báo cáo để phân biệt với ví dụ thiết kế ở mục 7.
 
 ## 15. Ma trận kiểm thử và bằng chứng nghiệm thu
 
@@ -492,7 +494,7 @@ Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai
 
 | ID | Tình huống | Kết quả mong đợi |
 |---|---|---|
-| F1-01 | Estimate 300 km/2 ngựa/fixture 1 xe | Cost 45.500.000; suggested 54.600.000; floor 47.775.000 |
+| F1-01 | Estimate 300 km/2 ngựa/capacity=1 → 2 xe | Cost 56.000.000; suggested 67.200.000; floor 58.800.000 |
 | F1-02 | Đúng 500 km / trên 500 km | Mức sàn chuẩn bị 2 / 3 ngày |
 | F1-03 | VN->TH, JP->VN hoặc mode sai | UNSUPPORTED_ROUTE / UNSUPPORTED_TRANSPORT_MODE |
 | F1-04 | Provider lỗi/quota/no route | Lỗi có mã, không dự toán dựa 0 km |

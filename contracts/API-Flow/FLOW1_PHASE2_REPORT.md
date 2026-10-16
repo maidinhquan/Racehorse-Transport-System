@@ -2,8 +2,10 @@
 
 Ngày 16/10/2026, Asia/Ho_Chi_Minh. Baseline: commit phase 1 `aa90791` trên nhánh `Truong`.
 
-**Trạng thái: code và kiểm thử tích hợp local đã đạt; chưa đóng nghiệm thu toàn giai đoạn 2.**
-Chưa nghiệm thu Maps live đầy đủ. Không chuyển giai đoạn 3 chỉ vì mock pass.
+**Trạng thái mới nhất: giai đoạn 2 hoàn thành trong phạm vi local/test được cấp.**
+Đã có key Geoapify, live smoke VN→VN/VN→JP và Chrome Customer nối provider thật → API →
+SQL/private files test riêng. Xem [báo cáo nghiệm thu live](FLOW1_PHASE2_LIVE_REPORT.md).
+Đây là nghiệm thu phase 2; Manager/OTP/thanh toán/handoff toàn Flow 1 vẫn thuộc phase 3–6.
 Đại ca đã cho phép lịch mỗi hai tiếng implement và commit giai đoạn 2–6, chỉ local, không push/deploy.
 
 **Cập nhật mới nhất — tài khoản free:** đại ca đã điền Mapbox token, xác nhận không có Permanent,
@@ -11,7 +13,7 @@ Chưa nghiệm thu Maps live đầy đủ. Không chuyển giai đoạn 3 chỉ 
 `Provider=MAPBOX` (ảnh bản đồ), `DataProvider=GEOAPIFY` (search/reverse/routing được lưu),
 `MayPersistResults=true` cho dữ liệu Geoapify, `Mapbox.PermanentGeocodingEnabled=false`.
 Mapbox Navigation API không dùng làm nguồn lưu km; adapter Directions trả MayPersist=false.
-Chờ **Geoapify.ApiKey và live acceptance**, không còn chờ sức chứa hoặc quyền Mapbox Permanent.
+Geoapify.ApiKey đã được điền local và live acceptance đã đạt; không còn chờ cấu hình Maps.
 Xem [báo cáo thay đổi free Maps](FLOW1_PHASE2_FREE_MAPS_REPORT.md) và
 [cách lấy key/cấu hình](../../backend/tools/FLOW1_MAPBOX_SETUP.md).
 Các số liệu/kiến trúc Mapbox-only bên dưới là baseline lịch sử của commit `1038fc0`.
@@ -144,7 +146,7 @@ npx eslint src/features/flow1 src/app/router/AppRouter.tsx src/features/auth/pag
 - Test doubles HTTP/Maps/FE không được xem là bằng chứng provider live hay full Flow 1 E2E.
 - GitNexus chưa có index repo này; dùng source/diff và test làm kiểm tra ảnh hưởng, không có graph coverage.
 
-## Điều kiện để đóng giai đoạn 2 và lượt tiếp theo
+## Điều kiện đóng giai đoạn 2 — đã đạt; bước tiếp theo
 
 `appsettings.Local.example.json` đã có keys nhưng cố ý không bật public demo endpoint hoặc
 điền sức chứa xe tùy đoán:
@@ -157,10 +159,9 @@ npx eslint src/features/flow1 src/app/router/AppRouter.tsx src/features/auth/pag
 6. Chạy smoke VN→VN + xác minh country VN→JP với Geoapify thật và preview Mapbox, kiểm tra lỗi/quota/quyền lưu,
    và ghi evidence. Không dùng HTTP fixture để tick mục này.
 
-Đại ca đã đồng ý cấu hình free kết hợp Geoapify/Mapbox. Lượt lịch tiếp theo đọc báo cáo này
-và báo cáo free Maps, kiểm tra key Geoapify mới và live evidence; không hỏi lại sức chứa hoặc
-yêu cầu Mapbox Permanent. Nếu key vẫn thiếu thì giữ nguyên trạng thái giai đoạn 2,
-không lặp sửa/commit rỗng, không chuyển phase 3.
+Đại ca đã đồng ý cấu hình free kết hợp Geoapify/Mapbox và đã điền key. Tất cả điều kiện trên
+đã có evidence trong báo cáo live. **Lượt lịch tiếp theo bắt đầu phase 3**, không lặp chờ
+Geoapify key hoặc yêu cầu Mapbox Permanent/sức chứa xe. Không tự pause lịch: Flow 1 chưa hoàn tất.
 Các phần đã kiểm chứng được commit local; không push, deploy, thay hạ tầng hoặc gửi email thật.
 
 Bàn giao metadata cho phase 3: mỗi revision của `request/{id}` hiện chứa **RequestSnapshot đầy đủ**,

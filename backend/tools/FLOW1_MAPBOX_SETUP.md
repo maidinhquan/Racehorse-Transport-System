@@ -99,6 +99,10 @@ sàn 2/3 ngày và preview Mapbox tải được. VN→JP xác minh cả hai qu�
 airport-to-airport; không gọi routing xuyên biển. Ghi evidence private, không có token/raw URL.
 Không seed/áp migration DB nghiệp vụ. Key thiếu/lỗi không được thay bằng dữ liệu fixture để đóng phase 2.
 
+Ngày 16/10/2026 đã nghiệm thu bằng key local thật: Geoapify road ngắn/dài, country VN/JP và
+Mapbox preview; Customer Chrome đã submit/reload trên DB test với provider thật.
+Evidence và giới hạn tại [báo cáo live phase 2](../../contracts/API-Flow/FLOW1_PHASE2_LIVE_REPORT.md).
+
 Công cụ smoke độc lập, chạy từ repo root (không mở SQL/mail/payment):
 
 ```powershell

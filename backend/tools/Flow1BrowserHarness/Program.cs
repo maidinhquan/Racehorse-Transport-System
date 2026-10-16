@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
 using Application.Services;
+using Application.Common.Flow1;
 using Domain.Entities;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -11,6 +12,21 @@ using Microsoft.Extensions.Configuration;
 if (args.Length != 2) throw new ArgumentException("Arguments: absolute Node executable, absolute Playwright module directory.");
 var repository = Directory.GetCurrentDirectory();
 if (!File.Exists(Path.Combine(repository, "backend/Backend.slnx"))) throw new InvalidOperationException("Run from repository root.");
+// Explicit opt-in for bounded real map requests; all SQL/files/accounts remain test-only.
+var liveMaps = Environment.GetEnvironmentVariable("FLOW1_BROWSER_LIVE_MAPS") == "1";
+Flow1MapOptions? liveOptions = null;
+if (liveMaps)
+{
+    var liveConfig = new ConfigurationBuilder().SetBasePath(Path.Combine(repository, "backend/WebApi"))
+        .AddJsonFile("appsettings.json").AddJsonFile("appsettings.Development.json", optional: true)
+        .AddJsonFile("appsettings.Local.json", optional: true).AddEnvironmentVariables().Build();
+    liveOptions = liveConfig.GetSection("Flow1:Maps").Get<Flow1MapOptions>();
+    if (liveOptions is null || liveOptions.Provider != "MAPBOX" || liveOptions.DataProvider != "GEOAPIFY" ||
+        !liveOptions.MayPersistResults || string.IsNullOrWhiteSpace(liveOptions.Geoapify.ApiKey) ||
+        string.IsNullOrWhiteSpace(liveOptions.Mapbox.AccessToken) ||
+        liveConfig.GetValue<int?>("Flow1:Estimate:StandardVehicleCapacityStalls") != 1)
+        throw new InvalidOperationException("Live maps require configured Geoapify data, Mapbox preview and the approved capacity=1 policy.");
+}
 var server = Environment.GetEnvironmentVariable("RACEHORSE_TEST_SQL_SERVER") ?? "";
 if (!new[] { ".", "localhost", Environment.MachineName, "(localdb)" }.Contains(server.Split('\\')[0], StringComparer.OrdinalIgnoreCase))
     throw new InvalidOperationException("Set RACEHORSE_TEST_SQL_SERVER to a local SQL instance.");
@@ -53,6 +69,16 @@ try
         ["Flow1__Maps__Attribution"] = "LOCAL HTTP FIXTURE - NOT LIVE MAP DATA", ["Flow1__Estimate__StandardVehicleCapacityStalls"] = "1",
         ["Flow1__Storage__MetadataRoot"] = Path.Combine(output, "metadata") };
     foreach (var pair in env) apiInfo.Environment[pair.Key] = pair.Value;
+    if (liveOptions is not null)
+    {
+        // Real keys stay in the backend process. Never pass them to Node/browser/output.
+        apiInfo.Environment["Flow1__Maps__Provider"] = "MAPBOX";
+        apiInfo.Environment["Flow1__Maps__DataProvider"] = "GEOAPIFY";
+        apiInfo.Environment["Flow1__Maps__Geoapify__ApiKey"] = liveOptions.Geoapify.ApiKey;
+        apiInfo.Environment["Flow1__Maps__Geoapify__ApiBaseUrl"] = "https://api.geoapify.com/";
+        apiInfo.Environment["Flow1__Maps__Mapbox__AccessToken"] = liveOptions.Mapbox.AccessToken;
+        apiInfo.Environment["Flow1__Maps__Mapbox__ApiBaseUrl"] = "https://api.mapbox.com/";
+    }
     log = new StreamWriter(Path.Combine(output, "api.log")) { AutoFlush = true };
     api = Process.Start(apiInfo) ?? throw new InvalidOperationException("Could not launch local API.");
     api.OutputDataReceived += (_, e) => { if (e.Data is not null) lock (log) log.WriteLine(e.Data); };
@@ -62,6 +88,9 @@ try
     nodeInfo.ArgumentList.Add(Path.Combine(repository, "backend/tools/flow1-browser.cjs"));
     foreach (var arg in new[] { args[1], apiPort.ToString(), mapPort.ToString(), frontPort.ToString(), output }) nodeInfo.ArgumentList.Add(arg);
     nodeInfo.Environment["FLOW1_FIXTURE_TOKEN"] = token;
+    nodeInfo.Environment["FLOW1_BROWSER_LIVE_MAPS"] = liveMaps ? "1" : "0";
+    foreach (var key in nodeInfo.Environment.Keys.Where(k => k.StartsWith("Flow1__Maps__", StringComparison.OrdinalIgnoreCase)).ToArray())
+        nodeInfo.Environment.Remove(key);
     using var node = Process.Start(nodeInfo) ?? throw new InvalidOperationException("Could not start browser runner.");
     var stdout = node.StandardOutput.ReadToEndAsync(); var stderr = node.StandardError.ReadToEndAsync();
     using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(4));
@@ -76,6 +105,9 @@ try
     var apiLog = await apiLogReader.ReadToEndAsync();
     if (apiLog.Contains("pk.flow1_fixture_not_live") || apiLog.Contains("geoapify_flow1_fixture_not_live"))
         throw new InvalidOperationException("A fixture map credential leaked into API logs.");
+    if (liveOptions is not null && (apiLog.Contains(liveOptions.Mapbox.AccessToken) || apiLog.Contains(liveOptions.Geoapify.ApiKey) ||
+        nodeLog.Contains(liveOptions.Mapbox.AccessToken) || nodeLog.Contains(liveOptions.Geoapify.ApiKey)))
+        throw new InvalidOperationException("A map credential leaked into a test log.");
     await Sql(connection, "IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST) <> 1 OR (SELECT COUNT(*) FROM HORSE) <> 1 OR EXISTS(SELECT 1 FROM CONTRACT) OR EXISTS(SELECT 1 FROM TRIP_PLAN) THROW 51030, 'Browser acceptance SQL invariant failed.', 1;");
     Console.WriteLine("PASS: real Chromium → frontend → API → SQL/private files; PENDING request, no Contract/Trip.");
     Console.WriteLine("Evidence: " + output);

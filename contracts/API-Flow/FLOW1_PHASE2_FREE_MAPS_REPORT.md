@@ -2,6 +2,11 @@
 
 Ngày 16/10/2026, Asia/Ho_Chi_Minh. Commit trước lượt này: `1038fc03841711773101ed02dbc8a914a02fafa2`.
 
+**Cập nhật sau commit `9aa4ed6`:** đại ca đã điền Geoapify key; live smoke và Customer browser
+với cả provider thật đã đạt, phase 2 đã đóng trong phạm vi local/test. Xem
+[báo cáo live](FLOW1_PHASE2_LIVE_REPORT.md). Các trạng thái chờ key bên dưới là snapshot
+lịch sử tại commit triển khai adapter, không phải blocker hiện hành.
+
 ## Quyết định và phạm vi
 
 Đại ca đã điền Mapbox token, xác nhận tài khoản free không có Permanent và đồng ý tách nguồn
@@ -84,17 +89,15 @@ dotnet run --project backend/tools/Flow1MapsSmoke -- --preview-only
   Mapbox preview PASS; Geoapify NOT_CONFIGURED; tổng **PARTIAL**, tool trả nonzero đúng dự kiến.
   PNG SHA-256 `cc7bbfffd0de8348806083560faf100ca7fcf0ec998430412b486b6620749bf1`.
 
-## Còn lại và lượt tiếp theo
+## Trạng thái tại commit 9aa4ed6 — đã được giải quyết ở lượt live
 
 **Phase 2 chưa đóng:** Geoapify key còn rỗng tại thời điểm triển khai; search/reverse/routing
 Geoapify thật và connected flow với live data chưa được xác minh. HTTP fixtures chỉ chứng minh
 luồng ứng dụng và protocol; không thay nghiệm thu chất lượng/coverage/quota của provider.
 
-Đại ca cần tạo project Free tại https://myprojects.geoapify.com/, lấy API Keys và điền vào
-`backend/WebApi/appsettings.Local.json` → `Flow1.Maps.Geoapify.ApiKey`, không gửi key vào chat.
-Lượt tiếp theo chỉ kiểm tra **sự hiện diện key** kín đáo, chạy live smoke khi có, tiếp tục
-acceptance phase 2 trên DB test riêng. Không yêu cầu lại Mapbox Permanent hay sức chứa xe.
-Nếu key chưa có, không lặp sửa/commit rỗng, không chuyển phase 3 và không đánh dấu toàn flow hoàn tất.
+Đại ca đã thực hiện bước lấy/điền key và lượt live đã nghiệm thu trên DB test riêng.
+**Lượt lịch tiếp theo triển khai phase 3**, giữ capacity=1, không yêu cầu lại Mapbox Permanent
+hoặc key Geoapify. Toàn Flow 1 vẫn chưa hoàn tất; không pause lịch.
 
 Chỉ commit code/docs đã kiểm chứng; không commit credentials/runtime/PNG/generated PDF,
 không push/deploy hoặc mở PR. Quy tắc SQL/file recovery của phase 4/5 vẫn giữ nguyên.
