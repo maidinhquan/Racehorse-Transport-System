@@ -19,6 +19,7 @@ const deadlines = process.env.FLOW1_BROWSER_DEADLINES === '1';
 const bank = process.env.FLOW1_BROWSER_BANK === '1';
 const gateway = process.env.FLOW1_BROWSER_GATEWAY === '1';
 const deployment = process.env.FLOW1_BROWSER_DEPLOYMENT === '1';
+const cancellation = process.env.FLOW1_BROWSER_CANCELLATION === '1';
 // A RAM-only, non-forwarding SMTP sink. No message, code, request body or trace is written to disk.
 let deliveredCode = ''; const smtpSockets = new Set(); const sensitiveValues = new Set();
 const smtp = require('node:net').createServer(socket => {
@@ -375,7 +376,7 @@ async function reviewFlow(browser, customer, id) {
     await manager.screenshot({ path: path.join(output, 'manager-published-contract.png'), fullPage: true });
     fs.writeFileSync(path.join(output, 'publication-result.json'), JSON.stringify({ ...issued, downloadedSha256: hash, converter: 'REAL LIBREOFFICE' }, null, 2));
     if (signing) {
-      if (bank) { console.log('Waiting for a fresh owner window before OTP and receipt reload.'); await delay(60000); }
+      if (bank || cancellation) { console.log('Waiting for a fresh owner window before OTP and receipt reload.'); await delay(60000); }
       await customer.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).click();
       await customer.getByLabel('Tôi đã đọc và đồng ý với đúng bản PDF này').check();
       const [otpReply] = await Promise.all([customer.waitForResponse(r => r.url().endsWith('/otp')),
@@ -434,6 +435,57 @@ async function reviewFlow(browser, customer, id) {
       await customer.screenshot({ path: path.join(output, 'customer-confirmed-contract.png'), fullPage: true });
       await manager.screenshot({ path: path.join(output, 'manager-confirmed-contract.png'), fullPage: true });
       fs.writeFileSync(path.join(output, 'acceptance-result.json'), JSON.stringify({ ...acceptance, originalPdfSha256: signedHash, smtp: 'LOOPBACK RAM SINK, NOT LIVE DELIVERY' }, null, 2));
+      if (cancellation) {
+        console.log('Waiting for a fresh owner window before Customer cancellation request/review.'); await delay(60000);
+        diagnosticPage = customer; await customer.goto(base + `/customer/requests/${id}/payment`);
+        await customer.getByRole('heading', { name: 'Thanh toán cọc 40%', exact: true }).waitFor();
+        const open = async p => {
+          const summary = p.locator('summary').filter({ hasText: /^Yêu cầu hủy sau ký$/ });
+          if (await summary.locator('..').getAttribute('open') === null) await summary.click();
+          const response = p.waitForResponse(r => r.url().endsWith('/cancellation-requests') && r.request().method() === 'GET');
+          await p.getByRole('button', { name: 'Tải yêu cầu hủy và số tiền mới nhất', exact: true }).click();
+          if (!(await response).ok()) throw new Error('Cancellation history read failed.');
+        };
+        const request = async reason => {
+          await open(customer); await customer.getByLabel('Lý do đề nghị hủy', { exact: true }).fill(reason);
+          const response = customer.waitForResponse(r => r.url().endsWith('/cancellation-requests') && r.request().method() === 'POST');
+          await customer.getByRole('button', { name: 'Gửi đề nghị hủy để quản lý xét duyệt', exact: true }).click();
+          if (!(await response).ok()) throw new Error('Cancellation request failed.');
+          await customer.getByText(/Đang chờ quản lý xét duyệt/).waitFor();
+          await customer.getByRole('button', { name: 'Gửi chứng từ để xác minh', exact: true }).waitFor({ state: 'hidden' });
+        };
+        await request('Browser cancellation: request one');
+        diagnosticPage = manager; await open(manager);
+        await manager.getByLabel('Lý do quyết định hủy (khách xem được)', { exact: true }).fill('Browser decision: continue agreed service');
+        const rejected = manager.waitForResponse(r => r.url().endsWith('/reject') && r.request().method() === 'POST');
+        await manager.getByRole('button', { name: 'Từ chối yêu cầu hủy sau ký', exact: true }).click();
+        if (!(await rejected).ok()) throw new Error('Cancellation rejection failed.');
+        diagnosticPage = customer; await open(customer);
+        await customer.getByText(/REJECTED · Browser cancellation: request one/).waitFor();
+        await customer.getByRole('button', { name: 'Gửi chứng từ để xác minh', exact: true }).waitFor();
+        await request('Browser cancellation: request two');
+        diagnosticPage = manager; await open(manager);
+        await manager.getByLabel('Lý do quyết định hủy (khách xem được)', { exact: true }).fill('Browser decision: approved after all-channel zero-money reconciliation');
+        await manager.getByLabel('Đã đối soát không có tiền và không còn giao dịch chờ', { exact: true }).check();
+        const approved = manager.waitForResponse(r => r.url().endsWith('/approve') && r.request().method() === 'POST');
+        await manager.getByRole('button', { name: 'Duyệt yêu cầu hủy sau ký', exact: true }).click();
+        if (!(await approved).ok()) throw new Error('Cancellation approval failed.');
+        await manager.screenshot({ path: path.join(output, 'manager-cancellation-approved.png'), fullPage: true });
+        diagnosticPage = customer; await customer.reload(); await open(customer);
+        await customer.getByText(/APPROVED · Browser cancellation: request two/).waitFor();
+        if (await customer.getByRole('button', { name: 'Gửi chứng từ để xác minh', exact: true }).count()) throw new Error('Cancelled request reopened payment.');
+        await customer.screenshot({ path: path.join(output, 'customer-cancellation-approved.png'), fullPage: true });
+        console.log('Waiting for a fresh owner window before cancelled-contract PDF/receipt reload.'); await delay(60000);
+        await customer.goto(base + `/customer/requests/${id}/contract`); await customer.getByText('Trạng thái: CANCELLED', { exact: true }).waitFor();
+        await customer.getByText(/Đã xác nhận bằng OTP email lúc/).waitFor();
+        await customer.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).click();
+        const download = customer.waitForEvent('download'); await customer.getByRole('link', { name: 'Tải đúng bản PDF này', exact: true }).click();
+        const file = path.join(output, 'original-pdf-after-cancellation.pdf'); await (await download).saveAs(file);
+        if (require('node:crypto').createHash('sha256').update(fs.readFileSync(file)).digest('hex') !== hash) throw new Error('Cancellation changed signed PDF bytes.');
+        fs.writeFileSync(path.join(output, 'cancellation-result.json'), JSON.stringify({ customerRequests: 2, managerDecisions: ['REJECTED', 'APPROVED'],
+          pendingBlocksNewPayments: true, rejectionReopensPayment: true, requestStatus: 'CANCELLED', signatureAndOriginalPdfPreserved: true,
+          originalPdfSha256: hash, verifiedAmount: 0, tripCount: 0, invoiceCount: 1 }, null, 2));
+      }
       if (bank) {
         console.log('Waiting for a fresh owner window before bank proof acceptance.'); await delay(60000);
         await customer.goto(base + `/customer/requests/${id}/payment`);
@@ -565,6 +617,7 @@ async function reviewFlow(browser, customer, id) {
         : 'AWAITING_CONTRACT survives reload; unsigned, no Invoice/Trip'] : []),
     ...(lifecycle ? ['Customer declines / Manager reissues new Draft / historical PDF retained / replacement PDF signed with one invoice'] : []),
     ...(deadlines ? ['legacy Contract route loads real API / extend before signing / sign uses effective deadline / extend after signing preserves receipt and updates invoice due'] : []),
+    ...(cancellation ? ['Customer requests cancellation / Manager rejects and payment reopens / second request approved after zero-money reconciliation / signed PDF and receipt retained / no Trip'] : []),
     ...(bank ? ['private bank proofs count zero until verified / actual partial receipts / exactly-one activation Trip'] : []),
     ...(gateway ? ['local signed gateway IPN fixture commits once / retry deduped / Return reads SQL only / live VNPay NOT tested'] : []),
     ...(deployment ? ['Manager confirm / hold blocks downstream write / resume requires reconfirmation / Coordinator and Specialist acknowledge current handoff and download frozen documents'] : [])];

@@ -129,6 +129,7 @@ signature comparison; kế thừa cách canonical/sign của module cũ
 4. Chưa có production bank reconciliation, refund execution, load testing hoặc
    operational backup verification. Financial-review acknowledgement không
    thay thế xác nhận tiền/hoàn tiền thực tế.
-5. Nhánh Customer gửi yêu cầu hủy sau ký → Manager duyệt/từ chối của mục 7/F1-51
-   cần increment tiếp trong chính lượt này. Core hiện có Manager overdue cancel;
-   không coi hai use case là tương đương hoặc đánh dấu toàn Flow 1 hoàn tất.
+5. Nhánh Customer gửi yêu cầu hủy sau ký → Manager duyệt/từ chối đã được bổ sung
+   sau core commit 109c77f; xem [báo cáo riêng](FLOW1_PHASE5_CANCELLATION_REPORT.md).
+   Đây là use case riêng với Manager overdue cancel. Số test/evidence trong báo cáo
+   này là checkpoint core; báo cáo cancellation ghi checkpoint mới nhất.

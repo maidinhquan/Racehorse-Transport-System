@@ -51,10 +51,12 @@ public sealed partial class DepositPaymentService
             if (Replay(x, key, hash, actor))
             {
                 var old = x.Events.Single(e => e.Key == key); var session = sessions.Single(s => s.PaymentId == old.PaymentId);
-                Require(session.ExpiresAtUtc > clock.GetUtcNow() && x.Payments.Single(p => p.PaymentId == old.PaymentId).Status == "PENDING_GATEWAY",
+                Require(!x.CancellationRequested && x.Contract.ContractStatus == "SIGNED" && x.Request.Status == "AWAITING_DEPOSIT" &&
+                    x.Invoice.PaidAmount < x.Invoice.TotalPayableAmount && clock.GetUtcNow() < x.Deadline.Effective &&
+                    session.ExpiresAtUtc > clock.GetUtcNow() && x.Payments.Single(p => p.PaymentId == old.PaymentId).Status == "PENDING_GATEWAY",
                     "GATEWAY_SESSION_CLOSED", "Session is closed; reload payment status before creating another."); return session;
             }
-            Require(x.Current && x.Contract.ContractStatus == "SIGNED" && x.Request.Status == "AWAITING_DEPOSIT" && x.Activation is null &&
+            Require(x.Current && !x.CancellationRequested && x.Contract.ContractStatus == "SIGNED" && x.Request.Status == "AWAITING_DEPOSIT" && x.Activation is null &&
                 x.Invoice.PaidAmount < x.Invoice.TotalPayableAmount && clock.GetUtcNow() < x.Deadline.Effective,
                 "PAYMENT_CLOSED", "Contract is not open for a new gateway session.");
             var active = sessions.LastOrDefault(s => s.ExpiresAtUtc > clock.GetUtcNow() && x.Payments.Any(p => p.PaymentId == s.PaymentId && p.Status == "PENDING_GATEWAY"));
@@ -150,6 +152,7 @@ public sealed partial class DepositPaymentService
                 clock.GetUtcNow() >= x.Deadline.Effective && input.ExpectedDeadlineVersion == x.Deadline.Version,
                 "CANCEL_CLOSED", "Only a current overdue signed contract awaiting deposit can be cancelled.");
             Require(x.Invoice.PaidAmount == 0, "FINANCIAL_REVIEW_REQUIRED", "Verified money exists; manual financial review is required before cancellation.");
+            Require(!x.CancellationRequested, "CANCELLATION_REQUEST_PENDING", "Review the customer's pending cancellation request instead.");
             Require(!x.Payments.Any(p => p.Status is "PENDING_CONFIRMATION" or "PENDING_GATEWAY"), "PAYMENT_PENDING", "Resolve every pending proof/gateway transaction before cancellation.");
             x.Request.Status = "CANCELLED"; // Preserve signed contract, immutable PDF, invoice and all receipts.
             await state.AppendAsync("financial-review", id, doc?.Revisions.Count ?? 0, "cancel-" + key, actor, "OVERDUE_CANCELLED",

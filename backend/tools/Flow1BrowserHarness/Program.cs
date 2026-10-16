@@ -25,6 +25,9 @@ var deadlines = Environment.GetEnvironmentVariable("FLOW1_BROWSER_DEADLINES") ==
 var bank = Environment.GetEnvironmentVariable("FLOW1_BROWSER_BANK") == "1";
 var gateway = Environment.GetEnvironmentVariable("FLOW1_BROWSER_GATEWAY") == "1";
 var deployment = Environment.GetEnvironmentVariable("FLOW1_BROWSER_DEPLOYMENT") == "1";
+var cancellation = Environment.GetEnvironmentVariable("FLOW1_BROWSER_CANCELLATION") == "1";
+if (cancellation && (!signing || bank || lifecycle || deadlines || Environment.GetEnvironmentVariable("FLOW1_BROWSER_IMPORT") == "1"))
+    throw new InvalidOperationException("Cancellation acceptance requires native signing, separate from other acceptance modes.");
 if ((gateway || deployment) && !bank) throw new InvalidOperationException("Gateway/deployment acceptance requires the native bank signing setup.");
 if (bank && (!signing || Environment.GetEnvironmentVariable("FLOW1_BROWSER_IMPORT") == "1" || lifecycle || deadlines))
     throw new InvalidOperationException("Bank acceptance requires native signing, separate from legacy import/lifecycle/deadline modes.");
@@ -150,7 +153,7 @@ try
         nodeInfo.Environment.Remove(key);
     using var node = Process.Start(nodeInfo) ?? throw new InvalidOperationException("Could not start browser runner.");
     var stdout = node.StandardOutput.ReadToEndAsync(); var stderr = node.StandardError.ReadToEndAsync();
-    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(deployment ? 10 : bank ? 8 : lifecycle || deadlines ? 7 : phase4 ? 5 : 4));
+    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(deployment ? 10 : bank || cancellation ? 8 : lifecycle || deadlines ? 7 : phase4 ? 5 : 4));
     try { await node.WaitForExitAsync(timeout.Token); }
     finally { if (!node.HasExited) node.Kill(entireProcessTree: true); }
     var nodeLog = await stdout + "\n" + await stderr;
@@ -170,7 +173,7 @@ try
     await Sql(connection, bank
         ? $"IF (SELECT COUNT(*) FROM CONTRACT)<>2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='EFFECTIVE' AND SignedAt IS NOT NULL AND TripID IS NOT NULL)<>1 OR (SELECT COUNT(*) FROM INVOICE WHERE TotalPayableAmount=40000000 AND PaidAmount=40000000 AND PaymentStatus='PAID')<>1 OR (SELECT COUNT(*) FROM PAYMENT WHERE Amount>0 AND Status='SUCCESS' AND Method='BANK_TRANSFER' AND CurrencyCode='VND')<>{(gateway ? 1 : 2)} OR (SELECT COUNT(*) FROM TRIP_PLAN WHERE Status='PLANNING')<>1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='ACTIVATED') THROW 51039,'Bank payment/activation SQL invariant failed.',1;"
         : signing
-        ? $"IF (SELECT COUNT(*) FROM CONTRACT) <> {(lifecycle ? 3 : 2)} OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SIGNED' AND CompletionDeadline IS NOT NULL AND SignedAt IS NOT NULL AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM INVOICE WHERE InvoiceType='DEPOSIT' AND CurrencyCode='VND' AND TotalPayableAmount=40000000 AND PaidAmount=0 AND PaymentStatus='UNPAID') <> 1 OR (SELECT COUNT(*) FROM INVOICE) <> 1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='AWAITING_DEPOSIT') THROW 51033, 'Phase 4 acceptance/invoice invariant failed.', 1;"
+        ? $"IF (SELECT COUNT(*) FROM CONTRACT) <> {(lifecycle ? 3 : 2)} OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SIGNED' AND CompletionDeadline IS NOT NULL AND SignedAt IS NOT NULL AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM INVOICE WHERE InvoiceType='DEPOSIT' AND CurrencyCode='VND' AND TotalPayableAmount=40000000 AND PaidAmount=0 AND PaymentStatus='UNPAID') <> 1 OR (SELECT COUNT(*) FROM INVOICE) <> 1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='{(cancellation ? "CANCELLED" : "AWAITING_DEPOSIT")}') THROW 51033, 'Phase 4 acceptance/invoice invariant failed.', 1;"
         : phase4
         ? "IF (SELECT COUNT(*) FROM CONTRACT) <> 2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='PENDING_SIGNATURE' AND CompletionDeadline IS NOT NULL AND SignedAt IS NULL AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SUPERSEDED') <> 1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='AWAITING_CONTRACT') THROW 51032, 'Phase 4 PDF publication invariant failed.', 1;"
         : phase3
@@ -180,6 +183,7 @@ try
     if (signing) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus IN ('SIGNED','EFFECTIVE') AND JSON_VALUE(Flow1StateJson,'$.documents.acceptance.revisions[0].payload.operation.outcome')='COMMITTED') OR NOT EXISTS(SELECT 1 FROM [USER] WHERE UserID='browser-owner' AND Flow1StateVersion > 0 AND JSON_QUERY(Flow1StateJson,'$.documents.\"otp-account\"') IS NOT NULL) THROW 51035, 'SQL confirmation/account budget state missing.', 1;");
     if (lifecycle) await Sql(connection, "IF (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SIGN_DECLINED' AND SignedAt IS NULL AND TripID IS NULL AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[0].payload.action')='DECLINED' AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[1].payload.action')='REISSUED' AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[1].payload.replacementContractId') IN (SELECT ContractID FROM CONTRACT WHERE ContractStatus='SIGNED')) <> 1 THROW 51037,'Lifecycle closing/reissue SQL evidence failed.',1;");
     if (deadlines) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT c JOIN INVOICE i ON i.ContractID=c.ContractID WHERE c.ContractStatus='SIGNED' AND JSON_VALUE(c.Flow1StateJson,'$.documents.acceptance.revisions[0].payload.operation.evidence.deadlineVersion')='1' AND JSON_VALUE(c.Flow1StateJson,'$.documents.extensions.revisions[1].payload.extensionVersion')='2' AND i.DueDate=CONVERT(datetime,SWITCHOFFSET(TRY_CONVERT(datetimeoffset,JSON_VALUE(c.Flow1StateJson,'$.documents.extensions.revisions[1].payload.newDeadline')),'+00:00')) AND c.CompletionDeadline=CONVERT(datetime2,SWITCHOFFSET(TRY_CONVERT(datetimeoffset,JSON_VALUE(c.Flow1StateJson,'$.documents.extensions.revisions[0].payload.originalDeadline')),'+00:00'))) THROW 51038,'Extension/signature/invoice SQL invariant failed.',1;");
+    if (cancellation) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus='SIGNED' AND JSON_VALUE(Flow1StateJson,'$.documents.cancellation.revisions[1].payload.status')='REJECTED' AND JSON_VALUE(Flow1StateJson,'$.documents.cancellation.revisions[3].payload.status')='APPROVED') OR EXISTS(SELECT 1 FROM PAYMENT) THROW 51042,'Cancellation history/zero-money SQL invariant failed.',1;");
     if (gateway) await Sql(connection, "IF (SELECT COUNT(*) FROM PAYMENT WHERE Method='VNPAY' AND Status='SUCCESS' AND Amount=20000000 AND ConfirmedByUserID IS NULL)<>1 OR (SELECT COUNT(*) FROM PAYMENT WHERE Status='REJECTED' AND Amount=0)<>1 THROW 51040,'Local signed gateway callback invariant failed.',1;");
     if (deployment) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus='EFFECTIVE' AND JSON_QUERY(Flow1StateJson,'$.documents.deployment') IS NOT NULL) THROW 51041,'Deployment/handoff SQL state missing.',1;");
     foreach (var kind in new[] { "horse", "request", "review", "plan", "contract", "publication", "contract-otp", "acceptance", "otp-account" })
@@ -235,7 +239,8 @@ try
         await Sql(connection, "IF (SELECT COUNT(*) FROM INVOICE)<>1 OR EXISTS(SELECT 1 FROM TRIP_PLAN) OR NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus='SIGNED' AND SignedAt IS NOT NULL AND JSON_QUERY(Flow1StateJson,'$.legacySources') IS NOT NULL) THROW 51036,'Import browser SQL parity failed.',1;");
         Console.WriteLine("PASS: offline inventory/import/retry parity + fresh API/Chrome with retained sources, original PDF and one deposit invoice.");
     }
-    Console.WriteLine(bank ? "PASS: connected bank proofs / actual partial and full receipts / one Trip PLANNING / original signature and PDF unchanged."
+    Console.WriteLine(cancellation ? "PASS: Customer cancellation request/reject/re-request/approve / SQL CANCELLED / signed PDF and receipt retained / zero money / one invoice / no Trip."
+        : bank ? "PASS: connected bank proofs / actual partial and full receipts / one Trip PLANNING / original signature and PDF unchanged."
         : signing ? "PASS: real PDF / loopback SMTP / Customer OTP confirmation / SQL SIGNED + one 40% deposit Invoice / original PDF unchanged / no Trip."
         : phase4 ? "PASS: Manager issues immutable PDF using real LibreOffice; Customer views/downloads identical hash; no sign/Trip/Invoice yet."
         : phase3 ? "PASS: Customer + Manager review/revision/plan/Draft/change through real API/SQL/private files; no Trip/Invoice."

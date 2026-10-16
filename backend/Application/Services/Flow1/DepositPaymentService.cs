@@ -32,7 +32,7 @@ public sealed partial class DepositPaymentService(IRequestReviewRepository looku
     }
     private sealed record Context(Contract Contract, TransportRequest Request, ContractPublication Publication,
         DraftSnapshot Draft, Invoice Invoice, ContractDeadlinePolicy.Resolved Deadline, Flow1StateDocument? Ledger,
-        DepositPaymentEvent[] Events, IReadOnlyList<Payment> Payments, ActivationReceipt? Activation, bool Current, bool CallbackConflict, bool FinancialReviewed);
+        DepositPaymentEvent[] Events, IReadOnlyList<Payment> Payments, ActivationReceipt? Activation, bool Current, bool CallbackConflict, bool FinancialReviewed, bool CancellationRequested);
     private async Task<Context> Load(string id, string requestId, CancellationToken ct)
     {
         var c = await repo.GetContractAsync(id, ct) ?? throw Error("Contract not found.", "NOT_FOUND", 404);
@@ -78,11 +78,11 @@ public sealed partial class DepositPaymentService(IRequestReviewRepository looku
         var reviewed = financial?.Revisions.LastOrDefault(v => v.Action == "RECEIPTS_REVIEWED")?.Payload;
         return new(c, r, p, d, i, deadline, ledger, events, payments, activation,
             review.CurrentContractId == id && !review.Changes.Any(x => x.Status == "PENDING"), financial?.Revisions.Any(v => v.Action == "CALLBACK_CONFLICT") == true,
-            reviewed?.GetProperty("binding").GetString() == FinancialBinding(id, i.InvoiceId, paid, events.Length, deadline.Version));
+            reviewed?.GetProperty("binding").GetString() == FinancialBinding(id, i.InvoiceId, paid, events.Length, deadline.Version), CancellationPending(await CancellationEvents(id, ct)));
     }
     private static string Status(decimal paid, decimal due) => paid == 0 ? "UNPAID" : paid < due ? "PARTIALLY_PAID" : "PAID";
     private bool CanSubmit(Context x) => x.Current && x.Contract.ContractStatus == "SIGNED" && x.Request.Status == "AWAITING_DEPOSIT" &&
-        x.Activation is null && clock.GetUtcNow() < x.Deadline.Effective && x.Invoice.PaidAmount < x.Invoice.TotalPayableAmount &&
+        x.Activation is null && !x.CancellationRequested && clock.GetUtcNow() < x.Deadline.Effective && x.Invoice.PaidAmount < x.Invoice.TotalPayableAmount &&
         !string.IsNullOrWhiteSpace(Bank(x, "COMPANY_BANK_NAME")) && !string.IsNullOrWhiteSpace(Bank(x, "COMPANY_BANK_ACCOUNT"));
     private static string? Bank(Context x, string key) => x.Publication.FrozenModel.Values.GetValueOrDefault(key);
     private DepositPaymentsView View(Context x) => new(x.Contract.ContractId, x.Invoice.InvoiceId, x.Contract.ContractStatus, x.Request.Status,
@@ -92,7 +92,7 @@ public sealed partial class DepositPaymentService(IRequestReviewRepository looku
         x.Events.GroupBy(e => e.PaymentId).Select(g => { var e = g.Last(); return new DepositPaymentItem(e.PaymentId, g.Count(), e.Method, e.Status,
             e.DeclaredAmount, e.Amount, e.Reference, e.ReceivedAtUtc, e.Reason, e.Memo, e.Proof is not null,
             e.ReceivedAtUtc is not null && e.ReceivedAtUtc >= x.Deadline.Effective); }).ToArray(), x.Activation,
-        x.CallbackConflict || x.Invoice.PaidAmount > 0 && x.Request.Status is "CANCELLED" or "CANCELED" || !x.FinancialReviewed &&
+        x.CallbackConflict || x.CancellationRequested && x.Invoice.PaidAmount > 0 || x.Invoice.PaidAmount > 0 && x.Request.Status is "CANCELLED" or "CANCELED" || !x.FinancialReviewed &&
         (x.Invoice.PaidAmount > x.Invoice.TotalPayableAmount || x.Invoice.PaidAmount > 0 && (
             clock.GetUtcNow() >= x.Deadline.Effective && x.Invoice.PaidAmount < x.Invoice.TotalPayableAmount ||
             x.Events.Any(e => e.Status == "SUCCESS" && e.ReceivedAtUtc >= x.Deadline.Effective))), gateway.IsConfigured, x.Events.Length, clock.GetUtcNow() >= x.Deadline.Effective);
@@ -198,6 +198,7 @@ public sealed partial class DepositPaymentService(IRequestReviewRepository looku
     private async Task Activate(Context x, string actor, CancellationToken ct)
     {
         if (x.Activation is not null || x.Invoice.PaidAmount < x.Invoice.TotalPayableAmount) return;
+        if (CancellationPending(await CancellationEvents(x.Contract.ContractId, ct))) return;
         // Record late/cancelled money, but never resurrect a cancelled request.
         if (!x.Current || x.Contract.ContractStatus != "SIGNED" || x.Request.Status != "AWAITING_DEPOSIT") return;
         var tripId = "t-" + CustomerTransportService.Hash(x.Request.RequestId + "/FLOW1")[..32];

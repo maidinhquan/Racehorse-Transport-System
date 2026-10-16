@@ -14,6 +14,34 @@ với HorseTransportDB theo quyền scheduler hiện tại.
 3. Quy trình offline/backup/target review và quyền apply riêng. Không đoán source
    root, tạo JSON rỗng hoặc coi thiếu private bytes là import thành công.
 
+## Routes thực tế của phần cuối
+
+Mục API trong plan có ví dụ thiết kế cũ; FE hiện nối các route sau (đều có prefix `/api`):
+
+| Use case | Route |
+| --- | --- |
+| Customer/Manager payment detail | GET `/{customer,manager}/contracts/{id}/payments` |
+| Customer bank proof | POST `/customer/contracts/{id}/payments/bank-proofs` |
+| Manager actual bank confirm/reject | POST `/manager/contracts/{id}/payments/{paymentId}/{confirm,reject}` |
+| Customer VNPay session | POST `/customer/contracts/{id}/payments/vnpay-sessions` |
+| Customer gateway SQL status | GET `/customer/payments/{paymentId}` |
+| Manager financial history/ack | GET/POST `/manager/contracts/{id}/payments/financial-review` |
+| Manager overdue cancellation | POST `/manager/contracts/{id}/payments/cancel-overdue` |
+| Cancellation request/history | GET/POST `/customer/contracts/{id}/cancellation-requests` |
+| Manager cancellation history | GET `/manager/contracts/{id}/cancellation-requests` |
+| Manager cancellation decision | POST `/manager/contracts/{id}/cancellation-requests/{cancellationId}/{approve,reject}` |
+| Deployment detail | GET `/{customer,manager}/contracts/{id}/deployment` |
+| Manager deployment action | POST `/manager/contracts/{id}/deployment/{confirm,hold,resume}` |
+| Operations inbox | GET `/operations/flow1-work` |
+| Frozen handoff/ack | GET `/operations/trips/{tripId}/flow1-handoff`; POST suffix `/acknowledgements` |
+
+Các tên trong `{...,...}` là lựa chọn route, không phải ký tự literal trong URL.
+Mutation phải có JWT/role phù hợp, `Idempotency-Key` và version input đúng use case.
+Customer Return chỉ đọc SQL; callback IPN dùng chữ ký provider, không cần Customer JWT.
+Cancellation yêu cầu `expectedVersion`; quyết định còn có `expectedLedgerVersion`,
+`expectedDeadlineVersion`, reason và cờ reconciliation cho approve. Hợp đồng vẫn SIGNED
+sau hủy để giữ chứng cứ; Request CANCELLED chặn payment mới/activation.
+
 ## VNPay active configuration
 
 Active WebApi đọc `Flow1:Vnpay`, không tự đọc/copy secret ở project sandbox cũ.
@@ -66,6 +94,15 @@ loopback SMTP RAM sink, Maps HTTP fixtures và local signed IPN. Có các khoả
 60 giây dành cho real rate-limit windows, không vô hiệu limiter. Không build
 WebApi trong khi process harness đang chạy do Windows có thể khóa DLL.
 
+Cancellation browser riêng: `FLOW1_BROWSER_CANCELLATION=1`, SIGNING=1;
+BANK/GATEWAY/DEPLOYMENT/IMPORT/LIFECYCLE/DEADLINES=0. Cùng runtime native SQL/LO,
+Customer đề nghị → Manager từ chối → payment mở lại → đề nghị mới → Manager duyệt
+zero-money, reload PDF/receipt. Không trộn với payment/deployment browser mode.
+
+VN→JP MVP đã chốt sân bay → sân bay; FE/Estimate/plan phải ghi rõ chưa gồm
+đường bộ hai đầu. Đường bộ hai đầu không còn là gate nghiệm thu MVP; provider
+public IPN và dữ liệu gateway thật vẫn cần kiểm theo đúng môi trường.
+
 ## UAT cần nhìn đúng
 
 | Nhánh | Kết quả phải có |
@@ -77,6 +114,7 @@ WebApi trong khi process harness đang chạy do Windows có thể khóa DLL.
 | SQL failure/retry | Không có tiền/Trip/state commit nửa chừng; retry cùng input không trùng |
 | Hết hạn | Chặn proof/session mới; không tự hủy; khoản nhận thật vẫn vào đối soát |
 | Tiền dư/muộn | Flag review, acknowledgement đúng ledger; không tự hoàn tiền |
+| Customer cancellation | Chờ Manager; khóa proof/session mới nhưng ghi nhận tiền đến; duyệt zero-money/không pending; từ chối xét kích hoạt với tiền đã đủ; giữ PDF/chữ ký/invoice/history |
 | Cancel overdue | Manager/đúng effective version/đã đối soát/không tiền/không pending |
 | Deployment | Confirm riêng; giữ ngựa/hồ sơ/plan guard; Hold chặn downstream |
 | Resume | PENDING + PLANNING, confirm lại; event cũ không dùng ghi tác vụ |

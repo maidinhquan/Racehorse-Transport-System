@@ -23,7 +23,11 @@ có release/hold/resume và hai inbox/receipt handoff thật. Native browser acc
 và ranh giới provider/cutover được ghi trong các báo cáo đó; không coi local/test
 là full production Flow 1 UAT hoặc cutover DB nghiệp vụ. Đại ca đã yêu cầu tích
 hợp liên tục phần còn lại trong lượt này, thay giới hạn mỗi lượt một phase cho
-chính lượt triển khai này. Xem [operator/UAT guide](FLOW1_LOCAL_UAT_AND_OPERATIONS.md).
+chính lượt triển khai này. [Nhánh hủy sau ký](FLOW1_PHASE5_CANCELLATION_REPORT.md)
+bổ sung Customer đề nghị, Manager duyệt/từ chối theo ledger/deadline hiện hành.
+Đại ca chốt **VN→JP sân bay → sân bay cho MVP**; đường bộ hai đầu nằm ngoài dự toán,
+không còn là điều kiện nghiệm thu MVP. Xem [operator/UAT guide](FLOW1_LOCAL_UAT_AND_OPERATIONS.md)
+và [tổng hợp tích hợp local](FLOW1_LOCAL_INTEGRATION_SUMMARY.md).
 
 ## 1. Quyết định đã chốt
 
@@ -36,7 +40,7 @@ Luồng giữ nguyên: Estimate -> Wizard -> PENDING -> Manager Review -> Prelim
 | Trip | Không tạo Trip sơ bộ để vượt FK. Chỉ tạo sau ký và đủ cọc xác minh |
 | Cọc | Cố định 40%, BE tính; Manager không thay tỷ lệ |
 | Chuẩn bị | VN->VN <=500km: 2 ngày; >500km: 3 ngày; VN->JP: 7 ngày; Manager chỉ được tăng khi thẩm định |
-| Tuyến/mode | Demo VN->VN/ROAD, VN->JP/AIR và ground legs nếu có |
+| Tuyến/mode | VN->VN/ROAD; VN->JP/AIR sân bay → sân bay cho MVP, không gồm đường bộ hai đầu; quyết định trực tiếp ngày 16/10/2026 |
 | Bản đồ | Tài khoản Mapbox free: Mapbox chỉ hiển thị bản đồ; Geoapify Geocoding/Reverse/Routing cho dữ liệu lưu trong hồ sơ. Sức chứa MVP 1 ngựa/xe do đại ca chốt ngày 16/10/2026. Live smoke và Customer browser với provider thật đã đạt; xem báo cáo phase 2 live |
 | Wizard | Ảnh + scan passport là hai loại file bắt buộc; basic fields vẫn theo schema; không upload Customer PER_TRIP hoặc giấy ủy quyền |
 | PDF/OTP | PDF sinh từ mẫu hiện có, bản phát hành bất biến; OTP gắn đúng khách/Contract/version/hash |
@@ -196,7 +200,7 @@ Sân bay VN -> sân bay JP      : định mức chặng bay / stall
 Sân bay JP -> Delivery tại JP : routing đường bộ nếu được tính trong gói
 ```
 
-Không gọi road routing từ Việt Nam tới Nhật Bản để tính toàn chuyến. Preliminary Plan phải chọn gateway và xác định ground legs đã bao gồm hay tính riêng; nếu không đủ dữ liệu ground leg thì Estimate nói rõ phạm vi dự toán, không giả vờ đã tính door-to-door.
+Không gọi road routing từ Việt Nam tới Nhật Bản để tính toàn chuyến. Quyết định MVP ngày 16/10/2026: Preliminary Plan chọn gateway, giá sân bay → sân bay và ghi rõ EXCLUDED đường bộ hai đầu. Các ground legs trong sơ đồ là khả năng mở rộng sau MVP, chưa được implement/nghiệm thu; không hiển thị như giá door-to-door.
 
 ### 6.4. Hạn mức và quyền lưu cần kiểm tra khi tích hợp
 
@@ -209,7 +213,7 @@ Kiểm tra nguồn chính thức ngày 15/10/2026; kiểm tra lại với tài k
 - Nếu dùng tiles công cộng OSM, tuân thủ attribution/cache, không tải hàng loạt/offline. [Tile policy](https://operations.osmfoundation.org/policies/tiles/).
 - Có thể dùng routing engine dựa OSM như OSRM qua một nhà cung cấp hoặc tự host; phải bàn giao URL, khả năng hỗ trợ tuyến, quota và quyền lưu, không coi public demo endpoint là dịch vụ không giới hạn. [OSRM](https://project-osrm.org/).
 
-**Đầu ra bàn giao bản đồ:** provider từng chức năng, config không chứa secret trong Git, request/response mẫu VN->VN và ground legs VN->JP, lỗi/timeout/quota, quyền lưu, attribution, live smoke test. Bộ fake adapter chỉ đủ cho test nghiệp vụ, không đủ nghiệm thu bản đồ thật.
+**Đầu ra bàn giao bản đồ:** provider từng chức năng, config không chứa secret trong Git, request/response mẫu VN->VN; VN->JP MVP chỉ airport-to-airport, ground legs hoãn ngoài MVP; lỗi/timeout/quota, quyền lưu, attribution, live smoke test. Bộ fake adapter chỉ đủ cho test nghiệp vụ, không đủ nghiệm thu bản đồ thật.
 
 ## 7. API contract mục tiêu
 
@@ -243,7 +247,7 @@ Kiểm tra nguồn chính thức ngày 15/10/2026; kiểm tra lại với tài k
 | PUT | `/customer/requests/{requestId}/revision` | Chỉ CHANGES_REQUESTED; full payload; về PENDING |
 | GET/POST | `/customer/requests/{requestId}/change-requests` | Đề xuất thay đổi trước ký; canonical chưa đổi |
 | POST | `/customer/requests/{requestId}/cancel` | Trước ký, reason bắt buộc |
-| GET/POST | `/customer/requests/{requestId}/cancellation-requests` | Sau ký theo scope mục 7.3; không hoàn tiền tự động |
+| GET/POST | `/customer/contracts/{contractId}/cancellation-requests` | API thực tế; signed/AWAITING_DEPOSIT, owner, expectedVersion, reason/key; không hoàn tiền tự động |
 | GET | `/customer/requests/{requestId}/info-requests` | Hỏi đáp thuộc đơn |
 | POST | `/customer/requests/{requestId}/info-responses` | JSON/multipart, gắn đúng infoRequestId |
 | GET | `/customer/contracts/{contractId}` | DTO Customer, không lộ cost/floor/audit nội bộ |
@@ -272,8 +276,8 @@ Route document/file mới là phần bổ sung đề xuất; trước code đố
 | GET/POST | `/manager/requests/{requestId}/info-requests` | Hỏi bổ sung, không sửa canonical |
 | GET | `/manager/requests/{requestId}/change-requests` | Hàng đợi thay đổi |
 | POST | `/manager/requests/{requestId}/change-requests/{actionId}/approve` hoặc `/reject` | Version, khóa, validate lại |
-| GET | `/manager/requests/{requestId}/cancellation-requests` | Hàng đợi hủy sau ký |
-| POST | `/manager/requests/{requestId}/cancellation-requests/{actionId}/approve` hoặc `/reject` | Guard tài chính, thẩm quyền, trạng thái |
+| GET | `/manager/contracts/{contractId}/cancellation-requests` | Lịch sử yêu cầu và quyết định của hợp đồng; dùng sau khi mở signed request |
+| POST | `/manager/contracts/{contractId}/cancellation-requests/{cancellationId}/approve` hoặc `/reject` | API thực tế; cancellation/ledger/deadline version, reason/key; duyệt chỉ zero-money/không pending; từ chối mở lại payment/activation |
 | GET/PUT | `/manager/requests/{requestId}/preliminary-plan` | Tạo version plan; ACCEPTED; không tạo Trip |
 | GET | `/manager/requests/{requestId}/quote-suggestion` | Cost/floor/suggested; Customer bị chặn |
 | POST | `/manager/requests/{requestId}/contracts` | DRAFT version đầu từ plan/request đã chốt |
@@ -512,7 +516,7 @@ Frontend dùng frontend/src/shared/api/apiClient.ts và router hiện có. API/t
 
 Sau phase 1 có thể giao adapter Maps/VNPay/PDF cho người phụ trách theo interface. Mỗi task ghi file exact path, input/output, status guards, metadata/SQL boundary và test IDs. Không tự sửa legacy DAO hoặc module đồng đội ngoài hợp đồng bàn giao.
 
-Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md), [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md) và [phase 3 Review/Plan/Quote/Draft](FLOW1_PHASE3_REPORT.md). **Phase 1–3 hoàn thành trong phạm vi local/test đã cấp**: phase 2 có live Geoapify/Mapbox; phase 3 có Customer/Manager browser nối SQL/file riêng, Maps fixture, SQL/file receipt recovery cho review/Draft. **Phase 4 A–D đã có source/use cases kiểm local/test**; tiếp tục phase 5 theo [bàn giao D](FLOW1_PHASE4_DEADLINE_REPORT.md), không hỏi lại Maps key hay capacity=1. Chưa nghiệm thu thanh toán/Trip hoặc full Flow 1 UAT. Payload/API thực tế được ghi trong báo cáo từng phase để phân biệt với ví dụ thiết kế ở mục 7.
+Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md), [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md) và [phase 3 Review/Plan/Quote/Draft](FLOW1_PHASE3_REPORT.md). **Phase 1–3 hoàn thành trong phạm vi local/test đã cấp**: phase 2 có live Geoapify/Mapbox; phase 3 có Customer/Manager browser nối SQL/file riêng, Maps fixture, SQL/file receipt recovery cho review/Draft. **Phase 4 A–D và phase 5–6 đã có source/use cases kiểm local/test**, gồm thanh toán xác minh, đúng một Trip, confirm/hold/resume và tiếp nhận handoff theo role; xem báo cáo phase 5–6 và nhánh cancellation. Không hỏi lại Maps key/capacity=1 hoặc kiến trúc. Chưa full Flow 1 UAT/provider public IPN hoặc business DB cutover. Payload/API thực tế được ghi trong báo cáo từng phase để phân biệt với ví dụ thiết kế ở mục 7.
 
 ## 15. Ma trận kiểm thử và bằng chứng nghiệm thu
 
@@ -522,7 +526,7 @@ Customer/review/publication/OTP/sign sang SQL transaction chung, gỡ recovery r
 dành file saga. [S3](FLOW1_PHASE4_SQL_IMPORT_REPORT.md) đã có offline importer/parity,
 gỡ file provider và kiểm Chrome sau import. [Increment C](FLOW1_PHASE4_LIFECYCLE_REPORT.md)
 có decline/explicit expire/reissue và lịch sử PDF. [Increment D](FLOW1_PHASE4_DEADLINE_REPORT.md)
-có effective-deadline extension và Contract FE nối API. Tiếp theo phase 5. DB nghiệp vụ
+có effective-deadline extension và Contract FE nối API. Phase 5–6 và nhánh Customer cancellation đã có source/test/browser theo báo cáo riêng. DB nghiệp vụ
 chưa áp 004/import; không coi test import là xác minh live/production.
 
 **Cập nhật phase 4, 16/10/2026:** [increment A](FLOW1_PHASE4_REPORT.md) có PDF v2/private
@@ -532,7 +536,7 @@ email OTP gắn version/hash, ký tạo đúng một hóa đơn cọc 40%, recei
 SQL và file, giao diện và kiểm thử; S2 đã thay bằng SQL transaction chung.
 Increment C thêm decline/explicit expire/reissue bằng SQL; increment D thêm effective
 deadline/history/Contract FE. Các use case A–D và S1–S3 có kiểm chứng local/test theo
-báo cáo từng increment; tiếp theo phase 5 payment/activation, chưa tuyên bố full Flow
+báo cáo từng increment. Phase 5–6 đã kiểm nối payment/activation/deployment/handoff local, chưa tuyên bố full Flow
 1 UAT hoặc production readiness. SMTP registration hiện có;
 dedicated OTP HMAC key cần điền private trước nghiệm thu cấu hình vận hành.
 
@@ -555,7 +559,7 @@ dedicated OTP HMAC key cần điền private trước nghiệm thu cấu hình v
 | F1-03 | VN->TH, JP->VN hoặc mode sai | UNSUPPORTED_ROUTE / UNSUPPORTED_TRANSPORT_MODE |
 | F1-04 | Provider lỗi/quota/no route | Lỗi có mã, không dự toán dựa 0 km |
 | F1-05 | Sửa distance/price/currency từ FE | BE không tin; tính lại hoặc reject |
-| F1-06 | VN->JP có ground legs | Phí road/air tách đúng, phí per-trip không nhân lặp |
+| F1-06 | VN->JP MVP sân bay → sân bay | Gateway/air/stall và phí per-trip đúng; EXCLUDED đường bộ hai đầu. Ground-leg UAT hoãn ngoài MVP theo quyết định trực tiếp 16/10/2026 |
 | F1-07 | Guest tạo Horse/Request | 401, không ghi dữ liệu riêng tư |
 | F1-08 | Upload thiếu file/sai loại/quá dung lượng | Reject, không để Horse dở được coi hợp lệ |
 | F1-09 | Thêm Horse rồi quay lại Wizard | Giữ địa chỉ/ngày, có ngựa mới, không tạo lại khi Back/Next |
@@ -600,7 +604,7 @@ dedicated OTP HMAC key cần điền private trước nghiệm thu cấu hình v
 | F1-48 | Hết hạn sau sign | Giữ SIGNED/AWAITING_DEPOSIT, khóa thao tác mới |
 | F1-49 | Gia hạn hợp lệ | History old/new/actor/reason; không sửa PDF; mở payment khi hợp lệ |
 | F1-50 | Cancel overdue có proof/IPN pending/tiền một phần | Chặn và yêu cầu đối soát/tài chính, không xóa lịch sử |
-| F1-51 | Cancellation sau ký không tiền, chưa activated | Manager review theo quyền, terminate/cancel atomically |
+| F1-51 | Customer đề nghị hủy sau ký, chưa activated | Manager duyệt/từ chối theo quyền và exact versions; duyệt zero-money/không pending → Request CANCELLED trong SQL tx, giữ Contract SIGNED/PDF/receipt; tiền đến vẫn ghi nhận, từ chối xét activation một lần |
 | F1-52 | Activation bình thường | EFFECTIVE + ACTIVATED + một Trip PLANNING/deployment PENDING |
 | F1-53 | Confirm deployment lịch không khả thi | Reject; không tự sửa Contract date |
 | F1-54 | Confirm deployment hợp lệ | CONFIRMED; downstream có task đúng scope, dedupe EventID |
@@ -614,7 +618,7 @@ dedicated OTP HMAC key cần điền private trước nghiệm thu cấu hình v
 ### 15.3. Hai happy paths và một đường thất bại
 
 - **HP-A:** VN->VN, ngựa đã có, Manager accept, plan, PDF/OTP, bank đủ cọc, activation, confirm deployment, Flow 2/3 thấy tác vụ.
-- **HP-B:** VN->JP, thêm Horse trong Wizard, plan có gateway/ground legs, PDF/OTP, VNPay Sandbox public IPN, activation, confirm deployment.
+- **HP-B:** VN->JP, thêm Horse trong Wizard, plan có gateway, giá sân bay → sân bay EXCLUDED đường bộ hai đầu (MVP đã chốt), PDF/OTP, VNPay Sandbox public IPN, activation, confirm deployment. Provider public IPN vẫn là gate chưa xác minh; local fixture không thay gate này.
 - **NP-A:** request-revision -> resubmit -> change được duyệt -> Contract version mới -> sai OTP rồi đúng -> cọc một phần -> quá hạn -> gia hạn -> đủ cọc; snapshot/chữ ký/ledger giữ đúng.
 
 Mỗi run ghi commit/worktree, cấu hình môi trường không secret, timestamp, dữ liệu fixture, test IDs, kết quả DB và screenshot cần thiết. Không dùng test pass đơn lẻ để tuyên bố cả hệ thống hết lỗi.

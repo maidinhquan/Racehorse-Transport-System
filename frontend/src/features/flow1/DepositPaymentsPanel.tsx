@@ -4,6 +4,7 @@ import { paymentApi } from "./paymentApi";
 import type { Payment, Payments } from "./paymentApi";
 import { operationKey } from "./reviewApi";
 import { DeploymentPanel } from "./DeploymentPanel";
+import { CancellationPanel } from "./CancellationPanel";
 
 export function DepositPaymentsPanel({ id, manager = false, reload }: { id: string; manager?: boolean; reload?: () => Promise<void> }) {
   const [value, setValue] = useState<Payments | null>(null); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
@@ -55,6 +56,7 @@ export function DepositPaymentsPanel({ id, manager = false, reload }: { id: stri
       <button disabled={busy} onClick={async () => { setError(""); try { await changed(await paymentApi.get(id, manager)); } catch (e) { setError(flow1Error(e)); } }}>Tải lại thanh toán</button>
       {manager && value.contractStatus === "SIGNED" && value.requestStatus === "AWAITING_DEPOSIT" && value.overdue && <CancelOverdue id={id} value={value} changed={changed} />}
       {value.activation && <DeploymentPanel id={id} manager={manager} />}
+      <CancellationPanel id={id} manager={manager} payments={value} refresh={async () => changed(await paymentApi.get(id, manager))} />
     </>}</section>;
 }
 function FinancialHistory({ id }: { id: string }) {
