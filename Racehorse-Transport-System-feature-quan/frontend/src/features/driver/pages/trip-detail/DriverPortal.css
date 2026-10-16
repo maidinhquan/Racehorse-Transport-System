@@ -1,0 +1,102 @@
+.driver-mobile-shell {
+  min-height: 100vh;
+  max-width: 448px;
+  margin: 0 auto;
+  background-color: #F8F9FA;
+  border-left: 1px solid #E5E7EB;
+  border-right: 1px solid #E5E7EB;
+  font-family: 'Inter', sans-serif;
+  color: #111827;
+  padding-bottom: 32px;
+}
+
+.driver-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #FFFFFF;
+  padding: 14px 16px;
+  border-bottom: 1px solid #E5E7EB;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.driver-trip-code {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.driver-trip-sub {
+  font-size: 12px;
+  color: #6B7280;
+  margin: 2px 0 0 0;
+}
+
+.btn-sos {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: none;
+  background-color: #DC2626;
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.driver-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 16px;
+}
+
+.driver-tab-btn {
+  height: 42px;
+  border-radius: 8px;
+  border: 1px solid #E5E7EB;
+  background-color: #FFFFFF;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.driver-tab-btn.active {
+  background-color: #F57C00;
+  border-color: #F57C00;
+  color: #FFFFFF;
+}
+
+.driver-content {
+  padding: 0 16px;
+}
+
+.driver-card {
+  background-color: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.segment-row {
+  padding: 12px;
+  border-radius: 12px;
+  background-color: #F8F9FA;
+  border: 1px solid #E5E7EB;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.health-log-item {
+  padding: 12px;
+  border-radius: 8px;
+  background-color: #F8F9FA;
+  border: 1px solid #E5E7EB;
+  font-size: 13px;
+  margin-top: 10px;
+}
