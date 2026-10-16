@@ -16,7 +16,7 @@ export function ContractAcceptancePanel({ publication, manager, pdfViewed, reloa
   useEffect(() => { let active = true;
     acceptanceApi.get(publication.contractId, manager).then(x => { if (active) setView(x); }).catch(e => { if (active) setError(flow1Error(e)); });
     return () => { active = false; };
-  }, [publication.contractId, publication.status, manager]);
+  }, [publication.contractId, publication.status, publication.deadlineVersion, publication.overdue, manager]);
   useEffect(() => { if (!challenge) return; const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, [challenge]);
   const bound = { contractVersion: publication.version, documentHash: publication.documentHash };
   async function act(action: "otp" | "sign" | "refresh") {
@@ -37,7 +37,7 @@ export function ContractAcceptancePanel({ publication, manager, pdfViewed, reloa
   const expired = challenge !== null && new Date(challenge.expiresAt).getTime() <= now;
   return <section><h3>Xác nhận hợp đồng bằng OTP</h3>{error && <p role="alert">{error}</p>}
     <button disabled={busy} onClick={() => act("refresh")}>Tải lại trạng thái xác nhận</button>
-    {!manager && publication.status === "PENDING_SIGNATURE" && view?.status === "PENDING_SIGNATURE" && !view.recoveryRequired && !view.overdue && <>
+    {!manager && !publication.overdue && publication.status === "PENDING_SIGNATURE" && view?.status === "PENDING_SIGNATURE" && !view.recoveryRequired && !view.overdue && <>
       <p>Mã gửi đến email tài khoản và chỉ dùng cho phiên bản {publication.version} cùng SHA-256 ở trên.</p>
       {!pdfViewed && <p>Mở PDF trước khi xác nhận nội dung.</p>}
       <label><input type="checkbox" checked={accepted} disabled={!pdfViewed || busy} onChange={e => setAccepted(e.target.checked)} />Tôi đã đọc và đồng ý với đúng bản PDF này</label>

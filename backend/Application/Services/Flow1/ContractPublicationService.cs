@@ -12,7 +12,7 @@ namespace Application.Services.Flow1;
 public sealed class ContractPublicationService(IRequestReviewRepository lookup, IFlow1Repository repo,
     Flow1RequestTransaction transactions, IFlow1StateStore stateStore, IFlow1PrivateFileStore files,
     IFlow1ContractDocumentGenerator generator, RequestReviewService reviews, CustomerTransportService customer,
-    Flow1ContractOptions options, TimeProvider clock)
+    Flow1ContractOptions options, ContractDeadlinePolicy deadlines, TimeProvider clock)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static T Payload<T>(Flow1StateRevision r) => r.Payload.Deserialize<T>(Json) ?? throw new InvalidDataException("Missing publication state.");
@@ -119,8 +119,9 @@ public sealed class ContractPublicationService(IRequestReviewRepository lookup, 
             var draft = await Read<DraftSnapshot>("contract", id, token);
             Require(draft.Version == p.ContractVersion && CustomerTransportService.Hash(draft.Value) == p.DraftHash &&
                 c.TotalQuotedPrice == draft.Value.Total && c.CurrencyCode == "VND" && c.DepositRateStandard == 40, "RECOVERY_CONFLICT", "Issued terms or amount differ from the frozen Draft/SQL.");
+            var deadline = await deadlines.ReadAsync(p, draft.Value, token);
             return new PublishedContractView(id, p.ContractVersion, c.ContractStatus, "VND", draft.Value.Total, draft.Value.Deposit, p.CompletionDeadline,
-                p.Document.Sha256, p.Document.SizeBytes, p.TemplateVersion, clock.GetUtcNow() >= p.CompletionDeadline, false);
+                p.Document.Sha256, p.Document.SizeBytes, p.TemplateVersion, clock.GetUtcNow() >= deadline.Effective, false, deadline.Effective, deadline.Version);
         }, ct);
     }
     public async Task<byte[]> PdfAsync(string id, string actor, bool manager, CancellationToken ct)

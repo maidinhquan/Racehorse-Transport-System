@@ -11,4 +11,5 @@ public sealed record ContractPublication(string ContractId, string RequestId, st
     string Outcome = "COMMITTED", string? Reason = null);
 public sealed record PublishedContractView(string ContractId, int Version, string Status, string Currency,
     decimal Total, decimal Deposit, DateTimeOffset OriginalCompletionDeadline,
-    string DocumentHash, long DocumentSizeBytes, string TemplateVersion, bool Overdue, bool RecoveryRequired);
+    string DocumentHash, long DocumentSizeBytes, string TemplateVersion, bool Overdue, bool RecoveryRequired,
+    DateTimeOffset? EffectiveCompletionDeadline = null, int DeadlineVersion = 0);

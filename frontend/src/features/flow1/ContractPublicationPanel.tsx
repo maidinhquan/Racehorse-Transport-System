@@ -5,6 +5,7 @@ import { publicationApi } from "./publicationApi";
 import type { Publication } from "./publicationApi";
 import { ContractAcceptancePanel } from "./ContractAcceptancePanel";
 import { ContractLifecyclePanel } from "./ContractLifecyclePanel";
+import { ContractDeadlinePanel } from "./ContractDeadlinePanel";
 export function ContractPublicationPanel({ id, manager = false, reviewVersion = 0, status, readOnly = false, reload }: {
   id: string; manager?: boolean; reviewVersion?: number; status: string; readOnly?: boolean; reload: () => Promise<void> }) {
   const [loaded, setLoaded] = useState<{ id: string; value: Publication | null } | null>(null); const [error, setError] = useState("");
@@ -35,7 +36,9 @@ export function ContractPublicationPanel({ id, manager = false, reviewVersion = 
       {publication.overdue && <p>Đã quá hạn thao tác mới. Yêu cầu không tự hủy.</p>}
       <button disabled={busy} onClick={async () => { setBusy(true); try { setPdf({ url: await publicationApi.pdf(id, manager), id, hash: publication.documentHash }); } catch (e) { setError(flow1Error(e)); } finally { setBusy(false); } }}>Xem PDF đã phát hành</button>
       {pdfUrl && <><p><a href={pdfUrl} download={`${id}.pdf`}>Tải đúng bản PDF này</a></p><iframe title="PDF hợp đồng đã phát hành" src={pdfUrl} style={{ width: "100%", height: 720 }} /></>}
-      <ContractAcceptancePanel key={`${id}:${publication.version}:${publication.documentHash}`} publication={publication} manager={manager} pdfViewed={!!pdfUrl} reload={reload} />
+      <ContractDeadlinePanel key={`deadlines:${id}`} publication={publication} manager={manager} readOnly={readOnly}
+        reload={async () => { setLoaded({ id, value: await publicationApi.get(id, manager) }); await reload(); }} />
+      <ContractAcceptancePanel key={`${id}:${publication.version}:${publication.documentHash}:${publication.deadlineVersion ?? 0}`} publication={publication} manager={manager} pdfViewed={!!pdfUrl} reload={reload} />
       <ContractLifecyclePanel key={`lifecycle:${id}`} publication={publication} manager={manager} readOnly={readOnly} reload={reload} />
     </>}
   </section>;

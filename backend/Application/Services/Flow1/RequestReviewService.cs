@@ -229,7 +229,7 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
                     draft = new(s.RequestVersion, s.PlanVersion, lines!, total, Flow1ContractFactory.DepositAmount(total),
                         total < savedPlan.Value.Floor ? input.Reason!.Trim() : null, savedPlan.Value);
                     newContracts.Add(new(draftId, true, "DRAFT", total));
-                    next = next with { CurrentContractId = draftId }; break;
+                    next = next with { CurrentContractId = draftId, Feedback = action == "REISSUE_DRAFT" ? null : next.Feedback }; break;
             }
             next = next with { Notices = s.Notices.Append(new ReviewNotice(key, PublicMessage(action), clock.GetUtcNow().UtcDateTime)).TakeLast(50).ToArray() };
             await Apply(r, after, newContracts.ToArray(), draft, draftId, token);

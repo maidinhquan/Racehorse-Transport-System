@@ -1,6 +1,6 @@
 import { get, post } from "./api";
 export type OtpChallenge = { challengeId: string; expiresAt: string; resendAt: string };
-export type Acceptance = { contractId: string; version: number; status: string; overdue: boolean; recoveryRequired: boolean;
+export type Acceptance = { contractId: string; version: number; status: string; overdue: boolean; recoveryRequired: boolean; effectiveCompletionDeadline?: string | null; deadlineVersion?: number;
   receipt: { contractId: string; customerId: string; contractVersion: number; documentHash: string; method: string; signedAtUtc: string; invoiceId: string; deposit: number } | null;
   invoice: { invoiceId: string; amount: number; paidAmount: number; currency: string; status: string; dueAtUtc: string | null } | null };
 const url = (id: string, manager: boolean) => `/${manager ? "manager" : "customer"}/contracts/${encodeURIComponent(id)}`;

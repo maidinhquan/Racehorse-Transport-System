@@ -6,6 +6,7 @@ import { publicationApi } from "./publicationApi";
 import type { Publication } from "./publicationApi";
 vi.mock("./ContractAcceptancePanel", () => ({ ContractAcceptancePanel: ({ pdfViewed }: { pdfViewed: boolean }) => <span data-testid="pdf-consent-gate">{String(pdfViewed)}</span> }));
 vi.mock("./ContractLifecyclePanel", () => ({ ContractLifecyclePanel: () => null }));
+vi.mock("./ContractDeadlinePanel", () => ({ ContractDeadlinePanel: () => null }));
 
 const issued: Publication = { contractId: "c-test", version: 1, status: "PENDING_SIGNATURE", currency: "VND", total: 115000000,
   deposit: 46000000, originalCompletionDeadline: "2026-11-10T10:00:00Z", documentHash: "a".repeat(64),

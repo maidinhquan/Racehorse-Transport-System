@@ -15,8 +15,10 @@ offline và đã gỡ file provider/interface/options/tests cũ; DB nghiệp v�
 
 [Phase 4 increment C](FLOW1_PHASE4_LIFECYCLE_REPORT.md) bổ sung Customer decline,
 Manager explicit expire/reissue thành ContractID mới và lịch sử private PDF bằng SQL.
-Phase 4 còn effective-deadline extension/history và thay Contract FE legacy trước
-khi sang phase 5; không coi các use case đã có là hoàn thành toàn Flow 1.
+[Increment D](FLOW1_PHASE4_DEADLINE_REPORT.md) bổ sung effective-deadline extension,
+history/OTP revocation/invoice due trong SQL và thay Contract FE legacy. Bước tiếp
+theo là phase 5 payment/activation; không coi local/test là full Flow 1 UAT hoặc
+cutover DB nghiệp vụ.
 
 ## 1. Quyết định đã chốt
 
@@ -274,7 +276,8 @@ Route document/file mới là phần bổ sung đề xuất; trước code đố
 | GET/PUT | `/manager/contracts/{contractId}` | Detail / chỉ sửa DRAFT; expectedVersion |
 | GET | `/manager/contracts/{contractId}/document` | Preview DRAFT hoặc PDF phát hành; phân biệt watermark |
 | POST | `/manager/contracts/{contractId}/send` | CompletionDeadline + version; PDF ready; chuyển AWAITING_CONTRACT |
-| POST | `/manager/requests/{requestId}/deposit-extensions` | Gia hạn deadline chung, reason, feasibility |
+| GET | `/customer/contracts/{contractId}/deadlines` hoặc `/manager/contracts/{contractId}/deadlines` | Original/effective deadline + extension version/history theo quyền; increment D |
+| POST | `/manager/contracts/{contractId}/extensions` | Gia hạn deadline chung theo exact PDF/version, reason, feasibility; API thực tế increment D thay ví dụ request-scoped cũ |
 | POST | `/manager/requests/{requestId}/cancel-overdue-deposit` | Quá hạn, không đủ cọc, không pending đối soát |
 | GET | `/manager/requests/{requestId}/payments` | Payment summary nội bộ |
 | GET | `/manager/payments/pending` và `/transactions/{transactionId}` | BANK_TRANSFER chờ đối soát |
@@ -447,6 +450,7 @@ Callback đến muộn vẫn phải đối soát tiền thực nhận. Request C
 
 - CONTRACT.CompletionDeadline là hạn gốc lúc send. effectiveCompletionDeadline lấy extension metadata hợp lệ mới nhất hoặc hạn gốc; API trả cả hai khi cần.
 - Gia hạn lưu old/new deadline + actor/reason/time; không ghi đè PDF/deadline gốc. New deadline sau hạn cũ và serverNow, vẫn đủ preparationDays trước departure.
+- Increment D dùng ContractDeadlinePolicy trong SQL transaction cho publication/OTP/sign/decline/expire và extension. OTP chưa dùng bị revoked; giữ TTL/attempts/cooldown/account budget. Receipt ký ghi DeadlineVersion (legacy mặc định 0), InvoiceDueAtUtc theo version lúc ký; Invoice.DueDate hiện hành đổi cùng extension receipt trong SQL, không sửa receipt cũ.
 - Chưa ký đã EXPIRED thì phát hành version mới; đã SIGNED thì giữ chữ ký, mở payment lại khi gia hạn hợp lệ.
 - Quá hạn khóa sign/payment/proof mới; không tự CANCELLED hoặc giải phóng lịch ngựa chỉ do job chạy.
 - Cancel overdue chỉ Manager, chưa activated/kết thúc, đã đối soát, không còn pending proof/transaction hoặc gia hạn hợp lệ. Có tiền một phần thì FINANCIAL_REVIEW_REQUIRED; không tự tính phạt/hoàn tiền.
@@ -503,7 +507,7 @@ Frontend dùng frontend/src/shared/api/apiClient.ts và router hiện có. API/t
 
 Sau phase 1 có thể giao adapter Maps/VNPay/PDF cho người phụ trách theo interface. Mỗi task ghi file exact path, input/output, status guards, metadata/SQL boundary và test IDs. Không tự sửa legacy DAO hoặc module đồng đội ngoài hợp đồng bàn giao.
 
-Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md), [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md) và [phase 3 Review/Plan/Quote/Draft](FLOW1_PHASE3_REPORT.md). **Phase 1–3 hoàn thành trong phạm vi local/test đã cấp**: phase 2 có live Geoapify/Mapbox; phase 3 có Customer/Manager browser nối SQL/file riêng, Maps fixture, SQL/file receipt recovery cho review/Draft. **Phase 4 PDF/OTP/deadline/recovery đang thực hiện**; tiếp tục phần còn lại theo [increment C](FLOW1_PHASE4_LIFECYCLE_REPORT.md), không hỏi lại Maps key hay capacity=1. Chưa nghiệm thu thanh toán/Trip hoặc full Flow 1 UAT. Payload/API thực tế được ghi trong báo cáo từng phase để phân biệt với ví dụ thiết kế ở mục 7.
+Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md), [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md) và [phase 3 Review/Plan/Quote/Draft](FLOW1_PHASE3_REPORT.md). **Phase 1–3 hoàn thành trong phạm vi local/test đã cấp**: phase 2 có live Geoapify/Mapbox; phase 3 có Customer/Manager browser nối SQL/file riêng, Maps fixture, SQL/file receipt recovery cho review/Draft. **Phase 4 A–D đã có source/use cases kiểm local/test**; tiếp tục phase 5 theo [bàn giao D](FLOW1_PHASE4_DEADLINE_REPORT.md), không hỏi lại Maps key hay capacity=1. Chưa nghiệm thu thanh toán/Trip hoặc full Flow 1 UAT. Payload/API thực tế được ghi trong báo cáo từng phase để phân biệt với ví dụ thiết kế ở mục 7.
 
 ## 15. Ma trận kiểm thử và bằng chứng nghiệm thu
 
@@ -512,8 +516,8 @@ có migration 004/SQL state port. [S2](FLOW1_PHASE4_SQL_CUTOVER_REPORT.md) đã 
 Customer/review/publication/OTP/sign sang SQL transaction chung, gỡ recovery route/UI
 dành file saga. [S3](FLOW1_PHASE4_SQL_IMPORT_REPORT.md) đã có offline importer/parity,
 gỡ file provider và kiểm Chrome sau import. [Increment C](FLOW1_PHASE4_LIFECYCLE_REPORT.md)
-có decline/explicit expire/reissue và lịch sử PDF. Tiếp theo effective-deadline
-extension và legacy Contract FE. DB nghiệp vụ
+có decline/explicit expire/reissue và lịch sử PDF. [Increment D](FLOW1_PHASE4_DEADLINE_REPORT.md)
+có effective-deadline extension và Contract FE nối API. Tiếp theo phase 5. DB nghiệp vụ
 chưa áp 004/import; không coi test import là xác minh live/production.
 
 **Cập nhật phase 4, 16/10/2026:** [increment A](FLOW1_PHASE4_REPORT.md) có PDF v2/private
@@ -521,9 +525,10 @@ immutable publication/deadline gốc/recovery, real LibreOffice 13-page QA và C
 download hash. [Increment B](FLOW1_PHASE4_ACCEPTANCE_REPORT.md) bổ sung Customer
 email OTP gắn version/hash, ký tạo đúng một hóa đơn cọc 40%, receipt/recovery giữa
 SQL và file, giao diện và kiểm thử; S2 đã thay bằng SQL transaction chung.
-Increment C thêm decline/explicit expire/reissue bằng SQL. **Phase 4 vẫn IN_PROGRESS**:
-tiếp tục effective-deadline extensions và thay contract route legacy;
-chưa bắt đầu phase 5 và chưa tuyên bố full Flow 1 UAT. SMTP registration hiện có;
+Increment C thêm decline/explicit expire/reissue bằng SQL; increment D thêm effective
+deadline/history/Contract FE. Các use case A–D và S1–S3 có kiểm chứng local/test theo
+báo cáo từng increment; tiếp theo phase 5 payment/activation, chưa tuyên bố full Flow
+1 UAT hoặc production readiness. SMTP registration hiện có;
 dedicated OTP HMAC key cần điền private trước nghiệm thu cấu hình vận hành.
 
 ### 15.1. Loại kiểm thử
@@ -639,6 +644,7 @@ Frontend khi tới use case tương ứng: npm run test:run và npm run build �
 - [x] S2 source endpoint dùng SQL, business + state + receipt commit chung; SQL rollback/retry/concurrency và connected browser trong báo cáo S2. Không đồng nghĩa đã migrate/import DB nghiệp vụ.
 - [x] S3 tool inventory/import/parity và gỡ MetadataStore file/test cũ có replacement, giữ bytes/source; kiểm trên DB test và Chrome, chưa migrate/import DB nghiệp vụ.
 - [x] Phase 4 increment C: decline/explicit expire/reissue + PDF history, SQL receipt/status/review/OTP atomic, giữ request booking; kiểm local/test theo báo cáo C.
+- [x] Phase 4 increment D: effective-deadline/history, revoked OTP chưa dùng, signed invoice due cùng SQL transaction, receipt/PDF giữ nguyên và Contract route API; bằng chứng trong báo cáo D.
 - [x] Migration DB sạch + legacy + chạy lại trên DB test; không mất tiền/currency/signature, không bịa deadline. Chưa áp lên DB nghiệp vụ.
 - [x] Foundation lưu Contract trước Trip; repository stage invoice/ledger SQL và request transaction dùng chung, đã test rollback. API activation thuộc phase sau.
 - [x] Baseline file provider giữ version/history; SQL port mới giữ document revisions/owner binding/replay/limits. Không public storage.

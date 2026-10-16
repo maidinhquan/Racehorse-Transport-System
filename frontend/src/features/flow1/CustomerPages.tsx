@@ -149,7 +149,8 @@ export function RequestDetailPage() {
         <p>Người nhận: {request.snapshot.input.receiver.name} · {request.snapshot.input.receiver.phone}</p>
         <p>{request.snapshot.input.horses.length} ngựa · Giá tham khảo: {money(request.snapshot.estimate.estimatedPrice)}</p>
         <MapDataAttribution text={request.snapshot.estimate.attribution || request.snapshot.estimate.locationAttribution} />
-        {request.review && <CustomerReviewPanel id={request.requestId} value={request.review} reload={async () => setRequest(await flow1.detail(request.requestId))} />}
+        {request.review && <><Link to={`/customer/requests/${request.requestId}/contract`}>Xem hợp đồng và lịch sử</Link>
+          <CustomerReviewPanel id={request.requestId} value={request.review} reload={async () => setRequest(await flow1.detail(request.requestId))} /></>}
         {request.snapshot.input.receiver.isProxy && <p>Người nhận thay cần được xác minh trước bàn giao.</p>}</>}
       {request.status === "PENDING" && <p>Đã gửi quản lý thẩm định. Chưa có hợp đồng hoặc chuyến vận chuyển.</p>}
     </>}

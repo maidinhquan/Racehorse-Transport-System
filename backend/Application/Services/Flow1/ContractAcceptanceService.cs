@@ -11,7 +11,8 @@ namespace Application.Services.Flow1;
 /// <summary>SQL signature, invoice, consumed challenge and receipt commit together under the request lock.</summary>
 public sealed class ContractAcceptanceService(IRequestReviewRepository lookup, IFlow1Repository repo, IFlow1UnitOfWork work,
     IFlow1StateStore stateStore, IFlow1PrivateFileStore files, ContractPublicationService publications,
-    CustomerTransportService customers, Flow1RequestTransaction transactions, IContractOtpSecurity security, IContractOtpSender sender, TimeProvider clock)
+    CustomerTransportService customers, Flow1RequestTransaction transactions, IContractOtpSecurity security, IContractOtpSender sender,
+    ContractDeadlinePolicy deadlines, TimeProvider clock)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static T Payload<T>(Flow1StateRevision r) => r.Payload.Deserialize<T>(Json) ?? throw new InvalidDataException("Missing contract evidence.");
@@ -29,7 +30,8 @@ public sealed class ContractAcceptanceService(IRequestReviewRepository lookup, I
         if (c is null || !manager && c.CustomerId != actor) throw Error("Contract not found.", "NOT_FOUND", 404);
         return c;
     }
-    private sealed record Context(Contract Contract, TransportRequest Request, ContractPublication Publication, RequestSnapshot Canonical);
+    private sealed record Context(Contract Contract, TransportRequest Request, ContractPublication Publication, RequestSnapshot Canonical,
+        ContractDeadlinePolicy.Resolved Deadline);
     // Flow1RequestTransaction acquires horse locks before transactional state/entity reads.
     private async Task<Context> Load(string id, string requestId, bool current, CancellationToken ct)
     {
@@ -55,15 +57,16 @@ public sealed class ContractAcceptanceService(IRequestReviewRepository lookup, I
                 canonical.Version == p.RequestVersion && plan?.Version == p.PlanVersion,
                 "STALE_VERSION", "Reload the current issued contract and resolve pending changes.");
         }
-        return new(c!, r!, p, canonical.Value);
+        return new(c!, r!, p, canonical.Value, await deadlines.ReadAsync(p, draft!.Value.Value, ct));
     }
     private void Open(Context x) => Require(x.Contract.ContractStatus == "PENDING_SIGNATURE" && x.Contract.SignedAt is null &&
-        x.Contract.TripId is null && x.Request.Status == "AWAITING_CONTRACT" && clock.GetUtcNow() < x.Publication.CompletionDeadline,
+        x.Contract.TripId is null && x.Request.Status == "AWAITING_CONTRACT" && clock.GetUtcNow() < x.Deadline.Effective,
         "SIGNING_CLOSED", "Contract is not awaiting signature or its completion deadline has passed; contact Manager.");
     private static void Bound(Context x, int version, string hash) => Require(version == x.Publication.ContractVersion && hash == x.Publication.Document.Sha256,
         "STALE_DOCUMENT", "The code/confirmation must refer to the exact issued PDF version and hash.");
-    private string CodeDigest(ContractOtpState otp, string code) => security.Digest("code", JsonSerializer.Serialize(new {
-        otp.ChallengeId, otp.CustomerId, otp.ContractVersion, otp.DocumentHash, otp.EmailDigest, code }, Json));
+    private string CodeDigest(ContractOtpState otp, string code) => security.Digest("code", otp.DeadlineVersion == 0
+        ? JsonSerializer.Serialize(new { otp.ChallengeId, otp.CustomerId, otp.ContractVersion, otp.DocumentHash, otp.EmailDigest, code }, Json)
+        : JsonSerializer.Serialize(new { otp.ChallengeId, otp.CustomerId, otp.ContractVersion, otp.DocumentHash, otp.EmailDigest, code, otp.DeadlineVersion }, Json));
     private async Task<string> CustomerEmail(Context x, CancellationToken ct)
     {
         var user = await repo.GetCustomerAsync(x.Contract.CustomerId, ct);
@@ -91,9 +94,9 @@ public sealed class ContractAcceptanceService(IRequestReviewRepository lookup, I
             var old = await Read<ContractOtpState>("contract-otp", id, token);
             Require(old is null || clock.GetUtcNow() >= old.Value.Value.SentAt.AddSeconds(60), "OTP_COOLDOWN", "Wait 60 seconds before requesting another code.");
             var email = await CustomerEmail(x, token); var now = clock.GetUtcNow();
-            var expires = now.AddMinutes(5) < x.Publication.CompletionDeadline ? now.AddMinutes(5) : x.Publication.CompletionDeadline;
+            var expires = now.AddMinutes(5) < x.Deadline.Effective ? now.AddMinutes(5) : x.Deadline.Effective;
             var otp = new ContractOtpState("otp-" + Guid.NewGuid().ToString("N"), actor, input.ContractVersion, input.DocumentHash,
-                security.Digest("email", email.ToUpperInvariant()), "", expires, now);
+                security.Digest("email", email.ToUpperInvariant()), "", expires, now, DeadlineVersion: x.Deadline.Version);
             otp = otp with { CodeDigest = CodeDigest(otp, code) };
             await Append("contract-otp", id, old?.Version ?? 0, otp.ChallengeId, actor, "DELIVERING", otp, token);
             return (Otp: otp, Email: email);
@@ -148,7 +151,8 @@ public sealed class ContractAcceptanceService(IRequestReviewRepository lookup, I
             Require(otp is not null && otp.Value.Value.ChallengeId == input.ChallengeId && otp.Value.Value.CustomerId == actor &&
                 otp.Value.Value.ContractVersion == input.ContractVersion && otp.Value.Value.DocumentHash == input.DocumentHash &&
                 otp.Value.Value.EmailDigest == security.Digest("email", email.ToUpperInvariant()) && otp.Value.Value.Delivery == "DELIVERED" &&
-                !otp.Value.Value.Consumed && !otp.Value.Value.Revoked && otp.Value.Value.Attempts < 5 && clock.GetUtcNow() < otp.Value.Value.ExpiresAt,
+                !otp.Value.Value.Consumed && !otp.Value.Value.Revoked && otp.Value.Value.DeadlineVersion == x.Deadline.Version &&
+                otp.Value.Value.Attempts < 5 && clock.GetUtcNow() < otp.Value.Value.ExpiresAt,
                 "OTP_INVALID_OR_EXPIRED", "Code is unavailable, replaced, locked or expired; request a new code.");
             if (!security.Matches(otp!.Value.Value.CodeDigest, CodeDigest(otp.Value.Value, input.Otp)))
             {
@@ -158,10 +162,10 @@ public sealed class ContractAcceptanceService(IRequestReviewRepository lookup, I
             }
             // Legacy SignedAt/Invoice.DueDate are SQL datetime: whole seconds keep receipt comparisons stable.
             var signed = DateTimeOffset.FromUnixTimeSeconds(clock.GetUtcNow().ToUnixTimeSeconds()).UtcDateTime;
-            var due = DateTimeOffset.FromUnixTimeSeconds(x.Publication.CompletionDeadline.ToUnixTimeSeconds()).UtcDateTime;
+            var due = ContractDeadlinePolicy.SqlTime(x.Deadline.Effective);
             var evidence = new ContractAcceptance(id, actor, input.ContractVersion, input.DocumentHash, input.ChallengeId, "EMAIL_OTP",
                 signed, "di-" + CustomerTransportService.Hash(id + "/DEPOSIT")[..32],
-                Application.Common.Flow1.Flow1ContractFactory.DepositAmount(x.Contract.TotalQuotedPrice!.Value), due);
+                Application.Common.Flow1.Flow1ContractFactory.DepositAmount(x.Contract.TotalQuotedPrice!.Value), due, x.Deadline.Version);
             await customers.ValidateHorsesAsync(x.Contract.CustomerId, x.Canonical.Input, x.Contract.RequestId, token);
             await Append("contract-otp", id, otp.Value.Version, "consume-" + input.ChallengeId, actor, "CONSUMED", otp.Value.Value with { Consumed = true }, token);
             x.Contract.SignedAt = signed; x.Contract.ContractStatus = "SIGNED"; x.Request.Status = "AWAITING_DEPOSIT";
@@ -178,7 +182,7 @@ public sealed class ContractAcceptanceService(IRequestReviewRepository lookup, I
         e.ContractVersion == x.Publication.ContractVersion && e.DocumentHash == x.Publication.Document.Sha256 && e.Method == "EMAIL_OTP" &&
         e.Deposit == Application.Common.Flow1.Flow1ContractFactory.DepositAmount(x.Contract.TotalQuotedPrice!.Value) &&
         e.InvoiceId == "di-" + CustomerTransportService.Hash(e.ContractId + "/DEPOSIT")[..32] &&
-        e.InvoiceDueAtUtc == DateTimeOffset.FromUnixTimeSeconds(x.Publication.CompletionDeadline.ToUnixTimeSeconds()).UtcDateTime,
+        e.InvoiceDueAtUtc == ContractDeadlinePolicy.SqlTime(x.Deadline.AtVersion(e.DeadlineVersion)),
         "RECOVERY_CONFLICT", "Acceptance evidence differs from the issued contract.");
     public async Task<ContractAcceptanceView> GetAsync(string id, string actor, bool manager, CancellationToken ct)
     {
@@ -192,13 +196,14 @@ public sealed class ContractAcceptanceService(IRequestReviewRepository lookup, I
             if (receipt is not null)
             {
                 Evidence(x, receipt);
-                Require(x.Contract.SignedAt == receipt.SignedAtUtc && invoice?.InvoiceId == receipt.InvoiceId && invoice.TotalPayableAmount == receipt.Deposit && invoice.CurrencyCode == "VND",
+                Require(x.Contract.SignedAt == receipt.SignedAtUtc && invoice?.InvoiceId == receipt.InvoiceId && invoice.TotalPayableAmount == receipt.Deposit && invoice.CurrencyCode == "VND" &&
+                    invoice.DueDate == ContractDeadlinePolicy.SqlTime(x.Deadline.Effective),
                     "RECOVERY_CONFLICT", "SQL signed timestamp or deposit invoice differs from acceptance evidence.");
             }
             Require(receipt is not null || x.Contract.SignedAt is null && invoice is null, "RECOVERY_CONFLICT", "SQL confirmation has no matching private receipt.");
-            return new ContractAcceptanceView(id, state?.Version ?? 0, x.Contract.ContractStatus, clock.GetUtcNow() >= x.Publication.CompletionDeadline,
+            return new ContractAcceptanceView(id, state?.Version ?? 0, x.Contract.ContractStatus, clock.GetUtcNow() >= x.Deadline.Effective,
                 false, receipt, invoice is null ? null : new(invoice.InvoiceId, invoice.TotalPayableAmount, invoice.PaidAmount, invoice.CurrencyCode, invoice.PaymentStatus,
-                    invoice.DueDate is null ? null : DateTime.SpecifyKind(invoice.DueDate.Value, DateTimeKind.Utc)));
+                    invoice.DueDate is null ? null : DateTime.SpecifyKind(invoice.DueDate.Value, DateTimeKind.Utc)), x.Deadline.Effective, x.Deadline.Version);
         }, ct);
     }
 }

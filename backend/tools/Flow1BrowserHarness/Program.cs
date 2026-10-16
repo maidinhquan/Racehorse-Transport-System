@@ -21,8 +21,9 @@ if (!File.Exists(Path.Combine(repository, "backend/Backend.slnx"))) throw new In
 var liveMaps = Environment.GetEnvironmentVariable("FLOW1_BROWSER_LIVE_MAPS") == "1";
 var signing = Environment.GetEnvironmentVariable("FLOW1_BROWSER_SIGNING") == "1";
 var lifecycle = Environment.GetEnvironmentVariable("FLOW1_BROWSER_LIFECYCLE") == "1";
-if (lifecycle && (!signing || Environment.GetEnvironmentVariable("FLOW1_BROWSER_IMPORT") == "1"))
-    throw new InvalidOperationException("Lifecycle acceptance requires signing and a native SQL run, separate from legacy import acceptance.");
+var deadlines = Environment.GetEnvironmentVariable("FLOW1_BROWSER_DEADLINES") == "1";
+if ((lifecycle || deadlines) && (!signing || Environment.GetEnvironmentVariable("FLOW1_BROWSER_IMPORT") == "1"))
+    throw new InvalidOperationException("Lifecycle/deadline acceptance requires signing and a native SQL run, separate from legacy import acceptance.");
 var phase4 = signing || Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE4") == "1";
 var phase3 = phase4 || Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE3") == "1";
 Flow1MapOptions? liveOptions = null;
@@ -130,7 +131,7 @@ try
         nodeInfo.Environment.Remove(key);
     using var node = Process.Start(nodeInfo) ?? throw new InvalidOperationException("Could not start browser runner.");
     var stdout = node.StandardOutput.ReadToEndAsync(); var stderr = node.StandardError.ReadToEndAsync();
-    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(lifecycle ? 7 : phase4 ? 5 : 4));
+    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(lifecycle || deadlines ? 7 : phase4 ? 5 : 4));
     try { await node.WaitForExitAsync(timeout.Token); }
     finally { if (!node.HasExited) node.Kill(entireProcessTree: true); }
     var nodeLog = await stdout + "\n" + await stderr;
@@ -157,6 +158,7 @@ try
     await Sql(connection, "IF EXISTS(SELECT 1 FROM HORSE WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) OR EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) OR EXISTS(SELECT 1 FROM CONTRACT WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) THROW 51034, 'Missing SQL state in browser use cases.', 1;");
     if (signing) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus='SIGNED' AND JSON_VALUE(Flow1StateJson,'$.documents.acceptance.revisions[0].payload.operation.outcome')='COMMITTED') OR NOT EXISTS(SELECT 1 FROM [USER] WHERE UserID='browser-owner' AND Flow1StateVersion > 0 AND JSON_QUERY(Flow1StateJson,'$.documents.\"otp-account\"') IS NOT NULL) THROW 51035, 'SQL confirmation/account budget state missing.', 1;");
     if (lifecycle) await Sql(connection, "IF (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SIGN_DECLINED' AND SignedAt IS NULL AND TripID IS NULL AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[0].payload.action')='DECLINED' AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[1].payload.action')='REISSUED' AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[1].payload.replacementContractId') IN (SELECT ContractID FROM CONTRACT WHERE ContractStatus='SIGNED')) <> 1 THROW 51037,'Lifecycle closing/reissue SQL evidence failed.',1;");
+    if (deadlines) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT c JOIN INVOICE i ON i.ContractID=c.ContractID WHERE c.ContractStatus='SIGNED' AND JSON_VALUE(c.Flow1StateJson,'$.documents.acceptance.revisions[0].payload.operation.evidence.deadlineVersion')='1' AND JSON_VALUE(c.Flow1StateJson,'$.documents.extensions.revisions[1].payload.extensionVersion')='2' AND i.DueDate=CONVERT(datetime,SWITCHOFFSET(TRY_CONVERT(datetimeoffset,JSON_VALUE(c.Flow1StateJson,'$.documents.extensions.revisions[1].payload.newDeadline')),'+00:00')) AND c.CompletionDeadline=CONVERT(datetime2,SWITCHOFFSET(TRY_CONVERT(datetimeoffset,JSON_VALUE(c.Flow1StateJson,'$.documents.extensions.revisions[0].payload.originalDeadline')),'+00:00'))) THROW 51038,'Extension/signature/invoice SQL invariant failed.',1;");
     foreach (var kind in new[] { "horse", "request", "review", "plan", "contract", "publication", "contract-otp", "acceptance", "otp-account" })
         if (Directory.Exists(Path.Combine(output, "legacy-source", kind))) throw new InvalidOperationException("Browser use case created legacy metadata sidecars.");
     Console.WriteLine("PASS: all owner state stored in SQL; no legacy metadata sidecar directories created.");

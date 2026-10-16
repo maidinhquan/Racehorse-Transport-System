@@ -134,6 +134,7 @@ public sealed class ContractLifecycleTests
         var next = await Data<ManagerReviewView>(replies[0]); var replay = await Data<ManagerReviewView>(replies[1]);
         Assert.NotEqual(f.ContractId, next.Contract!.ContractId); Assert.Equal(next.Contract.ContractId, replay.Contract!.ContractId);
         Assert.Equal("DRAFT", next.Contract.Status); Assert.Equal(10_000_000, next.Contract.Deposit);
+        Assert.Null(next.Review.Feedback); // pending-close feedback is no longer current; audit notices remain available
         Assert.Contains(next.ContractHistory!, h => h.ContractId == f.ContractId && h.Status == "SIGN_DECLINED" && h.HasPublishedPdf);
         Assert.Equal(2, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));
         var text = await (await f.Customer.GetAsync($"/api/customer/requests/{f.RequestId}")).Content.ReadAsStringAsync();

@@ -12,7 +12,7 @@ export function ContractLifecyclePanel({ publication, manager, readOnly = false,
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false); const key = useRef({ hash: "", key: "" });
   useEffect(() => { let active = true; lifecycleApi.get(publication.contractId, manager)
     .then(v => { if (active) setView(v); }).catch(e => { if (active) setError(flow1Error(e)); });
-    return () => { active = false; }; }, [publication.contractId, publication.status, manager]);
+    return () => { active = false; }; }, [publication.contractId, publication.status, publication.deadlineVersion, publication.overdue, manager]);
   async function close() {
     if (!view) return; setBusy(true); setError("");
     const input = { contractVersion: publication.version, documentHash: publication.documentHash, expectedLifecycleVersion: view.version, reason };

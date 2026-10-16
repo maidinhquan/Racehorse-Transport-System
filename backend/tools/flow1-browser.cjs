@@ -15,6 +15,7 @@ const phase3 = process.env.FLOW1_BROWSER_PHASE3 === '1';
 const phase4 = process.env.FLOW1_BROWSER_PHASE4 === '1';
 const signing = process.env.FLOW1_BROWSER_SIGNING === '1';
 const lifecycle = process.env.FLOW1_BROWSER_LIFECYCLE === '1';
+const deadlines = process.env.FLOW1_BROWSER_DEADLINES === '1';
 // A RAM-only, non-forwarding SMTP sink. No message, code, request body or trace is written to disk.
 let deliveredCode = ''; const smtpSockets = new Set(); const sensitiveValues = new Set();
 const smtp = require('node:net').createServer(socket => {
@@ -222,7 +223,22 @@ async function reviewFlow(browser, customer, id) {
     localStorage.setItem('accessToken', token); localStorage.setItem('userRole', 'LOGISTICS_MANAGER');
   }, { token: process.env.FLOW1_MANAGER_FIXTURE_TOKEN, origin: base });
   const manager = await context.newPage(); manager.on('pageerror', e => errors.push(e.message));
+  manager.on('response', r => { if (r.status() === 429) console.log('Native Manager rate limit: ' + new URL(r.url()).pathname); });
   const managerUrl = base + '/manager/requests/' + id; const customerUrl = base + '/customer/requests/' + id;
+  async function extendDeadline(original, days) {
+    const next = new Date(original); next.setUTCDate(next.getUTCDate() + days);
+    const details = manager.locator('details').filter({ has: manager.getByText('Gia hạn hoàn tất ký và cọc', { exact: true }) });
+    await details.waitFor(); if ((await details.getAttribute('open')) === null) await details.locator('summary').click();
+    await manager.getByLabel('Hạn mới (giờ Việt Nam UTC+7)', { exact: true }).fill(next.toISOString().slice(0, 10) + 'T17:00');
+    await manager.getByLabel('Lý do gia hạn (nội bộ)', { exact: true }).fill('Gia hạn kiểm thử, giữ nguyên điều khoản và chữ ký.');
+    const reply = manager.waitForResponse(r => r.url().endsWith('/extensions') && r.request().method() === 'POST');
+    await manager.getByRole('button', { name: 'Xác nhận gia hạn', exact: true }).click();
+    const response = await reply; if (!response.ok()) throw new Error('Deadline extension failed: ' + await response.text());
+    const value = (await response.json()).data;
+    await manager.getByRole('button', { name: 'Xác nhận gia hạn', exact: true }).waitFor();
+    await manager.waitForFunction(() => !Array.from(document.querySelectorAll('button')).some(b => b.textContent === 'Xác nhận gia hạn' && !b.disabled));
+    return value;
+  }
   await manager.goto(managerUrl);
   await manager.getByLabel('Lý do hoặc câu hỏi').fill('Xác nhận liên hệ trước khởi hành.');
   await manager.getByRole('button', { name: 'Hỏi bổ sung', exact: true }).click();
@@ -341,7 +357,17 @@ async function reviewFlow(browser, customer, id) {
       fs.writeFileSync(path.join(output, 'lifecycle-result.json'), JSON.stringify({ oldId, oldSha256: oldHash, replacementId: issued.contractId,
         replacementSha256: hash, assertions: ['decline returns request to ACCEPTED', 'new Draft ID', 'unissued Draft shows no stale PDF', 'historical PDF unchanged', 'native SQL receipts'] }, null, 2));
     }
-    await customer.reload(); await customer.getByText('Trạng thái: AWAITING_CONTRACT', { exact: true }).waitFor();
+    let firstExtension = null;
+    if (deadlines) {
+      await manager.reload(); firstExtension = await extendDeadline(issued.originalCompletionDeadline, 1);
+      const currentPublication = customer.waitForResponse(r => r.url().endsWith(`/contracts/${issued.contractId}/publication`));
+      await customer.goto(customerUrl + '/contract'); await customer.getByRole('heading', { name: 'Hợp đồng yêu cầu vận chuyển', exact: true }).waitFor();
+      const current = (await (await currentPublication).json()).data;
+      if (current.deadlineVersion !== 1 || current.originalCompletionDeadline !== issued.originalCompletionDeadline || current.documentHash !== hash || current.overdue)
+        throw new Error('Legacy Contract route/effective deadline binding failed.');
+      issued = current;
+    } else await customer.reload();
+    await customer.getByText('Trạng thái: AWAITING_CONTRACT', { exact: true }).waitFor();
     await customer.screenshot({ path: path.join(output, 'customer-published-contract.png'), fullPage: true });
     await manager.screenshot({ path: path.join(output, 'manager-published-contract.png'), fullPage: true });
     fs.writeFileSync(path.join(output, 'publication-result.json'), JSON.stringify({ ...issued, downloadedSha256: hash, converter: 'REAL LIBREOFFICE' }, null, 2));
@@ -362,7 +388,7 @@ async function reviewFlow(browser, customer, id) {
       await customer.getByRole('button', { name: 'Xác nhận ký hợp đồng', exact: true }).click();
       const signedResponse = await signedReply;
       if (!signedResponse.ok()) throw new Error('Contract confirmation failed (body deliberately omitted).');
-      const acceptance = (await signedResponse.json()).data;
+      let acceptance = (await signedResponse.json()).data;
       await customer.getByText('Trạng thái: AWAITING_DEPOSIT', { exact: true }).waitFor();
       await customer.reload(); await customer.getByText(/Đã xác nhận bằng OTP email lúc/).waitFor();
       await customer.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).click();
@@ -371,7 +397,36 @@ async function reviewFlow(browser, customer, id) {
       const signedPath = path.join(output, 'original-pdf-after-confirmation.pdf'); await (await signedDownload).saveAs(signedPath);
       const signedHash = require('node:crypto').createHash('sha256').update(fs.readFileSync(signedPath)).digest('hex');
       if (signedHash !== hash || acceptance.receipt.documentHash !== hash || acceptance.invoice.amount !== 40000000) throw new Error('Confirmation evidence/invoice/PDF mismatch.');
-      await manager.reload(); await manager.getByText(/Đã xác nhận bằng OTP email lúc/).waitFor();
+      if (deadlines) {
+        // Dev StrictMode mounts plus two publications/lifecycle/extension reads exceed a human's request pace.
+        // Keep the real limiter and start the post-sign extension in a fresh owner window.
+        console.log('Waiting for the next owner window before signed deadline extension.');
+        await delay(60000);
+      }
+      diagnosticPage = manager;
+      const managerReceipt = manager.waitForResponse(r => r.url().endsWith(`/contracts/${issued.contractId}/acceptance`));
+      await manager.reload();
+      const managerReceiptResponse = await managerReceipt;
+      if (!managerReceiptResponse.ok()) throw new Error('Manager acceptance GET failed with HTTP ' + managerReceiptResponse.status());
+      await manager.getByText(/Đã xác nhận bằng OTP email lúc/).waitFor();
+      if (deadlines) {
+        if (acceptance.receipt.deadlineVersion !== 1 || new Date(acceptance.invoice.dueAtUtc).getTime() !== new Date(firstExtension.effectiveCompletionDeadline).getTime())
+          throw new Error('Signing did not use the effective deadline.');
+        const originalReceipt = JSON.stringify(acceptance.receipt);
+        const second = await extendDeadline(issued.originalCompletionDeadline, 2);
+        diagnosticPage = customer;
+        const refreshedAcceptance = customer.waitForResponse(r => r.url().endsWith(`/contracts/${issued.contractId}/acceptance`));
+        await customer.getByRole('button', { name: 'Tải lại hạn hiệu lực', exact: true }).click();
+        acceptance = (await (await refreshedAcceptance).json()).data;
+        if (JSON.stringify(acceptance.receipt) !== originalReceipt || acceptance.deadlineVersion !== 2 ||
+          new Date(acceptance.invoice.dueAtUtc).getTime() !== new Date(second.effectiveCompletionDeadline).getTime())
+          throw new Error('Signed extension changed the original receipt or failed to update invoice due.');
+        await customer.getByRole('list', { name: 'Lịch sử gia hạn', exact: true }).waitFor();
+        await customer.getByText(/Đã xác nhận bằng OTP email lúc/).waitFor();
+        await manager.getByText(/Đã xác nhận bằng OTP email lúc/).waitFor();
+        fs.writeFileSync(path.join(output, 'deadline-result.json'), JSON.stringify({ firstExtension, secondExtension: second,
+          originalReceiptPreserved: true, pdfSha256: signedHash, route: '/customer/requests/:id/contract', finalInvoiceDueAtUtc: acceptance.invoice.dueAtUtc }, null, 2));
+      }
       await customer.screenshot({ path: path.join(output, 'customer-confirmed-contract.png'), fullPage: true });
       await manager.screenshot({ path: path.join(output, 'manager-confirmed-contract.png'), fullPage: true });
       fs.writeFileSync(path.join(output, 'acceptance-result.json'), JSON.stringify({ ...acceptance, originalPdfSha256: signedHash, smtp: 'LOOPBACK RAM SINK, NOT LIVE DELIVERY' }, null, 2));
@@ -390,7 +445,8 @@ async function reviewFlow(browser, customer, id) {
     ...(phase4 ? ['real LibreOffice PDF publication', 'Customer private PDF view/download hash matches',
       signing ? 'loopback SMTP / incorrect OTP rejected / correct OTP confirms once / reload preserves receipt and original PDF / one 40% Invoice, no Trip'
         : 'AWAITING_CONTRACT survives reload; unsigned, no Invoice/Trip'] : []),
-    ...(lifecycle ? ['Customer declines / Manager reissues new Draft / historical PDF retained / replacement PDF signed with one invoice'] : [])];
+    ...(lifecycle ? ['Customer declines / Manager reissues new Draft / historical PDF retained / replacement PDF signed with one invoice'] : []),
+    ...(deadlines ? ['legacy Contract route loads real API / extend before signing / sign uses effective deadline / extend after signing preserves receipt and updates invoice due'] : [])];
 }
 main().catch(async e => {
   if (diagnosticPage && !diagnosticPage.isClosed()) {
