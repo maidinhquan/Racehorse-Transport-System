@@ -59,6 +59,8 @@ public sealed class FakeUserDAO : IUserDAO
         Users.Add(user);
         return Task.FromResult(true);
     }
+    public Task<User?> GetByResetTokenAsync(string resetToken, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Users.FirstOrDefault(u => u.ForgotPasswordRequest == resetToken));
     public async Task<User> AddAsync(User entity, CancellationToken cancellationToken = default)
     {
         await Task.Delay(20, cancellationToken);
