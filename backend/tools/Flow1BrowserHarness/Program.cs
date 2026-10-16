@@ -20,6 +20,9 @@ if (!File.Exists(Path.Combine(repository, "backend/Backend.slnx"))) throw new In
 // Explicit opt-in for bounded real map requests; all SQL/files/accounts remain test-only.
 var liveMaps = Environment.GetEnvironmentVariable("FLOW1_BROWSER_LIVE_MAPS") == "1";
 var signing = Environment.GetEnvironmentVariable("FLOW1_BROWSER_SIGNING") == "1";
+var lifecycle = Environment.GetEnvironmentVariable("FLOW1_BROWSER_LIFECYCLE") == "1";
+if (lifecycle && (!signing || Environment.GetEnvironmentVariable("FLOW1_BROWSER_IMPORT") == "1"))
+    throw new InvalidOperationException("Lifecycle acceptance requires signing and a native SQL run, separate from legacy import acceptance.");
 var phase4 = signing || Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE4") == "1";
 var phase3 = phase4 || Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE3") == "1";
 Flow1MapOptions? liveOptions = null;
@@ -127,7 +130,7 @@ try
         nodeInfo.Environment.Remove(key);
     using var node = Process.Start(nodeInfo) ?? throw new InvalidOperationException("Could not start browser runner.");
     var stdout = node.StandardOutput.ReadToEndAsync(); var stderr = node.StandardError.ReadToEndAsync();
-    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(phase4 ? 5 : 4));
+    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(lifecycle ? 7 : phase4 ? 5 : 4));
     try { await node.WaitForExitAsync(timeout.Token); }
     finally { if (!node.HasExited) node.Kill(entireProcessTree: true); }
     var nodeLog = await stdout + "\n" + await stderr;
@@ -145,7 +148,7 @@ try
     await Sql(connection, "IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST) <> 1 OR (SELECT COUNT(*) FROM HORSE) <> 1 OR EXISTS(SELECT 1 FROM TRIP_PLAN) THROW 51030, 'Browser acceptance SQL invariant failed.', 1;");
     if (!signing) await Sql(connection, "IF EXISTS(SELECT 1 FROM INVOICE) THROW 51030, 'Unexpected early invoice.', 1;");
     await Sql(connection, signing
-        ? "IF (SELECT COUNT(*) FROM CONTRACT) <> 2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SIGNED' AND CompletionDeadline IS NOT NULL AND SignedAt IS NOT NULL AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM INVOICE WHERE InvoiceType='DEPOSIT' AND CurrencyCode='VND' AND TotalPayableAmount=40000000 AND PaidAmount=0 AND PaymentStatus='UNPAID') <> 1 OR (SELECT COUNT(*) FROM INVOICE) <> 1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='AWAITING_DEPOSIT') THROW 51033, 'Phase 4 acceptance/invoice invariant failed.', 1;"
+        ? $"IF (SELECT COUNT(*) FROM CONTRACT) <> {(lifecycle ? 3 : 2)} OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SIGNED' AND CompletionDeadline IS NOT NULL AND SignedAt IS NOT NULL AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM INVOICE WHERE InvoiceType='DEPOSIT' AND CurrencyCode='VND' AND TotalPayableAmount=40000000 AND PaidAmount=0 AND PaymentStatus='UNPAID') <> 1 OR (SELECT COUNT(*) FROM INVOICE) <> 1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='AWAITING_DEPOSIT') THROW 51033, 'Phase 4 acceptance/invoice invariant failed.', 1;"
         : phase4
         ? "IF (SELECT COUNT(*) FROM CONTRACT) <> 2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='PENDING_SIGNATURE' AND CompletionDeadline IS NOT NULL AND SignedAt IS NULL AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SUPERSEDED') <> 1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='AWAITING_CONTRACT') THROW 51032, 'Phase 4 PDF publication invariant failed.', 1;"
         : phase3
@@ -153,6 +156,7 @@ try
         : "IF EXISTS(SELECT 1 FROM CONTRACT) THROW 51031, 'Phase 2 created a Contract early.', 1;");
     await Sql(connection, "IF EXISTS(SELECT 1 FROM HORSE WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) OR EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) OR EXISTS(SELECT 1 FROM CONTRACT WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) THROW 51034, 'Missing SQL state in browser use cases.', 1;");
     if (signing) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus='SIGNED' AND JSON_VALUE(Flow1StateJson,'$.documents.acceptance.revisions[0].payload.operation.outcome')='COMMITTED') OR NOT EXISTS(SELECT 1 FROM [USER] WHERE UserID='browser-owner' AND Flow1StateVersion > 0 AND JSON_QUERY(Flow1StateJson,'$.documents.\"otp-account\"') IS NOT NULL) THROW 51035, 'SQL confirmation/account budget state missing.', 1;");
+    if (lifecycle) await Sql(connection, "IF (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SIGN_DECLINED' AND SignedAt IS NULL AND TripID IS NULL AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[0].payload.action')='DECLINED' AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[1].payload.action')='REISSUED' AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[1].payload.replacementContractId') IN (SELECT ContractID FROM CONTRACT WHERE ContractStatus='SIGNED')) <> 1 THROW 51037,'Lifecycle closing/reissue SQL evidence failed.',1;");
     foreach (var kind in new[] { "horse", "request", "review", "plan", "contract", "publication", "contract-otp", "acceptance", "otp-account" })
         if (Directory.Exists(Path.Combine(output, "legacy-source", kind))) throw new InvalidOperationException("Browser use case created legacy metadata sidecars.");
     Console.WriteLine("PASS: all owner state stored in SQL; no legacy metadata sidecar directories created.");

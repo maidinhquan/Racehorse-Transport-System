@@ -14,6 +14,7 @@ const liveMaps = process.env.FLOW1_BROWSER_LIVE_MAPS === '1';
 const phase3 = process.env.FLOW1_BROWSER_PHASE3 === '1';
 const phase4 = process.env.FLOW1_BROWSER_PHASE4 === '1';
 const signing = process.env.FLOW1_BROWSER_SIGNING === '1';
+const lifecycle = process.env.FLOW1_BROWSER_LIFECYCLE === '1';
 // A RAM-only, non-forwarding SMTP sink. No message, code, request body or trace is written to disk.
 let deliveredCode = ''; const smtpSockets = new Set(); const sensitiveValues = new Set();
 const smtp = require('node:net').createServer(socket => {
@@ -291,7 +292,7 @@ async function reviewFlow(browser, customer, id) {
     await manager.getByRole('button', { name: 'Phát hành PDF hợp đồng', exact: true }).click();
     const issuedResponse = await sent;
     if (!issuedResponse.ok()) throw new Error('PDF publish failed: ' + await issuedResponse.text());
-    const issued = (await issuedResponse.json()).data;
+    let issued = (await issuedResponse.json()).data;
     await manager.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).waitFor();
     await customer.goto(customerUrl);
     await customer.getByText('Trạng thái: AWAITING_CONTRACT', { exact: true }).waitFor();
@@ -300,8 +301,46 @@ async function reviewFlow(browser, customer, id) {
     const download = customer.waitForEvent('download');
     await customer.getByRole('link', { name: 'Tải đúng bản PDF này', exact: true }).click();
     const pdfPath = path.join(output, 'issued-contract-browser.pdf'); await (await download).saveAs(pdfPath);
-    const hash = require('node:crypto').createHash('sha256').update(fs.readFileSync(pdfPath)).digest('hex');
+    let hash = require('node:crypto').createHash('sha256').update(fs.readFileSync(pdfPath)).digest('hex');
     if (hash !== issued.documentHash) throw new Error('Downloaded issued PDF differs from its recorded hash.');
+    if (lifecycle) {
+      const oldId = issued.contractId; const oldHash = hash;
+      await customer.getByText('Từ chối phiên bản hợp đồng', { exact: true }).click();
+      await customer.getByLabel('Lý do từ chối hợp đồng', { exact: true }).fill('Cần làm rõ điều khoản trước khi ký.');
+      const declinedReply = customer.waitForResponse(r => r.url().endsWith('/decline'));
+      await customer.getByRole('button', { name: 'Xác nhận từ chối hợp đồng', exact: true }).click();
+      if (!(await declinedReply).ok()) throw new Error('Customer decline failed.');
+      await customer.getByText('Trạng thái: ACCEPTED', { exact: true }).waitFor();
+      await customer.screenshot({ path: path.join(output, 'customer-declined-contract.png'), fullPage: true });
+      await manager.reload(); await manager.getByLabel('Lý do hoặc câu hỏi').fill('Phát hành lại theo phản hồi của khách.');
+      const reissueReply = manager.waitForResponse(r => r.url().endsWith('/reissue'));
+      await manager.getByRole('button', { name: 'Tạo Draft để phát hành lại', exact: true }).click();
+      const reissuedResponse = await reissueReply;
+      if (!reissuedResponse.ok()) throw new Error('Manager reissue failed: ' + await reissuedResponse.text());
+      const next = (await reissuedResponse.json()).data;
+      if (next.contract.contractId === oldId || next.contract.status !== 'DRAFT') throw new Error('Reissue did not create a new Draft.');
+      await customer.reload(); await customer.getByRole('heading', { name: 'Hợp đồng đang soạn', exact: true }).waitFor();
+      if (await customer.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).count()) throw new Error('New unissued Draft reused the old PDF.');
+      // Exercise the lazy historical preview and authenticated download through the real UI.
+      await customer.getByRole('button', { name: 'Xem lại PDF ' + oldId, exact: true }).click();
+      await customer.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).click();
+      const oldDownload = customer.waitForEvent('download');
+      await customer.getByRole('link', { name: 'Tải đúng bản PDF này', exact: true }).click();
+      const oldPath = path.join(output, 'declined-original-after-reissue.pdf'); await (await oldDownload).saveAs(oldPath);
+      if (require('node:crypto').createHash('sha256').update(fs.readFileSync(oldPath)).digest('hex') !== oldHash) throw new Error('Historical PDF changed.');
+      await customer.screenshot({ path: path.join(output, 'customer-historical-pdf.png'), fullPage: true });
+      console.log('Waiting for the next owner window before publishing the replacement.');
+      await delay(60000);
+      await manager.getByLabel('Hạn hoàn tất ký và cọc (giờ Việt Nam UTC+7)').fill(deadline.toISOString().slice(0, 10) + 'T17:00');
+      const replacementReply = manager.waitForResponse(r => r.url().endsWith('/send'), { timeout: 120000 });
+      await manager.getByRole('button', { name: 'Phát hành PDF hợp đồng', exact: true }).click();
+      const replacement = await replacementReply;
+      if (!replacement.ok()) throw new Error('Replacement publication failed: ' + await replacement.text());
+      issued = (await replacement.json()).data; hash = issued.documentHash;
+      if (issued.contractId !== next.contract.contractId || hash === oldHash) throw new Error('Replacement PDF binding failed.');
+      fs.writeFileSync(path.join(output, 'lifecycle-result.json'), JSON.stringify({ oldId, oldSha256: oldHash, replacementId: issued.contractId,
+        replacementSha256: hash, assertions: ['decline returns request to ACCEPTED', 'new Draft ID', 'unissued Draft shows no stale PDF', 'historical PDF unchanged', 'native SQL receipts'] }, null, 2));
+    }
     await customer.reload(); await customer.getByText('Trạng thái: AWAITING_CONTRACT', { exact: true }).waitFor();
     await customer.screenshot({ path: path.join(output, 'customer-published-contract.png'), fullPage: true });
     await manager.screenshot({ path: path.join(output, 'manager-published-contract.png'), fullPage: true });
@@ -350,7 +389,8 @@ async function reviewFlow(browser, customer, id) {
     'approved change supersedes old Draft and invalidates plan', 'reaccept / replan / new Draft survives reload',
     ...(phase4 ? ['real LibreOffice PDF publication', 'Customer private PDF view/download hash matches',
       signing ? 'loopback SMTP / incorrect OTP rejected / correct OTP confirms once / reload preserves receipt and original PDF / one 40% Invoice, no Trip'
-        : 'AWAITING_CONTRACT survives reload; unsigned, no Invoice/Trip'] : [])];
+        : 'AWAITING_CONTRACT survives reload; unsigned, no Invoice/Trip'] : []),
+    ...(lifecycle ? ['Customer declines / Manager reissues new Draft / historical PDF retained / replacement PDF signed with one invoice'] : [])];
 }
 main().catch(async e => {
   if (diagnosticPage && !diagnosticPage.isClosed()) {

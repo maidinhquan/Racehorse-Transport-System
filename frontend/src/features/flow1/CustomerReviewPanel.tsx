@@ -4,6 +4,7 @@ import { money, flow1Error } from "./api";
 import { operationKey, reviewApi } from "./reviewApi";
 import type { CustomerReview } from "./reviewApi";
 import { ContractPublicationPanel } from "./ContractPublicationPanel";
+import { ContractVersionsPanel } from "./ContractVersionsPanel";
 
 export function CustomerReviewPanel({ id, value, reload }: { id: string; value: CustomerReview; reload: () => Promise<void> }) {
   const [answer, setAnswer] = useState<Record<string, string>>({}); const [reason, setReason] = useState("");
@@ -29,6 +30,7 @@ export function CustomerReviewPanel({ id, value, reload }: { id: string; value: 
       {value.contract.lines.map((l, i) => <p key={i}>{l.description}: {money(l.quantity * l.unitPrice)}</p>)}
       <p>Tổng: {money(value.contract.total)} · Cọc 40%: {money(value.contract.deposit)}</p>{value.contract.status === "DRAFT" && <p>Chưa phát hành để xác nhận.</p>}
       <ContractPublicationPanel id={value.contract.contractId} status={value.contract.status} reload={reload} /></aside>}
+    <ContractVersionsPanel versions={value.contractHistory} reload={reload} />
     {value.allowedActions.includes("CANCEL") && <details><summary>Hủy yêu cầu</summary><form onSubmit={e => { e.preventDefault(); void act("cancel", { reason }); }}>
       <label>Lý do hủy<textarea required maxLength={2000} value={reason} onChange={e => setReason(e.target.value)} /></label><button disabled={busy}>Xác nhận hủy yêu cầu</button>
     </form></details>}

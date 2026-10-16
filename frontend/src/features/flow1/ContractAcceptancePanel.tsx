@@ -37,7 +37,7 @@ export function ContractAcceptancePanel({ publication, manager, pdfViewed, reloa
   const expired = challenge !== null && new Date(challenge.expiresAt).getTime() <= now;
   return <section><h3>Xác nhận hợp đồng bằng OTP</h3>{error && <p role="alert">{error}</p>}
     <button disabled={busy} onClick={() => act("refresh")}>Tải lại trạng thái xác nhận</button>
-    {!manager && view?.status === "PENDING_SIGNATURE" && !view.recoveryRequired && !view.overdue && <>
+    {!manager && publication.status === "PENDING_SIGNATURE" && view?.status === "PENDING_SIGNATURE" && !view.recoveryRequired && !view.overdue && <>
       <p>Mã gửi đến email tài khoản và chỉ dùng cho phiên bản {publication.version} cùng SHA-256 ở trên.</p>
       {!pdfViewed && <p>Mở PDF trước khi xác nhận nội dung.</p>}
       <label><input type="checkbox" checked={accepted} disabled={!pdfViewed || busy} onChange={e => setAccepted(e.target.checked)} />Tôi đã đọc và đồng ý với đúng bản PDF này</label>

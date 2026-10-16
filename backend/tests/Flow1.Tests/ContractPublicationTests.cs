@@ -26,7 +26,8 @@ public sealed class ContractPublicationTests
         public async Task<ContractDocumentResult> GenerateAsync(ContractDocumentRequest input, CancellationToken ct = default)
         {
             Interlocked.Increment(ref Calls); if (Fail) throw new IOException("Injected converter failure.");
-            var file = await files.PutAsync(new("%PDF-1.4\nPUBLICATION TEST DOUBLE ONLY\n%%EOF"u8.ToArray(), "fixture.pdf"), false, ct);
+            var bytes = System.Text.Encoding.UTF8.GetBytes($"%PDF-1.4\nPUBLICATION TEST DOUBLE ONLY {input.ContractId} v{input.Version}\n%%EOF");
+            var file = await files.PutAsync(new(bytes, "fixture.pdf"), false, ct);
             return new(file.FileId, file.Sha256, file.SizeBytes);
         }
     }

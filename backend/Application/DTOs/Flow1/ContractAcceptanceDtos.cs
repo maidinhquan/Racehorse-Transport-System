@@ -9,7 +9,7 @@ public sealed record ContractOtpView(string ChallengeId, DateTimeOffset ExpiresA
 // Private metadata contains only keyed digests. Never persist or return the code or email address here.
 public sealed record ContractOtpState(string ChallengeId, string CustomerId, int ContractVersion, string DocumentHash,
     string EmailDigest, string CodeDigest, DateTimeOffset ExpiresAt, DateTimeOffset SentAt,
-    string Delivery = "DELIVERING", int Attempts = 0, bool Consumed = false);
+    string Delivery = "DELIVERING", int Attempts = 0, bool Consumed = false, bool Revoked = false);
 public sealed record ContractOtpAccount(DateTimeOffset[] Sends);
 public sealed record ContractAcceptance(string ContractId, string CustomerId, int ContractVersion, string DocumentHash,
     string ChallengeId, string Method, DateTime SignedAtUtc, string InvoiceId, decimal Deposit, DateTime InvoiceDueAtUtc);

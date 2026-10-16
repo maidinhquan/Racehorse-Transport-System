@@ -6,9 +6,10 @@ export type Line = { category: string; description: string; quantity: number; un
 export type Question = { id: string; question: string; askedBy: string; askedAtUtc: string; answer: string | null };
 export type Change = { id: string; reason: string; proposal: Submission; status: string; baseRequestVersion: number; decisionReason?: string };
 export type Contract = { contractId: string; status: string; version: number; currency: string; total: number; deposit: number; lines: Line[] };
+export type ContractVersion = { contractId: string; status: string; version: number; total: number; deposit: number; hasPublishedPdf: boolean };
 export type CustomerReview = { version: number; requestVersion: number; feedback: string | null; revisionFields: string[];
   questions: Question[]; changes: Change[]; notices: { id: string; message: string; createdAtUtc: string }[];
-  contract: Contract | null; recoveryRequired: boolean; allowedActions: string[] };
+  contract: Contract | null; recoveryRequired: boolean; allowedActions: string[]; contractHistory?: ContractVersion[] | null };
 export type PlanInput = { departureDate: string; deliveryDate: string; preparationDays: number; vehicleCount: number;
   stallsRequired: number; resources: string; departureGateway: string | null; arrivalGateway: string | null;
   groundLegScope: string; additionalCosts: { category: string; description: string; quantity: number; unitCost: number }[] };
@@ -16,9 +17,10 @@ export type Plan = { input: PlanInput; requestVersion: number; pricingPolicyVers
   floor: number; suggested: number; roadDistanceKm: number | null; minimumPreparationDays: number; attribution: string | null };
 export type ManagerReview = { request: RequestView; version: number; review: { requestVersion: number; feedback: string | null;
   revisionFields: string[]; questions: Question[]; changes: Change[] };
-  plan: Plan | null; contract: Contract | null; allowedActions: string[]; belowFloorReason?: string | null };
+  plan: Plan | null; contract: Contract | null; allowedActions: string[]; belowFloorReason?: string | null; contractHistory?: ContractVersion[] | null };
 const url = (id: string, manager: boolean) => `/${manager ? "manager" : "customer"}/requests/${encodeURIComponent(id)}`;
 export const reviewApi = {
+  reissue: (id: string, input: Record<string, unknown>, key: string) => post<ManagerReview>(`/manager/contracts/${encodeURIComponent(id)}/reissue`, input, key),
   customer: (id: string) => get<CustomerReview>(url(id, false) + "/review"),
   manager: (id: string) => get<ManagerReview>(url(id, true)),
   list: (status = "", page = 1) => get<{ items: RequestView[]; page: number; pageSize: number; totalCount: number }>(

@@ -12,6 +12,13 @@ const signed: Acceptance = { ...awaiting, version: 2, status: "SIGNED", receipt:
   method: "EMAIL_OTP", signedAtUtc: "2026-10-16T10:00:00Z", invoiceId: "di-1", deposit: 40000000 },
   invoice: { invoiceId: "di-1", amount: 40000000, paidAmount: 0, currency: "VND", status: "UNPAID", dueAtUtc: "2026-11-10T10:00:00Z" } };
 afterEach(() => vi.restoreAllMocks());
+it("hides OTP controls immediately for a closed publication even while the acceptance read is stale", async () => {
+  vi.spyOn(acceptanceApi, "get").mockResolvedValue(awaiting);
+  const { rerender } = render(<ContractAcceptancePanel publication={pdf} manager={false} pdfViewed reload={vi.fn()} />);
+  await screen.findByRole("checkbox");
+  rerender(<ContractAcceptancePanel publication={{ ...pdf, status: "SIGN_DECLINED" }} manager={false} pdfViewed reload={vi.fn()} />);
+  expect(screen.queryByRole("checkbox")).toBeNull(); expect(screen.queryByRole("button", { name: "Gửi mã OTP" })).toBeNull();
+});
 it("requires opening the PDF and explicit consent before requesting an OTP", async () => {
   vi.spyOn(acceptanceApi, "get").mockResolvedValue(awaiting);
   const { rerender } = render(<ContractAcceptancePanel publication={pdf} manager={false} pdfViewed={false} reload={vi.fn()} />);

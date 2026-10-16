@@ -39,7 +39,7 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
     { if (!ok) throw Error(message, code, 409); }
     private static string Reason(ReviewCommand c)
     { Require(!string.IsNullOrWhiteSpace(c.Reason) && c.Reason.Length <= 2000, "REASON_REQUIRED", "Enter a reason or response (max 2000 characters)."); return c.Reason!.Trim(); }
-    private static string[] Actions(TransportRequest r, ReviewState s, bool manager)
+    private static string[] Actions(TransportRequest r, ReviewState s, bool manager, string? contractStatus = null)
     {
         if (r.Status is not ("PENDING" or "CHANGES_REQUESTED" or "ACCEPTED")) return [];
         var actions = new List<string>();
@@ -53,7 +53,12 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
                 if (r.Status == "ACCEPTED")
                 {
                     actions.Add("SAVE_PLAN");
-                    if (s.PlanVersion > 0) actions.Add(s.CurrentContractId is null ? "CREATE_DRAFT" : "REPLACE_DRAFT");
+                    if (s.PlanVersion > 0)
+                    {
+                        if (s.CurrentContractId is null) actions.Add("CREATE_DRAFT");
+                        else if (contractStatus is "SIGN_DECLINED" or "EXPIRED") actions.Add("REISSUE_DRAFT");
+                        else if (contractStatus == "DRAFT") actions.Add("REPLACE_DRAFT");
+                    }
                 }
             }
         }
@@ -118,10 +123,11 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
                 return 0;
             }
             Require(version == input.ExpectedVersion, "STALE_VERSION", "Review changed; reload before saving.");
-            if (action is "CREATE_DRAFT" or "REPLACE_DRAFT")
+            if (action is "CREATE_DRAFT" or "REPLACE_DRAFT" or "REISSUE_DRAFT")
                 Require(s.PlanVersion > 0, "PRELIMINARY_PLAN_REQUIRED", "Save a preliminary plan first.");
-            Require(Actions(r, s, manager).Contains(action), "ACTION_NOT_ALLOWED", "Action is not allowed in the current state.");
             var existing = await contracts.GetContractsForRequestAsync(id, token);
+            var sourceContract = existing.SingleOrDefault(c => c.ContractId == s.CurrentContractId);
+            Require(Actions(r, s, manager, sourceContract?.ContractStatus).Contains(action), "ACTION_NOT_ALLOWED", "Action is not allowed in the current state.");
             Require(existing.All(x => x.SignedAt is null && x.ContractStatus is "DRAFT" or "SUPERSEDED" or "SIGN_DECLINED" or "EXPIRED"),
                 "CONTRACT_FROZEN", "A sent or signed contract prevents review changes.");
             var before = Projection(r); var after = before; var next = s;
@@ -184,8 +190,25 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
                     // Plan revisions keep increasing even after plan invalidation.
                     var oldPlan = await stateStore.ReadAsync("plan", id, token);
                     next = next with { PlanVersion = (oldPlan?.Revisions.Count ?? 0) + 1 }; break;
-                case "CREATE_DRAFT": case "REPLACE_DRAFT":
+                case "CREATE_DRAFT": case "REPLACE_DRAFT": case "REISSUE_DRAFT":
                     if (input.QuestionId is not null) Require(input.QuestionId == s.CurrentContractId, "STALE_VERSION", "Only the current Draft can be replaced.");
+                    if (action == "REISSUE_DRAFT")
+                    {
+                        Reason(input);
+                        Require((sourceContract?.ContractStatus is "SIGN_DECLINED" or "EXPIRED") && sourceContract.SignedAt is null &&
+                            sourceContract.TripId is null && await contracts.GetDepositInvoiceAsync(sourceContract.ContractId, token) is null,
+                            "CONTRACT_NOT_REISSUABLE", "Only a closed unsigned contract can be reissued.");
+                        var lifecycle = await stateStore.ReadAsync("lifecycle", sourceContract!.ContractId, token);
+                        var issued = await Read<ContractPublication>("publication", sourceContract.ContractId, token);
+                        Require(issued.Value.Outcome == "COMMITTED" && issued.Value.ContractId == sourceContract.ContractId &&
+                            issued.Value.RequestId == id && issued.Value.CustomerId == r.CustomerId &&
+                            sourceContract.CompletionDeadline == issued.Value.CompletionDeadline.UtcDateTime,
+                            "STATE_CONFLICT", "Closed publication does not match its SQL owner.");
+                        Require(lifecycle is not null && lifecycle.Revisions.Select(Payload<ContractLifecycleEvent>).Any(e =>
+                            e.Action == (sourceContract.ContractStatus == "EXPIRED" ? "EXPIRED" : "DECLINED") &&
+                            e.ContractId == sourceContract.ContractId && e.RequestId == id && e.ContractVersion == issued.Value.ContractVersion &&
+                            e.DocumentHash == issued.Value.Document.Sha256), "STATE_UNAVAILABLE", "Closing receipt is required before reissue.");
+                    }
                     plan = null;
                     var savedPlan = await Read<PreliminaryPlan>("plan", id, token);
                     Require(savedPlan.Version == s.PlanVersion && savedPlan.Value.RequestVersion == s.RequestVersion, "PRELIMINARY_PLAN_REQUIRED", "Save a current preliminary plan first.");
@@ -213,6 +236,14 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
             if (nextCanonical is not null) await Append("request", id, s.RequestVersion, "wf-" + key, actor, action, nextCanonical, token);
             if (plan is not null) await Append("plan", id, next.PlanVersion - 1, "wf-" + key, actor, action, plan, token);
             if (draft is not null) await Append("contract", draftId!, 0, "wf-" + key, actor, action, draft, token);
+            if (action == "REISSUE_DRAFT")
+            {
+                var lifecycle = (await stateStore.ReadAsync("lifecycle", sourceContract!.ContractId, token))!;
+                var p = await Read<ContractPublication>("publication", sourceContract.ContractId, token);
+                await Append("lifecycle", sourceContract.ContractId, lifecycle.Revisions.Count, "lifecycle-" + key, actor, "REISSUED",
+                    new ContractLifecycleEvent(key, hash, actor, "REISSUED", input.Reason!.Trim(), sourceContract.ContractId, id,
+                        p.Value.ContractVersion, p.Value.Document.Sha256, clock.GetUtcNow().UtcDateTime, draftId), token);
+            }
             next = next with { LastOperation = new ReviewReceipt(key, hash, actor, action, "COMMITTED") };
             await Append("review", id, version, "done-" + key, actor, "COMPLETED", next, token);
             return 0;
@@ -249,7 +280,7 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
     private static string PublicMessage(string action) => action switch {
         "ACCEPT" => "Yêu cầu đã được chấp nhận để lập kế hoạch.", "REQUEST_REVISION" => "Vui lòng chỉnh sửa yêu cầu theo phản hồi.",
         "REJECT" => "Yêu cầu đã bị từ chối; xem lý do.", "ASK_INFO" => "Có câu hỏi bổ sung cần trả lời.",
-        "RESPOND_INFO" => "Đã nhận câu trả lời bổ sung.", "CREATE_DRAFT" or "REPLACE_DRAFT" => "Đang soạn hợp đồng; chưa phát hành để ký.",
+        "RESPOND_INFO" => "Đã nhận câu trả lời bổ sung.", "CREATE_DRAFT" or "REPLACE_DRAFT" or "REISSUE_DRAFT" => "Đang soạn hợp đồng; chưa phát hành để ký.",
         _ => "Đã cập nhật hồ sơ yêu cầu." };
     private async Task<ContractSummary?> Summary(string id, ReviewState state, CancellationToken ct)
     {
@@ -274,17 +305,33 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
             plan = saved.Value;
         }
         var note = x.State.CurrentContractId is null ? null : (await Read<DraftSnapshot>("contract", x.State.CurrentContractId, token)).Value.BelowFloorReason;
+        var summary = await Summary(id, x.State, token);
         return new ManagerReviewView(new(x.R.RequestId, x.R.Status, x.R.Departure, x.R.Destination, x.R.ExpectedDate, x.R.CommittedDeadline,
-            x.State.RequestVersion, x.Canonical, []), x.Version, x.State, plan, await Summary(id, x.State, token), Actions(x.R, x.State, true), note);
+            x.State.RequestVersion, x.Canonical, []), x.Version, x.State, plan, summary, Actions(x.R, x.State, true, summary?.Status), note, await History(id, x.State.CurrentContractId, token));
     }, ct);
     public Task<CustomerReviewView> CustomerAsync(string id, string actor, CancellationToken ct) => transactions.ExecuteAsync(id, async token =>
     {
         var x = await Load(id, actor, false, token);
         return await CustomerView(x.R, x.Version, x.State, token);
     }, ct);
-    private async Task<CustomerReviewView> CustomerView(TransportRequest r, int version, ReviewState state, CancellationToken ct) =>
-        new(version, state.RequestVersion, state.Feedback, state.RevisionFields, state.Questions,
-            state.Changes, state.Notices, await Summary(r.RequestId, state, ct), false, Actions(r, state, false));
+    private async Task<CustomerReviewView> CustomerView(TransportRequest r, int version, ReviewState state, CancellationToken ct)
+    {
+        var summary = await Summary(r.RequestId, state, ct);
+        return new(version, state.RequestVersion, state.Feedback, state.RevisionFields, state.Questions,
+            state.Changes, state.Notices, summary, false, Actions(r, state, false, summary?.Status), await History(r.RequestId, state.CurrentContractId, ct));
+    }
+    private async Task<ContractVersionView[]> History(string id, string? current, CancellationToken ct)
+    {
+        var result = new List<ContractVersionView>();
+        foreach (var c in (await contracts.GetContractsForRequestAsync(id, ct)).Where(c => c.ContractId != current).OrderBy(c => c.ContractId))
+        {
+            var draft = await Read<DraftSnapshot>("contract", c.ContractId, ct);
+            var publication = await stateStore.ReadAsync("publication", c.ContractId, ct);
+            result.Add(new(c.ContractId, c.ContractStatus, draft.Version, draft.Value.Total, draft.Value.Deposit,
+                publication is not null && Payload<ContractPublication>(publication.Revisions[^1]).Outcome == "COMMITTED"));
+        }
+        return result.ToArray();
+    }
     public Task<RequestView> CustomerDetailAsync(string id, string actor, CancellationToken ct) => transactions.ExecuteAsync(id, async token =>
     {
         // Read canonical request, SQL status and public Draft under one request lock.
@@ -329,6 +376,12 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
     {
         var row = await repo.ContractAsync(id, ct) ?? throw Error("Contract not found.", "NOT_FOUND", 404);
         await ExecuteAsync(row.RequestId, actor, true, "REPLACE_DRAFT", key, input with { QuestionId = id }, ct);
+        return await ManagerAsync(row.RequestId, actor, ct);
+    }
+    public async Task<ManagerReviewView> ReissueContractAsync(string id, string actor, string key, ReviewCommand input, CancellationToken ct)
+    {
+        var row = await repo.ContractAsync(id, ct) ?? throw Error("Contract not found.", "NOT_FOUND", 404);
+        await ExecuteAsync(row.RequestId, actor, true, "REISSUE_DRAFT", key, input with { QuestionId = id }, ct);
         return await ManagerAsync(row.RequestId, actor, ct);
     }
     public async Task<ContractSummary> CustomerContractAsync(string id, string actor, CancellationToken ct)

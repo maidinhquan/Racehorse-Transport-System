@@ -13,6 +13,11 @@ và gộp business/state/receipt chung transaction. S3 có inventory/import/pari
 offline và đã gỡ file provider/interface/options/tests cũ; DB nghiệp vụ chưa được
 áp migration/import. Xem [S2](FLOW1_PHASE4_SQL_CUTOVER_REPORT.md), [S3](FLOW1_PHASE4_SQL_IMPORT_REPORT.md).
 
+[Phase 4 increment C](FLOW1_PHASE4_LIFECYCLE_REPORT.md) bổ sung Customer decline,
+Manager explicit expire/reissue thành ContractID mới và lịch sử private PDF bằng SQL.
+Phase 4 còn effective-deadline extension/history và thay Contract FE legacy trước
+khi sang phase 5; không coi các use case đã có là hoàn thành toàn Flow 1.
+
 ## 1. Quyết định đã chốt
 
 Luồng giữ nguyên: Estimate -> Wizard -> PENDING -> Manager Review -> Preliminary Plan -> Draft Contract/PDF -> OTP -> SIGNED -> cọc 40% -> EFFECTIVE/ACTIVATED + một Trip PLANNING -> Confirm Deployment -> Flow 2/3.
@@ -498,7 +503,7 @@ Frontend dùng frontend/src/shared/api/apiClient.ts và router hiện có. API/t
 
 Sau phase 1 có thể giao adapter Maps/VNPay/PDF cho người phụ trách theo interface. Mỗi task ghi file exact path, input/output, status guards, metadata/SQL boundary và test IDs. Không tự sửa legacy DAO hoặc module đồng đội ngoài hợp đồng bàn giao.
 
-Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md), [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md) và [phase 3 Review/Plan/Quote/Draft](FLOW1_PHASE3_REPORT.md). **Phase 1–3 hoàn thành trong phạm vi local/test đã cấp**: phase 2 có live Geoapify/Mapbox; phase 3 có Customer/Manager browser nối SQL/file riêng, Maps fixture, SQL/file receipt recovery cho review/Draft. **Phase 4 PDF/OTP/deadline/recovery đang thực hiện**; tiếp tục phần còn lại theo báo cáo increment B, không hỏi lại Maps key hay capacity=1. Chưa nghiệm thu thanh toán/Trip hoặc full Flow 1 UAT. Payload/API thực tế được ghi trong báo cáo từng phase để phân biệt với ví dụ thiết kế ở mục 7.
+Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md), [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md) và [phase 3 Review/Plan/Quote/Draft](FLOW1_PHASE3_REPORT.md). **Phase 1–3 hoàn thành trong phạm vi local/test đã cấp**: phase 2 có live Geoapify/Mapbox; phase 3 có Customer/Manager browser nối SQL/file riêng, Maps fixture, SQL/file receipt recovery cho review/Draft. **Phase 4 PDF/OTP/deadline/recovery đang thực hiện**; tiếp tục phần còn lại theo [increment C](FLOW1_PHASE4_LIFECYCLE_REPORT.md), không hỏi lại Maps key hay capacity=1. Chưa nghiệm thu thanh toán/Trip hoặc full Flow 1 UAT. Payload/API thực tế được ghi trong báo cáo từng phase để phân biệt với ví dụ thiết kế ở mục 7.
 
 ## 15. Ma trận kiểm thử và bằng chứng nghiệm thu
 
@@ -506,16 +511,18 @@ Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai
 có migration 004/SQL state port. [S2](FLOW1_PHASE4_SQL_CUTOVER_REPORT.md) đã chuyển
 Customer/review/publication/OTP/sign sang SQL transaction chung, gỡ recovery route/UI
 dành file saga. [S3](FLOW1_PHASE4_SQL_IMPORT_REPORT.md) đã có offline importer/parity,
-gỡ file provider và kiểm Chrome sau import. Tiếp theo phase 4 bằng SQL: decline,
-expire/reissue, effective-deadline extension và legacy Contract FE. DB nghiệp vụ
+gỡ file provider và kiểm Chrome sau import. [Increment C](FLOW1_PHASE4_LIFECYCLE_REPORT.md)
+có decline/explicit expire/reissue và lịch sử PDF. Tiếp theo effective-deadline
+extension và legacy Contract FE. DB nghiệp vụ
 chưa áp 004/import; không coi test import là xác minh live/production.
 
 **Cập nhật phase 4, 16/10/2026:** [increment A](FLOW1_PHASE4_REPORT.md) có PDF v2/private
 immutable publication/deadline gốc/recovery, real LibreOffice 13-page QA và Chrome
 download hash. [Increment B](FLOW1_PHASE4_ACCEPTANCE_REPORT.md) bổ sung Customer
 email OTP gắn version/hash, ký tạo đúng một hóa đơn cọc 40%, receipt/recovery giữa
-SQL và file, giao diện và kiểm thử. **Phase 4 vẫn IN_PROGRESS**: tiếp tục decline,
-explicit expire/reissue, effective-deadline extensions và thay contract route legacy;
+SQL và file, giao diện và kiểm thử; S2 đã thay bằng SQL transaction chung.
+Increment C thêm decline/explicit expire/reissue bằng SQL. **Phase 4 vẫn IN_PROGRESS**:
+tiếp tục effective-deadline extensions và thay contract route legacy;
 chưa bắt đầu phase 5 và chưa tuyên bố full Flow 1 UAT. SMTP registration hiện có;
 dedicated OTP HMAC key cần điền private trước nghiệm thu cấu hình vận hành.
 
@@ -631,6 +638,7 @@ Frontend khi tới use case tương ứng: npm run test:run và npm run build �
 - [x] S1 SQL foundation/migration/transaction/CAS: 179 backend tests pass tại commit S1.
 - [x] S2 source endpoint dùng SQL, business + state + receipt commit chung; SQL rollback/retry/concurrency và connected browser trong báo cáo S2. Không đồng nghĩa đã migrate/import DB nghiệp vụ.
 - [x] S3 tool inventory/import/parity và gỡ MetadataStore file/test cũ có replacement, giữ bytes/source; kiểm trên DB test và Chrome, chưa migrate/import DB nghiệp vụ.
+- [x] Phase 4 increment C: decline/explicit expire/reissue + PDF history, SQL receipt/status/review/OTP atomic, giữ request booking; kiểm local/test theo báo cáo C.
 - [x] Migration DB sạch + legacy + chạy lại trên DB test; không mất tiền/currency/signature, không bịa deadline. Chưa áp lên DB nghiệp vụ.
 - [x] Foundation lưu Contract trước Trip; repository stage invoice/ledger SQL và request transaction dùng chung, đã test rollback. API activation thuộc phase sau.
 - [x] Baseline file provider giữ version/history; SQL port mới giữ document revisions/owner binding/replay/limits. Không public storage.

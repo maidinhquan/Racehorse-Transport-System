@@ -6,6 +6,7 @@ import type { ManagerReview, PlanInput, Line } from "./reviewApi";
 import { MapDataAttribution } from "./TripFields";
 import "./flow1.css";
 import { ContractPublicationPanel } from "./ContractPublicationPanel";
+import { ContractVersionsPanel } from "./ContractVersionsPanel";
 
 export function ManagerRequestsPage() {
   const [status, setStatus] = useState("PENDING"); const [page, setPage] = useState(1);
@@ -52,7 +53,8 @@ function ManagerWork({ value: v, update }: { value: ManagerReview; update: (v: M
   const can = (action: string) => v.allowedActions.includes(action);
   async function act(action: string, payload: Record<string, unknown> = {}) {
     const body = { expectedVersion: v.version, ...payload }; setBusy(true); setError("");
-    try { update(await reviewApi.actManager(v.request.requestId, action, body, operationKey(key, action, body))); }
+    try { update(action === "reissue" ? await reviewApi.reissue(v.contract!.contractId, body, operationKey(key, action, body))
+      : await reviewApi.actManager(v.request.requestId, action, body, operationKey(key, action, body))); }
     catch (e) { setError(flow1Error(e)); } finally { setBusy(false); }
   }
   return <><h1>{v.request.departure} → {v.request.destination}</h1><p>Trạng thái: {v.request.status} · Phiên bản thẩm định: {v.version}</p>
@@ -91,14 +93,16 @@ function ManagerWork({ value: v, update }: { value: ManagerReview; update: (v: M
       <Lines title="Chi phí bổ sung dự kiến" value={costs} change={setCosts} /><button disabled={busy}>Lưu kế hoạch sơ bộ</button></form>}
     {v.plan && <aside><h2>Đề xuất báo giá nội bộ</h2><p>Chi phí: {money(v.plan.estimatedCost)} · Giá sàn: {money(v.plan.floor)} · Giá đề xuất: {money(v.plan.suggested)}</p>
       <p>{v.plan.input.preparationDays} ngày chuẩn bị · {v.plan.input.vehicleCount} xe · {v.plan.input.stallsRequired} stall</p><MapDataAttribution text={v.plan.attribution} /></aside>}
-    {(can("CREATE_DRAFT") || can("REPLACE_DRAFT")) && <form onSubmit={e => { e.preventDefault(); void act(can("CREATE_DRAFT") ? "contracts" : "contract-versions", { lines, reason }); }}>
+    {(can("CREATE_DRAFT") || can("REPLACE_DRAFT") || can("REISSUE_DRAFT")) && <form onSubmit={e => { e.preventDefault(); void act(can("REISSUE_DRAFT") ? "reissue" : can("CREATE_DRAFT") ? "contracts" : "contract-versions", { lines, reason }); }}>
       <h2>Giá bán và hợp đồng Draft</h2><Lines title="Các khoản giá bán" value={lines} change={setLines} />
       <p>Backend tính tổng và cọc 40%. Giá dưới sàn cần lý do ở ô phía trên. Thay phiên bản sẽ vô hiệu Draft cũ.</p>
-      <button disabled={busy || !lines.length}>{can("CREATE_DRAFT") ? "Tạo hợp đồng Draft" : "Tạo phiên bản Draft mới"}</button></form>}
+      {can("REISSUE_DRAFT") && <p>Nhập lý do phát hành lại ở ô phía trên. Một bản hợp đồng mới sẽ được tạo; bản cũ và PDF được giữ nguyên.</p>}
+      <button disabled={busy || !lines.length || can("REISSUE_DRAFT") && !reason.trim()}>{can("REISSUE_DRAFT") ? "Tạo Draft để phát hành lại" : can("CREATE_DRAFT") ? "Tạo hợp đồng Draft" : "Tạo phiên bản Draft mới"}</button></form>}
     {v.contract && <aside><h2>{v.contract.status === "DRAFT" ? "Hợp đồng Draft hiện hành" : "Hợp đồng hiện hành"}</h2><p>{v.contract.contractId} · {v.contract.status}</p><p>Tổng: {money(v.contract.total)} · Cọc 40%: {money(v.contract.deposit)}</p>
       {v.belowFloorReason && <p>Lý do giá dưới sàn (nội bộ): {v.belowFloorReason}</p>}
       {v.contract.status === "DRAFT" && <p>Chưa phát hành để ký, chưa tạo chuyến vận chuyển.</p>}
       <ContractPublicationPanel id={v.contract.contractId} manager reviewVersion={v.version} status={v.contract.status}
         reload={async () => update(await reviewApi.manager(v.request.requestId))} /></aside>}
-  </>;
+    <ContractVersionsPanel versions={v.contractHistory} manager reload={async () => update(await reviewApi.manager(v.request.requestId))} />
+    </>;
 }

@@ -4,26 +4,28 @@ import { operationKey } from "./reviewApi";
 import { publicationApi } from "./publicationApi";
 import type { Publication } from "./publicationApi";
 import { ContractAcceptancePanel } from "./ContractAcceptancePanel";
-export function ContractPublicationPanel({ id, manager = false, reviewVersion = 0, status, reload }: {
-  id: string; manager?: boolean; reviewVersion?: number; status: string; reload: () => Promise<void> }) {
-  const [publication, setPublication] = useState<Publication | null>(null); const [error, setError] = useState("");
+import { ContractLifecyclePanel } from "./ContractLifecyclePanel";
+export function ContractPublicationPanel({ id, manager = false, reviewVersion = 0, status, readOnly = false, reload }: {
+  id: string; manager?: boolean; reviewVersion?: number; status: string; readOnly?: boolean; reload: () => Promise<void> }) {
+  const [loaded, setLoaded] = useState<{ id: string; value: Publication | null } | null>(null); const [error, setError] = useState("");
+  const publication = loaded?.id === id ? loaded.value : null;
   const [deadline, setDeadline] = useState(""); const [busy, setBusy] = useState(false);
   const [pdf, setPdf] = useState<{ url: string; id: string; hash: string } | null>(null); const key = useRef({ hash: "", key: "" });
   const pdfUrl = pdf?.id === id && pdf.hash === publication?.documentHash ? pdf.url : "";
   useEffect(() => { let active = true; if (manager || status !== "DRAFT") publicationApi.get(id, manager)
-    .then(x => { if (active) setPublication(x); }).catch(e => { if (active) setError(flow1Error(e)); });
+    .then(x => { if (active) setLoaded({ id, value: x }); }).catch(e => { if (active) setError(flow1Error(e)); });
     return () => { active = false; }; }, [id, manager, status, reviewVersion]);
   useEffect(() => () => { if (pdf) URL.revokeObjectURL(pdf.url); }, [pdf]);
   async function publish() {
     setBusy(true); setError("");
     try {
       const input = { expectedReviewVersion: reviewVersion, completionDeadline: new Date(deadline + "+07:00").toISOString() };
-      setPublication(await publicationApi.send(id, input, operationKey(key, "publish", input)));
+      setLoaded({ id, value: await publicationApi.send(id, input, operationKey(key, "publish", input)) });
       await reload();
     } catch (e) { setError(flow1Error(e)); } finally { setBusy(false); }
   }
   return <section><h3>PDF hợp đồng</h3>{error && <p role="alert">{error}</p>}
-    {manager && status === "DRAFT" && !publication && <form onSubmit={e => { e.preventDefault(); void publish(); }}>
+    {manager && !readOnly && status === "DRAFT" && !publication && <form onSubmit={e => { e.preventDefault(); void publish(); }}>
       <label>Hạn hoàn tất ký và cọc (giờ Việt Nam UTC+7)<input required type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} /></label>
       <p>Phát hành sẽ cố định nội dung, PDF và hạn gốc. Backend kiểm tra thời gian chuẩn bị trước khởi hành.</p>
       <button disabled={busy}>Phát hành PDF hợp đồng</button></form>}
@@ -34,6 +36,7 @@ export function ContractPublicationPanel({ id, manager = false, reviewVersion = 
       <button disabled={busy} onClick={async () => { setBusy(true); try { setPdf({ url: await publicationApi.pdf(id, manager), id, hash: publication.documentHash }); } catch (e) { setError(flow1Error(e)); } finally { setBusy(false); } }}>Xem PDF đã phát hành</button>
       {pdfUrl && <><p><a href={pdfUrl} download={`${id}.pdf`}>Tải đúng bản PDF này</a></p><iframe title="PDF hợp đồng đã phát hành" src={pdfUrl} style={{ width: "100%", height: 720 }} /></>}
       <ContractAcceptancePanel key={`${id}:${publication.version}:${publication.documentHash}`} publication={publication} manager={manager} pdfViewed={!!pdfUrl} reload={reload} />
+      <ContractLifecyclePanel key={`lifecycle:${id}`} publication={publication} manager={manager} readOnly={readOnly} reload={reload} />
     </>}
   </section>;
 }

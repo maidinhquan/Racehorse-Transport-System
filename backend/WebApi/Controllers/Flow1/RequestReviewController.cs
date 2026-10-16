@@ -80,6 +80,8 @@ public sealed class ManagerDraftContractsController(RequestReviewService service
     // Editing creates a new ContractID/version and supersedes the old Draft; it never rewrites sent terms.
     [HttpPut("{id}")] public async Task<IActionResult> Put(string id, ReviewCommand input, CancellationToken ct) =>
         Ok(ApiResponse<object>.Ok(await service.EditContractAsync(id, Actor, Request.Headers["Idempotency-Key"].ToString(), input, ct)));
+    [HttpPost("{id}/reissue")] public async Task<IActionResult> Reissue(string id, ReviewCommand input, CancellationToken ct) =>
+        Ok(ApiResponse<ManagerReviewView>.Ok(await service.ReissueContractAsync(id, Actor, Request.Headers["Idempotency-Key"].ToString(), input, ct)));
 }
 
 [ApiController, Route("api/customer/contracts"), Authorize(Roles = UserRoles.Customer), EnableRateLimiting("flow1-customer")]

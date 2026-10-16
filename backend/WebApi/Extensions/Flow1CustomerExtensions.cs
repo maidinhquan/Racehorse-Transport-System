@@ -21,6 +21,7 @@ public static class Flow1CustomerExtensions
         services.AddScoped<RequestReviewService>();
         services.AddScoped<ContractPublicationService>();
         services.AddScoped<ContractAcceptanceService>();
+        services.AddScoped<ContractLifecycleService>();
         services.AddSingleton<IContractOtpSecurity>(new ContractOtpSecurity(config["Flow1:Contracts:OtpHmacKey"]));
         var emailOptions = config.GetSection("Flow1:Contracts:Email").Get<ContractSmtpOptions>() ?? new();
         if (!config.GetSection("Flow1:Contracts:Email:Smtp").Exists())

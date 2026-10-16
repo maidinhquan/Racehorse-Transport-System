@@ -34,8 +34,8 @@ public sealed record RequestProjection(string Status, string Departure, string D
     string? ReceiverPhone, string[] HorseIds);
 public sealed record ContractProjection(string Id, bool Exists, string? Status, decimal? Total);
 public sealed record ManagerReviewView(RequestView Request, int Version, ReviewState Review,
-    PreliminaryPlan? Plan, ContractSummary? Contract, string[] AllowedActions, string? BelowFloorReason = null);
+    PreliminaryPlan? Plan, ContractSummary? Contract, string[] AllowedActions, string? BelowFloorReason = null, ContractVersionView[]? ContractHistory = null);
 // Never serialize ReviewState/PreliminaryPlan to Customer: they contain cost/floor/override notes.
 public sealed record CustomerReviewView(int Version, int RequestVersion, string? Feedback,
     string[] RevisionFields, ReviewQuestion[] Questions, ReviewChange[] Changes, ReviewNotice[] Notices,
-    ContractSummary? Contract, bool RecoveryRequired, string[] AllowedActions);
+    ContractSummary? Contract, bool RecoveryRequired, string[] AllowedActions, ContractVersionView[]? ContractHistory = null);

@@ -5,6 +5,7 @@ import { ContractPublicationPanel } from "./ContractPublicationPanel";
 import { publicationApi } from "./publicationApi";
 import type { Publication } from "./publicationApi";
 vi.mock("./ContractAcceptancePanel", () => ({ ContractAcceptancePanel: ({ pdfViewed }: { pdfViewed: boolean }) => <span data-testid="pdf-consent-gate">{String(pdfViewed)}</span> }));
+vi.mock("./ContractLifecyclePanel", () => ({ ContractLifecyclePanel: () => null }));
 
 const issued: Publication = { contractId: "c-test", version: 1, status: "PENDING_SIGNATURE", currency: "VND", total: 115000000,
   deposit: 46000000, originalCompletionDeadline: "2026-11-10T10:00:00Z", documentHash: "a".repeat(64),
@@ -52,4 +53,12 @@ it("does not reuse the old PDF preview as evidence of viewing a replacement cont
     await screen.findByText(next.documentHash); expect(screen.getByTestId("pdf-consent-gate")).toHaveTextContent("false");
     expect(screen.queryByTitle("PDF hợp đồng đã phát hành")).toBeNull(); unmount();
   } finally { URL.revokeObjectURL = original; }
+});
+it("clears the old issued PDF immediately when Customer switches to a new unissued Draft", async () => {
+  const get = vi.spyOn(publicationApi, "get").mockResolvedValue(issued);
+  const { rerender } = render(<ContractPublicationPanel id="c-test" status="SIGN_DECLINED" reload={vi.fn()} />);
+  await screen.findByText(issued.documentHash);
+  rerender(<ContractPublicationPanel id="new-draft" status="DRAFT" reload={vi.fn()} />);
+  expect(screen.queryByText(issued.documentHash)).toBeNull();
+  expect(screen.queryByRole("button", { name: "Xem PDF đã phát hành" })).toBeNull(); expect(get).toHaveBeenCalledOnce();
 });

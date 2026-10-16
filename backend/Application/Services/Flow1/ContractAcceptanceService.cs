@@ -114,7 +114,7 @@ public sealed class ContractAcceptanceService(IRequestReviewRepository lookup, I
 
         async Task Delivery(string status, CancellationToken token) => await transactions.ExecuteAsync(row.RequestId, async t => {
             var old = await Read<ContractOtpState>("contract-otp", id, t);
-            Require(old?.Value.ChallengeId == delivery.Otp.ChallengeId && old.Value.Value.Delivery == "DELIVERING",
+            Require(old?.Value.ChallengeId == delivery.Otp.ChallengeId && old.Value.Value.Delivery == "DELIVERING" && !old.Value.Value.Revoked,
                 "OTP_SUPERSEDED", "A newer code request replaced this delivery; reload.");
             await Append("contract-otp", id, old!.Value.Version, delivery.Otp.ChallengeId + "-" + status, actor, status,
                 old.Value.Value with { Delivery = status }, t); return 0;
@@ -148,7 +148,7 @@ public sealed class ContractAcceptanceService(IRequestReviewRepository lookup, I
             Require(otp is not null && otp.Value.Value.ChallengeId == input.ChallengeId && otp.Value.Value.CustomerId == actor &&
                 otp.Value.Value.ContractVersion == input.ContractVersion && otp.Value.Value.DocumentHash == input.DocumentHash &&
                 otp.Value.Value.EmailDigest == security.Digest("email", email.ToUpperInvariant()) && otp.Value.Value.Delivery == "DELIVERED" &&
-                !otp.Value.Value.Consumed && otp.Value.Value.Attempts < 5 && clock.GetUtcNow() < otp.Value.Value.ExpiresAt,
+                !otp.Value.Value.Consumed && !otp.Value.Value.Revoked && otp.Value.Value.Attempts < 5 && clock.GetUtcNow() < otp.Value.Value.ExpiresAt,
                 "OTP_INVALID_OR_EXPIRED", "Code is unavailable, replaced, locked or expired; request a new code.");
             if (!security.Matches(otp!.Value.Value.CodeDigest, CodeDigest(otp.Value.Value, input.Otp)))
             {

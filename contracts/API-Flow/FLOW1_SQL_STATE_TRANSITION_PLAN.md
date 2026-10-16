@@ -72,6 +72,7 @@ không serialize SQL state hoặc internal plan/budget ra Customer DTO.
 | publication | CONTRACT / ContractID | ContractPublication, frozen model, template/PDF hash/size/key/original deadline |
 | contract-otp | CONTRACT / ContractID | ContractOtpState: keyed digests, delivery state, expiry, attempts, consumed |
 | acceptance | CONTRACT / ContractID | ContractAcceptance, keyed input digest, invoice binding/receipt |
+| lifecycle | CONTRACT / ContractID | Increment C: decline/explicit expire/reissue receipts gắn exact PDF và replacement ContractID; native SQL, không phải loại legacy import |
 | extensions | CONTRACT / ContractID | Typed old/new effective deadline + actor/reason/time; phase 4 tiếp tục implement |
 | otp-account | USER / UserID | ContractOtpAccount gửi mã; S2 đổi key từ hash synthetic sang owner UserID |
 | payment-ledger | CONTRACT / ContractID | Phase 5 evidence/idempotency gắn PaymentID/InvoiceID; tiền chuẩn vẫn INVOICE/PAYMENT |

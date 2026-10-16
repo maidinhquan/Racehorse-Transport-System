@@ -6,6 +6,7 @@ import { ManagerRequestPage, ManagerRequestsPage } from "./ManagerPages";
 import { CustomerReviewPanel } from "./CustomerReviewPanel";
 import { reviewApi } from "./reviewApi";
 import type { ManagerReview, CustomerReview } from "./reviewApi";
+vi.mock("./ContractPublicationPanel", () => ({ ContractPublicationPanel: () => null }));
 
 const manager: ManagerReview = {
   request: { requestId: "r-api", status: "PENDING", departure: "Điểm lấy API", destination: "Điểm giao API", expectedDate: "2026-11-20", committedDeadline: "2026-11-25", version: 1,
@@ -20,6 +21,20 @@ const manager: ManagerReview = {
 afterEach(() => vi.restoreAllMocks());
 function mountManager() { render(<MemoryRouter initialEntries={["/r-api"]}><Routes><Route path="/:requestId" element={<ManagerRequestPage />} /></Routes></MemoryRouter>); }
 describe("Flow 1 Manager review", () => {
+  it("requires a reissue reason and sends the source contract/version with a stable retry key", async () => {
+    const closed: ManagerReview = { ...manager, version: 9, request: { ...manager.request, status: "ACCEPTED" },
+      contract: { contractId: "old-issued", status: "SIGN_DECLINED", version: 1, currency: "VND", total: 100000000, deposit: 40000000,
+        lines: [{ category: "TRANSPORT", description: "Gói vận chuyển", quantity: 1, unitPrice: 100000000 }] }, allowedActions: ["REISSUE_DRAFT"] };
+    vi.spyOn(reviewApi, "manager").mockResolvedValue(closed);
+    const next = { ...closed, version: 10, allowedActions: [], contract: { ...closed.contract!, contractId: "new-draft", status: "DRAFT" } };
+    const reissue = vi.spyOn(reviewApi, "reissue").mockRejectedValueOnce(new Error("Mạng gián đoạn")).mockResolvedValue(next);
+    mountManager(); const button = await screen.findByRole("button", { name: "Tạo Draft để phát hành lại" });
+    expect(button).toBeDisabled(); const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Lý do hoặc câu hỏi"), "Sửa điều khoản theo phản hồi"); await user.click(button);
+    await screen.findByRole("alert"); await user.click(button); await screen.findByText("new-draft · DRAFT");
+    expect(reissue.mock.calls[0][0]).toBe("old-issued"); expect(reissue.mock.calls[0][1]).toMatchObject({ expectedVersion: 9, reason: "Sửa điều khoản theo phản hồi" });
+    expect(reissue.mock.calls[0][2]).toBe(reissue.mock.calls[1][2]);
+  });
   it("loads real list results with server status filter", async () => {
     const list = vi.spyOn(reviewApi, "list").mockResolvedValue({ items: [manager.request], page: 1, pageSize: 20, totalCount: 1 });
     render(<MemoryRouter><ManagerRequestsPage /></MemoryRouter>);
