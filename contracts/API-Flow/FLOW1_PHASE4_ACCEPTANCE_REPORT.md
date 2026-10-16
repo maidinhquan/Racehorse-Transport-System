@@ -1,5 +1,10 @@
 # Flow 1 phase 4 — increment B: OTP và receipt xác nhận
 
+**Cập nhật sau increment B:** đại ca đã chọn chuyển metadata vào SQL, giữ đầy đủ
+Flow 1, không bảng mới. Ưu tiên [S1–S3](FLOW1_SQL_STATE_TRANSITION_PLAN.md) và
+[báo cáo SQL foundation](FLOW1_PHASE4_SQL_STATE_REPORT.md); các receipt/file-saga
+bên dưới mô tả baseline trước cutover, không dùng để mở rộng file provider thêm.
+
 Ngày: **16/10/2026**, branch `Truong`. Commit nền trước lượt này:
 `01e98d2f96fe91834887ba44e96ba0a55d66f284` (PDF publication increment A).
 

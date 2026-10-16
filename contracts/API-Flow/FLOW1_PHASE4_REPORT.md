@@ -1,5 +1,9 @@
 # Flow 1 phase 4 — publication và OTP acceptance
 
+**Storage decision mới hơn:** đại ca chọn chuyển metadata vào SQL, giữ đầy đủ flow.
+Xem [S1 SQL foundation](FLOW1_PHASE4_SQL_STATE_REPORT.md) và [S1–S3](FLOW1_SQL_STATE_TRANSITION_PLAN.md).
+Phần dưới là bằng chứng business baseline bằng file provider, chưa phải SQL cutover.
+
 **Cập nhật mới nhất 16/10/2026: [increment B — OTP/receipt/invoice recovery](FLOW1_PHASE4_ACCEPTANCE_REPORT.md).**
 Đã bổ sung Customer OTP/sign, hóa đơn cọc 40% và phục hồi SQL/file; phase 4 vẫn
 IN_PROGRESS vì còn decline/expire/reissue/extension và contract route legacy.

@@ -18,6 +18,9 @@ public static class Flow1ServiceExtensions
     {
         services.AddScoped<IFlow1UnitOfWork, Flow1UnitOfWork>();
         services.AddScoped<IFlow1Repository, Flow1Repository>();
+        // SQL transition S1: available for transaction tests/import tooling; existing use cases
+        // remain on their current provider until the separately verified S2 cutover.
+        services.AddScoped<IFlow1StateStore, SqlFlow1StateStore>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddOptions<Flow1StorageOptions>().Bind(configuration.GetSection("Flow1:Storage"))
             .Validate(o => !string.IsNullOrWhiteSpace(o.MetadataRoot) && o.MaxDocumentBytes > 0 &&

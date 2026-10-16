@@ -2,8 +2,14 @@
 
 > Dự án: Racehorse Transport System — SWP391
 > Lập ngày 15/10/2026; điều chỉnh ngày 16/10/2026, Asia/Ho_Chi_Minh
-> Phiên bản 2.0 — **schema tối thiểu, thay thế thiết kế 12 bảng ở bản 1.0**
+> Phiên bản 3.0 — **state trong SQL qua cột mới ở bảng hiện hữu, tuyệt đối không thêm bảng**
 > Tình trạng thực thi từng giai đoạn được ghi trong báo cáo riêng; không coi API được liệt kê là đã implement.
+
+**Quyết định mới nhất 16/10/2026:** đại ca đã chọn chuyển metadata vào SQL và giữ
+đầy đủ Flow 1. [Plan chuyển đổi S1–S3](FLOW1_SQL_STATE_TRANSITION_PLAN.md) là nguồn
+chuẩn cho storage/transaction/import, thay giới hạn hai cột và thiết kế sidecar
+file của bản 2.0. S1 có schema/SQL adapter/tests; endpoint vẫn dùng provider cũ cho
+đến khi cutover/import được kiểm chứng. Không coi đăng ký adapter là đã chuyển xong.
 
 ## 1. Quyết định đã chốt
 
@@ -11,8 +17,8 @@ Luồng giữ nguyên: Estimate -> Wizard -> PENDING -> Manager Review -> Prelim
 
 | Nội dung | Quyết định |
 |---|---|
-| SQL | Chỉ thêm CONTRACT.CompletionDeadline, CONTRACT.RequestID; CONTRACT.TripID được nullable |
-| Bảng mới | Không tạo 12 bảng; không thêm rowversion, provider, audit hoặc outbox table |
+| SQL | Giữ migration 003; bổ sung migration 004 với Flow1StateJson + Flow1StateVersion trên HORSE, TRANSPORT_REQUEST, CONTRACT và USER (8 cột) |
+| Bảng mới | Tuyệt đối không thêm bảng; snapshot/audit/OTP/history nằm trong cột SQL mới có cấu trúc |
 | Trip | Không tạo Trip sơ bộ để vượt FK. Chỉ tạo sau ký và đủ cọc xác minh |
 | Cọc | Cố định 40%, BE tính; Manager không thay tỷ lệ |
 | Chuẩn bị | VN->VN <=500km: 2 ngày; >500km: 3 ngày; VN->JP: 7 ngày; Manager chỉ được tăng khi thẩm định |
@@ -21,7 +27,7 @@ Luồng giữ nguyên: Estimate -> Wizard -> PENDING -> Manager Review -> Prelim
 | Wizard | Ảnh + scan passport là hai loại file bắt buộc; basic fields vẫn theo schema; không upload Customer PER_TRIP hoặc giấy ủy quyền |
 | PDF/OTP | PDF sinh từ mẫu hiện có, bản phát hành bất biến; OTP gắn đúng khách/Contract/version/hash |
 | Tiền | SQL là nguồn chuẩn cho Invoice/Payment/số thực nhận; không chuyển ledger sang file |
-| Metadata | Kế hoạch, snapshot, version/hash, lịch sử và deployment lưu file riêng tư có version |
+| Metadata | Chuyển kế hoạch/snapshot/version/hash/history/OTP/receipt sang SQL; file store chỉ giữ ảnh/passport/PDF/proof bytes private |
 | Hết hạn | Khóa thao tác mới; không auto-cancel; gia hạn/hủy bởi Manager, giữ lịch sử và chữ ký |
 
 OTP là xác nhận hợp đồng của MVP, không phải chữ ký số có chứng thư. Bảng giá và 2/3/7 ngày là policy demo, không phải kết luận về quy định vận chuyển thực tế. Hai file Wizard không thay việc Specialist thẩm định pháp lý ở Flow 2.
@@ -35,7 +41,7 @@ Nguồn: [Flow 1](FLOW1.md), [Flow 2](FLOW2.md), [Flow 3](FLOW3.md), [Convention
 - RequestID mới giúp Draft/Contract liên kết trực tiếp Request. Legacy Contract backfill qua Trip.RequestID; không bịa relation khi dữ liệu mâu thuẫn.
 - INVOICE và PAYMENT đã đủ làm ledger cơ bản. CompletionDeadline dùng chung ký/cọc; không dùng CommittedDeadline (hạn giao hàng) thay thế.
 - Nguồn data/HorseTransportDB.sql bị Git ignore. File HorseTransportDB/HorseTransportDB.sql được track nhưng chứa lệnh reset database và seed; không dùng làm upgrade. Hai bản khác USER fields; baseline mới lấy từ nguồn tracked để giữ các trường auth đang chạy.
-- WebApi hiện chưa có các controller Flow 1 hoặc Hub thật; chỉ thêm foundation không có nghĩa workflow đã hoạt động.
+- Baseline trước phase 1 chưa có controller Flow 1. Hiện phase 2–3 và phase 4 increment A/B đã có use case thật; storage đang chuyển theo S1–S3, không coi foundation SQL mới là đã cutover.
 
 ## 3. Database tối thiểu và migration
 
@@ -61,56 +67,69 @@ Trình tự: backup DB mục tiêu -> preflight -> giải quyết conflict có t
 
 Test chỉ tạo RaceHorseFlow1Test_<GUID> trên SQL Server local và drop đúng tên đã validate. Không chạy file reset HorseTransportDB, không áp migration lên DB nghiệp vụ trong nghiệm thu tự động. Khi đã có Contract mới TripID null, rollback schema về NOT NULL phải có kế hoạch restore/forward-fix, không ALTER mù.
 
-## 4. Metadata ngoài SQL và ranh giới nhất quán
+## 4. State trong SQL và ranh giới nhất quán
 
-### 4.1. Ánh xạ dữ liệu
+### 4.1. Ánh xạ được duyệt ngày 16/10/2026
 
-| Dữ liệu | Nơi lưu |
+| Dữ liệu | Nơi lưu sau cutover |
 |---|---|
-| Request owner, địa chỉ projection, ngày, receiver name/phone, Status | TRANSPORT_REQUEST hiện có |
-| Request snapshot/version, tọa độ có quyền lưu, pickup contact, receiver.isProxy/verification | Metadata request/<RequestID> |
-| Ảnh/passport trước khi có Request, trạng thái tài liệu, file version/hash | Metadata horse/<HorseID> + private file bytes; sau đó Flow 2 tham chiếu lại |
-| Preliminary Plan, lịch, số xe/stall, gateway/ground legs, budget, preparation days | Metadata plan/<RequestID>; không tạo TRIP_PLAN sớm |
-| Contract core, SignedAt, tổng giá, cọc, deadline, RequestID/TripID | CONTRACT hiện có + hai cột mới |
-| Contract lines, snapshot, template/file/hash, document version, bằng chứng OTP | Metadata contract/<ContractID> + PDF immutable |
-| Change/revision/cancellation/info requests, người duyệt, lý do | Revision/operation records trong metadata Request |
-| Gia hạn | Metadata Contract: old/new deadline + actor/reason/time; deadline gốc/PDF giữ nguyên |
-| Invoice cọc, tiền thực nhận, status, manager confirmation, transaction code | INVOICE/PAYMENT hiện có |
-| Proof file, provider evidence/reference chưa có trường phù hợp, operation receipt | Metadata payment/<PaymentID>; không coi dữ liệu này là tiền đã xác nhận |
-| Deployment PENDING/CONFIRMED/ON_HOLD, actor/time/reason, readiness references | Metadata trip/<TripID>; Trip.Status vẫn là trạng thái vận hành trong SQL |
+| Horse identity/status/document versions, private file key/hash/size | HORSE.Flow1StateJson (horse) |
+| Request snapshot/estimate/coordinates/proxy/contacts/horse snapshots | TRANSPORT_REQUEST.Flow1StateJson (request) |
+| Review/revision/questions/changes/audit/currentContractId | TRANSPORT_REQUEST.Flow1StateJson (review) |
+| Preliminary plan, budget/quote, preparation days/resources | TRANSPORT_REQUEST.Flow1StateJson (plan) |
+| Contract lines/frozen snapshot/PDF manifest/version/hash | CONTRACT.Flow1StateJson (contract/publication) |
+| OTP digests/TTL/attempts/delivery, acceptance/operation receipts | CONTRACT.Flow1StateJson (contract-otp/acceptance) |
+| Account OTP rate budget xuyên contracts | USER.Flow1StateJson (otp-account, UserID) |
+| Extension history, payment evidence/refs, deployment/handoff | CONTRACT.Flow1StateJson; gắn PaymentID/InvoiceID/TripID khi cần |
+| Owner/status/money/SignedAt/deadline/RequestID/TripID | Giữ cột nghiệp vụ và INVOICE/PAYMENT/TRIP_PLAN hiện hữu |
+| Ảnh/passport/PDF/proof bytes | Private immutable file store, tải qua API có quyền; không metadata JSON files |
 
-Không nhét JSON vào các cột có nghĩa khác như ContractTemplate.BodyContent, CostItem.EvidenceUrl hoặc Status. Không dùng COST_ITEM chi phí thực tế thay Contract selling lines. Chưa có Horse.Status trong SQL: trạng thái nghiệp vụ tương ứng phải lấy metadata, xử lý legacy thiếu metadata rõ ràng ở giai đoạn 2.
+Không nhét JSON vào Status, ContractTemplate.BodyContent hoặc cột mang nghĩa khác.
+Mỗi bảng trong bốn bảng trên thêm Flow1StateJson nvarchar(max) NULL và counter
+Flow1StateVersion bigint NOT NULL DEFAULT(0). Không thêm bảng mới hoặc typed URL
+columns trùng nguồn chuẩn. Xem mapping, limits và migration trong
+[plan S1–S3](FLOW1_SQL_STATE_TRANSITION_PLAN.md).
 
-### 4.2. Foundation file store
+### 4.2. Storage và transaction mục tiêu
 
-IFlow1MetadataStore lưu JSON schemaVersion=1, aggregate type/ID, danh sách revision gồm Version, OperationID, RequestHash, ActorUserID, Action, CreatedAtUtc và Payload. Khóa file exclusive giữa các instance, optimistic expectedVersion, write staging + flush + rename trong cùng folder. Retry operation cùng payload trả revision cũ; key khác payload trả 409. Chuẩn hóa ASCII IDs không phân biệt hoa/thường, chặn traversal, giới hạn kích thước.
+IFlow1StateStore / SqlFlow1StateStore giữ typed document revisions có owner/type/
+version/key/hash/actor/action/time; SQL UPDATE compare-and-swap whole owner bundle.
+Append bắt buộc current SQL transaction, không Commit/SaveChanges thay UoW.
+Owner row cần tồn tại trong transaction trước append; tạo row + flush trong cùng
+transaction không phải commit sớm. Giữ lock Request/horses/account theo scope.
 
-Mặc định backend/WebApi/App_Data/flow1/metadata, ngoài wwwroot và Git. Code chưa cung cấp route đọc public. API các giai đoạn sau phải kiểm tra ownership/role trước khi đọc file. Mã OTP thô/secret không được ghi vào payload hoặc log.
+Business status/amount/Invoice/Trip và state/audit/receipt commit hoặc rollback chung.
+Gỡ PREPARED/finalize/recovery dành riêng split SQL/JSON file sau khi use case đã
+cutover và có replacement SQL fault tests. Giữ idempotency, role/owner/status guards,
+immutable PDF/hash và unique invoice/Trip. Expected review/document version vẫn
+độc lập với counter owner SQL; không đổi API version thành counter một cách ngầm.
 
-### 4.3. SQL và file không cùng transaction
+### 4.3. File bytes, SMTP/provider và chuyển dữ liệu cũ
 
-Đây là đánh đổi thực tế của phương án ít thay DB. Không tuyên bố audit/file/outbox được commit cùng SQL.
+PDF conversion/file bytes và SMTP/provider network calls vẫn ngoài SQL transaction.
+Chuẩn bị immutable bytes trước khi publish SQL; rollback có thể để orphan bytes,
+không xóa bytes đang có reference. SMTP delivery cần DELIVERING/DELIVERED/FAILED,
+resend sau crash không chắc chắn. Không tuyên bố file/email có SQL atomicity.
 
-1. Dùng lock SQL theo Request cho mọi mutation nghiệp vụ của Request đó; horse locks lấy theo thứ tự ID.
-2. Chuẩn bị immutable snapshot/PDF/evidence và operation ID trước khi SQL chuyển trạng thái cần tài liệu.
-3. SQL là nguồn chuẩn cho signed status, tiền và activation; mọi Payment/Contract/Request/Trip trong một SQL transaction.
-4. Sau commit hoàn thiện metadata receipt/notification; nếu lỗi phải có reconciliation dựa SQL + operation receipt, không rollback giả một transaction đã commit.
-5. Metadata thiếu/mâu thuẫn thì fail closed ở ký, thanh toán mới hoặc confirm deployment; không suy đoán đã xác nhận.
-6. Các giai đoạn 4/5 phải thử fault injection ở các khoảng file-before-SQL và SQL-before-receipt trước khi nghiệm thu. Foundation giai đoạn 1 chưa phải một workflow recovery đầy đủ.
-7. Backup/restore SQL và private storage cùng kế hoạch. Phương án local file chỉ hỗ trợ instance chung một filesystem có locking/rename bảo đảm; không hỗ trợ nhiều server có ổ đĩa riêng.
+Import phải có inventory/dry-run/parity, giữ version/hash/time/actor/history/OTP
+budget, xử lý pending legacy rõ và không fallback file để che state thiếu/hỏng.
+Không tự apply migration/import lên DB nghiệp vụ. Backup SQL và private file bytes
+cùng manifest; không xóa file metadata cũ trước xác minh import và cutover.
 
-Không thêm SQL outbox/table version ngay lúc này. Nếu sau này cần nhiều server hoặc bảo đảm transaction audit tài chính chặt hơn, phải nêu failure case và phương án trước khi xin mở rộng schema.
+**Hiện trạng S1:** SQL adapter/schema/tests đã có; runtime cũ còn dùng
+IFlow1MetadataStore/LocalFlow1MetadataStore cho đến S2/S3. Đây là trạng thái chuyển
+đổi có chủ đích, không phải thiết kế đích hoặc tuyên bố đã bỏ toàn bộ nhóm MetadataStore.
 
 ## 5. Kiến trúc, transaction và version
 
 FE -> WebApi controller -> Application use case -> Domain DAO/UoW contracts -> Infrastructure SQL/file/provider adapters. Application không reference concrete Infrastructure/EF.
 
 - IFlow1Repository chỉ stage writes trong transaction; không dùng BaseDAO tự SaveChanges cho nghiệp vụ Flow 1.
-- IFlow1UnitOfWork.ExecuteAsync(requestId, action) lấy SQL transaction Serializable + sp_getapplock theo Request; SaveChanges/Commit một lần. Lỗi rollback và clear tracker; không nhận tracked mutations đã được sửa ngoài transaction.
+- IFlow1UnitOfWork.ExecuteAsync(requestId, action) lấy SQL transaction Serializable + sp_getapplock theo Request; Commit một lần; khi tạo owner row mới có thể cần flush SQL trong cùng transaction trước khi append state, tuyệt đối không commit sớm. Lỗi rollback và clear tracker; không nhận tracked mutations đã được sửa ngoài transaction.
 - LockHorsesAsync chỉ chạy trong transaction, normalize/sort IDs để giảm deadlock và trùng lịch đồng thời.
 - Unique Trip.RequestID và invoice DEPOSIT là hàng rào cuối, kể cả đường code bỏ qua UoW.
-- expectedVersion là version metadata; không phải SQL rowversion. Recheck status/relation/tiền trong lock SQL; không dùng version file thay quyền sở hữu.
-- ContractID mới cho mỗi Contract Version; request metadata chọn currentContractId, xác minh nó thuộc Request và status SQL phù hợp. Không có IsCurrent/Version mới trong SQL.
+- expectedVersion là document/review version trong SQL state, độc lập Flow1StateVersion của owner row. Recheck status/relation/tiền/quyền sở hữu trong lock SQL.
+- ContractID mới cho mỗi Contract Version; request SQL review state chọn currentContractId, xác minh nó thuộc Request và status SQL phù hợp. Không có IsCurrent/Version mới trong SQL.
 - Request revision phải giữ snapshot cũ; chưa ký mới được đổi. Contract đã gửi/ký không sửa PDF/terms âm thầm; không có Quote acceptance riêng.
 - API errors bổ sung ErrorCode optional, giữ Fail(message, errors) và dictionary errors hiện có để không phá register/login.
 
@@ -384,7 +403,7 @@ Nguồn runtime versioned: backend/WebApi/Resources/Contracts/v1/contract-templa
 3. Mở SQL request transaction, recheck status/version/plan/pending change, lưu CompletionDeadline, PENDING_SIGNATURE/AWAITING_CONTRACT; không tạo Trip.
 4. Customer xem/tải PDF đúng ContractID/version/hash. Sau send không ghi đè file đó.
 5. OTP 6 số dùng RNG mật mã, HMAC server, TTL tối đa 5 phút và deadline, cooldown 60s, tối đa 5 lần sai, rate limit account/contract/IP; resend vô hiệu mã cũ. Challenge và attempt metadata tách OTP đăng ký, không lưu mã thô.
-6. Sign kiểm tra owner/current version/hash/deadline/pending change. Chuẩn bị acceptance evidence, commit SIGNED/SignedAt/AWAITING_DEPOSIT + invoice DEPOSIT trong SQL transaction; hoàn thiện receipt và recovery theo mục 4.3. Hai sign chỉ một kết quả tài chính.
+6. Sign kiểm tra owner/current version/hash/deadline/pending change. Chuẩn bị acceptance evidence, commit SIGNED/SignedAt/AWAITING_DEPOSIT + invoice DEPOSIT + acceptance/consumed challenge/receipt trong cùng SQL transaction sau S2; không finalize file sau commit. Hai sign chỉ một kết quả tài chính.
 7. Không re-render PDF gốc để in OTP/SignedAt rồi vẫn dùng hash cũ. Nếu cần, tạo receipt xác nhận riêng tham chiếu hash gốc.
 8. Email OTP gửi theo transport được cấu hình; không để raw OTP trong outbox metadata/log. Quay lại/reload đọc SQL, không ký lại vì mất local state.
 
@@ -400,7 +419,7 @@ Converter phải ở sau IFlow1ContractDocumentGenerator. Thử trên đúng run
 - Bank proof chỉ PENDING_CONFIRMATION. Manager nhập số thực nhận, bank reference và receivedAt; confirm/reject lưu lịch sử; không cho endpoint bank xác nhận VNPay.
 - VNPay adapter tái sử dụng module hiện có; không lấy SandboxPaymentStore làm ledger. BE tạo session theo outstanding, reference ổn định; IPN đối chiếu signature/merchant/reference/amount/currency/result. So amount với requested amount của payment đó, không với outstanding hiện tại.
 - Return URL không ghi SUCCESS; FE đọc REST. Public HTTPS IPN phải test riêng, local signed callback chưa đủ.
-- Metadata hỗ trợ idempotency nhưng SQL request lock và ledger/status recheck là hàng rào ghi tiền. Phase 5 phải triển khai receipt/recovery để callback retry không cộng hai lần dù crash sau SQL commit.
+- SQL state hỗ trợ idempotency; SQL request lock, ledger/status recheck và receipt cùng transaction là hàng rào ghi tiền. Callback retry sau crash không cộng hai lần.
 
 ```text
 Verify provider ngoài SQL transaction khi cần
@@ -412,7 +431,7 @@ BEGIN SQL TRANSACTION + Request lock
       Contract EFFECTIVE, Request ACTIVATED
       INSERT Trip PLANNING (unique RequestID), link Contract.TripID
 COMMIT
-Hoàn thiện metadata receipt/notification; lỗi gửi không rollback giả DB
+Receipt/evidence SQL đã commit cùng tiền; notification gửi ngoài transaction có retry riêng
 ```
 
 Callback đến muộn vẫn phải đối soát tiền thực nhận. Request CANCELLED không tự hồi sinh. Nếu đủ tiền hợp lệ nhưng lịch không khả thi, Trip có thể PLANNING để xử lý nghiệp vụ, deployment chưa được confirm. Không sửa ngày/PDF đã ký để làm lịch pass. Partial/overpayment và mọi nhánh crash phải được test trước nghiệm thu phase 5.
@@ -428,7 +447,7 @@ Callback đến muộn vẫn phải đối soát tiền thực nhận. Request C
 
 ## 12. Deployment và ranh giới Flow 2/3
 
-Confirm chỉ khi Request ACTIVATED, Contract EFFECTIVE, đủ cọc, Trip PLANNING, current plan/snapshot đúng và lịch còn khả thi. Deployment lưu trong metadata Trip: PENDING -> CONFIRMED hoặc ON_HOLD, có actor/time/reason/history.
+Confirm chỉ khi Request ACTIVATED, Contract EFFECTIVE, đủ cọc, Trip PLANNING, current plan/snapshot đúng và lịch còn khả thi. Deployment lưu trong CONTRACT SQL state, gắn TripID: PENDING -> CONFIRMED hoặc ON_HOLD, có actor/time/reason/history.
 
 Flow 2/3 lấy Request/Trip/Contract IDs, versions metadata, preliminary plan, horse/document references, gateway, dates và deliveryDeadline. Tác vụ chính thức chỉ sau deployment CONFIRMED, BE recheck khi ghi. Không chỉ ẩn nút FE.
 
@@ -444,13 +463,15 @@ Sự kiện/handoff có EventID/schemaVersion/requestId/tripId/contractId/planVe
 | backend/Domain/Interfaces/IFlow1UnitOfWork.cs | Transaction/horse lock contract, không EF |
 | backend/Domain/Interfaces/DAOs/IFlow1Repository.cs | DAO stage/query; không tự SaveChanges |
 | backend/Application/Common/Flow1/Flow1ContractFactory.cs | Draft chuẩn VND/40%, chưa Trip |
-| backend/Application/Common/Flow1/Flow1StorageOptions.cs | Cấu hình private metadata |
-| backend/Application/Interfaces/Flow1/IFlow1MetadataStore.cs | Revision/operation/audit envelope |
+| backend/Application/Common/Flow1/Flow1StorageOptions.cs | Legacy file provider options; S3 tách private-file settings trước khi gỡ |
+| backend/Application/Interfaces/Flow1/IFlow1StateStore.cs | SQL state document/revision port, S1 có implementation/test |
+| backend/Application/Interfaces/Flow1/IFlow1MetadataStore.cs | Legacy file port còn dùng đến S2/S3 cutover |
 | backend/Application/Interfaces/Flow1/IntegrationContracts.cs | Maps/PDF/VNPay adapter contracts, chưa giả implementation |
 | backend/Infrastructure/Data/Configurations/Flow1/*.cs | EF mapping Contract, Trip unique, invoice cọc unique |
 | backend/Infrastructure/Transactions/Flow1UnitOfWork.cs | SQL Serializable, request/horse applocks, commit/rollback |
 | backend/Infrastructure/DAOs/Flow1/Flow1Repository.cs | DAO dùng cùng scoped DbContext/UoW |
-| backend/Infrastructure/Storage/LocalFlow1MetadataStore.cs | Cross-instance file lock, version CAS, idempotency, private file staging |
+| backend/Infrastructure/Storage/SqlFlow1StateStore.cs | SQL transaction/CAS/replay/owner validation, không filesystem |
+| backend/Infrastructure/Storage/LocalFlow1MetadataStore.cs | Legacy file provider; gỡ sau import/cutover và replacement tests |
 | backend/Application/DTOs/ApiResponse.cs và Common/Exceptions/BusinessRuleException.cs | ErrorCode optional; giữ callers cũ |
 | backend/WebApi/Middlewares/GlobalExceptionMiddleware.cs | ErrorCode + status từ business exception |
 | backend/WebApi/Extensions/Flow1ServiceExtensions.cs và Program.cs | DI foundation; không auto-migrate hoặc tạo workflow/background jobs |
@@ -470,7 +491,7 @@ Frontend dùng frontend/src/shared/api/apiClient.ts và router hiện có. API/t
 | 1. Nền tảng | Chốt thiết kế tối thiểu; migration/entity/DAO/UoW; metadata version/audit; ErrorCode tương thích; adapter contracts; spike PDF | DB mới/legacy nâng cấp đúng, Contract trước Trip, rollback/concurrency đúng, auth regression; converter xuất sample và QA font/bố cục từng trang |
 | 2. Estimate + Wizard | Routing/pricing có version, Horse/files, selectable, Submit/list/detail, Customer FE | Khách thực sự tạo PENDING; đúng quyền/lịch; chưa Contract/Trip |
 | 3. Review + Plan | Manager accept/reject/revision/info/change; plan metadata, budget, suggestion, Draft core | Có plan và selling total/cọc BE tính; canonical snapshot/version đúng |
-| 4. PDF + OTP | Template production, immutable PDF/hash, send/sign/decline, challenge/rate limit, deadline/extension, receipt recovery | SIGNED/AWAITING_DEPOSIT + invoice; reload đúng; crash giữa metadata/SQL được khôi phục; không sửa PDF |
+| 4. PDF + OTP | Template production, immutable PDF/hash, send/sign/decline, challenge/rate limit, deadline/extension, receipt | Sau SQL cutover: SIGNED/AWAITING_DEPOSIT + invoice + receipt cùng transaction; reload/retry đúng, không sửa PDF; S1–S3 phải hoàn tất trước nghiệm thu storage mới |
 | 5. Payment + Activation | Bank trước, rồi VNPay vào cùng ledger; partial/excess/late/cancel guards, recovery/notifications | Đủ tiền đã xác minh -> EFFECTIVE/ACTIVATED + đúng một Trip PLANNING; retry không cộng trùng |
 | 6. Deployment + E2E | Confirm/hold/resume, connected handoff Flow 2/3, UAT/reload/ownership, docs cuối | Bàn giao đúng quyền/version; toàn chuỗi có evidence; nêu rõ live dependency thiếu |
 
@@ -479,6 +500,11 @@ Sau phase 1 có thể giao adapter Maps/VNPay/PDF cho người phụ trách theo
 Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md), [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md) và [phase 3 Review/Plan/Quote/Draft](FLOW1_PHASE3_REPORT.md). **Phase 1–3 hoàn thành trong phạm vi local/test đã cấp**: phase 2 có live Geoapify/Mapbox; phase 3 có Customer/Manager browser nối SQL/file riêng, Maps fixture, SQL/file receipt recovery cho review/Draft. **Phase 4 PDF/OTP/deadline/recovery đang thực hiện**; tiếp tục phần còn lại theo báo cáo increment B, không hỏi lại Maps key hay capacity=1. Chưa nghiệm thu thanh toán/Trip hoặc full Flow 1 UAT. Payload/API thực tế được ghi trong báo cáo từng phase để phân biệt với ví dụ thiết kế ở mục 7.
 
 ## 15. Ma trận kiểm thử và bằng chứng nghiệm thu
+
+**Storage decision mới nhất:** [S1 SQL foundation](FLOW1_PHASE4_SQL_STATE_REPORT.md)
+có migration 004/SQL state port với 179 backend tests pass, chưa cutover endpoint.
+Lượt tiếp theo ưu tiên S2/S3 của [plan chuyển đổi](FLOW1_SQL_STATE_TRANSITION_PLAN.md),
+rồi mới tiếp tục các use case phase 4 còn lại bằng SQL; không mở rộng file saga cũ.
 
 **Cập nhật phase 4, 16/10/2026:** [increment A](FLOW1_PHASE4_REPORT.md) có PDF v2/private
 immutable publication/deadline gốc/recovery, real LibreOffice 13-page QA và Chrome
@@ -576,14 +602,15 @@ Mỗi run ghi commit/worktree, cấu hình môi trường không secret, timesta
 
 | Nhóm | Yêu cầu |
 |---|---|
-| SQL | Explicit target, backup/preflight, 003 bằng tay; không startup migration |
-| Metadata | Flow1:Storage:MetadataRoot ngoài wwwroot/Git; MaxDocumentBytes, LockTimeoutMilliseconds; filesystem dùng chung có locking nếu nhiều instance |
+| SQL | Explicit target, backup/preflight, 003/004 + inventory/import có kiểm chứng; không startup migration hoặc tự apply DB nghiệp vụ |
+| SQL state | Bốn owner tables, JSON có kiểu/version/actor/audit + SQL counter; 2 MiB/document, 8 MiB/owner, không tự trim history |
+| Private files | Ảnh/passport/PDF/proof bytes ngoài wwwroot/Git; legacy metadata root giữ để inventory/import S3 rồi gỡ provider file |
 | Tiền/giá | VND/40%; policy version; sức chứa xe/gateway có nguồn, không bịa dữ liệu test thành policy thật |
 | Maps | Provider từng chức năng, quota/token/attribution/quyền lưu; không commit secret |
 | PDF | Converter thực tế, font/timeout/concurrency; template version/hash; bản tham chiếu chưa production-ready |
 | OTP/email | HMAC secret/SMTP từ local config hoặc env; không log/print/store OTP thô |
 | Payment | Bank config; VNPay Sandbox merchant/secret, ReturnURL, public HTTPS IPN; ledger trong SQL |
-| Backup | SQL + private files/metadata + manifests; có quy trình đối chiếu sau restore |
+| Backup | SQL state/ledger + private file bytes/manifests; có quy trình đối chiếu sau restore |
 
 ```powershell
 dotnet build backend/Backend.slnx
@@ -596,19 +623,29 @@ Frontend khi tới use case tương ứng: npm run test:run và npm run build �
 
 ## 17. Điều kiện hoàn thành và giới hạn
 
-- [x] Chỉ hai cột SQL mới, nullable Trip và index/FK có nhu cầu; không thêm bảng ngầm ngoài phạm vi.
+- [x] Quyết định mới cho thêm cột SQL, giữ đầy đủ flow, không bảng mới. 003 giữ hai cột/nullable Trip; S1 thêm 004 với tám cột có mapping rõ.
+- [x] S1 SQL foundation/migration/transaction/CAS: 179 backend tests pass; runtime endpoint chưa cutover.
+- [ ] S2 toàn bộ use case hiện có dùng SQL, business + state + receipt commit chung; đủ SQL rollback/retry/concurrency và browser acceptance.
+- [ ] S3 inventory/import/parity/gỡ MetadataStore file và test cũ có replacement; giữ private file bytes/hashes.
 - [x] Migration DB sạch + legacy + chạy lại trên DB test; không mất tiền/currency/signature, không bịa deadline. Chưa áp lên DB nghiệp vụ.
 - [x] Foundation lưu Contract trước Trip; repository stage invoice/ledger SQL và request transaction dùng chung, đã test rollback. API activation thuộc phase sau.
-- [x] Metadata giữ version/history; traversal/ghi đồng thời/retry/size được kiểm tra; không public file.
+- [x] Baseline file provider giữ version/history; SQL port mới giữ document revisions/owner binding/replay/limits. Không public storage.
 - [x] Auth/register regression pass; ErrorCode mở rộng tương thích.
 - [x] Converter render mẫu thật 12 trang, đã QA đủ ảnh trang/font/bảng; hoàn thành PDF spike giai đoạn 1.
-- [ ] Các phase sau có receipt/recovery cho các khoảng file/SQL trước nghiệm thu ký/tiền.
+- [ ] Sau S2/S3: receipt/evidence SQL cùng transaction cho ký/tiền; SMTP/provider/file bytes có fault/retry riêng.
 - [ ] Flow đầy đủ và connected handoff qua UAT; live Maps/SMTP/IPN có bằng chứng riêng.
 
-Đây là plan MVP ít thay database, không tuyên bố bảo đảm atomic giữa SQL và filesystem hoặc triển khai nhiều server riêng ổ đĩa. Khi cần tăng schema, phải chỉ rõ dữ liệu/constraint/failure case không giải quyết được bằng thiết kế hiện tại rồi mới đề xuất.
+Thiết kế đích đã chuyển state vào SQL theo quyết định mới. Không tuyên bố SQL,
+filesystem và SMTP/provider cùng một transaction. Giữ private bytes bất biến và
+import/backup rõ; không mặc định filesystem nhiều server tự đồng bộ.
 
 ## 18. Lịch sử quyết định
 
 - 15/10/2026: plan 1.0 mở rộng schema với 12 bảng để lưu version/audit/outbox.
 - 16/10/2026: chủ dự án yêu cầu giảm thay DB; đã chọn hai cột mới và nullable Trip, giữ đúng flow tạo Trip sau cọc. **Thiết kế 12 bảng không còn được triển khai.**
-- Giai đoạn 1 hiện chỉ triển khai foundation; chưa có API nghiệp vụ Customer/Manager hoặc payment activation thật. Xem báo cáo kiểm chứng để phân biệt phần đã làm và còn thiếu.
+- Sau đó phase 2–3 và phase 4 increment A/B có use case thật trên file provider;
+  payment activation chưa implement. Xem báo cáo từng phase thay vì coi baseline
+  foundation là toàn bộ trạng thái hiện tại.
+- 16/10/2026, quyết định mới nhất: chuyển metadata vào SQL, giữ đủ Flow 1, không
+  bảng mới. Bản 3.0/S1–S3 thay giới hạn hai cột và kiến trúc sidecar file; S1 SQL
+  foundation được kiểm chứng, S2 cutover/S3 import-cleanup là bước tiếp theo.

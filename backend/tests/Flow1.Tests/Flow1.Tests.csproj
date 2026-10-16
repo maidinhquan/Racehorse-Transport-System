@@ -15,5 +15,6 @@
     <None Include="../../database/000_legacy_schema.sql" Link="Sql/000_legacy_schema.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../database/002_flow1_preflight.sql" Link="Sql/002_flow1_preflight.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../database/003_flow1_minimal_schema.sql" Link="Sql/003_flow1_minimal_schema.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../database/004_flow1_sql_state.sql" Link="Sql/004_flow1_sql_state.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
