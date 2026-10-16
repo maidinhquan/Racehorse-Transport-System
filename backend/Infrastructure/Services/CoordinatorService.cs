@@ -975,8 +975,9 @@ namespace Infrastructure.Services
         // =========================================================================
         public async Task<FlightBookingDto?> GetFlightBookingAsync(string tripId)
         {
+            var cleanTripId = tripId?.Trim() ?? string.Empty;
             var booking = await _context.FlightBookings
-                .Where(fb => fb.TripId == tripId)
+                .Where(fb => fb.TripId == cleanTripId || fb.TripId == tripId)
                 .OrderByDescending(fb => fb.BookingVersion)
                 .ThenByDescending(fb => fb.FlightBookingId)
                 .FirstOrDefaultAsync();
@@ -984,14 +985,14 @@ namespace Infrastructure.Services
             if (booking == null)
             {
                 // Fallback: nếu là trip mẫu TRIP_2026_001 và chưa có record thì tự động seed 1 record mẫu vào DB
-                if (tripId == "TRIP_2026_001")
+                if (cleanTripId.Equals("TRIP_2026_001", StringComparison.OrdinalIgnoreCase))
                 {
-                    var tripExists = await _context.TripPlans.AnyAsync(t => t.TripId == tripId);
+                    var tripExists = await _context.TripPlans.AnyAsync(t => t.TripId == cleanTripId || t.TripId == "TRIP_2026_001");
                     if (tripExists)
                     {
                         booking = new FlightBooking
                         {
-                            TripId = tripId,
+                            TripId = "TRIP_2026_001",
                             BookingVersion = 1,
                             RouteVersionId = 120,
                             ProviderName = "Nippon Cargo Airlines",
@@ -1058,8 +1059,9 @@ namespace Infrastructure.Services
 
         public async Task<FlightBookingDto> SaveFlightBookingAsync(string tripId, UpdateFlightBookingDto dto)
         {
+            var cleanTripId = tripId?.Trim() ?? string.Empty;
             var currentBooking = await _context.FlightBookings
-                .Where(fb => fb.TripId == tripId)
+                .Where(fb => fb.TripId == cleanTripId || fb.TripId == tripId)
                 .OrderByDescending(fb => fb.BookingVersion)
                 .ThenByDescending(fb => fb.FlightBookingId)
                 .FirstOrDefaultAsync();
@@ -1072,7 +1074,7 @@ namespace Infrastructure.Services
 
             var newBooking = new FlightBooking
             {
-                TripId = tripId,
+                TripId = cleanTripId,
                 BookingVersion = nextVersion,
                 RouteVersionId = dto.RouteVersionId ?? currentBooking?.RouteVersionId ?? 120,
                 ProviderName = dto.ProviderName,
@@ -1220,7 +1222,7 @@ namespace Infrastructure.Services
             bool routeCreated = trip.RouteSegments.Any();
             if (!routeCreated) missing.Add("Chưa tạo chuỗi chặng lộ trình (ROUTE_REQUIRED)");
 
-            bool routeApproved = trip.Status == "APPROVED" || trip.Status == "READY" || trip.Status == "READY_TO_DEPART" || trip.Status == "IN_TRANSIT";
+            bool routeApproved = trip.Status == "APPROVED" || trip.Status == "READY" || trip.Status == "READY_TO_DEPART" || trip.Status == "IN_TRANSIT" || trip.Status == "COMPLETED" || trip.Status == "EXECUTING";
             if (!routeApproved) missing.Add("Lộ trình chưa được Logistics Manager phê duyệt (ROUTE_APPROVED)");
 
             var assignment = trip.VehicleAssignments.FirstOrDefault();
@@ -1241,10 +1243,11 @@ namespace Infrastructure.Services
                 if (!stallsSufficient) missing.Add($"Xe chỉ có {assignment.Vehicle.CapacityStalls} stall, không đủ {horseCount} ngựa (STALL_CAPACITY_EXCEEDED)");
             }
 
+            var cleanTripId = tripId?.Trim() ?? string.Empty;
             bool hasAirLeg = trip.RouteSegments.Any(s => s.TransportMode == "AIR");
             var flightBooking = hasAirLeg
                 ? await _context.FlightBookings
-                    .Where(fb => fb.TripId == tripId)
+                    .Where(fb => fb.TripId == cleanTripId || fb.TripId == tripId)
                     .OrderByDescending(fb => fb.BookingVersion)
                     .FirstOrDefaultAsync()
                 : null;
@@ -1258,7 +1261,7 @@ namespace Infrastructure.Services
 
             return new OperationsReadinessDto
             {
-                TripId = tripId,
+                TripId = tripId ?? string.Empty,
                 RouteVersionId = 120,
                 AssignmentVersion = 3,
                 RouteCreated = routeCreated,
@@ -1268,7 +1271,7 @@ namespace Infrastructure.Services
                 EscortAssigned = escortAssigned,
                 StallsSufficient = stallsSufficient,
                 IsReady = isReady,
-                ConfirmedByCoordinator = isReady && (trip.Status == "READY_TO_DEPART" || trip.Status == "READY"),
+                ConfirmedByCoordinator = trip.Status == "READY_TO_DEPART" || trip.Status == "READY" || trip.Status == "IN_TRANSIT" || trip.Status == "COMPLETED",
                 Conditions = new List<ConditionItemDto>
                 {
                     new() { Code = "ROUTE_STRUCTURALLY_VALID", Met = routeCreated },
