@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using WebApi.Extensions;
+using Infrastructure.Storage;
 using WebApi.Middlewares;
 using Xunit;
 
@@ -77,7 +78,7 @@ public sealed class FoundationTests
         var services = new ServiceCollection();
         services.AddFlow1Foundation(config, new TestEnvironment { ContentRootPath = contentRoot, WebRootPath = publicRoot });
         using var provider = services.BuildServiceProvider();
-        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IFlow1MetadataStore>());
+        Assert.Throws<InvalidOperationException>(() => Flow1PrivateStoragePath.Resolve(new() { MetadataRoot = Path.Combine(publicRoot, "metadata") }, new TestEnvironment { ContentRootPath = contentRoot, WebRootPath = publicRoot }));
         Assert.False(Directory.Exists(Path.Combine(publicRoot, "metadata")));
     }
 

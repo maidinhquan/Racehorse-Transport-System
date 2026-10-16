@@ -15,7 +15,7 @@ public sealed class SqlStateStoreTests
     private static SqlFlow1StateStore Store(Infrastructure.Data.Context.HorseTransportDbContext db) => new(db, new FlowClock());
     private static async Task<Flow1TestDatabase> Database()
     {
-        var db = await Flow1TestDatabase.CreateAsync();
+        var db = await Flow1TestDatabase.CreateAsync(sqlState: false);
         try
         {
             await db.ScriptAsync("004_flow1_sql_state.sql");
@@ -31,7 +31,7 @@ public sealed class SqlStateStoreTests
     [LocalSqlFact]
     public async Task Migration_adds_eight_columns_only_to_existing_tables_and_is_repeatable_without_changing_legacy_data()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync();
+        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false);
         var columns = await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;");
         var tables = await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;");
         await db.ScriptAsync("004_flow1_sql_state.sql"); await db.ScriptAsync("004_flow1_sql_state.sql");
@@ -46,7 +46,7 @@ public sealed class SqlStateStoreTests
     [LocalSqlFact]
     public async Task Wrong_preexisting_column_type_rolls_back_earlier_table_changes_without_rewriting_the_existing_column()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync();
+        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false);
         await db.ExecuteAsync("ALTER TABLE dbo.CONTRACT ADD Flow1StateJson varchar(500) NULL;");
         var error = await Assert.ThrowsAsync<SqlException>(() => db.ScriptAsync("004_flow1_sql_state.sql")); Assert.Equal(51042, error.Number);
         Assert.Equal(0, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.HORSE') AND name='Flow1StateJson';"));
@@ -55,7 +55,7 @@ public sealed class SqlStateStoreTests
     [LocalSqlFact]
     public async Task A_computed_state_column_is_rejected_instead_of_being_treated_as_writable_storage()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync();
+        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false);
         await db.ExecuteAsync("ALTER TABLE dbo.HORSE ADD Flow1StateJson AS CONVERT(nvarchar(max),NULL);");
         Assert.Equal(51042, (await Assert.ThrowsAsync<SqlException>(() => db.ScriptAsync("004_flow1_sql_state.sql"))).Number);
         Assert.Equal(0, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE name='Flow1StateVersion';"));
@@ -63,7 +63,7 @@ public sealed class SqlStateStoreTests
     [LocalSqlFact]
     public async Task Incompatible_named_check_or_wrong_default_cannot_bypass_migration_validation()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync();
+        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false);
         await db.ExecuteAsync("ALTER TABLE dbo.HORSE ADD Flow1StateJson nvarchar(max) NULL, Flow1StateVersion bigint NOT NULL DEFAULT(0); ALTER TABLE dbo.HORSE ADD CONSTRAINT CK_HORSE_Flow1StateJson CHECK(1=1);");
         Assert.Equal(51044, (await Assert.ThrowsAsync<SqlException>(() => db.ScriptAsync("004_flow1_sql_state.sql"))).Number);
         Assert.Equal(0, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST') AND name='Flow1StateJson';"));
@@ -142,7 +142,7 @@ public sealed class SqlStateStoreTests
             await new Flow1UnitOfWork(context).ExecuteAsync("req-1", async ct => {
                 var c = await context.Contracts.SingleAsync(ct); c.ContractStatus = "SIGNED"; c.SignedAt = new DateTime(2026, 10, 16, 9, 0, 0, DateTimeKind.Utc);
                 (await context.TransportRequests.SingleAsync(ct)).Status = "AWAITING_DEPOSIT";
-                // Synthetic transaction proof, not the application's actual OTP/sign flow (S2 cutover pending).
+                // Synthetic transaction proof; actual OTP/sign endpoint coverage lives in ContractAcceptanceTests.
                 await Store(context).AppendAsync("acceptance", "c-1", 0, "sign-1", "owner", "SIGNED", JsonSerializer.SerializeToElement(new { documentHash = new string('a', 64), deposit = 40_000_000 }), ct);
                 context.Invoices.Add(new() { InvoiceId = "di-state", ContractId = "c-1", InvoiceType = "DEPOSIT", CurrencyCode = "VND", TotalPayableAmount = 40_000_000, PaymentStatus = "UNPAID" });
                 return 0;

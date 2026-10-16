@@ -26,7 +26,7 @@ public sealed class ManagerRequestReviewController(RequestReviewService service)
     {
         var command = operation switch { "accept" => "ACCEPT", "reject" => "REJECT", "request-revision" => "REQUEST_REVISION",
             "info-requests" => "ASK_INFO", "preliminary-plan" => "SAVE_PLAN", "contracts" => "CREATE_DRAFT",
-            "contract-versions" => "REPLACE_DRAFT", "discard-prepared" => "DISCARD_PREPARED", _ => throw Error("Action not found.", "NOT_FOUND", 404) };
+            "contract-versions" => "REPLACE_DRAFT", _ => throw Error("Action not found.", "NOT_FOUND", 404) };
         await service.ExecuteAsync(id, Actor, true, command, Request.Headers["Idempotency-Key"].ToString(), input, ct);
         return Ok(ApiResponse<object>.Ok(await service.ManagerAsync(id, Actor, ct)));
     }

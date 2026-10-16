@@ -44,7 +44,7 @@ var created = false;
 try
 {
     await Sql(master, $"CREATE DATABASE [{name}];"); created = true;
-    foreach (var file in new[] { "000_legacy_schema.sql", "003_flow1_minimal_schema.sql" })
+    foreach (var file in new[] { "000_legacy_schema.sql", "003_flow1_minimal_schema.sql", "004_flow1_sql_state.sql" })
         await Sql(connection, await File.ReadAllTextAsync(Path.Combine(repository, "backend/database", file)));
     await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-owner','test-only','CUSTOMER',N'Browser Demo');");
     if (phase3) await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-manager','test-only','LOGISTICS_MANAGER',N'Manager Demo');");
@@ -145,6 +145,11 @@ try
         : phase3
         ? "IF (SELECT COUNT(*) FROM CONTRACT) <> 2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='DRAFT' AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SUPERSEDED') <> 1 THROW 51031, 'Phase 3 Draft invariant failed.', 1;"
         : "IF EXISTS(SELECT 1 FROM CONTRACT) THROW 51031, 'Phase 2 created a Contract early.', 1;");
+    await Sql(connection, "IF EXISTS(SELECT 1 FROM HORSE WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) OR EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) OR EXISTS(SELECT 1 FROM CONTRACT WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) THROW 51034, 'Missing SQL state in browser use cases.', 1;");
+    if (signing) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus='SIGNED' AND JSON_VALUE(Flow1StateJson,'$.documents.acceptance.revisions[0].payload.operation.outcome')='COMMITTED') OR NOT EXISTS(SELECT 1 FROM [USER] WHERE UserID='browser-owner' AND Flow1StateVersion > 0 AND JSON_QUERY(Flow1StateJson,'$.documents.\"otp-account\"') IS NOT NULL) THROW 51035, 'SQL confirmation/account budget state missing.', 1;");
+    foreach (var kind in new[] { "horse", "request", "review", "plan", "contract", "publication", "contract-otp", "acceptance", "otp-account" })
+        if (Directory.Exists(Path.Combine(output, "metadata", kind))) throw new InvalidOperationException("Browser use case created legacy metadata sidecars.");
+    Console.WriteLine("PASS: all owner state stored in SQL; no legacy metadata sidecar directories created.");
     Console.WriteLine(signing ? "PASS: real PDF / loopback SMTP / Customer OTP confirmation / SQL SIGNED + one 40% deposit Invoice / original PDF unchanged / no Trip."
         : phase4 ? "PASS: Manager issues immutable PDF using real LibreOffice; Customer views/downloads identical hash; no sign/Trip/Invoice yet."
         : phase3 ? "PASS: Customer + Manager review/revision/plan/Draft/change through real API/SQL/private files; no Trip/Invoice."

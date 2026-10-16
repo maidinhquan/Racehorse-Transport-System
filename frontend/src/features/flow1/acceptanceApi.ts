@@ -8,6 +8,4 @@ export const acceptanceApi = {
   get: (id: string, manager: boolean) => get<Acceptance>(url(id, manager) + "/acceptance"),
   otp: (id: string, input: unknown) => post<OtpChallenge>(url(id, false) + "/otp", input),
   sign: (id: string, input: unknown, key: string) => post<Acceptance>(url(id, false) + "/sign", input, key),
-  recover: (id: string) => post<Acceptance>(url(id, true) + "/acceptance/recover", {}),
-  discard: (id: string, reason: string) => post<Acceptance>(url(id, true) + "/acceptance/discard", { reason }),
 };

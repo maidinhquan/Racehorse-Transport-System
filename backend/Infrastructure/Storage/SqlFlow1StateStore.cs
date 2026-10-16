@@ -8,15 +8,23 @@ using Application.Interfaces.Flow1;
 using Infrastructure.Data.Context;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Data.SqlClient;
 
 namespace Infrastructure.Storage;
 
-/// <summary>SQL-only state; fixed table mapping, no SQL identifier from user input, no filesystem access.</summary>
-public sealed class SqlFlow1StateStore(HorseTransportDbContext context, TimeProvider clock) : IFlow1StateStore
+/// <summary>SQL-only state; fixed table mapping. Legacy files are checked for presence only, never used as state.</summary>
+public sealed class SqlFlow1StateStore(HorseTransportDbContext context, TimeProvider clock, string? legacyRoot = null) : IFlow1StateStore
 {
     private const int MaxDocumentBytes = 2 * 1024 * 1024;
     private const int MaxOwnerBytes = 8 * 1024 * 1024;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private void CheckLegacyCutover()
+    {
+        // Presence-only guard. Never read business data from sidecars or silently fall back to them.
+        if (legacyRoot is not null && new[] { "horse", "request", "review", "plan", "contract", "publication", "contract-otp", "acceptance", "otp-account" }
+            .Any(type => Directory.Exists(Path.Combine(legacyRoot, type)) && Directory.EnumerateFiles(Path.Combine(legacyRoot, type), "*.json").Any()))
+            throw new BusinessRuleException("Legacy Flow 1 sidecars require verified inventory/import before SQL cutover; source files have been preserved.", 503, "FLOW1_STATE_IMPORT_REQUIRED");
+    }
     private sealed record Envelope(int SchemaVersion, Dictionary<string, Flow1StateDocument> Documents);
     private sealed record OwnerState(long Revision, Envelope Value);
     private static (string Table, string Key) Owner(string type) => type switch
@@ -52,7 +60,11 @@ public sealed class SqlFlow1StateStore(HorseTransportDbContext context, TimeProv
         // ADO commands use the EF-owned connection and transaction; EF does not map or overwrite these columns.
         await using var command = Command($"SELECT [Flow1StateJson], [Flow1StateVersion] FROM [dbo].[{owner.Table}] {(write ? "WITH (UPDLOCK, ROWLOCK)" : "")} WHERE [{owner.Key}]=@id;");
         Parameter(command, "@id", id, DbType.AnsiString, 50);
-        await using var reader = await command.ExecuteReaderAsync(ct);
+        DbDataReader opened;
+        try { opened = await command.ExecuteReaderAsync(ct); }
+        catch (SqlException e) when (e.Number is 207 or 208)
+        { throw new BusinessRuleException("Flow 1 SQL state schema is not ready. Apply/verify migration 004 on the explicitly authorized database.", 503, "FLOW1_SQL_SCHEMA_REQUIRED"); }
+        await using var reader = opened;
         if (!await reader.ReadAsync(ct)) return null;
         var revision = reader.GetInt64(1);
         if (revision < 0) throw new InvalidDataException("Invalid Flow 1 SQL row version.");
@@ -76,12 +88,18 @@ public sealed class SqlFlow1StateStore(HorseTransportDbContext context, TimeProv
                 document.Revisions.Select(r => r.OperationId).Distinct(StringComparer.Ordinal).Count() != document.Revisions.Count ||
                 JsonSerializer.SerializeToUtf8Bytes(document, Json).Length > MaxDocumentBytes)
                 throw new InvalidDataException("Invalid Flow 1 SQL state history/owner binding.");
+            var latest = document.Revisions[^1].Payload;
+            if (name == "review" && latest.TryGetProperty("pending", out var pending) && pending.ValueKind != JsonValueKind.Null ||
+                name == "publication" && latest.TryGetProperty("outcome", out var outcome) && outcome.GetString() == "PREPARED" ||
+                name == "acceptance" && latest.TryGetProperty("operation", out var operation) && operation.TryGetProperty("outcome", out var result) && result.GetString() == "PREPARED")
+                throw new BusinessRuleException("Legacy pending state must be reconciled during import before use.", 409, "FLOW1_STATE_RECONCILIATION_REQUIRED");
         }
         return new(revision, envelope);
     }
     public async Task<Flow1StateDocument?> ReadAsync(string type, string id, CancellationToken ct = default)
     {
         type = Key(type); id = Key(id); Owner(type);
+        CheckLegacyCutover();
         var opened = context.Database.GetDbConnection().State != ConnectionState.Open;
         if (opened) await context.Database.OpenConnectionAsync(ct);
         try { return (await Load(type, id, false, ct))?.Value.Documents.GetValueOrDefault(type); }
@@ -91,6 +109,7 @@ public sealed class SqlFlow1StateStore(HorseTransportDbContext context, TimeProv
         string operationId, string actorUserId, string action, JsonElement payload, CancellationToken ct = default)
     {
         type = Key(type); id = Key(id); var owner = Owner(type);
+        CheckLegacyCutover();
         if (context.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Append Flow 1 state inside the same SQL transaction as its business changes.");
         if (expectedVersion < 0 || string.IsNullOrWhiteSpace(operationId) || operationId.Length > 128 ||

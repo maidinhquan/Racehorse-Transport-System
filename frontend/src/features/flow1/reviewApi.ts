@@ -15,7 +15,7 @@ export type PlanInput = { departureDate: string; deliveryDate: string; preparati
 export type Plan = { input: PlanInput; requestVersion: number; pricingPolicyVersion: string; estimatedCost: number;
   floor: number; suggested: number; roadDistanceKm: number | null; minimumPreparationDays: number; attribution: string | null };
 export type ManagerReview = { request: RequestView; version: number; review: { requestVersion: number; feedback: string | null;
-  revisionFields: string[]; questions: Question[]; changes: Change[]; pending: { operation: { action: string; actor: string } } | null };
+  revisionFields: string[]; questions: Question[]; changes: Change[] };
   plan: Plan | null; contract: Contract | null; allowedActions: string[]; belowFloorReason?: string | null };
 const url = (id: string, manager: boolean) => `/${manager ? "manager" : "customer"}/requests/${encodeURIComponent(id)}`;
 export const reviewApi = {

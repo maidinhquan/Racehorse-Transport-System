@@ -63,12 +63,10 @@ function ManagerWork({ value: v, update }: { value: ManagerReview; update: (v: M
         Tải {kind === "photo" ? "ảnh" : "hộ chiếu"}</button>)}</li>)}</ul>
     <MapDataAttribution text={estimate.attribution || estimate.locationAttribution} />
     {error && <p role="alert">{error}</p>}{v.review.feedback && <p>Phản hồi: {v.review.feedback}</p>}
-    {v.review.pending && <p role="alert">Có thao tác {v.review.pending.operation.action} cần phục hồi. Thử lại thao tác đã gửi hoặc loại bỏ bản chuẩn bị nếu SQL chưa commit.</p>}
     <label>Lý do hoặc câu hỏi<textarea maxLength={2000} value={reason} onChange={e => setReason(e.target.value)} /></label>
     {can("ACCEPT") && <button disabled={busy} onClick={() => act("accept")}>Chấp nhận yêu cầu</button>}
     {can("REJECT") && <button disabled={busy || !reason.trim()} onClick={() => act("reject", { reason })}>Từ chối yêu cầu</button>}
     {can("ASK_INFO") && <button disabled={busy || !reason.trim()} onClick={() => act("info-requests", { reason })}>Hỏi bổ sung</button>}
-    {can("DISCARD_PREPARED") && <button disabled={busy || !reason.trim()} onClick={() => act("discard-prepared", { reason })}>Loại bỏ thao tác chuẩn bị</button>}
     {can("REQUEST_REVISION") && <fieldset><legend>Nội dung cần chỉnh sửa</legend>{["ROUTE", "DATES", "CONTACTS", "HORSES", "DOCUMENTS", "PURPOSE"].map(f => <label key={f}>
       <input type="checkbox" checked={fields.includes(f)} onChange={e => setFields(e.target.checked ? [...fields, f] : fields.filter(x => x !== f))} />{f}</label>)}
       <button disabled={busy || !reason.trim() || !fields.length} onClick={() => act("request-revision", { reason, fields })}>Yêu cầu chỉnh sửa</button></fieldset>}

@@ -30,32 +30,20 @@ public sealed class ContractPublicationTests
             return new(file.FileId, file.Sha256, file.SizeBytes);
         }
     }
-    internal sealed class FaultStore(IFlow1MetadataStore inner) : IFlow1MetadataStore
-    {
-        public string? Mode;
-        public Task<Flow1MetadataDocument?> ReadAsync(string type, string id, CancellationToken ct = default) => inner.ReadAsync(type, id, ct);
-        public async Task<Flow1MetadataRevision> AppendAsync(string type, string id, int version, string key, string actor, string action, JsonElement payload, CancellationToken ct = default)
-        {
-            if ((type == "publication" && Mode == "after-sql" || type == "acceptance" && Mode == "acceptance-after-sql") && action == "COMPLETED") { Mode = null; throw new IOException("Injected SQL-before-receipt failure."); }
-            var result = await inner.AppendAsync(type, id, version, key, actor, action, payload, ct);
-            if ((type == "publication" && Mode == "before-sql" || type == "acceptance" && Mode == "acceptance-before-sql") && action == "PREPARED") { Mode = null; throw new IOException("Injected file-before-SQL failure."); }
-            return result;
-        }
-    }
     internal sealed class Fixture : IAsyncDisposable
     {
         public required Flow1TestDatabase Db; public required string Folder; public required CustomerTestFactory Factory;
         public required HttpClient Manager; public required HttpClient Customer; public required string RequestId; public required string ContractId;
-        public required int Version; public required Renderer Renderer; public required FaultStore Fault; public required Clock Clock;
+        public required int Version; public required Renderer Renderer; public required SqlStateFaults Fault; public required Clock Clock;
         public PublishContractInput Input => new(Version, new(2026, 11, 10, 10, 0, 0, TimeSpan.Zero));
         public static async Task<Fixture> Create(Action<IServiceCollection>? customize = null)
         {
             var db = await Flow1TestDatabase.CreateAsync(); var folder = Path.Combine(Path.GetTempPath(), "RaceHorseFlow1Api-" + Guid.NewGuid().ToString("N"));
-            var clock = new Clock(); var store = new FaultStore(new LocalFlow1MetadataStore(Path.Combine(folder, "metadata"), new(), clock));
+            var clock = new Clock(); var store = new SqlStateFaults();
             var renderer = new Renderer(new LocalFlow1PrivateFileStore(Path.Combine(folder, "bytes")));
             var factory = new CustomerTestFactory(db.ConnectionString, folder, customize: s => {
                 s.RemoveAll<TimeProvider>(); s.AddSingleton<TimeProvider>(clock);
-                s.RemoveAll<IFlow1MetadataStore>(); s.AddSingleton<IFlow1MetadataStore>(store);
+                s.RemoveAll<SqlStateFaults>(); s.AddSingleton(store);
                 s.RemoveAll<IFlow1ContractDocumentGenerator>(); s.AddSingleton<IFlow1ContractDocumentGenerator>(renderer);
                 s.RemoveAll<Flow1ContractOptions>(); s.AddSingleton(Options()); customize?.Invoke(s);
             });
@@ -126,53 +114,46 @@ public sealed class ContractPublicationTests
         Assert.Equal(1, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='PENDING_SIGNATURE';"));
     }
     [LocalSqlFact]
-    public async Task Sql_failure_rolls_back_both_deadline_and_request_status_and_prepared_publication_can_be_discarded()
+    public async Task Sql_failure_rolls_back_deadline_status_and_manifest_then_same_key_can_retry()
     {
         await using var f = await Fixture.Create();
         await f.Db.ExecuteAsync("ALTER TABLE CONTRACT ADD CONSTRAINT CK_TestPublicationFault CHECK (ContractStatus <> 'PENDING_SIGNATURE');");
         Assert.Equal(HttpStatusCode.InternalServerError, (await f.Publish()).StatusCode);
         Assert.Equal("ACCEPTED", await f.Db.ScalarAsync<string>("SELECT Status FROM TRANSPORT_REQUEST;"));
         Assert.Equal(1, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='DRAFT' AND CompletionDeadline IS NULL;"));
-        Assert.Equal(HttpStatusCode.Conflict, (await f.Public()).StatusCode);
-        await Data<PublishedContractView?>(await f.Discard());
-        Assert.Equal(HttpStatusCode.InternalServerError, (await f.Publish("second-sql-failure")).StatusCode);
-        await Data<PublishedContractView?>(await f.Discard());
-        var oldKey = await f.Publish(); Assert.Equal(HttpStatusCode.Conflict, oldKey.StatusCode);
-        Assert.Contains("OPERATION_ABORTED", await oldKey.Content.ReadAsStringAsync());
-        Assert.Equal(2, f.Renderer.Calls);
+        Assert.Null(await f.Factory.State("publication", f.ContractId)); Assert.Null(await Data<PublishedContractView?>(await f.Public()));
         await f.Db.ExecuteAsync("ALTER TABLE CONTRACT DROP CONSTRAINT CK_TestPublicationFault;");
-        Assert.Equal("PENDING_SIGNATURE", (await Data<PublishedContractView>(await f.Publish("after-sql-rollback"))).Status);
+        Assert.Equal("PENDING_SIGNATURE", (await Data<PublishedContractView>(await f.Publish())).Status);
     }
     [LocalSqlFact]
-    public async Task Prepared_publication_blocks_mutation_and_recover_revalidates_and_commits_once()
+    public async Task Failure_after_manifest_write_does_not_publish_pdf_and_retry_is_fully_atomic()
     {
-        await using var f = await Fixture.Create(); f.Fault.Mode = "before-sql";
+        await using var f = await Fixture.Create(); f.Fault.Mode = "publication-after-state";
         Assert.Equal(HttpStatusCode.InternalServerError, (await f.Publish()).StatusCode);
         Assert.Equal("DRAFT", await f.Db.ScalarAsync<string>("SELECT ContractStatus FROM CONTRACT;"));
-        Assert.Equal(HttpStatusCode.Conflict, (await f.Public()).StatusCode);
-        var rejected = await Send(f.Manager, $"/api/manager/requests/{f.RequestId}/reject", new ReviewCommand(f.Version, "Không được bỏ qua prepare"));
-        Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode); Assert.Contains("PUBLICATION_RECOVERY_REQUIRED", await rejected.Content.ReadAsStringAsync());
-        var recovered = await Data<PublishedContractView>(await f.Recover()); Assert.False(recovered.RecoveryRequired);
-        Assert.Equal(recovered.DocumentHash, (await Data<PublishedContractView>(await f.Publish())).DocumentHash); Assert.Equal(1, f.Renderer.Calls);
+        Assert.Null(await Data<PublishedContractView?>(await f.Public()));
+        Assert.Equal(HttpStatusCode.Conflict, (await f.Customer.GetAsync($"/api/customer/contracts/{f.ContractId}/pdf")).StatusCode);
+        var published = await Data<PublishedContractView>(await f.Publish()); Assert.False(published.RecoveryRequired);
+        Assert.Equal(published.DocumentHash, (await Data<PublishedContractView>(await f.Publish())).DocumentHash);
+        Assert.Single((await f.Factory.State("publication", f.ContractId))!.Revisions);
     }
     [LocalSqlFact]
-    public async Task Sql_committed_receipt_missing_is_reconciled_without_regenerating_or_rolling_back()
+    public async Task Failure_after_all_sql_writes_before_commit_cannot_leave_publication_or_signed_status()
     {
-        await using var f = await Fixture.Create(); f.Fault.Mode = "after-sql";
+        await using var f = await Fixture.Create(); f.Fault.Mode = "after-save";
         Assert.Equal(HttpStatusCode.InternalServerError, (await f.Publish()).StatusCode);
-        Assert.Equal("PENDING_SIGNATURE", await f.Db.ScalarAsync<string>("SELECT ContractStatus FROM CONTRACT;"));
-        var recovered = await Data<PublishedContractView>(await f.Public()); Assert.False(recovered.RecoveryRequired);
-        Assert.Equal(HttpStatusCode.Conflict, (await f.Discard()).StatusCode);
-        Assert.Equal(recovered.DocumentHash, (await Data<PublishedContractView>(await f.Publish())).DocumentHash); Assert.Equal(1, f.Renderer.Calls);
+        Assert.Equal("DRAFT", await f.Db.ScalarAsync<string>("SELECT ContractStatus FROM CONTRACT;"));
+        Assert.Null(await f.Factory.State("publication", f.ContractId));
+        var issued = await Data<PublishedContractView>(await f.Publish());
+        Assert.Equal(issued.DocumentHash, (await Data<PublishedContractView>(await f.Public())).DocumentHash);
+        Assert.False(Directory.Exists(Path.Combine(f.Folder, "metadata")));
     }
     [LocalSqlFact]
-    public async Task Expired_prepare_requires_audited_discard_and_hash_corruption_fails_closed()
+    public async Task Rolled_back_publication_revalidates_deadline_and_issued_pdf_corruption_fails_closed()
     {
-        await using var f = await Fixture.Create(); f.Fault.Mode = "before-sql";
+        await using var f = await Fixture.Create(); f.Fault.Mode = "publication-after-state";
         Assert.Equal(HttpStatusCode.InternalServerError, (await f.Publish()).StatusCode);
         f.Clock.Now = f.Input.CompletionDeadline.AddHours(1);
-        Assert.Equal(HttpStatusCode.Conflict, (await f.Recover()).StatusCode);
-        await Data<PublishedContractView?>(await f.Discard());
         Assert.Equal(HttpStatusCode.Conflict, (await f.Publish()).StatusCode);
         var issued = await Data<PublishedContractView>(await f.Publish("new-deadline-issue", f.Input with { CompletionDeadline = f.Clock.Now.AddDays(1) }));
         f.Clock.Now = issued.OriginalCompletionDeadline.AddHours(1);

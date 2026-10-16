@@ -14,7 +14,7 @@ using static Application.Common.Flow1.Flow1PricingPolicy;
 namespace Application.Services.Flow1;
 
 public sealed class CustomerTransportService(ICustomerTransportRepository repo, IFlow1UnitOfWork work,
-    IFlow1MetadataStore metadata, IFlow1PrivateFileStore files, TransportEstimateService estimates, TimeProvider clock)
+    IFlow1StateStore stateStore, IFlow1PrivateFileStore files, TransportEstimateService estimates, TimeProvider clock)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     public static string Hash<T>(T input) => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(input, Json)));
@@ -48,10 +48,10 @@ public sealed class CustomerTransportService(ICustomerTransportRepository repo, 
     }
     private async Task<(int Version, T Value)?> Latest<T>(string type, string id, CancellationToken ct)
     {
-        var document = await metadata.ReadAsync(type, id, ct);
+        var document = await stateStore.ReadAsync(type, id, ct);
         if (document is null) return null;
         var revision = document.Revisions[^1];
-        return (revision.Version, revision.Payload.Deserialize<T>(Json) ?? throw new InvalidDataException("Invalid metadata payload."));
+        return (revision.Version, revision.Payload.Deserialize<T>(Json) ?? throw new InvalidDataException("Invalid state payload."));
     }
     private static HorseView View(Horse h, (int Version, HorseSnapshot Value)? snapshot, bool free) =>
         new(h.HorseId, h.Name, h.MicrochipIso, h.FeiPassportNo, snapshot?.Value.Status ?? "NEEDS_DOCUMENTS",
@@ -94,14 +94,14 @@ public sealed class CustomerTransportService(ICustomerTransportRepository repo, 
             if (existing is not null) return View(existing, previous, true);
             if (await repo.MicrochipExistsAsync(input.MicrochipIso, token))
                 throw Error("This microchip is already registered.", "MICROCHIP_EXISTS", 409);
-            var snapshot = previous?.Value ?? new HorseSnapshot("ACTIVE", input,
+            var snapshot = new HorseSnapshot("ACTIVE", input,
                 await files.PutAsync(photo, true, token), await files.PutAsync(passport, false, token), hash);
-            if (!previous.HasValue)
-                await metadata.AppendAsync("horse", id, 0, key, owner, "HORSE_PREPARED", JsonSerializer.SerializeToElement(snapshot, Json), token);
             var horse = new Horse { HorseId = id, OwnerId = owner, Name = input.Name.Trim(), MicrochipIso = input.MicrochipIso,
                 FeiPassportNo = input.FeiPassportNo.Trim(), Breed = input.Breed.Trim(), Sex = input.Sex,
                 Weight = input.Weight, Dob = input.Dob.ToDateTime(TimeOnly.MinValue) };
             repo.AddHorse(horse);
+            await work.FlushAsync(token);
+            await stateStore.AppendAsync("horse", id, 0, key, owner, "HORSE_CREATED", JsonSerializer.SerializeToElement(snapshot, Json), token);
             return View(horse, (1, snapshot), true);
         }, ct);
     }
@@ -147,7 +147,7 @@ public sealed class CustomerTransportService(ICustomerTransportRepository repo, 
                     PassportScan = await files.PutAsync(passport, false, token) };
             }
             // AppendAsync validates expectedVersion and operation key, including matching retry.
-            var saved = await metadata.AppendAsync("horse", id, version, key, owner, "DOCUMENTS_UPDATED",
+            var saved = await stateStore.AppendAsync("horse", id, version, key, owner, "DOCUMENTS_UPDATED",
                 JsonSerializer.SerializeToElement(next, Json), token);
             return saved.Version;
         }, ct);
@@ -157,7 +157,7 @@ public sealed class CustomerTransportService(ICustomerTransportRepository repo, 
         string kind, CancellationToken ct)
     {
         if (await repo.HorseAsync(id, owner, ct) is null) throw Error("Horse not found.", "NOT_FOUND", 404);
-        var doc = await metadata.ReadAsync("horse", id, ct);
+        var doc = await stateStore.ReadAsync("horse", id, ct);
         var revision = doc?.Revisions.SingleOrDefault(x => x.Version == version);
         if (revision is null) throw Error("Document version not found.", "NOT_FOUND", 404);
         var snapshot = revision.Payload.Deserialize<HorseSnapshot>(Json)!;
@@ -178,31 +178,20 @@ public sealed class CustomerTransportService(ICustomerTransportRepository repo, 
             // Acquire shared horse resources before any serializable SQL reads to avoid
             // holding a missing-request key range while waiting for a horse lock.
             await work.LockHorsesAsync(input.Horses.Select(x => x.HorseId), token);
-            var prepared = await Latest<RequestSnapshot>("request", id, token);
-            if (prepared.HasValue) SameInput(prepared.Value.Value.InputHash, hash);
+            var saved = await Latest<RequestSnapshot>("request", id, token);
+            if (saved.HasValue) SameInput(saved.Value.Value.InputHash, hash);
             var existing = await repo.RequestAsync(id, owner, token);
             if (existing is not null)
             {
-                if (!prepared.HasValue) throw Error("Request metadata is unavailable.", "METADATA_UNAVAILABLE", 409);
-                return RequestView(existing, prepared);
+                if (!saved.HasValue) throw Error("Request state is unavailable.", "METADATA_UNAVAILABLE", 409);
+                return RequestView(existing, saved);
             }
             var horses = await ValidateHorsesAsync(owner, input, null, token);
-            EstimateView estimate;
-            if (prepared.HasValue) estimate = prepared.Value.Value.Estimate;
-            else
-            {
-                var calculation = await estimates.CalculateAsync(input.Trip, token);
-                if (calculation.Route is { MayPersist: false })
-                    throw Error("Routing results cannot be stored under the provider's configured permission.", "MAP_STORAGE_NOT_PERMITTED", 503);
-                estimate = calculation.Customer;
-            }
-            if (prepared.HasValue && (clock.GetUtcNow() - estimate.CalculatedAtUtc > TimeSpan.FromMinutes(30) ||
-                input.Trip.DesiredDepartureDate < Today(clock).AddDays(estimate.MinimumPreparationDays)))
-                throw Error("Prepared submission expired; recalculate with a new idempotency key.", "PREPARE_EXPIRED", 409);
-            var snapshot = prepared?.Value ?? new RequestSnapshot(input, estimate, hash, horses,
+            var calculation = await estimates.CalculateAsync(input.Trip, token);
+            if (calculation.Route is { MayPersist: false })
+                throw Error("Routing results cannot be stored under the provider's configured permission.", "MAP_STORAGE_NOT_PERMITTED", 503);
+            var snapshot = new RequestSnapshot(input, calculation.Customer, hash, horses,
                 input.Receiver.IsProxy ? "REQUIRED_NOT_VERIFIED" : "NOT_REQUIRED");
-            if (!prepared.HasValue)
-                await metadata.AppendAsync("request", id, 0, key, owner, "REQUEST_PREPARED", JsonSerializer.SerializeToElement(snapshot, Json), token);
             var request = new TransportRequest { RequestId = id, CustomerId = owner,
                 Departure = input.Trip.Pickup.Address.Trim(), Destination = input.Trip.Delivery.Address.Trim(),
                 Purpose = input.Purpose.Trim(), TransportType = input.Trip.PreferredTransportMode,
@@ -212,6 +201,8 @@ public sealed class CustomerTransportService(ICustomerTransportRepository repo, 
                 Status = "PENDING", RequestHorseMappings = input.Horses.Select(x => new RequestHorseMapping {
                     RequestHorseId = Guid.NewGuid().ToString("N"), RequestId = id, HorseId = x.HorseId }).ToList() };
             repo.AddRequest(request);
+            await work.FlushAsync(token);
+            await stateStore.AppendAsync("request", id, 0, key, owner, "REQUEST_SUBMITTED", JsonSerializer.SerializeToElement(snapshot, Json), token);
             return RequestView(request, (1, snapshot));
         }, ct);
     }

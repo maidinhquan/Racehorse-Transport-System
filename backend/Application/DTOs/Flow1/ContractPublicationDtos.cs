@@ -8,7 +8,7 @@ public sealed record ContractPublication(string ContractId, string RequestId, st
     int ContractVersion, int RequestVersion, int PlanVersion, int ReviewVersion, string TemplateVersion,
     DateTimeOffset CompletionDeadline, ContractDocumentResult Document, ContractPdfModel FrozenModel, string DraftHash,
     string OperationKey, string InputHash, string Actor, DateTime IssuedAtUtc,
-    string Outcome = "PREPARED", string? Reason = null);
+    string Outcome = "COMMITTED", string? Reason = null);
 public sealed record PublishedContractView(string ContractId, int Version, string Status, string Currency,
     decimal Total, decimal Deposit, DateTimeOffset OriginalCompletionDeadline,
     string DocumentHash, long DocumentSizeBytes, string TemplateVersion, bool Overdue, bool RecoveryRequired);

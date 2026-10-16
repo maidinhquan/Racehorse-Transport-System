@@ -14,7 +14,7 @@ const manager: ManagerReview = {
       pickupContact: { name: "Người giao", phone: "0901234567" }, receiver: { name: "Người nhận", phone: "0907654321", isProxy: true }, horses: [] },
       estimate: { estimatedPrice: 48600000, estimatedDeposit: 19440000, roadDistanceKm: 300, minimumPreparationDays: 2, earliestDepartureDate: "2026-10-18", scope: "ROAD", currency: "VND", attribution: "TEST" },
       receiverVerificationStatus: "REQUIRED_NOT_VERIFIED" } },
-  version: 0, review: { requestVersion: 1, feedback: null, revisionFields: [], questions: [], changes: [], pending: null }, plan: null, contract: null,
+  version: 0, review: { requestVersion: 1, feedback: null, revisionFields: [], questions: [], changes: [] }, plan: null, contract: null,
   allowedActions: ["ACCEPT", "REJECT", "ASK_INFO", "REQUEST_REVISION"],
 };
 afterEach(() => vi.restoreAllMocks());

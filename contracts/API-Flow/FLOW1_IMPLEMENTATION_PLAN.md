@@ -8,8 +8,9 @@
 **Quyết định mới nhất 16/10/2026:** đại ca đã chọn chuyển metadata vào SQL và giữ
 đầy đủ Flow 1. [Plan chuyển đổi S1–S3](FLOW1_SQL_STATE_TRANSITION_PLAN.md) là nguồn
 chuẩn cho storage/transaction/import, thay giới hạn hai cột và thiết kế sidecar
-file của bản 2.0. S1 có schema/SQL adapter/tests; endpoint vẫn dùng provider cũ cho
-đến khi cutover/import được kiểm chứng. Không coi đăng ký adapter là đã chuyển xong.
+file của bản 2.0. S1 có schema/SQL adapter; S2 đã chuyển source endpoint sang SQL
+và gộp business/state/receipt chung transaction. S3 inventory/import/parity/cleanup
+còn lại; DB nghiệp vụ chưa được áp migration/import. Xem [báo cáo S2](FLOW1_PHASE4_SQL_CUTOVER_REPORT.md).
 
 ## 1. Quyết định đã chốt
 
@@ -465,7 +466,7 @@ Sự kiện/handoff có EventID/schemaVersion/requestId/tripId/contractId/planVe
 | backend/Application/Common/Flow1/Flow1ContractFactory.cs | Draft chuẩn VND/40%, chưa Trip |
 | backend/Application/Common/Flow1/Flow1StorageOptions.cs | Legacy file provider options; S3 tách private-file settings trước khi gỡ |
 | backend/Application/Interfaces/Flow1/IFlow1StateStore.cs | SQL state document/revision port, S1 có implementation/test |
-| backend/Application/Interfaces/Flow1/IFlow1MetadataStore.cs | Legacy file port còn dùng đến S2/S3 cutover |
+| backend/Application/Interfaces/Flow1/IFlow1MetadataStore.cs | Legacy file port không còn đăng ký runtime; giữ đến S3 inventory/import/cleanup |
 | backend/Application/Interfaces/Flow1/IntegrationContracts.cs | Maps/PDF/VNPay adapter contracts, chưa giả implementation |
 | backend/Infrastructure/Data/Configurations/Flow1/*.cs | EF mapping Contract, Trip unique, invoice cọc unique |
 | backend/Infrastructure/Transactions/Flow1UnitOfWork.cs | SQL Serializable, request/horse applocks, commit/rollback |
@@ -502,9 +503,10 @@ Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai
 ## 15. Ma trận kiểm thử và bằng chứng nghiệm thu
 
 **Storage decision mới nhất:** [S1 SQL foundation](FLOW1_PHASE4_SQL_STATE_REPORT.md)
-có migration 004/SQL state port với 179 backend tests pass, chưa cutover endpoint.
-Lượt tiếp theo ưu tiên S2/S3 của [plan chuyển đổi](FLOW1_SQL_STATE_TRANSITION_PLAN.md),
-rồi mới tiếp tục các use case phase 4 còn lại bằng SQL; không mở rộng file saga cũ.
+có migration 004/SQL state port. [S2](FLOW1_PHASE4_SQL_CUTOVER_REPORT.md) đã chuyển
+Customer/review/publication/OTP/sign sang SQL transaction chung, gỡ recovery route/UI
+dành file saga. Lượt tiếp theo ưu tiên S3 inventory/import/parity/cleanup trong
+[plan chuyển đổi](FLOW1_SQL_STATE_TRANSITION_PLAN.md), rồi tiếp tục phase 4 bằng SQL.
 
 **Cập nhật phase 4, 16/10/2026:** [increment A](FLOW1_PHASE4_REPORT.md) có PDF v2/private
 immutable publication/deadline gốc/recovery, real LibreOffice 13-page QA và Chrome
@@ -624,8 +626,8 @@ Frontend khi tới use case tương ứng: npm run test:run và npm run build �
 ## 17. Điều kiện hoàn thành và giới hạn
 
 - [x] Quyết định mới cho thêm cột SQL, giữ đầy đủ flow, không bảng mới. 003 giữ hai cột/nullable Trip; S1 thêm 004 với tám cột có mapping rõ.
-- [x] S1 SQL foundation/migration/transaction/CAS: 179 backend tests pass; runtime endpoint chưa cutover.
-- [ ] S2 toàn bộ use case hiện có dùng SQL, business + state + receipt commit chung; đủ SQL rollback/retry/concurrency và browser acceptance.
+- [x] S1 SQL foundation/migration/transaction/CAS: 179 backend tests pass tại commit S1.
+- [x] S2 source endpoint dùng SQL, business + state + receipt commit chung; SQL rollback/retry/concurrency và connected browser trong báo cáo S2. Không đồng nghĩa đã migrate/import DB nghiệp vụ.
 - [ ] S3 inventory/import/parity/gỡ MetadataStore file và test cũ có replacement; giữ private file bytes/hashes.
 - [x] Migration DB sạch + legacy + chạy lại trên DB test; không mất tiền/currency/signature, không bịa deadline. Chưa áp lên DB nghiệp vụ.
 - [x] Foundation lưu Contract trước Trip; repository stage invoice/ledger SQL và request transaction dùng chung, đã test rollback. API activation thuộc phase sau.
@@ -648,4 +650,5 @@ import/backup rõ; không mặc định filesystem nhiều server tự đồng b
   foundation là toàn bộ trạng thái hiện tại.
 - 16/10/2026, quyết định mới nhất: chuyển metadata vào SQL, giữ đủ Flow 1, không
   bảng mới. Bản 3.0/S1–S3 thay giới hạn hai cột và kiến trúc sidecar file; S1 SQL
-  foundation được kiểm chứng, S2 cutover/S3 import-cleanup là bước tiếp theo.
+  foundation được kiểm chứng. S2 source cutover đã thực hiện theo yêu cầu trực tiếp,
+  S3 import/parity/cleanup là bước tiếp theo; không tự migrate/import DB nghiệp vụ.

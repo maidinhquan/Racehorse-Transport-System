@@ -13,31 +13,17 @@ namespace Flow1.Tests;
 public sealed class RequestReviewTests
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private sealed class FaultStore(IFlow1MetadataStore inner) : IFlow1MetadataStore
-    {
-        public string? Mode { get; set; }
-        public Task<Flow1MetadataDocument?> ReadAsync(string type, string id, CancellationToken ct = default) => inner.ReadAsync(type, id, ct);
-        public async Task<Flow1MetadataRevision> AppendAsync(string type, string id, int version, string key, string actor, string action, JsonElement payload, CancellationToken ct = default)
-        {
-            if (Mode == "after-sql" && type == "contract") { Mode = null; throw new IOException("Injected missing contract receipt after SQL commit."); }
-            if (Mode == "before-receipt" && action == "COMPLETED") { Mode = null; throw new IOException("Injected receipt failure after SQL commit."); }
-            var saved = await inner.AppendAsync(type, id, version, key, actor, action, payload, ct);
-            if (Mode == "before-sql" && action == "PREPARED") { Mode = null; throw new IOException("Injected crash after prepare, before SQL mutation."); }
-            if (Mode == "canonical-written" && type == "request" && action == "RESUBMIT") { Mode = null; throw new IOException("Injected partial metadata finalization."); }
-            return saved;
-        }
-    }
     private sealed class Fixture : IAsyncDisposable
     {
         public required Flow1TestDatabase Db; public required string Root; public required CustomerTestFactory Factory;
         public required HttpClient Customer; public required HttpClient Manager; public required string Id;
-        public required SubmitRequestInput Input; public required FaultStore Fault;
+        public required SubmitRequestInput Input; public required SqlStateFaults Fault;
         public static async Task<Fixture> CreateAsync()
         {
             var db = await Flow1TestDatabase.CreateAsync(); var root = Path.Combine(Path.GetTempPath(), "RaceHorseFlow1Api-" + Guid.NewGuid().ToString("N"));
-            var fault = new FaultStore(new LocalFlow1MetadataStore(Path.Combine(root, "metadata"), new(), new FlowClock()));
+            var fault = new SqlStateFaults();
             var factory = new CustomerTestFactory(db.ConnectionString, root, customize: services => {
-                services.RemoveAll<IFlow1MetadataStore>(); services.AddSingleton<IFlow1MetadataStore>(fault);
+                services.RemoveAll<SqlStateFaults>(); services.AddSingleton(fault);
             });
             var customer = factory.Client(); var manager = factory.Client("manager", "LOGISTICS_MANAGER");
             try
@@ -131,7 +117,7 @@ public sealed class RequestReviewTests
         var command = new ReviewCommand(revision.Version, Request: revised);
         Assert.Equal(HttpStatusCode.InternalServerError, (await f.C("revision", command, "revision-retry-01")).StatusCode);
         var recovered = await Get<RequestView>(f.Customer, $"/api/customer/requests/{f.Id}");
-        Assert.Equal("PENDING", recovered.Status); Assert.Equal(2, recovered.Version); Assert.Equal("Người nhận mới", recovered.Snapshot!.Input.Receiver.Name);
+        Assert.Equal("CHANGES_REQUESTED", recovered.Status); Assert.Equal(1, recovered.Version); Assert.Equal("Người nhận", recovered.Snapshot!.Input.Receiver.Name);
         await Data<CustomerReviewView>(await f.C("revision", command, "revision-retry-01"));
         var history = await Get<JsonElement>(f.Manager, $"/api/manager/requests/{f.Id}/revisions");
         Assert.Equal(2, history.GetArrayLength()); Assert.Equal("Người nhận", history[0].GetProperty("snapshot").GetProperty("input").GetProperty("receiver").GetProperty("name").GetString());
@@ -175,39 +161,31 @@ public sealed class RequestReviewTests
         Assert.Single(state.Review.Notices);
     }
     [LocalSqlFact]
-    public async Task Prepare_failure_is_not_published_and_retry_or_discard_is_explicit()
+    public async Task Failed_review_state_rolls_back_and_exact_retry_commits_once_without_recovery()
     {
-        await using var f = await Fixture.CreateAsync(); f.Fault.Mode = "before-sql";
+        await using var f = await Fixture.CreateAsync(); f.Fault.Mode = "review-after-state";
         var command = new ReviewCommand(0);
-        Assert.Equal(HttpStatusCode.InternalServerError, (await f.M("accept", command, "accept-prepare-01")).StatusCode);
-        Assert.Equal("PENDING", await f.Db.ScalarAsync<string>($"SELECT Status FROM TRANSPORT_REQUEST WHERE RequestID='{f.Id}';"));
-        var pending = await f.View(); Assert.NotNull(pending.Review.Pending);
-        Assert.Equal(HttpStatusCode.Conflict, (await f.M("reject", new(pending.Version, "Thao tác khác"))).StatusCode);
-        var retry = await Data<ManagerReviewView>(await f.M("accept", command, "accept-prepare-01")); Assert.Equal("ACCEPTED", retry.Request.Status);
-        f.Fault.Mode = "before-sql";
-        Assert.Equal(HttpStatusCode.InternalServerError, (await f.M("reject", new(retry.Version, "Từ chối"), "reject-prepare-01")).StatusCode);
-        pending = await f.View();
-        var discard = new ReviewCommand(pending.Version, "Loại bỏ thao tác chưa commit");
-        var discarded = await Data<ManagerReviewView>(await f.M("discard-prepared", discard, "discard-prepared-01"));
-        Assert.Null(discarded.Review.Pending); Assert.Equal("ACCEPTED", discarded.Request.Status);
-        Assert.Equal(discarded.Version, (await Data<ManagerReviewView>(await f.M("discard-prepared", discard, "discard-prepared-01"))).Version);
-        Assert.Equal(HttpStatusCode.Conflict, (await f.M("reject", new(retry.Version, "Từ chối"), "reject-prepare-01")).StatusCode);
+        Assert.Equal(HttpStatusCode.InternalServerError, (await f.M("accept", command, "accept-sql-01")).StatusCode);
+        Assert.Equal("PENDING", (await f.View()).Request.Status); Assert.Equal(0, (await f.View()).Version);
+        Assert.Null(await f.Factory.State("review", f.Id));
+        var accepted = await Data<ManagerReviewView>(await f.M("accept", command, "accept-sql-01"));
+        Assert.Equal("ACCEPTED", accepted.Request.Status); Assert.Equal(1, accepted.Version);
+        Assert.Equal(accepted.Version, (await Data<ManagerReviewView>(await f.M("accept", command, "accept-sql-01"))).Version);
+        Assert.Single(accepted.Review.Notices);
     }
     [LocalSqlFact]
-    public async Task Sql_commit_without_receipt_or_contract_file_is_reconciled_once()
+    public async Task Failure_after_sql_save_or_draft_snapshot_write_rolls_back_business_and_receipt()
     {
-        await using var f = await Fixture.CreateAsync(); f.Fault.Mode = "before-receipt";
+        await using var f = await Fixture.CreateAsync(); f.Fault.Mode = "after-save";
         Assert.Equal(HttpStatusCode.InternalServerError, (await f.M("accept", new(0))).StatusCode);
-        Assert.Equal("ACCEPTED", await f.Db.ScalarAsync<string>($"SELECT Status FROM TRANSPORT_REQUEST WHERE RequestID='{f.Id}';"));
-        var accepted = await f.View(); Assert.Null(accepted.Review.Pending); Assert.Single(accepted.Review.Notices);
-        var plan = await Data<ManagerReviewView>(await f.M("preliminary-plan", new(accepted.Version, Plan: Plan(f))));
-        f.Fault.Mode = "after-sql";
+        Assert.Equal("PENDING", (await f.View()).Request.Status); Assert.Null(await f.Factory.State("review", f.Id));
+        var plan = await AcceptedPlan(f); f.Fault.Mode = "contract-after-state";
         var command = new ReviewCommand(plan.Version, Lines: Lines(115_000_000));
-        Assert.Equal(HttpStatusCode.InternalServerError, (await f.M("contracts", command, "draft-missing-file")).StatusCode);
-        Assert.Equal(1, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));
-        var recovered = await f.View(); Assert.NotNull(recovered.Contract); Assert.Null(recovered.Review.Pending);
-        Assert.Equal(recovered.Contract.ContractId, (await Data<ManagerReviewView>(await f.M("contracts", command, "draft-missing-file"))).Contract!.ContractId);
-        Assert.Equal(1, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));
+        Assert.Equal(HttpStatusCode.InternalServerError, (await f.M("contracts", command, "draft-atomic-sql")).StatusCode);
+        Assert.Equal(0, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));
+        Assert.Null((await f.View()).Contract); Assert.Equal(plan.Version, (await f.View()).Version);
+        var draft = await Data<ManagerReviewView>(await f.M("contracts", command, "draft-atomic-sql"));
+        Assert.NotNull(draft.Contract); Assert.Equal(1, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));
     }
     [LocalSqlFact]
     public async Task Failed_draft_SQL_does_not_publish_a_contract_and_manager_can_recover_without_Trip()
@@ -217,9 +195,8 @@ public sealed class RequestReviewTests
         Assert.Equal(HttpStatusCode.InternalServerError, (await f.M("contracts", new(plan.Version, Lines: Lines(115_000_000)))).StatusCode);
         Assert.Equal(0, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));
         Assert.Null((await f.CustomerView()).Contract);
-        var pending = await f.View(); Assert.NotNull(pending.Review.Pending);
-        var discarded = await Data<ManagerReviewView>(await f.M("discard-prepared", new(pending.Version, "Bỏ báo giá lỗi SQL")));
-        var valid = await Data<ManagerReviewView>(await f.M("contracts", new(discarded.Version, Lines: Lines(80_000_000))));
+        var unchanged = await f.View(); Assert.Equal(plan.Version, unchanged.Version);
+        var valid = await Data<ManagerReviewView>(await f.M("contracts", new(unchanged.Version, Lines: Lines(80_000_000))));
         Assert.Equal(32_000_000, valid.Contract!.Deposit);
         await f.Db.ExecuteAsync("UPDATE CONTRACT SET ContractStatus='SIGNED', SignedAt=GETUTCDATE();");
         Assert.Equal(HttpStatusCode.Conflict, (await f.M("preliminary-plan", new(valid.Version, Plan: Plan(f)))).StatusCode);

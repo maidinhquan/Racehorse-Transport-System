@@ -5,6 +5,10 @@ Commit trước lượt: **`ec975cf3d7c5ae321d2148d1fcc632ef371ea026`**.
 Quyết định trực tiếp: **metadata vào SQL, giữ đầy đủ Flow 1, không thêm bảng**.
 Xem [plan chuyển đổi S1–S3](FLOW1_SQL_STATE_TRANSITION_PLAN.md).
 
+**Cập nhật sau S1:** S2 source cutover đã hoàn thành trong lượt trực tiếp kế tiếp;
+xem [báo cáo S2](FLOW1_PHASE4_SQL_CUTOVER_REPORT.md). Các mô tả “chưa cutover” và
+bước tiếp theo bên dưới ghi trạng thái tại commit S1, không thay báo cáo S2 hiện hành.
+
 **Phạm vi S1:** schema/port/adapter SQL và test transaction, cập nhật plan/lịch.
 **Chưa cutover endpoint hoặc bỏ LocalFlow1MetadataStore.** Đây là bước nền tảng
 kiểm chứng trước khi chuyển use case, không phải hoàn tất refactor/phase 4/Flow 1.

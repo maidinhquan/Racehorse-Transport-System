@@ -12,11 +12,14 @@ compare-and-swap counter, not SQL Server rowversion. JSON checks and schema/defa
 constraint compatibility guards are transactional and repeatable. No business state,
 money, timestamps, private files or legacy records are invented/backfilled by 004.
 
-**S1 does not switch endpoint storage.** Existing endpoints still use the file
-provider pending S2 atomic-use-case cutover and S3 import/parity/cleanup. Merely
-applying 004 does not move old metadata. Do not delete old metadata or configure
-dual-write/fallback. No migration or import runs at startup; this task only applies
-004 to controlled disposable test databases, never HorseTransportDB.
+**S2 switches endpoint source to SQL state.** Customer/review/publication/OTP/sign
+use the scoped SQL provider and commit state plus business mutations together.
+Missing migration 004 returns `FLOW1_SQL_SCHEMA_REQUIRED`; any legacy typed JSON
+sidecars cause `FLOW1_STATE_IMPORT_REQUIRED`. Sources are preserved, never read as
+a fallback. S3 inventory/import/parity/cleanup remains pending; applying 004 alone
+does not move old metadata. Do not delete metadata to bypass the guard. No migration
+or import runs at startup; tests only apply 004 to controlled disposable databases,
+never HorseTransportDB. See the [S2 report](../../contracts/API-Flow/FLOW1_PHASE4_SQL_CUTOVER_REPORT.md).
 
 For a separately authorized upgrade: verify/backup target DB and private files,
 apply/verify 003 first, review 004, run dry-run/inventory and the eventual importer,
@@ -65,11 +68,13 @@ Integration tests create `RaceHorseFlow1Test_<GUID>` on a local SQL Server, load
 apply migrations, and drop only that validated generated database. They never reset or
 migrate the user's HorseTransportDB. Set `RACEHORSE_TEST_SQL_SERVER=.\SQLEXPRESS` to run.
 
-## Former file storage boundary (runtime until S2/S3 cutover)
+## Private storage after source cutover
 
-Plans, snapshot versions, document hashes, change history and future OTP/deployment
-metadata use private versioned sidecar files behind IFlow1MetadataStore. SQL remains
-authoritative for signed status, amounts, invoice/payment ledger and Trip creation.
-File revisions and SQL cannot share a transaction; later workflow phases must prepare
-immutable files before SQL transitions and provide recovery/reconciliation. No claim
-of a SQL-transactional outbox is made. Backup SQL and private storage together.
+New plans, snapshots, document hashes, change history, OTP digests/attempts/budgets
+and signing receipts use SQL state on existing owner rows. Images/passports/PDF/proof
+bytes remain immutable private files behind authenticated APIs. Generating bytes
+before SQL commit can leave an unreferenced private file on rollback; it never creates
+a published manifest or permits downloading an unissued contract. SMTP remains an
+external operation with DELIVERING/DELIVERED/FAILED states. No shared filesystem/SMTP/
+SQL transaction or transactional outbox is claimed. Back up SQL and private bytes
+together; keep old sidecars unchanged until S3 import/parity has been verified.

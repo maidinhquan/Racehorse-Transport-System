@@ -34,12 +34,12 @@ it("binds confirmation to the PDF, preserves retry key and clears OTP after a su
   expect(confirm.mock.calls[0][2]).toBe(confirm.mock.calls[1][2]); expect(screen.queryByLabelText("Mã OTP")).toBeNull();
   expect(screen.getByText(/40.000.000 VND/)).toBeInTheDocument(); expect(reload).toHaveBeenCalledOnce();
 });
-it("blocks new confirmation during recovery and exposes recovery only for Manager", async () => {
-  vi.spyOn(acceptanceApi, "get").mockResolvedValue({ ...awaiting, recoveryRequired: true });
-  vi.spyOn(acceptanceApi, "recover").mockResolvedValue(signed);
-  const { unmount } = render(<ContractAcceptancePanel publication={pdf} manager={false} pdfViewed reload={vi.fn()} />);
-  await screen.findByRole("alert"); expect(screen.queryByRole("button", { name: "Gửi mã OTP" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Phục hồi xác nhận" })).toBeNull(); unmount();
-  render(<ContractAcceptancePanel publication={pdf} manager pdfViewed={false} reload={vi.fn().mockResolvedValue(undefined)} />);
-  await userEvent.setup().click(await screen.findByRole("button", { name: "Phục hồi xác nhận" })); await screen.findByText(/Đã xác nhận bằng OTP email lúc/);
+it("Manager reads the committed receipt and invoice without Customer signing or recovery controls", async () => {
+  vi.spyOn(acceptanceApi, "get").mockResolvedValue(signed);
+  render(<ContractAcceptancePanel publication={pdf} manager pdfViewed={false} reload={vi.fn()} />);
+  await screen.findByText(/Đã xác nhận bằng OTP email lúc/);
+  expect(screen.getByText(/40.000.000 VND/)).toBeInTheDocument();
+  expect(screen.queryByRole("checkbox")).toBeNull(); expect(screen.queryByLabelText("Mã OTP")).toBeNull();
+  expect(screen.queryByRole("button", { name: /Gửi mã OTP|Phục hồi|Bỏ xác nhận/ })).toBeNull();
+  expect(acceptanceApi.get).toHaveBeenCalledWith("c-1", true);
 });

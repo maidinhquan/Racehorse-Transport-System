@@ -13,13 +13,15 @@ OTP digests/attempts/TTL/rate budget, acceptance, extension và operation receip
 Invoice/Payment/status/SignedAt/Trip vẫn ở các cột nghiệp vụ hiện hữu.
 Không lưu code OTP thô hoặc secret trong JSON; không dùng public URL thay file key.
 
-**S1 đã có SQL foundation và test; application cutover chưa thực hiện.**
-`LocalFlow1MetadataStore` và các saga file hiện còn phục vụ endpoint cũ để giữ app
-chạy khi DB nghiệp vụ chưa được nâng schema. Đăng ký SQL port không đổi provider
-của use case. Không coi S1 là đã xóa MetadataStore hoặc đã nghiệm thu full SQL Flow 1.
+**S1 đã có SQL foundation; S2 đã chuyển source endpoint và transaction sang SQL.**
+Customer/review/publication/OTP/acceptance dùng `IFlow1StateStore`; runtime không
+đăng ký `LocalFlow1MetadataStore`. SQL state và business writes commit chung.
+Các file provider/interface/tests cũ được giữ cho bước S3 inventory/import/cleanup;
+không coi việc chuyển source là đã migrate/import DB nghiệp vụ hoặc xóa hết MetadataStore.
 
-S2 phải chuyển use case sang SQL và rút transaction; S3 phải kiểm/import dữ liệu cũ,
-gỡ provider file/saga và nghiệm thu browser trước khi tuyên bố chuyển xong.
+S3 phải kiểm/import dữ liệu cũ và dọn provider/interface/options/tests cũ trước khi
+tuyên bố chuyển xong. Thiếu schema 004 hoặc còn sidecar JSON phải dừng rõ bằng lỗi
+`FLOW1_SQL_SCHEMA_REQUIRED` / `FLOW1_STATE_IMPORT_REQUIRED`; không tự nâng schema.
 Không dùng dual-write, fallback âm thầm sang file khi SQL thiếu/hỏng hoặc ghi SQL lỗi.
 
 ## 2. Danh sách cột đã xác định theo dữ liệu thực tế
@@ -120,6 +122,9 @@ API use cases vẫn phải xác thực role/owner trước truy cập adapter n�
   xem [báo cáo S1](FLOW1_PHASE4_SQL_STATE_REPORT.md), commit local phần đã kiểm chứng.
 
 ### S2 — Chuyển các use case đã có, transaction SQL duy nhất
+
+Source cutover đã thực hiện trong lượt trực tiếp “Chuyển đi. Ko cần đợi 2 tiếng nữa”.
+Chi tiết phạm vi và bằng chứng ở [báo cáo S2](FLOW1_PHASE4_SQL_CUTOVER_REPORT.md).
 
 1. CustomerTransportService: create horse/request đúng order owner SQL + state,
    documents/history/selectable/detail/list, quote snapshot và idempotent replay.

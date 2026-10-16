@@ -58,20 +58,25 @@ internal sealed class CustomerTestFactory(string connection, string root, bool f
         {
             s.RemoveAll<DbContextOptions<HorseTransportDbContext>>();
             s.RemoveAll<HorseTransportDbContext>();
-            s.AddDbContext<HorseTransportDbContext>(o => o.UseSqlServer(connection));
+            s.AddDbContext<HorseTransportDbContext>((sp, o) => o.UseSqlServer(connection).AddInterceptors(new SqlSaveFault(sp.GetRequiredService<SqlStateFaults>())));
             s.RemoveAll<TimeProvider>(); s.AddSingleton<TimeProvider, FlowClock>();
             s.AddSingleton(new Flow1EstimateOptions { StandardVehicleCapacityStalls = 2 });
             s.AddSingleton<IFlow1RoadRoutingProvider, TestTransportMaps>();
             s.AddSingleton<IFlow1LocationVerifier, TestTransportMaps>();
-            s.AddSingleton<IFlow1MetadataStore>(sp => {
-                var store = new LocalFlow1MetadataStore(Path.Combine(root, "metadata"), new(), sp.GetRequiredService<TimeProvider>());
-                return failRequestPrepare ? new FailingPrepareStore(store) : store;
-            });
+            s.AddSingleton(new SqlStateFaults { Mode = failRequestPrepare ? "request-after-state" : null });
+            s.RemoveAll<IFlow1StateStore>();
+            s.AddScoped<IFlow1StateStore>(sp => new FaultingSqlStateStore(new SqlFlow1StateStore(sp.GetRequiredService<HorseTransportDbContext>(),
+                sp.GetRequiredService<TimeProvider>(), Path.Combine(root, "metadata")), sp.GetRequiredService<SqlStateFaults>()));
             s.AddSingleton<IFlow1PrivateFileStore>(new LocalFlow1PrivateFileStore(Path.Combine(root, "bytes")));
             s.AddAuthentication(o => { o.DefaultAuthenticateScheme = "CustomerTest"; o.DefaultChallengeScheme = "CustomerTest"; o.DefaultForbidScheme = "CustomerTest"; })
                 .AddScheme<AuthenticationSchemeOptions, CustomerTestAuth>("CustomerTest", _ => { });
             customize?.Invoke(s);
         });
+    }
+    public async Task<Flow1StateDocument?> State(string type, string id)
+    {
+        using var scope = Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<IFlow1StateStore>().ReadAsync(type, id);
     }
     public HttpClient Client(string? owner = "owner", string role = "CUSTOMER")
     {
@@ -79,19 +84,6 @@ internal sealed class CustomerTestFactory(string connection, string root, bool f
         if (owner is not null) client.DefaultRequestHeaders.Add("X-Test-Owner", owner);
         client.DefaultRequestHeaders.Add("X-Test-Role", role);
         return client;
-    }
-}
-
-internal sealed class FailingPrepareStore(IFlow1MetadataStore inner) : IFlow1MetadataStore
-{
-    private bool failed;
-    public Task<Flow1MetadataDocument?> ReadAsync(string type, string id, CancellationToken ct = default) => inner.ReadAsync(type, id, ct);
-    public async Task<Flow1MetadataRevision> AppendAsync(string type, string id, int version, string operation, string actor,
-        string action, JsonElement payload, CancellationToken ct = default)
-    {
-        var result = await inner.AppendAsync(type, id, version, operation, actor, action, payload, ct);
-        if (type == "request" && !failed) { failed = true; throw new IOException("Injected crash after metadata prepare, before SQL commit."); }
-        return result;
     }
 }
 
@@ -269,7 +261,7 @@ public sealed class CustomerTransportTests
     }
 
     [LocalSqlFact]
-    public async Task Prepared_file_survives_SQL_rollback_and_retry_finishes_one_request()
+    public async Task Sql_state_and_request_rollback_together_and_exact_retry_creates_one_request()
     {
         await using var db = await Flow1TestDatabase.CreateAsync();
         var root = Path.Combine(Path.GetTempPath(), "RaceHorseFlow1Api-" + Guid.NewGuid().ToString("N"));
@@ -286,7 +278,8 @@ public sealed class CustomerTransportTests
             maps.MayPersist = true;
             Assert.Equal(HttpStatusCode.InternalServerError, (await Post(client, "requests", input, "request-recovery-01")).StatusCode);
             Assert.Equal(0, await db.ScalarAsync<int>("SELECT COUNT(*) FROM REQUEST_HORSE_MAPPING;"));
-            Assert.Single(Directory.GetFiles(Path.Combine(root, "metadata", "request"), "*.json"));
+            Assert.False(Directory.Exists(Path.Combine(root, "metadata")));
+            Assert.Equal(0, await db.ScalarAsync<int>("SELECT COUNT(*) FROM TRANSPORT_REQUEST WHERE Flow1StateJson IS NOT NULL;"));
             var saved = await Data(await Post(client, "requests", input, "request-recovery-01"), HttpStatusCode.Created);
             Assert.Equal("PENDING", saved.GetProperty("status").GetString());
             Assert.Equal(1, await db.ScalarAsync<int>("SELECT COUNT(*) FROM REQUEST_HORSE_MAPPING;"));

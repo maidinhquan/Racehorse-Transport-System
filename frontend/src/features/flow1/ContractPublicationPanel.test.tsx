@@ -30,13 +30,14 @@ it("Customer can read an overdue issued contract without any Manager publication
   expect(screen.queryByRole("button", { name: "Phát hành PDF hợp đồng" })).toBeNull();
   expect(publicationApi.get).toHaveBeenCalledWith("c-test", false);
 });
-it("Manager can recover an existing prepared PDF without submitting a new publication", async () => {
-  vi.spyOn(publicationApi, "get").mockResolvedValue({ ...issued, recoveryRequired: true, status: "DRAFT" });
-  const recover = vi.spyOn(publicationApi, "recover").mockResolvedValue(issued); const send = vi.spyOn(publicationApi, "send");
-  render(<ContractPublicationPanel id="c-test" manager reviewVersion={12} status="DRAFT" reload={vi.fn().mockResolvedValue(undefined)} />);
-  await userEvent.setup().click(await screen.findByRole("button", { name: "Phục hồi phát hành" }));
+it("Manager reads a committed PDF without reissuing or offering split-storage recovery", async () => {
+  vi.spyOn(publicationApi, "get").mockResolvedValue(issued);
+  const send = vi.spyOn(publicationApi, "send");
+  render(<ContractPublicationPanel id="c-test" manager reviewVersion={12} status="PENDING_SIGNATURE" reload={vi.fn()} />);
   await screen.findByRole("button", { name: "Xem PDF đã phát hành" });
-  expect(recover).toHaveBeenCalledWith("c-test"); expect(send).not.toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "Phát hành PDF hợp đồng" })).toBeNull();
+  expect(screen.queryByRole("button", { name: /Phục hồi|Bỏ bản/ })).toBeNull();
+  expect(publicationApi.get).toHaveBeenCalledWith("c-test", true); expect(send).not.toHaveBeenCalled();
 });
 it("does not reuse the old PDF preview as evidence of viewing a replacement contract", async () => {
   const next = { ...issued, contractId: "c-next", documentHash: "b".repeat(64) };

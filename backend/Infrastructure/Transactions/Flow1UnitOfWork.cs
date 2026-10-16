@@ -47,6 +47,12 @@ public sealed class Flow1UnitOfWork(HorseTransportDbContext context) : IFlow1Uni
         foreach (var id in ids) await LockAsync("Horse", id, cancellationToken);
     }
 
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        if (context.Database.CurrentTransaction is null) throw new InvalidOperationException("Flush requires a Flow 1 transaction.");
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
     private Task<int> LockAsync(string kind, string id, CancellationToken ct)
     {
         // SQL IDs in the MVP are ASCII. Normalize case because sp_getapplock names

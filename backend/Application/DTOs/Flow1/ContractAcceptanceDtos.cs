@@ -13,7 +13,7 @@ public sealed record ContractOtpState(string ChallengeId, string CustomerId, int
 public sealed record ContractOtpAccount(DateTimeOffset[] Sends);
 public sealed record ContractAcceptance(string ContractId, string CustomerId, int ContractVersion, string DocumentHash,
     string ChallengeId, string Method, DateTime SignedAtUtc, string InvoiceId, decimal Deposit, DateTime InvoiceDueAtUtc);
-public sealed record AcceptanceOperation(string Key, string InputDigest, string Actor, ContractAcceptance Evidence, string Outcome = "PREPARED", string? Reason = null);
+public sealed record AcceptanceOperation(string Key, string InputDigest, string Actor, ContractAcceptance Evidence, string Outcome = "COMMITTED", string? Reason = null);
 public sealed record AcceptanceState(AcceptanceOperation Operation);
 public sealed record DepositInvoiceView(string InvoiceId, decimal Amount, decimal PaidAmount, string Currency, string Status, DateTime? DueAtUtc);
 public sealed record ContractAcceptanceView(string ContractId, int Version, string Status, bool Overdue,

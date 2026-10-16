@@ -52,10 +52,8 @@ public static class Flow1CustomerExtensions
             "MAPBOX" => sp.GetRequiredService<MapboxTransportMaps>(), "GEOAPIFY" => sp.GetRequiredService<GeoapifyTransportMaps>(), _ => sp.GetRequiredService<OsmTransportMaps>() });
         services.AddSingleton<IFlow1PrivateFileStore>(sp =>
         {
-            // Force validation of the metadata root against custom web roots first.
-            sp.GetRequiredService<IFlow1MetadataStore>();
             var storage = sp.GetRequiredService<IOptions<Flow1StorageOptions>>().Value;
-            var root = Path.GetFullPath(storage.MetadataRoot, environment.ContentRootPath);
+            var root = Flow1PrivateStoragePath.Resolve(storage, environment);
             return new LocalFlow1PrivateFileStore(Path.Combine(root, "private-bytes"));
         });
         services.AddRateLimiter(options =>

@@ -61,10 +61,9 @@ public sealed class ContractAcceptanceTests
         var pdfBytes = await (await f.Customer.GetAsync($"/api/customer/contracts/{f.ContractId}/pdf")).Content.ReadAsByteArrayAsync();
         Assert.Equal(p.DocumentHash, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(pdfBytes)).ToLowerInvariant());
         var text = await (await View(f)).Content.ReadAsStringAsync(); Assert.DoesNotContain("inputDigest", text); Assert.DoesNotContain("codeDigest", text); Assert.DoesNotContain(sink.Code, text);
-        var store = f.Factory.Services.GetRequiredService<IFlow1MetadataStore>();
         foreach (var type in new[] { "contract-otp", "acceptance" })
-        { var doc = await store.ReadAsync(type, f.ContractId); Assert.DoesNotContain(sink.Code, JsonSerializer.Serialize(doc)); Assert.DoesNotContain("\"otp\":", JsonSerializer.Serialize(doc)); }
-        Assert.Equal(HttpStatusCode.Conflict, (await Discard(f)).StatusCode);
+        { var doc = await f.Factory.State(type, f.ContractId); Assert.DoesNotContain(sink.Code, JsonSerializer.Serialize(doc)); Assert.DoesNotContain("\"otp\":", JsonSerializer.Serialize(doc)); }
+        Assert.Equal(HttpStatusCode.NotFound, (await Discard(f)).StatusCode);
     }
     [LocalSqlFact]
     public async Task Resend_replaces_old_challenge_and_cooldown_expiry_and_attempt_limit_survive_reads()
@@ -88,7 +87,7 @@ public sealed class ContractAcceptanceTests
     {
         var setup = await Setup(); await using var f = setup.F; var p = setup.Pdf; var sink = setup.Sink;
         sink.Fail = true; Assert.Equal(HttpStatusCode.ServiceUnavailable, (await Otp(f, p)).StatusCode);
-        var doc = await f.Factory.Services.GetRequiredService<IFlow1MetadataStore>().ReadAsync("contract-otp", f.ContractId);
+        var doc = await f.Factory.State("contract-otp", f.ContractId);
         var failed = doc!.Revisions[^1].Payload.Deserialize<ContractOtpState>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
         Assert.Equal("FAILED", failed.Delivery);
         Assert.Equal(HttpStatusCode.Conflict, (await Sign(f, new(p.Version, p.DocumentHash, failed.ChallengeId, sink.Code, true))).StatusCode);
@@ -123,39 +122,38 @@ public sealed class ContractAcceptanceTests
         Assert.Equal(HttpStatusCode.Conflict, limited.StatusCode); Assert.Contains("OTP_RATE_LIMITED", await limited.Content.ReadAsStringAsync());
     }
     [LocalSqlFact]
-    public async Task Prepared_acceptance_can_recover_after_file_before_sql_failure_without_reasking_for_code()
+    public async Task Acceptance_write_failure_rolls_back_consumed_code_and_fresh_host_can_retry_once()
     {
         var setup = await Setup(); await using var f = setup.F; var p = setup.Pdf; var sink = setup.Sink;
-        var otp = await Data<ContractOtpView>(await Otp(f, p)); var input = Input(p, otp, sink); f.Fault.Mode = "acceptance-before-sql";
+        var otp = await Data<ContractOtpView>(await Otp(f, p)); var input = Input(p, otp, sink); f.Fault.Mode = "acceptance-after-state";
         Assert.Equal(HttpStatusCode.InternalServerError, (await Sign(f, input)).StatusCode);
-        Assert.True((await Data<ContractAcceptanceView>(await View(f))).RecoveryRequired);
-        Assert.Equal("PENDING_SIGNATURE", await f.Db.ScalarAsync<string>("SELECT ContractStatus FROM CONTRACT;"));
-        Assert.Equal(HttpStatusCode.Conflict, (await Otp(f, p)).StatusCode);
-        // A fresh host/container, new service instances and reopened file store simulate process restart.
+        Assert.False((await Data<ContractAcceptanceView>(await View(f))).RecoveryRequired);
+        Assert.Null(await f.Factory.State("acceptance", f.ContractId));
+        Assert.Equal(0, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));
         using var restarted = new CustomerTestFactory(f.Db.ConnectionString, f.Folder, customize: s => {
             s.RemoveAll<TimeProvider>(); s.AddSingleton<TimeProvider>(f.Clock);
             s.RemoveAll<IContractOtpSecurity>(); s.AddSingleton<IContractOtpSecurity>(new ContractOtpSecurity("Fixture contract OTP secret only, 2026, not production"));
         });
-        using var restartedManager = restarted.Client("manager", "LOGISTICS_MANAGER");
-        Assert.Equal("SIGNED", (await Data<ContractAcceptanceView>(await Send(restartedManager, $"/api/manager/contracts/{f.ContractId}/acceptance/recover", new { }))).Status);
+        using var customer = restarted.Client();
+        Assert.Equal("SIGNED", (await Data<ContractAcceptanceView>(await Send(customer, $"/api/customer/contracts/{f.ContractId}/sign", input, "confirm-fixture-001"))).Status);
         Assert.Equal("SIGNED", (await Data<ContractAcceptanceView>(await Sign(f, input))).Status);
         Assert.Equal(1, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;")); Assert.Equal(1, sink.Sends);
     }
     [LocalSqlFact]
-    public async Task Sql_committed_but_receipt_missing_reconciles_even_after_otp_and_completion_deadline_expire()
+    public async Task Successful_sql_confirmation_replays_after_deadline_without_a_second_invoice_or_receipt_write()
     {
         var setup = await Setup(); await using var f = setup.F; var p = setup.Pdf; var sink = setup.Sink;
         f.Clock.Now = f.Clock.Now.AddMilliseconds(877);
-        var otp = await Data<ContractOtpView>(await Otp(f, p)); var input = Input(p, otp, sink); f.Fault.Mode = "acceptance-after-sql";
-        Assert.Equal(HttpStatusCode.InternalServerError, (await Sign(f, input)).StatusCode);
-        Assert.Equal("SIGNED", await f.Db.ScalarAsync<string>("SELECT ContractStatus FROM CONTRACT;"));
+        var otp = await Data<ContractOtpView>(await Otp(f, p)); var input = Input(p, otp, sink);
+        await Data<ContractAcceptanceView>(await Sign(f, input));
         f.Clock.Now = p.OriginalCompletionDeadline.AddDays(1);
         var view = await Data<ContractAcceptanceView>(await View(f)); Assert.False(view.RecoveryRequired); Assert.NotNull(view.Receipt);
         Assert.Equal("SIGNED", (await Data<ContractAcceptanceView>(await Sign(f, input))).Status);
+        Assert.Single((await f.Factory.State("acceptance", f.ContractId))!.Revisions);
         Assert.Equal(1, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;")); Assert.Equal(0, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));
     }
     [LocalSqlFact]
-    public async Task Sql_invoice_failure_rolls_back_signature_and_request_then_recovery_revalidates_before_applying()
+    public async Task Sql_invoice_failure_rolls_back_signature_receipt_and_code_consumption_then_exact_retry_succeeds()
     {
         var setup = await Setup(); await using var f = setup.F; var p = setup.Pdf; var sink = setup.Sink;
         var otp = await Data<ContractOtpView>(await Otp(f, p)); var input = Input(p, otp, sink);
@@ -164,21 +162,21 @@ public sealed class ContractAcceptanceTests
         Assert.Equal(0, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;")); Assert.Equal("AWAITING_CONTRACT", await f.Db.ScalarAsync<string>("SELECT Status FROM TRANSPORT_REQUEST;"));
         Assert.Equal(1, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT WHERE SignedAt IS NULL AND ContractStatus='PENDING_SIGNATURE';"));
         await f.Db.ExecuteAsync("ALTER TABLE INVOICE DROP CONSTRAINT CK_TestAcceptanceFailure;");
-        Assert.Equal("SIGNED", (await Data<ContractAcceptanceView>(await Recover(f))).Status);
+        Assert.Equal("SIGNED", (await Data<ContractAcceptanceView>(await Sign(f, input))).Status);
         Assert.Equal(1, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));
     }
     [LocalSqlFact]
-    public async Task Expired_prepare_needs_audited_discard_and_aborted_keys_cannot_be_reused()
+    public async Task Failure_after_sql_save_rolls_back_everything_and_expired_code_requires_new_customer_confirmation()
     {
         var setup = await Setup(); await using var f = setup.F; var p = setup.Pdf; var sink = setup.Sink;
-        var otp = await Data<ContractOtpView>(await Otp(f, p)); var input = Input(p, otp, sink); f.Fault.Mode = "acceptance-before-sql";
+        var otp = await Data<ContractOtpView>(await Otp(f, p)); var input = Input(p, otp, sink); f.Fault.Mode = "after-save";
         Assert.Equal(HttpStatusCode.InternalServerError, (await Sign(f, input)).StatusCode);
+        Assert.Equal("PENDING_SIGNATURE", await f.Db.ScalarAsync<string>("SELECT ContractStatus FROM CONTRACT;"));
+        Assert.Null(await f.Factory.State("acceptance", f.ContractId)); Assert.Equal(0, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));
         f.Clock.Now = otp.ExpiresAt.AddSeconds(1);
-        Assert.Equal(HttpStatusCode.Conflict, (await Recover(f)).StatusCode);
-        Assert.False((await Data<ContractAcceptanceView>(await Discard(f))).RecoveryRequired);
-        var newOtp = await Data<ContractOtpView>(await Otp(f, p)); var newInput = Input(p, newOtp, sink);
         Assert.Equal(HttpStatusCode.Conflict, (await Sign(f, input)).StatusCode);
-        Assert.Equal("SIGNED", (await Data<ContractAcceptanceView>(await Sign(f, newInput, "new-confirmation-after-discard"))).Status);
+        var fresh = await Data<ContractOtpView>(await Otp(f, p));
+        Assert.Equal("SIGNED", (await Data<ContractAcceptanceView>(await Sign(f, Input(p, fresh, sink), "fresh-confirm-after-rollback"))).Status);
     }
     [LocalSqlFact]
     public async Task Overdue_or_corrupt_pdf_and_changed_email_close_confirmation_without_automatic_cancellation()

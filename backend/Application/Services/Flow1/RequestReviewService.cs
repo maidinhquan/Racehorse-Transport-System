@@ -11,20 +11,20 @@ using static Application.Common.Flow1.Flow1PricingPolicy;
 namespace Application.Services.Flow1;
 
 public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Repository contracts,
-    IFlow1UnitOfWork work, IFlow1MetadataStore metadata, CustomerTransportService customer,
+    IFlow1UnitOfWork work, IFlow1StateStore stateStore, Flow1RequestTransaction transactions, CustomerTransportService customer,
     TransportEstimateService estimates, TimeProvider clock)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static readonly string[] Categories = ["TRANSPORT", "PROCEDURE", "VETERINARY_CARE", "INSURANCE"];
-    private static T Payload<T>(Flow1MetadataRevision revision) => revision.Payload.Deserialize<T>(Json)
+    private static T Payload<T>(Flow1StateRevision revision) => revision.Payload.Deserialize<T>(Json)
         ?? throw Error("Metadata unavailable.", "METADATA_UNAVAILABLE", 409);
     private async Task<(int Version, T Value)> Read<T>(string type, string id, CancellationToken ct)
     {
-        var doc = await metadata.ReadAsync(type, id, ct) ?? throw Error("Metadata required before review.", "METADATA_UNAVAILABLE", 409);
+        var doc = await stateStore.ReadAsync(type, id, ct) ?? throw Error("Metadata required before review.", "METADATA_UNAVAILABLE", 409);
         return (doc.Revisions.Count, Payload<T>(doc.Revisions[^1]));
     }
-    private Task<Flow1MetadataRevision> Append<T>(string type, string id, int version, string key, string actor, string action, T payload, CancellationToken ct) =>
-        metadata.AppendAsync(type, id, version, key, actor, action, JsonSerializer.SerializeToElement(payload, Json), ct);
+    private Task<Flow1StateRevision> Append<T>(string type, string id, int version, string key, string actor, string action, T payload, CancellationToken ct) =>
+        stateStore.AppendAsync(type, id, version, key, actor, action, JsonSerializer.SerializeToElement(payload, Json), ct);
     private static RequestProjection Projection(TransportRequest r) => new(r.Status, r.Departure, r.Destination, r.Purpose,
         r.TransportType, r.ExpectedDate, r.CommittedDeadline, r.DesignatedReceiverName, r.DesignatedReceiverPhone,
         r.RequestHorseMappings.Select(x => x.HorseId).Order(StringComparer.OrdinalIgnoreCase).ToArray());
@@ -41,7 +41,6 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
     { Require(!string.IsNullOrWhiteSpace(c.Reason) && c.Reason.Length <= 2000, "REASON_REQUIRED", "Enter a reason or response (max 2000 characters)."); return c.Reason!.Trim(); }
     private static string[] Actions(TransportRequest r, ReviewState s, bool manager)
     {
-        if (s.Pending is not null) return manager ? ["DISCARD_PREPARED"] : [];
         if (r.Status is not ("PENDING" or "CHANGES_REQUESTED" or "ACCEPTED")) return [];
         var actions = new List<string>();
         if (manager)
@@ -67,79 +66,36 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
         }
         return actions.ToArray();
     }
-    private async Task<bool> Matches(TransportRequest r, RequestProjection projection, ContractProjection[] markers, CancellationToken ct)
+    private async Task Apply(TransportRequest r, RequestProjection after, ContractProjection[] markers, DraftSnapshot? draft, string? draftId, CancellationToken ct)
     {
-        if (!Same(Projection(r), projection)) return false;
+        var before = Projection(r);
+        r.Status = after.Status; r.Departure = after.Departure; r.Destination = after.Destination;
+        r.Purpose = after.Purpose; r.TransportType = after.TransportType; r.ExpectedDate = after.ExpectedDate;
+        r.CommittedDeadline = after.CommittedDeadline; r.DesignatedReceiverName = after.ReceiverName; r.DesignatedReceiverPhone = after.ReceiverPhone;
+        if (!Same(before.HorseIds, after.HorseIds)) repo.ReplaceHorses(r, after.HorseIds);
         foreach (var marker in markers)
-        {
-            var c = await contracts.GetContractAsync(marker.Id, ct);
-            if (marker.Exists != (c is not null) || c is not null &&
-                (c.RequestId != r.RequestId || c.CustomerId != r.CustomerId || c.ContractStatus != marker.Status ||
-                 c.TotalQuotedPrice != marker.Total || c.SignedAt is not null || c.TripId is not null)) return false;
-        }
-        return true;
-    }
-    private async Task EnsureFile<T>(string type, string id, int version, PendingReview p, T payload, CancellationToken ct)
-    {
-        var doc = await metadata.ReadAsync(type, id, ct);
-        var current = doc?.Revisions.Count ?? 0;
-        if (current == version + 1 && Same(Payload<T>(doc!.Revisions[^1]), payload)) return;
-        Require(current == version, "RECOVERY_CONFLICT", "Metadata changed during prepared operation; reconcile before continuing.");
-        await Append(type, id, version, "wf-" + p.Operation.Key, p.Operation.Actor, p.Operation.Action, payload, ct);
-    }
-    private async Task<ReviewState> Finish(TransportRequest r, int version, ReviewState state, CancellationToken ct)
-    {
-        var p = state.Pending!;
-        Require(await Matches(r, p.After, p.AfterContracts, ct), "RECOVERY_REQUIRED", "Prepared SQL operation has not committed; retry it or ask Manager to discard it.");
-        if (p.Canonical is not null) await EnsureFile("request", r.RequestId, state.RequestVersion, p, p.Canonical, ct);
-        if (p.Plan is not null) await EnsureFile("plan", r.RequestId, p.Next.PlanVersion - 1, p, p.Plan, ct);
-        if (p.Draft is not null) await EnsureFile("contract", p.DraftId!, p.DraftExpectedVersion, p, p.Draft, ct);
-        var next = p.Next with { Pending = null, LastOperation = p.Operation with { Outcome = "COMMITTED" } };
-        await Append("review", r.RequestId, version, "done-" + p.Operation.Key, p.Operation.Actor, "COMPLETED", next, ct);
-        return next;
-    }
-    private async Task Apply(TransportRequest r, PendingReview p, CancellationToken ct)
-    {
-        Require(await Matches(r, p.Before, p.BeforeContracts, ct), "RECOVERY_CONFLICT", "SQL changed outside the prepared operation.");
-        if (!Same(p.Before, p.After))
-        {
-            var x = p.After; r.Status = x.Status; r.Departure = x.Departure; r.Destination = x.Destination;
-            r.Purpose = x.Purpose; r.TransportType = x.TransportType; r.ExpectedDate = x.ExpectedDate;
-            r.CommittedDeadline = x.CommittedDeadline; r.DesignatedReceiverName = x.ReceiverName; r.DesignatedReceiverPhone = x.ReceiverPhone;
-            if (!Same(p.Before.HorseIds, x.HorseIds)) repo.ReplaceHorses(r, x.HorseIds);
-        }
-        foreach (var marker in p.AfterContracts)
         {
             var c = await contracts.GetContractAsync(marker.Id, ct);
             if (c is null)
             {
-                Require(p.Draft is not null && marker.Id == p.DraftId, "RECOVERY_CONFLICT", "Draft snapshot is missing.");
-                c = Flow1ContractFactory.CreateDraft(marker.Id, r.RequestId, r.CustomerId, "F1-" + marker.Id, p.Draft!.Total);
+                Require(draft is not null && marker.Id == draftId, "STATE_UNAVAILABLE", "Draft snapshot is missing.");
+                c = Flow1ContractFactory.CreateDraft(marker.Id, r.RequestId, r.CustomerId, "F1-" + marker.Id, draft!.Total);
                 contracts.AddContract(c);
             }
             c.ContractStatus = marker.Status!; c.TotalQuotedPrice = marker.Total;
         }
+        if (draft is not null) await work.FlushAsync(ct); // owner Contract must exist; still inside the same transaction
     }
-    private async Task<(TransportRequest R, int Version, ReviewState State, RequestSnapshot Canonical)> Load(string id, string actor, bool manager, CancellationToken ct,
-        IEnumerable<string>? extraHorses = null)
+    private async Task<(TransportRequest R, int Version, ReviewState State, RequestSnapshot Canonical)> Load(string id, string actor, bool manager, CancellationToken ct)
     {
-        var requestDocument = await metadata.ReadAsync("request", id, ct);
-        if (requestDocument is null) throw Error("Request metadata unavailable.", manager ? "METADATA_UNAVAILABLE" : "NOT_FOUND", manager ? 409 : 404);
+        var requestDocument = await stateStore.ReadAsync("request", id, ct);
+        if (requestDocument is null) throw Error("Request state unavailable.", manager ? "METADATA_UNAVAILABLE" : "NOT_FOUND", manager ? 409 : 404);
         var canonical = (Version: requestDocument.Revisions.Count, Value: Payload<RequestSnapshot>(requestDocument.Revisions[^1]));
-        var doc = await metadata.ReadAsync("review", id, ct);
+        var doc = await stateStore.ReadAsync("review", id, ct);
         var state = doc is null ? new ReviewState(canonical.Version, null, [], [], [], []) : Payload<ReviewState>(doc.Revisions[^1]);
-        // Lock all old/new resources before serializable SQL reads, including prepared retries.
-        await work.LockHorsesAsync(canonical.Value.Input.Horses.Select(x => x.HorseId)
-            .Concat(extraHorses ?? []).Concat(state.Pending?.After.HorseIds ?? [])
-            .Concat(state.Changes.Where(x => x.Status == "PENDING").SelectMany(x => x.Proposal.Horses.Select(h => h.HorseId))), ct);
         var r = await repo.GetAsync(id, ct) ?? throw Error("Request not found.", "NOT_FOUND", 404);
         Owner(r, actor, manager);
         var version = doc?.Revisions.Count ?? 0;
-        if (state.Pending is not null && await Matches(r, state.Pending.After, state.Pending.AfterContracts, ct))
-        {
-            state = await Finish(r, version, state, ct); version++;
-            canonical = await Read<RequestSnapshot>("request", id, ct);
-        }
         Require(canonical.Version == state.RequestVersion, "RECOVERY_CONFLICT", "Request snapshot version does not match the review receipt.");
         return (r, version, state, canonical.Value);
     }
@@ -149,16 +105,10 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
         Require(input.ExpectedVersion >= 0 && (input.Reason?.Length ?? 0) <= 2000, "VALIDATION_ERROR", "Invalid version or reason.");
         if (input.Request is not null) CustomerTransportService.ValidateSubmission(input.Request);
         var hash = CustomerTransportService.Hash(new { action, actor, input });
-        await work.ExecuteAsync(id, async token =>
+        await transactions.ExecuteAsync(id, async token =>
         {
-            var (r, version, s, canonical) = await Load(id, actor, manager, token, input.Request?.Horses.Select(x => x.HorseId));
-            if (s.CurrentContractId is not null)
-            {
-                var publication = await metadata.ReadAsync("publication", s.CurrentContractId, token);
-                Require(publication is null || Payload<ContractPublication>(publication.Revisions[^1]).Outcome != "PREPARED",
-                    "PUBLICATION_RECOVERY_REQUIRED", "Resolve the prepared PDF publication before changing the request or Draft.");
-            }
-            var history = await metadata.ReadAsync("review", id, token);
+            var (r, version, s, canonical) = await Load(id, actor, manager, token);
+            var history = await stateStore.ReadAsync("review", id, token);
             var receipt = history?.Revisions.Select(Payload<ReviewState>).Select(x => x.LastOperation)
                 .LastOrDefault(x => x?.Key == key);
             if (receipt is not null)
@@ -166,44 +116,6 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
                 Require(receipt.Hash == hash && receipt.Actor == actor, "IDEMPOTENCY_KEY_REUSED", "Idempotency key was used with different input.");
                 Require(receipt.Outcome == "COMMITTED", "OPERATION_ABORTED", "The prepared operation was discarded; reload and use a new key.");
                 return 0;
-            }
-            if (action == "DISCARD_PREPARED")
-            {
-                // If the process stopped after the abort record but before its own receipt,
-                // finish that receipt on an exact retry rather than repeating an abort.
-                if (manager && s.Pending is null && s.LastOperation?.Outcome == "ABORTED" &&
-                    input.ExpectedVersion == version - 1 && history?.Revisions[^1].ActorUserId == actor && s.LastOperation.Reason == input.Reason?.Trim())
-                {
-                    await Append("review", id, version, "done-" + key, actor, "COMPLETED", s with {
-                        LastOperation = new(key, hash, actor, action, "COMMITTED", input.Reason) }, token);
-                    return 0;
-                }
-                Require(manager && s.Pending is not null && input.ExpectedVersion == version, "STALE_VERSION", "Reload the prepared operation before discarding it.");
-                Reason(input);
-                Require(await Matches(r, s.Pending!.Before, s.Pending.BeforeContracts, token), "RECOVERY_CONFLICT", "Cannot discard an operation already committed in SQL.");
-                var aborted = s with { Pending = null, LastOperation = s.Pending.Operation with { Outcome = "ABORTED", Reason = input.Reason!.Trim() } };
-                await Append("review", id, version, "abort-" + s.Pending.Operation.Key, actor, "ABORTED", aborted, token);
-                await Append("review", id, version + 1, "done-" + key, actor, "COMPLETED", aborted with {
-                    LastOperation = new(key, hash, actor, action, "COMMITTED", input.Reason) }, token);
-                return 0;
-            }
-            if (s.Pending is not null)
-            {
-                Require(s.Pending.Operation.Key == key, "RECOVERY_REQUIRED", "Retry the prepared operation first or ask Manager to discard it.");
-                Require(s.Pending.Operation.Hash == hash && s.Pending.Operation.Actor == actor,
-                    "IDEMPOTENCY_KEY_REUSED", "Idempotency key was used with different input.");
-                var frozen = await contracts.GetContractsForRequestAsync(id, token);
-                Require(frozen.All(x => x.SignedAt is null && x.ContractStatus is "DRAFT" or "SUPERSEDED" or "SIGN_DECLINED" or "EXPIRED"),
-                    "CONTRACT_FROZEN", "A sent or signed contract prevents prepared review changes.");
-                if (action is "ACCEPT" or "RESUBMIT" or "APPROVE_CHANGE" or "SAVE_PLAN" or "CREATE_DRAFT" or "REPLACE_DRAFT")
-                {
-                    var preparedRequest = s.Pending.Canonical ?? canonical;
-                    Require(preparedRequest.Input.Trip.DesiredDepartureDate >= Today(clock).AddDays(
-                        s.Pending.Plan?.Input.PreparationDays ?? s.Pending.Draft?.Plan.Input.PreparationDays ?? preparedRequest.Estimate.MinimumPreparationDays),
-                        "PREPARE_EXPIRED", "Prepared schedule is no longer feasible; Manager must discard and replan.");
-                    await customer.ValidateHorsesAsync(r.CustomerId, preparedRequest.Input, id, token);
-                }
-                await Apply(r, s.Pending, token); return 0;
             }
             Require(version == input.ExpectedVersion, "STALE_VERSION", "Review changed; reload before saving.");
             if (action is "CREATE_DRAFT" or "REPLACE_DRAFT")
@@ -214,11 +126,11 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
                 "CONTRACT_FROZEN", "A sent or signed contract prevents review changes.");
             var before = Projection(r); var after = before; var next = s;
             RequestSnapshot? nextCanonical = null; PreliminaryPlan? plan = null; DraftSnapshot? draft = null; string? draftId = null;
-            var oldContracts = new List<ContractProjection>(); var newContracts = new List<ContractProjection>();
+            var newContracts = new List<ContractProjection>();
             void InvalidateDraft()
             {
                 foreach (var c in existing.Where(x => x.ContractStatus == "DRAFT"))
-                { oldContracts.Add(new(c.ContractId, true, c.ContractStatus, c.TotalQuotedPrice)); newContracts.Add(new(c.ContractId, true, "SUPERSEDED", c.TotalQuotedPrice)); }
+                { newContracts.Add(new(c.ContractId, true, "SUPERSEDED", c.TotalQuotedPrice)); }
                 next = next with { CurrentContractId = null, PlanVersion = 0 };
             }
             switch (action)
@@ -269,8 +181,8 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
                     }
                     plan = await PlanAsync(canonical, s.RequestVersion, input.Plan, token);
                     InvalidateDraft();
-                    // Plan files have their own monotonically increasing metadata version even after invalidation.
-                    var oldPlan = await metadata.ReadAsync("plan", id, token);
+                    // Plan revisions keep increasing even after plan invalidation.
+                    var oldPlan = await stateStore.ReadAsync("plan", id, token);
                     next = next with { PlanVersion = (oldPlan?.Revisions.Count ?? 0) + 1 }; break;
                 case "CREATE_DRAFT": case "REPLACE_DRAFT":
                     if (input.QuestionId is not null) Require(input.QuestionId == s.CurrentContractId, "STALE_VERSION", "Only the current Draft can be replaced.");
@@ -293,22 +205,18 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
                     draftId = "c-" + CustomerTransportService.Hash(new { id, actor, key })[..32].ToLowerInvariant();
                     draft = new(s.RequestVersion, s.PlanVersion, lines!, total, Flow1ContractFactory.DepositAmount(total),
                         total < savedPlan.Value.Floor ? input.Reason!.Trim() : null, savedPlan.Value);
-                    oldContracts.Add(new(draftId, false, null, null)); newContracts.Add(new(draftId, true, "DRAFT", total));
+                    newContracts.Add(new(draftId, true, "DRAFT", total));
                     next = next with { CurrentContractId = draftId }; break;
             }
             next = next with { Notices = s.Notices.Append(new ReviewNotice(key, PublicMessage(action), clock.GetUtcNow().UtcDateTime)).TakeLast(50).ToArray() };
-            var operation = new ReviewReceipt(key, hash, actor, action, "PREPARED");
-            var pending = new PendingReview(operation, before, after, oldContracts.ToArray(), newContracts.ToArray(), next,
-                nextCanonical, plan, draft, draftId);
-            var prepared = s with { Pending = pending };
-            await Append("review", id, version, "prepare-" + key, actor, "PREPARED", prepared, token);
-            await Apply(r, pending, token);
-            // SQL-changing operations finalize in a second request-lock transaction after commit.
-            // Metadata-only operations may finalize now: metadata is their authoritative store.
-            if (Same(before, after) && oldContracts.Count == 0) await Finish(r, version + 1, prepared, token);
+            await Apply(r, after, newContracts.ToArray(), draft, draftId, token);
+            if (nextCanonical is not null) await Append("request", id, s.RequestVersion, "wf-" + key, actor, action, nextCanonical, token);
+            if (plan is not null) await Append("plan", id, next.PlanVersion - 1, "wf-" + key, actor, action, plan, token);
+            if (draft is not null) await Append("contract", draftId!, 0, "wf-" + key, actor, action, draft, token);
+            next = next with { LastOperation = new ReviewReceipt(key, hash, actor, action, "COMMITTED") };
+            await Append("review", id, version, "done-" + key, actor, "COMPLETED", next, token);
             return 0;
-        }, ct);
-        await work.ExecuteAsync(id, async token => { await Load(id, actor, manager, token); return 0; }, ct);
+        }, ct, input.Request?.Horses.Select(h => h.HorseId));
     }
     private async Task<PreliminaryPlan> PlanAsync(RequestSnapshot canonical, int version, PlanInput? input, CancellationToken ct)
     {
@@ -349,12 +257,12 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
         var row = await contracts.GetContractAsync(state.CurrentContractId, ct);
         Require(row is not null && row.RequestId == id, "RECOVERY_CONFLICT", "Current contract relation is invalid.");
         var file = await Read<DraftSnapshot>("contract", state.CurrentContractId, ct);
-        Require(row!.TotalQuotedPrice == file.Value.Total && row.CurrencyCode == "VND" && row.DepositRateStandard == 40, "RECOVERY_CONFLICT", "Contract amount metadata does not match SQL.");
+        Require(row!.TotalQuotedPrice == file.Value.Total && row.CurrencyCode == "VND" && row.DepositRateStandard == 40, "RECOVERY_CONFLICT", "Contract amount state does not match SQL.");
         Require(file.Value.RequestVersion == state.RequestVersion && file.Value.PlanVersion == state.PlanVersion,
             "RECOVERY_CONFLICT", "Current Draft does not reference the current request and plan.");
         return new(row.ContractId, row.ContractStatus, file.Version, row.CurrencyCode, file.Value.Total, file.Value.Deposit, file.Value.Lines);
     }
-    public Task<ManagerReviewView> ManagerAsync(string id, string actor, CancellationToken ct) => work.ExecuteAsync(id, async token =>
+    public Task<ManagerReviewView> ManagerAsync(string id, string actor, CancellationToken ct) => transactions.ExecuteAsync(id, async token =>
     {
         var x = await Load(id, actor, true, token);
         PreliminaryPlan? plan = null;
@@ -369,15 +277,15 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
         return new ManagerReviewView(new(x.R.RequestId, x.R.Status, x.R.Departure, x.R.Destination, x.R.ExpectedDate, x.R.CommittedDeadline,
             x.State.RequestVersion, x.Canonical, []), x.Version, x.State, plan, await Summary(id, x.State, token), Actions(x.R, x.State, true), note);
     }, ct);
-    public Task<CustomerReviewView> CustomerAsync(string id, string actor, CancellationToken ct) => work.ExecuteAsync(id, async token =>
+    public Task<CustomerReviewView> CustomerAsync(string id, string actor, CancellationToken ct) => transactions.ExecuteAsync(id, async token =>
     {
         var x = await Load(id, actor, false, token);
         return await CustomerView(x.R, x.Version, x.State, token);
     }, ct);
     private async Task<CustomerReviewView> CustomerView(TransportRequest r, int version, ReviewState state, CancellationToken ct) =>
         new(version, state.RequestVersion, state.Feedback, state.RevisionFields, state.Questions,
-            state.Changes, state.Notices, await Summary(r.RequestId, state, ct), state.Pending is not null, Actions(r, state, false));
-    public Task<RequestView> CustomerDetailAsync(string id, string actor, CancellationToken ct) => work.ExecuteAsync(id, async token =>
+            state.Changes, state.Notices, await Summary(r.RequestId, state, ct), false, Actions(r, state, false));
+    public Task<RequestView> CustomerDetailAsync(string id, string actor, CancellationToken ct) => transactions.ExecuteAsync(id, async token =>
     {
         // Read canonical request, SQL status and public Draft under one request lock.
         // A concurrent revision must not mix an old review/contract with a new request snapshot.
@@ -405,7 +313,7 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
     public async Task<object> RevisionsAsync(string id, string actor, CancellationToken ct)
     {
         await ManagerAsync(id, actor, ct);
-        var doc = await metadata.ReadAsync("request", id, ct);
+        var doc = await stateStore.ReadAsync("request", id, ct);
         return doc!.Revisions.Select(r => new { r.Version, r.ActorUserId, r.Action, r.CreatedAtUtc, Snapshot = Payload<RequestSnapshot>(r) }).ToArray();
     }
     public async Task<object> ManagerContractAsync(string id, string actor, CancellationToken ct)
@@ -431,7 +339,7 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
         row = (await repo.ContractAsync(id, ct))!;
         var file = await Read<DraftSnapshot>("contract", id, ct);
         Require(row.TotalQuotedPrice == file.Value.Total && row.CurrencyCode == "VND" && row.DepositRateStandard == 40,
-            "RECOVERY_CONFLICT", "Contract amount metadata does not match SQL.");
+            "RECOVERY_CONFLICT", "Contract amount state does not match SQL.");
         return new(row.ContractId, row.ContractStatus, file.Version, row.CurrencyCode, file.Value.Total, file.Value.Deposit, file.Value.Lines);
     }
 }

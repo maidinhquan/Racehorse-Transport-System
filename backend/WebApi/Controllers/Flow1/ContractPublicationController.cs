@@ -17,14 +17,9 @@ public sealed class ManagerContractPublicationController(ContractPublicationServ
         Ok(ApiResponse<PublishedContractView>.Ok(await service.PublishAsync(id, Actor, Request.Headers["Idempotency-Key"].ToString(), input, ct)));
     [HttpGet("publication")] public async Task<IActionResult> Get(string id, CancellationToken ct) =>
         Ok(ApiResponse<PublishedContractView?>.Ok(await service.GetAsync(id, Actor, true, ct)));
-    [HttpPost("publication/recover")] public async Task<IActionResult> Recover(string id, CancellationToken ct)
-    { await service.ResumeAsync(id, Actor, ct); return await Get(id, ct); }
-    [HttpPost("publication/discard")] public async Task<IActionResult> Discard(string id, DiscardPublicationInput input, CancellationToken ct)
-    { await service.DiscardAsync(id, Actor, input.Reason, ct); return await Get(id, ct); }
     [HttpGet("pdf")] public async Task<IActionResult> Pdf(string id, CancellationToken ct)
     { Response.Headers.CacheControl = "no-store"; Response.Headers.XContentTypeOptions = "nosniff"; return File(await service.PdfAsync(id, Actor, true, ct), "application/pdf", id + ".pdf"); }
 }
-public sealed record DiscardPublicationInput(string Reason);
 
 [ApiController, Route("api/customer/contracts/{id}"), Authorize(Roles = UserRoles.Customer), EnableRateLimiting("flow1-customer")]
 public sealed class CustomerContractPublicationController(ContractPublicationService service) : ControllerBase

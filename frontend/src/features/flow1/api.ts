@@ -1,7 +1,13 @@
 import { apiClient } from "../../shared/api/apiClient";
 import { registrationErrorMessage } from "../auth/api/registrationApi";
+import axios from "axios";
 
-export const flow1Error = registrationErrorMessage;
+export function flow1Error(error: unknown): string {
+  if (axios.isAxiosError<{ errorCode?: string }>(error) &&
+      ["FLOW1_SQL_SCHEMA_REQUIRED", "FLOW1_STATE_IMPORT_REQUIRED", "FLOW1_STATE_RECONCILIATION_REQUIRED"].includes(error.response?.data.errorCode || ""))
+    return "Chức năng đang được bảo trì dữ liệu. Vui lòng thử lại sau hoặc liên hệ quản lý.";
+  return registrationErrorMessage(error);
+}
 export type Location = { address: string; lat: number; lng: number; country: string; mapProvider?: string; geocodingProvider?: string };
 export type Trip = { pickup: Location; delivery: Location; preferredTransportMode: string; horseCount: number; desiredDepartureDate: string };
 export type Estimate = { estimatedPrice: number; estimatedDeposit: number; roadDistanceKm: number | null;

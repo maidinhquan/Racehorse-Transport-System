@@ -25,18 +25,14 @@ public sealed record DraftSnapshot(int RequestVersion, int PlanVersion, SellingL
 public sealed record ContractSummary(string ContractId, string Status, int Version, string Currency,
     decimal Total, decimal Deposit, SellingLine[] Lines);
 public sealed record ReviewReceipt(string Key, string Hash, string Actor, string Action, string Outcome, string? Reason = null);
-// The committed portion remains readable while Pending describes prepared, uncommitted work.
+// Every revision describes committed SQL state, including its operation receipt.
 public sealed record ReviewState(int RequestVersion, string? Feedback, string[] RevisionFields,
     ReviewQuestion[] Questions, ReviewChange[] Changes, ReviewNotice[] Notices, int PlanVersion = 0,
-    string? CurrentContractId = null, ReviewReceipt? LastOperation = null, PendingReview? Pending = null);
+    string? CurrentContractId = null, ReviewReceipt? LastOperation = null);
 public sealed record RequestProjection(string Status, string Departure, string Destination, string? Purpose,
     string? TransportType, DateTime? ExpectedDate, DateTime? CommittedDeadline, string? ReceiverName,
     string? ReceiverPhone, string[] HorseIds);
 public sealed record ContractProjection(string Id, bool Exists, string? Status, decimal? Total);
-public sealed record PendingReview(ReviewReceipt Operation, RequestProjection Before, RequestProjection After,
-    ContractProjection[] BeforeContracts, ContractProjection[] AfterContracts, ReviewState Next,
-    RequestSnapshot? Canonical = null, PreliminaryPlan? Plan = null, DraftSnapshot? Draft = null,
-    string? DraftId = null, int DraftExpectedVersion = 0);
 public sealed record ManagerReviewView(RequestView Request, int Version, ReviewState Review,
     PreliminaryPlan? Plan, ContractSummary? Contract, string[] AllowedActions, string? BelowFloorReason = null);
 // Never serialize ReviewState/PreliminaryPlan to Customer: they contain cost/floor/override notes.

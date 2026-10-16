@@ -30,8 +30,4 @@ public sealed class ManagerContractAcceptanceController(ContractAcceptanceServic
     private string Actor => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
     [HttpGet] public async Task<IActionResult> Get(string id, CancellationToken ct)
     { Response.Headers.CacheControl = "no-store"; return Ok(ApiResponse<ContractAcceptanceView>.Ok(await service.GetAsync(id, Actor, true, ct))); }
-    [HttpPost("recover")] public async Task<IActionResult> Recover(string id, CancellationToken ct) =>
-        Ok(ApiResponse<ContractAcceptanceView>.Ok(await service.RecoverAsync(id, Actor, ct)));
-    [HttpPost("discard")] public async Task<IActionResult> Discard(string id, DiscardPublicationInput input, CancellationToken ct) =>
-        Ok(ApiResponse<ContractAcceptanceView>.Ok(await service.DiscardAsync(id, Actor, input.Reason, ct)));
 }

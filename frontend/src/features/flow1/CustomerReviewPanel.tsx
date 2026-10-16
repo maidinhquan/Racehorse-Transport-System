@@ -17,7 +17,6 @@ export function CustomerReviewPanel({ id, value, reload }: { id: string; value: 
   return <section><h2>Thẩm định và phản hồi</h2>
     {value.feedback && <p>Phản hồi quản lý: {value.feedback}</p>}
     {value.revisionFields.length > 0 && <p>Nội dung cần sửa: {value.revisionFields.join(", ")}</p>}
-    {value.recoveryRequired && <p role="alert">Có thao tác cần phục hồi. Thử lại thao tác vừa gửi hoặc liên hệ quản lý.</p>}
     {error && <p role="alert">{error}</p>}
     {value.allowedActions.includes("RESUBMIT") && <p><Link to={`/customer/requests/${id}/revision`}>Chỉnh sửa và gửi lại</Link></p>}
     {value.allowedActions.includes("PROPOSE_CHANGE") && <p><Link to={`/customer/requests/${id}/change`}>Đề xuất thay đổi yêu cầu</Link></p>}
