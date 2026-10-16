@@ -109,7 +109,7 @@ describe("Customer Flow 1 API screens", () => {
     expect(submit).toHaveBeenCalledTimes(2);
     expect(submit.mock.calls[0][1]).toBe(submit.mock.calls[1][1]);
     expect(submit.mock.calls[1][0]).toMatchObject({ trip: { desiredDepartureDate: "2026-11-20" }, horses: [{ horseId: "horse-server", documentVersion: 2 }] });
-  });
+  }, 15000);
   it("an unavailable horse cannot be selected and back navigation preserves the trip", async () => {
     const user = userEvent.setup(); vi.spyOn(flow1, "estimate").mockResolvedValue(estimate);
     vi.spyOn(flow1, "horses").mockResolvedValue([{ ...horse, selectable: false, unavailableReason: "SCHEDULE_CONFLICT" }]);

@@ -33,7 +33,8 @@ import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage"
 // ==================== ROLE DASHBOARDS ====================
 import AdminDashboard from "../../features/admin/AdminDashboard";
 import DriverDashboard from "../../features/driver/DriverDashboard";
-import ManagerDashboard from "../../features/Manager/ManagerDashboard";
+import { ManagerRequestsPage, ManagerRequestPage } from "../../features/flow1/ManagerPages";
+import { RequestEditPage } from "../../features/flow1/CustomerPages";
 import SpecialistDashboard from "../../features/documents/SpecialistDashboard";
 
 // Import các trang khác của specialist
@@ -72,8 +73,12 @@ function AppRouter() {
         {/* ==================== MANAGER ==================== */}
         <Route
           path="/manager/dashboard"
-          element={<ManagerDashboard />}
+          element={<ManagerRequestsPage />}
         />
+        <Route path="/manager/requests" element={<ManagerRequestsPage />} />
+        <Route path="/manager/requests/:requestId" element={<ManagerRequestPage />} />
+        <Route path="/customer/requests/:requestId/revision" element={<RequestEditPage mode="revision" />} />
+        <Route path="/customer/requests/:requestId/change" element={<RequestEditPage mode="change-requests" />} />
 
         {/* Màn hình coordinator */}
         <Route

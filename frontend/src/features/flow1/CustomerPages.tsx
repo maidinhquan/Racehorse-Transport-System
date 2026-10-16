@@ -5,6 +5,8 @@ import { emptyTrip, estimateSeed, flow1, flow1Error, initialTrip, money } from "
 import type { Contact, Estimate, Horse, RequestView, Submission } from "./api";
 import { TripFields, EstimateSummary, MapDataAttribution } from "./TripFields";
 import { HorseForm } from "./HorseForm";
+import { CustomerReviewPanel } from "./CustomerReviewPanel";
+import { operationKey, reviewApi } from "./reviewApi";
 import "./flow1.css";
 
 export function PublicEstimatePage() {
@@ -33,21 +35,30 @@ function ContactFields({ label, value, change }: { label: string; value: Contact
   return <fieldset><legend>{label}</legend><label>Họ tên<input required maxLength={100} value={value.name} onChange={e => change({ ...value, name: e.target.value })} /></label>
     <label>Số điện thoại<input required type="tel" minLength={7} maxLength={20} value={value.phone} onChange={e => change({ ...value, phone: e.target.value })} /></label></fieldset>;
 }
-export function RequestWizardPage() {
+export function RequestEditPage({ mode }: { mode: "revision" | "change-requests" }) {
+  const { requestId = "" } = useParams(); const [value, setValue] = useState<RequestView | null>(null); const [error, setError] = useState("");
+  useEffect(() => { let active = true; flow1.detail(requestId).then(x => { if (active) setValue(x); }).catch(e => { if (active) setError(flow1Error(e)); });
+    return () => { active = false; }; }, [requestId]);
+  if (error) return <CustomerLayout pageTitle="Chỉnh sửa yêu cầu"><p role="alert">{error}</p></CustomerLayout>;
+  return value ? <RequestWizardPage initial={value} mode={mode} /> : <p>Đang tải…</p>;
+}
+export function RequestWizardPage({ initial, mode }: { initial?: RequestView; mode?: "revision" | "change-requests" } = {}) {
   const navigate = useNavigate();
   const key = useRef(crypto.randomUUID());
   const [step, setStep] = useState(0);
-  const [trip, setTrip] = useState(initialTrip);
-  const [deadline, setDeadline] = useState(""); const [purpose, setPurpose] = useState("COMPETITION");
-  const [pickup, setPickup] = useState<Contact>({ name: "", phone: "" });
-  const [receiver, setReceiver] = useState({ name: "", phone: "", isProxy: false });
+  const original = initial?.snapshot?.input;
+  const [trip, setTrip] = useState(() => original?.trip || initialTrip());
+  const [deadline, setDeadline] = useState(original?.deliveryDeadline || ""); const [purpose, setPurpose] = useState(original?.purpose || "COMPETITION");
+  const [pickup, setPickup] = useState<Contact>(original?.pickupContact || { name: "", phone: "" });
+  const [receiver, setReceiver] = useState(original?.receiver || { name: "", phone: "", isProxy: false });
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [horses, setHorses] = useState<Horse[]>([]); const [selected, setSelected] = useState<Record<string, number>>({});
   const [adding, setAdding] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   const [confirmed, setConfirmed] = useState(false);
+  const [changeReason, setChangeReason] = useState(""); const editKey = useRef({ hash: "", key: "" });
   const titles = ["Thông tin chuyến", "Giao nhận", "Ngựa và hồ sơ", "Kiểm tra và gửi"];
   function changed() { key.current = crypto.randomUUID(); }
-  async function loadHorses() { const items = await flow1.horses(trip.desiredDepartureDate, deadline); setHorses(items); return items; }
+  async function loadHorses() { const items = await flow1.horses(trip.desiredDepartureDate, deadline, initial?.requestId); setHorses(items); return items; }
   async function next(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault(); setBusy(true); setError("");
     try {
@@ -63,15 +74,23 @@ export function RequestWizardPage() {
         if (!confirmed) throw new Error("Vui lòng xác nhận thông tin trước khi gửi.");
         const payload: Submission = { trip, deliveryDeadline: deadline, purpose, pickupContact: pickup, receiver,
           horses: Object.entries(selected).map(([horseId, documentVersion]) => ({ horseId, documentVersion })) };
-        const saved = await flow1.submit(payload, key.current);
-        sessionStorage.removeItem(estimateSeed); navigate(`/customer/requests/${saved.requestId}`, { replace: true });
+        if (initial && mode) {
+          const body = { expectedVersion: initial.review?.version, request: payload, ...(mode === "change-requests" ? { reason: changeReason } : {}) };
+          await reviewApi.actCustomer(initial.requestId, mode, body, operationKey(editKey, mode, body));
+          navigate(`/customer/requests/${initial.requestId}`, { replace: true });
+        } else {
+          const saved = await flow1.submit(payload, key.current);
+          sessionStorage.removeItem(estimateSeed); navigate(`/customer/requests/${saved.requestId}`, { replace: true });
+        }
       }
     } catch (e) { setError(flow1Error(e)); } finally { setBusy(false); }
   }
   return <CustomerLayout pageTitle="Tạo yêu cầu vận chuyển"><section className="flow1-page">
     <h1>{step + 1}. {titles[step]}</h1><p>{titles.join(" → ")}</p>
+    {mode && <p>{mode === "revision" ? "Chỉnh sửa theo yêu cầu quản lý" : "Đề xuất thay đổi; yêu cầu gốc chỉ đổi sau khi được duyệt"}</p>}
     <form onSubmit={next} onChange={changed}>
       {step === 0 && <><TripFields trip={trip} onChange={t => { setTrip(t); setEstimate(null); setSelected({}); changed(); }} />
+        {mode === "change-requests" && <label>Lý do đề xuất<textarea required maxLength={2000} value={changeReason} onChange={e => setChangeReason(e.target.value)} /></label>}
         <label>Hạn giao ngựa<input required type="date" min={trip.desiredDepartureDate} value={deadline} onChange={e => { setDeadline(e.target.value); setSelected({}); }} /></label>
         <label>Mục đích<input required maxLength={100} value={purpose} onChange={e => setPurpose(e.target.value)} /></label></>}
       {step === 1 && <><ContactFields label="Người giao ngựa" value={pickup} change={setPickup} />
@@ -130,6 +149,7 @@ export function RequestDetailPage() {
         <p>Người nhận: {request.snapshot.input.receiver.name} · {request.snapshot.input.receiver.phone}</p>
         <p>{request.snapshot.input.horses.length} ngựa · Giá tham khảo: {money(request.snapshot.estimate.estimatedPrice)}</p>
         <MapDataAttribution text={request.snapshot.estimate.attribution || request.snapshot.estimate.locationAttribution} />
+        {request.review && <CustomerReviewPanel id={request.requestId} value={request.review} reload={async () => setRequest(await flow1.detail(request.requestId))} />}
         {request.snapshot.input.receiver.isProxy && <p>Người nhận thay cần được xác minh trước bàn giao.</p>}</>}
       {request.status === "PENDING" && <p>Đã gửi quản lý thẩm định. Chưa có hợp đồng hoặc chuyến vận chuyển.</p>}
     </>}

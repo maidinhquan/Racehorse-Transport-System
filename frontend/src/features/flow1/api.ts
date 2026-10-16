@@ -12,15 +12,16 @@ export type Contact = { name: string; phone: string };
 export type Submission = { trip: Trip; deliveryDeadline: string; purpose: string; pickupContact: Contact;
   receiver: Contact & { isProxy: boolean }; horses: { horseId: string; documentVersion: number }[] };
 export type RequestView = { requestId: string; status: string; departure: string; destination: string; expectedDate: string;
-  committedDeadline: string; version: number; snapshot: { input: Submission; estimate: Estimate; receiverVerificationStatus: string } | null };
+  committedDeadline: string; version: number; snapshot: { input: Submission; estimate: Estimate; receiverVerificationStatus: string } | null;
+  review?: import("./reviewApi").CustomerReview | null };
 type Envelope<T> = { success: boolean; message: string; data: T };
 const baseURL = import.meta.env.VITE_API_URL || "/api";
-async function get<T>(url: string): Promise<T> {
+export async function get<T>(url: string): Promise<T> {
   const r = await apiClient.get<Envelope<T>>(url, { baseURL });
   if (!r.data.success) throw new Error(r.data.message);
   return r.data.data;
 }
-async function post<T>(url: string, data: unknown, key?: string): Promise<T> {
+export async function post<T>(url: string, data: unknown, key?: string): Promise<T> {
   const r = await apiClient.post<Envelope<T>>(url, data, { baseURL, headers: {
     ...(key ? { "Idempotency-Key": key } : {}), ...(data instanceof FormData ? { "Content-Type": undefined } : {}),
   } });
@@ -32,8 +33,8 @@ export const flow1 = {
     `${guest ? "/public/estimates" : "/customer"}/locations/search?${new URLSearchParams({ address, country })}`),
   mapPreviewUrl: (point: Location) => `${baseURL.replace(/\/$/, "")}/public/maps/mapbox-preview?${new URLSearchParams({ lat: String(point.lat), lng: String(point.lng), country: point.country })}`,
   estimate: (trip: Trip, guest = false) => post<Estimate>(guest ? "/public/estimates" : "/customer/estimates", trip),
-  horses: (departure?: string, deadline?: string) => get<Horse[]>("/customer/horses/selectable" +
-    (departure && deadline ? `?${new URLSearchParams({ departure, deadline })}` : "")),
+  horses: (departure?: string, deadline?: string, requestId?: string) => get<Horse[]>("/customer/horses/selectable" +
+    (departure && deadline ? `?${new URLSearchParams({ departure, deadline, ...(requestId ? { requestId } : {}) })}` : "")),
   createHorse: (data: FormData, key: string) => post<Horse>("/customer/horses", data, key),
   submit: (data: Submission, key: string) => post<RequestView>("/customer/requests", data, key),
   list: (page = 1) => get<{ items: RequestView[]; page: number; pageSize: number; totalCount: number }>(`/customer/requests?page=${page}&pageSize=20`),

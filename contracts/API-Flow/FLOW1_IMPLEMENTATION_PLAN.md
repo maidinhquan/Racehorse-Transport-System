@@ -461,7 +461,7 @@ Sự kiện/handoff có EventID/schemaVersion/requestId/tripId/contractId/planVe
 
 Các giai đoạn sau thêm DTO/services/controllers cho Estimates/Horses/Requests/Contracts/Payments/Trips vào active projects, adapter thật ở Infrastructure/ExternalServices. Chưa tạo các controller rỗng để làm như API đã xong.
 
-Frontend dùng frontend/src/shared/api/apiClient.ts và router hiện có. API/types chung dự kiến trong frontend/src/features/flow1/; giữ trang Customer hiện có dưới frontend/src/features/user-dashboard/page/transport-request-page và MyHorses. Manager dùng frontend/src/features/Manager/flow1. Từ phase 2, FE nối từng use case và test cùng BE; không đợi cuối mới làm toàn bộ FE.
+Frontend dùng frontend/src/shared/api/apiClient.ts và router hiện có. API/types và các trang Flow 1 thực tế ở frontend/src/features/flow1/; ManagerPages.tsx nối list/detail/review/plan/Draft, CustomerPages.tsx và CustomerReviewPanel.tsx nối Wizard/revision/proposal/feedback. Router Manager dashboard dùng list thật; module mock cũ không còn là entry point của flow này. Từ phase 2, FE nối từng use case và test cùng BE; không đợi cuối mới làm toàn bộ FE.
 
 ## 14. Sáu giai đoạn thực thi
 
@@ -476,7 +476,7 @@ Frontend dùng frontend/src/shared/api/apiClient.ts và router hiện có. API/t
 
 Sau phase 1 có thể giao adapter Maps/VNPay/PDF cho người phụ trách theo interface. Mỗi task ghi file exact path, input/output, status guards, metadata/SQL boundary và test IDs. Không tự sửa legacy DAO hoặc module đồng đội ngoài hợp đồng bàn giao.
 
-Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md) và [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md). **Phase 2 hoàn thành trong phạm vi local/test đã cấp**, gồm live Geoapify/Mapbox và browser Customer nối SQL/file riêng. Lượt lịch tiếp theo bắt đầu phase 3 Manager Review/Preliminary Plan/Quote/Draft; không chờ key hay hỏi lại capacity=1. Payload phase 2 thực tế được ghi trong báo cáo để phân biệt với ví dụ thiết kế ở mục 7.
+Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md), [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md) và [phase 3 Review/Plan/Quote/Draft](FLOW1_PHASE3_REPORT.md). **Phase 1–3 hoàn thành trong phạm vi local/test đã cấp**: phase 2 có live Geoapify/Mapbox; phase 3 có Customer/Manager browser nối SQL/file riêng, Maps fixture, SQL/file receipt recovery cho review/Draft. **Lượt lịch tiếp theo bắt đầu phase 4 PDF/OTP/deadline/recovery**, không chờ key hay hỏi lại capacity=1. Chưa nghiệm thu send/sign/tiền/Trip hoặc full Flow 1 UAT. Payload/API thực tế được ghi trong báo cáo từng phase để phân biệt với ví dụ thiết kế ở mục 7.
 
 ## 15. Ma trận kiểm thử và bằng chứng nghiệm thu
 

@@ -12,8 +12,9 @@ public sealed class CustomerTransportRepository(HorseTransportDbContext db) : IC
     public async Task<IReadOnlyList<Horse>> HorsesAsync(string owner, CancellationToken ct) =>
         await db.Horses.AsNoTracking().Where(x => x.OwnerId == owner).OrderBy(x => x.HorseId).ToListAsync(ct);
     public Task<bool> MicrochipExistsAsync(string chip, CancellationToken ct) => db.Horses.AnyAsync(x => x.MicrochipIso == chip, ct);
-    public Task<bool> OverlapsAsync(string horse, DateTime from, DateTime to, CancellationToken ct) =>
+    public Task<bool> OverlapsAsync(string horse, DateTime from, DateTime to, CancellationToken ct, string? excludeRequestId = null) =>
         db.RequestHorseMappings.AnyAsync(m => m.HorseId == horse && m.Request != null &&
+            (excludeRequestId == null || m.RequestId != excludeRequestId) &&
             m.Request.Status != "REJECTED" && m.Request.Status != "CANCELLED" && m.Request.Status != "COMPLETED" &&
             m.Request.Status != "CLOSED" &&
             (m.Request.ExpectedDate == null || m.Request.CommittedDeadline == null ||

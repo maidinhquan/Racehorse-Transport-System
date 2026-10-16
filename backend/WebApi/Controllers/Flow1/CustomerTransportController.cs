@@ -15,7 +15,7 @@ namespace WebApi.Controllers.Flow1;
 
 [ApiController, Route("api/customer"), Authorize(Roles = UserRoles.Customer), EnableRateLimiting("flow1-customer")]
 public sealed class CustomerTransportController(CustomerTransportService service, TransportEstimateService estimates,
-    IFlow1GeocodingProvider geocoding, TimeProvider clock) : ControllerBase
+    IFlow1GeocodingProvider geocoding, TimeProvider clock, RequestReviewService reviews) : ControllerBase
 {
     private string Owner => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw Error("Authentication required.", "UNAUTHORIZED", 401);
     private string Key => Request.Headers["Idempotency-Key"].ToString();
@@ -33,8 +33,8 @@ public sealed class CustomerTransportController(CustomerTransportService service
     public async Task<IActionResult> Estimate(EstimateInput input, CancellationToken ct) =>
         Ok(ApiResponse<EstimateView>.Ok((await estimates.CalculateAsync(input, ct)).Customer));
     [HttpGet("horses/selectable")]
-    public async Task<IActionResult> Horses(DateOnly? departure, DateOnly? deadline, CancellationToken ct) =>
-        Ok(ApiResponse<object>.Ok(await service.HorsesAsync(Owner, departure, deadline, ct)));
+    public async Task<IActionResult> Horses(DateOnly? departure, DateOnly? deadline, CancellationToken ct, string? requestId = null) =>
+        Ok(ApiResponse<object>.Ok(await service.HorsesAsync(Owner, departure, deadline, ct, requestId)));
     [HttpPost("horses"), RequestSizeLimit(11 * 1024 * 1024)]
     public async Task<IActionResult> CreateHorse([FromForm] string payload, [FromForm] IFormFile photo, [FromForm] IFormFile passportScan, CancellationToken ct)
     {
@@ -82,8 +82,13 @@ public sealed class CustomerTransportController(CustomerTransportService service
     public async Task<IActionResult> List(CancellationToken ct, int page = 1, int pageSize = 20) =>
         Ok(ApiResponse<object>.Ok(await service.ListAsync(Owner, page, pageSize, ct)));
     [HttpGet("requests/{id}")]
-    public async Task<IActionResult> Detail(string id, CancellationToken ct) =>
-        Ok(ApiResponse<RequestView>.Ok(await service.DetailAsync(Owner, id, ct)));
+    public async Task<IActionResult> Detail(string id, CancellationToken ct)
+    {
+        var detail = await service.DetailAsync(Owner, id, ct);
+        if (detail.Snapshot is not null)
+            detail = await reviews.CustomerDetailAsync(id, Owner, ct);
+        return Ok(ApiResponse<RequestView>.Ok(detail));
+    }
     private static async Task<UploadedFile> Upload(IFormFile? file, CancellationToken ct)
     {
         if (file is null || file.Length is < 16 or > LocalFlow1PrivateFileStore.MaxBytes)

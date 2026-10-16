@@ -17,6 +17,8 @@ public static class Flow1CustomerExtensions
     {
         services.AddScoped<ICustomerTransportRepository, CustomerTransportRepository>();
         services.AddScoped<CustomerTransportService>();
+        services.AddScoped<IRequestReviewRepository, RequestReviewRepository>();
+        services.AddScoped<RequestReviewService>();
         services.AddScoped<TransportEstimateService>();
         services.AddSingleton(config.GetSection("Flow1:Maps").Get<Flow1MapOptions>() ?? new());
         services.AddSingleton(config.GetSection("Flow1:Estimate").Get<Flow1EstimateOptions>() ?? new());

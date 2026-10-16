@@ -88,6 +88,10 @@ chạy lại với đường dẫn runtime đúng, không thay package/dependenc
 
 ## Bàn giao lượt lịch tiếp theo
 
+> Cập nhật sau lượt bàn giao: phase 3 đã được triển khai và kiểm chứng local/test;
+> xem [FLOW1_PHASE3_REPORT.md](FLOW1_PHASE3_REPORT.md). Các ghi chú dưới đây là
+> bàn giao lịch sử tại thời điểm kết thúc phase 2; bước tiếp theo hiện là phase 4.
+
 Không còn blocker Maps/key/capacity của phase 2. **Bắt đầu phase 3 Manager Review +
 Preliminary Plan/Budget/Quote/Draft**, mỗi lượt tối đa một phase theo lịch đã cấp quyền.
 Giữ SQL tối thiểu, cọc 40%, chưa tạo Trip, chưa áp migration vào DB nghiệp vụ.

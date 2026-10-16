@@ -58,8 +58,10 @@ public sealed class CustomerTransportService(ICustomerTransportRepository repo, 
             snapshot?.Version ?? 0, snapshot?.Value.Status == "ACTIVE" && free,
             !free ? "SCHEDULE_CONFLICT" : snapshot?.Value.Status == "ACTIVE" ? null : "HORSE_DOCUMENTS_REQUIRED");
 
-    public async Task<IReadOnlyList<HorseView>> HorsesAsync(string owner, DateOnly? from, DateOnly? to, CancellationToken ct)
+    public async Task<IReadOnlyList<HorseView>> HorsesAsync(string owner, DateOnly? from, DateOnly? to, CancellationToken ct, string? requestId = null)
     {
+        if (requestId is not null && await repo.RequestAsync(requestId, owner, ct) is null)
+            throw Error("Request not found.", "NOT_FOUND", 404);
         if (from.HasValue != to.HasValue || from > to || (from.HasValue && from < Today(clock)))
             throw Error("Select a valid departure and delivery date range.", "INVALID_DATE_RANGE");
         var result = new List<HorseView>();
@@ -67,7 +69,7 @@ public sealed class CustomerTransportService(ICustomerTransportRepository repo, 
         {
             var snapshot = await Latest<HorseSnapshot>("horse", h.HorseId, ct);
             var free = !from.HasValue || !await repo.OverlapsAsync(h.HorseId, from.Value.ToDateTime(TimeOnly.MinValue),
-                to!.Value.ToDateTime(TimeOnly.MinValue), ct);
+                to!.Value.ToDateTime(TimeOnly.MinValue), ct, requestId);
             result.Add(View(h, snapshot, free));
         }
         return result;
@@ -167,13 +169,7 @@ public sealed class CustomerTransportService(ICustomerTransportRepository repo, 
     public async Task<RequestView> SubmitAsync(string owner, string key, SubmitRequestInput input, CancellationToken ct)
     {
         ValidateKey(key);
-        Validate(input); Validate(input.Trip); Validate(input.PickupContact); Validate(input.Receiver);
-        if (input.Horses.Any(x => x is null || !Regex.IsMatch(x.HorseId ?? "", @"\A[A-Za-z0-9_-]{1,50}\z") || x.DocumentVersion < 1) ||
-            input.Horses.Select(x => x.HorseId.ToUpperInvariant()).Distinct().Count() != input.Horses.Count ||
-            input.Horses.Count != input.Trip.HorseCount)
-            throw Error("Select unique horses and their current document versions.", "INVALID_HORSES");
-        if (input.DeliveryDeadline < input.Trip.DesiredDepartureDate || input.DeliveryDeadline > input.Trip.DesiredDepartureDate.AddDays(90))
-            throw Error("Delivery deadline must be within 90 days after departure.", "INVALID_DATE_RANGE");
+        ValidateSubmission(input);
         var id = Id("r", owner, key);
         var hash = Hash(input);
         // Replay must not depend on today's date, provider availability or subsequent horse edits.
@@ -190,20 +186,7 @@ public sealed class CustomerTransportService(ICustomerTransportRepository repo, 
                 if (!prepared.HasValue) throw Error("Request metadata is unavailable.", "METADATA_UNAVAILABLE", 409);
                 return RequestView(existing, prepared);
             }
-            var horses = new List<HorseSnapshot>();
-            foreach (var reference in input.Horses)
-            {
-                var current = await DocumentsAsync(owner, reference.HorseId, token);
-                if (current.Version != reference.DocumentVersion) throw Error("Reload the latest horse documents.", "STALE_VERSION", 409);
-                if (current.Value.Status != "ACTIVE") throw Error("Horse is not active.", "HORSE_NOT_ACTIVE", 409);
-                if (await repo.OverlapsAsync(reference.HorseId, input.Trip.DesiredDepartureDate.ToDateTime(TimeOnly.MinValue),
-                    input.DeliveryDeadline.ToDateTime(TimeOnly.MinValue), token))
-                    throw Error("A selected horse has an overlapping request.", "SCHEDULE_CONFLICT", 409);
-                // Fail closed if immutable private bytes were lost or corrupted.
-                await files.ReadAsync(current.Value.Photo, token);
-                await files.ReadAsync(current.Value.PassportScan, token);
-                horses.Add(current.Value);
-            }
+            var horses = await ValidateHorsesAsync(owner, input, null, token);
             EstimateView estimate;
             if (prepared.HasValue) estimate = prepared.Value.Value.Estimate;
             else
@@ -219,20 +202,47 @@ public sealed class CustomerTransportService(ICustomerTransportRepository repo, 
             var snapshot = prepared?.Value ?? new RequestSnapshot(input, estimate, hash, horses,
                 input.Receiver.IsProxy ? "REQUIRED_NOT_VERIFIED" : "NOT_REQUIRED");
             if (!prepared.HasValue)
-                await metadata.AppendAsync("request", id, 0, key, owner, "REQUEST_PREPARED",
-                    JsonSerializer.SerializeToElement(snapshot, Json), token);
+                await metadata.AppendAsync("request", id, 0, key, owner, "REQUEST_PREPARED", JsonSerializer.SerializeToElement(snapshot, Json), token);
             var request = new TransportRequest { RequestId = id, CustomerId = owner,
                 Departure = input.Trip.Pickup.Address.Trim(), Destination = input.Trip.Delivery.Address.Trim(),
                 Purpose = input.Purpose.Trim(), TransportType = input.Trip.PreferredTransportMode,
                 ExpectedDate = input.Trip.DesiredDepartureDate.ToDateTime(TimeOnly.MinValue),
                 CommittedDeadline = input.DeliveryDeadline.ToDateTime(TimeOnly.MinValue),
                 DesignatedReceiverName = input.Receiver.Name.Trim(), DesignatedReceiverPhone = input.Receiver.Phone.Trim(),
-                // No selling quote or internal cost is authoritative at the Customer submission stage.
                 Status = "PENDING", RequestHorseMappings = input.Horses.Select(x => new RequestHorseMapping {
                     RequestHorseId = Guid.NewGuid().ToString("N"), RequestId = id, HorseId = x.HorseId }).ToList() };
             repo.AddRequest(request);
             return RequestView(request, (1, snapshot));
         }, ct);
+    }
+
+    public static void ValidateSubmission(SubmitRequestInput input)
+    {
+        Validate(input); Validate(input.Trip); Validate(input.PickupContact); Validate(input.Receiver);
+        if (input.Horses.Any(x => x is null || !Regex.IsMatch(x.HorseId ?? "", @"\A[A-Za-z0-9_-]{1,50}\z") || x.DocumentVersion < 1) ||
+            input.Horses.Select(x => x.HorseId.ToUpperInvariant()).Distinct().Count() != input.Horses.Count ||
+            input.Horses.Count != input.Trip.HorseCount)
+            throw Error("Select unique horses and their current document versions.", "INVALID_HORSES");
+        if (input.DeliveryDeadline < input.Trip.DesiredDepartureDate || input.DeliveryDeadline > input.Trip.DesiredDepartureDate.AddDays(90))
+            throw Error("Delivery deadline must be within 90 days after departure.", "INVALID_DATE_RANGE");
+    }
+    public async Task<IReadOnlyList<HorseSnapshot>> ValidateHorsesAsync(string owner, SubmitRequestInput input, string? excludeRequestId, CancellationToken token)
+    {
+        var horses = new List<HorseSnapshot>();
+        foreach (var reference in input.Horses)
+        {
+            var current = await DocumentsAsync(owner, reference.HorseId, token);
+            if (current.Version != reference.DocumentVersion) throw Error("Reload the latest horse documents.", "STALE_VERSION", 409);
+            if (current.Value.Status != "ACTIVE") throw Error("Horse is not active.", "HORSE_NOT_ACTIVE", 409);
+            if (await repo.OverlapsAsync(reference.HorseId, input.Trip.DesiredDepartureDate.ToDateTime(TimeOnly.MinValue),
+                input.DeliveryDeadline.ToDateTime(TimeOnly.MinValue), token, excludeRequestId))
+                throw Error("A selected horse has an overlapping request.", "SCHEDULE_CONFLICT", 409);
+            // Fail closed if immutable private bytes were lost or corrupted.
+            await files.ReadAsync(current.Value.Photo, token);
+            await files.ReadAsync(current.Value.PassportScan, token);
+            horses.Add(current.Value);
+        }
+        return horses;
     }
 
     private static RequestView RequestView(TransportRequest r, (int Version, RequestSnapshot Value)? snapshot) =>

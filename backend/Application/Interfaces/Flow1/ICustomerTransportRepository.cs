@@ -7,7 +7,7 @@ public interface ICustomerTransportRepository
     Task<Horse?> HorseAsync(string id, string owner, CancellationToken ct);
     Task<IReadOnlyList<Horse>> HorsesAsync(string owner, CancellationToken ct);
     Task<bool> MicrochipExistsAsync(string microchip, CancellationToken ct);
-    Task<bool> OverlapsAsync(string horseId, DateTime from, DateTime to, CancellationToken ct);
+    Task<bool> OverlapsAsync(string horseId, DateTime from, DateTime to, CancellationToken ct, string? excludeRequestId = null);
     Task<TransportRequest?> RequestAsync(string id, string owner, CancellationToken ct);
     Task<(IReadOnlyList<TransportRequest> Items, int Count)> RequestsAsync(string owner, int page, int size, CancellationToken ct);
     void AddHorse(Horse horse);

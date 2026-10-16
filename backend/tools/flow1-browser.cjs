@@ -11,6 +11,7 @@ const base = `http://127.0.0.1:${frontPort}`;
 let vite; let browser;
 const errors = [];
 const liveMaps = process.env.FLOW1_BROWSER_LIVE_MAPS === '1';
+const phase3 = process.env.FLOW1_BROWSER_PHASE3 === '1';
 const mapbox = liveMaps || ['MAPBOX', 'GEOAPIFY'].includes(process.env.FLOW1_BROWSER_MAP_PROVIDER);
 const calls = { geoSearch: 0, geoReverse: 0, geoRoute: 0, mapboxPreview: 0, forbiddenMapboxData: 0 };
 const fixture = http.createServer((req, res) => {
@@ -134,17 +135,95 @@ async function main() {
   await page.goto(base + '/customer/horses');
   const download = page.waitForEvent('download'); await page.getByRole('button', { name: 'Tải hộ chiếu', exact: true }).click();
   await (await download).saveAs(path.join(output, 'downloaded-passport.pdf'));
+  let reviewChecks = null;
+  if (phase3) {
+    // Preserve the real per-owner limiter. The automated phase-2 setup runs much faster
+    // than a human; begin review in a fresh 60-second window instead of disabling limits.
+    console.log('Waiting for the next owner rate-limit window before the connected Manager review.');
+    await delay(60000);
+    reviewChecks = await reviewFlow(browser, page, saved.requestId);
+  }
   if (errors.length) throw new Error('Browser runtime errors: ' + errors.join('; '));
   if (browserMapRequests.length) throw new Error('Browser sent map requests outside our credential-free API boundary.');
   if (liveMaps && Object.values(calls).some(n => n !== 0)) throw new Error('Live run unexpectedly used a map fixture.');
   const result = { status: 'PASS', provider: liveMaps ? 'LIVE GEOAPIFY DATA + LIVE MAPBOX MAPS; TEST SQL/FILES/CUSTOMER' : mapbox ? 'LOCAL GEOAPIFY DATA + MAPBOX MAP HTTP FIXTURES - NOT LIVE' : 'LOCAL OSM HTTP FIXTURE - NOT LIVE', requestId: saved.requestId, calls,
     roadDistanceKm: saved.snapshot.estimate.roadDistanceKm, estimatedPriceVnd: saved.snapshot.estimate.estimatedPrice,
-    browserDirectProviderRequests: browserMapRequests.length,
+    browserDirectProviderRequests: browserMapRequests.length, reviewChecks,
     mapPreviewChecks: mapbox ? 'both Mapbox preview images loaded through our API, with no token in browser URL' : 'not applicable',
     assertions: ['real multipart horse upload', 'wizard keeps dates/contacts while adding horse', 'server-calculated estimate', 'PENDING before Contract/Trip',
       'proxy receiver not falsely verified', 'detail survives reload', 'list from SQL', 'private authenticated passport download'], pageErrors: errors };
   fs.writeFileSync(path.join(output, 'browser-result.json'), JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result));
+}
+async function reviewFlow(browser, customer, id) {
+  const context = await browser.newContext({ viewport: { width: 1400, height: 1100 } });
+  await context.addInitScript(token => { localStorage.setItem('accessToken', token); localStorage.setItem('userRole', 'LOGISTICS_MANAGER'); }, process.env.FLOW1_MANAGER_FIXTURE_TOKEN);
+  const manager = await context.newPage(); manager.on('pageerror', e => errors.push(e.message));
+  const managerUrl = base + '/manager/requests/' + id; const customerUrl = base + '/customer/requests/' + id;
+  await manager.goto(managerUrl);
+  await manager.getByLabel('Lý do hoặc câu hỏi').fill('Xác nhận liên hệ trước khởi hành.');
+  await manager.getByRole('button', { name: 'Hỏi bổ sung', exact: true }).click();
+  await manager.getByText(/Hỏi: Xác nhận liên hệ/).waitFor();
+  await customer.goto(customerUrl);
+  await customer.getByLabel('Câu trả lời', { exact: true }).fill('Đã xác nhận số điện thoại người nhận.');
+  await customer.getByRole('button', { name: 'Gửi câu trả lời', exact: true }).click();
+  await customer.getByText(/Trả lời: Đã xác nhận/).waitFor();
+  await manager.reload(); await manager.getByText(/Trả lời: Đã xác nhận/).waitFor();
+  await manager.getByLabel('Lý do hoặc câu hỏi').fill('Cập nhật người nhận.');
+  await manager.getByRole('button', { name: 'Yêu cầu chỉnh sửa', exact: true }).click();
+  await manager.getByText(/Trạng thái: CHANGES_REQUESTED/).waitFor();
+  async function edit(change, name) {
+    await customer.goto(customerUrl);
+    await customer.getByRole('link', { name: change ? 'Đề xuất thay đổi yêu cầu' : 'Chỉnh sửa và gửi lại', exact: true }).click();
+    if (change) await customer.getByLabel('Lý do đề xuất').fill('Thay người nhận sau khi có Draft.');
+    await customer.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+    await customer.getByRole('group', { name: 'Người nhận ngựa', exact: true }).getByLabel('Họ tên', { exact: true }).fill(name);
+    await customer.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+    const horse = customer.getByRole('checkbox', { name: /Ngựa Chromium/ });
+    if (!(await horse.isEnabled())) throw new Error('Revision cannot select its own booked horse.');
+    await horse.check(); await customer.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
+    await customer.getByRole('checkbox', { name: /Tôi xác nhận/ }).check();
+    await customer.getByRole('button', { name: 'Gửi yêu cầu', exact: true }).click();
+    await customer.waitForURL(customerUrl);
+    await customer.getByText(/^Trạng thái: (PENDING|ACCEPTED)$/).waitFor();
+  }
+  await edit(false, 'Người nhận đã sửa');
+  await customer.getByText('Trạng thái: PENDING', { exact: true }).waitFor();
+  await manager.reload(); await manager.getByText(/Người nhận: Người nhận đã sửa/).waitFor();
+  async function planAndDraft(total) {
+    await manager.getByRole('button', { name: 'Chấp nhận yêu cầu', exact: true }).click();
+    await manager.getByLabel('Nguồn lực dự kiến').fill('Xe chuyên dụng, lái xe và handler dự kiến');
+    await manager.getByRole('button', { name: 'Lưu kế hoạch sơ bộ', exact: true }).click();
+    await manager.getByRole('heading', { name: 'Đề xuất báo giá nội bộ', exact: true }).waitFor();
+    await manager.getByRole('group', { name: 'Các khoản giá bán', exact: true }).getByLabel('Đơn giá VND khoản 1', { exact: true }).fill(String(total));
+    await manager.getByRole('button', { name: 'Tạo hợp đồng Draft', exact: true }).click();
+    await manager.getByRole('heading', { name: 'Hợp đồng Draft hiện hành', exact: true }).waitFor();
+  }
+  await planAndDraft(115000000);
+  const customerResponse = customer.waitForResponse(r => r.url().endsWith('/api/customer/requests/' + id) && r.request().method() === 'GET');
+  await customer.goto(customerUrl);
+  const publicJson = await (await customerResponse).text();
+  if (['estimatedCost', 'belowFloorReason', '"floor"'].some(x => publicJson.includes(x))) throw new Error('Internal quote leaked to Customer.');
+  await customer.getByRole('heading', { name: 'Hợp đồng đang soạn', exact: true }).waitFor();
+  await customer.screenshot({ path: path.join(output, 'customer-draft.png'), fullPage: true });
+  await manager.screenshot({ path: path.join(output, 'manager-plan-draft.png'), fullPage: true });
+  await edit(true, 'Người nhận đề xuất');
+  // Proposal must not silently overwrite the canonical receiver.
+  await customer.getByText(/Người nhận: Người nhận đã sửa/).waitFor();
+  await manager.goto(managerUrl);
+  if (await manager.getByRole('button', { name: 'Tạo phiên bản Draft mới', exact: true }).count()) throw new Error('Pending change did not block Draft.');
+  await manager.getByRole('button', { name: 'Duyệt thay đổi', exact: true }).click();
+  await manager.getByText(/Trạng thái: PENDING/).waitFor();
+  await manager.locator('main > p').filter({ hasText: 'Người nhận: Người nhận đề xuất' }).waitFor();
+  await planAndDraft(100000000);
+  await manager.reload(); await manager.getByRole('heading', { name: 'Hợp đồng Draft hiện hành', exact: true }).waitFor();
+  await customer.goto(customerUrl); await customer.getByRole('heading', { name: 'Hợp đồng đang soạn', exact: true }).waitFor();
+  await customer.getByText(/Người nhận: Người nhận đề xuất/).waitFor();
+  await customer.screenshot({ path: path.join(output, 'customer-current-draft.png'), fullPage: true });
+  await context.close();
+  return ['Manager question / Customer answer', 'revision and resubmit with own booked horse', 'Manager accept / plan / private quote / Draft',
+    '115M selling total gives 46M deposit', 'Customer DTO excludes cost/floor/override notes', 'pending change keeps canonical unchanged and blocks Draft',
+    'approved change supersedes old Draft and invalidates plan', 'reaccept / replan / new Draft survives reload'];
 }
 main().catch(e => { console.error(e.stack); process.exitCode = 1; }).finally(async () => {
   if (browser) await browser.close(); if (vite) vite.kill(); fixture.close();

@@ -48,7 +48,8 @@ internal sealed class CustomerTestAuth(IOptionsMonitor<AuthenticationSchemeOptio
             new ClaimsIdentity(claims, Scheme.Name)), Scheme.Name)));
     }
 }
-internal sealed class CustomerTestFactory(string connection, string root, bool failRequestPrepare = false) : WebApplicationFactory<Program>
+internal sealed class CustomerTestFactory(string connection, string root, bool failRequestPrepare = false,
+    Action<IServiceCollection>? customize = null) : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -69,6 +70,7 @@ internal sealed class CustomerTestFactory(string connection, string root, bool f
             s.AddSingleton<IFlow1PrivateFileStore>(new LocalFlow1PrivateFileStore(Path.Combine(root, "bytes")));
             s.AddAuthentication(o => { o.DefaultAuthenticateScheme = "CustomerTest"; o.DefaultChallengeScheme = "CustomerTest"; o.DefaultForbidScheme = "CustomerTest"; })
                 .AddScheme<AuthenticationSchemeOptions, CustomerTestAuth>("CustomerTest", _ => { });
+            customize?.Invoke(s);
         });
     }
     public HttpClient Client(string? owner = "owner", string role = "CUSTOMER")

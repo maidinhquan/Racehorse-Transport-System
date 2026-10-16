@@ -40,5 +40,5 @@ public sealed record RequestSnapshot(SubmitRequestInput Input, EstimateView Esti
     IReadOnlyList<HorseSnapshot> HorseSnapshots, string ReceiverVerificationStatus);
 public sealed record RequestView(string RequestId, string Status, string Departure, string Destination,
     DateTime? ExpectedDate, DateTime? CommittedDeadline, int Version, RequestSnapshot? Snapshot,
-    IReadOnlyList<string> AllowedActions);
+    IReadOnlyList<string> AllowedActions, CustomerReviewView? Review = null);
 public sealed record PageView<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalCount);
