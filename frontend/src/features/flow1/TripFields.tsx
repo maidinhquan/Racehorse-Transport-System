@@ -17,9 +17,12 @@ function LocationField({ label, value, onChange, guest }: { label: string; value
     }} /></label>
     <button type="button" disabled={busy || !value.address.trim()} onClick={search}>{busy ? "Đang tìm…" : "Tìm địa điểm"}</button>
     {value.lat !== 0 && <p>Đã chọn địa điểm để tính lộ trình.</p>}
+    {value.lat !== 0 && value.mapProvider === "MAPBOX" && <img className="flow1-map-preview"
+      alt={`Bản đồ Mapbox: ${label}`} src={flow1.mapPreviewUrl(value)} />}
     {error && <p role="alert">{error}</p>}
     <ul>{matches.map((m, i) => <li key={i}><button type="button" onClick={() => {
-      onChange({ address: m.label.slice(0, 255), lat: m.point.latitude, lng: m.point.longitude, country: m.point.countryCode }); setMatches([]);
+      onChange({ address: m.label.slice(0, 255), lat: m.point.latitude, lng: m.point.longitude, country: m.point.countryCode,
+        mapProvider: m.provider }); setMatches([]);
     }}>{m.label}</button><small>{m.attribution}</small></li>)}</ul>
   </fieldset>;
 }

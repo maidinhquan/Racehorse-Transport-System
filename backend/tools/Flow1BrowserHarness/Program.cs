@@ -29,6 +29,8 @@ try
         await Sql(connection, await File.ReadAllTextAsync(Path.Combine(repository, "backend/database", file)));
     await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-owner','test-only','CUSTOMER',N'Browser Demo');");
     var apiPort = Port(); var mapPort = Port(); var frontPort = Port();
+    var mapProvider = Environment.GetEnvironmentVariable("FLOW1_BROWSER_MAP_PROVIDER") ?? "OSM";
+    if (mapProvider is not ("OSM" or "MAPBOX")) throw new ArgumentException("FLOW1_BROWSER_MAP_PROVIDER must be OSM or MAPBOX.");
     const string jwt = "Flow1BrowserFixtureKey_NotAProductionSecret_2026_AtLeast32Bytes";
     var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Jwt:Key"] = jwt }).Build();
     var token = new TokenService(config).GenerateAccessToken(new User { UserId = "browser-owner", Role = "CUSTOMER", FullName = "Browser Demo" });
@@ -38,6 +40,11 @@ try
     var env = new Dictionary<string, string> {
         ["ASPNETCORE_ENVIRONMENT"] = "Development", ["ConnectionStrings__DefaultConnection"] = connection,
         ["Jwt__Key"] = jwt, ["RegistrationEmail__Mode"] = "Development",
+        ["Flow1__Maps__Provider"] = mapProvider,
+        ["Flow1__Maps__Mapbox__ApiBaseUrl"] = $"http://127.0.0.1:{mapPort}/",
+        ["Flow1__Maps__Mapbox__AccessToken"] = "pk.flow1_fixture_not_live",
+        ["Flow1__Maps__Mapbox__PermanentGeocodingEnabled"] = "true",
+        ["Flow1__Maps__Mapbox__Attribution"] = "LOCAL MAPBOX HTTP FIXTURE - NOT LIVE",
         ["Flow1__Maps__RoutingBaseUrl"] = $"http://127.0.0.1:{mapPort}/", ["Flow1__Maps__GeocodingBaseUrl"] = $"http://127.0.0.1:{mapPort}/",
         ["Flow1__Maps__UserAgent"] = "RaceHorse-LocalBrowserFixture/1.0", ["Flow1__Maps__MayPersistResults"] = "true",
         ["Flow1__Maps__Attribution"] = "LOCAL HTTP FIXTURE - NOT LIVE MAP DATA", ["Flow1__Estimate__StandardVehicleCapacityStalls"] = "2",
@@ -61,6 +68,10 @@ try
     await File.WriteAllTextAsync(Path.Combine(output, "browser.log"), nodeLog);
     Console.WriteLine(nodeLog);
     if (node.ExitCode != 0) throw new InvalidOperationException($"Chromium flow failed; inspect {output}.");
+    await using var apiLogRead = new FileStream(Path.Combine(output, "api.log"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+    using var apiLogReader = new StreamReader(apiLogRead);
+    if ((await apiLogReader.ReadToEndAsync()).Contains("pk.flow1_fixture_not_live"))
+        throw new InvalidOperationException("A fixture Mapbox token leaked into API logs.");
     await Sql(connection, "IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST) <> 1 OR (SELECT COUNT(*) FROM HORSE) <> 1 OR EXISTS(SELECT 1 FROM CONTRACT) OR EXISTS(SELECT 1 FROM TRIP_PLAN) THROW 51030, 'Browser acceptance SQL invariant failed.', 1;");
     Console.WriteLine("PASS: real Chromium → frontend → API → SQL/private files; PENDING request, no Contract/Trip.");
     Console.WriteLine("Evidence: " + output);

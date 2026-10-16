@@ -10,10 +10,29 @@ const root = process.cwd();
 const base = `http://127.0.0.1:${frontPort}`;
 let vite; let browser;
 const errors = [];
+const mapbox = process.env.FLOW1_BROWSER_MAP_PROVIDER === 'MAPBOX';
 const fixture = http.createServer((req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${mapPort}`);
   res.setHeader('Content-Type', 'application/json');
-  if (url.pathname === '/search') {
+  if (mapbox && url.searchParams.get('access_token') !== 'pk.flow1_fixture_not_live') {
+    res.statusCode = 401; res.end('{}'); return;
+  }
+  if (mapbox && url.pathname.startsWith('/styles/v1/mapbox/streets-v12/static/')) {
+    if (url.searchParams.get('logo') !== 'true' || url.searchParams.get('attribution') !== 'true') {
+      res.statusCode = 400; res.end('{}'); return;
+    }
+    res.setHeader('Content-Type', 'image/png');
+    res.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=', 'base64'));
+  } else if (mapbox && url.pathname.startsWith('/search/geocode/v6/')) {
+    if (url.searchParams.get('permanent') !== 'true') { res.statusCode = 400; res.end('{}'); return; }
+    const q = url.searchParams.get('q') || 'Vietnam';
+    res.end(JSON.stringify({ type: 'FeatureCollection', attribution: 'LOCAL MAPBOX HTTP FIXTURE - NOT LIVE', features: [{
+      geometry: { type: 'Point', coordinates: [106.6, q.startsWith('Điểm lấy') ? 10.8 : 11.5] },
+      properties: { full_address: q + ' (fixture)', context: { country: { country_code: 'VN' } } },
+    }] }));
+  } else if (mapbox && url.pathname.startsWith('/directions/v5/mapbox/driving/')) {
+    res.end(JSON.stringify({ code: 'Ok', routes: [{ distance: 300000, duration: 18000 }] }));
+  } else if (url.pathname === '/search') {
     const q = url.searchParams.get('q'); const pickup = q.startsWith('Điểm lấy');
     res.end(JSON.stringify([{ display_name: q + ' (fixture)', lat: pickup ? '10.8' : '11.5', lon: '106.6', address: { country_code: 'vn' } }]));
   } else if (url.pathname === '/reverse') res.end(JSON.stringify({ address: { country_code: 'vn' } }));
@@ -46,6 +65,11 @@ async function main() {
     await group.getByLabel('Địa chỉ', { exact: true }).fill(address);
     await group.getByRole('button', { name: 'Tìm địa điểm', exact: true }).click();
     await group.getByRole('button', { name: address + ' (fixture)', exact: true }).click();
+    if (mapbox) {
+      await group.getByRole('img', { name: `Bản đồ Mapbox: ${legend}`, exact: true }).waitFor();
+      await page.waitForFunction(() => [...document.querySelectorAll('.flow1-map-preview')]
+        .every(img => img.complete && img.naturalWidth > 0), null, { timeout: 15000 });
+    }
   }
   await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
   for (const [legend, name, phone] of [['Người giao ngựa', 'Người giao Demo', '0901234567'], ['Người nhận ngựa', 'Người nhận Demo', '0907654321']]) {
@@ -85,7 +109,8 @@ async function main() {
   const download = page.waitForEvent('download'); await page.getByRole('button', { name: 'Tải hộ chiếu', exact: true }).click();
   await (await download).saveAs(path.join(output, 'downloaded-passport.pdf'));
   if (errors.length) throw new Error('Browser runtime errors: ' + errors.join('; '));
-  const result = { status: 'PASS', provider: 'LOCAL HTTP FIXTURE - NOT LIVE', requestId: saved.requestId,
+  const result = { status: 'PASS', provider: mapbox ? 'LOCAL MAPBOX HTTP FIXTURE - NOT LIVE' : 'LOCAL OSM HTTP FIXTURE - NOT LIVE', requestId: saved.requestId,
+    mapPreviewChecks: mapbox ? 'both Mapbox preview images loaded through our API, with no token in browser URL' : 'not applicable',
     assertions: ['real multipart horse upload', 'wizard keeps dates/contacts while adding horse', 'server-calculated estimate', 'PENDING before Contract/Trip',
       'proxy receiver not falsely verified', 'detail survives reload', 'list from SQL', 'private authenticated passport download'], pageErrors: errors };
   fs.writeFileSync(path.join(output, 'browser-result.json'), JSON.stringify(result, null, 2));

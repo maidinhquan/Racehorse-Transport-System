@@ -6,6 +6,21 @@ Ngày 16/10/2026, Asia/Ho_Chi_Minh. Baseline: commit phase 1 `aa90791` trên nh�
 Chưa cấu hình/xác minh Maps live và sức chứa xe chuẩn. Không chuyển giai đoạn 3 chỉ vì mock pass.
 Đại ca đã cho phép lịch mỗi hai tiếng implement và commit giai đoạn 2–6, chỉ local, không push/deploy.
 
+**Cập nhật lựa chọn:** đại ca đã chọn **Mapbox** và sẽ cấu hình token/quyền lưu/sức chứa.
+Đã bổ sung `MapboxTransportMaps`, provider selector (mặc định MAPBOX), cấu hình mẫu và
+[hướng dẫn Mapbox](../../backend/tools/FLOW1_MAPBOX_SETUP.md). Không còn chờ chọn provider.
+Adapter dùng Geocoding v6 permanent và Directions v5 driving; không fallback OSM, không gửi
+token tới FE hoặc ghi URI chứa token qua HttpClientFactory. Kiểm thử sau bổ sung:
+**Flow1 66 + Registration 47 = 113 backend pass**, không fail/skip; frontend **5 pass**, build/lint đạt. Số 45/47 bên dưới là
+baseline commit `82ef620`; Maps live vẫn chưa được nghiệm thu.
+UI có ảnh bản đồ Mapbox qua backend cho điểm đã chọn (Static Images, giữ logo/attribution,
+token không nằm trong URL browser); search Nhật gửi `language=ja&country=jp`.
+Backend thêm `GET /api/public/maps/mapbox-preview`, rate limit/no-store, response ảnh tối đa 4 MB.
+Connected Chromium với HTTP Mapbox fixture đã pass, bao gồm tải cả hai ảnh preview qua API
+và kiểm API log không chứa token fixture. Evidence:
+`backend/WebApi/App_Data/flow1/browser-96bc6ed57d2f4afea87519444b023c8b/browser-result.json`.
+Ảnh preview trong fixture là PNG test, không phải dữ liệu bản đồ live hoặc kiểm chứng chất lượng ảnh Mapbox thật.
+
 ## Những phần đã triển khai
 
 | File / lớp | Mục đích và hợp đồng bàn giao |
@@ -124,18 +139,17 @@ npx eslint src/features/flow1 src/app/router/AppRouter.tsx src/features/auth/pag
 `appsettings.Local.example.json` đã có keys nhưng cố ý không bật public demo endpoint hoặc
 điền sức chứa xe tùy đoán:
 
-1. `Flow1:Maps:RoutingBaseUrl` — OSRM-compatible service được phép dùng.
-2. `Flow1:Maps:GeocodingBaseUrl` — Nominatim-compatible service được phép dùng.
-3. `UserAgent` nhận diện ứng dụng, `MayPersistResults=true` chỉ khi đã xác nhận quyền lưu,
-   attribution đúng provider; đánh giá quota với deployment thực tế.
+1. `Flow1:Maps:Provider=MAPBOX` (mặc định đã chọn) và `Mapbox:AccessToken` trong local/env.
+2. `Mapbox:PermanentGeocodingEnabled=true` chỉ khi tài khoản đã có quyền lưu phù hợp.
+3. `MayPersistResults=true` chỉ khi đã xác nhận quyền lưu; attribution/quota đúng provider.
 4. `Flow1:Estimate:StandardVehicleCapacityStalls` từ sức chứa chuẩn được chủ dự án xác nhận.
-5. Nếu chọn Mapbox thay OSM, phải làm adapter theo đúng token/quyền lưu của gói, không tự
-   coi Temporary Geocoding là dữ liệu được lưu trong snapshot.
+5. Adapter Mapbox đã có kiểm thử; không dùng Temporary để lưu snapshot hoặc tự kích hoạt
+   gói/tài khoản có phí.
 6. Chạy smoke VN→VN + xác minh country VN→JP với provider thật, kiểm tra lỗi/quota/quyền lưu,
    và ghi evidence. Không dùng HTTP fixture để tick mục này.
 
-Đã hỏi đại ca lựa chọn provider qua chức năng question. Lượt lịch tiếp theo đọc báo cáo này,
-kiểm tra cấu hình hoặc câu trả lời mới; hoàn thiện phần live khi có dữ liệu. Nếu hai dependency
+Đại ca đã trả lời chọn Mapbox. Lượt lịch tiếp theo đọc báo cáo này,
+kiểm tra cấu hình mới; hoàn thiện phần live khi có dữ liệu. Nếu hai dependency
 vẫn thiếu thì giữ nguyên trạng thái giai đoạn 2, không lặp commit rỗng, không chuyển phase 3.
 Các phần đã kiểm chứng được commit local; không push, deploy, thay hạ tầng hoặc gửi email thật.
 

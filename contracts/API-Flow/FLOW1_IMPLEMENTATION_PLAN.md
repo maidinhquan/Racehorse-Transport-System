@@ -17,7 +17,7 @@ Luồng giữ nguyên: Estimate -> Wizard -> PENDING -> Manager Review -> Prelim
 | Cọc | Cố định 40%, BE tính; Manager không thay tỷ lệ |
 | Chuẩn bị | VN->VN <=500km: 2 ngày; >500km: 3 ngày; VN->JP: 7 ngày; Manager chỉ được tăng khi thẩm định |
 | Tuyến/mode | Demo VN->VN/ROAD, VN->JP/AIR và ground legs nếu có |
-| Bản đồ | Chủ dự án tích hợp API Mapbox hoặc dịch vụ dùng OSM qua adapter; không dùng danh mục khoảng cách cố định |
+| Bản đồ | Đại ca chọn Mapbox ngày 16/10/2026; adapter Geocoding v6 permanent + Directions v5 đã có. Chờ token/quyền lưu và sức chứa xe để nghiệm thu live; không dùng danh mục khoảng cách cố định |
 | Wizard | Ảnh + scan passport là hai loại file bắt buộc; basic fields vẫn theo schema; không upload Customer PER_TRIP hoặc giấy ủy quyền |
 | PDF/OTP | PDF sinh từ mẫu hiện có, bản phát hành bất biến; OTP gắn đúng khách/Contract/version/hash |
 | Tiền | SQL là nguồn chuẩn cho Invoice/Payment/số thực nhận; không chuyển ledger sang file |
@@ -132,7 +132,7 @@ Change pending không ghi đè canonical Request và chặn accept/send/sign. Ap
 | Routing | Tọa độ và profile đường bộ | DistanceMeters, DurationSeconds, geometry nếu được phép | Estimate và Preliminary Plan |
 | Map display | Điểm/đường và lớp nền | Bản đồ tương tác | Wizard/chi tiết, không quyết định giá |
 
-Không dùng bản đồ hiển thị thay routing engine. OSM là dữ liệu/hệ sinh thái, cần dịch vụ geocoding và routing cụ thể. Provider chưa bị khóa trong kế hoạch này; chủ dự án bàn giao implementation theo contract dưới đây.
+Không dùng bản đồ hiển thị thay routing engine. Ngày 16/10/2026 đại ca đã chọn Mapbox; xem [cấu hình và nghiệm thu](../../backend/tools/FLOW1_MAPBOX_SETUP.md). Adapter OSM còn phục vụ cấu hình explicit/fixture, không fallback khi Mapbox lỗi. Các yêu cầu interface bên dưới giữ nguyên.
 
 ### 6.2. Interface dự kiến
 

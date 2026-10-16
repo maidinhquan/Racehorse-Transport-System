@@ -2,7 +2,7 @@ import { apiClient } from "../../shared/api/apiClient";
 import { registrationErrorMessage } from "../auth/api/registrationApi";
 
 export const flow1Error = registrationErrorMessage;
-export type Location = { address: string; lat: number; lng: number; country: string };
+export type Location = { address: string; lat: number; lng: number; country: string; mapProvider?: string };
 export type Trip = { pickup: Location; delivery: Location; preferredTransportMode: string; horseCount: number; desiredDepartureDate: string };
 export type Estimate = { estimatedPrice: number; estimatedDeposit: number; roadDistanceKm: number | null;
   minimumPreparationDays: number; earliestDepartureDate: string; scope: string; attribution: string | null; currency: string };
@@ -28,8 +28,9 @@ async function post<T>(url: string, data: unknown, key?: string): Promise<T> {
   return r.data.data;
 }
 export const flow1 = {
-  search: (address: string, country: string, guest = false) => get<{ label: string; point: { longitude: number; latitude: number; countryCode: string }; attribution: string }[]>(
+  search: (address: string, country: string, guest = false) => get<{ label: string; point: { longitude: number; latitude: number; countryCode: string }; attribution: string; provider?: string }[]>(
     `${guest ? "/public/estimates" : "/customer"}/locations/search?${new URLSearchParams({ address, country })}`),
+  mapPreviewUrl: (point: Location) => `${baseURL.replace(/\/$/, "")}/public/maps/mapbox-preview?${new URLSearchParams({ lat: String(point.lat), lng: String(point.lng), country: point.country })}`,
   estimate: (trip: Trip, guest = false) => post<Estimate>(guest ? "/public/estimates" : "/customer/estimates", trip),
   horses: (departure?: string, deadline?: string) => get<Horse[]>("/customer/horses/selectable" +
     (departure && deadline ? `?${new URLSearchParams({ departure, deadline })}` : "")),

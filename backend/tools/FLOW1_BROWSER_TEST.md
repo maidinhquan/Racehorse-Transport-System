@@ -24,6 +24,11 @@ SQL asserts one horse/Request and no Contract/Trip. Evidence/logs/screenshots go
 ignored private App_Data. Own API, Vite, fixture and browser processes are closed. The
 generated database name is validated again before dropping exactly that database.
 
+Set `FLOW1_BROWSER_MAP_PROVIDER=MAPBOX` to exercise Mapbox Geocoding v6 and Directions v5
+through the same local HTTP fixture. This sets a fake token, permanent-storage flags and
+test capacity only in the child API process. The harness also rejects fixture-token leaks
+in API logs. Without this variable the connected test uses the explicit OSM adapter.
+
 This checks the connected Customer stack with fixture maps, not live provider coverage,
 OTP, payment, Manager review or whole-Flow-1 acceptance. Live map configuration must be
 verified separately. The phase-2 report lists the remaining configuration and checks.

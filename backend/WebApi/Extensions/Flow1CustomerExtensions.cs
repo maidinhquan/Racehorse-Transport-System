@@ -23,9 +23,16 @@ public static class Flow1CustomerExtensions
         services.AddSingleton<OsmRequestGate>();
         services.AddHttpClient<OsmTransportMaps>(client => client.Timeout = TimeSpan.FromSeconds(15))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
-        services.AddScoped<IFlow1RoadRoutingProvider>(sp => sp.GetRequiredService<OsmTransportMaps>());
-        services.AddScoped<IFlow1GeocodingProvider>(sp => sp.GetRequiredService<OsmTransportMaps>());
-        services.AddScoped<IFlow1LocationVerifier>(sp => sp.GetRequiredService<OsmTransportMaps>());
+        // Mapbox authenticates in the query string; suppress factory URI logging entirely.
+        services.AddHttpClient<MapboxTransportMaps>(client => client.Timeout = TimeSpan.FromSeconds(15))
+            .RemoveAllLoggers()
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddScoped<IFlow1RoadRoutingProvider>(sp => Maps(sp) switch {
+            "MAPBOX" => sp.GetRequiredService<MapboxTransportMaps>(), _ => sp.GetRequiredService<OsmTransportMaps>() });
+        services.AddScoped<IFlow1GeocodingProvider>(sp => Maps(sp) switch {
+            "MAPBOX" => sp.GetRequiredService<MapboxTransportMaps>(), _ => sp.GetRequiredService<OsmTransportMaps>() });
+        services.AddScoped<IFlow1LocationVerifier>(sp => Maps(sp) switch {
+            "MAPBOX" => sp.GetRequiredService<MapboxTransportMaps>(), _ => sp.GetRequiredService<OsmTransportMaps>() });
         services.AddSingleton<IFlow1PrivateFileStore>(sp =>
         {
             // Force validation of the metadata root against custom web roots first.
@@ -53,4 +60,9 @@ public static class Flow1CustomerExtensions
         });
         return services;
     }
+    private static string Maps(IServiceProvider services) => services.GetRequiredService<Flow1MapOptions>().Provider.ToUpperInvariant() switch
+    {
+        "MAPBOX" => "MAPBOX", "OSM" => "OSM",
+        _ => throw new InvalidOperationException("Flow1:Maps:Provider must be MAPBOX or OSM.")
+    };
 }

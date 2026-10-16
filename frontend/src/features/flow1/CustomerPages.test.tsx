@@ -6,6 +6,8 @@ import type { ReactNode } from "react";
 import { flow1 } from "./api";
 import type { Estimate, Horse, RequestView } from "./api";
 import { PublicEstimatePage, RequestWizardPage, RequestsPage, RequestDetailPage } from "./CustomerPages";
+import { TripFields } from "./TripFields";
+import { emptyTrip } from "./api";
 
 vi.mock("../../shared/layouts/CustomerLayout/CustomerLayout", () => ({ default: ({ children }: { children: ReactNode }) => <main>{children}</main> }));
 const estimate: Estimate = { estimatedPrice: 54600000, estimatedDeposit: 21840000, roadDistanceKm: 300,
@@ -40,6 +42,12 @@ async function toHorses(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByRole("heading", { name: "3. Ngựa và hồ sơ" });
 }
 describe("Customer Flow 1 API screens", () => {
+  it("Mapbox preview points to our API and never includes a provider access token", () => {
+    render(<TripFields trip={{ ...emptyTrip, pickup: { address: "Hồ Chí Minh", lat: 10.8, lng: 106.6, country: "VN", mapProvider: "MAPBOX" } }} onChange={() => {}} />);
+    const image = screen.getByRole("img", { name: "Bản đồ Mapbox: Điểm lấy ngựa (Việt Nam)" });
+    expect(image).toHaveAttribute("src", "/api/public/maps/mapbox-preview?lat=10.8&lng=106.6&country=VN");
+    expect(image.getAttribute("src")).not.toContain("access_token");
+  });
   it("public estimate displays only the server result and never creates a request", async () => {
     const user = userEvent.setup(); const calculate = vi.spyOn(flow1, "estimate").mockResolvedValue(estimate);
     const submit = vi.spyOn(flow1, "submit"); mount(<PublicEstimatePage />);

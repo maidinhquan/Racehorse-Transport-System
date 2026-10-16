@@ -4,7 +4,8 @@ namespace Application.Interfaces.Flow1;
 
 // Contracts only. Provider implementations and their live checks belong to later phases.
 public sealed record MapPoint(double Longitude, double Latitude, string CountryCode);
-public sealed record GeocodeCandidate(string Label, MapPoint Point, bool MayPersist, string Attribution);
+public sealed record GeocodeCandidate(string Label, MapPoint Point, bool MayPersist, string Attribution,
+    string? Provider = null);
 public sealed record RoadRouteQuery(IReadOnlyList<MapPoint> Points, string Profile = "driving");
 public sealed record RoadRouteResult(string Provider, decimal DistanceMeters, decimal DurationSeconds,
     DateTimeOffset CalculatedAtUtc, string InputFingerprint, bool MayPersist, string Attribution);
