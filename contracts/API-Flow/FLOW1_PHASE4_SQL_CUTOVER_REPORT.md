@@ -4,6 +4,10 @@ Ngày **16/10/2026, Asia/Ho_Chi_Minh**, branch `Truong`.
 Commit trước lượt: **`42e32dc465a5bd28cf7a956f3cee72bf7a2a7308` (S1).
 Yêu cầu trực tiếp: **“Chuyển đi. Ko cần đợi 2 tiếng nữa.”**
 
+**Cập nhật kế tiếp:** [S3](FLOW1_PHASE4_SQL_IMPORT_REPORT.md) đã có offline importer,
+SQL receipts/parity, gỡ file provider/interface/options và regression Chrome sau
+import. Các mục “S3 còn lại” dưới đây ghi trạng thái tại commit S2.
+
 **S2 hoàn thành trong source và local/test.** Customer/review/publication/OTP/sign
 dùng SQL state; state + status + receipt/invoice commit chung. Giữ đủ hỏi/đáp/
 revision/change/plan/budget/quote/Draft và quyền/version/hash guards.

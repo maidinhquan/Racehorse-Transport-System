@@ -7,6 +7,11 @@ using Application.Common.Flow1;
 using Domain.Entities;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using System.Text.Json;
+using Application.Interfaces.Flow1;
+using Infrastructure.Data.Context;
+using Infrastructure.Storage;
+using Microsoft.EntityFrameworkCore;
 
 // Explicit local-only connected test; no writes to the configured business database.
 if (args.Length != 2) throw new ArgumentException("Arguments: absolute Node executable, absolute Playwright module directory.");
@@ -74,7 +79,8 @@ try
         ["Flow1__Maps__RoutingBaseUrl"] = $"http://127.0.0.1:{mapPort}/", ["Flow1__Maps__GeocodingBaseUrl"] = $"http://127.0.0.1:{mapPort}/",
         ["Flow1__Maps__UserAgent"] = "RaceHorse-LocalBrowserFixture/1.0", ["Flow1__Maps__MayPersistResults"] = "true",
         ["Flow1__Maps__Attribution"] = "LOCAL HTTP FIXTURE - NOT LIVE MAP DATA", ["Flow1__Estimate__StandardVehicleCapacityStalls"] = "1",
-        ["Flow1__Storage__MetadataRoot"] = Path.Combine(output, "metadata") };
+        ["Flow1__PrivateFiles__Root"] = Path.Combine(output, "private-bytes"),
+        ["Flow1__LegacyImport__SourceRoot"] = Path.Combine(output, "legacy-source") };
     foreach (var pair in env) apiInfo.Environment[pair.Key] = pair.Value;
     // Always override private SMTP configuration. The Node sink binds only loopback and never forwards mail.
     apiInfo.Environment["Flow1__Contracts__OtpHmacKey"] = "ContractBrowserFixture_Key_NotProduction_AtLeast32Bytes_2026";
@@ -148,13 +154,71 @@ try
     await Sql(connection, "IF EXISTS(SELECT 1 FROM HORSE WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) OR EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) OR EXISTS(SELECT 1 FROM CONTRACT WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) THROW 51034, 'Missing SQL state in browser use cases.', 1;");
     if (signing) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus='SIGNED' AND JSON_VALUE(Flow1StateJson,'$.documents.acceptance.revisions[0].payload.operation.outcome')='COMMITTED') OR NOT EXISTS(SELECT 1 FROM [USER] WHERE UserID='browser-owner' AND Flow1StateVersion > 0 AND JSON_QUERY(Flow1StateJson,'$.documents.\"otp-account\"') IS NOT NULL) THROW 51035, 'SQL confirmation/account budget state missing.', 1;");
     foreach (var kind in new[] { "horse", "request", "review", "plan", "contract", "publication", "contract-otp", "acceptance", "otp-account" })
-        if (Directory.Exists(Path.Combine(output, "metadata", kind))) throw new InvalidOperationException("Browser use case created legacy metadata sidecars.");
+        if (Directory.Exists(Path.Combine(output, "legacy-source", kind))) throw new InvalidOperationException("Browser use case created legacy metadata sidecars.");
     Console.WriteLine("PASS: all owner state stored in SQL; no legacy metadata sidecar directories created.");
+    if (Environment.GetEnvironmentVariable("FLOW1_BROWSER_IMPORT") == "1")
+    {
+        if (!signing) throw new InvalidOperationException("Import browser acceptance requires signing.");
+        // Only this generated DB: stop the API, export test source fixtures, clear test state, then import.
+        await StopApi();
+        var sourceRoot = Path.Combine(output, "legacy-source"); Directory.CreateDirectory(sourceRoot);
+        var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        await using (var export = new SqlConnection(connection))
+        {
+            await export.OpenAsync();
+            foreach (var table in new[] { "HORSE", "TRANSPORT_REQUEST", "CONTRACT", "USER" })
+            {
+                await using var command = new SqlCommand($"SELECT Flow1StateJson FROM dbo.[{table}] WHERE Flow1StateJson IS NOT NULL;", export);
+                await using var reader = await command.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    using var state = JsonDocument.Parse(reader.GetString(0));
+                    foreach (var item in state.RootElement.GetProperty("documents").EnumerateObject())
+                    {
+                        var document = item.Value.Deserialize<Flow1StateDocument>(json)!;
+                        if (document.AggregateType == "otp-account") document = document with { AggregateId = ("oa-" + Application.Services.Flow1.CustomerTransportService.Hash("browser-owner")[..32]).ToLowerInvariant() };
+                        var directory = Path.Combine(sourceRoot, document.AggregateType); Directory.CreateDirectory(directory);
+                        await File.WriteAllBytesAsync(Path.Combine(directory, document.AggregateId + ".json"), JsonSerializer.SerializeToUtf8Bytes(document, json));
+                    }
+                }
+            }
+        }
+        if (!Regex.IsMatch(name, @"\ARaceHorseFlow1Browser_[a-f0-9]{32}\z")) throw new InvalidOperationException("Unsafe test state target.");
+        await Sql(connection, "UPDATE HORSE SET Flow1StateJson=NULL,Flow1StateVersion=0; UPDATE TRANSPORT_REQUEST SET Flow1StateJson=NULL,Flow1StateVersion=0; UPDATE CONTRACT SET Flow1StateJson=NULL,Flow1StateVersion=0; UPDATE [USER] SET Flow1StateJson=NULL,Flow1StateVersion=0;");
+        await using (var context = new HorseTransportDbContext(new DbContextOptionsBuilder<HorseTransportDbContext>().UseSqlServer(connection).Options))
+        {
+            var importer = new Flow1LegacyStateImporter(context, sourceRoot, Path.Combine(output, "private-bytes"));
+            var inventory = await importer.InventoryAsync();
+            if (inventory.Issues.Length > 0) throw new InvalidOperationException("Browser inventory conflicts: " + string.Join(',', inventory.Issues.Select(x => x.Code)));
+            var imported = await importer.ImportAsync(inventory.SourceFingerprint);
+            if (!imported.ParityVerified || !(await importer.ImportAsync(inventory.SourceFingerprint)).ParityVerified) throw new InvalidOperationException("Browser import/retry parity failed.");
+            await File.WriteAllTextAsync(Path.Combine(output, "sql-import-result.json"), JsonSerializer.Serialize(imported, json));
+        }
+        api = StartApi(); nodeInfo.Environment["FLOW1_BROWSER_VERIFY_IMPORT"] = "1";
+        using var verify = Process.Start(nodeInfo) ?? throw new InvalidOperationException("Could not start import browser verification.");
+        var verifyOut = verify.StandardOutput.ReadToEndAsync(); var verifyErr = verify.StandardError.ReadToEndAsync();
+        using var verifyTimeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        try { await verify.WaitForExitAsync(verifyTimeout.Token); }
+        finally { if (!verify.HasExited) verify.Kill(entireProcessTree: true); }
+        var verifyLog = await verifyOut + "\n" + await verifyErr;
+        await File.WriteAllTextAsync(Path.Combine(output, "import-browser.log"), verifyLog); Console.WriteLine(verifyLog);
+        if (verify.ExitCode != 0) throw new InvalidOperationException("Imported SQL browser verification failed.");
+        await Sql(connection, "IF (SELECT COUNT(*) FROM INVOICE)<>1 OR EXISTS(SELECT 1 FROM TRIP_PLAN) OR NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus='SIGNED' AND SignedAt IS NOT NULL AND JSON_QUERY(Flow1StateJson,'$.legacySources') IS NOT NULL) THROW 51036,'Import browser SQL parity failed.',1;");
+        Console.WriteLine("PASS: offline inventory/import/retry parity + fresh API/Chrome with retained sources, original PDF and one deposit invoice.");
+    }
     Console.WriteLine(signing ? "PASS: real PDF / loopback SMTP / Customer OTP confirmation / SQL SIGNED + one 40% deposit Invoice / original PDF unchanged / no Trip."
         : phase4 ? "PASS: Manager issues immutable PDF using real LibreOffice; Customer views/downloads identical hash; no sign/Trip/Invoice yet."
         : phase3 ? "PASS: Customer + Manager review/revision/plan/Draft/change through real API/SQL/private files; no Trip/Invoice."
         : "PASS: real Chromium → frontend → API → SQL/private files; PENDING request, no Contract/Trip.");
     Console.WriteLine("Evidence: " + output);
+    Process StartApi()
+    {
+        var process = Process.Start(apiInfo) ?? throw new InvalidOperationException("Could not restart API.");
+        process.OutputDataReceived += (_, e) => { if (e.Data is not null) lock (log) log.WriteLine(e.Data); };
+        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) lock (log) log.WriteLine(e.Data); };
+        process.BeginOutputReadLine(); process.BeginErrorReadLine(); return process;
+    }
+    async Task StopApi() { if (api is not null) { if (!api.HasExited) { api.Kill(entireProcessTree: true); await api.WaitForExitAsync(); } api.Dispose(); api = null; } }
 }
 finally
 {

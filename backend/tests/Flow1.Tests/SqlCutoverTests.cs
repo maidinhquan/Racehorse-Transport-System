@@ -5,7 +5,6 @@ using Application.Interfaces.Flow1;
 using Domain.Entities;
 using Infrastructure.Storage;
 using Infrastructure.Transactions;
-using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Flow1.Tests;
@@ -26,8 +25,6 @@ public sealed class SqlCutoverTests
         Assert.Equal("FLOW1_SQL_SCHEMA_REQUIRED", JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.GetProperty("errorCode").GetString());
         Assert.Equal(0, await db.ScalarAsync<int>("SELECT COUNT(*) FROM HORSE;"));
         Assert.False(Directory.Exists(root));
-        using var scope = factory.Services.CreateScope();
-        Assert.Null(scope.ServiceProvider.GetService<IFlow1MetadataStore>());
     }
 
     [LocalSqlFact]

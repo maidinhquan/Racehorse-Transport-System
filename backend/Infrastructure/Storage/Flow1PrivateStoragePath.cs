@@ -6,9 +6,9 @@ namespace Infrastructure.Storage;
 
 public static class Flow1PrivateStoragePath
 {
-    public static string Resolve(Flow1StorageOptions options, IHostEnvironment environment)
+    public static string Resolve(string root, IHostEnvironment environment)
     {
-        var path = Path.GetFullPath(options.MetadataRoot, environment.ContentRootPath);
+        var path = Path.GetFullPath(root, environment.ContentRootPath);
         var webRoot = environment is IWebHostEnvironment web && !string.IsNullOrWhiteSpace(web.WebRootPath)
             ? Path.GetFullPath(web.WebRootPath) : Path.GetFullPath("wwwroot", environment.ContentRootPath);
         if (path.Equals(webRoot, StringComparison.OrdinalIgnoreCase) || path.StartsWith(webRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))

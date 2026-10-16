@@ -78,7 +78,7 @@ public sealed class FoundationTests
         var services = new ServiceCollection();
         services.AddFlow1Foundation(config, new TestEnvironment { ContentRootPath = contentRoot, WebRootPath = publicRoot });
         using var provider = services.BuildServiceProvider();
-        Assert.Throws<InvalidOperationException>(() => Flow1PrivateStoragePath.Resolve(new() { MetadataRoot = Path.Combine(publicRoot, "metadata") }, new TestEnvironment { ContentRootPath = contentRoot, WebRootPath = publicRoot }));
+        Assert.Throws<InvalidOperationException>(() => Flow1PrivateStoragePath.Resolve(Path.Combine(publicRoot, "metadata"), new TestEnvironment { ContentRootPath = contentRoot, WebRootPath = publicRoot }));
         Assert.False(Directory.Exists(Path.Combine(publicRoot, "metadata")));
     }
 
@@ -90,5 +90,22 @@ public sealed class FoundationTests
         public string EnvironmentName { get; set; } = "Production";
         public string ContentRootPath { get; set; } = "";
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    [Fact]
+    public void Storage_configuration_keeps_legacy_byte_paths_and_allows_explicit_new_roots_without_a_file_state_provider()
+    {
+        var settings = new Dictionary<string, string?> { ["Flow1:Storage:MetadataRoot"] = "App_Data/legacy" };
+        void Check(string bytes, string source)
+        {
+            var services = new ServiceCollection();
+            services.AddFlow1Foundation(new ConfigurationBuilder().AddInMemoryCollection(settings).Build(), new TestEnvironment());
+            using var provider = services.BuildServiceProvider();
+            Assert.Equal(bytes, provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Flow1PrivateFileOptions>>().Value.Root);
+            Assert.Equal(source, provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Flow1LegacyImportOptions>>().Value.SourceRoot);
+        }
+        Check(Path.Combine("App_Data/legacy", "private-bytes"), "App_Data/legacy");
+        settings["Flow1:PrivateFiles:Root"] = "App_Data/private"; settings["Flow1:LegacyImport:SourceRoot"] = "App_Data/retained";
+        Check("App_Data/private", "App_Data/retained");
     }
 }

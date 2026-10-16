@@ -13,14 +13,13 @@ OTP digests/attempts/TTL/rate budget, acceptance, extension và operation receip
 Invoice/Payment/status/SignedAt/Trip vẫn ở các cột nghiệp vụ hiện hữu.
 Không lưu code OTP thô hoặc secret trong JSON; không dùng public URL thay file key.
 
-**S1 đã có SQL foundation; S2 đã chuyển source endpoint và transaction sang SQL.**
+**S1–S3 đã thực hiện và kiểm chứng trong local/test; DB nghiệp vụ chưa migrate/import.**
 Customer/review/publication/OTP/acceptance dùng `IFlow1StateStore`; runtime không
 đăng ký `LocalFlow1MetadataStore`. SQL state và business writes commit chung.
-Các file provider/interface/tests cũ được giữ cho bước S3 inventory/import/cleanup;
-không coi việc chuyển source là đã migrate/import DB nghiệp vụ hoặc xóa hết MetadataStore.
+S3 có tool inventory/import/parity offline, đã gỡ file provider/interface/options/
+tests cũ có SQL/import replacement. Xem [báo cáo S3](FLOW1_PHASE4_SQL_IMPORT_REPORT.md).
 
-S3 phải kiểm/import dữ liệu cũ và dọn provider/interface/options/tests cũ trước khi
-tuyên bố chuyển xong. Thiếu schema 004 hoặc còn sidecar JSON phải dừng rõ bằng lỗi
+Thiếu schema 004 hoặc còn sidecar JSON chưa có biên nhận import phải dừng rõ bằng lỗi
 `FLOW1_SQL_SCHEMA_REQUIRED` / `FLOW1_STATE_IMPORT_REQUIRED`; không tự nâng schema.
 Không dùng dual-write, fallback âm thầm sang file khi SQL thiếu/hỏng hoặc ghi SQL lỗi.
 
@@ -145,6 +144,14 @@ Chi tiết phạm vi và bằng chứng ở [báo cáo S2](FLOW1_PHASE4_SQL_CUTO
    preflight/import path rõ. Cutover không được âm thầm mất dữ liệu local có sẵn.
 
 ### S3 — Import có kiểm chứng, dọn phần cũ và regression
+
+**Đã hoàn thành source/tool/test của S3** theo yêu cầu “Tiếp”, không tự apply vào
+DB nghiệp vụ. [Hướng dẫn vận hành](../../backend/tools/Flow1StateImport/README.md)
+có dry-run mặc định, xác nhận target/offline/reviewed fingerprint khi apply.
+SQL giữ source receipts cùng transaction; JSON nguồn được giữ nguyên, runtime chỉ
+hash đối chiếu committed receipts và không parse làm business state. PREPARED latest
+hoặc conflict được báo để reconcile rõ, không đoán success. Các mục dưới là tiêu chí
+đã kiểm trong disposable DB/Chrome; không phải bằng chứng import dữ liệu production.
 
 1. Tạo tool read-only inventory/dry-run mặc định: xác định target DB rõ, đọc SQL
    rows + private metadata + file hashes, báo missing/duplicate/owner/version conflict.

@@ -12,22 +12,44 @@ using Microsoft.Data.SqlClient;
 
 namespace Infrastructure.Storage;
 
-/// <summary>SQL-only state; fixed table mapping. Legacy files are checked for presence only, never used as state.</summary>
+/// <summary>SQL-only state; retained legacy hashes require committed SQL import receipts, never a business-state fallback.</summary>
 public sealed class SqlFlow1StateStore(HorseTransportDbContext context, TimeProvider clock, string? legacyRoot = null) : IFlow1StateStore
 {
     private const int MaxDocumentBytes = 2 * 1024 * 1024;
     private const int MaxOwnerBytes = 8 * 1024 * 1024;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private void CheckLegacyCutover()
+    private bool legacyChecked;
+    private async Task CheckLegacyCutover(CancellationToken ct)
     {
-        // Presence-only guard. Never read business data from sidecars or silently fall back to them.
-        if (legacyRoot is not null && new[] { "horse", "request", "review", "plan", "contract", "publication", "contract-otp", "acceptance", "otp-account" }
-            .Any(type => Directory.Exists(Path.Combine(legacyRoot, type)) && Directory.EnumerateFiles(Path.Combine(legacyRoot, type), "*.json").Any()))
-            throw new BusinessRuleException("Legacy Flow 1 sidecars require verified inventory/import before SQL cutover; source files have been preserved.", 503, "FLOW1_STATE_IMPORT_REQUIRED");
+        if (legacyChecked || legacyRoot is null) return;
+        Dictionary<string, byte[]> sources;
+        try { sources = LegacyFlow1Sources.Read(legacyRoot); }
+        catch (Exception e) when (e is InvalidDataException or IOException or UnauthorizedAccessException)
+        { throw new BusinessRuleException("Legacy sources need operator review; no fallback was attempted.", 503, "FLOW1_STATE_IMPORT_REQUIRED"); }
+        if (sources.Count == 0) { legacyChecked = true; return; }
+        // Only committed SQL receipts authorize retained source hashes. No legacy payload is parsed here.
+        // A separate read connection avoids taking global shared locks in the business transaction.
+        await using var connection = new SqlConnection(context.Database.GetConnectionString()); await connection.OpenAsync(ct);
+        var receipts = new HashSet<(string, string)>();
+        try
+        {
+            foreach (var table in new[] { "HORSE", "TRANSPORT_REQUEST", "CONTRACT", "USER" })
+            {
+                await using var command = new SqlCommand($"SELECT JSON_QUERY(Flow1StateJson,'$.legacySources') FROM dbo.[{table}] WHERE Flow1StateJson IS NOT NULL;", connection);
+                await using var reader = await command.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct)) if (!reader.IsDBNull(0))
+                    foreach (var r in JsonSerializer.Deserialize<Flow1LegacySourceReceipt[]>(reader.GetString(0), Json) ?? []) receipts.Add((r.Path, r.Sha256));
+            }
+        }
+        catch (SqlException e) when (e.Number is 207 or 208)
+        { throw new BusinessRuleException("Flow 1 SQL state schema is not ready.", 503, "FLOW1_SQL_SCHEMA_REQUIRED"); }
+        if (sources.Any(s => !receipts.Contains((s.Key, LegacyFlow1Sources.Hash(s.Value)))))
+            throw new BusinessRuleException("Legacy source has no matching committed SQL import receipt; files were preserved.", 503, "FLOW1_STATE_IMPORT_REQUIRED");
+        legacyChecked = true;
     }
-    private sealed record Envelope(int SchemaVersion, Dictionary<string, Flow1StateDocument> Documents);
+    internal sealed record Envelope(int SchemaVersion, Dictionary<string, Flow1StateDocument> Documents, Flow1LegacySourceReceipt[]? LegacySources = null);
     private sealed record OwnerState(long Revision, Envelope Value);
-    private static (string Table, string Key) Owner(string type) => type switch
+    internal static (string Table, string Key) Owner(string type) => type switch
     {
         "horse" => ("HORSE", "HorseID"),
         "request" or "review" or "plan" => ("TRANSPORT_REQUEST", "RequestID"),
@@ -99,7 +121,7 @@ public sealed class SqlFlow1StateStore(HorseTransportDbContext context, TimeProv
     public async Task<Flow1StateDocument?> ReadAsync(string type, string id, CancellationToken ct = default)
     {
         type = Key(type); id = Key(id); Owner(type);
-        CheckLegacyCutover();
+        await CheckLegacyCutover(ct);
         var opened = context.Database.GetDbConnection().State != ConnectionState.Open;
         if (opened) await context.Database.OpenConnectionAsync(ct);
         try { return (await Load(type, id, false, ct))?.Value.Documents.GetValueOrDefault(type); }
@@ -109,7 +131,7 @@ public sealed class SqlFlow1StateStore(HorseTransportDbContext context, TimeProv
         string operationId, string actorUserId, string action, JsonElement payload, CancellationToken ct = default)
     {
         type = Key(type); id = Key(id); var owner = Owner(type);
-        CheckLegacyCutover();
+        await CheckLegacyCutover(ct);
         if (context.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Append Flow 1 state inside the same SQL transaction as its business changes.");
         if (expectedVersion < 0 || string.IsNullOrWhiteSpace(operationId) || operationId.Length > 128 ||

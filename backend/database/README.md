@@ -14,12 +14,16 @@ money, timestamps, private files or legacy records are invented/backfilled by 00
 
 **S2 switches endpoint source to SQL state.** Customer/review/publication/OTP/sign
 use the scoped SQL provider and commit state plus business mutations together.
-Missing migration 004 returns `FLOW1_SQL_SCHEMA_REQUIRED`; any legacy typed JSON
-sidecars cause `FLOW1_STATE_IMPORT_REQUIRED`. Sources are preserved, never read as
-a fallback. S3 inventory/import/parity/cleanup remains pending; applying 004 alone
-does not move old metadata. Do not delete metadata to bypass the guard. No migration
+Missing migration 004 returns `FLOW1_SQL_SCHEMA_REQUIRED`. S3 provides offline
+[inventory/import/parity tooling](../tools/Flow1StateImport/README.md) and removes
+the file state provider/interface/writer options. Typed legacy JSON requires a
+matching committed import receipt (path/hash) in the SQL owner envelope; missing
+or changed sources return `FLOW1_STATE_IMPORT_REQUIRED`. Sources remain unchanged,
+never read as runtime business state or a fallback. Applying 004 alone does not
+move old metadata. Do not delete metadata to bypass the guard. No migration
 or import runs at startup; tests only apply 004 to controlled disposable databases,
-never HorseTransportDB. See the [S2 report](../../contracts/API-Flow/FLOW1_PHASE4_SQL_CUTOVER_REPORT.md).
+never HorseTransportDB. See [S2](../../contracts/API-Flow/FLOW1_PHASE4_SQL_CUTOVER_REPORT.md)
+and [S3](../../contracts/API-Flow/FLOW1_PHASE4_SQL_IMPORT_REPORT.md). Business DB migration/import remains a separate explicitly authorized operation.
 
 For a separately authorized upgrade: verify/backup target DB and private files,
 apply/verify 003 first, review 004, run dry-run/inventory and the eventual importer,

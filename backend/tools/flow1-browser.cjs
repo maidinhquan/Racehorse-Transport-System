@@ -92,6 +92,35 @@ async function main() {
   const page = await context.newPage();
   page.setDefaultTimeout(liveMaps ? 60000 : 30000);
   page.on('pageerror', e => errors.push(e.message));
+  if (process.env.FLOW1_BROWSER_VERIFY_IMPORT === '1') {
+    const saved = JSON.parse(fs.readFileSync(path.join(output, 'browser-result.json'), 'utf8'));
+    const original = JSON.parse(fs.readFileSync(path.join(output, 'acceptance-result.json'), 'utf8'));
+    await page.goto(base + '/customer/requests/' + saved.requestId);
+    await page.getByText('Trạng thái: AWAITING_DEPOSIT', { exact: true }).waitFor();
+    await page.getByText(/Đã xác nhận bằng OTP email lúc/).waitFor();
+    await page.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).click();
+    const download = page.waitForEvent('download');
+    await page.getByRole('link', { name: 'Tải đúng bản PDF này', exact: true }).click();
+    const pdf = path.join(output, 'original-pdf-after-import.pdf'); await (await download).saveAs(pdf);
+    const sha256 = require('node:crypto').createHash('sha256').update(fs.readFileSync(pdf)).digest('hex');
+    if (sha256 !== original.originalPdfSha256) throw new Error('Imported PDF hash differs from original.');
+    await page.reload(); await page.getByText(/Đã xác nhận bằng OTP email lúc/).waitFor();
+    await page.screenshot({ path: path.join(output, 'customer-after-import.png'), fullPage: true });
+    const managerContext = await browser.newContext({ viewport: { width: 1400, height: 1100 } });
+    await managerContext.addInitScript(({ token, origin }) => {
+      if (location.origin !== origin || !window.localStorage) return;
+      localStorage.setItem('accessToken', token); localStorage.setItem('userRole', 'LOGISTICS_MANAGER');
+    }, { token: process.env.FLOW1_MANAGER_FIXTURE_TOKEN, origin: base });
+    const manager = await managerContext.newPage(); manager.on('pageerror', e => errors.push(e.message));
+    await manager.goto(base + '/manager/requests/' + saved.requestId);
+    await manager.getByText(/Đã xác nhận bằng OTP email lúc/).waitFor();
+    await manager.getByRole('heading', { name: 'Đề xuất báo giá nội bộ', exact: true }).waitFor();
+    await manager.screenshot({ path: path.join(output, 'manager-after-import.png'), fullPage: true });
+    if (errors.length) throw new Error('Imported runtime browser errors: ' + errors.join('; '));
+    const result = { status: 'PASS', sha256, assertions: ['fresh API host reads imported SQL with retained legacy sources', 'Customer signed receipt and deposit survive reload', 'Manager quote and receipt preserved', 'original PDF download hash unchanged'], pageErrors: errors };
+    fs.writeFileSync(path.join(output, 'import-browser-result.json'), JSON.stringify(result, null, 2));
+    console.log(JSON.stringify(result)); await managerContext.close(); return;
+  }
   const browserMapRequests = [];
   page.on('request', request => {
     // Only retain host/path; never retain query strings or credential headers.

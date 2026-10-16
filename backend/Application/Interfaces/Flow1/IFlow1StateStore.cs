@@ -10,7 +10,7 @@ public sealed record Flow1StateDocument(int SchemaVersion, string AggregateType,
 /// <summary>
 /// Structured, versioned SQL state on existing owner rows. Append participates in the caller's
 /// SQL transaction and never commits. The owner row must already exist in that transaction.
-/// This port is introduced before the separately tested application cutover.
+/// Runtime uses SQL exclusively; immutable private bytes are handled by a separate port.
 /// </summary>
 public interface IFlow1StateStore
 {

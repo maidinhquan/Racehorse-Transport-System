@@ -19,12 +19,15 @@ public static class Flow1ServiceExtensions
         services.AddScoped<IFlow1UnitOfWork, Flow1UnitOfWork>();
         services.AddScoped<IFlow1Repository, Flow1Repository>();
         services.AddScoped<IFlow1StateStore>(sp => new SqlFlow1StateStore(sp.GetRequiredService<Infrastructure.Data.Context.HorseTransportDbContext>(),
-            sp.GetRequiredService<TimeProvider>(), Flow1PrivateStoragePath.Resolve(sp.GetRequiredService<IOptions<Flow1StorageOptions>>().Value, environment)));
+            sp.GetRequiredService<TimeProvider>(), Flow1PrivateStoragePath.Resolve(sp.GetRequiredService<IOptions<Flow1LegacyImportOptions>>().Value.SourceRoot, environment)));
         services.AddScoped<Application.Services.Flow1.Flow1RequestTransaction>();
         services.TryAddSingleton(TimeProvider.System);
-        services.AddOptions<Flow1StorageOptions>().Bind(configuration.GetSection("Flow1:Storage"))
-            .Validate(o => !string.IsNullOrWhiteSpace(o.MetadataRoot) && o.MaxDocumentBytes > 0 &&
-                o.LockTimeoutMilliseconds > 0, "Invalid Flow1:Storage configuration.").ValidateOnStart();
+        // Compatibility is path-only: never restore the old file state provider or its writer settings.
+        var oldRoot = configuration["Flow1:Storage:MetadataRoot"] ?? "App_Data/flow1/metadata";
+        services.AddOptions<Flow1PrivateFileOptions>().Configure(o => o.Root = configuration["Flow1:PrivateFiles:Root"] ?? Path.Combine(oldRoot, "private-bytes"))
+            .Validate(o => !string.IsNullOrWhiteSpace(o.Root), "Private file root is required.").ValidateOnStart();
+        services.AddOptions<Flow1LegacyImportOptions>().Configure(o => o.SourceRoot = configuration["Flow1:LegacyImport:SourceRoot"] ?? oldRoot)
+            .Validate(o => !string.IsNullOrWhiteSpace(o.SourceRoot), "Legacy source root is required.").ValidateOnStart();
         return services;
     }
 }
