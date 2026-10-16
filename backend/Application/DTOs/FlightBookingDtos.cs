@@ -23,6 +23,7 @@ namespace Application.DTOs
     public class UpdateFlightBookingDto
     {
         public int? ExpectedBookingVersion { get; set; }
+        public int? RouteVersionId { get; set; }
         public string ProviderName { get; set; } = string.Empty;
         public string Airline { get; set; } = string.Empty;
         public string FlightNumber { get; set; } = string.Empty;

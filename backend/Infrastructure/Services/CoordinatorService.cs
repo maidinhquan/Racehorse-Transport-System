@@ -3,6 +3,7 @@ using Application.DTOs;
 using Application.Interfaces;
 using Domain.Entities;
 using Infrastructure.Data.Context;
+using System.Text.Json;
 
 namespace Infrastructure.Services
 {
@@ -972,37 +973,108 @@ namespace Infrastructure.Services
         // =========================================================================
         // 10. FLIGHT BOOKING (AIR LEG) (F03-C23, F03-C24)
         // =========================================================================
-        public Task<FlightBookingDto?> GetFlightBookingAsync(string tripId)
+        public async Task<FlightBookingDto?> GetFlightBookingAsync(string tripId)
         {
-            return Task.FromResult<FlightBookingDto?>(new FlightBookingDto
+            var booking = await _context.FlightBookings
+                .Where(fb => fb.TripId == tripId)
+                .OrderByDescending(fb => fb.BookingVersion)
+                .ThenByDescending(fb => fb.FlightBookingId)
+                .FirstOrDefaultAsync();
+
+            if (booking == null)
             {
-                FlightBookingId = 300,
-                BookingVersion = 1,
-                TripId = tripId,
-                RouteVersionId = 120,
-                ProviderName = "Nippon Cargo Airlines",
-                Airline = "NCA Airlines",
-                FlightNumber = "KZ-102",
-                DepartureAirportCheckpointId = 101,
-                ArrivalAirportCheckpointId = 201,
-                DepartureAt = DateTime.UtcNow.AddDays(2).AddHours(4),
-                ArrivalAt = DateTime.UtcNow.AddDays(2).AddHours(10),
-                DirectFlight = true,
-                BookingReference = "NCA-SGN-NRT-2026",
-                BookingConfirmed = true,
-                HorseIds = new List<string> { "HRS_2026_001", "HRS_2026_002" },
-                Note = "Chuyến bay thẳng chuyên chở động vật thể thao SGN -> NRT"
-            });
+                // Fallback: nếu là trip mẫu TRIP_2026_001 và chưa có record thì tự động seed 1 record mẫu vào DB
+                if (tripId == "TRIP_2026_001")
+                {
+                    var tripExists = await _context.TripPlans.AnyAsync(t => t.TripId == tripId);
+                    if (tripExists)
+                    {
+                        booking = new FlightBooking
+                        {
+                            TripId = tripId,
+                            BookingVersion = 1,
+                            RouteVersionId = 120,
+                            ProviderName = "Nippon Cargo Airlines",
+                            Airline = "NCA Airlines",
+                            FlightNumber = "KZ-102",
+                            DepartureAirportCheckpointId = 101,
+                            ArrivalAirportCheckpointId = 201,
+                            DepartureAt = DateTime.UtcNow.AddDays(2).AddHours(4),
+                            ArrivalAt = DateTime.UtcNow.AddDays(2).AddHours(10),
+                            DirectFlight = true,
+                            BookingReference = "NCA-SGN-NRT-2026",
+                            BookingConfirmed = true,
+                            HorseIds = JsonSerializer.Serialize(new List<string> { "HRS_001", "HRS_002" }),
+                            Note = "Chuyến bay thẳng chuyên chở động vật thể thao SGN -> NRT",
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.FlightBookings.Add(booking);
+                        await _context.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            var horseIdsList = new List<string>();
+            if (!string.IsNullOrWhiteSpace(booking.HorseIds))
+            {
+                try
+                {
+                    horseIdsList = JsonSerializer.Deserialize<List<string>>(booking.HorseIds) ?? new List<string>();
+                }
+                catch
+                {
+                    horseIdsList = booking.HorseIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+                }
+            }
+
+            return new FlightBookingDto
+            {
+                FlightBookingId = booking.FlightBookingId,
+                BookingVersion = booking.BookingVersion,
+                TripId = booking.TripId,
+                RouteVersionId = booking.RouteVersionId,
+                ProviderName = booking.ProviderName,
+                Airline = booking.Airline,
+                FlightNumber = booking.FlightNumber,
+                DepartureAirportCheckpointId = booking.DepartureAirportCheckpointId,
+                ArrivalAirportCheckpointId = booking.ArrivalAirportCheckpointId,
+                DepartureAt = booking.DepartureAt,
+                ArrivalAt = booking.ArrivalAt,
+                DirectFlight = booking.DirectFlight,
+                BookingReference = booking.BookingReference,
+                BookingConfirmed = booking.BookingConfirmed,
+                HorseIds = horseIdsList,
+                Note = booking.Note
+            };
         }
 
-        public Task<FlightBookingDto> SaveFlightBookingAsync(string tripId, UpdateFlightBookingDto dto)
+        public async Task<FlightBookingDto> SaveFlightBookingAsync(string tripId, UpdateFlightBookingDto dto)
         {
-            return Task.FromResult(new FlightBookingDto
+            var currentBooking = await _context.FlightBookings
+                .Where(fb => fb.TripId == tripId)
+                .OrderByDescending(fb => fb.BookingVersion)
+                .ThenByDescending(fb => fb.FlightBookingId)
+                .FirstOrDefaultAsync();
+
+            int nextVersion = (dto.ExpectedBookingVersion ?? currentBooking?.BookingVersion ?? 0) + 1;
+
+            string horseIdsJson = dto.HorseIds != null && dto.HorseIds.Any()
+                ? JsonSerializer.Serialize(dto.HorseIds)
+                : (currentBooking?.HorseIds ?? "[]");
+
+            var newBooking = new FlightBooking
             {
-                FlightBookingId = 300,
-                BookingVersion = (dto.ExpectedBookingVersion ?? 1) + 1,
                 TripId = tripId,
-                RouteVersionId = 120,
+                BookingVersion = nextVersion,
+                RouteVersionId = dto.RouteVersionId ?? currentBooking?.RouteVersionId ?? 120,
                 ProviderName = dto.ProviderName,
                 Airline = dto.Airline,
                 FlightNumber = dto.FlightNumber,
@@ -1013,9 +1085,47 @@ namespace Infrastructure.Services
                 DirectFlight = true,
                 BookingReference = dto.BookingReference,
                 BookingConfirmed = true,
-                HorseIds = dto.HorseIds,
-                Note = dto.Note
-            });
+                HorseIds = horseIdsJson,
+                Note = dto.Note,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.FlightBookings.Add(newBooking);
+            await _context.SaveChangesAsync();
+
+            var horseIdsList = new List<string>();
+            if (!string.IsNullOrWhiteSpace(newBooking.HorseIds))
+            {
+                try
+                {
+                    horseIdsList = JsonSerializer.Deserialize<List<string>>(newBooking.HorseIds) ?? new List<string>();
+                }
+                catch
+                {
+                    horseIdsList = newBooking.HorseIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+                }
+            }
+
+            return new FlightBookingDto
+            {
+                FlightBookingId = newBooking.FlightBookingId,
+                BookingVersion = newBooking.BookingVersion,
+                TripId = newBooking.TripId,
+                RouteVersionId = newBooking.RouteVersionId,
+                ProviderName = newBooking.ProviderName,
+                Airline = newBooking.Airline,
+                FlightNumber = newBooking.FlightNumber,
+                DepartureAirportCheckpointId = newBooking.DepartureAirportCheckpointId,
+                ArrivalAirportCheckpointId = newBooking.ArrivalAirportCheckpointId,
+                DepartureAt = newBooking.DepartureAt,
+                ArrivalAt = newBooking.ArrivalAt,
+                DirectFlight = newBooking.DirectFlight,
+                BookingReference = newBooking.BookingReference,
+                BookingConfirmed = newBooking.BookingConfirmed,
+                HorseIds = horseIdsList,
+                Note = newBooking.Note
+            };
         }
 
         // =========================================================================
@@ -1131,7 +1241,20 @@ namespace Infrastructure.Services
                 if (!stallsSufficient) missing.Add($"Xe chỉ có {assignment.Vehicle.CapacityStalls} stall, không đủ {horseCount} ngựa (STALL_CAPACITY_EXCEEDED)");
             }
 
-            bool isReady = routeCreated && routeApproved && vehicleAssigned && driverAssigned && escortAssigned && stallsSufficient;
+            bool hasAirLeg = trip.RouteSegments.Any(s => s.TransportMode == "AIR");
+            var flightBooking = hasAirLeg
+                ? await _context.FlightBookings
+                    .Where(fb => fb.TripId == tripId)
+                    .OrderByDescending(fb => fb.BookingVersion)
+                    .FirstOrDefaultAsync()
+                : null;
+            bool flightConfirmed = !hasAirLeg || (flightBooking != null && flightBooking.BookingConfirmed);
+            if (hasAirLeg && !flightConfirmed)
+            {
+                missing.Add("Chưa xác nhận đặt chỗ chuyến bay (FLIGHT_BOOKING_CONFIRMED)");
+            }
+
+            bool isReady = routeCreated && routeApproved && vehicleAssigned && driverAssigned && escortAssigned && stallsSufficient && flightConfirmed;
 
             return new OperationsReadinessDto
             {
@@ -1153,7 +1276,7 @@ namespace Infrastructure.Services
                     new() { Code = "STAFF_ASSIGNED", Met = driverAssigned },
                     new() { Code = "VEHICLE_READY", Met = vehicleAssigned },
                     new() { Code = "VETERINARIAN_QUALIFIED", Met = escortAssigned },
-                    new() { Code = "FLIGHT_BOOKING_CONFIRMED", Met = true, Applicable = false }
+                    new() { Code = "FLIGHT_BOOKING_CONFIRMED", Met = flightConfirmed, Applicable = hasAirLeg }
                 },
                 MissingConditions = missing,
                 AllowedActions = isReady ? new List<string> { "CONFIRM_OPERATIONS_READY" } : new List<string> { "VIEW" }
@@ -1341,6 +1464,31 @@ namespace Infrastructure.Services
                     Status = "PLANNING"
                 };
                 _context.TripPlans.Add(trip2);
+            }
+
+            var flightBooking1 = await _context.FlightBookings.FirstOrDefaultAsync(fb => fb.TripId == "TRIP_2026_001");
+            if (flightBooking1 == null)
+            {
+                flightBooking1 = new FlightBooking
+                {
+                    TripId = "TRIP_2026_001",
+                    BookingVersion = 1,
+                    RouteVersionId = 120,
+                    ProviderName = "Nippon Cargo Airlines",
+                    Airline = "NCA Airlines",
+                    FlightNumber = "KZ-102",
+                    DepartureAirportCheckpointId = 101,
+                    ArrivalAirportCheckpointId = 201,
+                    DepartureAt = DateTime.UtcNow.AddDays(2).AddHours(4),
+                    ArrivalAt = DateTime.UtcNow.AddDays(2).AddHours(10),
+                    DirectFlight = true,
+                    BookingReference = "NCA-SGN-NRT-2026",
+                    BookingConfirmed = true,
+                    HorseIds = JsonSerializer.Serialize(new List<string> { "HRS_001", "HRS_002" }),
+                    Note = "Chuyến bay thẳng chuyên chở động vật thể thao SGN -> NRT",
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.FlightBookings.Add(flightBooking1);
             }
 
             await _context.SaveChangesAsync();
