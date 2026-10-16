@@ -1,4 +1,10 @@
-# Flow 1 phase 4 — PDF publication increment A
+# Flow 1 phase 4 — publication và OTP acceptance
+
+**Cập nhật mới nhất 16/10/2026: [increment B — OTP/receipt/invoice recovery](FLOW1_PHASE4_ACCEPTANCE_REPORT.md).**
+Đã bổ sung Customer OTP/sign, hóa đơn cọc 40% và phục hồi SQL/file; phase 4 vẫn
+IN_PROGRESS vì còn decline/expire/reissue/extension và contract route legacy.
+Phần bên dưới giữ bằng chứng của **increment A tại commit `01e98d2`**;
+các nhận xét "chưa OTP/sign/Invoice" bên dưới mô tả riêng baseline A.
 
 Ngày: **16/10/2026**. Nhánh `Truong`. Commit trước lượt này:
 `d226a59f965203749ae27464dd1b0808b781ce37` (phase 3).

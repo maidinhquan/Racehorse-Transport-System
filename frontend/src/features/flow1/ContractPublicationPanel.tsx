@@ -3,15 +3,17 @@ import { flow1Error } from "./api";
 import { operationKey } from "./reviewApi";
 import { publicationApi } from "./publicationApi";
 import type { Publication } from "./publicationApi";
+import { ContractAcceptancePanel } from "./ContractAcceptancePanel";
 export function ContractPublicationPanel({ id, manager = false, reviewVersion = 0, status, reload }: {
   id: string; manager?: boolean; reviewVersion?: number; status: string; reload: () => Promise<void> }) {
   const [publication, setPublication] = useState<Publication | null>(null); const [error, setError] = useState("");
   const [deadline, setDeadline] = useState(""); const [reason, setReason] = useState(""); const [busy, setBusy] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState(""); const key = useRef({ hash: "", key: "" });
+  const [pdf, setPdf] = useState<{ url: string; id: string; hash: string } | null>(null); const key = useRef({ hash: "", key: "" });
+  const pdfUrl = pdf?.id === id && pdf.hash === publication?.documentHash ? pdf.url : "";
   useEffect(() => { let active = true; if (manager || status !== "DRAFT") publicationApi.get(id, manager)
     .then(x => { if (active) setPublication(x); }).catch(e => { if (active) setError(flow1Error(e)); });
     return () => { active = false; }; }, [id, manager, status, reviewVersion]);
-  useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
+  useEffect(() => () => { if (pdf) URL.revokeObjectURL(pdf.url); }, [pdf]);
   async function act(operation: "send" | "recover" | "discard") {
     setBusy(true); setError("");
     try {
@@ -36,8 +38,9 @@ export function ContractPublicationPanel({ id, manager = false, reviewVersion = 
       <p>Hạn gốc: {new Date(publication.originalCompletionDeadline).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} (UTC+7)</p>
       <p>SHA-256: <code style={{ overflowWrap: "anywhere" }}>{publication.documentHash}</code></p>
       {publication.overdue && <p>Đã quá hạn thao tác mới. Yêu cầu không tự hủy.</p>}
-      <button disabled={busy} onClick={async () => { setBusy(true); try { setPdfUrl(await publicationApi.pdf(id, manager)); } catch (e) { setError(flow1Error(e)); } finally { setBusy(false); } }}>Xem PDF đã phát hành</button>
+      <button disabled={busy} onClick={async () => { setBusy(true); try { setPdf({ url: await publicationApi.pdf(id, manager), id, hash: publication.documentHash }); } catch (e) { setError(flow1Error(e)); } finally { setBusy(false); } }}>Xem PDF đã phát hành</button>
       {pdfUrl && <><p><a href={pdfUrl} download={`${id}.pdf`}>Tải đúng bản PDF này</a></p><iframe title="PDF hợp đồng đã phát hành" src={pdfUrl} style={{ width: "100%", height: 720 }} /></>}
+      <ContractAcceptancePanel key={`${id}:${publication.version}:${publication.documentHash}`} publication={publication} manager={manager} pdfViewed={!!pdfUrl} reload={reload} />
     </>}
   </section>;
 }

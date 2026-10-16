@@ -20,6 +20,12 @@ public static class Flow1CustomerExtensions
         services.AddScoped<IRequestReviewRepository, RequestReviewRepository>();
         services.AddScoped<RequestReviewService>();
         services.AddScoped<ContractPublicationService>();
+        services.AddScoped<ContractAcceptanceService>();
+        services.AddSingleton<IContractOtpSecurity>(new ContractOtpSecurity(config["Flow1:Contracts:OtpHmacKey"]));
+        var emailOptions = config.GetSection("Flow1:Contracts:Email").Get<ContractSmtpOptions>() ?? new();
+        if (!config.GetSection("Flow1:Contracts:Email:Smtp").Exists())
+            emailOptions.Smtp = config.GetSection("RegistrationEmail:Smtp").Get<Infrastructure.ExternalServices.Email.RegistrationSmtpOptions>() ?? new();
+        services.AddSingleton<IContractOtpSender>(new ContractSmtpSender(emailOptions, environment.IsDevelopment()));
         var contractOptions = config.GetSection("Flow1:Contracts").Get<Flow1ContractOptions>() ?? new();
         services.AddSingleton(contractOptions);
         services.AddSingleton<IFlow1ContractDocumentGenerator>(sp => new LibreOfficeContractDocumentGenerator(
@@ -54,16 +60,19 @@ public static class Flow1CustomerExtensions
         });
         services.AddRateLimiter(options =>
         {
+            options.AddPolicy("flow1-contract-otp", context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 25, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
             options.AddPolicy("flow1-customer", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             var registrationRejected = options.OnRejected;
             options.OnRejected = async (context, ct) =>
             {
-                if (context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName == "flow1-customer")
+                if (context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName is "flow1-customer" or "flow1-contract-otp")
                 {
                     context.HttpContext.Response.StatusCode = 429;
-                    context.HttpContext.Response.Headers.RetryAfter = "60";
+                    context.HttpContext.Response.Headers.RetryAfter = context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName == "flow1-contract-otp" ? "900" : "60";
                     await context.HttpContext.Response.WriteAsJsonAsync(ApiResponse<object?>.Fail("Too many requests; retry later.", errorCode: "RATE_LIMITED"), ct);
                 }
                 else if (registrationRejected is not null) await registrationRejected(context, ct);

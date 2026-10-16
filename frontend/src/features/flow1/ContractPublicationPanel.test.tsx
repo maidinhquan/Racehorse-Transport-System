@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { ContractPublicationPanel } from "./ContractPublicationPanel";
 import { publicationApi } from "./publicationApi";
 import type { Publication } from "./publicationApi";
+vi.mock("./ContractAcceptancePanel", () => ({ ContractAcceptancePanel: ({ pdfViewed }: { pdfViewed: boolean }) => <span data-testid="pdf-consent-gate">{String(pdfViewed)}</span> }));
 
 const issued: Publication = { contractId: "c-test", version: 1, status: "PENDING_SIGNATURE", currency: "VND", total: 115000000,
   deposit: 46000000, originalCompletionDeadline: "2026-11-10T10:00:00Z", documentHash: "a".repeat(64),
@@ -36,4 +37,18 @@ it("Manager can recover an existing prepared PDF without submitting a new public
   await userEvent.setup().click(await screen.findByRole("button", { name: "Phục hồi phát hành" }));
   await screen.findByRole("button", { name: "Xem PDF đã phát hành" });
   expect(recover).toHaveBeenCalledWith("c-test"); expect(send).not.toHaveBeenCalled();
+});
+it("does not reuse the old PDF preview as evidence of viewing a replacement contract", async () => {
+  const next = { ...issued, contractId: "c-next", documentHash: "b".repeat(64) };
+  vi.spyOn(publicationApi, "get").mockResolvedValueOnce(issued).mockResolvedValueOnce(next);
+  vi.spyOn(publicationApi, "pdf").mockResolvedValue("about:blank");
+  const original = URL.revokeObjectURL; URL.revokeObjectURL = vi.fn();
+  try {
+    const { rerender, unmount } = render(<ContractPublicationPanel id="c-test" status="PENDING_SIGNATURE" reload={vi.fn()} />);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Xem PDF đã phát hành" }));
+    expect(screen.getByTestId("pdf-consent-gate")).toHaveTextContent("true");
+    rerender(<ContractPublicationPanel id="c-next" status="PENDING_SIGNATURE" reload={vi.fn()} />);
+    await screen.findByText(next.documentHash); expect(screen.getByTestId("pdf-consent-gate")).toHaveTextContent("false");
+    expect(screen.queryByTitle("PDF hợp đồng đã phát hành")).toBeNull(); unmount();
+  } finally { URL.revokeObjectURL = original; }
 });

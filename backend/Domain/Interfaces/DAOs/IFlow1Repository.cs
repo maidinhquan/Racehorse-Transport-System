@@ -7,6 +7,7 @@ public interface IFlow1Repository
 {
     Task<TransportRequest?> GetRequestAsync(string requestId, CancellationToken ct = default);
     Task<Contract?> GetContractAsync(string contractId, CancellationToken ct = default);
+    Task<Invoice?> GetDepositInvoiceAsync(string contractId, CancellationToken ct = default);
     Task<User?> GetCustomerAsync(string customerId, CancellationToken ct = default);
     Task<TripPlan?> GetTripForRequestAsync(string requestId, CancellationToken ct = default);
     Task<IReadOnlyList<Contract>> GetContractsForRequestAsync(string requestId, CancellationToken ct = default);

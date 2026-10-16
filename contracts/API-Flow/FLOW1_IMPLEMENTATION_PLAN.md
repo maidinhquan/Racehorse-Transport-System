@@ -476,15 +476,18 @@ Frontend dùng frontend/src/shared/api/apiClient.ts và router hiện có. API/t
 
 Sau phase 1 có thể giao adapter Maps/VNPay/PDF cho người phụ trách theo interface. Mỗi task ghi file exact path, input/output, status guards, metadata/SQL boundary và test IDs. Không tự sửa legacy DAO hoặc module đồng đội ngoài hợp đồng bàn giao.
 
-Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md), [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md) và [phase 3 Review/Plan/Quote/Draft](FLOW1_PHASE3_REPORT.md). **Phase 1–3 hoàn thành trong phạm vi local/test đã cấp**: phase 2 có live Geoapify/Mapbox; phase 3 có Customer/Manager browser nối SQL/file riêng, Maps fixture, SQL/file receipt recovery cho review/Draft. **Lượt lịch tiếp theo bắt đầu phase 4 PDF/OTP/deadline/recovery**, không chờ key hay hỏi lại capacity=1. Chưa nghiệm thu send/sign/tiền/Trip hoặc full Flow 1 UAT. Payload/API thực tế được ghi trong báo cáo từng phase để phân biệt với ví dụ thiết kế ở mục 7.
+Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md), [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md), [nghiệm thu live phase 2](FLOW1_PHASE2_LIVE_REPORT.md) và [phase 3 Review/Plan/Quote/Draft](FLOW1_PHASE3_REPORT.md). **Phase 1–3 hoàn thành trong phạm vi local/test đã cấp**: phase 2 có live Geoapify/Mapbox; phase 3 có Customer/Manager browser nối SQL/file riêng, Maps fixture, SQL/file receipt recovery cho review/Draft. **Phase 4 PDF/OTP/deadline/recovery đang thực hiện**; tiếp tục phần còn lại theo báo cáo increment B, không hỏi lại Maps key hay capacity=1. Chưa nghiệm thu thanh toán/Trip hoặc full Flow 1 UAT. Payload/API thực tế được ghi trong báo cáo từng phase để phân biệt với ví dụ thiết kế ở mục 7.
 
 ## 15. Ma trận kiểm thử và bằng chứng nghiệm thu
 
-**Cập nhật phase 4, 16/10/2026:** [báo cáo increment A](FLOW1_PHASE4_REPORT.md) ghi nhận
-PDF v2/private immutable publication/deadline gốc/recovery đã có backend + frontend,
-real LibreOffice 13-page QA, SQL fault tests và Chrome download hash. **Phase 4 vẫn
-IN_PROGRESS**: lượt kế tiếp tiếp tục OTP/sign/decline/extension + acceptance/invoice
-receipt recovery; chưa bắt đầu phase 5 và chưa tuyên bố full Flow 1 UAT.
+**Cập nhật phase 4, 16/10/2026:** [increment A](FLOW1_PHASE4_REPORT.md) có PDF v2/private
+immutable publication/deadline gốc/recovery, real LibreOffice 13-page QA và Chrome
+download hash. [Increment B](FLOW1_PHASE4_ACCEPTANCE_REPORT.md) bổ sung Customer
+email OTP gắn version/hash, ký tạo đúng một hóa đơn cọc 40%, receipt/recovery giữa
+SQL và file, giao diện và kiểm thử. **Phase 4 vẫn IN_PROGRESS**: tiếp tục decline,
+explicit expire/reissue, effective-deadline extensions và thay contract route legacy;
+chưa bắt đầu phase 5 và chưa tuyên bố full Flow 1 UAT. SMTP registration hiện có;
+dedicated OTP HMAC key cần điền private trước nghiệm thu cấu hình vận hành.
 
 ### 15.1. Loại kiểm thử
 

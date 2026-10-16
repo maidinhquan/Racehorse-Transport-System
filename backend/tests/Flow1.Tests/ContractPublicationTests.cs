@@ -19,8 +19,8 @@ public sealed class ContractPublicationTests
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private static string Root() { var dir = new DirectoryInfo(Directory.GetCurrentDirectory()); while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "backend/Backend.slnx"))) dir = dir.Parent; return dir?.FullName ?? throw new IOException("Repository root missing."); }
     internal static Flow1ContractOptions Options() => new() { Issuer = new[] { "COMPANY_NAME", "COMPANY_ADDRESS", "COMPANY_EMAIL", "COMPANY_HOTLINE", "COMPANY_TAX_CODE", "COMPANY_BANK_ACCOUNT", "COMPANY_BANK_NAME", "COMPANY_REPRESENTATIVE", "COMPANY_REP_POSITION" }.ToDictionary(k => k, k => "DEMO FIXTURE " + k) };
-    private sealed class Clock : TimeProvider { public DateTimeOffset Now = new FlowClock().GetUtcNow(); public override DateTimeOffset GetUtcNow() => Now; }
-    private sealed class Renderer(IFlow1PrivateFileStore files) : IFlow1ContractDocumentGenerator
+    internal sealed class Clock : TimeProvider { public DateTimeOffset Now = new FlowClock().GetUtcNow(); public override DateTimeOffset GetUtcNow() => Now; }
+    internal sealed class Renderer(IFlow1PrivateFileStore files) : IFlow1ContractDocumentGenerator
     {
         public int Calls; public bool Fail;
         public async Task<ContractDocumentResult> GenerateAsync(ContractDocumentRequest input, CancellationToken ct = default)
@@ -30,25 +30,25 @@ public sealed class ContractPublicationTests
             return new(file.FileId, file.Sha256, file.SizeBytes);
         }
     }
-    private sealed class FaultStore(IFlow1MetadataStore inner) : IFlow1MetadataStore
+    internal sealed class FaultStore(IFlow1MetadataStore inner) : IFlow1MetadataStore
     {
         public string? Mode;
         public Task<Flow1MetadataDocument?> ReadAsync(string type, string id, CancellationToken ct = default) => inner.ReadAsync(type, id, ct);
         public async Task<Flow1MetadataRevision> AppendAsync(string type, string id, int version, string key, string actor, string action, JsonElement payload, CancellationToken ct = default)
         {
-            if (type == "publication" && Mode == "after-sql" && action == "COMPLETED") { Mode = null; throw new IOException("Injected SQL-before-receipt failure."); }
+            if ((type == "publication" && Mode == "after-sql" || type == "acceptance" && Mode == "acceptance-after-sql") && action == "COMPLETED") { Mode = null; throw new IOException("Injected SQL-before-receipt failure."); }
             var result = await inner.AppendAsync(type, id, version, key, actor, action, payload, ct);
-            if (type == "publication" && Mode == "before-sql" && action == "PREPARED") { Mode = null; throw new IOException("Injected file-before-SQL failure."); }
+            if ((type == "publication" && Mode == "before-sql" || type == "acceptance" && Mode == "acceptance-before-sql") && action == "PREPARED") { Mode = null; throw new IOException("Injected file-before-SQL failure."); }
             return result;
         }
     }
-    private sealed class Fixture : IAsyncDisposable
+    internal sealed class Fixture : IAsyncDisposable
     {
         public required Flow1TestDatabase Db; public required string Folder; public required CustomerTestFactory Factory;
         public required HttpClient Manager; public required HttpClient Customer; public required string RequestId; public required string ContractId;
         public required int Version; public required Renderer Renderer; public required FaultStore Fault; public required Clock Clock;
         public PublishContractInput Input => new(Version, new(2026, 11, 10, 10, 0, 0, TimeSpan.Zero));
-        public static async Task<Fixture> Create()
+        public static async Task<Fixture> Create(Action<IServiceCollection>? customize = null)
         {
             var db = await Flow1TestDatabase.CreateAsync(); var folder = Path.Combine(Path.GetTempPath(), "RaceHorseFlow1Api-" + Guid.NewGuid().ToString("N"));
             var clock = new Clock(); var store = new FaultStore(new LocalFlow1MetadataStore(Path.Combine(folder, "metadata"), new(), clock));
@@ -57,7 +57,7 @@ public sealed class ContractPublicationTests
                 s.RemoveAll<TimeProvider>(); s.AddSingleton<TimeProvider>(clock);
                 s.RemoveAll<IFlow1MetadataStore>(); s.AddSingleton<IFlow1MetadataStore>(store);
                 s.RemoveAll<IFlow1ContractDocumentGenerator>(); s.AddSingleton<IFlow1ContractDocumentGenerator>(renderer);
-                s.RemoveAll<Flow1ContractOptions>(); s.AddSingleton(Options());
+                s.RemoveAll<Flow1ContractOptions>(); s.AddSingleton(Options()); customize?.Invoke(s);
             });
             var customer = factory.Client(); var manager = factory.Client("manager", "LOGISTICS_MANAGER");
             try
@@ -80,9 +80,9 @@ public sealed class ContractPublicationTests
         public Task<HttpResponseMessage> Public() => Customer.GetAsync($"/api/customer/contracts/{ContractId}/publication");
         public async ValueTask DisposeAsync() { Manager.Dispose(); Customer.Dispose(); Factory.Dispose(); await Db.DisposeAsync(); Flow1TestFolders.Cleanup(Folder); }
     }
-    private static async Task<HttpResponseMessage> Send(HttpClient client, string path, object body, string? key = null)
+    internal static async Task<HttpResponseMessage> Send(HttpClient client, string path, object body, string? key = null)
     { using var req = new HttpRequestMessage(HttpMethod.Post, path) { Content = body as HttpContent ?? JsonContent.Create(body) }; req.Headers.Add("Idempotency-Key", key ?? Guid.NewGuid().ToString()); return await client.SendAsync(req); }
-    private static async Task<T> Data<T>(HttpResponseMessage response, HttpStatusCode code = HttpStatusCode.OK)
+    internal static async Task<T> Data<T>(HttpResponseMessage response, HttpStatusCode code = HttpStatusCode.OK)
     { var text = await response.Content.ReadAsStringAsync(); Assert.True(response.StatusCode == code, text); return JsonDocument.Parse(text).RootElement.GetProperty("data").Deserialize<T>(Json)!; }
     [LocalSqlFact]
     public async Task Issue_is_owner_scoped_immutable_idempotent_and_does_not_create_invoice_or_trip()

@@ -13,6 +13,8 @@ public sealed class Flow1Repository(HorseTransportDbContext context) : IFlow1Rep
         context.Contracts.SingleOrDefaultAsync(c => c.ContractId == id, ct);
     public Task<User?> GetCustomerAsync(string id, CancellationToken ct = default) =>
         context.Users.AsNoTracking().SingleOrDefaultAsync(c => c.UserId == id, ct);
+    public Task<Invoice?> GetDepositInvoiceAsync(string id, CancellationToken ct = default) =>
+        context.Invoices.SingleOrDefaultAsync(i => i.ContractId == id && i.InvoiceType == "DEPOSIT", ct);
     public Task<TripPlan?> GetTripForRequestAsync(string id, CancellationToken ct = default) =>
         context.TripPlans.SingleOrDefaultAsync(t => t.RequestId == id, ct);
     public async Task<IReadOnlyList<Contract>> GetContractsForRequestAsync(string id, CancellationToken ct = default) =>

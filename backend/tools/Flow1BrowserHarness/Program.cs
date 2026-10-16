@@ -14,7 +14,8 @@ var repository = Directory.GetCurrentDirectory();
 if (!File.Exists(Path.Combine(repository, "backend/Backend.slnx"))) throw new InvalidOperationException("Run from repository root.");
 // Explicit opt-in for bounded real map requests; all SQL/files/accounts remain test-only.
 var liveMaps = Environment.GetEnvironmentVariable("FLOW1_BROWSER_LIVE_MAPS") == "1";
-var phase4 = Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE4") == "1";
+var signing = Environment.GetEnvironmentVariable("FLOW1_BROWSER_SIGNING") == "1";
+var phase4 = signing || Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE4") == "1";
 var phase3 = phase4 || Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE3") == "1";
 Flow1MapOptions? liveOptions = null;
 if (liveMaps)
@@ -47,7 +48,9 @@ try
         await Sql(connection, await File.ReadAllTextAsync(Path.Combine(repository, "backend/database", file)));
     await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-owner','test-only','CUSTOMER',N'Browser Demo');");
     if (phase3) await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-manager','test-only','LOGISTICS_MANAGER',N'Manager Demo');");
+    if (signing) await Sql(connection, "UPDATE dbo.[USER] SET Email='browser-owner@example.invalid' WHERE UserID='browser-owner';");
     var apiPort = Port(); var mapPort = Port(); var frontPort = Port();
+    var smtpPort = Port();
     var mapProvider = Environment.GetEnvironmentVariable("FLOW1_BROWSER_MAP_PROVIDER") ?? "OSM";
     if (mapProvider is not ("OSM" or "MAPBOX" or "GEOAPIFY")) throw new ArgumentException("FLOW1_BROWSER_MAP_PROVIDER must be OSM, MAPBOX or GEOAPIFY.");
     const string jwt = "Flow1BrowserFixtureKey_NotAProductionSecret_2026_AtLeast32Bytes";
@@ -73,6 +76,15 @@ try
         ["Flow1__Maps__Attribution"] = "LOCAL HTTP FIXTURE - NOT LIVE MAP DATA", ["Flow1__Estimate__StandardVehicleCapacityStalls"] = "1",
         ["Flow1__Storage__MetadataRoot"] = Path.Combine(output, "metadata") };
     foreach (var pair in env) apiInfo.Environment[pair.Key] = pair.Value;
+    // Always override private SMTP configuration. The Node sink binds only loopback and never forwards mail.
+    apiInfo.Environment["Flow1__Contracts__OtpHmacKey"] = "ContractBrowserFixture_Key_NotProduction_AtLeast32Bytes_2026";
+    apiInfo.Environment["Flow1__Contracts__Email__Smtp__Host"] = "127.0.0.1";
+    apiInfo.Environment["Flow1__Contracts__Email__Smtp__Port"] = smtpPort.ToString();
+    apiInfo.Environment["Flow1__Contracts__Email__Smtp__From"] = "noreply@example.invalid";
+    apiInfo.Environment["Flow1__Contracts__Email__Smtp__EnableSsl"] = "false";
+    apiInfo.Environment["Flow1__Contracts__Email__Smtp__Username"] = "";
+    apiInfo.Environment["Flow1__Contracts__Email__Smtp__Password"] = "";
+    apiInfo.Environment["Flow1__Contracts__Email__AllowDevelopmentLoopback"] = "true";
     if (phase4)
     {
         apiInfo.Environment["Flow1__Contracts__LibreOfficePath"] = Environment.GetEnvironmentVariable("RACEHORSE_TEST_LIBREOFFICE")
@@ -98,11 +110,12 @@ try
     api.BeginOutputReadLine(); api.BeginErrorReadLine();
     var nodeInfo = new ProcessStartInfo(Path.GetFullPath(args[0])) { WorkingDirectory = repository, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
     nodeInfo.ArgumentList.Add(Path.Combine(repository, "backend/tools/flow1-browser.cjs"));
-    foreach (var arg in new[] { args[1], apiPort.ToString(), mapPort.ToString(), frontPort.ToString(), output }) nodeInfo.ArgumentList.Add(arg);
+    foreach (var arg in new[] { args[1], apiPort.ToString(), mapPort.ToString(), frontPort.ToString(), output, smtpPort.ToString() }) nodeInfo.ArgumentList.Add(arg);
     nodeInfo.Environment["FLOW1_FIXTURE_TOKEN"] = token;
     nodeInfo.Environment["FLOW1_MANAGER_FIXTURE_TOKEN"] = managerToken;
     nodeInfo.Environment["FLOW1_BROWSER_PHASE3"] = phase3 ? "1" : "0";
     nodeInfo.Environment["FLOW1_BROWSER_PHASE4"] = phase4 ? "1" : "0";
+    nodeInfo.Environment["FLOW1_BROWSER_SIGNING"] = signing ? "1" : "0";
     nodeInfo.Environment["FLOW1_BROWSER_LIVE_MAPS"] = liveMaps ? "1" : "0";
     foreach (var key in nodeInfo.Environment.Keys.Where(k => k.StartsWith("Flow1__Maps__", StringComparison.OrdinalIgnoreCase)).ToArray())
         nodeInfo.Environment.Remove(key);
@@ -123,13 +136,17 @@ try
     if (liveOptions is not null && (apiLog.Contains(liveOptions.Mapbox.AccessToken) || apiLog.Contains(liveOptions.Geoapify.ApiKey) ||
         nodeLog.Contains(liveOptions.Mapbox.AccessToken) || nodeLog.Contains(liveOptions.Geoapify.ApiKey)))
         throw new InvalidOperationException("A map credential leaked into a test log.");
-    await Sql(connection, "IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST) <> 1 OR (SELECT COUNT(*) FROM HORSE) <> 1 OR EXISTS(SELECT 1 FROM TRIP_PLAN) OR EXISTS(SELECT 1 FROM INVOICE) THROW 51030, 'Browser acceptance SQL invariant failed.', 1;");
-    await Sql(connection, phase4
+    await Sql(connection, "IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST) <> 1 OR (SELECT COUNT(*) FROM HORSE) <> 1 OR EXISTS(SELECT 1 FROM TRIP_PLAN) THROW 51030, 'Browser acceptance SQL invariant failed.', 1;");
+    if (!signing) await Sql(connection, "IF EXISTS(SELECT 1 FROM INVOICE) THROW 51030, 'Unexpected early invoice.', 1;");
+    await Sql(connection, signing
+        ? "IF (SELECT COUNT(*) FROM CONTRACT) <> 2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SIGNED' AND CompletionDeadline IS NOT NULL AND SignedAt IS NOT NULL AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM INVOICE WHERE InvoiceType='DEPOSIT' AND CurrencyCode='VND' AND TotalPayableAmount=40000000 AND PaidAmount=0 AND PaymentStatus='UNPAID') <> 1 OR (SELECT COUNT(*) FROM INVOICE) <> 1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='AWAITING_DEPOSIT') THROW 51033, 'Phase 4 acceptance/invoice invariant failed.', 1;"
+        : phase4
         ? "IF (SELECT COUNT(*) FROM CONTRACT) <> 2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='PENDING_SIGNATURE' AND CompletionDeadline IS NOT NULL AND SignedAt IS NULL AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SUPERSEDED') <> 1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='AWAITING_CONTRACT') THROW 51032, 'Phase 4 PDF publication invariant failed.', 1;"
         : phase3
         ? "IF (SELECT COUNT(*) FROM CONTRACT) <> 2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='DRAFT' AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SUPERSEDED') <> 1 THROW 51031, 'Phase 3 Draft invariant failed.', 1;"
         : "IF EXISTS(SELECT 1 FROM CONTRACT) THROW 51031, 'Phase 2 created a Contract early.', 1;");
-    Console.WriteLine(phase4 ? "PASS: Manager issues immutable PDF using real LibreOffice; Customer views/downloads identical hash; no sign/Trip/Invoice yet."
+    Console.WriteLine(signing ? "PASS: real PDF / loopback SMTP / Customer OTP confirmation / SQL SIGNED + one 40% deposit Invoice / original PDF unchanged / no Trip."
+        : phase4 ? "PASS: Manager issues immutable PDF using real LibreOffice; Customer views/downloads identical hash; no sign/Trip/Invoice yet."
         : phase3 ? "PASS: Customer + Manager review/revision/plan/Draft/change through real API/SQL/private files; no Trip/Invoice."
         : "PASS: real Chromium → frontend → API → SQL/private files; PENDING request, no Contract/Trip.");
     Console.WriteLine("Evidence: " + output);

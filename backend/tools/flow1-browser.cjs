@@ -4,15 +4,39 @@ const path = require('node:path');
 const http = require('node:http');
 const { spawn } = require('node:child_process');
 const { pathToFileURL } = require('node:url');
-const [modulePath, apiPort, mapPort, frontPort, output] = process.argv.slice(2);
+const [modulePath, apiPort, mapPort, frontPort, output, smtpPort] = process.argv.slice(2);
 const { chromium } = require(modulePath);
 const root = process.cwd();
 const base = `http://127.0.0.1:${frontPort}`;
-let vite; let browser;
+let vite; let browser; let diagnosticPage;
 const errors = [];
 const liveMaps = process.env.FLOW1_BROWSER_LIVE_MAPS === '1';
 const phase3 = process.env.FLOW1_BROWSER_PHASE3 === '1';
 const phase4 = process.env.FLOW1_BROWSER_PHASE4 === '1';
+const signing = process.env.FLOW1_BROWSER_SIGNING === '1';
+// A RAM-only, non-forwarding SMTP sink. No message, code, request body or trace is written to disk.
+let deliveredCode = ''; const smtpSockets = new Set(); const sensitiveValues = new Set();
+const smtp = require('node:net').createServer(socket => {
+  smtpSockets.add(socket); socket.on('close', () => smtpSockets.delete(socket)); socket.on('error', () => {});
+  socket.write('220 localhost test SMTP\r\n'); let buffer = ''; let data = false; let message = '';
+  socket.on('data', chunk => {
+    buffer += chunk.toString('utf8'); let end;
+    while ((end = buffer.indexOf('\r\n')) >= 0) {
+      const line = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+      if (data) {
+        if (line !== '.') { message += line + '\r\n'; continue; }
+        const plain = message.replace(/=\r\n/g, '').replace(/=([0-9a-f]{2})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+        const match = /Confirmation code: ([0-9]{6})/.exec(plain);
+        if (match) { deliveredCode = match[1]; sensitiveValues.add(deliveredCode); }
+        message = ''; data = false; socket.write('250 Accepted into RAM only\r\n');
+      } else if (/^EHLO|^HELO/i.test(line)) socket.write('250 localhost\r\n');
+      else if (/^MAIL FROM|^RCPT TO|^RSET/i.test(line)) socket.write('250 OK\r\n');
+      else if (/^DATA$/i.test(line)) { data = true; socket.write('354 End with dot\r\n'); }
+      else if (/^QUIT$/i.test(line)) { socket.end('221 Bye\r\n'); }
+      else socket.write('502 Not implemented\r\n');
+    }
+  });
+});
 const mapbox = liveMaps || ['MAPBOX', 'GEOAPIFY'].includes(process.env.FLOW1_BROWSER_MAP_PROVIDER);
 const calls = { geoSearch: 0, geoReverse: 0, geoRoute: 0, mapboxPreview: 0, forbiddenMapboxData: 0 };
 const fixture = http.createServer((req, res) => {
@@ -50,6 +74,7 @@ const fixture = http.createServer((req, res) => {
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function ready(url) { for (let i = 0; i < 100; i++) { try { if ((await fetch(url)).ok) return; } catch {} await delay(200); } throw new Error('Local server did not start: ' + url); }
 async function main() {
+  if (signing) await new Promise(resolve => smtp.listen(Number(smtpPort), '127.0.0.1', resolve));
   if (!liveMaps) await new Promise(resolve => fixture.listen(Number(mapPort), '127.0.0.1', resolve));
   // Independent config: reproducible without committing or depending on user's staged vite.config.ts.
   const config = path.join(output, 'vite.browser.mjs');
@@ -60,7 +85,10 @@ async function main() {
   await ready(`http://127.0.0.1:${apiPort}/api/public/estimates/transport-modes`); await ready(base);
   browser = await chromium.launch({ headless: true, channel: process.env.FLOW1_BROWSER_CHANNEL || 'chrome' });
   const context = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
-  await context.addInitScript(token => { localStorage.setItem('accessToken', token); localStorage.setItem('userRole', 'CUSTOMER'); localStorage.setItem('userFullName', 'Browser Demo'); }, process.env.FLOW1_FIXTURE_TOKEN);
+  await context.addInitScript(({ token, origin }) => {
+    if (location.origin !== origin || !window.localStorage) return; // Exclude Chrome PDF viewer/opaque frames.
+    localStorage.setItem('accessToken', token); localStorage.setItem('userRole', 'CUSTOMER'); localStorage.setItem('userFullName', 'Browser Demo');
+  }, { token: process.env.FLOW1_FIXTURE_TOKEN, origin: base });
   const page = await context.newPage();
   page.setDefaultTimeout(liveMaps ? 60000 : 30000);
   page.on('pageerror', e => errors.push(e.message));
@@ -157,8 +185,12 @@ async function main() {
   console.log(JSON.stringify(result));
 }
 async function reviewFlow(browser, customer, id) {
+  diagnosticPage = customer;
   const context = await browser.newContext({ viewport: { width: 1400, height: 1100 } });
-  await context.addInitScript(token => { localStorage.setItem('accessToken', token); localStorage.setItem('userRole', 'LOGISTICS_MANAGER'); }, process.env.FLOW1_MANAGER_FIXTURE_TOKEN);
+  await context.addInitScript(({ token, origin }) => {
+    if (location.origin !== origin || !window.localStorage) return;
+    localStorage.setItem('accessToken', token); localStorage.setItem('userRole', 'LOGISTICS_MANAGER');
+  }, { token: process.env.FLOW1_MANAGER_FIXTURE_TOKEN, origin: base });
   const manager = await context.newPage(); manager.on('pageerror', e => errors.push(e.message));
   const managerUrl = base + '/manager/requests/' + id; const customerUrl = base + '/customer/requests/' + id;
   await manager.goto(managerUrl);
@@ -244,14 +276,60 @@ async function reviewFlow(browser, customer, id) {
     await customer.reload(); await customer.getByText('Trạng thái: AWAITING_CONTRACT', { exact: true }).waitFor();
     await customer.screenshot({ path: path.join(output, 'customer-published-contract.png'), fullPage: true });
     await manager.screenshot({ path: path.join(output, 'manager-published-contract.png'), fullPage: true });
-    fs.writeFileSync(path.join(output, 'publication-result.json'), JSON.stringify({ ...issued, downloadedSha256: hash, converter: 'REAL LIBREOFFICE', otp: 'NOT IMPLEMENTED IN THIS INCREMENT' }, null, 2));
+    fs.writeFileSync(path.join(output, 'publication-result.json'), JSON.stringify({ ...issued, downloadedSha256: hash, converter: 'REAL LIBREOFFICE' }, null, 2));
+    if (signing) {
+      await customer.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).click();
+      await customer.getByLabel('Tôi đã đọc và đồng ý với đúng bản PDF này').check();
+      const [otpReply] = await Promise.all([customer.waitForResponse(r => r.url().endsWith('/otp')),
+        customer.getByRole('button', { name: 'Gửi mã OTP', exact: true }).click()]);
+      if (!otpReply.ok() || !deliveredCode) throw new Error('Loopback SMTP OTP delivery failed.');
+      const code = deliveredCode; deliveredCode = '';
+      // Exercise the error flow without retaining any OTP request/response body or taking a filled-code screenshot.
+      await customer.getByLabel('Mã OTP', { exact: true }).fill(code === '000000' ? '111111' : '000000');
+      const wrong = customer.waitForResponse(r => r.url().endsWith('/sign'));
+      await customer.getByRole('button', { name: 'Xác nhận ký hợp đồng', exact: true }).click();
+      if ((await wrong).status() !== 409) throw new Error('Incorrect code unexpectedly accepted.');
+      await customer.getByLabel('Mã OTP', { exact: true }).fill(code);
+      const signedReply = customer.waitForResponse(r => r.url().endsWith('/sign'));
+      await customer.getByRole('button', { name: 'Xác nhận ký hợp đồng', exact: true }).click();
+      const signedResponse = await signedReply;
+      if (!signedResponse.ok()) throw new Error('Contract confirmation failed (body deliberately omitted).');
+      const acceptance = (await signedResponse.json()).data;
+      await customer.getByText('Trạng thái: AWAITING_DEPOSIT', { exact: true }).waitFor();
+      await customer.reload(); await customer.getByText(/Đã xác nhận bằng OTP email lúc/).waitFor();
+      await customer.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).click();
+      const signedDownload = customer.waitForEvent('download');
+      await customer.getByRole('link', { name: 'Tải đúng bản PDF này', exact: true }).click();
+      const signedPath = path.join(output, 'original-pdf-after-confirmation.pdf'); await (await signedDownload).saveAs(signedPath);
+      const signedHash = require('node:crypto').createHash('sha256').update(fs.readFileSync(signedPath)).digest('hex');
+      if (signedHash !== hash || acceptance.receipt.documentHash !== hash || acceptance.invoice.amount !== 40000000) throw new Error('Confirmation evidence/invoice/PDF mismatch.');
+      await manager.reload(); await manager.getByText(/Đã xác nhận bằng OTP email lúc/).waitFor();
+      await customer.screenshot({ path: path.join(output, 'customer-confirmed-contract.png'), fullPage: true });
+      await manager.screenshot({ path: path.join(output, 'manager-confirmed-contract.png'), fullPage: true });
+      fs.writeFileSync(path.join(output, 'acceptance-result.json'), JSON.stringify({ ...acceptance, originalPdfSha256: signedHash, smtp: 'LOOPBACK RAM SINK, NOT LIVE DELIVERY' }, null, 2));
+      // Ensure this run's code did not escape into any persisted test evidence, including API logs/metadata.
+      function inspect(dir) { for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name); if (e.isDirectory()) inspect(p);
+        else if (/\.(json|log)$/.test(e.name) && fs.readFileSync(p, 'utf8').includes(code)) throw new Error('OTP escaped into persisted test evidence.');
+      } }
+      inspect(output);
+    }
   }
   await context.close();
   return ['Manager question / Customer answer', 'revision and resubmit with own booked horse', 'Manager accept / plan / private quote / Draft',
     '115M selling total gives 46M deposit', 'Customer DTO excludes cost/floor/override notes', 'pending change keeps canonical unchanged and blocks Draft',
     'approved change supersedes old Draft and invalidates plan', 'reaccept / replan / new Draft survives reload',
-    ...(phase4 ? ['real LibreOffice PDF publication', 'Customer private PDF view/download hash matches', 'AWAITING_CONTRACT survives reload; unsigned, no Invoice/Trip'] : [])];
+    ...(phase4 ? ['real LibreOffice PDF publication', 'Customer private PDF view/download hash matches',
+      signing ? 'loopback SMTP / incorrect OTP rejected / correct OTP confirms once / reload preserves receipt and original PDF / one 40% Invoice, no Trip'
+        : 'AWAITING_CONTRACT survives reload; unsigned, no Invoice/Trip'] : [])];
 }
-main().catch(e => { console.error(e.stack); process.exitCode = 1; }).finally(async () => {
-  if (browser) await browser.close(); if (vite) vite.kill(); fixture.close();
+main().catch(async e => {
+  if (diagnosticPage && !diagnosticPage.isClosed()) {
+    try { await diagnosticPage.screenshot({ path: path.join(output, 'failed-customer-masked.png'), fullPage: true, mask: [diagnosticPage.locator('input')] }); } catch {}
+  }
+  let diagnostic = e.stack || String(e);
+  for (const value of sensitiveValues) diagnostic = diagnostic.split(value).join('[REDACTED OTP]');
+  console.error(diagnostic); process.exitCode = 1;
+}).finally(async () => {
+  if (browser) await browser.close(); if (vite) vite.kill(); fixture.close(); for (const socket of smtpSockets) socket.destroy(); smtp.close();
 });
