@@ -36,7 +36,7 @@ import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage"
 // ==================== ROLE DASHBOARDS ====================
 import AdminDashboard from "../../features/admin/AdminDashboard";
 import DriverDashboard from "../../features/driver/DriverDashboard";
-import ManagerDashboard from "../../features/manager/ManagerDashboard";
+import ManagerDashboard from "../../features/Manager/ManagerDashboard";
 import SpecialistDashboard from "../../features/documents/SpecialistDashboard";
 
 // Import các trang khác của specialist
