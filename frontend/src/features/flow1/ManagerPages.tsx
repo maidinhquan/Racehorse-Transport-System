@@ -7,6 +7,7 @@ import { MapDataAttribution } from "./TripFields";
 import "./flow1.css";
 import { ContractPublicationPanel } from "./ContractPublicationPanel";
 import { ContractVersionsPanel } from "./ContractVersionsPanel";
+import { DepositPaymentsPanel } from "./DepositPaymentsPanel";
 
 export function ManagerRequestsPage() {
   const [status, setStatus] = useState("PENDING"); const [page, setPage] = useState(1);
@@ -29,7 +30,9 @@ export function ManagerRequestPage() {
   useEffect(() => { let active = true; reviewApi.manager(requestId).then(v => { if (active) setValue(v); }).catch(e => { if (active) setError(flow1Error(e)); });
     return () => { active = false; }; }, [requestId]);
   return <main className="flow1-page"><Link to="/manager/requests">← Yêu cầu vận chuyển</Link>
-    {error && <p role="alert">{error}</p>}{value && <ManagerWork key={value.version} value={value} update={setValue} />}</main>;
+    {error && <p role="alert">{error}</p>}{value && <ManagerWork
+      key={`${value.request.requestId}:${value.contract && ["SIGNED", "EFFECTIVE"].includes(value.contract.status) ? value.contract.contractId : value.version}`}
+      value={value} update={setValue} />}</main>;
 }
 function Lines({ title, value, change }: { title: string; value: Line[]; change: (value: Line[]) => void }) {
   return <fieldset><legend>{title}</legend>{value.map((l, i) => <div key={i}>
@@ -104,5 +107,6 @@ function ManagerWork({ value: v, update }: { value: ManagerReview; update: (v: M
       <ContractPublicationPanel id={v.contract.contractId} manager reviewVersion={v.version} status={v.contract.status}
         reload={async () => update(await reviewApi.manager(v.request.requestId))} /></aside>}
     <ContractVersionsPanel versions={v.contractHistory} manager reload={async () => update(await reviewApi.manager(v.request.requestId))} />
+    {v.contract && ["SIGNED", "EFFECTIVE"].includes(v.contract.status) && <DepositPaymentsPanel id={v.contract.contractId} manager reload={async () => update(await reviewApi.manager(v.request.requestId))} />}
     </>;
 }

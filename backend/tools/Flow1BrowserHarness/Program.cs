@@ -22,6 +22,12 @@ var liveMaps = Environment.GetEnvironmentVariable("FLOW1_BROWSER_LIVE_MAPS") == 
 var signing = Environment.GetEnvironmentVariable("FLOW1_BROWSER_SIGNING") == "1";
 var lifecycle = Environment.GetEnvironmentVariable("FLOW1_BROWSER_LIFECYCLE") == "1";
 var deadlines = Environment.GetEnvironmentVariable("FLOW1_BROWSER_DEADLINES") == "1";
+var bank = Environment.GetEnvironmentVariable("FLOW1_BROWSER_BANK") == "1";
+var gateway = Environment.GetEnvironmentVariable("FLOW1_BROWSER_GATEWAY") == "1";
+var deployment = Environment.GetEnvironmentVariable("FLOW1_BROWSER_DEPLOYMENT") == "1";
+if ((gateway || deployment) && !bank) throw new InvalidOperationException("Gateway/deployment acceptance requires the native bank signing setup.");
+if (bank && (!signing || Environment.GetEnvironmentVariable("FLOW1_BROWSER_IMPORT") == "1" || lifecycle || deadlines))
+    throw new InvalidOperationException("Bank acceptance requires native signing, separate from legacy import/lifecycle/deadline modes.");
 if ((lifecycle || deadlines) && (!signing || Environment.GetEnvironmentVariable("FLOW1_BROWSER_IMPORT") == "1"))
     throw new InvalidOperationException("Lifecycle/deadline acceptance requires signing and a native SQL run, separate from legacy import acceptance.");
 var phase4 = signing || Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE4") == "1";
@@ -57,6 +63,7 @@ try
         await Sql(connection, await File.ReadAllTextAsync(Path.Combine(repository, "backend/database", file)));
     await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-owner','test-only','CUSTOMER',N'Browser Demo');");
     if (phase3) await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-manager','test-only','LOGISTICS_MANAGER',N'Manager Demo');");
+    if (deployment) await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-route','test-only','FLEET_ROUTE_COORDINATOR',N'Route Demo'),('browser-docs','test-only','TRANSPORT_SPECIALIST',N'Documents Demo');");
     if (signing) await Sql(connection, "UPDATE dbo.[USER] SET Email='browser-owner@example.invalid' WHERE UserID='browser-owner';");
     var apiPort = Port(); var mapPort = Port(); var frontPort = Port();
     var smtpPort = Port();
@@ -66,6 +73,8 @@ try
     var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Jwt:Key"] = jwt }).Build();
     var token = new TokenService(config).GenerateAccessToken(new User { UserId = "browser-owner", Role = "CUSTOMER", FullName = "Browser Demo" });
     var managerToken = new TokenService(config).GenerateAccessToken(new User { UserId = "browser-manager", Role = "LOGISTICS_MANAGER", FullName = "Manager Demo" });
+    var routeToken = new TokenService(config).GenerateAccessToken(new User { UserId = "browser-route", Role = "FLEET_ROUTE_COORDINATOR", FullName = "Route Demo" });
+    var docsToken = new TokenService(config).GenerateAccessToken(new User { UserId = "browser-docs", Role = "TRANSPORT_SPECIALIST", FullName = "Documents Demo" });
     var apiInfo = new ProcessStartInfo("dotnet") { WorkingDirectory = Path.Combine(repository, "backend/WebApi"), UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
     apiInfo.ArgumentList.Add(Path.Combine(repository, "backend/WebApi/bin/Debug/net8.0/WebApi.dll"));
     apiInfo.ArgumentList.Add("--urls"); apiInfo.ArgumentList.Add($"http://127.0.0.1:{apiPort}");
@@ -86,6 +95,14 @@ try
         ["Flow1__PrivateFiles__Root"] = Path.Combine(output, "private-bytes"),
         ["Flow1__LegacyImport__SourceRoot"] = Path.Combine(output, "legacy-source") };
     foreach (var pair in env) apiInfo.Environment[pair.Key] = pair.Value;
+    // Fixture merchant signs only local callbacks; this never contacts VNPay or sends a real transaction.
+    apiInfo.Environment["Flow1__Vnpay__Enabled"] = gateway ? "true" : "false";
+    if (gateway) {
+        apiInfo.Environment["Flow1__Vnpay__TmnCode"] = "TEST2026";
+        apiInfo.Environment["Flow1__Vnpay__HashSecret"] = "Sandbox_Unit_Test_Key_Not_A_Provider_Credential";
+        apiInfo.Environment["Flow1__Vnpay__PaymentUrl"] = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+        apiInfo.Environment["Flow1__Vnpay__ReturnUrl"] = $"http://127.0.0.1:{frontPort}/customer/payments/return";
+    }
     // Always override private SMTP configuration. The Node sink binds only loopback and never forwards mail.
     apiInfo.Environment["Flow1__Contracts__OtpHmacKey"] = "ContractBrowserFixture_Key_NotProduction_AtLeast32Bytes_2026";
     apiInfo.Environment["Flow1__Contracts__Email__Smtp__Host"] = "127.0.0.1";
@@ -123,6 +140,8 @@ try
     foreach (var arg in new[] { args[1], apiPort.ToString(), mapPort.ToString(), frontPort.ToString(), output, smtpPort.ToString() }) nodeInfo.ArgumentList.Add(arg);
     nodeInfo.Environment["FLOW1_FIXTURE_TOKEN"] = token;
     nodeInfo.Environment["FLOW1_MANAGER_FIXTURE_TOKEN"] = managerToken;
+    nodeInfo.Environment["FLOW1_ROUTE_FIXTURE_TOKEN"] = routeToken;
+    nodeInfo.Environment["FLOW1_DOCS_FIXTURE_TOKEN"] = docsToken;
     nodeInfo.Environment["FLOW1_BROWSER_PHASE3"] = phase3 ? "1" : "0";
     nodeInfo.Environment["FLOW1_BROWSER_PHASE4"] = phase4 ? "1" : "0";
     nodeInfo.Environment["FLOW1_BROWSER_SIGNING"] = signing ? "1" : "0";
@@ -131,7 +150,7 @@ try
         nodeInfo.Environment.Remove(key);
     using var node = Process.Start(nodeInfo) ?? throw new InvalidOperationException("Could not start browser runner.");
     var stdout = node.StandardOutput.ReadToEndAsync(); var stderr = node.StandardError.ReadToEndAsync();
-    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(lifecycle || deadlines ? 7 : phase4 ? 5 : 4));
+    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(deployment ? 10 : bank ? 8 : lifecycle || deadlines ? 7 : phase4 ? 5 : 4));
     try { await node.WaitForExitAsync(timeout.Token); }
     finally { if (!node.HasExited) node.Kill(entireProcessTree: true); }
     var nodeLog = await stdout + "\n" + await stderr;
@@ -146,9 +165,11 @@ try
     if (liveOptions is not null && (apiLog.Contains(liveOptions.Mapbox.AccessToken) || apiLog.Contains(liveOptions.Geoapify.ApiKey) ||
         nodeLog.Contains(liveOptions.Mapbox.AccessToken) || nodeLog.Contains(liveOptions.Geoapify.ApiKey)))
         throw new InvalidOperationException("A map credential leaked into a test log.");
-    await Sql(connection, "IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST) <> 1 OR (SELECT COUNT(*) FROM HORSE) <> 1 OR EXISTS(SELECT 1 FROM TRIP_PLAN) THROW 51030, 'Browser acceptance SQL invariant failed.', 1;");
+    await Sql(connection, $"IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST) <> 1 OR (SELECT COUNT(*) FROM HORSE) <> 1 OR (SELECT COUNT(*) FROM TRIP_PLAN) <> {(bank ? 1 : 0)} THROW 51030, 'Browser acceptance SQL invariant failed.', 1;");
     if (!signing) await Sql(connection, "IF EXISTS(SELECT 1 FROM INVOICE) THROW 51030, 'Unexpected early invoice.', 1;");
-    await Sql(connection, signing
+    await Sql(connection, bank
+        ? $"IF (SELECT COUNT(*) FROM CONTRACT)<>2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='EFFECTIVE' AND SignedAt IS NOT NULL AND TripID IS NOT NULL)<>1 OR (SELECT COUNT(*) FROM INVOICE WHERE TotalPayableAmount=40000000 AND PaidAmount=40000000 AND PaymentStatus='PAID')<>1 OR (SELECT COUNT(*) FROM PAYMENT WHERE Amount>0 AND Status='SUCCESS' AND Method='BANK_TRANSFER' AND CurrencyCode='VND')<>{(gateway ? 1 : 2)} OR (SELECT COUNT(*) FROM TRIP_PLAN WHERE Status='PLANNING')<>1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='ACTIVATED') THROW 51039,'Bank payment/activation SQL invariant failed.',1;"
+        : signing
         ? $"IF (SELECT COUNT(*) FROM CONTRACT) <> {(lifecycle ? 3 : 2)} OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SIGNED' AND CompletionDeadline IS NOT NULL AND SignedAt IS NOT NULL AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM INVOICE WHERE InvoiceType='DEPOSIT' AND CurrencyCode='VND' AND TotalPayableAmount=40000000 AND PaidAmount=0 AND PaymentStatus='UNPAID') <> 1 OR (SELECT COUNT(*) FROM INVOICE) <> 1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='AWAITING_DEPOSIT') THROW 51033, 'Phase 4 acceptance/invoice invariant failed.', 1;"
         : phase4
         ? "IF (SELECT COUNT(*) FROM CONTRACT) <> 2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='PENDING_SIGNATURE' AND CompletionDeadline IS NOT NULL AND SignedAt IS NULL AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SUPERSEDED') <> 1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='AWAITING_CONTRACT') THROW 51032, 'Phase 4 PDF publication invariant failed.', 1;"
@@ -156,9 +177,11 @@ try
         ? "IF (SELECT COUNT(*) FROM CONTRACT) <> 2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='DRAFT' AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SUPERSEDED') <> 1 THROW 51031, 'Phase 3 Draft invariant failed.', 1;"
         : "IF EXISTS(SELECT 1 FROM CONTRACT) THROW 51031, 'Phase 2 created a Contract early.', 1;");
     await Sql(connection, "IF EXISTS(SELECT 1 FROM HORSE WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) OR EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) OR EXISTS(SELECT 1 FROM CONTRACT WHERE Flow1StateJson IS NULL OR Flow1StateVersion < 1) THROW 51034, 'Missing SQL state in browser use cases.', 1;");
-    if (signing) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus='SIGNED' AND JSON_VALUE(Flow1StateJson,'$.documents.acceptance.revisions[0].payload.operation.outcome')='COMMITTED') OR NOT EXISTS(SELECT 1 FROM [USER] WHERE UserID='browser-owner' AND Flow1StateVersion > 0 AND JSON_QUERY(Flow1StateJson,'$.documents.\"otp-account\"') IS NOT NULL) THROW 51035, 'SQL confirmation/account budget state missing.', 1;");
+    if (signing) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus IN ('SIGNED','EFFECTIVE') AND JSON_VALUE(Flow1StateJson,'$.documents.acceptance.revisions[0].payload.operation.outcome')='COMMITTED') OR NOT EXISTS(SELECT 1 FROM [USER] WHERE UserID='browser-owner' AND Flow1StateVersion > 0 AND JSON_QUERY(Flow1StateJson,'$.documents.\"otp-account\"') IS NOT NULL) THROW 51035, 'SQL confirmation/account budget state missing.', 1;");
     if (lifecycle) await Sql(connection, "IF (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SIGN_DECLINED' AND SignedAt IS NULL AND TripID IS NULL AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[0].payload.action')='DECLINED' AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[1].payload.action')='REISSUED' AND JSON_VALUE(Flow1StateJson,'$.documents.lifecycle.revisions[1].payload.replacementContractId') IN (SELECT ContractID FROM CONTRACT WHERE ContractStatus='SIGNED')) <> 1 THROW 51037,'Lifecycle closing/reissue SQL evidence failed.',1;");
     if (deadlines) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT c JOIN INVOICE i ON i.ContractID=c.ContractID WHERE c.ContractStatus='SIGNED' AND JSON_VALUE(c.Flow1StateJson,'$.documents.acceptance.revisions[0].payload.operation.evidence.deadlineVersion')='1' AND JSON_VALUE(c.Flow1StateJson,'$.documents.extensions.revisions[1].payload.extensionVersion')='2' AND i.DueDate=CONVERT(datetime,SWITCHOFFSET(TRY_CONVERT(datetimeoffset,JSON_VALUE(c.Flow1StateJson,'$.documents.extensions.revisions[1].payload.newDeadline')),'+00:00')) AND c.CompletionDeadline=CONVERT(datetime2,SWITCHOFFSET(TRY_CONVERT(datetimeoffset,JSON_VALUE(c.Flow1StateJson,'$.documents.extensions.revisions[0].payload.originalDeadline')),'+00:00'))) THROW 51038,'Extension/signature/invoice SQL invariant failed.',1;");
+    if (gateway) await Sql(connection, "IF (SELECT COUNT(*) FROM PAYMENT WHERE Method='VNPAY' AND Status='SUCCESS' AND Amount=20000000 AND ConfirmedByUserID IS NULL)<>1 OR (SELECT COUNT(*) FROM PAYMENT WHERE Status='REJECTED' AND Amount=0)<>1 THROW 51040,'Local signed gateway callback invariant failed.',1;");
+    if (deployment) await Sql(connection, "IF NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus='EFFECTIVE' AND JSON_QUERY(Flow1StateJson,'$.documents.deployment') IS NOT NULL) THROW 51041,'Deployment/handoff SQL state missing.',1;");
     foreach (var kind in new[] { "horse", "request", "review", "plan", "contract", "publication", "contract-otp", "acceptance", "otp-account" })
         if (Directory.Exists(Path.Combine(output, "legacy-source", kind))) throw new InvalidOperationException("Browser use case created legacy metadata sidecars.");
     Console.WriteLine("PASS: all owner state stored in SQL; no legacy metadata sidecar directories created.");
@@ -212,7 +235,8 @@ try
         await Sql(connection, "IF (SELECT COUNT(*) FROM INVOICE)<>1 OR EXISTS(SELECT 1 FROM TRIP_PLAN) OR NOT EXISTS(SELECT 1 FROM CONTRACT WHERE ContractStatus='SIGNED' AND SignedAt IS NOT NULL AND JSON_QUERY(Flow1StateJson,'$.legacySources') IS NOT NULL) THROW 51036,'Import browser SQL parity failed.',1;");
         Console.WriteLine("PASS: offline inventory/import/retry parity + fresh API/Chrome with retained sources, original PDF and one deposit invoice.");
     }
-    Console.WriteLine(signing ? "PASS: real PDF / loopback SMTP / Customer OTP confirmation / SQL SIGNED + one 40% deposit Invoice / original PDF unchanged / no Trip."
+    Console.WriteLine(bank ? "PASS: connected bank proofs / actual partial and full receipts / one Trip PLANNING / original signature and PDF unchanged."
+        : signing ? "PASS: real PDF / loopback SMTP / Customer OTP confirmation / SQL SIGNED + one 40% deposit Invoice / original PDF unchanged / no Trip."
         : phase4 ? "PASS: Manager issues immutable PDF using real LibreOffice; Customer views/downloads identical hash; no sign/Trip/Invoice yet."
         : phase3 ? "PASS: Customer + Manager review/revision/plan/Draft/change through real API/SQL/private files; no Trip/Invoice."
         : "PASS: real Chromium → frontend → API → SQL/private files; PENDING request, no Contract/Trip.");

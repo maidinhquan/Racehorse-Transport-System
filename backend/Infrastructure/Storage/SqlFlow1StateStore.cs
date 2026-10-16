@@ -53,7 +53,7 @@ public sealed class SqlFlow1StateStore(HorseTransportDbContext context, TimeProv
     {
         "horse" => ("HORSE", "HorseID"),
         "request" or "review" or "plan" => ("TRANSPORT_REQUEST", "RequestID"),
-        "contract" or "publication" or "contract-otp" or "acceptance" or "lifecycle" or "extensions" or "payment-ledger" or "deployment" => ("CONTRACT", "ContractID"),
+        "contract" or "publication" or "contract-otp" or "acceptance" or "lifecycle" or "extensions" or "payment-ledger" or "payment-sessions" or "financial-review" or "activation" or "deployment" => ("CONTRACT", "ContractID"),
         "otp-account" => ("USER", "UserID"),
         _ => throw new ArgumentException("Unsupported Flow 1 state type.")
     };

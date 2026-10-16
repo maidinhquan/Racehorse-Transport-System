@@ -31,13 +31,14 @@ public interface IFlow1ContractDocumentGenerator
 }
 
 public sealed record GatewaySessionRequest(string PaymentId, string InvoiceId, decimal Amount, string Currency,
-    DateTimeOffset ExpiresAtUtc);
-public sealed record GatewaySessionResult(string ProviderReference, Uri PaymentUrl, DateTimeOffset ExpiresAtUtc);
+    DateTimeOffset ExpiresAtUtc, string ClientIp = "127.0.0.1");
+public sealed record GatewaySessionResult(string ProviderReference, Uri PaymentUrl, DateTimeOffset ExpiresAtUtc, string MerchantId);
 public sealed record VerifiedGatewayResult(bool Verified, string ProviderReference, string? ProviderTransactionId,
-    decimal Amount, string Currency, string Status, DateTimeOffset? PaidAtUtc, JsonElement SafeEvidence);
+    decimal Amount, string Currency, string Status, DateTimeOffset? PaidAtUtc, JsonElement SafeEvidence, string? MerchantId = null);
 
 public interface IFlow1PaymentGateway
 {
+    bool IsConfigured { get; }
     Task<GatewaySessionResult> CreateSessionAsync(GatewaySessionRequest request, CancellationToken ct = default);
     Task<VerifiedGatewayResult> VerifyAsync(IReadOnlyDictionary<string, string> payload, CancellationToken ct = default);
 }

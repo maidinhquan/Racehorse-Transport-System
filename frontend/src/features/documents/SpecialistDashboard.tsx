@@ -274,6 +274,7 @@ function SpecialistDashboard() {
 
         {/* MAIN CONTENT THAY ĐỔI THEO MENU */}
         <main className="main-content">
+          <p><a href="/specialist/flow1-work">Tiếp nhận chuyến và hồ sơ từ Flow 1</a></p>
           {renderContent()}
         </main>
       </div>

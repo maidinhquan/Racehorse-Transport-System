@@ -295,6 +295,7 @@ destination = { lat: 13.756, lng: 100.501 }`}
         </header>
 
         <main className="main-content">
+          <p><a href="/coordinator/flow1-work">Tiếp nhận chuyến đã xác nhận từ Flow 1</a></p>
           {renderContent()}
         </main>
       </div>

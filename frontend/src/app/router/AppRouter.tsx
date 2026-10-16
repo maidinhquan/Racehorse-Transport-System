@@ -26,6 +26,8 @@ import CustomerProfilePage from "../../features/user-dashboard/page/profile/Cust
 // ==================== CONTRACT & PAYMENT ====================
 import ContractPage from "../../features/user-dashboard/page/transport-request-page/contract/ContractPage";
 import PaymentPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentPage";
+import { CustomerVnpayReturnPage } from "../../features/flow1/CustomerVnpayReturnPage";
+import { OperationsInbox } from "../../features/flow1/OperationsInbox";
 import PaymentSuccessPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentSuccessPage";
 import PaymentCancelPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentCancelPage";
 import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage";
@@ -77,6 +79,8 @@ function AppRouter() {
         />
         <Route path="/manager/requests" element={<ManagerRequestsPage />} />
         <Route path="/manager/requests/:requestId" element={<ManagerRequestPage />} />
+        <Route path="/coordinator/flow1-work" element={<OperationsInbox stream="ROUTING" />} />
+        <Route path="/specialist/flow1-work" element={<OperationsInbox stream="DOCUMENTS" />} />
         <Route path="/customer/requests/:requestId/revision" element={<RequestEditPage mode="revision" />} />
         <Route path="/customer/requests/:requestId/change" element={<RequestEditPage mode="change-requests" />} />
 
@@ -137,6 +141,7 @@ function AppRouter() {
           path="/customer/requests/:requestId/payment"
           element={<PaymentPage />}
         />
+        <Route path="/customer/payments/return" element={<CustomerVnpayReturnPage />} />
 
         <Route
           path="/customer/horses"

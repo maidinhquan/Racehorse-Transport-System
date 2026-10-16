@@ -11,6 +11,12 @@ public interface IFlow1Repository
     Task<User?> GetCustomerAsync(string customerId, CancellationToken ct = default);
     Task<TripPlan?> GetTripForRequestAsync(string requestId, CancellationToken ct = default);
     Task<IReadOnlyList<Contract>> GetContractsForRequestAsync(string requestId, CancellationToken ct = default);
+    Task<IReadOnlyList<Payment>> GetPaymentsAsync(string invoiceId, CancellationToken ct = default);
+    Task<bool> BankReferenceExistsAsync(string reference, CancellationToken ct = default);
+    Task<Contract?> GetPaymentContractAsync(string paymentId, CancellationToken ct = default);
+    Task<bool> GatewayTransactionExistsAsync(string reference, CancellationToken ct = default);
+    Task<Contract?> GetTripContractAsync(string tripId, CancellationToken ct = default);
+    Task<IReadOnlyList<Contract>> GetActivatedContractsAsync(CancellationToken ct = default);
     void AddContract(Contract contract);
     void AddTrip(TripPlan trip);
     void AddInvoice(Invoice invoice);

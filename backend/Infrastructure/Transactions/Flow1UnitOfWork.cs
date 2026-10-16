@@ -53,6 +53,13 @@ public sealed class Flow1UnitOfWork(HorseTransportDbContext context) : IFlow1Uni
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task LockPaymentReferenceAsync(string referenceKey, CancellationToken cancellationToken = default)
+    {
+        ValidateId(referenceKey);
+        if (context.Database.CurrentTransaction is null) throw new InvalidOperationException("Payment locks require a Flow 1 transaction.");
+        await LockAsync("PaymentReference", referenceKey, cancellationToken);
+    }
+
     private Task<int> LockAsync(string kind, string id, CancellationToken ct)
     {
         // SQL IDs in the MVP are ASCII. Normalize case because sp_getapplock names

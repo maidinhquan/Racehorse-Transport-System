@@ -35,6 +35,7 @@ public sealed class RequestTransactionTests
         public Task LockHorsesAsync(IEnumerable<string> ids, CancellationToken ct = default)
         { Assert.Equal(2, state.Reads); Locked = ids.ToArray(); state.HorsesLocked = true; return Task.CompletedTask; }
         public Task FlushAsync(CancellationToken ct = default) => throw new NotSupportedException();
+        public Task LockPaymentReferenceAsync(string key, CancellationToken ct = default) => throw new NotSupportedException();
     }
     [Fact]
     public async Task Horse_references_changed_during_lock_acquisition_stop_before_business_writes()

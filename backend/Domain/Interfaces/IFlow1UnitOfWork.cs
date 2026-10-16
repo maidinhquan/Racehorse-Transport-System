@@ -8,4 +8,5 @@ public interface IFlow1UnitOfWork
     Task LockHorsesAsync(IEnumerable<string> horseIds, CancellationToken cancellationToken = default);
     /// <summary>Flush staged owner rows inside the open transaction; never commits.</summary>
     Task FlushAsync(CancellationToken cancellationToken = default);
+    Task LockPaymentReferenceAsync(string referenceKey, CancellationToken cancellationToken = default);
 }

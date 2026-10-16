@@ -16,6 +16,9 @@ const phase4 = process.env.FLOW1_BROWSER_PHASE4 === '1';
 const signing = process.env.FLOW1_BROWSER_SIGNING === '1';
 const lifecycle = process.env.FLOW1_BROWSER_LIFECYCLE === '1';
 const deadlines = process.env.FLOW1_BROWSER_DEADLINES === '1';
+const bank = process.env.FLOW1_BROWSER_BANK === '1';
+const gateway = process.env.FLOW1_BROWSER_GATEWAY === '1';
+const deployment = process.env.FLOW1_BROWSER_DEPLOYMENT === '1';
 // A RAM-only, non-forwarding SMTP sink. No message, code, request body or trace is written to disk.
 let deliveredCode = ''; const smtpSockets = new Set(); const sensitiveValues = new Set();
 const smtp = require('node:net').createServer(socket => {
@@ -372,6 +375,7 @@ async function reviewFlow(browser, customer, id) {
     await manager.screenshot({ path: path.join(output, 'manager-published-contract.png'), fullPage: true });
     fs.writeFileSync(path.join(output, 'publication-result.json'), JSON.stringify({ ...issued, downloadedSha256: hash, converter: 'REAL LIBREOFFICE' }, null, 2));
     if (signing) {
+      if (bank) { console.log('Waiting for a fresh owner window before OTP and receipt reload.'); await delay(60000); }
       await customer.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).click();
       await customer.getByLabel('Tôi đã đọc và đồng ý với đúng bản PDF này').check();
       const [otpReply] = await Promise.all([customer.waitForResponse(r => r.url().endsWith('/otp')),
@@ -430,6 +434,119 @@ async function reviewFlow(browser, customer, id) {
       await customer.screenshot({ path: path.join(output, 'customer-confirmed-contract.png'), fullPage: true });
       await manager.screenshot({ path: path.join(output, 'manager-confirmed-contract.png'), fullPage: true });
       fs.writeFileSync(path.join(output, 'acceptance-result.json'), JSON.stringify({ ...acceptance, originalPdfSha256: signedHash, smtp: 'LOOPBACK RAM SINK, NOT LIVE DELIVERY' }, null, 2));
+      if (bank) {
+        console.log('Waiting for a fresh owner window before bank proof acceptance.'); await delay(60000);
+        await customer.goto(base + `/customer/requests/${id}/payment`);
+        await customer.getByRole('heading', { name: 'Thanh toán cọc 40%', exact: true }).waitFor();
+        for (let i = 1; i <= 2; i++) {
+          await customer.getByLabel('Số tiền đã chuyển (VND)', { exact: true }).fill('20000000');
+          await customer.getByLabel('Chứng từ ngân hàng (PDF, JPG, PNG; tối đa 5 MB)', { exact: true }).setInputFiles({ name: `proof-${i}.pdf`, mimeType: 'application/pdf', buffer: Buffer.from(`%PDF-1.4\nBANK FIXTURE PROOF ${i} ONLY\n%%EOF`) });
+          const submitted = customer.waitForResponse(r => r.url().endsWith('/bank-proofs'));
+          await customer.getByRole('button', { name: 'Gửi chứng từ để xác minh', exact: true }).click();
+          const response = await submitted; if (!response.ok()) throw new Error('Bank proof submit failed: ' + await response.text());
+          const v = (await response.json()).data; if (v.verifiedAmount !== 0 || v.activation) throw new Error('Pending proof counted as money.');
+        }
+        diagnosticPage = manager; await manager.reload();
+        const panel = manager.getByRole('region', { name: 'Thanh toán cọc', exact: true }); await panel.waitFor();
+        await panel.getByRole('group', { name: /Đối chiếu sao kê/ }).first().waitFor();
+        const pendingIds = await panel.getByRole('list', { name: 'Giao dịch cọc' }).locator(':scope > li').evaluateAll(nodes => nodes.map(n => n.querySelector('p').textContent.split(' · ')[0]));
+        if (pendingIds.length !== 2) throw new Error('Bank review did not load both submitted proofs.');
+        for (let i = 0; i < pendingIds.length; i++) {
+          if (gateway && i === 1) {
+            diagnosticPage = customer; await customer.reload();
+            const sessionResponse = customer.waitForResponse(r => r.url().endsWith('/vnpay-sessions'));
+            await customer.getByRole('button', { name: 'Chuẩn bị thanh toán VNPay Sandbox', exact: true }).click();
+            const reply = await sessionResponse; if (!reply.ok()) throw new Error('Session creation failed: ' + await reply.text());
+            const session = (await reply.json()).data; if (session.requestedAmount !== 20000000) throw new Error('Session did not use current outstanding amount.');
+            const posted = new Date(Date.now() + 7 * 3600000).toISOString().replace(/[-:T]/g, '').slice(0, 14);
+            const values = { vnp_TmnCode: 'TEST2026', vnp_TxnRef: session.paymentId, vnp_Amount: '2000000000', vnp_TransactionNo: '202610161234',
+              vnp_ResponseCode: '00', vnp_TransactionStatus: '00', vnp_PayDate: posted };
+            const canonical = Object.keys(values).sort().map(k => `${k}=${values[k]}`).join('&');
+            const signature = require('node:crypto').createHmac('sha512', 'Sandbox_Unit_Test_Key_Not_A_Provider_Credential').update(canonical).digest('hex');
+            const callback = `http://127.0.0.1:${apiPort}/api/payments/vnpay/ipn?${canonical}&vnp_SecureHash=${signature}`;
+            const first = await (await fetch(callback)).json(); const retry = await (await fetch(callback)).json();
+            if (first.RspCode !== '00' || retry.RspCode !== '02') throw new Error('Local signed IPN commit/retry failed.');
+            await customer.goto(base + `/customer/payments/return?vnp_TxnRef=${session.paymentId}&vnp_ResponseCode=99`);
+            await customer.getByText('Trạng thái giao dịch: SUCCESS', { exact: true }).waitFor();
+            await customer.getByRole('link', { name: 'Xem số tiền đã xác minh và tải lại kết quả', exact: true }).click();
+            await customer.getByText(/Đã kích hoạt chuyến/).waitFor();
+            console.log('Waiting for a fresh Manager window after gateway activation and nested review reloads.'); await delay(60000);
+            diagnosticPage = manager; await manager.reload();
+            const fieldset = manager.getByRole('group', { name: `Đối chiếu sao kê ${pendingIds[i]}`, exact: true });
+            await fieldset.getByLabel('Lý do từ chối chứng từ (khách xem được)', { exact: true }).fill('Fixture: chưa có khoản ngân hàng này; đã đủ cọc qua VNPay thử nghiệm.');
+            const rejected = manager.waitForResponse(r => r.url().endsWith(`/${pendingIds[i]}/reject`));
+            await fieldset.getByRole('button', { name: 'Từ chối chứng từ', exact: true }).click();
+            const rejectedReply = await rejected; if (!rejectedReply.ok()) throw new Error('Unused bank proof rejection failed: ' + await rejectedReply.text());
+            fs.writeFileSync(path.join(output, 'gateway-fixture-result.json'), JSON.stringify({ paymentId: session.paymentId, requestedAmount: session.requestedAmount,
+              ipnCommit: first.RspCode, ipnRetry: retry.RspCode, provider: 'LOCAL SIGNED CALLBACK ONLY - NOT A LIVE VNPAY TRANSACTION', returnUrlCannotCredit: true }, null, 2));
+            continue;
+          }
+          const fieldset = panel.getByRole('group', { name: `Đối chiếu sao kê ${pendingIds[i]}`, exact: true });
+          await fieldset.getByLabel('Số thực nhận (VND)', { exact: true }).fill('20000000');
+          await fieldset.getByLabel('Mã giao dịch ngân hàng', { exact: true }).fill(`BROWSER-BANK-${i + 1}`);
+          const local = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 16);
+          await fieldset.getByLabel('Thời điểm nhận (giờ Việt Nam UTC+7)', { exact: true }).fill(local);
+          const confirmed = manager.waitForResponse(r => r.url().endsWith(`/${pendingIds[i]}/confirm`));
+          await fieldset.getByRole('button', { name: 'Xác nhận tiền thực nhận', exact: true }).click();
+          const reply = await confirmed; if (!reply.ok()) throw new Error('Bank confirmation failed: ' + await reply.text());
+          const v = (await reply.json()).data;
+          if (v.verifiedAmount !== (i + 1) * 20000000 || (i === 0 ? !!v.activation : !v.activation)) throw new Error('Partial/exactly-once activation failed.');
+          await manager.getByRole('region', { name: 'Thanh toán cọc' }).getByText(`Trạng thái thanh toán: ${i === 0 ? 'PARTIALLY_PAID' : 'PAID'}`, { exact: true }).waitFor();
+          fs.writeFileSync(path.join(output, `bank-result-${i + 1}.json`), JSON.stringify(v, null, 2));
+        }
+        diagnosticPage = customer; await customer.reload(); await customer.getByText(/Đã kích hoạt chuyến/).waitFor();
+        const proofDownload = customer.waitForEvent('download'); await customer.getByRole('button', { name: `Tải chứng từ ${pendingIds[0]}`, exact: true }).click();
+        await (await proofDownload).saveAs(path.join(output, 'downloaded-bank-proof.pdf'));
+        await customer.screenshot({ path: path.join(output, 'customer-payment-activated.png'), fullPage: true });
+        await manager.screenshot({ path: path.join(output, 'manager-payment-activated.png'), fullPage: true });
+        const finalReceiptResponse = await customer.request.get(base + `/api/customer/contracts/${issued.contractId}/acceptance`, { headers: { Authorization: `Bearer ${process.env.FLOW1_FIXTURE_TOKEN}` } });
+        if (!finalReceiptResponse.ok()) throw new Error('Activated signature receipt could not be read.');
+        const finalReceipt = (await finalReceiptResponse.json()).data;
+        if (JSON.stringify(finalReceipt.receipt) !== JSON.stringify(acceptance.receipt)) throw new Error('Payment changed signature receipt.');
+        if (deployment) {
+          console.log('Waiting for a fresh Manager window before deployment/handoff acceptance.'); await delay(60000);
+          diagnosticPage = manager; await manager.reload();
+          const section = manager.getByRole('region', { name: 'Bàn giao vận hành', exact: true });
+          async function decide(label, reason) {
+            await section.getByLabel('Lý do quyết định triển khai (nội bộ)', { exact: true }).fill(reason);
+            const result = manager.waitForResponse(r => /\/deployment\/(confirm|hold|resume)$/.test(r.url()));
+            await section.getByRole('button', { name: label, exact: true }).click();
+            const response = await result; if (!response.ok()) throw new Error('Deployment decision failed: ' + await response.text()); return (await response.json()).data;
+          }
+          let d = await decide('Xác nhận bàn giao vận hành', 'Fixture: signed plan and verified deposit ready for operational release.');
+          async function operatorPage(role, token, url) {
+            const ctx = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
+            await ctx.addInitScript(({ token, role, origin }) => { if (location.origin !== origin) return; localStorage.setItem('accessToken', token); localStorage.setItem('userRole', role); }, { token, role, origin: base });
+            const p = await ctx.newPage(); p.on('pageerror', e => errors.push(e.message)); await p.goto(base + url); return { ctx, p };
+          }
+          const route = await operatorPage('FLEET_ROUTE_COORDINATOR', process.env.FLOW1_ROUTE_FIXTURE_TOKEN, '/coordinator/flow1-work');
+          diagnosticPage = route.p;
+          await route.p.getByRole('button', { name: `Xem bàn giao ${d.tripId}`, exact: true }).click();
+          await route.p.getByRole('region', { name: 'Gói bàn giao', exact: true }).waitFor();
+          diagnosticPage = manager; d = await decide('Tạm giữ triển khai', 'Fixture: operational hold invalidates the previous event.');
+          diagnosticPage = route.p;
+          const denied = route.p.waitForResponse(r => r.url().endsWith('/acknowledgements'));
+          await route.p.getByRole('button', { name: 'Xác nhận tiếp nhận ROUTING', exact: true }).click();
+          if ((await denied).status() !== 409) throw new Error('Operational write bypassed hold.');
+          diagnosticPage = manager; d = await decide('Tiếp tục chờ xác nhận', 'Fixture: resume keeps Trip planning and requires explicit confirmation.');
+          if (d.status !== 'PENDING' || d.tripStatus !== 'PLANNING') throw new Error('Resume automatically released readiness.');
+          d = await decide('Xác nhận bàn giao vận hành', 'Fixture: rechecked unchanged signed plan after hold.');
+          diagnosticPage = route.p; await route.p.getByRole('button', { name: 'Tải lại hàng đợi bàn giao', exact: true }).click();
+          await route.p.getByRole('button', { name: `Xem bàn giao ${d.tripId}`, exact: true }).click();
+          await route.p.getByRole('button', { name: 'Xác nhận tiếp nhận ROUTING', exact: true }).click(); await route.p.getByText('Đã tiếp nhận bàn giao ROUTING.', { exact: true }).waitFor();
+          const docs = await operatorPage('TRANSPORT_SPECIALIST', process.env.FLOW1_DOCS_FIXTURE_TOKEN, '/specialist/flow1-work'); diagnosticPage = docs.p;
+          await docs.p.getByRole('button', { name: `Xem bàn giao ${d.tripId}`, exact: true }).click();
+          const documentDownload = docs.p.waitForEvent('download'); await docs.p.getByRole('button', { name: /^Tải hộ chiếu / }).click();
+          await (await documentDownload).saveAs(path.join(output, 'specialist-frozen-passport.pdf'));
+          await docs.p.getByRole('button', { name: 'Xác nhận tiếp nhận DOCUMENTS', exact: true }).click(); await docs.p.getByText('Đã tiếp nhận bàn giao DOCUMENTS.', { exact: true }).waitFor();
+          await route.p.screenshot({ path: path.join(output, 'route-handoff-received.png'), fullPage: true }); await docs.p.screenshot({ path: path.join(output, 'specialist-handoff-received.png'), fullPage: true });
+          diagnosticPage = manager; await section.getByRole('button', { name: 'Tải lại triển khai', exact: true }).click();
+          await section.getByText(/Đã nhận bàn giao: ROUTING, DOCUMENTS/).waitFor(); await manager.screenshot({ path: path.join(output, 'manager-deployment-confirmed.png'), fullPage: true });
+          fs.writeFileSync(path.join(output, 'deployment-result.json'), JSON.stringify({ tripId: d.tripId, finalStatus: 'CONFIRMED', tripStatus: 'PLANNING',
+            heldWriteRejected: true, resumeDidNotMarkReady: true, streams: ['ROUTING', 'DOCUMENTS'], downstreamScope: 'Persisted handoff acceptance, not the complete Flow 2/3 workflows' }, null, 2));
+          await route.ctx.close(); await docs.ctx.close();
+        }
+      }
       // Ensure this run's code did not escape into any persisted test evidence, including API logs/metadata.
       function inspect(dir) { for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         const p = path.join(dir, e.name); if (e.isDirectory()) inspect(p);
@@ -443,10 +560,14 @@ async function reviewFlow(browser, customer, id) {
     '115M selling total gives 46M deposit', 'Customer DTO excludes cost/floor/override notes', 'pending change keeps canonical unchanged and blocks Draft',
     'approved change supersedes old Draft and invalidates plan', 'reaccept / replan / new Draft survives reload',
     ...(phase4 ? ['real LibreOffice PDF publication', 'Customer private PDF view/download hash matches',
-      signing ? 'loopback SMTP / incorrect OTP rejected / correct OTP confirms once / reload preserves receipt and original PDF / one 40% Invoice, no Trip'
+      signing ? bank ? 'OTP then verified deposit / one invoice / one Trip PLANNING / original PDF and signature receipt unchanged'
+        : 'loopback SMTP / incorrect OTP rejected / correct OTP confirms once / reload preserves receipt and original PDF / one 40% Invoice, no Trip'
         : 'AWAITING_CONTRACT survives reload; unsigned, no Invoice/Trip'] : []),
     ...(lifecycle ? ['Customer declines / Manager reissues new Draft / historical PDF retained / replacement PDF signed with one invoice'] : []),
-    ...(deadlines ? ['legacy Contract route loads real API / extend before signing / sign uses effective deadline / extend after signing preserves receipt and updates invoice due'] : [])];
+    ...(deadlines ? ['legacy Contract route loads real API / extend before signing / sign uses effective deadline / extend after signing preserves receipt and updates invoice due'] : []),
+    ...(bank ? ['private bank proofs count zero until verified / actual partial receipts / exactly-one activation Trip'] : []),
+    ...(gateway ? ['local signed gateway IPN fixture commits once / retry deduped / Return reads SQL only / live VNPay NOT tested'] : []),
+    ...(deployment ? ['Manager confirm / hold blocks downstream write / resume requires reconfirmation / Coordinator and Specialist acknowledge current handoff and download frozen documents'] : [])];
 }
 main().catch(async e => {
   if (diagnosticPage && !diagnosticPage.isClosed()) {

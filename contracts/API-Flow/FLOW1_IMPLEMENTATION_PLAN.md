@@ -16,9 +16,14 @@ offline và đã gỡ file provider/interface/options/tests cũ; DB nghiệp v�
 [Phase 4 increment C](FLOW1_PHASE4_LIFECYCLE_REPORT.md) bổ sung Customer decline,
 Manager explicit expire/reissue thành ContractID mới và lịch sử private PDF bằng SQL.
 [Increment D](FLOW1_PHASE4_DEADLINE_REPORT.md) bổ sung effective-deadline extension,
-history/OTP revocation/invoice due trong SQL và thay Contract FE legacy. Bước tiếp
-theo là phase 5 payment/activation; không coi local/test là full Flow 1 UAT hoặc
-cutover DB nghiệp vụ.
+history/OTP revocation/invoice due trong SQL và thay Contract FE legacy.
+[Phase 5](FLOW1_PHASE5_PAYMENT_REPORT.md) có bank/VNPay SQL ledger, financial
+review, overdue cancel và atomic activation; [phase 6](FLOW1_PHASE6_DEPLOYMENT_REPORT.md)
+có release/hold/resume và hai inbox/receipt handoff thật. Native browser acceptance
+và ranh giới provider/cutover được ghi trong các báo cáo đó; không coi local/test
+là full production Flow 1 UAT hoặc cutover DB nghiệp vụ. Đại ca đã yêu cầu tích
+hợp liên tục phần còn lại trong lượt này, thay giới hạn mỗi lượt một phase cho
+chính lượt triển khai này. Xem [operator/UAT guide](FLOW1_LOCAL_UAT_AND_OPERATIONS.md).
 
 ## 1. Quyết định đã chốt
 
