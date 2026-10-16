@@ -11,6 +11,8 @@ public sealed class Flow1Repository(HorseTransportDbContext context) : IFlow1Rep
         context.TransportRequests.SingleOrDefaultAsync(r => r.RequestId == id, ct);
     public Task<Contract?> GetContractAsync(string id, CancellationToken ct = default) =>
         context.Contracts.SingleOrDefaultAsync(c => c.ContractId == id, ct);
+    public Task<User?> GetCustomerAsync(string id, CancellationToken ct = default) =>
+        context.Users.AsNoTracking().SingleOrDefaultAsync(c => c.UserId == id, ct);
     public Task<TripPlan?> GetTripForRequestAsync(string id, CancellationToken ct = default) =>
         context.TripPlans.SingleOrDefaultAsync(t => t.RequestId == id, ct);
     public async Task<IReadOnlyList<Contract>> GetContractsForRequestAsync(string id, CancellationToken ct = default) =>

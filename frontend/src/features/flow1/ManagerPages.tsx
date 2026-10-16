@@ -5,6 +5,7 @@ import { operationKey, reviewApi } from "./reviewApi";
 import type { ManagerReview, PlanInput, Line } from "./reviewApi";
 import { MapDataAttribution } from "./TripFields";
 import "./flow1.css";
+import { ContractPublicationPanel } from "./ContractPublicationPanel";
 
 export function ManagerRequestsPage() {
   const [status, setStatus] = useState("PENDING"); const [page, setPage] = useState(1);
@@ -96,8 +97,10 @@ function ManagerWork({ value: v, update }: { value: ManagerReview; update: (v: M
       <h2>Giá bán và hợp đồng Draft</h2><Lines title="Các khoản giá bán" value={lines} change={setLines} />
       <p>Backend tính tổng và cọc 40%. Giá dưới sàn cần lý do ở ô phía trên. Thay phiên bản sẽ vô hiệu Draft cũ.</p>
       <button disabled={busy || !lines.length}>{can("CREATE_DRAFT") ? "Tạo hợp đồng Draft" : "Tạo phiên bản Draft mới"}</button></form>}
-    {v.contract && <aside><h2>Hợp đồng Draft hiện hành</h2><p>{v.contract.contractId} · {v.contract.status}</p><p>Tổng: {money(v.contract.total)} · Cọc 40%: {money(v.contract.deposit)}</p>
+    {v.contract && <aside><h2>{v.contract.status === "DRAFT" ? "Hợp đồng Draft hiện hành" : "Hợp đồng hiện hành"}</h2><p>{v.contract.contractId} · {v.contract.status}</p><p>Tổng: {money(v.contract.total)} · Cọc 40%: {money(v.contract.deposit)}</p>
       {v.belowFloorReason && <p>Lý do giá dưới sàn (nội bộ): {v.belowFloorReason}</p>}
-      <p>Chưa phát hành để ký, chưa tạo chuyến vận chuyển.</p></aside>}
+      {v.contract.status === "DRAFT" && <p>Chưa phát hành để ký, chưa tạo chuyến vận chuyển.</p>}
+      <ContractPublicationPanel id={v.contract.contractId} manager reviewVersion={v.version} status={v.contract.status}
+        reload={async () => update(await reviewApi.manager(v.request.requestId))} /></aside>}
   </>;
 }

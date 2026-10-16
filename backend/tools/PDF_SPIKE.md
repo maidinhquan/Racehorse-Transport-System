@@ -60,5 +60,12 @@ production template, bind CompletionDeadline, and avoid claiming that unsigned o
 unperformed events already happened. Successful rendering proves converter/layout
 capability, not business/legal approval of the source template.
 
-The phase-4 .NET `IFlow1ContractDocumentGenerator` adapter, bounded concurrent jobs,
-private immutable file lifecycle and SQL/metadata recovery remain separate work.
+Phase 4 increment A now supplies the .NET `IFlow1ContractDocumentGenerator` adapter,
+bounded conversion, immutable private PDF storage and publication SQL/metadata recovery.
+See `contracts/API-Flow/FLOW1_PHASE4_REPORT.md`; the full phase is still in progress.
+The v1 spike remains a technical fixture. Production binding uses the v2 text patch.
+
+On Windows use `soffice.com` and a short unique user profile under the current user's
+temporary directory. Long nested job/profile paths produced exit 0 with no PDF in
+this workspace; the .NET renderer and Python spike now use short profiles and clean
+them after conversion. A process exit code alone never establishes PDF success.

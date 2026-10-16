@@ -19,6 +19,11 @@ public static class Flow1CustomerExtensions
         services.AddScoped<CustomerTransportService>();
         services.AddScoped<IRequestReviewRepository, RequestReviewRepository>();
         services.AddScoped<RequestReviewService>();
+        services.AddScoped<ContractPublicationService>();
+        var contractOptions = config.GetSection("Flow1:Contracts").Get<Flow1ContractOptions>() ?? new();
+        services.AddSingleton(contractOptions);
+        services.AddSingleton<IFlow1ContractDocumentGenerator>(sp => new LibreOfficeContractDocumentGenerator(
+            environment.ContentRootPath, contractOptions, sp.GetRequiredService<IFlow1PrivateFileStore>()));
         services.AddScoped<TransportEstimateService>();
         services.AddSingleton(config.GetSection("Flow1:Maps").Get<Flow1MapOptions>() ?? new());
         services.AddSingleton(config.GetSection("Flow1:Estimate").Get<Flow1EstimateOptions>() ?? new());

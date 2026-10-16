@@ -10,7 +10,8 @@ import os
 from pathlib import Path
 import re
 import subprocess
-import uuid
+import tempfile
+import shutil
 import zipfile
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -99,12 +100,18 @@ def main() -> None:
                 data, bound = bind_xml(data, values, footer=item.filename.startswith("word/footer"))
                 count += bound
             target.writestr(item, data)
-    profile = out / ("profile-" + uuid.uuid4().hex)
+    # Keep the profile short: nested UNO registry paths can exceed MAX_PATH on Windows.
+    profile = Path(tempfile.mkdtemp(prefix="rhpdf-"))
     command = [str(engine), "-env:UserInstallation=" + profile.as_uri(), "--headless",
                "--nologo", "--nodefault", "--norestore", "--convert-to", "pdf:writer_pdf_Export",
                "--outdir", str(out), str(docx)]
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-    result = subprocess.run(command, capture_output=True, timeout=90, creationflags=flags)
+    try:
+        result = subprocess.run(command, capture_output=True, timeout=90, creationflags=flags)
+    finally:
+        if profile.resolve().parent != Path(tempfile.gettempdir()).resolve() or not profile.name.startswith("rhpdf-"):
+            raise ValueError("Unsafe temporary profile cleanup target")
+        shutil.rmtree(profile)
     (out / "conversion.log").write_bytes(result.stdout + b"\n" + result.stderr)
     if result.returncode != 0 or not pdf.is_file() or pdf.stat().st_size == 0:
         raise RuntimeError("LibreOffice did not produce a PDF; inspect conversion.log")

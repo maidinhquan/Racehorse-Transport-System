@@ -22,7 +22,8 @@ public interface IFlow1RoadRoutingProvider
 
 public sealed record ContractDocumentRequest(string ContractId, int Version, string TemplateVersion,
     JsonElement FrozenSnapshot);
-public sealed record ContractDocumentResult(string PrivateStorageKey, string Sha256, long SizeBytes);
+public sealed record ContractDocumentResult(string PrivateStorageKey, string Sha256, long SizeBytes,
+    string? TemplatePatchSha256 = null);
 
 public interface IFlow1ContractDocumentGenerator
 {

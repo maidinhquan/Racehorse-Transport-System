@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { money, flow1Error } from "./api";
 import { operationKey, reviewApi } from "./reviewApi";
 import type { CustomerReview } from "./reviewApi";
+import { ContractPublicationPanel } from "./ContractPublicationPanel";
 
 export function CustomerReviewPanel({ id, value, reload }: { id: string; value: CustomerReview; reload: () => Promise<void> }) {
   const [answer, setAnswer] = useState<Record<string, string>>({}); const [reason, setReason] = useState("");
@@ -25,9 +26,10 @@ export function CustomerReviewPanel({ id, value, reload }: { id: string; value: 
         <label>Câu trả lời<textarea required maxLength={2000} value={answer[q.id] || ""} onChange={e => setAnswer({ ...answer, [q.id]: e.target.value })} /></label>
         <button disabled={busy}>Gửi câu trả lời</button></form>}</article>)}
     {value.changes.map(c => <p key={c.id}>Đề xuất: {c.reason} · {c.status}{c.decisionReason && ` · ${c.decisionReason}`}</p>)}
-    {value.contract && <aside><h3>Hợp đồng đang soạn</h3><p>{value.contract.contractId} · {value.contract.status}</p>
+    {value.contract && <aside><h3>{value.contract.status === "DRAFT" ? "Hợp đồng đang soạn" : "Hợp đồng đã phát hành"}</h3><p>{value.contract.contractId} · {value.contract.status}</p>
       {value.contract.lines.map((l, i) => <p key={i}>{l.description}: {money(l.quantity * l.unitPrice)}</p>)}
-      <p>Tổng: {money(value.contract.total)} · Cọc 40%: {money(value.contract.deposit)}</p><p>Chưa phát hành để xác nhận.</p></aside>}
+      <p>Tổng: {money(value.contract.total)} · Cọc 40%: {money(value.contract.deposit)}</p>{value.contract.status === "DRAFT" && <p>Chưa phát hành để xác nhận.</p>}
+      <ContractPublicationPanel id={value.contract.contractId} status={value.contract.status} reload={reload} /></aside>}
     {value.allowedActions.includes("CANCEL") && <details><summary>Hủy yêu cầu</summary><form onSubmit={e => { e.preventDefault(); void act("cancel", { reason }); }}>
       <label>Lý do hủy<textarea required maxLength={2000} value={reason} onChange={e => setReason(e.target.value)} /></label><button disabled={busy}>Xác nhận hủy yêu cầu</button>
     </form></details>}

@@ -12,6 +12,7 @@ let vite; let browser;
 const errors = [];
 const liveMaps = process.env.FLOW1_BROWSER_LIVE_MAPS === '1';
 const phase3 = process.env.FLOW1_BROWSER_PHASE3 === '1';
+const phase4 = process.env.FLOW1_BROWSER_PHASE4 === '1';
 const mapbox = liveMaps || ['MAPBOX', 'GEOAPIFY'].includes(process.env.FLOW1_BROWSER_MAP_PROVIDER);
 const calls = { geoSearch: 0, geoReverse: 0, geoRoute: 0, mapboxPreview: 0, forbiddenMapboxData: 0 };
 const fixture = http.createServer((req, res) => {
@@ -220,10 +221,36 @@ async function reviewFlow(browser, customer, id) {
   await customer.goto(customerUrl); await customer.getByRole('heading', { name: 'Hợp đồng đang soạn', exact: true }).waitFor();
   await customer.getByText(/Người nhận: Người nhận đề xuất/).waitFor();
   await customer.screenshot({ path: path.join(output, 'customer-current-draft.png'), fullPage: true });
+  if (phase4) {
+    console.log('Waiting for the next owner window before PDF publication acceptance.');
+    await delay(60000);
+    const deadline = new Date(); deadline.setUTCDate(deadline.getUTCDate() + 15);
+    await manager.getByLabel('Hạn hoàn tất ký và cọc (giờ Việt Nam UTC+7)').fill(deadline.toISOString().slice(0, 10) + 'T17:00');
+    const sent = manager.waitForResponse(r => r.url().includes('/api/manager/contracts/') && r.url().endsWith('/send'), { timeout: 120000 });
+    await manager.getByRole('button', { name: 'Phát hành PDF hợp đồng', exact: true }).click();
+    const issuedResponse = await sent;
+    if (!issuedResponse.ok()) throw new Error('PDF publish failed: ' + await issuedResponse.text());
+    const issued = (await issuedResponse.json()).data;
+    await manager.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).waitFor();
+    await customer.goto(customerUrl);
+    await customer.getByText('Trạng thái: AWAITING_CONTRACT', { exact: true }).waitFor();
+    await customer.getByRole('button', { name: 'Xem PDF đã phát hành', exact: true }).click();
+    await customer.getByTitle('PDF hợp đồng đã phát hành').waitFor();
+    const download = customer.waitForEvent('download');
+    await customer.getByRole('link', { name: 'Tải đúng bản PDF này', exact: true }).click();
+    const pdfPath = path.join(output, 'issued-contract-browser.pdf'); await (await download).saveAs(pdfPath);
+    const hash = require('node:crypto').createHash('sha256').update(fs.readFileSync(pdfPath)).digest('hex');
+    if (hash !== issued.documentHash) throw new Error('Downloaded issued PDF differs from its recorded hash.');
+    await customer.reload(); await customer.getByText('Trạng thái: AWAITING_CONTRACT', { exact: true }).waitFor();
+    await customer.screenshot({ path: path.join(output, 'customer-published-contract.png'), fullPage: true });
+    await manager.screenshot({ path: path.join(output, 'manager-published-contract.png'), fullPage: true });
+    fs.writeFileSync(path.join(output, 'publication-result.json'), JSON.stringify({ ...issued, downloadedSha256: hash, converter: 'REAL LIBREOFFICE', otp: 'NOT IMPLEMENTED IN THIS INCREMENT' }, null, 2));
+  }
   await context.close();
   return ['Manager question / Customer answer', 'revision and resubmit with own booked horse', 'Manager accept / plan / private quote / Draft',
     '115M selling total gives 46M deposit', 'Customer DTO excludes cost/floor/override notes', 'pending change keeps canonical unchanged and blocks Draft',
-    'approved change supersedes old Draft and invalidates plan', 'reaccept / replan / new Draft survives reload'];
+    'approved change supersedes old Draft and invalidates plan', 'reaccept / replan / new Draft survives reload',
+    ...(phase4 ? ['real LibreOffice PDF publication', 'Customer private PDF view/download hash matches', 'AWAITING_CONTRACT survives reload; unsigned, no Invoice/Trip'] : [])];
 }
 main().catch(e => { console.error(e.stack); process.exitCode = 1; }).finally(async () => {
   if (browser) await browser.close(); if (vite) vite.kill(); fixture.close();

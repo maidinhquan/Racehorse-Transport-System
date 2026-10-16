@@ -480,6 +480,12 @@ Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai
 
 ## 15. Ma trận kiểm thử và bằng chứng nghiệm thu
 
+**Cập nhật phase 4, 16/10/2026:** [báo cáo increment A](FLOW1_PHASE4_REPORT.md) ghi nhận
+PDF v2/private immutable publication/deadline gốc/recovery đã có backend + frontend,
+real LibreOffice 13-page QA, SQL fault tests và Chrome download hash. **Phase 4 vẫn
+IN_PROGRESS**: lượt kế tiếp tiếp tục OTP/sign/decline/extension + acceptance/invoice
+receipt recovery; chưa bắt đầu phase 5 và chưa tuyên bố full Flow 1 UAT.
+
 ### 15.1. Loại kiểm thử
 
 | Loại | Phạm vi | Giới hạn phải ghi rõ |

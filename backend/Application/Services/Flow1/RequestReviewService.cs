@@ -152,6 +152,12 @@ public sealed class RequestReviewService(IRequestReviewRepository repo, IFlow1Re
         await work.ExecuteAsync(id, async token =>
         {
             var (r, version, s, canonical) = await Load(id, actor, manager, token, input.Request?.Horses.Select(x => x.HorseId));
+            if (s.CurrentContractId is not null)
+            {
+                var publication = await metadata.ReadAsync("publication", s.CurrentContractId, token);
+                Require(publication is null || Payload<ContractPublication>(publication.Revisions[^1]).Outcome != "PREPARED",
+                    "PUBLICATION_RECOVERY_REQUIRED", "Resolve the prepared PDF publication before changing the request or Draft.");
+            }
             var history = await metadata.ReadAsync("review", id, token);
             var receipt = history?.Revisions.Select(Payload<ReviewState>).Select(x => x.LastOperation)
                 .LastOrDefault(x => x?.Key == key);

@@ -14,7 +14,8 @@ var repository = Directory.GetCurrentDirectory();
 if (!File.Exists(Path.Combine(repository, "backend/Backend.slnx"))) throw new InvalidOperationException("Run from repository root.");
 // Explicit opt-in for bounded real map requests; all SQL/files/accounts remain test-only.
 var liveMaps = Environment.GetEnvironmentVariable("FLOW1_BROWSER_LIVE_MAPS") == "1";
-var phase3 = Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE3") == "1";
+var phase4 = Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE4") == "1";
+var phase3 = phase4 || Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE3") == "1";
 Flow1MapOptions? liveOptions = null;
 if (liveMaps)
 {
@@ -72,6 +73,14 @@ try
         ["Flow1__Maps__Attribution"] = "LOCAL HTTP FIXTURE - NOT LIVE MAP DATA", ["Flow1__Estimate__StandardVehicleCapacityStalls"] = "1",
         ["Flow1__Storage__MetadataRoot"] = Path.Combine(output, "metadata") };
     foreach (var pair in env) apiInfo.Environment[pair.Key] = pair.Value;
+    if (phase4)
+    {
+        apiInfo.Environment["Flow1__Contracts__LibreOfficePath"] = Environment.GetEnvironmentVariable("RACEHORSE_TEST_LIBREOFFICE")
+            ?? throw new InvalidOperationException("Phase 4 browser requires explicit RACEHORSE_TEST_LIBREOFFICE.");
+        apiInfo.Environment["Flow1__Contracts__WorkRoot"] = Path.Combine(output, "conversion");
+        foreach (var field in new[] { "COMPANY_NAME", "COMPANY_ADDRESS", "COMPANY_EMAIL", "COMPANY_HOTLINE", "COMPANY_TAX_CODE", "COMPANY_BANK_ACCOUNT", "COMPANY_BANK_NAME", "COMPANY_REPRESENTATIVE", "COMPANY_REP_POSITION" })
+            apiInfo.Environment["Flow1__Contracts__Issuer__" + field] = "DEMO FIXTURE " + field;
+    }
     if (liveOptions is not null)
     {
         // Real keys stay in the backend process. Never pass them to Node/browser/output.
@@ -93,12 +102,13 @@ try
     nodeInfo.Environment["FLOW1_FIXTURE_TOKEN"] = token;
     nodeInfo.Environment["FLOW1_MANAGER_FIXTURE_TOKEN"] = managerToken;
     nodeInfo.Environment["FLOW1_BROWSER_PHASE3"] = phase3 ? "1" : "0";
+    nodeInfo.Environment["FLOW1_BROWSER_PHASE4"] = phase4 ? "1" : "0";
     nodeInfo.Environment["FLOW1_BROWSER_LIVE_MAPS"] = liveMaps ? "1" : "0";
     foreach (var key in nodeInfo.Environment.Keys.Where(k => k.StartsWith("Flow1__Maps__", StringComparison.OrdinalIgnoreCase)).ToArray())
         nodeInfo.Environment.Remove(key);
     using var node = Process.Start(nodeInfo) ?? throw new InvalidOperationException("Could not start browser runner.");
     var stdout = node.StandardOutput.ReadToEndAsync(); var stderr = node.StandardError.ReadToEndAsync();
-    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(4));
+    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(phase4 ? 5 : 4));
     try { await node.WaitForExitAsync(timeout.Token); }
     finally { if (!node.HasExited) node.Kill(entireProcessTree: true); }
     var nodeLog = await stdout + "\n" + await stderr;
@@ -114,10 +124,13 @@ try
         nodeLog.Contains(liveOptions.Mapbox.AccessToken) || nodeLog.Contains(liveOptions.Geoapify.ApiKey)))
         throw new InvalidOperationException("A map credential leaked into a test log.");
     await Sql(connection, "IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST) <> 1 OR (SELECT COUNT(*) FROM HORSE) <> 1 OR EXISTS(SELECT 1 FROM TRIP_PLAN) OR EXISTS(SELECT 1 FROM INVOICE) THROW 51030, 'Browser acceptance SQL invariant failed.', 1;");
-    await Sql(connection, phase3
+    await Sql(connection, phase4
+        ? "IF (SELECT COUNT(*) FROM CONTRACT) <> 2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='PENDING_SIGNATURE' AND CompletionDeadline IS NOT NULL AND SignedAt IS NULL AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SUPERSEDED') <> 1 OR NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE Status='AWAITING_CONTRACT') THROW 51032, 'Phase 4 PDF publication invariant failed.', 1;"
+        : phase3
         ? "IF (SELECT COUNT(*) FROM CONTRACT) <> 2 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='DRAFT' AND TripID IS NULL AND DepositRateStandard=40 AND CurrencyCode='VND') <> 1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='SUPERSEDED') <> 1 THROW 51031, 'Phase 3 Draft invariant failed.', 1;"
         : "IF EXISTS(SELECT 1 FROM CONTRACT) THROW 51031, 'Phase 2 created a Contract early.', 1;");
-    Console.WriteLine(phase3 ? "PASS: Customer + Manager review/revision/plan/Draft/change through real API/SQL/private files; no Trip/Invoice."
+    Console.WriteLine(phase4 ? "PASS: Manager issues immutable PDF using real LibreOffice; Customer views/downloads identical hash; no sign/Trip/Invoice yet."
+        : phase3 ? "PASS: Customer + Manager review/revision/plan/Draft/change through real API/SQL/private files; no Trip/Invoice."
         : "PASS: real Chromium → frontend → API → SQL/private files; PENDING request, no Contract/Trip.");
     Console.WriteLine("Evidence: " + output);
 }
