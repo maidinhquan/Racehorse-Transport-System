@@ -3,8 +3,18 @@
 Ngày 16/10/2026, Asia/Ho_Chi_Minh. Baseline: commit phase 1 `aa90791` trên nhánh `Truong`.
 
 **Trạng thái: code và kiểm thử tích hợp local đã đạt; chưa đóng nghiệm thu toàn giai đoạn 2.**
-Chưa cấu hình/xác minh Maps live và sức chứa xe chuẩn. Không chuyển giai đoạn 3 chỉ vì mock pass.
+Chưa nghiệm thu Maps live đầy đủ. Không chuyển giai đoạn 3 chỉ vì mock pass.
 Đại ca đã cho phép lịch mỗi hai tiếng implement và commit giai đoạn 2–6, chỉ local, không push/deploy.
+
+**Cập nhật mới nhất — tài khoản free:** đại ca đã điền Mapbox token, xác nhận không có Permanent,
+đồng ý tách nguồn dữ liệu và chốt **1 ngựa/xe** cho MVP. Cấu hình mới dùng
+`Provider=MAPBOX` (ảnh bản đồ), `DataProvider=GEOAPIFY` (search/reverse/routing được lưu),
+`MayPersistResults=true` cho dữ liệu Geoapify, `Mapbox.PermanentGeocodingEnabled=false`.
+Mapbox Navigation API không dùng làm nguồn lưu km; adapter Directions trả MayPersist=false.
+Chờ **Geoapify.ApiKey và live acceptance**, không còn chờ sức chứa hoặc quyền Mapbox Permanent.
+Xem [báo cáo thay đổi free Maps](FLOW1_PHASE2_FREE_MAPS_REPORT.md) và
+[cách lấy key/cấu hình](../../backend/tools/FLOW1_MAPBOX_SETUP.md).
+Các số liệu/kiến trúc Mapbox-only bên dưới là baseline lịch sử của commit `1038fc0`.
 
 **Cập nhật lựa chọn:** đại ca đã chọn **Mapbox** và sẽ cấu hình token/quyền lưu/sức chứa.
 Đã bổ sung `MapboxTransportMaps`, provider selector (mặc định MAPBOX), cấu hình mẫu và
@@ -139,18 +149,18 @@ npx eslint src/features/flow1 src/app/router/AppRouter.tsx src/features/auth/pag
 `appsettings.Local.example.json` đã có keys nhưng cố ý không bật public demo endpoint hoặc
 điền sức chứa xe tùy đoán:
 
-1. `Flow1:Maps:Provider=MAPBOX` (mặc định đã chọn) và `Mapbox:AccessToken` trong local/env.
-2. `Mapbox:PermanentGeocodingEnabled=true` chỉ khi tài khoản đã có quyền lưu phù hợp.
-3. `MayPersistResults=true` chỉ khi đã xác nhận quyền lưu; attribution/quota đúng provider.
-4. `Flow1:Estimate:StandardVehicleCapacityStalls` từ sức chứa chuẩn được chủ dự án xác nhận.
-5. Adapter Mapbox đã có kiểm thử; không dùng Temporary để lưu snapshot hoặc tự kích hoạt
-   gói/tài khoản có phí.
-6. Chạy smoke VN→VN + xác minh country VN→JP với provider thật, kiểm tra lỗi/quota/quyền lưu,
+1. `Provider=MAPBOX`, token có sẵn; `DataProvider=GEOAPIFY` và `Geoapify.ApiKey` local/env.
+2. `Mapbox:PermanentGeocodingEnabled=false`; không gọi Mapbox Geocoding hoặc persist Directions.
+3. `MayPersistResults=true` cho Geoapify, giữ attribution/quota đúng provider.
+4. `StandardVehicleCapacityStalls=1` đã được chủ dự án chốt làm policy MVP, chưa phải thông số đội xe thật.
+5. Không dùng Temporary để lưu snapshot hoặc tự kích hoạt gói/tài khoản có phí.
+6. Chạy smoke VN→VN + xác minh country VN→JP với Geoapify thật và preview Mapbox, kiểm tra lỗi/quota/quyền lưu,
    và ghi evidence. Không dùng HTTP fixture để tick mục này.
 
-Đại ca đã trả lời chọn Mapbox. Lượt lịch tiếp theo đọc báo cáo này,
-kiểm tra cấu hình mới; hoàn thiện phần live khi có dữ liệu. Nếu hai dependency
-vẫn thiếu thì giữ nguyên trạng thái giai đoạn 2, không lặp commit rỗng, không chuyển phase 3.
+Đại ca đã đồng ý cấu hình free kết hợp Geoapify/Mapbox. Lượt lịch tiếp theo đọc báo cáo này
+và báo cáo free Maps, kiểm tra key Geoapify mới và live evidence; không hỏi lại sức chứa hoặc
+yêu cầu Mapbox Permanent. Nếu key vẫn thiếu thì giữ nguyên trạng thái giai đoạn 2,
+không lặp sửa/commit rỗng, không chuyển phase 3.
 Các phần đã kiểm chứng được commit local; không push, deploy, thay hạ tầng hoặc gửi email thật.
 
 Bàn giao metadata cho phase 3: mỗi revision của `request/{id}` hiện chứa **RequestSnapshot đầy đủ**,

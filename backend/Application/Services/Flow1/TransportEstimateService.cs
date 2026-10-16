@@ -16,6 +16,7 @@ public sealed class TransportEstimateService(IFlow1RoadRoutingProvider routing, 
         await locations.VerifyAsync(from, ct);
         await locations.VerifyAsync(to, ct);
         var road = input.PreferredTransportMode == "ROAD" ? await routing.CalculateAsync(new([from, to]), ct) : null;
-        return Flow1PricingPolicy.Calculate(input, options.StandardVehicleCapacityStalls, road, clock);
+        var result = Flow1PricingPolicy.Calculate(input, options.StandardVehicleCapacityStalls, road, clock);
+        return result with { Customer = result.Customer with { LocationAttribution = locations.Attribution } };
     }
 }

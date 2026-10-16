@@ -10,28 +10,33 @@ const root = process.cwd();
 const base = `http://127.0.0.1:${frontPort}`;
 let vite; let browser;
 const errors = [];
-const mapbox = process.env.FLOW1_BROWSER_MAP_PROVIDER === 'MAPBOX';
+const mapbox = ['MAPBOX', 'GEOAPIFY'].includes(process.env.FLOW1_BROWSER_MAP_PROVIDER);
+const calls = { geoSearch: 0, geoReverse: 0, geoRoute: 0, mapboxPreview: 0, forbiddenMapboxData: 0 };
 const fixture = http.createServer((req, res) => {
   const url = new URL(req.url, `http://127.0.0.1:${mapPort}`);
   res.setHeader('Content-Type', 'application/json');
-  if (mapbox && url.searchParams.get('access_token') !== 'pk.flow1_fixture_not_live') {
+  if (mapbox && url.pathname.startsWith('/styles/') && url.searchParams.get('access_token') !== 'pk.flow1_fixture_not_live') {
     res.statusCode = 401; res.end('{}'); return;
   }
   if (mapbox && url.pathname.startsWith('/styles/v1/mapbox/streets-v12/static/')) {
+    calls.mapboxPreview++;
     if (url.searchParams.get('logo') !== 'true' || url.searchParams.get('attribution') !== 'true') {
       res.statusCode = 400; res.end('{}'); return;
     }
     res.setHeader('Content-Type', 'image/png');
     res.end(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=', 'base64'));
-  } else if (mapbox && url.pathname.startsWith('/search/geocode/v6/')) {
-    if (url.searchParams.get('permanent') !== 'true') { res.statusCode = 400; res.end('{}'); return; }
-    const q = url.searchParams.get('q') || 'Vietnam';
-    res.end(JSON.stringify({ type: 'FeatureCollection', attribution: 'LOCAL MAPBOX HTTP FIXTURE - NOT LIVE', features: [{
-      geometry: { type: 'Point', coordinates: [106.6, q.startsWith('Điểm lấy') ? 10.8 : 11.5] },
-      properties: { full_address: q + ' (fixture)', context: { country: { country_code: 'VN' } } },
-    }] }));
-  } else if (mapbox && url.pathname.startsWith('/directions/v5/mapbox/driving/')) {
-    res.end(JSON.stringify({ code: 'Ok', routes: [{ distance: 300000, duration: 18000 }] }));
+  } else if (mapbox && (url.pathname.startsWith('/search/geocode/') || url.pathname.startsWith('/directions/'))) {
+    calls.forbiddenMapboxData++; res.statusCode = 403; res.end('{}');
+  } else if (mapbox && url.pathname.startsWith('/v1/')) {
+    if (url.searchParams.get('apiKey') !== 'geoapify_flow1_fixture_not_live') { res.statusCode = 401; res.end('{}'); return; }
+    if (url.pathname === '/v1/geocode/search') {
+      calls.geoSearch++; const q = url.searchParams.get('text');
+      res.end(JSON.stringify({ results: [{ formatted: q + ' (fixture)', lat: q.startsWith('Điểm lấy') ? 10.8 : 11.5, lon: 106.6, country_code: 'vn' }] }));
+    } else if (url.pathname === '/v1/geocode/reverse') {
+      calls.geoReverse++; res.end(JSON.stringify({ results: [{ country_code: 'vn' }] }));
+    } else if (url.pathname === '/v1/routing') {
+      calls.geoRoute++; res.end(JSON.stringify({ features: [{ properties: { distance: 300000, distance_units: 'meters', time: 18000, time_units: 'seconds' } }] }));
+    } else { res.statusCode = 404; res.end('{}'); }
   } else if (url.pathname === '/search') {
     const q = url.searchParams.get('q'); const pickup = q.startsWith('Điểm lấy');
     res.end(JSON.stringify([{ display_name: q + ' (fixture)', lat: pickup ? '10.8' : '11.5', lon: '106.6', address: { country_code: 'vn' } }]));
@@ -100,8 +105,15 @@ async function main() {
   const savedResponse = await requestResponse; if (savedResponse.status() !== 201) throw new Error('Submission failed: ' + await savedResponse.text());
   const saved = (await savedResponse.json()).data;
   if (saved.status !== 'PENDING' || saved.snapshot.receiverVerificationStatus !== 'REQUIRED_NOT_VERIFIED') throw new Error('Incorrect submitted state.');
+  if (mapbox && (saved.snapshot.estimate.provider !== 'GEOAPIFY' || saved.snapshot.estimate.vehicleCount !== 1 ||
+    !saved.snapshot.estimate.locationAttribution.includes('Geoapify'))) throw new Error('Incorrect hybrid source/capacity/attribution snapshot.');
   await page.getByText('Trạng thái: PENDING', { exact: true }).waitFor();
   await page.reload(); await page.getByText('Trạng thái: PENDING', { exact: true }).waitFor();
+  if (mapbox) {
+    await page.getByRole('link', { name: 'Geoapify', exact: true }).waitFor();
+    if (calls.geoSearch < 2 || calls.geoReverse < 2 || calls.geoRoute < 1 || calls.mapboxPreview < 2 || calls.forbiddenMapboxData)
+      throw new Error('Hybrid provider boundary failed.');
+  }
   await page.screenshot({ path: path.join(output, 'request-reloaded.png'), fullPage: true });
   await page.goto(base + '/customer/requests');
   await page.getByRole('link', { name: /Điểm lấy demo.*Điểm giao demo/ }).waitFor();
@@ -109,7 +121,7 @@ async function main() {
   const download = page.waitForEvent('download'); await page.getByRole('button', { name: 'Tải hộ chiếu', exact: true }).click();
   await (await download).saveAs(path.join(output, 'downloaded-passport.pdf'));
   if (errors.length) throw new Error('Browser runtime errors: ' + errors.join('; '));
-  const result = { status: 'PASS', provider: mapbox ? 'LOCAL MAPBOX HTTP FIXTURE - NOT LIVE' : 'LOCAL OSM HTTP FIXTURE - NOT LIVE', requestId: saved.requestId,
+  const result = { status: 'PASS', provider: mapbox ? 'LOCAL GEOAPIFY DATA + MAPBOX MAP HTTP FIXTURES - NOT LIVE' : 'LOCAL OSM HTTP FIXTURE - NOT LIVE', requestId: saved.requestId, calls,
     mapPreviewChecks: mapbox ? 'both Mapbox preview images loaded through our API, with no token in browser URL' : 'not applicable',
     assertions: ['real multipart horse upload', 'wizard keeps dates/contacts while adding horse', 'server-calculated estimate', 'PENDING before Contract/Trip',
       'proxy receiver not falsely verified', 'detail survives reload', 'list from SQL', 'private authenticated passport download'], pageErrors: errors };

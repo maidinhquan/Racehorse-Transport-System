@@ -27,12 +27,16 @@ public static class Flow1CustomerExtensions
         services.AddHttpClient<MapboxTransportMaps>(client => client.Timeout = TimeSpan.FromSeconds(15))
             .RemoveAllLoggers()
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        // Geoapify also authenticates in query parameters. Never log the request URI.
+        services.AddHttpClient<GeoapifyTransportMaps>(client => client.Timeout = TimeSpan.FromSeconds(15))
+            .RemoveAllLoggers()
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddScoped<IFlow1RoadRoutingProvider>(sp => Maps(sp) switch {
-            "MAPBOX" => sp.GetRequiredService<MapboxTransportMaps>(), _ => sp.GetRequiredService<OsmTransportMaps>() });
+            "MAPBOX" => sp.GetRequiredService<MapboxTransportMaps>(), "GEOAPIFY" => sp.GetRequiredService<GeoapifyTransportMaps>(), _ => sp.GetRequiredService<OsmTransportMaps>() });
         services.AddScoped<IFlow1GeocodingProvider>(sp => Maps(sp) switch {
-            "MAPBOX" => sp.GetRequiredService<MapboxTransportMaps>(), _ => sp.GetRequiredService<OsmTransportMaps>() });
+            "MAPBOX" => sp.GetRequiredService<MapboxTransportMaps>(), "GEOAPIFY" => sp.GetRequiredService<GeoapifyTransportMaps>(), _ => sp.GetRequiredService<OsmTransportMaps>() });
         services.AddScoped<IFlow1LocationVerifier>(sp => Maps(sp) switch {
-            "MAPBOX" => sp.GetRequiredService<MapboxTransportMaps>(), _ => sp.GetRequiredService<OsmTransportMaps>() });
+            "MAPBOX" => sp.GetRequiredService<MapboxTransportMaps>(), "GEOAPIFY" => sp.GetRequiredService<GeoapifyTransportMaps>(), _ => sp.GetRequiredService<OsmTransportMaps>() });
         services.AddSingleton<IFlow1PrivateFileStore>(sp =>
         {
             // Force validation of the metadata root against custom web roots first.
@@ -60,9 +64,10 @@ public static class Flow1CustomerExtensions
         });
         return services;
     }
-    private static string Maps(IServiceProvider services) => services.GetRequiredService<Flow1MapOptions>().Provider.ToUpperInvariant() switch
+    private static string Maps(IServiceProvider services) => DataProvider(services.GetRequiredService<Flow1MapOptions>()) switch
     {
-        "MAPBOX" => "MAPBOX", "OSM" => "OSM",
-        _ => throw new InvalidOperationException("Flow1:Maps:Provider must be MAPBOX or OSM.")
+        "MAPBOX" => "MAPBOX", "OSM" => "OSM", "GEOAPIFY" => "GEOAPIFY",
+        _ => throw new InvalidOperationException("Flow1:Maps:DataProvider must be GEOAPIFY, MAPBOX or OSM.")
     };
+    private static string DataProvider(Flow1MapOptions options) => (options.DataProvider ?? options.Provider).ToUpperInvariant();
 }

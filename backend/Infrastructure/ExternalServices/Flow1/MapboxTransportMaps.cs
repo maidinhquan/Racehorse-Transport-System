@@ -12,11 +12,12 @@ namespace Infrastructure.ExternalServices.Flow1;
 public sealed class MapboxTransportMaps(HttpClient http, Flow1MapOptions options, TimeProvider clock)
     : IFlow1RoadRoutingProvider, IFlow1GeocodingProvider, IFlow1LocationVerifier
 {
-    private Uri Endpoint(string relative)
+    private Uri Endpoint(string relative, bool permanentGeocoding = false)
     {
         var config = options.Mapbox;
-        if (string.IsNullOrWhiteSpace(config.AccessToken) || !options.MayPersistResults || !config.PermanentGeocodingEnabled)
-            throw Error("Configure the Mapbox token, permanent geocoding entitlement and permission to persist results.", "MAP_PROVIDER_NOT_CONFIGURED", 503);
+        if (string.IsNullOrWhiteSpace(config.AccessToken) ||
+            permanentGeocoding && (!options.MayPersistResults || !config.PermanentGeocodingEnabled))
+            throw Error("Configure the Mapbox token and, for stored geocoding, permanent storage entitlement.", "MAP_PROVIDER_NOT_CONFIGURED", 503);
         if (!Uri.TryCreate(config.ApiBaseUrl, UriKind.Absolute, out var root) || root.AbsolutePath != "/" ||
             !string.IsNullOrEmpty(root.UserInfo) || !string.IsNullOrEmpty(root.Query) || !string.IsNullOrEmpty(root.Fragment) ||
             !(root.Scheme == "https" && root.Host == "api.mapbox.com" || root.IsLoopback && root.Scheme is "http" or "https"))
@@ -28,7 +29,7 @@ public sealed class MapboxTransportMaps(HttpClient http, Flow1MapOptions options
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(TimeSpan.FromSeconds(15));
-        using var request = new HttpRequestMessage(HttpMethod.Get, Endpoint(relative));
+        using var request = new HttpRequestMessage(HttpMethod.Get, Endpoint(relative, relative.StartsWith("search/geocode/", StringComparison.Ordinal)));
         try
         {
             using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
@@ -146,7 +147,9 @@ public sealed class MapboxTransportMaps(HttpClient http, Flow1MapOptions options
             var duration = route.GetProperty("duration").GetDecimal();
             if (distance is <= 0 or > 10_000_000 || duration <= 0) throw new JsonException();
             return new RoadRouteResult("MAPBOX", distance, duration, clock.GetUtcNow(),
-                CustomerTransportService.Hash(query), true, options.Mapbox.Attribution);
+                // Mapbox Product Terms 2026-07 section 2.10.1: no stored Navigation API results.
+                // Display-only callers may use this result; Customer submit rejects MayPersist=false.
+                CustomerTransportService.Hash(query), false, options.Mapbox.Attribution);
         });
     }
     private static string? Country(JsonElement properties) =>

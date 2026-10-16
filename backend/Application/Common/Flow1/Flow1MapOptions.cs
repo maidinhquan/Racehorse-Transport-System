@@ -3,13 +3,23 @@ namespace Application.Common.Flow1;
 public sealed class Flow1MapOptions
 {
     public string Provider { get; set; } = "MAPBOX";
+    // Data source for stored locations and quotes, independent of the map renderer.
+    // Null preserves explicitly configured legacy providers.
+    public string? DataProvider { get; set; }
     public Flow1MapboxOptions Mapbox { get; set; } = new();
+    public Flow1GeoapifyOptions Geoapify { get; set; } = new();
     // No public demo servers are silently enabled. Operator supplies contracted/self-hosted endpoints.
     public string? RoutingBaseUrl { get; set; }
     public string? GeocodingBaseUrl { get; set; }
     public string UserAgent { get; set; } = "";
     public bool MayPersistResults { get; set; }
     public string Attribution { get; set; } = "© OpenStreetMap contributors";
+}
+
+public sealed class Flow1GeoapifyOptions
+{
+    public string ApiKey { get; set; } = "";
+    public string ApiBaseUrl { get; set; } = "https://api.geoapify.com/";
 }
 
 public sealed class Flow1MapboxOptions

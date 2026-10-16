@@ -17,6 +17,7 @@ public interface ICustomerTransportRepository
 
 public interface IFlow1LocationVerifier
 {
+    string? Attribution => null;
     Task VerifyAsync(MapPoint point, CancellationToken ct);
 }
 

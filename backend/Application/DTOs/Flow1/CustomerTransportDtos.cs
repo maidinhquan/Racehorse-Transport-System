@@ -11,7 +11,7 @@ public sealed record EstimateInput([Required] LocationInput Pickup,
 public sealed record EstimateView(string PricingPolicyVersion, string Currency, decimal EstimatedPrice,
     decimal EstimatedDeposit, int HorseCount, int VehicleCount, int StallsRequired,
     decimal? RoadDistanceKm, int MinimumPreparationDays, DateOnly EarliestDepartureDate,
-    string Scope, string? Provider, DateTimeOffset CalculatedAtUtc, string? Attribution);
+    string Scope, string? Provider, DateTimeOffset CalculatedAtUtc, string? Attribution, string? LocationAttribution = null);
 // Internal cost breakdown is never serialized to a Customer endpoint.
 public sealed record EstimateCalculation(EstimateView Customer, decimal EstimatedCost, decimal Floor,
     RoadRouteResult? Route);

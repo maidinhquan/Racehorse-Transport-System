@@ -2,10 +2,10 @@ import { apiClient } from "../../shared/api/apiClient";
 import { registrationErrorMessage } from "../auth/api/registrationApi";
 
 export const flow1Error = registrationErrorMessage;
-export type Location = { address: string; lat: number; lng: number; country: string; mapProvider?: string };
+export type Location = { address: string; lat: number; lng: number; country: string; mapProvider?: string; geocodingProvider?: string };
 export type Trip = { pickup: Location; delivery: Location; preferredTransportMode: string; horseCount: number; desiredDepartureDate: string };
 export type Estimate = { estimatedPrice: number; estimatedDeposit: number; roadDistanceKm: number | null;
-  minimumPreparationDays: number; earliestDepartureDate: string; scope: string; attribution: string | null; currency: string };
+  minimumPreparationDays: number; earliestDepartureDate: string; scope: string; attribution: string | null; currency: string; locationAttribution?: string | null };
 export type Horse = { horseId: string; name: string; microchipIso: string; feiPassportNo: string;
   status: string; documentVersion: number; selectable: boolean; unavailableReason: string | null };
 export type Contact = { name: string; phone: string };
@@ -28,7 +28,7 @@ async function post<T>(url: string, data: unknown, key?: string): Promise<T> {
   return r.data.data;
 }
 export const flow1 = {
-  search: (address: string, country: string, guest = false) => get<{ label: string; point: { longitude: number; latitude: number; countryCode: string }; attribution: string; provider?: string }[]>(
+  search: (address: string, country: string, guest = false) => get<{ label: string; point: { longitude: number; latitude: number; countryCode: string }; attribution: string; provider?: string; previewProvider?: string | null }[]>(
     `${guest ? "/public/estimates" : "/customer"}/locations/search?${new URLSearchParams({ address, country })}`),
   mapPreviewUrl: (point: Location) => `${baseURL.replace(/\/$/, "")}/public/maps/mapbox-preview?${new URLSearchParams({ lat: String(point.lat), lng: String(point.lng), country: point.country })}`,
   estimate: (trip: Trip, guest = false) => post<Estimate>(guest ? "/public/estimates" : "/customer/estimates", trip),

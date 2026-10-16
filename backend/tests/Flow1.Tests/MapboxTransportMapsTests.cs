@@ -105,7 +105,7 @@ public sealed class MapboxTransportMapsTests
         var maps = Maps("""{"code":"Ok","routes":[{"distance":300000,"duration":18000}]}""");
         var route = await maps.CalculateAsync(Road());
         Assert.Equal("MAPBOX", route.Provider); Assert.Equal(300000, route.DistanceMeters); Assert.Equal(18000, route.DurationSeconds);
-        Assert.True(route.MayPersist); Assert.DoesNotContain(Token, route.ToString());
+        Assert.False(route.MayPersist); Assert.DoesNotContain(Token, route.ToString());
         Assert.Equal("UNSUPPORTED_ROUTE", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
             maps.CalculateAsync(new([Road().Points[0], new(139.7, 35.6, "JP")])))).ErrorCode);
         Assert.Equal("ROUTE_NOT_FOUND", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
@@ -123,6 +123,17 @@ public sealed class MapboxTransportMapsTests
         var maps = new MapboxTransportMaps(new(new Handler(_ => { called = true; throw new InvalidOperationException(); })), options, new FlowClock());
         Assert.Equal("MAP_PROVIDER_NOT_CONFIGURED", (await Assert.ThrowsAsync<BusinessRuleException>(() => maps.SearchAsync("Hồ Chí Minh", "VN"))).ErrorCode);
         Assert.False(called);
+    }
+    [Fact]
+    public async Task Map_preview_and_display_only_directions_do_not_require_permanent_geocoding()
+    {
+        var options = Options(); options.MayPersistResults = false; options.Mapbox.PermanentGeocodingEnabled = false;
+        Assert.False((await Maps("""{"code":"Ok","routes":[{"distance":1000,"duration":120}]}""", options: options).CalculateAsync(Road())).MayPersist);
+        var maps = new MapboxTransportMaps(new(new Handler(_ => {
+            var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(CustomerTransportTests.Png) };
+            response.Content.Headers.ContentType = new("image/png"); return response;
+        })), options, new FlowClock());
+        Assert.Equal(CustomerTransportTests.Png, await maps.PreviewAsync(Road().Points[0], default));
     }
     [Theory]
     [InlineData(401, "MAP_PROVIDER_AUTH_FAILED")]

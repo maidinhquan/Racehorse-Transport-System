@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { flow1 } from "./api";
-import type { Estimate, Horse, RequestView } from "./api";
+import type { Estimate, Horse, RequestView, Trip } from "./api";
 import { PublicEstimatePage, RequestWizardPage, RequestsPage, RequestDetailPage } from "./CustomerPages";
-import { TripFields } from "./TripFields";
+import { TripFields, EstimateSummary } from "./TripFields";
 import { emptyTrip } from "./api";
 
 vi.mock("../../shared/layouts/CustomerLayout/CustomerLayout", () => ({ default: ({ children }: { children: ReactNode }) => <main>{children}</main> }));
@@ -42,6 +42,25 @@ async function toHorses(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByRole("heading", { name: "3. Ngựa và hồ sơ" });
 }
 describe("Customer Flow 1 API screens", () => {
+  it("keeps Geoapify attribution after selection while using Mapbox for preview, and clears stale provenance on edit", async () => {
+    vi.spyOn(flow1, "search").mockResolvedValue([{ label: "Hồ Chí Minh", point: { latitude: 10.8, longitude: 106.6, countryCode: "VN" },
+      attribution: "Powered by Geoapify | OpenStreetMap", provider: "GEOAPIFY", previewProvider: "MAPBOX" }]);
+    function Fields() { const [trip, setTrip] = useState<Trip>(emptyTrip); return <TripFields trip={trip} onChange={setTrip} />; }
+    const user = userEvent.setup(); render(<Fields />);
+    const group = screen.getByRole("group", { name: "Điểm lấy ngựa (Việt Nam)" });
+    await user.type(within(group).getByLabelText("Địa chỉ"), "HCM");
+    await user.click(within(group).getByRole("button", { name: "Tìm địa điểm" }));
+    await user.click(await within(group).findByRole("button", { name: "Hồ Chí Minh" }));
+    expect(within(group).getByRole("link", { name: "Geoapify" })).toHaveAttribute("href", "https://www.geoapify.com/");
+    expect(within(group).getByRole("link", { name: /OpenStreetMap/ })).toHaveAttribute("href", "https://www.openstreetmap.org/copyright");
+    expect(within(group).getByRole("img")).toHaveAttribute("src", expect.stringContaining("/api/public/maps/mapbox-preview?"));
+    await user.type(within(group).getByLabelText("Địa chỉ"), " thay đổi");
+    expect(within(group).queryByRole("img")).toBeNull(); expect(within(group).queryByRole("link", { name: "Geoapify" })).toBeNull();
+  });
+  it("shows attribution for air estimates even though no road route is returned", () => {
+    render(<EstimateSummary value={{ ...estimate, roadDistanceKm: null, attribution: null, locationAttribution: "Powered by Geoapify | OpenStreetMap" }} />);
+    expect(screen.getByRole("link", { name: "Geoapify" })).toBeVisible();
+  });
   it("Mapbox preview points to our API and never includes a provider access token", () => {
     render(<TripFields trip={{ ...emptyTrip, pickup: { address: "Hồ Chí Minh", lat: 10.8, lng: 106.6, country: "VN", mapProvider: "MAPBOX" } }} onChange={() => {}} />);
     const image = screen.getByRole("img", { name: "Bản đồ Mapbox: Điểm lấy ngựa (Việt Nam)" });

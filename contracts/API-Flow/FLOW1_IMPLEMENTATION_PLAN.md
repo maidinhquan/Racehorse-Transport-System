@@ -17,7 +17,7 @@ Luồng giữ nguyên: Estimate -> Wizard -> PENDING -> Manager Review -> Prelim
 | Cọc | Cố định 40%, BE tính; Manager không thay tỷ lệ |
 | Chuẩn bị | VN->VN <=500km: 2 ngày; >500km: 3 ngày; VN->JP: 7 ngày; Manager chỉ được tăng khi thẩm định |
 | Tuyến/mode | Demo VN->VN/ROAD, VN->JP/AIR và ground legs nếu có |
-| Bản đồ | Đại ca chọn Mapbox ngày 16/10/2026; adapter Geocoding v6 permanent + Directions v5 đã có. Chờ token/quyền lưu và sức chứa xe để nghiệm thu live; không dùng danh mục khoảng cách cố định |
+| Bản đồ | Tài khoản Mapbox free: Mapbox chỉ hiển thị bản đồ; Geoapify Geocoding/Reverse/Routing cho dữ liệu lưu trong hồ sơ. Sức chứa MVP 1 ngựa/xe do đại ca chốt ngày 16/10/2026. Chờ key Geoapify/nghiệm thu live; không cần Mapbox Permanent |
 | Wizard | Ảnh + scan passport là hai loại file bắt buộc; basic fields vẫn theo schema; không upload Customer PER_TRIP hoặc giấy ủy quyền |
 | PDF/OTP | PDF sinh từ mẫu hiện có, bản phát hành bất biến; OTP gắn đúng khách/Contract/version/hash |
 | Tiền | SQL là nguồn chuẩn cho Invoice/Payment/số thực nhận; không chuyển ledger sang file |
@@ -132,7 +132,7 @@ Change pending không ghi đè canonical Request và chặn accept/send/sign. Ap
 | Routing | Tọa độ và profile đường bộ | DistanceMeters, DurationSeconds, geometry nếu được phép | Estimate và Preliminary Plan |
 | Map display | Điểm/đường và lớp nền | Bản đồ tương tác | Wizard/chi tiết, không quyết định giá |
 
-Không dùng bản đồ hiển thị thay routing engine. Ngày 16/10/2026 đại ca đã chọn Mapbox; xem [cấu hình và nghiệm thu](../../backend/tools/FLOW1_MAPBOX_SETUP.md). Adapter OSM còn phục vụ cấu hình explicit/fixture, không fallback khi Mapbox lỗi. Các yêu cầu interface bên dưới giữ nguyên.
+Không dùng bản đồ hiển thị thay routing engine. Ngày 16/10/2026 đại ca xác nhận Mapbox free và đồng ý tách nguồn được lưu: Geoapify cho Geocoding/Reverse/Routing, Mapbox cho ảnh bản đồ. Xem [cấu hình và nghiệm thu](../../backend/tools/FLOW1_MAPBOX_SETUP.md). Adapter OSM còn phục vụ cấu hình explicit/fixture; không fallback âm thầm. Các yêu cầu interface bên dưới giữ nguyên.
 
 ### 6.2. Interface dự kiến
 
@@ -171,6 +171,7 @@ Kiểm tra nguồn chính thức ngày 15/10/2026; kiểm tra lại với tài k
 
 - Mapbox Directions đang công bố 100.000 request/tháng miễn phí; map display và geocoding có cách tính riêng. [Pricing](https://www.mapbox.com/pricing).
 - Mapbox Temporary geocoding không cho cache; Permanent cho lưu và cần điều kiện tài khoản phù hợp. Không xem free Temporary là quyền lưu tọa độ/địa chỉ đã chuẩn hóa vào Request. [Storage rules](https://docs.mapbox.com/api/search/geocoding/#storing-geocoding-results).
+- Quyết định free MVP thay phần lưu bằng Geoapify; Mapbox Product Terms 2026-07 mục 2.10.1 cũng hạn chế lưu Navigation API results. Directions cũ trả MayPersist=false, không được persist vào báo giá. Geoapify cho lưu với attribution theo [FAQ](https://www.geoapify.com/) và [Free plan](https://www.geoapify.com/pricing/). Mapbox chỉ hiển thị map, không lưu ảnh.
 - Public Nominatim giới hạn tổng ứng dụng tối đa 1 request/giây, phải nhận diện ứng dụng và attribution; không dùng cho autocomplete. Chỉ cân nhắc nếu chủ dự án chủ động chọn và thực hiện policy. [Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/).
 - Nếu dùng tiles công cộng OSM, tuân thủ attribution/cache, không tải hàng loạt/offline. [Tile policy](https://operations.osmfoundation.org/policies/tiles/).
 - Có thể dùng routing engine dựa OSM như OSRM qua một nhà cung cấp hoặc tự host; phải bàn giao URL, khả năng hỗ trợ tuyến, quota và quyền lưu, không coi public demo endpoint là dịch vụ không giới hạn. [OSRM](https://project-osrm.org/).
@@ -344,7 +345,7 @@ Tọa độ và ngày trên chỉ minh họa hình dạng payload, không phải
 - Sức chứa chuẩn phải lấy từ config fixture/đội xe được kiểm chứng; không mặc định một xe chở mọi số ngựa. Không bịa số chỗ thật trong plan.
 - Preliminary Plan có thể chọn số xe/phương án khác dự toán; budget và gợi ý giá phải phản ánh phương án Manager chọn.
 - MVP dùng một ngựa một stall cho dự toán nếu cấu hình không có quy tắc khác; lưu cả horseCount và stallsRequired. Thay đổi sức chứa/chiếm stall phải có policy version, không suy ra từ hãng bay chưa tích hợp.
-- Thiếu cấu hình sức chứa/gateway cần thiết: báo cấu hình chưa đủ; test dùng fixture có giá trị công khai, không dùng giá trị test làm policy thật.
+- Sức chứa chuẩn MVP đã được đại ca chốt 1 ngựa/xe ngày 16/10/2026; đây là policy MVP, chưa xác minh đội xe thực tế. Thiếu gateway cần thiết vẫn báo cấu hình chưa đủ; không suy ra từ fixture.
 
 ### 8.3. Tiền tệ, làm tròn và dữ liệu tin cậy
 
@@ -473,7 +474,7 @@ Frontend dùng frontend/src/shared/api/apiClient.ts và router hiện có. API/t
 
 Sau phase 1 có thể giao adapter Maps/VNPay/PDF cho người phụ trách theo interface. Mỗi task ghi file exact path, input/output, status guards, metadata/SQL boundary và test IDs. Không tự sửa legacy DAO hoặc module đồng đội ngoài hợp đồng bàn giao.
 
-Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md) và [phase 2](FLOW1_PHASE2_REPORT.md). Phase 2 đã có Customer API/FE và connected test local, còn thiếu nghiệm thu Maps live/sức chứa xe chuẩn; chưa chuyển phase 3. Payload phase 2 thực tế được ghi trong báo cáo để phân biệt với ví dụ thiết kế ở mục 7.
+Ngày 16/10/2026, đại ca đã cho phép lịch mỗi hai tiếng triển khai một giai đoạn kế tiếp, kiểm thử và commit local cho phase 2–6; không push/deploy hoặc áp migration lên DB nghiệp vụ. Xem [phase 1](FLOW1_PHASE1_REPORT.md), [phase 2](FLOW1_PHASE2_REPORT.md) và [điều chỉnh Maps free](FLOW1_PHASE2_FREE_MAPS_REPORT.md). Phase 2 đã có Customer API/FE và connected test local, sức chứa MVP đã chốt 1 ngựa/xe; còn key Geoapify và nghiệm thu Maps live, chưa chuyển phase 3. Payload phase 2 thực tế được ghi trong báo cáo để phân biệt với ví dụ thiết kế ở mục 7.
 
 ## 15. Ma trận kiểm thử và bằng chứng nghiệm thu
 

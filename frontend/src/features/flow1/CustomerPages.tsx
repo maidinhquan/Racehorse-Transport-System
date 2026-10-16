@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import CustomerLayout from "../../shared/layouts/CustomerLayout/CustomerLayout";
 import { emptyTrip, estimateSeed, flow1, flow1Error, initialTrip, money } from "./api";
 import type { Contact, Estimate, Horse, RequestView, Submission } from "./api";
-import { TripFields, EstimateSummary } from "./TripFields";
+import { TripFields, EstimateSummary, MapDataAttribution } from "./TripFields";
 import { HorseForm } from "./HorseForm";
 import "./flow1.css";
 
@@ -114,6 +114,7 @@ export function RequestsPage() {
     {error && <p role="alert">{error}</p>}{!result && !error && <p>Đang tải…</p>}
     {result && <><p>{result.totalCount} yêu cầu</p><ul>{result.items.map(r => <li key={r.requestId}>
       <Link to={`/customer/requests/${r.requestId}`}>{r.departure} → {r.destination}</Link> · {r.status} · {r.expectedDate?.slice(0, 10)}</li>)}</ul>
+      <MapDataAttribution text="Geoapify" />
       <button disabled={page === 1} onClick={() => setPage(page - 1)}>Trang trước</button>
       <span> Trang {page} </span><button disabled={page * result.pageSize >= result.totalCount} onClick={() => setPage(page + 1)}>Trang sau</button></>}
   </section></CustomerLayout>;
@@ -128,6 +129,7 @@ export function RequestDetailPage() {
       {request.snapshot && <><p>Người giao: {request.snapshot.input.pickupContact.name} · {request.snapshot.input.pickupContact.phone}</p>
         <p>Người nhận: {request.snapshot.input.receiver.name} · {request.snapshot.input.receiver.phone}</p>
         <p>{request.snapshot.input.horses.length} ngựa · Giá tham khảo: {money(request.snapshot.estimate.estimatedPrice)}</p>
+        <MapDataAttribution text={request.snapshot.estimate.attribution || request.snapshot.estimate.locationAttribution} />
         {request.snapshot.input.receiver.isProxy && <p>Người nhận thay cần được xác minh trước bàn giao.</p>}</>}
       {request.status === "PENDING" && <p>Đã gửi quản lý thẩm định. Chưa có hợp đồng hoặc chuyến vận chuyển.</p>}
     </>}
