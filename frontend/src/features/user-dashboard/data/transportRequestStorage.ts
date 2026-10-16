@@ -63,6 +63,22 @@ const defaultRequests: FakeTransportRequest[] = [
 
     status: "Documents Under Review",
   },
+
+  {
+    id: "TR-2026-JP01",
+
+    origin: "Ho Chi Minh City",
+    destination: "Tokyo (Japan)",
+
+    requestedDate: "2026-10-10",
+    preferredDate: "2026-10-28",
+
+    horseCount: 1,
+
+    estimatedPrice: 5800,
+
+    status: "Information Required",
+  },
 ];
 
 export function getRequests(): FakeTransportRequest[] {
@@ -78,7 +94,15 @@ export function getRequests(): FakeTransportRequest[] {
     return defaultRequests;
   }
 
-  return JSON.parse(saved);
+  const parsed: FakeTransportRequest[] = JSON.parse(saved);
+
+  // Đảm bảo đơn hàng đi Nhật Bản luôn có trong danh sách hệ thống
+  if (!parsed.some((r) => r.id === "TR-2026-JP01")) {
+    parsed.unshift(defaultRequests[2]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+  }
+
+  return parsed;
 }
 
 export function getRequestById(

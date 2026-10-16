@@ -95,7 +95,48 @@ export interface LegCrewInfo {
   destinationFarmCode?: string;
 }
 
+export interface VeterinaryAgency {
+  agencyName: string;
+  veterinarianName: string;
+  licenseNumber: string;
+  phone: string;
+  email: string;
+  clinicAddress: string;
+  notes?: string;
+}
+
+export interface HorseMedicalProfile {
+  horseName: string;
+  microchipNumber: string;
+  microchipLocation: string;
+  breed: string;
+  gender: 'Stallion' | 'Mare' | 'Gelding' | '';
+  ageOrYob: string;
+  coatColorMarkings: string;
+  bodyTemperature: string;
+  clinicalSigns: string;
+}
+
+export interface MedicalTestRequisition {
+  requisitionId: string;
+  samplingDate: string;
+  samplingTime: string;
+  sampleType: string;
+  designatedLab: string;
+  testPurpose: string;
+  selectedDiseases: {
+    EIA: boolean;
+    EVA: boolean;
+    Piroplasmosis: boolean;
+    WNV: boolean;
+  };
+  specialInstructions: string;
+}
+
 export interface JapanRoutePackageData {
+  veterinaryAgency?: VeterinaryAgency;
+  horseMedicalProfile?: HorseMedicalProfile;
+  medicalRequisition?: MedicalTestRequisition;
   flightDetails: FlightDetails;
   animalProfile: AnimalProfile;
   stakeholders: Stakeholders;
@@ -116,3 +157,4 @@ export interface JapanRoutePackageData {
     leg4Crew: LegCrewInfo;
   };
 }
+

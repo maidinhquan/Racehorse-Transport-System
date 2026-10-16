@@ -14,6 +14,7 @@ import ForgotPasswordPage from "../../features/auth/pages/forgot-password/Forgot
 import ResetPasswordPage from "../../features/auth/pages/reset-password/ResetPasswordPage";
 
 // ==================== CUSTOMER ====================
+import CustomerLayout from "../../shared/layouts/CustomerLayout/CustomerLayout";
 import HomePage from "../../features/user-dashboard/page/home-page/HomePage";
 import TransportRequestPage from "../../features/user-dashboard/page/transport-request-page/list/TransportRequestPage";
 import CreateTransportRequestPage from "../../features/user-dashboard/page/transport-request-page/create-transport-request/CreateTransportRequestPage";
@@ -40,11 +41,12 @@ import SpecialistDashboard from "../../features/specialist/SpecialistDashboard";
 
 // Import các trang update mới
 import { CreateRequestWizard } from "../../features/customer/pages/create-request/CreateRequestWizard";
-import { ManagerPortal } from "../../features/Manager/pages/dashboard/ManagerPortal";
+import { ManagerPortal } from "../../features/manager/pages/dashboard/ManagerPortal";
 import { SpecialistPortal } from "../../features/specialist/pages/dashboard/SpecialistPortal";
 import { CoordinatorPortal } from "../../features/coordinator/pages/dashboard/CoordinatorPortal";
 import { DriverPortal } from "../../features/driver/pages/trip-detail/DriverPortal";
 import { HandoverPage } from "../../features/driver/pages/handover/HandoverPage";
+import { JapanRouteModule } from "../../features/documents/japan-route/JapanRouteModule";
 
 function AppRouter() {
   return (
@@ -98,6 +100,16 @@ function AppRouter() {
         <Route path="/customer/payment/cancel" element={<PaymentCancelPage />} />
         <Route path="/payment/sandbox" element={<SandboxPaymentPage />} />
         <Route path="/payment/return" element={<SandboxPaymentPage />} />
+
+        {/* ==================== JAPAN ROUTE MODULE ==================== */}
+        <Route
+          path="/japan-route"
+          element={
+            <CustomerLayout pageTitle="Hồ sơ Kiểm dịch Tuyến Nhật Bản (AQS MAFF)">
+              <JapanRouteModule />
+            </CustomerLayout>
+          }
+        />
 
         {/* ==================== NOT FOUND ==================== */}
         <Route path="*" element={<Navigate to="/login" replace />} />

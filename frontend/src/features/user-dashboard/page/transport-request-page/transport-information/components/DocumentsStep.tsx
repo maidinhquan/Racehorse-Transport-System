@@ -207,11 +207,33 @@ function DocumentsStep({
       )}
 
       {/* Phân hệ Đặc thù Tuyến Việt Nam -> Nhật Bản */}
-      {isJapanRoute && (
-        <div style={{ marginTop: "32px", borderTop: "2px dashed #e2e8f0", paddingTop: "24px" }}>
-          <JapanRouteModule />
-        </div>
-      )}
+      {isJapanRoute && (() => {
+        const selectedHorseObj =
+          horses.find((h) => selectedHorses.some((s) => s.horseId === h.id)) ||
+          horses[0];
+
+        return (
+          <div style={{ marginTop: "32px", borderTop: "2px dashed #e2e8f0", paddingTop: "24px" }}>
+            <JapanRouteModule
+              initialData={{
+                horseMedicalProfile: selectedHorseObj
+                  ? {
+                      horseName: selectedHorseObj.name,
+                      microchipNumber: selectedHorseObj.microchip || "985141001289456",
+                      microchipLocation: "Bờ trên dây chằng cổ trái (Nuchal ligament)",
+                      breed: selectedHorseObj.breed || "Thoroughbred",
+                      gender: selectedHorseObj.sex === "Male" ? "Gelding" : "Mare",
+                      ageOrYob: `${selectedHorseObj.age} tuổi`,
+                      coatColorMarkings: "Nâu sẫm (Bay), xoáy trán hình thoi",
+                      bodyTemperature: "37.8 °C",
+                      clinicalSigns: "Tỉnh táo, niêm mạc mắt hồng hào, không phát hiện dấu hiệu sốt/bệnh truyền nhiễm",
+                    }
+                  : undefined,
+              }}
+            />
+          </div>
+        );
+      })()}
 
       <div className="transport-info-actions">
         <button

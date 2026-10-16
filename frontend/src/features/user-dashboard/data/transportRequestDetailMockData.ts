@@ -360,4 +360,101 @@ export const transportRequestDetails: TransportRequestDetail[] = [
       },
     ],
   },
+
+  {
+    id: "TR-2026-JP01",
+
+    status: "Information Required",
+
+    origin: "Ho Chi Minh City",
+    destination: "Tokyo (Japan)",
+
+    requestedDate: "2026-10-10",
+    preferredDate: "2026-10-28",
+
+    estimatedPrice: 5800,
+
+    horseCount: 1,
+
+    horses: [
+      {
+        id: "HOR-1029",
+        name: "Thunderbolt",
+        breed: "Thoroughbred",
+        sex: "Male",
+      },
+    ],
+
+    contract: {
+      number: "CTR-2026-JP01",
+      status: "Signed",
+      finalPrice: 6200,
+    },
+
+    documents: [
+      {
+        id: 1,
+        name: "Equine Passport",
+        status: "Approved",
+      },
+      {
+        id: 2,
+        name: "Phiếu yêu cầu xét nghiệm y tế & 4 bệnh máu",
+        status: "Action Required",
+      },
+      {
+        id: 3,
+        name: "Giấy chứng nhận cách ly tại VN (>= 7 ngày)",
+        status: "Pending Review",
+      },
+      {
+        id: 4,
+        name: "AQS Japan Quarantine Confirmation",
+        status: "Pending Review",
+      },
+    ],
+
+    progress: [
+      {
+        id: 1,
+        label: "Request Submitted",
+        status: "completed",
+      },
+      {
+        id: 2,
+        label: "Request Accepted",
+        status: "completed",
+      },
+      {
+        id: 3,
+        label: "Contract Signed",
+        status: "completed",
+      },
+      {
+        id: 4,
+        label: "Deposit Paid",
+        status: "completed",
+      },
+      {
+        id: 5,
+        label: "Information Required",
+        status: "current",
+      },
+      {
+        id: 6,
+        label: "Documents Under Review",
+        status: "upcoming",
+      },
+      {
+        id: 7,
+        label: "Scheduled",
+        status: "upcoming",
+      },
+      {
+        id: 8,
+        label: "In Transit",
+        status: "upcoming",
+      },
+    ],
+  },
 ];

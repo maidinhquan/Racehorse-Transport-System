@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './JapanRouteModule.css';
 import type {
   JapanRoutePackageData,
@@ -10,8 +10,12 @@ import type {
   MedicalApproval,
   LegVehicleInfo,
   LegCrewInfo,
+  VeterinaryAgency,
+  HorseMedicalProfile,
+  MedicalTestRequisition,
 } from './types/japanRoute.types';
 
+import { JapanMedicalTestRequisition } from './components/JapanMedicalTestRequisition';
 import { JapanPreDepartureDoc } from './components/JapanPreDepartureDoc';
 import { JapanMedicalQuarantine } from './components/JapanMedicalQuarantine';
 import { JapanLogisticsEscort } from './components/JapanLogisticsEscort';
@@ -25,11 +29,14 @@ interface JapanRouteModuleProps {
 }
 
 export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
+  initialData,
   onSave,
   onSubmitToAqs,
   isReadOnly = false,
 }) => {
-  const [activeTab, setActiveTab] = useState<'module1' | 'module2' | 'module3'>('module1');
+  const [activeTab, setActiveTab] = useState<
+    'step1_requisition' | 'step1_medical_quarantine' | 'step2_logistics' | 'step3_declaration'
+  >('step1_requisition');
 
   // Zoom Modal State
   const [zoomModal, setZoomModal] = useState<{
@@ -40,6 +47,60 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
     isOpen: false,
     imageUrl: '',
     imageTitle: '',
+  });
+
+  // 0. BƯỚC 1: ĐƠN XÉT NGHIỆM Y TẾ THÚ Y (BÊN Y TẾ & ĐỐI TƯỢNG LẤY MẪU)
+  const [veterinaryAgency, setVeterinaryAgency] = useState<VeterinaryAgency>(() => ({
+    agencyName: initialData?.veterinaryAgency?.agencyName || 'Bệnh viện Thú y Quốc tế Sài Gòn (Saigon Vet Clinic)',
+    veterinarianName: initialData?.veterinaryAgency?.veterinarianName || 'TS. BSTY. Trần Đình Quang',
+    licenseNumber: initialData?.veterinaryAgency?.licenseNumber || 'CCHN-TY-2024/0984-CCTY',
+    phone: initialData?.veterinaryAgency?.phone || '0918.234.567',
+    email: initialData?.veterinaryAgency?.email || 'quarantine.dept@saigonvet.vn',
+    clinicAddress: initialData?.veterinaryAgency?.clinicAddress || '521 Hoàng Văn Thụ, Phường 4, Quận Tân Bình, TP. Hồ Chí Minh',
+    notes: initialData?.veterinaryAgency?.notes || 'Đơn vị thú y được ủy quyền lấy mẫu kiểm dịch xuất khẩu',
+  }));
+
+  const [horseMedicalProfile, setHorseMedicalProfile] = useState<HorseMedicalProfile>(() => ({
+    horseName: initialData?.horseMedicalProfile?.horseName || 'Thunderbolt',
+    microchipNumber: initialData?.horseMedicalProfile?.microchipNumber || '900215001234567',
+    microchipLocation: initialData?.horseMedicalProfile?.microchipLocation || 'Bờ trên dây chằng cổ trái (Nuchal ligament left)',
+    breed: initialData?.horseMedicalProfile?.breed || 'Thoroughbred (Thuần chủng)',
+    gender: initialData?.horseMedicalProfile?.gender || 'Gelding',
+    ageOrYob: initialData?.horseMedicalProfile?.ageOrYob || '6 tuổi',
+    coatColorMarkings: initialData?.horseMedicalProfile?.coatColorMarkings || 'Nâu sẫm (Bay), xoáy trán hình thoi, chân sau trái tất trắng',
+    bodyTemperature: initialData?.horseMedicalProfile?.bodyTemperature || '37.8 °C',
+    clinicalSigns: initialData?.horseMedicalProfile?.clinicalSigns || 'Tỉnh táo, niêm mạc mắt hồng hào, không có dịch mũi hay biểu hiện sốt/bệnh truyền nhiễm',
+  }));
+
+  useEffect(() => {
+    if (initialData?.horseMedicalProfile) {
+      setHorseMedicalProfile((prev) => ({
+        ...prev,
+        ...initialData.horseMedicalProfile,
+      }));
+    }
+    if (initialData?.veterinaryAgency) {
+      setVeterinaryAgency((prev) => ({
+        ...prev,
+        ...initialData.veterinaryAgency,
+      }));
+    }
+  }, [initialData]);
+
+  const [medicalRequisition, setMedicalRequisition] = useState<MedicalTestRequisition>({
+    requisitionId: 'REQ-MED-2026-JP01',
+    samplingDate: '2026-10-20',
+    samplingTime: '08:30',
+    sampleType: 'Huyết thanh (Serum) tách ly tâm',
+    designatedLab: 'Trung tâm Chẩn đoán Thú y Trung ương (NCVD - Hà Nội)',
+    testPurpose: 'Kiểm dịch động vật xuất khẩu sang Nhật Bản (AQS MAFF Protocol)',
+    selectedDiseases: {
+      EIA: true,
+      EVA: true,
+      Piroplasmosis: true,
+      WNV: true,
+    },
+    specialInstructions: 'Bảo quản mẫu trong ống chân không nắp đỏ, giữ lạnh 2-8°C và chuyển phát nhanh đến Lab trong 24h.',
   });
 
   // 1. Phân hệ 1 State
@@ -232,6 +293,37 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
       healthEscortName: '',
     },
   });
+
+  // HANDLERS BƯỚC 1: ĐƠN XÉT NGHIỆM Y TẾ THÚ Y
+  const handleAgencyChange = (field: keyof VeterinaryAgency, value: string) => {
+    setVeterinaryAgency((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleHorseMedicalProfileChange = (
+    field: keyof HorseMedicalProfile,
+    value: string
+  ) => {
+    setHorseMedicalProfile((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleRequisitionChange = (
+    field: keyof MedicalTestRequisition,
+    value: unknown
+  ) => {
+    setMedicalRequisition((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleDiseaseToggle = (
+    diseaseKey: 'EIA' | 'EVA' | 'Piroplasmosis' | 'WNV'
+  ) => {
+    setMedicalRequisition((prev) => ({
+      ...prev,
+      selectedDiseases: {
+        ...prev.selectedDiseases,
+        [diseaseKey]: !prev.selectedDiseases[diseaseKey],
+      },
+    }));
+  };
 
   // HANDLERS PHÂN HỆ 1
   const handleFlightChange = (field: keyof FlightDetails, value: string) => {
@@ -459,6 +551,9 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
     }
 
     const packageData: JapanRoutePackageData = {
+      veterinaryAgency,
+      horseMedicalProfile,
+      medicalRequisition,
       flightDetails: flight,
       animalProfile: animal,
       stakeholders,
@@ -500,53 +595,59 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
         </div>
       </div>
 
-      {/* Tabs Chuyển 3 Phân hệ */}
+      {/* Tabs Chuyển các Phân hệ theo Luồng Nghiệp Vụ */}
       <div className="jp-tab-navigation">
         <button
           type="button"
-          className={`jp-tab-btn ${activeTab === 'module1' ? 'active' : ''}`}
-          onClick={() => setActiveTab('module1')}
+          className={`jp-tab-btn ${activeTab === 'step1_requisition' ? 'active' : ''}`}
+          onClick={() => setActiveTab('step1_requisition')}
         >
-          <span>📁 Phân hệ 1:</span>
-          <span>Hồ sơ & Giấy tờ đi Nhật</span>
+          <span>🩺 Bước 1:</span>
+          <span>Đơn xét nghiệm Y tế</span>
         </button>
 
         <button
           type="button"
-          className={`jp-tab-btn ${activeTab === 'module2' ? 'active' : ''}`}
-          onClick={() => setActiveTab('module2')}
+          className={`jp-tab-btn ${activeTab === 'step1_medical_quarantine' ? 'active' : ''}`}
+          onClick={() => setActiveTab('step1_medical_quarantine')}
         >
-          <span>🔬 Phân hệ 2:</span>
-          <span>Y tế & Xét nghiệm 4 bệnh</span>
+          <span>🔬 Y tế & Tiêm phòng:</span>
+          <span>4 Bệnh máu & Sổ tiêm</span>
         </button>
 
         <button
           type="button"
-          className={`jp-tab-btn ${activeTab === 'module3' ? 'active' : ''}`}
-          onClick={() => setActiveTab('module3')}
+          className={`jp-tab-btn ${activeTab === 'step2_logistics' ? 'active' : ''}`}
+          onClick={() => setActiveTab('step2_logistics')}
         >
-          <span>🚚 Phân hệ 3:</span>
-          <span>Điều phối 4 chặng & Nhân sự</span>
+          <span>🚚 Bước 2:</span>
+          <span>Phương tiện & Đội ngũ</span>
+        </button>
+
+        <button
+          type="button"
+          className={`jp-tab-btn ${activeTab === 'step3_declaration' ? 'active' : ''}`}
+          onClick={() => setActiveTab('step3_declaration')}
+        >
+          <span>📋 Bước 3 & 4:</span>
+          <span>Cách ly & Form đi Nhật</span>
         </button>
       </div>
 
       {/* Nội dung theo Tab đang chọn */}
-      {activeTab === 'module1' && (
-        <JapanPreDepartureDoc
-          flight={flight}
-          onFlightChange={handleFlightChange}
-          animal={animal}
-          onAnimalChange={handleAnimalChange}
-          stakeholders={stakeholders}
-          onStakeholderChange={handleStakeholderChange}
-          quarantine={quarantine}
-          onQuarantineChange={handleQuarantineChange}
-          onQuarantineFileUpload={handleQuarantineFileUpload}
-          onOpenZoom={handleOpenZoom}
+      {activeTab === 'step1_requisition' && (
+        <JapanMedicalTestRequisition
+          agency={veterinaryAgency}
+          onAgencyChange={handleAgencyChange}
+          horseProfile={horseMedicalProfile}
+          onHorseProfileChange={handleHorseMedicalProfileChange}
+          requisition={medicalRequisition}
+          onRequisitionChange={handleRequisitionChange}
+          onDiseaseToggle={handleDiseaseToggle}
         />
       )}
 
-      {activeTab === 'module2' && (
+      {activeTab === 'step1_medical_quarantine' && (
         <JapanMedicalQuarantine
           bloodTests={bloodTests}
           onBloodTestChange={handleBloodTestChange}
@@ -565,7 +666,7 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
         />
       )}
 
-      {activeTab === 'module3' && (
+      {activeTab === 'step2_logistics' && (
         <JapanLogisticsEscort
           vehicles={vehicles}
           onVehicleChange={handleVehicleChange}
@@ -574,32 +675,47 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
         />
       )}
 
+      {activeTab === 'step3_declaration' && (
+        <JapanPreDepartureDoc
+          flight={flight}
+          onFlightChange={handleFlightChange}
+          animal={animal}
+          onAnimalChange={handleAnimalChange}
+          stakeholders={stakeholders}
+          onStakeholderChange={handleStakeholderChange}
+          quarantine={quarantine}
+          onQuarantineChange={handleQuarantineChange}
+          onQuarantineFileUpload={handleQuarantineFileUpload}
+          onOpenZoom={handleOpenZoom}
+        />
+      )}
+
       {/* Thanh nút hành động phía dưới */}
       {!isReadOnly && (
         <div className="jp-bottom-actions">
-          {activeTab !== 'module1' && (
+          {activeTab !== 'step1_requisition' && (
             <button
               type="button"
               className="jp-btn-secondary"
-              onClick={() =>
-                setActiveTab((prev) =>
-                  prev === 'module3' ? 'module2' : 'module1'
-                )
-              }
+              onClick={() => {
+                if (activeTab === 'step3_declaration') setActiveTab('step2_logistics');
+                else if (activeTab === 'step2_logistics') setActiveTab('step1_medical_quarantine');
+                else if (activeTab === 'step1_medical_quarantine') setActiveTab('step1_requisition');
+              }}
             >
               ⬅️ Quay lại phân hệ trước
             </button>
           )}
 
-          {activeTab !== 'module3' ? (
+          {activeTab !== 'step3_declaration' ? (
             <button
               type="button"
               className="jp-btn-primary"
-              onClick={() =>
-                setActiveTab((prev) =>
-                  prev === 'module1' ? 'module2' : 'module3'
-                )
-              }
+              onClick={() => {
+                if (activeTab === 'step1_requisition') setActiveTab('step1_medical_quarantine');
+                else if (activeTab === 'step1_medical_quarantine') setActiveTab('step2_logistics');
+                else if (activeTab === 'step2_logistics') setActiveTab('step3_declaration');
+              }}
             >
               Tiếp tục sang phân hệ sau ➔
             </button>
