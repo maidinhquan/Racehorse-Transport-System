@@ -1277,3 +1277,258 @@
   height: 70px;
 }
 
+/* ==========================================================================
+   STYLES CHO BỘ 10 THÀNH PHẦN HỒ SƠ VIỆT NAM - NHẬT BẢN
+   ========================================================================== */
+
+/* Action Banner Cards */
+.jp-action-banner-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 1px solid #cbd5e1;
+  border-left: 5px solid #dc2626;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.jp-action-banner-card.jp-banner-blue {
+  border-left-color: #2563eb;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.jp-action-banner-card.jp-banner-dark {
+  border-left-color: #991b1b;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+.jp-action-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.jp-action-banner-text strong {
+  font-size: 16px;
+  color: #0f172a;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.jp-action-banner-text p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #475569;
+}
+
+.jp-banner-icon {
+  font-size: 28px;
+}
+
+.jp-btn-lg {
+  padding: 12px 20px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* Notice box NSW */
+.jp-nsw-notice-box {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.jp-subcard-subtitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e3a8a;
+  margin: 16px 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #cbd5e1;
+}
+
+.jp-input-readonly {
+  background-color: #f8fafc;
+  color: #334155;
+  cursor: default;
+  font-weight: 500;
+}
+
+.jp-input-stat {
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  height: 42px;
+  box-sizing: border-box;
+}
+
+.jp-badge-mandatory {
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid #f87171;
+  letter-spacing: 0.5px;
+}
+
+.jp-empty-upload-box {
+  padding: 24px 16px;
+  text-align: center;
+  background: #f8fafc;
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 13.5px;
+  margin-top: 10px;
+}
+
+.jp-empty-upload-box.jp-empty-danger {
+  background: #fff5f5;
+  border-color: #fca5a5;
+  color: #991b1b;
+  font-weight: 500;
+}
+
+.jp-flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.jp-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.jp-file-tag {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.jp-file-tag:hover {
+  background: #bae6fd;
+  color: #0284c7;
+}
+
+.jp-file-tag-success {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.jp-file-tag-success:hover {
+  background: #d1fae5;
+}
+
+.jp-tag-close {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  margin-left: 4px;
+  padding: 0 4px;
+}
+
+.jp-tag-close:hover {
+  color: #b91c1c;
+}
+
+.jp-official-customs-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13.5px;
+}
+
+.jp-official-customs-table td {
+  border: 1px solid #94a3b8;
+  padding: 10px 12px;
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.jp-badge-code {
+  font-family: monospace;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #0f172a;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.jp-check-icon {
+  color: #059669;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* Dossier Summary & Progress Styles */
+.jp-dossier-progress-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  margin-bottom: 24px;
+}
+
+.jp-progress-track {
+  width: 100%;
+  height: 10px;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 14px;
+}
+
+.jp-progress-fill {
+  height: 100%;
+  transition: width 0.4s ease, background-color 0.4s ease;
+}
+
+.jp-group-tag {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.jp-row-done {
+  background-color: #f0fdf4;
+}
+
+.jp-row-pending {
+  background-color: #fffbf0;
+}
+
+
