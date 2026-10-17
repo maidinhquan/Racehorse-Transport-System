@@ -5,6 +5,9 @@ namespace Application.DTOs
         public string VehicleId { get; set; } = string.Empty;
         public string DriverId { get; set; } = string.Empty;
         public string EscortId { get; set; } = string.Empty;
+        public string? CoDriverId { get; set; }
+        public string? LegType { get; set; } // "OUTBOUND" (Chặng 1 VN) hoặc "INBOUND" (Chặng 2 JP)
+        public int? LegId { get; set; }
     }
 
     public class TripAssignmentsDetailDto
