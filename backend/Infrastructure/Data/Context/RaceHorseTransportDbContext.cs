@@ -32,6 +32,7 @@ namespace Infrastructure.Data.Context
         public DbSet<Vehicle> Vehicles { get; set; } = null!;
         public DbSet<TripVehicleAssignment> TripVehicleAssignments { get; set; } = null!;
         public DbSet<RouteSegment> RouteSegments { get; set; } = null!;
+        public DbSet<FlightBooking> FlightBookings { get; set; } = null!;
         public DbSet<CustomsClearance> CustomsClearances { get; set; } = null!;
         public DbSet<HealthLog> HealthLogs { get; set; } = null!;
         public DbSet<Incident> Incidents { get; set; } = null!;

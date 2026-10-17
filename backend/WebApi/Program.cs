@@ -7,6 +7,8 @@ using Application.DTOs;
 using Application.Services;
 using Infrastructure.Data.Context;
 using Domain.Interfaces.DAOs;
+using Application.Interfaces;
+using Infrastructure.Services;
 
 using WebApi.Middlewares;
 using WebApi.Extensions;
@@ -31,6 +33,7 @@ builder.Services.AddScoped<IUserDAO, Infrastructure.DAOs.UserDAO>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 
 // =============================================================================
@@ -215,3 +218,5 @@ app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }

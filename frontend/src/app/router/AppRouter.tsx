@@ -43,6 +43,7 @@ import { CreateRequestWizard } from "../../features/customer/pages/create-reques
 import { ManagerPortal } from "../../features/manager/pages/dashboard/ManagerPortal";
 import { SpecialistPortal } from "../../features/specialist/pages/dashboard/SpecialistPortal";
 import { CoordinatorPortal } from "../../features/coordinator/pages/dashboard/CoordinatorPortal";
+import CoordinatorDashboard from "../../features/coordinator/CoordinatorDashboard";
 import { DriverPortal } from "../../features/driver/pages/trip-detail/DriverPortal";
 import { HandoverPage } from "../../features/driver/pages/handover/HandoverPage";
 
@@ -71,8 +72,9 @@ function AppRouter() {
         {/* ==================== MANAGER ==================== */}
         <Route path="/manager/dashboard" element={<ManagerPortal />} />
 
-        {/* Màn hình coordinator */}
+        {/* Màn hình coordinator: CoordinatorPortal làm mặc định */}
         <Route path="/coordinator/dashboard" element={<CoordinatorPortal />} />
+        <Route path="/coordinator/overview" element={<CoordinatorDashboard />} />
 
         {/* ==================== SPECIALIST ==================== */}
         <Route path="/specialist/documents" element={<SpecialistDashboard />} />
