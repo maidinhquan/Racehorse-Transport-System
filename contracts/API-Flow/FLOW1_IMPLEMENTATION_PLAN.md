@@ -5,7 +5,14 @@
 > Phiên bản 3.0 — **state trong SQL qua cột mới ở bảng hiện hữu, tuyệt đối không thêm bảng**
 > Tình trạng thực thi từng giai đoạn được ghi trong báo cáo riêng; không coi API được liệt kê là đã implement.
 
-**Quyết định mới nhất 16/10/2026:** đại ca đã chọn chuyển metadata vào SQL và giữ
+**Scope mới nhất — A1/B1/C1, 16/10/2026:** đại ca yêu cầu bỏ JSON, không thêm bảng,
+cho phép hơn 7 cột để bảo vệ quan hệ/module teammate. [Scope đã chọn](FLOW1_RELATIONAL_MVP_SCOPE_CHOICES.md)
+và [mapping quan hệ](FLOW1_RELATIONAL_COLUMN_MAPPING.md) thay thiết kế persistence
+và history bên dưới cho lần refactor tiếp theo. Foundation 005 chỉ additive/test;
+runtime hiện vẫn là baseline SQL JSON cho tới typed source cutover đã kiểm đủ.
+Không dùng các đoạn S1–S3/004 bên dưới làm chỉ thị apply business DB trong lúc chuyển đổi.
+
+**Quyết định trước đó 16/10/2026:** đại ca đã chọn chuyển metadata vào SQL và giữ
 đầy đủ Flow 1. [Plan chuyển đổi S1–S3](FLOW1_SQL_STATE_TRANSITION_PLAN.md) là nguồn
 chuẩn cho storage/transaction/import, thay giới hạn hai cột và thiết kế sidecar
 file của bản 2.0. S1 có schema/SQL adapter; S2 đã chuyển source endpoint sang SQL

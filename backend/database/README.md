@@ -82,3 +82,15 @@ a published manifest or permits downloading an unissued contract. SMTP remains a
 external operation with DELIVERING/DELIVERED/FAILED states. No shared filesystem/SMTP/
 SQL transaction or transactional outbox is claimed. Back up SQL and private bytes
 together; keep old sidecars unchanged until S3 import/parity has been verified.
+
+
+## A1/B1/C1 relational foundation — 005
+
+`005_flow1_relational_mvp_foundation.sql` is an explicit, additive foundation on
+003. It supports fresh003 without004 and coexistence with004; creates no
+persistent tables and changes no existing foreign keys/columns. It adds 166 typed
+columns across 8 existing tables, 30 CHECKs and 7 indexes. No startup application,
+no conversion, no Ready backfill, no business DB permission, no old-state drop.
+Current runtime still uses the old store until a later tested source cutover.
+Read `contracts/API-Flow/FLOW1_RELATIONAL_COLUMN_MAPPING.md` before operator review.
+Any retirement/drop script is separate and must follow conversion/parity approval.
