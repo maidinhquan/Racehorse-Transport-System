@@ -1,0 +1,63 @@
+.specialist-page {
+  min-height: 100vh;
+  background-color: #F8F9FA;
+  font-family: 'Inter', sans-serif;
+  color: #111827;
+  padding: 24px;
+}
+
+.specialist-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  background-color: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.specialist-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.doc-item {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #E5E7EB;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  background-color: #FFFFFF;
+}
+
+.doc-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.physical-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background-color: #F8F9FA;
+  border: 1px solid #E5E7EB;
+  font-size: 13px;
+}
+
+.btn-export {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background-color: #FFF3E0;
+  color: #F57C00;
+  border: 1px solid #FED7AA;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
