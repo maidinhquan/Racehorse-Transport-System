@@ -72,7 +72,12 @@ function AppRouter() {
         <Route path="/driver/handover" element={<HandoverPage />} />
 
         {/* ==================== MANAGER ==================== */}
-        <Route path="/manager/dashboard" element={<ManagerPortal />} />
+        <Route path="/manager" element={<Navigate to="/manager/overview" replace />} />
+        <Route path="/manager/dashboard" element={<ManagerPortal initialNav="overview" />} />
+        <Route path="/manager/overview" element={<ManagerPortal initialNav="overview" />} />
+        <Route path="/manager/requests" element={<ManagerPortal initialNav="requests" />} />
+        <Route path="/manager/contracts" element={<ManagerPortal initialNav="contracts" />} />
+        <Route path="/manager/payments" element={<ManagerPortal initialNav="payments" />} />
 
         {/* Màn hình coordinator: CoordinatorPortal làm mặc định */}
         <Route path="/coordinator/dashboard" element={<CoordinatorPortal initialNav="dashboard" />} />
