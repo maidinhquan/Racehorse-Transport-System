@@ -77,28 +77,42 @@ npm run dev
 
 ---
 
-### CÁCH 2: Khởi chạy bằng Docker Compose
+### CÁCH 2: Khởi chạy toàn bộ hệ thống bằng Docker (Khuyên dùng - Chỉ 1 lệnh)
 
-> ⚠️ **LƯU Ý QUAN TRỌNG:**
-> - Docker Compose hiện tại **CHỈ build và chạy 2 dịch vụ: Backend & Frontend**.
-> - **KHÔNG CÓ service Database trong Docker Compose**. Không chạy `docker compose up -d db` và không cần tải image MSSQL về.
-> - Backend trong Docker sẽ tự động kết nối tới SQL Server trên máy bạn qua `host.docker.internal,1433` (sử dụng `SQL_USER` và `SQL_PASSWORD` khai báo trong `.env`).
+Hệ thống đã được tích hợp Docker toàn diện bao gồm:
+- **Database:** Microsoft SQL Server 2022 (`db` container, port `14333`, volume dữ liệu `mssql_data` bền vững).
+- **Auto-Init:** Tự động tạo và nạp dữ liệu mẫu từ `HorseTransportDB/HorseTransportDB.sql` (`db-init` container).
+- **Backend API:** ASP.NET Core 8 Web API (`backend` container, port `5129`).
+- **Frontend UI:** React + Vite + TypeScript (`frontend` container, port `5173`).
 
-1. Đảm bảo **SQL Server** trên máy bạn đang chạy (port 1433) và file `.env` đã có đúng thông tin tài khoản.
-2. Mở **Docker Desktop**.
-3. Tại thư mục gốc của dự án, chạy lệnh:
-   ```bash
-   docker compose up -d --build
-   ```
-4. Truy cập các dịch vụ:
-   - **Frontend:** [http://localhost:5173](http://localhost:5173)
-   - **Backend API:** [http://localhost:5129](http://localhost:5129)
-   - **Swagger UI:** [http://localhost:5129/swagger](http://localhost:5129/swagger)
+#### Cách A: Chạy bằng file 1-Click (Tiện nhất cho Windows)
+Chỉ cần nhấp đúp chuột vào file:
+- **`start.bat`** (hoặc mở PowerShell gõ `.\start.ps1`): Hệ thống sẽ tự kiểm tra Docker Desktop, build container, khởi động toàn bộ và tự mở trình duyệt.
+- **`stop.bat`** (hoặc `.\stop.ps1`): Dừng toàn bộ hệ thống an toàn.
 
-5. **Dừng toàn bộ hệ thống Docker:**
-   ```bash
-   docker compose down
-   ```
+#### Cách B: Chạy bằng lệnh dòng lệnh (Terminal / PowerShell)
+Tại thư mục gốc dự án, chạy đúng 1 lệnh duy nhất:
+```bash
+docker compose up -d --build
+```
+
+#### Truy cập các cổng dịch vụ sau khi khởi động:
+- **Giao diện người dùng (Frontend):** [http://localhost:5173](http://localhost:5173)
+- **Hồ sơ Tuyến Việt Nam - Nhật Bản (AQS MAFF):** [http://localhost:5173/japan-route](http://localhost:5173/japan-route)
+- **Tài liệu API (Swagger UI):** [http://localhost:5129/swagger](http://localhost:5129/swagger)
+- **Cơ sở dữ liệu (MSSQL):** `localhost,14333` (Tài khoản: `sa` / Mật khẩu: `RaceHorse@2026!Db`)
+
+#### Các lệnh quản lý hữu ích:
+```bash
+# Xem log thời gian thực của toàn bộ hệ thống
+docker compose logs -f
+
+# Xem log riêng của Backend
+docker compose logs -f backend
+
+# Dừng toàn bộ hệ thống
+docker compose down
+```
 
 ## 💳 VNPAY Sandbox
 
