@@ -4,21 +4,46 @@
 
 /* Header */
 
+.my-horses-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
 .my-horses-header h1 {
   margin: 0;
-
   color: #0f172a;
-
   font-size: 20px;
   font-weight: 700;
 }
 
 .my-horses-header p {
   margin: 8px 0 0;
-
   color: #64748b;
-
   font-size: 12px;
+}
+
+.add-horse-button {
+  height: 40px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 8px;
+  background: #ea580c;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.add-horse-button:hover {
+  background: #c2410c;
 }
 
 /* Toolbar */

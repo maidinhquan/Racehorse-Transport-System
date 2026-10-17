@@ -180,8 +180,34 @@
 .customer-user-area {
   display: flex;
   align-items: center;
+  gap: 12px;
+}
 
-  gap: 10px;
+/* Language Toggle */
+.customer-lang-toggle {
+  display: flex;
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.customer-lang-toggle .lang-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 9999px;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.15s ease;
+}
+
+.customer-lang-toggle .lang-btn.active {
+  background: #0f172a;
+  color: #ffffff;
 }
 
 /* =========================
@@ -189,65 +215,55 @@
 ========================= */
 
 .customer-notification-button {
-  width: 38px;
-  height: 38px;
-
+  width: 36px;
+  height: 36px;
   padding: 0;
-
   display: grid;
   place-items: center;
-
   border: none;
-
   border-radius: 8px;
-
   background: transparent;
-
   color: #64748b;
-
   cursor: pointer;
-
   transition: background 0.2s ease;
 }
 
 .customer-notification-button:hover {
-  background: #f8fafc;
+  background: #f1f5f9;
 }
 
 .customer-notification-icon {
   position: relative;
-
-  width: 20px;
-  height: 20px;
-
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .customer-notification-icon svg {
-  width: 19px;
-  height: 19px;
+  width: 20px;
+  height: 20px;
 }
 
-/* Orange notification dot */
-
-.customer-notification-icon::after {
-  content: "";
-
+/* Orange notification badge */
+.customer-notif-badge {
   position: absolute;
-
-  top: -1px;
-  right: -1px;
-
-  width: 7px;
-  height: 7px;
-
+  top: -4px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: #ea580c;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 2px solid #ffffff;
-
-  border-radius: 50%;
-
-  background: #f57c00;
+  line-height: 1;
 }
 
 /* =========================
