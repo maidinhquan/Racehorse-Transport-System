@@ -46,13 +46,15 @@ import { CoordinatorPortal } from "../../features/coordinator/pages/dashboard/Co
 import CoordinatorDashboard from "../../features/coordinator/CoordinatorDashboard";
 import { DriverPortal } from "../../features/driver/pages/trip-detail/DriverPortal";
 import { HandoverPage } from "../../features/driver/pages/handover/HandoverPage";
+import { LandingPage } from "../../features/landing/LandingPage";
 
 function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* ==================== DEFAULT ==================== */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* ==================== LANDING & PUBLIC ==================== */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/landing" element={<LandingPage />} />
 
         {/* ==================== AUTH ==================== */}
         <Route path="/login" element={<LoginPage />} />
