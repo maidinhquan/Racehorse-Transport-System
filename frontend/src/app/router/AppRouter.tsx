@@ -84,8 +84,15 @@ function AppRouter() {
         <Route path="/coordinator/incidents" element={<CoordinatorPortal initialNav="incidents" />} />
 
         {/* ==================== SPECIALIST ==================== */}
-        <Route path="/specialist/documents" element={<SpecialistDashboard />} />
-        <Route path="/specialist/dashboard" element={<SpecialistPortal />} />
+        <Route path="/specialist/dashboard" element={<SpecialistDashboard />} />
+        <Route path="/specialist/documents" element={<SpecialistPortal initialNav="queue" />} />
+        <Route path="/specialist/trips" element={<SpecialistPortal initialNav="trips" />} />
+        <Route path="/specialist/queue" element={<SpecialistPortal initialNav="queue" />} />
+        <Route path="/specialist/requests" element={<SpecialistPortal initialNav="requests" />} />
+        <Route path="/specialist/checkpoints" element={<SpecialistPortal initialNav="checkpoints" />} />
+        <Route path="/specialist/packages" element={<SpecialistPortal initialNav="packages" />} />
+        <Route path="/specialist/master" element={<SpecialistPortal initialNav="master" />} />
+        <Route path="/specialist/audit" element={<SpecialistPortal initialNav="audit" />} />
 
         {/* ==================== CUSTOMER ==================== */}
         <Route path="/customer/home" element={<HomePage />} />
