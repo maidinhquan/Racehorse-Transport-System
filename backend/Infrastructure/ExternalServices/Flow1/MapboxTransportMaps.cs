@@ -149,7 +149,7 @@ public sealed class MapboxTransportMaps(HttpClient http, Flow1MapOptions options
             return new RoadRouteResult("MAPBOX", distance, duration, clock.GetUtcNow(),
                 // Mapbox Product Terms 2026-07 section 2.10.1: no stored Navigation API results.
                 // Display-only callers may use this result; Customer submit rejects MayPersist=false.
-                CustomerTransportService.Hash(query), false, options.Mapbox.Attribution);
+                Application.Common.Flow1.Flow1Hash.Of(query), false, options.Mapbox.Attribution);
         });
     }
     private static string? Country(JsonElement properties) =>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import CustomerLayout from "../../shared/layouts/CustomerLayout/CustomerLayout";
-import { emptyTrip, estimateSeed, flow1, flow1Error, initialTrip, money } from "./api";
+import { estimateSeed, flow1, flow1Error, initialTrip, money } from "./api";
 import type { Contact, Estimate, Horse, RequestView, Submission } from "./api";
 import { TripFields, EstimateSummary, MapDataAttribution } from "./TripFields";
 import { HorseForm } from "./HorseForm";
@@ -9,27 +9,8 @@ import { CustomerReviewPanel } from "./CustomerReviewPanel";
 import { operationKey, reviewApi } from "./reviewApi";
 import "./flow1.css";
 
-export function PublicEstimatePage() {
-  const navigate = useNavigate();
-  const [trip, setTrip] = useState(() => structuredClone(emptyTrip));
-  const [estimate, setEstimate] = useState<Estimate | null>(null);
-  const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
-  return <main className="flow1-page"><h1>Dự toán vận chuyển ngựa</h1>
-    <form onSubmit={async e => {
-      e.preventDefault(); setBusy(true); setError(""); setEstimate(null);
-      try { setEstimate(await flow1.estimate(trip, true)); } catch (e) { setError(flow1Error(e)); } finally { setBusy(false); }
-    }}>
-      <TripFields trip={trip} onChange={value => { setTrip(value); setEstimate(null); }} guest />
-      <button disabled={busy || !trip.pickup.lat || !trip.delivery.lat}>Tính dự toán</button>
-    </form>
-    {error && <p role="alert">{error}</p>}
-    {estimate && <><EstimateSummary value={estimate} /><button type="button" onClick={() => {
-      sessionStorage.setItem(estimateSeed, JSON.stringify(trip));
-      navigate(localStorage.getItem("accessToken") ? "/customer/requests/new" : "/login?returnTo=transport-request");
-    }}>Tiếp tục đặt chuyến</button></>}
-    <Link to="/login">Đăng nhập</Link>
-  </main>;
-}
+// Retained historical UI fixtures; the active router uses relational pages.
+export { PublicEstimatePage } from "./PublicEstimatePage";
 
 function ContactFields({ label, value, change }: { label: string; value: Contact; change: (c: Contact) => void }) {
   return <fieldset><legend>{label}</legend><label>Họ tên<input required maxLength={100} value={value.name} onChange={e => change({ ...value, name: e.target.value })} /></label>

@@ -113,7 +113,7 @@ public sealed class OsmTransportMaps(HttpClient http, Flow1MapOptions options, O
             var distance = route.GetProperty("distance").GetDecimal();
             var duration = route.GetProperty("duration").GetDecimal();
             if (distance is <= 0 or > 10_000_000 || duration <= 0) throw Error("No valid road route found.", "ROUTE_NOT_FOUND");
-            return new("OSRM", distance, duration, clock.GetUtcNow(), CustomerTransportService.Hash(query), true, options.Attribution);
+            return new("OSRM", distance, duration, clock.GetUtcNow(), Application.Common.Flow1.Flow1Hash.Of(query), true, options.Attribution);
         }
         catch (Exception e) when (e is KeyNotFoundException or InvalidOperationException or IndexOutOfRangeException or FormatException)
         { throw Error("Invalid routing response.", "MAP_PROVIDER_UNAVAILABLE", 503); }

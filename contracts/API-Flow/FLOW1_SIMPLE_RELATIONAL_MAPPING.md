@@ -7,8 +7,10 @@ Không thêm bảng, không JSON/XML/serialized business payload, không đổi 
 
 006 là foundation additive sau 003; **không chạy 005 trước 006**. Nếu đã có 005,
 script dừng để review chuyển đổi; không tự xóa các cột. 004 có thể còn tồn tại để
-operator đối chiếu dữ liệu cũ; không phải fallback của typed runtime tương lai.
-Runtime hiện vẫn là source JSON cũ; foundation này chưa chuyển DI/API/FE.
+operator đối chiếu dữ liệu cũ; không phải fallback. Runtime DI/API/FE đã chuyển
+sang typed006 ngày18/10; xem FLOW1_RELATIONAL_CUTOVER_REPORT.md và
+FLOW1_RELATIONAL_OPERATOR_GUIDE.md. DB nghiệp vụ chưa006/cutover; đang có3 hồ sơ
+cũ thiếu evidence trong shadow preview, không tự bypass hoặc migrate.
 
 ## Số cột và lý do
 

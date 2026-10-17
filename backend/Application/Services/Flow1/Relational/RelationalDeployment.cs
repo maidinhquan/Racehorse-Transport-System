@@ -9,7 +9,7 @@ public sealed partial class RelationalFlow1Service
 {
     private async Task<(FlowTrip Trip,FlowContract C,FlowRequest R)> Released(string request,string actor,string? expectedEvent,CancellationToken ct)
     {
-        var u=await Actor(actor,null,ct); Require(u.Role is UserRoles.FleetRouteCoordinator or UserRoles.TransportSpecialist,"FORBIDDEN","Operational role required.");
+        var u=await Actor(actor,null,ct); Require(Role(u) is UserRoles.FleetRouteCoordinator or UserRoles.TransportSpecialist,"FORBIDDEN","Operational role required.");
         var trip=(await db.QueryAsync<FlowTrip>(x=>x.RequestID==request,ct)).SingleOrDefault();
         Require(trip is not null && trip.DeploymentStatus=="CONFIRMED" && trip.HandoffEventId is not null && trip.Status is "PLANNING" or "READY_TO_DEPART" && (expectedEvent is null || expectedEvent==trip.HandoffEventId),"HANDOFF_CLOSED","Handoff is held, changed or unavailable.");
         var c=(await db.QueryAsync<FlowContract>(x=>x.TripID==trip!.TripID && x.IsCurrent,ct)).SingleOrDefault();
@@ -34,7 +34,7 @@ public sealed partial class RelationalFlow1Service
         trip.DeploymentReason=Text(i.Reason); trip.DeploymentBy=actor; trip.DeploymentAtUtc=Now; await db.SaveAsync(t); return await Card(c,t);
     },ct);
     public Task<IReadOnlyList<FlowHandoff>> OperationsAsync(string actor,CancellationToken ct)=>db.RunAsync<IReadOnlyList<FlowHandoff>>(async t=>{
-        var u=await Actor(actor,null,t); Require(u.Role is UserRoles.FleetRouteCoordinator or UserRoles.TransportSpecialist,"FORBIDDEN","Operational role required.");
+        var u=await Actor(actor,null,t); Require(Role(u) is UserRoles.FleetRouteCoordinator or UserRoles.TransportSpecialist,"FORBIDDEN","Operational role required.");
         var result=new List<FlowHandoff>();
         foreach(var trip in await db.QueryAsync<FlowTrip>(x=>x.DeploymentStatus=="CONFIRMED" && (x.Status=="PLANNING" || x.Status=="READY_TO_DEPART"),t)) {
             var x=await Released(trip.RequestID,actor,null,t); result.Add(await Handoff(x.Trip,x.C,x.R,t));
@@ -49,14 +49,20 @@ public sealed partial class RelationalFlow1Service
     public Task<FlowHandoff> AckAsync(string tripId,string actor,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
         var trip=await db.FindAsync<FlowTrip>(tripId,t)??throw Error("Trip not found.","NOT_FOUND",404); var x=await Released(trip.RequestID,actor,i.EventId,t);
         Require(i.EventId is not null,"HANDOFF_CHANGED","Current event is required."); var u=(await db.FindAsync<FlowUser>(actor,t))!;
-        if(u.Role==UserRoles.FleetRouteCoordinator && trip.RoutingAcknowledgedBy==actor || u.Role==UserRoles.TransportSpecialist && trip.DocumentsAcknowledgedBy==actor) return await Handoff(trip,x.C,x.R,t);
+        if(Role(u)==UserRoles.FleetRouteCoordinator && trip.RoutingAcknowledgedBy==actor || Role(u)==UserRoles.TransportSpecialist && trip.DocumentsAcknowledgedBy==actor) return await Handoff(trip,x.C,x.R,t);
         Check(trip.RowVersion,i.Version);
-        if(u.Role==UserRoles.FleetRouteCoordinator) {trip.RoutingAcknowledgedBy=actor;trip.RoutingAcknowledgedAtUtc=Now;}
+        if(Role(u)==UserRoles.FleetRouteCoordinator) {trip.RoutingAcknowledgedBy=actor;trip.RoutingAcknowledgedAtUtc=Now;}
         else {trip.DocumentsAcknowledgedBy=actor;trip.DocumentsAcknowledgedAtUtc=Now;}
         await db.SaveAsync(t); return await Handoff(trip,x.C,x.R,t);
     },ct);
     public Task<(byte[] Bytes,string ContentType)> OperationsPdfAsync(string tripId,string actor,string expectedEvent,CancellationToken ct)=>db.RunAsync(async t=>{
         var trip=await db.FindAsync<FlowTrip>(tripId,t)??throw Error("Trip not found.","NOT_FOUND",404); var x=await Released(trip.RequestID,actor,expectedEvent,t);
-        Require(!string.IsNullOrEmpty(expectedEvent),"HANDOFF_CHANGED","Current event required."); return await files.ReadAsync(x.C.PdfUrl!,t);
+        Require(!string.IsNullOrEmpty(expectedEvent),"HANDOFF_CHANGED","Current event required.");var file=await files.ReadAsync(x.C.PdfUrl!,t);
+        Require(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(file.Bytes)).Equals(x.C.PdfSha256,StringComparison.OrdinalIgnoreCase),"FILE_INTEGRITY_ERROR","Handoff PDF differs from the signed hash.");return file;
+    },ct);
+    public Task<(byte[] Bytes,string ContentType)> OperationsHorseFileAsync(string tripId,string horse,string kind,string actor,string eventId,CancellationToken ct)=>db.RunAsync(async t=>{
+        var trip=await db.FindAsync<FlowTrip>(tripId,t)??throw Error("Trip not found.","NOT_FOUND",404);var x=await Released(trip.RequestID,actor,eventId,t);
+        Require(!string.IsNullOrEmpty(eventId) && (await db.QueryAsync<FlowRequestHorse>(l=>l.RequestID==x.R.RequestID && l.HorseID==horse,t)).Any(),"HANDOFF_CHANGED","Current event and attached horse required.");
+        var h=(await db.FindAsync<FlowHorse>(horse,t))!;var key=kind switch{"photo"=>h.PhotoUrl,"passport"=>h.PassportScanUrl,_=>null};Require(key is not null,"FILE_UNAVAILABLE","Document unavailable.");return await files.ReadAsync(key,t);
     },ct);
 }

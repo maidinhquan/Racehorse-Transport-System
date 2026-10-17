@@ -7,6 +7,7 @@ namespace Application.Services.Flow1;
 public sealed class TransportEstimateService(IFlow1RoadRoutingProvider routing, IFlow1LocationVerifier locations,
     Flow1EstimateOptions options, TimeProvider clock)
 {
+    public string? LocationAttribution=>locations.Attribution;
     public async Task<EstimateCalculation> CalculateAsync(EstimateInput input, CancellationToken ct)
     {
         Flow1PricingPolicy.Route(input);

@@ -117,7 +117,7 @@ public sealed class GeoapifyTransportMaps(HttpClient http, Flow1MapOptions optio
                 distance is <= 0 or > 10_000_000 || duration <= 0)
                 throw new JsonException();
             return new RoadRouteResult("GEOAPIFY", distance, duration, clock.GetUtcNow(),
-                CustomerTransportService.Hash(query), true, SourceAttribution);
+                Application.Common.Flow1.Flow1Hash.Of(query), true, SourceAttribution);
         });
     }
 

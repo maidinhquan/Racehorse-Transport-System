@@ -56,6 +56,10 @@ internal sealed class CustomerTestFactory(string connection, string root, bool f
         builder.UseEnvironment("Development");
         builder.ConfigureServices(s =>
         {
+            // Historical JSON regression host only; production selects the complete typed API.
+            WebApi.Extensions.Flow1ServiceExtensions.AddFlow1Foundation(s,new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),new LegacyTestEnvironment());
+            WebApi.Extensions.LegacyFlow1TestExtensions.AddLegacyFlow1Services(s);
+            s.AddControllers().AddApplicationPart(typeof(WebApi.Controllers.Flow1.CustomerTransportController).Assembly).ConfigureApplicationPartManager(p=>{foreach(var f in p.FeatureProviders.OfType<WebApi.Extensions.Flow1ControllerSelection>().ToArray())p.FeatureProviders.Remove(f);p.FeatureProviders.Add(new WebApi.Extensions.Flow1ControllerSelection(true));});
             s.RemoveAll<DbContextOptions<HorseTransportDbContext>>();
             s.RemoveAll<HorseTransportDbContext>();
             s.AddDbContext<HorseTransportDbContext>((sp, o) => o.UseSqlServer(connection).AddInterceptors(new SqlSaveFault(sp.GetRequiredService<SqlStateFaults>())));
@@ -70,6 +74,8 @@ internal sealed class CustomerTestFactory(string connection, string root, bool f
             s.AddSingleton<IFlow1PrivateFileStore>(new LocalFlow1PrivateFileStore(Path.Combine(root, "bytes")));
             s.AddAuthentication(o => { o.DefaultAuthenticateScheme = "CustomerTest"; o.DefaultChallengeScheme = "CustomerTest"; o.DefaultForbidScheme = "CustomerTest"; })
                 .AddScheme<AuthenticationSchemeOptions, CustomerTestAuth>("CustomerTest", _ => { });
+            // Private Development files must never enable a real merchant in historical test hosts.
+            s.RemoveAll<Infrastructure.ExternalServices.Flow1.Flow1VnpayOptions>();s.AddSingleton(new Infrastructure.ExternalServices.Flow1.Flow1VnpayOptions());
             customize?.Invoke(s);
         });
     }
@@ -329,4 +335,12 @@ internal static class Flow1TestFolders
             throw new InvalidOperationException("Unsafe test directory cleanup target.");
         if (Directory.Exists(full)) Directory.Delete(full, recursive: true);
     }
+}
+
+internal sealed class LegacyTestEnvironment : Microsoft.Extensions.Hosting.IHostEnvironment
+{
+ public string EnvironmentName {get;set;}="Development";
+ public string ApplicationName {get;set;}="WebApi";
+ public string ContentRootPath {get;set;}=Directory.GetCurrentDirectory();
+ public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider {get;set;}=new Microsoft.Extensions.FileProviders.NullFileProvider();
 }

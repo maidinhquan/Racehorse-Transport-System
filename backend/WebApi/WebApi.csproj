@@ -37,4 +37,7 @@
     <None Remove="App_Data\**\*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Update="appsettings.Flow1Sandbox.Local.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+  </ItemGroup>
 </Project>

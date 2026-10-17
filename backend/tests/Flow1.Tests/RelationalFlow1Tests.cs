@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -31,8 +32,8 @@ public sealed class RelationalFlow1Tests
     }
     internal sealed class Pdf(Files files) : IFlow1ContractDocumentGenerator
     {
-        public ContractDocumentRequest? Last;
-        public async Task<ContractDocumentResult> GenerateAsync(ContractDocumentRequest r,CancellationToken ct=default) {Last=r;var k=await files.PutAsync(new(Encoding.UTF8.GetBytes("%PDF-fixture-only "+r.FrozenSnapshot.GetRawText()),"c.pdf"),false,ct);return new(k[8..^4],k[8..^4],files.Values[k].Item1.Length);}
+        public ContractDocumentRequest? Last;public Func<Task>? DuringRender;
+        public async Task<ContractDocumentResult> GenerateAsync(ContractDocumentRequest r,CancellationToken ct=default) {Last=r;if(DuringRender is not null)await DuringRender();var k=await files.PutAsync(new(Encoding.UTF8.GetBytes("%PDF-fixture-only "+r.FrozenSnapshot.GetRawText()),"c.pdf"),false,ct);return new(k[8..^4],k[8..^4],files.Values[k].Item1.Length);}
     }
     internal sealed class Maps : IFlow1RoadRoutingProvider,IFlow1LocationVerifier
     {
@@ -59,11 +60,11 @@ public sealed class RelationalFlow1Tests
                 """);
             f.Service=f.NewService();return f;
         }
-        public RelationalFlow1Service NewService()
+        public RelationalFlow1Service NewService(IFlow1GatewayQuery? query=null)
         {
             var context=new Flow1RelationalContext(new DbContextOptionsBuilder<Flow1RelationalContext>().UseSqlServer(Db.ConnectionString).Options);Contexts.Add(context);
             var maps=new Maps(); var options=new Flow1ContractOptions{Issuer=new(){["COMPANY_NAME"]="Fixture issuer",["COMPANY_ADDRESS"]="Fixture address",["COMPANY_EMAIL"]="issuer@example.invalid",["COMPANY_HOTLINE"]="0900000000",["COMPANY_TAX_CODE"]="FIXTURE",["COMPANY_BANK_ACCOUNT"]="FIXTURE",["COMPANY_BANK_NAME"]="FIXTURE",["COMPANY_REPRESENTATIVE"]="Fixture representative",["COMPANY_REP_POSITION"]="Fixture manager"}};
-            return new(new Flow1Data(context),Storage,new(maps,maps,new(){StandardVehicleCapacityStalls=1},Time),Time,new ContractOtpSecurity("fixture-contract-otp-hmac-key-at-least32bytes"),Email,Renderer,options,new VnpaySandboxGateway(Vnpay,Time));
+            return new(new Flow1Data(context),Storage,new(maps,maps,new(){StandardVehicleCapacityStalls=1},Time),Time,new ContractOtpSecurity("fixture-contract-otp-hmac-key-at-least32bytes"),Email,Renderer,options,new VnpaySandboxGateway(Vnpay,Time),query);
         }
         public async Task<FlowRequestCard> Request(string key="request-key-one")
         {
@@ -179,6 +180,31 @@ public sealed class RelationalFlow1Tests
     }
 
     [LocalSqlFact]
+    public async Task A_verified_failed_provider_query_allows_zero_money_cancellation_but_a_later_receipt_is_still_retained()
+    {
+        await using var f=await Fixture.Create();var c=await f.Signed();var p=await f.Session(c);
+        c=await f.Service.ContractAsync(c.ContractId,"owner",false,default);c=await f.Service.CancellationAsync(c.ContractId,"owner",false,"request",new(c.Version,"Cancel"),default);
+        await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.CancellationAsync(c.ContractId,"manager",true,"approve",new(c.Version,"No IPN yet",CancellationId:c.CancellationId),default));
+        var query=f.NewService(new FailedQuery());var payment=c.Payments.Single();c=await query.QueryPaymentAsync(c.ContractId,p,"manager",new(payment.Version,"Provider verified failed"),"127.0.0.1",default);
+        c=await f.Service.CancellationAsync(c.ContractId,"manager",true,"approve",new(c.Version,"Zero money, attempt reconciled",CancellationId:c.CancellationId),default);Assert.Equal("CANCELLED",c.Status);
+        await f.Service.IpnAsync(f.Callback(p),default);c=await f.Service.ContractAsync(c.ContractId,"manager",true,default);
+        Assert.Equal(40000000,c.PaidAmount);Assert.True(c.Payments.Single().ReviewRequired);Assert.Null(c.Trip);Assert.Equal("CANCELLED",c.Status);
+    }
+    private sealed class FailedQuery:IFlow1GatewayQuery {public Task<GatewayQueryResult> QueryAsync(GatewayQueryRequest i,CancellationToken ct)=>Task.FromResult(new GatewayQueryResult(true,i.PaymentId,i.MerchantId,"FAILED",TransactionStatus:"02"));}
+
+    [LocalSqlFact]
+    public async Task Excess_late_money_after_release_revokes_current_handoff_without_creating_another_trip_or_erasing_receipts()
+    {
+        await using var f=await Fixture.Create();var c=await f.Signed();var old=await f.Session(c);
+        f.Time.Value=f.Time.Value.AddMinutes(16);var current=await f.Session(c,"payment-key-two");
+        await f.Service.IpnAsync(f.Callback(current,"2222"),default);c=await f.Service.ContractAsync(c.ContractId,"manager",true,default);
+        c=await f.Service.DeploymentAsync(c.ContractId,"manager","confirm",new(c.Trip!.Version,"Ready"),default);var released=c.Trip!;
+        await f.Service.IpnAsync(f.Callback(old,"1111"),default);c=await f.Service.ContractAsync(c.ContractId,"manager",true,default);
+        Assert.Equal(80000000,c.PaidAmount);Assert.Equal(2,c.Payments.Count);Assert.Equal("ON_HOLD",c.Trip!.DeploymentStatus);Assert.Null(c.Trip.EventId);Assert.Empty(await f.Service.OperationsAsync("route",default));
+        Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.AckAsync(released.TripId,"route",new(released.Version,EventId:released.EventId),default));
+    }
+
+    [LocalSqlFact]
     public async Task Concurrent_callbacks_use_one_sql_receipt_and_activation_failure_rolls_back_money_for_retry()
     {
         await using var f=await Fixture.Create();var c=await f.Signed();var p=await f.Session(c);
@@ -189,4 +215,143 @@ public sealed class RelationalFlow1Tests
         await Task.WhenAll(f.Service.IpnAsync(f.Callback(p),default),f.NewService().IpnAsync(f.Callback(p),default));
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));Assert.Equal(40000000m,await f.Db.ScalarAsync<decimal>("SELECT PaidAmount FROM INVOICE;"));
     }
+    [LocalSqlFact]
+    public async Task Invoice_changed_by_another_module_retains_verified_cash_but_blocks_activation()
+    {
+        await using var f=await Fixture.Create();var c=await f.Signed();var p=await f.Session(c);
+        await f.Db.ExecuteAsync("UPDATE INVOICE SET TotalPayableAmount=1;");
+        await f.Service.IpnAsync(f.Callback(p),default);
+        Assert.Equal(40000000,await f.Db.ScalarAsync<decimal>("SELECT PaidAmount FROM INVOICE;"));
+        Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM PAYMENT WHERE Status='SUCCESS' AND FinancialReviewRequired=1;"));
+        Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));
+    }
+
+    [LocalSqlFact]
+    public async Task Account_email_changed_after_publication_requires_reissue_instead_of_signing_old_pdf()
+    {
+        await using var f=await Fixture.Create();var(_,c)=await f.Published();
+        await f.Db.ExecuteAsync("UPDATE [USER] SET Email='changed@example.invalid' WHERE UserID='owner';");
+        var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.SendOtpAsync(c.ContractId,"owner",new(c.Version,PdfSha256:c.PdfSha256),default));
+        Assert.Equal("CUSTOMER_CHANGED",e.ErrorCode);Assert.Equal("",f.Email.Code);
+        Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));
+    }
+
+    [LocalSqlFact]
+    public async Task Closing_unsigned_versions_keeps_old_pdfs_and_customer_revision_can_be_reissued()
+    {
+        await using var f=await Fixture.Create();var(r,c)=await f.Published();var hash=c.PdfSha256;
+        c=await f.Service.LifecycleAsync(c.ContractId,"owner",false,"decline",new(c.Version,"Correct the request"),default);
+        Assert.Equal("DECLINED",c.Status);Assert.False(c.IsCurrent);r=await f.Service.DetailAsync(r.RequestId,"owner",false,default);Assert.Equal("CHANGES_REQUESTED",r.Status);
+        r=await f.Service.SubmitAsync("owner","revision-key-one",r.Input! with {Purpose="Updated purpose"},r.RequestId,r.Version,default);
+        r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted revision"),default);
+        var next=await f.Service.DraftAsync(r.RequestId,"manager","replacement-key",new(r.Version,Price:110000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(3)),default);
+        next=await f.Service.LifecycleAsync(next.ContractId,"manager",true,"withdraw",new(next.Version,"Change unsigned quote"),default);Assert.Equal("WITHDRAWN",next.Status);
+        Assert.Equal(hash,(await f.Service.ContractAsync(c.ContractId,"owner",false,default)).PdfSha256);
+        Assert.NotEmpty((await f.Service.PdfAsync(c.ContractId,"owner",false,default)).Bytes);
+        Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));
+    }
+    [LocalSqlFact]
+    public async Task Time_passing_does_not_auto_cancel_and_manager_expiry_or_unpaid_close_is_explicit()
+    {
+        await using var f=await Fixture.Create();var(_,c)=await f.Published();f.Time.Value=f.Time.Value.AddDays(3);
+        c=await f.Service.ContractAsync(c.ContractId,"manager",true,default);Assert.Equal("PENDING_SIGNATURE",c.Status);
+        c=await f.Service.LifecycleAsync(c.ContractId,"manager",true,"expire",new(c.Version,"Explicitly close expired version"),default);Assert.Equal("EXPIRED",c.Status);
+        await using var paidWindow=await Fixture.Create();var signed=await paidWindow.Signed();paidWindow.Time.Value=paidWindow.Time.Value.AddHours(25);
+        signed=await paidWindow.Service.ContractAsync(signed.ContractId,"manager",true,default);Assert.Equal("SIGNED",signed.Status);
+        var cancelled=await paidWindow.Service.CancelOverdueAsync(signed.ContractId,"manager",new(signed.Version,"Verified zero money and no unresolved sessions"),default);
+        Assert.Equal("CANCELLED",cancelled.Status);Assert.Equal(signed.SignedAt,cancelled.SignedAt);Assert.Equal(signed.PdfSha256,cancelled.PdfSha256);Assert.Equal(0,cancelled.PaidAmount);Assert.Null(cancelled.Trip);
+    }
+    [LocalSqlFact]
+    public async Task Resends_keep_failed_attempts_and_account_budget_survives_contract_reissue()
+    {
+        await using var f=await Fixture.Create();var(r,c)=await f.Published();
+        for(var n=0;n<5;n++){
+            c=await f.Service.ContractAsync(c.ContractId,"owner",false,default);await f.Service.SendOtpAsync(c.ContractId,"owner",new(c.Version,PdfSha256:c.PdfSha256),default);
+            if(n==0){c=await f.Service.ContractAsync(c.ContractId,"owner",false,default);await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.SignAsync(c.ContractId,"owner",new(c.Version,Otp:f.Email.Code=="000000"?"111111":"000000",PdfSha256:c.PdfSha256),default));}
+            f.Time.Value=f.Time.Value.AddSeconds(61);
+        }
+        Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT SignOtpFailedAttempts FROM CONTRACT;"));
+        c=await f.Service.ContractAsync(c.ContractId,"manager",true,default);await f.Service.LifecycleAsync(c.ContractId,"manager",true,"withdraw",new(c.Version,"Reissue"),default);
+        r=await f.Service.DetailAsync(r.RequestId,"manager",true,default);var next=await f.Service.DraftAsync(r.RequestId,"manager","budget-new-contract",new(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default);
+        next=await f.Service.PublishAsync(next.ContractId,"manager",new(next.Version),default);
+        var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.SendOtpAsync(next.ContractId,"owner",new(next.Version,PdfSha256:next.PdfSha256),default));Assert.Equal("OTP_RATE_LIMITED",e.ErrorCode);
+        Assert.Equal(5,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='CONTRACT_OTP';"));
+    }
+    [LocalSqlFact]
+    public async Task Departed_trip_is_not_rolled_back_and_incomplete_legacy_request_needs_review_before_quote()
+    {
+        await using var f=await Fixture.Create();var incomplete=await f.Service.DetailAsync("req-1","manager",true,default);
+        var bad=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DraftAsync("req-1","manager","incomplete-quote-key",new(incomplete.Version,Price:100,PreparationDays:2,Deadline:f.Time.Value.AddDays(1)),default));Assert.Equal("DATA_REVIEW_REQUIRED",bad.ErrorCode);
+        var c=await f.Signed();await f.Service.IpnAsync(f.Callback(await f.Session(c)),default);await f.Db.ExecuteAsync("UPDATE TRIP_PLAN SET Status='IN_TRANSIT';");
+        c=await f.Service.ContractAsync(c.ContractId,"manager",true,default);var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DeploymentAsync(c.ContractId,"manager","hold",new(c.Trip!.Version,"Cannot reverse departure"),default));Assert.Equal("DEPARTURE_ALREADY_STARTED",e.ErrorCode);
+        Assert.Equal("IN_TRANSIT",await f.Db.ScalarAsync<string>("SELECT Status FROM TRIP_PLAN;"));
+    }
+
+    [LocalSqlFact]
+    public async Task Horse_changed_by_another_module_during_render_cannot_publish_stale_terms()
+    {
+        await using var f=await Fixture.Create();var r=await f.Request();r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted"),default);
+        var c=await f.Service.DraftAsync(r.RequestId,"manager","render-race-key",new(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default);
+        f.Renderer.DuringRender=()=>f.Db.ExecuteAsync("UPDATE HORSE SET Name='Changed by another module';");
+        var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.PublishAsync(c.ContractId,"manager",new(c.Version),default));Assert.Equal("STALE_VERSION",e.ErrorCode);
+        Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT WHERE PdfUrl IS NOT NULL;"));Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));
+    }
+
+    [LocalSqlFact]
+    public async Task Missing_preparation_data_after_session_keeps_verified_money_for_review_instead_of_losing_callback()
+    {
+        await using var f=await Fixture.Create();var c=await f.Signed();var p=await f.Session(c);
+        await f.Db.ExecuteAsync("UPDATE TRANSPORT_REQUEST SET PreparationDays=NULL;");await f.Service.IpnAsync(f.Callback(p),default);
+        c=await f.Service.ContractAsync(c.ContractId,"manager",true,default);Assert.Equal(40000000,c.PaidAmount);Assert.True(c.Payments.Single().ReviewRequired);Assert.Null(c.Trip);
+    }
+
+    [LocalSqlFact]
+    public async Task Vn_jp_air_uses_seven_day_floor_without_inventing_road_distance_or_ground_leg_price()
+    {
+        await using var f=await Fixture.Create();var r=await f.Request();r=await f.Service.ReviewAsync(r.RequestId,"manager","request-changes",new(r.Version,"Use airport-to-airport"),default);
+        var input=r.Input! with{Trip=r.Input!.Trip with{Delivery=new("Arrival airport",35.5,139.7,"JP"),PreferredTransportMode="AIR"}};
+        r=await f.Service.SubmitAsync("owner","air-revision-key",input,r.RequestId,r.Version,default);Assert.Equal(7,r.PreparationDays);Assert.Null(r.DistanceKm);
+        r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Airport scope accepted"),default);
+        var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DraftAsync(r.RequestId,"manager","air-draft-too-short",new(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default));Assert.Equal("INVALID_PREPARATION",e.ErrorCode);
+        var c=await f.Service.DraftAsync(r.RequestId,"manager","air-draft-valid",new(r.Version,Price:100000000,PreparationDays:7,Deadline:f.Time.Value.AddDays(2)),default);await f.Service.PublishAsync(c.ContractId,"manager",new(c.Version),default);
+        var model=f.Renderer.Last!.FrozenSnapshot.Deserialize<ContractPdfModel>(new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+        Assert.Contains("airport-to-airport",model.Values["TRANSPORT_SCOPE"]);Assert.Contains("ground legs excluded",model.Values["TRANSPORT_SCOPE"]);
+    }
+
+    [LocalSqlFact]
+    public async Task A_legacy_signed_timestamp_without_acceptance_evidence_is_never_presented_as_an_otp_receipt()
+    {
+        await using var f=await Fixture.Create();await f.Db.ExecuteAsync("INSERT CONTRACT(ContractID,RequestID,CustomerID,ContractCode,CurrencyCode,TotalQuotedPrice,DepositRateStandard,ContractStatus,SignedAt) VALUES('legacy-contract','req-1','owner','LEGACY','USD',100,40,'SIGNED','20261001');");
+        var c=await f.Service.ContractAsync("legacy-contract","owner",false,default);Assert.NotNull(c.SignedAt);Assert.False(c.HasAcceptanceEvidence);Assert.False(c.RelationalTermsReady);Assert.Equal("USD",c.Currency);Assert.False(c.IsCurrent);
+        var r=await f.Service.DetailAsync("req-1","manager",true,default);var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ReviewAsync("req-1","manager","reject",new(r.Version,"Do not reinterpret old request"),default));Assert.Equal("DATA_REVIEW_REQUIRED",e.ErrorCode);Assert.Equal("ACCEPTED",(await f.Service.DetailAsync("req-1","manager",true,default)).Status);
+    }
+
+    [LocalSqlFact]
+    public async Task Draft_retry_normalizes_fractional_deadline_and_rejects_a_changed_preparation_with_the_same_key()
+    {
+        await using var f=await Fixture.Create();var r=await f.Request();r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted"),default);
+        var input=new FlowAction(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2).AddMilliseconds(123));
+        var first=await f.Service.DraftAsync(r.RequestId,"manager","fractional-deadline-key",input,default);var retry=await f.Service.DraftAsync(r.RequestId,"manager","fractional-deadline-key",input,default);Assert.Equal(first.ContractId,retry.ContractId);
+        var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DraftAsync(r.RequestId,"manager","fractional-deadline-key",input with{PreparationDays=3},default));Assert.Equal("IDEMPOTENCY_KEY_REUSED",e.ErrorCode);Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));
+    }
+
+    [LocalSqlFact]
+    public async Task Selectable_dates_and_returned_document_correction_preserve_reservations_and_reject_stale_files()
+    {
+        await using var f=await Fixture.Create();var r=await f.Request();var h=r.Horses.Single();var from=new DateTimeOffset(r.DepartureAt!.Value);var to=new DateTimeOffset(r.DeliveryAt!.Value);
+        Assert.False((await f.Service.HorsesAsync("owner",default,from,to)).Single().Selectable);
+        Assert.True((await f.Service.HorsesAsync("owner",default,from.AddDays(3),to.AddDays(3))).Single().Selectable);
+        Assert.True((await f.Service.HorsesAsync("owner",default,from,to,r.RequestId)).Single().Selectable);
+        await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.HorsesAsync("other",default,from,to,r.RequestId));
+        var photo=new UploadedFile(Encoding.UTF8.GetBytes("replacement fixture photo bytes"),"p.png");var passport=new UploadedFile(Encoding.UTF8.GetBytes("replacement fixture passport bytes"),"p.pdf");
+        await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.UpdateFilesAsync(h.HorseId,"owner",h.Version,photo,passport,default));
+        r=await f.Service.ReviewAsync(r.RequestId,"manager","request-changes",new(r.Version,"Provide clearer passport"),default);var old=r.Input!;
+        var updated=await f.Service.UpdateFilesAsync(h.HorseId,"owner",h.Version,photo,passport,default);Assert.NotEqual(h.Version,updated.Version);
+        var stale=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.SubmitAsync("owner","stale-correction-key",old,r.RequestId,r.Version,default));Assert.Equal("STALE_VERSION",stale.ErrorCode);
+        r=await f.Service.DetailAsync(r.RequestId,"owner",false,default);r=await f.Service.SubmitAsync("owner","corrected-files-key",r.Input!,r.RequestId,r.Version,default);Assert.Equal("PENDING",r.Status);
+        r=await f.Service.ReviewAsync(r.RequestId,"manager","request-changes",new(r.Version,"Returned again"),default);
+        r=await f.Service.ReviewAsync(r.RequestId,"manager","reject",new(r.Version,"Explicitly close abandoned revision"),default);Assert.Equal("REJECTED",r.Status);Assert.True((await f.Service.HorsesAsync("owner",default,from,to)).Single().Selectable);
+        Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));
+    }
+
 }

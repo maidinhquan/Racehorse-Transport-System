@@ -8,8 +8,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      '/api/auth/register': 'http://localhost:5129',
-      '/api': 'http://localhost:5080',
+      '/api': process.env.API_PROXY_TARGET || 'http://localhost:5129',
     },
   },
 })

@@ -34,7 +34,7 @@ public sealed class Flow1RelationalContext(DbContextOptions<Flow1RelationalConte
     }
 }
 
-public sealed class Flow1Data(Flow1RelationalContext db) : IFlow1Data
+public sealed class Flow1Data(Flow1RelationalContext db,string? retainedRoot=null) : IFlow1Data
 {
     public async Task<T?> FindAsync<T>(string id, CancellationToken ct) where T : class =>
         await db.Set<T>().FindAsync([id], ct);
@@ -49,6 +49,30 @@ public sealed class Flow1Data(Flow1RelationalContext db) : IFlow1Data
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         try
         {
+            if(!await Flow1RelationalSchema.IsReadyAsync(db,ct))throw Error("Flow1 requires the reviewed relational schema006 and its trusted guards. No migration runs automatically.","FLOW1_SQL_SCHEMA_REQUIRED",503);
+            // A complete source switch requires reviewed conversion, not per-row JSON fallback.
+            // Empty retained004 columns are harmless; nonempty legacy state closes the typed API.
+            foreach(var table in new[]{"HORSE","TRANSPORT_REQUEST","CONTRACT","USER"})
+            {
+                var retained=await db.Database.SqlQueryRaw<int>("""
+                    DECLARE @count int=0,@sql nvarchar(max);
+                    IF COL_LENGTH(N'dbo.'+QUOTENAME(@table),N'Flow1StateJson') IS NOT NULL
+                    BEGIN
+                      SET @sql=N'SELECT @n=COUNT(*) FROM dbo.'+QUOTENAME(@table)+N' WHERE (Flow1StateJson IS NOT NULL AND DATALENGTH(Flow1StateJson)>0) OR Flow1StateVersion<>0';
+                      EXEC sys.sp_executesql @sql,N'@n int OUTPUT',@n=@count OUTPUT;
+                    END;
+                    SELECT @count AS Value;
+                    """,new Microsoft.Data.SqlClient.SqlParameter("@table",table)).ToListAsync(ct);
+                if(retained[0]!=0)throw Error("Retained Flow1 state requires offline conversion/parity and operator cutover.","FLOW1_STATE_IMPORT_REQUIRED",503);
+            }
+            string? retainedFiles;
+            try{retainedFiles=Infrastructure.Storage.Flow1RetainedSources.Fingerprint(retainedRoot);}
+            catch(Exception e)when(e is IOException or UnauthorizedAccessException){throw Error("Retained source inventory needs operator review.","FLOW1_STATE_IMPORT_REQUIRED",503);}
+            if(retainedFiles is not null)
+            {
+                var approved=await db.Database.SqlQueryRaw<string>("SELECT CONVERT(nvarchar(64),value) AS Value FROM sys.extended_properties WHERE class=0 AND name=N'Flow1.RelationalRetainedSourceFingerprint'").ToListAsync(ct);
+                if(approved.Count!=1||approved[0]!=retainedFiles)throw Error("Retained source files require reviewed conversion/parity; no payload fallback was attempted.","FLOW1_STATE_IMPORT_REQUIRED",503);
+            }
             // MVP serializes Flow1 writes across instances. Provider I/O and PDF conversion stay outside.
             await db.Database.ExecuteSqlRawAsync("""
                 DECLARE @result int;

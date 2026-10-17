@@ -7,7 +7,10 @@ confirm/hold/resume**. Không thêm bảng, không JSON persistence; chỉ curre
 state, giữ PDF/chữ ký/từng Payment. [Mapping scope mới](FLOW1_SIMPLE_RELATIONAL_MAPPING.md)
 và foundation006 thay mapping 166 cột/005 bên dưới. 005 là tài liệu/migration lịch
 sử, **không phải bước phải chạy trước006**. 006 không tự chuyển runtime/drop dữ
-liệu; source hiện vẫn dùng JSON tới khi toàn chuỗi typed được kiểm đủ và cutover.
+liệu. Runtime source DI/API/FE đã typed006 ngày18/10; xem
+[cutover report](FLOW1_RELATIONAL_CUTOVER_REPORT.md) và
+[operator guide](FLOW1_RELATIONAL_OPERATOR_GUIDE.md). Native local/fixtures đã được
+kiểm; DB nghiệp vụ chưa006 và shadow preview còn3 legacy evidence blockers.
 Không áp migration/import/drop trên DB nghiệp vụ trong các lượt tự động.
 
 > Dự án: Racehorse Transport System — SWP391

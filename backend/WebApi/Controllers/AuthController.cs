@@ -319,15 +319,6 @@ namespace WebApi.Controllers
                 // Không phải chuỗi BCrypt hash hợp lệ
             }
 
-            // 3. Cho phép các mật khẩu dev phổ biến với các tài khoản seed sẵn trong database
-            if (inputPassword == "Password123!" ||
-                inputPassword == "123456" ||
-                inputPassword == "admin123" ||
-                inputPassword == "string")
-            {
-                return true;
-            }
-
             return false;
         }
 

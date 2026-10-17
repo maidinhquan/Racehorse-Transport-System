@@ -34,3 +34,6 @@ backend/WebApi/appsettings.Local.json
 
 # Private Flow 1 metadata, generated contract documents and spike outputs
 backend/WebApi/App_Data/
+
+# Isolated Flow1 Sandbox credentials; loaded only in Development.
+backend/WebApi/appsettings.Flow1Sandbox.Local.json

@@ -17,26 +17,26 @@ import ResetPasswordPage from "../../features/auth/pages/reset-password/ResetPas
 import HomePage from "../../features/user-dashboard/page/home-page/HomePage";
 import { RequestsPage as TransportRequestPage, RequestWizardPage as CreateTransportRequestPage,
   RequestDetailPage as TransportRequestDetailPage, RequestDetailPage as TransportInformationPage,
-  RequestDetailPage as TransportInformationSuccessPage, HorsesPage as MyHorsesPage, PublicEstimatePage } from "../../features/flow1/CustomerPages";
+  RequestDetailPage as TransportInformationSuccessPage, HorsesPage as MyHorsesPage } from "../../features/flow1/relational/Pages";
+import { PublicEstimatePage } from "../../features/flow1/PublicEstimatePage";
 
 import TripTrackingPage from "../../features/user-dashboard/page/trip-tracking/TripTrackingPage";
 import HistoryPage from "../../features/user-dashboard/page/history/HistoryPage";
 import CustomerProfilePage from "../../features/user-dashboard/page/profile/CustomerProfilePage";
 
 // ==================== CONTRACT & PAYMENT ====================
-import ContractPage from "../../features/user-dashboard/page/transport-request-page/contract/ContractPage";
-import PaymentPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentPage";
-import { CustomerVnpayReturnPage } from "../../features/flow1/CustomerVnpayReturnPage";
-import { OperationsInbox } from "../../features/flow1/OperationsInbox";
-import PaymentSuccessPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentSuccessPage";
-import PaymentCancelPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentCancelPage";
+const ContractPage = TransportRequestDetailPage;
+const PaymentPage = TransportRequestDetailPage;
+import { CustomerVnpayReturnPage } from "../../features/flow1/relational/Pages";
+import { OperationsInbox } from "../../features/flow1/relational/Pages";
 import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage";
 
 // ==================== ROLE DASHBOARDS ====================
 import AdminDashboard from "../../features/admin/AdminDashboard";
 import DriverDashboard from "../../features/driver/DriverDashboard";
-import { ManagerRequestsPage, ManagerRequestPage } from "../../features/flow1/ManagerPages";
-import { RequestEditPage } from "../../features/flow1/CustomerPages";
+const ManagerRequestsPage = () => <TransportRequestPage manager />;
+const ManagerRequestPage = () => <TransportRequestDetailPage manager />;
+
 import SpecialistDashboard from "../../features/documents/SpecialistDashboard";
 
 // Import các trang khác của specialist
@@ -81,8 +81,8 @@ function AppRouter() {
         <Route path="/manager/requests/:requestId" element={<ManagerRequestPage />} />
         <Route path="/coordinator/flow1-work" element={<OperationsInbox stream="ROUTING" />} />
         <Route path="/specialist/flow1-work" element={<OperationsInbox stream="DOCUMENTS" />} />
-        <Route path="/customer/requests/:requestId/revision" element={<RequestEditPage mode="revision" />} />
-        <Route path="/customer/requests/:requestId/change" element={<RequestEditPage mode="change-requests" />} />
+        <Route path="/customer/requests/:requestId/revision" element={<CreateTransportRequestPage revision />} />
+        <Route path="/customer/requests/:requestId/change" element={<Navigate to="/customer/requests" replace />} />
 
         {/* Màn hình coordinator */}
         <Route
@@ -161,12 +161,12 @@ function AppRouter() {
         {/* ==================== PAYMENT ==================== */}
         <Route
           path="/customer/payment/success"
-          element={<PaymentSuccessPage />}
+          element={<Navigate to="/customer/requests" replace />}
         />
 
         <Route
           path="/customer/payment/cancel"
-          element={<PaymentCancelPage />}
+          element={<Navigate to="/customer/requests" replace />}
         />
 
         <Route

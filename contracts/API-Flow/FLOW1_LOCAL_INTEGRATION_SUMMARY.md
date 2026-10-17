@@ -1,3 +1,5 @@
+> **Historical baseline:** runtime hiện hành đã chuyển typed006 ngày18/10/2026. Xem [current report](FLOW1_RELATIONAL_CUTOVER_REPORT.md) và [operator guide](FLOW1_RELATIONAL_OPERATOR_GUIDE.md); không chạy004/005 hoặc business cutover theo phần lịch sử dưới đây.
+
 # Flow 1 — tổng hợp tích hợp local
 
 Ngày 16/10/2026, branch Truong. Đại ca yêu cầu triển khai liên tục phần cuối,

@@ -1,3 +1,5 @@
+> **Historical baseline:** runtime hiện hành đã chuyển typed006 ngày18/10/2026. Xem [current report](FLOW1_RELATIONAL_CUTOVER_REPORT.md) và [operator guide](FLOW1_RELATIONAL_OPERATOR_GUIDE.md); không chạy004/005 hoặc business cutover theo phần lịch sử dưới đây.
+
 # Flow 1 — local UAT và bàn giao operator
 
 ## Ranh giới dữ liệu

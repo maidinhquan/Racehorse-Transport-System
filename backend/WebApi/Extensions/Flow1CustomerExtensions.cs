@@ -3,7 +3,6 @@ using Application.Common.Flow1;
 using Application.DTOs;
 using Application.Interfaces.Flow1;
 using Application.Services.Flow1;
-using Infrastructure.DAOs.Flow1;
 using Infrastructure.ExternalServices.Flow1;
 using Infrastructure.Storage;
 using Microsoft.AspNetCore.RateLimiting;
@@ -13,21 +12,12 @@ namespace WebApi.Extensions;
 
 public static class Flow1CustomerExtensions
 {
-    public static IServiceCollection AddFlow1Customer(this IServiceCollection services, IConfiguration config, IHostEnvironment environment)
+    public static IServiceCollection AddFlow1Providers(this IServiceCollection services,IConfiguration config,IHostEnvironment environment)
     {
-        services.AddScoped<ICustomerTransportRepository, CustomerTransportRepository>();
-        services.AddScoped<CustomerTransportService>();
-        services.AddScoped<IRequestReviewRepository, RequestReviewRepository>();
-        services.AddScoped<RequestReviewService>();
-        services.AddScoped<ContractPublicationService>();
-        services.AddScoped<ContractAcceptanceService>();
-        services.AddScoped<ContractLifecycleService>();
-        services.AddScoped<ContractDeadlinePolicy>();
-        services.AddScoped<ContractDeadlineService>();
-        services.AddScoped<DepositPaymentService>();
-        services.AddScoped<DeploymentService>();
         services.AddSingleton(config.GetSection("Flow1:Vnpay").Get<Flow1VnpayOptions>() ?? new());
         services.AddSingleton<IFlow1PaymentGateway, VnpaySandboxGateway>();
+        services.AddHttpClient<IFlow1GatewayQuery,VnpayQueryGateway>(c=>c.Timeout=TimeSpan.FromSeconds(15))
+            .RemoveAllLoggers().ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
         services.AddSingleton<IContractOtpSecurity>(new ContractOtpSecurity(config["Flow1:Contracts:OtpHmacKey"]));
         var emailOptions = config.GetSection("Flow1:Contracts:Email").Get<ContractSmtpOptions>() ?? new();
         if (!config.GetSection("Flow1:Contracts:Email:Smtp").Exists())

@@ -36,9 +36,16 @@ public sealed class VnpaySandboxGateway(Flow1VnpayOptions options, TimeProvider 
         .OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{WebUtility.UrlEncode(p.Key)}={WebUtility.UrlEncode(p.Value)}"));
     public string Sign(IEnumerable<KeyValuePair<string, string>> values) => Convert.ToHexString(HMACSHA512.HashData(
         Encoding.UTF8.GetBytes(options.HashSecret), Encoding.UTF8.GetBytes(Canonical(values)))).ToLowerInvariant();
+    public static string NormalizeClientIp(string value)
+    {
+        if(!IPAddress.TryParse(value,out var parsed))throw Error("Invalid gateway client address.","INVALID_GATEWAY_SESSION");
+        if(IPAddress.IsLoopback(parsed))return "127.0.0.1";
+        if(parsed.IsIPv4MappedToIPv6)parsed=parsed.MapToIPv4();
+        var result=parsed.ToString();if(result.Length is <7 or >45)throw Error("Unsupported gateway client address.","INVALID_GATEWAY_SESSION");return result;
+    }
     public Task<GatewaySessionResult> CreateSessionAsync(GatewaySessionRequest request, CancellationToken ct = default)
     {
-        Configure();
+        Configure();var clientIp=NormalizeClientIp(request.ClientIp);
         if (request.Currency != "VND" || request.Amount < 1 || request.Amount > 9_999_999_999m || request.Amount != decimal.Truncate(request.Amount) ||
             request.ExpiresAtUtc <= clock.GetUtcNow() || !IPAddress.TryParse(request.ClientIp, out _) || !Regex.IsMatch(request.PaymentId, "\\A[A-Za-z0-9]{1,50}\\z"))
             throw Error("Invalid gateway session parameters.", "INVALID_GATEWAY_SESSION");
@@ -47,7 +54,7 @@ public sealed class VnpaySandboxGateway(Flow1VnpayOptions options, TimeProvider 
             ["vnp_Amount"] = (request.Amount * 100).ToString("0", CultureInfo.InvariantCulture), ["vnp_CurrCode"] = "VND",
             ["vnp_CreateDate"] = (request.CreatedAtUtc ?? clock.GetUtcNow()).ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
             ["vnp_ExpireDate"] = request.ExpiresAtUtc.ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
-            ["vnp_IpAddr"] = request.ClientIp, ["vnp_Locale"] = "vn", ["vnp_OrderType"] = "other",
+            ["vnp_IpAddr"] = clientIp, ["vnp_Locale"] = "vn", ["vnp_OrderType"] = "other",
             ["vnp_OrderInfo"] = "Flow1 deposit " + request.PaymentId, ["vnp_ReturnUrl"] = options.ReturnUrl, ["vnp_TxnRef"] = request.PaymentId };
         return Task.FromResult(new GatewaySessionResult(request.PaymentId, new Uri(options.PaymentUrl + "?" + Canonical(values) + "&vnp_SecureHash=" + Sign(values)), request.ExpiresAtUtc, options.TmnCode));
     }

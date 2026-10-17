@@ -33,14 +33,14 @@ function LocationField({ label, value, onChange, guest }: { label: string; value
     }}>{m.label}</button><MapDataAttribution text={m.attribution} /></li>)}</ul>
   </fieldset>;
 }
-export function TripFields({ trip, onChange, guest = false }: { trip: Trip; onChange: (value: Trip) => void; guest?: boolean }) {
+export function TripFields({ trip, onChange, guest = false, hideDepartureDate = false, fixedHorseCount }: { trip: Trip; onChange: (value: Trip) => void; guest?: boolean; hideDepartureDate?: boolean; fixedHorseCount?: number }) {
   return <>
     <label>Tuyến vận chuyển<select value={trip.delivery.country} onChange={e => onChange({ ...trip,
       delivery: { address: "", lat: 0, lng: 0, country: e.target.value }, preferredTransportMode: e.target.value === "JP" ? "AIR" : "ROAD" })}>
       <option value="VN">Việt Nam → Việt Nam · Đường bộ</option><option value="JP">Việt Nam → Nhật Bản · Hàng không</option>
     </select></label>
-    <label>Ngày khởi hành mong muốn<input required type="date" value={trip.desiredDepartureDate} onChange={e => onChange({ ...trip, desiredDepartureDate: e.target.value })} /></label>
-    <label>Số ngựa<input required type="number" min={1} max={100} value={trip.horseCount} onChange={e => onChange({ ...trip, horseCount: Number(e.target.value) })} /></label>
+    {!hideDepartureDate && <label>Ngày khởi hành mong muốn<input required type="date" value={trip.desiredDepartureDate} onChange={e => onChange({ ...trip, desiredDepartureDate: e.target.value })} /></label>}
+    {fixedHorseCount == null ? <label>Số ngựa<input required type="number" min={1} max={100} value={trip.horseCount} onChange={e => onChange({ ...trip, horseCount: Number(e.target.value) })} /></label> : <p>Số ngựa đã chọn: {fixedHorseCount}</p>}
     <LocationField label="Điểm lấy ngựa (Việt Nam)" value={trip.pickup} onChange={pickup => onChange({ ...trip, pickup })} guest={guest} />
     <LocationField label="Điểm giao ngựa" value={trip.delivery} onChange={delivery => onChange({ ...trip, delivery })} guest={guest} />
   </>;

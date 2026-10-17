@@ -1,3 +1,5 @@
+> **Historical baseline:** runtime hiện hành đã chuyển typed006 ngày18/10/2026. Xem [current report](FLOW1_RELATIONAL_CUTOVER_REPORT.md) và [operator guide](FLOW1_RELATIONAL_OPERATOR_GUIDE.md); không chạy004/005 hoặc business cutover theo phần lịch sử dưới đây.
+
 # Flow 1 — chuyển state vào SQL, giữ đầy đủ nghiệp vụ
 
 Quyết định trực tiếp của đại ca ngày **16/10/2026, Asia/Ho_Chi_Minh**:
