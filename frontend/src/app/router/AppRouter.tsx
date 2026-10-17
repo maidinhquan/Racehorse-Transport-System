@@ -75,8 +75,13 @@ function AppRouter() {
         <Route path="/manager/dashboard" element={<ManagerPortal />} />
 
         {/* Màn hình coordinator: CoordinatorPortal làm mặc định */}
-        <Route path="/coordinator/dashboard" element={<CoordinatorPortal />} />
+        <Route path="/coordinator/dashboard" element={<CoordinatorPortal initialNav="dashboard" />} />
         <Route path="/coordinator/overview" element={<CoordinatorDashboard />} />
+        <Route path="/coordinator/trips" element={<CoordinatorPortal initialNav="trips" />} />
+        <Route path="/coordinator/fleet" element={<CoordinatorPortal initialNav="fleet" />} />
+        <Route path="/coordinator/crew" element={<CoordinatorPortal initialNav="crew" />} />
+        <Route path="/coordinator/active" element={<CoordinatorPortal initialNav="active" />} />
+        <Route path="/coordinator/incidents" element={<CoordinatorPortal initialNav="incidents" />} />
 
         {/* ==================== SPECIALIST ==================== */}
         <Route path="/specialist/documents" element={<SpecialistDashboard />} />
