@@ -3,12 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
 import {
   getRequestById,
-  updateRequestStatus,
-  type FakeRequestStatus,
 } from "../../../data/transportRequestStorage";
-import {
-  useState,
-} from "react";
 import {
   transportRequestDetails,
   type DetailRequestStatus,
@@ -159,11 +154,9 @@ function TransportRequestDetailPage() {
   const { requestId } = useParams();
 
   // Dữ liệu cơ bản được lưu trong localStorage
-  const [storedRequest, setStoredRequest] = useState(() =>
-    requestId
-      ? getRequestById(requestId)
-      : undefined
-  );
+  const storedRequest = requestId
+    ? getRequestById(requestId)
+    : undefined;
 
   // Dữ liệu chi tiết dùng để demo UI
   const detailRequest = transportRequestDetails.find(
@@ -213,50 +206,6 @@ function TransportRequestDetailPage() {
       }
       : undefined;
 
-  const changeDemoStatus = (
-    status: FakeRequestStatus
-  ) => {
-    if (!requestId || !request) {
-      return;
-    }
-
-    updateRequestStatus(
-      requestId,
-      status
-    );
-
-    setStoredRequest((previous) => {
-      if (previous) {
-        return {
-          ...previous,
-          status,
-        };
-      }
-
-      return {
-        id: request.id,
-
-        origin: request.origin,
-
-        destination:
-          request.destination,
-
-        requestedDate:
-          request.requestedDate,
-
-        preferredDate:
-          request.preferredDate,
-
-        horseCount:
-          request.horseCount,
-
-        estimatedPrice:
-          request.estimatedPrice,
-
-        status,
-      };
-    });
-  };
 
   if (!request) {
     return (
@@ -635,154 +584,6 @@ function TransportRequestDetailPage() {
 
           {/* RIGHT */}
           <aside className="request-detail-right">
-            <section className="request-detail-card demo-control-card">
-              <h2>Demo Controls</h2>
-
-              <p className="demo-control-description">
-                Simulate Manager / Staff actions without backend.
-              </p>
-
-              <div className="demo-control-buttons">
-                {request.status ===
-                  "Waiting for Manager Review" && (
-                    <>
-                      <button
-                        onClick={() =>
-                          changeDemoStatus(
-                            "Accepted – Contract Preparation"
-                          )
-                        }
-                      >
-                        Manager: Accept Request
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          changeDemoStatus(
-                            "Changes Requested"
-                          )
-                        }
-                      >
-                        Manager: Request Changes
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          changeDemoStatus(
-                            "Rejected"
-                          )
-                        }
-                      >
-                        Manager: Reject Request
-                      </button>
-                    </>
-                  )}
-
-                {request.status ===
-                  "Accepted – Contract Preparation" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Contract Ready"
-                        )
-                      }
-                    >
-                      Manager: Contract Ready
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Contract Ready" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Awaiting Deposit"
-                        )
-                      }
-                    >
-                      Customer: Sign Contract
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Awaiting Deposit" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Information Required"
-                        )
-                      }
-                    >
-                      Customer: Pay Deposit
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Information Required" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Information Submitted"
-                        )
-                      }
-                    >
-                      Customer: Submit Information
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Information Submitted" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Documents Under Review"
-                        )
-                      }
-                    >
-                      Staff: Review Documents
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Documents Under Review" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Scheduled"
-                        )
-                      }
-                    >
-                      Staff: Schedule Transport
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Scheduled" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "In Transit"
-                        )
-                      }
-                    >
-                      Staff: Start Trip
-                    </button>
-                  )}
-
-                {request.status ===
-                  "In Transit" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Completed"
-                        )
-                      }
-                    >
-                      Staff: Complete Trip
-                    </button>
-                  )}
-              </div>
-            </section>
             {/* Action */}
             <section className="request-detail-card">
               <h2>

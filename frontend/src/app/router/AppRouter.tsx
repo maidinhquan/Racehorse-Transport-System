@@ -119,7 +119,7 @@ function AppRouter() {
         <Route path="/payment/return" element={<SandboxPaymentPage />} />
 
         {/* ==================== NOT FOUND ==================== */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
