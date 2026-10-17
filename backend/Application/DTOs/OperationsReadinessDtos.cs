@@ -11,6 +11,10 @@ namespace Application.DTOs
         public bool DriverAssigned { get; set; }
         public bool EscortAssigned { get; set; }
         public bool StallsSufficient { get; set; }
+        public bool OutboundGroundLegReady { get; set; } = true;
+        public bool InboundGroundLegReady { get; set; } = true;
+        public bool FlightBookingConfirmed { get; set; } = true;
+        public bool IndependentResourcesVerified { get; set; } = true;
         public bool IsReady { get; set; }
         public bool ConfirmedByCoordinator { get; set; }
         public List<ConditionItemDto> Conditions { get; set; } = new();
@@ -44,8 +48,11 @@ namespace Application.DTOs
     public class ConditionItemDto
     {
         public string Code { get; set; } = string.Empty;
+        public string? Label { get; set; }
         public bool Met { get; set; }
         public bool Applicable { get; set; } = true;
+        public string? Detail { get; set; }
+        public string? Group { get; set; }
     }
 
     public class OperationsReadinessSummaryDto
