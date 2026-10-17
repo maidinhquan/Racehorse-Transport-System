@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from "react-router-dom";
 
 import "./CustomerLayout.css";
 import { useState } from "react";
-import ThemeToggle from "../../components/ThemeToggle/ThemeToggle";
 interface CustomerLayoutProps {
   pageTitle: string;
   children: ReactNode;
@@ -48,8 +47,7 @@ function CustomerLayout({
             >
               <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
             </svg>
-
-            <span>Home</span>
+            <span>Trang chủ</span>
           </NavLink>
 
           <NavLink
@@ -71,8 +69,7 @@ function CustomerLayout({
               <path d="M9 13h6" />
               <path d="M9 17h6" />
             </svg>
-
-            <span>Transport Requests</span>
+            <span>Yêu cầu vận chuyển</span>
           </NavLink>
 
           <NavLink
@@ -89,32 +86,10 @@ function CustomerLayout({
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="M4 12h16" />
-              <path d="M14 6l6 6-6 6" />
+              <path d="M5 12h14" />
+              <path d="M12 5l7 7-7 7" />
             </svg>
-
-            <span>My Horses</span>
-          </NavLink>
-
-          <NavLink
-            to="/customer/tracking"
-            className={({ isActive }) =>
-              `customer-nav-item ${isActive ? "active" : ""}`
-            }
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z" />
-              <circle cx="12" cy="10" r="2.5" />
-            </svg>
-
-            <span>Trip Tracking</span>
+            <span>Ngựa của tôi</span>
           </NavLink>
 
           <NavLink
@@ -134,8 +109,7 @@ function CustomerLayout({
               <circle cx="12" cy="12" r="9" />
               <path d="M12 7v5l3 2" />
             </svg>
-
-            <span>History</span>
+            <span>Lịch sử</span>
           </NavLink>
         </nav>
       </aside>
@@ -147,8 +121,23 @@ function CustomerLayout({
           <h1>{pageTitle}</h1>
 
           <div className="customer-user-area">
-            {/* Theme Toggle Button */}
-            <ThemeToggle />
+            {/* Language Switcher */}
+            <div className="customer-lang-toggle">
+              <button
+                type="button"
+                className="lang-btn active"
+                title="Tiếng Việt"
+              >
+                VI
+              </button>
+              <button
+                type="button"
+                className="lang-btn"
+                title="English"
+              >
+                EN
+              </button>
+            </div>
 
             {/* Notification */}
             <button
@@ -168,6 +157,7 @@ function CustomerLayout({
                   <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
                   <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                 </svg>
+                <span className="customer-notif-badge">7</span>
               </span>
             </button>
 
@@ -175,8 +165,7 @@ function CustomerLayout({
             <div className="customer-account-wrapper">
               <button
                 type="button"
-                className={`customer-account ${isAccountOpen ? "open" : ""
-                  }`}
+                className={`customer-account ${isAccountOpen ? "open" : ""}`}
                 onClick={() =>
                   setIsAccountOpen(
                     (current) => !current
@@ -187,15 +176,9 @@ function CustomerLayout({
                   AE
                 </div>
 
-                <div className="customer-account-info">
-                  <span className="customer-account-name">
-                    Alex Equine
-                  </span>
-
-                  <span className="customer-account-role">
-                    Customer
-                  </span>
-                </div>
+                <span className="customer-account-name">
+                  Alex Equine
+                </span>
 
                 <svg
                   className="customer-account-chevron"

@@ -22,7 +22,6 @@ import TransportInformationPage from "../../features/user-dashboard/page/transpo
 import TransportInformationSuccessPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationSuccessPage";
 
 import MyHorsesPage from "../../features/user-dashboard/page/my-horses/MyHorsesPage";
-import TripTrackingPage from "../../features/user-dashboard/page/trip-tracking/TripTrackingPage";
 import HistoryPage from "../../features/user-dashboard/page/history/HistoryPage";
 import CustomerProfilePage from "../../features/user-dashboard/page/profile/CustomerProfilePage";
 
@@ -110,7 +109,7 @@ function AppRouter() {
         <Route path="/customer/requests/:requestId/contract" element={<ContractPage />} />
         <Route path="/customer/requests/:requestId/payment" element={<PaymentPage />} />
         <Route path="/customer/horses" element={<MyHorsesPage />} />
-        <Route path="/customer/tracking" element={<TripTrackingPage />} />
+        <Route path="/customer/tracking" element={<Navigate to="/customer/home" replace />} />
         <Route path="/customer/history" element={<HistoryPage />} />
         <Route path="/customer/create-request" element={<CreateRequestWizard />} />
 
