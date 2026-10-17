@@ -21,7 +21,6 @@ import TransportInformationPage from "../../features/user-dashboard/page/transpo
 import TransportInformationSuccessPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationSuccessPage";
 
 import MyHorsesPage from "../../features/user-dashboard/page/my-horses/MyHorsesPage";
-import TripTrackingPage from "../../features/user-dashboard/page/trip-tracking/TripTrackingPage";
 import HistoryPage from "../../features/user-dashboard/page/history/HistoryPage";
 import CustomerProfilePage from "../../features/user-dashboard/page/profile/CustomerProfilePage";
 
@@ -45,13 +44,15 @@ import { CoordinatorPortal } from "../../features/coordinator/pages/dashboard/Co
 import CoordinatorDashboard from "../../features/coordinator/CoordinatorDashboard";
 import { DriverPortal } from "../../features/driver/pages/trip-detail/DriverPortal";
 import { HandoverPage } from "../../features/driver/pages/handover/HandoverPage";
+import { LandingPage } from "../../features/landing/LandingPage";
 
 function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* ==================== DEFAULT ==================== */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* ==================== LANDING & PUBLIC ==================== */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/landing" element={<LandingPage />} />
 
         {/* ==================== AUTH ==================== */}
         <Route path="/login" element={<LoginPage />} />
@@ -69,15 +70,32 @@ function AppRouter() {
         <Route path="/driver/handover" element={<HandoverPage />} />
 
         {/* ==================== MANAGER ==================== */}
-        <Route path="/manager/dashboard" element={<ManagerPortal />} />
+        <Route path="/manager" element={<Navigate to="/manager/overview" replace />} />
+        <Route path="/manager/dashboard" element={<ManagerPortal initialNav="overview" />} />
+        <Route path="/manager/overview" element={<ManagerPortal initialNav="overview" />} />
+        <Route path="/manager/requests" element={<ManagerPortal initialNav="requests" />} />
+        <Route path="/manager/contracts" element={<ManagerPortal initialNav="contracts" />} />
+        <Route path="/manager/payments" element={<ManagerPortal initialNav="payments" />} />
 
         {/* Màn hình coordinator: CoordinatorPortal làm mặc định */}
-        <Route path="/coordinator/dashboard" element={<CoordinatorPortal />} />
+        <Route path="/coordinator/dashboard" element={<CoordinatorPortal initialNav="dashboard" />} />
         <Route path="/coordinator/overview" element={<CoordinatorDashboard />} />
+        <Route path="/coordinator/trips" element={<CoordinatorPortal initialNav="trips" />} />
+        <Route path="/coordinator/fleet" element={<CoordinatorPortal initialNav="fleet" />} />
+        <Route path="/coordinator/crew" element={<CoordinatorPortal initialNav="crew" />} />
+        <Route path="/coordinator/active" element={<CoordinatorPortal initialNav="active" />} />
+        <Route path="/coordinator/incidents" element={<CoordinatorPortal initialNav="incidents" />} />
 
         {/* ==================== SPECIALIST ==================== */}
-        <Route path="/specialist/documents" element={<SpecialistDashboard />} />
-        <Route path="/specialist/dashboard" element={<SpecialistPortal />} />
+        <Route path="/specialist/dashboard" element={<SpecialistDashboard />} />
+        <Route path="/specialist/documents" element={<SpecialistPortal initialNav="queue" />} />
+        <Route path="/specialist/trips" element={<SpecialistPortal initialNav="trips" />} />
+        <Route path="/specialist/queue" element={<SpecialistPortal initialNav="queue" />} />
+        <Route path="/specialist/requests" element={<SpecialistPortal initialNav="requests" />} />
+        <Route path="/specialist/checkpoints" element={<SpecialistPortal initialNav="checkpoints" />} />
+        <Route path="/specialist/packages" element={<SpecialistPortal initialNav="packages" />} />
+        <Route path="/specialist/master" element={<SpecialistPortal initialNav="master" />} />
+        <Route path="/specialist/audit" element={<SpecialistPortal initialNav="audit" />} />
 
         {/* ==================== CUSTOMER ==================== */}
         <Route path="/customer/home" element={<HomePage />} />
@@ -90,7 +108,7 @@ function AppRouter() {
         <Route path="/customer/requests/:requestId/contract" element={<ContractPage />} />
         <Route path="/customer/requests/:requestId/payment" element={<PaymentPage />} />
         <Route path="/customer/horses" element={<MyHorsesPage />} />
-        <Route path="/customer/tracking" element={<TripTrackingPage />} />
+        <Route path="/customer/tracking" element={<Navigate to="/customer/home" replace />} />
         <Route path="/customer/history" element={<HistoryPage />} />
         <Route path="/customer/create-request" element={<CreateRequestWizard />} />
 

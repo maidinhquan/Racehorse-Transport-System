@@ -103,14 +103,13 @@ function TransportRequestPage() {
   }, [search, statusFilter]);
 
   return (
-    <CustomerLayout pageTitle="Transport Requests">
+    <CustomerLayout pageTitle="Yêu cầu vận chuyển">
       <div className="transport-request-page">
         <div className="transport-request-header">
           <div>
-            <h1>Transport Requests</h1>
-
+            <h1>Yêu cầu vận chuyển</h1>
             <p>
-              Track and manage your active transport requests.
+              Theo dõi và quản lý các yêu cầu vận chuyển đang hoạt động của bạn.
             </p>
           </div>
 
@@ -121,7 +120,7 @@ function TransportRequestPage() {
             }
           >
             <span>+</span>
-            Create Transport Request
+            Tạo yêu cầu vận chuyển
           </button>
         </div>
 
@@ -141,7 +140,7 @@ function TransportRequestPage() {
 
             <input
               type="text"
-              placeholder="Search by request ID, route, or horse..."
+              placeholder="Tìm kiếm theo mã yêu cầu, tuyến đường hoặc tên ngựa..."
               value={search}
               onChange={(event) =>
                 setSearch(event.target.value)
@@ -156,7 +155,7 @@ function TransportRequestPage() {
               setStatusFilter(event.target.value)
             }
           >
-            <option value="">All Statuses</option>
+            <option value="">Tất cả trạng thái</option>
 
             {requestStatuses.map((status) => (
               <option
@@ -175,14 +174,14 @@ function TransportRequestPage() {
               <table className="transport-request-table">
                 <thead>
                   <tr>
-                    <th>Request ID</th>
-                    <th>Route</th>
-                    <th>Horse(s)</th>
-                    <th>Requested Date</th>
-                    <th>Preferred Date</th>
-                    <th>Contract</th>
-                    <th>Request Status</th>
-                    <th>Action</th>
+                    <th>Mã yêu cầu</th>
+                    <th>Tuyến đường</th>
+                    <th>Ngựa</th>
+                    <th>Ngày yêu cầu</th>
+                    <th>Ngày mong muốn</th>
+                    <th>Hợp đồng</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
 
@@ -252,7 +251,7 @@ function TransportRequestPage() {
                             )
                           }
                         >
-                          View Details
+                          Xem chi tiết
                         </button>
                       </td>
                     </tr>
@@ -262,7 +261,7 @@ function TransportRequestPage() {
             </div>
           ) : (
             <div className="request-empty">
-              No transport requests match your filters.
+              Không tìm thấy yêu cầu vận chuyển nào phù hợp với bộ lọc của bạn.
             </div>
           )}
         </div>

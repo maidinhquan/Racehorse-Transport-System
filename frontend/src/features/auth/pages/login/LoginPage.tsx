@@ -412,6 +412,23 @@ function LoginPage() {
             Đăng ký ngay
           </button>
         </p>
+
+        <p className="register-text" style={{ marginTop: "8px" }}>
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#ea580c",
+              fontWeight: 600,
+              cursor: "pointer",
+              fontSize: "13px",
+            }}
+          >
+            ← Quay lại trang chủ CBN Transport
+          </button>
+        </p>
       </div>
     </AuthLayout>
   );
