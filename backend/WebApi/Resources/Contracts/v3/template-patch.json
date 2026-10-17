@@ -1,0 +1,31 @@
+{
+  "templateVersion": "v3",
+  "sourceVersion": "v1",
+  "sourceSha256": "b2deebd4d0dafebc7e5b46332e76bd2935b4679390b0c5a167bafcac5960818c",
+  "paragraphs": {
+    "3": "• Tham chiếu yêu cầu / Transport request: {{REQUEST_ID}}",
+    "6": "Hạn xác nhận OTP / OTP signing deadline: {{COMPLETION_DEADLINE}}\nTiền cọc đến hạn trong 24 giờ kể từ khi xác nhận OTP, nhưng không muộn hơn {{PREPARATION_CUTOFF}} để bảo đảm thời gian chuẩn bị. Hệ thống hiển thị hạn cọc chính xác trước khi khách xác nhận. Deposit is due within 24 hours after OTP confirmation, capped at {{PREPARATION_CUTOFF}}. The exact deposit deadline is shown before confirmation.",
+    "7": "Bản hợp đồng được lập ngày {{CREATED_DATE}} để khách hàng xem và xác nhận qua OTP trên hệ thống. Thời điểm xác nhận và hash PDF được lưu trong biên nhận riêng, không in mã OTP vào hợp đồng.\nIssued on {{CREATED_DATE}} for review and OTP confirmation. Acceptance time and PDF hash are recorded in a separate receipt; the OTP is never printed.",
+    "93": "11.1. Xác nhận hợp đồng: Khách hàng xem đúng PDF đã phát hành và xác nhận bằng OTP gửi đến email tài khoản. Xác nhận gắn với ContractID, phiên bản và hash PDF. Đây là cơ chế xác nhận của MVP, không phải chữ ký số có chứng thư.\n11.1. Contract confirmation: The customer reviews the issued PDF and confirms using an email OTP bound to the ContractID, version and PDF hash. This MVP confirmation is not a certificate-based digital signature.",
+    "94": "11.2. Tính toàn vẹn: PDF phát hành bất biến; hệ thống giữ SHA-256 và chứng cứ xác nhận OTP. Gia hạn chỉ đổi hạn hiện hành trên hệ thống, không viết lại PDF gốc. Chỉ quyết định gia hạn gần nhất được hiển thị.\n11.2. Integrity: The issued PDF is immutable. SHA-256 and OTP acceptance evidence are retained. Extensions update the current deadline, never the original PDF. Only the latest extension decision is displayed.",
+    "98": "THÔNG TIN PHÁT HÀNH VÀ XÁC NHẬN / ISSUANCE AND CONFIRMATION",
+    "99": "BÊN PHÁT HÀNH / ISSUER",
+    "100": "{{COMPANY_NAME}}\nĐại diện / Representative: {{COMPANY_REPRESENTATIVE}}\nPhát hành ngày / Issued on: {{CREATED_DATE}}\nKhông có tuyên bố đã ký số / No digital signature asserted.",
+    "101": "KHÁCH HÀNG XÁC NHẬN QUA OTP / CUSTOMER OTP CONFIRMATION",
+    "102": "{{CUSTOMER_FULL_NAME}} · User ID: {{CUSTOMER_USER_ID}}\nTrạng thái lúc phát hành: CHƯA XÁC NHẬN OTP / NOT YET CONFIRMED.\nSau xác nhận, xem biên nhận riêng gắn hash của PDF này. After confirmation, refer to the separate receipt bound to this PDF hash.",
+    "117": "Hồ sơ do khách cung cấp, chưa kết luận thẩm định thú y. Vaccination and EIA/Coggins status require separate verification.",
+    "130": "{{TRANSPORT_MODE}} · {{TRANSPORT_SCOPE}}",
+    "146": "Số tiền / Amount (VND)",
+    "152": "Đặt cọc / Deposit: trong 24 giờ sau xác nhận OTP, không muộn hơn {{PREPARATION_CUTOFF}}.\nWithin 24 hours after OTP confirmation, capped at {{PREPARATION_CUTOFF}}.",
+    "153": "Quá hạn khóa thao tác mới; không tự hủy yêu cầu. New actions lock after expiry; no automatic cancellation.",
+    "163": "Phí lưu chuồng/chăm sóc nếu phát sinh cần thỏa thuận và đối soát riêng. Additional care/storage costs require a separate agreement and reconciliation.",
+    "185": "CHƯA THỰC HIỆN / NOT PERFORMED\nĐối soát vi mạch chỉ ghi nhận khi bàn giao thực tế. Microchip verification is recorded only at actual handover."
+  },
+  "afterPrice": "GIÁ CHỐT / FINAL QUOTE\n{{SELLING_LINES}}\nĐặt cọc qua VNPay; không nhận ảnh ủy nhiệm chi trong Flow 1. Deposit via VNPay only; bank-proof uploads are not part of Flow 1.",
+  "notes": [
+    "Deterministic text transformation of retained v1 DOCX, no generated binary in Git.",
+    "No raw OTP, pre-signed assertions or completed handover assertions.",
+    "Vietnamese/English retained reference terms need separate operational/legal review before production.",
+    "v3: latest-files/direct-price/VNPay-only MVP; separate signing and post-sign deposit deadlines; no full audit-history claim."
+  ]
+}

@@ -24,14 +24,14 @@ public sealed class LibreOfficeContractDocumentGenerator(string contentRoot, Flo
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     public async Task<ContractDocumentResult> GenerateAsync(ContractDocumentRequest request, CancellationToken ct = default)
     {
-        if (request.TemplateVersion != "v2") throw Error("Unsupported contract template.", "TEMPLATE_UNAVAILABLE", 503);
+        if (request.TemplateVersion is not ("v2" or "v3")) throw Error("Unsupported contract template.", "TEMPLATE_UNAVAILABLE", 503);
         if (string.IsNullOrWhiteSpace(options.LibreOfficePath) || !File.Exists(options.LibreOfficePath))
             throw Error("Configure an explicit verified LibreOffice executable.", "PDF_CONVERTER_NOT_CONFIGURED", 503);
         if (OperatingSystem.IsWindows() && !Path.GetFileName(options.LibreOfficePath).Equals("soffice.com", StringComparison.OrdinalIgnoreCase))
             throw Error("Windows PDF conversion requires the synchronous console launcher soffice.com.", "PDF_CONVERTER_NOT_CONFIGURED", 503);
         var model = request.FrozenSnapshot.Deserialize<ContractPdfModel>(Json) ?? throw new InvalidDataException("PDF model missing.");
         var source = Path.Combine(contentRoot, "Resources/Contracts/v1/contract-template.docx");
-        var patchBytes = await File.ReadAllBytesAsync(Path.Combine(contentRoot, "Resources/Contracts/v2/template-patch.json"), ct);
+        var patchBytes = await File.ReadAllBytesAsync(Path.Combine(contentRoot, $"Resources/Contracts/{request.TemplateVersion}/template-patch.json"), ct);
         using var patchDoc = JsonDocument.Parse(patchBytes); var patch = patchDoc.RootElement;
         if (!Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(source, ct))).Equals(
             patch.GetProperty("sourceSha256").GetString(), StringComparison.OrdinalIgnoreCase))

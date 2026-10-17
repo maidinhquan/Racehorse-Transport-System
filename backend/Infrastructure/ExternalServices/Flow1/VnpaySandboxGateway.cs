@@ -45,7 +45,7 @@ public sealed class VnpaySandboxGateway(Flow1VnpayOptions options, TimeProvider 
         var values = new Dictionary<string, string> {
             ["vnp_Version"] = "2.1.0", ["vnp_Command"] = "pay", ["vnp_TmnCode"] = options.TmnCode,
             ["vnp_Amount"] = (request.Amount * 100).ToString("0", CultureInfo.InvariantCulture), ["vnp_CurrCode"] = "VND",
-            ["vnp_CreateDate"] = clock.GetUtcNow().ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
+            ["vnp_CreateDate"] = (request.CreatedAtUtc ?? clock.GetUtcNow()).ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
             ["vnp_ExpireDate"] = request.ExpiresAtUtc.ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
             ["vnp_IpAddr"] = request.ClientIp, ["vnp_Locale"] = "vn", ["vnp_OrderType"] = "other",
             ["vnp_OrderInfo"] = "Flow1 deposit " + request.PaymentId, ["vnp_ReturnUrl"] = options.ReturnUrl, ["vnp_TxnRef"] = request.PaymentId };
@@ -81,6 +81,8 @@ public sealed class VnpaySandboxGateway(Flow1VnpayOptions options, TimeProvider 
         // Never retain raw callback URLs/signatures/card data. These bounded fields are sufficient for receipt reconciliation.
         var evidence = JsonSerializer.SerializeToElement(new { merchant = options.TmnCode, reference, transaction, responseCode = Get("vnp_ResponseCode"),
             transactionStatus = Get("vnp_TransactionStatus"), amount = units / 100, paidAt });
-        return Task.FromResult(new VerifiedGatewayResult(true, reference, success ? transaction : null, units / 100, "VND", success ? "SUCCESS" : "FAILED", paidAt, evidence, options.TmnCode));
+        if (Get("vnp_BankCode").Length > 50) return Task.FromResult(Invalid());
+        return Task.FromResult(new VerifiedGatewayResult(true, reference, success ? transaction : null, units / 100, "VND", success ? "SUCCESS" : "FAILED", paidAt, evidence, options.TmnCode,
+            Get("vnp_BankCode"), Get("vnp_ResponseCode"), Get("vnp_TransactionStatus")));
     }
 }

@@ -31,10 +31,11 @@ public interface IFlow1ContractDocumentGenerator
 }
 
 public sealed record GatewaySessionRequest(string PaymentId, string InvoiceId, decimal Amount, string Currency,
-    DateTimeOffset ExpiresAtUtc, string ClientIp = "127.0.0.1");
+    DateTimeOffset ExpiresAtUtc, string ClientIp = "127.0.0.1", DateTimeOffset? CreatedAtUtc = null);
 public sealed record GatewaySessionResult(string ProviderReference, Uri PaymentUrl, DateTimeOffset ExpiresAtUtc, string MerchantId);
 public sealed record VerifiedGatewayResult(bool Verified, string ProviderReference, string? ProviderTransactionId,
-    decimal Amount, string Currency, string Status, DateTimeOffset? PaidAtUtc, JsonElement SafeEvidence, string? MerchantId = null);
+    decimal Amount, string Currency, string Status, DateTimeOffset? PaidAtUtc, JsonElement SafeEvidence, string? MerchantId = null,
+    string? BankCode = null, string? ResponseCode = null, string? TransactionStatus = null);
 
 public interface IFlow1PaymentGateway
 {
