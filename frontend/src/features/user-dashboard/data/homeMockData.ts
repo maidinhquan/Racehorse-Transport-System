@@ -8,25 +8,30 @@ export type RequestStatus =
   | "In Transit"
   | "Scheduled"
   | "Documents Under Review"
-  | "Waiting for Manager Review";
+  | "Waiting for Manager Review"
+  | "Completed"
+  | "Rejected";
 
 export interface CurrentTrip {
   id: string;
+  requestId: string;
   horse: string;
   origin: string;
   destination: string;
   departedDate: string;
   eta: string;
-  currentLocation: string;
+  lastMilestone: string;
+  milestoneTime: string;
   progress: number;
 }
 
-export interface DocumentItem {
-  id: number;
-  name: string;
-  horseName: string;
-  requestId: string;
-  status: DocumentStatus;
+export interface CustomerNotification {
+  id: string;
+  title: string;
+  body: string;
+  time: string;
+  read: boolean;
+  type?: "urgent" | "email" | "info";
 }
 
 export interface RecentRequest {
@@ -39,59 +44,80 @@ export interface RecentRequest {
 }
 
 export const currentTrip: CurrentTrip = {
-  id: "TR-2026-0148",
+  id: "TRIP-8810",
+  requestId: "TRN-8810",
   horse: "Thunderbolt",
   origin: "Ho Chi Minh City",
   destination: "Bangkok",
-  departedDate: "2026-10-05",
-  eta: "2026-10-08",
-  currentLocation: "Phnom Penh, Cambodia",
-  progress: 64,
+  departedDate: "4/10, 07:00",
+  eta: "6/10, 16:00",
+  lastMilestone: "Đã đến tại checkpoint – Moc Bai Border Gate",
+  milestoneTime: "4/10, 10:00",
+  progress: 58,
 };
 
-export const documents: DocumentItem[] = [
+export const customerNotifications: CustomerNotification[] = [
   {
-    id: 1,
-    name: "Health Certificate",
-    horseName: "Thunderbolt",
-    requestId: "TR-2026-0148",
-    status: "Approved",
+    id: "notif-1",
+    title: "Flow 4 common 24-hour window overdue • TRN-8810",
+    body: "$1,295 was due by 2/10, 14:30. Please pay with VNPay or contact CBN Transport.",
+    time: "4/10, 11:30",
+    read: false,
+    type: "urgent",
   },
   {
-    id: 2,
-    name: "Import Permit",
-    horseName: "Thunderbolt",
-    requestId: "TR-2026-0148",
-    status: "Pending Review",
+    id: "notif-2",
+    title: "E-mail: Unpaid deposit after shared deadline – workday 1/3 for CT-8927 v1. Contact CBN Transport; no automatic cancellation",
+    body: "Đã gửi tới alex.equine@example.com (email mô phỏng)",
+    time: "4/10, 11:30",
+    read: false,
+    type: "email",
   },
   {
-    id: 3,
-    name: "Vaccination Record",
-    horseName: "Shadowfax",
-    requestId: "TR-2026-0152",
-    status: "Action Required",
+    id: "notif-3",
+    title: "E-mail: Unpaid deposit after shared deadline – workday 2/3 for CT-8927 v1. Contact CBN Transport; no automatic cancellation",
+    body: "Đã gửi tới alex.equine@example.com (email mô phỏng)",
+    time: "4/10, 11:30",
+    read: false,
+    type: "email",
+  },
+  {
+    id: "notif-4",
+    title: "Yêu cầu TRN-8890 đã được tiếp nhận",
+    body: "Quản lý logistics đang xem xét yêu cầu vận chuyển từ Hanoi đi Da Nang.",
+    time: "3/10, 15:00",
+    read: true,
+    type: "info",
+  },
+  {
+    id: "notif-5",
+    title: "Hợp đồng dịch vụ TRN-8927 đã sẵn sàng",
+    body: "Vui lòng xem và ký hợp đồng vận chuyển cho ngựa Shadowfax.",
+    time: "2/10, 09:20",
+    read: true,
+    type: "info",
   },
 ];
 
 export const recentRequests: RecentRequest[] = [
   {
-    id: "TR-2026-0148",
+    id: "TRN-8810",
     origin: "Ho Chi Minh City",
     destination: "Bangkok",
     horses: "Thunderbolt",
-    requestedDate: "2026-09-28",
+    requestedDate: "2026-10-01",
     status: "In Transit",
   },
   {
-    id: "TR-2026-0152",
+    id: "TRN-8927",
     origin: "Hanoi",
     destination: "Singapore",
     horses: "Shadowfax",
-    requestedDate: "2026-10-01",
+    requestedDate: "2026-10-02",
     status: "Documents Under Review",
   },
   {
-    id: "TR-2026-0156",
+    id: "TRN-8890",
     origin: "Da Nang",
     destination: "Kuala Lumpur",
     horses: "Apollo",
@@ -99,11 +125,11 @@ export const recentRequests: RecentRequest[] = [
     status: "Scheduled",
   },
   {
-    id: "TR-2026-0160",
+    id: "TRN-8750",
     origin: "Ho Chi Minh City",
     destination: "Phnom Penh",
     horses: "Thunderbolt, Apollo",
-    requestedDate: "2026-10-05",
-    status: "Waiting for Manager Review",
+    requestedDate: "2026-09-15",
+    status: "Completed",
   },
 ];

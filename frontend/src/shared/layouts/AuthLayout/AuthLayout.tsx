@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 
 import authHorseImage from "../../../assets/images/login-horse.jpg";
 import ThemeToggle from "../../components/ThemeToggle/ThemeToggle";
@@ -10,6 +11,8 @@ interface AuthLayoutProps {
 }
 
 function AuthLayout({ children }: AuthLayoutProps) {
+  const navigate = useNavigate();
+
   return (
     <div className="auth-layout">
       <section
@@ -21,9 +24,14 @@ function AuthLayout({ children }: AuthLayoutProps) {
         <div className="auth-hero-overlay" />
 
         <div className="auth-hero-content">
-          <div className="auth-brand">
+          <div
+            className="auth-brand"
+            style={{ cursor: "pointer" }}
+            onClick={() => navigate("/")}
+            title="Về trang chủ CBN Transport"
+          >
             <div className="auth-brand-icon">♞</div>
-            <span>CNB Transport</span>
+            <span>CBN Transport</span>
           </div>
 
           <div className="auth-hero-bottom">
