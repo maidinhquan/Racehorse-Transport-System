@@ -1,5 +1,7 @@
 # Flow 1 — mapping cột tường minh theo scope demo mới
 
+> Cập nhật18/10/2026: DB chính đã backup/restore-check, áp006, conversion/parity và bỏ8cột JSON theo phê duyệt trực tiếp. [Business cutover report](FLOW1_BUSINESS_CUTOVER_REPORT.md) thay trạng thái business-pending trong các mốc cũ bên dưới; chưa merge primary hoặc nghiệm thu VNPay công khai.
+
 Chốt ngày 17/10/2026 (Asia/Saigon). **Scope này thay mapping 166 cột/005.**
 Đại ca xác nhận vẫn giữ gia hạn, khách đề nghị hủy và confirm/hold/resume.
 Chỉ giữ hồ sơ ngựa mới nhất, giá chốt trực tiếp trong Contract, VNPay duy nhất.

@@ -1,5 +1,7 @@
 # Kế hoạch tích hợp Flow 1 theo hướng cải tiến
 
+> Cập nhật18/10/2026: DB chính đã backup/restore-check, áp006, conversion/parity và bỏ8cột JSON theo phê duyệt trực tiếp. [Business cutover report](FLOW1_BUSINESS_CUTOVER_REPORT.md) thay trạng thái business-pending trong các mốc cũ bên dưới; chưa merge primary hoặc nghiệm thu VNPay công khai.
+
 **Scope hiện hành chốt 17/10/2026:** đại ca chọn hồ sơ ngựa mới nhất (không versioning),
 Manager chốt giá trực tiếp trong Contract (bỏ plan/budget bốn nhóm), chỉ VNPay
 (bỏ bank-proofs/manual transfer), **vẫn giữ gia hạn, khách đề nghị hủy và

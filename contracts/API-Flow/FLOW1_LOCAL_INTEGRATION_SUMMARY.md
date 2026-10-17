@@ -1,5 +1,7 @@
 > **Historical baseline:** runtime hiện hành đã chuyển typed006 ngày18/10/2026. Xem [current report](FLOW1_RELATIONAL_CUTOVER_REPORT.md) và [operator guide](FLOW1_RELATIONAL_OPERATOR_GUIDE.md); không chạy004/005 hoặc business cutover theo phần lịch sử dưới đây.
 
+> Cập nhật18/10/2026: DB chính đã backup/restore-check, áp006, conversion/parity và bỏ8cột JSON theo phê duyệt trực tiếp. [Business cutover report](FLOW1_BUSINESS_CUTOVER_REPORT.md) thay trạng thái business-pending trong các mốc cũ bên dưới; chưa merge primary hoặc nghiệm thu VNPay công khai.
+
 # Flow 1 — tổng hợp tích hợp local
 
 Ngày 16/10/2026, branch Truong. Đại ca yêu cầu triển khai liên tục phần cuối,

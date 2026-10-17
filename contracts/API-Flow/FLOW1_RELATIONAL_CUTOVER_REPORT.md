@@ -1,5 +1,7 @@
 # Flow1 — typed relational source cutover và local acceptance
 
+> Cập nhật18/10/2026: DB chính đã backup/restore-check, áp006, conversion/parity và bỏ8cột JSON theo phê duyệt trực tiếp. [Business cutover report](FLOW1_BUSINESS_CUTOVER_REPORT.md) thay trạng thái business-pending trong các mốc cũ bên dưới; chưa merge primary hoặc nghiệm thu VNPay công khai.
+
 Ngày 18/10/2026, Asia/Ho_Chi_Minh. Branch `codex/flow1-relational-mvp`.
 Baseline trước increment: `86e4dc7` (typed core), foundation `c060d06`.
 Chỉ sửa worktree riêng; chưa merge/push primary, chưa migrate/import/drop DB nghiệp vụ.

@@ -6,10 +6,12 @@ Không dùng005/R0 hoặc old004 importer như một phần triển khai006.
 
 ## Ranh giới quyền hiện tại
 
-Đã có quyền sửa source, test trên DB disposable và commit local. Chưa có quyền
-merge primary, push/deploy/hạ tầng, migrate/import/drop HorseTransportDB, phát sinh
-giao dịch tiền thật hoặc gửi email người thật. Mọi command apply dưới đây là tài
-liệu cho operator sau phê duyệt riêng; không phải command đã chạy trên DB nghiệp vụ.
+Ngày18/10 đại ca trực tiếp cho phép backup/restore-check,006/conversion/parity và
+DROP8cột JSON cho đúng HorseTransportDB với allowlist3Contract dưới đây. Lượt chuyển
+đã hoàn thành; xem [business cutover report](FLOW1_BUSINESS_CUTOVER_REPORT.md).
+Quyền này không mở rộng sang merge primary/push/deploy/hạ tầng/giao dịch thật/mail
+người thật hoặc lần chuyển khác. Các bước generic dưới đây là checklist operator;
+report ghi rõ những command/evidence thực tế đã hoàn thành.
 Primary có sửa đồng thời của user; chỉ review/merge có chọn lọc, không checkout/reset.
 
 ## Native demo / kiểm lại source
@@ -108,10 +110,10 @@ Cần quyết định trước business cutover:
 2. Hoặc khôi phục đúng nguồn PDF/hash/receipt/plan/ledger gốc để chuyển tiếp workflow.
    Tọa độ/date/time/receipt thiếu hoặc mâu thuẫn phải review, không tự suy ra.
 
-### Policy đề xuất đã preview, chưa duyệt/apply
+### Policy đã duyệt và áp trên business DB ngày18/10
 
-Đã chạy shadow dry-run lần hai với đúng ba Contract trên và nhận **0 blockers,
-Applied=false**, cùng source snapshot fingerprint. Option bổ sung cho dry-run:
+Shadow dry-run ban đầu đạt0blockers/Applied=false. Sau phê duyệt, exact business
+dry-run/apply và DROP8cột đã hoàn thành, giữ original data; xem business report. Option bổ sung cho dry-run:
 
 ```powershell
 --retain-unverified-history 'CTR_2026_001,CTR_2026_002,CTR_2026_003'
@@ -123,7 +125,7 @@ không giả PDF/chữ ký OTP hoặc suy luận payment cũ đã được xác 
 Không giải phóng booking cũ hay coi Trip cũ đã hoàn thành. Không được dùng policy
 để bỏ qua unknown/PREPARED/conflict hoặc Contract đang active/đã có typed state.
 Nguồn có bất kỳ thay đổi nào phải inventory/preview lại. Shadow token không dùng
-cho business apply. Đây chưa phải quyền migrate/drop DB nghiệp vụ.
+cho business apply. Quyền trực tiếp ngày18/10 chỉ áp cho lượt chuyển đã ghi trong business report.
 
 ## Apply/conversion/drop — CHỈ sau quyền operator riêng
 
@@ -156,8 +158,8 @@ cho business apply. Đây chưa phải quyền migrate/drop DB nghiệp vụ.
 CLI tests đã kiểm horse SQL+file parity/retry/drop, file-only conversion không004,
 stale fingerprint, conflict/missing bytes và read-only shadow của source chưa006.
 Không suy diễn thành mọi dataset legacy đã chuyển thành công: bản source đang dùng
-mặc định có3 blocker nêu trên; policy allowlist mới chỉ được shadow preview, chưa
-được duyệt/apply. Signed/financial legacy cần bằng chứng hoặc policy review cụ thể.
+đã chuyển với exact3Contract policy được duyệt. Dataset khác vẫn phải được review;
+không tự áp allowlist này cho Contract mới hoặc bỏ qua evidence.
 
 ## Vận hành / rollback boundary
 
