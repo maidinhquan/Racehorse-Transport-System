@@ -7,7 +7,7 @@ export const apiClient = axios.create({
   },
 });
 
-apiClient.interceptors.request.use((config) => {
+apiClient.interceptors.request.use((config: any) => {
   const accessToken =
     localStorage.getItem("accessToken");
 
