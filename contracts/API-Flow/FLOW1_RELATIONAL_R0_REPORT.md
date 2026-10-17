@@ -1,5 +1,9 @@
 # Flow 1 relational R0 — scope, typed mapping và SQL foundation
 
+**Báo cáo lịch sử:** R0/005 166 cột đã bị scope trực tiếp ngày17/10/2026 thay thế.
+Đọc [mapping mới](FLOW1_SIMPLE_RELATIONAL_MAPPING.md). Không triển khai R1 theo
+mapping005 hoặc áp005 lên DB mới. Kết quả test bên dưới chỉ thuộc checkpoint R0.
+
 Kiểm chứng ngày 17/10/2026, Asia/Ho_Chi_Minh.
 Baseline `2ba80f273fa238c6eb3974ceb79ae766516a2fd5`.
 Branch `codex/flow1-relational-mvp`, worktree:

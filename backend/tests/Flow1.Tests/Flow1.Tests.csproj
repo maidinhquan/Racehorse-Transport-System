@@ -18,5 +18,6 @@
     <None Include="../../database/003_flow1_minimal_schema.sql" Link="Sql/003_flow1_minimal_schema.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../database/004_flow1_sql_state.sql" Link="Sql/004_flow1_sql_state.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../database/005_flow1_relational_mvp_foundation.sql" Link="Sql/005_flow1_relational_mvp_foundation.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../database/006_flow1_simple_relational_foundation.sql" Link="Sql/006_flow1_simple_relational_foundation.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -1,5 +1,26 @@
 # Flow 1 database — approved SQL state transition
 
+## Current target profile — 17/10/2026
+
+Use `000` (empty disposable DB only) → `003` → **`006_flow1_simple_relational_foundation.sql`**.
+The new profile supersedes `005`/166 columns: latest horse files, direct Contract
+quote, VNPay only; retains deadline extension, latest cancellation and operational
+confirm/hold/resume. See [typed mapping](../../contracts/API-Flow/FLOW1_SIMPLE_RELATIONAL_MAPPING.md).
+
+006 adds 63 columns on five existing tables (including five automatic rowversions),
+25 CHECKs and three indexes (one on existing NOTIFICATION). No persistent tables,
+new FKs, data conversion, JSON drop, automatic startup or runtime DI switch.
+003 still provides one Trip/request and one DEPOSIT invoice/Contract. 004 can
+coexist pending reviewed conversion; 005 is a separate superseded profile and006
+rejects it rather than deleting or mixing schemas. SQL extended properties record
+schema guard fingerprints only, never application workflow payloads.
+
+Do not execute these scripts on HorseTransportDB/business DB without separate
+operator review/authorization. No rollback/drop script is authorized by the scope
+change. Existing JSON/bytes stay intact until typed UAT/parity/source cutover and
+reviewed offline conversion. Sections describing004/005 below are historical;
+they are not prerequisites or permission to deploy that architecture.
+
 **Decision 16 October 2026:** the user approved additional columns on existing tables,
 full Flow 1 retained, **no new tables**. The former two-column restriction below
 describes migration 003 only. The current transition is documented in

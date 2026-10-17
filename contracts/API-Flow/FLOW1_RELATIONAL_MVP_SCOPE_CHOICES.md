@@ -1,5 +1,15 @@
 # Flow 1 — lựa chọn thu gọn: không bảng mới, không JSON
 
+**Scope hiện hành chốt 17/10/2026:** đại ca chọn hồ sơ ngựa mới nhất (không versioning),
+Manager chốt giá trực tiếp trong Contract (bỏ plan/budget bốn nhóm), chỉ VNPay
+(bỏ bank-proofs/manual transfer), **vẫn giữ gia hạn, khách đề nghị hủy và
+confirm/hold/resume**. Không thêm bảng, không JSON persistence; chỉ current/last
+state, giữ PDF/chữ ký/từng Payment. [Mapping scope mới](FLOW1_SIMPLE_RELATIONAL_MAPPING.md)
+và foundation006 thay mapping 166 cột/005 bên dưới. 005 là tài liệu/migration lịch
+sử, **không phải bước phải chạy trước006**. 006 không tự chuyển runtime/drop dữ
+liệu; source hiện vẫn dùng JSON tới khi toàn chuỗi typed được kiểm đủ và cutover.
+Không áp migration/import/drop trên DB nghiệp vụ trong các lượt tự động.
+
 Ngày 16/10/2026. **Đại ca đã chọn A1 + B1 + C1 và cho phép hơn 7 cột; không thêm bảng.**
 Baseline source: `2ba80f273fa238c6eb3974ceb79ae766516a2fd5` trên Truong.
 Quyết định đã có: không thêm bảng; bỏ JSON state trong thiết kế đích; đã chọn gói thu gọn
