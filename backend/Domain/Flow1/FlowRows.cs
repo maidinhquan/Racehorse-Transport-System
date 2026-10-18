@@ -41,6 +41,8 @@ public sealed class FlowHorse
 [Table("TRANSPORT_REQUEST")]
 public sealed class FlowRequest
 {
+    [Column("DeclaredValueUsd", TypeName = "decimal(18,2)")]
+    public decimal? DeclaredValueUsd { get; set; }
     [Key]
     [Column("RequestID", TypeName = "varchar(50)")]
     public string RequestID { get; set; } = null!;
@@ -91,6 +93,29 @@ public sealed class FlowRequest
     [Column("RowVersion", TypeName = "rowversion")]
     [Timestamp]
     public byte[] RowVersion { get; set; } = null!;
+}
+
+[Table("LEGAL_MEDICAL_RECORD")]
+public sealed class FlowMedicalRecord
+{
+    [Key, Column("RecordID", TypeName = "varchar(50)")]
+    public string RecordID { get; set; } = null!;
+    [Column("HorseID", TypeName = "varchar(50)")]
+    public string HorseID { get; set; } = null!;
+    [Column("RequestID", TypeName = "varchar(50)")]
+    public string RequestID { get; set; } = null!;
+    [Column("VerifiedBy", TypeName = "varchar(50)")]
+    public string? VerifiedBy { get; set; }
+    [Column("DocumentType", TypeName = "varchar(50)")]
+    public string? DocumentType { get; set; }
+    [Column("RequirementStatus", TypeName = "varchar(50)")]
+    public string? RequirementStatus { get; set; }
+    [Column("DocumentStatus", TypeName = "varchar(50)")]
+    public string? DocumentStatus { get; set; }
+    [Column("UploadedFileUrl", TypeName = "varchar(500)")]
+    public string? UploadedFileUrl { get; set; }
+    [Column("ExpiryDate", TypeName = "date")]
+    public DateTime? ExpiryDate { get; set; }
 }
 
 [Table("CONTRACT")]

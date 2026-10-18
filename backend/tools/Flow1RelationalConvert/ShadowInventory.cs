@@ -37,7 +37,7 @@ public static class ShadowInventory
             }
             var sourceFingerprint=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n',data.Select(x=>x.Key+":"+string.Join(',',x.Value.Columns.Cast<DataColumn>().Select(c=>c.ColumnName))+":"+string.Join(',',x.Value.Rows.Cast<DataRow>().Select(r=>Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(r.ItemArray.Select(v=>v is DBNull?null:v).ToArray())))).Order(StringComparer.Ordinal)))))));
             await Exec(master,$"CREATE DATABASE {Quote(name)};");created=true;
-            foreach(var file in new[]{"000_legacy_schema.sql","003_flow1_minimal_schema.sql","004_flow1_sql_state.sql","006_flow1_simple_relational_foundation.sql"})await Exec(shadow,await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory,"Sql",file)));
+            foreach(var file in new[]{"000_legacy_schema.sql","003_flow1_minimal_schema.sql","004_flow1_sql_state.sql","006_flow1_simple_relational_foundation.sql","007_flow1_request_baseline.sql"})await Exec(shadow,await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory,"Sql",file)));
             await using(var target=new SqlConnection(shadow))
             {
                 await target.OpenAsync();var tables=new List<string>();await using(var c=new SqlCommand("SELECT name FROM sys.tables WHERE schema_id=SCHEMA_ID('dbo') ORDER BY name;",target))await using(var r=await c.ExecuteReaderAsync()){while(await r.ReadAsync())tables.Add(r.GetString(0));}

@@ -4,6 +4,7 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 module.exports = async function ({ browser, actor, base, output, air, pace }) {
   const step = name => { fs.appendFileSync(path.join(output, 'main-steps.log'), name + '\n'); console.log('Checked main ' + name); };
+  const baseline = process.env.FLOW1_BROWSER_BASELINE === '1';
   const owner = await actor('CUSTOMER');
   await owner.goto(base + '/customer/home');
   await owner.locator('.welcome-card').waitFor();
@@ -16,8 +17,16 @@ module.exports = async function ({ browser, actor, base, output, air, pace }) {
     const r = await fetch('/api/customer/horses', { method: 'POST', headers: { Authorization: 'Bearer ' + localStorage.getItem('accessToken'), 'Idempotency-Key': 'main-ui-browser-horse' }, body: form });
     if (!r.ok) throw new Error('Profile fixture API failed ' + r.status); return (await r.json()).data;
   });
+  const secondHorse = baseline ? await owner.evaluate(async () => {
+    const form = new FormData();
+    const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII='), c => c.charCodeAt(0));
+    form.append('payload', JSON.stringify({ name: 'Baseline Horse B', microchipIso: '900000000000002', feiPassportNo: 'BASELINE_B', breed: 'Thoroughbred', sex: 'STALLION', weight: 450, dob: '2020-01-01' }));
+    for (const kind of ['photo', 'passportScan']) form.append(kind, new Blob([png], { type: 'image/png' }), kind + '.png');
+    const r = await fetch('/api/customer/horses', { method: 'POST', headers: { Authorization: 'Bearer ' + localStorage.getItem('accessToken'), 'Idempotency-Key': 'baseline-browser-horse-b' }, body: form });
+    if (!r.ok) throw new Error('Second owned profile failed ' + r.status); return (await r.json()).data;
+  }) : null;
   await owner.goto(base + '/customer/horses'); await owner.getByText('Main UI SQL Horse', { exact: true }).waitFor();
-  assert.equal(await owner.locator('.horse-grid .horse-card').count(), 1);
+  assert.equal(await owner.locator('.horse-grid .horse-card').count(), baseline ? 2 : 1);
   await owner.screenshot({ path: path.join(output, 'main-horses.png'), fullPage: true });
   step('owned-horse');
   const guest = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
@@ -44,10 +53,22 @@ module.exports = async function ({ browser, actor, base, output, air, pace }) {
   for (const [i, value] of ['Điểm lấy demo', 'Điểm giao demo', 'Receiver', '0900000001'].entries()) await fields.nth(i).fill(value);
   await page.getByRole('button', { name: '3. Chọn Ngựa đua', exact: true }).click();
   await page.locator('.horse-item').filter({ hasText: 'Main UI SQL Horse' }).click();
+  if (baseline) await page.locator('.horse-item').filter({ hasText: 'Baseline Horse B' }).click();
   await page.getByRole('button', { name: '4. Hồ sơ & Thương mại', exact: true }).click();
-  assert.ok(await page.locator('.upload-box input').isDisabled());
+  assert.ok(await page.locator('.upload-box input').isEnabled());
+  if (baseline) {
+    await page.getByLabel('Định giá thương mại (USD) phục vụ bảo hiểm & hải quan', { exact: true }).fill('150000.25');
+    await page.locator('.upload-box input[type=file]').setInputFiles([
+      { name: 'baseline-a.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 baseline A fixture') },
+      { name: 'baseline-b.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 baseline B fixture') },
+    ]);
+    await page.getByRole('button', { name: 'Gửi Yêu Cầu Vận Chuyển', exact: true }).click();
+    await page.getByText(/Chọn ngựa tương ứng cho từng hồ sơ/).waitFor();
+    await page.getByLabel('Ngựa của hồ sơ baseline-a.pdf', { exact: true }).selectOption(horse.horseId);
+    await page.getByLabel('Ngựa của hồ sơ baseline-b.pdf', { exact: true }).selectOption(secondHorse.horseId);
+  }
   await page.screenshot({ path: path.join(output, 'main-wizard.png'), fullPage: true });
-  const submitted = page.waitForResponse(r => new URL(r.url()).pathname === '/api/customer/requests' && r.request().method() === 'POST');
+  const submitted = page.waitForResponse(r => new URL(r.url()).pathname === (baseline ? '/api/customer/requests/with-documents' : '/api/customer/requests') && r.request().method() === 'POST');
   await page.getByRole('button', { name: 'Gửi Yêu Cầu Vận Chuyển', exact: true }).click();
   const response = await Promise.race([submitted, page.locator('.wizard-error').waitFor({state:'visible'}).then(async () => { throw new Error('Wizard refused submit: ' + await page.locator('.wizard-error').innerText()); })]); assert.ok(response.ok(), await response.text()); const request = (await response.json()).data;
   await page.waitForURL('**/customer/requests/' + request.requestId);
@@ -55,9 +76,27 @@ module.exports = async function ({ browser, actor, base, output, air, pace }) {
   page.on('dialog', d => { void d.accept().catch(() => {}); });
   assert.equal(await page.locator('.demo-control-card, .demo-control-buttons').count(), 0);
   assert.equal(await page.evaluate(async id => (await (await fetch('/api/customer/requests/' + id, { headers: { Authorization: 'Bearer ' + localStorage.getItem('accessToken') } })).json()).data.status, request.requestId), 'PENDING');
+  if (baseline) {
+    assert.equal(request.declaredValueUsd, 150000.25); assert.equal(request.documents.length, 2);
+    assert.ok(request.documents.every(d => d.status === 'UPLOADED'));
+    await page.reload(); await page.getByText('Hồ sơ bổ sung', { exact: false }).first().waitFor();
+    const attachment = page.waitForEvent('download');
+    await page.locator('.request-document-item').filter({ hasText: 'Baseline Horse B' }).getByRole('button', { name: 'Tải hồ sơ', exact: true }).click();
+    const saved = path.join(output, 'baseline-b-customer.pdf'); await (await attachment).saveAs(saved);
+    assert.equal(fs.readFileSync(saved).toString(), '%PDF-1.4 baseline B fixture');
+  }
   step('submit-no-demo-bypass');
   const manager = await actor('LOGISTICS_MANAGER'); manager.on('dialog', d => { void d.accept().catch(() => {}); });
   await manager.goto(base + '/manager/requests'); await manager.getByRole('button', { name: 'Xem & Duyệt', exact: true }).first().click();
+  if (baseline) {
+    const summary = manager.locator('[data-flow1-baseline-summary]'); await summary.getByText('150,000.25', { exact: true }).waitFor();
+    const attachment = manager.waitForEvent('download');
+    await summary.locator('.info-kv-row').filter({ hasText: 'Baseline Horse B' }).getByRole('button', { name: 'Tải hồ sơ', exact: true }).click();
+    const saved = path.join(output, 'baseline-b-manager.pdf'); await (await attachment).saveAs(saved);
+    assert.equal(fs.readFileSync(saved).toString(), '%PDF-1.4 baseline B fixture');
+    await manager.screenshot({ path: path.join(output, 'baseline-manager-review.png'), fullPage: true });
+    step('baseline-total-and-private-downloads');
+  }
   await manager.getByRole('button', { name: /Chấp nhận \(Accept\)/ }).click();
   await manager.locator('.decision-subform input').fill('Đã thẩm định hồ sơ và tuyến theo dữ liệu yêu cầu.');
   const accepted = manager.waitForResponse(r => new URL(r.url()).pathname.endsWith('/accept') && r.request().method() === 'POST');
@@ -81,7 +120,7 @@ module.exports = async function ({ browser, actor, base, output, air, pace }) {
   await page.screenshot({ path: path.join(output, 'main-customer-contract.png'), fullPage: true });
   await page.goto(base + '/customer/payment/success?requestId=' + request.requestId + '&orderCode=FAKE');
   await page.getByText(/ReturnURL không xác nhận tiền/).waitFor();
-  const result = { requestId: request.requestId, horseId: horse.horseId, contractId: c.contractId, profile: 'QUAN_SOURCE_ONLY', route: air ? 'AIR VN-JP' : 'ROAD VN-VN', checks: ['guest direct URL blocked', 'real login/me', 'owned horse API fixture (no create-horse UI claim)', 'original four-step wizard', 'demo status cannot change SQL', 'main Manager modal accept', 'real Draft/publish/private PDF', 'absent OTP UI remains blocked', 'ReturnURL cannot certify payment'], excluded: ['OTP signing UI', 'payment UI connected E2E', 'operational handoff UI', 'live maps/SMTP/VNPay'] };
+  const result = { requestId: request.requestId, horseId: horse.horseId, contractId: c.contractId, profile: baseline ? 'QUAN_REQUEST_BASELINE' : 'QUAN_SOURCE_ONLY', route: air ? 'AIR VN-JP' : 'ROAD VN-VN', checks: ['guest direct URL blocked', 'real login/me', 'owned horse API fixture (no create-horse UI claim)', 'original four-step wizard', 'demo status cannot change SQL', 'main Manager modal accept', 'real Draft/publish/private PDF', 'absent OTP UI remains blocked', 'ReturnURL cannot certify payment'], excluded: ['OTP signing UI', 'payment UI connected E2E', 'operational handoff UI', 'live maps/SMTP/VNPay'] };
   fs.writeFileSync(path.join(output, 'main-source-result.json'), JSON.stringify(result, null, 2));
   console.log('PASS original-feature/quan UI connected scope; OTP/payment/handoff UI intentionally not accepted.');
 };

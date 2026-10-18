@@ -11,6 +11,13 @@ function signature(source, file) {
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const rows = [];
   function visit(n) {
+    // Explicit user-approved step4/summary additions. Keep checking every original node.
+    const additions = {
+      'frontend/src/features/customer/pages/create-request/CreateRequestWizard.tsx': 'data-flow1-baseline-files',
+      'frontend/src/features/Manager/pages/dashboard/views/RenderRequestsPage.tsx': 'data-flow1-baseline-summary',
+      'frontend/src/features/user-dashboard/page/transport-request-page/detail/TransportRequestDetailPage.tsx': 'data-flow1-baseline-download',
+    };
+    if (ts.isJsxElement(n) && additions[file] && n.openingElement.attributes.properties.some(a => ts.isJsxAttribute(a) && a.name.getText(ast) === additions[file])) return;
     if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
       const attrs = n.attributes.properties.filter(a => ts.isJsxAttribute(a) && ['className', 'style'].includes(a.name.getText(ast)))
         .map(a => a.getText(ast).replace(/\s+/g, ''));

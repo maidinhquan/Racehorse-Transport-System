@@ -93,11 +93,11 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         foreach (var c in await db.QueryAsync<FlowContract>(x => x.RequestID == r.RequestID, ct)) contracts.Add(await Card(c, ct));
         FlowRequestInput? input=null;
         if(r.ExpectedDate is not null && r.CommittedDeadline is not null && r.PickupLatitude is not null && r.DeliveryLatitude is not null && r.PickupLongitude is not null && r.DeliveryLongitude is not null)
-            input=new(new(new(r.Departure,(double)r.PickupLatitude.Value,(double)r.PickupLongitude.Value,r.OriginCountry!),new(r.Destination,(double)r.DeliveryLatitude.Value,(double)r.DeliveryLongitude.Value,r.DestinationCountry!),r.TransportType!,horses.Count,DateOnly.FromDateTime(new DateTimeOffset(r.ExpectedDate.Value).ToOffset(TimeSpan.FromHours(7)).DateTime)),new(r.ExpectedDate.Value),new(r.CommittedDeadline.Value),r.Purpose??"",new(r.PickupContactName??"",r.PickupContactPhone??""),new(r.DesignatedReceiverName??"",r.DesignatedReceiverPhone??""),horses.Select(h=>new HorseSelection(h.HorseId,h.Version)).ToArray());
+            input=new(new(new(r.Departure,(double)r.PickupLatitude.Value,(double)r.PickupLongitude.Value,r.OriginCountry!),new(r.Destination,(double)r.DeliveryLatitude.Value,(double)r.DeliveryLongitude.Value,r.DestinationCountry!),r.TransportType!,horses.Count,DateOnly.FromDateTime(new DateTimeOffset(r.ExpectedDate.Value).ToOffset(TimeSpan.FromHours(7)).DateTime)),new(r.ExpectedDate.Value),new(r.CommittedDeadline.Value),r.Purpose??"",new(r.PickupContactName??"",r.PickupContactPhone??""),new(r.DesignatedReceiverName??"",r.DesignatedReceiverPhone??""),horses.Select(h=>new HorseSelection(h.HorseId,h.Version)).ToArray(),r.DeclaredValueUsd);
         var customer = await db.FindAsync<FlowUser>(r.CustomerID, ct);
         return new(r.RequestID, Token(r.RowVersion), r.Status, r.Departure, r.Destination, r.ExpectedDate, r.CommittedDeadline,
             r.ManagerNotes, r.DistanceKm, r.PreparationDays, r.PickupContactName, r.PickupContactPhone,
-            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email);
+            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct));
     }
     public Task<FlowRequestCard> DetailAsync(string id, string actor, bool manager, CancellationToken ct) =>
         db.RunAsync(async t => await Card(await Request(id, actor, manager, t), t), ct);
@@ -171,24 +171,25 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         r.Departure=i.Trip.Pickup.Address; r.Destination=i.Trip.Delivery.Address; r.OriginCountry=i.Trip.Pickup.Country; r.DestinationCountry=i.Trip.Delivery.Country;
         r.PickupLatitude=(decimal)i.Trip.Pickup.Lat; r.PickupLongitude=(decimal)i.Trip.Pickup.Lng; r.DeliveryLatitude=(decimal)i.Trip.Delivery.Lat; r.DeliveryLongitude=(decimal)i.Trip.Delivery.Lng;
         r.DistanceKm=estimate.Customer.RoadDistanceKm is decimal km ? decimal.Round(km,2) : null; r.PreparationDays=estimate.Customer.MinimumPreparationDays;
-        r.Purpose=i.Purpose.Trim(); r.PickupContactName=i.PickupContact.Name.Trim(); r.PickupContactPhone=i.PickupContact.Phone;
+        r.DeclaredValueUsd=i.DeclaredValueUsd; r.Purpose=i.Purpose.Trim(); r.PickupContactName=i.PickupContact.Name.Trim(); r.PickupContactPhone=i.PickupContact.Phone;
         r.DesignatedReceiverName=i.Receiver.Name.Trim(); r.DesignatedReceiverPhone=i.Receiver.Phone; r.ExpectedDate=Utc(i.DepartureAt); r.CommittedDeadline=Utc(i.DeliveryAt); r.TransportType=i.Trip.PreferredTransportMode; r.Status="PENDING";
     }
-    public async Task<FlowRequestCard> SubmitAsync(string actor,string key,FlowRequestInput i,string? id,string? version,CancellationToken ct)
+    public Task<FlowRequestCard> SubmitAsync(string actor,string key,FlowRequestInput i,string? id,string? version,CancellationToken ct) => SubmitCore(actor,key,i,id,version,[],ct);
+    private async Task<FlowRequestCard> SubmitCore(string actor,string key,FlowRequestInput i,string? id,string? version,IReadOnlyList<PreparedDocument> documents,CancellationToken ct)
     {
         Require(i is not null && i.Trip is not null && i.Trip.Pickup is not null && i.Trip.Delivery is not null && i.Horses is not null && i.PickupContact is not null && i.Receiver is not null,"VALIDATION_ERROR","Complete all required request fields.");
-        Key(key); var estimate=await estimates.CalculateAsync(i.Trip,ct);
+        Key(key); ValidateDeclaredValue(i.DeclaredValueUsd); var estimate=await estimates.CalculateAsync(i.Trip,ct);
         return await db.RunAsync(async t=>{
             await Actor(actor,UserRoles.Customer,t); var rid=id??Id("r",actor,key); var r=await db.FindAsync<FlowRequest>(rid,t);
             if(r is not null)
             {
                 Require(r.CustomerID==actor,"FORBIDDEN","Request belongs to another account.");
-                if(id is null) { Require(r.Departure==i.Trip.Pickup.Address && r.Destination==i.Trip.Delivery.Address && r.OriginCountry==i.Trip.Pickup.Country && r.DestinationCountry==i.Trip.Delivery.Country && r.TransportType==i.Trip.PreferredTransportMode && r.PickupLatitude==decimal.Round((decimal)i.Trip.Pickup.Lat,6) && r.PickupLongitude==decimal.Round((decimal)i.Trip.Pickup.Lng,6) && r.DeliveryLatitude==decimal.Round((decimal)i.Trip.Delivery.Lat,6) && r.DeliveryLongitude==decimal.Round((decimal)i.Trip.Delivery.Lng,6) && r.ExpectedDate==Utc(i.DepartureAt) && r.CommittedDeadline==Utc(i.DeliveryAt) && r.Purpose==i.Purpose.Trim() && r.PickupContactName==i.PickupContact.Name.Trim() && r.PickupContactPhone==i.PickupContact.Phone && r.DesignatedReceiverName==i.Receiver.Name.Trim() && r.DesignatedReceiverPhone==i.Receiver.Phone && (await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==rid,t)).Select(x=>x.HorseID).Order().SequenceEqual(i.Horses.Select(x=>x.HorseId).Order()),"IDEMPOTENCY_KEY_REUSED","Key used with different request data."); return await Card(r,t); }
+                if(id is null) { Require(r.Departure==i.Trip.Pickup.Address && r.Destination==i.Trip.Delivery.Address && r.OriginCountry==i.Trip.Pickup.Country && r.DestinationCountry==i.Trip.Delivery.Country && r.TransportType==i.Trip.PreferredTransportMode && r.PickupLatitude==decimal.Round((decimal)i.Trip.Pickup.Lat,6) && r.PickupLongitude==decimal.Round((decimal)i.Trip.Pickup.Lng,6) && r.DeliveryLatitude==decimal.Round((decimal)i.Trip.Delivery.Lat,6) && r.DeliveryLongitude==decimal.Round((decimal)i.Trip.Delivery.Lng,6) && r.ExpectedDate==Utc(i.DepartureAt) && r.CommittedDeadline==Utc(i.DeliveryAt) && r.Purpose==i.Purpose.Trim() && r.PickupContactName==i.PickupContact.Name.Trim() && r.PickupContactPhone==i.PickupContact.Phone && r.DesignatedReceiverName==i.Receiver.Name.Trim() && r.DesignatedReceiverPhone==i.Receiver.Phone && (await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==rid,t)).Select(x=>x.HorseID).Order().SequenceEqual(i.Horses.Select(x=>x.HorseId).Order()),"IDEMPOTENCY_KEY_REUSED","Key used with different request data."); Require(r.DeclaredValueUsd==i.DeclaredValueUsd && await SameDocuments(rid,documents,t),"IDEMPOTENCY_KEY_REUSED","Declared value or documents differ from the original submission."); return await Card(r,t); }
                 Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Legacy request needs review before entering the new revision workflow.");
                 Check(r.RowVersion,version??""); Require(r.Status=="CHANGES_REQUESTED" && !(await db.QueryAsync<FlowContract>(c=>c.RequestID==rid && c.IsCurrent,t)).Any(),"REVISION_CLOSED","Only requests returned for changes can be revised.");
             }
             else { Require(id is null,"NOT_FOUND","Request not found."); r=new(){RequestID=rid,CustomerID=actor,Departure=i.Trip.Pickup.Address,Destination=i.Trip.Delivery.Address,Status="PENDING"}; db.Add(r); }
-            await ApplyRequest(r,i,estimate,t); await db.SaveAsync(t); return await Card(r,t);
+            await ApplyRequest(r,i,estimate,t); await SaveDocuments(r,documents,i.Horses,t); await db.SaveAsync(t); return await Card(r,t);
         },ct);
     }
     public Task<FlowRequestCard> ReviewAsync(string id,string actor,string action,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{

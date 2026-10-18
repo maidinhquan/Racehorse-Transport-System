@@ -4,6 +4,11 @@ public static class Flow1RelationalSchema
 {
     public const string ValidationSql="""
         SELECT CONVERT(int,CASE WHEN COL_LENGTH('dbo.HORSE','PhotoUrl') IS NOT NULL
+          AND EXISTS(SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST') AND name='DeclaredValueUsd'
+            AND system_type_id=106 AND precision=18 AND scale=2 AND is_nullable=1)
+          AND EXISTS(SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST')
+            AND name='CK_F1D_DeclaredValueUsd' AND is_disabled=0 AND is_not_trusted=0
+            AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(definition,N'[',N''),N']',N''),N'(',N''),N')',N''),N' ',N''))=N'declaredvalueusdisnullordeclaredvalueusd>0')
           AND COL_LENGTH('dbo.CONTRACT','SignedDepositDeadline') IS NOT NULL
           AND COL_LENGTH('dbo.PAYMENT','VnpayReceivedAmount') IS NOT NULL
           AND COL_LENGTH('dbo.TRIP_PLAN','RowVersion') IS NOT NULL

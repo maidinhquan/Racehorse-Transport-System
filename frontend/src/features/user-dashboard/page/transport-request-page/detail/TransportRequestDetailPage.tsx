@@ -2,6 +2,8 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
 import { useRequest, requestView } from "../../../../flow1/relational/mainBindings";
+import { download } from "../../../../flow1/relational/api";
+import { flow1Error } from "../../../../flow1/api";
 import type { DetailRequestStatus } from "../../../data/transportRequestDetailMockData";
 import "./TransportRequestDetailPage.css";
 
@@ -503,6 +505,7 @@ function TransportRequestDetailPage() {
                             {
                               document.name
                             }
+                            {document.downloadPath && <button data-flow1-baseline-download type="button" className="detail-section-link" onClick={() => void download(document.downloadPath!, 'baseline-' + document.id).catch(e => window.alert(flow1Error(e)))}>Tải hồ sơ</button>}
                           </span>
 
                           <strong

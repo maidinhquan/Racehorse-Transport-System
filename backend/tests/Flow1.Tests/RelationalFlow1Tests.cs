@@ -50,6 +50,7 @@ public sealed class RelationalFlow1Tests
         {
             var f=new Fixture{Db=await Flow1TestDatabase.CreateAsync(sqlState:false)};f.Renderer=new(f.Storage);
             await f.Db.ScriptAsync("006_flow1_simple_relational_foundation.sql");
+            await f.Db.ScriptAsync("007_flow1_request_baseline.sql");
             await f.Db.ExecuteAsync("""
                 UPDATE [USER] SET Email='owner@example.invalid' WHERE UserID='owner';
                 INSERT [USER](UserID,PasswordHash,Role,FullName,Email) VALUES
@@ -60,11 +61,11 @@ public sealed class RelationalFlow1Tests
                 """);
             f.Service=f.NewService();return f;
         }
-        public RelationalFlow1Service NewService(IFlow1GatewayQuery? query=null)
+        public RelationalFlow1Service NewService(IFlow1GatewayQuery? query=null,IFlow1CurrentFiles? currentFiles=null)
         {
             var context=new Flow1RelationalContext(new DbContextOptionsBuilder<Flow1RelationalContext>().UseSqlServer(Db.ConnectionString).Options);Contexts.Add(context);
             var maps=new Maps(); var options=new Flow1ContractOptions{Issuer=new(){["COMPANY_NAME"]="Fixture issuer",["COMPANY_ADDRESS"]="Fixture address",["COMPANY_EMAIL"]="issuer@example.invalid",["COMPANY_HOTLINE"]="0900000000",["COMPANY_TAX_CODE"]="FIXTURE",["COMPANY_BANK_ACCOUNT"]="FIXTURE",["COMPANY_BANK_NAME"]="FIXTURE",["COMPANY_REPRESENTATIVE"]="Fixture representative",["COMPANY_REP_POSITION"]="Fixture manager"}};
-            return new(new Flow1Data(context),Storage,new(maps,maps,new(){StandardVehicleCapacityStalls=1},Time),Time,new ContractOtpSecurity("fixture-contract-otp-hmac-key-at-least32bytes"),Email,Renderer,options,new VnpaySandboxGateway(Vnpay,Time),query);
+            return new(new Flow1Data(context),currentFiles??Storage,new(maps,maps,new(){StandardVehicleCapacityStalls=1},Time),Time,new ContractOtpSecurity("fixture-contract-otp-hmac-key-at-least32bytes"),Email,Renderer,options,new VnpaySandboxGateway(Vnpay,Time),query);
         }
         public async Task<FlowRequestCard> Request(string key="request-key-one")
         {

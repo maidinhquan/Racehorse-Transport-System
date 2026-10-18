@@ -16,6 +16,9 @@ public sealed class Flow1RelationalContext(DbContextOptions<Flow1RelationalConte
         b.Entity<FlowRequest>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.CustomerID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowRequestHorse>().HasOne<FlowRequest>().WithMany().HasForeignKey(x=>x.RequestID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowRequestHorse>().HasOne<FlowHorse>().WithMany().HasForeignKey(x=>x.HorseID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowMedicalRecord>().HasOne<FlowRequest>().WithMany().HasForeignKey(x=>x.RequestID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowMedicalRecord>().HasOne<FlowHorse>().WithMany().HasForeignKey(x=>x.HorseID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowMedicalRecord>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.VerifiedBy).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowTrip>().HasOne<FlowRequest>().WithMany().HasForeignKey(x=>x.RequestID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowContract>().HasOne<FlowTrip>().WithMany().HasForeignKey(x=>x.TripID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowContract>().HasOne<FlowRequest>().WithMany().HasForeignKey(x=>x.RequestID).OnDelete(DeleteBehavior.Restrict);
@@ -24,7 +27,7 @@ public sealed class Flow1RelationalContext(DbContextOptions<Flow1RelationalConte
         b.Entity<FlowPayment>().HasOne<FlowInvoice>().WithMany().HasForeignKey(x=>x.InvoiceID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowNotice>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.UserID).OnDelete(DeleteBehavior.Restrict);
         foreach (var type in new[] { typeof(FlowHorse), typeof(FlowRequest), typeof(FlowContract), typeof(FlowPayment),
-            typeof(FlowTrip), typeof(FlowInvoice), typeof(FlowRequestHorse), typeof(FlowNotice), typeof(FlowUser) })
+            typeof(FlowTrip), typeof(FlowInvoice), typeof(FlowRequestHorse), typeof(FlowNotice), typeof(FlowUser), typeof(FlowMedicalRecord) })
         {
             var e = b.Entity(type);
             foreach (var p in type.GetProperties().Where(p => p.PropertyType == typeof(DateTime) || p.PropertyType == typeof(DateTime?)))
@@ -49,7 +52,7 @@ public sealed class Flow1Data(Flow1RelationalContext db,string? retainedRoot=nul
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         try
         {
-            if(!await Flow1RelationalSchema.IsReadyAsync(db,ct))throw Error("Flow1 requires the reviewed relational schema006 and its trusted guards. No migration runs automatically.","FLOW1_SQL_SCHEMA_REQUIRED",503);
+            if(!await Flow1RelationalSchema.IsReadyAsync(db,ct))throw Error("Flow1 requires reviewed schema006/007 and their trusted guards. No migration runs automatically.","FLOW1_SQL_SCHEMA_REQUIRED",503);
             // A complete source switch requires reviewed conversion, not per-row JSON fallback.
             // Empty retained004 columns are harmless; nonempty legacy state closes the typed API.
             foreach(var table in new[]{"HORSE","TRANSPORT_REQUEST","CONTRACT","USER"})

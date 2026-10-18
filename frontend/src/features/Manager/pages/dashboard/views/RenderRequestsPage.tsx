@@ -1,4 +1,5 @@
 import { flow1Error } from "../../../../flow1/api";
+import { download } from "../../../../flow1/relational/api";
 import React, { useState, useMemo } from 'react';
 import type {
   TransportRequestItem,
@@ -395,6 +396,17 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                   <span className="text-slate-700">{selectedRequest.specialRequirements}</span>
                 </div>
               )}
+
+              <div data-flow1-baseline-summary className="detail-section">
+                <h3 className="section-label">Giá trị khai báo & Hồ sơ bổ sung</h3>
+                <div className="info-kv-row"><span className="kv-label">Tổng giá trị ngựa (USD):</span><span className="kv-val">{selectedRequest.declaredValueUsd == null ? 'Chưa khai báo' : selectedRequest.declaredValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                {(selectedRequest.baselineDocuments ?? []).map(document => (
+                  <div className="info-kv-row" key={document.documentId}>
+                    <span className="kv-label">{selectedRequest.horses.find(h => h.id === document.horseId)?.name || document.horseId} · {document.status === 'UPLOADED' ? 'Đã tải lên — chờ kiểm tra' : document.status}</span>
+                    <button type="button" className="btn-secondary" onClick={() => void download(`/manager/requests/${encodeURIComponent(selectedRequest.id)}/documents/${encodeURIComponent(document.documentId)}`, 'baseline-' + document.documentId).catch(e => window.alert(flow1Error(e)))}>Tải hồ sơ</button>
+                  </div>
+                ))}
+              </div>
 
               {/* Horses & Checklist Section */}
               <div className="detail-section">

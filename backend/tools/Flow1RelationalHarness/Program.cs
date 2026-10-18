@@ -55,7 +55,7 @@ var created = false;
 try
 {
     await Sql(master, $"CREATE DATABASE [{name}];"); created = true;
-    foreach (var file in new[] { "000_legacy_schema.sql", "003_flow1_minimal_schema.sql", "006_flow1_simple_relational_foundation.sql" })
+    foreach (var file in new[] { "000_legacy_schema.sql", "003_flow1_minimal_schema.sql", "006_flow1_simple_relational_foundation.sql", "007_flow1_request_baseline.sql" })
         await Sql(connection, await File.ReadAllTextAsync(Path.Combine(repository, "backend/database", file)));
     await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-owner','test-only','CUSTOMER',N'Browser Demo');");
     if (phase3) await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-manager','test-only','LOGISTICS_MANAGER',N'Manager Demo');");
@@ -158,8 +158,9 @@ try
     if (liveOptions is not null && (apiLog.Contains(liveOptions.Mapbox.AccessToken) || apiLog.Contains(liveOptions.Geoapify.ApiKey) ||
         nodeLog.Contains(liveOptions.Mapbox.AccessToken) || nodeLog.Contains(liveOptions.Geoapify.ApiKey)))
         throw new InvalidOperationException("A map credential leaked into a test log.");
-    if(mainSource) await Sql(connection,"IF (SELECT COUNT(*) FROM HORSE)<>1 OR (SELECT COUNT(*) FROM TRANSPORT_REQUEST WHERE Status='AWAITING_SIGNATURE')<>1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='PENDING_SIGNATURE' AND PdfSha256 IS NOT NULL AND SignedAt IS NULL)<>1 OR EXISTS(SELECT 1 FROM INVOICE) OR EXISTS(SELECT 1 FROM PAYMENT) OR EXISTS(SELECT 1 FROM TRIP_PLAN) THROW 51030,'Main-source UI scope invariants failed.',1;");
+    if(mainSource) await Sql(connection,$"IF (SELECT COUNT(*) FROM HORSE)<>{(Environment.GetEnvironmentVariable("FLOW1_BROWSER_BASELINE")=="1"?2:1)} OR (SELECT COUNT(*) FROM TRANSPORT_REQUEST WHERE Status='AWAITING_SIGNATURE')<>1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='PENDING_SIGNATURE' AND PdfSha256 IS NOT NULL AND SignedAt IS NULL)<>1 OR EXISTS(SELECT 1 FROM INVOICE) OR EXISTS(SELECT 1 FROM PAYMENT) OR EXISTS(SELECT 1 FROM TRIP_PLAN) THROW 51030,'Main-source UI scope invariants failed.',1;");
     else await Sql(connection, "IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST)<>1 OR (SELECT COUNT(*) FROM HORSE)<>1 OR (SELECT COUNT(*) FROM CONTRACT)<>1 OR (SELECT COUNT(*) FROM INVOICE WHERE PaidAmount=40000000 AND TotalPayableAmount=40000000 AND PaymentStatus='PAID')<>1 OR (SELECT COUNT(*) FROM PAYMENT WHERE Status='SUCCESS' AND Method='VNPAY')<>1 OR (SELECT COUNT(*) FROM TRIP_PLAN WHERE DeploymentStatus='CONFIRMED' AND RoutingAcknowledgedBy='browser-route' AND DocumentsAcknowledgedBy='browser-docs')<>1 THROW 51030,'Typed browser SQL invariants failed.',1;");
+    if(Environment.GetEnvironmentVariable("FLOW1_BROWSER_BASELINE")=="1") await Sql(connection,"IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST WHERE DeclaredValueUsd=150000.25)<>1 OR (SELECT COUNT(*) FROM LEGAL_MEDICAL_RECORD WHERE DocumentType='BASELINE_MEDICAL' AND DocumentStatus='UPLOADED' AND VerifiedBy IS NULL)<>2 THROW 51034,'Baseline declarations or unverified document links differ.',1;");
     await Sql(connection,"IF EXISTS(SELECT 1 FROM COST_ITEM) THROW 51032,'Unexpected quote cost rows.',1;");
     var airRoute=Environment.GetEnvironmentVariable("FLOW1_RELATIONAL_AIR")=="1";
     await Sql(connection,airRoute?"IF NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE TransportType='AIR' AND OriginCountry='VN' AND DestinationCountry='JP' AND DistanceKm IS NULL AND PreparationDays=7) THROW 51033,'AIR scope differs.',1;":"IF NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE TransportType='ROAD' AND DistanceKm=300 AND PreparationDays=2) THROW 51033,'ROAD scope differs.',1;");

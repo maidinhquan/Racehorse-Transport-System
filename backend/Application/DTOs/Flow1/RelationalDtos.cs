@@ -4,7 +4,10 @@ namespace Application.DTOs.Flow1;
 
 public sealed record HorseSelection(string HorseId, string Version);
 public sealed record FlowRequestInput(EstimateInput Trip, DateTimeOffset DepartureAt, DateTimeOffset DeliveryAt,
-    string Purpose, ContactInput PickupContact, ContactInput Receiver, IReadOnlyList<HorseSelection> Horses);
+    string Purpose, ContactInput PickupContact, ContactInput Receiver, IReadOnlyList<HorseSelection> Horses,
+    decimal? DeclaredValueUsd = null);
+public sealed record RequestDocumentUpload(string HorseId, UploadedFile File);
+public sealed record FlowRequestDocument(string DocumentId, string HorseId, string DocumentType, string Status);
 public sealed record FlowAction(string Version, string? Reason = null, decimal? Price = null, int? PreparationDays = null,
     DateTimeOffset? Deadline = null, string? Target = null, string? Otp = null, string? PdfSha256 = null,
     string? CancellationId = null, string? EventId = null);
@@ -23,6 +26,8 @@ public sealed record FlowRequestCard(string RequestId, string Version, string St
     DateTime? DepartureAt, DateTime? DeliveryAt, string? ManagerNotes, decimal? DistanceKm, int? PreparationDays,
     string? PickupContactName, string? PickupContactPhone, string? ReceiverName, string? ReceiverPhone,
     IReadOnlyList<FlowHorseCard> Horses, IReadOnlyList<FlowContractCard> Contracts, FlowRequestInput? Input = null, string? MapAttribution = null,
-    string? CustomerName = null, string? CustomerEmail = null);
+    string? CustomerName = null, string? CustomerEmail = null, decimal? DeclaredValueUsd = null,
+    IReadOnlyList<FlowRequestDocument>? Documents = null);
 public sealed record FlowHandoff(FlowTripCard Trip, string RequestId, string Departure, string Destination,
-    DateTime? DepartureAt, DateTime? DeliveryAt, string ContractId, string PdfSha256, IReadOnlyList<FlowHorseCard> Horses);
+    DateTime? DepartureAt, DateTime? DeliveryAt, string ContractId, string PdfSha256, IReadOnlyList<FlowHorseCard> Horses,
+    decimal? DeclaredValueUsd = null, IReadOnlyList<FlowRequestDocument>? Documents = null);

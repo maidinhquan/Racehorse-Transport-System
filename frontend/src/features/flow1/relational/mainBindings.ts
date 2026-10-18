@@ -29,7 +29,9 @@ export function requestView(r: Request) {
   return { id: r.requestId, status: statusLabels[r.status] || r.status, origin: r.departure, destination: r.destination, requestedDate: "", preferredDate: r.departureAt || "", estimatedPrice: c?.totalPrice ?? 0, horseCount: r.horses.length,
     horses: r.horses.map(h => ({ id: h.horseId, name: h.name, breed: h.breed || "—", sex: h.sex || "—" })),
     contract: c ? { number: c.contractId, status: c.signedAt ? "Signed" : c.pdfSha256 ? "Ready" : "Preparing", finalPrice: c.totalPrice } : undefined,
-    documents: r.horses.flatMap((h, i) => [{ id: i * 2, name: h.name + " · Ảnh/hộ chiếu", status: h.hasDocuments ? "Completed" as const : "Action Required" as const }]),
+    documents: [...r.horses.flatMap((h, i) => [{ id: i * 2, name: h.name + " · Ảnh/hộ chiếu", status: h.hasDocuments ? "Completed" as const : "Action Required" as const, downloadPath: undefined as string | undefined }]),
+      ...(r.documents ?? []).map(d => ({ id: d.documentId, name: (r.horses.find(h => h.horseId === d.horseId)?.name || d.horseId) + " · Hồ sơ bổ sung", status: d.status === "UPLOADED" ? "Pending Review" : d.status,
+        downloadPath: `/customer/requests/${encodeURIComponent(r.requestId)}/documents/${encodeURIComponent(d.documentId)}` }))],
     progress: [{ id: 1, label: statusLabels[r.status] || r.status, status: "current" as "completed" | "current" | "upcoming" }],
     managerFeedback: r.managerNotes || undefined, pickupWindow: date(r.departureAt), eta: date(r.deliveryAt), currency: c?.currency || "VND" };
 }

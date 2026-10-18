@@ -1,3 +1,9 @@
+> **Bổ sung đã chốt 19/10/2026:** tổng giá trị USD cả đơn + file bổ sung gắn từng
+> ngựa; không thêm bảng/JSON. Source006+007, UI/file/SQL tests đã đạt; **chưa apply007
+> DB chính hoặc cập nhật Docker runtime**. Xem [schema007 và quyền vận hành riêng](../../backend/database/README.md). Không lấy quyền
+> cutover006 cũ để tự apply007, không chạy lại conversion/drop. UI mới7f301a1 của
+> Quân chưa tự merge; giữ source2e560eb với các bổ sung nhỏ đã chọn.
+
 # Kế hoạch tích hợp Flow 1 theo hướng cải tiến
 
 > **Quyết định mới ngày19/10/2026:** khôi phục **source frontend main gốc**, không tạo lại page/modal. Chỉ nối thao tác main đã có; phần thiếu UI giao teammate. Xem [bàn giao frontend main](FLOW1_MAIN_FRONTEND_HANDOFF.md). Nghiệm thu UI đầy đủ ở8456d1b là lịch sử của UI đã gỡ; bản main hiện hành dừng ký khi chưa có UI PDF/OTP. Backend006 và business DB cutover vẫn giữ nguyên, VNPay công khai vẫn hoãn.

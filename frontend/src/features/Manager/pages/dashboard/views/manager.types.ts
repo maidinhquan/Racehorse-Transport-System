@@ -63,6 +63,8 @@ export interface TransportRequestItem {
   specialRequirements?: string;
   contractId?: string;
   totalEstimatedCost?: number;
+  declaredValueUsd?: number | null;
+  baselineDocuments?: { documentId: string; horseId: string; documentType: string; status: string }[];
 }
 
 export interface PricingLineItem {

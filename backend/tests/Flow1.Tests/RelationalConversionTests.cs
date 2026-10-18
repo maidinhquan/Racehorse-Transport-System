@@ -19,7 +19,7 @@ public sealed class RelationalConversionTests
         public RelationalConverter Tool()=>new(Context,Source,Bytes);
         public static async Task<Inputs> Create(bool sql=true,bool foundation=true)
         {
-            var f=new Inputs{Db=await Flow1TestDatabase.CreateAsync(sqlState:sql)};if(foundation)await f.Db.ScriptAsync("006_flow1_simple_relational_foundation.sql");
+            var f=new Inputs{Db=await Flow1TestDatabase.CreateAsync(sqlState:sql)};if(foundation){await f.Db.ScriptAsync("006_flow1_simple_relational_foundation.sql");await f.Db.ScriptAsync("007_flow1_request_baseline.sql");}
             f.Context=new(new DbContextOptionsBuilder<Flow1RelationalContext>().UseSqlServer(f.Db.ConnectionString).Options);
             Directory.CreateDirectory(Path.Combine(f.Source,"horse"));Directory.CreateDirectory(f.Bytes);
             var png=Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=");

@@ -1,6 +1,21 @@
 # Flow 1 database — approved SQL state transition
 
-## Current target profile — 17/10/2026
+## Current extension — 19/10/2026
+
+Request baseline source now requires `000` (disposable only) → `003` → `006` →
+**`007_flow1_request_baseline.sql`**: one nullable `DeclaredValueUsd decimal(18,2)`
+on TRANSPORT_REQUEST plus one trusted CHECK. Existing LEGAL_MEDICAL_RECORD stores
+one private supplementary document link per request/horse; no new table or FK.
+Business DB007 has **not** been applied. Do not run004/005/conversion/drop again.
+For business apply, obtain separate approval for the exact target
+`.\SQLEXPRESS/HorseTransportDB`, back up SQL/private bytes and verify restore first,
+quiesce approved localhost writers, apply only007, compare all original values,
+row counts/tables/FKs and the new CHECK, then update localhost without losing
+container private bytes. Do not rerun006/conversion/drop or seed business data.
+Detailed baseline report/operator notes are local-only under the current ignore rules.
+No startup migration; schema006-only runtime upgrade fails closed until007 is approved/applied.
+
+## Foundation profile — 17/10/2026 (extension007 above)
 
 Use `000` (empty disposable DB only) → `003` → **`006_flow1_simple_relational_foundation.sql`**.
 The new profile supersedes `005`/166 columns: latest horse files, direct Contract

@@ -28,6 +28,13 @@ public sealed class HorseUploadForm
     public string Version { get; set; } = "";
 }
 public sealed record RevisionInput(FlowRequestInput Input,string Version);
+public sealed class RequestDocumentsForm
+{
+    public string Payload { get; set; } = "";
+    public List<string> HorseIds { get; set; } = [];
+    public List<IFormFile> Files { get; set; } = [];
+    public string Version { get; set; } = "";
+}
 
 [ApiController,Route("api/flow1/notifications"),Authorize,EnableRateLimiting("flow1-customer")]
 public sealed class Flow1NotificationsApi(RelationalFlow1Service service):FlowApi
@@ -51,7 +58,23 @@ public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1Geoco
     [HttpGet("horses/{id}/files/{kind}")]public async Task<IActionResult> HorseFile(string id,string kind,CancellationToken ct)=>PrivateFile(await service.HorseFileAsync(Actor,id,kind,null,ct),kind);
     [HttpGet("requests")]public async Task<IActionResult> Requests(CancellationToken ct)=>Result(await service.ListAsync(Actor,false,ct));
     [HttpPost("requests")]public async Task<IActionResult> Submit(FlowRequestInput input,CancellationToken ct)=>Result(await service.SubmitAsync(Actor,Key,input,null,null,ct));
+    [HttpPost("requests/with-documents"),Consumes("multipart/form-data"),RequestSizeLimit(55*1024*1024),RequestFormLimits(MultipartBodyLengthLimit=55*1024*1024)]
+    public Task<IActionResult> SubmitDocuments([FromForm]RequestDocumentsForm form,CancellationToken ct)=>SubmitDocumentForm(form,null,ct);
+    [HttpPost("requests/{id}/revision-with-documents"),Consumes("multipart/form-data"),RequestSizeLimit(55*1024*1024),RequestFormLimits(MultipartBodyLengthLimit=55*1024*1024)]
+    public Task<IActionResult> ReviseDocuments(string id,[FromForm]RequestDocumentsForm form,CancellationToken ct)=>SubmitDocumentForm(form,id,ct);
+    private async Task<IActionResult> SubmitDocumentForm(RequestDocumentsForm form,string? id,CancellationToken ct)
+    {
+        if(form.Files.Count>10 || form.Files.Count!=form.HorseIds.Count || form.Payload.Length>65536)
+            throw Error("Each of at most ten files needs one selected horse.","INVALID_DOCUMENTS");
+        FlowRequestInput input;
+        try { input=JsonSerializer.Deserialize<FlowRequestInput>(form.Payload,new JsonSerializerOptions(JsonSerializerDefaults.Web))??throw new JsonException(); }
+        catch(JsonException) { throw Error("Invalid request form.","VALIDATION_ERROR"); }
+        var uploads=new List<RequestDocumentUpload>();
+        for(var n=0;n<form.Files.Count;n++)uploads.Add(new(form.HorseIds[n],await Upload(form.Files[n],ct)));
+        return Result(await service.SubmitWithDocumentsAsync(Actor,Key,input,uploads,id,form.Version,ct));
+    }
     [HttpGet("requests/{id}")]public async Task<IActionResult> GetRequest(string id,CancellationToken ct)=>Result(await service.DetailAsync(id,Actor,false,ct));
+    [HttpGet("requests/{id}/documents/{document}")]public async Task<IActionResult> Document(string id,string document,CancellationToken ct)=>PrivateFile(await service.RequestDocumentAsync(id,document,Actor,false,ct),"baseline-"+document);
     [HttpPost("requests/{id}/revision")]public async Task<IActionResult> Revise(string id,RevisionInput input,CancellationToken ct)=>Result(await service.SubmitAsync(Actor,Key,input.Input,id,input.Version,ct));
     [HttpGet("contracts/{id}")]public async Task<IActionResult> Contract(string id,CancellationToken ct)=>Result(await service.ContractAsync(id,Actor,false,ct));
     [HttpGet("contracts/{id}/pdf")]public async Task<IActionResult> Pdf(string id,CancellationToken ct)=>PrivateFile(await service.PdfAsync(id,Actor,false,ct),"contract");
@@ -65,6 +88,7 @@ public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1Geoco
 [ApiController,Route("api/manager"),Authorize(Roles=UserRoles.LogisticsManager),EnableRateLimiting("flow1-customer")]
 public sealed class Flow1ManagerApi(RelationalFlow1Service service):FlowApi
 {
+    [HttpGet("requests/{id}/documents/{document}")]public async Task<IActionResult> Document(string id,string document,CancellationToken ct)=>PrivateFile(await service.RequestDocumentAsync(id,document,Actor,true,ct),"baseline-"+document);
     [HttpGet("requests")]public async Task<IActionResult> List(CancellationToken ct)=>Result(await service.ListAsync(Actor,true,ct));
     [HttpGet("requests/{id}")]public async Task<IActionResult> GetRequest(string id,CancellationToken ct)=>Result(await service.DetailAsync(id,Actor,true,ct));
     [HttpPost("requests/{id}/accept"),HttpPost("requests/{id}/reject"),HttpPost("requests/{id}/request-changes")]public async Task<IActionResult> Review(string id,FlowAction input,CancellationToken ct)=>Result(await service.ReviewAsync(id,Actor,HttpContext.Request.Path.Value!.Split('/')[^1],input,ct));
@@ -92,6 +116,7 @@ public sealed class Flow1VnpayApi(RelationalFlow1Service service):ControllerBase
 [ApiController,Route("api/operations/flow1/trips"),Authorize(Roles=UserRoles.FleetRouteCoordinator+","+UserRoles.TransportSpecialist),EnableRateLimiting("flow1-customer")]
 public sealed class Flow1OperationsApi(RelationalFlow1Service service):FlowApi
 {
+    [HttpGet("{id}/documents/{document}"),Authorize(Roles=UserRoles.TransportSpecialist)]public async Task<IActionResult> Document(string id,string document,string eventId,CancellationToken ct)=>PrivateFile(await service.OperationsDocumentAsync(id,document,Actor,eventId,ct),"baseline-"+document);
     [HttpGet]public async Task<IActionResult> List(CancellationToken ct)=>Result(await service.OperationsAsync(Actor,ct));
     [HttpPost("{id}/ack")]public async Task<IActionResult> Ack(string id,FlowAction input,CancellationToken ct)=>Result(await service.AckAsync(id,Actor,input,ct));
     [HttpGet("{id}/pdf")]public async Task<IActionResult> Pdf(string id,string eventId,CancellationToken ct)=>PrivateFile(await service.OperationsPdfAsync(id,Actor,eventId,ct),"contract");

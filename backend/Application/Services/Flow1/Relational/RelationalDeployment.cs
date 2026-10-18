@@ -48,7 +48,7 @@ public sealed partial class RelationalFlow1Service
     private async Task<FlowHandoff> Handoff(FlowTrip trip,FlowContract c,FlowRequest r,CancellationToken ct)
     {
         var horses=new List<FlowHorseCard>(); foreach(var l in await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==r.RequestID,ct)) horses.Add(HorseCard((await db.FindAsync<FlowHorse>(l.HorseID,ct))!));
-        return new(new(trip.TripID,Token(trip.RowVersion),trip.Status,trip.DeploymentStatus,trip.HandoffEventId,trip.DeploymentReason,trip.RoutingAcknowledgedBy,trip.DocumentsAcknowledgedBy),r.RequestID,r.Departure,r.Destination,r.ExpectedDate,r.CommittedDeadline,c.ContractID,c.PdfSha256!,horses);
+        return new(new(trip.TripID,Token(trip.RowVersion),trip.Status,trip.DeploymentStatus,trip.HandoffEventId,trip.DeploymentReason,trip.RoutingAcknowledgedBy,trip.DocumentsAcknowledgedBy),r.RequestID,r.Departure,r.Destination,r.ExpectedDate,r.CommittedDeadline,c.ContractID,c.PdfSha256!,horses,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct));
     }
     public Task<FlowHandoff> AckAsync(string tripId,string actor,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
         var trip=await db.FindAsync<FlowTrip>(tripId,t)??throw Error("Trip not found.","NOT_FOUND",404); var x=await Released(trip.RequestID,actor,i.EventId,t);

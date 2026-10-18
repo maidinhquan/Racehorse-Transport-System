@@ -1,3 +1,8 @@
+> Cập nhật baseline 19/10/2026: giá trị tổngUSD + upload bổ sung theo ngựa đã có
+> source/test trong [schema007](../../backend/database/README.md).
+> Hai mục đó thay cho phần disabled trong báo cáo lịch sử bên dưới; bật runtime
+> cần007 và cập nhật localhost được duyệt riêng. Các UI thiếu khác vẫn giữ nguyên.
+
 > Cập nhật 19/10/2026: đại ca đổi nguồn UI sang **feature/quan@17687ee**.
 > Phần mô tả main và evidence bên dưới là lịch sử của `acfba75`; kết quả hiện hành
 > ở [FLOW1_QUAN_FRONTEND_INTEGRATION_REPORT.md](FLOW1_QUAN_FRONTEND_INTEGRATION_REPORT.md).
