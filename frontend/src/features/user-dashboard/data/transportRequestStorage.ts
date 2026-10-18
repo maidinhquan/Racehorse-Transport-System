@@ -30,6 +30,12 @@ export interface FakeTransportRequest {
   transportMode?: "AIR" | "ROAD";
   originCountry?: string;
   destinationCountry?: string;
+  pickupAddress?: string;
+  deliveryAddress?: string;
+  receiverName?: string;
+  receiverPhone?: string;
+  committedDeadline?: string;
+  commercialValue?: number;
 }
 
 const STORAGE_KEY = "cbn_transport_requests";
@@ -139,8 +145,8 @@ export function createRequest(
     const managerReqItem = {
       id,
       customerName: newRequest.customerName,
-      contactPerson: newRequest.customerName,
-      phone: newRequest.phone,
+      contactPerson: newRequest.receiverName || newRequest.customerName,
+      phone: newRequest.receiverPhone || newRequest.phone,
       email: newRequest.email,
       originCountry: data.originCountry || "VN",
       originCity: data.origin || "Ho Chi Minh City",
@@ -151,14 +157,19 @@ export function createRequest(
       departureDateRaw: data.preferredDate || new Date().toISOString().slice(0, 10),
       daysRemainingText: "in 7 ngày",
       daysRemaining: 7,
-      deliveryDeadline: data.preferredDate || new Date().toISOString().slice(0, 10),
+      deliveryDeadline: data.committedDeadline || data.preferredDate || new Date().toISOString().slice(0, 10),
       transportMode: data.transportMode || ("AIR" as const),
       status: "PENDING" as const,
       statusLabel: "Chờ xét duyệt • Khách hàng mới gửi yêu cầu",
       createdAt: "Hôm nay " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
       specialRequirements:
         data.specialRequirements ||
-        `Vận chuyển ${data.horseCount} ngựa đua. Dự toán: $${data.estimatedPrice?.toLocaleString()} USD.`,
+        `Điểm đón: ${data.pickupAddress || 'Chưa cập nhật'}. Điểm giao: ${data.deliveryAddress || 'Chưa cập nhật'}. Người nhận: ${data.receiverName || 'N/A'} (${data.receiverPhone || 'N/A'}). Định giá: $${Number(data.commercialValue || 0).toLocaleString()} USD.`,
+      pickupAddress: data.pickupAddress,
+      deliveryAddress: data.deliveryAddress,
+      receiverName: data.receiverName,
+      receiverPhone: data.receiverPhone,
+      commercialValue: data.commercialValue,
       horses: (newRequest.horses || ["Thunder Strike"]).map((name, idx) => ({
         id: idx + 1,
         name,

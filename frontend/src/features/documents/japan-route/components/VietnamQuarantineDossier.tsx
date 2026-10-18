@@ -614,21 +614,26 @@ export const VietnamQuarantineDossier: React.FC<VietnamQuarantineDossierProps> =
                     onClick={() => onOpenZoom(scan.url, scan.name)}
                     style={{ backgroundImage: `url(${scan.url})` }}
                   >
-                    <span className="jp-zoom-hint">🔍 Xem chi tiết</span>
+                    <div className="jp-zoom-overlay">
+                      <span className="jp-zoom-hint">🔍 Xem chi tiết</span>
+                    </div>
                   </div>
-                  <div className="jp-preview-info">
-                    <span className="jp-preview-name" title={scan.name}>{scan.name}</span>
-                    <span className="jp-preview-size">{scan.size || 'Ảnh hộ chiếu'}</span>
+                  <div className="jp-preview-card-body">
+                    <div className="jp-preview-info">
+                      <span className="jp-preview-name" title={scan.name}>{scan.name}</span>
+                      <span className="jp-preview-size">📦 {scan.size || 'Ảnh hộ chiếu'}</span>
+                    </div>
+                    {!isReadOnly && (
+                      <button
+                        type="button"
+                        className="jp-btn-remove-sm"
+                        onClick={() => handleRemovePassportScan(scan.id)}
+                        title="Xóa ảnh này"
+                      >
+                        🗑️ Xóa
+                      </button>
+                    )}
                   </div>
-                  {!isReadOnly && (
-                    <button
-                      type="button"
-                      className="jp-btn-remove-sm"
-                      onClick={() => handleRemovePassportScan(scan.id)}
-                    >
-                      Xóa
-                    </button>
-                  )}
                 </div>
               ))}
             </div>
@@ -718,8 +723,9 @@ export const VietnamQuarantineDossier: React.FC<VietnamQuarantineDossierProps> =
                           type="button"
                           className="jp-btn-remove-sm"
                           onClick={() => handleRemoveVaccine(vac.id)}
+                          title="Xóa mũi tiêm này"
                         >
-                          Xóa
+                          🗑️ Xóa
                         </button>
                       </td>
                     )}

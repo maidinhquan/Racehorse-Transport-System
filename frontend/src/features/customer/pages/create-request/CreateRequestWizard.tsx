@@ -27,22 +27,22 @@ const MY_HORSES: HorseItem[] = [
 export const CreateRequestWizard = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [departure, setDeparture] = useState('Việt Nam');
-  const [destination, setDestination] = useState('Nhật Bản');
+  const [departure, setDeparture] = useState('');
+  const [destination, setDestination] = useState('');
   const [transportType, setTransportType] = useState<'Đường bộ' | 'Hàng không'>('Hàng không');
-  const [expectedDate, setExpectedDate] = useState('2026-11-01');
-  const [committedDeadline, setCommittedDeadline] = useState('2026-11-05');
-  const [pickupAddress, setPickupAddress] = useState('Trường đua Đại Nam, Bình Dương');
-  const [deliveryAddress, setDeliveryAddress] = useState('Tokyo Racecourse, Fuchu, Tokyo');
-  const [receiverName, setReceiverName] = useState('Kenji Takahashi');
-  const [receiverPhone, setReceiverPhone] = useState('+81-90-1234-5678');
-  const [commercialValue, setCommercialValue] = useState(150000);
-  const [selectedHorses, setSelectedHorses] = useState<string[]>(['HRS-01']);
+  const [expectedDate, setExpectedDate] = useState('');
+  const [committedDeadline, setCommittedDeadline] = useState('');
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [receiverName, setReceiverName] = useState('');
+  const [receiverPhone, setReceiverPhone] = useState('');
+  const [commercialValue, setCommercialValue] = useState<number | ''>('');
+  const [selectedHorses, setSelectedHorses] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [submittedRequest, setSubmittedRequest] = useState<any | null>(null);
 
   const baseFee = transportType === 'Hàng không' ? 8500 : 3200;
-  const estimatedTotal = (baseFee + 1200) * Math.max(selectedHorses.length, 1);
+  const estimatedTotal = selectedHorses.length > 0 ? (baseFee + 1200) * selectedHorses.length : 0;
 
   const toggleHorse = (horse: HorseItem) => {
     if (horse.status === 'InTransit') {
@@ -55,10 +55,75 @@ export const CreateRequestWizard = () => {
     );
   };
 
+  const validateCurrentStep = (currentStep: number): boolean => {
+    setErrorMsg('');
+    if (currentStep === 1) {
+      if (!departure) {
+        setErrorMsg('Vui lòng chọn quốc gia xuất phát.');
+        return false;
+      }
+      if (!destination) {
+        setErrorMsg('Vui lòng chọn quốc gia đích đến.');
+        return false;
+      }
+      if (departure === destination) {
+        setErrorMsg('Quốc gia xuất phát và quốc gia đích đến không được trùng nhau.');
+        return false;
+      }
+      if (!expectedDate) {
+        setErrorMsg('Vui lòng chọn ngày dự kiến xuất phát.');
+        return false;
+      }
+    } else if (currentStep === 2) {
+      if (!pickupAddress.trim()) {
+        setErrorMsg('Vui lòng nhập địa chỉ nhận ngựa (Pick-up Address).');
+        return false;
+      }
+      if (!deliveryAddress.trim()) {
+        setErrorMsg('Vui lòng nhập địa chỉ giao ngựa (Delivery Address).');
+        return false;
+      }
+      if (!committedDeadline) {
+        setErrorMsg('Vui lòng chọn thời hạn cam kết giao ngựa.');
+        return false;
+      }
+      if (!receiverName.trim()) {
+        setErrorMsg('Vui lòng nhập họ tên người nhận đại diện tại điểm đến.');
+        return false;
+      }
+      if (!receiverPhone.trim()) {
+        setErrorMsg('Vui lòng nhập số điện thoại người nhận.');
+        return false;
+      }
+    } else if (currentStep === 3) {
+      if (selectedHorses.length === 0) {
+        setErrorMsg('Vui lòng chọn ít nhất 1 ngựa đua cần vận chuyển.');
+        return false;
+      }
+    } else if (currentStep === 4) {
+      if (!commercialValue || Number(commercialValue) <= 0) {
+        setErrorMsg('Vui lòng nhập định giá thương mại hợp lệ phục vụ bảo hiểm.');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleNextStep = () => {
+    if (!validateCurrentStep(step)) return;
+    setStep((s) => Math.min(4, s + 1) as 1 | 2 | 3 | 4);
+  };
+
+  const handleStepClick = (targetStep: 1 | 2 | 3 | 4) => {
+    if (targetStep > step) {
+      if (!validateCurrentStep(step)) return;
+    }
+    setErrorMsg('');
+    setStep(targetStep);
+  };
+
   const handleSendRequest = () => {
-    if (selectedHorses.length === 0) {
-      setErrorMsg('Vui lòng chọn ít nhất 1 ngựa đua cần vận chuyển.');
-      setStep(3);
+    if (!validateCurrentStep(1) || !validateCurrentStep(2) || !validateCurrentStep(3) || !validateCurrentStep(4)) {
       return;
     }
 
@@ -70,16 +135,22 @@ export const CreateRequestWizard = () => {
       origin: departure,
       destination: destination,
       preferredDate: expectedDate,
+      committedDeadline: committedDeadline,
       horseCount: chosenHorses.length,
       estimatedPrice: estimatedTotal,
       horses: chosenHorses.map((h) => h.name),
       customerName: 'Nguyễn Thanh Quốc Linh',
       phone: '+84 909 888 999',
       email: 'linh.nguyen@equine.vn',
+      pickupAddress: pickupAddress.trim(),
+      deliveryAddress: deliveryAddress.trim(),
+      receiverName: receiverName.trim(),
+      receiverPhone: receiverPhone.trim(),
+      commercialValue: Number(commercialValue),
       transportMode: transportType === 'Hàng không' ? 'AIR' : 'ROAD',
       destinationCountry: isJP ? 'JP' : 'OTHER',
-      originCountry: 'VN',
-      specialRequirements: `Nơi nhận: ${deliveryAddress}. Người nhận: ${receiverName} (${receiverPhone}). Định giá: $${commercialValue.toLocaleString()} USD.`,
+      originCountry: departure === 'Việt Nam' ? 'VN' : 'OTHER',
+      specialRequirements: `Nơi nhận: ${pickupAddress.trim()}. Nơi giao: ${deliveryAddress.trim()}. Người nhận: ${receiverName.trim()} (${receiverPhone.trim()}). Định giá: $${Number(commercialValue).toLocaleString()} USD.`,
     });
 
     setSubmittedRequest(newReq);
@@ -108,7 +179,7 @@ export const CreateRequestWizard = () => {
             <button
               key={item.num}
               type="button"
-              onClick={() => setStep(item.num as 1 | 2 | 3 | 4)}
+              onClick={() => handleStepClick(item.num as 1 | 2 | 3 | 4)}
               className={`wizard-step-btn ${step === item.num ? 'active' : ''}`}
             >
               {item.label}
@@ -122,14 +193,16 @@ export const CreateRequestWizard = () => {
           <div>
             <div className="form-grid-2">
               <div>
-                <label className="form-label">Quốc gia xuất phát</label>
+                <label className="form-label">Quốc gia xuất phát <span style={{ color: '#ef4444' }}>*</span></label>
                 <select className="form-select" value={departure} onChange={(e) => setDeparture(e.target.value)}>
+                  <option value="">-- Chọn quốc gia xuất phát --</option>
                   {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
-                <label className="form-label">Quốc gia đích đến</label>
+                <label className="form-label">Quốc gia đích đến <span style={{ color: '#ef4444' }}>*</span></label>
                 <select className="form-select" value={destination} onChange={(e) => setDestination(e.target.value)}>
+                  <option value="">-- Chọn quốc gia đích đến --</option>
                   {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
@@ -148,7 +221,7 @@ export const CreateRequestWizard = () => {
                 </select>
               </div>
               <div>
-                <label className="form-label">Ngày dự kiến xuất phát</label>
+                <label className="form-label">Ngày dự kiến xuất phát <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
                   type="date"
                   className="form-input"
@@ -161,7 +234,9 @@ export const CreateRequestWizard = () => {
             <div className="estimate-banner">
               <strong>Ước tính chi phí sơ bộ: ${estimatedTotal.toLocaleString()} USD</strong>
               <p className="estimate-banner-sub">
-                Đã bao gồm cước vận chuyển {transportType.toLowerCase()}, chăm sóc thú y theo chặng và phí kiểm dịch hải quan ban đầu.
+                {selectedHorses.length === 0
+                  ? 'Vui lòng chọn ngựa ở Bước 3 để tính toán tổng chi phí chính xác.'
+                  : `Đã tính toán cho ${selectedHorses.length} cá thể ngựa bao gồm cước vận chuyển ${transportType.toLowerCase()}, chăm sóc thú y và phí kiểm dịch.`}
               </p>
             </div>
           </div>
@@ -171,19 +246,21 @@ export const CreateRequestWizard = () => {
           <div>
             <div className="form-grid-2">
               <div>
-                <label className="form-label">Địa chỉ nhận ngựa (Pick-up Address)</label>
+                <label className="form-label">Địa chỉ nhận ngựa (Pick-up Address) <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
                   type="text"
                   className="form-input"
+                  placeholder="VD: Trường đua Đại Nam, Thủ Dầu Một, Bình Dương"
                   value={pickupAddress}
                   onChange={(e) => setPickupAddress(e.target.value)}
                 />
               </div>
               <div>
-                <label className="form-label">Địa chỉ giao ngựa (Delivery Destination)</label>
+                <label className="form-label">Địa chỉ giao ngựa (Delivery Destination) <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
                   type="text"
                   className="form-input"
+                  placeholder="VD: Tokyo Racecourse, Fuchu, Tokyo, Japan"
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
                 />
@@ -191,7 +268,7 @@ export const CreateRequestWizard = () => {
             </div>
             <div className="form-grid-2">
               <div>
-                <label className="form-label">Thời hạn cam kết giao ngựa</label>
+                <label className="form-label">Thời hạn cam kết giao ngựa <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
                   type="date"
                   className="form-input"
@@ -200,20 +277,22 @@ export const CreateRequestWizard = () => {
                 />
               </div>
               <div>
-                <label className="form-label">Người nhận đại diện tại điểm đích</label>
+                <label className="form-label">Người nhận đại diện tại điểm đích <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
                   type="text"
                   className="form-input"
+                  placeholder="VD: Kenji Takahashi (Đại diện CLB)"
                   value={receiverName}
                   onChange={(e) => setReceiverName(e.target.value)}
                 />
               </div>
             </div>
             <div style={{ marginTop: '0.75rem' }}>
-              <label className="form-label">Số điện thoại người nhận</label>
+              <label className="form-label">Số điện thoại người nhận <span style={{ color: '#ef4444' }}>*</span></label>
               <input
                 type="text"
                 className="form-input"
+                placeholder="VD: +81-90-1234-5678 hoặc 0901234567"
                 value={receiverPhone}
                 onChange={(e) => setReceiverPhone(e.target.value)}
               />
@@ -223,6 +302,9 @@ export const CreateRequestWizard = () => {
 
         {step === 3 && (
           <div>
+            <p style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '1rem' }}>
+              Vui lòng nhấp để chọn một hoặc nhiều cá thể ngựa từ đàn ngựa sở hữu của bạn:
+            </p>
             {MY_HORSES.map((horse) => {
               const isSelected = selectedHorses.includes(horse.horseId);
               return (
@@ -238,7 +320,7 @@ export const CreateRequestWizard = () => {
                     </p>
                   </div>
                   <span className={`horse-badge ${horse.status === 'Ready' ? 'ready' : 'busy'}`}>
-                    {horse.status === 'Ready' ? (isSelected ? 'Đã chọn ✓' : 'Sẵn sàng') : 'Đang bận chuyến khác'}
+                    {horse.status === 'Ready' ? (isSelected ? 'Đã chọn ✓' : 'Nhấp để chọn') : 'Đang bận chuyến khác'}
                   </span>
                 </div>
               );
@@ -248,12 +330,13 @@ export const CreateRequestWizard = () => {
 
         {step === 4 && (
           <div>
-            <label className="form-label">Định giá thương mại (USD) phục vụ bảo hiểm & hải quan</label>
+            <label className="form-label">Định giá thương mại (USD) phục vụ bảo hiểm & hải quan <span style={{ color: '#ef4444' }}>*</span></label>
             <input
               type="number"
               className="form-input"
+              placeholder="VD: 150000"
               value={commercialValue}
-              onChange={(e) => setCommercialValue(Number(e.target.value))}
+              onChange={(e) => setCommercialValue(e.target.value === '' ? '' : Number(e.target.value))}
             />
             <div className="upload-box">
               <label className="form-label">Tải lên Hồ sơ lý lịch & Y tế ban đầu (PDF, JPG, PNG)</label>
@@ -267,7 +350,10 @@ export const CreateRequestWizard = () => {
             type="button"
             className="btn-secondary"
             disabled={step === 1}
-            onClick={() => setStep((s) => Math.max(1, s - 1) as 1 | 2 | 3 | 4)}
+            onClick={() => {
+              setErrorMsg('');
+              setStep((s) => Math.max(1, s - 1) as 1 | 2 | 3 | 4);
+            }}
           >
             Quay lại
           </button>
@@ -275,7 +361,7 @@ export const CreateRequestWizard = () => {
             <button
               type="button"
               className="btn-primary"
-              onClick={() => setStep((s) => Math.min(4, s + 1) as 1 | 2 | 3 | 4)}
+              onClick={handleNextStep}
             >
               Tiếp tục Bước {step + 1}
             </button>
@@ -335,8 +421,8 @@ export const CreateRequestWizard = () => {
             </div>
 
             <p style={{ color: '#475569', fontSize: '0.92rem', lineHeight: 1.5, margin: '0 0 1.5rem 0' }}>
-              Đơn hàng của quý khách đã được chuyển thẳng đến bàn làm việc của <strong>Logistics Manager</strong>.
-              Bạn có thể theo dõi tiến độ hoặc chuyển sang giao diện quản lý để kiểm tra.
+              Đơn hàng của bạn đã được chuyển tới hệ thống điều phối của <strong>Logistics Manager</strong>.
+              Bạn có thể theo dõi tiến trình xử lý đơn hàng trong danh sách yêu cầu.
             </p>
 
             <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -346,7 +432,16 @@ export const CreateRequestWizard = () => {
                 onClick={() => navigate('/customer/requests')}
                 style={{ padding: '0.65rem 1.25rem' }}
               >
-                Quản lý đơn của tôi
+                Quản lý danh sách đơn hàng
+              </button>
+
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => navigate(`/customer/requests/${submittedRequest.id}`)}
+                style={{ padding: '0.65rem 1.25rem' }}
+              >
+                Xem chi tiết đơn này
               </button>
 
               {destination === 'Nhật Bản' && (
@@ -361,20 +456,11 @@ export const CreateRequestWizard = () => {
                     cursor: 'pointer',
                     fontWeight: 600
                   }}
-                  onClick={() => navigate('/japan-route')}
+                  onClick={() => navigate(`/customer/requests/${submittedRequest.id}/transport-information`)}
                 >
-                  Hồ sơ Tuyến Nhật Bản 🇯🇵
+                  Khai báo Hồ sơ Tuyến Nhật Bản 🇯🇵
                 </button>
               )}
-
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => navigate('/manager/requests')}
-                style={{ padding: '0.65rem 1.25rem' }}
-              >
-                Đến Cổng Nhân Viên (Kiểm tra) ➔
-              </button>
             </div>
           </div>
         </div>

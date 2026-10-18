@@ -63,6 +63,11 @@ export interface TransportRequestItem {
   specialRequirements?: string;
   contractId?: string;
   totalEstimatedCost?: number;
+  pickupAddress?: string;
+  deliveryAddress?: string;
+  receiverName?: string;
+  receiverPhone?: string;
+  commercialValue?: number;
 }
 
 export interface PricingLineItem {
