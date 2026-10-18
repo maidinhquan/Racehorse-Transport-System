@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  createRequest,
-} from "../../../data/transportRequestStorage"; //test
+import { saveLandingRoute } from "../../../../flow1/landingDraft";
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
 
 import "./CreateTransportRequestPage.css";
@@ -107,24 +105,8 @@ function CreateTransportRequestPage() {
       return;
     }
 
-    const newRequest = createRequest({
-      origin: form.origin,
-
-      destination:
-        form.destination,
-
-      preferredDate:
-        form.preferredDate,
-
-      horseCount:
-        form.horseCount,
-
-      estimatedPrice,
-    });
-
-    navigate(
-      `/customer/requests/${newRequest.id}`
-    );
+    saveLandingRoute(form.origin, form.destination, 'VN', form.horseCount);
+    navigate('/customer/create-request');
   };
 
   

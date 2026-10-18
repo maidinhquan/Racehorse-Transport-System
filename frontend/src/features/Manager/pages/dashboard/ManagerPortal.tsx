@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useManagerBackend } from "./useManagerBackend";
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './ManagerPortal.css';
-import type { ManagerNav } from './views/manager.types';
-import { RenderOverviewPage, RenderRequestsPage } from './views';
-import { RenderContractsPage } from './views/RenderContractsPage';
-import { RenderPaymentsPage } from './views/RenderPaymentsPage';
-import { useRequests } from '../../../flow1/relational/presentation';
-import { relational } from '../../../flow1/relational/api';
-import { flow1Error } from '../../../flow1/api';
-import { managerRequest } from './managerPresentation';
-import { Notifications } from '../../../flow1/relational/Notifications';
+import type {
+  ManagerNav,
+} from './views';
+import {
+  RenderOverviewPage,
+  RenderRequestsPage,
+  RenderContractsPage,
+  RenderPaymentsPage,
+} from './views';
 
 interface ManagerPortalProps {
   initialNav?: ManagerNav;
-  detail?: boolean;
 }
 
 export const ManagerPortal: React.FC<ManagerPortalProps> = ({
@@ -21,7 +21,6 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const {requestId}=useParams();
 
   // Determine activeNav from prop or route pathname
   const getNavFromPath = (): ManagerNav => {
@@ -35,32 +34,45 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
     return initialNav;
   };
 
-  const activeNav=getNavFromPath();
+  const [activeNav, setActiveNav] = useState<ManagerNav>(getNavFromPath);
   const [selectedTargetId, setSelectedTargetId] = useState<string | undefined>(undefined);
   const [lang, setLang] = useState<'VI' | 'EN'>('VI');
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
-  const {requests:records,error:loadError,loading,reload}=useRequests(true);
-  const [error,setError]=useState('');const [busy,setBusy]=useState(false);const [keys]=useState(()=>new Map<string,string>());
-  const requests=records.map(managerRequest);
-  const transactions=records.flatMap(r=>r.contracts.flatMap(c=>c.payments));
-  const alerts=records.filter(r=>r.managerNotes).map(r=>({id:r.requestId,type:'info' as const,bulletColor:'blue' as const,title:r.requestId,subtitle:r.managerNotes!,requestId:r.requestId,linkNav:'requests' as const}));
-  const activeTrips=records.flatMap(r=>r.contracts.filter(c=>c.isCurrent&&c.hasAcceptanceEvidence&&c.trip&&!(["COMPLETED","CANCELLED"].includes(c.trip.status))).map(c=>({id:c.trip!.tripId,route:r.departure+' → '+r.destination,status:c.trip!.deploymentStatus||c.trip!.status,statusClass:'planning',eta:'—',lastUpdated:'—',driverEscort:'Chưa phân công'})));
+  // Synchronize route with nav state
+  useEffect(() => {
+    const navFromUrl = getNavFromPath();
+    if (navFromUrl !== activeNav) {
+      setActiveNav(navFromUrl);
+    }
+  }, [location.pathname]);
+
+  const backend = useManagerBackend();
+  const { requests, contracts, transactions, overdueList, alerts, activeTrips } = backend;
   // Dynamic counts for sidebar badges
   const pendingRequestsCount = requests.filter((r) => r.status === 'PENDING').length;
   const pendingPaymentsCount = transactions.filter(
-    (t) => t.status === 'PENDING_GATEWAY'||t.reviewRequired
+    (t) => t.status === 'PENDING_CONFIRMATION'
   ).length;
 
   const handleNavigate = (nav: ManagerNav, targetId?: string) => {
+    setActiveNav(nav);
     setSelectedTargetId(targetId);
-    navigate(targetId&&nav==='requests'?`/manager/requests/${targetId}`:`/manager/${nav}`);
+    navigate(`/manager/${nav}`);
   };
 
-  const review=async(id:string,action:string,reason:string)=>{setBusy(true);setError('');try{const row=records.find(r=>r.requestId===id)!;await relational.action(`/manager/requests/${id}/${action}`,{version:row.version,reason});await reload();}catch(e){setError(flow1Error(e));throw e;}finally{setBusy(false);}};
-  const handleAcceptRequest=(id:string,note?:string)=>review(id,'accept',note?.trim()||'Đã thẩm định hồ sơ và chấp nhận yêu cầu');
-  const handleRequestRevision=(id:string,reason:string,date?:string)=>review(id,'request-changes',reason+(date?' · Ngày gợi ý: '+date:''));
-  const handleRejectRequest=(id:string,_group:string,reason:string)=>review(id,'reject',reason);
+  // ===================== ACTION HANDLERS =====================
+
+  const handleAcceptRequest = (id: string, note?: string) => backend.review(id, 'accept', note);
+  const handleRequestRevision = (id: string, reason: string, suggestionDate?: string) => backend.review(id, 'request-changes', reason + (suggestionDate ? ' · Ngày đề nghị: ' + suggestionDate : ''));
+  const handleRejectRequest = (id: string, group: string, reason: string) => backend.review(id, 'reject', group + ': ' + reason);
+  const handleSaveContract = backend.save;
+  const handleSendContract = backend.send;
+  const handleConfirmTransaction = backend.confirm;
+  const handleRejectTransaction = backend.reject;
+  const handleExtendDeadline = backend.extend;
+  const handleCancelOverdue = backend.cancelOverdue;
+
   // Title for top navbar
   const getNavTitle = () => {
     switch (activeNav) {
@@ -192,15 +204,27 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
               </button>
             </div>
 
-            <Notifications variant="manager"/>
+            {/* Notification Bell */}
+            <button
+              type="button"
+              className="navbar-bell-btn"
+              title="Thông báo hệ thống"
+              onClick={() => handleNavigate('overview')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+              <span className="bell-badge">{alerts.length}</span>
+            </button>
 
             {/* User Profile */}
             <div
               className="user-profile-widget"
               onClick={() => setShowUserDropdown(!showUserDropdown)}
             >
-              <div className="user-avatar-circle">LP</div>
-              <span className="user-profile-name">{localStorage.getItem("userFullName")||"Logistics Manager"}</span>
+              <div className="user-avatar-circle">{(localStorage.getItem("userFullName") || "").split(/\s+/).filter(Boolean).map(x => x[0]).slice(0, 2).join("")}</div>
+              <span className="user-profile-name">{localStorage.getItem("userFullName") || "—"}</span>
               <svg
                 width="14"
                 height="14"
@@ -216,14 +240,14 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
               {showUserDropdown && (
                 <div className="user-dropdown-menu fade-in">
                   <div className="dropdown-user-info">
-                    <div className="font-semibold text-slate-800">{localStorage.getItem("userFullName")||"Logistics Manager"}</div>
+                    <div className="font-semibold text-slate-800">{localStorage.getItem("userFullName") || "—"}</div>
                     <div className="text-xs text-slate-500">Logistics Manager</div>
                   </div>
                   <div className="dropdown-divider"></div>
                   <button
                     type="button"
                     className="dropdown-item"
-                    onClick={() => {for(const key of ['accessToken','userRole','userFullName'])localStorage.removeItem(key);navigate('/login');}}
+                    onClick={() => navigate('/login')}
                   >
                     Đăng xuất
                   </button>
@@ -234,7 +258,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
         </header>
 
         {/* View Content Renderer */}
-        <main className="manager-view-container" aria-busy={busy}>{(error||loadError)&&<p className="flow1-ui-error" role="alert">{error||loadError}</p>}{loading&&<p>Đang tải…</p>}
+        <main className="manager-view-container">
           {activeNav === 'overview' && (
             <RenderOverviewPage
               requests={requests}
@@ -244,21 +268,40 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
             />
           )}
 
-          {!loading&&activeNav === 'requests' && (
+          {activeNav === 'requests' && (
             <RenderRequestsPage
               requests={requests}
               onAcceptRequest={handleAcceptRequest}
               onRequestRevision={handleRequestRevision}
               onRejectRequest={handleRejectRequest}
               onNavigate={handleNavigate}
-              key={requestId||selectedTargetId||"requests"}
-              initialSelectedId={requestId||selectedTargetId}
+              initialSelectedId={selectedTargetId}
             />
           )}
 
-          {!loading&&activeNav==='contracts'&&<RenderContractsPage records={records} targetId={selectedTargetId} reload={reload} keys={keys}/>}
-          {!loading&&activeNav==='payments'&&<RenderPaymentsPage records={records} reload={reload}/>}
+          {activeNav === 'contracts' && (
+            <RenderContractsPage
+              key={contracts.map(c => c.id + c.status).join("|") + requests.map(r => r.id).join("|")}
+              contracts={contracts}
+              requests={requests}
+              onSaveContract={handleSaveContract}
+              onSendContract={handleSendContract}
+              onNavigate={handleNavigate}
+              initialSelectedRequestId={selectedTargetId}
+            />
+          )}
 
+          {activeNav === 'payments' && (
+            <RenderPaymentsPage
+              transactions={transactions}
+              overdueList={overdueList}
+              onConfirmTransaction={handleConfirmTransaction}
+              onRejectTransaction={handleRejectTransaction}
+              onExtendDeadline={handleExtendDeadline}
+              onCancelOverdue={handleCancelOverdue}
+              onNavigate={handleNavigate}
+            />
+          )}
         </main>
       </div>
     </div>

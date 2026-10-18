@@ -26,7 +26,7 @@ export type ContractStatus =
 export type TransportMode = 'AIR' | 'ROAD' | 'COMBINED';
 
 export interface HorseItem {
-  id: string | number;
+  id: number | string;
   name: string;
   breed: string;
   age: number | null;
@@ -77,7 +77,7 @@ export interface PricingLineItem {
 
 export interface ContractItem {
   id: string; // e.g. 'CTR-8932'
-  version: number;
+  version: number | string;
   requestId: string;
   customerName: string;
   routeDisplay: string;
@@ -114,7 +114,8 @@ export interface BankTransferTransaction {
   receiptUrl?: string;
   paidAt: string;
   createdAt: string;
-  status: 'PENDING_CONFIRMATION' | 'SUCCESS' | 'REJECTED';
+  status: 'PENDING_CONFIRMATION' | 'SUCCESS' | 'REJECTED' | 'PENDING' | 'FAILED';
+  statusLabel?: string;
   confirmedAmount?: number;
   confirmedAt?: string;
   rejectReason?: string;

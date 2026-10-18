@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import './CoordinatorPortal.css';
-import { OperationsInbox } from '../../../flow1/relational/Pages';
-import { Notifications } from '../../../flow1/relational/Notifications';
 import { coordinatorApi } from '../../api/coordinatorApi';
 import type { MockTrip } from './views';
 import {
@@ -19,11 +17,10 @@ export type CoordinatorNav = 'dashboard' | 'trips' | 'fleet' | 'crew' | 'flights
 
 interface CoordinatorPortalProps {
   isEmbedded?: boolean;
-  flow1?: boolean;
   initialNav?: CoordinatorNav;
 }
 
-export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav = 'dashboard', flow1 = false }) => {
+export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav = 'dashboard' }) => {
   // Navigation states
   const [activeNav, setActiveNav] = useState<CoordinatorNav>(initialNav);
   const [selectedTripId, setSelectedTripId] = useState<string>('TRP-20261120-0003');
@@ -42,7 +39,6 @@ export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav
 
   // Optional backend sync
   useEffect(() => {
-    if(flow1)return;
     coordinatorApi
       .getDashboard()
       .then((res) => {
@@ -53,7 +49,7 @@ export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav
       .catch(() => {
         // Running standalone / mock mode
       });
-  }, [flow1]);
+  }, []);
 
   // Moving truck simulation on Milestones tab
   useEffect(() => {
@@ -286,11 +282,17 @@ export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav
               </button>
             </div>
 
-            <Notifications variant="manager"/>
+            <button className="icon-btn" aria-label="Notifications" title="Thông báo hệ thống">
+              <span className="bell dot">
+                <svg className="i">
+                  <path d="M6 9a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7zM10 20a2 2 0 0 0 4 0" />
+                </svg>
+              </span>
+            </button>
 
             <button className="icon-btn">
               <span className="avatar">DQ</span>
-              <span className="user-name">{localStorage.getItem("userFullName")||"Coordinator"}</span>
+              <span className="user-name">Dang Minh Quan</span>
               <Icon name="chev" />
             </button>
           </div>
@@ -318,8 +320,7 @@ export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav
 
         {/* VIEW AREA DELEGATED TO INDIVIDUAL RENDER PAGES */}
         <main className="view">
-          {flow1&&activeNav==='dashboard'&&<OperationsInbox stream="ROUTING" portal/>}
-          {!flow1&&activeNav === 'dashboard' && (
+          {activeNav === 'dashboard' && (
             <RenderDashboardPage
               trips={trips}
               lang={lang}

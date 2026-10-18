@@ -1,5 +1,4 @@
 export type DetailRequestStatus =
-  | "Activated"
   | "Waiting for Manager Review"
   | "Changes Requested"
   | "Accepted – Contract Preparation"

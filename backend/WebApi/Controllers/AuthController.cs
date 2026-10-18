@@ -286,7 +286,8 @@ namespace WebApi.Controllers
                 UserId = FormatUserId(user.UserId),
                 FullName = user.FullName,
                 Email = user.Email ?? string.Empty,
-                Role = UserRoles.NormalizeRole(user.Role)
+                Role = UserRoles.NormalizeRole(user.Role),
+                PhoneNumber = user.Phone
             };
 
             return Ok(ApiResponse<CurrentUserResponseData>.Ok(data, "User retrieved successfully"));

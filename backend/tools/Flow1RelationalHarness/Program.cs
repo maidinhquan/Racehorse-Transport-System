@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 // Explicit local-only connected test; no writes to the configured business database.
 var serve = args.Length == 3 && args[2] == "--serve";
+var mainSource = Environment.GetEnvironmentVariable("FLOW1_BROWSER_MAIN_SOURCE") == "1";
 if (args.Length != 2 && !serve) throw new ArgumentException("Arguments: absolute Node executable, absolute Playwright module directory, optional --serve.");
 var repository = Directory.GetCurrentDirectory();
 if (!File.Exists(Path.Combine(repository, "backend/Backend.slnx"))) throw new InvalidOperationException("Run from repository root.");
@@ -62,6 +63,7 @@ try
     if (signing) await Sql(connection, "UPDATE dbo.[USER] SET Email='browser-owner@example.invalid' WHERE UserID='browser-owner';");
     var loginHash=BCrypt.Net.BCrypt.HashPassword("Flow1_Native_Fixture_Only_2026!");
     await Sql(connection,"UPDATE [USER] SET Email=UserID+'@example.invalid',PasswordHash='"+loginHash+"';");
+    if(mainSource) await Sql(connection,"UPDATE [USER] SET Phone='0900000000' WHERE UserID='browser-owner';");
     var apiPort = serve ? Available(5129) : Port(); var mapPort = Port(); var frontPort = serve ? Available(5173) : Port();
     if(serve) await File.WriteAllTextAsync(Path.Combine(output,"host.json"),JsonSerializer.Serialize(new { hostPid=Environment.ProcessId, database=name, output, apiPort, frontPort }));
     var smtpPort = Port();
@@ -156,12 +158,13 @@ try
     if (liveOptions is not null && (apiLog.Contains(liveOptions.Mapbox.AccessToken) || apiLog.Contains(liveOptions.Geoapify.ApiKey) ||
         nodeLog.Contains(liveOptions.Mapbox.AccessToken) || nodeLog.Contains(liveOptions.Geoapify.ApiKey)))
         throw new InvalidOperationException("A map credential leaked into a test log.");
-    await Sql(connection, "IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST)<>1 OR (SELECT COUNT(*) FROM HORSE)<>1 OR (SELECT COUNT(*) FROM CONTRACT)<>1 OR (SELECT COUNT(*) FROM INVOICE WHERE PaidAmount=40000000 AND TotalPayableAmount=40000000 AND PaymentStatus='PAID')<>1 OR (SELECT COUNT(*) FROM PAYMENT WHERE Status='SUCCESS' AND Method='VNPAY')<>1 OR (SELECT COUNT(*) FROM TRIP_PLAN WHERE DeploymentStatus='CONFIRMED' AND RoutingAcknowledgedBy='browser-route' AND DocumentsAcknowledgedBy='browser-docs')<>1 THROW 51030,'Typed browser SQL invariants failed.',1;");
+    if(mainSource) await Sql(connection,"IF (SELECT COUNT(*) FROM HORSE)<>1 OR (SELECT COUNT(*) FROM TRANSPORT_REQUEST WHERE Status='AWAITING_SIGNATURE')<>1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='PENDING_SIGNATURE' AND PdfSha256 IS NOT NULL AND SignedAt IS NULL)<>1 OR EXISTS(SELECT 1 FROM INVOICE) OR EXISTS(SELECT 1 FROM PAYMENT) OR EXISTS(SELECT 1 FROM TRIP_PLAN) THROW 51030,'Main-source UI scope invariants failed.',1;");
+    else await Sql(connection, "IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST)<>1 OR (SELECT COUNT(*) FROM HORSE)<>1 OR (SELECT COUNT(*) FROM CONTRACT)<>1 OR (SELECT COUNT(*) FROM INVOICE WHERE PaidAmount=40000000 AND TotalPayableAmount=40000000 AND PaymentStatus='PAID')<>1 OR (SELECT COUNT(*) FROM PAYMENT WHERE Status='SUCCESS' AND Method='VNPAY')<>1 OR (SELECT COUNT(*) FROM TRIP_PLAN WHERE DeploymentStatus='CONFIRMED' AND RoutingAcknowledgedBy='browser-route' AND DocumentsAcknowledgedBy='browser-docs')<>1 THROW 51030,'Typed browser SQL invariants failed.',1;");
     await Sql(connection,"IF EXISTS(SELECT 1 FROM COST_ITEM) THROW 51032,'Unexpected quote cost rows.',1;");
     var airRoute=Environment.GetEnvironmentVariable("FLOW1_RELATIONAL_AIR")=="1";
     await Sql(connection,airRoute?"IF NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE TransportType='AIR' AND OriginCountry='VN' AND DestinationCountry='JP' AND DistanceKm IS NULL AND PreparationDays=7) THROW 51033,'AIR scope differs.',1;":"IF NOT EXISTS(SELECT 1 FROM TRANSPORT_REQUEST WHERE TransportType='ROAD' AND DistanceKm=300 AND PreparationDays=2) THROW 51033,'ROAD scope differs.',1;");
     await Sql(connection,"IF EXISTS(SELECT 1 FROM sys.columns WHERE name IN ('Flow1StateJson','Flow1StateVersion')) THROW 51031,'Unexpected JSON schema in native browser database.',1;");
-    Console.WriteLine("PASS: typed browser / real PDF / loopback SMTP / signed IPN fixture / one deposit and Trip / current handoff acknowledgements; no live provider payment.");
+    Console.WriteLine(mainSource ? "PASS: original main UI / login guard / owned data / real Draft and PDF; zero signature/invoice/payment/Trip. Missing UI deferred to frontend teammate." : "PASS: typed browser / real PDF / loopback SMTP / signed IPN fixture / one deposit and Trip / current handoff acknowledgements; no live provider payment.");
     Console.WriteLine("Evidence: "+output);
 }
 finally

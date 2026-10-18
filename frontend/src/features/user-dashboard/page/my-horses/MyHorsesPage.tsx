@@ -1,6 +1,8 @@
+import { relational } from "../../../flow1/relational/api";
+import { flow1Error } from "../../../flow1/api";
 import {
-  useMemo,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -8,10 +10,12 @@ import {
 
 import CustomerLayout from "../../../../shared/layouts/CustomerLayout/CustomerLayout";
 
-import { relational } from "../../../flow1/relational/api";
-import type { Horse as HorseRecord } from "../../../flow1/relational/api";
-import { flow1Error } from "../../../flow1/api";
-import { HorseProfileModal } from "../../../flow1/relational/HorseProfileModal";
+import {
+  type Horse,
+  type PassportStatus,
+  type MedicalStatus,
+} from "../../data/horseMockData";
+
 import "./MyHorsesPage.css";
 
 type HorseFilter =
@@ -19,15 +23,62 @@ type HorseFilter =
   | "complete"
   | "missing";
 
-type Horse={id:string;name:string;breed:string;sex:string;age:number|null;microchip:string;hasDocuments:boolean;record:HorseRecord;passportStatus:string;medicalStatus:string;profileStatus:string};
-const getPassportClass=(status:string)=>"horse-status-text "+(status==="Đã có scan"?"horse-status-green":"horse-status-red");
-const getMedicalClass=()=>"horse-status-text";
-const hasMissingDocuments=(horse:Horse)=>!horse.hasDocuments;
+function getPassportClass(
+  status: PassportStatus
+) {
+  switch (status) {
+    case "Valid":
+      return "horse-status-text horse-status-green";
+
+    case "Expiring Soon":
+      return "horse-status-text horse-status-yellow";
+
+    case "Expired":
+    case "Missing":
+      return "horse-status-text horse-status-red";
+
+    default:
+      return "horse-status-text";
+  }
+}
+
+function getMedicalClass(
+  status: MedicalStatus
+) {
+  switch (status) {
+    case "Complete":
+      return "horse-status-text horse-status-green";
+
+    case "Action Needed":
+    case "Missing":
+      return "horse-status-text horse-status-red";
+
+    default:
+      return "horse-status-text";
+  }
+}
+
+function hasMissingDocuments(
+  horse: Horse
+) {
+  return (
+    horse.profileStatus !== "Complete" ||
+    horse.passportStatus === "Missing" ||
+    horse.passportStatus === "Expired" ||
+    horse.medicalStatus !== "Complete"
+  );
+}
+
 function MyHorsesPage() {
-  const [rows,setRows]=useState<HorseRecord[]>([]);const [error,setError]=useState("");const [modal,setModal]=useState<{horse?:HorseRecord;edit:boolean}|null>(null);
-  const reload=async()=>setRows(await relational.horses());
-  useEffect(()=>{let active=true;relational.horses().then(v=>{if(active)setRows(v);}).catch(e=>{if(active)setError(flow1Error(e));});return()=>{active=false;};},[]);
-  const horses=useMemo(()=>rows.map(h=>({id:h.horseId,name:h.name,breed:h.breed||"—",sex:h.sex||"—",age:h.dob?Math.max(0,new Date().getFullYear()-new Date(h.dob).getFullYear()):null,microchip:h.microchipIso,hasDocuments:h.hasDocuments,passportStatus:h.hasDocuments?"Đã có scan":"Thiếu scan",medicalStatus:"Chưa xác minh",profileStatus:h.hasDocuments?"Complete":"Incomplete",record:h})),[rows]);
+
+  const [horses, setHorses] = useState<Horse[]>([]);
+  useEffect(() => { let active = true; const urls: string[] = [];
+    relational.horses().then(async rows => {
+      const cards = await Promise.all(rows.map(async h => { let photo: string | undefined; if (h.hasDocuments) { try { photo = await relational.pdfUrl(`/customer/horses/${h.horseId}/files/photo`); urls.push(photo); } catch { /* No public-file fallback. */ } }
+        return { id: h.horseId, name: h.name, breed: h.breed || '—', sex: h.sex || '—', age: h.dob ? Math.max(0, new Date().getFullYear() - new Date(h.dob).getFullYear()) : null, microchip: h.microchipIso, photo, profileStatus: 'Needs Attention' as const, passportStatus: h.hasDocuments ? 'Đã có scan' as const : 'Missing' as const, medicalStatus: 'Chưa xác minh' as const, transportCount: 0 };
+      })); if (active) setHorses(cards); else urls.forEach(URL.revokeObjectURL);
+    }).catch(e => { if (active) window.alert(flow1Error(e)); }); return () => { active = false; urls.forEach(URL.revokeObjectURL); };
+  }, []);
 
   const [search, setSearch] =
     useState("");
@@ -71,11 +122,11 @@ function MyHorsesPage() {
         matchesFilter
       );
     });
-  }, [horses, search, filter]);
+  }, [search, filter, horses]);
 
   return (
     <CustomerLayout pageTitle="Ngựa của tôi">
-      <div className="my-horses-page">{error&&<p role="alert">{error}</p>}
+      <div className="my-horses-page">
         {/* Header */}
         <div className="my-horses-header">
           <div>
@@ -86,8 +137,8 @@ function MyHorsesPage() {
           </div>
 
           <button
-            aria-label="Thêm ngựa" className="add-horse-button"
-            onClick={()=>setModal({edit:true})}
+            className="add-horse-button"
+            onClick={() => alert("Tính năng thêm ngựa mới sẽ mở form tạo hồ sơ.")}
           >
             <span>+</span>
             Thêm ngựa
@@ -185,7 +236,16 @@ function MyHorsesPage() {
                   >
                     {/* Photo */}
                     <div className="horse-photo">
-                      <HorsePhoto horse={horse.record}/>
+                      {horse.photo ? (
+                        <img
+                          src={horse.photo}
+                          alt={horse.name}
+                        />
+                      ) : (
+                        <span>
+                          Ảnh ngựa
+                        </span>
+                      )}
 
                       {needsAttention && (
                         <span className="horse-warning-badge">
@@ -211,7 +271,7 @@ function MyHorsesPage() {
                         {" • "}
                         {horse.sex}
                         {" • "}
-                        {horse.age??"—"} Tuổi
+                        {horse.age} Tuổi
                       </p>
 
                       <div className="horse-info-box">
@@ -248,7 +308,9 @@ function MyHorsesPage() {
                           </span>
 
                           <strong
-                            className={getMedicalClass()}
+                            className={getMedicalClass(
+                              horse.medicalStatus
+                            )}
                           >
                             {
                               horse.medicalStatus
@@ -256,7 +318,23 @@ function MyHorsesPage() {
                           </strong>
                         </div>
 
-                        <div className="horse-usage"><strong>{horse.record.selectable?"Có thể chọn khi lịch phù hợp":"Cần bổ sung hồ sơ"}</strong></div>
+                        <div className="horse-usage">
+                          <strong>
+                            {horse.transportCount >
+                            0
+                              ? `Đã dùng trong ${horse.transportCount} chuyến vận chuyển`
+                              : "Chưa tham gia chuyến vận chuyển nào"}
+                          </strong>
+
+                          {horse.lastRoute && (
+                            <span>
+                              Gần nhất:{" "}
+                              {
+                                horse.lastRoute
+                              }
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Actions */}
@@ -264,7 +342,7 @@ function MyHorsesPage() {
                         <button
                           className="horse-primary-action"
                           onClick={() =>
-                            setModal({horse:horse.record,edit:false})
+                            window.alert("Main chưa có trang chi tiết hồ sơ ngựa. Cần teammate frontend bổ sung.")
                           }
                         >
                           Xem chi tiết
@@ -274,7 +352,7 @@ function MyHorsesPage() {
                           <button
                             className="horse-warning-action"
                             onClick={() =>
-                              setModal({horse:horse.record,edit:true})
+                              window.alert("Main chưa có form sửa hồ sơ ngựa. Cần teammate frontend bổ sung.")
                             }
                           >
                             Bổ sung hồ sơ
@@ -283,7 +361,7 @@ function MyHorsesPage() {
                           <button
                             className="horse-secondary-action"
                             onClick={() =>
-                              setModal({horse:horse.record,edit:true})
+                              window.alert("Main chưa có form sửa hồ sơ ngựa. Cần teammate frontend bổ sung.")
                             }
                           >
                             Chỉnh sửa
@@ -302,10 +380,8 @@ function MyHorsesPage() {
           </div>
         )}
       </div>
-      {modal&&<HorseProfileModal horse={modal.horse} edit={modal.edit} close={()=>setModal(null)} reload={reload}/>}
     </CustomerLayout>
   );
 }
 
 export default MyHorsesPage;
-function HorsePhoto({horse}:{horse:HorseRecord}){const [src,setSrc]=useState("");useEffect(()=>{if(!horse.hasDocuments)return;let active=true;let url="";relational.pdfUrl(`/customer/horses/${horse.horseId}/files/photo`).then(v=>{url=v;if(active)setSrc(v);else URL.revokeObjectURL(v);}).catch(()=>{});return()=>{active=false;if(url)URL.revokeObjectURL(url);};},[horse.horseId,horse.version,horse.hasDocuments]);return src?<img src={src} alt={horse.name}/>:<span>Ảnh ngựa</span>;}

@@ -1,6 +1,5 @@
+import { flow1Error } from "../../../../flow1/api";
 import React, { useState, useMemo } from 'react';
-import { download } from '../../../../flow1/relational/api';
-import { flow1Error } from '../../../../flow1/api';
 import type {
   TransportRequestItem,
   ManagerNav,
@@ -27,7 +26,6 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
   onNavigate,
   initialSelectedId,
 }) => {
-  const [documentError,setDocumentError]=useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusTab, setStatusTab] = useState<string>('ALL');
   const [routeFilter, setRouteFilter] = useState<string>('ALL');
@@ -100,17 +98,17 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
 
   const handleConfirmAccept = async () => {
     if (!selectedRequest) return;
-    try{await onAcceptRequest(selectedRequest.id, acceptNote);handleCloseReview();}catch{/* Error is displayed by the portal. */}
+    try { await onAcceptRequest(selectedRequest.id, acceptNote); handleCloseReview(); } catch (e) { window.alert(flow1Error(e)); }
   };
 
   const handleConfirmRevision = async () => {
     if (!selectedRequest) return;
-    try{await onRequestRevision(selectedRequest.id, revisionReason, revisionDate);handleCloseReview();}catch{/* Portal error. */}
+    try { await onRequestRevision(selectedRequest.id, revisionReason, revisionDate); handleCloseReview(); } catch (e) { window.alert(flow1Error(e)); }
   };
 
   const handleConfirmReject = async () => {
     if (!selectedRequest) return;
-    try{await onRejectRequest(selectedRequest.id, rejectReasonGroup, rejectReason);handleCloseReview();}catch{/* Portal error. */}
+    try { await onRejectRequest(selectedRequest.id, rejectReasonGroup, rejectReason); handleCloseReview(); } catch (e) { window.alert(flow1Error(e)); }
   };
 
   return (
@@ -390,7 +388,6 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                 </div>
               </div>
 
-              {documentError&&<p role="alert">{documentError}</p>}
               {/* Special requirements */}
               {selectedRequest.specialRequirements && (
                 <div className="special-req-box">
@@ -420,37 +417,37 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                     <tbody>
                       {selectedRequest.horses.map((horse) => (
                         <tr key={horse.id}>
-                          <td className="font-semibold">{horse.name}<div className="flow1-action-row">{["photo","passport"].map(kind=><button className="text-link-action" type="button" key={kind} onClick={()=>download(`/manager/requests/${selectedRequest.id}/horses/${horse.id}/files/${kind}`,kind).catch(e=>setDocumentError(flow1Error(e)))}>{kind==="photo"?"Xem ảnh":"Xem scan"}</button>)}</div></td>
+                          <td className="font-semibold">{horse.name}</td>
                           <td>
-                            {horse.breed} • {horse.age ?? "—"} tuổi
+                            {horse.breed} • {horse.age} tuổi
                           </td>
                           <td className="font-mono text-xs">{horse.microchipId}</td>
                           <td>
                             {horse.documents.passport ? (
                               <span className="doc-check-ok">✓ Đã nộp</span>
                             ) : (
-                              <span className="doc-check-missing">— Chưa có dữ liệu</span>
+                              <span className="doc-check-missing">✗ Chưa nộp</span>
                             )}
                           </td>
                           <td>
                             {horse.documents.quarantineCert ? (
                               <span className="doc-check-ok">✓ Đã nộp</span>
                             ) : (
-                              <span className="doc-check-missing">— Chưa có dữ liệu</span>
+                              <span className="doc-check-missing">✗ Chưa nộp</span>
                             )}
                           </td>
                           <td>
                             {horse.documents.bloodTest ? (
                               <span className="doc-check-ok">✓ Đã nộp</span>
                             ) : (
-                              <span className="doc-check-missing">— Chưa có dữ liệu</span>
+                              <span className="doc-check-missing">✗ Chưa nộp</span>
                             )}
                           </td>
                           <td>
                             {horse.documents.ownershipCert ? (
                               <span className="doc-check-ok">✓ Đã nộp</span>
                             ) : (
-                              <span className="doc-check-missing">— Chưa có dữ liệu</span>
+                              <span className="doc-check-missing">✗ Chưa nộp</span>
                             )}
                           </td>
                         </tr>
@@ -470,21 +467,21 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                       <button
                         type="button"
                         className="btn-decision btn-accept"
-                        disabled={!['PENDING','ACCEPTED'].includes(selectedRequest.status)} onClick={() => setDecisionMode('ACCEPT')}
+                        onClick={() => setDecisionMode('ACCEPT')}
                       >
                         ✓ Chấp nhận (Accept)
                       </button>
                       <button
                         type="button"
                         className="btn-decision btn-revision"
-                        disabled={!['PENDING','ACCEPTED'].includes(selectedRequest.status)} onClick={() => setDecisionMode('REVISION')}
+                        onClick={() => setDecisionMode('REVISION')}
                       >
                         ✎ Yêu cầu điều chỉnh (Request Changes)
                       </button>
                       <button
                         type="button"
                         className="btn-decision btn-reject"
-                        disabled={!['PENDING','ACCEPTED','CHANGES_REQUESTED'].includes(selectedRequest.status)} onClick={() => setDecisionMode('REJECT')}
+                        onClick={() => setDecisionMode('REJECT')}
                       >
                         ✕ Từ chối đơn (Reject)
                       </button>
@@ -500,7 +497,7 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                       <p className="text-sm text-slate-600 mb-3">
                         Sau khi chấp nhận, yêu cầu sẽ chuyển sang trạng thái <strong>ACCEPTED</strong> để tiến hành lập Hợp đồng nháp & phát hành báo giá chính thức.
                       </p>
-                      <label className="form-label">Ghi chú phê duyệt (Không bắt buộc):</label>
+                      <label className="form-label">Ghi chú phê duyệt:</label>
                       <input
                         type="text"
                         className="text-input mb-3"

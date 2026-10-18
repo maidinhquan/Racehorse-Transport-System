@@ -1,5 +1,7 @@
 # Flow1 — khôi phục giao diện frontend main
 
+> **Đã được thay thế về frontend theo quyết định trực tiếp19/10/2026:** lấy source main gốc, chỉ nối dữ liệu/thao tác có sẵn, không giữ page/modal tự tạo. Xem [FLOW1_MAIN_FRONTEND_HANDOFF.md](FLOW1_MAIN_FRONTEND_HANDOFF.md). Kết quả E2E trong báo cáo này là lịch sử của UI trước, không phải nghiệm thu UI main hiện hành.
+
 Ngày18/10/2026, nhánh `Truong`, thư mục chính `D:\Racehorse-Transport-System`.
 Baseline trước sửa: `46e1371d5570ffd96c16d81d508894ac61b17779`.
 Nguồn thiết kế: `origin/main@ed520cad5b7ad4b975e79c3b4830bcdf733ec2d4`.

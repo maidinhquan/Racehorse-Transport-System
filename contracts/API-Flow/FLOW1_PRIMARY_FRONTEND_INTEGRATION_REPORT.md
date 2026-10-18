@@ -1,5 +1,7 @@
 # Flow 1 — primary merge và frontend main, 18/10/2026
 
+> **Đã được thay thế về frontend theo quyết định trực tiếp19/10/2026:** lấy source main gốc, chỉ nối dữ liệu/thao tác có sẵn, không giữ page/modal tự tạo. Xem [FLOW1_MAIN_FRONTEND_HANDOFF.md](FLOW1_MAIN_FRONTEND_HANDOFF.md). Kết quả E2E trong báo cáo này là lịch sử của UI trước, không phải nghiệm thu UI main hiện hành.
+
 > Cập nhật UI: đại ca yêu cầu giữ thiết kế frontend main. Xem [báo cáo khôi phục UI](FLOW1_UI_RESTORATION_REPORT.md); các màn hình tối giản ở mốc46e1371 được thay bằng bố cục/card/table/modal của main nối API thật.
 
 ## Kết quả và phạm vi

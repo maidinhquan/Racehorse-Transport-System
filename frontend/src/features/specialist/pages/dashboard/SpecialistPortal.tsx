@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import './SpecialistPortal.css';
-import { OperationsInbox } from '../../../flow1/relational/Pages';
-import { Notifications } from '../../../flow1/relational/Notifications';
 import type {
   SpecialistNav,
   SpecialistTrip,
@@ -41,11 +39,10 @@ import {
 
 interface SpecialistPortalProps {
   initialNav?: SpecialistNav;
-  flow1?: boolean;
 }
 
 export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
-  initialNav = 'dashboard', flow1 = false
+  initialNav = 'dashboard'
 }) => {
   // Navigation & selection state
   const [activeNav, setActiveNav] = useState<SpecialistNav>(initialNav);
@@ -67,7 +64,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
   // App UI state
   const [lang, setLang] = useState<'vi' | 'en'>('vi');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   // Modals state
   const [isCreateReqModalOpen, setIsCreateReqModalOpen] = useState(false);
@@ -104,7 +101,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
     const newEntry: AuditItem = {
       id: `AUD-${Date.now()}`,
       at: new Date().toISOString().slice(0, 16).replace('T', ' '),
-      actor: '{localStorage.getItem("userFullName")||"Specialist"}',
+      actor: 'Hoàng Thu Hà',
       role: 'Transport Specialist',
       action,
       entity,
@@ -157,7 +154,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
             decision: 'APPROVED' as const,
             remark,
             at: new Date().toISOString().slice(0, 16).replace('T', ' '),
-            by: '{localStorage.getItem("userFullName")||"Specialist"}'
+            by: 'Hoàng Thu Hà'
           }
         ]
       };
@@ -205,7 +202,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
             decision: 'REJECTED' as const,
             remark: reason,
             at: new Date().toISOString().slice(0, 16).replace('T', ' '),
-            by: '{localStorage.getItem("userFullName")||"Specialist"}'
+            by: 'Hoàng Thu Hà'
           }
         ]
       };
@@ -231,7 +228,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
         {
           at: new Date().toISOString().slice(0, 16).replace('T', ' '),
           action: `Chuyên viên từ chối phiên bản v${latestV} và yêu cầu khách hàng bổ sung lại.`,
-          by: '{localStorage.getItem("userFullName")||"Specialist"}'
+          by: 'Hoàng Thu Hà'
         }
       ]
     };
@@ -291,7 +288,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
         {
           at: new Date().toISOString().slice(0, 16).replace('T', ' '),
           action: 'Tạo yêu cầu bổ sung mới',
-          by: '{localStorage.getItem("userFullName")||"Specialist"}'
+          by: 'Hoàng Thu Hà'
         }
       ]
     };
@@ -323,7 +320,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
           v: 1,
           file: cbnFileName,
           at: new Date().toISOString().slice(0, 16).replace('T', ' '),
-          by: '{localStorage.getItem("userFullName")||"Specialist"}'
+          by: 'Hoàng Thu Hà'
         }
       ],
       reviews: [
@@ -332,7 +329,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
           decision: 'APPROVED',
           remark: 'CBN đã nhận bản cấp phép chính thức từ cơ quan quản lý.',
           at: new Date().toISOString().slice(0, 16).replace('T', ' '),
-          by: '{localStorage.getItem("userFullName")||"Specialist"}'
+          by: 'Hoàng Thu Hà'
         }
       ]
     };
@@ -439,7 +436,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
       history: [
         {
           at: new Date().toISOString().slice(0, 16).replace('T', ' '),
-          by: '{localStorage.getItem("userFullName")||"Specialist"}',
+          by: 'Hoàng Thu Hà',
           text: 'Khởi tạo gói hồ sơ mới'
         }
       ]
@@ -610,13 +607,64 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
               </button>
             </div>
 
-            <Notifications variant="manager"/>
+            {/* NOTIFICATIONS BELL */}
+            <div className="notif-bell-container">
+              <button
+                type="button"
+                className="icon-circle-btn"
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                title="Thông báo hệ thống"
+              >
+                <span className="bell-badge-num">8</span>
+                <svg className="i" viewBox="0 0 24 24">
+                  <path d="M6 9a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7zM10 20a2 2 0 0 0 4 0" />
+                </svg>
+              </button>
+
+              {/* NOTIFICATION DROPDOWN (matching Image 1 / Image 2) */}
+              {isNotifOpen && (
+                <div className="notif-dropdown-card fade-in">
+                  <div className="notif-drop-head">
+                    <b>Thông báo nghiệp vụ</b>
+                    <span className="pill-badge pill-amber">8 chưa đọc</span>
+                  </div>
+                  <div className="notif-drop-list">
+                    <div className="notif-drop-item" onClick={() => { setSelectedTripId('TRP-902'); setActiveNav('trip_detail'); setIsNotifOpen(false); }}>
+                      <span className="notif-dot-sm dot-red" />
+                      <div>
+                        <div className="notif-item-title">Khách hàng bổ sung Giấy kiểm dịch v2</div>
+                        <div className="notif-item-sub">Chuyến TRP-902 • Shadowfax có bản có mộc đỏ</div>
+                      </div>
+                    </div>
+                    <div className="notif-drop-item" onClick={() => { setSelectedTripId('TRP-904'); setActiveNav('trip_detail'); setIsNotifOpen(false); }}>
+                      <span className="notif-dot-sm dot-amber" />
+                      <div>
+                        <div className="notif-item-title">3 chứng từ mới nộp cho TRP-904</div>
+                        <div className="notif-item-sub">Lanna Spirit • Hộ chiếu FEI, Giấy kiểm dịch và Giấy quá cảnh</div>
+                      </div>
+                    </div>
+                    <div className="notif-drop-item" onClick={() => { setSelectedTripId('TRP-901'); setActiveNav('trip_detail'); setIsNotifOpen(false); }}>
+                      <span className="notif-dot-sm dot-green" />
+                      <div>
+                        <div className="notif-item-title">TRP-901 thông quan Mộc Bài đạt</div>
+                        <div className="notif-item-sub">Xe VH-12 và cá thể Thunderbolt đã xuất cảnh an toàn</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="notif-drop-foot">
+                    <button type="button" className="link-btn" onClick={() => setIsNotifOpen(false)}>
+                      Đóng
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* USER PROFILE PILL */}
             <div className="user-profile-pill">
               <span className="user-avatar-circle">HH</span>
               <div className="user-info-text">
-                <span className="user-real-name">{localStorage.getItem("userFullName")||"Specialist"}</span>
+                <span className="user-real-name">Hoàng Thu Hà</span>
                 <span className="user-role-label">Transport Specialist</span>
               </div>
               <Icon name="chev" />
@@ -633,8 +681,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
 
         {/* VIEW AREA DELEGATED TO INDIVIDUAL RENDER PAGES */}
         <main className="specialist-content-canvas">
-          {flow1&&activeNav==='dashboard'&&<OperationsInbox stream="DOCUMENTS" portal/>}
-          {!flow1&&activeNav === 'dashboard' && (
+          {activeNav === 'dashboard' && (
             <RenderDashboardPage
               trips={trips}
               docs={docs}
@@ -673,7 +720,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
               lang={lang}
               onBack={() => setActiveNav('trips')}
               onOpenDocReview={(id) => setSelectedDocId(id)}
-              onOpenCreateRequest={(tId, dTypeId) => {
+              onOpenCreateRequest={(tId, dTypeId, _hId) => {
                 setModalTripId(tId);
                 if (dTypeId) setModalTypeId(dTypeId);
                 setIsCreateReqModalOpen(true);

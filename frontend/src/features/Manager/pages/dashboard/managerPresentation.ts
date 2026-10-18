@@ -1,10 +1,10 @@
 import type { Request } from "../../../flow1/relational/api";
-import { currentContract, date } from "../../../flow1/relational/presentation";
+import { selectedContract, date } from "../../../flow1/relational/mainBindings";
 import type { TransportRequestItem, RequestStatus } from "./views/manager.types";
 
 const labels: Record<string, string> = { PENDING: "Chờ xét duyệt", ACCEPTED: "Đã chấp nhận – Đang soạn hợp đồng", CHANGES_REQUESTED: "Yêu cầu điều chỉnh", AWAITING_SIGNATURE: "Chờ khách ký OTP", AWAITING_DEPOSIT: "Chờ cọc", DRAFT_CONTRACT: "Đang soạn hợp đồng", ACTIVATED: "Đã kích hoạt", REJECTED: "Đã từ chối", CANCELLED: "Đã hủy" };
 export function managerRequest(r: Request): TransportRequestItem {
-  const c = currentContract(r); const days = r.departureAt ? Math.ceil((Date.parse(r.departureAt) - Date.now()) / 86400000) : 0;
+  const c = selectedContract(r); const days = r.departureAt ? Math.ceil((Date.parse(r.departureAt) - Date.now()) / 86400000) : 0;
   return { id: r.requestId, customerName: r.customerName || "—", email: r.customerEmail || "—", contactPerson: r.pickupContactName || "—", phone: r.pickupContactPhone || "—",
     originCountry: r.input?.trip.pickup.country || "—", destinationCountry: r.input?.trip.delivery.country || "—", originCity: r.departure, destinationCity: r.destination, routeDisplay: r.departure + " → " + r.destination,
     departureDate: date(r.departureAt), departureDateRaw: r.departureAt?.slice(0, 10) || "", daysRemaining: days, daysRemainingText: r.departureAt ? `còn ${days} ngày` : "—", deliveryDeadline: date(r.deliveryAt), transportMode: r.input?.trip.preferredTransportMode === "AIR" ? "AIR" : "ROAD",

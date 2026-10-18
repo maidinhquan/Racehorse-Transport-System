@@ -4,12 +4,14 @@ export type HorseProfileStatus =
   | "Incomplete";
 
 export type PassportStatus =
+  | "Đã có scan"
   | "Valid"
   | "Expiring Soon"
   | "Expired"
   | "Missing";
 
 export type MedicalStatus =
+  | "Chưa xác minh"
   | "Complete"
   | "Action Needed"
   | "Missing";
@@ -19,7 +21,7 @@ export interface Horse {
   name: string;
   breed: string;
   sex: string;
-  age: number;
+  age: number | null;
 
   microchip: string;
 
