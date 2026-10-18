@@ -37,4 +37,23 @@ namespace Application.DTOs
         public string Folder { get; set; } = string.Empty;
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
     }
+
+    public class SingleFileUploadDto
+    {
+        public Microsoft.AspNetCore.Http.IFormFile File { get; set; } = null!;
+        public string? SubFolder { get; set; } = "documents";
+        public string? CustomFileName { get; set; }
+    }
+
+    public class BatchFileUploadDto
+    {
+        public List<Microsoft.AspNetCore.Http.IFormFile> Files { get; set; } = new();
+        public string? SubFolder { get; set; } = "dossiers";
+    }
+
+    public class EntityFileUploadDto
+    {
+        public Microsoft.AspNetCore.Http.IFormFile File { get; set; } = null!;
+    }
 }
+

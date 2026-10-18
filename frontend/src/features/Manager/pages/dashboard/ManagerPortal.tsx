@@ -59,7 +59,49 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
   }, [location.pathname]);
 
   // Global Mock States
-  const [requests, setRequests] = useState<TransportRequestItem[]>(INITIAL_REQUESTS);
+  const [requests, setRequests] = useState<TransportRequestItem[]>(() => {
+    const isSubmitted = localStorage.getItem('cbn_japan_dossier_submitted') === 'true';
+    if (isSubmitted) {
+      return INITIAL_REQUESTS.map((r) => {
+        if (r.id === 'TRN-8930' || r.destinationCountry === 'JP') {
+          return {
+            ...r,
+            status: 'PENDING',
+            statusLabel: 'Chờ duyệt • Hồ sơ mới nộp từ Khách hàng',
+            createdAt: 'Hôm nay ' + (localStorage.getItem('cbn_japan_dossier_submitted_at') ? new Date(localStorage.getItem('cbn_japan_dossier_submitted_at')!).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '09:15'),
+          };
+        }
+        return r;
+      });
+    }
+    return INITIAL_REQUESTS;
+  });
+
+  useEffect(() => {
+    const syncSubmittedDossier = () => {
+      const isSubmitted = localStorage.getItem('cbn_japan_dossier_submitted') === 'true';
+      if (isSubmitted) {
+        setRequests((prev) =>
+          prev.map((r) => {
+            if ((r.id === 'TRN-8930' || r.destinationCountry === 'JP') && !r.statusLabel.includes('Hồ sơ mới')) {
+              return {
+                ...r,
+                status: 'PENDING',
+                statusLabel: 'Chờ duyệt • Hồ sơ mới nộp từ Khách hàng',
+              };
+            }
+            return r;
+          })
+        );
+      }
+    };
+    window.addEventListener('storage', syncSubmittedDossier);
+    const interval = setInterval(syncSubmittedDossier, 1500);
+    return () => {
+      window.removeEventListener('storage', syncSubmittedDossier);
+      clearInterval(interval);
+    };
+  }, []);
   const [contracts, setContracts] = useState<ContractItem[]>(INITIAL_CONTRACTS);
   const [transactions, setTransactions] = useState<BankTransferTransaction[]>(
     INITIAL_BANK_TRANSACTIONS

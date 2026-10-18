@@ -32,6 +32,9 @@ interface JapanRouteModuleProps {
   onSave?: (data: JapanRoutePackageData) => void;
   onSubmitToAqs?: (data: JapanRoutePackageData) => void;
   isReadOnly?: boolean;
+  initialRole?: 'customer' | 'staff';
+  hideRoleSwitcher?: boolean;
+  onCustomerSubmitted?: (data: JapanRoutePackageData) => void;
 }
 
 export type JapanRouteTab =
@@ -48,17 +51,24 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
   onSave,
   onSubmitToAqs,
   isReadOnly = false,
+  initialRole = 'customer',
+  hideRoleSwitcher = false,
+  onCustomerSubmitted,
 }) => {
   // 1. Tuyến Đường (Nơi Đi / Nơi Đến)
   const [originCountry, setOriginCountry] = useState<string>('Việt Nam');
   const [destinationCountry, setDestinationCountry] = useState<string>('Nhật Bản');
 
   // 2. Phân Hệ Luồng (Khách Hàng vs Nhân Viên)
-  const [activeRole, setActiveRole] = useState<'customer' | 'staff'>('customer');
-  const [isSubmittedByCustomer, setIsSubmittedByCustomer] = useState<boolean>(false);
+  const [activeRole, setActiveRole] = useState<'customer' | 'staff'>(initialRole);
+  const [isSubmittedByCustomer, setIsSubmittedByCustomer] = useState<boolean>(() => {
+    return localStorage.getItem('cbn_japan_dossier_submitted') === 'true' || initialRole === 'staff';
+  });
   const [submitSuccessModal, setSubmitSuccessModal] = useState<boolean>(false);
 
-  const [activeTab, setActiveTab] = useState<JapanRouteTab>('vn_quarantine');
+  const [activeTab, setActiveTab] = useState<JapanRouteTab>(
+    initialRole === 'staff' ? 'vn_customs' : 'vn_quarantine'
+  );
 
   // Zoom Modal State
   const [zoomModal, setZoomModal] = useState<{
@@ -655,6 +665,14 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
       }));
     }
 
+    const currentPackage = compilePackageData();
+    localStorage.setItem('cbn_japan_dossier_data', JSON.stringify(currentPackage));
+    localStorage.setItem('cbn_japan_dossier_submitted', 'true');
+    localStorage.setItem('cbn_japan_dossier_submitted_at', new Date().toISOString());
+    if (onCustomerSubmitted) {
+      onCustomerSubmitted(currentPackage);
+    }
+
     setSubmitSuccessModal(true);
   };
 
@@ -750,39 +768,41 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
           </div>
 
           {/* 2. THANH CHỌN PHÂN HỆ LUỒNG (KHÁCH HÀNG VS NHÂN VIÊN) */}
-          <div className="jp-role-switcher-container">
-            <button
-              type="button"
-              className={`jp-role-tab-btn ${activeRole === 'customer' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveRole('customer');
-                if (activeTab !== 'vn_quarantine' && activeTab !== 'vn_customs') {
-                  setActiveTab('vn_quarantine');
-                }
-              }}
-            >
-              <span>👤 1. PHÂN HỆ KHÁCH HÀNG (Khai Báo & Nộp Hồ Sơ Ban Đầu)</span>
-              {isSubmittedByCustomer && (
-                <span className="jp-role-pill-badge jp-pill-success">✓ Đã Gửi Cho Nhân Viên</span>
-              )}
-            </button>
+          {!hideRoleSwitcher && (
+            <div className="jp-role-switcher-container">
+              <button
+                type="button"
+                className={`jp-role-tab-btn ${activeRole === 'customer' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveRole('customer');
+                  if (activeTab !== 'vn_quarantine' && activeTab !== 'vn_customs') {
+                    setActiveTab('vn_quarantine');
+                  }
+                }}
+              >
+                <span>👤 1. PHÂN HỆ KHÁCH HÀNG (Khai Báo & Nộp Hồ Sơ Ban Đầu)</span>
+                {isSubmittedByCustomer && (
+                  <span className="jp-role-pill-badge jp-pill-success">✓ Đã Gửi Cho Nhân Viên</span>
+                )}
+              </button>
 
-            <button
-              type="button"
-              className={`jp-role-tab-btn ${activeRole === 'staff' ? 'active' : ''}`}
-              onClick={() => {
-                setActiveRole('staff');
-                if (activeTab === 'vn_quarantine') {
-                  setActiveTab('vn_customs');
-                }
-              }}
-            >
-              <span>👨‍💼 2. PHÂN HỆ NHÂN VIÊN (Tiếp Nhận & Hoàn Tất Thủ Tục)</span>
-              {isSubmittedByCustomer && (
-                <span className="jp-role-pill-badge jp-pill-alert">1 Hồ Sơ Đã Nhận</span>
-              )}
-            </button>
-          </div>
+              <button
+                type="button"
+                className={`jp-role-tab-btn ${activeRole === 'staff' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveRole('staff');
+                  if (activeTab === 'vn_quarantine') {
+                    setActiveTab('vn_customs');
+                  }
+                }}
+              >
+                <span>👨‍💼 2. PHÂN HỆ NHÂN VIÊN (Tiếp Nhận & Hoàn Tất Thủ Tục)</span>
+                {isSubmittedByCustomer && (
+                  <span className="jp-role-pill-badge jp-pill-alert">1 Hồ Sơ Đã Nhận</span>
+                )}
+              </button>
+            </div>
+          )}
 
           {/* BANNER THÔNG BÁO CHO NHÂN VIÊN KHI ĐÃ CÓ HỒ SƠ KHÁCH HÀNG */}
           {activeRole === 'staff' && isSubmittedByCustomer && (
@@ -1189,17 +1209,19 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
           >
             Đóng
           </button>
-          <button
-            type="button"
-            className="jp-btn-primary"
-            onClick={() => {
-              setSubmitSuccessModal(false);
-              setActiveRole('staff');
-              setActiveTab('vn_customs');
-            }}
-          >
-            Chuyển Sang Xem Phân Hệ Nhân Viên ➔
-          </button>
+          {!hideRoleSwitcher && (
+            <button
+              type="button"
+              className="jp-btn-primary"
+              onClick={() => {
+                setSubmitSuccessModal(false);
+                setActiveRole('staff');
+                setActiveTab('vn_customs');
+              }}
+            >
+              Chuyển Sang Xem Phân Hệ Nhân Viên ➔
+            </button>
+          )}
         </div>
       </div>
     </div>

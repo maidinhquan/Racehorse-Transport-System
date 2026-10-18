@@ -61,6 +61,10 @@ services:
       RegistrationEmail__Smtp__Password: "${SMTP_PASSWORD}"
       RegistrationEmail__Smtp__From: "${SMTP_USERNAME}"
       RegistrationEmail__Smtp__EnableSsl: "true"
+      Cloudinary__CloudName: "${CLOUDINARY_CLOUD_NAME:-racehorse-cloud}"
+      Cloudinary__ApiKey: "${CLOUDINARY_API_KEY:-569485891334698}"
+      Cloudinary__ApiSecret: "${CLOUDINARY_API_SECRET:-racehorse_secret_cloudinary_key_2026}"
+      Cloudinary__FolderPrefix: "${CLOUDINARY_FOLDER_PREFIX:-racehorse_system}"
     depends_on:
       db:
         condition: service_healthy

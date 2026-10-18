@@ -215,6 +215,8 @@ function DocumentsStep({
         return (
           <div style={{ marginTop: "32px", borderTop: "2px dashed #e2e8f0", paddingTop: "24px" }}>
             <JapanRouteModule
+              hideRoleSwitcher={true}
+              initialRole="customer"
               initialData={{
                 horseMedicalProfile: selectedHorseObj
                   ? {

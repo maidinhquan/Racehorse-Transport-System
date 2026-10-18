@@ -125,7 +125,7 @@ function AppRouter() {
           path="/japan-route"
           element={
             <CustomerLayout pageTitle="Hồ sơ Kiểm dịch Tuyến Nhật Bản (AQS MAFF)">
-              <JapanRouteModule />
+              <JapanRouteModule hideRoleSwitcher={true} initialRole="customer" />
             </CustomerLayout>
           }
         />
