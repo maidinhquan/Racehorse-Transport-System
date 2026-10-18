@@ -106,6 +106,7 @@ function AppRouter() {
         <Route path="/customer/requests/new" element={<CreateTransportRequestPage />} />
         <Route path="/customer/requests/:requestId" element={<TransportRequestDetailPage />} />
         <Route path="/customer/requests/:requestId/information" element={<TransportInformationPage />} />
+        <Route path="/customer/requests/:requestId/transport-information" element={<TransportInformationPage />} />
         <Route path="/customer/requests/:requestId/information/success" element={<TransportInformationSuccessPage />} />
         <Route path="/customer/requests/:requestId/contract" element={<ContractPage />} />
         <Route path="/customer/requests/:requestId/payment" element={<PaymentPage />} />

@@ -25,10 +25,10 @@ function getStatusClass(status: DetailRequestStatus) {
 
     case "Scheduled":
     case "Completed":
+    case "Accepted – Contract Preparation":
       return "detail-status detail-status-green";
 
     case "Contract Ready":
-    case "Accepted – Contract Preparation":
     case "Information Submitted":
     case "Documents Under Review":
       return "detail-status detail-status-blue";
@@ -67,10 +67,10 @@ function getBanner(status: DetailRequestStatus) {
 
     case "Accepted – Contract Preparation":
       return {
-        type: "blue",
-        title: "Request accepted",
+        type: "green",
+        title: "Yêu cầu đã được Quản lý phê duyệt thành công",
         message:
-          "CBN Transport is preparing your service contract.",
+          "Quản lý CBN Transport đã chấp nhận yêu cầu của bạn. Quý khách vui lòng bấm nút bên dưới để tiến hành Điền thông tin vận chuyển chi tiết & Nộp hồ sơ.",
       };
 
     case "Contract Ready":
@@ -91,10 +91,10 @@ function getBanner(status: DetailRequestStatus) {
 
     case "Information Required":
       return {
-        type: "yellow",
-        title: "Transport information required",
+        type: "green",
+        title: "Yêu cầu đã được Quản lý chấp nhận",
         message:
-          "Provide pickup, delivery, horse and document information.",
+          "Vui lòng hoàn tất thông tin điểm đón, điểm trả, cá thể ngựa và tài liệu đính kèm để tiến hành điều phối vận chuyển.",
       };
 
     case "Documents Under Review":
@@ -212,7 +212,30 @@ function TransportRequestDetailPage() {
           {
             id: 1,
             label: "Request Submitted",
-            status: "current" as const,
+            status: "completed" as const,
+          },
+          {
+            id: 2,
+            label: "Manager Review & Approval",
+            status:
+              storedRequest.status === "Waiting for Manager Review"
+                ? ("current" as const)
+                : ("completed" as const),
+          },
+          {
+            id: 3,
+            label: "Provide Transport Information",
+            status:
+              storedRequest.status === "Accepted – Contract Preparation" ||
+              storedRequest.status === "Information Required"
+                ? ("current" as const)
+                : storedRequest.status === "Information Submitted" ||
+                  storedRequest.status === "Documents Under Review" ||
+                  storedRequest.status === "Scheduled" ||
+                  storedRequest.status === "In Transit" ||
+                  storedRequest.status === "Completed"
+                ? ("completed" as const)
+                : ("upcoming" as const),
           },
         ],
 
@@ -247,6 +270,13 @@ function TransportRequestDetailPage() {
 
   const handleCurrentAction = () => {
     switch (request.status) {
+      case "Accepted – Contract Preparation":
+      case "Information Required":
+        navigate(
+          `/customer/requests/${request.id}/information`
+        );
+        break;
+
       case "Contract Ready":
         navigate(
           `/customer/requests/${request.id}/contract`
@@ -256,12 +286,6 @@ function TransportRequestDetailPage() {
       case "Awaiting Deposit":
         navigate(
           `/customer/requests/${request.id}/payment`
-        );
-        break;
-
-      case "Information Required":
-        navigate(
-          `/customer/requests/${request.id}/information`
         );
         break;
 
@@ -282,17 +306,18 @@ function TransportRequestDetailPage() {
 
   const getActionLabel = () => {
     switch (request.status) {
+      case "Accepted – Contract Preparation":
+      case "Information Required":
+        return "Điền thông tin vận chuyển & Hồ sơ ➔";
+
       case "Contract Ready":
         return "View Contract";
 
       case "Awaiting Deposit":
         return "Pay Deposit";
 
-      case "Information Required":
-        return "Complete Transport Information";
-
       case "Documents Under Review":
-        return request.documents.some(
+        return request.documents?.some(
           (document) =>
             document.status === "Action Required"
         )
@@ -350,20 +375,34 @@ function TransportRequestDetailPage() {
         {/* Status banner */}
         <div
           className={`request-banner request-banner-${banner.type}`}
+          style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}
         >
-          <div className="request-banner-icon">
-            i
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div className="request-banner-icon">
+              {banner.type === 'green' ? '✓' : 'i'}
+            </div>
+
+            <div>
+              <strong>
+                {banner.title}
+              </strong>
+
+              <p>
+                {banner.message}
+              </p>
+            </div>
           </div>
 
-          <div>
-            <strong>
-              {banner.title}
-            </strong>
-
-            <p>
-              {banner.message}
-            </p>
-          </div>
+          {(request.status === "Accepted – Contract Preparation" || request.status === "Information Required") && (
+            <button
+              type="button"
+              className="request-action-button"
+              style={{ width: 'auto', margin: 0, padding: '8px 18px', background: '#16a34a', whiteSpace: 'nowrap', fontSize: '13px', fontWeight: 700 }}
+              onClick={handleCurrentAction}
+            >
+              📝 Điền thông tin vận chuyển ngay ➔
+            </button>
+          )}
         </div>
 
         {/* Main */}
