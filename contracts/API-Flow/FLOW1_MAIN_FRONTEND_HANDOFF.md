@@ -1,3 +1,12 @@
+> **Địa chỉ có gợi ý —19/10/2026:** đại ca đã cho phép thay UI riêng hai ô địa chỉ.
+> Wizard dùng AddressAutocomplete: gõ từ3ký tự, chờ450ms, chọn địa điểm trong danh
+> sách trả về từ API hiện hữu. Chọn bằng chuột hoặc ↑/↓/Enter, Escape để đóng.
+> Sửa nội dung/đổi quốc gia phải chọn lại; gửi label/tọa độ đã chọn, không tìm lại
+> khi submit và không tự lấy kết quả đầu tiên. Các phần UI khác giữ nguyên.
+> Frontend30tests/build/scopedlint đạt; API thật VN/JP và module Vite localhost200.
+> Dữ liệu gợi ý phụ thuộc Geoapify; không đảm bảo mọi trại/trường đua đều có trong
+> dữ liệu bản đồ. Không có browser/pixel acceptance mới do Work tắt browser use.
+
 > Cập nhật baseline 19/10/2026: giá trị tổngUSD + upload bổ sung theo ngựa đã có
 > source/test trong [schema007](../../backend/database/README.md).
 > Hai mục đó thay cho phần disabled trong báo cáo lịch sử bên dưới; **đã apply007 và

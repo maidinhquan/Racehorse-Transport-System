@@ -110,7 +110,14 @@ test("original wizard sends versions and owner contact, excludes advisory price,
   const submit = vi.spyOn(relational, "submit").mockRejectedValueOnce(new Error("Retry please")).mockResolvedValue({ ...row, requestId: "saved" });
   render(<MemoryRouter><Routes><Route path="/" element={<CreateRequestWizard />} /><Route path="/customer/requests/saved" element={<p>Saved SQL</p>} /></Routes></MemoryRouter>);
   const dates = document.querySelectorAll('input[type="date"]'); fireEvent.change(dates[0], { target: { value: "2026-11-20" } }); fireEvent.change(dates[1], { target: { value: "2026-11-21" } });
-  await userEvent.click(screen.getByRole("button", { name: "2. Địa chỉ Giao/Nhận" })); const inputs = document.querySelectorAll('.form-grid-2 input'); ['Pickup', 'Delivery', 'Receiver', '0900000001'].forEach((value, i) => fireEvent.change(inputs[i], { target: { value } }));
+  await userEvent.click(screen.getByRole("button", { name: "2. Địa chỉ Giao/Nhận" }));
+  for (const [name, value] of [["Địa chỉ Trại / CLB lấy ngựa", "Pickup"], ["Địa chỉ Trường đua / Trại nhận ngựa", "Delivery"]]) {
+    const input = screen.getByRole('combobox', { name });
+    await userEvent.click(input); fireEvent.change(input, { target: { value } });
+    await userEvent.click(await screen.findByRole('option', { name: value }));
+  }
+  const inputs = document.querySelectorAll('.form-grid-2 input');
+  fireEvent.change(inputs[2], { target: { value: 'Receiver' } }); fireEvent.change(inputs[3], { target: { value: '0900000001' } });
   await userEvent.click(screen.getByRole("button", { name: "3. Chọn Ngựa đua" })); await userEvent.click(await screen.findByText(/SQL horse/)); await userEvent.click(screen.getByRole("button", { name: "4. Hồ sơ & Thương mại" }));
   await userEvent.click(screen.getByRole("button", { name: "Gửi Yêu Cầu Vận Chuyển" })); await screen.findByText(/Retry please/); await userEvent.click(screen.getByRole("button", { name: "Gửi Yêu Cầu Vận Chuyển" })); await screen.findByText("Saved SQL");
   expect(submit.mock.calls[0][1]).toBe(submit.mock.calls[1][1]); const payload = submit.mock.calls[0][0]; expect(payload.horses).toEqual([{ horseId: "owned", version: "hv" }]); expect(payload.pickupContact.phone).toBe("0900000000"); expect(payload).not.toHaveProperty("price"); expect(payload).not.toHaveProperty("commercialValue");

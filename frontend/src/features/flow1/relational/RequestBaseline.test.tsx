@@ -18,13 +18,22 @@ const result = { requestId: "saved", horses, contracts: [], status: "PENDING" } 
 async function wizard(two = true) {
   vi.spyOn(relational, "horses").mockResolvedValue(two ? horses : [horses[0]]);
   vi.mocked(get).mockResolvedValue({ fullName: "Owner", phoneNumber: "0900000000" });
-  vi.spyOn(flow1, "search").mockImplementation(async (address, country) => [{ label: address, point: { latitude: 10, longitude: 106, countryCode: country }, attribution: "Fixture" }]);
+  vi.spyOn(flow1, "search").mockImplementation(async (address, country) => [
+    { label: `Other ${address}`, point: { latitude: 10, longitude: 106, countryCode: country }, attribution: "Fixture" },
+    { label: address, point: { latitude: 12, longitude: 108, countryCode: country }, attribution: "Fixture" },
+  ]);
   render(<MemoryRouter><Routes><Route path="/" element={<CreateRequestWizard />} /><Route path="/customer/requests/saved" element={<p>Saved SQL</p>} /></Routes></MemoryRouter>);
   const dates = document.querySelectorAll('input[type="date"]');
   fireEvent.change(dates[0], { target: { value: "2026-11-20" } }); fireEvent.change(dates[1], { target: { value: "2026-11-21" } });
   await userEvent.click(screen.getByRole("button", { name: "2. Địa chỉ Giao/Nhận" }));
+  for (const [name, value] of [["Địa chỉ Trại / CLB lấy ngựa", "Pickup"], ["Địa chỉ Trường đua / Trại nhận ngựa", "Delivery"]]) {
+    const input = screen.getByRole('combobox', { name });
+    await userEvent.click(input); fireEvent.change(input, { target: { value } });
+    await userEvent.click(await screen.findByRole('option', { name: value }));
+  }
   const inputs = document.querySelectorAll('.form-grid-2 input');
-  ["Pickup", "Delivery", "Receiver", "0900000001"].forEach((value, i) => fireEvent.change(inputs[i], { target: { value } }));
+  fireEvent.change(inputs[2], { target: { value: 'Receiver' } });
+  fireEvent.change(inputs[3], { target: { value: '0900000001' } });
   await userEvent.click(screen.getByRole("button", { name: "3. Chọn Ngựa đua" }));
   await userEvent.click(await screen.findByText(/Horse a/));
   if (two) await userEvent.click(await screen.findByText(/Horse b/));
@@ -46,10 +55,34 @@ test("multiple-horse uploads require attribution, retain total USD and reuse the
   await userEvent.click(send); await screen.findByText(/Try again/);
   await userEvent.click(send); await screen.findByText("Saved SQL");
   expect(submit.mock.calls[0][0].declaredValueUsd).toBe(150000.25);
+  expect(submit.mock.calls[0][0].trip.pickup.lat).toBe(12);
+  expect(submit.mock.calls[0][0].trip.delivery.lng).toBe(108);
+  expect(flow1.search).toHaveBeenCalledTimes(2); // No new geocode search during submit/retry.
   expect(submit.mock.calls[0][0]).not.toHaveProperty("price");
   expect(submit.mock.calls[0][1].map(d => [d.horseId, d.file.name])).toEqual([["a", "a.pdf"], ["b", "b.pdf"]]);
   expect(submit.mock.calls[0][2]).toBe(submit.mock.calls[1][2]);
   expect(old).not.toHaveBeenCalled();
+});
+
+test('editing a selected address blocks submit until it is explicitly selected again', async () => {
+  const submit = vi.spyOn(relational, 'submit'); const documents = vi.spyOn(relational, 'submitDocuments');
+  await wizard(false);
+  await userEvent.click(screen.getByRole('button', { name: '2. Địa chỉ Giao/Nhận' }));
+  fireEvent.change(screen.getByRole('combobox', { name: 'Địa chỉ Trại / CLB lấy ngựa' }), { target: { value: 'Edited address' } });
+  await userEvent.click(screen.getByRole('button', { name: '4. Hồ sơ & Thương mại' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Gửi Yêu Cầu Vận Chuyển' }));
+  await screen.findByText(/Vui lòng chọn địa chỉ Trại/);
+  expect(submit).not.toHaveBeenCalled(); expect(documents).not.toHaveBeenCalled();
+});
+
+test('changing destination country clears a prior selection even when switching back', async () => {
+  const submit = vi.spyOn(relational, 'submit'); await wizard(false);
+  await userEvent.click(screen.getByRole('button', { name: '1. Tuyến & Dự toán' }));
+  const destination = document.querySelectorAll('select')[1];
+  fireEvent.change(destination, { target: { value: 'Nhật Bản' } }); fireEvent.change(destination, { target: { value: 'Việt Nam' } });
+  await userEvent.click(screen.getByRole('button', { name: '4. Hồ sơ & Thương mại' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Gửi Yêu Cầu Vận Chuyển' }));
+  await screen.findByText(/Vui lòng chọn địa chỉ Trường đua/); expect(submit).not.toHaveBeenCalled();
 });
 test("declared total without files still uses the new endpoint; zero is refused before sending", async () => {
   const submit = vi.spyOn(relational, "submitDocuments").mockResolvedValue(result);

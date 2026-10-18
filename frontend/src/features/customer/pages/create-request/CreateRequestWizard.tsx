@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { flow1, get, flow1Error, initialTrip } from "../../../flow1/api";
+import { get, flow1Error, initialTrip } from "../../../flow1/api";
+import { AddressAutocomplete, type AddressCandidate } from './AddressAutocomplete';
 import { relational } from "../../../flow1/relational/api";
 import { useEffect, useState } from 'react';
 import { BrandLogo } from '../../../../shared/components/brand-logo/BrandLogo';
@@ -35,6 +36,8 @@ export const CreateRequestWizard = () => {
   const [committedDeadline, setCommittedDeadline] = useState('');
   const [pickupAddress, setPickupAddress] = useState(seed.pickup.address);
   const [deliveryAddress, setDeliveryAddress] = useState(seed.delivery.address);
+  const [pickupSelection, setPickupSelection] = useState<AddressCandidate | null>(null);
+  const [deliverySelection, setDeliverySelection] = useState<AddressCandidate | null>(null);
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
   const [commercialValue, setCommercialValue] = useState<number | ''>('');
@@ -60,11 +63,13 @@ export const CreateRequestWizard = () => {
       if (departure !== 'Việt Nam' || !['Việt Nam', 'Nhật Bản'].includes(destination)) throw new Error('MVP hỗ trợ VN→VN đường bộ và VN→JP hàng không.');
       if ((destination === 'Nhật Bản') !== (transportType === 'Hàng không')) throw new Error('Phương thức vận chuyển không phù hợp tuyến.');
       const country = destination === 'Nhật Bản' ? 'JP' : 'VN';
-      const [pickup, delivery, owner] = await Promise.all([flow1.search(pickupAddress, 'VN'), flow1.search(deliveryAddress, country), get<{ fullName: string; phoneNumber?: string }>('/auth/me')]);
-      if (pickup.length !== 1 || delivery.length !== 1) throw new Error('Địa chỉ chưa rõ hoặc có nhiều kết quả. Vui lòng nhập địa chỉ cụ thể hơn; chưa gửi yêu cầu.');
+      const pickup = pickupSelection, delivery = deliverySelection;
+      if (!pickup || pickup.label !== pickupAddress || pickup.point.countryCode !== 'VN') throw new Error('Vui lòng chọn địa chỉ Trại / CLB lấy ngựa từ danh sách gợi ý ở bước 2.');
+      if (!delivery || delivery.label !== deliveryAddress || delivery.point.countryCode !== country) throw new Error('Vui lòng chọn địa chỉ Trường đua / Trại nhận ngựa từ danh sách gợi ý ở bước 2.');
+      const owner = await get<{ fullName: string; phoneNumber?: string }>('/auth/me');
       if (!owner.phoneNumber) throw new Error('Hồ sơ tài khoản thiếu SĐT người bàn giao; cần bổ sung trước khi gửi.');
-      const input = { trip: { pickup: { address: pickup[0].label, lat: pickup[0].point.latitude, lng: pickup[0].point.longitude, country: 'VN' }, delivery: { address: delivery[0].label, lat: delivery[0].point.latitude, lng: delivery[0].point.longitude, country }, preferredTransportMode: country === 'JP' ? 'AIR' : 'ROAD', horseCount: selectedHorses.length, desiredDepartureDate: expectedDate }, departureAt: new Date(expectedDate + 'T00:00:00+07:00').toISOString(), deliveryAt: new Date(committedDeadline + 'T23:59:00+07:00').toISOString(), purpose: 'Vận chuyển ngựa', pickupContact: { name: owner.fullName, phone: owner.phoneNumber }, receiver: { name: receiverName, phone: receiverPhone }, horses: selectedHorses.map(id => { const h = MY_HORSES.find(x => x.horseId === id); if (!h || h.status !== 'Ready') throw new Error('Ngựa không còn khả dụng.'); return { horseId: id, version: h.version }; }) };
-      setAttribution([...new Set([pickup[0].attribution, delivery[0].attribution])].join(' · '));
+      const input = { trip: { pickup: { address: pickup.label, lat: pickup.point.latitude, lng: pickup.point.longitude, country: 'VN' }, delivery: { address: delivery.label, lat: delivery.point.latitude, lng: delivery.point.longitude, country }, preferredTransportMode: country === 'JP' ? 'AIR' : 'ROAD', horseCount: selectedHorses.length, desiredDepartureDate: expectedDate }, departureAt: new Date(expectedDate + 'T00:00:00+07:00').toISOString(), deliveryAt: new Date(committedDeadline + 'T23:59:00+07:00').toISOString(), purpose: 'Vận chuyển ngựa', pickupContact: { name: owner.fullName, phone: owner.phoneNumber }, receiver: { name: receiverName, phone: receiverPhone }, horses: selectedHorses.map(id => { const h = MY_HORSES.find(x => x.horseId === id); if (!h || h.status !== 'Ready') throw new Error('Ngựa không còn khả dụng.'); return { horseId: id, version: h.version }; }) };
+      setAttribution([...new Set([pickup.attribution, delivery.attribution])].join(' · '));
       const submission = { ...input, declaredValueUsd: commercialValue === '' ? null : commercialValue };
       const signature = JSON.stringify({ submission, documents: baselineFiles.map(x => ({ id: x.id, horseId: x.horseId })) }); let key = keys.get(signature); if (!key) { key = crypto.randomUUID(); keys.set(signature, key); }
       const saved = baselineFiles.length || commercialValue !== '' ? await relational.submitDocuments(submission, baselineFiles, key) : await relational.submit(submission, key);
@@ -130,13 +135,13 @@ export const CreateRequestWizard = () => {
             <div className="form-grid-2">
               <div>
                 <label className="form-label">Quốc gia xuất phát</label>
-                <select className="form-select" value={departure} onChange={(e) => setDeparture(e.target.value)}>
+                <select className="form-select" value={departure} onChange={(e) => { setDeparture(e.target.value); setPickupSelection(null); }}>
                   {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
                 <label className="form-label">Quốc gia đích đến</label>
-                <select className="form-select" value={destination} onChange={(e) => setDestination(e.target.value)}>
+                <select className="form-select" value={destination} onChange={(e) => { setDestination(e.target.value); setDeliverySelection(null); }}>
                   {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
@@ -176,12 +181,17 @@ export const CreateRequestWizard = () => {
         {step === 2 && (
           <div className="form-grid-2">
             <div className="form-full">
-              <label className="form-label">Địa chỉ Trại / CLB lấy ngựa</label>
-              <input type="text" className="form-input" value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} />
+              <AddressAutocomplete key={departure} id="pickup-address" label="Địa chỉ Trại / CLB lấy ngựa"
+                country={departure === 'Việt Nam' ? 'VN' : ''} value={pickupAddress} selected={pickupSelection}
+                onChange={value => { setPickupAddress(value); setPickupSelection(null); setErrorMsg(''); }}
+                onSelect={candidate => { setPickupAddress(candidate.label); setPickupSelection(candidate); setErrorMsg(''); }} />
             </div>
             <div className="form-full">
-              <label className="form-label">Địa chỉ Trường đua / Trại nhận ngựa</label>
-              <input type="text" className="form-input" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} />
+              <AddressAutocomplete key={destination} id="delivery-address" label="Địa chỉ Trường đua / Trại nhận ngựa"
+                country={destination === 'Việt Nam' ? 'VN' : destination === 'Nhật Bản' ? 'JP' : ''}
+                value={deliveryAddress} selected={deliverySelection}
+                onChange={value => { setDeliveryAddress(value); setDeliverySelection(null); setErrorMsg(''); }}
+                onSelect={candidate => { setDeliveryAddress(candidate.label); setDeliverySelection(candidate); setErrorMsg(''); }} />
             </div>
             <div>
               <label className="form-label">Họ tên Người nhận chỉ định</label>

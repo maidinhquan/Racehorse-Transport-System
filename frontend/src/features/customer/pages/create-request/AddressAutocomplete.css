@@ -1,0 +1,17 @@
+.flow1-address { position: relative; }
+.flow1-address-hint { display: block; margin-top: 6px; color: #64748b; line-height: 1.5; }
+.flow1-address-hint.confirmed { color: #166534; }
+.flow1-address-dropdown {
+  position: absolute; z-index: 30; top: 100%; left: 0; right: 0;
+  margin-top: 4px; padding: 8px; max-height: 300px; overflow-y: auto;
+  background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+  box-shadow: 0 8px 24px #0f172a1a; overflow-wrap: anywhere;
+}
+.flow1-address-dropdown ul { list-style: none; margin: 0; padding: 0; }
+.flow1-address-dropdown button {
+  width: 100%; padding: 12px; border: 0; border-radius: 6px; background: white;
+  color: #0f172a; text-align: left; white-space: normal; font: inherit; cursor: pointer;
+}
+.flow1-address-dropdown button:hover,
+.flow1-address-dropdown button[aria-selected="true"] { background: #fff3e0; }
+.flow1-address-dropdown > div, .flow1-address-dropdown > small { display: block; padding: 8px; color: #64748b; }
