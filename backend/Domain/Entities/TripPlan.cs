@@ -53,6 +53,9 @@ namespace Domain.Entities
 
         [InverseProperty(nameof(Contract.Trip))]
         public virtual ICollection<Contract> Contracts { get; set; } = new List<Contract>();
+
+        [InverseProperty(nameof(FlightBooking.Trip))]
+        public virtual ICollection<FlightBooking> FlightBookings { get; set; } = new List<FlightBooking>();
     }
 }
 

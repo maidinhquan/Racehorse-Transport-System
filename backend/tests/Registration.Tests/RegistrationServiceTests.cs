@@ -362,5 +362,6 @@ public sealed class RegistrationServiceTests
         public Task<User?> GetByPhoneAsync(string phone, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<User?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> UpdateUserAsync(User user, CancellationToken cancellationToken = default) => Task.FromResult(true);
+        public Task<User?> GetByResetTokenAsync(string resetToken, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

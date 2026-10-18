@@ -283,7 +283,31 @@ CREATE TABLE ROUTE_SEGMENT (
     CONSTRAINT FK_RouteSegment_Facility FOREIGN KEY (FacilityID) REFERENCES PARTNER_FACILITY(FacilityID)
 );
 
--- 17. (MỚI) Bảng CUSTOMS_CLEARANCE: Quản lý thông quan biên giới
+-- 17. (MỚI) Bảng FLIGHT_BOOKING: Quản lý đặt vé & dịch vụ bay chuyên chở ngựa (Air Leg)
+CREATE TABLE FLIGHT_BOOKING (
+    FlightBookingID INT IDENTITY(1,1) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    BookingVersion INT NOT NULL DEFAULT 1,
+    RouteVersionID INT NULL,
+    ProviderName NVARCHAR(200) NOT NULL,
+    Airline NVARCHAR(100) NOT NULL,
+    FlightNumber VARCHAR(50) NOT NULL,
+    DepartureAirportCheckpointId INT NULL,
+    ArrivalAirportCheckpointId INT NULL,
+    DepartureAt DATETIME NOT NULL,
+    ArrivalAt DATETIME NOT NULL,
+    DirectFlight BIT NOT NULL DEFAULT 1,
+    BookingReference VARCHAR(100) NOT NULL,
+    BookingConfirmed BIT NOT NULL DEFAULT 1,
+    HorseIds NVARCHAR(MAX) NULL,
+    Note NVARCHAR(MAX) NULL,
+    CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
+    UpdatedAt DATETIME NULL,
+    CONSTRAINT PK_FlightBooking PRIMARY KEY (FlightBookingID),
+    CONSTRAINT FK_FlightBooking_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID)
+);
+
+-- 18. (MỚI) Bảng CUSTOMS_CLEARANCE: Quản lý thông quan biên giới
 CREATE TABLE CUSTOMS_CLEARANCE (
     ClearanceID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
@@ -590,7 +614,13 @@ INSERT INTO ROUTE_SEGMENT (SegmentID, TripID, FacilityID, LocationName, SegmentT
 ('SEG_301', 'TRIP_2026_003', 'FAC_005', N'Hà Nội -> Trạm Nghỉ Đà Nẵng',       'REST_STOP',       'ROAD', NULL, NULL, '2026-10-09 10:00:00', '2026-10-09 10:30:00', 'COMPLETED'),
 ('SEG_302', 'TRIP_2026_003', NULL,      N'Đà Nẵng -> Trại Phú Thọ TP.HCM',     'DESTINATION',     'ROAD', NULL, NULL, '2026-10-11 18:00:00', NULL,                  'IN_PROGRESS');
 
--- 18. Bảng CUSTOMS_CLEARANCE: Thủ tục thông quan biên giới
+-- 18. (MỚI) Bảng FLIGHT_BOOKING: Đặt dịch vụ vận chuyển hàng không mẫu
+SET IDENTITY_INSERT FLIGHT_BOOKING ON;
+INSERT INTO FLIGHT_BOOKING (FlightBookingID, TripID, BookingVersion, RouteVersionID, ProviderName, Airline, FlightNumber, DepartureAirportCheckpointId, ArrivalAirportCheckpointId, DepartureAt, ArrivalAt, DirectFlight, BookingReference, BookingConfirmed, HorseIds, Note, CreatedAt) VALUES
+(300, 'TRIP_2026_001', 1, 120, N'Nippon Cargo Airlines', N'NCA Airlines', 'KZ-102', 101, 201, '2026-11-20 05:00:00', '2026-11-20 11:00:00', 1, 'NCA-SGN-NRT-2026', 1, '["HRS_001","HRS_002"]', N'Chuyến bay thẳng chuyên chở động vật thể thao SGN -> NRT', '2026-10-01 08:00:00');
+SET IDENTITY_INSERT FLIGHT_BOOKING OFF;
+
+-- 19. Bảng CUSTOMS_CLEARANCE: Thủ tục thông quan biên giới
 INSERT INTO CUSTOMS_CLEARANCE (ClearanceID, TripID, SegmentID, BorderCrossingName, CustomsAgentName, DocumentType, DeclarationNumber, Status, ClearedAt) VALUES
 ('CST_001', 'TRIP_2026_001', 'SEG_101', N'Cửa khẩu Quốc tế Cầu Treo', N'Đại lý HQ Miền Trung', 'ATA_CARNET', 'VN-CARNET-2026-088', 'CLEARED', '2026-09-15 17:00:00'),
 ('CST_002', 'TRIP_2026_002', 'SEG_201', N'Cửa khẩu Quốc tế Mộc Bài',  N'Đại lý Tân Cảng',       'EXPORT',     'TK-XNK-VN-9928172',   'CLEARED', '2026-10-05 10:30:00');

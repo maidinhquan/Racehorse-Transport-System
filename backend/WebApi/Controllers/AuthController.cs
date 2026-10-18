@@ -191,6 +191,7 @@ namespace WebApi.Controllers
         // POST /api/auth/register/verify-otp
         // =========================================================================
         [HttpPost("register/verify-otp")]
+        [EnableRateLimiting("registration")]
         public async Task<IActionResult> VerifyOtp([FromBody] RegisterVerifyOtpDto dto, CancellationToken cancellationToken)
         {
             await _registrationService.VerifyOtpAsync(dto, cancellationToken);

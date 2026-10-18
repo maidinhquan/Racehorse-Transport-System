@@ -37,7 +37,12 @@ import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage"
 // ==================== ROLE DASHBOARDS ====================
 import AdminDashboard from "../../features/admin/AdminDashboard";
 import DriverDashboard from "../../features/driver/DriverDashboard";
+<<<<<<< HEAD
 import SpecialistDashboard from "../../features/specialist/SpecialistDashboard";
+=======
+import ManagerDashboard from "../../features/Manager/ManagerDashboard";
+import SpecialistDashboard from "../../features/documents/SpecialistDashboard";
+>>>>>>> 17c05055aad07bb164c736922ff5029a2d58f473
 
 // Import các trang update mới
 import { CreateRequestWizard } from "../../features/customer/pages/create-request/CreateRequestWizard";
