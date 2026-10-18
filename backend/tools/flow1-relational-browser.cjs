@@ -12,6 +12,8 @@ const base = `http://127.0.0.1:${frontPort}`;
 let vite; let browser; let diagnosticPage;
 const errors = [];
 const liveMaps = false;
+const localDemo = process.env.FLOW1_LOCAL_DEMO === '1';
+const demoCheck = localDemo && process.env.FLOW1_LOCAL_DEMO_AUTOCHECK === '1';
 const phase3 = process.env.FLOW1_BROWSER_PHASE3 === '1';
 const phase4 = process.env.FLOW1_BROWSER_PHASE4 === '1';
 const signing = process.env.FLOW1_BROWSER_SIGNING === '1';
@@ -80,6 +82,8 @@ const fixture = http.createServer((req, res) => {
 });
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function ready(url) { for (let i = 0; i < 100; i++) { try { if ((await fetch(url)).ok) return; } catch {} await delay(200); } throw new Error('Local server did not start: ' + url); }
+let demoInstall;
+async function installDemo(ctx){return demoInstall(ctx);}
 async function main() {
   if (signing) await new Promise(resolve => smtp.listen(Number(smtpPort), '127.0.0.1', resolve));
   if (!liveMaps) await new Promise(resolve => fixture.listen(Number(mapPort), '127.0.0.1', resolve));
@@ -87,10 +91,10 @@ async function main() {
   const config = path.join(output, 'vite.browser.mjs');
   const reactModule = pathToFileURL(path.join(root, 'frontend/node_modules/@vitejs/plugin-react/dist/index.js')).href;
   fs.writeFileSync(config, `import react from ${JSON.stringify(reactModule)}; export default ${JSON.stringify({ root: path.join(root, 'frontend'), server: { host: '127.0.0.1', port: Number(frontPort), strictPort: true, proxy: { '/api': { target: `http://127.0.0.1:${apiPort}` } } } }).replace(/}$/, ',plugins:[react()]}')};`);
-  vite = spawn(process.execPath, [path.join(root, 'frontend/node_modules/vite/bin/vite.js'), '--config', config], { cwd: path.join(root, 'frontend'), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  vite = spawn(process.execPath, [path.join(root, 'frontend/node_modules/vite/bin/vite.js'), '--config', config], { cwd: path.join(root, 'frontend'), windowsHide: true, env: {...process.env,VITE_API_URL:'/api'}, stdio: ['ignore', 'pipe', 'pipe'] });
   const viteLog = fs.createWriteStream(path.join(output, 'vite.log')); vite.stdout.pipe(viteLog); vite.stderr.pipe(viteLog);
   await ready(`http://127.0.0.1:${apiPort}/api/public/estimates/transport-modes`); await ready(base);
-  browser = await chromium.launch({ headless: true, channel: process.env.FLOW1_BROWSER_CHANNEL || 'chrome' });
+  browser = await chromium.launch({ headless: !localDemo || demoCheck, channel: process.env.FLOW1_BROWSER_CHANNEL || 'chrome' });
   async function actor(role) {
     const accounts={CUSTOMER:'browser-owner',LOGISTICS_MANAGER:'browser-manager',FLEET_ROUTE_COORDINATOR:'browser-route',TRANSPORT_SPECIALIST:'browser-docs'};
     const email=accounts[role]+'@example.invalid';
@@ -98,10 +102,18 @@ async function main() {
     const auth=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password:'Flow1_Native_Fixture_Only_2026!'})});if(!auth.ok)throw new Error('Fixture hashed-password login failed '+auth.status);const login=(await auth.json()).data;if(login.role!==role||!login.accessToken)throw new Error('Fixture login role/token mismatch');const token=login.accessToken;
     const ctx = await browser.newContext({viewport:{width:1440,height:1100}});
     await ctx.addInitScript(({role,token,base})=>{if(location.origin===base){localStorage.setItem('accessToken',token);localStorage.setItem('userRole',role);localStorage.setItem('userFullName','Local Fixture');}},{role,token,base});
+    if(localDemo)await installDemo(ctx);
     const p=await ctx.newPage();let slots=[];
     // Keep the real limiter. Development StrictMode duplicates some reads; pace fixture traffic below 30/min.
     await p.route(base+'/api/**',async route=>{const now=Date.now();slots=slots.filter(t=>t>now-61000);const at=slots.length>=26?Math.max(now,slots[slots.length-26]+61000):now;slots.push(at);if(at>now)await delay(at-now);await route.continue();});
     p.on('pageerror',e=>errors.push(e.message));p.on('response',r=>{if(r.status()>=400&&r.url().startsWith(base+'/api/'))fs.appendFileSync(path.join(output,'http-errors.log'),r.status()+' '+new URL(r.url()).pathname+'\n');});p.setDefaultTimeout(120000);return p;
+  }
+  if(localDemo){
+    const { installDemo:install, waitForClose }=require('./flow1-local-demo.cjs').createDemo({browser,base,apiPort,output,actor,getOtp:()=>deliveredCode});
+    demoInstall=install;
+    const ctx=await browser.newContext({viewport:{width:1440,height:1000}});await installDemo(ctx);const panel=await ctx.newPage();await panel.goto(base+'/__flow1_demo/');await panel.screenshot({path:path.join(output,'demo-panel.png'),fullPage:true});
+    fs.writeFileSync(path.join(output,'demo-running.json'),JSON.stringify({url:base+'/__flow1_demo/',mode:'LOCAL FIXTURE ONLY',ready:true}));
+    if(!demoCheck){await waitForClose();return;}
   }
   const customer=await actor('CUSTOMER');diagnosticPage=customer;
   const manager=await actor('LOGISTICS_MANAGER');
@@ -133,13 +145,19 @@ async function main() {
   await customer.reload();
   const cancel=customer.locator('form').filter({has:customer.getByRole('button',{name:'Đề nghị hủy',exact:true})});await cancel.locator('[name=reason]').fill('Customer asks to cancel');await mutate(customer,'Đề nghị hủy','/cancellation/request');
   await manager.reload();const reject=manager.locator('form').filter({has:manager.getByRole('button',{name:'Từ chối đề nghị hủy',exact:true})});await reject.locator('[name=reason]').fill('Continue after customer agreement');await mutate(manager,'Từ chối đề nghị hủy','/cancellation/reject');
-  await customer.reload();let gatewayUrl='';await customer.route('https://sandbox.vnpayment.vn/**',route=>{gatewayUrl=route.request().url();return route.fulfill({status:200,contentType:'text/html',body:'<h1>Intercepted local sandbox redirect; no provider request sent</h1>'});});
-  await customer.getByRole('button',{name:'Thanh toán qua VNPay',exact:true}).waitFor({timeout:15000});await customer.screenshot({path:path.join(output,'before-vnpay.png'),fullPage:true});const sessionResponse=customer.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/vnpay'));await customer.getByRole('button',{name:'Thanh toán qua VNPay',exact:true}).click();const response=await sessionResponse;if(!response.ok())throw new Error('VNPay session rejected '+response.status());for(let i=0;i<50&&!gatewayUrl;i++)await delay(100);if(!gatewayUrl)throw new Error('VNPay redirect missing');const pid=new URL(gatewayUrl).searchParams.get('vnp_TxnRef');if(!pid)throw new Error('VNPay reference missing');
+  await customer.reload();let gatewayUrl='';let demoAction='';if(demoCheck)customer.on('request',r=>{if(r.url().startsWith('https://sandbox.vnpayment.vn/'))gatewayUrl=r.url();});else await customer.route('https://sandbox.vnpayment.vn/**',route=>{gatewayUrl=route.request().url();return route.fulfill({status:200,contentType:'text/html',body:'<h1>Intercepted local sandbox redirect; no provider request sent</h1>'});});
+  await customer.getByRole('button',{name:'Thanh toán qua VNPay',exact:true}).waitFor({timeout:15000});await customer.screenshot({path:path.join(output,'before-vnpay.png'),fullPage:true});const sessionResponse=customer.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/vnpay'));await customer.getByRole('button',{name:'Thanh toán qua VNPay',exact:true}).click();const response=await sessionResponse;if(!response.ok())throw new Error('VNPay session rejected '+response.status());for(let i=0;i<50&&!gatewayUrl;i++)await delay(100);if(!gatewayUrl)throw new Error('VNPay redirect missing');const pid=new URL(gatewayUrl).searchParams.get('vnp_TxnRef');if(!pid)throw new Error('VNPay reference missing');if(demoCheck){await customer.getByRole('heading',{name:'Thanh toán mô phỏng',exact:true}).waitFor({timeout:15000});demoAction=await customer.locator('form').filter({has:customer.getByRole('button',{name:'Gửi IPN thành công',exact:true})}).getAttribute('action');}
   // ReturnURL alone cannot allocate or create Trip.
   await customer.goto(base+'/customer/payments/return?vnp_TxnRef='+pid+'&vnp_ResponseCode=00');await customer.getByText(/Đã xác minh 0/).waitFor();
   const values={vnp_TmnCode:'TEST2026',vnp_TxnRef:pid,vnp_TransactionNo:'987654321',vnp_ResponseCode:'00',vnp_TransactionStatus:'00',vnp_Amount:'4000000000',vnp_PayDate:new Date(Date.now()+7*3600000).toISOString().slice(0,19).replace(/[-T:]/g,''),vnp_BankCode:'NCB'};
   const canonical=new URLSearchParams(Object.entries(values).sort(([a],[b])=>a.localeCompare(b))).toString();const signature=crypto.createHmac('sha512','Sandbox_Unit_Test_Key_Not_A_Provider_Credential').update(canonical).digest('hex');const ipnUrl=`http://127.0.0.1:${apiPort}/api/payments/vnpay/ipn?${canonical}&vnp_SecureHash=${signature}`;
-  const first=await(await fetch(ipnUrl)).json();const retry=await(await fetch(ipnUrl)).json();if(first.RspCode!=='00'||retry.RspCode!=='02')throw new Error('IPN allocation/retry failed');
+  if(demoCheck){
+    await customer.goto(base+'/__flow1_demo/otp');await customer.getByText('Mã mới nhất:',{exact:false}).waitFor();
+    await customer.evaluate(action=>{const f=document.createElement('form');f.method='post';f.action=action;document.body.append(f);f.submit();},demoAction);
+    await customer.getByRole('heading',{name:'Backend đã nhận IPN mô phỏng',exact:true}).waitFor();await customer.getByText(/RspCode: 00/).waitFor();
+    await customer.getByRole('button',{name:'Gửi lại cùng IPN để kiểm tra chống trùng',exact:true}).click();await customer.getByText(/RspCode: 02/).waitFor();
+    await customer.getByRole('link',{name:'Quay về ứng dụng',exact:true}).click();await customer.getByText(/Đã xác minh 40.000.000/).waitFor();
+  }else{const first=await(await fetch(ipnUrl)).json();const retry=await(await fetch(ipnUrl)).json();if(first.RspCode!=='00'||retry.RspCode!=='02')throw new Error('IPN allocation/retry failed');}
   await manager.reload();await manager.locator('[name=reason]').last().fill('Ready for operation');let confirmed=await mutate(manager,'confirm','/deployment/confirm');const oldEvent=confirmed.trip.eventId;
   const routing=await actor('FLEET_ROUTE_COORDINATOR');await routing.goto(base+'/coordinator/flow1-work');await mutate(routing,'Xác nhận nhận bàn giao','/ack');
   await manager.reload();await manager.locator('[name=reason]').last().fill('Hold for readiness');await mutate(manager,'hold','/deployment/hold');await routing.getByRole('button',{name:'Tải lại bàn giao',exact:true}).click();await routing.getByRole('button',{name:'Xác nhận nhận bàn giao',exact:true}).waitFor({state:'detached'});
@@ -150,5 +168,6 @@ async function main() {
   if(errors.length)throw new Error('Browser errors: '+errors.join('; '));
   fs.writeFileSync(path.join(output,'typed-result.json'),JSON.stringify({requestId:id,contractId:draft.contractId,paymentId:pid,tripId:confirmed.trip.tripId,pdfSha256:hash,signedAt:signed.signedAt,route:air?'AIR VN-JP airport-to-airport; ground legs excluded':'ROAD VN-VN',mode:'native003+006; loopback maps/SMTP; locally signed IPN fixture; no live provider',checks:['real hashed-password login; dev bypass rejected','A1 request-changes/resubmit','direct quote','real PDF','sign/deposit extension','OTP/sign/invoice','cancel/reject','ReturnURL read only','IPN retry','one Trip','hold/resume/reconfirm','both current acknowledgements','ops PDF hash']},null,2));
   console.log('PASS typed connected Chrome use cases; original PDF '+hash);
+  if(demoCheck)fs.writeFileSync(path.join(output,'demo-smoke.json'),JSON.stringify({passed:true,simulatorSignatureVerified:true,otpRamPanel:true,returnAloneUnpaid:true,ipnSuccessAndRetry:true,noLiveProvider:true}));
 }
-main().catch(async e=>{if(diagnosticPage&&!diagnosticPage.isClosed())try{await diagnosticPage.screenshot({path:path.join(output,'failed-masked.png'),fullPage:true,mask:[diagnosticPage.locator('input')]});}catch{}let message=e.stack||String(e);for(const s of sensitiveValues)message=message.split(s).join('[REDACTED OTP]');console.error(message);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();if(vite)vite.kill();fixture.close();for(const s of smtpSockets)s.destroy();smtp.close();});
+main().catch(async e=>{if(diagnosticPage&&!diagnosticPage.isClosed())try{await diagnosticPage.screenshot({path:path.join(output,'failed-masked.png'),fullPage:true,mask:[diagnosticPage.locator('input'),diagnosticPage.locator('code')]});}catch{}let message=e.stack||String(e);for(const s of sensitiveValues)message=message.split(s).join('[REDACTED OTP]');console.error(message);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();if(vite)vite.kill();fixture.close();for(const s of smtpSockets)s.destroy();smtp.close();});

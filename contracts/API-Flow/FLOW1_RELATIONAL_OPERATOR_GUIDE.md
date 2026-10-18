@@ -16,6 +16,11 @@ Primary có sửa đồng thời của user; chỉ review/merge có chọn lọc
 
 ## Native demo / kiểm lại source
 
+Demo thao tác lâu dài trên localhost dùng `backend/tools/Start-Flow1LocalDemo.ps1`;
+xem [hướng dẫn demo local](FLOW1_LOCAL_DEMO.md). Tool mở Chrome riêng, dùng DB test
+và IPN/OTP/maps fixtures, không deploy hoặc thay DB chính. Harness bên dưới vẫn là
+lượt kiểm tự động và tự dọn sau khi chạy xong.
+
 Dùng đúng worktree `C:\Users\admin\.codex\worktrees\flow1-relational-mvp\Racehorse-Transport-System`.
 Native schema mới:000→003→006. Không004/005. Harness tự tạo `RaceHorseFlow1Browser_<GUID>`,
 seed accounts `@example.invalid`, khởi động actual API/Vite/Chrome, dùng RAM-only SMTP,

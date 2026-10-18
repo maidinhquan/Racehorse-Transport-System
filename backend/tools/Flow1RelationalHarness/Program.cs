@@ -12,7 +12,8 @@ using Infrastructure.Data.Context;
 using Microsoft.EntityFrameworkCore;
 
 // Explicit local-only connected test; no writes to the configured business database.
-if (args.Length != 2) throw new ArgumentException("Arguments: absolute Node executable, absolute Playwright module directory.");
+var serve = args.Length == 3 && args[2] == "--serve";
+if (args.Length != 2 && !serve) throw new ArgumentException("Arguments: absolute Node executable, absolute Playwright module directory, optional --serve.");
 var repository = Directory.GetCurrentDirectory();
 if (!File.Exists(Path.Combine(repository, "backend/Backend.slnx"))) throw new InvalidOperationException("Run from repository root.");
 // Explicit opt-in for bounded real map requests; all SQL/files/accounts remain test-only.
@@ -45,7 +46,7 @@ if (!new[] { ".", "localhost", Environment.MachineName, "(localdb)" }.Contains(s
 var name = "RaceHorseFlow1Browser_" + Guid.NewGuid().ToString("N");
 var master = new SqlConnectionStringBuilder { DataSource = server, InitialCatalog = "master", IntegratedSecurity = true, TrustServerCertificate = true }.ConnectionString;
 var connection = new SqlConnectionStringBuilder(master) { InitialCatalog = name }.ConnectionString;
-var output = Path.Combine(repository, "backend/WebApi/App_Data/flow1/browser-" + Guid.NewGuid().ToString("N"));
+var output = Path.Combine(repository, (serve ? "backend/WebApi/App_Data/flow1/local-demo-" : "backend/WebApi/App_Data/flow1/browser-") + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(output);
 Process? api = null;
 StreamWriter? log = null;
@@ -61,7 +62,8 @@ try
     if (signing) await Sql(connection, "UPDATE dbo.[USER] SET Email='browser-owner@example.invalid' WHERE UserID='browser-owner';");
     var loginHash=BCrypt.Net.BCrypt.HashPassword("Flow1_Native_Fixture_Only_2026!");
     await Sql(connection,"UPDATE [USER] SET Email=UserID+'@example.invalid',PasswordHash='"+loginHash+"';");
-    var apiPort = Port(); var mapPort = Port(); var frontPort = Port();
+    var apiPort = serve ? Available(5129) : Port(); var mapPort = Port(); var frontPort = serve ? Available(5173) : Port();
+    if(serve) await File.WriteAllTextAsync(Path.Combine(output,"host.json"),JsonSerializer.Serialize(new { hostPid=Environment.ProcessId, database=name, output, apiPort, frontPort }));
     var smtpPort = Port();
     var mapProvider = Environment.GetEnvironmentVariable("FLOW1_BROWSER_MAP_PROVIDER") ?? "OSM";
     if (mapProvider is not ("OSM" or "MAPBOX" or "GEOAPIFY")) throw new ArgumentException("FLOW1_BROWSER_MAP_PROVIDER must be OSM, MAPBOX or GEOAPIFY.");
@@ -129,6 +131,7 @@ try
     var nodeInfo = new ProcessStartInfo(Path.GetFullPath(args[0])) { WorkingDirectory = repository, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
     nodeInfo.ArgumentList.Add(Path.Combine(repository, "backend/tools/flow1-relational-browser.cjs"));
     foreach (var arg in new[] { args[1], apiPort.ToString(), mapPort.ToString(), frontPort.ToString(), output, smtpPort.ToString() }) nodeInfo.ArgumentList.Add(arg);
+    nodeInfo.Environment["FLOW1_LOCAL_DEMO"] = serve ? "1" : "0";
     nodeInfo.Environment["FLOW1_BROWSER_PHASE3"] = phase3 ? "1" : "0";
     nodeInfo.Environment["FLOW1_BROWSER_PHASE4"] = phase4 ? "1" : "0";
     nodeInfo.Environment["FLOW1_BROWSER_SIGNING"] = signing ? "1" : "0";
@@ -138,12 +141,13 @@ try
     using var node = Process.Start(nodeInfo) ?? throw new InvalidOperationException("Could not start browser runner.");
     var stdout = node.StandardOutput.ReadToEndAsync(); var stderr = node.StandardError.ReadToEndAsync();
     using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(deployment ? 10 : bank || cancellation ? 8 : lifecycle || deadlines ? 7 : phase4 ? 5 : 4));
-    try { await node.WaitForExitAsync(timeout.Token); }
+    try { await node.WaitForExitAsync(serve && Environment.GetEnvironmentVariable("FLOW1_LOCAL_DEMO_AUTOCHECK")!="1" ? CancellationToken.None : timeout.Token); }
     finally { if (!node.HasExited) node.Kill(entireProcessTree: true); }
     var nodeLog = await stdout + "\n" + await stderr;
     await File.WriteAllTextAsync(Path.Combine(output, "browser.log"), nodeLog);
     Console.WriteLine(nodeLog);
     if (node.ExitCode != 0) throw new InvalidOperationException($"Chromium flow failed; inspect {output}.");
+    if(serve && Environment.GetEnvironmentVariable("FLOW1_LOCAL_DEMO_AUTOCHECK")!="1"){Console.WriteLine("Local demo stopped. Its private test database will be removed; business DB was never used.");return;}
     await using var apiLogRead = new FileStream(Path.Combine(output, "api.log"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
     using var apiLogReader = new StreamReader(apiLogRead);
     var apiLog = await apiLogReader.ReadToEndAsync();
@@ -167,3 +171,5 @@ finally
 }
 static int Port(){var socket=new TcpListener(IPAddress.Loopback,0);socket.Start();var port=((IPEndPoint)socket.LocalEndpoint).Port;socket.Stop();return port;}
 static async Task Sql(string connection,string sql){await using var db=new SqlConnection(connection);await db.OpenAsync();await using var command=new SqlCommand(sql,db){CommandTimeout=60};await command.ExecuteNonQueryAsync();}
+
+static int Available(int port){try{var socket=new TcpListener(IPAddress.Loopback,port);socket.Start();socket.Stop();return port;}catch(SocketException){throw new InvalidOperationException($"Local demo port {port} is occupied; stop the owning app yourself or reuse an existing demo.");}}

@@ -33,6 +33,7 @@
   <ItemGroup>
     <Content Include="Resources\Contracts\**\*.docx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Update="Resources\Contracts\**\*.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Compile Remove="App_Data\**\*" />
     <Content Remove="App_Data\**\*" />
     <None Remove="App_Data\**\*" />
   </ItemGroup>
