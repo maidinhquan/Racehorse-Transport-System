@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/isolated-test';
 import {
   seedCoordinatorTrips,
 } from './helpers/storage';
@@ -53,7 +53,7 @@ test.describe('Coordinator Portal & Trip Planning', () => {
     await expect(titlePill).toHaveClass(/READY/);
   });
 
-  test('Real coordinator workflow: confirm resources, then submit route for manager approval', async ({ page }) => {
+  test('Coordinator UI interaction: confirm resources and submit route via local state', async ({ page }) => {
     // Start with DRAFT and unconfirmed resources
     const draftTrips = INITIAL_TRIPS.map((t) =>
       t.id === TRIP_ID ? { ...t, routeStatus: 'DRAFT' as const, resourcesConfirmed: false } : t
@@ -76,14 +76,14 @@ test.describe('Coordinator Portal & Trip Planning', () => {
     await expect(confirmBtn).toBeEnabled();
     await expect(submitBtn).toBeDisabled();
 
-    // Click confirm resources
+    // Click confirm resources via Coordinator UI
     await confirmBtn.click();
 
     // Resources now confirmed
     await expect(page.getByRole('button', { name: '✓ Đã xác nhận nguồn lực (Operations READY)' })).toBeDisabled();
     await expect(submitBtn).toBeEnabled();
 
-    // Submit route to Manager
+    // Submit route via Coordinator UI
     await submitBtn.click();
 
     // Switched to PENDING_APPROVAL and shows toast
@@ -139,7 +139,7 @@ test.describe('Coordinator Portal & Trip Planning', () => {
     await expect(submitBtn).toBeVisible();
     await expect(submitBtn).toBeEnabled();
 
-    // Resubmit route
+    // Resubmit route via Coordinator UI
     await submitBtn.click();
     await expect(page.getByRole('button', { name: /Đang chờ Manager phê duyệt/i })).toBeDisabled();
   });

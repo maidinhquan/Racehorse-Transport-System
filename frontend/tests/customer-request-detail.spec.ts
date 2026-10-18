@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/isolated-test';
 import {
   seedCustomerRequest,
   updateCustomerRequestStatus,
@@ -53,7 +53,7 @@ test.describe('Customer Transport Request Detail Page', () => {
     await page.goto(`/customer/requests/${REQUEST_ID}`);
     await expect(page.locator('.request-banner strong')).toHaveText('Waiting for manager review');
 
-    // Simulate manager acceptance via test data update
+    // Simulate manager acceptance via localStorage mock data update
     await updateCustomerRequestStatus(page, REQUEST_ID, 'Accepted – Contract Preparation');
     await page.reload();
 
@@ -74,7 +74,7 @@ test.describe('Customer Transport Request Detail Page', () => {
     await expect(page.locator('.request-detail-title .detail-status')).toHaveText('Changes Requested');
     await expect(page.locator('.request-banner strong')).toHaveText('Changes requested');
 
-    // 2. Simulate Manager Rejection
+    // 2. Simulate Manager Rejection via localStorage mock data update
     await updateCustomerRequestStatus(page, REQUEST_ID, 'Rejected');
     await page.reload();
 
@@ -82,7 +82,12 @@ test.describe('Customer Transport Request Detail Page', () => {
     await expect(page.locator('.request-banner strong')).toHaveText('Request rejected');
   });
 
-  test('Simulate Contract Ready: shows View Contract and allows signing through real UI', async ({ page }) => {
+  test('[LEGACY] Simulate Contract Ready: shows View Contract and allows signing via legacy checkbox UI', async ({ page }) => {
+    test.skip(
+      true,
+      'Tạm skip do mâu thuẫn Flow 1 mới: Flow 1 quy định ký hợp đồng bằng mã OTP (POST /customer/contracts/{contractId}/sign-otp) thay vì tick checkbox trên UI React cũ.'
+    );
+
     await seedCustomerRequest(page, {
       id: REQUEST_ID,
       status: 'Contract Ready',
@@ -98,11 +103,11 @@ test.describe('Customer Transport Request Detail Page', () => {
     await expect(actionButton).toBeVisible();
     await expect(actionButton).toHaveText('View Contract');
 
-    // Real business operation: click View Contract
+    // UI navigation: open contract page
     await actionButton.click();
     await expect(page).toHaveURL(new RegExp(`/customer/requests/${REQUEST_ID}/contract`));
 
-    // Sign contract via existing user interface
+    // Sign contract via legacy checkbox interface
     const agreeCheckbox = page.locator('.contract-agreement input[type="checkbox"]');
     await expect(agreeCheckbox).toBeVisible();
     await agreeCheckbox.check();
@@ -111,7 +116,7 @@ test.describe('Customer Transport Request Detail Page', () => {
     await expect(signButton).toBeEnabled();
     await signButton.click();
 
-    // After signing, next action "Continue to Payment" becomes visible
+    // After legacy signing, next action "Continue to Payment" becomes visible
     await expect(page.getByRole('button', { name: 'Continue to Payment' })).toBeVisible();
 
     // Return to detail page: status is now Awaiting Deposit
@@ -121,7 +126,12 @@ test.describe('Customer Transport Request Detail Page', () => {
     await expect(page.locator('.request-action-button')).toHaveText('Pay Deposit');
   });
 
-  test('Full deposit payment through real UI advances request to Information Required', async ({ page }) => {
+  test('[LEGACY] Deposit payment via payOS mock advances request to Information Required', async ({ page }) => {
+    test.skip(
+      true,
+      'Tạm skip do mâu thuẫn Flow 1 mới: Flow 1 thanh toán cọc qua VNPay/Bank Transfer và sau cọc chuyển sang ACTIVATED thay vì payOS và Information Required (thông tin vận chuyển đã nộp ở Wizard trước Submit).'
+    );
+
     await seedCustomerRequest(page, {
       id: REQUEST_ID,
       status: 'Awaiting Deposit',
@@ -130,11 +140,11 @@ test.describe('Customer Transport Request Detail Page', () => {
     await page.goto(`/customer/requests/${REQUEST_ID}`);
     await expect(page.locator('.request-action-button')).toHaveText('Pay Deposit');
 
-    // Real business operation: click Pay Deposit
+    // UI navigation: open payment page
     await page.locator('.request-action-button').click();
     await expect(page).toHaveURL(new RegExp(`/customer/requests/${REQUEST_ID}/payment`));
 
-    // Pay with demo sandbox
+    // Trigger demo payOS sandbox flow
     const payButton = page.getByRole('button', { name: /Pay with payOS/i });
     await expect(payButton).toBeVisible();
     await payButton.click();
@@ -148,7 +158,7 @@ test.describe('Customer Transport Request Detail Page', () => {
     await expect(continueBtn).toBeVisible();
     await continueBtn.click();
 
-    // Detail page is now Information Required
+    // Detail page in legacy code is Information Required
     await expect(page).toHaveURL(new RegExp(`/customer/requests/${REQUEST_ID}`));
     await expect(page.locator('.request-detail-title .detail-status')).toHaveText('Information Required');
     await expect(page.locator('.request-banner strong')).toHaveText('Transport information required');
@@ -164,7 +174,7 @@ test.describe('Customer Transport Request Detail Page', () => {
     await page.goto(`/customer/requests/${REQUEST_ID}`);
     await expect(page.locator('.request-detail-title .detail-status')).toHaveText('Waiting for Manager Review');
 
-    // Simulate update to Scheduled
+    // Simulate update to Scheduled via localStorage mock data update
     await updateCustomerRequestStatus(page, REQUEST_ID, 'Scheduled');
     await page.reload();
 

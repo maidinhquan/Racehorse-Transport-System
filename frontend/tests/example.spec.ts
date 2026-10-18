@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './helpers/isolated-test';
 
 test.describe('Local Application Smoke Test', () => {
   test('landing page loads locally without external dependencies', async ({ page }) => {
