@@ -48,7 +48,10 @@ public sealed partial class RelationalFlow1Service
             Require(rendered.PrivateStorageKey.Equals(rendered.Sha256,StringComparison.OrdinalIgnoreCase),"FILE_INTEGRITY_ERROR","Rendered PDF hash differs from its storage key.");
             c.SignerEmail=snapshot.Email;
             c.PdfUrl=key; c.PdfSha256=rendered.Sha256.ToLowerInvariant(); c.PublishedAtUtc=Now; c.PublishedBy=actor;
-            c.ContractStatus="PENDING_SIGNATURE"; r.Status="AWAITING_SIGNATURE"; await db.SaveAsync(t); return await Card(c,t);
+            c.ContractStatus="PENDING_SIGNATURE"; r.Status="AWAITING_SIGNATURE";
+            await Notify(c.CustomerID,r.RequestID,"FLOW1_CONTRACT_READY","Hợp đồng đã sẵn sàng",
+                "Manager đã phát hành PDF hợp đồng. Vui lòng xem tài liệu và xác nhận bằng OTP trước hạn ký.",t);
+            await db.SaveAsync(t); return await Card(c,t);
         },ct);
     }
     private ContractPdfModel PdfModel(FlowContract c,FlowRequest r,FlowUser u,List<FlowHorse> horses)

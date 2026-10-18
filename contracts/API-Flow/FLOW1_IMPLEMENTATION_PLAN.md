@@ -1,6 +1,6 @@
 # Kế hoạch tích hợp Flow 1 theo hướng cải tiến
 
-> Cập nhật18/10/2026: DB chính đã backup/restore-check, áp006, conversion/parity và bỏ8cột JSON theo phê duyệt trực tiếp. [Business cutover report](FLOW1_BUSINESS_CUTOVER_REPORT.md) thay trạng thái business-pending trong các mốc cũ bên dưới; chưa merge primary hoặc nghiệm thu VNPay công khai.
+> Cập nhật 18/10/2026: typed Flow1 và demo localhost đã merge fast-forward vào `Truong` ở thư mục chính theo yêu cầu trực tiếp. Frontend lấy từ `origin/main@ed520cad`, nối landing → wizard 4 bước → Manager → PDF/OTP → cọc → thông báo/kích hoạt → handoff. [Báo cáo tích hợp primary](FLOW1_PRIMARY_FRONTEND_INTEGRATION_REPORT.md) là trạng thái hiện hành; VNPay công khai vẫn hoãn. DB006/conversion/drop JSON đã xong theo [business cutover report](FLOW1_BUSINESS_CUTOVER_REPORT.md).
 
 **Scope hiện hành chốt 17/10/2026:** đại ca chọn hồ sơ ngựa mới nhất (không versioning),
 Manager chốt giá trực tiếp trong Contract (bỏ plan/budget bốn nhóm), chỉ VNPay
@@ -12,7 +12,7 @@ sử, **không phải bước phải chạy trước006**. 006 không tự chuy�
 liệu. Runtime source DI/API/FE đã typed006 ngày18/10; xem
 [cutover report](FLOW1_RELATIONAL_CUTOVER_REPORT.md) và
 [operator guide](FLOW1_RELATIONAL_OPERATOR_GUIDE.md). Native local/fixtures đã được
-kiểm; DB nghiệp vụ chưa006 và shadow preview còn3 legacy evidence blockers.
+kiểm; DB nghiệp vụ đã006 và giữ3 hợp đồng cũ dưới dạng lịch sử chưa xác minh.
 Không áp migration/import/drop trên DB nghiệp vụ trong các lượt tự động.
 
 > Dự án: Racehorse Transport System — SWP391
@@ -20,7 +20,7 @@ Không áp migration/import/drop trên DB nghiệp vụ trong các lượt tự 
 > Phiên bản 3.0 — **state trong SQL qua cột mới ở bảng hiện hữu, tuyệt đối không thêm bảng**
 > Tình trạng thực thi từng giai đoạn được ghi trong báo cáo riêng; không coi API được liệt kê là đã implement.
 
-**Scope mới nhất — A1/B1/C1, 16/10/2026:** đại ca yêu cầu bỏ JSON, không thêm bảng,
+**Thiết kế lịch sử — A1/B1/C1, 16/10/2026 (đã được scope17/10 thay thế):** đại ca yêu cầu bỏ JSON, không thêm bảng,
 cho phép hơn 7 cột để bảo vệ quan hệ/module teammate. [Scope đã chọn](FLOW1_RELATIONAL_MVP_SCOPE_CHOICES.md)
 và [mapping quan hệ](FLOW1_RELATIONAL_COLUMN_MAPPING.md) thay thiết kế persistence
 và history bên dưới cho lần refactor tiếp theo. Foundation 005 chỉ additive/test;

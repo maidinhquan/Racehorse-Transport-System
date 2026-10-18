@@ -37,6 +37,8 @@ public sealed partial class RelationalFlow1Service
         Require(!(await db.QueryAsync<FlowTrip>(x=>x.RequestID==r.RequestID,ct)).Any(),"DATA_REVIEW_REQUIRED","An unexpected Trip already exists.");
         var trip=new FlowTrip{TripID=Id("t",r.RequestID),RequestID=r.RequestID,TotalDistance_km=r.DistanceKm,Status="PLANNING",DeploymentStatus="PENDING",DeploymentReason="Signed terms and verified deposit",DeploymentBy="SYSTEM",DeploymentAtUtc=Now};
         db.Add(trip); c.TripID=trip.TripID; c.ContractStatus="EFFECTIVE"; r.Status="ACTIVATED";
+        await Notify(c.CustomerID,r.RequestID,"FLOW1_ACTIVATED","Yêu cầu đã được kích hoạt",
+            "Đã xác minh đủ cọc 40%. Chuyến được tạo và đang chờ Manager xác nhận bàn giao vận hành.",ct);
     }
     public Task<object> PaymentSessionAsync(string id,string actor,string key,string ip,CancellationToken ct)=>db.RunAsync<object>(async t=>{
         Key(key); var(c,r)=await Contract(id,actor,false,t); var inv=await Invoice(c,t); var payments=await Payments(inv,t);

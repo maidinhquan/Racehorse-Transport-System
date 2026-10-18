@@ -6,6 +6,7 @@ import { TripFields, MapDataAttribution } from "../TripFields";
 import { download, relational } from "./api";
 import type { Contract, Handoff, Horse, Request, Submission } from "./api";
 import "../flow1.css";
+import { Notifications } from "./Notifications";
 
 const date = (x: string | null | undefined) => x ? new Date(x).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
 const localDateTime = (x: string | null | undefined) => x ? new Date(new Date(x).getTime() + 7 * 3600000).toISOString().slice(0, 16) : "";
@@ -13,7 +14,7 @@ export function RequestsPage({ manager = false }: { manager?: boolean }) {
   const [items, setItems] = useState<Request[]>([]); const [error, setError] = useState("");
   useEffect(() => { let active = true; relational.list(manager).then(v => { if (active) setItems(v); }).catch(e => { if (active) setError(flow1Error(e)); }); return () => { active = false; }; }, [manager]);
   return <main className="flow1-page"><h1>{manager ? "Duyệt yêu cầu vận chuyển" : "Yêu cầu vận chuyển"}</h1>
-    {!manager && <nav><Link to="/customer/requests/new">Tạo yêu cầu</Link> · <Link to="/customer/horses">Hồ sơ ngựa</Link> · <Link to="/estimate">Giá tham khảo</Link></nav>}
+    {!manager && <nav><Link to="/customer/create-request">Tạo yêu cầu</Link> · <Link to="/customer/horses">Hồ sơ ngựa</Link> · <Link to="/estimate">Giá tham khảo</Link></nav>}
     {error && <p role="alert">{error}</p>}
     {items.length === 0 && <p>Chưa có yêu cầu.</p>}
     <ul>{items.map(r => <li key={r.requestId}><Link to={`/${manager ? "manager" : "customer"}/requests/${r.requestId}`}>{r.departure} → {r.destination}</Link> · {r.status} · {date(r.departureAt)}</li>)}</ul>
@@ -94,7 +95,7 @@ export function RequestDetailPage({ manager = false }: { manager?: boolean }) {
   async function act(url: string, input: object, key?: string) { setError(""); setBusy(true); try { await relational.action(url, input, key); setValue(await relational.detail(requestId!, manager)); } catch (e) { setError(flow1Error(e)); throw e; } finally { setBusy(false); } }
   if (!value) return <main className="flow1-page">{error ? <p role="alert">{error}</p> : "Đang tải…"}</main>;
   const r = value;
-  return <main className="flow1-page"><Link to={`/${manager ? "manager" : "customer"}/requests`}>← Yêu cầu</Link><h1>{r.departure} → {r.destination}</h1>
+  return <main className="flow1-page"><Link to={`/${manager ? "manager" : "customer"}/requests`}>← Yêu cầu</Link><h1>{r.departure} → {r.destination}</h1>{!manager && <Notifications />}
     <p>{r.status} · Khởi hành {date(r.departureAt)} · Hạn giao {date(r.deliveryAt)}</p><p>{r.distanceKm != null ? `${r.distanceKm} km đường bộ` : "Sân bay → sân bay; không gồm đường bộ hai đầu"} · Chuẩn bị {r.preparationDays} ngày</p>
     <p>Bàn giao: {r.pickupContactName} · {r.pickupContactPhone}; Người nhận: {r.receiverName} · {r.receiverPhone}</p>{r.managerNotes && <p>Lời nhắn Manager: {r.managerNotes}</p>}
     {!manager && r.input && r.status === "CHANGES_REQUESTED" && <Link to={`/customer/requests/${r.requestId}/revision`}>Sửa rồi gửi lại</Link>}

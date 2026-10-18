@@ -20,7 +20,21 @@ public abstract class FlowApi : ControllerBase
     protected IActionResult PrivateFile((byte[] Bytes,string ContentType) f,string name) {Response.Headers.CacheControl="no-store";Response.Headers.XContentTypeOptions="nosniff";return File(f.Bytes,f.ContentType,name+(f.ContentType=="application/pdf"?".pdf":f.ContentType=="image/png"?".png":".jpg"));}
     protected static async Task<UploadedFile> Upload(IFormFile f,CancellationToken ct) {if(f is null || f.Length is <16 or >5242880)throw Error("Each upload must be16bytes–5MB.","INVALID_FILE_SIZE");using var m=new MemoryStream();await f.CopyToAsync(m,ct);return new(m.ToArray(),f.FileName);}
 }
+public sealed class HorseUploadForm
+{
+    public string Payload { get; set; } = "";
+    public IFormFile Photo { get; set; } = null!;
+    public IFormFile PassportScan { get; set; } = null!;
+    public string Version { get; set; } = "";
+}
 public sealed record RevisionInput(FlowRequestInput Input,string Version);
+
+[ApiController,Route("api/flow1/notifications"),Authorize,EnableRateLimiting("flow1-customer")]
+public sealed class Flow1NotificationsApi(RelationalFlow1Service service):FlowApi
+{
+    [HttpGet]public async Task<IActionResult> List(CancellationToken ct)=>Result(await service.NotificationsAsync(Actor,ct));
+    [HttpPost("{id}/read")]public async Task<IActionResult> Read(string id,CancellationToken ct)=>Result(await service.ReadNotificationAsync(id,Actor,ct));
+}
 
 [ApiController,Route("api/customer"),Authorize(Roles=UserRoles.Customer),EnableRateLimiting("flow1-customer")]
 public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1GeocodingProvider locations, Application.Services.Flow1.TransportEstimateService estimates) : FlowApi
@@ -28,12 +42,12 @@ public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1Geoco
     [HttpGet("locations/search")]public async Task<IActionResult> Locations(string address,string country,CancellationToken ct)=>Result(await locations.SearchAsync(address,country,ct));
     [HttpPost("estimates")]public async Task<IActionResult> Estimate(EstimateInput input,CancellationToken ct)=>Result((await estimates.CalculateAsync(input,ct)).Customer);
     [HttpGet("horses/selectable")] public async Task<IActionResult> Horses(DateTimeOffset? departureAt,DateTimeOffset? deliveryAt,string? requestId,CancellationToken ct)=>Result(await service.HorsesAsync(Actor,ct,departureAt,deliveryAt,requestId));
-    [HttpPost("horses"),RequestSizeLimit(11*1024*1024)] public async Task<IActionResult> Horse([FromForm]string payload,[FromForm]IFormFile photo,[FromForm]IFormFile passportScan,CancellationToken ct)
+    [HttpPost("horses"),Consumes("multipart/form-data"),RequestSizeLimit(11*1024*1024)] public async Task<IActionResult> Horse([FromForm]HorseUploadForm form,CancellationToken ct)
     {
-        HorseInput input;try{input=JsonSerializer.Deserialize<HorseInput>(payload,new JsonSerializerOptions(JsonSerializerDefaults.Web))??throw new JsonException();}catch(JsonException){throw Error("Invalid horse form.","VALIDATION_ERROR");}
-        return Result(await service.HorseAsync(Actor,Key,input,await Upload(photo,ct),await Upload(passportScan,ct),null,null,ct));
+        HorseInput input;try{input=JsonSerializer.Deserialize<HorseInput>(form.Payload,new JsonSerializerOptions(JsonSerializerDefaults.Web))??throw new JsonException();}catch(JsonException){throw Error("Invalid horse form.","VALIDATION_ERROR");}
+        return Result(await service.HorseAsync(Actor,Key,input,await Upload(form.Photo,ct),await Upload(form.PassportScan,ct),null,null,ct));
     }
-    [HttpPost("horses/{id}/files"),RequestSizeLimit(11*1024*1024)] public async Task<IActionResult> HorseFiles(string id,[FromForm]string version,[FromForm]IFormFile photo,[FromForm]IFormFile passportScan,CancellationToken ct)=>Result(await service.UpdateFilesAsync(id,Actor,version,await Upload(photo,ct),await Upload(passportScan,ct),ct));
+    [HttpPost("horses/{id}/files"),Consumes("multipart/form-data"),RequestSizeLimit(11*1024*1024)] public async Task<IActionResult> HorseFiles(string id,[FromForm]HorseUploadForm form,CancellationToken ct)=>Result(await service.UpdateFilesAsync(id,Actor,form.Version,await Upload(form.Photo,ct),await Upload(form.PassportScan,ct),ct));
     [HttpGet("horses/{id}/files/{kind}")]public async Task<IActionResult> HorseFile(string id,string kind,CancellationToken ct)=>PrivateFile(await service.HorseFileAsync(Actor,id,kind,null,ct),kind);
     [HttpGet("requests")]public async Task<IActionResult> Requests(CancellationToken ct)=>Result(await service.ListAsync(Actor,false,ct));
     [HttpPost("requests")]public async Task<IActionResult> Submit(FlowRequestInput input,CancellationToken ct)=>Result(await service.SubmitAsync(Actor,Key,input,null,null,ct));

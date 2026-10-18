@@ -1,7 +1,7 @@
 # Flow 1 — demo localhost có thể thao tác
 
-Chạy từ worktree `codex/flow1-relational-mvp`. Primary chưa merge, không dùng source
-Flow1 JSON cũ. Demo này dùng DB mới riêng và fixture; không deploy hoặc nghiệm thu
+Chạy từ thư mục chính `D:\Racehorse-Transport-System` trên nhánh `Truong`: typed
+Flow1 đã merge ngày18/10/2026. Xem [báo cáo frontend/primary](FLOW1_PRIMARY_FRONTEND_INTEGRATION_REPORT.md). Demo này dùng DB mới riêng và fixture; không deploy hoặc nghiệm thu
 VNPay công khai. DB nghiệp vụ không được dùng để thêm/sửa dữ liệu demo.
 
 ## Khởi chạy
@@ -25,7 +25,8 @@ Không thêm endpoint demo hay chế độ tin tiền từ frontend vào WebApi.
 
 ## Thao tác
 
-1. Mở Customer: thêm ngựa cùng ảnh và passport scan thử nghiệm; tạo đơn. Có thể tìm
+1. Mở Customer: thêm ngựa cùng ảnh và passport scan thử nghiệm; mở landing `/`,
+   chọn điểm đi/đến, xem giá demo VND/cọc40%, rồi đi qua wizard4bước để gửi đơn. Có thể tìm
    “Điểm lấy demo”/“Điểm giao demo”. Maps là fixture300km, không phải giá/khoảng cách
    đường thực. Chọn ngày khởi hành còn đủ thời gian chuẩn bị.
 2. Mở Manager: accept/reject/request-changes; chốt giá và hạn ký, phát hành PDF thật
@@ -63,3 +64,7 @@ Không chạy build WebApi khi demo đang giữ DLL; dừng demo trước khi s�
 thu tiền/gọi IPN từ Internet hay querydr hoạt động (probe trước đó HTTP403). Mã OTP
 hiện trên hộp thư test chỉ phục vụ thao tác demo. Không dùng ở production, không
 merge primary/push/deploy theo bước này. Không thay acceptance của provider thật.
+
+Phiên Chrome đã mở trước khi merge vẫn thuộc worktree cũ. Không tự đóng/reset phiên
+đó hoặc coi dữ liệu khách đang thử là lỗi. Muốn chạy launcher ở primary trên cùng
+cổng, dừng đúng launcher cũ bằng `-Action Stop` từ worktree, rồi Start tại primary.

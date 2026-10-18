@@ -25,6 +25,10 @@ public sealed partial class RelationalFlow1Service
         if(action=="confirm") {
             Require(trip.DeploymentStatus=="PENDING" && trip.Status=="PLANNING" && Now<=Cutoff(r) && inv.PaidAmount>=inv.TotalPayableAmount && !(await Payments(inv,t)).Any(p=>p.FinancialReviewRequired),"DEPLOYMENT_CLOSED","Release requires preparation time, deposit and no financial hold.");
             trip.DeploymentStatus="CONFIRMED"; trip.HandoffEventId=Id("event",trip.TripID,Guid.NewGuid().ToString("N"));
+            foreach(var user in await db.QueryAsync<FlowUser>(u=>u.IsActive,t))
+                if(Role(user) is UserRoles.FleetRouteCoordinator or UserRoles.TransportSpecialist)
+                    await Notify(user.UserID,trip.HandoffEventId,"FLOW1_HANDOFF","Có chuyến mới được bàn giao",
+                        "Manager đã xác nhận chuyến "+trip.TripID+". Mở hộp bàn giao để xem hợp đồng và hồ sơ hiện hành.",t);
         }
         else {
             Require(action=="hold" && trip.DeploymentStatus!="ON_HOLD" || action=="resume" && trip.DeploymentStatus=="ON_HOLD","DEPLOYMENT_CLOSED","Invalid operational transition.");

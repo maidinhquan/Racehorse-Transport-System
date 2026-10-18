@@ -8,7 +8,7 @@ export function MapDataAttribution({ text }: { text?: string | null }) {
     href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors (ODbL)</a></small> : <small>{text}</small>;
 }
 
-function LocationField({ label, value, onChange, guest }: { label: string; value: Location; onChange: (value: Location) => void; guest: boolean }) {
+export function LocationField({ label, value, onChange, guest = false }: { label: string; value: Location; onChange: (value: Location) => void; guest?: boolean }) {
   const [matches, setMatches] = useState<Awaited<ReturnType<typeof flow1.search>>>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);

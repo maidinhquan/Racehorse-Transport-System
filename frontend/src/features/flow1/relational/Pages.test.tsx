@@ -6,6 +6,7 @@ import { CustomerVnpayReturnPage, RequestDetailPage, RequestWizardPage } from ".
 import { download, relational } from "./api";
 import type { Contract, Request } from "./api";
 
+vi.mock("./Notifications", () => ({ Notifications: () => null }));
 vi.mock("./api", () => ({ download: vi.fn(), relational: { detail: vi.fn(), action: vi.fn(), returned: vi.fn(), horses: vi.fn() } }));
 const contract: Contract = { contractId: "c-one", version: "v1", status: "SIGNED", isCurrent: true, totalPrice: 100000000, depositAmount: 40000000,
   signDeadline: "2026-11-03T03:00:00Z", depositDeadline: "2026-11-02T03:00:00Z", signedAt: "2026-11-01T03:00:00Z", pdfSha256: "a".repeat(64),

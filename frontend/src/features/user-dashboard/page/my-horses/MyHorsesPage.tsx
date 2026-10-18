@@ -115,17 +115,24 @@ function MyHorsesPage() {
   }, [search, filter]);
 
   return (
-    <CustomerLayout pageTitle="My Horses">
+    <CustomerLayout pageTitle="Ngựa của tôi">
       <div className="my-horses-page">
         {/* Header */}
         <div className="my-horses-header">
           <div>
-            <h1>My Horses</h1>
-
+            <h1>Ngựa của tôi</h1>
             <p>
-              View horses associated with your transport requests.
+              Hồ sơ ngựa có thể tái sử dụng cho các yêu cầu vận chuyển của bạn.
             </p>
           </div>
+
+          <button
+            className="add-horse-button"
+            onClick={() => alert("Tính năng thêm ngựa mới sẽ mở form tạo hồ sơ.")}
+          >
+            <span>+</span>
+            Thêm ngựa
+          </button>
         </div>
 
         {/* Toolbar */}
@@ -144,13 +151,12 @@ function MyHorsesPage() {
                 cy="11"
                 r="7"
               />
-
               <path d="m20 20-3.5-3.5" />
             </svg>
 
             <input
               type="text"
-              placeholder="Search by name, ID, breed, or microchip..."
+              placeholder="Tìm theo tên, mã ID, giống hoặc microchip..."
               value={search}
               onChange={(event) =>
                 setSearch(
@@ -171,7 +177,7 @@ function MyHorsesPage() {
                 setFilter("all")
               }
             >
-              All Horses
+              Tất cả ngựa
             </button>
 
             <button
@@ -184,7 +190,7 @@ function MyHorsesPage() {
                 setFilter("complete")
               }
             >
-              Complete Profile
+              Hồ sơ đầy đủ
             </button>
 
             <button
@@ -197,8 +203,7 @@ function MyHorsesPage() {
                 setFilter("missing")
               }
             >
-              Missing Docs
-
+              Cần bổ sung
               <span className="filter-red-dot" />
             </button>
           </div>
@@ -228,13 +233,13 @@ function MyHorsesPage() {
                         />
                       ) : (
                         <span>
-                          Horse Photo
+                          Ảnh ngựa
                         </span>
                       )}
 
                       {needsAttention && (
                         <span className="horse-warning-badge">
-                          Missing Docs
+                          Cần bổ sung
                         </span>
                       )}
                     </div>
@@ -256,7 +261,7 @@ function MyHorsesPage() {
                         {" • "}
                         {horse.sex}
                         {" • "}
-                        {horse.age} Years
+                        {horse.age} Tuổi
                       </p>
 
                       <div className="horse-info-box">
@@ -267,13 +272,13 @@ function MyHorsesPage() {
 
                           <strong>
                             {horse.microchip ||
-                              "Not provided"}
+                              "Chưa cung cấp"}
                           </strong>
                         </div>
 
                         <div className="horse-info-row">
                           <span>
-                            Passport
+                            Hộ chiếu
                           </span>
 
                           <strong
@@ -289,7 +294,7 @@ function MyHorsesPage() {
 
                         <div className="horse-info-row">
                           <span>
-                            Medical Record
+                            Hồ sơ y tế
                           </span>
 
                           <strong
@@ -307,18 +312,13 @@ function MyHorsesPage() {
                           <strong>
                             {horse.transportCount >
                             0
-                              ? `Used in ${horse.transportCount} transport request${
-                                  horse.transportCount >
-                                  1
-                                    ? "s"
-                                    : ""
-                                }`
-                              : "Not used in a transport request yet"}
+                              ? `Đã dùng trong ${horse.transportCount} chuyến vận chuyển`
+                              : "Chưa tham gia chuyến vận chuyển nào"}
                           </strong>
 
                           {horse.lastRoute && (
                             <span>
-                              Last:{" "}
+                              Gần nhất:{" "}
                               {
                                 horse.lastRoute
                               }
@@ -337,7 +337,7 @@ function MyHorsesPage() {
                             )
                           }
                         >
-                          View Details
+                          Xem chi tiết
                         </button>
 
                         {needsAttention ? (
@@ -349,7 +349,7 @@ function MyHorsesPage() {
                               )
                             }
                           >
-                            Complete Profile
+                            Bổ sung hồ sơ
                           </button>
                         ) : (
                           <button
@@ -360,7 +360,7 @@ function MyHorsesPage() {
                               )
                             }
                           >
-                            Edit Info
+                            Chỉnh sửa
                           </button>
                         )}
                       </div>
@@ -372,7 +372,7 @@ function MyHorsesPage() {
           </div>
         ) : (
           <div className="horse-empty">
-            No horses match your search.
+            Không tìm thấy ngựa nào phù hợp với tìm kiếm của bạn.
           </div>
         )}
       </div>
