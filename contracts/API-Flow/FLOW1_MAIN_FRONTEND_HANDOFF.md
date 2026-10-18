@@ -197,3 +197,6 @@ FE: `node node_modules/vitest/vitest.mjs run --maxWorkers=1`,
 `node node_modules/typescript/bin/tsc -b`,
 `node node_modules/vite/bin/vite.js build` trong frontend. Sau cleanup adapters,
 17test/build đã chạy lại đạt; không dùng kết quả trước cleanup để thay thế.
+
+### Localhost runtime update (19 October 2026)
+Approved schema008 has now been applied after fresh SQL backup, actual isolated restore/CHECKDB and all-original-data/FK parity. The Docker backend now serves readable IDs for new requests and `estimatedTransportCost`; existing IDs are intentionally retained. Customer estimate and Manager suggested price both bind this backend transport-only amount, independently of Contract quote. PC budget/floor remain absent under the agreed simplified scope. Sandbox runtime configuration has been privately mapped and the actual gateway preflight passes; public IPN acceptance remains deferred. Do not credit money from ReturnURL. No push performed.

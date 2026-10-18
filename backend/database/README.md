@@ -149,3 +149,5 @@ no conversion, no Ready backfill, no business DB permission, no old-state drop.
 Current runtime still uses the old store until a later tested source cutover.
 Read `contracts/API-Flow/FLOW1_RELATIONAL_COLUMN_MAPPING.md` before operator review.
 Any retirement/drop script is separate and must follow conversion/parity approval.
+
+Local operator record (19 October 2026): approved008 applied on the existing localhost HorseTransportDB after COPY_ONLY/CHECKSUM backup, actual disposable restore/CHECKDB and original-values/FK parity. Runtime image updated and private bytes/config restored with hash parity. Existing request IDs remain unchanged; only new submissions allocate REQ_YYYY_NNN. No startup migration was introduced. Detailed operation evidence is held privately under WebApi/App_Data/flow1/upgrade008-*.
