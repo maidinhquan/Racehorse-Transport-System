@@ -1,5 +1,6 @@
 import {
   useState,
+  useEffect,
   type ChangeEvent,
 } from "react";
 
@@ -9,6 +10,7 @@ import {
 } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
+import RequestFlowStepper from "../components/RequestFlowStepper";
 import {
   transportRequestDetails,
 } from "../../../data/transportRequestDetailMockData";
@@ -94,6 +96,17 @@ function TransportInformationPage() {
         );
       }
     );
+
+  // Yêu cầu phải xác nhận hợp đồng và thanh toán tiền cọc trước khi điền thông tin giấy tờ
+  useEffect(() => {
+    if (request && requestId) {
+      if (request.status === "Contract Ready" || request.status === "Accepted – Contract Preparation") {
+        navigate(`/customer/requests/${requestId}/contract`, { replace: true });
+      } else if (request.status === "Awaiting Deposit") {
+        navigate(`/customer/requests/${requestId}/payment`, { replace: true });
+      }
+    }
+  }, [request, requestId, navigate]);
 
   if (!requestId || !request) {
     return (
@@ -490,6 +503,9 @@ function TransportInformationPage() {
         >
           ← Back to {requestId}
         </button>
+
+        {/* Luồng 3 bước: Hợp đồng -> Thanh toán -> Giấy tờ */}
+        <RequestFlowStepper currentStep={3} />
 
         <div className="transport-info-header">
           <h1>

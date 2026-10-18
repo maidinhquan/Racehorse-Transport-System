@@ -125,8 +125,8 @@ export function createRequest(
     ...data,
     id,
     requestedDate: new Date().toISOString().slice(0, 10),
-    status: "Waiting for Manager Review",
-    contractStatus: data.contractStatus || "Not Available",
+    status: data.status || "Contract Ready",
+    contractStatus: data.contractStatus || "Ready",
     horses: data.horses && data.horses.length > 0 ? data.horses : ["Thunder Strike"],
     customerName: data.customerName || "Nguyễn Thanh Quốc Linh",
     phone: data.phone || "+84 909 888 999",
@@ -159,8 +159,11 @@ export function createRequest(
       daysRemaining: 7,
       deliveryDeadline: data.committedDeadline || data.preferredDate || new Date().toISOString().slice(0, 10),
       transportMode: data.transportMode || ("AIR" as const),
-      status: "PENDING" as const,
-      statusLabel: "Chờ xét duyệt • Khách hàng mới gửi yêu cầu",
+      status: (newRequest.status === "Contract Ready" ? "ACCEPTED" : "PENDING") as const,
+      statusLabel:
+        newRequest.status === "Contract Ready"
+          ? "Đã sẵn sàng hợp đồng • Chờ khách ký & đặt cọc"
+          : "Chờ xét duyệt • Khách hàng mới gửi yêu cầu",
       createdAt: "Hôm nay " + new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
       specialRequirements:
         data.specialRequirements ||
@@ -203,6 +206,11 @@ export function updateRequestStatus(id: string, status: FakeRequestStatus) {
               ? ("Preparing" as const)
               : status === "Contract Ready"
               ? ("Ready" as const)
+              : status === "Awaiting Deposit" ||
+                status === "Information Required" ||
+                status === "Information Submitted" ||
+                status === "Documents Under Review"
+              ? ("Signed" as const)
               : request.contractStatus,
         }
       : request
@@ -221,11 +229,23 @@ export function updateRequestStatus(id: string, status: FakeRequestStatus) {
             status: "PENDING",
             statusLabel: "Chờ duyệt • Khách hàng đã nộp đủ hồ sơ",
           };
-        } else if (status === "Accepted – Contract Preparation") {
+        } else if (status === "Contract Ready" || status === "Accepted – Contract Preparation") {
           return {
             ...m,
             status: "ACCEPTED",
-            statusLabel: "Đã chấp nhận – Đang soạn hợp đồng",
+            statusLabel: "Đã sẵn sàng hợp đồng • Chờ khách xác nhận",
+          };
+        } else if (status === "Awaiting Deposit") {
+          return {
+            ...m,
+            status: "AWAITING_DEPOSIT",
+            statusLabel: "Đã ký hợp đồng • Chờ khách thanh toán cọc",
+          };
+        } else if (status === "Information Required") {
+          return {
+            ...m,
+            status: "ACCEPTED",
+            statusLabel: "Đã đặt cọc 30% • Đang điền hồ sơ giấy tờ",
           };
         } else if (status === "Rejected") {
           return {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
+import RequestFlowStepper from "../components/RequestFlowStepper";
 
 import {
   updateRequestStatus,
@@ -21,23 +22,14 @@ function PaymentSuccessPage() {
     searchParams.get("orderCode");
 
   const [seconds, setSeconds] =
-    useState(3);
+    useState(4);
 
   useEffect(() => {
     if (!requestId) {
       return;
     }
 
-    /*
-      MOCK ONLY.
-
-      Sau này KHÔNG update frontend như này.
-
-      Backend webhook payOS sẽ cập nhật:
-      Awaiting Deposit
-      →
-      Information Required
-    */
+    // Đã thanh toán tiền cọc -> Kích hoạt bước điền thông tin giấy tờ
     updateRequestStatus(
       requestId,
       "Information Required"
@@ -54,8 +46,9 @@ function PaymentSuccessPage() {
         if (current <= 1) {
           clearInterval(timer);
 
+          // Tự động chuyển sang bước điền thông tin giấy tờ
           navigate(
-            `/customer/requests/${requestId}`
+            `/customer/requests/${requestId}/information`
           );
 
           return 0;
@@ -69,7 +62,18 @@ function PaymentSuccessPage() {
       clearInterval(timer);
   }, [navigate, requestId]);
 
-  const handleContinue = () => {
+  const handleStartDocuments = () => {
+    if (!requestId) {
+      navigate("/customer/requests");
+      return;
+    }
+
+    navigate(
+      `/customer/requests/${requestId}/information`
+    );
+  };
+
+  const handleViewRequest = () => {
     if (!requestId) {
       navigate("/customer/requests");
       return;
@@ -81,26 +85,28 @@ function PaymentSuccessPage() {
   };
 
   return (
-    <CustomerLayout pageTitle="Payment">
+    <CustomerLayout pageTitle="Payment Successful">
       <div className="payment-result-page">
+        {/* Luồng 3 bước: Hợp đồng -> Thanh toán -> Giấy tờ */}
+        <RequestFlowStepper currentStep={3} />
+
         <div className="payment-success-card">
           <div className="payment-success-icon">
             ✓
           </div>
 
           <h1>
-            Payment Successful
+            Thanh toán tiền cọc thành công!
           </h1>
 
           <p>
-            Your deposit payment has been
-            confirmed successfully.
+            Khoản tiền đặt cọc 30% cho hợp đồng đã được xác nhận thành công qua payOS.
           </p>
 
           <div className="payment-success-info">
             <div>
               <span>
-                Request ID
+                Mã yêu cầu
               </span>
 
               <strong>
@@ -110,7 +116,7 @@ function PaymentSuccessPage() {
 
             <div>
               <span>
-                Order Code
+                Mã giao dịch
               </span>
 
               <strong>
@@ -120,37 +126,44 @@ function PaymentSuccessPage() {
 
             <div>
               <span>
-                Request Status
+                Trạng thái tiếp theo
               </span>
 
-              <strong className="success-status">
-                Information Required
+              <strong className="success-status" style={{ color: '#16a34a' }}>
+                Bắt đầu điền thông tin & giấy tờ
               </strong>
             </div>
           </div>
 
-          <div className="payment-success-message">
-            You can now continue and provide
-            pickup, delivery, horse and
-            document information.
+          <div className="payment-success-message" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '14px', borderRadius: '8px', lineHeight: 1.5 }}>
+            Bây giờ quý khách có thể bắt đầu điền chi tiết điểm đón/trả, thông tin cá thể ngựa và nộp hồ sơ giấy tờ kiểm dịch y tế.
           </div>
 
-          <p className="payment-redirect-text">
-            Returning to your request in{" "}
+          <p className="payment-redirect-text" style={{ marginTop: '16px' }}>
+            Tự động chuyển đến trang điền thông tin & giấy tờ sau{" "}
             <strong>
               {seconds}
             </strong>{" "}
-            second
-            {seconds !== 1 ? "s" : ""}
-            ...
+            giây...
           </p>
 
-          <button
-            type="button"
-            onClick={handleContinue}
-          >
-            Continue Now
-          </button>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              style={{ background: '#ea580c', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '15px' }}
+              onClick={handleStartDocuments}
+            >
+              📝 Bắt đầu điền thông tin giấy tờ ngay ➔
+            </button>
+
+            <button
+              type="button"
+              style={{ background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', padding: '12px 20px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
+              onClick={handleViewRequest}
+            >
+              Xem chi tiết đơn yêu cầu
+            </button>
+          </div>
         </div>
       </div>
     </CustomerLayout>

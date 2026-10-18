@@ -1,6 +1,14 @@
 import { useNavigate, useParams } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
+import RequestFlowStepper from "../components/RequestFlowStepper";
+
+import {
+  getRequestById,
+} from "../../../data/transportRequestStorage";
+import {
+  transportRequestDetails,
+} from "../../../data/transportRequestDetailMockData";
 
 import "./PaymentPage.css";
 
@@ -8,48 +16,34 @@ function PaymentPage() {
   const navigate = useNavigate();
   const { requestId } = useParams();
 
-  // Mock data tạm thời.
-  // Sau này lấy từ backend theo requestId.
+  const storedRequest = requestId ? getRequestById(requestId) : undefined;
+  const detailRequest = requestId
+    ? transportRequestDetails.find((item) => item.id === requestId)
+    : undefined;
+  const request = storedRequest ?? detailRequest;
+
+  const finalPrice = request?.estimatedPrice || 2450;
+  const depositPercent = 30;
+  const depositAmount = Math.round(finalPrice * 0.3);
+
   const payment = {
-    requestId: requestId ?? "UNKNOWN",
-    contractNumber: "CT-8931",
-    origin: "Hanoi, VN",
-    destination: "Ho Chi Minh City, VN",
-    finalPrice: 650,
-    depositPercent: 30,
-    depositAmount: 195,
+    requestId: request?.id || requestId || "UNKNOWN",
+    contractNumber: `CT-${(request?.id || requestId || "8931").replace(/\D/g, "")}`,
+    origin: request?.origin || "Hanoi, VN",
+    destination: request?.destination || "Ho Chi Minh City, VN",
+    finalPrice,
+    depositPercent,
+    depositAmount,
     currency: "USD",
   };
 
   const handleBack = () => {
-    navigate(`/customer/requests/${requestId}`);
+    navigate(`/customer/requests/${requestId}/contract`);
   };
 
   const handlePayWithPayOS = () => {
-    /*
-      SAU NÀY:
-
-      1. Frontend gọi backend:
-         POST /api/payments/create
-
-      2. Backend trả:
-         {
-           checkoutUrl: "https://pay.payos.vn/..."
-         }
-
-      3. Frontend:
-         window.location.href = checkoutUrl;
-    */
-
-    /*
-      MOCK FLOW để test frontend hiện tại.
-
-      Giả sử user thanh toán thành công trên payOS,
-      redirect sang success page.
-    */
-
     navigate(
-      `/customer/payment/success?requestId=${requestId}&orderCode=DEMO-8931`
+      `/customer/payment/success?requestId=${payment.requestId}&orderCode=DEMO-${payment.contractNumber}`
     );
   };
 
@@ -61,16 +55,18 @@ function PaymentPage() {
           className="payment-back"
           onClick={handleBack}
         >
-          ← Back to Request
+          ← Quay lại xem Hợp đồng
         </button>
+
+        {/* Luồng 3 bước: Hợp đồng -> Thanh toán -> Giấy tờ */}
+        <RequestFlowStepper currentStep={2} />
 
         <div className="payment-header">
           <div>
-            <h1>Deposit Payment</h1>
+            <h1>Thanh toán tiền cọc vận chuyển</h1>
 
             <p>
-              Complete the required deposit to continue your
-              transport request.
+              Hoàn tất thanh toán tiền cọc 30% để tiếp tục bước nộp hồ sơ giấy tờ vận chuyển.
             </p>
           </div>
 
@@ -84,30 +80,30 @@ function PaymentPage() {
             <div className="payment-card-header">
               <div>
                 <span className="payment-eyebrow">
-                  Payment Summary
+                  Thông tin thanh toán
                 </span>
 
-                <h2>Transport Deposit</h2>
+                <h2>Đặt cọc hợp đồng vận chuyển</h2>
               </div>
 
               <span className="payment-status">
-                Awaiting Payment
+                Chờ thanh toán
               </span>
             </div>
 
             <div className="payment-info-grid">
               <div>
-                <span>Request ID</span>
+                <span>Mã yêu cầu (Request ID)</span>
                 <strong>{payment.requestId}</strong>
               </div>
 
               <div>
-                <span>Contract Number</span>
+                <span>Số hợp đồng (Contract No)</span>
                 <strong>{payment.contractNumber}</strong>
               </div>
 
               <div>
-                <span>Route</span>
+                <span>Lộ trình vận chuyển</span>
 
                 <strong>
                   {payment.origin}
@@ -117,10 +113,10 @@ function PaymentPage() {
               </div>
 
               <div>
-                <span>Final Agreed Price</span>
+                <span>Tổng chi phí thỏa thuận</span>
 
                 <strong>
-                  ${payment.finalPrice.toFixed(2)}{" "}
+                  ${payment.finalPrice.toLocaleString()}{" "}
                   {payment.currency}
                 </strong>
               </div>
@@ -128,16 +124,15 @@ function PaymentPage() {
 
             <div className="payment-deposit-box">
               <div>
-                <span>Required Deposit</span>
+                <span>Số tiền đặt cọc cần thanh toán</span>
 
                 <small>
-                  {payment.depositPercent}% of final agreed
-                  price
+                  {payment.depositPercent}% giá trị hợp đồng dịch vụ
                 </small>
               </div>
 
               <strong>
-                ${payment.depositAmount.toFixed(2)}{" "}
+                ${payment.depositAmount.toLocaleString()}{" "}
                 {payment.currency}
               </strong>
             </div>
@@ -148,11 +143,10 @@ function PaymentPage() {
               </div>
 
               <div>
-                <strong>Secure payment</strong>
+                <strong>Cổng thanh toán an toàn payOS</strong>
 
                 <p>
-                  You will be redirected to payOS to complete
-                  this payment securely.
+                  Sau khi đặt cọc thành công, hệ thống sẽ mở quyền để quý khách bắt đầu điền thông tin chi tiết và nộp giấy tờ hồ sơ kiểm dịch.
                 </p>
               </div>
             </div>
@@ -162,12 +156,11 @@ function PaymentPage() {
               className="payos-button"
               onClick={handlePayWithPayOS}
             >
-              Pay with payOS
+              Thanh toán tiền cọc qua payOS
             </button>
 
             <p className="payment-demo-text">
-              Demo mode: this button currently simulates the
-              payOS redirect flow.
+              Chế độ thử nghiệm: Nút thanh toán sẽ mô phỏng xác nhận đặt cọc thành công từ payOS webhook.
             </p>
           </section>
         </div>

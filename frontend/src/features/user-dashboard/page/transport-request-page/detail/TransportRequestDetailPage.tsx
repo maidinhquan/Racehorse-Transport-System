@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
+import RequestFlowStepper from "../components/RequestFlowStepper";
 import { getRequestById } from "../../../data/transportRequestStorage";
 import { useState, useEffect } from "react";
 import {
@@ -66,35 +67,28 @@ function getBanner(status: DetailRequestStatus) {
       };
 
     case "Accepted – Contract Preparation":
-      return {
-        type: "green",
-        title: "Yêu cầu đã được Quản lý phê duyệt thành công",
-        message:
-          "Quản lý CBN Transport đã chấp nhận yêu cầu của bạn. Quý khách vui lòng bấm nút bên dưới để tiến hành Điền thông tin vận chuyển chi tiết & Nộp hồ sơ.",
-      };
-
     case "Contract Ready":
       return {
         type: "blue",
-        title: "Your service contract is ready",
+        title: "Hợp đồng dịch vụ đã sẵn sàng",
         message:
-          "Review and sign the contract to continue.",
+          "Hợp đồng vận chuyển đã được thiết lập. Quý khách vui lòng xác nhận và ký hợp đồng điện tử để tiến hành thanh toán tiền cọc 30%.",
       };
 
     case "Awaiting Deposit":
       return {
-        type: "blue",
-        title: "Contract signed",
+        type: "yellow",
+        title: "Hợp đồng đã ký • Chờ đặt cọc",
         message:
-          "Pay the deposit to continue to transport information.",
+          "Quý khách vui lòng hoàn tất thanh toán tiền cọc 30% qua cổng thanh toán để bắt đầu bước điền thông tin và nộp giấy tờ.",
       };
 
     case "Information Required":
       return {
         type: "green",
-        title: "Yêu cầu đã được Quản lý chấp nhận",
+        title: "Đã hoàn tất đặt cọc • Bắt đầu điền giấy tờ",
         message:
-          "Vui lòng hoàn tất thông tin điểm đón, điểm trả, cá thể ngựa và tài liệu đính kèm để tiến hành điều phối vận chuyển.",
+          "Quý khách vui lòng hoàn tất thông tin điểm đón, điểm trả, cá thể ngựa và nộp hồ sơ giấy tờ kiểm dịch y tế.",
       };
 
     case "Documents Under Review":
@@ -204,7 +198,12 @@ function TransportRequestDetailPage() {
         status:
           storedRequest.status as DetailRequestStatus,
 
-        horses: [],
+        horses: (storedRequest.horses || ["Thunder Strike"]).map((name, idx) => ({
+          id: `HRS-${idx + 1}`,
+          name,
+          breed: "Thoroughbred",
+          sex: "Gelding",
+        })),
 
         documents: [],
 
@@ -216,17 +215,32 @@ function TransportRequestDetailPage() {
           },
           {
             id: 2,
-            label: "Manager Review & Approval",
+            label: "Service Contract",
             status:
-              storedRequest.status === "Waiting for Manager Review"
+              storedRequest.status === "Contract Ready" ||
+              storedRequest.status === "Accepted – Contract Preparation"
                 ? ("current" as const)
                 : ("completed" as const),
           },
           {
             id: 3,
-            label: "Provide Transport Information",
+            label: "Deposit Payment (30%)",
             status:
-              storedRequest.status === "Accepted – Contract Preparation" ||
+              storedRequest.status === "Awaiting Deposit"
+                ? ("current" as const)
+                : storedRequest.status === "Information Required" ||
+                  storedRequest.status === "Information Submitted" ||
+                  storedRequest.status === "Documents Under Review" ||
+                  storedRequest.status === "Scheduled" ||
+                  storedRequest.status === "In Transit" ||
+                  storedRequest.status === "Completed"
+                ? ("completed" as const)
+                : ("upcoming" as const),
+          },
+          {
+            id: 4,
+            label: "Information & Documents",
+            status:
               storedRequest.status === "Information Required"
                 ? ("current" as const)
                 : storedRequest.status === "Information Submitted" ||
@@ -239,7 +253,11 @@ function TransportRequestDetailPage() {
           },
         ],
 
-        contract: undefined,
+        contract: {
+          number: `CT-${storedRequest.id.replace(/\D/g, "")}`,
+          status: storedRequest.contractStatus || "Ready",
+          finalPrice: storedRequest.estimatedPrice,
+        },
 
         pickupWindow: undefined,
 
@@ -271,12 +289,6 @@ function TransportRequestDetailPage() {
   const handleCurrentAction = () => {
     switch (request.status) {
       case "Accepted – Contract Preparation":
-      case "Information Required":
-        navigate(
-          `/customer/requests/${request.id}/information`
-        );
-        break;
-
       case "Contract Ready":
         navigate(
           `/customer/requests/${request.id}/contract`
@@ -289,9 +301,16 @@ function TransportRequestDetailPage() {
         );
         break;
 
-      case "Documents Under Review":
+      case "Information Required":
         navigate(
-          `/customer/requests/${request.id}/documents`
+          `/customer/requests/${request.id}/information`
+        );
+        break;
+
+      case "Documents Under Review":
+      case "Information Submitted":
+        navigate(
+          `/customer/requests/${request.id}/information`
         );
         break;
 
@@ -307,32 +326,41 @@ function TransportRequestDetailPage() {
   const getActionLabel = () => {
     switch (request.status) {
       case "Accepted – Contract Preparation":
-      case "Information Required":
-        return "Điền thông tin vận chuyển & Hồ sơ ➔";
-
       case "Contract Ready":
-        return "View Contract";
+        return "📄 Xác nhận & Ký hợp đồng ➔";
 
       case "Awaiting Deposit":
-        return "Pay Deposit";
+        return "💳 Tiến hành thanh toán tiền cọc (30%) ➔";
+
+      case "Information Required":
+        return "📝 Điền thông tin & nộp giấy tờ ➔";
 
       case "Documents Under Review":
-        return request.documents?.some(
-          (document) =>
-            document.status === "Action Required"
-        )
-          ? "Review Documents"
-          : "";
+      case "Information Submitted":
+        return "🔍 Xem hồ sơ giấy tờ đã nộp";
 
       case "In Transit":
-        return "View Trip Tracking";
+        return "Xem hành trình vận chuyển";
 
       default:
         return "";
     }
   };
 
-  const actionLabel = getActionLabel();
+  const getWorkflowStep = (status: DetailRequestStatus): 1 | 2 | 3 => {
+    if (status === "Awaiting Deposit") return 2;
+    if (
+      status === "Information Required" ||
+      status === "Information Submitted" ||
+      status === "Documents Under Review" ||
+      status === "Scheduled" ||
+      status === "In Transit" ||
+      status === "Completed"
+    ) {
+      return 3;
+    }
+    return 1;
+  };
 
   return (
     <CustomerLayout pageTitle="Transport Request">
@@ -372,6 +400,9 @@ function TransportRequestDetailPage() {
           </div>
         </div>
 
+        {/* Luồng 3 bước: Hợp đồng -> Thanh toán -> Giấy tờ */}
+        <RequestFlowStepper currentStep={getWorkflowStep(request.status)} />
+
         {/* Status banner */}
         <div
           className={`request-banner request-banner-${banner.type}`}
@@ -393,14 +424,31 @@ function TransportRequestDetailPage() {
             </div>
           </div>
 
-          {(request.status === "Accepted – Contract Preparation" || request.status === "Information Required") && (
+          {actionLabel && (
             <button
               type="button"
               className="request-action-button"
-              style={{ width: 'auto', margin: 0, padding: '8px 18px', background: '#16a34a', whiteSpace: 'nowrap', fontSize: '13px', fontWeight: 700 }}
+              style={{
+                width: 'auto',
+                margin: 0,
+                padding: '8px 18px',
+                background:
+                  request.status === "Contract Ready" || request.status === "Accepted – Contract Preparation"
+                    ? "#0284c7"
+                    : request.status === "Awaiting Deposit"
+                    ? "#ea580c"
+                    : "#16a34a",
+                whiteSpace: 'nowrap',
+                fontSize: '13px',
+                fontWeight: 700,
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
               onClick={handleCurrentAction}
             >
-              📝 Điền thông tin vận chuyển ngay ➔
+              {actionLabel}
             </button>
           )}
         </div>

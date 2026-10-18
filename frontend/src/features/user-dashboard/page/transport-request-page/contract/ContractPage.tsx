@@ -2,10 +2,15 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
+import RequestFlowStepper from "../components/RequestFlowStepper";
 
 import {
+  getRequestById,
   updateRequestStatus,
 } from "../../../data/transportRequestStorage";
+import {
+  transportRequestDetails,
+} from "../../../data/transportRequestDetailMockData";
 
 import "./ContractPage.css";
 
@@ -13,28 +18,46 @@ function ContractPage() {
   const navigate = useNavigate();
   const { requestId } = useParams();
 
+  const storedRequest = requestId ? getRequestById(requestId) : undefined;
+  const detailRequest = requestId
+    ? transportRequestDetails.find((item) => item.id === requestId)
+    : undefined;
+  const request = storedRequest ?? detailRequest;
+
   const [isAgreed, setIsAgreed] = useState(false);
-  const [isSigned, setIsSigned] = useState(false);
+  const [isSigned, setIsSigned] = useState(() => {
+    return (
+      request?.contractStatus === "Signed" ||
+      request?.status === "Awaiting Deposit" ||
+      request?.status === "Information Required" ||
+      request?.status === "Information Submitted" ||
+      request?.status === "Documents Under Review"
+    );
+  });
+
+  const finalPrice = request?.estimatedPrice || 2450;
+  const depositPercent = 30;
+  const depositAmount = Math.round(finalPrice * 0.3);
 
   const contract = {
-    contractNumber: "CT-8931",
-    contractDate: "Oct 4, 2026",
+    contractNumber: `CT-${(request?.id || requestId || "8931").replace(/\D/g, "")}`,
+    contractDate: request?.requestedDate || new Date().toISOString().slice(0, 10),
 
-    customer: "Alex Equine",
-    serviceProvider: "CBN Transport",
+    customer: request?.customerName || "Nguyễn Thanh Quốc Linh",
+    serviceProvider: "CBN Transport Logistics",
 
-    origin: "Hanoi, VN",
-    destination: "Ho Chi Minh City, VN",
+    origin: request?.origin || "Hanoi, VN",
+    destination: request?.destination || "Ho Chi Minh City, VN",
 
-    preferredTransportDate: "Oct 16, 2026",
+    preferredTransportDate: request?.preferredDate || "2026-11-01",
 
-    numberOfHorses: 1,
+    numberOfHorses: request?.horseCount || 1,
 
-    finalPrice: 650,
+    finalPrice,
     currency: "USD",
 
-    depositPercent: 30,
-    depositAmount: 195,
+    depositPercent,
+    depositAmount,
   };
 
   const handleBack = () => {
@@ -74,8 +97,11 @@ function ContractPage() {
           className="contract-page-back"
           onClick={handleBack}
         >
-          ← Back to Request
+          ← Quay lại chi tiết yêu cầu
         </button>
+
+        {/* Luồng 3 bước: Hợp đồng -> Thanh toán -> Giấy tờ */}
+        <RequestFlowStepper currentStep={1} />
 
         <div className="contract-card">
           {/* HEADER */}
@@ -204,47 +230,28 @@ function ContractPage() {
           {/* TERMS */}
           <div className="contract-terms">
             <h3>
-              TERMS AND CONDITIONS
+              TERMS AND CONDITIONS • ĐIỀU KHOẢN HỢP ĐỒNG
             </h3>
 
             <ol>
               <li>
-                CBN Transport will transport
-                the horses listed for this
-                request along the agreed
-                route.
+                <strong>Lộ trình vận chuyển:</strong> CBN Transport cam kết cung cấp dịch vụ vận chuyển chuyên biệt cho các cá thể ngựa theo đúng lộ trình đã thỏa thuận ({contract.origin} → {contract.destination}).
               </li>
 
               <li>
-                A deposit of{" "}
-                {
-                  contract.depositPercent
-                }
-                % of the final agreed price
-                is payable after signing.
-                The remaining balance is
-                payable before departure.
+                <strong>Nghĩa vụ đặt cọc:</strong> Khách hàng thanh toán tiền cọc {contract.depositPercent}% tổng giá trị hợp đồng (tương đương ${contract.depositAmount.toLocaleString()} {contract.currency}) ngay sau khi ký hợp đồng điện tử này. Số tiền còn lại thanh toán trước thời điểm khởi hành.
               </li>
 
               <li>
-                The customer provides
-                accurate pickup, delivery,
-                horse, and document
-                information after the
-                deposit is paid.
+                <strong>Nộp thông tin & Giấy tờ:</strong> Ngay sau khi hoàn tất thanh toán tiền cọc, khách hàng sẽ bắt đầu bước điền thông tin chi tiết (điểm đón, điểm trả, chi tiết cá thể ngựa) và nộp giấy tờ hồ sơ kiểm dịch y tế.
               </li>
 
               <li>
-                The transport date is
-                confirmed once all required
-                documents have been
-                reviewed.
+                <strong>Phê duyệt & Điều phối:</strong> Lịch trình vận chuyển chính thức sẽ được CBN Transport điều phối sau khi toàn bộ hồ sơ chứng từ kiểm dịch được cơ quan chức năng và chuyên gia thẩm định đạt chuẩn.
               </li>
 
               <li>
-                Changes to the route, date,
-                or number of horses may
-                change the final price.
+                <strong>Điều chỉnh thông tin:</strong> Mọi thay đổi về lộ trình, ngày đón hoặc số lượng ngựa sẽ được cập nhật phụ lục hợp đồng và điều chỉnh chi phí theo quy định.
               </li>
             </ol>
           </div>
@@ -263,13 +270,13 @@ function ContractPage() {
               />
 
               <span>
-                I have read and agree to
-                the terms and conditions.
+                Tôi đã đọc, hiểu rõ và đồng ý với các điều khoản hợp đồng dịch vụ vận chuyển ngựa của CBN Transport.
               </span>
             </label>
           ) : (
-            <div className="contract-signed-message">
-              Contract signed successfully.
+            <div className="contract-signed-message" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', background: '#dcfce7', border: '1px solid #bbf7d0', padding: '12px 16px', borderRadius: '8px', fontWeight: 600 }}>
+              <span>✓</span>
+              <span>Hợp đồng đã được ký kết thành công. Vui lòng tiến hành thanh toán tiền cọc 30% để tiếp tục luồng hồ sơ.</span>
             </div>
           )}
 
@@ -282,7 +289,7 @@ function ContractPage() {
               className="contract-back-button"
               onClick={handleBack}
             >
-              Back to Request
+              Quay lại chi tiết đơn
             </button>
 
             {!isSigned ? (
@@ -294,17 +301,18 @@ function ContractPage() {
                   handleSignContract
                 }
               >
-                Sign Contract
+                Xác nhận & Ký hợp đồng
               </button>
             ) : (
               <button
                 type="button"
                 className="contract-payment-button"
+                style={{ background: '#ea580c', borderColor: '#ea580c' }}
                 onClick={
                   handlePayment
                 }
               >
-                Continue to Payment
+                Tiến hành thanh toán tiền cọc ➔
               </button>
             )}
           </div>

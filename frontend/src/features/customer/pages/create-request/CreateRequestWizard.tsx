@@ -151,6 +151,8 @@ export const CreateRequestWizard = () => {
       destinationCountry: isJP ? 'JP' : 'OTHER',
       originCountry: departure === 'Việt Nam' ? 'VN' : 'OTHER',
       specialRequirements: `Nơi nhận: ${pickupAddress.trim()}. Nơi giao: ${deliveryAddress.trim()}. Người nhận: ${receiverName.trim()} (${receiverPhone.trim()}). Định giá: $${Number(commercialValue).toLocaleString()} USD.`,
+      status: 'Contract Ready',
+      contractStatus: 'Ready',
     });
 
     setSubmittedRequest(newReq);
@@ -429,10 +431,10 @@ export const CreateRequestWizard = () => {
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() => navigate('/customer/requests')}
-                style={{ padding: '0.65rem 1.25rem' }}
+                onClick={() => navigate(`/customer/requests/${submittedRequest.id}/contract`)}
+                style={{ padding: '0.65rem 1.25rem', background: '#ea580c' }}
               >
-                Quản lý danh sách đơn hàng
+                📄 Xác nhận Hợp đồng & Đặt cọc ➔
               </button>
 
               <button
@@ -444,23 +446,14 @@ export const CreateRequestWizard = () => {
                 Xem chi tiết đơn này
               </button>
 
-              {destination === 'Nhật Bản' && (
-                <button
-                  type="button"
-                  style={{
-                    background: '#dc2626',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '0.65rem 1.25rem',
-                    cursor: 'pointer',
-                    fontWeight: 600
-                  }}
-                  onClick={() => navigate(`/customer/requests/${submittedRequest.id}/transport-information`)}
-                >
-                  Khai báo Hồ sơ Tuyến Nhật Bản 🇯🇵
-                </button>
-              )}
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => navigate('/customer/requests')}
+                style={{ padding: '0.65rem 1.25rem' }}
+              >
+                Danh sách yêu cầu
+              </button>
             </div>
           </div>
         </div>
