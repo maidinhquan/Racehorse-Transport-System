@@ -6,12 +6,15 @@ Request baseline source now requires `000` (disposable only) → `003` → `006`
 **`007_flow1_request_baseline.sql`**: one nullable `DeclaredValueUsd decimal(18,2)`
 on TRANSPORT_REQUEST plus one trusted CHECK. Existing LEGAL_MEDICAL_RECORD stores
 one private supplementary document link per request/horse; no new table or FK.
-Business DB007 has **not** been applied. Do not run004/005/conversion/drop again.
-For business apply, obtain separate approval for the exact target
-`.\SQLEXPRESS/HorseTransportDB`, back up SQL/private bytes and verify restore first,
-quiesce approved localhost writers, apply only007, compare all original values,
-row counts/tables/FKs and the new CHECK, then update localhost without losing
-container private bytes. Do not rerun006/conversion/drop or seed business data.
+Business DB007 was applied on **19/10/2026 (Asia/Saigon)** with direct user approval
+to `.\SQLEXPRESS/HorseTransportDB`. Fresh COPY_ONLY/CHECKSUM backup, VERIFYONLY,
+actual disposable restore/CHECKDB and full original-column/value parity passed.
+The approved localhost backend was stopped without forced rollback; after007,
+CHECKDB/parity passed again: **27 tables (including sysdiagrams), 39 FKs**, original
+values unchanged, existing DeclaredValueUsd values NULL, new CHECK trusted/enabled.
+Docker localhost now serves the reviewed source with original runtime configuration
+preserved. No business request/payment fixtures were created. Do not rerun
+006/conversion/drop or seed business data; this approval does not cover other targets.
 Detailed baseline report/operator notes are local-only under the current ignore rules.
 No startup migration; schema006-only runtime upgrade fails closed until007 is approved/applied.
 

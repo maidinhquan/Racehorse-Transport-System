@@ -1,7 +1,13 @@
 > Cập nhật baseline 19/10/2026: giá trị tổngUSD + upload bổ sung theo ngựa đã có
 > source/test trong [schema007](../../backend/database/README.md).
-> Hai mục đó thay cho phần disabled trong báo cáo lịch sử bên dưới; bật runtime
-> cần007 và cập nhật localhost được duyệt riêng. Các UI thiếu khác vẫn giữ nguyên.
+> Hai mục đó thay cho phần disabled trong báo cáo lịch sử bên dưới; **đã apply007 và
+> cập nhật Docker localhost theo quyền riêng ngày19/10/2026**. API multipart mới và
+> wizard mới được phục vụ thật;5tài khoản Flow1 login200, GET/401/403 và dữ liệu cũ
+> giữ nguyên đã kiểm. Admin quick-login401 được ghi riêng, không tự reset mật khẩu.
+> Browser automation hiện bị tắt trong Work settings, chưa chạy lại UI sau release;
+> evidence browser/disposable trước release không thay cho business E2E. Docker
+> hiện chưa có LibreOffice/cấu hình converter; chưa xác nhận bước xuất PDF trong
+> container. Các UI thiếu khác vẫn giữ nguyên.
 
 > Cập nhật 19/10/2026: đại ca đổi nguồn UI sang **feature/quan@17687ee**.
 > Phần mô tả main và evidence bên dưới là lịch sử của `acfba75`; kết quả hiện hành

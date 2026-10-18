@@ -1,7 +1,8 @@
 > **Bổ sung đã chốt 19/10/2026:** tổng giá trị USD cả đơn + file bổ sung gắn từng
-> ngựa; không thêm bảng/JSON. Source006+007, UI/file/SQL tests đã đạt; **chưa apply007
-> DB chính hoặc cập nhật Docker runtime**. Xem [schema007 và quyền vận hành riêng](../../backend/database/README.md). Không lấy quyền
-> cutover006 cũ để tự apply007, không chạy lại conversion/drop. UI mới7f301a1 của
+> ngựa; không thêm bảng/JSON. Source006+007, UI/file/SQL tests đã đạt; **đã được duyệt
+> riêng và apply007, cập nhật Docker localhost ngày19/10/2026**. Backup/restore/CHECKDB
+> và đối chiếu mọi giá trị cũ đạt; vẫn27bảng/39FK. Xem [schema007](../../backend/database/README.md).
+> Không chạy lại cutover006/conversion/drop. UI mới7f301a1 của
 > Quân chưa tự merge; giữ source2e560eb với các bổ sung nhỏ đã chọn.
 
 # Kế hoạch tích hợp Flow 1 theo hướng cải tiến
