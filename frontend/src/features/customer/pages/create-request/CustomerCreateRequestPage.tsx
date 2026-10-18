@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import CustomerLayout from '../../../../shared/layouts/CustomerLayout/CustomerLayout';
 import { customerMockStore } from '../../services/customerMockStore';
@@ -24,54 +24,102 @@ const HORSE_FILES = [
   ['flu', 'Sổ tiêm ngừa'], ['health', 'Giấy chứng nhận sức khỏe'],
 ] as const;
 
+const getInitialForm = (editId: string | null) => {
+  if (editId) {
+    const r = customerMockStore.getRequestById(editId);
+    if (!r || !['Draft', 'Changes Requested'].includes(r.status)) {
+      return {
+        error: 'Yêu cầu này không còn được phép chỉnh sửa.',
+        draftId: editId,
+        origin: '',
+        destination: '',
+        date: '',
+        count: 1,
+        slots: [''],
+        pickup: emptyPlace(),
+        delivery: emptyPlace(),
+        documents: [] as BaselineDocument[],
+        horseNotes: {} as Record<string, string>,
+      };
+    }
+    return {
+      error: '',
+      draftId: r.id,
+      origin: cityAlias(r.originCity),
+      destination: cityAlias(r.destinationCity),
+      date: r.expectedDate,
+      count: r.requestedHorseCount || Math.max(1, r.horseIds.length),
+      slots: r.horseSlots || (r.horseIds.length ? r.horseIds : ['']),
+      pickup: r.pickup || { ...emptyPlace(), address: r.pickupAddress },
+      delivery: r.delivery || { ...emptyPlace(), address: r.deliveryAddress, contact: r.receiverName, phone: r.receiverPhone },
+      documents: r.documents,
+      horseNotes: r.horseNotes || {},
+    };
+  }
+
+  let origin = '';
+  let destination = '';
+  let date = '';
+  let count = 1;
+  let slots = [''];
+
+  try {
+    const quote = JSON.parse(sessionStorage.getItem('preliminaryQuote') || 'null');
+    if (quote) {
+      if (VN_CITIES.includes(cityAlias(quote.origin))) origin = cityAlias(quote.origin);
+      if (DESTINATIONS.includes(cityAlias(quote.destination))) destination = cityAlias(quote.destination);
+      if (quote.date) date = quote.date;
+      const n = Number(quote.count || quote.horseCount || 1);
+      if (Number.isInteger(n) && n >= 1 && n <= 6) {
+        count = n;
+        slots = Array(n).fill('');
+      }
+    }
+  } catch {
+    // Invalid saved quotes do not prevent creating a request
+  }
+
+  return {
+    error: '',
+    draftId: undefined as string | undefined,
+    origin,
+    destination,
+    date,
+    count,
+    slots,
+    pickup: emptyPlace(),
+    delivery: emptyPlace(),
+    documents: [] as BaselineDocument[],
+    horseNotes: {} as Record<string, string>,
+  };
+};
+
 export const CustomerCreateRequestPage = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const editId = params.get('edit');
-  const [draftId, setDraftId] = useState<string | undefined>(editId || undefined);
+  const [initialData] = useState(() => getInitialForm(editId));
+
+  const [draftId, setDraftId] = useState<string | undefined>(initialData.draftId);
   const [step, setStep] = useState(0);
   const [maxStep, setMaxStep] = useState(0);
-  const [error, setError] = useState('');
-  const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
-  const [date, setDate] = useState('');
-  const [count, setCount] = useState(1);
-  const [pickup, setPickup] = useState<TransportPlace>(emptyPlace);
-  const [delivery, setDelivery] = useState<TransportPlace>(emptyPlace);
+  const [error, setError] = useState(initialData.error);
+  const [origin, setOrigin] = useState(initialData.origin);
+  const [destination, setDestination] = useState(initialData.destination);
+  const [date, setDate] = useState(initialData.date);
+  const [count, setCount] = useState(initialData.count);
+  const [pickup, setPickup] = useState<TransportPlace>(initialData.pickup);
+  const [delivery, setDelivery] = useState<TransportPlace>(initialData.delivery);
   const [horses, setHorses] = useState<HorseProfile[]>(() => customerMockStore.getHorses());
-  const [slots, setSlots] = useState<string[]>(['']);
+  const [slots, setSlots] = useState<string[]>(initialData.slots);
   const [slot, setSlot] = useState(0);
-  const [horseNotes, setHorseNotes] = useState<Record<string, string>>({});
+  const [horseNotes, setHorseNotes] = useState<Record<string, string>>(initialData.horseNotes);
   const [horseForm, setHorseForm] = useState<'new' | 'edit' | null>(null);
-  const [documents, setDocuments] = useState<BaselineDocument[]>([]);
+  const [documents, setDocuments] = useState<BaselineDocument[]>(initialData.documents);
   const [saving, setSaving] = useState(false);
   const international = destination === 'Tokyo';
   const estimate = (international ? 1850 : 650) * count;
   const selected = horses.find(h => h.id === slots[slot]);
-
-  useEffect(() => {
-    if (editId) {
-      const r = customerMockStore.getRequestById(editId);
-      if (!r || !['Draft', 'Changes Requested'].includes(r.status)) { setError('Yêu cầu này không còn được phép chỉnh sửa.'); return; }
-      setDraftId(r.id); setOrigin(cityAlias(r.originCity)); setDestination(cityAlias(r.destinationCity)); setDate(r.expectedDate);
-      setCount(r.requestedHorseCount || Math.max(1, r.horseIds.length));
-      setSlots(r.horseSlots || (r.horseIds.length ? r.horseIds : ['']));
-      setPickup(r.pickup || { ...emptyPlace(), address: r.pickupAddress });
-      setDelivery(r.delivery || { ...emptyPlace(), address: r.deliveryAddress, contact: r.receiverName, phone: r.receiverPhone });
-      setDocuments(r.documents); setHorseNotes(r.horseNotes || {});
-      return;
-    }
-    try {
-      const quote = JSON.parse(sessionStorage.getItem('preliminaryQuote') || 'null');
-      if (quote) {
-        if (VN_CITIES.includes(cityAlias(quote.origin))) setOrigin(cityAlias(quote.origin));
-        if (DESTINATIONS.includes(cityAlias(quote.destination))) setDestination(cityAlias(quote.destination));
-        if (quote.date) setDate(quote.date);
-        const n = Number(quote.count || quote.horseCount || 1);
-        if (Number.isInteger(n) && n >= 1 && n <= 6) { setCount(n); setSlots(Array(n).fill('')); }
-      }
-    } catch { /* Invalid saved quotes do not prevent creating a request. */ }
-  }, [editId]);
 
   const fileFor = (docKey: string, horseId?: string): ProfileFile | undefined => {
     const doc = documents.find(d => d.docKey === docKey && d.horseId === horseId);
@@ -163,13 +211,13 @@ export const CustomerCreateRequestPage = () => {
   </div>;
   return <CustomerLayout pageTitle="Yêu cầu vận chuyển"><div className="customer-html-reference"><div className={`view${step === 0 ? ' narrow' : ''}`}>
     <button className="link back" onClick={() => navigate('/customer/requests')}>← Quay lại danh sách yêu cầu</button>
-    <h2 className="page-title">{editId ? `Sửa yêu cầu vận chuyển ${editId}` : 'Tạo yêu cầu vận chuyển'}</h2>
+    <h2 className="page-title">{editId ? `Sửa yêu cầu vận chuyển ${editId}` : 'Tạo Yêu Cầu Vận Chuyển Mới'}</h2>
     <p className="subtitle">{step === 0 ? 'Bước 1/4: Thông tin chuyến đi. Tiếp theo là điểm nhận/giao, ngựa & hồ sơ, và xác nhận gửi Manager xét duyệt.' : `${draftId || ''} • ${origin}, VN → ${destination}, ${international ? 'JP' : 'VN'} • ${count} ngựa`}</p>
     <div className="stepper wiz" aria-label="Các bước tạo yêu cầu">{STEPS.map((name, i) => <button key={name} type="button" disabled={i > maxStep || !!horseForm} aria-current={step === i ? 'step' : undefined} className={`step ${i < step ? 'done' : i === step ? 'current' : ''} ${i <= maxStep ? 'reachable' : ''}`} onClick={() => changeStep(i)}><div className="num">{i < step ? <ReferenceIcon name="check" /> : i + 1}</div>{name}</button>)}</div>
     {error && <div className="note red" role="alert">{error}</div>}
     {step === 0 && <div className="card form-card"><h3 className="card-title">Thông tin chuyến đi</h3><div className="form-grid">
-      <ReferenceField label="Điểm đi"><select value={origin} onChange={e => setOrigin(e.target.value)}><option value="">Chọn thành phố</option>{VN_CITIES.map(c => <option key={c} value={c}>{c}, VN</option>)}</select></ReferenceField>
-      <ReferenceField label="Điểm đến"><select value={destination} onChange={e => setDestination(e.target.value)}><option value="">Chọn thành phố</option>{DESTINATIONS.map(c => <option key={c} value={c}>{c}, {c === 'Tokyo' ? 'JP' : 'VN'}</option>)}</select></ReferenceField>
+      <ReferenceField label="Điểm đi"><select value={origin} onChange={e => setOrigin(e.target.value)}><option value="">Chọn thành phố</option>{VN_CITIES.map(c => <option key={c} value={c}>{c}, Việt Nam (VN)</option>)}</select></ReferenceField>
+      <ReferenceField label="Điểm đến"><select value={destination} onChange={e => setDestination(e.target.value)}><option value="">Chọn thành phố</option>{DESTINATIONS.map(c => <option key={c} value={c}>{c}, {c === 'Tokyo' ? 'Nhật Bản (JP)' : 'Việt Nam (VN)'}</option>)}</select></ReferenceField>
       <ReferenceField label="Ngày vận chuyển mong muốn"><input type="date" min={todayLocal()} value={date} onChange={e => setDate(e.target.value)} /></ReferenceField>
       <ReferenceField label="Số lượng ngựa"><select value={count} onChange={e => { const n = Number(e.target.value); setCount(n); setSlots(prev => Array.from({ length: n }, (_, i) => prev[i] || '')); setSlot(0); }}>{[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n} ngựa</option>)}</select></ReferenceField>
     </div>

@@ -33,8 +33,23 @@ export const CustomerRequestDetailPage: React.FC = () => {
     setSearchParams({ tab });
   };
 
-  const [request, setRequest] = useState<CustomerTransportRequest | null>(null);
-  const [nowStamp, setNowStamp] = useState<number>(Date.now());
+  const [request, setRequest] = useState<CustomerTransportRequest | null>(() => {
+    if (!requestId) return null;
+    customerMockStore.evaluateAcceptanceClosure(requestId);
+    return customerMockStore.getRequestById(requestId) || null;
+  });
+  const [prevRequestId, setPrevRequestId] = useState(requestId);
+  if (requestId !== prevRequestId) {
+    setPrevRequestId(requestId);
+    if (requestId) {
+      customerMockStore.evaluateAcceptanceClosure(requestId);
+      setRequest(customerMockStore.getRequestById(requestId) || null);
+    } else {
+      setRequest(null);
+    }
+  }
+
+  const [nowStamp, setNowStamp] = useState<number>(() => Date.now());
 
   // Modal states
   const [showOtpSignModal, setShowOtpSignModal] = useState(false);
@@ -85,7 +100,6 @@ export const CustomerRequestDetailPage: React.FC = () => {
   };
 
   useEffect(() => {
-    refreshRequest();
     const interval = setInterval(() => {
       setNowStamp(Date.now());
       if (requestId) {
@@ -124,7 +138,7 @@ export const CustomerRequestDetailPage: React.FC = () => {
     const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const secs = Math.floor((diff % (1000 * 60)) / 1000);
     return `${hrs}h ${mins}m ${secs}s`;
-  }, [request?.acceptanceWindow, nowStamp]);
+  }, [request, nowStamp]);
 
   if (!request) {
     return (
@@ -867,9 +881,19 @@ export const CustomerRequestDetailPage: React.FC = () => {
                             <p>
                               ✅ Tiền cọc đã được xác minh thành công! Bạn có thể thực hiện ký hợp đồng bằng mã OTP.
                             </p>
-                            <button className="crd-btn crd-btn-primary crd-btn-lg" onClick={handleOpenSignModal}>
-                              Ký Hợp Đồng Bằng Mã OTP ➔
-                            </button>
+                            <div className="crd-action-btns">
+                              <button
+                                className="crd-btn crd-btn-secondary"
+                                onClick={handleOpenChangeModal}
+                                disabled={true}
+                                title="Không thể yêu cầu sửa đổi khi đã thanh toán cọc thành công."
+                              >
+                                Yêu cầu chỉnh sửa hợp đồng
+                              </button>
+                              <button className="crd-btn crd-btn-primary crd-btn-lg" onClick={handleOpenSignModal}>
+                                Ký Hợp Đồng Bằng Mã OTP ➔
+                              </button>
+                            </div>
                           </div>
                         )}
                       </>
@@ -1388,7 +1412,7 @@ export const CustomerRequestDetailPage: React.FC = () => {
                     <select
                       className="crd-select"
                       value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value as any)}
+                      onChange={(e) => setPaymentMethod(e.target.value as 'VNPAY' | 'BANK_TRANSFER')}
                     >
                       <option value="VNPAY">Cổng VNPAY (Thẻ nội địa / QR Code)</option>
                       <option value="BANK_TRANSFER">Chuyển khoản Ngân hàng (Ủy nhiệm chi)</option>
@@ -1497,7 +1521,7 @@ export const CustomerRequestDetailPage: React.FC = () => {
                   <select
                     className="crd-select"
                     value={complaintCategory}
-                    onChange={(e) => setComplaintCategory(e.target.value as any)}
+                    onChange={(e) => setComplaintCategory(e.target.value as CustomerComplaint['category'])}
                   >
                     <option value="EQUIPMENT_CONDITION">Phương tiện / Trang thiết bị</option>
                     <option value="HORSE_HEALTH_IMPACT">Sức khỏe ngựa sau chặng</option>

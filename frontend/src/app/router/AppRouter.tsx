@@ -14,14 +14,14 @@ import ResetPasswordPage from "../../features/auth/pages/reset-password/ResetPas
 
 // ==================== CUSTOMER ====================
 import CustomerLayout from "../../shared/layouts/CustomerLayout/CustomerLayout";
-import HomePage from "../../features/user-dashboard/page/home-page/HomePage";
-import MyHorsesPage from "../../features/user-dashboard/page/my-horses/MyHorsesPage";
-import HistoryPage from "../../features/user-dashboard/page/history/HistoryPage";
-import CustomerProfilePage from "../../features/user-dashboard/page/profile/CustomerProfilePage";
+import HomePage from "../../features/customer/pages/home-page/HomePage";
+import MyHorsesPage from "../../features/customer/pages/my-horses/MyHorsesPage";
+import HistoryPage from "../../features/customer/pages/history/HistoryPage";
+import CustomerProfilePage from "../../features/customer/pages/profile/CustomerProfilePage";
 
 // ==================== CONTRACT & PAYMENT ====================
-import PaymentSuccessPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentSuccessPage";
-import PaymentCancelPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentCancelPage";
+import PaymentSuccessPage from "../../features/customer/pages/payment/PaymentSuccessPage";
+import PaymentCancelPage from "../../features/customer/pages/payment/PaymentCancelPage";
 import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage";
 
 // ==================== ROLE DASHBOARDS ====================
@@ -46,11 +46,9 @@ function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* ==================== LANDING & PUBLIC ==================== */}
-        <Route path="/" element={<LandingPage />} />
+        {/* ==================== LANDING & AUTH ==================== */}
+        <Route path="/" element={<Navigate to="/landing" replace />} />
         <Route path="/landing" element={<LandingPage />} />
-
-        {/* ==================== AUTH ==================== */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-otp" element={<VerifyOtpPage />} />
@@ -58,6 +56,7 @@ function AppRouter() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* ==================== ADMIN ==================== */}
+        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
         {/* ==================== DRIVER ==================== */}
@@ -73,9 +72,10 @@ function AppRouter() {
         <Route path="/manager/contracts" element={<ManagerPortal initialNav="contracts" />} />
         <Route path="/manager/payments" element={<ManagerPortal initialNav="payments" />} />
 
-        {/* Màn hình coordinator: CoordinatorPortal làm mặc định */}
+        {/* ==================== COORDINATOR ==================== */}
+        <Route path="/coordinator" element={<Navigate to="/coordinator/dashboard" replace />} />
         <Route path="/coordinator/dashboard" element={<CoordinatorPortal initialNav="dashboard" />} />
-        <Route path="/coordinator/overview" element={<CoordinatorDashboard />} />
+        <Route path="/coordinator/legacy-dashboard" element={<CoordinatorDashboard />} />
         <Route path="/coordinator/trips" element={<CoordinatorPortal initialNav="trips" />} />
         <Route path="/coordinator/fleet" element={<CoordinatorPortal initialNav="fleet" />} />
         <Route path="/coordinator/crew" element={<CoordinatorPortal initialNav="crew" />} />
@@ -107,6 +107,7 @@ function AppRouter() {
         {/* ==================== PAYMENT ==================== */}
         <Route path="/customer/payment/success" element={<PaymentSuccessPage />} />
         <Route path="/customer/payment/cancel" element={<PaymentCancelPage />} />
+        <Route path="/customer/payments/return" element={<PaymentSuccessPage />} />
         <Route path="/payment/sandbox" element={<SandboxPaymentPage />} />
         <Route path="/payment/return" element={<SandboxPaymentPage />} />
 

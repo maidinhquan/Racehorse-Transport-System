@@ -1,6 +1,14 @@
 # VNPAY Sandbox
 
-Đây là API thử nghiệm độc lập, chưa gắn vào hóa đơn/contract thật. Repo hiện chỉ có DAO, thiếu model và DbContext nên project tạm loại DAO khỏi build. Số tiền nhập ở trang thử là VND; không lấy hóa đơn USD rồi gửi trực tiếp sang VNPAY.
+Đây là API Sandbox thử nghiệm **độc lập** ở `backend/backend.csproj`, không phải
+ledger Flow 1. Số tiền nhập ở trang thử là VND; không lấy hóa đơn USD rồi gửi trực
+tiếp sang VNPAY.
+
+Flow 1 hiện nằm trong active layers Domain/Application/Infrastructure/WebApi và
+dùng SQL invoice/payment cùng contract state. Chạy `backend/WebApi/WebApi.csproj`
+cho flow tích hợp; cấu hình `Flow1:Vnpay`, không trỏ IPN của Flow 1 vào
+SandboxPaymentStore. Xem [hướng dẫn cấu hình và UAT](../contracts/API-Flow/FLOW1_LOCAL_UAT_AND_OPERATIONS.md)
+và [báo cáo phase 5](../contracts/API-Flow/FLOW1_PHASE5_PAYMENT_REPORT.md).
 
 ## Chạy tại máy
 

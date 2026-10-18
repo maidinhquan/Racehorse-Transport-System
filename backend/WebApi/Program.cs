@@ -17,7 +17,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true).AddEnvironmentVariables();
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true);
+if (builder.Environment.IsDevelopment()) builder.Configuration.AddJsonFile("appsettings.Flow1Sandbox.Local.json", optional: true);
+builder.Configuration.AddEnvironmentVariables();
 
 // =============================================================================
 // 1. KẾT NỐI DATABASE VỚI SQL SERVER
@@ -35,6 +37,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
+builder.Services.AddFlow1Relational(builder.Configuration, builder.Environment);
 
 // --- [CLOUD UPLOAD INTEGRATED] ---
 // Đăng ký dịch vụ Cloud Storage (Cloudinary) dùng chung cho toàn bộ hệ thống
@@ -63,6 +66,7 @@ builder.Services.AddCors(options =>
 // Tránh lỗi vòng lặp quan hệ EF Core khi thêm các bảng mới sau này.
 // =============================================================================
 builder.Services.AddControllers()
+    .ConfigureApplicationPartManager(p=>p.FeatureProviders.Add(new Flow1ControllerSelection()))
     .AddJsonOptions(options =>
     {
         // Chống lỗi đệ quy vòng lặp khi entity có liên kết 1-nhiều, nhiều-nhiều (Horse, Trip, User...)

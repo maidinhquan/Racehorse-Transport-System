@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 
@@ -12,6 +12,7 @@ import "./LoginPage.css";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const [search] = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +25,7 @@ function LoginPage() {
   const redirectByRole = (role: UserRole) => {
     switch (role) {
       case "CUSTOMER":
-        navigate("/customer/home");
+        navigate(search.get("next") === "flow1" ? "/customer/create-request" : "/customer/home");
         break;
 
       case "LOGISTICS_MANAGER":

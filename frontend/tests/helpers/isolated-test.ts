@@ -86,6 +86,14 @@ export const test = base.extend<{
           });
         }
 
+        if (pathname === '/api/flow1/notifications') {
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([]),
+          });
+        }
+
         // Any other API call is unexpected in standalone frontend tests
         unexpectedApiRequests.push(`${method} ${pathname}`);
         return route.abort('blockedbyclient');

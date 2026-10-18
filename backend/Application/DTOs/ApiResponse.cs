@@ -7,6 +7,9 @@ namespace Application.DTOs
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ErrorCode { get; set; }
+
         [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
         public T? Data { get; set; }
 
@@ -23,12 +26,13 @@ namespace Application.DTOs
             };
         }
 
-        public static ApiResponse<T?> Fail(string message, IDictionary<string, string[]>? errors = null)
+        public static ApiResponse<T?> Fail(string message, IDictionary<string, string[]>? errors = null, string? errorCode = null)
         {
             return new ApiResponse<T?>
             {
                 Success = false,
                 Message = message,
+                ErrorCode = errorCode,
                 Data = default,
                 Errors = errors
             };

@@ -401,7 +401,9 @@ class CustomerMockStore {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) this.requests = JSON.parse(saved);
-    } catch {}
+    } catch {
+      // Ignore storage errors on read
+    }
     return [...this.requests];
   }
 
@@ -409,7 +411,9 @@ class CustomerMockStore {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) this.requests = JSON.parse(saved);
-    } catch {}
+    } catch {
+      // Ignore storage errors on read
+    }
 
     const found = this.requests.find(r => r.id === id);
     if (found) return found;
@@ -418,9 +422,15 @@ class CustomerMockStore {
     try {
       const legacyRaw = localStorage.getItem('cbn_transport_requests');
       if (legacyRaw) {
-        const legacyList = JSON.parse(legacyRaw);
-        const legacyItem = legacyList.find((r: any) => r && r.id === id);
-        if (legacyItem) {
+        const legacyList = JSON.parse(legacyRaw) as Array<{
+          id?: string;
+          status?: string;
+          origin?: string;
+          destination?: string;
+          preferredDate?: string;
+        }>;
+        const legacyItem = Array.isArray(legacyList) ? legacyList.find((r) => r && r.id === id) : undefined;
+        if (legacyItem && legacyItem.id) {
           // Map legacy status to modern request
           let mappedStatus: CustomerTransportRequest['status'] = 'Pending';
           if (legacyItem.status === 'Waiting for Manager Review') mappedStatus = 'Pending';
@@ -468,7 +478,9 @@ class CustomerMockStore {
           return adapted;
         }
       }
-    } catch {}
+    } catch {
+      // Ignore legacy parse errors
+    }
 
     return undefined;
   }

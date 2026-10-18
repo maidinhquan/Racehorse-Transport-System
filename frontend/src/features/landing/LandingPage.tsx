@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { saveLandingRoute, demoPrice } from '../flow1/landingDraft';
 import './LandingPage.css';
 
 // SVG Icons matching CBN Transport (1).html
@@ -90,9 +91,9 @@ export const LandingPage: React.FC = () => {
   const isValidRoute = hasAllFields && !isSameLocation;
 
   const isInternational = Boolean(destination && JAPAN_CITIES.includes(destination));
-  const pricePerHorse = isInternational ? 1850 : 650;
+  const pricePerHorse = demoPrice(isInternational ? 'JP' : 'VN', 1);
   const totalPrice = isValidRoute ? pricePerHorse * countNum : 0;
-  const depositPrice = Math.round(totalPrice * 0.3);
+  const depositPrice = Math.round(totalPrice * 0.4);
 
   const scrollTo = (id: string) => {
     if (id === 'top') {
@@ -108,14 +109,14 @@ export const LandingPage: React.FC = () => {
   const handleRequestClick = () => {
     if (!isValidRoute) return;
 
-    // Save preliminary quote info to session
+    saveLandingRoute(origin, destination, isInternational ? 'JP' : 'VN', countNum);
     sessionStorage.setItem('preliminaryQuote', JSON.stringify({ origin, destination, horseCount: countNum, totalPrice }));
 
-    const userLoggedIn = Boolean(localStorage.getItem('accessToken') || localStorage.getItem('userRole'));
+    const userLoggedIn = Boolean(localStorage.getItem('accessToken') && localStorage.getItem('userRole') === 'CUSTOMER');
     if (userLoggedIn) {
       navigate('/customer/create-request');
     } else {
-      navigate('/login');
+      navigate('/login?next=flow1');
     }
   };
 
@@ -242,12 +243,12 @@ export const LandingPage: React.FC = () => {
             {isValidRoute ? (
               <>
                 <span>
-                  <b>${totalPrice.toLocaleString()}</b> <span className="muted">USD {lang === 'vi' ? 'ước tính sơ bộ' : 'preliminary estimate'}</span>
+                  <b>{totalPrice.toLocaleString()}</b> <span className="muted">VND {lang === 'vi' ? 'ước tính sơ bộ' : 'preliminary estimate'}</span>
                 </span>
                 <span className="muted">
                   {isInternational 
                     ? (lang === 'vi' ? 'Việt Nam ➔ Nhật Bản' : 'Vietnam ➔ Japan') 
-                    : (lang === 'vi' ? 'Nội địa Việt Nam' : 'Domestic Vietnam')} • {countNum} {lang === 'vi' ? 'ngựa' : 'horses'} • {lang === 'vi' ? 'Cọc 30%:' : '30% Deposit:'} ${depositPrice.toLocaleString()} USD
+                    : (lang === 'vi' ? 'Nội địa Việt Nam' : 'Domestic Vietnam')} • {countNum} {lang === 'vi' ? 'ngựa' : 'horses'} • {lang === 'vi' ? 'Cọc 40%:' : '40% Deposit:'} {depositPrice.toLocaleString()} VND
                 </span>
               </>
             ) : isSameLocation ? (
@@ -345,7 +346,7 @@ export const LandingPage: React.FC = () => {
           </li>
           <li>
             <b>{lang === 'vi' ? 'Ký OTP và đặt cọc' : '3. OTP Sign & Deposit'}</b>
-            <span>{lang === 'vi' ? 'Bạn ký hợp đồng bằng mã OTP và thanh toán đặt cọc 30% trực tuyến hoặc chuyển khoản.' : 'Sign securely with OTP and pay the 30% deposit to lock the schedule.'}</span>
+            <span>{lang === 'vi' ? 'Bạn ký hợp đồng bằng mã OTP và thanh toán đặt cọc 40% qua VNPay.' : 'Sign securely with OTP and pay the 40% deposit to lock the schedule.'}</span>
           </li>
           <li>
             <b>{lang === 'vi' ? 'Theo dõi và nhận ngựa' : '4. Track & Handover'}</b>
@@ -367,7 +368,7 @@ export const LandingPage: React.FC = () => {
           <div className="lp-price feature">
             <div className="eyebrow">Việt Nam ➔ Nhật Bản (International)</div>
             <div className="amount">
-              $1,850 <small>USD / ngựa</small>
+              46.250.000 <small>VND / ngựa</small>
             </div>
             <ul>
               <li><Icon name="check" /><span>Giấy phép xuất khẩu, khai báo hải quan, giấy phép nhập khẩu</span></li>
@@ -380,7 +381,7 @@ export const LandingPage: React.FC = () => {
           <div className="lp-price">
             <div className="eyebrow">Nội địa Việt Nam (Domestic)</div>
             <div className="amount">
-              $650 <small>USD / ngựa</small>
+              16.250.000 <small>VND / ngựa</small>
             </div>
             <ul>
               <li><Icon name="check" /><span>Giấy kiểm dịch nội địa & xe chuyên dụng đệm hơi</span></li>
@@ -393,8 +394,8 @@ export const LandingPage: React.FC = () => {
 
         <p className="lp-note">
           {lang === 'vi'
-            ? 'Giá ước tính sơ bộ, không ràng buộc. Đặt cọc 30% theo hạn ghi trong hợp đồng đã ký; phần còn lại thanh toán sau khi bàn giao được xác minh.'
-            : 'Preliminary non-binding estimate. 30% deposit upon contract signature; remainder due after verified delivery.'}
+            ? 'Giá ước tính sơ bộ, không ràng buộc. Đặt cọc 40% theo hạn ghi trong hợp đồng đã ký; phần còn lại thanh toán sau khi bàn giao được xác minh.'
+            : 'Preliminary non-binding estimate. 40% deposit upon contract signature; remainder due after verified delivery.'}
         </p>
       </section>
 

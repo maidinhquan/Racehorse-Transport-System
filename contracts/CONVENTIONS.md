@@ -62,16 +62,16 @@ Accept-Language: vi
   "message": "Microchip ID already registered",
   "errorCode": "HORSE_MICROCHIP_DUPLICATE",
   "data": null,
-  "errors": [
-    { "field": "microchipId", "message": "Microchip ID already registered" }
-  ]
+  "errors": {
+    "microchipId": ["Microchip ID already registered"]
+  }
 }
 ```
 
 - `success` là `boolean`; `message` dùng để hiển thị cho người dùng.
 - `data` chứa dữ liệu thành công; khi lỗi là `null`.
 - `errorCode` là mã ổn định để FE xử lý; không dùng chuỗi `message` để rẽ nhánh.
-- `errors` chỉ được trả khi có lỗi xác thực dữ liệu ở từng trường; mỗi phần tử có `field` và `message`.
+- `errors` chỉ được trả khi có lỗi xác thực dữ liệu ở từng trường: dictionary tên field -> danh sách message, khớp `ApiResponse<T>` đang chạy. Không đổi các API cũ sang array để tích hợp Flow 1. `errorCode` mới là optional để tương thích callers cũ.
 - Các endpoint hiện có được giữ envelope `success` / `message` / `data`; các trường lỗi bổ sung không làm thay đổi cấu trúc thành công.
 
 **Danh sách có phân trang:**
