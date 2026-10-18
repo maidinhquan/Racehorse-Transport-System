@@ -323,7 +323,7 @@ CREATE TABLE CUSTOMS_CLEARANCE (
     CONSTRAINT FK_Customs_Segment FOREIGN KEY (SegmentID) REFERENCES ROUTE_SEGMENT(SegmentID)
 );
 
--- 18. Bảng HEALTH_LOG: Nhật ký sức khỏe ngựa trên đường
+-- 19. Bảng HEALTH_LOG: Nhật ký sức khỏe ngựa trên đường
 CREATE TABLE HEALTH_LOG (
     LogID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
@@ -342,7 +342,7 @@ CREATE TABLE HEALTH_LOG (
     CONSTRAINT FK_HealthLog_Escort FOREIGN KEY (EscortID) REFERENCES [USER](UserID)
 );
 
--- 19. Bảng INCIDENT: Báo cáo sự cố
+-- 20. Bảng INCIDENT: Báo cáo sự cố
 CREATE TABLE INCIDENT (
     IncidentID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
@@ -358,7 +358,7 @@ CREATE TABLE INCIDENT (
     CONSTRAINT FK_Incident_ApprovedBy FOREIGN KEY (ApprovedBy) REFERENCES [USER](UserID)
 );
 
--- 20. Bảng HANDOVER: Biên bản giao nhận
+-- 21. Bảng HANDOVER: Biên bản giao nhận
 CREATE TABLE HANDOVER (
     HandoverID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
@@ -374,7 +374,7 @@ CREATE TABLE HANDOVER (
     CONSTRAINT FK_Handover_HandedBy FOREIGN KEY (HandedByUserID) REFERENCES [USER](UserID)
 );
 
--- 21. Bảng HANDOVER_ITEM: Chi tiết kiểm tra bàn giao
+-- 22. Bảng HANDOVER_ITEM: Chi tiết kiểm tra bàn giao
 CREATE TABLE HANDOVER_ITEM (
     HandoverItemID VARCHAR(50) NOT NULL,
     HandoverID VARCHAR(50) NOT NULL,
@@ -392,7 +392,7 @@ CREATE TABLE HANDOVER_ITEM (
 -- PHÂN VÙNG 5: HỢP ĐỒNG & TÀI CHÍNH ĐA TIỀN TỆ (CONTRACT & BILLING)
 -- -----------------------------------------------------------------------------
 
--- 22. (MỚI) Bảng CONTRACT_TEMPLATE: Quản lý Nội dung hợp đồng mẫu
+-- 23. (MỚI) Bảng CONTRACT_TEMPLATE: Quản lý Nội dung hợp đồng mẫu
 CREATE TABLE CONTRACT_TEMPLATE (
     TemplateID VARCHAR(50) NOT NULL,
     TemplateName NVARCHAR(255) NOT NULL,
@@ -405,7 +405,7 @@ CREATE TABLE CONTRACT_TEMPLATE (
     CONSTRAINT PK_ContractTemplate PRIMARY KEY (TemplateID)
 );
 
--- 23. Bảng CONTRACT: Hợp đồng với khách hàng
+-- 24. Bảng CONTRACT: Hợp đồng với khách hàng
 CREATE TABLE CONTRACT (
     ContractID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
@@ -424,7 +424,7 @@ CREATE TABLE CONTRACT (
     CONSTRAINT FK_Contract_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID)
 );
 
--- 24. Bảng COST_ITEM: Các khoản mục chi phí thực tế
+-- 25. Bảng COST_ITEM: Các khoản mục chi phí thực tế
 CREATE TABLE COST_ITEM (
     CostItemID VARCHAR(50) NOT NULL,
     ContractID VARCHAR(50) NOT NULL,
@@ -438,7 +438,7 @@ CREATE TABLE COST_ITEM (
     CONSTRAINT FK_CostItem_Contract FOREIGN KEY (ContractID) REFERENCES CONTRACT(ContractID)
 );
 
--- 25. Bảng INVOICE: Hóa đơn cho khách hàng
+-- 26. Bảng INVOICE: Hóa đơn cho khách hàng
 CREATE TABLE INVOICE (
     InvoiceID VARCHAR(50) NOT NULL,
     ContractID VARCHAR(50) NOT NULL,
@@ -452,7 +452,7 @@ CREATE TABLE INVOICE (
     CONSTRAINT FK_Invoice_Contract FOREIGN KEY (ContractID) REFERENCES CONTRACT(ContractID)
 );
 
--- 26. Bảng PAYMENT: Giao dịch thanh toán thực tế
+-- 27. Bảng PAYMENT: Giao dịch thanh toán thực tế
 CREATE TABLE PAYMENT (
     PaymentID VARCHAR(50) NOT NULL,
     InvoiceID VARCHAR(50) NOT NULL,
@@ -601,7 +601,13 @@ INSERT INTO TRIP_VEHICLE_ASSIGNMENT (AssignmentID, TripID, VehicleID, DriverID, 
 ('TVA_002', 'TRIP_2026_002', 'VEH_BOX_03', 'USR_DRV_02', 'USR_ESC_02'),
 ('TVA_003', 'TRIP_2026_003', 'VEH_BOX_02', 'USR_DRV_01', 'USR_ESC_01');
 
--- 17. Bảng ROUTE_SEGMENT: Phân đoạn lộ trình của các chuyến đi
+-- 17. (MỚI) Bảng FLIGHT_BOOKING: Đặt dịch vụ vận chuyển hàng không mẫu
+SET IDENTITY_INSERT FLIGHT_BOOKING ON;
+INSERT INTO FLIGHT_BOOKING (FlightBookingID, TripID, BookingVersion, RouteVersionID, ProviderName, Airline, FlightNumber, DepartureAirportCheckpointId, ArrivalAirportCheckpointId, DepartureAt, ArrivalAt, DirectFlight, BookingReference, BookingConfirmed, HorseIds, Note, CreatedAt) VALUES
+(300, 'TRIP_2026_001', 1, 120, N'Nippon Cargo Airlines', N'NCA Airlines', 'KZ-102', 101, 201, '2026-11-20 05:00:00', '2026-11-20 11:00:00', 1, 'NCA-SGN-NRT-2026', 1, '["HRS_001","HRS_002"]', N'Chuyến bay thẳng chuyên chở động vật thể thao SGN -> NRT', '2026-10-01 08:00:00');
+SET IDENTITY_INSERT FLIGHT_BOOKING OFF;
+
+-- 18. Bảng ROUTE_SEGMENT: Phân đoạn lộ trình của các chuyến đi
 INSERT INTO ROUTE_SEGMENT (SegmentID, TripID, FacilityID, LocationName, SegmentType, TransportMode, CarrierName, Flight_Voyage_No, ExpectedETA, ActualTime, Status) VALUES
 -- Tuyến 1: Hà Nội -> Bangkok
 ('SEG_101', 'TRIP_2026_001', 'FAC_001', N'Sóc Sơn -> Cửa khẩu Cầu Treo',       'REST_STOP',       'ROAD', NULL, NULL, '2026-09-15 15:00:00', '2026-09-15 14:50:00', 'COMPLETED'),
@@ -614,30 +620,24 @@ INSERT INTO ROUTE_SEGMENT (SegmentID, TripID, FacilityID, LocationName, SegmentT
 ('SEG_301', 'TRIP_2026_003', 'FAC_005', N'Hà Nội -> Trạm Nghỉ Đà Nẵng',       'REST_STOP',       'ROAD', NULL, NULL, '2026-10-09 10:00:00', '2026-10-09 10:30:00', 'COMPLETED'),
 ('SEG_302', 'TRIP_2026_003', NULL,      N'Đà Nẵng -> Trại Phú Thọ TP.HCM',     'DESTINATION',     'ROAD', NULL, NULL, '2026-10-11 18:00:00', NULL,                  'IN_PROGRESS');
 
--- 18. (MỚI) Bảng FLIGHT_BOOKING: Đặt dịch vụ vận chuyển hàng không mẫu
-SET IDENTITY_INSERT FLIGHT_BOOKING ON;
-INSERT INTO FLIGHT_BOOKING (FlightBookingID, TripID, BookingVersion, RouteVersionID, ProviderName, Airline, FlightNumber, DepartureAirportCheckpointId, ArrivalAirportCheckpointId, DepartureAt, ArrivalAt, DirectFlight, BookingReference, BookingConfirmed, HorseIds, Note, CreatedAt) VALUES
-(300, 'TRIP_2026_001', 1, 120, N'Nippon Cargo Airlines', N'NCA Airlines', 'KZ-102', 101, 201, '2026-11-20 05:00:00', '2026-11-20 11:00:00', 1, 'NCA-SGN-NRT-2026', 1, '["HRS_001","HRS_002"]', N'Chuyến bay thẳng chuyên chở động vật thể thao SGN -> NRT', '2026-10-01 08:00:00');
-SET IDENTITY_INSERT FLIGHT_BOOKING OFF;
-
 -- 19. Bảng CUSTOMS_CLEARANCE: Thủ tục thông quan biên giới
 INSERT INTO CUSTOMS_CLEARANCE (ClearanceID, TripID, SegmentID, BorderCrossingName, CustomsAgentName, DocumentType, DeclarationNumber, Status, ClearedAt) VALUES
 ('CST_001', 'TRIP_2026_001', 'SEG_101', N'Cửa khẩu Quốc tế Cầu Treo', N'Đại lý HQ Miền Trung', 'ATA_CARNET', 'VN-CARNET-2026-088', 'CLEARED', '2026-09-15 17:00:00'),
 ('CST_002', 'TRIP_2026_002', 'SEG_201', N'Cửa khẩu Quốc tế Mộc Bài',  N'Đại lý Tân Cảng',       'EXPORT',     'TK-XNK-VN-9928172',   'CLEARED', '2026-10-05 10:30:00');
 
--- 19. Bảng HEALTH_LOG: Nhật ký sinh hiệu sức khỏe cá thể ngựa (Insert-Only)
+-- 20. Bảng HEALTH_LOG: Nhật ký sinh hiệu sức khỏe cá thể ngựa (Insert-Only)
 INSERT INTO HEALTH_LOG (LogID, TripID, HorseID, EscortID, LogType, LogTime, Temperature, HeartRate, HealthStatus, Description, MediaUrl) VALUES
 ('LOG_001', 'TRIP_2026_001', 'HRS_001', 'USR_ESC_01', 'TRANSIT_CHECK', '2026-09-15 10:30:00', 38.1, 42, N'Ổn định',       N'Ngựa uống 15L nước, ăn cỏ khô tốt.', 'https://storage.cbntransport.com/logs/log1.jpg'),
 ('LOG_002', 'TRIP_2026_001', 'HRS_002', 'USR_ESC_01', 'TRANSIT_CHECK', '2026-09-15 10:30:00', 38.2, 44, N'Ổn định',       N'Thể trạng bình thường, mắt lanh lợi.', 'https://storage.cbntransport.com/logs/log2.jpg'),
 ('LOG_003', 'TRIP_2026_002', 'HRS_003', 'USR_ESC_02', 'TRANSIT_CHECK', '2026-10-05 14:00:00', 39.2, 58, N'Căng thẳng/Sốt',N'Ngựa đổ mồ hôi nhiều lúc qua phà, đã truyền điện giải.', 'https://storage.cbntransport.com/logs/log3.jpg'),
 ('LOG_004', 'TRIP_2026_003', 'HRS_001', 'USR_ESC_01', 'TRANSIT_CHECK', '2026-10-09 11:00:00', 38.0, 40, N'Rất tốt',      N'Dừng nghỉ tại Đà Nẵng, vận động nhẹ 30 phút.', 'https://storage.cbntransport.com/logs/log4.jpg');
 
--- 20. Bảng INCIDENT: Sự cố phát sinh khẩn cấp trên đường
+-- 21. Bảng INCIDENT: Sự cố phát sinh khẩn cấp trên đường
 INSERT INTO INCIDENT (IncidentID, TripID, ApprovedBy, IncidentType, LocationCoordinates, Description, ImageUrl, AdditionalCost, Status) VALUES
 ('INC_001', 'TRIP_2026_001', 'USR_MGR_01', 'TIRE_PUNCTURE', '18.4123,105.2011', N'Xe bị thủng lốp sau trên QL8A, thay lốp phụ mất 40 phút.', 'https://storage.cbntransport.com/incidents/tire1.jpg', 80.00,  'RESOLVED'),
 ('INC_002', 'TRIP_2026_002', 'USR_MGR_01', 'EQUINE_STRESS', '11.2312,105.8821', N'Ngựa HRS_003 bị sốt nhẹ do nắng nóng, phải dừng xe hạ nhiệt mất 1h30m.', 'https://storage.cbntransport.com/incidents/vet2.jpg', 150.00, 'RESOLVED');
 
--- 21. Bảng HANDOVER: Biên bản tiếp nhận (Pickup) và giao ngựa (Delivery)
+-- 22. Bảng HANDOVER: Biên bản tiếp nhận (Pickup) và giao ngựa (Delivery)
 INSERT INTO HANDOVER (HandoverID, TripID, HandedByUserID, Type, LocationName, ReceiverName, ReceiverPhone, IsAuthorized, Status) VALUES
 ('HO_PU_001', 'TRIP_2026_001', 'USR_DRV_01', 'PICKUP',   N'Trang trại Sóc Sơn, Hà Nội', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED'),
 ('HO_DL_001', 'TRIP_2026_001', 'USR_DRV_01', 'DELIVERY', N'CLB Hoàng Gia Bangkok',     N'Mr. Kraisak',   '+66812345678',1, 'CONFIRMED'),
@@ -645,7 +645,7 @@ INSERT INTO HANDOVER (HandoverID, TripID, HandedByUserID, Type, LocationName, Re
 ('HO_DL_002', 'TRIP_2026_002', 'USR_DRV_02', 'DELIVERY', N'Trường đua Phnom Penh',      N'Sokha Heng',    '+85598765432',1, 'CONFIRMED'),
 ('HO_PU_003', 'TRIP_2026_003', 'USR_DRV_01', 'PICKUP',   N'Trang trại Sóc Sơn, Hà Nội', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED');
 
--- 22. Bảng HANDOVER_ITEM: Đối soát mã chip và thể trạng lúc giao nhận
+-- 23. Bảng HANDOVER_ITEM: Đối soát mã chip và thể trạng lúc giao nhận
 INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerified, ConditionStatus, AssetCheck, PhotoUrl) VALUES
 ('HOI_001', 'HO_PU_001', 'HRS_001', 1, N'Khỏe mạnh',    N'01 bộ yên cương, 02 chăn đắp ngựa', 'https://storage.cbntransport.com/ho/pu_hrs1.jpg'),
 ('HOI_002', 'HO_PU_001', 'HRS_002', 1, N'Khỏe mạnh',    N'01 hộp thuốc dinh dưỡng',           'https://storage.cbntransport.com/ho/pu_hrs2.jpg'),
@@ -657,20 +657,20 @@ INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerifie
 -- PHÂN VÙNG 5: HỢP ĐỒNG & TÀI CHÍNH ĐA TIỀN TỆ (CONTRACT & BILLING)
 -- =============================================================================
 
--- 23. Bảng CONTRACT: 3 hợp đồng vận chuyển
+-- 24. Bảng CONTRACT: 3 hợp đồng vận chuyển
 INSERT INTO CONTRACT (ContractID, TripID, CustomerID, ContractCode, CurrencyCode, ExchangeRateToLocal, TotalQuotedPrice, BaseContractPrice_P, DepositRateStandard, ActualGrossProfit_AGP, SignedAt, ContractStatus) VALUES
 ('CTR_2026_001', 'TRIP_2026_001', 'USR_CUST_01', 'HD-CBN-2026-001', 'USD', 25450.0000, 8500.00, 8500.00, 0.40, 2300.00, '2026-09-02 14:00:00', 'SETTLED'),
 ('CTR_2026_002', 'TRIP_2026_002', 'USR_CUST_02', 'HD-CBN-2026-002', 'USD', 25450.0000, 4200.00, 4200.00, 0.40, 950.00,  '2026-09-28 10:00:00', 'SETTLED'),
 ('CTR_2026_003', 'TRIP_2026_003', 'USR_CUST_01', 'HD-CBN-2026-003', 'VND', 1.0000,     145000000.00, 145000000.00, 0.40, NULL, '2026-10-06 09:30:00', 'EXECUTING');
 
--- 24. Bảng COST_ITEM: Các mục chi phí dự toán và phát sinh
+-- 25. Bảng COST_ITEM: Các mục chi phí dự toán và phát sinh
 INSERT INTO COST_ITEM (CostItemID, ContractID, CategoryName, SubcodeName, Bearer, CurrencyCode, TotalMoney, EvidenceUrl) VALUES
 ('CST_01', 'CTR_2026_001', N'Nhiên liệu',       N'Xăng dầu xe chuyên dụng',      'COMPANY',  'USD', 1500.00, 'https://storage.cbntransport.com/bills/fuel1.pdf'),
 ('CST_02', 'CTR_2026_001', N'Phí dịch vụ trạm', N'Lưu chuồng cách ly Vientiane', 'CUSTOMER', 'USD', 200.00,  'https://storage.cbntransport.com/bills/vet_lao.pdf'),
 ('CST_03', 'CTR_2026_001', N'Sự cố phát sinh',  N'Sửa vá lốp khẩn cấp',          'COMPANY',  'USD', 80.00,   'https://storage.cbntransport.com/bills/tire1.jpg'),
 ('CST_04', 'CTR_2026_002', N'Chi phí thú y',    N'Khám cấp cứu sốt ngựa',        'CUSTOMER', 'USD', 150.00,  'https://storage.cbntransport.com/bills/vet_khm.jpg');
 
--- 25. Bảng INVOICE: Các đợt hóa đơn (Đã trả xong, Đang nợ, Quá hạn)
+-- 26. Bảng INVOICE: Các đợt hóa đơn (Đã trả xong, Đang nợ, Quá hạn)
 INSERT INTO INVOICE (InvoiceID, ContractID, InvoiceType, CurrencyCode, TotalPayableAmount, PaidAmount, DueDate, PaymentStatus) VALUES
 -- Hợp đồng 1: Đã thanh toán 100%
 ('INV_101', 'CTR_2026_001', 'DEPOSIT_40',    'USD', 3400.00, 3400.00, '2026-09-05 23:59:59', 'PAID'),
@@ -681,7 +681,7 @@ INSERT INTO INVOICE (InvoiceID, ContractID, InvoiceType, CurrencyCode, TotalPaya
 -- Hợp đồng 3: Vừa nộp tiền cọc
 ('INV_301', 'CTR_2026_003', 'DEPOSIT_40',    'VND', 58000000.00, 58000000.00, '2026-10-07 23:59:59', 'PAID');
 
--- 26. Bảng PAYMENT: Giao dịch đối soát thực tế qua Cổng thanh toán hoặc Chuyển khoản
+-- 27. Bảng PAYMENT: Giao dịch đối soát thực tế qua Cổng thanh toán hoặc Chuyển khoản
 INSERT INTO PAYMENT (PaymentID, InvoiceID, ConfirmedByUserID, CurrencyCode, Amount, Method, TransactionCode, Status, PaymentDate) VALUES
 ('PAY_001', 'INV_101', 'USR_MGR_01', 'USD', 3400.00,     'STRIPE_GATEWAY', 'TXN_STRIPE_001829', 'SUCCESS', '2026-09-04 15:30:00'),
 ('PAY_002', 'INV_102', 'USR_MGR_01', 'USD', 5100.00,     'BANK_TRANSFER',  'TXN_VCB_8829102938', 'SUCCESS', '2026-09-18 10:15:00'),
@@ -689,4 +689,3 @@ INSERT INTO PAYMENT (PaymentID, InvoiceID, ConfirmedByUserID, CurrencyCode, Amou
 ('PAY_004', 'INV_301', 'USR_MGR_01', 'VND', 58000000.00, 'VNPAY_GATEWAY',  'VNPAY_20261007_019', 'SUCCESS', '2026-10-07 14:45:00');
 
 GO
-

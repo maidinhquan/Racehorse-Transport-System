@@ -37,6 +37,7 @@ namespace Application.DTOs
         public DateTime? DeliveryDeadline { get; set; }
         public List<HorseItemDto> Horses { get; set; } = new();
         public VehicleAssignmentDetailDto? Assignment { get; set; }
+        public List<VehicleAssignmentDetailDto> Assignments { get; set; } = new();
         public List<RouteSegmentItemDto> Segments { get; set; } = new();
         public OperationsReadinessDto Readiness { get; set; } = new();
         public List<string> AllowedActions { get; set; } = new();
@@ -72,12 +73,17 @@ namespace Application.DTOs
     public class VehicleAssignmentDetailDto
     {
         public string AssignmentId { get; set; } = string.Empty;
+        public string? LegType { get; set; } // "OUTBOUND" (VN) hoặc "INBOUND" (JP)
+        public string? Country { get; set; } = "VN";
         public string? VehicleId { get; set; }
         public string? VehiclePlateOrType { get; set; }
         public int? CapacityStalls { get; set; }
         public string? DriverId { get; set; }
         public string? DriverName { get; set; }
         public string? DriverPhone { get; set; }
+        public string? CoDriverId { get; set; }
+        public string? CoDriverName { get; set; }
+        public string? CoDriverPhone { get; set; }
         public string? EscortId { get; set; }
         public string? EscortName { get; set; }
         public string? EscortPhone { get; set; }
