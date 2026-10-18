@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { download } from '../../../../flow1/relational/api';
+import { flow1Error } from '../../../../flow1/api';
 import type {
   TransportRequestItem,
   ManagerNav,
@@ -6,13 +8,13 @@ import type {
 
 interface RenderRequestsPageProps {
   requests: TransportRequestItem[];
-  onAcceptRequest: (requestId: string, note?: string) => void;
+  onAcceptRequest: (requestId: string, note?: string) => Promise<void>;
   onRequestRevision: (
     requestId: string,
     reason: string,
     suggestionDate?: string
-  ) => void;
-  onRejectRequest: (requestId: string, reasonGroup: string, reason: string) => void;
+  ) => Promise<void>;
+  onRejectRequest: (requestId: string, reasonGroup: string, reason: string) => Promise<void>;
   onNavigate: (nav: ManagerNav, targetId?: string) => void;
   initialSelectedId?: string;
 }
@@ -25,6 +27,7 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
   onNavigate,
   initialSelectedId,
 }) => {
+  const [documentError,setDocumentError]=useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusTab, setStatusTab] = useState<string>('ALL');
   const [routeFilter, setRouteFilter] = useState<string>('ALL');
@@ -45,7 +48,7 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
   const [revisionReason, setRevisionReason] = useState(
     'Thời gian chuẩn bị vận chuyển quá gấp, đề nghị dời ngày khởi hành.'
   );
-  const [revisionDate, setRevisionDate] = useState('2026-11-05');
+  const [revisionDate, setRevisionDate] = useState('');
   const [rejectReasonGroup, setRejectReasonGroup] = useState('DEADLINE_NOT_FEASIBLE');
   const [rejectReason, setRejectReason] = useState(
     'Không thể bố trí khoang chuyên dụng đáp ứng kịp lịch khởi hành yêu cầu.'
@@ -95,22 +98,19 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
     setDecisionMode('NONE');
   };
 
-  const handleConfirmAccept = () => {
+  const handleConfirmAccept = async () => {
     if (!selectedRequest) return;
-    onAcceptRequest(selectedRequest.id, acceptNote);
-    handleCloseReview();
+    try{await onAcceptRequest(selectedRequest.id, acceptNote);handleCloseReview();}catch{/* Error is displayed by the portal. */}
   };
 
-  const handleConfirmRevision = () => {
+  const handleConfirmRevision = async () => {
     if (!selectedRequest) return;
-    onRequestRevision(selectedRequest.id, revisionReason, revisionDate);
-    handleCloseReview();
+    try{await onRequestRevision(selectedRequest.id, revisionReason, revisionDate);handleCloseReview();}catch{/* Portal error. */}
   };
 
-  const handleConfirmReject = () => {
+  const handleConfirmReject = async () => {
     if (!selectedRequest) return;
-    onRejectRequest(selectedRequest.id, rejectReasonGroup, rejectReason);
-    handleCloseReview();
+    try{await onRejectRequest(selectedRequest.id, rejectReasonGroup, rejectReason);handleCloseReview();}catch{/* Portal error. */}
   };
 
   return (
@@ -390,6 +390,7 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                 </div>
               </div>
 
+              {documentError&&<p role="alert">{documentError}</p>}
               {/* Special requirements */}
               {selectedRequest.specialRequirements && (
                 <div className="special-req-box">
@@ -419,37 +420,37 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                     <tbody>
                       {selectedRequest.horses.map((horse) => (
                         <tr key={horse.id}>
-                          <td className="font-semibold">{horse.name}</td>
+                          <td className="font-semibold">{horse.name}<div className="flow1-action-row">{["photo","passport"].map(kind=><button className="text-link-action" type="button" key={kind} onClick={()=>download(`/manager/requests/${selectedRequest.id}/horses/${horse.id}/files/${kind}`,kind).catch(e=>setDocumentError(flow1Error(e)))}>{kind==="photo"?"Xem ảnh":"Xem scan"}</button>)}</div></td>
                           <td>
-                            {horse.breed} • {horse.age} tuổi
+                            {horse.breed} • {horse.age ?? "—"} tuổi
                           </td>
                           <td className="font-mono text-xs">{horse.microchipId}</td>
                           <td>
                             {horse.documents.passport ? (
                               <span className="doc-check-ok">✓ Đã nộp</span>
                             ) : (
-                              <span className="doc-check-missing">✗ Chưa nộp</span>
+                              <span className="doc-check-missing">— Chưa có dữ liệu</span>
                             )}
                           </td>
                           <td>
                             {horse.documents.quarantineCert ? (
                               <span className="doc-check-ok">✓ Đã nộp</span>
                             ) : (
-                              <span className="doc-check-missing">✗ Chưa nộp</span>
+                              <span className="doc-check-missing">— Chưa có dữ liệu</span>
                             )}
                           </td>
                           <td>
                             {horse.documents.bloodTest ? (
                               <span className="doc-check-ok">✓ Đã nộp</span>
                             ) : (
-                              <span className="doc-check-missing">✗ Chưa nộp</span>
+                              <span className="doc-check-missing">— Chưa có dữ liệu</span>
                             )}
                           </td>
                           <td>
                             {horse.documents.ownershipCert ? (
                               <span className="doc-check-ok">✓ Đã nộp</span>
                             ) : (
-                              <span className="doc-check-missing">✗ Chưa nộp</span>
+                              <span className="doc-check-missing">— Chưa có dữ liệu</span>
                             )}
                           </td>
                         </tr>
@@ -469,21 +470,21 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                       <button
                         type="button"
                         className="btn-decision btn-accept"
-                        onClick={() => setDecisionMode('ACCEPT')}
+                        disabled={!['PENDING','ACCEPTED'].includes(selectedRequest.status)} onClick={() => setDecisionMode('ACCEPT')}
                       >
                         ✓ Chấp nhận (Accept)
                       </button>
                       <button
                         type="button"
                         className="btn-decision btn-revision"
-                        onClick={() => setDecisionMode('REVISION')}
+                        disabled={!['PENDING','ACCEPTED'].includes(selectedRequest.status)} onClick={() => setDecisionMode('REVISION')}
                       >
                         ✎ Yêu cầu điều chỉnh (Request Changes)
                       </button>
                       <button
                         type="button"
                         className="btn-decision btn-reject"
-                        onClick={() => setDecisionMode('REJECT')}
+                        disabled={!['PENDING','ACCEPTED','CHANGES_REQUESTED'].includes(selectedRequest.status)} onClick={() => setDecisionMode('REJECT')}
                       >
                         ✕ Từ chối đơn (Reject)
                       </button>

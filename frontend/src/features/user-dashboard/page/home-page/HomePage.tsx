@@ -1,12 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import CustomerLayout from "../../../../shared/layouts/CustomerLayout/CustomerLayout";
-import {
-  currentTrip,
-  customerNotifications,
-  recentRequests,
-  type RequestStatus,
-} from "../../data/homeMockData";
+import { useEffect } from "react";
+import { useRequests, currentContract, date, statusLabel } from "../../../flow1/relational/presentation";
+import { get, flow1Error } from "../../../flow1/api";
 import "./HomePage.css";
 
 function formatDate(date: string) {
@@ -22,7 +19,7 @@ function formatDate(date: string) {
   }
 }
 
-function getRequestStatusBadge(status: RequestStatus) {
+function getRequestStatusBadge(status: string) {
   switch (status) {
     case "In Transit":
       return <span className="status status-transit">Đang vận chuyển</span>;
@@ -41,15 +38,23 @@ function getRequestStatusBadge(status: RequestStatus) {
 
 function HomePage() {
   const navigate = useNavigate();
+  const {requests,error}=useRequests();
+  const [customerNotifications,setNotifications]=useState<{id:string;title:string;body:string;time:string;read:boolean}[]>([]);
+  const [noticeError,setNoticeError]=useState("");
+  useEffect(()=>{let active=true;get<{id:string;title:string;message:string;sentAt:string;isRead:boolean}[]>("/flow1/notifications").then(v=>{if(active)setNotifications(v.map(n=>({id:n.id,title:n.title,body:n.message,time:date(n.sentAt),read:n.isRead})));}).catch(e=>{if(active)setNoticeError(flow1Error(e));});return()=>{active=false;};},[]);
+  const activeRequest=requests.find(r=>{const c=currentContract(r);return c?.isCurrent&&c.hasAcceptanceEvidence&&c.trip&&!(["COMPLETED","CANCELLED"].includes(c.trip.status));});
+  const trip=activeRequest?currentContract(activeRequest)?.trip:null;
+  const currentTrip={id:trip?.tripId||"—",requestId:activeRequest?.requestId||"—",horse:activeRequest?.horses.map(h=>h.name).join(", ")||"—",origin:activeRequest?.departure||"—",destination:activeRequest?.destination||"—",departedDate:date(activeRequest?.departureAt),eta:date(activeRequest?.deliveryAt),lastMilestone:trip?.reason||"Chưa có chuyến được kích hoạt",milestoneTime:"",progress:0};
+  const recentRequests=requests.slice(0,5).map(r=>({id:r.requestId,origin:r.departure,destination:r.destination,horses:r.horses.map(h=>h.name).join(", "),requestedDate:"",status:statusLabel[r.status]||r.status}));
   const [showTrackingModal, setShowTrackingModal] = useState(false);
 
   return (
     <CustomerLayout pageTitle="Trang chủ">
-      <div className="home-page">
+      <div className="home-page">{(error||noticeError)&&<p role="alert">{error||noticeError}</p>}
         {/* Welcome Banner */}
         <section className="home-card welcome-card">
           <div>
-            <h1 className="home-title">Chào mừng trở lại, Alex</h1>
+            <h1 className="home-title">Chào mừng trở lại, {localStorage.getItem("userFullName")||"khách hàng"}</h1>
             <p className="home-subtitle">
               Quản lý ngựa và yêu cầu vận chuyển ở một nơi.
             </p>
@@ -70,7 +75,7 @@ function HomePage() {
           <article className="home-card current-trip-card">
             <div className="card-header">
               <h2>Chuyến hiện tại</h2>
-              <span className="status status-transit">Đang vận chuyển</span>
+              <span className="status status-transit">{trip?.status||"Chưa có chuyến"}</span>
             </div>
 
             <div className="trip-information">
@@ -112,7 +117,7 @@ function HomePage() {
 
             <button
               className="secondary-button tracking-button"
-              onClick={() => setShowTrackingModal(true)}
+              disabled={!trip} onClick={() => setShowTrackingModal(true)}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -135,7 +140,7 @@ function HomePage() {
             <div className="notifications-header">
               <div className="title-with-badge">
                 <h2>Thông báo</h2>
-                <span className="count-pill">7 chưa đọc</span>
+                <span className="count-pill">{customerNotifications.filter(n=>!n.read).length} chưa đọc</span>
               </div>
               <button
                 className="text-button"
@@ -274,40 +279,11 @@ function HomePage() {
                   </div>
                   <div className="summary-item">
                     <span>Trạng thái</span>
-                    <span className="status status-transit">Đang vận chuyển</span>
+                    <span className="status status-transit">{trip?.status||"Chưa có chuyến"}</span>
                   </div>
                 </div>
 
-                <div className="tracking-milestone-list">
-                  <div className="milestone-item done">
-                    <div className="milestone-icon">✓</div>
-                    <div className="milestone-content">
-                      <b>Xuất phát từ trang trại TP. Hồ Chí Minh</b>
-                      <span>Xe chuyên dụng CBN-02 • 4/10, 07:00</span>
-                    </div>
-                  </div>
-                  <div className="milestone-item current">
-                    <div className="milestone-icon">●</div>
-                    <div className="milestone-content">
-                      <b>Đã đến tại checkpoint – Moc Bai Border Gate</b>
-                      <span>Thủ tục kiểm dịch & hải quan • 4/10, 10:00</span>
-                    </div>
-                  </div>
-                  <div className="milestone-item planned">
-                    <div className="milestone-icon">○</div>
-                    <div className="milestone-content">
-                      <b>Quá cảnh Phnom Penh & Chăm sóc ngựa</b>
-                      <span>Dự kiến 5/10, 08:00</span>
-                    </div>
-                  </div>
-                  <div className="milestone-item planned">
-                    <div className="milestone-icon">○</div>
-                    <div className="milestone-content">
-                      <b>Bàn giao tại điểm đến – Bangkok</b>
-                      <span>Dự kiến 6/10, 16:00</span>
-                    </div>
-                  </div>
-                </div>
+                <div className="tracking-milestone-list"><div className="milestone-item current"><div className="milestone-icon">●</div><div className="milestone-content"><b>{trip?.deploymentStatus||"Chưa bàn giao"}</b><span>{trip?.reason||"Chưa có mốc vận hành được xác nhận"}</span></div></div></div>
               </div>
 
               <div className="modal-footer">

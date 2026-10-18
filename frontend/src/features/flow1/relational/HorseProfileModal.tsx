@@ -1,0 +1,19 @@
+import { useRef, useState } from "react";
+import { relational, download } from "./api";
+import type { Horse } from "./api";
+import { flow1Error } from "../api";
+
+export function HorseProfileModal({ horse, edit, close, reload }: { horse?: Horse; edit: boolean; close: () => void; reload: () => Promise<void> }) {
+  const key = useRef(crypto.randomUUID()); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
+  return <div className="customer-modal-overlay"><div className="customer-modal-card"><div className="modal-header"><div><h3 className="modal-title">{horse ? horse.name : "Thêm ngựa"}</h3><p className="modal-subtitle">Ảnh nhận diện và scan hộ chiếu hiện hành</p></div><button className="modal-close" disabled={busy} onClick={close}>✕</button></div>
+    <form className="flow1-dialog-form" onChange={() => { key.current = crypto.randomUUID(); }} onSubmit={async e => { e.preventDefault(); setBusy(true); setError(""); const f = new FormData(e.currentTarget);
+      try { if (horse) { f.append("version", horse.version); await relational.action(`/customer/horses/${horse.horseId}/files`, f, key.current); }
+        else { const data = new FormData(); for (const kind of ["photo", "passportScan"]) data.append(kind, f.get(kind) as File); data.append("payload", JSON.stringify({ name: f.get("name"), microchipIso: f.get("chip"), feiPassportNo: f.get("passport"), breed: f.get("breed"), sex: f.get("sex"), weight: Number(f.get("weight")), dob: f.get("dob") })); await relational.horse(data, key.current); }
+        await reload(); close(); } catch (e) { setError(flow1Error(e)); } finally { setBusy(false); }
+    }}><div className="modal-body">{error && <p role="alert">{error}</p>}
+      {horse ? <div className="request-info-grid"><div><span>Microchip ISO</span><strong>{horse.microchipIso}</strong></div><div><span>Hộ chiếu</span><strong>{horse.passportNo || "—"}</strong></div>{["photo", "passport"].map(kind => <button key={kind} type="button" className="secondary-button" onClick={() => download(`/customer/horses/${horse.horseId}/files/${kind}`, kind).catch(e => setError(flow1Error(e)))}>Tải {kind}</button>)}</div>
+        : <div className="form-grid-2"><label className="form-label">Tên ngựa<input className="form-input" name="name" required maxLength={100} /></label><label className="form-label">Microchip ISO (15 số)<input className="form-input" name="chip" required pattern="[0-9]{15}" /></label><label className="form-label">Số hộ chiếu FEI<input className="form-input" name="passport" required maxLength={50} /></label><label className="form-label">Giống<input className="form-input" name="breed" required maxLength={100} /></label><label className="form-label">Giới tính<select className="form-select" name="sex"><option value="STALLION">Đực</option><option value="MARE">Cái</option><option value="GELDING">Đực đã thiến</option></select></label><label className="form-label">Khối lượng kg<input className="form-input" name="weight" type="number" required min={1} max={2000} step="0.01" /></label><label className="form-label">Ngày sinh<input className="form-input" name="dob" type="date" required /></label></div>}
+      {edit && <div className="upload-box"><label className="form-label">Ảnh PNG/JPEG ≤5MB<input required name="photo" type="file" accept="image/png,image/jpeg" /></label><label className="form-label">Scan hộ chiếu PNG/JPEG/PDF ≤5MB<input required name="passportScan" type="file" accept="image/png,image/jpeg,application/pdf" /></label></div>}
+    </div><div className="modal-footer">{edit && <button className="primary-button" disabled={busy}>{busy ? "Đang lưu…" : horse ? "Cập nhật hai tệp" : "Lưu hồ sơ ngựa"}</button>}<button type="button" className="secondary-button" disabled={busy} onClick={close}>Đóng</button></div></form>
+  </div></div>;
+}

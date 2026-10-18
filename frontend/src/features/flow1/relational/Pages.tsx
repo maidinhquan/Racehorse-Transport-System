@@ -158,11 +158,11 @@ function ContractPanel({ c, manager, busy, act, setError }: { c: Contract; manag
   </section>;
 }
 
-export function OperationsInbox({ stream }: { stream: "ROUTING" | "DOCUMENTS" }) {
+export function OperationsInbox({ stream, portal=false }: { stream: "ROUTING" | "DOCUMENTS"; portal?:boolean }) {
   const [items, setItems] = useState<Handoff[]>([]); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   useEffect(() => { relational.queue().then(setItems).catch(e => setError(flow1Error(e))); }, []);
-  return <main className="flow1-page"><h1>Bàn giao {stream === "ROUTING" ? "điều phối" : "hồ sơ"}</h1><p>Chỉ hiện lần bàn giao đang được xác nhận. Hold hoặc resume thu hồi lần nhận cũ.</p>
-    <button onClick={() => relational.queue().then(setItems).catch(e => setError(flow1Error(e)))}>Tải lại bàn giao</button>{items.map(x => <section key={x.trip.tripId}><h2>{x.departure} → {x.destination}</h2><p>{date(x.departureAt)} · {x.trip.tripId} · {x.trip.eventId}</p>
+  return <main className={portal?"flow1-handoff-portal":"flow1-page"}><h1>Bàn giao {stream === "ROUTING" ? "điều phối" : "hồ sơ"}</h1><p>Chỉ hiện lần bàn giao đang được xác nhận. Hold hoặc resume thu hồi lần nhận cũ.</p>
+    <button onClick={() => relational.queue().then(setItems).catch(e => setError(flow1Error(e)))}>Tải lại bàn giao</button>{items.map(x => <section className={portal?"dash-card":undefined} key={x.trip.tripId}><h2>{x.departure} → {x.destination}</h2><p>{date(x.departureAt)} · {x.trip.tripId} · {x.trip.eventId}</p>
       <button onClick={() => download(`/operations/flow1/trips/${x.trip.tripId}/pdf?eventId=${x.trip.eventId}`, "contract.pdf").catch(e => setError(flow1Error(e)))}>PDF hợp đồng · {x.pdfSha256}</button>
       {x.horses.map(h => <p key={h.horseId}>{h.name} · {h.microchipIso}{["photo", "passport"].map(kind => <button key={kind} onClick={() => download(`/operations/flow1/trips/${x.trip.tripId}/horses/${h.horseId}/files/${kind}?eventId=${x.trip.eventId}`, kind).catch(e => setError(flow1Error(e)))}>Tải {kind} hiện hành</button>)}</p>)}
       <button disabled={busy} onClick={async () => { setBusy(true); setError(""); try { await relational.action(`/operations/flow1/trips/${x.trip.tripId}/ack`, { version: x.trip.version, eventId: x.trip.eventId }); setItems(await relational.queue()); } catch (e) { setError(flow1Error(e)); } finally { setBusy(false); } }}>Xác nhận nhận bàn giao</button>

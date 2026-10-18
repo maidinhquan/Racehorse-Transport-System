@@ -55,7 +55,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         Require(c.CustomerID == r.CustomerID, "DATA_REVIEW_REQUIRED", "Contract ownership differs from request."); return (c, r);
     }
     private static FlowHorseCard HorseCard(FlowHorse h, bool available = true) => new(h.HorseID, h.Name, h.Microchip_ISO,
-        h.FEI_Passport_No, Token(h.RowVersion), h.PhotoUrl is not null && h.PassportScanUrl is not null, available);
+        h.FEI_Passport_No, Token(h.RowVersion), h.PhotoUrl is not null && h.PassportScanUrl is not null, available, h.Breed, h.Sex, h.DOB);
     private async Task<bool> Busy(string horse, DateTime from, DateTime to, string? exclude, CancellationToken ct)
     {
         var links = await db.QueryAsync<FlowRequestHorse>(h => h.HorseID == horse && h.RequestID != exclude, ct);
@@ -94,9 +94,10 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         FlowRequestInput? input=null;
         if(r.ExpectedDate is not null && r.CommittedDeadline is not null && r.PickupLatitude is not null && r.DeliveryLatitude is not null && r.PickupLongitude is not null && r.DeliveryLongitude is not null)
             input=new(new(new(r.Departure,(double)r.PickupLatitude.Value,(double)r.PickupLongitude.Value,r.OriginCountry!),new(r.Destination,(double)r.DeliveryLatitude.Value,(double)r.DeliveryLongitude.Value,r.DestinationCountry!),r.TransportType!,horses.Count,DateOnly.FromDateTime(new DateTimeOffset(r.ExpectedDate.Value).ToOffset(TimeSpan.FromHours(7)).DateTime)),new(r.ExpectedDate.Value),new(r.CommittedDeadline.Value),r.Purpose??"",new(r.PickupContactName??"",r.PickupContactPhone??""),new(r.DesignatedReceiverName??"",r.DesignatedReceiverPhone??""),horses.Select(h=>new HorseSelection(h.HorseId,h.Version)).ToArray());
+        var customer = await db.FindAsync<FlowUser>(r.CustomerID, ct);
         return new(r.RequestID, Token(r.RowVersion), r.Status, r.Departure, r.Destination, r.ExpectedDate, r.CommittedDeadline,
             r.ManagerNotes, r.DistanceKm, r.PreparationDays, r.PickupContactName, r.PickupContactPhone,
-            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution);
+            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email);
     }
     public Task<FlowRequestCard> DetailAsync(string id, string actor, bool manager, CancellationToken ct) =>
         db.RunAsync(async t => await Card(await Request(id, actor, manager, t), t), ct);

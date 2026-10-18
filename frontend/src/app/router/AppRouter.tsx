@@ -34,10 +34,16 @@ import { CoordinatorPortal } from "../../features/coordinator/pages/dashboard/Co
 import CoordinatorDashboard from "../../features/coordinator/CoordinatorDashboard";
 import { DriverPortal } from "../../features/driver/pages/trip-detail/DriverPortal";
 import { HandoverPage } from "../../features/driver/pages/handover/HandoverPage";
+import HomePage from "../../features/user-dashboard/page/home-page/HomePage";
+import TransportRequestPage from "../../features/user-dashboard/page/transport-request-page/list/TransportRequestPage";
+import TransportRequestDetailPage from "../../features/user-dashboard/page/transport-request-page/detail/TransportRequestDetailPage";
+import MyHorsesPage from "../../features/user-dashboard/page/my-horses/MyHorsesPage";
+import ContractPage from "../../features/user-dashboard/page/transport-request-page/contract/ContractPage";
+import PaymentPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentPage";
 import { LandingPage } from "../../features/landing/LandingPage";
 
-import { HorsesPage, RequestDetailPage, RequestWizardPage, CustomerVnpayReturnPage } from "../../features/flow1/relational/Pages";
-import { CustomerFlowHome, CustomerRequests, OperationsFlowHome } from "../../features/flow1/relational/PortalPages";
+import { CustomerVnpayReturnPage } from "../../features/flow1/relational/Pages";
+import { OperationsFlowHome } from "../../features/flow1/relational/PortalPages";
 import { PublicEstimatePage } from "../../features/flow1/PublicEstimatePage";
 
 function AppRouter() {
@@ -49,7 +55,7 @@ function AppRouter() {
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/estimate" element={<PublicEstimatePage />} />
         <Route path="/manager/requests/:requestId" element={<ManagerPortal detail />} />
-        <Route path="/customer/requests/:requestId/revision" element={<RequestWizardPage revision />} />
+        <Route path="/customer/requests/:requestId/revision" element={<CreateRequestWizard revision />} />
         <Route path="/customer/payments/return" element={<CustomerVnpayReturnPage />} />
         <Route path="/coordinator/flow1-work" element={<OperationsFlowHome stream="ROUTING" />} />
         <Route path="/specialist/flow1-work" element={<OperationsFlowHome stream="DOCUMENTS" />} />
@@ -100,18 +106,18 @@ function AppRouter() {
         <Route path="/specialist/audit" element={<SpecialistPortal initialNav="audit" />} />
 
         {/* ==================== CUSTOMER ==================== */}
-        <Route path="/customer/home" element={<CustomerFlowHome />} />
+        <Route path="/customer/home" element={<HomePage />} />
         <Route path="/customer/profile" element={<CustomerProfilePage />} />
-        <Route path="/customer/requests" element={<CustomerRequests />} />
+        <Route path="/customer/requests" element={<TransportRequestPage />} />
         <Route path="/customer/requests/new" element={<CreateRequestWizard />} />
-        <Route path="/customer/requests/:requestId" element={<RequestDetailPage />} />
-        <Route path="/customer/requests/:requestId/information" element={<RequestDetailPage />} />
-        <Route path="/customer/requests/:requestId/information/success" element={<RequestDetailPage />} />
-        <Route path="/customer/requests/:requestId/contract" element={<RequestDetailPage />} />
-        <Route path="/customer/requests/:requestId/payment" element={<RequestDetailPage />} />
-        <Route path="/customer/horses" element={<HorsesPage />} />
+        <Route path="/customer/requests/:requestId" element={<TransportRequestDetailPage />} />
+        <Route path="/customer/requests/:requestId/information" element={<TransportRequestDetailPage />} />
+        <Route path="/customer/requests/:requestId/information/success" element={<TransportRequestDetailPage />} />
+        <Route path="/customer/requests/:requestId/contract" element={<ContractPage />} />
+        <Route path="/customer/requests/:requestId/payment" element={<PaymentPage />} />
+        <Route path="/customer/horses" element={<MyHorsesPage />} />
         <Route path="/customer/tracking" element={<Navigate to="/customer/home" replace />} />
-        <Route path="/customer/history" element={<CustomerRequests />} />
+        <Route path="/customer/history" element={<TransportRequestPage />} />
         <Route path="/customer/create-request" element={<CreateRequestWizard />} />
 
         {/* ==================== PAYMENT ==================== */}

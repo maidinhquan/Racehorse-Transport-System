@@ -4,15 +4,14 @@ import { useNavigate } from "react-router-dom";
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
 
 import {
-  requestStatuses,
-  transportRequests,
   type ContractStatus,
-  type RequestStatus,
 } from "../../../data/transportRequestMockData";
 
 import "./TransportRequestPage.css";
+import { useRequests, statusLabel, currentContract } from "../../../../flow1/relational/presentation";
 
 function formatDate(date: string) {
+  if(!date)return "—";
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
@@ -20,7 +19,7 @@ function formatDate(date: string) {
   }).format(new Date(date));
 }
 
-function getRequestStatusClass(status: RequestStatus) {
+function getRequestStatusClass(status: string) {
   switch (status) {
     case "In Transit":
       return "request-status request-status-orange";
@@ -75,7 +74,10 @@ function getContractStatusClass(status: ContractStatus) {
 
 function TransportRequestPage() {
   const navigate = useNavigate();
+  const {requests: records,error,loading}=useRequests();
+  const transportRequests=useMemo(()=>records.map(r=>({id:r.requestId,origin:r.departure,destination:r.destination,horses:r.horses.map(h=>h.name),requestedDate:"",preferredDate:r.departureAt||"",status:statusLabel[r.status]||r.status,contractStatus:currentContract(r)?.signedAt?"Signed" as const:currentContract(r)?.pdfSha256?"Ready" as const:currentContract(r)?"Preparing" as const:"Not Available" as const})),[records]);
 
+  const requestStatuses=[...new Set(transportRequests.map(r=>r.status))];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
@@ -100,11 +102,11 @@ function TransportRequestPage() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [search, statusFilter]);
+  }, [transportRequests, search, statusFilter]);
 
   return (
     <CustomerLayout pageTitle="Yêu cầu vận chuyển">
-      <div className="transport-request-page">
+      <div className="transport-request-page">{error&&<p role="alert">{error}</p>}{loading&&<p>Đang tải…</p>}
         <div className="transport-request-header">
           <div>
             <h1>Yêu cầu vận chuyển</h1>

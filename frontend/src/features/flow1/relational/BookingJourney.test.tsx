@@ -29,7 +29,7 @@ test("four-step wizard requires resolved locations and owned available horses, p
   vi.spyOn(flow1, "search").mockImplementation(async (address, country) => [{ label: address + " found", point: { latitude: address === "Pickup" ? 10 : 11, longitude: 106, countryCode: country }, attribution: "Fixture" }]);
   const submit = vi.spyOn(relational, "submit").mockRejectedValueOnce(new Error("Retryable failure")).mockResolvedValue({ requestId: "created" } as never);
   render(<MemoryRouter><Routes><Route path="/" element={<CreateRequestWizard />} /><Route path="/customer/requests/:id" element={<Location />} /></Routes></MemoryRouter>);
-  expect(screen.getByText("Ho Chi Minh City → Hanoi")).toBeInTheDocument(); expect(screen.getByRole("button", { name: "4. Hồ sơ & Xác nhận" })).toBeDisabled();
+  expect(screen.getByText(/Ho Chi Minh City → Hanoi/)).toBeInTheDocument(); expect(screen.getByRole("button", { name: "4. Hồ sơ & Thương mại" })).toBeDisabled();
   fireEvent.change(screen.getByLabelText("Khởi hành (giờ Việt Nam)"), { target: { value: "2026-11-20T10:00" } });
   fireEvent.change(screen.getByLabelText("Hạn giao (giờ Việt Nam)"), { target: { value: "2026-11-21T10:00" } });
   await userEvent.type(screen.getByLabelText("Mục đích"), "Race"); await userEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
@@ -43,7 +43,7 @@ test("four-step wizard requires resolved locations and owned available horses, p
   expect(await screen.findByRole("checkbox", { name: /Busy horse/ })).toBeDisabled();
   await userEvent.click(screen.getByRole("checkbox", { name: /My horse/ })); await userEvent.click(screen.getByRole("button", { name: "Tiếp tục" }));
   await userEvent.click(screen.getByRole("checkbox", { name: "Tôi xác nhận thông tin và hồ sơ đã chọn." }));
-  await userEvent.click(screen.getByRole("button", { name: "Gửi yêu cầu" })); await screen.findByText("Retryable failure");
+  await userEvent.click(screen.getByRole("button", { name: "Gửi yêu cầu" })); expect(await screen.findByRole("alert")).toHaveTextContent("Retryable failure");
   await userEvent.click(screen.getByRole("button", { name: "Gửi yêu cầu" })); await waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
   const [input, key] = submit.mock.calls[0]; expect(submit.mock.calls[1][1]).toBe(key);
   expect(input.departureAt).toBe("2026-11-20T03:00:00.000Z"); expect(input.horses).toEqual([{ horseId: horse.horseId, version: horse.version }]);

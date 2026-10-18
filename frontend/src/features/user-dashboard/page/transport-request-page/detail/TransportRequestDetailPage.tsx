@@ -1,22 +1,14 @@
 import { useNavigate, useParams } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
-import {
-  getRequestById,
-  updateRequestStatus,
-  type FakeRequestStatus,
-} from "../../../data/transportRequestStorage";
-import {
-  useState,
-} from "react";
-import {
-  transportRequestDetails,
-  type DetailRequestStatus,
-} from "../../../data/transportRequestDetailMockData";
-
+import type { DetailRequestStatus } from "../../../data/transportRequestDetailMockData";
+import { useRequest, detailView } from "../../../../flow1/relational/presentation";
+import { LifecycleActions } from "../../../../flow1/relational/LifecycleActions";
+import { currentContract } from "../../../../flow1/relational/presentation";
 import "./TransportRequestDetailPage.css";
 
 function formatDate(date: string) {
+  if(!date)return "—";
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
@@ -29,6 +21,7 @@ function getStatusClass(status: DetailRequestStatus) {
     case "In Transit":
       return "detail-status detail-status-orange";
 
+    case "Activated":
     case "Scheduled":
     case "Completed":
       return "detail-status detail-status-green";
@@ -55,6 +48,7 @@ function getStatusClass(status: DetailRequestStatus) {
 
 function getBanner(status: DetailRequestStatus) {
   switch (status) {
+    case "Activated": return {type:"green",title:"Yêu cầu đã được kích hoạt",message:"Đã xác minh đủ cọc; Manager xác nhận bàn giao để đội điều phối và hồ sơ nhận chuyến."};
     case "Waiting for Manager Review":
       return {
         type: "yellow",
@@ -158,111 +152,13 @@ function TransportRequestDetailPage() {
 
   const { requestId } = useParams();
 
-  // Dữ liệu cơ bản được lưu trong localStorage
-  const [storedRequest, setStoredRequest] = useState(() =>
-    requestId
-      ? getRequestById(requestId)
-      : undefined
-  );
-
-  // Dữ liệu chi tiết dùng để demo UI
-  const detailRequest = transportRequestDetails.find(
-    (item) => item.id === requestId
-  );
-
-  /*
-    Nếu request có trong detail mock:
-    - dùng toàn bộ dữ liệu chi tiết
-    - status sẽ ưu tiên status trong localStorage
-
-    Nếu là request mới tạo:
-    - tạo dữ liệu detail tối thiểu để page vẫn render được
-  */
-  const request = detailRequest
-    ? {
-      ...detailRequest,
-
-      status:
-        (storedRequest?.status ??
-          detailRequest.status) as DetailRequestStatus,
-    }
-    : storedRequest
-      ? {
-        ...storedRequest,
-
-        status:
-          storedRequest.status as DetailRequestStatus,
-
-        horses: [],
-
-        documents: [],
-
-        progress: [
-          {
-            id: 1,
-            label: "Request Submitted",
-            status: "current" as const,
-          },
-        ],
-
-        contract: undefined,
-
-        pickupWindow: undefined,
-
-        eta: undefined,
-      }
-      : undefined;
-
-  const changeDemoStatus = (
-    status: FakeRequestStatus
-  ) => {
-    if (!requestId || !request) {
-      return;
-    }
-
-    updateRequestStatus(
-      requestId,
-      status
-    );
-
-    setStoredRequest((previous) => {
-      if (previous) {
-        return {
-          ...previous,
-          status,
-        };
-      }
-
-      return {
-        id: request.id,
-
-        origin: request.origin,
-
-        destination:
-          request.destination,
-
-        requestedDate:
-          request.requestedDate,
-
-        preferredDate:
-          request.preferredDate,
-
-        horseCount:
-          request.horseCount,
-
-        estimatedPrice:
-          request.estimatedPrice,
-
-        status,
-      };
-    });
-  };
-
+  const {request:record,error,reload}=useRequest(requestId);
+  const request=record?detailView(record):null;
   if (!request) {
     return (
       <CustomerLayout pageTitle="Transport Request">
         <div className="detail-not-found">
-          <h2>Transport request not found</h2>
+          <h2>{error||"Đang tải…"}</h2>
 
           <button
             onClick={() =>
@@ -280,6 +176,7 @@ function TransportRequestDetailPage() {
 
   const handleCurrentAction = () => {
     switch (request.status) {
+      case "Changes Requested": navigate(`/customer/requests/${request.id}/revision`); break;
       case "Contract Ready":
         navigate(
           `/customer/requests/${request.id}/contract`
@@ -300,7 +197,7 @@ function TransportRequestDetailPage() {
 
       case "Documents Under Review":
         navigate(
-          `/customer/requests/${request.id}/documents`
+          `/customer/horses`
         );
         break;
 
@@ -315,6 +212,7 @@ function TransportRequestDetailPage() {
 
   const getActionLabel = () => {
     switch (request.status) {
+      case "Changes Requested": return "Sửa rồi gửi lại";
       case "Contract Ready":
         return "View Contract";
 
@@ -446,15 +344,12 @@ function TransportRequestDetailPage() {
 
                 <div>
                   <span>
-                    Estimated Transport Cost
+                    Giá chốt hợp đồng (VND)
                   </span>
 
                   <strong className="detail-price">
-                    $
-                    {request.estimatedPrice.toLocaleString(
-                      "en-US"
-                    )}{" "}
-                    USD
+                    {request.contract?request.estimatedPrice.toLocaleString("vi-VN"):"Chưa chốt"}{" "}
+                    VND
                   </strong>
                 </div>
               </div>
@@ -511,11 +406,10 @@ function TransportRequestDetailPage() {
                         </span>
 
                         <strong className="detail-price">
-                          $
-                          {request.contract.finalPrice.toLocaleString(
+                                {request.contract.finalPrice.toLocaleString(
                             "en-US"
                           )}{" "}
-                          USD
+                          VND
                         </strong>
                       </div>
                     )}
@@ -523,6 +417,7 @@ function TransportRequestDetailPage() {
               </section>
             )}
 
+            {record&&currentContract(record)&&<section className="request-detail-card"><LifecycleActions c={currentContract(record)!} reload={reload}/></section>}
             {/* Horses */}
             {request.horses.length > 0 && (
               <section className="request-detail-card">
@@ -586,7 +481,7 @@ function TransportRequestDetailPage() {
                       className="detail-section-link"
                       onClick={() =>
                         navigate(
-                          `/customer/requests/${request.id}/documents`
+                          `/customer/horses`
                         )
                       }
                     >
@@ -635,154 +530,6 @@ function TransportRequestDetailPage() {
 
           {/* RIGHT */}
           <aside className="request-detail-right">
-            <section className="request-detail-card demo-control-card">
-              <h2>Demo Controls</h2>
-
-              <p className="demo-control-description">
-                Simulate Manager / Staff actions without backend.
-              </p>
-
-              <div className="demo-control-buttons">
-                {request.status ===
-                  "Waiting for Manager Review" && (
-                    <>
-                      <button
-                        onClick={() =>
-                          changeDemoStatus(
-                            "Accepted – Contract Preparation"
-                          )
-                        }
-                      >
-                        Manager: Accept Request
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          changeDemoStatus(
-                            "Changes Requested"
-                          )
-                        }
-                      >
-                        Manager: Request Changes
-                      </button>
-
-                      <button
-                        onClick={() =>
-                          changeDemoStatus(
-                            "Rejected"
-                          )
-                        }
-                      >
-                        Manager: Reject Request
-                      </button>
-                    </>
-                  )}
-
-                {request.status ===
-                  "Accepted – Contract Preparation" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Contract Ready"
-                        )
-                      }
-                    >
-                      Manager: Contract Ready
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Contract Ready" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Awaiting Deposit"
-                        )
-                      }
-                    >
-                      Customer: Sign Contract
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Awaiting Deposit" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Information Required"
-                        )
-                      }
-                    >
-                      Customer: Pay Deposit
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Information Required" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Information Submitted"
-                        )
-                      }
-                    >
-                      Customer: Submit Information
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Information Submitted" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Documents Under Review"
-                        )
-                      }
-                    >
-                      Staff: Review Documents
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Documents Under Review" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Scheduled"
-                        )
-                      }
-                    >
-                      Staff: Schedule Transport
-                    </button>
-                  )}
-
-                {request.status ===
-                  "Scheduled" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "In Transit"
-                        )
-                      }
-                    >
-                      Staff: Start Trip
-                    </button>
-                  )}
-
-                {request.status ===
-                  "In Transit" && (
-                    <button
-                      onClick={() =>
-                        changeDemoStatus(
-                          "Completed"
-                        )
-                      }
-                    >
-                      Staff: Complete Trip
-                    </button>
-                  )}
-              </div>
-            </section>
             {/* Action */}
             <section className="request-detail-card">
               <h2>

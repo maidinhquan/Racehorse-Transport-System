@@ -26,10 +26,10 @@ export type ContractStatus =
 export type TransportMode = 'AIR' | 'ROAD' | 'COMBINED';
 
 export interface HorseItem {
-  id: number;
+  id: string | number;
   name: string;
   breed: string;
-  age: number;
+  age: number | null;
   microchipId: string;
   documents: {
     passport: boolean;

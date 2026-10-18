@@ -229,4 +229,12 @@
   background-color: #D1D5DB;
   cursor: not-allowed;
 }
-.customer-page .wizard-steps .wizard-step-btn[aria-current="step"] { background:#c75b00; color:#fff; opacity:1; }
+.customer-page fieldset { border:0; padding:0; margin:0; }
+.customer-page fieldset legend { font-size:14px; font-weight:600; margin-bottom:8px; }
+.customer-page fieldset input { width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; }
+.customer-page fieldset button { background:#fff; border:1px solid #d1d5db; border-radius:8px; padding:8px 14px; margin-top:8px; cursor:pointer; }
+.customer-page .wizard-horse-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+.customer-page .horse-item { display:flex; gap:12px; }
+.customer-page .horse-item > input { width:18px; height:18px; }
+.customer-page .horse-item > div { flex:1; }
+.customer-page .wizard-agreement { display:flex; gap:8px; margin-top:18px; }

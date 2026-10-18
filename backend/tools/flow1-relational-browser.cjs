@@ -82,6 +82,8 @@ const fixture = http.createServer((req, res) => {
 });
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function ready(url) { for (let i = 0; i < 100; i++) { try { if ((await fetch(url)).ok) return; } catch {} await delay(200); } throw new Error('Local server did not start: ' + url); }
+const traffic=new Map();
+async function pace(role,route){let slots=traffic.get(role)||[];const now=Date.now();slots=slots.filter(t=>t>now-61000);const at=slots.length>=20?Math.max(now,slots[slots.length-20]+61000):now;slots.push(at);traffic.set(role,slots);if(at>now)await delay(at-now);await route.continue();}
 let demoInstall;
 async function installDemo(ctx){return demoInstall(ctx);}
 async function main() {
@@ -103,9 +105,9 @@ async function main() {
     const ctx = await browser.newContext({viewport:{width:1440,height:1100}});
     await ctx.addInitScript(({role,token,base})=>{if(location.origin===base){localStorage.setItem('accessToken',token);localStorage.setItem('userRole',role);localStorage.setItem('userFullName','Local Fixture');}},{role,token,base});
     if(localDemo)await installDemo(ctx);
-    const p=await ctx.newPage();let slots=[];
+    const p=await ctx.newPage();
     // Keep the real limiter. Development StrictMode duplicates some reads; pace fixture traffic below 30/min.
-    await p.route(base+'/api/**',async route=>{const now=Date.now();slots=slots.filter(t=>t>now-61000);const at=slots.length>=26?Math.max(now,slots[slots.length-26]+61000):now;slots.push(at);if(at>now)await delay(at-now);await route.continue();});
+    await p.route(base+'/api/**',route=>pace(role,route));
     p.on('pageerror',e=>errors.push(e.message));p.on('response',r=>{if(r.status()>=400&&r.url().startsWith(base+'/api/'))fs.appendFileSync(path.join(output,'http-errors.log'),r.status()+' '+new URL(r.url()).pathname+'\n');});p.setDefaultTimeout(120000);return p;
   }
   if(localDemo){
@@ -119,48 +121,51 @@ async function main() {
   const manager=await actor('LOGISTICS_MANAGER');
   async function mutate(p,label,ends) {const response=p.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith(ends),{timeout:120000});await p.getByRole('button',{name:label,exact:true}).click();const r=await response;if(!r.ok())throw new Error('Mutation '+ends+': '+await r.text());await p.waitForTimeout(250);console.log('Checked '+ends);fs.appendFileSync(path.join(output,'steps.log'),ends+'\n');return (await r.json()).data;}
   const days=(n)=>new Date(Date.now()+n*86400000+7*3600000).toISOString().slice(0,16);
-  await customer.goto(base+'/customer/horses');
+  await customer.goto(base+'/customer/home');await customer.locator('.welcome-card').waitFor();await customer.screenshot({path:path.join(output,'ui-customer-dashboard.png'),fullPage:true});
+  await customer.goto(base+'/customer/horses');await customer.getByRole('button',{name:'Thêm ngựa',exact:true}).click();
   const add=customer.locator('form').last();
   await add.locator('[name=name]').fill('Relational Browser Horse');await add.locator('[name=chip]').fill('900000000000001');await add.locator('[name=passport]').fill('FEI_BROWSER');await add.locator('[name=breed]').fill('Thoroughbred');await add.locator('[name=weight]').fill('450');await add.locator('[name=dob]').fill('2020-01-01');
   const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=','base64');
   for(const name of ['photo','passportScan'])await add.locator('[name='+name+']').setInputFiles({name:name+'.png',mimeType:'image/png',buffer:png});
-  await mutate(customer,'Lưu hồ sơ ngựa','/customer/horses');await customer.getByText(/Relational Browser Horse ·/).first().waitFor();
+  await mutate(customer,'Lưu hồ sơ ngựa','/customer/horses');await customer.getByText('Relational Browser Horse',{exact:true}).first().waitFor();await customer.screenshot({path:path.join(output,'ui-horse-cards.png'),fullPage:true});
   // Start the new booking journey as a guest, retaining the landing route through real UI login.
   const booking=await browser.newContext({viewport:{width:1440,height:1100}});
   if(localDemo)await installDemo(booking);
   customer=await booking.newPage();diagnosticPage=customer;customer.setDefaultTimeout(120000);
-  let bookingSlots=[];await customer.route(base+'/api/**',async route=>{const now=Date.now();bookingSlots=bookingSlots.filter(t=>t>now-61000);const at=bookingSlots.length>=24?Math.max(now,bookingSlots[bookingSlots.length-24]+61000):now;bookingSlots.push(at);if(at>now)await delay(at-now);await route.continue();});
+  await customer.route(base+'/api/**',route=>pace('CUSTOMER',route));
   customer.on('pageerror',e=>errors.push(e.message));
   await customer.goto(base+'/');await customer.getByLabel('Điểm đi',{exact:true}).selectOption('Ho Chi Minh City');await customer.getByLabel('Điểm đến',{exact:true}).selectOption(air?'Tokyo':'Hanoi');
   await customer.getByText('VND · giá demo tham khảo',{exact:true}).waitFor();await customer.screenshot({path:path.join(output,'integrated-landing.png'),fullPage:true});
   await customer.getByRole('button',{name:'Gửi yêu cầu',exact:true}).click();await customer.waitForURL('**/login?next=flow1');
   await customer.getByLabel('Email',{exact:true}).fill('browser-owner@example.invalid');await customer.getByLabel('Mật khẩu',{exact:true}).fill('Flow1_Native_Fixture_Only_2026!');await customer.getByRole('button',{name:'Đăng nhập',exact:true}).click();await customer.waitForURL('**/customer/create-request');
-  await customer.getByText('Ho Chi Minh City → '+(air?'Tokyo':'Hanoi'),{exact:true}).waitFor();
+  await customer.getByText(new RegExp('Ho Chi Minh City → '+(air?'Tokyo':'Hanoi'))).first().waitFor();
   await customer.getByLabel('Khởi hành (giờ Việt Nam)',{exact:true}).fill(days(20));await customer.getByLabel('Hạn giao (giờ Việt Nam)',{exact:true}).fill(days(21));await customer.getByLabel('Mục đích',{exact:true}).fill('Browser demo');await customer.getByRole('button',{name:'Tiếp tục',exact:true}).click();
   for(const [legend,address] of [[air?'Sân bay đi (Việt Nam)':'Điểm lấy ngựa (Việt Nam)','Điểm lấy demo'],[air?'Sân bay đến (Nhật Bản)':'Điểm giao ngựa','Điểm giao demo']]){const f=customer.getByRole('group',{name:legend,exact:true});await f.getByLabel('Địa chỉ',{exact:true}).fill(address);await f.getByRole('button',{name:'Tìm địa điểm',exact:true}).click();await f.getByRole('button',{name:address+' (fixture)',exact:true}).click();}
   for(const [label,value]of Object.entries({'Người bàn giao':'Sender','SĐT bàn giao':'0900000000','Người nhận':'Receiver','SĐT người nhận':'0900000001'}))await customer.getByLabel(label,{exact:true}).fill(value);
   await customer.getByRole('button',{name:'Tiếp tục',exact:true}).click();await customer.getByRole('checkbox',{name:/Relational Browser Horse/}).check();await customer.getByRole('button',{name:'Tiếp tục',exact:true}).click();
   await customer.getByRole('checkbox',{name:'Tôi xác nhận thông tin và hồ sơ đã chọn.',exact:true}).check();await customer.screenshot({path:path.join(output,'integrated-wizard-step4.png'),fullPage:true});
   const created=await mutate(customer,'Gửi yêu cầu','/customer/requests');const id=created.requestId;await customer.waitForURL('**/customer/requests/'+id);
-  await manager.goto(base+'/manager/requests');await manager.getByRole('link',{name:'Xem / xử lý',exact:true}).first().waitFor();await manager.screenshot({path:path.join(output,'integrated-manager-inbox.png'),fullPage:true});
-  await manager.goto(base+'/manager/requests/'+id);await manager.locator('[name=reviewReason]').fill('Please clarify purpose');await mutate(manager,'Yêu cầu sửa','/request-changes');
-  await customer.reload();await customer.getByRole('link',{name:'Sửa rồi gửi lại',exact:true}).click();await customer.locator('[name=purpose]').fill('Updated browser demo');await mutate(customer,'Gửi yêu cầu','/revision');await customer.waitForURL('**/customer/requests/'+id);
-  await manager.reload();await manager.locator('[name=reviewReason]').fill('Accepted');await mutate(manager,'Chấp nhận','/accept');
-  await manager.locator('[name=price]').fill('100000000');await manager.locator('[name=prep]').fill(air?'7':'2');await manager.locator('[name=deadline]').fill(days(2));const draft=await mutate(manager,'Tạo Draft','/contracts');
-  const published=await mutate(manager,'Phát hành PDF','/publish');const hash=published.pdfSha256;
-  // Extension keeps original immutable PDF. No SMTP yet, so the real cooldown is unaffected.
-  const extend=manager.locator('form').filter({has:manager.locator('[name=deadline]')}).last();await extend.locator('[name=deadline]').fill(days(3));await extend.locator('[name=reason]').fill('Signing extension fixture');await mutate(manager,'Gia hạn ký','/extend');
-  await customer.reload();const pdfEvent=customer.waitForEvent('download');await customer.getByRole('button',{name:'Xem / tải đúng PDF',exact:true}).click();const pdf=path.join(output,'typed-contract.pdf');await(await pdfEvent).saveAs(pdf);
+  await manager.goto(base+'/manager/requests');await manager.getByRole('button',{name:'Xem & Duyệt',exact:true}).first().waitFor();await manager.screenshot({path:path.join(output,'integrated-manager-inbox.png'),fullPage:true});
+  await manager.getByRole('button',{name:'Xem & Duyệt',exact:true}).first().click();await manager.getByRole('button',{name:/Yêu cầu điều chỉnh \(Request Changes\)/}).click();await manager.locator('.decision-subform textarea').fill('Please clarify purpose');await mutate(manager,'Gửi yêu cầu điều chỉnh','/request-changes');
+  await customer.reload();await customer.getByRole('button',{name:'Sửa rồi gửi lại',exact:true}).click();await customer.getByLabel('Mục đích',{exact:true}).fill('Updated browser demo');
+  for(let step=0;step<3;step++)await customer.getByRole('button',{name:'Tiếp tục',exact:true}).click();await customer.getByRole('checkbox',{name:'Tôi xác nhận thông tin và hồ sơ đã chọn.',exact:true}).check();await mutate(customer,'Gửi yêu cầu','/revision');await customer.waitForURL('**/customer/requests/'+id);
+  await manager.reload();await manager.getByRole('button',{name:'Xem & Duyệt',exact:true}).first().click();await manager.getByRole('button',{name:/Chấp nhận \(Accept\)/}).click();await mutate(manager,'Xác nhận Chấp thuận','/accept');
+  await manager.getByRole('button',{name:'Hợp đồng & chi phí',exact:true}).click();await manager.locator('[name=price]').fill('100000000');await manager.locator('[name=prep]').fill(air?'7':'2');await manager.locator('[name=deadline]').fill(days(2));const draft=await mutate(manager,'💾 Lưu nháp','/contracts');
+  await manager.screenshot({path:path.join(output,'ui-contract-studio.png'),fullPage:true});
+  const published=await mutate(manager,'🚀 Phát hành & Gửi Hợp đồng','/publish');const hash=published.pdfSha256;
+  async function lifecycle(p,label,ends,reason,deadline){await p.getByRole('button',{name:label,exact:true}).click();const form=p.locator('form.flow1-dialog-form');await form.locator('[name=reason]').fill(reason);if(deadline)await form.locator('[name=deadline]').fill(deadline);return mutate(p,'Xác nhận',ends);}
+  await lifecycle(manager,'Gia hạn ký','/extend','Signing extension fixture',days(3));
+  await customer.goto(base+'/customer/requests/'+id+'/contract');const pdfEvent=customer.waitForEvent('download');await customer.getByRole('button',{name:'Xem / tải đúng PDF',exact:true}).click();const pdf=path.join(output,'typed-contract.pdf');await(await pdfEvent).saveAs(pdf);
   const crypto=require('node:crypto');if(crypto.createHash('sha256').update(fs.readFileSync(pdf)).digest('hex')!==hash)throw new Error('PDF mismatch');
-  await mutate(customer,'Gửi OTP qua email','/otp');for(let i=0;i<50&&!deliveredCode;i++)await delay(100);if(!deliveredCode)throw new Error('Loopback SMTP did not receive OTP');
-  await customer.getByLabel('OTP xác nhận',{exact:true}).fill(deliveredCode);const signed=await mutate(customer,'Xác nhận hợp đồng','/sign');await customer.getByRole('status').filter({hasText:'Biên nhận xác nhận OTP'}).waitFor();
-  await manager.reload();const ext=manager.locator('form').filter({has:manager.locator('[name=deadline]')}).last();await ext.locator('[name=deadline]').fill(days(2));await ext.locator('[name=reason]').fill('Deposit extension fixture');await mutate(manager,'Gia hạn cọc','/extend');
-  // Retain customer cancellation/rejection in browser before money is received.
-  await customer.reload();
-  const cancel=customer.locator('form').filter({has:customer.getByRole('button',{name:'Đề nghị hủy',exact:true})});await cancel.locator('[name=reason]').fill('Customer asks to cancel');await mutate(customer,'Đề nghị hủy','/cancellation/request');
-  await manager.reload();const reject=manager.locator('form').filter({has:manager.getByRole('button',{name:'Từ chối đề nghị hủy',exact:true})});await reject.locator('[name=reason]').fill('Continue after customer agreement');await mutate(manager,'Từ chối đề nghị hủy','/cancellation/reject');
+  await customer.getByRole('checkbox').check();await mutate(customer,'Sign Contract','/otp');for(let i=0;i<50&&!deliveredCode;i++)await delay(100);if(!deliveredCode)throw new Error('Loopback SMTP did not receive OTP');
+  await customer.getByLabel('OTP xác nhận',{exact:true}).fill(deliveredCode);const signed=await mutate(customer,'Xác nhận hợp đồng','/sign');await customer.getByText(/Biên nhận xác nhận OTP/).waitFor();await customer.screenshot({path:path.join(output,'ui-customer-contract.png'),fullPage:true});
+  await manager.reload();await lifecycle(manager,'Gia hạn cọc','/extend','Deposit extension fixture',days(2));
+  await customer.reload();await lifecycle(customer,'Đề nghị hủy','/cancellation/request','Customer asks to cancel');
+  await manager.reload();await lifecycle(manager,'Từ chối đề nghị hủy','/cancellation/reject','Continue after customer agreement');
+  await customer.goto(base+'/customer/requests/'+id+'/payment');
   await customer.reload();let gatewayUrl='';let demoAction='';if(demoCheck)customer.on('request',r=>{if(r.url().startsWith('https://sandbox.vnpayment.vn/'))gatewayUrl=r.url();});else await customer.route('https://sandbox.vnpayment.vn/**',route=>{gatewayUrl=route.request().url();return route.fulfill({status:200,contentType:'text/html',body:'<h1>Intercepted local sandbox redirect; no provider request sent</h1>'});});
-  await customer.getByRole('button',{name:'Thanh toán qua VNPay',exact:true}).waitFor({timeout:15000});await customer.screenshot({path:path.join(output,'before-vnpay.png'),fullPage:true});const sessionResponse=customer.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/vnpay'));await customer.getByRole('button',{name:'Thanh toán qua VNPay',exact:true}).click();const response=await sessionResponse;if(!response.ok())throw new Error('VNPay session rejected '+response.status());for(let i=0;i<50&&!gatewayUrl;i++)await delay(100);if(!gatewayUrl)throw new Error('VNPay redirect missing');const pid=new URL(gatewayUrl).searchParams.get('vnp_TxnRef');if(!pid)throw new Error('VNPay reference missing');if(demoCheck){await customer.getByRole('heading',{name:'Thanh toán mô phỏng',exact:true}).waitFor({timeout:15000});demoAction=await customer.locator('form').filter({has:customer.getByRole('button',{name:'Gửi IPN thành công',exact:true})}).getAttribute('action');}
+  await customer.getByRole('button',{name:'Thanh toán qua VNPay',exact:true}).waitFor({timeout:120000});await customer.screenshot({path:path.join(output,'before-vnpay.png'),fullPage:true});const sessionResponse=customer.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/vnpay'));await customer.getByRole('button',{name:'Thanh toán qua VNPay',exact:true}).click();const response=await sessionResponse;if(!response.ok())throw new Error('VNPay session rejected '+response.status());for(let i=0;i<50&&!gatewayUrl;i++)await delay(100);if(!gatewayUrl)throw new Error('VNPay redirect missing');const pid=new URL(gatewayUrl).searchParams.get('vnp_TxnRef');if(!pid)throw new Error('VNPay reference missing');if(demoCheck){await customer.getByRole('heading',{name:'Thanh toán mô phỏng',exact:true}).waitFor({timeout:15000});demoAction=await customer.locator('form').filter({has:customer.getByRole('button',{name:'Gửi IPN thành công',exact:true})}).getAttribute('action');}
+  if(!demoCheck)await customer.waitForURL('https://sandbox.vnpayment.vn/**',{waitUntil:'domcontentloaded'});
   // ReturnURL alone cannot allocate or create Trip.
   await customer.goto(base+'/customer/payments/return?vnp_TxnRef='+pid+'&vnp_ResponseCode=00');await customer.getByText(/Đã xác minh 0/).waitFor();
   const values={vnp_TmnCode:'TEST2026',vnp_TxnRef:pid,vnp_TransactionNo:'987654321',vnp_ResponseCode:'00',vnp_TransactionStatus:'00',vnp_Amount:'4000000000',vnp_PayDate:new Date(Date.now()+7*3600000).toISOString().slice(0,19).replace(/[-T:]/g,''),vnp_BankCode:'NCB'};
@@ -173,10 +178,10 @@ async function main() {
     await customer.getByRole('link',{name:'Quay về ứng dụng',exact:true}).click();await customer.getByText(/Đã xác minh 40.000.000/).waitFor();
   }else{const first=await(await fetch(ipnUrl)).json();const retry=await(await fetch(ipnUrl)).json();if(first.RspCode!=='00'||retry.RspCode!=='02')throw new Error('IPN allocation/retry failed');}
   await customer.goto(base+'/customer/requests/'+id);await customer.getByRole('button',{name:/Thông báo/}).click();await customer.getByRole('heading',{name:'Yêu cầu đã được kích hoạt',exact:true}).waitFor();
-  await manager.reload();await manager.locator('[name=reason]').last().fill('Ready for operation');let confirmed=await mutate(manager,'confirm','/deployment/confirm');const oldEvent=confirmed.trip.eventId;
+  await manager.reload();let confirmed=await lifecycle(manager,'confirm','/deployment/confirm','Ready for operation');const oldEvent=confirmed.trip.eventId;
   const routing=await actor('FLEET_ROUTE_COORDINATOR');await routing.goto(base+'/coordinator/flow1-work');await mutate(routing,'Xác nhận nhận bàn giao','/ack');
-  await manager.reload();await manager.locator('[name=reason]').last().fill('Hold for readiness');await mutate(manager,'hold','/deployment/hold');await routing.getByRole('button',{name:'Tải lại bàn giao',exact:true}).click();await routing.getByRole('button',{name:'Xác nhận nhận bàn giao',exact:true}).waitFor({state:'detached'});
-  await manager.locator('[name=reason]').last().fill('Resume checks');await mutate(manager,'resume','/deployment/resume');await manager.locator('[name=reason]').last().fill('Reconfirmed readiness');confirmed=await mutate(manager,'confirm','/deployment/confirm');if(confirmed.trip.eventId===oldEvent)throw new Error('Old handoff event reused');
+  await manager.reload();await lifecycle(manager,'hold','/deployment/hold','Hold for readiness');await routing.getByRole('button',{name:'Tải lại bàn giao',exact:true}).click();await routing.getByRole('button',{name:'Xác nhận nhận bàn giao',exact:true}).waitFor({state:'detached'});
+  await lifecycle(manager,'resume','/deployment/resume','Resume checks');confirmed=await lifecycle(manager,'confirm','/deployment/confirm','Reconfirmed readiness');if(confirmed.trip.eventId===oldEvent)throw new Error('Old handoff event reused');
   await routing.getByRole('button',{name:'Tải lại bàn giao',exact:true}).click();await mutate(routing,'Xác nhận nhận bàn giao','/ack');
   const specialist=await actor('TRANSPORT_SPECIALIST');await specialist.goto(base+'/specialist/flow1-work');await mutate(specialist,'Xác nhận nhận bàn giao','/ack');const opsPdf=specialist.waitForEvent('download');await specialist.getByRole('button',{name:'PDF hợp đồng · '+hash,exact:true}).click();const pdf2=path.join(output,'typed-ops-contract.pdf');await(await opsPdf).saveAs(pdf2);if(crypto.createHash('sha256').update(fs.readFileSync(pdf2)).digest('hex')!==hash)throw new Error('Ops PDF differs');
   await manager.reload();await manager.getByRole('heading',{name:'Chuyến '+confirmed.trip.tripId,exact:true}).waitFor();await manager.getByText('Coordinator: browser-route · Specialist: browser-docs',{exact:true}).waitFor();await manager.screenshot({path:path.join(output,'typed-manager.png'),fullPage:true});await specialist.screenshot({path:path.join(output,'typed-handoff.png'),fullPage:true});await customer.goto(base+'/customer/requests/'+id);await customer.getByRole('heading',{name:'Chuyến '+confirmed.trip.tripId,exact:true}).waitFor();await customer.screenshot({path:path.join(output,'typed-customer.png'),fullPage:true});

@@ -1,5 +1,7 @@
 # Kế hoạch tích hợp Flow 1 theo hướng cải tiến
 
+> Cập nhật UI: đại ca yêu cầu giữ thiết kế frontend main. Xem [báo cáo khôi phục UI](FLOW1_UI_RESTORATION_REPORT.md); các màn hình tối giản ở mốc46e1371 được thay bằng bố cục/card/table/modal của main nối API thật.
+
 > Cập nhật 18/10/2026: typed Flow1 và demo localhost đã merge fast-forward vào `Truong` ở thư mục chính theo yêu cầu trực tiếp. Frontend lấy từ `origin/main@ed520cad`, nối landing → wizard 4 bước → Manager → PDF/OTP → cọc → thông báo/kích hoạt → handoff. [Báo cáo tích hợp primary](FLOW1_PRIMARY_FRONTEND_INTEGRATION_REPORT.md) là trạng thái hiện hành; VNPay công khai vẫn hoãn. DB006/conversion/drop JSON đã xong theo [business cutover report](FLOW1_BUSINESS_CUTOVER_REPORT.md).
 
 **Scope hiện hành chốt 17/10/2026:** đại ca chọn hồ sơ ngựa mới nhất (không versioning),

@@ -1,5 +1,7 @@
 # Flow 1 — primary merge và frontend main, 18/10/2026
 
+> Cập nhật UI: đại ca yêu cầu giữ thiết kế frontend main. Xem [báo cáo khôi phục UI](FLOW1_UI_RESTORATION_REPORT.md); các màn hình tối giản ở mốc46e1371 được thay bằng bố cục/card/table/modal của main nối API thật.
+
 ## Kết quả và phạm vi
 
 Theo yêu cầu trực tiếp của đại ca, thư mục `D:\Racehorse-Transport-System`, nhánh
