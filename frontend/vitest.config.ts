@@ -10,5 +10,7 @@ export default defineConfig({
     setupFiles: ["./src/shared/test/setup.ts"],
     css: true,
     clearMocks: true,
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    exclude: ["tests/**", "tests-e2e/**", "node_modules/**", "dist/**"],
   },
 });

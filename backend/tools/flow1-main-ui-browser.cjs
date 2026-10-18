@@ -1,4 +1,4 @@
-// Original main screens only. Missing OTP/handoff UI is deliberately NOT simulated as UI acceptance.
+// Original feature/quan screens only. Missing OTP/handoff UI is deliberately NOT simulated as UI acceptance.
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
@@ -26,7 +26,11 @@ module.exports = async function ({ browser, actor, base, output, air, pace }) {
   await page.goto(base + '/customer/create-request'); await page.waitForURL('**/login?next=flow1');
   assert.equal(await page.locator('.customer-card .wizard-steps').count(), 0);
   step('guest-blocked');
-  await page.goto(base + '/'); await page.locator('.lp-fields select').nth(1).selectOption(air ? 'Tokyo' : 'Hanoi');
+  await page.goto(base + '/');
+  assert.ok(await page.getByRole('button', { name: 'Gửi yêu cầu', exact: true }).isDisabled());
+  await page.locator('.lp-fields select').nth(0).selectOption('Ho Chi Minh City');
+  await page.locator('.lp-fields select').nth(1).selectOption(air ? 'Tokyo' : 'Hanoi');
+  await page.locator('.lp-fields input[type=number]').fill('1');
   await page.getByRole('button', { name: 'Gửi yêu cầu', exact: true }).click(); await page.waitForURL('**/login?next=flow1');
   await page.getByLabel('Email', { exact: true }).fill('browser-owner@example.invalid');
   await page.getByLabel('Mật khẩu', { exact: true }).fill('Flow1_Native_Fixture_Only_2026!');
@@ -47,9 +51,9 @@ module.exports = async function ({ browser, actor, base, output, air, pace }) {
   await page.getByRole('button', { name: 'Gửi Yêu Cầu Vận Chuyển', exact: true }).click();
   const response = await Promise.race([submitted, page.locator('.wizard-error').waitFor({state:'visible'}).then(async () => { throw new Error('Wizard refused submit: ' + await page.locator('.wizard-error').innerText()); })]); assert.ok(response.ok(), await response.text()); const request = (await response.json()).data;
   await page.waitForURL('**/customer/requests/' + request.requestId);
-  // The original main demo panel remains visually present; its buttons cannot change SQL state.
+  // feature/quan removes the demo controls; SQL status still comes from the API.
   page.on('dialog', d => { void d.accept().catch(() => {}); });
-  await page.getByRole('button', { name: 'Manager: Accept Request', exact: true }).click();
+  assert.equal(await page.locator('.demo-control-card, .demo-control-buttons').count(), 0);
   assert.equal(await page.evaluate(async id => (await (await fetch('/api/customer/requests/' + id, { headers: { Authorization: 'Bearer ' + localStorage.getItem('accessToken') } })).json()).data.status, request.requestId), 'PENDING');
   step('submit-no-demo-bypass');
   const manager = await actor('LOGISTICS_MANAGER'); manager.on('dialog', d => { void d.accept().catch(() => {}); });
@@ -77,7 +81,7 @@ module.exports = async function ({ browser, actor, base, output, air, pace }) {
   await page.screenshot({ path: path.join(output, 'main-customer-contract.png'), fullPage: true });
   await page.goto(base + '/customer/payment/success?requestId=' + request.requestId + '&orderCode=FAKE');
   await page.getByText(/ReturnURL không xác nhận tiền/).waitFor();
-  const result = { requestId: request.requestId, horseId: horse.horseId, contractId: c.contractId, profile: 'MAIN_SOURCE_ONLY', route: air ? 'AIR VN-JP' : 'ROAD VN-VN', checks: ['guest direct URL blocked', 'real login/me', 'owned horse API fixture (no create-horse UI claim)', 'original four-step wizard', 'demo status cannot change SQL', 'main Manager modal accept', 'real Draft/publish/private PDF', 'absent OTP UI remains blocked', 'ReturnURL cannot certify payment'], excluded: ['OTP signing UI', 'payment UI connected E2E', 'operational handoff UI', 'live maps/SMTP/VNPay'] };
+  const result = { requestId: request.requestId, horseId: horse.horseId, contractId: c.contractId, profile: 'QUAN_SOURCE_ONLY', route: air ? 'AIR VN-JP' : 'ROAD VN-VN', checks: ['guest direct URL blocked', 'real login/me', 'owned horse API fixture (no create-horse UI claim)', 'original four-step wizard', 'demo status cannot change SQL', 'main Manager modal accept', 'real Draft/publish/private PDF', 'absent OTP UI remains blocked', 'ReturnURL cannot certify payment'], excluded: ['OTP signing UI', 'payment UI connected E2E', 'operational handoff UI', 'live maps/SMTP/VNPay'] };
   fs.writeFileSync(path.join(output, 'main-source-result.json'), JSON.stringify(result, null, 2));
-  console.log('PASS original-main UI connected scope; OTP/payment/handoff UI intentionally not accepted.');
+  console.log('PASS original-feature/quan UI connected scope; OTP/payment/handoff UI intentionally not accepted.');
 };

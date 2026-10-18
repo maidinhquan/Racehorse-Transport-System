@@ -1,3 +1,8 @@
+> Cập nhật 19/10/2026: đại ca đổi nguồn UI sang **feature/quan@17687ee**.
+> Phần mô tả main và evidence bên dưới là lịch sử của `acfba75`; kết quả hiện hành
+> ở [FLOW1_QUAN_FRONTEND_INTEGRATION_REPORT.md](FLOW1_QUAN_FRONTEND_INTEGRATION_REPORT.md).
+> Danh sách chức năng thiếu UI vẫn áp dụng; không tự tạo page/modal mới.
+
 # Flow 1 — giữ source frontend main, chỉ nối dữ liệu
 
 Quyết định trực tiếp của đại ca: khôi phục toàn bộ frontend từ main; không tự

@@ -13,9 +13,6 @@ interface RenderTripStudioPageProps {
   onSetGroundCrew: (leg: 'outbound' | 'inbound', role: 'mainDriver' | 'coDriver' | 'vet', staffId: string) => void;
   onConfirmResources: () => void;
   onSubmitRoute: () => void;
-  onDemoDeploy: () => void;
-  onDemoApprove: () => void;
-  onDemoReturn: () => void;
 }
 
 export const RenderTripStudioPage: React.FC<RenderTripStudioPageProps> = ({
@@ -29,9 +26,6 @@ export const RenderTripStudioPage: React.FC<RenderTripStudioPageProps> = ({
   onSetGroundCrew,
   onConfirmResources,
   onSubmitRoute,
-  onDemoDeploy,
-  onDemoApprove,
-  onDemoReturn,
 }) => {
   return (
     <div className="render-trip-studio-page">
@@ -127,15 +121,6 @@ export const RenderTripStudioPage: React.FC<RenderTripStudioPageProps> = ({
               </div>
             </div>
 
-            {/* Demo Controls Card */}
-            <div className="card demo">
-              <div className="eyebrow">Demo Controls</div>
-              <div className="btn-row">
-                <button className="btn ghost sm" onClick={onDemoDeploy}>Manager duyệt triển khai</button>
-                <button className="btn ghost sm" onClick={onDemoApprove}>Manager duyệt tuyến</button>
-                <button className="btn ghost sm" onClick={onDemoReturn}>Manager trả về sửa</button>
-              </div>
-            </div>
           </div>
         </div>
       )}

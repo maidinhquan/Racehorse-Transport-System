@@ -17,6 +17,8 @@ import { managerRequest } from "../../Manager/pages/dashboard/managerPresentatio
 import { useManagerBackend } from "../../Manager/pages/dashboard/useManagerBackend";
 import type { Request, Contract } from "./api";
 import { renderHook } from "@testing-library/react";
+import { LandingPage } from "../../landing/LandingPage";
+import { estimateSeed } from "../api";
 vi.mock("../../auth/api/authApi", () => ({ getCurrentUser: vi.fn() }));
 vi.mock("../api", async original => ({ ...await original<object>(), get: vi.fn() }));
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); vi.mocked(get).mockResolvedValue([]); vi.spyOn(window, "alert").mockImplementation(() => {}); });
@@ -25,6 +27,28 @@ const horse = { horseId: "owned", name: "SQL horse", breed: "Breed", microchipIs
 const row = { requestId: "real", version: "rv", customerName: "SQL Customer", departure: "API A", destination: "API B", status: "ACCEPTED", horses: [horse], preparationDays: 2, departureAt: "2026-11-20T00:00:00Z", deliveryAt: "2026-11-22T00:00:00Z", contracts: [], input: { trip: { pickup: { country: "VN" }, delivery: { country: "VN" } } } } as unknown as Request;
 const c = { contractId: "sql-contract", version: "cv", status: "SIGNED", isCurrent: true, relationalTermsReady: true, hasAcceptanceEvidence: true, totalPrice: 100000000, depositAmount: 40000000, currency: "VND", paidAmount: 0, payments: [], signDeadline: "2026-11-01T10:00:00Z", signedAt: "2026-10-20T10:00:00Z" } as unknown as Contract;
 function guarded() { render(<MemoryRouter initialEntries={["/customer/create-request"]}><Routes><Route path="/customer/create-request" element={<RequireCustomer><p>Wizard mounted</p></RequireCustomer>} /><Route path="/login" element={<p>Original login</p>} /></Routes></MemoryRouter>); }
+
+test("Quan landing requires a complete route and keeps only advisory hints through guest login", async () => {
+  localStorage.setItem("userRole", "CUSTOMER");
+  render(<MemoryRouter><Routes><Route path="/" element={<LandingPage />} /><Route path="/login" element={<p>Original login</p>} /></Routes></MemoryRouter>);
+  const send = screen.getByRole("button", { name: /Gửi yêu cầu/ });
+  expect(send).toBeDisabled();
+  await userEvent.selectOptions(screen.getByLabelText("Điểm đi"), "Ho Chi Minh City");
+  await userEvent.selectOptions(screen.getByLabelText("Điểm đến"), "Ho Chi Minh City");
+  await userEvent.type(screen.getByPlaceholderText("Nhập số ngựa"), "2");
+  expect(send).toBeDisabled();
+  expect(screen.getByText("Điểm đến phải khác điểm đi.")).toBeInTheDocument();
+  await userEvent.selectOptions(screen.getByLabelText("Điểm đến"), "Tokyo");
+  expect(send).toBeEnabled();
+  expect(screen.getByText(/Cọc 40%:/)).toHaveTextContent("37,000,000 VND");
+  await userEvent.click(send);
+  await screen.findByText("Original login");
+  const hint = JSON.parse(sessionStorage.getItem(estimateSeed)!);
+  expect(hint.pickup.address).toBe("Ho Chi Minh City");
+  expect(hint.delivery.country).toBe("JP");
+  expect(hint.horseCount).toBe(2);
+  expect(hint).not.toHaveProperty("totalPrice");
+});
 test("guest direct create-request and role-only hint cannot mount the wizard", async () => {
   localStorage.setItem("userRole", "CUSTOMER"); guarded(); await screen.findByText("Original login"); expect(getCurrentUser).not.toHaveBeenCalled(); expect(screen.queryByText("Wizard mounted")).not.toBeInTheDocument();
 });

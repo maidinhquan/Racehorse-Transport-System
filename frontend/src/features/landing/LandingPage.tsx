@@ -77,18 +77,22 @@ export const LandingPage: React.FC = () => {
 
   // State
   const [lang, setLang] = useState<'vi' | 'en'>('vi');
-  const [origin, setOrigin] = useState('Ho Chi Minh City');
-  const [destination, setDestination] = useState('Tokyo');
-  const [horseCount, setHorseCount] = useState(1);
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
+  const [horseCount, setHorseCount] = useState<number | ''>('');
 
   // Check login state
   const isLoggedIn = Boolean(localStorage.getItem('accessToken') && localStorage.getItem('userRole') === 'CUSTOMER');
 
-  // Calculate quote (matches CBN Transport 1.html formula: $1850 international, $650 domestic, 40% deposit)
-  const isInternational = JAPAN_CITIES.includes(destination);
-  const isValidRoute = origin !== destination;
+  // Advisory landing estimate only; contractual amounts come from the backend (VND, 40% deposit).
+  const countNum = typeof horseCount === 'number' ? horseCount : parseInt(String(horseCount), 10) || 0;
+  const hasAllFields = Boolean(origin && destination && countNum > 0);
+  const isSameLocation = hasAllFields && origin === destination;
+  const isValidRoute = hasAllFields && !isSameLocation;
+
+  const isInternational = Boolean(destination && JAPAN_CITIES.includes(destination));
   const pricePerHorse = demoPrice(isInternational ? 'JP' : 'VN', 1);
-  const totalPrice = isValidRoute ? pricePerHorse * horseCount : 0;
+  const totalPrice = isValidRoute ? pricePerHorse * countNum : 0;
   const depositPrice = Math.round(totalPrice * 0.4);
 
   const scrollTo = (id: string) => {
@@ -104,7 +108,8 @@ export const LandingPage: React.FC = () => {
 
   const handleRequestClick = () => {
     if (!isValidRoute) return;
-    saveLandingRoute(origin, destination, isInternational ? 'JP' : 'VN', horseCount);
+
+    saveLandingRoute(origin, destination, isInternational ? 'JP' : 'VN', countNum);
     navigate(isLoggedIn ? '/customer/create-request' : '/login?next=flow1');
   };
 
@@ -178,6 +183,7 @@ export const LandingPage: React.FC = () => {
             <label>
               {lang === 'vi' ? 'Điểm đi' : 'Origin'}
               <select value={origin} onChange={(e) => setOrigin(e.target.value)}>
+                <option value="">{lang === 'vi' ? '-- Chọn điểm đi --' : '-- Select origin --'}</option>
                 {ORIGINS.map((o) => (
                   <option key={o.name} value={o.name}>{o.name}, {o.cc}</option>
                 ))}
@@ -187,6 +193,7 @@ export const LandingPage: React.FC = () => {
             <label>
               {lang === 'vi' ? 'Điểm đến' : 'Destination'}
               <select value={destination} onChange={(e) => setDestination(e.target.value)}>
+                <option value="">{lang === 'vi' ? '-- Chọn điểm đến --' : '-- Select destination --'}</option>
                 {DESTINATIONS.map((d) => (
                   <option key={d.name} value={d.name}>{d.name}, {d.cc}</option>
                 ))}
@@ -199,12 +206,28 @@ export const LandingPage: React.FC = () => {
                 type="number"
                 min="1"
                 max="20"
+                placeholder={lang === 'vi' ? 'Nhập số ngựa' : 'Enter count'}
                 value={horseCount}
-                onChange={(e) => setHorseCount(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)))}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setHorseCount('');
+                  } else {
+                    const parsed = parseInt(val, 10);
+                    if (!isNaN(parsed)) {
+                      setHorseCount(Math.max(1, Math.min(20, parsed)));
+                    }
+                  }
+                }}
               />
             </label>
 
-            <button className="btn solid" onClick={handleRequestClick}>
+            <button
+              className="btn solid"
+              onClick={handleRequestClick}
+              disabled={!isValidRoute}
+              style={!isValidRoute ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
+            >
               {lang === 'vi' ? 'Gửi yêu cầu' : 'Send request'} <Icon name="arrow" />
             </button>
           </div>
@@ -213,15 +236,23 @@ export const LandingPage: React.FC = () => {
             {isValidRoute ? (
               <>
                 <span>
-                  <b>{totalPrice.toLocaleString()}</b> <span className="muted">VND ước tính sơ bộ</span>
+                  <b>{totalPrice.toLocaleString()}</b> <span className="muted">VND {lang === 'vi' ? 'ước tính sơ bộ' : 'preliminary estimate'}</span>
                 </span>
                 <span className="muted">
-                  {isInternational ? 'Việt Nam ➔ Nhật Bản' : 'Nội địa Việt Nam'} • {horseCount} ngựa • Cọc 40%: {depositPrice.toLocaleString()} VND
+                  {isInternational 
+                    ? (lang === 'vi' ? 'Việt Nam ➔ Nhật Bản' : 'Vietnam ➔ Japan') 
+                    : (lang === 'vi' ? 'Nội địa Việt Nam' : 'Domestic Vietnam')} • {countNum} {lang === 'vi' ? 'ngựa' : 'horses'} • {lang === 'vi' ? 'Cọc 40%:' : '40% Deposit:'} {depositPrice.toLocaleString()} VND
                 </span>
               </>
+            ) : isSameLocation ? (
+              <span className="muted" style={{ color: '#dc2626' }}>
+                {lang === 'vi' ? 'Điểm đến phải khác điểm đi.' : 'Destination must be different from origin.'}
+              </span>
             ) : (
               <span className="muted">
-                {lang === 'vi' ? 'Chọn điểm đến khác điểm đi để xem giá.' : 'Choose a destination different from origin.'}
+                {lang === 'vi'
+                  ? 'Vui lòng chọn điểm đi, điểm đến và số ngựa để xem ước tính giá.'
+                  : 'Please select origin, destination and number of horses to see estimate.'}
               </span>
             )}
           </div>
@@ -308,7 +339,7 @@ export const LandingPage: React.FC = () => {
           </li>
           <li>
             <b>{lang === 'vi' ? 'Ký OTP và đặt cọc' : '3. OTP Sign & Deposit'}</b>
-            <span>{lang === 'vi' ? 'Bạn ký hợp đồng bằng mã OTP và thanh toán đặt cọc 40% trực tuyến hoặc chuyển khoản.' : 'Sign securely with OTP and pay the 40% deposit to lock the schedule.'}</span>
+            <span>{lang === 'vi' ? 'Bạn ký hợp đồng bằng mã OTP và thanh toán đặt cọc 40% qua VNPay.' : 'Sign securely with OTP and pay the 40% deposit to lock the schedule.'}</span>
           </li>
           <li>
             <b>{lang === 'vi' ? 'Theo dõi và nhận ngựa' : '4. Track & Handover'}</b>
