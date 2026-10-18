@@ -1,26 +1,31 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
 
 import {
   requestStatuses,
-  transportRequests,
-  type ContractStatus,
-  type RequestStatus,
 } from "../../../data/transportRequestMockData";
+import {
+  getRequests,
+  type FakeTransportRequest,
+} from "../../../data/transportRequestStorage";
 
 import "./TransportRequestPage.css";
 
 function formatDate(date: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(date));
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(date));
+  } catch {
+    return date;
+  }
 }
 
-function getRequestStatusClass(status: RequestStatus) {
+function getRequestStatusClass(status: string) {
   switch (status) {
     case "In Transit":
       return "request-status request-status-orange";
@@ -54,7 +59,7 @@ function getRequestStatusClass(status: RequestStatus) {
   }
 }
 
-function getContractStatusClass(status: ContractStatus) {
+function getContractStatusClass(status?: string) {
   switch (status) {
     case "Signed":
       return "contract-status contract-signed";
@@ -66,10 +71,8 @@ function getContractStatusClass(status: ContractStatus) {
       return "contract-status contract-preparing";
 
     case "Not Available":
-      return "contract-status contract-empty";
-
     default:
-      return "contract-status";
+      return "contract-status contract-empty";
   }
 }
 
@@ -78,16 +81,35 @@ function TransportRequestPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [requestsList, setRequestsList] = useState<FakeTransportRequest[]>(getRequests);
+
+  useEffect(() => {
+    const syncRequests = () => {
+      setRequestsList(getRequests());
+    };
+    window.addEventListener("storage", syncRequests);
+    window.addEventListener("cbn_request_updated", syncRequests);
+    window.addEventListener("cbn_request_created", syncRequests);
+    const interval = setInterval(syncRequests, 1500);
+
+    return () => {
+      window.removeEventListener("storage", syncRequests);
+      window.removeEventListener("cbn_request_updated", syncRequests);
+      window.removeEventListener("cbn_request_created", syncRequests);
+      clearInterval(interval);
+    };
+  }, []);
 
   const filteredRequests = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
-    return transportRequests.filter((request) => {
+    return requestsList.filter((request) => {
+      const horsesText = Array.isArray(request.horses) ? request.horses.join(" ") : "";
       const searchableText = [
         request.id,
         request.origin,
         request.destination,
-        ...request.horses,
+        horsesText,
       ]
         .join(" ")
         .toLowerCase();
@@ -100,7 +122,7 @@ function TransportRequestPage() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [search, statusFilter]);
+  }, [requestsList, search, statusFilter]);
 
   return (
     <CustomerLayout pageTitle="Yêu cầu vận chuyển">
@@ -207,7 +229,9 @@ function TransportRequestPage() {
                       </td>
 
                       <td>
-                        {request.horses.join(", ")}
+                        {request.horses && Array.isArray(request.horses) && request.horses.length > 0
+                          ? request.horses.join(", ")
+                          : "1 cá thể"}
                       </td>
 
                       <td>

@@ -459,6 +459,18 @@ function TransportInformationPage() {
       "Information Submitted"
     );
 
+    if (
+      requestId === "TR-2026-JP01" ||
+      (request.destination || "").toLowerCase().includes("tokyo") ||
+      (request.destination || "").toLowerCase().includes("nhật") ||
+      (request.destination || "").toLowerCase().includes("japan")
+    ) {
+      localStorage.setItem("cbn_japan_dossier_submitted", "true");
+      localStorage.setItem("cbn_japan_dossier_submitted_at", new Date().toISOString());
+    }
+
+    window.dispatchEvent(new Event("storage"));
+
     navigate(
       `/customer/requests/${requestId}/information/success`
     );

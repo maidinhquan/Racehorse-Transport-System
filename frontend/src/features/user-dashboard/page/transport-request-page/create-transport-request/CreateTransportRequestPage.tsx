@@ -83,22 +83,7 @@ function CreateTransportRequestPage() {
 
   //   setError("");
 
-  //   /*
-  //     Hiện tại đang demo frontend.
 
-  //     Sau này khi có backend:
-  //     POST /api/transport-requests
-
-  //     {
-  //       origin,
-  //       destination,
-  //       preferredDate,
-  //       horseCount
-  //     }
-  //   */
-
-  //   navigate("/customer/requests");
-  // };
   const handleSubmit = () => {
     if (!isValid) {
       setError(
