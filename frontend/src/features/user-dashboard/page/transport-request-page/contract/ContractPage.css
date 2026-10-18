@@ -305,3 +305,7 @@
     width: 100%;
   }
 }
+.contract-signing-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
+.contract-signing-controls label { display: flex; align-items: center; gap: 8px; }
+.contract-signing-controls input { max-width: 140px; padding: 10px; border: 1px solid #d5dce5; border-radius: 8px; }
+.contract-signing-controls p { flex-basis: 100%; }

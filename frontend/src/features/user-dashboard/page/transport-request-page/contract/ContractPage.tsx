@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { relational, type Request } from "../../../../flow1/relational/api";
+import { flow1Error } from "../../../../flow1/api";
 import { useNavigate, useParams } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
@@ -11,7 +13,17 @@ function ContractPage() {
   const { requestId } = useParams();
 
   const [isAgreed, setIsAgreed] = useState(false);
-  const record = useRequest(requestId);
+  const initial = useRequest(requestId);
+  const [updated, setUpdated] = useState<Request | null>(null);
+  const record = updated?.requestId === requestId ? updated : initial;
+  const [otp, setOtp] = useState("");
+  const [reviewedHash, setReviewedHash] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const urls = useRef<string[]>([]);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
+  useEffect(() => () => urls.current.forEach(url => URL.revokeObjectURL(url)), []);
   const c = selectedContract(record || undefined);
   const isSigned = !!c?.hasAcceptanceEvidence;
 
@@ -24,7 +36,32 @@ function ContractPage() {
     );
   };
 
-  const handleSignContract = () => { /* OTP UI is deferred to the frontend teammate. */ };
+  const signingOpen = !!c?.isCurrent && c.relationalTermsReady && c.status === "PENDING_SIGNATURE" && !!c.pdfSha256 && Date.parse(c.signDeadline || "") > now;
+  const reviewed = !!c?.pdfSha256 && reviewedHash === c.pdfSha256;
+  const refresh = async () => { if (requestId) { const next = await relational.detail(requestId); setUpdated(next); return next; } };
+  const handlePdf = async () => {
+    if (!c?.pdfSha256 || busy) return;
+    const tab = window.open("about:blank", "_blank");
+    if (!tab) { setMessage("Vui lòng cho phép mở tab mới để xem hợp đồng."); return; }
+    tab.opener = null; setBusy(true); setMessage("");
+    try { const url = await relational.pdfUrl(`/customer/contracts/${encodeURIComponent(c.contractId)}/pdf`); urls.current.push(url); tab.location.href = url; setReviewedHash(c.pdfSha256); }
+    catch (e) { tab.close(); setMessage(flow1Error(e)); }
+    finally { setBusy(false); }
+  };
+  const handleOtp = async () => {
+    if (!c || !signingOpen || !reviewed || !isAgreed || busy) return;
+    setBusy(true); setMessage(""); setOtp("");
+    try { await relational.action(`/customer/contracts/${encodeURIComponent(c.contractId)}/otp`, { version: c.version, pdfSha256: c.pdfSha256 }); await refresh(); setMessage("Đã gửi OTP tới email tài khoản. Mã có hiệu lực tối đa 5 phút; gửi lại sau ít nhất 60 giây."); }
+    catch (e) { setMessage(flow1Error(e)); try { await refresh(); } catch { /* Keep the original error visible. */ } }
+    finally { setBusy(false); }
+  };
+  const handleSignContract = async () => {
+    if (!c || !signingOpen || !reviewed || !isAgreed || !/^\d{6}$/.test(otp) || busy) return;
+    setBusy(true); setMessage("");
+    try { await relational.action(`/customer/contracts/${encodeURIComponent(c.contractId)}/sign`, { version: c.version, pdfSha256: c.pdfSha256, otp }); setOtp(""); await refresh(); setMessage("Ký hợp đồng thành công. Bạn có thể tiếp tục thanh toán cọc qua VNPay."); }
+    catch (e) { setMessage(flow1Error(e)); try { await refresh(); } catch { /* Keep the original error visible. */ } }
+    finally { setBusy(false); }
+  };
   const handlePayment = () => {
     if (!requestId) return;
 
@@ -241,6 +278,18 @@ function ContractPage() {
 
           <div className="contract-divider" />
 
+          <div className="contract-signing-controls">
+            <button type="button" className="contract-back-button" disabled={!c?.pdfSha256 || busy} onClick={handlePdf}>Xem full hợp đồng</button>
+            {!isSigned && <>
+              <button type="button" className="contract-back-button" disabled={!signingOpen || !reviewed || !isAgreed || busy} onClick={handleOtp}>Gửi OTP</button>
+              <label htmlFor="contract-sign-otp">Mã OTP
+                <input id="contract-sign-otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} disabled={!signingOpen || busy} onChange={event => setOtp(event.target.value.replace(/\D/g, ""))} />
+              </label>
+              {!reviewed && <p>Mở PDF đầy đủ và xác nhận đồng ý trước khi gửi OTP.</p>}
+              {c && !signingOpen && <p>Hợp đồng chưa sẵn sàng ký hoặc đã hết hạn. Vui lòng liên hệ Manager.</p>}
+            </>}
+            {message && <p role="status">{message}</p>}
+          </div>
           {/* ACTIONS */}
           <div className="contract-actions">
             <button
@@ -255,7 +304,7 @@ function ContractPage() {
               <button
                 type="button"
                 className="contract-sign-button"
-                disabled title="Cần giao diện xem PDF và xác nhận OTP trước khi ký"
+                disabled={!signingOpen || !reviewed || !isAgreed || !/^\d{6}$/.test(otp) || busy}
                 onClick={
                   handleSignContract
                 }
