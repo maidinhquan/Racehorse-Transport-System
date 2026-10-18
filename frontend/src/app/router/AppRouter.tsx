@@ -14,19 +14,11 @@ import ResetPasswordPage from "../../features/auth/pages/reset-password/ResetPas
 
 // ==================== CUSTOMER ====================
 import HomePage from "../../features/user-dashboard/page/home-page/HomePage";
-import TransportRequestPage from "../../features/user-dashboard/page/transport-request-page/list/TransportRequestPage";
-import CreateTransportRequestPage from "../../features/user-dashboard/page/transport-request-page/create-transport-request/CreateTransportRequestPage";
-import TransportRequestDetailPage from "../../features/user-dashboard/page/transport-request-page/detail/TransportRequestDetailPage";
-import TransportInformationPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationPage";
-import TransportInformationSuccessPage from "../../features/user-dashboard/page/transport-request-page/transport-information/TransportInformationSuccessPage";
-
 import MyHorsesPage from "../../features/user-dashboard/page/my-horses/MyHorsesPage";
 import HistoryPage from "../../features/user-dashboard/page/history/HistoryPage";
 import CustomerProfilePage from "../../features/user-dashboard/page/profile/CustomerProfilePage";
 
 // ==================== CONTRACT & PAYMENT ====================
-import ContractPage from "../../features/user-dashboard/page/transport-request-page/contract/ContractPage";
-import PaymentPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentPage";
 import PaymentSuccessPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentSuccessPage";
 import PaymentCancelPage from "../../features/user-dashboard/page/transport-request-page/payment/PaymentCancelPage";
 import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage";
@@ -37,7 +29,9 @@ import DriverDashboard from "../../features/driver/DriverDashboard";
 import SpecialistDashboard from "../../features/specialist/SpecialistDashboard";
 
 // Import các trang update mới
-import { CreateRequestWizard } from "../../features/customer/pages/create-request/CreateRequestWizard";
+import { CustomerCreateRequestPage } from "../../features/customer/pages/create-request/CustomerCreateRequestPage";
+import { CustomerRequestsListPage } from "../../features/customer/pages/list/CustomerRequestsListPage";
+import { CustomerRequestDetailPage } from "../../features/customer/pages/detail/CustomerRequestDetailPage";
 import { ManagerPortal } from "../../features/manager/pages/dashboard/ManagerPortal";
 import { SpecialistPortal } from "../../features/specialist/pages/dashboard/SpecialistPortal";
 import { CoordinatorPortal } from "../../features/coordinator/pages/dashboard/CoordinatorPortal";
@@ -100,17 +94,13 @@ function AppRouter() {
         {/* ==================== CUSTOMER ==================== */}
         <Route path="/customer/home" element={<HomePage />} />
         <Route path="/customer/profile" element={<CustomerProfilePage />} />
-        <Route path="/customer/requests" element={<TransportRequestPage />} />
-        <Route path="/customer/requests/new" element={<CreateTransportRequestPage />} />
-        <Route path="/customer/requests/:requestId" element={<TransportRequestDetailPage />} />
-        <Route path="/customer/requests/:requestId/information" element={<TransportInformationPage />} />
-        <Route path="/customer/requests/:requestId/information/success" element={<TransportInformationSuccessPage />} />
-        <Route path="/customer/requests/:requestId/contract" element={<ContractPage />} />
-        <Route path="/customer/requests/:requestId/payment" element={<PaymentPage />} />
+        <Route path="/customer/requests" element={<CustomerRequestsListPage />} />
+        <Route path="/customer/requests/new" element={<CustomerCreateRequestPage />} />
+        <Route path="/customer/create-request" element={<CustomerCreateRequestPage />} />
+        <Route path="/customer/requests/:requestId" element={<CustomerRequestDetailPage />} />
         <Route path="/customer/horses" element={<MyHorsesPage />} />
-        <Route path="/customer/tracking" element={<Navigate to="/customer/home" replace />} />
+        <Route path="/customer/tracking" element={<Navigate to="/customer/requests" replace />} />
         <Route path="/customer/history" element={<HistoryPage />} />
-        <Route path="/customer/create-request" element={<CreateRequestWizard />} />
 
         {/* ==================== PAYMENT ==================== */}
         <Route path="/customer/payment/success" element={<PaymentSuccessPage />} />

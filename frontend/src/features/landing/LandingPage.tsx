@@ -111,7 +111,8 @@ export const LandingPage: React.FC = () => {
     // Save preliminary quote info to session
     sessionStorage.setItem('preliminaryQuote', JSON.stringify({ origin, destination, horseCount: countNum, totalPrice }));
 
-    if (isLoggedIn) {
+    const userLoggedIn = Boolean(localStorage.getItem('accessToken') || localStorage.getItem('userRole'));
+    if (userLoggedIn) {
       navigate('/customer/create-request');
     } else {
       navigate('/login');

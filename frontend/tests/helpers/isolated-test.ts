@@ -73,6 +73,19 @@ export const test = base.extend<{
           });
         }
 
+        if (pathname === '/api/payments/vnpay/return') {
+          return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              id: 'PAY-RETURN-ISOLATED',
+              amount: 10000,
+              status: 'Pending',
+              responseCode: '00',
+            }),
+          });
+        }
+
         // Any other API call is unexpected in standalone frontend tests
         unexpectedApiRequests.push(`${method} ${pathname}`);
         return route.abort('blockedbyclient');
