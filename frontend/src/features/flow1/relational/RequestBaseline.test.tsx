@@ -16,6 +16,7 @@ afterEach(() => vi.restoreAllMocks());
 const horses = ["a", "b"].map(horseId => ({ horseId, name: "Horse " + horseId, microchipIso: "123456789012345", passportNo: "FEI", version: "v-" + horseId, hasDocuments: true, selectable: true }));
 const result = { requestId: "saved", horses, contracts: [], status: "PENDING" } as unknown as Request;
 async function wizard(two = true) {
+  vi.spyOn(apiClient, 'post').mockResolvedValue({ data: { success: true, data: { demoTransportCost: 7000000, estimatedPrice: 99999999 } } });
   vi.spyOn(relational, "horses").mockResolvedValue(two ? horses : [horses[0]]);
   vi.mocked(get).mockResolvedValue({ fullName: "Owner", phoneNumber: "0900000000" });
   vi.spyOn(flow1, "search").mockImplementation(async (address, country) => [
@@ -109,6 +110,20 @@ test("read models retain declared value and uploaded status without marking medi
   const manager = managerRequest(row); expect(manager.declaredValueUsd).toBe(120); expect(manager.baselineDocuments?.[0].status).toBe("UPLOADED");
   const owner = requestView(row); expect(owner.documents.at(-1)?.status).toBe("Pending Review");
   expect(owner.documents.at(-1)?.downloadPath).toBe("/customer/requests/saved/documents/d");
+});
+
+test('estimated transport cost uses backend demo amount, never the manager contract quote or a fake zero', () => {
+  const row = { ...result, estimatedTransportCost: 110297600 };
+  expect(requestView(row).estimatedPrice).toBe(110297600);
+  expect(requestView({ ...row, estimatedTransportCost: null }).estimatedPrice).toBeNull();
+});
+
+test('wizard preview uses transport-only backend estimate rather than the old hardcoded banner', async () => {
+  await wizard(false);
+  await userEvent.click(screen.getByRole('button', { name: '1. Tuyến & Dự toán' }));
+  await screen.findByText('7,000,000 VND');
+  expect(apiClient.post).toHaveBeenCalledWith('/customer/estimates', expect.objectContaining({ horseCount: 1 }), expect.anything());
+  expect(screen.queryByText('99,999,999 VND')).not.toBeInTheDocument();
 });
 test("an older runtime cannot silently discard declaration or files by falling back to JSON submit", async () => {
   const post = vi.spyOn(apiClient, "post").mockRejectedValue({ isAxiosError: true, response: { status: 404 } });

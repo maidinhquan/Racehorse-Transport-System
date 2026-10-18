@@ -50,7 +50,7 @@ public sealed class RelationalFlow1Tests
         {
             var f=new Fixture{Db=await Flow1TestDatabase.CreateAsync(sqlState:false)};f.Renderer=new(f.Storage);
             await f.Db.ScriptAsync("006_flow1_simple_relational_foundation.sql");
-            await f.Db.ScriptAsync("007_flow1_request_baseline.sql");
+            await f.Db.ScriptAsync("007_flow1_request_baseline.sql");await f.Db.ScriptAsync("008_flow1_readable_request_codes.sql");
             await f.Db.ExecuteAsync("""
                 UPDATE [USER] SET Email='owner@example.invalid' WHERE UserID='owner';
                 INSERT [USER](UserID,PasswordHash,Role,FullName,Email) VALUES

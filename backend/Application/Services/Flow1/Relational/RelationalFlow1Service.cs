@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -97,7 +98,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         var customer = await db.FindAsync<FlowUser>(r.CustomerID, ct);
         return new(r.RequestID, Token(r.RowVersion), r.Status, r.Departure, r.Destination, r.ExpectedDate, r.CommittedDeadline,
             r.ManagerNotes, r.DistanceKm, r.PreparationDays, r.PickupContactName, r.PickupContactPhone,
-            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct));
+            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct),DemoTransportPrice(r.TransportType,r.DistanceKm,horses.Count));
     }
     public Task<FlowRequestCard> DetailAsync(string id, string actor, bool manager, CancellationToken ct) =>
         db.RunAsync(async t => await Card(await Request(id, actor, manager, t), t), ct);
@@ -175,12 +176,27 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         r.DesignatedReceiverName=i.Receiver.Name.Trim(); r.DesignatedReceiverPhone=i.Receiver.Phone; r.ExpectedDate=Utc(i.DepartureAt); r.CommittedDeadline=Utc(i.DeliveryAt); r.TransportType=i.Trip.PreferredTransportMode; r.Status="PENDING";
     }
     public Task<FlowRequestCard> SubmitAsync(string actor,string key,FlowRequestInput i,string? id,string? version,CancellationToken ct) => SubmitCore(actor,key,i,id,version,[],ct);
+    private async Task<string> NextRequestCode(CancellationToken ct)
+    {
+        var prefix=$"REQ_{Today(clock).Year}_";
+        var rows=await db.QueryAsync<FlowRequest>(r=>r.RequestID.StartsWith(prefix),ct);
+        long max=0;
+        foreach(var row in rows)
+            if(long.TryParse(row.RequestID[prefix.Length..],NumberStyles.None,CultureInfo.InvariantCulture,out var n)) max=Math.Max(max,n);
+        Require(max<long.MaxValue,"REQUEST_NUMBER_EXHAUSTED","Request number range exhausted.");
+        return prefix+(max+1).ToString("D3",CultureInfo.InvariantCulture);
+    }
     private async Task<FlowRequestCard> SubmitCore(string actor,string key,FlowRequestInput i,string? id,string? version,IReadOnlyList<PreparedDocument> documents,CancellationToken ct)
     {
         Require(i is not null && i.Trip is not null && i.Trip.Pickup is not null && i.Trip.Delivery is not null && i.Horses is not null && i.PickupContact is not null && i.Receiver is not null,"VALIDATION_ERROR","Complete all required request fields.");
         Key(key); ValidateDeclaredValue(i.DeclaredValueUsd); var estimate=await estimates.CalculateAsync(i.Trip,ct);
         return await db.RunAsync(async t=>{
-            await Actor(actor,UserRoles.Customer,t); var rid=id??Id("r",actor,key); var r=await db.FindAsync<FlowRequest>(rid,t);
+            await Actor(actor,UserRoles.Customer,t);
+            var submissionHash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n',actor,key)))).ToLowerInvariant();
+            var r=id is not null ? await db.FindAsync<FlowRequest>(id,t) :
+                (await db.QueryAsync<FlowRequest>(x=>x.CustomerID==actor&&x.SubmissionKeyHash==submissionHash,t)).SingleOrDefault()
+                ?? await db.FindAsync<FlowRequest>(Id("r",actor,key),t); // Retain retries of pre008 opaque IDs.
+            var rid=r?.RequestID??id??await NextRequestCode(t); // RunAsync holds the global SQL transaction lock.
             if(r is not null)
             {
                 Require(r.CustomerID==actor,"FORBIDDEN","Request belongs to another account.");
@@ -188,7 +204,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
                 Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Legacy request needs review before entering the new revision workflow.");
                 Check(r.RowVersion,version??""); Require(r.Status=="CHANGES_REQUESTED" && !(await db.QueryAsync<FlowContract>(c=>c.RequestID==rid && c.IsCurrent,t)).Any(),"REVISION_CLOSED","Only requests returned for changes can be revised.");
             }
-            else { Require(id is null,"NOT_FOUND","Request not found."); r=new(){RequestID=rid,CustomerID=actor,Departure=i.Trip.Pickup.Address,Destination=i.Trip.Delivery.Address,Status="PENDING"}; db.Add(r); }
+            else { Require(id is null,"NOT_FOUND","Request not found."); r=new(){RequestID=rid,CustomerID=actor,SubmissionKeyHash=submissionHash,Departure=i.Trip.Pickup.Address,Destination=i.Trip.Delivery.Address,Status="PENDING"}; db.Add(r); }
             await ApplyRequest(r,i,estimate,t); await SaveDocuments(r,documents,i.Horses,t); await db.SaveAsync(t); return await Card(r,t);
         },ct);
     }

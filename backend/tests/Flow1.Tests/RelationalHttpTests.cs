@@ -89,7 +89,7 @@ public sealed class RelationalHttpTests
             Assert.Contains("FLOW1_SQL_SCHEMA_REQUIRED",await response.Content.ReadAsStringAsync());
             Assert.Equal(0,await old.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('HORSE') AND name='PhotoUrl';"));
         }
-        await old.ScriptAsync("006_flow1_simple_relational_foundation.sql");await old.ScriptAsync("007_flow1_request_baseline.sql");await old.ExecuteAsync("UPDATE TRANSPORT_REQUEST SET Flow1StateJson=N'{\"retained\":true}' WHERE RequestID='req-1';");
+        await old.ScriptAsync("006_flow1_simple_relational_foundation.sql");await old.ScriptAsync("007_flow1_request_baseline.sql");await old.ScriptAsync("008_flow1_readable_request_codes.sql");await old.ExecuteAsync("UPDATE TRANSPORT_REQUEST SET Flow1StateJson=N'{\"retained\":true}' WHERE RequestID='req-1';");
         using(var app=new RelationalHttpFactory(f,old.ConnectionString))using(var c=app.Client()) {
             var response=await c.GetAsync("/api/customer/requests");Assert.Equal(HttpStatusCode.ServiceUnavailable,response.StatusCode);Assert.Contains("FLOW1_STATE_IMPORT_REQUIRED",await response.Content.ReadAsStringAsync());
             Assert.Equal("{\"retained\":true}",await old.ScalarAsync<string>("SELECT Flow1StateJson FROM TRANSPORT_REQUEST;"));

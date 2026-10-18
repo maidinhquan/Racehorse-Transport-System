@@ -19,6 +19,7 @@ import type { Request, Contract } from "./api";
 import { renderHook } from "@testing-library/react";
 import { LandingPage } from "../../landing/LandingPage";
 import { estimateSeed } from "../api";
+import { apiClient } from '../../../shared/api/apiClient';
 vi.mock("../../auth/api/authApi", () => ({ getCurrentUser: vi.fn() }));
 vi.mock("../api", async original => ({ ...await original<object>(), get: vi.fn() }));
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); vi.mocked(get).mockResolvedValue([]); vi.spyOn(window, "alert").mockImplementation(() => {}); });
@@ -105,6 +106,7 @@ test("backend adapter refuses unsupported itemized quote or manual money confirm
   await expect(hook.result.current.confirm("unknown", 40000000, "BANK-MANUAL")).rejects.toThrow("Không xác nhận tiền"); expect(action).not.toHaveBeenCalled();
 });
 test("original wizard sends versions and owner contact, excludes advisory price, and retries with the same key", async () => {
+  vi.spyOn(apiClient, 'post').mockResolvedValue({ data: { success: true, data: { demoTransportCost: 3500000 } } });
   vi.spyOn(relational, "horses").mockResolvedValue([horse]); vi.mocked(get).mockResolvedValue({ fullName: "Owner", phoneNumber: "0900000000" });
   vi.spyOn(flow1, "search").mockImplementation(async (address, country) => [{ label: address, point: { latitude: 10, longitude: 106, countryCode: country }, attribution: "Fixture" }]);
   const submit = vi.spyOn(relational, "submit").mockRejectedValueOnce(new Error("Retry please")).mockResolvedValue({ ...row, requestId: "saved" });
@@ -121,4 +123,12 @@ test("original wizard sends versions and owner contact, excludes advisory price,
   await userEvent.click(screen.getByRole("button", { name: "3. Chọn Ngựa đua" })); await userEvent.click(await screen.findByText(/SQL horse/)); await userEvent.click(screen.getByRole("button", { name: "4. Hồ sơ & Thương mại" }));
   await userEvent.click(screen.getByRole("button", { name: "Gửi Yêu Cầu Vận Chuyển" })); await screen.findByText(/Retry please/); await userEvent.click(screen.getByRole("button", { name: "Gửi Yêu Cầu Vận Chuyển" })); await screen.findByText("Saved SQL");
   expect(submit.mock.calls[0][1]).toBe(submit.mock.calls[1][1]); const payload = submit.mock.calls[0][0]; expect(payload.horses).toEqual([{ horseId: "owned", version: "hv" }]); expect(payload.pickupContact.phone).toBe("0900000000"); expect(payload).not.toHaveProperty("price"); expect(payload).not.toHaveProperty("commercialValue");
+});
+
+
+test("manager suggested price uses backend demo transport cost without fabricating a floor or planning budget", () => {
+  const value = contractView({ ...row, estimatedTransportCost: 55148800 }, c);
+  expect(value.suggestedTotal).toBe(55148800);
+  expect(value.totalAmount).toBe(c.totalPrice);
+  expect(value.floorPrice).toBe(0);
 });

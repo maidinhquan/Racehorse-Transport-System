@@ -27,7 +27,7 @@ public sealed record FlowRequestCard(string RequestId, string Version, string St
     string? PickupContactName, string? PickupContactPhone, string? ReceiverName, string? ReceiverPhone,
     IReadOnlyList<FlowHorseCard> Horses, IReadOnlyList<FlowContractCard> Contracts, FlowRequestInput? Input = null, string? MapAttribution = null,
     string? CustomerName = null, string? CustomerEmail = null, decimal? DeclaredValueUsd = null,
-    IReadOnlyList<FlowRequestDocument>? Documents = null);
+    IReadOnlyList<FlowRequestDocument>? Documents = null, decimal? EstimatedTransportCost = null);
 public sealed record FlowHandoff(FlowTripCard Trip, string RequestId, string Departure, string Destination,
     DateTime? DepartureAt, DateTime? DeliveryAt, string ContractId, string PdfSha256, IReadOnlyList<FlowHorseCard> Horses,
     decimal? DeclaredValueUsd = null, IReadOnlyList<FlowRequestDocument>? Documents = null);

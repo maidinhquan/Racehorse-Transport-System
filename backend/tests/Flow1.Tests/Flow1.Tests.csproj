@@ -20,6 +20,7 @@
     <None Include="../../database/005_flow1_relational_mvp_foundation.sql" Link="Sql/005_flow1_relational_mvp_foundation.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../database/006_flow1_simple_relational_foundation.sql" Link="Sql/006_flow1_simple_relational_foundation.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../database/007_flow1_request_baseline.sql" Link="Sql/007_flow1_request_baseline.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../database/008_flow1_readable_request_codes.sql" Link="Sql/008_flow1_readable_request_codes.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup><ProjectReference Include="../../tools/Flow1LegacySupport/Flow1LegacySupport.csproj" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../../tools/Flow1RelationalConvert/Flow1RelationalConvert.csproj" /></ItemGroup>

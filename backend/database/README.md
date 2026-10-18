@@ -1,5 +1,21 @@
 # Flow 1 database — approved SQL state transition
 
+## Readable request codes —19/10/2026
+
+Source now requires reviewed `008_flow1_readable_request_codes.sql` after007.
+It adds one nullable `SubmissionKeyHash varchar(64)` and one filtered unique
+index on existing TRANSPORT_REQUEST, no new table/FK. New request IDs use
+`REQ_<Vietnam year>_<sequence, at least three digits>`; allocation and retry lookup
+run under the existing global SQL transaction lock. Existing IDs/links remain
+unchanged; old opaque-ID retries are still recognized. No startup migration.
+Business apply was explicitly approved for localhost with fresh backup/restore
+verification; operation result is recorded after completion, not inferred from tests.
+
+Transport-only demo price is returned by backend independently of the Contract
+quote: ROAD35,000VND/km/vehicle at agreed MVP capacity1horse/vehicle; AIR70,000,000VND
+per horse, airport-to-airport only. Rounded stored kilometres drive the request
+read model; missing route data yields no estimate rather than zero or a Contract price.
+
 ## Current extension — 19/10/2026
 
 Request baseline source now requires `000` (disposable only) → `003` → `006` →

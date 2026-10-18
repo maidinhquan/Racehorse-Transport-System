@@ -103,7 +103,7 @@ public sealed class RelationalConverter(Flow1RelationalContext db,string sourceR
         Ensure(!dropRetained||apply,"DROP_REQUIRES_APPLY");Ensure(!apply||offline,"OFFLINE_CONFIRMATION_REQUIRED");
         db.ChangeTracker.Clear();blockers.Clear();await using var tx=await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
         await using(var gate=await Command("DECLARE @r int;EXEC @r=sys.sp_getapplock @Resource=N'RaceHorse.Flow1.Relational',@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=10000;IF @r<0 THROW 51300,'Conversion busy.',1;"))await gate.ExecuteNonQueryAsync();
-        Ensure(await Flow1RelationalSchema.IsReadyAsync(db,default),"REVIEW_AND_APPLY_006_007_SEPARATELY");
+        Ensure(await Flow1RelationalSchema.IsReadyAsync(db,default),"REVIEW_AND_APPLY_006_007_008_SEPARATELY");
         var before=await DataFingerprint();var originalBusiness=await DataFingerprint(true);var retained=Flow1RetainedSources.Fingerprint(sourceRoot);
         await Load();var source=Hash(string.Join('\n',documents.OrderBy(x=>x.Key.Item1).ThenBy(x=>x.Key.Item2).Select(x=>JsonSerializer.Serialize(x.Value,Json))));
         var history=retainUnverifiedHistory??new HashSet<string>();

@@ -41,6 +41,8 @@ public sealed class FlowHorse
 [Table("TRANSPORT_REQUEST")]
 public sealed class FlowRequest
 {
+    [Column("SubmissionKeyHash", TypeName = "varchar(64)")]
+    public string? SubmissionKeyHash { get; set; }
     [Column("DeclaredValueUsd", TypeName = "decimal(18,2)")]
     public decimal? DeclaredValueUsd { get; set; }
     [Key]

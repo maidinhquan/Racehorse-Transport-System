@@ -345,10 +345,10 @@ function TransportRequestDetailPage() {
 
                   <strong className="detail-price">
                     
-                    {request.estimatedPrice.toLocaleString(
+                    {request.estimatedPrice?.toLocaleString(
                       "en-US"
-                    )}{" "}
-                    {request.currency}
+                    ) ?? '—'}{" "}
+                    {request.estimatedPrice == null ? '' : 'VND'}
                   </strong>
                 </div>
               </div>

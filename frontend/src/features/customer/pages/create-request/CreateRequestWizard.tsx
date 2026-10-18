@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { get, flow1Error, initialTrip } from "../../../flow1/api";
+import { get, post, flow1Error, initialTrip } from "../../../flow1/api";
 import { AddressAutocomplete, type AddressCandidate } from './AddressAutocomplete';
 import { relational } from "../../../flow1/relational/api";
 import { useEffect, useState } from 'react';
@@ -45,7 +45,28 @@ export const CreateRequestWizard = () => {
   const [selectedHorses, setSelectedHorses] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const estimatedTotal = (destination === 'Nhật Bản' ? 46250000 : 16250000) * Math.max(selectedHorses.length, 1);
+  const estimateTrip = pickupSelection && deliverySelection && expectedDate && departure === 'Việt Nam' &&
+    (destination === 'Việt Nam' || destination === 'Nhật Bản') &&
+    ((destination === 'Nhật Bản') === (transportType === 'Hàng không')) ? {
+      pickup: { address: pickupSelection.label, lat: pickupSelection.point.latitude, lng: pickupSelection.point.longitude, country: 'VN' },
+      delivery: { address: deliverySelection.label, lat: deliverySelection.point.latitude, lng: deliverySelection.point.longitude, country: destination === 'Nhật Bản' ? 'JP' : 'VN' },
+      preferredTransportMode: transportType === 'Hàng không' ? 'AIR' : 'ROAD',
+      horseCount: Math.max(selectedHorses.length, 1), desiredDepartureDate: expectedDate,
+    } : null;
+  const estimateKey = estimateTrip ? JSON.stringify(estimateTrip) : '';
+  const [demoEstimate, setDemoEstimate] = useState<{ key: string; amount: number | null }>({ key: '', amount: null });
+  const estimatedTotal = demoEstimate.key === estimateKey ? demoEstimate.amount : null;
+  useEffect(() => {
+    if (!estimateKey) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const estimate = await post<{ demoTransportCost?: number | null }>('/customer/estimates', JSON.parse(estimateKey));
+        if (!cancelled) setDemoEstimate({ key: estimateKey, amount: estimate.demoTransportCost ?? null });
+      } catch { if (!cancelled) setDemoEstimate({ key: estimateKey, amount: null }); }
+    }, 450);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [estimateKey]);
   useEffect(() => {
     let active = true;
     const from = expectedDate ? new Date(expectedDate + 'T00:00:00+07:00').toISOString() : undefined;
@@ -173,7 +194,7 @@ export const CreateRequestWizard = () => {
                   Phương thức: {transportType} • Số ngựa: {selectedHorses.length} cá thể {attribution}
                 </p>
               </div>
-              <span className="estimate-price">{estimatedTotal.toLocaleString()} VND</span>
+              <span className="estimate-price">{estimatedTotal == null ? '—' : `${estimatedTotal.toLocaleString()} VND`}</span>
             </div>
           </div>
         )}

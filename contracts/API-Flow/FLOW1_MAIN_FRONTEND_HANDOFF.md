@@ -1,3 +1,10 @@
+> **Mã đơn và giá demo —19/10/2026:** mã mới do backend cấp tuần tự dạng
+> REQ_2026_004; mã cũ/quan hệ giữ nguyên. Source cần migration008 đã được duyệt riêng.
+> Estimated Transport Cost dùng estimatedTransportCost từ backend, không lấy giá
+> Contract và không gán thiếu dữ liệu thành0. Banner wizard lấy demoTransportCost
+> từ API estimate sau khi chọn địa điểm/ngày; chưa đủ dữ liệu hiển thị “—”.
+> Không thay bố cục, không thêm UI; không push theo yêu cầu trực tiếp mới nhất.
+
 > **Địa chỉ có gợi ý —19/10/2026:** đại ca đã cho phép thay UI riêng hai ô địa chỉ.
 > Wizard dùng AddressAutocomplete: gõ từ3ký tự, chờ450ms, chọn địa điểm trong danh
 > sách trả về từ API hiện hữu. Chọn bằng chuột hoặc ↑/↓/Enter, Escape để đóng.

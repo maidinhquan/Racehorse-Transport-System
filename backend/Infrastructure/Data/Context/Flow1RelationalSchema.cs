@@ -4,6 +4,8 @@ public static class Flow1RelationalSchema
 {
     public const string ValidationSql="""
         SELECT CONVERT(int,CASE WHEN COL_LENGTH('dbo.HORSE','PhotoUrl') IS NOT NULL
+          AND EXISTS(SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST')
+            AND name='SubmissionKeyHash' AND system_type_id=167 AND max_length=64 AND is_nullable=1)
           AND EXISTS(SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST') AND name='DeclaredValueUsd'
             AND system_type_id=106 AND precision=18 AND scale=2 AND is_nullable=1)
           AND EXISTS(SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST')
@@ -19,6 +21,7 @@ public static class Flow1RelationalSchema
           AND NOT EXISTS(
             SELECT 1 FROM (VALUES
               (OBJECT_ID('dbo.TRIP_PLAN'),N'UX_TRIP_PLAN_RequestID',N'RequestID',1,N''),
+              (OBJECT_ID('dbo.TRANSPORT_REQUEST'),N'UX_F1N_RequestSubmission',N'CustomerID,SubmissionKeyHash',1,N'submissionkeyhashisnotnull'),
               (OBJECT_ID('dbo.INVOICE'),N'UX_INVOICE_ContractID_Deposit',N'ContractID',1,N'invoicetype=''deposit'''),
               (OBJECT_ID('dbo.CONTRACT'),N'UX_F1S_CurrentContract',N'RequestID',1,N'iscurrent=1'),
               (OBJECT_ID('dbo.PAYMENT'),N'UX_F1S_VnpayReceipt',N'VnpayTmnCode,TransactionCode',1,N'vnpaytmncodeisnotnullandtransactioncodeisnotnullandstatus=''success'''),
