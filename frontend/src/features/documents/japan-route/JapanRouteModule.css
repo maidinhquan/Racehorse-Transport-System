@@ -1531,4 +1531,517 @@
   background-color: #fffbf0;
 }
 
+/* =============================================================================
+   1. SELECTOR NƠI ĐI / NƠI ĐẾN (ROUTE SELECTOR)
+   ============================================================================= */
+.jp-route-selector-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.jp-route-selector-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.jp-route-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.jp-route-select {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.jp-route-select:focus {
+  border-color: #2563eb;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.jp-route-arrow {
+  font-size: 18px;
+  color: #94a3b8;
+  font-weight: 800;
+}
+
+.jp-route-badge-active {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* =============================================================================
+   2. GIAO DIỆN KHI CHỌN NƯỚC KHÁC (EMPTY / NOTICE ROUTE STATE)
+   ============================================================================= */
+.jp-empty-route-notice {
+  background: #ffffff;
+  border: 2px dashed #cbd5e1;
+  border-radius: 16px;
+  padding: 50px 30px;
+  text-align: center;
+  margin: 30px 0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+}
+
+.jp-empty-icon {
+  font-size: 54px;
+  margin-bottom: 16px;
+  animation: bounce 2s infinite ease-in-out;
+}
+
+.jp-empty-route-notice h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 10px 0;
+}
+
+.jp-empty-route-notice p {
+  font-size: 14.5px;
+  color: #64748b;
+  max-width: 600px;
+  margin: 0 auto 24px auto;
+  line-height: 1.6;
+}
+
+.jp-empty-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* =============================================================================
+   3. PHÂN VÙNG LUỒNG: KHÁCH HÀNG VS NHÂN VIÊN (ROLE SELECTOR TABS)
+   ============================================================================= */
+.jp-role-switcher-container {
+  display: flex;
+  background: #e2e8f0;
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 24px;
+  gap: 4px;
+}
+
+.jp-role-tab-btn {
+  flex: 1;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.25s ease;
+}
+
+.jp-role-tab-btn:hover {
+  color: #0f172a;
+}
+
+.jp-role-tab-btn.active {
+  background: #ffffff;
+  color: #1e3a8a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.jp-role-pill-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-weight: 700;
+}
+
+.jp-pill-success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.jp-pill-alert {
+  background: #fee2e2;
+  color: #b91c1c;
+  animation: pulse 1.5s infinite;
+}
+
+/* =============================================================================
+   4. KHỐI NỘP HỒ SƠ CỦA KHÁCH HÀNG (CUSTOMER SUBMIT BAR)
+   ============================================================================= */
+.jp-customer-submit-bar {
+  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+  border: 1.5px solid #bfdbfe;
+  border-radius: 16px;
+  padding: 24px 28px;
+  margin-top: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.08);
+}
+
+.jp-submit-info h4 {
+  font-size: 17px;
+  font-weight: 800;
+  color: #1e3a8a;
+  margin: 0 0 6px 0;
+}
+
+.jp-submit-info p {
+  font-size: 13.5px;
+  color: #334155;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.jp-btn-submit-customer {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s ease;
+}
+
+.jp-btn-submit-customer:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+}
+
+/* =============================================================================
+   5. BANNER NHÂN VIÊN TIẾP NHẬN HỒ SƠ TỰ ĐỘNG (STAFF RECEIVED BANNER)
+   ============================================================================= */
+.jp-staff-received-banner {
+  background: #ecfdf5;
+  border: 1.5px solid #a7f3d0;
+  border-radius: 14px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.08);
+}
+
+.jp-banner-bell {
+  font-size: 28px;
+}
+
+.jp-staff-received-banner strong {
+  font-size: 15px;
+  color: #065f46;
+}
+
+.jp-staff-received-banner p {
+  font-size: 13px;
+  color: #047857;
+  margin: 4px 0 0 0;
+}
+
+.jp-received-tag {
+  background: #10b981;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* =============================================================================
+   6. OFFICIAL ELECTRONIC CONTRACT / DOCUMENT PREVIEW MODAL (FIX NỀN TRẮNG CHỮ TRẮNG)
+   ============================================================================= */
+.jp-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(15, 23, 42, 0.78) !important;
+  backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 99999 !important;
+  padding: 24px !important;
+  overflow-y: auto !important;
+}
+
+.jp-modal-container.jp-modal-printable {
+  background: #0f172a !important;
+  border-radius: 16px !important;
+  width: 100% !important;
+  max-width: 950px !important;
+  max-height: 92vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6) !important;
+  border: 1px solid #334155 !important;
+  overflow: hidden !important;
+  animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.jp-modal-header {
+  padding: 16px 24px !important;
+  background: #1e293b !important;
+  border-bottom: 1px solid #334155 !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+}
+
+.jp-modal-header h3 {
+  margin: 0 !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: #f8fafc !important;
+  letter-spacing: 0.3px !important;
+}
+
+.jp-modal-close {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: none !important;
+  font-size: 16px !important;
+  color: #cbd5e1 !important;
+  cursor: pointer !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+}
+
+.jp-modal-close:hover {
+  background: rgba(239, 68, 68, 0.8) !important;
+  color: #ffffff !important;
+}
+
+/* VĂN BẢN HỢP ĐỒNG / BIỂU MẪU ĐIỆN TỬ CHUẨN IN ẤN (CONTRACT & DOCUMENT VIEWER) */
+.jp-official-paper {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 44px 50px !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-family: 'Times New Roman', Times, serif, system-ui !important;
+  line-height: 1.65 !important;
+  font-size: 14.5px !important;
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Buộc tất cả thẻ con trong văn bản có màu mực in rõ nét */
+.jp-official-paper,
+.jp-official-paper p,
+.jp-official-paper div,
+.jp-official-paper span,
+.jp-official-paper strong,
+.jp-official-paper td,
+.jp-official-paper th,
+.jp-official-paper h2,
+.jp-official-paper h3 {
+  color: #0f172a !important;
+}
+
+.jp-paper-header-grid {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  border-bottom: 2px solid #0f172a !important;
+  padding-bottom: 18px !important;
+  margin-bottom: 22px !important;
+}
+
+.jp-paper-org {
+  text-align: center !important;
+  width: 48% !important;
+  font-size: 13.5px !important;
+  line-height: 1.4 !important;
+}
+
+.jp-paper-motto {
+  text-align: center !important;
+  width: 48% !important;
+  font-size: 13.5px !important;
+  line-height: 1.4 !important;
+}
+
+.jp-paper-title {
+  text-align: center !important;
+  margin: 24px 0 !important;
+}
+
+.jp-paper-title h2 {
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  margin: 0 0 6px 0 !important;
+  letter-spacing: 0.8px !important;
+  text-transform: uppercase !important;
+}
+
+.jp-paper-body {
+  font-size: 14.5px !important;
+  text-align: justify !important;
+}
+
+.jp-paper-body p {
+  margin: 10px 0 !important;
+  line-height: 1.65 !important;
+}
+
+.jp-paper-body strong {
+  font-weight: 700 !important;
+  color: #000000 !important;
+}
+
+.jp-paper-body code {
+  font-family: monospace !important;
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-weight: 700 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+/* Bảng Tờ khai và Hợp đồng mẫu */
+.jp-official-customs-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 18px 0 !important;
+}
+
+.jp-official-customs-table td {
+  border: 1.5px solid #334155 !important;
+  padding: 12px 14px !important;
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
+  color: #0f172a !important;
+  vertical-align: top !important;
+}
+
+/* Phần chữ ký và con dấu mô phỏng */
+.jp-paper-signatures {
+  display: flex !important;
+  justify-content: space-between !important;
+  margin-top: 40px !important;
+  padding-top: 20px !important;
+}
+
+.jp-sig-box {
+  width: 45% !important;
+  text-align: center !important;
+  font-size: 13.5px !important;
+  position: relative !important;
+}
+
+.jp-sig-stamp-simulated {
+  width: 110px;
+  height: 110px;
+  border: 3px double #dc2626;
+  border-radius: 50%;
+  color: #dc2626 !important;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 10px auto;
+  transform: rotate(-10deg);
+  opacity: 0.85;
+}
+
+.jp-modal-footer {
+  padding: 16px 24px !important;
+  background: #1e293b !important;
+  border-top: 1px solid #334155 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Chuẩn in ấn trực tiếp (Print Styles) */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .jp-modal-overlay,
+  .jp-modal-printable,
+  .jp-official-paper,
+  .jp-official-paper * {
+    visibility: visible !important;
+  }
+  .jp-official-paper {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    padding: 15mm 20mm !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+  .jp-modal-header,
+  .jp-modal-footer,
+  .jp-modal-close {
+    display: none !important;
+  }
+}
+
 

@@ -45,19 +45,6 @@ export const ComprehensiveDossierSummary: React.FC<ComprehensiveDossierSummaryPr
       details: `Chip: ${vnQuarantineDossier.passportAndVaccine.microchipNumber || 'Chưa đủ 15 số'} | ${vnQuarantineDossier.passportAndVaccine.passportScans.length} trang scan`,
       targetTab: 'vn_quarantine',
     },
-    {
-      id: 'doc-1.1.3',
-      group: '1. NHÓM GIẤY TỜ VIỆT NAM (1.1 Thú y)',
-      name: 'Yêu cầu / Quy định kiểm dịch của phía Nhật Bản (Căn cứ lấy máu)',
-      isComplete: Boolean(
-        vnQuarantineDossier.japanQuarantineRegulations.referenceTemporaryImportPermitNo ||
-        vnQuarantineDossier.japanQuarantineRegulations.guidanceFiles.length > 0
-      ),
-      details: vnQuarantineDossier.japanQuarantineRegulations.referenceTemporaryImportPermitNo
-        ? `Theo GP Nhật: ${vnQuarantineDossier.japanQuarantineRegulations.referenceTemporaryImportPermitNo}`
-        : 'Cần đính kèm văn bản hướng dẫn',
-      targetTab: 'vn_quarantine',
-    },
 
     // 1.2 Hải quan
     {

@@ -21,7 +21,6 @@ import type {
 import { VietnamQuarantineDossier } from './components/VietnamQuarantineDossier';
 import { VietnamCustomsDeclaration } from './components/VietnamCustomsDeclaration';
 import { JapanInternationalPermits } from './components/JapanInternationalPermits';
-import { JapanMedicalTestRequisition } from './components/JapanMedicalTestRequisition';
 import { JapanMedicalQuarantine } from './components/JapanMedicalQuarantine';
 import { JapanLogisticsEscort } from './components/JapanLogisticsEscort';
 import { JapanPreDepartureDoc } from './components/JapanPreDepartureDoc';
@@ -40,7 +39,6 @@ export type JapanRouteTab =
   | 'vn_customs'
   | 'jp_permits'
   | 'step1_medical_quarantine'
-  | 'step1_requisition'
   | 'step2_logistics'
   | 'step3_declaration'
   | 'dossier_summary';
@@ -51,6 +49,15 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
   onSubmitToAqs,
   isReadOnly = false,
 }) => {
+  // 1. Tuyến Đường (Nơi Đi / Nơi Đến)
+  const [originCountry, setOriginCountry] = useState<string>('Việt Nam');
+  const [destinationCountry, setDestinationCountry] = useState<string>('Nhật Bản');
+
+  // 2. Phân Hệ Luồng (Khách Hàng vs Nhân Viên)
+  const [activeRole, setActiveRole] = useState<'customer' | 'staff'>('customer');
+  const [isSubmittedByCustomer, setIsSubmittedByCustomer] = useState<boolean>(false);
+  const [submitSuccessModal, setSubmitSuccessModal] = useState<boolean>(false);
+
   const [activeTab, setActiveTab] = useState<JapanRouteTab>('vn_quarantine');
 
   // Zoom Modal State
@@ -355,7 +362,7 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
   // ============================================================================
   // CÁC THÔNG TIN KẾ THỪA: ĐƠN CHỈ ĐỊNH Y TẾ, MẪU XÉT NGHIỆM, VẬN CHUYỂN
   // ============================================================================
-  const [veterinaryAgency, setVeterinaryAgency] = useState<VeterinaryAgency>(() => ({
+  const [veterinaryAgency] = useState<VeterinaryAgency>(() => ({
     agencyName: initialData?.veterinaryAgency?.agencyName || 'Bệnh viện Thú y Quốc tế Sài Gòn (Saigon Vet Clinic)',
     veterinarianName: initialData?.veterinaryAgency?.veterinarianName || 'TS. BSTY. Trần Đình Quang',
     licenseNumber: initialData?.veterinaryAgency?.licenseNumber || 'CCHN-TY-2024/0984-CCTY',
@@ -377,7 +384,7 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
     clinicalSigns: initialData?.horseMedicalProfile?.clinicalSigns || 'Tỉnh táo, niêm mạc mắt hồng hào, không có dịch mũi hay biểu hiện sốt/bệnh truyền nhiễm',
   }));
 
-  const [medicalRequisition, setMedicalRequisition] = useState<MedicalTestRequisition>({
+  const [medicalRequisition] = useState<MedicalTestRequisition>({
     requisitionId: 'REQ-MED-2026-JP01',
     samplingDate: '2026-10-20',
     samplingTime: '08:30',
@@ -620,12 +627,43 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
     crews,
   });
 
+  const handleCustomerSubmit = () => {
+    setIsSubmittedByCustomer(true);
+
+    // Tự động ráp thông tin của khách hàng vào các trường nghiệp vụ của Nhân viên
+    const applicantName = vnQuarantineDossier.quarantineApplication.applicantName;
+    const applicantTax = vnQuarantineDossier.quarantineApplication.applicantTaxOrId;
+    const horseName = vnQuarantineDossier.quarantineApplication.horseName;
+
+    setVnCustomsDeclaration((prev) => ({
+      ...prev,
+      identityProfile: {
+        ...prev.identityProfile,
+        legalRepresentative: applicantName || prev.identityProfile.legalRepresentative,
+        idNumberOrBusinessCode: applicantTax || prev.identityProfile.idNumberOrBusinessCode,
+      },
+      ownershipConfirmation: {
+        ...prev.ownershipConfirmation,
+        registeredOwnerName: applicantName || prev.ownershipConfirmation.registeredOwnerName,
+      },
+    }));
+
+    if (horseName) {
+      setHorseMedicalProfile((prev) => ({
+        ...prev,
+        horseName,
+      }));
+    }
+
+    setSubmitSuccessModal(true);
+  };
+
   const handlePackageSubmit = () => {
     const fullData = compilePackageData();
     if (onSubmitToAqs) {
       onSubmitToAqs(fullData);
     } else {
-      alert('🚀 Đã xác thực thành công bộ hồ sơ! Toàn bộ 10 thành phần hồ sơ Việt Nam và Nhật Bản đã sẵn sàng.');
+      alert('🚀 Đã xác thực thành công bộ hồ sơ! Toàn bộ các thành phần hồ sơ Việt Nam và Nhật Bản đã sẵn sàng.');
     }
     if (onSave) {
       onSave(fullData);
@@ -634,130 +672,247 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
 
   return (
     <div className="jp-route-container">
-      {/* Banner Tuyến Nhật Bản */}
-      <div className="jp-main-banner">
-        <div>
-          <h1 className="jp-banner-title">
-            <span>🇻🇳 ➔ 🇯🇵</span>
-            <span>Hồ Sơ & Kiểm Dịch Vận Chuyển Ngựa Đua: VIỆT NAM - NHẬT BẢN</span>
-          </h1>
-          <p className="jp-banner-desc">
-            Quy trình hoàn chỉnh theo 2 nhóm giấy tờ pháp lý cốt lõi: <strong>(1) Nhóm Giấy tờ Việt Nam</strong> (Hồ sơ Kiểm dịch Thú y qua Cổng Một cửa quốc gia & Tờ khai Hải quan Tạm xuất - Tái nhập G12) và <strong>(2) Nhóm Giấy tờ Quốc tế</strong> (Giấy phép Nhập khẩu Tạm thời & Yêu cầu xét nghiệm từ MAFF Nhật Bản).
+      {/* 1. THANH CHỌN TUYẾN ĐƯỜNG (NƠI ĐI / NƠI ĐẾN) */}
+      <div className="jp-route-selector-card">
+        <div className="jp-route-selector-group">
+          <span className="jp-route-label">📍 Điểm Xuất Phát:</span>
+          <select
+            className="jp-route-select"
+            value={originCountry}
+            onChange={(e) => setOriginCountry(e.target.value)}
+          >
+            <option value="Việt Nam">🇻🇳 Việt Nam (Sân bay Tân Sơn Nhất / Nội Bài)</option>
+          </select>
+
+          <span className="jp-route-arrow">➔</span>
+
+          <span className="jp-route-label">🎯 Nơi Đến:</span>
+          <select
+            className="jp-route-select"
+            value={destinationCountry}
+            onChange={(e) => setDestinationCountry(e.target.value)}
+          >
+            <option value="Nhật Bản">🇯🇵 Nhật Bản (AQS MAFF - Narita / Tokyo)</option>
+            <option value="Singapore">🇸🇬 Singapore (AVS - Sembawang)</option>
+            <option value="Thái Lan">🇹🇭 Thái Lan (DLD - Bangkok)</option>
+            <option value="Hàn Quốc">🇰🇷 Hàn Quốc (QIA - Incheon)</option>
+            <option value="UAE">🇦🇪 UAE / Dubai (Meydan)</option>
+            <option value="Hồng Kông">🇭🇰 Hồng Kông (AFCD - Sha Tin)</option>
+          </select>
+        </div>
+
+        {destinationCountry === 'Nhật Bản' ? (
+          <div className="jp-route-badge-active">
+            <span>✓</span> Tuyến Đã Kích Hoạt Hồ Sơ AQS
+          </div>
+        ) : (
+          <div style={{ color: '#b45309', fontSize: '13px', fontWeight: 700 }}>
+            ⚠️ Tuyến chưa có hồ sơ mẫu
+          </div>
+        )}
+      </div>
+
+      {/* NẾU CHỌN NƯỚC KHÁC: HIỆN THÔNG BÁO CHƯA CÓ THÔNG TIN */}
+      {destinationCountry !== 'Nhật Bản' ? (
+        <div className="jp-empty-route-notice">
+          <div className="jp-empty-icon">🌏</div>
+          <h2>Hồ Sơ Vận Chuyển Tuyến: {originCountry} ➔ {destinationCountry}</h2>
+          <p>
+            Hiện tại hệ thống chỉ hỗ trợ bộ hồ sơ quy chuẩn điện tử tự động cho tuyến <strong>Việt Nam ➔ Nhật Bản (AQS MAFF)</strong>.
+            Tuyến vận chuyển đến <strong>{destinationCountry}</strong> hiện <em>chưa có thông tin hồ sơ quy chuẩn</em> hoặc đang trong quá trình cập nhật chính sách pháp lý thú y.
           </p>
+          <div className="jp-empty-actions">
+            <button
+              type="button"
+              className="jp-btn-primary"
+              onClick={() => setDestinationCountry('Nhật Bản')}
+            >
+              Chuyển Sang Tuyến Đi Nhật Bản (AQS MAFF) 🇯🇵
+            </button>
+          </div>
         </div>
-        <div className="jp-flag-badge">
-          Chuẩn OIE • Cổng NSW • Hải quan VNACCS G12 • AQS MAFF Nhật Bản
-        </div>
-      </div>
+      ) : (
+        <>
+          {/* Banner Tuyến Nhật Bản */}
+          <div className="jp-main-banner">
+            <div>
+              <h1 className="jp-banner-title">
+                <span>🇻🇳 ➔ 🇯🇵</span>
+                <span>Hồ Sơ & Kiểm Dịch Vận Chuyển Ngựa Đua: VIỆT NAM - NHẬT BẢN</span>
+              </h1>
+              <p className="jp-banner-desc">
+                Quy trình hoàn chỉnh theo 2 nhóm giấy tờ pháp lý cốt lõi: <strong>(1) Nhóm Giấy tờ Việt Nam</strong> (Hồ sơ Kiểm dịch Thú y qua Cổng Một cửa quốc gia & Tờ khai Hải quan Tạm xuất - Tái nhập G12) và <strong>(2) Nhóm Giấy tờ Quốc tế</strong> (Giấy phép Nhập khẩu Tạm thời & Yêu cầu xét nghiệm từ MAFF Nhật Bản).
+              </p>
+            </div>
+            <div className="jp-flag-badge">
+              Chuẩn OIE • Cổng NSW • Hải quan VNACCS G12 • AQS MAFF Nhật Bản
+            </div>
+          </div>
 
-      {/* Tabs Chuyển các Phân hệ theo Luồng Nghiệp Vụ Chuẩn */}
-      <div className="jp-tab-navigation">
-        <button
-          type="button"
-          className={`jp-tab-btn ${activeTab === 'vn_quarantine' ? 'active' : ''}`}
-          onClick={() => setActiveTab('vn_quarantine')}
-        >
-          <span>🇻🇳 1.1 Thú Y:</span>
-          <span>Đơn & Hộ Chiếu (Cổng NSW)</span>
-        </button>
+          {/* 2. THANH CHỌN PHÂN HỆ LUỒNG (KHÁCH HÀNG VS NHÂN VIÊN) */}
+          <div className="jp-role-switcher-container">
+            <button
+              type="button"
+              className={`jp-role-tab-btn ${activeRole === 'customer' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveRole('customer');
+                if (activeTab !== 'vn_quarantine' && activeTab !== 'vn_customs') {
+                  setActiveTab('vn_quarantine');
+                }
+              }}
+            >
+              <span>👤 1. PHÂN HỆ KHÁCH HÀNG (Khai Báo & Nộp Hồ Sơ Ban Đầu)</span>
+              {isSubmittedByCustomer && (
+                <span className="jp-role-pill-badge jp-pill-success">✓ Đã Gửi Cho Nhân Viên</span>
+              )}
+            </button>
 
-        <button
-          type="button"
-          className={`jp-tab-btn ${activeTab === 'vn_customs' ? 'active' : ''}`}
-          onClick={() => setActiveTab('vn_customs')}
-        >
-          <span>🇻🇳 1.2 Hải Quan:</span>
-          <span>Tạm Xuất Tái Nhập (G12)</span>
-        </button>
+            <button
+              type="button"
+              className={`jp-role-tab-btn ${activeRole === 'staff' ? 'active' : ''}`}
+              onClick={() => {
+                setActiveRole('staff');
+                if (activeTab === 'vn_quarantine') {
+                  setActiveTab('vn_customs');
+                }
+              }}
+            >
+              <span>👨‍💼 2. PHÂN HỆ NHÂN VIÊN (Tiếp Nhận & Hoàn Tất Thủ Tục)</span>
+              {isSubmittedByCustomer && (
+                <span className="jp-role-pill-badge jp-pill-alert">1 Hồ Sơ Đã Nhận</span>
+              )}
+            </button>
+          </div>
 
-        <button
-          type="button"
-          className={`jp-tab-btn ${activeTab === 'jp_permits' ? 'active' : ''}`}
-          onClick={() => setActiveTab('jp_permits')}
-        >
-          <span>🇯🇵 2. Quốc Tế:</span>
-          <span>Giấy Phép MAFF Nhật Bản</span>
-        </button>
+          {/* BANNER THÔNG BÁO CHO NHÂN VIÊN KHI ĐÃ CÓ HỒ SƠ KHÁCH HÀNG */}
+          {activeRole === 'staff' && isSubmittedByCustomer && (
+            <div className="jp-staff-received-banner">
+              <div className="jp-banner-bell">🔔</div>
+              <div>
+                <strong>ĐÃ TIẾP NHẬN HỒ SƠ TỪ KHÁCH HÀNG: {vnQuarantineDossier.quarantineApplication.applicantName || 'Chủ ngựa'}</strong>
+                <p>
+                  Thông tin cá thể ngựa <strong>{vnQuarantineDossier.quarantineApplication.horseName}</strong>, Thư mời giải đua <strong>{vnCustomsDeclaration.invitationLetter.tournamentName}</strong> và Giấy kiểm dịch đã được tự động ráp vào các phần bên dưới để nhân viên hoàn thiện Tờ khai Hải quan VNACCS, Vận đơn AWB và Giấy phép AQS.
+                </p>
+              </div>
+              <span className="jp-received-tag">ĐÃ RÁP DỮ LIỆU</span>
+            </div>
+          )}
 
-        <button
-          type="button"
-          className={`jp-tab-btn ${activeTab === 'step1_medical_quarantine' ? 'active' : ''}`}
-          onClick={() => setActiveTab('step1_medical_quarantine')}
-        >
-          <span>🔬 Y Tế:</span>
-          <span>4 Bệnh Máu & Sổ Tiêm</span>
-        </button>
+          {/* Tabs Chuyển các Phân hệ theo Luồng Nghiệp Vụ Chuẩn */}
+          <div className="jp-tab-navigation">
+            {activeRole === 'customer' ? (
+              <>
+                <button
+                  type="button"
+                  className={`jp-tab-btn ${activeTab === 'vn_quarantine' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('vn_quarantine')}
+                >
+                  <span>🇻🇳 1.1 Thú Y (Khách Hàng):</span>
+                  <span>Đơn Đăng Ký (Mẫu 01) & Hộ Chiếu</span>
+                </button>
 
-        <button
-          type="button"
-          className={`jp-tab-btn ${activeTab === 'step1_requisition' ? 'active' : ''}`}
-          onClick={() => setActiveTab('step1_requisition')}
-        >
-          <span>🩺 Đơn Lab:</span>
-          <span>Chỉ Định Xét Nghiệm</span>
-        </button>
+                <button
+                  type="button"
+                  className={`jp-tab-btn ${activeTab === 'vn_customs' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('vn_customs')}
+                >
+                  <span>🇻🇳 1.2 Pháp Lý (Khách Hàng):</span>
+                  <span>Thư Mời & Giấy Tờ Ngựa (1.2.1 - 1.2.4)</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={`jp-tab-btn ${activeTab === 'vn_customs' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('vn_customs')}
+                >
+                  <span>🛃 1.2 Hải Quan & Vận Đơn:</span>
+                  <span>Customs Header & AWB (1.2.5)</span>
+                </button>
 
-        <button
-          type="button"
-          className={`jp-tab-btn ${activeTab === 'step2_logistics' ? 'active' : ''}`}
-          onClick={() => setActiveTab('step2_logistics')}
-        >
-          <span>🚚 Điều Phối:</span>
-          <span>Phương Tiện & Hộ Tống</span>
-        </button>
+                <button
+                  type="button"
+                  className={`jp-tab-btn ${activeTab === 'jp_permits' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('jp_permits')}
+                >
+                  <span>🇯🇵 2. Quốc Tế:</span>
+                  <span>Giấy Phép AQS MAFF Nhật Bản</span>
+                </button>
 
-        <button
-          type="button"
-          className={`jp-tab-btn ${activeTab === 'step3_declaration' ? 'active' : ''}`}
-          onClick={() => setActiveTab('step3_declaration')}
-        >
-          <span>📋 Khai Báo:</span>
-          <span>Pre-Departure Form</span>
-        </button>
+                <button
+                  type="button"
+                  className={`jp-tab-btn ${activeTab === 'step1_medical_quarantine' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('step1_medical_quarantine')}
+                >
+                  <span>🔬 Y Tế:</span>
+                  <span>4 Bệnh Máu & Sổ Tiêm</span>
+                </button>
 
-        <button
-          type="button"
-          className={`jp-tab-btn ${activeTab === 'dossier_summary' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dossier_summary')}
-        >
-          <span>📦 Tổng Hợp:</span>
-          <span>Master Dossier & Checklist</span>
-        </button>
-      </div>
+                <button
+                  type="button"
+                  className={`jp-tab-btn ${activeTab === 'step2_logistics' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('step2_logistics')}
+                >
+                  <span>🚚 Điều Phối Vận Chuyển:</span>
+                  <span>Phương Tiện & Hộ Tống 4 Chặng</span>
+                </button>
 
-      {/* =========================================================================
-          NỘI DUNG THEO TAB ĐANG CHỌN
-         ========================================================================= */}
+                <button
+                  type="button"
+                  className={`jp-tab-btn ${activeTab === 'step3_declaration' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('step3_declaration')}
+                >
+                  <span>📋 Khai Báo:</span>
+                  <span>Pre-Departure Form</span>
+                </button>
 
-      {/* 1.1 NHÓM HỒ SƠ KIỂM DỊCH THÚ Y VIỆT NAM */}
-      {activeTab === 'vn_quarantine' && (
-        <VietnamQuarantineDossier
-          data={vnQuarantineDossier}
-          onChange={setVnQuarantineDossier}
-          onOpenZoom={handleOpenZoom}
-          isReadOnly={isReadOnly}
-        />
-      )}
+                <button
+                  type="button"
+                  className={`jp-tab-btn ${activeTab === 'dossier_summary' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('dossier_summary')}
+                >
+                  <span>📦 Tổng Hợp:</span>
+                  <span>Master Dossier & Checklist</span>
+                </button>
+              </>
+            )}
+          </div>
 
-      {/* 1.2 NHÓM TỜ KHAI HẢI QUAN TẠM XUẤT - TÁI NHẬP */}
-      {activeTab === 'vn_customs' && (
-        <VietnamCustomsDeclaration
-          data={vnCustomsDeclaration}
-          onChange={setVnCustomsDeclaration}
-          onOpenZoom={handleOpenZoom}
-          isReadOnly={isReadOnly}
-        />
-      )}
+          {/* =========================================================================
+              NỘI DUNG THEO TAB ĐANG CHỌN
+             ========================================================================= */}
 
-      {/* 2. NHÓM GIẤY TỜ QUỐC TẾ DO PHÍA NHẬT BẢN CẤP */}
-      {activeTab === 'jp_permits' && (
-        <JapanInternationalPermits
-          data={jpInternationalPermits}
-          onChange={setJpInternationalPermits}
-          onOpenZoom={handleOpenZoom}
-          isReadOnly={isReadOnly}
-        />
-      )}
+          {/* 1.1 NHÓM HỒ SƠ KIỂM DỊCH THÚ Y VIỆT NAM */}
+          {activeTab === 'vn_quarantine' && (
+            <VietnamQuarantineDossier
+              data={vnQuarantineDossier}
+              onChange={setVnQuarantineDossier}
+              onOpenZoom={handleOpenZoom}
+              isReadOnly={isReadOnly}
+            />
+          )}
+
+          {/* 1.2 NHÓM TỜ KHAI HẢI QUAN TẠM XUẤT - TÁI NHẬP */}
+          {activeTab === 'vn_customs' && (
+            <VietnamCustomsDeclaration
+              data={vnCustomsDeclaration}
+              onChange={setVnCustomsDeclaration}
+              onOpenZoom={handleOpenZoom}
+              isReadOnly={isReadOnly}
+              activeRole={activeRole}
+            />
+          )}
+
+          {/* 2. NHÓM GIẤY TỜ QUỐC TẾ DO PHÍA NHẬT BẢN CẤP */}
+          {activeTab === 'jp_permits' && (
+            <JapanInternationalPermits
+              data={jpInternationalPermits}
+              onChange={setJpInternationalPermits}
+              onOpenZoom={handleOpenZoom}
+              isReadOnly={isReadOnly}
+            />
+          )}
 
       {/* 4 BỆNH MÁU & SỔ TIÊM PHÒNG */}
       {activeTab === 'step1_medical_quarantine' && (
@@ -823,27 +978,6 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
             }));
           }}
           onOpenZoom={handleOpenZoom}
-        />
-      )}
-
-      {/* ĐƠN CHỈ ĐỊNH XÉT NGHIỆM Y TẾ THÚ Y */}
-      {activeTab === 'step1_requisition' && (
-        <JapanMedicalTestRequisition
-          agency={veterinaryAgency}
-          onAgencyChange={(f, v) => setVeterinaryAgency((prev) => ({ ...prev, [f]: v }))}
-          horseProfile={horseMedicalProfile}
-          onHorseProfileChange={(f, v) => setHorseMedicalProfile((prev) => ({ ...prev, [f]: v }))}
-          requisition={medicalRequisition}
-          onRequisitionChange={(f, v) => setMedicalRequisition((prev) => ({ ...prev, [f]: v }))}
-          onDiseaseToggle={(k) =>
-            setMedicalRequisition((prev) => ({
-              ...prev,
-              selectedDiseases: {
-                ...prev.selectedDiseases,
-                [k]: !prev.selectedDiseases[k],
-              },
-            }))
-          }
         />
       )}
 
@@ -915,76 +1049,169 @@ export const JapanRouteModule: React.FC<JapanRouteModuleProps> = ({
         />
       )}
 
-      {/* Thanh nút hành động phía dưới */}
-      {!isReadOnly && (
-        <div className="jp-bottom-actions">
-          {activeTab !== 'vn_quarantine' && (
-            <button
-              type="button"
-              className="jp-btn-secondary"
-              onClick={() => {
-                const tabs: JapanRouteTab[] = [
-                  'vn_quarantine',
-                  'vn_customs',
-                  'jp_permits',
-                  'step1_medical_quarantine',
-                  'step1_requisition',
-                  'step2_logistics',
-                  'step3_declaration',
-                  'dossier_summary',
-                ];
-                const currentIndex = tabs.indexOf(activeTab);
-                if (currentIndex > 0) {
-                  setActiveTab(tabs[currentIndex - 1]);
-                }
-              }}
-            >
-              ⬅️ Quay lại phân hệ trước
-            </button>
-          )}
-
-          {activeTab !== 'dossier_summary' ? (
-            <button
-              type="button"
-              className="jp-btn-primary"
-              onClick={() => {
-                const tabs: JapanRouteTab[] = [
-                  'vn_quarantine',
-                  'vn_customs',
-                  'jp_permits',
-                  'step1_medical_quarantine',
-                  'step1_requisition',
-                  'step2_logistics',
-                  'step3_declaration',
-                  'dossier_summary',
-                ];
-                const currentIndex = tabs.indexOf(activeTab);
-                if (currentIndex < tabs.length - 1) {
-                  setActiveTab(tabs[currentIndex + 1]);
-                }
-              }}
-            >
-              Tiếp tục sang phân hệ sau ➔
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="jp-btn-primary"
-              onClick={handlePackageSubmit}
-            >
-              🚀 Xác Thực & Gửi Toàn Bộ Bộ Hồ Sơ Xuất Ngoại Đi Nhật (Submit AQS)
-            </button>
-          )}
+      {/* THANH GỬI HỒ SƠ CHO KHÁCH HÀNG */}
+      {activeRole === 'customer' && (
+        <div className="jp-customer-submit-bar">
+          <div className="jp-customer-submit-info">
+            <h4>Hoàn tất khai báo giấy tờ ban đầu</h4>
+            <p>
+              Sau khi kiểm tra đơn Đăng ký kiểm dịch (Mẫu 01) và các giấy tờ cá thể ngựa (1.2.1 - 1.2.4),
+              bấm nút gửi bên phải để chuyển hồ sơ sang cho Nhân viên hỗ trợ hoàn thiện Tờ khai Hải quan và Giấy phép Nhật Bản.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="jp-btn-submit-customer"
+            onClick={handleCustomerSubmit}
+          >
+            📤 {isSubmittedByCustomer ? 'Cập Nhật & Gửi Lại Hồ Sơ Cho Nhân Viên' : 'Gửi Thông Tin Cho Nhân Viên Tiếp Nhận'}
+          </button>
         </div>
       )}
 
-      {/* Modal Zoom Xem Ảnh */}
-      <ImageZoomModal
-        isOpen={zoomModal.isOpen}
-        imageUrl={zoomModal.imageUrl}
-        imageTitle={zoomModal.imageTitle}
-        onClose={() => setZoomModal({ isOpen: false, imageUrl: '', imageTitle: '' })}
-      />
+      {/* Thanh nút hành động phía dưới */}
+      {!isReadOnly && (
+        <div className="jp-bottom-actions">
+          {activeRole === 'customer' ? (
+            <>
+              {activeTab === 'vn_customs' && (
+                <button
+                  type="button"
+                  className="jp-btn-secondary"
+                  onClick={() => setActiveTab('vn_quarantine')}
+                >
+                  ⬅️ Quay lại Đơn Đăng ký Thú y 1.1
+                </button>
+              )}
+
+              {activeTab === 'vn_quarantine' ? (
+                <button
+                  type="button"
+                  className="jp-btn-primary"
+                  onClick={() => setActiveTab('vn_customs')}
+                >
+                  Tiếp tục sang Giấy tờ pháp lý 1.2 ➔
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="jp-btn-primary"
+                  onClick={handleCustomerSubmit}
+                >
+                  📤 Xác Nhận Nộp Thông Tin Cho Nhân Viên
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              {activeTab !== 'vn_customs' && (
+                <button
+                  type="button"
+                  className="jp-btn-secondary"
+                  onClick={() => {
+                    const tabs: JapanRouteTab[] = [
+                      'vn_customs',
+                      'jp_permits',
+                      'step1_medical_quarantine',
+                      'step2_logistics',
+                      'step3_declaration',
+                      'dossier_summary',
+                    ];
+                    const currentIndex = tabs.indexOf(activeTab);
+                    if (currentIndex > 0) {
+                      setActiveTab(tabs[currentIndex - 1]);
+                    }
+                  }}
+                >
+                  ⬅️ Quay lại phân hệ trước
+                </button>
+              )}
+
+              {activeTab !== 'dossier_summary' ? (
+                <button
+                  type="button"
+                  className="jp-btn-primary"
+                  onClick={() => {
+                    const tabs: JapanRouteTab[] = [
+                      'vn_customs',
+                      'jp_permits',
+                      'step1_medical_quarantine',
+                      'step2_logistics',
+                      'step3_declaration',
+                      'dossier_summary',
+                    ];
+                    const currentIndex = tabs.indexOf(activeTab);
+                    if (currentIndex < tabs.length - 1) {
+                      setActiveTab(tabs[currentIndex + 1]);
+                    }
+                  }}
+                >
+                  Tiếp tục sang phân hệ sau ➔
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="jp-btn-primary"
+                  onClick={handlePackageSubmit}
+                >
+                  🚀 Xác Thực & Gửi Toàn Bộ Bộ Hồ Sơ Xuất Ngoại Đi Nhật (Submit AQS)
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </>
+  )}
+
+  {/* Modal Thông Báo Gửi Thành Công Cho Khách Hàng */}
+  {submitSuccessModal && (
+    <div className="jp-modal-overlay" onClick={() => setSubmitSuccessModal(false)}>
+      <div
+        className="jp-modal-container"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: '520px', textAlign: 'center', padding: '30px', background: '#ffffff', borderRadius: '16px' }}
+      >
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
+        <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginBottom: '12px' }}>
+          Đã Gửi Hồ Sơ Thành Công Cho Nhân Viên!
+        </h3>
+        <p style={{ color: '#475569', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+          Thông tin đăng ký kiểm dịch cho cá thể ngựa <strong>{vnQuarantineDossier.quarantineApplication.horseName}</strong> và các giấy tờ đính kèm đã được tiếp nhận an toàn.
+          <br /><br />
+          Đội ngũ nhân viên nghiệp vụ đã nhận được thông báo và sẽ tiến hành hoàn tất Tờ khai Hải quan VNACCS, Đặt chỗ máy bay (AWB) và Giấy phép AQS MAFF Nhật Bản.
+        </p>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+          <button
+            type="button"
+            className="jp-btn-secondary"
+            onClick={() => setSubmitSuccessModal(false)}
+          >
+            Đóng
+          </button>
+          <button
+            type="button"
+            className="jp-btn-primary"
+            onClick={() => {
+              setSubmitSuccessModal(false);
+              setActiveRole('staff');
+              setActiveTab('vn_customs');
+            }}
+          >
+            Chuyển Sang Xem Phân Hệ Nhân Viên ➔
+          </button>
+        </div>
+      </div>
     </div>
+  )}
+
+  {/* Modal Zoom Xem Ảnh */}
+  <ImageZoomModal
+    isOpen={zoomModal.isOpen}
+    imageUrl={zoomModal.imageUrl}
+    imageTitle={zoomModal.imageTitle}
+    onClose={() => setZoomModal({ isOpen: false, imageUrl: '', imageTitle: '' })}
+  />
+</div>
   );
 };

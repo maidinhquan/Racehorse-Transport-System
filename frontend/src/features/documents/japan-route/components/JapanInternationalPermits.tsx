@@ -390,51 +390,6 @@ export const JapanInternationalPermits: React.FC<JapanInternationalPermitsProps>
             disabled={isReadOnly}
           />
         </div>
-
-        {/* Upload file Yêu cầu y tế */}
-        <div className="jp-subcard">
-          <div className="jp-subcard-header">
-            <h4>Bản scan Văn bản Yêu cầu Xét nghiệm Y tế từ Nhật Bản (MAFF Health Protocol)</h4>
-            {!isReadOnly && (
-              <label className="jp-btn-upload">
-                📤 Tải lên văn bản yêu cầu y tế
-                <input
-                  type="file"
-                  multiple
-                  accept="application/pdf,image/*"
-                  onChange={(e) => handleFileUpload('medicalAndTestingRequirements', 'requirementFiles', e)}
-                  style={{ display: 'none' }}
-                />
-              </label>
-            )}
-          </div>
-
-          {medicalAndTestingRequirements.requirementFiles.length === 0 ? (
-            <div className="jp-empty-upload-box">
-              Chưa có file yêu cầu xét nghiệm y tế đính kèm.
-            </div>
-          ) : (
-            <div className="jp-tag-list">
-              {medicalAndTestingRequirements.requirementFiles.map((doc) => (
-                <span key={doc.id} className="jp-file-tag" onClick={() => onOpenZoom(doc.url, doc.name)}>
-                  📋 {doc.name} ({doc.size})
-                  {!isReadOnly && (
-                    <button
-                      type="button"
-                      className="jp-tag-close"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveFile('medicalAndTestingRequirements', 'requirementFiles', doc.id);
-                      }}
-                    >
-                      ×
-                    </button>
-                  )}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* MODAL XEM TRƯỚC GIẤY PHÉP NHẬP KHẨU AQS MAFF NHẬT BẢN */}
@@ -501,14 +456,21 @@ export const JapanInternationalPermits: React.FC<JapanInternationalPermitsProps>
                 <div className="jp-sig-box">
                   <strong>MINISTRY OF AGRICULTURE, FORESTRY AND FISHERIES</strong>
                   <div style={{ fontStyle: 'italic', fontSize: '11px' }}>Animal Quarantine Service Official Stamp</div>
-                  <div style={{ height: '60px' }}></div>
+                  <div className="jp-sig-stamp-simulated">
+                    <span>MAFF JAPAN</span>
+                    <span>★ AQS NARITA ★</span>
+                    <span>PERMIT APPROVED</span>
+                    <span>ANIMAL QUARANTINE</span>
+                  </div>
                   <div>Chief Veterinary Quarantine Inspector (Narita/Kansai AQS)</div>
                 </div>
 
                 <div className="jp-sig-box">
                   <strong>IMPORTER / DESIGNATED RECEPTION PARTY</strong>
                   <div style={{ fontStyle: 'italic', fontSize: '11px' }}>(Japan Representative Acceptance)</div>
-                  <div style={{ height: '60px' }}></div>
+                  <div style={{ height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <em style={{ color: '#0369a1', fontFamily: 'cursive', fontSize: '18px' }}>AQS Liaison Tokyo</em>
+                  </div>
                   <strong>Japan Racing Association / AQS Agent</strong>
                 </div>
               </div>

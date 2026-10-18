@@ -9,6 +9,7 @@ interface VietnamCustomsDeclarationProps {
   onChange: (updater: (prev: VietnamCustomsDeclarationData) => VietnamCustomsDeclarationData) => void;
   onOpenZoom: (url: string, title: string) => void;
   isReadOnly?: boolean;
+  activeRole?: 'customer' | 'staff' | 'all';
 }
 
 export const VietnamCustomsDeclaration: React.FC<VietnamCustomsDeclarationProps> = ({
@@ -16,6 +17,7 @@ export const VietnamCustomsDeclaration: React.FC<VietnamCustomsDeclarationProps>
   onChange,
   onOpenZoom,
   isReadOnly = false,
+  activeRole = 'all',
 }) => {
   const [showVnaccsPreview, setShowVnaccsPreview] = useState(false);
 
@@ -74,101 +76,113 @@ export const VietnamCustomsDeclaration: React.FC<VietnamCustomsDeclarationProps>
         </p>
       </div>
 
-      {/* Banner Thao tác xem Tờ khai VNACCS */}
-      <div className="jp-action-banner-card jp-banner-blue">
-        <div className="jp-action-banner-text">
-          <span className="jp-banner-icon">🛃</span>
-          <div>
-            <strong>Tờ khai Hải Quan Tạm Xuất Hàng Hóa (Mã G12 - VNACCS/VCIS)</strong>
-            <p>
-              Số tờ khai: <strong>{customsHeader.declarationCode || 'Chưa mở tờ khai'}</strong> | Cơ quan tiếp nhận: {customsHeader.customsBranch}
-            </p>
-          </div>
+      {/* Banner & Khối thông tin Tờ khai Hải quan (Chỉ dành cho Nhân viên hoặc Xem toàn bộ) */}
+      {activeRole === 'customer' ? (
+        <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: '14px', padding: '18px 22px', marginBottom: '22px' }}>
+          <strong style={{ color: '#166534', fontSize: '15.5px' }}>👤 HỒ SƠ PHÁP LÝ TỜ KHAI TẠM XUẤT (G12) - PHẦN KHÁCH HÀNG:</strong>
+          <p style={{ margin: '8px 0 0 0', color: '#15803d', fontSize: '14px', lineHeight: '1.55' }}>
+            Quý khách chỉ cần hoàn tất 4 mục chứng từ bên dưới: <strong>1.2.1 Thư mời thi đấu</strong>, <strong>1.2.2 Xác nhận sở hữu</strong>, <strong>1.2.3 Thông tin định danh</strong> và <strong>1.2.4 Giấy kiểm dịch xuất khẩu</strong>. Khi bấm gửi, thông tin sẽ được tự động chuyển cho <strong>Nhân viên hải quan</strong> để lập Tờ khai VNACCS và Vận đơn AWB chuyên dụng.
+          </p>
         </div>
-        <button
-          type="button"
-          className="jp-btn-primary jp-btn-lg"
-          onClick={() => setShowVnaccsPreview(true)}
-        >
-          📄 Xem Tờ khai Hải quan Điện tử VNACCS
-        </button>
-      </div>
-
-      {/* 1. KHỐI THÔNG TIN TỜ KHAI HẢI QUAN */}
-      <div className="jp-card">
-        <h3 className="jp-card-title">
-          <span className="jp-icon">⚙️</span> Thông tin Tờ khai Hải quan (Customs Header)
-        </h3>
-        <div className="jp-grid-3">
-          <div className="jp-form-group">
-            <label className="jp-label">Mã số Tờ khai VNACCS:</label>
-            <input
-              type="text"
-              className="jp-input"
-              placeholder="VD: 304892182040"
-              value={customsHeader.declarationCode}
-              onChange={(e) =>
-                onChange((prev) => ({
-                  ...prev,
-                  customsHeader: { ...prev.customsHeader, declarationCode: e.target.value },
-                }))
-              }
-              disabled={isReadOnly}
-            />
+      ) : (
+        <>
+          {/* Banner Thao tác xem Tờ khai VNACCS */}
+          <div className="jp-action-banner-card jp-banner-blue">
+            <div className="jp-action-banner-text">
+              <span className="jp-banner-icon">🛃</span>
+              <div>
+                <strong>Tờ khai Hải Quan Tạm Xuất Hàng Hóa (Mã G12 - VNACCS/VCIS)</strong>
+                <p>
+                  Số tờ khai: <strong>{customsHeader.declarationCode || 'Chưa mở tờ khai'}</strong> | Cơ quan tiếp nhận: {customsHeader.customsBranch}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="jp-btn-primary jp-btn-lg"
+              onClick={() => setShowVnaccsPreview(true)}
+            >
+              📄 Xem Tờ khai Hải quan Điện tử VNACCS
+            </button>
           </div>
 
-          <div className="jp-form-group">
-            <label className="jp-label">Mã loại hình:</label>
-            <input
-              type="text"
-              className="jp-input jp-input-readonly"
-              value={customsHeader.declarationType}
-              readOnly
-            />
-          </div>
+          {/* 1. KHỐI THÔNG TIN TỜ KHAI HẢI QUAN */}
+          <div className="jp-card">
+            <h3 className="jp-card-title">
+              <span className="jp-icon">⚙️</span> Thông tin Tờ khai Hải quan (Customs Header - Nhân viên phụ trách)
+            </h3>
+            <div className="jp-grid-3">
+              <div className="jp-form-group">
+                <label className="jp-label">Mã số Tờ khai VNACCS:</label>
+                <input
+                  type="text"
+                  className="jp-input"
+                  placeholder="VD: 304892182040"
+                  value={customsHeader.declarationCode}
+                  onChange={(e) =>
+                    onChange((prev) => ({
+                      ...prev,
+                      customsHeader: { ...prev.customsHeader, declarationCode: e.target.value },
+                    }))
+                  }
+                  disabled={isReadOnly}
+                />
+              </div>
 
-          <div className="jp-form-group">
-            <label className="jp-label">Thời hạn Tái nhập nguyên trạng dự kiến: <span className="jp-required">*</span></label>
-            <input
-              type="date"
-              className="jp-input"
-              value={customsHeader.plannedReImportDate}
-              onChange={(e) =>
-                onChange((prev) => ({
-                  ...prev,
-                  customsHeader: { ...prev.customsHeader, plannedReImportDate: e.target.value },
-                }))
-              }
-              disabled={isReadOnly}
-            />
-          </div>
-        </div>
+              <div className="jp-form-group">
+                <label className="jp-label">Mã loại hình:</label>
+                <input
+                  type="text"
+                  className="jp-input jp-input-readonly"
+                  value={customsHeader.declarationType}
+                  readOnly
+                />
+              </div>
 
-        <div className="jp-form-group">
-          <label className="jp-label">Chi cục Hải quan cửa khẩu làm thủ tục: <span className="jp-required">*</span></label>
-          <select
-            className="jp-select"
-            value={customsHeader.customsBranch}
-            onChange={(e) =>
-              onChange((prev) => ({
-                ...prev,
-                customsHeader: { ...prev.customsHeader, customsBranch: e.target.value },
-              }))
-            }
-            disabled={isReadOnly}
-          >
-            <option value="Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Tân Sơn Nhất - Cục Hải quan TP.HCM">
-              Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Tân Sơn Nhất - Cục Hải quan TP.HCM
-            </option>
-            <option value="Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Nội Bài - Cục Hải quan TP. Hà Nội">
-              Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Nội Bài - Cục Hải quan TP. Hà Nội
-            </option>
-            <option value="Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Đà Nẵng">
-              Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Đà Nẵng
-            </option>
-          </select>
-        </div>
-      </div>
+              <div className="jp-form-group">
+                <label className="jp-label">Thời hạn Tái nhập nguyên trạng dự kiến: <span className="jp-required">*</span></label>
+                <input
+                  type="date"
+                  className="jp-input"
+                  value={customsHeader.plannedReImportDate}
+                  onChange={(e) =>
+                    onChange((prev) => ({
+                      ...prev,
+                      customsHeader: { ...prev.customsHeader, plannedReImportDate: e.target.value },
+                    }))
+                  }
+                  disabled={isReadOnly}
+                />
+              </div>
+            </div>
+
+            <div className="jp-form-group">
+              <label className="jp-label">Chi cục Hải quan cửa khẩu làm thủ tục: <span className="jp-required">*</span></label>
+              <select
+                className="jp-select"
+                value={customsHeader.customsBranch}
+                onChange={(e) =>
+                  onChange((prev) => ({
+                    ...prev,
+                    customsHeader: { ...prev.customsHeader, customsBranch: e.target.value },
+                  }))
+                }
+                disabled={isReadOnly}
+              >
+                <option value="Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Tân Sơn Nhất - Cục Hải quan TP.HCM">
+                  Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Tân Sơn Nhất - Cục Hải quan TP.HCM
+                </option>
+                <option value="Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Nội Bài - Cục Hải quan TP. Hà Nội">
+                  Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Nội Bài - Cục Hải quan TP. Hà Nội
+                </option>
+                <option value="Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Đà Nẵng">
+                  Chi cục Hải quan Cửa khẩu Sân bay Quốc tế Đà Nẵng
+                </option>
+              </select>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 2. THƯ MỜI THAM GIA GIẢI ĐUA TỪ BAN TỔ CHỨC NƯỚC NGOÀI */}
       <div className="jp-card">
@@ -754,10 +768,11 @@ export const VietnamCustomsDeclaration: React.FC<VietnamCustomsDeclarationProps>
         </div>
       </div>
 
-      {/* 6. CHỨNG TỪ VẬN CHUYỂN */}
+      {/* 6. CHỨNG TỪ VẬN CHUYỂN (Chỉ dành cho Nhân viên phụ trách) */}
+      {activeRole !== 'customer' && (
       <div className="jp-card">
         <h3 className="jp-card-title">
-          <span className="jp-icon">✈️</span> 1.2.5. Chứng Từ Vận Chuyển (Transport & Booking Documents)
+          <span className="jp-icon">✈️</span> 1.2.5. Chứng Từ Vận Chuyển (Transport & Booking Documents - Nhân viên phụ trách)
         </h3>
         <p className="jp-card-subtitle">
           Lịch trình chuyến bay, hợp đồng thuê máy bay chuyên dụng hoặc Booking vận chuyển lồng ngựa (Air Waybill - AWB).
@@ -897,6 +912,7 @@ export const VietnamCustomsDeclaration: React.FC<VietnamCustomsDeclarationProps>
           )}
         </div>
       </div>
+      )}
 
       {/* MODAL XEM TRƯỚC TỜ KHAI HẢI QUAN VNACCS G12 */}
       {showVnaccsPreview && (
@@ -987,14 +1003,21 @@ export const VietnamCustomsDeclaration: React.FC<VietnamCustomsDeclarationProps>
                 <div className="jp-sig-box">
                   <strong>XÁC NHẬN CỦA HẢI QUAN CỬA KHẨU</strong>
                   <div style={{ fontStyle: 'italic', fontSize: '11px' }}>(Đã kiểm tra hồ sơ, đối chiếu động vật thực tế)</div>
-                  <div style={{ height: '60px' }}></div>
+                  <div className="jp-sig-stamp-simulated">
+                    <span>TỔNG CỤC HẢI QUAN</span>
+                    <span>★ HẢI QUAN CỬA KHẨU ★</span>
+                    <span>G12 - TẠM XUẤT</span>
+                    <span>ĐÃ THÔNG QUAN</span>
+                  </div>
                   <div>Công chức Hải quan thông quan</div>
                 </div>
 
                 <div className="jp-sig-box">
                   <strong>NGƯỜI KHAI HẢI QUAN / CHỦ HÀNG</strong>
                   <div style={{ fontStyle: 'italic', fontSize: '11px' }}>(Ký điện tử / Đóng dấu)</div>
-                  <div style={{ height: '60px' }}></div>
+                  <div style={{ height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <em style={{ color: '#0369a1', fontFamily: 'cursive', fontSize: '18px' }}>Chữ ký số đã xác thực</em>
+                  </div>
                   <strong>{identityProfile.legalRepresentative || 'Chủ thể khai báo'}</strong>
                 </div>
               </div>

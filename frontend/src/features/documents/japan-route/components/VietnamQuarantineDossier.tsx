@@ -138,41 +138,6 @@ export const VietnamQuarantineDossier: React.FC<VietnamQuarantineDossierProps> =
     }));
   };
 
-  // Cập nhật Yêu cầu quy định kiểm dịch của Nhật Bản
-  const handleJapanRegulationChange = (
-    field: keyof VietnamQuarantineDossierData['japanQuarantineRegulations'],
-    value: unknown
-  ) => {
-    onChange((prev) => ({
-      ...prev,
-      japanQuarantineRegulations: {
-        ...prev.japanQuarantineRegulations,
-        [field]: value,
-      },
-    }));
-  };
-
-  // Upload tệp quy định/hướng dẫn xét nghiệm của Nhật Bản
-  const handleGuidanceFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const newAttachments: DocumentAttachment[] = Array.from(files).map((file, idx) => ({
-      id: `guide-${Date.now()}-${idx}`,
-      name: file.name,
-      url: URL.createObjectURL(file),
-      size: `${(file.size / 1024).toFixed(1)} KB`,
-      uploadedAt: new Date().toLocaleDateString('vi-VN'),
-    }));
-
-    onChange((prev) => ({
-      ...prev,
-      japanQuarantineRegulations: {
-        ...prev.japanQuarantineRegulations,
-        guidanceFiles: [...prev.japanQuarantineRegulations.guidanceFiles, ...newAttachments],
-      },
-    }));
-  };
 
   const { quarantineApplication, passportAndVaccine, japanQuarantineRegulations } = data;
 
@@ -794,93 +759,6 @@ export const VietnamQuarantineDossier: React.FC<VietnamQuarantineDossierProps> =
         </div>
       </div>
 
-      {/* 1.1.3. YÊU CẦU / QUY ĐỊNH KIỂM DỊCH CỦA PHÍA NHẬT BẢN */}
-      <div className="jp-card">
-        <h3 className="jp-card-title">
-          <span className="jp-icon">🇯🇵 ➔ 🇻🇳</span> 1.1.3. Yêu Cầu / Quy Định Kiểm Dịch Của Phía Nhật Bản
-        </h3>
-        <p className="jp-card-subtitle">
-          Văn bản hướng dẫn xét nghiệm hoặc Giấy phép nhập khẩu tạm thời do Nhật Bản cấp, dùng làm căn cứ pháp lý để Thú y Việt Nam lấy mẫu máu đúng chuẩn Nhật.
-        </p>
-
-        <div className="jp-grid-2">
-          <div className="jp-form-group">
-            <label className="jp-label">
-              Tên văn bản hướng dẫn kiểm dịch Nhật Bản:
-            </label>
-            <input
-              type="text"
-              className="jp-input"
-              placeholder="VD: AQS MAFF Quarantine Testing Standards for Racehorses"
-              value={japanQuarantineRegulations.regulationTitle}
-              onChange={(e) => handleJapanRegulationChange('regulationTitle', e.target.value)}
-              disabled={isReadOnly}
-            />
-          </div>
-
-          <div className="jp-form-group">
-            <label className="jp-label">
-              Mã số Giấy phép Nhập khẩu Tạm thời tham chiếu (Nhật cấp):
-            </label>
-            <input
-              type="text"
-              className="jp-input"
-              placeholder="VD: AQS-MAFF-2026-TMP-88912"
-              value={japanQuarantineRegulations.referenceTemporaryImportPermitNo}
-              onChange={(e) => handleJapanRegulationChange('referenceTemporaryImportPermitNo', e.target.value)}
-              disabled={isReadOnly}
-            />
-          </div>
-        </div>
-
-        <div className="jp-form-group">
-          <label className="jp-label">
-            Tóm tắt chỉ dẫn kỹ thuật lấy mẫu (Căn cứ cho Chi cục Thú y Việt Nam thực hiện):
-          </label>
-          <textarea
-            rows={3}
-            className="jp-textarea"
-            value={japanQuarantineRegulations.testingProtocolSummary}
-            onChange={(e) => handleJapanRegulationChange('testingProtocolSummary', e.target.value)}
-            disabled={isReadOnly}
-            placeholder="Chỉ định lấy mẫu máu huyết thanh kiểm tra 4 bệnh bắt buộc: EIA (Coggins), EVA (VN test), Piroplasmosis (cELISA/IFAT), West Nile Virus (ELISA). Mẫu phải gửi về Trung tâm Chẩn đoán Thú y TW (NCVD) thực hiện..."
-          />
-        </div>
-
-        {/* Tệp đính kèm văn bản hướng dẫn */}
-        <div className="jp-subcard">
-          <div className="jp-subcard-header">
-            <h4>Tệp đính kèm Quy định kiểm dịch & Giấy phép làm căn cứ xét nghiệm</h4>
-            {!isReadOnly && (
-              <label className="jp-btn-upload">
-                📤 Tải lên văn bản hướng dẫn Nhật Bản
-                <input
-                  type="file"
-                  multiple
-                  accept="application/pdf,image/*"
-                  onChange={handleGuidanceFileUpload}
-                  style={{ display: 'none' }}
-                />
-              </label>
-            )}
-          </div>
-
-          {japanQuarantineRegulations.guidanceFiles.length === 0 ? (
-            <div className="jp-empty-upload-box">
-              Chưa đính kèm văn bản hướng dẫn kiểm dịch của Nhật Bản.
-            </div>
-          ) : (
-            <div className="jp-tag-list">
-              {japanQuarantineRegulations.guidanceFiles.map((doc) => (
-                <span key={doc.id} className="jp-file-tag" onClick={() => onOpenZoom(doc.url, doc.name)}>
-                  📜 {doc.name} ({doc.size}) - {doc.uploadedAt}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* MODAL XEM TRƯỚC MẪU ĐƠN 01 CỤC THÚ Y */}
       {showPreviewForm01 && (
         <div className="jp-modal-overlay" onClick={() => setShowPreviewForm01(false)}>
@@ -971,14 +849,21 @@ export const VietnamQuarantineDossier: React.FC<VietnamQuarantineDossierProps> =
                 <div className="jp-sig-box">
                   <strong>XÁC NHẬN CỦA CƠ QUAN KIỂM DỊCH THÚ Y</strong>
                   <div style={{ fontStyle: 'italic', fontSize: '11px' }}>(Ký, đóng dấu tiếp nhận hồ sơ)</div>
-                  <div style={{ height: '70px' }}></div>
-                  <div>Kiểm dịch viên thụ lý</div>
+                  <div className="jp-sig-stamp-simulated">
+                    <span>BỘ NÔNG NGHIỆP & PTNT</span>
+                    <span>★ CHI CỤC THÚ Y ★</span>
+                    <span>VÙNG VI</span>
+                    <span>ĐÃ TIẾP NHẬN</span>
+                  </div>
+                  <div>Kiểm dịch viên thụ lý: <strong>TS. BSTY. Trần Đình Quang</strong></div>
                 </div>
 
                 <div className="jp-sig-box">
                   <strong>CHỦ HÀNG / NGƯỜI ĐĂNG KÝ</strong>
                   <div style={{ fontStyle: 'italic', fontSize: '11px' }}>(Ký, ghi rõ họ tên và đóng dấu nếu có)</div>
-                  <div style={{ height: '70px' }}></div>
+                  <div style={{ height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <em style={{ color: '#0369a1', fontFamily: 'cursive', fontSize: '18px' }}>Trần Đình Quang</em>
+                  </div>
                   <strong>{quarantineApplication.applicantName || 'Người đại diện'}</strong>
                 </div>
               </div>
