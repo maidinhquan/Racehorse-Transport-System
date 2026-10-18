@@ -74,7 +74,7 @@ test("legacy USD contract cannot open VNPay payment", async () => {
 });
 test("signed eligible contract uses the existing VNPay button but refuses an unexpected checkout host", async () => {
   vi.spyOn(relational, "detail").mockResolvedValue({ ...row, contracts: [c] });
-  const action = vi.spyOn(relational, "action").mockResolvedValue({ url: "https://unexpected.invalid/checkout" });
+  const action = vi.spyOn(relational, "action").mockResolvedValue({ paymentId: "pid", paymentUrl: "https://unexpected.invalid/checkout", expiresAtUtc: "2026-11-01T00:00:00Z" });
   render(<MemoryRouter initialEntries={["/customer/requests/real/payment"]}><Routes><Route path="/customer/requests/:requestId/payment" element={<PaymentPage />} /></Routes></MemoryRouter>);
   await screen.findByText("sql-contract"); const button = screen.getByRole("button", { name: "Pay with VNPay" }); expect(button).toBeEnabled();
   await userEvent.click(button); expect(action).toHaveBeenCalledWith("/customer/contracts/sql-contract/vnpay", {}, expect.any(String)); expect(window.alert).toHaveBeenCalledWith("Payment URL không hợp lệ.");

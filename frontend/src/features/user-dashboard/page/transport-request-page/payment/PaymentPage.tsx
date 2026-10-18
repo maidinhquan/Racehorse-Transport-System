@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useRequest, selectedContract } from "../../../../flow1/relational/mainBindings";
 import { relational } from "../../../../flow1/relational/api";
+import { vnpayCheckoutUrl, type VnpayCheckoutSession } from "../../../../flow1/relational/vnpayCheckout";
 import { flow1Error } from "../../../../flow1/api";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -21,7 +22,7 @@ function PaymentPage() {
 
   const handlePayWithVNPay = async () => {
     if (!c || !payable) return;
-    try { const session = await relational.action<{ url: string }>(`/customer/contracts/${c.contractId}/vnpay`, {}, key.current); const url = new URL(session.url); if (url.protocol !== "https:" || url.hostname !== "sandbox.vnpayment.vn") throw new Error("Payment URL không hợp lệ."); window.location.assign(url.href); } catch (e) { window.alert(flow1Error(e)); }
+    try { const session = await relational.action<VnpayCheckoutSession>(`/customer/contracts/${c.contractId}/vnpay`, {}, key.current); window.location.assign(vnpayCheckoutUrl(session)); } catch (e) { window.alert(flow1Error(e)); }
   };
   return (
     <CustomerLayout pageTitle="Payment">
