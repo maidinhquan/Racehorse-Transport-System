@@ -124,18 +124,17 @@ function HistoryPage() {
     ]);
 
   return (
-    <CustomerLayout pageTitle="History">
+    <CustomerLayout pageTitle="Lịch sử">
       <div className="history-page">
         {/* Header */}
         <div className="history-header">
           <div>
             <h1>
-              Transport History
+              Lịch sử vận chuyển
             </h1>
 
             <p>
-              Review your previous transport
-              requests and completed journeys.
+              Xem lại các chuyến đi đã hoàn thành và yêu cầu vận chuyển trước đây.
             </p>
           </div>
 
@@ -161,7 +160,7 @@ function HistoryPage() {
 
               <input
                 type="text"
-                placeholder="Search Request ID, Horse..."
+                placeholder="Tìm theo mã yêu cầu, tên ngựa..."
                 value={search}
                 onChange={(event) =>
                   setSearch(
@@ -180,19 +179,19 @@ function HistoryPage() {
               }
             >
               <option value="">
-                All Statuses
+                Tất cả trạng thái
               </option>
 
               <option value="Completed">
-                Completed
+                Đã hoàn thành
               </option>
 
               <option value="Cancelled">
-                Cancelled
+                Đã hủy
               </option>
 
               <option value="Rejected">
-                Rejected
+                Bị từ chối
               </option>
             </select>
 
@@ -205,7 +204,7 @@ function HistoryPage() {
               }
             >
               <option value="">
-                All Years
+                Tất cả các năm
               </option>
 
               {years.map((year) => (
@@ -213,7 +212,7 @@ function HistoryPage() {
                   key={year}
                   value={year}
                 >
-                  {year}
+                  Năm {year}
                 </option>
               ))}
             </select>
@@ -229,24 +228,23 @@ function HistoryPage() {
                 <thead>
                   <tr>
                     <th>
-                      Request ID
+                      Mã yêu cầu
                     </th>
 
-                    <th>Horse</th>
+                    <th>Ngựa</th>
 
-                    <th>Route</th>
-
-                    <th>
-                      Departure /
-                      Arrival
-                    </th>
+                    <th>Tuyến đường</th>
 
                     <th>
-                      Final Status
+                      Khởi hành / Đến nơi
                     </th>
 
                     <th>
-                      Action
+                      Trạng thái cuối
+                    </th>
+
+                    <th>
+                      Thao tác
                     </th>
                   </tr>
                 </thead>
@@ -333,7 +331,7 @@ function HistoryPage() {
                               )
                             }
                           >
-                            View Details
+                            Xem chi tiết
                           </button>
                         </td>
                       </tr>
@@ -344,8 +342,7 @@ function HistoryPage() {
             </div>
           ) : (
             <div className="history-empty">
-              No past transport requests
-              match your filters.
+              Không có yêu cầu vận chuyển cũ nào phù hợp với bộ lọc của bạn.
             </div>
           )}
         </div>

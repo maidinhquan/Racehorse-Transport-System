@@ -1,91 +1,387 @@
-import { useState } from 'react';
-import { BrandLogo } from '../../../../shared/components/brand-logo/BrandLogo';
+import React, { useState, useEffect } from 'react';
 import './CoordinatorPortal.css';
+import { coordinatorApi } from '../../api/coordinatorApi';
+import type { MockTrip } from './views';
+import {
+  Icon,
+  INITIAL_TRIPS,
+  RenderDashboardPage,
+  RenderTripStudioPage,
+  RenderFleetPage,
+  RenderCrewPage,
+  RenderActiveTripsPage,
+  RenderIncidentsPage,
+} from './views';
 
-const VEHICLES = [
-  { vehicleId: 'VEH-01', name: 'Scania Equine Air-Ride 51C-889.12', capacityStalls: 2, maxRangeKm: 800 },
-  { vehicleId: 'VEH-02', name: 'Volvo Pro Horse Carrier 51D-334.09', capacityStalls: 6, maxRangeKm: 1200 },
-];
+export type CoordinatorNav = 'dashboard' | 'trips' | 'fleet' | 'crew' | 'flights' | 'active' | 'incidents';
 
-export const CoordinatorPortal = () => {
-  const horsesCount = 3;
-  const [selectedVehicleId, setSelectedVehicleId] = useState('VEH-02');
-  const [tDrive, setTDrive] = useState(14);
-  const [tRest, setTRest] = useState(4);
-  const [tCustoms, setTCustoms] = useState(6);
+interface CoordinatorPortalProps {
+  isEmbedded?: boolean;
+  initialNav?: CoordinatorNav;
+}
 
-  const selectedVehicle = VEHICLES.find((v) => v.vehicleId === selectedVehicleId)!;
-  const isOverCapacity = horsesCount > selectedVehicle.capacityStalls;
-  const tTotal = tDrive + tRest + tCustoms;
+export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav = 'dashboard' }) => {
+  // Navigation states
+  const [activeNav, setActiveNav] = useState<CoordinatorNav>(initialNav);
+  const [selectedTripId, setSelectedTripId] = useState<string>('TRP-20261120-0003');
+  const [tripTab, setTripTab] = useState<'overview' | 'route' | 'resources' | 'flight' | 'milestones'>('resources');
 
+  // Language & Notification states
+  const [lang, setLang] = useState<'vi' | 'en'>('vi');
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Trips state
+  const [trips, setTrips] = useState<MockTrip[]>(INITIAL_TRIPS);
+  const curTrip = trips.find((t) => t.id === selectedTripId) || trips[0];
+
+  // Map simulation state (merged from old CoordinatorDashboard)
+  const [truckPos, setTruckPos] = useState({ lat: 10.8231, lng: 106.6297 });
+
+  // Optional backend sync
+  useEffect(() => {
+    coordinatorApi
+      .getDashboard()
+      .then((res) => {
+        if (res && res.success) {
+          // Connected to backend successfully
+        }
+      })
+      .catch(() => {
+        // Running standalone / mock mode
+      });
+  }, []);
+
+  // Moving truck simulation on Milestones tab
+  useEffect(() => {
+    if (activeNav === 'active' || (activeNav === 'trips' && tripTab === 'milestones')) {
+      const timer = setInterval(() => {
+        setTruckPos((prev) => ({
+          lat: prev.lat + (Math.random() * 0.0006 - 0.0003),
+          lng: prev.lng + 0.001,
+        }));
+      }, 2500);
+      return () => clearInterval(timer);
+    }
+  }, [activeNav, tripTab]);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 4000);
+  };
+
+  // --------------------------------------------------------------------------
+  // ACTIONS
+  // --------------------------------------------------------------------------
+  const handleSetGroundVehicle = (leg: 'outbound' | 'inbound', vehicleId: string) => {
+    setTrips((prev) =>
+      prev.map((t) => {
+        if (t.id !== curTrip.id) return t;
+        return {
+          ...t,
+          [leg === 'outbound' ? 'outboundLeg' : 'inboundLeg']: {
+            ...t[leg === 'outbound' ? 'outboundLeg' : 'inboundLeg'],
+            vehicleId,
+          },
+          resourcesConfirmed: false,
+        };
+      })
+    );
+    showToast(`Đã phân công xe cho chặng ${leg === 'outbound' ? 'trước' : 'sau'} chuyến bay.`);
+  };
+
+  const handleSetGroundCrew = (
+    leg: 'outbound' | 'inbound',
+    role: 'mainDriver' | 'coDriver' | 'vet',
+    staffId: string
+  ) => {
+    setTrips((prev) =>
+      prev.map((t) => {
+        if (t.id !== curTrip.id) return t;
+        const currentLeg = t[leg === 'outbound' ? 'outboundLeg' : 'inboundLeg'];
+        return {
+          ...t,
+          [leg === 'outbound' ? 'outboundLeg' : 'inboundLeg']: {
+            ...currentLeg,
+            [role]: staffId,
+          },
+          resourcesConfirmed: false,
+        };
+      })
+    );
+  };
+
+  const handleConfirmResources = () => {
+    setTrips((prev) =>
+      prev.map((t) => (t.id === curTrip.id ? { ...t, resourcesConfirmed: true } : t))
+    );
+    showToast('✓ Coordinator đã xác nhận bố trí xe và nhân sự (Operations READY)! Sẵn sàng gửi Manager.');
+  };
+
+  const handleSubmitRoute = () => {
+    setTrips((prev) =>
+      prev.map((t) => (t.id === curTrip.id ? { ...t, routeStatus: 'PENDING_APPROVAL' } : t))
+    );
+    showToast('🚀 Đã gửi phương án tuyến đường cho Logistics Manager phê duyệt.');
+  };
+
+  // Demo buttons (Simulates Manager actions)
+  const handleDemoDeploy = () => {
+    setTrips((prev) =>
+      prev.map((t) => (t.id === curTrip.id ? { ...t, deploymentStatus: 'CONFIRMED' } : t))
+    );
+    showToast('Demo: Logistics Manager đã xác nhận triển khai chuyến (Deployment Confirmed).');
+  };
+
+  const handleDemoApprove = () => {
+    setTrips((prev) =>
+      prev.map((t) => (t.id === curTrip.id ? { ...t, routeStatus: 'APPROVED' } : t))
+    );
+    showToast('Demo: Logistics Manager đã phê duyệt tuyến đường (Route Approved).');
+  };
+
+  const handleDemoReturn = () => {
+    setTrips((prev) =>
+      prev.map((t) => (t.id === curTrip.id ? { ...t, routeStatus: 'RETURNED' } : t))
+    );
+    showToast('Demo: Logistics Manager đã trả về tuyến yêu cầu điều chỉnh (Route Returned).');
+  };
+
+  // --------------------------------------------------------------------------
+  // TOPBAR TITLE
+  // --------------------------------------------------------------------------
+  const getPageTitle = () => {
+    switch (activeNav) {
+      case 'dashboard':
+        return 'Dashboard';
+      case 'trips':
+        return selectedTripId ? `Trip ${curTrip.id}` : 'Trip Planning';
+      case 'fleet':
+        return 'Fleet';
+      case 'crew':
+        return 'Crew Assignments';
+      case 'flights':
+        return 'Flights';
+      case 'active':
+        return 'Active Trips';
+      case 'incidents':
+        return 'Incidents';
+      default:
+        return 'Fleet & Route Coordinator';
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // MAIN LAYOUT
+  // --------------------------------------------------------------------------
   return (
-    <div className="coordinator-page">
-      <div className="customer-topbar">
-        <BrandLogo />
-        <strong>Role: Fleet & Route Coordinator</strong>
-      </div>
-
-      <div className="coordinator-card">
-        <h1 className="customer-title">Thiết kế Lộ trình & Điều phối Đội xe (TRIP_PLAN)</h1>
-        <p className="customer-subtitle">
-          Kiểm tra tải trọng Stalls, tính tổng thời gian dự kiến và đồng bộ lên Web App cho Tài xế.
-        </p>
-
-        <div>
-          <label className="form-label">
-            Chọn Phương tiện Chuyên dụng (Số ngựa cần chở: <strong>{horsesCount} cá thể</strong>)
-          </label>
-          <select
-            className="form-select"
-            value={selectedVehicleId}
-            onChange={(e) => setSelectedVehicleId(e.target.value)}
-          >
-            {VEHICLES.map((v) => (
-              <option key={v.vehicleId} value={v.vehicleId}>
-                {v.name} — Sức chứa: {v.capacityStalls} Stalls (Max Range: {v.maxRangeKm} km)
-              </option>
-            ))}
-          </select>
-
-          {isOverCapacity && (
-            <p className="text-danger">
-              ❌ Phương tiện chỉ có {selectedVehicle.capacityStalls} stalls, không đủ chở {horsesCount} cá thể ngựa!
-            </p>
-          )}
-        </div>
-
-        <div className="time-grid-3">
-          <div>
-            <label className="form-label">Giờ chạy xe (T_drive)</label>
-            <input type="number" className="form-input" value={tDrive} onChange={(e) => setTDrive(Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="form-label">Giờ nghỉ chăm sóc (T_rest)</label>
-            <input type="number" className="form-input" value={tRest} onChange={(e) => setTRest(Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="form-label">Giờ thông quan (T_customs)</label>
-            <input type="number" className="form-input" value={tCustoms} onChange={(e) => setTCustoms(Number(e.target.value))} />
-          </div>
-        </div>
-
-        <div className="estimate-banner">
-          <span className="form-label" style={{ margin: 0 }}>
-            Tổng thời gian hành trình (T_total = T_drive + T_rest + T_customs):
-          </span>
-          <span className="estimate-price" style={{ color: '#F57C00' }}>{tTotal} giờ</span>
-        </div>
-
-        <button
-          type="button"
-          className="btn-primary"
-          style={{ width: '100%', marginTop: '20px' }}
-          disabled={isOverCapacity}
-          onClick={() => alert('Đã cập nhật lộ trình lên Web App và gửi thông báo Email/SMS cho Tài xế!')}
+    <div className="cbn-coordinator-app">
+      {/* SIDEBAR (208px fixed) */}
+      <aside className="sidebar">
+        <div
+          className="brand"
+          onClick={() => {
+            setActiveNav('dashboard');
+            setSelectedTripId('');
+          }}
         >
-          Lưu Lộ Trình & Gửi Thông Báo Cho Tài Xế
-        </button>
+          CBN Transport
+        </div>
+        <div className="role-chip">
+          <b>Fleet &amp; Route Coordinator</b>
+          <span>Hệ thống điều phối</span>
+        </div>
+
+        <nav className="nav">
+          <button
+            className={activeNav === 'dashboard' ? 'active' : ''}
+            onClick={() => {
+              setActiveNav('dashboard');
+              setSelectedTripId('');
+            }}
+          >
+            <Icon name="home" /> Dashboard
+          </button>
+          <button
+            className={activeNav === 'trips' ? 'active' : ''}
+            onClick={() => {
+              setActiveNav('trips');
+              setSelectedTripId('TRP-20261120-0003');
+            }}
+          >
+            <Icon name="map" /> Trip Planning
+            <span className="badge-count">2</span>
+          </button>
+          <button
+            className={activeNav === 'fleet' ? 'active' : ''}
+            onClick={() => {
+              setActiveNav('fleet');
+              setSelectedTripId('');
+            }}
+          >
+            <Icon name="truck" /> Fleet
+          </button>
+          <button
+            className={activeNav === 'crew' ? 'active' : ''}
+            onClick={() => {
+              setActiveNav('crew');
+              setSelectedTripId('');
+            }}
+          >
+            <Icon name="users" /> Crew Assignments
+          </button>
+          <button
+            className={activeNav === 'flights' ? 'active' : ''}
+            onClick={() => {
+              setActiveNav('trips');
+              setTripTab('flight');
+            }}
+          >
+            <Icon name="plane" /> Flights
+          </button>
+          <button
+            className={activeNav === 'active' ? 'active' : ''}
+            onClick={() => {
+              setActiveNav('active');
+            }}
+          >
+            <Icon name="pin" /> Active Trips
+          </button>
+          <button
+            className={activeNav === 'incidents' ? 'active' : ''}
+            onClick={() => {
+              setActiveNav('incidents');
+              setSelectedTripId('');
+            }}
+          >
+            <Icon name="alert" /> Incidents
+          </button>
+        </nav>
+      </aside>
+
+      {/* MAIN CONTAINER */}
+      <div className="main">
+        {/* TOPBAR (64px sticky) */}
+        <header className="topbar">
+          <h1 id="topbar-title">{getPageTitle()}</h1>
+
+          <div className="user">
+            <div className="lang-switch" role="group" aria-label="Ngôn ngữ">
+              <button
+                type="button"
+                aria-pressed={lang === 'vi'}
+                onClick={() => setLang('vi')}
+              >
+                VI
+              </button>
+              <button
+                type="button"
+                aria-pressed={lang === 'en'}
+                onClick={() => setLang('en')}
+              >
+                EN
+              </button>
+            </div>
+
+            <button className="icon-btn" aria-label="Notifications" title="Thông báo hệ thống">
+              <span className="bell dot">
+                <svg className="i">
+                  <path d="M6 9a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7zM10 20a2 2 0 0 0 4 0" />
+                </svg>
+              </span>
+            </button>
+
+            <button className="icon-btn">
+              <span className="avatar">DQ</span>
+              <span className="user-name">Dang Minh Quan</span>
+              <Icon name="chev" />
+            </button>
+          </div>
+        </header>
+
+        {/* NOTIFICATION TOAST */}
+        {toastMsg && (
+          <div
+            style={{
+              position: 'fixed',
+              top: '74px',
+              right: '32px',
+              zIndex: 999,
+              background: 'var(--ink)',
+              color: '#fff',
+              padding: '12px 18px',
+              borderRadius: '8px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              fontSize: '13px',
+            }}
+          >
+            {toastMsg}
+          </div>
+        )}
+
+        {/* VIEW AREA DELEGATED TO INDIVIDUAL RENDER PAGES */}
+        <main className="view">
+          {activeNav === 'dashboard' && (
+            <RenderDashboardPage
+              trips={trips}
+              lang={lang}
+              onNavigate={(nav) => setActiveNav(nav)}
+              onSelectTrip={(id) => setSelectedTripId(id)}
+              onOpenTripTab={(id, tab) => {
+                setSelectedTripId(id);
+                setActiveNav('trips');
+                setTripTab(tab);
+              }}
+              onDemoDeploy={handleDemoDeploy}
+              onDemoApprove={handleDemoApprove}
+              onDemoReturn={handleDemoReturn}
+            />
+          )}
+
+          {activeNav === 'trips' && (
+            <RenderTripStudioPage
+              curTrip={curTrip}
+              tripTab={tripTab}
+              setTripTab={setTripTab}
+              lang={lang}
+              truckPos={truckPos}
+              onBack={() => setSelectedTripId('')}
+              onSetGroundVehicle={handleSetGroundVehicle}
+              onSetGroundCrew={handleSetGroundCrew}
+              onConfirmResources={handleConfirmResources}
+              onSubmitRoute={handleSubmitRoute}
+              onDemoDeploy={handleDemoDeploy}
+              onDemoApprove={handleDemoApprove}
+              onDemoReturn={handleDemoReturn}
+            />
+          )}
+
+          {activeNav === 'fleet' && <RenderFleetPage />}
+
+          {activeNav === 'crew' && <RenderCrewPage />}
+
+          {activeNav === 'active' && (
+            <RenderActiveTripsPage
+              curTrip={curTrip}
+              tripTab={tripTab}
+              setTripTab={setTripTab}
+              lang={lang}
+              truckPos={truckPos}
+              onBack={() => setSelectedTripId('')}
+              onSetGroundVehicle={handleSetGroundVehicle}
+              onSetGroundCrew={handleSetGroundCrew}
+              onConfirmResources={handleConfirmResources}
+              onSubmitRoute={handleSubmitRoute}
+              onDemoDeploy={handleDemoDeploy}
+              onDemoApprove={handleDemoApprove}
+              onDemoReturn={handleDemoReturn}
+            />
+          )}
+
+          {activeNav === 'incidents' && <RenderIncidentsPage />}
+        </main>
       </div>
     </div>
   );
 };
+
+export default CoordinatorPortal;
