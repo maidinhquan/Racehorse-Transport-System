@@ -1,0 +1,2318 @@
+/* ==========================================================================
+   JAPAN ROUTE MODULE STYLES (Chuyên biệt tuyến Việt Nam -> Nhật Bản)
+   ========================================================================== */
+
+.jp-route-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #1e293b;
+}
+
+/* Header Banner Tuyến Nhật Bản */
+.jp-main-banner {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #991b1b 100%);
+  border-radius: 16px;
+  padding: 28px 32px;
+  color: #ffffff;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.jp-banner-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 0 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.jp-banner-desc {
+  font-size: 14px;
+  color: #e2e8f0;
+  max-width: 700px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.jp-flag-badge {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* Tabs Chuyển 3 Phân hệ */
+.jp-tab-navigation {
+  display: flex;
+  gap: 12px;
+  background: #f1f5f9;
+  padding: 6px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+  overflow-x: auto;
+}
+
+.jp-tab-btn {
+  flex: 1;
+  padding: 12px 18px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.jp-tab-btn:hover {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.jp-tab-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Section & Card Container */
+.jp-section-header {
+  margin-bottom: 20px;
+}
+
+.jp-section-badge {
+  display: inline-block;
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.jp-badge-red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.jp-badge-blue {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.jp-section-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+}
+
+.jp-section-desc {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.jp-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.jp-card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.jp-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jp-card-subdesc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 18px 0;
+}
+
+.jp-subcard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 14px;
+}
+
+.jp-subcard-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+  margin: 0 0 12px 0;
+}
+
+/* Grids & Form Controls */
+.jp-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.jp-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 768px) {
+  .jp-grid-2, .jp-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.jp-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.jp-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.jp-required {
+  color: #dc2626;
+}
+
+.jp-input, .jp-select, .jp-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.jp-input:focus, .jp-select:focus, .jp-textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.jp-field-warning {
+  font-size: 12px;
+  color: #b45309;
+  margin-top: 2px;
+}
+
+/* Alerts */
+.jp-alert {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.jp-alert-large {
+  padding: 18px 20px;
+  margin-bottom: 24px;
+}
+
+.jp-alert-icon {
+  font-size: 28px;
+}
+
+.jp-alert-title {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.jp-alert-danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.jp-alert-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+/* Upload Components */
+.jp-upload-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.jp-upload-area {
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 14px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.jp-file-hidden {
+  display: none;
+}
+
+.jp-upload-btn {
+  display: inline-block;
+  padding: 8px 16px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.jp-upload-btn:hover {
+  background: #334155;
+}
+
+.jp-file-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.jp-btn-view {
+  background: #e2e8f0;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #1e293b;
+}
+
+.jp-btn-view:hover {
+  background: #cbd5e1;
+}
+
+/* 4 Disease Cards */
+.jp-disease-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .jp-disease-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.jp-disease-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.jp-disease-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.jp-disease-negative {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.jp-disease-positive {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.jp-disease-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.jp-disease-name {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: #0f172a;
+}
+
+.jp-disease-code {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.jp-status-tag {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 9999px;
+}
+
+.tag-negative {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.tag-positive {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.tag-pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.jp-upload-disease-box {
+  margin-top: 8px;
+}
+
+.jp-dropzone-box {
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  background: #ffffff;
+}
+
+.jp-dropzone-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.jp-dropzone-hint {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.jp-image-preview-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.jp-thumb-img {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+}
+
+.jp-thumb-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.jp-btn-action {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.jp-btn-zoom {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.jp-btn-replace {
+  background: #f8fafc;
+  color: #334155;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.jp-btn-delete {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* Vaccination Table */
+.jp-table-wrapper {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.jp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.jp-table th {
+  background: #f8fafc;
+  color: #475569;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid #e2e8f0;
+  font-weight: 600;
+}
+
+.jp-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.jp-table-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.jp-btn-delete-row {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.jp-empty-cell {
+  text-align: center;
+  color: #94a3b8;
+  padding: 24px;
+}
+
+.jp-btn-add {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+}
+
+.jp-btn-add:hover {
+  background: #e2e8f0;
+}
+
+.jp-image-gallery {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.jp-gallery-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+}
+
+.jp-gallery-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.jp-gallery-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.jp-gallery-item:hover .jp-gallery-overlay {
+  opacity: 1;
+}
+
+.jp-gallery-btn {
+  background: #ffffff;
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jp-gallery-btn.btn-del {
+  color: #dc2626;
+}
+
+/* Medical Approval */
+.jp-card-approval {
+  border-color: #cbd5e1;
+  background: #fbfcfe;
+}
+
+.jp-approval-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jp-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.jp-checkbox-row input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Legs in Logistics */
+.jp-leg-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.jp-leg-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.jp-leg-num {
+  background: #334155;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.jp-leg-sky { background: #0284c7; }
+.jp-leg-purple { background: #7c3aed; }
+.jp-leg-green { background: #16a34a; }
+
+.jp-leg-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.jp-subcard-header-note {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.jp-note-badge {
+  font-size: 11px;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* Bottom Actions */
+.jp-bottom-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.jp-btn-secondary {
+  padding: 12px 24px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.jp-btn-primary {
+  padding: 12px 28px;
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+  transition: all 0.15s ease;
+}
+
+.jp-btn-primary:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+}
+
+/* ZOOM MODAL */
+.jp-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.jp-modal-content {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 900px;
+  max-width: 95vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+}
+
+.jp-modal-header {
+  padding: 14px 20px;
+  background: #0f172a;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.jp-modal-title {
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jp-modal-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jp-btn-control {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jp-btn-control:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.jp-btn-close {
+  background: #ef4444;
+  border: none;
+  color: #ffffff;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.jp-modal-body {
+  padding: 24px;
+  background: #0b0f19;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 400px;
+}
+
+.jp-image-viewport {
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.jp-modal-footer {
+  padding: 10px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.jp-modal-tip {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* ==========================================================================
+   BƯỚC 1: ĐƠN XÉT NGHIỆM Y TẾ THÚ Y (REQUISITION FORM) STYLES
+   ========================================================================== */
+
+.jp-requisition-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #ffffff;
+  padding: 12px 18px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.jp-requisition-status-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.jp-chip {
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.jp-chip-info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.jp-chip-success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.jp-chip-warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.jp-chip-neutral {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.jp-btn-preview-doc {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  color: #ffffff;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.jp-btn-preview-doc:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+
+.jp-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .jp-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .jp-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Danh mục 4 bệnh chỉ định */
+.jp-requisition-diseases-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+}
+
+@media (max-width: 768px) {
+  .jp-requisition-diseases-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.jp-req-disease-card {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.jp-req-disease-card:hover {
+  border-color: #3b82f6;
+  background: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+}
+
+.jp-req-disease-card.active {
+  border-color: #2563eb;
+  background: #f0f7ff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+}
+
+.jp-req-disease-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.jp-req-disease-title {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.jp-req-disease-method {
+  font-size: 13px;
+  color: #475569;
+  display: block;
+}
+
+.jp-req-disease-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 10px;
+}
+
+.jp-req-badge-law {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.jp-req-badge-mand {
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #fca5a5;
+}
+
+/* Roadmap Card (Các phần tiếp theo) */
+.jp-roadmap-card {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 16px;
+  padding: 24px;
+  color: #ffffff;
+  margin-top: 28px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.2);
+}
+
+.jp-roadmap-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0 0 6px 0;
+  color: #f8fafc;
+}
+
+.jp-roadmap-desc {
+  font-size: 13.5px;
+  color: #94a3b8;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.jp-roadmap-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 992px) {
+  .jp-roadmap-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .jp-roadmap-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.jp-roadmap-step {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.jp-roadmap-step.current {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.jp-roadmap-step.locked {
+  opacity: 0.65;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.jp-step-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.jp-roadmap-step.current .jp-step-badge {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.jp-roadmap-step.locked .jp-step-badge {
+  background: rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+}
+
+.jp-roadmap-step h4 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0;
+  color: #f8fafc;
+}
+
+.jp-roadmap-step p {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Modal A4 Paper Preview */
+.jp-requisition-preview-modal {
+  max-width: 820px;
+  width: 95%;
+  background: #ffffff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.jp-requisition-paper {
+  padding: 32px 36px;
+  background: #ffffff;
+  color: #000000;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-y: auto;
+}
+
+.jp-paper-header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 2px solid #000000;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+
+.jp-paper-left {
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.jp-paper-right {
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.jp-paper-sub {
+  font-style: italic;
+  font-size: 12px;
+  color: #333333;
+}
+
+.jp-paper-date {
+  font-style: italic;
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.jp-paper-title-block {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.jp-paper-title-block h2 {
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+  color: #000000;
+}
+
+.jp-paper-sub-en {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555555;
+  letter-spacing: 0.5px;
+}
+
+.jp-paper-barcode {
+  font-family: monospace;
+  font-size: 16px;
+  letter-spacing: 2px;
+  margin-top: 8px;
+  color: #111111;
+}
+
+.jp-paper-barcode span {
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.jp-paper-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+  font-size: 13.5px;
+}
+
+.jp-paper-table td,
+.jp-paper-table th {
+  border: 1px solid #777777;
+  padding: 8px 10px;
+}
+
+.jp-table-section-title {
+  background: #f0f0f0;
+  text-align: left;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #111111;
+}
+
+.jp-paper-table .field-lbl {
+  width: 25%;
+  font-weight: 700;
+  color: #222222;
+  background: #fafafa;
+}
+
+.jp-paper-table .field-val {
+  width: 25%;
+  color: #000000;
+}
+
+.jp-paper-check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.jp-paper-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  padding: 0 20px;
+}
+
+.jp-sig-box {
+  text-align: center;
+  width: 45%;
+  font-size: 13px;
+}
+
+.jp-sig-space {
+  height: 70px;
+}
+
+/* ==========================================================================
+   STYLES CHO BỘ 10 THÀNH PHẦN HỒ SƠ VIỆT NAM - NHẬT BẢN
+   ========================================================================== */
+
+/* Action Banner Cards */
+.jp-action-banner-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border: 1px solid #cbd5e1;
+  border-left: 5px solid #dc2626;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.jp-action-banner-card.jp-banner-blue {
+  border-left-color: #2563eb;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.jp-action-banner-card.jp-banner-dark {
+  border-left-color: #991b1b;
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+}
+
+.jp-action-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.jp-action-banner-text strong {
+  font-size: 16px;
+  color: #0f172a;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.jp-action-banner-text p {
+  margin: 0;
+  font-size: 13.5px;
+  color: #475569;
+}
+
+.jp-banner-icon {
+  font-size: 28px;
+}
+
+.jp-btn-lg {
+  padding: 12px 20px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* Notice box NSW */
+.jp-nsw-notice-box {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+
+.jp-subcard-subtitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e3a8a;
+  margin: 16px 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #cbd5e1;
+}
+
+.jp-input-readonly {
+  background-color: #f8fafc;
+  color: #334155;
+  cursor: default;
+  font-weight: 500;
+}
+
+.jp-input-stat {
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  height: 42px;
+  box-sizing: border-box;
+}
+
+.jp-badge-mandatory {
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid #f87171;
+  letter-spacing: 0.5px;
+}
+
+.jp-empty-upload-box {
+  padding: 24px 16px;
+  text-align: center;
+  background: #f8fafc;
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 13.5px;
+  margin-top: 10px;
+}
+
+.jp-empty-upload-box.jp-empty-danger {
+  background: #fff5f5;
+  border-color: #fca5a5;
+  color: #991b1b;
+  font-weight: 500;
+}
+
+.jp-flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.jp-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.jp-file-tag {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.jp-file-tag:hover {
+  background: #bae6fd;
+  color: #0284c7;
+}
+
+.jp-file-tag-success {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.jp-file-tag-success:hover {
+  background: #d1fae5;
+}
+
+.jp-tag-close {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  margin-left: 4px;
+  padding: 0 4px;
+}
+
+.jp-tag-close:hover {
+  color: #b91c1c;
+}
+
+.jp-official-customs-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13.5px;
+}
+
+.jp-official-customs-table td {
+  border: 1px solid #94a3b8;
+  padding: 10px 12px;
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.jp-badge-code {
+  font-family: monospace;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #0f172a;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.jp-check-icon {
+  color: #059669;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* Dossier Summary & Progress Styles */
+.jp-dossier-progress-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  margin-bottom: 24px;
+}
+
+.jp-progress-track {
+  width: 100%;
+  height: 10px;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 14px;
+}
+
+.jp-progress-fill {
+  height: 100%;
+  transition: width 0.4s ease, background-color 0.4s ease;
+}
+
+.jp-group-tag {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.jp-row-done {
+  background-color: #f0fdf4;
+}
+
+.jp-row-pending {
+  background-color: #fffbf0;
+}
+
+/* =============================================================================
+   1. SELECTOR NƠI ĐI / NƠI ĐẾN (ROUTE SELECTOR)
+   ============================================================================= */
+.jp-route-selector-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.jp-route-selector-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.jp-route-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.jp-route-select {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1.5px solid #cbd5e1;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.jp-route-select:focus {
+  border-color: #2563eb;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.jp-route-arrow {
+  font-size: 18px;
+  color: #94a3b8;
+  font-weight: 800;
+}
+
+.jp-route-badge-active {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* =============================================================================
+   2. GIAO DIỆN KHI CHỌN NƯỚC KHÁC (EMPTY / NOTICE ROUTE STATE)
+   ============================================================================= */
+.jp-empty-route-notice {
+  background: #ffffff;
+  border: 2px dashed #cbd5e1;
+  border-radius: 16px;
+  padding: 50px 30px;
+  text-align: center;
+  margin: 30px 0;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+}
+
+.jp-empty-icon {
+  font-size: 54px;
+  margin-bottom: 16px;
+  animation: bounce 2s infinite ease-in-out;
+}
+
+.jp-empty-route-notice h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 10px 0;
+}
+
+.jp-empty-route-notice p {
+  font-size: 14.5px;
+  color: #64748b;
+  max-width: 600px;
+  margin: 0 auto 24px auto;
+  line-height: 1.6;
+}
+
+.jp-empty-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* =============================================================================
+   3. PHÂN VÙNG LUỒNG: KHÁCH HÀNG VS NHÂN VIÊN (ROLE SELECTOR TABS)
+   ============================================================================= */
+.jp-role-switcher-container {
+  display: flex;
+  background: #e2e8f0;
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 24px;
+  gap: 4px;
+}
+
+.jp-role-tab-btn {
+  flex: 1;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.25s ease;
+}
+
+.jp-role-tab-btn:hover {
+  color: #0f172a;
+}
+
+.jp-role-tab-btn.active {
+  background: #ffffff;
+  color: #1e3a8a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.jp-role-pill-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-weight: 700;
+}
+
+.jp-pill-success {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.jp-pill-alert {
+  background: #fee2e2;
+  color: #b91c1c;
+  animation: pulse 1.5s infinite;
+}
+
+/* =============================================================================
+   4. KHỐI NỘP HỒ SƠ CỦA KHÁCH HÀNG (CUSTOMER SUBMIT BAR)
+   ============================================================================= */
+.jp-customer-submit-bar {
+  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+  border: 1.5px solid #bfdbfe;
+  border-radius: 16px;
+  padding: 24px 28px;
+  margin-top: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.08);
+}
+
+.jp-submit-info h4 {
+  font-size: 17px;
+  font-weight: 800;
+  color: #1e3a8a;
+  margin: 0 0 6px 0;
+}
+
+.jp-submit-info p {
+  font-size: 13.5px;
+  color: #334155;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.jp-btn-submit-customer {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  border: none;
+  padding: 14px 28px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s ease;
+}
+
+.jp-btn-submit-customer:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+}
+
+/* =============================================================================
+   5. BANNER NHÂN VIÊN TIẾP NHẬN HỒ SƠ TỰ ĐỘNG (STAFF RECEIVED BANNER)
+   ============================================================================= */
+.jp-staff-received-banner {
+  background: #ecfdf5;
+  border: 1.5px solid #a7f3d0;
+  border-radius: 14px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.08);
+}
+
+.jp-banner-bell {
+  font-size: 28px;
+}
+
+.jp-staff-received-banner strong {
+  font-size: 15px;
+  color: #065f46;
+}
+
+.jp-staff-received-banner p {
+  font-size: 13px;
+  color: #047857;
+  margin: 4px 0 0 0;
+}
+
+.jp-received-tag {
+  background: #10b981;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* =============================================================================
+   6. OFFICIAL ELECTRONIC CONTRACT / DOCUMENT PREVIEW MODAL (FIX NỀN TRẮNG CHỮ TRẮNG)
+   ============================================================================= */
+.jp-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(15, 23, 42, 0.78) !important;
+  backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 99999 !important;
+  padding: 24px !important;
+  overflow-y: auto !important;
+}
+
+.jp-modal-container.jp-modal-printable {
+  background: #0f172a !important;
+  border-radius: 16px !important;
+  width: 100% !important;
+  max-width: 950px !important;
+  max-height: 92vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6) !important;
+  border: 1px solid #334155 !important;
+  overflow: hidden !important;
+  animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.jp-modal-header {
+  padding: 16px 24px !important;
+  background: #1e293b !important;
+  border-bottom: 1px solid #334155 !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+}
+
+.jp-modal-header h3 {
+  margin: 0 !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  color: #f8fafc !important;
+  letter-spacing: 0.3px !important;
+}
+
+.jp-modal-close {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: none !important;
+  font-size: 16px !important;
+  color: #cbd5e1 !important;
+  cursor: pointer !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+}
+
+.jp-modal-close:hover {
+  background: rgba(239, 68, 68, 0.8) !important;
+  color: #ffffff !important;
+}
+
+/* VĂN BẢN HỢP ĐỒNG / BIỂU MẪU ĐIỆN TỬ CHUẨN IN ẤN (CONTRACT & DOCUMENT VIEWER) */
+.jp-official-paper {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 44px 50px !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-family: 'Times New Roman', Times, serif, system-ui !important;
+  line-height: 1.65 !important;
+  font-size: 14.5px !important;
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Buộc tất cả thẻ con trong văn bản có màu mực in rõ nét */
+.jp-official-paper,
+.jp-official-paper p,
+.jp-official-paper div,
+.jp-official-paper span,
+.jp-official-paper strong,
+.jp-official-paper td,
+.jp-official-paper th,
+.jp-official-paper h2,
+.jp-official-paper h3 {
+  color: #0f172a !important;
+}
+
+.jp-paper-header-grid {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  border-bottom: 2px solid #0f172a !important;
+  padding-bottom: 18px !important;
+  margin-bottom: 22px !important;
+}
+
+.jp-paper-org {
+  text-align: center !important;
+  width: 48% !important;
+  font-size: 13.5px !important;
+  line-height: 1.4 !important;
+}
+
+.jp-paper-motto {
+  text-align: center !important;
+  width: 48% !important;
+  font-size: 13.5px !important;
+  line-height: 1.4 !important;
+}
+
+.jp-paper-title {
+  text-align: center !important;
+  margin: 24px 0 !important;
+}
+
+.jp-paper-title h2 {
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  margin: 0 0 6px 0 !important;
+  letter-spacing: 0.8px !important;
+  text-transform: uppercase !important;
+}
+
+.jp-paper-body {
+  font-size: 14.5px !important;
+  text-align: justify !important;
+}
+
+.jp-paper-body p {
+  margin: 10px 0 !important;
+  line-height: 1.65 !important;
+}
+
+.jp-paper-body strong {
+  font-weight: 700 !important;
+  color: #000000 !important;
+}
+
+.jp-paper-body code {
+  font-family: monospace !important;
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  font-weight: 700 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+/* Bảng Tờ khai và Hợp đồng mẫu */
+.jp-official-customs-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 18px 0 !important;
+}
+
+.jp-official-customs-table td {
+  border: 1.5px solid #334155 !important;
+  padding: 12px 14px !important;
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
+  color: #0f172a !important;
+  vertical-align: top !important;
+}
+
+/* Phần chữ ký và con dấu mô phỏng */
+.jp-paper-signatures {
+  display: flex !important;
+  justify-content: space-between !important;
+  margin-top: 40px !important;
+  padding-top: 20px !important;
+}
+
+.jp-sig-box {
+  width: 45% !important;
+  text-align: center !important;
+  font-size: 13.5px !important;
+  position: relative !important;
+}
+
+.jp-sig-stamp-simulated {
+  width: 110px;
+  height: 110px;
+  border: 3px double #dc2626;
+  border-radius: 50%;
+  color: #dc2626 !important;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 10px auto;
+  transform: rotate(-10deg);
+  opacity: 0.85;
+}
+
+.jp-modal-footer {
+  padding: 16px 24px !important;
+  background: #1e293b !important;
+  border-top: 1px solid #334155 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Chuẩn in ấn trực tiếp (Print Styles) */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .jp-modal-overlay,
+  .jp-modal-printable,
+  .jp-official-paper,
+  .jp-official-paper * {
+    visibility: visible !important;
+  }
+  .jp-official-paper {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    padding: 15mm 20mm !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+  .jp-modal-header,
+  .jp-modal-footer,
+  .jp-modal-close {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   ENHANCED STYLES: PASSPORT SCANS GALLERY & VACCINATION SCHEDULE TABLE
+   ========================================================================== */
+
+.jp-subcard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.jp-subcard-header h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jp-btn-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  color: #0284c7;
+  border: 1.5px dashed #0284c7;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.jp-btn-upload:hover {
+  background: #f0f9ff;
+  border-color: #0369a1;
+  color: #0369a1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.15);
+}
+
+.jp-btn-upload.jp-btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.jp-empty-upload-box {
+  background: #ffffff;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 32px 20px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Passport Scan Card Grid */
+.jp-image-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.jp-preview-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.jp-preview-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px -3px rgba(15, 23, 42, 0.12);
+  border-color: #cbd5e1;
+}
+
+.jp-preview-thumbnail {
+  height: 180px;
+  width: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+  cursor: pointer;
+  background-color: #0f172a;
+}
+
+.jp-zoom-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.jp-preview-thumbnail:hover .jp-zoom-overlay {
+  opacity: 1;
+}
+
+.jp-zoom-hint {
+  background: rgba(255, 255, 255, 0.95);
+  color: #0f172a;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(4px);
+  transition: transform 0.2s ease;
+}
+
+.jp-preview-thumbnail:hover .jp-zoom-hint {
+  transform: translateY(0);
+}
+
+.jp-preview-card-body {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #ffffff;
+  border-top: 1px solid #f1f5f9;
+}
+
+.jp-preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.jp-preview-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jp-preview-size {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.jp-btn-remove-sm {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.jp-btn-remove-sm:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #b91c1c;
+  transform: scale(1.02);
+}
+
+/* Vaccination Schedule Modern Table */
+.jp-table-wrapper {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.jp-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.jp-table thead th {
+  background: #f8fafc;
+  padding: 12px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #475569;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.jp-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.jp-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.jp-input-sm {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1e293b;
+  outline: none;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.jp-input-sm:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+/* Vaccine Record Tag */
+.jp-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.jp-file-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.jp-file-tag:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(22, 101, 52, 0.1);
+}
+
+
+

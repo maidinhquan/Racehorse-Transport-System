@@ -6,6 +6,35 @@ export type SupportedCountry = 'Việt Nam' | 'Nhật Bản';
 
 export type TransportType = 'Đường bộ' | 'Hàng không';
 
+export interface ProfileFile {
+  name: string;
+  url: string;
+  uploadedAt: string;
+}
+
+export interface HorseDossier {
+  sex?: string;
+  passportAuthority?: string;
+  passportIssueDate?: string;
+  passportExpiryDate?: string;
+  value?: number;
+  currency?: string;
+  fluDate?: string;
+  conditions?: string;
+  vetName?: string;
+  vetPhone?: string;
+  files?: Partial<Record<'photo' | 'passport' | 'ownership' | 'valueProof' | 'flu' | 'health', ProfileFile>>;
+}
+
+export interface TransportPlace {
+  name: string;
+  contact: string;
+  address: string;
+  postal: string;
+  phone: string;
+  notes: string;
+}
+
 export interface HorseProfile {
   id: string;
   name: string;
@@ -17,6 +46,7 @@ export interface HorseProfile {
   dob?: string;
   color?: string;
   photoUrl?: string;
+  dossier?: HorseDossier;
   status: 'Ready' | 'InTransit' | 'Quarantine';
 }
 
@@ -217,6 +247,11 @@ export interface CustomerTransportRequest {
 
   pickupAddress: string;
   deliveryAddress: string;
+  pickup?: TransportPlace;
+  delivery?: TransportPlace;
+  horseNotes?: Record<string, string>;
+  requestedHorseCount?: number;
+  horseSlots?: string[];
 
   // Designated Receiver
   receiverName: string;

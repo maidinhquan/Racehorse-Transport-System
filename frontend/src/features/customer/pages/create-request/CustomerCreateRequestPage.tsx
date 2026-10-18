@@ -1,563 +1,215 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import CustomerLayout from '../../../../shared/layouts/CustomerLayout/CustomerLayout';
 import { customerMockStore } from '../../services/customerMockStore';
-import type { HorseProfile } from '../../types/customerTypes';
+import type { BaselineDocument, HorseProfile, ProfileFile, TransportPlace } from '../../types/customerTypes';
+import { HorseProfileForm } from './HorseProfileForm';
+import { ProfileFileField } from './ProfileFileField';
+import { ReferenceField } from './ReferenceField';
+import { ReferenceIcon } from './ReferenceIcon';
+import './CustomerHtmlReference.css';
 import './CustomerCreateRequestPage.css';
 
-const VN_CITIES = ['Hồ Chí Minh', 'Bình Dương', 'Hà Nội', 'Đà Nẵng'];
-const JP_CITIES = ['Tokyo', 'Osaka', 'Nagoya', 'Sapporo', 'Fukuoka'];
+const VN_CITIES = ['Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng'];
+const DESTINATIONS = [...VN_CITIES, 'Tokyo'];
+const STEPS = ['Chuyến đi', 'Nhận & giao', 'Ngựa & hồ sơ', 'Xem lại & gửi'];
+const emptyPlace = (): TransportPlace => ({ name: '', contact: '', address: '', postal: '', phone: '', notes: '' });
+const todayLocal = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+const cityAlias = (city: string) => ({ 'Ho Chi Minh City': 'Hồ Chí Minh', Hanoi: 'Hà Nội', 'Da Nang': 'Đà Nẵng' })[city] || city;
+const HORSE_FILES = [
+  ['passport', 'Hộ chiếu ngựa'], ['ownership', 'Chứng nhận sở hữu ngựa'], ['valueProof', 'Bằng chứng định giá (tùy chọn)'],
+  ['flu', 'Sổ tiêm ngừa'], ['health', 'Giấy chứng nhận sức khỏe'],
+] as const;
 
-export const CustomerCreateRequestPage: React.FC = () => {
+export const CustomerCreateRequestPage = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const editId = searchParams.get('edit');
+  const [params] = useSearchParams();
+  const editId = params.get('edit');
+  const [draftId, setDraftId] = useState<string | undefined>(editId || undefined);
+  const [step, setStep] = useState(0);
+  const [maxStep, setMaxStep] = useState(0);
+  const [error, setError] = useState('');
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
+  const [date, setDate] = useState('');
+  const [count, setCount] = useState(1);
+  const [pickup, setPickup] = useState<TransportPlace>(emptyPlace);
+  const [delivery, setDelivery] = useState<TransportPlace>(emptyPlace);
+  const [horses, setHorses] = useState<HorseProfile[]>(() => customerMockStore.getHorses());
+  const [slots, setSlots] = useState<string[]>(['']);
+  const [slot, setSlot] = useState(0);
+  const [horseNotes, setHorseNotes] = useState<Record<string, string>>({});
+  const [horseForm, setHorseForm] = useState<'new' | 'edit' | null>(null);
+  const [documents, setDocuments] = useState<BaselineDocument[]>([]);
+  const [saving, setSaving] = useState(false);
+  const international = destination === 'Tokyo';
+  const estimate = (international ? 1850 : 650) * count;
+  const selected = horses.find(h => h.id === slots[slot]);
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [errorMsg, setErrorMsg] = useState('');
-
-  // Form State
-  const [originCity, setOriginCity] = useState('Bình Dương');
-  const [destinationCountry, setDestinationCountry] = useState<'Việt Nam' | 'Nhật Bản'>('Nhật Bản');
-  const [destinationCity, setDestinationCity] = useState('Tokyo');
-  const [transportType, setTransportType] = useState<'Đường bộ' | 'Hàng không'>('Hàng không');
-  const [expectedDate, setExpectedDate] = useState('2026-11-10');
-  const [committedDeadline, setCommittedDeadline] = useState('2026-11-15');
-
-  const [pickupAddress, setPickupAddress] = useState('Trường đua Đại Nam, Hiệp An, TP. Thủ Dầu Một, Bình Dương');
-  const [deliveryAddress, setDeliveryAddress] = useState('Tokyo Racecourse, Fuchu, Tokyo, Japan');
-  const [receiverName, setReceiverName] = useState('Kenji Takahashi');
-  const [receiverPhone, setReceiverPhone] = useState('+81-90-1234-5678');
-  const [receiverEmail, setReceiverEmail] = useState('kenji.takahashi@tokyoracing.jp');
-
-  const [availableHorses, setAvailableHorses] = useState<HorseProfile[]>([]);
-  const [selectedHorseIds, setSelectedHorseIds] = useState<string[]>(['HOR-1035']);
-  const [commercialValueUsd, setCommercialValueUsd] = useState<number>(180000);
-  const [specialCareNotes, setSpecialCareNotes] = useState('Cần bổ sung cỏ Alfalfa và nước điện giải định kỳ 3 tiếng/lần.');
-
-  // Pre-load quote from landing page or existing edit request
   useEffect(() => {
-    const horses = customerMockStore.getHorses();
-    setAvailableHorses(horses);
-
     if (editId) {
-      const existing = customerMockStore.getRequestById(editId);
-      if (existing) {
-        setOriginCity(existing.originCity);
-        setDestinationCountry(existing.destinationCountry);
-        setDestinationCity(existing.destinationCity);
-        setTransportType(existing.transportType);
-        setExpectedDate(existing.expectedDate);
-        setCommittedDeadline(existing.committedDeadline);
-        setPickupAddress(existing.pickupAddress);
-        setDeliveryAddress(existing.deliveryAddress);
-        setReceiverName(existing.receiverName);
-        setReceiverPhone(existing.receiverPhone);
-        setReceiverEmail(existing.receiverEmail);
-        setSelectedHorseIds(existing.horseIds);
-        setCommercialValueUsd(existing.commercialValueUsd);
-        setSpecialCareNotes(existing.specialCareNotes || '');
-        return;
-      }
+      const r = customerMockStore.getRequestById(editId);
+      if (!r || !['Draft', 'Changes Requested'].includes(r.status)) { setError('Yêu cầu này không còn được phép chỉnh sửa.'); return; }
+      setDraftId(r.id); setOrigin(cityAlias(r.originCity)); setDestination(cityAlias(r.destinationCity)); setDate(r.expectedDate);
+      setCount(r.requestedHorseCount || Math.max(1, r.horseIds.length));
+      setSlots(r.horseSlots || (r.horseIds.length ? r.horseIds : ['']));
+      setPickup(r.pickup || { ...emptyPlace(), address: r.pickupAddress });
+      setDelivery(r.delivery || { ...emptyPlace(), address: r.deliveryAddress, contact: r.receiverName, phone: r.receiverPhone });
+      setDocuments(r.documents); setHorseNotes(r.horseNotes || {});
+      return;
     }
-
-    // Check preliminary quote from landing
-    const quoteRaw = sessionStorage.getItem('preliminaryQuote');
-    if (quoteRaw) {
-      try {
-        const quote = JSON.parse(quoteRaw);
-        if (quote.origin) setOriginCity(quote.origin);
-        if (quote.destination) {
-          if (JP_CITIES.includes(quote.destination)) {
-            setDestinationCountry('Nhật Bản');
-            setDestinationCity(quote.destination);
-            setTransportType('Hàng không');
-          } else {
-            setDestinationCountry('Việt Nam');
-            setDestinationCity(quote.destination);
-            setTransportType('Đường bộ');
-          }
-        }
-      } catch {
-        // ignore error
+    try {
+      const quote = JSON.parse(sessionStorage.getItem('preliminaryQuote') || 'null');
+      if (quote) {
+        if (VN_CITIES.includes(cityAlias(quote.origin))) setOrigin(cityAlias(quote.origin));
+        if (DESTINATIONS.includes(cityAlias(quote.destination))) setDestination(cityAlias(quote.destination));
+        if (quote.date) setDate(quote.date);
+        const n = Number(quote.count || quote.horseCount || 1);
+        if (Number.isInteger(n) && n >= 1 && n <= 6) { setCount(n); setSlots(Array(n).fill('')); }
       }
-    }
+    } catch { /* Invalid saved quotes do not prevent creating a request. */ }
   }, [editId]);
 
-  // Adjust transport type when destination changes
-  const handleDestinationCountryChange = (country: 'Việt Nam' | 'Nhật Bản') => {
-    setDestinationCountry(country);
-    if (country === 'Nhật Bản') {
-      setDestinationCity(JP_CITIES[0]);
-      setTransportType('Hàng không');
-    } else {
-      setDestinationCity(VN_CITIES.filter((c) => c !== originCity)[0] || 'Hà Nội');
-      setTransportType('Đường bộ');
-    }
+  const fileFor = (docKey: string, horseId?: string): ProfileFile | undefined => {
+    const doc = documents.find(d => d.docKey === docKey && d.horseId === horseId);
+    if (doc) return doc.fileUrl ? { name: doc.fileName || doc.name, url: doc.fileUrl, uploadedAt: doc.uploadedAt || '' } : undefined;
+    return horses.find(h => h.id === horseId)?.dossier?.files?.[docKey as typeof HORSE_FILES[number][0]];
   };
-
-  const toggleHorseSelection = (horseId: string) => {
-    const horse = availableHorses.find((h) => h.id === horseId);
-    if (horse?.status === 'InTransit') {
-      setErrorMsg(`Ngựa "${horse.name}" đang trong chuyến vận chuyển khác.`);
-      return;
-    }
-    setErrorMsg('');
-    setSelectedHorseIds((prev) =>
-      prev.includes(horseId) ? prev.filter((id) => id !== horseId) : [...prev, horseId]
-    );
+  const putFile = (docKey: string, name: string, file?: ProfileFile, horseId?: string) => {
+    setDocuments(prev => [...prev.filter(d => !(d.docKey === docKey && d.horseId === horseId)), {
+      docKey, name, horseId, scope: horseId ? 'horse' : 'request', status: file ? 'Submitted' : 'Draft',
+      fileName: file?.name, fileUrl: file?.url, uploadedAt: file?.uploadedAt,
+    }]);
   };
-
-  // Preliminary Estimate Calculation (for display only, not binding)
-  const isInternational = destinationCountry === 'Nhật Bản';
-  const pricePerHorse = isInternational ? 8500 : 2500;
-  const estimatedTotal = pricePerHorse * Math.max(selectedHorseIds.length, 1) + (isInternational ? 3500 : 800);
-  const estimatedDeposit = Math.round(estimatedTotal * 0.3);
-
-  // Validate steps
-  const handleNextStep = () => {
-    setErrorMsg('');
-    if (step === 1) {
-      if (destinationCountry === 'Việt Nam' && originCity === destinationCity) {
-        setErrorMsg('Điểm đến nội địa phải khác thành phố xuất phát.');
-        return;
+  const sharedKeys = international ? [['invite', 'Thư mời thi đấu'], ['raceReg', 'Giấy đăng ký giải đua'], ['ataCarnet', 'ATA Carnet (nếu áp dụng)']] : [['invite', 'Thư mời thi đấu'], ['raceReg', 'Giấy đăng ký giải đua']];
+  const requestDocuments = () => {
+    const result = documents.filter(d => d.horseId ? slots.includes(d.horseId) : sharedKeys.some(([key]) => key === d.docKey));
+    slots.filter(Boolean).forEach(id => HORSE_FILES.forEach(([key, name]) => {
+      if (!result.some(d => d.docKey === key && d.horseId === id)) {
+        const f = fileFor(key, id);
+        result.push({ docKey: key, name, scope: 'horse', horseId: id, status: f ? 'Submitted' : 'Draft', fileName: f?.name, fileUrl: f?.url, uploadedAt: f?.uploadedAt });
       }
-      if (!expectedDate || !committedDeadline) {
-        setErrorMsg('Vui lòng chọn ngày khởi hành dự kiến và hạn chót bàn giao.');
-        return;
-      }
-      if (new Date(committedDeadline) <= new Date(expectedDate)) {
-        setErrorMsg('Hạn chót bàn giao phải sau ngày khởi hành dự kiến.');
-        return;
-      }
-      setStep(2);
-    } else if (step === 2) {
-      if (!pickupAddress.trim() || !deliveryAddress.trim()) {
-        setErrorMsg('Vui lòng nhập đầy đủ địa chỉ lấy ngựa và địa chỉ giao ngựa.');
-        return;
-      }
-      if (!receiverName.trim() || !receiverPhone.trim() || !receiverEmail.trim()) {
-        setErrorMsg('Vui lòng cung cấp đầy đủ thông tin Người nhận chỉ định (Tên, SĐT, Email nhận mã OTP bàn giao).');
-        return;
-      }
-      setStep(3);
-    } else if (step === 3) {
-      if (selectedHorseIds.length === 0) {
-        setErrorMsg('Vui lòng chọn ít nhất 1 cá thể ngựa cho yêu cầu vận chuyển.');
-        return;
-      }
-      setStep(4);
-    }
+    }));
+    return result;
   };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (selectedHorseIds.length === 0) {
-      setErrorMsg('Vui lòng chọn ít nhất 1 con ngựa.');
-      return;
+  const validate = (s: number) => {
+    if (s === 0) {
+      if (!VN_CITIES.includes(origin) || !DESTINATIONS.includes(destination) || origin === destination) return 'Vui lòng chọn tuyến vận chuyển khả dụng, điểm đi và điểm đến khác nhau.';
+      if (!date || date < todayLocal()) return 'Ngày vận chuyển mong muốn phải từ hôm nay trở đi.';
     }
-
-    const created = customerMockStore.createRequest({
-      originCity,
-      originCountry: 'Việt Nam',
-      destinationCity,
-      destinationCountry,
-      transportType,
-      expectedDate,
-      committedDeadline,
-      pickupAddress,
-      deliveryAddress,
-      receiverName,
-      receiverPhone,
-      receiverEmail,
-      horseIds: selectedHorseIds,
-      commercialValueUsd,
-      specialCareNotes,
-    });
-
-    // Clear preliminary quote from session
-    sessionStorage.removeItem('preliminaryQuote');
-    navigate(`/customer/requests/${created.id}`);
+    if (s === 1) {
+      if ([pickup, delivery].some(p => !p.name.trim() || !p.contact.trim() || !p.address.trim() || !p.phone.trim())) return 'Vui lòng điền tên địa điểm, người liên hệ, địa chỉ và số điện thoại tại cả hai điểm nhận và giao.';
+    }
+    if (s === 2) {
+      if (horseForm) return 'Vui lòng lưu hồ sơ ngựa đang nhập trước khi tiếp tục.';
+      if (slots.length !== count || slots.some(id => !id)) return `Vui lòng chọn đủ ${count} ngựa.`;
+      if (new Set(slots).size !== slots.length) return 'Không thể chọn cùng một ngựa hai lần.';
+      for (const id of slots) {
+        const h = horses.find(item => item.id === id);
+        if (!h || h.status === 'InTransit') return 'Ngựa đã chọn không khả dụng.';
+        if (!h.name.trim() || !h.microchipIso.trim() || !h.feiPassportNo.trim()) return `${h.name}: cần tên, số Microchip và số hộ chiếu.`;
+        if (!fileFor('passport', id) || !fileFor('ownership', id)) return `${h.name}: cần bản scan hộ chiếu và chứng nhận sở hữu trước khi gửi yêu cầu.`;
+        if (h.dossier?.passportExpiryDate && h.dossier.passportExpiryDate < todayLocal()) return `${h.name}: hộ chiếu đã hết hạn, vui lòng cập nhật hồ sơ.`;
+      }
+    }
+    return '';
   };
-
-  return (
-    <CustomerLayout pageTitle="Tạo Yêu Cầu Vận Chuyển">
-      <div className="cr-wizard-container">
-        {/* Header */}
-        <div className="cr-wizard-head">
-          <button className="cr-back-link" onClick={() => navigate('/customer/requests')}>
-            ← Quay lại danh sách yêu cầu
-          </button>
-          <h2>{editId ? `Chỉnh sửa Yêu Cầu ${editId}` : 'Tạo Yêu Cầu Vận Chuyển Mới'}</h2>
-          <p className="cr-subtitle">
-            Hệ thống hỗ trợ tuyến <b>Nội địa Việt Nam (VN ➔ VN)</b> và <b>Việt Nam ➔ Nhật Bản (VN ➔ JP)</b>.
-            Thông tin chuyến, người nhận chỉ định và hồ sơ baseline được thu thập trước khi gửi Logistics Manager duyệt.
-          </p>
-        </div>
-
-        {/* Step Indicator */}
-        <div className="cr-steps-bar">
-          {[
-            { num: 1, label: '1. Tuyến & Thời gian' },
-            { num: 2, label: '2. Địa chỉ & Người nhận' },
-            { num: 3, label: '3. Chọn Ngựa đua' },
-            { num: 4, label: '4. Hồ sơ baseline & Gửi duyệt' },
-          ].map((item) => (
-            <div
-              key={item.num}
-              className={`cr-step-pill ${step === item.num ? 'active' : ''} ${step > item.num ? 'completed' : ''}`}
-              onClick={() => step > item.num && setStep(item.num as any)}
-            >
-              <span className="cr-step-num">{step > item.num ? '✓' : item.num}</span>
-              <span className="cr-step-text">{item.label}</span>
-            </div>
-          ))}
-        </div>
-
-        {errorMsg && <div className="cr-error-box">⚠️ {errorMsg}</div>}
-
-        <div className="cr-card">
-          {/* STEP 1: Route & Schedule */}
-          {step === 1 && (
-            <div className="cr-form-section">
-              <h3 className="cr-section-title">Thông tin Tuyến Vận Chuyển & Thời gian</h3>
-              <div className="cr-grid-2">
-                <div className="cr-field">
-                  <label>Quốc gia xuất phát (Cố định)</label>
-                  <input type="text" className="cr-input" value="Việt Nam" disabled />
-                </div>
-
-                <div className="cr-field">
-                  <label>Thành phố / Tỉnh xuất phát *</label>
-                  <select
-                    className="cr-select"
-                    value={originCity}
-                    onChange={(e) => setOriginCity(e.target.value)}
-                  >
-                    {VN_CITIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="cr-field">
-                  <label>Quốc gia đến * (Chỉ hỗ trợ VN và Nhật Bản)</label>
-                  <select
-                    className="cr-select"
-                    value={destinationCountry}
-                    onChange={(e) => handleDestinationCountryChange(e.target.value as any)}
-                  >
-                    <option value="Nhật Bản">Nhật Bản (Quốc tế VN ➔ JP)</option>
-                    <option value="Việt Nam">Việt Nam (Nội địa VN ➔ VN)</option>
-                  </select>
-                </div>
-
-                <div className="cr-field">
-                  <label>Thành phố đến *</label>
-                  <select
-                    className="cr-select"
-                    value={destinationCity}
-                    onChange={(e) => setDestinationCity(e.target.value)}
-                  >
-                    {(destinationCountry === 'Nhật Bản' ? JP_CITIES : VN_CITIES).map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="cr-field">
-                  <label>Phương thức vận chuyển *</label>
-                  <select
-                    className="cr-select"
-                    value={transportType}
-                    onChange={(e) => setTransportType(e.target.value as any)}
-                  >
-                    {isInternational ? (
-                      <option value="Hàng không">Hàng không (Air Stall vận tải chuyên dụng)</option>
-                    ) : (
-                      <>
-                        <option value="Đường bộ">Đường bộ (Equine Truck chuyên dụng)</option>
-                        <option value="Hàng không">Hàng không (Air Stall nội địa)</option>
-                      </>
-                    )}
-                  </select>
-                </div>
-
-                <div className="cr-field">
-                  <label>Ngày xuất phát dự kiến *</label>
-                  <input
-                    type="date"
-                    className="cr-input"
-                    value={expectedDate}
-                    onChange={(e) => setExpectedDate(e.target.value)}
-                  />
-                </div>
-
-                <div className="cr-field cr-col-span-2">
-                  <label>Hạn chót bàn giao cam kết (Committed Delivery Deadline) *</label>
-                  <input
-                    type="date"
-                    className="cr-input"
-                    value={committedDeadline}
-                    onChange={(e) => setCommittedDeadline(e.target.value)}
-                  />
-                  <small className="cr-hint">
-                    Hạn chót tính chỉ số On-Time Delivery (OTD). Mọi giấy tờ thú y phải có hiệu lực qua mốc thời gian này.
-                  </small>
-                </div>
-              </div>
-
-              {/* Estimate banner */}
-              <div className="cr-estimate-banner">
-                <div>
-                  <strong>Bảng dự toán sơ bộ tham khảo:</strong>
-                  <p>
-                    {isInternational ? 'Chặng Quốc tế Việt Nam ➔ Nhật Bản' : 'Chặng Nội địa Việt Nam'} • {selectedHorseIds.length} ngựa
-                  </p>
-                </div>
-                <div className="cr-estimate-numbers">
-                  <span className="cr-total-price">${estimatedTotal.toLocaleString()} USD</span>
-                  <small>Cọc dự kiến 30%: ${estimatedDeposit.toLocaleString()} USD</small>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 2: Addresses & Designated Receiver */}
-          {step === 2 && (
-            <div className="cr-form-section">
-              <h3 className="cr-section-title">Địa điểm Giao Nhận & Người Nhận Chỉ Định</h3>
-              <p className="cr-section-sub">
-                Người nhận có thể là người khác khách hàng và sẽ xác nhận nhận bàn giao ngựa bằng mã OTP gửi về Email đã đăng ký.
-              </p>
-
-              <div className="cr-grid-2">
-                <div className="cr-field cr-col-span-2">
-                  <label>Địa chỉ lấy ngựa cụ thể (Trại / CLB xuất phát) *</label>
-                  <input
-                    type="text"
-                    className="cr-input"
-                    value={pickupAddress}
-                    onChange={(e) => setPickupAddress(e.target.value)}
-                    placeholder="VD: Trường đua Đại Nam, Bình Dương"
-                  />
-                </div>
-
-                <div className="cr-field cr-col-span-2">
-                  <label>Địa chỉ giao ngựa cụ thể (Trường đua / Chuồng đích đến) *</label>
-                  <input
-                    type="text"
-                    className="cr-input"
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    placeholder="VD: Tokyo Racecourse, Fuchu, Tokyo"
-                  />
-                </div>
-
-                <div className="cr-field">
-                  <label>Họ và tên Người nhận chỉ định *</label>
-                  <input
-                    type="text"
-                    className="cr-input"
-                    value={receiverName}
-                    onChange={(e) => setReceiverName(e.target.value)}
-                    placeholder="VD: Kenji Takahashi"
-                  />
-                </div>
-
-                <div className="cr-field">
-                  <label>Số điện thoại người nhận *</label>
-                  <input
-                    type="tel"
-                    className="cr-input"
-                    value={receiverPhone}
-                    onChange={(e) => setReceiverPhone(e.target.value)}
-                    placeholder="VD: +81-90-1234-5678"
-                  />
-                </div>
-
-                <div className="cr-field cr-col-span-2">
-                  <label>Email người nhận chỉ định * (Để nhận OTP ký nhận bàn giao)</label>
-                  <input
-                    type="email"
-                    className="cr-input"
-                    value={receiverEmail}
-                    onChange={(e) => setReceiverEmail(e.target.value)}
-                    placeholder="VD: receiver@example.com"
-                  />
-                  <small className="cr-hint">
-                    Quan trọng: Mã OTP bàn giao hoàn tất Trip sẽ được gửi trực tiếp vào email này khi tới điểm giao cuối.
-                  </small>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: Horse Selection */}
-          {step === 3 && (
-            <div className="cr-form-section">
-              <h3 className="cr-section-title">Chọn Ngựa Đua Vận Chuyển</h3>
-              <p className="cr-section-sub">
-                Chọn các cá thể ngựa của bạn tham gia chuyến vận chuyển. Mỗi ngựa phải có mã vi mạch ISO và hộ chiếu FEI.
-              </p>
-
-              <div className="cr-horses-list">
-                {availableHorses.map((horse) => {
-                  const isSelected = selectedHorseIds.includes(horse.id);
-                  const isBusy = horse.status === 'InTransit';
-                  return (
-                    <div
-                      key={horse.id}
-                      className={`cr-horse-item ${isSelected ? 'selected' : ''} ${isBusy ? 'disabled' : ''}`}
-                      onClick={() => !isBusy && toggleHorseSelection(horse.id)}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        disabled={isBusy}
-                        readOnly
-                        className="cr-horse-checkbox"
-                      />
-                      <div className="cr-horse-info">
-                        <div className="cr-horse-name">
-                          <strong>{horse.name}</strong>
-                          <span className="cr-horse-breed">({horse.breed} • {horse.gender})</span>
-                          <span className={`cr-horse-badge ${isBusy ? 'busy' : 'ready'}`}>
-                            {isBusy ? 'Đang bận chuyến khác' : 'Sẵn sàng'}
-                          </span>
-                        </div>
-                        <div className="cr-horse-meta">
-                          <span>Vi mạch ISO: <b>{horse.microchipIso}</b></span>
-                          <span>Hộ chiếu FEI: <b>{horse.feiPassportNo}</b></span>
-                          <span>Cân nặng: {horse.weightKg} kg</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="cr-field cr-mt-4">
-                <label>Ghi chú chăm sóc đặc biệt (Dinh dưỡng, thú y, thói quen trên đường)</label>
-                <textarea
-                  className="cr-textarea"
-                  rows={3}
-                  value={specialCareNotes}
-                  onChange={(e) => setSpecialCareNotes(e.target.value)}
-                  placeholder="Ghi rõ yêu cầu cỏ, nước uống, bổ sung thuốc hoặc tính khí của ngựa..."
-                />
-              </div>
-            </div>
-          )}
-
-          {/* STEP 4: Baseline Documents & Commercial Valuation */}
-          {step === 4 && (
-            <div className="cr-form-section">
-              <h3 className="cr-section-title">Hồ Sơ Baseline & Định Giá Thương Mại</h3>
-              <p className="cr-section-sub">
-                Thu thập hồ sơ baseline theo checklist bắt buộc của tuyến trước khi submit.
-                Không tự biến mọi giấy tờ thành bắt buộc cho mọi tuyến.
-              </p>
-
-              <div className="cr-field">
-                <label>Tổng định giá thương mại các cá thể ngựa (USD) *</label>
-                <input
-                  type="number"
-                  className="cr-input"
-                  value={commercialValueUsd}
-                  onChange={(e) => setCommercialValueUsd(Number(e.target.value))}
-                  min={1000}
-                />
-                <small className="cr-hint">
-                  Dùng làm cơ sở tính bảo hiểm hàng hải/hàng không và thủ tục khai báo hải quan.
-                </small>
-              </div>
-
-              <div className="cr-checklist-card">
-                <h4>Checklist hồ sơ baseline áp dụng cho tuyến: {destinationCountry === 'Nhật Bản' ? 'Quốc tế (VN ➔ JP)' : 'Nội địa (VN ➔ VN)'}</h4>
-                <ul className="cr-checklist">
-                  {isInternational ? (
-                    <>
-                      <li>
-                        <span className="cr-check-icon">✓</span>
-                        <div>
-                          <strong>Hộ chiếu FEI (FEI Passport) hợp lệ</strong>
-                          <p>Bắt buộc cho từng cá thể ngựa xuất khẩu đi Nhật Bản.</p>
-                        </div>
-                        <span className="cr-doc-status">Đã tải lên hệ thống</span>
-                      </li>
-                      <li>
-                        <span className="cr-check-icon">✓</span>
-                        <div>
-                          <strong>Giấy chứng nhận kiểm dịch xuất khẩu (Export Health Certificate)</strong>
-                          <p>Do Cục Thú y cấp trước ngày khởi hành.</p>
-                        </div>
-                        <span className="cr-doc-status">Đã tải lên hệ thống</span>
-                      </li>
-                      <li>
-                        <span className="cr-check-icon">✓</span>
-                        <div>
-                          <strong>Kết quả xét nghiệm Coggins (EIA Test) âm tính</strong>
-                          <p>Có giá trị trong vòng 30 ngày trước khi bay.</p>
-                        </div>
-                        <span className="cr-doc-status">Đã tải lên hệ thống</span>
-                      </li>
-                    </>
-                  ) : (
-                    <li>
-                      <span className="cr-check-icon">✓</span>
-                      <div>
-                        <strong>Giấy chứng nhận kiểm dịch động vật nội địa</strong>
-                        <p>Áp dụng cho vận chuyển liên tỉnh trong nước Việt Nam.</p>
-                      </div>
-                      <span className="cr-doc-status">Đã tải lên hệ thống</span>
-                    </li>
-                  )}
-                </ul>
-              </div>
-
-              <div className="cr-summary-review">
-                <h4>Xác nhận tóm tắt yêu cầu vận chuyển:</h4>
-                <div className="cr-summary-grid">
-                  <div>Tuyến: <b>{originCity} (VN) ➔ {destinationCity} ({destinationCountry})</b></div>
-                  <div>Phương thức: <b>{transportType}</b></div>
-                  <div>Khởi hành: <b>{expectedDate}</b> | Hạn bàn giao: <b>{committedDeadline}</b></div>
-                  <div>Người nhận: <b>{receiverName}</b> ({receiverEmail} - {receiverPhone})</div>
-                  <div>Số ngựa: <b>{selectedHorseIds.length}</b> cá thể</div>
-                  <div>Dự toán sơ bộ: <b>${estimatedTotal.toLocaleString()} USD</b></div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Footer Controls */}
-          <div className="cr-footer-actions">
-            {step > 1 && (
-              <button
-                type="button"
-                className="cr-btn cr-btn-secondary"
-                onClick={() => setStep((s) => (s - 1) as any)}
-              >
-                Quay lại Bước {step - 1}
-              </button>
-            )}
-
-            {step < 4 ? (
-              <button type="button" className="cr-btn cr-btn-primary" onClick={handleNextStep}>
-                Tiếp tục Bước {step + 1} ➔
-              </button>
-            ) : (
-              <button type="button" className="cr-btn cr-btn-success" onClick={handleSubmit}>
-                Gửi Yêu Cầu Cho Logistics Manager Xét Duyệt
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </CustomerLayout>
-  );
+  const saveRequest = (status: 'Draft' | 'Pending') => customerMockStore.createRequest({
+    originCity: origin, originCountry: 'Việt Nam', destinationCity: destination, destinationCountry: international ? 'Nhật Bản' : 'Việt Nam',
+    transportType: international ? 'Hàng không' : 'Đường bộ', expectedDate: date, committedDeadline: editId ? customerMockStore.getRequestById(editId)?.committedDeadline || '' : '',
+    pickupAddress: pickup.address, deliveryAddress: delivery.address, pickup, delivery,
+    receiverName: delivery.contact, receiverPhone: delivery.phone, receiverEmail: editId ? customerMockStore.getRequestById(editId)?.receiverEmail || '' : '', requestedHorseCount: count, horseSlots: slots,
+    horseIds: slots.filter(Boolean), horseNotes, specialCareNotes: slots.filter(id => horseNotes[id]).map(id => `${horses.find(h => h.id === id)?.name}: ${horseNotes[id]}`).join('\n'),
+    commercialValueUsd: slots.reduce((sum, id) => {
+      const d = horses.find(h => h.id === id)?.dossier;
+      return sum + (d?.currency === 'USD' ? d.value || 0 : 0);
+    }, 0), documents: requestDocuments(), status,
+  }, draftId);
+  const next = () => {
+    const issue = validate(step);
+    if (issue) { setError(issue); return; }
+    try {
+      if (!editId || customerMockStore.getRequestById(editId)?.status === 'Draft') setDraftId(saveRequest('Draft').id);
+      setStep(step + 1); setMaxStep(Math.max(maxStep, step + 1)); setError('');
+    } catch (err) { setError(err instanceof Error ? err.message : 'Không lưu được bản nháp.'); }
+  };
+  const submit = () => {
+    if (saving) return;
+    for (let s = 0; s < 3; s++) {
+      const issue = validate(s);
+      if (issue) { setStep(s); setError(issue); return; }
+    }
+    setSaving(true);
+    try {
+      const r = saveRequest('Pending');
+      sessionStorage.removeItem('preliminaryQuote'); navigate(`/customer/requests/${r.id}`);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Không gửi được yêu cầu.'); setSaving(false); }
+  };
+  const changeStep = (s: number) => { setStep(s); setError(''); setHorseForm(null); };
+  const placeBlock = (title: string, place: TransportPlace, update: (p: TransportPlace) => void, prefix: string) => <div className="card form-card">
+    <h3 className="card-title">{title}</h3><div className="form-grid">
+      {([['name', 'Tên trại / chuồng *'], ['contact', 'Người liên hệ *'], ['address', 'Địa chỉ *'], ['postal', 'Mã bưu chính'], ['phone', 'Số điện thoại *'], ['notes', 'Hướng dẫn bổ sung']] as const).map(([key, label]) => <ReferenceField key={key} label={label} full={['address', 'notes'].includes(key)}>
+        {key === 'notes' ? <textarea aria-label={`${prefix} — ${label}`} value={place[key]} onChange={e => update({ ...place, [key]: e.target.value })} /> : <input aria-label={`${prefix} — ${label}`} type={key === 'phone' ? 'tel' : 'text'} value={place[key]} onChange={e => update({ ...place, [key]: e.target.value })} />}
+      </ReferenceField>)}
+    </div></div>;
+  const canEditHorse = selected && !customerMockStore.getRequests().some(r => r.id !== draftId && r.horseIds.includes(selected.id) && !['Draft', 'Changes Requested', 'Rejected', 'Cancelled', 'Closed'].includes(r.status));
+  const readRow = (name: string, note: string, editable = false) => <div className="doc-row"><div className="top"><b>{name}</b><span className="pill draft">Thông tin hồ sơ</span>{editable && canEditHorse && <button className="btn ghost sm" onClick={() => setHorseForm('edit')}>Sửa thông tin</button>}</div><div className="meta">{note}</div></div>;
+  const documentReview = (horseId?: string) => (horseId ? HORSE_FILES : sharedKeys).map(([key, name]) => <div className="doc-row" key={key}><div className="top"><b>{name}</b><span className="pill draft">{fileFor(key, horseId) ? 'Đã gửi · Chờ duyệt' : 'Chưa tải lên'}</span>{fileFor(key, horseId) && <a className="btn ghost sm" href={fileFor(key, horseId)!.url} target="_blank" rel="noreferrer">Xem tệp</a>}</div><div className="meta">{fileFor(key, horseId)?.name || 'Chưa nộp tệp'}</div></div>);
+  const footer = <div className="form-actions"><button className="btn ghost lg" onClick={() => step ? changeStep(step - 1) : navigate('/customer/requests')}>{step ? 'Quay lại' : 'Hủy'}</button>
+    {step < 3 ? <button className="btn solid lg" disabled={step === 0 && !!validate(0)} onClick={next}>Lưu & tiếp tục</button> : <button className="btn solid lg" disabled={saving} onClick={submit}>{saving ? 'Đang gửi…' : 'Gửi yêu cầu để xét duyệt'}</button>}
+  </div>;
+  return <CustomerLayout pageTitle="Yêu cầu vận chuyển"><div className="customer-html-reference"><div className={`view${step === 0 ? ' narrow' : ''}`}>
+    <button className="link back" onClick={() => navigate('/customer/requests')}>← Quay lại danh sách yêu cầu</button>
+    <h2 className="page-title">{editId ? `Sửa yêu cầu vận chuyển ${editId}` : 'Tạo yêu cầu vận chuyển'}</h2>
+    <p className="subtitle">{step === 0 ? 'Bước 1/4: Thông tin chuyến đi. Tiếp theo là điểm nhận/giao, ngựa & hồ sơ, và xác nhận gửi Manager xét duyệt.' : `${draftId || ''} • ${origin}, VN → ${destination}, ${international ? 'JP' : 'VN'} • ${count} ngựa`}</p>
+    <div className="stepper wiz" aria-label="Các bước tạo yêu cầu">{STEPS.map((name, i) => <button key={name} type="button" disabled={i > maxStep || !!horseForm} aria-current={step === i ? 'step' : undefined} className={`step ${i < step ? 'done' : i === step ? 'current' : ''} ${i <= maxStep ? 'reachable' : ''}`} onClick={() => changeStep(i)}><div className="num">{i < step ? <ReferenceIcon name="check" /> : i + 1}</div>{name}</button>)}</div>
+    {error && <div className="note red" role="alert">{error}</div>}
+    {step === 0 && <div className="card form-card"><h3 className="card-title">Thông tin chuyến đi</h3><div className="form-grid">
+      <ReferenceField label="Điểm đi"><select value={origin} onChange={e => setOrigin(e.target.value)}><option value="">Chọn thành phố</option>{VN_CITIES.map(c => <option key={c} value={c}>{c}, VN</option>)}</select></ReferenceField>
+      <ReferenceField label="Điểm đến"><select value={destination} onChange={e => setDestination(e.target.value)}><option value="">Chọn thành phố</option>{DESTINATIONS.map(c => <option key={c} value={c}>{c}, {c === 'Tokyo' ? 'JP' : 'VN'}</option>)}</select></ReferenceField>
+      <ReferenceField label="Ngày vận chuyển mong muốn"><input type="date" min={todayLocal()} value={date} onChange={e => setDate(e.target.value)} /></ReferenceField>
+      <ReferenceField label="Số lượng ngựa"><select value={count} onChange={e => { const n = Number(e.target.value); setCount(n); setSlots(prev => Array.from({ length: n }, (_, i) => prev[i] || '')); setSlot(0); }}>{[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n} ngựa</option>)}</select></ReferenceField>
+    </div>
+    {validate(0) ? <div className="note grey" style={{ marginTop: 20 }}><ReferenceIcon name="info" /><div><b>Dự toán sơ bộ</b>{origin && origin === destination ? 'Điểm đi và điểm đến phải khác nhau.' : date && date < todayLocal() ? 'Ngày vận chuyển mong muốn không được trong quá khứ.' : 'Nhập điểm đi, điểm đến, ngày và số lượng ngựa để xem dự toán.'}</div></div> : <>
+      <div className="quote-box"><div className="eyebrow" style={{ marginBottom: 16 }}><span className="est-tag">Dự toán sơ bộ</span> Chỉ tham khảo, chưa phải giá chính thức</div><div className="kv-grid"><div><div className="label">Tuyến</div><div className="value">{origin}, VN <span className="arrow">→</span> {destination}, {international ? 'JP' : 'VN'}</div></div><div><div className="label">Ngày vận chuyển mong muốn</div><div className="value">{date}</div></div><div><div className="label">Số lượng ngựa</div><div className="value">{count}</div></div></div><div className="cost"><div className="eyebrow">Chi phí vận chuyển ước tính</div><p style={{ marginTop: 8 }}><strong>{estimate.toLocaleString()}</strong><small>USD</small></p></div></div>
+      <div className="note yellow" style={{ marginTop: 12 }}><ReferenceIcon name="info" /><div>Đây là báo giá ước tính ban đầu. Giá hợp đồng cuối cùng sẽ được CBN Transport xác nhận sau khi xem xét yêu cầu của bạn.</div></div>
+    </>}{footer}</div>}
+    {step === 1 && <>{placeBlock(`Thông tin nhận ngựa — ${origin}`, pickup, setPickup, 'Điểm nhận')}{placeBlock(`Thông tin giao ngựa — ${destination}`, delivery, setDelivery, 'Điểm giao')}{footer}</>}
+    {step === 2 && <div className="card form-card cbn-request-horse-docs" style={{ marginTop: 0 }}>
+      <div className="cbn-doc-section-head"><div><span className="eyebrow">01 · Hồ sơ dùng chung</span><h3 className="card-title">Giấy tờ chung của đơn vận chuyển</h3><p className="subtitle">Chỉ khai báo một lần cho toàn bộ Request; ATA Carnet hiển thị với tuyến Việt Nam → Nhật Bản khi áp dụng.</p></div></div>
+      {sharedKeys.map(([key, name]) => <ProfileFileField documentRow key={key} label={name} value={fileFor(key)} onChange={f => putFile(key, name, f)} />)}
+      <div className="cbn-doc-section-head cbn-doc-horse-divider"><div><span className="eyebrow">02 · Theo từng ngựa</span><h3 className="card-title">Danh sách ngựa & hồ sơ</h3><p className="subtitle">Chọn ngựa từ “Ngựa của tôi” hoặc thêm ngựa mới. Mỗi hồ sơ được nhập và kiểm tra tại đây, không có bước giấy tờ lặp lại.</p></div><span className="cbn-horse-count">{slots.filter(Boolean).length}/{count} ngựa</span></div>
+      <div className="hchips" aria-label="Danh sách ngựa trong yêu cầu">{slots.map((id, i) => <button key={i} disabled={!!horseForm} className={`hchip ${id ? 'done' : ''} ${slot === i ? 'active' : ''}`} onClick={() => setSlot(i)}>{id && <ReferenceIcon name="check" />}{horses.find(h => h.id === id)?.name || `Ngựa ${i + 1}`}</button>)}</div>
+      {selected && <div className="btn-row" style={{ margin: '10px 0' }}><button className="btn ghost sm" onClick={() => { setSlots(prev => prev.map((id, i) => i === slot ? '' : id)); setHorseForm(null); }}>Bỏ {selected.name} khỏi Request</button></div>}
+      <div className="seg"><button className={!horseForm ? 'active' : ''} onClick={() => setHorseForm(null)}>Chọn ngựa đã lưu</button><button className={horseForm === 'new' ? 'active' : ''} onClick={() => setHorseForm('new')}>Thêm ngựa mới</button></div>
+      <div className="cbn-horse-slot">{horseForm ? <div className="cbn-horse-new-form"><HorseProfileForm key={`${slot}-${horseForm}`} initial={horseForm === 'edit' ? selected : undefined} existingHorses={horses} onCancel={() => setHorseForm(null)} onSave={data => {
+        const saved = horseForm === 'edit' && selected ? customerMockStore.updateHorse(selected.id, data) : customerMockStore.addHorse(data);
+        if (!saved) throw new Error('Không lưu được hồ sơ.');
+        setDocuments(prev => prev.filter(d => !(d.horseId === saved.id && !d.fileUrl)));
+        setHorses(customerMockStore.getHorses()); setSlots(prev => prev.map((id, i) => i === slot ? saved.id : id)); setHorseForm(null); setError('');
+      }} /></div> : <div className="cbn-horse-picker">{horses.length === 0 && <p className="subtitle">Bạn chưa có ngựa. Chọn Thêm ngựa mới để khai báo.</p>}{horses.map(h => {
+        const taken = slots.some((id, i) => id === h.id && i !== slot), busy = h.status === 'InTransit';
+        return <label key={h.id} className={`pick ${selected?.id === h.id ? 'selected' : ''} ${taken || busy ? 'disabled' : ''}`}><input type="radio" name="horse-pick" checked={selected?.id === h.id} disabled={taken || busy} onChange={() => { setSlots(prev => prev.map((id, i) => i === slot ? h.id : id)); setError(''); }} /><span className="thumb">{h.photoUrl && <img src={h.photoUrl} alt="" />}</span><div className="doc-text"><b>{h.name}</b><span>{h.breed} · {h.microchipIso || 'Chưa có Microchip'}{taken ? ' · Đã chọn trong đơn này' : busy ? ' · Đang vận chuyển' : ''}</span></div><span className="pill draft">{busy ? 'Đang vận chuyển' : 'Hồ sơ đã lưu'}</span></label>;
+      })}</div>}</div>
+      {selected && !horseForm && <div className="cbn-horse-doc-profile"><div className="cbn-doc-profile-heading"><b>{selected.name}</b><span>{selected.microchipIso || selected.id}</span></div><p className="subtitle">Thông tin định danh, hộ chiếu, sở hữu, thương mại và y tế được lấy từ “Ngựa của tôi”. Có thể sửa thông tin hoặc tải tệp ngay bên dưới.</p>
+        {HORSE_FILES.map(([key, name]) => <ProfileFileField documentRow key={key} label={name} value={fileFor(key, selected.id)} onChange={f => putFile(key, name, f, selected.id)} />)}
+        {readRow('Thông tin sinh học', `Giống: ${selected.breed || '—'} • Giới tính: ${selected.dossier?.sex || selected.gender} • Sinh: ${selected.dob || '—'} • Microchip: ${selected.microchipIso || '—'} • Số hộ chiếu: ${selected.feiPassportNo || '—'}`, true)}
+        {readRow('Giá trị thương mại', `Giá trị: ${selected.dossier?.value ?? '—'} ${selected.dossier?.currency || 'USD'}`, true)}
+        {readRow('Ghi chú sức khỏe đặc biệt', selected.dossier?.conditions || 'Không khai báo tình trạng đặc biệt.', true)}
+        {readRow('Bác sĩ thú y riêng', `Tên: ${selected.dossier?.vetName || '—'} • SĐT: ${selected.dossier?.vetPhone || '—'}`, true)}
+      </div>}
+      {selected && !horseForm && <div className="form-grid cbn-horse-care"><ReferenceField full label="Yêu cầu chăm sóc riêng cho ngựa trong chuyến (không bắt buộc)"><textarea value={horseNotes[selected.id] || ''} onChange={e => setHorseNotes({ ...horseNotes, [selected.id]: e.target.value })} placeholder="Lịch ăn, chăm sóc, xử lý đặc biệt khi vận chuyển..." /></ReferenceField></div>}
+      {!horseForm && footer}
+    </div>}
+    {step === 3 && <>
+      <div className="card review-section"><div className="between"><h3 className="card-title">Thông tin chuyến đi</h3><button className="link" onClick={() => changeStep(0)}>Sửa</button></div><div className="kv-grid"><div><div className="label">Tuyến</div><div className="value">{origin}, VN → {destination}, {international ? 'JP' : 'VN'}</div></div><div><div className="label">Ngày vận chuyển mong muốn</div><div className="value">{date}</div></div><div><div className="label">Số lượng ngựa</div><div className="value">{count}</div></div></div><p className="hint">Dự toán sơ bộ (tham khảo): {estimate.toLocaleString()} USD. Giá chính thức được ghi trong hợp đồng nháp sau khi Manager chấp nhận yêu cầu.</p></div>
+      <div className="card review-section"><div className="between"><h3 className="card-title">Nhận & giao ngựa</h3><button className="link" onClick={() => changeStep(1)}>Sửa</button></div><div className="two">{[pickup, delivery].map((p, i) => <div key={i}><div className="eyebrow">{i ? 'Điểm giao' : 'Điểm nhận'}</div><div className="lines"><b>{p.name}</b><br />{p.address}{p.postal ? `, ${p.postal}` : ''}<br />{p.contact} • {p.phone}{p.notes && <><br />Ghi chú: {p.notes}</>}</div></div>)}</div></div>
+      <div className="card review-section"><div className="between"><h3 className="card-title">Ngựa & hồ sơ</h3><button className="link" onClick={() => changeStep(2)}>Sửa</button></div><p className="subtitle">Giấy tờ chung được trình bày trước hồ sơ từng ngựa. Mỗi tài liệu có trạng thái độc lập; tải lên không đồng nghĩa đã được duyệt.</p><div className="doc-group-title">Giấy tờ chung của đơn vận chuyển</div>{documentReview()}{slots.map(id => <div key={id}><div className="eyebrow" style={{ margin: '14px 0 6px' }}>{horses.find(h => h.id === id)?.name} • {id}</div>{documentReview(id)}</div>)}</div>
+      {slots.some(id => horseNotes[id]) && <div className="card review-section"><div className="between"><h3 className="card-title">Yêu cầu chăm sóc riêng</h3><button className="link" onClick={() => changeStep(2)}>Sửa</button></div><div className="lines">{slots.filter(id => horseNotes[id]).map(id => <p key={id}><b>{horses.find(h => h.id === id)?.name}:</b> {horseNotes[id]}</p>)}</div></div>}
+      {footer}
+    </>}
+  </div></div></CustomerLayout>;
 };

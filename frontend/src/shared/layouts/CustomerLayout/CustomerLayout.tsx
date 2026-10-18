@@ -111,6 +111,7 @@ function CustomerLayout({
             </svg>
             <span>Lịch sử</span>
           </NavLink>
+
         </nav>
       </aside>
 

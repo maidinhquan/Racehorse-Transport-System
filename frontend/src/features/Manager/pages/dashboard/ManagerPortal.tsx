@@ -58,8 +58,58 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
     }
   }, [location.pathname]);
 
-  // Global Mock States
-  const [requests, setRequests] = useState<TransportRequestItem[]>(INITIAL_REQUESTS);
+  // Global Mock States & Real-time Sync with Customer
+  const loadMergedRequests = (): TransportRequestItem[] => {
+    let customManagerList: TransportRequestItem[] = [];
+    try {
+      customManagerList = JSON.parse(localStorage.getItem('cbn_custom_manager_requests') || '[]');
+    } catch {
+      customManagerList = [];
+    }
+
+    const isJapanSubmitted = localStorage.getItem('cbn_japan_dossier_submitted') === 'true';
+    const japanSubmitTime = localStorage.getItem('cbn_japan_dossier_submitted_at');
+
+    const baseList = INITIAL_REQUESTS.map((r) => {
+      if (isJapanSubmitted && (r.id === 'TRN-8930' || r.destinationCountry === 'JP')) {
+        return {
+          ...r,
+          status: 'PENDING' as const,
+          statusLabel: 'Chờ duyệt • Hồ sơ mới nộp từ Khách hàng',
+          createdAt:
+            'Hôm nay ' +
+            (japanSubmitTime
+              ? new Date(japanSubmitTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+              : '09:15'),
+        };
+      }
+      return r;
+    });
+
+    const customIds = new Set(customManagerList.map((c) => c.id));
+    return [...customManagerList, ...baseList.filter((b) => !customIds.has(b.id))];
+  };
+
+  const [requests, setRequests] = useState<TransportRequestItem[]>(loadMergedRequests);
+
+  useEffect(() => {
+    const handleSync = () => {
+      setRequests(loadMergedRequests());
+    };
+
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('cbn_request_created', handleSync);
+    window.addEventListener('cbn_request_updated', handleSync);
+    const interval = setInterval(handleSync, 1200);
+
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('cbn_request_created', handleSync);
+      window.removeEventListener('cbn_request_updated', handleSync);
+      clearInterval(interval);
+    };
+  }, []);
+
   const [contracts, setContracts] = useState<ContractItem[]>(INITIAL_CONTRACTS);
   const [transactions, setTransactions] = useState<BankTransferTransaction[]>(
     INITIAL_BANK_TRANSACTIONS
@@ -82,6 +132,35 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
     navigate(`/manager/${nav}`);
   };
 
+  // Helper to sync status update back to localStorage
+  const syncStatusToStorages = (requestId: string, newStatus: string, label: string) => {
+    try {
+      const customList = JSON.parse(localStorage.getItem('cbn_custom_manager_requests') || '[]');
+      const updatedCustom = customList.map((item: any) =>
+        item.id === requestId
+          ? { ...item, status: newStatus, statusLabel: label }
+          : item
+      );
+      localStorage.setItem('cbn_custom_manager_requests', JSON.stringify(updatedCustom));
+
+      // Customer storage mapping
+      const custRequests = JSON.parse(localStorage.getItem('cbn_transport_requests') || '[]');
+      let customerStatus = 'Waiting for Manager Review';
+      if (newStatus === 'ACCEPTED') customerStatus = 'Accepted – Contract Preparation';
+      else if (newStatus === 'CHANGES_REQUESTED') customerStatus = 'Changes Requested';
+      else if (newStatus === 'REJECTED') customerStatus = 'Rejected';
+
+      const updatedCust = custRequests.map((cr: any) =>
+        cr.id === requestId ? { ...cr, status: customerStatus } : cr
+      );
+      localStorage.setItem('cbn_transport_requests', JSON.stringify(updatedCust));
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('cbn_request_updated'));
+    } catch (e) {
+      console.error('Lỗi khi đồng bộ trạng thái đơn:', e);
+    }
+  };
+
   // ===================== ACTION HANDLERS =====================
 
   // 1. Accept Request (F01-M02)
@@ -98,6 +177,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
         return r;
       })
     );
+
+    syncStatusToStorages(requestId, 'ACCEPTED', 'Đã chấp nhận – Đang soạn hợp đồng');
 
     // Update alert
     setAlerts((prev) => [
@@ -134,6 +215,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
         return r;
       })
     );
+
+    syncStatusToStorages(requestId, 'CHANGES_REQUESTED', 'Yêu cầu điều chỉnh');
   };
 
   // 3. Reject Request (F01-M03)
@@ -154,6 +237,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
         return r;
       })
     );
+
+    syncStatusToStorages(requestId, 'REJECTED', 'Đã từ chối');
   };
 
   // 4. Save Contract Draft (F01-M15)

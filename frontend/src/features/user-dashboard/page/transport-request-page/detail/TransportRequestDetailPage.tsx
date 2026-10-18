@@ -1,9 +1,9 @@
 import { useNavigate, useParams } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
-import {
-  getRequestById,
-} from "../../../data/transportRequestStorage";
+import RequestFlowStepper from "../components/RequestFlowStepper";
+import { getRequestById } from "../../../data/transportRequestStorage";
+import { useState, useEffect } from "react";
 import {
   transportRequestDetails,
   type DetailRequestStatus,
@@ -26,10 +26,10 @@ function getStatusClass(status: DetailRequestStatus) {
 
     case "Scheduled":
     case "Completed":
+    case "Accepted – Contract Preparation":
       return "detail-status detail-status-green";
 
     case "Contract Ready":
-    case "Accepted – Contract Preparation":
     case "Information Submitted":
     case "Documents Under Review":
       return "detail-status detail-status-blue";
@@ -67,35 +67,28 @@ function getBanner(status: DetailRequestStatus) {
       };
 
     case "Accepted – Contract Preparation":
-      return {
-        type: "blue",
-        title: "Request accepted",
-        message:
-          "CBN Transport is preparing your service contract.",
-      };
-
     case "Contract Ready":
       return {
         type: "blue",
-        title: "Your service contract is ready",
+        title: "Hợp đồng dịch vụ đã sẵn sàng",
         message:
-          "Review and sign the contract to continue.",
+          "Hợp đồng vận chuyển đã được thiết lập. Quý khách vui lòng xác nhận và ký hợp đồng điện tử để tiến hành thanh toán tiền cọc 30%.",
       };
 
     case "Awaiting Deposit":
       return {
-        type: "blue",
-        title: "Contract signed",
+        type: "yellow",
+        title: "Hợp đồng đã ký • Chờ đặt cọc",
         message:
-          "Pay the deposit to continue to transport information.",
+          "Quý khách vui lòng hoàn tất thanh toán tiền cọc 30% qua cổng thanh toán để bắt đầu bước điền thông tin và nộp giấy tờ.",
       };
 
     case "Information Required":
       return {
-        type: "yellow",
-        title: "Transport information required",
+        type: "green",
+        title: "Đã hoàn tất đặt cọc • Bắt đầu điền giấy tờ",
         message:
-          "Provide pickup, delivery, horse and document information.",
+          "Quý khách vui lòng hoàn tất thông tin điểm đón, điểm trả, cá thể ngựa và nộp hồ sơ giấy tờ kiểm dịch y tế.",
       };
 
     case "Documents Under Review":
@@ -154,9 +147,28 @@ function TransportRequestDetailPage() {
   const { requestId } = useParams();
 
   // Dữ liệu cơ bản được lưu trong localStorage
-  const storedRequest = requestId
-    ? getRequestById(requestId)
-    : undefined;
+  const [storedRequest, setStoredRequest] = useState(() =>
+    requestId
+      ? getRequestById(requestId)
+      : undefined
+  );
+
+  useEffect(() => {
+    const handleSync = () => {
+      if (requestId) {
+        setStoredRequest(getRequestById(requestId));
+      }
+    };
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("cbn_request_updated", handleSync);
+    const interval = setInterval(handleSync, 1200);
+
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("cbn_request_updated", handleSync);
+      clearInterval(interval);
+    };
+  }, [requestId]);
 
   // Dữ liệu chi tiết dùng để demo UI
   const detailRequest = transportRequestDetails.find(
@@ -186,7 +198,12 @@ function TransportRequestDetailPage() {
         status:
           storedRequest.status as DetailRequestStatus,
 
-        horses: [],
+        horses: (storedRequest.horses || ["Thunder Strike"]).map((name, idx) => ({
+          id: `HRS-${idx + 1}`,
+          name,
+          breed: "Thoroughbred",
+          sex: "Gelding",
+        })),
 
         documents: [],
 
@@ -194,11 +211,53 @@ function TransportRequestDetailPage() {
           {
             id: 1,
             label: "Request Submitted",
-            status: "current" as const,
+            status: "completed" as const,
+          },
+          {
+            id: 2,
+            label: "Service Contract",
+            status:
+              storedRequest.status === "Contract Ready" ||
+                storedRequest.status === "Accepted – Contract Preparation"
+                ? ("current" as const)
+                : ("completed" as const),
+          },
+          {
+            id: 3,
+            label: "Deposit Payment (30%)",
+            status:
+              storedRequest.status === "Awaiting Deposit"
+                ? ("current" as const)
+                : storedRequest.status === "Information Required" ||
+                  storedRequest.status === "Information Submitted" ||
+                  storedRequest.status === "Documents Under Review" ||
+                  storedRequest.status === "Scheduled" ||
+                  storedRequest.status === "In Transit" ||
+                  storedRequest.status === "Completed"
+                  ? ("completed" as const)
+                  : ("upcoming" as const),
+          },
+          {
+            id: 4,
+            label: "Information & Documents",
+            status:
+              storedRequest.status === "Information Required"
+                ? ("current" as const)
+                : storedRequest.status === "Information Submitted" ||
+                  storedRequest.status === "Documents Under Review" ||
+                  storedRequest.status === "Scheduled" ||
+                  storedRequest.status === "In Transit" ||
+                  storedRequest.status === "Completed"
+                  ? ("completed" as const)
+                  : ("upcoming" as const),
           },
         ],
 
-        contract: undefined,
+        contract: {
+          number: `CT-${storedRequest.id.replace(/\D/g, "")}`,
+          status: storedRequest.contractStatus || "Ready",
+          finalPrice: storedRequest.estimatedPrice,
+        },
 
         pickupWindow: undefined,
 
@@ -229,6 +288,7 @@ function TransportRequestDetailPage() {
 
   const handleCurrentAction = () => {
     switch (request.status) {
+      case "Accepted – Contract Preparation":
       case "Contract Ready":
         navigate(
           `/customer/requests/${request.id}/contract`
@@ -248,8 +308,9 @@ function TransportRequestDetailPage() {
         break;
 
       case "Documents Under Review":
+      case "Information Submitted":
         navigate(
-          `/customer/requests/${request.id}/documents`
+          `/customer/requests/${request.id}/information`
         );
         break;
 
@@ -264,25 +325,22 @@ function TransportRequestDetailPage() {
 
   const getActionLabel = () => {
     switch (request.status) {
+      case "Accepted – Contract Preparation":
       case "Contract Ready":
-        return "View Contract";
+        return "📄 Xác nhận & Ký hợp đồng ➔";
 
       case "Awaiting Deposit":
-        return "Pay Deposit";
+        return "💳 Tiến hành thanh toán tiền cọc (30%) ➔";
 
       case "Information Required":
-        return "Complete Transport Information";
+        return "📝 Điền thông tin & nộp giấy tờ ➔";
 
       case "Documents Under Review":
-        return request.documents.some(
-          (document) =>
-            document.status === "Action Required"
-        )
-          ? "Review Documents"
-          : "";
+      case "Information Submitted":
+        return "🔍 Xem hồ sơ giấy tờ đã nộp";
 
       case "In Transit":
-        return "View Trip Tracking";
+        return "Xem hành trình vận chuyển";
 
       default:
         return "";
@@ -290,6 +348,21 @@ function TransportRequestDetailPage() {
   };
 
   const actionLabel = getActionLabel();
+
+  const getWorkflowStep = (status: DetailRequestStatus): 1 | 2 | 3 => {
+    if (status === "Awaiting Deposit") return 2;
+    if (
+      status === "Information Required" ||
+      status === "Information Submitted" ||
+      status === "Documents Under Review" ||
+      status === "Scheduled" ||
+      status === "In Transit" ||
+      status === "Completed"
+    ) {
+      return 3;
+    }
+    return 1;
+  };
 
   return (
     <CustomerLayout pageTitle="Transport Request">
@@ -329,23 +402,57 @@ function TransportRequestDetailPage() {
           </div>
         </div>
 
+        {/* Luồng 3 bước: Hợp đồng -> Thanh toán -> Giấy tờ */}
+        <RequestFlowStepper currentStep={getWorkflowStep(request.status)} />
+
         {/* Status banner */}
         <div
           className={`request-banner request-banner-${banner.type}`}
+          style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}
         >
-          <div className="request-banner-icon">
-            i
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div className="request-banner-icon">
+              {banner.type === 'green' ? '✓' : 'i'}
+            </div>
+
+            <div>
+              <strong>
+                {banner.title}
+              </strong>
+
+              <p>
+                {banner.message}
+              </p>
+            </div>
           </div>
 
-          <div>
-            <strong>
-              {banner.title}
-            </strong>
-
-            <p>
-              {banner.message}
-            </p>
-          </div>
+          {actionLabel && (
+            <button
+              type="button"
+              className="request-action-button"
+              style={{
+                width: 'auto',
+                margin: 0,
+                padding: '8px 18px',
+                background:
+                  request.status === "Contract Ready" || request.status === "Accepted – Contract Preparation"
+                    ? "#0284c7"
+                    : request.status === "Awaiting Deposit"
+                      ? "#ea580c"
+                      : "#16a34a",
+                whiteSpace: 'nowrap',
+                fontSize: '13px',
+                fontWeight: 700,
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+              onClick={handleCurrentAction}
+            >
+              {actionLabel}
+            </button>
+          )}
         </div>
 
         {/* Main */}

@@ -13,6 +13,7 @@ import ForgotPasswordPage from "../../features/auth/pages/forgot-password/Forgot
 import ResetPasswordPage from "../../features/auth/pages/reset-password/ResetPasswordPage";
 
 // ==================== CUSTOMER ====================
+import CustomerLayout from "../../shared/layouts/CustomerLayout/CustomerLayout";
 import HomePage from "../../features/user-dashboard/page/home-page/HomePage";
 import MyHorsesPage from "../../features/user-dashboard/page/my-horses/MyHorsesPage";
 import HistoryPage from "../../features/user-dashboard/page/history/HistoryPage";
@@ -39,6 +40,7 @@ import CoordinatorDashboard from "../../features/coordinator/CoordinatorDashboar
 import { DriverPortal } from "../../features/driver/pages/trip-detail/DriverPortal";
 import { HandoverPage } from "../../features/driver/pages/handover/HandoverPage";
 import { LandingPage } from "../../features/landing/LandingPage";
+import { JapanRouteModule } from "../../features/documents/japan-route/JapanRouteModule";
 
 function AppRouter() {
   return (
@@ -107,6 +109,16 @@ function AppRouter() {
         <Route path="/customer/payment/cancel" element={<PaymentCancelPage />} />
         <Route path="/payment/sandbox" element={<SandboxPaymentPage />} />
         <Route path="/payment/return" element={<SandboxPaymentPage />} />
+
+        {/* ==================== JAPAN ROUTE MODULE ==================== */}
+        <Route
+          path="/japan-route"
+          element={
+            <CustomerLayout pageTitle="Hồ sơ Kiểm dịch Tuyến Nhật Bản (AQS MAFF)">
+              <JapanRouteModule hideRoleSwitcher={true} initialRole="customer" />
+            </CustomerLayout>
+          }
+        />
 
         {/* ==================== NOT FOUND ==================== */}
         <Route path="*" element={<Navigate to="/" replace />} />

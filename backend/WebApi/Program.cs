@@ -36,6 +36,11 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 
+// --- [CLOUD UPLOAD INTEGRATED] ---
+// Đăng ký dịch vụ Cloud Storage (Cloudinary) dùng chung cho toàn bộ hệ thống
+// Hỗ trợ upload ảnh (.jpg, .png, .webp) và tài liệu (.pdf) tự động phân loại thư mục
+builder.Services.AddScoped<ICloudStorageService, Infrastructure.ExternalServices.CloudinaryStorageService>();
+
 // =============================================================================
 // 3. CẤU HÌNH CORS VĨNH VIỄN (ZERO-MAINTENANCE CORS CHO FRONTEND)
 // Đảm bảo Frontend chạy bất kỳ port nào (3000, 5173, 5174, 8080...)

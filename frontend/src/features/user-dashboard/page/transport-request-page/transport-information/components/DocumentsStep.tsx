@@ -9,6 +9,8 @@ import type {
   TransportDocument,
 } from "../types/transportInformationTypes";
 
+import { JapanRouteModule } from "../../../../../documents/japan-route/JapanRouteModule";
+
 interface DocumentsStepProps {
   horses: Horse[];
 
@@ -23,6 +25,7 @@ interface DocumentsStepProps {
 
   onBack: () => void;
   onContinue: () => void;
+  isJapanRoute?: boolean;
 }
 
 function DocumentsStep({
@@ -32,6 +35,7 @@ function DocumentsStep({
   onUpload,
   onBack,
   onContinue,
+  isJapanRoute = false,
 }: DocumentsStepProps) {
   const customerDocuments =
     documents.filter(
@@ -201,6 +205,37 @@ function DocumentsStep({
           but confirmation will remain disabled.
         </div>
       )}
+
+      {/* Phân hệ Đặc thù Tuyến Việt Nam -> Nhật Bản */}
+      {isJapanRoute && (() => {
+        const selectedHorseObj =
+          horses.find((h) => selectedHorses.some((s) => s.horseId === h.id)) ||
+          horses[0];
+
+        return (
+          <div style={{ marginTop: "32px", borderTop: "2px dashed #e2e8f0", paddingTop: "24px" }}>
+            <JapanRouteModule
+              hideRoleSwitcher={true}
+              initialRole="customer"
+              initialData={{
+                horseMedicalProfile: selectedHorseObj
+                  ? {
+                      horseName: selectedHorseObj.name,
+                      microchipNumber: selectedHorseObj.microchip || "985141001289456",
+                      microchipLocation: "Bờ trên dây chằng cổ trái (Nuchal ligament)",
+                      breed: selectedHorseObj.breed || "Thoroughbred",
+                      gender: selectedHorseObj.sex === "Male" ? "Gelding" : "Mare",
+                      ageOrYob: `${selectedHorseObj.age} tuổi`,
+                      coatColorMarkings: "Nâu sẫm (Bay), xoáy trán hình thoi",
+                      bodyTemperature: "37.8 °C",
+                      clinicalSigns: "Tỉnh táo, niêm mạc mắt hồng hào, không phát hiện dấu hiệu sốt/bệnh truyền nhiễm",
+                    }
+                  : undefined,
+              }}
+            />
+          </div>
+        );
+      })()}
 
       <div className="transport-info-actions">
         <button

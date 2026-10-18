@@ -381,18 +381,19 @@ class CustomerMockStore {
   public addHorse(horse: Omit<HorseProfile, 'id'>): HorseProfile {
     const newHorse: HorseProfile = {
       ...horse,
-      id: `HOR-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: `HOR-${Math.max(1000, ...this.horses.map(h => Number(h.id.replace('HOR-', '')) || 0)) + 1}`,
     };
     this.horses.push(newHorse);
-    this.saveHorses();
+    try { this.saveHorses(); } catch (error) { this.horses.pop(); throw error; }
     return newHorse;
   }
 
   public updateHorse(id: string, updates: Partial<HorseProfile>): HorseProfile | null {
     const idx = this.horses.findIndex(h => h.id === id);
     if (idx === -1) return null;
-    this.horses[idx] = { ...this.horses[idx], ...updates };
-    this.saveHorses();
+    const previous = this.horses[idx];
+    this.horses[idx] = { ...previous, ...updates, id };
+    try { this.saveHorses(); } catch (error) { this.horses[idx] = previous; throw error; }
     return this.horses[idx];
   }
 
@@ -490,14 +491,24 @@ class CustomerMockStore {
     commercialValueUsd: number;
     specialCareNotes?: string;
     documents?: BaselineDocument[];
-  }): CustomerTransportRequest {
+    pickup?: CustomerTransportRequest['pickup'];
+    delivery?: CustomerTransportRequest['delivery'];
+    horseNotes?: Record<string, string>;
+    requestedHorseCount?: number;
+    horseSlots?: string[];
+    status?: 'Draft' | 'Pending';
+  }, requestId?: string): CustomerTransportRequest {
+    const existing = requestId ? this.getRequestById(requestId) : undefined;
+    if (requestId && (!existing || !['Draft', 'Changes Requested'].includes(existing.status))) {
+      throw new Error('Yêu cầu này không còn được phép chỉnh sửa.');
+    }
     const chosenHorses = this.horses.filter(h => data.horseIds.includes(h.id));
 
     // Default baseline documents if not provided
     const isInternational = data.destinationCountry === 'Nhật Bản';
     const documents: BaselineDocument[] = data.documents || [];
 
-    if (documents.length === 0) {
+    if (!data.documents) {
       if (isInternational) {
         data.horseIds.forEach(hid => {
           documents.push(
@@ -515,9 +526,9 @@ class CustomerMockStore {
       }
     }
 
-    const newId = `TR-2026-0${Math.floor(160 + this.requests.length + Math.random() * 50)}`;
+    const newId = `TR-${new Date().getFullYear()}-${Math.max(1000, ...this.requests.map(r => Number(r.id.split('-').at(-1)) || 0)) + 1}`;
     const newReq: CustomerTransportRequest = {
-      id: newId,
+      id: existing?.id || newId,
       customerId: 'CUS-001',
       customerName: 'Alex Equine',
       customerPhone: '+84 901 234 567',
@@ -531,6 +542,11 @@ class CustomerMockStore {
       committedDeadline: data.committedDeadline,
       pickupAddress: data.pickupAddress,
       deliveryAddress: data.deliveryAddress,
+      pickup: data.pickup,
+      delivery: data.delivery,
+      horseNotes: data.horseNotes,
+      requestedHorseCount: data.requestedHorseCount,
+      horseSlots: data.horseSlots,
       receiverName: data.receiverName,
       receiverPhone: data.receiverPhone,
       receiverEmail: data.receiverEmail,
@@ -539,17 +555,19 @@ class CustomerMockStore {
       commercialValueUsd: data.commercialValueUsd,
       specialCareNotes: data.specialCareNotes,
       documents,
-      status: 'Pending',
-      contractVersions: [],
-      currentVersionNumber: 0,
-      transactions: [],
-      complaints: [],
-      createdAt: new Date().toISOString(),
+      status: data.status || 'Pending',
+      contractVersions: existing?.contractVersions || [],
+      currentVersionNumber: existing?.currentVersionNumber || 0,
+      transactions: existing?.transactions || [],
+      complaints: existing?.complaints || [],
+      createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    this.requests.unshift(newReq);
-    this.saveRequests();
+    const previous = [...this.requests];
+    if (existing) this.requests = this.requests.map(r => r.id === existing.id ? { ...existing, ...newReq } : r);
+    else this.requests.unshift(newReq);
+    try { this.saveRequests(); } catch (error) { this.requests = previous; throw error; }
     return newReq;
   }
 

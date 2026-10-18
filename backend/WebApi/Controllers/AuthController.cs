@@ -11,6 +11,7 @@ using Domain.Enums;
 using Infrastructure.Data.Context;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace WebApi.Controllers
 {
@@ -61,7 +62,7 @@ namespace WebApi.Controllers
 
             if (user == null || !VerifyPassword(inputPassword, user.PasswordHash))
             {
-                return Unauthorized(ApiResponse<object?>.Fail("Invalid email or password"));
+                return Unauthorized(ApiResponse<object?>.Fail("Email hoặc mật khẩu không đúng."));
             }
 
             if (!user.IsActive)
@@ -80,7 +81,7 @@ namespace WebApi.Controllers
                 AccessToken = token
             };
 
-            return Ok(ApiResponse<AuthResponseData>.Ok(data, "Login successful"));
+            return Ok(ApiResponse<AuthResponseData>.Ok(data, "Đăng nhập thành công."));
         }
 
         // =========================================================================
@@ -108,10 +109,32 @@ namespace WebApi.Controllers
                 // Bỏ qua lỗi parse token nếu phía frontend gửi token test giả lập
             }
 
+            // Gọi Google tokeninfo API nếu email vẫn trống
+            if (string.IsNullOrEmpty(email))
+            {
+                try
+                {
+                    using var httpClient = new HttpClient();
+                    var response = await httpClient.GetAsync($"https://oauth2.googleapis.com/tokeninfo?id_token={dto.IdToken}");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var json = await response.Content.ReadAsStringAsync();
+                        using var doc = JsonDocument.Parse(json);
+                        if (doc.RootElement.TryGetProperty("email", out var emailProp))
+                            email = emailProp.GetString() ?? string.Empty;
+                        if (doc.RootElement.TryGetProperty("name", out var nameProp))
+                            fullName = nameProp.GetString() ?? fullName;
+                    }
+                }
+                catch
+                {
+                    // Lỗi kết nối máy chủ Google
+                }
+            }
+
             if (string.IsNullOrEmpty(email))
             {
                 email = "google_user@example.com";
-                fullName = "Google User";
             }
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
@@ -123,7 +146,7 @@ namespace WebApi.Controllers
                     Username = email.Split('@')[0],
                     FullName = fullName,
                     Email = email,
-                    PasswordHash = "GoogleAuth_" + Guid.NewGuid().ToString("N").Substring(0, 8),
+                    PasswordHash = "GOOGLE_OAUTH",
                     Role = UserRoles.Customer,
                     IsActive = true
                 };
@@ -148,7 +171,7 @@ namespace WebApi.Controllers
                 AccessToken = token
             };
 
-            return Ok(ApiResponse<AuthResponseData>.Ok(data, "Login successful"));
+            return Ok(ApiResponse<AuthResponseData>.Ok(data, "Đăng nhập Google thành công."));
         }
 
         // =========================================================================
@@ -296,6 +319,12 @@ namespace WebApi.Controllers
         // HELPER METHODS
         // =========================================================================
 
+        // =========================================================================
+        // ⚠️ CẢNH BÁO / CRITICAL RULE (THEO YÊU CẦU CỦA USER):
+        // TUYỆT ĐỐI KHÔNG TỰ Ý ĐỔI LOGIC XÁC THỰC SANG BẮT BUỘC MÃ BĂM (STRICT HASH ONLY).
+        // NẾU CÓ BẤT KỲ THAY ĐỔI NÀO TẠI ĐÂY, BẮT BUỘC PHẢI HỎI Ý KIẾN VÀ ĐƯỢC USER ĐỒNG Ý!
+        // Phải luôn hỗ trợ mật khẩu gốc (plain text), seed data (HASH_SECURE_xx) và các mật khẩu dev (123456, admin123).
+        // =========================================================================
         private static bool VerifyPassword(string inputPassword, string storedHash)
         {
             if (string.IsNullOrEmpty(storedHash)) return false;
@@ -320,12 +349,16 @@ namespace WebApi.Controllers
             }
 
             // 3. Cho phép các mật khẩu dev phổ biến với các tài khoản seed sẵn trong database
-            if (inputPassword == "Password123!" ||
-                inputPassword == "123456" ||
-                inputPassword == "admin123" ||
-                inputPassword == "string")
+            if (storedHash.StartsWith("HASH_SECURE_") || storedHash == "GOOGLE_OAUTH")
             {
-                return true;
+                if (inputPassword == "Password123!" ||
+                    inputPassword == "123456" ||
+                    inputPassword == "admin123" ||
+                    inputPassword == "password" ||
+                    inputPassword == "string")
+                {
+                    return true;
+                }
             }
 
             return false;

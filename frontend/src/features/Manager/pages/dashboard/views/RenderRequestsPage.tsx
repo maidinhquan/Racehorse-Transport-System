@@ -3,6 +3,7 @@ import type {
   TransportRequestItem,
   ManagerNav,
 } from './manager.types';
+import { JapanRouteModule } from '../../../../documents/japan-route/JapanRouteModule';
 
 interface RenderRequestsPageProps {
   requests: TransportRequestItem[];
@@ -376,24 +377,34 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                     <span className="kv-val font-semibold">{selectedRequest.customerName}</span>
                   </div>
                   <div className="info-kv-row">
-                    <span className="kv-label">Đại diện liên hệ:</span>
-                    <span className="kv-val">{selectedRequest.contactPerson}</span>
+                    <span className="kv-label">Điểm đón (Pick-up):</span>
+                    <span className="kv-val font-medium text-slate-800">{selectedRequest.pickupAddress || 'Trại ngựa xuất phát'}</span>
                   </div>
                   <div className="info-kv-row">
-                    <span className="kv-label">Số điện thoại:</span>
-                    <span className="kv-val">{selectedRequest.phone}</span>
+                    <span className="kv-label">Điểm giao (Delivery):</span>
+                    <span className="kv-val font-medium text-slate-800">{selectedRequest.deliveryAddress || 'Điểm đến đích'}</span>
                   </div>
                   <div className="info-kv-row">
-                    <span className="kv-label">Email:</span>
-                    <span className="kv-val">{selectedRequest.email}</span>
+                    <span className="kv-label">Người nhận & SĐT:</span>
+                    <span className="kv-val font-semibold text-primary">
+                      {selectedRequest.receiverName || selectedRequest.contactPerson} ({selectedRequest.receiverPhone || selectedRequest.phone})
+                    </span>
                   </div>
+                  {selectedRequest.commercialValue ? (
+                    <div className="info-kv-row">
+                      <span className="kv-label">Định giá thương mại:</span>
+                      <span className="kv-val font-semibold text-emerald-700">
+                        ${Number(selectedRequest.commercialValue).toLocaleString()} USD
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
               {/* Special requirements */}
               {selectedRequest.specialRequirements && (
                 <div className="special-req-box">
-                  <span className="font-semibold text-amber-800">📌 Ghi chú & Yêu cầu riêng của khách: </span>
+                  <span className="font-semibold text-amber-800">📌 Chi tiết & Ghi chú từ khách hàng: </span>
                   <span className="text-slate-700">{selectedRequest.specialRequirements}</span>
                 </div>
               )}
@@ -458,6 +469,64 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                   </table>
                 </div>
               </div>
+
+              {/* PHÂN HỆ XỬ LÝ HỒ SƠ QUỐC TẾ DÀNH CHO NHÂN VIÊN */}
+              {(selectedRequest.destinationCountry === 'JP' ||
+                selectedRequest.routeDisplay.toLowerCase().includes('tokyo') ||
+                selectedRequest.routeDisplay.toLowerCase().includes('nhật') ||
+                selectedRequest.id.includes('JP')) && (
+                <div className="detail-section" style={{ marginTop: '24px', borderTop: '2px dashed #94a3b8', paddingTop: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <h3 className="section-label" style={{ margin: 0, color: '#1e3a8a', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', fontWeight: 800 }}>
+                      <span>👨‍💼 🇯🇵</span> Phân Hệ Nhân Viên: Hoàn Tất Hồ Sơ & Kiểm Dịch Tuyến Nhật Bản (AQS MAFF)
+                    </h3>
+                    <span style={{ fontSize: '12px', background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0', padding: '6px 12px', borderRadius: '16px', fontWeight: 700 }}>
+                      ✓ Đã Tiếp Nhận Dữ Liệu Khách Hàng
+                    </span>
+                  </div>
+                  <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '12px', padding: '16px' }}>
+                    <JapanRouteModule
+                      hideRoleSwitcher={true}
+                      initialRole="staff"
+                      initialData={{
+                        horseMedicalProfile: selectedRequest.horses[0] ? {
+                          horseName: selectedRequest.horses[0].name,
+                          microchipNumber: selectedRequest.horses[0].microchipId,
+                          microchipLocation: 'Bờ trên dây chằng cổ trái (Nuchal ligament)',
+                          breed: selectedRequest.horses[0].breed,
+                          gender: 'Gelding',
+                          ageOrYob: `${selectedRequest.horses[0].age} tuổi`,
+                          coatColorMarkings: 'Nâu sẫm (Bay), xoáy trán hình thoi',
+                          bodyTemperature: '37.8 °C',
+                          clinicalSigns: 'Tỉnh táo, niêm mạc mắt hồng hào, không có dấu hiệu sốt',
+                        } : undefined,
+                        vnQuarantineDossier: {
+                          quarantineApplication: {
+                            applicantName: selectedRequest.customerName,
+                            applicantAddress: selectedRequest.pickupAddress || 'TP. Hồ Chí Minh, Việt Nam',
+                            applicantPhone: selectedRequest.phone,
+                            applicantEmail: selectedRequest.email,
+                            horseName: selectedRequest.horses[0]?.name || 'Thunderbolt Prime',
+                            departureOrigin: selectedRequest.pickupAddress || 'Việt Nam',
+                            destinationPort: selectedRequest.destinationCity || 'Tokyo (NRT)',
+                          } as any
+                        } as any,
+                        vnCustomsDeclaration: {
+                          customsHeader: {
+                            plannedReImportDate: selectedRequest.deliveryDeadline,
+                          } as any,
+                          invitationLetter: {
+                            tournamentLocation: selectedRequest.deliveryAddress || 'Tokyo Racecourse, Japan',
+                          } as any,
+                          identityProfile: {
+                            legalRepresentative: selectedRequest.customerName,
+                          } as any
+                        } as any
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* DECISION PANELS */}
               {selectedRequest.status === 'PENDING' && (

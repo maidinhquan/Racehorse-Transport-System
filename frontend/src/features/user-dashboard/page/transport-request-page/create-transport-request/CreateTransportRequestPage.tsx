@@ -23,6 +23,7 @@ const cities = [
   "Kuala Lumpur",
   "Phnom Penh",
   "Sydney",
+  "Tokyo (Japan)",
 ];
 
 function calculateEstimatedPrice(
@@ -82,22 +83,7 @@ function CreateTransportRequestPage() {
 
   //   setError("");
 
-  //   /*
-  //     Hiện tại đang demo frontend.
 
-  //     Sau này khi có backend:
-  //     POST /api/transport-requests
-
-  //     {
-  //       origin,
-  //       destination,
-  //       preferredDate,
-  //       horseCount
-  //     }
-  //   */
-
-  //   navigate("/customer/requests");
-  // };
   const handleSubmit = () => {
     if (!isValid) {
       setError(
@@ -109,25 +95,20 @@ function CreateTransportRequestPage() {
 
     const newRequest = createRequest({
       origin: form.origin,
-
-      destination:
-        form.destination,
-
-      preferredDate:
-        form.preferredDate,
-
-      horseCount:
-        form.horseCount,
-
+      destination: form.destination,
+      preferredDate: form.preferredDate,
+      horseCount: form.horseCount,
       estimatedPrice,
+      status: "Contract Ready",
+      contractStatus: "Ready",
     });
 
+    // Chuyển thẳng sang luồng hợp đồng thông tin để khách hàng xác nhận
     navigate(
-      `/customer/requests/${newRequest.id}`
+      `/customer/requests/${newRequest.id}/contract`
     );
   };
 
-  
   return (
     <CustomerLayout pageTitle="Create Transport Request">
       <div className="create-request-page">
@@ -146,9 +127,7 @@ function CreateTransportRequestPage() {
           <h1>Create Transport Request</h1>
 
           <p>
-            Provide your initial trip information.
-            Detailed transport information will be
-            collected after your request is accepted.
+            Cung cấp thông tin chuyến đi ban đầu. Sau khi gửi, hệ thống sẽ mở luồng xác nhận hợp đồng & thanh toán cọc trước khi điền thông tin giấy tờ.
           </p>
         </div>
 
@@ -160,14 +139,11 @@ function CreateTransportRequestPage() {
 
           <div>
             <strong>
-              Initial request
+              Quy trình đặt dịch vụ
             </strong>
 
             <p>
-              You only need to provide the basic trip
-              information at this stage. A CBN Transport
-              manager will review your request before the
-              next steps become available.
+              Sau khi ấn gửi yêu cầu ban đầu, hệ thống sẽ hiển thị luồng hợp đồng dịch vụ để quý khách xác nhận, tiến hành thanh toán tiền cọc 30%, rồi mới bắt đầu điền thông tin giấy tờ và kiểm dịch chi tiết.
             </p>
           </div>
         </div>

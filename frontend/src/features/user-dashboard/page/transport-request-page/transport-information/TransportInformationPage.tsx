@@ -1,5 +1,6 @@
 import {
   useState,
+  useEffect,
   type ChangeEvent,
 } from "react";
 
@@ -9,6 +10,7 @@ import {
 } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
+import RequestFlowStepper from "../components/RequestFlowStepper";
 import {
   transportRequestDetails,
 } from "../../../data/transportRequestDetailMockData";
@@ -94,6 +96,17 @@ function TransportInformationPage() {
         );
       }
     );
+
+  // Yêu cầu phải xác nhận hợp đồng và thanh toán tiền cọc trước khi điền thông tin giấy tờ
+  useEffect(() => {
+    if (request && requestId) {
+      if (request.status === "Contract Ready" || request.status === "Accepted – Contract Preparation") {
+        navigate(`/customer/requests/${requestId}/contract`, { replace: true });
+      } else if (request.status === "Awaiting Deposit") {
+        navigate(`/customer/requests/${requestId}/payment`, { replace: true });
+      }
+    }
+  }, [request, requestId, navigate]);
 
   if (!requestId || !request) {
     return (
@@ -459,6 +472,18 @@ function TransportInformationPage() {
       "Information Submitted"
     );
 
+    if (
+      requestId === "TR-2026-JP01" ||
+      (request.destination || "").toLowerCase().includes("tokyo") ||
+      (request.destination || "").toLowerCase().includes("nhật") ||
+      (request.destination || "").toLowerCase().includes("japan")
+    ) {
+      localStorage.setItem("cbn_japan_dossier_submitted", "true");
+      localStorage.setItem("cbn_japan_dossier_submitted_at", new Date().toISOString());
+    }
+
+    window.dispatchEvent(new Event("storage"));
+
     navigate(
       `/customer/requests/${requestId}/information/success`
     );
@@ -478,6 +503,9 @@ function TransportInformationPage() {
         >
           ← Back to {requestId}
         </button>
+
+        {/* Luồng 3 bước: Hợp đồng -> Thanh toán -> Giấy tờ */}
+        <RequestFlowStepper currentStep={3} />
 
         <div className="transport-info-header">
           <h1>
@@ -606,6 +634,11 @@ function TransportInformationPage() {
             documents={
               draft.documents
             }
+            isJapanRoute={Boolean(
+              request.destination?.toLowerCase().includes("japan") ||
+              request.destination?.toLowerCase().includes("tokyo") ||
+              request.destination?.toLowerCase().includes("nhật")
+            )}
             onUpload={
               handleUpload
             }

@@ -83,21 +83,11 @@ namespace WebApi.Controllers
                     Users = users
                 };
 
-                return Ok(new ApiResponse<AdminDashboardDto>
-                {
-                    Success = true,
-                    Message = "Lấy dữ liệu Admin từ database thành công.",
-                    Data = dashboardData
-                });
+                return Ok(ApiResponse<AdminDashboardDto>.Ok(dashboardData, "Lấy dữ liệu Admin từ database thành công."));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<object>
-                {
-                    Success = false,
-                    Message = $"Lỗi khi truy vấn database: {ex.Message}",
-                    Data = null
-                });
+                return StatusCode(500, ApiResponse<object?>.Fail($"Lỗi khi truy vấn database: {ex.Message}"));
             }
         }
     }
