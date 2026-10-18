@@ -13,9 +13,6 @@ interface RenderActiveTripsPageProps {
   onSetGroundCrew: (leg: 'outbound' | 'inbound', role: 'mainDriver' | 'coDriver' | 'vet', staffId: string) => void;
   onConfirmResources: () => void;
   onSubmitRoute: () => void;
-  onDemoDeploy: () => void;
-  onDemoApprove: () => void;
-  onDemoReturn: () => void;
 }
 
 export const RenderActiveTripsPage: React.FC<RenderActiveTripsPageProps> = (props) => {

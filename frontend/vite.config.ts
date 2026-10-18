@@ -8,6 +8,9 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
+    watch: {
+      usePolling: true,
+    },
 
     proxy: {
       "/api": {
@@ -25,5 +28,7 @@ export default defineConfig({
     setupFiles: ["./src/shared/test/setup.ts"],
     css: true,
     clearMocks: true,
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    exclude: ["tests/**", "tests-e2e/**", "node_modules/**", "dist/**"],
   },
 });

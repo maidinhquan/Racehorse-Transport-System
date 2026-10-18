@@ -1,8 +1,10 @@
+import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 import authHorseImage from "../../../assets/images/login-horse.jpg";
 import ThemeToggle from "../../components/ThemeToggle/ThemeToggle";
+import { useTheme } from "../../context/ThemeContext";
 
 import "./AuthLayout.css";
 
@@ -12,6 +14,12 @@ interface AuthLayoutProps {
 
 function AuthLayout({ children }: AuthLayoutProps) {
   const navigate = useNavigate();
+  const { setTheme } = useTheme();
+
+  useEffect(() => {
+    // Luôn để trang đăng nhập/auth mặc định là nền sáng (light mode)
+    setTheme("light");
+  }, [setTheme]);
 
   return (
     <div className="auth-layout">

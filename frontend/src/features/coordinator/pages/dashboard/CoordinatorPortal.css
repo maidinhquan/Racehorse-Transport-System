@@ -1068,19 +1068,6 @@ svg.i {
   transition: all 0.5s ease;
 }
 
-/* ==========================================================================
-   DEMO CONTROLS CARD
-   ========================================================================== */
-.cbn-coordinator-app .card.demo {
-  background: #fffaf5;
-  border-color: #fed7aa;
-}
-
-.cbn-coordinator-app .card.demo .hint {
-  font-size: 11px;
-  color: var(--muted);
-  line-height: 1.5;
-}
 
 /* ==========================================================================
    RESPONSIVE DESIGN

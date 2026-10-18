@@ -20,6 +20,23 @@ interface CoordinatorPortalProps {
   initialNav?: CoordinatorNav;
 }
 
+const COORDINATOR_STORAGE_KEY = 'cbn_coordinator_trips';
+
+const loadCoordinatorTrips = (): MockTrip[] => {
+  try {
+    const saved = localStorage.getItem(COORDINATOR_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // fallback to initial trips
+  }
+  return INITIAL_TRIPS;
+};
+
 export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav = 'dashboard' }) => {
   // Navigation states
   const [activeNav, setActiveNav] = useState<CoordinatorNav>(initialNav);
@@ -30,9 +47,17 @@ export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav
   const [lang, setLang] = useState<'vi' | 'en'>('vi');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Trips state
-  const [trips, setTrips] = useState<MockTrip[]>(INITIAL_TRIPS);
+  // Trips state with localStorage support for test/runtime persistence
+  const [trips, setTrips] = useState<MockTrip[]>(loadCoordinatorTrips);
   const curTrip = trips.find((t) => t.id === selectedTripId) || trips[0];
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COORDINATOR_STORAGE_KEY, JSON.stringify(trips));
+    } catch {
+      // ignore
+    }
+  }, [trips]);
 
   // Map simulation state (merged from old CoordinatorDashboard)
   const [truckPos, setTruckPos] = useState({ lat: 10.8231, lng: 106.6297 });
@@ -124,27 +149,6 @@ export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav
     showToast('🚀 Đã gửi phương án tuyến đường cho Logistics Manager phê duyệt.');
   };
 
-  // Demo buttons (Simulates Manager actions)
-  const handleDemoDeploy = () => {
-    setTrips((prev) =>
-      prev.map((t) => (t.id === curTrip.id ? { ...t, deploymentStatus: 'CONFIRMED' } : t))
-    );
-    showToast('Demo: Logistics Manager đã xác nhận triển khai chuyến (Deployment Confirmed).');
-  };
-
-  const handleDemoApprove = () => {
-    setTrips((prev) =>
-      prev.map((t) => (t.id === curTrip.id ? { ...t, routeStatus: 'APPROVED' } : t))
-    );
-    showToast('Demo: Logistics Manager đã phê duyệt tuyến đường (Route Approved).');
-  };
-
-  const handleDemoReturn = () => {
-    setTrips((prev) =>
-      prev.map((t) => (t.id === curTrip.id ? { ...t, routeStatus: 'RETURNED' } : t))
-    );
-    showToast('Demo: Logistics Manager đã trả về tuyến yêu cầu điều chỉnh (Route Returned).');
-  };
 
   // --------------------------------------------------------------------------
   // TOPBAR TITLE
@@ -331,9 +335,6 @@ export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav
                 setActiveNav('trips');
                 setTripTab(tab);
               }}
-              onDemoDeploy={handleDemoDeploy}
-              onDemoApprove={handleDemoApprove}
-              onDemoReturn={handleDemoReturn}
             />
           )}
 
@@ -349,9 +350,6 @@ export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav
               onSetGroundCrew={handleSetGroundCrew}
               onConfirmResources={handleConfirmResources}
               onSubmitRoute={handleSubmitRoute}
-              onDemoDeploy={handleDemoDeploy}
-              onDemoApprove={handleDemoApprove}
-              onDemoReturn={handleDemoReturn}
             />
           )}
 
@@ -371,9 +369,6 @@ export const CoordinatorPortal: React.FC<CoordinatorPortalProps> = ({ initialNav
               onSetGroundCrew={handleSetGroundCrew}
               onConfirmResources={handleConfirmResources}
               onSubmitRoute={handleSubmitRoute}
-              onDemoDeploy={handleDemoDeploy}
-              onDemoApprove={handleDemoApprove}
-              onDemoReturn={handleDemoReturn}
             />
           )}
 
