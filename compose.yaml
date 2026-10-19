@@ -1,5 +1,13 @@
 services:
   backend:
+    volumes:
+      - backend_app_data:/app/App_Data
+      - type: bind
+        source: ./backend/WebApi/App_Data/flow1/runtime-config/appsettings.Flow1Sandbox.Local.json
+        target: /app/appsettings.Flow1Sandbox.Local.json
+        read_only: true
+        bind:
+          create_host_path: false
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -41,4 +49,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  backend_app_data:
   frontend_node_modules:
