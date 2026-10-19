@@ -48,7 +48,7 @@ public sealed partial class RelationalFlow1Service
 
     private static string DocumentId(string request, PreparedDocument file) => Id("doc", request, file.HorseId, file.FileKey);
     private async Task<bool> SameDocuments(string request, IReadOnlyList<PreparedDocument> files, CancellationToken ct) =>
-        (await db.QueryAsync<FlowMedicalRecord>(x => x.RequestID == request && x.DocumentType == BaselineDocumentType, ct))
+        (await db.QueryAsync<FlowMedicalRecord>(x => x.RequestID == request, ct))
         .Select(x => x.RecordID).Order().SequenceEqual(files.Select(x => DocumentId(request, x)).Order());
 
     private async Task SaveDocuments(FlowRequest request, IReadOnlyList<PreparedDocument> files,
@@ -76,7 +76,7 @@ public sealed partial class RelationalFlow1Service
     private async Task<(byte[] Bytes, string ContentType)> ReadDocument(string request, string document, CancellationToken ct)
     {
         var row = await db.FindAsync<FlowMedicalRecord>(document, ct);
-        if (row is null || row.RequestID != request || row.DocumentType != BaselineDocumentType || row.UploadedFileUrl is null)
+        if (row is null || row.RequestID != request || row.UploadedFileUrl is null)
             throw Error("Document not found.", "NOT_FOUND", 404);
         Require((await db.QueryAsync<FlowRequestHorse>(x => x.RequestID == request && x.HorseID == row.HorseID, ct)).Count == 1,
             "FILE_UNAVAILABLE", "Document is not attached to a current selected horse.");

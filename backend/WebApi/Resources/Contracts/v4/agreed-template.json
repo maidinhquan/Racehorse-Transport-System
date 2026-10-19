@@ -1,0 +1,29 @@
+{
+  "templateVersion": "v4",
+  "sourceVersion": "v1",
+  "sourceSha256": "b2deebd4d0dafebc7e5b46332e76bd2935b4679390b0c5a167bafcac5960818c",
+  "document": [
+    "HỢP ĐỒNG VẬN CHUYỂN NGỰA\nMã hợp đồng: {{CONTRACT_CODE}} · Yêu cầu: {{REQUEST_ID}}",
+    "Phát hành: {{CREATED_DATE}}. Bản phát hành này chưa có chữ ký khách hàng. Chứng cứ ký OTP được lưu riêng, gắn với mã hợp đồng, phiên bản và SHA-256 của PDF; không ghi OTP vào tài liệu.",
+    "1. CÁC BÊN\nBên cung cấp: {{COMPANY_NAME}}\nĐịa chỉ: {{COMPANY_ADDRESS}} · Mã số thuế: {{COMPANY_TAX_CODE}}\nĐại diện: {{COMPANY_REPRESENTATIVE}} · Chức vụ: {{COMPANY_REP_POSITION}}\nEmail: {{COMPANY_EMAIL}} · Điện thoại: {{COMPANY_HOTLINE}}\nTài khoản: {{COMPANY_BANK_ACCOUNT}} · Ngân hàng: {{COMPANY_BANK_NAME}}",
+    "Khách hàng: {{CUSTOMER_FULL_NAME}} · Tài khoản: {{CUSTOMER_USER_ID}}\nEmail ký OTP: {{CUSTOMER_EMAIL}} · Điện thoại: {{CUSTOMER_PHONE}}",
+    "2. PHẠM VI VẬN CHUYỂN\nĐiểm nhận: {{DEPARTURE_LOCATION}}\nĐiểm giao: {{DESTINATION_LOCATION}}\nPhương thức: {{TRANSPORT_MODE}} · {{TRANSPORT_SCOPE}}\nMục đích: {{TRANSPORT_PURPOSE}}\nKhởi hành dự kiến: {{EXPECTED_DEPARTURE_DATETIME}}\nThời gian giao thỏa thuận: {{COMMITTED_DEADLINE_DATETIME}}",
+    "Người nhận chỉ định: {{DESIGNATED_RECEIVER_NAME}} · Điện thoại: {{DESIGNATED_RECEIVER_PHONE}}. Không thay đổi địa chỉ giao đã thỏa thuận qua chức năng xử lý sự cố.",
+    "3. NGỰA ĐƯỢC VẬN CHUYỂN",
+    "{{HORSE_SCHEDULE}}",
+    "Hồ sơ khách cung cấp cần được chuyên viên thẩm định. Tải lên chưa đồng nghĩa hồ sơ đã được duyệt. Hồ sơ bắt buộc trước khởi hành và các điểm kiểm tra tương lai được theo dõi riêng.",
+    "4. GIÁ TRỌN GÓI VÀ BẢO HIỂM\nTổng giá: {{TOTAL_PRICE_VND}} {{CURRENCY_CODE}}. Đã bao gồm bảo hiểm bắt buộc: {{INSURANCE_AMOUNT}} {{CURRENCY_CODE}}. Chuyên viên mua bảo hiểm và ghi nhận chứng cứ, thời hạn hiệu lực trước khi khởi hành. Không mặc định mọi sự cố đều được bảo hiểm chi trả.",
+    "5. THANH TOÁN VÀ HIỆU LỰC\nCọc {{DEPOSIT_PERCENT}}%: {{DEPOSIT_AMOUNT_40_VND}} {{CURRENCY_CODE}}. Số dư sau cọc: {{FINAL_AMOUNT_30_VND}} {{CURRENCY_CODE}}. Không thu tiền giữa hành trình. Khách không trả thêm chi phí xử lý sự cố phát sinh.",
+    "Khách đọc đúng PDF và đồng ý nội dung trước khi trả cọc. Đồng ý nội dung chưa phải chữ ký. Khi hệ thống xác minh đủ cọc, khách ký hợp đồng bằng OTP gửi về email tài khoản. Chỉ sau chữ ký hợp lệ, hợp đồng mới có hiệu lực và chuyến được tạo.",
+    "6. HẠN CHUNG\nHạn đọc, đồng ý nội dung, xác minh cọc và ký OTP: {{COMPLETION_DEADLINE}}. Hạn chung 24 giờ từ phát hành; không cấp thêm 24 giờ sau trả cọc. Lưu nháp hoặc gửi lại OTP không reset hạn. Gia hạn được quản lý ghi nhận riêng cùng lý do và lịch sử, không sửa PDF gốc.",
+    "Quá hạn khóa thanh toán và ký mới, không tự hủy hoặc tự hoàn tiền. Giao dịch đang xử lý, tiền về muộn phải được đối soát. Điều hướng từ cổng thanh toán không tự chứng minh đã nhận tiền.",
+    "7. CHỈNH SỬA TRƯỚC CỌC\nKhách chọn nội dung cần sửa và ghi chú trước khi thanh toán. Có khoản tiền đã nhận hoặc giao dịch chưa đối soát thì không sửa điều khoản. Quản lý chỉ sửa các phần khách chọn trên bản sao phiên bản cũ. Chấp thuận tạo phiên bản mới; khi phát hành bắt đầu đủ 24 giờ. Từ chối chỉnh sửa giữ nguyên phiên bản và nội dung, reset đủ 24 giờ từ quyết định từ chối.",
+    "8. HỦY VÀ HOÀN TIỀN\nHủy trước ký OTP hoàn đủ cọc thực tế đã xác minh. Hệ thống lưu yêu cầu, quyết định, trạng thái đang hoàn và chứng cứ đã hoàn thực tế; duyệt hủy chưa đồng nghĩa đã hoàn tiền. Chứng cứ tiền gốc được giữ lại. Kết thúc sớm sau khi hợp đồng hiệu lực: số tiền hoàn do quản lý và khách thỏa thuận, không tính theo công thức từng chặng.",
+    "9. ĐIỀU PHỐI VÀ KHỞI HÀNH\nĐiều phối lập kế hoạch cùng chuyến và phiên bản với quá trình hồ sơ. Chuyên viên kiểm tra khả thi, quản lý duyệt kế hoạch. Điều phối xác nhận booking, tài nguyên; chuyên viên xác nhận hồ sơ khởi hành và bảo hiểm. Quản lý cho phép khởi hành sau khi hai cổng sẵn sàng cùng đạt trên phiên bản đã duyệt. Không yêu cầu hoàn tất điểm kiểm tra tương lai trước khởi hành.",
+    "Tuyến AIR có hai chặng ROAD độc lập ở hai đầu. Mỗi xe ROAD có ba người riêng: tài xế chính, tài xế phụ và bác sĩ thú y. Hãng bay chăm sóc trong chặng AIR, không mặc định có bác sĩ CBN trên máy bay.",
+    "10. THEO DÕI VÀ SỰ CỐ\nNhân sự cập nhật thủ công từng mốc kế tiếp. Khách được xem sức khỏe ngựa của mình. Điều phối tiếp nhận và lập phương án sự cố; quản lý tham gia khi đổi lịch đã duyệt, có chi phí hoặc kết thúc sớm. Lịch điều chỉnh: điều phối → quản lý → khách hàng. Hệ thống gửi thông báo nghiệp vụ theo trách nhiệm từng vai trò.",
+    "11. BÀN GIAO, TẤT TOÁN VÀ PHẢN HỒI\nNgười nhận xác nhận ngựa bằng chữ ký trên màn hình. Sau bàn giao thành công, người nhận chịu trách nhiệm cho phát sinh về sau theo nội dung đã thống nhất. Nghiệm thu hoàn tất khi hệ thống xác minh khách thanh toán số tiền còn lại; lúc đó mở 24 giờ phản hồi hoặc khiếu nại. Khiếu nại đang mở ngăn đóng yêu cầu; chấp nhận phương án giải quyết thì reset 24 giờ. Phản hồi thông thường tiếp theo không tự reset hạn.",
+    "12. ĐIỀU KHOẢN CỤ THỂ ĐÃ THỐNG NHẤT\n{{CONTRACT_TERMS}}",
+    "THÔNG TIN XÁC NHẬN\nPDF lúc phát hành: CHƯA KÝ. Khi ký thành công, xem biên nhận gắn với hash PDF này. Không giả định đã ký số hoặc đã bàn giao ở thời điểm phát hành."
+  ]
+}

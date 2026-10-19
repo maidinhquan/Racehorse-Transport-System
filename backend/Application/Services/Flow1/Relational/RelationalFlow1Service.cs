@@ -73,6 +73,11 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         var payments = inv is null ? [] : await db.QueryAsync<FlowPayment>(x => x.InvoiceID == inv.InvoiceID, ct);
         var t = c.TripID is null ? null : await db.FindAsync<FlowTrip>(c.TripID, ct);
         var request=await db.FindAsync<FlowRequest>(c.RequestID,ct);
+        var changes=new List<FlowChangeCard>();
+        foreach(var change in await db.QueryAsync<FlowContractChange>(x=>x.ContractID==c.ContractID,ct))
+            changes.Add(new(change.ChangeID,change.Status,change.Reason,change.Decision,change.RequestedAtUtc,change.DecidedAtUtc,
+                (await db.QueryAsync<FlowContractChangeField>(x=>x.ChangeID==change.ChangeID,ct)).Select(x=>x.FieldName).ToArray()));
+        var history=(await db.QueryAsync<FlowContractEvent>(x=>x.ContractID==c.ContractID,ct)).OrderBy(x=>x.AtUtc).Select(x=>new FlowEventCard(x.Action,x.Reason,x.ActorID,x.AtUtc,x.PreviousDeadline,x.NewDeadline)).ToArray();
         return new(c.ContractID, Token(c.RowVersion), c.ContractStatus, c.IsCurrent, c.TotalQuotedPrice ?? 0, c.DepositAmount ?? 0,
             c.CompletionDeadline is null ? null : SignDue(c), c.DepositDeadline, c.SignedAt, c.PdfSha256,
             c.CancellationId, c.CancellationStatus, c.CancellationReason, c.CancellationDecisionReason,
@@ -81,8 +86,9 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
                 p.TransactionCode, p.Status == "SUCCESS" ? p.PaymentDate : null, p.FinancialReviewRequired, p.FinancialReviewReason, p.Method, p.CurrencyCode)).ToArray(),
             t is null ? null : new(t.TripID, Token(t.RowVersion), t.Status, t.DeploymentStatus, t.HandoffEventId, t.DeploymentReason,
                 t.RoutingAcknowledgedBy, t.DocumentsAcknowledgedBy),request is {ExpectedDate:not null,PreparationDays:not null}?Cutoff(request):null,c.CurrencyCode,
-            c.DepositAmount>0&&c.DepositRateStandard==40&&c.CurrencyCode=="VND"&&c.CompletionDeadline is not null,
-            c.SignedAt is not null&&c.PublishedAtUtc is not null&&c.SignerEmail is not null&&c.SignedDepositDeadline is not null&&c.PdfUrl is not null&&c.PdfSha256 is not null);
+            c.DepositAmount>0&&c.DepositRateStandard>0&&c.CurrencyCode=="VND"&&c.CompletionDeadline is not null,
+            c.SignedAt is not null&&c.PublishedAtUtc is not null&&c.SignerEmail is not null&&c.SignedDepositDeadline is not null&&c.PdfUrl is not null&&c.PdfSha256 is not null,
+            c.WorkflowVersion,c.ContractVersion,c.DepositRateStandard,c.InsuranceAmount,c.TermsText,c.TermsAcceptedAtUtc,c.RefundStatus,c.RefundAmount,c.RefundReference,changes,history);
     }
     private async Task<FlowRequestCard> Card(FlowRequest r, CancellationToken ct)
     {
@@ -90,7 +96,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         foreach (var l in await db.QueryAsync<FlowRequestHorse>(x => x.RequestID == r.RequestID, ct))
             horses.Add(HorseCard((await db.FindAsync<FlowHorse>(l.HorseID, ct))!));
         var contracts = new List<FlowContractCard>();
-        foreach (var c in await db.QueryAsync<FlowContract>(x => x.RequestID == r.RequestID, ct)) contracts.Add(await Card(c, ct));
+        foreach (var c in (await db.QueryAsync<FlowContract>(x => x.RequestID == r.RequestID, ct)).OrderBy(c=>c.ContractVersion).ThenBy(c=>c.PublishedAtUtc)) contracts.Add(await Card(c, ct));
         FlowRequestInput? input=null;
         if(r.ExpectedDate is not null && r.CommittedDeadline is not null && r.PickupLatitude is not null && r.DeliveryLatitude is not null && r.PickupLongitude is not null && r.DeliveryLongitude is not null)
             input=new(new(new(r.Departure,(double)r.PickupLatitude.Value,(double)r.PickupLongitude.Value,r.OriginCountry!),new(r.Destination,(double)r.DeliveryLatitude.Value,(double)r.DeliveryLongitude.Value,r.DestinationCountry!),r.TransportType!,horses.Count,DateOnly.FromDateTime(new DateTimeOffset(r.ExpectedDate.Value).ToOffset(TimeSpan.FromHours(7)).DateTime)),new(r.ExpectedDate.Value),new(r.CommittedDeadline.Value),r.Purpose??"",new(r.PickupContactName??"",r.PickupContactPhone??""),new(r.DesignatedReceiverName??"",r.DesignatedReceiverPhone??""),horses.Select(h=>new HorseSelection(h.HorseId,h.Version)).ToArray(),r.DeclaredValueUsd);

@@ -10,6 +10,10 @@ public static class Flow1RelationalSchema
             AND name='CK_F1D_DeclaredValueUsd' AND is_disabled=0 AND is_not_trusted=0
             AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(definition,N'[',N''),N']',N''),N'(',N''),N')',N''),N' ',N''))=N'declaredvalueusdisnullordeclaredvalueusd>0')
           AND COL_LENGTH('dbo.CONTRACT','SignedDepositDeadline') IS NOT NULL
+          AND COL_LENGTH('dbo.CONTRACT','WorkflowVersion') IS NOT NULL
+          AND OBJECT_ID('dbo.FLOW1_CONTRACT_EVENT','U') IS NOT NULL
+          AND OBJECT_ID('dbo.FLOW3_PLAN','U') IS NOT NULL
+          AND COL_LENGTH('dbo.VEHICLE','OperatingCountry') IS NOT NULL
           AND COL_LENGTH('dbo.PAYMENT','VnpayReceivedAmount') IS NOT NULL
           AND COL_LENGTH('dbo.TRIP_PLAN','RowVersion') IS NOT NULL
           AND NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name LIKE N'CK_F1R[_]%')

@@ -117,6 +117,7 @@ async function main() {
     fs.writeFileSync(path.join(output,'demo-running.json'),JSON.stringify({url:base+'/__flow1_demo/',mode:'LOCAL FIXTURE ONLY',ready:true}));
     if(!demoCheck){await waitForClose();return;}
   }
+  if(process.env.FLOW13_BROWSER === '1') { await require('./flow13-browser-case.cjs')({browser,actor,base,output,air,getOtp:()=>deliveredCode}); return; }
   if(process.env.FLOW1_BROWSER_MAIN_SOURCE === '1') { await require('./flow1-main-ui-browser.cjs')({browser,actor,base,output,air,pace}); return; }
   let customer=await actor('CUSTOMER');diagnosticPage=customer;
   const manager=await actor('LOGISTICS_MANAGER');

@@ -24,14 +24,15 @@ public sealed class LibreOfficeContractDocumentGenerator(string contentRoot, Flo
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     public async Task<ContractDocumentResult> GenerateAsync(ContractDocumentRequest request, CancellationToken ct = default)
     {
-        if (request.TemplateVersion is not ("v2" or "v3")) throw Error("Unsupported contract template.", "TEMPLATE_UNAVAILABLE", 503);
+        if (request.TemplateVersion is not ("v2" or "v3" or "v4")) throw Error("Unsupported contract template.", "TEMPLATE_UNAVAILABLE", 503);
         if (string.IsNullOrWhiteSpace(options.LibreOfficePath) || !File.Exists(options.LibreOfficePath))
             throw Error("Configure an explicit verified LibreOffice executable.", "PDF_CONVERTER_NOT_CONFIGURED", 503);
         if (OperatingSystem.IsWindows() && !Path.GetFileName(options.LibreOfficePath).Equals("soffice.com", StringComparison.OrdinalIgnoreCase))
             throw Error("Windows PDF conversion requires the synchronous console launcher soffice.com.", "PDF_CONVERTER_NOT_CONFIGURED", 503);
         var model = request.FrozenSnapshot.Deserialize<ContractPdfModel>(Json) ?? throw new InvalidDataException("PDF model missing.");
         var source = Path.Combine(contentRoot, "Resources/Contracts/v1/contract-template.docx");
-        var patchBytes = await File.ReadAllBytesAsync(Path.Combine(contentRoot, $"Resources/Contracts/{request.TemplateVersion}/template-patch.json"), ct);
+        var patchName=request.TemplateVersion=="v4"?"agreed-template.json":"template-patch.json";
+        var patchBytes = await File.ReadAllBytesAsync(Path.Combine(contentRoot, $"Resources/Contracts/{request.TemplateVersion}/{patchName}"), ct);
         using var patchDoc = JsonDocument.Parse(patchBytes); var patch = patchDoc.RootElement;
         if (!Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(source, ct))).Equals(
             patch.GetProperty("sourceSha256").GetString(), StringComparison.OrdinalIgnoreCase))
@@ -134,6 +135,21 @@ public sealed class LibreOfficeContractDocumentGenerator(string contentRoot, Flo
     }
     private static void Transform(XDocument doc, JsonElement patch, ContractPdfModel model)
     {
+        if(patch.TryGetProperty("document",out var content)){
+            var body=doc.Root?.Element(W+"body")??throw new InvalidDataException("Contract document body missing.");
+            var section=body.Element(W+"sectPr") is { } settings?new XElement(settings):null;
+            body.RemoveNodes();var agreedOrdinal=0;
+            foreach(var paragraph in content.EnumerateArray()){
+                var text=paragraph.GetString()??"";
+                if(text=="{{HORSE_SCHEDULE}}"){
+                    foreach(var horse in model.Horses){var p=new XElement(W+"p");SetText(p,$"Ngựa {++agreedOrdinal}: {horse["HORSE_1_NAME"]} · ID: {horse["HORSE_1_ID"]}\nMicrochip: {horse["HORSE_1_MICROCHIP"]} · Hộ chiếu: {horse["HORSE_1_FEI_NO"]} · Giống: {horse["HORSE_1_BREED"]} · Giới tính: {horse["HORSE_1_SEX"]}");body.Add(p);}continue;
+                }
+                var row=new XElement(W+"p",new XElement(W+"pPr",new XElement(W+"spacing",new XAttribute(W+"after","160"))));
+                SetText(row,text);body.Add(row);
+            }
+            if(section is not null)body.Add(section);
+            return;
+        }
         var paragraphs = doc.Descendants(W + "p").ToArray();
         foreach (var replacement in patch.GetProperty("paragraphs").EnumerateObject())
             SetText(paragraphs[int.Parse(replacement.Name)], replacement.Value.GetString()!);

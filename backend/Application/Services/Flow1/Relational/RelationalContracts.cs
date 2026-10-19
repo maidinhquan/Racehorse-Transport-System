@@ -11,16 +11,18 @@ public sealed partial class RelationalFlow1Service
 {
     public Task<FlowContractCard> DraftAsync(string request,string actor,string key,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
         Key(key); var r=await Request(request,actor,true,t); var id=Id("c",request,actor,key); var prior=await db.FindAsync<FlowContract>(id,t);
-        if(prior is not null) { Require(prior.TotalQuotedPrice==i.Price && i.Deadline is not null && prior.CompletionDeadline==Utc(i.Deadline.Value) && r.PreparationDays==i.PreparationDays,"IDEMPOTENCY_KEY_REUSED","Draft key used with different terms."); return await Card(prior,t); }
+        if(prior is not null) { Require(prior.TotalQuotedPrice==i.Price && prior.DepositRateStandard==i.DepositPercent&&prior.InsuranceAmount==i.InsuranceAmount&&prior.TermsText==i.Terms?.Trim()&&r.PreparationDays==i.PreparationDays,"IDEMPOTENCY_KEY_REUSED","Draft key used with different terms."); return await Card(prior,t); }
         Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Request needs reviewed relational data before quoting.");
         Check(r.RowVersion,i.Version); Require(r.Status=="ACCEPTED","DRAFT_CLOSED","Accept the request first.");
         Require(!(await db.QueryAsync<FlowContract>(c=>c.RequestID==request && c.IsCurrent,t)).Any(),"CONTRACT_OPEN","A current Contract already exists.");
-        Require(i.Price is >=3 and <=9999999999m && i.Price==decimal.Truncate(i.Price.Value),"INVALID_PRICE","Enter an integral VND quote.");
+        ValidateAgreedTerms(i.Price,i.DepositPercent,i.InsuranceAmount);Text(i.Terms,4000);
         var floor=r.DestinationCountry=="JP"?7:r.DistanceKm>500?3:2;
         Require(i.PreparationDays>=Math.Max(floor,r.PreparationDays??floor),"INVALID_PREPARATION","Preparation may only increase."); r.PreparationDays=i.PreparationDays;
-        Require(i.Deadline>clock.GetUtcNow() && i.Deadline<=new DateTimeOffset(Cutoff(r)),"INVALID_DEADLINE","Signing deadline must allow the preparation interval.");
-        var c=new FlowContract { ContractID=id,RequestID=request,CustomerID=r.CustomerID,ContractCode="F1-"+id[1..17].ToUpperInvariant(),CurrencyCode="VND",ExchangeRateToLocal=1,
-            TotalQuotedPrice=i.Price,DepositRateStandard=40,DepositAmount=decimal.Round(i.Price.Value*.4m,0,MidpointRounding.AwayFromZero),CompletionDeadline=Utc(i.Deadline.Value),ContractStatus="DRAFT",IsCurrent=true };
+        Require(Now.AddHours(24)<Cutoff(r),"INVALID_DEADLINE","Allow a full 24 hours before the preparation interval.");
+        var nextVersion=(await db.QueryAsync<FlowContract>(x=>x.RequestID==request,t)).Select(x=>x.ContractVersion).DefaultIfEmpty(0).Max()+1;
+        var c=new FlowContract { ContractID=id,ContractVersion=nextVersion,RequestID=request,CustomerID=r.CustomerID,ContractCode="F1-"+id[1..17].ToUpperInvariant(),CurrencyCode="VND",ExchangeRateToLocal=1,
+            WorkflowVersion=1,InsuranceAmount=i.InsuranceAmount,TermsText=i.Terms!.Trim(),
+            TotalQuotedPrice=i.Price,DepositRateStandard=i.DepositPercent,DepositAmount=decimal.Round(i.Price!.Value*i.DepositPercent!.Value/100,0,MidpointRounding.AwayFromZero),CompletionDeadline=Now.AddHours(24),ContractStatus="DRAFT",IsCurrent=true };
         db.Add(c); r.Status="DRAFT_CONTRACT"; await db.SaveAsync(t); return await Card(c,t);
     },ct);
 
@@ -35,9 +37,12 @@ public sealed partial class RelationalFlow1Service
                 await files.ReadAsync(h.PhotoUrl!,t); await files.ReadAsync(h.PassportScanUrl!,t); horses.Add(h);
             }
             Require(horses.Count>0,"HORSE_DOCUMENTS_REQUIRED","Request has no horses.");
-            return (Version:Token(c.RowVersion),RequestVersion:Token(r.RowVersion),Email:u.Email,Name:u.FullName,Phone:u.Phone,Horses:horses.Select(h=>new{Id=h.HorseID,Version=Token(h.RowVersion)}).ToArray(),Model:PdfModel(c,r,u,horses));
+            Require(c.WorkflowVersion==1,"LEGACY_CONTRACT","Legacy draft requires reviewed reissue.");
+            c.CompletionDeadline=Now.AddHours(24);Require(c.CompletionDeadline<Cutoff(r),"INVALID_DEADLINE","A full 24 hours must remain before preparation.");
+            await db.SaveAsync(t);
+            return (Version:Token(c.RowVersion),ContractVersion:c.ContractVersion,RequestVersion:Token(r.RowVersion),Email:u.Email,Name:u.FullName,Phone:u.Phone,Horses:horses.Select(h=>new{Id=h.HorseID,Version=Token(h.RowVersion)}).ToArray(),Model:PdfModel(c,r,u,horses));
         },ct);
-        var rendered=await pdf.GenerateAsync(new(id,1,"v3",JsonSerializer.SerializeToElement(snapshot.Model,new JsonSerializerOptions(JsonSerializerDefaults.Web))),ct);
+        var rendered=await pdf.GenerateAsync(new(id,snapshot.ContractVersion,"v4",JsonSerializer.SerializeToElement(snapshot.Model,new JsonSerializerOptions(JsonSerializerDefaults.Web))),ct);
         var key="private/"+rendered.PrivateStorageKey+".pdf"; await files.ReadAsync(key,ct);
         return await db.RunAsync(async t=>{
             var(c,r)=await Contract(id,actor,true,t); Check(c.RowVersion,snapshot.Version); Check(r.RowVersion,snapshot.RequestVersion);
@@ -49,8 +54,11 @@ public sealed partial class RelationalFlow1Service
             c.SignerEmail=snapshot.Email;
             c.PdfUrl=key; c.PdfSha256=rendered.Sha256.ToLowerInvariant(); c.PublishedAtUtc=Now; c.PublishedBy=actor;
             c.ContractStatus="PENDING_SIGNATURE"; r.Status="AWAITING_SIGNATURE";
+            c.DepositDeadline=SignDue(c);
+            db.Add(new FlowInvoice{InvoiceID=Id("i",id),ContractID=id,InvoiceType="DEPOSIT",CurrencyCode=c.CurrencyCode,TotalPayableAmount=c.DepositAmount!.Value,PaidAmount=0,DueDate=c.DepositDeadline,PaymentStatus="UNPAID"});
+            Audit(c,actor,"PUBLISHED","Issued immutable contract; shared payment and signing deadline.");
             await Notify(c.CustomerID,r.RequestID,"FLOW1_CONTRACT_READY","Hợp đồng đã sẵn sàng",
-                "Manager đã phát hành PDF hợp đồng. Vui lòng xem tài liệu và xác nhận bằng OTP trước hạn ký.",t);
+                "Manager đã phát hành hợp đồng. Đọc và đồng ý nội dung, thanh toán cọc, sau đó ký bằng OTP trong cùng thời hạn.",t);
             await db.SaveAsync(t); return await Card(c,t);
         },ct);
     }
@@ -67,16 +75,18 @@ public sealed partial class RelationalFlow1Service
         P("CONTRACT_CODE",c.ContractCode); P("REQUEST_ID",r.RequestID); P("PLAN_VERSION","1"); P("CREATED_DATE",D(Now)); P("COMPLETION_DEADLINE",D(c.CompletionDeadline));
         P("PREPARATION_CUTOFF",D(Cutoff(r))); P("CUSTOMER_FULL_NAME",u.FullName); P("CUSTOMER_USER_ID",u.UserID); P("CUSTOMER_EMAIL",u.Email); P("CUSTOMER_PHONE",u.Phone);
         P("CUSTOMER_ADDRESS",null); P("CUSTOMER_ID_NUMBER",null); P("DEPARTURE_LOCATION",r.Departure); P("DESTINATION_LOCATION",r.Destination); P("TRANSPORT_MODE",r.TransportType); P("TRANSPORT_PURPOSE",r.Purpose);
-        P("TRANSPORT_SCOPE",r.TransportType=="AIR"?"VN → JP; airport-to-airport; ground legs excluded":"ROAD");
+        P("TRANSPORT_SCOPE",r.TransportType=="AIR"?"ROAD → AIR → ROAD, từ điểm nhận đến điểm giao đã thỏa thuận":"ROAD, từ điểm nhận đến điểm giao đã thỏa thuận");
         P("TOTAL_DISTANCE_KM",r.DistanceKm?.ToString("N2",CultureInfo.InvariantCulture)); P("EXPECTED_DEPARTURE_DATETIME",D(r.ExpectedDate)); P("COMMITTED_DEADLINE_DATETIME",D(r.CommittedDeadline));
         P("DESIGNATED_RECEIVER_NAME",r.DesignatedReceiverName); P("DESIGNATED_RECEIVER_PHONE",r.DesignatedReceiverPhone); P("CURRENCY_CODE","VND"); P("EXCHANGE_RATE","1");
         foreach(var k in new[]{"BASE_PRICE_P","TOTAL_PRICE_VND"}) P(k,M(total));
         foreach(var k in new[]{"BASE_PRICE_IN_WORDS","TOTAL_PRICE_VND_IN_WORDS"}) P(k,"Theo số tiền VND nêu trên / As the numeric VND amount above");
         foreach(var k in new[]{"DEPOSIT_AMOUNT_40","DEPOSIT_AMOUNT_40_VND"}) P(k,M(deposit));
-        var middle=decimal.Round(total*.3m,0,MidpointRounding.AwayFromZero);
+        var middle=0m;
         foreach(var k in new[]{"MIDWAY_AMOUNT_30","MIDWAY_AMOUNT_30_VND"}) P(k,M(middle));
         foreach(var k in new[]{"FINAL_AMOUNT_30","FINAL_AMOUNT_30_VND"}) P(k,M(total-deposit-middle));
-        P("SELLING_LINES","Giá chốt trọn gói / Final quoted price: "+M(total)+" VND");
+        P("DEPOSIT_PERCENT",c.DepositRateStandard?.ToString("0.##",CultureInfo.InvariantCulture));
+        P("INSURANCE_AMOUNT",M(c.InsuranceAmount??0));P("CONTRACT_TERMS",c.TermsText);
+        P("SELLING_LINES","Giá trọn gói: "+M(total)+" VND; đã gồm bảo hiểm bắt buộc: "+M(c.InsuranceAmount??0)+" VND. "+c.TermsText);
         foreach(var k in new[]{"LIEN_DAILY_RATE","LIEN_DAILY_RATE_VND"}) P(k,"Chưa thỏa thuận / Not agreed");
         // No fictitious signature, OTP, Trip or completed handover values at issuance.
         foreach(var k in new[]{"ACTUAL_DELIVERY_LOCATION","ACTUAL_HANDOVER_TIMESTAMP","APP_DIGITAL_SIG_ID","APP_SIGNED_TIMESTAMP","CUSTOMER_OTP_AUTH_CODE","CUSTOMER_SIGNED_TIMESTAMP","HANDED_BY_STAFF_ID","HANDED_BY_STAFF_NAME","HANDOVER_ID","HORSE_1_VET_STATUS","RECEIVED_BY_NAME","RECEIVED_BY_PHONE","SAFETY_GATE_ETA","SAFETY_GATE_LOCATION","SIGNING_DATE","SIGNING_DAY","SIGNING_MONTH","SIGNING_YEAR","TRIP_ID"}) P(k,"CHƯA THỰC HIỆN / NOT PERFORMED");
@@ -88,6 +98,7 @@ public sealed partial class RelationalFlow1Service
         var code=otp.NewCode(); otp.Digest("configuration-check",code);
         var reserved=await db.RunAsync(async t=>{
             var(c,r)=await Contract(id,actor,false,t); Check(c.RowVersion,i.Version);
+            await PaidForSignature(c,t);
             Require(c.IsCurrent && c.ContractStatus=="PENDING_SIGNATURE" && c.SignedAt is null && Now<SignDue(c) && Now<Cutoff(r),"SIGNING_CLOSED","Signing is closed.");
             Require(c.PdfSha256==i.PdfSha256,"PDF_CHANGED","Review the issued PDF before requesting OTP.");
             Require(c.SignOtpFailedAttempts<5 && (c.SignOtpSentAtUtc is null || Now>=c.SignOtpSentAtUtc.Value.AddSeconds(60)),"OTP_RATE_LIMITED","Wait for cooldown or contact the Manager after five failed attempts.");
@@ -97,9 +108,9 @@ public sealed partial class RelationalFlow1Service
             Require((await db.QueryAsync<FlowNotice>(n=>n.UserID==actor && n.Type=="CONTRACT_OTP" && n.Channel=="EMAIL" && n.SentAt>=since,t)).Count<5,"OTP_RATE_LIMITED","Account email budget reached.");
             await files.ReadAsync(c.PdfUrl!,t); c.SignOtpHash=null; c.SignOtpSentAtUtc=Now; c.SignOtpExpiry=new[]{Now.AddMinutes(5),SignDue(c),Cutoff(r)}.Min();
             var notice=new FlowNotice{NotificationID=Id("n",id,Guid.NewGuid().ToString("N")),UserID=actor,ReferenceID=id,Type="CONTRACT_OTP",Channel="EMAIL",Title="Contract OTP delivery reserved",Message="A contract confirmation email was requested.",SentAt=Now,IsRead=false}; db.Add(notice);
-            return (Email:u.Email!,Hash:c.PdfSha256!,Sent:c.SignOtpSentAtUtc.Value,Expiry:c.SignOtpExpiry.Value,Due:SignDue(c),Notice:notice.NotificationID);
+            return (Email:u.Email!,ContractVersion:c.ContractVersion,Hash:c.PdfSha256!,Sent:c.SignOtpSentAtUtc.Value,Expiry:c.SignOtpExpiry.Value,Due:SignDue(c),Notice:notice.NotificationID);
         },ct);
-        try { await sender.SendAsync(reserved.Email,code,id,1,reserved.Hash,new DateTimeOffset(reserved.Expiry),ct); }
+        try { await sender.SendAsync(reserved.Email,code,id,reserved.ContractVersion,reserved.Hash,new DateTimeOffset(reserved.Expiry),ct); }
         catch {
             await db.RunAsync(async t=>{var n=await db.FindAsync<FlowNotice>(reserved.Notice,t); if(n is not null)n.Title="Contract OTP delivery failed"; return 0;},CancellationToken.None); throw;
         }
@@ -118,6 +129,7 @@ public sealed partial class RelationalFlow1Service
             Require(c.PdfSha256 is not null && c.PdfSha256==i.PdfSha256,"PDF_CHANGED","Confirm the exact PDF you reviewed.");
             if(c.SignedAt is not null) return (Card:await Card(c,t),Error:(string?)null);
             Check(c.RowVersion,i.Version); Require(c.IsCurrent && c.ContractStatus=="PENDING_SIGNATURE" && Now<SignDue(c) && Now<Cutoff(r),"SIGNING_CLOSED","Signing deadline has passed.");
+            await PaidForSignature(c,t);
             var u=(await db.FindAsync<FlowUser>(actor,t))!;
             Require(u.Email==c.SignerEmail,"CUSTOMER_CHANGED","Account email differs from the issued PDF; ask the Manager to reissue it.");
             Require(c.SignOtpHash is not null && c.SignOtpExpiry>Now && c.SignOtpFailedAttempts<5,"OTP_EXPIRED","Request an active code or contact the Manager.");
@@ -128,9 +140,10 @@ public sealed partial class RelationalFlow1Service
             var file=await files.ReadAsync(c.PdfUrl!,t);
             Require(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(file.Bytes)).Equals(c.PdfSha256,StringComparison.OrdinalIgnoreCase),"FILE_INTEGRITY_ERROR","Contract PDF hash differs.");
             c.SignedAt=Now; c.SignerEmail=u.Email; c.SignOtpHash=null; c.ContractStatus="SIGNED";
-            c.DepositDeadline=c.SignedDepositDeadline=new[]{Now.AddHours(24),Cutoff(r)}.Min(); r.Status="AWAITING_DEPOSIT";
+            c.DepositDeadline=c.SignedDepositDeadline=c.WorkflowVersion==1?SignDue(c):new[]{Now.AddHours(24),Cutoff(r)}.Min(); r.Status="AWAITING_DEPOSIT";
             Require(c.DepositDeadline>Now,"DEPOSIT_DEADLINE_CLOSED","No deposit window remains before preparation.");
-            db.Add(new FlowInvoice{InvoiceID=Id("i",id),ContractID=id,InvoiceType="DEPOSIT",CurrencyCode="VND",TotalPayableAmount=c.DepositAmount!.Value,PaidAmount=0,DueDate=c.DepositDeadline,PaymentStatus="UNPAID"});
+            if(c.WorkflowVersion==0)db.Add(new FlowInvoice{InvoiceID=Id("i",id),ContractID=id,InvoiceType="DEPOSIT",CurrencyCode="VND",TotalPayableAmount=c.DepositAmount!.Value,PaidAmount=0,DueDate=c.DepositDeadline,PaymentStatus="UNPAID"});
+            else {Audit(c,actor,"OTP_SIGNED","Signature follows verified deposit.");await Activate(c,r,await Invoice(c,t),t);}
             await db.SaveAsync(t); return (Card:await Card(c,t),Error:(string?)null);
         },ct);
         if(result.Error is not null) throw Error("Incorrect OTP.",result.Error,409); return result.Card;
@@ -140,11 +153,17 @@ public sealed partial class RelationalFlow1Service
         Require(c.IsCurrent,"CONTRACT_CLOSED","Contract is not current.");
         if(action=="extend") {
             Require(manager && i.Deadline is not null && i.Deadline>clock.GetUtcNow() && i.Deadline<=new DateTimeOffset(Cutoff(r)),"INVALID_DEADLINE","Extension must remain feasible.");
-            if(i.Target=="SIGN") { Require(c.SignedAt is null && c.ContractStatus=="PENDING_SIGNATURE" && Utc(i.Deadline!.Value)>SignDue(c),"INVALID_DEADLINE","Signing extension must increase the current limit."); c.EffectiveSignDeadline=Utc(i.Deadline.Value); c.SignOtpHash=null; }
+            if(c.WorkflowVersion==1){
+                Require(c.SignedAt is null&&c.ContractStatus=="PENDING_SIGNATURE"&&Utc(i.Deadline!.Value)>SignDue(c),"INVALID_DEADLINE","Extend the common deadline of an unsigned contract.");
+                var previous=SignDue(c);c.EffectiveSignDeadline=c.DepositDeadline=Utc(i.Deadline!.Value);c.SignOtpHash=null;
+                (await Invoice(c,t)).DueDate=c.DepositDeadline;Audit(c,actor,"DEADLINE_EXTENDED",reason,previous);
+            }
+            else if(i.Target=="SIGN") { Require(c.SignedAt is null && c.ContractStatus=="PENDING_SIGNATURE" && Utc(i.Deadline!.Value)>SignDue(c),"INVALID_DEADLINE","Signing extension must increase the current limit."); c.EffectiveSignDeadline=Utc(i.Deadline.Value); c.SignOtpHash=null; }
             else { Require(i.Target=="DEPOSIT" && c.SignedAt is not null && c.ContractStatus=="SIGNED" && i.Deadline!.Value.UtcDateTime>c.DepositDeadline,"INVALID_DEADLINE","Deposit extension must increase its current limit."); c.DepositDeadline=Utc(i.Deadline.Value); var inv=await Invoice(c,t); inv.DueDate=c.DepositDeadline; }
-            c.LastExtensionTarget=i.Target; c.LastExtensionReason=reason; c.LastExtensionBy=actor; c.LastExtensionAtUtc=Now;
+            c.LastExtensionTarget=c.WorkflowVersion==1?"SIGN":i.Target; c.LastExtensionReason=reason; c.LastExtensionBy=actor; c.LastExtensionAtUtc=Now;
         }
         else {
+            if(c.WorkflowVersion==1)await NoMoney(c,t);
             Require(c.SignedAt is null && c.ContractStatus is "DRAFT" or "PENDING_SIGNATURE","LIFECYCLE_CLOSED","Signed terms cannot be discarded.");
             Require(action=="decline" && !manager || action=="expire" && manager && Now>=SignDue(c) || action=="withdraw" && manager,"FORBIDDEN","Action not allowed.");
             c.ContractStatus=action=="decline"?"DECLINED":action=="expire"?"EXPIRED":"WITHDRAWN"; c.IsCurrent=false; c.SignOtpHash=null;

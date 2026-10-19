@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Flow1;
 
-// Scalar mappings of existing tables. No JSON, navigation payloads or new tables.
+// Scalar mappings of existing ledger tables. Workflow extension tables use separate typed rows.
 
 [Table("HORSE")]
 public sealed class FlowHorse
@@ -121,6 +121,24 @@ public sealed class FlowMedicalRecord
 [Table("CONTRACT")]
 public sealed class FlowContract
 {
+    public int WorkflowVersion { get; set; }
+    public int ContractVersion { get; set; } = 1;
+    [Column(TypeName = "varchar(50)")]
+    public string? SourceContractID { get; set; }
+    [Column(TypeName = "datetime2(7)")]
+    public DateTime? TermsAcceptedAtUtc { get; set; }
+    [Column(TypeName = "char(64)")]
+    public string? TermsAcceptedPdfSha256 { get; set; }
+    [Column(TypeName = "decimal(12,2)")]
+    public decimal? InsuranceAmount { get; set; }
+    [Column(TypeName = "nvarchar(4000)")]
+    public string? TermsText { get; set; }
+    [Column(TypeName = "varchar(20)")]
+    public string? RefundStatus { get; set; }
+    [Column(TypeName = "decimal(12,2)")]
+    public decimal? RefundAmount { get; set; }
+    [Column(TypeName = "nvarchar(200)")]
+    public string? RefundReference { get; set; }
     [Key]
     [Column("ContractID", TypeName = "varchar(50)")]
     public string ContractID { get; set; } = null!;

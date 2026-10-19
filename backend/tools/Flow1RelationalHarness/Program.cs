@@ -25,6 +25,7 @@ var deadlines = Environment.GetEnvironmentVariable("FLOW1_BROWSER_DEADLINES") ==
 var bank = Environment.GetEnvironmentVariable("FLOW1_BROWSER_BANK") == "1";
 var gateway = true;
 var deployment = true;
+var flow13 = Environment.GetEnvironmentVariable("FLOW13_BROWSER") == "1";
 var cancellation = Environment.GetEnvironmentVariable("FLOW1_BROWSER_CANCELLATION") == "1";
 var phase4 = signing || Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE4") == "1";
 var phase3 = phase4 || Environment.GetEnvironmentVariable("FLOW1_BROWSER_PHASE3") == "1";
@@ -55,7 +56,7 @@ var created = false;
 try
 {
     await Sql(master, $"CREATE DATABASE [{name}];"); created = true;
-    foreach (var file in new[] { "000_legacy_schema.sql", "003_flow1_minimal_schema.sql", "006_flow1_simple_relational_foundation.sql", "007_flow1_request_baseline.sql" })
+    foreach (var file in new[] { "000_legacy_schema.sql", "003_flow1_minimal_schema.sql", "006_flow1_simple_relational_foundation.sql", "007_flow1_request_baseline.sql", "008_flow1_deposit_before_signature.sql", "009_flow3_persistent_planning.sql" })
         await Sql(connection, await File.ReadAllTextAsync(Path.Combine(repository, "backend/database", file)));
     await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-owner','test-only','CUSTOMER',N'Browser Demo');");
     if (phase3) await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-manager','test-only','LOGISTICS_MANAGER',N'Manager Demo');");
@@ -64,6 +65,11 @@ try
     var loginHash=BCrypt.Net.BCrypt.HashPassword("Flow1_Native_Fixture_Only_2026!");
     await Sql(connection,"UPDATE [USER] SET Email=UserID+'@example.invalid',PasswordHash='"+loginHash+"';");
     if(mainSource) await Sql(connection,"UPDATE [USER] SET Phone='0900000000' WHERE UserID='browser-owner';");
+    if(flow13)await Sql(connection,"""
+        INSERT [USER](UserID,PasswordHash,Role,FullName,IsActive) VALUES('crew-main','test-only','DRIVER_ESCORT','Fixture Main Driver',1),('crew-second','test-only','DRIVER_ESCORT','Fixture Second Driver',1),('crew-vet','test-only','DRIVER_ESCORT','Fixture Vet',1);
+        INSERT VEHICLE(VehicleID,Type,CapacityStalls,Status,OperatingCountry) VALUES('fixture-vn','HORSE_TRUCK',1,'READY','VN'),('fixture-jp','HORSE_TRUCK',1,'READY','JP');
+        INSERT STAFF_DOCUMENT(DocumentID,UserID,DocType,ValidForCountries,ExpiryDate,Status) VALUES('cred-main','crew-main','DRIVER_LICENSE','VN,JP','20990101','VALID'),('cred-second','crew-second','DRIVER_LICENSE','VN,JP','20990101','VALID'),('cred-vet','crew-vet','VET_LICENSE','VN,JP','20990101','VALID');
+        """);
     var apiPort = serve ? Available(5129) : Port(); var mapPort = Port(); var frontPort = serve ? Available(5173) : Port();
     if(serve) await File.WriteAllTextAsync(Path.Combine(output,"host.json"),JsonSerializer.Serialize(new { hostPid=Environment.ProcessId, database=name, output, apiPort, frontPort }));
     var smtpPort = Port();
@@ -158,6 +164,10 @@ try
     if (liveOptions is not null && (apiLog.Contains(liveOptions.Mapbox.AccessToken) || apiLog.Contains(liveOptions.Geoapify.ApiKey) ||
         nodeLog.Contains(liveOptions.Mapbox.AccessToken) || nodeLog.Contains(liveOptions.Geoapify.ApiKey)))
         throw new InvalidOperationException("A map credential leaked into a test log.");
+    if(flow13){
+        await Sql(connection,"IF (SELECT COUNT(*) FROM CONTRACT WHERE WorkflowVersion=1 AND ContractStatus='EFFECTIVE' AND SignedAt IS NOT NULL)<>1 OR (SELECT COUNT(*) FROM PAYMENT WHERE Status='SUCCESS')<>1 OR (SELECT COUNT(*) FROM TRIP_PLAN WHERE Status='READY_TO_DEPART')<>1 OR (SELECT COUNT(*) FROM FLOW3_PLAN WHERE IsCurrent=1 AND Status='APPROVED' AND OperationsReady=1 AND DocumentsReady=1 AND DepartureAuthorized=1)<>1 THROW 51035,'Flow 1/3 persisted browser invariants failed.',1;");
+        Console.WriteLine("PASS: connected Flow 1/3 browser and SQL invariants. SMTP, maps and gateway receipts use isolated test fixtures; no provider transaction was performed.");Console.WriteLine("Evidence: "+output);return;
+    }
     if(mainSource) await Sql(connection,$"IF (SELECT COUNT(*) FROM HORSE)<>{(Environment.GetEnvironmentVariable("FLOW1_BROWSER_BASELINE")=="1"?2:1)} OR (SELECT COUNT(*) FROM TRANSPORT_REQUEST WHERE Status='AWAITING_SIGNATURE')<>1 OR (SELECT COUNT(*) FROM CONTRACT WHERE ContractStatus='PENDING_SIGNATURE' AND PdfSha256 IS NOT NULL AND SignedAt IS NULL)<>1 OR EXISTS(SELECT 1 FROM INVOICE) OR EXISTS(SELECT 1 FROM PAYMENT) OR EXISTS(SELECT 1 FROM TRIP_PLAN) THROW 51030,'Main-source UI scope invariants failed.',1;");
     else await Sql(connection, "IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST)<>1 OR (SELECT COUNT(*) FROM HORSE)<>1 OR (SELECT COUNT(*) FROM CONTRACT)<>1 OR (SELECT COUNT(*) FROM INVOICE WHERE PaidAmount=40000000 AND TotalPayableAmount=40000000 AND PaymentStatus='PAID')<>1 OR (SELECT COUNT(*) FROM PAYMENT WHERE Status='SUCCESS' AND Method='VNPAY')<>1 OR (SELECT COUNT(*) FROM TRIP_PLAN WHERE DeploymentStatus='CONFIRMED' AND RoutingAcknowledgedBy='browser-route' AND DocumentsAcknowledgedBy='browser-docs')<>1 THROW 51030,'Typed browser SQL invariants failed.',1;");
     if(Environment.GetEnvironmentVariable("FLOW1_BROWSER_BASELINE")=="1") await Sql(connection,"IF (SELECT COUNT(*) FROM TRANSPORT_REQUEST WHERE DeclaredValueUsd=150000.25)<>1 OR (SELECT COUNT(*) FROM LEGAL_MEDICAL_RECORD WHERE DocumentType='BASELINE_MEDICAL' AND DocumentStatus='UPLOADED' AND VerifiedBy IS NULL)<>2 THROW 51034,'Baseline declarations or unverified document links differ.',1;");

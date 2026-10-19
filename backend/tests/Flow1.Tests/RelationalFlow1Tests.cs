@@ -51,6 +51,8 @@ public sealed class RelationalFlow1Tests
             var f=new Fixture{Db=await Flow1TestDatabase.CreateAsync(sqlState:false)};f.Renderer=new(f.Storage);
             await f.Db.ScriptAsync("006_flow1_simple_relational_foundation.sql");
             await f.Db.ScriptAsync("007_flow1_request_baseline.sql");
+            await f.Db.ScriptAsync("008_flow1_deposit_before_signature.sql");
+            await f.Db.ScriptAsync("009_flow3_persistent_planning.sql");
             await f.Db.ExecuteAsync("""
                 UPDATE [USER] SET Email='owner@example.invalid' WHERE UserID='owner';
                 INSERT [USER](UserID,PasswordHash,Role,FullName,Email) VALUES
@@ -73,11 +75,15 @@ public sealed class RelationalFlow1Tests
             var trip=new EstimateInput(new("A",10,106,"VN"),new("B",11,107,"VN"),"ROAD",1,new(2026,11,20));
             return await Service.SubmitAsync("owner",key,new(trip,new(2026,11,20,3,0,0,TimeSpan.Zero),new(2026,11,21,3,0,0,TimeSpan.Zero),"Race",new("Sender","0900000000"),new("Receiver","0900000001"),[new(h.HorseId,h.Version)]),null,null,default);
         }
-        public async Task<(FlowRequestCard R,FlowContractCard C)> Published()
+        // Historical scenarios below explicitly retain workflow 0 to protect existing receipts.
+        // AgreedFlowTests uses legacy:false and verifies the current deposit-before-signature workflow.
+        public async Task<(FlowRequestCard R,FlowContractCard C)> Published(bool legacy=true)
         {
             var r=await Request();r=await Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted"),default);
-            var c=await Service.DraftAsync(r.RequestId,"manager","contract-key-one",new(r.Version,Price:100000000,PreparationDays:2,Deadline:Time.Value.AddDays(2)),default);
-            c=await Service.PublishAsync(c.ContractId,"manager",new(c.Version),default);return(r,c);
+            var c=await Service.DraftAsync(r.RequestId,"manager","contract-key-one",new(r.Version,Price:100000000,DepositPercent:40,InsuranceAmount:1000000,Terms:"Fixture agreed terms",PreparationDays:2,Deadline:Time.Value.AddDays(2)),default);
+            c=await Service.PublishAsync(c.ContractId,"manager",new(c.Version),default);
+            if(legacy){await Db.ExecuteAsync($"DELETE INVOICE WHERE ContractID='{c.ContractId}'; UPDATE CONTRACT SET WorkflowVersion=0,CompletionDeadline='{Time.Value.AddDays(2).UtcDateTime:yyyy-MM-ddTHH:mm:ss}',DepositDeadline=NULL WHERE ContractID='{c.ContractId}';");c=await Service.ContractAsync(c.ContractId,"owner",false,default);}
+            return(r,c);
         }
         public async Task<FlowContractCard> Signed()
         {
@@ -245,7 +251,7 @@ public sealed class RelationalFlow1Tests
         Assert.Equal("DECLINED",c.Status);Assert.False(c.IsCurrent);r=await f.Service.DetailAsync(r.RequestId,"owner",false,default);Assert.Equal("CHANGES_REQUESTED",r.Status);
         r=await f.Service.SubmitAsync("owner","revision-key-one",r.Input! with {Purpose="Updated purpose"},r.RequestId,r.Version,default);
         r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted revision"),default);
-        var next=await f.Service.DraftAsync(r.RequestId,"manager","replacement-key",new(r.Version,Price:110000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(3)),default);
+        var next=await f.Service.DraftAsync(r.RequestId,"manager","replacement-key",new(r.Version,Price:110000000,DepositPercent:40,InsuranceAmount:1000000,Terms:"Fixture agreed terms",PreparationDays:2,Deadline:f.Time.Value.AddDays(3)),default);
         next=await f.Service.LifecycleAsync(next.ContractId,"manager",true,"withdraw",new(next.Version,"Change unsigned quote"),default);Assert.Equal("WITHDRAWN",next.Status);
         Assert.Equal(hash,(await f.Service.ContractAsync(c.ContractId,"owner",false,default)).PdfSha256);
         Assert.NotEmpty((await f.Service.PdfAsync(c.ContractId,"owner",false,default)).Bytes);
@@ -273,7 +279,7 @@ public sealed class RelationalFlow1Tests
         }
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT SignOtpFailedAttempts FROM CONTRACT;"));
         c=await f.Service.ContractAsync(c.ContractId,"manager",true,default);await f.Service.LifecycleAsync(c.ContractId,"manager",true,"withdraw",new(c.Version,"Reissue"),default);
-        r=await f.Service.DetailAsync(r.RequestId,"manager",true,default);var next=await f.Service.DraftAsync(r.RequestId,"manager","budget-new-contract",new(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default);
+        r=await f.Service.DetailAsync(r.RequestId,"manager",true,default);var next=await f.Service.DraftAsync(r.RequestId,"manager","budget-new-contract",new(r.Version,Price:100000000,DepositPercent:40,InsuranceAmount:1000000,Terms:"Fixture agreed terms",PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default);
         next=await f.Service.PublishAsync(next.ContractId,"manager",new(next.Version),default);
         var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.SendOtpAsync(next.ContractId,"owner",new(next.Version,PdfSha256:next.PdfSha256),default));Assert.Equal("OTP_RATE_LIMITED",e.ErrorCode);
         Assert.Equal(5,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='CONTRACT_OTP';"));
@@ -292,7 +298,7 @@ public sealed class RelationalFlow1Tests
     public async Task Horse_changed_by_another_module_during_render_cannot_publish_stale_terms()
     {
         await using var f=await Fixture.Create();var r=await f.Request();r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted"),default);
-        var c=await f.Service.DraftAsync(r.RequestId,"manager","render-race-key",new(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default);
+        var c=await f.Service.DraftAsync(r.RequestId,"manager","render-race-key",new(r.Version,Price:100000000,DepositPercent:40,InsuranceAmount:1000000,Terms:"Fixture agreed terms",PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default);
         f.Renderer.DuringRender=()=>f.Db.ExecuteAsync("UPDATE HORSE SET Name='Changed by another module';");
         var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.PublishAsync(c.ContractId,"manager",new(c.Version),default));Assert.Equal("STALE_VERSION",e.ErrorCode);
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT WHERE PdfUrl IS NOT NULL;"));Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));
@@ -313,10 +319,10 @@ public sealed class RelationalFlow1Tests
         var input=r.Input! with{Trip=r.Input!.Trip with{Delivery=new("Arrival airport",35.5,139.7,"JP"),PreferredTransportMode="AIR"}};
         r=await f.Service.SubmitAsync("owner","air-revision-key",input,r.RequestId,r.Version,default);Assert.Equal(7,r.PreparationDays);Assert.Null(r.DistanceKm);
         r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Airport scope accepted"),default);
-        var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DraftAsync(r.RequestId,"manager","air-draft-too-short",new(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default));Assert.Equal("INVALID_PREPARATION",e.ErrorCode);
-        var c=await f.Service.DraftAsync(r.RequestId,"manager","air-draft-valid",new(r.Version,Price:100000000,PreparationDays:7,Deadline:f.Time.Value.AddDays(2)),default);await f.Service.PublishAsync(c.ContractId,"manager",new(c.Version),default);
+        var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DraftAsync(r.RequestId,"manager","air-draft-too-short",new(r.Version,Price:100000000,DepositPercent:40,InsuranceAmount:1000000,Terms:"Fixture agreed terms",PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default));Assert.Equal("INVALID_PREPARATION",e.ErrorCode);
+        var c=await f.Service.DraftAsync(r.RequestId,"manager","air-draft-valid",new(r.Version,Price:100000000,DepositPercent:40,InsuranceAmount:1000000,Terms:"Fixture agreed terms",PreparationDays:7,Deadline:f.Time.Value.AddDays(2)),default);await f.Service.PublishAsync(c.ContractId,"manager",new(c.Version),default);
         var model=f.Renderer.Last!.FrozenSnapshot.Deserialize<ContractPdfModel>(new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
-        Assert.Contains("airport-to-airport",model.Values["TRANSPORT_SCOPE"]);Assert.Contains("ground legs excluded",model.Values["TRANSPORT_SCOPE"]);
+        Assert.Contains("ROAD → AIR → ROAD",model.Values["TRANSPORT_SCOPE"]);
     }
 
     [LocalSqlFact]
@@ -331,7 +337,7 @@ public sealed class RelationalFlow1Tests
     public async Task Draft_retry_normalizes_fractional_deadline_and_rejects_a_changed_preparation_with_the_same_key()
     {
         await using var f=await Fixture.Create();var r=await f.Request();r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted"),default);
-        var input=new FlowAction(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2).AddMilliseconds(123));
+        var input=new FlowAction(r.Version,Price:100000000,DepositPercent:40,InsuranceAmount:1000000,Terms:"Fixture agreed terms",PreparationDays:2,Deadline:f.Time.Value.AddDays(2).AddMilliseconds(123));
         var first=await f.Service.DraftAsync(r.RequestId,"manager","fractional-deadline-key",input,default);var retry=await f.Service.DraftAsync(r.RequestId,"manager","fractional-deadline-key",input,default);Assert.Equal(first.ContractId,retry.ContractId);
         var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DraftAsync(r.RequestId,"manager","fractional-deadline-key",input with{PreparationDays=3},default));Assert.Equal("IDEMPOTENCY_KEY_REUSED",e.ErrorCode);Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));
     }

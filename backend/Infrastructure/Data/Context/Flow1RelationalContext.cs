@@ -5,7 +5,8 @@ using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Infrastructure.Data.Context;
 
-// Existing tables only. This independent scalar model does not alter teammate mappings.
+// Scalar ledger mappings plus typed contract revision and planning tables.
+// This independent context never creates or migrates schema at runtime.
 public sealed class Flow1RelationalContext(DbContextOptions<Flow1RelationalContext> options) : DbContext(options)
 {
     protected override void OnModelCreating(ModelBuilder b)
@@ -26,8 +27,18 @@ public sealed class Flow1RelationalContext(DbContextOptions<Flow1RelationalConte
         b.Entity<FlowInvoice>().HasOne<FlowContract>().WithMany().HasForeignKey(x=>x.ContractID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowPayment>().HasOne<FlowInvoice>().WithMany().HasForeignKey(x=>x.InvoiceID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowNotice>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.UserID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowContractChange>().HasOne<FlowContract>().WithMany().HasForeignKey(x=>x.ContractID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowContractChangeField>().HasOne<FlowContractChange>().WithMany().HasForeignKey(x=>x.ChangeID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowContractEvent>().HasOne<FlowContract>().WithMany().HasForeignKey(x=>x.ContractID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowPlan>().HasOne<FlowTrip>().WithMany().HasForeignKey(x=>x.TripID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowPlan>().HasOne<FlowFlight>().WithMany().HasForeignKey(x=>x.FlightID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowPlanLeg>().HasOne<FlowPlan>().WithMany().HasForeignKey(x=>x.PlanID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowPlanAssignment>().HasOne<FlowPlanLeg>().WithMany().HasForeignKey(x=>x.LegID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowPlanHorse>().HasOne<FlowPlanAssignment>().WithMany().HasForeignKey(x=>x.AssignmentID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowPlanHorse>().HasOne<FlowHorse>().WithMany().HasForeignKey(x=>x.HorseID).OnDelete(DeleteBehavior.Restrict);
         foreach (var type in new[] { typeof(FlowHorse), typeof(FlowRequest), typeof(FlowContract), typeof(FlowPayment),
-            typeof(FlowTrip), typeof(FlowInvoice), typeof(FlowRequestHorse), typeof(FlowNotice), typeof(FlowUser), typeof(FlowMedicalRecord) })
+            typeof(FlowTrip), typeof(FlowInvoice), typeof(FlowRequestHorse), typeof(FlowNotice), typeof(FlowUser), typeof(FlowMedicalRecord),
+            typeof(FlowContractChange), typeof(FlowContractChangeField), typeof(FlowContractEvent),typeof(FlowPlan),typeof(FlowPlanLeg),typeof(FlowPlanAssignment),typeof(FlowPlanHorse),typeof(FlowFlight),typeof(FlowVehicle),typeof(FlowStaffCredential) })
         {
             var e = b.Entity(type);
             foreach (var p in type.GetProperties().Where(p => p.PropertyType == typeof(DateTime) || p.PropertyType == typeof(DateTime?)))
@@ -52,7 +63,7 @@ public sealed class Flow1Data(Flow1RelationalContext db,string? retainedRoot=nul
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         try
         {
-            if(!await Flow1RelationalSchema.IsReadyAsync(db,ct))throw Error("Flow1 requires reviewed schema006/007 and their trusted guards. No migration runs automatically.","FLOW1_SQL_SCHEMA_REQUIRED",503);
+            if(!await Flow1RelationalSchema.IsReadyAsync(db,ct))throw Error("Flow1/3 requires reviewed schema006–009 and trusted guards. No migration runs automatically.","FLOW1_SQL_SCHEMA_REQUIRED",503);
             // A complete source switch requires reviewed conversion, not per-row JSON fallback.
             // Empty retained004 columns are harmless; nonempty legacy state closes the typed API.
             foreach(var table in new[]{"HORSE","TRANSPORT_REQUEST","CONTRACT","USER"})

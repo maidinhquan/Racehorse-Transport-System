@@ -5,6 +5,7 @@ using Application.Interfaces;
 namespace WebApi.Controllers
 {
     [ApiController]
+    [RetiredPlanning]
     [Route("api/[controller]")]
     public class CoordinatorController : BaseApiController
     {

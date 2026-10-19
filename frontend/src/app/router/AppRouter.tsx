@@ -14,8 +14,8 @@ import ResetPasswordPage from "../../features/auth/pages/reset-password/ResetPas
 
 // ==================== CUSTOMER ====================
 import CustomerLayout from "../../shared/layouts/CustomerLayout/CustomerLayout";
-import HomePage from "../../features/customer/pages/home-page/HomePage";
-import MyHorsesPage from "../../features/customer/pages/my-horses/MyHorsesPage";
+import { DatabaseRequests as HomePage } from "../../features/flow1/relational/DatabaseRequests";
+import { DatabaseHorses as MyHorsesPage } from "../../features/flow1/relational/DatabaseHorses";
 import HistoryPage from "../../features/customer/pages/history/HistoryPage";
 import CustomerProfilePage from "../../features/customer/pages/profile/CustomerProfilePage";
 
@@ -30,12 +30,12 @@ import DriverDashboard from "../../features/driver/DriverDashboard";
 import SpecialistDashboard from "../../features/specialist/SpecialistDashboard";
 
 // Import các trang update mới
-import { CustomerCreateRequestPage } from "../../features/customer/pages/create-request/CustomerCreateRequestPage";
-import { CustomerRequestsListPage } from "../../features/customer/pages/list/CustomerRequestsListPage";
-import { CustomerRequestDetailPage } from "../../features/customer/pages/detail/CustomerRequestDetailPage";
-import { ManagerPortal } from "../../features/manager/pages/dashboard/ManagerPortal";
+import { DatabaseCreateRequest as CustomerCreateRequestPage } from "../../features/flow1/relational/DatabaseCreateRequest";
+import { DatabaseRequests as CustomerRequestsListPage, DatabaseRequests as CustomerRequestDetailPage, ManagerDatabasePortal as ManagerPortal } from "../../features/flow1/relational/DatabaseRequests";
+
+
 import { SpecialistPortal } from "../../features/specialist/pages/dashboard/SpecialistPortal";
-import { CoordinatorPortal } from "../../features/coordinator/pages/dashboard/CoordinatorPortal";
+import { PlanningWorkspace, CoordinatorDatabasePortal as CoordinatorPortal } from "../../features/coordinator/pages/planning/PlanningWorkspace";
 import CoordinatorDashboard from "../../features/coordinator/CoordinatorDashboard";
 import { DriverPortal } from "../../features/driver/pages/trip-detail/DriverPortal";
 import { HandoverPage } from "../../features/driver/pages/handover/HandoverPage";
@@ -68,6 +68,8 @@ function AppRouter() {
         <Route path="/manager" element={<Navigate to="/manager/overview" replace />} />
         <Route path="/manager/dashboard" element={<ManagerPortal initialNav="overview" />} />
         <Route path="/manager/overview" element={<ManagerPortal initialNav="overview" />} />
+        <Route path="/manager/planning" element={<PlanningWorkspace role="manager" />} />
+        <Route path="/specialist/planning" element={<PlanningWorkspace role="specialist" />} />
         <Route path="/manager/requests" element={<ManagerPortal initialNav="requests" />} />
         <Route path="/manager/contracts" element={<ManagerPortal initialNav="contracts" />} />
         <Route path="/manager/payments" element={<ManagerPortal initialNav="payments" />} />
