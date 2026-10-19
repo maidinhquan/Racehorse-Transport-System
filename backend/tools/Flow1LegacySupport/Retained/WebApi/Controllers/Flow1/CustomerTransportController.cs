@@ -36,8 +36,12 @@ public sealed class CustomerTransportController(CustomerTransportService service
     public async Task<IActionResult> Horses(DateOnly? departure, DateOnly? deadline, CancellationToken ct, string? requestId = null) =>
         Ok(ApiResponse<object>.Ok(await service.HorsesAsync(Owner, departure, deadline, ct, requestId)));
     [HttpPost("horses"), RequestSizeLimit(11 * 1024 * 1024)]
-    public async Task<IActionResult> CreateHorse([FromForm] string payload, [FromForm] IFormFile photo, [FromForm] IFormFile passportScan, CancellationToken ct)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> CreateHorse([FromForm] CreateHorseForm form, CancellationToken ct)
     {
+        var payload = form.Payload;
+        var photo = form.Photo;
+        var passportScan = form.PassportScan;
         HorseInput input;
         try { input = JsonSerializer.Deserialize<HorseInput>(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? throw new JsonException(); }
         catch (JsonException) { throw Error("Invalid horse payload.", "VALIDATION_ERROR"); }
@@ -52,9 +56,13 @@ public sealed class CustomerTransportController(CustomerTransportService service
             passportScan = $"/api/customer/horses/{id}/documents/{d.Version}/passport" }));
     }
     [HttpPost("horses/{id}/documents"), RequestSizeLimit(11 * 1024 * 1024)]
-    public async Task<IActionResult> UpdateDocuments(string id, [FromForm] int expectedVersion,
-        [FromForm] IFormFile photo, [FromForm] IFormFile passportScan, CancellationToken ct, [FromForm] string? payload = null)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UpdateDocuments(string id, [FromForm] UpdateHorseDocumentsForm form, CancellationToken ct)
     {
+        var expectedVersion = form.ExpectedVersion;
+        var photo = form.Photo;
+        var passportScan = form.PassportScan;
+        var payload = form.Payload;
         HorseInput? identity = null;
         if (payload is not null)
         {
@@ -97,4 +105,19 @@ public sealed class CustomerTransportController(CustomerTransportService service
         await file.CopyToAsync(memory, ct);
         return new(memory.ToArray(), file.FileName);
     }
+}
+
+public sealed class CreateHorseForm
+{
+    public string Payload { get; set; } = string.Empty;
+    public IFormFile Photo { get; set; } = null!;
+    public IFormFile PassportScan { get; set; } = null!;
+}
+
+public sealed class UpdateHorseDocumentsForm
+{
+    public int ExpectedVersion { get; set; }
+    public IFormFile? Photo { get; set; }
+    public IFormFile? PassportScan { get; set; }
+    public string? Payload { get; set; }
 }

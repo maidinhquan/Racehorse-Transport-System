@@ -18,8 +18,11 @@ public sealed class CustomerDepositPaymentsController(DepositPaymentService serv
     [HttpGet] public async Task<IActionResult> Get(string id, CancellationToken ct)
     { Response.Headers.CacheControl = "no-store"; return Ok(ApiResponse<DepositPaymentsView>.Ok(await service.GetAsync(id, Actor, false, ct))); }
     [HttpPost("bank-proofs"), RequestSizeLimit(6 * 1024 * 1024)]
-    public async Task<IActionResult> Submit(string id, [FromForm] string payload, [FromForm] IFormFile proof, CancellationToken ct)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Submit(string id, [FromForm] BankProofUploadForm form, CancellationToken ct)
     {
+        var payload = form.Payload;
+        var proof = form.Proof;
         BankProofInput input;
         try { input = JsonSerializer.Deserialize<BankProofInput>(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? throw new JsonException(); }
         catch (JsonException) { throw Error("Invalid proof payload.", "VALIDATION_ERROR"); }
@@ -84,4 +87,10 @@ public sealed class Flow1VnpayController(DepositPaymentService service) : Contro
         // Provider protocol uses exact case, independently of normal camelCase API envelopes.
         return new JsonResult(new Dictionary<string, string> { ["RspCode"] = result.RspCode, ["Message"] = result.Message });
     }
+}
+
+public sealed class BankProofUploadForm
+{
+    public string Payload { get; set; } = string.Empty;
+    public IFormFile Proof { get; set; } = null!;
 }

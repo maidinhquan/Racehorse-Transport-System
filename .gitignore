@@ -37,3 +37,22 @@ backend/WebApi/App_Data/
 
 # Isolated Flow1 Sandbox credentials; loaded only in Development.
 backend/WebApi/appsettings.Flow1Sandbox.Local.json
+
+# Temporary diagrams, test outputs & generated scratch images
+/*.png
+/*.jpg
+/*.jpeg
+temp_diagrams/
+template_extracted_images/
+mermaid.min.js
+test_*
+erd_test.*
+
+# Flow 1 reports and execution records
+contracts/API-Flow/FLOW1_*REPORT*.md
+contracts/API-Flow/FLOW1_*_REPORT.md
+contracts/API-Flow/FLOW1_*_REPORT*.md
+contracts/API-Flow/FLOW1_*_SUMMARY.md
+contracts/API-Flow/FLOW1_*_HANDOFF.md
+contracts/API-Flow/FLOW1_*_GUIDE.md
+contracts/API-Flow/FLOW1_*_OPERATIONS.md

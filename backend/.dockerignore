@@ -1,0 +1,16 @@
+**/.git
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/*.user
+**/*.suo
+**/App_Data
+**/TestResults
+**/appsettings.Local.json
+**/appsettings.Flow1Sandbox.Local.json
+**/.env
+**/.env.local
+**/.env.*.local
+**/*.bak
+**/*.log

@@ -1,6 +1,8 @@
 -- Explicit upgrade only. Never execute automatically on WebApi startup.
 -- Four existing owner tables; two columns each. No new persistent table or seed.
 SET XACT_ABORT ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
 BEGIN TRY
     BEGIN TRANSACTION;
     IF COL_LENGTH(N'dbo.CONTRACT', N'RequestID') IS NULL OR COL_LENGTH(N'dbo.CONTRACT', N'CompletionDeadline') IS NULL

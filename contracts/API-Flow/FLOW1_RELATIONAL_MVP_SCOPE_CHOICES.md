@@ -1,19 +1,18 @@
 # Flow 1 — lựa chọn thu gọn: không bảng mới, không JSON
 
-**Scope hiện hành chốt 17/10/2026:** đại ca chọn hồ sơ ngựa mới nhất (không versioning),
-Manager chốt giá trực tiếp trong Contract (bỏ plan/budget bốn nhóm), chỉ VNPay
-(bỏ bank-proofs/manual transfer), **vẫn giữ gia hạn, khách đề nghị hủy và
-confirm/hold/resume**. Không thêm bảng, không JSON persistence; chỉ current/last
-state, giữ PDF/chữ ký/từng Payment. [Mapping scope mới](FLOW1_SIMPLE_RELATIONAL_MAPPING.md)
-và foundation006 thay mapping 166 cột/005 bên dưới. 005 là tài liệu/migration lịch
-sử, **không phải bước phải chạy trước006**. 006 không tự chuyển runtime/drop dữ
-liệu; source hiện vẫn dùng JSON tới khi toàn chuỗi typed được kiểm đủ và cutover.
-Không áp migration/import/drop trên DB nghiệp vụ trong các lượt tự động.
+> **Tài liệu lịch sử:** nội dung đề xuất ngày 16/10/2026 bên dưới được giữ để tham khảo,
+> không phải trạng thái triển khai hoặc các quyết định đang chờ duyệt hiện nay.
+> Scope đã chốt: A1 duyệt/sửa/gửi lại; Manager chốt giá trực tiếp trong Contract,
+> bỏ preliminary plan/budget; VNPay-only; vẫn giữ gia hạn, đề nghị hủy và
+> confirm/hold/resume. Không thêm bảng, không JSON persistence nghiệp vụ.
+> Xem [mapping hiện hành](FLOW1_SIMPLE_RELATIONAL_MAPPING.md) và
+> [bàn giao frontend/backend](FLOW1_MAIN_FRONTEND_HANDOFF.md). Runtime đã chuyển typed;
+> không áp lại migration004 hoặc kế hoạch JSON cũ dựa trên bản đề xuất này.
 
-Ngày 16/10/2026. **Đại ca đã chọn A1 + B1 + C1 và cho phép hơn 7 cột; không thêm bảng.**
+Ngày 16/10/2026. **Bản đề xuất chờ đại ca chọn, chưa phải scope đã được duyệt.**
 Baseline source: `2ba80f273fa238c6eb3974ceb79ae766516a2fd5` trên Truong.
-Quyết định đã có: không thêm bảng; bỏ JSON state trong thiết kế đích; đã chọn gói thu gọn
-chức năng/lịch sử A1/B1/C1 trước khi refactor. Cho phép đề xuất cột tường minh
+Quyết định đã có: không thêm bảng; bỏ JSON state trong thiết kế đích; lập danh sách
+chức năng/lịch sử cần thu gọn trước khi refactor. Cho phép đề xuất cột tường minh
 trong bảng hiện có; chưa chốt số cột. Không áp migration hoặc xóa state hiện tại.
 
 ## 1. Các phần giữ được và phải giữ an toàn
@@ -31,7 +30,7 @@ trong bảng hiện có; chưa chốt số cột. Không áp migration hoặc x�
 | Thông báo | NOTIFICATION tiếp tục là thông báo cho người dùng; không biến Message thành kho workflow/serialized payload |
 | Concurrency | Cột version/rowversion hoặc cơ chế thích hợp có test stale update; xóa Flow1StateVersion không có nghĩa bỏ kiểm tra đồng thời |
 
-DDL foundation 005 và mapping đã được lập riêng; runtime chưa chuyển đổi. Một loạt cột cần được mapping và kiểm
+Các gợi ý này **chưa phải DDL hoàn chỉnh**. Một loạt cột cần được mapping và kiểm
 độ dài/nullable/FK/index với source trước khi chốt số lượng. 7 cột ban đầu không
 đủ, kể cả khi giảm lịch sử. File bytes vẫn immutable/private; không chuyển state
 sang JSON file/XML/chuỗi phân cách hoặc nhét vào Notification.Message.
@@ -43,7 +42,7 @@ request-horse. Khi phát hành/ký, cần khóa cập nhật các liên kết m�
 tham chiếu; PDF version cũ được giữ. Lịch sử đổi hồ sơ qua mọi thời điểm là phần
 thu gọn riêng bên dưới.
 
-## 2. Danh sách thu gọn đã chọn
+## 2. Danh sách thu gọn đề xuất
 
 | ID | Hiện có | Đề xuất MVP quan hệ gọn | Hệ quả người dùng cần chấp nhận |
 | --- | --- | --- | --- |
@@ -51,10 +50,10 @@ thu gọn riêng bên dưới.
 | R2 | Đề xuất thay đổi song song, Manager duyệt rồi mới đổi canonical | Bỏ change proposal; sửa trực tiếp chỉ khi CHANGES_REQUESTED trước phát hành; có PDF thì Manager đóng bản cũ trước khi sửa | Khách không tự sửa đơn đang thẩm định/chờ ký; không còn compare proposal/canonical |
 | R3 | Lịch sử mọi lần sửa request, plan, lời nhắn | Giữ request/plan/ManagerNotes hiện hành và last actor/time; giữ các Contract đã phát hành | Không dựng lại toàn bộ request/plan trước mỗi lần sửa; không có timeline đầy đủ |
 | R4 | Horse document versions đầy đủ | Giữ hồ sơ hiện hành + hồ sơ đã chốt theo request, giữ immutable bytes tham chiếu | Không có màn hình liệt kê mọi lần thay ảnh/passport; cần policy khóa sửa request đã phát hành |
-| R5 | Budget/selling nhiều dòng tùy ý và nhiều bản plan | Áp B1 đã chọn; plan chỉ giữ bản hiện hành | Không có lịch sử mọi lần đổi budget/plan; B1 còn mất thêm dòng chi phí tùy ý |
+| R5 | Budget/selling nhiều dòng tùy ý và nhiều bản plan | Chọn B1 hoặc B2 ở dưới; plan chỉ giữ bản hiện hành | Không có lịch sử mọi lần đổi budget/plan; B1 còn mất thêm dòng chi phí tùy ý |
 | R6 | Lịch sử gửi/thử/revoke OTP chi tiết | Giữ challenge hiện hành + counters/window + signed receipt thành công | Không có audit từng lần gửi/thử OTP; vẫn giữ expiry/rate/attempt/one-time binding |
 | R7 | Lịch sử mọi gia hạn và lifecycle event | Giữ hạn gốc, hạn hiện hành, hạn lúc ký, lần gia hạn gần nhất/actor/reason và counter nếu cần | Không có timeline mọi lần gia hạn; PDF và signed receipt vẫn bất biến |
-| R8 | Customer cancellation nhiều đề nghị/quyết định trên một Contract | Áp C1 đã chọn; C1 chỉ giữ đề nghị gần nhất và quyết định hiện hành | Không có danh sách mọi đề nghị hủy cũ; các khoản tiền và chứng cứ ký không bị xóa |
+| R8 | Customer cancellation nhiều đề nghị/quyết định trên một Contract | Chọn C1 hoặc C2; C1 chỉ giữ đề nghị gần nhất và quyết định hiện hành | Không có danh sách mọi đề nghị hủy cũ; các khoản tiền và chứng cứ ký không bị xóa |
 | R9 | Timeline payment/financial-review từng transition/callback attempt | Giữ mỗi PAYMENT với trạng thái cuối, proof/reference/session binding và quyết định review gần nhất | Không có lịch sử đầy đủ pending→rejected/success hay từng callback; receipt đã xác minh và phát hiện callback trùng/mâu thuẫn vẫn bắt buộc |
 | R10 | Timeline hold/resume/reconfirm và lịch sử acknowledgement mọi event | Giữ deployment hiện hành + current generation/event + last reason/actor/time + acknowledgement hiện hành ROUTING/DOCUMENTS | Không xem được toàn bộ các vòng hold/resume/ack cũ; event cũ vẫn phải bị từ chối khi ghi |
 
@@ -65,7 +64,7 @@ Không đổi tên JSON thành text hoặc sao chép cả payload vào một c�
 
 ## 3. Ba lựa chọn nghiệp vụ để chốt
 
-### A. Duyệt và sửa đơn — đã chọn A1
+### A. Duyệt và sửa đơn
 
 - **A1 — khuyến nghị:** Accept / Reject / Request changes. Giữ Customer sửa và gửi
   lại khi Manager yêu cầu; áp R1–R2. ManagerNotes là lý do hiện hành, không là chat.
@@ -75,7 +74,7 @@ Không đổi tên JSON thành text hoặc sao chép cả payload vào một c�
 Cả hai giữ kiểm tra quyền, status, schedule/horse ownership; không cho sửa dữ liệu
 đã ký. Đơn có PDF chưa ký muốn đổi phải đóng hợp đồng cũ trước, giữ file cũ.
 
-### B. Plan/budget/báo giá — đã chọn B1
+### B. Plan/budget/báo giá
 
 - **B1 — khuyến nghị:** 4 nhóm cố định Transport / Procedure / Veterinary care /
   Insurance. Giữ tổng cost/selling mỗi nhóm bằng cột số, selling/quote PDF freeze
@@ -88,7 +87,7 @@ Cả hai giữ kiểm tra quyền, status, schedule/horse ownership; không cho 
   tác động trước code. Khi phát hành phải cố định/copy dòng cho đúng Contract,
   không sửa dòng đã gắn bản phát hành. Không tạo Draft sớm để né quan hệ này.
 
-### C. Gia hạn/hủy sau ký và history — đã chọn C1
+### C. Gia hạn/hủy sau ký và history
 
 - **C1 — khuyến nghị:** Giữ gia hạn, Customer đề nghị hủy và Manager review; chỉ
   giữ state/decision/reason gần nhất bằng các cột có kiểu rõ ràng. Áp R6–R10:
@@ -100,11 +99,8 @@ Cả hai giữ kiểm tra quyền, status, schedule/horse ownership; không cho 
   state hiện hành như C1, không có full history. Khách cần hủy liên hệ Manager
   ngoài hệ thống; Manager không được hủy có tiền để né financial review.
 
-Gói đã chọn: **A1 + B1 + C1**, gồm cắt giảm timeline R3–R10, giữ dữ liệu hiện hành
-và các chứng cứ đã chốt như câu Question C. A2/B2/C2 không được chọn; giữ mô tả
-để biết các phương án đã loại. Xem [mapping cột và kế hoạch chuyển đổi](FLOW1_RELATIONAL_COLUMN_MAPPING.md).
-Scope được duyệt không phải quyền xóa dữ liệu thật: cutover/drop vẫn cần operator
-review/quyền riêng, test parity và bảo quản dữ liệu/bytes cũ.
+Gói đề xuất: **A1 + B1 + C1**. Ba nhóm trên chờ đại ca chọn; các cắt giảm history
+R3–R10 đi kèm gói phải được xác nhận trong bản scope cuối, không tự xóa theo draft.
 
 ## 4. Không thu gọn các guard an toàn
 

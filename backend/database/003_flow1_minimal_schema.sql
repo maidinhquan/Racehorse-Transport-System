@@ -2,6 +2,8 @@
 -- Caller selects the target database explicitly. Never automatically run on API startup.
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
 IF OBJECT_ID(N'dbo.CONTRACT', N'U') IS NULL OR OBJECT_ID(N'dbo.TRIP_PLAN', N'U') IS NULL
     OR OBJECT_ID(N'dbo.TRANSPORT_REQUEST', N'U') IS NULL OR OBJECT_ID(N'dbo.INVOICE', N'U') IS NULL
     THROW 51000, 'Flow 1 requires the existing legacy schema.', 1;
