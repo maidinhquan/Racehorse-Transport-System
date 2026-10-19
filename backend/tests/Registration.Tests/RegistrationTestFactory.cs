@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Collections.Concurrent;
 using Application.Interfaces;
 using Domain.Entities;
@@ -83,6 +84,7 @@ public sealed class RegistrationTestFactory(string? sqlConnection = null) : WebA
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+        builder.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?> { ["Jwt:Key"]="Fixture_Only_Not_A_Real_Secret_2026_AtLeast32Bytes" }));
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<TimeProvider>();

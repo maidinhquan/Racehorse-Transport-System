@@ -2,34 +2,30 @@ services:
   backend:
     volumes:
       - backend_app_data:/app/App_Data
-      - type: bind
-        source: ./backend/WebApi/App_Data/flow1/runtime-config/appsettings.Flow1Sandbox.Local.json
-        target: /app/appsettings.Flow1Sandbox.Local.json
-        read_only: true
-        bind:
-          create_host_path: false
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
       - "5129:8080"
+    env_file:
+      - .env
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=host.docker.internal,1433;Database=HorseTransportDB;User Id=sa;Password=12345;TrustServerCertificate=True;
-      - Smtp__Host=smtp.gmail.com
-      - Smtp__Port=587
-      - Smtp__Username=quangtruong1922@gmail.com
-      - Smtp__Password=scanyaeiddbipgsf
-      - Smtp__FromEmail=quangtruong1922@gmail.com
-      - Smtp__FromName=RaceHorse Transport System
-      - Smtp__EnableSsl=true
-      - RegistrationEmail__Mode=Smtp
-      - RegistrationEmail__Smtp__Host=smtp.gmail.com
-      - RegistrationEmail__Smtp__Port=587
-      - RegistrationEmail__Smtp__Username=quangtruong1922@gmail.com
-      - RegistrationEmail__Smtp__Password=scanyaeiddbipgsf
-      - RegistrationEmail__Smtp__From=quangtruong1922@gmail.com
-      - RegistrationEmail__Smtp__EnableSsl=true
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=HorseTransportDB;User Id=${SQL_USER:?Set SQL_USER in .env};Password=${SQL_PASSWORD:?Set SQL_PASSWORD in .env};TrustServerCertificate=True;"
+      Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__Username: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__FromEmail: ${SMTP_FROM:-}
+      Smtp__FromName: ${SMTP_FROM_NAME:-RaceHorse Transport System}
+      Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      RegistrationEmail__Mode: ${REGISTRATION_EMAIL_MODE:-Development}
+      RegistrationEmail__Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
+      RegistrationEmail__Smtp__Port: ${SMTP_PORT:-587}
+      RegistrationEmail__Smtp__Username: ${SMTP_USERNAME:-}
+      RegistrationEmail__Smtp__Password: ${SMTP_PASSWORD:-}
+      RegistrationEmail__Smtp__From: ${SMTP_FROM:-}
+      RegistrationEmail__Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
     restart: unless-stopped
 
   frontend:

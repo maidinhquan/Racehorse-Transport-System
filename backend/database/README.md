@@ -1,153 +1,33 @@
-# Flow 1 database — approved SQL state transition
+# SQL đang sử dụng
 
-## Readable request codes —19/10/2026
+Chỉ có ba script triển khai:
 
-Source now requires reviewed `008_flow1_readable_request_codes.sql` after007.
-It adds one nullable `SubmissionKeyHash varchar(64)` and one filtered unique
-index on existing TRANSPORT_REQUEST, no new table/FK. New request IDs use
-`REQ_<Vietnam year>_<sequence, at least three digits>`; allocation and retry lookup
-run under the existing global SQL transaction lock. Existing IDs/links remain
-unchanged; old opaque-ID retries are still recognized. No startup migration.
-Business apply was explicitly approved for localhost with fresh backup/restore
-verification; operation result is recorded after completion, not inferred from tests.
+| File | Khi nào dùng |
+|---|---|
+| `000_legacy_schema.sql` | Khởi tạo schema gốc cho **database trống**. Không dùng để reset database có dữ liệu. |
+| `001_registration_unique_indexes.sql` | Index riêng của đăng ký tài khoản; giữ độc lập với Flow 1. Script yêu cầu chọn HorseTransportDB. |
+| **`002_flow1.sql`** | **Toàn bộ schema Flow 1 hiện hành**, chạy một file này sau schema gốc. Không cần chạy 003–009. |
 
-Transport-only demo price is returned by backend independently of the Contract
-quote: ROAD35,000VND/km/vehicle at agreed MVP capacity1horse/vehicle; AIR70,000,000VND
-per horse, airport-to-airport only. Rounded stored kilometres drive the request
-read model; missing route data yields no estimate rather than zero or a Contract price.
+## Cách chạy Flow 1
 
-## Current extension — 19/10/2026
-
-Request baseline source now requires `000` (disposable only) → `003` → `006` →
-**`007_flow1_request_baseline.sql`**: one nullable `DeclaredValueUsd decimal(18,2)`
-on TRANSPORT_REQUEST plus one trusted CHECK. Existing LEGAL_MEDICAL_RECORD stores
-one private supplementary document link per request/horse; no new table or FK.
-Business DB007 was applied on **19/10/2026 (Asia/Saigon)** with direct user approval
-to `.\SQLEXPRESS/HorseTransportDB`. Fresh COPY_ONLY/CHECKSUM backup, VERIFYONLY,
-actual disposable restore/CHECKDB and full original-column/value parity passed.
-The approved localhost backend was stopped without forced rollback; after007,
-CHECKDB/parity passed again: **27 tables (including sysdiagrams), 39 FKs**, original
-values unchanged, existing DeclaredValueUsd values NULL, new CHECK trusted/enabled.
-Docker localhost now serves the reviewed source with original runtime configuration
-preserved. No business request/payment fixtures were created. Do not rerun
-006/conversion/drop or seed business data; this approval does not cover other targets.
-Detailed baseline report/operator notes are local-only under the current ignore rules.
-No startup migration; schema006-only runtime upgrade fails closed until007 is approved/applied.
-
-## Foundation profile — 17/10/2026 (extension007 above)
-
-Use `000` (empty disposable DB only) → `003` → **`006_flow1_simple_relational_foundation.sql`**.
-The new profile supersedes `005`/166 columns: latest horse files, direct Contract
-quote, VNPay only; retains deadline extension, latest cancellation and operational
-confirm/hold/resume. See [typed mapping](../../contracts/API-Flow/FLOW1_SIMPLE_RELATIONAL_MAPPING.md).
-
-006 adds 63 columns on five existing tables (including five automatic rowversions),
-25 CHECKs and three indexes (one on existing NOTIFICATION). No persistent tables,
-new FKs, data conversion, JSON drop, automatic startup or runtime DI switch.
-003 still provides one Trip/request and one DEPOSIT invoice/Contract. 004 can
-coexist pending reviewed conversion; 005 is a separate superseded profile and006
-rejects it rather than deleting or mixing schemas. SQL extended properties record
-schema guard fingerprints only, never application workflow payloads.
-
-Do not execute these scripts on HorseTransportDB/business DB without separate
-operator review/authorization. No rollback/drop script is authorized by the scope
-change. Existing JSON/bytes stay intact until typed UAT/parity/source cutover and
-reviewed offline conversion. Sections describing004/005 below are historical;
-they are not prerequisites or permission to deploy that architecture.
-
-**Decision 16 October 2026:** the user approved additional columns on existing tables,
-full Flow 1 retained, **no new tables**. The former two-column restriction below
-describes migration 003 only. The current transition is documented in
-[`FLOW1_SQL_STATE_TRANSITION_PLAN.md`](../../contracts/API-Flow/FLOW1_SQL_STATE_TRANSITION_PLAN.md).
-
-`004_flow1_sql_state.sql` adds nullable `Flow1StateJson nvarchar(max)` and
-`Flow1StateVersion bigint NOT NULL DEFAULT(0)` to each of HORSE, TRANSPORT_REQUEST,
-CONTRACT and USER: **eight columns, zero new tables**. Version is a monotonic
-compare-and-swap counter, not SQL Server rowversion. JSON checks and schema/default/
-constraint compatibility guards are transactional and repeatable. No business state,
-money, timestamps, private files or legacy records are invented/backfilled by 004.
-
-**S2 switches endpoint source to SQL state.** Customer/review/publication/OTP/sign
-use the scoped SQL provider and commit state plus business mutations together.
-Missing migration 004 returns `FLOW1_SQL_SCHEMA_REQUIRED`. S3 provides offline
-[inventory/import/parity tooling](../tools/Flow1StateImport/README.md) and removes
-the file state provider/interface/writer options. Typed legacy JSON requires a
-matching committed import receipt (path/hash) in the SQL owner envelope; missing
-or changed sources return `FLOW1_STATE_IMPORT_REQUIRED`. Sources remain unchanged,
-never read as runtime business state or a fallback. Applying 004 alone does not
-move old metadata. Do not delete metadata to bypass the guard. No migration
-or import runs at startup; tests only apply 004 to controlled disposable databases,
-never HorseTransportDB. See [S2](../../contracts/API-Flow/FLOW1_PHASE4_SQL_CUTOVER_REPORT.md)
-and [S3](../../contracts/API-Flow/FLOW1_PHASE4_SQL_IMPORT_REPORT.md). Business DB migration/import remains a separate explicitly authorized operation.
-
-For a separately authorized upgrade: verify/backup target DB and private files,
-apply/verify 003 first, review 004, run dry-run/inventory and the eventual importer,
-check parity, and then perform the tested application cutover. Do not roll back by
-dropping populated JSON columns; preserve history and restore/forward-fix deliberately.
-
-## Migration 003 baseline (historical schema decision)
-
-The selected design adds **only** `CONTRACT.CompletionDeadline datetime2 NULL` and
-`CONTRACT.RequestID varchar(50) NOT NULL`, and makes `CONTRACT.TripID` nullable.
-No new table, rowversion column, provider column, or fake preliminary Trip is added.
-
-Indexes enforce one Trip per Request and one DEPOSIT invoice per Contract. Existing
-duplicate trips/deposit invoices or mismatched customers stop the migration without
-deleting rows. Legacy RequestID is derived from the existing Trip relation. Existing
-money/currency/signatures are preserved; no deadlines or UTC history are invented.
-
-## Existing database
-
-1. Back up the explicitly named database and verify its identity.
-2. Run `002_flow1_preflight.sql` read-only and review all issue result sets.
-3. Resolve reported data conflicts with the owner. Do not delete arbitrary duplicates.
-4. Run `003_flow1_minimal_schema.sql` in that database using an explicit `-d` target.
-5. Re-run preflight, validate row counts/relations and smoke-test authentication.
+Chọn đúng database đích trong SSMS rồi chạy toàn bộ `002_flow1.sql`, hoặc:
 
 ```powershell
-# Replace the target deliberately. These commands are examples, not startup hooks.
-sqlcmd -S '.\SQLEXPRESS' -E -C -b -d YOUR_TARGET_DATABASE -i backend/database/002_flow1_preflight.sql
-sqlcmd -S '.\SQLEXPRESS' -E -C -b -d YOUR_TARGET_DATABASE -i backend/database/003_flow1_minimal_schema.sql
+sqlcmd -S '.\SQLEXPRESS' -E -C -b -d HorseTransportDB -i backend/database/002_flow1.sql
 ```
 
-Migration is transactional and repeatable. It intentionally contains no USE, CREATE
-DATABASE, DROP DATABASE, seeds, or automatic execution in WebApi. Roll back application
-code separately; schema rollback with new contracts whose TripID is null requires a
-reviewed restore/forward-fix, not an unconditional ALTER back to NOT NULL.
+Backup và kiểm tra dữ liệu trước khi thay schema trên database có dữ liệu. Không chạy migration khi backend đang ghi dữ liệu. Ứng dụng không tự chạy SQL khi khởi động.
 
-## New empty database / tests
+`002` là một file tự chứa, không import file khác, không cần SQLCMD mode và không có GO. Các bước nằm trong một transaction chung: nếu bước cuối lỗi thì các bước trước cũng rollback. Có khóa migration, kiểm tra cột/index/CHECK và dữ liệu xung đột. Gặp định nghĩa không tương thích sẽ dừng, không xóa hoặc đổi kiểu để ép chạy.
 
-`000_legacy_schema.sql` contains only the 26 legacy CREATE TABLE definitions, extracted
-from the tracked `HorseTransportDB/HorseTransportDB.sql`; it omits its database reset
-and sample data. Run it **only in a newly created empty database**, then apply 003.
-The tracked legacy script itself drops HorseTransportDB: never use it as an upgrade.
-The local ignored `data/HorseTransportDB.sql` is not a reproducible deployment source.
+File dùng được với schema gốc, database đang ở giữa chuỗi migration đang dùng và schema cuối đã nâng cấp trước khi gộp. Chạy lại giữ dữ liệu, không tạo bảng nghiệp vụ mới, không seed tài khoản/yêu cầu/thanh toán. RequestID của hợp đồng cũ chỉ được nối từ Trip đang tồn tại khi chưa có liên kết; không suy đoán liên kết.
 
-Integration tests create `RaceHorseFlow1Test_<GUID>` on a local SQL Server, load 000,
-apply migrations, and drop only that validated generated database. They never reset or
-migrate the user's HorseTransportDB. Set `RACEHORSE_TEST_SQL_SERVER=.\SQLEXPRESS` to run.
+## Database hiện tại
 
-## Private storage after source cutover
+HorseTransportDB trên máy đã có schema cuối từ lượt nâng cấp trước. **Không cần chạy lại để test Swagger**. Lần gộp này chỉ sửa source, fixture kiểm thử và tài liệu; không đổi database hay khởi động lại API đại ca đang sử dụng.
 
-New plans, snapshots, document hashes, change history, OTP digests/attempts/budgets
-and signing receipts use SQL state on existing owner rows. Images/passports/PDF/proof
-bytes remain immutable private files behind authenticated APIs. Generating bytes
-before SQL commit can leave an unreferenced private file on rollback; it never creates
-a published manifest or permits downloading an unissued contract. SMTP remains an
-external operation with DELIVERING/DELIVERED/FAILED states. No shared filesystem/SMTP/
-SQL transaction or transactional outbox is claimed. Back up SQL and private bytes
-together; keep old sidecars unchanged until S3 import/parity has been verified.
+## Chỉ giữ schema cuối
 
+Các SQL lịch sử của Flow 1 đã xóa hẳn, kể cả trong test. Test nghiệp vụ và harness đều dùng `000` (schema nền cho database tạm) → **`002`**. `001` thuộc đăng ký tài khoản, không phải một phiên bản của Flow 1.
 
-## A1/B1/C1 relational foundation — 005
-
-`005_flow1_relational_mvp_foundation.sql` is an explicit, additive foundation on
-003. It supports fresh003 without004 and coexistence with004; creates no
-persistent tables and changes no existing foreign keys/columns. It adds 166 typed
-columns across 8 existing tables, 30 CHECKs and 7 indexes. No startup application,
-no conversion, no Ready backfill, no business DB permission, no old-state drop.
-Current runtime still uses the old store until a later tested source cutover.
-Read `contracts/API-Flow/FLOW1_RELATIONAL_COLUMN_MAPPING.md` before operator review.
-Any retirement/drop script is separate and must follow conversion/parity approval.
-
-Local operator record (19 October 2026): approved008 applied on the existing localhost HorseTransportDB after COPY_ONLY/CHECKSUM backup, actual disposable restore/CHECKDB and original-values/FK parity. Runtime image updated and private bytes/config restored with hash parity. Existing request IDs remain unchanged; only new submissions allocate REQ_YYYY_NNN. No startup migration was introduced. Detailed operation evidence is held privately under WebApi/App_Data/flow1/upgrade008-*.
+Test chỉ kiểm tra schema hiện hành: đầy đủ cột/khóa/guard, chạy lại không đổi dữ liệu, từ chối cột sai kiểu, rollback toàn bộ khi lỗi và các nghiệp vụ Flow 1. Không còn bộ test cho profile SQL cũ hoặc so sánh với chuỗi migration đã bỏ.

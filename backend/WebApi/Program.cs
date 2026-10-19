@@ -112,7 +112,6 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 // =============================================================================
 // 5. CẤU HÌNH JWT AUTHENTICATION
 // =============================================================================
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "RaceHorseTransportSecretKey2026_SWP391_Project_SecuredKey_SuperSafe!";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "RaceHorseTransportBackend";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "RaceHorseTransportFrontend";
 
@@ -123,6 +122,9 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    var jwtKey = builder.Configuration["Jwt:Key"];
+    if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
+        throw new InvalidOperationException("Configure a private Jwt:Key of at least 32 bytes through the environment or local configuration.");
     options.RequireHttpsMetadata = false;
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters

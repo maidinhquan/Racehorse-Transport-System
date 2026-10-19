@@ -41,7 +41,7 @@ Customer gọi cancellation/request; Manager dùng cancellation/{operation}: app
 
 ## Database và tài liệu
 
-Đã áp dụng `backend/database/009_flow1_final_workflow.sql` vào HorseTransportDB sau khi backup, VERIFYONLY, khôi phục thử và chạy thử migration.
+HorseTransportDB đã được nâng cấp theo schema cuối sau khi backup, VERIFYONLY, khôi phục thử và chạy thử migration. Source SQL nay gộp thành **`backend/database/002_flow1.sql`**; không cần chạy chuỗi 003–009. Các SQL lịch sử đã xóa hẳn; test chỉ dùng schema 002 hiện hành. Lần gộp source không sửa database đang test Swagger. Đã chạy 002 trên bản khôi phục backup: giữ nguyên 27 bảng/305 cột dữ liệu gốc.
 
 | Bảng | Bổ sung |
 |---|---|
@@ -67,7 +67,7 @@ $env:RACEHORSE_TEST_SQL_SERVER = '.\SQLEXPRESS'
 dotnet test backend/Backend.slnx
 ```
 
-Build: **0 warning, 0 error**. Flow1: **125 passed, 0 failed, 0 skipped**; Registration: **47 passed, 0 failed, 0 skipped**. Test database là các database tạm có tên riêng, không chạy dữ liệu giả vào HorseTransportDB. `LocalSqlFactAttribute.cs` chỉ bỏ qua test cần SQL khi chưa đặt biến RACEHORSE_TEST_SQL_SERVER; đặt biến như trên để thực sự chạy đủ test.
+Build: **0 warning, 0 error**. Flow1: **122 passed, 0 failed, 0 skipped**; Registration: **47 passed, 0 failed, 0 skipped**. Test database là các database tạm có tên riêng, không chạy dữ liệu giả vào HorseTransportDB. `LocalSqlFactAttribute.cs` chỉ bỏ qua test cần SQL khi chưa đặt biến RACEHORSE_TEST_SQL_SERVER; đặt biến như trên để thực sự chạy đủ test.
 
 Kiểm thử kết nối thật Kestrel/SQL/JWT/Swagger: **77 HTTP checks** và thao tác Try-it-out trên giao diện Swagger đã qua. Bao gồm chuỗi cọc → OTP → Trip, callback lặp, phân quyền manager/nhân sự, request revision/reject, feedback/reissue/reject, tải private files, notification/read và hủy/hoàn cọc trước ký. Các lỗi nghiệp vụ 401/403/409 dự kiến được kiểm tra đúng; không có HTTP 500 trong các bước đã kiểm thử. PDF đã parse strict và render kiểm tra bố cục/tiếng Việt.
 

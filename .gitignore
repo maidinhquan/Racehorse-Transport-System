@@ -51,3 +51,10 @@ erd_test.*
 # Flow 1 reports and working documents (keep only FLOW1.md on git)
 contracts/API-Flow/FLOW1_*
 !contracts/API-Flow/FLOW1.md
+
+# Private runtime secrets (shared defaults and examples remain tracked)
+.env
+.env.*
+!.env.example
+**/appsettings.*.Local.json
+**/appsettings.Local.json

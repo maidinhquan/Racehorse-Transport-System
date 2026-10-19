@@ -31,15 +31,14 @@ public sealed class RequestBaselineTests
     }
 
     [LocalSqlFact]
-    public async Task Migration_is_repeatable_adds_one_nullable_scalar_and_preserves_tables_foreign_keys_and_rows()
+    public async Task Current_declared_value_guard_is_repeatable_and_preserves_rows_and_relations()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false);
-        await db.ScriptAsync("006_flow1_simple_relational_foundation.sql");
+        await using var db = await Flow1TestDatabase.CreateAsync();
         var columns = await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;");
         var tables = await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;");
         var relations = await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.foreign_keys;");
-        await db.ScriptAsync("007_flow1_request_baseline.sql"); await db.ScriptAsync("007_flow1_request_baseline.sql");
-        Assert.Equal(columns + 1, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;"));
+        await db.ScriptAsync("002_flow1.sql"); await db.ScriptAsync("002_flow1.sql");
+        Assert.Equal(columns, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;"));
         Assert.Equal(tables, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;"));
         Assert.Equal(relations, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.foreign_keys;"));
         Assert.Equal("ACCEPTED", await db.ScalarAsync<string>("SELECT Status FROM TRANSPORT_REQUEST WHERE RequestID='req-1';"));
@@ -132,15 +131,15 @@ public sealed class RequestBaselineTests
     }
 
     [LocalSqlFact]
-    public async Task Missing_007_or_a_replaced_check_fails_closed_without_altering_the_database()
+    public async Task Missing_declared_value_or_a_replaced_check_fails_closed_without_altering_the_database()
     {
         await using var f = await RelationalFlow1Tests.Fixture.Create();
         await f.Db.ExecuteAsync("ALTER TABLE TRANSPORT_REQUEST DROP CONSTRAINT CK_F1D_DeclaredValueUsd;ALTER TABLE TRANSPORT_REQUEST DROP COLUMN DeclaredValueUsd;");
         Assert.Equal("FLOW1_SQL_SCHEMA_REQUIRED", (await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.ListAsync("owner", false, default))).ErrorCode);
-        await f.Db.ScriptAsync("007_flow1_request_baseline.sql");
+        await f.Db.ScriptAsync("002_flow1.sql");
         await f.Db.ExecuteAsync("ALTER TABLE TRANSPORT_REQUEST DROP CONSTRAINT CK_F1D_DeclaredValueUsd;ALTER TABLE TRANSPORT_REQUEST ADD CONSTRAINT CK_F1D_DeclaredValueUsd CHECK (DeclaredValueUsd IS NULL OR DeclaredValueUsd >= 0);");
         Assert.Equal("FLOW1_SQL_SCHEMA_REQUIRED", (await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.ListAsync("owner", false, default))).ErrorCode);
-        Assert.Equal(51403, (await Assert.ThrowsAsync<SqlException>(() => f.Db.ScriptAsync("007_flow1_request_baseline.sql"))).Number);
+        Assert.Equal(51403, (await Assert.ThrowsAsync<SqlException>(() => f.Db.ScriptAsync("002_flow1.sql"))).Number);
     }
 
     [LocalSqlFact]

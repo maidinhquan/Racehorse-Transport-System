@@ -14,3 +14,8 @@
 **/.env.*.local
 **/*.bak
 **/*.log
+
+# Any private environment/local configuration variant
+**/.env.*
+!**/.env.example
+**/appsettings.*.Local.json

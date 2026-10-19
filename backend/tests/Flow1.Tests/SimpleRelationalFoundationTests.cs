@@ -5,7 +5,7 @@ namespace Flow1.Tests;
 
 public sealed class SimpleRelationalFoundationTests
 {
-    private const string Script = "006_flow1_simple_relational_foundation.sql";
+    private const string Script = "002_flow1.sql";
     private static Task<string> ForeignKeys(Flow1TestDatabase db) => db.ScalarAsync<string>("""
         SELECT STRING_AGG(CONVERT(nvarchar(max),CONCAT(f.name,':',OBJECT_NAME(f.parent_object_id),':',
           COL_NAME(c.parent_object_id,c.parent_column_id),':',OBJECT_NAME(f.referenced_object_id),':',
@@ -24,58 +24,52 @@ public sealed class SimpleRelationalFoundationTests
         """);
 
     [LocalSqlFact]
-    public async Task Fresh_profile_is_repeatable_adds_63_columns_and_preserves_every_existing_relation_and_business_row()
+    public async Task Current_schema_is_repeatable_and_preserves_base_relations_and_business_rows()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false);
+        await using var db = await Flow1TestDatabase.CreateAsync(migrate:false);
         var tables = await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;");
-        var columns = await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;"); var fks = await ForeignKeys(db);
-        await db.ScriptAsync(Script); await db.ScriptAsync(Script);
-        Assert.Equal(tables, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;"));
-        Assert.Equal(columns + 63, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;"));
-        Assert.Equal(fks, await ForeignKeys(db));
-        Assert.Equal(0, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE name IN ('Flow1StateJson','Flow1StateVersion','RelationalReady','DocumentRevision');"));
-        Assert.Equal(5, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE name='RowVersion' AND system_type_id=189 AND is_nullable=0;"));
-        Assert.Equal(25, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.check_constraints WHERE name LIKE 'CK_F1S[_]%' AND is_disabled=0 AND is_not_trusted=0;"));
-        Assert.Equal("ACCEPTED", await db.ScalarAsync<string>("SELECT Status FROM TRANSPORT_REQUEST WHERE RequestID='req-1';"));
+        var before = (await ForeignKeys(db)).Split('|');
+        await db.ScriptAsync(Script);var columns=await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;");
+        await db.ScriptAsync(Script);
+        Assert.Equal(tables,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;"));
+        Assert.Equal(columns,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;"));
+        var after=(await ForeignKeys(db)).Split('|');Assert.All(before,link=>Assert.Contains(link,after));
+        Assert.Equal(before.Length+4,after.Length);
+        Assert.Equal(0,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE name IN ('Flow1StateJson','Flow1StateVersion','RelationalReady','DocumentRevision');"));
+        Assert.Equal(5,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE name='RowVersion' AND system_type_id=189 AND is_nullable=0;"));
+        Assert.Equal(25,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.check_constraints WHERE name LIKE 'CK_F1S[_]%' AND is_disabled=0 AND is_not_trusted=0;"));
+        Assert.Equal("ACCEPTED",await db.ScalarAsync<string>("SELECT Status FROM TRANSPORT_REQUEST WHERE RequestID='req-1';"));
     }
 
     [LocalSqlFact]
-    public async Task Coexisting_004_source_money_and_signature_are_not_backfilled_dropped_or_relabelled()
+    public async Task Reapply_preserves_existing_signature_and_money_without_reallocating_cash()
     {
         await using var db = await Flow1TestDatabase.CreateAsync(); await InsertContract(db); await InsertInvoice(db);
         await db.ExecuteAsync("""
-            UPDATE CONTRACT SET Flow1StateJson=N'{"retained":"operator-review"}',Flow1StateVersion=19,
-              SignedAt='2026-10-01T12:00:00',ContractStatus='SIGNED' WHERE ContractID='c-one';
+            UPDATE CONTRACT SET SignedAt='2026-10-01T12:00:00',ContractStatus='SIGNED' WHERE ContractID='c-one';
             UPDATE INVOICE SET PaidAmount=1234,PaymentStatus='PARTIALLY_PAID';
             """);
         await db.ScriptAsync(Script);
-        Assert.Equal("{\"retained\":\"operator-review\"}", await db.ScalarAsync<string>("SELECT Flow1StateJson FROM CONTRACT;"));
-        Assert.Equal(19L, await db.ScalarAsync<long>("SELECT Flow1StateVersion FROM CONTRACT;"));
         Assert.Equal(new DateTime(2026, 10, 1, 12, 0, 0), await db.ScalarAsync<DateTime>("SELECT SignedAt FROM CONTRACT;"));
         Assert.False(await db.ScalarAsync<bool>("SELECT IsCurrent FROM CONTRACT;"));
         Assert.Equal(1234m, await db.ScalarAsync<decimal>("SELECT PaidAmount FROM INVOICE;"));
     }
 
     [LocalSqlFact]
-    public async Task Wrong_column_type_rolls_back_and_superseded_005_is_rejected_without_combining_profiles()
+    public async Task Wrong_column_type_rolls_back_without_retyping_or_leaving_partial_schema()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false);
+        await using var db=await Flow1TestDatabase.CreateAsync(migrate:false);
         await db.ExecuteAsync("ALTER TABLE TRANSPORT_REQUEST ADD DistanceKm varchar(20) NULL;");
-        var columns = await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;");
-        Assert.Equal(51203, (await Assert.ThrowsAsync<SqlException>(() => db.ScriptAsync(Script))).Number);
-        Assert.Equal(columns, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;"));
-        await db.ExecuteAsync("ALTER TABLE TRANSPORT_REQUEST DROP COLUMN DistanceKm;");
-        await db.ScriptAsync("005_flow1_relational_mvp_foundation.sql");
-        columns = await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;");
-        Assert.Equal(51207, (await Assert.ThrowsAsync<SqlException>(() => db.ScriptAsync(Script))).Number);
-        Assert.Equal(columns, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;"));
-        Assert.Equal(0, await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.HORSE') AND name='PhotoUrl';"));
+        var columns=await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;");
+        Assert.Equal(51203,(await Assert.ThrowsAsync<SqlException>(()=>db.ScriptAsync(Script))).Number);
+        Assert.Equal(columns,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;"));
+        Assert.Equal(0,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('HORSE') AND name='PhotoUrl';"));
     }
 
     [LocalSqlFact]
     public async Task Coordinates_floor_fixed_deposit_and_otp_guards_reject_invalid_or_missing_evidence()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false); await db.ScriptAsync(Script); await InsertContract(db);
+        await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script); await InsertContract(db);
         foreach (var sql in new[] {
             "UPDATE TRANSPORT_REQUEST SET PickupLatitude=91,PickupLongitude=106;",
             "UPDATE TRANSPORT_REQUEST SET PickupLatitude=10;",
@@ -97,7 +91,7 @@ public sealed class SimpleRelationalFoundationTests
     [LocalSqlFact]
     public async Task Current_contract_and_verified_vnpay_receipt_have_unique_keys_and_success_needs_both_codes_and_amount()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false); await db.ScriptAsync(Script); await InsertContract(db); await InsertInvoice(db);
+        await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script); await InsertContract(db); await InsertInvoice(db);
         await db.ExecuteAsync("""
             UPDATE CONTRACT SET IsCurrent=1;
             INSERT CONTRACT(ContractID,RequestID,CustomerID,ContractCode,CurrencyCode,ContractStatus)
@@ -117,7 +111,7 @@ public sealed class SimpleRelationalFoundationTests
     [LocalSqlFact]
     public async Task Deadline_cancellation_and_handoff_current_state_are_guarded_and_transaction_rollback_preserves_cash()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false); await db.ScriptAsync(Script); await InsertContract(db); await InsertInvoice(db);
+        await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script); await InsertContract(db); await InsertInvoice(db);
         await db.ExecuteAsync("""
             UPDATE CONTRACT SET DepositAmount=40000000,CompletionDeadline='2026-10-20T10:00:00',
               PdfUrl='private/contract.pdf',PdfSha256=REPLICATE('a',64),PublishedBy='manager',PublishedAtUtc='2026-10-18',
@@ -145,7 +139,7 @@ public sealed class SimpleRelationalFoundationTests
     [LocalSqlFact]
     public async Task Rowversion_changes_on_edit_and_a_stale_write_cannot_overwrite_the_newer_decision()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false); await db.ScriptAsync(Script);
+        await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script);
         var prior = await db.ScalarAsync<byte[]>("SELECT RowVersion FROM TRANSPORT_REQUEST WHERE RequestID='req-1';");
         await db.ExecuteAsync("UPDATE TRANSPORT_REQUEST SET ManagerNotes=N'New decision' WHERE RequestID='req-1';");
         await using var connection = new SqlConnection(db.ConnectionString); await connection.OpenAsync();
@@ -158,7 +152,7 @@ public sealed class SimpleRelationalFoundationTests
     [LocalSqlFact]
     public async Task Disabled_guard_or_index_is_not_silently_accepted_on_reapply()
     {
-        await using var db = await Flow1TestDatabase.CreateAsync(sqlState: false); await db.ScriptAsync(Script);
+        await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script);
         await db.ExecuteAsync("ALTER TABLE CONTRACT NOCHECK CONSTRAINT CK_F1S_CONTRACT_OtpAttempts;");
         Assert.Equal(51205, (await Assert.ThrowsAsync<SqlException>(() => db.ScriptAsync(Script))).Number);
         await db.ExecuteAsync("ALTER TABLE CONTRACT WITH CHECK CHECK CONSTRAINT CK_F1S_CONTRACT_OtpAttempts; ALTER INDEX UX_F1S_CurrentContract ON CONTRACT DISABLE;");

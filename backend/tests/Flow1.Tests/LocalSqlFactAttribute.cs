@@ -73,7 +73,7 @@ internal sealed class Flow1TestDatabase : IAsyncDisposable
         ConnectionString = builder.ConnectionString;
     }
 
-    public static async Task<Flow1TestDatabase> CreateAsync(bool migrate = true, bool sqlState = true)
+    public static async Task<Flow1TestDatabase> CreateAsync(bool migrate = true)
     {
         var db = new Flow1TestDatabase();
         await ExecuteOnAsync(db.masterConnection, $"CREATE DATABASE [{db.name}];");
@@ -85,7 +85,7 @@ internal sealed class Flow1TestDatabase : IAsyncDisposable
                 INSERT INTO dbo.TRANSPORT_REQUEST(RequestID,CustomerID,Departure,Destination,Status)
                 VALUES ('req-1','owner',N'A',N'B','ACCEPTED');
                 """);
-            if (migrate) { await db.MigrateAsync(); if (sqlState) await db.ScriptAsync("004_flow1_sql_state.sql"); }
+            if (migrate) await db.MigrateAsync();
             return db;
         }
         catch { await db.DisposeAsync(); throw; }
@@ -93,7 +93,7 @@ internal sealed class Flow1TestDatabase : IAsyncDisposable
 
     public HorseTransportDbContext Context() => new(new DbContextOptionsBuilder<HorseTransportDbContext>()
         .UseSqlServer(ConnectionString).Options);
-    public Task MigrateAsync() => ScriptAsync("003_flow1_minimal_schema.sql");
+    public Task MigrateAsync() => ScriptAsync("002_flow1.sql");
     public Task ScriptAsync(string filename) => ExecuteAsync(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Sql", filename)));
     public Task ExecuteAsync(string sql) => ExecuteOnAsync(ConnectionString, sql);
     public async Task<T> ScalarAsync<T>(string sql)

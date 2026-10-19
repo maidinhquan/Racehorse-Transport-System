@@ -17,7 +17,7 @@ if(args[0]=="cleanup"){
 var db="RaceHorseFlow1Swagger_"+Guid.NewGuid().ToString("N");
 var builder=new SqlConnectionStringBuilder(master){InitialCatalog=db};await Execute(master,$"CREATE DATABASE [{db}];");
 try{
-    foreach(var file in new[]{"000_legacy_schema.sql","003_flow1_minimal_schema.sql","006_flow1_simple_relational_foundation.sql","007_flow1_request_baseline.sql","008_flow1_readable_request_codes.sql","009_flow1_final_workflow.sql"})
+    foreach(var file in new[]{"000_legacy_schema.sql","002_flow1.sql"})
         await Execute(builder.ConnectionString,await File.ReadAllTextAsync(Path.Combine("backend/database",file)));
     var hash=BCrypt.Net.BCrypt.HashPassword("SwaggerFixture123!");
     foreach(var (id,role) in new[]{("customer","CUSTOMER"),("other","CUSTOMER"),("manager","LOGISTICS_MANAGER"),("manager2","LOGISTICS_MANAGER"),("specialist","TRANSPORT_SPECIALIST"),("coordinator","FLEET_ROUTE_COORDINATOR"),("specialist2","TRANSPORT_SPECIALIST"),("coordinator2","FLEET_ROUTE_COORDINATOR")}){

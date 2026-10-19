@@ -1,5 +1,22 @@
 # Hệ thống quản lý vận chuyển ngựa đua xuyên biên giới (Racehorse-Transport-System)
 
+## Docker runtime configuration
+
+Copy `.env.example` to `.env` and fill the SQL/SMTP credentials, `Jwt__Key`,
+`Flow1__Contracts__OtpHmacKey`, maps keys, VNPay configuration and contract issuer.
+JWT and contract OTP require independent random keys of at least 32 bytes.
+`docker compose` reads `.env` through `env_file`; ASP.NET keys use `__` between levels.
+Run `docker compose config --quiet` to validate without printing resolved credentials,
+then `docker compose up --build -d` when ready to restart services.
+
+`.env`, private local appsettings and `App_Data` stay outside Git and Docker build
+contexts. Shared `appsettings.json` contains no credentials. Direct Windows runs can
+use ignored `backend/WebApi/appsettings.Local.json`; Docker receives secrets at runtime.
+Existing App_Data volume is retained. Do not delete it when rebuilding.
+Removing tracked secrets does not remove them from older commits; rotate credentials
+that were previously committed. No history rewrite is performed by this change.
+
+
 Cross-Border Racehorse Transport Management System - React frontend and ASP.NET Core backend.
 
 Đây là hệ thống quản lý vận chuyển ngựa đua xuyên biên giới, bao gồm giao diện người dùng (Frontend) xây dựng bằng **React** và máy chủ (Backend) xây dựng bằng **ASP.NET Core**.

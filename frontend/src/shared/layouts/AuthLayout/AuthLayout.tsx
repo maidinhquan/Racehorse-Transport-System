@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
-import authHorseImage from "../../../assets/images/login-horse.jpg";
+import authHorseImage from "../../../assets/images/login-horse.png";
 import ThemeToggle from "../../components/ThemeToggle/ThemeToggle";
 import { useTheme } from "../../context/ThemeContext";
 

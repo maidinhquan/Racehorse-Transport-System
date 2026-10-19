@@ -55,7 +55,7 @@ var created = false;
 try
 {
     await Sql(master, $"CREATE DATABASE [{name}];"); created = true;
-    foreach (var file in new[] { "000_legacy_schema.sql", "003_flow1_minimal_schema.sql", "006_flow1_simple_relational_foundation.sql", "007_flow1_request_baseline.sql", "008_flow1_readable_request_codes.sql" })
+    foreach (var file in new[]{"000_legacy_schema.sql","002_flow1.sql"})
         await Sql(connection, await File.ReadAllTextAsync(Path.Combine(repository, "backend/database", file)));
     await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-owner','test-only','CUSTOMER',N'Browser Demo');");
     if (phase3) await Sql(connection, "INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('browser-manager','test-only','LOGISTICS_MANAGER',N'Manager Demo');");

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -20,7 +21,9 @@ internal sealed class RelationalHttpFactory(RelationalFlow1Tests.Fixture fixture
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");builder.ConfigureServices(s=>{
+        builder.UseEnvironment("Development");
+        builder.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?> { ["Jwt:Key"]="Fixture_Only_Not_A_Real_Secret_2026_AtLeast32Bytes" }));
+        builder.ConfigureServices(s=>{
             s.RemoveAll<DbContextOptions<Flow1RelationalContext>>();s.RemoveAll<Flow1RelationalContext>();
             s.AddDbContext<Flow1RelationalContext>(o=>o.UseSqlServer(connection??fixture.Db.ConnectionString));
             s.RemoveAll<DbContextOptions<HorseTransportDbContext>>();s.RemoveAll<HorseTransportDbContext>();s.AddDbContext<HorseTransportDbContext>(o=>o.UseSqlServer(connection??fixture.Db.ConnectionString));
@@ -48,7 +51,7 @@ public sealed class RelationalHttpTests
     private static async Task<T> Post<T>(HttpClient c,string url,object data,string? key=null)
     {using var r=new HttpRequestMessage(HttpMethod.Post,url){Content=JsonContent.Create(data)};if(key is not null)r.Headers.Add("Idempotency-Key",key);return await Read<T>(await c.SendAsync(r));}
     [LocalSqlFact]
-    public async Task Full_typed_http_chain_uses_only_006_and_retired_routes_are_not_exposed()
+    public async Task Full_typed_http_chain_uses_only_current_schema_and_retired_routes_are_not_exposed()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();using var app=new RelationalHttpFactory(f);using var customer=app.Client();using var manager=app.Client("manager","LOGISTICS_MANAGER");
         using var horseRequest=new HttpRequestMessage(HttpMethod.Post,"/api/customer/horses"){Content=CustomerTransportTests.HorseBody()};horseRequest.Headers.Add("Idempotency-Key","http-horse-key");
@@ -81,22 +84,18 @@ public sealed class RelationalHttpTests
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));
     }
     [LocalSqlFact]
-    public async Task Missing_schema_or_retained_json_fails_closed_without_migrating_or_falling_back()
+    public async Task Missing_schema_fails_closed_without_startup_migration_and_current_schema_restores_access()
     {
-        await using var f=await RelationalFlow1Tests.Fixture.Create();await using var old=await Flow1TestDatabase.CreateAsync();
-        using(var app=new RelationalHttpFactory(f,old.ConnectionString))using(var c=app.Client()) {
-            var response=await c.GetAsync("/api/customer/requests");Assert.Equal(HttpStatusCode.ServiceUnavailable,response.StatusCode);
-            Assert.Contains("FLOW1_SQL_SCHEMA_REQUIRED",await response.Content.ReadAsStringAsync());
-            Assert.Equal(0,await old.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('HORSE') AND name='PhotoUrl';"));
-        }
-        await old.ScriptAsync("006_flow1_simple_relational_foundation.sql");await old.ScriptAsync("007_flow1_request_baseline.sql");await old.ScriptAsync("008_flow1_readable_request_codes.sql");await old.ScriptAsync("009_flow1_final_workflow.sql");await old.ExecuteAsync("UPDATE TRANSPORT_REQUEST SET Flow1StateJson=N'{\"retained\":true}' WHERE RequestID='req-1';");
-        using(var app=new RelationalHttpFactory(f,old.ConnectionString))using(var c=app.Client()) {
-            var response=await c.GetAsync("/api/customer/requests");Assert.Equal(HttpStatusCode.ServiceUnavailable,response.StatusCode);Assert.Contains("FLOW1_STATE_IMPORT_REQUIRED",await response.Content.ReadAsStringAsync());
-            Assert.Equal("{\"retained\":true}",await old.ScalarAsync<string>("SELECT Flow1StateJson FROM TRANSPORT_REQUEST;"));
-        }
+        await using var f=await RelationalFlow1Tests.Fixture.Create();await using var empty=await Flow1TestDatabase.CreateAsync(migrate:false);
+        using var app=new RelationalHttpFactory(f,empty.ConnectionString);using var c=app.Client();
+        var response=await c.GetAsync("/api/customer/requests");Assert.Equal(HttpStatusCode.ServiceUnavailable,response.StatusCode);
+        Assert.Contains("FLOW1_SQL_SCHEMA_REQUIRED",await response.Content.ReadAsStringAsync());
+        Assert.Equal(0,await empty.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('HORSE') AND name='PhotoUrl';"));
+        await empty.ScriptAsync("002_flow1.sql");
+        Assert.Equal(HttpStatusCode.OK,(await c.GetAsync("/api/customer/requests")).StatusCode);
     }
     [LocalSqlFact]
-    public async Task Real_login_on_native_006_requires_matching_password_instead_of_a_common_development_bypass()
+    public async Task Real_login_on_current_schema_requires_matching_password_instead_of_a_common_development_bypass()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();using var app=new RelationalHttpFactory(f);using var anonymous=app.Client(null);
         var hash=BCrypt.Net.BCrypt.HashPassword("Flow1_Native_Fixture_Only_2026!");

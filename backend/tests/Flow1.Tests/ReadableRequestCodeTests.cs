@@ -62,12 +62,12 @@ public sealed class ReadableRequestCodeTests
         await using var f=await RelationalFlow1Tests.Fixture.Create();
         var count=await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;");
         var fks=await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.foreign_keys;");
-        await f.Db.ScriptAsync("008_flow1_readable_request_codes.sql");
+        await f.Db.ScriptAsync("002_flow1.sql");
         Assert.Equal(count,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;"));
         Assert.Equal(fks,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.foreign_keys;"));
         await f.Db.ExecuteAsync("ALTER INDEX UX_F1N_RequestSubmission ON TRANSPORT_REQUEST DISABLE;");
         Assert.Equal("FLOW1_SQL_SCHEMA_REQUIRED",(await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ListAsync("owner",false,default))).ErrorCode);
-        await Assert.ThrowsAsync<Microsoft.Data.SqlClient.SqlException>(()=>f.Db.ScriptAsync("008_flow1_readable_request_codes.sql"));
+        await Assert.ThrowsAsync<Microsoft.Data.SqlClient.SqlException>(()=>f.Db.ScriptAsync("002_flow1.sql"));
     }
 
     [LocalSqlFact]
