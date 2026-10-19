@@ -115,10 +115,15 @@ public sealed partial class RelationalFlow1Service
         return await ContractAsync(id,actor,true,ct);
     }
     public Task<FlowContractCard> CancelOverdueAsync(string id,string actor,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
-        var(c,r)=await Contract(id,actor,true,t);Check(c.RowVersion,i.Version);var inv=await Invoice(c,t);
-        Require(c.IsCurrent && c.ContractStatus=="SIGNED" && c.TripID is null && c.DepositDeadline<Now && r.Status=="AWAITING_DEPOSIT","CANCELLATION_CLOSED","Only an overdue unactivated deposit may be closed.");
-        Require(inv.PaidAmount==0 && !(await Payments(inv,t)).Any(p=>p.Status is "SUCCESS" or "PENDING_GATEWAY" or "REVIEW_REQUIRED" || p.FinancialReviewRequired),"FINANCIAL_REVIEW_REQUIRED","Resolve money and gateway attempts first.");
-        c.ContractStatus="CANCELLED";c.IsCurrent=false;r.Status="CANCELLED";r.ManagerNotes=Text(i.Reason);await db.SaveAsync(t);return await Card(c,t);
+        var(c,r)=await Contract(id,actor,true,t);Check(c.RowVersion,i.Version);
+        var unsigned=c.SignedAt is null && c.ContractStatus=="PENDING_SIGNATURE" && r.Status=="AWAITING_SIGNATURE" && SignDue(c)<Now;
+        var unpaid=c.SignedAt is not null && c.ContractStatus=="SIGNED" && r.Status=="AWAITING_DEPOSIT" && c.DepositDeadline<Now;
+        Require(c.IsCurrent && c.TripID is null && (unsigned || unpaid) && !(await db.QueryAsync<FlowTrip>(x=>x.RequestID==r.RequestID,t)).Any(),"CANCELLATION_CLOSED","Only an overdue signature or unactivated deposit may be closed.");
+        // An unsigned agreement normally has no invoice. Never create one just to cancel it.
+        if(unpaid) await Invoice(c,t); // Keep signed-term/invoice integrity checks.
+        foreach(var inv in await db.QueryAsync<FlowInvoice>(x=>x.ContractID==id,t))
+            Require(inv.PaidAmount==0 && !(await Payments(inv,t)).Any(p=>p.Status is "SUCCESS" or "PENDING_GATEWAY" or "REVIEW_REQUIRED" || p.FinancialReviewRequired || p.VnpayReceivedAmount>0),"FINANCIAL_REVIEW_REQUIRED","Resolve money and gateway attempts first.");
+        c.ContractStatus="CANCELLED";c.IsCurrent=false;c.SignOtpHash=null;r.Status="CANCELLED";r.ManagerNotes=Text(i.Reason);await db.SaveAsync(t);return await Card(c,t);
     },ct);
     public Task<FlowContractCard> FinancialReviewAsync(string id,string payment,string actor,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
         var(c,r)=await Contract(id,actor,true,t); var inv=await Invoice(c,t); var p=await db.FindAsync<FlowPayment>(payment,t);

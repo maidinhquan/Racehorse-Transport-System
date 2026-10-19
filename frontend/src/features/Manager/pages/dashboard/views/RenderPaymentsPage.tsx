@@ -49,6 +49,8 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
 
   // Cancel overdue modal
   const [cancellingItem, setCancellingItem] = useState<DeadlineOverdueItem | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelReason, setCancelReason] = useState<string>(
     'Không hoàn tất nghĩa vụ ký/đặt cọc sau các lần trao đổi và đã quá hạn ân hạn'
   );
@@ -102,14 +104,15 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
   };
 
   const handleExecuteCancel = async () => {
-    if (!cancellingItem) return;
+    if (!cancellingItem || cancelBusy) return;
+    setCancelError(null); setCancelBusy(true);
     try { await onCancelOverdue(cancellingItem.requestId, cancelReason);
     setCancellingItem(null);
     setToastMsg(
       `Đã hủy thủ công yêu cầu quá hạn ${cancellingItem.requestId}.`
     );
     setTimeout(() => setToastMsg(null), 4000);
-    } catch (e) { setToastMsg(flow1Error(e)); }
+    } catch (e) { setCancelError(flow1Error(e)); } finally { setCancelBusy(false); }
   };
 
   return (
@@ -342,7 +345,7 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
                           type="button"
                           className="btn-decision btn-reject py-1 px-2 text-xs"
                           title="Hủy đơn thủ công"
-                          onClick={() => setCancellingItem(item)}
+                          onClick={() => { setCancelError(null); setCancellingItem(item); }}
                         >
                           Hủy đơn
                         </button>
@@ -613,6 +616,7 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
               </button>
             </div>
             <div className="modal-body space-y-3">
+              {cancelError && <p role="alert" className="text-red-700">{cancelError}</p>}
               <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800">
                 ⚠️ Cảnh báo: Quản lý đang tiến hành hủy thủ công yêu cầu quá hạn sau khi đã đối soát không có giao dịch tiền cọc nào tồn đọng. Thao tác này sẽ chuyển yêu cầu sang trạng thái <strong>CANCELLED</strong>.
               </div>
@@ -640,6 +644,7 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
               <button
                 type="button"
                 className="btn-primary btn-red"
+                disabled={cancelBusy || !cancelReason.trim()}
                 onClick={handleExecuteCancel}
               >
                 Xác nhận Hủy Đơn Quá Hạn
