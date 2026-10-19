@@ -59,7 +59,7 @@ public sealed class MapboxTransportMapsTests
     public void Provider_selector_preserves_explicit_OSM_and_rejects_unknown_values(string choice)
     {
         var services = new ServiceCollection(); services.AddLogging(); services.AddSingleton<TimeProvider, FlowClock>();
-        services.AddFlow1Customer(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
+        services.AddFlow1Providers(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
             ["Flow1:Maps:Provider"] = choice }).Build(), new TestHost());
         using var provider = services.BuildServiceProvider(); using var scope = provider.CreateScope();
         if (choice == "OSM") Assert.IsType<OsmTransportMaps>(scope.ServiceProvider.GetRequiredService<IFlow1RoadRoutingProvider>());
@@ -170,7 +170,7 @@ public sealed class MapboxTransportMapsTests
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
             ["Flow1:Maps:Provider"] = "MAPBOX", ["Flow1:Maps:MayPersistResults"] = "true",
             ["Flow1:Maps:Mapbox:AccessToken"] = Token, ["Flow1:Maps:Mapbox:PermanentGeocodingEnabled"] = "true" }).Build();
-        services.AddFlow1Customer(config, new TestHost());
+        services.AddFlow1Providers(config, new TestHost());
         services.AddHttpClient<MapboxTransportMaps>().ConfigurePrimaryHttpMessageHandler(() => new Handler(_ =>
             new(HttpStatusCode.OK) { Content = new StringContent(Feature) }));
         using var provider = services.BuildServiceProvider(); using var scope = provider.CreateScope();

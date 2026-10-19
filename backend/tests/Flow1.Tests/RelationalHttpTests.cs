@@ -78,7 +78,6 @@ public sealed class RelationalHttpTests
         using var anonymous=app.Client(null);Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.GetAsync("/api/customer/requests")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,(await customer.GetAsync("/api/manager/requests")).StatusCode);
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));
-        using var scope=app.Services.CreateScope();Assert.Null(scope.ServiceProvider.GetService<IFlow1StateStore>());
     }
     [LocalSqlFact]
     public async Task Missing_schema_or_retained_json_fails_closed_without_migrating_or_falling_back()

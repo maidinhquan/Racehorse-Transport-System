@@ -109,3 +109,16 @@ public sealed class FoundationTests
         Check("App_Data/private", "App_Data/retained");
     }
 }
+
+file static class FoundationTestExtensions
+{
+    public static IServiceCollection AddFlow1Foundation(this IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment)
+    {
+        var oldRoot = configuration["Flow1:Storage:MetadataRoot"] ?? "App_Data/flow1/metadata";
+        services.AddOptions<Flow1PrivateFileOptions>().Configure(o => o.Root = configuration["Flow1:PrivateFiles:Root"] ?? Path.Combine(oldRoot, "private-bytes"))
+            .Validate(o => !string.IsNullOrWhiteSpace(o.Root), "Private file root is required.").ValidateOnStart();
+        services.AddOptions<Flow1LegacyImportOptions>().Configure(o => o.SourceRoot = configuration["Flow1:LegacyImport:SourceRoot"] ?? oldRoot)
+            .Validate(o => !string.IsNullOrWhiteSpace(o.SourceRoot), "Legacy source root is required.").ValidateOnStart();
+        return services;
+    }
+}

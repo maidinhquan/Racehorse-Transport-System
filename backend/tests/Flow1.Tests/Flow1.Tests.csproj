@@ -12,7 +12,6 @@
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1"><PrivateAssets>all</PrivateAssets></PackageReference>
     <ProjectReference Include="../../WebApi/WebApi.csproj" />
-    <ProjectReference Include="../../tools/Flow1StateImport/Flow1StateImport.csproj" ReferenceOutputAssembly="false" />
     <None Include="../../database/000_legacy_schema.sql" Link="Sql/000_legacy_schema.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../database/002_flow1_preflight.sql" Link="Sql/002_flow1_preflight.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../database/003_flow1_minimal_schema.sql" Link="Sql/003_flow1_minimal_schema.sql" CopyToOutputDirectory="PreserveNewest" />
@@ -22,6 +21,4 @@
     <None Include="../../database/007_flow1_request_baseline.sql" Link="Sql/007_flow1_request_baseline.sql" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../database/008_flow1_readable_request_codes.sql" Link="Sql/008_flow1_readable_request_codes.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-  <ItemGroup><ProjectReference Include="../../tools/Flow1LegacySupport/Flow1LegacySupport.csproj" /></ItemGroup>
-  <ItemGroup><ProjectReference Include="../../tools/Flow1RelationalConvert/Flow1RelationalConvert.csproj" /></ItemGroup>
 </Project>

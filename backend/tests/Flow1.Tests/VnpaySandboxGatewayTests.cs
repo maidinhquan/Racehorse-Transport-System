@@ -15,7 +15,7 @@ public sealed class VnpaySandboxGatewayTests
     [Fact]
     public async Task Session_is_sandbox_only_VND_integer_and_signed_with_GMT7_dates()
     {
-        var clock = new ContractPublicationTests.Clock(); var gateway = new VnpaySandboxGateway(Options(), clock);
+        var clock = new FlowClock(); var gateway = new VnpaySandboxGateway(Options(), clock);
         var session = await gateway.CreateSessionAsync(new("vp123", "i-one", 10000, "VND", clock.Now.AddMinutes(15)));
         var uri = session.PaymentUrl.AbsoluteUri;
         Assert.StartsWith("https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?", uri); Assert.Contains("vnp_Amount=1000000", uri);
@@ -25,7 +25,7 @@ public sealed class VnpaySandboxGatewayTests
     [Fact]
     public async Task Signature_merchant_amount_currency_dates_and_both_result_codes_are_checked()
     {
-        var clock = new ContractPublicationTests.Clock(); var gateway = new VnpaySandboxGateway(Options(), clock); var p = Callback("vp123");
+        var clock = new FlowClock(); var gateway = new VnpaySandboxGateway(Options(), clock); var p = Callback("vp123");
         p["vnp_SecureHash"] = gateway.Sign(p); Assert.True((await gateway.VerifyAsync(p)).Verified);
         p["vnp_Amount"] = "100"; Assert.False((await gateway.VerifyAsync(p)).Verified);
         foreach (var pair in new[] { ("vnp_TmnCode", "OTHER123"), ("vnp_Amount", "12345"), ("vnp_CurrCode", "USD"), ("vnp_PayDate", "invalid"), ("vnp_TransactionNo", "0") })
@@ -48,13 +48,13 @@ public sealed class VnpaySandboxGatewayTests
     [InlineData("::ffff:127.0.0.1")]
     public async Task Local_ipv6_addresses_use_the_equivalent_provider_valid_loopback_value(string ip)
     {
-        var clock=new ContractPublicationTests.Clock();var gateway=new VnpaySandboxGateway(Options(),clock);
-        var session=await gateway.CreateSessionAsync(new("vp123","invoice",10000,"VND",clock.Now.AddMinutes(15),ip));Assert.Contains("vnp_IpAddr=127.0.0.1",session.PaymentUrl.AbsoluteUri);
+        var clock = new FlowClock(); var gateway = new VnpaySandboxGateway(Options(), clock);
+        var session = await gateway.CreateSessionAsync(new("vp123", "invoice", 10000, "VND", clock.Now.AddMinutes(15), ip)); Assert.Contains("vnp_IpAddr=127.0.0.1", session.PaymentUrl.AbsoluteUri);
     }
     [Fact]
     public async Task Unspecified_short_ipv6_address_cannot_be_sent_as_a_provider_client_ip()
     {
-        var clock=new ContractPublicationTests.Clock();await Assert.ThrowsAsync<BusinessRuleException>(()=>new VnpaySandboxGateway(Options(),clock).CreateSessionAsync(new("vp123","invoice",10000,"VND",clock.Now.AddMinutes(15),"::")));
+        var clock = new FlowClock(); await Assert.ThrowsAsync<BusinessRuleException>(() => new VnpaySandboxGateway(Options(), clock).CreateSessionAsync(new("vp123", "invoice", 10000, "VND", clock.Now.AddMinutes(15), "::")));
     }
 
 }

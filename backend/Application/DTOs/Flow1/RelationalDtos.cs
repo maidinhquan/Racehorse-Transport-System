@@ -31,3 +31,4 @@ public sealed record FlowRequestCard(string RequestId, string Version, string St
 public sealed record FlowHandoff(FlowTripCard Trip, string RequestId, string Departure, string Destination,
     DateTime? DepartureAt, DateTime? DeliveryAt, string ContractId, string PdfSha256, IReadOnlyList<FlowHorseCard> Horses,
     decimal? DeclaredValueUsd = null, IReadOnlyList<FlowRequestDocument>? Documents = null);
+public sealed record ContractPdfModel(Dictionary<string, string> Values, Dictionary<string, string>[] Horses);

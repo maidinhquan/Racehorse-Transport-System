@@ -43,3 +43,16 @@ public interface IFlow1PaymentGateway
     Task<GatewaySessionResult> CreateSessionAsync(GatewaySessionRequest request, CancellationToken ct = default);
     Task<VerifiedGatewayResult> VerifyAsync(IReadOnlyDictionary<string, string> payload, CancellationToken ct = default);
 }
+
+public interface IFlow1LocationVerifier
+{
+    string? Attribution => null;
+    Task VerifyAsync(MapPoint point, CancellationToken ct);
+}
+
+public interface IFlow1PrivateFileStore
+{
+    Task<Application.DTOs.Flow1.PrivateFileReference> PutAsync(Application.DTOs.Flow1.UploadedFile file,
+        bool photo, CancellationToken ct);
+    Task<byte[]> ReadAsync(Application.DTOs.Flow1.PrivateFileReference file, CancellationToken ct);
+}

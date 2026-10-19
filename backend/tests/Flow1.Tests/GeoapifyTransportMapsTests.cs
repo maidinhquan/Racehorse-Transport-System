@@ -144,7 +144,7 @@ public sealed class GeoapifyTransportMapsTests
     {
         var logs = new Capture(); var services = new ServiceCollection();
         services.AddLogging(b => b.SetMinimumLevel(LogLevel.Trace).AddProvider(logs)); services.AddSingleton<TimeProvider, FlowClock>();
-        services.AddFlow1Customer(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
+        services.AddFlow1Providers(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
             ["Flow1:Maps:Provider"] = "MAPBOX", ["Flow1:Maps:DataProvider"] = "GEOAPIFY",
             ["Flow1:Maps:MayPersistResults"] = "true", ["Flow1:Maps:Geoapify:ApiKey"] = Key }).Build(), new TestHost());
         services.AddHttpClient<GeoapifyTransportMaps>().ConfigurePrimaryHttpMessageHandler(() => new Handler(_ =>
