@@ -59,17 +59,18 @@ public sealed class RelationalHttpTests
         Assert.NotNull(r.Input);Assert.Equal(input.PickupContact,r.Input.PickupContact);Assert.Equal("Fixture, not live maps",r.MapAttribution);
         r=await Post<FlowRequestCard>(manager,$"/api/manager/requests/{r.RequestId}/accept",new FlowAction(r.Version,"Accepted"));
         var c=await Post<FlowContractCard>(manager,$"/api/manager/requests/{r.RequestId}/contracts",new FlowAction(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),"http-contract-key");
-        c=await Post<FlowContractCard>(manager,$"/api/manager/contracts/{c.ContractId}/publish",new FlowAction(c.Version));
+        c=await Post<FlowContractCard>(manager,$"/api/manager/contracts/{c.ContractId}/publish",new FlowAction(c.Version,ClauseIds:[f.ClauseId]));
         Assert.Equal("no-store",(await customer.GetAsync($"/api/customer/contracts/{c.ContractId}/pdf")).Headers.CacheControl?.ToString());
-        await Post<JsonElement>(customer,$"/api/customer/contracts/{c.ContractId}/otp",new FlowAction(c.Version,PdfSha256:c.PdfSha256));
-        c=await Read<FlowContractCard>(await customer.GetAsync($"/api/customer/contracts/{c.ContractId}"));
-        c=await Post<FlowContractCard>(customer,$"/api/customer/contracts/{c.ContractId}/sign",new FlowAction(c.Version,Otp:f.Email.Code,PdfSha256:c.PdfSha256));
         var session=await Post<JsonElement>(customer,$"/api/customer/contracts/{c.ContractId}/vnpay",new{},"http-payment-key");var payment=session.GetProperty("paymentId").GetString()!;
         Assert.StartsWith("https://sandbox.vnpayment.vn/",session.GetProperty("paymentUrl").GetString());
         var query=string.Join('&',f.Callback(payment).Select(x=>Uri.EscapeDataString(x.Key)+"="+Uri.EscapeDataString(x.Value)));
         var ipn=await customer.GetFromJsonAsync<JsonElement>("/api/payments/vnpay/ipn?"+query);Assert.Equal("00",ipn.GetProperty("RspCode").GetString());
+        c=await Read<FlowContractCard>(await manager.GetAsync($"/api/manager/contracts/{c.ContractId}"));Assert.Equal("PENDING_SIGNATURE",c.Status);
+        await Post<JsonElement>(customer,$"/api/customer/contracts/{c.ContractId}/otp",new FlowAction(c.Version,PdfSha256:c.PdfSha256));
+        c=await Read<FlowContractCard>(await customer.GetAsync($"/api/customer/contracts/{c.ContractId}"));
+        c=await Post<FlowContractCard>(customer,$"/api/customer/contracts/{c.ContractId}/sign",new FlowAction(c.Version,Otp:f.Email.Code,PdfSha256:c.PdfSha256));
         c=await Read<FlowContractCard>(await manager.GetAsync($"/api/manager/contracts/{c.ContractId}"));Assert.Equal("EFFECTIVE",c.Status);
-        c=await Post<FlowContractCard>(manager,$"/api/manager/contracts/{c.ContractId}/deployment/confirm",new FlowAction(c.Trip!.Version,"Ready"));
+        c=await Post<FlowContractCard>(manager,$"/api/manager/contracts/{c.ContractId}/deployment/confirm",new FlowAction(c.Trip!.Version,"Ready",AssignedSpecialistId:"docs",AssignedCoordinatorId:"route"));
         using var routing=app.Client("route","FLEET_ROUTE_COORDINATOR");var queue=await Read<FlowHandoff[]>(await routing.GetAsync("/api/operations/flow1/trips"));Assert.Single(queue);
         await Post<FlowHandoff>(routing,$"/api/operations/flow1/trips/{c.Trip!.TripId}/ack",new FlowAction(c.Trip.Version,EventId:c.Trip.EventId));
         Assert.Equal(HttpStatusCode.NotFound,(await manager.GetAsync($"/api/manager/requests/{r.RequestId}/info-requests")).StatusCode);
@@ -88,7 +89,7 @@ public sealed class RelationalHttpTests
             Assert.Contains("FLOW1_SQL_SCHEMA_REQUIRED",await response.Content.ReadAsStringAsync());
             Assert.Equal(0,await old.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('HORSE') AND name='PhotoUrl';"));
         }
-        await old.ScriptAsync("006_flow1_simple_relational_foundation.sql");await old.ScriptAsync("007_flow1_request_baseline.sql");await old.ScriptAsync("008_flow1_readable_request_codes.sql");await old.ExecuteAsync("UPDATE TRANSPORT_REQUEST SET Flow1StateJson=N'{\"retained\":true}' WHERE RequestID='req-1';");
+        await old.ScriptAsync("006_flow1_simple_relational_foundation.sql");await old.ScriptAsync("007_flow1_request_baseline.sql");await old.ScriptAsync("008_flow1_readable_request_codes.sql");await old.ScriptAsync("009_flow1_final_workflow.sql");await old.ExecuteAsync("UPDATE TRANSPORT_REQUEST SET Flow1StateJson=N'{\"retained\":true}' WHERE RequestID='req-1';");
         using(var app=new RelationalHttpFactory(f,old.ConnectionString))using(var c=app.Client()) {
             var response=await c.GetAsync("/api/customer/requests");Assert.Equal(HttpStatusCode.ServiceUnavailable,response.StatusCode);Assert.Contains("FLOW1_STATE_IMPORT_REQUIRED",await response.Content.ReadAsStringAsync());
             Assert.Equal("{\"retained\":true}",await old.ScalarAsync<string>("SELECT Flow1StateJson FROM TRANSPORT_REQUEST;"));

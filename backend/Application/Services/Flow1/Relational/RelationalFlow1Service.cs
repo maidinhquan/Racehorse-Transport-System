@@ -21,7 +21,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         Encoding.UTF8.GetBytes(string.Join('\n', values))))[..40].ToLowerInvariant();
     private static string Token(byte[] b) => Convert.ToBase64String(b);
     private static void Check(byte[] actual, string expected) => Require(Token(actual) == expected, "STALE_VERSION", "Data changed; reload.");
-    private static void Require([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool condition, string code, string message) { if (!condition) throw Error(message, code, 409); }
+    private static void Require([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool condition, string code, string message) { if (!condition) throw Error(message, code, code=="FORBIDDEN"?403:code=="NOT_FOUND"?404:code=="VALIDATION_ERROR"?400:409); }
     private static string Text(string? x, int max = 1000)
     { if (string.IsNullOrWhiteSpace(x) || x.Length > max) throw Error("A valid value/reason is required.", "VALIDATION_ERROR"); return x.Trim(); }
     private static string Key(string key) { if(string.IsNullOrWhiteSpace(key)||!Regex.IsMatch(key,@"\A[A-Za-z0-9_-]{8,100}\z"))throw Error("Idempotency-Key must be8–100 ASCII letters, digits, underscores or hyphens.","INVALID_IDEMPOTENCY_KEY"); return key; }
@@ -47,6 +47,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         await Actor(actor, manager ? UserRoles.LogisticsManager : UserRoles.Customer, ct);
         var r = await db.FindAsync<FlowRequest>(id, ct);
         if (r is null || !manager && r.CustomerID != actor) throw Error("Request not found.", "NOT_FOUND", 404);
+        if (manager) Require(r.AssignedManagerId is null || r.AssignedManagerId==actor,"REQUEST_ASSIGNED","This request belongs to another Manager.");
         return r;
     }
     private async Task<(FlowContract C, FlowRequest R)> Contract(string id, string actor, bool manager, CancellationToken ct)
@@ -81,9 +82,10 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
             payments.Select(p => new FlowPaymentCard(p.PaymentID, Token(p.RowVersion), p.Amount, p.VnpayReceivedAmount, p.Status,
                 p.TransactionCode, p.Status == "SUCCESS" ? p.PaymentDate : null, p.FinancialReviewRequired, p.FinancialReviewReason, p.Method, p.CurrencyCode)).ToArray(),
             t is null ? null : new(t.TripID, Token(t.RowVersion), t.Status, t.DeploymentStatus, t.HandoffEventId, t.DeploymentReason,
-                t.RoutingAcknowledgedBy, t.DocumentsAcknowledgedBy),request is {ExpectedDate:not null,PreparationDays:not null}?Cutoff(request):null,c.CurrencyCode,
+                t.RoutingAcknowledgedBy, t.DocumentsAcknowledgedBy,t.AssignedSpecialistId,t.AssignedCoordinatorId),request is {ExpectedDate:not null,PreparationDays:not null}?Cutoff(request):null,c.CurrencyCode,
             c.DepositAmount>0&&c.DepositRateStandard==40&&c.CurrencyCode=="VND"&&c.CompletionDeadline is not null,
-            c.SignedAt is not null&&c.PublishedAtUtc is not null&&c.SignerEmail is not null&&c.SignedDepositDeadline is not null&&c.PdfUrl is not null&&c.PdfSha256 is not null);
+            c.SignedAt is not null&&c.PublishedAtUtc is not null&&c.SignerEmail is not null&&c.SignedDepositDeadline is not null&&c.PdfUrl is not null&&c.PdfSha256 is not null,
+            c.CustomerFeedback,c.FeedbackFields,c.FeedbackStatus,c.ManagerFeedback,c.FeedbackAtUtc,c.FeedbackHandledAtUtc,c.RefundStatus,c.RefundAmount);
     }
     private async Task<FlowRequestCard> Card(FlowRequest r, CancellationToken ct)
     {
@@ -91,14 +93,16 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         foreach (var l in await db.QueryAsync<FlowRequestHorse>(x => x.RequestID == r.RequestID, ct))
             horses.Add(HorseCard((await db.FindAsync<FlowHorse>(l.HorseID, ct))!));
         var contracts = new List<FlowContractCard>();
-        foreach (var c in await db.QueryAsync<FlowContract>(x => x.RequestID == r.RequestID, ct)) contracts.Add(await Card(c, ct));
+        var existing=await db.QueryAsync<FlowContract>(x => x.RequestID == r.RequestID, ct);
+        var current=existing.OrderByDescending(x=>x.IsCurrent).ThenByDescending(x=>x.PublishedAtUtc).FirstOrDefault();
+        if(current is not null)contracts.Add(await Card(current,ct));
         FlowRequestInput? input=null;
         if(r.ExpectedDate is not null && r.CommittedDeadline is not null && r.PickupLatitude is not null && r.DeliveryLatitude is not null && r.PickupLongitude is not null && r.DeliveryLongitude is not null)
             input=new(new(new(r.Departure,(double)r.PickupLatitude.Value,(double)r.PickupLongitude.Value,r.OriginCountry!),new(r.Destination,(double)r.DeliveryLatitude.Value,(double)r.DeliveryLongitude.Value,r.DestinationCountry!),r.TransportType!,horses.Count,DateOnly.FromDateTime(new DateTimeOffset(r.ExpectedDate.Value).ToOffset(TimeSpan.FromHours(7)).DateTime)),new(r.ExpectedDate.Value),new(r.CommittedDeadline.Value),r.Purpose??"",new(r.PickupContactName??"",r.PickupContactPhone??""),new(r.DesignatedReceiverName??"",r.DesignatedReceiverPhone??""),horses.Select(h=>new HorseSelection(h.HorseId,h.Version)).ToArray(),r.DeclaredValueUsd);
         var customer = await db.FindAsync<FlowUser>(r.CustomerID, ct);
         return new(r.RequestID, Token(r.RowVersion), r.Status, r.Departure, r.Destination, r.ExpectedDate, r.CommittedDeadline,
             r.ManagerNotes, r.DistanceKm, r.PreparationDays, r.PickupContactName, r.PickupContactPhone,
-            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct),DemoTransportPrice(r.TransportType,r.DistanceKm,horses.Count));
+            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct),DemoTransportPrice(r.TransportType,r.DistanceKm,horses.Count),r.AssignedManagerId,r.ReviewedAtUtc);
     }
     public Task<FlowRequestCard> DetailAsync(string id, string actor, bool manager, CancellationToken ct) =>
         db.RunAsync(async t => await Card(await Request(id, actor, manager, t), t), ct);
@@ -108,7 +112,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
     {
         await Actor(actor, manager ? UserRoles.LogisticsManager : UserRoles.Customer, t);
         var result = new List<FlowRequestCard>();
-        foreach (var r in (await db.QueryAsync<FlowRequest>(x => manager || x.CustomerID == actor, t)).OrderByDescending(x => x.ExpectedDate).Take(100)) result.Add(await Card(r, t));
+        foreach (var r in (await db.QueryAsync<FlowRequest>(x => manager ? x.AssignedManagerId==null || x.AssignedManagerId==actor : x.CustomerID==actor, t)).OrderByDescending(x => x.ExpectedDate).Take(100)) result.Add(await Card(r, t));
         return result;
     }, ct);
     public Task<IReadOnlyList<FlowHorseCard>> HorsesAsync(string actor,CancellationToken ct,DateTimeOffset? departureAt=null,DateTimeOffset? deliveryAt=null,string? requestId=null)=>db.RunAsync<IReadOnlyList<FlowHorseCard>>(async t=>
@@ -209,11 +213,14 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         },ct);
     }
     public Task<FlowRequestCard> ReviewAsync(string id,string actor,string action,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
-        var r=await Request(id,actor,true,t);Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Legacy request needs review before a new A1 decision."); Check(r.RowVersion,i.Version); Text(i.Reason);
+        var r=await Request(id,actor,true,t);Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Legacy request needs review before a new A1 decision."); Check(r.RowVersion,i.Version);
         Require(r.Status is "PENDING" or "ACCEPTED"||r.Status=="CHANGES_REQUESTED"&&action=="reject","REVIEW_CLOSED","Request cannot be reviewed in this status.");
         Require(!(await db.QueryAsync<FlowContract>(c=>c.RequestID==id && c.IsCurrent,t)).Any(),"CONTRACT_OPEN","Close the unsigned contract before requesting changes.");
         r.Status=action switch {"accept"=>"ACCEPTED","reject"=>"REJECTED","request-changes"=>"CHANGES_REQUESTED",_=>throw Error("Unknown action.","NOT_FOUND",404)};
-        r.ManagerNotes=Text(i.Reason); await db.SaveAsync(t); return await Card(r,t);
+        r.AssignedManagerId??=actor; r.ReviewedAtUtc=Now; r.ManagerNotes=action=="accept" && string.IsNullOrWhiteSpace(i.Reason)?"Accepted":Text(i.Reason);
+        await Notify(r.CustomerID,r.RequestID+":"+Token(r.RowVersion),action=="reject"?"REQUEST_REJECTED":action=="accept"?"REQUEST_ACCEPTED":"REQUEST_CHANGES",
+            action=="reject"?"Yêu cầu vận chuyển bị từ chối":"Cập nhật xét duyệt yêu cầu",r.ManagerNotes,t);
+        await db.SaveAsync(t); return await Card(r,t);
     },ct);
     public Task<(byte[] Bytes,string ContentType)> HorseFileAsync(string actor,string horse,string kind,string? requestId,CancellationToken ct)=>db.RunAsync(async t=>{
         var u=await Actor(actor,null,t); var h=await db.FindAsync<FlowHorse>(horse,t)??throw Error("Horse not found.","NOT_FOUND",404);
@@ -221,6 +228,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         else {
             Require(requestId is not null && (await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==requestId && x.HorseID==horse,t)).Any(),"FORBIDDEN","File not attached to request.");
             if(Role(u)!=UserRoles.LogisticsManager) await Released(requestId!,actor,null,t);
+            else await Request(requestId!,actor,true,t);
         }
         var file=kind switch {"photo"=>h.PhotoUrl,"passport"=>h.PassportScanUrl,_=>null};
         Require(file is not null,"FILE_UNAVAILABLE","Document unavailable."); return await files.ReadAsync(file!,t);

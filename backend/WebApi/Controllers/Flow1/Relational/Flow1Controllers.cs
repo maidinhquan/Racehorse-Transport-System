@@ -15,7 +15,7 @@ namespace WebApi.Controllers.Flow1.Relational;
 public abstract class FlowApi : ControllerBase
 {
     protected string Actor=>User.FindFirstValue(ClaimTypes.NameIdentifier)??throw Error("Authentication required.","UNAUTHORIZED",401);
-    protected string Key=>Request.Headers["Idempotency-Key"].ToString();
+    protected string Key=>!string.IsNullOrWhiteSpace(Request.Headers["Idempotency-Key"].ToString()) ? Request.Headers["Idempotency-Key"].ToString() : "swg-" + Guid.NewGuid().ToString("N")[..10];
     protected IActionResult Result(object data)=>Ok(ApiResponse<object>.Ok(data));
     protected IActionResult PrivateFile((byte[] Bytes,string ContentType) f,string name) {Response.Headers.CacheControl="no-store";Response.Headers.XContentTypeOptions="nosniff";return File(f.Bytes,f.ContentType,name+(f.ContentType=="application/pdf"?".pdf":f.ContentType=="image/png"?".png":".jpg"));}
     protected static async Task<UploadedFile> Upload(IFormFile f,CancellationToken ct) {if(f is null || f.Length is <16 or >5242880)throw Error("Each upload must be16bytes–5MB.","INVALID_FILE_SIZE");using var m=new MemoryStream();await f.CopyToAsync(m,ct);return new(m.ToArray(),f.FileName);}
@@ -77,6 +77,7 @@ public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1Geoco
     [HttpGet("requests/{id}/documents/{document}")]public async Task<IActionResult> Document(string id,string document,CancellationToken ct)=>PrivateFile(await service.RequestDocumentAsync(id,document,Actor,false,ct),"baseline-"+document);
     [HttpPost("requests/{id}/revision")]public async Task<IActionResult> Revise(string id,RevisionInput input,CancellationToken ct)=>Result(await service.SubmitAsync(Actor,Key,input.Input,id,input.Version,ct));
     [HttpGet("contracts/{id}")]public async Task<IActionResult> Contract(string id,CancellationToken ct)=>Result(await service.ContractAsync(id,Actor,false,ct));
+    [HttpPost("contracts/{id}/feedback")]public async Task<IActionResult> Feedback(string id,ContractFeedbackInput input,CancellationToken ct)=>Result(await service.FeedbackAsync(id,Actor,input,ct));
     [HttpGet("contracts/{id}/pdf")]public async Task<IActionResult> Pdf(string id,CancellationToken ct)=>PrivateFile(await service.PdfAsync(id,Actor,false,ct),"contract");
     [HttpPost("contracts/{id}/otp"),EnableRateLimiting("flow1-contract-otp")]public async Task<IActionResult> Otp(string id,FlowAction input,CancellationToken ct){await service.SendOtpAsync(id,Actor,input,ct);return Result(new{sent=true});}
     [HttpPost("contracts/{id}/sign"),EnableRateLimiting("flow1-contract-otp")]public async Task<IActionResult> Sign(string id,FlowAction input,CancellationToken ct)=>Result(await service.SignAsync(id,Actor,input,ct));
@@ -88,6 +89,13 @@ public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1Geoco
 [ApiController,Route("api/manager"),Authorize(Roles=UserRoles.LogisticsManager),EnableRateLimiting("flow1-customer")]
 public sealed class Flow1ManagerApi(RelationalFlow1Service service):FlowApi
 {
+    [HttpGet("clauses")]public async Task<IActionResult> Clauses(bool includeInactive,CancellationToken ct)=>Result(await service.ClausesAsync(Actor,includeInactive,ct));
+    [HttpPost("clauses")]public async Task<IActionResult> CreateClause(ClauseInput input,CancellationToken ct)=>Result(await service.SaveClauseAsync(null,Actor,input,ct));
+    [HttpPut("clauses/{id}")]public async Task<IActionResult> UpdateClause(string id,ClauseInput input,CancellationToken ct)=>Result(await service.SaveClauseAsync(id,Actor,input,ct));
+    [HttpGet("staff/operational")]public async Task<IActionResult> Staff(CancellationToken ct)=>Result(await service.OperationalStaffAsync(Actor,ct));
+    [HttpPost("requests/{id}/claim")]public async Task<IActionResult> Claim(string id,FlowAction input,CancellationToken ct)=>Result(await service.ClaimAsync(id,Actor,input,ct));
+    [HttpPost("contracts/{id}/reissue")]public async Task<IActionResult> Reissue(string id,ContractReissueInput input,CancellationToken ct)=>Result(await service.ReissueAsync(id,Actor,input,ct));
+    [HttpPost("contracts/{id}/feedback/reject")]public async Task<IActionResult> RejectFeedback(string id,FlowAction input,CancellationToken ct)=>Result(await service.RejectFeedbackAsync(id,Actor,input,ct));
     [HttpGet("requests/{id}/documents/{document}")]public async Task<IActionResult> Document(string id,string document,CancellationToken ct)=>PrivateFile(await service.RequestDocumentAsync(id,document,Actor,true,ct),"baseline-"+document);
     [HttpGet("requests")]public async Task<IActionResult> List(CancellationToken ct)=>Result(await service.ListAsync(Actor,true,ct));
     [HttpGet("requests/{id}")]public async Task<IActionResult> GetRequest(string id,CancellationToken ct)=>Result(await service.DetailAsync(id,Actor,true,ct));

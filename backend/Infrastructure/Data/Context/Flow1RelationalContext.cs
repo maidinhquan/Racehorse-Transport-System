@@ -20,6 +20,10 @@ public sealed class Flow1RelationalContext(DbContextOptions<Flow1RelationalConte
         b.Entity<FlowMedicalRecord>().HasOne<FlowHorse>().WithMany().HasForeignKey(x=>x.HorseID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowMedicalRecord>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.VerifiedBy).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowTrip>().HasOne<FlowRequest>().WithMany().HasForeignKey(x=>x.RequestID).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowRequest>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.AssignedManagerId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowTrip>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.AssignedSpecialistId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<FlowTrip>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.AssignedCoordinatorId).OnDelete(DeleteBehavior.Restrict);
+        b.Entity<Domain.Entities.ContractTemplate>();
         b.Entity<FlowContract>().HasOne<FlowTrip>().WithMany().HasForeignKey(x=>x.TripID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowContract>().HasOne<FlowRequest>().WithMany().HasForeignKey(x=>x.RequestID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowContract>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.CustomerID).OnDelete(DeleteBehavior.Restrict);
@@ -52,7 +56,7 @@ public sealed class Flow1Data(Flow1RelationalContext db,string? retainedRoot=nul
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         try
         {
-            if(!await Flow1RelationalSchema.IsReadyAsync(db,ct))throw Error("Flow1 requires reviewed schema006/007/008 and their trusted guards. No migration runs automatically.","FLOW1_SQL_SCHEMA_REQUIRED",503);
+            if(!await Flow1RelationalSchema.IsReadyAsync(db,ct))throw Error("Flow1 requires reviewed schema006/007/008/009 and their trusted guards. No migration runs automatically.","FLOW1_SQL_SCHEMA_REQUIRED",503);
             // A complete source switch requires reviewed conversion, not per-row JSON fallback.
             // Empty retained004 columns are harmless; nonempty legacy state closes the typed API.
             foreach(var table in new[]{"HORSE","TRANSPORT_REQUEST","CONTRACT","USER"})

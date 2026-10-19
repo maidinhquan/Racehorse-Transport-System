@@ -9,7 +9,7 @@ public sealed partial class RelationalFlow1Service
     {
         var id = Id("notice", user, reference, type);
         if (await db.FindAsync<FlowNotice>(id, ct) is not null) return;
-        db.Add(new FlowNotice { NotificationID = id, UserID = user, ReferenceID = reference,
+        db.Add(new FlowNotice { NotificationID = id, UserID = user, ReferenceID = reference.Split(':')[0],
             Type = type, Channel = "IN_APP", Title = title, Message = message, SentAt = Now, IsRead = false });
     }
 

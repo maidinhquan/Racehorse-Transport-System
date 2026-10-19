@@ -44,7 +44,7 @@ public sealed class ContractSmtpSender(ContractSmtpOptions options, bool develop
             using var client = new SmtpClient(s.Host, s.Port) { EnableSsl = s.EnableSsl, UseDefaultCredentials = false,
                 Credentials = string.IsNullOrEmpty(s.Username) ? null : new NetworkCredential(s.Username, s.Password) };
             using var message = new MailMessage(s.From, email) { Subject = "RaceHorse Transport - Contract confirmation",
-                Body = $"Contract: {contractId}\nVersion: {version}\nSHA-256: {documentHash}\nConfirmation code: {code}\nExpires: {expiresAt:O}\nDo not share this code. Only confirm the PDF you reviewed." };
+                Body = $"Contract: {contractId}\nSHA-256: {documentHash}\nConfirmation code: {code}\nExpires: {expiresAt:O}\nDo not share this code. Only confirm the PDF you reviewed." };
             await client.SendMailAsync(message, timeout.Token);
         }
         catch (Exception e) when (e is SmtpException or FormatException or InvalidOperationException or OperationCanceledException)

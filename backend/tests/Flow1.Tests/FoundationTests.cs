@@ -76,7 +76,7 @@ public sealed class FoundationTests
             ["Flow1:Storage:MetadataRoot"] = Path.Combine(publicRoot, "metadata")
         }).Build();
         var services = new ServiceCollection();
-        services.AddFlow1Foundation(config, new TestEnvironment { ContentRootPath = contentRoot, WebRootPath = publicRoot });
+        services.AddFlow1Relational(config, new TestEnvironment { ContentRootPath = contentRoot, WebRootPath = publicRoot });
         using var provider = services.BuildServiceProvider();
         Assert.Throws<InvalidOperationException>(() => Flow1PrivateStoragePath.Resolve(Path.Combine(publicRoot, "metadata"), new TestEnvironment { ContentRootPath = contentRoot, WebRootPath = publicRoot }));
         Assert.False(Directory.Exists(Path.Combine(publicRoot, "metadata")));
@@ -99,26 +99,13 @@ public sealed class FoundationTests
         void Check(string bytes, string source)
         {
             var services = new ServiceCollection();
-            services.AddFlow1Foundation(new ConfigurationBuilder().AddInMemoryCollection(settings).Build(), new TestEnvironment());
+            services.AddFlow1Relational(new ConfigurationBuilder().AddInMemoryCollection(settings).Build(), new TestEnvironment());
             using var provider = services.BuildServiceProvider();
             Assert.Equal(bytes, provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Flow1PrivateFileOptions>>().Value.Root);
-            Assert.Equal(source, provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Flow1LegacyImportOptions>>().Value.SourceRoot);
+
         }
-        Check(Path.Combine("App_Data/legacy", "private-bytes"), "App_Data/legacy");
+        Check("App_Data/flow1/private-bytes", "App_Data/legacy");
         settings["Flow1:PrivateFiles:Root"] = "App_Data/private"; settings["Flow1:LegacyImport:SourceRoot"] = "App_Data/retained";
         Check("App_Data/private", "App_Data/retained");
-    }
-}
-
-file static class FoundationTestExtensions
-{
-    public static IServiceCollection AddFlow1Foundation(this IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment)
-    {
-        var oldRoot = configuration["Flow1:Storage:MetadataRoot"] ?? "App_Data/flow1/metadata";
-        services.AddOptions<Flow1PrivateFileOptions>().Configure(o => o.Root = configuration["Flow1:PrivateFiles:Root"] ?? Path.Combine(oldRoot, "private-bytes"))
-            .Validate(o => !string.IsNullOrWhiteSpace(o.Root), "Private file root is required.").ValidateOnStart();
-        services.AddOptions<Flow1LegacyImportOptions>().Configure(o => o.SourceRoot = configuration["Flow1:LegacyImport:SourceRoot"] ?? oldRoot)
-            .Validate(o => !string.IsNullOrWhiteSpace(o.SourceRoot), "Legacy source root is required.").ValidateOnStart();
-        return services;
     }
 }

@@ -41,6 +41,10 @@ public sealed class FlowHorse
 [Table("TRANSPORT_REQUEST")]
 public sealed class FlowRequest
 {
+    [Column("AssignedManagerId", TypeName = "varchar(50)")]
+    public string? AssignedManagerId { get; set; }
+    [Column("ReviewedAtUtc", TypeName = "datetime2(7)")]
+    public DateTime? ReviewedAtUtc { get; set; }
     [Column("SubmissionKeyHash", TypeName = "varchar(64)")]
     public string? SubmissionKeyHash { get; set; }
     [Column("DeclaredValueUsd", TypeName = "decimal(18,2)")]
@@ -123,6 +127,15 @@ public sealed class FlowMedicalRecord
 [Table("CONTRACT")]
 public sealed class FlowContract
 {
+    [Column(TypeName = "nvarchar(2000)")] public string? CustomerFeedback { get; set; }
+    [Column(TypeName = "varchar(200)")] public string? FeedbackFields { get; set; }
+    [Column(TypeName = "varchar(20)")] public string? FeedbackStatus { get; set; }
+    [Column(TypeName = "datetime2(7)")] public DateTime? FeedbackAtUtc { get; set; }
+    [Column(TypeName = "nvarchar(2000)")] public string? ManagerFeedback { get; set; }
+    [Column(TypeName = "datetime2(7)")] public DateTime? FeedbackHandledAtUtc { get; set; }
+    [Column(TypeName = "decimal(12,2)")] public decimal? RefundAmount { get; set; }
+    [Column(TypeName = "varchar(20)")] public string? RefundStatus { get; set; }
+    [Column(TypeName = "varchar(100)")] public string? RefundReference { get; set; }
     [Key]
     [Column("ContractID", TypeName = "varchar(50)")]
     public string ContractID { get; set; } = null!;
@@ -259,6 +272,8 @@ public sealed class FlowPayment
 [Table("TRIP_PLAN")]
 public sealed class FlowTrip
 {
+    [Column(TypeName = "varchar(50)")] public string? AssignedSpecialistId { get; set; }
+    [Column(TypeName = "varchar(50)")] public string? AssignedCoordinatorId { get; set; }
     [Key]
     [Column("TripID", TypeName = "varchar(50)")]
     public string TripID { get; set; } = null!;

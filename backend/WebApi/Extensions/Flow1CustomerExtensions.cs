@@ -25,7 +25,7 @@ public static class Flow1CustomerExtensions
         services.AddSingleton<IContractOtpSender>(new ContractSmtpSender(emailOptions, environment.IsDevelopment()));
         var contractOptions = config.GetSection("Flow1:Contracts").Get<Flow1ContractOptions>() ?? new();
         services.AddSingleton(contractOptions);
-        services.AddSingleton<IFlow1ContractDocumentGenerator>(sp => new LibreOfficeContractDocumentGenerator(
+        services.AddSingleton<IFlow1ContractDocumentGenerator>(sp => new CodeContractDocumentGenerator(
             environment.ContentRootPath, contractOptions, sp.GetRequiredService<IFlow1PrivateFileStore>()));
         services.AddScoped<TransportEstimateService>();
         services.AddSingleton(config.GetSection("Flow1:Maps").Get<Flow1MapOptions>() ?? new());

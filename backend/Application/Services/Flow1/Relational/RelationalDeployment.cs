@@ -13,6 +13,7 @@ public sealed partial class RelationalFlow1Service
         var trip=(await db.QueryAsync<FlowTrip>(x=>x.RequestID==request,ct)).SingleOrDefault();
         Require(trip is not null && trip.DeploymentStatus=="CONFIRMED" && trip.HandoffEventId is not null && trip.Status is "PLANNING" or "READY_TO_DEPART" && (expectedEvent is null || expectedEvent==trip.HandoffEventId),"HANDOFF_CLOSED","Handoff is held, changed or unavailable.");
         var c=(await db.QueryAsync<FlowContract>(x=>x.TripID==trip!.TripID && x.IsCurrent,ct)).SingleOrDefault();
+        Require(Role(u)==UserRoles.TransportSpecialist ? trip!.AssignedSpecialistId==actor : trip!.AssignedCoordinatorId==actor,"FORBIDDEN","This trip is assigned to another staff member.");
         Require(c is not null && c.ContractStatus=="EFFECTIVE" && c.SignedAt is not null,"HANDOFF_CLOSED","Activated signed terms required.");
         var inv=await Invoice(c!,ct); Require(inv.PaidAmount>=inv.TotalPayableAmount && !(await Payments(inv,ct)).Any(p=>p.FinancialReviewRequired),"FINANCIAL_REVIEW_REQUIRED","Operational release is awaiting financial review.");
         return(trip!,c!,(await db.FindAsync<FlowRequest>(request,ct))!);
@@ -23,12 +24,17 @@ public sealed partial class RelationalFlow1Service
         var trip=(await db.FindAsync<FlowTrip>(c.TripID!,t))!; Check(trip.RowVersion,i.Version); Text(i.Reason);
         Require(trip.Status is "PLANNING" or "READY_TO_DEPART","DEPARTURE_ALREADY_STARTED","Cannot roll back a departed Trip.");
         if(action=="confirm") {
+            var specialist=await db.FindAsync<FlowUser>(i.AssignedSpecialistId??"",t);
+            var coordinator=await db.FindAsync<FlowUser>(i.AssignedCoordinatorId??"",t);
+            if(specialist is not {IsActive:true} || Role(specialist)!=UserRoles.TransportSpecialist || coordinator is not {IsActive:true} || Role(coordinator)!=UserRoles.FleetRouteCoordinator)
+                throw Error("Choose an active Specialist and Coordinator with the correct roles.","VALIDATION_ERROR",400);
+            Require((trip.AssignedSpecialistId is null || trip.AssignedSpecialistId==specialist.UserID) && (trip.AssignedCoordinatorId is null || trip.AssignedCoordinatorId==coordinator.UserID),"ASSIGNMENT_FIXED","Assigned staff cannot be replaced.");
             Require(trip.DeploymentStatus=="PENDING" && trip.Status=="PLANNING" && Now<=Cutoff(r) && inv.PaidAmount>=inv.TotalPayableAmount && !(await Payments(inv,t)).Any(p=>p.FinancialReviewRequired),"DEPLOYMENT_CLOSED","Release requires preparation time, deposit and no financial hold.");
             trip.DeploymentStatus="CONFIRMED"; trip.HandoffEventId=Id("event",trip.TripID,Guid.NewGuid().ToString("N"));
-            foreach(var user in await db.QueryAsync<FlowUser>(u=>u.IsActive,t))
-                if(Role(user) is UserRoles.FleetRouteCoordinator or UserRoles.TransportSpecialist)
-                    await Notify(user.UserID,trip.HandoffEventId,"FLOW1_HANDOFF","Có chuyến mới được bàn giao",
-                        "Manager đã xác nhận chuyến "+trip.TripID+". Mở hộp bàn giao để xem hợp đồng và hồ sơ hiện hành.",t);
+            trip.AssignedSpecialistId=specialist.UserID;trip.AssignedCoordinatorId=coordinator.UserID;
+            foreach(var user in new[]{specialist,coordinator})
+                await Notify(user.UserID,trip.HandoffEventId,"FLOW1_HANDOFF","Bạn được phân công phụ trách chuyến",
+                    "Manager đã giao chuyến "+trip.TripID+". Mở hộp bàn giao để xem hợp đồng và hồ sơ hiện hành.",t);
         }
         else {
             Require(action=="hold" && trip.DeploymentStatus!="ON_HOLD" || action=="resume" && trip.DeploymentStatus=="ON_HOLD","DEPLOYMENT_CLOSED","Invalid operational transition.");
@@ -41,6 +47,7 @@ public sealed partial class RelationalFlow1Service
         var u=await Actor(actor,null,t); Require(Role(u) is UserRoles.FleetRouteCoordinator or UserRoles.TransportSpecialist,"FORBIDDEN","Operational role required.");
         var result=new List<FlowHandoff>();
         foreach(var trip in await db.QueryAsync<FlowTrip>(x=>x.DeploymentStatus=="CONFIRMED" && (x.Status=="PLANNING" || x.Status=="READY_TO_DEPART"),t)) {
+            if(Role(u)==UserRoles.TransportSpecialist ? trip.AssignedSpecialistId!=actor : trip.AssignedCoordinatorId!=actor)continue;
             var x=await Released(trip.RequestID,actor,null,t); result.Add(await Handoff(x.Trip,x.C,x.R,t));
         }
         return result;
@@ -48,7 +55,7 @@ public sealed partial class RelationalFlow1Service
     private async Task<FlowHandoff> Handoff(FlowTrip trip,FlowContract c,FlowRequest r,CancellationToken ct)
     {
         var horses=new List<FlowHorseCard>(); foreach(var l in await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==r.RequestID,ct)) horses.Add(HorseCard((await db.FindAsync<FlowHorse>(l.HorseID,ct))!));
-        return new(new(trip.TripID,Token(trip.RowVersion),trip.Status,trip.DeploymentStatus,trip.HandoffEventId,trip.DeploymentReason,trip.RoutingAcknowledgedBy,trip.DocumentsAcknowledgedBy),r.RequestID,r.Departure,r.Destination,r.ExpectedDate,r.CommittedDeadline,c.ContractID,c.PdfSha256!,horses,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct));
+        return new(new(trip.TripID,Token(trip.RowVersion),trip.Status,trip.DeploymentStatus,trip.HandoffEventId,trip.DeploymentReason,trip.RoutingAcknowledgedBy,trip.DocumentsAcknowledgedBy,trip.AssignedSpecialistId,trip.AssignedCoordinatorId),r.RequestID,r.Departure,r.Destination,r.ExpectedDate,r.CommittedDeadline,c.ContractID,c.PdfSha256!,horses,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct));
     }
     public Task<FlowHandoff> AckAsync(string tripId,string actor,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
         var trip=await db.FindAsync<FlowTrip>(tripId,t)??throw Error("Trip not found.","NOT_FOUND",404); var x=await Released(trip.RequestID,actor,i.EventId,t);

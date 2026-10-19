@@ -165,13 +165,14 @@ public sealed class RequestBaselineTests
         r = await f.Service.ReviewAsync(r.RequestId, "manager", "accept", new(r.Version, "Reviewed"), default);
         var c = await f.Service.DraftAsync(r.RequestId, "manager", "baseline-contract-one", new(r.Version, Price: 100000000, PreparationDays: 2, Deadline: f.Time.Value.AddDays(2)), default);
         Assert.Equal(100000000, c.TotalPrice); Assert.Equal(40000000, c.DepositAmount);
-        c = await f.Service.PublishAsync(c.ContractId, "manager", new(c.Version), default);
+        c = await f.Service.PublishAsync(c.ContractId, "manager", new(c.Version,ClauseIds:[f.ClauseId]), default);
+        var session = await f.Session(c); await f.Service.IpnAsync(f.Callback(session), default);
+        c = await f.Service.ContractAsync(c.ContractId, "owner", false, default);
         await f.Service.SendOtpAsync(c.ContractId, "owner", new(c.Version, PdfSha256: c.PdfSha256), default);
         c = await f.Service.ContractAsync(c.ContractId, "owner", false, default);
         c = await f.Service.SignAsync(c.ContractId, "owner", new(c.Version, Otp: f.Email.Code, PdfSha256: c.PdfSha256), default);
-        var session = await f.Session(c); await f.Service.IpnAsync(f.Callback(session), default);
         c = await f.Service.ContractAsync(c.ContractId, "manager", true, default);
-        c = await f.Service.DeploymentAsync(c.ContractId, "manager", "confirm", new(c.Trip!.Version, "Ready"), default);
+        c = await f.Service.DeploymentAsync(c.ContractId, "manager", "confirm", new(c.Trip!.Version, "Ready",AssignedSpecialistId:"docs",AssignedCoordinatorId:"route"), default);
         var trip = c.Trip!; var document = r.Documents![0].DocumentId;
         Assert.Equal(Medical.Bytes, (await f.Service.OperationsDocumentAsync(trip.TripId, document, "docs", trip.EventId!, default)).Bytes);
         await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.OperationsDocumentAsync(trip.TripId, document, "route", trip.EventId!, default));

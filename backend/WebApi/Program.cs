@@ -15,9 +15,17 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
+if (builder.Environment.IsDevelopment())
+    builder.Configuration.AddJsonFile("App_Data/flow1/runtime-config/appsettings.Flow1Sandbox.Local.json", optional: true);
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true);
 if (builder.Environment.IsDevelopment()) builder.Configuration.AddJsonFile("appsettings.Flow1Sandbox.Local.json", optional: true);
 builder.Configuration.AddEnvironmentVariables();
+// The same private configuration is mounted under /app in Docker. Resolve it
+// against this checkout when running the approved localhost Swagger on Windows.
+if (builder.Environment.IsDevelopment() && OperatingSystem.IsWindows())
+    foreach (var key in new[] { "Flow1:PrivateFiles:Root", "Flow1:Contracts:WorkRoot", "Flow1:LegacyImport:SourceRoot" })
+        if (builder.Configuration[key] is string value && value.StartsWith("/app/", StringComparison.Ordinal))
+            builder.Configuration[key] = value[5..];
 
 // =============================================================================
 // 1. KẾT NỐI DATABASE VỚI SQL SERVER
@@ -131,6 +139,22 @@ builder.Services.AddAuthentication(options =>
     // Chuẩn hóa định dạng lỗi 401 & 403 theo đúng chuẩn JSON hợp đồng
     options.Events = new JwtBearerEvents
     {
+        OnMessageReceived = context =>
+        {
+            var authHeader = context.Request.Headers.Authorization.ToString();
+            if (!string.IsNullOrEmpty(authHeader))
+            {
+                if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Token = authHeader.Substring("Bearer ".Length).Trim();
+                }
+                else
+                {
+                    context.Token = authHeader.Trim();
+                }
+            }
+            return Task.CompletedTask;
+        },
         OnChallenge = async context =>
         {
             context.HandleResponse();
@@ -163,6 +187,7 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1",
         Description = "Cổng kết nối API giữa Frontend và Backend - RaceHorse Transport"
     });
+    c.OperationFilter<Flow1SwaggerExamples>();
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
