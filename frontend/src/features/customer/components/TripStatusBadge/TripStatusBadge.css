@@ -1,0 +1,172 @@
+.cbn-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+/* Đang vận chuyển - Orange */
+.cbn-status-badge.in_transit,
+.cbn-status-badge.dang-van-chuyen {
+  background-color: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+}
+
+/* Đang xét duyệt hồ sơ - Amber/Brown */
+.cbn-status-badge.reviewing,
+.cbn-status-badge.dang-xet-duyet-ho-so {
+  background-color: rgba(180, 83, 9, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(217, 119, 6, 0.35);
+}
+
+/* Hợp đồng sẵn sàng - Blue */
+.cbn-status-badge.contract_ready,
+.cbn-status-badge.hop-dong-san-sang {
+  background-color: rgba(59, 130, 246, 0.16);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+/* Chờ quản lý xét duyệt - Mustard/Amber */
+.cbn-status-badge.waiting_manager,
+.cbn-status-badge.cho-quan-ly-xet-duyet {
+  background-color: rgba(161, 98, 7, 0.18);
+  color: #f59e0b;
+  border: 1px solid rgba(180, 83, 9, 0.35);
+}
+
+/* Yêu cầu chỉnh sửa - Red */
+.cbn-status-badge.revision_requested,
+.cbn-status-badge.yeu-cau-chinh-sua {
+  background-color: rgba(239, 68, 68, 0.16);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+/* Yêu cầu sửa hợp đồng - Warm Amber/Brown */
+.cbn-status-badge.contract_revision_requested,
+.cbn-status-badge.yeu-cau-sua-hop-dong {
+  background-color: rgba(180, 83, 9, 0.18);
+  color: #d97706;
+  border: 1px solid rgba(180, 83, 9, 0.35);
+}
+
+/* Đã xác minh cọc – Chờ ký - Cyan / Deep Blue */
+.cbn-status-badge.deposit_verified,
+.cbn-status-badge.da-xac-minh-coc-cho-ky {
+  background-color: rgba(30, 58, 138, 0.3);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.35);
+}
+
+/* Đã giao / Đã hoàn thành - Green */
+.cbn-status-badge.delivered,
+.cbn-status-badge.completed,
+.cbn-status-badge.da-giao,
+.cbn-status-badge.da-hoan-thanh {
+  background-color: rgba(34, 197, 94, 0.16);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+/* Đã lên lịch - Cyan / Teal */
+.cbn-status-badge.scheduled,
+.cbn-status-badge.da-len-lich {
+  background-color: rgba(20, 184, 166, 0.16);
+  color: #2dd4bf;
+  border: 1px solid rgba(20, 184, 166, 0.35);
+}
+
+/* Đã đóng - Dark Gray */
+.cbn-status-badge.closed,
+.cbn-status-badge.da-dong {
+  background-color: #1d1f25;
+  color: #94a3b8;
+  border: 1px solid #2d313b;
+}
+
+/* Đã hủy - Dark Gray */
+.cbn-status-badge.cancelled,
+.cbn-status-badge.da-huy {
+  background-color: #1d1f25;
+  color: #94a3b8;
+  border: 1px solid #2d313b;
+}
+
+/* Bị từ chối - Dark Red */
+.cbn-status-badge.rejected,
+.cbn-status-badge.bi-tu-choi {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+/* Sự cố kiểm dịch - Red */
+.cbn-status-badge.incident,
+.cbn-status-badge.su-co-kiem-dich {
+  background-color: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+/* ==================== CONTRACT STATUS SPECIFIC BADGES ==================== */
+.cbn-contract-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cbn-contract-badge.active {
+  background-color: rgba(34, 197, 94, 0.14);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.cbn-contract-badge.ready {
+  background-color: rgba(59, 130, 246, 0.14);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.cbn-contract-badge.cancelled {
+  background-color: #1d1f25;
+  color: #94a3b8;
+  border: 1px solid #2d313b;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.cbn-contract-badge.completed-box {
+  background-color: rgba(6, 78, 59, 0.32);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
+  padding: 5px 9px;
+  border-radius: 5px;
+  white-space: normal;
+  display: inline-block;
+  max-width: 125px;
+  font-weight: 500;
+}
+
+.cbn-contract-badge.none {
+  color: #64748b;
+  font-weight: 500;
+  font-size: 14px;
+}

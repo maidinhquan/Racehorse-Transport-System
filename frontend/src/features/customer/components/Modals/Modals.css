@@ -1,0 +1,460 @@
+/* ==========================================================================
+   CUSTOMER MODALS STYLING (DARK THEME)
+   ========================================================================== */
+
+.cbn-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.cbn-modal-container {
+  background-color: #16181d;
+  border: 1px solid #2a2e37;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalSlideUp {
+  from {
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cbn-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #262932;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #1a1d24;
+}
+
+.cbn-modal-title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cbn-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cbn-modal-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.cbn-modal-close-btn {
+  background: transparent;
+  border: 1px solid #333844;
+  color: #94a3b8;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cbn-modal-close-btn:hover {
+  background-color: #262a34;
+  color: #ffffff;
+  border-color: #4b5563;
+}
+
+.cbn-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cbn-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #262932;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  background-color: #1a1d24;
+}
+
+/* ==================== TRACKING MODAL SPECIFICS ==================== */
+
+.trip-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  background-color: #1a1d24;
+  border: 1px solid #282c36;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.overview-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.overview-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.overview-val {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.overview-val.highlight {
+  color: #f97316;
+}
+
+/* Telemetry row */
+.telemetry-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.telemetry-card {
+  background: #191c22;
+  border: 1px solid #282c36;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.telemetry-icon {
+  font-size: 18px;
+}
+
+.telemetry-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.telemetry-label {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.telemetry-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+/* Checkpoint Stepper Timeline */
+.checkpoint-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 4px;
+}
+
+.timeline-step {
+  display: flex;
+  gap: 16px;
+  position: relative;
+  padding-bottom: 20px;
+}
+
+.timeline-step:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-step::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 28px;
+  bottom: 0;
+  width: 2px;
+  background-color: #2b303b;
+}
+
+.timeline-step.completed::before {
+  background-color: #f97316;
+}
+
+.timeline-step:last-child::before {
+  display: none;
+}
+
+.timeline-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  z-index: 1;
+}
+
+.timeline-step.completed .timeline-dot {
+  background-color: #f97316;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.4);
+}
+
+.timeline-step.current .timeline-dot {
+  background-color: #ea580c;
+  color: #ffffff;
+  border: 3px solid rgba(249, 115, 22, 0.3);
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(249, 115, 22, 0);
+  }
+}
+
+.timeline-step.upcoming .timeline-dot {
+  background-color: #242832;
+  color: #64748b;
+  border: 1px solid #3b4252;
+}
+
+.timeline-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.timeline-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.timeline-step-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.timeline-step-time {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.timeline-step-desc {
+  font-size: 12.5px;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+/* ==================== INCIDENT MODAL SPECIFICS (FLOW 5) ==================== */
+
+.incident-alert-banner {
+  background-color: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.incident-alert-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.incident-alert-text h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: #fca5a5;
+  font-weight: 700;
+}
+
+.incident-alert-text p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+.incident-symptoms-card {
+  background: #1a1d24;
+  border: 1px solid #282c36;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.incident-symptoms-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f8fafc;
+  margin-bottom: 8px;
+}
+
+.incident-symptoms-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.incident-options-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.incident-option-item {
+  background: #1a1d24;
+  border: 1px solid #2c313d;
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.incident-option-item:hover {
+  border-color: #f97316;
+  background-color: rgba(249, 115, 22, 0.05);
+}
+
+.incident-option-item.selected {
+  border-color: #f97316;
+  background-color: rgba(249, 115, 22, 0.1);
+  box-shadow: 0 0 0 1px #f97316;
+}
+
+.incident-radio {
+  margin-top: 3px;
+  accent-color: #f97316;
+}
+
+.incident-option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.incident-option-header {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.incident-option-fee {
+  color: #f97316;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.incident-option-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+/* Buttons */
+.btn-secondary {
+  background-color: #242832;
+  color: #cbd5e1;
+  border: 1px solid #363c4a;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #2f3442;
+  color: #ffffff;
+}
+
+.btn-primary-orange {
+  background-color: #ea580c;
+  color: #ffffff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.2s;
+}
+
+.btn-primary-orange:hover {
+  background-color: #c2410c;
+}

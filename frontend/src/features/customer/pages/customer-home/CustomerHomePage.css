@@ -1,0 +1,672 @@
+/* ==========================================================================
+   CUSTOMER HOME PAGE - DARK THEME PIXEL-PERFECT STYLING
+   Matching CBN Transport design screenshots
+   ========================================================================== */
+
+.customer-home-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #121316;
+  color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+.customer-home-layout *,
+.customer-home-layout *::before,
+.customer-home-layout *::after {
+  box-sizing: border-box;
+}
+
+/* ==================== SIDEBAR ==================== */
+.customer-home-sidebar {
+  width: 220px;
+  min-width: 220px;
+  background-color: #16171a;
+  border-right: 1px solid #23252b;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 50;
+  user-select: none;
+}
+
+.sidebar-brand {
+  height: 68px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  font-size: 19px;
+  font-weight: 700;
+  color: #ea580c;
+  cursor: pointer;
+  letter-spacing: -0.01em;
+}
+
+.sidebar-nav {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.sidebar-nav-item:hover {
+  color: #e2e8f0;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-nav-item.active {
+  color: #ea580c;
+  background-color: #271a14;
+  border: 1px solid #7c2d12;
+  font-weight: 600;
+}
+
+.sidebar-nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ==================== MAIN CONTENT & TOPBAR ==================== */
+.customer-home-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Topbar */
+.customer-home-topbar {
+  height: 68px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #23252b;
+  background-color: #16171a;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.topbar-page-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.topbar-right-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Language toggle capsule */
+.lang-toggle-capsule {
+  display: flex;
+  background-color: #1c1e24;
+  border: 1px solid #2b2f38;
+  border-radius: 20px;
+  padding: 2px;
+}
+
+.lang-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.lang-btn.active {
+  background-color: #2b303c;
+  color: #ffffff;
+}
+
+/* Notification Bell */
+.notif-bell-btn {
+  position: relative;
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.notif-bell-btn:hover {
+  background-color: #23252b;
+}
+
+.notif-badge-pill {
+  position: absolute;
+  top: 1px;
+  right: -2px;
+  background-color: #ea580c;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+  border: 2px solid #16171a;
+  line-height: 1.2;
+}
+
+/* User Profile Badge */
+.user-profile-menu {
+  position: relative;
+}
+
+.user-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.user-profile-btn:hover {
+  background-color: #23252b;
+}
+
+.user-avatar-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #9a3412;
+  color: #fed7aa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.user-name-text {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.user-chevron-icon {
+  width: 14px;
+  height: 14px;
+  color: #94a3b8;
+}
+
+/* Profile Dropdown */
+.profile-dropdown-card {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 200px;
+  background-color: #1a1d24;
+  border: 1px solid #2a2e38;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #cbd5e1;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.profile-dropdown-item:hover {
+  background-color: #262a34;
+  color: #ffffff;
+}
+
+.profile-dropdown-item.logout {
+  color: #f87171;
+}
+
+.profile-dropdown-item.logout:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+}
+
+/* ==================== CONTENT BODY ==================== */
+.customer-home-content {
+  padding: 24px 32px 48px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ==================== WELCOME CARD ==================== */
+.welcome-hero-card {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  background-color: #17181c;
+  border: 1px solid #262932;
+  border-radius: 12px;
+  padding: 24px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.welcome-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.welcome-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.welcome-subtitle {
+  margin: 0;
+  font-size: 13.5px;
+  color: #94a3b8;
+}
+
+.btn-create-request {
+  background-color: #ea580c;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.btn-create-request:hover {
+  background-color: #c2410c;
+  transform: translateY(-1px);
+}
+
+/* ==================== TWO-COLUMN GRID ==================== */
+.dashboard-middle-grid {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-middle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* General Card */
+.cbn-card {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  background-color: #17181c;
+  border: 1px solid #262932;
+  border-radius: 12px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==================== CURRENT TRIP CARD ==================== */
+.current-trip-card {
+  gap: 18px;
+}
+
+.trip-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.trip-key-info-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.info-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* Timeline & Progress */
+.trip-progress-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trip-schedule-times {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.depart-time {
+  color: #94a3b8;
+}
+
+.eta-time {
+  color: #ea580c;
+  font-weight: 600;
+}
+
+.progress-track-wrapper {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background-color: #2a2e38;
+  border-radius: 6px;
+  overflow: visible;
+}
+
+.progress-fill-bar {
+  height: 100%;
+  background-color: #ea580c;
+  border-radius: 6px;
+  position: relative;
+  transition: width 0.4s ease;
+}
+
+.progress-dot-marker {
+  position: absolute;
+  right: -5px;
+  top: -4px;
+  width: 14px;
+  height: 14px;
+  background-color: #ea580c;
+  border: 2px solid #17181c;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(234, 88, 12, 0.6);
+}
+
+.milestone-note-text {
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+
+.milestone-note-text b {
+  color: #ffffff;
+}
+
+.btn-view-tracking {
+  align-self: flex-start;
+  background-color: #1e2026;
+  color: #e2e8f0;
+  border: 1px solid #323640;
+  padding: 9px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.btn-view-tracking:hover {
+  background-color: #272a33;
+  color: #ffffff;
+  border-color: #4b5563;
+}
+
+/* ==================== NOTIFICATIONS CARD ==================== */
+.notifications-card {
+  gap: 16px;
+}
+
+.notif-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notif-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.unread-pill {
+  background-color: #ea580c;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.link-view-all {
+  color: #ea580c;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.link-view-all:hover {
+  text-decoration: underline;
+}
+
+/* Notification List */
+.notif-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.notif-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.notif-item-row:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.notif-item-row.unread {
+  background-color: rgba(255, 255, 255, 0.015);
+}
+
+.notif-bell-icon-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: rgba(217, 119, 6, 0.14);
+  color: #d97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.notif-content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.notif-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f1f5f9;
+  line-height: 1.35;
+}
+
+.notif-item-body {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.notif-item-time {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.notif-item-chevron {
+  color: #64748b;
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+
+/* ==================== RECENT REQUESTS TABLE CARD ==================== */
+.recent-requests-card {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  gap: 16px;
+}
+
+.requests-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.requests-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.cbn-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.cbn-table th {
+  padding: 12px 16px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #262932;
+}
+
+.cbn-table td {
+  padding: 16px;
+  font-size: 13.5px;
+  color: #cbd5e1;
+  border-bottom: 1px solid #1f2228;
+  vertical-align: middle;
+}
+
+.cbn-table tr:hover td {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.request-id-text {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.btn-table-action-link {
+  color: #ea580c;
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+  transition: color 0.15s;
+}
+
+.btn-table-action-link:hover {
+  color: #f97316;
+  text-decoration: underline;
+}

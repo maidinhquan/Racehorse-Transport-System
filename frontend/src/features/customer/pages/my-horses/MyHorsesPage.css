@@ -1,0 +1,388 @@
+/* ==========================================================================
+   CUSTOMER MY HORSES PAGE - DARK THEME PIXEL-PERFECT STYLING
+   ========================================================================== */
+
+.customer-horses-page,
+.my-horses-page {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px !important;
+  width: 100% !important;
+  text-align: left !important;
+  align-items: flex-start !important;
+}
+
+/* ==================== PAGE HEADER ==================== */
+.customer-horses-header,
+.my-horses-header {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  gap: 12px !important;
+  width: 100% !important;
+}
+
+.customer-horses-titles {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+  gap: 6px !important;
+  width: 100% !important;
+}
+
+.customer-horses-title,
+.my-horses-title {
+  margin: 0 !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.01em !important;
+  text-align: left !important;
+  align-self: flex-start !important;
+}
+
+.customer-horses-subtitle,
+.my-horses-subtitle {
+  margin: 0 !important;
+  font-size: 13.5px !important;
+  color: #94a3b8 !important;
+  max-width: 960px !important;
+  line-height: 1.55 !important;
+  text-align: left !important;
+  align-self: flex-start !important;
+}
+
+.btn-add-horse {
+  align-self: flex-start !important;
+  margin-top: 4px !important;
+  background-color: #ea580c !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 9.5px 18px !important;
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+  transition: background-color 0.15s ease, transform 0.1s ease !important;
+}
+
+.btn-add-horse:hover {
+  background-color: #c2410c !important;
+  transform: translateY(-1px) !important;
+}
+
+.btn-add-horse-icon {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ==================== SEARCH & FILTER TABS ==================== */
+.horses-filter-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  margin-top: 2px !important;
+  width: 100% !important;
+}
+
+.horses-search-box {
+  position: relative;
+  flex: 1;
+  max-width: 380px;
+}
+
+.horses-search-icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 15px;
+  height: 15px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.horses-search-input {
+  width: 100%;
+  background-color: #141519;
+  border: 1px solid #232630;
+  border-radius: 6px;
+  padding: 9px 14px 9px 36px;
+  color: #f1f5f9;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.horses-search-input:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15);
+}
+
+.horses-search-input::placeholder {
+  color: #64748b;
+}
+
+/* 3 Separate Outline Buttons on the right */
+.horses-filter-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.horses-filter-btn {
+  background-color: #141519;
+  border: 1px solid #232630;
+  border-radius: 6px;
+  color: #94a3b8;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.horses-filter-btn:hover {
+  color: #e2e8f0;
+  border-color: #333844;
+}
+
+.horses-filter-btn.active {
+  background-color: #171b24;
+  border-color: #3b4252;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* ==================== HORSES GRID ==================== */
+.horses-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 20px !important;
+  width: 100% !important;
+}
+
+@media (max-width: 1200px) {
+  .horses-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .horses-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .horses-filter-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .horses-search-box {
+    max-width: 100% !important;
+  }
+}
+
+/* Horse Card */
+.horse-card {
+  background-color: #16171b;
+  border: 1px solid #232630;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.horse-card:hover {
+  border-color: #343946;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Image section */
+.horse-image-container {
+  position: relative;
+  width: 100%;
+  height: 195px;
+  background-color: #1a1c22;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid #232630;
+}
+
+.horse-placeholder-label {
+  font-size: 26px;
+  font-weight: 600;
+  color: #828997;
+  letter-spacing: -0.01em;
+  user-select: none;
+}
+
+.horse-submission-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  line-height: 1.2;
+}
+
+.horse-submission-badge.submitted {
+  background-color: rgba(30, 58, 138, 0.4);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.35);
+}
+
+.horse-submission-badge.unsubmitted {
+  background-color: rgba(100, 116, 139, 0.2);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.35);
+}
+
+/* Card Body */
+.horse-card-body {
+  padding: 18px 20px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.horse-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.horse-name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.horse-code {
+  font-size: 12px;
+  color: #808a9d;
+}
+
+.horse-breed-line {
+  margin: 4px 0 14px 0;
+  font-size: 12.5px;
+  color: #808a9d;
+}
+
+/* Specs list */
+.horse-specs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.spec-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.spec-name {
+  color: #808a9d;
+}
+
+.spec-val {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+/* Transport Usage Box */
+.horse-usage-card {
+  background-color: #131418;
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 14px;
+}
+
+.usage-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.usage-route {
+  font-size: 11.5px;
+  color: #808a9d;
+}
+
+/* Action buttons */
+.horse-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.btn-card-view {
+  background-color: #281d16;
+  color: #ea580c;
+  border: 1px solid #7c2d12;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.btn-card-view:hover {
+  background-color: #352217;
+  color: #f97316;
+  border-color: #ea580c;
+}
+
+.btn-card-edit {
+  background-color: #17181c;
+  color: #cbd5e1;
+  border: 1px solid #2d313c;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.btn-card-edit:hover {
+  background-color: #252932;
+  color: #ffffff;
+  border-color: #3f4553;
+}
+
+/* Empty state */
+.empty-horses-box {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  color: #64748b;
+  background-color: #16171b;
+  border: 1px dashed #232630;
+  border-radius: 12px;
+}

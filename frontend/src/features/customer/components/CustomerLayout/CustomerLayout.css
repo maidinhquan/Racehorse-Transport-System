@@ -1,0 +1,298 @@
+/* ==========================================================================
+   CUSTOMER SHARED LAYOUT - DARK THEME PIXEL-PERFECT STYLING
+   Used across Customer Home, Customer Requests, and other customer pages
+   ========================================================================== */
+
+.customer-shared-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: #121316;
+  color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+.customer-shared-layout *,
+.customer-shared-layout *::before,
+.customer-shared-layout *::after {
+  box-sizing: border-box;
+}
+
+/* ==================== SIDEBAR ==================== */
+.customer-shared-sidebar {
+  width: 220px;
+  min-width: 220px;
+  background-color: #16171a;
+  border-right: 1px solid #23252b;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 50;
+  user-select: none;
+}
+
+.customer-sidebar-brand {
+  height: 68px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  font-size: 19px;
+  font-weight: 700;
+  color: #ea580c;
+  cursor: pointer;
+  letter-spacing: -0.01em;
+}
+
+.customer-sidebar-nav {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.customer-sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: #94a3b8;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: all 0.15s ease-in-out;
+}
+
+.customer-sidebar-nav-item:hover {
+  color: #e2e8f0;
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.customer-sidebar-nav-item.active {
+  color: #ea580c;
+  background-color: #271a14;
+  border: 1px solid #7c2d12;
+  font-weight: 600;
+}
+
+.customer-sidebar-nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ==================== MAIN CONTENT & TOPBAR ==================== */
+.customer-shared-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+}
+
+/* Topbar */
+.customer-shared-topbar {
+  height: 68px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #23252b;
+  background-color: #16171a;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.customer-topbar-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.customer-topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Language toggle capsule */
+.customer-lang-capsule {
+  display: flex;
+  background-color: #1c1e24;
+  border: 1px solid #2b2f38;
+  border-radius: 20px;
+  padding: 2px;
+}
+
+.customer-lang-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.customer-lang-btn.active {
+  background-color: #2b303c;
+  color: #ffffff;
+}
+
+/* Notification Bell */
+.customer-notif-btn {
+  position: relative;
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.customer-notif-btn:hover {
+  background-color: #23252b;
+}
+
+.customer-notif-badge {
+  position: absolute;
+  top: 1px;
+  right: -2px;
+  background-color: #ea580c;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+  border: 2px solid #16171a;
+  line-height: 1.2;
+}
+
+/* User Profile Badge */
+.customer-user-menu {
+  position: relative;
+}
+
+.customer-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.customer-user-btn:hover {
+  background-color: #23252b;
+}
+
+.customer-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #9a3412;
+  color: #fed7aa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.customer-user-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.customer-user-chevron {
+  width: 14px;
+  height: 14px;
+  color: #94a3b8;
+}
+
+/* Profile Dropdown */
+.customer-profile-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 200px;
+  background-color: #1a1d24;
+  border: 1px solid #2a2e38;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.customer-dropdown-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #cbd5e1;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.customer-dropdown-btn:hover {
+  background-color: #262a34;
+  color: #ffffff;
+}
+
+.customer-dropdown-btn.logout {
+  color: #f87171;
+}
+
+.customer-dropdown-btn.logout:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+}
+
+/* Content Container */
+.customer-shared-content {
+  padding: 24px 32px 64px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  gap: 24px;
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.customer-shared-content > * {
+  width: 100% !important;
+  box-sizing: border-box !important;
+}

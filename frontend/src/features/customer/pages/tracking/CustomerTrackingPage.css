@@ -1,0 +1,619 @@
+/* ==========================================================================
+   CUSTOMER TRIP TRACKING PAGE - DARK THEME PIXEL-PERFECT STYLING
+   ========================================================================== */
+
+.customer-tracking-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  width: 100%;
+}
+
+/* Header section */
+.tracking-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.tracking-header-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tracking-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.tracking-subtitle {
+  margin: 0;
+  font-size: 13.5px;
+  color: #94a3b8;
+}
+
+/* Trip selector dropdown */
+.trip-selector-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 380px;
+}
+
+.trip-selector-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.trip-selector-dropdown {
+  background-color: #17181c;
+  border: 1px solid #262932;
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #f1f5f9;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.trip-selector-dropdown:focus {
+  border-color: #ea580c;
+}
+
+/* ==================== TWO-COLUMN GRID ==================== */
+.tracking-grid-layout {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .tracking-grid-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tracking-col {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* ==================== MAP & ROUTE CARD ==================== */
+.route-map-card {
+  background-color: #17181c;
+  border: 1px solid #262932;
+  border-radius: 12px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.route-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.route-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.route-trip-id {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.route-trip-meta {
+  margin: 0;
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+/* Canvas Area */
+.route-canvas-box {
+  position: relative;
+  width: 100%;
+  height: 250px;
+  background-color: #15171c;
+  border: 1px solid #242730;
+  border-radius: 10px;
+  overflow: hidden;
+  background-image: radial-gradient(#272b35 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.route-svg-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Legend */
+.route-legend-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11.5px;
+  color: #94a3b8;
+  padding: 4px 0;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.legend-dot.origin { background-color: #64748b; }
+.legend-dot.destination { background-color: #22c55e; }
+.legend-dot.border { background-color: #ef4444; }
+.legend-dot.airport { background-color: #3b82f6; }
+.legend-dot.quarantine { background-color: #a855f7; }
+.legend-dot.rest { background-color: #f59e0b; }
+.legend-dot.fuel { background-color: #64748b; }
+.legend-dot.latest { background-color: #ea580c; }
+
+.route-map-note {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Progress bar inside map card */
+.route-progress-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #232630;
+  padding-top: 14px;
+}
+
+.route-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+}
+
+.progress-header-title {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.progress-header-count {
+  color: #94a3b8;
+}
+
+.route-progress-track {
+  width: 100%;
+  height: 5px;
+  background-color: #262932;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.route-progress-fill {
+  height: 100%;
+  background-color: #ea580c;
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+/* ==================== STOPS & CHECKPOINTS CARD ==================== */
+.stops-list-card {
+  background-color: #17181c;
+  border: 1px solid #262932;
+  border-radius: 12px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stops-card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.stops-items-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.stop-row-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid #21242c;
+  gap: 14px;
+}
+
+.stop-row-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.stop-left-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.stop-index-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+  color: #ffffff;
+}
+
+.stop-index-circle.green {
+  background-color: #16a34a;
+}
+
+.stop-index-circle.orange {
+  background-color: #ea580c;
+  box-shadow: 0 0 10px rgba(234, 88, 12, 0.4);
+}
+
+.stop-index-circle.gray {
+  background-color: #2b303a;
+  color: #94a3b8;
+}
+
+.stop-meta-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stop-name-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.stop-desc-sub {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.stop-status-pill {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stop-status-pill.confirmed {
+  background-color: rgba(34, 197, 94, 0.14);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.stop-status-pill.latest-confirmed {
+  background-color: rgba(234, 88, 12, 0.16);
+  color: #ea580c;
+  border: 1px solid rgba(234, 88, 12, 0.35);
+}
+
+.stop-status-pill.next {
+  background-color: rgba(59, 130, 246, 0.14);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.stop-status-pill.planned {
+  background-color: rgba(100, 116, 139, 0.14);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.25);
+}
+
+/* ==================== RIGHT COLUMN: LATEST CHECKPOINT CARD ==================== */
+.latest-checkpoint-card {
+  background-color: #17181c;
+  border: 1px solid #262932;
+  border-radius: 12px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.latest-checkpoint-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.pin-icon-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background-color: rgba(234, 88, 12, 0.14);
+  color: #ea580c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(234, 88, 12, 0.25);
+}
+
+.latest-checkpoint-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.latest-checkpoint-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.35;
+}
+
+.latest-checkpoint-author {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* Timings list */
+.timings-specs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid #232630;
+  padding-top: 14px;
+}
+
+.timing-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.timing-label {
+  color: #94a3b8;
+}
+
+.timing-value {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.timing-value.highlight {
+  color: #ea580c;
+}
+
+.timings-notice-text {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.btn-view-request-detail {
+  width: 100%;
+  background-color: #1e2027;
+  color: #cbd5e1;
+  border: 1px solid #303542;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.btn-view-request-detail:hover {
+  background-color: #292d38;
+  color: #ffffff;
+  border-color: #4b5563;
+}
+
+/* ==================== TIMELINE EVENTS CARD ==================== */
+.timeline-events-card {
+  background-color: #17181c;
+  border: 1px solid #262932;
+  border-radius: 12px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.vertical-events-timeline {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.event-timeline-node {
+  display: flex;
+  gap: 14px;
+  position: relative;
+  padding-bottom: 20px;
+}
+
+.event-timeline-node:last-child {
+  padding-bottom: 0;
+}
+
+.event-timeline-node::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 16px;
+  bottom: 0;
+  width: 2px;
+  background-color: #2a2e38;
+}
+
+.event-timeline-node:last-child::before {
+  display: none;
+}
+
+.event-dot-marker {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #ea580c;
+  border: 3px solid #17181c;
+  flex-shrink: 0;
+  z-index: 1;
+  margin-top: 3px;
+}
+
+.event-content-box {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.event-title-text {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.event-time-sub {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* ==================== DEMO CONTROL PANEL CARD ==================== */
+.demo-controller-card {
+  background-color: #16171b;
+  border: 1px dashed #2f3440;
+  border-radius: 12px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.demo-controller-header h4 {
+  margin: 0 0 4px 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #ea580c;
+  letter-spacing: 0.04em;
+}
+
+.demo-controller-header p {
+  margin: 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.demo-controller-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+}
+
+.demo-meta-status {
+  color: #cbd5e1;
+}
+
+.demo-meta-hint {
+  color: #ea580c;
+  font-weight: 600;
+}
+
+.demo-steps-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.demo-step-button {
+  background-color: #1e2027;
+  color: #cbd5e1;
+  border: 1px solid #2e3340;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.3;
+  transition: all 0.15s ease;
+}
+
+.demo-step-button:hover {
+  background-color: #272a33;
+  color: #ffffff;
+  border-color: #4b5563;
+}
+
+.demo-step-button.active {
+  background-color: #ea580c;
+  color: #ffffff;
+  border-color: #ea580c;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(234, 88, 12, 0.45);
+}
+
+.step-num-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.1);
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.demo-step-button.active .step-num-badge {
+  background-color: rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+}
