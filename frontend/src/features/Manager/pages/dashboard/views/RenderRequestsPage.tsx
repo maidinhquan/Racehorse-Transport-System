@@ -1,5 +1,3 @@
-import { flow1Error } from "../../../../flow1/api";
-import { download } from "../../../../flow1/relational/api";
 import React, { useState, useMemo } from 'react';
 import type {
   TransportRequestItem,
@@ -8,13 +6,13 @@ import type {
 
 interface RenderRequestsPageProps {
   requests: TransportRequestItem[];
-  onAcceptRequest: (requestId: string, note?: string) => Promise<void>;
+  onAcceptRequest: (requestId: string, note?: string) => void;
   onRequestRevision: (
     requestId: string,
     reason: string,
     suggestionDate?: string
-  ) => Promise<void>;
-  onRejectRequest: (requestId: string, reasonGroup: string, reason: string) => Promise<void>;
+  ) => void;
+  onRejectRequest: (requestId: string, reasonGroup: string, reason: string) => void;
   onNavigate: (nav: ManagerNav, targetId?: string) => void;
   initialSelectedId?: string;
 }
@@ -47,7 +45,7 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
   const [revisionReason, setRevisionReason] = useState(
     'Thời gian chuẩn bị vận chuyển quá gấp, đề nghị dời ngày khởi hành.'
   );
-  const [revisionDate, setRevisionDate] = useState('');
+  const [revisionDate, setRevisionDate] = useState('2026-11-05');
   const [rejectReasonGroup, setRejectReasonGroup] = useState('DEADLINE_NOT_FEASIBLE');
   const [rejectReason, setRejectReason] = useState(
     'Không thể bố trí khoang chuyên dụng đáp ứng kịp lịch khởi hành yêu cầu.'
@@ -97,19 +95,22 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
     setDecisionMode('NONE');
   };
 
-  const handleConfirmAccept = async () => {
+  const handleConfirmAccept = () => {
     if (!selectedRequest) return;
-    try { await onAcceptRequest(selectedRequest.id, acceptNote); handleCloseReview(); } catch (e) { window.alert(flow1Error(e)); }
+    onAcceptRequest(selectedRequest.id, acceptNote);
+    handleCloseReview();
   };
 
-  const handleConfirmRevision = async () => {
+  const handleConfirmRevision = () => {
     if (!selectedRequest) return;
-    try { await onRequestRevision(selectedRequest.id, revisionReason, revisionDate); handleCloseReview(); } catch (e) { window.alert(flow1Error(e)); }
+    onRequestRevision(selectedRequest.id, revisionReason, revisionDate);
+    handleCloseReview();
   };
 
-  const handleConfirmReject = async () => {
+  const handleConfirmReject = () => {
     if (!selectedRequest) return;
-    try { await onRejectRequest(selectedRequest.id, rejectReasonGroup, rejectReason); handleCloseReview(); } catch (e) { window.alert(flow1Error(e)); }
+    onRejectRequest(selectedRequest.id, rejectReasonGroup, rejectReason);
+    handleCloseReview();
   };
 
   return (
@@ -397,17 +398,6 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                 </div>
               )}
 
-              <div data-flow1-baseline-summary className="detail-section">
-                <h3 className="section-label">Giá trị khai báo & Hồ sơ bổ sung</h3>
-                <div className="info-kv-row"><span className="kv-label">Tổng giá trị ngựa (USD):</span><span className="kv-val">{selectedRequest.declaredValueUsd == null ? 'Chưa khai báo' : selectedRequest.declaredValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-                {(selectedRequest.baselineDocuments ?? []).map(document => (
-                  <div className="info-kv-row" key={document.documentId}>
-                    <span className="kv-label">{selectedRequest.horses.find(h => h.id === document.horseId)?.name || document.horseId} · {document.status === 'UPLOADED' ? 'Đã tải lên — chờ kiểm tra' : document.status}</span>
-                    <button type="button" className="btn-secondary" onClick={() => void download(`/manager/requests/${encodeURIComponent(selectedRequest.id)}/documents/${encodeURIComponent(document.documentId)}`, 'baseline-' + document.documentId).catch(e => window.alert(flow1Error(e)))}>Tải hồ sơ</button>
-                  </div>
-                ))}
-              </div>
-
               {/* Horses & Checklist Section */}
               <div className="detail-section">
                 <h3 className="section-label">
@@ -509,7 +499,7 @@ export const RenderRequestsPage: React.FC<RenderRequestsPageProps> = ({
                       <p className="text-sm text-slate-600 mb-3">
                         Sau khi chấp nhận, yêu cầu sẽ chuyển sang trạng thái <strong>ACCEPTED</strong> để tiến hành lập Hợp đồng nháp & phát hành báo giá chính thức.
                       </p>
-                      <label className="form-label">Ghi chú phê duyệt:</label>
+                      <label className="form-label">Ghi chú phê duyệt (Không bắt buộc):</label>
                       <input
                         type="text"
                         className="text-input mb-3"

@@ -8,6 +8,9 @@ interface RenderDashboardPageProps {
   onNavigate: (nav: 'dashboard' | 'trips' | 'fleet' | 'crew' | 'flights' | 'active' | 'incidents') => void;
   onSelectTrip: (tripId: string) => void;
   onOpenTripTab: (tripId: string, tab: 'overview' | 'route' | 'resources' | 'flight' | 'milestones') => void;
+  onDemoDeploy: () => void;
+  onDemoApprove: () => void;
+  onDemoReturn: () => void;
 }
 
 export const RenderDashboardPage: React.FC<RenderDashboardPageProps> = ({
@@ -16,6 +19,9 @@ export const RenderDashboardPage: React.FC<RenderDashboardPageProps> = ({
   onNavigate,
   onSelectTrip,
   onOpenTripTab,
+  onDemoDeploy,
+  onDemoApprove,
+  onDemoReturn,
 }) => {
   const toRoute = trips.filter((t) => t.routeStatus === 'DRAFT');
   const pending = trips.filter((t) => t.routeStatus === 'PENDING_APPROVAL');
@@ -168,6 +174,18 @@ export const RenderDashboardPage: React.FC<RenderDashboardPageProps> = ({
             </div>
           </div>
 
+          {/* Demo Controls Card */}
+          <div className="card demo">
+            <div className="eyebrow">Demo Controls</div>
+            <p className="hint">
+              Mô phỏng quyết định của Logistics Manager để kiểm tra quy trình điều phối.
+            </p>
+            <div className="btn-row">
+              <button className="btn ghost sm" onClick={onDemoDeploy}>Manager duyệt triển khai</button>
+              <button className="btn ghost sm" onClick={onDemoApprove}>Manager phê duyệt tuyến</button>
+              <button className="btn ghost sm" onClick={onDemoReturn}>Manager trả về sửa tuyến</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

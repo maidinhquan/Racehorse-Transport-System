@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import CustomerLayout from "../../../../shared/layouts/CustomerLayout/CustomerLayout";
-import type { RequestStatus } from "../../data/homeMockData";
-import { useRequests, useNotices, date, selectedContract, statusLabels } from "../../../flow1/relational/mainBindings";
+import {
+  currentTrip,
+  customerNotifications,
+  recentRequests,
+  type RequestStatus,
+} from "../../data/homeMockData";
 import "./HomePage.css";
 
 function formatDate(date: string) {
@@ -37,11 +41,6 @@ function getRequestStatusBadge(status: RequestStatus) {
 
 function HomePage() {
   const navigate = useNavigate();
-  const { records } = useRequests(); const notices = useNotices();
-  const active = records.find(r => { const c = selectedContract(r); return c?.isCurrent && c.hasAcceptanceEvidence && c.trip && !["COMPLETED", "CANCELLED"].includes(c.trip.status); });
-  const currentTrip = { id: selectedContract(active)?.trip?.tripId || "—", requestId: active?.requestId || "—", horse: active?.horses.map(h => h.name).join(", ") || "—", origin: active?.departure || "—", destination: active?.destination || "—", departedDate: date(active?.departureAt), eta: date(active?.deliveryAt), progress: 0, lastMilestone: selectedContract(active)?.trip?.deploymentStatus || "Chưa có chuyến được kích hoạt", milestoneTime: "—" };
-  const customerNotifications = notices.map(n => ({ id: n.id, title: n.title, body: n.message, time: date(n.sentAt), read: n.isRead, type: "info" }));
-  const recentRequests = records.slice(0, 5).map(r => ({ id: r.requestId, origin: r.departure, destination: r.destination, horses: r.horses.map(h => h.name).join(", "), requestedDate: "", status: (statusLabels[r.status] || r.status) as RequestStatus }));
   const [showTrackingModal, setShowTrackingModal] = useState(false);
 
   return (
@@ -50,7 +49,7 @@ function HomePage() {
         {/* Welcome Banner */}
         <section className="home-card welcome-card">
           <div>
-            <h1 className="home-title">Chào mừng trở lại, {localStorage.getItem("userFullName") || "khách hàng"}</h1>
+            <h1 className="home-title">Chào mừng trở lại, Alex</h1>
             <p className="home-subtitle">
               Quản lý ngựa và yêu cầu vận chuyển ở một nơi.
             </p>
@@ -71,7 +70,7 @@ function HomePage() {
           <article className="home-card current-trip-card">
             <div className="card-header">
               <h2>Chuyến hiện tại</h2>
-              <span className="status status-transit">{selectedContract(active)?.trip?.status || "Chưa có chuyến"}</span>
+              <span className="status status-transit">Đang vận chuyển</span>
             </div>
 
             <div className="trip-information">
@@ -113,7 +112,7 @@ function HomePage() {
 
             <button
               className="secondary-button tracking-button"
-              disabled title="Chưa có dữ liệu theo dõi thực tế" onClick={() => setShowTrackingModal(true)}
+              onClick={() => setShowTrackingModal(true)}
             >
               <svg
                 viewBox="0 0 24 24"
@@ -136,7 +135,7 @@ function HomePage() {
             <div className="notifications-header">
               <div className="title-with-badge">
                 <h2>Thông báo</h2>
-                <span className="count-pill">{customerNotifications.filter(n => !n.read).length} chưa đọc</span>
+                <span className="count-pill">7 chưa đọc</span>
               </div>
               <button
                 className="text-button"
@@ -275,7 +274,7 @@ function HomePage() {
                   </div>
                   <div className="summary-item">
                     <span>Trạng thái</span>
-                    <span className="status status-transit">{selectedContract(active)?.trip?.status || "Chưa có chuyến"}</span>
+                    <span className="status status-transit">Đang vận chuyển</span>
                   </div>
                 </div>
 

@@ -1,5 +1,3 @@
-import { download } from "../../../../flow1/relational/api";
-import { flow1Error } from "../../../../flow1/api";
 import React, { useState } from 'react';
 import type {
   ContractItem,
@@ -10,8 +8,8 @@ import type {
 interface RenderContractsPageProps {
   contracts: ContractItem[];
   requests: TransportRequestItem[];
-  onSaveContract: (contract: ContractItem) => Promise<ContractItem>;
-  onSendContract: (contractId: string, completionDeadline: string) => Promise<void>;
+  onSaveContract: (contract: ContractItem) => void;
+  onSendContract: (contractId: string, completionDeadline: string) => void;
   onNavigate: (nav: ManagerNav, targetId?: string) => void;
   initialSelectedRequestId?: string;
 }
@@ -36,20 +34,86 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
   const [selectedReqId, setSelectedReqId] = useState<string>(() => {
     if (initialSelectedRequestId) return initialSelectedRequestId;
     if (readyRequests.length > 0) return readyRequests[0].id;
-    return '';
+    return 'TRN-8932';
   });
 
   const selectedRequest =
-    requests.find((r) => r.id === selectedReqId) || readyRequests[0];
+    requests.find((r) => r.id === selectedReqId) || requests[0];
 
   // Current contract for selected request or initialize
-  const existingContract = contracts.find((c) => c.requestId === selectedRequest?.id);
+  const existingContract = contracts.find((c) => c.requestId === selectedReqId);
 
-  const [edited, setEdited] = useState<ContractItem | null>(null);
-  const fallback: ContractItem = { id: selectedRequest ? `draft:${selectedRequest.id}` : '—', version: '—', requestId: selectedRequest?.id || '', customerName: selectedRequest?.customerName || '—', routeDisplay: selectedRequest?.routeDisplay || '—', currency: 'VND', items: [{ id: 'total', category: 'TRANSPORT', description: 'Giá vận chuyển trọn gói', quantity: 1, unitPrice: 0, amount: 0, mandatory: true }], totalAmount: 0, suggestedTotal: 0, floorPrice: 0, isBelowFloor: false, depositPercent: 40, depositAmount: 0, completionDeadline: '', status: 'DRAFT', statusLabel: 'DRAFT', includedServices: [], excludedServices: [], customTerms: '', createdAt: '—' };
-  const activeContract = edited && edited.requestId === selectedRequest?.id ? edited : existingContract || fallback;
-  const setActiveContract = (c: ContractItem) => setEdited(c);
-  const persisted = !activeContract.id.startsWith('draft:');
+  const [activeContract, setActiveContract] = useState<ContractItem>(() => {
+    if (existingContract) return existingContract;
+    return {
+      id: `CTR-${selectedReqId.replace('TRN-', '')}`,
+      version: 1,
+      requestId: selectedReqId,
+      customerName: selectedRequest ? selectedRequest.customerName : 'Khách hàng',
+      routeDisplay: selectedRequest ? selectedRequest.routeDisplay : 'Hanoi → Tokyo',
+      currency: 'USD',
+      suggestedTotal: 22000,
+      floorPrice: 18000,
+      isBelowFloor: false,
+      depositPercent: 40,
+      depositAmount: 8800,
+      totalAmount: 22000,
+      completionDeadline: '2026-10-25T17:00:00',
+      status: 'DRAFT',
+      statusLabel: 'Bản nháp (Đang soạn thảo)',
+      includedServices: [
+        'Vận chuyển chuyên dụng theo lộ trình đã phê duyệt',
+        'Bác sĩ thú y túc trực và theo dõi sinh hiệu',
+        'Thủ tục hồ sơ kiểm dịch và giấy tờ pháp lý trọn gói',
+        'Bảo hiểm trách nhiệm vận chuyển động vật sống',
+      ],
+      excludedServices: [
+        'Phí cách ly phát sinh ngoài thời gian kiểm dịch tiêu chuẩn',
+      ],
+      customTerms:
+        'Hợp đồng có hiệu lực sau khi hai bên ký OTP và xác nhận hoàn tất nghĩa vụ đặt cọc theo tỷ lệ quy định.',
+      createdAt: '17/10/2026',
+      items: [
+        {
+          id: 'item-1',
+          category: 'TRANSPORT',
+          description: 'Cước vận chuyển chính chuyên dụng',
+          quantity: selectedRequest ? selectedRequest.horses.length : 1,
+          unitPrice: 7500,
+          amount: (selectedRequest ? selectedRequest.horses.length : 1) * 7500,
+          mandatory: true,
+        },
+        {
+          id: 'item-2',
+          category: 'PROCEDURE',
+          description: 'Thủ tục hải quan & kiểm dịch trọn gói',
+          quantity: selectedRequest ? selectedRequest.horses.length : 1,
+          unitPrice: 1500,
+          amount: (selectedRequest ? selectedRequest.horses.length : 1) * 1500,
+          mandatory: true,
+        },
+        {
+          id: 'item-3',
+          category: 'VETERINARY_CARE',
+          description: 'Bác sĩ thú y áp tải & chăm sóc sức khỏe suốt tuyến',
+          quantity: 1,
+          unitPrice: 2500,
+          amount: 2500,
+          mandatory: true,
+        },
+        {
+          id: 'item-4',
+          category: 'INSURANCE',
+          description: 'Bảo hiểm vận chuyển ngựa đua cao cấp',
+          quantity: selectedRequest ? selectedRequest.horses.length : 1,
+          unitPrice: 750,
+          amount: (selectedRequest ? selectedRequest.horses.length : 1) * 750,
+          mandatory: true,
+        },
+      ],
+    };
+  });
+
   const [priceOverrideReason, setPriceOverrideReason] = useState('');
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -88,7 +152,6 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
   };
 
   const handleDepositPercentChange = (percent: number) => {
-    if (percent !== 40) return;
     const newDeposit = Math.round(activeContract.totalAmount * (percent / 100));
     setActiveContract({
       ...activeContract,
@@ -97,15 +160,25 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
     });
   };
 
-  const handleSaveDraft = async () => {
-    try { const saved = await onSaveContract(activeContract); setActiveContract(saved); setSaveSuccessMsg('Đã lưu thành công bản nháp hợp đồng ' + saved.id); } catch (e) { setSaveSuccessMsg(null); window.alert(flow1Error(e)); }
+  const handleSaveDraft = () => {
+    onSaveContract(activeContract);
+    setSaveSuccessMsg('Đã lưu thành công bản nháp hợp đồng ' + activeContract.id);
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
   };
-  const handleSendToCustomer = async () => {
-    try { await onSendContract(activeContract.id, activeContract.completionDeadline); setSaveSuccessMsg('Đã phát hành hợp đồng thành công.'); } catch (e) { setSaveSuccessMsg(null); window.alert(flow1Error(e)); }
-  };
-  const preview = async () => {
-    if (!persisted || activeContract.status === 'DRAFT') return;
-    try { await download(`/manager/contracts/${activeContract.id}/pdf`, activeContract.id + '.pdf'); } catch (e) { setSaveSuccessMsg(null); window.alert(flow1Error(e)); }
+
+  const handleSendToCustomer = () => {
+    if (activeContract.isBelowFloor && !priceOverrideReason.trim()) {
+      alert('Giá hợp đồng thấp hơn giá sàn quy định! Vui lòng nhập lý do phê duyệt giá dưới sàn (Price Override Reason).');
+      return;
+    }
+    onSendContract(activeContract.id, activeContract.completionDeadline);
+    setActiveContract({
+      ...activeContract,
+      status: 'PENDING_SIGNATURE',
+      statusLabel: 'Chờ khách ký OTP & nộp cọc',
+    });
+    setSaveSuccessMsg('Đã phát hành và gửi hợp đồng chính thức tới khách hàng thành công!');
+    setTimeout(() => setSaveSuccessMsg(null), 4000);
   };
 
   return (
@@ -176,10 +249,10 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                 <strong>Bỏ Quote riêng:</strong> Giá chính thức được đưa thẳng vào Contract Draft.
               </li>
               <li>
-                <strong>Giá sàn (Floor Price):</strong> Nếu giá phát hành thấp hơn giá sàn ({activeContract.floorPrice ? activeContract.floorPrice.toLocaleString() : '—'}), bắt buộc giải trình lý do.
+                <strong>Giá sàn (Floor Price):</strong> Nếu giá phát hành thấp hơn giá sàn (${activeContract.floorPrice.toLocaleString()}), bắt buộc giải trình lý do.
               </li>
               <li>
-                <strong>Hạn ký hợp đồng:</strong> Hạn ký được chốt trong hợp đồng; hạn cọc được chốt riêng sau ký.
+                <strong>Hạn chót chung:</strong> Một hạn hoàn tất duy nhất cho cả ký OTP và thanh toán cọc.
               </li>
             </ul>
           </div>
@@ -206,7 +279,7 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-muted mt-1">
-                  Gắn liền yêu cầu: <strong>{selectedRequest.id}</strong> • Khách hàng: <strong>{selectedRequest?.customerName}</strong> ({selectedRequest?.routeDisplay})
+                  Gắn liền yêu cầu: <strong>{selectedRequest.id}</strong> • Khách hàng: <strong>{selectedRequest.customerName}</strong> ({selectedRequest.routeDisplay})
                 </p>
               </div>
 
@@ -214,21 +287,21 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                 <button
                   type="button"
                   className="btn-secondary"
-                  disabled={!persisted || activeContract.status === "DRAFT"} onClick={() => void preview()}
+                  onClick={() => setShowPdfPreview(true)}
                 >
                   👁️ Xem trước Hợp đồng
                 </button>
                 <button
                   type="button"
                   className="btn-secondary"
-                  disabled={!selectedRequest || persisted || !activeContract.totalAmount || !activeContract.completionDeadline} onClick={handleSaveDraft}
+                  onClick={handleSaveDraft}
                 >
                   💾 Lưu nháp
                 </button>
                 <button
                   type="button"
                   className="btn-primary"
-                  disabled={!persisted || activeContract.status !== "DRAFT"} onClick={handleSendToCustomer}
+                  onClick={handleSendToCustomer}
                 >
                   🚀 Phát hành &amp; Gửi Hợp đồng
                 </button>
@@ -241,7 +314,7 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                 <h3 className="section-label">
                   1. Bảng Chi tiết Hạng mục Định giá (Pricing Breakdown)
                 </h3>
-                <span className="text-xs text-muted">Đơn vị: {activeContract.currency}</span>
+                <span className="text-xs text-muted">Đơn vị: USD ($)</span>
               </div>
 
               <div className="dash-table-wrap">
@@ -250,8 +323,8 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                     <tr>
                       <th style={{ width: '45%' }}>DANH MỤC DỊCH VỤ</th>
                       <th style={{ width: '15%', textAlign: 'center' }}>SỐ LƯỢNG</th>
-                      <th style={{ width: '20%', textAlign: 'right' }}>ĐƠN GIÁ ({activeContract.currency})</th>
-                      <th style={{ width: '20%', textAlign: 'right' }}>THÀNH TIỀN ({activeContract.currency})</th>
+                      <th style={{ width: '20%', textAlign: 'right' }}>ĐƠN GIÁ (USD)</th>
+                      <th style={{ width: '20%', textAlign: 'right' }}>THÀNH TIỀN (USD)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -261,7 +334,7 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                           <input
                             type="text"
                             className="table-inline-input font-medium"
-                            readOnly value={item.description}
+                            value={item.description}
                             onChange={(e) =>
                               handleItemChange(idx, 'description', e.target.value)
                             }
@@ -272,7 +345,7 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                             type="number"
                             min={1}
                             className="table-inline-input text-center"
-                            disabled value={item.quantity}
+                            value={item.quantity}
                             onChange={(e) =>
                               handleItemChange(idx, 'quantity', e.target.value)
                             }
@@ -282,14 +355,14 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                           <input
                             type="number"
                             className="table-inline-input text-right font-mono"
-                            disabled={persisted} value={item.unitPrice}
+                            value={item.unitPrice}
                             onChange={(e) =>
                               handleItemChange(idx, 'unitPrice', e.target.value)
                             }
                           />
                         </td>
                         <td style={{ textAlign: 'right' }} className="font-mono font-semibold">
-                          {item.amount.toLocaleString()}
+                          ${item.amount.toLocaleString()}
                         </td>
                       </tr>
                     ))}
@@ -304,25 +377,25 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                 <div className="pricing-metric-box">
                   <span className="metric-label">Chi phí kế hoạch PC:</span>
                   <span className="metric-val text-slate-700">
-                    {'—'} {activeContract.currency}
+                    ${(activeContract.totalAmount * 0.75).toLocaleString()} USD
                   </span>
                 </div>
                 <div className="pricing-metric-box">
                   <span className="metric-label">Giá sàn quy định:</span>
                   <span className="metric-val text-amber-700 font-semibold">
-                    {activeContract.floorPrice ? activeContract.floorPrice.toLocaleString() : '—'} {activeContract.currency}
+                    ${activeContract.floorPrice.toLocaleString()} USD
                   </span>
                 </div>
                 <div className="pricing-metric-box">
                   <span className="metric-label">Giá gợi ý từ Hệ thống:</span>
                   <span className="metric-val text-blue-700 font-semibold">
-                    {activeContract.suggestedTotal ? activeContract.suggestedTotal.toLocaleString() : '—'} {activeContract.currency}
+                    ${activeContract.suggestedTotal.toLocaleString()} USD
                   </span>
                 </div>
                 <div className="pricing-metric-box highlight">
                   <span className="metric-label font-semibold">TỔNG GIÁ TRỊ HỢP ĐỒNG:</span>
                   <span className="metric-val text-primary-dark font-bold text-xl">
-                    {activeContract.totalAmount.toLocaleString()} {activeContract.currency}
+                    ${activeContract.totalAmount.toLocaleString()} USD
                   </span>
                 </div>
               </div>
@@ -330,7 +403,7 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
               {activeContract.isBelowFloor && (
                 <div className="floor-warning-box">
                   <div className="text-red-700 font-semibold text-sm mb-1">
-                    ⚠️ Cảnh báo: Giá hợp đồng đang thấp hơn Giá sàn ({activeContract.floorPrice ? activeContract.floorPrice.toLocaleString() : '—'} {activeContract.currency})!
+                    ⚠️ Cảnh báo: Giá hợp đồng đang thấp hơn Giá sàn (${activeContract.floorPrice.toLocaleString()} USD)!
                   </div>
                   <label className="form-label text-red-800">
                     Bắt buộc nhập Lý do miễn giảm / Ngoại lệ giá sàn (Price Override Reason):
@@ -366,7 +439,7 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                         className={`pct-btn ${
                           activeContract.depositPercent === pct ? 'active' : ''
                         }`}
-                        disabled={pct !== 40} onClick={() => handleDepositPercentChange(pct)}
+                        onClick={() => handleDepositPercentChange(pct)}
                       >
                         {pct}%
                       </button>
@@ -378,7 +451,7 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                       Số tiền đặt cọc khách cần thanh toán:
                     </div>
                     <div className="text-xl font-bold font-mono text-amber-900 mt-1">
-                      {activeContract.depositAmount.toLocaleString()} {activeContract.currency}
+                      ${activeContract.depositAmount.toLocaleString()} USD
                     </div>
                     <div className="text-xs text-amber-700 mt-0.5">
                       ({activeContract.depositPercent}% tổng giá trị hợp đồng)
@@ -389,12 +462,12 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                 {/* Completion Deadline */}
                 <div className="config-card">
                   <label className="form-label font-semibold">
-                    Hạn ký hợp đồng (giờ Việt Nam):
+                    Thời hạn hoàn tất chung (Completion Deadline):
                   </label>
                   <input
                     type="datetime-local"
                     className="text-input"
-                    disabled={persisted} value={activeContract.completionDeadline.slice(0, 16)}
+                    value={activeContract.completionDeadline.slice(0, 16)}
                     onChange={(e) =>
                       setActiveContract({
                         ...activeContract,
@@ -403,7 +476,7 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                     }
                   />
                   <p className="text-xs text-slate-500 mt-2">
-                    💡 Hạn này áp dụng cho <strong>Ký hợp đồng bằng mã OTP</strong> và <strong>hạn cọc được chốt riêng sau ký</strong>. Hạn cọc được backend chốt sau ký, không tự hủy đơn.
+                    💡 Hạn chung áp dụng cho cả <strong>Ký hợp đồng bằng mã OTP</strong> và <strong>Thanh toán tiền cọc</strong>. Sau thời điểm này, hệ thống sẽ tự động khóa thanh toán và gửi cảnh báo quá hạn tới Quản lý.
                   </p>
                 </div>
               </div>
@@ -416,7 +489,7 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                 <textarea
                   rows={3}
                   className="textarea-input"
-                  readOnly value={activeContract.customTerms}
+                  value={activeContract.customTerms}
                   onChange={(e) =>
                     setActiveContract({
                       ...activeContract,
@@ -466,17 +539,17 @@ export const RenderContractsPage: React.FC<RenderContractsPageProps> = ({
                   <strong>BÊN A (Bên Cung Cấp):</strong> CÔNG TY CỔ PHẦN VẬN CHUYỂN CBN TRANSPORT
                 </p>
                 <p>
-                  <strong>BÊN B (Khách Hàng):</strong> {selectedRequest?.customerName} - Đại diện: {selectedRequest?.contactPerson} ({selectedRequest?.phone})
+                  <strong>BÊN B (Khách Hàng):</strong> {selectedRequest.customerName} - Đại diện: {selectedRequest.contactPerson} ({selectedRequest.phone})
                 </p>
                 <p>
-                  <strong>LỘ TRÌNH VẬN CHUYỂN:</strong> {selectedRequest?.routeDisplay} ({selectedRequest?.transportMode === 'AIR' ? 'Đường hàng không' : 'Đường bộ'})
+                  <strong>LỘ TRÌNH VẬN CHUYỂN:</strong> {selectedRequest.routeDisplay} ({selectedRequest.transportMode === 'AIR' ? 'Đường hàng không' : 'Đường bộ'})
                 </p>
                 <p>
                   <strong>DANH SÁCH NGỰA:</strong> {selectedRequest.horses.map((h) => `${h.name} (${h.breed}, Microchip: ${h.microchipId})`).join('; ')}
                 </p>
 
                 <div className="my-2 p-2 bg-slate-50 rounded border">
-                  <strong>TỔNG GIÁ TRỊ:</strong> {activeContract.totalAmount.toLocaleString()} {activeContract.currency} | <strong>TIỀN CỌC:</strong> {activeContract.depositAmount.toLocaleString()} {activeContract.currency} ({activeContract.depositPercent}%)
+                  <strong>TỔNG GIÁ TRỊ:</strong> ${activeContract.totalAmount.toLocaleString()} USD | <strong>TIỀN CỌC:</strong> ${activeContract.depositAmount.toLocaleString()} USD ({activeContract.depositPercent}%)
                 </div>
 
                 <p>

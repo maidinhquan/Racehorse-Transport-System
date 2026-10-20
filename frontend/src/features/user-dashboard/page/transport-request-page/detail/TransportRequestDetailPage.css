@@ -656,4 +656,52 @@
   .request-detail-card {
     padding: 18px 16px;
   }
-}
+}
+
+.demo-control-card {
+  border: 1px dashed #f59e0b;
+
+  background: #fffbeb;
+}
+
+.demo-control-card>p {
+  margin: 8px 0 0;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+.demo-control-buttons {
+  margin-top: 16px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+.demo-control-buttons button {
+  min-height: 34px;
+
+  padding: 0 12px;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 6px;
+
+  background: #ffffff;
+
+  color: #334155;
+
+  font-size: 11px;
+  font-weight: 500;
+
+  cursor: pointer;
+}
+
+.demo-control-buttons button:hover {
+  border-color: #f57c00;
+
+  color: #ea580c;
+}

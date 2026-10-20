@@ -1,16 +1,14 @@
-import { relational } from "../../../flow1/relational/api";
-import { flow1Error } from "../../../flow1/api";
 import {
-  useEffect,
   useMemo,
   useState,
 } from "react";
 
-
+import { useNavigate } from "react-router-dom";
 
 import CustomerLayout from "../../../../shared/layouts/CustomerLayout/CustomerLayout";
 
 import {
+  horses,
   type Horse,
   type PassportStatus,
   type MedicalStatus,
@@ -70,15 +68,7 @@ function hasMissingDocuments(
 }
 
 function MyHorsesPage() {
-
-  const [horses, setHorses] = useState<Horse[]>([]);
-  useEffect(() => { let active = true; const urls: string[] = [];
-    relational.horses().then(async rows => {
-      const cards = await Promise.all(rows.map(async h => { let photo: string | undefined; if (h.hasDocuments) { try { photo = await relational.pdfUrl(`/customer/horses/${h.horseId}/files/photo`); urls.push(photo); } catch { /* No public-file fallback. */ } }
-        return { id: h.horseId, name: h.name, breed: h.breed || '—', sex: h.sex || '—', age: h.dob ? Math.max(0, new Date().getFullYear() - new Date(h.dob).getFullYear()) : null, microchip: h.microchipIso, photo, profileStatus: 'Needs Attention' as const, passportStatus: h.hasDocuments ? 'Đã có scan' as const : 'Missing' as const, medicalStatus: 'Chưa xác minh' as const, transportCount: 0 };
-      })); if (active) setHorses(cards); else urls.forEach(URL.revokeObjectURL);
-    }).catch(e => { if (active) window.alert(flow1Error(e)); }); return () => { active = false; urls.forEach(URL.revokeObjectURL); };
-  }, []);
+  const navigate = useNavigate();
 
   const [search, setSearch] =
     useState("");
@@ -122,7 +112,7 @@ function MyHorsesPage() {
         matchesFilter
       );
     });
-  }, [search, filter, horses]);
+  }, [search, filter]);
 
   return (
     <CustomerLayout pageTitle="Ngựa của tôi">
@@ -342,7 +332,9 @@ function MyHorsesPage() {
                         <button
                           className="horse-primary-action"
                           onClick={() =>
-                            window.alert("Main chưa có trang chi tiết hồ sơ ngựa. Cần teammate frontend bổ sung.")
+                            navigate(
+                              `/customer/horses/${horse.id}`
+                            )
                           }
                         >
                           Xem chi tiết
@@ -352,7 +344,9 @@ function MyHorsesPage() {
                           <button
                             className="horse-warning-action"
                             onClick={() =>
-                              window.alert("Main chưa có form sửa hồ sơ ngựa. Cần teammate frontend bổ sung.")
+                              navigate(
+                                `/customer/horses/${horse.id}/edit`
+                              )
                             }
                           >
                             Bổ sung hồ sơ
@@ -361,7 +355,9 @@ function MyHorsesPage() {
                           <button
                             className="horse-secondary-action"
                             onClick={() =>
-                              window.alert("Main chưa có form sửa hồ sơ ngựa. Cần teammate frontend bổ sung.")
+                              navigate(
+                                `/customer/horses/${horse.id}/edit`
+                              )
                             }
                           >
                             Chỉnh sửa

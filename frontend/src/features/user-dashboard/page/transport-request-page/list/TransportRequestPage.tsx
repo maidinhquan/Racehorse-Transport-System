@@ -1,4 +1,3 @@
-import { useRequests, statusLabels, selectedContract } from "../../../../flow1/relational/mainBindings";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -6,6 +5,7 @@ import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/Custome
 
 import {
   requestStatuses,
+  transportRequests,
   type ContractStatus,
   type RequestStatus,
 } from "../../../data/transportRequestMockData";
@@ -13,7 +13,6 @@ import {
 import "./TransportRequestPage.css";
 
 function formatDate(date: string) {
-  if (!date) return "—";
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
@@ -76,8 +75,6 @@ function getContractStatusClass(status: ContractStatus) {
 
 function TransportRequestPage() {
   const navigate = useNavigate();
-  const { records } = useRequests();
-  const transportRequests = records.map(r => ({ id: r.requestId, origin: r.departure, destination: r.destination, horses: r.horses.map(h => h.name), requestedDate: "", preferredDate: r.departureAt || "", status: (statusLabels[r.status] || r.status) as RequestStatus, contractStatus: (selectedContract(r)?.signedAt ? "Signed" : selectedContract(r)?.pdfSha256 ? "Ready" : selectedContract(r) ? "Preparing" : "Not Available") as ContractStatus }));
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -103,7 +100,7 @@ function TransportRequestPage() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [search, statusFilter, records]);
+  }, [search, statusFilter]);
 
   return (
     <CustomerLayout pageTitle="Yêu cầu vận chuyển">

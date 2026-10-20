@@ -1,8 +1,3 @@
-import { useRef } from "react";
-import { useRequest, selectedContract } from "../../../../flow1/relational/mainBindings";
-import { relational } from "../../../../flow1/relational/api";
-import { vnpayCheckoutUrl, type VnpayCheckoutSession } from "../../../../flow1/relational/vnpayCheckout";
-import { flow1Error } from "../../../../flow1/api";
 import { useNavigate, useParams } from "react-router-dom";
 
 import CustomerLayout from "../../../../../shared/layouts/CustomerLayout/CustomerLayout";
@@ -13,17 +8,51 @@ function PaymentPage() {
   const navigate = useNavigate();
   const { requestId } = useParams();
 
-  const record = useRequest(requestId); const c = selectedContract(record || undefined); const key = useRef(crypto.randomUUID());
-  const payable = !!c?.isCurrent && c.relationalTermsReady && c.hasAcceptanceEvidence && c.status === "SIGNED" && c.paidAmount < c.depositAmount && c.cancellationStatus !== "PENDING" && !c.payments.some(p => p.reviewRequired);
-  const payment = { requestId: requestId || "—", contractNumber: c?.contractId || "—", origin: record?.departure || "—", destination: record?.destination || "—", finalPrice: c?.totalPrice || 0, depositPercent: c?.relationalTermsReady ? 40 : 0, depositAmount: c?.depositAmount || 0, currency: c?.currency || "VND" };
+  // Mock data tạm thời.
+  // Sau này lấy từ backend theo requestId.
+  const payment = {
+    requestId: requestId ?? "UNKNOWN",
+    contractNumber: "CT-8931",
+    origin: "Hanoi, VN",
+    destination: "Ho Chi Minh City, VN",
+    finalPrice: 650,
+    depositPercent: 30,
+    depositAmount: 195,
+    currency: "USD",
+  };
+
   const handleBack = () => {
     navigate(`/customer/requests/${requestId}`);
   };
 
-  const handlePayWithVNPay = async () => {
-    if (!c || !payable) return;
-    try { const session = await relational.action<VnpayCheckoutSession>(`/customer/contracts/${c.contractId}/vnpay`, {}, key.current); window.location.assign(vnpayCheckoutUrl(session)); } catch (e) { window.alert(flow1Error(e)); }
+  const handlePayWithPayOS = () => {
+    /*
+      SAU NÀY:
+
+      1. Frontend gọi backend:
+         POST /api/payments/create
+
+      2. Backend trả:
+         {
+           checkoutUrl: "https://pay.payos.vn/..."
+         }
+
+      3. Frontend:
+         window.location.href = checkoutUrl;
+    */
+
+    /*
+      MOCK FLOW để test frontend hiện tại.
+
+      Giả sử user thanh toán thành công trên payOS,
+      redirect sang success page.
+    */
+
+    navigate(
+      `/customer/payment/success?requestId=${requestId}&orderCode=DEMO-8931`
+    );
   };
+
   return (
     <CustomerLayout pageTitle="Payment">
       <div className="payment-page">
@@ -91,7 +120,7 @@ function PaymentPage() {
                 <span>Final Agreed Price</span>
 
                 <strong>
-                  {payment.finalPrice.toFixed(2)}{" "}
+                  ${payment.finalPrice.toFixed(2)}{" "}
                   {payment.currency}
                 </strong>
               </div>
@@ -108,7 +137,7 @@ function PaymentPage() {
               </div>
 
               <strong>
-                {payment.depositAmount.toFixed(2)}{" "}
+                ${payment.depositAmount.toFixed(2)}{" "}
                 {payment.currency}
               </strong>
             </div>
@@ -122,7 +151,7 @@ function PaymentPage() {
                 <strong>Secure payment</strong>
 
                 <p>
-                  You will be redirected to VNPay to complete
+                  You will be redirected to payOS to complete
                   this payment securely.
                 </p>
               </div>
@@ -131,13 +160,14 @@ function PaymentPage() {
             <button
               type="button"
               className="payos-button"
-              disabled={!payable} onClick={handlePayWithVNPay}
+              onClick={handlePayWithPayOS}
             >
-              Pay with VNPay
+              Pay with payOS
             </button>
 
             <p className="payment-demo-text">
-              Trạng thái thanh toán chỉ được xác nhận bởi backend qua VNPay IPN.
+              Demo mode: this button currently simulates the
+              payOS redirect flow.
             </p>
           </section>
         </div>

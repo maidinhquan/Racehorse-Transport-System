@@ -1,4 +1,3 @@
-import { saveLandingRoute, demoPrice } from "../flow1/landingDraft";
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './LandingPage.css';
@@ -77,23 +76,19 @@ export const LandingPage: React.FC = () => {
 
   // State
   const [lang, setLang] = useState<'vi' | 'en'>('vi');
-  const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
-  const [horseCount, setHorseCount] = useState<number | ''>('');
+  const [origin, setOrigin] = useState('Ho Chi Minh City');
+  const [destination, setDestination] = useState('Tokyo');
+  const [horseCount, setHorseCount] = useState(1);
 
   // Check login state
-  const isLoggedIn = Boolean(localStorage.getItem('accessToken') && localStorage.getItem('userRole') === 'CUSTOMER');
+  const isLoggedIn = Boolean(localStorage.getItem('accessToken') || localStorage.getItem('userRole'));
 
-  // Advisory landing estimate only; contractual amounts come from the backend (VND, 40% deposit).
-  const countNum = typeof horseCount === 'number' ? horseCount : parseInt(String(horseCount), 10) || 0;
-  const hasAllFields = Boolean(origin && destination && countNum > 0);
-  const isSameLocation = hasAllFields && origin === destination;
-  const isValidRoute = hasAllFields && !isSameLocation;
-
-  const isInternational = Boolean(destination && JAPAN_CITIES.includes(destination));
-  const pricePerHorse = demoPrice(isInternational ? 'JP' : 'VN', 1);
-  const totalPrice = isValidRoute ? pricePerHorse * countNum : 0;
-  const depositPrice = Math.round(totalPrice * 0.4);
+  // Calculate quote (matches CBN Transport 1.html formula: $1850 international, $650 domestic, 30% deposit)
+  const isInternational = JAPAN_CITIES.includes(destination);
+  const isValidRoute = origin !== destination;
+  const pricePerHorse = isInternational ? 1850 : 650;
+  const totalPrice = isValidRoute ? pricePerHorse * horseCount : 0;
+  const depositPrice = Math.round(totalPrice * 0.3);
 
   const scrollTo = (id: string) => {
     if (id === 'top') {
@@ -109,8 +104,14 @@ export const LandingPage: React.FC = () => {
   const handleRequestClick = () => {
     if (!isValidRoute) return;
 
-    saveLandingRoute(origin, destination, isInternational ? 'JP' : 'VN', countNum);
-    navigate(isLoggedIn ? '/customer/create-request' : '/login?next=flow1');
+    // Save preliminary quote info to session
+    sessionStorage.setItem('preliminaryQuote', JSON.stringify({ origin, destination, horseCount, totalPrice }));
+
+    if (isLoggedIn) {
+      navigate('/customer/create-request');
+    } else {
+      navigate('/login');
+    }
   };
 
   return (
@@ -183,7 +184,6 @@ export const LandingPage: React.FC = () => {
             <label>
               {lang === 'vi' ? 'Điểm đi' : 'Origin'}
               <select value={origin} onChange={(e) => setOrigin(e.target.value)}>
-                <option value="">{lang === 'vi' ? '-- Chọn điểm đi --' : '-- Select origin --'}</option>
                 {ORIGINS.map((o) => (
                   <option key={o.name} value={o.name}>{o.name}, {o.cc}</option>
                 ))}
@@ -193,7 +193,6 @@ export const LandingPage: React.FC = () => {
             <label>
               {lang === 'vi' ? 'Điểm đến' : 'Destination'}
               <select value={destination} onChange={(e) => setDestination(e.target.value)}>
-                <option value="">{lang === 'vi' ? '-- Chọn điểm đến --' : '-- Select destination --'}</option>
                 {DESTINATIONS.map((d) => (
                   <option key={d.name} value={d.name}>{d.name}, {d.cc}</option>
                 ))}
@@ -206,28 +205,12 @@ export const LandingPage: React.FC = () => {
                 type="number"
                 min="1"
                 max="20"
-                placeholder={lang === 'vi' ? 'Nhập số ngựa' : 'Enter count'}
                 value={horseCount}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '') {
-                    setHorseCount('');
-                  } else {
-                    const parsed = parseInt(val, 10);
-                    if (!isNaN(parsed)) {
-                      setHorseCount(Math.max(1, Math.min(20, parsed)));
-                    }
-                  }
-                }}
+                onChange={(e) => setHorseCount(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)))}
               />
             </label>
 
-            <button
-              className="btn solid"
-              onClick={handleRequestClick}
-              disabled={!isValidRoute}
-              style={!isValidRoute ? { opacity: 0.6, cursor: 'not-allowed' } : undefined}
-            >
+            <button className="btn solid" onClick={handleRequestClick}>
               {lang === 'vi' ? 'Gửi yêu cầu' : 'Send request'} <Icon name="arrow" />
             </button>
           </div>
@@ -236,23 +219,15 @@ export const LandingPage: React.FC = () => {
             {isValidRoute ? (
               <>
                 <span>
-                  <b>{totalPrice.toLocaleString()}</b> <span className="muted">VND {lang === 'vi' ? 'ước tính sơ bộ' : 'preliminary estimate'}</span>
+                  <b>${totalPrice.toLocaleString()}</b> <span className="muted">USD ước tính sơ bộ</span>
                 </span>
                 <span className="muted">
-                  {isInternational 
-                    ? (lang === 'vi' ? 'Việt Nam ➔ Nhật Bản' : 'Vietnam ➔ Japan') 
-                    : (lang === 'vi' ? 'Nội địa Việt Nam' : 'Domestic Vietnam')} • {countNum} {lang === 'vi' ? 'ngựa' : 'horses'} • {lang === 'vi' ? 'Cọc 40%:' : '40% Deposit:'} {depositPrice.toLocaleString()} VND
+                  {isInternational ? 'Việt Nam ➔ Nhật Bản' : 'Nội địa Việt Nam'} • {horseCount} ngựa • Cọc 30%: ${depositPrice.toLocaleString()} USD
                 </span>
               </>
-            ) : isSameLocation ? (
-              <span className="muted" style={{ color: '#dc2626' }}>
-                {lang === 'vi' ? 'Điểm đến phải khác điểm đi.' : 'Destination must be different from origin.'}
-              </span>
             ) : (
               <span className="muted">
-                {lang === 'vi'
-                  ? 'Vui lòng chọn điểm đi, điểm đến và số ngựa để xem ước tính giá.'
-                  : 'Please select origin, destination and number of horses to see estimate.'}
+                {lang === 'vi' ? 'Chọn điểm đến khác điểm đi để xem giá.' : 'Choose a destination different from origin.'}
               </span>
             )}
           </div>
@@ -339,7 +314,7 @@ export const LandingPage: React.FC = () => {
           </li>
           <li>
             <b>{lang === 'vi' ? 'Ký OTP và đặt cọc' : '3. OTP Sign & Deposit'}</b>
-            <span>{lang === 'vi' ? 'Bạn ký hợp đồng bằng mã OTP và thanh toán đặt cọc 40% qua VNPay.' : 'Sign securely with OTP and pay the 40% deposit to lock the schedule.'}</span>
+            <span>{lang === 'vi' ? 'Bạn ký hợp đồng bằng mã OTP và thanh toán đặt cọc 30% trực tuyến hoặc chuyển khoản.' : 'Sign securely with OTP and pay the 30% deposit to lock the schedule.'}</span>
           </li>
           <li>
             <b>{lang === 'vi' ? 'Theo dõi và nhận ngựa' : '4. Track & Handover'}</b>
@@ -361,7 +336,7 @@ export const LandingPage: React.FC = () => {
           <div className="lp-price feature">
             <div className="eyebrow">Việt Nam ➔ Nhật Bản (International)</div>
             <div className="amount">
-              46.250.000 <small>VND / ngựa</small>
+              $1,850 <small>USD / ngựa</small>
             </div>
             <ul>
               <li><Icon name="check" /><span>Giấy phép xuất khẩu, khai báo hải quan, giấy phép nhập khẩu</span></li>
@@ -374,7 +349,7 @@ export const LandingPage: React.FC = () => {
           <div className="lp-price">
             <div className="eyebrow">Nội địa Việt Nam (Domestic)</div>
             <div className="amount">
-              16.250.000 <small>VND / ngựa</small>
+              $650 <small>USD / ngựa</small>
             </div>
             <ul>
               <li><Icon name="check" /><span>Giấy kiểm dịch nội địa & xe chuyên dụng đệm hơi</span></li>
@@ -387,8 +362,8 @@ export const LandingPage: React.FC = () => {
 
         <p className="lp-note">
           {lang === 'vi'
-            ? 'Giá ước tính sơ bộ, không ràng buộc. Đặt cọc 40% theo hạn ghi trong hợp đồng đã ký; phần còn lại thanh toán sau khi bàn giao được xác minh.'
-            : 'Preliminary non-binding estimate. 40% deposit upon contract signature; remainder due after verified delivery.'}
+            ? 'Giá ước tính sơ bộ, không ràng buộc. Đặt cọc 30% theo hạn ghi trong hợp đồng đã ký; phần còn lại thanh toán sau khi bàn giao được xác minh.'
+            : 'Preliminary non-binding estimate. 30% deposit upon contract signature; remainder due after verified delivery.'}
         </p>
       </section>
 

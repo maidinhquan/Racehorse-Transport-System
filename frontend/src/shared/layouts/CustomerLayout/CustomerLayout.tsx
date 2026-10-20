@@ -1,4 +1,3 @@
-import { useNotices } from "../../../features/flow1/relational/mainBindings";
 import type { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 
@@ -14,12 +13,9 @@ function CustomerLayout({
   children,
 }: CustomerLayoutProps) {
   const navigate = useNavigate();
-  const notices = useNotices();
-  const initials = (localStorage.getItem("userFullName") || "").split(/\s+/).filter(Boolean).map(x => x[0]).slice(0, 2).join("");
   const [isAccountOpen, setIsAccountOpen] =
     useState(false);
   const handleLogout = () => {
-    localStorage.removeItem("accessToken"); localStorage.removeItem("userRole"); localStorage.removeItem("userFullName");
     navigate("/login");
   };
 
@@ -161,7 +157,7 @@ function CustomerLayout({
                   <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
                   <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                 </svg>
-                <span className="customer-notif-badge">{notices.filter(n => !n.isRead).length}</span>
+                <span className="customer-notif-badge">7</span>
               </span>
             </button>
 
@@ -177,11 +173,11 @@ function CustomerLayout({
                 }
               >
                 <div className="customer-avatar">
-                  {initials}
+                  AE
                 </div>
 
                 <span className="customer-account-name">
-                  {localStorage.getItem("userFullName") || "—"}
+                  Alex Equine
                 </span>
 
                 <svg

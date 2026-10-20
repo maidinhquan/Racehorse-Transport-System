@@ -1,8 +1,4 @@
-import { useNavigate } from "react-router-dom";
-import { get, post, flow1Error, initialTrip } from "../../../flow1/api";
-import { AddressAutocomplete, type AddressCandidate } from './AddressAutocomplete';
-import { relational } from "../../../flow1/relational/api";
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { BrandLogo } from '../../../../shared/components/brand-logo/BrandLogo';
 import './CreateRequestWizard.css';
 
@@ -18,85 +14,30 @@ interface HorseItem {
   microchipIso: string;
   feiPassportNo: string;
   status: 'Ready' | 'InTransit';
-  version: string;
 }
 
+const MY_HORSES: HorseItem[] = [
+  { horseId: 'HRS-01', name: 'Thunder Strike', breed: 'Thoroughbred', microchipIso: '981020000123456', feiPassportNo: 'FEI-VN-8821', status: 'Ready' },
+  { horseId: 'HRS-02', name: 'Saigon Star', breed: 'Arabian', microchipIso: '981020000654321', feiPassportNo: 'FEI-VN-9910', status: 'InTransit' },
+];
+
 export const CreateRequestWizard = () => {
-  const navigate = useNavigate();
-  const [seed] = useState(initialTrip);
-  const [MY_HORSES, setHorses] = useState<HorseItem[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [attribution, setAttribution] = useState('');
-  const [keys] = useState(() => new Map<string, string>());
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [departure, setDeparture] = useState('Việt Nam');
-  const [destination, setDestination] = useState(seed.delivery.country === 'VN' ? 'Việt Nam' : 'Nhật Bản');
-  const [transportType, setTransportType] = useState<'Đường bộ' | 'Hàng không'>(seed.preferredTransportMode === 'ROAD' ? 'Đường bộ' : 'Hàng không');
-  const [expectedDate, setExpectedDate] = useState('');
-  const [committedDeadline, setCommittedDeadline] = useState('');
-  const [pickupAddress, setPickupAddress] = useState(seed.pickup.address);
-  const [deliveryAddress, setDeliveryAddress] = useState(seed.delivery.address);
-  const [pickupSelection, setPickupSelection] = useState<AddressCandidate | null>(null);
-  const [deliverySelection, setDeliverySelection] = useState<AddressCandidate | null>(null);
-  const [receiverName, setReceiverName] = useState('');
-  const [receiverPhone, setReceiverPhone] = useState('');
-  const [commercialValue, setCommercialValue] = useState<number | ''>('');
-  const [baselineFiles, setBaselineFiles] = useState<{ id: string; file: File; horseId: string }[]>([]);
-  const [selectedHorses, setSelectedHorses] = useState<string[]>([]);
+  const [destination, setDestination] = useState('Nhật Bản');
+  const [transportType, setTransportType] = useState<'Đường bộ' | 'Hàng không'>('Hàng không');
+  const [expectedDate, setExpectedDate] = useState('2026-11-01');
+  const [committedDeadline, setCommittedDeadline] = useState('2026-11-05');
+  const [pickupAddress, setPickupAddress] = useState('Trường đua Đại Nam, Bình Dương');
+  const [deliveryAddress, setDeliveryAddress] = useState('Tokyo Racecourse, Fuchu, Tokyo');
+  const [receiverName, setReceiverName] = useState('Kenji Takahashi');
+  const [receiverPhone, setReceiverPhone] = useState('+81-90-1234-5678');
+  const [commercialValue, setCommercialValue] = useState(150000);
+  const [selectedHorses, setSelectedHorses] = useState<string[]>(['HRS-01']);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const estimateTrip = pickupSelection && deliverySelection && expectedDate && departure === 'Việt Nam' &&
-    (destination === 'Việt Nam' || destination === 'Nhật Bản') &&
-    ((destination === 'Nhật Bản') === (transportType === 'Hàng không')) ? {
-      pickup: { address: pickupSelection.label, lat: pickupSelection.point.latitude, lng: pickupSelection.point.longitude, country: 'VN' },
-      delivery: { address: deliverySelection.label, lat: deliverySelection.point.latitude, lng: deliverySelection.point.longitude, country: destination === 'Nhật Bản' ? 'JP' : 'VN' },
-      preferredTransportMode: transportType === 'Hàng không' ? 'AIR' : 'ROAD',
-      horseCount: Math.max(selectedHorses.length, 1), desiredDepartureDate: expectedDate,
-    } : null;
-  const estimateKey = estimateTrip ? JSON.stringify(estimateTrip) : '';
-  const [demoEstimate, setDemoEstimate] = useState<{ key: string; amount: number | null }>({ key: '', amount: null });
-  const estimatedTotal = demoEstimate.key === estimateKey ? demoEstimate.amount : null;
-  useEffect(() => {
-    if (!estimateKey) return;
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      try {
-        const estimate = await post<{ demoTransportCost?: number | null }>('/customer/estimates', JSON.parse(estimateKey));
-        if (!cancelled) setDemoEstimate({ key: estimateKey, amount: estimate.demoTransportCost ?? null });
-      } catch { if (!cancelled) setDemoEstimate({ key: estimateKey, amount: null }); }
-    }, 450);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [estimateKey]);
-  useEffect(() => {
-    let active = true;
-    const from = expectedDate ? new Date(expectedDate + 'T00:00:00+07:00').toISOString() : undefined;
-    const to = committedDeadline ? new Date(committedDeadline + 'T23:59:00+07:00').toISOString() : undefined;
-    relational.horses(from, to).then(rows => { if (active) setHorses(rows.map(h => ({ horseId: h.horseId, name: h.name, breed: h.breed || '—', microchipIso: h.microchipIso, feiPassportNo: h.passportNo || '—', status: h.selectable && h.hasDocuments ? 'Ready' : 'InTransit', version: h.version }))); }).catch(e => { if (active) setErrorMsg(flow1Error(e)); });
-    return () => { active = false; };
-  }, [expectedDate, committedDeadline]);
-  const submit = async () => {
-    if (submitting) return;
-    setSubmitting(true); setErrorMsg('');
-    try {
-      if (!expectedDate || !committedDeadline || !selectedHorses.length || !receiverName.trim() || !receiverPhone.trim()) throw new Error('Vui lòng hoàn tất ngày, ngựa và người nhận.');
-      if (commercialValue !== '' && (!Number.isFinite(commercialValue) || commercialValue <= 0 || Math.abs(commercialValue * 100 - Math.round(commercialValue * 100)) > 0.0001)) throw new Error('Giá trị tổng cả đơn phải lớn hơn 0 USD và có tối đa 2 chữ số thập phân; có thể để trống.');
-      if (baselineFiles.some(x => !selectedHorses.includes(x.horseId))) throw new Error('Chọn ngựa tương ứng cho từng hồ sơ; ngựa phải nằm trong yêu cầu.');
-      if (departure !== 'Việt Nam' || !['Việt Nam', 'Nhật Bản'].includes(destination)) throw new Error('MVP hỗ trợ VN→VN đường bộ và VN→JP hàng không.');
-      if ((destination === 'Nhật Bản') !== (transportType === 'Hàng không')) throw new Error('Phương thức vận chuyển không phù hợp tuyến.');
-      const country = destination === 'Nhật Bản' ? 'JP' : 'VN';
-      const pickup = pickupSelection, delivery = deliverySelection;
-      if (!pickup || pickup.label !== pickupAddress || pickup.point.countryCode !== 'VN') throw new Error('Vui lòng chọn địa chỉ Trại / CLB lấy ngựa từ danh sách gợi ý ở bước 2.');
-      if (!delivery || delivery.label !== deliveryAddress || delivery.point.countryCode !== country) throw new Error('Vui lòng chọn địa chỉ Trường đua / Trại nhận ngựa từ danh sách gợi ý ở bước 2.');
-      const owner = await get<{ fullName: string; phoneNumber?: string }>('/auth/me');
-      if (!owner.phoneNumber) throw new Error('Hồ sơ tài khoản thiếu SĐT người bàn giao; cần bổ sung trước khi gửi.');
-      const input = { trip: { pickup: { address: pickup.label, lat: pickup.point.latitude, lng: pickup.point.longitude, country: 'VN' }, delivery: { address: delivery.label, lat: delivery.point.latitude, lng: delivery.point.longitude, country }, preferredTransportMode: country === 'JP' ? 'AIR' : 'ROAD', horseCount: selectedHorses.length, desiredDepartureDate: expectedDate }, departureAt: new Date(expectedDate + 'T00:00:00+07:00').toISOString(), deliveryAt: new Date(committedDeadline + 'T23:59:00+07:00').toISOString(), purpose: 'Vận chuyển ngựa', pickupContact: { name: owner.fullName, phone: owner.phoneNumber }, receiver: { name: receiverName, phone: receiverPhone }, horses: selectedHorses.map(id => { const h = MY_HORSES.find(x => x.horseId === id); if (!h || h.status !== 'Ready') throw new Error('Ngựa không còn khả dụng.'); return { horseId: id, version: h.version }; }) };
-      setAttribution([...new Set([pickup.attribution, delivery.attribution])].join(' · '));
-      const submission = { ...input, declaredValueUsd: commercialValue === '' ? null : commercialValue };
-      const signature = JSON.stringify({ submission, documents: baselineFiles.map(x => ({ id: x.id, horseId: x.horseId })) }); let key = keys.get(signature); if (!key) { key = crypto.randomUUID(); keys.set(signature, key); }
-      const saved = baselineFiles.length || commercialValue !== '' ? await relational.submitDocuments(submission, baselineFiles, key) : await relational.submit(submission, key);
-      navigate('/customer/requests/' + saved.requestId);
-    } catch (e) { setErrorMsg(flow1Error(e)); } finally { setSubmitting(false); }
-  };
+  const baseFee = transportType === 'Hàng không' ? 8500 : 3200;
+  const estimatedTotal = (baseFee + 1200) * Math.max(selectedHorses.length, 1);
 
   const toggleHorse = (horse: HorseItem) => {
     if (horse.status === 'InTransit') {
@@ -109,20 +50,11 @@ export const CreateRequestWizard = () => {
     );
   };
 
-  const addBaselineFiles = (chosen: FileList | null) => {
-    const files = Array.from(chosen || []);
-    if (baselineFiles.length + files.length > 10 || files.some(f => f.size < 16 || f.size > 5 * 1024 * 1024 || !/\.(pdf|png|jpe?g)$/i.test(f.name))) {
-      setErrorMsg('Tối đa 10 hồ sơ PDF/JPG/PNG, mỗi file từ 16 byte đến 5 MB.'); return;
-    }
-    setErrorMsg('');
-    setBaselineFiles(previous => [...previous, ...files.map(file => ({ id: crypto.randomUUID(), file, horseId: selectedHorses.length === 1 ? selectedHorses[0] : '' }))]);
-  };
-
   return (
     <div className="customer-page">
       <div className="customer-topbar">
         <BrandLogo />
-        <span className="customer-subtitle" style={{ margin: 0 }}>Khách hàng: {localStorage.getItem("userFullName") || "—"}</span>
+        <span className="customer-subtitle" style={{ margin: 0 }}>Khách hàng: Nguyễn Thanh Quốc Linh</span>
       </div>
 
       <div className="customer-card">
@@ -156,13 +88,13 @@ export const CreateRequestWizard = () => {
             <div className="form-grid-2">
               <div>
                 <label className="form-label">Quốc gia xuất phát</label>
-                <select className="form-select" value={departure} onChange={(e) => { setDeparture(e.target.value); setPickupSelection(null); }}>
+                <select className="form-select" value={departure} onChange={(e) => setDeparture(e.target.value)}>
                   {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
                 <label className="form-label">Quốc gia đích đến</label>
-                <select className="form-select" value={destination} onChange={(e) => { setDestination(e.target.value); setDeliverySelection(null); }}>
+                <select className="form-select" value={destination} onChange={(e) => setDestination(e.target.value)}>
                   {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
@@ -191,10 +123,10 @@ export const CreateRequestWizard = () => {
               <div>
                 <p className="estimate-banner-title">Bảng Dự Toán Tạm Tính (Estimate)</p>
                 <p className="estimate-banner-sub">
-                  Phương thức: {transportType} • Số ngựa: {selectedHorses.length} cá thể {attribution}
+                  Phương thức: {transportType} • Số ngựa: {selectedHorses.length} cá thể
                 </p>
               </div>
-              <span className="estimate-price">{estimatedTotal == null ? '—' : `${estimatedTotal.toLocaleString()} VND`}</span>
+              <span className="estimate-price">${estimatedTotal.toLocaleString()} USD</span>
             </div>
           </div>
         )}
@@ -202,17 +134,12 @@ export const CreateRequestWizard = () => {
         {step === 2 && (
           <div className="form-grid-2">
             <div className="form-full">
-              <AddressAutocomplete key={departure} id="pickup-address" label="Địa chỉ Trại / CLB lấy ngựa"
-                country={departure === 'Việt Nam' ? 'VN' : ''} value={pickupAddress} selected={pickupSelection}
-                onChange={value => { setPickupAddress(value); setPickupSelection(null); setErrorMsg(''); }}
-                onSelect={candidate => { setPickupAddress(candidate.label); setPickupSelection(candidate); setErrorMsg(''); }} />
+              <label className="form-label">Địa chỉ Trại / CLB lấy ngựa</label>
+              <input type="text" className="form-input" value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} />
             </div>
             <div className="form-full">
-              <AddressAutocomplete key={destination} id="delivery-address" label="Địa chỉ Trường đua / Trại nhận ngựa"
-                country={destination === 'Việt Nam' ? 'VN' : destination === 'Nhật Bản' ? 'JP' : ''}
-                value={deliveryAddress} selected={deliverySelection}
-                onChange={value => { setDeliveryAddress(value); setDeliverySelection(null); setErrorMsg(''); }}
-                onSelect={candidate => { setDeliveryAddress(candidate.label); setDeliverySelection(candidate); setErrorMsg(''); }} />
+              <label className="form-label">Địa chỉ Trường đua / Trại nhận ngựa</label>
+              <input type="text" className="form-input" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} />
             </div>
             <div>
               <label className="form-label">Họ tên Người nhận chỉ định</label>
@@ -252,30 +179,16 @@ export const CreateRequestWizard = () => {
 
         {step === 4 && (
           <div>
-            <label className="form-label" htmlFor="declared-value-usd">Định giá thương mại (USD) phục vụ bảo hiểm & hải quan</label>
+            <label className="form-label">Định giá thương mại (USD) phục vụ bảo hiểm & hải quan</label>
             <input
               type="number"
-              id="declared-value-usd" min="0.01" step="0.01" title="Tổng giá trị khai báo của toàn bộ ngựa trong đơn; có thể để trống"
               className="form-input"
               value={commercialValue}
-              onChange={(e) => { setErrorMsg(''); setCommercialValue(e.target.value === '' ? '' : Number(e.target.value)); }}
+              onChange={(e) => setCommercialValue(Number(e.target.value))}
             />
             <div className="upload-box">
               <label className="form-label">Tải lên Hồ sơ lý lịch & Y tế ban đầu (PDF, JPG, PNG)</label>
-              <input type="file" aria-label="Hồ sơ lý lịch và y tế bổ sung" accept=".pdf,.jpg,.jpeg,.png" multiple onChange={e => { addBaselineFiles(e.target.files); e.target.value = ''; }} />
-              <div data-flow1-baseline-files>
-                {baselineFiles.map(document => (
-                  <div key={document.id}>
-                    <p className="form-label">{document.file.name}</p>
-                    <select className="form-select" aria-label={`Ngựa của hồ sơ ${document.file.name}`} value={document.horseId}
-                      onChange={e => { setErrorMsg(''); setBaselineFiles(previous => previous.map(x => x.id === document.id ? { ...x, horseId: e.target.value } : x)); }}>
-                      <option value="">— Chọn ngựa tương ứng —</option>
-                      {MY_HORSES.filter(h => selectedHorses.includes(h.horseId)).map(h => <option key={h.horseId} value={h.horseId}>{h.name}</option>)}
-                    </select>
-                    <button type="button" className="btn-secondary" aria-label={`Bỏ hồ sơ ${document.file.name}`} onClick={() => { setErrorMsg(''); setBaselineFiles(previous => previous.filter(x => x.id !== document.id)); }}>Bỏ hồ sơ</button>
-                  </div>
-                ))}
-              </div>
+              <input type="file" accept=".pdf,.jpg,.png" multiple />
             </div>
           </div>
         )}
@@ -301,7 +214,7 @@ export const CreateRequestWizard = () => {
             <button
               type="button"
               className="btn-primary"
-              disabled={submitting} onClick={() => void submit()}
+              onClick={() => alert('Đã gửi yêu cầu vận chuyển REQ-2026-089 sang Logistics Manager!')}
             >
               Gửi Yêu Cầu Vận Chuyển
             </button>

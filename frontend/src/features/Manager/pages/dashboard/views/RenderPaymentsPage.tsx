@@ -1,4 +1,3 @@
-import { flow1Error } from "../../../../flow1/api";
 import React, { useState } from 'react';
 import type {
   BankTransferTransaction,
@@ -14,10 +13,10 @@ interface RenderPaymentsPageProps {
     confirmedAmount: number,
     bankRef: string,
     note?: string
-  ) => Promise<void>;
-  onRejectTransaction: (transactionId: string, reason: string) => Promise<void>;
-  onExtendDeadline: (requestId: string, newDeadline: string, reason: string) => Promise<void>;
-  onCancelOverdue: (requestId: string, reason: string) => Promise<void>;
+  ) => void;
+  onRejectTransaction: (transactionId: string, reason: string) => void;
+  onExtendDeadline: (requestId: string, newDeadline: string, reason: string) => void;
+  onCancelOverdue: (requestId: string, reason: string) => void;
   onNavigate: (nav: ManagerNav, targetId?: string) => void;
 }
 
@@ -42,15 +41,13 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
 
   // Extend deadline modal
   const [extendingItem, setExtendingItem] = useState<DeadlineOverdueItem | null>(null);
-  const [newDeadline, setNewDeadline] = useState<string>('');
+  const [newDeadline, setNewDeadline] = useState<string>('2026-10-30T17:00');
   const [extendReason, setExtendReason] = useState<string>(
     'Cho khách hàng thêm thời gian hoàn tất thủ tục ngân hàng quốc tế'
   );
 
   // Cancel overdue modal
   const [cancellingItem, setCancellingItem] = useState<DeadlineOverdueItem | null>(null);
-  const [cancelError, setCancelError] = useState<string | null>(null);
-  const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelReason, setCancelReason] = useState<string>(
     'Không hoàn tất nghĩa vụ ký/đặt cọc sau các lần trao đổi và đã quá hạn ân hạn'
   );
@@ -63,13 +60,13 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
   const handleOpenConfirmModal = (txn: BankTransferTransaction) => {
     setActiveTxn(txn);
     setConfirmedAmount(txn.declaredAmount);
-    setBankRefInput(txn.bankReference || '');
+    setBankRefInput(txn.bankReference || 'VCB-VERIFIED-01');
     setIsRejecting(false);
   };
 
-  const handleExecuteConfirm = async () => {
+  const handleExecuteConfirm = () => {
     if (!activeTxn) return;
-    try { await onConfirmTransaction(
+    onConfirmTransaction(
       activeTxn.transactionId,
       confirmedAmount,
       bankRefInput,
@@ -80,39 +77,34 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
       `✓ Đã đối soát thành công giao dịch ${activeTxn.transactionId}! Kích hoạt yêu cầu ${activeTxn.requestId} & Hợp đồng có hiệu lực.`
     );
     setTimeout(() => setToastMsg(null), 4000);
-    } catch (e) { setToastMsg(flow1Error(e)); }
   };
 
-  const handleExecuteReject = async () => {
+  const handleExecuteReject = () => {
     if (!activeTxn) return;
-    try { await onRejectTransaction(activeTxn.transactionId, rejectReason);
+    onRejectTransaction(activeTxn.transactionId, rejectReason);
     setActiveTxn(null);
     setToastMsg(`Đã từ chối giao dịch ${activeTxn.transactionId}.`);
     setTimeout(() => setToastMsg(null), 3000);
-    } catch (e) { setToastMsg(flow1Error(e)); }
   };
 
-  const handleExecuteExtend = async () => {
+  const handleExecuteExtend = () => {
     if (!extendingItem) return;
-    try { await onExtendDeadline(extendingItem.requestId, newDeadline, extendReason);
+    onExtendDeadline(extendingItem.requestId, newDeadline, extendReason);
     setExtendingItem(null);
     setToastMsg(
       `✓ Đã gia hạn deadline cho yêu cầu ${extendingItem.requestId} đến ${newDeadline.replace('T', ' ')}.`
     );
     setTimeout(() => setToastMsg(null), 4000);
-    } catch (e) { setToastMsg(flow1Error(e)); }
   };
 
-  const handleExecuteCancel = async () => {
-    if (!cancellingItem || cancelBusy) return;
-    setCancelError(null); setCancelBusy(true);
-    try { await onCancelOverdue(cancellingItem.requestId, cancelReason);
+  const handleExecuteCancel = () => {
+    if (!cancellingItem) return;
+    onCancelOverdue(cancellingItem.requestId, cancelReason);
     setCancellingItem(null);
     setToastMsg(
       `Đã hủy thủ công yêu cầu quá hạn ${cancellingItem.requestId}.`
     );
     setTimeout(() => setToastMsg(null), 4000);
-    } catch (e) { setCancelError(flow1Error(e)); } finally { setCancelBusy(false); }
   };
 
   return (
@@ -122,7 +114,7 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
         <div>
           <h1 className="module-title">Đặt cọc &amp; Thanh toán</h1>
           <p className="module-subtitle">
-            Đối soát giao dịch VNPay, xác thực tiền cọc thực nhận và xử lý hạn chót hợp đồng (Flow 1: UC-LM-03)
+            Đối soát chuyển khoản ngân hàng, xác thực tiền cọc thực nhận và xử lý hạn chót hợp đồng (Flow 1: UC-LM-03)
           </p>
         </div>
         {toastMsg && (
@@ -135,13 +127,13 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
       {/* Metrics Row */}
       <div className="stats-metric-grid">
         <div className="stat-card border-amber">
-          <div className="stat-title">Chờ đối soát VNPay</div>
+          <div className="stat-title">Chờ đối soát Ngân hàng</div>
           <div className="stat-value text-amber-600">{pendingTxns.length}</div>
-          <div className="stat-sub">Cần đối chiếu giao dịch đã xác minh</div>
+          <div className="stat-sub">Cần đối chiếu sao kê thực nhận</div>
         </div>
         <div className="stat-card border-green">
           <div className="stat-title">Đã xác nhận Tiền cọc</div>
-          <div className="stat-value text-emerald-600">{successTxns.length}</div>
+          <div className="stat-value text-emerald-600">{successTxns.length + 3}</div>
           <div className="stat-sub">Hợp đồng đã kích hoạt có hiệu lực</div>
         </div>
         <div className="stat-card border-red">
@@ -258,7 +250,7 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
                       ) : txn.status === 'SUCCESS' ? (
                         <span className="badge-status-blue">✓ Đã xác nhận</span>
                       ) : (
-                        <span className="badge-status-red">{txn.statusLabel || txn.status}</span>
+                        <span className="badge-status-red">Đã từ chối</span>
                       )}
                     </td>
                   </tr>
@@ -336,7 +328,7 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
                           title="Gia hạn thêm thời gian hoàn tất"
                           onClick={() => {
                             setExtendingItem(item);
-                            setNewDeadline('');
+                            setNewDeadline('2026-10-30T17:00');
                           }}
                         >
                           Gia hạn
@@ -345,7 +337,7 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
                           type="button"
                           className="btn-decision btn-reject py-1 px-2 text-xs"
                           title="Hủy đơn thủ công"
-                          onClick={() => { setCancelError(null); setCancellingItem(item); }}
+                          onClick={() => setCancellingItem(item)}
                         >
                           Hủy đơn
                         </button>
@@ -369,7 +361,7 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
             <div className="modal-header">
               <div>
                 <h2 className="modal-title">
-                  Đối soát VNPay: {activeTxn.transactionId}
+                  Đối soát Chuyển khoản: {activeTxn.transactionId}
                 </h2>
                 <p className="modal-sub">
                   Yêu cầu: <strong>{activeTxn.requestId}</strong> • Khách hàng: {activeTxn.customerName}
@@ -431,7 +423,7 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
                     <input
                       type="number"
                       className="text-input font-mono font-bold"
-                      readOnly value={confirmedAmount}
+                      value={confirmedAmount}
                       onChange={(e) => setConfirmedAmount(Number(e.target.value))}
                     />
                   </div>
@@ -443,7 +435,7 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
                     <input
                       type="text"
                       className="text-input font-mono"
-                      readOnly value={bankRefInput}
+                      value={bankRefInput}
                       onChange={(e) => setBankRefInput(e.target.value)}
                     />
                   </div>
@@ -616,7 +608,6 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
               </button>
             </div>
             <div className="modal-body space-y-3">
-              {cancelError && <p role="alert" className="text-red-700">{cancelError}</p>}
               <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800">
                 ⚠️ Cảnh báo: Quản lý đang tiến hành hủy thủ công yêu cầu quá hạn sau khi đã đối soát không có giao dịch tiền cọc nào tồn đọng. Thao tác này sẽ chuyển yêu cầu sang trạng thái <strong>CANCELLED</strong>.
               </div>
@@ -644,7 +635,6 @@ export const RenderPaymentsPage: React.FC<RenderPaymentsPageProps> = ({
               <button
                 type="button"
                 className="btn-primary btn-red"
-                disabled={cancelBusy || !cancelReason.trim()}
                 onClick={handleExecuteCancel}
               >
                 Xác nhận Hủy Đơn Quá Hạn

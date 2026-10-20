@@ -1,4 +1,3 @@
-import { RequireCustomer } from "../../features/auth/RequireCustomer";
 import {
   BrowserRouter,
   Routes,
@@ -39,7 +38,7 @@ import SpecialistDashboard from "../../features/specialist/SpecialistDashboard";
 
 // Import các trang update mới
 import { CreateRequestWizard } from "../../features/customer/pages/create-request/CreateRequestWizard";
-import { ManagerPortal } from "../../features/Manager/pages/dashboard/ManagerPortal";
+import { ManagerPortal } from "../../features/manager/pages/dashboard/ManagerPortal";
 import { SpecialistPortal } from "../../features/specialist/pages/dashboard/SpecialistPortal";
 import { CoordinatorPortal } from "../../features/coordinator/pages/dashboard/CoordinatorPortal";
 import CoordinatorDashboard from "../../features/coordinator/CoordinatorDashboard";
@@ -99,29 +98,28 @@ function AppRouter() {
         <Route path="/specialist/audit" element={<SpecialistPortal initialNav="audit" />} />
 
         {/* ==================== CUSTOMER ==================== */}
-        <Route path="/customer/home" element={<RequireCustomer><HomePage /></RequireCustomer>} />
-        <Route path="/customer/profile" element={<RequireCustomer><CustomerProfilePage /></RequireCustomer>} />
-        <Route path="/customer/requests" element={<RequireCustomer><TransportRequestPage /></RequireCustomer>} />
-        <Route path="/customer/requests/new" element={<RequireCustomer><CreateTransportRequestPage /></RequireCustomer>} />
-        <Route path="/customer/requests/:requestId" element={<RequireCustomer><TransportRequestDetailPage /></RequireCustomer>} />
-        <Route path="/customer/requests/:requestId/information" element={<RequireCustomer><TransportInformationPage /></RequireCustomer>} />
-        <Route path="/customer/requests/:requestId/information/success" element={<RequireCustomer><TransportInformationSuccessPage /></RequireCustomer>} />
-        <Route path="/customer/requests/:requestId/contract" element={<RequireCustomer><ContractPage /></RequireCustomer>} />
-        <Route path="/customer/requests/:requestId/payment" element={<RequireCustomer><PaymentPage /></RequireCustomer>} />
-        <Route path="/customer/horses" element={<RequireCustomer><MyHorsesPage /></RequireCustomer>} />
-        <Route path="/customer/tracking" element={<RequireCustomer><Navigate to="/customer/home" replace /></RequireCustomer>} />
-        <Route path="/customer/history" element={<RequireCustomer><HistoryPage /></RequireCustomer>} />
-        <Route path="/customer/create-request" element={<RequireCustomer><CreateRequestWizard /></RequireCustomer>} />
+        <Route path="/customer/home" element={<HomePage />} />
+        <Route path="/customer/profile" element={<CustomerProfilePage />} />
+        <Route path="/customer/requests" element={<TransportRequestPage />} />
+        <Route path="/customer/requests/new" element={<CreateTransportRequestPage />} />
+        <Route path="/customer/requests/:requestId" element={<TransportRequestDetailPage />} />
+        <Route path="/customer/requests/:requestId/information" element={<TransportInformationPage />} />
+        <Route path="/customer/requests/:requestId/information/success" element={<TransportInformationSuccessPage />} />
+        <Route path="/customer/requests/:requestId/contract" element={<ContractPage />} />
+        <Route path="/customer/requests/:requestId/payment" element={<PaymentPage />} />
+        <Route path="/customer/horses" element={<MyHorsesPage />} />
+        <Route path="/customer/tracking" element={<Navigate to="/customer/home" replace />} />
+        <Route path="/customer/history" element={<HistoryPage />} />
+        <Route path="/customer/create-request" element={<CreateRequestWizard />} />
 
         {/* ==================== PAYMENT ==================== */}
-        <Route path="/customer/payment/success" element={<RequireCustomer><PaymentSuccessPage /></RequireCustomer>} />
-        <Route path="/customer/payment/cancel" element={<RequireCustomer><PaymentCancelPage /></RequireCustomer>} />
-        <Route path="/customer/payments/return" element={<RequireCustomer><PaymentSuccessPage /></RequireCustomer>} />
+        <Route path="/customer/payment/success" element={<PaymentSuccessPage />} />
+        <Route path="/customer/payment/cancel" element={<PaymentCancelPage />} />
         <Route path="/payment/sandbox" element={<SandboxPaymentPage />} />
         <Route path="/payment/return" element={<SandboxPaymentPage />} />
 
         {/* ==================== NOT FOUND ==================== */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

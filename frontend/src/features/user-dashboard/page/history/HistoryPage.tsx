@@ -1,4 +1,3 @@
-import { useRequests, statusLabels } from "../../../flow1/relational/mainBindings";
 import {
   useMemo,
   useState,
@@ -9,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import CustomerLayout from "../../../../shared/layouts/CustomerLayout/CustomerLayout";
 
 import {
+  transportHistory,
   type HistoryStatus,
 } from "../../data/historyMockData";
 
@@ -49,8 +49,6 @@ function getStatusClass(
 
 function HistoryPage() {
   const navigate = useNavigate();
-  const { records } = useRequests();
-  const transportHistory = records.filter(r => ['COMPLETED', 'CANCELLED', 'REJECTED'].includes(r.status)).map(r => ({ id: r.requestId, horses: r.horses.map(h => h.name), origin: r.departure, destination: r.destination, departureDate: r.departureAt || '', arrivalDate: r.status === 'COMPLETED' ? r.deliveryAt || undefined : undefined, status: statusLabels[r.status] as HistoryStatus }));
 
   const [search, setSearch] =
     useState("");
@@ -76,7 +74,7 @@ function HistoryPage() {
       (a, b) =>
         Number(b) - Number(a)
     );
-  }, [records]);
+  }, []);
 
   const filteredHistory =
     useMemo(() => {
@@ -123,7 +121,6 @@ function HistoryPage() {
       search,
       statusFilter,
       yearFilter,
-      records,
     ]);
 
   return (
