@@ -1,3 +1,6 @@
+-- SAMPLE DATABASE ONLY: this file DROPS and recreates HorseTransportDB.
+-- For an existing database with data, run reviewed backend/database/002_flow1.sql instead.
+-- Flow 1 schema is defined directly below; sample data from the team is retained.
 -- =============================================================================
 -- BƯỚC 1: TẠO VÀ CHUYỂN VÀO CƠ SỞ DỮ LIỆU CHÍNH THỨC
 -- =============================================================================
@@ -17,6 +20,15 @@ CREATE DATABASE HorseTransportDB;
 GO
 
 USE HorseTransportDB;
+GO
+
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET NUMERIC_ROUNDABORT OFF;
 GO
 
 -- =============================================================================
@@ -56,8 +68,14 @@ CREATE TABLE HORSE (
     ReproductiveStatus VARCHAR(50) NULL,
     Weight DECIMAL(10, 2) NULL,
     DOB DATE NULL,
+    -- Flow 1
+    PhotoUrl NVARCHAR(500) NULL,
+    PassportScanUrl NVARCHAR(500) NULL,
+    RowVersion ROWVERSION NOT NULL,
     CONSTRAINT PK_Horse PRIMARY KEY (HorseID),
-    CONSTRAINT FK_Horse_Owner FOREIGN KEY (OwnerID) REFERENCES [USER](UserID)
+    CONSTRAINT FK_Horse_Owner FOREIGN KEY (OwnerID) REFERENCES [USER](UserID),
+    CONSTRAINT CK_F1S_HORSE_PhotoUrl CHECK ([PhotoUrl] IS NULL OR [PhotoUrl] like 'private/%' AND len([PhotoUrl])>(8)),
+    CONSTRAINT CK_F1S_HORSE_PassportScanUrl CHECK ([PassportScanUrl] IS NULL OR [PassportScanUrl] like 'private/%' AND len([PassportScanUrl])>(8))
 );
 
 -- 3. (MỚI) Bảng STAFF_DOCUMENT: Quản lý giấy tờ (Passport, Visa) của nhân sự theo xe
@@ -177,8 +195,29 @@ CREATE TABLE TRANSPORT_REQUEST (
     DesignatedReceiverPhone VARCHAR(20) NULL,
     BaseCost DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NOT NULL,
+    -- Flow 1
+    PickupLatitude DECIMAL(9,6) NULL,
+    PickupLongitude DECIMAL(9,6) NULL,
+    DeliveryLatitude DECIMAL(9,6) NULL,
+    DeliveryLongitude DECIMAL(9,6) NULL,
+    DistanceKm DECIMAL(10,2) NULL,
+    PickupContactName NVARCHAR(100) NULL,
+    PickupContactPhone VARCHAR(20) NULL,
+    ManagerNotes NVARCHAR(1000) NULL,
+    OriginCountry VARCHAR(2) NULL,
+    DestinationCountry VARCHAR(2) NULL,
+    PreparationDays INT NULL,
+    RowVersion ROWVERSION NOT NULL,
+    DeclaredValueUsd DECIMAL(18,2) NULL,
+    SubmissionKeyHash VARCHAR(64) NULL,
     CONSTRAINT PK_TransportRequest PRIMARY KEY (RequestID),
-    CONSTRAINT FK_TransportRequest_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID)
+    CONSTRAINT FK_TransportRequest_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Pickup CHECK ([PickupLatitude] IS NULL AND [PickupLongitude] IS NULL OR [PickupLatitude] IS NOT NULL AND [PickupLongitude] IS NOT NULL AND ([PickupLatitude]>=(-90) AND [PickupLatitude]<=(90)) AND ([PickupLongitude]>=(-180) AND [PickupLongitude]<=(180))),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Delivery CHECK ([DeliveryLatitude] IS NULL AND [DeliveryLongitude] IS NULL OR [DeliveryLatitude] IS NOT NULL AND [DeliveryLongitude] IS NOT NULL AND ([DeliveryLatitude]>=(-90) AND [DeliveryLatitude]<=(90)) AND ([DeliveryLongitude]>=(-180) AND [DeliveryLongitude]<=(180))),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Distance CHECK ([DistanceKm] IS NULL OR [DistanceKm]>(0)),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Route CHECK ([OriginCountry] IS NULL AND [DestinationCountry] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [TransportType] IS NOT NULL AND [OriginCountry]='VN' AND ([DestinationCountry]='VN' AND [TransportType]='ROAD' OR [DestinationCountry]='JP' AND [TransportType]='AIR')),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Preparation CHECK ([PreparationDays] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [PreparationDays]>=case when [DestinationCountry]='JP' then (7) when [DistanceKm]>(500) then (3) else (2) end AND ([DestinationCountry]='JP' OR [DistanceKm] IS NOT NULL)),
+    CONSTRAINT CK_F1D_DeclaredValueUsd CHECK ([DeclaredValueUsd] IS NULL OR [DeclaredValueUsd]>(0))
 );
 
 -- 10. Bảng REQUEST_HORSE_MAPPING: Khử quan hệ N-N giữa Request và Horse
@@ -236,8 +275,21 @@ CREATE TABLE TRIP_PLAN (
     T_Total_Hours DECIMAL(10, 2) NULL,
     TotalCost DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NOT NULL,
+    -- Flow 1
+    DeploymentStatus VARCHAR(12) NULL,
+    DeploymentReason NVARCHAR(1000) NULL,
+    DeploymentBy VARCHAR(50) NULL,
+    DeploymentAtUtc DATETIME2(7) NULL,
+    HandoffEventId VARCHAR(50) NULL,
+    RowVersion ROWVERSION NOT NULL,
+    AssignedSpecialistId VARCHAR(50) NULL,
+    AssignedCoordinatorId VARCHAR(50) NULL,
     CONSTRAINT PK_TripPlan PRIMARY KEY (TripID),
-    CONSTRAINT FK_TripPlan_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID)
+    CONSTRAINT FK_TripPlan_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
+    CONSTRAINT CK_F1S_TRIP_PLAN_Deployment CHECK ([DeploymentStatus] IS NULL OR ([DeploymentStatus]='ON_HOLD' OR [DeploymentStatus]='CONFIRMED' OR [DeploymentStatus]='PENDING') AND [DeploymentReason] IS NOT NULL AND [DeploymentBy] IS NOT NULL AND [DeploymentAtUtc] IS NOT NULL AND ([DeploymentStatus]='CONFIRMED' AND [HandoffEventId] IS NOT NULL OR ([DeploymentStatus]='ON_HOLD' OR [DeploymentStatus]='PENDING') AND [HandoffEventId] IS NULL)),
+    CONSTRAINT CK_F1Final_Handoff CHECK ([DeploymentStatus] IS NULL OR ([DeploymentStatus]='CONFIRMED' OR [DeploymentStatus]='PENDING')),
+    CONSTRAINT FK_F1_Specialist FOREIGN KEY (AssignedSpecialistId) REFERENCES [USER](UserID),
+    CONSTRAINT FK_F1_Coordinator FOREIGN KEY (AssignedCoordinatorId) REFERENCES [USER](UserID)
 );
 
 -- 14. Bảng VEHICLE: Quản lý xe chuyên dụng
@@ -283,7 +335,31 @@ CREATE TABLE ROUTE_SEGMENT (
     CONSTRAINT FK_RouteSegment_Facility FOREIGN KEY (FacilityID) REFERENCES PARTNER_FACILITY(FacilityID)
 );
 
--- 17. (MỚI) Bảng CUSTOMS_CLEARANCE: Quản lý thông quan biên giới
+-- 17. (MỚI) Bảng FLIGHT_BOOKING: Quản lý đặt vé & dịch vụ bay chuyên chở ngựa (Air Leg)
+CREATE TABLE FLIGHT_BOOKING (
+    FlightBookingID INT IDENTITY(1,1) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    BookingVersion INT NOT NULL DEFAULT 1,
+    RouteVersionID INT NULL,
+    ProviderName NVARCHAR(200) NOT NULL,
+    Airline NVARCHAR(100) NOT NULL,
+    FlightNumber VARCHAR(50) NOT NULL,
+    DepartureAirportCheckpointId INT NULL,
+    ArrivalAirportCheckpointId INT NULL,
+    DepartureAt DATETIME NOT NULL,
+    ArrivalAt DATETIME NOT NULL,
+    DirectFlight BIT NOT NULL DEFAULT 1,
+    BookingReference VARCHAR(100) NOT NULL,
+    BookingConfirmed BIT NOT NULL DEFAULT 1,
+    HorseIds NVARCHAR(MAX) NULL,
+    Note NVARCHAR(MAX) NULL,
+    CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
+    UpdatedAt DATETIME NULL,
+    CONSTRAINT PK_FlightBooking PRIMARY KEY (FlightBookingID),
+    CONSTRAINT FK_FlightBooking_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID)
+);
+
+-- 18. (MỚI) Bảng CUSTOMS_CLEARANCE: Quản lý thông quan biên giới
 CREATE TABLE CUSTOMS_CLEARANCE (
     ClearanceID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
@@ -299,7 +375,7 @@ CREATE TABLE CUSTOMS_CLEARANCE (
     CONSTRAINT FK_Customs_Segment FOREIGN KEY (SegmentID) REFERENCES ROUTE_SEGMENT(SegmentID)
 );
 
--- 18. Bảng HEALTH_LOG: Nhật ký sức khỏe ngựa trên đường
+-- 19. Bảng HEALTH_LOG: Nhật ký sức khỏe ngựa trên đường
 CREATE TABLE HEALTH_LOG (
     LogID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
@@ -318,7 +394,7 @@ CREATE TABLE HEALTH_LOG (
     CONSTRAINT FK_HealthLog_Escort FOREIGN KEY (EscortID) REFERENCES [USER](UserID)
 );
 
--- 19. Bảng INCIDENT: Báo cáo sự cố
+-- 20. Bảng INCIDENT: Báo cáo sự cố
 CREATE TABLE INCIDENT (
     IncidentID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
@@ -334,7 +410,7 @@ CREATE TABLE INCIDENT (
     CONSTRAINT FK_Incident_ApprovedBy FOREIGN KEY (ApprovedBy) REFERENCES [USER](UserID)
 );
 
--- 20. Bảng HANDOVER: Biên bản giao nhận
+-- 21. Bảng HANDOVER: Biên bản giao nhận
 CREATE TABLE HANDOVER (
     HandoverID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
@@ -350,7 +426,7 @@ CREATE TABLE HANDOVER (
     CONSTRAINT FK_Handover_HandedBy FOREIGN KEY (HandedByUserID) REFERENCES [USER](UserID)
 );
 
--- 21. Bảng HANDOVER_ITEM: Chi tiết kiểm tra bàn giao
+-- 22. Bảng HANDOVER_ITEM: Chi tiết kiểm tra bàn giao
 CREATE TABLE HANDOVER_ITEM (
     HandoverItemID VARCHAR(50) NOT NULL,
     HandoverID VARCHAR(50) NOT NULL,
@@ -368,7 +444,7 @@ CREATE TABLE HANDOVER_ITEM (
 -- PHÂN VÙNG 5: HỢP ĐỒNG & TÀI CHÍNH ĐA TIỀN TỆ (CONTRACT & BILLING)
 -- -----------------------------------------------------------------------------
 
--- 22. (MỚI) Bảng CONTRACT_TEMPLATE: Quản lý Nội dung hợp đồng mẫu
+-- 23. (MỚI) Bảng CONTRACT_TEMPLATE: Quản lý Nội dung hợp đồng mẫu
 CREATE TABLE CONTRACT_TEMPLATE (
     TemplateID VARCHAR(50) NOT NULL,
     TemplateName NVARCHAR(255) NOT NULL,
@@ -381,10 +457,10 @@ CREATE TABLE CONTRACT_TEMPLATE (
     CONSTRAINT PK_ContractTemplate PRIMARY KEY (TemplateID)
 );
 
--- 23. Bảng CONTRACT: Hợp đồng với khách hàng
+-- 24. Bảng CONTRACT: Hợp đồng với khách hàng
 CREATE TABLE CONTRACT (
     ContractID VARCHAR(50) NOT NULL,
-    TripID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NULL,
     CustomerID VARCHAR(50) NOT NULL,
     ContractCode VARCHAR(50) NOT NULL,
     CurrencyCode VARCHAR(3) NOT NULL DEFAULT 'USD',
@@ -395,12 +471,63 @@ CREATE TABLE CONTRACT (
     ActualGrossProfit_AGP DECIMAL(12, 2) NULL,
     SignedAt DATETIME NULL,
     ContractStatus VARCHAR(50) NOT NULL,
+    -- Flow 1
+    RequestID VARCHAR(50) NOT NULL,
+    CompletionDeadline DATETIME2(7) NULL,
+    PdfUrl VARCHAR(500) NULL,
+    SignOtpHash VARCHAR(255) NULL,
+    SignOtpExpiry DATETIME2(7) NULL,
+    SignOtpFailedAttempts INT NOT NULL CONSTRAINT DF_F1S_CONTRACT_SignOtpFailedAttempts DEFAULT ((0)),
+    DepositDeadline DATETIME2(7) NULL,
+    DepositAmount DECIMAL(12,2) NULL,
+    PdfSha256 CHAR(64) NULL,
+    SignOtpSentAtUtc DATETIME2(7) NULL,
+    SignerEmail VARCHAR(255) NULL,
+    PublishedAtUtc DATETIME2(7) NULL,
+    PublishedBy VARCHAR(50) NULL,
+    EffectiveSignDeadline DATETIME2(7) NULL,
+    SignedDepositDeadline DATETIME2(7) NULL,
+    LastExtensionTarget VARCHAR(10) NULL,
+    LastExtensionReason NVARCHAR(1000) NULL,
+    LastExtensionBy VARCHAR(50) NULL,
+    LastExtensionAtUtc DATETIME2(7) NULL,
+    CancellationId VARCHAR(50) NULL,
+    CancellationStatus VARCHAR(12) NULL,
+    CancellationReason NVARCHAR(1000) NULL,
+    CancellationRequestedAtUtc DATETIME2(7) NULL,
+    CancellationDecisionReason NVARCHAR(1000) NULL,
+    CancellationDecidedBy VARCHAR(50) NULL,
+    CancellationDecidedAtUtc DATETIME2(7) NULL,
+    IsCurrent BIT NOT NULL CONSTRAINT DF_F1S_CONTRACT_IsCurrent DEFAULT ((0)),
+    RowVersion ROWVERSION NOT NULL,
+    CustomerFeedback NVARCHAR(2000) NULL,
+    FeedbackFields VARCHAR(200) NULL,
+    FeedbackStatus VARCHAR(20) NULL,
+    FeedbackAtUtc DATETIME2(7) NULL,
+    ManagerFeedback NVARCHAR(2000) NULL,
+    FeedbackHandledAtUtc DATETIME2(7) NULL,
+    RefundAmount DECIMAL(12,2) NULL,
+    RefundStatus VARCHAR(20) NULL,
+    RefundReference VARCHAR(100) NULL,
     CONSTRAINT PK_Contract PRIMARY KEY (ContractID),
     CONSTRAINT FK_Contract_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
-    CONSTRAINT FK_Contract_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID)
+    CONSTRAINT FK_Contract_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID),
+    CONSTRAINT CK_F1S_CONTRACT_PdfUrl CHECK ([PdfUrl] IS NULL OR [PdfUrl] like 'private/%' AND len([PdfUrl])>(8)),
+    CONSTRAINT CK_F1S_CONTRACT_Deposit CHECK ([DepositAmount] IS NULL OR [CurrencyCode]='VND' AND [TotalQuotedPrice] IS NOT NULL AND [TotalQuotedPrice]>(0) AND [TotalQuotedPrice]=round([TotalQuotedPrice],(0)) AND [DepositRateStandard] IS NOT NULL AND [DepositRateStandard]=(40) AND [DepositAmount]>(0) AND [DepositAmount]=round([TotalQuotedPrice]*(0.4),(0))),
+    CONSTRAINT CK_F1S_CONTRACT_Pdf CHECK ([PdfUrl] IS NULL AND [PdfSha256] IS NULL OR [PdfUrl] IS NOT NULL AND [PdfSha256] IS NOT NULL AND len([PdfSha256])=(64) AND NOT [PdfSha256] like ('%[^0-9a-f]%') collate Latin1_General_100_BIN2),
+    CONSTRAINT CK_F1S_CONTRACT_Publication CHECK ([PublishedAtUtc] IS NULL OR [PublishedBy] IS NOT NULL AND [PdfUrl] IS NOT NULL AND [PdfSha256] IS NOT NULL AND [DepositAmount] IS NOT NULL AND [CompletionDeadline] IS NOT NULL),
+    CONSTRAINT CK_F1S_CONTRACT_OtpAttempts CHECK ([SignOtpFailedAttempts]>=(0) AND [SignOtpFailedAttempts]<=(5)),
+    CONSTRAINT CK_F1S_CONTRACT_Otp CHECK ([SignOtpHash] IS NULL OR len([SignOtpHash])=(64) AND NOT [SignOtpHash] like ('%[^0-9a-f]%') collate Latin1_General_100_BIN2 AND [SignOtpExpiry] IS NOT NULL AND [SignOtpSentAtUtc] IS NOT NULL AND [SignOtpExpiry]>[SignOtpSentAtUtc] AND [PublishedAtUtc] IS NOT NULL AND [SignedAt] IS NULL),
+    CONSTRAINT CK_F1S_CONTRACT_SignDeadline CHECK ([EffectiveSignDeadline] IS NULL OR [CompletionDeadline] IS NOT NULL AND [EffectiveSignDeadline]>=[CompletionDeadline]),
+    CONSTRAINT CK_F1S_CONTRACT_Signed CHECK ([PublishedAtUtc] IS NULL OR [SignedAt] IS NULL OR [SignerEmail] IS NOT NULL AND [SignedDepositDeadline] IS NOT NULL AND [DepositDeadline] IS NOT NULL AND [DepositDeadline]>=[SignedDepositDeadline] AND [SignedDepositDeadline]>[SignedAt] AND [SignOtpHash] IS NULL),
+    CONSTRAINT CK_F1S_CONTRACT_Extension CHECK ([LastExtensionTarget] IS NULL AND [LastExtensionReason] IS NULL AND [LastExtensionBy] IS NULL AND [LastExtensionAtUtc] IS NULL OR [LastExtensionTarget] IS NOT NULL AND ([LastExtensionTarget]='DEPOSIT' OR [LastExtensionTarget]='SIGN') AND [LastExtensionReason] IS NOT NULL AND [LastExtensionBy] IS NOT NULL AND [LastExtensionAtUtc] IS NOT NULL),
+    CONSTRAINT CK_F1S_CONTRACT_Cancellation CHECK ([CancellationId] IS NULL AND [CancellationStatus] IS NULL AND [CancellationReason] IS NULL AND [CancellationRequestedAtUtc] IS NULL AND [CancellationDecisionReason] IS NULL AND [CancellationDecidedBy] IS NULL AND [CancellationDecidedAtUtc] IS NULL OR [CancellationId] IS NOT NULL AND [CancellationStatus] IS NOT NULL AND [CancellationReason] IS NOT NULL AND [CancellationRequestedAtUtc] IS NOT NULL AND ([CancellationStatus]='PENDING' AND [CancellationDecisionReason] IS NULL AND [CancellationDecidedBy] IS NULL AND [CancellationDecidedAtUtc] IS NULL OR ([CancellationStatus]='REJECTED' OR [CancellationStatus]='APPROVED') AND [CancellationDecisionReason] IS NOT NULL AND [CancellationDecidedBy] IS NOT NULL AND [CancellationDecidedAtUtc] IS NOT NULL)),
+    CONSTRAINT CK_F1Final_Feedback CHECK ([FeedbackStatus] IS NULL OR ([FeedbackStatus]='REJECTED' OR [FeedbackStatus]='ACCEPTED' OR [FeedbackStatus]='PENDING') AND [CustomerFeedback] IS NOT NULL AND [FeedbackFields] IS NOT NULL AND [FeedbackAtUtc] IS NOT NULL),
+    CONSTRAINT CK_F1Final_Refund CHECK ([RefundStatus] IS NULL AND [RefundAmount] IS NULL AND [RefundReference] IS NULL OR ([RefundStatus]='COMPLETED' OR [RefundStatus]='PROCESSING' OR [RefundStatus]='REQUESTED') AND [RefundAmount]>(0) AND ([RefundStatus]<>'COMPLETED' OR [RefundReference] IS NOT NULL)),
+    CONSTRAINT FK_Contract_Request FOREIGN KEY (RequestID) REFERENCES [TRANSPORT_REQUEST](RequestID)
 );
 
--- 24. Bảng COST_ITEM: Các khoản mục chi phí thực tế
+-- 25. Bảng COST_ITEM: Các khoản mục chi phí thực tế
 CREATE TABLE COST_ITEM (
     CostItemID VARCHAR(50) NOT NULL,
     ContractID VARCHAR(50) NOT NULL,
@@ -414,7 +541,7 @@ CREATE TABLE COST_ITEM (
     CONSTRAINT FK_CostItem_Contract FOREIGN KEY (ContractID) REFERENCES CONTRACT(ContractID)
 );
 
--- 25. Bảng INVOICE: Hóa đơn cho khách hàng
+-- 26. Bảng INVOICE: Hóa đơn cho khách hàng
 CREATE TABLE INVOICE (
     InvoiceID VARCHAR(50) NOT NULL,
     ContractID VARCHAR(50) NOT NULL,
@@ -428,7 +555,7 @@ CREATE TABLE INVOICE (
     CONSTRAINT FK_Invoice_Contract FOREIGN KEY (ContractID) REFERENCES CONTRACT(ContractID)
 );
 
--- 26. Bảng PAYMENT: Giao dịch thanh toán thực tế
+-- 27. Bảng PAYMENT: Giao dịch thanh toán thực tế
 CREATE TABLE PAYMENT (
     PaymentID VARCHAR(50) NOT NULL,
     InvoiceID VARCHAR(50) NOT NULL,
@@ -439,11 +566,79 @@ CREATE TABLE PAYMENT (
     TransactionCode VARCHAR(100) NULL,
     Status VARCHAR(50) NOT NULL,
     PaymentDate DATETIME NOT NULL DEFAULT GETDATE(),
+    -- Flow 1
+    VnpayBankCode VARCHAR(50) NULL,
+    VnpayResponseCode VARCHAR(10) NULL,
+    VnpayTransactionStatus VARCHAR(10) NULL,
+    VnpayTmnCode VARCHAR(8) NULL,
+    VnpayCreatedAtUtc DATETIME2(7) NULL,
+    VnpayExpiresAtUtc DATETIME2(7) NULL,
+    VnpayReceivedAmount DECIMAL(12,2) NULL,
+    FinancialReviewRequired BIT NOT NULL CONSTRAINT DF_F1S_PAYMENT_FinancialReviewRequired DEFAULT ((0)),
+    FinancialReviewReason NVARCHAR(1000) NULL,
+    FinancialReviewedBy VARCHAR(50) NULL,
+    FinancialReviewedAtUtc DATETIME2(7) NULL,
+    RowVersion ROWVERSION NOT NULL,
     CONSTRAINT PK_Payment PRIMARY KEY (PaymentID),
     CONSTRAINT FK_Payment_Invoice FOREIGN KEY (InvoiceID) REFERENCES INVOICE(InvoiceID),
-    CONSTRAINT FK_Payment_ConfirmedBy FOREIGN KEY (ConfirmedByUserID) REFERENCES [USER](UserID)
+    CONSTRAINT FK_Payment_ConfirmedBy FOREIGN KEY (ConfirmedByUserID) REFERENCES [USER](UserID),
+    CONSTRAINT CK_F1S_PAYMENT_Attempt CHECK ([VnpayTmnCode] IS NULL OR [Method] IS NOT NULL AND [Method]='VNPAY' AND [CurrencyCode]='VND' AND [Amount]>(0) AND [Amount]=round([Amount],(0)) AND [VnpayCreatedAtUtc] IS NOT NULL AND [VnpayExpiresAtUtc] IS NOT NULL AND [VnpayExpiresAtUtc]>[VnpayCreatedAtUtc] AND ([Status]='REVIEW_REQUIRED' OR [Status]='SUCCESS' OR [Status]='FAILED' OR [Status]='PENDING_GATEWAY')),
+    CONSTRAINT CK_F1S_PAYMENT_Success CHECK ([VnpayTmnCode] IS NULL OR [Status]<>'SUCCESS' OR [VnpayResponseCode] IS NOT NULL AND [VnpayResponseCode]='00' AND [VnpayTransactionStatus] IS NOT NULL AND [VnpayTransactionStatus]='00' AND [TransactionCode] IS NOT NULL AND [VnpayReceivedAmount] IS NOT NULL AND [VnpayReceivedAmount]=[Amount]),
+    CONSTRAINT CK_F1S_PAYMENT_Received CHECK ([VnpayReceivedAmount] IS NULL OR [VnpayReceivedAmount]>(0) AND [VnpayReceivedAmount]=round([VnpayReceivedAmount],(0))),
+    CONSTRAINT CK_F1S_PAYMENT_Review CHECK ([FinancialReviewRequired]=(0) OR [FinancialReviewReason] IS NOT NULL),
+    CONSTRAINT CK_F1S_PAYMENT_Reviewer CHECK ([FinancialReviewedBy] IS NULL AND [FinancialReviewedAtUtc] IS NULL OR [FinancialReviewedBy] IS NOT NULL AND [FinancialReviewedAtUtc] IS NOT NULL)
 );
 
+
+-- 28. COST_RATE: Don gia tinh 5 nhom chi phi (VND)
+CREATE TABLE COST_RATE (
+    CostRateID varchar(50) NOT NULL CONSTRAINT PK_COST_RATE PRIMARY KEY,
+    Code varchar(50) NOT NULL CONSTRAINT UQ_COST_RATE_Code UNIQUE,
+    CostGroup varchar(20) NOT NULL,
+    CalculationUnit varchar(40) NOT NULL,
+    Rate decimal(18,6) NOT NULL,
+    CurrencyCode varchar(3) NOT NULL CONSTRAINT DF_COST_RATE_Currency DEFAULT 'VND',
+    IsActive bit NOT NULL CONSTRAINT DF_COST_RATE_Active DEFAULT 1,
+    RowVersion rowversion NOT NULL,
+    CONSTRAINT CK_COST_RATE_Value CHECK (Rate>0 AND (Code<>'INSURANCE_RATE' OR Rate<=1)),
+    CONSTRAINT CK_COST_RATE_Currency CHECK (CurrencyCode='VND'),
+    CONSTRAINT CK_COST_RATE_Group CHECK (CostGroup IN ('TRANSPORT','CREW','PERMIT','VET','INSURANCE'))
+);
+
+-- Flow 1: Chi muc bao ve du lieu va metadata kiem tra schema khi khoi dong.
+CREATE UNIQUE INDEX UX_INVOICE_ContractID_Deposit ON [INVOICE] ([ContractID]) WHERE ([InvoiceType]='DEPOSIT');
+CREATE UNIQUE INDEX UX_F1S_VnpayReceipt ON [PAYMENT] ([VnpayTmnCode], [TransactionCode]) WHERE ([VnpayTmnCode] IS NOT NULL AND [TransactionCode] IS NOT NULL AND [Status]='SUCCESS');
+CREATE INDEX IX_F1S_OtpBudget ON [NOTIFICATION] ([UserID], [Type], [Channel], [SentAt]);
+CREATE UNIQUE INDEX UX_F1N_RequestSubmission ON [TRANSPORT_REQUEST] ([CustomerID], [SubmissionKeyHash]) WHERE ([SubmissionKeyHash] IS NOT NULL);
+CREATE UNIQUE INDEX UX_TRIP_PLAN_RequestID ON [TRIP_PLAN] ([RequestID]);
+CREATE INDEX IX_CONTRACT_RequestID ON [CONTRACT] ([RequestID]);
+CREATE UNIQUE INDEX UX_F1S_CurrentContract ON [CONTRACT] ([RequestID]) WHERE ([IsCurrent]=(1));
+
+EXEC sys.sp_addextendedproperty @name=N'Flow1.FinalWorkflow', @value=N'deposit-before-signing-v1';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'FA7E1DC1A028BBDAB88A13F27C95B947CC43134B540D2CD6F67BC7C5164ECCA1:58526926AE94CF76DB7362F1C153EE8580C912724C716249053464DE552D74F0', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'HORSE', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_HORSE_PhotoUrl';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'DEEFFB204BAC35E4500BA262BA9E3B68E5FAA10FD50260CB1AF362A631E28CF4:585A3E1A9EB8F1970F698587B142C2D13BD931DC30744AA8973FAF8848E975E9', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'HORSE', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_HORSE_PassportScanUrl';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'2A5DB9098D785F566532FD45968D7FC0E7F2920062827265B3FA0B659E7589F1:D7E27F1E5F997FC29F04847CE528006C778F278D8AE23A05A26652E41F9335FC', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'CONTRACT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_CONTRACT_PdfUrl';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'95D581761D3717E27553383F737BD7BFFA8693ED73D33F75C19CE9E3074D457A:C21F6D4D479ACF3EFBB00D2A58CE4FB21346DD7C51311EF0D20FBCD372564AE5', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'TRANSPORT_REQUEST', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_TRANSPORT_REQUEST_Pickup';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'7102A217D38B287EBDD1350F00E5AD6AAD578DB18F33C347E7774768CD92F5CB:E07D67C5530161A6B3D2D780DBFD6118500CD13B86717A9CF5B1C2FF7DB5BE30', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'TRANSPORT_REQUEST', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_TRANSPORT_REQUEST_Delivery';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'4F2BC1DFF564E1E007CB874C7AF2D8FEF2B5311E16D9760A9AADD0C762907D48:3935FAE0BE1C96FE1B7BA69BDBC8B920A1FA92B4D06E9BE2235BBF9CEA24B43E', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'TRANSPORT_REQUEST', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_TRANSPORT_REQUEST_Distance';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'B14E9C924D87E4CEA6418EC7111C8BDD6F703CFE23C776DC05D17DBBD1FA6587:A41B612BEAA54158ADEB37CF90D4006F03457A0350BFAE9A274A9BB202ABBEDB', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'TRANSPORT_REQUEST', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_TRANSPORT_REQUEST_Route';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'3D853FB1204E8C9077191912C0267EEEC284453BD62B16E5CAA3121C5CE07E9C:F6E5EB060C4CD07422DC032BB0D637D95AA1B1F3CCACA0E332FFAAE559B7FEA4', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'TRANSPORT_REQUEST', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_TRANSPORT_REQUEST_Preparation';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'A249C14691834D8D190066B45116EB7B2A5409371A7E6EA816F6C6815DBC4029:B733CEA3BFADA0886722BD46A17838189D486D92F8C56D5BFC249B019FBD8FCD', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'CONTRACT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_CONTRACT_Deposit';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'39AFF3971E9BA66BC52A328636D40CD035AD0A337BD8D7927CDBB4DE01220350:52278C9E0A9E7C67DE3FC4A9807D94040470E78EBBF93E42E16EC30B1F0555A5', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'CONTRACT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_CONTRACT_Pdf';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'80238ECD078670A914AB5FC305864D4EAF3656E4D6E76FFAB195F729328E9FA1:5912E06B161E81854E1CF8CC30E6562B45F2916027CC5A5C08EBBFAC975C2C6A', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'CONTRACT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_CONTRACT_Publication';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'F5820297966BB63D6C397D1895E7A5E9C1BAA78242B953FE5B2E4D598586424C:19469FEE351F192A9239D4A3B540EE5F3E86B68579FDD76E2D9334C6FC2DE3CA', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'CONTRACT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_CONTRACT_OtpAttempts';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'DEF4DD01CA25DF5C877532865335CACEE4D8606F6E5D5751DB818A19B4B192D8:099CCE510E23157DC9FCCE61D9D8B216E4AB34C84F7905861F261EB66861A86C', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'CONTRACT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_CONTRACT_Otp';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'5B6E5B371F83C410ACA5EBEA59A6E0035E3BBF2C4C7FCC8F8412D888A6A33523:C6146EBEFF6705D17C6F4AA9F30FBCBFB34CD17EDEF4F19D94FDA6093541D6EB', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'CONTRACT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_CONTRACT_SignDeadline';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'B1C5F86CA1C77C660315EC1FCC2E6F406ECB05710E1DA8CF3244B464FE3A004F:CEA9606E68500A925F4C26EA1F7E0EF9CD0B6641B9E7D886BABF3A3E7A9057A3', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'CONTRACT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_CONTRACT_Signed';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'679C019F94417986B8C8209702F2D5709E808ED3F9B90AC4F125D9D082AACFD8:35995C6D03FE73D2B5975532829801FF356D5DF9A3F82D30B2E7A7B575D87BE0', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'CONTRACT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_CONTRACT_Extension';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'8BC1791BDF95D29487FDBD98A305F66CEC70BF3895F33094D3BB64E5DA97E992:5CD685128144AB2B5196A18FBD2D8866AB31F79E0610D33F15E86DEE164CFBA6', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'PAYMENT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_PAYMENT_Attempt';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'BDAF079F5BB5A4FC93BE58633BAC363E19588B865504D717E6D4EF2F26A501BD:2520F1E380055B206DD49472D67733AB40AF1F32DC64FCB9AEF83DDC7202FA10', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'PAYMENT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_PAYMENT_Success';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'0F71CDECDFCBC435E15F8AC6A92AE2A217BDEDD1F2C9BC07CCE921F213D0C1E2:AE9088C3FB84F36B43D7B684C851BF49A703CA08437920946FEA7C1FC213FDB7', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'PAYMENT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_PAYMENT_Received';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'E9B6160E78286742877BFC664775EC2372400EA02055CAFB893B272FA57FA7F1:4BF7C5337B2DA9644AB3FD2C5A3DCFA87E5395FEBC1C5F21C90DA0287CD958F3', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'PAYMENT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_PAYMENT_Review';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'44245771B0134367D60AFBB8E82CC281AA2BF4D358A859AF50447189DEE2DC46:DDBD0066BA4A787DFA039750D8F4E668D77C09173489FCA536CD92BE1C78D149', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'PAYMENT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_PAYMENT_Reviewer';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'B1FEE62D41B5D7486C1A5E454ABEFEE90945BAF1271E0568907A3E109BFE1872:3FAA944467526D7076E9E672B02E77F98139D1FBBC1E90AA370327D9766388D1', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'TRIP_PLAN', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_TRIP_PLAN_Deployment';
+EXEC sys.sp_addextendedproperty @name=N'Flow1SimpleGuardFingerprint', @value=N'009:FFDDF4F6D2E9B4B115C863A6071E0163B8EA7735C0FB37757C8D1FA4350556DE', @level0type=N'SCHEMA', @level0name=N'dbo', @level1type=N'TABLE', @level1name=N'CONTRACT', @level2type=N'CONSTRAINT', @level2name=N'CK_F1S_CONTRACT_Cancellation';
+GO
 
 -- DataSet
 -- =============================================================================
@@ -577,7 +772,13 @@ INSERT INTO TRIP_VEHICLE_ASSIGNMENT (AssignmentID, TripID, VehicleID, DriverID, 
 ('TVA_002', 'TRIP_2026_002', 'VEH_BOX_03', 'USR_DRV_02', 'USR_ESC_02'),
 ('TVA_003', 'TRIP_2026_003', 'VEH_BOX_02', 'USR_DRV_01', 'USR_ESC_01');
 
--- 17. Bảng ROUTE_SEGMENT: Phân đoạn lộ trình của các chuyến đi
+-- 17. (MỚI) Bảng FLIGHT_BOOKING: Đặt dịch vụ vận chuyển hàng không mẫu
+SET IDENTITY_INSERT FLIGHT_BOOKING ON;
+INSERT INTO FLIGHT_BOOKING (FlightBookingID, TripID, BookingVersion, RouteVersionID, ProviderName, Airline, FlightNumber, DepartureAirportCheckpointId, ArrivalAirportCheckpointId, DepartureAt, ArrivalAt, DirectFlight, BookingReference, BookingConfirmed, HorseIds, Note, CreatedAt) VALUES
+(300, 'TRIP_2026_001', 1, 120, N'Nippon Cargo Airlines', N'NCA Airlines', 'KZ-102', 101, 201, '2026-11-20 05:00:00', '2026-11-20 11:00:00', 1, 'NCA-SGN-NRT-2026', 1, '["HRS_001","HRS_002"]', N'Chuyến bay thẳng chuyên chở động vật thể thao SGN -> NRT', '2026-10-01 08:00:00');
+SET IDENTITY_INSERT FLIGHT_BOOKING OFF;
+
+-- 18. Bảng ROUTE_SEGMENT: Phân đoạn lộ trình của các chuyến đi
 INSERT INTO ROUTE_SEGMENT (SegmentID, TripID, FacilityID, LocationName, SegmentType, TransportMode, CarrierName, Flight_Voyage_No, ExpectedETA, ActualTime, Status) VALUES
 -- Tuyến 1: Hà Nội -> Bangkok
 ('SEG_101', 'TRIP_2026_001', 'FAC_001', N'Sóc Sơn -> Cửa khẩu Cầu Treo',       'REST_STOP',       'ROAD', NULL, NULL, '2026-09-15 15:00:00', '2026-09-15 14:50:00', 'COMPLETED'),
@@ -590,24 +791,24 @@ INSERT INTO ROUTE_SEGMENT (SegmentID, TripID, FacilityID, LocationName, SegmentT
 ('SEG_301', 'TRIP_2026_003', 'FAC_005', N'Hà Nội -> Trạm Nghỉ Đà Nẵng',       'REST_STOP',       'ROAD', NULL, NULL, '2026-10-09 10:00:00', '2026-10-09 10:30:00', 'COMPLETED'),
 ('SEG_302', 'TRIP_2026_003', NULL,      N'Đà Nẵng -> Trại Phú Thọ TP.HCM',     'DESTINATION',     'ROAD', NULL, NULL, '2026-10-11 18:00:00', NULL,                  'IN_PROGRESS');
 
--- 18. Bảng CUSTOMS_CLEARANCE: Thủ tục thông quan biên giới
+-- 19. Bảng CUSTOMS_CLEARANCE: Thủ tục thông quan biên giới
 INSERT INTO CUSTOMS_CLEARANCE (ClearanceID, TripID, SegmentID, BorderCrossingName, CustomsAgentName, DocumentType, DeclarationNumber, Status, ClearedAt) VALUES
 ('CST_001', 'TRIP_2026_001', 'SEG_101', N'Cửa khẩu Quốc tế Cầu Treo', N'Đại lý HQ Miền Trung', 'ATA_CARNET', 'VN-CARNET-2026-088', 'CLEARED', '2026-09-15 17:00:00'),
 ('CST_002', 'TRIP_2026_002', 'SEG_201', N'Cửa khẩu Quốc tế Mộc Bài',  N'Đại lý Tân Cảng',       'EXPORT',     'TK-XNK-VN-9928172',   'CLEARED', '2026-10-05 10:30:00');
 
--- 19. Bảng HEALTH_LOG: Nhật ký sinh hiệu sức khỏe cá thể ngựa (Insert-Only)
+-- 20. Bảng HEALTH_LOG: Nhật ký sinh hiệu sức khỏe cá thể ngựa (Insert-Only)
 INSERT INTO HEALTH_LOG (LogID, TripID, HorseID, EscortID, LogType, LogTime, Temperature, HeartRate, HealthStatus, Description, MediaUrl) VALUES
 ('LOG_001', 'TRIP_2026_001', 'HRS_001', 'USR_ESC_01', 'TRANSIT_CHECK', '2026-09-15 10:30:00', 38.1, 42, N'Ổn định',       N'Ngựa uống 15L nước, ăn cỏ khô tốt.', 'https://storage.cbntransport.com/logs/log1.jpg'),
 ('LOG_002', 'TRIP_2026_001', 'HRS_002', 'USR_ESC_01', 'TRANSIT_CHECK', '2026-09-15 10:30:00', 38.2, 44, N'Ổn định',       N'Thể trạng bình thường, mắt lanh lợi.', 'https://storage.cbntransport.com/logs/log2.jpg'),
 ('LOG_003', 'TRIP_2026_002', 'HRS_003', 'USR_ESC_02', 'TRANSIT_CHECK', '2026-10-05 14:00:00', 39.2, 58, N'Căng thẳng/Sốt',N'Ngựa đổ mồ hôi nhiều lúc qua phà, đã truyền điện giải.', 'https://storage.cbntransport.com/logs/log3.jpg'),
 ('LOG_004', 'TRIP_2026_003', 'HRS_001', 'USR_ESC_01', 'TRANSIT_CHECK', '2026-10-09 11:00:00', 38.0, 40, N'Rất tốt',      N'Dừng nghỉ tại Đà Nẵng, vận động nhẹ 30 phút.', 'https://storage.cbntransport.com/logs/log4.jpg');
 
--- 20. Bảng INCIDENT: Sự cố phát sinh khẩn cấp trên đường
+-- 21. Bảng INCIDENT: Sự cố phát sinh khẩn cấp trên đường
 INSERT INTO INCIDENT (IncidentID, TripID, ApprovedBy, IncidentType, LocationCoordinates, Description, ImageUrl, AdditionalCost, Status) VALUES
 ('INC_001', 'TRIP_2026_001', 'USR_MGR_01', 'TIRE_PUNCTURE', '18.4123,105.2011', N'Xe bị thủng lốp sau trên QL8A, thay lốp phụ mất 40 phút.', 'https://storage.cbntransport.com/incidents/tire1.jpg', 80.00,  'RESOLVED'),
 ('INC_002', 'TRIP_2026_002', 'USR_MGR_01', 'EQUINE_STRESS', '11.2312,105.8821', N'Ngựa HRS_003 bị sốt nhẹ do nắng nóng, phải dừng xe hạ nhiệt mất 1h30m.', 'https://storage.cbntransport.com/incidents/vet2.jpg', 150.00, 'RESOLVED');
 
--- 21. Bảng HANDOVER: Biên bản tiếp nhận (Pickup) và giao ngựa (Delivery)
+-- 22. Bảng HANDOVER: Biên bản tiếp nhận (Pickup) và giao ngựa (Delivery)
 INSERT INTO HANDOVER (HandoverID, TripID, HandedByUserID, Type, LocationName, ReceiverName, ReceiverPhone, IsAuthorized, Status) VALUES
 ('HO_PU_001', 'TRIP_2026_001', 'USR_DRV_01', 'PICKUP',   N'Trang trại Sóc Sơn, Hà Nội', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED'),
 ('HO_DL_001', 'TRIP_2026_001', 'USR_DRV_01', 'DELIVERY', N'CLB Hoàng Gia Bangkok',     N'Mr. Kraisak',   '+66812345678',1, 'CONFIRMED'),
@@ -615,7 +816,7 @@ INSERT INTO HANDOVER (HandoverID, TripID, HandedByUserID, Type, LocationName, Re
 ('HO_DL_002', 'TRIP_2026_002', 'USR_DRV_02', 'DELIVERY', N'Trường đua Phnom Penh',      N'Sokha Heng',    '+85598765432',1, 'CONFIRMED'),
 ('HO_PU_003', 'TRIP_2026_003', 'USR_DRV_01', 'PICKUP',   N'Trang trại Sóc Sơn, Hà Nội', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED');
 
--- 22. Bảng HANDOVER_ITEM: Đối soát mã chip và thể trạng lúc giao nhận
+-- 23. Bảng HANDOVER_ITEM: Đối soát mã chip và thể trạng lúc giao nhận
 INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerified, ConditionStatus, AssetCheck, PhotoUrl) VALUES
 ('HOI_001', 'HO_PU_001', 'HRS_001', 1, N'Khỏe mạnh',    N'01 bộ yên cương, 02 chăn đắp ngựa', 'https://storage.cbntransport.com/ho/pu_hrs1.jpg'),
 ('HOI_002', 'HO_PU_001', 'HRS_002', 1, N'Khỏe mạnh',    N'01 hộp thuốc dinh dưỡng',           'https://storage.cbntransport.com/ho/pu_hrs2.jpg'),
@@ -627,20 +828,20 @@ INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerifie
 -- PHÂN VÙNG 5: HỢP ĐỒNG & TÀI CHÍNH ĐA TIỀN TỆ (CONTRACT & BILLING)
 -- =============================================================================
 
--- 23. Bảng CONTRACT: 3 hợp đồng vận chuyển
-INSERT INTO CONTRACT (ContractID, TripID, CustomerID, ContractCode, CurrencyCode, ExchangeRateToLocal, TotalQuotedPrice, BaseContractPrice_P, DepositRateStandard, ActualGrossProfit_AGP, SignedAt, ContractStatus) VALUES
-('CTR_2026_001', 'TRIP_2026_001', 'USR_CUST_01', 'HD-CBN-2026-001', 'USD', 25450.0000, 8500.00, 8500.00, 0.40, 2300.00, '2026-09-02 14:00:00', 'SETTLED'),
-('CTR_2026_002', 'TRIP_2026_002', 'USR_CUST_02', 'HD-CBN-2026-002', 'USD', 25450.0000, 4200.00, 4200.00, 0.40, 950.00,  '2026-09-28 10:00:00', 'SETTLED'),
-('CTR_2026_003', 'TRIP_2026_003', 'USR_CUST_01', 'HD-CBN-2026-003', 'VND', 1.0000,     145000000.00, 145000000.00, 0.40, NULL, '2026-10-06 09:30:00', 'EXECUTING');
+-- 24. Bảng CONTRACT: 3 hợp đồng vận chuyển
+INSERT INTO CONTRACT (ContractID, TripID, RequestID, CustomerID, ContractCode, CurrencyCode, ExchangeRateToLocal, TotalQuotedPrice, BaseContractPrice_P, DepositRateStandard, ActualGrossProfit_AGP, SignedAt, ContractStatus) VALUES
+('CTR_2026_001', 'TRIP_2026_001', 'REQ_2026_001', 'USR_CUST_01', 'HD-CBN-2026-001', 'USD', 25450.0000, 8500.00, 8500.00, 0.40, 2300.00, '2026-09-02 14:00:00', 'SETTLED'),
+('CTR_2026_002', 'TRIP_2026_002', 'REQ_2026_002', 'USR_CUST_02', 'HD-CBN-2026-002', 'USD', 25450.0000, 4200.00, 4200.00, 0.40, 950.00,  '2026-09-28 10:00:00', 'SETTLED'),
+('CTR_2026_003', 'TRIP_2026_003', 'REQ_2026_003', 'USR_CUST_01', 'HD-CBN-2026-003', 'VND', 1.0000,     145000000.00, 145000000.00, 0.40, NULL, '2026-10-06 09:30:00', 'EXECUTING');
 
--- 24. Bảng COST_ITEM: Các mục chi phí dự toán và phát sinh
+-- 25. Bảng COST_ITEM: Các mục chi phí dự toán và phát sinh
 INSERT INTO COST_ITEM (CostItemID, ContractID, CategoryName, SubcodeName, Bearer, CurrencyCode, TotalMoney, EvidenceUrl) VALUES
 ('CST_01', 'CTR_2026_001', N'Nhiên liệu',       N'Xăng dầu xe chuyên dụng',      'COMPANY',  'USD', 1500.00, 'https://storage.cbntransport.com/bills/fuel1.pdf'),
 ('CST_02', 'CTR_2026_001', N'Phí dịch vụ trạm', N'Lưu chuồng cách ly Vientiane', 'CUSTOMER', 'USD', 200.00,  'https://storage.cbntransport.com/bills/vet_lao.pdf'),
 ('CST_03', 'CTR_2026_001', N'Sự cố phát sinh',  N'Sửa vá lốp khẩn cấp',          'COMPANY',  'USD', 80.00,   'https://storage.cbntransport.com/bills/tire1.jpg'),
 ('CST_04', 'CTR_2026_002', N'Chi phí thú y',    N'Khám cấp cứu sốt ngựa',        'CUSTOMER', 'USD', 150.00,  'https://storage.cbntransport.com/bills/vet_khm.jpg');
 
--- 25. Bảng INVOICE: Các đợt hóa đơn (Đã trả xong, Đang nợ, Quá hạn)
+-- 26. Bảng INVOICE: Các đợt hóa đơn (Đã trả xong, Đang nợ, Quá hạn)
 INSERT INTO INVOICE (InvoiceID, ContractID, InvoiceType, CurrencyCode, TotalPayableAmount, PaidAmount, DueDate, PaymentStatus) VALUES
 -- Hợp đồng 1: Đã thanh toán 100%
 ('INV_101', 'CTR_2026_001', 'DEPOSIT_40',    'USD', 3400.00, 3400.00, '2026-09-05 23:59:59', 'PAID'),
@@ -651,7 +852,7 @@ INSERT INTO INVOICE (InvoiceID, ContractID, InvoiceType, CurrencyCode, TotalPaya
 -- Hợp đồng 3: Vừa nộp tiền cọc
 ('INV_301', 'CTR_2026_003', 'DEPOSIT_40',    'VND', 58000000.00, 58000000.00, '2026-10-07 23:59:59', 'PAID');
 
--- 26. Bảng PAYMENT: Giao dịch đối soát thực tế qua Cổng thanh toán hoặc Chuyển khoản
+-- 27. Bảng PAYMENT: Giao dịch đối soát thực tế qua Cổng thanh toán hoặc Chuyển khoản
 INSERT INTO PAYMENT (PaymentID, InvoiceID, ConfirmedByUserID, CurrencyCode, Amount, Method, TransactionCode, Status, PaymentDate) VALUES
 ('PAY_001', 'INV_101', 'USR_MGR_01', 'USD', 3400.00,     'STRIPE_GATEWAY', 'TXN_STRIPE_001829', 'SUCCESS', '2026-09-04 15:30:00'),
 ('PAY_002', 'INV_102', 'USR_MGR_01', 'USD', 5100.00,     'BANK_TRANSFER',  'TXN_VCB_8829102938', 'SUCCESS', '2026-09-18 10:15:00'),
@@ -660,3 +861,31 @@ INSERT INTO PAYMENT (PaymentID, InvoiceID, ConfirmedByUserID, CurrencyCode, Amou
 
 GO
 
+-- Flow 1: 10 don gia VND; ty le bao hiem 0.5% la gia dinh cua du an.
+INSERT INTO COST_RATE (CostRateID, Code, CostGroup, CalculationUnit, Rate, CurrencyCode, IsActive) VALUES
+('rate-ROAD_KM', 'ROAD_KM', 'TRANSPORT', 'KM_VEHICLE', 200000, 'VND', 1),
+('rate-AIR_HORSE', 'AIR_HORSE', 'TRANSPORT', 'HORSE', 3000000, 'VND', 1),
+('rate-STABLE_NIGHT', 'STABLE_NIGHT', 'TRANSPORT', 'HORSE_NIGHT', 250000, 'VND', 1),
+('rate-CREW_DAY', 'CREW_DAY', 'CREW', 'PERSON_DAY', 300000, 'VND', 1),
+('rate-PERMIT_TRIP', 'PERMIT_TRIP', 'PERMIT', 'TRIP', 1000000, 'VND', 1),
+('rate-PERMIT_HORSE', 'PERMIT_HORSE', 'PERMIT', 'HORSE', 5000000, 'VND', 1),
+('rate-VET_DAY', 'VET_DAY', 'VET', 'PERSON_DAY', 500000, 'VND', 1),
+('rate-CARE_DAY', 'CARE_DAY', 'VET', 'HORSE_DAY', 300000, 'VND', 1),
+('rate-INSURANCE_MIN', 'INSURANCE_MIN', 'INSURANCE', 'TRIP', 2000000, 'VND', 1),
+('rate-INSURANCE_RATE', 'INSURANCE_RATE', 'INSURANCE', 'VALUE_RATIO', 0.005, 'VND', 1);
+
+-- 12 dieu khoan bat buoc: noi dung A-L de cap nhat sau.
+INSERT INTO CONTRACT_TEMPLATE (TemplateID, TemplateName, LanguageCode, BodyContent, Version, IsActive, CreatedAt) VALUES
+('flow1-required-clause-01', N'Điều 1', 'VI', N'A', '1', 1, SYSUTCDATETIME()),
+('flow1-required-clause-02', N'Điều 2', 'VI', N'B', '1', 1, SYSUTCDATETIME()),
+('flow1-required-clause-03', N'Điều 3', 'VI', N'C', '1', 1, SYSUTCDATETIME()),
+('flow1-required-clause-04', N'Điều 4', 'VI', N'D', '1', 1, SYSUTCDATETIME()),
+('flow1-required-clause-05', N'Điều 5', 'VI', N'E', '1', 1, SYSUTCDATETIME()),
+('flow1-required-clause-06', N'Điều 6', 'VI', N'F', '1', 1, SYSUTCDATETIME()),
+('flow1-required-clause-07', N'Điều 7', 'VI', N'G', '1', 1, SYSUTCDATETIME()),
+('flow1-required-clause-08', N'Điều 8', 'VI', N'H', '1', 1, SYSUTCDATETIME()),
+('flow1-required-clause-09', N'Điều 9', 'VI', N'I', '1', 1, SYSUTCDATETIME()),
+('flow1-required-clause-10', N'Điều 10', 'VI', N'J', '1', 1, SYSUTCDATETIME()),
+('flow1-required-clause-11', N'Điều 11', 'VI', N'K', '1', 1, SYSUTCDATETIME()),
+('flow1-required-clause-12', N'Điều 12', 'VI', N'L', '1', 1, SYSUTCDATETIME());
+GO
