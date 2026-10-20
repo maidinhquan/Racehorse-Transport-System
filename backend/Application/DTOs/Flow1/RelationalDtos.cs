@@ -26,7 +26,7 @@ public sealed record FlowHorseCard(string HorseId, string Name, string Microchip
 public sealed record FlowPaymentCard(string PaymentId, string Version, decimal Amount, decimal? ReceivedAmount,
     string Status, string? TransactionCode, DateTime? PaidAt, bool ReviewRequired, string? ReviewReason, string? Method = null, string Currency = "VND");
 public sealed record FlowTripCard(string TripId, string Version, string Status, string? DeploymentStatus,
-    string? EventId, string? Reason, string? RoutingAcknowledgedBy, string? DocumentsAcknowledgedBy,
+    string? EventId, string? Reason,
     string? AssignedSpecialistId = null, string? AssignedCoordinatorId = null);
 public sealed record FlowContractCard(string ContractId, string Version, string Status, bool IsCurrent, decimal TotalPrice,
     decimal DepositAmount, DateTime? SignDeadline, DateTime? DepositDeadline, DateTime? SignedAt, string? PdfSha256,

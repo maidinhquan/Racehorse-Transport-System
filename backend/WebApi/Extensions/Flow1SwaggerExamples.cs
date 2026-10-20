@@ -194,7 +194,7 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
             body["version"] = new OpenApiString("COPY_payment.version_FROM_GET");
             body["reason"] = new OpenApiString("Reconciled with payment gateway record");
         }
-        else if (!path.Contains("/contracts/", StringComparison.OrdinalIgnoreCase) && !path.Contains("/requests/", StringComparison.OrdinalIgnoreCase) && !path.EndsWith("/ack", StringComparison.OrdinalIgnoreCase))
+        else if (!path.Contains("/contracts/", StringComparison.OrdinalIgnoreCase) && !path.Contains("/requests/", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -212,13 +212,6 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
             }
         }
 
-        if (path.EndsWith("/ack", StringComparison.OrdinalIgnoreCase))
-        {
-            body.Remove("reason");
-            body["version"] = new OpenApiString("COPY_trip.version_FROM_GET");
-            body["eventId"] = new OpenApiString("COPY_eventId_FROM_GET_operations_trips");
-            operation.Description += " Use trip.version and the current eventId from the assigned queue.";
-        }
 
         media!.Example = body;
     }

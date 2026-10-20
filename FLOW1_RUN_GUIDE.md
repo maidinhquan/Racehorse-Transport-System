@@ -11,7 +11,7 @@ Customer xem estimate → tạo request → Logistics Manager xét duyệt → l
 - Không có hold/resume hay Customer decline. Customer muốn sửa dùng feedback; muốn dừng trước ký dùng cancellation.
 - Hợp đồng đã ký không được chỉnh sửa. Không có lịch sử phiên bản hợp đồng cho người dùng xem lại.
 - `version` trong API là token rowversion chống ghi đè đồng thời, không phải số phiên bản nghiệp vụ.
-- Phân công đích danh, không tự nhận việc. Ack là xác nhận đã nhận bàn giao, không phải chọn người nhận.
+- Phân công đích danh, không tự nhận việc. Manager xác nhận phân công thì task tự thuộc về hai nhân sự; không có bước xác nhận nhận việc.
 
 ## 2. Chuẩn bị máy
 
@@ -130,7 +130,7 @@ Role chuẩn: `CUSTOMER`, `LOGISTICS_MANAGER`, `TRANSPORT_SPECIALIST`, `FLEET_RO
 | 9 | Hệ thống | IPN VNPay hợp lệ/đối soát cập nhật tiền. Chỉ tiếp tục khi backend cho trạng thái `PENDING_SIGNATURE`; chưa có Trip trước ký. |
 | 10 | Customer | POST `/otp` với contract.version/pdfSha256 hiện hành; nhận email; GET lại contract; POST `/sign` với version mới, pdfSha256 và otp. Kết quả `EFFECTIVE`, request `ACTIVATED`, trip `PLANNING`. |
 | 11 | Manager | GET `/api/manager/staff/operational`; POST `/api/manager/contracts/{id}/deployment/confirm` với **trip.version**, reason bắt buộc và hai ID đúng role. |
-| 12 | Nhân sự | GET `/api/operations/flow1/trips`, tải PDF/hồ sơ và POST `/{tripId}/ack` với trip.version/eventId. Chi tiết ở tài liệu kết nối. |
+| 12 | Nhân sự | GET `/api/operations/flow1/trips` để thấy ngay task được giao; không gọi ack. UI nghiệp vụ tiếp theo thuộc Flow 2/3. Chi tiết ở tài liệu kết nối. |
 
 Thời hạn cọc/xác minh/ký dùng hạn hiện hành backend trả; luồng mới mặc định có hạn chung 24 giờ và giới hạn thời gian chuẩn bị. Gửi lại OTP không tự gia hạn. Không hardcode trên frontend trạng thái/giờ theo tài liệu ví dụ cũ.
 
@@ -270,3 +270,7 @@ $env:RegistrationEmail__Mode = 'Development'
 $env:RACEHORSE_TEST_SQL_SERVER = '.\SQLEXPRESS'
 dotnet test backend/Backend.slnx
 ```
+
+Cập nhật bỏ ack: SQL 002 bỏ RoutingAcknowledgedBy/AtUtc và DocumentsAcknowledgedBy/AtUtc cùng hai CHECK tương ứng. Giữ AssignedSpecialistId/AssignedCoordinatorId, DeploymentStatus và HandoffEventId. Không tự ghi xác nhận giả cho nhân sự.
+
+Kiểm chứng bỏ ack ngày 20/10/2026: 142 Flow1.Tests + 47 Registration.Tests passed, không skipped; 85 connected API checks và Swagger Try-it-out passed. Test nâng cấp với dữ liệu ack cũ có giá trị đã chạy riêng và giữ nguyên ID/phân công/event/rowversion của chuyến. Backend Docker/DB localhost đã cập nhật; API cũ trả 404, Swagger không còn route hoặc trường response ack. Backup trước nâng cấp: `A:\SQL2019\MSSQL15.SQLEXPRESS\MSSQL\Backup\HorseTransportDB_before_remove_ack_20261020_1726.bak` (COPY_ONLY, CHECKSUM, VERIFYONLY). Bằng chứng local: `backend/WebApi/App_Data/flow1/remove-ack-qa/`.

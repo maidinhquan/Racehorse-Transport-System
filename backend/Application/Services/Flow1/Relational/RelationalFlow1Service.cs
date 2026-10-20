@@ -81,7 +81,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
             payments.Select(p => new FlowPaymentCard(p.PaymentID, Token(p.RowVersion), p.Amount, p.VnpayReceivedAmount, p.Status,
                 p.TransactionCode, p.Status == "SUCCESS" ? p.PaymentDate : null, p.FinancialReviewRequired, p.FinancialReviewReason, p.Method, p.CurrencyCode)).ToArray(),
             t is null ? null : new(t.TripID, Token(t.RowVersion), t.Status, t.DeploymentStatus, t.HandoffEventId, t.DeploymentReason,
-                t.RoutingAcknowledgedBy, t.DocumentsAcknowledgedBy,t.AssignedSpecialistId,t.AssignedCoordinatorId),request is {ExpectedDate:not null,PreparationDays:not null}?Cutoff(request):null,c.CurrencyCode,
+                t.AssignedSpecialistId,t.AssignedCoordinatorId),request is {ExpectedDate:not null,PreparationDays:not null}?Cutoff(request):null,c.CurrencyCode,
             c.DepositAmount>0&&c.DepositRateStandard==40&&c.CurrencyCode=="VND"&&c.CompletionDeadline is not null,
             c.SignedAt is not null&&c.PublishedAtUtc is not null&&c.SignerEmail is not null&&c.SignedDepositDeadline is not null&&c.PdfUrl is not null&&c.PdfSha256 is not null,
             c.CustomerFeedback,c.FeedbackFields,c.FeedbackStatus,c.ManagerFeedback,c.FeedbackAtUtc,c.FeedbackHandledAtUtc,c.RefundStatus,c.RefundAmount);

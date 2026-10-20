@@ -78,7 +78,9 @@ public sealed class RelationalHttpTests
         c=await Read<FlowContractCard>(await manager.GetAsync($"/api/manager/contracts/{c.ContractId}"));Assert.Equal("EFFECTIVE",c.Status);
         c=await Post<FlowContractCard>(manager,$"/api/manager/contracts/{c.ContractId}/deployment/confirm",new FlowAction(c.Trip!.Version,"Ready",AssignedSpecialistId:"docs",AssignedCoordinatorId:"route"));
         using var routing=app.Client("route","FLEET_ROUTE_COORDINATOR");var queue=await Read<FlowHandoff[]>(await routing.GetAsync("/api/operations/flow1/trips"));Assert.Single(queue);
-        await Post<FlowHandoff>(routing,$"/api/operations/flow1/trips/{c.Trip!.TripId}/ack",new FlowAction(c.Trip.Version,EventId:c.Trip.EventId));
+        Assert.Equal(HttpStatusCode.NotFound,(await routing.PostAsJsonAsync($"/api/operations/flow1/trips/{c.Trip!.TripId}/ack",new{})).StatusCode);
+        using var specialist=app.Client("docs","TRANSPORT_SPECIALIST");
+        Assert.Equal(c.Trip.TripId,Assert.Single(await Read<FlowHandoff[]>(await specialist.GetAsync("/api/operations/flow1/trips"))).Trip.TripId);
         Assert.Equal(HttpStatusCode.NotFound,(await manager.GetAsync($"/api/manager/requests/{r.RequestId}/info-requests")).StatusCode);
         var swagger=await manager.GetFromJsonAsync<JsonElement>("/swagger/v1/swagger.json");
         Assert.DoesNotContain(swagger.GetProperty("paths").EnumerateObject(),p=>p.Name.EndsWith("/claim",StringComparison.Ordinal));

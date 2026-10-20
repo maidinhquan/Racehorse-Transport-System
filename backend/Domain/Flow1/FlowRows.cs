@@ -293,14 +293,6 @@ public sealed class FlowTrip
     public DateTime? DeploymentAtUtc { get; set; }
     [Column("HandoffEventId", TypeName = "varchar(50)")]
     public string? HandoffEventId { get; set; }
-    [Column("RoutingAcknowledgedBy", TypeName = "varchar(50)")]
-    public string? RoutingAcknowledgedBy { get; set; }
-    [Column("RoutingAcknowledgedAtUtc", TypeName = "datetime2(7)")]
-    public DateTime? RoutingAcknowledgedAtUtc { get; set; }
-    [Column("DocumentsAcknowledgedBy", TypeName = "varchar(50)")]
-    public string? DocumentsAcknowledgedBy { get; set; }
-    [Column("DocumentsAcknowledgedAtUtc", TypeName = "datetime2(7)")]
-    public DateTime? DocumentsAcknowledgedAtUtc { get; set; }
     [Column("RowVersion", TypeName = "rowversion")]
     [Timestamp]
     public byte[] RowVersion { get; set; } = null!;

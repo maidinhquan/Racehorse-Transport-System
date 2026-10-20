@@ -136,7 +136,6 @@ public sealed class Flow1OperationsApi(RelationalFlow1Service service):FlowApi
 {
     [HttpGet("{id}/documents/{document}"),Authorize(Roles=UserRoles.TransportSpecialist)]public async Task<IActionResult> Document(string id,string document,string eventId,CancellationToken ct)=>PrivateFile(await service.OperationsDocumentAsync(id,document,Actor,eventId,ct),"baseline-"+document);
     [HttpGet]public async Task<IActionResult> List(CancellationToken ct)=>Result(await service.OperationsAsync(Actor,ct));
-    [HttpPost("{id}/ack")]public async Task<IActionResult> Ack(string id,FlowAction input,CancellationToken ct)=>Result(await service.AckAsync(id,Actor,input,ct));
     [HttpGet("{id}/pdf")]public async Task<IActionResult> Pdf(string id,string eventId,CancellationToken ct)=>PrivateFile(await service.OperationsPdfAsync(id,Actor,eventId,ct),"contract");
     [HttpGet("{id}/horses/{horse}/files/{kind}")]public async Task<IActionResult> Horse(string id,string horse,string kind,string eventId,CancellationToken ct)=>PrivateFile(await service.OperationsHorseFileAsync(id,horse,kind,Actor,eventId,ct),kind);
 }

@@ -47,17 +47,8 @@ public sealed partial class RelationalFlow1Service
     private async Task<FlowHandoff> Handoff(FlowTrip trip,FlowContract c,FlowRequest r,CancellationToken ct)
     {
         var horses=new List<FlowHorseCard>(); foreach(var l in await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==r.RequestID,ct)) horses.Add(HorseCard((await db.FindAsync<FlowHorse>(l.HorseID,ct))!));
-        return new(new(trip.TripID,Token(trip.RowVersion),trip.Status,trip.DeploymentStatus,trip.HandoffEventId,trip.DeploymentReason,trip.RoutingAcknowledgedBy,trip.DocumentsAcknowledgedBy,trip.AssignedSpecialistId,trip.AssignedCoordinatorId),r.RequestID,r.Departure,r.Destination,r.ExpectedDate,r.CommittedDeadline,c.ContractID,c.PdfSha256!,horses,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct));
+        return new(new(trip.TripID,Token(trip.RowVersion),trip.Status,trip.DeploymentStatus,trip.HandoffEventId,trip.DeploymentReason,trip.AssignedSpecialistId,trip.AssignedCoordinatorId),r.RequestID,r.Departure,r.Destination,r.ExpectedDate,r.CommittedDeadline,c.ContractID,c.PdfSha256!,horses,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct));
     }
-    public Task<FlowHandoff> AckAsync(string tripId,string actor,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
-        var trip=await db.FindAsync<FlowTrip>(tripId,t)??throw Error("Trip not found.","NOT_FOUND",404); var x=await Released(trip.RequestID,actor,i.EventId,t);
-        Require(i.EventId is not null,"HANDOFF_CHANGED","Current event is required."); var u=(await db.FindAsync<FlowUser>(actor,t))!;
-        if(Role(u)==UserRoles.FleetRouteCoordinator && trip.RoutingAcknowledgedBy==actor || Role(u)==UserRoles.TransportSpecialist && trip.DocumentsAcknowledgedBy==actor) return await Handoff(trip,x.C,x.R,t);
-        Check(trip.RowVersion,i.Version);
-        if(Role(u)==UserRoles.FleetRouteCoordinator) {trip.RoutingAcknowledgedBy=actor;trip.RoutingAcknowledgedAtUtc=Now;}
-        else {trip.DocumentsAcknowledgedBy=actor;trip.DocumentsAcknowledgedAtUtc=Now;}
-        await db.SaveAsync(t); return await Handoff(trip,x.C,x.R,t);
-    },ct);
     public Task<(byte[] Bytes,string ContentType)> OperationsPdfAsync(string tripId,string actor,string expectedEvent,CancellationToken ct)=>db.RunAsync(async t=>{
         var trip=await db.FindAsync<FlowTrip>(tripId,t)??throw Error("Trip not found.","NOT_FOUND",404); var x=await Released(trip.RequestID,actor,expectedEvent,t);
         Require(!string.IsNullOrEmpty(expectedEvent),"HANDOFF_CHANGED","Current event required.");var file=await files.ReadAsync(x.C.PdfUrl!,t);

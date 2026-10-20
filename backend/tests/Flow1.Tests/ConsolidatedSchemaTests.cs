@@ -6,6 +6,36 @@ namespace Flow1.Tests;
 
 public sealed class ConsolidatedSchemaTests
 {
+    [LocalSqlFact]
+    public async Task Upgrade_removes_retired_ack_columns_and_checks_without_changing_trip_identity()
+    {
+        await using var db=await Flow1TestDatabase.CreateAsync(migrate:false);
+        await db.ScriptAsync("002_flow1.sql");
+        await db.ExecuteAsync("""
+            INSERT [USER](UserID,PasswordHash,Role,FullName) VALUES
+              ('ack-spec','fixture','TRANSPORT_SPECIALIST','Specialist'),
+              ('ack-route','fixture','FLEET_ROUTE_COORDINATOR','Coordinator'),
+              ('ack-manager','fixture','LOGISTICS_MANAGER','Manager');
+            INSERT TRIP_PLAN(TripID,RequestID,Status,DeploymentStatus,DeploymentReason,DeploymentBy,DeploymentAtUtc,HandoffEventId,AssignedSpecialistId,AssignedCoordinatorId)
+            VALUES('ack-trip','req-1','PLANNING','CONFIRMED','Assigned','ack-manager','2026-10-20','ack-event','ack-spec','ack-route');
+            """);
+        await db.ExecuteAsync("""
+            ALTER TABLE TRIP_PLAN ADD RoutingAcknowledgedBy varchar(50) NULL,RoutingAcknowledgedAtUtc datetime2(7) NULL,
+                DocumentsAcknowledgedBy varchar(50) NULL,DocumentsAcknowledgedAtUtc datetime2(7) NULL;
+            """);
+        await db.ExecuteAsync("""
+            UPDATE TRIP_PLAN SET RoutingAcknowledgedBy='ack-route',RoutingAcknowledgedAtUtc='2026-10-20',DocumentsAcknowledgedBy='ack-spec',DocumentsAcknowledgedAtUtc='2026-10-20';
+            ALTER TABLE TRIP_PLAN ADD CONSTRAINT CK_F1S_TRIP_PLAN_RoutingAck CHECK(RoutingAcknowledgedBy IS NULL OR RoutingAcknowledgedAtUtc IS NOT NULL);
+            ALTER TABLE TRIP_PLAN ADD CONSTRAINT CK_F1S_TRIP_PLAN_DocumentsAck CHECK(DocumentsAcknowledgedBy IS NULL OR DocumentsAcknowledgedAtUtc IS NOT NULL);
+            """);
+        const string projection="SELECT TripID,RequestID,Status,DeploymentStatus,AssignedSpecialistId,AssignedCoordinatorId,HandoffEventId,RowVersion FROM TRIP_PLAN ORDER BY TripID FOR JSON PATH,INCLUDE_NULL_VALUES;";
+        var before=await db.ScalarAsync<string>(projection);
+        Assert.Equal(0,await Ready(db));
+        await db.ScriptAsync("002_flow1.sql");
+        Assert.Equal(1,await Ready(db));
+        Assert.Equal(before,await db.ScalarAsync<string>(projection));
+        Assert.Equal(0,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('TRIP_PLAN') AND name LIKE '%Acknowledged%';"));
+    }
     private const string Script="002_flow1.sql";
     private static Task<int> Ready(Flow1TestDatabase db)=>db.ScalarAsync<int>(Flow1RelationalSchema.ValidationSql);
     private static async Task<string> Definition(Flow1TestDatabase db)

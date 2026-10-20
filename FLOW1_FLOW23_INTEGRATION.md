@@ -10,11 +10,11 @@ Customer trả cọc 40% → backend xác minh → Customer ký OTP
   → tạo một TRIP_PLAN (PLANNING, deployment PENDING)
 Manager chỉ định Specialist + Coordinator, xác nhận
   → deployment CONFIRMED, sinh handoff event, gửi thông báo riêng
-  ├─ Coordinator: lấy chuyến được giao → ack → tiếp tục Flow 2
-  └─ Specialist: lấy chuyến được giao → ack → tiếp tục Flow 3
+  ├─ Coordinator: lấy chuyến được giao → tiếp tục Flow 2
+  └─ Specialist: lấy chuyến được giao → tiếp tục Flow 3
 ```
 
-Hai luồng có thể bắt đầu song song sau bàn giao. Không chờ một người hoàn thành/ack rồi mới cho người kia đọc chuyến. Ack xác nhận đã đọc/nhận việc của chính mình; không phải self-claim, không đổi người được gán và không tự đổi Trip.Status.
+Hai luồng bắt đầu song song ngay khi Manager xác nhận phân công. Task tự thuộc về hai người được chỉ định; không có endpoint/nút xác nhận nhận việc, không đợi người còn lại. Việc hiển thị task không tự thay đổi Trip.Status.
 
 Flow 1 sở hữu tạo request/hợp đồng, tiền cọc và ký, tạo Trip, phân công và bàn giao. Flow 2/3 tiếp tục trên **TripID hiện có**. Không tạo Trip mới từ cùng RequestID; không tạo hợp đồng mới để làm khóa nối; không hardcode ID tài khoản demo.
 
@@ -28,24 +28,24 @@ Flow 1 sở hữu tạo request/hợp đồng, tiền cọc và ký, tạo Trip,
 - Có reason và trip.version hợp lệ.
 - Một chiều: không hold/resume, không phân công lại/đổi người bằng API Flow 1.
 
-### Nhân sự đọc/ack/tải tệp qua API bàn giao
+### Nhân sự đọc task/tải tệp qua API bàn giao
 
 - JWT là `TRANSPORT_SPECIALIST` hoặc `FLEET_ROUTE_COORDINATOR`, tài khoản hợp lệ.
 - Đúng ID được chỉ định theo role của mình.
 - Deployment `CONFIRMED`, có HandoffEventId.
 - Trip.Status thuộc **PLANNING hoặc READY_TO_DEPART**.
 - Contract hiện hành `EFFECTIVE`, SignedAt có giá trị.
-- Với ack/tải tệp: gửi đúng eventId hiện hành.
+- Với tải tệp: gửi đúng eventId hiện hành.
 
-**Hệ quả cần chú ý khi tích hợp:** API bàn giao không phải API xem chuyến suốt vòng đời. Khi Flow 2/3 đổi Trip sang trạng thái khác hoặc đổi ContractStatus khỏi EFFECTIVE, queue/tải hồ sơ/ack qua cửa Flow 1 sẽ không còn khả dụng. Flow 2/3 cần API riêng có phân quyền để xem chuyến/tệp ở giai đoạn thực thi. Đây là việc phải thống nhất khi ghép, không bỏ guard Flow 1 hoặc gọi nó như API chi tiết vĩnh viễn.
+**Hệ quả cần chú ý khi tích hợp:** API bàn giao không phải API xem chuyến suốt vòng đời. Khi Flow 2/3 đổi Trip sang trạng thái khác hoặc đổi ContractStatus khỏi EFFECTIVE, queue/tải hồ sơ qua cửa Flow 1 sẽ không còn khả dụng. Flow 2/3 cần API riêng có phân quyền để xem chuyến/tệp ở giai đoạn thực thi. Đây là việc phải thống nhất khi ghép, không bỏ guard Flow 1 hoặc gọi nó như API chi tiết vĩnh viễn.
 
 ## 3. Role và xác thực
 
 | Vai trò | Chuỗi role hiện hành | Được làm ở điểm nối |
 |---|---|---|
 | Manager | LOGISTICS_MANAGER | Lấy danh sách nhân sự, chỉ định và xác nhận bàn giao |
-| Coordinator | FLEET_ROUTE_COORDINATOR | Xem chuyến của mình, PDF, ảnh/hộ chiếu ngựa, ack phần điều phối |
-| Specialist | TRANSPORT_SPECIALIST | Xem chuyến của mình, PDF, ảnh/hộ chiếu và hồ sơ baseline, ack phần hồ sơ |
+| Coordinator | FLEET_ROUTE_COORDINATOR | Xem chuyến của mình, PDF, ảnh/hộ chiếu ngựa |
+| Specialist | TRANSPORT_SPECIALIST | Xem chuyến của mình, PDF, ảnh/hộ chiếu và hồ sơ baseline |
 
 Không dùng `FLEET_COORDINATOR` theo ví dụ tài liệu cũ. Dùng chung cơ chế đăng nhập/JWT hiện tại, Actor lấy từ claims; không tin userId/role do client gửi để quyết định quyền. Manager không phải người gọi operations queue để giả danh nhân sự.
 
@@ -59,7 +59,6 @@ Base URL ví dụ `http://localhost:5129`, kèm `Authorization: Bearer <accessTo
 | GET | /api/manager/contracts/{contractId} | Manager | Lấy trip ID/version hiện hành |
 | POST | /api/manager/contracts/{contractId}/deployment/confirm | Manager | Phân công ban đầu |
 | GET | /api/operations/flow1/trips | Specialist/Coordinator | Danh sách bàn giao đúng người được gán |
-| POST | /api/operations/flow1/trips/{tripId}/ack | Đúng nhân sự | Xác nhận nhận bàn giao |
 | GET | /api/operations/flow1/trips/{tripId}/pdf?eventId={eventId} | Đúng nhân sự | PDF hợp đồng đã ký, kiểm tra SHA-256 |
 | GET | /api/operations/flow1/trips/{tripId}/horses/{horseId}/files/photo?eventId={eventId} | Đúng nhân sự | Ảnh ngựa thuộc request |
 | GET | /api/operations/flow1/trips/{tripId}/horses/{horseId}/files/passport?eventId={eventId} | Đúng nhân sự | Hộ chiếu ngựa thuộc request |
@@ -95,8 +94,6 @@ Response là ApiResponse với `data` kiểu FlowContractCard, trong đó `data.
         "deploymentStatus": "CONFIRMED",
         "eventId": "<handoffEventId>",
         "reason": "Phân công nhân sự chuẩn bị chuyến",
-        "routingAcknowledgedBy": null,
-        "documentsAcknowledgedBy": null,
         "assignedSpecialistId": "<specialistId>",
         "assignedCoordinatorId": "<coordinatorId>"
       },
@@ -119,16 +116,9 @@ Response là ApiResponse với `data` kiểu FlowContractCard, trong đó `data.
 
 Queue hiện trả danh sách, không có pagination contract ở endpoint này. DTO không chứa toàn bộ dữ liệu phục vụ định tuyến: tọa độ, liên hệ, giá trị chi tiết khác phải đọc qua service/DAO được phân quyền hoặc bổ sung endpoint Flow 2/3 có chủ đích. Không cho Coordinator gọi API Manager để lấy bổ sung dữ liệu.
 
-### Ack
+### Task tự động sau phân công
 
-```json
-{
-  "version": "<trip.version lấy từ queue hiện hành>",
-  "eventId": "<trip.eventId cùng chuyến>"
-}
-```
-
-Response `data` là FlowHandoff. Coordinator ghi RoutingAcknowledgedBy/AtUtc; Specialist ghi DocumentsAcknowledgedBy/AtUtc. Ack cùng người/event lần nữa được xử lý như đã nhận. Nếu hai người ack đồng thời, người thứ hai có thể gặp xung đột version vì cùng row Trip: GET queue lại rồi retry sau khi xác minh event. Không bỏ kiểm tra concurrency.
+Manager confirm thành công là đủ để hai người được chỉ định thấy task trong queue. Không ghi hoặc chờ xác nhận nhận việc. API ack cũ bị gỡ và trả 404; response không còn routingAcknowledgedBy/documentsAcknowledgedBy.
 
 ## 5. Thông báo và event
 
@@ -153,7 +143,6 @@ Event ở đây là ID lưu DB trong giao dịch bàn giao, **không phải mess
 | TRIP_PLAN | AssignedSpecialistId, AssignedCoordinatorId | Hai FK riêng tới USER.UserID, hai vai trò khác nhau |
 | TRIP_PLAN | Status, DeploymentStatus, HandoffEventId | Trạng thái chuyến và bàn giao là các cột khác nhau |
 | TRIP_PLAN | DeploymentBy/AtUtc/Reason | Người thực hiện và lý do phân công |
-| TRIP_PLAN | RoutingAcknowledgedBy/AtUtc, DocumentsAcknowledgedBy/AtUtc | Hai xác nhận nhận bàn giao |
 | TRIP_PLAN | RowVersion | Concurrency toàn row, kể cả thay đổi từ Flow 2/3 |
 | LEGAL_MEDICAL_RECORD | RecordID, RequestID, HorseID | Hồ sơ gắn đúng ngựa/request; baseline Flow 1 dùng DocumentType=BASELINE_MEDICAL |
 | NOTIFICATION | UserID, ReferenceID, Type | Thông báo riêng; phân biệt loại trước diễn giải ReferenceID |
@@ -182,11 +171,11 @@ Hồ sơ baseline `/documents/{documentId}` hiện chỉ Specialist được t�
 
 1. Merge/pull đủ source và áp dụng SQL hiện hành trên DB local, cấu hình JWT/server giống ứng dụng đang chạy.
 2. Gắn điểm vào danh sách được giao vào queue thật; map bằng tripId, không requestId hoặc eventId thay thế.
-3. Gửi ack cho chính nhân sự, lưu state từ response; refresh khi 409.
+3. Hiển thị task ngay từ queue theo assigned ID; không thêm nút hoặc điều kiện xác nhận đã nhận bàn giao.
 4. Đọc request/ngựa/lịch/hồ sơ từ khóa liên kết đã có. Nếu thiếu field trong DTO bàn giao, bổ sung read-model/API có phân quyền hoặc đọc service/DAO nội bộ; không nhân bản dữ liệu không cần thiết.
 5. Thực hiện nghiệp vụ Flow 2/3 trên Trip hiện có. Tách quyền cập nhật các trường flow mình sở hữu; bảo toàn hợp đồng/tiền/assignment của Flow 1.
 6. Trước thay đổi Trip.Status/ContractStatus, thống nhất endpoint tiếp tục xem chuyến/tệp sau khi queue Flow 1 đóng. Đặc biệt không để một flow đổi status làm flow kia mất lối vào khi vẫn đang chuẩn bị.
-7. Không coi ack đủ hai người là điều kiện khởi hành đã hoàn tất. Điều kiện xe/tuyến đường/y tế của Flow 2/3 phải được kiểm tra bởi nghiệp vụ các luồng đó.
+7. Phân công không có nghĩa điều kiện khởi hành đã hoàn tất. Điều kiện xe/tuyến đường/y tế của Flow 2/3 phải được kiểm tra bởi nghiệp vụ các luồng đó.
 
 ## 9. Checklist kiểm thử ghép tối thiểu
 
@@ -198,12 +187,12 @@ Hồ sơ baseline `/documents/{documentId}` hiện chỉ Specialist được t�
 | Confirm đúng | Cùng TripID, eventId có giá trị, mỗi người nhận thông báo riêng |
 | Đúng Specialist và Coordinator | Cả hai thấy cùng chuyến, không phải hai chuyến khác nhau |
 | Nhân sự không được gán | Không thấy chuyến/không tải được tệp bằng ID đoán |
-| Ack từng người và retry | Chỉ ghi đúng trường của người đó; retry không tạo Trip/event mới |
-| Ack đồng thời | Concurrency conflict được refresh/retry đúng, không mất ack người trước |
-| Event sai/thiếu | Không mở được ack/tệp bằng sự kiện không hợp lệ |
+| Task tự động | Cả hai người thấy task ngay sau confirm mà không POST thêm bước nào |
+| API ack đã gỡ | POST endpoint ack cũ trả 404 và không có trong Swagger |
+| Event sai/thiếu | Không mở được tệp bằng sự kiện không hợp lệ |
 | Hồ sơ baseline | Specialist đúng người được tải; Coordinator không có quyền endpoint baseline |
 | PDF bị đổi bytes | Bị lỗi kiểm tra integrity, không trả PDF giả là bản đã ký |
-| Flow 2 cập nhật kế hoạch | Không xóa assignment/ack/event và không ảnh hưởng phần Flow 3 ngoài quy tắc thống nhất |
+| Flow 2 cập nhật kế hoạch | Không xóa assignment/event và không ảnh hưởng phần Flow 3 ngoài quy tắc thống nhất |
 | Trip sang trạng thái thực thi | Queue Flow 1 đóng theo guard hiện hành; API Flow 2/3 vẫn phục vụ đúng người theo thiết kế giai đoạn sau |
 | Request cùng ID bị xử lý lặp | Không phát sinh chuyến trùng |
 
@@ -213,7 +202,7 @@ Các lỗi expected 400/401/403/409 là kết quả cần assert theo từng ca,
 
 | File/thư mục | Vai trò |
 |---|---|
-| backend/Application/Services/Flow1/Relational/RelationalDeployment.cs | Released guard, confirm, queue, ack, PDF/ảnh/hộ chiếu |
+| backend/Application/Services/Flow1/Relational/RelationalDeployment.cs | Released guard, confirm, queue tự động, PDF/ảnh/hộ chiếu |
 | backend/Application/Services/Flow1/Relational/RelationalRequestDocuments.cs | Hồ sơ baseline và OperationsDocumentAsync |
 | backend/Application/Services/Flow1/Relational/RelationalContracts.cs | Ký và liên kết hợp đồng/chuyến |
 | backend/WebApi/Controllers/Flow1/Relational/Flow1Controllers.cs | Route và authorization thật |
@@ -232,3 +221,5 @@ Tài liệu backend/FLOW* là báo cáo local đang bị ignore, không mặc đ
 SQL 002 hiện thêm bảng COST_RATE chứa 10 định mức VND. COST_ITEM vẫn tám cột cũ; Flow 1 lưu năm dòng kế hoạch mỗi hợp đồng với SubcodeName PLANNED_TRANSPORT/PLANNED_CREW/PLANNED_PERMIT/PLANNED_VET/PLANNED_INSURANCE. CategoryName tương ứng là TRANSPORT/CREW/PERMIT/VET/INSURANCE; Bearer=CT, CurrencyCode=VND, TotalMoney là số Manager chốt.
 
 Flow 2/3 không xóa hoặc cập nhật đè năm mã đó để lưu chi phí phát sinh. Dùng mã riêng và lọc rõ khi tổng hợp; không SUM toàn COST_ITEM rồi gọi đó là giá hợp đồng. TổngQuotedPrice/tiền cọc hiện hành vẫn lấy từ CONTRACT/INVOICE. Không cần thêm cột RecordType/CostGroup cho đợt này. Bảo hiểm 0,5% là giả định đồ án; không tự áp dụng như báo giá hãng bảo hiểm hoặc thay đổi trách nhiệm chi trả của flow sau.
+
+Cập nhật bỏ ack: SQL 002 bỏ RoutingAcknowledgedBy/AtUtc và DocumentsAcknowledgedBy/AtUtc cùng hai CHECK tương ứng. Giữ AssignedSpecialistId/AssignedCoordinatorId, DeploymentStatus và HandoffEventId. Không tự ghi xác nhận giả cho nhân sự.

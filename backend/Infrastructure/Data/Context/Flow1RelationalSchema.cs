@@ -11,6 +11,10 @@ public static class Flow1RelationalSchema
           AND COL_LENGTH('dbo.CONTRACT','RefundStatus') IS NOT NULL
           AND COL_LENGTH('dbo.TRIP_PLAN','AssignedSpecialistId') IS NOT NULL
           AND COL_LENGTH('dbo.TRIP_PLAN','AssignedCoordinatorId') IS NOT NULL
+          AND COL_LENGTH('dbo.TRIP_PLAN','RoutingAcknowledgedBy') IS NULL
+          AND COL_LENGTH('dbo.TRIP_PLAN','RoutingAcknowledgedAtUtc') IS NULL
+          AND COL_LENGTH('dbo.TRIP_PLAN','DocumentsAcknowledgedBy') IS NULL
+          AND COL_LENGTH('dbo.TRIP_PLAN','DocumentsAcknowledgedAtUtc') IS NULL
           AND EXISTS(SELECT 1 FROM sys.extended_properties WHERE class=0 AND name=N'Flow1.FinalWorkflow' AND CONVERT(nvarchar(100),value)=N'deposit-before-signing-v1')
           AND (SELECT COUNT(*) FROM sys.foreign_keys WHERE name IN (N'FK_F1_Specialist',N'FK_F1_Coordinator') AND is_disabled=0 AND is_not_trusted=0)=2
           AND (SELECT COUNT(*) FROM sys.check_constraints WHERE name IN (N'CK_F1Final_Feedback',N'CK_F1Final_Refund',N'CK_F1Final_Handoff') AND is_disabled=0 AND is_not_trusted=0)=3
@@ -27,7 +31,7 @@ public static class Flow1RelationalSchema
           AND NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name LIKE N'CK_F1R[_]%')
           AND (SELECT COUNT(*) FROM sys.check_constraints c JOIN sys.extended_properties e ON e.class=1 AND e.major_id=c.object_id AND e.minor_id=0 AND e.name=N'Flow1SimpleGuardFingerprint'
             WHERE c.name LIKE N'CK_F1S[_]%' AND c.is_disabled=0 AND c.is_not_trusted=0
-              AND RIGHT(CONVERT(nvarchar(129),e.value),64)=CONVERT(nvarchar(64),HASHBYTES('SHA2_256',c.definition),2))=25
+              AND RIGHT(CONVERT(nvarchar(129),e.value),64)=CONVERT(nvarchar(64),HASHBYTES('SHA2_256',c.definition),2))=23
           AND NOT EXISTS(
             SELECT 1 FROM (VALUES
               (OBJECT_ID('dbo.TRIP_PLAN'),N'UX_TRIP_PLAN_RequestID',N'RequestID',1,N''),

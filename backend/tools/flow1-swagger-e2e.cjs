@@ -61,7 +61,7 @@ async function main(){
  c=await call('customer','GET',`/api/customer/contracts/${c.contractId}`);check(c.status==='PENDING_SIGNATURE'&&!c.trip,'Payment activated before signing');await call('customer','POST',`/api/customer/contracts/${c.contractId}/otp`,{version:c.version,pdfSha256:c.pdfSha256});check(/^\d{6}$/.test(deliveredCode),'RAM SMTP did not receive OTP');c=await call('customer','GET',`/api/customer/contracts/${c.contractId}`);c=await call('customer','POST',`/api/customer/contracts/${c.contractId}/sign`,{version:c.version,pdfSha256:c.pdfSha256,otp:deliveredCode});deliveredCode='';check(c.status==='EFFECTIVE'&&c.trip,'Signing failed to activate');
  await call('manager','GET','/api/manager/staff/operational');c=await call('manager','POST',`/api/manager/contracts/${c.contractId}/deployment/confirm`,{version:c.trip.version,reason:'Ready for assigned staff',assignedSpecialistId:'specialist',assignedCoordinatorId:'coordinator'});
  check((await call('coordinator','GET','/api/operations/flow1/trips')).length===1,'Assigned queue missing');check((await call('coordinator2','GET','/api/operations/flow1/trips')).length===0,'Unassigned queue leaked');await call('specialist2','GET',`/api/operations/flow1/trips/${c.trip.tripId}/pdf?eventId=${c.trip.eventId}`,undefined,403);
- await call('coordinator','POST',`/api/operations/flow1/trips/${c.trip.tripId}/ack`,{version:c.trip.version,eventId:c.trip.eventId});await call('customer','GET','/api/flow1/notifications');await call('customer','GET',`/api/customer/payments/${session.paymentId}/status`);
+ await call('coordinator','POST',`/api/operations/flow1/trips/${c.trip.tripId}/ack`,{},404);await call('customer','GET','/api/flow1/notifications');await call('customer','GET',`/api/customer/payments/${session.paymentId}/status`);
  // Additional request/feedback/cancellation branches use the same horse on disjoint future dates.
  await call('customer','GET',`/api/customer/requests/${r.requestId}`);
  await call('manager','GET',`/api/manager/requests/${r.requestId}`);
@@ -72,7 +72,7 @@ async function main(){
  await call('specialist','GET',`/api/operations/flow1/trips/${c.trip.tripId}/pdf?eventId=${c.trip.eventId}`);
  await call('specialist','GET',`/api/operations/flow1/trips/${c.trip.tripId}/horses/${horse.horseId}/files/passport?eventId=${c.trip.eventId}`);
  const handoff=(await call('specialist','GET','/api/operations/flow1/trips'))[0];
- await call('specialist','POST',`/api/operations/flow1/trips/${c.trip.tripId}/ack`,{version:handoff.trip.version,eventId:handoff.trip.eventId});
+ check(handoff.trip.assignedSpecialistId==='specialist','Specialist must receive the assigned task immediately');
  const notices=await call('customer','GET','/api/flow1/notifications');check(notices.length>0,'No customer notices');
  await call('customer','POST',`/api/flow1/notifications/${notices[0].id}/read`);
  async function newRequest(offset,key){const d=new Date(+dep+offset*86400000),e=new Date(+d+86400000);return await call('customer','POST','/api/customer/requests',{trip:{...trip,desiredDepartureDate:new Date(+d+7*3600000).toISOString().slice(0,10)},departureAt:d.toISOString(),deliveryAt:e.toISOString(),purpose:'Race',pickupContact:{name:'Sender',phone:'0900000000'},receiver:{name:'Receiver',phone:'0900000001'},horses:[{horseId:horse.horseId,version:horse.version}]},200,key);}

@@ -188,7 +188,7 @@ public sealed class FinalWorkflowTests
         c=await f.Service.DeploymentAsync(c.ContractId,"manager","confirm",new(c.Trip!.Version,"Ready",AssignedSpecialistId:"docs",AssignedCoordinatorId:"route"),default);
         Assert.Single(await f.Service.OperationsAsync("route",default));Assert.Empty(await f.Service.OperationsAsync("route2",default));
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.OperationsPdfAsync(c.Trip!.TripId,"route2",c.Trip.EventId!,default));
-        await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.AckAsync(c.Trip!.TripId,"docs2",new(c.Trip.Version,EventId:c.Trip.EventId),default));
+        Assert.Empty(await f.Service.OperationsAsync("docs2",default));
         Assert.Equal(2,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='FLOW1_HANDOFF';"));
         var old=c.Trip!;
         foreach(var action in new[]{"hold","resume"})
@@ -233,7 +233,7 @@ public sealed class FinalWorkflowTests
         foreach(var operation in new[]{"hold","resume"})
             Assert.Equal(HttpStatusCode.NotFound,(await manager.PostAsJsonAsync($"/api/manager/contracts/unused/deployment/{operation}",new FlowAction("unused","Unsupported"))).StatusCode);
         Assert.True(Example("/api/manager/contracts/{id}/cancellation/{operation}").TryGetProperty("target",out _));
-        Assert.True(Example("/api/operations/flow1/trips/{id}/ack").TryGetProperty("eventId",out _));
+        Assert.DoesNotContain(paths.EnumerateObject(),p=>p.Name.EndsWith("/ack",StringComparison.Ordinal));
         var revisionExample=Example("/api/customer/requests/{id}/revision");
         Assert.True(revisionExample.TryGetProperty("version",out _));
         Assert.True(revisionExample.TryGetProperty("input",out _));

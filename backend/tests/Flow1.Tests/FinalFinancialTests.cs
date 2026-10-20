@@ -17,7 +17,7 @@ public sealed class FinalFinancialTests
         Assert.NotEqual("CANCELLED",c.Status);
     }
     [LocalSqlFact]
-    public async Task Excess_receipt_after_signing_preserves_handoff_acknowledgement_and_exactly_one_trip()
+    public async Task Excess_receipt_after_signing_preserves_assignment_and_exactly_one_trip()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();var old=await f.Session(c);f.Time.Value=f.Time.Value.AddMinutes(16);var current=await f.Session(c,"second-attempt-key");
         await f.Service.IpnAsync(f.Callback(current,"2222"),default);c=await f.Service.ContractAsync(c.ContractId,"owner",false,default);
@@ -25,10 +25,9 @@ public sealed class FinalFinancialTests
         c=await f.Service.SignAsync(c.ContractId,"owner",new(c.Version,Otp:f.Email.Code,PdfSha256:c.PdfSha256),default);
         c=await f.Service.DeploymentAsync(c.ContractId,"manager","confirm",new(c.Trip!.Version,"Ready",AssignedSpecialistId:"docs",AssignedCoordinatorId:"route"),default);
         var released=c.Trip!;
-        await f.Service.AckAsync(released.TripId,"route",new(released.Version,EventId:released.EventId),default);
         await f.Service.IpnAsync(f.Callback(old,"1111"),default);c=await f.Service.ContractAsync(c.ContractId,"manager",true,default);
         Assert.Equal(80000000,c.PaidAmount);Assert.Contains(c.Payments,p=>p.ReviewRequired);
-        Assert.Equal("CONFIRMED",c.Trip!.DeploymentStatus);Assert.Equal(released.EventId,c.Trip.EventId);Assert.Equal("route",c.Trip.RoutingAcknowledgedBy);
+        Assert.Equal("CONFIRMED",c.Trip!.DeploymentStatus);Assert.Equal(released.EventId,c.Trip.EventId);Assert.Equal("route",c.Trip.AssignedCoordinatorId);
         Assert.Single(await f.Service.OperationsAsync("route",default));
         await f.Service.OperationsPdfAsync(released.TripId,"route",released.EventId!,default);
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));

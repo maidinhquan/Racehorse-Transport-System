@@ -166,11 +166,7 @@ BEGIN TRY
 (N''TRIP_PLAN'',N''DeploymentReason'',N''nvarchar(1000)'',N''nvarchar'',2000,0,0,1,NULL),
 (N''TRIP_PLAN'',N''DeploymentBy'',N''varchar(50)'',N''varchar'',50,0,0,1,NULL),
 (N''TRIP_PLAN'',N''DeploymentAtUtc'',N''datetime2(7)'',N''datetime2'',8,0,7,1,NULL),
-(N''TRIP_PLAN'',N''HandoffEventId'',N''varchar(50)'',N''varchar'',50,0,0,1,NULL),
-(N''TRIP_PLAN'',N''RoutingAcknowledgedBy'',N''varchar(50)'',N''varchar'',50,0,0,1,NULL),
-(N''TRIP_PLAN'',N''RoutingAcknowledgedAtUtc'',N''datetime2(7)'',N''datetime2'',8,0,7,1,NULL),
-(N''TRIP_PLAN'',N''DocumentsAcknowledgedBy'',N''varchar(50)'',N''varchar'',50,0,0,1,NULL),
-(N''TRIP_PLAN'',N''DocumentsAcknowledgedAtUtc'',N''datetime2(7)'',N''datetime2'',8,0,7,1,NULL);
+(N''TRIP_PLAN'',N''HandoffEventId'',N''varchar(50)'',N''varchar'',50,0,0,1,NULL);
  DECLARE @t sysname,@c sysname,@d nvarchar(100),@b sysname,@l int,@p int,@s int,@n bit,@v nvarchar(20),@sql nvarchar(max),@def nvarchar(max),@message nvarchar(2048);
  DECLARE cols CURSOR LOCAL FAST_FORWARD FOR SELECT T,C,D,B,L,P,S,N,V FROM @columns;
  OPEN cols; FETCH NEXT FROM cols INTO @t,@c,@d,@b,@l,@p,@s,@n,@v;
@@ -237,9 +233,7 @@ BEGIN TRY
 (N''PAYMENT'',N''CK_F1S_PAYMENT_Received'',N''VnpayReceivedAmount IS NULL OR (VnpayReceivedAmount>0 AND VnpayReceivedAmount=ROUND(VnpayReceivedAmount,0))''),
 (N''PAYMENT'',N''CK_F1S_PAYMENT_Review'',N''FinancialReviewRequired=0 OR FinancialReviewReason IS NOT NULL''),
 (N''PAYMENT'',N''CK_F1S_PAYMENT_Reviewer'',N''(FinancialReviewedBy IS NULL AND FinancialReviewedAtUtc IS NULL) OR (FinancialReviewedBy IS NOT NULL AND FinancialReviewedAtUtc IS NOT NULL)''),
-(N''TRIP_PLAN'',N''CK_F1S_TRIP_PLAN_Deployment'',N''DeploymentStatus IS NULL OR (DeploymentStatus IN (''''PENDING'''',''''CONFIRMED'''',''''ON_HOLD'''') AND DeploymentReason IS NOT NULL AND DeploymentBy IS NOT NULL AND DeploymentAtUtc IS NOT NULL AND ((DeploymentStatus=''''CONFIRMED'''' AND HandoffEventId IS NOT NULL) OR (DeploymentStatus IN (''''PENDING'''',''''ON_HOLD'''') AND HandoffEventId IS NULL)))''),
-(N''TRIP_PLAN'',N''CK_F1S_TRIP_PLAN_RoutingAck'',N''(RoutingAcknowledgedBy IS NULL AND RoutingAcknowledgedAtUtc IS NULL) OR (RoutingAcknowledgedBy IS NOT NULL AND RoutingAcknowledgedAtUtc IS NOT NULL AND DeploymentStatus IS NOT NULL AND DeploymentStatus=''''CONFIRMED'''' AND HandoffEventId IS NOT NULL)''),
-(N''TRIP_PLAN'',N''CK_F1S_TRIP_PLAN_DocumentsAck'',N''(DocumentsAcknowledgedBy IS NULL AND DocumentsAcknowledgedAtUtc IS NULL) OR (DocumentsAcknowledgedBy IS NOT NULL AND DocumentsAcknowledgedAtUtc IS NOT NULL AND DeploymentStatus IS NOT NULL AND DeploymentStatus=''''CONFIRMED'''' AND HandoffEventId IS NOT NULL)'');
+(N''TRIP_PLAN'',N''CK_F1S_TRIP_PLAN_Deployment'',N''DeploymentStatus IS NULL OR (DeploymentStatus IN (''''PENDING'''',''''CONFIRMED'''',''''ON_HOLD'''') AND DeploymentReason IS NOT NULL AND DeploymentBy IS NOT NULL AND DeploymentAtUtc IS NOT NULL AND ((DeploymentStatus=''''CONFIRMED'''' AND HandoffEventId IS NOT NULL) OR (DeploymentStatus IN (''''PENDING'''',''''ON_HOLD'''') AND HandoffEventId IS NULL)))'');
  DECLARE @name sysname,@body nvarchar(max),@actual nvarchar(max),@fingerprint nvarchar(129),@recorded nvarchar(129);
  DECLARE chk CURSOR LOCAL FAST_FORWARD FOR SELECT T,N,D FROM @checks;
  OPEN chk; FETCH NEXT FROM chk INTO @t,@name,@body;
@@ -430,6 +424,19 @@ IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name=''CK_F1Final_Refund
  EXEC sys.sp_executesql N''ALTER TABLE dbo.CONTRACT WITH CHECK ADD CONSTRAINT CK_F1Final_Refund CHECK
  ((RefundStatus IS NULL AND RefundAmount IS NULL AND RefundReference IS NULL) OR (RefundStatus IN (''''REQUESTED'''',''''PROCESSING'''',''''COMPLETED'''') AND RefundAmount>0 AND (RefundStatus<>''''COMPLETED'''' OR RefundReference IS NOT NULL)));'';
 COMMIT;';
+    -- Retire staff acknowledgement: assignment itself grants the task.
+    IF EXISTS(SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID('dbo.TRIP_PLAN') AND name='CK_F1S_TRIP_PLAN_RoutingAck')
+        ALTER TABLE dbo.TRIP_PLAN DROP CONSTRAINT CK_F1S_TRIP_PLAN_RoutingAck;
+    IF EXISTS(SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID('dbo.TRIP_PLAN') AND name='CK_F1S_TRIP_PLAN_DocumentsAck')
+        ALTER TABLE dbo.TRIP_PLAN DROP CONSTRAINT CK_F1S_TRIP_PLAN_DocumentsAck;
+    IF COL_LENGTH('dbo.TRIP_PLAN','RoutingAcknowledgedBy') IS NOT NULL
+        ALTER TABLE dbo.TRIP_PLAN DROP COLUMN RoutingAcknowledgedBy;
+    IF COL_LENGTH('dbo.TRIP_PLAN','RoutingAcknowledgedAtUtc') IS NOT NULL
+        ALTER TABLE dbo.TRIP_PLAN DROP COLUMN RoutingAcknowledgedAtUtc;
+    IF COL_LENGTH('dbo.TRIP_PLAN','DocumentsAcknowledgedBy') IS NOT NULL
+        ALTER TABLE dbo.TRIP_PLAN DROP COLUMN DocumentsAcknowledgedBy;
+    IF COL_LENGTH('dbo.TRIP_PLAN','DocumentsAcknowledgedAtUtc') IS NOT NULL
+        ALTER TABLE dbo.TRIP_PLAN DROP COLUMN DocumentsAcknowledgedAtUtc;
     -- Single new pricing table. COST_ITEM keeps its original eight columns.
     IF OBJECT_ID(N'dbo.COST_RATE',N'U') IS NULL
     BEGIN
