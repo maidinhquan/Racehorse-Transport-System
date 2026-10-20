@@ -11,36 +11,28 @@ public sealed partial class RelationalFlow1Service
     {
         var u=await Actor(actor,null,ct); Require(Role(u) is UserRoles.FleetRouteCoordinator or UserRoles.TransportSpecialist,"FORBIDDEN","Operational role required.");
         var trip=(await db.QueryAsync<FlowTrip>(x=>x.RequestID==request,ct)).SingleOrDefault();
-        Require(trip is not null && trip.DeploymentStatus=="CONFIRMED" && trip.HandoffEventId is not null && trip.Status is "PLANNING" or "READY_TO_DEPART" && (expectedEvent is null || expectedEvent==trip.HandoffEventId),"HANDOFF_CLOSED","Handoff is held, changed or unavailable.");
+        Require(trip is not null && trip.DeploymentStatus=="CONFIRMED" && trip.HandoffEventId is not null && trip.Status is "PLANNING" or "READY_TO_DEPART" && (expectedEvent is null || expectedEvent==trip.HandoffEventId),"HANDOFF_CLOSED","Handoff is unavailable or the event does not match.");
         var c=(await db.QueryAsync<FlowContract>(x=>x.TripID==trip!.TripID && x.IsCurrent,ct)).SingleOrDefault();
         Require(Role(u)==UserRoles.TransportSpecialist ? trip!.AssignedSpecialistId==actor : trip!.AssignedCoordinatorId==actor,"FORBIDDEN","This trip is assigned to another staff member.");
         Require(c is not null && c.ContractStatus=="EFFECTIVE" && c.SignedAt is not null,"HANDOFF_CLOSED","Activated signed terms required.");
-        var inv=await Invoice(c!,ct); Require(inv.PaidAmount>=inv.TotalPayableAmount && !(await Payments(inv,ct)).Any(p=>p.FinancialReviewRequired),"FINANCIAL_REVIEW_REQUIRED","Operational release is awaiting financial review.");
         return(trip!,c!,(await db.FindAsync<FlowRequest>(request,ct))!);
     }
     public Task<FlowContractCard> DeploymentAsync(string id,string actor,string action,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
-        var(c,r)=await Contract(id,actor,true,t); var inv=await Invoice(c,t);
+        Require(action=="confirm","DEPLOYMENT_CLOSED","Only the initial handoff confirmation is supported.");
+        var(c,r)=await Contract(id,actor,true,t);
         Require(c.IsCurrent && c.ContractStatus=="EFFECTIVE" && c.TripID is not null && r.Status=="ACTIVATED","DEPLOYMENT_CLOSED","Trip must be activated first.");
         var trip=(await db.FindAsync<FlowTrip>(c.TripID!,t))!; Check(trip.RowVersion,i.Version); Text(i.Reason);
-        Require(trip.Status is "PLANNING" or "READY_TO_DEPART","DEPARTURE_ALREADY_STARTED","Cannot roll back a departed Trip.");
-        if(action=="confirm") {
+        Require(trip.Status=="PLANNING" && trip.DeploymentStatus=="PENDING","DEPLOYMENT_CLOSED","Only an activated trip awaiting its first assignment may be handed off.");
             var specialist=await db.FindAsync<FlowUser>(i.AssignedSpecialistId??"",t);
             var coordinator=await db.FindAsync<FlowUser>(i.AssignedCoordinatorId??"",t);
             if(specialist is not {IsActive:true} || Role(specialist)!=UserRoles.TransportSpecialist || coordinator is not {IsActive:true} || Role(coordinator)!=UserRoles.FleetRouteCoordinator)
                 throw Error("Choose an active Specialist and Coordinator with the correct roles.","VALIDATION_ERROR",400);
             Require((trip.AssignedSpecialistId is null || trip.AssignedSpecialistId==specialist.UserID) && (trip.AssignedCoordinatorId is null || trip.AssignedCoordinatorId==coordinator.UserID),"ASSIGNMENT_FIXED","Assigned staff cannot be replaced.");
-            Require(trip.DeploymentStatus=="PENDING" && trip.Status=="PLANNING" && Now<=Cutoff(r) && inv.PaidAmount>=inv.TotalPayableAmount && !(await Payments(inv,t)).Any(p=>p.FinancialReviewRequired),"DEPLOYMENT_CLOSED","Release requires preparation time, deposit and no financial hold.");
             trip.DeploymentStatus="CONFIRMED"; trip.HandoffEventId=Id("event",trip.TripID,Guid.NewGuid().ToString("N"));
             trip.AssignedSpecialistId=specialist.UserID;trip.AssignedCoordinatorId=coordinator.UserID;
             foreach(var user in new[]{specialist,coordinator})
                 await Notify(user.UserID,trip.HandoffEventId,"FLOW1_HANDOFF","Bạn được phân công phụ trách chuyến",
                     "Manager đã giao chuyến "+trip.TripID+". Mở hộp bàn giao để xem hợp đồng và hồ sơ hiện hành.",t);
-        }
-        else {
-            Require(action=="hold" && trip.DeploymentStatus!="ON_HOLD" || action=="resume" && trip.DeploymentStatus=="ON_HOLD","DEPLOYMENT_CLOSED","Invalid operational transition.");
-            trip.DeploymentStatus=action=="hold"?"ON_HOLD":"PENDING"; trip.HandoffEventId=null; trip.Status="PLANNING";
-        }
-        trip.RoutingAcknowledgedBy=null; trip.RoutingAcknowledgedAtUtc=null; trip.DocumentsAcknowledgedBy=null; trip.DocumentsAcknowledgedAtUtc=null;
         trip.DeploymentReason=Text(i.Reason); trip.DeploymentBy=actor; trip.DeploymentAtUtc=Now; await db.SaveAsync(t); return await Card(c,t);
     },ct);
     public Task<IReadOnlyList<FlowHandoff>> OperationsAsync(string actor,CancellationToken ct)=>db.RunAsync<IReadOnlyList<FlowHandoff>>(async t=>{

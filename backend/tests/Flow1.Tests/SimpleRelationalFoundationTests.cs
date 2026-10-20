@@ -34,7 +34,7 @@ public sealed class SimpleRelationalFoundationTests
         Assert.Equal(tables,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;"));
         Assert.Equal(columns,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;"));
         var after=(await ForeignKeys(db)).Split('|');Assert.All(before,link=>Assert.Contains(link,after));
-        Assert.Equal(before.Length+4,after.Length);
+        Assert.Equal(before.Length+3,after.Length);
         Assert.Equal(0,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE name IN ('Flow1StateJson','Flow1StateVersion','RelationalReady','DocumentRevision');"));
         Assert.Equal(5,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE name='RowVersion' AND system_type_id=189 AND is_nullable=0;"));
         Assert.Equal(25,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.check_constraints WHERE name LIKE 'CK_F1S[_]%' AND is_disabled=0 AND is_not_trusted=0;"));
@@ -125,7 +125,7 @@ public sealed class SimpleRelationalFoundationTests
             UPDATE TRIP_PLAN SET DeploymentStatus='CONFIRMED',DeploymentReason=N'Confirm',DeploymentBy='manager',DeploymentAtUtc='2026-10-19',HandoffEventId='event-one',RoutingAcknowledgedBy='coordinator',RoutingAcknowledgedAtUtc='2026-10-19';
             """);
         Assert.Equal(547, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("UPDATE TRIP_PLAN SET DeploymentStatus='ON_HOLD',HandoffEventId=NULL;"))).Number);
-        await db.ExecuteAsync("UPDATE TRIP_PLAN SET DeploymentStatus='ON_HOLD',HandoffEventId=NULL,RoutingAcknowledgedBy=NULL,RoutingAcknowledgedAtUtc=NULL;");
+        Assert.Equal(547, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("UPDATE TRIP_PLAN SET DeploymentStatus='ON_HOLD',HandoffEventId=NULL,RoutingAcknowledgedBy=NULL,RoutingAcknowledgedAtUtc=NULL;"))).Number);
         await db.ExecuteAsync("""
             BEGIN TRANSACTION;
             UPDATE CONTRACT SET DepositDeadline='2026-10-21',LastExtensionTarget='DEPOSIT',LastExtensionReason=N'Fixture',LastExtensionBy='manager',LastExtensionAtUtc='2026-10-19';

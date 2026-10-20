@@ -61,7 +61,10 @@ public sealed class RelationalHttpTests
         var r=await Post<FlowRequestCard>(customer,"/api/customer/requests",input,"http-request-key");
         Assert.NotNull(r.Input);Assert.Equal(input.PickupContact,r.Input.PickupContact);Assert.Equal("Fixture, not live maps",r.MapAttribution);
         r=await Post<FlowRequestCard>(manager,$"/api/manager/requests/{r.RequestId}/accept",new FlowAction(r.Version,"Accepted"));
-        var c=await Post<FlowContractCard>(manager,$"/api/manager/requests/{r.RequestId}/contracts",new FlowAction(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),"http-contract-key");
+        using var manager2=app.Client("manager2","LOGISTICS_MANAGER");
+        var shared=await Read<FlowRequestCard[]>(await manager2.GetAsync("/api/manager/requests"));
+        Assert.Contains(shared,x=>x.RequestId==r.RequestId);
+        var c=await Post<FlowContractCard>(manager2,$"/api/manager/requests/{r.RequestId}/contracts",new FlowAction(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),"http-contract-key");
         c=await Post<FlowContractCard>(manager,$"/api/manager/contracts/{c.ContractId}/publish",new FlowAction(c.Version,ClauseIds:[f.ClauseId]));
         Assert.Equal("no-store",(await customer.GetAsync($"/api/customer/contracts/{c.ContractId}/pdf")).Headers.CacheControl?.ToString());
         var session=await Post<JsonElement>(customer,$"/api/customer/contracts/{c.ContractId}/vnpay",new{},"http-payment-key");var payment=session.GetProperty("paymentId").GetString()!;
@@ -77,6 +80,8 @@ public sealed class RelationalHttpTests
         using var routing=app.Client("route","FLEET_ROUTE_COORDINATOR");var queue=await Read<FlowHandoff[]>(await routing.GetAsync("/api/operations/flow1/trips"));Assert.Single(queue);
         await Post<FlowHandoff>(routing,$"/api/operations/flow1/trips/{c.Trip!.TripId}/ack",new FlowAction(c.Trip.Version,EventId:c.Trip.EventId));
         Assert.Equal(HttpStatusCode.NotFound,(await manager.GetAsync($"/api/manager/requests/{r.RequestId}/info-requests")).StatusCode);
+        var swagger=await manager.GetFromJsonAsync<JsonElement>("/swagger/v1/swagger.json");
+        Assert.DoesNotContain(swagger.GetProperty("paths").EnumerateObject(),p=>p.Name.EndsWith("/claim",StringComparison.Ordinal));
         Assert.Equal(HttpStatusCode.NotFound,(await manager.PostAsJsonAsync($"/api/manager/contracts/{c.ContractId}/bank-proofs",new{})).StatusCode);
         using var other=app.Client("other");Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync($"/api/customer/contracts/{c.ContractId}")).StatusCode);
         using var anonymous=app.Client(null);Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.GetAsync("/api/customer/requests")).StatusCode);

@@ -34,18 +34,17 @@ public sealed class RelationalNotificationTests
     }
 
     [LocalSqlFact]
-    public async Task Operational_notifications_follow_explicit_confirm_and_do_not_release_held_handoffs()
+    public async Task Operational_notifications_are_sent_once_and_handoff_cannot_be_held_or_resumed()
     {
         await using var f = await RelationalFlow1Tests.Fixture.Create(); var c = await f.Signed();
         Assert.Equal(0, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='FLOW1_HANDOFF';"));
         c = await f.Service.ContractAsync(c.ContractId, "manager", true, default);
         c = await f.Service.DeploymentAsync(c.ContractId, "manager", "confirm", new(c.Trip!.Version, "Ready",AssignedSpecialistId:"docs",AssignedCoordinatorId:"route"), default);
         Assert.Equal(2, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='FLOW1_HANDOFF';"));
-        c = await f.Service.DeploymentAsync(c.ContractId, "manager", "hold", new(c.Trip!.Version, "Weather"), default);
-        Assert.Empty(await f.Service.OperationsAsync("route", default));
-        c = await f.Service.DeploymentAsync(c.ContractId, "manager", "resume", new(c.Trip!.Version, "Recheck"), default);
-        Assert.Empty(await f.Service.OperationsAsync("docs", default));
-        await f.Service.DeploymentAsync(c.ContractId, "manager", "confirm", new(c.Trip!.Version, "Ready again",AssignedSpecialistId:"docs",AssignedCoordinatorId:"route"), default);
-        Assert.Equal(4, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='FLOW1_HANDOFF';"));
+        foreach(var operation in new[]{"hold","resume"})
+            await Assert.ThrowsAsync<Application.Common.Exceptions.BusinessRuleException>(()=>f.Service.DeploymentAsync(c.ContractId,"manager",operation,new(c.Trip!.Version,"Unsupported"),default));
+        Assert.Single(await f.Service.OperationsAsync("route", default));
+        Assert.Single(await f.Service.OperationsAsync("docs", default));
+        Assert.Equal(2, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='FLOW1_HANDOFF';"));
     }
 }

@@ -33,7 +33,7 @@ public sealed class RelationalFlow1Tests
     internal sealed class Pdf(Files files) : IFlow1ContractDocumentGenerator
     {
         public ContractDocumentRequest? Last;public Func<Task>? DuringRender;
-        public async Task<ContractDocumentResult> GenerateAsync(ContractDocumentRequest r,CancellationToken ct=default) {Last=r;if(DuringRender is not null)await DuringRender();var k=await files.PutAsync(new(PublishedClauseSelection.Attach(Encoding.UTF8.GetBytes("%PDF-fixture-only "+r.FrozenSnapshot.GetRawText()),r.FrozenSnapshot.Deserialize<ContractPdfModel>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!.Clauses??[]),"c.pdf"),false,ct);return new(k[8..^4],k[8..^4],files.Values[k].Item1.Length);}
+        public async Task<ContractDocumentResult> GenerateAsync(ContractDocumentRequest r,CancellationToken ct=default) {Last=r;if(DuringRender is not null)await DuringRender();var model=r.FrozenSnapshot.Deserialize<ContractPdfModel>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!;var k=await files.PutAsync(new(PublishedClauseSelection.Attach(Encoding.UTF8.GetBytes("%PDF-fixture-only "+r.FrozenSnapshot.GetRawText()),model.Clauses??[],model.AdditionalClauses),"c.pdf"),false,ct);return new(k[8..^4],k[8..^4],files.Values[k].Item1.Length);}
     }
     internal sealed class Maps : IFlow1RoadRoutingProvider,IFlow1LocationVerifier
     {
@@ -61,7 +61,7 @@ public sealed class RelationalFlow1Tests
                 ('route2','fixture','FLEET_ROUTE_COORDINATOR','Other coordinator','route2@example.invalid'),
                 ('docs2','fixture','TRANSPORT_SPECIALIST','Other specialist','docs2@example.invalid');
                 """);
-            f.Service=f.NewService();f.ClauseId=(await f.Service.SaveClauseAsync(null,"manager",new("Điều khoản vận chuyển","Công ty vận chuyển theo lịch và điều kiện đã thỏa thuận."),default)).ClauseId;return f;
+            f.Service=f.NewService();f.ClauseId=RequiredContractClauses.Ids[0];await f.Service.SaveClauseAsync(f.ClauseId,"manager",new("Điều khoản vận chuyển","Công ty vận chuyển theo lịch và điều kiện đã thỏa thuận."),default);return f;
         }
         public RelationalFlow1Service NewService(IFlow1GatewayQuery? query=null,IFlow1CurrentFiles? currentFiles=null)
         {

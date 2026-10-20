@@ -18,13 +18,6 @@ public sealed partial class RelationalFlow1Service
         var(c,r)=await Contract(inv.ContractID,actor,false,t);return new{requestId=r.RequestID,contract=await Card(c,t)};
     },ct);
     private static void Flag(FlowPayment p,string reason) { p.FinancialReviewRequired=true; p.FinancialReviewReason=reason; p.FinancialReviewedAtUtc=null; p.FinancialReviewedBy=null; }
-    private async Task HoldFinancial(FlowContract c,CancellationToken ct)
-    {
-        if(c.TripID is null)return;var trip=await db.FindAsync<FlowTrip>(c.TripID,ct);
-        if(trip is null || trip.Status is not ("PLANNING" or "READY_TO_DEPART"))return;
-        trip.Status="PLANNING";trip.DeploymentStatus="ON_HOLD";trip.HandoffEventId=null;trip.RoutingAcknowledgedBy=null;trip.RoutingAcknowledgedAtUtc=null;trip.DocumentsAcknowledgedBy=null;trip.DocumentsAcknowledgedAtUtc=null;
-        trip.DeploymentReason="Financial review required";trip.DeploymentBy="SYSTEM";trip.DeploymentAtUtc=Now;
-    }
     private async Task Activate(FlowContract c,FlowRequest r,FlowInvoice inv,CancellationToken ct)
     {
         if(c.TripID is not null) {
@@ -70,15 +63,15 @@ public sealed partial class RelationalFlow1Service
             if(p.Status is "SUCCESS" or "REVIEW_REQUIRED") {
                 if(p.Status=="SUCCESS" && v.Status=="SUCCESS" && p.TransactionCode==v.ProviderTransactionId && p.Amount==v.Amount && p.PaymentDate==v.PaidAtUtc?.UtcDateTime) return new{RspCode="02",Message="Already confirmed"};
                 if(p.Status=="REVIEW_REQUIRED" && p.TransactionCode==v.ProviderTransactionId && p.VnpayReceivedAmount==v.Amount) return new{RspCode="02",Message="Already recorded for review"};
-                Flag(p,"Contradictory signed callback; retain original receipt and reconcile with VNPay."); await HoldFinancial(c,t); return new{RspCode="02",Message="Receipt retained; review required"};
+                Flag(p,"Contradictory signed callback; retain original receipt and reconcile with VNPay."); return new{RspCode="02",Message="Receipt retained; review required"};
             }
             var wasFailed=p.Status=="FAILED";
             p.VnpayResponseCode=v.ResponseCode; p.VnpayTransactionStatus=v.TransactionStatus; p.VnpayBankCode=v.BankCode;
             if(v.Status!="SUCCESS") { p.Status="FAILED"; return new{RspCode="00",Message="Failure recorded"}; }
             p.TransactionCode=v.ProviderTransactionId; p.VnpayReceivedAmount=v.Amount; p.PaymentDate=v.PaidAtUtc!.Value.UtcDateTime;
-            if(v.Amount!=p.Amount || v.Currency!="VND") {p.Status="REVIEW_REQUIRED"; Flag(p,"Signed callback amount differs from the requested VND amount; allocation blocked."); await HoldFinancial(c,t); return new{RspCode="04",Message="Amount differs; recorded for review"};}
+            if(v.Amount!=p.Amount || v.Currency!="VND") {p.Status="REVIEW_REQUIRED"; Flag(p,"Signed callback amount differs from the requested VND amount; allocation blocked."); return new{RspCode="04",Message="Amount differs; recorded for review"};}
             var duplicate=(await db.QueryAsync<FlowPayment>(x=>x.PaymentID!=p.PaymentID && x.VnpayTmnCode==p.VnpayTmnCode && x.TransactionCode==p.TransactionCode,t)).Any();
-            if(duplicate) {p.Status="REVIEW_REQUIRED"; Flag(p,"Provider transaction is already recorded on another attempt; do not allocate twice."); await HoldFinancial(c,t); return new{RspCode="02",Message="Transaction already recorded"};}
+            if(duplicate) {p.Status="REVIEW_REQUIRED"; Flag(p,"Provider transaction is already recorded on another attempt; do not allocate twice."); return new{RspCode="02",Message="Transaction already recorded"};}
             p.Status="SUCCESS";
             if(wasFailed || Now>c.DepositDeadline || v.PaidAtUtc.Value.UtcDateTime>c.DepositDeadline || v.PaidAtUtc.Value.UtcDateTime>p.VnpayExpiresAtUtc || v.PaidAtUtc.Value.UtcDateTime<p.VnpayCreatedAtUtc || !c.IsCurrent || c.ContractStatus is not ("AWAITING_DEPOSIT" or "PENDING_SIGNATURE" or "EFFECTIVE") || r.Status=="CANCELLED") Flag(p,"Late, previously failed or closed-contract payment; verified money retained for review.");
             var entries=await Payments(inv,t); // Includes the tracked current row.
@@ -87,7 +80,7 @@ public sealed partial class RelationalFlow1Service
             if(inv.PaidAmount>inv.TotalPayableAmount) Flag(p,"Verified payments exceed the required deposit; no automatic refund.");
             if(inv.TotalPayableAmount!=c.DepositAmount || inv.CurrencyCode!="VND" || c.CustomerID!=r.CustomerID || r.ExpectedDate is null || r.PreparationDays is null)
                 Flag(p,"Invoice or ownership differs from signed terms; verified money retained without activation.");
-            await DepositVerified(c,r,inv,t);if(entries.Any(x=>x.FinancialReviewRequired))await HoldFinancial(c,t);return new{RspCode="00",Message="Confirmed"};
+            await DepositVerified(c,r,inv,t);return new{RspCode="00",Message="Confirmed"};
         },ct);
     public async Task<FlowContractCard> QueryPaymentAsync(string id,string payment,string actor,FlowAction i,string ip,CancellationToken ct)
     {
@@ -109,7 +102,7 @@ public sealed partial class RelationalFlow1Service
             var(c,_)=await Contract(id,actor,true,t);var p=(await db.FindAsync<FlowPayment>(payment,t))!;Check(p.RowVersion,i.Version);
             if(result.State=="FAILED" && p.Status!="SUCCESS" && p.VnpayReceivedAmount is null) {
                 p.Status="FAILED";p.VnpayTransactionStatus="02";p.FinancialReviewRequired=false;p.FinancialReviewReason=Text(i.Reason);p.FinancialReviewedBy=actor;p.FinancialReviewedAtUtc=Now;
-            } else {Flag(p,result.State=="FAILED"?"Provider query conflicts with retained money; original evidence preserved.":"Provider query is unresolved; no absence of money assumed.");await HoldFinancial(c,t);}
+            } else {Flag(p,result.State=="FAILED"?"Provider query conflicts with retained money; original evidence preserved.":"Provider query is unresolved; no absence of money assumed.");}
             return 0;
         },ct);
         return await ContractAsync(id,actor,true,ct);
@@ -139,10 +132,9 @@ public sealed partial class RelationalFlow1Service
         var(c,r)=await Contract(id,actor,manager,t);Check(c.RowVersion,i.Version);var inv=await Invoice(c,t);
         Require(c.IsCurrent && c.SignedAt is null && c.TripID is null,"CANCELLATION_CLOSED","Cancellation is available before signing only.");
         if(!manager && action=="request"){
-            Require(r.AssignedManagerId is not null,"REQUEST_NOT_CLAIMED","A responsible Manager must be assigned before cancellation.");
             Require(c.CancellationStatus!="PENDING" && c.RefundStatus is null,"CANCELLATION_PENDING","A cancellation/refund is already open.");
             c.CancellationId=Id("cancel",id,Guid.NewGuid().ToString("N"));c.CancellationStatus="PENDING";c.CancellationReason=Text(i.Reason);c.CancellationRequestedAtUtc=Now;c.CancellationDecisionReason=null;c.CancellationDecidedBy=null;c.CancellationDecidedAtUtc=null;c.SignOtpHash=null;
-            await Notify(r.AssignedManagerId!,c.CancellationId,"CANCELLATION_REQUESTED","Khách hàng đề nghị hủy",c.CancellationReason,t);
+            await NotifyManagers(c.CancellationId,"CANCELLATION_REQUESTED","Khách hàng đề nghị hủy",c.CancellationReason,t);
         } else {
             Require(manager && c.CancellationId==i.CancellationId,"CANCELLATION_CHANGED","Use the current cancellation ID.");
             if(action is "refund-start" or "refund-complete"){

@@ -176,7 +176,7 @@ public sealed class RequestBaselineTests
         Assert.Equal(Medical.Bytes, (await f.Service.OperationsDocumentAsync(trip.TripId, document, "docs", trip.EventId!, default)).Bytes);
         await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.OperationsDocumentAsync(trip.TripId, document, "route", trip.EventId!, default));
         Assert.Equal(input.DeclaredValueUsd, (await f.Service.OperationsAsync("docs", default)).Single().DeclaredValueUsd);
-        await f.Service.DeploymentAsync(c.ContractId, "manager", "hold", new(trip.Version, "Hold"), default);
-        await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.OperationsDocumentAsync(trip.TripId, document, "docs", trip.EventId!, default));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.OperationsDocumentAsync(trip.TripId, document, "docs", "incorrect-event", default));
+        Assert.Equal(Medical.Bytes, (await f.Service.OperationsDocumentAsync(trip.TripId, document, "docs", trip.EventId!, default)).Bytes);
     }
 }

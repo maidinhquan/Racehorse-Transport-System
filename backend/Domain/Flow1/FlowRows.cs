@@ -41,10 +41,6 @@ public sealed class FlowHorse
 [Table("TRANSPORT_REQUEST")]
 public sealed class FlowRequest
 {
-    [Column("AssignedManagerId", TypeName = "varchar(50)")]
-    public string? AssignedManagerId { get; set; }
-    [Column("ReviewedAtUtc", TypeName = "datetime2(7)")]
-    public DateTime? ReviewedAtUtc { get; set; }
     [Column("SubmissionKeyHash", TypeName = "varchar(64)")]
     public string? SubmissionKeyHash { get; set; }
     [Column("DeclaredValueUsd", TypeName = "decimal(18,2)")]

@@ -12,6 +12,46 @@ namespace Flow1.Tests;
 
 public sealed class FinalWorkflowTests
 {
+    [LocalSqlFact]
+    public async Task Removed_decline_is_not_exposed_and_feedback_and_cancellation_remain_available()
+    {
+        await using var f=await Fixture.Create();var(_,c)=await f.Published();
+        using var app=new RelationalHttpFactory(f);using var customer=app.Client();
+        var response=await customer.PostAsJsonAsync($"/api/customer/contracts/{c.ContractId}/decline",new FlowAction(c.Version,"Old action"));
+        Assert.Equal(HttpStatusCode.NotFound,response.StatusCode);
+        var spec=await customer.GetFromJsonAsync<System.Text.Json.JsonElement>("/swagger/v1/swagger.json");
+        Assert.DoesNotContain(spec.GetProperty("paths").EnumerateObject(),p=>p.Name.EndsWith("/decline",StringComparison.Ordinal));
+        var denied=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.LifecycleAsync(c.ContractId,"owner",false,"decline",new(c.Version,"Old action"),default));
+        Assert.Equal("FORBIDDEN",denied.ErrorCode);
+        var unchanged=await f.Service.ContractAsync(c.ContractId,"owner",false,default);
+        Assert.Equal(c.Version,unchanged.Version);Assert.Equal("AWAITING_DEPOSIT",unchanged.Status);
+        Assert.Equal(c.PdfSha256,unchanged.PdfSha256);
+        c=await f.Service.FeedbackAsync(c.ContractId,"owner",new(c.Version,"Đề nghị giảm giá",["PRICE"]),default);
+        Assert.Equal("PENDING",c.FeedbackStatus);Assert.Equal("AWAITING_DEPOSIT",c.Status);
+        await f.Service.PdfAsync(c.ContractId,"owner",false,default);
+        c=await f.Service.RejectFeedbackAsync(c.ContractId,"manager",new(c.Version,"Giữ giá đã báo"),default);
+        c=await f.Service.CancellationAsync(c.ContractId,"owner",false,"request",new(c.Version,"Không tiếp tục vận chuyển"),default);
+        Assert.Equal("PENDING",c.CancellationStatus);
+        c=await f.Service.CancellationAsync(c.ContractId,"manager",true,"approve",new(c.Version,"Đồng ý hủy",CancellationId:c.CancellationId),default);
+        Assert.Equal("CANCELLED",c.Status);
+    }
+
+    [LocalSqlFact]
+    public async Task Consolidated_migration_removes_legacy_manager_ownership_and_preserves_requests()
+    {
+        await using var f=await Fixture.Create();var r=await f.Request();
+        await f.Db.ExecuteAsync("ALTER TABLE dbo.TRANSPORT_REQUEST ADD AssignedManagerId varchar(50) NULL, ReviewedAtUtc datetime2(7) NULL;");
+        await f.Db.ExecuteAsync("ALTER TABLE dbo.TRANSPORT_REQUEST WITH CHECK ADD CONSTRAINT FK_F1_Manager FOREIGN KEY(AssignedManagerId) REFERENCES dbo.[USER](UserID); UPDATE dbo.TRANSPORT_REQUEST SET AssignedManagerId='manager', ReviewedAtUtc='2026-10-19' WHERE Status='PENDING';");
+        var count=await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM dbo.TRANSPORT_REQUEST;");
+        await f.Db.ScriptAsync("002_flow1.sql");
+        await f.Db.ScriptAsync("002_flow1.sql");
+        Assert.Equal(count,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM dbo.TRANSPORT_REQUEST;"));
+        Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST') AND name='AssignedManagerId';"));
+        Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.foreign_keys WHERE name='FK_F1_Manager';"));
+        Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST') AND name='ReviewedAtUtc';"));
+        Assert.Equal(r.RequestId,(await f.Service.DetailAsync(r.RequestId,"manager2",true,default)).RequestId);
+    }
+
     private static async Task<FlowContractCard> Sign(Fixture f,FlowContractCard c)
     {
         await f.Service.SendOtpAsync(c.ContractId,"owner",new(c.Version,PdfSha256:c.PdfSha256),default);
@@ -35,16 +75,42 @@ public sealed class FinalWorkflowTests
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.LifecycleAsync(c.ContractId,"manager",true,"withdraw",new(c.Version,"Try changing signed terms"),default));
     }
     [LocalSqlFact]
-    public async Task First_manager_claim_is_atomic_fixed_and_reject_notice_contains_the_reason()
+    public async Task Managers_share_requests_without_claiming_and_stale_updates_still_fail()
     {
         await using var f=await Fixture.Create();var r=await f.Request();
-        var outcomes=await Task.WhenAll(new[]{"manager","manager2"}.Select(async a=>{try{await f.NewService().ClaimAsync(r.RequestId,a,new(r.Version),default);return a;}catch(BusinessRuleException){return null;}}));
-        var winner=Assert.Single(outcomes,x=>x is not null)!;var loser=winner=="manager"?"manager2":"manager";
-        r=await f.Service.DetailAsync(r.RequestId,"owner",false,default);Assert.Equal(winner,r.AssignedManagerId);
-        await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ReviewAsync(r.RequestId,loser,"reject",new(r.Version,"Not assigned"),default));
-        r=await f.Service.ReviewAsync(r.RequestId,winner,"reject",new(r.Version,"Không đủ thời gian chuẩn bị"),default);
-        Assert.NotNull(r.ReviewedAtUtc);Assert.Equal("REJECTED",r.Status);
+        var original=r.Version;
+        r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted"),default);
+        Assert.Contains(await f.Service.ListAsync("manager2",true,default),x=>x.RequestId==r.RequestId);
+        Assert.Equal(r.RequestId,(await f.Service.DetailAsync(r.RequestId,"manager2",true,default)).RequestId);
+        var stale=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ReviewAsync(r.RequestId,"manager2","reject",new(original,"Outdated"),default));
+        Assert.Equal("STALE_VERSION",stale.ErrorCode);
+        var c=await f.Service.DraftAsync(r.RequestId,"manager2","shared-manager-draft",new(r.Version,Price:100000000,PreparationDays:2),default);
+        c=await f.Service.PublishAsync(c.ContractId,"manager",new(c.Version,ClauseIds:[f.ClauseId]),default);
+        await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ContractAsync(c.ContractId,"other",false,default));
+        Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST') AND name='AssignedManagerId';"));
+    }
+    [LocalSqlFact]
+    public async Task Any_manager_can_reject_and_customer_receives_the_reason()
+    {
+        await using var f=await Fixture.Create();var r=await f.Request();
+        r=await f.Service.ReviewAsync(r.RequestId,"manager2","reject",new(r.Version,"Không đủ thời gian chuẩn bị"),default);
+        Assert.Equal("REJECTED",r.Status);
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='REQUEST_REJECTED' AND UserID='owner' AND Message=N'Không đủ thời gian chuẩn bị';"));
+    }
+    [LocalSqlFact]
+    public async Task Feedback_and_cancellation_notify_active_managers_and_can_be_handled_by_another_manager()
+    {
+        await using var f=await Fixture.Create();var(_,c)=await f.Published();
+        await f.Db.ExecuteAsync("INSERT [USER](UserID,PasswordHash,Role,FullName,IsActive) VALUES ('inactive-manager','fixture','LOGISTICS_MANAGER','Inactive',0);");
+        c=await f.Service.FeedbackAsync(c.ContractId,"owner",new(c.Version,"Đề nghị giảm giá",["PRICE"]),default);
+        Assert.Equal(2,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='CONTRACT_FEEDBACK' AND UserID IN ('manager','manager2');"));
+        Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='CONTRACT_FEEDBACK' AND UserID NOT IN ('manager','manager2');"));
+        c=await f.Service.RejectFeedbackAsync(c.ContractId,"manager2",new(c.Version,"Giữ giá đã báo"),default);
+        c=await f.Service.CancellationAsync(c.ContractId,"owner",false,"request",new(c.Version,"Không còn nhu cầu"),default);
+        Assert.Equal(2,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='CANCELLATION_REQUESTED' AND UserID IN ('manager','manager2');"));
+        Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='CANCELLATION_REQUESTED' AND UserID NOT IN ('manager','manager2');"));
+        c=await f.Service.CancellationAsync(c.ContractId,"manager2",true,"approve",new(c.Version,"Đồng ý hủy",CancellationId:c.CancellationId),default);
+        Assert.Equal("CANCELLED",c.Status);
     }
     [LocalSqlFact]
     public async Task Catalogue_edits_do_not_change_issued_pdf_and_reissue_overwrites_the_same_contract()
@@ -57,7 +123,7 @@ public sealed class FinalWorkflowTests
         Assert.NotEqual(oldHash,c.PdfSha256);Assert.Equal(95000000,c.TotalPrice);Assert.Equal(38000000,c.DepositAmount);
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));Assert.Equal(2,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='FLOW1_CONTRACT_READY';"));
         var clauses=PublishedClauseSelection.Read((await f.Service.PdfAsync(c.ContractId,"owner",false,default)).Bytes);
-        Assert.Equal("Nội dung mới chỉ cho hợp đồng phát hành sau.",clauses.Single().Content);
+        Assert.Equal(12,clauses.Count);Assert.Equal("Nội dung mới chỉ cho hợp đồng phát hành sau.",clauses.Single(x=>x.ClauseId==f.ClauseId).Content);
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables WHERE name='CONTRACT_CLAUSE';"));
     }
     [LocalSqlFact]
@@ -124,11 +190,13 @@ public sealed class FinalWorkflowTests
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.OperationsPdfAsync(c.Trip!.TripId,"route2",c.Trip.EventId!,default));
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.AckAsync(c.Trip!.TripId,"docs2",new(c.Trip.Version,EventId:c.Trip.EventId),default));
         Assert.Equal(2,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='FLOW1_HANDOFF';"));
-        var old=c.Trip!;c=await f.Service.DeploymentAsync(c.ContractId,"manager","hold",new(c.Trip!.Version,"Weather"),default);Assert.Empty(await f.Service.OperationsAsync("route",default));
-        c=await f.Service.DeploymentAsync(c.ContractId,"manager","resume",new(c.Trip!.Version,"Clear"),default);
+        var old=c.Trip!;
+        foreach(var action in new[]{"hold","resume"})
+            await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DeploymentAsync(c.ContractId,"manager",action,new(old.Version,"Unsupported"),default));
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DeploymentAsync(c.ContractId,"manager","confirm",new(c.Trip!.Version,"Replace",AssignedSpecialistId:"docs2",AssignedCoordinatorId:"route"),default));
-        c=await f.Service.DeploymentAsync(c.ContractId,"manager","confirm",new(c.Trip!.Version,"Ready",AssignedSpecialistId:"docs",AssignedCoordinatorId:"route"),default);
-        await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.OperationsPdfAsync(old.TripId,"route",old.EventId!,default));
+        await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DeploymentAsync(c.ContractId,"manager","confirm",new(c.Trip!.Version,"Again",AssignedSpecialistId:"docs",AssignedCoordinatorId:"route"),default));
+        await f.Service.OperationsPdfAsync(old.TripId,"route",old.EventId!,default);
+        Assert.Single(await f.Service.OperationsAsync("route",default));
     }
     [LocalSqlFact]
     public async Task Paid_unsigned_cancellation_requires_explicit_full_refund_confirmation()
@@ -160,10 +228,16 @@ public sealed class FinalWorkflowTests
         var json=await spec.Content.ReadAsStringAsync();Assert.Contains("/api/manager/clauses",json);Assert.Contains("/api/customer/contracts/{id}/feedback",json);Assert.Contains("/api/manager/staff/operational",json);
         using var document=System.Text.Json.JsonDocument.Parse(json);var paths=document.RootElement.GetProperty("paths");
         System.Text.Json.JsonElement Example(string path)=>paths.GetProperty(path).GetProperty("post").GetProperty("requestBody").GetProperty("content").GetProperty("application/json").GetProperty("example");
-        Assert.True(Example("/api/manager/contracts/{id}/deployment/{operation}").TryGetProperty("assignedSpecialistId",out _));
+        Assert.True(Example("/api/manager/contracts/{id}/deployment/confirm").TryGetProperty("assignedSpecialistId",out _));
+        Assert.DoesNotContain(paths.EnumerateObject(),p=>p.Name.Contains("/deployment/") && !p.Name.EndsWith("/confirm",StringComparison.Ordinal));
+        foreach(var operation in new[]{"hold","resume"})
+            Assert.Equal(HttpStatusCode.NotFound,(await manager.PostAsJsonAsync($"/api/manager/contracts/unused/deployment/{operation}",new FlowAction("unused","Unsupported"))).StatusCode);
         Assert.True(Example("/api/manager/contracts/{id}/cancellation/{operation}").TryGetProperty("target",out _));
         Assert.True(Example("/api/operations/flow1/trips/{id}/ack").TryGetProperty("eventId",out _));
-        Assert.False(paths.GetProperty("/api/customer/requests/{id}/revision").GetProperty("post").GetProperty("requestBody").GetProperty("content").GetProperty("application/json").TryGetProperty("example",out _));
+        var revisionExample=Example("/api/customer/requests/{id}/revision");
+        Assert.True(revisionExample.TryGetProperty("version",out _));
+        Assert.True(revisionExample.TryGetProperty("input",out _));
+        Assert.DoesNotContain(paths.EnumerateObject(),p=>p.Name.EndsWith("/claim",StringComparison.Ordinal));
         Assert.Equal(HttpStatusCode.Forbidden,(await customer.PostAsJsonAsync("/api/manager/clauses",new ClauseInput("x","y"))).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest,(await manager.PostAsync("/api/manager/clauses",new StringContent("{}",System.Text.Encoding.UTF8,"application/json"))).StatusCode);
         Assert.Equal(HttpStatusCode.OK,(await manager.GetAsync("/api/manager/staff/operational")).StatusCode);

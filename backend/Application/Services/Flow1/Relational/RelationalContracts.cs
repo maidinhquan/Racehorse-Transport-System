@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using Application.Common.Flow1;
 using Application.DTOs.Flow1;
 using Domain.Enums;
 using Domain.Flow1;
@@ -10,7 +11,7 @@ namespace Application.Services.Flow1.Relational;
 public sealed partial class RelationalFlow1Service
 {
     public Task<FlowContractCard> DraftAsync(string request,string actor,string key,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
-        Key(key); var r=await Request(request,actor,true,t); Require(r.AssignedManagerId==actor,"REQUEST_NOT_CLAIMED","Claim this request first."); var id=Id("c",request); var prior=await db.FindAsync<FlowContract>(id,t);
+        Key(key); var r=await Request(request,actor,true,t); var id=Id("c",request); var prior=await db.FindAsync<FlowContract>(id,t);
         if(prior is not null) { Require(prior.TotalQuotedPrice==i.Price && r.PreparationDays==i.PreparationDays,"IDEMPOTENCY_KEY_REUSED","A draft already exists with different terms; use the feedback/reissue operation."); return await Card(prior,t); }
         Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Request needs reviewed relational data before quoting.");
         Check(r.RowVersion,i.Version); Require(r.Status=="ACCEPTED","DRAFT_CLOSED","Accept the request first.");
@@ -29,14 +30,14 @@ public sealed partial class RelationalFlow1Service
         var snapshot=await db.RunAsync(async t=>{
             var(c,r)=await Contract(id,actor,true,t); Check(c.RowVersion,i.Version);
             Require(c.IsCurrent && c.ContractStatus=="DRAFT" && Now.AddHours(24)<=Cutoff(r),"PUBLICATION_CLOSED","Draft needs a complete 24-hour window before preparation.");
-            var selected=await SelectedClauses(i.ClauseIds,t); var publicationDeadline=Now.AddHours(24);
+            var selected=await SelectedClauses(i.ClauseIds,t); var additional=AdditionalTerms(i.AdditionalClauses); var publicationDeadline=Now.AddHours(24);
             var u=(await db.FindAsync<FlowUser>(c.CustomerID,t))!; var horses=new List<FlowHorse>();
             foreach(var l in await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==r.RequestID,t)) {
                 var h=(await db.FindAsync<FlowHorse>(l.HorseID,t))!; Require(h.OwnerID==c.CustomerID && h.PhotoUrl is not null && h.PassportScanUrl is not null,"HORSE_DOCUMENTS_REQUIRED","Horse documents missing.");
                 await files.ReadAsync(h.PhotoUrl!,t); await files.ReadAsync(h.PassportScanUrl!,t); horses.Add(h);
             }
             Require(horses.Count>0,"HORSE_DOCUMENTS_REQUIRED","Request has no horses.");
-            var model=PdfModel(c,r,u,horses) with { Clauses=selected }; model.Values["COMPLETION_DEADLINE"]=new DateTimeOffset(publicationDeadline,TimeSpan.Zero).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm 'UTC+07'",CultureInfo.InvariantCulture);
+            var model=PdfModel(c,r,u,horses) with { Clauses=selected,AdditionalClauses=additional }; model.Values["COMPLETION_DEADLINE"]=new DateTimeOffset(publicationDeadline,TimeSpan.Zero).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm 'UTC+07'",CultureInfo.InvariantCulture);
             return (Deadline:publicationDeadline,Version:Token(c.RowVersion),RequestVersion:Token(r.RowVersion),Email:u.Email,Name:u.FullName,Phone:u.Phone,Horses:horses.Select(h=>new{Id=h.HorseID,Version=Token(h.RowVersion)}).ToArray(),Clauses:selected,Model:model);
         },ct);
         var rendered=await pdf.GenerateAsync(new(id,1,"v3",JsonSerializer.SerializeToElement(snapshot.Model,new JsonSerializerOptions(JsonSerializerDefaults.Web))),ct);
@@ -143,6 +144,7 @@ public sealed partial class RelationalFlow1Service
         if(result.Error is not null) throw Error("Incorrect OTP.",result.Error,409); return result.Card;
     }
     public Task<FlowContractCard> LifecycleAsync(string id,string actor,bool manager,string action,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
+        Require(manager && action is "extend" or "withdraw" or "expire","FORBIDDEN","Only Managers may extend, withdraw or expire an unsigned contract.");
         var(c,r)=await Contract(id,actor,manager,t); Check(c.RowVersion,i.Version); var reason=Text(i.Reason);
         Require(c.IsCurrent && c.SignedAt is null,"CONTRACT_CLOSED","Only the current unsigned contract may be changed.");
         if(action=="extend") {
@@ -151,11 +153,9 @@ public sealed partial class RelationalFlow1Service
             c.LastExtensionTarget="SIGN";c.LastExtensionReason=reason;c.LastExtensionBy=actor;c.LastExtensionAtUtc=Now;
             var invoice=await Invoice(c,t);invoice.DueDate=c.DepositDeadline;c.SignOtpHash=null;
         } else {
-            Require(manager && action is "withdraw" or "expire" || !manager && action=="decline","FORBIDDEN","Action not allowed.");
             await RequireNoMoneyOrAttempts(c,t);
             if(action=="expire") Require(Now>=SignDue(c),"NOT_OVERDUE","Contract is not overdue.");
             c.ContractStatus="WITHDRAWN";c.SignOtpHash=null;r.Status="ACCEPTED";
-            if(!manager){c.CustomerFeedback=reason;c.FeedbackFields="CLAUSES";c.FeedbackStatus="PENDING";c.FeedbackAtUtc=Now;await Notify(r.AssignedManagerId!,id+":"+Token(c.RowVersion),"CONTRACT_FEEDBACK","Khách hàng góp ý hợp đồng",reason,t);}
         }
         await db.SaveAsync(t);return await Card(c,t);
     },ct);
@@ -163,4 +163,15 @@ public sealed partial class RelationalFlow1Service
         var(c,_)=await Contract(id,actor,manager,t); Require(c.PdfUrl is not null && (manager || c.ContractStatus is not ("DRAFT" or "WITHDRAWN")),"PDF_UNAVAILABLE","Contract is not published.");
         var file=await files.ReadAsync(c.PdfUrl!,t); Require(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(file.Bytes)).Equals(c.PdfSha256,StringComparison.OrdinalIgnoreCase),"FILE_INTEGRITY_ERROR","PDF differs from published hash."); return file;
     },ct);
+    private static FlowContractTerms ReadTerms(byte[] bytes)
+    {
+        try { return new(PublishedClauseSelection.Read(bytes),PublishedClauseSelection.ReadAdditional(bytes)); }
+        catch(Exception ex) when(ex is System.IO.InvalidDataException or FormatException or JsonException)
+        { throw Error("Issued PDF terms require explicit review; no current catalogue content was substituted.","DATA_REVIEW_REQUIRED",409); }
+    }
+    public async Task<FlowContractTerms> ContractTermsAsync(string id,string actor,bool manager,CancellationToken ct)
+    {
+        var pdf=await PdfAsync(id,actor,manager,ct);
+        return ReadTerms(pdf.Bytes);
+    }
 }

@@ -3,7 +3,8 @@
 -- On the legacy base schema apply 001 (registration, separately) then THIS file only.
 -- Supports legacy base, partial active migrations and the final pre-consolidation schema.
 -- Retired JSON/alternate profiles are not installed or deleted; incompatible profiles stop.
--- No includes, GO, startup migration, new application tables or seed/business fixtures.
+-- No includes, GO, startup migration, new application tables or business fixtures.
+-- Seeds only the twelve required catalogue clauses A-L; existing edits are retained.
 -- One outer transaction makes all stages atomic, including late validation failures.
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
@@ -340,15 +341,13 @@ IF NOT EXISTS(SELECT 1 FROM sys.indexes i WHERE i.object_id=OBJECT_ID(''dbo.TRAN
     THROW 51602,''Request submission index definition differs from schema008.'',1;
 COMMIT;';
 
-    -- Manager/staff assignment, feedback, refund and final cancellation guard
+    -- Shared Manager queue, staff assignment, feedback, refund and cancellation guard
     EXEC sys.sp_executesql N'SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 IF COL_LENGTH(''dbo.TRANSPORT_REQUEST'',''SubmissionKeyHash'') IS NULL
     THROW 51400,''Apply reviewed schema 003/006/007/008 first.'',1;
 DECLARE @columns TABLE(T sysname,C sysname,D nvarchar(100));
 INSERT @columns VALUES
-(''TRANSPORT_REQUEST'',''AssignedManagerId'',''varchar(50) NULL''),
-(''TRANSPORT_REQUEST'',''ReviewedAtUtc'',''datetime2(7) NULL''),
 (''CONTRACT'',''CustomerFeedback'',''nvarchar(2000) NULL''),
 (''CONTRACT'',''FeedbackFields'',''varchar(200) NULL''),
 (''CONTRACT'',''FeedbackStatus'',''varchar(20) NULL''),
@@ -385,7 +384,6 @@ IF EXISTS (SELECT 1 FROM @columns expected
 
 DECLARE @links TABLE(T sysname,C sysname,N sysname);
 INSERT @links VALUES
-(''TRANSPORT_REQUEST'',''AssignedManagerId'',''FK_F1_Manager''),
 (''TRIP_PLAN'',''AssignedSpecialistId'',''FK_F1_Specialist''),
 (''TRIP_PLAN'',''AssignedCoordinatorId'',''FK_F1_Coordinator'');
 DECLARE @n sysname;
@@ -398,6 +396,20 @@ WHILE @@FETCH_STATUS=0 BEGIN
  END;
  FETCH NEXT FROM fk INTO @t,@c,@n;
 END; CLOSE fk; DEALLOCATE fk;
+-- Requests are shared by all Logistics Managers; no ownership/review-time columns.
+-- Existing installations may still have the retired ownership FK/column.
+IF EXISTS(SELECT 1 FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(''dbo.TRANSPORT_REQUEST'') AND name=''FK_F1_Manager'')
+ ALTER TABLE dbo.TRANSPORT_REQUEST DROP CONSTRAINT FK_F1_Manager;
+IF COL_LENGTH(''dbo.TRANSPORT_REQUEST'',''AssignedManagerId'') IS NOT NULL
+ ALTER TABLE dbo.TRANSPORT_REQUEST DROP COLUMN AssignedManagerId;
+IF COL_LENGTH(''dbo.TRANSPORT_REQUEST'',''ReviewedAtUtc'') IS NOT NULL
+ ALTER TABLE dbo.TRANSPORT_REQUEST DROP COLUMN ReviewedAtUtc;
+-- The earlier typed guard is retained for legacy fingerprint compatibility.
+-- This final guard removes ON_HOLD from the effective allowed states.
+-- Existing held trips require operator review; never silently release a trip.
+IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name=''CK_F1Final_Handoff'')
+ ALTER TABLE dbo.TRIP_PLAN WITH CHECK ADD CONSTRAINT CK_F1Final_Handoff
+ CHECK (DeploymentStatus IS NULL OR DeploymentStatus IN (''PENDING'',''CONFIRMED''));
 -- Remove the obsolete assumption that cancellation must be AFTER signing.
 IF EXISTS(SELECT 1 FROM sys.check_constraints WHERE name=''CK_F1S_CONTRACT_Cancellation'')
  ALTER TABLE dbo.CONTRACT DROP CONSTRAINT CK_F1S_CONTRACT_Cancellation;
@@ -418,6 +430,13 @@ IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name=''CK_F1Final_Refund
  EXEC sys.sp_executesql N''ALTER TABLE dbo.CONTRACT WITH CHECK ADD CONSTRAINT CK_F1Final_Refund CHECK
  ((RefundStatus IS NULL AND RefundAmount IS NULL AND RefundReference IS NULL) OR (RefundStatus IN (''''REQUESTED'''',''''PROCESSING'''',''''COMPLETED'''') AND RefundAmount>0 AND (RefundStatus<>''''COMPLETED'''' OR RefundReference IS NOT NULL)));'';
 COMMIT;';
+    -- Only seed missing required clauses. Tomorrow's operator edits are retained.
+    INSERT dbo.CONTRACT_TEMPLATE(TemplateID,TemplateName,LanguageCode,BodyContent,Version,IsActive,CreatedAt)
+    SELECT CONCAT('flow1-required-clause-',RIGHT(CONCAT('0',seed.ClauseNo),2)),
+        CONCAT(NCHAR(272),N'i',NCHAR(7873),N'u ',seed.ClauseNo), 'VI', NCHAR(64+seed.ClauseNo), '1', 1, SYSUTCDATETIME()
+    FROM (VALUES(1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12)) seed(ClauseNo)
+    WHERE NOT EXISTS(SELECT 1 FROM dbo.CONTRACT_TEMPLATE existing
+        WHERE existing.TemplateID=CONCAT('flow1-required-clause-',RIGHT(CONCAT('0',seed.ClauseNo),2)));
     COMMIT TRANSACTION;
     PRINT N'Flow1 schema ready. Data was not reset; existing links and business values are retained.';
 END TRY

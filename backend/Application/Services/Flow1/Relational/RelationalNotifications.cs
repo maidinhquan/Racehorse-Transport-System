@@ -1,10 +1,18 @@
 using Domain.Flow1;
+using Domain.Enums;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Application.Services.Flow1.Relational;
 
 public sealed partial class RelationalFlow1Service
 {
+    private async Task NotifyManagers(string reference, string type, string title, string message, CancellationToken ct)
+    {
+        foreach (var user in await db.QueryAsync<FlowUser>(u => u.IsActive, ct))
+            if (Role(user) == UserRoles.LogisticsManager)
+                await Notify(user.UserID, reference, type, title, message, ct);
+    }
+
     private async Task Notify(string user, string reference, string type, string title, string message, CancellationToken ct)
     {
         var id = Id("notice", user, reference, type);

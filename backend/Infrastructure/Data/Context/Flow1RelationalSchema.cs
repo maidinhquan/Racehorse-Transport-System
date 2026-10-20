@@ -4,14 +4,15 @@ public static class Flow1RelationalSchema
 {
     public const string ValidationSql="""
         SELECT CONVERT(int,CASE WHEN COL_LENGTH('dbo.HORSE','PhotoUrl') IS NOT NULL
-          AND COL_LENGTH('dbo.TRANSPORT_REQUEST','AssignedManagerId') IS NOT NULL
+          AND COL_LENGTH('dbo.TRANSPORT_REQUEST','AssignedManagerId') IS NULL
+          AND COL_LENGTH('dbo.TRANSPORT_REQUEST','ReviewedAtUtc') IS NULL
           AND COL_LENGTH('dbo.CONTRACT','FeedbackStatus') IS NOT NULL
           AND COL_LENGTH('dbo.CONTRACT','RefundStatus') IS NOT NULL
           AND COL_LENGTH('dbo.TRIP_PLAN','AssignedSpecialistId') IS NOT NULL
           AND COL_LENGTH('dbo.TRIP_PLAN','AssignedCoordinatorId') IS NOT NULL
           AND EXISTS(SELECT 1 FROM sys.extended_properties WHERE class=0 AND name=N'Flow1.FinalWorkflow' AND CONVERT(nvarchar(100),value)=N'deposit-before-signing-v1')
-          AND (SELECT COUNT(*) FROM sys.foreign_keys WHERE name IN (N'FK_F1_Manager',N'FK_F1_Specialist',N'FK_F1_Coordinator') AND is_disabled=0 AND is_not_trusted=0)=3
-          AND (SELECT COUNT(*) FROM sys.check_constraints WHERE name IN (N'CK_F1Final_Feedback',N'CK_F1Final_Refund') AND is_disabled=0 AND is_not_trusted=0)=2
+          AND (SELECT COUNT(*) FROM sys.foreign_keys WHERE name IN (N'FK_F1_Specialist',N'FK_F1_Coordinator') AND is_disabled=0 AND is_not_trusted=0)=2
+          AND (SELECT COUNT(*) FROM sys.check_constraints WHERE name IN (N'CK_F1Final_Feedback',N'CK_F1Final_Refund',N'CK_F1Final_Handoff') AND is_disabled=0 AND is_not_trusted=0)=3
           AND EXISTS(SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST')
             AND name='SubmissionKeyHash' AND system_type_id=167 AND max_length=64 AND is_nullable=1)
           AND EXISTS(SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST') AND name='DeclaredValueUsd'

@@ -19,10 +19,8 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
             "\nFlow 1: Get the current record first and copy its `version` (a concurrency token, not a contract edition). Use the signed-in account's role. One shared 24-hour deadline covers deposit, verification and OTP signing. Deposit verification alone never creates a Trip.";
 
         var action = operation.Parameters?.FirstOrDefault(p => p.Name == "operation");
-        if (action is not null)
-            action.Schema.Enum = (path.Contains("/cancellation/")
-                ? new[] { "approve", "reject", "refund-start", "refund-complete" }
-                : new[] { "confirm", "hold", "resume" })
+        if (action is not null && path.Contains("/cancellation/"))
+            action.Schema.Enum = new[] { "approve", "reject", "refund-start", "refund-complete" }
                 .Select(x => (IOpenApiAny)new OpenApiString(x)).ToList();
 
         if (path.Equals("api/customer/requests", StringComparison.OrdinalIgnoreCase) ||
@@ -102,10 +100,6 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
                 ["isActive"] = new OpenApiBoolean(true)
             };
         }
-        else if (path.EndsWith("/claim", StringComparison.OrdinalIgnoreCase))
-        {
-            body.Remove("reason");
-        }
         else if (path.EndsWith("/feedback", StringComparison.OrdinalIgnoreCase))
         {
             body = new()
@@ -122,7 +116,9 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
         else if (path.EndsWith("/publish", StringComparison.OrdinalIgnoreCase))
         {
             body.Remove("reason");
-            body["clauseIds"] = new OpenApiArray { new OpenApiString("COPY_clauseId_FROM_GET_manager_clauses") };
+            body["clauseIds"] = new OpenApiArray();
+            body["additionalClauses"] = new OpenApiArray { new OpenApiString("Điều khoản bổ sung do Manager nhập, chỉ lưu trong PDF.") };
+            operation.Description += " All twelve required catalogue clauses are included automatically, even when clauseIds is omitted or empty. Additional text is stored only in the issued PDF. GET /contracts/{id}/terms returns the exact terms from that PDF.";
         }
         else if (path.Contains("/deployment/", StringComparison.OrdinalIgnoreCase))
         {
@@ -150,8 +146,10 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
             body["preparationDays"] = new OpenApiInteger(2);
             body["departureAt"] = new OpenApiString("2026-12-20T08:00:00+07:00");
             body["deliveryAt"] = new OpenApiString("2026-12-21T08:00:00+07:00");
-            body["clauseIds"] = new OpenApiArray { new OpenApiString("COPY_clauseId_FROM_GET_manager_clauses") };
+            body["clauseIds"] = new OpenApiArray();
+            body["additionalClauses"] = new OpenApiArray { new OpenApiString("Điều khoản bổ sung sau khi thống nhất với khách hàng.") };
             body["reason"] = new OpenApiString("Agreed revised terms following feedback");
+            operation.Description += " The twelve required clauses cannot be removed. Omit additionalClauses to retain the issued PDF's additional terms; send [] to remove them where clause edits are allowed. Signed contracts and unresolved payments cannot be reissued.";
         }
         else if (path.EndsWith("/extend", StringComparison.OrdinalIgnoreCase))
         {
@@ -166,10 +164,6 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
         else if (path.EndsWith("/withdraw", StringComparison.OrdinalIgnoreCase))
         {
             body["reason"] = new OpenApiString("Manager withdrew draft before final agreement");
-        }
-        else if (path.EndsWith("/decline", StringComparison.OrdinalIgnoreCase))
-        {
-            body["reason"] = new OpenApiString("Customer declined the proposed terms");
         }
         else if (path.Contains("/payments/") && path.EndsWith("/review", StringComparison.OrdinalIgnoreCase))
         {

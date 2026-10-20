@@ -79,9 +79,10 @@ public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1Geoco
     [HttpGet("contracts/{id}")]public async Task<IActionResult> Contract(string id,CancellationToken ct)=>Result(await service.ContractAsync(id,Actor,false,ct));
     [HttpPost("contracts/{id}/feedback")]public async Task<IActionResult> Feedback(string id,ContractFeedbackInput input,CancellationToken ct)=>Result(await service.FeedbackAsync(id,Actor,input,ct));
     [HttpGet("contracts/{id}/pdf")]public async Task<IActionResult> Pdf(string id,CancellationToken ct)=>PrivateFile(await service.PdfAsync(id,Actor,false,ct),"contract");
+    [HttpGet("contracts/{id}/terms"),ProducesResponseType(typeof(ApiResponse<FlowContractTerms>),StatusCodes.Status200OK)]
+    public async Task<IActionResult> TermsAsync(string id,CancellationToken ct){Response.Headers.CacheControl="no-store";return Result(await service.ContractTermsAsync(id,Actor,false,ct));}
     [HttpPost("contracts/{id}/otp"),EnableRateLimiting("flow1-contract-otp")]public async Task<IActionResult> Otp(string id,FlowAction input,CancellationToken ct){await service.SendOtpAsync(id,Actor,input,ct);return Result(new{sent=true});}
     [HttpPost("contracts/{id}/sign"),EnableRateLimiting("flow1-contract-otp")]public async Task<IActionResult> Sign(string id,FlowAction input,CancellationToken ct)=>Result(await service.SignAsync(id,Actor,input,ct));
-    [HttpPost("contracts/{id}/decline")]public async Task<IActionResult> Decline(string id,FlowAction input,CancellationToken ct)=>Result(await service.LifecycleAsync(id,Actor,false,"decline",input,ct));
     [HttpPost("contracts/{id}/cancellation/request")]public async Task<IActionResult> Cancel(string id,FlowAction input,CancellationToken ct)=>Result(await service.CancellationAsync(id,Actor,false,"request",input,ct));
     [HttpPost("contracts/{id}/vnpay")]public async Task<IActionResult> Vnpay(string id,CancellationToken ct)=>Result(await service.PaymentSessionAsync(id,Actor,Key,HttpContext.Connection.RemoteIpAddress?.ToString()??"127.0.0.1",ct));
     [HttpGet("payments/{id}/status")]public async Task<IActionResult> Returned(string id,CancellationToken ct)=>Result(await service.ReturnedAsync(id,Actor,ct));
@@ -89,12 +90,11 @@ public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1Geoco
 [ApiController,Route("api/manager"),Authorize(Roles=UserRoles.LogisticsManager),EnableRateLimiting("flow1-customer")]
 public sealed class Flow1ManagerApi(RelationalFlow1Service service):FlowApi
 {
-    [HttpGet("clauses")]public async Task<IActionResult> Clauses(bool includeInactive,CancellationToken ct)=>Result(await service.ClausesAsync(Actor,includeInactive,ct));
-    [HttpPost("clauses")]public async Task<IActionResult> CreateClause(ClauseInput input,CancellationToken ct)=>Result(await service.SaveClauseAsync(null,Actor,input,ct));
-    [HttpPut("clauses/{id}")]public async Task<IActionResult> UpdateClause(string id,ClauseInput input,CancellationToken ct)=>Result(await service.SaveClauseAsync(id,Actor,input,ct));
+    [HttpGet("clauses"),ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ClauseCard>>),StatusCodes.Status200OK)]public async Task<IActionResult> Clauses(bool includeInactive,CancellationToken ct)=>Result(await service.ClausesAsync(Actor,includeInactive,ct));
+    [HttpPost("clauses"),ProducesResponseType(typeof(ApiResponse<ClauseCard>),StatusCodes.Status200OK)]public async Task<IActionResult> CreateClause(ClauseInput input,CancellationToken ct)=>Result(await service.SaveClauseAsync(null,Actor,input,ct));
+    [HttpPut("clauses/{id}"),ProducesResponseType(typeof(ApiResponse<ClauseCard>),StatusCodes.Status200OK)]public async Task<IActionResult> UpdateClause(string id,ClauseInput input,CancellationToken ct)=>Result(await service.SaveClauseAsync(id,Actor,input,ct));
     [HttpGet("staff/operational")]public async Task<IActionResult> Staff(CancellationToken ct)=>Result(await service.OperationalStaffAsync(Actor,ct));
-    [HttpPost("requests/{id}/claim")]public async Task<IActionResult> Claim(string id,FlowAction input,CancellationToken ct)=>Result(await service.ClaimAsync(id,Actor,input,ct));
-    [HttpPost("contracts/{id}/reissue")]public async Task<IActionResult> Reissue(string id,ContractReissueInput input,CancellationToken ct)=>Result(await service.ReissueAsync(id,Actor,input,ct));
+    [HttpPost("contracts/{id}/reissue"),ProducesResponseType(typeof(ApiResponse<FlowContractCard>),StatusCodes.Status200OK)]public async Task<IActionResult> Reissue(string id,ContractReissueInput input,CancellationToken ct)=>Result(await service.ReissueAsync(id,Actor,input,ct));
     [HttpPost("contracts/{id}/feedback/reject")]public async Task<IActionResult> RejectFeedback(string id,FlowAction input,CancellationToken ct)=>Result(await service.RejectFeedbackAsync(id,Actor,input,ct));
     [HttpGet("requests/{id}/documents/{document}")]public async Task<IActionResult> Document(string id,string document,CancellationToken ct)=>PrivateFile(await service.RequestDocumentAsync(id,document,Actor,true,ct),"baseline-"+document);
     [HttpGet("requests")]public async Task<IActionResult> List(CancellationToken ct)=>Result(await service.ListAsync(Actor,true,ct));
@@ -104,13 +104,15 @@ public sealed class Flow1ManagerApi(RelationalFlow1Service service):FlowApi
     [HttpGet("requests/{id}/horses/{horse}/files/{kind}")]public async Task<IActionResult> HorseFile(string id,string horse,string kind,CancellationToken ct)=>PrivateFile(await service.HorseFileAsync(Actor,horse,kind,id,ct),kind);
     [HttpGet("contracts/{id}")]public async Task<IActionResult> Contract(string id,CancellationToken ct)=>Result(await service.ContractAsync(id,Actor,true,ct));
     [HttpGet("contracts/{id}/pdf")]public async Task<IActionResult> Pdf(string id,CancellationToken ct)=>PrivateFile(await service.PdfAsync(id,Actor,true,ct),"contract");
-    [HttpPost("contracts/{id}/publish")]public async Task<IActionResult> Publish(string id,FlowAction input,CancellationToken ct)=>Result(await service.PublishAsync(id,Actor,input,ct));
+    [HttpGet("contracts/{id}/terms"),ProducesResponseType(typeof(ApiResponse<FlowContractTerms>),StatusCodes.Status200OK)]
+    public async Task<IActionResult> TermsAsync(string id,CancellationToken ct){Response.Headers.CacheControl="no-store";return Result(await service.ContractTermsAsync(id,Actor,true,ct));}
+    [HttpPost("contracts/{id}/publish"),ProducesResponseType(typeof(ApiResponse<FlowContractCard>),StatusCodes.Status200OK)]public async Task<IActionResult> Publish(string id,FlowAction input,CancellationToken ct)=>Result(await service.PublishAsync(id,Actor,input,ct));
     [HttpPost("contracts/{id}/extend"),HttpPost("contracts/{id}/withdraw"),HttpPost("contracts/{id}/expire")]public async Task<IActionResult> Lifecycle(string id,FlowAction input,CancellationToken ct)=>Result(await service.LifecycleAsync(id,Actor,true,HttpContext.Request.Path.Value!.Split('/')[^1],input,ct));
     [HttpPost("contracts/{id}/cancellation/{operation}")]public async Task<IActionResult> Cancellation(string id,string operation,FlowAction input,CancellationToken ct)=>Result(await service.CancellationAsync(id,Actor,true,operation,input,ct));
     [HttpPost("contracts/{id}/payments/{payment}/review")]public async Task<IActionResult> ReviewPayment(string id,string payment,FlowAction input,CancellationToken ct)=>Result(await service.FinancialReviewAsync(id,payment,Actor,input,ct));
     [HttpPost("contracts/{id}/payments/{payment}/query")]public async Task<IActionResult> QueryPayment(string id,string payment,FlowAction input,CancellationToken ct)=>Result(await service.QueryPaymentAsync(id,payment,Actor,input,HttpContext.Connection.RemoteIpAddress?.ToString()??"127.0.0.1",ct));
     [HttpPost("contracts/{id}/cancel-overdue")]public async Task<IActionResult> CancelOverdue(string id,FlowAction input,CancellationToken ct)=>Result(await service.CancelOverdueAsync(id,Actor,input,ct));
-    [HttpPost("contracts/{id}/deployment/{operation}")]public async Task<IActionResult> Deployment(string id,string operation,FlowAction input,CancellationToken ct)=>Result(await service.DeploymentAsync(id,Actor,operation,input,ct));
+    [HttpPost("contracts/{id}/deployment/confirm")]public async Task<IActionResult> Deployment(string id,FlowAction input,CancellationToken ct)=>Result(await service.DeploymentAsync(id,Actor,"confirm",input,ct));
 }
 [ApiController,Route("api/payments/vnpay")]
 public sealed class Flow1VnpayApi(RelationalFlow1Service service):ControllerBase

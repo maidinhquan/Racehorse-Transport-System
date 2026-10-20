@@ -17,7 +17,8 @@ public sealed class CodeContractDocumentGenerator(string contentRoot, Flow1Contr
     {
         var model = request.FrozenSnapshot.Deserialize<ContractPdfModel>(new JsonSerializerOptions(JsonSerializerDefaults.Web))
             ?? throw Error("PDF data missing.", "PDF_CONVERSION_FAILED", 503);
-        if (model.Clauses is not { Count: > 0 }) throw Error("Select at least one active clause.", "CLAUSES_REQUIRED");
+        if (model.Clauses is null || RequiredContractClauses.Ids.Any(id=>model.Clauses.Count(c=>c.ClauseId==id)!=1))
+            throw Error("All twelve required clauses must be present exactly once.", "REQUIRED_CLAUSES_MISSING");
         var root = Path.GetFullPath(options.WorkRoot, contentRoot);
         var publicRoot = Path.GetFullPath("wwwroot", contentRoot);
         if (root.Equals(publicRoot, StringComparison.OrdinalIgnoreCase) || root.StartsWith(publicRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
@@ -54,7 +55,7 @@ public sealed class CodeContractDocumentGenerator(string contentRoot, Flow1Contr
             if (process.ExitCode != 0 || !File.Exists(pdf)) throw Error("PDF conversion failed.", "PDF_CONVERSION_FAILED", 503);
             var bytes = await File.ReadAllBytesAsync(pdf, ct);
             if (!bytes.AsSpan().StartsWith("%PDF-"u8) || bytes.Length > 4 * 1024 * 1024) throw Error("Invalid PDF output.", "PDF_CONVERSION_FAILED", 503);
-            bytes = PublishedClauseSelection.Attach(bytes, model.Clauses);
+            bytes = PublishedClauseSelection.Attach(bytes, model.Clauses,model.AdditionalClauses);
             var saved = await files.PutAsync(new(bytes, "contract.pdf"), false, ct);
             return new(saved.FileId, saved.Sha256, saved.SizeBytes);
         }
@@ -76,8 +77,13 @@ public sealed class CodeContractDocumentGenerator(string contentRoot, Flow1Contr
             b.Append("<tr><th>").Append(H(pair.Item1)).Append("</th><td>").Append(H(V(pair.Item2))).Append("</td></tr>");
         b.Append("</table><p>Cọc được xác minh trước khi ký OTP. Chỉ sau khi ký thành công, yêu cầu mới được kích hoạt và tạo chuyến đi.</p><h2>3. Danh sách ngựa</h2><table><tr><th>Tên</th><th>Microchip</th><th>Hộ chiếu</th></tr>");
         foreach (var h in m.Horses) b.Append("<tr><td>").Append(H(h.GetValueOrDefault("HORSE_1_NAME"))).Append("</td><td>").Append(H(h.GetValueOrDefault("HORSE_1_MICROCHIP"))).Append("</td><td>").Append(H(h.GetValueOrDefault("HORSE_1_FEI_NO"))).Append("</td></tr>");
-        b.Append("</table><h2>4. Điều khoản đã chọn</h2>");
+        b.Append("</table><h2>4. Điều khoản hợp đồng</h2><p style='break-after:avoid'>Hợp đồng bao gồm đầy đủ 12 điều khoản bắt buộc dưới đây.</p>");
         foreach (var c in m.Clauses!) b.Append("<section><h3>").Append(H(c.Title)).Append("</h3><pre>").Append(H(c.Content)).Append("</pre></section>");
+        if(m.AdditionalClauses is {Count:>0}){
+            b.Append("<h2>5. Điều khoản bổ sung</h2>");
+            for(var index=0;index<m.AdditionalClauses.Count;index++)
+                b.Append("<section><h3>Bổ sung ").Append(index+1).Append("</h3><pre>").Append(H(m.AdditionalClauses[index])).Append("</pre></section>");
+        }
         return b.Append("<p><small>Nội dung này được cố định khi phát hành. Xác nhận OTP được lưu riêng và gắn với mã SHA-256 của chính PDF này.</small></p></body></html>").ToString();
     }
 }

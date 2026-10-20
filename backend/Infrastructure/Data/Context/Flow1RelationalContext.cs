@@ -20,7 +20,6 @@ public sealed class Flow1RelationalContext(DbContextOptions<Flow1RelationalConte
         b.Entity<FlowMedicalRecord>().HasOne<FlowHorse>().WithMany().HasForeignKey(x=>x.HorseID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowMedicalRecord>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.VerifiedBy).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowTrip>().HasOne<FlowRequest>().WithMany().HasForeignKey(x=>x.RequestID).OnDelete(DeleteBehavior.Restrict);
-        b.Entity<FlowRequest>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.AssignedManagerId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowTrip>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.AssignedSpecialistId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowTrip>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.AssignedCoordinatorId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<Domain.Entities.ContractTemplate>();

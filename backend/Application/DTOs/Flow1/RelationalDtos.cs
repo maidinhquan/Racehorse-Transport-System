@@ -12,12 +12,15 @@ public sealed record FlowAction(string Version, string? Reason = null, decimal? 
     DateTimeOffset? Deadline = null, string? Target = null, string? Otp = null, string? PdfSha256 = null,
     string? CancellationId = null, string? EventId = null,
     string? AssignedSpecialistId = null, string? AssignedCoordinatorId = null,
-    IReadOnlyList<string>? ClauseIds = null);
+    IReadOnlyList<string>? ClauseIds = null, IReadOnlyList<string>? AdditionalClauses = null);
 public sealed record ContractFeedbackInput(string Version, string FeedbackMessage, IReadOnlyList<string> Fields);
 public sealed record ContractReissueInput(string Version, decimal Price, int PreparationDays,
-    DateTimeOffset DepartureAt, DateTimeOffset DeliveryAt, IReadOnlyList<string> ClauseIds, string Reason);
+    DateTimeOffset DepartureAt, DateTimeOffset DeliveryAt, IReadOnlyList<string>? ClauseIds, string Reason,
+    IReadOnlyList<string>? AdditionalClauses = null);
 public sealed record ClauseInput(string Title, string Content, string LanguageCode = "VI", bool IsActive = true);
-public sealed record ClauseCard(string ClauseId, string Title, string Content, string LanguageCode, bool IsActive);
+public sealed record ClauseCard(string ClauseId, string Title, string Content, string LanguageCode, bool IsActive,
+    bool IsRequired = false, int? DisplayOrder = null);
+public sealed record FlowContractTerms(IReadOnlyList<ClauseCard> Clauses, IReadOnlyList<string> AdditionalClauses);
 public sealed record FlowHorseCard(string HorseId, string Name, string MicrochipIso, string? PassportNo, string Version,
     bool HasDocuments, bool Selectable, string? Breed = null, string? Sex = null, DateTime? Dob = null);
 public sealed record FlowPaymentCard(string PaymentId, string Version, decimal Amount, decimal? ReceivedAmount,
@@ -38,10 +41,9 @@ public sealed record FlowRequestCard(string RequestId, string Version, string St
     string? PickupContactName, string? PickupContactPhone, string? ReceiverName, string? ReceiverPhone,
     IReadOnlyList<FlowHorseCard> Horses, IReadOnlyList<FlowContractCard> Contracts, FlowRequestInput? Input = null, string? MapAttribution = null,
     string? CustomerName = null, string? CustomerEmail = null, decimal? DeclaredValueUsd = null,
-    IReadOnlyList<FlowRequestDocument>? Documents = null, decimal? EstimatedTransportCost = null,
-    string? AssignedManagerId = null, DateTime? ReviewedAtUtc = null);
+    IReadOnlyList<FlowRequestDocument>? Documents = null, decimal? EstimatedTransportCost = null);
 public sealed record FlowHandoff(FlowTripCard Trip, string RequestId, string Departure, string Destination,
     DateTime? DepartureAt, DateTime? DeliveryAt, string ContractId, string PdfSha256, IReadOnlyList<FlowHorseCard> Horses,
     decimal? DeclaredValueUsd = null, IReadOnlyList<FlowRequestDocument>? Documents = null);
 public sealed record ContractPdfModel(Dictionary<string, string> Values, Dictionary<string, string>[] Horses,
-    IReadOnlyList<ClauseCard>? Clauses = null);
+    IReadOnlyList<ClauseCard>? Clauses = null, IReadOnlyList<string>? AdditionalClauses = null);

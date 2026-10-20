@@ -17,16 +17,33 @@ public sealed class FinalFinancialTests
         Assert.NotEqual("CANCELLED",c.Status);
     }
     [LocalSqlFact]
-    public async Task Excess_receipt_after_signing_holds_handoff_and_never_creates_a_second_trip()
+    public async Task Excess_receipt_after_signing_preserves_handoff_acknowledgement_and_exactly_one_trip()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();var old=await f.Session(c);f.Time.Value=f.Time.Value.AddMinutes(16);var current=await f.Session(c,"second-attempt-key");
         await f.Service.IpnAsync(f.Callback(current,"2222"),default);c=await f.Service.ContractAsync(c.ContractId,"owner",false,default);
         await f.Service.SendOtpAsync(c.ContractId,"owner",new(c.Version,PdfSha256:c.PdfSha256),default);c=await f.Service.ContractAsync(c.ContractId,"owner",false,default);
         c=await f.Service.SignAsync(c.ContractId,"owner",new(c.Version,Otp:f.Email.Code,PdfSha256:c.PdfSha256),default);
         c=await f.Service.DeploymentAsync(c.ContractId,"manager","confirm",new(c.Trip!.Version,"Ready",AssignedSpecialistId:"docs",AssignedCoordinatorId:"route"),default);
+        var released=c.Trip!;
+        await f.Service.AckAsync(released.TripId,"route",new(released.Version,EventId:released.EventId),default);
         await f.Service.IpnAsync(f.Callback(old,"1111"),default);c=await f.Service.ContractAsync(c.ContractId,"manager",true,default);
-        Assert.Equal(80000000,c.PaidAmount);Assert.Equal("ON_HOLD",c.Trip!.DeploymentStatus);Assert.Empty(await f.Service.OperationsAsync("route",default));
+        Assert.Equal(80000000,c.PaidAmount);Assert.Contains(c.Payments,p=>p.ReviewRequired);
+        Assert.Equal("CONFIRMED",c.Trip!.DeploymentStatus);Assert.Equal(released.EventId,c.Trip.EventId);Assert.Equal("route",c.Trip.RoutingAcknowledgedBy);
+        Assert.Single(await f.Service.OperationsAsync("route",default));
+        await f.Service.OperationsPdfAsync(released.TripId,"route",released.EventId!,default);
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));
+    }
+    [LocalSqlFact]
+    public async Task Signed_contract_can_be_assigned_without_reopening_financial_or_preparation_review()
+    {
+        await using var f=await Fixture.Create();var c=await f.Signed();
+        await f.Service.IpnAsync(f.Callback(c.Payments.Single().PaymentId,amount:1),default);
+        f.Time.Value=f.Time.Value.AddMonths(1);
+        c=await f.Service.ContractAsync(c.ContractId,"manager",true,default);
+        Assert.True(c.Payments.Single().ReviewRequired);
+        c=await f.Service.DeploymentAsync(c.ContractId,"manager","confirm",new(c.Trip!.Version,"Assign",AssignedSpecialistId:"docs",AssignedCoordinatorId:"route"),default);
+        Assert.Equal("EFFECTIVE",c.Status);Assert.Equal("CONFIRMED",c.Trip!.DeploymentStatus);
+        Assert.Single(await f.Service.OperationsAsync("docs",default));
     }
     [LocalSqlFact]
     public async Task A_repeated_provider_transaction_on_another_attempt_does_not_allocate_money_twice()
