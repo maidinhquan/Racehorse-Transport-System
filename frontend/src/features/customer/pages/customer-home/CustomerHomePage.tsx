@@ -12,7 +12,7 @@ export const CustomerHomePage: React.FC = () => {
   const {
     currentTrip,
     recentRequests,
-    notifications,
+    // notifications,
     incidentDetail,
     handleResolveIncident,
     markNotificationAsRead

@@ -6,7 +6,8 @@ import type {
   RecentRequest,
   TransportRequestItem,
   DemoScenario,
-  IncidentDetail
+  IncidentDetail,
+  CustomerHorse
 } from '../types';
 import {
   mockCurrentTrip,
@@ -14,7 +15,8 @@ import {
   mockRecentRequests,
   mockTransportRequests,
   mockDemoScenarios,
-  mockIncidentDetail
+  mockIncidentDetail,
+  mockCustomerHorses
 } from '../data/mockData';
 
 export const customerApi = {
