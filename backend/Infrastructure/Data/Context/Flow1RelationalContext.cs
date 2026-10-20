@@ -5,7 +5,7 @@ using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Infrastructure.Data.Context;
 
-// Existing tables only. This independent scalar model does not alter teammate mappings.
+// Reviewed SQL tables (including COST_RATE). This scalar model does not alter teammate mappings.
 public sealed class Flow1RelationalContext(DbContextOptions<Flow1RelationalContext> options) : DbContext(options)
 {
     protected override void OnModelCreating(ModelBuilder b)
@@ -23,6 +23,8 @@ public sealed class Flow1RelationalContext(DbContextOptions<Flow1RelationalConte
         b.Entity<FlowTrip>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.AssignedSpecialistId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowTrip>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.AssignedCoordinatorId).OnDelete(DeleteBehavior.Restrict);
         b.Entity<Domain.Entities.ContractTemplate>();
+        b.Entity<FlowCostRate>().HasIndex(x=>x.Code).IsUnique();
+        b.Entity<FlowCostItem>().HasOne<FlowContract>().WithMany().HasForeignKey(x=>x.ContractID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowContract>().HasOne<FlowTrip>().WithMany().HasForeignKey(x=>x.TripID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowContract>().HasOne<FlowRequest>().WithMany().HasForeignKey(x=>x.RequestID).OnDelete(DeleteBehavior.Restrict);
         b.Entity<FlowContract>().HasOne<FlowUser>().WithMany().HasForeignKey(x=>x.CustomerID).OnDelete(DeleteBehavior.Restrict);

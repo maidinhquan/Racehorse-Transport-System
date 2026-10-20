@@ -101,7 +101,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         var customer = await db.FindAsync<FlowUser>(r.CustomerID, ct);
         return new(r.RequestID, Token(r.RowVersion), r.Status, r.Departure, r.Destination, r.ExpectedDate, r.CommittedDeadline,
             r.ManagerNotes, r.DistanceKm, r.PreparationDays, r.PickupContactName, r.PickupContactPhone,
-            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct),DemoTransportPrice(r.TransportType,r.DistanceKm,horses.Count));
+            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct),r.BaseCost);
     }
     public Task<FlowRequestCard> DetailAsync(string id, string actor, bool manager, CancellationToken ct) =>
         db.RunAsync(async t => await Card(await Request(id, actor, manager, t), t), ct);
@@ -175,6 +175,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         r.Departure=i.Trip.Pickup.Address; r.Destination=i.Trip.Delivery.Address; r.OriginCountry=i.Trip.Pickup.Country; r.DestinationCountry=i.Trip.Delivery.Country;
         r.PickupLatitude=(decimal)i.Trip.Pickup.Lat; r.PickupLongitude=(decimal)i.Trip.Pickup.Lng; r.DeliveryLatitude=(decimal)i.Trip.Delivery.Lat; r.DeliveryLongitude=(decimal)i.Trip.Delivery.Lng;
         r.DistanceKm=estimate.Customer.RoadDistanceKm is decimal km ? decimal.Round(km,2) : null; r.PreparationDays=estimate.Customer.MinimumPreparationDays;
+        r.BaseCost=estimate.EstimatedCost;
         r.DeclaredValueUsd=i.DeclaredValueUsd; r.Purpose=i.Purpose.Trim(); r.PickupContactName=i.PickupContact.Name.Trim(); r.PickupContactPhone=i.PickupContact.Phone;
         r.DesignatedReceiverName=i.Receiver.Name.Trim(); r.DesignatedReceiverPhone=i.Receiver.Phone; r.ExpectedDate=Utc(i.DepartureAt); r.CommittedDeadline=Utc(i.DeliveryAt); r.TransportType=i.Trip.PreferredTransportMode; r.Status="PENDING";
     }

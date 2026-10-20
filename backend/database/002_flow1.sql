@@ -430,6 +430,42 @@ IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name=''CK_F1Final_Refund
  EXEC sys.sp_executesql N''ALTER TABLE dbo.CONTRACT WITH CHECK ADD CONSTRAINT CK_F1Final_Refund CHECK
  ((RefundStatus IS NULL AND RefundAmount IS NULL AND RefundReference IS NULL) OR (RefundStatus IN (''''REQUESTED'''',''''PROCESSING'''',''''COMPLETED'''') AND RefundAmount>0 AND (RefundStatus<>''''COMPLETED'''' OR RefundReference IS NOT NULL)));'';
 COMMIT;';
+    -- Single new pricing table. COST_ITEM keeps its original eight columns.
+    IF OBJECT_ID(N'dbo.COST_RATE',N'U') IS NULL
+    BEGIN
+        CREATE TABLE dbo.COST_RATE (
+            CostRateID varchar(50) NOT NULL CONSTRAINT PK_COST_RATE PRIMARY KEY,
+            Code varchar(50) NOT NULL CONSTRAINT UQ_COST_RATE_Code UNIQUE,
+            CostGroup varchar(20) NOT NULL,
+            CalculationUnit varchar(40) NOT NULL,
+            Rate decimal(18,6) NOT NULL,
+            CurrencyCode varchar(3) NOT NULL CONSTRAINT DF_COST_RATE_Currency DEFAULT 'VND',
+            IsActive bit NOT NULL CONSTRAINT DF_COST_RATE_Active DEFAULT 1,
+            RowVersion rowversion NOT NULL,
+            CONSTRAINT CK_COST_RATE_Value CHECK (Rate>0 AND (Code<>'INSURANCE_RATE' OR Rate<=1)),
+            CONSTRAINT CK_COST_RATE_Currency CHECK (CurrencyCode='VND'),
+            CONSTRAINT CK_COST_RATE_Group CHECK (CostGroup IN ('TRANSPORT','CREW','PERMIT','VET','INSURANCE'))
+        );
+    END;
+    -- Dynamic compilation allows creation/validation within this same transaction.
+    EXEC sys.sp_executesql N'
+        IF COL_LENGTH(''dbo.COST_RATE'',''Code'') IS NULL OR COL_LENGTH(''dbo.COST_RATE'',''RowVersion'')<>8
+            THROW 51220, ''Review incompatible COST_RATE schema before migration.'', 1;
+        INSERT dbo.COST_RATE(CostRateID,Code,CostGroup,CalculationUnit,Rate,CurrencyCode,IsActive)
+        SELECT ''rate-''+s.Code,s.Code,s.CostGroup,s.Unit,s.Rate,''VND'',1
+        FROM (VALUES
+          (''ROAD_KM'',''TRANSPORT'',''KM_VEHICLE'',CAST(200000 AS decimal(18,6))),
+          (''AIR_HORSE'',''TRANSPORT'',''HORSE'',3000000),
+          (''STABLE_NIGHT'',''TRANSPORT'',''HORSE_NIGHT'',250000),
+          (''CREW_DAY'',''CREW'',''PERSON_DAY'',300000),
+          (''PERMIT_TRIP'',''PERMIT'',''TRIP'',1000000),
+          (''PERMIT_HORSE'',''PERMIT'',''HORSE'',5000000),
+          (''VET_DAY'',''VET'',''PERSON_DAY'',500000),
+          (''CARE_DAY'',''VET'',''HORSE_DAY'',300000),
+          (''INSURANCE_MIN'',''INSURANCE'',''TRIP'',2000000),
+          (''INSURANCE_RATE'',''INSURANCE'',''VALUE_RATIO'',0.005)
+        )s(Code,CostGroup,Unit,Rate)
+        WHERE NOT EXISTS(SELECT 1 FROM dbo.COST_RATE r WHERE r.Code=s.Code);';
     -- Only seed missing required clauses. Tomorrow's operator edits are retained.
     INSERT dbo.CONTRACT_TEMPLATE(TemplateID,TemplateName,LanguageCode,BodyContent,Version,IsActive,CreatedAt)
     SELECT CONCAT('flow1-required-clause-',RIGHT(CONCAT('0',seed.ClauseNo),2)),

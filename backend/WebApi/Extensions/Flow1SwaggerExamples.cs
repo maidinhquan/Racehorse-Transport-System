@@ -62,6 +62,25 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
         if (operation.RequestBody?.Content.TryGetValue("application/json", out var media) != true)
             return;
 
+        if (path.Equals("api/public/estimates/demo",StringComparison.OrdinalIgnoreCase))
+        {
+            media!.Example=new OpenApiObject { ["origin"]=new OpenApiString("Ho Chi Minh City"),["destination"]=new OpenApiString("Tokyo"),["horseCount"]=new OpenApiInteger(1) };
+            operation.Description+=" Uses configured city centres/average road factor, no map provider calls and no saved demo rows. Returns total only, no internal breakdown. Missing insured value uses minimum insurance. AIR excludes unprovided ground legs.";
+            return;
+        }
+        if (path.Contains("/cost-rates/",StringComparison.OrdinalIgnoreCase))
+        {
+            media!.Example=new OpenApiObject { ["version"]=new OpenApiString("COPY_version_FROM_GET_manager_cost_rates"),["rate"]=new OpenApiDouble(200000),["isActive"]=new OpenApiBoolean(true) };
+            operation.Description+=" Required rates stay active. INSURANCE_RATE uses a fraction: 0.005 means 0.5%, a project assumption, not a real insurer quote. Existing contract cost rows are not recalculated.";
+            return;
+        }
+        if (path.EndsWith("/cost-estimate",StringComparison.OrdinalIgnoreCase))
+        {
+            media!.Example=new OpenApiObject { ["days"]=new OpenApiInteger(2),["stableNights"]=new OpenApiInteger(1),["crewCount"]=new OpenApiInteger(2),["doctorCount"]=new OpenApiInteger(1),["insuredValueVnd"]=new OpenApiLong(1000000000) };
+            operation.Description+=" Manager-only five-group plan. {} uses request duration, nights=days-1 and configured staffing. RoadDistanceKm/VehicleCount can specify additional ground legs for AIR. Values are quantities for a recommendation, not actual assigned staff. No costs are saved by this endpoint. Copy costs into draft/reissue to store the chosen plan. DeclaredValueUsd is not treated as VND.";
+            return;
+        }
+
         if (path.EndsWith("/estimates", StringComparison.OrdinalIgnoreCase) || path.Equals("api/public/estimates", StringComparison.OrdinalIgnoreCase))
         {
             media!.Example = CreateTripExample();
@@ -138,7 +157,7 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
             body.Remove("reason");
             body["price"] = new OpenApiLong(100000000);
             body["preparationDays"] = new OpenApiInteger(2);
-            operation.Description += " Draft uses request.version. The issue deadline is calculated by the server, not supplied by the client.";
+            operation.Description += " Draft uses request.version. Optional costs contains transport, crew, permit, vet, insurance in integral VND; omitted costs are calculated from request quantities and database rates, with minimum insurance when VND insured value is unknown. Omit price to use costs.total, or provide the Manager's final price. Five planned COST_ITEM rows are saved. No margin or reserve. The issue deadline is calculated by the server, not supplied by the client.";
         }
         else if (path.EndsWith("/reissue", StringComparison.OrdinalIgnoreCase))
         {
@@ -149,7 +168,7 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
             body["clauseIds"] = new OpenApiArray();
             body["additionalClauses"] = new OpenApiArray { new OpenApiString("Điều khoản bổ sung sau khi thống nhất với khách hàng.") };
             body["reason"] = new OpenApiString("Agreed revised terms following feedback");
-            operation.Description += " The twelve required clauses cannot be removed. Omit additionalClauses to retain the issued PDF's additional terms; send [] to remove them where clause edits are allowed. Signed contracts and unresolved payments cannot be reissued.";
+            operation.Description += " The twelve required clauses cannot be removed. Omit additionalClauses to retain the issued PDF's additional terms; send [] to remove them where clause edits are allowed. Optional costs replaces the five planned VND cost rows; omitted costs are recalculated for the revised schedule using current rates. Signed contracts and unresolved payments cannot be reissued.";
         }
         else if (path.EndsWith("/extend", StringComparison.OrdinalIgnoreCase))
         {

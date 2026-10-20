@@ -7,15 +7,15 @@ public sealed record LocationInput([Required, StringLength(255)] string Address,
     double Lat, double Lng, [Required] string Country);
 public sealed record EstimateInput([Required] LocationInput Pickup,
     [Required] LocationInput Delivery, [Required] string PreferredTransportMode,
-    [Range(1, 100)] int HorseCount, DateOnly DesiredDepartureDate);
+    [Range(1, 100)] int HorseCount, DateOnly DesiredDepartureDate, decimal? InsuredValueVnd = null);
 public sealed record EstimateView(string PricingPolicyVersion, string Currency, decimal EstimatedPrice,
     decimal EstimatedDeposit, int HorseCount, int VehicleCount, int StallsRequired,
     decimal? RoadDistanceKm, int MinimumPreparationDays, DateOnly EarliestDepartureDate,
     string Scope, string? Provider, DateTimeOffset CalculatedAtUtc, string? Attribution, string? LocationAttribution = null,
-    decimal? DemoTransportCost = null);
+    decimal? DemoTransportCost = null, bool MinimumInsuranceAssumed = true);
 // Internal cost breakdown is never serialized to a Customer endpoint.
 public sealed record EstimateCalculation(EstimateView Customer, decimal EstimatedCost, decimal Floor,
-    RoadRouteResult? Route);
+    RoadRouteResult? Route, CostPlan? Plan = null);
 public sealed record ContactInput([Required, StringLength(100)] string Name,
     [Required, RegularExpression(@"\+?[0-9 ()-]{7,20}")] string Phone);
 public sealed record HorseInput([Required, StringLength(100)] string Name,

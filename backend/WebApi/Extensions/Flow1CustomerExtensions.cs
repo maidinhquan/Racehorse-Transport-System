@@ -28,6 +28,7 @@ public static class Flow1CustomerExtensions
         services.AddSingleton<IFlow1ContractDocumentGenerator>(sp => new CodeContractDocumentGenerator(
             environment.ContentRootPath, contractOptions, sp.GetRequiredService<IFlow1PrivateFileStore>()));
         services.AddScoped<TransportEstimateService>();
+        services.AddScoped<IFlow1CostRates, Infrastructure.Data.Context.DatabaseCostRates>();
         services.AddSingleton(config.GetSection("Flow1:Maps").Get<Flow1MapOptions>() ?? new());
         services.AddSingleton(config.GetSection("Flow1:Estimate").Get<Flow1EstimateOptions>() ?? new());
         services.AddSingleton<OsmRequestGate>();

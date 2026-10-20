@@ -8,22 +8,23 @@ public sealed class Flow1EstimateOptions
 {
     // Deliberately unset: actual fleet capacity must be supplied by the operator.
     public int? StandardVehicleCapacityStalls { get; set; }
+    public int DefaultCrewCount { get; set; } = 2;
+    public int DefaultDoctorCount { get; set; } = 1;
+    public int DrivingHoursPerDay { get; set; } = 8;
+    public decimal DemoRoadFactor { get; set; } = 1.3m;
+    public decimal DemoAverageSpeedKmh { get; set; } = 60;
+    public List<DemoCity> DemoCities { get; set; } = [];
 }
+public sealed record DemoCity(string Name, string Country, double Lat, double Lng);
 
 public static class Flow1PricingPolicy
 {
-    public const decimal RoadRatePerKm = 35_000m;
-    public const decimal AirRatePerHorse = 70_000_000m;
-    // Transport-only demo; excludes the ancillary costs/margin in the full estimate.
-    // MVP fleet capacity is one horse per vehicle, as agreed by the operator.
-    public static decimal? DemoTransportPrice(string? mode, decimal? km, int horses) => horses <= 0 ? null :
-        mode == "AIR" ? Round(AirRatePerHorse * horses) :
-        mode == "ROAD" && km > 0 ? Round(decimal.Round(km.Value,2) * RoadRatePerKm * horses) : null;
-    public const string Version = "MVP-2026-10-16";
+    public const string Version = "COST-RATE-2026-10-20";
     public static DateOnly Today(TimeProvider clock) => DateOnly.FromDateTime(
         TimeZoneInfo.ConvertTime(clock.GetUtcNow(), TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh")).DateTime);
 
-    public static EstimateCalculation Calculate(EstimateInput input, int? capacity, RoadRouteResult? road, TimeProvider clock)
+    public static EstimateCalculation Calculate(EstimateInput input, int? capacity, RoadRouteResult? road, TimeProvider clock,
+        IReadOnlyList<Domain.Flow1.FlowCostRate> rates, Flow1EstimateOptions options)
     {
         Route(input);
         if (input.HorseCount is < 1 or > 100) throw Error("Horse count must be 1–100.", "VALIDATION_ERROR");
@@ -38,15 +39,18 @@ public static class Flow1PricingPolicy
         var earliest = Today(clock).AddDays(lead);
         if (input.DesiredDepartureDate < earliest || input.DesiredDepartureDate > Today(clock).AddYears(2))
             throw Error($"Departure must be between {earliest:yyyy-MM-dd} and two years from today in Vietnam.", "INVALID_DEPARTURE_DATE");
-        var transport = Round(air ? input.HorseCount * AirRatePerHorse : km!.Value * RoadRatePerKm * vehicles);
-        var cost = transport + 15_000_000m + 10_000_000m + input.HorseCount * 5_000_000m;
-        var price = Round(cost * 1.20m);
+        if (options.DrivingHoursPerDay is < 1 or > 24) throw Error("Configure driving hours per day.", "COST_ASSUMPTIONS_INVALID", 503);
+        var days = air ? 1 : Math.Max(1, (int)Math.Ceiling(road!.DurationSeconds / (options.DrivingHoursPerDay * 3600m)));
+        var plan = Flow1CostCalculator.Calculate(rates, input.PreferredTransportMode, input.HorseCount, days, days - 1,
+            vehicles, options.DefaultCrewCount*Math.Max(1,vehicles), options.DefaultDoctorCount, km ?? 0, input.InsuredValueVnd);
+        var cost = plan.Costs.Total;
+        var price = cost;
         if (price > 9_999_999_999m) throw Error("Estimate exceeds the supported VND limit.", "AMOUNT_OUT_OF_RANGE");
         return new(new(Version, "VND", price, Round(price * .40m), input.HorseCount, vehicles,
             input.HorseCount, km, lead, earliest,
             air ? "AIRPORT_TO_AIRPORT_ONLY_GROUND_LEGS_NOT_INCLUDED" : "ROAD_PICKUP_TO_DELIVERY",
             air ? null : road!.Provider, clock.GetUtcNow(), air ? null : road!.Attribution,
-            DemoTransportCost:DemoTransportPrice(input.PreferredTransportMode,km,input.HorseCount)), cost, Round(cost * 1.05m), road);
+            DemoTransportCost:price, MinimumInsuranceAssumed:plan.MinimumInsuranceAssumed), cost, cost, road, plan);
     }
 
     public static void Route(EstimateInput input)

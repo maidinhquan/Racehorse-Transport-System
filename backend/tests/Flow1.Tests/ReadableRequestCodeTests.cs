@@ -30,7 +30,7 @@ public sealed class ReadableRequestCodeTests
         await f.Db.ExecuteAsync("INSERT TRANSPORT_REQUEST(RequestID,CustomerID,Departure,Destination,Status) VALUES('REQ_2026_003','owner','Legacy','Legacy','CANCELLED');");
         var first=await f.Request("readable-request-key-one");
         Assert.Equal("REQ_2026_004",first.RequestId);
-        Assert.Equal(3_500_000m,first.EstimatedTransportCost);
+        Assert.Equal(29_400_000m,first.EstimatedTransportCost);
         var replays=await Task.WhenAll(f.NewService().SubmitAsync("owner","readable-request-key-one",first.Input!,null,null,default),
             f.NewService().SubmitAsync("owner","readable-request-key-one",first.Input!,null,null,default));
         Assert.All(replays,r=>Assert.Equal(first.RequestId,r.RequestId));
@@ -78,14 +78,8 @@ public sealed class ReadableRequestCodeTests
         r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted"),default);
         await f.Service.DraftAsync(r.RequestId,"manager","demo-quote-key",new(r.Version,Price:1_000_000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default);
         var detail=await f.Service.DetailAsync(r.RequestId,"owner",false,default);
-        Assert.Equal(3_500_000m,detail.EstimatedTransportCost);
+        Assert.Equal(29_400_000m,detail.EstimatedTransportCost);
         Assert.Equal(1_000_000m,Assert.Single(detail.Contracts).TotalPrice);
     }
 
-    [Theory]
-    [InlineData("ROAD",100,2,7000000)]
-    [InlineData("ROAD",1575.68,2,110297600)]
-    [InlineData("AIR",0,2,140000000)]
-    public void Demo_price_uses_transport_only_and_air_does_not_invent_road_kilometres(string mode,decimal km,int horses,decimal expected)
-        =>Assert.Equal(expected,Flow1PricingPolicy.DemoTransportPrice(mode,km,horses));
 }

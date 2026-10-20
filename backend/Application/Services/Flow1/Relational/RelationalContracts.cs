@@ -12,17 +12,19 @@ public sealed partial class RelationalFlow1Service
 {
     public Task<FlowContractCard> DraftAsync(string request,string actor,string key,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
         Key(key); var r=await Request(request,actor,true,t); var id=Id("c",request); var prior=await db.FindAsync<FlowContract>(id,t);
-        if(prior is not null) { Require(prior.TotalQuotedPrice==i.Price && r.PreparationDays==i.PreparationDays,"IDEMPOTENCY_KEY_REUSED","A draft already exists with different terms; use the feedback/reissue operation."); return await Card(prior,t); }
+        if(prior is not null) { Require((i.Price is null || prior.TotalQuotedPrice==i.Price) && r.PreparationDays==i.PreparationDays && (i.Costs is null || i.Costs==await StoredCosts(prior.ContractID,t)),"IDEMPOTENCY_KEY_REUSED","A draft already exists with different terms; use the feedback/reissue operation."); return await Card(prior,t); }
         Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Request needs reviewed relational data before quoting.");
         Check(r.RowVersion,i.Version); Require(r.Status=="ACCEPTED","DRAFT_CLOSED","Accept the request first.");
         Require(!(await db.QueryAsync<FlowContract>(c=>c.RequestID==request && c.IsCurrent,t)).Any(),"CONTRACT_OPEN","A current Contract already exists.");
-        Require(i.Price is >=3 and <=9999999999m && i.Price==decimal.Truncate(i.Price.Value),"INVALID_PRICE","Enter an integral VND quote.");
+        var costs=i.Costs??(await CalculateCosts(r,new(),t)).Costs;
+        var price=i.Price??costs.Total;
+        Require(price is >=3 and <=9999999999m && price==decimal.Truncate(price),"INVALID_PRICE","Enter an integral VND quote.");
         var floor=r.DestinationCountry=="JP"?7:r.DistanceKm>500?3:2;
         Require(i.PreparationDays>=Math.Max(floor,r.PreparationDays??floor),"INVALID_PREPARATION","Preparation may only increase."); r.PreparationDays=i.PreparationDays;
         Require(Now.AddHours(24)<=Cutoff(r),"INVALID_DEADLINE","Departure must allow preparation and the shared 24-hour completion window.");
         var c=new FlowContract { ContractID=id,RequestID=request,CustomerID=r.CustomerID,ContractCode="F1-"+id[1..17].ToUpperInvariant(),CurrencyCode="VND",ExchangeRateToLocal=1,
-            TotalQuotedPrice=i.Price,DepositRateStandard=40,DepositAmount=decimal.Round(i.Price.Value*.4m,0,MidpointRounding.AwayFromZero),CompletionDeadline=Now.AddHours(24),ContractStatus="DRAFT",IsCurrent=true };
-        db.Add(c); r.Status="DRAFT_CONTRACT"; await db.SaveAsync(t); return await Card(c,t);
+            TotalQuotedPrice=price,DepositRateStandard=40,DepositAmount=decimal.Round(price*.4m,0,MidpointRounding.AwayFromZero),CompletionDeadline=Now.AddHours(24),ContractStatus="DRAFT",IsCurrent=true };
+        db.Add(c);await SaveCosts(id,costs,t); r.Status="DRAFT_CONTRACT"; await db.SaveAsync(t); return await Card(c,t);
     },ct);
 
     public async Task<FlowContractCard> PublishAsync(string id,string actor,FlowAction i,CancellationToken ct)

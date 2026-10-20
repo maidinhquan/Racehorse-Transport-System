@@ -16,6 +16,9 @@ namespace WebApi.Controllers.Flow1;
 [ApiController, Route("api/public/estimates"), EnableRateLimiting("flow1-customer")]
 public sealed class PublicEstimatesController(TransportEstimateService estimates, IFlow1GeocodingProvider geocoding) : ControllerBase
 {
+    [HttpPost("demo")]
+    [ProducesResponseType(typeof(ApiResponse<DemoEstimateView>),StatusCodes.Status200OK)]
+    public async Task<IActionResult> Demo(DemoEstimateInput input,CancellationToken ct)=>Ok(ApiResponse<DemoEstimateView>.Ok(await estimates.DemoAsync(input,ct)));
     [HttpGet("locations/search")]
     public async Task<IActionResult> Search(string address, string country, CancellationToken ct) =>
         Ok(ApiResponse<object>.Ok(await geocoding.SearchAsync(address, country, ct)));

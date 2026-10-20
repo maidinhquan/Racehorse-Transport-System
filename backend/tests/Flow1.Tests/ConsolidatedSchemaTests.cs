@@ -35,7 +35,7 @@ public sealed class ConsolidatedSchemaTests
         var tables=await current.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;");
         await current.ScriptAsync(Script);var before=await Definition(current);
         await current.ScriptAsync(Script);
-        Assert.Equal(1,await Ready(current));Assert.Equal(tables,await current.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;"));
+        Assert.Equal(1,await Ready(current));Assert.Equal(tables+1,await current.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;"));
         Assert.Equal(before,await Definition(current));
         Assert.Equal("ACCEPTED",await current.ScalarAsync<string>("SELECT Status FROM TRANSPORT_REQUEST WHERE RequestID='req-1';"));
     }

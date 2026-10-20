@@ -12,11 +12,11 @@ public sealed record FlowAction(string Version, string? Reason = null, decimal? 
     DateTimeOffset? Deadline = null, string? Target = null, string? Otp = null, string? PdfSha256 = null,
     string? CancellationId = null, string? EventId = null,
     string? AssignedSpecialistId = null, string? AssignedCoordinatorId = null,
-    IReadOnlyList<string>? ClauseIds = null, IReadOnlyList<string>? AdditionalClauses = null);
+    IReadOnlyList<string>? ClauseIds = null, IReadOnlyList<string>? AdditionalClauses = null, CostAmounts? Costs = null);
 public sealed record ContractFeedbackInput(string Version, string FeedbackMessage, IReadOnlyList<string> Fields);
 public sealed record ContractReissueInput(string Version, decimal Price, int PreparationDays,
     DateTimeOffset DepartureAt, DateTimeOffset DeliveryAt, IReadOnlyList<string>? ClauseIds, string Reason,
-    IReadOnlyList<string>? AdditionalClauses = null);
+    IReadOnlyList<string>? AdditionalClauses = null, CostAmounts? Costs = null);
 public sealed record ClauseInput(string Title, string Content, string LanguageCode = "VI", bool IsActive = true);
 public sealed record ClauseCard(string ClauseId, string Title, string Content, string LanguageCode, bool IsActive,
     bool IsRequired = false, int? DisplayOrder = null);

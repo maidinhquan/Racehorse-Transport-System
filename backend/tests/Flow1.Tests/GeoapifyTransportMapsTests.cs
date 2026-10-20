@@ -162,12 +162,12 @@ public sealed class GeoapifyTransportMapsTests
         var maps = Maps(Locations);
         // Road calculation checked separately so this fixture only needs reverse responses here.
         var road = Flow1PricingPolicy.Calculate(new(new("HCM", 10.8, 106.6, "VN"), new("Da Lat", 11.5, 107.5, "VN"), "ROAD", 5,
-            new(2026, 11, 20)), 1, new("GEOAPIFY", 300000, 18000, new FlowClock().GetUtcNow(), "test", true, "test"), new FlowClock());
+            new(2026, 11, 20)), 1, new("GEOAPIFY", 300000, 18000, new FlowClock().GetUtcNow(), "test", true, "test"), new FlowClock(), CostRateTests.Rates(), new());
         Assert.Equal(5, road.Customer.VehicleCount);
         // Different country response for each reverse lookup, including Japan (no road call).
         var locations = new GeoapifyTransportMaps(new(new Handler(request => new(HttpStatusCode.OK) { Content = new StringContent(
             request.RequestUri!.Query.Contains("lat=35.6") ? Locations.Replace("\"vn\"", "\"jp\"") : Locations) })), Options(), new(), new FlowClock());
-        var air = await new TransportEstimateService(maps, locations, new() { StandardVehicleCapacityStalls = 1 }, new FlowClock()).CalculateAsync(
+        var air = await new TransportEstimateService(maps, locations, new() { StandardVehicleCapacityStalls = 1 }, new FlowClock(), new CostRateTests.RateSource()).CalculateAsync(
             new(new("HCM", 10.8, 106.6, "VN"), new("Tokyo", 35.6, 139.7, "JP"), "AIR", 1, new(2026, 11, 20)), default);
         Assert.Contains("Geoapify", air.Customer.LocationAttribution); Assert.Null(air.Route); Assert.Equal(7, air.Customer.MinimumPreparationDays);
     }

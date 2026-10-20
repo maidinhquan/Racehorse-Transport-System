@@ -7,8 +7,10 @@ using Application.Interfaces.Flow1;
 using Application.Services.Flow1;
 using Infrastructure.ExternalServices.Flow1;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
+using Infrastructure.Data.Context;
 
-// Explicit, bounded live checks only. No API host, SQL connection, SMTP or payment access.
+// Explicit, bounded live checks. Estimates read current SQL rates; no SQL writes, SMTP or payment access.
 if (args.Length != 1 || args[0] is not ("--live" or "--preview-only"))
     throw new ArgumentException("Run from repo root with --live (Geoapify + Mapbox) or --preview-only (one Mapbox image).");
 var repository = Directory.GetCurrentDirectory();
@@ -45,7 +47,9 @@ if (args[0] == "--live")
     else
     {
         var maps = new GeoapifyTransportMaps(http, options, new(), clock);
-        var service = new TransportEstimateService(maps, maps, estimateOptions, clock);
+        await using var db = new Flow1RelationalContext(new DbContextOptionsBuilder<Flow1RelationalContext>()
+            .UseSqlServer(config.GetConnectionString("DefaultConnection")??throw new InvalidOperationException("Configure SQL for rate lookup.")).Options);
+        var service = new TransportEstimateService(maps, maps, estimateOptions, clock, new DatabaseCostRates(db));
         try
         {
             var pickup = (await maps.SearchAsync("Ho Chi Minh City", "VN")).FirstOrDefault() ?? throw new InvalidOperationException();

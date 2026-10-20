@@ -4,6 +4,7 @@ public static class Flow1RelationalSchema
 {
     public const string ValidationSql="""
         SELECT CONVERT(int,CASE WHEN COL_LENGTH('dbo.HORSE','PhotoUrl') IS NOT NULL
+          AND OBJECT_ID('dbo.COST_RATE','U') IS NOT NULL AND COL_LENGTH('dbo.COST_RATE','RowVersion') IS NOT NULL
           AND COL_LENGTH('dbo.TRANSPORT_REQUEST','AssignedManagerId') IS NULL
           AND COL_LENGTH('dbo.TRANSPORT_REQUEST','ReviewedAtUtc') IS NULL
           AND COL_LENGTH('dbo.CONTRACT','FeedbackStatus') IS NOT NULL

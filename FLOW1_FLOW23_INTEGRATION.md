@@ -226,3 +226,9 @@ Các lỗi expected 400/401/403/409 là kết quả cần assert theo từng ca,
 | backend/tests/Flow1.Tests/ | Ca nghiệp vụ/phân quyền/tiền/tệp/concurrency |
 
 Tài liệu backend/FLOW* là báo cáo local đang bị ignore, không mặc định tồn tại ở máy teammate. Hai tài liệu root này là điểm đọc được đưa lên Git; không phụ thuộc báo cáo local hoặc file data chưa track.
+
+## 11. Chi phí kế hoạch mới — tránh ghi đè khi ghép
+
+SQL 002 hiện thêm bảng COST_RATE chứa 10 định mức VND. COST_ITEM vẫn tám cột cũ; Flow 1 lưu năm dòng kế hoạch mỗi hợp đồng với SubcodeName PLANNED_TRANSPORT/PLANNED_CREW/PLANNED_PERMIT/PLANNED_VET/PLANNED_INSURANCE. CategoryName tương ứng là TRANSPORT/CREW/PERMIT/VET/INSURANCE; Bearer=CT, CurrencyCode=VND, TotalMoney là số Manager chốt.
+
+Flow 2/3 không xóa hoặc cập nhật đè năm mã đó để lưu chi phí phát sinh. Dùng mã riêng và lọc rõ khi tổng hợp; không SUM toàn COST_ITEM rồi gọi đó là giá hợp đồng. TổngQuotedPrice/tiền cọc hiện hành vẫn lấy từ CONTRACT/INVOICE. Không cần thêm cột RecordType/CostGroup cho đợt này. Bảo hiểm 0,5% là giả định đồ án; không tự áp dụng như báo giá hãng bảo hiểm hoặc thay đổi trách nhiệm chi trả của flow sau.

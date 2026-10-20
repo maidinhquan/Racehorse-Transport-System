@@ -90,6 +90,14 @@ public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1Geoco
 [ApiController,Route("api/manager"),Authorize(Roles=UserRoles.LogisticsManager),EnableRateLimiting("flow1-customer")]
 public sealed class Flow1ManagerApi(RelationalFlow1Service service):FlowApi
 {
+    [HttpGet("cost-rates"),ProducesResponseType(typeof(ApiResponse<IReadOnlyList<CostRateCard>>),StatusCodes.Status200OK)]
+    public async Task<IActionResult> CostRatesAsync(CancellationToken ct)=>Result(await service.CostRatesAsync(Actor,ct));
+    [HttpPut("cost-rates/{id}"),ProducesResponseType(typeof(ApiResponse<CostRateCard>),StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateCostRateAsync(string id,CostRateUpdate input,CancellationToken ct)=>Result(await service.UpdateCostRateAsync(id,Actor,input,ct));
+    [HttpPost("requests/{id}/cost-estimate"),ProducesResponseType(typeof(ApiResponse<CostPlan>),StatusCodes.Status200OK)]
+    public async Task<IActionResult> CostEstimateAsync(string id,CostPlanningInput input,CancellationToken ct)=>Result(await service.RequestCostsAsync(id,Actor,input,ct));
+    [HttpGet("contracts/{id}/costs"),ProducesResponseType(typeof(ApiResponse<CostAmounts>),StatusCodes.Status200OK)]
+    public async Task<IActionResult> ContractCostsAsync(string id,CancellationToken ct)=>Result(await service.ContractCostsAsync(id,Actor,ct)??throw Error("Legacy contract has no five-group cost plan.","DATA_REVIEW_REQUIRED",409));
     [HttpGet("clauses"),ProducesResponseType(typeof(ApiResponse<IReadOnlyList<ClauseCard>>),StatusCodes.Status200OK)]public async Task<IActionResult> Clauses(bool includeInactive,CancellationToken ct)=>Result(await service.ClausesAsync(Actor,includeInactive,ct));
     [HttpPost("clauses"),ProducesResponseType(typeof(ApiResponse<ClauseCard>),StatusCodes.Status200OK)]public async Task<IActionResult> CreateClause(ClauseInput input,CancellationToken ct)=>Result(await service.SaveClauseAsync(null,Actor,input,ct));
     [HttpPut("clauses/{id}"),ProducesResponseType(typeof(ApiResponse<ClauseCard>),StatusCodes.Status200OK)]public async Task<IActionResult> UpdateClause(string id,ClauseInput input,CancellationToken ct)=>Result(await service.SaveClauseAsync(id,Actor,input,ct));

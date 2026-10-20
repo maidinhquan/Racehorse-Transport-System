@@ -31,12 +31,12 @@ public sealed class SimpleRelationalFoundationTests
         var before = (await ForeignKeys(db)).Split('|');
         await db.ScriptAsync(Script);var columns=await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;");
         await db.ScriptAsync(Script);
-        Assert.Equal(tables,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;"));
+        Assert.Equal(tables+1,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables;")); // COST_RATE only.
         Assert.Equal(columns,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns;"));
         var after=(await ForeignKeys(db)).Split('|');Assert.All(before,link=>Assert.Contains(link,after));
         Assert.Equal(before.Length+3,after.Length);
         Assert.Equal(0,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE name IN ('Flow1StateJson','Flow1StateVersion','RelationalReady','DocumentRevision');"));
-        Assert.Equal(5,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE name='RowVersion' AND system_type_id=189 AND is_nullable=0;"));
+        Assert.Equal(6,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE name='RowVersion' AND system_type_id=189 AND is_nullable=0;"));
         Assert.Equal(25,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.check_constraints WHERE name LIKE 'CK_F1S[_]%' AND is_disabled=0 AND is_not_trusted=0;"));
         Assert.Equal("ACCEPTED",await db.ScalarAsync<string>("SELECT Status FROM TRANSPORT_REQUEST WHERE RequestID='req-1';"));
     }

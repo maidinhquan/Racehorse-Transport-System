@@ -67,7 +67,7 @@ public sealed class RelationalFlow1Tests
         {
             var context=new Flow1RelationalContext(new DbContextOptionsBuilder<Flow1RelationalContext>().UseSqlServer(Db.ConnectionString).Options);Contexts.Add(context);
             var maps=new Maps(); var options=new Flow1ContractOptions{Issuer=new(){["COMPANY_NAME"]="Fixture issuer",["COMPANY_ADDRESS"]="Fixture address",["COMPANY_EMAIL"]="issuer@example.invalid",["COMPANY_HOTLINE"]="0900000000",["COMPANY_TAX_CODE"]="FIXTURE",["COMPANY_BANK_ACCOUNT"]="FIXTURE",["COMPANY_BANK_NAME"]="FIXTURE",["COMPANY_REPRESENTATIVE"]="Fixture representative",["COMPANY_REP_POSITION"]="Fixture manager"}};
-            return new(new Flow1Data(context),currentFiles??Storage,new(maps,maps,new(){StandardVehicleCapacityStalls=1},Time),Time,new ContractOtpSecurity("fixture-contract-otp-hmac-key-at-least32bytes"),Email,Renderer,options,new VnpaySandboxGateway(Vnpay,Time),query);
+            return new(new Flow1Data(context),currentFiles??Storage,new(maps,maps,new(){StandardVehicleCapacityStalls=1},Time,new DatabaseCostRates(context)),Time,new ContractOtpSecurity("fixture-contract-otp-hmac-key-at-least32bytes"),Email,Renderer,options,new VnpaySandboxGateway(Vnpay,Time),query);
         }
         public async Task<FlowRequestCard> Request(string key="request-key-one")
         {

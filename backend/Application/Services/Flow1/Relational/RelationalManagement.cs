@@ -108,6 +108,8 @@ public sealed partial class RelationalFlow1Service
                 Require(!await Busy(link.HorseID,departure,delivery,r.RequestID,t),"HORSE_BOOKED","A selected horse is unavailable on the proposed dates.");
             await SelectedClauses(input.ClauseIds,t);
             r.ExpectedDate=departure;r.CommittedDeadline=delivery;r.PreparationDays=input.PreparationDays;
+            var costs=input.Costs??(await CalculateCosts(r,new(),t)).Costs;
+            await SaveCosts(id,costs,t);
             c.TotalQuotedPrice=input.Price;c.DepositAmount=decimal.Round(input.Price*.4m,0,MidpointRounding.AwayFromZero);
             c.CompletionDeadline=Now.AddHours(24);c.EffectiveSignDeadline=null;c.DepositDeadline=c.CompletionDeadline;c.ContractStatus="DRAFT";c.SignOtpHash=null;c.SignOtpFailedAttempts=0;c.SignOtpSentAtUtc=null;c.SignOtpExpiry=null;
             c.ManagerFeedback=Text(input.Reason,2000);c.FeedbackHandledAtUtc=Now;r.Status="DRAFT_CONTRACT";

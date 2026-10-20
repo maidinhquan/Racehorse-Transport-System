@@ -178,6 +178,10 @@ $env:RACEHORSE_TEST_SQL_SERVER = '.\SQLEXPRESS'
 dotnet test backend/Backend.slnx
 ```
 
+Kiểm chứng lượt COST_RATE ngày 20/10/2026: 141 Flow1.Tests + 47 Registration.Tests passed, không skipped; 86 connected API checks và Swagger Try-it-out qua SQL/JWT/PDF/SMTP fixture. Docker backend đã cập nhật và kiểm tra demo trực tiếp tại localhost:5129. Không thay đổi frontend. Đây không phải xác nhận ngân hàng/SMTP internet thật.
+
+Backup trước nâng cấp: `A:\SQL2019\MSSQL15.SQLEXPRESS\MSSQL\Backup\HorseTransportDB_before_cost_rate_20261020_1700.bak`. Đã CHECKSUM/VERIFYONLY, restore sang DB kiểm tra riêng và so sánh SHA-256 JSON toàn bộ bảng cũ theo khóa chính: khớp dữ liệu, bao gồm rowversion/tham chiếu tệp. DB kiểm tra đã dọn; backup được giữ. Bằng chứng local nằm trong `backend/WebApi/App_Data/flow1/cost-rate-qa/` (Git ignore).
+
 Cần account SQL của runner có quyền tạo/xóa database test. LocalSqlFactAttribute có thể skip các bài cần SQL khi thiếu biến môi trường; phải kiểm tra số skipped, không chỉ nhìn màu xanh. Test dùng DB tạm, không đưa fixture vào DB nghiệp vụ.
 
 Connected harness: `backend/tools/Flow1SwaggerHarness` và `backend/tools/flow1-swagger-e2e.cjs`. Đọc tham số/cách chuẩn bị fixture trong source trước chạy; không trỏ fixture vào DB nghiệp vụ. Kiểm thử callback ký bằng khóa test/SMTP trong RAM không thay thế giao dịch ngân hàng, email hoặc callback công khai thật.
@@ -192,3 +196,77 @@ Connected harness: `backend/tools/Flow1SwaggerHarness` và `backend/tools/flow1-
 - PDF: `backend/Infrastructure/ExternalServices/Flow1/CodeContractDocumentGenerator.cs`.
 
 Nếu tài liệu ví dụ trong contracts khác trạng thái/role/payload hiện hành, đối chiếu source trên và xác nhận nghiệp vụ trước sửa. Không tự bật lại decline/hold, thêm owner Manager hoặc đổi về ký trước cọc chỉ để khớp ví dụ cũ.
+
+## 12. Giá theo COST_RATE — cập nhật 20/10/2026
+
+Chỉ thêm một bảng `COST_RATE` bằng SQL 002. Không thêm cột CONTRACT/COST_ITEM và không lưu bảng giá demo/tuyến demo. COST_ITEM giữ tám cột; năm dòng kế hoạch của hợp đồng dùng CategoryName là TRANSPORT/CREW/PERMIT/VET/INSURANCE và SubcodeName tương ứng PLANNED_TRANSPORT/PLANNED_CREW/PLANNED_PERMIT/PLANNED_VET/PLANNED_INSURANCE. Không cộng lẫn các dòng phát sinh hoặc sửa các dòng lịch sử có mã khác.
+
+| Code | Nhóm | Định mức VND |
+|---|---|---|
+| ROAD_KM | TRANSPORT | 200.000/km/xe, gộp nhiên liệu và phí đường |
+| AIR_HORSE | TRANSPORT | 3.000.000/ngựa, gói chuồng bay |
+| STABLE_NIGHT | TRANSPORT | 250.000/ngựa/đêm |
+| CREW_DAY | CREW | 300.000/người/ngày, tài xế và áp tải cùng mức |
+| PERMIT_TRIP | PERMIT | 1.000.000/chuyến |
+| PERMIT_HORSE | PERMIT | 5.000.000/ngựa |
+| VET_DAY | VET | 500.000/bác sĩ/ngày |
+| CARE_DAY | VET | 300.000/ngựa/ngày |
+| INSURANCE_MIN | INSURANCE | 2.000.000/chuyến |
+| INSURANCE_RATE | INSURANCE | 0,005 = 0,5% tổng giá trị ngựa theo VND; giả định đồ án |
+
+```text
+transport = km × số xe × ROAD_KM + (AIR ? số ngựa × AIR_HORSE : 0)
+            + số ngựa × số đêm × STABLE_NIGHT
+crew      = số người × số ngày × CREW_DAY
+permit    = PERMIT_TRIP + số ngựa × PERMIT_HORSE
+vet       = số bác sĩ × số ngày × VET_DAY + số ngựa × số ngày × CARE_DAY
+insurance = max(INSURANCE_MIN, tổng giá trị ngựa VND × INSURANCE_RATE)
+giá đề xuất = tổng năm nhóm; cọc = làm tròn(giá Manager chốt × 40%)
+```
+
+Không margin, dự phòng, khấu hao, overhead hoặc TNDS cộng riêng. Từng nhóm làm tròn đến đồng trước cộng. Sửa định mức không tự đổi chi phí đã lưu hoặc PDF đã phát hành. Migration chạy lại chỉ seed mã còn thiếu, giữ đơn giá Manager đã sửa.
+
+### Các API mới, chỉ backend
+
+| Method/path | Công dụng |
+|---|---|
+| POST /api/public/estimates/demo | Không cần đăng nhập; origin/destination là tên thành phố cấu hình và horseCount. Không gọi maps, không lưu demo, chỉ trả tổng giá/cọc và giả định |
+| GET /api/manager/cost-rates | Manager xem 10 định mức và version |
+| PUT /api/manager/cost-rates/{id} | Manager sửa rate bằng version hiện hành; không cho ngừng dùng định mức bắt buộc |
+| POST /api/manager/requests/{id}/cost-estimate | Manager nhận năm khoản đề xuất, chưa lưu |
+| GET /api/manager/contracts/{id}/costs | Manager xem năm khoản đã lưu; hợp đồng cũ chưa có dữ liệu trả DATA_REVIEW_REQUIRED |
+
+Demo dùng tọa độ trung tâm các thành phố trong appsettings.json, khoảng cách đường chim bay nhân hệ số đường bộ 1,3. Đây là xấp xỉ phục vụ demo, không phải quãng đường đã khảo sát. Số ngày demo ROAD = làm tròn lên(km/60/8), tối thiểu một ngày; đêm = ngày-1. AIR tạm một ngày, không tự bịa chặng xe sân bay. Cùng thành phố/ngoài danh sách bị từ chối. Có thể đổi tọa độ/hệ số/số giờ trong cấu hình mà không sửa code.
+
+Số xe mặc định = làm tròn lên(số ngựa/sức chứa); nhân sự mặc định hai người mỗi xe (AIR không có chặng bộ: hai người), một bác sĩ cho đoàn. Dự toán hợp đồng lấy số ngày từ lịch đón/giao, làm tròn lên theo mỗi 24 giờ; Manager có thể nhập days/stableNights/crewCount/doctorCount/vehicleCount/roadDistanceKm trong cost-estimate để thay giả định. Đây là số lượng dự toán, không phân công nhân sự trước bước bàn giao.
+
+```json
+POST /api/public/estimates/demo
+{"origin":"Ho Chi Minh City","destination":"Tokyo","horseCount":1}
+
+POST /api/manager/requests/{id}/cost-estimate
+{"days":2,"stableNights":1,"crewCount":2,"doctorCount":1,"insuredValueVnd":1000000000}
+```
+
+Không có insuredValueVnd thì dùng bảo hiểm tối thiểu và trả minimumInsuranceAssumed=true. DeclaredValueUsd của hồ sơ cũ không được tự coi là VND hay tự đổi bằng tỷ giá bịa; Manager nhập giá trị VND đã thống nhất vào cost-estimate. Lấy `costs` trả về và gửi nguyên hoặc sửa các nhóm vào draft/reissue để lưu.
+
+```json
+POST /api/manager/requests/{id}/contracts
+{
+  "version":"<request.version>",
+  "preparationDays":2,
+  "costs":{"transport":20000000,"crew":600000,"permit":6000000,"vet":800000,"insurance":2000000}
+}
+```
+
+Omit price: giá hợp đồng mặc định bằng tổng costs. Manager có thể gửi price để chốt giá khác. Omit costs: backend tính với số lượng mặc định theo request và bảo hiểm tối thiểu. Reissue nhận costs tương tự; nếu bỏ costs thì tính lại theo lịch mới/định mức hiện tại. Hợp đồng đã ký hoặc còn giao dịch chưa giải quyết vẫn bị chặn sửa như trước.
+
+Các tên cũ demoTransportCost/estimatedTransportCost được giữ tương thích API nhưng nay biểu thị tổng kế hoạch, không còn chỉ riêng tiền vận chuyển. estimatedTransportCost của request lưu từ lúc gửi request, không bị giá Manager chốt ghi đè. Frontend chưa được sửa để gọi các API mới: bảng/form cũ không tự có thêm chức năng sau khi backend cập nhật.
+
+Nếu test host trên máy không có SMTP registration local, chạy test với biến chỉ dành cho tiến trình thử:
+
+```powershell
+$env:RegistrationEmail__Mode = 'Development'
+$env:RACEHORSE_TEST_SQL_SERVER = '.\SQLEXPRESS'
+dotnet test backend/Backend.slnx
+```
