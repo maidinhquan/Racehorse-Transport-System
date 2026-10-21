@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { GeoPoint } from '../../../api/checkpointCatalog';
 import type { Trip } from '../../../types';
 import { useCoordinator } from '../../../hooks/useCoordinator';
 import { STOP_COLOR, STOP_LABEL, countryName, fmtDateTime, routeEditable } from '../../../hooks/coordinatorRules';
@@ -9,6 +10,7 @@ import { AddStopModal } from '../../../components/Modals';
 export const RouteTab: React.FC<{ trip: Trip }> = ({ trip }) => {
   const { actions } = useCoordinator();
   const [adding, setAdding] = useState(false);
+  const [pickedPoint, setPickedPoint] = useState<GeoPoint | null>(null);
   const r = trip.route, editable = routeEditable(trip), stops = r.stops;
 
   return (
@@ -18,7 +20,8 @@ export const RouteTab: React.FC<{ trip: Trip }> = ({ trip }) => {
           <span>Tuyến {r.version ? `phiên bản ${r.version}` : '(chưa lập)'}</span>
           <TripStatusBadge status={r.status} />
         </h3>
-        <RouteMap stops={stops} />
+        <RouteMap stops={stops} onPick={editable ? point => { setPickedPoint(point); setAdding(true); } : undefined} />
+        {editable && <p className="crd-muted">Bấm trên bản đồ để chọn vị trí thêm điểm dừng.</p>}
         {r.status === 'RETURNED' && r.returnReason && (
           <div className="crd-note crd-note--red"><div><b>Manager trả về tuyến</b>{r.returnReason}</div></div>
         )}
@@ -30,7 +33,7 @@ export const RouteTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       <div className="crd-card">
         <h3 className="crd-card__title">
           <span>Các điểm dừng ({stops.length})</span>
-          {editable && <button type="button" className="crd-btn crd-btn--sm" onClick={() => setAdding(true)}>+ Thêm điểm dừng</button>}
+          {editable && <button type="button" className="crd-btn crd-btn--sm" onClick={() => { setPickedPoint(null); setAdding(true); }}>+ Thêm điểm dừng</button>}
         </h3>
         {stops.length ? stops.map((s, i) => (
           <div key={s.id} className="crd-stop-row">
@@ -72,6 +75,7 @@ export const RouteTab: React.FC<{ trip: Trip }> = ({ trip }) => {
 
       <AddStopModal
         open={adding}
+        initialPoint={pickedPoint}
         defaultCountry={trip.originCountry}
         defaultTime={stops[stops.length - 1]?.plannedAt ?? trip.plannedDepart}
         hasOrigin={stops.some((s) => s.type === 'ORIGIN')}

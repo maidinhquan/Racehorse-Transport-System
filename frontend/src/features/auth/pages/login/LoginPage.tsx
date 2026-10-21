@@ -387,16 +387,7 @@ function LoginPage() {
               🚚 Driver / Escort
             </button>
 
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("admin@cbntransport.com")
-              }
-              title="Quản trị: admin@cbntransport.com"
-            >
-              👑 Admin Quản Trị
-            </button>
+
           </div>
         </div>
 

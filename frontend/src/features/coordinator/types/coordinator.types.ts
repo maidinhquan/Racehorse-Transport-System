@@ -52,6 +52,9 @@ export type TripDetailTab = 'overview' | 'route' | 'resources' | 'flight' | 'tra
 // MODELS
 // ---------------------------------------------------------------------------
 export interface RouteStop {
+  lat?: number;
+  lng?: number;
+  checkpointId?: number;
   id: string;
   name: string;
   type: StopType;

@@ -35,7 +35,20 @@ import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage"
 // ==================== ROLE DASHBOARDS ====================
 import AdminDashboard from "../../features/admin/AdminDashboard";
 import DriverDashboard from "../../features/driver/DriverDashboard";
-import { ManagerPortal } from "../../features/manager/pages/dashboard/ManagerPortal";
+import {
+  ManagerDashboardPage,
+  RequestsPage as ManagerRequestsPage,
+  RequestDetailPage as ManagerRequestDetailPage,
+  ContractsPage as ManagerContractsPage,
+  ContractEditorPage,
+  PaymentsPage as ManagerPaymentsPage,
+  TripsPage as ManagerTripsPage,
+  TripDetailPage as ManagerTripDetailPage,
+  IncidentsPage as ManagerIncidentsPage,
+  IncidentDetailPage,
+  ComplaintDetailPage,
+  ReportsPage as ManagerReportsPage,
+} from "../../features/manager";
 import {
   SpecialistDashboardPage,
   AssignedTripsPage,
@@ -81,12 +94,24 @@ function AppRouter() {
         <Route path="/driver/handover" element={<HandoverPage />} />
 
         {/* ==================== MANAGER ==================== */}
-        <Route path="/manager" element={<Navigate to="/manager/overview" replace />} />
-        <Route path="/manager/dashboard" element={<ManagerPortal initialNav="overview" />} />
-        <Route path="/manager/overview" element={<ManagerPortal initialNav="overview" />} />
-        <Route path="/manager/requests" element={<ManagerPortal initialNav="requests" />} />
-        <Route path="/manager/contracts" element={<ManagerPortal initialNav="contracts" />} />
-        <Route path="/manager/payments" element={<ManagerPortal initialNav="payments" />} />
+        <Route path="/manager" element={<Navigate to="/manager/dashboard" replace />} />
+        <Route path="/manager/dashboard" element={<ManagerDashboardPage />} />
+        <Route path="/manager/overview" element={<Navigate to="/manager/dashboard" replace />} />
+        <Route path="/manager/requests" element={<ManagerRequestsPage />} />
+        <Route path="/manager/requests/:requestId" element={<ManagerRequestDetailPage />} />
+        <Route path="/manager/requests/:requestId/:tab" element={<ManagerRequestDetailPage />} />
+        <Route path="/manager/contracts" element={<ManagerContractsPage />} />
+        <Route path="/manager/contracts/:requestId" element={<ContractEditorPage />} />
+        <Route path="/manager/contracts/:requestId/:version" element={<ContractEditorPage />} />
+        <Route path="/manager/payments" element={<ManagerPaymentsPage />} />
+        <Route path="/manager/payments/:tab" element={<ManagerPaymentsPage />} />
+        <Route path="/manager/trips" element={<ManagerTripsPage />} />
+        <Route path="/manager/trips/:tripId" element={<ManagerTripDetailPage />} />
+        <Route path="/manager/trips/:tripId/:stage" element={<ManagerTripDetailPage />} />
+        <Route path="/manager/incidents" element={<ManagerIncidentsPage />} />
+        <Route path="/manager/incidents/:incidentId" element={<IncidentDetailPage />} />
+        <Route path="/manager/complaints/:complaintId" element={<ComplaintDetailPage />} />
+        <Route path="/manager/reports" element={<ManagerReportsPage />} />
 
         {/* ==================== COORDINATOR ==================== */}
         <Route path="/coordinator" element={<Navigate to="/coordinator/dashboard" replace />} />
