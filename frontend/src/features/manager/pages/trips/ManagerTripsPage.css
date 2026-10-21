@@ -1,0 +1,299 @@
+/* =========================================================================
+   CBN TRANSPORT - MANAGER TRIPS PAGE (DARK THEME)
+   Matching pixel-perfect UI from design screenshots
+   ========================================================================= */
+
+.trips-page-container {
+  padding: 24px 32px 60px 32px;
+  background-color: #121316;
+  color: #f3f4f6;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+/* Page Header */
+.trips-header-section {
+  margin-bottom: 24px;
+}
+
+.trips-header-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.01em;
+}
+
+.trips-header-sub {
+  font-size: 13.5px;
+  color: #9ca3af;
+  margin: 0;
+  max-width: 900px;
+  line-height: 1.5;
+}
+
+/* ==================== STAT CARDS GRID ==================== */
+.trip-stat-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.trip-stat-card {
+  background-color: #18191e;
+  border: 1px solid #272831;
+  border-radius: 12px;
+  padding: 20px 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.trip-stat-card:hover {
+  background-color: #1f2027;
+  border-color: #3b3e4f;
+}
+
+.trip-stat-card.active {
+  border-color: #ea580c;
+  box-shadow: 0 0 12px rgba(234, 88, 12, 0.25);
+  background-color: #1a1a20;
+}
+
+.trip-stat-card-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
+
+.trip-stat-card-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.1;
+  margin-bottom: 8px;
+}
+
+.trip-stat-card.active .trip-stat-card-number {
+  color: #ea580c;
+}
+
+.trip-stat-card-sub {
+  font-size: 12.5px;
+  color: #6b7280;
+  transition: color 0.15s ease;
+}
+
+.trip-stat-card.active .trip-stat-card-sub {
+  color: #ea580c;
+  font-weight: 500;
+}
+
+/* ==================== FILTERS & SEARCH ROW ==================== */
+.trips-filters-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.trips-search-box {
+  flex: 1;
+  min-width: 260px;
+  background-color: #18191e;
+  border: 1px solid #272831;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  height: 42px;
+}
+
+.trips-search-icon {
+  font-size: 14px;
+  color: #6b7280;
+  margin-right: 10px;
+}
+
+.trips-search-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 13.5px;
+}
+
+.trips-search-input::placeholder {
+  color: #6b7280;
+}
+
+.trips-select {
+  background-color: #18191e;
+  border: 1px solid #272831;
+  border-radius: 8px;
+  color: #f3f4f6;
+  padding: 0 14px;
+  height: 42px;
+  font-size: 13.5px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.trips-select:hover {
+  border-color: #3b3e4f;
+}
+
+/* ==================== TRIPS TABLE ==================== */
+.trips-table-card {
+  background-color: #18191e;
+  border: 1px solid #272831;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  margin-bottom: 20px;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.trips-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.trips-table th {
+  padding: 14px 16px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #8e92a2;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #272831;
+  white-space: nowrap;
+}
+
+.trips-table td {
+  padding: 15px 16px;
+  font-size: 13.5px;
+  color: #f3f4f6;
+  border-bottom: 1px solid #22232c;
+  vertical-align: middle;
+}
+
+.trips-table-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  position: relative;
+}
+
+.trips-table-row:hover {
+  background-color: #1f2027;
+}
+
+.trips-table-row.pending-indicator {
+  border-left: 3px solid #ea580c;
+}
+
+.trip-code-text {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.trip-sub-req {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.trip-customer-name {
+  font-weight: 600;
+  color: #ffffff;
+  font-size: 13.5px;
+}
+
+.trip-sub-contact {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.trip-route-text {
+  color: #d1d5db;
+  font-size: 13.5px;
+}
+
+.trip-mode-text {
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.trip-horses-count {
+  color: #f3f4f6;
+  font-weight: 500;
+}
+
+.trip-dep-time {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.trip-sub-eta {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.badge-trip-route {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-trip-route.approved {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.badge-trip-route.not-started {
+  background-color: rgba(156, 163, 175, 0.15);
+  color: #9ca3af;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
+.badge-trip-route.draft {
+  background-color: rgba(234, 88, 12, 0.15);
+  color: #ea580c;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+}
+
+.trip-resource-text {
+  color: #9ca3af;
+}
+
+/* Helper note */
+.trips-bottom-note {
+  font-size: 12.5px;
+  color: #6b7280;
+  font-style: italic;
+  margin-top: 12px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .trip-stat-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}

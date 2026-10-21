@@ -1,0 +1,69 @@
+.mgr-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  line-height: 1.4;
+  transition: all 0.2s ease;
+}
+
+/* Badge variants matching the screenshot */
+.mgr-status-badge.badge-orange,
+.mgr-status-badge.in_transit,
+.mgr-status-badge.dang-van-chuyen {
+  background-color: rgba(234, 88, 12, 0.18);
+  color: #fb923c;
+  border: 1px solid rgba(234, 88, 12, 0.4);
+}
+
+.mgr-status-badge.badge-blue,
+.mgr-status-badge.planning,
+.mgr-status-badge.accepted,
+.mgr-status-badge.lap-ke-hoach {
+  background-color: rgba(30, 58, 138, 0.35);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.mgr-status-badge.badge-teal,
+.mgr-status-badge.ready,
+.mgr-status-badge.san-sang-khoi-hanh {
+  background-color: rgba(13, 148, 136, 0.2);
+  color: #2dd4bf;
+  border: 1px solid rgba(20, 184, 166, 0.4);
+}
+
+.mgr-status-badge.badge-amber,
+.mgr-status-badge.changes_requested,
+.mgr-status-badge.revision {
+  background-color: rgba(180, 83, 9, 0.22);
+  color: #fbbf24;
+  border: 1px solid rgba(217, 119, 6, 0.4);
+}
+
+.mgr-status-badge.badge-red,
+.mgr-status-badge.rejected,
+.mgr-status-badge.overdue {
+  background-color: rgba(220, 38, 38, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.mgr-status-badge.badge-green,
+.mgr-status-badge.delivered,
+.mgr-status-badge.da-giao {
+  background-color: rgba(6, 95, 70, 0.35);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.mgr-status-badge.badge-gray {
+  background-color: rgba(75, 85, 99, 0.25);
+  color: #9ca3af;
+  border: 1px solid rgba(107, 114, 128, 0.35);
+}

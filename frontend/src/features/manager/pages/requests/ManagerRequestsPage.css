@@ -1,0 +1,359 @@
+/* =========================================================================
+   CBN TRANSPORT - MANAGER REQUESTS PAGE (DARK THEME)
+   Matching pixel-perfect UI from design screenshots
+   ========================================================================= */
+
+.requests-page-container {
+  padding: 24px 32px 60px 32px;
+  background-color: #121316;
+  color: #f3f4f6;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+/* Page Header */
+.req-header-section {
+  margin-bottom: 24px;
+}
+
+.req-header-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.01em;
+}
+
+.req-header-sub {
+  font-size: 13.5px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+/* ==================== DEMO CONTROL BOX ==================== */
+.demo-control-card {
+  background-color: #18191e;
+  border: 1px solid #272831;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+
+.demo-control-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.demo-control-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.demo-control-badge {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.demo-suggestion-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ea580c;
+  margin-bottom: 4px;
+}
+
+.demo-suggestion-desc {
+  font-size: 12.5px;
+  color: #9ca3af;
+  margin: 0 0 18px 0;
+  line-height: 1.5;
+}
+
+.demo-subaction-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.demo-subaction-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.demo-subaction-count {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.demo-pills-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.demo-pill-btn {
+  background-color: #202128;
+  border: 1px solid #2f313e;
+  color: #f3f4f6;
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.demo-pill-btn:hover {
+  background-color: #2a2c37;
+  border-color: #4b4e5f;
+  color: #ffffff;
+}
+
+/* ==================== SEARCH & FILTERS BAR ==================== */
+.req-filters-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.req-search-box {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.req-search-icon {
+  position: absolute;
+  left: 14px;
+  font-size: 14px;
+  color: #6b7280;
+  pointer-events: none;
+}
+
+.req-search-input {
+  width: 100%;
+  background-color: #18191e;
+  border: 1px solid #272831;
+  border-radius: 8px;
+  padding: 10px 14px 10px 38px;
+  color: #ffffff;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.req-search-input:focus {
+  border-color: #ea580c;
+}
+
+.req-search-input::placeholder {
+  color: #6b7280;
+}
+
+.req-select-wrap {
+  width: 200px;
+  position: relative;
+}
+
+.req-select {
+  width: 100%;
+  background-color: #18191e;
+  border: 1px solid #272831;
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+}
+
+.req-select:focus {
+  border-color: #ea580c;
+}
+
+/* ==================== MAIN TABLE ==================== */
+.req-table-card {
+  background-color: #18191e;
+  border: 1px solid #272831;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.req-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.req-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.req-table th {
+  padding: 12px 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: #141519;
+  border-bottom: 1px solid #24252e;
+  white-space: nowrap;
+}
+
+.req-table td {
+  padding: 14px 20px;
+  font-size: 13px;
+  color: #e5e7eb;
+  border-bottom: 1px solid #22232c;
+  vertical-align: middle;
+}
+
+.req-table tr.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.req-table tr.clickable-row:hover {
+  background-color: #1f2027;
+}
+
+.table-id-text {
+  font-weight: 700;
+  color: #ffffff;
+  font-family: inherit;
+}
+
+.table-cust-title {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.table-cust-sub {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.table-route-text {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.table-date-text {
+  color: #ffffff;
+  font-weight: 400;
+}
+
+.table-horses-count {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.req-empty-cell {
+  text-align: center;
+  padding: 32px;
+  color: #6b7280;
+}
+
+/* Table Footer & Pagination */
+.req-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid #22232c;
+  font-size: 12px;
+  color: #6b7280;
+  background-color: #141519;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-nav-btn {
+  background-color: #1c1d23;
+  border: 1px solid #2c2d38;
+  color: #9ca3af;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.page-nav-btn:hover:not(:disabled) {
+  background-color: #272833;
+  color: #ffffff;
+}
+
+.page-nav-btn.active {
+  background-color: #262732;
+  color: #ffffff;
+  border-color: #4b5563;
+  font-weight: 700;
+}
+
+.page-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Floating incident demo button */
+.req-floating-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 28px;
+  background-color: #ea580c;
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  padding: 10px 22px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(234, 88, 12, 0.45);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 40;
+  transition: all 0.2s ease;
+}
+
+.req-floating-btn:hover {
+  background-color: #f97316;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(234, 88, 12, 0.55);
+}
+
+@media (max-width: 900px) {
+  .requests-page-container {
+    padding: 16px;
+  }
+
+  .req-filters-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .req-select-wrap {
+    width: 100%;
+  }
+}

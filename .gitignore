@@ -5,9 +5,10 @@ frontend/.env
 frontend/.env.local
 
 # Data files & Requirements
-data/
+/data/
 !backend/Infrastructure/Data/
 !backend/Infrastructure/Data/**
+!frontend/src/**/data/**
 landing_page/
 spark-AKA-3D-lib-for-render-3D/
 

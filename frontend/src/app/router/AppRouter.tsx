@@ -27,7 +27,7 @@ import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage"
 import AdminDashboard from "../../features/admin/AdminDashboard";
 import DriverDashboard from "../../features/driver/DriverDashboard";
 import SpecialistDashboard from "../../features/specialist/SpecialistDashboard";
-import { ManagerPortal } from "../../features/Manager/pages/dashboard/ManagerPortal";
+import { ManagerPortal } from "../../features/manager";
 import { SpecialistPortal } from "../../features/specialist/pages/dashboard/SpecialistPortal";
 import { CoordinatorPortal } from "../../features/coordinator/pages/dashboard/CoordinatorPortal";
 import CoordinatorDashboard from "../../features/coordinator/CoordinatorDashboard";
@@ -65,6 +65,8 @@ function AppRouter() {
         <Route path="/manager/requests" element={<ManagerPortal initialNav="requests" />} />
         <Route path="/manager/contracts" element={<ManagerPortal initialNav="contracts" />} />
         <Route path="/manager/payments" element={<ManagerPortal initialNav="payments" />} />
+        <Route path="/manager/trips" element={<ManagerPortal initialNav="trips" />} />
+        <Route path="/manager/reports" element={<ManagerPortal initialNav="reports" />} />
 
         {/* ==================== COORDINATOR ==================== */}
         <Route path="/coordinator/dashboard" element={<CoordinatorPortal initialNav="dashboard" />} />

@@ -1,0 +1,188 @@
+/* TripDetailModal.css */
+.trip-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.trip-modal-box {
+  background-color: #18191e;
+  border: 1px solid #272831;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 760px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.trip-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid #272831;
+}
+
+.trip-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.trip-modal-sub {
+  font-size: 12.5px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+
+.trip-modal-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.trip-modal-close:hover {
+  color: #ffffff;
+  background-color: #262833;
+}
+
+.trip-modal-body {
+  padding: 24px;
+}
+
+.trip-modal-toast {
+  background-color: #166534;
+  border: 1px solid #22c55e;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.trip-timeline-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #272831;
+}
+
+.trip-timeline-step-btn {
+  background-color: #202128;
+  border: 1px solid #2f313e;
+  color: #9ca3af;
+  border-radius: 9999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.trip-timeline-step-btn:hover {
+  background-color: #2a2c37;
+  color: #ffffff;
+}
+
+.trip-timeline-step-btn.active {
+  background-color: #ea580c;
+  border-color: #ea580c;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.trip-timeline-step-btn.done {
+  background-color: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+}
+
+.trip-stage-content-box {
+  background-color: #121316;
+  border: 1px solid #22232c;
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.stage-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.stage-desc {
+  font-size: 13px;
+  color: #9ca3af;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.trip-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.trip-stat-field {
+  background-color: #18191e;
+  border: 1px solid #272831;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.field-label {
+  font-size: 11px;
+  color: #8e92a2;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.field-val {
+  font-size: 13.5px;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.stage-status-done {
+  margin-top: 16px;
+  background-color: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+.trip-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 18px 24px;
+  border-top: 1px solid #272831;
+  background-color: #14151a;
+}
