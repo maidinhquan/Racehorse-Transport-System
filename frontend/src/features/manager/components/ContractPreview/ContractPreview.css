@@ -1,0 +1,13 @@
+.mgr-contract { border: 1px solid var(--mgr-line, #e5e7eb); border-radius: 12px; padding: 20px; background: #fff; color: #0f172a; }
+.mgr-contract__head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 4px; }
+.mgr-contract__brand { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #ea580c; }
+.mgr-contract__head h3 { margin: 4px 0 0; font-size: 17px; }
+.mgr-contract__meta { display: flex; flex-direction: column; align-items: flex-end; font-size: 12px; color: #64748b; gap: 2px; }
+.mgr-contract section { margin-top: 16px; }
+.mgr-contract h4 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #475569; }
+.mgr-contract__price { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mgr-contract__price td { padding: 8px 0; border-bottom: 1px dashed #e5e7eb; }
+.mgr-contract__price tr.total td { font-weight: 800; border-bottom: 1px solid #0f172a; }
+.mgr-contract__terms { margin: 0; padding-left: 20px; line-height: 1.6; font-size: 13px; color: #334155; }
+.mgr-contract__terms li + li { margin-top: 6px; }
+@media (max-width: 600px) { .mgr-contract__meta { align-items: flex-start; } }
