@@ -8,9 +8,12 @@ namespace Application.Interfaces
         Task<CoordinatorDashboardDto> GetDashboardAsync();
         Task<List<PlanningTripDto>> GetPlanningTripsAsync();
         Task<TripDetailDto?> GetTripDetailAsync(string tripId);
+        Task<List<UnplannedRequestDto>> GetUnplannedRequestsAsync();
+        Task<PlanningTripDto> StartPlanningTripAsync(StartPlanningRequestDto dto);
         
-        // 2. Checkpoints
+        // 2. Checkpoints & Geocoding
         Task<List<CheckpointDto>> GetCheckpointsAsync(string? country, string? type, string? q);
+        Task<List<CheckpointDto>> GeocodeAddressAsync(string address, string? country = "VN");
 
         // 3. Fleet & Vehicles
         Task<List<VehicleDto>> GetVehiclesAsync(string? status = null, string? country = null, int? minStalls = null);
@@ -41,6 +44,7 @@ namespace Application.Interfaces
         Task<RouteCalculateResponseDto?> GetManagerTripRouteAsync(string tripId);
         Task<bool> ApproveRouteVersionAsync(string tripId, int routeVersionId, ManagerApproveRouteDto dto);
         Task<bool> ReturnRouteVersionAsync(string tripId, int routeVersionId, ManagerReturnRouteDto dto);
+        Task<bool> ApproveDepartureAsync(string tripId, ManagerApproveDepartureDto? dto = null);
 
         // 7. Leg Assignments
         Task<TripAssignmentsDetailDto> GetTripAssignmentsAsync(string tripId);
