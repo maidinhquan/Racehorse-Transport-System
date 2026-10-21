@@ -21,7 +21,22 @@ namespace Application.DTOs
         public int? CurrentRouteVersionId { get; set; }
         public string DeploymentStatus { get; set; } = "CONFIRMED";
         public DateTime? PlannedDepartureAt { get; set; }
+        public string? RejectionReason { get; set; }
+        public DateTime? EarliestDepartureDate { get; set; }
+        public DateTime? DocumentExpiryDate { get; set; }
+        public string? SpecialistLegalNote { get; set; }
+        public DateTime? ResourcesConfirmedAt { get; set; }
+        public string? ResourcesConfirmedBy { get; set; }
+        public DateTime? DepartureApprovedAt { get; set; }
+        public string? DepartureApprovedBy { get; set; }
+        public bool IsOperationsReady { get; set; }
+        public bool IsLegalReady { get; set; }
         public DepartureConditionsDto Conditions { get; set; } = new();
+    }
+
+    public class ManagerApproveDepartureDto
+    {
+        public string? Note { get; set; }
     }
 }
 
