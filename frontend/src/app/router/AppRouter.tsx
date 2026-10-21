@@ -12,7 +12,7 @@ import VerifyOtpPage from "../../features/auth/pages/verify-otp/VerifyOtpPage";
 import ForgotPasswordPage from "../../features/auth/pages/forgot-password/ForgotPasswordPage";
 import ResetPasswordPage from "../../features/auth/pages/reset-password/ResetPasswordPage";
 
-// ==================== CUSTOMER (FOLDER: features/customer) ====================
+// ==================== CUSTOMER ====================
 import { CustomerHomePage } from "../../features/customer/pages/customer-home/CustomerHomePage";
 import { CustomerRequestsPage } from "../../features/customer/pages/customer-requests/CustomerRequestsPage";
 import { CustomerTrackingPage } from "../../features/customer/pages/tracking/CustomerTrackingPage";
@@ -27,14 +27,21 @@ import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage"
 import AdminDashboard from "../../features/admin/AdminDashboard";
 import DriverDashboard from "../../features/driver/DriverDashboard";
 import SpecialistDashboard from "../../features/specialist/SpecialistDashboard";
-import { ManagerPortal } from "../../features/Manager/pages/dashboard/ManagerPortal";
+import { ManagerPortal } from "../../features/manager/pages/dashboard/ManagerPortal";
 import { SpecialistPortal } from "../../features/specialist/pages/dashboard/SpecialistPortal";
-import { CoordinatorPortal } from "../../features/coordinator/pages/dashboard/CoordinatorPortal";
-import CoordinatorDashboard from "../../features/coordinator/CoordinatorDashboard";
+import {
+  CoordinatorDashboardPage,
+  TripManagementPage,
+  TripDetailPage,
+  FleetPage,
+  CrewPage,
+  FlightsPage,
+  IncidentsPage,
+} from "../../features/coordinator";
 import { DriverPortal } from "../../features/driver/pages/trip-detail/DriverPortal";
 import { HandoverPage } from "../../features/driver/pages/handover/HandoverPage";
 import { LandingPage } from "../../features/landing/LandingPage";
-
+import { AddHorsePage } from '../../features/customer/pages/my-horses/add-horse/AddHorsePage';
 function AppRouter() {
   return (
     <BrowserRouter>
@@ -67,13 +74,16 @@ function AppRouter() {
         <Route path="/manager/payments" element={<ManagerPortal initialNav="payments" />} />
 
         {/* ==================== COORDINATOR ==================== */}
-        <Route path="/coordinator/dashboard" element={<CoordinatorPortal initialNav="dashboard" />} />
-        <Route path="/coordinator/overview" element={<CoordinatorDashboard />} />
-        <Route path="/coordinator/trips" element={<CoordinatorPortal initialNav="trips" />} />
-        <Route path="/coordinator/fleet" element={<CoordinatorPortal initialNav="fleet" />} />
-        <Route path="/coordinator/crew" element={<CoordinatorPortal initialNav="crew" />} />
-        <Route path="/coordinator/active" element={<CoordinatorPortal initialNav="active" />} />
-        <Route path="/coordinator/incidents" element={<CoordinatorPortal initialNav="incidents" />} />
+        <Route path="/coordinator" element={<Navigate to="/coordinator/dashboard" replace />} />
+        <Route path="/coordinator/dashboard" element={<CoordinatorDashboardPage />} />
+        <Route path="/coordinator/overview" element={<Navigate to="/coordinator/dashboard" replace />} />
+        <Route path="/coordinator/trips" element={<TripManagementPage />} />
+        <Route path="/coordinator/trips/:tripId" element={<TripDetailPage />} />
+        <Route path="/coordinator/trips/:tripId/:tab" element={<TripDetailPage />} />
+        <Route path="/coordinator/fleet" element={<FleetPage />} />
+        <Route path="/coordinator/crew" element={<CrewPage />} />
+        <Route path="/coordinator/flights" element={<FlightsPage />} />
+        <Route path="/coordinator/incidents" element={<IncidentsPage />} />
 
         {/* ==================== SPECIALIST ==================== */}
         <Route path="/specialist/dashboard" element={<SpecialistDashboard />} />
@@ -86,7 +96,8 @@ function AppRouter() {
         <Route path="/specialist/master" element={<SpecialistPortal initialNav="master" />} />
         <Route path="/specialist/audit" element={<SpecialistPortal initialNav="audit" />} />
 
-        {/* ==================== CUSTOMER (FOLDER: features/customer) ==================== */}
+        {/* ==================== CUSTOMER ==================== */}
+        <Route path="/customer/horses/new" element={<AddHorsePage />} />
         <Route path="/customer" element={<Navigate to="/customer/home" replace />} />
         <Route path="/customer/home" element={<CustomerHomePage />} />
         <Route path="/customer/dashboard" element={<CustomerHomePage />} />

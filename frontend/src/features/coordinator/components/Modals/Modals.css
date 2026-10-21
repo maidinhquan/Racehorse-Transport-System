@@ -1,0 +1,15 @@
+.crd-modal { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; }
+.crd-modal__back { position: absolute; inset: 0; background: rgba(15, 23, 42, .45); }
+.crd-modal__box {
+  position: relative; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+  background: var(--crd-card, #fff); border: 1px solid var(--crd-line, #e2e8f0); border-radius: 16px; padding: 24px; box-shadow: 0 24px 60px rgba(15, 23, 42, .3);
+  font-family: Inter, system-ui, sans-serif; color: var(--crd-ink, #0f172a);
+}
+.crd-modal__box--wide { max-width: 760px; }
+.crd-modal__title { margin: 0 0 14px; font-size: 18px; font-weight: 700; }
+.crd-modal__body { font-size: 13px; }
+.crd-modal__body p { margin: 0 0 12px; line-height: 1.5; }
+.crd-modal__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.crd-modal__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.crd-modal__error { color: #b91c1c; font-size: 12px; margin-top: 4px; }
+@media (max-width: 600px) { .crd-modal__grid { grid-template-columns: 1fr; } }

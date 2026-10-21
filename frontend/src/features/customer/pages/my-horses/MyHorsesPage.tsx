@@ -1,35 +1,28 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CustomerLayout } from '../../components/CustomerLayout';
-import { mockCustomerHorses } from '../../data/mockData';
-import type { CustomerHorse } from '../../types';
-import { HorseModal } from './HorseModal';
+import { useHorseProfiles } from '../../data/horseProfileStorage';
+import type { HorseProfile } from '../../data/horseProfileStorage';
+import { useHorseFileUrl } from '../../hooks/useHorseFileUrl';
+import { HorseDetailsModal } from './HorseDetailsModal';
 import './MyHorsesPage.css';
 
 type HorseFilterTab = 'all' | 'submitted' | 'unsubmitted';
 
 export const MyHorsesPage: React.FC = () => {
-  const [horses, setHorses] = useState<CustomerHorse[]>(mockCustomerHorses);
+  const navigate = useNavigate();
+  const { horses, loading, error, refresh } = useHorseProfiles();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<HorseFilterTab>('all');
 
-  // Modal state
-  const [modalState, setModalState] = useState<{
-    isOpen: boolean;
-    mode: 'view' | 'add' | 'edit';
-    selectedHorse: CustomerHorse | null;
-  }>({
-    isOpen: false,
-    mode: 'view',
-    selectedHorse: null,
-  });
+  const [selectedHorseId, setSelectedHorseId] = useState<string | null>(null);
+  const selectedHorse = horses.find(horse => horse.id === selectedHorseId) || null;
 
   const filteredHorses = useMemo(() => {
     return horses.filter((horse) => {
       const matchSearch =
-        horse.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        horse.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        horse.breed.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        horse.microchip.toLowerCase().includes(searchTerm.toLowerCase());
+        [horse.name, horse.id, horse.breed, horse.microchip].some(value =>
+          value.toLowerCase().includes(searchTerm.trim().toLowerCase()));
 
       const matchTab =
         activeTab === 'all' ||
@@ -41,42 +34,21 @@ export const MyHorsesPage: React.FC = () => {
   }, [horses, searchTerm, activeTab]);
 
   const handleOpenAdd = () => {
-    setModalState({
-      isOpen: true,
-      mode: 'add',
-      selectedHorse: null,
-    });
+    navigate('/customer/horses/new');
   };
 
-  const handleOpenView = (horse: CustomerHorse) => {
-    setModalState({
-      isOpen: true,
-      mode: 'view',
-      selectedHorse: horse,
-    });
+  const handleOpenView = (horse: HorseProfile) => {
+    setSelectedHorseId(horse.id);
   };
 
-  const handleOpenEdit = (horse: CustomerHorse) => {
-    setModalState({
-      isOpen: true,
-      mode: 'edit',
-      selectedHorse: horse,
-    });
-  };
-
-  const handleSaveHorse = (horseData: CustomerHorse) => {
-    if (modalState.mode === 'add') {
-      setHorses((prev) => [horseData, ...prev]);
-    } else {
-      setHorses((prev) =>
-        prev.map((h) => (h.id === horseData.id ? horseData : h))
-      );
-    }
+  const handleOpenEdit = (horse: HorseProfile) => {
+    navigate(`/customer/horses/${encodeURIComponent(horse.id)}/edit`);
   };
 
   return (
     <CustomerLayout pageTitle="Ngựa của tôi" activeNav="horses">
       <div className="customer-horses-page my-horses-page">
+        {error && <div role="alert" className="horse-storage-message">{error} <button type="button" onClick={refresh}>Thử lại</button></div>}
         {/* ==================== PAGE HEADER ==================== */}
         <section className="customer-horses-header my-horses-header">
           <div className="customer-horses-titles">
@@ -120,6 +92,7 @@ export const MyHorsesPage: React.FC = () => {
             <button
               type="button"
               className={`horses-filter-btn ${activeTab === 'all' ? 'active' : ''}`}
+              aria-pressed={activeTab === 'all'}
               onClick={() => setActiveTab('all')}
             >
               Tất cả ngựa
@@ -127,6 +100,7 @@ export const MyHorsesPage: React.FC = () => {
             <button
               type="button"
               className={`horses-filter-btn ${activeTab === 'submitted' ? 'active' : ''}`}
+              aria-pressed={activeTab === 'submitted'}
               onClick={() => setActiveTab('submitted')}
             >
               Đã nộp cùng đơn
@@ -134,6 +108,7 @@ export const MyHorsesPage: React.FC = () => {
             <button
               type="button"
               className={`horses-filter-btn ${activeTab === 'unsubmitted' ? 'active' : ''}`}
+              aria-pressed={activeTab === 'unsubmitted'}
               onClick={() => setActiveTab('unsubmitted')}
             >
               Chưa nộp
@@ -142,8 +117,8 @@ export const MyHorsesPage: React.FC = () => {
         </div>
 
         {/* ==================== HORSES CARDS GRID ==================== */}
-        <div className="horses-grid">
-          {filteredHorses.length > 0 ? (
+        <div className="horses-grid" aria-busy={loading}>
+          {loading ? <p role="status">Đang tải hồ sơ ngựa…</p> : filteredHorses.length > 0 ? (
             filteredHorses.map((horse) => {
               const isMissingMicrochip =
                 !horse.microchip || horse.microchip === 'Chưa cung cấp';
@@ -152,7 +127,7 @@ export const MyHorsesPage: React.FC = () => {
                 <div key={horse.id} className="horse-card">
                   {/* Image container */}
                   <div className="horse-image-container">
-                    <span className="horse-placeholder-label">Ảnh ngựa</span>
+                    <HorseProfilePhoto horse={horse} />
                     <span
                       className={`horse-submission-badge ${
                         horse.submissionStatus === 'unsubmitted' ? 'unsubmitted' : 'submitted'
@@ -170,7 +145,7 @@ export const MyHorsesPage: React.FC = () => {
                     </div>
 
                     <p className="horse-breed-line">
-                      {horse.breed} • {horse.gender} • {horse.age} tuổi
+                      {horse.breed || 'Chưa cập nhật giống'} • {horse.gender} • {horse.birthDate || horse.age > 0 ? `${horse.age} tuổi` : 'Chưa cập nhật tuổi'}
                     </p>
 
                     {/* Specifications */}
@@ -178,7 +153,7 @@ export const MyHorsesPage: React.FC = () => {
                       <div className="spec-item">
                         <span className="spec-name">Vi mạch</span>
                         <span className="spec-val">
-                          {horse.microchip}
+                          {horse.microchip || 'Chưa cung cấp'}
                         </span>
                       </div>
 
@@ -241,16 +216,20 @@ export const MyHorsesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Horse Modal for View / Add / Edit */}
-      <HorseModal
-        isOpen={modalState.isOpen}
-        mode={modalState.mode}
-        horse={modalState.selectedHorse}
-        onClose={() => setModalState({ ...modalState, isOpen: false })}
-        onSave={handleSaveHorse}
+      {/* Read the same saved profile used by the edit page and request wizard. */}
+      <HorseDetailsModal
+        horse={selectedHorse}
+        onClose={() => setSelectedHorseId(null)}
+        onEdit={() => { if (selectedHorse) handleOpenEdit(selectedHorse); }}
       />
     </CustomerLayout>
   );
 };
 
 export default MyHorsesPage;
+
+function HorseProfilePhoto({ horse }: { horse: HorseProfile }) {
+  const url = useHorseFileUrl(horse.files.photo);
+  return url ? <img src={url} alt={`Ảnh ${horse.name}`} className="horse-profile-photo" />
+    : <span className="horse-placeholder-label">Chưa có ảnh</span>;
+}

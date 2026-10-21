@@ -1,5 +1,5 @@
 /* ==========================================================================
-   CUSTOMER MY HORSES PAGE - DARK THEME PIXEL-PERFECT STYLING
+   CUSTOMER MY HORSES PAGE - SEAMLESS LIGHT & DARK MODE THEMING
    ========================================================================== */
 
 .customer-horses-page,
@@ -13,6 +13,20 @@
 }
 
 /* ==================== PAGE HEADER ==================== */
+.my-horses-page .horse-profile-photo { display: block; width: 100%; height: 100%; object-fit: cover; }
+.my-horses-page .horse-storage-message { padding: 12px 16px; border: 1px solid var(--border-strong); border-radius: 8px; }
+.my-horses-page .horse-code { overflow-wrap: anywhere; min-width: 0; }
+.horse-details-modal .horse-details-id { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+.horse-details-modal .horse-details-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; margin: 0; }
+.horse-details-modal .horse-details-grid dt { color: var(--text-muted); font-size: 12px; margin-bottom: 4px; }
+.horse-details-modal .horse-details-grid dd { margin: 0; overflow-wrap: anywhere; font-size: 14px; }
+.horse-details-modal .horse-details-note { color: var(--text-muted); font-size: 13px; }
+.horse-details-modal .horse-details-file { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border-color); }
+.horse-details-modal .horse-details-file > div { display: grid; gap: 5px; min-width: 0; }
+.horse-details-modal .horse-details-file span { color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; }
+.horse-details-modal .horse-details-file a { color: var(--accent-hover); flex-shrink: 0; }
+.horse-details-modal .horse-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 600px) { .horse-details-modal .horse-details-grid { grid-template-columns: minmax(0, 1fr); } }
 .customer-horses-header,
 .my-horses-header {
   display: flex !important;
@@ -38,7 +52,7 @@
   margin: 0 !important;
   font-size: 24px !important;
   font-weight: 700 !important;
-  color: #ffffff !important;
+  color: var(--text-primary, #0f172a) !important;
   letter-spacing: -0.01em !important;
   text-align: left !important;
   align-self: flex-start !important;
@@ -48,7 +62,7 @@
 .my-horses-subtitle {
   margin: 0 !important;
   font-size: 13.5px !important;
-  color: #94a3b8 !important;
+  color: var(--text-secondary, #64748b) !important;
   max-width: 960px !important;
   line-height: 1.55 !important;
   text-align: left !important;
@@ -58,7 +72,7 @@
 .btn-add-horse {
   align-self: flex-start !important;
   margin-top: 4px !important;
-  background-color: #ea580c !important;
+  background-color: var(--accent-primary, #ea580c) !important;
   color: #ffffff !important;
   border: none !important;
   border-radius: 8px !important;
@@ -71,10 +85,11 @@
   gap: 6px !important;
   white-space: nowrap !important;
   transition: background-color 0.15s ease, transform 0.1s ease !important;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25) !important;
 }
 
 .btn-add-horse:hover {
-  background-color: #c2410c !important;
+  background-color: var(--accent-hover, #c2410c) !important;
   transform: translateY(-1px) !important;
 }
 
@@ -107,32 +122,32 @@
   transform: translateY(-50%);
   width: 15px;
   height: 15px;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
   pointer-events: none;
 }
 
 .horses-search-input {
   width: 100%;
-  background-color: #141519;
-  border: 1px solid #232630;
-  border-radius: 6px;
-  padding: 9px 14px 9px 36px;
-  color: #f1f5f9;
+  background-color: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 8px;
+  padding: 9.5px 14px 9.5px 36px;
+  color: var(--text-primary, #0f172a);
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .horses-search-input:focus {
-  border-color: #ea580c;
-  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15);
+  border-color: var(--accent-primary, #ea580c);
+  box-shadow: 0 0 0 2px var(--accent-glow, rgba(234, 88, 12, 0.15));
 }
 
 .horses-search-input::placeholder {
-  color: #64748b;
+  color: var(--text-muted, #94a3b8);
 }
 
-/* 3 Separate Outline Buttons on the right */
+/* Filter Buttons */
 .horses-filter-buttons-group {
   display: flex;
   align-items: center;
@@ -140,10 +155,10 @@
 }
 
 .horses-filter-btn {
-  background-color: #141519;
-  border: 1px solid #232630;
-  border-radius: 6px;
-  color: #94a3b8;
+  background-color: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 8px;
+  color: var(--text-secondary, #64748b);
   padding: 8px 16px;
   font-size: 12.5px;
   font-weight: 500;
@@ -153,14 +168,15 @@
 }
 
 .horses-filter-btn:hover {
-  color: #e2e8f0;
-  border-color: #333844;
+  color: var(--text-primary, #0f172a);
+  border-color: var(--border-strong, #94a3b8);
+  background-color: var(--bg-elevated, #f8fafc);
 }
 
 .horses-filter-btn.active {
-  background-color: #171b24;
-  border-color: #3b4252;
-  color: #ffffff;
+  background-color: var(--accent-light, #fff3e0);
+  border-color: var(--accent-primary, #ea580c);
+  color: var(--accent-primary, #ea580c);
   font-weight: 600;
 }
 
@@ -193,19 +209,20 @@
 
 /* Horse Card */
 .horse-card {
-  background-color: #16171b;
-  border: 1px solid #232630;
+  background-color: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 12px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: var(--card-shadow, 0 4px 6px -1px rgba(0, 0, 0, 0.05));
 }
 
 .horse-card:hover {
-  border-color: #343946;
+  border-color: var(--border-strong, #cbd5e1);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
 }
 
 /* Image section */
@@ -213,17 +230,17 @@
   position: relative;
   width: 100%;
   height: 195px;
-  background-color: #1a1c22;
+  background-color: var(--bg-elevated, #f1f5f9);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid #232630;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
 }
 
 .horse-placeholder-label {
   font-size: 26px;
   font-weight: 600;
-  color: #828997;
+  color: var(--text-muted, #94a3b8);
   letter-spacing: -0.01em;
   user-select: none;
 }
@@ -240,15 +257,15 @@
 }
 
 .horse-submission-badge.submitted {
-  background-color: rgba(30, 58, 138, 0.4);
-  color: #60a5fa;
-  border: 1px solid rgba(96, 165, 250, 0.35);
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
 }
 
 .horse-submission-badge.unsubmitted {
-  background-color: rgba(100, 116, 139, 0.2);
-  color: #94a3b8;
-  border: 1px solid rgba(100, 116, 139, 0.35);
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
 }
 
 /* Card Body */
@@ -270,18 +287,18 @@
   margin: 0;
   font-size: 17px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary, #0f172a);
 }
 
 .horse-code {
   font-size: 12px;
-  color: #808a9d;
+  color: var(--text-muted, #64748b);
 }
 
 .horse-breed-line {
   margin: 4px 0 14px 0;
   font-size: 12.5px;
-  color: #808a9d;
+  color: var(--text-secondary, #64748b);
 }
 
 /* Specs list */
@@ -300,17 +317,18 @@
 }
 
 .spec-name {
-  color: #808a9d;
+  color: var(--text-secondary, #64748b);
 }
 
 .spec-val {
-  color: #f1f5f9;
+  color: var(--text-primary, #0f172a);
   font-weight: 600;
 }
 
 /* Transport Usage Box */
 .horse-usage-card {
-  background-color: #131418;
+  background-color: var(--bg-elevated, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 6px;
   padding: 10px 12px;
   display: flex;
@@ -322,12 +340,12 @@
 .usage-title {
   font-size: 12.5px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary, #0f172a);
 }
 
 .usage-route {
   font-size: 11.5px;
-  color: #808a9d;
+  color: var(--text-secondary, #64748b);
 }
 
 /* Action buttons */
@@ -339,9 +357,9 @@
 }
 
 .btn-card-view {
-  background-color: #281d16;
-  color: #ea580c;
-  border: 1px solid #7c2d12;
+  background-color: var(--accent-light, #fff3e0);
+  color: var(--accent-primary, #ea580c);
+  border: 1px solid var(--accent-primary, #ea580c);
   padding: 8px 12px;
   border-radius: 6px;
   font-size: 12.5px;
@@ -352,15 +370,14 @@
 }
 
 .btn-card-view:hover {
-  background-color: #352217;
-  color: #f97316;
-  border-color: #ea580c;
+  background-color: var(--accent-primary, #ea580c);
+  color: #ffffff;
 }
 
 .btn-card-edit {
-  background-color: #17181c;
-  color: #cbd5e1;
-  border: 1px solid #2d313c;
+  background-color: var(--bg-elevated, #f1f5f9);
+  color: var(--text-primary, #334155);
+  border: 1px solid var(--border-color, #cbd5e1);
   padding: 8px 12px;
   border-radius: 6px;
   font-size: 12.5px;
@@ -371,9 +388,8 @@
 }
 
 .btn-card-edit:hover {
-  background-color: #252932;
-  color: #ffffff;
-  border-color: #3f4553;
+  background-color: var(--border-color, #e2e8f0);
+  color: var(--text-primary, #0f172a);
 }
 
 /* Empty state */
@@ -381,8 +397,105 @@
   grid-column: 1 / -1;
   text-align: center;
   padding: 60px 20px;
-  color: #64748b;
-  background-color: #16171b;
-  border: 1px dashed #232630;
+  color: var(--text-muted, #64748b);
+  background-color: var(--bg-surface, #ffffff);
+  border: 1px dashed var(--border-color, #cbd5e1);
   border-radius: 12px;
+}
+
+/* ==================== DARK MODE OVERRIDES ==================== */
+[data-theme="dark"] .customer-horses-title,
+[data-theme="dark"] .my-horses-title {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .horses-search-input,
+[data-theme="dark"] .horses-filter-btn {
+  background-color: #141519;
+  border-color: #232630;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .horses-filter-btn.active {
+  background-color: #171b24;
+  border-color: #3b4252;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .horse-card {
+  background-color: #16171b;
+  border-color: #232630;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .horse-card:hover {
+  border-color: #343946;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .horse-image-container {
+  background-color: #1a1c22;
+  border-bottom-color: #232630;
+}
+
+[data-theme="dark"] .horse-placeholder-label {
+  color: #828997;
+}
+
+[data-theme="dark"] .horse-submission-badge.submitted {
+  background-color: rgba(30, 58, 138, 0.4);
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+[data-theme="dark"] .horse-submission-badge.unsubmitted {
+  background-color: rgba(100, 116, 139, 0.2);
+  color: #94a3b8;
+  border-color: rgba(100, 116, 139, 0.35);
+}
+
+[data-theme="dark"] .horse-name {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .spec-val {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .horse-usage-card {
+  background-color: #131418;
+  border-color: transparent;
+}
+
+[data-theme="dark"] .usage-title {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .btn-card-view {
+  background-color: #281d16;
+  color: #ea580c;
+  border-color: #7c2d12;
+}
+
+[data-theme="dark"] .btn-card-view:hover {
+  background-color: #352217;
+  color: #f97316;
+  border-color: #ea580c;
+}
+
+[data-theme="dark"] .btn-card-edit {
+  background-color: #17181c;
+  color: #cbd5e1;
+  border-color: #2d313c;
+}
+
+[data-theme="dark"] .btn-card-edit:hover {
+  background-color: #252932;
+  color: #ffffff;
+  border-color: #3f4553;
+}
+
+[data-theme="dark"] .empty-horses-box {
+  background-color: #16171b;
+  border-color: #232630;
 }

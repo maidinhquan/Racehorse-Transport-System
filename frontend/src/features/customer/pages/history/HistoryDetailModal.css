@@ -1,11 +1,11 @@
 /* ==========================================================================
-   HISTORY DETAIL MODAL - DARK THEME STYLING
+   HISTORY DETAIL MODAL - SEAMLESS LIGHT & DARK MODE THEMING
    ========================================================================== */
 
 .history-modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.75);
+  background-color: var(--modal-overlay, rgba(15, 23, 42, 0.5));
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -25,8 +25,8 @@
 }
 
 .history-modal-content {
-  background-color: #17181c;
-  border: 1px solid #2b2f3a;
+  background-color: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 14px;
   width: 100%;
   max-width: 640px;
@@ -34,8 +34,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--card-shadow, 0 20px 40px rgba(0, 0, 0, 0.12));
   animation: histModalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-primary, #0f172a);
 }
 
 @keyframes histModalSlideUp {
@@ -50,11 +51,11 @@
 /* Modal Header */
 .history-modal-header {
   padding: 18px 24px;
-  border-bottom: 1px solid #242832;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #191b20;
+  background-color: var(--bg-elevated, #f8fafc);
 }
 
 .history-modal-header-info {
@@ -66,19 +67,19 @@
 .history-modal-id {
   font-size: 18px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary, #0f172a);
   letter-spacing: -0.01em;
 }
 
 .history-modal-divider {
-  color: #4b5563;
+  color: var(--border-strong, #cbd5e1);
   font-size: 14px;
 }
 
 .history-modal-close-btn {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--text-muted, #64748b);
   font-size: 18px;
   width: 32px;
   height: 32px;
@@ -91,8 +92,8 @@
 }
 
 .history-modal-close-btn:hover {
-  background-color: #262932;
-  color: #ffffff;
+  background-color: var(--border-color, #e2e8f0);
+  color: var(--text-primary, #0f172a);
 }
 
 /* Modal Body */
@@ -102,35 +103,37 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  background-color: var(--bg-surface, #ffffff);
+  color: var(--text-primary, #0f172a);
 }
 
 .history-modal-summary-banner {
-  background: linear-gradient(135deg, rgba(234, 88, 12, 0.12), rgba(234, 88, 12, 0.04));
-  border: 1px solid rgba(234, 88, 12, 0.3);
+  background: var(--accent-light, #fff7ed);
+  border: 1px solid var(--border-color, #fed7aa);
   border-radius: 10px;
   padding: 14px 18px;
 }
 
 .history-modal-summary-banner.rejected {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.04));
-  border-color: rgba(239, 68, 68, 0.3);
+  background: #fef2f2;
+  border-color: #fecaca;
 }
 
 .history-modal-banner-title {
   margin: 0 0 6px 0;
   font-size: 15px;
   font-weight: 700;
-  color: #ea580c;
+  color: var(--accent-primary, #ea580c);
 }
 
 .history-modal-summary-banner.rejected .history-modal-banner-title {
-  color: #f87171;
+  color: #dc2626;
 }
 
 .history-modal-banner-desc {
   margin: 0;
   font-size: 13px;
-  color: #cbd5e1;
+  color: var(--text-secondary, #475569);
   line-height: 1.5;
 }
 
@@ -142,8 +145,8 @@
 }
 
 .history-info-card {
-  background-color: #141519;
-  border: 1px solid #232630;
+  background-color: var(--bg-elevated, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 8px;
   padding: 12px 14px;
   display: flex;
@@ -154,23 +157,23 @@
 .history-info-label {
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .history-info-val {
   font-size: 13.5px;
-  color: #e2e8f0;
+  color: var(--text-primary, #334155);
 }
 
 .history-info-val.bold {
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary, #0f172a);
 }
 
 .history-info-val.text-muted {
-  color: #94a3b8;
+  color: var(--text-muted, #94a3b8);
   font-style: italic;
 }
 
@@ -186,7 +189,7 @@
   margin: 0;
   font-size: 13.5px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted, #64748b);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -194,7 +197,7 @@
 .history-timeline-list {
   display: flex;
   flex-direction: column;
-  border-left: 2px solid #282c38;
+  border-left: 2px solid var(--border-color, #e2e8f0);
   margin-left: 8px;
   padding-left: 18px;
   gap: 18px;
@@ -214,8 +217,8 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background-color: #ea580c;
-  border: 2px solid #17181c;
+  background-color: var(--accent-primary, #ea580c);
+  border: 2px solid var(--bg-surface, #ffffff);
 }
 
 .history-timeline-meta {
@@ -228,41 +231,41 @@
 .history-timeline-title {
   font-size: 13px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text-primary, #0f172a);
 }
 
 .history-timeline-time {
   font-size: 11.5px;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
 }
 
 .history-timeline-desc {
   margin: 0;
   font-size: 12.5px;
-  color: #94a3b8;
+  color: var(--text-secondary, #475569);
   line-height: 1.4;
 }
 
 /* Footer */
 .history-modal-footer {
   padding: 16px 24px;
-  border-top: 1px solid #242832;
+  border-top: 1px solid var(--border-color, #e2e8f0);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #191b20;
+  background-color: var(--bg-elevated, #f8fafc);
 }
 
 .history-modal-footer-hint {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
   font-style: italic;
 }
 
 .history-modal-btn-close {
-  background-color: #242832;
-  color: #ffffff;
-  border: 1px solid #333846;
+  background-color: var(--bg-surface, #ffffff);
+  color: var(--text-primary, #334155);
+  border: 1px solid var(--border-strong, #cbd5e1);
   border-radius: 6px;
   padding: 7px 18px;
   font-size: 13px;
@@ -272,5 +275,125 @@
 }
 
 .history-modal-btn-close:hover {
-  background-color: #313644;
+  background-color: var(--bg-elevated, #f1f5f9);
+  color: var(--text-primary, #0f172a);
+  border-color: var(--border-strong, #94a3b8);
+}
+
+/* ==================== DARK MODE OVERRIDES ==================== */
+[data-theme="dark"] .history-modal-content {
+  background-color: #131b2e;
+  border-color: #1e293b;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .history-modal-header,
+[data-theme="dark"] .history-modal-footer {
+  border-color: #1e293b;
+  background-color: #1b263b;
+}
+
+[data-theme="dark"] .history-modal-body {
+  background-color: #131b2e;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .history-modal-id {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .history-modal-divider {
+  color: #475569;
+}
+
+[data-theme="dark"] .history-modal-close-btn {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .history-modal-close-btn:hover {
+  background-color: #273549;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .history-modal-summary-banner {
+  background: rgba(251, 146, 60, 0.12);
+  border-color: rgba(251, 146, 60, 0.3);
+}
+
+[data-theme="dark"] .history-modal-summary-banner.rejected {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+[data-theme="dark"] .history-modal-banner-title {
+  color: #fb923c;
+}
+
+[data-theme="dark"] .history-modal-summary-banner.rejected .history-modal-banner-title {
+  color: #f87171;
+}
+
+[data-theme="dark"] .history-modal-banner-desc {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .history-info-card {
+  background-color: #172136;
+  border-color: #2e3e57;
+}
+
+[data-theme="dark"] .history-info-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .history-info-val {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .history-info-val.bold {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .history-info-val.text-muted {
+  color: #64748b;
+}
+
+[data-theme="dark"] .history-timeline-heading {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .history-timeline-list {
+  border-left-color: #2e3e57;
+}
+
+[data-theme="dark"] .history-timeline-bullet {
+  border-color: #131b2e;
+  background-color: #fb923c;
+}
+
+[data-theme="dark"] .history-timeline-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .history-timeline-time {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .history-timeline-desc {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .history-modal-footer-hint {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .history-modal-btn-close {
+  background-color: #172136;
+  color: #f8fafc;
+  border-color: #333846;
+}
+
+[data-theme="dark"] .history-modal-btn-close:hover {
+  background-color: #273549;
 }

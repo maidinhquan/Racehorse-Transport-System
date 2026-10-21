@@ -10,6 +10,26 @@ interface HorseModalProps {
   onSave: (horseData: CustomerHorse) => void;
 }
 
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  backgroundColor: 'var(--bg-surface, #ffffff)',
+  border: '1px solid var(--border-color, #cbd5e1)',
+  borderRadius: '8px',
+  padding: '10px 14px',
+  color: 'var(--text-primary, #0f172a)',
+  fontSize: '13.5px',
+  outline: 'none',
+  transition: 'border-color 0.15s, box-shadow 0.15s',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '12.5px',
+  fontWeight: 500,
+  color: 'var(--text-secondary, #475569)',
+  marginBottom: '6px',
+};
+
 export const HorseModal: React.FC<HorseModalProps> = ({
   isOpen,
   onClose,
@@ -130,22 +150,13 @@ export const HorseModal: React.FC<HorseModalProps> = ({
           <form onSubmit={handleSubmit}>
             <div className="cbn-modal-body" style={{ gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>
+                <label style={labelStyle}>
                   Tên ngựa *
                 </label>
                 <input
                   type="text"
                   required
-                  style={{
-                    width: '100%',
-                    backgroundColor: '#191c22',
-                    border: '1px solid #282c36',
-                    borderRadius: '8px',
-                    padding: '10px 14px',
-                    color: '#f8fafc',
-                    fontSize: '13.5px',
-                    outline: 'none',
-                  }}
+                  style={inputStyle}
                   placeholder="Ví dụ: Thunderbolt"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -154,20 +165,11 @@ export const HorseModal: React.FC<HorseModalProps> = ({
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>
+                  <label style={labelStyle}>
                     Giống loài
                   </label>
                   <select
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#191c22',
-                      border: '1px solid #282c36',
-                      borderRadius: '8px',
-                      padding: '10px 14px',
-                      color: '#f8fafc',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                    }}
+                    style={inputStyle}
                     value={formData.breed}
                     onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
                   >
@@ -180,20 +182,11 @@ export const HorseModal: React.FC<HorseModalProps> = ({
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>
+                  <label style={labelStyle}>
                     Giới tính
                   </label>
                   <select
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#191c22',
-                      border: '1px solid #282c36',
-                      borderRadius: '8px',
-                      padding: '10px 14px',
-                      color: '#f8fafc',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                    }}
+                    style={inputStyle}
                     value={formData.gender}
                     onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                   >
@@ -207,44 +200,26 @@ export const HorseModal: React.FC<HorseModalProps> = ({
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>
+                  <label style={labelStyle}>
                     Tuổi
                   </label>
                   <input
                     type="number"
                     min="1"
                     max="30"
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#191c22',
-                      border: '1px solid #282c36',
-                      borderRadius: '8px',
-                      padding: '10px 14px',
-                      color: '#f8fafc',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                    }}
+                    style={inputStyle}
                     value={formData.age}
                     onChange={(e) => setFormData({ ...formData, age: Number(e.target.value) })}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>
+                  <label style={labelStyle}>
                     Số vi mạch ISO (15 chữ số)
                   </label>
                   <input
                     type="text"
-                    style={{
-                      width: '100%',
-                      backgroundColor: '#191c22',
-                      border: '1px solid #282c36',
-                      borderRadius: '8px',
-                      padding: '10px 14px',
-                      color: '#f8fafc',
-                      fontSize: '13.5px',
-                      outline: 'none',
-                    }}
+                    style={inputStyle}
                     placeholder="985112004571xxx"
                     value={formData.microchip}
                     onChange={(e) => setFormData({ ...formData, microchip: e.target.value })}
@@ -275,3 +250,5 @@ export const HorseModal: React.FC<HorseModalProps> = ({
     </div>
   );
 };
+
+export default HorseModal;

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CustomerLayout } from '../../components/CustomerLayout';
 import { TripStatusBadge, ContractStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import { mockDemoScenarios, mockTransportRequests } from '../../data/mockData';
+import { mockTransportRequests } from '../../data/mockData';
 import type { TransportRequestItem } from '../../types';
 import './CustomerRequestsPage.css';
 
@@ -51,36 +51,6 @@ export const CustomerRequestsPage: React.FC = () => {
           >
             <span>+ Tạo yêu cầu vận chuyển</span>
           </button>
-        </section>
-
-        {/* ==================== DEMO SCENARIOS CARD ==================== */}
-        <section className="demo-scenarios-card">
-          <div className="demo-scenarios-header">
-            <div className="demo-header-left">
-              <span className="demo-pill-label">DỮ LIỆU DEMO</span>
-              <span className="demo-title-text">Gợi ý thử các tình huống</span>
-            </div>
-            <div className="demo-header-right">
-              Dữ liệu mẫu, không phải giao dịch thật
-            </div>
-          </div>
-
-          <div className="demo-scenarios-table-wrapper">
-            <table className="demo-table">
-              <tbody>
-                {mockDemoScenarios.map((scenario) => (
-                  <tr key={scenario.id}>
-                    <td className="demo-id-col">{scenario.id}</td>
-                    <td className="demo-title-col">{scenario.title}</td>
-                    <td className="demo-desc-col">{scenario.description}</td>
-                    <td className="demo-status-col">
-                      <TripStatusBadge status={scenario.statusKey} label={scenario.statusText} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </section>
 
         {/* ==================== SEARCH & FILTER ROW ==================== */}

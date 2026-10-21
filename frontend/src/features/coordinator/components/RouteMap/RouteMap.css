@@ -1,0 +1,21 @@
+.crd-map {
+  border: 1px solid var(--crd-line, #e5e7eb);
+  border-radius: 12px;
+  background: radial-gradient(circle, #e2e8f0 1px, transparent 1px) 0 0 / 18px 18px, #f8fafc;
+  overflow: hidden;
+}
+.crd-map svg { display: block; width: 100%; height: auto; }
+.crd-map__label { font: 600 12px Inter, system-ui, sans-serif; fill: #0f172a; }
+.crd-map__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--crd-line, #e5e7eb);
+  background: #fff;
+  font-size: 11px;
+  color: #64748b;
+}
+.crd-map__legend span { display: inline-flex; align-items: center; gap: 6px; }
+.crd-map__legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.crd-map--empty { padding: 36px; text-align: center; color: #64748b; font-size: 13px; }

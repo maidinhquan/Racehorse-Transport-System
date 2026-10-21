@@ -58,8 +58,8 @@ export const IncidentModal: React.FC<IncidentModalProps> = ({
           {successMessage ? (
             <div style={{ textAlign: 'center', padding: '30px 10px' }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>✅</div>
-              <h4 style={{ color: '#4ade80', margin: '0 0 8px 0', fontSize: '16px' }}>Xác nhận thành công</h4>
-              <p style={{ color: '#cbd5e1', fontSize: '13px', margin: 0 }}>{successMessage}</p>
+              <h4 style={{ color: '#16a34a', margin: '0 0 8px 0', fontSize: '16px' }}>Xác nhận thành công</h4>
+              <p style={{ color: 'var(--text-secondary, #475569)', fontSize: '13px', margin: 0 }}>{successMessage}</p>
             </div>
           ) : (
             <>
@@ -84,7 +84,7 @@ export const IncidentModal: React.FC<IncidentModalProps> = ({
 
               {/* Action Options */}
               <div>
-                <h4 style={{ margin: '0 0 10px 0', fontSize: '13.5px', color: '#f8fafc', fontWeight: 600 }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '13.5px', color: 'var(--text-primary, #0f172a)', fontWeight: 600 }}>
                   Khách hàng lựa chọn phương án xử lý (Flow 5):
                 </h4>
                 <div className="incident-options-group">

@@ -6,7 +6,7 @@ import {
   mockTrackingCheckpoints,
   mockTrackingEvents,
   mockDemoControlSteps,
-} from '../../data/mockData';
+} from '../../data';
 import type { TrackingCheckpoint, DemoControlStep } from '../../types';
 import './CustomerTrackingPage.css';
 
@@ -140,16 +140,16 @@ export const CustomerTrackingPage: React.FC = () => {
 
                   {/* Node 1: Saigon Riding Club */}
                   <g transform="translate(100, 175)">
-                    <circle r="7" fill="#16171c" stroke="#f1f5f9" strokeWidth="2.5" />
-                    <text x="0" y="22" fill="#64748b" fontSize="10.5" textAnchor="middle">
+                    <circle r="7" fill="var(--bg-surface, #ffffff)" stroke="var(--text-secondary, #64748b)" strokeWidth="2.5" />
+                    <text x="0" y="22" fill="var(--text-secondary, #64748b)" fontSize="10.5" textAnchor="middle">
                       Saigon Riding Club
                     </text>
                   </g>
 
                   {/* Node 2: Trang Bang */}
                   <g transform="translate(230, 200)">
-                    <circle r="8" fill="#ea580c" stroke="#ffffff" strokeWidth="2.5" />
-                    <text x="0" y="22" fill="#64748b" fontSize="10.5" textAnchor="middle">
+                    <circle r="8" fill="#ea580c" stroke="var(--bg-surface, #ffffff)" strokeWidth="2.5" />
+                    <text x="0" y="22" fill="var(--text-secondary, #64748b)" fontSize="10.5" textAnchor="middle">
                       Trang Bang rest area
                     </text>
                   </g>
@@ -170,7 +170,7 @@ export const CustomerTrackingPage: React.FC = () => {
                         repeatCount="indefinite"
                       />
                     </circle>
-                    <circle r="9" fill="#ea580c" stroke="#ffffff" strokeWidth="3" />
+                    <circle r="9" fill="#ea580c" stroke="var(--bg-surface, #ffffff)" strokeWidth="3" />
                     <text x="0" y="-16" fill="#ea580c" fontSize="11" fontWeight="700" textAnchor="middle">
                       Moc Bai Border Gate
                     </text>
@@ -178,37 +178,37 @@ export const CustomerTrackingPage: React.FC = () => {
 
                   {/* Node 4: Bavet Border Gate */}
                   <g transform="translate(500, 105)">
-                    <circle r="7" fill="#ef4444" stroke="#ffffff" strokeWidth="2" />
-                    <text x="0" y="-14" fill="#64748b" fontSize="10.5" textAnchor="middle">
+                    <circle r="7" fill="#ef4444" stroke="var(--bg-surface, #ffffff)" strokeWidth="2" />
+                    <text x="0" y="-14" fill="var(--text-secondary, #64748b)" fontSize="10.5" textAnchor="middle">
                       Bavet Border Gate
                     </text>
                   </g>
 
                   {/* Node 5: Phnom Penh */}
                   <g transform="translate(640, 125)">
-                    <circle r="7" fill="#16171c" stroke="#ffffff" strokeWidth="2" />
-                    <text x="0" y="-14" fill="#64748b" fontSize="10.5" textAnchor="middle">
+                    <circle r="7" fill="var(--bg-surface, #ffffff)" stroke="var(--accent-primary, #ea580c)" strokeWidth="2.5" />
+                    <text x="0" y="-14" fill="var(--text-secondary, #64748b)" fontSize="10.5" textAnchor="middle">
                       Phnom Penh overnight
                     </text>
                   </g>
 
                   {/* Node 6: Poipet */}
                   <g transform="translate(750, 180)">
-                    <circle r="7" fill="#ef4444" stroke="#ffffff" strokeWidth="2" />
-                    <text x="0" y="22" fill="#64748b" fontSize="10.5" textAnchor="middle">
+                    <circle r="7" fill="#ef4444" stroke="var(--bg-surface, #ffffff)" strokeWidth="2" />
+                    <text x="0" y="22" fill="var(--text-secondary, #64748b)" fontSize="10.5" textAnchor="middle">
                       Poipet - Aranyaprathet
                     </text>
                   </g>
 
                   {/* Node 7: Sa Kaeo fuel station */}
                   <g transform="translate(850, 195)">
-                    <circle r="7" fill="#16171c" stroke="#94a3b8" strokeWidth="2" />
+                    <circle r="7" fill="var(--bg-surface, #ffffff)" stroke="var(--text-muted, #94a3b8)" strokeWidth="2" />
                   </g>
 
                   {/* Node 8: Bangkok Polo Club */}
                   <g transform="translate(940, 150)">
-                    <circle r="9" fill="#16171c" stroke="#22c55e" strokeWidth="3" />
-                    <text x="0" y="-16" fill="#4ade80" fontSize="11" fontWeight="700" textAnchor="middle">
+                    <circle r="9" fill="var(--bg-surface, #ffffff)" stroke="#16a34a" strokeWidth="3" />
+                    <text x="0" y="-16" fill="#16a34a" fontSize="11" fontWeight="700" textAnchor="middle">
                       Bangkok Polo Club
                     </text>
                   </g>
@@ -274,17 +274,17 @@ export const CustomerTrackingPage: React.FC = () => {
                     cp.status === 'confirmed'
                       ? 'green'
                       : cp.status === 'latest_confirmed'
-                      ? 'orange'
-                      : 'gray';
+                        ? 'orange'
+                        : 'gray';
 
                   const badgeClass =
                     cp.status === 'confirmed'
                       ? 'confirmed'
                       : cp.status === 'latest_confirmed'
-                      ? 'latest-confirmed'
-                      : cp.status === 'next'
-                      ? 'next'
-                      : 'planned';
+                        ? 'latest-confirmed'
+                        : cp.status === 'next'
+                          ? 'next'
+                          : 'planned';
 
                   return (
                     <div key={cp.id} className="stop-row-item">

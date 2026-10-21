@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ThemeToggle } from '../../../../shared/components';
 import './SpecialistPortal.css';
 import type {
   SpecialistNav,
@@ -589,6 +590,7 @@ export const SpecialistPortal: React.FC<SpecialistPortalProps> = ({
           <h1 className="topbar-title-text">{getPageTitle()}</h1>
 
           <div className="topbar-right-controls">
+            <ThemeToggle showLabel={false} />
             {/* LANGUAGE SWITCHER */}
             <div className="lang-toggle-wrap">
               <button

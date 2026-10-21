@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { CustomerLayout } from '../../components/CustomerLayout';
 import { TripStatusBadge, ContractStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import { mockHistoryScenarios, mockHistoryRequests } from '../../data/mockData';
+import { mockHistoryRequests } from '../../data/mockData';
 import type { HistoryRequestItem } from '../../types';
 import { HistoryDetailModal } from './HistoryDetailModal';
 import './CustomerHistoryPage.css';
@@ -41,13 +41,6 @@ export const CustomerHistoryPage: React.FC = () => {
   const handleOpenDetail = (item: HistoryRequestItem) => {
     setSelectedRequest(item);
     setIsDetailModalOpen(true);
-  };
-
-  const handleScenarioClick = (scenarioId: string) => {
-    const found = mockHistoryRequests.find((r) => r.id === scenarioId);
-    if (found) {
-      handleOpenDetail(found);
-    }
   };
 
   return (
@@ -117,47 +110,6 @@ export const CustomerHistoryPage: React.FC = () => {
             </svg>
           </div>
         </div>
-
-        {/* ==================== DEMO SCENARIOS CARD ==================== */}
-        <section className="history-demo-card">
-          <div className="history-demo-header">
-            <div className="history-demo-header-left">
-              <span className="history-demo-tag">DỮ LIỆU DEMO</span>
-              <span className="history-demo-title">Gợi ý thử các tình huống</span>
-            </div>
-            <div className="history-demo-notice">
-              Dữ liệu mẫu, không phải giao dịch thật
-            </div>
-          </div>
-
-          <div className="history-demo-table-wrapper">
-            <table className="history-demo-table">
-              <tbody>
-                {mockHistoryScenarios.map((scenario) => (
-                  <tr
-                    key={scenario.id}
-                    onClick={() => handleScenarioClick(scenario.id)}
-                    className="history-demo-clickable-row"
-                    title={`Xem chi tiết ${scenario.id}`}
-                  >
-                    <td className="history-demo-id">{scenario.id}</td>
-                    <td
-                      className={`history-demo-scenario-title ${
-                        scenario.statusKey === 'rejected' ? 'status-rejected-title' : ''
-                      }`}
-                    >
-                      {scenario.title}
-                    </td>
-                    <td className="history-demo-desc">{scenario.description}</td>
-                    <td className="history-demo-status-col">
-                      <TripStatusBadge status={scenario.statusKey} label={scenario.statusText} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
 
         {/* ==================== MAIN HISTORY TABLE ==================== */}
         <section className="history-table-card">

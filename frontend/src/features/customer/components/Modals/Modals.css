@@ -1,11 +1,11 @@
 /* ==========================================================================
-   CUSTOMER MODALS STYLING (DARK THEME)
+   CUSTOMER MODALS STYLING - SEAMLESS LIGHT & DARK MODE THEMING
    ========================================================================== */
 
 .cbn-modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.75);
+  background-color: var(--modal-overlay, rgba(15, 23, 42, 0.5));
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -25,8 +25,8 @@
 }
 
 .cbn-modal-container {
-  background-color: #16181d;
-  border: 1px solid #2a2e37;
+  background-color: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 14px;
   width: 100%;
   max-width: 680px;
@@ -34,7 +34,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -49,11 +49,11 @@
 
 .cbn-modal-header {
   padding: 20px 24px;
-  border-bottom: 1px solid #262932;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #1a1d24;
+  background-color: var(--bg-elevated, #f8fafc);
 }
 
 .cbn-modal-title-box {
@@ -66,7 +66,7 @@
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--text-primary, #0f172a);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -75,13 +75,13 @@
 .cbn-modal-subtitle {
   margin: 0;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary, #64748b);
 }
 
 .cbn-modal-close-btn {
   background: transparent;
-  border: 1px solid #333844;
-  color: #94a3b8;
+  border: 1px solid var(--border-color, #cbd5e1);
+  color: var(--text-muted, #64748b);
   width: 32px;
   height: 32px;
   border-radius: 8px;
@@ -93,28 +93,29 @@
 }
 
 .cbn-modal-close-btn:hover {
-  background-color: #262a34;
-  color: #ffffff;
-  border-color: #4b5563;
+  background-color: var(--border-color, #e2e8f0);
+  color: var(--text-primary, #0f172a);
+  border-color: var(--border-strong, #94a3b8);
 }
 
 .cbn-modal-body {
   padding: 24px;
   overflow-y: auto;
-  color: #e2e8f0;
+  color: var(--text-primary, #334155);
   display: flex;
   flex-direction: column;
   gap: 20px;
+  background-color: var(--bg-surface, #ffffff);
 }
 
 .cbn-modal-footer {
   padding: 16px 24px;
-  border-top: 1px solid #262932;
+  border-top: 1px solid var(--border-color, #e2e8f0);
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  background-color: #1a1d24;
+  background-color: var(--bg-elevated, #f8fafc);
 }
 
 /* ==================== TRACKING MODAL SPECIFICS ==================== */
@@ -123,8 +124,8 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
-  background-color: #1a1d24;
-  border: 1px solid #282c36;
+  background-color: var(--bg-elevated, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 10px;
   padding: 14px 16px;
 }
@@ -139,18 +140,18 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #64748b;
+  color: var(--text-muted, #64748b);
   font-weight: 600;
 }
 
 .overview-val {
   font-size: 14px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text-primary, #0f172a);
 }
 
 .overview-val.highlight {
-  color: #f97316;
+  color: var(--accent-primary, #ea580c);
 }
 
 /* Telemetry row */
@@ -161,8 +162,8 @@
 }
 
 .telemetry-card {
-  background: #191c22;
-  border: 1px solid #282c36;
+  background: var(--bg-elevated, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 8px;
   padding: 10px 12px;
   display: flex;
@@ -181,13 +182,13 @@
 
 .telemetry-label {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted, #64748b);
 }
 
 .telemetry-value {
   font-size: 13px;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--text-primary, #0f172a);
 }
 
 /* Checkpoint Stepper Timeline */
@@ -216,11 +217,11 @@
   top: 28px;
   bottom: 0;
   width: 2px;
-  background-color: #2b303b;
+  background-color: var(--border-color, #e2e8f0);
 }
 
 .timeline-step.completed::before {
-  background-color: #f97316;
+  background-color: var(--accent-primary, #ea580c);
 }
 
 .timeline-step:last-child::before {
@@ -240,31 +241,31 @@
 }
 
 .timeline-step.completed .timeline-dot {
-  background-color: #f97316;
+  background-color: var(--accent-primary, #ea580c);
   color: #ffffff;
-  box-shadow: 0 0 10px rgba(249, 115, 22, 0.4);
+  box-shadow: 0 0 10px rgba(234, 88, 12, 0.3);
 }
 
 .timeline-step.current .timeline-dot {
-  background-color: #ea580c;
+  background-color: var(--accent-primary, #ea580c);
   color: #ffffff;
-  border: 3px solid rgba(249, 115, 22, 0.3);
+  border: 3px solid rgba(234, 88, 12, 0.25);
   animation: pulseDot 2s infinite;
 }
 
 @keyframes pulseDot {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.6);
+    box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.5);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(249, 115, 22, 0);
+    box-shadow: 0 0 0 6px rgba(234, 88, 12, 0);
   }
 }
 
 .timeline-step.upcoming .timeline-dot {
-  background-color: #242832;
-  color: #64748b;
-  border: 1px solid #3b4252;
+  background-color: var(--bg-elevated, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  border: 1px solid var(--border-color, #cbd5e1);
 }
 
 .timeline-content {
@@ -284,25 +285,25 @@
 .timeline-step-title {
   font-size: 14px;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--text-primary, #0f172a);
 }
 
 .timeline-step-time {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-muted, #64748b);
 }
 
 .timeline-step-desc {
   font-size: 12.5px;
-  color: #94a3b8;
+  color: var(--text-secondary, #64748b);
   line-height: 1.45;
 }
 
 /* ==================== INCIDENT MODAL SPECIFICS (FLOW 5) ==================== */
 
 .incident-alert-banner {
-  background-color: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.35);
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
   border-radius: 10px;
   padding: 14px 16px;
   display: flex;
@@ -314,8 +315,8 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background-color: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background-color: #fee2e2;
+  color: #dc2626;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -326,20 +327,20 @@
 .incident-alert-text h4 {
   margin: 0 0 4px 0;
   font-size: 14px;
-  color: #fca5a5;
+  color: #991b1b;
   font-weight: 700;
 }
 
 .incident-alert-text p {
   margin: 0;
   font-size: 12.5px;
-  color: #cbd5e1;
+  color: #475569;
   line-height: 1.4;
 }
 
 .incident-symptoms-card {
-  background: #1a1d24;
-  border: 1px solid #282c36;
+  background: var(--bg-elevated, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 10px;
   padding: 14px 16px;
 }
@@ -347,7 +348,7 @@
 .incident-symptoms-title {
   font-size: 13px;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--text-primary, #0f172a);
   margin-bottom: 8px;
 }
 
@@ -355,7 +356,7 @@
   margin: 0;
   padding-left: 18px;
   font-size: 12.5px;
-  color: #cbd5e1;
+  color: var(--text-secondary, #475569);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -368,8 +369,8 @@
 }
 
 .incident-option-item {
-  background: #1a1d24;
-  border: 1px solid #2c313d;
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
   border-radius: 10px;
   padding: 14px 16px;
   cursor: pointer;
@@ -380,19 +381,19 @@
 }
 
 .incident-option-item:hover {
-  border-color: #f97316;
-  background-color: rgba(249, 115, 22, 0.05);
+  border-color: var(--accent-primary, #ea580c);
+  background-color: var(--accent-light, #fff3e0);
 }
 
 .incident-option-item.selected {
-  border-color: #f97316;
-  background-color: rgba(249, 115, 22, 0.1);
-  box-shadow: 0 0 0 1px #f97316;
+  border-color: var(--accent-primary, #ea580c);
+  background-color: var(--accent-light, #fff3e0);
+  box-shadow: 0 0 0 1px var(--accent-primary, #ea580c);
 }
 
 .incident-radio {
   margin-top: 3px;
-  accent-color: #f97316;
+  accent-color: var(--accent-primary, #ea580c);
 }
 
 .incident-option-content {
@@ -404,29 +405,29 @@
 .incident-option-header {
   font-size: 13.5px;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--text-primary, #0f172a);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
 .incident-option-fee {
-  color: #f97316;
+  color: var(--accent-primary, #ea580c);
   font-size: 12px;
   font-weight: 700;
 }
 
 .incident-option-desc {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary, #64748b);
   line-height: 1.4;
 }
 
 /* Buttons */
 .btn-secondary {
-  background-color: #242832;
-  color: #cbd5e1;
-  border: 1px solid #363c4a;
+  background-color: var(--bg-surface, #ffffff);
+  color: var(--text-secondary, #475569);
+  border: 1px solid var(--border-strong, #cbd5e1);
   padding: 8px 16px;
   border-radius: 8px;
   font-size: 13px;
@@ -436,12 +437,12 @@
 }
 
 .btn-secondary:hover {
-  background-color: #2f3442;
-  color: #ffffff;
+  background-color: var(--bg-elevated, #f1f5f9);
+  color: var(--text-primary, #0f172a);
 }
 
 .btn-primary-orange {
-  background-color: #ea580c;
+  background-color: var(--accent-primary, #ea580c);
   color: #ffffff;
   border: none;
   padding: 8px 18px;
@@ -453,8 +454,101 @@
   align-items: center;
   gap: 6px;
   transition: background-color 0.2s;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.25);
 }
 
 .btn-primary-orange:hover {
-  background-color: #c2410c;
+  background-color: var(--accent-hover, #c2410c);
+}
+
+/* ==================== DARK MODE OVERRIDES ==================== */
+[data-theme="dark"] .cbn-modal-container {
+  background-color: #16181d;
+  border-color: #2a2e37;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .cbn-modal-header,
+[data-theme="dark"] .cbn-modal-footer {
+  border-color: #262932;
+  background-color: #1a1d24;
+}
+
+[data-theme="dark"] .cbn-modal-body {
+  background-color: #16181d;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .cbn-modal-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cbn-modal-close-btn {
+  border-color: #333844;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .cbn-modal-close-btn:hover {
+  background-color: #262a34;
+  color: #ffffff;
+  border-color: #4b5563;
+}
+
+[data-theme="dark"] .trip-overview-grid,
+[data-theme="dark"] .telemetry-card,
+[data-theme="dark"] .incident-symptoms-card,
+[data-theme="dark"] .incident-option-item {
+  background-color: #1a1d24;
+  border-color: #282c36;
+}
+
+[data-theme="dark"] .overview-val,
+[data-theme="dark"] .telemetry-value,
+[data-theme="dark"] .timeline-step-title,
+[data-theme="dark"] .incident-symptoms-title,
+[data-theme="dark"] .incident-option-header {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .timeline-step::before {
+  background-color: #2b303b;
+}
+
+[data-theme="dark"] .timeline-step.upcoming .timeline-dot {
+  background-color: #242832;
+  border-color: #3b4252;
+  color: #64748b;
+}
+
+[data-theme="dark"] .incident-alert-banner {
+  background-color: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+[data-theme="dark"] .incident-alert-text h4 {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .incident-alert-text p,
+[data-theme="dark"] .incident-symptoms-list {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .incident-option-item:hover {
+  background-color: rgba(249, 115, 22, 0.05);
+}
+
+[data-theme="dark"] .incident-option-item.selected {
+  background-color: rgba(249, 115, 22, 0.1);
+}
+
+[data-theme="dark"] .btn-secondary {
+  background-color: #242832;
+  color: #cbd5e1;
+  border-color: #363c4a;
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+  background-color: #2f3442;
+  color: #ffffff;
 }

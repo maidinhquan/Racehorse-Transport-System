@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useCustomer } from '../../hooks/useCustomer';
 import { TrackingModal } from '../Modals/TrackingModal';
 import { IncidentModal } from '../Modals/IncidentModal';
+import { ThemeToggle } from '../../../../shared/components';
 import './CustomerLayout.css';
 
 export type CustomerNavKey = 'home' | 'requests' | 'horses' | 'tracking' | 'history';
@@ -22,10 +23,9 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({
   const location = useLocation();
   const {
     currentTrip,
-    notifications,
+    unreadCount,
     incidentDetail,
     handleResolveIncident,
-    markNotificationAsRead
   } = useCustomer();
 
   const [lang, setLang] = useState<'VI' | 'EN'>('VI');
@@ -39,11 +39,14 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({
     const path = location.pathname;
     if (path.includes('/customer/requests')) return 'requests';
     if (path.includes('/customer/horses')) return 'horses';
+    if (path.includes('/customer/tracking')) return 'tracking';
     if (path.includes('/customer/history')) return 'history';
     return 'home';
   };
 
   const currentNavKey = getCurrentNav();
+  const fullName = localStorage.getItem('userFullName')?.trim() || 'Khách hàng';
+  const initials = fullName.split(/\s+/).slice(-2).map(part => part[0]).join('').toUpperCase();
 
   const handleLogout = () => {
     navigate('/login');
@@ -123,6 +126,8 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({
           <h1 className="customer-topbar-title">{pageTitle}</h1>
 
           <div className="customer-topbar-controls">
+            <ThemeToggle showLabel={false} />
+
             {/* Language toggle capsule */}
             <div className="customer-lang-capsule">
               <button
@@ -146,16 +151,13 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({
               type="button"
               className="customer-notif-btn"
               aria-label="Thông báo"
-              onClick={() => {
-                const unread = notifications.find((n) => !n.read);
-                if (unread) markNotificationAsRead(unread.id);
-              }}
+              onClick={() => navigate('/customer/home?panel=notifications')}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
                 <path d="M13.73 21a2 2 0 0 1-3.46 0" />
               </svg>
-              <span className="customer-notif-badge">9+</span>
+              {unreadCount > 0 && <span className="customer-notif-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}
             </button>
 
             {/* User Profile */}
@@ -165,8 +167,8 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({
                 className="customer-user-btn"
                 onClick={() => setShowProfileMenu((prev) => !prev)}
               >
-                <div className="customer-user-avatar">AE</div>
-                <span className="customer-user-name">Alex Equine</span>
+                <div className="customer-user-avatar">{initials}</div>
+                <span className="customer-user-name">{fullName}</span>
                 <svg className="customer-user-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m6 9 6 6 6-6" />
                 </svg>
@@ -202,18 +204,18 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({
       </div>
 
       {/* Global Modals */}
-      <TrackingModal
+      {currentTrip && <TrackingModal
         isOpen={isTrackingModalOpen}
         onClose={() => setIsTrackingModalOpen(false)}
         trip={currentTrip}
-      />
+      />}
 
-      <IncidentModal
+      {incidentDetail && <IncidentModal
         isOpen={isIncidentModalOpen}
         onClose={() => setIsIncidentModalOpen(false)}
         incident={incidentDetail}
         onResolve={handleResolveIncident}
-      />
+      />}
     </div>
   );
 };

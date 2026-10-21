@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CustomerLayout } from '../../../components/CustomerLayout';
-import { mockCustomerHorses } from '../../../data/mockData';
+import { useHorseProfiles } from '../../../data/horseProfileStorage';
 import './CreateTransportRequestPage.css';
 
 const CITIES = [
@@ -21,6 +21,7 @@ const CITIES = [
 
 export const CreateTransportRequestPage: React.FC = () => {
   const navigate = useNavigate();
+  const { horses, loading: horsesLoading, error: horsesError, refresh: refreshHorses } = useHorseProfiles();
 
   // Current wizard step (1 to 4)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
@@ -106,7 +107,7 @@ export const CreateTransportRequestPage: React.FC = () => {
     }, 1000);
   };
 
-  const selectedHorse = mockCustomerHorses.find((h) => h.id === selectedHorseId) || mockCustomerHorses[0];
+  const selectedHorse = horses.find((h) => h.id === selectedHorseId);
 
   return (
     <CustomerLayout pageTitle="Yêu cầu vận chuyển" activeNav="requests">
@@ -410,6 +411,8 @@ export const CreateTransportRequestPage: React.FC = () => {
           {currentStep === 3 && (
             <div className="step-content-section">
               <h3 className="step-card-title">Chọn ngựa &amp; hồ sơ gắn kèm</h3>
+              {horsesError && <p role="alert">{horsesError} <button type="button" onClick={refreshHorses}>Thử lại</button></p>}
+              {horsesLoading && <p role="status">Đang tải danh sách ngựa…</p>}
 
               <div className="form-field-group full-width">
                 <label className="form-field-label">Chọn ngựa từ danh sách "Ngựa của tôi" *</label>
@@ -417,11 +420,13 @@ export const CreateTransportRequestPage: React.FC = () => {
                   <select
                     className="form-select-input"
                     value={selectedHorseId}
+                    disabled={horsesLoading || Boolean(horsesError)}
                     onChange={(e) => setSelectedHorseId(e.target.value)}
                   >
-                    {mockCustomerHorses.map((h) => (
+                    <option value="">Chọn ngựa</option>
+                    {horses.map((h) => (
                       <option key={h.id} value={h.id}>
-                        {h.name} ({h.breed} • Vi mạch: {h.microchip})
+                        {h.name} ({h.breed || 'Chưa cập nhật giống'} • Vi mạch: {h.microchip || 'Chưa cung cấp'})
                       </option>
                     ))}
                   </select>
@@ -443,8 +448,8 @@ export const CreateTransportRequestPage: React.FC = () => {
                     <div>Giới tính: <b>{selectedHorse.gender}</b></div>
                     <div>Độ tuổi: <b>{selectedHorse.age} tuổi</b></div>
                     <div>Vi mạch ISO: <b>{selectedHorse.microchip}</b></div>
-                    <div>Hồ sơ đăng ký: <b style={{ color: '#4ade80' }}>{selectedHorse.profileStatus}</b></div>
-                    <div>Hộ chiếu: <b style={{ color: '#4ade80' }}>{selectedHorse.passportScanStatus}</b></div>
+                    <div>Hồ sơ đăng ký: <b>{selectedHorse.profileStatus}</b></div>
+                    <div>Hộ chiếu: <b>{selectedHorse.passportScanStatus}</b></div>
                   </div>
                 </div>
               )}

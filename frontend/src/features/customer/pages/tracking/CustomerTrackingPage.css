@@ -27,14 +27,14 @@
   margin: 0;
   font-size: 22px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary, #ffffff);
   letter-spacing: -0.01em;
 }
 
 .tracking-subtitle {
   margin: 0;
   font-size: 13.5px;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
 }
 
 /* Trip selector dropdown */
@@ -48,17 +48,17 @@
 .trip-selector-label {
   font-size: 11px;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--text-muted, #94a3b8);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .trip-selector-dropdown {
-  background-color: #17181c;
-  border: 1px solid #262932;
+  background-color: var(--bg-surface, #17181c);
+  border: 1px solid var(--border-color, #262932);
   border-radius: 8px;
   padding: 10px 14px;
-  color: #f1f5f9;
+  color: var(--text-primary, #f1f5f9);
   font-size: 13px;
   font-weight: 600;
   outline: none;
@@ -67,7 +67,7 @@
 }
 
 .trip-selector-dropdown:focus {
-  border-color: #ea580c;
+  border-color: var(--accent-primary, #ea580c);
 }
 
 /* ==================== TWO-COLUMN GRID ==================== */
@@ -92,13 +92,14 @@
 
 /* ==================== MAP & ROUTE CARD ==================== */
 .route-map-card {
-  background-color: #17181c;
-  border: 1px solid #262932;
+  background-color: var(--bg-surface, #17181c);
+  border: 1px solid var(--border-color, #262932);
   border-radius: 12px;
   padding: 22px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-shadow: var(--card-shadow, none);
 }
 
 .route-card-header {
@@ -118,13 +119,13 @@
   margin: 0;
   font-size: 17px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary, #ffffff);
 }
 
 .route-trip-meta {
   margin: 0;
   font-size: 12.5px;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
 }
 
 /* Canvas Area */
@@ -132,11 +133,11 @@
   position: relative;
   width: 100%;
   height: 250px;
-  background-color: #15171c;
-  border: 1px solid #242730;
+  background-color: var(--bg-elevated, #15171c);
+  border: 1px solid var(--border-color, #242730);
   border-radius: 10px;
   overflow: hidden;
-  background-image: radial-gradient(#272b35 1px, transparent 1px);
+  background-image: radial-gradient(var(--border-strong, #272b35) 1px, transparent 1px);
   background-size: 16px 16px;
 }
 
@@ -203,18 +204,18 @@
 }
 
 .progress-header-title {
-  color: #cbd5e1;
+  color: var(--text-primary, #cbd5e1);
   font-weight: 600;
 }
 
 .progress-header-count {
-  color: #94a3b8;
+  color: var(--text-muted, #94a3b8);
 }
 
 .route-progress-track {
   width: 100%;
-  height: 5px;
-  background-color: #262932;
+  height: 6px;
+  background-color: var(--border-color, #e2e8f0);
   border-radius: 5px;
   overflow: hidden;
 }
@@ -228,20 +229,21 @@
 
 /* ==================== STOPS & CHECKPOINTS CARD ==================== */
 .stops-list-card {
-  background-color: #17181c;
-  border: 1px solid #262932;
+  background-color: var(--bg-surface, #17181c);
+  border: 1px solid var(--border-color, #262932);
   border-radius: 12px;
   padding: 22px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-shadow: var(--card-shadow, none);
 }
 
 .stops-card-title {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary, #ffffff);
 }
 
 .stops-items-wrapper {
@@ -255,7 +257,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 0;
-  border-bottom: 1px solid #21242c;
+  border-bottom: 1px solid var(--border-color, #21242c);
   gap: 14px;
 }
 
@@ -293,8 +295,8 @@
 }
 
 .stop-index-circle.gray {
-  background-color: #2b303a;
-  color: #94a3b8;
+  background-color: var(--border-color, #e2e8f0);
+  color: var(--text-muted, #64748b);
 }
 
 .stop-meta-text {
@@ -306,12 +308,12 @@
 .stop-name-title {
   font-size: 14px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text-primary, #0f172a);
 }
 
 .stop-desc-sub {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary, #64748b);
 }
 
 .stop-status-pill {
@@ -323,38 +325,62 @@
 }
 
 .stop-status-pill.confirmed {
-  background-color: rgba(34, 197, 94, 0.14);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
 }
 
 .stop-status-pill.latest-confirmed {
-  background-color: rgba(234, 88, 12, 0.16);
-  color: #ea580c;
-  border: 1px solid rgba(234, 88, 12, 0.35);
+  background-color: var(--accent-light, #fff3e0);
+  color: var(--accent-primary, #ea580c);
+  border: 1px solid var(--accent-primary, #ea580c);
 }
 
 .stop-status-pill.next {
-  background-color: rgba(59, 130, 246, 0.14);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
 }
 
 .stop-status-pill.planned {
+  background-color: var(--bg-elevated, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  border: 1px solid var(--border-color, #cbd5e1);
+}
+
+[data-theme="dark"] .stop-index-circle.gray {
+  background-color: #2b303a;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .stop-status-pill.confirmed {
+  background-color: rgba(34, 197, 94, 0.14);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+[data-theme="dark"] .stop-status-pill.next {
+  background-color: rgba(59, 130, 246, 0.14);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .stop-status-pill.planned {
   background-color: rgba(100, 116, 139, 0.14);
   color: #94a3b8;
-  border: 1px solid rgba(100, 116, 139, 0.25);
+  border-color: rgba(100, 116, 139, 0.25);
 }
 
 /* ==================== RIGHT COLUMN: LATEST CHECKPOINT CARD ==================== */
 .latest-checkpoint-card {
-  background-color: #17181c;
-  border: 1px solid #262932;
+  background-color: var(--bg-surface, #17181c);
+  border: 1px solid var(--border-color, #262932);
   border-radius: 12px;
   padding: 22px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-shadow: var(--card-shadow, none);
 }
 
 .latest-checkpoint-box {
@@ -386,13 +412,13 @@
   margin: 0;
   font-size: 15px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary, #ffffff);
   line-height: 1.35;
 }
 
 .latest-checkpoint-author {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
 }
 
 /* Timings list */
@@ -400,7 +426,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-top: 1px solid #232630;
+  border-top: 1px solid var(--border-color, #232630);
   padding-top: 14px;
 }
 
@@ -412,11 +438,11 @@
 }
 
 .timing-label {
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
 }
 
 .timing-value {
-  color: #f1f5f9;
+  color: var(--text-primary, #f1f5f9);
   font-weight: 600;
 }
 
@@ -433,9 +459,9 @@
 
 .btn-view-request-detail {
   width: 100%;
-  background-color: #1e2027;
-  color: #cbd5e1;
-  border: 1px solid #303542;
+  background-color: var(--bg-elevated, #1e2027);
+  color: var(--text-primary, #cbd5e1);
+  border: 1px solid var(--border-color, #303542);
   padding: 10px 16px;
   border-radius: 8px;
   font-size: 13px;
@@ -446,20 +472,21 @@
 }
 
 .btn-view-request-detail:hover {
-  background-color: #292d38;
-  color: #ffffff;
-  border-color: #4b5563;
+  background-color: var(--accent-light, #292d38);
+  color: var(--accent-primary, #ea580c);
+  border-color: var(--accent-primary, #4b5563);
 }
 
 /* ==================== TIMELINE EVENTS CARD ==================== */
 .timeline-events-card {
-  background-color: #17181c;
-  border: 1px solid #262932;
+  background-color: var(--bg-surface, #17181c);
+  border: 1px solid var(--border-color, #262932);
   border-radius: 12px;
   padding: 22px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-shadow: var(--card-shadow, none);
 }
 
 .vertical-events-timeline {
@@ -486,7 +513,7 @@
   top: 16px;
   bottom: 0;
   width: 2px;
-  background-color: #2a2e38;
+  background-color: var(--border-color, #2a2e38);
 }
 
 .event-timeline-node:last-child::before {
@@ -498,7 +525,7 @@
   height: 14px;
   border-radius: 50%;
   background-color: #ea580c;
-  border: 3px solid #17181c;
+  border: 3px solid var(--bg-surface, #17181c);
   flex-shrink: 0;
   z-index: 1;
   margin-top: 3px;
@@ -513,37 +540,38 @@
 .event-title-text {
   font-size: 13.5px;
   font-weight: 600;
-  color: #f1f5f9;
+  color: var(--text-primary, #f1f5f9);
 }
 
 .event-time-sub {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
 }
 
 /* ==================== DEMO CONTROL PANEL CARD ==================== */
 .demo-controller-card {
-  background-color: #16171b;
-  border: 1px dashed #2f3440;
+  background-color: var(--bg-surface, #16171b);
+  border: 1px dashed var(--border-strong, #2f3440);
   border-radius: 12px;
   padding: 20px 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  box-shadow: var(--card-shadow, none);
 }
 
 .demo-controller-header h4 {
   margin: 0 0 4px 0;
   font-size: 12.5px;
   font-weight: 700;
-  color: #ea580c;
+  color: var(--accent-primary, #ea580c);
   letter-spacing: 0.04em;
 }
 
 .demo-controller-header p {
   margin: 0;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary, #94a3b8);
   line-height: 1.45;
 }
 
@@ -555,11 +583,11 @@
 }
 
 .demo-meta-status {
-  color: #cbd5e1;
+  color: var(--text-primary, #cbd5e1);
 }
 
 .demo-meta-hint {
-  color: #ea580c;
+  color: var(--accent-primary, #ea580c);
   font-weight: 600;
 }
 
@@ -570,9 +598,9 @@
 }
 
 .demo-step-button {
-  background-color: #1e2027;
-  color: #cbd5e1;
-  border: 1px solid #2e3340;
+  background-color: var(--bg-elevated, #1e2027);
+  color: var(--text-primary, #cbd5e1);
+  border: 1px solid var(--border-color, #2e3340);
   border-radius: 6px;
   padding: 8px 10px;
   font-size: 11.5px;
@@ -587,17 +615,17 @@
 }
 
 .demo-step-button:hover {
-  background-color: #272a33;
-  color: #ffffff;
-  border-color: #4b5563;
+  background-color: var(--bg-surface, #272a33);
+  color: var(--text-primary, #ffffff);
+  border-color: var(--accent-primary, #4b5563);
 }
 
 .demo-step-button.active {
-  background-color: #ea580c;
+  background-color: var(--accent-primary, #ea580c);
   color: #ffffff;
-  border-color: #ea580c;
+  border-color: var(--accent-primary, #ea580c);
   font-weight: 700;
-  box-shadow: 0 0 10px rgba(234, 88, 12, 0.45);
+  box-shadow: 0 0 10px var(--accent-glow, rgba(234, 88, 12, 0.45));
 }
 
 .step-num-badge {

@@ -23,7 +23,7 @@ export const TrackingModal: React.FC<TrackingModalProps> = ({ isOpen, onClose, t
               <TripStatusBadge status={trip.status} label={trip.statusText} />
             </h3>
             <p className="cbn-modal-subtitle">
-              Mã yêu cầu: <b style={{ color: '#f8fafc' }}>{trip.requestId}</b> • Ngựa: <b style={{ color: '#f97316' }}>{trip.horse}</b>
+              Mã yêu cầu: <b style={{ color: 'var(--text-primary, #0f172a)' }}>{trip.requestId}</b> • Ngựa: <b style={{ color: '#f97316' }}>{trip.horse}</b>
             </p>
           </div>
           <button className="cbn-modal-close-btn" onClick={onClose} aria-label="Close">

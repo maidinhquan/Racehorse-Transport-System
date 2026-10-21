@@ -5,7 +5,7 @@ frontend/.env
 frontend/.env.local
 
 # Data files & Requirements
-data/
+/data/
 !backend/Infrastructure/Data/
 !backend/Infrastructure/Data/**
 landing_page/

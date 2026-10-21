@@ -42,54 +42,61 @@ export const CustomerHomePage: React.FC = () => {
       {/* Middle Two-Column Grid */}
       <div className="dashboard-middle-grid">
         {/* Left Card: Chuyến hiện tại */}
-        <section className="cbn-card current-trip-card">
-          <div className="trip-card-header">
-            <h3 className="card-title">Chuyến hiện tại</h3>
-            <TripStatusBadge status={currentTrip.status} label={currentTrip.statusText} />
-          </div>
-
-          <div className="trip-key-info-row">
-            <div className="info-block">
-              <span className="info-label">Ngựa</span>
-              <span className="info-value">{currentTrip.horse}</span>
-            </div>
-            <div className="info-block">
-              <span className="info-label">Tuyến đường</span>
-              <span className="info-value">{currentTrip.origin} → {currentTrip.destination}</span>
-            </div>
-          </div>
-
-          <div className="trip-progress-box">
-            <div className="trip-schedule-times">
-              <span className="depart-time">Khởi hành: {currentTrip.departedDate}</span>
-              <span className="eta-time">Dự kiến đến: {currentTrip.eta}</span>
+        {currentTrip ? (
+          <section className="cbn-card current-trip-card">
+            <div className="trip-card-header">
+              <h3 className="card-title">Chuyến hiện tại</h3>
+              <TripStatusBadge status={currentTrip.status} label={currentTrip.statusText} />
             </div>
 
-            <div className="progress-track-wrapper">
-              <div
-                className="progress-fill-bar"
-                style={{ width: `${currentTrip.progress}%` }}
-              >
-                <span className="progress-dot-marker" />
+            <div className="trip-key-info-row">
+              <div className="info-block">
+                <span className="info-label">Ngựa</span>
+                <span className="info-value">{currentTrip.horse}</span>
+              </div>
+              <div className="info-block">
+                <span className="info-label">Tuyến đường</span>
+                <span className="info-value">{currentTrip.origin} → {currentTrip.destination}</span>
               </div>
             </div>
-          </div>
 
-          <div className="milestone-note-text">
-            Mốc đã xác nhận gần nhất: <b>{currentTrip.lastMilestone}</b> • {currentTrip.milestoneTime}
-          </div>
+            <div className="trip-progress-box">
+              <div className="trip-schedule-times">
+                <span className="depart-time">Khởi hành: {currentTrip.departedDate}</span>
+                <span className="eta-time">Dự kiến đến: {currentTrip.eta}</span>
+              </div>
 
-          <button
-            className="btn-view-tracking"
-            onClick={() => setIsTrackingModalOpen(true)}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            <span>Xem theo dõi chuyến đi</span>
-          </button>
-        </section>
+              <div className="progress-track-wrapper">
+                <div
+                  className="progress-fill-bar"
+                  style={{ width: `${currentTrip.progress}%` }}
+                >
+                  <span className="progress-dot-marker" />
+                </div>
+              </div>
+            </div>
+
+            <div className="milestone-note-text">
+              Mốc đã xác nhận gần nhất: <b>{currentTrip.lastMilestone}</b> • {currentTrip.milestoneTime}
+            </div>
+
+            <button
+              className="btn-view-tracking"
+              onClick={() => setIsTrackingModalOpen(true)}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              <span>Xem theo dõi chuyến đi</span>
+            </button>
+          </section>
+        ) : (
+          <section className="cbn-card current-trip-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '260px', textAlign: 'center' }}>
+            <h3 className="card-title" style={{ marginBottom: '8px' }}>Chuyến hiện tại</h3>
+            <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '14px' }}>Hiện chưa có chuyến vận chuyển nào đang diễn ra.</p>
+          </section>
+        )}
 
         {/* Right Card: Thông báo */}
         <section className="cbn-card notifications-card">
@@ -232,18 +239,22 @@ export const CustomerHomePage: React.FC = () => {
       </section>
 
       {/* Modals for Current Trip and Flow 5 */}
-      <TrackingModal
-        isOpen={isTrackingModalOpen}
-        onClose={() => setIsTrackingModalOpen(false)}
-        trip={currentTrip}
-      />
+      {currentTrip && (
+        <TrackingModal
+          isOpen={isTrackingModalOpen}
+          onClose={() => setIsTrackingModalOpen(false)}
+          trip={currentTrip}
+        />
+      )}
 
-      <IncidentModal
-        isOpen={isIncidentModalOpen}
-        onClose={() => setIsIncidentModalOpen(false)}
-        incident={incidentDetail}
-        onResolve={handleResolveIncident}
-      />
+      {incidentDetail && (
+        <IncidentModal
+          isOpen={isIncidentModalOpen}
+          onClose={() => setIsIncidentModalOpen(false)}
+          incident={incidentDetail}
+          onResolve={handleResolveIncident}
+        />
+      )}
     </CustomerLayout>
   );
 };
