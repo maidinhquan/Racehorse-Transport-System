@@ -8,6 +8,21 @@ namespace Domain.Flow1;
 [Table("HORSE")]
 public sealed class FlowHorse
 {
+    [Column("PassportIssuedBy", TypeName = "nvarchar(200)")]
+    public string? PassportIssuedBy { get; set; }
+    [Column("PassportIssuedDate", TypeName = "date")]
+    public DateTime? PassportIssuedDate { get; set; }
+    [Column("PassportExpiryDate", TypeName = "date")]
+    public DateTime? PassportExpiryDate { get; set; }
+    [Column("OwnershipCertificateFileUrl", TypeName = "nvarchar(500)")]
+    public string? OwnershipCertificateFileUrl { get; set; }
+    [Column("ValuationDocumentFileUrl", TypeName = "nvarchar(500)")]
+    public string? ValuationDocumentFileUrl { get; set; }
+    [Column("DeclaredValueVnd", TypeName = "decimal(18,2)")]
+    public decimal? DeclaredValueVnd { get; set; }
+    [Column("SpecialHealthNotes", TypeName = "nvarchar(2000)")]
+    public string? SpecialHealthNotes { get; set; }
+
     [Key]
     [Column("HorseID", TypeName = "varchar(50)")]
     public string HorseID { get; set; } = null!;
@@ -41,6 +56,29 @@ public sealed class FlowHorse
 [Table("TRANSPORT_REQUEST")]
 public sealed class FlowRequest
 {
+    [Column("PickupStableName", TypeName = "nvarchar(200)")]
+    public string? PickupStableName { get; set; }
+    [Column("PickupPostalCode", TypeName = "nvarchar(20)")]
+    public string? PickupPostalCode { get; set; }
+    [Column("PickupInstructions", TypeName = "nvarchar(1000)")]
+    public string? PickupInstructions { get; set; }
+    [Column("DeliveryStableName", TypeName = "nvarchar(200)")]
+    public string? DeliveryStableName { get; set; }
+    [Column("DeliveryPostalCode", TypeName = "nvarchar(20)")]
+    public string? DeliveryPostalCode { get; set; }
+    [Column("DeliveryInstructions", TypeName = "nvarchar(1000)")]
+    public string? DeliveryInstructions { get; set; }
+    [Column("InvitationLetterFileUrl", TypeName = "nvarchar(500)")]
+    public string? InvitationLetterFileUrl { get; set; }
+    [Column("CompetitionRegistrationFileUrl", TypeName = "nvarchar(500)")]
+    public string? CompetitionRegistrationFileUrl { get; set; }
+    [Column("AtaCarnetFileUrl", TypeName = "nvarchar(500)")]
+    public string? AtaCarnetFileUrl { get; set; }
+    [Column("CareInstructions", TypeName = "nvarchar(2000)")]
+    public string? CareInstructions { get; set; }
+    [Column("DeclaredValueVnd", TypeName = "decimal(18,2)")]
+    public decimal? DeclaredValueVnd { get; set; }
+
     [Column("SubmissionKeyHash", TypeName = "varchar(64)")]
     public string? SubmissionKeyHash { get; set; }
     [Column("DeclaredValueUsd", TypeName = "decimal(18,2)")]
@@ -143,16 +181,10 @@ public sealed class FlowContract
     public string ContractCode { get; set; } = null!;
     [Column("CurrencyCode", TypeName = "varchar(3)")]
     public string CurrencyCode { get; set; } = null!;
-    [Column("ExchangeRateToLocal", TypeName = "decimal(10,4)")]
-    public decimal? ExchangeRateToLocal { get; set; }
     [Column("TotalQuotedPrice", TypeName = "decimal(12,2)")]
     public decimal? TotalQuotedPrice { get; set; }
-    [Column("BaseContractPrice_P", TypeName = "decimal(12,2)")]
-    public decimal? BaseContractPrice_P { get; set; }
     [Column("DepositRateStandard", TypeName = "decimal(5,2)")]
     public decimal? DepositRateStandard { get; set; }
-    [Column("ActualGrossProfit_AGP", TypeName = "decimal(12,2)")]
-    public decimal? ActualGrossProfit_AGP { get; set; }
     [Column("SignedAt", TypeName = "datetime")]
     public DateTime? SignedAt { get; set; }
     [Column("ContractStatus", TypeName = "varchar(50)")]
@@ -169,8 +201,6 @@ public sealed class FlowContract
     public DateTime? SignOtpExpiry { get; set; }
     [Column("SignOtpFailedAttempts", TypeName = "int")]
     public int SignOtpFailedAttempts { get; set; }
-    [Column("DepositDeadline", TypeName = "datetime2(7)")]
-    public DateTime? DepositDeadline { get; set; }
     [Column("DepositAmount", TypeName = "decimal(12,2)")]
     public decimal? DepositAmount { get; set; }
     [Column("PdfSha256", TypeName = "char(64)")]
@@ -183,12 +213,6 @@ public sealed class FlowContract
     public DateTime? PublishedAtUtc { get; set; }
     [Column("PublishedBy", TypeName = "varchar(50)")]
     public string? PublishedBy { get; set; }
-    [Column("EffectiveSignDeadline", TypeName = "datetime2(7)")]
-    public DateTime? EffectiveSignDeadline { get; set; }
-    [Column("SignedDepositDeadline", TypeName = "datetime2(7)")]
-    public DateTime? SignedDepositDeadline { get; set; }
-    [Column("LastExtensionTarget", TypeName = "varchar(10)")]
-    public string? LastExtensionTarget { get; set; }
     [Column("LastExtensionReason", TypeName = "nvarchar(1000)")]
     public string? LastExtensionReason { get; set; }
     [Column("LastExtensionBy", TypeName = "varchar(50)")]
@@ -209,8 +233,6 @@ public sealed class FlowContract
     public string? CancellationDecidedBy { get; set; }
     [Column("CancellationDecidedAtUtc", TypeName = "datetime2(7)")]
     public DateTime? CancellationDecidedAtUtc { get; set; }
-    [Column("IsCurrent", TypeName = "bit")]
-    public bool IsCurrent { get; set; }
     [Column("RowVersion", TypeName = "rowversion")]
     [Timestamp]
     public byte[] RowVersion { get; set; } = null!;
@@ -323,6 +345,9 @@ public sealed class FlowInvoice
 [Table("REQUEST_HORSE_MAPPING")]
 public sealed class FlowRequestHorse
 {
+    [Column("CareInstructions", TypeName = "nvarchar(2000)")]
+    public string? CareInstructions { get; set; }
+
     [Key]
     [Column("RequestHorseID", TypeName = "varchar(50)")]
     public string RequestHorseID { get; set; } = null!;

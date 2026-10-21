@@ -17,12 +17,17 @@ public sealed record EstimateView(string PricingPolicyVersion, string Currency, 
 public sealed record EstimateCalculation(EstimateView Customer, decimal EstimatedCost, decimal Floor,
     RoadRouteResult? Route, CostPlan? Plan = null);
 public sealed record ContactInput([Required, StringLength(100)] string Name,
-    [Required, RegularExpression(@"\+?[0-9 ()-]{7,20}")] string Phone);
+    [Required, RegularExpression(@"\+?[0-9 ()-]{7,20}")] string Phone,
+    [StringLength(200)] string? StableName = null, [StringLength(20)] string? PostalCode = null,
+    [StringLength(1000)] string? Instructions = null);
 public sealed record HorseInput([Required, StringLength(100)] string Name,
     [Required, RegularExpression(@"[0-9]{15}")] string MicrochipIso,
     [Required, StringLength(50)] string FeiPassportNo,
     [Required, StringLength(100)] string Breed,
     [Required, RegularExpression("STALLION|MARE|GELDING")] string Sex,
-    [Range(1, 2000)] decimal Weight, DateOnly Dob);
+    [Range(1, 2000)] decimal Weight, DateOnly Dob,
+    [StringLength(200)] string? PassportIssuedBy = null, DateOnly? PassportIssuedDate = null,
+    DateOnly? PassportExpiryDate = null, decimal? DeclaredValueVnd = null,
+    [StringLength(2000)] string? SpecialHealthNotes = null);
 public sealed record UploadedFile(byte[] Bytes, string FileName);
 public sealed record PrivateFileReference(string FileId, string Sha256, string ContentType, int SizeBytes);

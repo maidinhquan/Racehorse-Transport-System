@@ -15,7 +15,7 @@ public sealed partial class RelationalFlow1Service
         "INVALID_DECLARED_VALUE", "Declared total must be positive USD with at most two decimal places, or omitted.");
 
     public async Task<FlowRequestCard> SubmitWithDocumentsAsync(string actor, string key, FlowRequestInput input,
-        IReadOnlyList<RequestDocumentUpload> uploads, string? id, string? version, CancellationToken ct)
+        IReadOnlyList<RequestDocumentUpload> uploads, string? id, string? version, CancellationToken ct, RequestSharedUploads? shared = null)
     {
         Require(input is not null && input.Trip is not null && input.Trip.Pickup is not null && input.Trip.Delivery is not null
             && input.Horses is not null && input.PickupContact is not null && input.Receiver is not null,
@@ -43,7 +43,7 @@ public sealed partial class RelationalFlow1Service
         foreach (var upload in uploads)
             documents.Add(new(upload.HorseId, await files.PutAsync(upload.File, false, ct)));
         Require(documents.Distinct().Count() == documents.Count, "DUPLICATE_DOCUMENT", "The same file is attached twice to one horse.");
-        return await SubmitCore(actor, key, input, id, version, documents, ct);
+        return await SubmitCore(actor, key, input, id, version, documents, ct, await PrepareShared(shared,ct));
     }
 
     private static string DocumentId(string request, PreparedDocument file) => Id("doc", request, file.HorseId, file.FileKey);
@@ -75,6 +75,7 @@ public sealed partial class RelationalFlow1Service
 
     private async Task<(byte[] Bytes, string ContentType)> ReadDocument(string request, string document, CancellationToken ct)
     {
+        if (SharedTypes.Contains(document)) { var r=await db.FindAsync<FlowRequest>(request,ct) ?? throw Error("Request not found.","NOT_FOUND",404); var file=SharedFile(r,document); Require(file is not null,"FILE_UNAVAILABLE","Document not uploaded."); return await files.ReadAsync(file,ct); }
         var row = await db.FindAsync<FlowMedicalRecord>(document, ct);
         if (row is null || row.RequestID != request || row.DocumentType != BaselineDocumentType || row.UploadedFileUrl is null)
             throw Error("Document not found.", "NOT_FOUND", 404);

@@ -32,7 +32,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         r.PickupLatitude is not null&&r.PickupLongitude is not null&&r.DeliveryLatitude is not null&&r.DeliveryLongitude is not null&&r.OriginCountry=="VN"&&
         (r.TransportType=="ROAD"&&r.DestinationCountry=="VN"&&r.DistanceKm>0||r.TransportType=="AIR"&&r.DestinationCountry=="JP"&&r.DistanceKm is null)&&
         !string.IsNullOrWhiteSpace(r.PickupContactName)&&!string.IsNullOrWhiteSpace(r.PickupContactPhone)&&!string.IsNullOrWhiteSpace(r.DesignatedReceiverName)&&!string.IsNullOrWhiteSpace(r.DesignatedReceiverPhone)&&!string.IsNullOrWhiteSpace(r.Purpose);
-    private static DateTime SignDue(FlowContract c) => c.EffectiveSignDeadline ?? c.CompletionDeadline ?? throw Error("Signing deadline missing.", "DATA_REVIEW_REQUIRED", 409);
+    private static DateTime SignDue(FlowContract c) => c.CompletionDeadline ?? throw Error("Signing deadline missing.", "DATA_REVIEW_REQUIRED", 409);
     private async Task<FlowUser> Actor(string id, string? role, CancellationToken ct)
     {
         var u = await db.FindAsync<FlowUser>(id, ct);
@@ -56,7 +56,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         Require(c.CustomerID == r.CustomerID, "DATA_REVIEW_REQUIRED", "Contract ownership differs from request."); return (c, r);
     }
     private static FlowHorseCard HorseCard(FlowHorse h, bool available = true) => new(h.HorseID, h.Name, h.Microchip_ISO,
-        h.FEI_Passport_No, Token(h.RowVersion), h.PhotoUrl is not null && h.PassportScanUrl is not null, available, h.Breed, h.Sex, h.DOB);
+        h.FEI_Passport_No, Token(h.RowVersion), h.PhotoUrl is not null && h.PassportScanUrl is not null, available, h.Breed, h.Sex, h.DOB, h.Weight, h.PassportIssuedBy, h.PassportIssuedDate, h.PassportExpiryDate, h.DeclaredValueVnd, h.SpecialHealthNotes, HorseDocuments(h));
     private async Task<bool> Busy(string horse, DateTime from, DateTime to, string? exclude, CancellationToken ct)
     {
         var links = await db.QueryAsync<FlowRequestHorse>(h => h.HorseID == horse && h.RequestID != exclude, ct);
@@ -74,34 +74,34 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         var payments = inv is null ? [] : await db.QueryAsync<FlowPayment>(x => x.InvoiceID == inv.InvoiceID, ct);
         var t = c.TripID is null ? null : await db.FindAsync<FlowTrip>(c.TripID, ct);
         var request=await db.FindAsync<FlowRequest>(c.RequestID,ct);
-        return new(c.ContractID, Token(c.RowVersion), c.ContractStatus, c.IsCurrent, c.TotalQuotedPrice ?? 0, c.DepositAmount ?? 0,
-            c.CompletionDeadline is null ? null : SignDue(c), c.DepositDeadline, c.SignedAt, c.PdfSha256,
+        return new(c.ContractID, Token(c.RowVersion), c.ContractStatus, c.TotalQuotedPrice ?? 0, c.DepositAmount ?? 0,
+            c.CompletionDeadline is null ? null : SignDue(c), c.CompletionDeadline, c.SignedAt, c.PdfSha256,
             c.CancellationId, c.CancellationStatus, c.CancellationReason, c.CancellationDecisionReason,
-            c.LastExtensionTarget, c.LastExtensionReason, inv?.PaidAmount ?? 0, inv?.PaymentStatus,
+            c.LastExtensionReason, inv?.PaidAmount ?? 0, inv?.PaymentStatus,
             payments.Select(p => new FlowPaymentCard(p.PaymentID, Token(p.RowVersion), p.Amount, p.VnpayReceivedAmount, p.Status,
                 p.TransactionCode, p.Status == "SUCCESS" ? p.PaymentDate : null, p.FinancialReviewRequired, p.FinancialReviewReason, p.Method, p.CurrencyCode)).ToArray(),
             t is null ? null : new(t.TripID, Token(t.RowVersion), t.Status, t.DeploymentStatus, t.HandoffEventId, t.DeploymentReason,
                 t.AssignedSpecialistId,t.AssignedCoordinatorId),request is {ExpectedDate:not null,PreparationDays:not null}?Cutoff(request):null,c.CurrencyCode,
-            c.DepositAmount>0&&c.DepositRateStandard==40&&c.CurrencyCode=="VND"&&c.CompletionDeadline is not null,
-            c.SignedAt is not null&&c.PublishedAtUtc is not null&&c.SignerEmail is not null&&c.SignedDepositDeadline is not null&&c.PdfUrl is not null&&c.PdfSha256 is not null,
-            c.CustomerFeedback,c.FeedbackFields,c.FeedbackStatus,c.ManagerFeedback,c.FeedbackAtUtc,c.FeedbackHandledAtUtc,c.RefundStatus,c.RefundAmount);
+            c.DepositAmount>0&&c.DepositRateStandard is >0 and <=100&&c.CurrencyCode=="VND"&&c.CompletionDeadline is not null,
+            c.SignedAt is not null&&c.PublishedAtUtc is not null&&c.SignerEmail is not null&&c.PdfUrl is not null&&c.PdfSha256 is not null,
+            c.CustomerFeedback,c.FeedbackFields,c.FeedbackStatus,c.ManagerFeedback,c.FeedbackAtUtc,c.FeedbackHandledAtUtc,c.RefundStatus,c.RefundAmount,c.DepositRateStandard);
     }
     private async Task<FlowRequestCard> Card(FlowRequest r, CancellationToken ct)
     {
         var horses = new List<FlowHorseCard>();
         foreach (var l in await db.QueryAsync<FlowRequestHorse>(x => x.RequestID == r.RequestID, ct))
-            horses.Add(HorseCard((await db.FindAsync<FlowHorse>(l.HorseID, ct))!));
+            horses.Add(HorseCard((await db.FindAsync<FlowHorse>(l.HorseID, ct))!) with { CareInstructions = l.CareInstructions });
         var contracts = new List<FlowContractCard>();
         var existing=await db.QueryAsync<FlowContract>(x => x.RequestID == r.RequestID, ct);
-        var current=existing.OrderByDescending(x=>x.IsCurrent).ThenByDescending(x=>x.PublishedAtUtc).FirstOrDefault();
+        var current=existing.SingleOrDefault();
         if(current is not null)contracts.Add(await Card(current,ct));
         FlowRequestInput? input=null;
         if(r.ExpectedDate is not null && r.CommittedDeadline is not null && r.PickupLatitude is not null && r.DeliveryLatitude is not null && r.PickupLongitude is not null && r.DeliveryLongitude is not null)
-            input=new(new(new(r.Departure,(double)r.PickupLatitude.Value,(double)r.PickupLongitude.Value,r.OriginCountry!),new(r.Destination,(double)r.DeliveryLatitude.Value,(double)r.DeliveryLongitude.Value,r.DestinationCountry!),r.TransportType!,horses.Count,DateOnly.FromDateTime(new DateTimeOffset(r.ExpectedDate.Value).ToOffset(TimeSpan.FromHours(7)).DateTime)),new(r.ExpectedDate.Value),new(r.CommittedDeadline.Value),r.Purpose??"",new(r.PickupContactName??"",r.PickupContactPhone??""),new(r.DesignatedReceiverName??"",r.DesignatedReceiverPhone??""),horses.Select(h=>new HorseSelection(h.HorseId,h.Version)).ToArray(),r.DeclaredValueUsd);
+            input=new(new(new(r.Departure,(double)r.PickupLatitude.Value,(double)r.PickupLongitude.Value,r.OriginCountry!),new(r.Destination,(double)r.DeliveryLatitude.Value,(double)r.DeliveryLongitude.Value,r.DestinationCountry!),r.TransportType!,horses.Count,DateOnly.FromDateTime(new DateTimeOffset(r.ExpectedDate.Value).ToOffset(TimeSpan.FromHours(7)).DateTime)),new(r.ExpectedDate.Value),new(r.CommittedDeadline.Value),r.Purpose??"",Contact(r.PickupContactName??"",r.PickupContactPhone??"",r.PickupStableName,r.PickupPostalCode,r.PickupInstructions),Contact(r.DesignatedReceiverName??"",r.DesignatedReceiverPhone??"",r.DeliveryStableName,r.DeliveryPostalCode,r.DeliveryInstructions),horses.Select(h=>new HorseSelection(h.HorseId,h.Version,h.CareInstructions)).ToArray(),r.DeclaredValueUsd,r.CareInstructions);
         var customer = await db.FindAsync<FlowUser>(r.CustomerID, ct);
         return new(r.RequestID, Token(r.RowVersion), r.Status, r.Departure, r.Destination, r.ExpectedDate, r.CommittedDeadline,
             r.ManagerNotes, r.DistanceKm, r.PreparationDays, r.PickupContactName, r.PickupContactPhone,
-            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct),r.BaseCost);
+            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct),r.BaseCost,r.DeclaredValueVnd,SharedDocuments(r));
     }
     public Task<FlowRequestCard> DetailAsync(string id, string actor, bool manager, CancellationToken ct) =>
         db.RunAsync(async t => await Card(await Request(id, actor, manager, t), t), ct);
@@ -128,31 +128,34 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         {
             var request=await db.FindAsync<FlowRequest>(link.RequestID,ct);
             if(request is null||request.Status is "CANCELLED" or "REJECTED" or "COMPLETED")continue;
-            if(request.Status=="CHANGES_REQUESTED"&&!(await db.QueryAsync<FlowContract>(c=>c.RequestID==request.RequestID&&c.IsCurrent,ct)).Any())continue;
+            if(request.Status=="CHANGES_REQUESTED"&&!(await db.QueryAsync<FlowContract>(c=>c.RequestID==request.RequestID&&c.ContractStatus!="CANCELLED",ct)).Any())continue;
             return true;
         }
         return false;
     }
 
-    public async Task<FlowHorseCard> HorseAsync(string actor, string key, HorseInput i, UploadedFile photo, UploadedFile passport, string? id, string? version, CancellationToken ct)
+    public async Task<FlowHorseCard> HorseAsync(string actor, string key, HorseInput i, UploadedFile photo, UploadedFile passport, string? id, string? version, CancellationToken ct, UploadedFile? ownership = null, UploadedFile? valuation = null)
     {
+        ValidateHorseProfile(i); Require(ownership is not null,"VALIDATION_ERROR","Upload the ownership certificate.");
+        await db.RunAsync(async t => { await Actor(actor, UserRoles.Customer, t); if(id is not null) { var h=await db.FindAsync<FlowHorse>(id,t); Require(h is not null && h.OwnerID==actor,"NOT_FOUND","Horse not found."); Check(h.RowVersion,version??""); Require(!await DocumentsLocked(id,t),"HORSE_IN_USE","Horse profile is locked by an active request."); } return 0; },ct);
         Key(key); Text(i.Name,100); Text(i.Breed,100); Text(i.FeiPassportNo,50);
         Require(Regex.IsMatch(i.MicrochipIso??"", "\\A[0-9]{15}\\z") && i.Sex is "STALLION" or "MARE" or "GELDING" &&
             i.Weight is > 0 and <= 2000 && i.Dob <= Today(clock) && i.Dob > Today(clock).AddYears(-60), "VALIDATION_ERROR", "Invalid horse identity.");
         // Bytes are immutable and may be orphaned on rollback; no public URLs or state files.
         var photoKey = await files.PutAsync(photo,true,ct); var passportKey = await files.PutAsync(passport,false,ct);
+        var ownerKey = await files.PutAsync(ownership!,false,ct); var valueKey = valuation is null ? null : await files.PutAsync(valuation,false,ct);
         return await db.RunAsync(async t => {
             await Actor(actor, UserRoles.Customer,t); var hid=id ?? Id("h",actor,key); var h=await db.FindAsync<FlowHorse>(hid,t);
             if (h is not null)
             {
                 Require(h.OwnerID==actor,"FORBIDDEN","Horse belongs to another customer.");
-                if(id is null) { Require(h.Name==i.Name.Trim() && h.Microchip_ISO==i.MicrochipIso && h.FEI_Passport_No==i.FeiPassportNo.Trim() && h.Breed==i.Breed.Trim() && h.Sex==i.Sex && h.Weight==i.Weight && h.DOB==i.Dob.ToDateTime(TimeOnly.MinValue) && h.PhotoUrl==photoKey && h.PassportScanUrl==passportKey,"IDEMPOTENCY_KEY_REUSED","Key used for different horse data."); return HorseCard(h); }
+                if(id is null) { Require(h.Name==i.Name.Trim() && h.Microchip_ISO==i.MicrochipIso && h.FEI_Passport_No==i.FeiPassportNo.Trim() && h.Breed==i.Breed.Trim() && h.Sex==i.Sex && h.Weight==i.Weight && h.DOB==i.Dob.ToDateTime(TimeOnly.MinValue) && h.PhotoUrl==photoKey && h.PassportScanUrl==passportKey && SameProfile(h,i,ownerKey,valueKey),"IDEMPOTENCY_KEY_REUSED","Key used for different horse data."); return HorseCard(h); }
                 Check(h.RowVersion,version??"");
                 Require(!await DocumentsLocked(hid,t),"HORSE_IN_USE","Horse identity/documents are locked by an active request.");
             }
             else { Require(id is null,"NOT_FOUND","Horse not found."); h=new(){HorseID=hid,OwnerID=actor}; db.Add(h); }
             Require(!(await db.QueryAsync<FlowHorse>(x=>x.Microchip_ISO==i.MicrochipIso && x.HorseID!=hid,t)).Any(),"MICROCHIP_EXISTS","Microchip already registered.");
-            h.Name=i.Name.Trim(); h.Microchip_ISO=i.MicrochipIso!; h.FEI_Passport_No=i.FeiPassportNo.Trim(); h.Breed=i.Breed.Trim(); h.Sex=i.Sex; h.Weight=i.Weight; h.DOB=i.Dob.ToDateTime(TimeOnly.MinValue); h.PhotoUrl=photoKey; h.PassportScanUrl=passportKey;
+            h.Name=i.Name.Trim(); h.Microchip_ISO=i.MicrochipIso!; h.FEI_Passport_No=i.FeiPassportNo.Trim(); h.Breed=i.Breed.Trim(); h.Sex=i.Sex; h.Weight=i.Weight; h.DOB=i.Dob.ToDateTime(TimeOnly.MinValue); h.PhotoUrl=photoKey; h.PassportScanUrl=passportKey; ApplyProfile(h,i,ownerKey,valueKey);
             await db.SaveAsync(t); return HorseCard(h);
         },ct);
     }
@@ -171,12 +174,12 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         }
         foreach(var l in await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==r.RequestID,ct)) db.Remove(l);
         await db.SaveAsync(ct);
-        foreach(var selection in i.Horses) db.Add(new FlowRequestHorse{RequestHorseID=Id("rh",r.RequestID,selection.HorseId),RequestID=r.RequestID,HorseID=selection.HorseId});
+        foreach(var selection in i.Horses) db.Add(new FlowRequestHorse{RequestHorseID=Id("rh",r.RequestID,selection.HorseId),RequestID=r.RequestID,HorseID=selection.HorseId,CareInstructions=OptionalText(selection.CareInstructions,2000)});
         r.Departure=i.Trip.Pickup.Address; r.Destination=i.Trip.Delivery.Address; r.OriginCountry=i.Trip.Pickup.Country; r.DestinationCountry=i.Trip.Delivery.Country;
         r.PickupLatitude=(decimal)i.Trip.Pickup.Lat; r.PickupLongitude=(decimal)i.Trip.Pickup.Lng; r.DeliveryLatitude=(decimal)i.Trip.Delivery.Lat; r.DeliveryLongitude=(decimal)i.Trip.Delivery.Lng;
         r.DistanceKm=estimate.Customer.RoadDistanceKm is decimal km ? decimal.Round(km,2) : null; r.PreparationDays=estimate.Customer.MinimumPreparationDays;
         r.BaseCost=estimate.EstimatedCost;
-        r.DeclaredValueUsd=i.DeclaredValueUsd; r.Purpose=i.Purpose.Trim(); r.PickupContactName=i.PickupContact.Name.Trim(); r.PickupContactPhone=i.PickupContact.Phone;
+        ApplyWizard(r,i); r.DeclaredValueUsd=i.DeclaredValueUsd; r.Purpose=i.Purpose.Trim(); r.PickupContactName=i.PickupContact.Name.Trim(); r.PickupContactPhone=i.PickupContact.Phone;
         r.DesignatedReceiverName=i.Receiver.Name.Trim(); r.DesignatedReceiverPhone=i.Receiver.Phone; r.ExpectedDate=Utc(i.DepartureAt); r.CommittedDeadline=Utc(i.DeliveryAt); r.TransportType=i.Trip.PreferredTransportMode; r.Status="PENDING";
     }
     public Task<FlowRequestCard> SubmitAsync(string actor,string key,FlowRequestInput i,string? id,string? version,CancellationToken ct) => SubmitCore(actor,key,i,id,version,[],ct);
@@ -190,10 +193,13 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         Require(max<long.MaxValue,"REQUEST_NUMBER_EXHAUSTED","Request number range exhausted.");
         return prefix+(max+1).ToString("D3",CultureInfo.InvariantCulture);
     }
-    private async Task<FlowRequestCard> SubmitCore(string actor,string key,FlowRequestInput i,string? id,string? version,IReadOnlyList<PreparedDocument> documents,CancellationToken ct)
+    private async Task<FlowRequestCard> SubmitCore(string actor,string key,FlowRequestInput i,string? id,string? version,IReadOnlyList<PreparedDocument> documents,CancellationToken ct,RequestSharedKeys? shared=null)
     {
         Require(i is not null && i.Trip is not null && i.Trip.Pickup is not null && i.Trip.Delivery is not null && i.Horses is not null && i.PickupContact is not null && i.Receiver is not null,"VALIDATION_ERROR","Complete all required request fields.");
-        Key(key); ValidateDeclaredValue(i.DeclaredValueUsd); var estimate=await estimates.CalculateAsync(i.Trip,ct);
+        Key(key); ValidateDeclaredValue(i.DeclaredValueUsd);
+        Require(i.Horses.Count is >=1 and <=100 && i.Horses.Count==i.Trip.HorseCount && i.Horses.Select(h=>h.HorseId).Distinct().Count()==i.Horses.Count,"VALIDATION_ERROR","Select unique horses matching the requested count.");
+        var declaredValue=await db.RunAsync(async t=> { await Actor(actor,UserRoles.Customer,t); return await HorseValue(i,actor,t); },ct);
+        var estimate=await estimates.CalculateAsync(i.Trip with { InsuredValueVnd=declaredValue },ct);
         return await db.RunAsync(async t=>{
             await Actor(actor,UserRoles.Customer,t);
             var submissionHash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n',actor,key)))).ToLowerInvariant();
@@ -204,18 +210,19 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
             if(r is not null)
             {
                 Require(r.CustomerID==actor,"FORBIDDEN","Request belongs to another account.");
-                if(id is null) { Require(r.Departure==i.Trip.Pickup.Address && r.Destination==i.Trip.Delivery.Address && r.OriginCountry==i.Trip.Pickup.Country && r.DestinationCountry==i.Trip.Delivery.Country && r.TransportType==i.Trip.PreferredTransportMode && r.PickupLatitude==decimal.Round((decimal)i.Trip.Pickup.Lat,6) && r.PickupLongitude==decimal.Round((decimal)i.Trip.Pickup.Lng,6) && r.DeliveryLatitude==decimal.Round((decimal)i.Trip.Delivery.Lat,6) && r.DeliveryLongitude==decimal.Round((decimal)i.Trip.Delivery.Lng,6) && r.ExpectedDate==Utc(i.DepartureAt) && r.CommittedDeadline==Utc(i.DeliveryAt) && r.Purpose==i.Purpose.Trim() && r.PickupContactName==i.PickupContact.Name.Trim() && r.PickupContactPhone==i.PickupContact.Phone && r.DesignatedReceiverName==i.Receiver.Name.Trim() && r.DesignatedReceiverPhone==i.Receiver.Phone && (await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==rid,t)).Select(x=>x.HorseID).Order().SequenceEqual(i.Horses.Select(x=>x.HorseId).Order()),"IDEMPOTENCY_KEY_REUSED","Key used with different request data."); Require(r.DeclaredValueUsd==i.DeclaredValueUsd && await SameDocuments(rid,documents,t),"IDEMPOTENCY_KEY_REUSED","Declared value or documents differ from the original submission."); return await Card(r,t); }
+                if(id is null) { Require(r.Departure==i.Trip.Pickup.Address && r.Destination==i.Trip.Delivery.Address && r.OriginCountry==i.Trip.Pickup.Country && r.DestinationCountry==i.Trip.Delivery.Country && r.TransportType==i.Trip.PreferredTransportMode && r.PickupLatitude==decimal.Round((decimal)i.Trip.Pickup.Lat,6) && r.PickupLongitude==decimal.Round((decimal)i.Trip.Pickup.Lng,6) && r.DeliveryLatitude==decimal.Round((decimal)i.Trip.Delivery.Lat,6) && r.DeliveryLongitude==decimal.Round((decimal)i.Trip.Delivery.Lng,6) && r.ExpectedDate==Utc(i.DepartureAt) && r.CommittedDeadline==Utc(i.DeliveryAt) && r.Purpose==i.Purpose.Trim() && r.PickupContactName==i.PickupContact.Name.Trim() && r.PickupContactPhone==i.PickupContact.Phone && r.DesignatedReceiverName==i.Receiver.Name.Trim() && r.DesignatedReceiverPhone==i.Receiver.Phone && (await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==rid,t)).Select(x=>x.HorseID).Order().SequenceEqual(i.Horses.Select(x=>x.HorseId).Order()),"IDEMPOTENCY_KEY_REUSED","Key used with different request data."); Require(r.DeclaredValueUsd==i.DeclaredValueUsd && SameWizard(r,i) && await SameHorseCare(rid,i,t) && SameShared(r,shared) && await SameDocuments(rid,documents,t),"IDEMPOTENCY_KEY_REUSED","Declared value or documents differ from the original submission."); return await Card(r,t); }
                 Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Legacy request needs review before entering the new revision workflow.");
-                Check(r.RowVersion,version??""); Require(r.Status=="CHANGES_REQUESTED" && !(await db.QueryAsync<FlowContract>(c=>c.RequestID==rid && c.IsCurrent,t)).Any(),"REVISION_CLOSED","Only requests returned for changes can be revised.");
+                Check(r.RowVersion,version??""); Require(r.Status=="CHANGES_REQUESTED" && !(await db.QueryAsync<FlowContract>(c=>c.RequestID==rid && c.ContractStatus!="CANCELLED",t)).Any(),"REVISION_CLOSED","Only requests returned for changes can be revised.");
             }
             else { Require(id is null,"NOT_FOUND","Request not found."); r=new(){RequestID=rid,CustomerID=actor,SubmissionKeyHash=submissionHash,Departure=i.Trip.Pickup.Address,Destination=i.Trip.Delivery.Address,Status="PENDING"}; db.Add(r); }
-            await ApplyRequest(r,i,estimate,t); await SaveDocuments(r,documents,i.Horses,t); await db.SaveAsync(t); return await Card(r,t);
+            var value=await HorseValue(i,actor,t); Require(value==declaredValue,"STALE_VERSION","Horse value changed; reload before submitting.");
+            await ApplyRequest(r,i,estimate,t); r.DeclaredValueVnd=value; if(shared is not null)ApplyShared(r,shared); await SaveDocuments(r,documents,i.Horses,t); await db.SaveAsync(t); return await Card(r,t);
         },ct);
     }
     public Task<FlowRequestCard> ReviewAsync(string id,string actor,string action,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
         var r=await Request(id,actor,true,t);Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Legacy request needs review before a new A1 decision."); Check(r.RowVersion,i.Version);
         Require(r.Status is "PENDING" or "ACCEPTED"||r.Status=="CHANGES_REQUESTED"&&action=="reject","REVIEW_CLOSED","Request cannot be reviewed in this status.");
-        Require(!(await db.QueryAsync<FlowContract>(c=>c.RequestID==id && c.IsCurrent,t)).Any(),"CONTRACT_OPEN","Close the unsigned contract before requesting changes.");
+        Require(!(await db.QueryAsync<FlowContract>(c=>c.RequestID==id && c.ContractStatus!="CANCELLED",t)).Any(),"CONTRACT_OPEN","Close the unsigned contract before requesting changes.");
         r.Status=action switch {"accept"=>"ACCEPTED","reject"=>"REJECTED","request-changes"=>"CHANGES_REQUESTED",_=>throw Error("Unknown action.","NOT_FOUND",404)};
         r.ManagerNotes=action=="accept" && string.IsNullOrWhiteSpace(i.Reason)?"Accepted":Text(i.Reason);
         await Notify(r.CustomerID,r.RequestID+":"+Token(r.RowVersion),action=="reject"?"REQUEST_REJECTED":action=="accept"?"REQUEST_ACCEPTED":"REQUEST_CHANGES",
@@ -230,13 +237,14 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
             if(Role(u)!=UserRoles.LogisticsManager) await Released(requestId!,actor,null,t);
             else await Request(requestId!,actor,true,t);
         }
-        var file=kind switch {"photo"=>h.PhotoUrl,"passport"=>h.PassportScanUrl,_=>null};
+        var file=HorseFileKey(h,kind);
         Require(file is not null,"FILE_UNAVAILABLE","Document unavailable."); return await files.ReadAsync(file!,t);
     },ct);
-    public async Task<FlowHorseCard> UpdateFilesAsync(string id,string actor,string version,UploadedFile photo,UploadedFile passport,CancellationToken ct)
+    public async Task<FlowHorseCard> UpdateFilesAsync(string id,string actor,string version,UploadedFile photo,UploadedFile passport,CancellationToken ct,UploadedFile? ownership=null,UploadedFile? valuation=null)
     {
         await db.RunAsync(async t=>{await Actor(actor,UserRoles.Customer,t);var h=await db.FindAsync<FlowHorse>(id,t);Require(h is not null && h.OwnerID==actor,"NOT_FOUND","Horse not found.");Check(h.RowVersion,version);Require(!await DocumentsLocked(id,t),"HORSE_IN_USE","An active request locks this horse's files.");return 0;},ct);
         var p=await files.PutAsync(photo,true,ct);var scan=await files.PutAsync(passport,false,ct);
-        return await db.RunAsync(async t=>{await Actor(actor,UserRoles.Customer,t);var h=(await db.FindAsync<FlowHorse>(id,t))!;Require(h.OwnerID==actor,"FORBIDDEN","Horse belongs to another account.");Check(h.RowVersion,version);Require(!await DocumentsLocked(id,t),"HORSE_IN_USE","Horse is now assigned to an active request.");h.PhotoUrl=p;h.PassportScanUrl=scan;await db.SaveAsync(t);return HorseCard(h);},ct);
+        var ownerKey=ownership is null?null:await files.PutAsync(ownership,false,ct);var valueKey=valuation is null?null:await files.PutAsync(valuation,false,ct);
+        return await db.RunAsync(async t=>{await Actor(actor,UserRoles.Customer,t);var h=(await db.FindAsync<FlowHorse>(id,t))!;Require(h.OwnerID==actor,"FORBIDDEN","Horse belongs to another account.");Check(h.RowVersion,version);Require(!await DocumentsLocked(id,t),"HORSE_IN_USE","Horse is now assigned to an active request.");h.PhotoUrl=p;h.PassportScanUrl=scan;h.OwnershipCertificateFileUrl=ownerKey??h.OwnershipCertificateFileUrl;h.ValuationDocumentFileUrl=valueKey??h.ValuationDocumentFileUrl;await db.SaveAsync(t);return HorseCard(h);},ct);
     }
 }

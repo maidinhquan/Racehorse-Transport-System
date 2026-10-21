@@ -25,6 +25,8 @@ public sealed class HorseUploadForm
     public string Payload { get; set; } = "";
     public IFormFile Photo { get; set; } = null!;
     public IFormFile PassportScan { get; set; } = null!;
+    public IFormFile? OwnershipCertificate { get; set; }
+    public IFormFile? ValuationDocument { get; set; }
     public string Version { get; set; } = "";
 }
 public sealed record RevisionInput(FlowRequestInput Input,string Version);
@@ -33,6 +35,9 @@ public sealed class RequestDocumentsForm
     public string Payload { get; set; } = "";
     public List<string> HorseIds { get; set; } = [];
     public List<IFormFile> Files { get; set; } = [];
+    public IFormFile? InvitationLetter { get; set; }
+    public IFormFile? CompetitionRegistration { get; set; }
+    public IFormFile? AtaCarnet { get; set; }
     public string Version { get; set; } = "";
 }
 
@@ -49,18 +54,23 @@ public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1Geoco
     [HttpGet("locations/search")]public async Task<IActionResult> Locations(string address,string country,CancellationToken ct)=>Result(await locations.SearchAsync(address,country,ct));
     [HttpPost("estimates")]public async Task<IActionResult> Estimate(EstimateInput input,CancellationToken ct)=>Result((await estimates.CalculateAsync(input,ct)).Customer);
     [HttpGet("horses/selectable")] public async Task<IActionResult> Horses(DateTimeOffset? departureAt,DateTimeOffset? deliveryAt,string? requestId,CancellationToken ct)=>Result(await service.HorsesAsync(Actor,ct,departureAt,deliveryAt,requestId));
-    [HttpPost("horses"),Consumes("multipart/form-data"),RequestSizeLimit(11*1024*1024)] public async Task<IActionResult> Horse([FromForm]HorseUploadForm form,CancellationToken ct)
+    [HttpPost("horses"),Consumes("multipart/form-data"),RequestSizeLimit(21*1024*1024)] public Task<IActionResult> Horse([FromForm]HorseUploadForm form,CancellationToken ct)=>SaveHorse(form,null,ct);
+    [HttpPut("horses/{id}"),Consumes("multipart/form-data"),RequestSizeLimit(21*1024*1024)] public Task<IActionResult> EditHorse(string id,[FromForm]HorseUploadForm form,CancellationToken ct)=>SaveHorse(form,id,ct);
+    private async Task<IActionResult> SaveHorse(HorseUploadForm form,string? id,CancellationToken ct)
     {
         HorseInput input;try{input=JsonSerializer.Deserialize<HorseInput>(form.Payload,new JsonSerializerOptions(JsonSerializerDefaults.Web))??throw new JsonException();}catch(JsonException){throw Error("Invalid horse form.","VALIDATION_ERROR");}
-        return Result(await service.HorseAsync(Actor,Key,input,await Upload(form.Photo,ct),await Upload(form.PassportScan,ct),null,null,ct));
+        if(form.OwnershipCertificate is null)throw Error("Upload the ownership certificate.","VALIDATION_ERROR");
+        return Result(await service.HorseAsync(Actor,Key,input,await Upload(form.Photo,ct),await Upload(form.PassportScan,ct),id,form.Version,ct,
+            await Upload(form.OwnershipCertificate,ct),form.ValuationDocument is null?null:await Upload(form.ValuationDocument,ct)));
     }
-    [HttpPost("horses/{id}/files"),Consumes("multipart/form-data"),RequestSizeLimit(11*1024*1024)] public async Task<IActionResult> HorseFiles(string id,[FromForm]HorseUploadForm form,CancellationToken ct)=>Result(await service.UpdateFilesAsync(id,Actor,form.Version,await Upload(form.Photo,ct),await Upload(form.PassportScan,ct),ct));
+    [HttpPost("horses/{id}/files"),Consumes("multipart/form-data"),RequestSizeLimit(21*1024*1024)] public async Task<IActionResult> HorseFiles(string id,[FromForm]HorseUploadForm form,CancellationToken ct)=>Result(await service.UpdateFilesAsync(id,Actor,form.Version,await Upload(form.Photo,ct),await Upload(form.PassportScan,ct),ct,
+        form.OwnershipCertificate is null?null:await Upload(form.OwnershipCertificate,ct),form.ValuationDocument is null?null:await Upload(form.ValuationDocument,ct)));
     [HttpGet("horses/{id}/files/{kind}")]public async Task<IActionResult> HorseFile(string id,string kind,CancellationToken ct)=>PrivateFile(await service.HorseFileAsync(Actor,id,kind,null,ct),kind);
     [HttpGet("requests")]public async Task<IActionResult> Requests(CancellationToken ct)=>Result(await service.ListAsync(Actor,false,ct));
     [HttpPost("requests")]public async Task<IActionResult> Submit(FlowRequestInput input,CancellationToken ct)=>Result(await service.SubmitAsync(Actor,Key,input,null,null,ct));
-    [HttpPost("requests/with-documents"),Consumes("multipart/form-data"),RequestSizeLimit(55*1024*1024),RequestFormLimits(MultipartBodyLengthLimit=55*1024*1024)]
+    [HttpPost("requests/with-documents"),Consumes("multipart/form-data"),RequestSizeLimit(70*1024*1024),RequestFormLimits(MultipartBodyLengthLimit=70*1024*1024)]
     public Task<IActionResult> SubmitDocuments([FromForm]RequestDocumentsForm form,CancellationToken ct)=>SubmitDocumentForm(form,null,ct);
-    [HttpPost("requests/{id}/revision-with-documents"),Consumes("multipart/form-data"),RequestSizeLimit(55*1024*1024),RequestFormLimits(MultipartBodyLengthLimit=55*1024*1024)]
+    [HttpPost("requests/{id}/revision-with-documents"),Consumes("multipart/form-data"),RequestSizeLimit(70*1024*1024),RequestFormLimits(MultipartBodyLengthLimit=70*1024*1024)]
     public Task<IActionResult> ReviseDocuments(string id,[FromForm]RequestDocumentsForm form,CancellationToken ct)=>SubmitDocumentForm(form,id,ct);
     private async Task<IActionResult> SubmitDocumentForm(RequestDocumentsForm form,string? id,CancellationToken ct)
     {
@@ -71,7 +81,9 @@ public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1Geoco
         catch(JsonException) { throw Error("Invalid request form.","VALIDATION_ERROR"); }
         var uploads=new List<RequestDocumentUpload>();
         for(var n=0;n<form.Files.Count;n++)uploads.Add(new(form.HorseIds[n],await Upload(form.Files[n],ct)));
-        return Result(await service.SubmitWithDocumentsAsync(Actor,Key,input,uploads,id,form.Version,ct));
+        var shared=new RequestSharedUploads(form.InvitationLetter is null?null:await Upload(form.InvitationLetter,ct),
+            form.CompetitionRegistration is null?null:await Upload(form.CompetitionRegistration,ct),form.AtaCarnet is null?null:await Upload(form.AtaCarnet,ct));
+        return Result(await service.SubmitWithDocumentsAsync(Actor,Key,input,uploads,id,form.Version,ct,shared));
     }
     [HttpGet("requests/{id}")]public async Task<IActionResult> GetRequest(string id,CancellationToken ct)=>Result(await service.DetailAsync(id,Actor,false,ct));
     [HttpGet("requests/{id}/documents/{document}")]public async Task<IActionResult> Document(string id,string document,CancellationToken ct)=>PrivateFile(await service.RequestDocumentAsync(id,document,Actor,false,ct),"baseline-"+document);

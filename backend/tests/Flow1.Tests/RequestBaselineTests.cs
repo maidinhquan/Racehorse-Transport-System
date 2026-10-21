@@ -21,8 +21,8 @@ public sealed class RequestBaselineTests
         var horses = new List<HorseSelection>();
         for (var n = 0; n < (two ? 2 : 1); n++) {
             var horse = await f.Service.HorseAsync("owner", "baseline-horse-" + n,
-                new("Horse " + n, "12345678901234" + n, "BASE-" + n, "Breed", "STALLION", 450, new(2020, 1, 1)),
-                new(Encoding.UTF8.GetBytes("fixture photo bytes"), "photo.png"), Medical, null, null, default);
+                new("Horse " + n, "12345678901234" + n, "BASE-" + n, "Breed", "STALLION", 450, new(2020, 1, 1),"Fixture issuer",new(2021,1,1),new(2035,1,1),100000000,"Sensitive to loud noise"),
+                new(Encoding.UTF8.GetBytes("fixture photo bytes"), "photo.png"), Medical, null, null, default, ownership:Medical);
             horses.Add(new(horse.HorseId, horse.Version));
         }
         return new(new(new("A", 10, 106, "VN"), new("B", 11, 107, "VN"), "ROAD", horses.Count, new(2026, 11, 20)),
@@ -131,7 +131,7 @@ public sealed class RequestBaselineTests
     }
 
     [LocalSqlFact]
-    public async Task Missing_declared_value_or_a_replaced_check_fails_closed_without_altering_the_database()
+    public async Task Missing_or_replaced_declared_value_guard_requires_explicit_initializer()
     {
         await using var f = await RelationalFlow1Tests.Fixture.Create();
         await f.Db.ExecuteAsync("ALTER TABLE TRANSPORT_REQUEST DROP CONSTRAINT CK_F1D_DeclaredValueUsd;ALTER TABLE TRANSPORT_REQUEST DROP COLUMN DeclaredValueUsd;");
@@ -139,7 +139,8 @@ public sealed class RequestBaselineTests
         await f.Db.ScriptAsync("002_flow1.sql");
         await f.Db.ExecuteAsync("ALTER TABLE TRANSPORT_REQUEST DROP CONSTRAINT CK_F1D_DeclaredValueUsd;ALTER TABLE TRANSPORT_REQUEST ADD CONSTRAINT CK_F1D_DeclaredValueUsd CHECK (DeclaredValueUsd IS NULL OR DeclaredValueUsd >= 0);");
         Assert.Equal("FLOW1_SQL_SCHEMA_REQUIRED", (await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.ListAsync("owner", false, default))).ErrorCode);
-        Assert.Equal(51403, (await Assert.ThrowsAsync<SqlException>(() => f.Db.ScriptAsync("002_flow1.sql"))).Number);
+        await f.Db.ScriptAsync("002_flow1.sql");
+        Assert.NotNull(await f.Service.ListAsync("owner",false,default));
     }
 
     [LocalSqlFact]

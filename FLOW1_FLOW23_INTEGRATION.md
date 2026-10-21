@@ -1,11 +1,11 @@
 # Kết nối Flow 2/3 với bàn giao Flow 1
 
-Đối chiếu source working tree ngày 20/10/2026. Dành cho teammate/agent tích hợp các nhánh. Đọc `FLOW1_RUN_GUIDE.md` trước để dựng DB/runtime. Tài liệu mô tả hợp đồng bàn giao thực tế của Flow 1; không chứng nhận code nhánh Flow 2/3 đã tương thích hoặc định nghĩa lại nghiệp vụ các luồng đó.
+Đối chiếu source working tree ngày 21/10/2026. Dành cho teammate/agent tích hợp các nhánh. Đọc `FLOW1_RUN_GUIDE.md` trước để dựng DB/runtime. Tài liệu mô tả hợp đồng bàn giao thực tế của Flow 1; không chứng nhận code nhánh Flow 2/3 đã tương thích hoặc định nghĩa lại nghiệp vụ các luồng đó.
 
 ## 1. Điểm bắt đầu và trách nhiệm
 
 ```text
-Customer trả cọc 40% → backend xác minh → Customer ký OTP
+Customer trả cọc theo hợp đồng (mặc định 40%) → backend xác minh → Customer ký OTP
   → CONTRACT.EFFECTIVE, TRANSPORT_REQUEST.ACTIVATED
   → tạo một TRIP_PLAN (PLANNING, deployment PENDING)
 Manager chỉ định Specialist + Coordinator, xác nhận
@@ -137,7 +137,7 @@ Event ở đây là ID lưu DB trong giao dịch bàn giao, **không phải mess
 | TRANSPORT_REQUEST | Departure/Destination, tọa độ, PickupContact..., DesignatedReceiver... | Điểm đón/giao và liên hệ gốc |
 | REQUEST_HORSE_MAPPING | RequestID, HorseID | Danh sách ngựa của yêu cầu |
 | HORSE | HorseID, OwnerID, PhotoUrl, PassportScanUrl | Hồ sơ ngựa; URL trong DB là tham chiếu tệp private |
-| CONTRACT | ContractID, RequestID, TripID, IsCurrent | Hợp đồng hiện hành liên kết request và Trip |
+| CONTRACT | ContractID, RequestID, TripID, ContractStatus | Hợp đồng hiện hành liên kết request và Trip |
 | CONTRACT | ContractStatus, SignedAt, PdfUrl, PdfSha256 | Chứng cứ hợp đồng đã ký, tệp bất biến |
 | TRIP_PLAN | TripID, RequestID | Chuyến do Flow 1 tạo sau ký |
 | TRIP_PLAN | AssignedSpecialistId, AssignedCoordinatorId | Hai FK riêng tới USER.UserID, hai vai trò khác nhau |
@@ -223,3 +223,33 @@ SQL 002 hiện thêm bảng COST_RATE chứa 10 định mức VND. COST_ITEM v�
 Flow 2/3 không xóa hoặc cập nhật đè năm mã đó để lưu chi phí phát sinh. Dùng mã riêng và lọc rõ khi tổng hợp; không SUM toàn COST_ITEM rồi gọi đó là giá hợp đồng. TổngQuotedPrice/tiền cọc hiện hành vẫn lấy từ CONTRACT/INVOICE. Không cần thêm cột RecordType/CostGroup cho đợt này. Bảo hiểm 0,5% là giả định đồ án; không tự áp dụng như báo giá hãng bảo hiểm hoặc thay đổi trách nhiệm chi trả của flow sau.
 
 Cập nhật bỏ ack: SQL 002 bỏ RoutingAcknowledgedBy/AtUtc và DocumentsAcknowledgedBy/AtUtc cùng hai CHECK tương ứng. Giữ AssignedSpecialistId/AssignedCoordinatorId, DeploymentStatus và HandoffEventId. Không tự ghi xác nhận giả cho nhân sự.
+
+### Tỷ lệ cọc do Manager chọn
+
+- Tạo draft: `POST /api/manager/requests/{id}/contracts`, thêm `depositRate` (ví dụ `30` = 30%). Bỏ trống mặc định 40%.
+- Phát hành lại: `POST /api/manager/contracts/{id}/reissue`, bỏ trống `depositRate` thì giữ tỷ lệ hiện tại. Chỉ đổi trước khi có tiền/giao dịch chưa giải quyết; feedback giới hạn mục sửa thì đổi tỷ lệ thuộc nhóm `PRICE`.
+- Tỷ lệ phải lớn hơn 0, không quá 100%, tối đa hai chữ số thập phân; tiền cọc làm tròn VND phải dương. Response hợp đồng trả `depositRate` và `depositAmount`. PDF và hóa đơn dùng cùng số tiền.
+- Giá demo vẫn dùng tỷ lệ tham khảo mặc định 40%. Flow 2/3 lấy tiền cọc thực tế từ CONTRACT/INVOICE, không tự nhân 40%.
+- Database đã dùng bản 002 cũ cần chạy lại `backend/database/002_flow1.sql` rồi khởi động lại backend. Không chạy file mẫu tạo mới lên database có dữ liệu.
+
+### Tinh gọn schema Flow 1
+
+SQL `002_flow1.sql` hiện bỏ `CONTRACT_TEMPLATE.Version` và bốn cột CONTRACT: `LastExtensionTarget`, `BaseContractPrice_P`, `ExchangeRateToLocal`, `ActualGrossProfit_AGP`. Giá hiện hành vẫn ở `TotalQuotedPrice`, tỷ lệ/số cọc ở `DepositRateStandard`/`DepositAmount`. Response không còn `extensionTarget`; `extensionReason` và `version` chống cập nhật chồng chéo vẫn giữ. Không còn cơ chế quy đổi tỷ giá hoặc lưu riêng giá cơ sở/lợi nhuận trong CONTRACT.
+
+Giữ nguyên `USER.ResetOtpCode`/`ResetOtpExpiry` của luồng tài khoản và chỉ lưu một `CONTRACT.CompletionDeadline` cho cọc, xác minh và ký OTP. Khi nâng cấp database có dữ liệu, backup trước, chạy lại 002, rồi dùng backend cùng phiên bản. Không chạy file database mẫu xóa/tạo mới lên DB đang dùng.
+
+### Schema cuối: một hợp đồng và một hạn chung
+
+- Mỗi Request có tối đa một CONTRACT, được bảo vệ bởi unique index trên `RequestID`; cập nhật/phát hành lại cùng bản ghi. Không có cột `IsCurrent`; dùng `ContractStatus` để chặn bản đã hủy.
+- Chỉ lưu `CONTRACT.CompletionDeadline`. Bỏ `EffectiveSignDeadline`, `DepositDeadline`, `SignedDepositDeadline`. Hai trường response `signDeadline`/`depositDeadline` cùng suy ra từ hạn chung để giữ tương thích client. `INVOICE.DueDate` vẫn là hạn từng hóa đơn.
+- `002_flow1.sql` khởi tạo schema cuối và có thể chạy lại: sửa ràng buộc/index theo định nghĩa hiện tại, thêm trường thiếu và seed những dòng chưa có. Không còn các tầng schema003–009 hay kiểm tra fingerprint. Dữ liệu test từ flow cũ được chuẩn hóa hạn chung, không duy trì cơ chế lịch sử.
+- Cấu trúc hoàn chỉnh cũng có trong `HorseTransportDB/HorseTransportDB.sql`; file đó dùng để tạo mới database mẫu. `USER.ResetOtpCode` giữ nguyên.
+
+## Dữ liệu wizard bổ sung ngày 21/10/2026
+
+- HORSE thêm PassportIssuedBy/PassportIssuedDate/PassportExpiryDate, OwnershipCertificateFileUrl, ValuationDocumentFileUrl, DeclaredValueVnd và SpecialHealthNotes. SpecialHealthNotes thuộc ngựa, không thuộc request. FlowHorseCard trong hàng đợi bàn giao trả metadata, giá trị VND, ghi chú sức khỏe và trạng thái nộp các tệp có sẵn. Không trả khóa lưu trữ riêng tư.
+- TRANSPORT_REQUEST thêm PickupStableName/PickupPostalCode/PickupInstructions, DeliveryStableName/DeliveryPostalCode/DeliveryInstructions, CareInstructions, DeclaredValueVnd (tổng do server tính khi gửi), InvitationLetterFileUrl/CompetitionRegistrationFileUrl/AtaCarnetFileUrl. REQUEST_HORSE_MAPPING chỉ thêm CareInstructions cho riêng ngựa trong chuyến.
+- FlowHandoff trả thêm declaredValueVnd và sharedDocuments; mỗi shared document có horseId=null, documentId/type INVITATION_LETTER/COMPETITION_REGISTRATION/ATA_CARNET và trạng thái UPLOADED/NOT_PROVIDED. `documents` cũ vẫn là baseline theo ngựa.
+- Specialist được chỉ định đọc file chung qua GET `/api/operations/flow1/trips/{tripId}/documents/{documentId}?eventId={eventId}`; kiểm tra assignment/event như baseline. File ngựa có thêm kind ownership/valuation, ngoài photo/passport.
+- Hồ sơ có sẵn UPLOADED chỉ có nghĩa đã nộp, không đồng nghĩa đã được Specialist kiểm duyệt. Sổ tiêm/ngày tiêm, chứng nhận sức khỏe và bác sĩ thú y riêng thuộc hồ sơ chuyến sau ký của Flow 3; dùng LEGAL_MEDICAL_RECORD và API do teammate phụ trách. Không chặn tạo request vì thiếu các giấy này, không tự sinh bản ghi hoặc sửa quy trình kiểm duyệt Flow 3.
+- Giá trị VND từ request được dùng mặc định khi Manager dự toán bảo hiểm. declaredValueUsd cũ vẫn được giữ để không phá dữ liệu/consumer cũ; không quy đổi hoặc dùng làm VND. Chạy lại SQL 002 trước khi dùng backend mới.

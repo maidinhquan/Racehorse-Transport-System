@@ -1,10 +1,10 @@
 # Hướng dẫn chạy và kiểm tra Flow 1
 
-Đối chiếu source working tree ngày 20/10/2026. Tài liệu đi cùng `FLOW1_FLOW23_INTEGRATION.md` ở root. Các đường dẫn trong tài liệu tính từ repository root. Đây là hướng dẫn backend hiện có, không khẳng định frontend đã tích hợp đủ.
+Đối chiếu source working tree ngày 21/10/2026. Tài liệu đi cùng `FLOW1_FLOW23_INTEGRATION.md` ở root. Các đường dẫn trong tài liệu tính từ repository root. Đây là hướng dẫn backend hiện có, không khẳng định frontend đã tích hợp đủ.
 
 ## 1. Phạm vi và luồng đã chốt
 
-Customer xem estimate → tạo request → Logistics Manager xét duyệt → lập kế hoạch sơ bộ và phát hành hợp đồng PDF → Customer xem/feedback → thanh toán cọc 40% và hệ thống xác minh → ký OTP → kích hoạt request, tạo Trip → Manager chỉ định một Specialist và một Coordinator → hai người nhận bàn giao, làm Flow 2/3 song song.
+Customer xem estimate → tạo request → Logistics Manager xét duyệt → lập kế hoạch sơ bộ và phát hành hợp đồng PDF → Customer xem/feedback → thanh toán cọc theo hợp đồng (mặc định 40%) và hệ thống xác minh → ký OTP → kích hoạt request, tạo Trip → Manager chỉ định một Specialist và một Coordinator → hai người nhận bàn giao, làm Flow 2/3 song song.
 
 - Mọi Manager hợp lệ đều được xử lý request; không có claim hoặc Manager phụ trách cố định.
 - Cọc trước, ký sau. Chỉ redirect về trang thanh toán thành công không đủ chứng minh đã thu tiền.
@@ -221,7 +221,7 @@ crew      = số người × số ngày × CREW_DAY
 permit    = PERMIT_TRIP + số ngựa × PERMIT_HORSE
 vet       = số bác sĩ × số ngày × VET_DAY + số ngựa × số ngày × CARE_DAY
 insurance = max(INSURANCE_MIN, tổng giá trị ngựa VND × INSURANCE_RATE)
-giá đề xuất = tổng năm nhóm; cọc = làm tròn(giá Manager chốt × 40%)
+giá đề xuất = tổng năm nhóm; cọc = làm tròn(giá Manager chốt × depositRate / 100)
 ```
 
 Không margin, dự phòng, khấu hao, overhead hoặc TNDS cộng riêng. Từng nhóm làm tròn đến đồng trước cộng. Sửa định mức không tự đổi chi phí đã lưu hoặc PDF đã phát hành. Migration chạy lại chỉ seed mã còn thiếu, giữ đơn giá Manager đã sửa.
@@ -274,3 +274,52 @@ dotnet test backend/Backend.slnx
 Cập nhật bỏ ack: SQL 002 bỏ RoutingAcknowledgedBy/AtUtc và DocumentsAcknowledgedBy/AtUtc cùng hai CHECK tương ứng. Giữ AssignedSpecialistId/AssignedCoordinatorId, DeploymentStatus và HandoffEventId. Không tự ghi xác nhận giả cho nhân sự.
 
 Kiểm chứng bỏ ack ngày 20/10/2026: 142 Flow1.Tests + 47 Registration.Tests passed, không skipped; 85 connected API checks và Swagger Try-it-out passed. Test nâng cấp với dữ liệu ack cũ có giá trị đã chạy riêng và giữ nguyên ID/phân công/event/rowversion của chuyến. Backend Docker/DB localhost đã cập nhật; API cũ trả 404, Swagger không còn route hoặc trường response ack. Backup trước nâng cấp: `A:\SQL2019\MSSQL15.SQLEXPRESS\MSSQL\Backup\HorseTransportDB_before_remove_ack_20261020_1726.bak` (COPY_ONLY, CHECKSUM, VERIFYONLY). Bằng chứng local: `backend/WebApi/App_Data/flow1/remove-ack-qa/`.
+
+### Tỷ lệ cọc do Manager chọn
+
+- Tạo draft: `POST /api/manager/requests/{id}/contracts`, thêm `depositRate` (ví dụ `30` = 30%). Bỏ trống mặc định 40%.
+- Phát hành lại: `POST /api/manager/contracts/{id}/reissue`, bỏ trống `depositRate` thì giữ tỷ lệ hiện tại. Chỉ đổi trước khi có tiền/giao dịch chưa giải quyết; feedback giới hạn mục sửa thì đổi tỷ lệ thuộc nhóm `PRICE`.
+- Tỷ lệ phải lớn hơn 0, không quá 100%, tối đa hai chữ số thập phân; tiền cọc làm tròn VND phải dương. Response hợp đồng trả `depositRate` và `depositAmount`. PDF và hóa đơn dùng cùng số tiền.
+- Giá demo vẫn dùng tỷ lệ tham khảo mặc định 40%. Flow 2/3 lấy tiền cọc thực tế từ CONTRACT/INVOICE, không tự nhân 40%.
+- Database đã dùng bản 002 cũ cần chạy lại `backend/database/002_flow1.sql` rồi khởi động lại backend. Không chạy file mẫu tạo mới lên database có dữ liệu.
+
+### Tinh gọn schema Flow 1
+
+SQL `002_flow1.sql` hiện bỏ `CONTRACT_TEMPLATE.Version` và bốn cột CONTRACT: `LastExtensionTarget`, `BaseContractPrice_P`, `ExchangeRateToLocal`, `ActualGrossProfit_AGP`. Giá hiện hành vẫn ở `TotalQuotedPrice`, tỷ lệ/số cọc ở `DepositRateStandard`/`DepositAmount`. Response không còn `extensionTarget`; `extensionReason` và `version` chống cập nhật chồng chéo vẫn giữ. Không còn cơ chế quy đổi tỷ giá hoặc lưu riêng giá cơ sở/lợi nhuận trong CONTRACT.
+
+Giữ nguyên `USER.ResetOtpCode`/`ResetOtpExpiry` của luồng tài khoản và chỉ lưu một `CONTRACT.CompletionDeadline` cho cọc, xác minh và ký OTP. Khi nâng cấp database có dữ liệu, backup trước, chạy lại 002, rồi dùng backend cùng phiên bản. Không chạy file database mẫu xóa/tạo mới lên DB đang dùng.
+
+### Schema cuối: một hợp đồng và một hạn chung
+
+- Mỗi Request có tối đa một CONTRACT, được bảo vệ bởi unique index trên `RequestID`; cập nhật/phát hành lại cùng bản ghi. Không có cột `IsCurrent`; dùng `ContractStatus` để chặn bản đã hủy.
+- Chỉ lưu `CONTRACT.CompletionDeadline`. Bỏ `EffectiveSignDeadline`, `DepositDeadline`, `SignedDepositDeadline`. Hai trường response `signDeadline`/`depositDeadline` cùng suy ra từ hạn chung để giữ tương thích client. `INVOICE.DueDate` vẫn là hạn từng hóa đơn.
+- `002_flow1.sql` khởi tạo schema cuối và có thể chạy lại: sửa ràng buộc/index theo định nghĩa hiện tại, thêm trường thiếu và seed những dòng chưa có. Không còn các tầng schema003–009 hay kiểm tra fingerprint. Dữ liệu test từ flow cũ được chuẩn hóa hạn chung, không duy trì cơ chế lịch sử.
+- Cấu trúc hoàn chỉnh cũng có trong `HorseTransportDB/HorseTransportDB.sql`; file đó dùng để tạo mới database mẫu. `USER.ResetOtpCode` giữ nguyên.
+
+## Wizard tạo yêu cầu: hồ sơ ngựa và giấy tờ chung (21/10/2026)
+
+Chạy lại `backend/database/002_flow1.sql` trước khi khởi động backend mới. SQL mẫu `HorseTransportDB/HorseTransportDB.sql` đã có các cột mới; file mẫu có DROP DATABASE, chỉ dùng để tạo/reset DB thử nghiệm. Không sửa frontend trong đợt này.
+
+### Tạo/cập nhật hồ sơ ngựa
+
+- `POST /api/customer/horses`: multipart `payload` (JSON), `photo`, `passportScan`, `ownershipCertificate` bắt buộc; `valuationDocument` tùy chọn. Mỗi tệp 16 byte–5 MB, PNG/JPEG/PDF thật; ảnh chỉ PNG/JPEG.
+- `PUT /api/customer/horses/{id}`: cùng form, thêm `version`; chỉ sửa ngựa của mình chưa bị request đang hoạt động khóa. Dùng để hoàn thiện hồ sơ cũ; backend không tự bịa dữ liệu cho hồ sơ cũ.
+- JSON giữ name/microchipIso/feiPassportNo/breed/sex/weight/dob; thêm passportIssuedBy, passportIssuedDate, passportExpiryDate, declaredValueVnd, specialHealthNotes. Thông tin hộ chiếu và giá trị thương mại bắt buộc khi tạo/cập nhật đầy đủ; ghi chú sức khỏe tùy chọn, tối đa 2000 ký tự. Ngày cấp từ ngày sinh đến hôm nay; hộ chiếu còn hạn. declaredValueVnd là số nguyên VND từ 1 đến 9,999,999,999.
+- Đọc `GET /api/customer/horses/selectable`; response thêm các trường trên, weight, documents. `documents` chỉ mô tả ảnh, hộ chiếu, sở hữu và định giá: UPLOADED/MISSING; bằng chứng định giá tùy chọn dùng NOT_PROVIDED. Không phải trạng thái Specialist phê duyệt.
+- Đọc tệp qua `/api/customer/horses/{id}/files/{kind}`, kind = photo/passport/ownership/valuation; không trả đường dẫn lưu trữ riêng tư. Manager dùng `/api/manager/requests/{requestId}/horses/{horseId}/files/{kind}`.
+
+### Dữ liệu đón/giao và chăm sóc
+
+`FlowRequestInput.pickupContact` và `receiver` có name/phone, thêm stableName (200 ký tự), postalCode (20), instructions (1000). Địa chỉ/tọa độ vẫn ở trip.pickup/trip.delivery. Các trường mới để trống được nhằm tương thích client hiện tại.
+
+`careInstructions` cấp request là hướng dẫn chung; `horses[].careInstructions` là hướng dẫn riêng cho chuyến (2000 ký tự). `specialHealthNotes` là thuộc tính HORSE, chỉ nhập/sửa cùng hồ sơ ngựa, không nằm trên request hay bảng nối.
+
+Backend tính tổng declaredValueVnd từ ngựa được chọn, lưu trên request để lập kế hoạch bảo hiểm. Không tin trip.insuredValueVnd do Customer gửi khi nộp request. Hồ sơ cũ thiếu giá trị thì tổng là null và dùng bảo hiểm tối thiểu; Manager có thể xác định insuredValueVnd khi lập kế hoạch. declaredValueUsd cũ vẫn tương thích dữ liệu cũ, không quy đổi ngầm và không dùng làm VND.
+
+### Ba tệp chung của request
+
+`POST /api/customer/requests/with-documents` (hoặc `/{id}/revision-with-documents`) nhận multipart payload, thêm ba file đơn tùy chọn: invitationLetter, competitionRegistration, ataCarnet. Chỉ nộp một lần/request, không cần horseIds cho ba file này. `files`/`horseIds` cũ vẫn là hồ sơ bổ sung theo ngựa, tối đa 10 file; toàn form tối đa 70 MB. Revision bỏ trống file chung thì giữ file cũ; gửi file thì thay file tương ứng.
+
+Response `sharedDocuments` luôn có ba mục với documentId/documentType = INVITATION_LETTER, COMPETITION_REGISTRATION, ATA_CARNET; horseId = null; status UPLOADED/NOT_PROVIDED. Đây là trạng thái nộp tệp, không thêm quy trình xét duyệt. Customer/Manager đọc bằng endpoint `/api/{customer|manager}/requests/{id}/documents/{documentId}` có kiểm tra quyền. Không nhận URL tệp do client tự cung cấp.
+
+Sổ tiêm, ngày tiêm, giấy chứng nhận sức khỏe và bác sĩ thú y riêng được xử lý sau ký bởi Flow 3. Không yêu cầu nộp trước ký, không tạo trạng thái đã duyệt giả. Checkbox xác nhận và nút tiếp tục giữa các bước do frontend giữ; chưa có API lưu nháp từng bước. Gửi cuối dùng Idempotency-Key ổn định để retry không tạo trùng request.

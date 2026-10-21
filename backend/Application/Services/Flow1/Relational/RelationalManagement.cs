@@ -9,6 +9,13 @@ namespace Application.Services.Flow1.Relational;
 
 public sealed partial class RelationalFlow1Service
 {
+    private static decimal ContractDeposit(decimal total,decimal percent)
+    {
+        Require(Flow1ContractFactory.IsValidDepositPercent(percent),"VALIDATION_ERROR","depositRate must be > 0 and <= 100 percent with at most two decimal places.");
+        var deposit=Flow1ContractFactory.DepositAmount(total,percent);
+        Require(deposit>0 && deposit<=total,"VALIDATION_ERROR","The rounded VND deposit must be positive and no greater than the contract price.");
+        return deposit;
+    }
     private static readonly string[] EditableFields = ["PRICE", "PREPARATION_DAYS", "DEPARTURE_AT", "DELIVERY_AT", "CLAUSES", "DEADLINE"];
     private static ClauseCard Clause(ContractTemplate c) => new(c.TemplateId,c.TemplateName,c.BodyContent,c.LanguageCode,c.IsActive,
         RequiredContractClauses.Order(c.TemplateId) is not null,RequiredContractClauses.Order(c.TemplateId));
@@ -22,7 +29,7 @@ public sealed partial class RelationalFlow1Service
         var title=Text(input.Title,255);var content=Text(input.Content,20000);
         Require(input.LanguageCode is "VI" or "EN","VALIDATION_ERROR","Language must be VI or EN.");
         ContractTemplate c;
-        if(id is null){c=new(){TemplateId=Id("clause",Guid.NewGuid().ToString("N")),Version="1",CreatedAt=Now};db.Add(c);}
+        if(id is null){c=new(){TemplateId=Id("clause",Guid.NewGuid().ToString("N")),CreatedAt=Now};db.Add(c);}
         else c=await db.FindAsync<ContractTemplate>(id,t)??throw Error("Clause not found.","NOT_FOUND",404);
         Require(RequiredContractClauses.Order(c.TemplateId) is null || input.IsActive,"REQUIRED_CLAUSE","A required clause cannot be deactivated.");
         c.TemplateName=title;c.BodyContent=content;c.LanguageCode=input.LanguageCode;c.IsActive=input.IsActive;c.UpdatedAt=Now;
@@ -56,13 +63,13 @@ public sealed partial class RelationalFlow1Service
     }
     private async Task RequireSignable(FlowContract c,FlowRequest r,CancellationToken ct)
     {
-        Require(c.IsCurrent && c.SignedAt is null && c.ContractStatus=="PENDING_SIGNATURE" && c.FeedbackStatus!="PENDING" && c.CancellationStatus!="PENDING" && c.RefundStatus is null && Now<SignDue(c) && Now<Cutoff(r),"SIGNING_CLOSED","Signing is closed, overdue or awaiting review.");
+        Require(c.ContractStatus!="CANCELLED" && c.SignedAt is null && c.ContractStatus=="PENDING_SIGNATURE" && c.FeedbackStatus!="PENDING" && c.CancellationStatus!="PENDING" && c.RefundStatus is null && Now<SignDue(c) && Now<Cutoff(r),"SIGNING_CLOSED","Signing is closed, overdue or awaiting review.");
         var inv=await Invoice(c,ct);
         Require(inv.PaidAmount==inv.TotalPayableAmount && inv.PaymentStatus=="PAID" && !(await Payments(inv,ct)).Any(p=>p.FinancialReviewRequired),"DEPOSIT_NOT_VERIFIED","Verify the full deposit before requesting or using signing OTP.");
     }
     public Task<FlowContractCard> FeedbackAsync(string id,string actor,ContractFeedbackInput input,CancellationToken ct)=>db.RunAsync(async t=>{
         var(c,r)=await Contract(id,actor,false,t);Check(c.RowVersion,input.Version);
-        Require(c.IsCurrent && c.SignedAt is null && c.PublishedAtUtc is not null && c.ContractStatus=="AWAITING_DEPOSIT" && c.FeedbackStatus!="PENDING" && Now<SignDue(c),"FEEDBACK_CLOSED","Feedback is only available on the current unpaid unsigned publication.");
+        Require(c.ContractStatus!="CANCELLED" && c.SignedAt is null && c.PublishedAtUtc is not null && c.ContractStatus=="AWAITING_DEPOSIT" && c.FeedbackStatus!="PENDING" && Now<SignDue(c),"FEEDBACK_CLOSED","Feedback is only available on the current unpaid unsigned publication.");
         Require(input.Fields is {Count:>0} && input.Fields.Distinct().Count()==input.Fields.Count && input.Fields.All(EditableFields.Contains),"VALIDATION_ERROR","Select PRICE, PREPARATION_DAYS, DEPARTURE_AT, DELIVERY_AT or CLAUSES.");
         await RequireNoMoneyOrAttempts(c,t);
         c.CustomerFeedback=Text(input.FeedbackMessage,2000);c.FeedbackFields=string.Join(',',input.Fields);c.FeedbackAtUtc=Now;c.FeedbackStatus="PENDING";c.ManagerFeedback=null;c.FeedbackHandledAtUtc=null;c.SignOtpHash=null;
@@ -75,7 +82,7 @@ public sealed partial class RelationalFlow1Service
         await RequireNoMoneyOrAttempts(c,t);
         Require(Now.AddHours(24)<=Cutoff(r),"INVALID_DEADLINE","The shared deadline would violate preparation time.");
         c.FeedbackStatus="REJECTED";c.ManagerFeedback=Text(input.Reason,2000);c.FeedbackHandledAtUtc=Now;
-        c.EffectiveSignDeadline=Now.AddHours(24);c.DepositDeadline=c.EffectiveSignDeadline;c.SignOtpHash=null;(await Invoice(c,t)).DueDate=c.DepositDeadline;
+        c.CompletionDeadline=Now.AddHours(24);c.SignOtpHash=null;(await Invoice(c,t)).DueDate=c.CompletionDeadline;
         await Notify(c.CustomerID,id+":"+Token(c.RowVersion),"CONTRACT_FEEDBACK_REJECTED","Phản hồi về đề nghị sửa hợp đồng",c.ManagerFeedback,t);
         await db.SaveAsync(t);return await Card(c,t);
     },ct);
@@ -84,13 +91,16 @@ public sealed partial class RelationalFlow1Service
         IReadOnlyList<string> additional=[];
         var draft=await db.RunAsync(async t=>{
             var(c,r)=await Contract(id,actor,true,t);Check(c.RowVersion,input.Version);
-            Require(c.SignedAt is null && c.IsCurrent && c.ContractStatus is "AWAITING_DEPOSIT" or "WITHDRAWN" or "DRAFT","REISSUE_CLOSED","Withdraw and replace only an unsigned contract.");
+            Require(c.SignedAt is null && c.ContractStatus!="CANCELLED" && c.ContractStatus is "AWAITING_DEPOSIT" or "WITHDRAWN" or "DRAFT","REISSUE_CLOSED","Withdraw and replace only an unsigned contract.");
             await RequireNoMoneyOrAttempts(c,t);
+            var depositRate=input.DepositRate??c.DepositRateStandard??Flow1ContractFactory.DepositPercent;
+            var deposit=ContractDeposit(input.Price,depositRate);
             var allowed=(c.FeedbackFields??"").Split(',');
             FlowContractTerms? issuedTerms=null;
             if(c.PdfUrl is not null && (input.AdditionalClauses is null || c.FeedbackStatus=="PENDING" && !allowed.Contains("CLAUSES"))){var issued=await files.ReadAsync(c.PdfUrl,t);Require(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(issued.Bytes)).Equals(c.PdfSha256,StringComparison.OrdinalIgnoreCase),"FILE_INTEGRITY_ERROR","Issued PDF changed.");issuedTerms=ReadTerms(issued.Bytes);}
             additional=AdditionalTerms(input.AdditionalClauses??issuedTerms?.AdditionalClauses);
             if(c.FeedbackStatus=="PENDING"){
+                Require(c.DepositRateStandard==depositRate || allowed.Contains("PRICE"),"FIELD_LOCKED","Deposit percentage was not requested for change under PRICE.");
                 Require(c.TotalQuotedPrice==input.Price || allowed.Contains("PRICE"),"FIELD_LOCKED","Price was not requested for change.");
                 Require(r.PreparationDays==input.PreparationDays || allowed.Contains("PREPARATION_DAYS"),"FIELD_LOCKED","Preparation was not requested for change.");
                 Require(r.ExpectedDate==Utc(input.DepartureAt) || allowed.Contains("DEPARTURE_AT"),"FIELD_LOCKED","Departure was not requested for change.");
@@ -110,8 +120,8 @@ public sealed partial class RelationalFlow1Service
             r.ExpectedDate=departure;r.CommittedDeadline=delivery;r.PreparationDays=input.PreparationDays;
             var costs=input.Costs??(await CalculateCosts(r,new(),t)).Costs;
             await SaveCosts(id,costs,t);
-            c.TotalQuotedPrice=input.Price;c.DepositAmount=decimal.Round(input.Price*.4m,0,MidpointRounding.AwayFromZero);
-            c.CompletionDeadline=Now.AddHours(24);c.EffectiveSignDeadline=null;c.DepositDeadline=c.CompletionDeadline;c.ContractStatus="DRAFT";c.SignOtpHash=null;c.SignOtpFailedAttempts=0;c.SignOtpSentAtUtc=null;c.SignOtpExpiry=null;
+            c.TotalQuotedPrice=input.Price;c.DepositRateStandard=depositRate;c.DepositAmount=deposit;
+            c.CompletionDeadline=Now.AddHours(24);c.ContractStatus="DRAFT";c.SignOtpHash=null;c.SignOtpFailedAttempts=0;c.SignOtpSentAtUtc=null;c.SignOtpExpiry=null;
             c.ManagerFeedback=Text(input.Reason,2000);c.FeedbackHandledAtUtc=Now;r.Status="DRAFT_CONTRACT";
             await db.SaveAsync(t);return await Card(c,t);
         },ct);

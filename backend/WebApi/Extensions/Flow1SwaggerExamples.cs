@@ -1,5 +1,6 @@
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi.Writers;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace WebApi.Extensions;
@@ -17,6 +18,33 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
 
         operation.Description = (operation.Description ?? "") +
             "\nFlow 1: Get the current record first and copy its `version` (a concurrency token, not a contract edition). Use the signed-in account's role. One shared 24-hour deadline covers deposit, verification and OTP signing. Deposit verification alone never creates a Trip.";
+
+        if (path.Contains("contracts", StringComparison.OrdinalIgnoreCase))
+            operation.Description += " One stored CompletionDeadline covers deposit and signing; response signDeadline/depositDeadline are aliases of it. One contract per request, updated in place; no isCurrent flag.";
+
+        if (path.StartsWith("api/customer/horses", StringComparison.OrdinalIgnoreCase))
+            operation.Description += " Horse profile owns passport metadata, declaredValueVnd and specialHealthNotes. POST creates, PUT updates an unused owned horse using version. Creation/full update require photo, passportScan and ownershipCertificate; valuationDocument is optional. File kinds: photo/passport/ownership/valuation. UPLOADED is not approval. No vaccination, trip health certificate or private veterinarian required before signing.";
+        if (path.StartsWith("api/customer/requests", StringComparison.OrdinalIgnoreCase))
+            operation.Description += " PickupContact/receiver accept stableName, postalCode and instructions. careInstructions is trip-wide; horses[].careInstructions is per horse for this trip. specialHealthNotes belongs to the horse profile. DeclaredValueVnd is calculated by the server from selected horses; legacy declaredValueUsd is not converted or used as VND. Shared documents are optional and returned separately in sharedDocuments (UPLOADED/NOT_PROVIDED), never marked verified automatically.";
+
+        if (operation.RequestBody?.Content.TryGetValue("multipart/form-data", out var multipart) == true)
+        {
+            var schema = multipart.Schema;
+            if (schema.Reference is not null) schema = context.SchemaRepository.Schemas[schema.Reference.Id];
+            var horseForm = path.Contains("/horses", StringComparison.OrdinalIgnoreCase);
+            var payload = horseForm ? CreateHorseExample() : CreateFlowRequestExample();
+            var property = schema.Properties.FirstOrDefault(p => p.Key.Equals("payload", StringComparison.OrdinalIgnoreCase)).Value;
+            if (property is not null)
+            {
+                using var text = new StringWriter();
+                var writer = new OpenApiJsonWriter(text);
+                payload.Write(writer, Microsoft.OpenApi.OpenApiSpecVersion.OpenApi3_0);
+                property.Example = new OpenApiString(text.ToString());
+                property.Description = "JSON text. Replace IDs/version with values from GET; file bytes belong in the separate file fields.";
+            }
+            operation.Description += horseForm ? " Each file: genuine PNG/JPEG/PDF (photo: PNG/JPEG only), 16 bytes–5 MB. Full horse payload example is in payload."
+                : " invitationLetter/competitionRegistration/ataCarnet are separate optional single-file fields for the entire request, not linked to a horse. Files/horseIds are the existing per-horse supplementary uploads. Each file is 16 bytes–5 MB, genuine PDF/PNG/JPEG. Omitted shared files are retained during revision; supplied files replace them. Read via requests/{id}/documents/INVITATION_LETTER, COMPETITION_REGISTRATION or ATA_CARNET.";
+        }
 
         var action = operation.Parameters?.FirstOrDefault(p => p.Name == "operation");
         if (action is not null && path.Contains("/cancellation/"))
@@ -77,7 +105,7 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
         if (path.EndsWith("/cost-estimate",StringComparison.OrdinalIgnoreCase))
         {
             media!.Example=new OpenApiObject { ["days"]=new OpenApiInteger(2),["stableNights"]=new OpenApiInteger(1),["crewCount"]=new OpenApiInteger(2),["doctorCount"]=new OpenApiInteger(1),["insuredValueVnd"]=new OpenApiLong(1000000000) };
-            operation.Description+=" Manager-only five-group plan. {} uses request duration, nights=days-1 and configured staffing. RoadDistanceKm/VehicleCount can specify additional ground legs for AIR. Values are quantities for a recommendation, not actual assigned staff. No costs are saved by this endpoint. Copy costs into draft/reissue to store the chosen plan. DeclaredValueUsd is not treated as VND.";
+            operation.Description+=" Manager-only five-group plan. {} uses request duration, nights=days-1, configured staffing and the request's server-calculated declaredValueVnd for insurance. Manager can override insuredValueVnd. RoadDistanceKm/VehicleCount can specify additional ground legs for AIR. No costs are saved by this endpoint. Copy costs into draft/reissue to store the chosen plan. DeclaredValueUsd is not treated as VND.";
             return;
         }
 
@@ -156,12 +184,15 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
         {
             body.Remove("reason");
             body["price"] = new OpenApiLong(100000000);
+            body["depositRate"] = new OpenApiDouble(40);
             body["preparationDays"] = new OpenApiInteger(2);
-            operation.Description += " Draft uses request.version. Optional costs contains transport, crew, permit, vet, insurance in integral VND; omitted costs are calculated from request quantities and database rates, with minimum insurance when VND insured value is unknown. Omit price to use costs.total, or provide the Manager's final price. Five planned COST_ITEM rows are saved. No margin or reserve. The issue deadline is calculated by the server, not supplied by the client.";
+            operation.Description += " Draft uses request.version. Optional depositRate is a percentage > 0 and <= 100 with at most two decimal places (30 means 30%); defaults to 40. It must yield a positive whole-VND deposit. Optional costs contains transport, crew, permit, vet, insurance in integral VND; omitted costs are calculated from request quantities and database rates, with minimum insurance when VND insured value is unknown. Omit price to use costs.total, or provide the Manager's final price. Five planned COST_ITEM rows are saved. No margin or reserve. The issue deadline is calculated by the server, not supplied by the client.";
         }
         else if (path.EndsWith("/reissue", StringComparison.OrdinalIgnoreCase))
         {
+            operation.Description += " Optional depositRate keeps the existing percentage when omitted. Changing it recalculates the invoice/PDF before payment only. During feedback, a deposit-rate change requires PRICE in the requested fields.";
             body["price"] = new OpenApiLong(95000000);
+            body["depositRate"] = new OpenApiDouble(30);
             body["preparationDays"] = new OpenApiInteger(2);
             body["departureAt"] = new OpenApiString("2026-12-20T08:00:00+07:00");
             body["deliveryAt"] = new OpenApiString("2026-12-21T08:00:00+07:00");
@@ -237,6 +268,15 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
         ["desiredDepartureDate"] = new OpenApiString("2026-11-25")
     };
 
+    private static OpenApiObject CreateHorseExample() => new()
+    {
+        ["name"] = new OpenApiString("Thunderbolt"), ["microchipIso"] = new OpenApiString("985112004571029"),
+        ["feiPassportNo"] = new OpenApiString("VN-EQ-2020-1029"), ["breed"] = new OpenApiString("Thoroughbred"),
+        ["sex"] = new OpenApiString("STALLION"), ["weight"] = new OpenApiInteger(500), ["dob"] = new OpenApiString("2020-03-14"),
+        ["passportIssuedBy"] = new OpenApiString("Vietnam Equestrian Federation"),
+        ["passportIssuedDate"] = new OpenApiString("2023-04-10"), ["passportExpiryDate"] = new OpenApiString("2028-04-09"),
+        ["declaredValueVnd"] = new OpenApiLong(1000000000), ["specialHealthNotes"] = new OpenApiString("Nhạy cảm với tiếng ồn lớn")
+    };
     private static OpenApiObject CreateFlowRequestExample() => new()
     {
         ["trip"] = CreateTripExample(),
@@ -246,21 +286,24 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
         ["pickupContact"] = new OpenApiObject
         {
             ["name"] = new OpenApiString("Nguyen Van A"),
-            ["phone"] = new OpenApiString("0901234567")
+            ["phone"] = new OpenApiString("0901234567"), ["stableName"] = new OpenApiString("Chuồng Đại Nam"),
+            ["postalCode"] = new OpenApiString("75000"), ["instructions"] = new OpenApiString("Đón tại cổng phía Bắc")
         },
         ["receiver"] = new OpenApiObject
         {
             ["name"] = new OpenApiString("Tran Van B"),
-            ["phone"] = new OpenApiString("0987654321")
+            ["phone"] = new OpenApiString("0987654321"), ["stableName"] = new OpenApiString("Chuồng nơi giao"),
+            ["postalCode"] = new OpenApiString("10000"), ["instructions"] = new OpenApiString("Gọi trước khi đến")
         },
         ["horses"] = new OpenApiArray
         {
             new OpenApiObject
             {
                 ["horseId"] = new OpenApiString("COPY_horseId_FROM_GET_horses_selectable"),
-                ["version"] = new OpenApiString("COPY_version_FROM_GET_horses_selectable")
+                ["version"] = new OpenApiString("COPY_version_FROM_GET_horses_selectable"),
+                ["careInstructions"] = new OpenApiString("Cho ăn theo lịch đã thống nhất trong chuyến")
             }
         },
-        ["declaredValueUsd"] = new OpenApiLong(50000)
+        ["careInstructions"] = new OpenApiString("Giữ không gian yên tĩnh")
     };
 }

@@ -35,20 +35,11 @@ namespace Domain.Entities
         [StringLength(3)]
         public string CurrencyCode { get; set; } = "USD";
 
-        [Column("ExchangeRateToLocal", TypeName = "decimal(10, 4)")]
-        public decimal? ExchangeRateToLocal { get; set; }
-
         [Column("TotalQuotedPrice", TypeName = "decimal(12, 2)")]
         public decimal? TotalQuotedPrice { get; set; }
 
-        [Column("BaseContractPrice_P", TypeName = "decimal(12, 2)")]
-        public decimal? BaseContractPriceP { get; set; }
-
         [Column("DepositRateStandard", TypeName = "decimal(5, 2)")]
         public decimal? DepositRateStandard { get; set; }
-
-        [Column("ActualGrossProfit_AGP", TypeName = "decimal(12, 2)")]
-        public decimal? ActualGrossProfitAgp { get; set; }
 
         [Column("SignedAt")]
         public DateTime? SignedAt { get; set; }

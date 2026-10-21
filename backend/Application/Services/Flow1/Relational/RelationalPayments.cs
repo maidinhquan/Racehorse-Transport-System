@@ -24,24 +24,24 @@ public sealed partial class RelationalFlow1Service
             var existing=await db.FindAsync<FlowTrip>(c.TripID,ct);
             Require(existing?.RequestID==r.RequestID,"DATA_REVIEW_REQUIRED","Activated Trip link differs from request."); return;
         }
-        if(!c.IsCurrent || c.SignedAt is null || c.ContractStatus!="SIGNED" || r.Status!="AWAITING_SIGNATURE" ||
-            c.CancellationStatus=="PENDING" || inv.PaidAmount<inv.TotalPayableAmount || c.DepositDeadline is null || r.ExpectedDate is null || r.PreparationDays is null ||
-            (await Payments(inv,ct)).Any(p=>p.FinancialReviewRequired) || Now>c.DepositDeadline || Now>=Cutoff(r)) return;
+        if(c.ContractStatus=="CANCELLED" || c.SignedAt is null || c.ContractStatus!="SIGNED" || r.Status!="AWAITING_SIGNATURE" ||
+            c.CancellationStatus=="PENDING" || inv.PaidAmount<inv.TotalPayableAmount || c.CompletionDeadline is null || r.ExpectedDate is null || r.PreparationDays is null ||
+            (await Payments(inv,ct)).Any(p=>p.FinancialReviewRequired) || Now>c.CompletionDeadline || Now>=Cutoff(r)) return;
         Require(!(await db.QueryAsync<FlowTrip>(x=>x.RequestID==r.RequestID,ct)).Any(),"DATA_REVIEW_REQUIRED","An unexpected Trip already exists.");
         var trip=new FlowTrip{TripID=Id("t",r.RequestID),RequestID=r.RequestID,TotalDistance_km=r.DistanceKm,Status="PLANNING",DeploymentStatus="PENDING",DeploymentReason="Signed terms and verified deposit",DeploymentBy="SYSTEM",DeploymentAtUtc=Now};
         db.Add(trip); c.TripID=trip.TripID; c.ContractStatus="EFFECTIVE"; r.Status="ACTIVATED";
         await Notify(c.CustomerID,r.RequestID,"FLOW1_ACTIVATED","Yêu cầu đã được kích hoạt",
-            "Đã xác minh đủ cọc 40%. Chuyến được tạo và đang chờ Manager xác nhận bàn giao vận hành.",ct);
+            "Đã xác minh đủ tiền cọc theo hợp đồng. Chuyến được tạo và đang chờ Manager xác nhận bàn giao vận hành.",ct);
     }
     public Task<object> PaymentSessionAsync(string id,string actor,string key,string ip,CancellationToken ct)=>db.RunAsync<object>(async t=>{
         Key(key); var(c,r)=await Contract(id,actor,false,t); var inv=await Invoice(c,t); var payments=await Payments(inv,t);
-        Require(c.IsCurrent && c.SignedAt is null && c.PublishedAtUtc is not null && c.ContractStatus=="AWAITING_DEPOSIT" && r.Status=="AWAITING_DEPOSIT" && c.FeedbackStatus!="PENDING" && c.RefundStatus is null &&
-            c.CancellationStatus!="PENDING" && c.DepositDeadline>Now && Now<Cutoff(r) && !payments.Any(p=>p.FinancialReviewRequired),"PAYMENT_CLOSED","Deposit payment is closed or awaiting review.");
+        Require(c.ContractStatus!="CANCELLED" && c.SignedAt is null && c.PublishedAtUtc is not null && c.ContractStatus=="AWAITING_DEPOSIT" && r.Status=="AWAITING_DEPOSIT" && c.FeedbackStatus!="PENDING" && c.RefundStatus is null &&
+            c.CancellationStatus!="PENDING" && c.CompletionDeadline>Now && Now<Cutoff(r) && !payments.Any(p=>p.FinancialReviewRequired),"PAYMENT_CLOSED","Deposit payment is closed or awaiting review.");
         var amount=inv.TotalPayableAmount-inv.PaidAmount; Require(amount>0,"DEPOSIT_ALREADY_PAID","Deposit already paid.");
         var pid=Id("p",inv.InvoiceID,actor,key); var p=await db.FindAsync<FlowPayment>(pid,t);
         p??=payments.FirstOrDefault(x=>x.Status=="PENDING_GATEWAY" && x.VnpayExpiresAtUtc>Now);
         if(p is not null) Require(p.Status=="PENDING_GATEWAY" && p.VnpayExpiresAtUtc>Now && p.Amount==amount,"SESSION_CLOSED","This payment attempt is closed; refresh before retrying.");
-        var expiry=p?.VnpayExpiresAtUtc??new[]{Now.AddMinutes(15),c.DepositDeadline!.Value}.Min(); var created=p?.VnpayCreatedAtUtc??Now;
+        var expiry=p?.VnpayExpiresAtUtc??new[]{Now.AddMinutes(15),c.CompletionDeadline!.Value}.Min(); var created=p?.VnpayCreatedAtUtc??Now;
         var session=await gateway.CreateSessionAsync(new(p?.PaymentID??pid,inv.InvoiceID,amount,"VND",new(expiry),ip,new(created)),t);
         if(p is null) { p=new FlowPayment{PaymentID=pid,InvoiceID=inv.InvoiceID,CurrencyCode="VND",Amount=amount,Method="VNPAY",Status="PENDING_GATEWAY",PaymentDate=created,VnpayCreatedAtUtc=created,VnpayExpiresAtUtc=expiry,VnpayTmnCode=session.MerchantId}; db.Add(p); }
         Require(p.VnpayTmnCode==session.MerchantId,"MERCHANT_CHANGED","Merchant changed since this attempt was issued; reconcile before proceeding.");
@@ -73,7 +73,7 @@ public sealed partial class RelationalFlow1Service
             var duplicate=(await db.QueryAsync<FlowPayment>(x=>x.PaymentID!=p.PaymentID && x.VnpayTmnCode==p.VnpayTmnCode && x.TransactionCode==p.TransactionCode,t)).Any();
             if(duplicate) {p.Status="REVIEW_REQUIRED"; Flag(p,"Provider transaction is already recorded on another attempt; do not allocate twice."); return new{RspCode="02",Message="Transaction already recorded"};}
             p.Status="SUCCESS";
-            if(wasFailed || Now>c.DepositDeadline || v.PaidAtUtc.Value.UtcDateTime>c.DepositDeadline || v.PaidAtUtc.Value.UtcDateTime>p.VnpayExpiresAtUtc || v.PaidAtUtc.Value.UtcDateTime<p.VnpayCreatedAtUtc || !c.IsCurrent || c.ContractStatus is not ("AWAITING_DEPOSIT" or "PENDING_SIGNATURE" or "EFFECTIVE") || r.Status=="CANCELLED") Flag(p,"Late, previously failed or closed-contract payment; verified money retained for review.");
+            if(wasFailed || Now>c.CompletionDeadline || v.PaidAtUtc.Value.UtcDateTime>c.CompletionDeadline || v.PaidAtUtc.Value.UtcDateTime>p.VnpayExpiresAtUtc || v.PaidAtUtc.Value.UtcDateTime<p.VnpayCreatedAtUtc || c.ContractStatus=="CANCELLED" || c.ContractStatus is not ("AWAITING_DEPOSIT" or "PENDING_SIGNATURE" or "EFFECTIVE") || r.Status=="CANCELLED") Flag(p,"Late, previously failed or closed-contract payment; verified money retained for review.");
             var entries=await Payments(inv,t); // Includes the tracked current row.
             inv.PaidAmount=entries.Where(x=>x.Status=="SUCCESS").Sum(x=>x.Amount);
             inv.PaymentStatus=inv.PaidAmount>=inv.TotalPayableAmount?"PAID":inv.PaidAmount>0?"PARTIALLY_PAID":"UNPAID";
@@ -109,28 +109,28 @@ public sealed partial class RelationalFlow1Service
     }
     public Task<FlowContractCard> CancelOverdueAsync(string id,string actor,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
         var(c,r)=await Contract(id,actor,true,t);Check(c.RowVersion,i.Version);
-        Require(c.IsCurrent && c.SignedAt is null && c.PublishedAtUtc is not null && SignDue(c)<Now && c.TripID is null,"CANCELLATION_CLOSED","Only an overdue unsigned contract can be closed.");
+        Require(c.ContractStatus!="CANCELLED" && c.SignedAt is null && c.PublishedAtUtc is not null && SignDue(c)<Now && c.TripID is null,"CANCELLATION_CLOSED","Only an overdue unsigned contract can be closed.");
         await RequireNoMoneyOrAttempts(c,t);
-        c.ContractStatus="CANCELLED";c.IsCurrent=false;c.SignOtpHash=null;r.Status="CANCELLED";r.ManagerNotes=Text(i.Reason);await db.SaveAsync(t);return await Card(c,t);
+        c.ContractStatus="CANCELLED";c.SignOtpHash=null;r.Status="CANCELLED";r.ManagerNotes=Text(i.Reason);await db.SaveAsync(t);return await Card(c,t);
     },ct);
     public Task<FlowContractCard> FinancialReviewAsync(string id,string payment,string actor,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
         var(c,r)=await Contract(id,actor,true,t); var inv=await Invoice(c,t); var p=await db.FindAsync<FlowPayment>(payment,t);
         Require(p is not null && p.InvoiceID==inv.InvoiceID,"NOT_FOUND","Payment not found."); Check(p!.RowVersion,i.Version);
-        Require(p.FinancialReviewRequired && p.Status=="SUCCESS" && p.VnpayReceivedAmount==p.Amount && c.IsCurrent && c.ContractStatus is "AWAITING_DEPOSIT" or "PENDING_SIGNATURE" or "EFFECTIVE" &&
-            (c.TripID is not null || c.DepositDeadline>Now && Now<Cutoff(r)) && inv.PaidAmount<=inv.TotalPayableAmount,"REVIEW_UNRESOLVED","Provider/amount/refund or deadline reconciliation remains unresolved.");
+        Require(p.FinancialReviewRequired && p.Status=="SUCCESS" && p.VnpayReceivedAmount==p.Amount && c.ContractStatus!="CANCELLED" && c.ContractStatus is "AWAITING_DEPOSIT" or "PENDING_SIGNATURE" or "EFFECTIVE" &&
+            (c.TripID is not null || c.CompletionDeadline>Now && Now<Cutoff(r)) && inv.PaidAmount<=inv.TotalPayableAmount,"REVIEW_UNRESOLVED","Provider/amount/refund or deadline reconciliation remains unresolved.");
         p.FinancialReviewReason=Text(i.Reason); p.FinancialReviewRequired=false; p.FinancialReviewedBy=actor; p.FinancialReviewedAtUtc=Now;
         await DepositVerified(c,r,inv,t); await db.SaveAsync(t); return await Card(c,t);
     },ct);
     private async Task DepositVerified(FlowContract c,FlowRequest r,FlowInvoice inv,CancellationToken ct)
     {
-        if(c.SignedAt is null && c.IsCurrent && c.ContractStatus is "AWAITING_DEPOSIT" or "PENDING_SIGNATURE" && c.FeedbackStatus!="PENDING" && c.CancellationStatus!="PENDING" && c.RefundStatus is null && inv.PaidAmount==inv.TotalPayableAmount && !(await Payments(inv,ct)).Any(p=>p.FinancialReviewRequired) && Now<SignDue(c) && Now<Cutoff(r)){
+        if(c.SignedAt is null && c.ContractStatus!="CANCELLED" && c.ContractStatus is "AWAITING_DEPOSIT" or "PENDING_SIGNATURE" && c.FeedbackStatus!="PENDING" && c.CancellationStatus!="PENDING" && c.RefundStatus is null && inv.PaidAmount==inv.TotalPayableAmount && !(await Payments(inv,ct)).Any(p=>p.FinancialReviewRequired) && Now<SignDue(c) && Now<Cutoff(r)){
             c.ContractStatus="PENDING_SIGNATURE";r.Status="AWAITING_SIGNATURE";
             await Notify(c.CustomerID,c.ContractID+":"+c.PdfSha256,"DEPOSIT_VERIFIED","Đã xác minh đủ tiền cọc","Vui lòng xem PDF đã phát hành và ký OTP trước hạn chung.",ct);
         }
     }
     public Task<FlowContractCard> CancellationAsync(string id,string actor,bool manager,string action,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
         var(c,r)=await Contract(id,actor,manager,t);Check(c.RowVersion,i.Version);var inv=await Invoice(c,t);
-        Require(c.IsCurrent && c.SignedAt is null && c.TripID is null,"CANCELLATION_CLOSED","Cancellation is available before signing only.");
+        Require(c.ContractStatus!="CANCELLED" && c.SignedAt is null && c.TripID is null,"CANCELLATION_CLOSED","Cancellation is available before signing only.");
         if(!manager && action=="request"){
             Require(c.CancellationStatus!="PENDING" && c.RefundStatus is null,"CANCELLATION_PENDING","A cancellation/refund is already open.");
             c.CancellationId=Id("cancel",id,Guid.NewGuid().ToString("N"));c.CancellationStatus="PENDING";c.CancellationReason=Text(i.Reason);c.CancellationRequestedAtUtc=Now;c.CancellationDecisionReason=null;c.CancellationDecidedBy=null;c.CancellationDecidedAtUtc=null;c.SignOtpHash=null;
@@ -140,7 +140,7 @@ public sealed partial class RelationalFlow1Service
             if(action is "refund-start" or "refund-complete"){
                 Require(c.CancellationStatus=="APPROVED" && c.RefundStatus is "REQUESTED" or "PROCESSING","REFUND_CLOSED","No approved refund is pending.");
                 if(action=="refund-start")c.RefundStatus="PROCESSING";
-                else {c.RefundReference=Text(i.Target,100);c.RefundStatus="COMPLETED";c.ContractStatus="CANCELLED";c.IsCurrent=false;r.Status="CANCELLED";}
+                else {c.RefundReference=Text(i.Target,100);c.RefundStatus="COMPLETED";c.ContractStatus="CANCELLED";r.Status="CANCELLED";}
                 c.CancellationDecisionReason=Text(i.Reason);c.CancellationDecidedBy=actor;c.CancellationDecidedAtUtc=Now;
             } else {
                 Require(c.CancellationStatus=="PENDING" && action is "approve" or "reject","CANCELLATION_CHANGED","No pending cancellation.");
@@ -148,7 +148,7 @@ public sealed partial class RelationalFlow1Service
                 c.CancellationStatus=action=="approve"?"APPROVED":"REJECTED";c.CancellationDecisionReason=Text(i.Reason);c.CancellationDecidedBy=actor;c.CancellationDecidedAtUtc=Now;
                 if(action=="approve"){
                     if(inv.PaidAmount>0){c.RefundAmount=inv.PaidAmount;c.RefundStatus="REQUESTED";}
-                    else {c.ContractStatus="CANCELLED";c.IsCurrent=false;r.Status="CANCELLED";}
+                    else {c.ContractStatus="CANCELLED";r.Status="CANCELLED";}
                 } else await DepositVerified(c,r,inv,t);
             }
             await Notify(c.CustomerID,id+":"+Token(c.RowVersion),"CANCELLATION_UPDATED","Cập nhật hủy/hoàn tiền",c.CancellationDecisionReason!,t);

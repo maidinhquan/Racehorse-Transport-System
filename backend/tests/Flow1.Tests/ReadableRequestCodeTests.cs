@@ -13,8 +13,8 @@ public sealed class ReadableRequestCodeTests
         await using var f=await RelationalFlow1Tests.Fixture.Create();
         var first=await f.Request("numbering-seed-key");
         await f.Db.ExecuteAsync($"UPDATE TRANSPORT_REQUEST SET Status='CANCELLED' WHERE RequestID='{first.RequestId}';");
-        var horse=await f.Service.HorseAsync("owner","numbering-second-horse",new("Second","123456789012346","FEI-2","Breed","GELDING",450,new(2020,1,1)),
-            new(System.Text.Encoding.UTF8.GetBytes("fixture photo bytes"),"p.png"),new(System.Text.Encoding.UTF8.GetBytes("fixture passport bytes"),"p.pdf"),null,null,default);
+        var horse=await f.Service.HorseAsync("owner","numbering-second-horse",new("Second","123456789012346","FEI-2","Breed","GELDING",450,new(2020,1,1),"Fixture issuer",new(2021,1,1),new(2035,1,1),100000000,"Sensitive to loud noise"),
+            new(System.Text.Encoding.UTF8.GetBytes("fixture photo bytes"),"p.png"),new(System.Text.Encoding.UTF8.GetBytes("fixture passport bytes"),"p.pdf"),null,null,default,ownership:new(System.Text.Encoding.UTF8.GetBytes("fixture ownership certificate"),"owner.pdf"));
         var other=first.Input! with {Horses=[new(horse.HorseId,horse.Version)]};
         var rows=await Task.WhenAll(f.NewService().SubmitAsync("owner","numbering-distinct-one",first.Input!,null,null,default),
             f.NewService().SubmitAsync("owner","numbering-distinct-two",other,null,null,default));
@@ -67,7 +67,8 @@ public sealed class ReadableRequestCodeTests
         Assert.Equal(fks,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.foreign_keys;"));
         await f.Db.ExecuteAsync("ALTER INDEX UX_F1N_RequestSubmission ON TRANSPORT_REQUEST DISABLE;");
         Assert.Equal("FLOW1_SQL_SCHEMA_REQUIRED",(await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ListAsync("owner",false,default))).ErrorCode);
-        await Assert.ThrowsAsync<Microsoft.Data.SqlClient.SqlException>(()=>f.Db.ScriptAsync("002_flow1.sql"));
+        await f.Db.ScriptAsync("002_flow1.sql");
+        Assert.NotNull(await f.Service.ListAsync("owner",false,default));
     }
 
     [LocalSqlFact]

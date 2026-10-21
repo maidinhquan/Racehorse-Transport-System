@@ -12,7 +12,7 @@ public sealed partial class RelationalFlow1Service
         var u=await Actor(actor,null,ct); Require(Role(u) is UserRoles.FleetRouteCoordinator or UserRoles.TransportSpecialist,"FORBIDDEN","Operational role required.");
         var trip=(await db.QueryAsync<FlowTrip>(x=>x.RequestID==request,ct)).SingleOrDefault();
         Require(trip is not null && trip.DeploymentStatus=="CONFIRMED" && trip.HandoffEventId is not null && trip.Status is "PLANNING" or "READY_TO_DEPART" && (expectedEvent is null || expectedEvent==trip.HandoffEventId),"HANDOFF_CLOSED","Handoff is unavailable or the event does not match.");
-        var c=(await db.QueryAsync<FlowContract>(x=>x.TripID==trip!.TripID && x.IsCurrent,ct)).SingleOrDefault();
+        var c=(await db.QueryAsync<FlowContract>(x=>x.TripID==trip!.TripID && x.ContractStatus=="EFFECTIVE",ct)).SingleOrDefault();
         Require(Role(u)==UserRoles.TransportSpecialist ? trip!.AssignedSpecialistId==actor : trip!.AssignedCoordinatorId==actor,"FORBIDDEN","This trip is assigned to another staff member.");
         Require(c is not null && c.ContractStatus=="EFFECTIVE" && c.SignedAt is not null,"HANDOFF_CLOSED","Activated signed terms required.");
         return(trip!,c!,(await db.FindAsync<FlowRequest>(request,ct))!);
@@ -20,7 +20,7 @@ public sealed partial class RelationalFlow1Service
     public Task<FlowContractCard> DeploymentAsync(string id,string actor,string action,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
         Require(action=="confirm","DEPLOYMENT_CLOSED","Only the initial handoff confirmation is supported.");
         var(c,r)=await Contract(id,actor,true,t);
-        Require(c.IsCurrent && c.ContractStatus=="EFFECTIVE" && c.TripID is not null && r.Status=="ACTIVATED","DEPLOYMENT_CLOSED","Trip must be activated first.");
+        Require(c.ContractStatus!="CANCELLED" && c.ContractStatus=="EFFECTIVE" && c.TripID is not null && r.Status=="ACTIVATED","DEPLOYMENT_CLOSED","Trip must be activated first.");
         var trip=(await db.FindAsync<FlowTrip>(c.TripID!,t))!; Check(trip.RowVersion,i.Version); Text(i.Reason);
         Require(trip.Status=="PLANNING" && trip.DeploymentStatus=="PENDING","DEPLOYMENT_CLOSED","Only an activated trip awaiting its first assignment may be handed off.");
             var specialist=await db.FindAsync<FlowUser>(i.AssignedSpecialistId??"",t);
@@ -46,8 +46,8 @@ public sealed partial class RelationalFlow1Service
     },ct);
     private async Task<FlowHandoff> Handoff(FlowTrip trip,FlowContract c,FlowRequest r,CancellationToken ct)
     {
-        var horses=new List<FlowHorseCard>(); foreach(var l in await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==r.RequestID,ct)) horses.Add(HorseCard((await db.FindAsync<FlowHorse>(l.HorseID,ct))!));
-        return new(new(trip.TripID,Token(trip.RowVersion),trip.Status,trip.DeploymentStatus,trip.HandoffEventId,trip.DeploymentReason,trip.AssignedSpecialistId,trip.AssignedCoordinatorId),r.RequestID,r.Departure,r.Destination,r.ExpectedDate,r.CommittedDeadline,c.ContractID,c.PdfSha256!,horses,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct));
+        var horses=new List<FlowHorseCard>(); foreach(var l in await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==r.RequestID,ct)) horses.Add(HorseCard((await db.FindAsync<FlowHorse>(l.HorseID,ct))!) with { CareInstructions=l.CareInstructions });
+        return new(new(trip.TripID,Token(trip.RowVersion),trip.Status,trip.DeploymentStatus,trip.HandoffEventId,trip.DeploymentReason,trip.AssignedSpecialistId,trip.AssignedCoordinatorId),r.RequestID,r.Departure,r.Destination,r.ExpectedDate,r.CommittedDeadline,c.ContractID,c.PdfSha256!,horses,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct),r.DeclaredValueVnd,SharedDocuments(r));
     }
     public Task<(byte[] Bytes,string ContentType)> OperationsPdfAsync(string tripId,string actor,string expectedEvent,CancellationToken ct)=>db.RunAsync(async t=>{
         var trip=await db.FindAsync<FlowTrip>(tripId,t)??throw Error("Trip not found.","NOT_FOUND",404); var x=await Released(trip.RequestID,actor,expectedEvent,t);
@@ -57,6 +57,6 @@ public sealed partial class RelationalFlow1Service
     public Task<(byte[] Bytes,string ContentType)> OperationsHorseFileAsync(string tripId,string horse,string kind,string actor,string eventId,CancellationToken ct)=>db.RunAsync(async t=>{
         var trip=await db.FindAsync<FlowTrip>(tripId,t)??throw Error("Trip not found.","NOT_FOUND",404);var x=await Released(trip.RequestID,actor,eventId,t);
         Require(!string.IsNullOrEmpty(eventId) && (await db.QueryAsync<FlowRequestHorse>(l=>l.RequestID==x.R.RequestID && l.HorseID==horse,t)).Any(),"HANDOFF_CHANGED","Current event and attached horse required.");
-        var h=(await db.FindAsync<FlowHorse>(horse,t))!;var key=kind switch{"photo"=>h.PhotoUrl,"passport"=>h.PassportScanUrl,_=>null};Require(key is not null,"FILE_UNAVAILABLE","Document unavailable.");return await files.ReadAsync(key,t);
+        var h=(await db.FindAsync<FlowHorse>(horse,t))!;var key=HorseFileKey(h,kind);Require(key is not null,"FILE_UNAVAILABLE","Document unavailable.");return await files.ReadAsync(key,t);
     },ct);
 }

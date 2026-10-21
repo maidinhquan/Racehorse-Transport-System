@@ -71,7 +71,7 @@ public sealed class RelationalFlow1Tests
         }
         public async Task<FlowRequestCard> Request(string key="request-key-one")
         {
-            var h=await Service.HorseAsync("owner","horse-key-one",new("Horse","123456789012345","FEI-1","Thoroughbred","STALLION",500,new(2020,1,1)),new(Encoding.UTF8.GetBytes("fixture photo bytes"),"p.png"),new(Encoding.UTF8.GetBytes("fixture passport bytes"),"p.pdf"),null,null,default);
+            var h=await Service.HorseAsync("owner","horse-key-one",new("Horse","123456789012345","FEI-1","Thoroughbred","STALLION",500,new(2020,1,1),"Fixture issuer",new(2021,1,1),new(2035,1,1),100000000,"Sensitive to loud noise"),new(Encoding.UTF8.GetBytes("fixture photo bytes"),"p.png"),new(Encoding.UTF8.GetBytes("fixture passport bytes"),"p.pdf"),null,null,default,ownership:new(System.Text.Encoding.UTF8.GetBytes("fixture ownership certificate"),"owner.pdf"));
             var trip=new EstimateInput(new("A",10,106,"VN"),new("B",11,107,"VN"),"ROAD",1,new(2026,11,20));
             return await Service.SubmitAsync("owner",key,new(trip,new(2026,11,20,3,0,0,TimeSpan.Zero),new(2026,11,21,3,0,0,TimeSpan.Zero),"Race",new("Sender","0900000000"),new("Receiver","0900000001"),[new(h.HorseId,h.Version)]),null,null,default);
         }

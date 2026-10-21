@@ -30,7 +30,7 @@ public sealed partial class RelationalFlow1Service
         Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Request needs complete schedule and route data.");
         var horses=(await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==r.RequestID,ct)).Count;
         var days=Math.Max(1,(int)Math.Ceiling((r.CommittedDeadline!.Value-r.ExpectedDate!.Value).TotalDays));
-        return await estimates.PlanAsync(r.TransportType!,horses,r.DistanceKm??0,days,input,ct);
+        return await estimates.PlanAsync(r.TransportType!,horses,r.DistanceKm??0,days,input with { InsuredValueVnd=input.InsuredValueVnd??r.DeclaredValueVnd },ct);
     }
     private async Task<CostAmounts?> StoredCosts(string contract,CancellationToken ct)
     {

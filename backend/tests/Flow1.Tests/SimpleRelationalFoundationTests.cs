@@ -1,3 +1,4 @@
+using Infrastructure.Data.Context;
 using Microsoft.Data.SqlClient;
 using Xunit;
 
@@ -51,7 +52,7 @@ public sealed class SimpleRelationalFoundationTests
             """);
         await db.ScriptAsync(Script);
         Assert.Equal(new DateTime(2026, 10, 1, 12, 0, 0), await db.ScalarAsync<DateTime>("SELECT SignedAt FROM CONTRACT;"));
-        Assert.False(await db.ScalarAsync<bool>("SELECT IsCurrent FROM CONTRACT;"));
+        Assert.Equal(0,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('CONTRACT') AND name='IsCurrent';"));
         Assert.Equal(1234m, await db.ScalarAsync<decimal>("SELECT PaidAmount FROM INVOICE;"));
     }
 
@@ -79,7 +80,7 @@ public sealed class SimpleRelationalFoundationTests
             "UPDATE CONTRACT SET SignOtpFailedAttempts=6;",
             "UPDATE CONTRACT SET SignOtpHash=REPLICATE('a',64);",
             "UPDATE CONTRACT SET PdfUrl='https://public.invalid/contract.pdf';",
-            "UPDATE CONTRACT SET EffectiveSignDeadline='2026-10-10';"
+            "UPDATE CONTRACT SET CompletionDeadline='2026-10-10',PublishedAtUtc='2026-10-11';"
         }) Assert.Equal(547, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync(sql))).Number);
         await db.ExecuteAsync("""
             UPDATE TRANSPORT_REQUEST SET PickupLatitude=10,PickupLongitude=106,OriginCountry='VN',DestinationCountry='JP',TransportType='AIR',PreparationDays=7;
@@ -93,14 +94,11 @@ public sealed class SimpleRelationalFoundationTests
     {
         await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script); await InsertContract(db); await InsertInvoice(db);
         await db.ExecuteAsync("""
-            UPDATE CONTRACT SET IsCurrent=1;
-            INSERT CONTRACT(ContractID,RequestID,CustomerID,ContractCode,CurrencyCode,ContractStatus)
-            VALUES ('c-two','req-1','owner','C-TWO','VND','DRAFT');
             INSERT PAYMENT(PaymentID,InvoiceID,CurrencyCode,Amount,Method,Status,VnpayTmnCode,VnpayCreatedAtUtc,VnpayExpiresAtUtc)
             VALUES ('p-one','i-one','VND',40000000,'VNPAY','PENDING_GATEWAY','TEST0001','2026-10-17T10:00:00','2026-10-17T10:15:00'),
                    ('p-two','i-one','VND',40000000,'VNPAY','PENDING_GATEWAY','TEST0001','2026-10-17T10:00:00','2026-10-17T10:15:00');
             """);
-        Assert.Equal(2601, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("UPDATE CONTRACT SET IsCurrent=1 WHERE ContractID='c-two';"))).Number);
+        Assert.Equal(2601, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("INSERT CONTRACT(ContractID,RequestID,CustomerID,ContractCode,CurrencyCode,ContractStatus) VALUES ('c-two','req-1','owner','C-TWO','VND','DRAFT');"))).Number);
         Assert.Equal(547, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("UPDATE PAYMENT SET Status='SUCCESS',VnpayResponseCode='00',VnpayTransactionStatus='01',TransactionCode='123',VnpayReceivedAmount=40000000 WHERE PaymentID='p-one';"))).Number);
         Assert.Equal(547, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("UPDATE PAYMENT SET Status='SUCCESS',VnpayResponseCode='00',VnpayTransactionStatus='00',TransactionCode='123',VnpayReceivedAmount=1 WHERE PaymentID='p-one';"))).Number);
         await db.ExecuteAsync("UPDATE PAYMENT SET Status='SUCCESS',VnpayResponseCode='00',VnpayTransactionStatus='00',TransactionCode='123',VnpayReceivedAmount=40000000 WHERE PaymentID='p-one';");
@@ -115,10 +113,10 @@ public sealed class SimpleRelationalFoundationTests
         await db.ExecuteAsync("""
             UPDATE CONTRACT SET DepositAmount=40000000,CompletionDeadline='2026-10-20T10:00:00',
               PdfUrl='private/contract.pdf',PdfSha256=REPLICATE('a',64),PublishedBy='manager',PublishedAtUtc='2026-10-18',
-              SignedAt='2026-10-19',SignerEmail='fixture@example.invalid',SignedDepositDeadline='2026-10-20',DepositDeadline='2026-10-20';
+              SignedAt='2026-10-19',SignerEmail='fixture@example.invalid';
             INSERT TRIP_PLAN(TripID,RequestID,Status) VALUES ('t-one','req-1','PLANNING');
             """);
-        Assert.Equal(547, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("UPDATE CONTRACT SET DepositDeadline='2026-10-19';"))).Number);
+        Assert.Equal(547, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("UPDATE CONTRACT SET CompletionDeadline='2026-10-18';"))).Number);
         Assert.Equal(547, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("UPDATE CONTRACT SET CancellationId='cancel-one',CancellationStatus='APPROVED',CancellationReason=N'Cancel',CancellationRequestedAtUtc='2026-10-19';"))).Number);
         Assert.Equal(547, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("UPDATE TRIP_PLAN SET DeploymentStatus='CONFIRMED',DeploymentReason=N'Confirm',DeploymentBy='manager',DeploymentAtUtc='2026-10-19';"))).Number);
         await db.ExecuteAsync("""
@@ -128,11 +126,11 @@ public sealed class SimpleRelationalFoundationTests
         Assert.Equal(547, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("UPDATE TRIP_PLAN SET DeploymentStatus='ON_HOLD',HandoffEventId=NULL;"))).Number);
         await db.ExecuteAsync("""
             BEGIN TRANSACTION;
-            UPDATE CONTRACT SET DepositDeadline='2026-10-21',LastExtensionTarget='DEPOSIT',LastExtensionReason=N'Fixture',LastExtensionBy='manager',LastExtensionAtUtc='2026-10-19';
+            UPDATE CONTRACT SET CompletionDeadline='2026-10-21',LastExtensionReason=N'Fixture',LastExtensionBy='manager',LastExtensionAtUtc='2026-10-19';
             UPDATE INVOICE SET DueDate='2026-10-21',PaidAmount=40000000,PaymentStatus='PAID';
             ROLLBACK TRANSACTION;
             """);
-        Assert.Equal(new DateTime(2026, 10, 20), await db.ScalarAsync<DateTime>("SELECT DepositDeadline FROM CONTRACT;"));
+        Assert.Equal(new DateTime(2026, 10, 20, 10, 0, 0), await db.ScalarAsync<DateTime>("SELECT CompletionDeadline FROM CONTRACT;"));
         Assert.Equal(0m, await db.ScalarAsync<decimal>("SELECT PaidAmount FROM INVOICE;"));
     }
 
@@ -150,12 +148,14 @@ public sealed class SimpleRelationalFoundationTests
     }
 
     [LocalSqlFact]
-    public async Task Disabled_guard_or_index_is_not_silently_accepted_on_reapply()
+    public async Task Explicit_initializer_repairs_disabled_guards_and_indexes()
     {
         await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script);
         await db.ExecuteAsync("ALTER TABLE CONTRACT NOCHECK CONSTRAINT CK_F1S_CONTRACT_OtpAttempts;");
-        Assert.Equal(51205, (await Assert.ThrowsAsync<SqlException>(() => db.ScriptAsync(Script))).Number);
-        await db.ExecuteAsync("ALTER TABLE CONTRACT WITH CHECK CHECK CONSTRAINT CK_F1S_CONTRACT_OtpAttempts; ALTER INDEX UX_F1S_CurrentContract ON CONTRACT DISABLE;");
-        Assert.Equal(51206, (await Assert.ThrowsAsync<SqlException>(() => db.ScriptAsync(Script))).Number);
+        Assert.Equal(0,await db.ScalarAsync<int>(Flow1RelationalSchema.ValidationSql));
+        await db.ScriptAsync(Script);Assert.Equal(1,await db.ScalarAsync<int>(Flow1RelationalSchema.ValidationSql));
+        await db.ExecuteAsync("ALTER TABLE CONTRACT WITH CHECK CHECK CONSTRAINT CK_F1S_CONTRACT_OtpAttempts; ALTER INDEX UX_CONTRACT_RequestID ON CONTRACT DISABLE;");
+        Assert.Equal(0,await db.ScalarAsync<int>(Flow1RelationalSchema.ValidationSql));
+        await db.ScriptAsync(Script);Assert.Equal(1,await db.ScalarAsync<int>(Flow1RelationalSchema.ValidationSql));
     }
 }
