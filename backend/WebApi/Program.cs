@@ -29,6 +29,15 @@ builder.Services.AddDbContext<HorseTransportDbContext>(options =>
 // 2. ĐĂNG KÝ CÁC DỊCH VỤ NỀN TẢNG (CACHE, TOKEN, EMAIL, DAO & AUTH SERVICE)
 // =============================================================================
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("MapboxClient", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddHttpClient("GeoapifyClient", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
 builder.Services.AddScoped<IUserDAO, Infrastructure.DAOs.UserDAO>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
