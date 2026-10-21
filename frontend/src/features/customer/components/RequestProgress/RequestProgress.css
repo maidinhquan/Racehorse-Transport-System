@@ -1,0 +1,25 @@
+.cus-life { padding: 16px 18px; margin: 16px 0; }
+.cus-life__steps { display: grid; grid-template-columns: repeat(10, minmax(84px, 1fr)); gap: 6px; overflow-x: auto; }
+.cus-life__step {
+  position: relative; border: 0; background: none; padding: 0 4px; display: flex; flex-direction: column; align-items: center;
+  text-align: center; gap: 6px; font: 500 11px Inter, system-ui, sans-serif; color: #94a3b8; cursor: pointer;
+}
+.cus-life__step:disabled { cursor: default; }
+.cus-life__step::after { content: ''; position: absolute; top: 14px; left: calc(50% + 18px); right: calc(-50% + 18px); height: 2px; background: #e5e7eb; }
+.cus-life__step:last-child::after { display: none; }
+.cus-life__step.done::after { background: #16a34a; }
+.cus-life__num {
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #f1f5f9; color: #64748b;
+  font-weight: 700; font-size: 12px; border: 2px solid #e5e7eb;
+}
+.cus-life__num .cus-i { width: 14px; height: 14px; }
+.cus-life__step.done { color: #334155; }
+.cus-life__step.done .cus-life__num { background: #16a34a; border-color: #16a34a; color: #fff; }
+.cus-life__step.current { color: #ea580c; font-weight: 700; }
+.cus-life__step.current .cus-life__num { background: #fff7ed; border-color: #f57c00; color: #ea580c; }
+.cus-life__step.warn { color: #b45309; font-weight: 700; }
+.cus-life__step.warn .cus-life__num { background: #fef3c7; border-color: #f59e0b; color: #b45309; }
+.cus-life__step.failed { color: #b91c1c; font-weight: 700; }
+.cus-life__step.failed .cus-life__num { background: #fee2e2; border-color: #dc2626; color: #b91c1c; }
+.cus-life__step small { font-size: 10px; font-weight: 500; color: #64748b; }
+.cus-life__label { line-height: 1.3; }

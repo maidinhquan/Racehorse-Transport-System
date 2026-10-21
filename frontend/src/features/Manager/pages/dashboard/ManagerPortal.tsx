@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { ThemeToggle } from '../../../../shared/components';
 import './ManagerPortal.css';
 import type {
   ManagerNav,
@@ -106,9 +107,8 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
         type: 'info',
         bulletColor: 'blue',
         title: `Soạn hợp đồng nháp • ${requestId}`,
-        subtitle: `Đã chấp nhận yêu cầu • ${
-          requests.find((r) => r.id === requestId)?.customerName
-        }`,
+        subtitle: `Đã chấp nhận yêu cầu • ${requests.find((r) => r.id === requestId)?.customerName
+          }`,
         requestId,
         linkNav: 'contracts',
       },
@@ -430,6 +430,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
           </div>
 
           <div className="navbar-right">
+            <ThemeToggle showLabel={false} />
             {/* Language Switcher Pill */}
             <div className="lang-switcher-pill">
               <button

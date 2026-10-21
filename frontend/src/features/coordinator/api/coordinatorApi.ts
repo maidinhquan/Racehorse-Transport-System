@@ -1,160 +1,86 @@
-import { apiClient } from "../../../shared/api/apiClient";
+import { apiClient } from '../../../shared/api/apiClient';
+import { COORDINATOR_ENDPOINTS } from './coordinatorEndpoints';
+import type {
+  ApiResponse,
+  AssignResourcesRequestDto,
+  FlightProposalRequestDto,
+  Incident,
+  RecordMilestoneRequestDto,
+  Staff,
+  SubmitRouteRequestDto,
+  Trip,
+  UpdateEtaRequestDto,
+  Vehicle,
+} from '../types';
+import { mockIncidents, mockStaff, mockTrips, mockVehicles } from '../data/mockData';
 
-export interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T;
-  errors?: Record<string, string[]>;
+const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+/** GET có fallback về mock data khi Backend chưa chạy */
+async function getOr<T>(url: string, fallback: T): Promise<T> {
+  try {
+    const res = await apiClient.get<ApiResponse<T>>(url);
+    return res.data?.data ?? clone(fallback);
+  } catch {
+    return clone(fallback);
+  }
 }
 
-export interface CoordinatorDashboardData {
-  needRoute: number;
-  needAssignment: number;
-  availableVehicles: number;
-  totalVehicles: number;
-  activeTrips: number;
-  incidentsCount: number;
-  fleet: {
-    ready: number;
-    maintenance: number;
-    inactive: number;
-    total: number;
-  };
-  recentTrips: Array<{
-    tripId: string;
-    tripCode: string;
-    routeName: string;
-    horseCount: number;
-    plannedDeparture: string;
-    status: string;
-  }>;
-}
-
-export interface PlanningTrip {
-  tripId: string;
-  requestId: string;
-  tripCode: string;
-  customerName: string;
-  origin: string;
-  destination: string;
-  horseCount: number;
-  transportType: string;
-  plannedDepartureAt: string;
-  deliveryDeadline: string;
-  tripStatus: string;
-  stage: string;
-  vehicleAssigned: boolean;
-  driverAssigned: boolean;
-  escortAssigned: boolean;
-  allowedActions: string[];
-}
-
-export interface Vehicle {
-  vehicleId: string;
-  type: string;
-  capacityStalls: number;
-  maxRangeKm?: number;
-  fuelCostPerKm?: number;
-  status: string;
-  isAvailable: boolean;
-}
-
-export interface Staff {
-  userId: string;
-  fullName: string;
-  role: string;
-  email: string;
-  phone: string;
-  isActive: boolean;
-  specialization: string;
-}
-
-export interface TripMonitoringData {
-  tripId: string;
-  tripCode: string;
-  status: string;
-  vehiclePosition: {
-    latitude: number;
-    longitude: number;
-    lastUpdated: string;
-    currentStatus: string;
-  };
-  fixedMarkers: Array<{
-    name: string;
-    type: string;
-    lat: number;
-    lng: number;
-    color: string;
-    icon: string;
-    status: string;
-  }>;
-  routePolyline: Array<[number, number]>;
-  currentLocationName: string;
-  etaDestination?: string;
-}
-
-export interface OperationsReadiness {
-  tripId: string;
-  routeCreated: boolean;
-  routeApproved: boolean;
-  vehicleAssigned: boolean;
-  driverAssigned: boolean;
-  escortAssigned: boolean;
-  stallsSufficient: boolean;
-  isReady: boolean;
-  confirmedByCoordinator: boolean;
-  missingConditions: string[];
+/** POST/PUT: trả về true nếu Backend nhận, false nếu đang chạy chế độ mock (UI vẫn cập nhật cục bộ) */
+async function send(method: 'post' | 'put', url: string, body?: unknown): Promise<boolean> {
+  try {
+    const res = method === 'post'
+      ? await apiClient.post<ApiResponse<unknown>>(url, body)
+      : await apiClient.put<ApiResponse<unknown>>(url, body);
+    return res.data?.success !== false;
+  } catch {
+    return false;
+  }
 }
 
 export const coordinatorApi = {
-  getDashboard: async () => {
-    const res = await apiClient.get<ApiResponse<CoordinatorDashboardData>>("/coordinator/dashboard");
-    return res.data;
-  },
+  /** Danh sách chuyến Coordinator phụ trách */
+  getTrips: () => getOr<Trip[]>(COORDINATOR_ENDPOINTS.TRIPS, mockTrips),
 
-  getPlanningTrips: async () => {
-    const res = await apiClient.get<ApiResponse<PlanningTrip[]>>("/coordinator/planning-trips");
-    return res.data;
-  },
+  /** Chi tiết một chuyến */
+  getTrip: (tripId: string) =>
+    getOr<Trip | undefined>(COORDINATOR_ENDPOINTS.TRIP_DETAIL(tripId), mockTrips.find((t) => t.id === tripId)),
 
-  getTripDetail: async (tripId: string) => {
-    const res = await apiClient.get<ApiResponse<any>>(`/coordinator/trips/${tripId}`);
-    return res.data;
-  },
+  /** Đội xe */
+  getVehicles: () => getOr<Vehicle[]>(COORDINATOR_ENDPOINTS.VEHICLES, mockVehicles),
 
-  getVehicles: async (onlyAvailable: boolean = false) => {
-    const res = await apiClient.get<ApiResponse<Vehicle[]>>(`/coordinator/vehicles?onlyAvailable=${onlyAvailable}`);
-    return res.data;
-  },
+  /** Tài xế, phụ xe, bác sĩ thú y */
+  getStaff: () => getOr<Staff[]>(COORDINATOR_ENDPOINTS.STAFF, mockStaff),
 
-  getStaff: async () => {
-    const res = await apiClient.get<ApiResponse<Staff[]>>("/coordinator/staff");
-    return res.data;
-  },
+  /** Sự cố */
+  getIncidents: () => getOr<Incident[]>(COORDINATOR_ENDPOINTS.INCIDENTS, mockIncidents),
 
-  calculateRoute: async (payload: any) => {
-    const res = await apiClient.post<ApiResponse<any>>("/coordinator/routes/calculate", payload);
-    return res.data;
-  },
+  /** Gửi phương án tuyến cho Manager phê duyệt */
+  submitRoute: (tripId: string, body: SubmitRouteRequestDto) =>
+    send('post', COORDINATOR_ENDPOINTS.SUBMIT_ROUTE(tripId), body),
 
-  assignCrewAndVehicle: async (tripId: string, payload: { vehicleId: string; driverId: string; escortId: string }) => {
-    const res = await apiClient.post<ApiResponse<any>>(`/coordinator/trips/${tripId}/assignments`, payload);
-    return res.data;
-  },
+  /** Phân công xe & nhân sự (chuyến AIR gửi kèm leg) */
+  assignResources: (tripId: string, body: AssignResourcesRequestDto) =>
+    send('post', COORDINATOR_ENDPOINTS.ASSIGN_RESOURCES(tripId), body),
 
-  getTripMonitoring: async (tripId: string) => {
-    const res = await apiClient.get<ApiResponse<TripMonitoringData>>(`/coordinator/trips/${tripId}/monitoring`);
-    return res.data;
-  },
+  /** Xác nhận bố trí phương tiện & nhân sự (Operations READY) */
+  confirmResources: (tripId: string) => send('post', COORDINATOR_ENDPOINTS.CONFIRM_RESOURCES(tripId)),
 
-  getOperationsReadiness: async (tripId: string) => {
-    const res = await apiClient.get<ApiResponse<OperationsReadiness>>(`/coordinator/trips/${tripId}/operations-readiness`);
-    return res.data;
-  },
+  /** Cập nhật ETA */
+  updateEta: (tripId: string, body: UpdateEtaRequestDto) =>
+    send('put', COORDINATOR_ENDPOINTS.UPDATE_ETA(tripId), body),
 
-  confirmOperationsReadiness: async (tripId: string) => {
-    const res = await apiClient.post<ApiResponse<any>>(`/coordinator/trips/${tripId}/operations-readiness/confirm`);
-    return res.data;
-  }
+  /** Ghi nhận mốc hành trình (dùng cho nút demo – thực tế do tài xế ghi trên app tài xế) */
+  recordMilestone: (tripId: string, body: RecordMilestoneRequestDto) =>
+    send('post', COORDINATOR_ENDPOINTS.MILESTONES(tripId), body),
+
+  /** Đề xuất phương án bay (Manager duyệt ngân sách) */
+  proposeFlight: (tripId: string, body: FlightProposalRequestDto) =>
+    send('post', COORDINATOR_ENDPOINTS.FLIGHT(tripId), body),
+
+  /** Ghi nhận mã đặt chỗ từ hãng bay */
+  bookFlight: (tripId: string, bookingRef: string) =>
+    send('post', COORDINATOR_ENDPOINTS.FLIGHT_BOOKING(tripId), { bookingRef }),
 };
 
+export default coordinatorApi;

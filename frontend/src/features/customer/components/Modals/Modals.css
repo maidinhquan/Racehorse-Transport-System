@@ -1,0 +1,25 @@
+.cus-modal { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; }
+.cus-modal__back { position: absolute; inset: 0; background: rgba(15, 23, 42, .45); }
+.cus-modal__box {
+  position: relative; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+  background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 24px 60px rgba(15, 23, 42, .3);
+  font-family: Inter, system-ui, sans-serif; color: #0f172a;
+}
+.cus-modal__box--wide { max-width: 760px; }
+.cus-modal__title { margin: 0 0 14px; font-size: 18px; font-weight: 700; }
+.cus-modal__body { font-size: 13px; }
+.cus-modal__body p { margin: 0 0 12px; line-height: 1.5; }
+.cus-modal__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.cus-modal__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.cus-modal__error { color: #b91c1c; font-size: 12px; margin-top: 4px; }
+@media (max-width: 600px) { .cus-modal__grid { grid-template-columns: 1fr; } }
+.cus-btn--danger-solid { background: #dc2626; border-color: #dc2626; color: #fff; }
+.cus-btn--danger-solid:hover:not(:disabled) { background: #b91c1c; }
+.cus-rule-list { margin: 0 0 8px; padding-left: 18px; line-height: 1.7; font-size: 13px; color: #334155; }
+.cus-otp { display: flex; justify-content: center; gap: 8px; margin: 14px 0 8px; }
+.cus-otp input {
+  width: 44px; height: 52px; text-align: center; font: 700 22px Inter, system-ui, sans-serif; border: 1px solid #e5e7eb; border-radius: 10px;
+}
+.cus-otp input:focus { outline: none; border-color: #f57c00; box-shadow: 0 0 0 3px #ffedd5; }
+.cus-otp input:disabled { background: #f8fafc; }
+.cus-otp__left { text-align: center; color: #64748b; font-size: 12px; }
