@@ -19,9 +19,14 @@ public sealed partial class RelationalFlow1Service
         Require(input.IsActive && input.Rate>0 && input.Rate<=9999999999m && (rate.Code!="INSURANCE_RATE" || input.Rate<=1) && decimal.Round(input.Rate,6)==input.Rate,"VALIDATION_ERROR","Required rates must stay active; use a positive rate with at most six decimal places. Insurance ratio is between 0 and 1.");
         rate.Rate=input.Rate;await db.SaveAsync(t);return RateCard(rate);
     },ct);
-    public Task<CostPlan> RequestCostsAsync(string id,string actor,CostPlanningInput input,CancellationToken ct)=>db.RunAsync(async t=>{
-        var r=await Request(id,actor,true,t);return await CalculateCosts(r,input,t);
-    },ct);
+    public async Task<CostPlan> RequestCostsAsync(string id,string actor,CostPlanningInput input,CancellationToken ct)
+    {
+        var r=await db.RunAsync(async t=>await Request(id,actor,true,t),ct);
+        var p=await PlanContract(r,input,null,ct);
+        var horses=await db.RunAsync(async t=>(await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==id,t)).Count,ct);
+        var days=Math.Max(1,(int)Math.Ceiling((p.Delivery-p.Departure).TotalDays));
+        return await estimates.PlanAsync(p.Mode,horses,p.Km??0,days,input with {InsuredValueVnd=input.InsuredValueVnd??r.DeclaredValueVnd},ct);
+    }
     public Task<CostAmounts?> ContractCostsAsync(string id,string actor,CancellationToken ct)=>db.RunAsync(async t=>{
         await Contract(id,actor,true,t);return await StoredCosts(id,t);
     },ct);

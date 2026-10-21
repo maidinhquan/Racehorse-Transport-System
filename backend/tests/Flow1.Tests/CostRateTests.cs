@@ -100,7 +100,7 @@ public sealed class CostRateTests
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();var c=await f.Signed();
         var before=await f.Service.ContractCostsAsync(c.ContractId,"manager",default);
-        Assert.NotNull(before);Assert.NotEqual(before.Total,c.TotalPrice);
+        Assert.NotNull(before);Assert.Equal(before.Total,c.TotalPrice);
         var request=(await f.Service.ListAsync("manager",true,default)).Single(x=>x.Contracts.Any(contract=>contract.ContractId==c.ContractId));
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ReissueAsync(c.ContractId,"manager",new(c.Version,90000000,2,new(request.DepartureAt!.Value),new(request.DeliveryAt!.Value),[],"blocked",Costs:new(1,1,1,1,1)),default));
         Assert.Equal(before,await f.Service.ContractCostsAsync(c.ContractId,"manager",default));

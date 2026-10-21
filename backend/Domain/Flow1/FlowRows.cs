@@ -161,6 +161,9 @@ public sealed class FlowMedicalRecord
 [Table("CONTRACT")]
 public sealed class FlowContract
 {
+    [Column("CommercialNotes", TypeName = "nvarchar(2000)")]
+    public string? CommercialNotes { get; set; }
+
     [Column(TypeName = "nvarchar(2000)")] public string? CustomerFeedback { get; set; }
     [Column(TypeName = "varchar(200)")] public string? FeedbackFields { get; set; }
     [Column(TypeName = "varchar(20)")] public string? FeedbackStatus { get; set; }

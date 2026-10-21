@@ -6,6 +6,9 @@ namespace Domain.Entities
     [Table("CONTRACT")]
     public class Contract
     {
+        [Column("CommercialNotes", TypeName = "nvarchar(2000)")]
+        public string? CommercialNotes { get; set; }
+
         [Key]
         [Column("ContractID")]
         [StringLength(50)]

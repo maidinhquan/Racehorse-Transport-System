@@ -5,7 +5,8 @@ public sealed record CostAmounts(decimal Transport, decimal Crew, decimal Permit
     public decimal Total => Transport + Crew + Permit + Vet + Insurance;
 }
 public sealed record CostPlanningInput(int? Days = null, int? StableNights = null, int? CrewCount = null,
-    int? DoctorCount = null, int? VehicleCount = null, decimal? RoadDistanceKm = null, decimal? InsuredValueVnd = null);
+    int? DoctorCount = null, int? VehicleCount = null, decimal? RoadDistanceKm = null, decimal? InsuredValueVnd = null,
+    string? TransportMode = null, DateTimeOffset? DepartureAt = null, DateTimeOffset? DeliveryAt = null);
 public sealed record CostPlan(CostAmounts Costs, int Days, int StableNights, int CrewCount, int DoctorCount,
     int VehicleCount, decimal RoadDistanceKm, decimal? InsuredValueVnd, bool MinimumInsuranceAssumed,
     string Currency = "VND", string InsuranceRateBasis = "PROJECT_ASSUMPTION_NOT_INSURER_QUOTE");

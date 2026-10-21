@@ -30,7 +30,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
     private static DateTime Cutoff(FlowRequest r) => r.ExpectedDate is not null&&r.PreparationDays is not null?r.ExpectedDate.Value.AddDays(-r.PreparationDays.Value):throw Error("Preparation data requires review.","DATA_REVIEW_REQUIRED",409);
     private static bool RequestReady(FlowRequest r)=>r.ExpectedDate is not null&&r.CommittedDeadline>r.ExpectedDate&&r.PreparationDays is not null&&
         r.PickupLatitude is not null&&r.PickupLongitude is not null&&r.DeliveryLatitude is not null&&r.DeliveryLongitude is not null&&r.OriginCountry=="VN"&&
-        (r.TransportType=="ROAD"&&r.DestinationCountry=="VN"&&r.DistanceKm>0||r.TransportType=="AIR"&&r.DestinationCountry=="JP"&&r.DistanceKm is null)&&
+        (r.TransportType=="ROAD"&&r.DestinationCountry=="VN"&&r.DistanceKm>0||r.TransportType=="AIR"&&r.DestinationCountry is ("VN" or "JP")&&r.DistanceKm is null)&&
         !string.IsNullOrWhiteSpace(r.PickupContactName)&&!string.IsNullOrWhiteSpace(r.PickupContactPhone)&&!string.IsNullOrWhiteSpace(r.DesignatedReceiverName)&&!string.IsNullOrWhiteSpace(r.DesignatedReceiverPhone)&&!string.IsNullOrWhiteSpace(r.Purpose);
     private static DateTime SignDue(FlowContract c) => c.CompletionDeadline ?? throw Error("Signing deadline missing.", "DATA_REVIEW_REQUIRED", 409);
     private async Task<FlowUser> Actor(string id, string? role, CancellationToken ct)
@@ -74,6 +74,10 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         var payments = inv is null ? [] : await db.QueryAsync<FlowPayment>(x => x.InvoiceID == inv.InvoiceID, ct);
         var t = c.TripID is null ? null : await db.FindAsync<FlowTrip>(c.TripID, ct);
         var request=await db.FindAsync<FlowRequest>(c.RequestID,ct);
+        var quotedCosts=await StoredCosts(c.ContractID,ct);
+        // Retired contracts may have internal cost rows unrelated to their selling price.
+        // Do not present those rows as the official five selling lines or rewrite their issued PDF.
+        if(quotedCosts?.Total!=c.TotalQuotedPrice)quotedCosts=null;
         return new(c.ContractID, Token(c.RowVersion), c.ContractStatus, c.TotalQuotedPrice ?? 0, c.DepositAmount ?? 0,
             c.CompletionDeadline is null ? null : SignDue(c), c.CompletionDeadline, c.SignedAt, c.PdfSha256,
             c.CancellationId, c.CancellationStatus, c.CancellationReason, c.CancellationDecisionReason,
@@ -84,9 +88,9 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
                 t.AssignedSpecialistId,t.AssignedCoordinatorId),request is {ExpectedDate:not null,PreparationDays:not null}?Cutoff(request):null,c.CurrencyCode,
             c.DepositAmount>0&&c.DepositRateStandard is >0 and <=100&&c.CurrencyCode=="VND"&&c.CompletionDeadline is not null,
             c.SignedAt is not null&&c.PublishedAtUtc is not null&&c.SignerEmail is not null&&c.PdfUrl is not null&&c.PdfSha256 is not null,
-            c.CustomerFeedback,c.FeedbackFields,c.FeedbackStatus,c.ManagerFeedback,c.FeedbackAtUtc,c.FeedbackHandledAtUtc,c.RefundStatus,c.RefundAmount,c.DepositRateStandard);
+            c.CustomerFeedback,c.FeedbackFields,c.FeedbackStatus,c.ManagerFeedback,c.FeedbackAtUtc,c.FeedbackHandledAtUtc,c.RefundStatus,c.RefundAmount,c.DepositRateStandard,c.ContractCode,c.PublishedAtUtc,c.CommercialNotes,quotedCosts,request?.TransportType,request?.ExpectedDate,request?.CommittedDeadline,request?.PreparationDays);
     }
-    private async Task<FlowRequestCard> Card(FlowRequest r, CancellationToken ct)
+    private async Task<FlowRequestCard> Card(FlowRequest r, CancellationToken ct, bool manager=false)
     {
         var horses = new List<FlowHorseCard>();
         foreach (var l in await db.QueryAsync<FlowRequestHorse>(x => x.RequestID == r.RequestID, ct))
@@ -94,7 +98,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         var contracts = new List<FlowContractCard>();
         var existing=await db.QueryAsync<FlowContract>(x => x.RequestID == r.RequestID, ct);
         var current=existing.SingleOrDefault();
-        if(current is not null)contracts.Add(await Card(current,ct));
+        if(current is not null && (manager || current.PublishedAtUtc is not null && current.ContractStatus!="DRAFT"))contracts.Add(await Card(current,ct));
         FlowRequestInput? input=null;
         if(r.ExpectedDate is not null && r.CommittedDeadline is not null && r.PickupLatitude is not null && r.DeliveryLatitude is not null && r.PickupLongitude is not null && r.DeliveryLongitude is not null)
             input=new(new(new(r.Departure,(double)r.PickupLatitude.Value,(double)r.PickupLongitude.Value,r.OriginCountry!),new(r.Destination,(double)r.DeliveryLatitude.Value,(double)r.DeliveryLongitude.Value,r.DestinationCountry!),r.TransportType!,horses.Count,DateOnly.FromDateTime(new DateTimeOffset(r.ExpectedDate.Value).ToOffset(TimeSpan.FromHours(7)).DateTime)),new(r.ExpectedDate.Value),new(r.CommittedDeadline.Value),r.Purpose??"",Contact(r.PickupContactName??"",r.PickupContactPhone??"",r.PickupStableName,r.PickupPostalCode,r.PickupInstructions),Contact(r.DesignatedReceiverName??"",r.DesignatedReceiverPhone??"",r.DeliveryStableName,r.DeliveryPostalCode,r.DeliveryInstructions),horses.Select(h=>new HorseSelection(h.HorseId,h.Version,h.CareInstructions)).ToArray(),r.DeclaredValueUsd,r.CareInstructions);
@@ -104,14 +108,14 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
             r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct),r.BaseCost,r.DeclaredValueVnd,SharedDocuments(r));
     }
     public Task<FlowRequestCard> DetailAsync(string id, string actor, bool manager, CancellationToken ct) =>
-        db.RunAsync(async t => await Card(await Request(id, actor, manager, t), t), ct);
+        db.RunAsync(async t => await Card(await Request(id, actor, manager, t), t,manager), ct);
     public Task<FlowContractCard> ContractAsync(string id, string actor, bool manager, CancellationToken ct) =>
-        db.RunAsync(async t => await Card((await Contract(id, actor, manager, t)).C, t), ct);
+        db.RunAsync(async t => { var c=(await Contract(id,actor,manager,t)).C; if(!manager && (c.PublishedAtUtc is null || c.ContractStatus=="DRAFT"))throw Error("Contract not published.","NOT_FOUND",404); return await Card(c,t); }, ct);
     public Task<IReadOnlyList<FlowRequestCard>> ListAsync(string actor, bool manager, CancellationToken ct) => db.RunAsync<IReadOnlyList<FlowRequestCard>>(async t =>
     {
         await Actor(actor, manager ? UserRoles.LogisticsManager : UserRoles.Customer, t);
         var result = new List<FlowRequestCard>();
-        foreach (var r in (await db.QueryAsync<FlowRequest>(x => manager || x.CustomerID==actor, t)).OrderByDescending(x => x.ExpectedDate).Take(100)) result.Add(await Card(r, t));
+        foreach (var r in (await db.QueryAsync<FlowRequest>(x => manager || x.CustomerID==actor, t)).OrderByDescending(x => x.ExpectedDate).Take(100)) result.Add(await Card(r, t,manager));
         return result;
     }, ct);
     public Task<IReadOnlyList<FlowHorseCard>> HorsesAsync(string actor,CancellationToken ct,DateTimeOffset? departureAt=null,DateTimeOffset? deliveryAt=null,string? requestId=null)=>db.RunAsync<IReadOnlyList<FlowHorseCard>>(async t=>
@@ -227,7 +231,7 @@ public sealed partial class RelationalFlow1Service(IFlow1Data db, IFlow1CurrentF
         r.ManagerNotes=action=="accept" && string.IsNullOrWhiteSpace(i.Reason)?"Accepted":Text(i.Reason);
         await Notify(r.CustomerID,r.RequestID+":"+Token(r.RowVersion),action=="reject"?"REQUEST_REJECTED":action=="accept"?"REQUEST_ACCEPTED":"REQUEST_CHANGES",
             action=="reject"?"Yêu cầu vận chuyển bị từ chối":"Cập nhật xét duyệt yêu cầu",r.ManagerNotes,t);
-        await db.SaveAsync(t); return await Card(r,t);
+        await db.SaveAsync(t); return await Card(r,t,true);
     },ct);
     public Task<(byte[] Bytes,string ContentType)> HorseFileAsync(string actor,string horse,string kind,string? requestId,CancellationToken ct)=>db.RunAsync(async t=>{
         var u=await Actor(actor,null,t); var h=await db.FindAsync<FlowHorse>(horse,t)??throw Error("Horse not found.","NOT_FOUND",404);

@@ -119,11 +119,11 @@ Role chuẩn: `CUSTOMER`, `LOGISTICS_MANAGER`, `TRANSPORT_SPECIALIST`, `FLEET_RO
 
 | Bước | Vai trò | API/thao tác và kết quả cần kiểm tra |
 |---|---|---|
-| 1 | Customer | `POST /api/customer/horses` multipart: payload JSON, photo, passportScan. Mỗi file 16 bytes–5MB, nội dung tệp hợp lệ. GET `horses/selectable` để lấy horseId/version. |
+| 1 | Customer | `POST /api/customer/horses` multipart: payload JSON, photo, passportScan, ownershipCertificate; valuationDocument tùy chọn. Mỗi file 16 bytes–5MB, nội dung tệp hợp lệ. GET `horses/selectable` để lấy horseId/version. |
 | 2 | Customer | GET `locations/search`, POST `estimates`; chọn lịch còn đủ thời gian chuẩn bị. Gửi datetime có offset, ví dụ `+07:00`; không nhầm ngày theo UTC với ngày Việt Nam. |
 | 3 | Customer | POST `requests` hoặc `requests/with-documents`. JSON theo FlowRequestInput/Swagger; multipart hồ sơ tối đa 10 file, files khớp horseIds. Lưu requestId/version. |
 | 4 | Manager | GET `/api/manager/requests/{id}` rồi POST `accept` với request.version và reason phù hợp. Có thể reject/request-changes theo nhánh thử riêng. |
-| 5 | Manager | POST `/api/manager/requests/{id}/contracts`: request.version hiện hành, price VND nguyên và preparationDays. Lấy contractId/version. |
+| 5 | Manager | POST `/api/manager/requests/{id}/contracts`: request.version hiện hành; costs gồm 5 khoản VND, depositRate tùy chọn, phương thức/lịch và commercialNotes. price nếu gửi phải bằng costs.total. Lấy contractId/version; có thể PUT /contracts/{id}/draft để sửa nháp. |
 | 6 | Manager | GET `clauses`; POST `/api/manager/contracts/{id}/publish` với contract.version, clauseIds tùy chọn, additionalClauses tùy chọn. PDF được dựng bởi backend. |
 | 7 | Customer | GET `/api/customer/contracts/{id}`, `/pdf`, `/terms`. Kiểm tra đủ 12 điều khoản và khoản cọc; chưa ký ngay. |
 | 8 | Customer | POST `/api/customer/contracts/{id}/vnpay`, mở paymentUrl trả về. Theo dõi `/api/customer/payments/{paymentId}/status` và GET contract. |
@@ -136,7 +136,7 @@ Thời hạn cọc/xác minh/ký dùng hạn hiện hành backend trả; luồng
 
 ### Điều khoản và PDF
 
-- SQL seed 12 ID `flow1-required-clause-01` … `12`, nội dung tạm A…L. Cần sửa thành nội dung nghiệp vụ trước khi dùng thực tế.
+- SQL seed 12 ID `flow1-required-clause-01` … `12`, nội dung theo 12 điều khoản trong wizard đã chốt ngày 21/10/2026. Cần sửa thành nội dung nghiệp vụ trước khi dùng thực tế.
 - GET/POST `/api/manager/clauses`, PUT `/api/manager/clauses/{id}` còn giữ. 12 mục bắt buộc không được deactivate.
 - Publish/reissue tự ghép đủ 12 dù clauseIds rỗng. AdditionalClauses là chuỗi nhập thêm, tối đa 20 mục, mỗi mục 1–2000 ký tự, tổng tối đa 20000.
 - Điều khoản thêm chỉ nằm trong PDF, không lưu thêm bảng/cột. `/terms` đọc nội dung đã đóng băng trong PDF, không lấy catalogue mới để giả lập hợp đồng cũ.
@@ -259,7 +259,7 @@ POST /api/manager/requests/{id}/contracts
 }
 ```
 
-Omit price: giá hợp đồng mặc định bằng tổng costs. Manager có thể gửi price để chốt giá khác. Omit costs: backend tính với số lượng mặc định theo request và bảo hiểm tối thiểu. Reissue nhận costs tương tự; nếu bỏ costs thì tính lại theo lịch mới/định mức hiện tại. Hợp đồng đã ký hoặc còn giao dịch chưa giải quyết vẫn bị chặn sửa như trước.
+Omit price: giá hợp đồng mặc định bằng tổng costs. Manager chỉnh năm khoản; price nếu gửi phải bằng tổng costs, không có giá bán độc lập. Omit costs: backend tính với số lượng mặc định theo request và bảo hiểm tối thiểu. Reissue nhận costs tương tự; nếu không đổi phương thức/lịch thì giữ các dòng đã lưu, đổi phương thức/lịch thì tính lại nếu không gửi costs. Hợp đồng đã ký hoặc còn giao dịch chưa giải quyết vẫn bị chặn sửa như trước.
 
 Các tên cũ demoTransportCost/estimatedTransportCost được giữ tương thích API nhưng nay biểu thị tổng kế hoạch, không còn chỉ riêng tiền vận chuyển. estimatedTransportCost của request lưu từ lúc gửi request, không bị giá Manager chốt ghi đè. Frontend chưa được sửa để gọi các API mới: bảng/form cũ không tự có thêm chức năng sau khi backend cập nhật.
 
@@ -323,3 +323,20 @@ Backend tính tổng declaredValueVnd từ ngựa được chọn, lưu trên re
 Response `sharedDocuments` luôn có ba mục với documentId/documentType = INVITATION_LETTER, COMPETITION_REGISTRATION, ATA_CARNET; horseId = null; status UPLOADED/NOT_PROVIDED. Đây là trạng thái nộp tệp, không thêm quy trình xét duyệt. Customer/Manager đọc bằng endpoint `/api/{customer|manager}/requests/{id}/documents/{documentId}` có kiểm tra quyền. Không nhận URL tệp do client tự cung cấp.
 
 Sổ tiêm, ngày tiêm, giấy chứng nhận sức khỏe và bác sĩ thú y riêng được xử lý sau ký bởi Flow 3. Không yêu cầu nộp trước ký, không tạo trạng thái đã duyệt giả. Checkbox xác nhận và nút tiếp tục giữa các bước do frontend giữ; chưa có API lưu nháp từng bước. Gửi cuối dùng Idempotency-Key ổn định để retry không tạo trùng request.
+
+## Wizard hợp đồng: nháp → phát hành (21/10/2026)
+
+- POST `/api/manager/requests/{id}/contracts` tạo DRAFT; dùng request.version. Nháp nằm trong CONTRACT, năm dòng tiền nằm trong COST_ITEM. Chưa có PDF, hóa đơn, thông báo phát hành hoặc hạn cọc/ký chính thức. Customer không xem được nháp.
+- PUT `/api/manager/contracts/{id}/draft` cập nhật nháp chưa từng phát hành; dùng contract.version. Cho sửa transportMode, departureAt/deliveryAt, preparationDays, costs, depositRate và commercialNotes. Không dùng reissue để lưu nháp. GET contract trả lại các trường này, contractCode, costs.total và publishedAtUtc.
+- VN→VN hỗ trợ ROAD/AIR; VN→JP chỉ AIR. AIR cần chuẩn bị tối thiểu 7 ngày; ROAD 2 ngày khi ≤500 km, 3 ngày khi >500 km. Cần thêm trọn 24 giờ trước thời gian chuẩn bị. Khi đổi phương thức/lịch phải kiểm tra lại lịch bận và lộ trình; số ngựa/địa điểm vẫn lấy từ request duyệt. Lưu nháp cập nhật phương án hiện hành trên request, không tạo cột lịch/phương thức trùng lặp trong CONTRACT.
+- POST `/api/manager/requests/{id}/cost-estimate` có thêm transportMode/departureAt/deliveryAt để tính thử phương án; không lưu thay đổi. Năm giá mặc định lấy COST_RATE; Manager có thể sửa từng khoản. Tổng hợp đồng luôn bằng tổng năm khoản, VND; không margin/dự phòng. price là tùy chọn và chỉ được dùng để xác nhận cùng tổng. Một giá độc lập khác tổng bị từ chối.
+- costs có transport/crew/permit/vet/insurance; vet và insurance phải dương, các khoản là số nguyên VND. Khi cập nhật nháp, bỏ costs thì giữ số đã chốt nếu phương thức/lịch không đổi; nếu đổi phương thức/lịch thì lấy dự toán mới. depositRate mặc định 40% khi tạo, giữ mức hiện tại khi sửa nếu không gửi.
+- CommercialNotes là cột mới duy nhất trong CONTRACT, nvarchar(2000), nhận qua commercialNotes. Bỏ trường khi sửa để giữ cũ, gửi chuỗi rỗng để xóa. Nội dung được trả cho Customer và đưa vào PDF.
+- 12 điều bắt buộc lấy nguyên văn danh mục; không sửa riêng từng điều trong hợp đồng và không được bỏ. SQL 002 thay A–L bằng nội dung đã duyệt; chạy lại không ghi đè danh mục đã được Manager sửa. API quản lý danh mục cũ vẫn giữ.
+- AdditionalClauses chỉ gửi tại publish/reissue và chỉ lưu trong PDF, không có DraftTermsJson hoặc bảng điều khoản. API lưu nháp từ chối additionalClauses có nội dung để tránh báo lưu thành công nhưng mất dữ liệu; frontend giữ phần đang nhập.
+- POST `/api/manager/contracts/{id}/publish` phát hành nháp với version và additionalClauses tùy chọn. PDF cố định năm dòng giá, lịch/phương thức, liên hệ/hướng dẫn nhận giao, chăm sóc, ghi chú thương mại và điều khoản. Hạn chung 24 giờ bắt đầu khi phát hành; tạo hóa đơn cọc và thông báo sau khi PDF thành công. Render lỗi thì nháp vẫn còn, chưa có hóa đơn hoặc thông báo.
+- Reissue dùng cho hợp đồng đã phát hành nhưng chưa ký và chưa có tiền/giao dịch chưa giải quyết. Feedback có thể chọn thêm TRANSPORT_MODE hoặc COMMERCIAL_NOTES; giá, tỷ lệ cọc hoặc năm dòng tiền thuộc PRICE. Nội dung đã ký và PDF đã phát hành không tự đổi theo danh mục.
+- GET contract trả contractCode/publishedAtUtc/commercialNotes/costs/transportMode/departureAt/deliveryAt/preparationDays. Không có phiên bản nghiệp vụ; version vẫn là token chống ghi đè. Bản hợp đồng cũ có các dòng chi phí nội bộ không khớp giá bán sẽ không trả chúng như costs chính thức; không viết lại PDF hoặc tiền đã thu để chuyển đổi.
+- Không có API PDF xem trước. Frontend tự tổng hợp bước 4, rồi xem PDF thật sau phát hành. Không có thay đổi frontend trong đợt backend này.
+- Bố cục PDF do code tạo. Docker dùng tài liệu ODT dạng XML trung gian để tránh lỗi bộ nhập HTML của LibreOffice; không dùng Word mẫu từ data và không lưu nội dung trung gian vào database. Windows dùng browser được cấu hình nếu có.
+- Kiểm chứng lượt wizard hợp đồng: 164 Flow1.Tests và 47 Registration.Tests passed, không skipped; test hồi quy XML/tiêu đề PDF passed. Đã thử API thật trên Docker từ request ROAD đến nháp AIR, cập nhật/mở lại nháp, phát hành/phát hành lại PDF và chặn sửa khi có giao dịch VNPay chờ. Không khẳng định các luồng sau bàn giao đã được kiểm thử trong lượt này.

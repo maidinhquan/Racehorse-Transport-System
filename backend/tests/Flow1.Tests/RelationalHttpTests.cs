@@ -64,7 +64,7 @@ public sealed class RelationalHttpTests
         using var manager2=app.Client("manager2","LOGISTICS_MANAGER");
         var shared=await Read<FlowRequestCard[]>(await manager2.GetAsync("/api/manager/requests"));
         Assert.Contains(shared,x=>x.RequestId==r.RequestId);
-        var c=await Post<FlowContractCard>(manager2,$"/api/manager/requests/{r.RequestId}/contracts",new FlowAction(r.Version,Price:100000000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),"http-contract-key");
+        var c=await Post<FlowContractCard>(manager2,$"/api/manager/requests/{r.RequestId}/contracts",new FlowAction(r.Version,Price:100000000,Costs:CustomerTransportTests.Quote(100000000),PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),"http-contract-key");
         c=await Post<FlowContractCard>(manager,$"/api/manager/contracts/{c.ContractId}/publish",new FlowAction(c.Version,ClauseIds:[f.ClauseId]));
         Assert.Equal("no-store",(await customer.GetAsync($"/api/customer/contracts/{c.ContractId}/pdf")).Headers.CacheControl?.ToString());
         var session=await Post<JsonElement>(customer,$"/api/customer/contracts/{c.ContractId}/vnpay",new{},"http-payment-key");var payment=session.GetProperty("paymentId").GetString()!;

@@ -5,6 +5,7 @@ public static class Flow1RelationalSchema
     // Current schema only. No historical profile markers or constraint fingerprints.
     public const string ValidationSql="""
         SELECT CONVERT(int,CASE WHEN OBJECT_ID('dbo.COST_RATE','U') IS NOT NULL
+          AND COL_LENGTH('dbo.CONTRACT','CommercialNotes')=4000
           AND COL_LENGTH('dbo.CONTRACT','CompletionDeadline')=8
           AND COL_LENGTH('dbo.CONTRACT','EffectiveSignDeadline') IS NULL
           AND COL_LENGTH('dbo.CONTRACT','DepositDeadline') IS NULL

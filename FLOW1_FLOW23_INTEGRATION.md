@@ -253,3 +253,10 @@ Giữ nguyên `USER.ResetOtpCode`/`ResetOtpExpiry` của luồng tài khoản v�
 - Specialist được chỉ định đọc file chung qua GET `/api/operations/flow1/trips/{tripId}/documents/{documentId}?eventId={eventId}`; kiểm tra assignment/event như baseline. File ngựa có thêm kind ownership/valuation, ngoài photo/passport.
 - Hồ sơ có sẵn UPLOADED chỉ có nghĩa đã nộp, không đồng nghĩa đã được Specialist kiểm duyệt. Sổ tiêm/ngày tiêm, chứng nhận sức khỏe và bác sĩ thú y riêng thuộc hồ sơ chuyến sau ký của Flow 3; dùng LEGAL_MEDICAL_RECORD và API do teammate phụ trách. Không chặn tạo request vì thiếu các giấy này, không tự sinh bản ghi hoặc sửa quy trình kiểm duyệt Flow 3.
 - Giá trị VND từ request được dùng mặc định khi Manager dự toán bảo hiểm. declaredValueUsd cũ vẫn được giữ để không phá dữ liệu/consumer cũ; không quy đổi hoặc dùng làm VND. Chạy lại SQL 002 trước khi dùng backend mới.
+
+## Hợp đồng và phương án sau cập nhật wizard (21/10/2026)
+
+- Manager có thể thay phương thức/lịch trong nháp hoặc phát hành lại trước khi có tiền/ký. VN→VN có ROAD/AIR, VN→JP chỉ AIR. Phương án cuối vẫn nằm ở TRANSPORT_REQUEST.TransportType/ExpectedDate/CommittedDeadline; không thêm bản sao cột. Bàn giao chỉ xảy ra sau cọc xác minh + ký OTP + Manager chỉ định, nên Flow 2/3 đọc phương án đã chốt.
+- Năm dòng PLANNED_* trong COST_ITEM của hợp đồng mới là năm khoản giá hợp đồng Manager chốt; tổng bằng TotalQuotedPrice. Không coi các dòng này là chi phí thực tế phát sinh. GET contract trả costs chính thức và commercialNotes; dự toán chưa lưu vẫn là đề xuất.
+- CommercialNotes là cột CONTRACT mới duy nhất. Không có DraftTermsJson hay bảng lưu điều khoản. Điều khoản bổ sung cố định trong PDF; 12 điều danh mục đã cập nhật từ UI, không tự sửa PDF cũ.
+- Lưu nháp không sinh Trip/invoice/thông báo phát hành. Nháp chỉ Manager đọc được. Luồng nhận task sau phân công và các ràng buộc assignment/event không đổi. Các nội dung thanh toán sau bàn giao/nghiệm thu trong điều khoản là dữ liệu hợp đồng; nghiệp vụ Flow 2/3/sau chuyến không được triển khai lại trong đợt này.

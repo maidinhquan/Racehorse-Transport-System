@@ -58,7 +58,7 @@ public static class Flow1PricingPolicy
         if (input.Pickup is null || input.Delivery is null) throw Error("Pickup and delivery are required.", "VALIDATION_ERROR");
         if (input.Pickup.Country != "VN" || input.Delivery.Country is not ("VN" or "JP"))
             throw Error("Only VN to VN and VN to JP are supported.", "UNSUPPORTED_ROUTE");
-        if (input.PreferredTransportMode != (input.Delivery.Country == "JP" ? "AIR" : "ROAD"))
+        if (input.PreferredTransportMode is not ("ROAD" or "AIR") || input.Delivery.Country == "JP" && input.PreferredTransportMode != "AIR")
             throw Error("Transport mode does not match this route.", "UNSUPPORTED_TRANSPORT_MODE");
         foreach (var p in new[] { input.Pickup, input.Delivery })
             if (string.IsNullOrWhiteSpace(p.Address) || p.Address.Length > 255 || !double.IsFinite(p.Lat) ||

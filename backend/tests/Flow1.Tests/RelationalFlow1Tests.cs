@@ -78,7 +78,7 @@ public sealed class RelationalFlow1Tests
         public async Task<(FlowRequestCard R,FlowContractCard C)> Published()
         {
             var r=await Request();r=await Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted"),default);
-            var c=await Service.DraftAsync(r.RequestId,"manager","contract-key-one",new(r.Version,Price:100000000,PreparationDays:2,Deadline:Time.Value.AddDays(2)),default);
+            var c=await Service.DraftAsync(r.RequestId,"manager","contract-key-one",new(r.Version,Price:100000000,Costs:CustomerTransportTests.Quote(100000000),PreparationDays:2,Deadline:Time.Value.AddDays(2)),default);
             c=await Service.PublishAsync(c.ContractId,"manager",new(c.Version,ClauseIds:[ClauseId]),default);return(r,c);
         }
         public async Task<FlowContractCard> Paid()

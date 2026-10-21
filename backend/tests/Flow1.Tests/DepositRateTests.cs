@@ -25,7 +25,7 @@ public sealed class DepositRateTests
         using var app=new RelationalHttpFactory(f);using var manager=app.Client("manager","LOGISTICS_MANAGER");
         manager.DefaultRequestHeaders.Add("Idempotency-Key","custom-deposit-rate");
         var response=await manager.PostAsJsonAsync($"/api/manager/requests/{r.RequestId}/contracts",
-            new FlowAction(r.Version,Price:100000003,PreparationDays:2,DepositRate:25.5m));
+            new FlowAction(r.Version,Price:100000003,Costs:CustomerTransportTests.Quote(100000003),PreparationDays:2,DepositRate:25.5m));
         Assert.Equal(HttpStatusCode.OK,response.StatusCode);
         using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var data=json.RootElement.GetProperty("data");Assert.Equal(25.5m,data.GetProperty("depositRate").GetDecimal());
@@ -72,12 +72,12 @@ public sealed class DepositRateTests
         foreach(var rate in new[]{0m,-1m,100.01m,30.001m})
         {
             var error=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DraftAsync(r.RequestId,"manager","invalid-rate-key",
-                new(r.Version,Price:100000000,PreparationDays:2,DepositRate:rate),default));
+                new(r.Version,Price:100000000,Costs:CustomerTransportTests.Quote(100000000),PreparationDays:2,DepositRate:rate),default));
             Assert.Equal("VALIDATION_ERROR",error.ErrorCode);
         }
-        var c=await f.Service.DraftAsync(r.RequestId,"manager","valid-rate-key",new(r.Version,Price:100000000,PreparationDays:2,DepositRate:30),default);
+        var c=await f.Service.DraftAsync(r.RequestId,"manager","valid-rate-key",new(r.Version,Price:100000000,Costs:CustomerTransportTests.Quote(100000000),PreparationDays:2,DepositRate:30),default);
         var changed=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.DraftAsync(r.RequestId,"manager","valid-rate-key",
-            new(r.Version,Price:100000000,PreparationDays:2,DepositRate:40),default));
+            new(r.Version,Price:100000000,Costs:CustomerTransportTests.Quote(100000000),PreparationDays:2,DepositRate:40),default));
         Assert.Equal("IDEMPOTENCY_KEY_REUSED",changed.ErrorCode);
         Assert.Equal(30m,(await f.Service.ContractAsync(c.ContractId,"manager",true,default)).DepositRate);
         Assert.Equal(547,(await Assert.ThrowsAsync<SqlException>(()=>f.Db.ExecuteAsync("UPDATE CONTRACT SET DepositRateStandard=101;"))).Number);

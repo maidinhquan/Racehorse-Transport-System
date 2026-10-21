@@ -20,7 +20,7 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
             "\nFlow 1: Get the current record first and copy its `version` (a concurrency token, not a contract edition). Use the signed-in account's role. One shared 24-hour deadline covers deposit, verification and OTP signing. Deposit verification alone never creates a Trip.";
 
         if (path.Contains("contracts", StringComparison.OrdinalIgnoreCase))
-            operation.Description += " One stored CompletionDeadline covers deposit and signing; response signDeadline/depositDeadline are aliases of it. One contract per request, updated in place; no isCurrent flag.";
+            operation.Description += " One stored CompletionDeadline covers deposit and signing; response signDeadline/depositDeadline are aliases of it. One contract per request, updated in place; no isCurrent flag. GET returns contractCode, publishedAtUtc, commercialNotes, costs (five final quoted lines), transportMode, departureAt, deliveryAt and preparationDays. price must equal costs.total. Domestic VN supports ROAD/AIR; VN-JP only AIR. Drafts have no completion deadline, invoice or publication notification. Customers cannot read unpublished drafts.";
 
         if (path.StartsWith("api/customer/horses", StringComparison.OrdinalIgnoreCase))
             operation.Description += " Horse profile owns passport metadata, declaredValueVnd and specialHealthNotes. POST creates, PUT updates an unused owned horse using version. Creation/full update require photo, passportScan and ownershipCertificate; valuationDocument is optional. File kinds: photo/passport/ownership/valuation. UPLOADED is not approval. No vaccination, trip health certificate or private veterinarian required before signing.";
@@ -105,7 +105,7 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
         if (path.EndsWith("/cost-estimate",StringComparison.OrdinalIgnoreCase))
         {
             media!.Example=new OpenApiObject { ["days"]=new OpenApiInteger(2),["stableNights"]=new OpenApiInteger(1),["crewCount"]=new OpenApiInteger(2),["doctorCount"]=new OpenApiInteger(1),["insuredValueVnd"]=new OpenApiLong(1000000000) };
-            operation.Description+=" Manager-only five-group plan. {} uses request duration, nights=days-1, configured staffing and the request's server-calculated declaredValueVnd for insurance. Manager can override insuredValueVnd. RoadDistanceKm/VehicleCount can specify additional ground legs for AIR. No costs are saved by this endpoint. Copy costs into draft/reissue to store the chosen plan. DeclaredValueUsd is not treated as VND.";
+            operation.Description+=" Manager-only five-group plan. {} uses request duration, nights=days-1, configured staffing and the request's server-calculated declaredValueVnd for insurance. Manager can override insuredValueVnd. RoadDistanceKm/VehicleCount can specify additional ground legs for AIR. No costs are saved by this endpoint. transportMode/departureAt/deliveryAt can simulate another plan without changing the request. Copy costs into draft/reissue to store the chosen plan. DeclaredValueUsd is not treated as VND.";
             return;
         }
 
@@ -180,18 +180,25 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
             if (path.EndsWith("/sign", StringComparison.OrdinalIgnoreCase))
                 body["otp"] = new OpenApiString("COPY_6_digit_code_FROM_EMAIL");
         }
-        else if (path.EndsWith("/contracts", StringComparison.OrdinalIgnoreCase))
+        else if (path.EndsWith("/contracts", StringComparison.OrdinalIgnoreCase) || path.EndsWith("/draft", StringComparison.OrdinalIgnoreCase))
         {
             body.Remove("reason");
             body["price"] = new OpenApiLong(100000000);
             body["depositRate"] = new OpenApiDouble(40);
             body["preparationDays"] = new OpenApiInteger(2);
-            operation.Description += " Draft uses request.version. Optional depositRate is a percentage > 0 and <= 100 with at most two decimal places (30 means 30%); defaults to 40. It must yield a positive whole-VND deposit. Optional costs contains transport, crew, permit, vet, insurance in integral VND; omitted costs are calculated from request quantities and database rates, with minimum insurance when VND insured value is unknown. Omit price to use costs.total, or provide the Manager's final price. Five planned COST_ITEM rows are saved. No margin or reserve. The issue deadline is calculated by the server, not supplied by the client.";
+            body["costs"] = CreateCostsExample(100000000);
+            body["transportMode"] = new OpenApiString("ROAD");
+            body["departureAt"] = new OpenApiString("2026-11-25T08:00:00+07:00");
+            body["deliveryAt"] = new OpenApiString("2026-11-27T16:00:00+07:00");
+            body["commercialNotes"] = new OpenApiString("Giá bao gồm năm khoản nêu trong hợp đồng.");
+            operation.Description += " POST creates a draft using request.version; PUT /contracts/{id}/draft updates an unpublished draft using contract.version. Mode/dates are optional: default to request. Minimum preparation: AIR 7 days, ROAD 2/3 days by distance; a full 24-hour completion window is also required before preparation. Omit preparationDays for the computed minimum/current value. price is optional but must match the five costs when supplied. costs omitted on create uses the calculated plan; update retains saved amounts unless mode/dates changed. depositRate defaults to 40% on create and retains its current value on update. commercialNotes supports 2000 characters; send empty text to clear. Additional clauses belong only to publish/reissue, not draft persistence. No invoice/PDF/customer notification before publication.";
         }
         else if (path.EndsWith("/reissue", StringComparison.OrdinalIgnoreCase))
         {
             operation.Description += " Optional depositRate keeps the existing percentage when omitted. Changing it recalculates the invoice/PDF before payment only. During feedback, a deposit-rate change requires PRICE in the requested fields.";
             body["price"] = new OpenApiLong(95000000);
+            body["costs"] = CreateCostsExample(95000000);
+            body["commercialNotes"] = new OpenApiString("Giá điều chỉnh đã thống nhất với Customer.");
             body["depositRate"] = new OpenApiDouble(30);
             body["preparationDays"] = new OpenApiInteger(2);
             body["departureAt"] = new OpenApiString("2026-12-20T08:00:00+07:00");
@@ -199,7 +206,7 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
             body["clauseIds"] = new OpenApiArray();
             body["additionalClauses"] = new OpenApiArray { new OpenApiString("Điều khoản bổ sung sau khi thống nhất với khách hàng.") };
             body["reason"] = new OpenApiString("Agreed revised terms following feedback");
-            operation.Description += " The twelve required clauses cannot be removed. Omit additionalClauses to retain the issued PDF's additional terms; send [] to remove them where clause edits are allowed. Optional costs replaces the five planned VND cost rows; omitted costs are recalculated for the revised schedule using current rates. Signed contracts and unresolved payments cannot be reissued.";
+            operation.Description += " The twelve required clauses cannot be removed. Omit additionalClauses to retain the issued PDF's additional terms; send [] to remove them where clause edits are allowed. Optional costs replaces the five planned VND cost rows; omitted costs are retained for unchanged mode/dates, otherwise recalculated; price must match their total. transportMode may change only to a supported mode. Feedback-scoped changes require TRANSPORT_MODE/COMMERCIAL_NOTES/PRICE respectively. Signed contracts and unresolved payments cannot be reissued.";
         }
         else if (path.EndsWith("/extend", StringComparison.OrdinalIgnoreCase))
         {
@@ -247,6 +254,11 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
         media!.Example = body;
     }
 
+    private static OpenApiObject CreateCostsExample(long total) => new()
+    {
+        ["transport"]=new OpenApiLong(total-40000000),["crew"]=new OpenApiLong(10000000),
+        ["permit"]=new OpenApiLong(10000000),["vet"]=new OpenApiLong(10000000),["insurance"]=new OpenApiLong(10000000)
+    };
     private static OpenApiObject CreateTripExample() => new()
     {
         ["pickup"] = new OpenApiObject

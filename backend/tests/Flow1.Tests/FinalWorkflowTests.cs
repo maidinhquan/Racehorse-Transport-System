@@ -84,7 +84,7 @@ public sealed class FinalWorkflowTests
         Assert.Equal(r.RequestId,(await f.Service.DetailAsync(r.RequestId,"manager2",true,default)).RequestId);
         var stale=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ReviewAsync(r.RequestId,"manager2","reject",new(original,"Outdated"),default));
         Assert.Equal("STALE_VERSION",stale.ErrorCode);
-        var c=await f.Service.DraftAsync(r.RequestId,"manager2","shared-manager-draft",new(r.Version,Price:100000000,PreparationDays:2),default);
+        var c=await f.Service.DraftAsync(r.RequestId,"manager2","shared-manager-draft",new(r.Version,Price:100000000,Costs:CustomerTransportTests.Quote(100000000),PreparationDays:2),default);
         c=await f.Service.PublishAsync(c.ContractId,"manager",new(c.Version,ClauseIds:[f.ClauseId]),default);
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ContractAsync(c.ContractId,"other",false,default));
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST') AND name='AssignedManagerId';"));
@@ -119,7 +119,7 @@ public sealed class FinalWorkflowTests
         await f.Service.SaveClauseAsync(f.ClauseId,"manager",new("Điều khoản đã sửa","Nội dung mới chỉ cho hợp đồng phát hành sau."),default);
         Assert.Equal(oldPdf.Bytes,(await f.Service.PdfAsync(c.ContractId,"owner",false,default)).Bytes);
         c=await f.Service.FeedbackAsync(c.ContractId,"owner",new(c.Version,"Đề nghị đổi điều khoản và giảm giá",["CLAUSES","PRICE"]),default);
-        c=await f.Service.ReissueAsync(c.ContractId,"manager",new(c.Version,95000000,2,new DateTimeOffset(r.DepartureAt!.Value),new DateTimeOffset(r.DeliveryAt!.Value),[f.ClauseId],"Đã thống nhất"),default);
+        c=await f.Service.ReissueAsync(c.ContractId,"manager",new(c.Version,95000000,2,new DateTimeOffset(r.DepartureAt!.Value),new DateTimeOffset(r.DeliveryAt!.Value),[f.ClauseId],"Đã thống nhất",Costs:CustomerTransportTests.Quote(95000000)),default);
         Assert.NotEqual(oldHash,c.PdfSha256);Assert.Equal(95000000,c.TotalPrice);Assert.Equal(38000000,c.DepositAmount);
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));Assert.Equal(2,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='FLOW1_CONTRACT_READY';"));
         var clauses=PublishedClauseSelection.Read((await f.Service.PdfAsync(c.ContractId,"owner",false,default)).Bytes);
@@ -141,7 +141,7 @@ public sealed class FinalWorkflowTests
     {
         await using var f=await Fixture.Create();var(r,c)=await f.Published();
         c=await f.Service.FeedbackAsync(c.ContractId,"owner",new(c.Version,"Dời ngày đón và giao",["DEPARTURE_AT","DELIVERY_AT"]),default);
-        var input=new ContractReissueInput(c.Version,c.TotalPrice,2,new DateTimeOffset(r.DepartureAt!.Value).AddDays(5),new DateTimeOffset(r.DeliveryAt!.Value).AddDays(5),[f.ClauseId],"Đã kiểm tra lịch");
+        var input=new ContractReissueInput(c.Version,c.TotalPrice,2,new DateTimeOffset(r.DepartureAt!.Value).AddDays(5),new DateTimeOffset(r.DeliveryAt!.Value).AddDays(5),[f.ClauseId],"Đã kiểm tra lịch",Costs:c.Costs);
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ReissueAsync(c.ContractId,"manager",input with {Price=1},default));
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ReissueAsync(c.ContractId,"manager",input with {DeliveryAt=input.DepartureAt.AddHours(-1)},default));
         c=await f.Service.ReissueAsync(c.ContractId,"manager",input,default);var updated=await f.Service.DetailAsync(r.RequestId,"owner",false,default);
@@ -215,7 +215,7 @@ public sealed class FinalWorkflowTests
     public async Task Publication_rechecks_catalogue_and_customer_after_renderer_io()
     {
         await using var f=await Fixture.Create();var r=await f.Request();r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted"),default);
-        var c=await f.Service.DraftAsync(r.RequestId,"manager","draft-key-one",new(r.Version,Price:100000000,PreparationDays:2),default);
+        var c=await f.Service.DraftAsync(r.RequestId,"manager","draft-key-one",new(r.Version,Price:100000000,Costs:CustomerTransportTests.Quote(100000000),PreparationDays:2),default);
         f.Renderer.DuringRender=async()=>{await f.NewService().SaveClauseAsync(f.ClauseId,"manager",new("Changed","Changed while rendering"),default);};
         var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.PublishAsync(c.ContractId,"manager",new(c.Version,ClauseIds:[f.ClauseId]),default));
         Assert.Equal("CLAUSES_CHANGED",e.ErrorCode);Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));

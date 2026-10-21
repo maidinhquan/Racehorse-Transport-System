@@ -5,11 +5,27 @@ using Application.DTOs.Flow1;
 using Infrastructure.ExternalServices.Flow1;
 using Infrastructure.Storage;
 using Xunit;
+using System.Reflection;
+using System.Xml.Linq;
 
 namespace Flow1.Tests;
 
 public sealed class RelationalPdfTests
 {
+    [Fact]
+    public void Native_writer_layout_has_a_real_first_paragraph_and_escapes_all_user_text()
+    {
+        var model=new ContractPdfModel(new(){["CONTRACT_CODE"]="QA-1",["COMMERCIAL_NOTES"]="Notes <&>"},[],
+            [new("clause-1","Điều 1","Clause <&> \nsecond line","VI",true)], ["Additional <&>"],new(1,2,3,4,5));
+        var method=typeof(CodeContractDocumentGenerator).Assembly.GetType("Infrastructure.ExternalServices.Flow1.ContractFlatDocument")!.GetMethod("Build",BindingFlags.Static|BindingFlags.Public)!;
+        var xml=(string)method.Invoke(null,[model])!;Assert.StartsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>",xml);var document=XDocument.Parse(xml);
+        XNamespace text="urn:oasis:names:tc:opendocument:xmlns:text:1.0",office="urn:oasis:names:tc:opendocument:xmlns:office:1.0";
+        Assert.Equal("HỢP ĐỒNG DỊCH VỤ VẬN CHUYỂN NGỰA",document.Descendants(office+"text").Single().Elements().First().Value);
+        Assert.Contains("Notes <&>",document.Descendants(office+"text").Single().Value);
+        Assert.Contains("Additional <&>",document.Descendants(office+"text").Single().Value);
+        Assert.Contains("Năm khoản giá hợp đồng (VND)",document.Descendants(office+"text").Single().Value);
+        Assert.NotEmpty(document.Descendants(text+"line-break"));Assert.Contains("&lt;&amp;&gt;",xml);
+    }
     [LocalSqlFact]
     public async Task Real_pdf_contains_twelve_required_and_additional_clauses_in_immutable_private_bytes()
     {

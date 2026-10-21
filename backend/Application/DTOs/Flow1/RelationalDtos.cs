@@ -15,11 +15,13 @@ public sealed record FlowAction(string Version, string? Reason = null, decimal? 
     DateTimeOffset? Deadline = null, string? Target = null, string? Otp = null, string? PdfSha256 = null,
     string? CancellationId = null, string? EventId = null,
     string? AssignedSpecialistId = null, string? AssignedCoordinatorId = null,
-    IReadOnlyList<string>? ClauseIds = null, IReadOnlyList<string>? AdditionalClauses = null, CostAmounts? Costs = null, decimal? DepositRate = null);
+    IReadOnlyList<string>? ClauseIds = null, IReadOnlyList<string>? AdditionalClauses = null, CostAmounts? Costs = null, decimal? DepositRate = null,
+    string? TransportMode = null, DateTimeOffset? DepartureAt = null, DateTimeOffset? DeliveryAt = null, string? CommercialNotes = null);
 public sealed record ContractFeedbackInput(string Version, string FeedbackMessage, IReadOnlyList<string> Fields);
 public sealed record ContractReissueInput(string Version, decimal Price, int PreparationDays,
     DateTimeOffset DepartureAt, DateTimeOffset DeliveryAt, IReadOnlyList<string>? ClauseIds, string Reason,
-    IReadOnlyList<string>? AdditionalClauses = null, CostAmounts? Costs = null, decimal? DepositRate = null);
+    IReadOnlyList<string>? AdditionalClauses = null, CostAmounts? Costs = null, decimal? DepositRate = null,
+    string? TransportMode = null, string? CommercialNotes = null);
 public sealed record ClauseInput(string Title, string Content, string LanguageCode = "VI", bool IsActive = true);
 public sealed record ClauseCard(string ClauseId, string Title, string Content, string LanguageCode, bool IsActive,
     bool IsRequired = false, int? DisplayOrder = null);
@@ -41,7 +43,9 @@ public sealed record FlowContractCard(string ContractId, string Version, string 
     IReadOnlyList<FlowPaymentCard> Payments, FlowTripCard? Trip, DateTime? PreparationCutoff = null, string Currency = "VND", bool RelationalTermsReady = false, bool HasAcceptanceEvidence = false,
     string? CustomerFeedback = null, string? FeedbackFields = null, string? FeedbackStatus = null,
     string? ManagerFeedback = null, DateTime? FeedbackAtUtc = null, DateTime? FeedbackHandledAtUtc = null,
-    string? RefundStatus = null, decimal? RefundAmount = null, decimal? DepositRate = null);
+    string? RefundStatus = null, decimal? RefundAmount = null, decimal? DepositRate = null,
+    string? ContractCode = null, DateTime? PublishedAtUtc = null, string? CommercialNotes = null, CostAmounts? Costs = null,
+    string? TransportMode = null, DateTime? DepartureAt = null, DateTime? DeliveryAt = null, int? PreparationDays = null);
 public sealed record FlowRequestCard(string RequestId, string Version, string Status, string Departure, string Destination,
     DateTime? DepartureAt, DateTime? DeliveryAt, string? ManagerNotes, decimal? DistanceKm, int? PreparationDays,
     string? PickupContactName, string? PickupContactPhone, string? ReceiverName, string? ReceiverPhone,
@@ -54,4 +58,4 @@ public sealed record FlowHandoff(FlowTripCard Trip, string RequestId, string Dep
     decimal? DeclaredValueUsd = null, IReadOnlyList<FlowRequestDocument>? Documents = null,
     decimal? DeclaredValueVnd = null, IReadOnlyList<FlowRequestDocument>? SharedDocuments = null);
 public sealed record ContractPdfModel(Dictionary<string, string> Values, Dictionary<string, string>[] Horses,
-    IReadOnlyList<ClauseCard>? Clauses = null, IReadOnlyList<string>? AdditionalClauses = null);
+    IReadOnlyList<ClauseCard>? Clauses = null, IReadOnlyList<string>? AdditionalClauses = null, CostAmounts? Costs = null);

@@ -13,7 +13,7 @@ public sealed class RequiredContractClauseTests
     private static async Task<(FlowRequestCard Request,FlowContractCard Contract)> Draft(Fixture f)
     {
         var r=await f.Request();r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Ready"),default);
-        var c=await f.Service.DraftAsync(r.RequestId,"manager","required-clauses-draft",new(r.Version,Price:100000000,PreparationDays:2),default);
+        var c=await f.Service.DraftAsync(r.RequestId,"manager","required-clauses-draft",new(r.Version,Price:100000000,Costs:CustomerTransportTests.Quote(100000000),PreparationDays:2),default);
         return(r,c);
     }
     [LocalSqlFact]
@@ -21,8 +21,8 @@ public sealed class RequiredContractClauseTests
     {
         await using var db=await Flow1TestDatabase.CreateAsync();
         Assert.Equal(12,await db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT_TEMPLATE WHERE TemplateID LIKE 'flow1-required-clause-%';"));
-        Assert.Equal("ABCDEFGHIJKL",await db.ScalarAsync<string>("SELECT STRING_AGG(CONVERT(nvarchar(max),BodyContent),'') WITHIN GROUP(ORDER BY TemplateID) FROM CONTRACT_TEMPLATE WHERE TemplateID LIKE 'flow1-required-clause-%';"));
-        Assert.Equal("Điều 1",await db.ScalarAsync<string>("SELECT TemplateName FROM CONTRACT_TEMPLATE WHERE TemplateID='flow1-required-clause-01';"));
+        Assert.Equal(0,await db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT_TEMPLATE WHERE TemplateID LIKE 'flow1-required-clause-%' AND LEN(BodyContent)=1;"));
+        Assert.Equal("Điều 1. Thông tin và tư cách các bên",await db.ScalarAsync<string>("SELECT TemplateName FROM CONTRACT_TEMPLATE WHERE TemplateID='flow1-required-clause-01';"));
         await db.ExecuteAsync("UPDATE CONTRACT_TEMPLATE SET BodyContent=N'Operator revision' WHERE TemplateID='flow1-required-clause-01';");
         await db.ScriptAsync("002_flow1.sql");
         Assert.Equal("Operator revision",await db.ScalarAsync<string>("SELECT BodyContent FROM CONTRACT_TEMPLATE WHERE TemplateID='flow1-required-clause-01';"));
@@ -51,7 +51,7 @@ public sealed class RequiredContractClauseTests
         var error=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.PublishAsync(c.ContractId,"manager",new(c.Version,ClauseIds:[]),default));
         Assert.Equal("REQUIRED_CLAUSES_MISSING",error.ErrorCode);
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));
-        Assert.Null((await f.Service.ContractAsync(c.ContractId,"owner",false,default)).PdfSha256);
+        Assert.Null((await f.Service.ContractAsync(c.ContractId,"manager",true,default)).PdfSha256);
     }
     [LocalSqlFact]
     public async Task Additional_terms_are_only_in_pdf_and_reissue_keeps_then_explicitly_replaces_them()
@@ -67,7 +67,7 @@ public sealed class RequiredContractClauseTests
         Assert.DoesNotContain("PDF_ONLY_SENTINEL_20261020",await f.Db.ScalarAsync<string>("SELECT * FROM TRANSPORT_REQUEST FOR JSON PATH;"));
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('CONTRACT') AND name LIKE '%AdditionalClause%';"));
         var reissue=new ContractReissueInput(c.Version,c.TotalPrice,2,new(r.DepartureAt!.Value),new(r.DeliveryAt!.Value),[],"Reissue price");
-        c=await f.Service.ReissueAsync(c.ContractId,"manager",reissue with {Price=95000000},default);
+        c=await f.Service.ReissueAsync(c.ContractId,"manager",reissue with {Price=95000000,Costs=CustomerTransportTests.Quote(95000000)},default);
         Assert.Equal(additional,Assert.Single((await f.Service.ContractTermsAsync(c.ContractId,"owner",false,default)).AdditionalClauses));
         Assert.Equal(additional,Assert.Single(PublishedClauseSelection.ReadAdditional(originalPdf)));
         c=await f.Service.ReissueAsync(c.ContractId,"manager",reissue with {Version=c.Version,Price=c.TotalPrice,AdditionalClauses=[]},default);
@@ -80,7 +80,7 @@ public sealed class RequiredContractClauseTests
         await using var f=await Fixture.Create();var(r,c)=await Draft(f);
         c=await f.Service.PublishAsync(c.ContractId,"manager",new(c.Version,AdditionalClauses:["Original additional clause"]),default);
         c=await f.Service.FeedbackAsync(c.ContractId,"owner",new(c.Version,"Giảm giá",["PRICE"]),default);
-        var input=new ContractReissueInput(c.Version,95000000,2,new(r.DepartureAt!.Value),new(r.DeliveryAt!.Value),[],"Adjusted price",["Changed clause"]);
+        var input=new ContractReissueInput(c.Version,95000000,2,new(r.DepartureAt!.Value),new(r.DeliveryAt!.Value),[],"Adjusted price",["Changed clause"],Costs:CustomerTransportTests.Quote(95000000));
         var error=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ReissueAsync(c.ContractId,"manager",input,default));
         Assert.Equal("FIELD_LOCKED",error.ErrorCode);
         c=await f.Service.ReissueAsync(c.ContractId,"manager",input with {AdditionalClauses=null},default);
@@ -105,7 +105,7 @@ public sealed class RequiredContractClauseTests
         await using var f=await Fixture.Create();var(_,c)=await Draft(f);
         foreach(var input in new IReadOnlyList<string>[] { [" "], [new string('x',2001)], Enumerable.Repeat("x",21).ToArray() })
             await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.PublishAsync(c.ContractId,"manager",new(c.Version,AdditionalClauses:input),default));
-        Assert.Null((await f.Service.ContractAsync(c.ContractId,"owner",false,default)).PdfSha256);
+        Assert.Null((await f.Service.ContractAsync(c.ContractId,"manager",true,default)).PdfSha256);
     }
     [LocalSqlFact]
     public async Task Signed_pdf_and_its_terms_cannot_be_reissued_or_changed_by_later_catalogue_edits()

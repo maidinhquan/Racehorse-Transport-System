@@ -121,6 +121,7 @@ public sealed class Flow1ManagerApi(RelationalFlow1Service service):FlowApi
     [HttpGet("requests/{id}")]public async Task<IActionResult> GetRequest(string id,CancellationToken ct)=>Result(await service.DetailAsync(id,Actor,true,ct));
     [HttpPost("requests/{id}/accept"),HttpPost("requests/{id}/reject"),HttpPost("requests/{id}/request-changes")]public async Task<IActionResult> Review(string id,FlowAction input,CancellationToken ct)=>Result(await service.ReviewAsync(id,Actor,HttpContext.Request.Path.Value!.Split('/')[^1],input,ct));
     [HttpPost("requests/{id}/contracts")]public async Task<IActionResult> Draft(string id,FlowAction input,CancellationToken ct)=>Result(await service.DraftAsync(id,Actor,Key,input,ct));
+    [HttpPut("contracts/{id}/draft")]public async Task<IActionResult> UpdateDraft(string id,FlowAction input,CancellationToken ct)=>Result(await service.UpdateDraftAsync(id,Actor,input,ct));
     [HttpGet("requests/{id}/horses/{horse}/files/{kind}")]public async Task<IActionResult> HorseFile(string id,string horse,string kind,CancellationToken ct)=>PrivateFile(await service.HorseFileAsync(Actor,horse,kind,id,ct),kind);
     [HttpGet("contracts/{id}")]public async Task<IActionResult> Contract(string id,CancellationToken ct)=>Result(await service.ContractAsync(id,Actor,true,ct));
     [HttpGet("contracts/{id}/pdf")]public async Task<IActionResult> Pdf(string id,CancellationToken ct)=>PrivateFile(await service.PdfAsync(id,Actor,true,ct),"contract");

@@ -10,24 +10,27 @@ namespace Application.Services.Flow1.Relational;
 
 public sealed partial class RelationalFlow1Service
 {
-    public Task<FlowContractCard> DraftAsync(string request,string actor,string key,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{
-        Key(key); var r=await Request(request,actor,true,t); var id=Id("c",request); var prior=await db.FindAsync<FlowContract>(id,t);
-        if(prior is not null) { Require((i.Price is null || prior.TotalQuotedPrice==i.Price) && (i.DepositRate is null || prior.DepositRateStandard==i.DepositRate) && r.PreparationDays==i.PreparationDays && (i.Costs is null || i.Costs==await StoredCosts(prior.ContractID,t)),"IDEMPOTENCY_KEY_REUSED","A draft already exists with different terms; use the feedback/reissue operation."); return await Card(prior,t); }
-        Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Request needs reviewed relational data before quoting.");
-        Check(r.RowVersion,i.Version); Require(r.Status=="ACCEPTED","DRAFT_CLOSED","Accept the request first.");
-        Require(!(await db.QueryAsync<FlowContract>(c=>c.RequestID==request && c.ContractStatus!="CANCELLED",t)).Any(),"CONTRACT_OPEN","A current Contract already exists.");
-        var costs=i.Costs??(await CalculateCosts(r,new(),t)).Costs;
-        var price=i.Price??costs.Total;
-        Require(price is >=3 and <=9999999999m && price==decimal.Truncate(price),"INVALID_PRICE","Enter an integral VND quote.");
-        var depositRate=i.DepositRate??Flow1ContractFactory.DepositPercent;
-        var deposit=ContractDeposit(price,depositRate);
-        var floor=r.DestinationCountry=="JP"?7:r.DistanceKm>500?3:2;
-        Require(i.PreparationDays>=Math.Max(floor,r.PreparationDays??floor),"INVALID_PREPARATION","Preparation may only increase."); r.PreparationDays=i.PreparationDays;
-        Require(Now.AddHours(24)<=Cutoff(r),"INVALID_DEADLINE","Departure must allow preparation and the shared 24-hour completion window.");
-        var c=new FlowContract { ContractID=id,RequestID=request,CustomerID=r.CustomerID,ContractCode="F1-"+id[1..17].ToUpperInvariant(),CurrencyCode="VND",
-            TotalQuotedPrice=price,DepositRateStandard=depositRate,DepositAmount=deposit,CompletionDeadline=Now.AddHours(24),ContractStatus="DRAFT" };
-        db.Add(c);await SaveCosts(id,costs,t); r.Status="DRAFT_CONTRACT"; await db.SaveAsync(t); return await Card(c,t);
-    },ct);
+    public async Task<FlowContractCard> DraftAsync(string request,string actor,string key,FlowAction i,CancellationToken ct)
+    {
+        Key(key);Require(i.AdditionalClauses is null or {Count:0},"VALIDATION_ERROR","Send additionalClauses when publishing; they are not saved in the draft.");
+        var snapshot=await db.RunAsync(async t=>{
+            var r=await Request(request,actor,true,t);var prior=(await db.QueryAsync<FlowContract>(x=>x.RequestID==request,t)).SingleOrDefault();
+            if(prior is not null){Require((i.Price is null || i.Price==prior.TotalQuotedPrice) && (i.DepositRate is null || i.DepositRate==prior.DepositRateStandard) && (i.PreparationDays is null || i.PreparationDays==r.PreparationDays) && (i.TransportMode is null || i.TransportMode==r.TransportType) && (i.DepartureAt is null || Utc(i.DepartureAt.Value)==r.ExpectedDate) && (i.DeliveryAt is null || Utc(i.DeliveryAt.Value)==r.CommittedDeadline) && (i.CommercialNotes is null || OptionalText(i.CommercialNotes,2000)==prior.CommercialNotes) && (i.Costs is null || i.Costs==await StoredCosts(prior.ContractID,t)),"IDEMPOTENCY_KEY_REUSED","A contract already exists with different terms; update its draft or reissue it.");return(R:r,Prior:await Card(prior,t),Version:Token(r.RowVersion));}
+            Check(r.RowVersion,i.Version);Require(r.Status=="ACCEPTED","DRAFT_CLOSED","Accept the request first.");
+            return(R:r,Prior:(FlowContractCard?)null,Version:Token(r.RowVersion));
+        },ct);
+        if(snapshot.Prior is not null)return snapshot.Prior;
+        var plan=await PlanContract(snapshot.R,new(TransportMode:i.TransportMode,DepartureAt:i.DepartureAt,DeliveryAt:i.DeliveryAt),i.PreparationDays,ct);
+        return await db.RunAsync(async t=>{
+            var r=await Request(request,actor,true,t);Check(r.RowVersion,snapshot.Version);Require(r.Status=="ACCEPTED","DRAFT_CLOSED","Request changed during planning.");
+            Require(!(await db.QueryAsync<FlowContract>(x=>x.RequestID==request,t)).Any(),"CONTRACT_OPEN","A contract already exists.");
+            var costs=i.Costs??plan.Costs;var total=QuoteTotal(i.Price,costs);var rate=i.DepositRate??Flow1ContractFactory.DepositPercent;
+            var deposit=ContractDeposit(total,rate);var id=Id("c",request);
+            await ApplyContractPlan(r,plan,t);
+            var c=new FlowContract {ContractID=id,RequestID=request,CustomerID=r.CustomerID,ContractCode="F1-"+id[1..17].ToUpperInvariant(),CurrencyCode="VND",TotalQuotedPrice=total,DepositRateStandard=rate,DepositAmount=deposit,CommercialNotes=OptionalText(i.CommercialNotes,2000),ContractStatus="DRAFT"};
+            db.Add(c);await SaveCosts(id,costs,t);r.Status="DRAFT_CONTRACT";await db.SaveAsync(t);return await Card(c,t);
+        },ct);
+    }
 
     public async Task<FlowContractCard> PublishAsync(string id,string actor,FlowAction i,CancellationToken ct)
     {
@@ -35,6 +38,8 @@ public sealed partial class RelationalFlow1Service
             var(c,r)=await Contract(id,actor,true,t); Check(c.RowVersion,i.Version);
             Require(c.ContractStatus!="CANCELLED" && c.ContractStatus=="DRAFT" && Now.AddHours(24)<=Cutoff(r),"PUBLICATION_CLOSED","Draft needs a complete 24-hour window before preparation.");
             Require(i.DepositRate is null || i.DepositRate==c.DepositRateStandard,"VALIDATION_ERROR","Set depositRate in the draft or reissue operation before publication.");
+            await RequireNoMoneyOrAttempts(c,t);
+            var costs=await StoredCosts(id,t)??throw Error("Five quoted cost rows are required.","DATA_REVIEW_REQUIRED",409);QuoteTotal(c.TotalQuotedPrice,costs);
             var selected=await SelectedClauses(i.ClauseIds,t); var additional=AdditionalTerms(i.AdditionalClauses); var publicationDeadline=Now.AddHours(24);
             var u=(await db.FindAsync<FlowUser>(c.CustomerID,t))!; var horses=new List<FlowHorse>();
             foreach(var l in await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==r.RequestID,t)) {
@@ -42,7 +47,8 @@ public sealed partial class RelationalFlow1Service
                 await files.ReadAsync(h.PhotoUrl!,t); await files.ReadAsync(h.PassportScanUrl!,t); horses.Add(h);
             }
             Require(horses.Count>0,"HORSE_DOCUMENTS_REQUIRED","Request has no horses.");
-            var model=PdfModel(c,r,u,horses) with { Clauses=selected,AdditionalClauses=additional }; model.Values["COMPLETION_DEADLINE"]=new DateTimeOffset(publicationDeadline,TimeSpan.Zero).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm 'UTC+07'",CultureInfo.InvariantCulture);
+            var horseCare=await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==r.RequestID,t);
+            var model=PdfModel(c,r,u,horses) with { Clauses=selected,AdditionalClauses=additional,Costs=costs }; foreach(var horse in model.Horses)horse["HORSE_CARE"]=horseCare.Single(x=>x.HorseID==horse["HORSE_1_ID"]).CareInstructions??""; model.Values["COMPLETION_DEADLINE"]=new DateTimeOffset(publicationDeadline,TimeSpan.Zero).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm 'UTC+07'",CultureInfo.InvariantCulture);
             return (Deadline:publicationDeadline,Version:Token(c.RowVersion),RequestVersion:Token(r.RowVersion),Email:u.Email,Name:u.FullName,Phone:u.Phone,Horses:horses.Select(h=>new{Id=h.HorseID,Version=Token(h.RowVersion)}).ToArray(),Clauses:selected,Model:model);
         },ct);
         var rendered=await pdf.GenerateAsync(new(id,1,"v3",JsonSerializer.SerializeToElement(snapshot.Model,new JsonSerializerOptions(JsonSerializerDefaults.Web))),ct);
@@ -51,6 +57,7 @@ public sealed partial class RelationalFlow1Service
             var(c,r)=await Contract(id,actor,true,t); Check(c.RowVersion,snapshot.Version); Check(r.RowVersion,snapshot.RequestVersion);
             Require(c.ContractStatus!="CANCELLED" && c.ContractStatus=="DRAFT" && Now<snapshot.Deadline && Now<Cutoff(r),"PUBLICATION_CLOSED","Draft changed or expired during rendering.");
             foreach(var horse in snapshot.Horses){var currentHorse=await db.FindAsync<FlowHorse>(horse.Id,t);Require(currentHorse is not null,"HORSE_DOCUMENTS_REQUIRED","Horse changed during rendering.");Check(currentHorse.RowVersion,horse.Version);}
+            await RequireNoMoneyOrAttempts(c,t);
             var activeClauses=await SelectedClauses(i.ClauseIds,t); Require(activeClauses.SequenceEqual(snapshot.Clauses),"CLAUSES_CHANGED","Clause catalogue changed during rendering; retry publication.");
             var currentUser=(await db.FindAsync<FlowUser>(c.CustomerID,t))!;
             Require(currentUser.Email==snapshot.Email && currentUser.FullName==snapshot.Name && currentUser.Phone==snapshot.Phone,"CUSTOMER_CHANGED","Customer details changed during rendering; regenerate the PDF.");
@@ -83,7 +90,8 @@ public sealed partial class RelationalFlow1Service
         P("CONTRACT_CODE",c.ContractCode); P("REQUEST_ID",r.RequestID); P("PLAN_VERSION","1"); P("CREATED_DATE",D(Now)); P("COMPLETION_DEADLINE",D(c.CompletionDeadline));
         P("PREPARATION_CUTOFF",D(Cutoff(r))); P("CUSTOMER_FULL_NAME",u.FullName); P("CUSTOMER_USER_ID",u.UserID); P("CUSTOMER_EMAIL",u.Email); P("CUSTOMER_PHONE",u.Phone);
         P("CUSTOMER_ADDRESS",null); P("CUSTOMER_ID_NUMBER",null); P("DEPARTURE_LOCATION",r.Departure); P("DESTINATION_LOCATION",r.Destination); P("TRANSPORT_MODE",r.TransportType); P("TRANSPORT_PURPOSE",r.Purpose);
-        P("TRANSPORT_SCOPE",r.TransportType=="AIR"?"VN → JP; airport-to-airport; ground legs excluded":"ROAD");
+        P("TRANSPORT_SCOPE",r.TransportType=="AIR"?r.OriginCountry+" → "+r.DestinationCountry+"; airport-to-airport; ground legs excluded":"ROAD");
+        P("PICKUP_CONTACT_NAME",r.PickupContactName);P("PICKUP_CONTACT_PHONE",r.PickupContactPhone);P("PICKUP_STABLE",r.PickupStableName);P("DELIVERY_STABLE",r.DeliveryStableName);P("PICKUP_POSTAL_CODE",r.PickupPostalCode);P("DELIVERY_POSTAL_CODE",r.DeliveryPostalCode);P("PICKUP_INSTRUCTIONS",r.PickupInstructions);P("DELIVERY_INSTRUCTIONS",r.DeliveryInstructions);P("CARE_INSTRUCTIONS",r.CareInstructions);P("COMMERCIAL_NOTES",c.CommercialNotes);
         P("TOTAL_DISTANCE_KM",r.DistanceKm?.ToString("N2",CultureInfo.InvariantCulture)); P("EXPECTED_DEPARTURE_DATETIME",D(r.ExpectedDate)); P("COMMITTED_DEADLINE_DATETIME",D(r.CommittedDeadline));
         P("DESIGNATED_RECEIVER_NAME",r.DesignatedReceiverName); P("DESIGNATED_RECEIVER_PHONE",r.DesignatedReceiverPhone); P("CURRENCY_CODE","VND"); P("EXCHANGE_RATE","1");
         foreach(var k in new[]{"BASE_PRICE_P","TOTAL_PRICE_VND"}) P(k,M(total));
@@ -95,7 +103,7 @@ public sealed partial class RelationalFlow1Service
         foreach(var k in new[]{"LIEN_DAILY_RATE","LIEN_DAILY_RATE_VND"}) P(k,"Chưa thỏa thuận / Not agreed");
         // No fictitious signature, OTP, Trip or completed handover values at issuance.
         foreach(var k in new[]{"ACTUAL_DELIVERY_LOCATION","ACTUAL_HANDOVER_TIMESTAMP","APP_DIGITAL_SIG_ID","APP_SIGNED_TIMESTAMP","CUSTOMER_OTP_AUTH_CODE","CUSTOMER_SIGNED_TIMESTAMP","HANDED_BY_STAFF_ID","HANDED_BY_STAFF_NAME","HANDOVER_ID","HORSE_1_VET_STATUS","RECEIVED_BY_NAME","RECEIVED_BY_PHONE","SAFETY_GATE_ETA","SAFETY_GATE_LOCATION","SIGNING_DATE","SIGNING_DAY","SIGNING_MONTH","SIGNING_YEAR","TRIP_ID"}) P(k,"CHƯA THỰC HIỆN / NOT PERFORMED");
-        return new(v,horses.Select(h=>new Dictionary<string,string>{{"HORSE_1_ID",h.HorseID},{"HORSE_1_NAME",h.Name},{"HORSE_1_MICROCHIP",h.Microchip_ISO},{"HORSE_1_FEI_NO",h.FEI_Passport_No??"Not supplied"},{"HORSE_1_BREED",h.Breed??"Not supplied"},{"HORSE_1_SEX",h.Sex??"Not supplied"},{"HORSE_1_AGE",h.DOB is null?"Not supplied":Math.Max(0,(int)((Now-h.DOB.Value).TotalDays/365.2425)).ToString()}}).ToArray());
+        return new(v,horses.Select(h=>new Dictionary<string,string>{{"HORSE_HEALTH_NOTES",h.SpecialHealthNotes??""},{"HORSE_1_ID",h.HorseID},{"HORSE_1_NAME",h.Name},{"HORSE_1_MICROCHIP",h.Microchip_ISO},{"HORSE_1_FEI_NO",h.FEI_Passport_No??"Not supplied"},{"HORSE_1_BREED",h.Breed??"Not supplied"},{"HORSE_1_SEX",h.Sex??"Not supplied"},{"HORSE_1_AGE",h.DOB is null?"Not supplied":Math.Max(0,(int)((Now-h.DOB.Value).TotalDays/365.2425)).ToString()}}).ToArray());
     }
     private string OtpDigest(FlowContract c,string email,string code)=>otp.Digest("relational-sign",$"{c.ContractID}|{c.CustomerID}|{c.PdfSha256}|{email}|{c.SignOtpSentAtUtc:O}|{c.SignOtpExpiry:O}|{SignDue(c):O}|{code}");
     public async Task SendOtpAsync(string id,string actor,FlowAction i,CancellationToken ct)

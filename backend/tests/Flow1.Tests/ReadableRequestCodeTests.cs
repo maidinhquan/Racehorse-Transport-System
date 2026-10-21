@@ -77,10 +77,12 @@ public sealed class ReadableRequestCodeTests
         await using var f=await RelationalFlow1Tests.Fixture.Create();
         var r=await f.Request();
         r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted"),default);
-        await f.Service.DraftAsync(r.RequestId,"manager","demo-quote-key",new(r.Version,Price:1_000_000,PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default);
+        await f.Service.DraftAsync(r.RequestId,"manager","demo-quote-key",new(r.Version,Price:1_000_000,Costs:CustomerTransportTests.Quote(1_000_000),PreparationDays:2,Deadline:f.Time.Value.AddDays(2)),default);
         var detail=await f.Service.DetailAsync(r.RequestId,"owner",false,default);
         Assert.Equal(29_400_000m,detail.EstimatedTransportCost);
-        Assert.Equal(1_000_000m,Assert.Single(detail.Contracts).TotalPrice);
+        Assert.Empty(detail.Contracts);
+        var managerDetail=await f.Service.DetailAsync(r.RequestId,"manager",true,default);
+        Assert.Equal(1_000_000m,Assert.Single(managerDetail.Contracts).TotalPrice);
     }
 
 }

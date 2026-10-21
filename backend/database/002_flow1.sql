@@ -18,6 +18,7 @@ IF EXISTS(SELECT 1 FROM sys.foreign_keys WHERE name='FK_F1_Manager') ALTER TABLE
 IF EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('CONTRACT') AND name='UX_F1S_CurrentContract') DROP INDEX UX_F1S_CurrentContract ON CONTRACT;
 
 -- Add the fields used by the current backend.
+IF COL_LENGTH('dbo.CONTRACT','CommercialNotes') IS NULL ALTER TABLE CONTRACT ADD CommercialNotes NVARCHAR(2000) NULL;
 IF COL_LENGTH('dbo.HORSE','PassportIssuedBy') IS NULL ALTER TABLE [HORSE] ADD [PassportIssuedBy] NVARCHAR(200) NULL;
 IF COL_LENGTH('dbo.HORSE','PassportIssuedDate') IS NULL ALTER TABLE [HORSE] ADD [PassportIssuedDate] DATE NULL;
 IF COL_LENGTH('dbo.HORSE','PassportExpiryDate') IS NULL ALTER TABLE [HORSE] ADD [PassportExpiryDate] DATE NULL;
@@ -174,8 +175,8 @@ ALTER TABLE [HORSE] WITH CHECK ADD CONSTRAINT CK_F1S_HORSE_PassportScanUrl CHECK
 ALTER TABLE [TRANSPORT_REQUEST] WITH CHECK ADD CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Pickup CHECK ([PickupLatitude] IS NULL AND [PickupLongitude] IS NULL OR [PickupLatitude] IS NOT NULL AND [PickupLongitude] IS NOT NULL AND ([PickupLatitude]>=(-90) AND [PickupLatitude]<=(90)) AND ([PickupLongitude]>=(-180) AND [PickupLongitude]<=(180)));
 ALTER TABLE [TRANSPORT_REQUEST] WITH CHECK ADD CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Delivery CHECK ([DeliveryLatitude] IS NULL AND [DeliveryLongitude] IS NULL OR [DeliveryLatitude] IS NOT NULL AND [DeliveryLongitude] IS NOT NULL AND ([DeliveryLatitude]>=(-90) AND [DeliveryLatitude]<=(90)) AND ([DeliveryLongitude]>=(-180) AND [DeliveryLongitude]<=(180)));
 ALTER TABLE [TRANSPORT_REQUEST] WITH CHECK ADD CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Distance CHECK ([DistanceKm] IS NULL OR [DistanceKm]>(0));
-ALTER TABLE [TRANSPORT_REQUEST] WITH CHECK ADD CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Route CHECK ([OriginCountry] IS NULL AND [DestinationCountry] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [TransportType] IS NOT NULL AND [OriginCountry]=''VN'' AND ([DestinationCountry]=''VN'' AND [TransportType]=''ROAD'' OR [DestinationCountry]=''JP'' AND [TransportType]=''AIR''));
-ALTER TABLE [TRANSPORT_REQUEST] WITH CHECK ADD CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Preparation CHECK ([PreparationDays] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [PreparationDays]>=case when [DestinationCountry]=''JP'' then (7) when [DistanceKm]>(500) then (3) else (2) end AND ([DestinationCountry]=''JP'' OR [DistanceKm] IS NOT NULL));
+ALTER TABLE [TRANSPORT_REQUEST] WITH CHECK ADD CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Route CHECK ([OriginCountry] IS NULL AND [DestinationCountry] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [TransportType] IS NOT NULL AND [OriginCountry]=''VN'' AND ([DestinationCountry]=''VN'' AND [TransportType] IN (''ROAD'',''AIR'') OR [DestinationCountry]=''JP'' AND [TransportType]=''AIR''));
+ALTER TABLE [TRANSPORT_REQUEST] WITH CHECK ADD CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Preparation CHECK ([PreparationDays] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [PreparationDays]>=case when [TransportType]=''AIR'' then (7) when [DistanceKm]>(500) then (3) else (2) end AND ([TransportType]=''AIR'' OR [DistanceKm] IS NOT NULL));
 ALTER TABLE [TRANSPORT_REQUEST] WITH CHECK ADD CONSTRAINT CK_F1D_DeclaredValueUsd CHECK ([DeclaredValueUsd] IS NULL OR [DeclaredValueUsd]>(0));
 ALTER TABLE [TRIP_PLAN] WITH CHECK ADD CONSTRAINT CK_F1S_TRIP_PLAN_Deployment CHECK ([DeploymentStatus] IS NULL OR ([DeploymentStatus]=''ON_HOLD'' OR [DeploymentStatus]=''CONFIRMED'' OR [DeploymentStatus]=''PENDING'') AND [DeploymentReason] IS NOT NULL AND [DeploymentBy] IS NOT NULL AND [DeploymentAtUtc] IS NOT NULL AND ([DeploymentStatus]=''CONFIRMED'' AND [HandoffEventId] IS NOT NULL OR ([DeploymentStatus]=''ON_HOLD'' OR [DeploymentStatus]=''PENDING'') AND [HandoffEventId] IS NULL));
 ALTER TABLE [TRIP_PLAN] WITH CHECK ADD CONSTRAINT CK_F1Final_Handoff CHECK ([DeploymentStatus] IS NULL OR ([DeploymentStatus]=''CONFIRMED'' OR [DeploymentStatus]=''PENDING''));
@@ -229,23 +230,27 @@ SELECT CostRateID, Code, CostGroup, CalculationUnit, Rate, CurrencyCode, IsActiv
 ) Seed(CostRateID, Code, CostGroup, CalculationUnit, Rate, CurrencyCode, IsActive)
 WHERE NOT EXISTS(SELECT 1 FROM COST_RATE existing WHERE existing.CostRateID=Seed.CostRateID);
 
--- 12 dieu khoan bat buoc: noi dung A-L de cap nhat sau.
-INSERT INTO CONTRACT_TEMPLATE (TemplateID, TemplateName, LanguageCode, BodyContent, IsActive, CreatedAt)
-SELECT TemplateID, TemplateName, LanguageCode, BodyContent, IsActive, CreatedAt FROM (VALUES
-(''flow1-required-clause-01'', N''Điều 1'', ''VI'', N''A'', 1, SYSUTCDATETIME()),
-(''flow1-required-clause-02'', N''Điều 2'', ''VI'', N''B'', 1, SYSUTCDATETIME()),
-(''flow1-required-clause-03'', N''Điều 3'', ''VI'', N''C'', 1, SYSUTCDATETIME()),
-(''flow1-required-clause-04'', N''Điều 4'', ''VI'', N''D'', 1, SYSUTCDATETIME()),
-(''flow1-required-clause-05'', N''Điều 5'', ''VI'', N''E'', 1, SYSUTCDATETIME()),
-(''flow1-required-clause-06'', N''Điều 6'', ''VI'', N''F'', 1, SYSUTCDATETIME()),
-(''flow1-required-clause-07'', N''Điều 7'', ''VI'', N''G'', 1, SYSUTCDATETIME()),
-(''flow1-required-clause-08'', N''Điều 8'', ''VI'', N''H'', 1, SYSUTCDATETIME()),
-(''flow1-required-clause-09'', N''Điều 9'', ''VI'', N''I'', 1, SYSUTCDATETIME()),
-(''flow1-required-clause-10'', N''Điều 10'', ''VI'', N''J'', 1, SYSUTCDATETIME()),
-(''flow1-required-clause-11'', N''Điều 11'', ''VI'', N''K'', 1, SYSUTCDATETIME()),
-(''flow1-required-clause-12'', N''Điều 12'', ''VI'', N''L'', 1, SYSUTCDATETIME())
-) Seed(TemplateID, TemplateName, LanguageCode, BodyContent, IsActive, CreatedAt)
-WHERE NOT EXISTS(SELECT 1 FROM CONTRACT_TEMPLATE existing WHERE existing.TemplateID=Seed.TemplateID);
+-- Twelve fixed clauses from the approved contract wizard.
+DECLARE @Flow1Terms TABLE(TemplateID varchar(50),Title nvarchar(255),Content nvarchar(max));
+INSERT INTO @Flow1Terms VALUES
+(N''flow1-required-clause-01'',N''Điều 1. Thông tin và tư cách các bên'',N''CBN Transport (Bên A) cung cấp dịch vụ cho Customer (Bên B). Thông tin pháp lý, người đại diện và liên hệ được ghi trong hồ sơ hợp đồng. Customer phải có quyền sở hữu hoặc ủy quyền vận chuyển ngựa hợp lệ.''),
+(N''flow1-required-clause-02'',N''Điều 2. Đối tượng vận chuyển'',N''Danh sách, số lượng, định danh, hộ chiếu và yêu cầu sức khỏe/chăm sóc ngựa lấy trực tiếp từ Transport Request đã được duyệt. Customer chịu trách nhiệm khai báo trung thực; tình trạng ngựa được ghi nhận tại lúc tiếp nhận và bàn giao. Manager không tự sửa dữ liệu thuộc Customer.''),
+(N''flow1-required-clause-03'',N''Điều 3. Phạm vi dịch vụ'',N''CBN Transport tổ chức nhận/giao ngựa, chặng đường bộ, nhân sự hộ tống, bác sĩ thú y, kiểm dịch, bảo hiểm và thủ tục liên quan. Tuyến Việt Nam đến Nhật Bản bao gồm dịch vụ hàng không trực tiếp do bên thứ ba cung cấp. Xe, tài xế và số chuyến bay cụ thể được xác định trong Trip.''),
+(N''flow1-required-clause-04'',N''Điều 4. Địa điểm, lộ trình và thời gian'',N''Địa điểm nhận/giao, người nhận được ủy quyền, ngày khởi hành mong muốn và hạn giao lấy từ Request đã duyệt. Thay đổi kế hoạch vận hành do người có thẩm quyền phê duyệt; không được sửa cam kết hoặc dữ liệu Request trong hợp đồng đã ký.''),
+(N''flow1-required-clause-05'',N''Điều 5. Giá trị hợp đồng'',N''Giá bán chính thức và từng hạng mục thể hiện trong hợp đồng. Giá bao gồm bảo hiểm và những dịch vụ được ghi nhận; khoản chưa bao gồm phải thể hiện rõ. Chi phí nội bộ, giá sàn và lợi nhuận không cung cấp cho Customer. Chi phí phát sinh không làm thay đổi giá trị hợp đồng gốc.''),
+(N''flow1-required-clause-06'',N''Điều 6. Thanh toán và xử lý quá hạn'',N''Manager quyết định tỷ lệ tiền cọc thể hiện trong hợp đồng. Một hạn chung 24 giờ kể từ phát hành áp dụng cho nộp cọc, xác minh và ký OTP; Manager có thể gia hạn, quá hạn không tự hủy. Sau bàn giao hợp lệ, Customer nghiệm thu trước rồi thanh toán số dư và hệ thống xác minh trong một thời hạn chung 24 giờ; chỉ có tranh chấp được tạm dừng theo điều khoản xử lý tranh chấp.''),
+(N''flow1-required-clause-07'',N''Điều 7. Quyền và nghĩa vụ các bên'',N''CBN Transport tổ chức phương tiện/nhân sự đạt yêu cầu, hồ sơ, kiểm dịch, chăm sóc, bảo hiểm, theo dõi và bàn giao đúng người. Customer cung cấp thông tin/hồ sơ trung thực, chuẩn bị ngựa, phối hợp nhận/giao, nghiệm thu và thanh toán. Mỗi bên chịu trách nhiệm đối với nghĩa vụ của mình.''),
+(N''flow1-required-clause-08'',N''Điều 8. Bảo hiểm và cấp cứu thú y'',N''CBN Transport thu xếp bảo hiểm từ lúc tiếp nhận đến bàn giao theo phạm vi và loại trừ của đơn bảo hiểm thực tế. Trong trường hợp cấp cứu đe dọa sức khỏe hoặc tính mạng ngựa, bác sĩ thú y được thực hiện biện pháp chuyên môn cần thiết trong phạm vi Customer ủy quyền trước mà không bị áp hạn mức tiền cứng. Phải ghi chứng cứ, thông báo Manager và Customer sớm; chi phí và trách nhiệm phân định sau.''),
+(N''flow1-required-clause-09'',N''Điều 9. Sự cố, thay đổi và chi phí phát sinh'',N''Driver và bác sĩ thú y ghi nhận sự cố. Coordinator đề xuất thay đổi phương án, Manager phê duyệt các quyết định thuộc thẩm quyền. Chi phí phát sinh được phân định theo nguyên nhân, trách nhiệm, bảo hiểm và hợp đồng. Khoản Customer phải trả chưa được ủy quyền trước cần Customer xác nhận khi áp dụng; cấp cứu đã ủy quyền được xử lý theo Điều 8. Không sửa hợp đồng gốc.''),
+(N''flow1-required-clause-10'',N''Điều 10. Bàn giao, nghiệm thu và thanh toán cuối'',N''Driver bàn giao cho người nhận hợp lệ và ghi biên bản, tình trạng ngựa, chữ ký, hình ảnh. Kể từ bàn giao, Customer có chung 24 giờ để xem xét và xác nhận nghiệm thu TRƯỚC, thanh toán số dư SAU và chờ xác minh. Im lặng hoặc quá hạn không đồng nghĩa chấp nhận; không được giữ ngựa tùy tiện vì chậm thanh toán.''),
+(N''flow1-required-clause-11'',N''Điều 11. Hủy dịch vụ và giải quyết tranh chấp'',N''Khiếu nại phải ghi nhận chứng cứ và được Manager xem xét. Phần tiền tranh chấp được tạm dừng theo thỏa thuận, phần không tranh chấp vẫn có nghĩa vụ thanh toán. Khi hai bên xác nhận kết quả giải quyết, bắt đầu lại nguyên 24 giờ để hoàn tất nghiệm thu/thanh toán còn thiếu. Vi phạm, hủy, hoàn trả/bồi thường theo từng trường hợp, không tự áp một mức phạt chung. Tranh chấp không thống nhất xử lý ngoài hệ thống.''),
+(N''flow1-required-clause-12'',N''Điều 12. Ký kết, hiệu lực và lưu trữ'',N''Customer xác nhận nội dung hiện hành; hợp đồng chỉ có hiệu lực sau khi cọc đã xác minh và Customer ký OTP thành công. Sau ký, không bên nào được sửa, xóa, thay thế nội dung; bản ký và lịch sử trước ký được bảo lưu, không có phụ lục trong Demo. Trip đóng khi Manager ghi đóng Request sau khi hết 24 giờ của chu kỳ cuối, đã bàn giao, nghiệm thu, xác minh đủ thanh toán và không còn khiếu nại.'');
+UPDATE c SET TemplateName=s.Title,BodyContent=s.Content,UpdatedAt=SYSUTCDATETIME()
+FROM CONTRACT_TEMPLATE c JOIN @Flow1Terms s ON s.TemplateID=c.TemplateID
+WHERE LEN(c.BodyContent)=1 AND c.BodyContent COLLATE Latin1_General_100_BIN2 BETWEEN ''A'' AND ''L'';
+INSERT INTO CONTRACT_TEMPLATE(TemplateID,TemplateName,LanguageCode,BodyContent,IsActive,CreatedAt)
+SELECT s.TemplateID,s.Title,''VI'',s.Content,1,SYSUTCDATETIME() FROM @Flow1Terms s
+WHERE NOT EXISTS(SELECT 1 FROM CONTRACT_TEMPLATE c WHERE c.TemplateID=s.TemplateID);
 
 ';
 COMMIT TRANSACTION;

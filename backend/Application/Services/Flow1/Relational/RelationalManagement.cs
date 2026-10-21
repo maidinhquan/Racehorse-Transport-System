@@ -16,7 +16,7 @@ public sealed partial class RelationalFlow1Service
         Require(deposit>0 && deposit<=total,"VALIDATION_ERROR","The rounded VND deposit must be positive and no greater than the contract price.");
         return deposit;
     }
-    private static readonly string[] EditableFields = ["PRICE", "PREPARATION_DAYS", "DEPARTURE_AT", "DELIVERY_AT", "CLAUSES", "DEADLINE"];
+    private static readonly string[] EditableFields = ["PRICE", "PREPARATION_DAYS", "DEPARTURE_AT", "DELIVERY_AT", "CLAUSES", "DEADLINE", "TRANSPORT_MODE", "COMMERCIAL_NOTES"];
     private static ClauseCard Clause(ContractTemplate c) => new(c.TemplateId,c.TemplateName,c.BodyContent,c.LanguageCode,c.IsActive,
         RequiredContractClauses.Order(c.TemplateId) is not null,RequiredContractClauses.Order(c.TemplateId));
     public Task<IReadOnlyList<ClauseCard>> ClausesAsync(string actor,bool includeInactive,CancellationToken ct)=>db.RunAsync<IReadOnlyList<ClauseCard>>(async t=>{
@@ -89,17 +89,29 @@ public sealed partial class RelationalFlow1Service
     public async Task<FlowContractCard> ReissueAsync(string id,string actor,ContractReissueInput input,CancellationToken ct)
     {
         IReadOnlyList<string> additional=[];
+        var planning=await db.RunAsync(async t=>{
+            var(c,r)=await Contract(id,actor,true,t);Check(c.RowVersion,input.Version);
+            Require(c.SignedAt is null && c.ContractStatus is "AWAITING_DEPOSIT" or "WITHDRAWN" or "DRAFT","REISSUE_CLOSED","Only unsigned unpaid contracts can be reissued.");
+            await RequireNoMoneyOrAttempts(c,t);return(R:r,Version:Token(r.RowVersion));
+        },ct);
+        var plan=await PlanContract(planning.R,new(TransportMode:input.TransportMode,DepartureAt:input.DepartureAt,DeliveryAt:input.DeliveryAt),input.PreparationDays,ct);
         var draft=await db.RunAsync(async t=>{
             var(c,r)=await Contract(id,actor,true,t);Check(c.RowVersion,input.Version);
             Require(c.SignedAt is null && c.ContractStatus!="CANCELLED" && c.ContractStatus is "AWAITING_DEPOSIT" or "WITHDRAWN" or "DRAFT","REISSUE_CLOSED","Withdraw and replace only an unsigned contract.");
             await RequireNoMoneyOrAttempts(c,t);
+            Check(r.RowVersion,planning.Version);
+            var costs=input.Costs??(r.TransportType==plan.Mode && r.ExpectedDate==plan.Departure && r.CommittedDeadline==plan.Delivery?await StoredCosts(id,t)??plan.Costs:plan.Costs);
+            var total=QuoteTotal(input.Price,costs);
             var depositRate=input.DepositRate??c.DepositRateStandard??Flow1ContractFactory.DepositPercent;
-            var deposit=ContractDeposit(input.Price,depositRate);
+            var deposit=ContractDeposit(total,depositRate);
             var allowed=(c.FeedbackFields??"").Split(',');
             FlowContractTerms? issuedTerms=null;
             if(c.PdfUrl is not null && (input.AdditionalClauses is null || c.FeedbackStatus=="PENDING" && !allowed.Contains("CLAUSES"))){var issued=await files.ReadAsync(c.PdfUrl,t);Require(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(issued.Bytes)).Equals(c.PdfSha256,StringComparison.OrdinalIgnoreCase),"FILE_INTEGRITY_ERROR","Issued PDF changed.");issuedTerms=ReadTerms(issued.Bytes);}
             additional=AdditionalTerms(input.AdditionalClauses??issuedTerms?.AdditionalClauses);
             if(c.FeedbackStatus=="PENDING"){
+                Require(r.TransportType==plan.Mode || allowed.Contains("TRANSPORT_MODE"),"FIELD_LOCKED","Transport mode was not requested for change.");
+                Require(input.CommercialNotes is null || OptionalText(input.CommercialNotes,2000)==c.CommercialNotes || allowed.Contains("COMMERCIAL_NOTES"),"FIELD_LOCKED","Commercial notes were not requested for change.");
+                Require(costs==await StoredCosts(id,t) || allowed.Contains("PRICE"),"FIELD_LOCKED","The five price lines were not requested for change.");
                 Require(c.DepositRateStandard==depositRate || allowed.Contains("PRICE"),"FIELD_LOCKED","Deposit percentage was not requested for change under PRICE.");
                 Require(c.TotalQuotedPrice==input.Price || allowed.Contains("PRICE"),"FIELD_LOCKED","Price was not requested for change.");
                 Require(r.PreparationDays==input.PreparationDays || allowed.Contains("PREPARATION_DAYS"),"FIELD_LOCKED","Preparation was not requested for change.");
@@ -111,16 +123,9 @@ public sealed partial class RelationalFlow1Service
                     Require(issuedTerms.Clauses.SequenceEqual(selected) && issuedTerms.AdditionalClauses.SequenceEqual(additional),"FIELD_LOCKED","Issued catalogue and additional clauses must remain unchanged unless clause changes were requested.");
                 }
             }
-            Require(input.Price is >=3 and <=9999999999m && input.Price==decimal.Truncate(input.Price),"INVALID_PRICE","Enter an integral VND quote.");
-            var departure=Utc(input.DepartureAt);var delivery=Utc(input.DeliveryAt);var floor=r.DestinationCountry=="JP"?7:r.DistanceKm>500?3:2;
-            Require(delivery>departure && input.PreparationDays>=floor && Now.AddHours(24)<=departure.AddDays(-input.PreparationDays),"INVALID_DATE_RANGE","Dates must allow transport, preparation and a complete shared 24-hour window.");
-            foreach(var link in await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==r.RequestID,t))
-                Require(!await Busy(link.HorseID,departure,delivery,r.RequestID,t),"HORSE_BOOKED","A selected horse is unavailable on the proposed dates.");
-            await SelectedClauses(input.ClauseIds,t);
-            r.ExpectedDate=departure;r.CommittedDeadline=delivery;r.PreparationDays=input.PreparationDays;
-            var costs=input.Costs??(await CalculateCosts(r,new(),t)).Costs;
-            await SaveCosts(id,costs,t);
-            c.TotalQuotedPrice=input.Price;c.DepositRateStandard=depositRate;c.DepositAmount=deposit;
+            await ApplyContractPlan(r,plan,t);await SaveCosts(id,costs,t);
+            if(input.CommercialNotes is not null)c.CommercialNotes=OptionalText(input.CommercialNotes,2000);
+            c.TotalQuotedPrice=total;c.DepositRateStandard=depositRate;c.DepositAmount=deposit;
             c.CompletionDeadline=Now.AddHours(24);c.ContractStatus="DRAFT";c.SignOtpHash=null;c.SignOtpFailedAttempts=0;c.SignOtpSentAtUtc=null;c.SignOtpExpiry=null;
             c.ManagerFeedback=Text(input.Reason,2000);c.FeedbackHandledAtUtc=Now;r.Status="DRAFT_CONTRACT";
             await db.SaveAsync(t);return await Card(c,t);

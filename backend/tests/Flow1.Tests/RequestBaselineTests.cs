@@ -163,7 +163,7 @@ public sealed class RequestBaselineTests
         using var anonymous = app.Client(null);
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync($"/api/customer/requests/{r.RequestId}/documents/{r.Documents[0].DocumentId}")).StatusCode);
         r = await f.Service.ReviewAsync(r.RequestId, "manager", "accept", new(r.Version, "Reviewed"), default);
-        var c = await f.Service.DraftAsync(r.RequestId, "manager", "baseline-contract-one", new(r.Version, Price: 100000000, PreparationDays: 2, Deadline: f.Time.Value.AddDays(2)), default);
+        var c = await f.Service.DraftAsync(r.RequestId, "manager", "baseline-contract-one", new(r.Version, Price: 100000000,Costs:CustomerTransportTests.Quote(100000000), PreparationDays: 2, Deadline: f.Time.Value.AddDays(2)), default);
         Assert.Equal(100000000, c.TotalPrice); Assert.Equal(40000000, c.DepositAmount);
         c = await f.Service.PublishAsync(c.ContractId, "manager", new(c.Version,ClauseIds:[f.ClauseId]), default);
         var session = await f.Session(c); await f.Service.IpnAsync(f.Callback(session), default);
