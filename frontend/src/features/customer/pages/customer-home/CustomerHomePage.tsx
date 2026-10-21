@@ -1,260 +1,123 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCustomer } from '../../hooks/useCustomer';
-import TripStatusBadge from '../../components/TripStatusBadge/TripStatusBadge';
-import { CustomerLayout } from '../../components/CustomerLayout';
-import { TrackingModal } from '../../components/Modals/TrackingModal';
-import { IncidentModal } from '../../components/Modals/IncidentModal';
+import { CustomerLayout, Icon } from '../../components/CustomerLayout';
+import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
+import { RouteText, horseNames } from '../../components/Common/Common';
+import { needsCustomerAction, useCustomer } from '../../hooks/useCustomer';
+import { fmtDate, fmtDateTime, isActive, tripSummary } from '../../hooks/customerRules';
 import './CustomerHomePage.css';
 
+/** Trang chủ khách hàng: chuyến hiện tại, việc cần làm, thông báo và yêu cầu gần đây */
 export const CustomerHomePage: React.FC = () => {
   const navigate = useNavigate();
-  const {
-    currentTrip,
-    recentRequests,
-    // notifications,
-    incidentDetail,
-    handleResolveIncident,
-    markNotificationAsRead
-  } = useCustomer();
+  const { profile, requests, horses, notifications, stats } = useCustomer();
 
-  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
-  const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
+  const current = requests
+    .filter((r) => r.trip && ['IN_TRANSIT', 'READY_TO_DEPART'].includes(r.trip.status))
+    .sort((a, b) => (a.trip!.status === 'IN_TRANSIT' ? -1 : 1) - (b.trip!.status === 'IN_TRANSIT' ? -1 : 1))[0];
+  const s = current?.trip ? tripSummary(current.trip) : undefined;
+  const todo = requests.filter((r) => isActive(r) && needsCustomerAction(r)).slice(0, 5);
+  const recent = requests.filter(isActive).slice(0, 5);
 
   return (
-    <CustomerLayout pageTitle="Trang chủ" activeNav="home">
-      {/* Welcome Hero Banner */}
-      <section className="welcome-hero-card">
-        <div className="welcome-info">
-          <h2 className="welcome-title">Chào mừng trở lại, Alex</h2>
-          <p className="welcome-subtitle">
-            Quản lý ngựa và yêu cầu vận chuyển ở một nơi.
-          </p>
+    <CustomerLayout title="Trang chủ">
+      <div className="cus-card cus-home__welcome">
+        <div>
+          <h2 className="cus-title">Chào mừng trở lại, {profile.name.split(' ')[0]}</h2>
+          <p className="cus-subtitle">Quản lý ngựa và các yêu cầu vận chuyển của bạn ở một nơi.</p>
         </div>
-        <button
-          className="btn-create-request"
-          onClick={() => navigate('/customer/create-request')}
-        >
-          <span>+ Tạo yêu cầu vận chuyển</span>
+        <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={() => navigate('/customer/requests/new')}>
+          <Icon name="plus" />Tạo yêu cầu vận chuyển
         </button>
-      </section>
-
-      {/* Middle Two-Column Grid */}
-      <div className="dashboard-middle-grid">
-        {/* Left Card: Chuyến hiện tại */}
-        {currentTrip ? (
-          <section className="cbn-card current-trip-card">
-            <div className="trip-card-header">
-              <h3 className="card-title">Chuyến hiện tại</h3>
-              <TripStatusBadge status={currentTrip.status} label={currentTrip.statusText} />
-            </div>
-
-            <div className="trip-key-info-row">
-              <div className="info-block">
-                <span className="info-label">Ngựa</span>
-                <span className="info-value">{currentTrip.horse}</span>
-              </div>
-              <div className="info-block">
-                <span className="info-label">Tuyến đường</span>
-                <span className="info-value">{currentTrip.origin} → {currentTrip.destination}</span>
-              </div>
-            </div>
-
-            <div className="trip-progress-box">
-              <div className="trip-schedule-times">
-                <span className="depart-time">Khởi hành: {currentTrip.departedDate}</span>
-                <span className="eta-time">Dự kiến đến: {currentTrip.eta}</span>
-              </div>
-
-              <div className="progress-track-wrapper">
-                <div
-                  className="progress-fill-bar"
-                  style={{ width: `${currentTrip.progress}%` }}
-                >
-                  <span className="progress-dot-marker" />
-                </div>
-              </div>
-            </div>
-
-            <div className="milestone-note-text">
-              Mốc đã xác nhận gần nhất: <b>{currentTrip.lastMilestone}</b> • {currentTrip.milestoneTime}
-            </div>
-
-            <button
-              className="btn-view-tracking"
-              onClick={() => setIsTrackingModalOpen(true)}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              <span>Xem theo dõi chuyến đi</span>
-            </button>
-          </section>
-        ) : (
-          <section className="cbn-card current-trip-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '260px', textAlign: 'center' }}>
-            <h3 className="card-title" style={{ marginBottom: '8px' }}>Chuyến hiện tại</h3>
-            <p style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '14px' }}>Hiện chưa có chuyến vận chuyển nào đang diễn ra.</p>
-          </section>
-        )}
-
-        {/* Right Card: Thông báo */}
-        <section className="cbn-card notifications-card">
-          <div className="notif-card-header">
-            <div className="notif-header-left">
-              <h3 className="card-title">Thông báo</h3>
-              <span className="unread-pill">14 chưa đọc</span>
-            </div>
-            <button
-              className="link-view-all"
-              style={{ background: 'none', border: 'none' }}
-              onClick={() => navigate('/customer/history')}
-            >
-              Xem tất cả
-            </button>
-          </div>
-
-          <div className="notif-list-container">
-            {/* Notif Item 1 */}
-            <div
-              className="notif-item-row unread"
-              onClick={() => markNotificationAsRead('notif-1')}
-            >
-              <div className="notif-bell-icon-circle">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-              </div>
-              <div className="notif-content-area">
-                <span className="notif-item-title">
-                  • Đã xác minh tiền cọc cho TRN-8942
-                </span>
-                <p className="notif-item-body">
-                  $570 đã được xác minh đủ cọc. Xác nhận nội dung hiện hành rồi ký OTP trước 5/10, 09:30 để kích hoạt.
-                </p>
-                <span className="notif-item-time">4/10, 11:30</span>
-              </div>
-              <span className="notif-item-chevron">›</span>
-            </div>
-
-            {/* Notif Item 2 */}
-            <div
-              className="notif-item-row unread"
-              onClick={() => markNotificationAsRead('notif-2')}
-            >
-              <div className="notif-bell-icon-circle">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-              </div>
-              <div className="notif-content-area">
-                <span className="notif-item-title">
-                  • E-mail: Mã OTP ký CT-8942 v1 được gửi tới alex.equine@example.com (Demo)
-                </span>
-                <p className="notif-item-body">
-                  Đã gửi tới alex.equine@example.com (e-mail mô phỏng)
-                </p>
-                <span className="notif-item-time">4/10, 11:30</span>
-              </div>
-              <span className="notif-item-chevron">›</span>
-            </div>
-
-
-            {/* Notif Item 3 */}
-            <div
-              className="notif-item-row"
-              onClick={() => markNotificationAsRead('notif-3')}
-            >
-              <div className="notif-bell-icon-circle">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-              </div>
-              <div className="notif-content-area">
-                <span className="notif-item-title">
-                  • Đã ký hợp đồng CT-8944 v1 – TRN-8944 activated
-                </span>
-                <p className="notif-item-body">
-                  Hợp đồng của bạn đã có hiệu lực. Việc lập kế hoạch và chuẩn bị vận chuyển đã bắt đầu.
-                </p>
-                <span className="notif-item-time">4/10, 11:30</span>
-              </div>
-              <span className="notif-item-chevron">›</span>
-            </div>
-          </div>
-        </section>
       </div>
 
-      {/* Bottom Card: Yêu cầu vận chuyển gần đây */}
-      <section className="cbn-card recent-requests-card">
-        <div className="requests-card-header">
-          <h3 className="card-title">Yêu cầu vận chuyển gần đây</h3>
-          <button
-            className="link-view-all"
-            style={{ background: 'none', border: 'none' }}
-            onClick={() => navigate('/customer/requests')}
-          >
-            Xem tất cả
-          </button>
+      <div className="cus-stats">
+        <button type="button" className="cus-stat" onClick={() => navigate('/customer/requests')}><span>Yêu cầu đang xử lý</span><b>{stats.active}</b></button>
+        <button type="button" className="cus-stat" onClick={() => navigate('/customer/requests?filter=action')}><span>Cần bạn xử lý</span><b>{stats.needAction}</b></button>
+        <button type="button" className="cus-stat" onClick={() => navigate('/customer/tracking')}><span>Đang vận chuyển</span><b>{stats.inTransit}</b></button>
+        <button type="button" className="cus-stat" onClick={() => navigate('/customer/horses')}><span>Ngựa của tôi</span><b>{horses.length}</b></button>
+      </div>
+
+      <div className="cus-grid2">
+        <div className="cus-card cus-home__trip">
+          <h3 className="cus-card__title">
+            {current?.trip?.status === 'IN_TRANSIT' ? 'Chuyến hiện tại' : 'Chuyến sắp tới'}
+            {current?.trip && <TripStatusBadge kind="trip" status={current.trip.status} />}
+          </h3>
+          {current?.trip && s ? (
+            <>
+              <div className="cus-kv">
+                <div><span>Ngựa</span><b>{horseNames(current, horses)}</b></div>
+                <div><span>Tuyến</span><b><RouteText r={current} /></b></div>
+              </div>
+              <div className="cus-home__meta">
+                <span>{s.dep ? `Xuất phát: ${fmtDateTime(s.dep.at)}` : `Dự kiến xuất phát: ${fmtDateTime(current.trip.plannedDepart)}`}</span>
+                <b>{s.adjusted ? 'ETA điều chỉnh' : 'ETA'}: {fmtDateTime(current.trip.eta)}</b>
+              </div>
+              <div className="cus-progress"><i style={{ width: `${s.pct}%` }} /></div>
+              <p className="cus-muted" style={{ marginTop: 8 }}>
+                {s.m ? <>Mốc xác nhận gần nhất: <b>{s.lastLabel}</b> • {fmtDateTime(s.m.at)}</> : 'Chưa xuất phát – chưa có mốc nào được xác nhận.'}
+              </p>
+              <button type="button" className="cus-btn" style={{ marginTop: 12 }} onClick={() => navigate(`/customer/tracking/${current.id}`)}>
+                <Icon name="pin" />Xem theo dõi chuyến
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="cus-subtitle">Hiện không có chuyến nào đang chạy hoặc sắp khởi hành.</p>
+              <button type="button" className="cus-btn" style={{ marginTop: 12 }} onClick={() => navigate('/customer/requests')}>Xem yêu cầu vận chuyển</button>
+            </>
+          )}
         </div>
 
-        <div className="requests-table-wrapper">
-          <table className="cbn-table">
-            <thead>
-              <tr>
-                <th>MÃ YÊU CẦU</th>
-                <th>TUYẾN ĐƯỜNG</th>
-                <th>NGỰA</th>
-                <th>NGÀY YÊU CẦU</th>
-                <th>TRẠNG THÁI</th>
-                <th>THAO TÁC</th>
-              </tr>
-            </thead>
+        <div className="cus-card">
+          <h3 className="cus-card__title">Việc cần làm <span className="cus-muted">{todo.length} mục</span></h3>
+          {todo.length === 0 && <p className="cus-subtitle">Bạn không có việc nào cần xử lý.</p>}
+          <div className="cus-home__todo">
+            {todo.map((r) => (
+              <button key={r.id} type="button" onClick={() => navigate(`/customer/requests/${r.id}`)}>
+                <span className="cus-home__todo-icon"><Icon name="alert" /></span>
+                <span><b>{r.id}</b><small><RouteText r={r} /></small></span>
+                <TripStatusBadge status={r.status} />
+              </button>
+            ))}
+          </div>
+          {notifications.filter((n) => !n.read).length > 0 && (
+            <>
+              <div className="cus-eyebrow" style={{ marginTop: 16 }}>Thông báo mới</div>
+              <ul className="cus-home__notifs">
+                {notifications.filter((n) => !n.read).slice(0, 3).map((n) => (
+                  <li key={n.id}><button type="button" className="cus-link" onClick={() => navigate(n.link)}>{n.title}</button><span>{fmtDateTime(n.at)}</span></li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="cus-card" style={{ marginTop: 16 }}>
+        <h3 className="cus-card__title">
+          Yêu cầu vận chuyển gần đây
+          <button type="button" className="cus-link" onClick={() => navigate('/customer/requests')}>Xem tất cả</button>
+        </h3>
+        <div className="cus-table-wrap">
+          <table className="cus-table">
+            <thead><tr><th>Mã yêu cầu</th><th>Tuyến</th><th>Ngựa</th><th>Ngày vận chuyển</th><th>Trạng thái</th></tr></thead>
             <tbody>
-              {recentRequests.map((req) => (
-                <tr key={req.id}>
-                  <td className="request-id-text">{req.id}</td>
-                  <td>{req.origin} → {req.destination}</td>
-                  <td>{req.horses}</td>
-                  <td>{req.requestedDate}</td>
-                  <td>
-                    <TripStatusBadge status={req.status} label={req.statusText} />
-                  </td>
-                  <td>
-                    <button
-                      className="btn-table-action-link"
-                      onClick={() => navigate(`/customer/requests/${req.id}`)}
-                    >
-                      Xem chi tiết
-                    </button>
-                  </td>
+              {recent.map((r) => (
+                <tr key={r.id} className="clickable" onClick={() => navigate(`/customer/requests/${r.id}`)}>
+                  <td className="cus-id">{r.id}</td>
+                  <td><RouteText r={r} /></td>
+                  <td>{horseNames(r, horses)}</td>
+                  <td>{fmtDate(r.date)}</td>
+                  <td><TripStatusBadge status={r.status} /></td>
                 </tr>
               ))}
+              {!recent.length && <tr><td colSpan={5} className="cus-empty">Chưa có yêu cầu nào.</td></tr>}
             </tbody>
           </table>
         </div>
-      </section>
-
-      {/* Modals for Current Trip and Flow 5 */}
-      {currentTrip && (
-        <TrackingModal
-          isOpen={isTrackingModalOpen}
-          onClose={() => setIsTrackingModalOpen(false)}
-          trip={currentTrip}
-        />
-      )}
-
-      {incidentDetail && (
-        <IncidentModal
-          isOpen={isIncidentModalOpen}
-          onClose={() => setIsIncidentModalOpen(false)}
-          incident={incidentDetail}
-          onResolve={handleResolveIncident}
-        />
-      )}
+      </div>
     </CustomerLayout>
   );
 };

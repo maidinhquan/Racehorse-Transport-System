@@ -86,13 +86,13 @@ export const isActiveTrip = (t: Trip) => t.status !== 'COMPLETED';
 export const canPlan = (t: Trip) => t.deploymentStatus === 'CONFIRMED' && t.status === 'PLANNING';
 export const routeEditable = (t: Trip) => canPlan(t) && ['DRAFT', 'RETURNED'].includes(t.route.status);
 
-export const crewList = (c: CrewAssignment) => Object.values(c).filter((x): x is string => !!x);
+export const crewList = (c?: CrewAssignment) => (c ? Object.values(c).filter((x): x is string => !!x) : []);
 
 export const tripPersonnelIds = (t: Trip): string[] => [
-  ...new Set([...crewList(t.crew), ...(t.legs ? [...crewList(t.legs.outbound.crew), ...crewList(t.legs.inbound.crew)] : [])]),
+  ...new Set([...crewList(t.crew), ...(t.legs ? [...crewList(t.legs.outbound?.crew), ...crewList(t.legs.inbound?.crew)] : [])]),
 ];
 export const tripVehicleIds = (t: Trip): string[] =>
-  [t.vehicleId, t.legs?.outbound.vehicleId, t.legs?.inbound.vehicleId].filter((x): x is string => !!x);
+  [t.vehicleId, t.legs?.outbound?.vehicleId, t.legs?.inbound?.vehicleId].filter((x): x is string => !!x);
 
 /** BR: một nhân sự chỉ được gắn vào MỘT chuyến đang hoạt động */
 export const crewConflict = (staffId: string, trip: Trip, trips: Trip[]) =>
@@ -103,13 +103,13 @@ export const vehicleConflict = (vehicleId: string, trip: Trip, trips: Trip[]) =>
   trips.find((u) => u.id !== trip.id && isActiveTrip(u) && tripVehicleIds(u).includes(vehicleId));
 
 /** Quốc gia phục vụ: chuyến bộ theo nơi đi; chặng xe AIR theo quốc gia của chặng */
-export const serviceCountry = (t: Trip, leg?: LegKey) => (leg && t.legs ? t.legs[leg].country : t.originCountry);
+export const serviceCountry = (t: Trip, leg?: LegKey) => (leg && t.legs && t.legs[leg] ? t.legs[leg].country : t.originCountry);
 
 /** Lý do xe không dùng được ('' = dùng được) */
 export function vehicleBlock(v: Vehicle, t: Trip, trips: Trip[], leg?: LegKey): string {
-  if (v.status !== 'READY') return `Xe đang ${VEHICLE_STATUS_LABEL[v.status].toLowerCase()}.`;
+  if (v.status !== 'READY') return `Xe đang ${VEHICLE_STATUS_LABEL[v.status]?.toLowerCase() ?? v.status}.`;
   if (v.country !== serviceCountry(t, leg)) return `Xe đăng ký tại ${countryName(v.country)}.`;
-  if (v.stalls < t.horses.length) return `Chỉ có ${v.stalls} ngăn cho ${t.horses.length} ngựa.`;
+  if (v.stalls < (t.horses?.length ?? 0)) return `Chỉ có ${v.stalls} ngăn cho ${t.horses?.length ?? 0} ngựa.`;
   const c = vehicleConflict(v.id, t, trips);
   if (c) return `Đang phục vụ chuyến ${c.id}.`;
   return '';
@@ -121,7 +121,7 @@ export function staffBlock(s: Staff, slot: CrewSlot, t: Trip, trips: Trip[], leg
   if (slot === 'MAIN_DRIVER' && s.role !== 'DRIVER') return 'Không phải tài xế.';
   if (slot === 'CO_DRIVER' && s.role === 'VETERINARIAN') return 'Bác sĩ thú y không làm phụ lái.';
   if (s.country !== serviceCountry(t, leg)) return `Nhân sự tại ${countryName(s.country)}.`;
-  if (slot === 'VETERINARIAN' && (!s.certExpiry || s.certExpiry < t.eta.slice(0, 10))) return 'Chứng chỉ thú y hết hạn trước khi chuyến kết thúc.';
+  if (slot === 'VETERINARIAN' && (!s.certExpiry || (t.eta && s.certExpiry < t.eta.slice(0, 10)))) return 'Chứng chỉ thú y hết hạn trước khi chuyến kết thúc.';
   const c = crewConflict(s.id, t, trips);
   if (c) return `Đã được gắn vào chuyến ${c.id}.`;
   return '';
@@ -129,16 +129,17 @@ export function staffBlock(s: Staff, slot: CrewSlot, t: Trip, trips: Trip[], leg
 
 /** Các mục còn thiếu của một xe/chặng */
 export function unitGaps(t: Trip, vehicles: Vehicle[], staff: Staff[], trips: Trip[], leg?: LegKey): string[] {
-  const unit = leg && t.legs ? t.legs[leg] : { vehicleId: t.vehicleId, crew: t.crew };
+  const unit = leg && t.legs && t.legs[leg] ? t.legs[leg] : { vehicleId: t.vehicleId, crew: t.crew || {} };
+  const crew = unit.crew || {};
   const prefix = leg ? (leg === 'outbound' ? 'Chặng 1: ' : 'Chặng 2: ') : '';
   const gaps: string[] = [];
   const v = vehicles.find((x) => x.id === unit.vehicleId);
   if (!v) gaps.push(`${prefix}chưa phân công xe`);
   else { const b = vehicleBlock(v, t, trips, leg); if (b) gaps.push(`${prefix}xe ${v.plate} – ${b}`); }
   SLOTS.forEach((slot) => {
-    const id = unit.crew[slot];
+    const id = crew[slot];
     const s = staff.find((x) => x.id === id);
-    if (!s) gaps.push(`${prefix}thiếu ${SLOT_LABEL[slot].toLowerCase()}`);
+    if (!s) gaps.push(`${prefix}thiếu ${SLOT_LABEL[slot]?.toLowerCase() ?? slot}`);
     else { const b = staffBlock(s, slot, t, trips, leg); if (b) gaps.push(`${prefix}${s.name} – ${b}`); }
   });
   return gaps;
@@ -148,7 +149,7 @@ export function resourceGaps(t: Trip, vehicles: Vehicle[], staff: Staff[], trips
   if (t.mode === 'AIR') {
     const gaps = [...unitGaps(t, vehicles, staff, trips, 'outbound'), ...unitGaps(t, vehicles, staff, trips, 'inbound')];
     if (!t.flight) gaps.push('Chưa có phương án bay');
-    else if (t.flight.status !== 'BOOKED') gaps.push(`Chuyến bay: ${FLIGHT_STATUS_LABEL[t.flight.status].toLowerCase()}`);
+    else if (t.flight.status !== 'BOOKED') gaps.push(`Chuyến bay: ${FLIGHT_STATUS_LABEL[t.flight.status]?.toLowerCase() ?? t.flight.status}`);
     return gaps;
   }
   return unitGaps(t, vehicles, staff, trips);
@@ -159,8 +160,8 @@ export function planGaps(t: Trip, vehicles: Vehicle[], staff: Staff[], trips: Tr
   if (t.deploymentStatus !== 'CONFIRMED') return ['Chờ Manager giao chuyến'];
   if (t.status !== 'PLANNING') return [];
   const gaps: string[] = [];
-  if (!t.route.stops.length) gaps.push('Chưa lập tuyến đường');
-  else if (t.route.status !== 'APPROVED') gaps.push(`Tuyến: ${ROUTE_STATUS_LABEL[t.route.status].toLowerCase()}`);
+  if (!t.route?.stops?.length) gaps.push('Chưa lập tuyến đường');
+  else if (t.route.status !== 'APPROVED') gaps.push(`Tuyến: ${(ROUTE_STATUS_LABEL[t.route.status] ?? t.route.status).toLowerCase()}`);
   gaps.push(...resourceGaps(t, vehicles, staff, trips));
   if (!t.resourcesConfirmed) gaps.push('Chưa xác nhận bố trí xe & nhân sự');
   return gaps;

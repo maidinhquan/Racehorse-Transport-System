@@ -16,7 +16,7 @@ export const CoordinatorDashboardPage: React.FC = () => {
     .filter((x) => x.gaps.length);
   const upcoming = trips
     .filter((t) => isActiveTrip(t))
-    .sort((a, b) => a.plannedDepart.localeCompare(b.plannedDepart))
+    .sort((a, b) => (a.plannedDepart ?? '').localeCompare(b.plannedDepart ?? ''))
     .slice(0, 6);
 
   return (

@@ -1,421 +1,135 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CustomerLayout } from '../../components/CustomerLayout';
+import React from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { CustomerLayout, Icon } from '../../components/CustomerLayout';
+import { RouteMap } from '../../components/RouteMap/RouteMap';
+import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
+import { LockedCard, Note, horseNames } from '../../components/Common/Common';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import {
-  mockTrackingCheckpoints,
-  mockTrackingEvents,
-  mockDemoControlSteps,
-} from '../../data';
-import type { TrackingCheckpoint, DemoControlStep } from '../../types';
+import { useCustomer } from '../../hooks/useCustomer';
+import { MILESTONE_LABEL, STOP_LABEL, TRIP_STATUS_LABEL, cityLabel, fmtDateTime, tripSummary } from '../../hooks/customerRules';
+import type { TripStatus } from '../../types';
 import './CustomerTrackingPage.css';
 
+const ORDER: Record<TripStatus, number> = { IN_TRANSIT: 0, READY_TO_DEPART: 1, PLANNING: 2, COMPLETED: 3 };
+
+/** Theo dõi chuyến: tuyến, các điểm dừng, mốc do tổ xe xác nhận và thay đổi ETA (không có GPS trực tiếp) */
 export const CustomerTrackingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { requestId } = useParams<{ requestId: string }>();
+  const { requests, horses, getRequest } = useCustomer();
+  const list = requests.filter((r) => r.trip && r.trip.status !== 'PLANNING').sort((a, b) => ORDER[a.trip!.status] - ORDER[b.trip!.status]);
+  const asked = requestId ? getRequest(requestId) : undefined;
+  const r = asked ?? list[0];
 
-  // Selected trip state
-  const [selectedTrip, setSelectedTrip] = useState<string>('TRN-8923');
-  const [activeStepNumber, setActiveStepNumber] = useState<number>(8);
-  const [checkpoints, setCheckpoints] = useState<TrackingCheckpoint[]>(mockTrackingCheckpoints);
-  const [controlSteps, setControlSteps] = useState<DemoControlStep[]>(mockDemoControlSteps);
+  const head = (
+    <div className="cus-head">
+      <div>
+        <h2 className="cus-title">Theo dõi chuyến</h2>
+        <p className="cus-subtitle">Tiến độ dựa trên các mốc tổ xe xác nhận. Không có vị trí GPS trực tiếp.</p>
+      </div>
+      {list.length > 0 && (
+        <label className="cus-track__pick">
+          <span className="cus-eyebrow">Chọn chuyến</span>
+          <select className="cus-select" value={r?.id ?? ''} onChange={(e) => navigate(`/customer/tracking/${e.target.value}`)}>
+            {list.map((x) => <option key={x.id} value={x.id}>{x.id} • {x.trip!.id}: {horseNames(x, horses)} ({TRIP_STATUS_LABEL[x.trip!.status]})</option>)}
+          </select>
+        </label>
+      )}
+    </div>
+  );
 
-  // Handle clicking a demo step to advance / test states
-  const handleStepClick = (stepNum: number) => {
-    setActiveStepNumber(stepNum);
-    setControlSteps((prev) =>
-      prev.map((s) => ({
-        ...s,
-        status: s.stepNumber < stepNum ? 'completed' : s.stepNumber === stepNum ? 'active' : 'pending',
-      }))
+  if (!r) {
+    return (
+      <CustomerLayout title="Theo dõi chuyến">
+        {head}
+        <div className="cus-card cus-empty">Bạn chưa có chuyến nào để theo dõi.<br /><br />
+          <button type="button" className="cus-btn" onClick={() => navigate('/customer/requests')}>Xem yêu cầu vận chuyển</button>
+        </div>
+      </CustomerLayout>
     );
+  }
+  const t = r.trip;
+  if (!t || t.status === 'PLANNING') {
+    return (
+      <CustomerLayout title="Theo dõi chuyến">
+        {head}
+        <LockedCard title={`Chưa thể theo dõi ${r.id}`} text={t ? 'Chuyến đang được lập kế hoạch. Theo dõi bắt đầu khi CBN Transport duyệt tuyến và lên lịch.' : 'Chuyến được tạo khi hợp đồng được ký sau khi xác minh tiền cọc.'} />
+        <button type="button" className="cus-btn" style={{ marginTop: 12 }} onClick={() => navigate(`/customer/requests/${r.id}`)}>Xem chi tiết yêu cầu</button>
+      </CustomerLayout>
+    );
+  }
 
-    // If advanced past step 8, simulate updating next checkpoint
-    if (stepNum > 8) {
-      setCheckpoints((prev) =>
-        prev.map((c) => {
-          if (c.number <= 4) {
-            return {
-              ...c,
-              status: c.number === 4 ? 'latest_confirmed' : 'confirmed',
-              statusBadgeText: c.number === 4 ? 'Đã xác nhận gần nhất' : 'Đã xác nhận',
-            };
-          }
-          if (c.number === 5) {
-            return { ...c, status: 'next', statusBadgeText: 'Tiếp theo' };
-          }
-          return c;
-        })
-      );
-    } else {
-      setCheckpoints(mockTrackingCheckpoints);
-    }
-  };
-
-  // Calculate confirmed count
-  const confirmedCount = checkpoints.filter(
-    (c) => c.status === 'confirmed' || c.status === 'latest_confirmed'
-  ).length;
-
-  const currentMilestone =
-    checkpoints.find((c) => c.status === 'latest_confirmed') || checkpoints[2];
+  const s = tripSummary(t);
+  const current = t.status === 'COMPLETED' ? t.stops.length - 1 : s.at;
+  const stopState = (i: number) => (t.status === 'COMPLETED' || i < s.at || (i === s.at && s.m && ['LEFT_STOP', 'DEPARTED'].includes(s.m.type)) ? 'done'
+    : i === s.at ? 'current' : i === s.at + 1 && t.status === 'IN_TRANSIT' ? 'next' : 'planned');
+  const confirmedAt = (i: number) => t.milestones.find((m) => m.stopIndex === i && ['ARRIVED_STOP', 'ARRIVED_DESTINATION', 'DEPARTED'].includes(m.type))?.at;
+  const events = [
+    ...t.milestones.map((m) => ({ at: m.at, title: `${MILESTONE_LABEL[m.type]} – ${t.stops[m.stopIndex]?.name ?? ''}`, note: m.note ?? '', tone: 'now' as const })),
+    ...t.etaHistory.map((e) => ({ at: e.at, title: `ETA đổi thành ${fmtDateTime(e.to)}`, note: e.reason, tone: '' as const })),
+    ...(t.handover ? [{ at: t.handover.completedAt, title: 'Hoàn tất bàn giao có xác minh', note: t.handover.receiverName, tone: 'done' as const }] : []),
+  ].sort((a, b) => b.at.localeCompare(a.at));
 
   return (
-    <CustomerLayout pageTitle="Theo dõi chuyến đi" activeNav="tracking">
-      <div className="customer-tracking-page">
-        {/* ==================== PAGE HEADER ==================== */}
-        <section className="tracking-header-row">
-          <div className="tracking-header-titles">
-            <h2 className="tracking-title">Theo dõi chuyến đi</h2>
-            <p className="tracking-subtitle">
-              Tiến độ dựa trên các mốc do đội vận chuyển xác nhận. Không có vị trí GPS trực tiếp.
-            </p>
+    <CustomerLayout title="Theo dõi chuyến">
+      {head}
+      <div className="cus-grid-main">
+        <div className="cus-stack">
+          <div className="cus-card">
+            <h3 className="cus-card__title">
+              <span>{t.id} • {r.id}<br /><small className="cus-muted">{cityLabel(r.origin)} → {cityLabel(r.destination)} • {t.mode === 'AIR' ? 'Hàng không + đường bộ' : 'Đường bộ'} • {horseNames(r, horses)}</small></span>
+              <TripStatusBadge kind="trip" status={t.status} />
+            </h3>
+            {t.routeApproved ? <RouteMap stops={t.stops} current={current} /> : <Note tone="grey" title="Tuyến chưa được duyệt">Tuyến hiển thị khi CBN Transport duyệt lộ trình.</Note>}
+            <div className="cus-track__progress">
+              <span>Tiến độ hành trình</span><span>{s.done}/{t.stops.length} điểm đã xác nhận</span>
+            </div>
+            <div className={`cus-progress ${t.status === 'COMPLETED' ? 'cus-progress--ok' : ''}`}><i style={{ width: `${s.pct}%` }} /></div>
           </div>
 
-          <div className="trip-selector-box">
-            <label className="trip-selector-label">CHỌN CHUYẾN VẬN CHUYỂN</label>
-            <select
-              className="trip-selector-dropdown"
-              value={selectedTrip}
-              onChange={(e) => setSelectedTrip(e.target.value)}
-            >
-              <option value="TRN-8923">
-                TRN-8923 • TRP-901: Thunderbolt (Đang vận chuyển)
-              </option>
-              <option value="TRN-8924">
-                TRN-8924 • TRP-902: Shadowfax (Đang xét duyệt hồ sơ)
-              </option>
-              <option value="TRN-8928">
-                TRN-8928 • TRP-903: Thunderbolt (Hợp đồng sẵn sàng)
-              </option>
-              <option value="TRN-8930">
-                TRN-8930 • TRP-904: Apollo (Chờ quản lý xét duyệt)
-              </option>
-            </select>
+          <div className="cus-card">
+            <h3 className="cus-card__title">Các điểm dừng & cửa khẩu theo kế hoạch</h3>
+            {t.stops.map((x, i) => {
+              const st = stopState(i), at = confirmedAt(i);
+              return (
+                <div key={`${x.name}-${i}`} className="cus-track__stop">
+                  <span className={`cus-track__no ${st}`}>{i + 1}</span>
+                  <div><b>{x.name}</b><small>{STOP_LABEL[x.type]} • dự kiến {fmtDateTime(x.plannedAt)}{at ? ` • xác nhận ${fmtDateTime(at)}` : ''}</small></div>
+                  <TripStatusBadge label={st === 'done' ? 'Đã xác nhận' : st === 'current' ? 'Mốc gần nhất' : st === 'next' ? 'Tiếp theo' : 'Theo kế hoạch'}
+                    tone={st === 'done' ? 'ok' : st === 'current' ? 'brand' : st === 'next' ? 'info' : 'muted'} />
+                </div>
+              );
+            })}
           </div>
-        </section>
+        </div>
 
-        {/* ==================== MAIN 2-COLUMN LAYOUT ==================== */}
-        <div className="tracking-grid-layout">
-          {/* ==================== LEFT COLUMN ==================== */}
-          <div className="tracking-col">
-            {/* Map Canvas Card */}
-            <section className="route-map-card">
-              <div className="route-card-header">
-                <div className="route-header-left">
-                  <h3 className="route-trip-id">TRP-901 • TRN-8923</h3>
-                  <p className="route-trip-meta">
-                    Ho Chi Minh City, VN → Bangkok, TH • Đường bộ • Thunderbolt
-                  </p>
-                </div>
-                <TripStatusBadge status="in_transit" label="Đang vận chuyển" />
-              </div>
-
-              {/* Visual Route Canvas */}
-              <div className="route-canvas-box">
-                <svg
-                  className="route-svg-canvas"
-                  viewBox="0 0 1000 250"
-                  preserveAspectRatio="xMidYMid meet"
-                >
-                  {/* Solid Completed Line (Stops 1 to 3) */}
-                  <path
-                    d="M 100 175 L 230 200 L 370 162"
-                    fill="none"
-                    stroke="#ea580c"
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-
-                  {/* Dashed Remaining Line (Stops 3 to 8) */}
-                  <path
-                    d="M 370 162 L 500 105 L 640 125 L 750 180 L 850 195 L 940 150"
-                    fill="none"
-                    stroke="#4b5563"
-                    strokeWidth="2.5"
-                    strokeDasharray="6,6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-
-                  {/* Node 1: Saigon Riding Club */}
-                  <g transform="translate(100, 175)">
-                    <circle r="7" fill="var(--bg-surface, #ffffff)" stroke="var(--text-secondary, #64748b)" strokeWidth="2.5" />
-                    <text x="0" y="22" fill="var(--text-secondary, #64748b)" fontSize="10.5" textAnchor="middle">
-                      Saigon Riding Club
-                    </text>
-                  </g>
-
-                  {/* Node 2: Trang Bang */}
-                  <g transform="translate(230, 200)">
-                    <circle r="8" fill="#ea580c" stroke="var(--bg-surface, #ffffff)" strokeWidth="2.5" />
-                    <text x="0" y="22" fill="var(--text-secondary, #64748b)" fontSize="10.5" textAnchor="middle">
-                      Trang Bang rest area
-                    </text>
-                  </g>
-
-                  {/* Node 3: Moc Bai Border Gate (Current Checkpoint - Glowing Pulse) */}
-                  <g transform="translate(370, 162)">
-                    <circle r="16" fill="rgba(234, 88, 12, 0.25)">
-                      <animate
-                        attributeName="r"
-                        values="12;20;12"
-                        dur="2s"
-                        repeatCount="indefinite"
-                      />
-                      <animate
-                        attributeName="opacity"
-                        values="0.8;0.2;0.8"
-                        dur="2s"
-                        repeatCount="indefinite"
-                      />
-                    </circle>
-                    <circle r="9" fill="#ea580c" stroke="var(--bg-surface, #ffffff)" strokeWidth="3" />
-                    <text x="0" y="-16" fill="#ea580c" fontSize="11" fontWeight="700" textAnchor="middle">
-                      Moc Bai Border Gate
-                    </text>
-                  </g>
-
-                  {/* Node 4: Bavet Border Gate */}
-                  <g transform="translate(500, 105)">
-                    <circle r="7" fill="#ef4444" stroke="var(--bg-surface, #ffffff)" strokeWidth="2" />
-                    <text x="0" y="-14" fill="var(--text-secondary, #64748b)" fontSize="10.5" textAnchor="middle">
-                      Bavet Border Gate
-                    </text>
-                  </g>
-
-                  {/* Node 5: Phnom Penh */}
-                  <g transform="translate(640, 125)">
-                    <circle r="7" fill="var(--bg-surface, #ffffff)" stroke="var(--accent-primary, #ea580c)" strokeWidth="2.5" />
-                    <text x="0" y="-14" fill="var(--text-secondary, #64748b)" fontSize="10.5" textAnchor="middle">
-                      Phnom Penh overnight
-                    </text>
-                  </g>
-
-                  {/* Node 6: Poipet */}
-                  <g transform="translate(750, 180)">
-                    <circle r="7" fill="#ef4444" stroke="var(--bg-surface, #ffffff)" strokeWidth="2" />
-                    <text x="0" y="22" fill="var(--text-secondary, #64748b)" fontSize="10.5" textAnchor="middle">
-                      Poipet - Aranyaprathet
-                    </text>
-                  </g>
-
-                  {/* Node 7: Sa Kaeo fuel station */}
-                  <g transform="translate(850, 195)">
-                    <circle r="7" fill="var(--bg-surface, #ffffff)" stroke="var(--text-muted, #94a3b8)" strokeWidth="2" />
-                  </g>
-
-                  {/* Node 8: Bangkok Polo Club */}
-                  <g transform="translate(940, 150)">
-                    <circle r="9" fill="var(--bg-surface, #ffffff)" stroke="#16a34a" strokeWidth="3" />
-                    <text x="0" y="-16" fill="#16a34a" fontSize="11" fontWeight="700" textAnchor="middle">
-                      Bangkok Polo Club
-                    </text>
-                  </g>
-                </svg>
-              </div>
-
-              {/* Legend Row */}
-              <div className="route-legend-row">
-                <span className="legend-item">
-                  <span className="legend-dot origin" /> Điểm đi
-                </span>
-                <span className="legend-item">
-                  <span className="legend-dot destination" /> Điểm đến
-                </span>
-                <span className="legend-item">
-                  <span className="legend-dot border" /> Cửa khẩu
-                </span>
-                <span className="legend-item">
-                  <span className="legend-dot airport" /> Sân bay
-                </span>
-                <span className="legend-item">
-                  <span className="legend-dot quarantine" /> Trạm kiểm dịch
-                </span>
-                <span className="legend-item">
-                  <span className="legend-dot rest" /> Điểm nghỉ
-                </span>
-                <span className="legend-item">
-                  <span className="legend-dot fuel" /> Điểm đổ nhiên liệu
-                </span>
-                <span className="legend-item">
-                  <span className="legend-dot latest" /> Mốc xác nhận gần nhất
-                </span>
-              </div>
-
-              <p className="route-map-note">
-                Bản đồ hiển thị tuyến dự kiến và điểm kiểm soát gần nhất do đội vận chuyển xác nhận. Không có vị trí GPS trực tiếp giữa các mốc.
-              </p>
-
-              {/* Progress Bar */}
-              <div className="route-progress-box">
-                <div className="route-progress-header">
-                  <span className="progress-header-title">Tiến trình hành trình</span>
-                  <span className="progress-header-count">
-                    Đã xác nhận {confirmedCount}/8 điểm dừng
-                  </span>
-                </div>
-                <div className="route-progress-track">
-                  <div
-                    className="route-progress-fill"
-                    style={{ width: `${(confirmedCount / 8) * 100}%` }}
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* Checkpoints and Stops List */}
-            <section className="stops-list-card">
-              <h3 className="stops-card-title">Các trạm và điểm dừng dự kiến</h3>
-
-              <div className="stops-items-wrapper">
-                {checkpoints.map((cp) => {
-                  const circleColor =
-                    cp.status === 'confirmed'
-                      ? 'green'
-                      : cp.status === 'latest_confirmed'
-                        ? 'orange'
-                        : 'gray';
-
-                  const badgeClass =
-                    cp.status === 'confirmed'
-                      ? 'confirmed'
-                      : cp.status === 'latest_confirmed'
-                        ? 'latest-confirmed'
-                        : cp.status === 'next'
-                          ? 'next'
-                          : 'planned';
-
-                  return (
-                    <div key={cp.id} className="stop-row-item">
-                      <div className="stop-left-info">
-                        <div className={`stop-index-circle ${circleColor}`}>
-                          {cp.number}
-                        </div>
-                        <div className="stop-meta-text">
-                          <span className="stop-name-title">{cp.name}</span>
-                          <span className="stop-desc-sub">
-                            {cp.typeText} • dự kiến {cp.scheduledTime}
-                            {cp.confirmedTime && ` • xác nhận ${cp.confirmedTime}`}
-                          </span>
-                        </div>
-                      </div>
-
-                      <span className={`stop-status-pill ${badgeClass}`}>
-                        {cp.statusBadgeText}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
+        <div className="cus-stack">
+          <div className="cus-card">
+            <div className="cus-eyebrow">Mốc xác nhận gần nhất</div>
+            {s.m ? (
+              <div className="cus-track__status"><span><Icon name="pin" /></span><div><b>{s.lastLabel}</b><small>Xác nhận {fmtDateTime(s.m.at)}{s.m.by ? ` bởi ${s.m.by}` : ''}</small></div></div>
+            ) : <p className="cus-subtitle">Chưa xuất phát.</p>}
+            <div className="cus-summary" style={{ marginTop: 12 }}>
+              <div><span>Dự kiến xuất phát</span><b>{fmtDateTime(t.plannedDepart)}</b></div>
+              {s.dep && <div><span>Xuất phát thực tế</span><b>{fmtDateTime(s.dep.at)}</b></div>}
+              {s.adjusted && <div><span>ETA ban đầu</span><b><s>{fmtDateTime(t.etaOriginal)}</s></b></div>}
+              <div className="hl"><span>{s.adjusted ? 'ETA điều chỉnh' : 'ETA'}</span><b>{fmtDateTime(t.eta)}</b></div>
+              {s.arr && <div><span>Đến thực tế</span><b>{fmtDateTime(s.arr.at)}</b></div>}
+              {t.handover && <div><span>Bàn giao</span><b>{fmtDateTime(t.handover.completedAt)}</b></div>}
+            </div>
+            <p className="cus-muted" style={{ marginTop: 10 }}>ETA có thể thay đổi do thông quan và điều kiện đường sá.</p>
+            <button type="button" className="cus-btn cus-btn--block" style={{ marginTop: 10 }} onClick={() => navigate(`/customer/requests/${r.id}`)}>Xem chi tiết yêu cầu</button>
+            {t.handover && <button type="button" className="cus-btn cus-btn--solid cus-btn--block" onClick={() => navigate(`/customer/requests/${r.id}/handover`)}>Bàn giao & nghiệm thu</button>}
           </div>
-
-          {/* ==================== RIGHT COLUMN ==================== */}
-          <div className="tracking-col">
-            {/* Card 1: Mốc xác nhận gần nhất */}
-            <section className="latest-checkpoint-card">
-              <div className="trip-selector-label">MỐC XÁC NHẬN GẦN NHẤT</div>
-
-              <div className="latest-checkpoint-box">
-                <div className="pin-icon-circle">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg>
-                </div>
-                <div className="latest-checkpoint-info">
-                  <h4 className="latest-checkpoint-title">
-                    Đã đến tại checkpoint – {currentMilestone.name}
-                  </h4>
-                  <span className="latest-checkpoint-author">
-                    Xác nhận lúc {currentMilestone.confirmedTime || '4/10, 10:00'} bởi {currentMilestone.confirmedBy || 'Nguyen Van Hung'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="timings-specs-list">
-                <div className="timing-row">
-                  <span className="timing-label">Khởi hành dự kiến</span>
-                  <span className="timing-value">4/10, 06:00</span>
-                </div>
-                <div className="timing-row">
-                  <span className="timing-label">Thời gian khởi hành thực tế</span>
-                  <span className="timing-value">4/10, 07:00</span>
-                </div>
-                <div className="timing-row">
-                  <span className="timing-label">Dự kiến đến</span>
-                  <span className="timing-value highlight">6/10, 16:00</span>
-                </div>
-              </div>
-
-              <p className="timings-notice-text">
-                Thời gian đến dự kiến phụ thuộc vào thông quan và tình trạng đường.
-              </p>
-
-              <button
-                className="btn-view-request-detail"
-                onClick={() => navigate('/customer/requests/TRN-8923')}
-              >
-                Xem chi tiết yêu cầu
-              </button>
-            </section>
-
-            {/* Card 2: Sự kiện vận chuyển */}
-            <section className="timeline-events-card">
-              <div className="trip-selector-label">SỰ KIỆN VẬN CHUYỂN</div>
-
-              <div className="vertical-events-timeline">
-                {mockTrackingEvents.map((evt) => (
-                  <div key={evt.id} className="event-timeline-node">
-                    <div className="event-dot-marker" />
-                    <div className="event-content-box">
-                      <span className="event-title-text">{evt.title}</span>
-                      <span className="event-time-sub">
-                        {evt.time} {evt.detail ? `• ${evt.detail}` : ''}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Card 3: Điều khiển Demo từ lập kế hoạch đến nghiệm thu */}
-            <section className="demo-controller-card">
-              <div className="demo-controller-header">
-                <h4>ĐIỀU KHIỂN DEMO • TỪ LẬP KẾ HOẠCH ĐẾN NGHIỆM THU</h4>
-                <p>
-                  Mô phỏng các bước của nhân viên, tổ lái và VNPay cho TRN-8923 và chuyến của yêu cầu. Không thuộc cổng khách hàng.
-                </p>
-              </div>
-
-              <div className="demo-controller-meta">
-                <span className="demo-meta-status">
-                  Chuyến TRP-901: <b>Đang vận chuyển</b>
-                </span>
-                <span className="demo-meta-hint">
-                  Bước gợi ý: Tài xế tới mốc tiếp theo
-                </span>
-              </div>
-
-              <div className="demo-steps-grid">
-                {controlSteps.map((step) => {
-                  const isActive = step.stepNumber === activeStepNumber;
-
-                  return (
-                    <button
-                      key={step.stepNumber}
-                      className={`demo-step-button ${isActive ? 'active' : ''}`}
-                      onClick={() => handleStepClick(step.stepNumber)}
-                    >
-                      <span className="step-num-badge">{step.stepNumber}</span>
-                      <span>{step.title}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
+          <div className="cus-card">
+            <div className="cus-eyebrow">Sự kiện hành trình</div>
+            {events.length ? (
+              <ul className="cus-timeline" style={{ marginTop: 10 }}>
+                {events.map((e, i) => <li key={`${e.at}-${i}`} className={e.tone}><b>{e.title}</b><span>{fmtDateTime(e.at)}{e.note ? ` • ${e.note}` : ''}</span></li>)}
+              </ul>
+            ) : <p className="cus-muted" style={{ marginTop: 8 }}>Chưa có sự kiện nào.</p>}
           </div>
+          <DemoPanel request={r} />
         </div>
       </div>
     </CustomerLayout>

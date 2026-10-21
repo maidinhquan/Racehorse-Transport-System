@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../../../../shared/components';
 import { useCoordinator } from '../../hooks/useCoordinator';
 import { COORDINATOR_NAME } from '../../data/mockData';
@@ -21,6 +21,8 @@ const PATHS: Record<string, React.ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
   back: <path d="m15 18-6-6 6-6" />,
   bell: <path d="M6 9a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7zM10 20a2 2 0 0 0 4 0" />,
+  chevron: <path d="m6 9 6 6 6-6" />,
+  logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
   <svg className={`crd-i ${className}`} viewBox="0 0 24 24" aria-hidden="true">{PATHS[name] ?? null}</svg>
@@ -35,13 +37,32 @@ interface CoordinatorLayoutProps {
 }
 
 export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, children }) => {
+  const navigate = useNavigate();
   const { stats, toast, actions } = useCoordinator();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => actions.clearToast(), 3500);
     return () => clearTimeout(timer);
   }, [toast, actions]);
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (userMenuOpen && userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [userMenuOpen]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
 
   const NAV: Array<[string, string, string, number?]> = [
     ['/coordinator/dashboard', 'Tổng quan', 'home'],
@@ -55,7 +76,9 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
   return (
     <div className="crd-app">
       <aside className="crd-sidebar">
-        <div className="crd-brand">CBN Transport</div>
+        <NavLink to="/coordinator/dashboard" className="crd-brand" style={{ textDecoration: 'none', display: 'block' }}>
+          CBN Transport
+        </NavLink>
         <div className="crd-role">
           <b>Điều phối đội xe &amp; tuyến</b>
           <span>Fleet &amp; Route Coordinator</span>
@@ -77,8 +100,81 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
           <div className="crd-topbar__user">
             <ThemeToggle showLabel={false} />
             <button type="button" className="crd-icon-btn" aria-label="Thông báo"><Icon name="bell" /></button>
-            <span className="crd-avatar">DQ</span>
-            <span className="crd-user-name">{COORDINATOR_NAME}</span>
+
+            {/* Menu người dùng / Tài khoản */}
+            <div className="crd-user-wrap" ref={userMenuRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className="crd-user-widget"
+                onClick={() => setUserMenuOpen((v: boolean) => !v)}
+                aria-label="Menu tài khoản"
+                aria-expanded={userMenuOpen}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  background: 'transparent', border: '1px solid transparent', borderRadius: '20px',
+                  padding: '4px 8px 4px 4px', cursor: 'pointer', color: 'inherit', font: 'inherit',
+                }}
+              >
+                <span className="crd-avatar">DQ</span>
+                <span className="crd-user-name">{COORDINATOR_NAME}</span>
+                <Icon name="chevron" className="crd-user-chevron" />
+              </button>
+
+              {userMenuOpen && (
+                <div
+                  className="crd-user-menu"
+                  role="menu"
+                  style={{
+                    position: 'absolute', top: '44px', right: 0, zIndex: 50, width: '240px',
+                    background: 'var(--crd-card)', border: '1px solid var(--crd-line)',
+                    borderRadius: '12px', boxShadow: '0 16px 40px rgba(15, 23, 42, .16)', padding: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px' }}>
+                    <span className="crd-avatar" style={{ width: 36, height: 36, fontSize: 13 }}>DQ</span>
+                    <div>
+                      <b style={{ display: 'block', fontSize: 13 }}>{COORDINATOR_NAME}</b>
+                      <span style={{ fontSize: 11, color: 'var(--crd-muted)' }}>Fleet & Route Coordinator</span>
+                    </div>
+                  </div>
+                  <div style={{ height: '1px', background: 'var(--crd-line)', margin: '6px 0' }} />
+                  <button
+                    type="button"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                      border: 0, background: 'none', padding: '9px 12px', borderRadius: '8px',
+                      cursor: 'pointer', font: '500 13px Inter, sans-serif', color: 'var(--crd-ink)',
+                    }}
+                    onClick={() => { setUserMenuOpen(false); navigate('/coordinator/dashboard'); }}
+                  >
+                    <Icon name="home" /> Tổng quan
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                      border: 0, background: 'none', padding: '9px 12px', borderRadius: '8px',
+                      cursor: 'pointer', font: '500 13px Inter, sans-serif', color: 'var(--crd-ink)',
+                    }}
+                    onClick={() => { setUserMenuOpen(false); navigate('/coordinator/trips'); }}
+                  >
+                    <Icon name="map" /> Quản lý chuyến
+                  </button>
+                  <div style={{ height: '1px', background: 'var(--crd-line)', margin: '6px 0' }} />
+                  <button
+                    type="button"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                      border: 0, background: 'none', padding: '9px 12px', borderRadius: '8px',
+                      cursor: 'pointer', font: '500 13px Inter, sans-serif', color: '#dc2626',
+                    }}
+                    onClick={handleLogout}
+                  >
+                    <Icon name="logout" /> Đăng xuất
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
         <main className="crd-view">{children}</main>

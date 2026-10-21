@@ -31,7 +31,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({ stops, current = -1, height 
         {done && <polyline points={done} fill="none" stroke="#f57c00" strokeWidth={4} />}
         {pts.map(([x, y], i) => (
           <g key={stops[i].id}>
-            <circle cx={x} cy={y} r={i === current ? 10 : 7} fill={i === current ? '#f57c00' : STOP_COLOR[stops[i].type]} stroke="#fff" strokeWidth={2.5} />
+            <circle cx={x} cy={y} r={i === current ? 10 : 7} fill={i === current ? '#f57c00' : (STOP_COLOR[stops[i].type] ?? '#64748b')} stroke="#fff" strokeWidth={2.5} />
             <text x={x} y={y + (i % 2 ? 26 : -16)} textAnchor="middle" className="crd-map__label">
               {i + 1}. {stops[i].name.length > 24 ? stops[i].name.slice(0, 23) + '…' : stops[i].name}
             </text>
@@ -40,7 +40,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({ stops, current = -1, height 
       </svg>
       <div className="crd-map__legend">
         {usedTypes.map((t) => (
-          <span key={t}><i style={{ background: STOP_COLOR[t] }} />{STOP_LABEL[t]}</span>
+          <span key={t}><i style={{ background: STOP_COLOR[t] ?? '#64748b' }} />{STOP_LABEL[t] ?? t}</span>
         ))}
         <span><i style={{ background: '#f57c00' }} />Mốc xác nhận gần nhất</span>
       </div>

@@ -1,189 +1,79 @@
-import React, { useState, useMemo } from 'react';
-import { CustomerLayout } from '../../components/CustomerLayout';
-import { TripStatusBadge, ContractStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import { mockHistoryRequests } from '../../data/mockData';
-import type { HistoryRequestItem } from '../../types';
-import { HistoryDetailModal } from './HistoryDetailModal';
+import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { CustomerLayout, Icon } from '../../components/CustomerLayout';
+import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
+import { DemoGuide } from '../../components/DemoGuide/DemoGuide';
+import { RouteText, horseNames } from '../../components/Common/Common';
+import { useCustomer } from '../../hooks/useCustomer';
+import { useCustomerFilter, type RequestStatusFilter } from '../../hooks/useCustomerFilter';
 import './CustomerHistoryPage.css';
+import { FINAL_STATUSES, REQUEST_STATUS_LABEL, contractTotal, curVersion, fmtDate, fmtDateTime, fmtMoney, isActive, versionState } from '../../hooks/customerRules';
 
+/** Lịch sử: yêu cầu đã đóng, đã hủy hoặc bị từ chối (chỉ xem) */
 export const CustomerHistoryPage: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedYear, setSelectedYear] = useState('all');
-
-  // Modal detail state
-  const [selectedRequest, setSelectedRequest] = useState<HistoryRequestItem | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-
-  // Filter history requests based on search term, status and year
-  const filteredHistory = useMemo(() => {
-    return mockHistoryRequests.filter((item: HistoryRequestItem) => {
-      const matchSearch =
-        item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.horse.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.origin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.destination.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchStatus =
-        selectedStatus === 'all' ||
-        item.statusKey === selectedStatus ||
-        item.statusText === selectedStatus;
-
-      const matchYear =
-        selectedYear === 'all' ||
-        item.year === selectedYear ||
-        item.requestedDate.includes(selectedYear);
-
-      return matchSearch && matchStatus && matchYear;
-    });
-  }, [searchTerm, selectedStatus, selectedYear]);
-
-  const handleOpenDetail = (item: HistoryRequestItem) => {
-    setSelectedRequest(item);
-    setIsDetailModalOpen(true);
-  };
+  const navigate = useNavigate();
+  const { requests, horses } = useCustomer();
+  const past = useMemo(() => requests.filter((r) => !isActive(r)).sort((a, b) => (b.closedAt ?? b.date).localeCompare(a.closedAt ?? a.date)), [requests]);
+  const f = useCustomerFilter(past, horses, 10);
 
   return (
-    <CustomerLayout pageTitle="Lịch sử" activeNav="history">
-      <div className="customer-history-page">
-        {/* ==================== PAGE HEADER ==================== */}
-        <section className="history-page-header">
-          <h2 className="history-title">Lịch sử vận chuyển</h2>
-          <p className="history-subtitle">
-            Các yêu cầu đã đóng, đã hủy hoặc bị từ chối, chỉ xem. Yêu cầu đã giao sẽ chuyển sang đây khi thanh toán cuối được xác minh, hết 24 giờ phản hồi và không còn khiếu nại mở; khi đó hợp đồng đã hoàn thành và không còn hiệu lực.
+    <CustomerLayout title="Lịch sử">
+      <div className="cus-head">
+        <div>
+          <h2 className="cus-title">Lịch sử vận chuyển</h2>
+          <p className="cus-subtitle">
+            Yêu cầu đã đóng, đã hủy và bị từ chối (chỉ xem). Yêu cầu đã giao chuyển vào đây khi số dư được xác minh, hết 24 giờ phản hồi và không còn khiếu nại.
           </p>
-        </section>
-
-        {/* ==================== SEARCH & FILTERS ROW ==================== */}
-        <div className="history-filter-row">
-          <div className="history-search-box">
-            <svg
-              className="history-search-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              className="history-search-input"
-              placeholder="Tìm mã yêu cầu, ngựa..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="history-select-wrapper">
-            <select
-              className="history-select-dropdown"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="closed">Đã đóng</option>
-              <option value="cancelled">Đã hủy</option>
-              <option value="rejected">Bị từ chối</option>
-            </select>
-            <svg className="history-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </div>
-
-          <div className="history-select-wrapper">
-            <select
-              className="history-select-dropdown"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-            >
-              <option value="all">Tất cả các năm</option>
-              <option value="2026">Năm 2026</option>
-              <option value="2025">Năm 2025</option>
-              <option value="2024">Năm 2024</option>
-            </select>
-            <svg className="history-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </div>
         </div>
-
-        {/* ==================== MAIN HISTORY TABLE ==================== */}
-        <section className="history-table-card">
-          <div className="history-table-responsive-wrapper">
-            <table className="history-main-table">
-              <thead>
-                <tr>
-                  <th>MÃ YÊU CẦU</th>
-                  <th>TUYẾN ĐƯỜNG</th>
-                  <th>NGỰA</th>
-                  <th>NGÀY YÊU CẦU</th>
-                  <th>NGÀY MONG MUỐN</th>
-                  <th>HỢP ĐỒNG</th>
-                  <th>TRẠNG THÁI YÊU CẦU</th>
-                  <th style={{ textAlign: 'center' }}>THAO TÁC</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredHistory.length > 0 ? (
-                  filteredHistory.map((item) => (
-                    <tr
-                      key={item.id}
-                      onClick={() => handleOpenDetail(item)}
-                      className="history-table-row-clickable"
-                    >
-                      <td className="col-hist-id">{item.id}</td>
-                      <td className="col-hist-route">
-                        {item.origin} → {item.destination}
-                      </td>
-                      <td className="col-hist-horse">{item.horse}</td>
-                      <td className="col-hist-date">{item.requestedDate}</td>
-                      <td className="col-hist-date">{item.expectedDate}</td>
-                      <td className="col-hist-contract">
-                        <ContractStatusBadge
-                          status={item.contractStatusKey}
-                          text={item.contractStatusText}
-                        />
-                      </td>
-                      <td className="col-hist-status">
-                        <TripStatusBadge status={item.statusKey} label={item.statusText} />
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          className="btn-hist-action"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDetail(item);
-                          }}
-                        >
-                          Xem chi tiết
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={8} className="history-empty-table">
-                      Không tìm thấy bản ghi lịch sử vận chuyển nào phù hợp với bộ lọc.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
       </div>
-
-      {/* Detail Modal */}
-      <HistoryDetailModal
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        request={selectedRequest}
-      />
+      <DemoGuide kind="history" />
+      <div className="cus-toolbar">
+        <label className="cus-search">
+          <Icon name="search" />
+          <input value={f.search} onChange={(e) => f.setSearch(e.target.value)} placeholder="Tìm mã yêu cầu, thành phố, tên ngựa…" />
+        </label>
+        <select className="cus-select" value={f.status} onChange={(e) => f.setStatus(e.target.value as RequestStatusFilter)} aria-label="Trạng thái">
+          <option value="">Tất cả trạng thái</option>
+          {FINAL_STATUSES.map((s) => <option key={s} value={s}>{REQUEST_STATUS_LABEL[s]}</option>)}
+        </select>
+        <select className="cus-select" value={f.year} onChange={(e) => f.setYear(e.target.value)} aria-label="Năm">
+          <option value="">Tất cả các năm</option>
+          {f.years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+      <div className="cus-card" style={{ padding: 0 }}>
+        <div className="cus-table-wrap">
+          <table className="cus-table">
+            <thead><tr><th>Mã yêu cầu</th><th>Tuyến</th><th>Ngựa</th><th>Ngày vận chuyển</th><th>Hợp đồng</th><th className="num">Giá trị</th><th>Kết thúc</th><th>Trạng thái</th></tr></thead>
+            <tbody>
+              {f.rows.map((r) => {
+                const v = curVersion(r);
+                return (
+                  <tr key={r.id} className="clickable" onClick={() => navigate(`/customer/requests/${r.id}`)}>
+                    <td className="cus-id">{r.id}</td>
+                    <td><RouteText r={r} /></td>
+                    <td>{horseNames(r, horses)}</td>
+                    <td>{fmtDate(r.date)}</td>
+                    <td>{v ? <TripStatusBadge kind="contract" status={versionState(v)} /> : <span className="cus-muted">—</span>}</td>
+                    <td className="num">{v ? fmtMoney(contractTotal(r)) : '—'}</td>
+                    <td className="cus-history__closed">{r.closedAt ? fmtDateTime(r.closedAt) : <span className="cus-muted">{r.reason ?? '—'}</span>}</td>
+                    <td><TripStatusBadge status={r.status} /></td>
+                  </tr>
+                );
+              })}
+              {!f.rows.length && <tr><td colSpan={8} className="cus-empty">Không có yêu cầu nào khớp bộ lọc.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="cus-pager">
+        <span>{f.total} yêu cầu</span>
+        <div>
+          <button type="button" className="cus-btn cus-btn--sm" disabled={f.page <= 1} onClick={() => f.setPage(f.page - 1)}>Trước</button>
+          <span>Trang {f.page}/{f.pageCount}</span>
+          <button type="button" className="cus-btn cus-btn--sm" disabled={f.page >= f.pageCount} onClick={() => f.setPage(f.page + 1)}>Sau</button>
+        </div>
+      </div>
     </CustomerLayout>
   );
 };

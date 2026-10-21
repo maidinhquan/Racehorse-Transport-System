@@ -1,137 +1,77 @@
 import { apiClient } from '../../../shared/api/apiClient';
 import { CUSTOMER_ENDPOINTS } from './customerEndpoints';
 import type {
-  CurrentTrip,
+  ApiResponse,
+  ComplaintInput,
+  ContractChangeInput,
   CustomerNotification,
-  RecentRequest,
-  TransportRequestItem,
-  DemoScenario,
-  IncidentDetail,
-  CustomerHorse
+  CustomerProfile,
+  Horse,
+  HorseInput,
+  TransportRequest,
 } from '../types';
-import {
-  mockCurrentTrip,
-  mockCustomerNotifications,
-  mockRecentRequests,
-  mockTransportRequests,
-  mockDemoScenarios,
-  mockIncidentDetail,
-  mockCustomerHorses
-} from '../data/mockData';
+import { mockHorses, mockNotifications, mockProfile, mockRequests } from '../data/mockData';
+
+const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+/** GET có fallback về mock data khi Backend chưa chạy */
+async function getOr<T>(url: string, fallback: T): Promise<T> {
+  try {
+    const res = await apiClient.get<ApiResponse<T>>(url);
+    return res.data?.data ?? clone(fallback);
+  } catch {
+    return clone(fallback);
+  }
+}
+
+/**
+ * POST/PUT: trả về true nếu Backend nhận, false nếu đang chạy chế độ mock.
+ * Ở chế độ mock, giao diện vẫn cập nhật dữ liệu cục bộ (xem useCustomer).
+ */
+async function send(method: 'post' | 'put', url: string, body?: unknown): Promise<boolean> {
+  try {
+    const res = method === 'post'
+      ? await apiClient.post<ApiResponse<unknown>>(url, body)
+      : await apiClient.put<ApiResponse<unknown>>(url, body);
+    return res.data?.success !== false;
+  } catch {
+    return false;
+  }
+}
 
 export const customerApi = {
-  /**
-   * Lấy thông tin chuyến đi đang diễn ra
-   */
-  async getCurrentTrip(): Promise<CurrentTrip> {
-    try {
-      const response = await apiClient.get<CurrentTrip>(CUSTOMER_ENDPOINTS.CURRENT_TRIP);
-      return response.data || mockCurrentTrip;
-    } catch {
-      // Fallback về mock data chuẩn thiết kế
-      return mockCurrentTrip;
-    }
-  },
+  getProfile: () => getOr<CustomerProfile>(CUSTOMER_ENDPOINTS.PROFILE, mockProfile),
+  getNotifications: () => getOr<CustomerNotification[]>(CUSTOMER_ENDPOINTS.NOTIFICATIONS, mockNotifications),
 
-  /**
-   * Lấy danh sách các yêu cầu vận chuyển gần đây (Home page)
-   */
-  async getRecentRequests(): Promise<RecentRequest[]> {
-    try {
-      const response = await apiClient.get<RecentRequest[]>(CUSTOMER_ENDPOINTS.RECENT_REQUESTS);
-      return response.data || mockRecentRequests;
-    } catch {
-      return mockRecentRequests;
-    }
-  },
+  /** Ngựa của tôi */
+  getHorses: () => getOr<Horse[]>(CUSTOMER_ENDPOINTS.HORSES, mockHorses),
+  createHorse: (body: HorseInput) => send('post', CUSTOMER_ENDPOINTS.HORSES, body),
+  updateHorse: (horseId: string, body: HorseInput) => send('put', CUSTOMER_ENDPOINTS.HORSE_DETAIL(horseId), body),
 
-  /**
-   * Lấy toàn bộ danh sách yêu cầu vận chuyển (Requests page)
-   */
-  async getTransportRequests(): Promise<TransportRequestItem[]> {
-    try {
-      const response = await apiClient.get<TransportRequestItem[]>(CUSTOMER_ENDPOINTS.ALL_REQUESTS);
-      return response.data || mockTransportRequests;
-    } catch {
-      return mockTransportRequests;
-    }
-  },
+  /** Yêu cầu vận chuyển */
+  getRequests: () => getOr<TransportRequest[]>(CUSTOMER_ENDPOINTS.REQUESTS, mockRequests),
+  getRequest: (requestId: string) =>
+    getOr<TransportRequest | undefined>(CUSTOMER_ENDPOINTS.REQUEST_DETAIL(requestId), mockRequests.find((r) => r.id === requestId)),
+  saveRequest: (request: TransportRequest) => send('put', CUSTOMER_ENDPOINTS.REQUEST_DETAIL(request.id), request),
+  createRequest: (request: TransportRequest) => send('post', CUSTOMER_ENDPOINTS.REQUESTS, request),
+  submitRequest: (requestId: string) => send('post', CUSTOMER_ENDPOINTS.SUBMIT_REQUEST(requestId)),
+  cancelRequest: (requestId: string, reason: string) => send('post', CUSTOMER_ENDPOINTS.CANCEL_REQUEST(requestId), { reason }),
+  uploadDocument: (requestId: string, key: string, scope: string, fileName: string) =>
+    send('post', CUSTOMER_ENDPOINTS.REQUEST_DOCUMENTS(requestId), { key, scope, fileName }),
 
-  /**
-   * Lấy danh sách hồ sơ ngựa cá nhân của khách hàng
-   */
-  async getCustomerHorses(): Promise<CustomerHorse[]> {
-    try {
-      const response = await apiClient.get<CustomerHorse[]>(CUSTOMER_ENDPOINTS.HORSES);
-      return response.data || mockCustomerHorses;
-    } catch {
-      return mockCustomerHorses;
-    }
-  },
+  /** Hợp đồng */
+  acceptTerms: (requestId: string) => send('post', CUSTOMER_ENDPOINTS.ACCEPT_TERMS(requestId)),
+  requestContractChange: (requestId: string, body: ContractChangeInput) => send('post', CUSTOMER_ENDPOINTS.CONTRACT_CHANGE(requestId), body),
+  sendSignOtp: (requestId: string) => send('post', CUSTOMER_ENDPOINTS.SEND_SIGN_OTP(requestId)),
+  signContract: (requestId: string, otp: string) => send('post', CUSTOMER_ENDPOINTS.SIGN_CONTRACT(requestId), { otp }),
 
-  /**
-   * Lấy các kịch bản demo mẫu
-   */
-  async getDemoScenarios(): Promise<DemoScenario[]> {
-    try {
-      const response = await apiClient.get<DemoScenario[]>(CUSTOMER_ENDPOINTS.DEMO_SCENARIOS);
-      return response.data || mockDemoScenarios;
-    } catch {
-      return mockDemoScenarios;
-    }
-  },
+  /** Thanh toán */
+  payDeposit: (requestId: string) => send('post', CUSTOMER_ENDPOINTS.DEPOSIT_PAYMENT(requestId)),
+  payBalance: (requestId: string) => send('post', CUSTOMER_ENDPOINTS.BALANCE_PAYMENT(requestId)),
 
-  /**
-   * Lấy danh sách thông báo của khách hàng
-   */
-  async getNotifications(): Promise<CustomerNotification[]> {
-    try {
-      const response = await apiClient.get<CustomerNotification[]>(CUSTOMER_ENDPOINTS.NOTIFICATIONS);
-      return response.data || mockCustomerNotifications;
-    } catch {
-      return mockCustomerNotifications;
-    }
-  },
-
-  /**
-   * Đánh dấu thông báo đã đọc
-   */
-  async markNotificationAsRead(id: string): Promise<boolean> {
-    try {
-      await apiClient.post(CUSTOMER_ENDPOINTS.MARK_NOTIFICATION_READ(id));
-      return true;
-    } catch {
-      return true;
-    }
-  },
-
-  /**
-   * Lấy thông tin chi tiết sự cố kiểm dịch Flow 5
-   */
-  async getIncidentDetail(incidentId: string = 'INC-FLOW5-001'): Promise<IncidentDetail> {
-    try {
-      const response = await apiClient.get<IncidentDetail>(CUSTOMER_ENDPOINTS.INCIDENT_FLOW5(incidentId));
-      return response.data || mockIncidentDetail;
-    } catch {
-      return mockIncidentDetail;
-    }
-  },
-
-  /**
-   * Xử lý giải quyết sự cố kiểm dịch (Flow 5)
-   */
-  async resolveIncident(incidentId: string, action: string, notes?: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const response = await apiClient.post(CUSTOMER_ENDPOINTS.RESOLVE_INCIDENT(incidentId), {
-        action,
-        notes
-      });
-      return response.data;
-    } catch {
-      return {
-        success: true,
-        message: 'Xác nhận xử lý sự cố thành công (Chế độ mô phỏng Flow 5).'
-      };
-    }
-  }
+  /** Nghiệm thu & khiếu nại */
+  confirmAcceptance: (requestId: string) => send('post', CUSTOMER_ENDPOINTS.ACCEPTANCE(requestId)),
+  raiseComplaint: (requestId: string, body: ComplaintInput) => send('post', CUSTOMER_ENDPOINTS.COMPLAINTS(requestId), body),
 };
+
+export default customerApi;

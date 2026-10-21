@@ -13,12 +13,21 @@ import ForgotPasswordPage from "../../features/auth/pages/forgot-password/Forgot
 import ResetPasswordPage from "../../features/auth/pages/reset-password/ResetPasswordPage";
 
 // ==================== CUSTOMER ====================
-import { CustomerHomePage } from "../../features/customer/pages/customer-home/CustomerHomePage";
-import { CustomerRequestsPage } from "../../features/customer/pages/customer-requests/CustomerRequestsPage";
-import { CustomerTrackingPage } from "../../features/customer/pages/tracking/CustomerTrackingPage";
-import { CreateTransportRequestPage } from "../../features/customer/pages/customer-requests/create-request";
-import { MyHorsesPage } from "../../features/customer/pages/my-horses/MyHorsesPage";
-import { CustomerHistoryPage } from "../../features/customer/pages/history/CustomerHistoryPage";
+import {
+  CustomerHomePage,
+  CustomerRequestsPage,
+  CreateRequestPage,
+  RequestWizardPage,
+  RequestDetailPage,
+  DepositPage,
+  ContractViewPage,
+  ReviewSignPage,
+  MyHorsesPage,
+  HorseDetailPage,
+  HorseFormPage,
+  CustomerTrackingPage,
+  CustomerHistoryPage,
+} from "../../features/customer";
 
 // ==================== CONTRACT & PAYMENT ====================
 import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage";
@@ -26,9 +35,15 @@ import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage"
 // ==================== ROLE DASHBOARDS ====================
 import AdminDashboard from "../../features/admin/AdminDashboard";
 import DriverDashboard from "../../features/driver/DriverDashboard";
-import SpecialistDashboard from "../../features/specialist/SpecialistDashboard";
 import { ManagerPortal } from "../../features/manager/pages/dashboard/ManagerPortal";
-import { SpecialistPortal } from "../../features/specialist/pages/dashboard/SpecialistPortal";
+import {
+  SpecialistDashboardPage,
+  AssignedTripsPage,
+  TripDetailPage as SpecialistTripDetailPage,
+  DocumentReviewPage,
+  RegulationsPage,
+  AuditPage,
+} from "../../features/specialist";
 import {
   CoordinatorDashboardPage,
   TripManagementPage,
@@ -41,7 +56,7 @@ import {
 import { DriverPortal } from "../../features/driver/pages/trip-detail/DriverPortal";
 import { HandoverPage } from "../../features/driver/pages/handover/HandoverPage";
 import { LandingPage } from "../../features/landing/LandingPage";
-import { AddHorsePage } from '../../features/customer/pages/my-horses/add-horse/AddHorsePage';
+
 function AppRouter() {
   return (
     <BrowserRouter>
@@ -86,28 +101,51 @@ function AppRouter() {
         <Route path="/coordinator/incidents" element={<IncidentsPage />} />
 
         {/* ==================== SPECIALIST ==================== */}
-        <Route path="/specialist/dashboard" element={<SpecialistDashboard />} />
-        <Route path="/specialist/documents" element={<SpecialistPortal initialNav="queue" />} />
-        <Route path="/specialist/trips" element={<SpecialistPortal initialNav="trips" />} />
-        <Route path="/specialist/queue" element={<SpecialistPortal initialNav="queue" />} />
-        <Route path="/specialist/requests" element={<SpecialistPortal initialNav="requests" />} />
-        <Route path="/specialist/checkpoints" element={<SpecialistPortal initialNav="checkpoints" />} />
-        <Route path="/specialist/packages" element={<SpecialistPortal initialNav="packages" />} />
-        <Route path="/specialist/master" element={<SpecialistPortal initialNav="master" />} />
-        <Route path="/specialist/audit" element={<SpecialistPortal initialNav="audit" />} />
+        <Route path="/specialist" element={<Navigate to="/specialist/dashboard" replace />} />
+        <Route path="/specialist/dashboard" element={<SpecialistDashboardPage />} />
+        <Route path="/specialist/trips" element={<AssignedTripsPage />} />
+        <Route path="/specialist/trips/:tripId" element={<SpecialistTripDetailPage />} />
+        <Route path="/specialist/trips/:tripId/:tab" element={<SpecialistTripDetailPage />} />
+        <Route path="/specialist/documents/:docId" element={<DocumentReviewPage />} />
+        <Route path="/specialist/regulations" element={<RegulationsPage />} />
+        <Route path="/specialist/audit" element={<AuditPage />} />
+        {/* Legacy redirects */}
+        <Route path="/specialist/master" element={<Navigate to="/specialist/regulations" replace />} />
+        <Route path="/specialist/queue" element={<Navigate to="/specialist/trips" replace />} />
+        <Route path="/specialist/documents" element={<Navigate to="/specialist/trips" replace />} />
+        <Route path="/specialist/requests" element={<Navigate to="/specialist/trips" replace />} />
+        <Route path="/specialist/checkpoints" element={<Navigate to="/specialist/regulations" replace />} />
+        <Route path="/specialist/packages" element={<Navigate to="/specialist/regulations" replace />} />
 
         {/* ==================== CUSTOMER ==================== */}
-        <Route path="/customer/horses/new" element={<AddHorsePage />} />
         <Route path="/customer" element={<Navigate to="/customer/home" replace />} />
         <Route path="/customer/home" element={<CustomerHomePage />} />
         <Route path="/customer/dashboard" element={<CustomerHomePage />} />
         <Route path="/customer/profile" element={<CustomerHomePage />} />
+
+        {/* Requests & Wizard Flow */}
         <Route path="/customer/requests" element={<CustomerRequestsPage />} />
-        <Route path="/customer/requests/new" element={<CreateTransportRequestPage />} />
-        <Route path="/customer/create-request" element={<CreateTransportRequestPage />} />
-        <Route path="/customer/requests/:requestId" element={<CustomerTrackingPage />} />
+        <Route path="/customer/requests/new" element={<CreateRequestPage />} />
+        <Route path="/customer/create-request" element={<CreateRequestPage />} />
+        <Route path="/customer/requests/:requestId/edit" element={<CreateRequestPage />} />
+        <Route path="/customer/requests/:requestId/wizard" element={<RequestWizardPage />} />
+        <Route path="/customer/requests/:requestId/wizard/:step" element={<RequestWizardPage />} />
+        <Route path="/customer/requests/:requestId" element={<RequestDetailPage />} />
+        <Route path="/customer/requests/:requestId/deposit" element={<DepositPage />} />
+        <Route path="/customer/requests/:requestId/contract" element={<ContractViewPage />} />
+        <Route path="/customer/requests/:requestId/contract/:version" element={<ContractViewPage />} />
+        <Route path="/customer/requests/:requestId/sign" element={<ReviewSignPage />} />
+
+        {/* Horses */}
         <Route path="/customer/horses" element={<MyHorsesPage />} />
+        <Route path="/customer/horses/new" element={<HorseFormPage />} />
+        <Route path="/customer/horses/:horseId" element={<HorseDetailPage />} />
+        <Route path="/customer/horses/:horseId/edit" element={<HorseFormPage />} />
+        <Route path="/customer/horses/:horseId/:tab" element={<HorseDetailPage />} />
+
+        {/* Tracking & History */}
         <Route path="/customer/tracking" element={<CustomerTrackingPage />} />
+        <Route path="/customer/tracking/:requestId" element={<CustomerTrackingPage />} />
         <Route path="/customer/history" element={<CustomerHistoryPage />} />
 
         {/* ==================== PAYMENT ==================== */}

@@ -1,118 +1,63 @@
 import React from 'react';
-import type { TripStatus, StatusDisplayType } from '../../types';
 import './TripStatusBadge.css';
+import type { ContractState, DepositState, DocStatus, PaymentStatus, RequestStatus, TripStatus } from '../../types';
+import {
+  CONTRACT_STATE_LABEL,
+  DEPOSIT_STATE_LABEL,
+  DOC_STATUS_LABEL,
+  PAYMENT_STATUS_LABEL,
+  REQUEST_STATUS_LABEL,
+  TRIP_STATUS_LABEL,
+} from '../../hooks/customerRules';
+
+export type BadgeTone = 'ok' | 'info' | 'warn' | 'bad' | 'muted' | 'brand';
+
+const REQUEST_TONE: Record<RequestStatus, BadgeTone> = {
+  DRAFT: 'muted', PENDING_REVIEW: 'warn', CHANGES_REQUESTED: 'bad', REJECTED: 'bad', CONTRACT_PREPARATION: 'info',
+  CONTRACT_READY: 'info', CONTRACT_CHANGES_REQUESTED: 'warn', DEPOSIT_VERIFIED: 'ok', CANCELLATION_REQUESTED: 'warn',
+  ACTIVATED: 'brand', SCHEDULED: 'info', IN_TRANSIT: 'brand', DELIVERED: 'ok', CLOSED: 'muted', CANCELLED: 'muted',
+};
+const CONTRACT_TONE: Record<ContractState, BadgeTone> = {
+  ISSUED: 'info', CHANGES_REQUESTED: 'warn', EXPIRED: 'bad', SUPERSEDED: 'muted', EFFECTIVE: 'ok', FULFILLED: 'muted',
+};
+const DOC_TONE: Record<DocStatus, BadgeTone> = {
+  MISSING: 'bad', NEEDS_INPUT: 'bad', OPTIONAL: 'muted', NOT_REQUIRED_YET: 'muted', SUBMITTED: 'info',
+  PENDING_REVIEW: 'warn', APPROVED: 'ok', ACTION_REQUIRED: 'bad',
+};
+const TRIP_TONE: Record<TripStatus, BadgeTone> = { PLANNING: 'info', READY_TO_DEPART: 'ok', IN_TRANSIT: 'brand', COMPLETED: 'muted' };
+const PAY_TONE: Record<PaymentStatus, BadgeTone> = { PROCESSING: 'warn', SUCCESS: 'ok', FAILED: 'bad' };
+const DEPOSIT_TONE: Record<DepositState, BadgeTone> = { NONE: 'muted', PENDING: 'warn', VERIFIED: 'ok', FAILED: 'bad' };
+
+type BadgeKind = 'request' | 'contract' | 'doc' | 'trip' | 'payment' | 'deposit';
+const MAPS: Record<BadgeKind, [Record<string, string>, Record<string, BadgeTone>]> = {
+  request: [REQUEST_STATUS_LABEL, REQUEST_TONE],
+  contract: [CONTRACT_STATE_LABEL, CONTRACT_TONE],
+  doc: [DOC_STATUS_LABEL, DOC_TONE],
+  trip: [TRIP_STATUS_LABEL, TRIP_TONE],
+  payment: [PAYMENT_STATUS_LABEL, PAY_TONE],
+  deposit: [DEPOSIT_STATE_LABEL, DEPOSIT_TONE],
+};
 
 interface TripStatusBadgeProps {
-  status: TripStatus | StatusDisplayType | string;
+  /** Mã trạng thái */
+  status?: string;
+  /** Loại trạng thái (mặc định: yêu cầu vận chuyển) */
+  kind?: BadgeKind;
+  /** Ghi đè nhãn hiển thị */
   label?: string;
+  /** Ghi đè màu */
+  tone?: BadgeTone;
   className?: string;
 }
 
-export const TripStatusBadge: React.FC<TripStatusBadgeProps> = ({ status, label, className = '' }) => {
-  const normalizeStatus = (val: string): { key: string; text: string } => {
-    switch (val) {
-      case 'in_transit':
-      case 'Đang vận chuyển':
-      case 'In Transit':
-        return { key: 'in_transit', text: 'Đang vận chuyển' };
-
-      case 'reviewing':
-      case 'Đang xét duyệt hồ sơ':
-      case 'Documents Under Review':
-        return { key: 'reviewing', text: 'Đang xét duyệt hồ sơ' };
-
-      case 'contract_ready':
-      case 'Hợp đồng sẵn sàng':
-      case 'Contract Ready':
-        return { key: 'contract_ready', text: 'Hợp đồng sẵn sàng' };
-
-      case 'waiting_manager':
-      case 'Chờ quản lý xét duyệt':
-      case 'Chờ Manager xét duyệt':
-      case 'Waiting for Manager Review':
-        return { key: 'waiting_manager', text: 'Chờ quản lý xét duyệt' };
-
-      case 'revision_requested':
-      case 'Yêu cầu chỉnh sửa':
-      case 'Manager yêu cầu sửa yêu cầu':
-        return { key: 'revision_requested', text: 'Yêu cầu chỉnh sửa' };
-
-      case 'contract_revision_requested':
-      case 'Yêu cầu sửa hợp đồng':
-      case 'Đã gửi yêu cầu sửa hợp đồng':
-        return { key: 'contract_revision_requested', text: 'Yêu cầu sửa hợp đồng' };
-
-      case 'deposit_verified':
-      case 'Đã xác minh cọc – Chờ ký':
-      case 'Đã xác minh cọc – chờ ký OTP':
-        return { key: 'deposit_verified', text: 'Đã xác minh cọc – Chờ ký' };
-
-      case 'delivered':
-      case 'Đã giao':
-        return { key: 'delivered', text: 'Đã giao' };
-
-      case 'scheduled':
-      case 'Đã lên lịch':
-      case 'Scheduled':
-        return { key: 'scheduled', text: 'Đã lên lịch' };
-
-      case 'completed':
-      case 'Đã hoàn thành':
-      case 'Completed':
-        return { key: 'completed', text: 'Đã hoàn thành' };
-
-      case 'closed':
-      case 'Đã đóng':
-        return { key: 'closed', text: 'Đã đóng' };
-
-      case 'cancelled':
-      case 'Đã hủy':
-        return { key: 'cancelled', text: 'Đã hủy' };
-
-      case 'rejected':
-      case 'Bị từ chối':
-        return { key: 'rejected', text: 'Bị từ chối' };
-
-      case 'incident':
-      case 'Sự cố kiểm dịch':
-        return { key: 'incident', text: 'Sự cố kiểm dịch' };
-
-      default:
-        return { key: 'default', text: val };
-    }
-  };
-
-  const { key, text } = normalizeStatus(status);
-
+/** Huy hiệu trạng thái dùng chung: yêu cầu, hợp đồng, giấy tờ, chuyến, thanh toán */
+export const TripStatusBadge: React.FC<TripStatusBadgeProps> = ({ status = '', kind = 'request', label, tone, className = '' }) => {
+  const [labels, tones] = MAPS[kind];
   return (
-    <span className={`cbn-status-badge ${key} ${className}`}>
-      {label || text}
+    <span className={`cus-badge cus-badge--${tone ?? tones[status] ?? 'muted'} ${className}`}>
+      {label ?? labels[status] ?? status}
     </span>
   );
-};
-
-export const ContractStatusBadge: React.FC<{
-  status?: string;
-  text?: string;
-}> = ({ status, text }) => {
-  if (text?.includes('Đã hoàn thành') || text?.includes('Không còn hiệu lực')) {
-    return (
-      <span className="cbn-contract-badge completed-box">
-        Đã hoàn thành –<br />
-        Không còn hiệu lực thực hiện
-      </span>
-    );
-  }
-  if (status === 'active' || text === 'Có hiệu lực') {
-    return <span className="cbn-contract-badge active">{text || 'Có hiệu lực'}</span>;
-  }
-  if (status === 'ready' || text === 'Sẵn sàng') {
-    return <span className="cbn-contract-badge ready">{text || 'Sẵn sàng'}</span>;
-  }
-  if (status === 'cancelled' || text === 'Đã hủy') {
-    return <span className="cbn-contract-badge cancelled">{text || 'Đã hủy'}</span>;
-  }
-  return <span className="cbn-contract-badge none">{text || '—'}</span>;
 };
 
 export default TripStatusBadge;

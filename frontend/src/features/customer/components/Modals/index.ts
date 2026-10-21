@@ -1,2 +1,5 @@
-export * from './TrackingModal';
-export * from './IncidentModal';
+export * from './Modal';
+export * from './ReasonModal';
+export * from './OtpModal';
+export * from './ComplaintModal';
+export * from './AcceptTermsModal';

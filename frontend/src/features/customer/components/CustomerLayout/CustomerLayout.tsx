@@ -1,221 +1,207 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useCustomer } from '../../hooks/useCustomer';
-import { TrackingModal } from '../Modals/TrackingModal';
-import { IncidentModal } from '../Modals/IncidentModal';
+import React, { useEffect, useRef, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../../../../shared/components';
+import { useCustomer } from '../../hooks/useCustomer';
+import { fmtDateTime } from '../../hooks/customerRules';
 import './CustomerLayout.css';
 
-export type CustomerNavKey = 'home' | 'requests' | 'horses' | 'tracking' | 'history';
+// ---------------------------------------------------------------------------
+// Icon dùng chung trong feature
+// ---------------------------------------------------------------------------
+const PATHS: Record<string, React.ReactNode> = {
+  home: <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
+  file: <><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M8 13h8M8 17h5" /></>,
+  horse: <><path d="M5 20v-6l3-5 2-5 3 2 4 1 2 3-2 2-3-1-1 4v5" /><path d="M9 20v-5" /></>,
+  pin: <><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></>,
+  clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+  check: <path d="m5 12 5 5 9-10" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  back: <path d="m15 18-6-6 6-6" />,
+  bell: <path d="M6 9a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7zM10 20a2 2 0 0 0 4 0" />,
+  alert: <path d="M12 3 2 20h20zM12 10v4M12 17h.01" />,
+  info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
+  lock: <><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></>,
+  search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
+  upload: <path d="M12 16V4M7 9l5-5 5 5M5 20h14" />,
+  card: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M7 15h4" /></>,
+  chat: <path d="M4 5h16v11H8l-4 4z" />,
+  calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
+  chevron: <path d="m6 9 6 6 6-6" />,
+  logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
+};
+export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
+  <svg className={`cus-i ${className}`} viewBox="0 0 24 24" aria-hidden="true">{PATHS[name] ?? null}</svg>
+);
 
+// ---------------------------------------------------------------------------
+// Layout: sidebar + topbar (thông báo + menu tài khoản) + toast
+// ---------------------------------------------------------------------------
 interface CustomerLayoutProps {
-  pageTitle: string;
-  activeNav?: CustomerNavKey;
+  title: string;
   children: React.ReactNode;
 }
 
-export const CustomerLayout: React.FC<CustomerLayoutProps> = ({
-  pageTitle,
-  activeNav,
-  children
-}) => {
+export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children }) => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const {
-    currentTrip,
-    unreadCount,
-    incidentDetail,
-    handleResolveIncident,
-  } = useCustomer();
+  const { profile, stats, notifications, toast, actions } = useCustomer();
+  const [open, setOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const [lang, setLang] = useState<'VI' | 'EN'>('VI');
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
-  const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => actions.clearToast(), 3800);
+    return () => clearTimeout(timer);
+  }, [toast, actions]);
 
-  // Automatically detect current nav if not provided
-  const getCurrentNav = (): CustomerNavKey => {
-    if (activeNav) return activeNav;
-    const path = location.pathname;
-    if (path.includes('/customer/requests')) return 'requests';
-    if (path.includes('/customer/horses')) return 'horses';
-    if (path.includes('/customer/tracking')) return 'tracking';
-    if (path.includes('/customer/history')) return 'history';
-    return 'home';
-  };
-
-  const currentNavKey = getCurrentNav();
-  const fullName = localStorage.getItem('userFullName')?.trim() || 'Khách hàng';
-  const initials = fullName.split(/\s+/).slice(-2).map(part => part[0]).join('').toUpperCase();
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (open && notifRef.current && !notifRef.current.contains(target)) {
+        setOpen(false);
+      }
+      if (userMenuOpen && userMenuRef.current && !userMenuRef.current.contains(target)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [open, userMenuOpen]);
 
   const handleLogout = () => {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('user');
     navigate('/login');
   };
 
+  const NAV: Array<[string, string, string, number?]> = [
+    ['/customer/home', 'Trang chủ', 'home'],
+    ['/customer/requests', 'Yêu cầu vận chuyển', 'file', stats.needAction],
+    ['/customer/horses', 'Ngựa của tôi', 'horse'],
+    ['/customer/tracking', 'Theo dõi chuyến', 'pin', stats.inTransit],
+    ['/customer/history', 'Lịch sử', 'clock'],
+  ];
+
   return (
-    <div className="customer-shared-layout">
-      {/* ==================== LEFT SIDEBAR ==================== */}
-      <aside className="customer-shared-sidebar">
-        <div className="customer-sidebar-brand" onClick={() => navigate('/customer/home')}>
+    <div className="cus-app">
+      <aside className="cus-sidebar">
+        <NavLink to="/customer/home" className="cus-brand" style={{ textDecoration: 'none', display: 'block' }}>
           CBN Transport
+        </NavLink>
+        <div className="cus-role">
+          <b>Cổng khách hàng</b>
+          <span>{profile.company}</span>
         </div>
-
-        <nav className="customer-sidebar-nav">
-          <button
-            className={`customer-sidebar-nav-item ${currentNavKey === 'home' ? 'active' : ''}`}
-            onClick={() => navigate('/customer/home')}
-          >
-            <svg className="customer-sidebar-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />
-            </svg>
-            <span>Trang chủ</span>
-          </button>
-
-          <button
-            className={`customer-sidebar-nav-item ${currentNavKey === 'requests' ? 'active' : ''}`}
-            onClick={() => navigate('/customer/requests')}
-          >
-            <svg className="customer-sidebar-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" />
-              <path d="M14 3v5h5" />
-              <path d="M9 13h6" />
-              <path d="M9 17h6" />
-            </svg>
-            <span>Yêu cầu vận chuyển</span>
-          </button>
-
-          <button
-            className={`customer-sidebar-nav-item ${currentNavKey === 'horses' ? 'active' : ''}`}
-            onClick={() => navigate('/customer/horses')}
-          >
-            <svg className="customer-sidebar-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14" />
-              <path d="m12 5 7 7-7 7" />
-            </svg>
-            <span>Ngựa của tôi</span>
-          </button>
-
-          <button
-            className={`customer-sidebar-nav-item ${currentNavKey === 'tracking' ? 'active' : ''}`}
-            onClick={() => navigate('/customer/tracking')}
-          >
-            <svg className="customer-sidebar-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            <span>Theo dõi chuyến đi</span>
-          </button>
-
-          <button
-            className={`customer-sidebar-nav-item ${currentNavKey === 'history' ? 'active' : ''}`}
-            onClick={() => navigate('/customer/history')}
-          >
-            <svg className="customer-sidebar-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3 2" />
-            </svg>
-            <span>Lịch sử</span>
-          </button>
+        <nav className="cus-nav">
+          {NAV.map(([to, label, icon, count]) => (
+            <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>
+              <Icon name={icon} />
+              <span>{label}</span>
+              {!!count && <em className="cus-nav__count">{count}</em>}
+            </NavLink>
+          ))}
         </nav>
       </aside>
 
-      {/* ==================== MAIN COLUMN ==================== */}
-      <div className="customer-shared-main">
-        {/* Topbar */}
-        <header className="customer-shared-topbar">
-          <h1 className="customer-topbar-title">{pageTitle}</h1>
-
-          <div className="customer-topbar-controls">
+      <div className="cus-main">
+        <header className="cus-topbar">
+          <h1>{title}</h1>
+          <div className="cus-topbar__user">
             <ThemeToggle showLabel={false} />
 
-            {/* Language toggle capsule */}
-            <div className="customer-lang-capsule">
+            {/* Chuông thông báo */}
+            <div className="cus-notif-wrap" ref={notifRef}>
               <button
                 type="button"
-                className={`customer-lang-btn ${lang === 'VI' ? 'active' : ''}`}
-                onClick={() => setLang('VI')}
+                className="cus-icon-btn cus-bell"
+                aria-label="Thông báo"
+                aria-expanded={open}
+                onClick={() => { setOpen((v) => !v); setUserMenuOpen(false); }}
               >
-                VI
+                <Icon name="bell" />
+                {stats.unread > 0 && <i className="cus-bell__dot" />}
               </button>
-              <button
-                type="button"
-                className={`customer-lang-btn ${lang === 'EN' ? 'active' : ''}`}
-                onClick={() => setLang('EN')}
-              >
-                EN
-              </button>
+              {open && (
+                <div className="cus-notif" role="menu">
+                  <div className="cus-notif__head">
+                    <span>Thông báo</span>
+                    {stats.unread > 0 && (
+                      <button type="button" className="cus-link" onClick={actions.markAllNotificationsRead}>
+                        Đánh dấu đã đọc
+                      </button>
+                    )}
+                  </div>
+                  {notifications.length === 0 && <p className="cus-muted" style={{ padding: 10 }}>Bạn không có thông báo mới.</p>}
+                  {notifications.slice(0, 8).map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      className={`cus-notif__item ${n.read ? '' : 'unread'}`}
+                      onClick={() => { actions.markNotificationRead(n.id); setOpen(false); navigate(n.link); }}
+                    >
+                      <b>{n.title}</b>
+                      <span>{n.body}</span>
+                      <small>{fmtDateTime(n.at)}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Notification Bell */}
-            <button
-              type="button"
-              className="customer-notif-btn"
-              aria-label="Thông báo"
-              onClick={() => navigate('/customer/home?panel=notifications')}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-              {unreadCount > 0 && <span className="customer-notif-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}
-            </button>
-
-            {/* User Profile */}
-            <div className="customer-user-menu">
+            {/* Menu người dùng / Tài khoản */}
+            <div className="cus-user-wrap" ref={userMenuRef}>
               <button
                 type="button"
-                className="customer-user-btn"
-                onClick={() => setShowProfileMenu((prev) => !prev)}
+                className="cus-user-widget"
+                onClick={() => { setUserMenuOpen((v) => !v); setOpen(false); }}
+                aria-label="Menu tài khoản"
+                aria-expanded={userMenuOpen}
               >
-                <div className="customer-user-avatar">{initials}</div>
-                <span className="customer-user-name">{fullName}</span>
-                <svg className="customer-user-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
+                <span className="cus-avatar">{profile.initials}</span>
+                <span className="cus-user-name">{profile.name}</span>
+                <Icon name="chevron" className="cus-user-chevron" />
               </button>
 
-              {showProfileMenu && (
-                <div className="customer-profile-dropdown">
-                  <button
-                    className="customer-dropdown-btn"
-                    onClick={() => {
-                      setShowProfileMenu(false);
-                      navigate('/customer/profile');
-                    }}
-                  >
-                    <span>Thông tin cá nhân</span>
+              {userMenuOpen && (
+                <div className="cus-user-menu" role="menu">
+                  <div className="cus-user-menu__header">
+                    <div className="cus-user-menu__avatar">{profile.initials}</div>
+                    <div className="cus-user-menu__info">
+                      <b>{profile.name}</b>
+                      <span>{profile.company}</span>
+                      <small>{profile.email}</small>
+                    </div>
+                  </div>
+                  <div className="cus-user-menu__divider" />
+                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/home'); }}>
+                    <Icon name="home" /> Trang chủ
                   </button>
-                  <button
-                    className="customer-dropdown-btn logout"
-                    onClick={handleLogout}
-                  >
-                    <span>Đăng xuất</span>
+                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/requests'); }}>
+                    <Icon name="file" /> Yêu cầu vận chuyển
+                  </button>
+                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/horses'); }}>
+                    <Icon name="horse" /> Ngựa của tôi
+                  </button>
+                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/history'); }}>
+                    <Icon name="clock" /> Lịch sử & Hóa đơn
+                  </button>
+                  <div className="cus-user-menu__divider" />
+                  <button type="button" className="cus-user-menu__item cus-user-menu__logout" onClick={handleLogout}>
+                    <Icon name="logout" /> Đăng xuất
                   </button>
                 </div>
               )}
             </div>
           </div>
         </header>
-
-        {/* ==================== CONTENT BODY ==================== */}
-        <main className="customer-shared-content">
-          {children}
-        </main>
+        <nav className="cus-mobile-nav">
+          {NAV.map(([to, label]) => <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}
+        </nav>
+        <main className="cus-view">{children}</main>
       </div>
 
-      {/* Global Modals */}
-      {currentTrip && <TrackingModal
-        isOpen={isTrackingModalOpen}
-        onClose={() => setIsTrackingModalOpen(false)}
-        trip={currentTrip}
-      />}
-
-      {incidentDetail && <IncidentModal
-        isOpen={isIncidentModalOpen}
-        onClose={() => setIsIncidentModalOpen(false)}
-        incident={incidentDetail}
-        onResolve={handleResolveIncident}
-      />}
+      {toast && <div className="cus-toast" role="status" key={toast.id}>{toast.message}</div>}
     </div>
   );
 };
