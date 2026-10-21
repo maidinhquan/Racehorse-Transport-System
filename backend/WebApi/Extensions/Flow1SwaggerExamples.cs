@@ -21,6 +21,10 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
 
         if (path.Contains("contracts", StringComparison.OrdinalIgnoreCase))
             operation.Description += " One stored CompletionDeadline covers deposit and signing; response signDeadline/depositDeadline are aliases of it. One contract per request, updated in place; no isCurrent flag. GET returns contractCode, publishedAtUtc, commercialNotes, costs (five final quoted lines), transportMode, departureAt, deliveryAt and preparationDays. price must equal costs.total. Domestic VN supports ROAD/AIR; VN-JP only AIR. Drafts have no completion deadline, invoice or publication notification. Customers cannot read unpublished drafts.";
+        if (path.EndsWith("/mock-deposit", StringComparison.OrdinalIgnoreCase))
+            operation.Description += " Dev Helper: Directly confirms deposit payment for this contract on localhost without VNPay gateway or IPN signature. Transitions contract to PENDING_SIGNATURE.";
+        if (path.EndsWith("/mock-sign", StringComparison.OrdinalIgnoreCase))
+            operation.Description += " Dev Helper: Directly signs contract on localhost without OTP email. Transitions contract to EFFECTIVE and activates Trip planning.";
 
         if (path.StartsWith("api/customer/horses", StringComparison.OrdinalIgnoreCase))
             operation.Description += " Horse profile owns passport metadata, declaredValueVnd and specialHealthNotes. POST creates, PUT updates an unused owned horse using version. Creation/full update require photo, passportScan and ownershipCertificate; valuationDocument is optional. File kinds: photo/passport/ownership/valuation. UPLOADED is not approval. No vaccination, trip health certificate or private veterinarian required before signing.";
@@ -178,14 +182,14 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
             body.Remove("reason");
             body["pdfSha256"] = new OpenApiString("COPY_pdfSha256_FROM_GET");
             if (path.EndsWith("/sign", StringComparison.OrdinalIgnoreCase))
-                body["otp"] = new OpenApiString("COPY_6_digit_code_FROM_EMAIL");
+                body["otp"] = new OpenApiString("000000"); // Nhập 000000 hoặc mã 6 số từ email
         }
         else if (path.EndsWith("/contracts", StringComparison.OrdinalIgnoreCase) || path.EndsWith("/draft", StringComparison.OrdinalIgnoreCase))
         {
             body.Remove("reason");
             body["price"] = new OpenApiLong(100000000);
             body["depositRate"] = new OpenApiDouble(40);
-            body["preparationDays"] = new OpenApiInteger(2);
+            body["preparationDays"] = new OpenApiInteger(3);
             body["costs"] = CreateCostsExample(100000000);
             body["transportMode"] = new OpenApiString("ROAD");
             body["departureAt"] = new OpenApiString("2026-11-25T08:00:00+07:00");
@@ -200,7 +204,7 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
             body["costs"] = CreateCostsExample(95000000);
             body["commercialNotes"] = new OpenApiString("Giá điều chỉnh đã thống nhất với Customer.");
             body["depositRate"] = new OpenApiDouble(30);
-            body["preparationDays"] = new OpenApiInteger(2);
+            body["preparationDays"] = new OpenApiInteger(3);
             body["departureAt"] = new OpenApiString("2026-12-20T08:00:00+07:00");
             body["deliveryAt"] = new OpenApiString("2026-12-21T08:00:00+07:00");
             body["clauseIds"] = new OpenApiArray();

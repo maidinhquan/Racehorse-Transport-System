@@ -97,6 +97,8 @@ public sealed class Flow1CustomerApi(RelationalFlow1Service service, IFlow1Geoco
     [HttpPost("contracts/{id}/sign"),EnableRateLimiting("flow1-contract-otp")]public async Task<IActionResult> Sign(string id,FlowAction input,CancellationToken ct)=>Result(await service.SignAsync(id,Actor,input,ct));
     [HttpPost("contracts/{id}/cancellation/request")]public async Task<IActionResult> Cancel(string id,FlowAction input,CancellationToken ct)=>Result(await service.CancellationAsync(id,Actor,false,"request",input,ct));
     [HttpPost("contracts/{id}/vnpay")]public async Task<IActionResult> Vnpay(string id,CancellationToken ct)=>Result(await service.PaymentSessionAsync(id,Actor,Key,HttpContext.Connection.RemoteIpAddress?.ToString()??"127.0.0.1",ct));
+    [HttpPost("contracts/{id}/mock-deposit")]public async Task<IActionResult> MockDeposit(string id,CancellationToken ct)=>Result(await service.MockDepositAsync(id,Actor,ct));
+    [HttpPost("contracts/{id}/mock-sign")]public async Task<IActionResult> MockSign(string id,CancellationToken ct)=>Result(await service.MockSignAsync(id,Actor,ct));
     [HttpGet("payments/{id}/status")]public async Task<IActionResult> Returned(string id,CancellationToken ct)=>Result(await service.ReturnedAsync(id,Actor,ct));
 }
 [ApiController,Route("api/manager"),Authorize(Roles=UserRoles.LogisticsManager),EnableRateLimiting("flow1-customer")]

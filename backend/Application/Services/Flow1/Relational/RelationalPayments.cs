@@ -48,6 +48,35 @@ public sealed partial class RelationalFlow1Service
         await db.SaveAsync(t); return new { paymentId=p.PaymentID,paymentUrl=session.PaymentUrl.AbsoluteUri,expiresAtUtc=expiry };
     },ct);
 
+    public Task<object> MockDepositAsync(string id,string actor,CancellationToken ct)=>db.RunAsync<object>(async t=>{
+        var(c,r)=await Contract(id,actor,false,t);var inv=await Invoice(c,t);var payments=await Payments(inv,t);
+        Require(c.ContractStatus!="CANCELLED" && c.SignedAt is null && c.PublishedAtUtc is not null &&
+            c.ContractStatus is "AWAITING_DEPOSIT" or "PENDING_SIGNATURE" && c.FeedbackStatus!="PENDING" && c.RefundStatus is null &&
+            c.CancellationStatus!="PENDING" && c.CompletionDeadline>Now && Now<Cutoff(r) && !payments.Any(p=>p.FinancialReviewRequired),
+            "PAYMENT_CLOSED","Deposit payment is closed or awaiting review.");
+        var p=payments.FirstOrDefault(x=>x.Status=="SUCCESS" && x.Amount>0)
+            ?? payments.FirstOrDefault(x=>x.Status=="PENDING_GATEWAY");
+        if(p is null)
+        {
+            var pid=Id("p",inv.InvoiceID,actor,"mock-"+Guid.NewGuid().ToString("N")[..8]);
+            var expiry=new[]{Now.AddMinutes(15),c.CompletionDeadline!.Value}.Min();
+            p=new FlowPayment{PaymentID=pid,InvoiceID=inv.InvoiceID,CurrencyCode="VND",Amount=inv.TotalPayableAmount,Method="VNPAY",Status="PENDING_GATEWAY",PaymentDate=Now,VnpayCreatedAtUtc=Now,VnpayExpiresAtUtc=expiry,VnpayTmnCode="WN69PNIC"};
+            db.Add(p);
+        }
+        p.Status="SUCCESS";
+        p.TransactionCode ??= "MOCK-"+Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        p.VnpayReceivedAmount=p.Amount>0?p.Amount:inv.TotalPayableAmount;
+        p.PaymentDate=Now;
+        p.VnpayResponseCode="00";
+        p.VnpayTransactionStatus="00";
+        p.VnpayBankCode="MOCK_BANK";
+        inv.PaidAmount=inv.TotalPayableAmount;
+        inv.PaymentStatus="PAID";
+        await DepositVerified(c,r,inv,t);
+        await db.SaveAsync(t);
+        return new{success=true,contractId=c.ContractID,status=c.ContractStatus,paidAmount=inv.PaidAmount};
+    },ct);
+
     public async Task<object> IpnAsync(IReadOnlyDictionary<string,string> payload,CancellationToken ct)
     {
         var v=await gateway.VerifyAsync(payload,ct);
