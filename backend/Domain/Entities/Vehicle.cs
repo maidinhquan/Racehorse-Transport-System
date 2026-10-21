@@ -24,6 +24,14 @@ namespace Domain.Entities
         [Column("FuelCost_Per_Km", TypeName = "decimal(12, 2)")]
         public decimal? FuelCostPerKm { get; set; }
 
+        [Column("OperatingCountry")]
+        [StringLength(10)]
+        public string OperatingCountry { get; set; } = "VN";
+
+        [Column("PlateNumber")]
+        [StringLength(20)]
+        public string? PlateNumber { get; set; }
+
         [Column("Status")]
         [StringLength(50)]
         public string? Status { get; set; }
