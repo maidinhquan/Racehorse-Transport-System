@@ -10,17 +10,21 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const THEME_STORAGE_KEY = "racehorse_theme";
+
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem("theme") as Theme | null;
+    const saved = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
     if (saved === "light" || saved === "dark") {
       return saved;
     }
+    // Mặc định màu của các page luôn là sáng (light mode)
     return "light";
   });
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
 
