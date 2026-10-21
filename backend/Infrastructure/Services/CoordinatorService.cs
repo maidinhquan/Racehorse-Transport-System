@@ -1,19 +1,28 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Application.DTOs;
 using Application.Interfaces;
 using Domain.Entities;
 using Infrastructure.Data.Context;
 using System.Text.Json;
+using System.Globalization;
 
 namespace Infrastructure.Services
 {
     public class CoordinatorService : ICoordinatorService
     {
         private readonly HorseTransportDbContext _context;
+        private readonly IHttpClientFactory? _httpClientFactory;
+        private readonly IConfiguration? _configuration;
 
-        public CoordinatorService(HorseTransportDbContext context)
+        public CoordinatorService(
+            HorseTransportDbContext context,
+            IHttpClientFactory? httpClientFactory = null,
+            IConfiguration? configuration = null)
         {
             _context = context;
+            _httpClientFactory = httpClientFactory;
+            _configuration = configuration;
         }
 
         // =========================================================================
@@ -174,11 +183,129 @@ namespace Infrastructure.Services
                     VehicleAssigned = vehicleAssigned,
                     DriverAssigned = driverAssigned,
                     EscortAssigned = escortAssigned,
+                    RejectionReason = t.RejectionReason,
+                    EarliestDepartureDate = t.EarliestDepartureDate,
+                    DocumentExpiryDate = t.DocumentExpiryDate,
+                    SpecialistLegalNote = t.SpecialistLegalNote,
+                    ResourcesConfirmedAt = t.ResourcesConfirmedAt,
+                    ResourcesConfirmedBy = t.ResourcesConfirmedBy,
+                    DepartureApprovedAt = t.DepartureApprovedAt,
+                    DepartureApprovedBy = t.DepartureApprovedBy,
                     AllowedActions = allowedActions
                 });
             }
 
             return result;
+        }
+
+        // =========================================================================
+        // 2.1 UNPLANNED REQUESTS (Đơn yêu cầu từ khách hàng chờ lập kế hoạch)
+        // =========================================================================
+        public async Task<List<UnplannedRequestDto>> GetUnplannedRequestsAsync()
+        {
+            if (!await _context.TransportRequests.AnyAsync())
+            {
+                await SeedSampleTripsAsync();
+            }
+
+            var requests = await _context.TransportRequests
+                .Include(r => r.Customer)
+                .Include(r => r.RequestHorseMappings)
+                .Include(r => r.TripPlans)
+                .Where(r => !r.TripPlans.Any() || r.TripPlans.All(tp => tp.Status == "CANCELLED"))
+                .ToListAsync();
+
+            return requests.Select(r => new UnplannedRequestDto
+            {
+                RequestId = r.RequestId,
+                CustomerId = r.CustomerId,
+                CustomerName = r.Customer?.FullName ?? "Khách hàng cá nhân",
+                CustomerPhone = r.Customer?.Phone ?? "0900000000",
+                Departure = r.Departure,
+                Destination = r.Destination,
+                Purpose = r.Purpose,
+                TransportType = r.TransportType ?? "ROAD",
+                ExpectedDate = r.ExpectedDate,
+                CommittedDeadline = r.CommittedDeadline,
+                HorseCount = r.RequestHorseMappings.Count > 0 ? r.RequestHorseMappings.Count : 2,
+                BaseCost = r.BaseCost,
+                Status = r.Status
+            }).ToList();
+        }
+
+        // =========================================================================
+        // 2.2 START PLANNING FOR A REQUEST (Khởi tạo kế hoạch chuyến đi từ đơn yêu cầu)
+        // =========================================================================
+        public async Task<PlanningTripDto> StartPlanningTripAsync(StartPlanningRequestDto dto)
+        {
+            var request = await _context.TransportRequests
+                .Include(r => r.Customer)
+                .Include(r => r.RequestHorseMappings)
+                .FirstOrDefaultAsync(r => r.RequestId == dto.RequestId);
+
+            if (request == null)
+            {
+                throw new KeyNotFoundException($"Không tìm thấy đơn yêu cầu vận chuyển: {dto.RequestId}");
+            }
+
+            var existingTrip = await _context.TripPlans.FirstOrDefaultAsync(t => t.RequestId == dto.RequestId && t.Status != "CANCELLED");
+            if (existingTrip != null)
+            {
+                return new PlanningTripDto
+                {
+                    TripId = existingTrip.TripId,
+                    RequestId = request.RequestId,
+                    TripCode = existingTrip.TripId.Replace("TRIP_", "TRP-"),
+                    CustomerName = request.Customer?.FullName ?? "Khách hàng cá nhân",
+                    Origin = request.Departure,
+                    Destination = request.Destination,
+                    HorseCount = request.RequestHorseMappings.Count > 0 ? request.RequestHorseMappings.Count : 2,
+                    TransportType = request.TransportType ?? "ROAD",
+                    PlannedDepartureAt = request.ExpectedDate ?? DateTime.UtcNow.AddDays(2),
+                    DeliveryDeadline = request.CommittedDeadline ?? DateTime.UtcNow.AddDays(5),
+                    TripStatus = existingTrip.Status,
+                    Stage = "NEED_ROUTE",
+                    AllowedActions = new List<string> { "CREATE_ROUTE", "CALCULATE_ROUTE", "CHOOSE_VEHICLE", "CHOOSE_DRIVER", "CHOOSE_ESCORT" }
+                };
+            }
+
+            var nextNum = await _context.TripPlans.CountAsync() + 1;
+            var newTripId = $"TRIP_2026_{nextNum:D3}";
+            while (await _context.TripPlans.AnyAsync(t => t.TripId == newTripId))
+            {
+                nextNum++;
+                newTripId = $"TRIP_2026_{nextNum:D3}";
+            }
+
+            var newTrip = new TripPlan
+            {
+                TripId = newTripId,
+                RequestId = request.RequestId,
+                TotalDistanceKm = dto.TotalDistanceKm ?? 50.0m,
+                TTotalHours = 4.0m,
+                TotalCost = dto.TotalCost ?? request.BaseCost ?? 5000.0m,
+                Status = "PLANNING"
+            };
+
+            _context.TripPlans.Add(newTrip);
+            await _context.SaveChangesAsync();
+
+            return new PlanningTripDto
+            {
+                TripId = newTrip.TripId,
+                RequestId = request.RequestId,
+                TripCode = newTrip.TripId.Replace("TRIP_", "TRP-"),
+                CustomerName = request.Customer?.FullName ?? "Khách hàng cá nhân",
+                Origin = request.Departure,
+                Destination = request.Destination,
+                HorseCount = request.RequestHorseMappings.Count > 0 ? request.RequestHorseMappings.Count : 2,
+                TransportType = request.TransportType ?? "ROAD",
+                PlannedDepartureAt = request.ExpectedDate ?? DateTime.UtcNow.AddDays(2),
+                DeliveryDeadline = request.CommittedDeadline ?? DateTime.UtcNow.AddDays(5),
+                TripStatus = newTrip.Status,
+                Stage = "NEED_ROUTE",
+                AllowedActions = new List<string> { "CREATE_ROUTE", "CALCULATE_ROUTE", "CHOOSE_VEHICLE", "CHOOSE_DRIVER", "CHOOSE_ESCORT" }
+            };
         }
 
         // =========================================================================
@@ -235,21 +362,25 @@ namespace Infrastructure.Services
 
             var assignmentDtos = trip.VehicleAssignments.Select(va =>
             {
-                bool isJp = va.VehicleId.Contains("_JP_") || va.DriverId.Contains("_JP_") || va.EscortId.Contains("_JP_");
+                bool isJp = va.LegType == "INBOUND" || va.LegNumber == 2 || va.VehicleId.Contains("_JP_") || va.DriverId.Contains("_JP_") || (va.EscortId != null && va.EscortId.Contains("_JP_"));
                 return new VehicleAssignmentDetailDto
                 {
                     AssignmentId = va.AssignmentId,
-                    LegType = isJp ? "INBOUND" : "OUTBOUND",
+                    LegNumber = va.LegNumber,
+                    LegType = va.LegType ?? (isJp ? "INBOUND" : "OUTBOUND"),
                     Country = isJp ? "JP" : "VN",
                     VehicleId = va.VehicleId,
-                    VehiclePlateOrType = va.Vehicle?.Type ?? va.VehicleId,
+                    VehiclePlateOrType = va.Vehicle?.PlateNumber ?? va.Vehicle?.Type ?? va.VehicleId,
                     CapacityStalls = va.Vehicle?.CapacityStalls,
                     DriverId = va.DriverId,
                     DriverName = va.Driver?.FullName,
                     DriverPhone = va.Driver?.Phone,
-                    CoDriverId = isJp ? "USR_DRV_JP_02" : "USR_DRV_02",
-                    CoDriverName = isJp ? "Takashi Tanaka" : "Vũ Thành",
-                    CoDriverPhone = isJp ? "+819023456789" : "0946789012",
+                    CoDriverId = va.CoDriverId ?? (isJp ? "USR_DRV_JP_02" : "USR_DRV_02"),
+                    CoDriverName = va.CoDriver?.FullName ?? (isJp ? "Taro Yamada" : "Vũ Thành"),
+                    CoDriverPhone = va.CoDriver?.Phone ?? (isJp ? "+819023456789" : "0946789012"),
+                    VeterinarianId = va.VeterinarianId ?? va.EscortId,
+                    VeterinarianName = va.Veterinarian?.FullName ?? va.Escort?.FullName,
+                    VeterinarianPhone = va.Veterinarian?.Phone ?? va.Escort?.Phone,
                     EscortId = va.EscortId,
                     EscortName = va.Escort?.FullName,
                     EscortPhone = va.Escort?.Phone
@@ -261,10 +392,14 @@ namespace Infrastructure.Services
             var segments = trip.RouteSegments.Select(s => new RouteSegmentItemDto
             {
                 SegmentId = s.SegmentId,
+                SequenceOrder = s.SequenceOrder,
                 LocationName = s.LocationName,
                 SegmentType = s.SegmentType ?? "STOP",
                 TransportMode = s.TransportMode,
                 FacilityId = s.FacilityId,
+                CarrierName = s.CarrierName,
+                FlightVoyageNo = s.FlightVoyageNo,
+                PlannedTime = s.PlannedTime,
                 ExpectedEta = s.ExpectedEta,
                 Status = s.Status
             }).ToList();
@@ -293,6 +428,14 @@ namespace Infrastructure.Services
                 },
                 PlannedDepartureAt = trip.Request?.ExpectedDate,
                 DeliveryDeadline = trip.Request?.CommittedDeadline,
+                RejectionReason = trip.RejectionReason,
+                EarliestDepartureDate = trip.EarliestDepartureDate,
+                DocumentExpiryDate = trip.DocumentExpiryDate,
+                SpecialistLegalNote = trip.SpecialistLegalNote,
+                ResourcesConfirmedAt = trip.ResourcesConfirmedAt,
+                ResourcesConfirmedBy = trip.ResourcesConfirmedBy,
+                DepartureApprovedAt = trip.DepartureApprovedAt,
+                DepartureApprovedBy = trip.DepartureApprovedBy,
                 Horses = horses,
                 Assignment = assignmentDto,
                 Assignments = assignmentDtos,
@@ -325,6 +468,65 @@ namespace Infrastructure.Services
             if (!string.IsNullOrWhiteSpace(q)) query = query.Where(c => c.Name.Contains(q, StringComparison.OrdinalIgnoreCase));
 
             return Task.FromResult(query.ToList());
+        }
+
+        public async Task<List<CheckpointDto>> GeocodeAddressAsync(string address, string? country = "VN")
+        {
+            var result = new List<CheckpointDto>();
+            if (string.IsNullOrWhiteSpace(address)) return result;
+
+            var apiKey = _configuration?["Maps:Geoapify:ApiKey"]
+                ?? _configuration?["Flow1:Maps:Geoapify:ApiKey"]
+                ?? "167c9593184a44aaa2dc377cea7535f6";
+
+            if (!string.IsNullOrWhiteSpace(apiKey) && _httpClientFactory != null)
+            {
+                try
+                {
+                    var client = _httpClientFactory.CreateClient("GeoapifyClient");
+                    var countryFilter = string.IsNullOrWhiteSpace(country) ? "" : $"&filter=countrycode:{country.ToLower()}";
+                    var url = $"https://api.geoapify.com/v1/geocode/search?text={Uri.EscapeDataString(address)}{countryFilter}&apiKey={apiKey}";
+
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+                    var response = await client.GetAsync(url, cts.Token);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var json = await response.Content.ReadAsStringAsync(cts.Token);
+                        using var doc = JsonDocument.Parse(json);
+                        if (doc.RootElement.TryGetProperty("features", out var features))
+                        {
+                            int id = 500;
+                            foreach (var feat in features.EnumerateArray())
+                            {
+                                var props = feat.GetProperty("properties");
+                                var geom = feat.GetProperty("geometry").GetProperty("coordinates");
+                                var lng = (decimal)geom[0].GetDouble();
+                                var lat = (decimal)geom[1].GetDouble();
+                                var formatted = props.TryGetProperty("formatted", out var f) ? f.GetString() : address;
+                                var countryCode = props.TryGetProperty("country_code", out var cc) ? cc.GetString()?.ToUpper() : (country ?? "VN");
+
+                                result.Add(new CheckpointDto
+                                {
+                                    CheckpointId = ++id,
+                                    Name = formatted ?? address,
+                                    Country = countryCode ?? "VN",
+                                    Type = "CUSTOM_LOCATION",
+                                    Lat = lat,
+                                    Lng = lng,
+                                    Active = true
+                                });
+                            }
+                            if (result.Count > 0) return result;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback to local checkpoints
+                }
+            }
+
+            return await GetCheckpointsAsync(country, null, address);
         }
 
         // =========================================================================
@@ -568,7 +770,7 @@ namespace Infrastructure.Services
         // =========================================================================
         // 7. ROUTE CALCULATION & ROUTE VERSIONS (F03-C05 to F03-C10)
         // =========================================================================
-        public Task<RouteCalculateResponseDto> CalculateRouteAsync(RouteCalculateRequestDto dto)
+        public async Task<RouteCalculateResponseDto> CalculateRouteAsync(RouteCalculateRequestDto dto)
         {
             var points = dto.Points.OrderBy(p => p.Sequence).ToList();
             if (points.Count < 2)
@@ -599,23 +801,49 @@ namespace Infrastructure.Services
                     errors.Add($"Chặng AIR giữa Sequence {from.Sequence} và {to.Sequence} bắt buộc phải nối giữa 2 sân bay (AIRPORT)!");
                 }
 
-                decimal legDistanceKm = legInput?.ManualDistanceKm ?? (decimal)CalculateDistance((double)from.Lat, (double)from.Lng, (double)to.Lat, (double)to.Lng);
-                if (legDistanceKm < 5 && mode == "ROAD") legDistanceKm = 35;
+                decimal legDistanceKm;
+                int legDurationMinutes;
+                List<double[]> legPath;
+                string distanceSource;
 
-                var speed = mode == "AIR" ? 600.0m : 50.0m;
-                var legDriveHours = legDistanceKm / speed;
-                var legDurationMinutes = legInput?.ManualDurationMinutes ?? (int)(legDriveHours * 60);
+                if (mode == "AIR")
+                {
+                    legDistanceKm = (decimal)CalculateDistance((double)from.Lat, (double)from.Lng, (double)to.Lat, (double)to.Lng);
+                    var speed = 600.0m;
+                    var legDriveHours = legDistanceKm / speed;
+                    legDurationMinutes = legInput?.ManualDurationMinutes ?? (int)(legDriveHours * 60);
+                    legPath = GenerateInterpolatedPoints((double)from.Lat, (double)from.Lng, (double)to.Lat, (double)to.Lng, 6);
+                    distanceSource = "FLIGHT_SCHEDULE";
+                }
+                else if (legInput?.ManualDistanceKm.HasValue == true)
+                {
+                    legDistanceKm = legInput.ManualDistanceKm.Value;
+                    var speed = 50.0m;
+                    var legDriveHours = legDistanceKm / speed;
+                    legDurationMinutes = legInput.ManualDurationMinutes ?? (int)(legDriveHours * 60);
+                    legPath = GenerateInterpolatedPoints((double)from.Lat, (double)from.Lng, (double)to.Lat, (double)to.Lng, 6);
+                    distanceSource = "MANUAL";
+                }
+                else
+                {
+                    // Lộ trình đường bộ ROAD: Gọi Mapbox Directions API (với Graceful Haversine fallback)
+                    var mapboxResult = await CalculateLegMapboxAsync((double)from.Lat, (double)from.Lng, (double)to.Lat, (double)to.Lng);
+                    legDistanceKm = mapboxResult.distanceKm;
+                    legDurationMinutes = legInput?.ManualDurationMinutes ?? mapboxResult.durationMinutes;
+                    legPath = mapboxResult.path;
+                    distanceSource = mapboxResult.source;
+                }
 
+                var legDriveHoursTotal = legDurationMinutes / 60.0m;
                 var arrivalAt = currentDeparture.AddMinutes(legDurationMinutes);
                 var departureNext = arrivalAt.AddMinutes(to.PlannedStopMinutes);
 
                 // KIỂM TRA LUẬT PHÚC LỢI NGỰA (Equine Welfare Rule: F03-BR-16): ROAD không đứng xe quá 4-6 tiếng liên tục
-                if (mode == "ROAD" && legDriveHours > 6.0m)
+                if (mode == "ROAD" && legDriveHoursTotal > 6.0m)
                 {
-                    warnings.Add($"Chặng từ '{from.Name}' đến '{to.Name}' lái xe liên tục {legDriveHours:F1}h (> 6h). Theo quy định phúc lợi ngựa (Equine Welfare), bắt buộc phải chèn trạm dừng nghỉ 1-2 tiếng!");
+                    warnings.Add($"Chặng từ '{from.Name}' đến '{to.Name}' lái xe liên tục {legDriveHoursTotal:F1}h (> 6h). Theo quy định phúc lợi ngựa (Equine Welfare), bắt buộc phải chèn trạm dừng nghỉ 1-2 tiếng!");
                 }
 
-                var legPath = GenerateInterpolatedPoints((double)from.Lat, (double)from.Lng, (double)to.Lat, (double)to.Lng, 6);
                 polylineCoords.AddRange(legPath);
 
                 legs.Add(new RouteLegResultDto
@@ -625,7 +853,7 @@ namespace Infrastructure.Services
                     Mode = mode,
                     DistanceKm = Math.Round(legDistanceKm, 1),
                     DurationMinutes = legDurationMinutes,
-                    DistanceSource = legInput?.ManualDistanceKm.HasValue == true ? "MANUAL" : (mode == "AIR" ? "FLIGHT_SCHEDULE" : "MAP_SERVICE"),
+                    DistanceSource = distanceSource,
                     DepartureAt = currentDeparture,
                     ArrivalAt = arrivalAt,
                     Path = legPath
@@ -636,7 +864,56 @@ namespace Infrastructure.Services
                 currentDeparture = departureNext;
             }
 
-            return Task.FromResult(new RouteCalculateResponseDto
+            // =========================================================================
+            // VALIDATION KHUNG THỜI GIAN PHÁP LÝ (SPECIALIST LEGAL WINDOW) & HẠN GIAO KHÁCH
+            // =========================================================================
+            if (!string.IsNullOrEmpty(dto.TripId))
+            {
+                var trip = await _context.TripPlans
+                    .Include(t => t.Request)
+                    .FirstOrDefaultAsync(t => t.TripId == dto.TripId);
+
+                if (trip != null)
+                {
+                    // 1. PlannedDeparture >= EarliestDepartureDate (Không chạy xe khi hồ sơ chưa xong)
+                    if (trip.EarliestDepartureDate.HasValue && dto.PlannedDepartureAt < trip.EarliestDepartureDate.Value)
+                    {
+                        errors.Add($"Thời gian khởi hành dự kiến ({dto.PlannedDepartureAt:dd/MM/yyyy HH:mm}) sớm hơn Ngày sớm nhất hồ sơ sẵn sàng do Chuyên viên giấy tờ công bố ({trip.EarliestDepartureDate.Value:dd/MM/yyyy HH:mm})!");
+                    }
+
+                    // 2. Thời điểm đến trạm kiểm dịch / sân bay / cửa khẩu <= DocumentExpiryDate (Giấy tờ phải còn hạn tại thời điểm làm thủ tục)
+                    if (trip.DocumentExpiryDate.HasValue)
+                    {
+                        foreach (var leg in legs)
+                        {
+                            var toPoint = points.FirstOrDefault(p => p.Sequence == leg.ToSequence);
+                            if (toPoint != null && (toPoint.Type == "QUARANTINE_STATION" || toPoint.Type == "AIRPORT" || toPoint.Type == "LAND_BORDER"))
+                            {
+                                if (leg.ArrivalAt > trip.DocumentExpiryDate.Value)
+                                {
+                                    errors.Add($"Thời điểm đến {toPoint.Name} ({leg.ArrivalAt:dd/MM/yyyy HH:mm}) vượt quá Hạn chót giấy tờ kiểm dịch/xuất cảnh ({trip.DocumentExpiryDate.Value:dd/MM/yyyy HH:mm})!");
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. ETA <= CommittedDeadline (Đảm bảo đúng hẹn với khách)
+                    var deadline = trip.Request?.CommittedDeadline;
+                    if (deadline.HasValue && currentDeparture > deadline.Value)
+                    {
+                        if (string.IsNullOrWhiteSpace(dto.DeadlineJustification))
+                        {
+                            errors.Add($"Dự kiến giao ngựa ({currentDeparture:dd/MM/yyyy HH:mm}) trễ hơn Hạn cam kết với khách hàng ({deadline.Value:dd/MM/yyyy HH:mm}). Bắt buộc nhập Giải trình trễ hạn (Deadline Justification)!");
+                        }
+                        else
+                        {
+                            warnings.Add($"Dự kiến giao trễ hạn ({currentDeparture:dd/MM/yyyy HH:mm} > {deadline.Value:dd/MM/yyyy HH:mm}), đã có giải trình: '{dto.DeadlineJustification}'.");
+                        }
+                    }
+                }
+            }
+
+            return new RouteCalculateResponseDto
             {
                 TotalDistanceKm = Math.Round(totalDistance, 1),
                 TotalElapsedHours = Math.Round(totalDurationHours, 1),
@@ -651,7 +928,7 @@ namespace Infrastructure.Services
                 Warnings = warnings,
                 Legs = legs,
                 PolylineCoordinates = polylineCoords
-            });
+            };
         }
 
         public Task<List<RouteVersionSummaryDto>> GetRouteVersionsAsync(string tripId)
@@ -815,15 +1092,29 @@ namespace Infrastructure.Services
             foreach (var t in trips)
             {
                 var conditions = await GetDepartureConditionsAsync(t.TripId, isManager: true);
+                var routeStatus = t.Status == "IN_TRANSIT" || t.Status == "PLAN_APPROVED" || t.Status == "READY_TO_DEPART"
+                    ? "APPROVED"
+                    : (t.Status == "RETURNED" ? "RETURNED" : "PENDING_APPROVAL");
+
                 list.Add(new ManagerPlanningItemDto
                 {
                     TripId = t.TripId,
                     TripCode = t.TripId.Replace("TRIP_", "TRP-"),
                     Status = t.Status,
-                    RouteStatus = t.Status == "IN_TRANSIT" ? "APPROVED" : "PENDING_APPROVAL",
+                    RouteStatus = routeStatus,
                     CurrentRouteVersionId = 120,
-                    DeploymentStatus = "CONFIRMED",
+                    DeploymentStatus = conditions.DeploymentStatus,
                     PlannedDepartureAt = t.Request?.ExpectedDate ?? DateTime.UtcNow.AddDays(2),
+                    RejectionReason = t.RejectionReason,
+                    EarliestDepartureDate = t.EarliestDepartureDate,
+                    DocumentExpiryDate = t.DocumentExpiryDate,
+                    SpecialistLegalNote = t.SpecialistLegalNote,
+                    ResourcesConfirmedAt = t.ResourcesConfirmedAt,
+                    ResourcesConfirmedBy = t.ResourcesConfirmedBy,
+                    DepartureApprovedAt = t.DepartureApprovedAt,
+                    DepartureApprovedBy = t.DepartureApprovedBy,
+                    IsOperationsReady = conditions.IsOperationsReady,
+                    IsLegalReady = conditions.IsLegalReady,
                     Conditions = conditions
                 });
             }
@@ -841,17 +1132,11 @@ namespace Infrastructure.Services
             var trip = await _context.TripPlans.FindAsync(tripId);
             if (trip == null) return false;
 
-            trip.Status = "APPROVED";
+            // Nấc 1 (Bước 4): Phê duyệt phương án lộ trình & dự toán (PLAN_APPROVED)
+            // Không ép buộc phải có mã vé máy bay BOOKED tại bước này
+            trip.Status = "PLAN_APPROVED";
+            trip.RejectionReason = null;
             await _context.SaveChangesAsync();
-
-            // Kiểm tra tổng thể: nếu các điều kiện khác đều đạt $\rightarrow$ chuyển READY_TO_DEPART
-            var depCond = await GetDepartureConditionsAsync(tripId, isManager: true);
-            if (depCond.AllMet)
-            {
-                trip.Status = "READY_TO_DEPART";
-                await _context.SaveChangesAsync();
-            }
-
             return true;
         }
 
@@ -860,7 +1145,9 @@ namespace Infrastructure.Services
             var trip = await _context.TripPlans.FindAsync(tripId);
             if (trip == null) return false;
 
-            trip.Status = "PLANNING";
+            // Quản lý từ chối: Cập nhật trạng thái RETURNED và lưu vết lý do từ chối
+            trip.Status = "RETURNED";
+            trip.RejectionReason = dto.Reason;
             await _context.SaveChangesAsync();
             return true;
         }
@@ -1686,7 +1973,143 @@ namespace Infrastructure.Services
 
             if (trip == null) return false;
 
+            // Ghi nhận mốc xác nhận nguồn lực (Operations READY)
+            trip.ResourcesConfirmedAt = DateTime.UtcNow;
+            trip.ResourcesConfirmedBy = "USR_COORD_01";
+
+            foreach (var va in trip.VehicleAssignments)
+            {
+                if (va.Vehicle != null)
+                {
+                    va.Vehicle.Status = "READY";
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<DepartureConditionsDto> GetDepartureConditionsAsync(string tripId, bool isManager = false)
+        {
+            var cleanTripId = tripId?.Trim() ?? string.Empty;
+            var trip = await _context.TripPlans
+                .Include(t => t.Request)
+                .Include(t => t.VehicleAssignments)
+                .FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
+
+            var opReadiness = await GetOperationsReadinessAsync(cleanTripId);
+            var missing = new List<string>(opReadiness.MissingConditions);
+
+            // 1. ĐIỀU KIỆN OPERATIONS READY (Điều phối viên chốt tài nguyên 2 chặng)
+            bool operationsReady = opReadiness.IsReady && (trip?.ResourcesConfirmedAt.HasValue == true || opReadiness.ConfirmedByCoordinator);
+            if (!operationsReady && trip?.ResourcesConfirmedAt.HasValue != true)
+            {
+                missing.Add("OPERATIONS_NOT_CONFIRMED: Điều phối viên chưa bấm Xác nhận nguồn lực (Operations READY)");
+            }
+
+            // 2. ĐIỀU KIỆN LEGAL/DOCS READY (Chuyên viên giấy tờ hoàn tất hồ sơ kiểm dịch)
+            bool legalReady = trip != null
+                && trip.EarliestDepartureDate.HasValue
+                && (trip.DocumentExpiryDate == null || trip.DocumentExpiryDate.Value >= DateTime.UtcNow.Date);
+
+            if (!legalReady)
+            {
+                missing.Add("DOCUMENTS_NOT_READY: Chuyên viên giấy tờ chưa hoàn tất hồ sơ kiểm dịch xuất cảnh (Docs READY)");
+            }
+
+            // 3. TWO-PARTY READY: Cả 2 bên cùng sẵn sàng
+            bool allMet = operationsReady && legalReady;
+
+            var conditions = new List<ConditionItemDto>(opReadiness.Conditions)
+            {
+                new()
+                {
+                    Code = "COORDINATOR_OPERATIONS_READY",
+                    Label = "Điều phối viên đã xác nhận đầy đủ nguồn lực (Operations READY)",
+                    Met = operationsReady,
+                    Applicable = true,
+                    Detail = operationsReady
+                        ? $"Đã xác nhận lúc {trip?.ResourcesConfirmedAt:dd/MM/yyyy HH:mm} bởi {trip?.ResourcesConfirmedBy ?? "USR_COORD_01"}"
+                        : "Chờ Điều phối viên chốt xe và nhân sự cho từng chặng",
+                    Group = "resources"
+                },
+                new()
+                {
+                    Code = "SPECIALIST_DOCS_READY",
+                    Label = "Chuyên viên giấy tờ đã hoàn tất hồ sơ kiểm dịch (Docs READY)",
+                    Met = legalReady,
+                    Applicable = true,
+                    Detail = legalReady
+                        ? $"Hồ sơ sẵn sàng từ {trip?.EarliestDepartureDate:dd/MM/yyyy}, hạn đến {trip?.DocumentExpiryDate:dd/MM/yyyy}"
+                        : "Chờ chuyên viên giấy tờ hoàn tất thủ tục xuất cảnh",
+                    Group = "documents"
+                }
+            };
+
+            var allowedActions = new List<string> { "VIEW_ROUTE", "VIEW_ASSIGNMENTS" };
+            if (allMet && isManager && trip?.Status != "READY_TO_DEPART" && trip?.Status != "IN_TRANSIT")
+            {
+                allowedActions.Add("APPROVE_DEPARTURE");
+            }
+
+            return new DepartureConditionsDto
+            {
+                TripId = cleanTripId,
+                TripStatus = trip?.Status ?? "PLANNING",
+                DeploymentStatus = operationsReady ? "CONFIRMED" : "PENDING",
+                RouteVersionId = 120,
+                AllMet = allMet,
+                IsOperationsReady = operationsReady,
+                IsLegalReady = legalReady,
+                RejectionReason = trip?.RejectionReason,
+                DepartureApprovedAt = trip?.DepartureApprovedAt,
+                DepartureApprovedBy = trip?.DepartureApprovedBy,
+                OperationsReadiness = new OperationsReadinessSummaryDto
+                {
+                    Ready = opReadiness.IsReady,
+                    Confirmed = trip?.ResourcesConfirmedAt.HasValue == true,
+                    RouteVersionId = 120,
+                    AssignmentVersion = 3,
+                    ConfirmedBy = trip?.ResourcesConfirmedBy ?? (opReadiness.ConfirmedByCoordinator ? "USR_COORD_01" : null),
+                    ConfirmedAt = trip?.ResourcesConfirmedAt
+                },
+                DocumentsReadiness = new DocumentsReadinessSummaryDto
+                {
+                    Ready = legalReady,
+                    Confirmed = legalReady,
+                    RouteVersionId = 120,
+                    ConfirmedBy = legalReady ? "USR_SPEC_01" : null,
+                    ConfirmedAt = legalReady ? trip?.EarliestDepartureDate : null,
+                    EarliestDepartureDate = trip?.EarliestDepartureDate,
+                    DocumentExpiryDate = trip?.DocumentExpiryDate,
+                    SpecialistLegalNote = trip?.SpecialistLegalNote,
+                    MissingConditions = legalReady ? new List<string>() : new List<string> { "QUARANTINE_PERMIT_PENDING" }
+                },
+                Conditions = conditions,
+                MissingConditions = missing,
+                AllowedActions = allowedActions
+            };
+        }
+
+        public async Task<bool> ApproveDepartureAsync(string tripId, ManagerApproveDepartureDto? dto = null)
+        {
+            var depCond = await GetDepartureConditionsAsync(tripId, isManager: true);
+            if (!depCond.AllMet)
+            {
+                throw new InvalidOperationException($"Chưa đủ điều kiện khởi hành (Cơ chế Two-Party Ready chưa hoàn tất): {string.Join("; ", depCond.MissingConditions)}");
+            }
+
+            var cleanTripId = tripId?.Trim() ?? string.Empty;
+            var trip = await _context.TripPlans
+                .Include(t => t.VehicleAssignments)
+                    .ThenInclude(va => va.Vehicle)
+                .FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
+
+            if (trip == null) return false;
+
             trip.Status = "READY_TO_DEPART";
+            trip.DepartureApprovedAt = DateTime.UtcNow;
+            trip.DepartureApprovedBy = "USR_MGR_01";
 
             foreach (var va in trip.VehicleAssignments)
             {
@@ -1698,46 +2121,6 @@ namespace Infrastructure.Services
 
             await _context.SaveChangesAsync();
             return true;
-        }
-
-        public async Task<DepartureConditionsDto> GetDepartureConditionsAsync(string tripId, bool isManager = false)
-        {
-            var opReadiness = await GetOperationsReadinessAsync(tripId);
-            var missing = new List<string>(opReadiness.MissingConditions);
-
-            // Giả lập Documents Readiness từ Flow 2
-            bool documentsConfirmed = false;
-            missing.Add("DOCUMENTS_CONFIRMED (Chuyên viên kiểm dịch chưa chốt hồ sơ tại Flow 2)");
-
-            bool allMet = opReadiness.IsReady && documentsConfirmed;
-
-            return new DepartureConditionsDto
-            {
-                TripId = tripId,
-                TripStatus = opReadiness.RouteApproved ? "PLANNING" : "PLANNING",
-                DeploymentStatus = "CONFIRMED",
-                RouteVersionId = 120,
-                AllMet = allMet,
-                OperationsReadiness = new OperationsReadinessSummaryDto
-                {
-                    Ready = opReadiness.IsReady,
-                    Confirmed = opReadiness.ConfirmedByCoordinator,
-                    RouteVersionId = 120,
-                    AssignmentVersion = 3,
-                    ConfirmedBy = opReadiness.ConfirmedByCoordinator ? "USR_COORD_01" : null,
-                    ConfirmedAt = opReadiness.ConfirmedByCoordinator ? DateTime.UtcNow : null
-                },
-                DocumentsReadiness = new DocumentsReadinessSummaryDto
-                {
-                    Ready = false,
-                    Confirmed = false,
-                    RouteVersionId = 120,
-                    MissingConditions = new List<string> { "INSURANCE_VERIFIED", "EXPORT_PERMIT_APPROVED" }
-                },
-                Conditions = opReadiness.Conditions,
-                MissingConditions = missing,
-                AllowedActions = new List<string> { "VIEW_ROUTE", "VIEW_ASSIGNMENTS" }
-            };
         }
 
         // =========================================================================
@@ -1767,6 +2150,75 @@ namespace Infrastructure.Services
             }
             list.Add(new double[] { lat2, lon2 });
             return list;
+        }
+
+        private async Task<(decimal distanceKm, int durationMinutes, List<double[]> path, string source)> CalculateLegMapboxAsync(
+            double fromLat, double fromLng, double toLat, double toLng, CancellationToken ct = default)
+        {
+            var token = _configuration?["Maps:Mapbox:AccessToken"]
+                ?? _configuration?["Flow1:Maps:Mapbox:AccessToken"]
+                ?? "pk.eyJ1IjoiaWNld29ybSIsImEiOiJjbXZhY3RyazQwM3k2MndvbWhsN2Fmb29tIn0.20kPK7DHlQJDDbjXdhAQCw";
+
+            if (!string.IsNullOrWhiteSpace(token) && _httpClientFactory != null)
+            {
+                try
+                {
+                    var client = _httpClientFactory.CreateClient("MapboxClient");
+                    var fromLngStr = fromLng.ToString(CultureInfo.InvariantCulture);
+                    var fromLatStr = fromLat.ToString(CultureInfo.InvariantCulture);
+                    var toLngStr = toLng.ToString(CultureInfo.InvariantCulture);
+                    var toLatStr = toLat.ToString(CultureInfo.InvariantCulture);
+
+                    var url = $"https://api.mapbox.com/directions/v5/mapbox/driving/{fromLngStr},{fromLatStr};{toLngStr},{toLatStr}?geometries=geojson&overview=full&access_token={token}";
+
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts.CancelAfter(TimeSpan.FromSeconds(8));
+
+                    var response = await client.GetAsync(url, cts.Token);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var json = await response.Content.ReadAsStringAsync(cts.Token);
+                        using var doc = JsonDocument.Parse(json);
+                        if (doc.RootElement.TryGetProperty("routes", out var routes) && routes.GetArrayLength() > 0)
+                        {
+                            var firstRoute = routes[0];
+                            var distanceMeters = firstRoute.GetProperty("distance").GetDouble();
+                            var durationSeconds = firstRoute.GetProperty("duration").GetDouble();
+                            var distKm = Math.Round((decimal)(distanceMeters / 1000.0), 1);
+                            var durMin = (int)Math.Ceiling(durationSeconds / 60.0);
+
+                            var path = new List<double[]>();
+                            if (firstRoute.TryGetProperty("geometry", out var geom) && geom.TryGetProperty("coordinates", out var coords))
+                            {
+                                foreach (var pt in coords.EnumerateArray())
+                                {
+                                    var lng = pt[0].GetDouble();
+                                    var lat = pt[1].GetDouble();
+                                    path.Add(new double[] { Math.Round(lat, 5), Math.Round(lng, 5) });
+                                }
+                            }
+
+                            if (path.Count == 0)
+                            {
+                                path = GenerateInterpolatedPoints(fromLat, fromLng, toLat, toLng, 6);
+                            }
+
+                            return (distKm, durMin, path, "MAPBOX_DIRECTIONS");
+                        }
+                    }
+                }
+                catch
+                {
+                    // Tự động fallback về Haversine khi mất mạng hoặc API lỗi
+                }
+            }
+
+            var dist = (decimal)CalculateDistance(fromLat, fromLng, toLat, toLng);
+            if (dist < 5) dist = 35;
+            var driveHours = dist / 50.0m;
+            var durMinutes = (int)(driveHours * 60);
+            var fallbackPath = GenerateInterpolatedPoints(fromLat, fromLng, toLat, toLng, 6);
+            return (Math.Round(dist, 1), durMinutes, fallbackPath, "HAVERSINE_FALLBACK");
         }
 
         private static List<Vehicle> GetDefaultVehicles()
@@ -1945,6 +2397,33 @@ namespace Infrastructure.Services
                     Status = "ACTIVATED"
                 };
                 _context.TransportRequests.Add(req2);
+            }
+
+            // 8b. Seed REQ_2026_003 (Đơn yêu cầu mới từ khách hàng, đã cọc, chờ lập kế hoạch)
+            var req3 = await _context.TransportRequests.FindAsync("REQ_2026_003");
+            if (req3 == null)
+            {
+                req3 = new TransportRequest
+                {
+                    RequestId = "REQ_2026_003",
+                    CustomerId = "USR_CUST_01",
+                    Departure = "Trại ngựa Vạn Hạnh, Củ Chi, TP.HCM",
+                    Destination = "Sân vận động Quốc gia Mỹ Đình, Hà Nội",
+                    Purpose = "Thi đấu Giải Vô địch Quốc gia 2026",
+                    TransportType = "ROAD_DOMESTIC",
+                    ExpectedDate = DateTime.UtcNow.AddDays(4),
+                    CommittedDeadline = DateTime.UtcNow.AddDays(7),
+                    DesignatedReceiverName = "Nguyễn Văn Hưng",
+                    DesignatedReceiverPhone = "0988776655",
+                    BaseCost = 3500.00m,
+                    Status = "ACTIVATED"
+                };
+                _context.TransportRequests.Add(req3);
+
+                if (!await _context.RequestHorseMappings.AnyAsync(m => m.RequestId == "REQ_2026_003"))
+                {
+                    _context.RequestHorseMappings.Add(new RequestHorseMapping { RequestId = "REQ_2026_003", HorseId = "HRS_001" });
+                }
             }
 
             var trip2 = await _context.TripPlans.FindAsync("TRIP_2026_002");
