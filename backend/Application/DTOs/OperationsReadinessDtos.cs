@@ -9,12 +9,16 @@ namespace Application.DTOs
         public bool RouteApproved { get; set; }
         public bool VehicleAssigned { get; set; }
         public bool DriverAssigned { get; set; }
+        public bool CoDriverAssigned { get; set; }
+        public bool VeterinarianAssigned { get; set; }
         public bool EscortAssigned { get; set; }
         public bool StallsSufficient { get; set; }
         public bool OutboundGroundLegReady { get; set; } = true;
         public bool InboundGroundLegReady { get; set; } = true;
         public bool FlightBookingConfirmed { get; set; } = true;
         public bool IndependentResourcesVerified { get; set; } = true;
+        public bool IsOperationsReady { get; set; }
+        public bool IsLegalReady { get; set; }
         public bool IsReady { get; set; }
         public bool ConfirmedByCoordinator { get; set; }
         public List<ConditionItemDto> Conditions { get; set; } = new();
@@ -38,6 +42,11 @@ namespace Application.DTOs
         public string DeploymentStatus { get; set; } = "CONFIRMED";
         public int? RouteVersionId { get; set; }
         public bool AllMet { get; set; }
+        public bool IsOperationsReady { get; set; }
+        public bool IsLegalReady { get; set; }
+        public string? RejectionReason { get; set; }
+        public DateTime? DepartureApprovedAt { get; set; }
+        public string? DepartureApprovedBy { get; set; }
         public OperationsReadinessSummaryDto OperationsReadiness { get; set; } = new();
         public DocumentsReadinessSummaryDto DocumentsReadiness { get; set; } = new();
         public List<ConditionItemDto> Conditions { get; set; } = new();
@@ -70,6 +79,11 @@ namespace Application.DTOs
         public bool Ready { get; set; }
         public bool Confirmed { get; set; }
         public int? RouteVersionId { get; set; }
+        public string? ConfirmedBy { get; set; }
+        public DateTime? ConfirmedAt { get; set; }
+        public DateTime? EarliestDepartureDate { get; set; }
+        public DateTime? DocumentExpiryDate { get; set; }
+        public string? SpecialistLegalNote { get; set; }
         public List<string> MissingConditions { get; set; } = new();
     }
 }
