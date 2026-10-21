@@ -76,6 +76,25 @@ namespace WebApi.Controllers
             var data = await _coordinatorService.GetDepartureConditionsAsync(tripId, isManager: true);
             return Success(data, "Lấy điều kiện khởi hành tổng thể thành công");
         }
+
+        // =========================================================================
+        // 6. APPROVE FINAL DEPARTURE (F03-M07 - BƯỚC 6 TRONG LUỒNG MỚI)
+        // POST: /api/manager/trips/{tripId}/approve-departure
+        // =========================================================================
+        [HttpPost("trips/{tripId}/approve-departure")]
+        public async Task<IActionResult> ApproveDeparture(string tripId, [FromBody] ManagerApproveDepartureDto? dto)
+        {
+            try
+            {
+                var success = await _coordinatorService.ApproveDepartureAsync(tripId, dto);
+                if (!success) return NotFoundFailure($"Không tìm thấy chuyến đi: {tripId}");
+                return SuccessMessage("Phê duyệt lệnh khởi hành chính thức (READY_TO_DEPART) thành công");
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Failure(ex.Message);
+            }
+        }
     }
 }
 
