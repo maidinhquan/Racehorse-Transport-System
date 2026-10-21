@@ -20,6 +20,7 @@ namespace Application.DTOs
         public bool Editable { get; set; } = true;
         public List<HorseItemDto> Horses { get; set; } = new();
         public List<LegAssignmentDto> Legs { get; set; } = new();
+        public List<LegAssignmentDto> Assignments { get => Legs; set => Legs = value; }
         public bool IsComplete { get; set; }
         public List<string> Missing { get; set; } = new();
         public List<string> AllowedActions { get; set; } = new();
@@ -37,6 +38,62 @@ namespace Application.DTOs
         public int? FlightBookingId { get; set; }
         public List<string> VeterinarianIds { get; set; } = new();
         public List<string> HorseIds { get; set; } = new();
+
+        public string? VehicleId
+        {
+            get => Vehicles.FirstOrDefault()?.VehicleId;
+            set
+            {
+                if (string.IsNullOrEmpty(value)) return;
+                EnsureFirstVehicle().VehicleId = value;
+            }
+        }
+        public string? MainDriverId
+        {
+            get => Vehicles.FirstOrDefault()?.MainDriverId;
+            set
+            {
+                if (string.IsNullOrEmpty(value)) return;
+                EnsureFirstVehicle().MainDriverId = value;
+            }
+        }
+        public string? DriverId
+        {
+            get => MainDriverId;
+            set => MainDriverId = value;
+        }
+        public string? CoDriverId
+        {
+            get => Vehicles.FirstOrDefault()?.CoDriverId;
+            set
+            {
+                if (string.IsNullOrEmpty(value)) return;
+                EnsureFirstVehicle().CoDriverId = value;
+            }
+        }
+        public string? VeterinarianId
+        {
+            get => Vehicles.FirstOrDefault()?.VeterinarianId;
+            set
+            {
+                if (string.IsNullOrEmpty(value)) return;
+                EnsureFirstVehicle().VeterinarianId = value;
+            }
+        }
+        public string? EscortId
+        {
+            get => VeterinarianId;
+            set => VeterinarianId = value;
+        }
+
+        private VehicleLegAssignmentDto EnsureFirstVehicle()
+        {
+            if (Vehicles.Count == 0)
+            {
+                Vehicles.Add(new VehicleLegAssignmentDto { OperatingCountry = Country ?? (LegNumber == 2 ? "JP" : "VN") });
+            }
+            return Vehicles[0];
+        }
     }
 
     public class VehicleLegAssignmentDto

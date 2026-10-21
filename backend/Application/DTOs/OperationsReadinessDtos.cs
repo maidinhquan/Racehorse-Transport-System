@@ -44,6 +44,7 @@ namespace Application.DTOs
         public bool AllMet { get; set; }
         public bool IsOperationsReady { get; set; }
         public bool IsLegalReady { get; set; }
+        public bool CanApproveDeparture => AllMet && IsOperationsReady && IsLegalReady;
         public string? RejectionReason { get; set; }
         public DateTime? DepartureApprovedAt { get; set; }
         public string? DepartureApprovedBy { get; set; }

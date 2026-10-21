@@ -234,7 +234,7 @@ namespace WebApi.Controllers
         {
             var success = await _coordinatorService.SubmitRouteForApprovalAsync(tripId);
             if (!success) return NotFoundFailure($"Không tìm thấy chuyến đi: {tripId}");
-            return SuccessMessage("Nộp lộ trình chờ Logistics Manager phê duyệt thành công");
+            return Success(new { tripId = tripId, status = "SUBMITTED" }, "Nộp lộ trình chờ Logistics Manager phê duyệt thành công");
         }
 
         // =========================================================================
@@ -278,6 +278,10 @@ namespace WebApi.Controllers
             {
                 return Failure(ex.Message);
             }
+            catch (Exception ex)
+            {
+                return Failure(ex.Message);
+            }
         }
 
         // =========================================================================
@@ -317,6 +321,10 @@ namespace WebApi.Controllers
                 return SuccessMessage("Xác nhận Operations READY thành công! Chuyến đi đã đủ điều kiện vận hành.");
             }
             catch (InvalidOperationException ex)
+            {
+                return Failure(ex.Message);
+            }
+            catch (Exception ex)
             {
                 return Failure(ex.Message);
             }

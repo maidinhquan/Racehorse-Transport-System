@@ -30,8 +30,14 @@ namespace Application.DTOs
         public int? DepartureAirportCheckpointId { get; set; }
         public int? ArrivalAirportCheckpointId { get; set; }
         public DateTime DepartureAt { get; set; }
+        public DateTime? DepartureTime { get => DepartureAt; set { if (value.HasValue) DepartureAt = value.Value; } }
         public DateTime ArrivalAt { get; set; }
+        public DateTime? ArrivalTime { get => ArrivalAt; set { if (value.HasValue) ArrivalAt = value.Value; } }
         public string BookingReference { get; set; } = string.Empty;
+        public string? BookingRef { get => BookingReference; set { if (!string.IsNullOrEmpty(value)) BookingReference = value; } }
+        public string? CargoAwb { get; set; }
+        public int? AirStallsCount { get; set; }
+        public string? Status { get; set; }
         public List<string> HorseIds { get; set; } = new();
         public string? Note { get; set; }
     }
