@@ -15,6 +15,9 @@ namespace Domain.Entities
         [StringLength(50)]
         public string TripId { get; set; } = null!;
 
+        [Column("SequenceOrder")]
+        public int SequenceOrder { get; set; } = 1;
+
         [Column("FacilityID")]
         [StringLength(50)]
         public string? FacilityId { get; set; }
@@ -38,6 +41,9 @@ namespace Domain.Entities
         [Column("Flight_Voyage_No")]
         [StringLength(50)]
         public string? FlightVoyageNo { get; set; }
+
+        [Column("PlannedTime")]
+        public DateTime? PlannedTime { get; set; }
 
         [Column("ExpectedETA")]
         public DateTime? ExpectedEta { get; set; }
