@@ -1,4 +1,4 @@
--- =============================================================================
+﻿-- =============================================================================
 -- BƯỚC 1: TẠO VÀ CHUYỂN VÀO CƠ SỞ DỮ LIỆU CHÍNH THỨC
 -- =============================================================================
 USE master;
@@ -235,7 +235,15 @@ CREATE TABLE TRIP_PLAN (
     TotalDistance_km DECIMAL(10, 2) NULL,
     T_Total_Hours DECIMAL(10, 2) NULL,
     TotalCost DECIMAL(12, 2) NULL,
-    Status VARCHAR(50) NOT NULL,
+    Status VARCHAR(50) NOT NULL, -- PLANNING, PENDING_APPROVAL, PLAN_APPROVED, READY_TO_DEPART, IN_TRANSIT, COMPLETED, RETURNED
+    RejectionReason NVARCHAR(500) NULL, -- Lý do Quản lý từ chối / trả về phương án
+    ResourcesConfirmedAt DATETIME2 NULL, -- Thời điểm Coordinator chốt xe & nhân sự
+    ResourcesConfirmedBy NVARCHAR(100) NULL, -- Người chốt nguồn lực
+    DepartureApprovedAt DATETIME2 NULL, -- Thời điểm Quản lý phê duyệt lệnh khởi hành
+    DepartureApprovedBy NVARCHAR(100) NULL, -- Quản lý duyệt lệnh khởi hành
+    EarliestDepartureDate DATETIME2 NULL, -- Specialist ghi nhận ngày sớm nhất hồ sơ sẵn sàng
+    DocumentExpiryDate DATETIME2 NULL, -- Specialist ghi nhận hạn chót của các giấy tờ có thời hạn
+    SpecialistLegalNote NVARCHAR(500) NULL, -- Ghi chú ràng buộc pháp lý của Specialist
     CONSTRAINT PK_TripPlan PRIMARY KEY (TripID),
     CONSTRAINT FK_TripPlan_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID)
 );
@@ -248,20 +256,28 @@ CREATE TABLE VEHICLE (
     MaxRange_km DECIMAL(10, 2) NULL,
     FuelCost_Per_Km DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NULL,
+    OperatingCountry VARCHAR(10) NULL DEFAULT 'VN', -- 'VN', 'JP', 'SG'
+    PlateNumber NVARCHAR(50) NULL, -- Biển số xe thực tế
     CONSTRAINT PK_Vehicle PRIMARY KEY (VehicleID)
 );
 
--- 15. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái
+-- 15. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái theo từng chặng độc lập
 CREATE TABLE TRIP_VEHICLE_ASSIGNMENT (
     AssignmentID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
+    LegNumber INT NOT NULL DEFAULT 1, -- 1: Chặng đi VN, 2: Chặng đến (hoặc 3 nếu có)
+    LegType VARCHAR(50) NULL, -- 'OUTBOUND' (Chặng 1), 'INBOUND' (Chặng 2)
     VehicleID VARCHAR(50) NOT NULL,
-    DriverID VARCHAR(50) NOT NULL,
-    EscortID VARCHAR(50) NOT NULL,
+    DriverID VARCHAR(50) NOT NULL, -- Tài xế chính
+    CoDriverID VARCHAR(50) NULL, -- Phụ xe / Tài xế phụ
+    VeterinarianID VARCHAR(50) NULL, -- Bác sĩ thú y áp tải
+    EscortID VARCHAR(50) NULL, -- Người áp tải kiêm nhiệm (nullable)
     CONSTRAINT PK_TripVehicleAssignment PRIMARY KEY (AssignmentID),
     CONSTRAINT FK_TVA_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
     CONSTRAINT FK_TVA_Vehicle FOREIGN KEY (VehicleID) REFERENCES VEHICLE(VehicleID),
     CONSTRAINT FK_TVA_Driver FOREIGN KEY (DriverID) REFERENCES [USER](UserID),
+    CONSTRAINT FK_TVA_CoDriver FOREIGN KEY (CoDriverID) REFERENCES [USER](UserID),
+    CONSTRAINT FK_TVA_Vet FOREIGN KEY (VeterinarianID) REFERENCES [USER](UserID),
     CONSTRAINT FK_TVA_Escort FOREIGN KEY (EscortID) REFERENCES [USER](UserID)
 );
 
@@ -269,12 +285,14 @@ CREATE TABLE TRIP_VEHICLE_ASSIGNMENT (
 CREATE TABLE ROUTE_SEGMENT (
     SegmentID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
+    SequenceOrder INT NULL DEFAULT 1, -- Thứ tự điểm dừng trên lộ trình
     FacilityID VARCHAR(50) NULL, -- Trạm dừng liên kết
     LocationName NVARCHAR(255) NOT NULL,
     SegmentType VARCHAR(50) NULL,
     TransportMode VARCHAR(50) NOT NULL DEFAULT 'ROAD', -- ROAD, AIR, SEA
     CarrierName NVARCHAR(100) NULL, -- Hãng bay/tàu
     Flight_Voyage_No VARCHAR(50) NULL, -- Số chuyến bay/tàu
+    PlannedTime DATETIME NULL, -- Thời gian dự kiến đến trạm
     ExpectedETA DATETIME NULL,
     ActualTime DATETIME NULL,
     Status VARCHAR(50) NULL,
@@ -486,7 +504,10 @@ INSERT INTO [USER] (UserID, Username, PasswordHash, Role, FullName, Email, Phone
 ('USR_DRV_01',  'driver_hung',   'HASH_SECURE_07', 'Driver',     N'Hoàng Hùng (Tài xế quốc tế 1)',     'hung.driver@cbntransport.com','0945678901', NULL, NULL, 1),
 ('USR_DRV_02',  'driver_thanh',  'HASH_SECURE_08', 'Driver',     N'Vũ Thành (Tài xế quốc tế 2)',       'thanh.driver@cbntransport.com','0946789012', NULL, NULL, 1),
 ('USR_ESC_01',  'escort_hoa',    'HASH_SECURE_09', 'Escort',     N'BS. Đỗ Hoa (Bác sĩ thú y áp tải)', 'hoa.escort@cbntransport.com', '0956789012', NULL, NULL, 1),
-('USR_ESC_02',  'escort_nam',    'HASH_SECURE_10', 'Escort',     N'BS. Phan Nam (Kỹ thuật viên ngựa)',  'nam.escort@cbntransport.com', '0957890123', NULL, NULL, 1);
+('USR_ESC_02',  'escort_nam',    'HASH_SECURE_10', 'Escort',     N'BS. Phan Nam (Kỹ thuật viên ngựa)',  'nam.escort@cbntransport.com', '0957890123', NULL, NULL, 1),
+('USR_DRV_JP_01','driver_kenji', 'HASH_SECURE_11', 'Driver',     N'Kenji Sato (Tài xế quốc tế Tokyo)', 'kenji.driver@cbntransport.jp', '0981112233', NULL, NULL, 1),
+('USR_DRV_JP_02','driver_daiki', 'HASH_SECURE_12', 'Driver',     N'Daiki Tanaka (Phụ lái Nhật Bản)',   'daiki.driver@cbntransport.jp', '0982223344', NULL, NULL, 1),
+('USR_ESC_JP_01','vet_yumi',     'HASH_SECURE_13', 'Escort',     N'BS. Yumi Mori (Bác sĩ thú y Tokyo)','yumi.vet@cbntransport.jp',     '0983334455', NULL, NULL, 1);
 
 -- 2. Bảng HORSE: Đa dạng cá thể (Ngựa đực Stallion, Ngựa cái Mare, Ngựa thiến Gelding)
 INSERT INTO HORSE (HorseID, OwnerID, Microchip_ISO, FEI_Passport_No, Name, Breed, Sex, ReproductiveStatus, Weight, DOB) VALUES
@@ -502,7 +523,9 @@ INSERT INTO STAFF_DOCUMENT (DocumentID, UserID, DocType, CountryOfIssue, ValidFo
 ('DOC_STF_02', 'USR_DRV_01', 'DRIVING_LICENSE', 'VNM', 'VNM, LAO',      '2022-05-15', '2027-05-15', 'https://storage.cbntransport.com/docs/lic_hung.pdf',  'VALID'),
 ('DOC_STF_03', 'USR_ESC_01', 'PASSPORT',        'VNM', 'LAO, THA',      '2024-02-01', '2034-02-01', 'https://storage.cbntransport.com/docs/pass_hoa.pdf',  'VALID'),
 ('DOC_STF_04', 'USR_DRV_02', 'PASSPORT',        'VNM', 'KHM, THA',      '2022-08-10', '2032-08-10', 'https://storage.cbntransport.com/docs/pass_thanh.pdf', 'VALID'),
-('DOC_STF_05', 'USR_ESC_02', 'PASSPORT',        'VNM', 'KHM, LAO',      '2021-03-01', '2026-10-25', 'https://storage.cbntransport.com/docs/pass_nam.pdf',   'EXPIRING_SOON');
+('DOC_STF_05', 'USR_ESC_02', 'PASSPORT',        'VNM', 'KHM, LAO',      '2021-03-01', '2026-10-25', 'https://storage.cbntransport.com/docs/pass_nam.pdf',   'EXPIRING_SOON'),
+('DOC_STF_06', 'USR_DRV_JP_01', 'DRIVING_LICENSE', 'JPN', 'JPN, VNM',  '2023-04-01', '2028-04-01', 'https://storage.cbntransport.com/docs/lic_kenji.pdf',  'VALID'),
+('DOC_STF_07', 'USR_ESC_JP_01', 'PASSPORT',        'JPN', 'JPN, VNM',  '2024-01-15', '2034-01-15', 'https://storage.cbntransport.com/docs/pass_yumi.pdf',   'VALID');
 
 -- 4. Bảng NOTIFICATION: Lịch sử thông báo hệ thống gửi qua App/Email/SMS
 INSERT INTO NOTIFICATION (NotificationID, UserID, ReferenceID, Type, Channel, Title, Message, IsRead, SentAt) VALUES
@@ -583,23 +606,33 @@ INSERT INTO QUARANTINE_BOOKING (BookingID, RequestID, FacilityID, StationName, C
 -- PHÂN VÙNG 4: LỘ TRÌNH, HẢI QUAN & HIỆN TRƯỜNG (OPERATIONS & CUSTOMS)
 -- =============================================================================
 
--- 14. Bảng TRIP_PLAN: Kế hoạch các chuyến đi
-INSERT INTO TRIP_PLAN (TripID, RequestID, TotalDistance_km, T_Total_Hours, TotalCost, Status) VALUES
-('TRIP_2026_001', 'REQ_2026_001', 1250.00, 36.50, 6200.00, 'COMPLETED'),
-('TRIP_2026_002', 'REQ_2026_002', 240.00,  8.00,  3100.00, 'COMPLETED'),
-('TRIP_2026_003', 'REQ_2026_003', 1720.00, 42.00, 4300.00, 'IN_TRANSIT');
+-- 14. Bảng TRIP_PLAN: Kế hoạch các chuyến đi (bao gồm chuyến chờ duyệt, chuyến bị trả về và chuyến hoàn thành)
+INSERT INTO TRIP_PLAN (TripID, RequestID, TotalDistance_km, T_Total_Hours, TotalCost, Status, RejectionReason, ResourcesConfirmedAt, ResourcesConfirmedBy, EarliestDepartureDate, DocumentExpiryDate, SpecialistLegalNote) VALUES
+('TRIP_2026_001', 'REQ_2026_001', 1250.00, 36.50, 6200.00, 'COMPLETED',        NULL, '2026-09-14 10:00:00', N'Phạm Hải (Coordinator)', NULL, NULL, NULL),
+('TRIP_2026_002', 'REQ_2026_002', 240.00,  8.00,  3100.00, 'COMPLETED',        NULL, '2026-10-04 15:00:00', N'Phạm Hải (Coordinator)', NULL, NULL, NULL),
+('TRIP_2026_003', 'REQ_2026_003', 1720.00, 42.00, 4300.00, 'IN_TRANSIT',       NULL, '2026-10-08 09:00:00', N'Phạm Hải (Coordinator)', NULL, NULL, NULL),
+('TRIP_2026_004', 'REQ_2026_004', 3200.00, 28.00, 9500.00, 'PENDING_APPROVAL', NULL, '2026-10-18 10:30:00', N'Phạm Hải (Coordinator)', '2026-10-19 06:00:00', '2026-10-24 23:59:59', N'Giấy Coggins test và tiêm phòng Cúm đủ điều kiện từ 19/10, hết hạn ngày 24/10. Lưu ý giờ qua Nội Bài trước 23h ngày 24/10.'),
+('TRIP_2026_005', 'REQ_2026_001', 4350.00, 35.00, 14200.00, 'RETURNED',        N'Cần đổi tài xế chặng 1 vì giấy phép sắp hết hạn; điều chỉnh lại thời gian dừng tại sân bay đón', '2026-10-17 14:00:00', N'Phạm Hải (Coordinator)', '2026-10-24 00:00:00', '2026-10-30 23:59:59', N'Hồ sơ xuất cảnh có hiệu lực từ 24/10 đến 30/10.');
 
--- 15. Bảng VEHICLE: Đội xe chuyên dụng chở ngựa đua
-INSERT INTO VEHICLE (VehicleID, Type, CapacityStalls, MaxRange_km, FuelCost_Per_Km, Status) VALUES
-('VEH_BOX_01', 'HORSEBOX_3_STALLS', 3, 900.00,  1.20, 'AVAILABLE'),
-('VEH_BOX_02', 'HORSEBOX_6_STALLS', 6, 1200.00, 1.80, 'ON_TRIP'),
-('VEH_BOX_03', 'HORSEBOX_2_STALLS', 2, 750.00,  1.00, 'MAINTENANCE');
+-- 15. Bảng VEHICLE: Đội xe chuyên dụng chở ngựa đua (Việt Nam & Quốc tế)
+INSERT INTO VEHICLE (VehicleID, Type, CapacityStalls, MaxRange_km, FuelCost_Per_Km, Status, OperatingCountry, PlateNumber) VALUES
+('VEH_BOX_01', 'HORSEBOX_3_STALLS', 3, 900.00,  1.20, 'AVAILABLE',   'VN', N'51C-101.45'),
+('VEH_BOX_02', 'HORSEBOX_6_STALLS', 6, 1200.00, 1.80, 'ON_TRIP',     'VN', N'51C-202.88'),
+('VEH_BOX_03', 'HORSEBOX_2_STALLS', 2, 750.00,  1.00, 'MAINTENANCE', 'VN', N'29B-303.12'),
+('VEH_JP_01',  'HORSEBOX_3_STALLS', 3, 1000.00, 2.50, 'AVAILABLE',   'JP', N'品川 300 あ 12-34'),
+('VEH_JP_02',  'HORSEBOX_6_STALLS', 6, 1300.00, 3.20, 'AVAILABLE',   'JP', N'成田 500 い 56-78');
 
--- 16. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái
-INSERT INTO TRIP_VEHICLE_ASSIGNMENT (AssignmentID, TripID, VehicleID, DriverID, EscortID) VALUES
-('TVA_001', 'TRIP_2026_001', 'VEH_BOX_01', 'USR_DRV_01', 'USR_ESC_01'),
-('TVA_002', 'TRIP_2026_002', 'VEH_BOX_03', 'USR_DRV_02', 'USR_ESC_02'),
-('TVA_003', 'TRIP_2026_003', 'VEH_BOX_02', 'USR_DRV_01', 'USR_ESC_01');
+-- 16. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái theo từng chặng độc lập (Chặng 1 & Chặng 2)
+INSERT INTO TRIP_VEHICLE_ASSIGNMENT (AssignmentID, TripID, LegNumber, LegType, VehicleID, DriverID, CoDriverID, VeterinarianID, EscortID) VALUES
+('TVA_001', 'TRIP_2026_001', 1, 'OUTBOUND', 'VEH_BOX_01', 'USR_DRV_01', 'USR_DRV_02', 'USR_ESC_01', 'USR_ESC_01'),
+('TVA_002', 'TRIP_2026_002', 1, 'OUTBOUND', 'VEH_BOX_03', 'USR_DRV_02', 'USR_DRV_01', 'USR_ESC_02', 'USR_ESC_02'),
+('TVA_003', 'TRIP_2026_003', 1, 'OUTBOUND', 'VEH_BOX_02', 'USR_DRV_01', 'USR_DRV_02', 'USR_ESC_01', 'USR_ESC_01'),
+-- Chuyến TRIP_2026_004: Chặng 1 tại VN & Chặng 2 tại Nhật Bản (2 chặng độc lập, đủ 3 nhân sự mỗi chặng)
+('TVA_004', 'TRIP_2026_004', 1, 'OUTBOUND', 'VEH_BOX_01', 'USR_DRV_01', 'USR_DRV_02', 'USR_ESC_01', 'USR_ESC_01'),
+('TVA_005', 'TRIP_2026_004', 2, 'INBOUND',  'VEH_JP_01',  'USR_DRV_JP_01', 'USR_DRV_JP_02', 'USR_ESC_JP_01', 'USR_ESC_JP_01'),
+-- Chuyến TRIP_2026_005: Chặng 1 tại VN & Chặng 2 tại Nhật Bản
+('TVA_006', 'TRIP_2026_005', 1, 'OUTBOUND', 'VEH_BOX_02', 'USR_DRV_02', 'USR_DRV_01', 'USR_ESC_02', 'USR_ESC_02'),
+('TVA_007', 'TRIP_2026_005', 2, 'INBOUND',  'VEH_JP_02',  'USR_DRV_JP_01', 'USR_DRV_JP_02', 'USR_ESC_JP_01', 'USR_ESC_JP_01');
 
 -- 17. (MỚI) Bảng FLIGHT_BOOKING: Đặt dịch vụ vận chuyển hàng không mẫu
 SET IDENTITY_INSERT FLIGHT_BOOKING ON;
@@ -608,17 +641,21 @@ INSERT INTO FLIGHT_BOOKING (FlightBookingID, TripID, BookingVersion, RouteVersio
 SET IDENTITY_INSERT FLIGHT_BOOKING OFF;
 
 -- 18. Bảng ROUTE_SEGMENT: Phân đoạn lộ trình của các chuyến đi
-INSERT INTO ROUTE_SEGMENT (SegmentID, TripID, FacilityID, LocationName, SegmentType, TransportMode, CarrierName, Flight_Voyage_No, ExpectedETA, ActualTime, Status) VALUES
+INSERT INTO ROUTE_SEGMENT (SegmentID, TripID, SequenceOrder, FacilityID, LocationName, SegmentType, TransportMode, CarrierName, Flight_Voyage_No, PlannedTime, ExpectedETA, ActualTime, Status) VALUES
 -- Tuyến 1: Hà Nội -> Bangkok
-('SEG_101', 'TRIP_2026_001', 'FAC_001', N'Sóc Sơn -> Cửa khẩu Cầu Treo',       'REST_STOP',       'ROAD', NULL, NULL, '2026-09-15 15:00:00', '2026-09-15 14:50:00', 'COMPLETED'),
-('SEG_102', 'TRIP_2026_001', 'FAC_002', N'Cầu Treo -> Trạm Thú Y Vientiane',   'QUARANTINE_STOP', 'ROAD', NULL, NULL, '2026-09-16 13:00:00', '2026-09-16 13:10:00', 'COMPLETED'),
-('SEG_103', 'TRIP_2026_001', NULL,      N'Vientiane -> CLB Hoàng Gia Bangkok', 'DESTINATION',     'ROAD', NULL, NULL, '2026-09-17 18:00:00', '2026-09-17 17:30:00', 'COMPLETED'),
+('SEG_101', 'TRIP_2026_001', 1, 'FAC_001', N'Sóc Sơn -> Cửa khẩu Cầu Treo',       'REST_STOP',       'ROAD', NULL, NULL, '2026-09-15 06:00:00', '2026-09-15 15:00:00', '2026-09-15 14:50:00', 'COMPLETED'),
+('SEG_102', 'TRIP_2026_001', 2, 'FAC_002', N'Cầu Treo -> Trạm Thú Y Vientiane',   'QUARANTINE_STOP', 'ROAD', NULL, NULL, '2026-09-16 08:00:00', '2026-09-16 13:00:00', '2026-09-16 13:10:00', 'COMPLETED'),
+('SEG_103', 'TRIP_2026_001', 3, NULL,      N'Vientiane -> CLB Hoàng Gia Bangkok', 'DESTINATION',     'ROAD', NULL, NULL, '2026-09-17 07:00:00', '2026-09-17 18:00:00', '2026-09-17 17:30:00', 'COMPLETED'),
 -- Tuyến 2: TP.HCM -> Phnom Penh
-('SEG_201', 'TRIP_2026_002', 'FAC_003', N'Củ Chi -> Cửa khẩu Mộc Bài',         'BORDER_CHECK',    'ROAD', NULL, NULL, '2026-10-05 08:30:00', '2026-10-05 09:15:00', 'COMPLETED'),
-('SEG_202', 'TRIP_2026_002', 'FAC_004', N'Mộc Bài -> Trường đua Phnom Penh',   'DESTINATION',     'ROAD', NULL, NULL, '2026-10-05 16:00:00', '2026-10-05 18:30:00', 'COMPLETED'),
+('SEG_201', 'TRIP_2026_002', 1, 'FAC_003', N'Củ Chi -> Cửa khẩu Mộc Bài',         'BORDER_CHECK',    'ROAD', NULL, NULL, '2026-10-05 05:00:00', '2026-10-05 08:30:00', '2026-10-05 09:15:00', 'COMPLETED'),
+('SEG_202', 'TRIP_2026_002', 2, 'FAC_004', N'Mộc Bài -> Trường đua Phnom Penh',   'DESTINATION',     'ROAD', NULL, NULL, '2026-10-05 10:00:00', '2026-10-05 16:00:00', '2026-10-05 18:30:00', 'COMPLETED'),
 -- Tuyến 3: Hà Nội -> TP.HCM (Đang chạy, vừa qua trạm Đà Nẵng)
-('SEG_301', 'TRIP_2026_003', 'FAC_005', N'Hà Nội -> Trạm Nghỉ Đà Nẵng',       'REST_STOP',       'ROAD', NULL, NULL, '2026-10-09 10:00:00', '2026-10-09 10:30:00', 'COMPLETED'),
-('SEG_302', 'TRIP_2026_003', NULL,      N'Đà Nẵng -> Trại Phú Thọ TP.HCM',     'DESTINATION',     'ROAD', NULL, NULL, '2026-10-11 18:00:00', NULL,                  'IN_PROGRESS');
+('SEG_301', 'TRIP_2026_003', 1, 'FAC_005', N'Hà Nội -> Trạm Nghỉ Đà Nẵng',       'REST_STOP',       'ROAD', NULL, NULL, '2026-10-08 07:00:00', '2026-10-09 10:00:00', '2026-10-09 10:30:00', 'COMPLETED'),
+('SEG_302', 'TRIP_2026_003', 2, NULL,      N'Đà Nẵng -> Trại Phú Thọ TP.HCM',     'DESTINATION',     'ROAD', NULL, NULL, '2026-10-09 14:00:00', '2026-10-11 18:00:00', NULL,                  'IN_PROGRESS'),
+-- Tuyến 4 (TRIP_2026_004): Hà Nội -> Tokyo qua Sân bay Nội Bài & Narita (Đa chặng, phù hợp Flow 3)
+('SEG_401', 'TRIP_2026_004', 1, NULL,      N'Khu huấn luyện Ba Vì -> Sân bay Nội Bài',  'PICKUP',      'ROAD', NULL, NULL, '2026-10-20 05:00:00', '2026-10-20 07:30:00', NULL,                  'PENDING'),
+('SEG_402', 'TRIP_2026_004', 2, NULL,      N'Sân bay Nội Bài -> Sân bay Narita (NRT)',  'AIRPORT',     'AIR',  N'NCA Airlines', 'KZ-102', '2026-10-20 09:30:00', '2026-10-20 16:00:00', NULL, 'PENDING'),
+('SEG_403', 'TRIP_2026_004', 3, NULL,      N'Sân bay Narita -> Trường đua Tokyo Fuchu', 'DESTINATION', 'ROAD', NULL, NULL, '2026-10-20 17:30:00', '2026-10-20 20:00:00', NULL,                 'PENDING');
 
 -- 19. Bảng CUSTOMS_CLEARANCE: Thủ tục thông quan biên giới
 INSERT INTO CUSTOMS_CLEARANCE (ClearanceID, TripID, SegmentID, BorderCrossingName, CustomsAgentName, DocumentType, DeclarationNumber, Status, ClearedAt) VALUES
