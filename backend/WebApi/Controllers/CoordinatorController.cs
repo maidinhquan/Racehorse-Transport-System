@@ -32,6 +32,49 @@ namespace WebApi.Controllers
             return Success(data, "Lấy danh sách yêu cầu lập kế hoạch thành công");
         }
 
+        [HttpGet("unplanned-requests")]
+        public async Task<IActionResult> GetUnplannedRequests()
+        {
+            var data = await _coordinatorService.GetUnplannedRequestsAsync();
+            return Success(data, "Lấy danh sách đơn yêu cầu từ khách hàng chờ lập kế hoạch thành công");
+        }
+
+        [HttpPost("trips/start-planning")]
+        public async Task<IActionResult> StartPlanningTrip([FromBody] StartPlanningRequestDto dto)
+        {
+            try
+            {
+                var data = await _coordinatorService.StartPlanningTripAsync(dto);
+                return Success(data, "Khởi tạo kế hoạch chuyến đi từ đơn yêu cầu thành công");
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFoundFailure(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return Failure(ex.Message);
+            }
+        }
+
+        [HttpPost("trips/start-planning/{requestId}")]
+        public async Task<IActionResult> StartPlanningTripByPath(string requestId)
+        {
+            try
+            {
+                var data = await _coordinatorService.StartPlanningTripAsync(new StartPlanningRequestDto { RequestId = requestId });
+                return Success(data, "Khởi tạo kế hoạch chuyến đi từ đơn yêu cầu thành công");
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFoundFailure(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return Failure(ex.Message);
+            }
+        }
+
         [HttpGet("trips/{tripId}")]
         public async Task<IActionResult> GetTripDetail(string tripId)
         {
@@ -51,6 +94,13 @@ namespace WebApi.Controllers
         {
             var data = await _coordinatorService.GetCheckpointsAsync(country, type, q);
             return Success(data, "Lấy danh mục điểm kiểm soát / trạm dừng thành công");
+        }
+
+        [HttpGet("maps/geocode")]
+        public async Task<IActionResult> GeocodeAddress([FromQuery] string address, [FromQuery] string? country = "VN")
+        {
+            var data = await _coordinatorService.GeocodeAddressAsync(address, country);
+            return Success(data, "Tra cứu tọa độ địa chỉ thành công");
         }
 
         // =========================================================================
@@ -258,6 +308,7 @@ namespace WebApi.Controllers
         }
 
         [HttpPost("trips/{tripId}/operations-readiness/confirm")]
+        [HttpPost("trips/{tripId}/resources/confirm")]
         public async Task<IActionResult> ConfirmOperationsReadiness(string tripId, [FromBody] ConfirmOperationsReadinessRequestDto? dto)
         {
             try
