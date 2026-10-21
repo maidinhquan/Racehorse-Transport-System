@@ -28,6 +28,34 @@ namespace Domain.Entities
         [StringLength(50)]
         public string Status { get; set; } = null!;
 
+        [Column("RejectionReason")]
+        [StringLength(500)]
+        public string? RejectionReason { get; set; }
+
+        [Column("ResourcesConfirmedAt")]
+        public DateTime? ResourcesConfirmedAt { get; set; }
+
+        [Column("ResourcesConfirmedBy")]
+        [StringLength(50)]
+        public string? ResourcesConfirmedBy { get; set; }
+
+        [Column("DepartureApprovedAt")]
+        public DateTime? DepartureApprovedAt { get; set; }
+
+        [Column("DepartureApprovedBy")]
+        [StringLength(50)]
+        public string? DepartureApprovedBy { get; set; }
+
+        [Column("EarliestDepartureDate")]
+        public DateTime? EarliestDepartureDate { get; set; }
+
+        [Column("DocumentExpiryDate")]
+        public DateTime? DocumentExpiryDate { get; set; }
+
+        [Column("SpecialistLegalNote")]
+        [StringLength(1000)]
+        public string? SpecialistLegalNote { get; set; }
+
         // Navigation properties
         [ForeignKey(nameof(RequestId))]
         [InverseProperty(nameof(TransportRequest.TripPlans))]
