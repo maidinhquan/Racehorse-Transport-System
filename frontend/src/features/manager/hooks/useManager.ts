@@ -66,13 +66,27 @@ interface ManagerState extends ManagerData {
   toast: { id: number; message: string } | null;
 }
 
+import { getDemoMode } from '../../../shared/context/DemoModeContext';
+
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const DATA_KEYS: Array<keyof ManagerData> = ['customers', 'horses', 'staff', 'requests', 'trips', 'transactions', 'incidents', 'complaints', 'actualCosts', 'notifications'];
 
+const initialDemo = getDemoMode('manager');
+
 let state: ManagerState = {
-  customers: clone(mockCustomers), horses: clone(mockHorses), staff: clone(mockStaff), requests: clone(mockRequests), trips: clone(mockTrips),
-  transactions: clone(mockTransactions), incidents: clone(mockIncidents), complaints: clone(mockComplaints), actualCosts: clone(mockActualCosts),
-  notifications: clone(mockNotifications), loading: false, loaded: false, toast: null,
+  customers: initialDemo ? clone(mockCustomers) : [],
+  horses: initialDemo ? clone(mockHorses) : [],
+  staff: initialDemo ? clone(mockStaff) : [],
+  requests: initialDemo ? clone(mockRequests) : [],
+  trips: initialDemo ? clone(mockTrips) : [],
+  transactions: initialDemo ? clone(mockTransactions) : [],
+  incidents: initialDemo ? clone(mockIncidents) : [],
+  complaints: initialDemo ? clone(mockComplaints) : [],
+  actualCosts: initialDemo ? clone(mockActualCosts) : [],
+  notifications: initialDemo ? clone(mockNotifications) : [],
+  loading: false,
+  loaded: false,
+  toast: null,
 };
 const listeners = new Set<() => void>();
 const setState = (patch: Partial<ManagerState> | ((s: ManagerState) => Partial<ManagerState>)) => {
@@ -83,6 +97,47 @@ const subscribe = (l: () => void) => { listeners.add(l); return () => { listener
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('rts_demo_mode_change', (event: Event) => {
+    const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
+    if (customEvent.detail && customEvent.detail.role === 'manager') {
+      if (customEvent.detail.enabled) {
+        setState({
+          customers: clone(mockCustomers),
+          horses: clone(mockHorses),
+          staff: clone(mockStaff),
+          requests: clone(mockRequests),
+          trips: clone(mockTrips),
+          transactions: clone(mockTransactions),
+          incidents: clone(mockIncidents),
+          complaints: clone(mockComplaints),
+          actualCosts: clone(mockActualCosts),
+          notifications: clone(mockNotifications),
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
+      } else {
+        setState({
+          customers: [],
+          horses: [],
+          staff: [],
+          requests: [],
+          trips: [],
+          transactions: [],
+          incidents: [],
+          complaints: [],
+          actualCosts: [],
+          notifications: [],
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
+      }
+    }
+  });
+}
 const ok = (message: string, id?: string): ActionResult => { toast(message); return { ok: true, message, id }; };
 const fail = (message: string): ActionResult => { toast(message); return { ok: false, message }; };
 
@@ -126,6 +181,13 @@ async function loadAll() {
     managerApi.getCustomers(), managerApi.getHorses(), managerApi.getStaff(), managerApi.getRequests(), managerApi.getTrips(),
     managerApi.getTransactions(), managerApi.getIncidents(), managerApi.getComplaints(), managerApi.getActualCosts(), managerApi.getNotifications(),
   ]);
+  if (!getDemoMode('manager')) {
+    setState({
+      customers: [], horses: [], staff: [], requests: [], trips: [], transactions: [], incidents: [], complaints: [], actualCosts: [], notifications: [],
+      loading: false, loaded: true,
+    });
+    return;
+  }
   setState({ customers, horses, staff, requests, trips, transactions, incidents, complaints, actualCosts, notifications, loading: false, loaded: true });
 }
 

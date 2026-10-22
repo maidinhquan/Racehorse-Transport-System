@@ -234,14 +234,26 @@ export interface CompanyDoc {
 // ---------------------------------------------------------------------------
 export type TripStatus = 'PLANNING' | 'READY_TO_DEPART' | 'IN_TRANSIT' | 'COMPLETED';
 export type TransportMode = 'ROAD' | 'AIR';
-export type StopType = 'ORIGIN' | 'REST_STOP' | 'CHECKPOINT' | 'AIRPORT' | 'DESTINATION';
+export type StopType =
+  | 'ORIGIN'
+  | 'REST_STOP'
+  | 'FUEL_STOP'
+  | 'CHECKPOINT'
+  | 'AIRPORT'
+  | 'QUARANTINE_STATION'
+  | 'DESTINATION';
 export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED_DESTINATION';
 export type HorseCondition = 'NORMAL' | 'MONITOR' | 'ABNORMAL';
 
 export interface TripStop {
+  id?: string;
   name: string;
   type: StopType;
   plannedAt: string;
+  country?: string;
+  lat?: number;
+  lng?: number;
+  checkpointId?: number;
 }
 
 export interface TripMilestone {

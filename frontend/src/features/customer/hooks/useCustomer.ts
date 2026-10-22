@@ -80,14 +80,18 @@ interface CustomerState {
   toast: { id: number; message: string } | null;
 }
 
+import { getDemoMode } from '../../../shared/context/DemoModeContext';
+
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const OTP_SECONDS = 120;
 
+const initialDemo = getDemoMode('customer');
+
 let state: CustomerState = {
   profile: clone(mockProfile),
-  horses: clone(mockHorses),
-  requests: clone(mockRequests),
-  notifications: clone(mockNotifications),
+  horses: initialDemo ? clone(mockHorses) : [],
+  requests: initialDemo ? clone(mockRequests) : [],
+  notifications: initialDemo ? clone(mockNotifications) : [],
   otp: null,
   loading: false,
   loaded: false,
@@ -102,6 +106,33 @@ const subscribe = (l: () => void) => { listeners.add(l); return () => { listener
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('rts_demo_mode_change', (event: Event) => {
+    const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
+    if (customEvent.detail && customEvent.detail.role === 'customer') {
+      if (customEvent.detail.enabled) {
+        setState({
+          horses: clone(mockHorses),
+          requests: clone(mockRequests),
+          notifications: clone(mockNotifications),
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
+      } else {
+        setState({
+          horses: [],
+          requests: [],
+          notifications: [],
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
+      }
+    }
+  });
+}
 const ok = (message: string, id?: string): ActionResult => { toast(message); return { ok: true, message, id }; };
 const fail = (message: string): ActionResult => { toast(message); return { ok: false, message }; };
 
@@ -130,6 +161,10 @@ async function loadAll() {
   const [profile, horses, requests, notifications] = await Promise.all([
     customerApi.getProfile(), customerApi.getHorses(), customerApi.getRequests(), customerApi.getNotifications(),
   ]);
+  if (!getDemoMode('customer')) {
+    setState({ profile, horses: [], requests: [], notifications: [], loading: false, loaded: true });
+    return;
+  }
   setState({ profile, horses, requests, notifications, loading: false, loaded: true });
 }
 

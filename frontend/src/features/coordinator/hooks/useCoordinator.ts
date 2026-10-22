@@ -41,13 +41,17 @@ interface CoordinatorState {
   toast: { id: number; message: string } | null;
 }
 
+import { getDemoMode } from '../../../shared/context/DemoModeContext';
+
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
+const initialDemo = getDemoMode('coordinator');
+
 let state: CoordinatorState = {
-  trips: clone(mockTrips),
-  vehicles: clone(mockVehicles),
-  staff: clone(mockStaff),
-  incidents: clone(mockIncidents),
+  trips: initialDemo ? clone(mockTrips) : [],
+  vehicles: initialDemo ? clone(mockVehicles) : [],
+  staff: initialDemo ? clone(mockStaff) : [],
+  incidents: initialDemo ? clone(mockIncidents) : [],
   loading: false,
   loaded: false,
   toast: null,
@@ -61,6 +65,35 @@ const subscribe = (l: () => void) => { listeners.add(l); return () => { listener
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('rts_demo_mode_change', (event: Event) => {
+    const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
+    if (customEvent.detail && customEvent.detail.role === 'coordinator') {
+      if (customEvent.detail.enabled) {
+        setState({
+          trips: clone(mockTrips),
+          vehicles: clone(mockVehicles),
+          staff: clone(mockStaff),
+          incidents: clone(mockIncidents),
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
+      } else {
+        setState({
+          trips: [],
+          vehicles: [],
+          staff: [],
+          incidents: [],
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
+      }
+    }
+  });
+}
 const ok = (message: string): ActionResult => { toast(message); return { ok: true, message }; };
 const fail = (message: string): ActionResult => { toast(message); return { ok: false, message }; };
 
@@ -74,6 +107,10 @@ async function loadAll() {
   const [trips, vehicles, staff, incidents] = await Promise.all([
     coordinatorApi.getTrips(), coordinatorApi.getVehicles(), coordinatorApi.getStaff(), coordinatorApi.getIncidents(),
   ]);
+  if (!getDemoMode('coordinator')) {
+    setState({ trips: [], vehicles: [], staff: [], incidents: [], loading: false, loaded: true });
+    return;
+  }
   setState({ trips, vehicles, staff, incidents, loading: false, loaded: true });
 }
 

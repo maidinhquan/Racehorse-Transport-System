@@ -1,21 +1,187 @@
 .cus-map {
-  border: 1px solid var(--cus-line, #e5e7eb);
+  border: 1px solid var(--cus-line, #e2e8f0);
   border-radius: 12px;
-  background: radial-gradient(circle, #e2e8f0 1px, transparent 1px) 0 0 / 18px 18px, #f8fafc;
   overflow: hidden;
+  background: var(--cus-card, #fff);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
-.cus-map svg { display: block; width: 100%; height: auto; }
-.cus-map__label { font: 600 12px Inter, system-ui, sans-serif; fill: #0f172a; }
-.cus-map__legend {
+
+.cus-map .cus-map__canvas {
+  width: 100%;
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+  background: #e2e8f0;
+  transition: height 0.25s ease;
+}
+
+.cus-map__toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--cus-line, #e2e8f0);
+  background: var(--cus-card, #fff);
+  font-size: 13px;
+}
+
+.cus-map__toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cus-map__toolbar-label {
+  color: var(--cus-muted, #64748b);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.cus-map__toolbar select {
+  padding: 6px 10px;
+  border: 1px solid var(--cus-line, #cbd5e1);
+  border-radius: 6px;
+  background: var(--cus-card, #fff);
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cus-map__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border: 1px solid var(--cus-line, #cbd5e1);
+  border-radius: 6px;
+  background: var(--cus-card, #fff);
+  color: var(--cus-ink, #0f172a);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cus-map__btn:hover {
+  background: #fff7ed;
+  border-color: var(--cus-orange, #f57c00);
+  color: var(--cus-orange-text, #ea580c);
+}
+
+.cus-map__btn.active {
+  background: var(--cus-orange, #f57c00);
+  border-color: var(--cus-orange, #f57c00);
+  color: #fff;
+}
+
+.cus-map__btn--primary {
+  font-weight: 700;
+}
+
+/* Chế độ toàn màn hình */
+.cus-map.cus-map--fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  border-radius: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  background: #fff;
+}
+
+.cus-map.cus-map--fullscreen .cus-map__canvas {
+  flex: 1;
+  height: 100% !important;
+}
+
+.cus-map.cus-map--fullscreen .cus-map__legend {
+  padding: 8px 16px;
+  background: #fff;
+}
+
+.cus-map .cus-map__legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
-  padding: 8px 14px;
-  border-top: 1px solid var(--cus-line, #e5e7eb);
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--cus-line, #e2e8f0);
+  color: var(--cus-muted, #475569);
+  font-size: 12px;
   background: #fff;
-  font-size: 11px;
-  color: #64748b;
 }
-.cus-map__legend span { display: inline-flex; align-items: center; gap: 6px; }
-.cus-map__legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-.cus-map--empty { padding: 36px; text-align: center; color: #64748b; font-size: 13px; }
+
+.cus-map .cus-map__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cus-map .cus-map__legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.cus-map .cus-map__notice,
+.cus-map .cus-map__caption {
+  margin: 0;
+  padding: 10px 16px;
+  color: var(--cus-muted, #475569);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.cus-map .cus-map__notice {
+  background: #fff3e0;
+}
+
+.cus-map .cus-map__caption {
+  border-top: 1px solid var(--cus-line, #e2e8f0);
+}
+
+.cus-map--empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--cus-muted, #64748b);
+  font-size: 13px;
+}
+
+/* Popup styling */
+.cus-map__popup-content {
+  font-family: inherit;
+}
+
+.cus-map__popup-content strong {
+  display: block;
+  font-size: 13px;
+  color: #0f172a;
+  margin-bottom: 3px;
+}
+
+.cus-map__popup-content p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.cus-map__popup-badge {
+  display: inline-block;
+  margin-top: 6px !important;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #ffedd5;
+  color: #ea580c;
+  font-weight: 600;
+  font-size: 11px !important;
+}

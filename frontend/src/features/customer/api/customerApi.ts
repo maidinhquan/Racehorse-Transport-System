@@ -12,15 +12,19 @@ import type {
 } from '../types';
 import { mockHorses, mockNotifications, mockProfile, mockRequests } from '../data/mockData';
 
+import { getDemoMode } from '../../../shared/context/DemoModeContext';
+
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
-/** GET có fallback về mock data khi Backend chưa chạy */
+/** GET có fallback về mock data khi Backend chưa chạy (chỉ fallback khi demo mode BẬT) */
 async function getOr<T>(url: string, fallback: T): Promise<T> {
+  const isDemo = getDemoMode('customer');
   try {
     const res = await apiClient.get<ApiResponse<T>>(url);
-    return res.data?.data ?? clone(fallback);
+    if (res.data?.data) return res.data.data;
+    return isDemo ? clone(fallback) : (Array.isArray(fallback) ? [] as unknown as T : undefined as unknown as T);
   } catch {
-    return clone(fallback);
+    return isDemo ? clone(fallback) : (Array.isArray(fallback) ? [] as unknown as T : undefined as unknown as T);
   }
 }
 

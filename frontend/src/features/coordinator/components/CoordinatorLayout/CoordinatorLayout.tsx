@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ThemeToggle } from '../../../../shared/components';
+import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
+import { useDemoMode } from '../../../../shared/context/DemoModeContext';
 import { useCoordinator } from '../../hooks/useCoordinator';
 import { COORDINATOR_NAME } from '../../data/mockData';
 import './CoordinatorLayout.css';
@@ -38,6 +39,7 @@ interface CoordinatorLayoutProps {
 
 export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, children }) => {
   const navigate = useNavigate();
+  const { enabled: isDemoMode } = useDemoMode('coordinator');
   const { stats, toast, actions } = useCoordinator();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -74,7 +76,7 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
   ];
 
   return (
-    <div className="crd-app">
+    <div className="crd-app" data-demo-mode={isDemoMode ? 'true' : 'false'}>
       <aside className="crd-sidebar">
         <NavLink to="/coordinator/dashboard" className="crd-brand" style={{ textDecoration: 'none', display: 'block' }}>
           CBN Transport
@@ -98,6 +100,7 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
         <header className="crd-topbar">
           <h1>{title}</h1>
           <div className="crd-topbar__user">
+            <DemoDataToggle role="coordinator" />
             <ThemeToggle showLabel={false} />
             <button type="button" className="crd-icon-btn" aria-label="Thông báo"><Icon name="bell" /></button>
 
