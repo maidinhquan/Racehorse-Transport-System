@@ -269,7 +269,7 @@ const actions = {
     const t = findTrip(tripId); if (!t) return fail('Không tìm thấy chuyến.');
     if (kind === 'depart' && t.status !== 'READY_TO_DEPART') return fail('Chuyến cần được Manager duyệt khởi hành trước.');
     if (kind !== 'depart' && t.status !== 'IN_TRANSIT') return fail('Chuyến chưa ở trạng thái đang vận chuyển.');
-    const driver = state.staff.find((s) => s.id === (t.crew.MAIN_DRIVER || t.legs?.outbound.crew.MAIN_DRIVER))?.name ?? 'Tài xế';
+    const driver = state.staff.find((s) => s.id === (t.crew.MAIN_DRIVER || t.legs?.outbound?.crew?.MAIN_DRIVER))?.name ?? 'Tài xế';
     const recorded: string[] = [];
     let x = clone(t), guard = 0;
     do {
@@ -301,9 +301,9 @@ export const useCoordinator = () => {
   const stats: CoordinatorDashboardStats = useMemo(() => {
     const deployed = snap.trips.filter((t) => t.deploymentStatus === 'CONFIRMED' && t.status === 'PLANNING');
     return {
-      needRoute: deployed.filter((t) => t.route.status !== 'APPROVED').length,
+      needRoute: deployed.filter((t) => t.route?.status !== 'APPROVED').length,
       needResources: deployed.filter((t) => resourceGaps(t, snap.vehicles, snap.staff, snap.trips).length || !t.resourcesConfirmed).length,
-      readyVehicles: snap.vehicles.filter((v) => v.status === 'READY' && !snap.trips.some((t) => isActiveTrip(t) && [t.vehicleId, t.legs?.outbound.vehicleId, t.legs?.inbound.vehicleId].includes(v.id))).length,
+      readyVehicles: snap.vehicles.filter((v) => v.status === 'READY' && !snap.trips.some((t) => isActiveTrip(t) && [t.vehicleId, t.legs?.outbound?.vehicleId, t.legs?.inbound?.vehicleId].filter(Boolean).includes(v.id))).length,
       totalVehicles: snap.vehicles.length,
       inTransit: snap.trips.filter((t) => t.status === 'IN_TRANSIT').length,
       openIncidents: snap.incidents.filter((i) => !['RESOLVED', 'CLOSED'].includes(i.status)).length,
