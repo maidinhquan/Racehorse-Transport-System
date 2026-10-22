@@ -153,10 +153,22 @@ export const FIELD_LABEL: Record<RequestField, string> = {
   route: 'Tuyến đường', date: 'Ngày vận chuyển', count: 'Số lượng ngựa', notes: 'Ghi chú chăm sóc',
 };
 export const STOP_LABEL: Record<StopType, string> = {
-  ORIGIN: 'Điểm nhận', REST_STOP: 'Điểm nghỉ', CHECKPOINT: 'Cửa khẩu', AIRPORT: 'Sân bay', DESTINATION: 'Điểm giao',
+  ORIGIN: 'Điểm nhận',
+  REST_STOP: 'Điểm nghỉ',
+  FUEL_STOP: 'Trạm tiếp nhiên liệu',
+  CHECKPOINT: 'Cửa khẩu',
+  AIRPORT: 'Sân bay',
+  QUARANTINE_STATION: 'Trạm kiểm dịch',
+  DESTINATION: 'Điểm giao',
 };
 export const STOP_COLOR: Record<StopType, string> = {
-  ORIGIN: '#0f172a', REST_STOP: '#d97706', CHECKPOINT: '#dc2626', AIRPORT: '#2563eb', DESTINATION: '#16a34a',
+  ORIGIN: '#0f172a',
+  REST_STOP: '#d97706',
+  FUEL_STOP: '#0284c7',
+  CHECKPOINT: '#dc2626',
+  AIRPORT: '#2563eb',
+  QUARANTINE_STATION: '#7c3aed',
+  DESTINATION: '#16a34a',
 };
 export const MILESTONE_LABEL: Record<MilestoneType, string> = {
   DEPARTED: 'Đã rời điểm nhận', ARRIVED_STOP: 'Đến điểm dừng', LEFT_STOP: 'Rời điểm dừng', ARRIVED_DESTINATION: 'Đến điểm giao',
@@ -413,21 +425,50 @@ export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[numbe
 // ============================================================================
 // Chuyến đi
 // ============================================================================
+const CITY_GEO: Record<string, { lat: number; lng: number; country: string }> = {
+  'Ho Chi Minh City': { lat: 10.7769, lng: 106.7009, country: 'VN' },
+  'Hanoi': { lat: 21.0285, lng: 105.8542, country: 'VN' },
+  'Da Nang': { lat: 16.0544, lng: 108.2022, country: 'VN' },
+  'Bangkok': { lat: 13.7367, lng: 100.5420, country: 'TH' },
+  'Tokyo': { lat: 35.6631, lng: 139.4828, country: 'JP' },
+  'Osaka': { lat: 34.6937, lng: 135.5023, country: 'JP' },
+  'Singapore': { lat: 1.3521, lng: 103.8198, country: 'SG' },
+  'London': { lat: 51.5074, lng: -0.1278, country: 'UK' },
+  'Dubai': { lat: 25.2048, lng: 55.2708, country: 'AE' },
+};
+
+const AIRPORT_GEO: Record<string, { lat: number; lng: number; name: string; country: string }> = {
+  'Ho Chi Minh City': { lat: 10.8188, lng: 106.6520, name: 'Sân bay Quốc tế Tân Sơn Nhất (SGN)', country: 'VN' },
+  'Hanoi': { lat: 21.2212, lng: 105.8072, name: 'Sân bay Quốc tế Nội Bài (HAN)', country: 'VN' },
+  'Da Nang': { lat: 16.0439, lng: 108.1994, name: 'Sân bay Quốc tế Đà Nẵng (DAD)', country: 'VN' },
+  'Bangkok': { lat: 13.6900, lng: 100.7501, name: 'Sân bay Suvarnabhumi (BKK)', country: 'TH' },
+  'Tokyo': { lat: 35.7720, lng: 140.3929, name: 'Sân bay Quốc tế Narita (NRT)', country: 'JP' },
+  'Osaka': { lat: 34.4347, lng: 135.2441, name: 'Sân bay Kansai (KIX)', country: 'JP' },
+  'Singapore': { lat: 1.3644, lng: 103.9915, name: 'Sân bay Changi (SIN)', country: 'SG' },
+  'London': { lat: 51.4700, lng: -0.4543, name: 'Sân bay London Heathrow (LHR)', country: 'UK' },
+  'Dubai': { lat: 25.2532, lng: 55.3657, name: 'Sân bay Quốc tế Dubai (DXB)', country: 'AE' },
+};
+
 export function tripTemplate(r: TransportRequest): Pick<Trip, 'mode' | 'stops' | 'plannedDepart' | 'eta'> {
   const intl = isInternational(r.origin, r.destination);
   const depart = `${r.date} 06:00`;
+  const origG = CITY_GEO[r.origin] || { lat: 10.7769, lng: 106.7009, country: 'VN' };
+  const destG = CITY_GEO[r.destination] || { lat: 21.0285, lng: 105.8542, country: 'VN' };
+  const origAir = AIRPORT_GEO[r.origin] || { lat: origG.lat + 0.05, lng: origG.lng + 0.05, name: `Sân bay ${shortCity(r.origin)}`, country: origG.country };
+  const destAir = AIRPORT_GEO[r.destination] || { lat: destG.lat + 0.05, lng: destG.lng + 0.05, name: `Sân bay ${shortCity(r.destination)}`, country: destG.country };
+
   const stops: TripStop[] = intl
     ? [
-      { name: r.pickup.name || r.origin, type: 'ORIGIN', plannedAt: depart },
-      { name: `Sân bay ${shortCity(r.origin)}`, type: 'AIRPORT', plannedAt: addHours(depart, 4) },
-      { name: `Sân bay ${shortCity(r.destination)}`, type: 'AIRPORT', plannedAt: addHours(depart, 14) },
-      { name: `Trạm kiểm dịch ${shortCity(r.destination)}`, type: 'CHECKPOINT', plannedAt: addHours(depart, 18) },
-      { name: r.delivery.name || r.destination, type: 'DESTINATION', plannedAt: addHours(depart, 24) },
+      { id: 's1', name: r.pickup.name || r.origin, type: 'ORIGIN', country: origG.country, plannedAt: depart, lat: origG.lat, lng: origG.lng },
+      { id: 's2', name: origAir.name, type: 'AIRPORT', country: origAir.country, plannedAt: addHours(depart, 4), lat: origAir.lat, lng: origAir.lng },
+      { id: 's3', name: destAir.name, type: 'AIRPORT', country: destAir.country, plannedAt: addHours(depart, 14), lat: destAir.lat, lng: destAir.lng },
+      { id: 's4', name: `Trạm kiểm dịch ${shortCity(r.destination)}`, type: 'CHECKPOINT', country: destAir.country, plannedAt: addHours(depart, 18), lat: destAir.lat + 0.02, lng: destAir.lng + 0.02 },
+      { id: 's5', name: r.delivery.name || r.destination, type: 'DESTINATION', country: destG.country, plannedAt: addHours(depart, 24), lat: destG.lat, lng: destG.lng },
     ]
     : [
-      { name: r.pickup.name || r.origin, type: 'ORIGIN', plannedAt: depart },
-      { name: 'Trạm nghỉ giữa tuyến', type: 'REST_STOP', plannedAt: addHours(depart, 6) },
-      { name: r.delivery.name || r.destination, type: 'DESTINATION', plannedAt: addHours(depart, 14) },
+      { id: 's1', name: r.pickup.name || r.origin, type: 'ORIGIN', country: origG.country, plannedAt: depart, lat: origG.lat, lng: origG.lng },
+      { id: 's2', name: 'Trạm dừng chân giữa tuyến', type: 'REST_STOP', country: origG.country, plannedAt: addHours(depart, 6), lat: (origG.lat + destG.lat) / 2, lng: (origG.lng + destG.lng) / 2 },
+      { id: 's3', name: r.delivery.name || r.destination, type: 'DESTINATION', country: destG.country, plannedAt: addHours(depart, 14), lat: destG.lat, lng: destG.lng },
     ];
   return { mode: intl ? 'AIR' : 'ROAD', stops, plannedDepart: depart, eta: stops[stops.length - 1].plannedAt };
 }

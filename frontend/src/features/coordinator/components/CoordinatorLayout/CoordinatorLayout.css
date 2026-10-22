@@ -75,7 +75,7 @@
 .crd-icon-btn:hover { background: var(--crd-bg); }
 .crd-avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--crd-orange-soft); color: var(--crd-orange-text); font-weight: 700; font-size: 12px; }
 .crd-user-name { font-weight: 600; font-size: 13px; }
-.crd-view { padding: 28px 32px 48px; max-width: 1180px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.crd-view { padding: 28px 32px 48px; max-width: 1440px; width: 100%; margin: 0 auto; box-sizing: border-box; }
 
 .crd-toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 100;
@@ -168,6 +168,11 @@ button.crd-stat:hover { border-color: var(--crd-orange); }
 .crd-demo { margin-top: 16px; border: 1px dashed var(--crd-line); border-radius: 12px; padding: 14px 16px; background: var(--crd-bg); }
 .crd-demo__title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--crd-muted); }
 .crd-demo p { margin: 6px 0 10px; font-size: 12px; color: var(--crd-muted); }
+
+.crd-app[data-demo-mode="false"] .crd-demo,
+.crd-app[data-demo-mode="false"] .crd-demo-action {
+  display: none !important;
+}
 
 @media (max-width: 900px) {
   .crd-sidebar { display: none; }

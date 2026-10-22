@@ -80,7 +80,7 @@ export const CustomerTrackingPage: React.FC = () => {
               <span>{t.id} • {r.id}<br /><small className="cus-muted">{cityLabel(r.origin)} → {cityLabel(r.destination)} • {t.mode === 'AIR' ? 'Hàng không + đường bộ' : 'Đường bộ'} • {horseNames(r, horses)}</small></span>
               <TripStatusBadge kind="trip" status={t.status} />
             </h3>
-            {t.routeApproved ? <RouteMap stops={t.stops} current={current} /> : <Note tone="grey" title="Tuyến chưa được duyệt">Tuyến hiển thị khi CBN Transport duyệt lộ trình.</Note>}
+            {t.routeApproved ? <RouteMap stops={t.stops} current={current} height={480} /> : <Note tone="grey" title="Tuyến chưa được duyệt">Tuyến hiển thị khi CBN Transport duyệt lộ trình.</Note>}
             <div className="cus-track__progress">
               <span>Tiến độ hành trình</span><span>{s.done}/{t.stops.length} điểm đã xác nhận</span>
             </div>

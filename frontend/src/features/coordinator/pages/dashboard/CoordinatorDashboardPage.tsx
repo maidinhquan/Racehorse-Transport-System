@@ -62,6 +62,13 @@ export const CoordinatorDashboardPage: React.FC = () => {
                     <td><TripStatusBadge status={t.deploymentStatus === 'CONFIRMED' ? t.status : t.deploymentStatus} /></td>
                   </tr>
                 ))}
+                {!upcoming.length && (
+                  <tr>
+                    <td colSpan={5} className="crd-empty" style={{ padding: '32px', textAlign: 'center', color: 'var(--crd-muted)' }}>
+                      Chưa có chuyến đi nào.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
