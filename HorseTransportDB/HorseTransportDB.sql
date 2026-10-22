@@ -78,7 +78,6 @@ CREATE TABLE HORSE (
     -- Flow 1
     PhotoUrl NVARCHAR(500) NULL,
     PassportScanUrl NVARCHAR(500) NULL,
-    RowVersion ROWVERSION NOT NULL,
     CONSTRAINT PK_Horse PRIMARY KEY (HorseID),
     CONSTRAINT FK_Horse_Owner FOREIGN KEY (OwnerID) REFERENCES [USER](UserID),
     CONSTRAINT CK_F1S_HORSE_PhotoUrl CHECK ([PhotoUrl] IS NULL OR [PhotoUrl] like 'private/%' AND len([PhotoUrl])>(8)),
@@ -229,7 +228,6 @@ CREATE TABLE TRANSPORT_REQUEST (
     OriginCountry VARCHAR(2) NULL,
     DestinationCountry VARCHAR(2) NULL,
     PreparationDays INT NULL,
-    RowVersion ROWVERSION NOT NULL,
     DeclaredValueUsd DECIMAL(18,2) NULL,
     SubmissionKeyHash VARCHAR(64) NULL,
     CONSTRAINT PK_TransportRequest PRIMARY KEY (RequestID),
@@ -308,7 +306,6 @@ CREATE TABLE TRIP_PLAN (
     DeploymentBy VARCHAR(50) NULL,
     DeploymentAtUtc DATETIME2(7) NULL,
     HandoffEventId VARCHAR(50) NULL,
-    RowVersion ROWVERSION NOT NULL,
     AssignedSpecialistId VARCHAR(50) NULL,
     AssignedCoordinatorId VARCHAR(50) NULL,
     CONSTRAINT PK_TripPlan PRIMARY KEY (TripID),
@@ -518,7 +515,6 @@ CREATE TABLE CONTRACT (
     CancellationDecisionReason NVARCHAR(1000) NULL,
     CancellationDecidedBy VARCHAR(50) NULL,
     CancellationDecidedAtUtc DATETIME2(7) NULL,
-    RowVersion ROWVERSION NOT NULL,
     CustomerFeedback NVARCHAR(2000) NULL,
     FeedbackFields VARCHAR(200) NULL,
     FeedbackStatus VARCHAR(20) NULL,
@@ -597,7 +593,6 @@ CREATE TABLE PAYMENT (
     FinancialReviewReason NVARCHAR(1000) NULL,
     FinancialReviewedBy VARCHAR(50) NULL,
     FinancialReviewedAtUtc DATETIME2(7) NULL,
-    RowVersion ROWVERSION NOT NULL,
     CONSTRAINT PK_Payment PRIMARY KEY (PaymentID),
     CONSTRAINT FK_Payment_Invoice FOREIGN KEY (InvoiceID) REFERENCES INVOICE(InvoiceID),
     CONSTRAINT FK_Payment_ConfirmedBy FOREIGN KEY (ConfirmedByUserID) REFERENCES [USER](UserID),
@@ -618,11 +613,14 @@ CREATE TABLE COST_RATE (
     Rate decimal(18,6) NOT NULL,
     CurrencyCode varchar(3) NOT NULL CONSTRAINT DF_COST_RATE_Currency DEFAULT 'VND',
     IsActive bit NOT NULL CONSTRAINT DF_COST_RATE_Active DEFAULT 1,
-    RowVersion rowversion NOT NULL,
     CONSTRAINT CK_COST_RATE_Value CHECK (Rate>0 AND (Code<>'INSURANCE_RATE' OR Rate<=1)),
     CONSTRAINT CK_COST_RATE_Currency CHECK (CurrencyCode='VND'),
     CONSTRAINT CK_COST_RATE_Group CHECK (CostGroup IN ('TRANSPORT','CREW','PERMIT','VET','INSURANCE'))
 );
+
+-- Registration: unique non-null emails and phone numbers, created before sample data.
+CREATE UNIQUE INDEX UX_USER_Email ON dbo.[USER](Email) WHERE Email IS NOT NULL;
+CREATE UNIQUE INDEX UX_USER_Phone ON dbo.[USER](Phone) WHERE Phone IS NOT NULL;
 
 -- Flow 1: Chi muc bao ve quan he va giao dich khong trung lap.
 CREATE UNIQUE INDEX UX_INVOICE_ContractID_Deposit ON [INVOICE] ([ContractID]) WHERE ([InvoiceType]='DEPOSIT');
