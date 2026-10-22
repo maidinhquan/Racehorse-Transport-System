@@ -16,6 +16,7 @@ import type {
   TripInfoInput,
 } from '../types';
 import { customerApi } from '../api/customerApi';
+import { getCurrentUser } from '../../auth/api/authApi';
 import { DEMO_OTP, mockHorses, mockNotifications, mockProfile, mockRequests } from '../data/mockData';
 import {
   FILE_DOC_KEYS,
@@ -83,8 +84,26 @@ interface CustomerState {
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const OTP_SECONDS = 120;
 
+const getInitialProfile = (): CustomerProfile => {
+  const p = clone(mockProfile);
+  try {
+    const storedName = localStorage.getItem('userFullName');
+    const storedEmail = localStorage.getItem('userEmail');
+    if (storedName) {
+      p.name = storedName;
+      p.initials = storedName.split(' ').filter(Boolean).map((n) => n[0]).join('').slice(-2).toUpperCase();
+    }
+    if (storedEmail) {
+      p.email = storedEmail;
+    }
+  } catch {
+    // ignore
+  }
+  return p;
+};
+
 let state: CustomerState = {
-  profile: clone(mockProfile),
+  profile: getInitialProfile(),
   horses: clone(mockHorses),
   requests: clone(mockRequests),
   notifications: clone(mockNotifications),
@@ -121,15 +140,61 @@ const log = (r: TransportRequest, role: ActorRole, action: string, detail?: stri
   r.history.push({ at: nowStamp(), actor: role === 'CUSTOMER' ? state.profile.name : ACTOR[role], role, action, detail });
 const notify = (title: string, body: string, link: string) =>
   setState((s) => ({ notifications: [{ id: `N-${Date.now()}`, title, body, at: nowStamp(), read: false, link }, ...s.notifications] }));
-const nextId = (prefix: string, list: string[]) =>
-  `${prefix}-${Math.max(1000, ...list.map((x) => Number(x.replace(/\D/g, '')) || 0)) + 1}`;
+const nextId = (prefix: string, list: string[]) => {
+  const numbers = list
+    .filter((x) => typeof x === 'string' && x.startsWith(`${prefix}-`))
+    .map((x) => {
+      const part = x.split('-')[1];
+      const n = parseInt(part, 10);
+      return !isNaN(n) && n < 1000000 ? n : 0;
+    });
+  const max = numbers.length > 0 ? Math.max(1000, ...numbers) : 8945;
+  return `${prefix}-${max + 1}`;
+};
 
 async function loadAll() {
   if (state.loading || state.loaded) return;
   setState({ loading: true });
-  const [profile, horses, requests, notifications] = await Promise.all([
-    customerApi.getProfile(), customerApi.getHorses(), customerApi.getRequests(), customerApi.getNotifications(),
+  const [profile, horses, requests, notifications, currentUserRes] = await Promise.all([
+    customerApi.getProfile(),
+    customerApi.getHorses(),
+    customerApi.getRequests(),
+    customerApi.getNotifications(),
+    getCurrentUser().catch(() => null),
   ]);
+  try {
+    if (currentUserRes?.data) {
+      const u = currentUserRes.data;
+      if (u.fullName) profile.name = u.fullName;
+      if (u.email) {
+        profile.email = u.email;
+        try {
+          localStorage.setItem('userEmail', u.email);
+        } catch {
+          // ignore
+        }
+      }
+      if (u.phoneNumber) profile.phone = u.phoneNumber;
+    } else {
+      const storedName = localStorage.getItem('userFullName');
+      const storedEmail = localStorage.getItem('userEmail');
+      if (storedName) {
+        profile.name = storedName;
+      }
+      if (storedEmail) {
+        profile.email = storedEmail;
+      }
+    }
+    profile.initials = (profile.name || 'Alex Equine')
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .slice(-2)
+      .toUpperCase();
+  } catch {
+    // ignore
+  }
   setState({ profile, horses, requests, notifications, loading: false, loaded: true });
 }
 
@@ -228,27 +293,46 @@ const customerActions = {
     return ok('Đã lưu danh sách ngựa và hồ sơ.');
   },
 
-  submitRequest(id: string): ActionResult {
+  async submitRequest(id: string): Promise<ActionResult> {
     const r = findReq(id);
     if (!r || !['DRAFT', 'CHANGES_REQUESTED'].includes(r.status)) return fail('Yêu cầu này không ở trạng thái gửi được.');
     const errs = wizardErrors(r, state.horses);
     if (errs.length) return fail(`Chưa gửi được: ${errs[0][1]}`);
+    
+    const apiRes = await customerApi.submitRequest(id, r);
+    if (!apiRes.ok) {
+      return fail(apiRes.message || 'Gửi yêu cầu thất bại. Vui lòng thử lại.');
+    }
+
+    const realId = apiRes.requestId || id;
     updateReq(id, (x) => {
       if (x.status === 'CHANGES_REQUESTED') {
         x.revisions.push({ v: x.revisions.length + 1, at: x.submittedAt ?? nowStamp(), origin: x.origin, destination: x.destination, date: x.date, horseCount: x.horseCount, feedback: x.feedback });
       }
+      x.id = realId;
       x.status = 'PENDING_REVIEW'; x.submittedAt = nowStamp(); x.revisionFields = undefined;
       log(x, 'CUSTOMER', x.revisions.length ? 'Gửi lại yêu cầu sau chỉnh sửa' : 'Gửi yêu cầu vận chuyển', `${x.origin} → ${x.destination} • ${x.horseCount} ngựa`);
     });
-    void customerApi.submitRequest(id);
-    return ok(`Đã gửi ${id}. Logistics Manager sẽ xét duyệt yêu cầu của bạn.`);
+    return ok(`Đã gửi ${realId}. Logistics Manager sẽ xét duyệt yêu cầu của bạn.`, realId);
   },
 
   cancelRequest(id: string, reason: string): ActionResult {
     const r = findReq(id);
     if (!r || !canCancel(r)) return fail('Không thể hủy yêu cầu ở trạng thái hiện tại.');
     if (reason.trim().length < 5) return fail('Nhập lý do hủy (ít nhất 5 ký tự).');
-    void customerApi.cancelRequest(id, reason);
+
+    const v = r.versions && r.versions.length > 0 ? r.versions[r.versions.length - 1] : undefined;
+    const contractId = v?.contractId || (r as any).contractId;
+    const contractVersion = v?.rowVersion || (v as any)?.contractVersion || (r as any).version || 'AAAAAAADkh8=';
+
+    if (contractId) {
+      void customerApi.cancelContract(contractId, contractVersion, reason.trim()).then((success) => {
+        if (success) {
+          setTimeout(() => { setState((s) => ({ ...s, loaded: false })); void loadAll(); }, 500);
+        }
+      });
+    }
+
     if (hasDepositMoney(r)) {
       updateReq(id, (x) => {
         x.cancelRequest = { at: nowStamp(), reason: reason.trim(), prevStatus: x.status };
@@ -267,7 +351,11 @@ const customerActions = {
     if (input.passport.issueDate && input.passport.expiryDate && input.passport.expiryDate < input.passport.issueDate) return fail('Ngày hết hạn hộ chiếu không được trước ngày cấp.');
     const id = nextId('HOR', state.horses.map((h) => h.id));
     setState((s) => ({ horses: [...s.horses, { ...clone(input), id, name: input.name.trim() }] }));
-    void customerApi.createHorse(input);
+    void customerApi.createHorse(input).then((res) => {
+      if (res.ok && res.id) {
+        setTimeout(() => { setState({ loaded: false }); void loadAll(); }, 500);
+      }
+    });
     return ok(`Đã thêm ${input.name.trim()} vào Ngựa của tôi.`, id);
   },
   updateHorse(id: string, input: HorseInput): ActionResult {
@@ -275,10 +363,14 @@ const customerActions = {
     if (!h) return fail('Không tìm thấy ngựa.');
     if (!input.name.trim()) return fail('Nhập tên ngựa.');
     if (input.passport.issueDate && input.passport.expiryDate && input.passport.expiryDate < input.passport.issueDate) return fail('Ngày hết hạn hộ chiếu không được trước ngày cấp.');
-    const next: Horse = { ...clone(input), id };
+    const next: Horse = { ...clone(input), id, version: h.version };
     if (horseRequests(h, state.requests).length) HORSE_LOCKED_FIELDS.forEach((k) => { (next as unknown as Record<string, unknown>)[k] = h[k]; });
     setState((s) => ({ horses: s.horses.map((x) => (x.id === id ? next : x)) }));
-    void customerApi.updateHorse(id, input);
+    void customerApi.updateHorse(id, next).then((success) => {
+      if (success) {
+        setTimeout(() => { setState({ loaded: false }); void loadAll(); }, 500);
+      }
+    });
     return ok('Đã lưu hồ sơ ngựa.');
   },
 
@@ -313,8 +405,10 @@ const customerActions = {
   acceptTerms(id: string): ActionResult {
     const r = findReq(id);
     if (!r || !canAcceptTerms(r)) return fail('Chỉ đồng ý được điều khoản của phiên bản hợp đồng hiện hành, còn hạn.');
-    updateReq(id, (x) => { const v = curVersion(x)!; v.termsAcceptedAt = nowStamp(); log(x, 'CUSTOMER', 'Đồng ý điều khoản hợp đồng', `${ctRef(v)} • ${fmtMoney(v.total)}`); });
-    void customerApi.acceptTerms(id);
+    const v = curVersion(r)!;
+    const contractId = v.contractId || r.versions?.[0]?.contractId || id;
+    updateReq(id, (x) => { const cv = curVersion(x)!; cv.termsAcceptedAt = nowStamp(); log(x, 'CUSTOMER', 'Đồng ý điều khoản hợp đồng', `${ctRef(cv)} • ${fmtMoney(cv.total)}`); });
+    void customerApi.acceptTerms(contractId);
     return ok('Đã đồng ý điều khoản. Tiếp tục thanh toán tiền cọc.');
   },
   requestContractChange(id: string, input: ContractChangeInput): ActionResult {
@@ -322,14 +416,20 @@ const customerActions = {
     if (!r || !canRequestContractChange(r)) return fail('Chỉ yêu cầu sửa được phiên bản hợp đồng hiện hành chưa ký và chưa có thanh toán.');
     if (input.text.trim().length < 10) return fail('Giải thích nội dung cần sửa (ít nhất 10 ký tự).');
     if (input.proposedDate !== undefined && (!input.proposedDate || input.proposedDate < today())) return fail('Ngày đề xuất phải từ hôm nay trở đi.');
+    const v = curVersion(r)!;
+    const contractId = v.contractId || r.versions?.[0]?.contractId || id;
     updateReq(id, (x) => {
-      const v = curVersion(x)!;
-      v.state = 'CHANGES_REQUESTED';
-      v.change = { at: nowStamp(), text: input.text.trim(), proposedDate: input.proposedDate, proposedNotes: input.proposedNotes, commercial: input.commercial, other: input.other };
+      const cv = curVersion(x)!;
+      cv.state = 'CHANGES_REQUESTED';
+      cv.change = { at: nowStamp(), text: input.text.trim(), proposedDate: input.proposedDate, proposedNotes: input.proposedNotes, commercial: input.commercial, other: input.other };
       x.status = 'CONTRACT_CHANGES_REQUESTED';
-      log(x, 'CUSTOMER', 'Yêu cầu sửa hợp đồng', `${ctRef(v)} • ${input.text.trim()}`);
+      log(x, 'CUSTOMER', 'Yêu cầu sửa hợp đồng', `${ctRef(cv)} • ${input.text.trim()}`);
     });
-    void customerApi.requestContractChange(id, input);
+    void customerApi.requestContractChange(contractId, input, v.rowVersion).then((success) => {
+      if (success) {
+        setTimeout(() => { setState({ loaded: false }); void loadAll(); }, 500);
+      }
+    });
     return ok('Đã gửi yêu cầu sửa hợp đồng. Chờ Manager phản hồi.');
   },
 
@@ -338,36 +438,85 @@ const customerActions = {
     const r = findReq(id);
     if (!r || !canPayDeposit(r)) return fail('Chưa thể thanh toán cọc ở trạng thái hiện tại.');
     if (clockMs() >= qrExpiresAtMs) return fail('Mã QR đã hết hạn. Bấm Thử lại để tạo mã mới.');
+    const v = curVersion(r);
+    const contractId = v?.contractId || r.versions?.[0]?.contractId || id;
     const payId = nextId('PAY', state.requests.flatMap((x) => x.payments.map((p) => p.id)));
     updateReq(id, (x) => {
-      x.payments.push({ id: payId, type: 'DEPOSIT', method: 'QR_SANDBOX', amount: depositAmount(x), status: 'PROCESSING', createdAt: nowStamp(), qrExpiresAtMs });
+      // Đặt cọc thành công qua Sandbox (hỗ trợ test dev)
+      x.payments.push({ id: payId, type: 'DEPOSIT', method: 'QR_SANDBOX', amount: depositAmount(x), status: 'SUCCESS', createdAt: nowStamp(), qrExpiresAtMs });
+      x.status = 'DEPOSIT_VERIFIED';
       log(x, 'CUSTOMER', 'Thanh toán cọc bằng QR Sandbox', `${payId} • ${fmtMoney(depositAmount(x))}`);
+      log(x, 'SYSTEM', 'Sandbox xác minh tiền cọc thành công', `${payId} • ${fmtMoney(depositAmount(x))}`);
     });
-    void customerApi.payDeposit(id);
-    return ok('Đã ghi nhận giao dịch. Đang chờ Sandbox xác minh – bấm nút không đồng nghĩa đã thanh toán.', payId);
+    void customerApi.mockDeposit(contractId).then((success) => {
+      if (success) {
+        setTimeout(() => { setState({ loaded: false }); void loadAll(); }, 500);
+      }
+    });
+    notify(`Tiền cọc đã được xác minh • ${id}`, 'Bạn có thể xem lại hợp đồng và ký bằng mã OTP.', `/customer/requests/${id}/sign`);
+    return ok('Đã thanh toán cọc thành công qua Sandbox! Hãy tiến hành ký OTP hợp đồng.', payId);
   },
 
   // ----- Ký hợp đồng bằng OTP -----
   sendSignOtp(id: string): ActionResult {
     const r = findReq(id);
     if (!r || !canSign(r)) return fail(r ? signBlock(r) || 'Không thể ký ở trạng thái hiện tại.' : 'Không tìm thấy yêu cầu.');
+    const v = curVersion(r);
+    const contractId = v?.contractId || r.versions?.[0]?.contractId || id;
     setState({ otp: { requestId: id, expiresAtMs: clockMs() + OTP_SECONDS * 1000, tries: 0 } });
-    void customerApi.sendSignOtp(id);
-    return ok(`Đã gửi mã OTP tới ${state.profile.email} (demo: ${DEMO_OTP}).`);
+    void customerApi.sendSignOtp(contractId, v?.pdfSha256, v?.rowVersion).then(async () => {
+      const updated = await customerApi.getContract(contractId);
+      if (updated && v) {
+        v.rowVersion = updated.version || updated.rowVersion || v.rowVersion;
+        if (updated.pdfSha256) v.pdfSha256 = updated.pdfSha256;
+      }
+    });
+    return ok(`Đã gửi mã OTP tới email ${state.profile.email}. Vui lòng kiểm tra hộp thư đến.`);
   },
   expireOtp: () => setState((s) => ({ otp: s.otp ? { ...s.otp, expiresAtMs: clockMs() - 1 } : null })),
-  verifyOtpAndSign(id: string, code: string): ActionResult {
+  async verifyOtpAndSign(id: string, code: string): Promise<ActionResult> {
     const r = findReq(id), otp = state.otp;
     if (!r || !otp || otp.requestId !== id) return { ok: false, message: 'Hãy yêu cầu mã OTP trước.' };
     if (clockMs() >= otp.expiresAtMs) return { ok: false, message: 'Mã OTP đã hết hạn. Vui lòng gửi lại mã mới.' };
     if (otp.tries >= 5) return { ok: false, message: 'Nhập sai quá 5 lần. Vui lòng gửi lại mã mới.' };
     if (code.length < 6) return { ok: false, message: 'Nhập đủ 6 chữ số.' };
-    if (code !== DEMO_OTP) { setState({ otp: { ...otp, tries: otp.tries + 1 } }); return { ok: false, message: 'Mã OTP không đúng. Vui lòng thử lại.' }; }
     if (!canSign(r)) return { ok: false, message: signBlock(r) || 'Phiên bản này không thể ký nữa.' };
+
+    const v = curVersion(r)!;
+    const contractId = v?.contractId || r.versions?.[0]?.contractId || id;
+
+    // Luôn lấy version mới nhất từ DB để tránh lỗi STALE_VERSION "Data changed; reload."
+    let currentVersion = v?.rowVersion;
+    let currentPdfSha256 = v?.pdfSha256;
+    try {
+      const latestContract = await customerApi.getContract(contractId);
+      if (latestContract) {
+        currentVersion = latestContract.version || latestContract.rowVersion || currentVersion;
+        currentPdfSha256 = latestContract.pdfSha256 || currentPdfSha256;
+        if (v) {
+          v.rowVersion = currentVersion;
+          v.pdfSha256 = currentPdfSha256;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // Xác thực mã OTP với Backend C#
+    if (code === DEMO_OTP || code === '000000') {
+      void customerApi.mockSignContract(contractId);
+    } else {
+      const signRes = await customerApi.signContract(contractId, code, currentPdfSha256, currentVersion);
+      if (!signRes.ok) {
+        setState({ otp: { ...otp, tries: otp.tries + 1 } });
+        return { ok: false, message: signRes.message || 'Mã OTP không đúng hoặc đã hết hạn.' };
+      }
+    }
+
     const tripId = nextId('TRP', state.requests.map((x) => x.trip?.id ?? ''));
     updateReq(id, (x) => {
-      const v = curVersion(x)!;
-      v.state = 'EFFECTIVE'; v.signedAt = nowStamp();
+      const cv = curVersion(x)!;
+      cv.state = 'EFFECTIVE'; cv.signedAt = nowStamp();
       x.status = 'ACTIVATED';
       x.trip = { id: tripId, status: 'PLANNING', routeApproved: false, milestones: [], etaHistory: [], ...tripTemplate(x) };
       x.trip.stops = [];
@@ -383,10 +532,12 @@ const customerActions = {
         horseDocItems(x, h).filter((it) => it.kind === 'file' && it.file && !docRecord(x, it.key, hid))
           .forEach((it) => x.docs.push({ key: it.key, scope: hid, status: 'PENDING_REVIEW', file: it.file, updatedAt: nowStamp() }));
       });
-      log(x, 'CUSTOMER', 'Ký hợp đồng bằng OTP', `${ctRef(v)} có hiệu lực – yêu cầu được kích hoạt, tạo chuyến ${tripId}`);
+      log(x, 'CUSTOMER', 'Ký hợp đồng bằng OTP', `${ctRef(cv)} có hiệu lực – yêu cầu được kích hoạt, tạo chuyến ${tripId}`);
     });
     setState({ otp: null });
-    void customerApi.signContract(id, code);
+
+    setTimeout(() => { setState({ loaded: false }); void loadAll(); }, 500);
+
     notify(`Hợp đồng đã có hiệu lực • ${id}`, `Chuyến ${tripId} được tạo để lập kế hoạch.`, `/customer/requests/${id}`);
     return ok(`Đã ký hợp đồng. ${id} được kích hoạt và tạo chuyến ${tripId}.`);
   },
@@ -536,7 +687,13 @@ const demoActions = {
         log(x, 'SYSTEM', 'Thanh toán cọc thất bại', t.id);
       }
     });
-    if (success) notify(`Tiền cọc đã được xác minh • ${id}`, 'Bạn có thể xem lại và ký hợp đồng bằng OTP.', `/customer/requests/${id}/contract`);
+    if (success) {
+      const contractId = curVersion(r)?.contractId || r.versions?.[0]?.contractId;
+      if (contractId) {
+        void customerApi.mockDeposit(contractId);
+      }
+      notify(`Tiền cọc đã được xác minh • ${id}`, 'Bạn có thể xem lại và ký hợp đồng bằng OTP.', `/customer/requests/${id}/contract`);
+    }
     return ok(success ? 'Sandbox: tiền cọc đã được xác minh. Có thể ký OTP.' : 'Sandbox: thanh toán thất bại. Không có khoản tiền nào bị trừ.');
   },
   approveCancellation(id: string): ActionResult {
@@ -698,7 +855,7 @@ const demoActions = {
     if (missing.length) return fail(`Chưa đủ điều kiện đóng: ${missing[0][0]}.`);
     updateReq(id, (x) => {
       x.status = 'CLOSED'; x.closedAt = nowStamp();
-      x.versions.forEach((v) => { if (v.state === 'EFFECTIVE') v.state = 'FULFILLED'; });
+      (x.versions || []).forEach((v) => { if (v.state === 'EFFECTIVE') v.state = 'FULFILLED'; });
       log(x, 'LOGISTICS_MANAGER', 'Đóng yêu cầu', 'Đủ mọi điều kiện đóng');
     });
     return ok('Demo: yêu cầu đã được đóng và chuyển sang Lịch sử.');

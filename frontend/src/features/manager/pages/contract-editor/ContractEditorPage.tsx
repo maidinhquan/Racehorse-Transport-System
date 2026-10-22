@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ManagerLayout } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { BackLink, LockedCard, Note } from '../../components/Common/Common';
@@ -34,6 +34,7 @@ type Dialog = '' | 'view' | 'cancel' | 'extend';
 /** Hợp đồng & giá của một yêu cầu: soạn 4 bước, phát hành, phản hồi yêu cầu sửa, gia hạn, lịch sử phiên bản */
 export const ContractEditorPage: React.FC = () => {
   const { requestId } = useParams();
+  const navigate = useNavigate();
   const { data, getRequest, tripFor, customer, horses, actions } = useManager();
   const [editing, setEditing] = useState(false);
   const [response, setResponse] = useState('');
@@ -79,9 +80,10 @@ export const ContractEditorPage: React.FC = () => {
     );
   }
 
+  const isVoid = state === 'VOID';
   const blockedByMoney = depositPaid(data, r) || !!pendingTx(data, r);
   const canIssue = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) && !isSigned(r) && !blockedByMoney;
-  const editorOpen = canIssue && (!v || state === 'CHANGES_REQUESTED' || state === 'EXPIRED' || editing);
+  const editorOpen = canIssue && (!v || isVoid || state === 'CHANGES_REQUESTED' || state === 'EXPIRED' || editing);
   const change = v?.change && !v.change.response ? v.change : undefined;
   const canManage = !!v && !v.signedAt && ['ISSUED', 'EXPIRED'].includes(state!) && ['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status);
   const processing = data.transactions.find((x) => x.requestId === r.id && x.status === 'PROCESSING');
@@ -90,13 +92,44 @@ export const ContractEditorPage: React.FC = () => {
     <ManagerLayout title="Hợp đồng & giá">
       {head}
       {['CANCELLED', 'REJECTED'].includes(r.status) && <Note tone="grey" title="Yêu cầu đã hủy">{r.reason ?? 'Không thể chuẩn bị hợp đồng.'}</Note>}
+      {isVoid && (
+        <Note tone="yellow" title="Hợp đồng đã bị thu hồi / rút lại">
+          Phiên bản hợp đồng này đã được thu hồi trong hệ thống. Quản lý có thể soạn và phát hành phiên bản mới ngay bên dưới để khách hàng ký lại.
+          <Link className="mgr-link" style={{ marginLeft: 16 }} to={`/manager/requests/${r.id}`}>Quay lại yêu cầu</Link>
+        </Note>
+      )}
       {r.status === 'CANCELLATION_REQUESTED' && <Note tone="red" title="Khách hàng yêu cầu hủy">Quyết định tại trang yêu cầu trước khi tiếp tục. <Link className="mgr-link" to={`/manager/requests/${r.id}`}>Mở yêu cầu</Link></Note>}
 
       <div className="mgr-grid-main">
         <div className="mgr-stack">
+          {editorOpen && (
+            <section className="mgr-card" style={{ border: '2px solid #f97316' }}>
+              <ContractWizard key={`${r.id}-${v?.v ?? 0}`} request={r} customer={c} horses={horses}
+                onSave={async (d) => {
+                  return await actions.saveDraft(r.id, d);
+                }}
+                onIssue={async (d) => {
+                  const res = await actions.issueContract(r.id, d, response);
+                  if (res.ok) {
+                    setEditing(false);
+                    setResponse('');
+                  }
+                  return res;
+                }}
+                onCancel={editing && !isVoid ? () => setEditing(false) : undefined} />
+            </section>
+          )}
+
           {v && (
             <section className="mgr-card">
-              <h3 className="mgr-card__title">Tổng quan phiên bản hiện hành</h3>
+              <div className="mgr-between">
+                <h3 className="mgr-card__title">Lịch sử phiên bản: {ctRef(v)} {state && <StatusBadge kind="contract" status={state} />}</h3>
+                {!editorOpen && canIssue && (
+                  <button type="button" className="mgr-btn mgr-btn--solid mgr-btn--sm" onClick={() => setEditing(true)}>
+                    Soạn phiên bản mới
+                  </button>
+                )}
+              </div>
               <div className="mgr-kv">
                 <div><span>Phiên bản</span><b>{ctRef(v)} • {CONTRACT_STATE_LABEL[state!]}</b></div>
                 <div><span>Giá hợp đồng</span><b>{fmtMoney(v.total)}</b></div>
@@ -134,8 +167,17 @@ export const ContractEditorPage: React.FC = () => {
           {editorOpen && (
             <section className="mgr-card">
               <ContractWizard key={`${r.id}-${v?.v ?? 0}`} request={r} customer={c} horses={horses}
-                onSave={(d) => actions.saveDraft(r.id, d)}
-                onIssue={(d) => { const res = actions.issueContract(r.id, d, response); if (res.ok) { setEditing(false); setResponse(''); } return res.ok; }}
+                onSave={async (d) => {
+                  return await actions.saveDraft(r.id, d);
+                }}
+                onIssue={async (d) => {
+                  const res = await actions.issueContract(r.id, d, response);
+                  if (res.ok) {
+                    setEditing(false);
+                    setResponse('');
+                  }
+                  return res;
+                }}
                 onCancel={editing ? () => setEditing(false) : undefined} />
             </section>
           )}
@@ -179,11 +221,11 @@ export const ContractEditorPage: React.FC = () => {
               </div>
             </section>
           )}
-          {CANCELLABLE.includes(r.status) && (
+          {CANCELLABLE.includes(r.status) && state !== 'VOID' && (
             <section className="mgr-card">
-              <h3 className="mgr-card__title">Hủy yêu cầu</h3>
-              <p className="mgr-hint" style={{ marginTop: 0 }}>Chỉ hủy được trước khi khách ký OTP. Tiền đã xác minh sẽ được hoàn trả.</p>
-              <button type="button" className="mgr-btn mgr-btn--danger mgr-btn--sm" onClick={() => setDialog('cancel')}>Hủy yêu cầu</button>
+              <h3 className="mgr-card__title">Hủy / Thu hồi hợp đồng</h3>
+              <p className="mgr-hint" style={{ marginTop: 0 }}>Chỉ hủy/thu hồi được trước khi khách ký OTP. Hợp đồng chưa ký sẽ bị thu hồi.</p>
+              <button type="button" className="mgr-btn mgr-btn--danger mgr-btn--sm" onClick={() => setDialog('cancel')}>Hủy / Thu hồi hợp đồng</button>
             </section>
           )}
           <DemoPanel buttons={[
@@ -206,8 +248,15 @@ export const ContractEditorPage: React.FC = () => {
       <Modal open={dialog === 'extend'} title={`Gia hạn ${r.id}`} okText="Gia hạn 24 giờ" onClose={close} onOk={() => { if (actions.extendContract(r.id).ok) close(); }}>
         <p>Hạn chung hiện tại: <b>{v ? fmtDateTime(v.validUntil) : '—'}</b>. Sau khi gia hạn, khách có thêm 24 giờ (tính từ hạn hiện tại hoặc từ bây giờ nếu đã quá hạn).</p>
       </Modal>
-      <ReasonModal open={dialog === 'cancel'} title={`Hủy ${r.id}`} okText="Hủy yêu cầu" danger minLength={10} confirmText="Tôi hiểu thao tác này không thể hoàn tác."
-        placeholder="VD: Khách không phản hồi sau 3 lần nhắc và hạn chung đã hết." onClose={close} onSubmit={(x) => actions.cancelRequest(r.id, x).ok} />
+      <ReasonModal open={dialog === 'cancel'} title={`Thu hồi / Hủy hợp đồng ${r.id}`} okText="Thu hồi hợp đồng" danger minLength={10} confirmText="Tôi hiểu thao tác này không thể hoàn tác."
+        placeholder="VD: Khách không phản hồi sau 3 lần nhắc và hạn chung đã hết." onClose={close} onSubmit={async (x) => {
+          const res = await actions.cancelRequest(r.id, x);
+          if (res.ok) {
+            close();
+            navigate(`/manager/requests/${r.id}`);
+          }
+          return res.ok;
+        }} />
     </ManagerLayout>
   );
 };

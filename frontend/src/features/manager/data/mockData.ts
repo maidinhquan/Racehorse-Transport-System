@@ -43,6 +43,8 @@ export const mockHorses: HorseRef[] = [
 ];
 
 export const mockStaff: Staff[] = [
+  { id: 'USR_SPEC_01', name: 'Lê Tuấn (Specialist)', role: 'TRANSPORT_SPECIALIST', load: 1 },
+  { id: 'USR_COORD_01', name: 'Phạm Hải (Coordinator)', role: 'FLEET_COORDINATOR', load: 1 },
   { id: 'EMP-11', name: 'Hoang Thu Ha', role: 'TRANSPORT_SPECIALIST', load: 5 },
   { id: 'EMP-12', name: 'Vu Minh Chau', role: 'TRANSPORT_SPECIALIST', load: 1 },
   { id: 'EMP-15', name: 'Dang Minh Quan', role: 'FLEET_COORDINATOR', load: 5 },

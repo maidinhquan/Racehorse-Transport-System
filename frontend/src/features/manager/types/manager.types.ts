@@ -116,6 +116,10 @@ export interface CollectionNote {
 
 export interface TransportRequest {
   id: string;
+  version?: string;
+  contractId?: string;
+  tripId?: string;
+  trip?: any;
   customerId: string;
   origin: string;
   destination: string;
@@ -155,8 +159,8 @@ export interface ContractItem {
 }
 
 /** Dự toán chi phí nội bộ – chỉ Manager xem */
-export type BudgetKey = 'TRANSPORT' | 'PROCEDURE' | 'VET' | 'INSURANCE' | 'STAFF' | 'FUEL';
-export type Budget = Record<BudgetKey, number>;
+export type BudgetKey = 'TRANSPORT' | 'PROCEDURE' | 'VET' | 'INSURANCE' | 'STAFF';
+export type Budget = Record<BudgetKey, number> & { FUEL?: number };
 
 export interface ContractTerm {
   title: string;
@@ -180,6 +184,10 @@ export interface DeadlineExtension {
 export interface ContractVersion {
   v: number;
   number: string;
+  contractId?: string;
+  contractVersion?: string;
+  tripId?: string;
+  trip?: any;
   issuedAt: string;
   /** Hạn chung 24 giờ: thanh toán cọc + xác minh + ký OTP */
   validUntil: string;

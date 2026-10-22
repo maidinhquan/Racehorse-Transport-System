@@ -45,6 +45,8 @@ export interface Place {
   contact: string;
   phone: string;
   notes: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +64,7 @@ export interface HorsePassport {
 
 export interface Horse {
   id: string;
+  version?: string;
   name: string;
   breed: string;
   sex: HorseSex;
@@ -125,6 +128,9 @@ export interface DeadlineChange {
 export interface ContractVersion {
   v: number;
   number: string;
+  contractId?: string;
+  rowVersion?: string;
+  pdfSha256?: string;
   issuedAt: string;
   /** Hạn chung: thanh toán cọc + xác minh + ký OTP (24 giờ kể từ khi phát hành) */
   validUntil: string;
@@ -402,6 +408,24 @@ export interface ComplaintInput {
   title: string;
   type: ComplaintType;
   description: string;
+}
+
+export interface DemoEstimateInput {
+  origin: string;
+  destination: string;
+  horseCount: number;
+}
+
+export interface DemoEstimateResult {
+  estimatedPrice: number;
+  estimatedDeposit: number;
+  currency: string;
+  horseCount: number;
+  averageRoadKm: number;
+  days: number;
+  stableNights: number;
+  minimumInsuranceAssumed: boolean;
+  scope: string;
 }
 
 export interface ApiResponse<T> {

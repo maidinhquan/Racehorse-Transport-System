@@ -112,4 +112,5 @@ export interface CurrentUserData {
   fullName: string;
   email: string;
   role: UserRole;
+  phoneNumber?: string;
 }

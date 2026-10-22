@@ -52,7 +52,7 @@ export const ReviewSignPage: React.FC = () => {
         <div className="cus-card cus-sign-side">
           <div className="cus-eyebrow">Tiền cọc & số dư</div>
           <div className="cus-summary" style={{ marginTop: 10 }}>
-            <div className="hl"><span>Tổng hợp đồng</span><b>{fmtMoney(v.total)} USD</b></div>
+            <div className="hl"><span>Tổng hợp đồng</span><b>{fmtMoney(v.total)}</b></div>
             <div><span>Tiền cọc ({v.depositPct}%)</span><b>{fmtMoney(depositAmount(r))}</b></div>
             <div><span>Số dư</span><b>{fmtMoney(v.total - depositAmount(r))}</b></div>
             <div><span>Tiền cọc</span><b className="cus-ok">Đã xác minh</b></div>

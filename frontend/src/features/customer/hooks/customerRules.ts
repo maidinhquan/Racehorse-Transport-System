@@ -28,14 +28,13 @@ import type {
 } from '../types';
 
 // ============================================================================
-// Đồng hồ demo: bắt đầu 04/10/2026 11:30 (giờ VN) rồi chạy theo thời gian thực.
+// Đồng hồ demo: chạy theo thời gian thực để tương thích hoàn toàn với Backend C#
 // Mọi thao tác mới (gửi đơn, phát hành hợp đồng, thanh toán, mốc hành trình…) dùng chung đồng hồ này.
 // ============================================================================
-export const DEMO_CLOCK_START = Date.UTC(2026, 9, 4, 4, 30);
-const CLOCK_T0 = Date.now();
+export const DEMO_CLOCK_START = Date.now();
 const VN_OFFSET = 7 * 3600000;
 
-export const clockMs = () => DEMO_CLOCK_START + (Date.now() - CLOCK_T0);
+export const clockMs = () => Date.now();
 const msToStamp = (ms: number) => new Date(ms + VN_OFFSET).toISOString().slice(0, 16).replace('T', ' ');
 export const nowStamp = () => msToStamp(clockMs());
 export const today = () => nowStamp().slice(0, 10);
@@ -49,7 +48,11 @@ export const addDays = (d: string, n: number) => msToStamp(stampToMs(d) + n * 86
 const pad = (n: number) => String(n).padStart(2, '0');
 export const fmtDate = (d?: string) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : '—');
 export const fmtDateTime = (s?: string) => (!s ? '—' : s.length <= 10 ? fmtDate(s) : `${fmtDate(s.slice(0, 10))} ${s.slice(11, 16)}`);
-export const fmtMoney = (n: number) => `$${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+export const fmtMoney = (n: number, currency = 'VND') =>
+  currency === 'USD'
+    ? `$${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+    : `${Number(n || 0).toLocaleString('vi-VN')} đ`;
+export const fmtVnd = (n: number) => `${Number(n || 0).toLocaleString('vi-VN')} đ`;
 
 /** "còn 21 giờ 30 phút" / "Đã hết hạn" */
 export function timeLeft(until?: string) {
@@ -247,10 +250,11 @@ export function contractItems(r: Pick<TransportRequest, 'origin' | 'destination'
 }
 export const sumItems = (items: ContractItem[]) => items.reduce((s, i) => s + i.amount, 0);
 
-export const curVersion = (r: TransportRequest): ContractVersion | undefined => r.versions[r.versions.length - 1];
-/** Trạng thái thực tế: phiên bản đã phát hành mà quá hạn chung thì hết hạn */
+export const curVersion = (r: TransportRequest): ContractVersion | undefined =>
+  r.versions && r.versions.length > 0 ? r.versions[r.versions.length - 1] : undefined;
+/** Trạng thái thực tế: tôn trọng trạng thái từ Backend */
 export function versionState(v: ContractVersion): ContractState {
-  if (v.state === 'ISSUED' && isPast(v.validUntil)) return 'EXPIRED';
+  if (v.state === 'EXPIRED') return 'EXPIRED';
   return v.state;
 }
 export const ctRef = (v: ContractVersion) => `${v.number} v${v.v}`;
@@ -259,11 +263,11 @@ export const depositAmount = (r: TransportRequest) => {
   return v ? Math.round((v.total * v.depositPct) / 100) : 0;
 };
 export const contractTotal = (r: TransportRequest) => curVersion(r)?.total ?? estimate(r.origin, r.destination, r.horseCount);
-export const signedVersion = (r: TransportRequest) => r.versions.find((v) => ['EFFECTIVE', 'FULFILLED'].includes(v.state));
+export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => ['EFFECTIVE', 'FULFILLED'].includes(v.state));
 export const isSigned = (r: TransportRequest) => !!signedVersion(r);
 
-export const depositPayments = (r: TransportRequest) => r.payments.filter((p) => p.type === 'DEPOSIT');
-export const balancePayments = (r: TransportRequest) => r.payments.filter((p) => p.type === 'BALANCE');
+export const depositPayments = (r: TransportRequest) => (r.payments || []).filter((p) => p.type === 'DEPOSIT');
+export const balancePayments = (r: TransportRequest) => (r.payments || []).filter((p) => p.type === 'BALANCE');
 const last = <T,>(list: T[]) => list[list.length - 1];
 
 /** QR đang xử lý nhưng đã quá 5 phút thì coi như thất bại */
@@ -335,7 +339,7 @@ export const HORSE_FILE_FIELD: Partial<Record<HorseDocKey, 'ownership' | 'valueP
 };
 
 export const docRecord = (r: TransportRequest, key: DocKey, scope: string): DocRecord | undefined =>
-  r.docs.find((d) => d.key === key && d.scope === scope);
+  (r.docs || []).find((d) => d.key === key && d.scope === scope);
 
 /** Giấy tờ chung của đơn (thư mời, đăng ký giải; ATA Carnet cho tuyến Việt Nam → Nhật Bản) */
 export function sharedDocItems(r: TransportRequest): DocItem[] {
@@ -383,9 +387,9 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
   ];
 }
 
-export const pickedHorses = (r: TransportRequest) => [...new Set(r.horses.filter(Boolean))];
-export const openSupplements = (r: TransportRequest) => r.supplements.filter((s) => s.status === 'OPEN');
-export const rejectedDocs = (r: TransportRequest) => r.docs.filter((d) => d.status === 'ACTION_REQUIRED');
+export const pickedHorses = (r: TransportRequest) => [...new Set((r.horses || []).filter(Boolean))];
+export const openSupplements = (r: TransportRequest) => (r.supplements || []).filter((s) => s.status === 'OPEN');
+export const rejectedDocs = (r: TransportRequest) => (r.docs || []).filter((d) => d.status === 'ACTION_REQUIRED');
 export const docsNeedingAction = (r: TransportRequest) => rejectedDocs(r).length + openSupplements(r).length;
 
 /** Mọi lỗi chặn gửi đơn, kèm bước wizard sửa được (0 = thông tin chuyến) */
@@ -434,21 +438,23 @@ export function tripTemplate(r: TransportRequest): Pick<Trip, 'mode' | 'stops' |
 
 /** Tóm tắt tiến độ theo mốc tổ xe xác nhận */
 export function tripSummary(t: Trip) {
-  const m = t.milestones[t.milestones.length - 1];
+  const milestones = t.milestones || [];
+  const stops = t.stops || [];
+  const m = milestones.length > 0 ? milestones[milestones.length - 1] : undefined;
   const at = m ? m.stopIndex : -1;
   // số điểm dừng đã có mốc xác nhận (điểm của mốc gần nhất và mọi điểm trước nó)
-  const done = t.status === 'COMPLETED' ? t.stops.length : at + 1;
-  const pct = t.stops.length ? Math.round((Math.min(done, t.stops.length) / t.stops.length) * 100) : 0;
-  const lastLabel = m ? `${MILESTONE_LABEL[m.type]} – ${t.stops[m.stopIndex]?.name ?? ''}` : '';
+  const done = t.status === 'COMPLETED' ? stops.length : at + 1;
+  const pct = stops.length ? Math.round((Math.min(done, stops.length) / stops.length) * 100) : 0;
+  const lastLabel = m ? `${MILESTONE_LABEL[m.type]} – ${stops[m.stopIndex]?.name ?? ''}` : '';
   return {
-    m, at, done: Math.min(done, t.stops.length), pct, lastLabel,
-    dep: t.milestones.find((x) => x.type === 'DEPARTED'),
-    arr: t.milestones.find((x) => x.type === 'ARRIVED_DESTINATION'),
+    m, at, done: Math.min(done, stops.length), pct, lastLabel,
+    dep: milestones.find((x) => x.type === 'DEPARTED'),
+    arr: milestones.find((x) => x.type === 'ARRIVED_DESTINATION'),
     adjusted: !!t.etaOriginal && t.etaOriginal !== t.eta,
   };
 }
 export const handoverState = (t?: Trip): 'PENDING' | 'COMPLETED' | null =>
-  !t ? null : t.handover ? 'COMPLETED' : t.milestones.some((m) => m.type === 'ARRIVED_DESTINATION') ? 'PENDING' : null;
+  !t ? null : t.handover ? 'COMPLETED' : (t.milestones || []).some((m) => m.type === 'ARRIVED_DESTINATION') ? 'PENDING' : null;
 
 // ============================================================================
 // Bàn giao, nghiệm thu, số dư, đóng yêu cầu
@@ -461,7 +467,7 @@ export function balanceState(r: TransportRequest): 'NONE' | 'PROCESSING' | 'VERI
   if (!p) return 'NONE';
   return p.status === 'SUCCESS' ? 'VERIFIED' : p.status === 'PROCESSING' ? 'PROCESSING' : 'FAILED';
 }
-export const openComplaints = (r: TransportRequest) => r.complaints.filter((c) => !['RESOLVED', 'CLOSED'].includes(c.status));
+export const openComplaints = (r: TransportRequest) => (r.complaints || []).filter((c) => !['RESOLVED', 'CLOSED'].includes(c.status));
 export const canComplain = (r: TransportRequest) => !!r.trip?.handover && ['DELIVERED'].includes(r.status);
 
 export function closureChecks(r: TransportRequest): Array<[string, boolean]> {

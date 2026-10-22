@@ -653,12 +653,12 @@ INSERT INTO [USER] (UserID, Username, PasswordHash, Role, FullName, Email, Phone
 ('USR_ESC_02',  'escort_nam',    'HASH_SECURE_10', 'Escort',     N'BS. Phan Nam (Kỹ thuật viên ngựa)',  'nam.escort@cbntransport.com', '0957890123', NULL, NULL, 1);
 
 -- 2. Bảng HORSE: Đa dạng cá thể (Ngựa đực Stallion, Ngựa cái Mare, Ngựa thiến Gelding)
-INSERT INTO HORSE (HorseID, OwnerID, Microchip_ISO, FEI_Passport_No, Name, Breed, Sex, ReproductiveStatus, Weight, DOB) VALUES
-('HRS_001', 'USR_CUST_01', '981098102938475', 'VN_FEI_2026_01', N'Tia Chớp Đỏ (Red Lightning)', N'Thoroughbred', 'Stallion', 'Intact',       520.50, '2020-04-15'),
-('HRS_002', 'USR_CUST_01', '981098102938476', 'VN_FEI_2026_02', N'Bão Táp Xanh (Blue Storm)',   N'Arabian',      'Mare',     'Non-Pregnant', 485.00, '2021-06-20'),
-('HRS_003', 'USR_CUST_02', '981098102938477', 'VN_FEI_2026_03', N'Bạch Mã Hoàng Tử (Prince)',  N'Thoroughbred', 'Gelding',  'Gelded',       540.00, '2019-09-10'),
-('HRS_004', 'USR_CUST_02', '981098102938478', 'VN_FEI_2026_04', N'Nữ Hoàng Cát (Desert Queen)', N'Warmblood',    'Mare',     'Pregnant',     510.00, '2020-11-05'),
-('HRS_005', 'USR_CUST_03', '981098102938479', 'VN_FEI_2026_05', N'Chiến Binh Đen (Black Knight)',N'Friesian',    'Stallion', 'Intact',       560.00, '2018-03-12');
+INSERT INTO HORSE (HorseID, OwnerID, Microchip_ISO, FEI_Passport_No, Name, Breed, Sex, ReproductiveStatus, Weight, DOB, PhotoUrl, PassportScanUrl) VALUES
+('HRS_001', 'USR_CUST_01', '981098102938475', 'VN_FEI_2026_01', N'Tia Chớp Đỏ (Red Lightning)', N'Thoroughbred', 'Stallion', 'Intact',       520.50, '2020-04-15', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
+('HRS_002', 'USR_CUST_01', '981098102938476', 'VN_FEI_2026_02', N'Bão Táp Xanh (Blue Storm)',   N'Arabian',      'Mare',     'Non-Pregnant', 485.00, '2021-06-20', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
+('HRS_003', 'USR_CUST_02', '981098102938477', 'VN_FEI_2026_03', N'Bạch Mã Hoàng Tử (Prince)',  N'Thoroughbred', 'Gelding',  'Gelded',       540.00, '2019-09-10', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
+('HRS_004', 'USR_CUST_02', '981098102938478', 'VN_FEI_2026_04', N'Nữ Hoàng Cát (Desert Queen)', N'Warmblood',    'Mare',     'Pregnant',     510.00, '2020-11-05', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
+('HRS_005', 'USR_CUST_03', '981098102938479', 'VN_FEI_2026_05', N'Chiến Binh Đen (Black Knight)',N'Friesian',    'Stallion', 'Intact',       560.00, '2018-03-12', NULL, NULL);
 
 -- 3. Bảng STAFF_DOCUMENT: Giấy phép, Hộ chiếu, Visa nhân sự (Có hồ sơ hợp lệ và hồ sơ sắp hết hạn)
 INSERT INTO STAFF_DOCUMENT (DocumentID, UserID, DocType, CountryOfIssue, ValidForCountries, IssueDate, ExpiryDate, DocumentUrl, Status) VALUES

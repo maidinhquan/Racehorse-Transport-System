@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../../shared/components';
+import { customerApi } from '../customer/api/customerApi';
+import type { DemoEstimateResult } from '../customer/types';
 import './LandingPage.css';
 
 // SVG Icons matching CBN Transport (1).html
@@ -80,16 +82,42 @@ export const LandingPage: React.FC = () => {
   const [origin, setOrigin] = useState('Ho Chi Minh City');
   const [destination, setDestination] = useState('Tokyo');
   const [horseCount, setHorseCount] = useState(1);
+  const [demoEstimate, setDemoEstimate] = useState<DemoEstimateResult | null>(null);
+  const [loadingEstimate, setLoadingEstimate] = useState(false);
 
   // Check login state
-  const isLoggedIn = Boolean(localStorage.getItem('accessToken') || localStorage.getItem('userRole'));
+  const isLoggedIn = Boolean(localStorage.getItem('accessToken'));
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const isCustomer = isLoggedIn && userRole === 'CUSTOMER';
 
-  // Calculate quote (matches CBN Transport 1.html formula: $1850 international, $650 domestic, 30% deposit)
   const isInternational = JAPAN_CITIES.includes(destination);
   const isValidRoute = origin !== destination;
-  const pricePerHorse = isInternational ? 1850 : 650;
-  const totalPrice = isValidRoute ? pricePerHorse * horseCount : 0;
-  const depositPrice = Math.round(totalPrice * 0.3);
+
+  // Lấy ước tính giá từ Backend Flow 1 API
+  useEffect(() => {
+    if (!isValidRoute) {
+      setDemoEstimate(null);
+      return;
+    }
+    let active = true;
+    setLoadingEstimate(true);
+    customerApi.getDemoEstimate({ origin, destination, horseCount })
+      .then((res) => {
+        if (active) {
+          setDemoEstimate(res);
+          setLoadingEstimate(false);
+        }
+      })
+      .catch(() => {
+        if (active) setLoadingEstimate(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [origin, destination, horseCount, isValidRoute]);
+
+  const totalPrice = demoEstimate?.estimatedPrice ?? (isValidRoute ? (isInternational ? 1850 : 650) * horseCount : 0);
+  const depositPrice = demoEstimate?.estimatedDeposit ?? Math.round(totalPrice * 0.3);
 
   const scrollTo = (id: string) => {
     if (id === 'top') {
@@ -106,12 +134,22 @@ export const LandingPage: React.FC = () => {
     if (!isValidRoute) return;
 
     // Save preliminary quote info to session
-    sessionStorage.setItem('preliminaryQuote', JSON.stringify({ origin, destination, horseCount, totalPrice }));
+    sessionStorage.setItem('preliminaryQuote', JSON.stringify({
+      origin,
+      destination,
+      horseCount,
+      totalPrice,
+      depositPrice,
+      currency: demoEstimate?.currency ?? 'VND',
+      days: demoEstimate?.days ?? 1,
+      averageRoadKm: demoEstimate?.averageRoadKm ?? 0,
+      stableNights: demoEstimate?.stableNights ?? 0,
+    }));
 
-    if (isLoggedIn) {
+    if (isCustomer) {
       navigate('/customer/create-request');
     } else {
-      navigate('/login');
+      navigate('/login', { state: { from: { pathname: '/customer/create-request' } } });
     }
   };
 
@@ -221,10 +259,21 @@ export const LandingPage: React.FC = () => {
             {isValidRoute ? (
               <>
                 <span>
-                  <b>${totalPrice.toLocaleString()}</b> <span className="muted">USD ước tính sơ bộ</span>
+                  {loadingEstimate ? (
+                    <span className="muted">Đang tính giá từ hệ thống...</span>
+                  ) : demoEstimate ? (
+                    <>
+                      <b>{demoEstimate.estimatedPrice.toLocaleString('vi-VN')} đ</b> <span className="muted">ước tính sơ bộ</span>
+                    </>
+                  ) : (
+                    <>
+                      <b>${totalPrice.toLocaleString()}</b> <span className="muted">USD ước tính sơ bộ</span>
+                    </>
+                  )}
                 </span>
                 <span className="muted">
-                  {isInternational ? 'Việt Nam ➔ Nhật Bản' : 'Nội địa Việt Nam'} • {horseCount} ngựa • Cọc 30%: ${depositPrice.toLocaleString()} USD
+                  {isInternational ? 'Việt Nam ➔ Nhật Bản' : 'Nội địa Việt Nam'} • {horseCount} ngựa • Cọc: {demoEstimate ? `${demoEstimate.estimatedDeposit.toLocaleString('vi-VN')} đ` : `$${depositPrice.toLocaleString()} USD`}
+                  {demoEstimate && demoEstimate.days > 0 ? ` • Dự kiến: ${demoEstimate.days} ngày` : ''}
                 </span>
               </>
             ) : (
@@ -404,8 +453,8 @@ export const LandingPage: React.FC = () => {
           <button className="btn ghost lg" onClick={() => navigate('/login')}>
             {lang === 'vi' ? 'Đăng nhập' : 'Sign in'}
           </button>
-          <button className="btn solid lg" onClick={() => navigate(isLoggedIn ? '/customer/create-request' : '/register')}>
-            {isLoggedIn 
+          <button className="btn solid lg" onClick={() => navigate(isCustomer ? '/customer/create-request' : '/login')}>
+            {isCustomer 
               ? (lang === 'vi' ? 'Tạo yêu cầu vận chuyển' : 'Create Request')
               : (lang === 'vi' ? 'Bắt đầu ngay' : 'Get started')}
           </button>

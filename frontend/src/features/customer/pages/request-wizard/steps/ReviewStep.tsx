@@ -12,6 +12,7 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const navigate = useNavigate();
   const { horses, docsOf, actions } = useCustomer();
   const [agree, setAgree] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const errs = wizardErrors(r, horses);
   const docs = docsOf(r);
   const notes = Object.entries(r.horseNotes).filter(([id, n]) => n && r.horses.includes(id));
@@ -23,9 +24,13 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
     </div>
   );
 
-  const submit = () => {
-    const res = actions.submitRequest(r.id);
-    if (res.ok) navigate(`/customer/requests/${r.id}?submitted=1`);
+  const submit = async () => {
+    setSubmitting(true);
+    const res = await actions.submitRequest(r.id);
+    setSubmitting(false);
+    if (res.ok) {
+      navigate(`/customer/requests/${res.id || r.id}?submitted=1`);
+    }
   };
 
   return (
@@ -75,8 +80,8 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
       </label>
       <div className="cus-wizard__actions">
         <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(`/customer/requests/${r.id}/wizard/2`)}>Quay lại</button>
-        <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" disabled={!agree || errs.length > 0} onClick={submit}>
-          {r.status === 'CHANGES_REQUESTED' ? 'Gửi lại để xét duyệt' : 'Gửi yêu cầu để xét duyệt'}
+        <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" disabled={!agree || errs.length > 0 || submitting} onClick={submit}>
+          {submitting ? 'Đang gửi yêu cầu lên máy chủ...' : (r.status === 'CHANGES_REQUESTED' ? 'Gửi lại để xét duyệt' : 'Gửi yêu cầu để xét duyệt')}
         </button>
       </div>
     </div>

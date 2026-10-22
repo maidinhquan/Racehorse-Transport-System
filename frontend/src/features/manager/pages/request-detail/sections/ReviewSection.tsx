@@ -130,7 +130,11 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
               </div>
             ) : <p className="mgr-hint" style={{ marginTop: 0 }}>{isAccepted(r) ? 'Chưa phát hành hợp đồng.' : 'Hợp đồng mở sau khi Manager chấp thuận yêu cầu.'}</p>}
             <div className="mgr-actions">
-              {isAccepted(r) && r.status !== 'CANCELLED' && <Link className="mgr-btn mgr-btn--sm mgr-btn--solid" to={`/manager/contracts/${r.id}`}>{v ? 'Mở hợp đồng' : 'Soạn hợp đồng'}</Link>}
+              {isAccepted(r) && r.status !== 'CANCELLED' && (
+                <Link className="mgr-btn mgr-btn--sm mgr-btn--solid" to={`/manager/contracts/${r.id}`}>
+                  {v && versionState(v) !== 'VOID' ? 'Mở hợp đồng' : 'Soạn hợp đồng mới'}
+                </Link>
+              )}
               {CANCELLABLE.includes(r.status) && <button type="button" className="mgr-btn mgr-btn--sm mgr-btn--danger" onClick={() => setDialog('cancel')}>Hủy yêu cầu</button>}
             </div>
           </section>
@@ -162,13 +166,22 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
       <ReasonModal open={dialog === 'reject'} title={`Từ chối ${r.id}`} okText="Từ chối yêu cầu" danger minLength={10}
         intro={<p>Khách hàng nhận được lý do từ chối. Yêu cầu bị từ chối không thể mở lại.</p>}
         placeholder="VD: Không thể bố trí phương tiện cho ngày vận chuyển đã chọn." onClose={close} onSubmit={(x) => actions.rejectRequest(r.id, x).ok} />
-      <ReasonModal open={dialog === 'cancel'} title={`Hủy ${r.id}`} okText="Hủy yêu cầu" danger minLength={10}
+      <ReasonModal open={dialog === 'cancel'} title={`Thu hồi / Hủy ${r.id}`} okText="Xác nhận" danger minLength={10}
         intro={<p>{held > 0 ? `Khách đã trả ${fmtMoney(held)} được xác minh – hệ thống tạo lệnh hoàn tiền.` : 'Chưa có khoản thanh toán nào được xác minh.'} Hợp đồng chưa ký (nếu có) bị hủy.</p>}
-        confirmText="Tôi hiểu thao tác này không thể hoàn tác." onClose={close} onSubmit={(x) => actions.cancelRequest(r.id, x).ok} />
+        confirmText="Tôi hiểu thao tác này không thể hoàn tác." onClose={close} onSubmit={async (x) => {
+          const res = await actions.cancelRequest(r.id, x);
+          return res.ok;
+        }} />
       <ReasonModal open={dialog === 'cancel-ok'} title={`Duyệt yêu cầu hủy ${r.id}`} okText="Duyệt hủy" danger minLength={5} label="Ghi chú quyết định *"
-        placeholder="VD: Hoàn toàn bộ tiền cọc đã xác minh." onClose={close} onSubmit={(x) => actions.decideCancellation(r.id, true, x).ok} />
+        placeholder="VD: Hoàn toàn bộ tiền cọc đã xác minh." onClose={close} onSubmit={async (x) => {
+          const res = await actions.decideCancellation(r.id, true, x);
+          return res.ok;
+        }} />
       <ReasonModal open={dialog === 'cancel-no'} title={`Từ chối yêu cầu hủy ${r.id}`} okText="Từ chối hủy" minLength={5} label="Lý do gửi khách hàng *"
-        placeholder="VD: Đã đặt chỗ chuyến bay không hoàn được; đề nghị dời ngày thay vì hủy." onClose={close} onSubmit={(x) => actions.decideCancellation(r.id, false, x).ok} />
+        placeholder="VD: Đã đặt chỗ chuyến bay không hoàn được; đề nghị dời ngày thay vì hủy." onClose={close} onSubmit={async (x) => {
+          const res = await actions.decideCancellation(r.id, false, x);
+          return res.ok;
+        }} />
     </>
   );
 };

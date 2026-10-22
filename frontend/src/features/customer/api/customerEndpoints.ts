@@ -1,25 +1,37 @@
 // Endpoint Backend cho Customer (đường dẫn tương đối với baseURL của apiClient)
 export const CUSTOMER_ENDPOINTS = {
   PROFILE: '/customer/profile',
-  NOTIFICATIONS: '/customer/notifications',
+  NOTIFICATIONS: '/flow1/notifications',
 
   HORSES: '/customer/horses',
+  SELECTABLE_HORSES: '/customer/horses/selectable',
   HORSE_DETAIL: (horseId: string) => `/customer/horses/${horseId}`,
 
-  REQUESTS: '/customer/transport-requests',
-  REQUEST_DETAIL: (requestId: string) => `/customer/transport-requests/${requestId}`,
-  SUBMIT_REQUEST: (requestId: string) => `/customer/transport-requests/${requestId}/submit`,
-  CANCEL_REQUEST: (requestId: string) => `/customer/transport-requests/${requestId}/cancel`,
-  REQUEST_DOCUMENTS: (requestId: string) => `/customer/transport-requests/${requestId}/documents`,
+  REQUESTS: '/customer/requests',
+  REQUEST_DETAIL: (requestId: string) => `/customer/requests/${requestId}`,
+  SUBMIT_REQUEST: (requestId: string) => `/customer/requests/${requestId}/submit`,
+  CANCEL_REQUEST: (contractId: string) => `/customer/contracts/${contractId}/cancellation/request`,
+  CONTRACT_CANCEL_REQUEST: (contractId: string) => `/customer/contracts/${contractId}/cancellation/request`,
+  REQUEST_DOCUMENTS: (requestId: string) => `/customer/requests/${requestId}/documents`,
 
-  ACCEPT_TERMS: (requestId: string) => `/customer/transport-requests/${requestId}/contract/accept-terms`,
-  CONTRACT_CHANGE: (requestId: string) => `/customer/transport-requests/${requestId}/contract/change-requests`,
-  SEND_SIGN_OTP: (requestId: string) => `/customer/transport-requests/${requestId}/contract/otp`,
-  SIGN_CONTRACT: (requestId: string) => `/customer/transport-requests/${requestId}/contract/sign`,
+  ACCEPT_TERMS: (contractId: string) => `/customer/contracts/${contractId}/terms`,
+  CONTRACT_DETAIL: (contractId: string) => `/customer/contracts/${contractId}`,
+  CONTRACT_TERMS: (contractId: string) => `/customer/contracts/${contractId}/terms`,
+  CONTRACT_PDF: (contractId: string) => `/customer/contracts/${contractId}/pdf`,
+  CONTRACT_CHANGE: (contractId: string) => `/customer/contracts/${contractId}/feedback`,
+  SEND_SIGN_OTP: (contractId: string) => `/customer/contracts/${contractId}/otp`,
+  SIGN_CONTRACT: (contractId: string) => `/customer/contracts/${contractId}/sign`,
+  MOCK_SIGN: (contractId: string) => `/customer/contracts/${contractId}/mock-sign`,
 
-  DEPOSIT_PAYMENT: (requestId: string) => `/customer/transport-requests/${requestId}/payments/deposit`,
-  BALANCE_PAYMENT: (requestId: string) => `/customer/transport-requests/${requestId}/payments/balance`,
+  DEPOSIT_PAYMENT: (contractId: string) => `/customer/contracts/${contractId}/vnpay`,
+  MOCK_DEPOSIT: (contractId: string) => `/customer/contracts/${contractId}/mock-deposit`,
+  BALANCE_PAYMENT: (contractId: string) => `/customer/contracts/${contractId}/vnpay`,
 
-  ACCEPTANCE: (requestId: string) => `/customer/transport-requests/${requestId}/acceptance`,
-  COMPLAINTS: (requestId: string) => `/customer/transport-requests/${requestId}/complaints`,
+  ACCEPTANCE: (contractId: string) => `/customer/contracts/${contractId}/acceptance`,
+  COMPLAINTS: '/customer/complaints',
+} as const;
+
+export const PUBLIC_ENDPOINTS = {
+  ESTIMATES_DEMO: '/public/estimates/demo',
+  LOCATIONS_SEARCH: '/public/estimates/locations/search',
 } as const;
