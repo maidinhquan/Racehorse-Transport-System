@@ -10,7 +10,7 @@ import './TripManagementPage.css';
 
 export const TripManagementPage: React.FC = () => {
   const navigate = useNavigate();
-  const { trips, vehicles, staff } = useCoordinator();
+  const { trips, vehicles, staff, actions } = useCoordinator();
   const gapsOf = useCallback((t: Trip) => planGaps(t, vehicles, staff, trips), [vehicles, staff, trips]);
   const f = useCoordinatorFilter(trips, 8, (t) => gapsOf(t).length > 0);
 
@@ -21,6 +21,7 @@ export const TripManagementPage: React.FC = () => {
           <h2 className="crd-title">Quản lý chuyến</h2>
           <p className="crd-subtitle">Lập tuyến, bố trí xe & nhân sự và theo dõi hành trình. Chỉ lập kế hoạch chính thức sau khi Manager giao chuyến.</p>
         </div>
+        <button type="button" className="crd-btn crd-btn--sm" onClick={() => actions.resetDemoData()} title="Xóa các chỉnh sửa cục bộ và đưa về trạng thái demo ban đầu">Đặt lại demo</button>
       </div>
 
       <div className="crd-card">

@@ -82,7 +82,12 @@ const UnitCard: React.FC<{ trip: Trip; leg?: LegKey }> = ({ trip, leg }) => {
               <select id={`crd-${leg ?? 'trip'}-${slot}`} className="crd-select" disabled={!editable} value={draft[slot] ?? ''}
                 onChange={(e) => setDraft((d) => ({ ...d, [slot]: e.target.value || undefined }))}>
                 <option value="">— Chọn nhân sự phù hợp —</option>
-                {candidates(slot).map((s) => <option key={s.id} value={s.id}>{s.name} • {ROLE_LABEL[s.role]}</option>)}
+                {candidates(slot).map((s) => {
+                  const sName = s.name || (s as any).fullName || s.id || (s as any).userId || 'Nhân sự';
+                  const sRole = ROLE_LABEL[s.role] || (ROLE_LABEL as any)[String(s.role || '').toUpperCase()] || s.role || 'Nhân sự';
+                  const sId = s.id || (s as any).userId;
+                  return <option key={sId} value={sId}>{sName} • {sRole}</option>;
+                })}
               </select>
             </div>
           ))}
