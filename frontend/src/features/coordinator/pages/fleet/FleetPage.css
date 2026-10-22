@@ -1,0 +1,5 @@
+.crd-fleet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.crd-fleet-grid > .crd-card + .crd-card { margin-top: 0; }
+.crd-fleet-card__top { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.crd-fleet-card__top b { font-size: 16px; }
+.crd-link { border: 0; background: none; padding: 0; color: #ea580c; font: inherit; font-weight: 700; cursor: pointer; }

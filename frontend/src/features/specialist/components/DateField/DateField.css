@@ -1,0 +1,25 @@
+.spc-date { position: relative; }
+.spc-date__field {
+  display: flex; align-items: center; height: 38px; border: 1px solid #e5e7eb; border-radius: 9px; background: #fff; overflow: hidden;
+}
+.spc-date__field:focus-within { border-color: #f57c00; box-shadow: 0 0 0 3px #ffedd5; }
+.spc-date__field.invalid { border-color: #dc2626; }
+.spc-date__field.disabled { background: #f8fafc; }
+.spc-date__field input { flex: 1; min-width: 0; border: 0; outline: none; padding: 0 12px; font: 13px Inter, system-ui, sans-serif; background: transparent; color: #0f172a; }
+.spc-date__field button { border: 0; background: none; padding: 0 10px; height: 100%; cursor: pointer; color: #64748b; display: grid; place-items: center; }
+.spc-date__field button:hover:not(:disabled) { color: #ea580c; }
+.spc-date__error { color: #b91c1c; font-size: 12px; margin: 4px 0 0; }
+.spc-date__pop {
+  position: absolute; z-index: 60; top: 44px; left: 0; width: 280px; background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 12px; box-shadow: 0 16px 40px rgba(15, 23, 42, .18); padding: 12px;
+}
+.spc-date__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.spc-date__head button { border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; width: 30px; height: 30px; cursor: pointer; font-size: 16px; }
+.spc-date__head button:disabled { opacity: .4; cursor: not-allowed; }
+.spc-date__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.spc-date__wd span { text-align: center; font-size: 11px; font-weight: 700; color: #64748b; padding: 4px 0; }
+.spc-date__grid button { height: 32px; border: 0; border-radius: 8px; background: none; cursor: pointer; font: 13px Inter, system-ui, sans-serif; color: #0f172a; }
+.spc-date__grid button:hover:not(:disabled) { background: #fff7ed; }
+.spc-date__grid button.on { background: #f57c00; color: #fff; font-weight: 700; }
+.spc-date__grid button:disabled { color: #cbd5e1; cursor: not-allowed; }
+.spc-date__foot { margin: 8px 0 0; font-size: 11px; color: #64748b; }

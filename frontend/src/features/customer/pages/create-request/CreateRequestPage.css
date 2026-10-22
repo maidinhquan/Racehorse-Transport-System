@@ -1,0 +1,8 @@
+.cus-create { max-width: 860px; }
+.cus-create__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.cus-create__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+.cus-quote { margin-top: 16px; border: 1px solid #fed7aa; background: #fffaf3; border-radius: 12px; padding: 16px 18px; }
+.cus-quote__tag { font-size: 12px; color: #64748b; margin-bottom: 12px; }
+.cus-quote__tag span { background: #ffedd5; color: #c2410c; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-right: 6px; }
+.cus-quote__amount { font-size: 20px; color: #ea580c; }
+@media (max-width: 700px) { .cus-create__grid { grid-template-columns: 1fr; } }

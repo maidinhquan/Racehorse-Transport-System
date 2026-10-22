@@ -1,0 +1,4 @@
+.crd-flight-card__head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.crd-flight-card__route { font-size: 17px; font-weight: 700; margin: 2px 0; }
+.crd-flight-card__kv { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .crd-flight-card__kv { grid-template-columns: 1fr 1fr; } }

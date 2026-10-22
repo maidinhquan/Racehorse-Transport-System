@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ThemeToggle } from '../../shared/components';
 import './LandingPage.css';
 
 // SVG Icons matching CBN Transport (1).html
@@ -132,6 +133,7 @@ export const LandingPage: React.FC = () => {
         </div>
 
         <div className="lp-cta">
+          <ThemeToggle showLabel={false} />
           <div className="lp-lang-switch">
             <button className={lang === 'vi' ? 'active' : ''} onClick={() => setLang('vi')}>VI</button>
             <button className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>EN</button>
