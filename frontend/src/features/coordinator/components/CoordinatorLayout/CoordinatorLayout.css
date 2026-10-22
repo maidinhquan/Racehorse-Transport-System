@@ -75,7 +75,7 @@
 .crd-icon-btn:hover { background: var(--crd-bg); }
 .crd-avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--crd-orange-soft); color: var(--crd-orange-text); font-weight: 700; font-size: 12px; }
 .crd-user-name { font-weight: 600; font-size: 13px; }
-.crd-view { padding: 28px 32px 48px; max-width: 1180px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.crd-view { padding: 28px 32px 48px; max-width: 1440px; width: 100%; margin: 0 auto; box-sizing: border-box; }
 
 .crd-toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 100;
