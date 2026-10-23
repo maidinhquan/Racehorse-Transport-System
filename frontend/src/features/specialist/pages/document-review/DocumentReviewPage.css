@@ -1,9 +1,0 @@
-.spc-docrev { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; align-items: start; margin-top: 16px; }
-.spc-docrev .spc-stack > .spc-card + .spc-card { margin-top: 16px; }
-.spc-docrev__preview {
-  height: 220px; border-radius: 10px; border: 1px solid #e5e7eb; display: grid; place-items: center; text-align: center; padding: 16px;
-  background: repeating-linear-gradient(0deg, #f8fafc 0 22px, #eef2f7 22px 23px); color: #64748b; font-size: 12px;
-}
-.spc-docrev__preview b { display: block; color: #0f172a; font-size: 14px; margin-bottom: 4px; }
-@media (max-width: 1000px) { .spc-docrev { grid-template-columns: 1fr; } }
-.spc-trip__title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

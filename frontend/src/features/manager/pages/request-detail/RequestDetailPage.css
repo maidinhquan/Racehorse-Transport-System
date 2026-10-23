@@ -1,8 +1,0 @@
-.mgr-rd__title { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.mgr-rd__place { border: 1px solid var(--mgr-line); border-radius: 10px; padding: 12px; background: var(--mgr-bg); }
-.mgr-rd__place b { display: block; }
-.mgr-rd__place span { display: block; font-size: 12px; color: var(--mgr-muted); margin-top: 2px; }
-.mgr-rd__places { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
-@media (max-width: 760px) { .mgr-rd__places { grid-template-columns: 1fr; } }
-.mgr-rd__decision .mgr-btn { width: 100%; justify-content: center; }
-.mgr-rd__decision .mgr-btn + .mgr-btn { margin-top: 8px; }

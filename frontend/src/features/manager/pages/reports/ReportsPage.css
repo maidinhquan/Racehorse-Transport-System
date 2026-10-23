@@ -1,7 +1,0 @@
-.mgr-report { padding: 4px; }
-.mgr-report .mgr-contract__brand { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #ea580c; }
-@media print {
-  body * { visibility: hidden; }
-  .mgr-report, .mgr-report * { visibility: visible; }
-  .mgr-report { position: absolute; left: 0; top: 0; width: 100%; }
-}
