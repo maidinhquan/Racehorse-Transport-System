@@ -1,0 +1,137 @@
+.demo-data-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  user-select: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  outline: none;
+}
+
+.demo-data-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
+}
+
+.demo-data-toggle:active {
+  transform: translateY(0);
+}
+
+.demo-data-toggle__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  flex-shrink: 0;
+}
+
+.demo-data-toggle__text {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.demo-data-toggle__state {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* ==========================================================================
+   TRẠNG THÁI: BẬT (ACTIVE)
+   ========================================================================== */
+.demo-data-toggle--active {
+  background: #ecfdf5;
+  border: 1px solid #10b981;
+  color: #065f46;
+}
+
+.demo-data-toggle--active .demo-data-toggle__dot {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+  animation: demo-pulse 2s infinite;
+}
+
+.demo-data-toggle--active:hover {
+  background: #d1fae5;
+  border-color: #059669;
+}
+
+/* ==========================================================================
+   TRẠNG THÁI: TẮT (INACTIVE)
+   ========================================================================== */
+.demo-data-toggle--inactive {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+}
+
+.demo-data-toggle--inactive .demo-data-toggle__dot {
+  background: #94a3b8;
+  box-shadow: none;
+}
+
+.demo-data-toggle--inactive:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #334155;
+}
+
+/* ==========================================================================
+   DARK MODE
+   ========================================================================== */
+[data-theme="dark"] .demo-data-toggle--active,
+.dark .demo-data-toggle--active {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.6);
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .demo-data-toggle--active:hover,
+.dark .demo-data-toggle--active:hover {
+  background: rgba(16, 185, 129, 0.24);
+  border-color: #34d399;
+}
+
+[data-theme="dark"] .demo-data-toggle--inactive,
+.dark .demo-data-toggle--inactive {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .demo-data-toggle--inactive:hover,
+.dark .demo-data-toggle--inactive:hover {
+  background: rgba(51, 65, 85, 0.8);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #e2e8f0;
+}
+
+@keyframes demo-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+@media (max-width: 640px) {
+  .demo-data-toggle {
+    padding: 5px 9px;
+    font-size: 11px;
+  }
+  .demo-data-toggle__label {
+    display: none;
+  }
+}
