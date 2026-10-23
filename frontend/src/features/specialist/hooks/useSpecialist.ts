@@ -57,25 +57,11 @@ interface SpecialistState extends SpecialistData {
   toast: { id: number; message: string } | null;
 }
 
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
-
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
-
-const initialDemo = getDemoMode('specialist');
-
 let state: SpecialistState = {
-  trips: initialDemo ? clone(mockTrips) : [],
-  docTypes: clone(mockDocTypes),
-  regulations: clone(mockRegulations),
-  packages: clone(mockPackages),
-  customerDocs: initialDemo ? clone(mockCustomerDocs) : [],
-  documents: initialDemo ? clone(mockDocuments) : [],
-  requests: initialDemo ? clone(mockRequests) : [],
-  bookings: initialDemo ? clone(mockBookings) : [],
-  audit: initialDemo ? clone(mockAudit) : [],
-  loading: false,
-  loaded: false,
-  toast: null,
+  trips: clone(mockTrips), docTypes: clone(mockDocTypes), regulations: clone(mockRegulations), packages: clone(mockPackages),
+  customerDocs: clone(mockCustomerDocs), documents: clone(mockDocuments), requests: clone(mockRequests), bookings: clone(mockBookings),
+  audit: clone(mockAudit), loading: false, loaded: false, toast: null,
 };
 const listeners = new Set<() => void>();
 const setState = (patch: Partial<SpecialistState> | ((s: SpecialistState) => Partial<SpecialistState>)) => {
@@ -86,39 +72,6 @@ const subscribe = (l: () => void) => { listeners.add(l); return () => { listener
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('rts_demo_mode_change', (event: Event) => {
-    const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
-    if (customEvent.detail && customEvent.detail.role === 'specialist') {
-      if (customEvent.detail.enabled) {
-        setState({
-          trips: clone(mockTrips),
-          customerDocs: clone(mockCustomerDocs),
-          documents: clone(mockDocuments),
-          requests: clone(mockRequests),
-          bookings: clone(mockBookings),
-          audit: clone(mockAudit),
-          loading: false,
-          loaded: true,
-        });
-        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
-      } else {
-        setState({
-          trips: [],
-          customerDocs: [],
-          documents: [],
-          requests: [],
-          bookings: [],
-          audit: [],
-          loading: false,
-          loaded: true,
-        });
-        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
-      }
-    }
-  });
-}
 const ok = (message: string, id?: string): ActionResult => { toast(message); return { ok: true, message, id }; };
 const fail = (message: string): ActionResult => { toast(message); return { ok: false, message }; };
 
@@ -145,10 +98,6 @@ async function loadAll() {
     specialistApi.getTrips(), specialistApi.getCustomerDocs(), specialistApi.getDocuments(), specialistApi.getRequests(), specialistApi.getBookings(),
     specialistApi.getDocTypes(), specialistApi.getRegulations(), specialistApi.getPackages(), specialistApi.getAudit(),
   ]);
-  if (!getDemoMode('specialist')) {
-    setState({ trips: [], customerDocs: [], documents: [], requests: [], bookings: [], docTypes: [], regulations: [], packages: [], audit: [], loading: false, loaded: true });
-    return;
-  }
   setState({ trips, customerDocs, documents, requests, bookings, docTypes, regulations, packages, audit: auditLog, loading: false, loaded: true });
 }
 

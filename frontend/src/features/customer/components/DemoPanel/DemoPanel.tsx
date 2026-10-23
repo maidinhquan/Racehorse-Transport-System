@@ -12,7 +12,6 @@ import {
   qrExpired,
   versionState,
 } from '../../hooks/customerRules';
-import { useDemoMode } from '../../../../shared/context/DemoModeContext';
 import { Modal, ReasonModal } from '../Modals';
 import './DemoPanel.css';
 
@@ -23,7 +22,6 @@ type Dialog = '' | 'changes' | 'reject' | 'supplement';
  * để đi hết luồng của khách hàng. Không thuộc cổng khách hàng thật.
  */
 export const DemoPanel: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
-  const { enabled: isDemoMode } = useDemoMode('customer');
   const { horses, actions } = useCustomer();
   const d = actions.demo;
   const [dialog, setDialog] = useState<Dialog>('');
@@ -33,8 +31,6 @@ export const DemoPanel: React.FC<{ request: TransportRequest }> = ({ request: r 
   const [supHorse, setSupHorse] = useState('');
   const [supReason, setSupReason] = useState('');
   const [error, setError] = useState('');
-
-  if (!isDemoMode) return null;
 
   const v = curVersion(r), vs = v ? versionState(v) : undefined;
   const pendingDeposit = [...depositPayments(r)].reverse().find((p) => p.status === 'PROCESSING');

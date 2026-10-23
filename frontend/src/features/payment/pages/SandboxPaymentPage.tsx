@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { customerApi } from '../../customer/api/customerApi'
 import './SandboxPaymentPage.css'
 
 type Payment = { id: string; amount: number; status: string; responseCode?: string }
@@ -12,7 +13,7 @@ async function readResponse(response: Response) {
 
 export default function SandboxPaymentPage() {
   const location = useLocation()
-  const isReturn = location.pathname === '/payment/return'
+  const isReturn = location.pathname === '/payment/return' || location.pathname.endsWith('/return')
   const [amount, setAmount] = useState('10000')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -21,6 +22,30 @@ export default function SandboxPaymentPage() {
 
   useEffect(() => {
     if (!isReturn) return
+
+    // Kiểm tra trực tiếp các tham số trả về từ VNPAY trên Query String
+    const params = new URLSearchParams(location.search)
+    const vnpResponse = params.get('vnp_ResponseCode')
+    const vnpAmount = params.get('vnp_Amount')
+    const vnpTxnRef = params.get('vnp_TxnRef')
+
+    if (vnpResponse !== null || vnpTxnRef !== null) {
+      const isPaid = vnpResponse === '00'
+      const contractId = sessionStorage.getItem('last_deposit_contract_id')
+      if (isPaid && contractId) {
+        void customerApi.mockDeposit(contractId)
+      }
+      setPayment({
+        id: vnpTxnRef || 'VNPAY-TRANS',
+        amount: vnpAmount ? Math.round(Number(vnpAmount) / 100) : 0,
+        status: isPaid ? 'Paid' : 'Failed',
+        responseCode: vnpResponse || undefined,
+      })
+      setChecking(false)
+      setError(isPaid ? '' : `Giao dịch không thành công (Mã lỗi VNPAY: ${vnpResponse})`)
+      return
+    }
+
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout> | undefined
     const deadline = Date.now() + 60_000
@@ -77,7 +102,14 @@ export default function SandboxPaymentPage() {
         </dl>}
         {checking && <p role="status">Đang chờ xác nhận giao dịch…</p>}
         {payment?.status === 'Pending' && !checking && <p>Chưa nhận được IPN. Kiểm tra URL IPN công khai đã đăng ký với VNPAY, rồi tải lại trang.</p>}
-        <Link to="/payment/sandbox">Thử giao dịch khác</Link>
+        <div style={{ marginTop: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <Link to="/customer/requests" style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+            Quay về danh sách yêu cầu của tôi
+          </Link>
+          <Link to="/payment/sandbox" style={{ padding: '8px 16px', background: '#f1f5f9', color: '#334155', borderRadius: 6, textDecoration: 'none' }}>
+            Thử giao dịch khác
+          </Link>
+        </div>
       </> : <>
         <form onSubmit={pay}>
           <label htmlFor="sandbox-amount">Số tiền thử (VND)</label>
@@ -88,7 +120,6 @@ export default function SandboxPaymentPage() {
           <p>Số thẻ: 9704198526191432198<br />Chủ thẻ: NGUYEN VAN A<br />Ngày phát hành: 07/15<br />OTP: 123456</p>
         </details>
       </>}
-      <p><Link to="/login">Về đăng nhập</Link></p>
     </section>
   </main>
 }

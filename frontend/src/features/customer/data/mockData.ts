@@ -250,16 +250,7 @@ export const mockRequests: TransportRequest[] = [
     ],
     supplements: [{ id: 'SUP-301', key: 'raceReg', scope: 'request', reason: 'Chuyến phục vụ giải Tokyo Autumn Cup – cần giấy đăng ký giải để làm thủ tục tạm nhập.', at: '2026-10-03 14:20', by: 'Hoang Thu Ha', status: 'OPEN' }],
     companyDocs: companyDocs(true, 'PROCESSING'),
-    trip: trip('TRP-902', {
-      status: 'PLANNING', mode: 'AIR', routeApproved: false, plannedDepart: '2026-10-18 06:00', eta: '2026-10-19 06:00',
-      stops: [
-        { id: 's1', name: 'Hanoi Equestrian Club', type: 'ORIGIN', country: 'VN', plannedAt: '2026-10-18 03:30', lat: 21.0285, lng: 105.8542 },
-        { id: 's2', name: 'Sân bay Quốc tế Nội Bài', type: 'AIRPORT', country: 'VN', plannedAt: '2026-10-18 05:00', lat: 21.2212, lng: 105.8072 },
-        { id: 's3', name: 'Sân bay Quốc tế Narita', type: 'AIRPORT', country: 'JP', plannedAt: '2026-10-18 13:05', lat: 35.7720, lng: 140.3929 },
-        { id: 's4', name: 'Trạm Kiểm dịch Động vật Narita', type: 'QUARANTINE_STATION', country: 'JP', plannedAt: '2026-10-18 15:30', lat: 35.7750, lng: 140.3950 },
-        { id: 's5', name: 'Tokyo Racecourse Stables', type: 'DESTINATION', country: 'JP', plannedAt: '2026-10-18 18:00', lat: 35.6631, lng: 139.4828 },
-      ],
-    }),
+    trip: trip('TRP-902', { status: 'PLANNING', mode: 'AIR', routeApproved: false, plannedDepart: '2026-10-18 06:00', eta: '2026-10-19 06:00', stops: [] }),
     history: [
       hist('2026-10-03 08:30', 'CUSTOMER', 'Ký hợp đồng bằng OTP', 'CT-8924 v1 – yêu cầu được kích hoạt'),
       hist('2026-10-03 14:10', 'TRANSPORT_SPECIALIST', 'Từ chối giấy tờ', 'Sổ tiêm ngừa – Shadowfax'),
@@ -274,10 +265,10 @@ export const mockRequests: TransportRequest[] = [
     trip: trip('TRP-903', {
       status: 'READY_TO_DEPART', mode: 'ROAD', plannedDepart: '2026-10-07 06:00', eta: '2026-10-07 22:00',
       stops: [
-        { id: 's1', name: 'Saigon Riding Club', type: 'ORIGIN', country: 'VN', plannedAt: '2026-10-07 06:00', lat: 10.7769, lng: 106.7009 },
-        { id: 's2', name: 'Trạm nghỉ Phan Thiết', type: 'REST_STOP', country: 'VN', plannedAt: '2026-10-07 10:00', lat: 10.9333, lng: 108.1000 },
-        { id: 's3', name: 'Trạm nghỉ Quy Nhơn', type: 'REST_STOP', country: 'VN', plannedAt: '2026-10-07 16:30', lat: 13.7820, lng: 109.2194 },
-        { id: 's4', name: 'Da Nang Riding Center', type: 'DESTINATION', country: 'VN', plannedAt: '2026-10-07 22:00', lat: 16.0544, lng: 108.2022 },
+        { name: 'Saigon Riding Club', type: 'ORIGIN', plannedAt: '2026-10-07 06:00' },
+        { name: 'Trạm nghỉ Phan Thiết', type: 'REST_STOP', plannedAt: '2026-10-07 10:00' },
+        { name: 'Trạm nghỉ Quy Nhơn', type: 'REST_STOP', plannedAt: '2026-10-07 16:30' },
+        { name: 'Da Nang Riding Center', type: 'DESTINATION', plannedAt: '2026-10-07 22:00' },
       ],
     }),
     history: [hist('2026-10-03 17:00', 'LOGISTICS_MANAGER', 'Duyệt khởi hành', 'TRP-903 sẵn sàng khởi hành 07/10 06:00')],
@@ -290,21 +281,16 @@ export const mockRequests: TransportRequest[] = [
     trip: trip('TRP-901', {
       status: 'IN_TRANSIT', mode: 'ROAD', plannedDepart: '2026-10-04 06:30', eta: '2026-10-05 18:00', etaOriginal: '2026-10-05 16:00',
       stops: [
-        { id: 's1', name: 'Saigon Riding Club', type: 'ORIGIN', country: 'VN', plannedAt: '2026-10-04 06:30', lat: 10.7769, lng: 106.7009 },
-        { id: 's2', name: 'Trạm dừng chân Trảng Bàng', type: 'REST_STOP', country: 'VN', plannedAt: '2026-10-04 08:00', lat: 11.0333, lng: 106.3500 },
-        { id: 's3', name: 'Cửa khẩu Quốc tế Mộc Bài', type: 'CHECKPOINT', country: 'VN', plannedAt: '2026-10-04 10:00', lat: 11.0650, lng: 106.1720, checkpointId: 102 },
-        { id: 's4', name: 'Cửa khẩu Bavet', type: 'CHECKPOINT', country: 'KH', plannedAt: '2026-10-04 11:00', lat: 11.0740, lng: 106.1600 },
-        { id: 's5', name: 'Trạm nghỉ Phnom Penh', type: 'REST_STOP', country: 'KH', plannedAt: '2026-10-04 18:00', lat: 11.5564, lng: 104.9282 },
-        { id: 's6', name: 'Cửa khẩu Poipet – Aranyaprathet', type: 'CHECKPOINT', country: 'TH', plannedAt: '2026-10-05 13:00', lat: 13.6550, lng: 102.5080 },
-        { id: 's7', name: 'Trạm nhiên liệu Sa Kaeo', type: 'FUEL_STOP', country: 'TH', plannedAt: '2026-10-05 15:00', lat: 13.8140, lng: 102.0720 },
-        { id: 's8', name: 'Bangkok Polo Club', type: 'DESTINATION', country: 'TH', plannedAt: '2026-10-06 16:00', lat: 13.7367, lng: 100.5420 },
+        { name: 'Saigon Riding Club', type: 'ORIGIN', plannedAt: '2026-10-04 06:30' },
+        { name: 'Cửa khẩu Mộc Bài', type: 'CHECKPOINT', plannedAt: '2026-10-04 09:30' },
+        { name: 'Trạm nghỉ Phnom Penh', type: 'REST_STOP', plannedAt: '2026-10-04 14:00' },
+        { name: 'Cửa khẩu Poipet', type: 'CHECKPOINT', plannedAt: '2026-10-05 08:00' },
+        { name: 'Bangkok Polo Club', type: 'DESTINATION', plannedAt: '2026-10-05 16:00' },
       ],
       milestones: [
         { type: 'DEPARTED', stopIndex: 0, at: '2026-10-04 06:40', by: 'Pham Van Duc' },
-        { type: 'ARRIVED_STOP', stopIndex: 1, at: '2026-10-04 08:10', by: 'Pham Van Duc' },
-        { type: 'LEFT_STOP', stopIndex: 1, at: '2026-10-04 08:40', by: 'Pham Van Duc' },
-        { type: 'ARRIVED_STOP', stopIndex: 2, at: '2026-10-04 10:00', by: 'Pham Van Duc', note: 'Đang làm thủ tục thông quan tại Mộc Bài' },
-        { type: 'LEFT_STOP', stopIndex: 2, at: '2026-10-04 11:10', by: 'Pham Van Duc' },
+        { type: 'ARRIVED_STOP', stopIndex: 1, at: '2026-10-04 10:00', by: 'Pham Van Duc', note: 'Đang làm thủ tục thông quan' },
+        { type: 'LEFT_STOP', stopIndex: 1, at: '2026-10-04 11:10', by: 'Pham Van Duc' },
       ],
       etaHistory: [{ at: '2026-10-04 11:15', from: '2026-10-05 16:00', to: '2026-10-05 18:00', reason: 'Thông quan tại Mộc Bài lâu hơn dự kiến' }],
     }),
@@ -321,10 +307,10 @@ export const mockRequests: TransportRequest[] = [
     trip: trip('TRP-880', {
       status: 'COMPLETED', mode: 'ROAD', plannedDepart: '2026-10-03 05:00', eta: '2026-10-04 09:00',
       stops: [
-        { id: 's1', name: 'Hanoi Equestrian Club', type: 'ORIGIN', country: 'VN', plannedAt: '2026-10-03 05:00', lat: 21.0285, lng: 105.8542 },
-        { id: 's2', name: 'Trạm nghỉ Vinh', type: 'REST_STOP', country: 'VN', plannedAt: '2026-10-03 11:00', lat: 18.6796, lng: 105.6813 },
-        { id: 's3', name: 'Trạm nghỉ Đà Nẵng', type: 'REST_STOP', country: 'VN', plannedAt: '2026-10-03 20:00', lat: 16.0544, lng: 108.2022 },
-        { id: 's4', name: 'Saigon Riding Club', type: 'DESTINATION', country: 'VN', plannedAt: '2026-10-04 09:00', lat: 10.7769, lng: 106.7009 },
+        { name: 'Hanoi Equestrian Club', type: 'ORIGIN', plannedAt: '2026-10-03 05:00' },
+        { name: 'Trạm nghỉ Vinh', type: 'REST_STOP', plannedAt: '2026-10-03 11:00' },
+        { name: 'Trạm nghỉ Đà Nẵng', type: 'REST_STOP', plannedAt: '2026-10-03 20:00' },
+        { name: 'Saigon Riding Club', type: 'DESTINATION', plannedAt: '2026-10-04 09:00' },
       ],
       milestones: [
         { type: 'DEPARTED', stopIndex: 0, at: '2026-10-03 05:10' },
@@ -359,10 +345,10 @@ export const mockRequests: TransportRequest[] = [
     trip: trip('TRP-720', {
       status: 'COMPLETED', mode: 'AIR', plannedDepart: '2026-08-15 06:00', eta: '2026-08-16 08:00',
       stops: [
-        { id: 's1', name: 'Royal Windsor Stables', type: 'ORIGIN', country: 'UK', plannedAt: '2026-08-15 06:00', lat: 51.4427, lng: -0.6380 },
-        { id: 's2', name: 'Sân bay London Heathrow', type: 'AIRPORT', country: 'UK', plannedAt: '2026-08-15 10:00', lat: 51.4700, lng: -0.4543 },
-        { id: 's3', name: 'Sân bay Dubai', type: 'AIRPORT', country: 'AE', plannedAt: '2026-08-15 22:00', lat: 25.2532, lng: 55.3657 },
-        { id: 's4', name: 'Dubai Equestrian Club', type: 'DESTINATION', country: 'AE', plannedAt: '2026-08-16 08:00', lat: 25.0410, lng: 55.3340 },
+        { name: 'Royal Windsor Stables', type: 'ORIGIN', plannedAt: '2026-08-15 06:00' },
+        { name: 'Sân bay London Heathrow', type: 'AIRPORT', plannedAt: '2026-08-15 10:00' },
+        { name: 'Sân bay Dubai', type: 'AIRPORT', plannedAt: '2026-08-15 22:00' },
+        { name: 'Dubai Equestrian Club', type: 'DESTINATION', plannedAt: '2026-08-16 08:00' },
       ],
       milestones: [
         { type: 'DEPARTED', stopIndex: 0, at: '2026-08-15 06:05' },

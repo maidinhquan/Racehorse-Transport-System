@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
+import { ThemeToggle } from '../../../../shared/components';
 import { useCustomer } from '../../hooks/useCustomer';
 import { fmtDateTime } from '../../hooks/customerRules';
 import './CustomerLayout.css';
@@ -108,7 +108,6 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children 
         <header className="cus-topbar">
           <h1>{title}</h1>
           <div className="cus-topbar__user">
-            <DemoDataToggle role="customer" />
             <ThemeToggle showLabel={false} />
 
             {/* Chuông thông báo */}

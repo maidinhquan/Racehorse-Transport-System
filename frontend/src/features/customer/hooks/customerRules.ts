@@ -28,14 +28,13 @@ import type {
 } from '../types';
 
 // ============================================================================
-// Đồng hồ demo: bắt đầu 04/10/2026 11:30 (giờ VN) rồi chạy theo thời gian thực.
+// Đồng hồ demo: chạy theo thời gian thực để tương thích hoàn toàn với Backend C#
 // Mọi thao tác mới (gửi đơn, phát hành hợp đồng, thanh toán, mốc hành trình…) dùng chung đồng hồ này.
 // ============================================================================
-export const DEMO_CLOCK_START = Date.UTC(2026, 9, 4, 4, 30);
-const CLOCK_T0 = Date.now();
+export const DEMO_CLOCK_START = Date.now();
 const VN_OFFSET = 7 * 3600000;
 
-export const clockMs = () => DEMO_CLOCK_START + (Date.now() - CLOCK_T0);
+export const clockMs = () => Date.now();
 const msToStamp = (ms: number) => new Date(ms + VN_OFFSET).toISOString().slice(0, 16).replace('T', ' ');
 export const nowStamp = () => msToStamp(clockMs());
 export const today = () => nowStamp().slice(0, 10);
@@ -49,7 +48,11 @@ export const addDays = (d: string, n: number) => msToStamp(stampToMs(d) + n * 86
 const pad = (n: number) => String(n).padStart(2, '0');
 export const fmtDate = (d?: string) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : '—');
 export const fmtDateTime = (s?: string) => (!s ? '—' : s.length <= 10 ? fmtDate(s) : `${fmtDate(s.slice(0, 10))} ${s.slice(11, 16)}`);
-export const fmtMoney = (n: number) => `$${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+export const fmtMoney = (n: number, currency = 'VND') =>
+  currency === 'USD'
+    ? `$${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+    : `${Number(n || 0).toLocaleString('vi-VN')} đ`;
+export const fmtVnd = (n: number) => `${Number(n || 0).toLocaleString('vi-VN')} đ`;
 
 /** "còn 21 giờ 30 phút" / "Đã hết hạn" */
 export function timeLeft(until?: string) {
@@ -153,22 +156,10 @@ export const FIELD_LABEL: Record<RequestField, string> = {
   route: 'Tuyến đường', date: 'Ngày vận chuyển', count: 'Số lượng ngựa', notes: 'Ghi chú chăm sóc',
 };
 export const STOP_LABEL: Record<StopType, string> = {
-  ORIGIN: 'Điểm nhận',
-  REST_STOP: 'Điểm nghỉ',
-  FUEL_STOP: 'Trạm tiếp nhiên liệu',
-  CHECKPOINT: 'Cửa khẩu',
-  AIRPORT: 'Sân bay',
-  QUARANTINE_STATION: 'Trạm kiểm dịch',
-  DESTINATION: 'Điểm giao',
+  ORIGIN: 'Điểm nhận', REST_STOP: 'Điểm nghỉ', CHECKPOINT: 'Cửa khẩu', AIRPORT: 'Sân bay', DESTINATION: 'Điểm giao',
 };
 export const STOP_COLOR: Record<StopType, string> = {
-  ORIGIN: '#0f172a',
-  REST_STOP: '#d97706',
-  FUEL_STOP: '#0284c7',
-  CHECKPOINT: '#dc2626',
-  AIRPORT: '#2563eb',
-  QUARANTINE_STATION: '#7c3aed',
-  DESTINATION: '#16a34a',
+  ORIGIN: '#0f172a', REST_STOP: '#d97706', CHECKPOINT: '#dc2626', AIRPORT: '#2563eb', DESTINATION: '#16a34a',
 };
 export const MILESTONE_LABEL: Record<MilestoneType, string> = {
   DEPARTED: 'Đã rời điểm nhận', ARRIVED_STOP: 'Đến điểm dừng', LEFT_STOP: 'Rời điểm dừng', ARRIVED_DESTINATION: 'Đến điểm giao',
@@ -259,10 +250,11 @@ export function contractItems(r: Pick<TransportRequest, 'origin' | 'destination'
 }
 export const sumItems = (items: ContractItem[]) => items.reduce((s, i) => s + i.amount, 0);
 
-export const curVersion = (r: TransportRequest): ContractVersion | undefined => r.versions[r.versions.length - 1];
-/** Trạng thái thực tế: phiên bản đã phát hành mà quá hạn chung thì hết hạn */
+export const curVersion = (r: TransportRequest): ContractVersion | undefined =>
+  r.versions && r.versions.length > 0 ? r.versions[r.versions.length - 1] : undefined;
+/** Trạng thái thực tế: tôn trọng trạng thái từ Backend */
 export function versionState(v: ContractVersion): ContractState {
-  if (v.state === 'ISSUED' && isPast(v.validUntil)) return 'EXPIRED';
+  if (v.state === 'EXPIRED') return 'EXPIRED';
   return v.state;
 }
 export const ctRef = (v: ContractVersion) => `${v.number} v${v.v}`;
@@ -271,11 +263,11 @@ export const depositAmount = (r: TransportRequest) => {
   return v ? Math.round((v.total * v.depositPct) / 100) : 0;
 };
 export const contractTotal = (r: TransportRequest) => curVersion(r)?.total ?? estimate(r.origin, r.destination, r.horseCount);
-export const signedVersion = (r: TransportRequest) => r.versions.find((v) => ['EFFECTIVE', 'FULFILLED'].includes(v.state));
+export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => ['EFFECTIVE', 'FULFILLED'].includes(v.state));
 export const isSigned = (r: TransportRequest) => !!signedVersion(r);
 
-export const depositPayments = (r: TransportRequest) => r.payments.filter((p) => p.type === 'DEPOSIT');
-export const balancePayments = (r: TransportRequest) => r.payments.filter((p) => p.type === 'BALANCE');
+export const depositPayments = (r: TransportRequest) => (r.payments || []).filter((p) => p.type === 'DEPOSIT');
+export const balancePayments = (r: TransportRequest) => (r.payments || []).filter((p) => p.type === 'BALANCE');
 const last = <T,>(list: T[]) => list[list.length - 1];
 
 /** QR đang xử lý nhưng đã quá 5 phút thì coi như thất bại */
@@ -347,7 +339,7 @@ export const HORSE_FILE_FIELD: Partial<Record<HorseDocKey, 'ownership' | 'valueP
 };
 
 export const docRecord = (r: TransportRequest, key: DocKey, scope: string): DocRecord | undefined =>
-  r.docs.find((d) => d.key === key && d.scope === scope);
+  (r.docs || []).find((d) => d.key === key && d.scope === scope);
 
 /** Giấy tờ chung của đơn (thư mời, đăng ký giải; ATA Carnet cho tuyến Việt Nam → Nhật Bản) */
 export function sharedDocItems(r: TransportRequest): DocItem[] {
@@ -395,9 +387,9 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
   ];
 }
 
-export const pickedHorses = (r: TransportRequest) => [...new Set(r.horses.filter(Boolean))];
-export const openSupplements = (r: TransportRequest) => r.supplements.filter((s) => s.status === 'OPEN');
-export const rejectedDocs = (r: TransportRequest) => r.docs.filter((d) => d.status === 'ACTION_REQUIRED');
+export const pickedHorses = (r: TransportRequest) => [...new Set((r.horses || []).filter(Boolean))];
+export const openSupplements = (r: TransportRequest) => (r.supplements || []).filter((s) => s.status === 'OPEN');
+export const rejectedDocs = (r: TransportRequest) => (r.docs || []).filter((d) => d.status === 'ACTION_REQUIRED');
 export const docsNeedingAction = (r: TransportRequest) => rejectedDocs(r).length + openSupplements(r).length;
 
 /** Mọi lỗi chặn gửi đơn, kèm bước wizard sửa được (0 = thông tin chuyến) */
@@ -425,71 +417,44 @@ export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[numbe
 // ============================================================================
 // Chuyến đi
 // ============================================================================
-const CITY_GEO: Record<string, { lat: number; lng: number; country: string }> = {
-  'Ho Chi Minh City': { lat: 10.7769, lng: 106.7009, country: 'VN' },
-  'Hanoi': { lat: 21.0285, lng: 105.8542, country: 'VN' },
-  'Da Nang': { lat: 16.0544, lng: 108.2022, country: 'VN' },
-  'Bangkok': { lat: 13.7367, lng: 100.5420, country: 'TH' },
-  'Tokyo': { lat: 35.6631, lng: 139.4828, country: 'JP' },
-  'Osaka': { lat: 34.6937, lng: 135.5023, country: 'JP' },
-  'Singapore': { lat: 1.3521, lng: 103.8198, country: 'SG' },
-  'London': { lat: 51.5074, lng: -0.1278, country: 'UK' },
-  'Dubai': { lat: 25.2048, lng: 55.2708, country: 'AE' },
-};
-
-const AIRPORT_GEO: Record<string, { lat: number; lng: number; name: string; country: string }> = {
-  'Ho Chi Minh City': { lat: 10.8188, lng: 106.6520, name: 'Sân bay Quốc tế Tân Sơn Nhất (SGN)', country: 'VN' },
-  'Hanoi': { lat: 21.2212, lng: 105.8072, name: 'Sân bay Quốc tế Nội Bài (HAN)', country: 'VN' },
-  'Da Nang': { lat: 16.0439, lng: 108.1994, name: 'Sân bay Quốc tế Đà Nẵng (DAD)', country: 'VN' },
-  'Bangkok': { lat: 13.6900, lng: 100.7501, name: 'Sân bay Suvarnabhumi (BKK)', country: 'TH' },
-  'Tokyo': { lat: 35.7720, lng: 140.3929, name: 'Sân bay Quốc tế Narita (NRT)', country: 'JP' },
-  'Osaka': { lat: 34.4347, lng: 135.2441, name: 'Sân bay Kansai (KIX)', country: 'JP' },
-  'Singapore': { lat: 1.3644, lng: 103.9915, name: 'Sân bay Changi (SIN)', country: 'SG' },
-  'London': { lat: 51.4700, lng: -0.4543, name: 'Sân bay London Heathrow (LHR)', country: 'UK' },
-  'Dubai': { lat: 25.2532, lng: 55.3657, name: 'Sân bay Quốc tế Dubai (DXB)', country: 'AE' },
-};
-
 export function tripTemplate(r: TransportRequest): Pick<Trip, 'mode' | 'stops' | 'plannedDepart' | 'eta'> {
   const intl = isInternational(r.origin, r.destination);
   const depart = `${r.date} 06:00`;
-  const origG = CITY_GEO[r.origin] || { lat: 10.7769, lng: 106.7009, country: 'VN' };
-  const destG = CITY_GEO[r.destination] || { lat: 21.0285, lng: 105.8542, country: 'VN' };
-  const origAir = AIRPORT_GEO[r.origin] || { lat: origG.lat + 0.05, lng: origG.lng + 0.05, name: `Sân bay ${shortCity(r.origin)}`, country: origG.country };
-  const destAir = AIRPORT_GEO[r.destination] || { lat: destG.lat + 0.05, lng: destG.lng + 0.05, name: `Sân bay ${shortCity(r.destination)}`, country: destG.country };
-
   const stops: TripStop[] = intl
     ? [
-      { id: 's1', name: r.pickup.name || r.origin, type: 'ORIGIN', country: origG.country, plannedAt: depart, lat: origG.lat, lng: origG.lng },
-      { id: 's2', name: origAir.name, type: 'AIRPORT', country: origAir.country, plannedAt: addHours(depart, 4), lat: origAir.lat, lng: origAir.lng },
-      { id: 's3', name: destAir.name, type: 'AIRPORT', country: destAir.country, plannedAt: addHours(depart, 14), lat: destAir.lat, lng: destAir.lng },
-      { id: 's4', name: `Trạm kiểm dịch ${shortCity(r.destination)}`, type: 'CHECKPOINT', country: destAir.country, plannedAt: addHours(depart, 18), lat: destAir.lat + 0.02, lng: destAir.lng + 0.02 },
-      { id: 's5', name: r.delivery.name || r.destination, type: 'DESTINATION', country: destG.country, plannedAt: addHours(depart, 24), lat: destG.lat, lng: destG.lng },
+      { name: r.pickup.name || r.origin, type: 'ORIGIN', plannedAt: depart },
+      { name: `Sân bay ${shortCity(r.origin)}`, type: 'AIRPORT', plannedAt: addHours(depart, 4) },
+      { name: `Sân bay ${shortCity(r.destination)}`, type: 'AIRPORT', plannedAt: addHours(depart, 14) },
+      { name: `Trạm kiểm dịch ${shortCity(r.destination)}`, type: 'CHECKPOINT', plannedAt: addHours(depart, 18) },
+      { name: r.delivery.name || r.destination, type: 'DESTINATION', plannedAt: addHours(depart, 24) },
     ]
     : [
-      { id: 's1', name: r.pickup.name || r.origin, type: 'ORIGIN', country: origG.country, plannedAt: depart, lat: origG.lat, lng: origG.lng },
-      { id: 's2', name: 'Trạm dừng chân giữa tuyến', type: 'REST_STOP', country: origG.country, plannedAt: addHours(depart, 6), lat: (origG.lat + destG.lat) / 2, lng: (origG.lng + destG.lng) / 2 },
-      { id: 's3', name: r.delivery.name || r.destination, type: 'DESTINATION', country: destG.country, plannedAt: addHours(depart, 14), lat: destG.lat, lng: destG.lng },
+      { name: r.pickup.name || r.origin, type: 'ORIGIN', plannedAt: depart },
+      { name: 'Trạm nghỉ giữa tuyến', type: 'REST_STOP', plannedAt: addHours(depart, 6) },
+      { name: r.delivery.name || r.destination, type: 'DESTINATION', plannedAt: addHours(depart, 14) },
     ];
   return { mode: intl ? 'AIR' : 'ROAD', stops, plannedDepart: depart, eta: stops[stops.length - 1].plannedAt };
 }
 
 /** Tóm tắt tiến độ theo mốc tổ xe xác nhận */
 export function tripSummary(t: Trip) {
-  const m = t.milestones[t.milestones.length - 1];
+  const milestones = t.milestones || [];
+  const stops = t.stops || [];
+  const m = milestones.length > 0 ? milestones[milestones.length - 1] : undefined;
   const at = m ? m.stopIndex : -1;
   // số điểm dừng đã có mốc xác nhận (điểm của mốc gần nhất và mọi điểm trước nó)
-  const done = t.status === 'COMPLETED' ? t.stops.length : at + 1;
-  const pct = t.stops.length ? Math.round((Math.min(done, t.stops.length) / t.stops.length) * 100) : 0;
-  const lastLabel = m ? `${MILESTONE_LABEL[m.type]} – ${t.stops[m.stopIndex]?.name ?? ''}` : '';
+  const done = t.status === 'COMPLETED' ? stops.length : at + 1;
+  const pct = stops.length ? Math.round((Math.min(done, stops.length) / stops.length) * 100) : 0;
+  const lastLabel = m ? `${MILESTONE_LABEL[m.type]} – ${stops[m.stopIndex]?.name ?? ''}` : '';
   return {
-    m, at, done: Math.min(done, t.stops.length), pct, lastLabel,
-    dep: t.milestones.find((x) => x.type === 'DEPARTED'),
-    arr: t.milestones.find((x) => x.type === 'ARRIVED_DESTINATION'),
+    m, at, done: Math.min(done, stops.length), pct, lastLabel,
+    dep: milestones.find((x) => x.type === 'DEPARTED'),
+    arr: milestones.find((x) => x.type === 'ARRIVED_DESTINATION'),
     adjusted: !!t.etaOriginal && t.etaOriginal !== t.eta,
   };
 }
 export const handoverState = (t?: Trip): 'PENDING' | 'COMPLETED' | null =>
-  !t ? null : t.handover ? 'COMPLETED' : t.milestones.some((m) => m.type === 'ARRIVED_DESTINATION') ? 'PENDING' : null;
+  !t ? null : t.handover ? 'COMPLETED' : (t.milestones || []).some((m) => m.type === 'ARRIVED_DESTINATION') ? 'PENDING' : null;
 
 // ============================================================================
 // Bàn giao, nghiệm thu, số dư, đóng yêu cầu
@@ -502,7 +467,7 @@ export function balanceState(r: TransportRequest): 'NONE' | 'PROCESSING' | 'VERI
   if (!p) return 'NONE';
   return p.status === 'SUCCESS' ? 'VERIFIED' : p.status === 'PROCESSING' ? 'PROCESSING' : 'FAILED';
 }
-export const openComplaints = (r: TransportRequest) => r.complaints.filter((c) => !['RESOLVED', 'CLOSED'].includes(c.status));
+export const openComplaints = (r: TransportRequest) => (r.complaints || []).filter((c) => !['RESOLVED', 'CLOSED'].includes(c.status));
 export const canComplain = (r: TransportRequest) => !!r.trip?.handover && ['DELIVERED'].includes(r.status);
 
 export function closureChecks(r: TransportRequest): Array<[string, boolean]> {

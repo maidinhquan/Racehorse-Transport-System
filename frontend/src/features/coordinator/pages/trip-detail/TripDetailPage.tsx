@@ -59,7 +59,7 @@ export const TripDetailPage: React.FC = () => {
           <div>
             <b>Chuyến chưa được Manager giao</b>
             Chỉ xem trước. Lập tuyến và phân công chính thức bắt đầu sau khi Manager xác nhận giao việc.
-            <div className="crd-btn-row crd-demo-action"><button type="button" className="crd-btn crd-btn--sm" onClick={() => actions.demoDeploy(trip.id)}>Demo: Manager giao chuyến</button></div>
+            <div className="crd-btn-row"><button type="button" className="crd-btn crd-btn--sm" onClick={() => actions.demoDeploy(trip.id)}>Demo: Manager giao chuyến</button></div>
           </div>
         </div>
       )}

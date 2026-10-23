@@ -1,5 +1,7 @@
 # API Contract – Hệ thống Quản lý Vận chuyển Ngựa đua (SWP391)
 
+> **Flow 1 — bộ contract tích hợp FE–BE (22/10/2026):** [Hướng dẫn và trạng thái implementation](API-Flow/FLOW1-INTEGRATION.md) · [Danh mục endpoint](API-Flow/flow1-endpoints.md) · [OpenAPI](API-Flow/flow1.openapi.json). Thiết kế `2.5.1-draft` bám theo [nghiệp vụ Flow 1 v2.5](API-Flow/FLOW1.md); chưa phải API đang chạy.
+
 ## 1. Tổng quan
 
 Bộ API Contract được tổ chức theo từng role nhằm thống nhất cách Frontend (FE) và Backend (BE) triển khai hệ thống.

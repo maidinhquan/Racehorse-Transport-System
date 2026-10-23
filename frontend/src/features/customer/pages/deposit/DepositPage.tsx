@@ -4,6 +4,7 @@ import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { Note } from '../../components/Common/Common';
 import { useClock, useCustomer } from '../../hooks/useCustomer';
+import { customerApi } from '../../api/customerApi';
 import {
   QR_MINUTES,
   canPayDeposit,
@@ -52,6 +53,7 @@ export const DepositPage: React.FC = () => {
   const { getRequest, actions } = useCustomer();
   const now = useClock(1000);
   const [session, setSession] = useState(() => ({ id: `${requestId}-QR-${Date.now()}`, expiresAtMs: clockMs() + QR_MINUTES * 60000 }));
+  const [vnpayLoading, setVnpayLoading] = useState(false);
   const r = getRequest(requestId);
   const v = r ? curVersion(r) : undefined;
 
@@ -89,6 +91,20 @@ export const DepositPage: React.FC = () => {
   const retry = () => setSession({ id: `${r.id}-QR-${Date.now()}`, expiresAtMs: clockMs() + QR_MINUTES * 60000 });
   const confirm = () => { const res = actions.confirmDepositTransfer(r.id, session.expiresAtMs); if (res.ok) back(); };
 
+  const handleVnpay = async () => {
+    const cId = v.contractId || r.versions?.[0]?.contractId || r.id;
+    setVnpayLoading(true);
+    sessionStorage.setItem('last_deposit_contract_id', cId);
+    sessionStorage.setItem('last_deposit_request_id', r.id);
+    const res = await customerApi.payDeposit(cId);
+    setVnpayLoading(false);
+    if (res.ok && res.paymentUrl) {
+      window.location.href = res.paymentUrl;
+    } else {
+      actions.showToast(res.message || 'Không thể tạo phiên thanh toán VNPay');
+    }
+  };
+
   return (
     <CustomerLayout title="Thanh toán cọc">
       <button type="button" className="cus-back" onClick={() => navigate(`/customer/requests/${r.id}/contract`)}><Icon name="back" />Quay lại {r.id}</button>
@@ -99,10 +115,10 @@ export const DepositPage: React.FC = () => {
 
       <div className="cus-card cus-deposit">
         <div className="cus-kv">
-          <div><span>Tổng giá trị hợp đồng</span><b>{fmtMoney(v.total)} USD</b></div>
+          <div><span>Tổng giá trị hợp đồng</span><b>{fmtMoney(v.total)}</b></div>
           <div><span>Tỷ lệ cọc</span><b>{v.depositPct}%</b></div>
-          <div><span>Số tiền cọc</span><b className="cus-orange cus-deposit__amount">{fmtMoney(amount)} USD</b></div>
-          <div><span>Số dư còn lại</span><b>{fmtMoney(v.total - amount)} USD</b></div>
+          <div><span>Số tiền cọc</span><b className="cus-orange cus-deposit__amount">{fmtMoney(amount)}</b></div>
+          <div><span>Số dư còn lại</span><b>{fmtMoney(v.total - amount)}</b></div>
         </div>
         <div className="cus-deposit__qr">
           <div className={`cus-deposit__code ${expired ? 'expired' : ''}`}><QrPattern seed={session.id} /></div>
@@ -111,18 +127,27 @@ export const DepositPage: React.FC = () => {
             <div className="cus-deposit__timer">Còn hiệu lực <b>{expired ? 'Đã hết hạn' : `${String(Math.floor(leftSec / 60)).padStart(2, '0')}:${String(leftSec % 60).padStart(2, '0')}`}</b></div>
             <div className="cus-summary" style={{ marginTop: 10 }}>
               <div><span>Người thụ hưởng</span><b>CBN Transport</b></div>
-              <div><span>Số tiền</span><b>{fmtMoney(amount)} USD</b></div>
+              <div><span>Số tiền</span><b>{fmtMoney(amount)}</b></div>
               <div><span>Nội dung chuyển khoản</span><b>{r.id}-DEPOSIT</b></div>
             </div>
             <p className="cus-muted" style={{ marginTop: 10 }}>Đây là mã QR minh họa, không chuyển tiền thật. Chỉ xác nhận thành công từ Sandbox mới được tính là đã thanh toán.</p>
           </div>
         </div>
         <Note tone="grey" title="Cách xác minh">Cổng thanh toán Sandbox kiểm tra và xác nhận giao dịch. Bấm nút không phải là xác minh. Nút ký OTP chỉ mở sau khi xác minh; ký OTP mới kích hoạt yêu cầu.</Note>
-        <div className="cus-btn-row" style={{ justifyContent: 'flex-end' }}>
+        <div className="cus-btn-row" style={{ justifyContent: 'flex-end', flexWrap: 'wrap', gap: 10 }}>
           <button type="button" className="cus-btn cus-btn--lg" onClick={back}>Để sau</button>
+          <button
+            type="button"
+            className="cus-btn cus-btn--lg"
+            style={{ background: '#005baa', color: '#fff' }}
+            disabled={vnpayLoading}
+            onClick={handleVnpay}
+          >
+            {vnpayLoading ? 'Đang tạo giao dịch...' : 'Thanh toán qua Cổng VNPay'}
+          </button>
           {expired
             ? <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={retry}>Thử lại – tạo QR mới</button>
-            : <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={confirm}>Tôi đã quét mã & thanh toán</button>}
+            : <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={confirm}>Tôi đã quét mã & thanh toán (Sandbox)</button>}
         </div>
       </div>
     </CustomerLayout>

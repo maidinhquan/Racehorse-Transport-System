@@ -6,6 +6,7 @@ import { Note } from '../../components/Common/Common';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useCustomer } from '../../hooks/useCustomer';
 import { cityLabel, ctRef, curVersion, fmtDateTime, versionState } from '../../hooks/customerRules';
+import { apiClient } from '../../../../shared/api/apiClient';
 import './ContractPages.css';
 
 /** Hợp đồng đầy đủ của một phiên bản (chỉ xem; phiên bản cũ không thể ký) */
@@ -21,6 +22,21 @@ export const ContractViewPage: React.FC = () => {
   }
   const current = v === curVersion(r), state = versionState(v);
 
+  const handleDownloadPdf = async () => {
+    if (v.contractId) {
+      try {
+        const res = await apiClient.get(`/customer/contracts/${v.contractId}/pdf`, { responseType: 'blob' });
+        const blob = new Blob([res.data], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        return;
+      } catch (err) {
+        console.warn('Lỗi tải PDF từ backend, chuyển sang in trình duyệt:', err);
+      }
+    }
+    window.print();
+  };
+
   return (
     <CustomerLayout title="Hợp đồng">
       <button type="button" className="cus-back" onClick={() => navigate(`/customer/requests/${r.id}/contract`)}><Icon name="back" />Hợp đồng & chi phí</button>
@@ -29,7 +45,7 @@ export const ContractViewPage: React.FC = () => {
           <h2 className="cus-title cus-detail__title">Hợp đồng dịch vụ {ctRef(v)} <TripStatusBadge kind="contract" status={state} /></h2>
           <p className="cus-subtitle">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)}</p>
         </div>
-        <button type="button" className="cus-btn" onClick={() => window.print()}><Icon name="file" />In / lưu PDF</button>
+        <button type="button" className="cus-btn" onClick={handleDownloadPdf}><Icon name="file" />Xem / Tải file PDF</button>
       </div>
       {!current && <Note tone="grey" title="Phiên bản cũ – chỉ xem">Phiên bản này đã được thay bằng {ctRef(curVersion(r)!)} và không thể ký.</Note>}
       {current && state === 'EXPIRED' && <Note tone="grey" title="Phiên bản đã hết hạn">Không thể ký nữa. Yêu cầu phiên bản cập nhật ở tab Hợp đồng & chi phí.</Note>}

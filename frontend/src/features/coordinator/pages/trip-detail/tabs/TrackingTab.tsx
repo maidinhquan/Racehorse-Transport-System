@@ -27,7 +27,7 @@ export const TrackingTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       <div className="crd-card">
         <h3 className="crd-card__title"><span>Theo dõi hành trình</span><TripStatusBadge status={trip.status} /></h3>
         <p className="crd-muted" style={{ marginTop: -6 }}>Vị trí dựa trên các mốc tổ xe xác nhận trên ứng dụng tài xế; không có GPS trực tiếp.</p>
-        <RouteMap stops={stops} current={cur} height={540} />
+        <RouteMap stops={stops} current={cur} height={300} />
         <div className="crd-track-stats">
           <div className="crd-stat"><span>Mốc gần nhất</span><b>{m ? milestoneText(trip, m) : 'Chưa xuất phát'}</b><small>{m ? fmtDateTime(m.at) : ''}</small></div>
           <div className="crd-stat"><span>Mốc kế tiếp</span><b>{n ? milestoneText(trip, n) : '—'}</b><small>{n && stops[n.stopIndex] ? `dự kiến ${fmtDateTime(stops[n.stopIndex].plannedAt)}` : ''}</small></div>

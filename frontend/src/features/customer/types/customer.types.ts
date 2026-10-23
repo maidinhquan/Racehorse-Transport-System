@@ -45,6 +45,8 @@ export interface Place {
   contact: string;
   phone: string;
   notes: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +64,7 @@ export interface HorsePassport {
 
 export interface Horse {
   id: string;
+  version?: string;
   name: string;
   breed: string;
   sex: HorseSex;
@@ -125,6 +128,9 @@ export interface DeadlineChange {
 export interface ContractVersion {
   v: number;
   number: string;
+  contractId?: string;
+  rowVersion?: string;
+  pdfSha256?: string;
   issuedAt: string;
   /** Hạn chung: thanh toán cọc + xác minh + ký OTP (24 giờ kể từ khi phát hành) */
   validUntil: string;
@@ -234,26 +240,14 @@ export interface CompanyDoc {
 // ---------------------------------------------------------------------------
 export type TripStatus = 'PLANNING' | 'READY_TO_DEPART' | 'IN_TRANSIT' | 'COMPLETED';
 export type TransportMode = 'ROAD' | 'AIR';
-export type StopType =
-  | 'ORIGIN'
-  | 'REST_STOP'
-  | 'FUEL_STOP'
-  | 'CHECKPOINT'
-  | 'AIRPORT'
-  | 'QUARANTINE_STATION'
-  | 'DESTINATION';
+export type StopType = 'ORIGIN' | 'REST_STOP' | 'CHECKPOINT' | 'AIRPORT' | 'DESTINATION';
 export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED_DESTINATION';
 export type HorseCondition = 'NORMAL' | 'MONITOR' | 'ABNORMAL';
 
 export interface TripStop {
-  id?: string;
   name: string;
   type: StopType;
   plannedAt: string;
-  country?: string;
-  lat?: number;
-  lng?: number;
-  checkpointId?: number;
 }
 
 export interface TripMilestone {
@@ -414,6 +408,24 @@ export interface ComplaintInput {
   title: string;
   type: ComplaintType;
   description: string;
+}
+
+export interface DemoEstimateInput {
+  origin: string;
+  destination: string;
+  horseCount: number;
+}
+
+export interface DemoEstimateResult {
+  estimatedPrice: number;
+  estimatedDeposit: number;
+  currency: string;
+  horseCount: number;
+  averageRoadKm: number;
+  days: number;
+  stableNights: number;
+  minimumInsuranceAssumed: boolean;
+  scope: string;
 }
 
 export interface ApiResponse<T> {

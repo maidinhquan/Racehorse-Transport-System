@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { DemoDataToggle, ThemeToggle } from '../../shared/components';
-import { useDemoMode } from '../../shared/context/DemoModeContext';
+import { ThemeToggle } from '../../shared/components';
 import './DriverDashboard.css';
 
 // ==========================================
@@ -159,7 +158,6 @@ const EscortView = () => (
 // ==========================================
 function DriverDashboard() {
   const [activeTab, setActiveTab] = useState('driver');
-  const { enabled: isDemoMode } = useDemoMode('driver');
 
   return (
     <div className="driver-layout">
@@ -199,7 +197,6 @@ function DriverDashboard() {
           <h2 className="top-bar-title">{activeTab === 'driver' ? 'Dashboard Tài xế' : 'Dashboard Hộ tống'}</h2>
           
           <div className="top-bar-right">
-            <DemoDataToggle role="driver" />
             <ThemeToggle showLabel={false} />
             <button className="notification-btn">
               🔔
@@ -218,15 +215,7 @@ function DriverDashboard() {
 
         {/* MAIN CONTENT AREA */}
         <main className="main-content">
-          {!isDemoMode ? (
-            <div style={{ padding: '48px 24px', textAlign: 'center', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', margin: '20px 0' }}>
-              <div style={{ fontSize: '36px', marginBottom: '12px' }}>🚚</div>
-              <h3 style={{ margin: '0 0 8px', fontSize: '18px', color: '#0f172a' }}>Chưa có chuyến đi nào được phân công</h3>
-              <p style={{ color: '#64748b', fontSize: '14px', maxWidth: '440px', margin: '0 auto 16px', lineHeight: 1.6 }}>
-                Dữ liệu mẫu đang tắt. Hãy bật nút <b>Dữ liệu mẫu</b> trên thanh tiêu đề để tải chuyến đi thử nghiệm TRP-2026 và thực hiện checklist vận hành.
-              </p>
-            </div>
-          ) : activeTab === 'driver' ? <DriverView /> : <EscortView />}
+          {activeTab === 'driver' ? <DriverView /> : <EscortView />}
         </main>
       </div>
     </div>

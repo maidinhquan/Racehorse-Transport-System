@@ -41,12 +41,10 @@ import type {
 } from '../types';
 
 // ============================================================================
-// Đồng hồ demo: bắt đầu 04/10/2026 11:30 (giờ VN) rồi chạy theo thời gian thực
+// Đồng hồ chạy theo thời gian thực (đồng bộ với Backend C#)
 // ============================================================================
-const DEMO_CLOCK_START = Date.UTC(2026, 9, 4, 4, 30);
-const CLOCK_T0 = Date.now();
 const VN_OFFSET = 7 * 3600000;
-export const clockMs = () => DEMO_CLOCK_START + (Date.now() - CLOCK_T0);
+export const clockMs = () => Date.now();
 const msToStamp = (ms: number) => new Date(ms + VN_OFFSET).toISOString().slice(0, 16).replace('T', ' ');
 export const nowStamp = () => msToStamp(clockMs());
 export const today = () => nowStamp().slice(0, 10);
@@ -57,7 +55,13 @@ export const isPast = (s?: string) => !!s && stampToMs(s) < clockMs();
 export const daysUntil = (d: string) => Math.round((stampToMs(d.slice(0, 10)) - stampToMs(today())) / 86400000);
 export const fmtDate = (d?: string) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : '—');
 export const fmtDateTime = (s?: string) => (!s ? '—' : s.length <= 10 ? fmtDate(s) : `${fmtDate(s.slice(0, 10))} ${s.slice(11, 16)}`);
-export const fmtMoney = (n: number) => `${Math.round(n).toLocaleString('en-US')} USD`;
+export const fmtMoney = (n: number, currency?: string) => {
+  const curr = currency || (Math.abs(n) >= 100000 ? 'VND' : 'USD');
+  if (curr === 'VND') {
+    return `${Math.round(n).toLocaleString('vi-VN')} VND`;
+  }
+  return `${Math.round(n).toLocaleString('en-US')} USD`;
+};
 const pad = (n: number) => String(n).padStart(2, '0');
 /** 'dd/mm/yyyy' → 'yyyy-mm-dd' ('' nếu không hợp lệ) */
 export function parseViDate(text: string) {
@@ -118,7 +122,11 @@ export const COMPLAINT_STATUS_LABEL: Record<ComplaintStatus, string> = {
 export const COMPLAINT_TYPE_LABEL: Record<ComplaintType, string> = { HORSE_CONDITION: 'Tình trạng ngựa', DELAY: 'Chậm trễ', SERVICE: 'Chất lượng dịch vụ', BILLING: 'Thanh toán' };
 export const DOSSIER_LABEL: Record<DossierStatus, string> = { APPROVED: 'Đã duyệt', PENDING_REVIEW: 'Chờ Specialist duyệt', ACTION_REQUIRED: 'Cần nộp lại', MISSING: 'Chưa nộp' };
 export const BUDGET_LABEL: Record<BudgetKey, string> = {
-  TRANSPORT: 'Cước xe / hàng không', PROCEDURE: 'Thủ tục & giấy phép', VET: 'Bác sĩ thú y', INSURANCE: 'Bảo hiểm', STAFF: 'Nhân sự tổ xe', FUEL: 'Nhiên liệu & phí đường',
+  TRANSPORT: 'Phí vận chuyển',
+  PROCEDURE: 'Thủ tục & giấy phép',
+  VET: 'Bác sĩ thú y',
+  INSURANCE: 'Bảo hiểm',
+  STAFF: 'Nhân sự tổ xe',
 };
 export const ACTUAL_LABEL: Record<ActualKey, string> = {
   TRANSPORT: 'Cước xe / hàng không', PROCEDURE: 'Thủ tục & giấy phép', VET: 'Bác sĩ thú y', INSURANCE: 'Bảo hiểm', STAFF: 'Nhân sự tổ xe', FUEL: 'Nhiên liệu & phí đường',
@@ -180,43 +188,115 @@ export function versionState(v: ContractVersion): ContractState {
 }
 export const ctRef = (v: Pick<ContractVersion, 'number' | 'v'>) => `${v.number} v${v.v}`;
 export const sumItems = (items: ContractItem[]) => items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
-export const sumBudget = (b: Budget) => Object.values(b).reduce((s, x) => s + (Number(x) || 0), 0);
+export const sumBudget = (b: Budget) =>
+  (Number(b.TRANSPORT) || 0) +
+  (Number(b.PROCEDURE) || 0) +
+  (Number(b.VET) || 0) +
+  (Number(b.INSURANCE) || 0) +
+  (Number(b.STAFF) || 0) +
+  (Number(b.FUEL) || 0);
 export const floorPrice = (b: Budget) => Math.ceil(sumBudget(b) * MARGIN_FLOOR);
 export const depositOf = (r: TransportRequest) => { const v = curVersion(r); return v ? Math.round((v.total * v.depositPct) / 100) : 0; };
 export const totalOf = (r: TransportRequest) => curVersion(r)?.total ?? 0;
 export const isSigned = (r: TransportRequest) => r.versions.some((v) => !!v.signedAt);
 
 export function defaultItems(r: Pick<TransportRequest, 'origin' | 'destination' | 'horses'>): ContractItem[] {
-  const intl = isInternational(r.origin, r.destination), n = Math.max(1, r.horses.length);
+  const intl = isInternational(r.origin, r.destination);
   return [
-    { desc: intl ? 'Cước vận chuyển hàng không & đường bộ' : 'Cước vận chuyển đường bộ', amount: (intl ? 1300 : 420) * n, required: true },
-    { desc: intl ? 'Thủ tục xuất nhập khẩu & kiểm dịch' : 'Giấy phép vận chuyển nội địa', amount: intl ? 320 : 80, required: true },
-    { desc: 'Bác sĩ thú y đi kèm', amount: 150 },
-    { desc: 'Bảo hiểm vận chuyển', amount: 90 * n },
+    { desc: intl ? 'Cước vận chuyển hàng không & đường bộ' : 'Cước vận chuyển đường bộ', amount: 0, required: true },
+    { desc: intl ? 'Thủ tục xuất nhập khẩu & kiểm dịch' : 'Giấy phép vận chuyển nội địa', amount: 0, required: true },
+    { desc: 'Bác sĩ thú y đi kèm', amount: 0 },
+    { desc: 'Bảo hiểm vận chuyển', amount: 0 },
   ];
 }
 export function defaultBudget(r: Pick<TransportRequest, 'origin' | 'destination' | 'horses'>): Budget {
   const intl = isInternational(r.origin, r.destination), n = Math.max(1, r.horses.length);
+  // Quy đổi chuẩn định mức VND (đồng bộ Backend C#)
   return intl
-    ? { TRANSPORT: 950 * n, PROCEDURE: 220, VET: 110, INSURANCE: 70 * n, STAFF: 120, FUEL: 60 }
-    : { TRANSPORT: 180 * n, PROCEDURE: 50, VET: 100, INSURANCE: 70 * n, STAFF: 90, FUEL: 70 };
+    ? {
+        TRANSPORT: 50_500_000 * n,
+        PROCEDURE: 6_000_000,
+        VET: 2_400_000,
+        INSURANCE: 2_000_000 * n,
+        STAFF: 1_800_000,
+      }
+    : {
+        TRANSPORT: 39_500_000 * n,
+        PROCEDURE: 6_000_000,
+        VET: 2_400_000,
+        INSURANCE: 2_000_000 * n,
+        STAFF: 1_800_000,
+      };
 }
 export const defaultMode = (r: Pick<TransportRequest, 'origin' | 'destination'>): TransportMode =>
   isInternational(r.origin, r.destination) && !['Bangkok'].includes(r.destination) ? 'AIR' : 'ROAD';
 
 /** Bản nháp ban đầu: bản đã lưu → phiên bản hiện hành → mặc định */
 export function initialDraft(r: TransportRequest): ContractDraft {
-  if (r.draft) return JSON.parse(JSON.stringify(r.draft)) as ContractDraft;
+  if (r.draft) {
+    const d = JSON.parse(JSON.stringify(r.draft)) as ContractDraft;
+    if (d.budget && (d.budget as any).FUEL) {
+      d.budget.TRANSPORT = (d.budget.TRANSPORT || 0) + (d.budget as any).FUEL;
+      delete (d.budget as any).FUEL;
+    }
+    if (d.budget && sumBudget(d.budget) < 100000) {
+      d.budget = defaultBudget(r);
+    }
+    return d;
+  }
   const v = curVersion(r);
   if (v) {
+    const b = { ...v.budget };
+    if ((b as any).FUEL) {
+      b.TRANSPORT = (b.TRANSPORT || 0) + ((b as any).FUEL as number);
+      delete (b as any).FUEL;
+    }
+    if (sumBudget(b) < 100000) {
+      const fresh = defaultBudget(r);
+      b.TRANSPORT = fresh.TRANSPORT;
+      b.PROCEDURE = fresh.PROCEDURE;
+      b.VET = fresh.VET;
+      b.INSURANCE = fresh.INSURANCE;
+      b.STAFF = fresh.STAFF;
+    }
+    const mode = v.mode || defaultMode(r);
+    const minPrep = mode === 'AIR' ? 7 : 2;
+    const minDepartDate = addDays(today(), minPrep + 1);
+
+    let departAt = v.departAt || `${r.date || minDepartDate} 06:00`;
+    if (departAt.slice(0, 10) < minDepartDate) {
+      departAt = `${minDepartDate} 08:00`;
+    }
+    let arriveAt = v.arriveAt || `${mode === 'AIR' ? addDays(departAt.slice(0, 10), 1) : departAt.slice(0, 10)} ${mode === 'AIR' ? '18:00' : '20:00'}`;
+    if (arriveAt <= departAt) {
+      arriveAt = `${addDays(departAt.slice(0, 10), mode === 'AIR' ? 1 : 2)} 18:00`;
+    }
+
+    const items = (v.items && v.items.length > 0) ? v.items.map((i) => ({ ...i })) : defaultItems(r);
+    const terms = (v.terms && v.terms.length > 0) ? v.terms.map((t) => ({ ...t })) : DEFAULT_TERMS.map((t) => ({ ...t }));
+
     return {
-      mode: v.mode, departAt: v.departAt, arriveAt: v.arriveAt, budget: { ...v.budget }, items: v.items.map((i) => ({ ...i })),
-      depositPct: v.depositPct, note: v.note ?? '', exception: v.exception ?? '', terms: v.terms.map((t) => ({ ...t })),
+      mode,
+      departAt,
+      arriveAt,
+      budget: b,
+      items,
+      depositPct: v.depositPct || DEPOSIT_PCT,
+      note: v.note ?? '',
+      exception: v.exception ?? '',
+      terms,
     };
   }
   const mode = defaultMode(r);
+  const minPrep = mode === 'AIR' ? 7 : 2;
+  const minDepartDate = addDays(today(), minPrep + 1);
+  let departAt = `${r.date || minDepartDate} 06:00`;
+  if (departAt.slice(0, 10) < minDepartDate) {
+    departAt = `${minDepartDate} 08:00`;
+  }
+  let arriveAt = `${mode === 'AIR' ? addDays(departAt.slice(0, 10), 1) : departAt.slice(0, 10)} ${mode === 'AIR' ? '18:00' : '20:00'}`;
   return {
-    mode, departAt: `${r.date} 06:00`, arriveAt: `${mode === 'AIR' ? addDays(r.date, 1) : r.date} ${mode === 'AIR' ? '06:00' : '20:00'}`,
+    mode, departAt, arriveAt,
     budget: defaultBudget(r), items: defaultItems(r), depositPct: DEPOSIT_PCT, note: '', exception: '', terms: DEFAULT_TERMS.map((t) => ({ ...t })),
   };
 }
@@ -225,6 +305,13 @@ export function initialDraft(r: TransportRequest): ContractDraft {
 export function draftError(d: ContractDraft): string {
   if (!d.departAt || !d.arriveAt) return 'Nhập ngày giờ khởi hành và đến dự kiến (Bước 1).';
   if (d.arriveAt <= d.departAt) return 'Thời gian đến phải sau thời gian khởi hành (Bước 1).';
+
+  const minPrep = d.mode === 'AIR' ? 7 : 2;
+  const minDepartDate = addDays(today(), minPrep + 1);
+  if (d.departAt.slice(0, 10) < minDepartDate) {
+    return `Bước 1: Phương thức ${d.mode === 'AIR' ? 'hàng không (AIR)' : 'đường bộ'} yêu cầu tối thiểu ${minPrep} ngày chuẩn bị và 24 giờ ký hợp đồng. Ngày khởi hành sớm nhất phải từ ${fmtDate(minDepartDate)}.`;
+  }
+
   if (!d.budget.VET || !d.budget.INSURANCE) return 'Dự toán nội bộ phải có chi phí bác sĩ thú y và bảo hiểm (Bước 2).';
   if (d.items.some((i) => i.required && !(Number(i.amount) > 0))) return 'Các khoản bắt buộc trong bảng giá phải lớn hơn 0 (Bước 2).';
   if (d.items.some((i) => Number(i.amount) < 0)) return 'Giá các khoản mục không được âm (Bước 2).';

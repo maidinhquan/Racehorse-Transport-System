@@ -1,0 +1,432 @@
+[
+  {
+    "role": "customer",
+    "fn": "getProfile",
+    "method": "get",
+    "path": "/customer/profile",
+    "input": null,
+    "result": "customer.CustomerProfile",
+    "description": "Thông tin để prefill liên hệ.",
+    "group": "Bootstrap"
+  },
+  {
+    "role": "customer",
+    "fn": "getNotifications",
+    "method": "get",
+    "path": "/customer/notifications",
+    "input": null,
+    "result": "customer.CustomerNotification[]",
+    "description": "Thông báo trong layout.",
+    "group": "Bootstrap"
+  },
+  {
+    "role": "customer",
+    "fn": "getHorses",
+    "method": "get",
+    "path": "/customer/horses",
+    "input": null,
+    "result": "customer.Horse[]",
+    "description": "Ngựa đầy đủ, gồm file metadata và thông tin hộ chiếu.",
+    "group": "Bootstrap"
+  },
+  {
+    "role": "customer",
+    "fn": "createHorse",
+    "method": "post",
+    "path": "/customer/horses",
+    "input": "customer.HorseInput",
+    "result": "customer.Horse",
+    "description": "FE gửi HorseInput JSON, chưa upload bytes. Backend trả ID được cấp; FE hiện bỏ response data.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "updateHorse",
+    "method": "put",
+    "path": "/customer/horses/{id}",
+    "input": "customer.HorseInput",
+    "result": "customer.Horse",
+    "description": "Cập nhật hồ sơ theo id ngựa. Giữ kiểm tra quyền và field bị khóa.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "getRequests",
+    "method": "get",
+    "path": "/customer/transport-requests",
+    "input": null,
+    "result": "customer.TransportRequest[]",
+    "description": "Trả mảng aggregate đầy đủ, không pagination wrapper.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "getRequest",
+    "method": "get",
+    "path": "/customer/transport-requests/{id}",
+    "input": null,
+    "result": "customer.TransportRequest",
+    "description": "Chi tiết theo request id; client có hàm, page hiện chủ yếu đọc list store.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "createRequest",
+    "method": "post",
+    "path": "/customer/transport-requests",
+    "input": "customer.TransportRequest",
+    "result": "customer.TransportRequest",
+    "description": "Tạo DRAFT ngay từ bước thông tin chuyến; body chứa id tạm FE. Không coi trường trạng thái/tài chính do FE gửi là quyền cập nhật.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "saveRequest",
+    "method": "put",
+    "path": "/customer/transport-requests/{id}",
+    "input": "customer.TransportRequest",
+    "result": "customer.TransportRequest",
+    "description": "FE gửi toàn bộ aggregate sau nhiều thao tác. BE chỉ áp field thuộc Customer được phép sửa, không ghi đè versions/payments/trip/history/status/owner.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "submitRequest",
+    "method": "post",
+    "path": "/customer/transport-requests/{id}/submit",
+    "input": null,
+    "result": "customer.TransportRequest",
+    "description": "DRAFT hoặc CHANGES_REQUESTED → PENDING_REVIEW sau validate; body không có.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "cancelRequest",
+    "method": "post",
+    "path": "/customer/transport-requests/{id}/cancel",
+    "input": "ReasonInput",
+    "result": "customer.TransportRequest",
+    "description": "Trước kích hoạt: chưa có tiền → CANCELLED; có tiền chờ/đã xác minh → CANCELLATION_REQUESTED để Manager đối soát.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "uploadDocument",
+    "method": "post",
+    "path": "/customer/transport-requests/{id}/documents",
+    "input": "DocumentMetadataInput",
+    "result": null,
+    "description": "Chỉ đăng ký metadata key/scope/fileName, không phải upload file. Không đánh dấu tài liệu hợp lệ nếu chưa có bytes.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "acceptTerms",
+    "method": "post",
+    "path": "/customer/transport-requests/{id}/contract/accept-terms",
+    "input": null,
+    "result": "customer.TransportRequest",
+    "description": "Phiên bản ISSUED còn hạn → lưu termsAcceptedAt. FE tiếp tục sang đặt cọc.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "requestContractChange",
+    "method": "post",
+    "path": "/customer/transport-requests/{id}/contract/change-requests",
+    "input": "customer.ContractChangeInput",
+    "result": "customer.TransportRequest",
+    "description": "Chưa ký/chưa có tiền; lưu change, Contract CHANGES_REQUESTED, Request CONTRACT_CHANGES_REQUESTED.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "sendSignOtp",
+    "method": "post",
+    "path": "/customer/transport-requests/{id}/contract/otp",
+    "input": null,
+    "result": null,
+    "description": "Chỉ sau DEPOSIT_VERIFIED. BE phát OTP thật; không lấy mã cố định demo làm secret hợp lệ. FE hiện chưa dùng TTL/sentTo response.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "signContract",
+    "method": "post",
+    "path": "/customer/transport-requests/{id}/contract/sign",
+    "input": "SignInput",
+    "result": "customer.TransportRequest",
+    "description": "Theo flow FE: sau cọc VERIFIED, OTP hợp lệ → Contract EFFECTIVE, Request ACTIVATED, một Trip PLANNING. BE thực hiện atomic; FE tự tạo Trip hiện chỉ là mô phỏng.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "customer",
+    "fn": "payDeposit",
+    "method": "post",
+    "path": "/customer/transport-requests/{id}/payments/deposit",
+    "input": null,
+    "result": "customer.Payment",
+    "description": "Không body. BE lấy khoản cọc theo hợp đồng hiện hành đã accept terms; chỉ tạo PROCESSING, không tự SUCCESS. FE hiện chỉ có QR minh họa và không dùng paymentUrl.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "getCustomers",
+    "method": "get",
+    "path": "/manager/customers",
+    "input": null,
+    "result": "manager.CustomerInfo[]",
+    "description": "Tra Customer bằng customerId khi hiển thị Request.",
+    "group": "Bootstrap"
+  },
+  {
+    "role": "manager",
+    "fn": "getHorses",
+    "method": "get",
+    "path": "/manager/horses",
+    "input": null,
+    "result": "manager.HorseRef[]",
+    "description": "Tên, breed, microchip, passportNo.",
+    "group": "Bootstrap"
+  },
+  {
+    "role": "manager",
+    "fn": "getStaff",
+    "method": "get",
+    "path": "/manager/staff",
+    "input": null,
+    "result": "manager.Staff[]",
+    "description": "Danh mục Specialist/Coordinator với load để modal phân công.",
+    "group": "Bootstrap"
+  },
+  {
+    "role": "manager",
+    "fn": "getRequests",
+    "method": "get",
+    "path": "/manager/requests",
+    "input": null,
+    "result": "manager.TransportRequest[]",
+    "description": "Aggregate Manager có customerId/draft/dossier/versions/history. Khác projection Customer.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "getTrips",
+    "method": "get",
+    "path": "/manager/trips",
+    "input": null,
+    "result": "manager.Trip[]",
+    "description": "Cần cho trang chuyến và liên kết Request→Trip; trường Flow sau trả đúng kiểu khi chưa có dữ liệu.",
+    "group": "Bootstrap"
+  },
+  {
+    "role": "manager",
+    "fn": "getTransactions",
+    "method": "get",
+    "path": "/manager/transactions",
+    "input": null,
+    "result": "manager.Transaction[]",
+    "description": "FE lọc cọc/số dư/hoàn tiền ở client. Trả mảng; không chỉ pending.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "getNotifications",
+    "method": "get",
+    "path": "/manager/notifications",
+    "input": null,
+    "result": "manager.ManagerNotification[]",
+    "description": "Thông báo layout Manager.",
+    "group": "Bootstrap"
+  },
+  {
+    "role": "manager",
+    "fn": "getIncidents",
+    "method": "get",
+    "path": "/manager/incidents",
+    "input": null,
+    "result": "manager.Incident[]",
+    "description": "loadAll hiện luôn gọi, dù chưa vào màn hình sự cố. Có thể trả mảng rỗng thật khi chưa có dữ liệu.",
+    "group": "Bootstrap ngoài Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "getComplaints",
+    "method": "get",
+    "path": "/manager/complaints",
+    "input": null,
+    "result": "manager.Complaint[]",
+    "description": "Dependency loadAll và tab/detail; hành vi giải quyết thuộc flow sau.",
+    "group": "Bootstrap ngoài Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "getActualCosts",
+    "method": "get",
+    "path": "/manager/actual-costs",
+    "input": null,
+    "result": "manager.ActualCost[]",
+    "description": "Dependency loadAll; CRUD chi phí không thuộc contract Flow 1 này.",
+    "group": "Bootstrap ngoài Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "acceptRequest",
+    "method": "post",
+    "path": "/manager/requests/{id}/accept",
+    "input": null,
+    "result": "manager.TransportRequest",
+    "description": "PENDING_REVIEW → CONTRACT_PREPARATION.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "requestRevision",
+    "method": "post",
+    "path": "/manager/requests/{id}/request-revision",
+    "input": "RevisionInput",
+    "result": "manager.TransportRequest",
+    "description": "PENDING_REVIEW → CHANGES_REQUESTED. Body feedback/fields theo FE.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "rejectRequest",
+    "method": "post",
+    "path": "/manager/requests/{id}/reject",
+    "input": "ReasonInput",
+    "result": "manager.TransportRequest",
+    "description": "PENDING_REVIEW hoặc CHANGES_REQUESTED → REJECTED; không đòi reasonGroup vì FE không gửi.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "cancelRequest",
+    "method": "post",
+    "path": "/manager/requests/{id}/cancel",
+    "input": "ReasonInput",
+    "result": "manager.TransportRequest",
+    "description": "Hủy trước ký/activation theo guard; đối soát giao dịch và nghĩa vụ hoàn tiền nếu có, không xóa audit.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "decideCancellation",
+    "method": "post",
+    "path": "/manager/requests/{id}/cancellation",
+    "input": "CancellationDecisionInput",
+    "result": "manager.TransportRequest",
+    "description": "CANCELLATION_REQUESTED; approve hoặc trả prevStatus khi từ chối.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "saveContractDraft",
+    "method": "put",
+    "path": "/manager/requests/{id}/contract/draft",
+    "input": "manager.ContractDraft",
+    "result": "manager.ContractDraft",
+    "description": "Lưu draft gộp kế hoạch/giá/điều khoản theo editor FE, chưa phát hành.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "issueContract",
+    "method": "post",
+    "path": "/manager/requests/{id}/contract/issue",
+    "input": "manager.ContractDraft",
+    "result": "manager.ContractVersion",
+    "description": "Phát hành version mới ISSUED, Request CONTRACT_READY; BE tính lại total, floor policy; theo FE hạn minh họa +24 giờ.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "respondContractChange",
+    "method": "post",
+    "path": "/manager/requests/{id}/contract/change-response",
+    "input": "ContractResponseInput",
+    "result": "manager.TransportRequest",
+    "description": "KEPT: giữ version và gia hạn theo FE; RETURNED: CHANGES_REQUESTED. REVISED đi qua issueContract, không gửi trong endpoint này.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "extendContract",
+    "method": "post",
+    "path": "/manager/requests/{id}/contract/extend",
+    "input": null,
+    "result": "manager.ContractVersion",
+    "description": "Không body; theo FE gia hạn thêm 24 giờ trên max(hạn hiện tại,now), chỉ chưa ký.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "remindSign",
+    "method": "post",
+    "path": "/manager/requests/{id}/contract/remind",
+    "input": null,
+    "result": null,
+    "description": "Gửi nhắc cọc/ký, có audit và giới hạn tần suất; FE không gửi địa chỉ email tùy ý.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "verifyTransaction",
+    "method": "post",
+    "path": "/manager/transactions/{id}/verify",
+    "input": null,
+    "result": "manager.Transaction",
+    "description": "Không body. Chỉ BANK_TRANSFER pending, sau đối soát thực nhận từ nguồn tin cậy. Đủ cọc: Request DEPOSIT_VERIFIED, chưa tạo Trip. UI hiện chưa thu reference/amount/time đối soát.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "rejectTransaction",
+    "method": "post",
+    "path": "/manager/transactions/{id}/reject",
+    "input": "ReasonInput",
+    "result": "manager.Transaction",
+    "description": "Từ chối giao dịch chờ, lưu rejectReason; không tự xóa tiền đã xác minh.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "confirmRefund",
+    "method": "post",
+    "path": "/manager/transactions/{id}/refund-paid",
+    "input": null,
+    "result": "manager.Transaction",
+    "description": "Phụ thuộc nhánh hủy; không body. Chỉ ghi SUCCESS sau đã kiểm tra hoàn tiền thực tế.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "deployTrip",
+    "method": "post",
+    "path": "/manager/trips/{id}/deployment",
+    "input": "DeploymentInput",
+    "result": "manager.Trip",
+    "description": "Trip PLANNING + NOT_CONFIRMED; lưu Specialist/Coordinator, trạng thái CONFIRMED, tăng workload và tạo task.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "holdTrip",
+    "method": "post",
+    "path": "/manager/trips/{id}/hold",
+    "input": "ReasonInput",
+    "result": "manager.Trip",
+    "description": "Theo guard FE chỉ PLANNING; deployment ON_HOLD, lưu holdReason.",
+    "group": "Flow 1"
+  },
+  {
+    "role": "manager",
+    "fn": "resumeTrip",
+    "method": "post",
+    "path": "/manager/trips/{id}/resume",
+    "input": null,
+    "result": "manager.Trip",
+    "description": "ON_HOLD → CONFIRMED nếu đủ hai người phụ trách, ngược lại NOT_CONFIRMED.",
+    "group": "Flow 1"
+  }
+]

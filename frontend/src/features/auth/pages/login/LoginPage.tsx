@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 
@@ -12,6 +12,7 @@ import "./LoginPage.css";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,9 +23,12 @@ function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const redirectByRole = (role: UserRole) => {
+    const fromPath = (location.state as any)?.from?.pathname;
+    const hasQuote = Boolean(sessionStorage.getItem('preliminaryQuote'));
+
     switch (role) {
       case "CUSTOMER":
-        navigate("/customer/home");
+        navigate(fromPath || (hasQuote ? "/customer/create-request" : "/customer/home"));
         break;
 
       case "LOGISTICS_MANAGER":
@@ -54,11 +58,15 @@ function LoginPage() {
   const saveLoginData = (
     accessToken: string,
     role: UserRole,
-    fullName: string
+    fullName: string,
+    email?: string
   ) => {
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("userRole", role);
     localStorage.setItem("userFullName", fullName);
+    if (email) {
+      localStorage.setItem("userEmail", email);
+    }
   };
 
   const handleQuickLogin = async (
@@ -84,7 +92,8 @@ function LoginPage() {
       saveLoginData(
         response.data.accessToken,
         response.data.role,
-        response.data.fullName
+        response.data.fullName,
+        response.data.email || demoEmail
       );
 
       redirectByRole(response.data.role);
@@ -126,7 +135,8 @@ function LoginPage() {
       saveLoginData(
         response.data.accessToken,
         response.data.role,
-        response.data.fullName
+        response.data.fullName,
+        response.data.email || email
       );
 
       redirectByRole(response.data.role);
@@ -174,7 +184,8 @@ function LoginPage() {
       saveLoginData(
         response.data.accessToken,
         response.data.role,
-        response.data.fullName
+        response.data.fullName,
+        response.data.email
       );
 
       redirectByRole(response.data.role);

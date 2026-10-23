@@ -1,11 +1,8 @@
 import { useState } from 'react';
 import { BrandLogo } from '../../../../shared/components/brand-logo/BrandLogo';
-import { DemoDataToggle } from '../../../../shared/components';
-import { useDemoMode } from '../../../../shared/context/DemoModeContext';
 import './DriverPortal.css';
 
 export const DriverPortal = () => {
-  const { enabled: isDemoMode } = useDemoMode('driver');
   const [activeTab, setActiveTab] = useState<'milestones' | 'health' | 'handover'>('milestones');
 
   const [segments, setSegments] = useState([
@@ -49,55 +46,42 @@ export const DriverPortal = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <BrandLogo compact />
           <div>
-            <h1 className="driver-trip-code">Chuyến: {isDemoMode ? 'TRP-2026' : '---'}</h1>
+            <h1 className="driver-trip-code">Chuyến: TRP-2026</h1>
             <p className="driver-trip-sub">Tài xế: Nguyễn Thanh Quốc Linh</p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <DemoDataToggle role="driver" compact />
-          <button
-            type="button"
-            className="btn-sos"
-            onClick={() => alert('Đã gửi cảnh báo SOS khẩn cấp kèm tọa độ về Trung tâm!')}
-          >
-            🚨 SOS
-          </button>
-        </div>
+        <button
+          type="button"
+          className="btn-sos"
+          onClick={() => alert('Đã gửi cảnh báo SOS khẩn cấp kèm tọa độ về Trung tâm!')}
+        >
+          🚨 SOS
+        </button>
       </header>
 
-      {!isDemoMode ? (
-        <div style={{ padding: '48px 20px', textAlign: 'center', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', margin: '20px 16px' }}>
-          <div style={{ fontSize: '36px', marginBottom: '12px' }}>🚚</div>
-          <h3 style={{ margin: '0 0 8px', fontSize: '16px', color: '#0f172a' }}>Chưa có chuyến đi nào được phân công</h3>
-          <p style={{ color: '#64748b', fontSize: '13px', margin: '0 auto', lineHeight: 1.5 }}>
-            Dữ liệu mẫu đang tắt. Hãy bật nút <b>Dữ liệu mẫu</b> ở góc trên để tải chuyến đi thử nghiệm TRP-2026 và thực hiện cập nhật mốc chặng.
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="driver-tabs">
-            <button
-              type="button"
-              onClick={() => setActiveTab('milestones')}
-              className={`driver-tab-btn ${activeTab === 'milestones' ? 'active' : ''}`}
-            >
-              Mốc chặng
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('health')}
-              className={`driver-tab-btn ${activeTab === 'health' ? 'active' : ''}`}
-            >
-              Y tế ngựa
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('handover')}
-              className={`driver-tab-btn ${activeTab === 'handover' ? 'active' : ''}`}
-            >
-              Bàn giao
-            </button>
-          </div>
+      <div className="driver-tabs">
+        <button
+          type="button"
+          onClick={() => setActiveTab('milestones')}
+          className={`driver-tab-btn ${activeTab === 'milestones' ? 'active' : ''}`}
+        >
+          Mốc chặng
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('health')}
+          className={`driver-tab-btn ${activeTab === 'health' ? 'active' : ''}`}
+        >
+          Y tế ngựa
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('handover')}
+          className={`driver-tab-btn ${activeTab === 'handover' ? 'active' : ''}`}
+        >
+          Bàn giao
+        </button>
+      </div>
 
       <div className="driver-content">
         {activeTab === 'milestones' && (
@@ -213,8 +197,6 @@ export const DriverPortal = () => {
           </div>
         )}
       </div>
-      </>
-      )}
     </div>
   );
 };

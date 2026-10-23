@@ -41,17 +41,13 @@ interface CoordinatorState {
   toast: { id: number; message: string } | null;
 }
 
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
-
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
-const initialDemo = getDemoMode('coordinator');
-
 let state: CoordinatorState = {
-  trips: initialDemo ? clone(mockTrips) : [],
-  vehicles: initialDemo ? clone(mockVehicles) : [],
-  staff: initialDemo ? clone(mockStaff) : [],
-  incidents: initialDemo ? clone(mockIncidents) : [],
+  trips: clone(mockTrips),
+  vehicles: clone(mockVehicles),
+  staff: clone(mockStaff),
+  incidents: clone(mockIncidents),
   loading: false,
   loaded: false,
   toast: null,
@@ -65,35 +61,6 @@ const subscribe = (l: () => void) => { listeners.add(l); return () => { listener
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('rts_demo_mode_change', (event: Event) => {
-    const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
-    if (customEvent.detail && customEvent.detail.role === 'coordinator') {
-      if (customEvent.detail.enabled) {
-        setState({
-          trips: clone(mockTrips),
-          vehicles: clone(mockVehicles),
-          staff: clone(mockStaff),
-          incidents: clone(mockIncidents),
-          loading: false,
-          loaded: true,
-        });
-        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
-      } else {
-        setState({
-          trips: [],
-          vehicles: [],
-          staff: [],
-          incidents: [],
-          loading: false,
-          loaded: true,
-        });
-        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
-      }
-    }
-  });
-}
 const ok = (message: string): ActionResult => { toast(message); return { ok: true, message }; };
 const fail = (message: string): ActionResult => { toast(message); return { ok: false, message }; };
 
@@ -107,10 +74,6 @@ async function loadAll() {
   const [trips, vehicles, staff, incidents] = await Promise.all([
     coordinatorApi.getTrips(), coordinatorApi.getVehicles(), coordinatorApi.getStaff(), coordinatorApi.getIncidents(),
   ]);
-  if (!getDemoMode('coordinator')) {
-    setState({ trips: [], vehicles: [], staff: [], incidents: [], loading: false, loaded: true });
-    return;
-  }
   setState({ trips, vehicles, staff, incidents, loading: false, loaded: true });
 }
 
@@ -269,7 +232,7 @@ const actions = {
     const t = findTrip(tripId); if (!t) return fail('Không tìm thấy chuyến.');
     if (kind === 'depart' && t.status !== 'READY_TO_DEPART') return fail('Chuyến cần được Manager duyệt khởi hành trước.');
     if (kind !== 'depart' && t.status !== 'IN_TRANSIT') return fail('Chuyến chưa ở trạng thái đang vận chuyển.');
-    const driver = state.staff.find((s) => s.id === (t.crew.MAIN_DRIVER || t.legs?.outbound?.crew?.MAIN_DRIVER))?.name ?? 'Tài xế';
+    const driver = state.staff.find((s) => s.id === (t.crew.MAIN_DRIVER || t.legs?.outbound.crew.MAIN_DRIVER))?.name ?? 'Tài xế';
     const recorded: string[] = [];
     let x = clone(t), guard = 0;
     do {
@@ -301,9 +264,9 @@ export const useCoordinator = () => {
   const stats: CoordinatorDashboardStats = useMemo(() => {
     const deployed = snap.trips.filter((t) => t.deploymentStatus === 'CONFIRMED' && t.status === 'PLANNING');
     return {
-      needRoute: deployed.filter((t) => t.route?.status !== 'APPROVED').length,
+      needRoute: deployed.filter((t) => t.route.status !== 'APPROVED').length,
       needResources: deployed.filter((t) => resourceGaps(t, snap.vehicles, snap.staff, snap.trips).length || !t.resourcesConfirmed).length,
-      readyVehicles: snap.vehicles.filter((v) => v.status === 'READY' && !snap.trips.some((t) => isActiveTrip(t) && [t.vehicleId, t.legs?.outbound?.vehicleId, t.legs?.inbound?.vehicleId].filter(Boolean).includes(v.id))).length,
+      readyVehicles: snap.vehicles.filter((v) => v.status === 'READY' && !snap.trips.some((t) => isActiveTrip(t) && [t.vehicleId, t.legs?.outbound.vehicleId, t.legs?.inbound.vehicleId].includes(v.id))).length,
       totalVehicles: snap.vehicles.length,
       inTransit: snap.trips.filter((t) => t.status === 'IN_TRANSIT').length,
       openIncidents: snap.incidents.filter((i) => !['RESOLVED', 'CLOSED'].includes(i.status)).length,

@@ -13,8 +13,8 @@ const positionIn = (t: Trip, staffId: string): string => {
   const direct = find(t.crew);
   if (direct) return SLOT_LABEL[direct];
   if (t.legs) {
-    const o = t.legs.outbound?.crew ? find(t.legs.outbound.crew) : undefined; if (o) return `${SLOT_LABEL[o]} • chặng 1`;
-    const i = t.legs.inbound?.crew ? find(t.legs.inbound.crew) : undefined; if (i) return `${SLOT_LABEL[i]} • chặng 2`;
+    const o = find(t.legs.outbound.crew); if (o) return `${SLOT_LABEL[o]} • chặng 1`;
+    const i = find(t.legs.inbound.crew); if (i) return `${SLOT_LABEL[i]} • chặng 2`;
   }
   return '';
 };
