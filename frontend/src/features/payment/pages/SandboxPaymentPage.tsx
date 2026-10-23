@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { customerApi } from '../../customer/api/customerApi'
+import { flow1 } from '../../../shared/api/flow1'
 import './SandboxPaymentPage.css'
 
 type Payment = { id: string; amount: number; status: string; responseCode?: string }
@@ -23,37 +23,16 @@ export default function SandboxPaymentPage() {
   useEffect(() => {
     if (!isReturn) return
 
-    // Kiểm tra trực tiếp các tham số trả về từ VNPAY trên Query String
-    const params = new URLSearchParams(location.search)
-    const vnpResponse = params.get('vnp_ResponseCode')
-    const vnpAmount = params.get('vnp_Amount')
-    const vnpTxnRef = params.get('vnp_TxnRef')
-
-    if (vnpResponse !== null || vnpTxnRef !== null) {
-      const isPaid = vnpResponse === '00'
-      const contractId = sessionStorage.getItem('last_deposit_contract_id')
-      if (isPaid && contractId) {
-        void customerApi.mockDeposit(contractId)
-      }
-      setPayment({
-        id: vnpTxnRef || 'VNPAY-TRANS',
-        amount: vnpAmount ? Math.round(Number(vnpAmount) / 100) : 0,
-        status: isPaid ? 'Paid' : 'Failed',
-        responseCode: vnpResponse || undefined,
-      })
-      setChecking(false)
-      setError(isPaid ? '' : `Giao dịch không thành công (Mã lỗi VNPAY: ${vnpResponse})`)
-      return
-    }
-
     const controller = new AbortController()
     let timer: ReturnType<typeof setTimeout> | undefined
     const deadline = Date.now() + 60_000
     async function load() {
       try {
         setChecking(true)
-        const result: Payment = await fetch('/api/payments/vnpay/return' + location.search,
-          { signal: controller.signal }).then(readResponse)
+        const paymentId = sessionStorage.getItem('last_deposit_payment_id')
+        if (!paymentId) throw new Error('Không tìm thấy phiên thanh toán. Mở lại yêu cầu để kiểm tra trạng thái từ máy chủ.')
+        const dto = await flow1<{ id: string; amount: number; status: string }>('get', `/customer/payments/${paymentId}`)
+        const result: Payment = { ...dto, status: dto.status === 'SUCCESS' ? 'Paid' : ['FAILED', 'REJECTED'].includes(dto.status) ? 'Failed' : 'Pending' }
         if (controller.signal.aborted) return
         setPayment(result)
         setError('')

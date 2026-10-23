@@ -44,11 +44,11 @@ export const mockHorses: HorseRef[] = [
 
 export const mockStaff: Staff[] = [
   { id: 'USR_SPEC_01', name: 'Lê Tuấn (Specialist)', role: 'TRANSPORT_SPECIALIST', load: 1 },
-  { id: 'USR_COORD_01', name: 'Phạm Hải (Coordinator)', role: 'FLEET_COORDINATOR', load: 1 },
+  { id: 'USR_COORD_01', name: 'Phạm Hải (Coordinator)', role: 'FLEET_ROUTE_COORDINATOR', load: 1 },
   { id: 'EMP-11', name: 'Hoang Thu Ha', role: 'TRANSPORT_SPECIALIST', load: 5 },
   { id: 'EMP-12', name: 'Vu Minh Chau', role: 'TRANSPORT_SPECIALIST', load: 1 },
-  { id: 'EMP-15', name: 'Dang Minh Quan', role: 'FLEET_COORDINATOR', load: 5 },
-  { id: 'EMP-16', name: 'Tran Bao Ngoc', role: 'FLEET_COORDINATOR', load: 2 },
+  { id: 'EMP-15', name: 'Dang Minh Quan', role: 'FLEET_ROUTE_COORDINATOR', load: 5 },
+  { id: 'EMP-16', name: 'Tran Bao Ngoc', role: 'FLEET_ROUTE_COORDINATOR', load: 2 },
 ];
 
 // ---------------------------------------------------------------------------
@@ -67,7 +67,7 @@ const PLACES = {
 };
 
 const NAMES: Record<ActorRole, string> = {
-  CUSTOMER: '', LOGISTICS_MANAGER: MANAGER_NAME, TRANSPORT_SPECIALIST: 'Hoang Thu Ha', FLEET_COORDINATOR: 'Dang Minh Quan', CREW: 'Pham Van Duc', SYSTEM: 'Hệ thống',
+  CUSTOMER: '', LOGISTICS_MANAGER: MANAGER_NAME, TRANSPORT_SPECIALIST: 'Hoang Thu Ha', FLEET_ROUTE_COORDINATOR: 'Dang Minh Quan', DRIVER_ESCORT: 'Pham Van Duc', SYSTEM: 'Hệ thống',
 };
 const hist = (at: string, role: ActorRole, action: string, detail?: string, actor?: string): HistoryEntry =>
   ({ at, role, action, detail, actor: actor ?? (NAMES[role] || 'Khách hàng') });
@@ -260,7 +260,7 @@ export const mockRequests: TransportRequest[] = [
       hist('2026-10-03 08:30', 'CUSTOMER', 'Ký hợp đồng bằng OTP', 'CT-8924 v1 – yêu cầu được kích hoạt', 'Alex Equine'),
       hist('2026-10-03 09:00', 'LOGISTICS_MANAGER', 'Phân công chuyến', 'TRP-902 → Hoang Thu Ha, Dang Minh Quan'),
       hist('2026-10-03 14:10', 'TRANSPORT_SPECIALIST', 'Từ chối giấy tờ', 'Sổ tiêm ngừa – Shadowfax'),
-      hist('2026-10-04 10:40', 'FLEET_COORDINATOR', 'Gửi phương án tuyến v1', 'Kèm đề xuất ngân sách chuyến bay'),
+      hist('2026-10-04 10:40', 'FLEET_ROUTE_COORDINATOR', 'Gửi phương án tuyến v1', 'Kèm đề xuất ngân sách chuyến bay'),
     ],
   }),
   req({
@@ -286,14 +286,14 @@ export const mockRequests: TransportRequest[] = [
   req({
     ...R.r8923, customerId: 'CUS-001', status: 'IN_TRANSIT', pickup: PLACES.saigon, delivery: PLACES.bangkok, submittedAt: '2026-09-28 09:15',
     versions: [V.v8923],
-    history: [hist('2026-09-30 09:00', 'CUSTOMER', 'Ký hợp đồng bằng OTP', 'CT-8923 v1', 'Alex Equine'), hist('2026-10-04 06:40', 'CREW', 'Xuất phát', 'Saigon Riding Club')],
+    history: [hist('2026-09-30 09:00', 'CUSTOMER', 'Ký hợp đồng bằng OTP', 'CT-8923 v1', 'Alex Equine'), hist('2026-10-04 06:40', 'DRIVER_ESCORT', 'Xuất phát', 'Saigon Riding Club')],
   }),
   req({
     ...R.r8810, customerId: 'CUS-001', status: 'DELIVERED', pickup: PLACES.hanoi, delivery: PLACES.saigon, submittedAt: '2026-09-22 10:00',
     versions: [V.v8810], acceptance: { status: 'PENDING', openedAt: '2026-10-04 10:00', dueAt: '2026-10-05 10:00' },
     history: [
-      hist('2026-10-04 09:30', 'CREW', 'Đến điểm giao', 'Saigon Riding Club'),
-      hist('2026-10-04 10:00', 'CREW', 'Hoàn tất bàn giao có xác minh', 'Người nhận: Alex Equine'),
+      hist('2026-10-04 09:30', 'DRIVER_ESCORT', 'Đến điểm giao', 'Saigon Riding Club'),
+      hist('2026-10-04 10:00', 'DRIVER_ESCORT', 'Hoàn tất bàn giao có xác minh', 'Người nhận: Alex Equine'),
       hist('2026-10-04 10:45', 'CUSTOMER', 'Gửi khiếu nại', 'CMP-120 • Tình trạng ngựa', 'Alex Equine'),
     ],
   }),
@@ -301,7 +301,7 @@ export const mockRequests: TransportRequest[] = [
     ...R.r8935, customerId: 'CUS-002', status: 'DELIVERED', pickup: PLACES.danang, delivery: PLACES.hanoiNam, submittedAt: '2026-09-20 10:00',
     versions: [V.v8935], acceptance: { status: 'ACCEPTED', openedAt: '2026-10-02 09:00', dueAt: '2026-10-03 09:00', decidedAt: '2026-10-02 15:00' },
     history: [
-      hist('2026-10-02 09:00', 'CREW', 'Hoàn tất bàn giao có xác minh', 'Người nhận: Tran Van Phuc'),
+      hist('2026-10-02 09:00', 'DRIVER_ESCORT', 'Hoàn tất bàn giao có xác minh', 'Người nhận: Tran Van Phuc'),
       hist('2026-10-02 15:00', 'CUSTOMER', 'Nghiệm thu bàn giao', undefined, 'Nguyen Hoai Nam'),
       hist('2026-10-02 15:20', 'SYSTEM', 'VNPay xác minh số dư', 'PAY-5121'),
     ],

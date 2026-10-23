@@ -1,56 +1,18 @@
-// Endpoint Backend cho Logistics Manager (đường dẫn tương đối với baseURL của apiClient)
+// Routes for flows after Flow 1. Flow 1 is defined in managerApi.ts.
 export const MANAGER_ENDPOINTS = {
-  CUSTOMERS: '/manager/customers',
-  HORSES: '/manager/horses',
-  STAFF: '/manager/staff',
-
-  REQUESTS: '/manager/requests',
-  REQUEST_DETAIL: (id: string) => `/manager/requests/${id}`,
-  COST_ESTIMATE: (id: string) => `/manager/requests/${id}/cost-estimate`,
-  ACCEPT_REQUEST: (id: string) => `/manager/requests/${id}/accept`,
-  REQUEST_REVISION: (id: string) => `/manager/requests/${id}/request-changes`,
-  REJECT_REQUEST: (id: string) => `/manager/requests/${id}/reject`,
-  CANCEL_REQUEST: (id: string) => `/manager/requests/${id}/reject`,
-  CANCELLATION_DECISION: (contractId: string, operation: string) => `/manager/contracts/${contractId}/cancellation/${operation}`,
-  CONTRACT_CANCEL_OVERDUE: (contractId: string) => `/manager/contracts/${contractId}/cancel-overdue`,
-  CONTRACT_WITHDRAW: (contractId: string) => `/manager/contracts/${contractId}/withdraw`,
-  REFUND_START: (contractId: string) => `/manager/contracts/${contractId}/cancellation/refund-start`,
-  REFUND_COMPLETE: (contractId: string) => `/manager/contracts/${contractId}/cancellation/refund-complete`,
   CLOSE_REQUEST: (id: string) => `/manager/requests/${id}/close`,
   COLLECTION_NOTE: (id: string) => `/manager/requests/${id}/collection-notes`,
-
-  CONTRACT_DRAFT: (id: string) => `/manager/requests/${id}/contracts`,
-  CONTRACT_UPDATE_DRAFT: (id: string) => `/manager/contracts/${id}/draft`,
-  ISSUE_CONTRACT: (id: string) => `/manager/contracts/${id}/publish`,
-  REISSUE_CONTRACT: (id: string) => `/manager/contracts/${id}/reissue`,
-  CONTRACT_CHANGE_RESPONSE: (id: string) => `/manager/contracts/${id}/feedback/reject`,
-  EXTEND_CONTRACT: (id: string) => `/manager/contracts/${id}/extend`,
-  REMIND_SIGN: (id: string) => `/manager/contracts/${id}/remind`,
-
-  TRANSACTIONS: '/manager/transactions',
-  VERIFY_TRANSACTION: (id: string) => `/manager/transactions/${id}/verify`,
-  REJECT_TRANSACTION: (id: string) => `/manager/transactions/${id}/reject`,
-  CONFIRM_REFUND: (id: string) => `/manager/transactions/${id}/refund-paid`,
-
-  TRIPS: '/manager/trips',
-  DEPLOY_TRIP: (id: string) => `/manager/trips/${id}/deployment`,
-  HOLD_TRIP: (id: string) => `/manager/trips/${id}/hold`,
-  RESUME_TRIP: (id: string) => `/manager/trips/${id}/resume`,
   ROUTE_DECISION: (id: string) => `/manager/trips/${id}/route/decision`,
   FLIGHT_DECISION: (id: string) => `/manager/trips/${id}/flight/decision`,
   APPROVE_DEPARTURE: (id: string) => `/manager/trips/${id}/approve-departure`,
   HANDOVER_RESOLUTION: (id: string) => `/manager/trips/${id}/handover-resolution`,
   ACTUAL_COSTS: (id: string) => `/manager/trips/${id}/actual-costs`,
-
   INCIDENTS: '/manager/incidents',
   INCIDENT_STATUS: (id: string) => `/manager/incidents/${id}/status`,
   PLAN_DECISION: (id: string, planId: string) => `/manager/incidents/${id}/plans/${planId}/decision`,
-
   COMPLAINTS: '/manager/complaints',
   COMPLAINT_REPLY: (id: string) => `/manager/complaints/${id}/replies`,
   COMPLAINT_RESOLVE: (id: string) => `/manager/complaints/${id}/resolve`,
   COMPLAINT_ESCALATE: (id: string) => `/manager/complaints/${id}/escalate`,
-
   ACTUAL_COST_LIST: '/manager/actual-costs',
-  NOTIFICATIONS: '/manager/notifications',
 } as const;

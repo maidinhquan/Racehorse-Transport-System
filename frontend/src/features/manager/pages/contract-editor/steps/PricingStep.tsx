@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
 import type { BudgetKey, ContractDraft, TransportRequest } from '../../../types';
-import { BUDGET_LABEL, defaultBudget, fmtMoney, floorPrice, sumBudget, sumItems } from '../../../hooks/managerRules';
+import { BUDGET_LABEL, fmtMoney, floorPrice, sumBudget, sumItems } from '../../../hooks/managerRules';
 import { managerApi } from '../../../api/managerApi';
 
 interface StepProps {
@@ -14,7 +14,8 @@ interface StepProps {
 export const PricingStep: React.FC<StepProps> = ({ request: r, draft, set }) => {
   const [loadingEstimate, setLoadingEstimate] = useState(false);
   const [estimateSynced, setEstimateSynced] = useState(false);
-  const [currency, setCurrency] = useState<string>('VND');
+  const currency = 'VND';
+  const [estimateError, setEstimateError] = useState('');
 
   const cost = sumBudget(draft.budget);
   const floor = floorPrice(draft.budget);
@@ -29,19 +30,11 @@ export const PricingStep: React.FC<StepProps> = ({ request: r, draft, set }) => 
   const fetchEstimate = async () => {
     setLoadingEstimate(true);
     try {
-      // Đảm bảo thời gian tương lai hợp lệ (chuẩn bị >= 7 ngày + 24h) để Backend C# không báo lỗi INVALID_DEADLINE
-      const nowMs = Date.now();
-      const minDepMs = nowMs + 10 * 86400000;
-      const parsedDep = draft.departAt ? Date.parse(draft.departAt.replace(' ', 'T')) : NaN;
-      const depMs = !isNaN(parsedDep) && parsedDep > minDepMs ? parsedDep : minDepMs;
-      const delMs = depMs + (draft.mode === 'AIR' ? 2 : 3) * 86400000;
-
+      if (!draft.departAt || !draft.arriveAt || draft.arriveAt <= draft.departAt) throw new Error('Chọn lịch trình hợp lệ trước khi tính chi phí.');
       const plan = await managerApi.getCostEstimate(r.id, {
-        transportMode: draft.mode,
-        departureAt: new Date(depMs).toISOString(),
-        deliveryAt: new Date(delMs).toISOString(),
+        transportMode: draft.mode, departureAt: draft.departAt, deliveryAt: draft.arriveAt,
       });
-
+      if (plan.currency !== 'VND') throw new Error('Đơn vị tiền tệ trả về phải là VND.');
       if (plan && plan.costs) {
         set({
           budget: {
@@ -53,62 +46,44 @@ export const PricingStep: React.FC<StepProps> = ({ request: r, draft, set }) => 
           },
         });
         setEstimateSynced(true);
-        if (plan.currency) {
-          setCurrency(plan.currency);
-        }
-      } else {
-        // Nếu là đơn mock hoặc chưa có trong DB, tự động dùng định mức chuẩn VND
-        if (sumBudget(draft.budget) < 100000) {
-          set({ budget: defaultBudget(r) });
-        }
-        setEstimateSynced(false);
-      }
+        setEstimateError('');
+      } else { throw new Error('Chưa có dữ liệu chi phí.'); }
     } catch (err) {
-      console.warn('Lỗi gọi API cost-estimate:', err);
-      if (sumBudget(draft.budget) < 100000) {
-        set({ budget: defaultBudget(r) });
-      }
       setEstimateSynced(false);
+      setEstimateError(err instanceof Error ? err.message : 'Chưa lấy được chi phí; bạn có thể nhập dự toán nội bộ.');
     } finally {
       setLoadingEstimate(false);
     }
   };
 
-  useEffect(() => {
-    // Nếu ngân sách đang lưu số tiền USD nhỏ từ mock cũ (< 100,000 VND), quy đổi ngay sang VND
-    if (sumBudget(draft.budget) < 100000) {
-      set({ budget: defaultBudget(r) });
-    }
-    void fetchEstimate();
-  }, [r.id]);
-
   return (
     <>
       <h3 className="mgr-card__title">2. Chi phí & giá bán</h3>
+      {estimateError && <p role="alert" className="mgr-bad">{estimateError}</p>}
       <section className="mgr-inner">
         <div className="mgr-between">
           <h4>2A. Dự toán chi phí nội bộ</h4>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {loadingEstimate && <span className="mgr-muted" style={{ fontSize: 13 }}>Đang tính toán từ API...</span>}
             {estimateSynced ? (
-              <StatusBadge tone="ok" label="Đã lấy từ Backend cost-estimate" />
+              <StatusBadge tone="ok" label="Đã nhận dự toán" />
             ) : (
-              <StatusBadge tone="brand" label="Định mức chi phí VND" />
+              <StatusBadge tone="brand" label="Dự toán đang soạn" />
             )}
             <button
               type="button"
               className="mgr-btn mgr-btn--sm"
               onClick={() => void fetchEstimate()}
               disabled={loadingEstimate}
-              title="Gọi lại API POST /api/manager/requests/{id}/cost-estimate"
+              title="Tính chi phí theo lịch trình đang chọn"
             >
-              {loadingEstimate ? 'Đang tính...' : '🔄 Tính lại từ Backend'}
+              {loadingEstimate ? 'Đang tính...' : 'Tính lại chi phí'}
             </button>
             <StatusBadge tone="muted" label="Chỉ Manager xem" />
           </div>
         </div>
         <p className="mgr-hint" style={{ marginTop: 0 }}>
-          Chi phí gốc được tính tự động từ hệ thống Backend C# qua API cost-estimate (đã gộp cước xe và nhiên liệu thành Phí vận chuyển). Chi phí gốc, giá sàn và giá gợi ý không xuất hiện trên hợp đồng gửi khách hàng.
+          Nhập dự toán nội bộ hoặc lấy kết quả tính theo lịch trình đang chọn. Chi phí gốc, giá sàn và giá gợi ý không xuất hiện trên hợp đồng gửi khách hàng.
         </p>
         <div className="mgr-form-grid">
           {(Object.keys(BUDGET_LABEL) as BudgetKey[]).map((k) => (

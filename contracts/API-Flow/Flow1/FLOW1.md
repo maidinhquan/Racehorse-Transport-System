@@ -2,15 +2,19 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Phiên bản | 1.0 Draft — baseline thống nhất trong cuộc trao đổi |
+| Phiên bản | 1.1 — frontend và contract đồng bộ |
 | Ngày | 22/10/2026 |
 | Cập nhật JSON | 23/10/2026 — nhúng đầy đủ mẫu theo từng endpoint |
 | Dự án | Racehorse Transport System |
 | Phạm vi | Tạo đơn → xét duyệt → hợp đồng → cọc → OTP → kích hoạt → phân công; sửa/hủy liên quan |
 | Căn cứ | Màn hình, form, thao tác frontend; [CONVENTIONS.md](../../CONVENTIONS.md); [HorseTransportDB.sql](../../../HorseTransportDB/HorseTransportDB.sql) |
-| Trạng thái | Thiết kế API chuẩn Flow 1; baseline thống nhất giữa FE và BE |
+| Trạng thái | Giao thức mục tiêu; chưa chứng nhận tích hợp backend |
+
+**Schema máy đọc:** [flow1.openapi.json](flow1.openapi.json) quy định required/nullable/enum/giới hạn. Xem thêm quy tắc triển khai ở cuối file JSON.
 
 **JSON đã được nhúng trực tiếp:** Mục 4–13 của file này có đầy đủ request, response thành công/lỗi và các nhánh dữ liệu theo từng API. [FLOW1-API-JSON.md](FLOW1-API-JSON.md) giữ cùng bộ mẫu để tra cứu riêng; không bắt buộc mở file khác mới xem được payload. API trả PDF/ảnh có mẫu HTTP binary thay cho JSON thành công.
+
+**Lưu ý nguồn SQL:** File SQL trong repository khác bản tài liệu người dùng cung cấp tại `D:/Shared/HorseTransportDB.sql`. Chưa kiểm chứng schema DB đang chạy; không dùng liên kết SQL trong repo để khẳng định đã có version/policy/persistence. Phạm vi lần này chỉ sửa frontend/contracts.
 
 Nguồn đối chiếu: [CONVENTIONS.md](../../CONVENTIONS.md) (Quy ước chung & Quy chuẩn mã ID), [HorseTransportDB.sql](../../../HorseTransportDB/HorseTransportDB.sql), `frontend/src/features/customer` và `frontend/src/features/manager`.
 
@@ -349,10 +353,6 @@ Giá trị từ policy; không hardcode ở FE. Nhắc/đánh dấu đã đọc 
 
 <!-- FLOW1_JSON_4_START -->
 
-**Request/response chi tiết cho các API trong mục này**
-
-Các ví dụ dưới đây mô tả từng tình huống độc lập. Path/query nằm trên URL; “không gửi body” không phải JSON null. POST/PUT gửi đúng body được nêu, không gửi toàn bộ DTO GET. Các trường mục tiêu còn thiếu persistence vẫn áp dụng phụ thuộc ở mục 14; có JSON mẫu không có nghĩa backend đã implement.
-
 ### F1-J01 — GET /customer/profile
 
 Thông tin Customer. Role: **CUSTOMER**.
@@ -386,8 +386,6 @@ Thông tin Customer. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J02 — GET /customer/horses
 
@@ -429,7 +427,17 @@ Danh sách ngựa. Role: **CUSTOMER**.
       "ownership": {
         "name": "ownership.pdf",
         "url": "/api/customer/horses/HORSE_001/files/ownership"
-      }
+      },
+      "color": null,
+      "fluDate": null,
+      "vetName": null,
+      "vetPhone": null,
+      "unsupportedFields": [
+        "color",
+        "fluDate",
+        "vetName",
+        "vetPhone"
+      ]
     }
   ]
 }
@@ -445,8 +453,6 @@ Danh sách ngựa. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J03 — GET /customer/notifications
 
@@ -484,8 +490,6 @@ Thông báo Customer. Role: **CUSTOMER**.
 }
 ```
 
-
-
 ### F1-J04 — GET /manager/customers
 
 Danh sách Customer. Role: **LOGISTICS_MANAGER**.
@@ -520,8 +524,6 @@ Danh sách Customer. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J05 — GET /manager/horses
 
@@ -558,8 +560,6 @@ Danh sách ngựa cho Manager. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-
-
 ### F1-J06 — GET /manager/staff
 
 Nhân sự phân công. Role: **LOGISTICS_MANAGER**.
@@ -582,7 +582,7 @@ Nhân sự phân công. Role: **LOGISTICS_MANAGER**.
     {
       "id": "USER_006",
       "name": "Tran Van C",
-      "role": "FLEET_COORDINATOR",
+      "role": "FLEET_ROUTE_COORDINATOR",
       "load": 2
     }
   ]
@@ -601,8 +601,6 @@ Nhân sự phân công. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J07 — GET /manager/notifications
 
@@ -639,8 +637,6 @@ Thông báo Manager. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J08 — GET /master/supported-routes
 
@@ -688,8 +684,6 @@ Tuyến hoạt động. Role: **Người dùng đã đăng nhập theo phạm vi
 }
 ```
 
-
-
 ### F1-J09 — GET /customer/request-form-options
 
 Cấu hình form đã resolve. Role: **CUSTOMER**.
@@ -714,7 +708,27 @@ Cấu hình form đã resolve. Role: **CUSTOMER**.
     "currency": "VND",
     "preparationDays": 7,
     "defaultDepositPct": 40,
-    "contractDeadlineHours": 24
+    "contractDeadlineHours": 24,
+    "supportedRoutes": [
+      {
+        "id": "ROUTE_001",
+        "originCountry": "VN",
+        "destinationCountry": "VN",
+        "mode": "ROAD"
+      },
+      {
+        "id": "ROUTE_002",
+        "originCountry": "VN",
+        "destinationCountry": "VN",
+        "mode": "AIR"
+      },
+      {
+        "id": "ROUTE_003",
+        "originCountry": "VN",
+        "destinationCountry": "JP",
+        "mode": "AIR"
+      }
+    ]
   }
 }
 ```
@@ -746,7 +760,10 @@ Cấu hình form đã resolve. Role: **CUSTOMER**.
         "destinationCountry": "JP",
         "mode": "AIR"
       }
-    ]
+    ],
+    "preparationDays": 7,
+    "defaultDepositPct": 40,
+    "contractDeadlineHours": 24
   }
 }
 ```
@@ -763,8 +780,6 @@ Cấu hình form đã resolve. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J10 — GET /locations/search
 
@@ -790,7 +805,8 @@ Gợi ý địa chỉ. Role: **Người dùng đã đăng nhập theo phạm vi 
       "label": "Địa chỉ nhận tại TP. Hồ Chí Minh",
       "point": {
         "latitude": 10.8231,
-        "longitude": 106.6297
+        "longitude": 106.6297,
+        "countryCode": "VN"
       }
     }
   ]
@@ -881,10 +897,6 @@ Kiểm tra owner của Horse và Request. Upload không tự APPROVED; Manager c
 
 <!-- FLOW1_JSON_5_START -->
 
-**Request/response chi tiết cho các API trong mục này**
-
-Các ví dụ dưới đây mô tả từng tình huống độc lập. Path/query nằm trên URL; “không gửi body” không phải JSON null. POST/PUT gửi đúng body được nêu, không gửi toàn bộ DTO GET. Các trường mục tiêu còn thiếu persistence vẫn áp dụng phụ thuộc ở mục 14; có JSON mẫu không có nghĩa backend đã implement.
-
 ### F1-J11 — GET /customer/horses/{horseId}
 
 Chi tiết ngựa. Role: **CUSTOMER**.
@@ -930,7 +942,17 @@ Chi tiết ngựa. Role: **CUSTOMER**.
     "ownership": {
       "name": "ownership.pdf",
       "url": "/api/customer/horses/HORSE_001/files/ownership"
-    }
+    },
+    "color": null,
+    "fluDate": null,
+    "vetName": null,
+    "vetPhone": null,
+    "unsupportedFields": [
+      "color",
+      "fluDate",
+      "vetName",
+      "vetPhone"
+    ]
   }
 }
 ```
@@ -945,8 +967,6 @@ Chi tiết ngựa. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J12 — POST /customer/horses
 
@@ -994,7 +1014,17 @@ Thêm ngựa. Role: **CUSTOMER**.
       "authority": "Cơ quan cấp",
       "issueDate": "2023-04-10",
       "expiryDate": "2028-04-09"
-    }
+    },
+    "color": null,
+    "fluDate": null,
+    "vetName": null,
+    "vetPhone": null,
+    "unsupportedFields": [
+      "color",
+      "fluDate",
+      "vetName",
+      "vetPhone"
+    ]
   }
 }
 ```
@@ -1011,8 +1041,6 @@ Thêm ngựa. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J13 — PUT /customer/horses/{horseId}
 
@@ -1078,7 +1106,17 @@ Sửa hồ sơ ngựa. Role: **CUSTOMER**.
     "ownership": {
       "name": "ownership.pdf",
       "url": "/api/customer/horses/HORSE_001/files/ownership"
-    }
+    },
+    "color": null,
+    "fluDate": null,
+    "vetName": null,
+    "vetPhone": null,
+    "unsupportedFields": [
+      "color",
+      "fluDate",
+      "vetName",
+      "vetPhone"
+    ]
   }
 }
 ```
@@ -1093,8 +1131,6 @@ Sửa hồ sơ ngựa. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J14 — GET /customer/horses/selectable
 
@@ -1144,8 +1180,6 @@ Ngựa có thể chọn. Role: **CUSTOMER**.
 }
 ```
 
-
-
 ### F1-J15 — POST /customer/horses/{horseId}/files/{kind}
 
 Upload file ngựa. Role: **CUSTOMER**.
@@ -1194,8 +1228,6 @@ Upload file ngựa. Role: **CUSTOMER**.
 }
 ```
 
-
-
 ### F1-J16 — GET /customer/horses/{horseId}/files/{kind}
 
 Đọc file private. Role: **CUSTOMER**.
@@ -1231,8 +1263,6 @@ Body là bytes file, không phải JSON và không có success/data envelope.
   "data": null
 }
 ```
-
-
 
 ### F1-J17 — POST /customer/requests/{requestId}/horses/{horseId}/documents
 
@@ -1359,10 +1389,6 @@ POST create nhận Idempotency-Key: UUID. BE băm phục vụ SubmissionKeyHash,
 
 <!-- FLOW1_JSON_6_START -->
 
-**Request/response chi tiết cho các API trong mục này**
-
-Các ví dụ dưới đây mô tả từng tình huống độc lập. Path/query nằm trên URL; “không gửi body” không phải JSON null. POST/PUT gửi đúng body được nêu, không gửi toàn bộ DTO GET. Các trường mục tiêu còn thiếu persistence vẫn áp dụng phụ thuộc ở mục 14; có JSON mẫu không có nghĩa backend đã implement.
-
 ### F1-J18 — POST /customer/requests
 
 Tạo DRAFT. Role: **CUSTOMER**.
@@ -1447,8 +1473,6 @@ Tạo DRAFT. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J19 — PUT /customer/requests/{requestId}
 
@@ -1587,8 +1611,6 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
 }
 ```
 
-
-
 ### F1-J20 — POST /customer/requests/{requestId}/submit
 
 Gửi/gửi lại. Role: **CUSTOMER**.
@@ -1693,8 +1715,6 @@ Gửi/gửi lại. Role: **CUSTOMER**.
 }
 ```
 
-
-
 ### F1-J21 — GET /customer/requests
 
 Danh sách Customer Request. Role: **CUSTOMER**.
@@ -1787,8 +1807,6 @@ Danh sách Customer Request. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J22 — GET /customer/requests/{requestId}
 
@@ -1886,8 +1904,6 @@ Chi tiết Customer Request. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J23 — GET /customer/requests/{requestId}/document-checklist
 
@@ -1999,10 +2015,6 @@ PENDING_REVIEW/CHANGES_REQUESTED → REJECTED. Không submit lại, không xóa 
 
 <!-- FLOW1_JSON_7_START -->
 
-**Request/response chi tiết cho các API trong mục này**
-
-Các ví dụ dưới đây mô tả từng tình huống độc lập. Path/query nằm trên URL; “không gửi body” không phải JSON null. POST/PUT gửi đúng body được nêu, không gửi toàn bộ DTO GET. Các trường mục tiêu còn thiếu persistence vẫn áp dụng phụ thuộc ở mục 14; có JSON mẫu không có nghĩa backend đã implement.
-
 ### F1-J24 — GET /manager/requests
 
 Danh sách Manager Request. Role: **LOGISTICS_MANAGER**.
@@ -2046,7 +2058,7 @@ Danh sách Manager Request. Role: **LOGISTICS_MANAGER**.
           "name": "Hộ chiếu ngựa",
           "scope": "HORSE_001",
           "status": "PENDING_REVIEW",
-          "file": "/api/customer/horses/HORSE_001/files/passport",
+          "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
           "note": "Chưa được Specialist duyệt"
         }
       ],
@@ -2075,8 +2087,6 @@ Danh sách Manager Request. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J25 — GET /manager/requests/{requestId}
 
@@ -2126,7 +2136,7 @@ Chi tiết Manager Request. Role: **LOGISTICS_MANAGER**.
         "name": "Hộ chiếu ngựa",
         "scope": "HORSE_001",
         "status": "PENDING_REVIEW",
-        "file": "/api/customer/horses/HORSE_001/files/passport",
+        "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
         "note": "Chưa được Specialist duyệt"
       }
     ],
@@ -2154,8 +2164,6 @@ Chi tiết Manager Request. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J26 — POST /manager/requests/{requestId}/accept
 
@@ -2205,7 +2213,7 @@ Tiếp nhận đơn. Role: **LOGISTICS_MANAGER**.
         "name": "Hộ chiếu ngựa",
         "scope": "HORSE_001",
         "status": "PENDING_REVIEW",
-        "file": "/api/customer/horses/HORSE_001/files/passport",
+        "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
         "note": "Chưa được Specialist duyệt"
       }
     ],
@@ -2235,8 +2243,6 @@ Tiếp nhận đơn. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J27 — POST /manager/requests/{requestId}/request-changes
 
@@ -2295,7 +2301,7 @@ Yêu cầu sửa. Role: **LOGISTICS_MANAGER**.
         "name": "Hộ chiếu ngựa",
         "scope": "HORSE_001",
         "status": "PENDING_REVIEW",
-        "file": "/api/customer/horses/HORSE_001/files/passport",
+        "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
         "note": "Chưa được Specialist duyệt"
       }
     ],
@@ -2329,8 +2335,6 @@ Yêu cầu sửa. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J28 — POST /manager/requests/{requestId}/reject
 
@@ -2386,7 +2390,7 @@ Từ chối. Role: **LOGISTICS_MANAGER**.
         "name": "Hộ chiếu ngựa",
         "scope": "HORSE_001",
         "status": "PENDING_REVIEW",
-        "file": "/api/customer/horses/HORSE_001/files/passport",
+        "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
         "note": "Chưa được Specialist duyệt"
       }
     ],
@@ -2503,10 +2507,6 @@ Không cấp ContractID mới cho mỗi version. Không yêu cầu PdfSha256 đ�
 
 <!-- FLOW1_JSON_8_START -->
 
-**Request/response chi tiết cho các API trong mục này**
-
-Các ví dụ dưới đây mô tả từng tình huống độc lập. Path/query nằm trên URL; “không gửi body” không phải JSON null. POST/PUT gửi đúng body được nêu, không gửi toàn bộ DTO GET. Các trường mục tiêu còn thiếu persistence vẫn áp dụng phụ thuộc ở mục 14; có JSON mẫu không có nghĩa backend đã implement.
-
 ### F1-J29 — GET /manager/requests/{requestId}/contract-editor
 
 Dữ liệu editor. Role: **LOGISTICS_MANAGER**.
@@ -2516,6 +2516,8 @@ Dữ liệu editor. Role: **LOGISTICS_MANAGER**.
 | Tên | Giá trị ví dụ |
 |---|---|
 | requestId | REQUEST_001 |
+
+Query `mode` (ROAD/AIR, optional) chọn phương thức để resolve defaults; không đổi draft khi GET. Role vẫn LOGISTICS_MANAGER.
 
 **Request body:** Không gửi body.
 
@@ -2556,7 +2558,7 @@ Dữ liệu editor. Role: **LOGISTICS_MANAGER**.
           "name": "Hộ chiếu ngựa",
           "scope": "HORSE_001",
           "status": "PENDING_REVIEW",
-          "file": "/api/customer/horses/HORSE_001/files/passport",
+          "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
           "note": "Chưa được Specialist duyệt"
         }
       ],
@@ -2647,7 +2649,7 @@ Dữ liệu editor. Role: **LOGISTICS_MANAGER**.
           "name": "Hộ chiếu ngựa",
           "scope": "HORSE_001",
           "status": "PENDING_REVIEW",
-          "file": "/api/customer/horses/HORSE_001/files/passport",
+          "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
           "note": "Chưa được Specialist duyệt"
         }
       ],
@@ -2758,8 +2760,6 @@ Dữ liệu editor. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J30 — PUT /manager/requests/{requestId}/contract-draft
 
@@ -2898,8 +2898,6 @@ Lưu draft. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-
-
 ### F1-J31 — DELETE /manager/requests/{requestId}/contract-draft
 
 Bỏ draft. Role: **LOGISTICS_MANAGER**.
@@ -2938,8 +2936,6 @@ Bỏ draft. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J32 — POST /manager/requests/{requestId}/contract/publish
 
@@ -3013,8 +3009,6 @@ Phát hành. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J33 — GET /manager/contracts/{contractId}/versions/{versionNo}
 
@@ -3092,7 +3086,45 @@ Version cho Manager. Role: **LOGISTICS_MANAGER**.
       "STAFF": 1000000
     },
     "exception": "",
-    "extensions": []
+    "extensions": [],
+    "snapshot": {
+      "origin": "Ho Chi Minh City",
+      "destination": "Tokyo",
+      "date": "2026-11-20",
+      "careNotes": "Chăm sóc theo hồ sơ đã chốt",
+      "pickup": {
+        "name": "Trại ngựa A",
+        "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+        "postal": "700000",
+        "contact": "Nguyen Van A",
+        "phone": "+84901234567",
+        "notes": "Gọi trước khi đến"
+      },
+      "delivery": {
+        "name": "Tokyo Racecourse",
+        "address": "Địa chỉ giao tại Tokyo",
+        "postal": "1830024",
+        "contact": "Yuki Tanaka",
+        "phone": "+81312345678",
+        "notes": ""
+      },
+      "horses": [
+        {
+          "id": "HORSE_001",
+          "name": "Thunderbolt",
+          "breed": "Thoroughbred",
+          "microchip": "985112004571029",
+          "passportNo": "VN-EQ-2020-1029"
+        }
+      ],
+      "customer": {
+        "id": "USER_001",
+        "name": "Nguyen Van A",
+        "company": "Trang trại A",
+        "email": "customer@example.com",
+        "phone": "+84901234567"
+      }
+    }
   }
 }
 ```
@@ -3188,10 +3220,6 @@ Không body. BE chọn đúng người, kiểm tra state/deadline/rate limit, gh
 
 <!-- FLOW1_JSON_9_START -->
 
-**Request/response chi tiết cho các API trong mục này**
-
-Các ví dụ dưới đây mô tả từng tình huống độc lập. Path/query nằm trên URL; “không gửi body” không phải JSON null. POST/PUT gửi đúng body được nêu, không gửi toàn bộ DTO GET. Các trường mục tiêu còn thiếu persistence vẫn áp dụng phụ thuộc ở mục 14; có JSON mẫu không có nghĩa backend đã implement.
-
 ### F1-J34 — GET /customer/requests/{requestId}/contract
 
 Hợp đồng hiện hành. Role: **CUSTOMER**.
@@ -3260,7 +3288,45 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
       ],
       "mode": "AIR",
       "departAt": "2026-11-20 08:00",
-      "arriveAt": "2026-11-21 18:00"
+      "arriveAt": "2026-11-21 18:00",
+      "snapshot": {
+        "origin": "Ho Chi Minh City",
+        "destination": "Tokyo",
+        "date": "2026-11-20",
+        "careNotes": "Chăm sóc theo hồ sơ đã chốt",
+        "pickup": {
+          "name": "Trại ngựa A",
+          "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+          "postal": "700000",
+          "contact": "Nguyen Van A",
+          "phone": "+84901234567",
+          "notes": "Gọi trước khi đến"
+        },
+        "delivery": {
+          "name": "Tokyo Racecourse",
+          "address": "Địa chỉ giao tại Tokyo",
+          "postal": "1830024",
+          "contact": "Yuki Tanaka",
+          "phone": "+81312345678",
+          "notes": ""
+        },
+        "horses": [
+          {
+            "id": "HORSE_001",
+            "name": "Thunderbolt",
+            "breed": "Thoroughbred",
+            "microchip": "985112004571029",
+            "passportNo": "VN-EQ-2020-1029"
+          }
+        ],
+        "customer": {
+          "id": "USER_001",
+          "name": "Nguyen Van A",
+          "company": "Trang trại A",
+          "email": "customer@example.com",
+          "phone": "+84901234567"
+        }
+      }
     },
     "history": [
       {
@@ -3298,8 +3364,6 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J35 — GET /customer/contracts/{contractId}/versions/{versionNo}
 
@@ -3368,7 +3432,45 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
     ],
     "mode": "AIR",
     "departAt": "2026-11-20 08:00",
-    "arriveAt": "2026-11-21 18:00"
+    "arriveAt": "2026-11-21 18:00",
+    "snapshot": {
+      "origin": "Ho Chi Minh City",
+      "destination": "Tokyo",
+      "date": "2026-11-20",
+      "careNotes": "Chăm sóc theo hồ sơ đã chốt",
+      "pickup": {
+        "name": "Trại ngựa A",
+        "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+        "postal": "700000",
+        "contact": "Nguyen Van A",
+        "phone": "+84901234567",
+        "notes": "Gọi trước khi đến"
+      },
+      "delivery": {
+        "name": "Tokyo Racecourse",
+        "address": "Địa chỉ giao tại Tokyo",
+        "postal": "1830024",
+        "contact": "Yuki Tanaka",
+        "phone": "+81312345678",
+        "notes": ""
+      },
+      "horses": [
+        {
+          "id": "HORSE_001",
+          "name": "Thunderbolt",
+          "breed": "Thoroughbred",
+          "microchip": "985112004571029",
+          "passportNo": "VN-EQ-2020-1029"
+        }
+      ],
+      "customer": {
+        "id": "USER_001",
+        "name": "Nguyen Van A",
+        "company": "Trang trại A",
+        "email": "customer@example.com",
+        "phone": "+84901234567"
+      }
+    }
   }
 }
 ```
@@ -3427,7 +3529,45 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
     ],
     "mode": "AIR",
     "departAt": "2026-11-20 08:00",
-    "arriveAt": "2026-11-21 18:00"
+    "arriveAt": "2026-11-21 18:00",
+    "snapshot": {
+      "origin": "Ho Chi Minh City",
+      "destination": "Tokyo",
+      "date": "2026-11-20",
+      "careNotes": "Chăm sóc theo hồ sơ đã chốt",
+      "pickup": {
+        "name": "Trại ngựa A",
+        "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+        "postal": "700000",
+        "contact": "Nguyen Van A",
+        "phone": "+84901234567",
+        "notes": "Gọi trước khi đến"
+      },
+      "delivery": {
+        "name": "Tokyo Racecourse",
+        "address": "Địa chỉ giao tại Tokyo",
+        "postal": "1830024",
+        "contact": "Yuki Tanaka",
+        "phone": "+81312345678",
+        "notes": ""
+      },
+      "horses": [
+        {
+          "id": "HORSE_001",
+          "name": "Thunderbolt",
+          "breed": "Thoroughbred",
+          "microchip": "985112004571029",
+          "passportNo": "VN-EQ-2020-1029"
+        }
+      ],
+      "customer": {
+        "id": "USER_001",
+        "name": "Nguyen Van A",
+        "company": "Trang trại A",
+        "email": "customer@example.com",
+        "phone": "+84901234567"
+      }
+    }
   }
 }
 ```
@@ -3442,8 +3582,6 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J36 — GET /customer/contracts/{contractId}/versions/{versionNo}/pdf
 
@@ -3478,8 +3616,6 @@ Body là bytes file, không phải JSON và không có success/data envelope.
   "data": null
 }
 ```
-
-
 
 ### F1-J37 — POST /customer/contracts/{contractId}/accept-terms
 
@@ -3527,8 +3663,6 @@ Body là bytes file, không phải JSON và không có success/data envelope.
   "data": null
 }
 ```
-
-
 
 ### F1-J38 — POST /customer/contracts/{contractId}/feedback
 
@@ -3581,8 +3715,6 @@ Yêu cầu sửa tự do. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J39 — POST /manager/contracts/{contractId}/feedback/decision
 
@@ -3653,8 +3785,6 @@ Quyết định feedback. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-
-
 ### F1-J40 — POST /manager/contracts/{contractId}/extend-deadline
 
 Gia hạn. Role: **LOGISTICS_MANAGER**.
@@ -3705,8 +3835,6 @@ Gia hạn. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J41 — POST /manager/contracts/{contractId}/reminder
 
@@ -3838,10 +3966,6 @@ Callback/IPN VNPay xác thực merchant/reference/amount/signature/kết quả t
 
 <!-- FLOW1_JSON_10_START -->
 
-**Request/response chi tiết cho các API trong mục này**
-
-Các ví dụ dưới đây mô tả từng tình huống độc lập. Path/query nằm trên URL; “không gửi body” không phải JSON null. POST/PUT gửi đúng body được nêu, không gửi toàn bộ DTO GET. Các trường mục tiêu còn thiếu persistence vẫn áp dụng phụ thuộc ở mục 14; có JSON mẫu không có nghĩa backend đã implement.
-
 ### F1-J42 — GET /customer/requests/{requestId}/deposit
 
 Nghĩa vụ tiền cọc. Role: **CUSTOMER**.
@@ -3969,8 +4093,6 @@ Nghĩa vụ tiền cọc. Role: **CUSTOMER**.
 }
 ```
 
-
-
 ### F1-J43 — POST /customer/invoices/{invoiceId}/payment-session
 
 Tạo session. Role: **CUSTOMER**.
@@ -4020,8 +4142,6 @@ Tạo session. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J44 — GET /customer/payments/{paymentId}
 
@@ -4116,8 +4236,6 @@ Trạng thái cho Customer. Role: **CUSTOMER**.
 }
 ```
 
-
-
 ### F1-J45 — GET /manager/payments
 
 Danh sách giao dịch Manager. Role: **LOGISTICS_MANAGER**.
@@ -4144,6 +4262,20 @@ Danh sách giao dịch Manager. Role: **LOGISTICS_MANAGER**.
       "versionNo": 1,
       "currency": "VND",
       "ref": "CUSTOMER-REFERENCE"
+    },
+    {
+      "id": "CONTRACT_002",
+      "contractId": "CONTRACT_002",
+      "requestId": "REQUEST_002",
+      "versionNo": 1,
+      "type": "REFUND",
+      "method": "BANK_TRANSFER",
+      "amount": 8000000,
+      "status": "PENDING_CONFIRMATION",
+      "createdAt": "2026-10-23 10:00",
+      "currency": "VND",
+      "rowKind": "CONTRACT_REFUND",
+      "ref": "Hoàn tiền theo quyết định hủy"
     }
   ]
 }
@@ -4161,6 +4293,9 @@ Danh sách giao dịch Manager. Role: **LOGISTICS_MANAGER**.
 ```
 
 
+
+
+**Projection hoàn tiền:** rowKind=CONTRACT_REFUND lấy từ CONTRACT.Refund*, id bằng ContractID; đây là khóa dòng UI, không PaymentID và không phải một Payment REFUND tự sinh. Nút hoàn gọi F1-J55 qua contractId. GET payment detail/confirm/reject/receipt không nhận dòng projection này. Nếu backend không cung cấp projection thì không dựng hàng đợi từ dữ liệu giả.
 
 ### F1-J46 — GET /manager/payments/{paymentId}
 
@@ -4207,8 +4342,6 @@ Chi tiết giao dịch. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J47 — POST /manager/payments/{paymentId}/confirm
 
@@ -4294,8 +4427,6 @@ Xác minh chuyển khoản. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-
-
 ### F1-J48 — POST /manager/payments/{paymentId}/reject
 
 Từ chối giao dịch chờ. Role: **LOGISTICS_MANAGER**.
@@ -4348,8 +4479,6 @@ Từ chối giao dịch chờ. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J49 — GET /customer/payments/{paymentId}/receipt
 
@@ -4457,10 +4586,6 @@ Retry trả hiện trạng hoặc conflict có thể GET lại, không tạo Tri
 
 <!-- FLOW1_JSON_11_START -->
 
-**Request/response chi tiết cho các API trong mục này**
-
-Các ví dụ dưới đây mô tả từng tình huống độc lập. Path/query nằm trên URL; “không gửi body” không phải JSON null. POST/PUT gửi đúng body được nêu, không gửi toàn bộ DTO GET. Các trường mục tiêu còn thiếu persistence vẫn áp dụng phụ thuộc ở mục 14; có JSON mẫu không có nghĩa backend đã implement.
-
 ### F1-J50 — POST /customer/contracts/{contractId}/sign-otp
 
 Gửi OTP ký. Role: **CUSTOMER**.
@@ -4507,8 +4632,6 @@ Gửi OTP ký. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J51 — POST /customer/contracts/{contractId}/sign
 
@@ -4584,10 +4707,6 @@ Ký và tạo một Trip. Role: **CUSTOMER**.
 
 <!-- FLOW1_JSON_12_START -->
 
-**Request/response chi tiết cho các API trong mục này**
-
-Các ví dụ dưới đây mô tả từng tình huống độc lập. Path/query nằm trên URL; “không gửi body” không phải JSON null. POST/PUT gửi đúng body được nêu, không gửi toàn bộ DTO GET. Các trường mục tiêu còn thiếu persistence vẫn áp dụng phụ thuộc ở mục 14; có JSON mẫu không có nghĩa backend đã implement.
-
 ### F1-J52 — POST /customer/requests/{requestId}/cancel
 
 Customer hủy/đề nghị hủy. Role: **CUSTOMER**.
@@ -4650,8 +4769,6 @@ Customer hủy/đề nghị hủy. Role: **CUSTOMER**.
 }
 ```
 
-
-
 ### F1-J53 — POST /manager/requests/{requestId}/cancel
 
 Manager hủy. Role: **LOGISTICS_MANAGER**.
@@ -4696,8 +4813,6 @@ Manager hủy. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J54 — POST /manager/contracts/{contractId}/cancellation/decision
 
@@ -4764,8 +4879,6 @@ Quyết định hủy. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J55 — POST /manager/contracts/{contractId}/refund/complete
 
@@ -4857,10 +4970,6 @@ Hold body reason, resume không body; chỉ trước khởi hành. Không dùng 
 
 <!-- FLOW1_JSON_13_START -->
 
-**Request/response chi tiết cho các API trong mục này**
-
-Các ví dụ dưới đây mô tả từng tình huống độc lập. Path/query nằm trên URL; “không gửi body” không phải JSON null. POST/PUT gửi đúng body được nêu, không gửi toàn bộ DTO GET. Các trường mục tiêu còn thiếu persistence vẫn áp dụng phụ thuộc ở mục 14; có JSON mẫu không có nghĩa backend đã implement.
-
 ### F1-J56 — GET /manager/trips
 
 Danh sách Trip. Role: **LOGISTICS_MANAGER**.
@@ -4907,8 +5016,6 @@ Danh sách Trip. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J57 — GET /manager/trips/{tripId}
 
@@ -4960,8 +5067,6 @@ Chi tiết Trip. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
-
-
 
 ### F1-J58 — POST /manager/trips/{tripId}/assignment
 
@@ -5026,8 +5131,6 @@ Giao việc. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-
-
 ### F1-J59 — POST /manager/trips/{tripId}/hold
 
 Tạm dừng. Role: **LOGISTICS_MANAGER**.
@@ -5048,50 +5151,16 @@ Tạm dừng. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-**Response 200**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "TRIP_001",
-    "requestId": "REQUEST_001",
-    "mode": "AIR",
-    "status": "PLANNING",
-    "deployment": {
-      "status": "ON_HOLD",
-      "specialistId": "USER_005",
-      "coordinatorId": "USER_006",
-      "at": "2026-10-23 09:40",
-      "holdReason": "Chờ xác nhận lịch triển khai."
-    },
-    "plannedDepart": "2026-11-20 08:00",
-    "eta": "2026-11-21 18:00",
-    "readiness": {
-      "docsReady": 0,
-      "docsTotal": 0,
-      "insurance": "MISSING",
-      "quarantineOk": false
-    },
-    "milestones": [],
-    "etaHistory": []
-  }
-}
-```
-
-**Response lỗi 409 — INVALID_STATE**
+**Response lỗi 501 — FEATURE_NOT_SUPPORTED**
 
 ```json
 {
   "success": false,
-  "message": "Trạng thái hiện tại không cho phép thao tác",
-  "errorCode": "INVALID_STATE",
+  "message": "Chức năng tạm dừng/tiếp tục chưa được hỗ trợ",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
   "data": null
 }
 ```
-
-
 
 ### F1-J60 — POST /manager/trips/{tripId}/resume
 
@@ -5107,46 +5176,15 @@ Tiếp tục. Role: **LOGISTICS_MANAGER**.
 
 **Request body:** Không gửi body.
 
-**Response 200**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "TRIP_001",
-    "requestId": "REQUEST_001",
-    "mode": "AIR",
-    "status": "PLANNING",
-    "deployment": {
-      "status": "CONFIRMED",
-      "specialistId": "USER_005",
-      "coordinatorId": "USER_006",
-      "at": "2026-10-23 09:40"
-    },
-    "plannedDepart": "2026-11-20 08:00",
-    "eta": "2026-11-21 18:00",
-    "readiness": {
-      "docsReady": 0,
-      "docsTotal": 0,
-      "insurance": "MISSING",
-      "quarantineOk": false
-    },
-    "milestones": [],
-    "etaHistory": []
-  }
-}
-```
-
 **Quy tắc:** Body không có. Không force READY_TO_DEPART, không rollback IN_TRANSIT.
 
-**Response lỗi 409 — INVALID_STATE**
+**Response lỗi 501 — FEATURE_NOT_SUPPORTED**
 
 ```json
 {
   "success": false,
-  "message": "Trạng thái hiện tại không cho phép thao tác",
-  "errorCode": "INVALID_STATE",
+  "message": "Chức năng tạm dừng/tiếp tục chưa được hỗ trợ",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
   "data": null
 }
 ```
@@ -5168,17 +5206,17 @@ Tiếp tục. Role: **LOGISTICS_MANAGER**.
 | Hai bộ revisionFields | Thống nhất route/date/places/horses/notes |
 | Version hợp đồng | Một ContractID/tăng VersionNo, Invoice đúng bản |
 | Mutation báo ok trước API | async/await, lỗi/refetch; không nuốt lỗi thành mock/empty real mode |
-| ON_HOLD bị SQL chặn | Chỉnh CHECK trước implement |
-| Color/ngày tiêm/bác sĩ và một số field Horse chưa có cột | Chốt nơi lưu/bổ sung schema, không âm thầm bỏ |
+| ON_HOLD bị SQL chặn | Chưa hỗ trợ; khóa UI, trả 501; không sửa DB |
+| Color/ngày tiêm/bác sĩ và một số field Horse chưa có cột | Trả null + unsupportedFields, khóa field; không sửa DB |
 | wizardStep/requestedAt/submittedAt/feedback theo field/lịch sử Request chưa đủ persistence | Chốt lưu trữ/audit hoặc phân biệt state UI |
 | Gia hạn chỉ lưu lần gần nhất | History nhiều lần cần cơ chế bền vững |
 | Accept terms chưa có cột riêng | Chốt acknowledgement đúng version trong JSON ứng dụng hoặc bổ sung nơi lưu |
-| Giá sàn/margin/custom items/Bearer CT chưa thống nhất | Chốt pricing/mapping, không tự thêm CONFIG_VERSION hoặc đoán CT |
+| Giá sàn/margin/custom items/Bearer CT chưa thống nhất | Công thức dự toán ứng dụng đã chốt tại file JSON mục 17; persistence/CT chưa xác nhận, không thêm CONFIG_VERSION |
 | Chuyển khoản/proof/confirmedAmount/receivedAt/enum thủ công chưa đủ schema | Chốt audit/nơi lưu trước code |
 | Refund UI riêng nhưng SQL chủ yếu CONTRACT.Refund* | Chốt projection/bằng chứng, không giả định bảng refund |
 | Mark-read/nhắc/đồng bộ hai role | NOTIFICATION/API có quyền và refresh phù hợp, không local state đơn lẻ |
 
-Giữ snapshot phát hành/ký bất biến, không sửa chỉ để đổi mã/đổi nội dung hiện tại. DB changes bàn giao riêng; tài liệu này không tự chạy SQL hoặc sửa source ứng dụng.
+Giữ snapshot phát hành/ký bất biến, không sửa chỉ để đổi mã/đổi nội dung hiện tại. Giữ nguyên SQL và backend. Frontend chỉ dùng chức năng được API xác nhận, các phần thiếu được liệt kê để theo dõi.
 
 ## 15. Lỗi và nghiệm thu
 
@@ -5222,3 +5260,248 @@ Không biến thiếu/sai policy thành lỗi Customer; BE log cấu hình. Khô
 | Refresh/reconnect/đổi tài khoản | Dữ liệu server đúng quyền, không dựa mock/local |
 
 **Phạm vi xác minh:** đọc SQL/ID rule và source frontend; chưa chạy SQL/backend/provider/UAT. Các dependency ở mục 14 phải giải quyết trước khi coi contract đủ cho hai bên code độc lập hoàn toàn.
+
+## 16. Bổ sung để khớp frontend
+
+### F1-J61 — POST /manager/requests/{requestId}/cost-estimate
+
+Dự toán chi phí nội bộ theo lịch trình đang soạn. Role: **LOGISTICS_MANAGER**.
+
+**Request JSON**
+
+```json
+{
+  "transportMode": "AIR",
+  "departureAt": "2026-11-20 08:00",
+  "deliveryAt": "2026-11-21 18:00"
+}
+```
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "costs": {
+      "transport": 12000000,
+      "crew": 1000000,
+      "permit": 2000000,
+      "vet": 1000000,
+      "insurance": 1000000,
+      "total": 17000000
+    },
+    "days": 2,
+    "stableNights": 1,
+    "crewCount": 2,
+    "doctorCount": 1,
+    "vehicleCount": 1,
+    "roadDistanceKm": 150,
+    "insuredValueVnd": 120000000,
+    "minimumInsuranceAssumed": false,
+    "currency": "VND"
+  }
+}
+```
+
+**Response lỗi 501 — FEATURE_NOT_SUPPORTED**
+
+```json
+{
+  "success": false,
+  "message": "Chức năng chưa được máy chủ hỗ trợ",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+### F1-J62 — POST /customer/notifications/{notificationId}/read
+
+Đánh dấu một thông báo đã đọc. Role: **CUSTOMER**.
+
+**Request body:** Không gửi body.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "NOTIFICATION_001",
+    "read": true
+  }
+}
+```
+
+**Response lỗi 501 — FEATURE_NOT_SUPPORTED**
+
+```json
+{
+  "success": false,
+  "message": "Chức năng chưa được máy chủ hỗ trợ",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+### F1-J63 — POST /customer/notifications/read-all
+
+Đánh dấu toàn bộ thông báo đã đọc. Role: **CUSTOMER**.
+
+**Request body:** Không gửi body.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "updatedCount": 2,
+    "readAt": "2026-10-23 10:00"
+  }
+}
+```
+
+**Response lỗi 501 — FEATURE_NOT_SUPPORTED**
+
+```json
+{
+  "success": false,
+  "message": "Chức năng chưa được máy chủ hỗ trợ",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+### F1-J64 — POST /manager/notifications/{notificationId}/read
+
+Đánh dấu một thông báo đã đọc. Role: **LOGISTICS_MANAGER**.
+
+**Request body:** Không gửi body.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "NOTIFICATION_001",
+    "read": true
+  }
+}
+```
+
+**Response lỗi 501 — FEATURE_NOT_SUPPORTED**
+
+```json
+{
+  "success": false,
+  "message": "Chức năng chưa được máy chủ hỗ trợ",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+### F1-J65 — POST /manager/notifications/read-all
+
+Đánh dấu toàn bộ thông báo đã đọc. Role: **LOGISTICS_MANAGER**.
+
+**Request body:** Không gửi body.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "updatedCount": 2,
+    "readAt": "2026-10-23 10:00"
+  }
+}
+```
+
+**Response lỗi 501 — FEATURE_NOT_SUPPORTED**
+
+```json
+{
+  "success": false,
+  "message": "Chức năng chưa được máy chủ hỗ trợ",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+## 17. Giới hạn và nghiệm thu tích hợp
+
+Xem quy tắc triển khai và giới hạn được chốt tại [FLOW1-API-JSON.md, mục 15](FLOW1-API-JSON.md#15-quy-tắc-triển-khai-đã-chốt). Các khoảng trống ở mục 14 không phải yêu cầu sửa DB/backend trong công việc này.
+
+
+### Ma trận bàn giao sau chỉnh sửa frontend
+
+| Màn hình / thao tác | API và dữ liệu chuẩn | Hành vi khi chưa hỗ trợ |
+|---|---|---|
+| Tạo đơn | J09 options; J18 tạo DRAFT; J19 lưu field được phép | Hiện lỗi, không tự tạo RequestID hoặc ước tính giá |
+| Chọn ngựa | J02 hồ sơ đầy đủ; J14 khả dụng theo ngày và excludeRequestId | Không tự trộn ngựa mẫu hoặc cho ngựa chưa xác nhận khả dụng |
+| Hồ sơ ngựa | J12/J13 core JSON; J15 file thật; J17 hồ sơ gắn Request–Horse | Không giả file đã lưu; color/fluDate/vetName/vetPhone trả null + unsupportedFields và khóa ô |
+| Xem lại/gửi | J19 lưu; J23 checklist; J20 submit | Checklist chặn gửi khi thiếu giấy tờ; dùng Request response thật |
+| Manager xét duyệt | J24/J25 đọc; J26/J27/J28 quyết định | Chỉ báo thành công sau API; enum sửa route/date/places/horses/notes |
+| Soạn hợp đồng | J29 dữ liệu editor và policy; J61 tính chi phí; J30 draft; J32 publish | Không sửa lịch âm thầm hoặc tự điền chi phí giả; versionNo/deadline lấy BE |
+| Xem phiên bản hợp đồng | J34/J35/J33 snapshot; J36 PDF có quyền | Thiếu snapshot thì khóa chấp thuận/ký; tải PDF lỗi không thay bằng bản in hiện tại |
+| Điều khoản/phản hồi/gia hạn | J37/J38/J39/J40/J41 | Không tự gia hạn khi giữ bản cũ; gia hạn có lý do riêng |
+| Cọc | J42 nghĩa vụ; J43 session VNPAY; J44 trạng thái | Return không xác nhận tiền; bỏ QR minh họa và mock-deposit khỏi flow |
+| Manager đối soát | J45/J46 danh sách/chi tiết; J47 thực nhận/ref/time/note; J48 từ chối | Chỉ xử lý bản ghi có thật; nhánh tạo chuyển khoản khách còn tắt |
+| Hoàn tiền | Projection CONTRACT_REFUND tại J45; J55 theo contractId, reference, note | Không tạo Payment REFUND giả; không ghi hoàn tiền trước API |
+| OTP | J50 TTL/resend từ API; J51 ký đúng version | Không mã bypass; không tự tạo Trip hoặc giả trạng thái ACTIVATED |
+| Phân công | J56/J57 Trip thật; J06 role chuẩn; J58 assignment | Không thay nhân viên bằng USER cố định; hold/resume khóa |
+| Thông báo | J03/J07; J62–J65 mark-read | Chờ API, không chỉ sửa read trong bộ nhớ |
+
+Kiểm tra tự động: `python contracts/API-Flow/Flow1/build_openapi.py`, sau đó trong `frontend` chạy `npm run contract:check`, `npm run test:run`, `npm run build`. Bộ kiểm tra schema xác thực ví dụ và tính đồng nhất của hai file Markdown; test frontend kiểm tra dữ liệu thiếu, file thật, OTP và snapshot. Chưa chạy nghiệm thu tích hợp với backend/DB đang hoạt động.
+
+## 18. Tệp hồ sơ cho quản lý
+
+### F1-J66 — GET /manager/requests/{requestId}/horses/{horseId}/documents/{documentType}/file
+
+Đọc hồ sơ ngựa trong đơn để xét duyệt. Role: **LOGISTICS_MANAGER**.
+
+**Path parameters**
+
+| Tên | Giá trị ví dụ |
+|---|---|
+| requestId | REQUEST_001 |
+| horseId | HORSE_001 |
+| documentType | PASSPORT |
+
+**Request body:** Không gửi body.
+
+**Response 200 — binary**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="passport.pdf"
+
+<bytes của tài liệu thực đã lưu>
+```
+
+Content-Type có thể application/pdf, image/jpeg hoặc image/png theo tệp đã kiểm tra. BE kiểm tra role và mapping Request–Horse; đọc đúng LEGAL_MEDICAL_RECORD hoặc hồ sơ ngựa được tham chiếu. Không tạo bản ghi khi GET. DossierItem.file trả URL này; FE tải blob bằng Bearer token, không mở trang minh họa thay tài liệu thật.
+
+**Response lỗi 404 — NOT_FOUND**
+
+```json
+{
+  "success": false,
+  "message": "Không tìm thấy hồ sơ trong đơn hoặc không có quyền xem",
+  "errorCode": "NOT_FOUND",
+  "data": null
+}
+```
+
+## 19. Quy tắc tính và đối soát
+
+Quy tắc tính dự toán và cộng cọc đúng phiên bản: [FLOW1-API-JSON.md, mục 17](FLOW1-API-JSON.md#17-công-thức-dự-toán-nội-bộ).

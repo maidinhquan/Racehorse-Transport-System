@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from './Modal';
 import { useClock, useCustomer } from '../../hooks/useCustomer';
 import { ctRef, curVersion } from '../../hooks/customerRules';
-import { DEMO_OTP } from '../../data/mockData';
 
 interface OtpModalProps {
   open: boolean;
@@ -64,9 +63,6 @@ export const OtpModal: React.FC<OtpModalProps> = ({ open, requestId, onClose, on
     <Modal open={open} title={`Ký ${ctRef(v)} bằng OTP`} okText={submitting ? "Đang xác thực..." : "Xác minh OTP & ký"} onClose={onClose} onOk={submit}
       okDisabled={expired || digits.join('').length < 6 || submitting} error={error}>
       <p>Mã OTP đã được gửi tới <b>{profile.email}</b>. Vui lòng kiểm tra hộp thư email của bạn (kể cả mục Spam / Thư rác).</p>
-      <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px', marginBottom: '12px' }}>
-        💡 Mã kiểm thử nhanh (dev bypass): <b>000000</b> hoặc <b>{DEMO_OTP}</b>.
-      </p>
       <div className="cus-otp">
         {digits.map((d, i) => (
           <input key={i} ref={(el) => { refs.current[i] = el; }} inputMode="numeric" maxLength={6} value={d} disabled={expired}
@@ -76,8 +72,8 @@ export const OtpModal: React.FC<OtpModalProps> = ({ open, requestId, onClose, on
       </div>
       <p className="cus-otp__left">{expired ? 'Mã đã hết hạn. Hãy gửi lại mã mới.' : <>Mã hết hạn sau <b>{left}</b> giây.</>}</p>
       <div className="cus-btn-row" style={{ justifyContent: 'center' }}>
-        <button type="button" className="cus-btn cus-btn--sm" onClick={() => actions.sendSignOtp(requestId)}>Gửi lại mã</button>
-        <button type="button" className="cus-btn cus-btn--sm" onClick={actions.expireOtp}>Demo: cho mã hết hạn</button>
+        <button type="button" className="cus-btn cus-btn--sm" disabled={!!otp && now < otp.resendAtMs} onClick={() => actions.sendSignOtp(requestId)}>Gửi lại mã</button>
+
       </div>
     </Modal>
   );

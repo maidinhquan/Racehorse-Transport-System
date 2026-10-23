@@ -30,9 +30,9 @@ export const ReviewSignPage: React.FC = () => {
     );
   }
 
-  const sendOtp = () => {
+  const sendOtp = async () => {
     if (!confirmed) return actions.showToast('Vui lòng đọc hợp đồng và tích xác nhận lần cuối trước khi nhận OTP.');
-    if (actions.sendSignOtp(r.id).ok) setOtpOpen(true);
+    if ((await actions.sendSignOtp(r.id)).ok) setOtpOpen(true);
   };
 
   return (
@@ -73,7 +73,7 @@ export const ReviewSignPage: React.FC = () => {
         onSigned={() => { setOtpOpen(false); navigate(`/customer/requests/${r.id}`); }} />
       <ReasonModal open={cancelOpen} title={`Hủy ${r.id}?`} okText="Gửi yêu cầu hủy" danger confirmText="Tôi muốn hủy yêu cầu này"
         intro={<Note tone="yellow" title="Đã có thanh toán tiền cọc">CBN Transport đối soát khoản thanh toán và hoàn tiền trước khi hủy chính thức.</Note>}
-        onClose={() => setCancelOpen(false)} onSubmit={(reason) => { const ok = actions.cancelRequest(r.id, reason).ok; if (ok) navigate(`/customer/requests/${r.id}`); return ok; }} />
+        onClose={() => setCancelOpen(false)} onSubmit={async (reason) => { const ok = (await actions.cancelRequest(r.id, reason)).ok; if (ok) navigate(`/customer/requests/${r.id}`); return ok; }} />
     </CustomerLayout>
   );
 };

@@ -1,8 +1,9 @@
+import { downloadFile } from '../../../../shared/api/downloadFile';
 import React, { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ManagerLayout, Icon } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
-import { CustomerCell, Note, Pager, openSampleFile } from '../../components/Common/Common';
+import { CustomerCell, Note, Pager } from '../../components/Common/Common';
 import { Modal, ReasonModal, VerifyPaymentModal } from '../../components/Modals';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useManager } from '../../hooks/useManager';
@@ -33,6 +34,8 @@ export const PaymentsPage: React.FC = () => {
   const { data, transactions, requests, getRequest, actions } = useManager();
   const [review, setReview] = useState<string>('');
   const [refund, setRefund] = useState<Transaction | null>(null);
+  const [refundReference, setRefundReference] = useState('');
+  const [refundNote, setRefundNote] = useState('');
   const [cancelId, setCancelId] = useState('');
   const on: Tab = (['verify', 'overdue', 'all'] as Tab[]).includes(tab as Tab) ? (tab as Tab) : 'verify';
 
@@ -90,7 +93,7 @@ export const PaymentsPage: React.FC = () => {
                         <td>{PAYMENT_TYPE_LABEL[x.type]}<div className="mgr-muted">{METHOD_LABEL[x.method]}</div></td>
                         <td className="num">{fmtMoney(x.amount)}</td>
                         <td className={`num ${expected !== x.amount ? 'mgr-bad' : ''}`}>{fmtMoney(expected)}</td>
-                        <td>{x.ref}{x.receipt && <div><button type="button" className="mgr-link" onClick={() => openSampleFile(x.receipt!)}>{x.receipt}</button></div>}</td>
+                        <td>{x.ref}{x.receipt && <div><button type="button" className="mgr-link" onClick={() => downloadFile(x.receipt!).catch(error => actions.showToast(error.message))}>{x.receipt}</button></div>}</td>
                         <td><button type="button" className="mgr-btn mgr-btn--solid mgr-btn--sm" onClick={() => setReview(x.id)}>Xem & xác minh</button></td>
                       </tr>
                     );
@@ -144,7 +147,7 @@ export const PaymentsPage: React.FC = () => {
                         <td>{p ? <StatusBadge kind="payment" status={p.status} /> : v.termsAcceptedAt ? 'Đã đồng ý điều khoản' : 'Chưa đồng ý điều khoản'}</td>
                         <td><div className="mgr-btn-row" style={{ flexWrap: 'nowrap' }}>
                           <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => actions.remindSign(r.id)}>Nhắc</button>
-                          <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => actions.extendContract(r.id)}>Gia hạn 24h</button>
+                          <Link className="mgr-btn mgr-btn--sm" to={`/manager/requests/${r.id}/contract`}>Gia hạn hợp đồng</Link>
                           <button type="button" className="mgr-btn mgr-btn--sm mgr-btn--danger" onClick={() => setCancelId(r.id)}>Hủy</button>
                         </div></td>
                       </tr>
@@ -198,13 +201,15 @@ export const PaymentsPage: React.FC = () => {
       )}
 
       <VerifyPaymentModal tx={reviewTx} request={reviewTx ? getRequest(reviewTx.requestId) : undefined} onClose={() => setReview('')}
-        onVerify={(id) => actions.verifyTransaction(id).ok} onReject={(id, reason) => actions.rejectTransaction(id, reason).ok} />
+        onVerify={async (id, body) => (await actions.verifyTransaction(id, body)).ok} onReject={async (id, reason) => (await actions.rejectTransaction(id, reason)).ok} />
       <Modal open={!!refund} title={`Xác nhận hoàn tiền • ${refund?.id ?? ''}`} okText="Đã chuyển hoàn" onClose={() => setRefund(null)}
-        onOk={() => { if (refund && actions.confirmRefund(refund.id).ok) setRefund(null); }}>
+        onOk={async () => { if (refund && (await actions.confirmRefund(refund.id, refundReference, refundNote)).ok) { setRefund(null); setRefundReference(''); setRefundNote(''); } }}>
         <p>Xác nhận đã chuyển hoàn <b>{refund ? fmtMoney(refund.amount) : ''}</b> cho khách hàng của {refund?.requestId}. Thao tác được ghi vào lịch sử yêu cầu.</p>
+        <div className="mgr-field"><label htmlFor="refund-reference">Mã tham chiếu hoàn tiền *</label><input id="refund-reference" className="mgr-input" value={refundReference} onChange={e => setRefundReference(e.target.value)} /></div>
+        <div className="mgr-field"><label htmlFor="refund-note">Ghi chú kiểm tra *</label><textarea id="refund-note" className="mgr-textarea" value={refundNote} onChange={e => setRefundNote(e.target.value)} /></div>
       </Modal>
       <ReasonModal open={!!cancelId} title={`Hủy ${cancelId}`} okText="Hủy yêu cầu" danger minLength={10} confirmText="Tôi hiểu thao tác này không thể hoàn tác."
-        placeholder="VD: Khách không phản hồi sau 3 lần nhắc và hạn chung đã hết." onClose={() => setCancelId('')} onSubmit={(x) => actions.cancelRequest(cancelId, x).ok} />
+        placeholder="VD: Khách không phản hồi sau 3 lần nhắc và hạn chung đã hết." onClose={() => setCancelId('')} onSubmit={async (x) => (await actions.cancelRequest(cancelId, x)).ok} />
     </ManagerLayout>
   );
 };

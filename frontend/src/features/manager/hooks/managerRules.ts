@@ -131,9 +131,9 @@ export const BUDGET_LABEL: Record<BudgetKey, string> = {
 export const ACTUAL_LABEL: Record<ActualKey, string> = {
   TRANSPORT: 'Cước xe / hàng không', PROCEDURE: 'Thủ tục & giấy phép', VET: 'Bác sĩ thú y', INSURANCE: 'Bảo hiểm', STAFF: 'Nhân sự tổ xe', FUEL: 'Nhiên liệu & phí đường',
 };
-export const REVISION_FIELD_LABEL: Record<RevisionField, string> = { date: 'Ngày vận chuyển', places: 'Điểm nhận / giao', horses: 'Danh sách ngựa', notes: 'Ghi chú chăm sóc' };
+export const REVISION_FIELD_LABEL: Record<RevisionField, string> = { route: 'Tuyến đường', date: 'Ngày vận chuyển', places: 'Điểm nhận / giao', horses: 'Danh sách ngựa', notes: 'Ghi chú chăm sóc' };
 export const ROLE_LABEL: Record<ActorRole, string> = {
-  CUSTOMER: 'Khách hàng', LOGISTICS_MANAGER: 'Logistics Manager', TRANSPORT_SPECIALIST: 'Transport Specialist', FLEET_COORDINATOR: 'Fleet Coordinator', CREW: 'Tổ xe', SYSTEM: 'Hệ thống',
+  CUSTOMER: 'Khách hàng', LOGISTICS_MANAGER: 'Logistics Manager', TRANSPORT_SPECIALIST: 'Transport Specialist', FLEET_ROUTE_COORDINATOR: 'Fleet Coordinator', DRIVER_ESCORT: 'Tổ xe', SYSTEM: 'Hệ thống',
 };
 export const MODE_LABEL: Record<TransportMode, string> = { ROAD: 'Đường bộ', AIR: 'Hàng không' };
 
@@ -162,7 +162,7 @@ export const staffName = (d: Pick<ManagerData, 'staff'>, id?: string) => d.staff
 // ============================================================================
 // Hợp đồng & giá
 // ============================================================================
-export const DEPOSIT_PCT = 30;
+export const DEPOSIT_PCT = 40;
 export const MARGIN_FLOOR = 1.15;
 
 export const DEFAULT_TERMS: ContractTerm[] = [
@@ -172,7 +172,7 @@ export const DEFAULT_TERMS: ContractTerm[] = [
   { title: 'Nghĩa vụ của khách hàng', text: 'Cung cấp đầy đủ, trung thực hồ sơ ngựa và giấy tờ theo yêu cầu của Transport Specialist trước hạn.' },
   { title: 'Giá hợp đồng', text: 'Giá hợp đồng là tổng các khoản mục trong bảng giá. Không phát sinh chi phí ngoài bảng giá nếu không có thỏa thuận bằng văn bản.' },
   { title: 'Thanh toán', text: 'Khách hàng thanh toán tiền cọc theo tỷ lệ ghi trong hợp đồng; số dư thanh toán trong 24 giờ sau khi nghiệm thu bàn giao.' },
-  { title: 'Hạn chung & ký OTP', text: 'Thanh toán cọc, xác minh và ký OTP phải hoàn tất trong hạn chung 24 giờ kể từ khi phát hành; Manager có thể gia hạn.' },
+  { title: 'Hạn chung & ký OTP', text: 'Thanh toán cọc, xác minh và ký OTP phải hoàn tất trong hạn hoàn tất ghi trong hợp đồng; Manager có thể gia hạn.' },
   { title: 'Trách nhiệm của CBN Transport', text: 'Bảo đảm phương tiện, nhân sự và điều kiện chăm sóc phù hợp; mua bảo hiểm vận chuyển cho toàn bộ hành trình.' },
   { title: 'Sự cố trong hành trình', text: 'Các biện pháp an toàn khẩn cấp được thực hiện ngay; chi phí phát sinh được Manager phê duyệt và thông báo cho khách hàng.' },
   { title: 'Bàn giao & nghiệm thu', text: 'Bàn giao chỉ hoàn tất khi người nhận đăng ký hoặc người thay thế được Manager duyệt xuất trình giấy tờ tùy thân.' },
@@ -209,24 +209,8 @@ export function defaultItems(r: Pick<TransportRequest, 'origin' | 'destination' 
     { desc: 'Bảo hiểm vận chuyển', amount: 0 },
   ];
 }
-export function defaultBudget(r: Pick<TransportRequest, 'origin' | 'destination' | 'horses'>): Budget {
-  const intl = isInternational(r.origin, r.destination), n = Math.max(1, r.horses.length);
-  // Quy đổi chuẩn định mức VND (đồng bộ Backend C#)
-  return intl
-    ? {
-        TRANSPORT: 50_500_000 * n,
-        PROCEDURE: 6_000_000,
-        VET: 2_400_000,
-        INSURANCE: 2_000_000 * n,
-        STAFF: 1_800_000,
-      }
-    : {
-        TRANSPORT: 39_500_000 * n,
-        PROCEDURE: 6_000_000,
-        VET: 2_400_000,
-        INSURANCE: 2_000_000 * n,
-        STAFF: 1_800_000,
-      };
+export function defaultBudget(_r: Pick<TransportRequest, 'origin' | 'destination' | 'horses'>): Budget {
+  return { TRANSPORT: 0, PROCEDURE: 0, VET: 0, INSURANCE: 0, STAFF: 0 };
 }
 export const defaultMode = (r: Pick<TransportRequest, 'origin' | 'destination'>): TransportMode =>
   isInternational(r.origin, r.destination) && !['Bangkok'].includes(r.destination) ? 'AIR' : 'ROAD';
@@ -260,8 +244,8 @@ export function initialDraft(r: TransportRequest): ContractDraft {
       b.STAFF = fresh.STAFF;
     }
     const mode = v.mode || defaultMode(r);
-    const minPrep = mode === 'AIR' ? 7 : 2;
-    const minDepartDate = addDays(today(), minPrep + 1);
+    const minPrep = 0;
+    const minDepartDate = addDays(today(), minPrep);
 
     let departAt = v.departAt || `${r.date || minDepartDate} 06:00`;
     if (departAt.slice(0, 10) < minDepartDate) {
@@ -288,8 +272,8 @@ export function initialDraft(r: TransportRequest): ContractDraft {
     };
   }
   const mode = defaultMode(r);
-  const minPrep = mode === 'AIR' ? 7 : 2;
-  const minDepartDate = addDays(today(), minPrep + 1);
+  const minPrep = 0;
+  const minDepartDate = addDays(today(), minPrep);
   let departAt = `${r.date || minDepartDate} 06:00`;
   if (departAt.slice(0, 10) < minDepartDate) {
     departAt = `${minDepartDate} 08:00`;
@@ -306,12 +290,6 @@ export function draftError(d: ContractDraft): string {
   if (!d.departAt || !d.arriveAt) return 'Nhập ngày giờ khởi hành và đến dự kiến (Bước 1).';
   if (d.arriveAt <= d.departAt) return 'Thời gian đến phải sau thời gian khởi hành (Bước 1).';
 
-  const minPrep = d.mode === 'AIR' ? 7 : 2;
-  const minDepartDate = addDays(today(), minPrep + 1);
-  if (d.departAt.slice(0, 10) < minDepartDate) {
-    return `Bước 1: Phương thức ${d.mode === 'AIR' ? 'hàng không (AIR)' : 'đường bộ'} yêu cầu tối thiểu ${minPrep} ngày chuẩn bị và 24 giờ ký hợp đồng. Ngày khởi hành sớm nhất phải từ ${fmtDate(minDepartDate)}.`;
-  }
-
   if (!d.budget.VET || !d.budget.INSURANCE) return 'Dự toán nội bộ phải có chi phí bác sĩ thú y và bảo hiểm (Bước 2).';
   if (d.items.some((i) => i.required && !(Number(i.amount) > 0))) return 'Các khoản bắt buộc trong bảng giá phải lớn hơn 0 (Bước 2).';
   if (d.items.some((i) => Number(i.amount) < 0)) return 'Giá các khoản mục không được âm (Bước 2).';
@@ -327,10 +305,14 @@ export function draftError(d: ContractDraft): string {
 // ============================================================================
 const sumTx = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest, type: PaymentType, statuses: PaymentStatus[]) =>
   d.transactions.filter((x) => x.requestId === r.id && x.type === type && statuses.includes(x.status)).reduce((s, x) => s + x.amount, 0);
-export const verifiedDeposit = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => sumTx(d, r, 'DEPOSIT', ['SUCCESS']);
+export const verifiedDeposit = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => {
+  const v = curVersion(r);
+  return d.transactions.filter(x => x.requestId === r.id && x.type === 'DEPOSIT' && x.status === 'SUCCESS' && !!v?.contractId && x.contractId === v.contractId && x.versionNo === v.v)
+    .reduce((sum, x) => sum + (x.confirmedAmount ?? (x.method === 'BANK_TRANSFER' ? 0 : x.amount)), 0);
+};
 export const depositPaid = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => depositOf(r) > 0 && verifiedDeposit(d, r) >= depositOf(r);
 export const pendingTx = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest, type: PaymentType = 'DEPOSIT') =>
-  d.transactions.find((x) => x.requestId === r.id && x.type === type && ['PENDING_CONFIRMATION', 'PROCESSING'].includes(x.status));
+  d.transactions.find((x) => x.requestId === r.id && x.type === type && (type !== 'DEPOSIT' || (x.contractId === curVersion(r)?.contractId && x.versionNo === curVersion(r)?.v)) && ['PENDING_CONFIRMATION', 'PROCESSING'].includes(x.status));
 export const balanceDue = (r: TransportRequest) => Math.max(0, totalOf(r) - depositOf(r));
 export const verifiedBalance = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => sumTx(d, r, 'BALANCE', ['SUCCESS']);
 export const outstanding = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => Math.max(0, balanceDue(r) - verifiedBalance(d, r));

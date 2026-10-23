@@ -19,7 +19,7 @@ export const ReviewStep: React.FC<StepProps> = ({ request: r, draft, customer, h
     ['Ngựa lấy từ yêu cầu', `${r.horses.length} ngựa – Manager không sửa dữ liệu ngựa trong hợp đồng`],
     ['Giá & cọc', `${fmtMoney(total)} • cọc ${draft.depositPct}% (${fmtMoney(Math.round((total * draft.depositPct) / 100))})`],
     ['Điều khoản', `12 điều khoản cơ bản${draft.terms.length > 12 ? ` + ${draft.terms.length - 12} bổ sung` : ''}`],
-    ['Hạn chung', prev ? `Phát hành v${v} mở hạn chung 24 giờ mới; v${prev.v} được lưu trong lịch sử` : 'Khách có 24 giờ để thanh toán cọc, chờ xác minh và ký OTP'],
+    ['Hạn chung', prev ? `Phát hành v${v} có hạn hoàn tất do máy chủ xác định; v${prev.v} được lưu trong lịch sử` : 'Khách thanh toán cọc, chờ xác minh và ký OTP trước hạn ghi trong hợp đồng'],
   ];
   return (
     <>

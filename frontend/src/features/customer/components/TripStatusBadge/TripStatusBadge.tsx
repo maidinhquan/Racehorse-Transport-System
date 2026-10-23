@@ -25,7 +25,7 @@ const DOC_TONE: Record<DocStatus, BadgeTone> = {
   PENDING_REVIEW: 'warn', APPROVED: 'ok', ACTION_REQUIRED: 'bad',
 };
 const TRIP_TONE: Record<TripStatus, BadgeTone> = { PLANNING: 'info', READY_TO_DEPART: 'ok', IN_TRANSIT: 'brand', COMPLETED: 'muted' };
-const PAY_TONE: Record<PaymentStatus, BadgeTone> = { PROCESSING: 'warn', SUCCESS: 'ok', FAILED: 'bad' };
+const PAY_TONE: Record<PaymentStatus, BadgeTone> = { PENDING_CONFIRMATION: 'warn', PROCESSING: 'warn', SUCCESS: 'ok', FAILED: 'bad', REJECTED: 'bad' };
 const DEPOSIT_TONE: Record<DepositState, BadgeTone> = { NONE: 'muted', PENDING: 'warn', VERIFIED: 'ok', FAILED: 'bad' };
 
 type BadgeKind = 'request' | 'contract' | 'doc' | 'trip' | 'payment' | 'deposit';

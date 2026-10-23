@@ -1,270 +1,104 @@
-# Quy ước chung toàn bộ API (API Conventions)
+# Quy ước API — Racehorse Transport System
 
-> **Hệ thống Quản lý Vận chuyển Ngựa đua Xuyên Quốc gia (SWP391)**  
-> File quy ước duy nhất áp dụng cho toàn bộ API Contract giữa Frontend (FE) và Backend (BE).  
-> Cả hai phía FE và BE phải đọc và tuân thủ file này trước khi triển khai hoặc tích hợp.
+Cập nhật 23/10/2026. Áp dụng cho thiết kế Flow 1. Tài liệu mô tả giao thức FE–BE mục tiêu; không xác nhận backend hiện có đã triển khai giao thức này.
 
----
+## 1. Phạm vi và nguồn chuẩn
 
-## 1. Base URL và quy tắc Route
+- Flow, quyền và điều kiện nghiệp vụ: [FLOW1.md](API-Flow/Flow1/FLOW1.md).
+- Toàn bộ ví dụ request/response: [FLOW1-API-JSON.md](API-Flow/Flow1/FLOW1-API-JSON.md).
+- Kiểu dữ liệu, required, nullable, enum và giới hạn: [flow1.openapi.json](API-Flow/Flow1/flow1.openapi.json).
+- Khi thay đổi payload, cập nhật đồng thời ba tài liệu và frontend. Nếu có khác biệt chưa giải quyết, dừng thao tác liên quan; không chọn một mẫu tùy ý.
+- Quy tắc ID và SQL do người dùng cung cấp tại `D:/Shared/ID_NAME_RULE.md`, `D:/Shared/HorseTransportDB.sql` là tài liệu tham khảo thiết kế. SQL trong repository là phiên bản khác; chưa kiểm chứng schema của DB đang chạy. Không sửa DB/backend trong công việc này.
+- Endpoint cũ trong ứng dụng không phải nguồn thiết kế Flow 1. Xác thực và các flow vận hành sau phân công nằm ngoài phạm vi thay đổi giao thức này.
 
-```env
-VITE_API_URL=http://localhost:5000/api
-```
+## 2. URL, xác thực và role
 
-Mọi endpoint trong hệ thống được viết **sau `/api`**.  
-*Ví dụ:* `POST /auth/login` tương ứng với `POST http://localhost:5000/api/auth/login`.
+Base: `VITE_API_URL`, mặc định `/api`. Method/path trong tài liệu nằm sau base.
 
-| Prefix | Phân quyền truy cập | Phạm vi nghiệp vụ |
-|---|---|---|
-| `/auth/*` | Public / Khách vãng lai | Đăng ký, đăng nhập, OTP, quên/đặt lại mật khẩu |
-| `/public/*` | Public | Tra cứu quốc gia, tuyến đường, quy định công khai |
-| `/customer/*` | `CUSTOMER` | Khách hàng: Quản lý ngựa, tạo/theo dõi đơn, hợp đồng, thanh toán, nghiệm thu |
-| `/manager/*` | `LOGISTICS_MANAGER` | Quản lý: Duyệt đơn, giá, hợp đồng, đối soát thanh toán, điều phối, sự cố |
-| `/specialist/*` | `TRANSPORT_SPECIALIST` | Chuyên viên: Hồ sơ kiểm dịch, pháp lý, checklist, thông quan hải quan |
-| `/coordinator/*` | `FLEET_COORDINATOR` | Điều phối: Xe, tài xế, trạm dừng, chuyến bay, lộ trình |
-| `/driver/*` | `DRIVER`, `ESCORT` | Hiện trường: Xác nhận mốc hành trình, nhật ký sức khỏe ngựa, sự cố |
-| `/files/*` | Đã xác thực theo quyền | Tải lên (`POST /files/upload`) và truy xuất tệp chứng từ/hình ảnh |
-| `/notifications/*` | Đã xác thực | Danh sách, đánh dấu đã đọc thông báo của tài khoản |
+| Prefix | Role |
+|---|---|
+| `/customer/*` | `CUSTOMER` |
+| `/manager/*` | `LOGISTICS_MANAGER` |
+| `/master/*`, `/locations/*` | Người dùng đăng nhập, chỉ dữ liệu được cấp quyền |
 
-### Nguyên tắc bảo mật & phân quyền:
-- **Xác thực qua Token:** Mọi thông tin `userId`, `role` được lấy trực tiếp từ JWT Access Token. Backend **không tin cậy** `customerId` hay `role` được truyền qua Body hoặc Query.
-- **Kiểm tra quyền sở hữu:** Nếu khách hàng truy cập tài nguyên (đơn hàng, ngựa, hợp đồng) không thuộc quyền sở hữu của mình → trả về HTTP `404 NOT_FOUND` (để tránh lộ sự tồn tại của dữ liệu).
-- **Sai Role:** Trả về HTTP `403 FORBIDDEN_ROLE`.
-- **Bác sĩ thú y:** Sử dụng tài khoản có role `ESCORT`, vị trí phân công `VETERINARIAN` và chứng chỉ hợp lệ.
+Role chuẩn: `CUSTOMER`, `LOGISTICS_MANAGER`, `TRANSPORT_SPECIALIST`, `FLEET_ROUTE_COORDINATOR`, `DRIVER_ESCORT`, `ADMIN`. `SYSTEM` chỉ là actor hệ thống trong history. Không truyền role/owner thay cho quyền JWT. Không tự thay USER được chọn bằng một ID nhân viên cố định.
 
----
+Header JSON: `Authorization: Bearer <token>`, `Accept: application/json`, `Content-Type: application/json`. Upload dùng FormData; bỏ Content-Type để trình duyệt sinh boundary. GET/DELETE và POST được ghi không body phải không gửi body.
 
-## 2. Request Headers
+Kiểm tra quyền sở hữu trên máy chủ; tài nguyên không có quyền xem trả 404. Sai role trả 403. Request idempotent phải kiểm tra trạng thái hiện hành trong transaction; FE khóa gửi lặp chỉ là hỗ trợ giao diện.
 
-```http
-Authorization: Bearer <accessToken>
-Accept: application/json
-Content-Type: application/json
-```
+## 3. Envelope, danh sách và lỗi
 
-- Các API public không cần header `Authorization`.
-- Khi upload file (`multipart/form-data`): **Trình duyệt tự động sinh header `Content-Type` cùng boundary**. Frontend không tự ý set cứng `Content-Type: multipart/form-data`.
-
----
-
-## 3. Response Envelope chuẩn
-
-Mọi API phản hồi từ Backend **bắt buộc** bọc trong cấu trúc envelope đồng nhất sau:
-
-### 3.1. Phản hồi Thành công (200 OK / 201 Created)
+Thành công JSON:
 
 ```json
-{
-  "success": true,
-  "message": "Thao tác thành công",
-  "data": {}
-}
+{"success":true,"message":"OK","data":{}}
 ```
 
-- `success`: Luôn là `true`.
-- `message`: Chuỗi thông điệp thông báo kết quả.
-- `data`: Chứa payload kết quả (object, array hoặc primitive).
-- Với danh sách: `data` có thể là mảng `[]` trực tiếp hoặc object phân trang (xem mục 3.3).
-
-### 3.2. Phản hồi Lỗi (4xx / 5xx)
+Lỗi:
 
 ```json
-{
-  "success": false,
-  "message": "Dữ liệu không hợp lệ",
-  "errorCode": "VALIDATION_ERROR",
-  "data": null,
-  "errors": {
-    "departureDate": ["Ngày khởi hành không được trong quá khứ"],
-    "horses": ["Phải chọn ít nhất 1 ngựa"]
-  }
-}
+{"success":false,"message":"Dữ liệu không hợp lệ","errorCode":"VALIDATION_ERROR","data":null,"errors":{"date":["Ngày không hợp lệ"]}}
 ```
 
-- `success`: Luôn là `false`.
-- `message`: Chuỗi mô tả lỗi hiển thị thân thiện trên UI.
-- `errorCode`: Mã lỗi chuẩn (viết HOA, phân tách bằng `_`) để Frontend rẽ nhánh logic nếu cần.
-- `data`: Luôn là `null`.
-- `errors`: Dictionary chứa danh sách lỗi chi tiết theo từng field (chỉ xuất hiện khi có lỗi xác thực dữ liệu).
+- `success`, `message`, `data` bắt buộc. Lỗi có `errorCode`; `errors` chỉ cần khi có lỗi field.
+- List Flow 1 trả `data: []`, không đổi sang `{items,page,...}`. Chưa áp dụng phân trang server; lọc/phân trang hiện tại trên FE. Muốn thêm phải đổi contract và caller cùng lúc.
+- Field optional được bỏ khi chưa có; field nullable nhận null khi chưa phát sinh. Arrays luôn là arrays. Không coi response thiếu data hay HTTP lỗi là dữ liệu mẫu hoặc thành công.
+- PDF/ảnh thành công trả binary đúng MIME, không envelope. Lỗi tải binary vẫn trả envelope JSON theo status. FE không tạo bản in từ dữ liệu hiện tại để thay một PDF phiên bản tải thất bại.
+- 200 đọc/cập nhật; 201 tạo; 400 validation; 401 chưa đăng nhập; 403 sai quyền; 404 không có tài nguyên; 409 sai trạng thái/phiên bản/còn tiền cần đối soát; 429 giới hạn gửi; 500 lỗi máy chủ.
+- Chức năng chưa hỗ trợ: 501 `FEATURE_NOT_SUPPORTED` với `data:null`. 404 route chưa triển khai cũng phải hiện lỗi, tuyệt đối không chuyển sang mock. Không hứa toàn bộ trường đã lưu khi backend thực tế bỏ field.
 
-### 3.3. Quy ước Danh sách và Phân trang
+## 4. ID
 
-Khi trả về danh sách có phân trang:
+Backend cấp `<PREFIX>_<D3 tối thiểu>`, ví dụ `USER_001`, `HORSE_001`, `REQUEST_1000`. Bất biến, không tái sử dụng, không sinh từ COUNT+1 ở frontend.
 
-```json
-{
-  "success": true,
-  "message": "Lấy danh sách thành công",
-  "data": {
-    "items": [],
-    "page": 1,
-    "pageSize": 20,
-    "totalItems": 45,
-    "totalPages": 3
-  }
-}
-```
+| Đối tượng | ID |
+|---|---|
+| USER, gồm mọi actor con người | USER_* |
+| HORSE | HORSE_* |
+| TRANSPORT_REQUEST | REQUEST_* |
+| CONTRACT | CONTRACT_* |
+| INVOICE | INVOICE_* |
+| PAYMENT | PAYMENT_* |
+| TRIP_PLAN | TRIP_* |
+| NOTIFICATION | NOTIFICATION_* |
+| SUPPORTED_ROUTE | ROUTE_* |
+| COUNTRY | VN, JP |
+| REQUEST_HORSE_MAPPING | (RequestID, HorseID), không ID riêng |
+| CONTRACT_VERSION | (ContractID, VersionNo), không ID riêng |
 
-- Tham số Query chuẩn: `page` (bắt đầu từ 1, mặc định 1), `pageSize` (mặc định 20, tối đa 100), `q` (tìm kiếm từ khóa).
-- Khi danh sách trống: `items` trả về `[]`, không trả về `null`.
+Một hợp đồng giữ nguyên ContractID khi sửa. VersionNo là integer >=1; `v` trong DTO là alias VersionNo; `number` là alias ContractID. Không ContractCode, ContractVersionID, RowVersion, pdfSha256 hoặc base64 token giả trong Flow 1. Không bịa bảng history/file/refund để hợp thức hóa DTO.
 
----
+## 5. Dữ liệu và giới hạn
 
-## 4. Quy chuẩn Mã định danh (ID Naming Rules)
+- Tiền: VND, số nguyên đồng không âm; không suy đoán tỷ giá cho dữ liệu cũ. Giá trị ngựa `value` là chuỗi số nguyên >0, tối đa 9.999.999.999 VND theo SQL tham khảo.
+- Tỷ lệ cọc: 40 nghĩa 40%, không phải 0.40; API trả giá trị thực. FE không tự chốt cọc/default deadline nếu chưa tải policy.
+- Date: `YYYY-MM-DD`. Timestamp DTO: `YYYY-MM-DD HH:mm`, múi giờ Asia/Ho_Chi_Minh. Backend chuyển UTC ở lớp persistence. Không thêm Z vào giờ địa phương mà chưa chuyển múi giờ.
+- Text được trim trước validation. Giới hạn chính xác từng field xem OpenAPI; FE kiểm tra tiện dụng, BE bắt buộc kiểm tra lại.
+- File thật PDF/JPG/JPEG/PNG, tối đa 10 MiB; ảnh chỉ JPG/JPEG/PNG. Object URL chỉ xem trong phiên, không gửi làm URL file đã lưu. Không FILE_* hoặc tệp PDF/JPEG giả thay nội dung người chọn.
 
-Toàn bộ ID nội bộ dạng chuỗi trong hệ thống tuân theo quy tắc:
+## 6. Trạng thái Flow 1
+
+Request DTO:
 
 ```text
-<TIỀN_TỐ>_<SỐ_THỨ_TỰ>
+DRAFT → PENDING_REVIEW → CONTRACT_PREPARATION → CONTRACT_READY
+→ DEPOSIT_VERIFIED → ACTIVATED
 ```
 
-1. **Format số:** Bắt đầu từ `1`, hiển thị tối thiểu 3 chữ số: `001`, `002`, ..., `999`, `1000`, `1001` (dùng `D3` trong C#).
-2. **Backend tự cấp phát:** Số thứ tự được sinh tự động bởi Sequence trong Database / Backend. Frontend tuyệt đối không tự cấp mã ID tạm thời rồi gửi lên lưu DB.
-3. **Tính bất biến:** Mã định danh đã cấp không được phép thay đổi, không tái sử dụng mã khi xóa dữ liệu.
-4. **Không nhúng dữ liệu nghiệp vụ:** Không nhúng ngày, tháng, năm, vai trò vào mã ID (ví dụ: dùng `USER_001`, không dùng `USR_CUST_2026_01`).
+Nhánh sửa đơn: `PENDING_REVIEW → CHANGES_REQUESTED → PENDING_REVIEW`. Nhánh sửa hợp đồng: `CONTRACT_READY → CONTRACT_CHANGES_REQUESTED → CONTRACT_READY` khi phát hành bản mới hoặc giữ bản cũ. Hủy: `CANCELLATION_REQUESTED`, `CANCELLED`; từ chối: `REJECTED`. Các trạng thái vận hành `SCHEDULED`, `IN_TRANSIT`, `DELIVERED`, `CLOSED` thuộc flow sau.
 
-### Danh sách tiền tố ID chuẩn:
+Contract DTO: `ISSUED`, `CHANGES_REQUESTED`, `EXPIRED`, `SUPERSEDED`, `EFFECTIVE`, `FULFILLED`, `VOID`. VersionStatus trong SQL tham khảo là `DRAFT`, `ISSUED`, `SUPERSEDED`, `SIGNED`, `CANCELLED`; mapping `SIGNED → EFFECTIVE`, `CANCELLED → VOID`, feedback pending → CHANGES_REQUESTED; EXPIRED là trạng thái suy ra theo deadline, không ghi trực tiếp vào CHECK SQL.
 
-| Bảng / Đối tượng | Khóa chính (PK) | Tiền tố | Ví dụ |
-|---|---|---|---|
-| `USER` | `UserID` | `USER` | `USER_001` |
-| `HORSE` | `HorseID` | `HORSE` | `HORSE_001` |
-| `STAFF_DOCUMENT` | `DocumentID` | `STAFF_DOCUMENT` | `STAFF_DOCUMENT_001` |
-| `NOTIFICATION` | `NotificationID` | `NOTIFICATION` | `NOTIFICATION_001` |
-| `POLICY_AND_TERM` | `PolicyID` | `POLICY_TERM` | `POLICY_TERM_001` |
-| `PARTNER_FACILITY` | `FacilityID` | `FACILITY` | `FACILITY_001` |
-| `SUPPORTED_ROUTE` | `RouteID` | `ROUTE` | `ROUTE_001` |
-| `TRANSPORT_REQUEST` | `RequestID` | `REQUEST` | `REQUEST_001` |
-| `REQUEST_STATUS_HISTORY` | `HistoryID` | `REQ_HISTORY` | `REQ_HISTORY_001` |
-| `HORSE_PROFILE_DOCUMENT` | `DocumentID` | `HORSE_DOC` | `HORSE_DOC_001` |
-| `CONTRACT` | `ContractID` | `CONTRACT` | `CONTRACT_001` |
-| `CONTRACT_FEEDBACK` | `FeedbackID` | `FEEDBACK` | `FEEDBACK_001` |
-| `INVOICE` | `InvoiceID` | `INVOICE` | `INVOICE_001` |
-| `PAYMENT_TRANSACTION` | `PaymentID` | `PAYMENT` | `PAYMENT_001` |
-| `TRIP` | `TripID` | `TRIP` | `TRIP_001` |
-| `TRIP_STATUS_HISTORY` | `HistoryID` | `TRIP_HISTORY` | `TRIP_HISTORY_001` |
-| `HANDOFF_EVENT` | `HandoffEventID` | `HANDOFF_EVENT` | `HANDOFF_EVENT_001` |
-| `BUSINESS_POLICY` | `PolicyID` | `BUSINESS_POLICY` | `BUSINESS_POLICY_001` |
-| `VEHICLE` | `VehicleID` | `VEHICLE` | `VEHICLE_001` |
-| `INCIDENT` | `IncidentID` | `INCIDENT` | `INCIDENT_001` |
-| `COMPLAINT` | `ComplaintID` | `COMPLAINT` | `COMPLAINT_001` |
+Payment DTO: `PENDING_CONFIRMATION` (chuyển khoản), `PROCESSING` (gateway đang chờ), `SUCCESS`, `FAILED`, `REJECTED`. Không coi browser Return thành SUCCESS. Chỉ kết quả xác minh có thẩm quyền trên backend được cộng vào tiền cọc.
 
-> **Lưu ý về phiên bản hợp đồng (Contract Version):**  
-> Mỗi hợp đồng có một `ContractID` duy nhất (`CONTRACT_001`). Các lần chỉnh sửa hợp đồng tăng `VersionNo` (số nguyên `1`, `2`, `3`). Không tạo mã ContractID mới khi sửa hợp đồng.
+Trip: `PLANNING`, `READY_TO_DEPART`, `IN_TRANSIT`, `COMPLETED`. `deployment.status` là trạng thái phân công riêng. Hold/resume chưa được bật vì còn giới hạn backend; frontend không tự chuyển ON_HOLD.
 
----
+## 7. Policy, snapshot và đồng bộ
 
-## 5. Quy chuẩn Định dạng Dữ liệu & Tiền tệ
-
-- **Tiền tệ:** Đơn vị tính thống nhất là **VND (Việt Nam Đồng)**, lưu số nguyên đồng (Backend xử lý kiểu `decimal`).
-- **Thời gian:**
-  - Date (ngày): `YYYY-MM-DD` (ví dụ: `2026-11-20`).
-  - Datetime hiển thị API: `YYYY-MM-DD HH:mm` theo múi giờ Việt Nam (`Asia/Ho_Chi_Minh` - GMT+7).
-  - Database lưu: UTC (`UtcDateTime`).
-- **File đính kèm:** Định dạng `.pdf`, `.jpg`, `.jpeg`, `.png`. Kích thước tối đa mặc định **10MB/file**.
-
----
-
-## 6. HTTP Status Codes & Error Codes chuẩn
-
-| HTTP Status | Trường hợp sử dụng | Ví dụ `errorCode` |
-|---|---|---|
-| `200 OK` | Lấy dữ liệu thành công / Cập nhật thành công | — |
-| `201 Created` | Tạo mới tài nguyên thành công | — |
-| `400 Bad Request` | Thiếu trường bắt buộc, sai định dạng, dữ liệu đầu vào không hợp lệ | `VALIDATION_ERROR`, `FILE_TOO_LARGE`, `INVALID_FORMAT` |
-| `401 Unauthorized` | Thiếu token, token hết hạn, sai email hoặc mật khẩu | `UNAUTHORIZED`, `TOKEN_EXPIRED`, `INVALID_CREDENTIALS` |
-| `403 Forbidden` | Không đúng role, chưa xác minh email, tài khoản bị khóa | `FORBIDDEN_ROLE`, `EMAIL_NOT_VERIFIED`, `ACCOUNT_INACTIVE` |
-| `404 Not Found` | Không tìm thấy tài nguyên hoặc không thuộc quyền sở hữu | `NOT_FOUND` |
-| `409 Conflict` | Xung đột trạng thái nghiệp vụ (đơn đã xử lý, trùng lịch ngựa, hết hạn) | `INVALID_STATE`, `HORSE_SCHEDULE_CONFLICT`, `CONTRACT_EXPIRED`, `DEPOSIT_NOT_VERIFIED` |
-| `429 Too Many Requests` | Vượt giới hạn gửi OTP hoặc gửi yêu cầu quá nhanh | `RATE_LIMITED` |
-| `500 Internal Server Error` | Lỗi máy chủ chưa được xử lý | `INTERNAL_ERROR` |
-
----
-
-## 7. Các Enum nghiệp vụ chính
-
-### 7.1. Roles
-- `CUSTOMER`: Khách hàng vận chuyển
-- `LOGISTICS_MANAGER`: Quản lý Logistics & Hợp đồng
-- `TRANSPORT_SPECIALIST`: Chuyên viên Pháp lý & Kiểm dịch
-- `FLEET_COORDINATOR`: Điều phối viên Đội xe & Tuyến đường
-- `DRIVER`: Tài xế vận chuyển
-- `ESCORT`: Nhân viên đi kèm / Bác sĩ thú y
-
-### 7.2. Trạng thái Request (`RequestStatus`)
-`PENDING` → `CHANGES_REQUESTED` → `ACCEPTED` → `AWAITING_CONTRACT` → `AWAITING_DEPOSIT` → `ACTIVATED` → `CLOSED`  
-*(Nhánh kết thúc: `REJECTED`, `CANCELLED`)*
-
-### 7.3. Trạng thái Hợp đồng (`ContractStatus`)
-`DRAFT` → `PENDING_SIGNATURE` → `SIGNED` → `EFFECTIVE`  
-*(Nhánh phụ: `SUPERSEDED` khi có bản mới, `EXPIRED`, `TERMINATED`)*
-
-### 7.4. Trạng thái Chuyến đi (`TripStatus`)
-`PLANNING` → `READY_TO_DEPART` → `IN_TRANSIT` → `COMPLETED`  
-*(Cờ tạm dừng: `ON_HOLD`)*
-
-### 7.5. Trạng thái Giao dịch (`TransactionStatus`)
-`PENDING_CONFIRMATION` → `SUCCESS`  
-*(Nhánh lỗi: `FAILED`, `CANCELLED`, `REJECTED`)*
-
----
-
-## 8. Chuẩn API Xác thực & Dùng chung (Authentication & Shared)
-
-### 8.1. Đăng nhập (`POST /auth/login`)
-- **Request Body:**
-  ```json
-  {
-    "email": "customer@example.com",
-    "password": "Password123@"
-  }
-  ```
-- **Response 200 OK:**
-  ```json
-  {
-    "success": true,
-    "message": "Đăng nhập thành công",
-    "data": {
-      "accessToken": "eyJhbGciOi...",
-      "refreshToken": "d8f9e1...",
-      "user": {
-        "userId": "USER_001",
-        "email": "customer@example.com",
-        "fullName": "Nguyễn Văn A",
-        "role": "CUSTOMER",
-        "phoneNumber": "0912345678"
-      }
-    }
-  }
-  ```
-
-### 8.2. Tải lên tệp chứng từ (`POST /files/upload`)
-- **Headers:** `Authorization: Bearer <token>`, Body dạng `multipart/form-data`.
-- **Form Data:** field `file` chứa file binary.
-- **Response 200 OK:**
-  ```json
-  {
-    "success": true,
-    "message": "Tải lên tệp thành công",
-    "data": {
-      "fileId": "FILE_001",
-      "fileName": "horse_passport.pdf",
-      "contentType": "application/pdf",
-      "sizeBytes": 1048576,
-      "url": "/api/files/FILE_001"
-    }
-  }
-  ```
-
----
-
-## 9. Cập nhật thời gian thực (SignalR)
-
-- **Hub URL:** `/api/hubs/updates`
-- **Sự kiện chính:**
-  - `NotificationCreated`: Có thông báo mới
-  - `RequestUpdated`: Cập nhật trạng thái yêu cầu vận chuyển
-  - `TripUpdated`: Cập nhật tiến độ chuyến đi
-  - `PaymentUpdated`: Cập nhật trạng thái thanh toán / cọc
-- **Nguyên tắc:** Sự kiện SignalR chỉ mang tính chất thông báo cho FE gọi lại REST API tương ứng để làm mới dữ liệu; không dùng SignalR để truyền toàn bộ dữ liệu giao dịch hay thay thế REST API.
+- Policy lấy từ API options/editor theo tuyến/phương thức đang chọn. Thứ tự tham khảo: COUNTRY (nước đích) → TRANSPORT_MODE → GLOBAL. Không tự giả định phạm vi ROUTE có trong schema hiện tại.
+- Giữ hạn hoàn tất máy chủ trả khi publish/extend. Phản hồi giữ hợp đồng không tự gia hạn. Gia hạn là thao tác riêng có lý do.
+- Phiên bản đã phát hành phải chứa snapshot customer/route/places/horses, giá, lịch trình, điều khoản và PDF đúng bản. Cả FE Customer và Manager render snapshot; thiếu snapshot thì báo chưa đủ dữ liệu và khóa chấp thuận/ký.
+- Cọc và acknowledgement gắn đúng ContractID + VersionNo. Ký thành công trả Request ACTIVATED và TripID thật. FE không tự sinh Trip.
+- Mutation chờ API rồi cập nhật/refetch; lỗi giữ nguyên trạng thái nghiệp vụ. Form còn đang soạn chỉ là dữ liệu UI, không phải dữ liệu đã lưu.
+- Notifications mark-read và nhắc có endpoint riêng. Khi chưa có realtime, chủ động tải lại sau thao tác; không hứa SignalR đã hoạt động.

@@ -52,7 +52,7 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
   if (!v) {
     return (
       <div className="cus-grid-main">
-        <LockedCard icon="clock" title="Đang soạn hợp đồng" text="Logistics Manager đang soạn hợp đồng với giá chính thức. Mỗi phiên bản phải được ký trong 24 giờ kể từ khi phát hành." />
+        <LockedCard icon="clock" title="Đang soạn hợp đồng" text="Logistics Manager đang soạn hợp đồng với giá chính thức. Hạn hoàn tất được ghi trong từng phiên bản hợp đồng." />
         <DemoPanel request={r} />
       </div>
     );
@@ -62,8 +62,8 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
   const live = state === 'ISSUED' && ['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status);
   const canChange = canRequestContractChange(r);
 
-  const submitChange = () => {
-    const res = actions.requestContractChange(r.id, {
+  const submitChange = async () => {
+    const res = await actions.requestContractChange(r.id, {
       text,
       proposedDate: 'date' in items ? items.date ?? '' : undefined,
       proposedNotes: items.notes?.trim() || undefined,
@@ -182,7 +182,7 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
           <div className="cus-card">
             <div className="cus-eyebrow">Tóm tắt</div>
             <div className="cus-summary" style={{ marginTop: 10 }}>
-              <div className="hl"><span>Tổng hợp đồng</span><b>{fmtMoney(v.total)} USD</b></div>
+              <div className="hl"><span>Tổng hợp đồng</span><b>{fmtMoney(v.total)}</b></div>
               <div><span>Tiền cọc ({v.depositPct}%)</span><b>{fmtMoney(depositAmount(r))}</b></div>
               <div><span>Số dư</span><b>{fmtMoney(v.total - depositAmount(r))}</b></div>
             </div>
@@ -194,7 +194,7 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
                 <li key={x.v}>
                   <button type="button" onClick={() => navigate(`/customer/requests/${r.id}/contract/v/${x.v}`)}>
                     <div className="cus-versions__top"><b>{ctRef(x)}</b>{x === v && <span className="cus-req-tag">Hiện hành</span>}<TripStatusBadge kind="contract" status={versionState(x)} /></div>
-                    <div className="cus-versions__meta"><span>{fmtMoney(x.total)} USD</span><span>Phát hành {fmtDateTime(x.issuedAt)}</span>{x.signedAt ? <span>Ký {fmtDateTime(x.signedAt)}</span> : <span>Hạn {fmtDateTime(x.validUntil)}</span>}</div>
+                    <div className="cus-versions__meta"><span>{fmtMoney(x.total)}</span><span>Phát hành {fmtDateTime(x.issuedAt)}</span>{x.signedAt ? <span>Ký {fmtDateTime(x.signedAt)}</span> : <span>Hạn {fmtDateTime(x.validUntil)}</span>}</div>
                     {x.change && <div className="cus-versions__note">Yêu cầu sửa: {x.change.text}</div>}
                   </button>
                 </li>
@@ -204,7 +204,7 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
           <div className="cus-card">
             <div className="cus-eyebrow">Quy tắc hợp đồng</div>
             <ul className="cus-rule-list" style={{ marginTop: 8 }}>
-              <li>Thanh toán + xác minh cọc rồi ký OTP trong hạn chung 24 giờ kể từ khi phát hành. Manager có thể gia hạn.</li>
+              <li>Thanh toán + xác minh cọc rồi ký OTP trong hạn hoàn tất ghi trong hợp đồng. Manager có thể gia hạn.</li>
               <li>Chỉ ký được phiên bản hiện hành còn hạn.</li>
               <li>Hết hạn không hủy yêu cầu; Manager có thể gia hạn hoặc phát hành phiên bản mới.</li>
               <li>Thứ tự: đồng ý điều khoản → thanh toán cọc → xác minh cọc → ký OTP.</li>

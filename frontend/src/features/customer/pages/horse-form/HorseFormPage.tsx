@@ -29,12 +29,12 @@ export const HorseFormPage: React.FC = () => {
   }
   const lockedBy = h ? horseRequests(h, requests).map((r) => r.id) : [];
 
-  const save = () => {
+  const save = async () => {
     const bad: string[] = [];
     if (!form.name.trim()) bad.push('name');
     setInvalid(bad);
     if (bad.length) { actions.showToast('Nhập tên ngựa.'); return; }
-    const res = h ? actions.updateHorse(h.id, form) : actions.createHorse(form);
+    const res = await (h ? actions.updateHorse(h.id, form) : actions.createHorse(form));
     if (res.ok) navigate(h ? back : `/customer/horses/${res.id}`);
   };
 

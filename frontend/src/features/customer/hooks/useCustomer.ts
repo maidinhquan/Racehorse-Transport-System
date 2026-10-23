@@ -16,18 +16,16 @@ import type {
   TripInfoInput,
 } from '../types';
 import { customerApi } from '../api/customerApi';
+import { apiMessage } from '../../../shared/api/flow1';
 import { getCurrentUser } from '../../auth/api/authApi';
-import { DEMO_OTP, mockHorses, mockNotifications, mockProfile, mockRequests } from '../data/mockData';
 import {
   FILE_DOC_KEYS,
-  HORSE_FILE_FIELD,
   HORSE_LOCKED_FIELDS,
   addHours,
   balanceDue,
   canAcceptTerms,
   canCancel,
   canComplain,
-  canPayDeposit,
   canRequestContractChange,
   canSign,
   clockMs,
@@ -35,25 +33,21 @@ import {
   contractItems,
   ctRef,
   curVersion,
-  depositAmount,
   depositPayments,
   depositState,
   docRecord,
   docsNeedingAction,
   fmtDateTime,
   fmtMoney,
-  hasDepositMoney,
   horseDocItems,
   horseRequests,
   isActive,
-  isInternational,
   isPast,
   isSupportedRoute,
   nowStamp,
   pickedHorses,
   qrExpired,
   sharedDocItems,
-  signBlock,
   sumItems,
   today,
   tripTemplate,
@@ -68,6 +62,7 @@ interface OtpSession {
   requestId: string;
   expiresAtMs: number;
   tries: number;
+  resendAtMs: number;
 }
 
 interface CustomerState {
@@ -82,10 +77,9 @@ interface CustomerState {
 }
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
-const OTP_SECONDS = 120;
 
 const getInitialProfile = (): CustomerProfile => {
-  const p = clone(mockProfile);
+  const p: CustomerProfile = { id: '', name: '', initials: '', email: '', phone: '', company: '' };
   try {
     const storedName = localStorage.getItem('userFullName');
     const storedEmail = localStorage.getItem('userEmail');
@@ -104,9 +98,9 @@ const getInitialProfile = (): CustomerProfile => {
 
 let state: CustomerState = {
   profile: getInitialProfile(),
-  horses: clone(mockHorses),
-  requests: clone(mockRequests),
-  notifications: clone(mockNotifications),
+  horses: [],
+  requests: [],
+  notifications: [],
   otp: null,
   loading: false,
   loaded: false,
@@ -115,6 +109,9 @@ let state: CustomerState = {
 const listeners = new Set<() => void>();
 const setState = (patch: Partial<CustomerState> | ((s: CustomerState) => Partial<CustomerState>)) => {
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
+  for (const r of state.requests.filter(r => r.status === 'DRAFT')) {
+    try { sessionStorage.setItem(`flow1-progress:${r.id}`, JSON.stringify({ horseCount: r.horseCount, wizardStep: r.wizardStep })); } catch { /* UI metadata is optional. */ }
+  }
   listeners.forEach((l) => l());
 };
 const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
@@ -129,12 +126,11 @@ const findHorse = (id: string) => state.horses.find((h) => h.id === id);
 /** Sửa một yêu cầu trên bản sao rồi ghi lại vào store */
 const updateReq = (id: string, fn: (r: TransportRequest) => void) => {
   setState((s) => ({ requests: s.requests.map((r) => { if (r.id !== id) return r; const c = clone(r); fn(c); return c; }) }));
-  const saved = findReq(id);
-  if (saved) void customerApi.saveRequest(saved);
+
 };
 const ACTOR: Record<ActorRole, string> = {
-  CUSTOMER: '', LOGISTICS_MANAGER: 'Linh Pham', TRANSPORT_SPECIALIST: 'Hoang Thu Ha', FLEET_COORDINATOR: 'Dang Minh Quan',
-  CREW: 'Pham Van Duc', SYSTEM: 'Hệ thống',
+  CUSTOMER: '', LOGISTICS_MANAGER: 'Linh Pham', TRANSPORT_SPECIALIST: 'Hoang Thu Ha', FLEET_ROUTE_COORDINATOR: 'Dang Minh Quan',
+  DRIVER_ESCORT: 'Pham Van Duc', SYSTEM: 'Hệ thống',
 };
 const log = (r: TransportRequest, role: ActorRole, action: string, detail?: string) =>
   r.history.push({ at: nowStamp(), actor: role === 'CUSTOMER' ? state.profile.name : ACTOR[role], role, action, detail });
@@ -155,6 +151,7 @@ const nextId = (prefix: string, list: string[]) => {
 async function loadAll() {
   if (state.loading || state.loaded) return;
   setState({ loading: true });
+  try {
   const [profile, horses, requests, notifications, currentUserRes] = await Promise.all([
     customerApi.getProfile(),
     customerApi.getHorses(),
@@ -196,6 +193,7 @@ async function loadAll() {
     // ignore
   }
   setState({ profile, horses, requests, notifications, loading: false, loaded: true });
+  } catch (error) { setState({ loading: false, loaded: true }); toast(apiMessage(error)); }
 }
 
 // ============================================================================
@@ -210,6 +208,15 @@ function validateTripInfo(input: TripInfoInput): string {
   return '';
 }
 
+function validateHorse(h: HorseInput): string {
+  if (!h.name.trim() || !h.breed.trim() || !h.sex || !h.dob) return 'Điền tên, giống, giới tính và ngày sinh.';
+  if (!/^\d{15}$/.test(h.microchip)) return 'Microchip phải gồm đúng 15 chữ số.';
+  if (h.currency !== 'VND' || !/^\d+$/.test(h.value) || Number(h.value) <= 0) return 'Giá trị khai báo phải là số nguyên VND lớn hơn 0.';
+  if (!h.passport.number.trim() || !h.passport.authority.trim() || !h.passport.issueDate || !h.passport.expiryDate) return 'Điền đủ thông tin hộ chiếu.';
+  if (h.dob > today() || h.passport.issueDate > h.passport.expiryDate) return 'Kiểm tra ngày sinh, ngày cấp và hạn hộ chiếu.';
+  return '';
+}
+
 const resizeHorses = (r: TransportRequest, count: number) => {
   r.horseCount = count;
   r.horses = Array.from({ length: count }, (_, i) => r.horses[i] ?? '');
@@ -219,37 +226,37 @@ const customerActions = {
   reload: () => { setState({ loaded: false }); void loadAll(); },
   clearToast: () => setState({ toast: null }),
   showToast: (message: string) => toast(message),
-  markNotificationRead: (id: string) => setState((s) => ({ notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)) })),
-  markAllNotificationsRead: () => setState((s) => ({ notifications: s.notifications.map((n) => ({ ...n, read: true })) })),
-
-  // ----- Bước 1: thông tin chuyến -----
-  createDraft(input: TripInfoInput): ActionResult {
-    const err = validateTripInfo(input);
-    if (err) return fail(err);
-    const id = nextId('TRN', state.requests.map((r) => r.id));
-    const r: TransportRequest = {
-      id, origin: input.origin, destination: input.destination, date: input.date, horseCount: input.horseCount,
-      requestedAt: today(), status: 'DRAFT', careNotes: input.careNotes.trim(),
-      pickup: { name: '', address: '', postal: '', contact: state.profile.name, phone: state.profile.phone, notes: '' },
-      delivery: { name: '', address: '', postal: '', contact: '', phone: '', notes: '' },
-      horses: Array.from({ length: input.horseCount }, () => ''), horseNotes: {}, wizardStep: 1,
-      revisions: [], versions: [], payments: [], docs: [], supplements: [], companyDocs: [], complaints: [], history: [],
-    };
-    log(r, 'CUSTOMER', 'Tạo bản nháp yêu cầu', `${input.origin} → ${input.destination} • ${input.horseCount} ngựa`);
-    setState((s) => ({ requests: [r, ...s.requests] }));
-    void customerApi.createRequest(r);
-    return ok(`Đã lưu bản nháp ${id}. Tiếp tục khai báo điểm nhận và điểm giao.`, id);
+  async markNotificationRead(id: string) {
+    try { await customerApi.markNotificationRead(id); setState(s => ({ notifications: s.notifications.map(n => n.id === id ? { ...n, read: true } : n) })); }
+    catch (error) { toast(apiMessage(error)); }
+  },
+  async markAllNotificationsRead() {
+    try { await customerApi.markAllNotificationsRead(); setState(s => ({ notifications: s.notifications.map(n => ({ ...n, read: true })) })); }
+    catch (error) { toast(apiMessage(error)); }
   },
 
-  updateTripInfo(id: string, input: TripInfoInput): ActionResult {
+  // ----- Bước 1: thông tin chuyến -----
+  async createDraft(input: TripInfoInput): Promise<ActionResult> {
+    const err = validateTripInfo(input); if (err) return fail(err);
+    try {
+      const r = await customerApi.createRequest(input);
+      if (!r?.id || r.status !== 'DRAFT') return fail('API chưa trả bản nháp hợp lệ.');
+      r.horseCount = input.horseCount;
+      r.horses = Array.from({ length: input.horseCount }, () => '');
+      setState(s => ({ requests: [r, ...s.requests] }));
+      return ok(`Đã tạo bản nháp ${r.id}.`, r.id);
+    } catch (error) { return fail(apiMessage(error)); }
+  },
+
+  async updateTripInfo(id: string, input: TripInfoInput): Promise<ActionResult> {
     const r = findReq(id);
     if (!r || !['DRAFT', 'CHANGES_REQUESTED'].includes(r.status)) return fail('Chỉ sửa được bản nháp hoặc yêu cầu đang được yêu cầu chỉnh sửa.');
     if (r.status === 'CHANGES_REQUESTED') {
-      const allowed: RequestField[] = r.revisionFields ?? ['route', 'date', 'count', 'notes'];
+      const allowed: RequestField[] = r.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'];
       const changed: RequestField[] = [];
       if (input.origin !== r.origin || input.destination !== r.destination) changed.push('route');
       if (input.date !== r.date) changed.push('date');
-      if (input.horseCount !== r.horseCount) changed.push('count');
+      if (input.horseCount !== r.horseCount) changed.push('horses');
       if (input.careNotes.trim() !== r.careNotes) changed.push('notes');
       const locked = changed.filter((f) => !allowed.includes(f));
       if (locked.length) return fail('Manager chỉ cho phép sửa các mục đã nêu trong góp ý.');
@@ -261,16 +268,24 @@ const customerActions = {
       resizeHorses(x, input.horseCount);
       log(x, 'CUSTOMER', 'Cập nhật thông tin chuyến', `${input.origin} → ${input.destination} • ${fmtDateTime(input.date)} • ${input.horseCount} ngựa`);
     });
+    try {
+      await customerApi.saveRequest(findReq(id)!);
+    } catch (error) { return fail(apiMessage(error)); }
     return ok('Đã lưu thông tin chuyến.');
   },
 
   // ----- Bước 2: điểm nhận & điểm giao -----
-  savePlaces(id: string, pickup: Place, delivery: Place): ActionResult {
+  async savePlaces(id: string, pickup: Place, delivery: Place): Promise<ActionResult> {
     const missing = (p: Place) => !p.name.trim() || !p.address.trim() || !p.contact.trim() || !p.phone.trim();
+    const current = findReq(id);
+    if (current?.status === 'CHANGES_REQUESTED' && !current.revisionFields?.includes('places') && (JSON.stringify(pickup) !== JSON.stringify(current.pickup) || JSON.stringify(delivery) !== JSON.stringify(current.delivery))) return fail('Manager không cho phép sửa điểm nhận/giao.');
     if (missing(pickup) || missing(delivery)) return fail('Điền đủ tên địa điểm, địa chỉ, người liên hệ và số điện thoại cho cả điểm nhận và điểm giao.');
     const phoneOk = (p: string) => /^[+0-9 ()-]{8,}$/.test(p.trim());
     if (!phoneOk(pickup.phone) || !phoneOk(delivery.phone)) return fail('Số điện thoại không hợp lệ.');
     updateReq(id, (r) => { r.pickup = pickup; r.delivery = delivery; r.wizardStep = Math.max(r.wizardStep, 2); });
+    try {
+      await customerApi.saveRequest(findReq(id)!);
+    } catch (error) { return fail(apiMessage(error)); }
     return ok('Đã lưu điểm nhận và điểm giao.');
   },
 
@@ -278,18 +293,24 @@ const customerActions = {
   setHorseSlot(id: string, slot: number, horseId: string): ActionResult {
     const r = findReq(id);
     if (!r) return fail('Không tìm thấy yêu cầu.');
+    if (r.status === 'CHANGES_REQUESTED' && !r.revisionFields?.includes('horses')) return fail('Manager không cho phép sửa danh sách ngựa.');
     if (horseId && r.horses.some((h, i) => h === horseId && i !== slot)) return fail('Ngựa này đã được chọn trong đơn.');
     updateReq(id, (x) => { x.horses[slot] = horseId; });
     return { ok: true, message: '' };
   },
   setHorseNote(id: string, horseId: string, note: string) {
+    const current = findReq(id);
+    if (current?.status === 'CHANGES_REQUESTED' && !current.revisionFields?.includes('notes')) return;
     updateReq(id, (r) => { r.horseNotes[horseId] = note; });
   },
-  completeHorsesStep(id: string): ActionResult {
+  async completeHorsesStep(id: string): Promise<ActionResult> {
     const r = findReq(id);
     if (!r) return fail('Không tìm thấy yêu cầu.');
     if (r.horses.some((h) => !h)) return fail(`Hãy chọn đủ ${r.horseCount} ngựa.`);
     updateReq(id, (x) => { x.wizardStep = Math.max(x.wizardStep, 3); });
+    try {
+      await customerApi.saveRequest(findReq(id)!);
+    } catch (error) { return fail(apiMessage(error)); }
     return ok('Đã lưu danh sách ngựa và hồ sơ.');
   },
 
@@ -304,242 +325,111 @@ const customerActions = {
       return fail(apiRes.message || 'Gửi yêu cầu thất bại. Vui lòng thử lại.');
     }
 
-    const realId = apiRes.requestId || id;
-    updateReq(id, (x) => {
-      if (x.status === 'CHANGES_REQUESTED') {
-        x.revisions.push({ v: x.revisions.length + 1, at: x.submittedAt ?? nowStamp(), origin: x.origin, destination: x.destination, date: x.date, horseCount: x.horseCount, feedback: x.feedback });
-      }
-      x.id = realId;
-      x.status = 'PENDING_REVIEW'; x.submittedAt = nowStamp(); x.revisionFields = undefined;
-      log(x, 'CUSTOMER', x.revisions.length ? 'Gửi lại yêu cầu sau chỉnh sửa' : 'Gửi yêu cầu vận chuyển', `${x.origin} → ${x.destination} • ${x.horseCount} ngựa`);
-    });
-    return ok(`Đã gửi ${realId}. Logistics Manager sẽ xét duyệt yêu cầu của bạn.`, realId);
+    if (!apiRes.request || apiRes.request.status !== 'PENDING_REVIEW') return fail('Máy chủ chưa xác nhận gửi đơn.');
+    const saved = apiRes.request;
+    setState(s => ({ requests: s.requests.map(x => x.id === id ? saved : x) }));
+    try { sessionStorage.removeItem(`flow1-progress:${id}`); } catch { /* Optional UI metadata. */ }
+    return ok(`Đã gửi ${saved.id}. Logistics Manager sẽ xét duyệt yêu cầu.`, saved.id);
   },
 
-  cancelRequest(id: string, reason: string): ActionResult {
+  async cancelRequest(id: string, reason: string): Promise<ActionResult> {
     const r = findReq(id);
     if (!r || !canCancel(r)) return fail('Không thể hủy yêu cầu ở trạng thái hiện tại.');
     if (reason.trim().length < 5) return fail('Nhập lý do hủy (ít nhất 5 ký tự).');
-
-    const v = r.versions && r.versions.length > 0 ? r.versions[r.versions.length - 1] : undefined;
-    const contractId = v?.contractId || (r as any).contractId;
-    const contractVersion = v?.rowVersion || (v as any)?.contractVersion || (r as any).version || 'AAAAAAADkh8=';
-
-    if (contractId) {
-      void customerApi.cancelContract(contractId, contractVersion, reason.trim()).then((success) => {
-        if (success) {
-          setTimeout(() => { setState((s) => ({ ...s, loaded: false })); void loadAll(); }, 500);
-        }
-      });
-    }
-
-    if (hasDepositMoney(r)) {
-      updateReq(id, (x) => {
-        x.cancelRequest = { at: nowStamp(), reason: reason.trim(), prevStatus: x.status };
-        x.status = 'CANCELLATION_REQUESTED';
-        log(x, 'CUSTOMER', 'Yêu cầu hủy', `${reason.trim()} • đã có thanh toán – chờ Manager đối soát`);
-      });
-      return ok('Đã gửi yêu cầu hủy. CBN Transport sẽ đối soát khoản thanh toán của bạn.');
-    }
-    updateReq(id, (x) => { x.status = 'CANCELLED'; x.reason = `Khách hàng hủy: ${reason.trim()}`; log(x, 'CUSTOMER', 'Hủy yêu cầu', reason.trim()); });
-    return ok(`Đã hủy ${id}. Yêu cầu được lưu trong Lịch sử.`);
+    try {
+      await customerApi.cancelRequest(id, reason.trim());
+      const updated = await customerApi.getRequest(id);
+      setState(s => ({ requests: s.requests.map(x => x.id === id ? updated : x) }));
+      return ok('Đã gửi yêu cầu hủy và cập nhật trạng thái từ máy chủ.');
+    } catch (error) { return fail(apiMessage(error)); }
   },
 
   // ----- Ngựa của tôi -----
-  createHorse(input: HorseInput): ActionResult {
-    if (!input.name.trim()) return fail('Nhập tên ngựa.');
-    if (input.passport.issueDate && input.passport.expiryDate && input.passport.expiryDate < input.passport.issueDate) return fail('Ngày hết hạn hộ chiếu không được trước ngày cấp.');
-    const id = nextId('HOR', state.horses.map((h) => h.id));
-    setState((s) => ({ horses: [...s.horses, { ...clone(input), id, name: input.name.trim() }] }));
-    void customerApi.createHorse(input).then((res) => {
-      if (res.ok && res.id) {
-        setTimeout(() => { setState({ loaded: false }); void loadAll(); }, 500);
-      }
-    });
-    return ok(`Đã thêm ${input.name.trim()} vào Ngựa của tôi.`, id);
+  async createHorse(input: HorseInput): Promise<ActionResult> {
+    const err = validateHorse(input); if (err) return fail(err);
+    try {
+      const result = await customerApi.createHorse(input);
+      const horses = await customerApi.getHorses(); setState({ horses });
+      return ok(`Đã thêm ${input.name.trim()}.`, result.id);
+    } catch (error) {
+      try { setState({ horses: await customerApi.getHorses() }); } catch { /* Keep existing data on failed reload. */ }
+      return fail(apiMessage(error));
+    }
   },
-  updateHorse(id: string, input: HorseInput): ActionResult {
-    const h = findHorse(id);
-    if (!h) return fail('Không tìm thấy ngựa.');
-    if (!input.name.trim()) return fail('Nhập tên ngựa.');
-    if (input.passport.issueDate && input.passport.expiryDate && input.passport.expiryDate < input.passport.issueDate) return fail('Ngày hết hạn hộ chiếu không được trước ngày cấp.');
-    const next: Horse = { ...clone(input), id, version: h.version };
-    if (horseRequests(h, state.requests).length) HORSE_LOCKED_FIELDS.forEach((k) => { (next as unknown as Record<string, unknown>)[k] = h[k]; });
-    setState((s) => ({ horses: s.horses.map((x) => (x.id === id ? next : x)) }));
-    void customerApi.updateHorse(id, next).then((success) => {
-      if (success) {
-        setTimeout(() => { setState({ loaded: false }); void loadAll(); }, 500);
-      }
-    });
-    return ok('Đã lưu hồ sơ ngựa.');
+  async updateHorse(id: string, input: HorseInput): Promise<ActionResult> {
+    const h = findHorse(id); if (!h) return fail('Không tìm thấy ngựa.');
+    const err = validateHorse(input); if (err) return fail(err);
+    const next = { ...input };
+    if (horseRequests(h, state.requests).length) HORSE_LOCKED_FIELDS.forEach(k => { (next as unknown as Record<string, unknown>)[k] = h[k]; });
+    try {
+      await customerApi.updateHorse(id, next); setState({ horses: await customerApi.getHorses() });
+      return ok('Đã lưu hồ sơ ngựa.');
+    } catch (error) { return fail(apiMessage(error)); }
   },
 
   // ----- Giấy tờ -----
-  uploadDoc(requestId: string, key: DocKey, scope: string, file: FileRef): ActionResult {
+  async uploadDoc(requestId: string, key: DocKey, scope: string, file: FileRef): Promise<ActionResult> {
     const r = findReq(requestId);
-    if (!r) return fail('Không tìm thấy yêu cầu.');
-    if (!FILE_DOC_KEYS.includes(key)) return fail('Mục này không cần tải tệp.');
-    if (!isActive(r)) return fail('Yêu cầu đã kết thúc, không thể nộp giấy tờ.');
-    const reviewing = ['ACTIVATED', 'SCHEDULED', 'IN_TRANSIT'].includes(r.status);
-    updateReq(requestId, (x) => {
-      const rec = docRecord(x, key, scope);
-      const data = { status: reviewing ? 'PENDING_REVIEW' as const : 'SUBMITTED' as const, file, issue: undefined, updatedAt: nowStamp() };
-      if (rec) Object.assign(rec, data); else x.docs.push({ key, scope, ...data });
-      x.supplements.forEach((s) => { if (s.status === 'OPEN' && s.key === key && s.scope === scope) s.status = 'FULFILLED'; });
-      log(x, 'CUSTOMER', reviewing ? 'Nộp giấy tờ để Specialist kiểm duyệt' : 'Tải giấy tờ lên hồ sơ', `${file.name}`);
-    });
-    // tệp của ngựa được lưu vào Ngựa của tôi nếu hồ sơ ngựa chưa có
-    const h = scope !== 'request' ? findHorse(scope) : undefined;
-    if (h) {
-      const copy = clone(h);
-      if (key === 'passport' && !copy.passport.scan) copy.passport.scan = file;
-      const field = HORSE_FILE_FIELD[key as keyof typeof HORSE_FILE_FIELD];
-      if (field && !copy[field]) copy[field] = file;
-      setState((s) => ({ horses: s.horses.map((x) => (x.id === h.id ? copy : x)) }));
-    }
-    void customerApi.uploadDocument(requestId, key, scope, file.name);
-    return ok(reviewing ? 'Đã nộp. Giấy tờ đang chờ Transport Specialist kiểm duyệt.' : 'Đã tải tệp lên. Tệp chưa được duyệt cho tới khi yêu cầu được kích hoạt.');
+    if (!r || !isActive(r) || !FILE_DOC_KEYS.includes(key)) return fail('Không thể nộp giấy tờ cho yêu cầu này.');
+    try {
+      if (['DRAFT', 'CHANGES_REQUESTED'].includes(r.status)) await customerApi.saveRequest(r);
+      await customerApi.uploadDocument(requestId, key, scope, file);
+      const updated = await customerApi.getRequest(requestId);
+      if (updated.status === 'DRAFT') {
+        updated.horseCount = r.horseCount; updated.horses = [...r.horses]; updated.wizardStep = r.wizardStep;
+      }
+      setState(s => ({ requests: s.requests.map(x => x.id === requestId ? updated : x) }));
+      return ok('Đã nộp giấy tờ. Trạng thái duyệt được lấy từ máy chủ.');
+    } catch (error) { return fail(apiMessage(error)); }
   },
 
   // ----- Hợp đồng -----
-  acceptTerms(id: string): ActionResult {
-    const r = findReq(id);
-    if (!r || !canAcceptTerms(r)) return fail('Chỉ đồng ý được điều khoản của phiên bản hợp đồng hiện hành, còn hạn.');
-    const v = curVersion(r)!;
-    const contractId = v.contractId || r.versions?.[0]?.contractId || id;
-    updateReq(id, (x) => { const cv = curVersion(x)!; cv.termsAcceptedAt = nowStamp(); log(x, 'CUSTOMER', 'Đồng ý điều khoản hợp đồng', `${ctRef(cv)} • ${fmtMoney(cv.total)}`); });
-    void customerApi.acceptTerms(contractId);
-    return ok('Đã đồng ý điều khoản. Tiếp tục thanh toán tiền cọc.');
-  },
-  requestContractChange(id: string, input: ContractChangeInput): ActionResult {
-    const r = findReq(id);
-    if (!r || !canRequestContractChange(r)) return fail('Chỉ yêu cầu sửa được phiên bản hợp đồng hiện hành chưa ký và chưa có thanh toán.');
-    if (input.text.trim().length < 10) return fail('Giải thích nội dung cần sửa (ít nhất 10 ký tự).');
-    if (input.proposedDate !== undefined && (!input.proposedDate || input.proposedDate < today())) return fail('Ngày đề xuất phải từ hôm nay trở đi.');
-    const v = curVersion(r)!;
-    const contractId = v.contractId || r.versions?.[0]?.contractId || id;
-    updateReq(id, (x) => {
-      const cv = curVersion(x)!;
-      cv.state = 'CHANGES_REQUESTED';
-      cv.change = { at: nowStamp(), text: input.text.trim(), proposedDate: input.proposedDate, proposedNotes: input.proposedNotes, commercial: input.commercial, other: input.other };
-      x.status = 'CONTRACT_CHANGES_REQUESTED';
-      log(x, 'CUSTOMER', 'Yêu cầu sửa hợp đồng', `${ctRef(cv)} • ${input.text.trim()}`);
-    });
-    void customerApi.requestContractChange(contractId, input, v.rowVersion).then((success) => {
-      if (success) {
-        setTimeout(() => { setState({ loaded: false }); void loadAll(); }, 500);
-      }
-    });
-    return ok('Đã gửi yêu cầu sửa hợp đồng. Chờ Manager phản hồi.');
-  },
-
-  // ----- Đặt cọc (QR Sandbox, mã QR có hiệu lực 5 phút) -----
-  confirmDepositTransfer(id: string, qrExpiresAtMs: number): ActionResult {
-    const r = findReq(id);
-    if (!r || !canPayDeposit(r)) return fail('Chưa thể thanh toán cọc ở trạng thái hiện tại.');
-    if (clockMs() >= qrExpiresAtMs) return fail('Mã QR đã hết hạn. Bấm Thử lại để tạo mã mới.');
-    const v = curVersion(r);
-    const contractId = v?.contractId || r.versions?.[0]?.contractId || id;
-    const payId = nextId('PAY', state.requests.flatMap((x) => x.payments.map((p) => p.id)));
-    updateReq(id, (x) => {
-      // Đặt cọc thành công qua Sandbox (hỗ trợ test dev)
-      x.payments.push({ id: payId, type: 'DEPOSIT', method: 'QR_SANDBOX', amount: depositAmount(x), status: 'SUCCESS', createdAt: nowStamp(), qrExpiresAtMs });
-      x.status = 'DEPOSIT_VERIFIED';
-      log(x, 'CUSTOMER', 'Thanh toán cọc bằng QR Sandbox', `${payId} • ${fmtMoney(depositAmount(x))}`);
-      log(x, 'SYSTEM', 'Sandbox xác minh tiền cọc thành công', `${payId} • ${fmtMoney(depositAmount(x))}`);
-    });
-    void customerApi.mockDeposit(contractId).then((success) => {
-      if (success) {
-        setTimeout(() => { setState({ loaded: false }); void loadAll(); }, 500);
-      }
-    });
-    notify(`Tiền cọc đã được xác minh • ${id}`, 'Bạn có thể xem lại hợp đồng và ký bằng mã OTP.', `/customer/requests/${id}/sign`);
-    return ok('Đã thanh toán cọc thành công qua Sandbox! Hãy tiến hành ký OTP hợp đồng.', payId);
-  },
-
-  // ----- Ký hợp đồng bằng OTP -----
-  sendSignOtp(id: string): ActionResult {
-    const r = findReq(id);
-    if (!r || !canSign(r)) return fail(r ? signBlock(r) || 'Không thể ký ở trạng thái hiện tại.' : 'Không tìm thấy yêu cầu.');
-    const v = curVersion(r);
-    const contractId = v?.contractId || r.versions?.[0]?.contractId || id;
-    setState({ otp: { requestId: id, expiresAtMs: clockMs() + OTP_SECONDS * 1000, tries: 0 } });
-    void customerApi.sendSignOtp(contractId, v?.pdfSha256, v?.rowVersion).then(async () => {
-      const updated = await customerApi.getContract(contractId);
-      if (updated && v) {
-        v.rowVersion = updated.version || updated.rowVersion || v.rowVersion;
-        if (updated.pdfSha256) v.pdfSha256 = updated.pdfSha256;
-      }
-    });
-    return ok(`Đã gửi mã OTP tới email ${state.profile.email}. Vui lòng kiểm tra hộp thư đến.`);
-  },
-  expireOtp: () => setState((s) => ({ otp: s.otp ? { ...s.otp, expiresAtMs: clockMs() - 1 } : null })),
-  async verifyOtpAndSign(id: string, code: string): Promise<ActionResult> {
-    const r = findReq(id), otp = state.otp;
-    if (!r || !otp || otp.requestId !== id) return { ok: false, message: 'Hãy yêu cầu mã OTP trước.' };
-    if (clockMs() >= otp.expiresAtMs) return { ok: false, message: 'Mã OTP đã hết hạn. Vui lòng gửi lại mã mới.' };
-    if (otp.tries >= 5) return { ok: false, message: 'Nhập sai quá 5 lần. Vui lòng gửi lại mã mới.' };
-    if (code.length < 6) return { ok: false, message: 'Nhập đủ 6 chữ số.' };
-    if (!canSign(r)) return { ok: false, message: signBlock(r) || 'Phiên bản này không thể ký nữa.' };
-
-    const v = curVersion(r)!;
-    const contractId = v?.contractId || r.versions?.[0]?.contractId || id;
-
-    // Luôn lấy version mới nhất từ DB để tránh lỗi STALE_VERSION "Data changed; reload."
-    let currentVersion = v?.rowVersion;
-    let currentPdfSha256 = v?.pdfSha256;
+  async acceptTerms(id: string): Promise<ActionResult> {
+    const r = findReq(id); const v = r && curVersion(r);
+    if (!r || !v?.contractId || !canAcceptTerms(r)) return fail('Phiên bản hợp đồng không thể đồng ý điều khoản.');
     try {
-      const latestContract = await customerApi.getContract(contractId);
-      if (latestContract) {
-        currentVersion = latestContract.version || latestContract.rowVersion || currentVersion;
-        currentPdfSha256 = latestContract.pdfSha256 || currentPdfSha256;
-        if (v) {
-          v.rowVersion = currentVersion;
-          v.pdfSha256 = currentPdfSha256;
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    // Xác thực mã OTP với Backend C#
-    if (code === DEMO_OTP || code === '000000') {
-      void customerApi.mockSignContract(contractId);
-    } else {
-      const signRes = await customerApi.signContract(contractId, code, currentPdfSha256, currentVersion);
-      if (!signRes.ok) {
-        setState({ otp: { ...otp, tries: otp.tries + 1 } });
-        return { ok: false, message: signRes.message || 'Mã OTP không đúng hoặc đã hết hạn.' };
-      }
-    }
-
-    const tripId = nextId('TRP', state.requests.map((x) => x.trip?.id ?? ''));
-    updateReq(id, (x) => {
-      const cv = curVersion(x)!;
-      cv.state = 'EFFECTIVE'; cv.signedAt = nowStamp();
-      x.status = 'ACTIVATED';
-      x.trip = { id: tripId, status: 'PLANNING', routeApproved: false, milestones: [], etaHistory: [], ...tripTemplate(x) };
-      x.trip.stops = [];
-      const intl = isInternational(x.origin, x.destination);
-      x.companyDocs = intl
-        ? [{ name: 'Giấy phép xuất khẩu & tờ khai hải quan', status: 'PROCESSING' }, { name: 'Giấy phép nhập khẩu', status: 'PROCESSING' }, { name: 'Chứng nhận kiểm dịch xuất cảnh', status: 'NOT_STARTED' }]
-        : [{ name: 'Giấy phép vận chuyển nội địa', status: 'PROCESSING' }];
-      // từ lúc kích hoạt, mọi tệp đã lưu chuyển sang chờ Specialist kiểm duyệt
-      x.docs.forEach((d) => { if (d.status === 'SUBMITTED') d.status = 'PENDING_REVIEW'; });
-      pickedHorses(x).forEach((hid) => {
-        const h = findHorse(hid);
-        if (!h) return;
-        horseDocItems(x, h).filter((it) => it.kind === 'file' && it.file && !docRecord(x, it.key, hid))
-          .forEach((it) => x.docs.push({ key: it.key, scope: hid, status: 'PENDING_REVIEW', file: it.file, updatedAt: nowStamp() }));
-      });
-      log(x, 'CUSTOMER', 'Ký hợp đồng bằng OTP', `${ctRef(cv)} có hiệu lực – yêu cầu được kích hoạt, tạo chuyến ${tripId}`);
-    });
-    setState({ otp: null });
-
-    setTimeout(() => { setState({ loaded: false }); void loadAll(); }, 500);
-
-    notify(`Hợp đồng đã có hiệu lực • ${id}`, `Chuyến ${tripId} được tạo để lập kế hoạch.`, `/customer/requests/${id}`);
-    return ok(`Đã ký hợp đồng. ${id} được kích hoạt và tạo chuyến ${tripId}.`);
+      const result = await customerApi.acceptTerms(v.contractId, v.v);
+      updateReq(id, x => { curVersion(x)!.termsAcceptedAt = result.termsAcceptedAt; });
+      return ok('Đã đồng ý điều khoản. Tiếp tục thanh toán cọc.');
+    } catch (error) { return fail(apiMessage(error)); }
+  },
+  async requestContractChange(id: string, input: ContractChangeInput): Promise<ActionResult> {
+    const r = findReq(id); const v = r && curVersion(r);
+    if (!r || !v?.contractId || !canRequestContractChange(r)) return fail('Chưa thể yêu cầu sửa phiên bản này.');
+    if (input.text.trim().length < 10) return fail('Nhập nội dung cần sửa (ít nhất 10 ký tự).');
+    try {
+      await customerApi.requestContractChange(v.contractId, input, v.v);
+      const updated = await customerApi.getRequest(id);
+      setState(s => ({ requests: s.requests.map(x => x.id === id ? updated : x) }));
+      return ok('Đã gửi yêu cầu sửa hợp đồng.');
+    } catch (error) { return fail(apiMessage(error)); }
+  },
+  confirmDepositTransfer(_id: string, _expires: number): ActionResult {
+    return fail('Tiền cọc chỉ được xác nhận từ kết quả thanh toán hoặc đối soát của quản lý.');
+  },
+  async sendSignOtp(id: string): Promise<ActionResult> {
+    const r = findReq(id); const v = r && curVersion(r);
+    if (!r || !v?.contractId || !canSign(r)) return fail('Cần xác minh đủ cọc trước khi ký OTP.');
+    if (state.otp?.requestId === id && state.otp.resendAtMs > clockMs()) return fail('Chưa đến thời gian gửi lại OTP.');
+    try {
+      const result = await customerApi.sendSignOtp(v.contractId, v.v);
+      setState({ otp: { requestId: id, expiresAtMs: clockMs() + result.expiresInSeconds * 1000, resendAtMs: clockMs() + result.resendAfterSeconds * 1000, tries: 0 } });
+      return ok(`Đã gửi OTP tới ${result.sentTo}.`);
+    } catch (error) { return fail(apiMessage(error)); }
+  },
+  expireOtp: () => setState(s => ({ otp: s.otp ? { ...s.otp, expiresAtMs: clockMs() - 1 } : null })),
+  async verifyOtpAndSign(id: string, code: string): Promise<ActionResult> {
+    const r = findReq(id); const v = r && curVersion(r);
+    if (!r || !v?.contractId || !canSign(r)) return fail('Phiên bản này chưa đủ điều kiện ký.');
+    if (!/^\d{6}$/.test(code)) return fail('Nhập đủ 6 chữ số OTP.');
+    try {
+      const result = await customerApi.signContract(v.contractId, code, v.v);
+      if (result.requestStatus !== 'ACTIVATED' || !result.tripId) return fail('API chưa xác nhận kích hoạt và tạo chuyến. Hãy tải lại trạng thái.');
+      setState({ otp: null });
+      const updated = await customerApi.getRequest(id);
+      setState(s => ({ requests: s.requests.map(x => x.id === id ? updated : x) }));
+      return ok(`Đã ký hợp đồng. Chuyến ${result.tripId} đã được tạo.`);
+    } catch (error) { return fail(apiMessage(error)); }
   },
 
   // ----- Bàn giao, nghiệm thu, số dư, khiếu nại -----
@@ -780,7 +670,7 @@ const demoActions = {
       const t = x.trip!;
       t.status = 'IN_TRANSIT'; t.milestones.push({ type: 'DEPARTED', stopIndex: 0, at: nowStamp(), by: 'Pham Van Duc' });
       x.status = 'IN_TRANSIT';
-      log(x, 'CREW', 'Xuất phát', t.stops[0]?.name);
+      log(x, 'DRIVER_ESCORT', 'Xuất phát', t.stops[0]?.name);
     });
     notify(`${id} đang vận chuyển`, 'Tổ xe đã xác nhận xuất phát.', `/customer/tracking/${id}`);
     return ok('Demo: tổ xe đã xác nhận xuất phát.');
@@ -798,7 +688,7 @@ const demoActions = {
         tt.milestones.push({ type: isLast ? 'ARRIVED_DESTINATION' : 'ARRIVED_STOP', stopIndex: Math.min(nextIdx, tt.stops.length - 1), at, by: 'Pham Van Duc' });
       }
       const nm = tt.milestones[tt.milestones.length - 1];
-      log(x, 'CREW', 'Xác nhận mốc hành trình', `${nm.type} • ${tt.stops[nm.stopIndex]?.name ?? ''}`);
+      log(x, 'DRIVER_ESCORT', 'Xác nhận mốc hành trình', `${nm.type} • ${tt.stops[nm.stopIndex]?.name ?? ''}`);
     });
     return ok('Demo: tổ xe đã xác nhận mốc tiếp theo.');
   },
@@ -816,7 +706,7 @@ const demoActions = {
       tt.status = 'COMPLETED';
       x.status = 'DELIVERED';
       x.acceptance = { status: 'PENDING', openedAt: at, dueAt: addHours(at, 24) };
-      log(x, 'CREW', 'Hoàn tất bàn giao có xác minh', `Người nhận: ${tt.handover.receiverName}`);
+      log(x, 'DRIVER_ESCORT', 'Hoàn tất bàn giao có xác minh', `Người nhận: ${tt.handover.receiverName}`);
     });
     notify(`Đã bàn giao • ${id}`, 'Vui lòng nghiệm thu và thanh toán số dư trong 24 giờ.', `/customer/requests/${id}/handover`);
     return ok('Demo: tổ xe đã hoàn tất bàn giao.');

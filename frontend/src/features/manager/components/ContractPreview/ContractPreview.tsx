@@ -4,6 +4,7 @@ import { MODE_LABEL, cityLabel, fmtDateTime, fmtMoney, sumItems } from '../../ho
 import './ContractPreview.css';
 
 export interface ContractContent {
+  snapshot?: import('../../../customer/types').ContractSnapshot;
   ref: string;
   mode: TransportMode;
   departAt: string;
@@ -19,6 +20,11 @@ export interface ContractContent {
 
 /** Nội dung hợp đồng đúng như khách hàng nhận (không gồm dự toán nội bộ) */
 export const ContractPreview: React.FC<{ request: TransportRequest; customer?: CustomerInfo; horses: HorseRef[]; content: ContractContent }> = ({ request: r, customer: c, horses, content: x }) => {
+  const snapshot = x.snapshot;
+  if (x.issuedAt && !snapshot) return <p role="alert">Chưa có nội dung chốt của phiên bản hợp đồng. Tải lại dữ liệu để xem.</p>;
+  r = snapshot ? { ...r, ...snapshot, horses: snapshot.horses.map(h => h.id) } : r;
+  c = snapshot?.customer ?? c;
+  horses = snapshot ? snapshot.horses : horses;
   const total = sumItems(x.items), deposit = Math.round((total * x.depositPct) / 100);
   return (
     <article className="mgr-contract">
@@ -56,7 +62,7 @@ export const ContractPreview: React.FC<{ request: TransportRequest; customer?: C
           <tbody>
             {x.items.map((i) => <tr key={i.desc}><td>{i.desc}</td><td className="mgr-num">{fmtMoney(Number(i.amount) || 0)}</td></tr>)}
             <tr className="total"><td>Tổng giá hợp đồng</td><td className="mgr-num">{fmtMoney(total)}</td></tr>
-            <tr><td>Tiền cọc ({x.depositPct}%) – thanh toán trong hạn chung 24 giờ</td><td className="mgr-num">{fmtMoney(deposit)}</td></tr>
+            <tr><td>Tiền cọc ({x.depositPct}%) – thanh toán trong hạn ghi trong hợp đồng</td><td className="mgr-num">{fmtMoney(deposit)}</td></tr>
             <tr><td>Số dư – thanh toán trong 24 giờ sau nghiệm thu</td><td className="mgr-num">{fmtMoney(total - deposit)}</td></tr>
           </tbody>
         </table>

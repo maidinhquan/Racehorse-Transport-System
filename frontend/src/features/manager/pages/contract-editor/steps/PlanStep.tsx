@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { managerApi } from '../../../api/managerApi';
 import { DateTimeField } from '../../../components/DateField/DateTimeField';
 import type { ContractDraft, HorseRef, TransportMode, TransportRequest } from '../../../types';
 import { MODE_LABEL, addDays, fmtDate, today } from '../../../hooks/managerRules';
@@ -13,20 +14,16 @@ interface StepProps {
 /** Bước 1: phương án vận chuyển dự kiến (để lập giá) */
 export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses }) => {
   const isAir = draft.mode === 'AIR';
-  const minPrepDays = isAir ? 7 : 2;
-  const minDepartDate = addDays(today(), minPrepDays + 1);
-
-  const handleModeChange = (newMode: TransportMode) => {
-    const prep = newMode === 'AIR' ? 7 : 2;
-    const minDate = addDays(today(), prep + 1);
-    const curDate = draft.departAt ? draft.departAt.slice(0, 10) : '';
-    const patch: Partial<ContractDraft> = { mode: newMode };
-    if (!curDate || curDate < minDate) {
-      patch.departAt = `${minDate} 08:00`;
-      patch.arriveAt = `${newMode === 'AIR' ? addDays(minDate, 1) : minDate} ${newMode === 'AIR' ? '18:00' : '20:00'}`;
-    }
-    set(patch);
-  };
+  const [minPrepDays, setMinPrepDays] = useState<number | null>(null);
+  const [policyError, setPolicyError] = useState('');
+  useEffect(() => {
+    let active = true; setMinPrepDays(null); setPolicyError('');
+    managerApi.getContractEditor(r.id, draft.mode).then(value => { if (active) setMinPrepDays(value.defaults.preparationDays); })
+      .catch(() => { if (active) setPolicyError('Chưa tải được quy định chuẩn bị; máy chủ sẽ kiểm tra khi lưu/phát hành.'); });
+    return () => { active = false; };
+  }, [r.origin, r.destination, draft.mode]);
+  const minDepartDate = addDays(today(), minPrepDays ?? 0);
+  const handleModeChange = (mode: TransportMode) => set({ mode });
 
   const isDepartTooEarly = draft.departAt && draft.departAt.slice(0, 10) < minDepartDate;
 
@@ -46,15 +43,7 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses }
         fontSize: 13,
         color: '#334155',
       }}>
-        {isAir ? (
-          <span>
-            ✈️ <b>Vận chuyển hàng không quốc tế:</b> Yêu cầu tối thiểu <b>{minPrepDays} ngày chuẩn bị</b> (kiểm dịch thú y & thủ tục bay) + <b>24 giờ</b> khách hàng thanh toán cọc/ký OTP. Ngày khởi hành sớm nhất: <b>{fmtDate(minDepartDate)}</b>.
-          </span>
-        ) : (
-          <span>
-            🚚 <b>Vận chuyển đường bộ:</b> Yêu cầu tối thiểu <b>{minPrepDays} ngày chuẩn bị</b> phương tiện & nhân sự + <b>24 giờ</b> thanh toán cọc/ký OTP. Ngày khởi hành sớm nhất: <b>{fmtDate(minDepartDate)}</b>.
-          </span>
-        )}
+        <span>{policyError || (minPrepDays === null ? 'Đang tải quy định chuẩn bị…' : `Tuyến này cần ${minPrepDays} ngày chuẩn bị. Khởi hành sớm nhất: ${fmtDate(minDepartDate)}. Hạn cọc/ký lấy riêng từ hợp đồng.`)}</span>
       </div>
 
       <div className="mgr-form-grid">

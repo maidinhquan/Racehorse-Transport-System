@@ -75,9 +75,9 @@ export const PlacesStep: React.FC<{ request: TransportRequest }> = ({ request: r
     const country = k === 'pickup' ? (city(r.origin).country || 'VN') : (city(r.destination).country || 'VN');
 
     searchTimeoutRef.current = setTimeout(async () => {
-      const results = await customerApi.searchLocations(trimmed, country);
-      setSuggestions(results || []);
-      setSearching(false);
+      try { setSuggestions(await customerApi.searchLocations(trimmed, country)); }
+      catch { setSuggestions([]); }
+      finally { setSearching(false); }
     }, 350);
   };
 
@@ -95,9 +95,9 @@ export const PlacesStep: React.FC<{ request: TransportRequest }> = ({ request: r
     setSuggestions([]);
   };
 
-  const save = () => {
+  const save = async () => {
     setTried(true);
-    const res = actions.savePlaces(r.id, places.pickup, places.delivery);
+    const res = await actions.savePlaces(r.id, places.pickup, places.delivery);
     if (res.ok) navigate(`/customer/requests/${r.id}/wizard/2`);
   };
 
@@ -176,7 +176,7 @@ export const PlacesStep: React.FC<{ request: TransportRequest }> = ({ request: r
                   </>
                 ) : (
                   <div style={{ padding: '10px 14px', fontSize: 13, color: '#94a3b8' }}>
-                    Không tìm thấy địa chỉ phù hợp. Đại ca có thể tiếp tục nhập thủ công.
+                    Không tìm thấy địa chỉ phù hợp. Bạn có thể tiếp tục nhập thủ công.
                   </div>
                 )}
               </div>

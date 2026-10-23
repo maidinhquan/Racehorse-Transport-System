@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Modals.css';
 
 interface ModalProps {
@@ -7,7 +7,7 @@ interface ModalProps {
   children: React.ReactNode;
   okText?: string;
   cancelText?: string;
-  onOk?: () => void;
+  onOk?: () => void | Promise<void>;
   onClose: () => void;
   okDisabled?: boolean;
   danger?: boolean;
@@ -20,6 +20,8 @@ interface ModalProps {
 export const Modal: React.FC<ModalProps> = ({
   open, title, children, okText = 'Xác nhận', cancelText = 'Hủy', onOk, onClose, okDisabled, danger, wide, error,
 }) => {
+  const [busy, setBusy] = useState(false);
+  const submit = async () => { if (busy || !onOk) return; setBusy(true); try { await onOk(); } finally { setBusy(false); } };
   if (!open) return null;
   return (
     <div className="cus-modal" role="dialog" aria-modal="true" aria-label={title}>
@@ -31,7 +33,7 @@ export const Modal: React.FC<ModalProps> = ({
         <div className="cus-modal__actions">
           <button type="button" className="cus-btn" onClick={onClose}>{cancelText}</button>
           {onOk && (
-            <button type="button" className={`cus-btn ${danger ? 'cus-btn--danger-solid' : 'cus-btn--solid'}`} onClick={onOk} disabled={okDisabled}>
+            <button type="button" className={`cus-btn ${danger ? 'cus-btn--danger-solid' : 'cus-btn--solid'}`} onClick={submit} disabled={okDisabled || busy}>
               {okText}
             </button>
           )}

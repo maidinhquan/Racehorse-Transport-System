@@ -65,7 +65,7 @@ export const NextAction: React.FC<{ request: TransportRequest }> = ({ request: r
           </>
         )}
         placeholder="VD: Giải đua bị hoãn" confirmText="Tôi muốn hủy yêu cầu này"
-        onClose={() => setCancelOpen(false)} onSubmit={(reason) => actions.cancelRequest(r.id, reason).ok} />
+        onClose={() => setCancelOpen(false)} onSubmit={async (reason) => (await actions.cancelRequest(r.id, reason)).ok} />
     </>
   );
 };

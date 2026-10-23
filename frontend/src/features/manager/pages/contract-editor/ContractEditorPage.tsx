@@ -15,6 +15,7 @@ import {
   curVersion,
   depositOf,
   depositPaid,
+  verifiedDeposit,
   fmtDate,
   fmtDateTime,
   fmtMoney,
@@ -81,7 +82,7 @@ export const ContractEditorPage: React.FC = () => {
   }
 
   const isVoid = state === 'VOID';
-  const blockedByMoney = depositPaid(data, r) || !!pendingTx(data, r);
+  const blockedByMoney = verifiedDeposit(data, r) > 0 || depositPaid(data, r) || !!pendingTx(data, r);
   const canIssue = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) && !isSigned(r) && !blockedByMoney;
   const editorOpen = canIssue && (!v || isVoid || state === 'CHANGES_REQUESTED' || state === 'EXPIRED' || editing);
   const change = v?.change && !v.change.response ? v.change : undefined;
@@ -136,7 +137,7 @@ export const ContractEditorPage: React.FC = () => {
                 <div><span>Tiền cọc ({v.depositPct}%)</span><b>{fmtMoney(depositOf(r))}</b></div>
                 <div><span>Dự toán nội bộ</span><b>{fmtMoney(sumBudget(v.budget))}</b><div className="mgr-muted">Biên {v.total ? Math.round(((v.total - sumBudget(v.budget)) / v.total) * 100) : 0}%</div></div>
                 <div><span>Phát hành</span><b>{fmtDateTime(v.issuedAt)}</b></div>
-                <div><span>{v.signedAt ? 'Ký OTP' : 'Hạn chung 24 giờ'}</span><b>{v.signedAt ? fmtDateTime(v.signedAt) : `${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)})`}</b></div>
+                <div><span>{v.signedAt ? 'Ký OTP' : 'Hạn hoàn tất'}</span><b>{v.signedAt ? fmtDateTime(v.signedAt) : `${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)})`}</b></div>
                 <div><span>Khách đồng ý điều khoản</span><b>{v.termsAcceptedAt ? fmtDateTime(v.termsAcceptedAt) : 'Chưa'}</b></div>
                 <div><span>Tiền cọc</span><b>{depositPaid(data, r) ? 'Đã xác minh' : pendingTx(data, r) ? 'Đang chờ xác minh' : 'Chưa thanh toán'}</b></div>
               </div>
@@ -157,8 +158,8 @@ export const ContractEditorPage: React.FC = () => {
                 <textarea id="ct-response" className="mgr-textarea" rows={3} value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Giải thích quyết định của bạn" />
               </div>
               <div className="mgr-btn-row">
-                <button type="button" className="mgr-btn" onClick={() => { if (actions.respondChange(r.id, 'KEPT', response).ok) setResponse(''); }}>Từ chối sửa & giữ {ctRef(v!)}</button>
-                <button type="button" className="mgr-btn" onClick={() => { if (actions.respondChange(r.id, 'RETURNED', response).ok) setResponse(''); }}>Trả yêu cầu cho khách chỉnh sửa</button>
+                <button type="button" className="mgr-btn" onClick={async () => { if ((await actions.respondChange(r.id, 'KEPT', response)).ok) setResponse(''); }}>Từ chối sửa & giữ {ctRef(v!)}</button>
+                <button type="button" className="mgr-btn" onClick={async () => { if ((await actions.respondChange(r.id, 'RETURNED', response)).ok) setResponse(''); }}>Chấp nhận sửa và soạn bản mới</button>
               </div>
               <p className="mgr-hint">Đồng ý sửa: soạn và phát hành phiên bản mới ngay bên dưới (ngày đề xuất được cập nhật vào yêu cầu, phản hồi ở trên được gửi kèm).</p>
             </section>
@@ -199,7 +200,7 @@ export const ContractEditorPage: React.FC = () => {
                   <li key={x.v} className={x === v ? 'now' : 'done'}>
                     <b>{ctRef(x)} • {CONTRACT_STATE_LABEL[versionState(x)]} • {fmtMoney(x.total)}</b>
                     <span>Phát hành {fmtDateTime(x.issuedAt)}{x.signedAt ? ` • ký OTP ${fmtDateTime(x.signedAt)}` : ` • hạn ${fmtDateTime(x.validUntil)}`}</span>
-                    {x.extensions.map((e) => <span key={e.at}>Gia hạn {fmtDateTime(e.at)}: {fmtDateTime(e.from)} → {fmtDateTime(e.to)}</span>)}
+                    {(x.extensions ?? []).map((e) => <span key={e.at}>Gia hạn {fmtDateTime(e.at)}: {fmtDateTime(e.from)} → {fmtDateTime(e.to)}</span>)}
                     {x.change && <span>Khách yêu cầu sửa {fmtDateTime(x.change.at)}: {x.change.text}</span>}
                     {x.change?.response && <span>Phản hồi {fmtDateTime(x.change.response.at)}: {x.change.response.text}</span>}
                   </li>
@@ -216,7 +217,7 @@ export const ContractEditorPage: React.FC = () => {
               <p className="mgr-hint" style={{ marginTop: 0 }}>Thanh toán cọc, xác minh và ký OTP phải hoàn tất trước {fmtDateTime(v!.validUntil)}. Không tự động hủy khi quá hạn.</p>
               <div className="mgr-actions" style={{ flexDirection: 'column' }}>
                 <button type="button" className="mgr-btn" onClick={() => actions.remindSign(r.id)}>Nhắc khách cọc & ký</button>
-                <button type="button" className="mgr-btn" onClick={() => setDialog('extend')}>Gia hạn thêm 24 giờ</button>
+                <button type="button" className="mgr-btn" onClick={() => setDialog('extend')}>Gia hạn theo chính sách</button>
                 {pendingTx(data, r)?.status === 'PENDING_CONFIRMATION' && <Link className="mgr-btn mgr-btn--solid" to="/manager/payments">Xác minh tiền cọc</Link>}
               </div>
             </section>
@@ -242,12 +243,12 @@ export const ContractEditorPage: React.FC = () => {
       {v && (
         <Modal open={dialog === 'view'} title={`Hợp đồng ${ctRef(v)}`} wide cancelText="Đóng" onClose={close}>
           <ContractPreview request={r} customer={c} horses={horses}
-            content={{ ref: ctRef(v), mode: v.mode, departAt: v.departAt, arriveAt: v.arriveAt, items: v.items, depositPct: v.depositPct, terms: v.terms, note: v.note, issuedAt: v.issuedAt, validUntil: v.validUntil, signedAt: v.signedAt }} />
+            content={{ snapshot: v.snapshot, ref: ctRef(v), mode: v.mode, departAt: v.departAt, arriveAt: v.arriveAt, items: v.items, depositPct: v.depositPct, terms: v.terms, note: v.note, issuedAt: v.issuedAt, validUntil: v.validUntil, signedAt: v.signedAt }} />
         </Modal>
       )}
-      <Modal open={dialog === 'extend'} title={`Gia hạn ${r.id}`} okText="Gia hạn 24 giờ" onClose={close} onOk={() => { if (actions.extendContract(r.id).ok) close(); }}>
-        <p>Hạn chung hiện tại: <b>{v ? fmtDateTime(v.validUntil) : '—'}</b>. Sau khi gia hạn, khách có thêm 24 giờ (tính từ hạn hiện tại hoặc từ bây giờ nếu đã quá hạn).</p>
-      </Modal>
+      <ReasonModal open={dialog === 'extend'} title={`Gia hạn ${r.id}`} okText="Gia hạn theo chính sách" onClose={close}
+        label="Lý do gia hạn *" minLength={5} onSubmit={async reason => (await actions.extendContract(r.id, reason)).ok} />
+
       <ReasonModal open={dialog === 'cancel'} title={`Thu hồi / Hủy hợp đồng ${r.id}`} okText="Thu hồi hợp đồng" danger minLength={10} confirmText="Tôi hiểu thao tác này không thể hoàn tác."
         placeholder="VD: Khách không phản hồi sau 3 lần nhắc và hạn chung đã hết." onClose={close} onSubmit={async (x) => {
           const res = await actions.cancelRequest(r.id, x);

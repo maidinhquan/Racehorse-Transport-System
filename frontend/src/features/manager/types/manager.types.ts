@@ -20,8 +20,8 @@ export type ActorRole =
   | 'CUSTOMER'
   | 'LOGISTICS_MANAGER'
   | 'TRANSPORT_SPECIALIST'
-  | 'FLEET_COORDINATOR'
-  | 'CREW'
+  | 'FLEET_ROUTE_COORDINATOR'
+  | 'DRIVER_ESCORT'
   | 'SYSTEM';
 
 export interface HistoryEntry {
@@ -89,7 +89,7 @@ export type RequestStatus =
   | 'CANCELLED';
 
 /** Trường Manager có thể yêu cầu khách sửa */
-export type RevisionField = 'date' | 'places' | 'horses' | 'notes';
+export type RevisionField = 'route' | 'date' | 'places' | 'horses' | 'notes';
 
 export interface Cancellation {
   reason: string;
@@ -116,7 +116,6 @@ export interface CollectionNote {
 
 export interface TransportRequest {
   id: string;
-  version?: string;
   contractId?: string;
   tripId?: string;
   trip?: any;
@@ -185,7 +184,7 @@ export interface ContractVersion {
   v: number;
   number: string;
   contractId?: string;
-  contractVersion?: string;
+  snapshot?: import('../../customer/types').ContractSnapshot;
   tripId?: string;
   trip?: any;
   issuedAt: string;
@@ -233,6 +232,9 @@ export type PaymentStatus = 'PENDING_CONFIRMATION' | 'PROCESSING' | 'SUCCESS' | 
 export interface Transaction {
   id: string;
   requestId: string;
+  contractId?: string;
+  versionNo?: number;
+  confirmedAmount?: number;
   type: PaymentType;
   method: PaymentMethod;
   /** Số tiền khách khai báo / số tiền giao dịch */
@@ -255,7 +257,7 @@ export type StopType = 'ORIGIN' | 'REST_STOP' | 'CHECKPOINT' | 'AIRPORT' | 'QUAR
 export interface Staff {
   id: string;
   name: string;
-  role: 'TRANSPORT_SPECIALIST' | 'FLEET_COORDINATOR';
+  role: 'TRANSPORT_SPECIALIST' | 'FLEET_ROUTE_COORDINATOR';
   load: number;
 }
 

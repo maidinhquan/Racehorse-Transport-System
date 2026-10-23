@@ -25,12 +25,12 @@ export const AssignStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
       {t.status === 'PLANNING' && (
         <div className="mgr-actions">
           {d.status === 'NOT_CONFIRMED' && <button type="button" className="mgr-btn mgr-btn--solid" onClick={() => setDialog('deploy')}>Chọn người phụ trách & giao việc</button>}
-          {d.status === 'ON_HOLD' && <button type="button" className="mgr-btn mgr-btn--solid" onClick={() => actions.resumeTrip(t.id)}>Tiếp tục chuẩn bị</button>}
-          {d.status !== 'ON_HOLD' && <button type="button" className="mgr-btn" onClick={() => setDialog('hold')}>Tạm dừng chuyến</button>}
+          {d.status === 'ON_HOLD' && <button type="button" className="mgr-btn mgr-btn--solid" disabled>Tiếp tục chuẩn bị (chưa khả dụng)</button>}
+          {d.status !== 'ON_HOLD' && <button type="button" className="mgr-btn" disabled title="Chức năng chưa được hỗ trợ">Tạm dừng chuyến (chưa khả dụng)</button>}
         </div>
       )}
       <p className="mgr-hint">Nhân viên nhận chuyến ngay sau khi giao việc, không cần xác nhận nhận việc.</p>
-      <DeployModal open={dialog === 'deploy'} tripId={t.id} staff={staff} onClose={() => setDialog('')} onSubmit={(sp, co) => actions.confirmDeployment(t.id, sp, co).ok} />
+      <DeployModal open={dialog === 'deploy'} tripId={t.id} staff={staff} onClose={() => setDialog('')} onSubmit={async (sp, co) => (await actions.confirmDeployment(t.id, sp, co)).ok} />
       <ReasonModal open={dialog === 'hold'} title={`Tạm dừng ${t.id}`} okText="Tạm dừng" danger minLength={10}
         intro={<p>Specialist và Coordinator ngừng chuẩn bị cho đến khi Manager cho tiếp tục.</p>}
         placeholder="VD: Khách hàng đang xin dời lịch, chờ xác nhận ngày mới." onClose={() => setDialog('')} onSubmit={(x) => actions.holdTrip(t.id, x).ok} />

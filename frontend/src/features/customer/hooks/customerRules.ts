@@ -80,9 +80,13 @@ export function parseViDate(text: string) {
 export const CITIES: City[] = [
   { name: 'Ho Chi Minh City', country: 'VN', code: 'HCMC' },
   { name: 'Hanoi', country: 'VN', code: 'HAN' },
+  { name: 'Binh Duong', country: 'VN', code: 'BD' },
   { name: 'Da Nang', country: 'VN', code: 'DAD' },
   { name: 'Tokyo', country: 'JP', code: 'TYO' },
   { name: 'Osaka', country: 'JP', code: 'OSA' },
+  { name: 'Nagoya', country: 'JP', code: 'NGO' },
+  { name: 'Sapporo', country: 'JP', code: 'CTS' },
+  { name: 'Fukuoka', country: 'JP', code: 'FUK' },
   { name: 'Bangkok', country: 'TH', code: 'BKK' },
   { name: 'Singapore', country: 'SG', code: 'SIN' },
   { name: 'Sydney', country: 'AU', code: 'SYD' },
@@ -104,8 +108,6 @@ export const ROUTE_RULE = 'CBN Transport chỉ nhận đơn mới cho tuyến Vi
 export const isSupportedRoute = (a: string, b: string) =>
   !!a && !!b && a !== b && BOOKING_ORIGINS.some((c) => c.name === a) && BOOKING_DESTINATIONS.some((c) => c.name === b);
 
-/** Giá ước tính sơ bộ (không ràng buộc) */
-export const estimate = (a: string, b: string, count: number) => (isInternational(a, b) ? 1850 : 650) * Math.max(1, count);
 
 // ============================================================================
 // Nhãn trạng thái
@@ -150,10 +152,10 @@ export const DOC_STATUS_LABEL: Record<DocStatus, string> = {
   ACTION_REQUIRED: 'Cần nộp lại',
 };
 export const PAYMENT_STATUS_LABEL: Record<Payment['status'], string> = {
-  PROCESSING: 'Chờ xác minh', SUCCESS: 'Thành công', FAILED: 'Thất bại',
+  PENDING_CONFIRMATION: 'Chờ đối soát', PROCESSING: 'Chờ xác minh', SUCCESS: 'Thành công', FAILED: 'Thất bại', REJECTED: 'Bị từ chối',
 };
 export const FIELD_LABEL: Record<RequestField, string> = {
-  route: 'Tuyến đường', date: 'Ngày vận chuyển', count: 'Số lượng ngựa', notes: 'Ghi chú chăm sóc',
+  route: 'Tuyến đường', date: 'Ngày vận chuyển', places: 'Điểm nhận / giao', horses: 'Danh sách và số lượng ngựa', notes: 'Ghi chú chăm sóc',
 };
 export const STOP_LABEL: Record<StopType, string> = {
   ORIGIN: 'Điểm nhận', REST_STOP: 'Điểm nghỉ', CHECKPOINT: 'Cửa khẩu', AIRPORT: 'Sân bay', DESTINATION: 'Điểm giao',
@@ -168,7 +170,7 @@ export const TRIP_STATUS_LABEL: Record<Trip['status'], string> = {
   PLANNING: 'Lập kế hoạch', READY_TO_DEPART: 'Sẵn sàng khởi hành', IN_TRANSIT: 'Đang vận chuyển', COMPLETED: 'Hoàn tất',
 };
 export const SEX_LABEL: Record<string, string> = {
-  Stallion: 'Ngựa đực giống', Mare: 'Ngựa cái', Gelding: 'Ngựa thiến', Male: 'Đực', Female: 'Cái',
+  STALLION: 'Ngựa đực giống', MARE: 'Ngựa cái', GELDING: 'Ngựa thiến',
 };
 
 // ============================================================================
@@ -195,8 +197,8 @@ export function horseIssues(h: Horse) {
   if (ps === 'MISSING') list.push('Hộ chiếu ngựa còn thiếu số hoặc bản scan');
   if (ps === 'EXPIRED') list.push('Hộ chiếu ngựa đã hết hạn');
   if (!h.ownership) list.push('Chưa có giấy chứng nhận sở hữu');
-  if (!h.fluDate) list.push('Chưa có ngày tiêm cúm gần nhất');
-  else if ((stampToMs(today()) - stampToMs(h.fluDate)) / 86400000 > 365) list.push('Tiêm phòng cúm đã quá 12 tháng');
+  if (!h.unsupportedFields?.includes('fluDate') && !h.fluDate) list.push('Chưa có ngày tiêm cúm gần nhất');
+  else if (h.fluDate && (stampToMs(today()) - stampToMs(h.fluDate)) / 86400000 > 365) list.push('Tiêm phòng cúm đã quá 12 tháng');
   return list;
 }
 export function profileStatus(h: Horse): HorseProfileStatus {
@@ -214,7 +216,8 @@ export const horseRequests = (h: Horse, requests: TransportRequest[]) =>
 export const HORSE_LOCKED_FIELDS = ['name', 'breed', 'sex', 'dob', 'microchip'] as const;
 
 export const emptyHorse = (): Omit<Horse, 'id'> => ({
-  name: '', breed: '', sex: '', dob: '', color: '', microchip: '', value: '', currency: 'USD',
+  unsupportedFields: ['color', 'fluDate', 'vetName', 'vetPhone'],
+  name: '', breed: '', sex: '', dob: '', color: '', microchip: '', value: '', currency: 'VND',
   passport: { number: '', authority: '', issueDate: '', expiryDate: '' },
   fluDate: '', conditions: '', vetName: '', vetPhone: '',
 });
@@ -254,19 +257,23 @@ export const curVersion = (r: TransportRequest): ContractVersion | undefined =>
   r.versions && r.versions.length > 0 ? r.versions[r.versions.length - 1] : undefined;
 /** Trạng thái thực tế: tôn trọng trạng thái từ Backend */
 export function versionState(v: ContractVersion): ContractState {
-  if (v.state === 'EXPIRED') return 'EXPIRED';
+  if (v.state === 'EXPIRED' || (v.state === 'ISSUED' && !v.signedAt && isPast(v.validUntil))) return 'EXPIRED';
   return v.state;
 }
 export const ctRef = (v: ContractVersion) => `${v.number} v${v.v}`;
 export const depositAmount = (r: TransportRequest) => {
   const v = curVersion(r);
-  return v ? Math.round((v.total * v.depositPct) / 100) : 0;
+  return v ? v.depositAmount ?? Math.round((v.total * v.depositPct) / 100) : 0;
 };
-export const contractTotal = (r: TransportRequest) => curVersion(r)?.total ?? estimate(r.origin, r.destination, r.horseCount);
+export const contractTotal = (r: TransportRequest) => curVersion(r)?.total ?? 0;
 export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => ['EFFECTIVE', 'FULFILLED'].includes(v.state));
 export const isSigned = (r: TransportRequest) => !!signedVersion(r);
 
-export const depositPayments = (r: TransportRequest) => (r.payments || []).filter((p) => p.type === 'DEPOSIT');
+export const depositPayments = (r: TransportRequest) => {
+  const v = curVersion(r);
+  return (r.payments || []).filter(p => p.type === 'DEPOSIT' && !!v?.contractId && p.contractId === v.contractId && p.versionNo === v.v);
+};
+export const verifiedPaymentAmount = (p: Payment) => p.confirmedAmount ?? (p.method === 'BANK_TRANSFER' ? 0 : p.amount);
 export const balancePayments = (r: TransportRequest) => (r.payments || []).filter((p) => p.type === 'BALANCE');
 const last = <T,>(list: T[]) => list[list.length - 1];
 
@@ -276,22 +283,22 @@ export const QR_MINUTES = 5;
 export const qrExpired = (p?: Payment) => !!p && p.status === 'PROCESSING' && !!p.qrExpiresAtMs && clockMs() >= p.qrExpiresAtMs;
 
 export function depositState(r: TransportRequest): DepositState {
-  if (depositPayments(r).some((p) => p.status === 'SUCCESS')) return 'VERIFIED';
-  const p = last(depositPayments(r));
-  if (!p) return 'NONE';
-  if (p.status === 'FAILED' || qrExpired(p)) return 'FAILED';
-  return 'PENDING';
+  const payments = depositPayments(r);
+  const paid = payments.filter(p => p.status === 'SUCCESS').reduce((sum, p) => sum + verifiedPaymentAmount(p), 0);
+  if (depositAmount(r) > 0 && paid >= depositAmount(r)) return 'VERIFIED';
+  if (payments.some(p => ['PROCESSING', 'PENDING_CONFIRMATION'].includes(p.status))) return 'PENDING';
+  if (['FAILED', 'REJECTED'].includes(last(payments)?.status ?? '')) return 'FAILED';
+  return 'NONE';
 }
 export const DEPOSIT_STATE_LABEL: Record<DepositState, string> = {
-  NONE: 'Chưa thanh toán', PENDING: 'Chờ xác minh', VERIFIED: 'Đã xác minh', FAILED: 'Thanh toán thất bại',
+  NONE: 'Chưa đủ cọc', PENDING: 'Chờ xác minh', VERIFIED: 'Đã xác minh đủ cọc', FAILED: 'Thanh toán thất bại',
 };
-export const hasDepositMoney = (r: TransportRequest) => ['PENDING', 'VERIFIED'].includes(depositState(r));
-export const depositPaidAmount = (r: TransportRequest) =>
-  depositPayments(r).filter((p) => p.status === 'SUCCESS').reduce((s, p) => s + p.amount, 0);
+export const hasDepositMoney = (r: TransportRequest) => depositPayments(r).some(p => ['PROCESSING', 'PENDING_CONFIRMATION', 'SUCCESS'].includes(p.status));
+export const depositPaidAmount = (r: TransportRequest) => depositPayments(r).filter(p => p.status === 'SUCCESS').reduce((sum, p) => sum + verifiedPaymentAmount(p), 0);
 
 export const canAcceptTerms = (r: TransportRequest) => {
   const v = curVersion(r);
-  return !!v && r.status === 'CONTRACT_READY' && versionState(v) === 'ISSUED' && !v.termsAcceptedAt;
+  return !!v?.snapshot && !!v.terms?.length && r.status === 'CONTRACT_READY' && versionState(v) === 'ISSUED' && !isPast(v.validUntil) && !v.termsAcceptedAt;
 };
 export const canPayDeposit = (r: TransportRequest) => {
   const v = curVersion(r);
@@ -301,7 +308,8 @@ export const canPayDeposit = (r: TransportRequest) => {
 export function signBlock(r: TransportRequest): string {
   const v = curVersion(r);
   if (!v) return 'Chưa có hợp đồng.';
-  if (versionState(v) === 'EXPIRED') return 'Đã quá hạn ký. Chờ CBN Transport gia hạn hoặc phát hành phiên bản mới.';
+  if (!v.snapshot || !v.terms?.length) return 'Chưa tải đủ nội dung phiên bản hợp đồng.';
+  if (versionState(v) === 'EXPIRED' || isPast(v.validUntil)) return 'Đã quá hạn ký. Chờ CBN Transport gia hạn hoặc phát hành phiên bản mới.';
   if (versionState(v) !== 'ISSUED') return 'Phiên bản này không thể ký.';
   if (!v.termsAcceptedAt) return 'Hãy đồng ý điều khoản hợp đồng trước.';
   if (depositState(r) !== 'VERIFIED') return 'Nút ký OTP chỉ mở sau khi tiền cọc được xác minh.';
@@ -383,7 +391,7 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
     item('health', 'file', fileOf('health') ? 'SUBMITTED' : 'NOT_REQUIRED_YET',
       fileOf('health') ? `Tệp: ${fileOf('health')!.name}` : 'Specialist kiểm tra yêu cầu hiệu lực trước khởi hành.'),
     item('conditions', 'info', h.conditions ? 'SUBMITTED' : 'OPTIONAL', h.conditions || 'Không khai báo tình trạng đặc biệt.', true),
-    item('vet', 'info', h.vetName && h.vetPhone ? 'SUBMITTED' : 'NEEDS_INPUT', `Tên: ${h.vetName || '—'} • SĐT: ${h.vetPhone || '—'}`),
+    item('vet', 'info', h.unsupportedFields?.includes('vetName') ? 'NOT_REQUIRED_YET' : h.vetName && h.vetPhone ? 'SUBMITTED' : 'NEEDS_INPUT', `Tên: ${h.vetName || '—'} • SĐT: ${h.vetPhone || '—'}`),
   ];
 }
 
@@ -401,10 +409,11 @@ export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[numbe
     const p = r[k], label = k === 'pickup' ? 'Điểm nhận' : 'Điểm giao';
     if (!p.name.trim() || !p.address.trim() || !p.contact.trim() || !p.phone.trim()) e.push([1, `${label}: còn thiếu tên, địa chỉ, người liên hệ hoặc số điện thoại.`]);
   });
+  if (r.horseCount < 1 || r.horseCount > 6 || pickedHorses(r).length !== r.horseCount) e.push([2, 'Chọn đủ số ngựa, từ 1 đến 6.']);
   r.horses.forEach((id, i) => { if (!id) e.push([2, `Chưa chọn ngựa ở vị trí ${i + 1}/${r.horses.length}.`]); });
   pickedHorses(r).forEach((id) => {
     const h = horses.find((x) => x.id === id);
-    if (!h) return;
+    if (!h) { e.push([2, `Không tìm thấy hồ sơ ${id}.`]); return; }
     if (!h.microchip.trim()) e.push([2, `${h.name}: thiếu số microchip.`]);
     if (!h.passport.number.trim()) e.push([2, `${h.name}: thiếu số hộ chiếu ngựa.`]);
     if (!h.passport.scan && !docRecord(r, 'passport', id)?.file) e.push([2, `${h.name}: thiếu bản scan hộ chiếu ngựa.`]);

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { ActionResult, ContractDraft, CustomerInfo, HorseRef, TransportRequest } from '../../types';
 import { curVersion, draftError, fmtDateTime, initialDraft } from '../../hooks/managerRules';
+import { managerApi } from '../../api/managerApi';
+import { apiMessage } from '../../../../shared/api/flow1';
 import { PlanStep } from './steps/PlanStep';
 import { PricingStep } from './steps/PricingStep';
 import { TermsStep } from './steps/TermsStep';
@@ -20,6 +22,17 @@ interface ContractWizardProps {
 /** Trình soạn hợp đồng 4 bước: phương án → chi phí & giá → điều khoản → xem trước & phát hành */
 export const ContractWizard: React.FC<ContractWizardProps> = ({ request: r, customer, horses, onSave, onIssue, onCancel }) => {
   const [draft, setDraft] = useState<ContractDraft>(() => initialDraft(r));
+  const [editorLoaded, setEditorLoaded] = useState(false);
+  useEffect(() => {
+    let active = true;
+    managerApi.getContractEditor(r.id).then(editor => {
+      if (!active) return;
+      const next = initialDraft({ ...editor.request, draft: editor.draft ?? undefined, versions: editor.versions });
+      if (!editor.draft && !editor.currentContract) { next.depositPct = editor.defaults.defaultDepositPct; next.terms = editor.defaults.terms; }
+      setDraft(next); setEditorLoaded(true);
+    }).catch(error => { if (active) setError(apiMessage(error)); });
+    return () => { active = false; };
+  }, [r.id]);
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -86,6 +99,8 @@ export const ContractWizard: React.FC<ContractWizardProps> = ({ request: r, cust
       setIssuing(false);
     }
   };
+
+  if (!editorLoaded) return <p role="status">{error || 'Đang tải dữ liệu soạn hợp đồng…'}</p>;
 
   return (
     <div className="mgr-ce__wizard">

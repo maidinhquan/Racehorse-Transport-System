@@ -29,7 +29,7 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
               <b>{it.name}{it.optional && it.status !== 'OPTIONAL' && <small> (không bắt buộc)</small>}</b>
               <TripStatusBadge kind="doc" status={it.status} />
               <div className="cus-doc__actions">
-                {it.file && <button type="button" className="cus-btn cus-btn--sm" onClick={() => openFile(it.file!)}>Xem tệp</button>}
+                {it.file && <button type="button" className="cus-btn cus-btn--sm" onClick={() => openFile(it.file!, actions.showToast)}>Xem tệp</button>}
                 {editable && it.kind === 'info' && (
                   <button type="button" className="cus-btn cus-btn--sm"
                     onClick={() => navigate(`/customer/horses/${it.scope}/edit${backTo ? `?back=${encodeURIComponent(backTo)}` : ''}`)}>
@@ -37,7 +37,7 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
                   </button>
                 )}
                 {editable && it.kind === 'file' && (
-                  <FilePickButton label={rejected ? 'Tải lại tệp mới' : it.file ? 'Thay tệp' : 'Tải tệp'}
+                  <FilePickButton disabled={it.scope === 'request'} label={it.scope === 'request' ? 'Chưa thể nộp trực tuyến' : rejected ? 'Tải lại tệp mới' : it.file ? 'Thay tệp' : 'Tải tệp'}
                     className={`cus-btn cus-btn--sm ${rejected ? 'cus-btn--solid' : ''}`}
                     onPick={(f) => actions.uploadDoc(requestId, it.key, it.scope, f)}
                     onError={actions.showToast} />

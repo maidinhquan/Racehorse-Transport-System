@@ -30,12 +30,13 @@ export type RequestStatus =
   | 'CANCELLED';
 
 /** Trường Manager cho phép sửa khi yêu cầu chỉnh sửa */
-export type RequestField = 'route' | 'date' | 'count' | 'notes';
+export type RequestField = 'route' | 'date' | 'places' | 'horses' | 'notes';
 
 export interface FileRef {
   name: string;
   /** Object URL khi người dùng vừa tải lên trong phiên làm việc */
   url?: string;
+  file?: File;
 }
 
 export interface Place {
@@ -52,7 +53,7 @@ export interface Place {
 // ---------------------------------------------------------------------------
 // Ngựa
 // ---------------------------------------------------------------------------
-export type HorseSex = 'Stallion' | 'Mare' | 'Gelding' | 'Male' | 'Female' | '';
+export type HorseSex = 'STALLION' | 'MARE' | 'GELDING' | '';
 
 export interface HorsePassport {
   number: string;
@@ -63,8 +64,8 @@ export interface HorsePassport {
 }
 
 export interface Horse {
+  unsupportedFields?: string[];
   id: string;
-  version?: string;
   name: string;
   breed: string;
   sex: HorseSex;
@@ -129,8 +130,13 @@ export interface ContractVersion {
   v: number;
   number: string;
   contractId?: string;
-  rowVersion?: string;
-  pdfSha256?: string;
+  snapshot?: ContractSnapshot;
+  terms?: Array<{ title: string; text: string }>;
+  mode?: TransportMode;
+  departAt?: string;
+  arriveAt?: string;
+  depositAmount?: number;
+  currency?: 'VND';
   issuedAt: string;
   /** Hạn chung: thanh toán cọc + xác minh + ký OTP (24 giờ kể từ khi phát hành) */
   validUntil: string;
@@ -150,11 +156,15 @@ export interface ContractVersion {
 // Thanh toán
 // ---------------------------------------------------------------------------
 export type PaymentType = 'DEPOSIT' | 'BALANCE';
-export type PaymentMethod = 'QR_SANDBOX' | 'VNPAY';
-export type PaymentStatus = 'PROCESSING' | 'SUCCESS' | 'FAILED';
+export type PaymentMethod = 'QR_SANDBOX' | 'VNPAY' | 'BANK_TRANSFER';
+export type PaymentStatus = 'PENDING_CONFIRMATION' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'REJECTED';
 export type DepositState = 'NONE' | 'PENDING' | 'VERIFIED' | 'FAILED';
 
 export interface Payment {
+  contractId?: string;
+  versionNo?: number;
+  invoiceId?: string;
+  confirmedAmount?: number;
   id: string;
   type: PaymentType;
   method: PaymentMethod;
@@ -311,7 +321,7 @@ export interface Complaint {
 // ---------------------------------------------------------------------------
 // Yêu cầu vận chuyển
 // ---------------------------------------------------------------------------
-export type ActorRole = 'CUSTOMER' | 'LOGISTICS_MANAGER' | 'TRANSPORT_SPECIALIST' | 'FLEET_COORDINATOR' | 'CREW' | 'SYSTEM';
+export type ActorRole = 'CUSTOMER' | 'LOGISTICS_MANAGER' | 'TRANSPORT_SPECIALIST' | 'FLEET_ROUTE_COORDINATOR' | 'DRIVER_ESCORT' | 'SYSTEM';
 
 export interface HistoryEntry {
   at: string;
@@ -410,24 +420,6 @@ export interface ComplaintInput {
   description: string;
 }
 
-export interface DemoEstimateInput {
-  origin: string;
-  destination: string;
-  horseCount: number;
-}
-
-export interface DemoEstimateResult {
-  estimatedPrice: number;
-  estimatedDeposit: number;
-  currency: string;
-  horseCount: number;
-  averageRoadKm: number;
-  days: number;
-  stableNights: number;
-  minimumInsuranceAssumed: boolean;
-  scope: string;
-}
-
 export interface ApiResponse<T> {
   success: boolean;
   message?: string;
@@ -457,3 +449,15 @@ export type RequestDetailTab =
   | 'handover'
   | 'complaints'
   | 'history';
+
+/** Immutable published content; absent means the backend cannot provide a historical snapshot. */
+export interface ContractSnapshot {
+  origin: string;
+  destination: string;
+  date: string;
+  careNotes: string;
+  pickup: Place;
+  delivery: Place;
+  horses: Array<{ id: string; name: string; breed: string; microchip: string; passportNo: string }>;
+  customer: { id: string; name: string; company: string; email: string; phone: string };
+}

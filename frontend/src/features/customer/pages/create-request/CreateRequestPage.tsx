@@ -5,8 +5,7 @@ import { DateField } from '../../components/DateField/DateField';
 import { WizardStepper, wizardPath } from '../../components/WizardStepper/WizardStepper';
 import { Note } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
-import { customerApi } from '../../api/customerApi';
-import type { DemoEstimateResult, RequestField, TripInfoInput } from '../../types';
+import type { RequestField, TripInfoInput } from '../../types';
 import {
   BOOKING_DESTINATIONS,
   BOOKING_ORIGINS,
@@ -14,16 +13,17 @@ import {
   ROUTE_RULE,
   addDays,
   cityLabel,
-  estimate,
+  city,
   fmtDate,
-  fmtMoney,
   isSupportedRoute,
   today,
 } from '../../hooks/customerRules';
+import { customerApi } from '../../api/customerApi';
+import type { FormOptions } from '../../../../shared/api/flow1';
 import './CreateRequestPage.css';
 
 /**
- * Bước 1/4 – Thông tin chuyến: tuyến, ngày vận chuyển mong muốn, số ngựa và ước tính sơ bộ.
+ * Bước 1/4 – Thông tin chuyến: tuyến, ngày vận chuyển mong muốn, số ngựa và ghi chú chăm sóc.
  * Dùng cho cả tạo mới (/customer/requests/new) và sửa (/customer/requests/:requestId/edit).
  */
 export const CreateRequestPage: React.FC = () => {
@@ -36,7 +36,7 @@ export const CreateRequestPage: React.FC = () => {
   // Lấy dữ liệu tạm từ Landing Page nếu tạo mới
   const savedPrelim = !editing ? (() => {
     try {
-      const raw = sessionStorage.getItem('preliminaryQuote');
+      const raw = sessionStorage.getItem('preliminaryRequest');
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
@@ -52,36 +52,19 @@ export const CreateRequestPage: React.FC = () => {
   }));
   const set = <K extends keyof TripInfoInput>(k: K, v: TripInfoInput[K]) => setForm((f) => ({ ...f, [k]: v }));
 
-  const [demoEstimate, setDemoEstimate] = useState<DemoEstimateResult | null>(null);
-  const [loadingEstimate, setLoadingEstimate] = useState(false);
-
-  // Tính số ngày tối thiểu cần chuẩn bị theo loại hình vận chuyển
-  const isAir = form.origin?.includes('Tokyo') || form.destination?.includes('Tokyo') || form.destination?.includes('Osaka');
-  const minLead = isAir ? 7 : 3;
-  const minDate = addDays(today(), minLead);
-
-  // Lấy ước tính giá từ Backend Flow 1 API
+  const [options, setOptions] = useState<FormOptions | null>(null);
+  const [optionsError, setOptionsError] = useState('');
   useEffect(() => {
-    if (!form.origin || !form.destination || form.origin === form.destination || !isSupportedRoute(form.origin, form.destination)) {
-      setDemoEstimate(null);
-      return;
+    let active = true; setOptions(null); setOptionsError('');
+    if (isSupportedRoute(form.origin, form.destination)) {
+      customerApi.getFormOptions(form.origin, form.destination).then(value => {
+        if (active) setOptions(value);
+      }).catch(() => { if (active) setOptionsError('Chưa tải được quy định cho tuyến này. Vui lòng thử lại sau.'); });
     }
-    let active = true;
-    setLoadingEstimate(true);
-    customerApi.getDemoEstimate({ origin: form.origin, destination: form.destination, horseCount: form.horseCount })
-      .then((res) => {
-        if (active) {
-          setDemoEstimate(res);
-          setLoadingEstimate(false);
-        }
-      })
-      .catch(() => {
-        if (active) setLoadingEstimate(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [form.origin, form.destination, form.horseCount]);
+    return () => { active = false; };
+  }, [form.origin, form.destination]);
+  const minLead = options?.preparationDays;
+  const minDate = addDays(today(), minLead ?? 0);
 
   if (editing && (!r || !['DRAFT', 'CHANGES_REQUESTED'].includes(r.status))) {
     return (
@@ -93,16 +76,17 @@ export const CreateRequestPage: React.FC = () => {
   }
 
   const revising = r?.status === 'CHANGES_REQUESTED';
-  const allowed: RequestField[] = revising ? r?.revisionFields ?? ['route', 'date', 'count', 'notes'] : ['route', 'date', 'count', 'notes'];
+  const allowed: RequestField[] = revising ? r?.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'] : ['route', 'date', 'places', 'horses', 'notes'];
   const lock = (f: RequestField) => !allowed.includes(f);
-  const valid = isSupportedRoute(form.origin, form.destination) && !!form.date && form.date >= minDate && form.horseCount > 0;
+  const routeEnabled = options?.supportedRoutes.some(route => route.originCountry === city(form.origin).country && route.destinationCountry === city(form.destination).country && route.mode === (city(form.destination).country === 'JP' ? 'AIR' : 'ROAD'));
+  const valid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!form.date && form.date >= minDate && form.horseCount > 0;
 
-  const hint = !form.origin || !form.destination ? 'Chọn điểm đi, điểm đến, ngày và số ngựa để xem ước tính.'
+  const hint = !form.origin || !form.destination ? 'Chọn điểm đi, điểm đến, ngày và số ngựa để tiếp tục.'
     : form.origin === form.destination ? 'Điểm đi và điểm đến phải khác nhau.'
     : !isSupportedRoute(form.origin, form.destination) ? `Tuyến này không nhận đơn mới. ${ROUTE_RULE}`
     : !form.date ? 'Chọn ngày vận chuyển mong muốn.'
-    : form.date < minDate ? `Tuyến ${isAir ? 'hàng không (Nhật Bản)' : 'đường bộ'} cần đặt trước tối thiểu ${minLead} ngày (từ ${fmtDate(minDate)}).`
-    : 'Ngày vận chuyển không được ở quá khứ.';
+    : form.date < minDate ? `Tuyến này cần chuẩn bị ${minLead} ngày (từ ${fmtDate(minDate)}).`
+    : optionsError || (!options ? 'Đang tải quy định của tuyến…' : 'Ngày vận chuyển không được ở quá khứ.');
 
   const cityOptions = (selected: string, list: typeof BOOKING_ORIGINS) => (
     <>
@@ -112,13 +96,13 @@ export const CreateRequestPage: React.FC = () => {
     </>
   );
 
-  const save = () => {
+  const save = async () => {
     if (!editing) {
-      const res = actions.createDraft(form);
+      const res = await actions.createDraft(form);
       if (res.ok && res.id) navigate(`/customer/requests/${res.id}/wizard/1`);
       return;
     }
-    const res = actions.updateTripInfo(r!.id, form);
+    const res = await actions.updateTripInfo(r!.id, form);
     if (!res.ok) return;
     navigate(revising && r!.wizardStep >= 3 ? `/customer/requests/${r!.id}/wizard/3` : wizardPath(r!, Math.max(1, Math.min(r!.wizardStep, 3))));
   };
@@ -160,7 +144,7 @@ export const CreateRequestPage: React.FC = () => {
           </div>
           <div className="cus-field">
             <label htmlFor="cr-count">Số lượng ngựa *</label>
-            <select id="cr-count" className="cus-select" value={form.horseCount} disabled={lock('count')} onChange={(e) => set('horseCount', Number(e.target.value))}>
+            <select id="cr-count" className="cus-select" value={form.horseCount} disabled={lock('horses')} onChange={(e) => set('horseCount', Number(e.target.value))}>
               {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} ngựa</option>)}
             </select>
           </div>
@@ -171,36 +155,8 @@ export const CreateRequestPage: React.FC = () => {
             placeholder="Lịch ăn uống, điểm dừng nghỉ, đồ dùng quen thuộc…" onChange={(e) => set('careNotes', e.target.value)} />
         </div>
 
-        {valid ? (
-          <div className="cus-quote">
-            <div className="cus-quote__tag"><span>Ước tính sơ bộ</span> Không ràng buộc, chưa phải giá chính thức</div>
-            <div className="cus-kv">
-              <div><span>Tuyến</span><b>{cityLabel(form.origin)} → {cityLabel(form.destination)}</b></div>
-              <div><span>Ngày vận chuyển</span><b>{fmtDate(form.date)}</b></div>
-              <div><span>Số ngựa</span><b>{form.horseCount}</b></div>
-              <div>
-                <span>Chi phí ước tính</span>
-                <b className="cus-quote__amount">
-                  {loadingEstimate
-                    ? 'Đang tính toán...'
-                    : demoEstimate
-                    ? `${demoEstimate.estimatedPrice.toLocaleString('vi-VN')} đ`
-                    : `${fmtMoney(estimate(form.origin, form.destination, form.horseCount))} USD`}
-                </b>
-              </div>
-              {demoEstimate && (
-                <>
-                  <div><span>Cọc dự kiến (40%)</span><b>{demoEstimate.estimatedDeposit.toLocaleString('vi-VN')} đ</b></div>
-                  {demoEstimate.averageRoadKm > 0 && <div><span>Quãng đường ước tính</span><b>{demoEstimate.averageRoadKm} km</b></div>}
-                  {demoEstimate.days > 0 && <div><span>Thời gian dự kiến</span><b>{demoEstimate.days} ngày ({demoEstimate.stableNights} đêm nghỉ)</b></div>}
-                </>
-              )}
-            </div>
-            <Note tone="yellow" title="Giá chính thức">Giá cuối cùng do CBN Transport xác nhận trong hợp đồng sau khi xét duyệt yêu cầu.</Note>
-          </div>
-        ) : (
-          <Note tone="grey" title="Ước tính sơ bộ">{hint}</Note>
-        )}
+        {!valid && <Note tone="grey" title="Thông tin chuyến">{hint}</Note>}
+        <Note tone="yellow" title="Giá hợp đồng">Quản lý xét duyệt yêu cầu và phát hành hợp đồng có giá chính thức sau khi bạn khai báo ngựa và gửi đơn.</Note>
 
         <div className="cus-create__actions">
           <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(r ? `/customer/requests/${r.id}` : '/customer/requests')}>Hủy</button>

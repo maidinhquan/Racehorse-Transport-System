@@ -1,7 +1,8 @@
+import { downloadFile } from '../../../../../shared/api/downloadFile';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
-import { Note, openSampleFile } from '../../../components/Common/Common';
+import { Note } from '../../../components/Common/Common';
 import { Modal, ReasonModal, RevisionModal } from '../../../components/Modals';
 import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { useManager } from '../../../hooks/useManager';
@@ -99,7 +100,7 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
                 <div className="mgr-section-title">{scope === 'request' ? 'Giấy tờ theo đơn' : horseName(data, scope)}</div>
                 {r.dossier.filter((d) => d.scope === scope).map((d) => (
                   <div key={d.name} className="mgr-row">
-                    <div><b>{d.name}</b><span>{d.file ? <button type="button" className="mgr-link" onClick={() => openSampleFile(d.file!)}>{d.file}</button> : 'Chưa có tệp'}{d.note ? ` • ${d.note}` : ''}</span></div>
+                    <div><b>{d.name}</b><span>{d.file ? <button type="button" className="mgr-link" onClick={() => downloadFile(d.file!).catch(error => actions.showToast(error.message))}>{d.file}</button> : 'Chưa có tệp'}{d.note ? ` • ${d.note}` : ''}</span></div>
                     <StatusBadge kind="dossier" status={d.status} />
                   </div>
                 ))}
@@ -158,14 +159,14 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
       </div>
 
       <Modal open={dialog === 'accept'} title={`Chấp thuận ${r.id}`} okText="Chấp thuận" onClose={close}
-        onOk={() => { if (actions.acceptRequest(r.id).ok) close(); }}>
+        onOk={async () => { if ((await actions.acceptRequest(r.id)).ok) close(); }}>
         <p>Yêu cầu chuyển sang <b>Đang soạn hợp đồng</b>. Bạn sẽ lập phương án, giá bán và điều khoản ở bước Hợp đồng & giá.</p>
         {r.dossier.some((d) => d.status !== 'APPROVED') && <p className="mgr-muted">Lưu ý: một số giấy tờ chưa được Specialist duyệt. Việc này không chặn chấp thuận nhưng phải hoàn tất trước khi khởi hành.</p>}
       </Modal>
-      <RevisionModal open={dialog === 'revise'} requestId={r.id} onClose={close} onSubmit={(fb, fields) => actions.requestRevision(r.id, fb, fields).ok} />
+      <RevisionModal open={dialog === 'revise'} requestId={r.id} onClose={close} onSubmit={async (fb, fields) => (await actions.requestRevision(r.id, fb, fields)).ok} />
       <ReasonModal open={dialog === 'reject'} title={`Từ chối ${r.id}`} okText="Từ chối yêu cầu" danger minLength={10}
         intro={<p>Khách hàng nhận được lý do từ chối. Yêu cầu bị từ chối không thể mở lại.</p>}
-        placeholder="VD: Không thể bố trí phương tiện cho ngày vận chuyển đã chọn." onClose={close} onSubmit={(x) => actions.rejectRequest(r.id, x).ok} />
+        placeholder="VD: Không thể bố trí phương tiện cho ngày vận chuyển đã chọn." onClose={close} onSubmit={async (x) => (await actions.rejectRequest(r.id, x)).ok} />
       <ReasonModal open={dialog === 'cancel'} title={`Thu hồi / Hủy ${r.id}`} okText="Xác nhận" danger minLength={10}
         intro={<p>{held > 0 ? `Khách đã trả ${fmtMoney(held)} được xác minh – hệ thống tạo lệnh hoàn tiền.` : 'Chưa có khoản thanh toán nào được xác minh.'} Hợp đồng chưa ký (nếu có) bị hủy.</p>}
         confirmText="Tôi hiểu thao tác này không thể hoàn tác." onClose={close} onSubmit={async (x) => {

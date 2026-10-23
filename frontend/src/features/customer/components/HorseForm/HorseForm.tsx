@@ -27,8 +27,8 @@ export const HorseForm: React.FC<HorseFormProps> = ({ value: h, onChange, locked
 
   const text = (label: string, k: 'name' | 'breed' | 'color' | 'microchip' | 'vetName' | 'vetPhone' | 'value', lock = false, type = 'text') => (
     <div className="cus-field">
-      <label htmlFor={`hf-${k}`}>{label}</label>
-      <input id={`hf-${k}`} className={`cus-input ${bad(k)}`} type={type} value={h[k]} readOnly={lock && locked}
+      <label htmlFor={`hf-${k}`}>{label}{h.unsupportedFields?.includes(k) && ' (chưa thể lưu trực tuyến)'}</label>
+      <input id={`hf-${k}`} className={`cus-input ${bad(k)}`} type={type} value={h[k] ?? ''} disabled={h.unsupportedFields?.includes(k)} readOnly={lock && locked}
         onChange={(e) => set(k, e.target.value)} />
     </div>
   );
@@ -39,8 +39,8 @@ export const HorseForm: React.FC<HorseFormProps> = ({ value: h, onChange, locked
     return file ? (
       <div className="cus-file">
         <span className="cus-file__icon"><Icon name="file" /></span>
-        <div className="cus-file__text"><b>{file.name}</b><span>Đã tải lên</span></div>
-        <button type="button" className="cus-btn cus-btn--sm" onClick={() => openFile(file)}>Xem</button>
+        <div className="cus-file__text"><b>{file.name}</b><span>{file.file ? 'Đã chọn, chưa lưu' : 'Đã lưu'}</span></div>
+        <button type="button" className="cus-btn cus-btn--sm" onClick={() => openFile(file, actions.showToast)}>Xem</button>
         <FilePickButton label="Thay tệp" onPick={update} onError={actions.showToast} types={field === 'photo' ? PHOTO_TYPES : undefined} />
         <button type="button" className="cus-btn cus-btn--sm cus-btn--danger" onClick={() => update(undefined)}>Xóa</button>
       </div>
@@ -121,7 +121,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({ value: h, onChange, locked
           <div className="cus-field">
             <label htmlFor="hf-cur">Đơn vị tiền tệ</label>
             <select id="hf-cur" className="cus-select" value={h.currency} onChange={(e) => set('currency', e.target.value)}>
-              {['USD', 'VND', 'JPY', 'EUR', 'AUD', 'SGD'].map((c) => <option key={c}>{c}</option>)}
+              {['VND'].map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
         </div>
@@ -132,8 +132,8 @@ export const HorseForm: React.FC<HorseFormProps> = ({ value: h, onChange, locked
         <h4>05 · Tiêm ngừa & sức khỏe</h4>
         <div className="cus-horse-form__grid">
           <div className="cus-field">
-            <label htmlFor="hf-flu">Ngày tiêm cúm gần nhất</label>
-            <DateField id="hf-flu" value={h.fluDate} max={today()} onChange={(v) => set('fluDate', v)} />
+            <label htmlFor="hf-flu">Ngày tiêm cúm gần nhất{h.unsupportedFields?.includes('fluDate') && ' (chưa thể lưu trực tuyến)'}</label>
+            <DateField id="hf-flu" disabled={h.unsupportedFields?.includes('fluDate')} value={h.fluDate ?? ''} max={today()} onChange={(v) => set('fluDate', v)} />
           </div>
         </div>
         <div className="cus-horse-form__minor"><span className="cus-eyebrow">Sổ tiêm ngừa</span>{fileCard('flu', 'Chưa tải tệp')}</div>

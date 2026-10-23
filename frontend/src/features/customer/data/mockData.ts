@@ -34,36 +34,36 @@ export const mockProfile: CustomerProfile = {
 // ---------------------------------------------------------------------------
 export const mockHorses: Horse[] = [
   {
-    id: 'HOR-1029', name: 'Thunderbolt', breed: 'Thoroughbred', sex: 'Male', dob: '2020-03-14', color: 'Bay', microchip: '985112004571029',
-    value: '120000', currency: 'USD',
+    id: 'HOR-1029', name: 'Thunderbolt', breed: 'Thoroughbred', sex: 'STALLION', dob: '2020-03-14', color: 'Bay', microchip: '985112004571029',
+    value: '120000', currency: 'VND',
     passport: { number: 'VN-EQ-2020-1029', authority: 'Liên đoàn Đua ngựa Việt Nam', issueDate: '2023-04-10', expiryDate: '2028-04-09', scan: { name: 'thunderbolt-passport.pdf' } },
     ownership: { name: 'thunderbolt-ownership.pdf' }, flu: { name: 'thunderbolt-vaccination.pdf' },
     fluDate: '2026-05-20', conditions: '', vetName: 'BS. Nguyễn Minh Anh', vetPhone: '+84 28 5550 0142',
   },
   {
-    id: 'HOR-1035', name: 'Shadowfax', breed: 'Andalusian', sex: 'Gelding', dob: '2016-05-02', color: 'Grey', microchip: '985112004571035',
-    value: '85000', currency: 'USD',
+    id: 'HOR-1035', name: 'Shadowfax', breed: 'Andalusian', sex: 'GELDING', dob: '2016-05-02', color: 'Grey', microchip: '985112004571035',
+    value: '85000', currency: 'VND',
     passport: { number: 'VN-EQ-2016-1035', authority: 'Liên đoàn Đua ngựa Việt Nam', issueDate: '2024-01-15', expiryDate: '2029-01-14', scan: { name: 'shadowfax-passport.pdf' } },
     ownership: { name: 'shadowfax-ownership.pdf' }, flu: { name: 'shadowfax-vaccination.pdf' },
     fluDate: '2025-06-10', conditions: 'Dị ứng nhẹ theo mùa', vetName: 'BS. Trần Quốc Bảo', vetPhone: '+84 24 5550 0177',
   },
   {
-    id: 'HOR-1092', name: 'Apollo', breed: 'Thoroughbred', sex: 'Stallion', dob: '2021-04-20', color: 'Chestnut', microchip: '985112004571092',
-    value: '150000', currency: 'USD',
+    id: 'HOR-1092', name: 'Apollo', breed: 'Thoroughbred', sex: 'STALLION', dob: '2021-04-20', color: 'Chestnut', microchip: '985112004571092',
+    value: '150000', currency: 'VND',
     passport: { number: 'VN-EQ-2021-1092', authority: 'Liên đoàn Đua ngựa Việt Nam', issueDate: '2021-11-21', expiryDate: '2026-11-20', scan: { name: 'apollo-passport.pdf' } },
     ownership: { name: 'apollo-ownership.pdf' },
     fluDate: '2026-03-02', conditions: '', vetName: 'BS. Nguyễn Minh Anh', vetPhone: '+84 28 5550 0142',
   },
   {
-    id: 'HOR-1101', name: 'Starboy', breed: 'Warmblood', sex: 'Gelding', dob: '2018-08-09', color: 'Black', microchip: '985112004571101',
-    value: '95000', currency: 'USD',
+    id: 'HOR-1101', name: 'Starboy', breed: 'Warmblood', sex: 'GELDING', dob: '2018-08-09', color: 'Black', microchip: '985112004571101',
+    value: '95000', currency: 'VND',
     passport: { number: 'AU-EQ-2018-1101', authority: 'Equestrian Australia', issueDate: '2023-08-01', expiryDate: '2028-07-31', scan: { name: 'starboy-passport.pdf' } },
     ownership: { name: 'starboy-ownership.pdf' }, flu: { name: 'starboy-vaccination.pdf' },
     fluDate: '2026-07-11', conditions: '', vetName: 'BS. Nguyễn Minh Anh', vetPhone: '+84 28 5550 0142',
   },
   {
-    id: 'HOR-1108', name: 'Bella', breed: 'Arabian', sex: 'Mare', dob: '2019-02-11', color: '', microchip: '',
-    value: '', currency: 'USD',
+    id: 'HOR-1108', name: 'Bella', breed: 'Arabian', sex: 'MARE', dob: '2019-02-11', color: '', microchip: '',
+    value: '', currency: 'VND',
     passport: { number: 'UK-EQ-2019-1108', authority: 'British Equestrian', issueDate: '2024-02-20', expiryDate: '2029-02-19', scan: { name: 'bella-passport.pdf' } },
     fluDate: '2026-06-15', conditions: '', vetName: '', vetPhone: '',
   },
@@ -87,7 +87,7 @@ const PLACES = {
 const hist = (at: string, role: ActorRole, action: string, detail?: string): HistoryEntry => ({
   at, role, action, detail,
   actor: role === 'CUSTOMER' ? mockProfile.name : role === 'LOGISTICS_MANAGER' ? 'Linh Pham' : role === 'TRANSPORT_SPECIALIST' ? 'Hoang Thu Ha'
-    : role === 'FLEET_COORDINATOR' ? 'Dang Minh Quan' : role === 'CREW' ? 'Pham Van Duc' : 'Hệ thống',
+    : role === 'FLEET_ROUTE_COORDINATOR' ? 'Dang Minh Quan' : role === 'DRIVER_ESCORT' ? 'Pham Van Duc' : 'Hệ thống',
 });
 
 function version(id: string, v: number, issuedAt: string, r: Pick<TransportRequest, 'origin' | 'destination' | 'horseCount'>,
@@ -296,7 +296,7 @@ export const mockRequests: TransportRequest[] = [
     }),
     history: [
       hist('2026-09-30 09:00', 'CUSTOMER', 'Ký hợp đồng bằng OTP', 'CT-8923 v1'),
-      hist('2026-10-04 06:40', 'CREW', 'Xuất phát', 'Saigon Riding Club'),
+      hist('2026-10-04 06:40', 'DRIVER_ESCORT', 'Xuất phát', 'Saigon Riding Club'),
     ],
   }),
   req({
@@ -328,8 +328,8 @@ export const mockRequests: TransportRequest[] = [
     }),
     acceptance: { status: 'PENDING', openedAt: '2026-10-04 10:00', dueAt: '2026-10-05 10:00' },
     history: [
-      hist('2026-10-04 09:30', 'CREW', 'Đến điểm giao', 'Saigon Riding Club'),
-      hist('2026-10-04 10:00', 'CREW', 'Hoàn tất bàn giao có xác minh', 'Người nhận: Alex Equine'),
+      hist('2026-10-04 09:30', 'DRIVER_ESCORT', 'Đến điểm giao', 'Saigon Riding Club'),
+      hist('2026-10-04 10:00', 'DRIVER_ESCORT', 'Hoàn tất bàn giao có xác minh', 'Người nhận: Alex Equine'),
     ],
   }),
   // ----- Lịch sử -----

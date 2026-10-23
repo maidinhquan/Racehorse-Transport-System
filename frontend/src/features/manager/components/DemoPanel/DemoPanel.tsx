@@ -15,6 +15,7 @@ export interface DemoButton {
  * trên dữ liệu dùng chung. Không nút nào thay thế quyết định chính thức của Manager.
  */
 export const DemoPanel: React.FC<{ buttons: DemoButton[]; title?: string; hint?: string }> = ({ buttons, title = 'Nút demo', hint }) => {
+  if (import.meta.env.VITE_ENABLE_DEMO !== 'true') return null;
   const shown = buttons.filter((b) => !b.hidden);
   if (!shown.length) return null;
   return (
