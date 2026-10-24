@@ -1,5 +1,32 @@
 # API Contract — Flow 1
 
+## Quyết định Flow 1 hiện hành — 24/10/2026
+
+- Chỉ thu tiền qua VNPAY. Tạo phiên → Customer thanh toán → backend xác minh IPN → cập nhật PAYMENT/INVOICE trong transaction → đủ cọc đúng version mới mở OTP. Return không xác nhận tiền. Không có API Manager confirm/reject thanh toán thủ công.
+- Theo dõi tiến độ bằng status hiện tại; không xây timeline history hoặc audit riêng. Chỉ giữ metadata nghiệp vụ cần thiết: feedback gần nhất, trạng thái trước hủy, xác nhận điều khoản, metadata phát hành/ký/gia hạn/triển khai. Collection history/revisions/deadlineHistory/extensions cũ được bỏ khỏi DTO Flow 1.
+- ContentSnapshot lưu đầy đủ một hợp đồng hoàn chỉnh: số hợp đồng/version, ngày phát hành, bên cung cấp và Customer, thông tin liên hệ, danh sách ngựa, nơi nhận/giao và người nhận, tuyến/mode/lịch trình, chăm sóc, toàn bộ khoản giá/thuế/phí nếu áp dụng, tổng giá, tiền/tỷ lệ cọc, nghĩa vụ thanh toán, thời hạn, mọi điều khoản/phụ lục và giá trị policy đã áp dụng. Không bỏ trường thuộc hợp đồng; dữ liệu không áp dụng thể hiện rõ. PDF thể hiện cùng nội dung và được giữ theo version. Không dựng lại bản cũ từ master hiện tại. Bản phát hành/ký bất biến; sửa nội dung tạo version mới. Giá vốn nội bộ và OTP/hash không thuộc bản hợp đồng Customer.
+- fileType dùng chung photo/passport/ownership/value-proof. Không coi đây là mã ID. Hồ sơ y tế theo đơn dùng API documents.
+- Refund Flow 1 chỉ ghi nhận status thủ công; không thực hiện chuyển tiền hoặc tuyên bố hệ thống đã hoàn tiền. Không yêu cầu audit/chứng từ mới.
+- Đây là thiết kế đích và SQL mẫu Reviewed, không xác nhận backend/FE hoặc database đang chạy đã được cập nhật.
+
+
+## Quy ước trạng thái thống nhất với database
+
+Nguồn NAME đích: [DATABASE_STATUS_CONVENTION.md](../../../data/DATABASE_STATUS_CONVENTION.md), mục 12. Request dùng cùng enum DB/API: DRAFT, PENDING_REVIEW, CHANGES_REQUESTED, CONTRACT_PREPARATION, CONTRACT_READY, CONTRACT_CHANGES_REQUESTED, DEPOSIT_VERIFIED, CANCELLATION_REQUESTED, ACTIVATED, SCHEDULED, IN_PROGRESS, DELIVERED, CLOSED, REJECTED, CANCELLED.
+
+Sau ký: ACTIVATED. Gate 1 đã duyệt và phân công xác nhận: SCHEDULED. Khởi hành thực tế: Request IN_PROGRESS, Trip IN_TRANSIT. Bàn giao hợp lệ: Request DELIVERED, Trip COMPLETED. Tất toán xong: Contract SETTLED, Request vẫn DELIVERED trong cửa sổ feedback/khiếu nại. Hết cửa sổ và không khiếu nại mở: Request CLOSED, Contract CLOSED. SCHEDULED không thay Gate 2; nếu Gate 1 bị thu hồi trước khởi hành, Request trở lại ACTIVATED để duyệt lại.
+
+Contract tổng dùng EFFECTIVE sau ký; CONTRACT_VERSION vẫn SIGNED. State UI của phiên bản là projection, không phải enum DB. Payment UI PENDING_CONFIRMATION/PROCESSING/REJECTED, refund UI REFUNDED, deployment UI NOT_CONFIRMED được đối chiếu ở mục 12; không lưu trực tiếp các nhãn này vào cột có enum khác.
+
+Chưa ký và chưa nhận cọc đã xác minh: hủy ngay thành CANCELLED, kể cả có phiên VNPay đang chờ. Đã nhận cọc một phần hoặc đủ: lưu TRANSPORT_REQUEST.CancellationPreviousStatus, chuyển CANCELLATION_REQUESTED / CONTRACT.CancellationStatus PENDING để Manager duyệt; duyệt → CANCELLED, từ chối → trạng thái trước hủy đã lưu. Giao dịch đến sau hủy đưa đối soát, không tự mở lại đơn. Đã ký/kích hoạt Trip không dùng quy trình hủy trước ký này.
+
+SQL Reviewed đã cho DeploymentStatus PENDING/CONFIRMED/ON_HOLD. Hold/resume là hợp đồng đích cần kiểm chứng backend; không còn bị chặn bởi enum SQL.
+
+ON_HOLD thuộc TRIP_PLAN.DeploymentStatus, không thuộc TRIP_PLAN.Status. Chỉ Manager hold chuyến đã CONFIRMED và Trip.Status = PLANNING hoặc READY_TO_DEPART; giữ HandoffEventId và hai nhân sự được giao. Hold lưu DeploymentReason/By/AtUtc mới nhất và metadata nghiệp vụ, chuyển Trip về PLANNING nếu trước đó READY_TO_DEPART để thu hồi Gate 2. Resume chỉ ON_HOLD → CONFIRMED, kiểm tra lại phân công; giữ Trip PLANNING, phải đánh giá/duyệt khởi hành lại, không tự READY_TO_DEPART. ON_HOLD chặn khởi hành và mở tác vụ triển khai mới; không xóa lịch sử hoặc dữ liệu đã chuẩn bị. Không dùng hold/resume này cho Trip IN_TRANSIT/COMPLETED. Request không tự đổi trạng thái chỉ vì hold; nếu Gate 1 thực sự mất hiệu lực mới SCHEDULED → ACTIVATED. Retry không tạo handoff mới hoặc ghi metadata trùng. SQL CHECK chỉ kiểm tra tổ hợp một dòng; các guard chuyển trạng thái/quyền/metadata do backend thực hiện.
+
+Các quy tắc trên là hợp đồng đích, không xác nhận backend/FE đã triển khai hoặc seed đã được chuyển đổi.
+
+
 | Thuộc tính | Giá trị |
 |---|---|
 | Phiên bản | 1.1 — frontend và contract đồng bộ |
@@ -7,16 +34,16 @@
 | Cập nhật JSON | 23/10/2026 — nhúng đầy đủ mẫu theo từng endpoint |
 | Dự án | Racehorse Transport System |
 | Phạm vi | Tạo đơn → xét duyệt → hợp đồng → cọc → OTP → kích hoạt → phân công; sửa/hủy liên quan |
-| Căn cứ | Màn hình, form, thao tác frontend; [CONVENTIONS.md](../../CONVENTIONS.md); [HorseTransportDB.sql](../../../HorseTransportDB/HorseTransportDB.sql) |
+| Căn cứ | Màn hình, form, thao tác frontend; [CONVENTIONS.md](../../CONVENTIONS.md); [HorseTransportDB.sql](../../../data/HorseTransportDB_Reviewed.sql) |
 | Trạng thái | Giao thức mục tiêu; chưa chứng nhận tích hợp backend |
 
 **Schema máy đọc:** [flow1.openapi.json](flow1.openapi.json) quy định required/nullable/enum/giới hạn. Xem thêm quy tắc triển khai ở cuối file JSON.
 
 **JSON đã được nhúng trực tiếp:** Mục 4–13 của file này có đầy đủ request, response thành công/lỗi và các nhánh dữ liệu theo từng API. [FLOW1-API-JSON.md](FLOW1-API-JSON.md) giữ cùng bộ mẫu để tra cứu riêng; không bắt buộc mở file khác mới xem được payload. API trả PDF/ảnh có mẫu HTTP binary thay cho JSON thành công.
 
-**Lưu ý nguồn SQL:** File SQL trong repository khác bản tài liệu người dùng cung cấp tại `D:/Shared/HorseTransportDB.sql`. Chưa kiểm chứng schema DB đang chạy; không dùng liên kết SQL trong repo để khẳng định đã có version/policy/persistence. Phạm vi lần này chỉ sửa frontend/contracts.
+Nguồn SQL hiện hành: data/HorseTransportDB_Reviewed.sql; chưa áp dụng database đang chạy.
 
-Nguồn đối chiếu: [CONVENTIONS.md](../../CONVENTIONS.md) (Quy ước chung & Quy chuẩn mã ID), [HorseTransportDB.sql](../../../HorseTransportDB/HorseTransportDB.sql), `frontend/src/features/customer` và `frontend/src/features/manager`.
+Nguồn đối chiếu: [CONVENTIONS.md](../../CONVENTIONS.md) (Quy ước chung & Quy chuẩn mã ID), [HorseTransportDB.sql](../../../data/HorseTransportDB_Reviewed.sql), `frontend/src/features/customer` và `frontend/src/features/manager`.
 
 ## 1. Luồng chính thức
 
@@ -263,12 +290,12 @@ Customer Request:
 ~~~text
 id, origin, destination, date, horseCount,
 requestedAt, submittedAt, status,
-feedback, revisionFields, reason,
+feedback, reason,
 careNotes, pickup, delivery,
 horses, horseNotes, wizardStep,
 revisions, versions, payments, docs,
 supplements, companyDocs, trip,
-complaints, history
+complaints
 ~~~
 
 Manager Request:
@@ -276,15 +303,15 @@ Manager Request:
 ~~~text
 id, customerId, origin, destination, date,
 status, horses, pickup, delivery, careNotes,
-submittedAt, feedback, revisionFields, reason,
+submittedAt, feedback, reason,
 versions, draft, dossier, cancellation,
-collection, history, contractId, tripId
+collection, contractId, tripId
 ~~~
 
 - Hai projection cùng dữ liệu canonical, không phải hai store riêng.
 - Collection chưa có trả []; optional chưa có được bỏ.
 - horseCount thực tính từ mapping, không phải số slot chưa chọn.
-- history gồm at/actor/role/action/detail, BE ghi actor/time và lọc ghi chú nội bộ cho Customer.
+- Theo dõi tiến độ bằng status; không trả timeline lịch sử/audit riêng.
 - Field chưa có nơi lưu SQL được nêu ở mục 14, không tự bịa dữ liệu.
 - Không dựng fake READY/hoàn thành cho phần hậu vận chuyển chưa phát sinh.
 
@@ -298,6 +325,7 @@ PENDING_REVIEW → CONTRACT_PREPARATION
 CONTRACT_PREPARATION → CONTRACT_READY
 CONTRACT_READY → CONTRACT_CHANGES_REQUESTED → CONTRACT_READY
 CONTRACT_READY → DEPOSIT_VERIFIED → ACTIVATED
+ACTIVATED → SCHEDULED → IN_PROGRESS → DELIVERED → CLOSED
 Hủy hợp lệ → CANCELLED hoặc CANCELLATION_REQUESTED chờ xử lý
 ~~~
 
@@ -589,7 +617,7 @@ Nhân sự phân công. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-**Quy tắc:** role trong DTO UI là FLEET_COORDINATOR; canonical USER.Role có thể là FLEET_ROUTE_COORDINATOR theo ID rule. Không tạo hai user/role để né mapping.
+**Quy tắc:** role Coordinator trong DTO và USER.Role thống nhất FLEET_ROUTE_COORDINATOR. Không tạo hai user/role để né mapping.
 
 **Response lỗi 403 — FORBIDDEN_ROLE**
 
@@ -839,10 +867,10 @@ Gợi ý địa chỉ. Role: **Người dùng đã đăng nhập theo phạm vi 
 | POST | /customer/horses | Thêm |
 | PUT | /customer/horses/{horseId} | Sửa |
 | GET | /customer/horses/selectable?date=... | Khả dụng |
-| POST | /customer/horses/{horseId}/files/{kind} | Upload/thay |
-| GET | /customer/horses/{horseId}/files/{kind} | Đọc có quyền |
+| POST | /customer/horses/{horseId}/files/{fileType} | Upload/thay |
+| GET | /customer/horses/{horseId}/files/{fileType} | Đọc có quyền |
 
-Khoảng lịch kết thúc khi kiểm tra selectable phải xác định từ đơn/kế hoạch, không chỉ nhìn ngày bắt đầu.
+date chỉ phục vụ kiểm tra sơ bộ tại ngày chọn, không bảo đảm toàn bộ khoảng lịch của đơn mới. Chuyến đã ký giữ lịch theo departAt → arriveAt trong CONTRACT_VERSION.ContentSnapshot của đúng version SIGNED; arriveAt là thời điểm giao ngựa dự kiến. Chuyến chưa bàn giao thực tế vẫn bị coi là đang bận khi quá arriveAt. Khi Manager chốt/phát hành lịch và trước ký, backend kiểm tra lại xung đột cả khoảng trong transaction; submit chỉ kiểm tra sơ bộ khi đơn chưa có ngày giao dự kiến. Không thêm trường ngày kết thúc riêng.
 
 Create:
 
@@ -878,7 +906,7 @@ Upload POST multipart:
 file = <binary>
 ~~~
 
-kind: photo/passport/ownership/value-proof. Trả FileRef, lưu private/gắn cột tương ứng. MIME/kích thước theo cấu hình upload thống nhất FE–BE.
+fileType: photo/passport/ownership/value-proof. Trả FileRef, lưu private/gắn cột tương ứng. MIME/kích thước theo cấu hình upload thống nhất FE–BE.
 
 Hồ sơ y tế theo Request dùng LEGAL_MEDICAL_RECORD:
 
@@ -1162,7 +1190,7 @@ Ngựa có thể chọn. Role: **CUSTOMER**.
 }
 ```
 
-**Quy tắc:** date là query baseline; khoảng kết thúc phải được backend xác định từ Request/kế hoạch trước khi bảo đảm không xung đột. Nếu chưa đủ ngữ cảnh thì không được khẳng định ngựa an toàn cho mọi khoảng lịch; hợp đồng ngữ cảnh lịch cần chốt khi implement.
+**Quy tắc:** date chỉ phục vụ kiểm tra sơ bộ tại ngày chọn, không bảo đảm toàn bộ khoảng lịch của đơn mới. Chuyến đã ký giữ lịch theo departAt → arriveAt trong CONTRACT_VERSION.ContentSnapshot của đúng version SIGNED; arriveAt là thời điểm giao ngựa dự kiến. Chuyến chưa bàn giao thực tế vẫn bị coi là đang bận khi quá arriveAt. Khi Manager chốt/phát hành lịch và trước ký, backend kiểm tra lại xung đột cả khoảng trong transaction; submit chỉ kiểm tra sơ bộ khi đơn chưa có ngày giao dự kiến. Không thêm trường ngày kết thúc riêng.
 
 **Response lỗi 400 — VALIDATION_ERROR**
 
@@ -1180,7 +1208,7 @@ Ngựa có thể chọn. Role: **CUSTOMER**.
 }
 ```
 
-### F1-J15 — POST /customer/horses/{horseId}/files/{kind}
+### F1-J15 — POST /customer/horses/{horseId}/files/{fileType}
 
 Upload file ngựa. Role: **CUSTOMER**.
 
@@ -1189,7 +1217,7 @@ Upload file ngựa. Role: **CUSTOMER**.
 | Tên | Giá trị ví dụ |
 |---|---|
 | horseId | HORSE_001 |
-| kind | passport |
+| fileType | passport |
 
 **Request: multipart/form-data, không có JSON body.**
 
@@ -1210,7 +1238,7 @@ Upload file ngựa. Role: **CUSTOMER**.
 }
 ```
 
-**Quy tắc:** kind: photo/passport/ownership/value-proof. Đây là multipart, không gửi JSON chứa tên file thay bytes. Giới hạn MIME/kích thước từ cấu hình, không tự tạo FILE_* ID.
+**Quy tắc:** fileType: photo/passport/ownership/value-proof. Đây là multipart, không gửi JSON chứa tên file thay bytes. Giới hạn MIME/kích thước từ cấu hình, không tự tạo FILE_* ID.
 
 **Response lỗi 400 — VALIDATION_ERROR**
 
@@ -1228,7 +1256,7 @@ Upload file ngựa. Role: **CUSTOMER**.
 }
 ```
 
-### F1-J16 — GET /customer/horses/{horseId}/files/{kind}
+### F1-J16 — GET /customer/horses/{horseId}/files/{fileType}
 
 Đọc file private. Role: **CUSTOMER**.
 
@@ -1237,7 +1265,7 @@ Upload file ngựa. Role: **CUSTOMER**.
 | Tên | Giá trị ví dụ |
 |---|---|
 | horseId | HORSE_001 |
-| kind | passport |
+| fileType | passport |
 
 **Request body:** Không gửi body.
 
@@ -1251,7 +1279,7 @@ Content-Disposition: inline; filename="passport.pdf"
 
 Body là bytes file, không phải JSON và không có success/data envelope.
 
-**Quy tắc:** Ví dụ kind=passport; photo có thể trả image/png hoặc image/jpeg.
+**Quy tắc:** Ví dụ fileType=passport; photo có thể trả image/png hoặc image/jpeg.
 
 **Response lỗi 404 — NOT_FOUND**
 
@@ -1381,9 +1409,9 @@ Update:
 - Không tin DistanceKm tùy ý của FE để tính tiền.
 - DRAFT được thiếu thông tin; submit phải đầy đủ.
 
-Submit không body. BE kiểm tra địa điểm/contact/ngựa, tuyến/mode hoạt động, preparation policy, hồ sơ Customer và lịch ngựa trong transaction. Hồ sơ công ty chưa hoàn thiện không tự chặn. Không chỉ tin kết quả GET trước đó.
+Submit không body. BE kiểm tra địa điểm/contact/ngựa, tuyến/mode hoạt động, preparation policy, hồ sơ Customer và lịch ngựa sơ bộ theo ngày trong transaction; chưa có arriveAt thì không cam kết toàn bộ khoảng lịch. Khi phát hành hợp đồng và trước ký phải kiểm tra lại departAt → arriveAt. Hồ sơ công ty chưa hoàn thiện không tự chặn. Không chỉ tin kết quả GET trước đó.
 
-200 trả PENDING_REVIEW, snapshot/audit và notification Manager sau commit; không Contract/Trip.
+200 trả PENDING_REVIEW, status và notification Manager sau commit; không Contract/Trip.
 
 POST create nhận Idempotency-Key: UUID. BE băm phục vụ SubmissionKeyHash, retry trả cùng Request. Đây không phải RowVersion hoặc lời hứa idempotency cho mọi mutation chưa có persistence tương ứng.
 
@@ -1441,22 +1469,12 @@ Tạo DRAFT. Role: **CUSTOMER**.
     "horses": [],
     "horseNotes": {},
     "wizardStep": 1,
-    "revisions": [],
     "versions": [],
     "payments": [],
     "docs": [],
     "supplements": [],
     "companyDocs": [],
-    "complaints": [],
-    "history": [
-      {
-        "at": "2026-10-23 07:30",
-        "actor": "Nguyen Van A",
-        "role": "CUSTOMER",
-        "action": "REQUEST_CREATED",
-        "detail": "Tạo bản nháp"
-      }
-    ]
+    "complaints": []
   }
 }
 ```
@@ -1567,7 +1585,6 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
       "HORSE_001": "Lưu ý khẩu phần"
     },
     "wizardStep": 3,
-    "revisions": [],
     "versions": [],
     "payments": [],
     "docs": [
@@ -1584,16 +1601,7 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
     ],
     "supplements": [],
     "companyDocs": [],
-    "complaints": [],
-    "history": [
-      {
-        "at": "2026-10-23 08:00",
-        "actor": "Nguyen Van A",
-        "role": "CUSTOMER",
-        "action": "REQUEST_SUBMITTED",
-        "detail": "Gửi đơn hoàn chỉnh"
-      }
-    ]
+    "complaints": []
   }
 }
 ```
@@ -1666,7 +1674,6 @@ Gửi/gửi lại. Role: **CUSTOMER**.
       "HORSE_001": "Lưu ý khẩu phần"
     },
     "wizardStep": 3,
-    "revisions": [],
     "versions": [],
     "payments": [],
     "docs": [
@@ -1683,21 +1690,12 @@ Gửi/gửi lại. Role: **CUSTOMER**.
     ],
     "supplements": [],
     "companyDocs": [],
-    "complaints": [],
-    "history": [
-      {
-        "at": "2026-10-23 08:00",
-        "actor": "Nguyen Van A",
-        "role": "CUSTOMER",
-        "action": "REQUEST_SUBMITTED",
-        "detail": "Gửi đơn hoàn chỉnh"
-      }
-    ]
+    "complaints": []
   }
 }
 ```
 
-**Quy tắc:** Body không có. Backend kiểm tra mapping/tuyến/lịch/hồ sơ, không chỉ dùng validation FE. Chưa tạo Contract/Trip.
+**Quy tắc:** Body không có. Backend kiểm tra mapping/tuyến/hồ sơ và lịch sơ bộ theo ngày, không chỉ dùng validation FE. Đơn chưa có arriveAt không được coi đã giữ lịch toàn khoảng; phải kiểm tra lại khi chốt hợp đồng và trước ký. Chưa tạo Contract/Trip.
 
 **Response lỗi 400 — REQUIRED_DOCUMENT_MISSING**
 
@@ -1765,7 +1763,6 @@ Danh sách Customer Request. Role: **CUSTOMER**.
         "HORSE_001": "Lưu ý khẩu phần"
       },
       "wizardStep": 3,
-      "revisions": [],
       "versions": [],
       "payments": [],
       "docs": [
@@ -1782,16 +1779,7 @@ Danh sách Customer Request. Role: **CUSTOMER**.
       ],
       "supplements": [],
       "companyDocs": [],
-      "complaints": [],
-      "history": [
-        {
-          "at": "2026-10-23 08:00",
-          "actor": "Nguyen Van A",
-          "role": "CUSTOMER",
-          "action": "REQUEST_SUBMITTED",
-          "detail": "Gửi đơn hoàn chỉnh"
-        }
-      ]
+      "complaints": []
     }
   ]
 }
@@ -1863,7 +1851,6 @@ Chi tiết Customer Request. Role: **CUSTOMER**.
       "HORSE_001": "Lưu ý khẩu phần"
     },
     "wizardStep": 3,
-    "revisions": [],
     "versions": [],
     "payments": [],
     "docs": [
@@ -1880,16 +1867,7 @@ Chi tiết Customer Request. Role: **CUSTOMER**.
     ],
     "supplements": [],
     "companyDocs": [],
-    "complaints": [],
-    "history": [
-      {
-        "at": "2026-10-23 08:00",
-        "actor": "Nguyen Van A",
-        "role": "CUSTOMER",
-        "action": "REQUEST_SUBMITTED",
-        "detail": "Gửi đơn hoàn chỉnh"
-      }
-    ]
+    "complaints": []
   }
 }
 ```
@@ -1989,7 +1967,7 @@ Checklist tài liệu. Role: **CUSTOMER**.
 | GET | /manager/requests | — |
 | GET | /manager/requests/{requestId} | — |
 | POST | /manager/requests/{requestId}/accept | Không |
-| POST | /manager/requests/{requestId}/request-changes | feedback, fields |
+| POST | /manager/requests/{requestId}/request-changes | feedback |
 | POST | /manager/requests/{requestId}/reject | reason |
 
 Accept: PENDING_REVIEW → CONTRACT_PREPARATION; ghi quyết định, thông báo Customer, không Trip.
@@ -1998,12 +1976,11 @@ Request changes:
 
 ~~~json
 {
-  "feedback": "Vui lòng xác nhận lại địa điểm nhận",
-  "fields": ["places"]
+  "feedback": "Vui lòng xác nhận lại địa điểm nhận"
 }
 ~~~
 
-Thống nhất RevisionField: route/date/places/horses/notes. BE kiểm tra field thực thay đổi theo nhóm được phép, không chỉ ẩn input FE. PENDING_REVIEW → CHANGES_REQUESTED; Customer sửa/submit lại → PENDING_REVIEW. History bền vững cần nơi lưu mục 14.
+Chỉ nhận feedback (10–2000 ký tự), lưu TRANSPORT_REQUEST.RevisionFeedback và chuyển PENDING_REVIEW → CHANGES_REQUESTED. Customer được sửa toàn bộ các trường Customer được phép sửa trước duyệt; không có fields/revisionFields và không khóa theo nhóm. Gửi lại → PENDING_REVIEW, giữ lời nhắn gần nhất; lịch sử nhiều vòng chưa thuộc phạm vi lần này.
 
 Reject:
 
@@ -2062,16 +2039,7 @@ Danh sách Manager Request. Role: **LOGISTICS_MANAGER**.
           "note": "Chưa được Specialist duyệt"
         }
       ],
-      "collection": [],
-      "history": [
-        {
-          "at": "2026-10-23 08:00",
-          "actor": "Nguyen Van A",
-          "role": "CUSTOMER",
-          "action": "REQUEST_SUBMITTED",
-          "detail": "Gửi đơn hoàn chỉnh"
-        }
-      ]
+      "collection": []
     }
   ]
 }
@@ -2140,16 +2108,7 @@ Chi tiết Manager Request. Role: **LOGISTICS_MANAGER**.
         "note": "Chưa được Specialist duyệt"
       }
     ],
-    "collection": [],
-    "history": [
-      {
-        "at": "2026-10-23 08:00",
-        "actor": "Nguyen Van A",
-        "role": "CUSTOMER",
-        "action": "REQUEST_SUBMITTED",
-        "detail": "Gửi đơn hoàn chỉnh"
-      }
-    ]
+    "collection": []
   }
 }
 ```
@@ -2217,16 +2176,7 @@ Tiếp nhận đơn. Role: **LOGISTICS_MANAGER**.
         "note": "Chưa được Specialist duyệt"
       }
     ],
-    "collection": [],
-    "history": [
-      {
-        "at": "2026-10-23 08:00",
-        "actor": "Nguyen Van A",
-        "role": "CUSTOMER",
-        "action": "REQUEST_SUBMITTED",
-        "detail": "Gửi đơn hoàn chỉnh"
-      }
-    ]
+    "collection": []
   }
 }
 ```
@@ -2258,10 +2208,7 @@ Yêu cầu sửa. Role: **LOGISTICS_MANAGER**.
 
 ```json
 {
-  "feedback": "Vui lòng xác nhận lại nơi nhận.",
-  "fields": [
-    "places"
-  ]
+  "feedback": "Vui lòng xác nhận lại nơi nhận."
 }
 ```
 
@@ -2306,24 +2253,12 @@ Yêu cầu sửa. Role: **LOGISTICS_MANAGER**.
       }
     ],
     "collection": [],
-    "history": [
-      {
-        "at": "2026-10-23 08:00",
-        "actor": "Nguyen Van A",
-        "role": "CUSTOMER",
-        "action": "REQUEST_SUBMITTED",
-        "detail": "Gửi đơn hoàn chỉnh"
-      }
-    ],
-    "feedback": "Vui lòng xác nhận lại nơi nhận.",
-    "revisionFields": [
-      "places"
-    ]
+    "feedback": "Vui lòng xác nhận lại nơi nhận."
   }
 }
 ```
 
-**Quy tắc:** Bộ field mục tiêu cho cả hai UI: route/date/places/horses/notes. Cần cập nhật types cũ và persistence lịch sử đúng baseline.
+**Quy tắc:** Chỉ nhận feedback (10–2000 ký tự), lưu TRANSPORT_REQUEST.RevisionFeedback và chuyển PENDING_REVIEW → CHANGES_REQUESTED. Customer được sửa toàn bộ các trường Customer được phép sửa trước duyệt; không có fields/revisionFields và không khóa theo nhóm. Gửi lại → PENDING_REVIEW, giữ lời nhắn gần nhất; lịch sử nhiều vòng chưa thuộc phạm vi lần này.
 
 **Response lỗi 409 — INVALID_STATE**
 
@@ -2395,15 +2330,6 @@ Từ chối. Role: **LOGISTICS_MANAGER**.
       }
     ],
     "collection": [],
-    "history": [
-      {
-        "at": "2026-10-23 08:00",
-        "actor": "Nguyen Van A",
-        "role": "CUSTOMER",
-        "action": "REQUEST_SUBMITTED",
-        "detail": "Gửi đơn hoàn chỉnh"
-      }
-    ],
     "reason": "Không đáp ứng được lịch vận chuyển."
   }
 }
@@ -2464,7 +2390,7 @@ Draft body theo cấu trúc UI:
 - Không sửa snapshot ISSUED/SIGNED; bản sửa tạo version kế tiếp.
 - Phân biệt draft đang soạn với bản phát hành hiện hành/CurrentVersionNo; không cho Customer đọc draft hoặc trả tiền/ký nhầm.
 - Không thay bản nếu có tiền đang xử lý/đã nhận cần đối soát.
-- DELETE chỉ bỏ draft chưa phát hành, không xóa audit version cũ.
+- DELETE chỉ bỏ draft chưa phát hành, không xóa version cũ.
 
 | UI | CostGroup DB |
 |---|---|
@@ -2562,16 +2488,7 @@ Query `mode` (ROAD/AIR, optional) chọn phương thức để resolve defaults;
           "note": "Chưa được Specialist duyệt"
         }
       ],
-      "collection": [],
-      "history": [
-        {
-          "at": "2026-10-23 08:00",
-          "actor": "Nguyen Van A",
-          "role": "CUSTOMER",
-          "action": "REQUEST_SUBMITTED",
-          "detail": "Gửi đơn hoàn chỉnh"
-        }
-      ]
+      "collection": []
     },
     "customer": {
       "id": "USER_001",
@@ -2653,16 +2570,7 @@ Query `mode` (ROAD/AIR, optional) chọn phương thức để resolve defaults;
           "note": "Chưa được Specialist duyệt"
         }
       ],
-      "collection": [],
-      "history": [
-        {
-          "at": "2026-10-23 08:00",
-          "actor": "Nguyen Van A",
-          "role": "CUSTOMER",
-          "action": "REQUEST_SUBMITTED",
-          "detail": "Gửi đơn hoàn chỉnh"
-        }
-      ]
+      "collection": []
     },
     "customer": {
       "id": "USER_001",
@@ -3086,7 +2994,6 @@ Version cho Manager. Role: **LOGISTICS_MANAGER**.
       "STAFF": 1000000
     },
     "exception": "",
-    "extensions": [],
     "snapshot": {
       "origin": "Ho Chi Minh City",
       "destination": "Tokyo",
@@ -3123,7 +3030,58 @@ Version cho Manager. Role: **LOGISTICS_MANAGER**.
         "company": "Trang trại A",
         "email": "customer@example.com",
         "phone": "+84901234567"
-      }
+      },
+      "supplier": {
+        "legalName": "Đơn vị vận chuyển ngựa (dữ liệu minh họa)",
+        "address": "Địa chỉ pháp lý đơn vị vận chuyển",
+        "taxCode": "DEMO-TAX",
+        "representative": "Đại diện bên cung cấp",
+        "email": "transport@example.com",
+        "phone": "+84900000000"
+      },
+      "contractId": "CONTRACT_001",
+      "v": 1,
+      "number": "CONTRACT_001",
+      "issuedAt": "2026-10-23 09:00",
+      "mode": "AIR",
+      "departAt": "2026-11-20 08:00",
+      "arriveAt": "2026-11-21 18:00",
+      "total": 20000000,
+      "depositPct": 40,
+      "validUntil": "2026-10-24 09:00",
+      "terms": [
+        {
+          "title": "Phạm vi dịch vụ",
+          "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
+        },
+        {
+          "title": "Thanh toán",
+          "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
+        }
+      ],
+      "items": [
+        {
+          "desc": "Vận chuyển",
+          "amount": 16000000,
+          "required": true
+        },
+        {
+          "desc": "Thủ tục",
+          "amount": 2000000,
+          "required": true
+        },
+        {
+          "desc": "Chăm sóc thú y",
+          "amount": 1000000,
+          "required": true
+        },
+        {
+          "desc": "Bảo hiểm",
+          "amount": 1000000,
+          "required": true
+        }
+      ],
+      "currency": "VND"
     }
   }
 }
@@ -3208,7 +3166,7 @@ POST /manager/contracts/{contractId}/extend-deadline
 }
 ~~~
 
-Resolve thời lượng theo policy triển khai, lưu deadline/reason/actor/time; không hardcode FE. Không gia hạn đã ký/kết thúc/lịch không khả thi. SQL chỉ giữ lần gần nhất; history nhiều lần cần mục 14.
+Resolve thời lượng theo policy triển khai, lưu deadline/reason/actor/time; không hardcode FE. Không gia hạn đã ký/kết thúc/lịch không khả thi. Chỉ giữ deadline và metadata lần gia hạn gần nhất; không xây lịch sử nhiều lần.
 
 Nhắc Customer:
 
@@ -3216,7 +3174,7 @@ Nhắc Customer:
 POST /manager/contracts/{contractId}/reminder
 ~~~
 
-Không body. BE chọn đúng người, kiểm tra state/deadline/rate limit, ghi audit; không nhận email tùy ý.
+Không body. BE chọn đúng người, kiểm tra state/deadline/rate limit, ghi metadata nghiệp vụ; không nhận email tùy ý.
 
 <!-- FLOW1_JSON_9_START -->
 
@@ -3325,17 +3283,60 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
           "company": "Trang trại A",
           "email": "customer@example.com",
           "phone": "+84901234567"
-        }
-      }
-    },
-    "history": [
-      {
+        },
+        "supplier": {
+          "legalName": "Đơn vị vận chuyển ngựa (dữ liệu minh họa)",
+          "address": "Địa chỉ pháp lý đơn vị vận chuyển",
+          "taxCode": "DEMO-TAX",
+          "representative": "Đại diện bên cung cấp",
+          "email": "transport@example.com",
+          "phone": "+84900000000"
+        },
         "contractId": "CONTRACT_001",
         "v": 1,
-        "state": "ISSUED",
-        "issuedAt": "2026-10-23 09:00"
+        "number": "CONTRACT_001",
+        "issuedAt": "2026-10-23 09:00",
+        "mode": "AIR",
+        "departAt": "2026-11-20 08:00",
+        "arriveAt": "2026-11-21 18:00",
+        "total": 20000000,
+        "depositPct": 40,
+        "validUntil": "2026-10-24 09:00",
+        "terms": [
+          {
+            "title": "Phạm vi dịch vụ",
+            "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
+          },
+          {
+            "title": "Thanh toán",
+            "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
+          }
+        ],
+        "items": [
+          {
+            "desc": "Vận chuyển",
+            "amount": 16000000,
+            "required": true
+          },
+          {
+            "desc": "Thủ tục",
+            "amount": 2000000,
+            "required": true
+          },
+          {
+            "desc": "Chăm sóc thú y",
+            "amount": 1000000,
+            "required": true
+          },
+          {
+            "desc": "Bảo hiểm",
+            "amount": 1000000,
+            "required": true
+          }
+        ],
+        "currency": "VND"
       }
-    ]
+    }
   }
 }
 ```
@@ -3348,8 +3349,7 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
   "message": "OK",
   "data": {
     "requestId": "REQUEST_001",
-    "currentVersion": null,
-    "history": []
+    "currentVersion": null
   }
 }
 ```
@@ -3469,7 +3469,58 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
         "company": "Trang trại A",
         "email": "customer@example.com",
         "phone": "+84901234567"
-      }
+      },
+      "supplier": {
+        "legalName": "Đơn vị vận chuyển ngựa (dữ liệu minh họa)",
+        "address": "Địa chỉ pháp lý đơn vị vận chuyển",
+        "taxCode": "DEMO-TAX",
+        "representative": "Đại diện bên cung cấp",
+        "email": "transport@example.com",
+        "phone": "+84900000000"
+      },
+      "contractId": "CONTRACT_001",
+      "v": 1,
+      "number": "CONTRACT_001",
+      "issuedAt": "2026-10-23 09:00",
+      "mode": "AIR",
+      "departAt": "2026-11-20 08:00",
+      "arriveAt": "2026-11-21 18:00",
+      "total": 20000000,
+      "depositPct": 40,
+      "validUntil": "2026-10-24 09:00",
+      "terms": [
+        {
+          "title": "Phạm vi dịch vụ",
+          "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
+        },
+        {
+          "title": "Thanh toán",
+          "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
+        }
+      ],
+      "items": [
+        {
+          "desc": "Vận chuyển",
+          "amount": 16000000,
+          "required": true
+        },
+        {
+          "desc": "Thủ tục",
+          "amount": 2000000,
+          "required": true
+        },
+        {
+          "desc": "Chăm sóc thú y",
+          "amount": 1000000,
+          "required": true
+        },
+        {
+          "desc": "Bảo hiểm",
+          "amount": 1000000,
+          "required": true
+        }
+      ],
+      "currency": "VND"
     }
   }
 }
@@ -3566,7 +3617,58 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
         "company": "Trang trại A",
         "email": "customer@example.com",
         "phone": "+84901234567"
-      }
+      },
+      "supplier": {
+        "legalName": "Đơn vị vận chuyển ngựa (dữ liệu minh họa)",
+        "address": "Địa chỉ pháp lý đơn vị vận chuyển",
+        "taxCode": "DEMO-TAX",
+        "representative": "Đại diện bên cung cấp",
+        "email": "transport@example.com",
+        "phone": "+84900000000"
+      },
+      "contractId": "CONTRACT_001",
+      "v": 1,
+      "number": "CONTRACT_001",
+      "issuedAt": "2026-10-23 09:00",
+      "mode": "AIR",
+      "departAt": "2026-11-20 08:00",
+      "arriveAt": "2026-11-21 18:00",
+      "total": 20000000,
+      "depositPct": 40,
+      "validUntil": "2026-10-24 09:00",
+      "terms": [
+        {
+          "title": "Phạm vi dịch vụ",
+          "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
+        },
+        {
+          "title": "Thanh toán",
+          "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
+        }
+      ],
+      "items": [
+        {
+          "desc": "Vận chuyển",
+          "amount": 16000000,
+          "required": true
+        },
+        {
+          "desc": "Thủ tục",
+          "amount": 2000000,
+          "required": true
+        },
+        {
+          "desc": "Chăm sóc thú y",
+          "amount": 1000000,
+          "required": true
+        },
+        {
+          "desc": "Bảo hiểm",
+          "amount": 1000000,
+          "required": true
+        }
+      ],
+      "currency": "VND"
     }
   }
 }
@@ -3651,7 +3753,7 @@ Body là bytes file, không phải JSON và không có success/data envelope.
 }
 ```
 
-**Quy tắc:** Acknowledgement cần persistence theo mục 14 baseline, không tự coi đã có cột SQL.
+**Quy tắc:** Lưu lần đồng ý đầu tiên bằng UTC vào CONTRACT_VERSION.TermsAcceptedAtUtc của đúng ContractID/VersionNo; Customer lấy từ CONTRACT.CustomerID và đối chiếu token. NULL là chưa đồng ý; retry giữ nguyên thời điểm đã ghi. Version mới mặc định NULL. Không sửa ContentSnapshot và không lưu lặp CustomerID/RequestID.
 
 **Response lỗi 409 — CONTRACT_EXPIRED**
 
@@ -3823,7 +3925,6 @@ Gia hạn. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-**Quy tắc:** Mức gia hạn lấy policy và kiểm tra lịch khả thi; ví dụ một ngày không phải hằng số. Persistence history còn phụ thuộc schema.
 
 **Response lỗi 409 — INVALID_STATE**
 
@@ -3887,8 +3988,6 @@ Nhắc hoàn tất. Role: **LOGISTICS_MANAGER**.
 | GET | /customer/payments/{paymentId} | Trạng thái |
 | GET | /manager/payments | Trang thanh toán |
 | GET | /manager/payments/{paymentId} | Chi tiết |
-| POST | /manager/payments/{paymentId}/confirm | Xác minh chuyển khoản |
-| POST | /manager/payments/{paymentId}/reject | Từ chối |
 | GET | /customer/payments/{paymentId}/receipt | Biên nhận xác minh |
 
 Deposit data:
@@ -3934,7 +4033,6 @@ BE lấy amount/currency/version/return URL từ Invoice/cấu hình, không nh�
 }
 ~~~
 
-URL/thời lượng minh họa. QR_SANDBOX chỉ demo, không chứng cứ tiền. BANK_TRANSFER cần tài khoản/content/QR cấu hình và persistence proof/reference theo mục 14, không tự dựng số tài khoản.
 
 | DB nhánh VNPay | UI Customer |
 |---|---|
@@ -3943,22 +4041,12 @@ URL/thời lượng minh họa. QR_SANDBOX chỉ demo, không chứng cứ tiề
 | SUCCESS | SUCCESS |
 | FAILED | FAILED |
 
-Thủ công cần tập trạng thái riêng được nhóm chốt, không áp CHECK VNPay mọi payment. UI Customer chưa có cùng enum BANK_TRANSFER như Manager, cần adapter/type update có chủ đích.
 
-Confirm chuyển khoản:
 
-~~~json
-{
-  "confirmedAmount": 8000000,
-  "transactionCode": "BANK-REFERENCE",
-  "receivedAt": "2026-10-22 14:10",
-  "note": "Đã đối chiếu tiền thực nhận"
-}
-~~~
 
-Chỉ BANK_TRANSFER đang chờ, đối chiếu nguồn tiền thật; không xác nhận VNPay bằng endpoint này. Phải có nơi lưu amount/reference/time/audit. Click/proof không phải tiền. Retry không cộng hai lần; partial payment chưa mở ký.
 
-Reject: reason; chỉ giao dịch chờ, giữ audit, không xóa tiền đã xác minh.
+
+Không có thao tác Manager confirm/reject; kết quả thu tiền chỉ do IPN đã xác minh cập nhật.
 
 Đủ cọc → Request DEPOSIT_VERIFIED; version chưa SIGNED, chưa Trip. Invoice gắn đúng ContractID/ContractVersionNo; không dùng tiền bản khác mở ký bản hiện hành.
 
@@ -4130,7 +4218,6 @@ Tạo session. Role: **CUSTOMER**.
 }
 ```
 
-**Quy tắc:** Chỉ một nhánh VNPAY có đầy đủ schema ở baseline. BANK_TRANSFER cần cấu hình ngân hàng/proof/persistence trước khi đóng hợp đồng dữ liệu nhánh đó; không tự thêm property bankInfo tùy ý. paymentUrl là URL minh họa, không phải URL merchant thật.
 
 **Response lỗi 409 — CONTRACT_EXPIRED**
 
@@ -4253,15 +4340,15 @@ Danh sách giao dịch Manager. Role: **LOGISTICS_MANAGER**.
       "id": "PAYMENT_002",
       "requestId": "REQUEST_001",
       "type": "DEPOSIT",
-      "method": "BANK_TRANSFER",
+      "method": "VNPAY",
       "amount": 8000000,
-      "status": "PENDING_CONFIRMATION",
+      "status": "PROCESSING",
       "createdAt": "2026-10-23 09:15",
       "invoiceId": "INVOICE_001",
       "contractId": "CONTRACT_001",
       "versionNo": 1,
       "currency": "VND",
-      "ref": "CUSTOMER-REFERENCE"
+      "providerStatus": "PENDING_GATEWAY"
     },
     {
       "id": "CONTRACT_002",
@@ -4269,13 +4356,10 @@ Danh sách giao dịch Manager. Role: **LOGISTICS_MANAGER**.
       "requestId": "REQUEST_002",
       "versionNo": 1,
       "type": "REFUND",
-      "method": "BANK_TRANSFER",
-      "amount": 8000000,
       "status": "PENDING_CONFIRMATION",
-      "createdAt": "2026-10-23 10:00",
       "currency": "VND",
       "rowKind": "CONTRACT_REFUND",
-      "ref": "Hoàn tiền theo quyết định hủy"
+      "refundStatus": "REQUESTED"
     }
   ]
 }
@@ -4295,7 +4379,7 @@ Danh sách giao dịch Manager. Role: **LOGISTICS_MANAGER**.
 
 
 
-**Projection hoàn tiền:** rowKind=CONTRACT_REFUND lấy từ CONTRACT.Refund*, id bằng ContractID; đây là khóa dòng UI, không PaymentID và không phải một Payment REFUND tự sinh. Nút hoàn gọi F1-J55 qua contractId. GET payment detail/confirm/reject/receipt không nhận dòng projection này. Nếu backend không cung cấp projection thì không dựng hàng đợi từ dữ liệu giả.
+**Projection hoàn tiền:** rowKind=CONTRACT_REFUND lấy từ CONTRACT.Refund*, id bằng ContractID; đây là khóa dòng UI, không PaymentID và không phải một Payment REFUND tự sinh. Nút ghi nhận status gọi F1-J55 qua contractId, không chuyển tiền. refundStatus đọc trực tiếp CONTRACT.RefundStatus; status=PENDING_CONFIRMATION chỉ là nhãn tương thích danh sách UI khi REQUESTED/PROCESSING, COMPLETED hiển thị SUCCESS. Amount/time/reference không bắt buộc và không được bịa nếu chưa lưu. GET payment detail/receipt không nhận dòng projection này. Nếu backend không cung cấp projection thì không dựng hàng đợi từ dữ liệu giả.
 
 ### F1-J46 — GET /manager/payments/{paymentId}
 
@@ -4319,15 +4403,15 @@ Chi tiết giao dịch. Role: **LOGISTICS_MANAGER**.
     "id": "PAYMENT_002",
     "requestId": "REQUEST_001",
     "type": "DEPOSIT",
-    "method": "BANK_TRANSFER",
+    "method": "VNPAY",
     "amount": 8000000,
-    "status": "PENDING_CONFIRMATION",
+    "status": "PROCESSING",
     "createdAt": "2026-10-23 09:15",
     "invoiceId": "INVOICE_001",
     "contractId": "CONTRACT_001",
     "versionNo": 1,
     "currency": "VND",
-    "ref": "CUSTOMER-REFERENCE"
+    "providerStatus": "PENDING_GATEWAY"
   }
 }
 ```
@@ -4339,143 +4423,6 @@ Chi tiết giao dịch. Role: **LOGISTICS_MANAGER**.
   "success": false,
   "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
   "errorCode": "NOT_FOUND",
-  "data": null
-}
-```
-
-### F1-J47 — POST /manager/payments/{paymentId}/confirm
-
-Xác minh chuyển khoản. Role: **LOGISTICS_MANAGER**.
-
-**Path parameters**
-
-| Tên | Giá trị ví dụ |
-|---|---|
-| paymentId | PAYMENT_001 |
-
-**Request JSON**
-
-```json
-{
-  "confirmedAmount": 8000000,
-  "transactionCode": "BANK-VERIFIED-001",
-  "receivedAt": "2026-10-23 09:20",
-  "note": "Đã đối chiếu tiền thực nhận."
-}
-```
-
-**Response 200**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "PAYMENT_002",
-    "invoiceId": "INVOICE_001",
-    "contractId": "CONTRACT_001",
-    "versionNo": 1,
-    "status": "SUCCESS",
-    "confirmedAmount": 8000000,
-    "transactionCode": "BANK-VERIFIED-001",
-    "confirmedBy": "USER_004",
-    "confirmedAt": "2026-10-23 09:20",
-    "requestId": "REQUEST_001",
-    "requestStatus": "DEPOSIT_VERIFIED",
-    "requiredAmount": 8000000,
-    "paidAmount": 8000000,
-    "remainingAmount": 0
-  }
-}
-```
-
-**Response nhánh: 200 mới đủ một phần**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "PAYMENT_002",
-    "invoiceId": "INVOICE_001",
-    "contractId": "CONTRACT_001",
-    "versionNo": 1,
-    "status": "SUCCESS",
-    "confirmedAmount": 4000000,
-    "transactionCode": "BANK-VERIFIED-001",
-    "confirmedBy": "USER_004",
-    "confirmedAt": "2026-10-23 09:20",
-    "requestId": "REQUEST_001",
-    "requestStatus": "CONTRACT_READY",
-    "requiredAmount": 8000000,
-    "paidAmount": 4000000,
-    "remainingAmount": 4000000
-  }
-}
-```
-
-**Quy tắc:** BANK_TRANSFER đang chờ và có nguồn đối soát. Cần chốt schema lưu receivedAt/note/reference, không coi SQL hiện đã hỗ trợ toàn bộ.
-
-**Response lỗi 409 — PAYMENT_ALREADY_PROCESSED**
-
-```json
-{
-  "success": false,
-  "message": "Giao dịch đã được xử lý",
-  "errorCode": "PAYMENT_ALREADY_PROCESSED",
-  "data": null
-}
-```
-
-### F1-J48 — POST /manager/payments/{paymentId}/reject
-
-Từ chối giao dịch chờ. Role: **LOGISTICS_MANAGER**.
-
-**Path parameters**
-
-| Tên | Giá trị ví dụ |
-|---|---|
-| paymentId | PAYMENT_001 |
-
-**Request JSON**
-
-```json
-{
-  "reason": "Chưa tìm thấy khoản tiền thực nhận."
-}
-```
-
-**Response 200**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "PAYMENT_002",
-    "requestId": "REQUEST_001",
-    "type": "DEPOSIT",
-    "method": "BANK_TRANSFER",
-    "amount": 8000000,
-    "status": "REJECTED",
-    "createdAt": "2026-10-23 09:15",
-    "invoiceId": "INVOICE_001",
-    "contractId": "CONTRACT_001",
-    "versionNo": 1,
-    "currency": "VND",
-    "ref": "CUSTOMER-REFERENCE",
-    "rejectReason": "Chưa tìm thấy khoản tiền thực nhận."
-  }
-}
-```
-
-**Response lỗi 409 — PAYMENT_ALREADY_PROCESSED**
-
-```json
-{
-  "success": false,
-  "message": "Giao dịch đã được xử lý",
-  "errorCode": "PAYMENT_ALREADY_PROCESSED",
   "data": null
 }
 ```
@@ -4561,7 +4508,7 @@ Kiểm tra owner/version ISSUED hiện hành/đã đồng ý/đủ cọc đúng 
 Cùng transaction:
 
 1. VersionStatus SIGNED, signer/time.
-2. Xóa OTP hash sau dùng; giữ audit phù hợp.
+2. Xóa OTP hash sau dùng; giữ metadata ký cần thiết.
 3. Cập nhật vòng đời hợp đồng tổng.
 4. Request ACTIVATED.
 5. Một Trip PLANNING, unique RequestID.
@@ -4693,17 +4640,17 @@ Ký và tạo một Trip. Role: **CUSTOMER**.
 | POST | /customer/requests/{requestId}/cancel | reason |
 | POST | /manager/requests/{requestId}/cancel | reason |
 | POST | /manager/contracts/{contractId}/cancellation/decision | decision, reason |
-| POST | /manager/contracts/{contractId}/refund/complete | reference, note |
+| POST | /manager/contracts/{contractId}/refund/complete | Không body; cập nhật status |
 
-- Chưa tiền/chưa ký: hủy theo state hợp lệ.
+- Chưa ký và chưa nhận cọc đã xác minh: hủy ngay thành CANCELLED, kể cả có phiên VNPay đang chờ. Đã nhận cọc một phần hoặc đủ: lưu TRANSPORT_REQUEST.CancellationPreviousStatus, chuyển CANCELLATION_REQUESTED / CONTRACT.CancellationStatus PENDING để Manager duyệt; duyệt → CANCELLED, từ chối → trạng thái trước hủy đã lưu. Giao dịch đến sau hủy đưa đối soát, không tự mở lại đơn. Đã ký/kích hoạt Trip không dùng quy trình hủy trước ký này.
 - Có tiền chờ/đã nhận: đối soát và giữ nghĩa vụ tài chính, không xóa Payment.
 - Cancellation SQL PENDING/APPROVED/REJECTED; decision APPROVED/REJECTED khi pending.
 - Refund SQL REQUESTED/PROCESSING/COMPLETED; UI REFUNDED ánh xạ COMPLETED.
-- Hoàn xong phải có reference và xác minh tiền thực đã hoàn.
+- Phạm vi Flow 1 chỉ theo dõi RefundStatus trên CONTRACT: REQUESTED/PROCESSING/COMPLETED; UI REFUNDED ánh xạ COMPLETED. Không gọi API hoàn tiền VNPay, không xây quy trình chuyển tiền/chứng từ. COMPLETED là trạng thái do Manager ghi nhận thủ công, không phải chứng minh hệ thống đã chuyển tiền. Amount/reference nếu có chỉ là metadata tùy chọn; duyệt hủy không tự chuyển COMPLETED.
 - Không tự đặt phí hủy/hoàn bằng 0 khi chưa có chính sách.
 - Không xóa Invoice/Payment/ContractVersion; callback sau hủy không tự kích hoạt lại.
 - Đã triển khai/đang chạy không hủy Flow 1 mà bỏ qua an toàn/flow vận hành.
-- SQL không có bảng refund riêng; API cần rõ cập nhật CONTRACT.Refund* và bằng chứng, không giả định Payment REFUND đã có nơi lưu phù hợp.
+- Không thêm bảng/luồng hoàn tiền Flow 1; J55 chỉ ghi nhận status trên CONTRACT, không phải lệnh chuyển tiền.
 
 <!-- FLOW1_JSON_12_START -->
 
@@ -4739,7 +4686,7 @@ Customer hủy/đề nghị hủy. Role: **CUSTOMER**.
 }
 ```
 
-**Response nhánh: 200 có tiền, chờ quyết định/đối soát**
+**Response nhánh: 200 đã nhận cọc đã xác minh, chờ Manager duyệt**
 
 ```json
 {
@@ -4756,7 +4703,7 @@ Customer hủy/đề nghị hủy. Role: **CUSTOMER**.
 }
 ```
 
-**Quy tắc:** Trường hợp chưa có Contract trả Request CANCELLED không sinh contractId giả.
+**Quy tắc:** Chưa ký và chưa nhận cọc đã xác minh: hủy ngay thành CANCELLED, kể cả có phiên VNPay đang chờ. Đã nhận cọc một phần hoặc đủ: lưu TRANSPORT_REQUEST.CancellationPreviousStatus, chuyển CANCELLATION_REQUESTED / CONTRACT.CancellationStatus PENDING để Manager duyệt; duyệt → CANCELLED, từ chối → trạng thái trước hủy đã lưu. Giao dịch đến sau hủy đưa đối soát, không tự mở lại đơn. Đã ký/kích hoạt Trip không dùng quy trình hủy trước ký này. Lưu lý do/người yêu cầu/thời điểm tại Request cho cả hai nhánh; nhánh hủy ngay để CancellationPreviousStatus NULL và không tạo Contract giả. Tiền cọc lấy từ PAYMENT đã xác minh, không tin FE; pending gateway không tính là đã nhận. Chặn phiên thanh toán mới và ký khi đang chờ hủy; callback trong lúc chờ hủy đưa đối soát, không ghi đè trạng thái chờ. Quyết định và tiền được kiểm tra trong transaction, retry không ghi đè prevStatus. Metadata lý do/thời điểm yêu cầu trên Contract là bản đồng bộ từ Request cho nhánh PENDING, không phải nguồn thứ hai; khi yêu cầu mới sau lần từ chối, reset metadata quyết định cũ và ghi prevStatus mới trong cùng transaction.
 
 **Response lỗi 409 — INVALID_STATE**
 
@@ -4801,7 +4748,7 @@ Manager hủy. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-**Quy tắc:** Không tự bỏ qua tiền chờ/đã nhận. Tính nghĩa vụ theo chính sách đã chốt, không tự đặt refund=0.
+**Quy tắc:** Lưu lý do/actor/thời điểm ở Request; chỉ hủy trực tiếp trước ký khi chưa có cọc đã xác minh. Nếu đã nhận cọc thì xử lý yêu cầu PENDING qua J54, không dùng J53 để bỏ qua bước quyết định. Tiền đang chờ không phải cọc đã nhận; callback đến sau hủy phải đối soát.
 
 **Response lỗi 409 — PAYMENT_RECONCILIATION_REQUIRED**
 
@@ -4867,7 +4814,7 @@ Quyết định hủy. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-**Quy tắc:** Giá trị phục hồi là prevStatus thực tế, không luôn DEPOSIT_VERIFIED. Refund amount phải được đối soát theo thỏa thuận trước, endpoint quyết định này không tự bịa tiền hoàn.
+**Quy tắc:** Chỉ xử lý yêu cầu hủy đang PENDING có cọc đã xác minh. Giá trị phục hồi lấy TRANSPORT_REQUEST.CancellationPreviousStatus, không luôn DEPOSIT_VERIFIED. Actor/thời điểm/lý do quyết định lưu ở CONTRACT.CancellationDecidedBy/AtUtc/DecisionReason; cập nhật Request và Contract trong một transaction. Nếu có tiền mới đến trong lúc chờ thì giữ cờ đối soát và không ghi đè prevStatus. Duyệt hủy chỉ đánh dấu RefundStatus REQUESTED khi có nghĩa vụ hoàn; không tự COMPLETED và không tự tính khoản hoàn chưa thỏa thuận.
 
 **Response lỗi 409 — INVALID_STATE**
 
@@ -4882,7 +4829,7 @@ Quyết định hủy. Role: **LOGISTICS_MANAGER**.
 
 ### F1-J55 — POST /manager/contracts/{contractId}/refund/complete
 
-Xác nhận hoàn tiền. Role: **LOGISTICS_MANAGER**.
+Ghi nhận trạng thái hoàn tiền (không chuyển tiền). Role: **LOGISTICS_MANAGER**.
 
 **Path parameters**
 
@@ -4890,36 +4837,22 @@ Xác nhận hoàn tiền. Role: **LOGISTICS_MANAGER**.
 |---|---|
 | contractId | CONTRACT_001 |
 
-**Request JSON**
-
-```json
-{
-  "reference": "REFUND-VERIFIED-001",
-  "note": "Đã kiểm tra hoàn tiền thực tế."
-}
-```
+**Request body:** Không gửi body.
 
 **Response 200**
 
 ```json
 {
   "success": true,
-  "message": "OK",
+  "message": "Đã cập nhật trạng thái hoàn tiền",
   "data": {
     "contractId": "CONTRACT_001",
-    "refund": {
-      "amount": 8000000,
-      "status": "REFUNDED",
-      "at": "2026-10-23 10:00",
-      "refundedAt": "2026-10-23 11:00",
-      "reference": "REFUND-VERIFIED-001"
-    },
     "refundStatus": "COMPLETED"
   }
 }
 ```
 
-**Quy tắc:** amount lấy từ nghĩa vụ hoàn đã xác định, không lấy từ body. Refund* trên CONTRACT khác Payment transaction. Persistence note/time/history cần chốt theo baseline.
+**Quy tắc:** Phạm vi Flow 1 chỉ theo dõi RefundStatus trên CONTRACT: REQUESTED/PROCESSING/COMPLETED; UI REFUNDED ánh xạ COMPLETED. Không gọi API hoàn tiền VNPay, không xây quy trình chuyển tiền/chứng từ. COMPLETED là trạng thái do Manager ghi nhận thủ công, không phải chứng minh hệ thống đã chuyển tiền. Amount/reference nếu có chỉ là metadata tùy chọn; duyệt hủy không tự chuyển COMPLETED. Chỉ cập nhật sau duyệt hủy và khi RefundStatus đang REQUESTED/PROCESSING; retry COMPLETED trả trạng thái hiện tại, không tạo giao dịch hoặc Payment mới. Giữ path cũ để tương thích.
 
 **Response lỗi 409 — INVALID_STATE**
 
@@ -4941,8 +4874,8 @@ Xác nhận hoàn tiền. Role: **LOGISTICS_MANAGER**.
 | GET | /manager/trips | Danh sách |
 | GET | /manager/trips/{tripId} | Chi tiết |
 | POST | /manager/trips/{tripId}/assignment | Chọn người |
-| POST | /manager/trips/{tripId}/hold | Phụ thuộc sửa CHECK |
-| POST | /manager/trips/{tripId}/resume | Phụ thuộc sửa CHECK |
+| POST | /manager/trips/{tripId}/hold | Theo guard hold/resume; cần kiểm chứng backend |
+| POST | /manager/trips/{tripId}/resume | Theo guard hold/resume; cần kiểm chứng backend |
 
 Assignment:
 
@@ -4959,12 +4892,13 @@ Kiểm tra PLANNING/đã ký/đủ cọc/nhân sự hoạt động đúng role v
 |---|---|
 | PENDING hoặc chưa khởi tạo | NOT_CONFIRMED |
 | CONFIRMED | CONFIRMED |
+| ON_HOLD | ON_HOLD |
 
-Canonical role FLEET_ROUTE_COORDINATOR chiếu sang type/nhãn FLEET_COORDINATOR nếu giữ UI; không tạo role thứ hai để né tên. Specialist TRANSPORT_SPECIALIST.
+Canonical role và DTO cùng dùng FLEET_ROUTE_COORDINATOR; không tạo role thứ hai để né tên. Specialist TRANSPORT_SPECIALIST.
 
-Trip Manager: id/requestId/mode/status/deployment/plannedDepart/eta/readiness/milestones/etaHistory. route/flight/handover chưa có thì bỏ, không fake. Mới tạo PLANNING không mặc định readiness đủ.
+Trip Manager: id/requestId/mode/status/deployment/plannedDepart/eta/readiness/milestones. route/flight/handover chưa có thì bỏ, không fake. Mới tạo PLANNING không mặc định readiness đủ.
 
-**Blocker hold/resume:** CK_F1S_TRIP_PLAN_Deployment có ON_HOLD nhưng CK_F1Final_Handoff chỉ cho PENDING/CONFIRMED. Hai CHECK cùng áp nên ON_HOLD không lưu được. Phải chỉnh schema được nhóm chốt trước code; không map giả ON_HOLD về PENDING.
+**Quy tắc hold/resume:** ON_HOLD thuộc TRIP_PLAN.DeploymentStatus, không thuộc TRIP_PLAN.Status. Chỉ Manager hold chuyến đã CONFIRMED và Trip.Status = PLANNING hoặc READY_TO_DEPART; giữ HandoffEventId và hai nhân sự được giao. Hold lưu DeploymentReason/By/AtUtc mới nhất và metadata nghiệp vụ, chuyển Trip về PLANNING nếu trước đó READY_TO_DEPART để thu hồi Gate 2. Resume chỉ ON_HOLD → CONFIRMED, kiểm tra lại phân công; giữ Trip PLANNING, phải đánh giá/duyệt khởi hành lại, không tự READY_TO_DEPART. ON_HOLD chặn khởi hành và mở tác vụ triển khai mới; không xóa lịch sử hoặc dữ liệu đã chuẩn bị. Không dùng hold/resume này cho Trip IN_TRANSIT/COMPLETED. Request không tự đổi trạng thái chỉ vì hold; nếu Gate 1 thực sự mất hiệu lực mới SCHEDULED → ACTIVATED. Retry không tạo handoff mới hoặc ghi metadata trùng. SQL CHECK chỉ kiểm tra tổ hợp một dòng; các guard chuyển trạng thái/quyền/metadata do backend thực hiện.
 
 Hold body reason, resume không body; chỉ trước khởi hành. Không dùng Flow 1 đưa IN_TRANSIT về PLANNING. Assignment/resume không tự READY_TO_DEPART.
 
@@ -4999,8 +4933,7 @@ Danh sách Trip. Role: **LOGISTICS_MANAGER**.
         "insurance": "MISSING",
         "quarantineOk": false
       },
-      "milestones": [],
-      "etaHistory": []
+      "milestones": []
     }
   ]
 }
@@ -5051,8 +4984,7 @@ Chi tiết Trip. Role: **LOGISTICS_MANAGER**.
       "insurance": "MISSING",
       "quarantineOk": false
     },
-    "milestones": [],
-    "etaHistory": []
+    "milestones": []
   }
 }
 ```
@@ -5112,8 +5044,7 @@ Giao việc. Role: **LOGISTICS_MANAGER**.
       "insurance": "MISSING",
       "quarantineOk": false
     },
-    "milestones": [],
-    "etaHistory": []
+    "milestones": []
   }
 }
 ```
@@ -5141,13 +5072,29 @@ Tạm dừng. Role: **LOGISTICS_MANAGER**.
 |---|---|
 | tripId | TRIP_001 |
 
-**Phụ thuộc schema:** Hiện SQL không cho ON_HOLD do CHECK chồng nhau. Ví dụ 200 chỉ là mục tiêu sau khi nhóm sửa ràng buộc; chưa được coi là endpoint triển khai được với SQL hiện tại.
+**Điều kiện thực hiện:** ON_HOLD thuộc TRIP_PLAN.DeploymentStatus, không thuộc TRIP_PLAN.Status. Chỉ Manager hold chuyến đã CONFIRMED và Trip.Status = PLANNING hoặc READY_TO_DEPART; giữ HandoffEventId và hai nhân sự được giao. Hold lưu DeploymentReason/By/AtUtc mới nhất và metadata nghiệp vụ, chuyển Trip về PLANNING nếu trước đó READY_TO_DEPART để thu hồi Gate 2. Resume chỉ ON_HOLD → CONFIRMED, kiểm tra lại phân công; giữ Trip PLANNING, phải đánh giá/duyệt khởi hành lại, không tự READY_TO_DEPART. ON_HOLD chặn khởi hành và mở tác vụ triển khai mới; không xóa lịch sử hoặc dữ liệu đã chuẩn bị. Không dùng hold/resume này cho Trip IN_TRANSIT/COMPLETED. Request không tự đổi trạng thái chỉ vì hold; nếu Gate 1 thực sự mất hiệu lực mới SCHEDULED → ACTIVATED. Retry không tạo handoff mới hoặc ghi metadata trùng. SQL CHECK chỉ kiểm tra tổ hợp một dòng; các guard chuyển trạng thái/quyền/metadata do backend thực hiện.
 
 **Request JSON**
 
 ```json
 {
   "reason": "Chờ xác nhận lịch triển khai."
+}
+```
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "TRIP_001",
+    "status": "PLANNING",
+    "deployment": {
+      "status": "ON_HOLD"
+    }
+  }
 }
 ```
 
@@ -5172,11 +5119,27 @@ Tiếp tục. Role: **LOGISTICS_MANAGER**.
 |---|---|
 | tripId | TRIP_001 |
 
-**Phụ thuộc schema:** Phụ thuộc cùng thay đổi CHECK/persistence với hold; không giả lập ON_HOLD thành PENDING.
+**Điều kiện thực hiện:** ON_HOLD thuộc TRIP_PLAN.DeploymentStatus, không thuộc TRIP_PLAN.Status. Chỉ Manager hold chuyến đã CONFIRMED và Trip.Status = PLANNING hoặc READY_TO_DEPART; giữ HandoffEventId và hai nhân sự được giao. Hold lưu DeploymentReason/By/AtUtc mới nhất và metadata nghiệp vụ, chuyển Trip về PLANNING nếu trước đó READY_TO_DEPART để thu hồi Gate 2. Resume chỉ ON_HOLD → CONFIRMED, kiểm tra lại phân công; giữ Trip PLANNING, phải đánh giá/duyệt khởi hành lại, không tự READY_TO_DEPART. ON_HOLD chặn khởi hành và mở tác vụ triển khai mới; không xóa lịch sử hoặc dữ liệu đã chuẩn bị. Không dùng hold/resume này cho Trip IN_TRANSIT/COMPLETED. Request không tự đổi trạng thái chỉ vì hold; nếu Gate 1 thực sự mất hiệu lực mới SCHEDULED → ACTIVATED. Retry không tạo handoff mới hoặc ghi metadata trùng. SQL CHECK chỉ kiểm tra tổ hợp một dòng; các guard chuyển trạng thái/quyền/metadata do backend thực hiện.
 
 **Request body:** Không gửi body.
 
 **Quy tắc:** Body không có. Không force READY_TO_DEPART, không rollback IN_TRANSIT.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "TRIP_001",
+    "status": "PLANNING",
+    "deployment": {
+      "status": "CONFIRMED"
+    }
+  }
+}
+```
 
 **Response lỗi 501 — FEATURE_NOT_SUPPORTED**
 
@@ -5203,20 +5166,16 @@ Tiếp tục. Role: **LOGISTICS_MANAGER**.
 | FE còn USD/default cũ | VND gồm declared value, không FX suy đoán |
 | FE còn dự toán Customer | Bỏ UI/công thức/caller |
 | Role/enum UI khác DB | Mapping DTO rõ, không ghi tùy ý vào CHECK |
-| Hai bộ revisionFields | Thống nhất route/date/places/horses/notes |
+| Yêu cầu sửa đơn | Chỉ feedback → TRANSPORT_REQUEST.RevisionFeedback; không giới hạn nhóm field |
 | Version hợp đồng | Một ContractID/tăng VersionNo, Invoice đúng bản |
 | Mutation báo ok trước API | async/await, lỗi/refetch; không nuốt lỗi thành mock/empty real mode |
-| ON_HOLD bị SQL chặn | Chưa hỗ trợ; khóa UI, trả 501; không sửa DB |
+| ON_HOLD | SQL cho phép; kiểm tra quyền/guard, giữ event/phân công; không khởi hành |
 | Color/ngày tiêm/bác sĩ và một số field Horse chưa có cột | Trả null + unsupportedFields, khóa field; không sửa DB |
-| wizardStep/requestedAt/submittedAt/feedback theo field/lịch sử Request chưa đủ persistence | Chốt lưu trữ/audit hoặc phân biệt state UI |
-| Gia hạn chỉ lưu lần gần nhất | History nhiều lần cần cơ chế bền vững |
-| Accept terms chưa có cột riêng | Chốt acknowledgement đúng version trong JSON ứng dụng hoặc bổ sung nơi lưu |
-| Giá sàn/margin/custom items/Bearer CT chưa thống nhất | Công thức dự toán ứng dụng đã chốt tại file JSON mục 17; persistence/CT chưa xác nhận, không thêm CONFIG_VERSION |
-| Chuyển khoản/proof/confirmedAmount/receivedAt/enum thủ công chưa đủ schema | Chốt audit/nơi lưu trước code |
-| Refund UI riêng nhưng SQL chủ yếu CONTRACT.Refund* | Chốt projection/bằng chứng, không giả định bảng refund |
+| Accept terms | CONTRACT_VERSION.TermsAcceptedAtUtc nullable, UTC, đúng version; Customer suy từ Contract |
+| Refund Flow 1 | Chỉ CONTRACT.RefundStatus; không chuyển tiền, không bắt buộc chứng từ |
 | Mark-read/nhắc/đồng bộ hai role | NOTIFICATION/API có quyền và refresh phù hợp, không local state đơn lẻ |
 
-Giữ snapshot phát hành/ký bất biến, không sửa chỉ để đổi mã/đổi nội dung hiện tại. Giữ nguyên SQL và backend. Frontend chỉ dùng chức năng được API xác nhận, các phần thiếu được liệt kê để theo dõi.
+Giữ snapshot phát hành/ký bất biến, không sửa chỉ để đổi mã/đổi nội dung hiện tại. Không tự áp dụng SQL vào database đang chạy; backend cần triển khai theo hợp đồng. Frontend chỉ dùng chức năng được API xác nhận, các phần thiếu được liệt kê để theo dõi.
 
 ## 15. Lỗi và nghiệm thu
 
@@ -5256,7 +5215,7 @@ Không biến thiếu/sai policy thành lỗi Customer; BE log cấu hình. Khô
 | Quá hạn | Khóa mới, không auto-cancel/xóa |
 | Callback sau hủy | Đối soát, không tự kích hoạt |
 | Assignment | USER_* đúng role, task/handoff không trùng |
-| Hold/resume | Chỉ test sau sửa CHECK; không rollback IN_TRANSIT |
+| Hold/resume | Kiểm tra ON_HOLD, metadata, resume CONFIRMED và cấm hold sau khởi hành |
 | Refresh/reconnect/đổi tài khoản | Dữ liệu server đúng quyền, không dựa mock/local |
 
 **Phạm vi xác minh:** đọc SQL/ID rule và source frontend; chưa chạy SQL/backend/provider/UAT. Các dependency ở mục 14 phải giải quyết trước khi coi contract đủ cho hai bên code độc lập hoàn toàn.
@@ -5436,7 +5395,6 @@ Dự toán chi phí nội bộ theo lịch trình đang soạn. Role: **LOGISTIC
 }
 ```
 
-
 ## 17. Giới hạn và nghiệm thu tích hợp
 
 Xem quy tắc triển khai và giới hạn được chốt tại [FLOW1-API-JSON.md, mục 15](FLOW1-API-JSON.md#15-quy-tắc-triển-khai-đã-chốt). Các khoảng trống ở mục 14 không phải yêu cầu sửa DB/backend trong công việc này.
@@ -5450,18 +5408,16 @@ Xem quy tắc triển khai và giới hạn được chốt tại [FLOW1-API-JSO
 | Chọn ngựa | J02 hồ sơ đầy đủ; J14 khả dụng theo ngày và excludeRequestId | Không tự trộn ngựa mẫu hoặc cho ngựa chưa xác nhận khả dụng |
 | Hồ sơ ngựa | J12/J13 core JSON; J15 file thật; J17 hồ sơ gắn Request–Horse | Không giả file đã lưu; color/fluDate/vetName/vetPhone trả null + unsupportedFields và khóa ô |
 | Xem lại/gửi | J19 lưu; J23 checklist; J20 submit | Checklist chặn gửi khi thiếu giấy tờ; dùng Request response thật |
-| Manager xét duyệt | J24/J25 đọc; J26/J27/J28 quyết định | Chỉ báo thành công sau API; enum sửa route/date/places/horses/notes |
+| Manager xét duyệt | J24/J25 đọc; J26/J27/J28 quyết định | Chỉ báo thành công sau API; sửa đơn chỉ dùng feedback, không khóa nhóm field |
 | Soạn hợp đồng | J29 dữ liệu editor và policy; J61 tính chi phí; J30 draft; J32 publish | Không sửa lịch âm thầm hoặc tự điền chi phí giả; versionNo/deadline lấy BE |
 | Xem phiên bản hợp đồng | J34/J35/J33 snapshot; J36 PDF có quyền | Thiếu snapshot thì khóa chấp thuận/ký; tải PDF lỗi không thay bằng bản in hiện tại |
 | Điều khoản/phản hồi/gia hạn | J37/J38/J39/J40/J41 | Không tự gia hạn khi giữ bản cũ; gia hạn có lý do riêng |
 | Cọc | J42 nghĩa vụ; J43 session VNPAY; J44 trạng thái | Return không xác nhận tiền; bỏ QR minh họa và mock-deposit khỏi flow |
-| Manager đối soát | J45/J46 danh sách/chi tiết; J47 thực nhận/ref/time/note; J48 từ chối | Chỉ xử lý bản ghi có thật; nhánh tạo chuyển khoản khách còn tắt |
-| Hoàn tiền | Projection CONTRACT_REFUND tại J45; J55 theo contractId, reference, note | Không tạo Payment REFUND giả; không ghi hoàn tiền trước API |
+| Hoàn tiền | Projection CONTRACT_REFUND tại J45; J55 theo contractId, không body; cập nhật status | Không tạo Payment REFUND giả; API chỉ ghi nhận status, không chuyển tiền |
 | OTP | J50 TTL/resend từ API; J51 ký đúng version | Không mã bypass; không tự tạo Trip hoặc giả trạng thái ACTIVATED |
-| Phân công | J56/J57 Trip thật; J06 role chuẩn; J58 assignment | Không thay nhân viên bằng USER cố định; hold/resume khóa |
+| Phân công | J56/J57 Trip thật; J06 role chuẩn; J58 assignment | Không thay nhân viên bằng USER cố định; hold/resume theo guard ON_HOLD; cần kiểm chứng backend |
 | Thông báo | J03/J07; J62–J65 mark-read | Chờ API, không chỉ sửa read trong bộ nhớ |
 
-Kiểm tra tự động: `python contracts/API-Flow/Flow1/build_openapi.py`, sau đó trong `frontend` chạy `npm run contract:check`, `npm run test:run`, `npm run build`. Bộ kiểm tra schema xác thực ví dụ và tính đồng nhất của hai file Markdown; test frontend kiểm tra dữ liệu thiếu, file thật, OTP và snapshot. Chưa chạy nghiệm thu tích hợp với backend/DB đang hoạt động.
 
 ## 18. Tệp hồ sơ cho quản lý
 
@@ -5505,3 +5461,26 @@ Content-Type có thể application/pdf, image/jpeg hoặc image/png theo tệp �
 ## 19. Quy tắc tính và đối soát
 
 Quy tắc tính dự toán và cộng cọc đúng phiên bản: [FLOW1-API-JSON.md, mục 17](FLOW1-API-JSON.md#17-công-thức-dự-toán-nội-bộ).
+
+## 20. Thông báo thanh toán VNPay
+
+### F1-J67 — GET /payments/vnpay/ipn
+
+Nhận thông báo server-to-server từ VNPay. Không dùng Bearer token Customer; xác thực bằng chữ ký provider. Path thống nhất endpoint sandbox hiện có, phần tích hợp Invoice/Contract là thiết kế đích.
+
+**Request body:** Không gửi body. Query nhận nguyên bộ tham số vnp_* do VNPay ký, gồm vnp_TmnCode, vnp_TxnRef, vnp_Amount, vnp_ResponseCode, vnp_TransactionStatus, vnp_TransactionNo, vnp_SecureHash và các tham số provider khác. Không cắt bỏ tham số trước khi kiểm tra chữ ký, từ chối query trùng khóa. vnp_Amount theo đơn vị provider, quy đổi đúng về VND để so khớp PAYMENT.Amount.
+
+**Response 200 — JSON provider, không dùng success/message/data**
+
+```json
+{
+  "RspCode": "00",
+  "Message": "Confirm Success"
+}
+```
+
+**Quy tắc:** Kiểm tra chữ ký, merchant, TxnRef đã lưu, amount/currency, Invoice và ContractVersion. Chỉ SUCCESS khi responseCode và transactionStatus cùng 00. Khóa giao dịch khi cập nhật PAYMENT và tính lại INVOICE.PaidAmount từ PAYMENT SUCCESS của đúng invoice/version; callback lặp không cộng tiền hai lần. Chỉ DEPOSIT_VERIFIED khi đủ cọc và Request còn hợp lệ; không tự tạo Trip. Callback sau hủy, trong lúc chờ hủy hoặc quá hạn phải giữ bằng chứng tiền, bật FinancialReviewRequired và không mở ký/kích hoạt. Payload không hợp lệ không được ghi SUCCESS; lỗi lưu trữ không trả xác nhận thành công. RspCode dùng hợp đồng adapter VNPay: 00 đã xử lý, 01 không thấy giao dịch, 02 đã xử lý, 04 sai số tiền, 97 sai xác thực, 99 lỗi khác. Các mã provider là chuỗi, không phải HTTP status. Browser Return chỉ đọc kết quả đã lưu; Customer kiểm tra bằng J44.
+
+## Kiểm tra bộ hợp đồng hiện hành
+
+Chạy `python contracts/API-Flow/Flow1/build_openapi.py` rồi `python contracts/API-Flow/Flow1/validate_contract.py`. Có 65 operation: bỏ J47/J48 thủ công, thêm J67 IPN; giữ số J cũ để không làm sai tham chiếu. Bộ kiểm tra frontend cũ có thể còn kỳ vọng 66 operation/J47 và phải được cập nhật khi tích hợp frontend; không dùng kết quả đó để xác nhận backend đã hỗ trợ.

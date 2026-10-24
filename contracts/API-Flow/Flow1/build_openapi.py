@@ -6,7 +6,8 @@ import json, re, copy
 ROOT = Path(__file__).resolve().parent
 source = (ROOT / 'FLOW1-API-JSON.md').read_text(encoding='utf-8')
 blocks = re.findall(r'^### (F1-J\d+) — (\w+) ([^\n]+)\n(.*?)(?=^### F1-J|^## |\Z)', source, re.M | re.S)
-assert len(blocks) == 66
+assert len(blocks) == 65
+assert not any(op[0] in ['F1-J47','F1-J48'] for op in blocks)
 
 def schema(values, key='', request=False):
     kinds = {('null' if v is None else 'boolean' if isinstance(v,bool) else 'integer' if isinstance(v,int) else 'number' if isinstance(v,float) else 'string' if isinstance(v,str) else 'array' if isinstance(v,list) else 'object') for v in values}
@@ -26,8 +27,7 @@ def schema(values, key='', request=False):
     elif kind=='array':
         entries=[x for v in values for x in v]
         out['items']=schema(entries,key+'[]',request) if entries else {}
-        if key in ['horses','fields']: out['uniqueItems']=True
-        if key=='fields': out['items']={'type':'string','enum':['route','date','places','horses','notes']};out['minItems']=1
+        if key=='horses': out['uniqueItems']=True
         if key=='horses' and all(isinstance(x,str) for x in entries): out['maxItems']=6;out['items']={'type':'string','pattern':r'^HORSE_\d{3,}$'}
         if key=='unsupportedFields': out['items']={'type':'string','enum':['color','fluDate','vetName','vetPhone']};out['uniqueItems']=True
     elif kind in ['integer','number']:
@@ -99,7 +99,7 @@ for n in [12,13]:
     for k in ['issueDate','expiryDate']:sc['properties']['passport']['properties'][k]['minLength']=10
 
 # Canonical DTO status enums; meanings belong to FLOW1.md, not SQL CHECK guesses.
-request_states=['DRAFT','PENDING_REVIEW','CHANGES_REQUESTED','REJECTED','CONTRACT_PREPARATION','CONTRACT_READY','CONTRACT_CHANGES_REQUESTED','DEPOSIT_VERIFIED','CANCELLATION_REQUESTED','ACTIVATED','SCHEDULED','IN_TRANSIT','DELIVERED','CLOSED','CANCELLED']
+request_states=['DRAFT','PENDING_REVIEW','CHANGES_REQUESTED','REJECTED','CONTRACT_PREPARATION','CONTRACT_READY','CONTRACT_CHANGES_REQUESTED','DEPOSIT_VERIFIED','CANCELLATION_REQUESTED','ACTIVATED','SCHEDULED','IN_PROGRESS','DELIVERED','CLOSED','CANCELLED']
 contract_states=['ISSUED','CHANGES_REQUESTED','EXPIRED','SUPERSEDED','EFFECTIVE','FULFILLED','VOID']
 def enrich(node,path=''):
     if not isinstance(node,dict):return
@@ -107,10 +107,10 @@ def enrich(node,path=''):
     if 'status' in props:
         if 'wizardStep' in props or 'dossier' in props:props['status']={'type':'string','enum':request_states}
         elif 'type' in props and 'amount' in props:
-            props['status']={'type':'string','enum':['PENDING_CONFIRMATION','PROCESSING','SUCCESS','FAILED','REJECTED']}
+            props['status']={'type':'string','enum':['PROCESSING','SUCCESS','FAILED','PENDING_CONFIRMATION']}
+            node['allOf']=[{'if':{'properties':{'method':{'const':'VNPAY'}},'required':['method']},'then':{'properties':{'status':{'enum':['PROCESSING','SUCCESS','FAILED']}}}}]
             props.update(confirmedAmount={'type':'integer','minimum':0},transactionCode={'type':'string'},receivedAt={'type':'string'},note={'type':'string'},receipt={'type':['string','null']})
-            node['if']={'properties':{'method':{'const':'BANK_TRANSFER'},'status':{'const':'SUCCESS'},'type':{'const':'DEPOSIT'}},'required':['method','status','type']}
-            node['then']={'required':['confirmedAmount']}
+            if 'method' in props: props['method']={'const':'VNPAY'}
         elif 'plannedDepart' in props:props['status']={'type':'string','enum':['PLANNING','READY_TO_DEPART','IN_TRANSIT','COMPLETED']}
     if 'state' in props:props['state']={'type':'string','enum':contract_states}
     if 'requestStatus' in props:props['requestStatus']={'type':'string','enum':request_states}
@@ -143,7 +143,7 @@ for v in [version,manager_version]:
     v['required']=[k for k in v['required'] if k not in ['signedAt','termsAcceptedAt','deadlineHistory','extensions']]
 draft=copy.deepcopy(components['F1-J30Request'])
 draft['properties']['savedAt']=stamp
-refund=object_schema({'amount':{'type':'integer','minimum':0},'status':{'type':'string','enum':['REQUESTED','PROCESSING','REFUNDED']},'at':stamp,'refundedAt':stamp,'reference':string},['amount','status','at'])
+refund=object_schema({'amount':{'type':'integer','minimum':0},'status':{'type':'string','enum':['REQUESTED','PROCESSING','REFUNDED']},'at':stamp,'refundedAt':stamp,'reference':string},['status'])
 trip=components['F1-J57Response200']['properties']['data']
 customer_trip=object_schema({'id':string,'status':{'type':'string','enum':['PLANNING','READY_TO_DEPART','IN_TRANSIT','COMPLETED']},'mode':{'type':'string','enum':['ROAD','AIR']},'plannedDepart':stamp,'eta':stamp,'routeApproved':{'type':'boolean'},'stops':{'type':'array','items':object_schema({'name':string,'type':string,'plannedAt':stamp})},'milestones':{'type':'array','items':{'type':'object'}},'etaHistory':{'type':'array','items':{'type':'object'}}})
 def lifecycle(sc):
@@ -152,7 +152,7 @@ def lifecycle(sc):
     if 'currentVersion' in props:props['currentVersion']=nullable(version)
     if 'draft' in props:props['draft']=nullable(draft)
     if 'wizardStep' in props or 'dossier' in props:
-        props.update(feedback=string,reason=string,revisionFields={'type':'array','items':{'type':'string','enum':['route','date','places','horses','notes']}},refund=nullable(refund))
+        props.update(feedback=string,reason=string,refund=nullable(refund))
         if 'wizardStep' in props:
             props['trip']=nullable(customer_trip)
             props['cancelRequest']=nullable(object_schema({'at':stamp,'reason':string,'prevStatus':{'type':'string','enum':request_states}}))
@@ -177,25 +177,62 @@ for name,node in list(components.items()):
         for v in sc.get('anyOf',[]):timestamps(v)
     timestamps(node)
 
+# Deployment lifecycle is independent of Trip.Status.
+def deployment_enums(sc):
+    props=sc.get('properties',{})
+    if 'deployment' in props:
+        d=props['deployment']
+        for branch in [d]+d.get('anyOf',[]):
+            if 'status' in branch.get('properties',{}):
+                branch['properties']['status']={'type':'string','enum':['NOT_CONFIRMED','CONFIRMED','ON_HOLD']}
+    for value in props.values(): deployment_enums(value)
+    if isinstance(sc.get('items'),dict): deployment_enums(sc['items'])
+    for value in sc.get('anyOf',[]): deployment_enums(value)
+for sc in components.values(): deployment_enums(sc)
+
 # Explicit enums for mutating commands, beyond illustrative values.
 for op,key,enum in [('F1-J39','decision',['ACCEPTED','REJECTED']),('F1-J54','decision',['APPROVED','REJECTED']),('F1-J43','method',['VNPAY'])]:
     components[op+'Request']['properties'][key]={'type':'string','enum':enum}
-components['F1-J43Request']['description']='Only VNPAY is enabled. BANK_TRANSFER initiation/proof is deferred.'
+components['F1-J43Request']['description']='Only VNPAY is supported; no manual confirmation or rejection.'
+components['F1-J55Response200']['properties']['data']['properties']['refundStatus']={'const':'COMPLETED'}
 for op in ['F1-J38']:
     components[op+'Request']['properties']['text']['minLength']=10
-components['F1-J27Request']['properties']['feedback']['minLength']=10
+components['F1-J27Request']['properties']['feedback'].update(minLength=10,maxLength=2000)
+for op in ['F1-J52','F1-J53','F1-J54']:
+    components[op+'Request']['properties']['reason'].update(minLength=1,maxLength=1000)
 components['F1-J28Request']['properties']['reason']['minLength']=10
-components['F1-J47Request']['properties']['confirmedAmount']['minimum']=1
+
+
+# SQL-aligned field limits and optional paired coordinates.
+for op in ['F1-J40','F1-J59']:
+    components[op+'Request']['properties']['reason'].update(minLength=1,maxLength=1000)
+def normalize(sc):
+    props=sc.get('properties',{})
+    for key in ['history','revisions','deadlineHistory','extensions','etaHistory']:
+        props.pop(key,None)
+        if 'required' in sc:sc['required']=[k for k in sc['required'] if k!=key]
+    if 'phone' in props:props['phone']['maxLength']=20
+    if 'latitude' in props and 'longitude' in props:
+        sc['required']=[k for k in sc.get('required',[]) if k not in ['latitude','longitude']]
+        sc['allOf']=[{'if':{'required':['latitude']},'then':{'required':['longitude']}},{'if':{'required':['longitude']},'then':{'required':['latitude']}}]
+    for v in props.values():normalize(v)
+    if isinstance(sc.get('items'),dict):normalize(sc['items'])
+    for v in sc.get('anyOf',[]):normalize(v)
+for sc in components.values():normalize(sc)
 
 # Empty collection unions should not prohibit populated canonical collections (e.g. issues).
 # Checklist response defines both empty/filled issues; inference handles the item union.
-spec={'openapi':'3.1.0','info':{'title':'Flow 1 — frontend contract','version':'1.1.0','description':'Target interface; backend/database unchanged. See x-implementation-status on operations. Examples are illustrative; schemas are normative.'},'servers':[{'url':'/api'}],'security':[{'bearerAuth':[]}],'paths':{},'components':{'securitySchemes':{'bearerAuth':{'type':'http','scheme':'bearer'}},'schemas':components}}
+spec={'openapi':'3.1.0','info':{'title':'Flow 1 — frontend contract','version':'1.1.0','description':'Target interface; SQL Reviewed deployment CHECK supports ON_HOLD; live database and backend not updated. See x-implementation-status on operations. Examples are illustrative; schemas are normative.'},'servers':[{'url':'/api'}],'security':[{'bearerAuth':[]}],'paths':{},'components':{'securitySchemes':{'bearerAuth':{'type':'http','scheme':'bearer'}},'schemas':components}}
 error={'type':'object','required':['success','message','errorCode','data'],'properties':{'success':{'const':False},'message':{'type':'string'},'errorCode':{'type':'string'},'data':{'type':'null'},'errors':{'type':'object','additionalProperties':{'type':'array','items':{'type':'string'}}}},'additionalProperties':False}
 components['Error']=error
 for opid,method,path,body,req,responses in operations:
-    op={'operationId':opid,'summary':body.strip().splitlines()[0],'x-implementation-status':'deferred' if opid in ['F1-J59','F1-J60'] else 'requires-backend-verification','responses':{},'parameters':[]}
+    op={'operationId':opid,'summary':body.strip().splitlines()[0],'x-implementation-status':'requires-backend-verification','responses':{},'parameters':[]}
+    if opid in ['F1-J14','F1-J20','F1-J27','F1-J37','F1-J52','F1-J53','F1-J54','F1-J55']:
+        rules=re.search(r'\*\*Quy tắc:\*\* ([^\n]+)',body)
+        if rules: op['description']=rules[1]
     for param in re.findall(r'{(\w+)}',path):
         sch={'type':'integer','minimum':1} if param=='versionNo' else {'type':'string','maxLength':50,'pattern':r'^[A-Z_]+_\d{3,}$'}
+        if param=='fileType':sch={'type':'string','enum':['photo','passport','ownership','value-proof']}
         if param=='documentType':sch={'type':'string','enum':['PASSPORT','OWNERSHIP','VALUATION','VACCINATION','HEALTH_CERTIFICATE']}
         op['parameters'].append({'name':param,'in':'path','required':True,'schema':sch})
     if opid in ['F1-J09','F1-J10','F1-J14','F1-J29']:
@@ -206,20 +243,26 @@ for opid,method,path,body,req,responses in operations:
             if name in ['originCountry','destinationCountry','country']:sch['enum']=['VN','JP']
             if name=='q':sch.update(minLength=2,maxLength=200)
             if name=='date':sch['pattern']=r'^\d{4}-\d{2}-\d{2}$'
-            op['parameters'].append({'name':name,'in':'query','required':opid in ['F1-J09','F1-J10'] or (opid=='F1-J14' and name=='date'),'schema':sch})
+            op['parameters'].append({'name':name,'in':'query','required':opid=='F1-J10' or (opid=='F1-J14' and name=='date'),'schema':sch})
+    if opid=='F1-J18':op['parameters'].append({'name':'Idempotency-Key','in':'header','required':True,'schema':{'type':'string','format':'uuid'}})
     if req:
         op['requestBody']={'required':True,'content':{'application/json':{'schema':{'$ref':'#/components/schemas/'+opid+'Request'},'example':req[0]}}}
     if opid in ['F1-J15','F1-J17']:
         props={'file':{'type':'string','format':'binary','description':'Real bytes, <=10 MiB. PDF/JPEG/PNG; photo JPEG/PNG only.'}}
         if opid=='F1-J17':props.update(documentType={'type':'string','enum':['PASSPORT','OWNERSHIP','VALUATION','VACCINATION','HEALTH_CERTIFICATE']},expiryDate={'type':'string','format':'date'})
         op['requestBody']={'required':True,'content':{'multipart/form-data':{'schema':{'type':'object','properties':props,'required':['file']+(['documentType'] if opid=='F1-J17' else []),'additionalProperties':False}}}}
-        if opid=='F1-J15':op['parameters'][-1]['schema']={'type':'string','enum':['photo','passport','ownership','valueProof','flu','health']}
+        if opid=='F1-J15':op['parameters'][-1]['schema']={'type':'string','enum':['photo','passport','ownership','value-proof']}
     for code,vals in responses.items():
         op['responses'][code]={'description':'Success' if int(code)<400 else 'Business error','content':{'application/json':{'schema':{'$ref':'#/components/schemas/'+opid+'Response'+code},'examples':{f'case{i+1}':{'value':v} for i,v in enumerate(vals)}}}}
     if opid in ['F1-J16','F1-J36','F1-J49','F1-J66']:
         op['responses']['200']={'description':'Authorized binary; errors remain JSON','content':{mime:{'schema':{'type':'string','format':'binary'}} for mime in (['application/pdf','image/jpeg','image/png'] if opid in ['F1-J16','F1-J66'] else ['application/pdf'])}}
     for code in ['400','401','403','404','409','429','500','501']:
         op['responses'].setdefault(code,{'description':'Shared error; 501 means capability not available','content':{'application/json':{'schema':{'$ref':'#/components/schemas/Error'}}}})
+    if opid=='F1-J67':
+        op['security']=[]
+        op['description']=body.strip()
+        op['parameters']=[{'name':name,'in':'query','required':True,'schema':{'type':'string'}} for name in ['vnp_TmnCode','vnp_TxnRef','vnp_Amount','vnp_ResponseCode','vnp_TransactionStatus','vnp_SecureHash']]
+        op['responses']={'200':{'description':'Provider acknowledgement; not application envelope','content':{'application/json':{'schema':{'type':'object','required':['RspCode','Message'],'properties':{'RspCode':{'type':'string','enum':['00','01','02','04','97','99']},'Message':{'type':'string'}},'additionalProperties':False},'example':{'RspCode':'00','Message':'Confirm Success'}}}}}
     spec['paths'].setdefault(path,{})[method.lower()]=op
-out=ROOT/'flow1.openapi.json';out.write_text(json.dumps(spec,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+out=ROOT/'flow1.openapi.json';out.write_text(json.dumps(spec,ensure_ascii=False,indent=2)+'\n',encoding='utf-8',newline='\n')
 print(f'Built {len(operations)} operations, {len(components)} schemas at {out.name}')
