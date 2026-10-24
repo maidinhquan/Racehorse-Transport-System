@@ -177,8 +177,27 @@ CREATE TABLE TRANSPORT_REQUEST (
     DesignatedReceiverPhone VARCHAR(20) NULL,
     BaseCost DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NOT NULL,
+    -- Thông tin bổ sung & Tọa độ kinh/vĩ độ (Flow 1 & Flow 3)
+    PickupLatitude DECIMAL(9,6) NULL,
+    PickupLongitude DECIMAL(9,6) NULL,
+    DeliveryLatitude DECIMAL(9,6) NULL,
+    DeliveryLongitude DECIMAL(9,6) NULL,
+    DistanceKm DECIMAL(10,2) NULL,
+    PickupStableName NVARCHAR(200) NULL,
+    PickupPostalCode NVARCHAR(20) NULL,
+    PickupInstructions NVARCHAR(1000) NULL,
+    DeliveryStableName NVARCHAR(200) NULL,
+    DeliveryPostalCode NVARCHAR(20) NULL,
+    DeliveryInstructions NVARCHAR(1000) NULL,
+    CareInstructions NVARCHAR(2000) NULL,
+    DeclaredValueVnd DECIMAL(18,2) NULL,
+    OriginCountry VARCHAR(2) NULL,
+    DestinationCountry VARCHAR(2) NULL,
+    PreparationDays INT NULL,
     CONSTRAINT PK_TransportRequest PRIMARY KEY (RequestID),
-    CONSTRAINT FK_TransportRequest_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID)
+    CONSTRAINT FK_TransportRequest_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Pickup CHECK ([PickupLatitude] IS NULL AND [PickupLongitude] IS NULL OR [PickupLatitude] IS NOT NULL AND [PickupLongitude] IS NOT NULL AND ([PickupLatitude]>=(-90) AND [PickupLatitude]<=(90)) AND ([PickupLongitude]>=(-180) AND [PickupLongitude]<=(180))),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Delivery CHECK ([DeliveryLatitude] IS NULL AND [DeliveryLongitude] IS NULL OR [DeliveryLatitude] IS NOT NULL AND [DeliveryLongitude] IS NOT NULL AND ([DeliveryLatitude]>=(-90) AND [DeliveryLatitude]<=(90)) AND ([DeliveryLongitude]>=(-180) AND [DeliveryLongitude]<=(180)))
 );
 
 -- 10. Bảng REQUEST_HORSE_MAPPING: Khử quan hệ N-N giữa Request và Horse
@@ -228,24 +247,57 @@ CREATE TABLE QUARANTINE_BOOKING (
 -- PHÂN VÙNG 4: LỘ TRÌNH, HẢI QUAN & HIỆN TRƯỜNG (FLEET, OPERATIONS & CUSTOMS)
 -- -----------------------------------------------------------------------------
 
--- 13. Bảng TRIP_PLAN: Kế hoạch chuyến đi
+-- 13. Bảng TRIP_PLAN: Kế hoạch chuyến đi (Chuẩn hóa trạng thái bàn giao & Two-Party Ready Flow 1 - 4)
 CREATE TABLE TRIP_PLAN (
     TripID VARCHAR(50) NOT NULL,
     RequestID VARCHAR(50) NOT NULL,
     TotalDistance_km DECIMAL(10, 2) NULL,
     T_Total_Hours DECIMAL(10, 2) NULL,
     TotalCost DECIMAL(12, 2) NULL,
-    Status VARCHAR(50) NOT NULL, -- PLANNING, PENDING_APPROVAL, PLAN_APPROVED, READY_TO_DEPART, IN_TRANSIT, COMPLETED, RETURNED
-    RejectionReason NVARCHAR(500) NULL, -- Lý do Quản lý từ chối / trả về phương án
-    ResourcesConfirmedAt DATETIME2 NULL, -- Thời điểm Coordinator chốt xe & nhân sự
-    ResourcesConfirmedBy NVARCHAR(100) NULL, -- Người chốt nguồn lực
-    DepartureApprovedAt DATETIME2 NULL, -- Thời điểm Quản lý phê duyệt lệnh khởi hành
-    DepartureApprovedBy NVARCHAR(100) NULL, -- Quản lý duyệt lệnh khởi hành
-    EarliestDepartureDate DATETIME2 NULL, -- Specialist ghi nhận ngày sớm nhất hồ sơ sẵn sàng
-    DocumentExpiryDate DATETIME2 NULL, -- Specialist ghi nhận hạn chót của các giấy tờ có thời hạn
-    SpecialistLegalNote NVARCHAR(500) NULL, -- Ghi chú ràng buộc pháp lý của Specialist
+    Status VARCHAR(50) NOT NULL, -- PLANNING, READY_TO_DEPART, IN_TRANSIT, COMPLETED, PENDING_APPROVAL, RETURNED
+    
+    -- Bàn giao triển khai từ Flow 1 (Deployment Handoff)
+    DeploymentStatus VARCHAR(12) NULL DEFAULT 'PENDING', -- PENDING, CONFIRMED
+    DeploymentReason NVARCHAR(1000) NULL,
+    DeploymentBy VARCHAR(50) NULL,
+    DeploymentAtUtc DATETIME2(7) NULL,
+    HandoffEventId VARCHAR(50) NULL,
+    AssignedSpecialistId VARCHAR(50) NULL,
+    AssignedCoordinatorId VARCHAR(50) NULL,
+    
+    -- Xác nhận Điều phối viên (Coordinator / Operations READY - Flow 3)
+    OperationsStatus VARCHAR(20) NOT NULL DEFAULT 'NOT_READY', -- NOT_READY, READY
+    ResourcesConfirmedAt DATETIME2 NULL,
+    ResourcesConfirmedBy NVARCHAR(100) NULL,
+    
+    -- Xác nhận Chuyên viên pháp lý (Specialist / Documents READY - Flow 2)
+    DocumentsStatus VARCHAR(20) NOT NULL DEFAULT 'NOT_READY', -- NOT_READY, READY
+    EarliestDepartureDate DATETIME2 NULL,
+    DocumentExpiryDate DATETIME2 NULL,
+    SpecialistLegalNote NVARCHAR(500) NULL,
+    DocumentsConfirmedAt DATETIME2 NULL,
+    DocumentsConfirmedBy NVARCHAR(100) NULL,
+    
+    -- Thẩm định & Phê duyệt Lộ trình (Manager Route Review / Gate 1)
+    CurrentRouteVersion INT NOT NULL DEFAULT 1,
+    RouteStatus VARCHAR(30) NOT NULL DEFAULT 'DRAFT', -- DRAFT, PENDING_APPROVAL, APPROVED, RETURNED
+    RouteApprovedAt DATETIME2 NULL,
+    RouteApprovedBy VARCHAR(50) NULL,
+    RouteReturnReason NVARCHAR(500) NULL,
+    
+    -- Phê duyệt Khởi hành (Manager Gate 2 -> READY_TO_DEPART)
+    DepartureApprovedAt DATETIME2 NULL,
+    DepartureApprovedBy NVARCHAR(100) NULL,
+    RejectionReason NVARCHAR(500) NULL,
+    
     CONSTRAINT PK_TripPlan PRIMARY KEY (TripID),
-    CONSTRAINT FK_TripPlan_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID)
+    CONSTRAINT FK_TripPlan_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
+    CONSTRAINT FK_TripPlan_Specialist FOREIGN KEY (AssignedSpecialistId) REFERENCES [USER](UserID),
+    CONSTRAINT FK_TripPlan_Coordinator FOREIGN KEY (AssignedCoordinatorId) REFERENCES [USER](UserID),
+    CONSTRAINT CK_TRIP_PLAN_OperationsStatus CHECK (OperationsStatus IN ('NOT_READY', 'READY')),
+    CONSTRAINT CK_TRIP_PLAN_DocumentsStatus CHECK (DocumentsStatus IN ('NOT_READY', 'READY')),
+    CONSTRAINT CK_TRIP_PLAN_RouteStatus CHECK (RouteStatus IN ('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'RETURNED')),
+    CONSTRAINT CK_F1S_TRIP_PLAN_Deployment CHECK ([DeploymentStatus] IS NULL OR ([DeploymentStatus]='CONFIRMED' OR [DeploymentStatus]='PENDING') AND [DeploymentReason] IS NOT NULL AND [DeploymentBy] IS NOT NULL AND [DeploymentAtUtc] IS NOT NULL AND ([DeploymentStatus]='CONFIRMED' AND [HandoffEventId] IS NOT NULL OR ([DeploymentStatus]='PENDING') AND [HandoffEventId] IS NULL))
 );
 
 -- 14. Bảng VEHICLE: Quản lý xe chuyên dụng
@@ -295,10 +347,15 @@ CREATE TABLE ROUTE_SEGMENT (
     PlannedTime DATETIME NULL, -- Thời gian dự kiến đến trạm
     ExpectedETA DATETIME NULL,
     ActualTime DATETIME NULL,
+    -- Tọa độ kinh độ / vĩ độ của điểm dừng tự do (ngoài trạm liên kết Facility)
+    Latitude DECIMAL(9,6) NULL,
+    Longitude DECIMAL(9,6) NULL,
+    Coordinates VARCHAR(100) NULL,
     Status VARCHAR(50) NULL,
     CONSTRAINT PK_RouteSegment PRIMARY KEY (SegmentID),
     CONSTRAINT FK_RouteSegment_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
-    CONSTRAINT FK_RouteSegment_Facility FOREIGN KEY (FacilityID) REFERENCES PARTNER_FACILITY(FacilityID)
+    CONSTRAINT FK_RouteSegment_Facility FOREIGN KEY (FacilityID) REFERENCES PARTNER_FACILITY(FacilityID),
+    CONSTRAINT CK_RouteSegment_Coordinates CHECK ([Latitude] IS NULL AND [Longitude] IS NULL OR [Latitude] IS NOT NULL AND [Longitude] IS NOT NULL AND ([Latitude]>=(-90) AND [Latitude]<=(90)) AND ([Longitude]>=(-180) AND [Longitude]<=(180)))
 );
 
 -- 17. (MỚI) Bảng FLIGHT_BOOKING: Quản lý đặt vé & dịch vụ bay chuyên chở ngựa (Air Leg)
