@@ -1,0 +1,129 @@
+{
+  "readiness-air-ready": {
+    "schema": "Readiness",
+    "data": {
+      "tripId": "TRIP_001",
+      "routeVersion": 2,
+      "resourceVersion": 3,
+      "flightVersion": 1,
+      "canApprove": true,
+      "checks": [
+        {
+          "key": "deploy",
+          "ok": true,
+          "code": "READY",
+          "message": "deploy đã đạt"
+        },
+        {
+          "key": "docs",
+          "ok": true,
+          "code": "READY",
+          "message": "docs đã đạt"
+        },
+        {
+          "key": "insurance",
+          "ok": true,
+          "code": "READY",
+          "message": "insurance đã đạt"
+        },
+        {
+          "key": "quarantine",
+          "ok": true,
+          "code": "READY",
+          "message": "quarantine đã đạt"
+        },
+        {
+          "key": "route",
+          "ok": true,
+          "code": "READY",
+          "message": "route đã đạt"
+        },
+        {
+          "key": "resources",
+          "ok": true,
+          "code": "READY",
+          "message": "resources đã đạt"
+        },
+        {
+          "key": "flight",
+          "ok": true,
+          "code": "READY",
+          "message": "flight đã đạt"
+        }
+      ],
+      "evaluatedAt": "2026-10-24 09:00"
+    },
+    "contractStatus": "Historical Flow 2 preparation scenario; use Flow3/flow3.examples.json for revised planning/READY/departure flow."
+  },
+  "coordinator-road": {
+    "schema": "CoordinatorTrip",
+    "data": {
+      "id": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "customer": "Nguyen Van A",
+      "origin": "Ho Chi Minh City",
+      "destination": "Hanoi",
+      "originCountry": "VN",
+      "destinationCountry": "VN",
+      "mode": "ROAD",
+      "horses": [
+        "HORSE_001"
+      ],
+      "plannedDepart": "2026-11-20 08:00",
+      "eta": "2026-11-21 18:00",
+      "status": "PLANNING",
+      "deploymentStatus": "CONFIRMED",
+      "route": {
+        "version": 1,
+        "status": "DRAFT",
+        "stops": [
+          {
+            "id": "ROUTE_SEGMENT_001",
+            "name": "Trại ngựa A",
+            "type": "ORIGIN",
+            "country": "VN",
+            "plannedAt": "2026-11-20 08:00",
+            "lat": 10.82,
+            "lng": 106.65,
+            "checkpointId": null
+          },
+          {
+            "id": "ROUTE_SEGMENT_002",
+            "name": "Trại ngựa B",
+            "type": "DESTINATION",
+            "country": "VN",
+            "plannedAt": "2026-11-20 20:00",
+            "lat": 21.02,
+            "lng": 105.83,
+            "checkpointId": null
+          }
+        ],
+        "submittedAt": null,
+        "reviewedAt": null,
+        "returnReason": null
+      },
+      "vehicleId": null,
+      "crew": {},
+      "legs": null,
+      "flight": null,
+      "resourcesConfirmed": null,
+      "resourceVersion": 0,
+      "milestones": [],
+      "etaHistory": []
+    },
+    "contractStatus": "Historical Flow 2 preparation scenario; use Flow3/flow3.examples.json for revised planning/READY/departure flow."
+  },
+  "empty-checklist-blocked": {
+    "schema": "Checklist",
+    "data": {
+      "items": [],
+      "ready": 0,
+      "total": 0,
+      "pending": 0,
+      "needs": 1,
+      "status": "NOT_READY",
+      "documentSetVersion": 3
+    },
+    "contractStatus": "Historical Flow 2 preparation scenario; use Flow3/flow3.examples.json for revised planning/READY/departure flow."
+  }
+}

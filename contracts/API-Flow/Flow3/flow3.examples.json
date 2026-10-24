@@ -1,0 +1,966 @@
+{
+  "capabilities-not-implemented": {
+    "schema": "F3-J01Response",
+    "data": {
+      "success": true,
+      "message": "OK",
+      "data": {
+        "features": {
+          "feasibility": false,
+          "planVersioning": false,
+          "reservations": false,
+          "flightCatalog": false,
+          "demoBooking": false,
+          "readyBindings": false,
+          "departureApproval": false,
+          "idempotency": false
+        },
+        "airHandoverBeforeMinutes": null,
+        "airHandoverAfterMinutes": null,
+        "continuousDriveLimitMinutes": null,
+        "minimumRestMinutes": null,
+        "reason": "Chưa nghiệm thu backend/persistence và cấu hình vận hành"
+      }
+    },
+    "expectation": "Tất cả false; không được gửi mutation bằng mock."
+  },
+  "road-ready": {
+    "schema": "Readiness",
+    "data": {
+      "tripId": "TRIP_001",
+      "serverNow": "2026-10-26 07:30",
+      "binding": {
+        "contextVersion": 1,
+        "feasibilityVersion": 1,
+        "planVersion": 4,
+        "evidenceVersion": 8
+      },
+      "documentSetVersion": 3,
+      "insuranceVersion": 1,
+      "canApprove": true,
+      "docsReady": {
+        "binding": {
+          "contextVersion": 1,
+          "feasibilityVersion": 1,
+          "planVersion": 4,
+          "evidenceVersion": 8
+        },
+        "confirmed": {
+          "by": "USER_005",
+          "at": "2026-10-24 10:00"
+        },
+        "documentSetVersion": 3,
+        "insuranceVersion": 1
+      },
+      "opsReady": {
+        "binding": {
+          "contextVersion": 1,
+          "feasibilityVersion": 1,
+          "planVersion": 4,
+          "evidenceVersion": 8
+        },
+        "confirmed": {
+          "by": "USER_005",
+          "at": "2026-10-24 10:00"
+        },
+        "documentSetVersion": 3,
+        "insuranceVersion": 1
+      },
+      "blockers": []
+    },
+    "expectation": "Có thể xét duyệt khởi hành, server vẫn recheck transaction."
+  },
+  "plan-pending-no-booking-no-ready": {
+    "schema": "Context",
+    "data": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "tripStatus": "PLANNING",
+      "requestStatus": "ACTIVATED",
+      "contractStatus": "EFFECTIVE",
+      "contextVersion": 1,
+      "contractId": "CONTRACT_001",
+      "contractVersion": 1,
+      "deliveryDeadline": "2026-11-02 18:00",
+      "originCountry": "VN",
+      "destinationCountry": "VN",
+      "mode": "ROAD",
+      "horseIds": [
+        "HORSE_001"
+      ],
+      "deploymentStatus": "CONFIRMED",
+      "specialistId": "USER_005",
+      "coordinatorId": "USER_006",
+      "documentSetVersion": 3,
+      "evidenceVersion": 8,
+      "feasibility": {
+        "version": 1,
+        "contextVersion": 1,
+        "documentSetVersion": 3,
+        "earliestReadyAt": "2026-10-25 08:00",
+        "constraints": [
+          {
+            "key": "HEALTH:HORSE_001",
+            "typeId": "HEALTH_CERTIFICATE",
+            "horseId": "HORSE_001",
+            "validFrom": "2026-10-25 08:00",
+            "validUntil": "2026-10-30 18:00",
+            "useAt": "CHECKPOINT",
+            "checkpointId": 102,
+            "mustCoverWholeTrip": false,
+            "basis": "ESTIMATED_ISSUANCE",
+            "note": "Ví dụ dự kiến, Specialist phải kiểm tra giấy thật sau duyệt."
+          }
+        ],
+        "dependencies": [
+          {
+            "key": "EXPORT_SCHEDULE",
+            "description": "Hoàn thiện giấy theo lịch chính thức",
+            "needs": "OFFICIAL_SCHEDULE",
+            "owner": "TRANSPORT_SPECIALIST",
+            "expectedLeadMinutes": 120,
+            "completionRule": "Lịch đã duyệt phải còn đủ thời gian hoàn thiện trước điểm dùng",
+            "resolved": false
+          }
+        ],
+        "planningAllowed": true,
+        "blockers": [],
+        "assessed": {
+          "by": "USER_005",
+          "at": "2026-10-24 10:00"
+        }
+      },
+      "draft": {
+        "version": 2,
+        "contextVersion": 1,
+        "feasibilityVersion": 1,
+        "status": "PENDING_APPROVAL",
+        "replacesPlanVersion": null,
+        "mode": "ROAD",
+        "plannedDepart": "2026-10-26 08:00",
+        "eta": "2026-10-26 16:00",
+        "stops": [
+          {
+            "checkpointId": null,
+            "name": "Điểm nhận theo hợp đồng",
+            "type": "ORIGIN",
+            "country": "VN",
+            "lat": 10.8,
+            "lng": 106.7,
+            "plannedAt": "2026-10-26 08:00"
+          },
+          {
+            "checkpointId": 102,
+            "name": "Điểm kiểm tra demo",
+            "type": "QUARANTINE_STATION",
+            "country": "VN",
+            "lat": 10.8,
+            "lng": 106.7,
+            "plannedAt": "2026-10-26 10:00"
+          },
+          {
+            "checkpointId": null,
+            "name": "Điểm giao theo hợp đồng",
+            "type": "DESTINATION",
+            "country": "VN",
+            "lat": 11.0,
+            "lng": 107.0,
+            "plannedAt": "2026-10-26 16:00"
+          }
+        ],
+        "legs": [
+          {
+            "key": "road",
+            "country": "VN",
+            "startStopIndex": 0,
+            "endStopIndex": 2,
+            "vehicleId": "VEHICLE_001",
+            "crew": {
+              "MAIN_DRIVER": "USER_010",
+              "CO_DRIVER": "USER_011",
+              "VETERINARIAN": "USER_012"
+            }
+          }
+        ],
+        "flight": null,
+        "reservationState": "TEMPORARY",
+        "decisionNote": null,
+        "submitted": {
+          "by": "USER_006",
+          "at": "2026-10-24 11:00"
+        },
+        "decided": null
+      },
+      "approvedPlan": null,
+      "booking": null,
+      "resourcesConfirmed": null,
+      "docsReady": null,
+      "opsReady": null,
+      "blockers": []
+    },
+    "expectation": "Manager được xét duyệt phương án; dependencies cần lịch chưa hoàn tất không tạo vòng chờ."
+  },
+  "air-approved-booked-ready": {
+    "schema": "Context",
+    "data": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "tripStatus": "PLANNING",
+      "requestStatus": "ACTIVATED",
+      "contractStatus": "EFFECTIVE",
+      "contextVersion": 1,
+      "contractId": "CONTRACT_001",
+      "contractVersion": 1,
+      "deliveryDeadline": "2026-11-02 18:00",
+      "originCountry": "VN",
+      "destinationCountry": "JP",
+      "mode": "AIR",
+      "horseIds": [
+        "HORSE_001"
+      ],
+      "deploymentStatus": "CONFIRMED",
+      "specialistId": "USER_005",
+      "coordinatorId": "USER_006",
+      "documentSetVersion": 3,
+      "evidenceVersion": 8,
+      "feasibility": {
+        "version": 1,
+        "contextVersion": 1,
+        "documentSetVersion": 3,
+        "earliestReadyAt": "2026-10-25 08:00",
+        "constraints": [
+          {
+            "key": "HEALTH:HORSE_001",
+            "typeId": "HEALTH_CERTIFICATE",
+            "horseId": "HORSE_001",
+            "validFrom": "2026-10-25 08:00",
+            "validUntil": "2026-10-30 18:00",
+            "useAt": "FLIGHT_DEPARTURE",
+            "checkpointId": null,
+            "mustCoverWholeTrip": false,
+            "basis": "ESTIMATED_ISSUANCE",
+            "note": "Ví dụ dự kiến, Specialist phải kiểm tra giấy thật sau duyệt."
+          }
+        ],
+        "dependencies": [
+          {
+            "key": "EXPORT_SCHEDULE",
+            "description": "Hoàn thiện giấy theo lịch chính thức",
+            "needs": "FLIGHT_BOOKING",
+            "owner": "TRANSPORT_SPECIALIST",
+            "expectedLeadMinutes": 120,
+            "completionRule": "Lịch đã duyệt phải còn đủ thời gian hoàn thiện trước điểm dùng",
+            "resolved": false
+          }
+        ],
+        "planningAllowed": true,
+        "blockers": [],
+        "assessed": {
+          "by": "USER_005",
+          "at": "2026-10-24 10:00"
+        }
+      },
+      "draft": null,
+      "approvedPlan": {
+        "version": 4,
+        "contextVersion": 1,
+        "feasibilityVersion": 1,
+        "status": "APPROVED",
+        "replacesPlanVersion": null,
+        "mode": "AIR",
+        "plannedDepart": "2026-10-27 03:00",
+        "eta": "2026-10-28 12:00",
+        "stops": [
+          {
+            "checkpointId": null,
+            "name": "Điểm nhận theo hợp đồng",
+            "type": "ORIGIN",
+            "country": "VN",
+            "lat": 10.8,
+            "lng": 106.7,
+            "plannedAt": "2026-10-27 03:00"
+          },
+          {
+            "checkpointId": 201,
+            "name": "Sân bay đi demo",
+            "type": "AIRPORT",
+            "country": "VN",
+            "lat": 10.8,
+            "lng": 106.7,
+            "plannedAt": "2026-10-27 05:00"
+          },
+          {
+            "checkpointId": 202,
+            "name": "Sân bay đến demo",
+            "type": "AIRPORT",
+            "country": "JP",
+            "lat": 35.7,
+            "lng": 139.7,
+            "plannedAt": "2026-10-27 14:00"
+          },
+          {
+            "checkpointId": null,
+            "name": "Điểm giao theo hợp đồng",
+            "type": "DESTINATION",
+            "country": "JP",
+            "lat": 35.9,
+            "lng": 140.0,
+            "plannedAt": "2026-10-28 12:00"
+          }
+        ],
+        "legs": [
+          {
+            "key": "outbound",
+            "country": "VN",
+            "startStopIndex": 0,
+            "endStopIndex": 1,
+            "vehicleId": "VEHICLE_001",
+            "crew": {
+              "MAIN_DRIVER": "USER_010",
+              "CO_DRIVER": "USER_011",
+              "VETERINARIAN": "USER_012"
+            }
+          },
+          {
+            "key": "inbound",
+            "country": "JP",
+            "startStopIndex": 2,
+            "endStopIndex": 3,
+            "vehicleId": "VEHICLE_002",
+            "crew": {
+              "MAIN_DRIVER": "USER_013",
+              "CO_DRIVER": "USER_014",
+              "VETERINARIAN": "USER_015"
+            }
+          }
+        ],
+        "flight": {
+          "catalogRef": "DEMO-DIRECT-01",
+          "catalogVersion": 1,
+          "provider": "Đối tác demo",
+          "airline": "Demo Air",
+          "flightNo": "DEMO101",
+          "fromCheckpointId": 201,
+          "toCheckpointId": 202,
+          "originCountry": "VN",
+          "destinationCountry": "JP",
+          "departAt": "2026-10-27 08:00",
+          "arriveAt": "2026-10-27 14:00",
+          "stalls": 6,
+          "cost": 180000000,
+          "currency": "VND",
+          "direct": true,
+          "fullCare": true
+        },
+        "reservationState": "CONFIRMED",
+        "decisionNote": "Chấp thuận phương án trong khoảng khả thi",
+        "submitted": {
+          "by": "USER_006",
+          "at": "2026-10-24 11:00"
+        },
+        "decided": {
+          "by": "USER_004",
+          "at": "2026-10-24 11:30"
+        }
+      },
+      "booking": {
+        "id": 300,
+        "planVersion": 4,
+        "catalogRef": "DEMO-DIRECT-01",
+        "bookingRef": "DEMO-REF-20261027",
+        "source": "DEMO",
+        "status": "BOOKED",
+        "confirmed": {
+          "by": "USER_006",
+          "at": "2026-10-24 12:00"
+        },
+        "cancellationRef": null,
+        "cancelled": null
+      },
+      "resourcesConfirmed": {
+        "binding": {
+          "contextVersion": 1,
+          "feasibilityVersion": 1,
+          "planVersion": 4,
+          "evidenceVersion": 8
+        },
+        "confirmed": {
+          "by": "USER_005",
+          "at": "2026-10-24 10:00"
+        },
+        "documentSetVersion": 3,
+        "insuranceVersion": 1
+      },
+      "docsReady": {
+        "binding": {
+          "contextVersion": 1,
+          "feasibilityVersion": 1,
+          "planVersion": 4,
+          "evidenceVersion": 8
+        },
+        "confirmed": {
+          "by": "USER_005",
+          "at": "2026-10-24 10:00"
+        },
+        "documentSetVersion": 3,
+        "insuranceVersion": 1
+      },
+      "opsReady": {
+        "binding": {
+          "contextVersion": 1,
+          "feasibilityVersion": 1,
+          "planVersion": 4,
+          "evidenceVersion": 8
+        },
+        "confirmed": {
+          "by": "USER_005",
+          "at": "2026-10-24 10:00"
+        },
+        "documentSetVersion": 3,
+        "insuranceVersion": 1
+      },
+      "blockers": []
+    },
+    "expectation": "Hai ROAD độc lập, giờ quy về Việt Nam. Kiểm buffer từ config runtime, không suy từ ví dụ."
+  },
+  "air-approved-not-booked": {
+    "schema": "Context",
+    "data": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "tripStatus": "PLANNING",
+      "requestStatus": "ACTIVATED",
+      "contractStatus": "EFFECTIVE",
+      "contextVersion": 1,
+      "contractId": "CONTRACT_001",
+      "contractVersion": 1,
+      "deliveryDeadline": "2026-11-02 18:00",
+      "originCountry": "VN",
+      "destinationCountry": "JP",
+      "mode": "AIR",
+      "horseIds": [
+        "HORSE_001"
+      ],
+      "deploymentStatus": "CONFIRMED",
+      "specialistId": "USER_005",
+      "coordinatorId": "USER_006",
+      "documentSetVersion": 3,
+      "evidenceVersion": 8,
+      "feasibility": {
+        "version": 1,
+        "contextVersion": 1,
+        "documentSetVersion": 3,
+        "earliestReadyAt": "2026-10-25 08:00",
+        "constraints": [
+          {
+            "key": "HEALTH:HORSE_001",
+            "typeId": "HEALTH_CERTIFICATE",
+            "horseId": "HORSE_001",
+            "validFrom": "2026-10-25 08:00",
+            "validUntil": "2026-10-30 18:00",
+            "useAt": "FLIGHT_DEPARTURE",
+            "checkpointId": null,
+            "mustCoverWholeTrip": false,
+            "basis": "ESTIMATED_ISSUANCE",
+            "note": "Ví dụ dự kiến, Specialist phải kiểm tra giấy thật sau duyệt."
+          }
+        ],
+        "dependencies": [
+          {
+            "key": "EXPORT_SCHEDULE",
+            "description": "Hoàn thiện giấy theo lịch chính thức",
+            "needs": "FLIGHT_BOOKING",
+            "owner": "TRANSPORT_SPECIALIST",
+            "expectedLeadMinutes": 120,
+            "completionRule": "Lịch đã duyệt phải còn đủ thời gian hoàn thiện trước điểm dùng",
+            "resolved": false
+          }
+        ],
+        "planningAllowed": true,
+        "blockers": [],
+        "assessed": {
+          "by": "USER_005",
+          "at": "2026-10-24 10:00"
+        }
+      },
+      "draft": null,
+      "approvedPlan": {
+        "version": 4,
+        "contextVersion": 1,
+        "feasibilityVersion": 1,
+        "status": "APPROVED",
+        "replacesPlanVersion": null,
+        "mode": "AIR",
+        "plannedDepart": "2026-10-27 03:00",
+        "eta": "2026-10-28 12:00",
+        "stops": [
+          {
+            "checkpointId": null,
+            "name": "Điểm nhận theo hợp đồng",
+            "type": "ORIGIN",
+            "country": "VN",
+            "lat": 10.8,
+            "lng": 106.7,
+            "plannedAt": "2026-10-27 03:00"
+          },
+          {
+            "checkpointId": 201,
+            "name": "Sân bay đi demo",
+            "type": "AIRPORT",
+            "country": "VN",
+            "lat": 10.8,
+            "lng": 106.7,
+            "plannedAt": "2026-10-27 05:00"
+          },
+          {
+            "checkpointId": 202,
+            "name": "Sân bay đến demo",
+            "type": "AIRPORT",
+            "country": "JP",
+            "lat": 35.7,
+            "lng": 139.7,
+            "plannedAt": "2026-10-27 14:00"
+          },
+          {
+            "checkpointId": null,
+            "name": "Điểm giao theo hợp đồng",
+            "type": "DESTINATION",
+            "country": "JP",
+            "lat": 35.9,
+            "lng": 140.0,
+            "plannedAt": "2026-10-28 12:00"
+          }
+        ],
+        "legs": [
+          {
+            "key": "outbound",
+            "country": "VN",
+            "startStopIndex": 0,
+            "endStopIndex": 1,
+            "vehicleId": "VEHICLE_001",
+            "crew": {
+              "MAIN_DRIVER": "USER_010",
+              "CO_DRIVER": "USER_011",
+              "VETERINARIAN": "USER_012"
+            }
+          },
+          {
+            "key": "inbound",
+            "country": "JP",
+            "startStopIndex": 2,
+            "endStopIndex": 3,
+            "vehicleId": "VEHICLE_002",
+            "crew": {
+              "MAIN_DRIVER": "USER_013",
+              "CO_DRIVER": "USER_014",
+              "VETERINARIAN": "USER_015"
+            }
+          }
+        ],
+        "flight": {
+          "catalogRef": "DEMO-DIRECT-01",
+          "catalogVersion": 1,
+          "provider": "Đối tác demo",
+          "airline": "Demo Air",
+          "flightNo": "DEMO101",
+          "fromCheckpointId": 201,
+          "toCheckpointId": 202,
+          "originCountry": "VN",
+          "destinationCountry": "JP",
+          "departAt": "2026-10-27 08:00",
+          "arriveAt": "2026-10-27 14:00",
+          "stalls": 6,
+          "cost": 180000000,
+          "currency": "VND",
+          "direct": true,
+          "fullCare": true
+        },
+        "reservationState": "CONFIRMED",
+        "decisionNote": "Chấp thuận phương án trong khoảng khả thi",
+        "submitted": {
+          "by": "USER_006",
+          "at": "2026-10-24 11:00"
+        },
+        "decided": {
+          "by": "USER_004",
+          "at": "2026-10-24 11:30"
+        }
+      },
+      "booking": null,
+      "resourcesConfirmed": {
+        "binding": {
+          "contextVersion": 1,
+          "feasibilityVersion": 1,
+          "planVersion": 4,
+          "evidenceVersion": 8
+        },
+        "confirmed": {
+          "by": "USER_005",
+          "at": "2026-10-24 10:00"
+        },
+        "documentSetVersion": 3,
+        "insuranceVersion": 1
+      },
+      "docsReady": {
+        "binding": {
+          "contextVersion": 1,
+          "feasibilityVersion": 1,
+          "planVersion": 4,
+          "evidenceVersion": 8
+        },
+        "confirmed": {
+          "by": "USER_005",
+          "at": "2026-10-24 10:00"
+        },
+        "documentSetVersion": 3,
+        "insuranceVersion": 1
+      },
+      "opsReady": null,
+      "blockers": [
+        {
+          "code": "FLIGHT_BOOKING_REQUIRED",
+          "field": "booking",
+          "message": "Đã duyệt phương án nhưng chưa booking",
+          "constraintKey": null,
+          "useTime": null
+        }
+      ]
+    },
+    "expectation": "Được hoàn tất booking sau duyệt; chưa đủ Ops READY/departure."
+  },
+  "no-feasibility": {
+    "schema": "Context",
+    "data": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "tripStatus": "PLANNING",
+      "requestStatus": "ACTIVATED",
+      "contractStatus": "EFFECTIVE",
+      "contextVersion": 1,
+      "contractId": "CONTRACT_001",
+      "contractVersion": 1,
+      "deliveryDeadline": "2026-11-02 18:00",
+      "originCountry": "VN",
+      "destinationCountry": "VN",
+      "mode": "ROAD",
+      "horseIds": [
+        "HORSE_001"
+      ],
+      "deploymentStatus": "CONFIRMED",
+      "specialistId": "USER_005",
+      "coordinatorId": "USER_006",
+      "documentSetVersion": 3,
+      "evidenceVersion": 8,
+      "feasibility": null,
+      "draft": null,
+      "approvedPlan": null,
+      "booking": null,
+      "resourcesConfirmed": null,
+      "docsReady": null,
+      "opsReady": null,
+      "blockers": [
+        {
+          "code": "FEASIBILITY_REQUIRED",
+          "field": "feasibility",
+          "message": "Specialist chưa công bố khoảng khả thi",
+          "constraintKey": null,
+          "useTime": null
+        }
+      ]
+    },
+    "expectation": "Coordinator chưa được lưu/gửi kế hoạch chính thức."
+  },
+  "empty-checklist-not-ready": {
+    "schema": "Feasibility",
+    "data": {
+      "version": 1,
+      "contextVersion": 1,
+      "documentSetVersion": 3,
+      "earliestReadyAt": "2026-10-25 08:00",
+      "constraints": [],
+      "dependencies": [
+        {
+          "key": "EXPORT_SCHEDULE",
+          "description": "Hoàn thiện giấy theo lịch chính thức",
+          "needs": "OFFICIAL_SCHEDULE",
+          "owner": "TRANSPORT_SPECIALIST",
+          "expectedLeadMinutes": 120,
+          "completionRule": "Lịch đã duyệt phải còn đủ thời gian hoàn thiện trước điểm dùng",
+          "resolved": false
+        }
+      ],
+      "planningAllowed": false,
+      "blockers": [
+        {
+          "code": "REQUIREMENT_CONFIGURATION_MISSING",
+          "field": "constraints",
+          "message": "Chưa có đầy đủ bộ yêu cầu để đánh giá",
+          "constraintKey": null,
+          "useTime": null
+        }
+      ],
+      "assessed": {
+        "by": "USER_005",
+        "at": "2026-10-24 10:00"
+      }
+    },
+    "expectation": "0/0 không tạo planningAllowed/READY."
+  },
+  "depart-before-expiry-use-after-expiry": {
+    "schema": "F3-J06Request",
+    "data": {
+      "expectedVersion": null,
+      "contextVersion": 1,
+      "feasibilityVersion": 1,
+      "plannedDepart": "2026-10-29 08:00",
+      "eta": "2026-11-01 16:00",
+      "stops": [
+        {
+          "checkpointId": null,
+          "name": "Điểm nhận theo hợp đồng",
+          "type": "ORIGIN",
+          "country": "VN",
+          "lat": 10.8,
+          "lng": 106.7,
+          "plannedAt": "2026-10-29 08:00"
+        },
+        {
+          "checkpointId": 102,
+          "name": "Điểm kiểm tra demo",
+          "type": "QUARANTINE_STATION",
+          "country": "VN",
+          "lat": 10.8,
+          "lng": 106.7,
+          "plannedAt": "2026-10-31 10:00"
+        },
+        {
+          "checkpointId": null,
+          "name": "Điểm giao theo hợp đồng",
+          "type": "DESTINATION",
+          "country": "VN",
+          "lat": 11.0,
+          "lng": 107.0,
+          "plannedAt": "2026-11-01 16:00"
+        }
+      ],
+      "legs": [
+        {
+          "key": "road",
+          "country": "VN",
+          "startStopIndex": 0,
+          "endStopIndex": 2,
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_010",
+            "CO_DRIVER": "USER_011",
+            "VETERINARIAN": "USER_012"
+          }
+        }
+      ],
+      "flight": null
+    },
+    "expectation": "Dữ liệu nháp hợp schema; validate/submit trả DOCUMENT_WINDOW_VIOLATION: dùng 31/10 sau hết hạn 30/10 dù xuất phát trước hạn."
+  },
+  "document-exactly-at-expiry": {
+    "schema": "Validation",
+    "data": {
+      "contextVersion": 1,
+      "feasibilityVersion": 1,
+      "planVersion": 1,
+      "canSubmit": true,
+      "canApprovePlan": false,
+      "checks": [],
+      "dependenciesRemaining": [
+        "EXPORT_SCHEDULE"
+      ],
+      "reservesResources": false
+    },
+    "expectation": "validUntil inclusive; không chỉ so ngày xuất phát. useTime=2026-10-30 18:00"
+  },
+  "document-one-minute-after-expiry": {
+    "schema": "Validation",
+    "data": {
+      "contextVersion": 1,
+      "feasibilityVersion": 1,
+      "planVersion": 1,
+      "canSubmit": false,
+      "canApprovePlan": false,
+      "checks": [
+        {
+          "code": "DOCUMENT_WINDOW_VIOLATION",
+          "field": "stops[1].plannedAt",
+          "message": "Quá hiệu lực giấy tại điểm dùng",
+          "constraintKey": "HEALTH:HORSE_001",
+          "useTime": "2026-10-30 18:01"
+        }
+      ],
+      "dependenciesRemaining": [
+        "EXPORT_SCHEDULE"
+      ],
+      "reservesResources": false
+    },
+    "expectation": "validUntil inclusive; không chỉ so ngày xuất phát. useTime=2026-10-30 18:01"
+  },
+  "delivery-deadline-exceeded": {
+    "schema": "Error",
+    "data": {
+      "success": false,
+      "message": "Chặn thao tác và tải lại điều kiện",
+      "errorCode": "DELIVERY_DEADLINE_EXCEEDED",
+      "data": null,
+      "blockers": [
+        {
+          "code": "DELIVERY_DEADLINE_EXCEEDED",
+          "field": "eta",
+          "message": "Điều kiện không đạt theo FLOW3.md",
+          "constraintKey": null,
+          "useTime": null
+        }
+      ]
+    },
+    "expectation": "HTTP 409; không cập nhật trạng thái/reservation từng phần."
+  },
+  "resource-conflict": {
+    "schema": "Error",
+    "data": {
+      "success": false,
+      "message": "Chặn thao tác và tải lại điều kiện",
+      "errorCode": "RESOURCE_CONFLICT",
+      "data": null,
+      "blockers": [
+        {
+          "code": "RESOURCE_CONFLICT",
+          "field": "legs[0].vehicleId",
+          "message": "Điều kiện không đạt theo FLOW3.md",
+          "constraintKey": null,
+          "useTime": null
+        }
+      ]
+    },
+    "expectation": "HTTP 409; không cập nhật trạng thái/reservation từng phần."
+  },
+  "dependency-no-time-to-finish": {
+    "schema": "Error",
+    "data": {
+      "success": false,
+      "message": "Chặn thao tác và tải lại điều kiện",
+      "errorCode": "DEPENDENCY_UNRESOLVED",
+      "data": null,
+      "blockers": [
+        {
+          "code": "DEPENDENCY_UNRESOLVED",
+          "field": "dependencies",
+          "message": "Điều kiện không đạt theo FLOW3.md",
+          "constraintKey": null,
+          "useTime": null
+        }
+      ]
+    },
+    "expectation": "HTTP 409; không cập nhật trạng thái/reservation từng phần."
+  },
+  "changed-evidence-after-get": {
+    "schema": "Error",
+    "data": {
+      "success": false,
+      "message": "Chặn thao tác và tải lại điều kiện",
+      "errorCode": "READINESS_CHANGED",
+      "data": null,
+      "blockers": [
+        {
+          "code": "READINESS_CHANGED",
+          "field": "binding.evidenceVersion",
+          "message": "Điều kiện không đạt theo FLOW3.md",
+          "constraintKey": null,
+          "useTime": null
+        }
+      ]
+    },
+    "expectation": "HTTP 409; không cập nhật trạng thái/reservation từng phần."
+  },
+  "booking-before-plan-approved": {
+    "schema": "Error",
+    "data": {
+      "success": false,
+      "message": "Chặn thao tác và tải lại điều kiện",
+      "errorCode": "PLAN_NOT_APPROVED",
+      "data": null,
+      "blockers": [
+        {
+          "code": "PLAN_NOT_APPROVED",
+          "field": "approvedPlan",
+          "message": "Điều kiện không đạt theo FLOW3.md",
+          "constraintKey": null,
+          "useTime": null
+        }
+      ]
+    },
+    "expectation": "HTTP 409; không cập nhật trạng thái/reservation từng phần."
+  },
+  "old-booking-not-cancelled": {
+    "schema": "Error",
+    "data": {
+      "success": false,
+      "message": "Chặn thao tác và tải lại điều kiện",
+      "errorCode": "OLD_BOOKING_ACTIVE",
+      "data": null,
+      "blockers": [
+        {
+          "code": "OLD_BOOKING_ACTIVE",
+          "field": "booking",
+          "message": "Điều kiện không đạt theo FLOW3.md",
+          "constraintKey": null,
+          "useTime": null
+        }
+      ]
+    },
+    "expectation": "HTTP 409; không cập nhật trạng thái/reservation từng phần."
+  },
+  "departure-time-already-passed": {
+    "schema": "Error",
+    "data": {
+      "success": false,
+      "message": "Chặn thao tác và tải lại điều kiện",
+      "errorCode": "DEPARTURE_TIME_PASSED",
+      "data": null,
+      "blockers": [
+        {
+          "code": "DEPARTURE_TIME_PASSED",
+          "field": "plannedDepart",
+          "message": "Điều kiện không đạt theo FLOW3.md",
+          "constraintKey": null,
+          "useTime": null
+        }
+      ]
+    },
+    "expectation": "HTTP 409; không cập nhật trạng thái/reservation từng phần."
+  },
+  "superseded-legacy-mutation": {
+    "schema": "Error",
+    "data": {
+      "success": false,
+      "message": "Chặn thao tác và tải lại điều kiện",
+      "errorCode": "CONTRACT_SUPERSEDED",
+      "data": null,
+      "blockers": [
+        {
+          "code": "CONTRACT_SUPERSEDED",
+          "field": "contract",
+          "message": "Điều kiện không đạt theo FLOW3.md",
+          "constraintKey": null,
+          "useTime": null
+        }
+      ]
+    },
+    "expectation": "HTTP 409; không cập nhật trạng thái/reservation từng phần."
+  },
+  "unsupported-persistence": {
+    "schema": "Error",
+    "data": {
+      "success": false,
+      "message": "Chưa có persistence được nghiệm thu",
+      "errorCode": "FEATURE_NOT_SUPPORTED",
+      "data": null
+    },
+    "expectation": "HTTP 501; không giả thành công."
+  }
+}
