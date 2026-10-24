@@ -44,7 +44,7 @@ describe('Flow 1 wire contract', () => {
   it('uploads the selected File without dummy document content', async () => {
     const saved = example('/customer/horses', 'post', '201');
     request.mockResolvedValueOnce({ status: 201, data: saved });
-    request.mockResolvedValueOnce({ status: 201, data: example('/customer/horses/{horseId}/files/{kind}', 'post', '201') });
+    request.mockResolvedValueOnce({ status: 201, data: example('/customer/horses/{horseId}/files/{fileType}', 'post', '201') });
     const actual = new File(['actual passport content'], 'my-passport.pdf', { type: 'application/pdf' });
     const input = { ...saved.data, color: '', fluDate: '', vetName: '', vetPhone: '', passport: { ...saved.data.passport, scan: { name: actual.name, file: actual } } } as HorseInput;
     await customerApi.createHorse(input);

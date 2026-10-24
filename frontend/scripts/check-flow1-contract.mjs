@@ -38,9 +38,8 @@ assert(!validate('F1-J51Request', { versionNo: 0, otp: '482913' }));
 assert(!validate('F1-J51Request', { versionNo: 1, otp: '00000X' }));
 assert(!validate('F1-J39Request', { versionNo: 1, decision: 'RETURNED', text: 'Decision text' }));
 assert(!validate('F1-J43Request', { method: 'BANK_TRANSFER' }));
-assert(!validate('F1-J47Request', { confirmedAmount: -1, transactionCode: 'REF', receivedAt: '2026-10-23 09:20', note: '' }));
 const mutationOps = Object.values(spec.paths).flatMap(p => Object.values(p)).filter(op => op.requestBody?.content?.['application/json']);
-assert.equal(Object.values(spec.paths).reduce((n, p) => n + Object.keys(p).length, 0), 66);
+assert.equal(Object.values(spec.paths).reduce((n, p) => n + Object.keys(p).length, 0), 65);
 // Verify Markdown copies stay identical per endpoint, not just heading counts.
 const split = text => new Map([...text.matchAll(/^### (F1-J\d+) .*?(?=^### F1-J|^## |^<!-- FLOW1_JSON_\d+_END -->|$(?![\s\S]))/gms)].map(m => [m[1], m[0].trim()]));
 const left = split(main), right = split(companion);
