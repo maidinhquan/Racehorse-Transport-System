@@ -3,7 +3,7 @@ using System.Net;
 using System.Text.Json;
 using Application.Common.Flow1;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Application.Services.Flow1;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
@@ -30,7 +30,7 @@ public sealed class OsmRequestGate
 }
 
 public sealed class OsmTransportMaps(HttpClient http, Flow1MapOptions options, OsmRequestGate gate, TimeProvider clock)
-    : IFlow1RoadRoutingProvider, IFlow1GeocodingProvider, IFlow1LocationVerifier
+    : IRoadRouter, IGeocodingProvider, ILocationVerifier
 {
     private Uri Endpoint(string? root, string relative)
     {
@@ -84,8 +84,8 @@ public sealed class OsmTransportMaps(HttpClient http, Flow1MapOptions options, O
     }
     public async Task<IReadOnlyList<GeocodeCandidate>> SearchAsync(string address, string countryCode, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(address) || address.Length > 255 || countryCode is not ("VN" or "JP"))
-            throw Error("Enter an address and VN or JP.", "INVALID_LOCATION");
+        if (string.IsNullOrWhiteSpace(address) || address.Length > 255 || (countryCode is not { Length: 2 } || countryCode.Any(c => c is < 'A' or > 'Z')))
+            throw Error("Enter an address and a two-letter uppercase country code.", "INVALID_LOCATION");
         var endpoint = Endpoint(options.GeocodingBaseUrl, $"search?format=jsonv2&addressdetails=1&limit=5&countrycodes={countryCode.ToLowerInvariant()}&q={Uri.EscapeDataString(address)}");
         using var doc = await gate.ExecuteAsync(() => GetAsync(endpoint, ct), ct);
         try
@@ -103,7 +103,6 @@ public sealed class OsmTransportMaps(HttpClient http, Flow1MapOptions options, O
     {
         if (query.Points.Count != 2 || query.Profile != "driving") throw Error("Invalid routing input.", "INVALID_LOCATION");
         foreach (var p in query.Points) ValidatePoint(p);
-        if (query.Points.Any(p => p.CountryCode != "VN")) throw Error("International air transport cannot be routed as road.", "UNSUPPORTED_ROUTE");
         var coordinates = string.Join(";", query.Points.Select(p => F(p.Longitude) + "," + F(p.Latitude)));
         using var doc = await GetAsync(Endpoint(options.RoutingBaseUrl, $"route/v1/driving/{coordinates}?overview=false&steps=false&alternatives=false"), ct);
         try
@@ -122,7 +121,7 @@ public sealed class OsmTransportMaps(HttpClient http, Flow1MapOptions options, O
     private static void ValidatePoint(MapPoint p)
     {
         if (!double.IsFinite(p.Latitude) || !double.IsFinite(p.Longitude) || p.Latitude is < -90 or > 90 ||
-            p.Longitude is < -180 or > 180 || p.CountryCode is not ("VN" or "JP"))
+            p.Longitude is < -180 or > 180 || (p.CountryCode is not { Length: 2 } || p.CountryCode.Any(c => c is < 'A' or > 'Z')))
             throw Error("Invalid coordinates.", "INVALID_LOCATION");
     }
 }

@@ -1,4 +1,4 @@
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Domain.Flow1;
 using Microsoft.EntityFrameworkCore;
 using static Application.Common.Flow1.Flow1PricingPolicy;
@@ -42,7 +42,7 @@ public sealed class Flow1RelationalContext(DbContextOptions<Flow1RelationalConte
     }
 }
 
-public sealed class Flow1Data(Flow1RelationalContext db,string? retainedRoot=null) : IFlow1Data
+public sealed class Flow1Data(Flow1RelationalContext db,string? retainedRoot=null) : IDataStore
 {
     public async Task<T?> FindAsync<T>(string id, CancellationToken ct) where T : class =>
         await db.Set<T>().FindAsync([id], ct);

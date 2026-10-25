@@ -5,13 +5,13 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Infrastructure.ExternalServices.Flow1;
 
 // Read-only querydr; never invokes refund. HMAC format differs from PAY/IPN.
-public sealed class VnpayQueryGateway(HttpClient http,Flow1VnpayOptions options,TimeProvider clock):IFlow1GatewayQuery
+public sealed class VnpayQueryGateway(HttpClient http,Flow1VnpayOptions options,TimeProvider clock):IGatewayQuery
 {
     public static readonly string[] ResponseFields=["vnp_ResponseId","vnp_Command","vnp_ResponseCode","vnp_Message","vnp_TmnCode","vnp_TxnRef","vnp_Amount","vnp_BankCode","vnp_PayDate","vnp_TransactionNo","vnp_TransactionType","vnp_TransactionStatus","vnp_OrderInfo","vnp_PromotionCode","vnp_PromotionAmount"];
     public static string Sign(string secret,IEnumerable<string> values)=>Convert.ToHexString(HMACSHA512.HashData(Encoding.UTF8.GetBytes(secret),Encoding.UTF8.GetBytes(string.Join('|',values)))).ToLowerInvariant();

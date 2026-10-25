@@ -10,7 +10,7 @@ public sealed class RelationalArchitectureTests
     public void Active_assemblies_do_not_include_the_retained_state_store_or_reference_the_legacy_support_library()
     {
         var application=typeof(RelationalFlow1Service).Assembly;var infrastructure=typeof(Flow1RelationalContext).Assembly;var web=typeof(Program).Assembly;
-        Assert.Null(application.GetType("Application.Interfaces.Flow1.IFlow1StateStore"));
+        Assert.Null(application.GetType("Application.Flow1.Interfaces.IFlow1StateStore"));
         Assert.Null(infrastructure.GetType("Infrastructure.Storage.SqlFlow1StateStore"));
         Assert.Null(web.GetType("WebApi.Controllers.Flow1.CustomerTransportController"));
         foreach(var assembly in new[]{application,infrastructure,web}) Assert.DoesNotContain(assembly.GetReferencedAssemblies(),a=>a.Name=="Flow1LegacySupport");

@@ -1,12 +1,12 @@
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Infrastructure.Storage;
 
-public sealed class LocalFlow1PrivateFileStore(string root) : IFlow1PrivateFileStore
+public sealed class LocalFlow1PrivateFileStore(string root) : IFileArchive
 {
     public const int MaxBytes = 5 * 1024 * 1024;
     public async Task<PrivateFileReference> PutAsync(UploadedFile file, bool photo, CancellationToken ct)

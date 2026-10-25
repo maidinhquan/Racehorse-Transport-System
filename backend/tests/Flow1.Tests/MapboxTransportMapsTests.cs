@@ -1,7 +1,7 @@
 using System.Net;
 using Application.Common.Exceptions;
 using Application.Common.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Infrastructure.ExternalServices.Flow1;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -62,8 +62,8 @@ public sealed class MapboxTransportMapsTests
         services.AddFlow1Providers(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
             ["Flow1:Maps:Provider"] = choice }).Build(), new TestHost());
         using var provider = services.BuildServiceProvider(); using var scope = provider.CreateScope();
-        if (choice == "OSM") Assert.IsType<OsmTransportMaps>(scope.ServiceProvider.GetRequiredService<IFlow1RoadRoutingProvider>());
-        else Assert.Throws<InvalidOperationException>(() => scope.ServiceProvider.GetRequiredService<IFlow1RoadRoutingProvider>());
+        if (choice == "OSM") Assert.IsType<OsmTransportMaps>(scope.ServiceProvider.GetRequiredService<IRoadRouter>());
+        else Assert.Throws<InvalidOperationException>(() => scope.ServiceProvider.GetRequiredService<IRoadRouter>());
     }
     [Fact]
     public async Task Forward_uses_v6_permanent_explicit_search_and_keeps_token_out_of_result()
@@ -100,14 +100,14 @@ public sealed class MapboxTransportMapsTests
             Maps(Feature.Replace("\"VN\"", "\"TH\"")).VerifyAsync(new(106.6, 10.8, "VN"), default))).ErrorCode);
     }
     [Fact]
-    public async Task Directions_preserves_meters_seconds_and_never_routes_air_over_the_ocean()
+    public async Task Directions_preserves_units_and_validates_country_code_format()
     {
         var maps = Maps("""{"code":"Ok","routes":[{"distance":300000,"duration":18000}]}""");
         var route = await maps.CalculateAsync(Road());
         Assert.Equal("MAPBOX", route.Provider); Assert.Equal(300000, route.DistanceMeters); Assert.Equal(18000, route.DurationSeconds);
         Assert.False(route.MayPersist); Assert.DoesNotContain(Token, route.ToString());
-        Assert.Equal("UNSUPPORTED_ROUTE", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            maps.CalculateAsync(new([Road().Points[0], new(139.7, 35.6, "JP")])))).ErrorCode);
+        Assert.Equal("INVALID_LOCATION", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            maps.CalculateAsync(new([Road().Points[0], new(139.7, 35.6, "JPN")])))).ErrorCode);
         Assert.Equal("ROUTE_NOT_FOUND", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
             Maps("""{"code":"NoRoute"}""").CalculateAsync(Road()))).ErrorCode);
     }
@@ -174,10 +174,10 @@ public sealed class MapboxTransportMapsTests
         services.AddHttpClient<MapboxTransportMaps>().ConfigurePrimaryHttpMessageHandler(() => new Handler(_ =>
             new(HttpStatusCode.OK) { Content = new StringContent(Feature) }));
         using var provider = services.BuildServiceProvider(); using var scope = provider.CreateScope();
-        var geocoding = scope.ServiceProvider.GetRequiredService<IFlow1GeocodingProvider>();
+        var geocoding = scope.ServiceProvider.GetRequiredService<IGeocodingProvider>();
         Assert.IsType<MapboxTransportMaps>(geocoding);
-        Assert.IsType<MapboxTransportMaps>(scope.ServiceProvider.GetRequiredService<IFlow1RoadRoutingProvider>());
-        Assert.IsType<MapboxTransportMaps>(scope.ServiceProvider.GetRequiredService<IFlow1LocationVerifier>());
+        Assert.IsType<MapboxTransportMaps>(scope.ServiceProvider.GetRequiredService<IRoadRouter>());
+        Assert.IsType<MapboxTransportMaps>(scope.ServiceProvider.GetRequiredService<ILocationVerifier>());
         Assert.Single(await geocoding.SearchAsync("Hồ Chí Minh", "VN"));
         Assert.DoesNotContain(Token, string.Join("\n", logs.Messages));
     }

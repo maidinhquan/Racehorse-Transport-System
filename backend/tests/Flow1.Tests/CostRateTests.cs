@@ -1,7 +1,7 @@
 using Application.Common.Exceptions;
 using Application.Common.Flow1;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Application.Services.Flow1;
 using Domain.Flow1;
 using Xunit;
@@ -17,7 +17,7 @@ public sealed class CostRateTests
         ("VET_DAY","VET","PERSON_DAY",500000m),("CARE_DAY","VET","HORSE_DAY",300000m),
         ("INSURANCE_MIN","INSURANCE","TRIP",2000000m),("INSURANCE_RATE","INSURANCE","VALUE_RATIO",.005m)
     }.Select(x=>new FlowCostRate{CostRateID="rate-"+x.Item1,Code=x.Item1,CostGroup=x.Item2,CalculationUnit=x.Item3,Rate=x.Item4,CurrencyCode="VND",IsActive=true}).ToArray();
-    internal sealed class RateSource : IFlow1CostRates
+    internal sealed class RateSource : ICostRates
     { public Task<IReadOnlyList<FlowCostRate>> ReadAsync(CancellationToken ct)=>Task.FromResult(Rates()); }
 
     [Fact]
@@ -62,7 +62,7 @@ public sealed class CostRateTests
         var air=await service.DemoAsync(new("A","Tokyo",1),default);Assert.Equal(0,air.AverageRoadKm);
         await Assert.ThrowsAsync<BusinessRuleException>(()=>service.DemoAsync(new("A","A",1),default));
     }
-    private sealed class NoMaps : IFlow1RoadRoutingProvider,IFlow1LocationVerifier
+    private sealed class NoMaps : IRoadRouter,ILocationVerifier
     {
         public string Attribution=>"unused";
         public Task VerifyAsync(MapPoint point,CancellationToken ct)=>throw new InvalidOperationException("Demo must not call maps");

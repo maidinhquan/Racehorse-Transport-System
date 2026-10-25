@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Infrastructure.ExternalServices.Flow1;
@@ -20,7 +20,7 @@ public sealed class Flow1VnpayOptions
 
 /// <summary>Sandbox-only PAY 2.1.0. Canonical/HMAC logic follows the existing Payments/VnpayGateway module.
 /// No SandboxPaymentStore dependency; only the SQL ledger accepts verified IPN receipts.</summary>
-public sealed class VnpaySandboxGateway(Flow1VnpayOptions options, TimeProvider clock) : IFlow1PaymentGateway
+public sealed class VnpaySandboxGateway(Flow1VnpayOptions options, TimeProvider clock) : IPaymentGateway
 {
     public bool IsConfigured { get { try { Configure(); return true; } catch (Application.Common.Exceptions.BusinessRuleException) { return false; } } }
     private void Configure()

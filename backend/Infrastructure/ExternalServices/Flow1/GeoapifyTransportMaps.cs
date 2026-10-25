@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using Application.Common.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Application.Services.Flow1;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
@@ -11,7 +11,7 @@ namespace Infrastructure.ExternalServices.Flow1;
 // Geoapify permits storage with attribution, including its Free plan. The map renderer
 // remains independent; no Mapbox geocoding or routing results enter this adapter.
 public sealed class GeoapifyTransportMaps(HttpClient http, Flow1MapOptions options, OsmRequestGate gate, TimeProvider clock)
-    : IFlow1GeocodingProvider, IFlow1LocationVerifier, IFlow1RoadRoutingProvider
+    : IGeocodingProvider, ILocationVerifier, IRoadRouter
 {
     public const string SourceAttribution = "Powered by Geoapify | © OpenStreetMap contributors (ODbL)";
     public string? Attribution => SourceAttribution;
@@ -65,9 +65,9 @@ public sealed class GeoapifyTransportMaps(HttpClient http, Flow1MapOptions optio
 
     public async Task<IReadOnlyList<GeocodeCandidate>> SearchAsync(string address, string countryCode, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(address) || address.Length > 255 || countryCode is not ("VN" or "JP"))
-            throw Error("Enter an address and VN or JP.", "INVALID_LOCATION");
-        using var doc = await GetAsync($"v1/geocode/search?text={Uri.EscapeDataString(address)}&filter=countrycode:{countryCode.ToLowerInvariant()}&lang={(countryCode == "JP" ? "ja" : "vi")}&limit=5&format=json", ct);
+        if (string.IsNullOrWhiteSpace(address) || address.Length > 255 || (countryCode is not { Length: 2 } || countryCode.Any(c => c is < 'A' or > 'Z')))
+            throw Error("Enter an address and a two-letter uppercase country code.", "INVALID_LOCATION");
+        using var doc = await GetAsync($"v1/geocode/search?text={Uri.EscapeDataString(address)}&filter=countrycode:{countryCode.ToLowerInvariant()}&lang={(countryCode == "JP" ? "ja" : countryCode == "VN" ? "vi" : "en")}&limit=5&format=json", ct);
         return Parse<IReadOnlyList<GeocodeCandidate>>(() =>
         {
             var result = new List<GeocodeCandidate>();
@@ -102,7 +102,6 @@ public sealed class GeoapifyTransportMaps(HttpClient http, Flow1MapOptions optio
     {
         if (query.Points.Count != 2 || query.Profile != "driving") throw Error("Invalid routing input.", "INVALID_LOCATION");
         foreach (var point in query.Points) ValidatePoint(point);
-        if (query.Points.Any(p => p.CountryCode != "VN")) throw Error("Air transport cannot be routed as a road trip.", "UNSUPPORTED_ROUTE");
         // Geoapify waypoints are LAT,LON, unlike Mapbox's LON,LAT.
         var waypoints = string.Join("|", query.Points.Select(p => F(p.Latitude) + "," + F(p.Longitude)));
         using var doc = await GetAsync($"v1/routing?waypoints={Uri.EscapeDataString(waypoints)}&mode=drive&units=metric&format=geojson", ct);
@@ -126,7 +125,7 @@ public sealed class GeoapifyTransportMaps(HttpClient http, Flow1MapOptions optio
     private static void ValidatePoint(MapPoint point)
     {
         if (!double.IsFinite(point.Latitude) || !double.IsFinite(point.Longitude) || point.Latitude is < -90 or > 90 ||
-            point.Longitude is < -180 or > 180 || point.CountryCode is not ("VN" or "JP"))
+            point.Longitude is < -180 or > 180 || (point.CountryCode is not { Length: 2 } || point.CountryCode.Any(c => c is < 'A' or > 'Z')))
             throw Error("Invalid coordinates.", "INVALID_LOCATION");
     }
     private static T Parse<T>(Func<T> action)

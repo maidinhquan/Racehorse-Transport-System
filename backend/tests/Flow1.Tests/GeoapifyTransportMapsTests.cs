@@ -2,7 +2,7 @@ using System.Net;
 using Application.Common.Exceptions;
 using Application.Common.Flow1;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Application.Services.Flow1;
 using Infrastructure.ExternalServices.Flow1;
 using Microsoft.Extensions.Configuration;
@@ -80,8 +80,8 @@ public sealed class GeoapifyTransportMapsTests
         var route = await maps.CalculateAsync(Road());
         Assert.Equal("GEOAPIFY", route.Provider); Assert.Equal(300000, route.DistanceMeters); Assert.Equal(18000, route.DurationSeconds);
         Assert.True(route.MayPersist); Assert.DoesNotContain(Key, route.ToString());
-        Assert.Equal("UNSUPPORTED_ROUTE", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            maps.CalculateAsync(new([Road().Points[0], new(139.7, 35.6, "JP")])))).ErrorCode);
+        Assert.Equal("INVALID_LOCATION", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            maps.CalculateAsync(new([Road().Points[0], new(139.7, 35.6, "JPN")])))).ErrorCode);
     }
     [Theory]
     [InlineData("miles")]
@@ -150,9 +150,9 @@ public sealed class GeoapifyTransportMapsTests
         services.AddHttpClient<GeoapifyTransportMaps>().ConfigurePrimaryHttpMessageHandler(() => new Handler(_ =>
             new(HttpStatusCode.OK) { Content = new StringContent(Locations) }));
         using var root = services.BuildServiceProvider(); using var scope = root.CreateScope();
-        Assert.IsType<GeoapifyTransportMaps>(scope.ServiceProvider.GetRequiredService<IFlow1RoadRoutingProvider>());
-        Assert.IsType<GeoapifyTransportMaps>(scope.ServiceProvider.GetRequiredService<IFlow1LocationVerifier>());
-        var geocoder = scope.ServiceProvider.GetRequiredService<IFlow1GeocodingProvider>(); Assert.IsType<GeoapifyTransportMaps>(geocoder);
+        Assert.IsType<GeoapifyTransportMaps>(scope.ServiceProvider.GetRequiredService<IRoadRouter>());
+        Assert.IsType<GeoapifyTransportMaps>(scope.ServiceProvider.GetRequiredService<ILocationVerifier>());
+        var geocoder = scope.ServiceProvider.GetRequiredService<IGeocodingProvider>(); Assert.IsType<GeoapifyTransportMaps>(geocoder);
         Assert.Single(await geocoder.SearchAsync("HCM", "VN"));
         Assert.DoesNotContain(Key, string.Join("\n", logs.Messages));
     }

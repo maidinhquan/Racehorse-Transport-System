@@ -3,13 +3,13 @@ using System.Net;
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Infrastructure.ExternalServices.Email;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Infrastructure.ExternalServices.Flow1;
 
-public sealed class ContractOtpSecurity(string? configuredKey) : IContractOtpSecurity
+public sealed class ContractOtpSecurity(string? configuredKey) : IOtpSecurity
 {
     // No embedded/default signing key. A missing secret fails only the OTP commands, not PDF reads.
     public string NewCode() => RandomNumberGenerator.GetInt32(1_000_000).ToString("D6", CultureInfo.InvariantCulture);
@@ -29,7 +29,7 @@ public sealed class ContractSmtpOptions
     public bool AllowDevelopmentLoopback { get; set; }
 }
 // A dedicated sender: the registration Development sender deliberately logs codes and is unsuitable here.
-public sealed class ContractSmtpSender(ContractSmtpOptions options, bool development) : IContractOtpSender
+public sealed class ContractSmtpSender(ContractSmtpOptions options, bool development) : IOtpSender
 {
     public async Task SendAsync(string email, string code, string contractId, int version, string documentHash, DateTimeOffset expiresAt, CancellationToken ct)
     {
@@ -44,7 +44,7 @@ public sealed class ContractSmtpSender(ContractSmtpOptions options, bool develop
             using var client = new SmtpClient(s.Host, s.Port) { EnableSsl = s.EnableSsl, UseDefaultCredentials = false,
                 Credentials = string.IsNullOrEmpty(s.Username) ? null : new NetworkCredential(s.Username, s.Password) };
             using var message = new MailMessage(s.From, email) { Subject = "RaceHorse Transport - Contract confirmation",
-                Body = $"Contract: {contractId}\nSHA-256: {documentHash}\nConfirmation code: {code}\nExpires: {expiresAt:O}\nDo not share this code. Only confirm the PDF you reviewed." };
+                Body = $"Contract: {contractId}\nDocument reference: {documentHash}\nConfirmation code: {code}\nExpires: {expiresAt:O}\nDo not share this code. Only confirm the PDF you reviewed." };
             await client.SendMailAsync(message, timeout.Token);
         }
         catch (Exception e) when (e is SmtpException or FormatException or InvalidOperationException or OperationCanceledException)

@@ -8,7 +8,7 @@ using System.Xml;
 using System.Xml.Linq;
 using Application.Common.Flow1;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Infrastructure.ExternalServices.Flow1;
@@ -16,7 +16,7 @@ namespace Infrastructure.ExternalServices.Flow1;
 // One conversion per process; each job has a private profile, bounded timeout and unique directory.
 // SQL callers must invoke this adapter before opening their mutation transaction.
 public sealed class LibreOfficeContractDocumentGenerator(string contentRoot, Flow1ContractOptions options,
-    IFlow1PrivateFileStore files) : IFlow1ContractDocumentGenerator
+    IFileArchive files) : IDocumentGenerator
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";

@@ -2,7 +2,7 @@ using System.Net;
 using Application.Common.Exceptions;
 using Application.Common.Flow1;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Infrastructure.ExternalServices.Flow1;
 using Infrastructure.Storage;
 using Xunit;
@@ -21,14 +21,14 @@ public sealed class MapAndFileTests
             UserAgent = "RaceHorse-Tests/1.0", MayPersistResults = true }, new(), new FlowClock());
     private static RoadRouteQuery Road() => new([new(106.6, 10.8, "VN"), new(107.5, 11.5, "VN")]);
     [Fact]
-    public async Task OSRM_keeps_provider_units_and_cannot_route_Vietnam_to_Japan_as_a_road()
+    public async Task OSRM_keeps_provider_units_and_rejects_invalid_country_code_format()
     {
         var maps = Maps("""{"code":"Ok","routes":[{"distance":300000,"duration":18000}]}""");
         var result = await maps.CalculateAsync(Road());
         Assert.Equal(300000, result.DistanceMeters); Assert.Equal(18000, result.DurationSeconds);
         Assert.True(result.MayPersist); Assert.Equal("OSRM", result.Provider);
-        Assert.Equal("UNSUPPORTED_ROUTE", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
-            maps.CalculateAsync(new([Road().Points[0], new(139.7, 35.6, "JP")])))).ErrorCode);
+        Assert.Equal("INVALID_LOCATION", (await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            maps.CalculateAsync(new([Road().Points[0], new(139.7, 35.6, "JPN")])))).ErrorCode);
     }
     [Fact]
     public async Task Quota_no_route_and_malformed_provider_responses_never_become_zero_km()

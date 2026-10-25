@@ -2,14 +2,14 @@ using System.Text.Json;
 using Application.Common.Exceptions;
 using Application.Common.Flow1;
 using Application.DTOs;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using WebApi.Extensions;
+using WebApi.Extensions.Flow1;
 using Infrastructure.Storage;
 using WebApi.Middlewares;
 using Xunit;
@@ -73,10 +73,11 @@ public sealed class FoundationTests
         var publicRoot = Path.Combine(contentRoot, "public");
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["Flow1:Storage:MetadataRoot"] = Path.Combine(publicRoot, "metadata")
+            ["Flow1:Storage:MetadataRoot"] = Path.Combine(publicRoot, "metadata"),
+            ["ConnectionStrings:Flow1"] = "Server=localhost;Database=unused;Integrated Security=true"
         }).Build();
         var services = new ServiceCollection();
-        services.AddFlow1Relational(config, new TestEnvironment { ContentRootPath = contentRoot, WebRootPath = publicRoot });
+        services.AddRequestModule(config, new TestEnvironment { ContentRootPath = contentRoot, WebRootPath = publicRoot });
         using var provider = services.BuildServiceProvider();
         Assert.Throws<InvalidOperationException>(() => Flow1PrivateStoragePath.Resolve(Path.Combine(publicRoot, "metadata"), new TestEnvironment { ContentRootPath = contentRoot, WebRootPath = publicRoot }));
         Assert.False(Directory.Exists(Path.Combine(publicRoot, "metadata")));
@@ -95,11 +96,11 @@ public sealed class FoundationTests
     [Fact]
     public void Storage_configuration_keeps_legacy_byte_paths_and_allows_explicit_new_roots_without_a_file_state_provider()
     {
-        var settings = new Dictionary<string, string?> { ["Flow1:Storage:MetadataRoot"] = "App_Data/legacy" };
+        var settings = new Dictionary<string, string?> { ["Flow1:Storage:MetadataRoot"] = "App_Data/legacy", ["ConnectionStrings:Flow1"] = "Server=localhost;Database=unused;Integrated Security=true" };
         void Check(string bytes, string source)
         {
             var services = new ServiceCollection();
-            services.AddFlow1Relational(new ConfigurationBuilder().AddInMemoryCollection(settings).Build(), new TestEnvironment());
+            services.AddRequestModule(new ConfigurationBuilder().AddInMemoryCollection(settings).Build(), new TestEnvironment());
             using var provider = services.BuildServiceProvider();
             Assert.Equal(bytes, provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<Flow1PrivateFileOptions>>().Value.Root);
 

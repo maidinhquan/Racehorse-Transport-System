@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><IsTestProject>true</IsTestProject><IsPackable>false</IsPackable></PropertyGroup>
+<ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/><PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.30"/><PackageReference Include="xunit" Version="2.9.3"/><PackageReference Include="xunit.runner.visualstudio" Version="3.1.1"><PrivateAssets>all</PrivateAssets></PackageReference><ProjectReference Include="../../WebApi/WebApi.csproj"/></ItemGroup>
+<ItemGroup><None Include="../../../data/HorseTransportDB_Reviewed.sql" Link="Schema.sql" CopyToOutputDirectory="PreserveNewest"/><None Include="../../../data/Flow1/flow1.openapi.json" Link="Contract.json" CopyToOutputDirectory="PreserveNewest"/></ItemGroup>
+</Project>

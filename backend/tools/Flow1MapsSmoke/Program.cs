@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using Application.Common.Exceptions;
 using Application.Common.Flow1;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Application.Services.Flow1;
 using Infrastructure.ExternalServices.Flow1;
 using Microsoft.Extensions.Configuration;

@@ -5,7 +5,7 @@ using System.Text;
 using Application.Common.Exceptions;
 using Application.Common.Flow1;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Application.Services.Flow1;
 using Application.Services.Flow1.Relational;
 using Domain.Enums;
@@ -19,23 +19,23 @@ namespace Flow1.Tests;
 public sealed class RelationalFlow1Tests
 {
     internal sealed class Clock : TimeProvider { public DateTimeOffset Value=new(2026,11,1,3,0,0,TimeSpan.Zero); public override DateTimeOffset GetUtcNow()=>Value; }
-    internal sealed class Files : IFlow1CurrentFiles
+    internal sealed class Files : IPrivateFiles
     {
         public readonly Dictionary<string,(byte[],string)> Values=[];
         public Task<string> PutAsync(UploadedFile f,bool photo,CancellationToken ct) {var k="private/"+Convert.ToHexString(SHA256.HashData(f.Bytes)).ToLowerInvariant()+(photo?".png":".pdf");Values[k]=(f.Bytes,photo?"image/png":"application/pdf"); return Task.FromResult(k);}
         public Task<(byte[] Bytes,string ContentType)> ReadAsync(string k,CancellationToken ct)=>Task.FromResult(Values[k]);
     }
-    internal sealed class Sender : IContractOtpSender
+    internal sealed class Sender : IOtpSender
     {
         public string Code=""; public bool Fail; public Func<Task>? DuringSend;
         public async Task SendAsync(string email,string code,string id,int version,string hash,DateTimeOffset expiry,CancellationToken ct) { Code=code;if(DuringSend is not null)await DuringSend();if(Fail)throw new InvalidOperationException("Fixture delivery failed"); }
     }
-    internal sealed class Pdf(Files files) : IFlow1ContractDocumentGenerator
+    internal sealed class Pdf(Files files) : IDocumentGenerator
     {
         public ContractDocumentRequest? Last;public Func<Task>? DuringRender;
         public async Task<ContractDocumentResult> GenerateAsync(ContractDocumentRequest r,CancellationToken ct=default) {Last=r;if(DuringRender is not null)await DuringRender();var model=r.FrozenSnapshot.Deserialize<ContractPdfModel>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!;var k=await files.PutAsync(new(PublishedClauseSelection.Attach(Encoding.UTF8.GetBytes("%PDF-fixture-only "+r.FrozenSnapshot.GetRawText()),model.Clauses??[],model.AdditionalClauses),"c.pdf"),false,ct);return new(k[8..^4],k[8..^4],files.Values[k].Item1.Length);}
     }
-    internal sealed class Maps : IFlow1RoadRoutingProvider,IFlow1LocationVerifier
+    internal sealed class Maps : IRoadRouter,ILocationVerifier
     {
         public string Attribution=>"Fixture, not live maps";
         public Task VerifyAsync(MapPoint p,CancellationToken ct)=>Task.CompletedTask;
@@ -63,7 +63,7 @@ public sealed class RelationalFlow1Tests
                 """);
             f.Service=f.NewService();f.ClauseId=RequiredContractClauses.Ids[0];await f.Service.SaveClauseAsync(f.ClauseId,"manager",new("Điều khoản vận chuyển","Công ty vận chuyển theo lịch và điều kiện đã thỏa thuận."),default);return f;
         }
-        public RelationalFlow1Service NewService(IFlow1GatewayQuery? query=null,IFlow1CurrentFiles? currentFiles=null)
+        public RelationalFlow1Service NewService(IGatewayQuery? query=null,IPrivateFiles? currentFiles=null)
         {
             var context=new Flow1RelationalContext(new DbContextOptionsBuilder<Flow1RelationalContext>().UseSqlServer(Db.ConnectionString).Options);Contexts.Add(context);
             var maps=new Maps(); var options=new Flow1ContractOptions{Issuer=new(){["COMPANY_NAME"]="Fixture issuer",["COMPANY_ADDRESS"]="Fixture address",["COMPANY_EMAIL"]="issuer@example.invalid",["COMPANY_HOTLINE"]="0900000000",["COMPANY_TAX_CODE"]="FIXTURE",["COMPANY_BANK_ACCOUNT"]="FIXTURE",["COMPANY_BANK_NAME"]="FIXTURE",["COMPANY_REPRESENTATIVE"]="Fixture representative",["COMPANY_REP_POSITION"]="Fixture manager"}};

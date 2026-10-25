@@ -12,6 +12,7 @@ using Infrastructure.Services;
 
 using WebApi.Middlewares;
 using WebApi.Extensions;
+using WebApi.Extensions.Flow1;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -45,7 +46,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
-builder.Services.AddFlow1Relational(builder.Configuration, builder.Environment);
+builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
 
 // =============================================================================
 // 3. CẤU HÌNH CORS VĨNH VIỄN (ZERO-MAINTENANCE CORS CHO FRONTEND)
@@ -69,7 +70,6 @@ builder.Services.AddCors(options =>
 // Tránh lỗi vòng lặp quan hệ EF Core khi thêm các bảng mới sau này.
 // =============================================================================
 builder.Services.AddControllers()
-    .ConfigureApplicationPartManager(p=>p.FeatureProviders.Add(new Flow1ControllerSelection()))
     .AddJsonOptions(options =>
     {
         // Chống lỗi đệ quy vòng lặp khi entity có liên kết 1-nhiều, nhiều-nhiều (Horse, Trip, User...)

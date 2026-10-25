@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Application.Common.Exceptions;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Infrastructure.ExternalServices.Flow1;
 using Xunit;
 

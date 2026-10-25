@@ -6,7 +6,7 @@ using Application.Common.Flow1;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Infrastructure.Data.Context;
 
 using Microsoft.EntityFrameworkCore;

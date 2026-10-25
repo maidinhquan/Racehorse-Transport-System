@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 
 namespace Application.DTOs.Flow1;
 

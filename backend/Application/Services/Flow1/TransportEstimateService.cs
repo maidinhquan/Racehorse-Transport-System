@@ -1,11 +1,11 @@
 using Application.Common.Flow1;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 
 namespace Application.Services.Flow1;
 
-public sealed class TransportEstimateService(IFlow1RoadRoutingProvider routing, IFlow1LocationVerifier locations,
-    Flow1EstimateOptions options, TimeProvider clock, IFlow1CostRates rates)
+public sealed class TransportEstimateService(IRoadRouter routing, ILocationVerifier locations,
+    Flow1EstimateOptions options, TimeProvider clock, ICostRates rates)
 {
     public string? LocationAttribution=>locations.Attribution;
     public async Task<CostPlan> PlanAsync(string mode, int horses, decimal roadKm, int days, CostPlanningInput input, CancellationToken ct)

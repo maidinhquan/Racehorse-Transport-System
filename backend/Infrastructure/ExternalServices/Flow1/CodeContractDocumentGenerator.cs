@@ -4,14 +4,14 @@ using System.Text;
 using System.Text.Json;
 using Application.Common.Flow1;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Infrastructure.ExternalServices.Flow1;
 
 // Layout is code. Every clause is plain text from the reviewed SQL catalogue.
 public sealed class CodeContractDocumentGenerator(string contentRoot, Flow1ContractOptions options,
-    IFlow1PrivateFileStore files) : IFlow1ContractDocumentGenerator
+    IFileArchive files) : IDocumentGenerator
 {
     public async Task<ContractDocumentResult> GenerateAsync(ContractDocumentRequest request, CancellationToken ct = default)
     {

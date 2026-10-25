@@ -1,12 +1,12 @@
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Infrastructure.Storage;
 
-public sealed class Flow1CurrentFiles(string root, IFlow1PrivateFileStore files) : IFlow1CurrentFiles
+public sealed class Flow1CurrentFiles(string root, IFileArchive files) : IPrivateFiles
 {
     public async Task<string> PutAsync(UploadedFile file, bool photo, CancellationToken ct)
     {

@@ -4,7 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Application.DTOs;
 using Application.DTOs.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Infrastructure.Data.Context;
 using Infrastructure.ExternalServices.Flow1;
 using Microsoft.AspNetCore.Authentication;
@@ -28,18 +28,18 @@ internal sealed class RelationalHttpFactory(RelationalFlow1Tests.Fixture fixture
             s.AddDbContext<Flow1RelationalContext>(o=>o.UseSqlServer(connection??fixture.Db.ConnectionString));
             s.RemoveAll<DbContextOptions<HorseTransportDbContext>>();s.RemoveAll<HorseTransportDbContext>();s.AddDbContext<HorseTransportDbContext>(o=>o.UseSqlServer(connection??fixture.Db.ConnectionString));
             s.RemoveAll<TimeProvider>();s.AddSingleton<TimeProvider>(fixture.Time);
-            s.AddSingleton<IFlow1CurrentFiles>(fixture.Storage);s.AddSingleton<IFlow1ContractDocumentGenerator>(fixture.Renderer);
-            s.AddSingleton<IContractOtpSender>(fixture.Email);s.AddSingleton<IContractOtpSecurity>(new ContractOtpSecurity("fixture-contract-otp-hmac-key-at-least32bytes"));
+            s.AddSingleton<IPrivateFiles>(fixture.Storage);s.AddSingleton<IDocumentGenerator>(fixture.Renderer);
+            s.AddSingleton<IOtpSender>(fixture.Email);s.AddSingleton<IOtpSecurity>(new ContractOtpSecurity("fixture-contract-otp-hmac-key-at-least32bytes"));
             s.RemoveAll<Flow1VnpayOptions>();s.AddSingleton(fixture.Vnpay);
-            s.AddSingleton<IFlow1PaymentGateway>(new VnpaySandboxGateway(fixture.Vnpay,fixture.Time));
-            s.AddSingleton<IFlow1GatewayQuery>(new NoNetworkQuery());
-            var maps=new RelationalFlow1Tests.Maps();s.AddSingleton<IFlow1RoadRoutingProvider>(maps);s.AddSingleton<IFlow1LocationVerifier>(maps);
+            s.AddSingleton<IPaymentGateway>(new VnpaySandboxGateway(fixture.Vnpay,fixture.Time));
+            s.AddSingleton<IGatewayQuery>(new NoNetworkQuery());
+            var maps=new RelationalFlow1Tests.Maps();s.AddSingleton<IRoadRouter>(maps);s.AddSingleton<ILocationVerifier>(maps);
             s.AddSingleton(new Application.Common.Flow1.Flow1EstimateOptions{StandardVehicleCapacityStalls=1});
             s.AddSingleton(new Application.Common.Flow1.Flow1ContractOptions{Issuer=new(){["COMPANY_NAME"]="Fixture issuer",["COMPANY_ADDRESS"]="Fixture address",["COMPANY_EMAIL"]="issuer@example.invalid",["COMPANY_HOTLINE"]="0900000000",["COMPANY_TAX_CODE"]="FIXTURE",["COMPANY_BANK_ACCOUNT"]="FIXTURE",["COMPANY_BANK_NAME"]="FIXTURE",["COMPANY_REPRESENTATIVE"]="Fixture representative",["COMPANY_REP_POSITION"]="Fixture manager"}});
             s.AddAuthentication(o=>{o.DefaultAuthenticateScheme="RelationalTest";o.DefaultChallengeScheme="RelationalTest";o.DefaultForbidScheme="RelationalTest";}).AddScheme<AuthenticationSchemeOptions,CustomerTestAuth>("RelationalTest",_=>{});
         });
     }
-    private sealed class NoNetworkQuery:IFlow1GatewayQuery
+    private sealed class NoNetworkQuery:IGatewayQuery
     {public Task<GatewayQueryResult> QueryAsync(GatewayQueryRequest request,CancellationToken ct)=>throw new Application.Common.Exceptions.BusinessRuleException("Fixture query unavailable; no external request.",503,"VNPAY_QUERY_UNAVAILABLE");}
     public HttpClient Client(string? actor="owner",string role="CUSTOMER")
     {var c=CreateClient(new(){BaseAddress=new("https://localhost"),AllowAutoRedirect=false});if(actor is not null)c.DefaultRequestHeaders.Add("X-Test-Owner",actor);c.DefaultRequestHeaders.Add("X-Test-Role",role);return c;}

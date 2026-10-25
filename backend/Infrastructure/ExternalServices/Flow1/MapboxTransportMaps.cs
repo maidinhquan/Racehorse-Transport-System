@@ -3,14 +3,14 @@ using System.Net;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Application.Common.Flow1;
-using Application.Interfaces.Flow1;
+using Application.Flow1.Interfaces;
 using Application.Services.Flow1;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Infrastructure.ExternalServices.Flow1;
 
 public sealed class MapboxTransportMaps(HttpClient http, Flow1MapOptions options, TimeProvider clock)
-    : IFlow1RoadRoutingProvider, IFlow1GeocodingProvider, IFlow1LocationVerifier
+    : IRoadRouter, IGeocodingProvider, ILocationVerifier
 {
     private Uri Endpoint(string relative, bool permanentGeocoding = false)
     {
@@ -58,7 +58,7 @@ public sealed class MapboxTransportMaps(HttpClient http, Flow1MapOptions options
     public async Task<IReadOnlyList<GeocodeCandidate>> SearchAsync(string address, string countryCode, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(address) || address.Length > 255 || address.Contains(';') ||
-            Regex.Matches(address, @"[\p{L}\p{N}]+").Count > 20 || countryCode is not ("VN" or "JP"))
+            Regex.Matches(address, @"[\p{L}\p{N}]+").Count > 20 || (countryCode is not { Length: 2 } || countryCode.Any(c => c is < 'A' or > 'Z')))
             throw Error("Enter a supported country and address of at most 20 words without semicolons.", "INVALID_LOCATION");
         var language = countryCode == "JP" ? "&language=ja" : "";
         using var doc = await GetAsync($"search/geocode/v6/forward?q={Uri.EscapeDataString(address)}&country={countryCode.ToLowerInvariant()}{language}&limit=5&autocomplete=false&permanent=true", ct);
@@ -134,7 +134,6 @@ public sealed class MapboxTransportMaps(HttpClient http, Flow1MapOptions options
     {
         if (query.Points.Count != 2 || query.Profile != "driving") throw Error("Invalid routing input.", "INVALID_LOCATION");
         foreach (var point in query.Points) ValidatePoint(point);
-        if (query.Points.Any(x => x.CountryCode != "VN")) throw Error("Air transport cannot be routed as a road trip.", "UNSUPPORTED_ROUTE");
         var coordinates = string.Join(";", query.Points.Select(p => F(p.Longitude) + "," + F(p.Latitude)));
         using var doc = await GetAsync($"directions/v5/mapbox/driving/{coordinates}?overview=false&steps=false&alternatives=false", ct);
         return Parse(() =>
@@ -165,7 +164,7 @@ public sealed class MapboxTransportMaps(HttpClient http, Flow1MapOptions options
     private static void ValidatePoint(MapPoint point)
     {
         if (!double.IsFinite(point.Latitude) || !double.IsFinite(point.Longitude) || point.Latitude is < -90 or > 90 ||
-            point.Longitude is < -180 or > 180 || point.CountryCode is not ("VN" or "JP"))
+            point.Longitude is < -180 or > 180 || (point.CountryCode is not { Length: 2 } || point.CountryCode.Any(c => c is < 'A' or > 'Z')))
             throw Error("Invalid coordinates.", "INVALID_LOCATION");
     }
 }
