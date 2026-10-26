@@ -1,5 +1,0 @@
-.mgr-demo { margin-top: 16px; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 14px 16px; background: #fcfcfd; }
-.mgr-demo__title { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
-.mgr-demo p { margin: 6px 0 10px; font-size: 12px; color: #64748b; }
-.mgr-demo .mgr-demo__hint { margin: 10px 0 6px; }
-.mgr-demo .mgr-btn--block + .mgr-btn--block { margin-top: 6px; }

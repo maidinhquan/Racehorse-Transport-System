@@ -1,9 +1,0 @@
-.mgr-td__title { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.mgr-td__ready { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-.mgr-td__ready > div { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--mgr-line); border-radius: 10px; background: #fff; font-size: 13px; }
-.mgr-td__ready > div .mgr-i { flex: none; width: 16px; height: 16px; color: #dc2626; }
-.mgr-td__ready > div.ok .mgr-i { color: #16a34a; }
-.mgr-td__ready > div > span:not(.mgr-badge) { flex: 1; }
-.mgr-td__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 900px) { .mgr-td__grid { grid-template-columns: 1fr; } }
-.mgr-td__next { border-left: 4px solid var(--mgr-orange); padding: 10px 12px; background: #fff7ed; border-radius: 8px; font-size: 13px; margin-bottom: 10px; }

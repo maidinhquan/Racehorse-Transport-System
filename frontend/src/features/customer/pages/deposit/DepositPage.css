@@ -1,8 +1,0 @@
-.cus-deposit { max-width: 860px; margin-top: 16px; }
-.cus-deposit__amount { font-size: 18px; }
-.cus-deposit__qr { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; margin: 20px 0 4px; padding: 18px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fcfcfd; }
-.cus-deposit__qr > div:last-child { flex: 1; min-width: 240px; }
-.cus-deposit__code { background: #fff; padding: 12px; border-radius: 12px; border: 1px solid #e5e7eb; line-height: 0; }
-.cus-deposit__code.expired { opacity: .28; filter: grayscale(1); }
-.cus-deposit__timer { margin-top: 6px; font-size: 13px; color: #334155; }
-.cus-deposit__timer b { font-size: 18px; color: #ea580c; margin-left: 6px; font-variant-numeric: tabular-nums; }

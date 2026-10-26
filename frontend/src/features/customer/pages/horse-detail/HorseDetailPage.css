@@ -1,7 +1,0 @@
-.cus-hd__hero { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 4px; }
-.cus-hd__photo { width: 96px; height: 96px; border-radius: 16px; background: linear-gradient(135deg, #fff7ed, #f1f5f9); display: grid; place-items: center; overflow: hidden; color: #cbd5e1; }
-.cus-hd__photo img { width: 100%; height: 100%; object-fit: cover; }
-.cus-hd__photo .cus-i { width: 44px; height: 44px; }
-.cus-hd__file { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9; font-size: 13px; }
-.cus-hd__file > span { color: #64748b; min-width: 140px; }
-.cus-hd__file b { flex: 1; min-width: 0; word-break: break-all; }
