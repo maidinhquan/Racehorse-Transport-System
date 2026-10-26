@@ -1,6 +1,7 @@
 using Application.Common.Flow1;
 using Infrastructure.ExternalServices.Flow1;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.RateLimiting;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
@@ -10,11 +11,11 @@ namespace WebApi.Controllers.Flow1;
 public sealed class MapboxPreviewController(MapboxTransportMaps maps, Flow1MapOptions options) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> Get(double lat, double lng, string country, CancellationToken ct)
+    public async Task<IActionResult> Get([FromQuery, BindRequired] double lat, [FromQuery, BindRequired] double lng, CancellationToken ct)
     {
         if (!string.Equals(options.Provider, "MAPBOX", StringComparison.OrdinalIgnoreCase))
             throw Error("Map preview is not available for the selected provider.", "NOT_FOUND", 404);
-        var image = await maps.PreviewAsync(new(lng, lat, country), ct);
+        var image = await maps.PreviewAsync(lng, lat, ct);
         Response.Headers.CacheControl = "no-store";
         Response.Headers.XContentTypeOptions = "nosniff";
         return File(image, "image/png");

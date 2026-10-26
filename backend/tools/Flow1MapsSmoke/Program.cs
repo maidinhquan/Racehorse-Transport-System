@@ -30,7 +30,7 @@ var mapbox = new MapboxTransportMaps(http, options, clock);
 try
 {
     // Public city landmark only; no user/contact/horse data is sent to providers.
-    var image = await mapbox.PreviewAsync(new(106.7009, 10.7769, "VN"), default);
+    var image = await mapbox.PreviewAsync(106.7009, 10.7769, default);
     await File.WriteAllBytesAsync(Path.Combine(folder, "mapbox-preview.png"), image);
     checks.Add(new { Check = "MapboxStaticImage", Status = "PASS", Bytes = image.Length,
         Sha256 = Convert.ToHexString(SHA256.HashData(image)).ToLowerInvariant(), PermanentGeocodingEnabled = options.Mapbox.PermanentGeocodingEnabled });

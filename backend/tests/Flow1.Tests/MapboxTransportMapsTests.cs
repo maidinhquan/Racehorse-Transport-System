@@ -39,10 +39,22 @@ public sealed class MapboxTransportMapsTests
             response.Content.Headers.ContentType = new("image/png");
             return response;
         })), Options(), new FlowClock());
-        Assert.Equal(CustomerTransportTests.Png, await maps.PreviewAsync(Road().Points[0], default));
-        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => Maps("bad image " + Token).PreviewAsync(Road().Points[0], default));
+        Assert.Equal(CustomerTransportTests.Png, await maps.PreviewAsync(Road().Points[0].Longitude, Road().Points[0].Latitude, default));
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => Maps("bad image " + Token).PreviewAsync(Road().Points[0].Longitude, Road().Points[0].Latitude, default));
         Assert.Equal("MAP_PROVIDER_UNAVAILABLE", error.ErrorCode); Assert.DoesNotContain(Token, error.ToString());
     }
+    [Theory]
+    [InlineData(181, 21)]
+    [InlineData(105, 91)]
+    [InlineData(double.NaN, 21)]
+    [InlineData(105, double.PositiveInfinity)]
+    public async Task Preview_rejects_invalid_coordinates_without_calling_provider(double longitude, double latitude)
+    {
+        var maps = new MapboxTransportMaps(new(new Handler(_ => throw new InvalidOperationException("Provider must not be called"))), Options(), new FlowClock());
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() => maps.PreviewAsync(longitude, latitude, default));
+        Assert.Equal("INVALID_LOCATION", error.ErrorCode);
+    }
+
     [Theory]
     [InlineData("JP", "en")]
     [InlineData("VN", "vi")]
@@ -135,7 +147,7 @@ public sealed class MapboxTransportMapsTests
             var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(CustomerTransportTests.Png) };
             response.Content.Headers.ContentType = new("image/png"); return response;
         })), options, new FlowClock());
-        Assert.Equal(CustomerTransportTests.Png, await maps.PreviewAsync(Road().Points[0], default));
+        Assert.Equal(CustomerTransportTests.Png, await maps.PreviewAsync(Road().Points[0].Longitude, Road().Points[0].Latitude, default));
     }
     [Theory]
     [InlineData(401, "MAP_PROVIDER_AUTH_FAILED")]

@@ -96,10 +96,11 @@ public sealed class MapboxTransportMaps(HttpClient http, Flow1MapOptions options
         if (country != point.CountryCode) throw Error("Coordinates do not match the selected country.", "COUNTRY_MISMATCH");
     }
 
-    public async Task<byte[]> PreviewAsync(MapPoint point, CancellationToken ct)
+    public async Task<byte[]> PreviewAsync(double longitude, double latitude, CancellationToken ct)
     {
-        ValidatePoint(point);
-        var coords = F(point.Longitude) + "," + F(point.Latitude);
+        if (!double.IsFinite(latitude) || !double.IsFinite(longitude) || latitude is < -90 or > 90 || longitude is < -180 or > 180)
+            throw Error("Invalid coordinates.", "INVALID_LOCATION");
+        var coords = F(longitude) + "," + F(latitude);
         var uri = Endpoint($"styles/v1/mapbox/streets-v12/static/pin-s+156b59({coords})/{coords},9/600x300?logo=true&attribution=true");
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(TimeSpan.FromSeconds(15));
