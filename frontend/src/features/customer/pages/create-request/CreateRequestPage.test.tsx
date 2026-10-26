@@ -22,7 +22,8 @@ async function fillForm() {
   fireEvent.change(cities[0], { target: { value: 'Ho Chi Minh City' } });
   fireEvent.change(cities[1], { target: { value: 'Tokyo' } });
   await waitFor(() => expect(mocks.getFormOptions).toHaveBeenCalledWith('Ho Chi Minh City', 'Tokyo'));
-  fireEvent.change(screen.getByLabelText('Ngày vận chuyển mong muốn'), { target: { value: '01/12/2099' } });
+  fireEvent.change(screen.getByLabelText('Mong muốn CBN đến lấy ngựa *'), { target: { value: '30/11/2099' } });
+  fireEvent.change(screen.getByLabelText('Mong muốn ngựa tới nơi giao *'), { target: { value: '01/12/2099' } });
   fireEvent.change(screen.getByLabelText('Tên chuồng / câu lạc bộ *'), { target: { value: 'Pickup stable' } });
   fireEvent.change(screen.getByLabelText('Tên chuồng / trường đua *'), { target: { value: 'Tokyo stable' } });
   for (const input of screen.getAllByLabelText('Địa chỉ chi tiết *')) fireEvent.change(input, { target: { value: '123 Main Street' } });

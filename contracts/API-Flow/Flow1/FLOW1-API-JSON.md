@@ -1,8 +1,19 @@
 # Flow 1 — Danh sách JSON Request / Response cho FE và BE
 
+## Cập nhật theo helo.html — 26/10/2026 (thay thế thứ tự cũ)
+
+- Hai ngày mong muốn: `pickupAt` (lấy ngựa) và `date` (giao đến nơi). Không tự tạo ngày lấy từ ngày giao.
+- Luồng hiện hành: yêu cầu đầy đủ → Manager duyệt → hợp đồng → đồng ý điều khoản → ký OTP → `AWAITING_DEPOSIT` → VNPAY/IPN đủ cọc → kích hoạt và tạo một Trip.
+- OTP chỉ xác nhận chữ ký. Hợp đồng đã ký chờ cọc là `SIGNED`, chưa `EFFECTIVE`. Nội dung đã ký bất biến; tiền và tạo Trip chỉ do backend/IPN xác nhận.
+- Các đoạn mô tả thứ tự cọc trước/ký sau bên dưới là lịch sử và được thay bằng quy tắc tại mục này cùng quy tắc của từng endpoint.
+- Phản hồi ký có `tripId: null`, `tripStatus: null`. Frontend chuyển tới đặt cọc, không tự tạo Trip.
+- Hủy sau ký dùng API hủy/yêu cầu hủy với trạng thái và quyết định do backend trả về; không cho sửa nội dung hợp đồng đã ký để đổi lịch.
+- Đây là contract đích mới; backend và DB chưa được cập nhật trong thay đổi frontend này.
+
+
 ## Quyết định Flow 1 hiện hành — 24/10/2026
 
-- Chỉ thu tiền qua VNPAY. Tạo phiên → Customer thanh toán → backend xác minh IPN → cập nhật PAYMENT/INVOICE trong transaction → đủ cọc đúng version mới mở OTP. Return không xác nhận tiền. Không có API Manager confirm/reject thanh toán thủ công.
+- Chỉ thu tiền qua VNPAY. Tạo phiên → Customer thanh toán → backend xác minh IPN → cập nhật PAYMENT/INVOICE trong transaction → ký OTP trước, đủ cọc đúng version đã ký mới kích hoạt. Return không xác nhận tiền. Không có API Manager confirm/reject thanh toán thủ công.
 - Theo dõi tiến độ bằng status hiện tại; không xây timeline history hoặc audit riêng. Chỉ giữ metadata nghiệp vụ cần thiết: feedback gần nhất, trạng thái trước hủy, xác nhận điều khoản, metadata phát hành/ký/gia hạn/triển khai. Collection history/revisions/deadlineHistory/extensions cũ được bỏ khỏi DTO Flow 1.
 - ContentSnapshot lưu đầy đủ một hợp đồng hoàn chỉnh: số hợp đồng/version, ngày phát hành, bên cung cấp và Customer, thông tin liên hệ, danh sách ngựa, nơi nhận/giao và người nhận, tuyến/mode/lịch trình, chăm sóc, toàn bộ khoản giá/thuế/phí nếu áp dụng, tổng giá, tiền/tỷ lệ cọc, nghĩa vụ thanh toán, thời hạn, mọi điều khoản/phụ lục và giá trị policy đã áp dụng. Không bỏ trường thuộc hợp đồng; dữ liệu không áp dụng thể hiện rõ. PDF thể hiện cùng nội dung và được giữ theo version. Không dựng lại bản cũ từ master hiện tại. Bản phát hành/ký bất biến; sửa nội dung tạo version mới. Giá vốn nội bộ và OTP/hash không thuộc bản hợp đồng Customer.
 - fileType dùng chung photo/passport/ownership/value-proof. Không coi đây là mã ID. Hồ sơ y tế theo đơn dùng API documents.
@@ -14,11 +25,11 @@
 
 Nguồn NAME đích: [DATABASE_STATUS_CONVENTION.md](../../../data/DATABASE_STATUS_CONVENTION.md), mục 12. Request dùng cùng enum DB/API: DRAFT, PENDING_REVIEW, CHANGES_REQUESTED, CONTRACT_PREPARATION, CONTRACT_READY, CONTRACT_CHANGES_REQUESTED, DEPOSIT_VERIFIED, CANCELLATION_REQUESTED, ACTIVATED, SCHEDULED, IN_PROGRESS, DELIVERED, CLOSED, REJECTED, CANCELLED.
 
-Sau ký: ACTIVATED. Gate 1 đã duyệt và phân công xác nhận: SCHEDULED. Khởi hành thực tế: Request IN_PROGRESS, Trip IN_TRANSIT. Bàn giao hợp lệ: Request DELIVERED, Trip COMPLETED. Tất toán xong: Contract SETTLED, Request vẫn DELIVERED trong cửa sổ feedback/khiếu nại. Hết cửa sổ và không khiếu nại mở: Request CLOSED, Contract CLOSED. SCHEDULED không thay Gate 2; nếu Gate 1 bị thu hồi trước khởi hành, Request trở lại ACTIVATED để duyệt lại.
+Sau ký: AWAITING_DEPOSIT. Sau IPN xác minh đủ cọc: ACTIVATED. Gate 1 đã duyệt và phân công xác nhận: SCHEDULED. Khởi hành thực tế: Request IN_PROGRESS, Trip IN_TRANSIT. Bàn giao hợp lệ: Request DELIVERED, Trip COMPLETED. Tất toán xong: Contract SETTLED, Request vẫn DELIVERED trong cửa sổ feedback/khiếu nại. Hết cửa sổ và không khiếu nại mở: Request CLOSED, Contract CLOSED. SCHEDULED không thay Gate 2; nếu Gate 1 bị thu hồi trước khởi hành, Request trở lại ACTIVATED để duyệt lại.
 
-Contract tổng dùng EFFECTIVE sau ký; CONTRACT_VERSION vẫn SIGNED. State UI của phiên bản là projection, không phải enum DB. Payment UI PENDING_CONFIRMATION/PROCESSING/REJECTED, refund UI REFUNDED, deployment UI NOT_CONFIRMED được đối chiếu ở mục 12; không lưu trực tiếp các nhãn này vào cột có enum khác.
+Contract tổng dùng SIGNED sau ký, EFFECTIVE sau xác minh đủ cọc; CONTRACT_VERSION vẫn SIGNED. State UI của phiên bản là projection, không phải enum DB. Payment UI PENDING_CONFIRMATION/PROCESSING/REJECTED, refund UI REFUNDED, deployment UI NOT_CONFIRMED được đối chiếu ở mục 12; không lưu trực tiếp các nhãn này vào cột có enum khác.
 
-Chưa ký và chưa nhận cọc đã xác minh: hủy ngay thành CANCELLED, kể cả có phiên VNPay đang chờ. Đã nhận cọc một phần hoặc đủ: lưu TRANSPORT_REQUEST.CancellationPreviousStatus, chuyển CANCELLATION_REQUESTED / CONTRACT.CancellationStatus PENDING để Manager duyệt; duyệt → CANCELLED, từ chối → trạng thái trước hủy đã lưu. Giao dịch đến sau hủy đưa đối soát, không tự mở lại đơn. Đã ký/kích hoạt Trip không dùng quy trình hủy trước ký này.
+Chưa nhận cọc đã xác minh và chưa kích hoạt: hủy ngay thành CANCELLED, kể cả có phiên VNPay đang chờ. Đã nhận cọc một phần hoặc đủ: lưu TRANSPORT_REQUEST.CancellationPreviousStatus, chuyển CANCELLATION_REQUESTED / CONTRACT.CancellationStatus PENDING để Manager duyệt; duyệt → CANCELLED, từ chối → trạng thái trước hủy đã lưu. Giao dịch đến sau hủy đưa đối soát, không tự mở lại đơn. Đã kích hoạt Trip không dùng quy trình hủy trước triển khai này; đã ký nhưng chưa đủ cọc vẫn xử lý theo trạng thái thực tế do backend trả về.
 
 SQL Reviewed đã cho DeploymentStatus PENDING/CONFIRMED/ON_HOLD. Hold/resume là hợp đồng đích cần kiểm chứng backend; không còn bị chặn bởi enum SQL.
 
@@ -1174,7 +1185,8 @@ Tạo DRAFT. Role: **CUSTOMER**.
   "destinationCountry": "JP",
   "mode": "AIR",
   "date": "2026-11-20",
-  "careNotes": ""
+  "careNotes": "",
+  "pickupAt": "2026-11-19"
 }
 ```
 
@@ -1217,7 +1229,8 @@ Tạo DRAFT. Role: **CUSTOMER**.
     "docs": [],
     "supplements": [],
     "companyDocs": [],
-    "complaints": []
+    "complaints": [],
+    "pickupAt": "2026-11-19"
   }
 }
 ```
@@ -1236,6 +1249,9 @@ Tạo DRAFT. Role: **CUSTOMER**.
 ```
 
 
+
+
+**Lịch mong muốn (helo.html):** `pickupAt` và `date` là ngày ISO bắt buộc; `pickupAt` là ngày CBN đến lấy ngựa, `date` là ngày mong muốn giao. `today <= pickupAt <= date`; kiểm tra thời gian chuẩn bị trên `pickupAt`. Không tự suy diễn ngày lấy ngựa khi khách chưa nhập.
 
 ### F1-J19 — PUT /customer/requests/{requestId}
 
@@ -1283,7 +1299,8 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
   ],
   "horseNotes": {
     "HORSE_001": "Lưu ý khẩu phần"
-  }
+  },
+  "pickupAt": "2026-11-19"
 }
 ```
 
@@ -1346,7 +1363,8 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
     ],
     "supplements": [],
     "companyDocs": [],
-    "complaints": []
+    "complaints": [],
+    "pickupAt": "2026-11-19"
   }
 }
 ```
@@ -1365,6 +1383,9 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
 ```
 
 
+
+
+**Lịch mong muốn (helo.html):** `pickupAt` và `date` là ngày ISO bắt buộc; `pickupAt` là ngày CBN đến lấy ngựa, `date` là ngày mong muốn giao. `today <= pickupAt <= date`; kiểm tra thời gian chuẩn bị trên `pickupAt`. Không tự suy diễn ngày lấy ngựa khi khách chưa nhập.
 
 ### F1-J20 — POST /customer/requests/{requestId}/submit
 
@@ -1437,7 +1458,8 @@ Gửi/gửi lại. Role: **CUSTOMER**.
     ],
     "supplements": [],
     "companyDocs": [],
-    "complaints": []
+    "complaints": [],
+    "pickupAt": "2026-11-19"
   }
 }
 ```
@@ -1528,7 +1550,8 @@ Danh sách Customer Request. Role: **CUSTOMER**.
       ],
       "supplements": [],
       "companyDocs": [],
-      "complaints": []
+      "complaints": [],
+      "pickupAt": "2026-11-19"
     }
   ]
 }
@@ -1618,7 +1641,8 @@ Chi tiết Customer Request. Role: **CUSTOMER**.
     ],
     "supplements": [],
     "companyDocs": [],
-    "complaints": []
+    "complaints": [],
+    "pickupAt": "2026-11-19"
   }
 }
 ```
@@ -1763,7 +1787,8 @@ Danh sách Manager Request. Role: **LOGISTICS_MANAGER**.
           "note": "Chưa được Specialist duyệt"
         }
       ],
-      "collection": []
+      "collection": [],
+      "pickupAt": "2026-11-19"
     }
   ]
 }
@@ -1834,7 +1859,8 @@ Chi tiết Manager Request. Role: **LOGISTICS_MANAGER**.
         "note": "Chưa được Specialist duyệt"
       }
     ],
-    "collection": []
+    "collection": [],
+    "pickupAt": "2026-11-19"
   }
 }
 ```
@@ -1904,7 +1930,8 @@ Tiếp nhận đơn. Role: **LOGISTICS_MANAGER**.
         "note": "Chưa được Specialist duyệt"
       }
     ],
-    "collection": []
+    "collection": [],
+    "pickupAt": "2026-11-19"
   }
 }
 ```
@@ -1983,7 +2010,8 @@ Yêu cầu sửa. Role: **LOGISTICS_MANAGER**.
       }
     ],
     "collection": [],
-    "feedback": "Vui lòng xác nhận lại nơi nhận."
+    "feedback": "Vui lòng xác nhận lại nơi nhận.",
+    "pickupAt": "2026-11-19"
   }
 }
 ```
@@ -2062,7 +2090,8 @@ Từ chối. Role: **LOGISTICS_MANAGER**.
       }
     ],
     "collection": [],
-    "reason": "Không đáp ứng được lịch vận chuyển."
+    "reason": "Không đáp ứng được lịch vận chuyển.",
+    "pickupAt": "2026-11-19"
   }
 }
 ```
@@ -2138,7 +2167,8 @@ Query `mode` (ROAD/AIR, optional) chọn phương thức để resolve defaults;
           "note": "Chưa được Specialist duyệt"
         }
       ],
-      "collection": []
+      "collection": [],
+      "pickupAt": "2026-11-19"
     },
     "customer": {
       "id": "USER_001",
@@ -2220,7 +2250,8 @@ Query `mode` (ROAD/AIR, optional) chọn phương thức để resolve defaults;
           "note": "Chưa được Specialist duyệt"
         }
       ],
-      "collection": []
+      "collection": [],
+      "pickupAt": "2026-11-19"
     },
     "customer": {
       "id": "USER_001",
@@ -2739,7 +2770,8 @@ Version cho Manager. Role: **LOGISTICS_MANAGER**.
           "required": true
         }
       ],
-      "currency": "VND"
+      "currency": "VND",
+      "pickupAt": "2026-11-19"
     }
   }
 }
@@ -2919,7 +2951,8 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
             "required": true
           }
         ],
-        "currency": "VND"
+        "currency": "VND",
+        "pickupAt": "2026-11-19"
       }
     }
   }
@@ -3107,7 +3140,8 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
           "required": true
         }
       ],
-      "currency": "VND"
+      "currency": "VND",
+      "pickupAt": "2026-11-19"
     }
   }
 }
@@ -3255,7 +3289,8 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
           "required": true
         }
       ],
-      "currency": "VND"
+      "currency": "VND",
+      "pickupAt": "2026-11-19"
     }
   }
 }
@@ -3761,6 +3796,9 @@ Tạo session. Role: **CUSTOMER**.
 
 
 
+
+**Thứ tự mới:** chỉ tạo phiên cọc sau khi version đã ký (`SIGNED`, `signedAt` có giá trị) và Request `AWAITING_DEPOSIT`. Return không xác nhận tiền.
+
 ### F1-J44 — GET /customer/payments/{paymentId}
 
 Trạng thái cho Customer. Role: **CUSTOMER**.
@@ -4051,6 +4089,9 @@ Gửi OTP ký. Role: **CUSTOMER**.
 
 
 
+
+**Thứ tự mới:** đồng ý điều khoản → ký OTP → `SIGNED` / `AWAITING_DEPOSIT`. Không yêu cầu đã trả cọc và không tạo Trip trong API ký. IPN xác minh đủ tiền của version đã ký mới kích hoạt và tạo đúng một Trip.
+
 ### F1-J51 — POST /customer/contracts/{contractId}/sign
 
 Ký và tạo một Trip. Role: **CUSTOMER**.
@@ -4080,10 +4121,10 @@ Ký và tạo một Trip. Role: **CUSTOMER**.
     "requestId": "REQUEST_001",
     "contractId": "CONTRACT_001",
     "versionNo": 1,
-    "requestStatus": "ACTIVATED",
+    "requestStatus": "AWAITING_DEPOSIT",
     "versionStatus": "SIGNED",
-    "tripId": "TRIP_001",
-    "tripStatus": "PLANNING",
+    "tripId": null,
+    "tripStatus": null,
     "signedAt": "2026-10-23 09:25"
   }
 }
@@ -4103,6 +4144,9 @@ Ký và tạo một Trip. Role: **CUSTOMER**.
 ```
 
 
+
+
+**Thứ tự mới:** đồng ý điều khoản → ký OTP → `SIGNED` / `AWAITING_DEPOSIT`. Không yêu cầu đã trả cọc và không tạo Trip trong API ký. IPN xác minh đủ tiền của version đã ký mới kích hoạt và tạo đúng một Trip.
 
 ## 12. Hủy và hoàn
 
@@ -4156,7 +4200,7 @@ Customer hủy/đề nghị hủy. Role: **CUSTOMER**.
 }
 ```
 
-**Quy tắc:** Chưa ký và chưa nhận cọc đã xác minh: hủy ngay thành CANCELLED, kể cả có phiên VNPay đang chờ. Đã nhận cọc một phần hoặc đủ: lưu TRANSPORT_REQUEST.CancellationPreviousStatus, chuyển CANCELLATION_REQUESTED / CONTRACT.CancellationStatus PENDING để Manager duyệt; duyệt → CANCELLED, từ chối → trạng thái trước hủy đã lưu. Giao dịch đến sau hủy đưa đối soát, không tự mở lại đơn. Đã ký/kích hoạt Trip không dùng quy trình hủy trước ký này. Lưu lý do/người yêu cầu/thời điểm tại Request cho cả hai nhánh; nhánh hủy ngay để CancellationPreviousStatus NULL và không tạo Contract giả. Tiền cọc lấy từ PAYMENT đã xác minh, không tin FE; pending gateway không tính là đã nhận. Chặn phiên thanh toán mới và ký khi đang chờ hủy; callback trong lúc chờ hủy đưa đối soát, không ghi đè trạng thái chờ. Quyết định và tiền được kiểm tra trong transaction, retry không ghi đè prevStatus. Metadata lý do/thời điểm yêu cầu trên Contract là bản đồng bộ từ Request cho nhánh PENDING, không phải nguồn thứ hai; khi yêu cầu mới sau lần từ chối, reset metadata quyết định cũ và ghi prevStatus mới trong cùng transaction.
+**Quy tắc:** Chưa nhận cọc đã xác minh và chưa kích hoạt: hủy ngay thành CANCELLED, kể cả có phiên VNPay đang chờ. Đã nhận cọc một phần hoặc đủ: lưu TRANSPORT_REQUEST.CancellationPreviousStatus, chuyển CANCELLATION_REQUESTED / CONTRACT.CancellationStatus PENDING để Manager duyệt; duyệt → CANCELLED, từ chối → trạng thái trước hủy đã lưu. Giao dịch đến sau hủy đưa đối soát, không tự mở lại đơn. Đã kích hoạt Trip không dùng quy trình hủy trước triển khai này; đã ký nhưng chưa đủ cọc vẫn xử lý theo trạng thái thực tế do backend trả về. Lưu lý do/người yêu cầu/thời điểm tại Request cho cả hai nhánh; nhánh hủy ngay để CancellationPreviousStatus NULL và không tạo Contract giả. Tiền cọc lấy từ PAYMENT đã xác minh, không tin FE; pending gateway không tính là đã nhận. Chặn phiên thanh toán mới và ký khi đang chờ hủy; callback trong lúc chờ hủy đưa đối soát, không ghi đè trạng thái chờ. Quyết định và tiền được kiểm tra trong transaction, retry không ghi đè prevStatus. Metadata lý do/thời điểm yêu cầu trên Contract là bản đồng bộ từ Request cho nhánh PENDING, không phải nguồn thứ hai; khi yêu cầu mới sau lần từ chối, reset metadata quyết định cũ và ghi prevStatus mới trong cùng transaction.
 
 **Response lỗi 409 — INVALID_STATE**
 
@@ -4860,6 +4904,9 @@ Nhận thông báo server-to-server từ VNPay. Không dùng Bearer token Custom
 ```
 
 **Quy tắc:** Kiểm tra chữ ký, merchant, TxnRef đã lưu, amount/currency, Invoice và ContractVersion. Chỉ SUCCESS khi responseCode và transactionStatus cùng 00. Khóa giao dịch khi cập nhật PAYMENT và tính lại INVOICE.PaidAmount từ PAYMENT SUCCESS của đúng invoice/version; callback lặp không cộng tiền hai lần. Chỉ DEPOSIT_VERIFIED khi đủ cọc và Request còn hợp lệ; không tự tạo Trip. Callback sau hủy, trong lúc chờ hủy hoặc quá hạn phải giữ bằng chứng tiền, bật FinancialReviewRequired và không mở ký/kích hoạt. Payload không hợp lệ không được ghi SUCCESS; lỗi lưu trữ không trả xác nhận thành công. RspCode dùng hợp đồng adapter VNPay: 00 đã xử lý, 01 không thấy giao dịch, 02 đã xử lý, 04 sai số tiền, 97 sai xác thực, 99 lỗi khác. Các mã provider là chuỗi, không phải HTTP status. Browser Return chỉ đọc kết quả đã lưu; Customer kiểm tra bằng J44.
+
+
+**Kích hoạt sau IPN:** chỉ giao dịch hợp lệ của version đã ký mới được cộng tiền; đủ cọc → contract EFFECTIVE, Request ACTIVATED và tạo duy nhất một Trip PLANNING trong cùng transaction. IPN trùng không tạo thêm Trip. IPN thiếu chữ ký/sai số tiền hoặc version không hợp lệ không thay trạng thái.
 
 ## Kiểm tra bộ hợp đồng hiện hành
 

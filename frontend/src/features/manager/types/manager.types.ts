@@ -81,6 +81,7 @@ export type RequestStatus =
   | 'CONTRACT_READY'
   | 'CONTRACT_CHANGES_REQUESTED'
   | 'DEPOSIT_VERIFIED'
+  | 'AWAITING_DEPOSIT'
   | 'CANCELLATION_REQUESTED'
   | 'ACTIVATED'
   | 'SCHEDULED'
@@ -130,6 +131,7 @@ export interface TransportRequest {
   pickup: Place;
   delivery: Place;
   careNotes: string;
+  pickupAt?: string;
   submittedAt: string;
   feedback?: string;
   revisionFields?: RevisionField[];
@@ -150,7 +152,7 @@ export interface TransportRequest {
 // ---------------------------------------------------------------------------
 // Hợp đồng & giá
 // ---------------------------------------------------------------------------
-export type ContractState = 'ISSUED' | 'CHANGES_REQUESTED' | 'EXPIRED' | 'SUPERSEDED' | 'EFFECTIVE' | 'FULFILLED' | 'VOID';
+export type ContractState = 'SIGNED' | 'ISSUED' | 'CHANGES_REQUESTED' | 'EXPIRED' | 'SUPERSEDED' | 'EFFECTIVE' | 'FULFILLED' | 'VOID';
 export type TransportMode = 'ROAD' | 'AIR';
 
 export interface ContractItem {
@@ -273,6 +275,7 @@ export type RouteStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'CHANGES_REQUESTED';
 export interface RoutePlan {
   v: number;
   status: RouteStatus;
+  pickupAt?: string;
   submittedAt: string;
   stops: RouteStop[];
   vehicle?: string;

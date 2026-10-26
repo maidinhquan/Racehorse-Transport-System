@@ -15,7 +15,6 @@ import {
   fmtDateTime,
   fmtMoney,
   signBlock,
-  timeLeft,
   today,
   versionState,
 } from '../../../hooks/customerRules';
@@ -32,7 +31,7 @@ const CHANGE_ITEMS: Array<[ChangeItem, string]> = [
   ['date', 'Ngày vận chuyển mong muốn'], ['notes', 'Yêu cầu chăm sóc đặc biệt'], ['commercial', 'Điều khoản thương mại (giá, thanh toán)'], ['other', 'Thay đổi khác'],
 ];
 
-/** Tab Hợp đồng & chi phí: trình tự 1 đồng ý điều khoản → 2 đặt cọc → 3 ký OTP; yêu cầu sửa ngay trên trang */
+/** Tab Hợp đồng & chi phí: trình tự 1 đồng ý điều khoản → 2 ký OTP → 3 đặt cọc; yêu cầu sửa ngay trên trang */
 export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -74,16 +73,16 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
   };
 
   const status: Record<string, [('blue' | 'yellow' | 'grey' | 'green'), string, string]> = {
-    ISSUED: paid ? ['green', 'Đã xác minh cọc – chờ ký', `Ký ${ctRef(v)} bằng OTP trước ${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)}). Ký làm hợp đồng có hiệu lực và kích hoạt yêu cầu.`]
-      : v.termsAcceptedAt ? ['blue', 'Đã đồng ý điều khoản – thanh toán cọc', ds === 'PENDING' ? 'Tiền cọc đang được xác minh. Nút ký OTP mở sau khi xác minh.' : `Thanh toán cọc ${v.depositPct}% (${fmtMoney(depositAmount(r))}). Hạn ${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)}).`]
-      : ['blue', 'Xem hợp đồng của bạn', `Đồng ý điều khoản ${ctRef(v)}, thanh toán cọc rồi ký OTP trước ${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)}).`],
+    ISSUED: v.termsAcceptedAt ? ['blue', 'Đã đồng ý điều khoản – ký OTP', `Xem lại và ký ${ctRef(v)} trước ${fmtDateTime(v.validUntil)}. Sau khi ký bạn mới thanh toán cọc.`]
+      : ['blue', 'Xem hợp đồng của bạn', 'Đồng ý điều khoản, ký OTP, sau đó thanh toán cọc qua VNPAY.'],
+    SIGNED: ['blue', 'Đã ký – chờ xác minh tiền cọc', 'Nội dung đã ký chỉ để xem. Yêu cầu chỉ được kích hoạt và tạo chuyến sau khi backend xác minh đủ tiền cọc.'],
     CHANGES_REQUESTED: ['yellow', 'Đã yêu cầu sửa – chờ Manager', 'Phiên bản này không thể ký trong khi Manager xem xét yêu cầu sửa của bạn.'],
     EXPIRED: ['grey', 'Phiên bản hợp đồng đã hết hạn', `${ctRef(v)} hết hạn lúc ${fmtDateTime(v.validUntil)} và không thể ký. Yêu cầu vẫn còn hiệu lực – CBN Transport có thể gia hạn hoặc phát hành phiên bản mới.`],
     EFFECTIVE: ['green', 'Hợp đồng có hiệu lực', `Ký OTP lúc ${fmtDateTime(v.signedAt)}. Phiên bản đã ký chỉ để xem.`],
     FULFILLED: ['grey', 'Hợp đồng đã hoàn thành – hết hiệu lực', 'Mọi nghĩa vụ chính đã hoàn tất và yêu cầu đã đóng. Hợp đồng được lưu để tham chiếu.'],
     SUPERSEDED: ['grey', 'Đã thay thế', ''],
   };
-  const [tone, title, msg] = status[state];
+  const [tone, title, msg] = status[state] ?? ['grey', 'Hợp đồng', 'Đang cập nhật trạng thái.'];
 
   return (
     <>
@@ -170,7 +169,7 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
                 {live && (
                   <button type="button" className={`cus-btn ${canSign(r) ? 'cus-btn--solid' : ''}`} disabled={!canSign(r)} title={signBlock(r)}
                     onClick={() => navigate(`/customer/requests/${r.id}/sign`)}>
-                    {canSign(r) ? 'Ký hợp đồng bằng OTP' : 'Ký OTP (chưa xác minh cọc)'}
+                    {canSign(r) ? 'Ký hợp đồng bằng OTP' : 'Ký OTP (chưa đủ điều kiện)'}
                   </button>
                 )}
               </div>

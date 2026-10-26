@@ -18,10 +18,10 @@ const requestFromWire = (r: WireRequest): TransportRequest => ({ ...r,
 export interface PaymentSession { id: string; invoiceId: string; amount: number; currency: 'VND'; method: 'VNPAY'; status: string; paymentUrl: string; expiresAt: string }
 export type HorseFileType = 'photo' | 'passport' | 'ownership' | 'value-proof';
 const DOCUMENT_TYPES: Record<string, string> = { passport: 'PASSPORT', ownership: 'OWNERSHIP', valueProof: 'VALUATION', flu: 'VACCINATION', health: 'HEALTH_CERTIFICATE' };
-const routeBody = (r: TripInfoInput) => ({
+const routeBody = (r: TripInfoInput | TransportRequest) => ({
   origin: r.origin, destination: r.destination,
   originCountry: city(r.origin).country, destinationCountry: city(r.destination).country,
-  mode: city(r.destination).country === 'JP' ? 'AIR' : 'ROAD', date: r.date, careNotes: r.careNotes,
+  pickupAt: r.pickupAt ?? '', mode: city(r.destination).country === 'JP' ? 'AIR' : 'ROAD', date: r.date, careNotes: r.careNotes,
 });
 export const requestBody = (r: TransportRequest) => ({
   ...routeBody(r), pickup: r.pickup, delivery: r.delivery,
@@ -52,7 +52,7 @@ export const customerApi = {
       return { ...r, horseCount: Math.max(1, r.horses.length), horses: r.horses.length ? r.horses : [''] };
     });
   },
-  getSelectableHorses: (date: string, excludeRequestId: string) => contractClient<Array<{ id: string; name: string; selectable: boolean; conflict: unknown; documentWarnings: string[] }>>('get', '/customer/horses/selectable', undefined, { date, excludeRequestId }),
+  getSelectableHorses: (date: string, excludeRequestId: string, pickupAt?: string) => contractClient<Array<{ id: string; name: string; selectable: boolean; conflict: unknown; documentWarnings: string[] }>>('get', '/customer/horses/selectable', undefined, { date, excludeRequestId, ...(pickupAt ? { pickupAt } : {}) }),
   getRequest: async (id: string) => requestFromWire(await contractClient<WireRequest>('get', `/customer/requests/${id}`)),
   getHorse: (id: string) => contractClient<Horse>('get', `/customer/horses/${id}`),
   getSupportedRoutes: () => contractClient<FormOptions['supportedRoutes']>('get', '/master/supported-routes'),
@@ -107,7 +107,7 @@ export const customerApi = {
     versionNo, text: [body.text, body.proposedDate && `Ngày đề xuất: ${body.proposedDate}`, body.proposedNotes, body.commercial, body.other].filter(Boolean).join('\n'),
   }),
   sendSignOtp: (id: string, versionNo: number) => contractClient<{ expiresInSeconds: number; resendAfterSeconds: number; sentTo: string }>('post', `/customer/contracts/${id}/sign-otp`, { versionNo }),
-  signContract: (id: string, otp: string, versionNo: number) => contractClient<{ requestId: string; requestStatus: 'ACTIVATED'; tripId: string; tripStatus: 'PLANNING'; signedAt: string }>('post', `/customer/contracts/${id}/sign`, { versionNo, otp }),
+  signContract: (id: string, otp: string, versionNo: number) => contractClient<{ requestId: string; requestStatus: 'AWAITING_DEPOSIT'; tripId: null; tripStatus: null; signedAt: string }>('post', `/customer/contracts/${id}/sign`, { versionNo, otp }),
   payDeposit: async (requestId: string) => {
     try {
       const deposit = await customerApi.getDeposit(requestId);

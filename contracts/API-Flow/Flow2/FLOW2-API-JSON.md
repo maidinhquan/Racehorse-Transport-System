@@ -1,5 +1,16 @@
 # Flow 2 — toàn bộ JSON API
 
+## Cập nhật helo.html — 26/10/2026
+
+Specialist gửi danh sách hồ sơ có thời hạn trước; Coordinator chốt lịch khởi hành
+trên đúng version đó, sau đó Specialist mới chuẩn bị/cấp giấy tờ chính thức.
+Không thay đổi dữ liệu đã cấp khi xem trước. API bổ sung và guard nằm tại
+[Operations/OPERATIONS.md](../Operations/OPERATIONS.md) và
+[operations.openapi.json](../Operations/operations.openapi.json).
+Các mô tả cũ cho phép làm hồ sơ trước khi chốt lịch được thay bằng quy tắc này.
+Frontend/API contract đã cập nhật; backend chưa được triển khai trong thay đổi này.
+
+
 > **ĐÃ ĐỔI FLOW ngày 24/10/2026:** [Flow 3](../Flow3/FLOW3.md) là nguồn chuẩn cho đánh giá Specialist → lập phương án → Manager duyệt → hoàn tất booking/nguồn lực/hồ sơ → hai READY → Manager cho phép khởi hành. Các API chuẩn bị/duyệt trùng được đánh dấu SUPERSEDED bên dưới; JSON/schema cũ chỉ tra cứu lịch sử, không triển khai cùng flow mới. Các API hồ sơ và danh mục không bị thay thế tiếp tục áp dụng.
 
 Ngày 24/10/2026. Giao thức mục tiêu dựa trên frontend; chưa nối caller hiện có hoặc kiểm thử backend thật. Không sửa DB/backend. Mẫu thành công chỉ dùng khi backend đã lưu đầy đủ và trả được dữ liệu đúng schema; nếu chưa có khả năng này phải trả 501, không giả mẫu thành dữ liệu thật.

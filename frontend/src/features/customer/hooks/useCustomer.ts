@@ -268,6 +268,8 @@ function validateTripInfo(input: TripInfoInput): string {
   if (!input.origin || !input.destination) return 'Chọn điểm đi và điểm đến.';
   if (input.origin === input.destination) return 'Điểm đi và điểm đến phải khác nhau.';
   if (!isSupportedRoute(input.origin, input.destination)) return 'Tuyến này chưa nhận đơn mới (chỉ Việt Nam → Việt Nam và Việt Nam → Nhật Bản).';
+  if (!input.pickupAt || input.pickupAt < today()) return 'Chọn ngày lấy ngựa từ hôm nay trở đi.';
+  if (input.pickupAt > input.date) return 'Ngày lấy ngựa không được sau ngày giao mong muốn.';
   if (!input.date || input.date < today()) return 'Ngày vận chuyển phải từ hôm nay trở đi.';
   if (input.horseCount < 1 || input.horseCount > 6) return 'Số lượng ngựa từ 1 đến 6.';
   return '';
@@ -324,7 +326,7 @@ const customerActions = {
     if (current.status === 'CHANGES_REQUESTED') {
       const allowed = current.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'];
       if ((!allowed.includes('route') && (trip.origin !== current.origin || trip.destination !== current.destination))
-        || (!allowed.includes('date') && trip.date !== current.date)
+        || (!allowed.includes('date') && (trip.date !== current.date || trip.pickupAt !== current.pickupAt))
         || (!allowed.includes('places') && (JSON.stringify(pickup) !== JSON.stringify(current.pickup) || JSON.stringify(delivery) !== JSON.stringify(current.delivery)))) return fail('Manager chỉ cho phép sửa các mục đã nêu trong góp ý.');
     }
     const updated: TransportRequest = { ...current, ...trip, pickup: { ...pickup }, delivery: { ...delivery }, wizardStep: Math.max(current.wizardStep, 2) };
@@ -352,7 +354,7 @@ const customerActions = {
       const allowed: RequestField[] = r.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'];
       const changed: RequestField[] = [];
       if (input.origin !== r.origin || input.destination !== r.destination) changed.push('route');
-      if (input.date !== r.date) changed.push('date');
+      if ((input.date !== r.date || input.pickupAt !== r.pickupAt)) changed.push('date');
       if (input.horseCount !== r.horseCount) changed.push('horses');
       if (input.careNotes.trim() !== r.careNotes) changed.push('notes');
       const locked = changed.filter((f) => !allowed.includes(f));
@@ -361,7 +363,7 @@ const customerActions = {
     const err = validateTripInfo(input);
     if (err) return fail(err);
     updateReq(id, (x) => {
-      x.origin = input.origin; x.destination = input.destination; x.date = input.date; x.careNotes = input.careNotes.trim();
+      x.origin = input.origin; x.destination = input.destination; x.date = input.date; x.pickupAt = input.pickupAt; x.careNotes = input.careNotes.trim();
       resizeHorses(x, input.horseCount);
       log(x, 'CUSTOMER', 'Cập nhật thông tin chuyến', `${input.origin} → ${input.destination} • ${fmtDateTime(input.date)} • ${input.horseCount} ngựa`);
     });
@@ -506,7 +508,7 @@ const customerActions = {
   },
   async sendSignOtp(id: string): Promise<ActionResult> {
     const r = findReq(id); const v = r && curVersion(r);
-    if (!r || !v?.contractId || !canSign(r)) return fail('Cần xác minh đủ cọc trước khi ký OTP.');
+    if (!r || !v?.contractId || !canSign(r)) return fail('Cần đồng ý điều khoản của phiên bản hợp đồng còn hạn trước khi ký OTP.');
     if (state.otp?.requestId === id && state.otp.resendAtMs > clockMs()) return fail('Chưa đến thời gian gửi lại OTP.');
     try {
       const result = await customerApi.sendSignOtp(v.contractId, v.v);
@@ -521,11 +523,11 @@ const customerActions = {
     if (!/^\d{6}$/.test(code)) return fail('Nhập đủ 6 chữ số OTP.');
     try {
       const result = await customerApi.signContract(v.contractId, code, v.v);
-      if (result.requestStatus !== 'ACTIVATED' || !result.tripId) return fail('API chưa xác nhận kích hoạt và tạo chuyến. Hãy tải lại trạng thái.');
+      if (result.requestStatus !== 'AWAITING_DEPOSIT' || result.tripId !== null) return fail('API ký chưa trả đúng trạng thái chờ cọc. Hãy tải lại trạng thái.');
       setState({ otp: null });
       const updated = await customerApi.getRequest(id);
       setState(s => ({ requests: s.requests.map(x => x.id === id ? updated : x) }));
-      return ok(`Đã ký hợp đồng. Chuyến ${result.tripId} đã được tạo.`);
+      return ok('Đã ký hợp đồng. Thanh toán tiền cọc để kích hoạt yêu cầu.');
     } catch (error) { return fail(apiMessage(error)); }
   },
 
@@ -855,7 +857,7 @@ const actions: CustomerActions = { ...customerActions, demo: demoActions };
 /** Số mục khách hàng cần xử lý trong một yêu cầu (dùng cho huy hiệu menu) */
 export function needsCustomerAction(r: TransportRequest) {
   const v = curVersion(r);
-  if (['DRAFT', 'CHANGES_REQUESTED', 'DEPOSIT_VERIFIED'].includes(r.status)) return true;
+  if (['DRAFT', 'CHANGES_REQUESTED', 'AWAITING_DEPOSIT', 'DEPOSIT_VERIFIED'].includes(r.status)) return true;
   if (r.status === 'CONTRACT_READY' && v && versionState(v) === 'ISSUED' && (!v.termsAcceptedAt || ['NONE', 'FAILED'].includes(depositState(r)))) return true;
   if (['ACTIVATED', 'SCHEDULED'].includes(r.status) && docsNeedingAction(r) > 0) return true;
   if (r.status === 'DELIVERED' && (r.acceptance?.status === 'PENDING' || (r.acceptance?.status === 'ACCEPTED' && balanceDue(r) > 0 && !r.payments.some((p) => p.type === 'BALANCE' && p.status === 'PROCESSING')))) return true;

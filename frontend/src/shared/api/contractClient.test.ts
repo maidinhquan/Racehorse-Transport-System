@@ -71,16 +71,16 @@ describe('Flow 1 wire contract', () => {
 describe('current Flow 1 request boundaries', () => {
   it('sends the UUID idempotency header without UI-only request fields', async () => {
     request.mockResolvedValue({ status: 201, data: example('/customer/requests', 'post', '201') });
-    const input = { origin: 'Ho Chi Minh City', destination: 'Tokyo', date: '2026-11-20', horseCount: 3, careNotes: '' };
+    const input = { origin: 'Ho Chi Minh City', destination: 'Tokyo', date: '2026-11-20', pickupAt: '2026-11-19', horseCount: 3, careNotes: '' };
     const key = '1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd';
     const result = await customerApi.createRequest(input, key);
-    expect(request.mock.calls[0][0]).toMatchObject({ headers: { 'Idempotency-Key': key }, data: { origin: input.origin, destination: input.destination, originCountry: 'VN', destinationCountry: 'JP', mode: 'AIR', date: input.date, careNotes: '' } });
+    expect(request.mock.calls[0][0]).toMatchObject({ headers: { 'Idempotency-Key': key }, data: { origin: input.origin, destination: input.destination, originCountry: 'VN', destinationCountry: 'JP', mode: 'AIR', date: input.date, pickupAt: input.pickupAt, careNotes: '' } });
     expect(request.mock.calls[0][0]?.data).not.toHaveProperty('horseCount');
     expect(result.history).toEqual([]);
     expect(result.revisions).toEqual([]);
   });
   it('rejects missing required headers, invalid path parameters and undocumented endpoints', async () => {
-    const body = { origin: 'Ho Chi Minh City', destination: 'Tokyo', originCountry: 'VN', destinationCountry: 'JP', mode: 'AIR', date: '2026-11-20', careNotes: '' };
+    const body = { origin: 'Ho Chi Minh City', destination: 'Tokyo', originCountry: 'VN', destinationCountry: 'JP', mode: 'AIR', date: '2026-11-20', pickupAt: '2026-11-19', careNotes: '' };
     await expect(contractClient('post', '/customer/requests', body)).rejects.toThrow('Idempotency-Key');
     await expect(contractClient('get', '/customer/horses/not-a-contract-id')).rejects.toThrow('horseId');
     await expect(contractClient('post', '/manager/payments/PAYMENT_001/confirm', {})).rejects.toThrow('không có');

@@ -35,7 +35,7 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
   return (
     <div className="cus-stack">
       {section('Nhận & giao ngựa', 0, <>
-        <div className="cus-kv"><div><span>Ngày vận chuyển mong muốn</span><b>{fmtDate(r.date)}</b></div></div>
+        <div className="cus-kv"><div><span>Mong muốn CBN đến lấy ngựa</span><b>{fmtDate(r.pickupAt)}</b></div><div><span>Mong muốn ngựa tới nơi giao</span><b>{fmtDate(r.date)}</b></div></div>
         <div className="cus-grid2 cus-wizard__review-places">
           <div><div className="cus-eyebrow">Nhận ngựa</div><PlaceBlock place={r.pickup} city={r.origin} who="Người bàn giao" /></div>
           <div><div className="cus-eyebrow">Giao ngựa</div><PlaceBlock place={r.delivery} city={r.destination} who="Người nhận" /></div>

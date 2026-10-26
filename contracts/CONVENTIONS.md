@@ -4,6 +4,8 @@ Cập nhật 24/10/2026. Áp dụng cho thiết kế Flow 1, Flow 2 và Flow 3. 
 
 ## 1. Phạm vi và nguồn chuẩn
 
+- Flow 6 (26/10/2026): [quy tắc hiện hành](API-Flow/Flow6/FLOW6.md), [JSON từng API](API-Flow/Flow6/FLOW6-API-JSON.md), [OpenAPI](API-Flow/Flow6/flow6.openapi.json), [review checklist](API-Flow/Flow6/REVIEW.md). Khách nghiệm thu cuối cùng rồi thanh toán; quá hạn chỉ cảnh báo; Manager gia hạn/xử lý tranh chấp/đóng. Thay thế mô tả hậu bàn giao cũ; backend chưa triển khai. Riêng Flow 6 có revision/idempotency và history bắt buộc như tài liệu này quy định.
+
 - Flow, quyền và điều kiện nghiệp vụ: [FLOW1.md](API-Flow/Flow1/FLOW1.md).
 - Toàn bộ ví dụ request/response: [FLOW1-API-JSON.md](API-Flow/Flow1/FLOW1-API-JSON.md).
 - Kiểu dữ liệu, required, nullable, enum và giới hạn: [flow1.openapi.json](API-Flow/Flow1/flow1.openapi.json).

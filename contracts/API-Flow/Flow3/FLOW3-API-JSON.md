@@ -1,5 +1,16 @@
 # Flow 3 — JSON đầy đủ từng API
 
+## Cập nhật helo.html — 26/10/2026
+
+Specialist gửi danh sách hồ sơ có thời hạn trước; Coordinator chốt lịch khởi hành
+trên đúng version đó, sau đó Specialist mới chuẩn bị/cấp giấy tờ chính thức.
+Không thay đổi dữ liệu đã cấp khi xem trước. API bổ sung và guard nằm tại
+[Operations/OPERATIONS.md](../Operations/OPERATIONS.md) và
+[operations.openapi.json](../Operations/operations.openapi.json).
+Các mô tả cũ cho phép làm hồ sơ trước khi chốt lịch được thay bằng quy tắc này.
+Frontend/API contract đã cập nhật; backend chưa được triển khai trong thay đổi này.
+
+
 Ngày 24/10/2026. Thiết kế mục tiêu theo flow mới trong ảnh người dùng. Chưa triển khai backend/frontend/DB. [Flow và quy tắc](FLOW3.md) · [OpenAPI 3.1](flow3.openapi.json) · [Kịch bản](flow3.examples.json).
 
 Mẫu từng API độc lập, không phải một chuỗi request liên tiếp. Revision/ID phải lấy từ response thật. Context ROAD không dùng để book AIR. Base `/api`, Bearer JWT; actor/time/status do server cấp. Tất cả POST/PUT đổi trạng thái gửi Idempotency-Key UUID; POST validate chỉ đọc không cần key. GET không body. Danh sách data array. Mutation chưa hỗ trợ trả 501, không trả mẫu thành dữ liệu đã lưu.

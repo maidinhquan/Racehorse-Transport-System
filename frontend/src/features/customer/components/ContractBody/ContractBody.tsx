@@ -41,7 +41,8 @@ export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVers
         <h3 className="cus-card__title">A. Tổng quan vận chuyển</h3>
         <div className="cus-kv">
           <div><span>Mã yêu cầu</span><b>{r.id}</b></div>
-          <div><span>Ngày khách mong muốn</span><b>{fmtDate(detail.date)}</b></div>
+          <div><span>Mong muốn CBN đến lấy ngựa</span><b>{fmtDate(detail.pickupAt)}</b></div>
+          <div><span>Mong muốn ngựa tới nơi giao</span><b>{fmtDate(detail.date)}</b></div>
           <div><span>Điểm đi</span><b>{cityLabel(detail.origin)}</b></div>
           <div><span>Điểm đến</span><b>{cityLabel(detail.destination)}</b></div>
           <div><span>Phương thức dự kiến</span><b>{plan.mode === 'AIR' ? 'Hàng không + đường bộ' : 'Đường bộ'}</b></div>

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Flow 1 — frontend contract",
-    "version": "1.1.0",
+    "version": "2.0.0",
     "description": "Target interface; SQL Reviewed deployment CHECK supports ON_HOLD; live database and backend not updated. See x-implementation-status on operations. Examples are illustrative; schemas are normative."
   },
   "servers": [
@@ -2119,6 +2119,15 @@
             }
           },
           {
+            "name": "pickupAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          },
+          {
             "name": "excludeRequestId",
             "in": "query",
             "required": false,
@@ -2690,7 +2699,8 @@
                         "docs": [],
                         "supplements": [],
                         "companyDocs": [],
-                        "complaints": []
+                        "complaints": [],
+                        "pickupAt": "2026-11-19"
                       }
                     }
                   }
@@ -2814,7 +2824,8 @@
                 "destinationCountry": "JP",
                 "mode": "AIR",
                 "date": "2026-11-20",
-                "careNotes": ""
+                "careNotes": "",
+                "pickupAt": "2026-11-19"
               }
             }
           }
@@ -2891,7 +2902,8 @@
                           ],
                           "supplements": [],
                           "companyDocs": [],
-                          "complaints": []
+                          "complaints": [],
+                          "pickupAt": "2026-11-19"
                         }
                       ]
                     }
@@ -3065,7 +3077,8 @@
                         ],
                         "supplements": [],
                         "companyDocs": [],
-                        "complaints": []
+                        "complaints": [],
+                        "pickupAt": "2026-11-19"
                       }
                     }
                   }
@@ -3216,7 +3229,8 @@
                 ],
                 "horseNotes": {
                   "HORSE_001": "Lưu ý khẩu phần"
-                }
+                },
+                "pickupAt": "2026-11-19"
               }
             }
           }
@@ -3292,7 +3306,8 @@
                         ],
                         "supplements": [],
                         "companyDocs": [],
-                        "complaints": []
+                        "complaints": [],
+                        "pickupAt": "2026-11-19"
                       }
                     }
                   }
@@ -3476,7 +3491,8 @@
                         ],
                         "supplements": [],
                         "companyDocs": [],
-                        "complaints": []
+                        "complaints": [],
+                        "pickupAt": "2026-11-19"
                       }
                     }
                   }
@@ -3817,7 +3833,8 @@
                               "note": "Chưa được Specialist duyệt"
                             }
                           ],
-                          "collection": []
+                          "collection": [],
+                          "pickupAt": "2026-11-19"
                         }
                       ]
                     }
@@ -3972,7 +3989,8 @@
                             "note": "Chưa được Specialist duyệt"
                           }
                         ],
-                        "collection": []
+                        "collection": [],
+                        "pickupAt": "2026-11-19"
                       }
                     }
                   }
@@ -4137,7 +4155,8 @@
                             "note": "Chưa được Specialist duyệt"
                           }
                         ],
-                        "collection": []
+                        "collection": [],
+                        "pickupAt": "2026-11-19"
                       }
                     }
                   }
@@ -4303,7 +4322,8 @@
                           }
                         ],
                         "collection": [],
-                        "feedback": "Vui lòng xác nhận lại nơi nhận."
+                        "feedback": "Vui lòng xác nhận lại nơi nhận.",
+                        "pickupAt": "2026-11-19"
                       }
                     }
                   }
@@ -4483,7 +4503,8 @@
                           }
                         ],
                         "collection": [],
-                        "reason": "Không đáp ứng được lịch vận chuyển."
+                        "reason": "Không đáp ứng được lịch vận chuyển.",
+                        "pickupAt": "2026-11-19"
                       }
                     }
                   }
@@ -4662,7 +4683,8 @@
                               "note": "Chưa được Specialist duyệt"
                             }
                           ],
-                          "collection": []
+                          "collection": [],
+                          "pickupAt": "2026-11-19"
                         },
                         "customer": {
                           "id": "USER_001",
@@ -4741,7 +4763,8 @@
                               "note": "Chưa được Specialist duyệt"
                             }
                           ],
-                          "collection": []
+                          "collection": [],
+                          "pickupAt": "2026-11-19"
                         },
                         "customer": {
                           "id": "USER_001",
@@ -5654,7 +5677,8 @@
                               "required": true
                             }
                           ],
-                          "currency": "VND"
+                          "currency": "VND",
+                          "pickupAt": "2026-11-19"
                         }
                       }
                     }
@@ -5933,7 +5957,8 @@
                                 "required": true
                               }
                             ],
-                            "currency": "VND"
+                            "currency": "VND",
+                            "pickupAt": "2026-11-19"
                           }
                         }
                       }
@@ -6212,7 +6237,8 @@
                               "required": true
                             }
                           ],
-                          "currency": "VND"
+                          "currency": "VND",
+                          "pickupAt": "2026-11-19"
                         }
                       }
                     }
@@ -6357,7 +6383,8 @@
                               "required": true
                             }
                           ],
-                          "currency": "VND"
+                          "currency": "VND",
+                          "pickupAt": "2026-11-19"
                         }
                       }
                     }
@@ -8489,10 +8516,10 @@
                         "requestId": "REQUEST_001",
                         "contractId": "CONTRACT_001",
                         "versionNo": 1,
-                        "requestStatus": "ACTIVATED",
+                        "requestStatus": "AWAITING_DEPOSIT",
                         "versionStatus": "SIGNED",
-                        "tripId": "TRIP_001",
-                        "tripStatus": "PLANNING",
+                        "tripId": null,
+                        "tripStatus": null,
                         "signedAt": "2026-10-23 09:25"
                       }
                     }
@@ -8766,7 +8793,7 @@
             }
           }
         ],
-        "description": "Chưa ký và chưa nhận cọc đã xác minh: hủy ngay thành CANCELLED, kể cả có phiên VNPay đang chờ. Đã nhận cọc một phần hoặc đủ: lưu TRANSPORT_REQUEST.CancellationPreviousStatus, chuyển CANCELLATION_REQUESTED / CONTRACT.CancellationStatus PENDING để Manager duyệt; duyệt → CANCELLED, từ chối → trạng thái trước hủy đã lưu. Giao dịch đến sau hủy đưa đối soát, không tự mở lại đơn. Đã ký/kích hoạt Trip không dùng quy trình hủy trước ký này. Lưu lý do/người yêu cầu/thời điểm tại Request cho cả hai nhánh; nhánh hủy ngay để CancellationPreviousStatus NULL và không tạo Contract giả. Tiền cọc lấy từ PAYMENT đã xác minh, không tin FE; pending gateway không tính là đã nhận. Chặn phiên thanh toán mới và ký khi đang chờ hủy; callback trong lúc chờ hủy đưa đối soát, không ghi đè trạng thái chờ. Quyết định và tiền được kiểm tra trong transaction, retry không ghi đè prevStatus. Metadata lý do/thời điểm yêu cầu trên Contract là bản đồng bộ từ Request cho nhánh PENDING, không phải nguồn thứ hai; khi yêu cầu mới sau lần từ chối, reset metadata quyết định cũ và ghi prevStatus mới trong cùng transaction.",
+        "description": "Chưa nhận cọc đã xác minh và chưa kích hoạt: hủy ngay thành CANCELLED, kể cả có phiên VNPay đang chờ. Đã nhận cọc một phần hoặc đủ: lưu TRANSPORT_REQUEST.CancellationPreviousStatus, chuyển CANCELLATION_REQUESTED / CONTRACT.CancellationStatus PENDING để Manager duyệt; duyệt → CANCELLED, từ chối → trạng thái trước hủy đã lưu. Giao dịch đến sau hủy đưa đối soát, không tự mở lại đơn. Đã kích hoạt Trip không dùng quy trình hủy trước triển khai này; đã ký nhưng chưa đủ cọc vẫn xử lý theo trạng thái thực tế do backend trả về. Lưu lý do/người yêu cầu/thời điểm tại Request cho cả hai nhánh; nhánh hủy ngay để CancellationPreviousStatus NULL và không tạo Contract giả. Tiền cọc lấy từ PAYMENT đã xác minh, không tin FE; pending gateway không tính là đã nhận. Chặn phiên thanh toán mới và ký khi đang chờ hủy; callback trong lúc chờ hủy đưa đối soát, không ghi đè trạng thái chờ. Quyết định và tiền được kiểm tra trong transaction, retry không ghi đè prevStatus. Metadata lý do/thời điểm yêu cầu trên Contract là bản đồng bộ từ Request cho nhánh PENDING, không phải nguồn thứ hai; khi yêu cầu mới sau lần từ chối, reset metadata quyết định cũ và ghi prevStatus mới trong cùng transaction.",
         "requestBody": {
           "required": true,
           "content": {
@@ -10889,7 +10916,7 @@
           }
         ],
         "security": [],
-        "description": "Nhận thông báo server-to-server từ VNPay. Không dùng Bearer token Customer; xác thực bằng chữ ký provider. Path thống nhất endpoint sandbox hiện có, phần tích hợp Invoice/Contract là thiết kế đích.\n\n**Request body:** Không gửi body. Query nhận nguyên bộ tham số vnp_* do VNPay ký, gồm vnp_TmnCode, vnp_TxnRef, vnp_Amount, vnp_ResponseCode, vnp_TransactionStatus, vnp_TransactionNo, vnp_SecureHash và các tham số provider khác. Không cắt bỏ tham số trước khi kiểm tra chữ ký, từ chối query trùng khóa. vnp_Amount theo đơn vị provider, quy đổi đúng về VND để so khớp PAYMENT.Amount.\n\n**Response 200 — JSON provider, không dùng success/message/data**\n\n```json\n{\n  \"RspCode\": \"00\",\n  \"Message\": \"Confirm Success\"\n}\n```\n\n**Quy tắc:** Kiểm tra chữ ký, merchant, TxnRef đã lưu, amount/currency, Invoice và ContractVersion. Chỉ SUCCESS khi responseCode và transactionStatus cùng 00. Khóa giao dịch khi cập nhật PAYMENT và tính lại INVOICE.PaidAmount từ PAYMENT SUCCESS của đúng invoice/version; callback lặp không cộng tiền hai lần. Chỉ DEPOSIT_VERIFIED khi đủ cọc và Request còn hợp lệ; không tự tạo Trip. Callback sau hủy, trong lúc chờ hủy hoặc quá hạn phải giữ bằng chứng tiền, bật FinancialReviewRequired và không mở ký/kích hoạt. Payload không hợp lệ không được ghi SUCCESS; lỗi lưu trữ không trả xác nhận thành công. RspCode dùng hợp đồng adapter VNPay: 00 đã xử lý, 01 không thấy giao dịch, 02 đã xử lý, 04 sai số tiền, 97 sai xác thực, 99 lỗi khác. Các mã provider là chuỗi, không phải HTTP status. Browser Return chỉ đọc kết quả đã lưu; Customer kiểm tra bằng J44."
+        "description": "Nhận thông báo server-to-server từ VNPay. Không dùng Bearer token Customer; xác thực bằng chữ ký provider. Path thống nhất endpoint sandbox hiện có, phần tích hợp Invoice/Contract là thiết kế đích.\n\n**Request body:** Không gửi body. Query nhận nguyên bộ tham số vnp_* do VNPay ký, gồm vnp_TmnCode, vnp_TxnRef, vnp_Amount, vnp_ResponseCode, vnp_TransactionStatus, vnp_TransactionNo, vnp_SecureHash và các tham số provider khác. Không cắt bỏ tham số trước khi kiểm tra chữ ký, từ chối query trùng khóa. vnp_Amount theo đơn vị provider, quy đổi đúng về VND để so khớp PAYMENT.Amount.\n\n**Response 200 — JSON provider, không dùng success/message/data**\n\n```json\n{\n  \"RspCode\": \"00\",\n  \"Message\": \"Confirm Success\"\n}\n```\n\n**Quy tắc:** Kiểm tra chữ ký, merchant, TxnRef đã lưu, amount/currency, Invoice và ContractVersion. Chỉ SUCCESS khi responseCode và transactionStatus cùng 00. Khóa giao dịch khi cập nhật PAYMENT và tính lại INVOICE.PaidAmount từ PAYMENT SUCCESS của đúng invoice/version; callback lặp không cộng tiền hai lần. Chỉ DEPOSIT_VERIFIED khi đủ cọc và Request còn hợp lệ; không tự tạo Trip. Callback sau hủy, trong lúc chờ hủy hoặc quá hạn phải giữ bằng chứng tiền, bật FinancialReviewRequired và không mở ký/kích hoạt. Payload không hợp lệ không được ghi SUCCESS; lỗi lưu trữ không trả xác nhận thành công. RspCode dùng hợp đồng adapter VNPay: 00 đã xử lý, 01 không thấy giao dịch, 02 đã xử lý, 04 sai số tiền, 97 sai xác thực, 99 lỗi khác. Các mã provider là chuỗi, không phải HTTP status. Browser Return chỉ đọc kết quả đã lưu; Customer kiểm tra bằng J44.\n\n\n**Kích hoạt sau IPN:** chỉ giao dịch hợp lệ của version đã ký mới được cộng tiền; đủ cọc → contract EFFECTIVE, Request ACTIVATED và tạo duy nhất một Trip PLANNING trong cùng transaction. IPN trùng không tạo thêm Trip. IPN thiếu chữ ký/sai số tiền hoặc version không hợp lệ không thay trạng thái."
       }
     }
   },
@@ -13010,6 +13037,10 @@
               "VN",
               "JP"
             ]
+          },
+          "pickupAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           }
         },
         "required": [
@@ -13019,7 +13050,8 @@
           "destinationCountry",
           "mode",
           "origin",
-          "originCountry"
+          "originCountry",
+          "pickupAt"
         ],
         "additionalProperties": false
       },
@@ -13284,6 +13316,10 @@
                 ],
                 "additionalProperties": false
               },
+              "pickupAt": {
+                "type": "string",
+                "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+              },
               "requestedAt": {
                 "type": "string",
                 "pattern": "^(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})?$"
@@ -13299,6 +13335,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -13614,6 +13651,10 @@
                           ],
                           "additionalProperties": false
                         },
+                        "pickupAt": {
+                          "type": "string",
+                          "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                        },
                         "supplier": {
                           "type": "object",
                           "properties": {
@@ -13701,6 +13742,7 @@
                         "number",
                         "origin",
                         "pickup",
+                        "pickupAt",
                         "supplier",
                         "terms",
                         "total",
@@ -13712,6 +13754,7 @@
                     "state": {
                       "type": "string",
                       "enum": [
+                        "SIGNED",
                         "ISSUED",
                         "CHANGES_REQUESTED",
                         "EXPIRED",
@@ -14028,6 +14071,7 @@
                           "CONTRACT_READY",
                           "CONTRACT_CHANGES_REQUESTED",
                           "DEPOSIT_VERIFIED",
+                          "AWAITING_DEPOSIT",
                           "CANCELLATION_REQUESTED",
                           "ACTIVATED",
                           "SCHEDULED",
@@ -14066,6 +14110,7 @@
               "origin",
               "payments",
               "pickup",
+              "pickupAt",
               "requestedAt",
               "status",
               "supplements",
@@ -14306,6 +14351,10 @@
                 }
               }
             ]
+          },
+          "pickupAt": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           }
         },
         "required": [
@@ -14319,7 +14368,8 @@
           "mode",
           "origin",
           "originCountry",
-          "pickup"
+          "pickup",
+          "pickupAt"
         ],
         "additionalProperties": false
       },
@@ -14695,6 +14745,10 @@
                   }
                 ]
               },
+              "pickupAt": {
+                "type": "string",
+                "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+              },
               "requestedAt": {
                 "type": "string",
                 "pattern": "^(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})?$"
@@ -14710,6 +14764,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -15029,6 +15084,10 @@
                           ],
                           "additionalProperties": false
                         },
+                        "pickupAt": {
+                          "type": "string",
+                          "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                        },
                         "supplier": {
                           "type": "object",
                           "properties": {
@@ -15116,6 +15175,7 @@
                         "number",
                         "origin",
                         "pickup",
+                        "pickupAt",
                         "supplier",
                         "terms",
                         "total",
@@ -15127,6 +15187,7 @@
                     "state": {
                       "type": "string",
                       "enum": [
+                        "SIGNED",
                         "ISSUED",
                         "CHANGES_REQUESTED",
                         "EXPIRED",
@@ -15443,6 +15504,7 @@
                           "CONTRACT_READY",
                           "CONTRACT_CHANGES_REQUESTED",
                           "DEPOSIT_VERIFIED",
+                          "AWAITING_DEPOSIT",
                           "CANCELLATION_REQUESTED",
                           "ACTIVATED",
                           "SCHEDULED",
@@ -15481,6 +15543,7 @@
               "origin",
               "payments",
               "pickup",
+              "pickupAt",
               "requestedAt",
               "status",
               "submittedAt",
@@ -15900,6 +15963,10 @@
                   }
                 ]
               },
+              "pickupAt": {
+                "type": "string",
+                "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+              },
               "requestedAt": {
                 "type": "string",
                 "pattern": "^(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})?$"
@@ -15915,6 +15982,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -16234,6 +16302,10 @@
                           ],
                           "additionalProperties": false
                         },
+                        "pickupAt": {
+                          "type": "string",
+                          "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                        },
                         "supplier": {
                           "type": "object",
                           "properties": {
@@ -16321,6 +16393,7 @@
                         "number",
                         "origin",
                         "pickup",
+                        "pickupAt",
                         "supplier",
                         "terms",
                         "total",
@@ -16332,6 +16405,7 @@
                     "state": {
                       "type": "string",
                       "enum": [
+                        "SIGNED",
                         "ISSUED",
                         "CHANGES_REQUESTED",
                         "EXPIRED",
@@ -16648,6 +16722,7 @@
                           "CONTRACT_READY",
                           "CONTRACT_CHANGES_REQUESTED",
                           "DEPOSIT_VERIFIED",
+                          "AWAITING_DEPOSIT",
                           "CANCELLATION_REQUESTED",
                           "ACTIVATED",
                           "SCHEDULED",
@@ -16686,6 +16761,7 @@
               "origin",
               "payments",
               "pickup",
+              "pickupAt",
               "requestedAt",
               "status",
               "submittedAt",
@@ -17117,6 +17193,10 @@
                     }
                   ]
                 },
+                "pickupAt": {
+                  "type": "string",
+                  "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                },
                 "requestedAt": {
                   "type": "string",
                   "pattern": "^(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})?$"
@@ -17132,6 +17212,7 @@
                     "CONTRACT_READY",
                     "CONTRACT_CHANGES_REQUESTED",
                     "DEPOSIT_VERIFIED",
+                    "AWAITING_DEPOSIT",
                     "CANCELLATION_REQUESTED",
                     "ACTIVATED",
                     "SCHEDULED",
@@ -17451,6 +17532,10 @@
                             ],
                             "additionalProperties": false
                           },
+                          "pickupAt": {
+                            "type": "string",
+                            "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                          },
                           "supplier": {
                             "type": "object",
                             "properties": {
@@ -17538,6 +17623,7 @@
                           "number",
                           "origin",
                           "pickup",
+                          "pickupAt",
                           "supplier",
                           "terms",
                           "total",
@@ -17549,6 +17635,7 @@
                       "state": {
                         "type": "string",
                         "enum": [
+                          "SIGNED",
                           "ISSUED",
                           "CHANGES_REQUESTED",
                           "EXPIRED",
@@ -17865,6 +17952,7 @@
                             "CONTRACT_READY",
                             "CONTRACT_CHANGES_REQUESTED",
                             "DEPOSIT_VERIFIED",
+                            "AWAITING_DEPOSIT",
                             "CANCELLATION_REQUESTED",
                             "ACTIVATED",
                             "SCHEDULED",
@@ -17903,6 +17991,7 @@
                 "origin",
                 "payments",
                 "pickup",
+                "pickupAt",
                 "requestedAt",
                 "status",
                 "submittedAt",
@@ -18323,6 +18412,10 @@
                   }
                 ]
               },
+              "pickupAt": {
+                "type": "string",
+                "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+              },
               "requestedAt": {
                 "type": "string",
                 "pattern": "^(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})?$"
@@ -18338,6 +18431,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -18657,6 +18751,10 @@
                           ],
                           "additionalProperties": false
                         },
+                        "pickupAt": {
+                          "type": "string",
+                          "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                        },
                         "supplier": {
                           "type": "object",
                           "properties": {
@@ -18744,6 +18842,7 @@
                         "number",
                         "origin",
                         "pickup",
+                        "pickupAt",
                         "supplier",
                         "terms",
                         "total",
@@ -18755,6 +18854,7 @@
                     "state": {
                       "type": "string",
                       "enum": [
+                        "SIGNED",
                         "ISSUED",
                         "CHANGES_REQUESTED",
                         "EXPIRED",
@@ -19071,6 +19171,7 @@
                           "CONTRACT_READY",
                           "CONTRACT_CHANGES_REQUESTED",
                           "DEPOSIT_VERIFIED",
+                          "AWAITING_DEPOSIT",
                           "CANCELLATION_REQUESTED",
                           "ACTIVATED",
                           "SCHEDULED",
@@ -19109,6 +19210,7 @@
               "origin",
               "payments",
               "pickup",
+              "pickupAt",
               "requestedAt",
               "status",
               "submittedAt",
@@ -19442,6 +19544,10 @@
                   ],
                   "additionalProperties": false
                 },
+                "pickupAt": {
+                  "type": "string",
+                  "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                },
                 "status": {
                   "type": "string",
                   "enum": [
@@ -19453,6 +19559,7 @@
                     "CONTRACT_READY",
                     "CONTRACT_CHANGES_REQUESTED",
                     "DEPOSIT_VERIFIED",
+                    "AWAITING_DEPOSIT",
                     "CANCELLATION_REQUESTED",
                     "ACTIVATED",
                     "SCHEDULED",
@@ -19807,6 +19914,10 @@
                             ],
                             "additionalProperties": false
                           },
+                          "pickupAt": {
+                            "type": "string",
+                            "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                          },
                           "supplier": {
                             "type": "object",
                             "properties": {
@@ -19894,6 +20005,7 @@
                           "number",
                           "origin",
                           "pickup",
+                          "pickupAt",
                           "supplier",
                           "terms",
                           "total",
@@ -19905,6 +20017,7 @@
                       "state": {
                         "type": "string",
                         "enum": [
+                          "SIGNED",
                           "ISSUED",
                           "CHANGES_REQUESTED",
                           "EXPIRED",
@@ -20150,6 +20263,7 @@
                             "CONTRACT_READY",
                             "CONTRACT_CHANGES_REQUESTED",
                             "DEPOSIT_VERIFIED",
+                            "AWAITING_DEPOSIT",
                             "CANCELLATION_REQUESTED",
                             "ACTIVATED",
                             "SCHEDULED",
@@ -20185,6 +20299,7 @@
                 "id",
                 "origin",
                 "pickup",
+                "pickupAt",
                 "status",
                 "submittedAt",
                 "versions"
@@ -20363,6 +20478,10 @@
                 ],
                 "additionalProperties": false
               },
+              "pickupAt": {
+                "type": "string",
+                "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+              },
               "status": {
                 "type": "string",
                 "enum": [
@@ -20374,6 +20493,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -20728,6 +20848,10 @@
                           ],
                           "additionalProperties": false
                         },
+                        "pickupAt": {
+                          "type": "string",
+                          "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                        },
                         "supplier": {
                           "type": "object",
                           "properties": {
@@ -20815,6 +20939,7 @@
                         "number",
                         "origin",
                         "pickup",
+                        "pickupAt",
                         "supplier",
                         "terms",
                         "total",
@@ -20826,6 +20951,7 @@
                     "state": {
                       "type": "string",
                       "enum": [
+                        "SIGNED",
                         "ISSUED",
                         "CHANGES_REQUESTED",
                         "EXPIRED",
@@ -21071,6 +21197,7 @@
                           "CONTRACT_READY",
                           "CONTRACT_CHANGES_REQUESTED",
                           "DEPOSIT_VERIFIED",
+                          "AWAITING_DEPOSIT",
                           "CANCELLATION_REQUESTED",
                           "ACTIVATED",
                           "SCHEDULED",
@@ -21106,6 +21233,7 @@
               "id",
               "origin",
               "pickup",
+              "pickupAt",
               "status",
               "submittedAt",
               "versions"
@@ -21283,6 +21411,10 @@
                 ],
                 "additionalProperties": false
               },
+              "pickupAt": {
+                "type": "string",
+                "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+              },
               "status": {
                 "type": "string",
                 "enum": [
@@ -21294,6 +21426,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -21648,6 +21781,10 @@
                           ],
                           "additionalProperties": false
                         },
+                        "pickupAt": {
+                          "type": "string",
+                          "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                        },
                         "supplier": {
                           "type": "object",
                           "properties": {
@@ -21735,6 +21872,7 @@
                         "number",
                         "origin",
                         "pickup",
+                        "pickupAt",
                         "supplier",
                         "terms",
                         "total",
@@ -21746,6 +21884,7 @@
                     "state": {
                       "type": "string",
                       "enum": [
+                        "SIGNED",
                         "ISSUED",
                         "CHANGES_REQUESTED",
                         "EXPIRED",
@@ -21991,6 +22130,7 @@
                           "CONTRACT_READY",
                           "CONTRACT_CHANGES_REQUESTED",
                           "DEPOSIT_VERIFIED",
+                          "AWAITING_DEPOSIT",
                           "CANCELLATION_REQUESTED",
                           "ACTIVATED",
                           "SCHEDULED",
@@ -22026,6 +22166,7 @@
               "id",
               "origin",
               "pickup",
+              "pickupAt",
               "status",
               "submittedAt",
               "versions"
@@ -22220,6 +22361,10 @@
                 ],
                 "additionalProperties": false
               },
+              "pickupAt": {
+                "type": "string",
+                "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+              },
               "status": {
                 "type": "string",
                 "enum": [
@@ -22231,6 +22376,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -22585,6 +22731,10 @@
                           ],
                           "additionalProperties": false
                         },
+                        "pickupAt": {
+                          "type": "string",
+                          "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                        },
                         "supplier": {
                           "type": "object",
                           "properties": {
@@ -22672,6 +22822,7 @@
                         "number",
                         "origin",
                         "pickup",
+                        "pickupAt",
                         "supplier",
                         "terms",
                         "total",
@@ -22683,6 +22834,7 @@
                     "state": {
                       "type": "string",
                       "enum": [
+                        "SIGNED",
                         "ISSUED",
                         "CHANGES_REQUESTED",
                         "EXPIRED",
@@ -22925,6 +23077,7 @@
                           "CONTRACT_READY",
                           "CONTRACT_CHANGES_REQUESTED",
                           "DEPOSIT_VERIFIED",
+                          "AWAITING_DEPOSIT",
                           "CANCELLATION_REQUESTED",
                           "ACTIVATED",
                           "SCHEDULED",
@@ -22961,6 +23114,7 @@
               "id",
               "origin",
               "pickup",
+              "pickupAt",
               "status",
               "submittedAt",
               "versions"
@@ -23152,6 +23306,10 @@
                 ],
                 "additionalProperties": false
               },
+              "pickupAt": {
+                "type": "string",
+                "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+              },
               "reason": {
                 "type": "string"
               },
@@ -23166,6 +23324,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -23520,6 +23679,10 @@
                           ],
                           "additionalProperties": false
                         },
+                        "pickupAt": {
+                          "type": "string",
+                          "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                        },
                         "supplier": {
                           "type": "object",
                           "properties": {
@@ -23607,6 +23770,7 @@
                         "number",
                         "origin",
                         "pickup",
+                        "pickupAt",
                         "supplier",
                         "terms",
                         "total",
@@ -23618,6 +23782,7 @@
                     "state": {
                       "type": "string",
                       "enum": [
+                        "SIGNED",
                         "ISSUED",
                         "CHANGES_REQUESTED",
                         "EXPIRED",
@@ -23860,6 +24025,7 @@
                           "CONTRACT_READY",
                           "CONTRACT_CHANGES_REQUESTED",
                           "DEPOSIT_VERIFIED",
+                          "AWAITING_DEPOSIT",
                           "CANCELLATION_REQUESTED",
                           "ACTIVATED",
                           "SCHEDULED",
@@ -23895,6 +24061,7 @@
               "id",
               "origin",
               "pickup",
+              "pickupAt",
               "reason",
               "status",
               "submittedAt",
@@ -24287,6 +24454,10 @@
                             ],
                             "additionalProperties": false
                           },
+                          "pickupAt": {
+                            "type": "string",
+                            "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                          },
                           "supplier": {
                             "type": "object",
                             "properties": {
@@ -24374,6 +24545,7 @@
                           "number",
                           "origin",
                           "pickup",
+                          "pickupAt",
                           "supplier",
                           "terms",
                           "total",
@@ -24385,6 +24557,7 @@
                       "state": {
                         "type": "string",
                         "enum": [
+                          "SIGNED",
                           "ISSUED",
                           "CHANGES_REQUESTED",
                           "EXPIRED",
@@ -24926,6 +25099,10 @@
                     ],
                     "additionalProperties": false
                   },
+                  "pickupAt": {
+                    "type": "string",
+                    "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                  },
                   "status": {
                     "type": "string",
                     "enum": [
@@ -24937,6 +25114,7 @@
                       "CONTRACT_READY",
                       "CONTRACT_CHANGES_REQUESTED",
                       "DEPOSIT_VERIFIED",
+                      "AWAITING_DEPOSIT",
                       "CANCELLATION_REQUESTED",
                       "ACTIVATED",
                       "SCHEDULED",
@@ -25291,6 +25469,10 @@
                               ],
                               "additionalProperties": false
                             },
+                            "pickupAt": {
+                              "type": "string",
+                              "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                            },
                             "supplier": {
                               "type": "object",
                               "properties": {
@@ -25378,6 +25560,7 @@
                             "number",
                             "origin",
                             "pickup",
+                            "pickupAt",
                             "supplier",
                             "terms",
                             "total",
@@ -25389,6 +25572,7 @@
                         "state": {
                           "type": "string",
                           "enum": [
+                            "SIGNED",
                             "ISSUED",
                             "CHANGES_REQUESTED",
                             "EXPIRED",
@@ -25634,6 +25818,7 @@
                               "CONTRACT_READY",
                               "CONTRACT_CHANGES_REQUESTED",
                               "DEPOSIT_VERIFIED",
+                              "AWAITING_DEPOSIT",
                               "CANCELLATION_REQUESTED",
                               "ACTIVATED",
                               "SCHEDULED",
@@ -25669,6 +25854,7 @@
                   "id",
                   "origin",
                   "pickup",
+                  "pickupAt",
                   "status",
                   "submittedAt",
                   "versions"
@@ -25974,6 +26160,10 @@
                           ],
                           "additionalProperties": false
                         },
+                        "pickupAt": {
+                          "type": "string",
+                          "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                        },
                         "supplier": {
                           "type": "object",
                           "properties": {
@@ -26061,6 +26251,7 @@
                         "number",
                         "origin",
                         "pickup",
+                        "pickupAt",
                         "supplier",
                         "terms",
                         "total",
@@ -26072,6 +26263,7 @@
                     "state": {
                       "type": "string",
                       "enum": [
+                        "SIGNED",
                         "ISSUED",
                         "CHANGES_REQUESTED",
                         "EXPIRED",
@@ -26797,6 +26989,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -27215,6 +27408,10 @@
                     ],
                     "additionalProperties": false
                   },
+                  "pickupAt": {
+                    "type": "string",
+                    "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                  },
                   "supplier": {
                     "type": "object",
                     "properties": {
@@ -27302,6 +27499,7 @@
                   "number",
                   "origin",
                   "pickup",
+                  "pickupAt",
                   "supplier",
                   "terms",
                   "total",
@@ -27313,6 +27511,7 @@
               "state": {
                 "type": "string",
                 "enum": [
+                  "SIGNED",
                   "ISSUED",
                   "CHANGES_REQUESTED",
                   "EXPIRED",
@@ -27799,6 +27998,10 @@
                             ],
                             "additionalProperties": false
                           },
+                          "pickupAt": {
+                            "type": "string",
+                            "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                          },
                           "supplier": {
                             "type": "object",
                             "properties": {
@@ -27886,6 +28089,7 @@
                           "number",
                           "origin",
                           "pickup",
+                          "pickupAt",
                           "supplier",
                           "terms",
                           "total",
@@ -27897,6 +28101,7 @@
                       "state": {
                         "type": "string",
                         "enum": [
+                          "SIGNED",
                           "ISSUED",
                           "CHANGES_REQUESTED",
                           "EXPIRED",
@@ -28393,6 +28598,10 @@
                     ],
                     "additionalProperties": false
                   },
+                  "pickupAt": {
+                    "type": "string",
+                    "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$"
+                  },
                   "supplier": {
                     "type": "object",
                     "properties": {
@@ -28480,6 +28689,7 @@
                   "number",
                   "origin",
                   "pickup",
+                  "pickupAt",
                   "supplier",
                   "terms",
                   "total",
@@ -28491,6 +28701,7 @@
               "state": {
                 "type": "string",
                 "enum": [
+                  "SIGNED",
                   "ISSUED",
                   "CHANGES_REQUESTED",
                   "EXPIRED",
@@ -28735,6 +28946,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -28872,6 +29084,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -28998,6 +29211,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -30188,24 +30402,7 @@
                 "maxLength": 50
               },
               "requestStatus": {
-                "type": "string",
-                "enum": [
-                  "DRAFT",
-                  "PENDING_REVIEW",
-                  "CHANGES_REQUESTED",
-                  "REJECTED",
-                  "CONTRACT_PREPARATION",
-                  "CONTRACT_READY",
-                  "CONTRACT_CHANGES_REQUESTED",
-                  "DEPOSIT_VERIFIED",
-                  "CANCELLATION_REQUESTED",
-                  "ACTIVATED",
-                  "SCHEDULED",
-                  "IN_PROGRESS",
-                  "DELIVERED",
-                  "CLOSED",
-                  "CANCELLED"
-                ]
+                "const": "AWAITING_DEPOSIT"
               },
               "signedAt": {
                 "type": [
@@ -30215,12 +30412,10 @@
                 "pattern": "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}$"
               },
               "tripId": {
-                "type": "string",
-                "pattern": "^TRIP_\\d{3,}$",
-                "maxLength": 50
+                "type": "null"
               },
               "tripStatus": {
-                "type": "string"
+                "type": "null"
               },
               "versionNo": {
                 "type": "integer",
@@ -30337,6 +30532,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",
@@ -30529,6 +30725,7 @@
                   "CONTRACT_READY",
                   "CONTRACT_CHANGES_REQUESTED",
                   "DEPOSIT_VERIFIED",
+                  "AWAITING_DEPOSIT",
                   "CANCELLATION_REQUESTED",
                   "ACTIVATED",
                   "SCHEDULED",

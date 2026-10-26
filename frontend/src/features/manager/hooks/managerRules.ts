@@ -91,12 +91,12 @@ export const routeText = (r: Pick<TransportRequest, 'origin' | 'destination'>) =
 export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
   DRAFT: 'Bản nháp',
   PENDING_REVIEW: 'Chờ xét duyệt', CHANGES_REQUESTED: 'Chờ khách chỉnh sửa', REJECTED: 'Đã từ chối', CONTRACT_PREPARATION: 'Đang soạn hợp đồng',
-  CONTRACT_READY: 'Hợp đồng đã phát hành', CONTRACT_CHANGES_REQUESTED: 'Khách yêu cầu sửa hợp đồng', DEPOSIT_VERIFIED: 'Đã xác minh cọc – chờ ký',
+  CONTRACT_READY: 'Hợp đồng đã phát hành', CONTRACT_CHANGES_REQUESTED: 'Khách yêu cầu sửa hợp đồng', AWAITING_DEPOSIT: 'Đã ký – chờ đặt cọc', DEPOSIT_VERIFIED: 'Đã xác minh cọc (cũ)',
   CANCELLATION_REQUESTED: 'Khách yêu cầu hủy', ACTIVATED: 'Đã kích hoạt', SCHEDULED: 'Sẵn sàng khởi hành', IN_TRANSIT: 'Đang vận chuyển',
   DELIVERED: 'Đã bàn giao', CLOSED: 'Đã đóng', CANCELLED: 'Đã hủy',
 };
 export const CONTRACT_STATE_LABEL: Record<ContractState, string> = {
-  ISSUED: 'Đã phát hành', CHANGES_REQUESTED: 'Khách yêu cầu sửa', EXPIRED: 'Quá hạn chung', SUPERSEDED: 'Đã thay thế',
+  SIGNED: 'Đã ký – chờ cọc', ISSUED: 'Đã phát hành', CHANGES_REQUESTED: 'Khách yêu cầu sửa', EXPIRED: 'Quá hạn chung', SUPERSEDED: 'Đã thay thế',
   EFFECTIVE: 'Đã ký – có hiệu lực', FULFILLED: 'Đã hoàn thành', VOID: 'Đã hủy',
 };
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
@@ -328,8 +328,8 @@ export const awaitingDeposit = (d: ManagerData) => d.requests.filter((r) => r.st
 // Yêu cầu
 // ============================================================================
 /** Trạng thái còn hủy được bởi Manager (trước khi kích hoạt) */
-export const CANCELLABLE: RequestStatus[] = ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED'];
-export const CONTRACT_OPEN: RequestStatus[] = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED'];
+export const CANCELLABLE: RequestStatus[] = ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT'];
+export const CONTRACT_OPEN: RequestStatus[] = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT'];
 export const ACTIVE_REQ: RequestStatus[] = ['ACTIVATED', 'SCHEDULED', 'IN_TRANSIT', 'DELIVERED'];
 const NOT_ACCEPTED: RequestStatus[] = ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'REJECTED'];
 /** Manager đã chấp thuận yêu cầu (mở bước hợp đồng) */
@@ -345,7 +345,8 @@ export function nextStep(d: Pick<ManagerData, 'transactions'>, r: TransportReque
     case 'CONTRACT_PREPARATION': return 'Soạn & phát hành hợp đồng';
     case 'CONTRACT_CHANGES_REQUESTED': return 'Phản hồi yêu cầu sửa hợp đồng';
     case 'CONTRACT_READY': return d.transactions.some((x) => x.requestId === r.id && x.status === 'PENDING_CONFIRMATION') ? 'Xác minh chuyển khoản cọc' : 'Chờ khách cọc & ký';
-    case 'DEPOSIT_VERIFIED': return 'Chờ khách ký OTP';
+    case 'AWAITING_DEPOSIT': return 'Hợp đồng đã ký – chờ xác minh cọc';
+    case 'DEPOSIT_VERIFIED': return 'Cọc đã xác minh (dữ liệu cũ)';
     case 'CANCELLATION_REQUESTED': return 'Quyết định yêu cầu hủy';
     case 'ACTIVATED': return 'Điều hành chuẩn bị chuyến';
     case 'SCHEDULED': return 'Chờ tài xế xuất phát';

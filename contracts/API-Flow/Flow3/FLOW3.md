@@ -1,5 +1,16 @@
 # API Contract — Flow 3: đánh giá khả thi, lập phương án và duyệt khởi hành
 
+## Cập nhật helo.html — 26/10/2026
+
+Specialist gửi danh sách hồ sơ có thời hạn trước; Coordinator chốt lịch khởi hành
+trên đúng version đó, sau đó Specialist mới chuẩn bị/cấp giấy tờ chính thức.
+Không thay đổi dữ liệu đã cấp khi xem trước. API bổ sung và guard nằm tại
+[Operations/OPERATIONS.md](../Operations/OPERATIONS.md) và
+[operations.openapi.json](../Operations/operations.openapi.json).
+Các mô tả cũ cho phép làm hồ sơ trước khi chốt lịch được thay bằng quy tắc này.
+Frontend/API contract đã cập nhật; backend chưa được triển khai trong thay đổi này.
+
+
 | Thuộc tính | Giá trị |
 |---|---|
 | Phiên bản | 1.0 — flow sửa theo yêu cầu ngày 24/10/2026 |

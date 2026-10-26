@@ -21,6 +21,7 @@ export type RequestStatus =
   | 'CONTRACT_READY'
   | 'CONTRACT_CHANGES_REQUESTED'
   | 'DEPOSIT_VERIFIED'
+  | 'AWAITING_DEPOSIT'
   | 'CANCELLATION_REQUESTED'
   | 'ACTIVATED'
   | 'SCHEDULED'
@@ -96,6 +97,7 @@ export type HorseProfileStatus = 'COMPLETE' | 'NEEDS_ATTENTION' | 'INCOMPLETE';
 // ---------------------------------------------------------------------------
 export type ContractState =
   | 'ISSUED'
+  | 'SIGNED'
   | 'CHANGES_REQUESTED'
   | 'EXPIRED'
   | 'SUPERSEDED'
@@ -348,6 +350,7 @@ export interface TransportRequest {
   /** Ngày vận chuyển mong muốn */
   date: string;
   horseCount: number;
+  pickupAt?: string;
   requestedAt: string;
   submittedAt?: string;
   status: RequestStatus;
@@ -399,6 +402,7 @@ export interface CustomerNotification {
 // DTO & kết quả
 // ---------------------------------------------------------------------------
 export interface TripInfoInput {
+  pickupAt: string;
   origin: string;
   destination: string;
   date: string;
@@ -452,6 +456,7 @@ export type RequestDetailTab =
 
 /** Immutable published content; absent means the backend cannot provide a historical snapshot. */
 export interface ContractSnapshot {
+  pickupAt?: string;
   origin: string;
   destination: string;
   date: string;

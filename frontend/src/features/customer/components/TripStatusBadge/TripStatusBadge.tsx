@@ -14,11 +14,11 @@ export type BadgeTone = 'ok' | 'info' | 'warn' | 'bad' | 'muted' | 'brand';
 
 const REQUEST_TONE: Record<RequestStatus, BadgeTone> = {
   DRAFT: 'muted', PENDING_REVIEW: 'warn', CHANGES_REQUESTED: 'bad', REJECTED: 'bad', CONTRACT_PREPARATION: 'info',
-  CONTRACT_READY: 'info', CONTRACT_CHANGES_REQUESTED: 'warn', DEPOSIT_VERIFIED: 'ok', CANCELLATION_REQUESTED: 'warn',
+  CONTRACT_READY: 'info', CONTRACT_CHANGES_REQUESTED: 'warn', AWAITING_DEPOSIT: 'warn', DEPOSIT_VERIFIED: 'ok', CANCELLATION_REQUESTED: 'warn',
   ACTIVATED: 'brand', SCHEDULED: 'info', IN_TRANSIT: 'brand', DELIVERED: 'ok', CLOSED: 'muted', CANCELLED: 'muted',
 };
 const CONTRACT_TONE: Record<ContractState, BadgeTone> = {
-  ISSUED: 'info', CHANGES_REQUESTED: 'warn', EXPIRED: 'bad', SUPERSEDED: 'muted', EFFECTIVE: 'ok', FULFILLED: 'muted',
+  SIGNED: 'warn', ISSUED: 'info', CHANGES_REQUESTED: 'warn', EXPIRED: 'bad', SUPERSEDED: 'muted', EFFECTIVE: 'ok', FULFILLED: 'muted',
 };
 const DOC_TONE: Record<DocStatus, BadgeTone> = {
   MISSING: 'bad', NEEDS_INPUT: 'bad', OPTIONAL: 'muted', NOT_REQUIRED_YET: 'muted', SUBMITTED: 'info',

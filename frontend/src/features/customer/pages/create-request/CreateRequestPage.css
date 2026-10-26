@@ -43,3 +43,5 @@
 @media(max-width:900px){.cus-create__places{gap:16px}.cus-create-flow .cus-create__place{padding:20px}.cus-create-flow .cus-create__schedule{gap:16px}.cus-create-flow .cus-create__date{width:220px;flex-basis:220px}}
 @media(max-width:680px){.cus-create__places{grid-template-columns:1fr}.cus-create-flow .cus-create__schedule{align-items:stretch;flex-direction:column;gap:16px}.cus-create-flow .cus-create__date{width:100%;flex:auto}.cus-create-flow>.cus-title{font-size:23px}}
 @media(max-width:420px){.cus-create-flow .cus-create__place,.cus-create-flow .cus-create__schedule{padding:17px}.cus-create__grid{grid-template-columns:1fr}.cus-create__actions{align-items:stretch;flex-direction:column-reverse;gap:10px}.cus-create__actions .cus-btn{width:100%}}
+
+.cus-create-flow .cus-create__schedule{align-items:flex-start;flex-direction:column;gap:20px}.cus-create__dates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;width:100%}.cus-create__dates .cus-date__field{min-height:44px}@media(max-width:600px){.cus-create__dates{grid-template-columns:1fr;gap:16px}}

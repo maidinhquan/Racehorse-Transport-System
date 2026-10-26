@@ -120,7 +120,8 @@ export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
   CONTRACT_PREPARATION: 'Đang soạn hợp đồng',
   CONTRACT_READY: 'Hợp đồng sẵn sàng',
   CONTRACT_CHANGES_REQUESTED: 'Đã yêu cầu sửa hợp đồng',
-  DEPOSIT_VERIFIED: 'Đã xác minh cọc – chờ ký',
+  DEPOSIT_VERIFIED: 'Cọc đã xác minh (dữ liệu cũ)',
+  AWAITING_DEPOSIT: 'Đã ký – chờ đặt cọc',
   CANCELLATION_REQUESTED: 'Chờ duyệt hủy',
   ACTIVATED: 'Đã kích hoạt – chuẩn bị',
   SCHEDULED: 'Đã lên lịch',
@@ -134,6 +135,7 @@ export const FINAL_STATUSES: RequestStatus[] = ['CLOSED', 'CANCELLED', 'REJECTED
 export const isActive = (r: TransportRequest) => !FINAL_STATUSES.includes(r.status);
 
 export const CONTRACT_STATE_LABEL: Record<ContractState, string> = {
+  SIGNED: 'Đã ký – chờ tiền cọc',
   ISSUED: 'Đã phát hành – chờ ký',
   CHANGES_REQUESTED: 'Đang yêu cầu sửa',
   EXPIRED: 'Hết hạn',
@@ -266,7 +268,7 @@ export const depositAmount = (r: TransportRequest) => {
   return v ? v.depositAmount ?? Math.round((v.total * v.depositPct) / 100) : 0;
 };
 export const contractTotal = (r: TransportRequest) => curVersion(r)?.total ?? 0;
-export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => ['EFFECTIVE', 'FULFILLED'].includes(v.state));
+export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => ['SIGNED', 'EFFECTIVE', 'FULFILLED'].includes(v.state));
 export const isSigned = (r: TransportRequest) => !!signedVersion(r);
 
 export const depositPayments = (r: TransportRequest) => {
@@ -302,26 +304,25 @@ export const canAcceptTerms = (r: TransportRequest) => {
 };
 export const canPayDeposit = (r: TransportRequest) => {
   const v = curVersion(r);
-  return !!v && r.status === 'CONTRACT_READY' && versionState(v) === 'ISSUED' && !!v.termsAcceptedAt
+  return !!v && r.status === 'AWAITING_DEPOSIT' && versionState(v) === 'SIGNED' && !!v.signedAt
     && ['NONE', 'FAILED'].includes(depositState(r));
 };
 export function signBlock(r: TransportRequest): string {
   const v = curVersion(r);
   if (!v) return 'Chưa có hợp đồng.';
   if (!v.snapshot || !v.terms?.length) return 'Chưa tải đủ nội dung phiên bản hợp đồng.';
-  if (versionState(v) === 'EXPIRED' || isPast(v.validUntil)) return 'Đã quá hạn ký. Chờ CBN Transport gia hạn hoặc phát hành phiên bản mới.';
-  if (versionState(v) !== 'ISSUED') return 'Phiên bản này không thể ký.';
+  if (versionState(v) === 'EXPIRED' || isPast(v.validUntil)) return 'Đã quá hạn ký. Chờ Manager gia hạn hoặc phát hành phiên bản mới.';
+  if (versionState(v) !== 'ISSUED' || v.signedAt) return 'Phiên bản này đã ký hoặc không thể ký.';
   if (!v.termsAcceptedAt) return 'Hãy đồng ý điều khoản hợp đồng trước.';
-  if (depositState(r) !== 'VERIFIED') return 'Nút ký OTP chỉ mở sau khi tiền cọc được xác minh.';
   return '';
 }
-export const canSign = (r: TransportRequest) => r.status === 'DEPOSIT_VERIFIED' && !signBlock(r);
+export const canSign = (r: TransportRequest) => ['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status) && !signBlock(r);
 export const canRequestContractChange = (r: TransportRequest) => {
   const v = curVersion(r);
   return !!v && r.status === 'CONTRACT_READY' && ['ISSUED', 'EXPIRED'].includes(versionState(v)) && !hasDepositMoney(r);
 };
 export const canCancel = (r: TransportRequest) =>
-  ['DRAFT', 'PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED']
+  ['DRAFT', 'PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT']
     .includes(r.status);
 
 // ============================================================================
@@ -404,7 +405,8 @@ export const docsNeedingAction = (r: TransportRequest) => rejectedDocs(r).length
 export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[number, string]> {
   const e: Array<[number, string]> = [];
   if (!isSupportedRoute(r.origin, r.destination)) e.push([0, 'Tuyến này không nhận đơn mới.']);
-  if (!r.date || r.date < today()) e.push([0, 'Ngày vận chuyển phải từ hôm nay trở đi.']);
+  if (!r.date || r.date < today()) e.push([0, 'Ngày giao mong muốn phải từ hôm nay trở đi.']);
+  if (!r.pickupAt || r.pickupAt < today() || r.pickupAt > r.date) e.push([0, 'Ngày lấy ngựa phải từ hôm nay và không sau ngày giao mong muốn.']);
   (['pickup', 'delivery'] as const).forEach((k) => {
     const p = r[k], label = k === 'pickup' ? 'Điểm nhận' : 'Điểm giao';
     if (!p.name.trim() || !p.address.trim() || !p.contact.trim() || !p.phone.trim()) e.push([0, `${label}: còn thiếu tên, địa chỉ, người liên hệ hoặc số điện thoại.`]);
@@ -494,7 +496,7 @@ export function closureChecks(r: TransportRequest): Array<[string, boolean]> {
 // ============================================================================
 export const STAGES: Array<[string, RequestDetailTab]> = [
   ['Gửi yêu cầu', 'overview'], ['Manager xét duyệt', 'overview'], ['Soạn hợp đồng', 'contract'], ['Xem & đồng ý hợp đồng', 'contract'],
-  ['Đặt cọc & ký OTP', 'payment'], ['Lập kế hoạch & chuẩn bị', 'documents'], ['Đang vận chuyển', 'tracking'], ['Bàn giao', 'handover'],
+  ['Ký OTP & đặt cọc', 'payment'], ['Lập kế hoạch & chuẩn bị', 'documents'], ['Đang vận chuyển', 'tracking'], ['Bàn giao', 'handover'],
   ['Nghiệm thu & thanh toán', 'handover'], ['Đóng yêu cầu', 'history'],
 ];
 
@@ -509,8 +511,9 @@ export function lifecycle(r: TransportRequest): Lifecycle {
     case 'CONTRACT_CHANGES_REQUESTED': return { at: 3, note: 'Manager đang xem yêu cầu sửa' };
     case 'CONTRACT_READY':
       if (v && versionState(v) === 'EXPIRED') return { at: 3, exc: 'warn', note: 'Phiên bản đã hết hạn' };
-      if (v?.termsAcceptedAt) return ds === 'PENDING' ? { at: 4, note: 'Đang xác minh cọc' } : ds === 'FAILED' ? { at: 4, exc: 'warn', note: 'Thanh toán thất bại' } : { at: 4, note: 'Cần đặt cọc' };
+      if (v?.termsAcceptedAt) return { at: 4, note: 'Đồng ý điều khoản – ký OTP' };
       return { at: 3, note: 'Xem & đồng ý điều khoản' };
+    case 'AWAITING_DEPOSIT': return { at: 4, note: ds === 'PENDING' ? 'Đang xác minh cọc' : 'Đã ký – cần đặt cọc' };
     case 'DEPOSIT_VERIFIED': return v && versionState(v) === 'EXPIRED' ? { at: 4, exc: 'warn', note: 'Quá hạn ký' } : { at: 4, note: 'Đã xác minh cọc – ký OTP' };
     case 'CANCELLATION_REQUESTED': return { at: 4, exc: 'warn', note: 'Đang xét duyệt hủy' };
     case 'ACTIVATED':

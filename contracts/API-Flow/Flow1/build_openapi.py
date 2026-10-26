@@ -46,7 +46,7 @@ def schema(values, key='', request=False):
         elif key=='microchip':out['pattern']=r'^\d{15}$'
         elif key=='value':out.update(pattern=r'^[1-9]\d{0,9}$',maxLength=10)
         elif key=='otp':out['pattern']=r'^\d{6}$'
-        elif key in ['date','dob','issueDate','expiryDate','fluDate']:out['pattern']=r'^(\d{4}-\d{2}-\d{2})?$'
+        elif key in ['date','pickupAt','dob','issueDate','expiryDate','fluDate']:out['pattern']=r'^(\d{4}-\d{2}-\d{2})?$'
         elif key.endswith('At') or key.endswith('Until') or key in ['at','from','to','plannedDepart','eta','readAt']:out['pattern']=r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})?$'
         elif key=='expiresAt':out['pattern']=r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$'
         if key in ['contractId','requestId','horseId','invoiceId','paymentId','tripId','notificationId','customerId','coordinatorId','specialistId']:
@@ -99,8 +99,8 @@ for n in [12,13]:
     for k in ['issueDate','expiryDate']:sc['properties']['passport']['properties'][k]['minLength']=10
 
 # Canonical DTO status enums; meanings belong to FLOW1.md, not SQL CHECK guesses.
-request_states=['DRAFT','PENDING_REVIEW','CHANGES_REQUESTED','REJECTED','CONTRACT_PREPARATION','CONTRACT_READY','CONTRACT_CHANGES_REQUESTED','DEPOSIT_VERIFIED','CANCELLATION_REQUESTED','ACTIVATED','SCHEDULED','IN_PROGRESS','DELIVERED','CLOSED','CANCELLED']
-contract_states=['ISSUED','CHANGES_REQUESTED','EXPIRED','SUPERSEDED','EFFECTIVE','FULFILLED','VOID']
+request_states=['DRAFT','PENDING_REVIEW','CHANGES_REQUESTED','REJECTED','CONTRACT_PREPARATION','CONTRACT_READY','CONTRACT_CHANGES_REQUESTED','DEPOSIT_VERIFIED','AWAITING_DEPOSIT','CANCELLATION_REQUESTED','ACTIVATED','SCHEDULED','IN_PROGRESS','DELIVERED','CLOSED','CANCELLED']
+contract_states=['SIGNED','ISSUED','CHANGES_REQUESTED','EXPIRED','SUPERSEDED','EFFECTIVE','FULFILLED','VOID']
 def enrich(node,path=''):
     if not isinstance(node,dict):return
     props=node.get('properties',{})
@@ -166,6 +166,13 @@ def lifecycle(sc):
     for v in sc.get('anyOf',[]):lifecycle(v)
 for key,sc in components.items():lifecycle(sc)
 
+# helo.html: sign first, pay afterwards; activation is an IPN transition.
+components['F1-J51Response200']['properties']['data']['properties'].update(
+    requestStatus={'const':'AWAITING_DEPOSIT'}, tripId={'type':'null'}, tripStatus={'type':'null'})
+for op in ['F1-J18','F1-J19']:
+    components[op+'Request']['properties']['pickupAt']={'type':'string','pattern':r'^\d{4}-\d{2}-\d{2}$'}
+    if 'pickupAt' not in components[op+'Request']['required']:components[op+'Request']['required'].append('pickupAt')
+
 # Formal nullable lifecycle fields may arrive before they exist.
 for name,node in list(components.items()):
     def timestamps(sc):
@@ -222,7 +229,7 @@ for sc in components.values():normalize(sc)
 
 # Empty collection unions should not prohibit populated canonical collections (e.g. issues).
 # Checklist response defines both empty/filled issues; inference handles the item union.
-spec={'openapi':'3.1.0','info':{'title':'Flow 1 — frontend contract','version':'1.1.0','description':'Target interface; SQL Reviewed deployment CHECK supports ON_HOLD; live database and backend not updated. See x-implementation-status on operations. Examples are illustrative; schemas are normative.'},'servers':[{'url':'/api'}],'security':[{'bearerAuth':[]}],'paths':{},'components':{'securitySchemes':{'bearerAuth':{'type':'http','scheme':'bearer'}},'schemas':components}}
+spec={'openapi':'3.1.0','info':{'title':'Flow 1 — frontend contract','version':'2.0.0','description':'Target interface; SQL Reviewed deployment CHECK supports ON_HOLD; live database and backend not updated. See x-implementation-status on operations. Examples are illustrative; schemas are normative.'},'servers':[{'url':'/api'}],'security':[{'bearerAuth':[]}],'paths':{},'components':{'securitySchemes':{'bearerAuth':{'type':'http','scheme':'bearer'}},'schemas':components}}
 error={'type':'object','required':['success','message','errorCode','data'],'properties':{'success':{'const':False},'message':{'type':'string'},'errorCode':{'type':'string'},'data':{'type':'null'},'errors':{'type':'object','additionalProperties':{'type':'array','items':{'type':'string'}}}},'additionalProperties':False}
 components['Error']=error
 for opid,method,path,body,req,responses in operations:
@@ -236,13 +243,13 @@ for opid,method,path,body,req,responses in operations:
         if param=='documentType':sch={'type':'string','enum':['PASSPORT','OWNERSHIP','VALUATION','VACCINATION','HEALTH_CERTIFICATE']}
         op['parameters'].append({'name':param,'in':'path','required':True,'schema':sch})
     if opid in ['F1-J09','F1-J10','F1-J14','F1-J29']:
-        query={'F1-J09':['originCountry','destinationCountry','mode'],'F1-J10':['q','country'],'F1-J14':['date','excludeRequestId'],'F1-J29':['mode']}[opid]
+        query={'F1-J09':['originCountry','destinationCountry','mode'],'F1-J10':['q','country'],'F1-J14':['date','pickupAt','excludeRequestId'],'F1-J29':['mode']}[opid]
         for name in query:
             sch={'type':'string'}
             if name=='mode':sch['enum']=['ROAD','AIR']
             if name in ['originCountry','destinationCountry','country']:sch['enum']=['VN','JP']
             if name=='q':sch.update(minLength=2,maxLength=200)
-            if name=='date':sch['pattern']=r'^\d{4}-\d{2}-\d{2}$'
+            if name in ['date','pickupAt']:sch['pattern']=r'^\d{4}-\d{2}-\d{2}$'
             op['parameters'].append({'name':name,'in':'query','required':opid=='F1-J10' or (opid=='F1-J14' and name=='date'),'schema':sch})
     if opid=='F1-J18':op['parameters'].append({'name':'Idempotency-Key','in':'header','required':True,'schema':{'type':'string','format':'uuid'}})
     if req:

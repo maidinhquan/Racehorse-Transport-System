@@ -56,7 +56,7 @@ export const ContractViewPage: React.FC = () => {
       {!current && <Note tone="grey" title="Phiên bản cũ – chỉ xem">Phiên bản này đã được thay bằng {ctRef(curVersion(r)!)} và không thể ký.</Note>}
       {current && state === 'EXPIRED' && <Note tone="grey" title="Phiên bản đã hết hạn">Không thể ký nữa. Yêu cầu phiên bản cập nhật ở tab Hợp đồng & chi phí.</Note>}
       {state === 'FULFILLED' && <Note tone="grey" title="Đã hoàn thành – hết hiệu lực">Yêu cầu đã đóng{r.closedAt ? ` ${fmtDateTime(r.closedAt)}` : ''}. Hợp đồng đã ký được lưu để tham chiếu.</Note>}
-      {['EFFECTIVE', 'FULFILLED'].includes(state) && <Note tone="green" title={`Đã ký điện tử bằng OTP • ${fmtDateTime(v.signedAt)}`}>Người ký: {v.snapshot?.customer.name ?? '—'}. Phiên bản đã ký chỉ để xem.</Note>}
+      {['SIGNED', 'EFFECTIVE', 'FULFILLED'].includes(state) && <Note tone="green" title={`Đã ký điện tử bằng OTP • ${fmtDateTime(v.signedAt)}`}>Người ký: {v.snapshot?.customer.name ?? '—'}. Phiên bản đã ký chỉ để xem.</Note>}
 
       <div className="cus-card cus-contract-head">
         <div><b className="cus-contract-head__brand">CBN Transport</b><span>{v.number} • v{v.v} • {fmtDateTime(v.issuedAt)}</span></div>

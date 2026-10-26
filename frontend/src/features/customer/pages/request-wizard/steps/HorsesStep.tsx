@@ -20,10 +20,10 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const [availabilityError, setAvailabilityError] = useState('');
   useEffect(() => {
     let active = true;
-    customerApi.getSelectableHorses(r.date, r.id).then(rows => { if (active) { setSelectable(rows.filter(h => h.selectable).map(h => h.id)); setAvailabilityError(''); } })
+    customerApi.getSelectableHorses(r.date, r.id, r.pickupAt).then(rows => { if (active) { setSelectable(rows.filter(h => h.selectable).map(h => h.id)); setAvailabilityError(''); } })
       .catch(() => { if (active) { setSelectable(null); setAvailabilityError('Chưa kiểm tra được lịch ngựa. Vui lòng tải lại trước khi chọn.'); } });
     return () => { active = false; };
-  }, [r.date, r.id, horses.length]);
+  }, [r.date, r.pickupAt, r.id, horses.length]);
   const selectedId = r.horses[slot] ?? '';
   const selected = horses.find((h) => h.id === selectedId);
   const backTo = `/customer/requests/${r.id}/wizard/2`;

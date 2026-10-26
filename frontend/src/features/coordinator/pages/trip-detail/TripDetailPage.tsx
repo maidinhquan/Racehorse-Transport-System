@@ -1,3 +1,4 @@
+import { TimedDocumentsCard } from '../../../../shared/components/TimedDocumentsCard/TimedDocumentsCard';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CoordinatorLayout, Icon } from '../../components/CoordinatorLayout';
@@ -64,6 +65,7 @@ export const TripDetailPage: React.FC = () => {
         </div>
       )}
 
+      {trip.deploymentStatus === 'CONFIRMED' && <TimedDocumentsCard tripId={trip.id} role="coordinator" />}
       <div className="crd-tabs" role="tablist">
         {tabs.map(([k, label]) => (
           <button key={k} type="button" role="tab" className={k === on ? 'on' : ''} onClick={() => navigate(`/coordinator/trips/${trip.id}/${k}`)}>{label}</button>
