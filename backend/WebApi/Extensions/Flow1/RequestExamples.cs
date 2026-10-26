@@ -156,11 +156,16 @@ public sealed class RequestExamples : ISchemaFilter, IOperationFilter
         {
             if (name.Equals("Data", StringComparison.OrdinalIgnoreCase))
             {
-                property.Example = new OpenApiString(JsonSerializer.Serialize(Sample(typeof(RequestUpdateInput)), Json));
+                property.Example = new OpenApiString(JsonSerializer.Serialize(Sample(typeof(RequestUpdateInput)), new JsonSerializerOptions(Json) {
+                    WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(System.Text.Unicode.UnicodeRanges.All) }));
+                property.Extensions["x-request-json-editor"] = new OpenApiBoolean(true);
                 property.Description = "JSON đầy đủ của yêu cầu: tuyến, hai ngày, pickup/delivery có cityId, horses, horseNotes, documents. Mỗi documents[].fileName phải khớp tên tệp trong files. Không gửi RequestID hoặc đường dẫn file.";
             }
             else if (name.Equals("Files", StringComparison.OrdinalIgnoreCase))
+            {
+                property.Extensions["x-request-file-picker"] = new OpenApiBoolean(true);
                 property.Description = "Chọn các tệp khai báo trong data.documents. Mỗi tệp tối đa 10 MiB; tổng tối đa 60 MiB/33 tệp. Bỏ trống khi không có tệp mới; PUT giữ hồ sơ cũ nếu không gửi thay thế.";
+            }
             else if (name.Equals("DocumentType", StringComparison.OrdinalIgnoreCase))
             {
                 property.Example = property.Default = new OpenApiString("HEALTH_CERTIFICATE");
