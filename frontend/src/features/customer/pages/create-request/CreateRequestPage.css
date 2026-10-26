@@ -1,8 +1,45 @@
-.cus-create { max-width: 860px; }
-.cus-create__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
-.cus-create__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
-.cus-quote { margin-top: 16px; border: 1px solid #fed7aa; background: #fffaf3; border-radius: 12px; padding: 16px 18px; }
-.cus-quote__tag { font-size: 12px; color: #64748b; margin-bottom: 12px; }
-.cus-quote__tag span { background: #ffedd5; color: #c2410c; font-weight: 700; padding: 2px 8px; border-radius: 999px; margin-right: 6px; }
-.cus-quote__amount { font-size: 20px; color: #ea580c; }
-@media (max-width: 700px) { .cus-create__grid { grid-template-columns: 1fr; } }
+.cus-create-flow{max-width:1040px;margin:0 auto}
+.cus-create-flow>.cus-title{font-size:27px;letter-spacing:-.65px;line-height:1.25;margin-bottom:8px}
+.cus-create-flow>.cus-subtitle{max-width:700px;line-height:1.65}
+.cus-create__fieldset{margin:0;padding:0;border:0;min-width:0}
+.cus-create-flow .cus-create__schedule{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:20px 22px;margin:0;box-shadow:0 2px 6px #0f172a03}
+.cus-create__schedule-heading{display:flex;align-items:center;gap:14px;min-width:0}
+.cus-create__calendar{width:44px;height:44px;display:grid;place-items:center;background:var(--cus-orange-soft);border-radius:12px;color:var(--cus-orange-text);flex:none}
+.cus-create__calendar .cus-i{width:21px;height:21px}
+.cus-create__schedule h3{font-size:14px;font-weight:650;margin:0 0 5px;letter-spacing:-.15px}
+.cus-create__schedule h3 span{color:var(--cus-orange-text)}
+.cus-create__schedule p{font-size:12px;line-height:1.5;color:var(--cus-muted);margin:0}
+.cus-create-flow .cus-create__date{width:250px;flex:0 0 250px;margin:0}
+.cus-create__sr{position:absolute!important;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.cus-create__date .cus-date__field{height:44px;border-radius:9px;background:var(--cus-bg)}
+.cus-create__required{color:var(--cus-muted);font-size:11px;margin:20px 0 10px;text-align:right}
+.cus-create__places{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
+.cus-create-flow .cus-create__place{margin:0;padding:24px;min-width:0;box-shadow:0 2px 6px #0f172a03}
+.cus-create__place-heading{display:flex;gap:12px;align-items:center;margin-bottom:22px;padding-bottom:18px;border-bottom:1px solid var(--cus-line)}
+.cus-create__place-number{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:var(--cus-orange-soft);color:var(--cus-orange-text);font-size:12px;font-weight:700;flex:none}
+.cus-create__place-number.delivery{background:var(--cus-bg);color:var(--cus-muted)}
+.cus-create__place-heading h3{margin:0 0 4px;font-size:16px;font-weight:650;letter-spacing:-.2px}
+.cus-create__place-heading p{color:var(--cus-muted);font-size:11px;line-height:1.5;margin:0}
+.cus-create__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px 14px}
+.cus-create__full{grid-column:1/-1}
+.cus-create-flow .cus-field{margin:0;min-width:0}
+.cus-create-flow .cus-field label{font-size:12px;color:var(--cus-muted);font-weight:500;margin-bottom:7px;line-height:1.45}
+.cus-create-flow .cus-input,.cus-create-flow .cus-select,.cus-create-flow .cus-textarea{width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--cus-line);border-radius:8px;background:var(--cus-card);font-size:13px;color:var(--cus-ink);transition:border-color .15s,box-shadow .15s}
+.cus-create-flow .cus-input,.cus-create-flow .cus-select{height:42px;padding:0 12px}
+.cus-create-flow .cus-input::placeholder,.cus-create-flow .cus-textarea::placeholder{color:var(--cus-muted);opacity:.65;font-size:12px}
+.cus-create-flow .cus-input:focus,.cus-create-flow .cus-select:focus,.cus-create-flow .cus-textarea:focus{border-color:var(--cus-orange);box-shadow:0 0 0 3px var(--cus-orange-soft);outline:none}
+.cus-create-flow .invalid{border-color:#dc5757}
+.cus-create__contact{border-top:1px solid var(--cus-line);margin-top:24px;padding-top:20px}
+.cus-create__contact h4{font-size:12px;font-weight:650;margin:0 0 15px}
+.cus-create__actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:24px 0 0;padding-top:20px;border-top:1px solid var(--cus-line)}
+.cus-create__actions .cus-btn{min-height:44px;border-radius:9px;font-size:12px}
+.cus-create__address{position:relative}
+.cus-create__suggestions{position:absolute;top:100%;left:0;right:0;z-index:20;max-height:240px;overflow:auto;border:1px solid var(--cus-line);border-radius:10px;background:var(--cus-card);box-shadow:0 8px 24px #0f172a15}
+.cus-create__suggestions button{display:flex;align-items:flex-start;gap:8px;width:100%;text-align:left;padding:12px;border:0;border-bottom:1px solid var(--cus-line);background:transparent;color:var(--cus-ink);font:inherit;cursor:pointer}
+.cus-create__suggestions button:hover{background:var(--cus-bg)}
+.cus-create__suggestions p{padding:12px;margin:0;font-size:12px;color:var(--cus-muted)}
+.cus-create__location-confirmed{display:flex;align-items:center;gap:5px;color:#218057;font-size:11px;margin-top:7px}
+.cus-create__location-confirmed .cus-i{width:13px;height:13px}
+@media(max-width:900px){.cus-create__places{gap:16px}.cus-create-flow .cus-create__place{padding:20px}.cus-create-flow .cus-create__schedule{gap:16px}.cus-create-flow .cus-create__date{width:220px;flex-basis:220px}}
+@media(max-width:680px){.cus-create__places{grid-template-columns:1fr}.cus-create-flow .cus-create__schedule{align-items:stretch;flex-direction:column;gap:16px}.cus-create-flow .cus-create__date{width:100%;flex:auto}.cus-create-flow>.cus-title{font-size:23px}}
+@media(max-width:420px){.cus-create-flow .cus-create__place,.cus-create-flow .cus-create__schedule{padding:17px}.cus-create__grid{grid-template-columns:1fr}.cus-create__actions{align-items:stretch;flex-direction:column-reverse;gap:10px}.cus-create__actions .cus-btn{width:100%}}

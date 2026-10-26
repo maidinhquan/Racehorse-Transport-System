@@ -5,14 +5,12 @@ import type {
   ActualCost,
   ContractDraft,
   ExtraCost,
-  RevisionField,
   Transaction,
   TransportRequest,
   Trip,
 } from '../types';
 import { managerApi } from '../api/managerApi';
 import { apiMessage } from '../../../shared/api/apiError';
-import type { PaymentConfirmation } from '../../../shared/api/contractClient';
 import {
   MANAGER_NAME,
   mockActualCosts,
@@ -236,9 +234,9 @@ const managerActions = {
     if (reqIn(state, id)?.status !== 'PENDING_REVIEW') return Promise.resolve(fail('Yêu cầu chưa ở hàng chờ xét duyệt.'));
     return perform(id, () => managerApi.acceptRequest(id), 'Đã chấp thuận yêu cầu.');
   },
-  requestRevision(id: string, feedback: string, fields: RevisionField[]) {
-    if (feedback.trim().length < 10 || !fields.length) return Promise.resolve(fail('Chọn mục cần sửa và nhập góp ý ít nhất 10 ký tự.'));
-    return perform(id, () => managerApi.requestRevision(id, feedback.trim(), fields), 'Đã gửi yêu cầu chỉnh sửa.');
+  requestRevision(id: string, feedback: string) {
+    if (feedback.trim().length < 10) return Promise.resolve(fail('Nhập góp ý ít nhất 10 ký tự.'));
+    return perform(id, () => managerApi.requestRevision(id, feedback.trim()), 'Đã gửi yêu cầu chỉnh sửa.');
   },
   rejectRequest(id: string, reason: string) {
     if (reason.trim().length < 10) return Promise.resolve(fail('Nhập lý do ít nhất 10 ký tự.'));
@@ -306,24 +304,17 @@ const managerActions = {
     if (!v?.contractId) return Promise.resolve(fail('Không tìm thấy hợp đồng.'));
     return perform(id, () => managerApi.remindSign(v.contractId!, v.v), 'Đã gửi nhắc hoàn tất hợp đồng.');
   },
-  verifyTransaction(id: string, body: PaymentConfirmation) {
-    if (!Number.isInteger(body.confirmedAmount) || body.confirmedAmount <= 0 || !body.transactionCode.trim() || !body.receivedAt) return Promise.resolve(fail('Điền số tiền thực nhận, mã giao dịch và thời điểm nhận tiền.'));
-    return perform(id, () => managerApi.verifyTransaction(id, body), 'Đã đối soát giao dịch.');
-  },
-  rejectTransaction(id: string, reason: string) {
-    return perform(id, () => managerApi.rejectTransaction(id, reason), 'Đã từ chối chứng từ.');
-  },
-  confirmRefund(id: string, reference: string, note: string) {
-    const tx = state.transactions.find(x => x.id === id);
-    if (!tx?.contractId || !reference.trim() || note.trim().length < 5) return Promise.resolve(fail('Cần hợp đồng, mã tham chiếu hoàn tiền và ghi chú.'));
-    return perform(id, () => managerApi.confirmRefund(tx.contractId!, reference.trim(), note.trim()), 'Đã ghi nhận hoàn tiền.');
+  confirmRefund(requestId: string) {
+    const request = reqIn(state, requestId), contractId = request?.contractId ?? (request && curVersion(request)?.contractId);
+    if (!contractId) return Promise.resolve(fail('Không tìm thấy hợp đồng để ghi nhận trạng thái hoàn tiền.'));
+    return perform(requestId, () => managerApi.confirmRefund(contractId), 'Đã cập nhật trạng thái hoàn tiền theo máy chủ.');
   },
   confirmDeployment(id: string, specialistId: string, coordinatorId: string) {
     if (!specialistId || !coordinatorId) return Promise.resolve(fail('Chọn đủ người phụ trách.'));
     return perform(id, () => managerApi.deployTrip(id, { specialistId, coordinatorId }), 'Đã phân công chuyến.');
   },
-  holdTrip(_id: string, _reason: string): ActionResult { return fail('Tạm dừng chuyến chưa được backend hỗ trợ trong phạm vi này.'); },
-  resumeTrip(_id: string): ActionResult { return fail('Tiếp tục chuyến chưa được backend hỗ trợ trong phạm vi này.'); },
+  holdTrip(id: string, reason: string) { return perform(id, () => managerApi.holdTrip(id, reason.trim()), 'Đã tạm dừng chuyến.'); },
+  resumeTrip(id: string) { return perform(id, () => managerApi.resumeTrip(id), 'Đã gửi yêu cầu tiếp tục chuẩn bị chuyến.'); },
   approveRoute(tripId: string): ActionResult {
     const t = tripIn(state, tripId);
     if (!t?.route || t.route.status !== 'PENDING_APPROVAL') return fail('Không có phương án tuyến chờ duyệt.');

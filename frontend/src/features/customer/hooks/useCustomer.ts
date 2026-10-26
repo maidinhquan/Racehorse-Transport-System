@@ -301,16 +301,48 @@ const customerActions = {
   },
 
   // ----- Bước 1: thông tin chuyến -----
-  async createDraft(input: TripInfoInput): Promise<ActionResult> {
+  async createDraft(input: TripInfoInput, idempotencyKey?: string): Promise<ActionResult> {
     const err = validateTripInfo(input); if (err) return fail(err);
     try {
-      const r = await customerApi.createRequest(input);
+      const r = await customerApi.createRequest(input, idempotencyKey);
       if (!r?.id || r.status !== 'DRAFT') return fail('API chưa trả bản nháp hợp lệ.');
       r.horseCount = input.horseCount;
       r.horses = Array.from({ length: input.horseCount }, () => '');
       setState(s => ({ requests: [r, ...s.requests] }));
       return ok(`Đã tạo bản nháp ${r.id}.`, r.id);
     } catch (error) { return fail(apiMessage(error)); }
+  },
+
+  /** Save the merged schedule/address step with one PUT; publish local changes only after success. */
+  async saveRequestDetails(id: string, input: TripInfoInput, pickup: Place, delivery: Place): Promise<ActionResult> {
+    const current = findReq(id);
+    if (!current || !['DRAFT', 'CHANGES_REQUESTED'].includes(current.status)) return fail('Yêu cầu này không thể chỉnh sửa.');
+    const trip = { ...input, horseCount: current.horseCount, careNotes: current.careNotes };
+    const err = validateTripInfo(trip);
+    if (err) return fail(err);
+    if ([pickup, delivery].some(p => !p.name.trim() || !p.address.trim() || !p.contact.trim() || !/^[+0-9 ()-]{8,}$/.test(p.phone.trim()))) return fail('Điền đủ địa chỉ, người liên hệ và số điện thoại hợp lệ cho cả hai địa điểm.');
+    if (current.status === 'CHANGES_REQUESTED') {
+      const allowed = current.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'];
+      if ((!allowed.includes('route') && (trip.origin !== current.origin || trip.destination !== current.destination))
+        || (!allowed.includes('date') && trip.date !== current.date)
+        || (!allowed.includes('places') && (JSON.stringify(pickup) !== JSON.stringify(current.pickup) || JSON.stringify(delivery) !== JSON.stringify(current.delivery)))) return fail('Manager chỉ cho phép sửa các mục đã nêu trong góp ý.');
+    }
+    const updated: TransportRequest = { ...current, ...trip, pickup: { ...pickup }, delivery: { ...delivery }, wizardStep: Math.max(current.wizardStep, 2) };
+    try {
+      await customerApi.saveRequest(updated);
+      updateReq(id, r => { Object.assign(r, updated); log(r, 'CUSTOMER', 'Lưu thông tin nhận và giao ngựa'); });
+      return ok('Đã lưu lịch nhận, địa chỉ và người liên hệ.', id);
+    } catch (error) { return fail(apiMessage(error)); }
+  },
+
+  setHorseCount(id: string, count: number): ActionResult {
+    const r = findReq(id);
+    if (!r || !['DRAFT', 'CHANGES_REQUESTED'].includes(r.status)) return fail('Yêu cầu này không thể chỉnh sửa.');
+    if (r.status === 'CHANGES_REQUESTED' && !(r.revisionFields ?? ['horses']).includes('horses')) return fail('Manager không cho phép sửa danh sách ngựa.');
+    if (!Number.isInteger(count) || count < 1 || count > 6) return fail('Số lượng ngựa từ 1 đến 6.');
+    if (r.horses.slice(count).some(Boolean)) return fail('Bỏ ngựa ở các vị trí cuối trước khi giảm số lượng để tránh mất thông tin.');
+    updateReq(id, x => resizeHorses(x, count));
+    return { ok: true, message: '' };
   },
 
   async updateTripInfo(id: string, input: TripInfoInput): Promise<ActionResult> {
@@ -358,14 +390,14 @@ const customerActions = {
   setHorseSlot(id: string, slot: number, horseId: string): ActionResult {
     const r = findReq(id);
     if (!r) return fail('Không tìm thấy yêu cầu.');
-    if (r.status === 'CHANGES_REQUESTED' && !r.revisionFields?.includes('horses')) return fail('Manager không cho phép sửa danh sách ngựa.');
+    if (r.status === 'CHANGES_REQUESTED' && !(r.revisionFields ?? ['horses']).includes('horses')) return fail('Manager không cho phép sửa danh sách ngựa.');
     if (horseId && r.horses.some((h, i) => h === horseId && i !== slot)) return fail('Ngựa này đã được chọn trong đơn.');
     updateReq(id, (x) => { x.horses[slot] = horseId; });
     return { ok: true, message: '' };
   },
   setHorseNote(id: string, horseId: string, note: string) {
     const current = findReq(id);
-    if (current?.status === 'CHANGES_REQUESTED' && !current.revisionFields?.includes('notes')) return;
+    if (current?.status === 'CHANGES_REQUESTED' && !(current.revisionFields ?? ['notes']).includes('notes')) return;
     updateReq(id, (r) => { r.horseNotes[horseId] = note; });
   },
   async completeHorsesStep(id: string): Promise<ActionResult> {

@@ -21,11 +21,11 @@ export function horseNames(r: TransportRequest, horses: Horse[]) {
 }
 
 /** Khối địa chỉ nhận / giao */
-export const PlaceBlock: React.FC<{ place: Place; who: string }> = ({ place: p, who }) =>
+export const PlaceBlock: React.FC<{ place: Place; who: string; city?: string }> = ({ place: p, who, city }) =>
   p.name ? (
     <div className="cus-place">
       <b>{p.name}</b>
-      <span>{p.address || '—'}{p.postal ? `, ${p.postal}` : ''}</span>
+      <span>{p.address || '—'}{city ? `, ${cityLabel(city)}` : ''}{p.postal ? `, ${p.postal}` : ''}</span>
       <dl>
         <dt>{who}</dt><dd>{p.contact || '—'}</dd>
         <dt>Điện thoại</dt><dd>{p.phone || '—'}</dd>

@@ -25,3 +25,12 @@
 .cus-wizard__profile-head .cus-btn { margin-left: auto; }
 .cus-wizard__errors { margin: 4px 0 0; padding-left: 18px; line-height: 1.8; }
 @media (max-width: 760px) { .cus-wizard__grid, .cus-wizard__picker { grid-template-columns: 1fr; } }
+
+.cus-wizard__horse-count{max-width:240px;margin-top:20px}
+.cus-wizard__actions{justify-content:space-between}
+.cus-wizard__review-places{margin-top:18px}
+.cus-wizard__review-horse{margin-top:20px;padding-top:18px;border-top:1px solid var(--cus-line)}
+.cus-wizard__review-horse h4{display:flex;justify-content:space-between;gap:12px;margin:0 0 14px;font-size:14px}
+.cus-wizard__review-horse h4 small{color:var(--cus-muted);font-weight:400}
+.cus-wizard__review-care{padding:14px;background:var(--cus-bg);border-radius:8px;margin-bottom:14px;font-size:12px}
+.cus-wizard__review-care p{margin:6px 0 0}

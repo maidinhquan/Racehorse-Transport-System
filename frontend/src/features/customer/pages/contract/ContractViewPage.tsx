@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { contractClient } from '../../../../shared/api/contractClient';
+import { customerApi } from '../../api/customerApi';
 import { apiMessage } from '../../../../shared/api/apiError';
 import type { ContractVersion } from '../../types';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -25,7 +25,7 @@ export const ContractViewPage: React.FC = () => {
   useEffect(() => {
     let active = true; setLoadedVersion(null); setLoadError('');
     if (ref?.contractId && selectedNo && Number.isInteger(selectedNo) && selectedNo > 0) {
-      contractClient<ContractVersion>('get', `/customer/contracts/${ref.contractId}/versions/${selectedNo}`).then(value => { if (active) setLoadedVersion(value); })
+      customerApi.getContractVersion(ref.contractId, selectedNo).then(value => { if (active) setLoadedVersion(value); })
         .catch(error => { if (active) setLoadError(apiMessage(error)); });
     }
     return () => { active = false; };

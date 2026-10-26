@@ -66,3 +66,84 @@ describe('Flow 1 wire contract', () => {
     expect(request).not.toHaveBeenCalled();
   });
 });
+
+  // Regression cases for the current contract (65 endpoints, VNPAY only).
+describe('current Flow 1 request boundaries', () => {
+  it('sends the UUID idempotency header without UI-only request fields', async () => {
+    request.mockResolvedValue({ status: 201, data: example('/customer/requests', 'post', '201') });
+    const input = { origin: 'Ho Chi Minh City', destination: 'Tokyo', date: '2026-11-20', horseCount: 3, careNotes: '' };
+    const key = '1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd';
+    const result = await customerApi.createRequest(input, key);
+    expect(request.mock.calls[0][0]).toMatchObject({ headers: { 'Idempotency-Key': key }, data: { origin: input.origin, destination: input.destination, originCountry: 'VN', destinationCountry: 'JP', mode: 'AIR', date: input.date, careNotes: '' } });
+    expect(request.mock.calls[0][0]?.data).not.toHaveProperty('horseCount');
+    expect(result.history).toEqual([]);
+    expect(result.revisions).toEqual([]);
+  });
+  it('rejects missing required headers, invalid path parameters and undocumented endpoints', async () => {
+    const body = { origin: 'Ho Chi Minh City', destination: 'Tokyo', originCountry: 'VN', destinationCountry: 'JP', mode: 'AIR', date: '2026-11-20', careNotes: '' };
+    await expect(contractClient('post', '/customer/requests', body)).rejects.toThrow('Idempotency-Key');
+    await expect(contractClient('get', '/customer/horses/not-a-contract-id')).rejects.toThrow('horseId');
+    await expect(contractClient('post', '/manager/payments/PAYMENT_001/confirm', {})).rejects.toThrow('không có');
+    await expect(contractClient('post', '/manager/payments/PAYMENT_001/reject', {})).rejects.toThrow('không có');
+    expect(request).not.toHaveBeenCalled();
+  });
+  it('rejects undeclared query parameters and request bodies on bodyless operations', async () => {
+    await expect(contractClient('get', '/customer/requests', undefined, { customerId: 'USER_002' })).rejects.toThrow('customerId');
+    await expect(contractClient('get', '/customer/horses/selectable')).rejects.toThrow('date');
+    await expect(contractClient('post', '/manager/contracts/CONTRACT_001/refund/complete', { reference: 'old' })).rejects.toThrow('không nhận request body');
+    expect(request).not.toHaveBeenCalled();
+  });
+  it('sends only feedback for manager revision and no body for refund completion', async () => {
+    request.mockResolvedValueOnce({ status: 200, data: example('/manager/requests/{requestId}/request-changes', 'post') });
+    await managerApi.requestRevision('REQUEST_001', 'Please update the transport date.');
+    expect(request.mock.calls[0][0]?.data).toEqual({ feedback: 'Please update the transport date.' });
+    request.mockResolvedValueOnce({ status: 200, data: example('/manager/contracts/{contractId}/refund/complete', 'post') });
+    await managerApi.confirmRefund('CONTRACT_001');
+    expect(request.mock.calls[1][0]?.data).toBeUndefined();
+  });
+  it('uses the contract hold and resume endpoints', async () => {
+    request.mockResolvedValueOnce({ status: 200, data: example('/manager/trips/{tripId}/hold', 'post') });
+    await managerApi.holdTrip('TRIP_001', 'Waiting for the revised transport date.');
+    expect(request.mock.calls[0][0]?.data).toEqual({ reason: 'Waiting for the revised transport date.' });
+    request.mockResolvedValueOnce({ status: 200, data: example('/manager/trips/{tripId}/resume', 'post') });
+    await managerApi.resumeTrip('TRIP_001');
+    expect(request.mock.calls[1][0]?.url).toBe('/manager/trips/TRIP_001/resume');
+    expect(request.mock.calls[1][0]?.data).toBeUndefined();
+  });
+  it('uses value-proof for profile files and omits unsupported horse fields', async () => {
+    const saved = example('/customer/horses', 'post', '201');
+    request.mockResolvedValueOnce({ status: 201, data: saved });
+    request.mockResolvedValueOnce({ status: 201, data: example('/customer/horses/{horseId}/files/{fileType}', 'post', '201') });
+    await customerApi.createHorse({ ...saved.data, color: 'Bay', fluDate: '2026-10-01', vetName: 'Vet', vetPhone: '0901234567', valueProof: { name: 'value.pdf', file: new File(['proof'], 'value.pdf', { type: 'application/pdf' }) } });
+    const body = request.mock.calls[0][0]?.data;
+    expect(body).not.toHaveProperty('color'); expect(body).not.toHaveProperty('fluDate'); expect(body).not.toHaveProperty('vetName');
+    expect(request.mock.calls[1][0]?.url).toBe('/customer/horses/HORSE_001/files/value-proof');
+  });
+  it('reads per-request upload metadata from the nested file response', async () => {
+    request.mockResolvedValueOnce({ status: 201, data: example('/customer/requests/{requestId}/horses/{horseId}/documents', 'post', '201') });
+    const file = new File(['medical'], 'health.pdf', { type: 'application/pdf' });
+    const uploaded = await customerApi.uploadDocument('REQUEST_001', 'health', 'HORSE_001', { name: file.name, file });
+    expect(uploaded.file?.name).toBeTruthy();
+    expect((request.mock.calls[0][0]?.data as FormData).get('documentType')).toBe('HEALTH_CERTIFICATE');
+  });
+  it('blocks invalid multipart fields, photo PDF files and unsupported fileType routes', async () => {
+    const data = new FormData(); data.set('file', new File(['pdf'], 'photo.pdf', { type: 'application/pdf' }));
+    await expect(contractClient('post', '/customer/horses/HORSE_001/files/photo', data)).rejects.toThrow('JPEG');
+    await expect(contractClient('post', '/customer/horses/HORSE_001/files/flu', data)).rejects.toThrow('fileType');
+    data.set('documentType', 'HEALTH_CERTIFICATE'); data.set('undeclared', 'x');
+    await expect(contractClient('post', '/customer/requests/REQUEST_001/horses/HORSE_001/documents', data)).rejects.toThrow('contract');
+    expect(request).not.toHaveBeenCalled();
+  });
+});
+
+describe('Flow 1 server errors', () => {
+  it('preserves the backend errorCode instead of branching on a translated message', async () => {
+    const error = { success: false, message: 'Trạng thái hiện tại không cho phép ký.', errorCode: 'INVALID_STATE', data: null };
+    request.mockRejectedValueOnce({ response: { status: 409, data: error } });
+    await expect(customerApi.signContract('CONTRACT_001', '123456', 1)).rejects.toMatchObject({ name: 'Flow1ApiError', message: error.message, errorCode: error.errorCode });
+  });
+  it('detects malformed server errors instead of accepting a non-contract response', async () => {
+    request.mockRejectedValueOnce({ response: { status: 409, data: { success: false, message: 'Incomplete error' } } });
+    await expect(customerApi.signContract('CONTRACT_001', '123456', 1)).rejects.toThrow('contract');
+  });
+});
