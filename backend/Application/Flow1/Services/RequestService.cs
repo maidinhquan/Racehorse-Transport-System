@@ -76,10 +76,22 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
     private sealed record Prepared(CitySelection Pickup, CitySelection Delivery, IReadOnlyList<StoredDocument> Documents, string Hash);
     private async Task<Prepared> PrepareAsync(RequestUpdateInput input, IReadOnlyList<UploadedFile> uploads, CancellationToken ct)
     {
-        Require(input.Pickup is not null && input.Delivery is not null && input.Horses is { Count: > 0 and <= 6 }
-            && input.Horses.All(h => !string.IsNullOrWhiteSpace(h)) && input.Horses.Distinct().Count() == input.Horses.Count
-            && input.HorseNotes is not null && input.HorseNotes.All(n => input.Horses.Contains(n.Key) && n.Value is not null && n.Value.Length <= 2000),
-            "VALIDATION_ERROR", "Provide both contacts, one to six distinct horses and notes only for selected horses.", 400);
+        Require(input.Pickup is not null, "VALIDATION_ERROR", "Thiếu thông tin bên giao ngựa. Vui lòng điền pickup.", 400);
+        Require(input.Delivery is not null, "VALIDATION_ERROR", "Thiếu thông tin bên nhận ngựa. Vui lòng điền delivery.", 400);
+        Require(input.Horses is { Count: > 0 }, "VALIDATION_ERROR", "Chưa chọn ngựa. Vui lòng chọn ít nhất 1 ngựa trong horses.", 400);
+        Require(input.Horses!.Count <= 6, "VALIDATION_ERROR", "Mỗi yêu cầu chỉ được chọn tối đa 6 ngựa trong horses.", 400);
+        Require(input.Horses.All(h => !string.IsNullOrWhiteSpace(h)), "VALIDATION_ERROR", "Danh sách horses có mã ngựa để trống. Vui lòng điền mã ngựa hợp lệ.", 400);
+        var duplicates = input.Horses.GroupBy(h => h).Where(g => g.Count() > 1).Select(g => g.Key).ToArray();
+        Require(duplicates.Length == 0, "VALIDATION_ERROR", $"Danh sách horses bị trùng ngựa: {string.Join(", ", duplicates)}. Mỗi ngựa chỉ được chọn một lần.", 400);
+        Require(input.HorseNotes is not null, "VALIDATION_ERROR", "Thiếu horseNotes. Nếu không có ghi chú riêng cho ngựa, hãy gửi horseNotes: {}.", 400);
+        var unselected = input.HorseNotes!.Keys.Where(id => !input.Horses.Contains(id)).ToArray();
+        Require(unselected.Length == 0, "VALIDATION_ERROR",
+            $"Ghi chú đang gắn với ngựa {string.Join(", ", unselected)}, nhưng yêu cầu chỉ chọn {string.Join(", ", input.Horses)}. Vui lòng sửa mã ngựa trong horseNotes cho khớp với horses.", 400);
+        foreach (var note in input.HorseNotes)
+        {
+            Require(note.Value is not null, "VALIDATION_ERROR", $"Ghi chú của ngựa {note.Key} không được null. Dùng chuỗi rỗng nếu không có ghi chú.", 400);
+            Require(note.Value!.Length <= 2000, "VALIDATION_ERROR", $"Ghi chú của ngựa {note.Key} vượt quá 2.000 ký tự. Vui lòng rút ngắn ghi chú trong horseNotes.", 400);
+        }
         Require(input.CareInstructions is not null && input.CareInstructions.Length <= 2000 && (input.Purpose?.Length ?? 0) <= 100,
             "VALIDATION_ERROR", "Invalid care instructions or purpose.", 400);
         Require(input.OriginCountry is { Length: 2 } && input.DestinationCountry is { Length: 2 } && input.Mode is "AIR" or "ROAD",

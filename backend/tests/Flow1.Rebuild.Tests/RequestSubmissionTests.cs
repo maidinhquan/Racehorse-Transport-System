@@ -11,6 +11,44 @@ namespace Flow1.Rebuild.Tests;
 
 public sealed class RequestSubmissionTests(SqlFixture database) : IClassFixture<SqlFixture>
 {
+    [Theory]
+    [InlineData("pickup", "Thiếu thông tin bên giao")]
+    [InlineData("delivery", "Thiếu thông tin bên nhận")]
+    [InlineData("missing-horses", "Chưa chọn ngựa")]
+    [InlineData("empty-horses", "Chưa chọn ngựa")]
+    [InlineData("too-many", "tối đa 6 ngựa")]
+    [InlineData("blank-id", "mã ngựa để trống")]
+    [InlineData("duplicate", "bị trùng ngựa: HORSE_006")]
+    [InlineData("missing-notes", "Thiếu horseNotes")]
+    [InlineData("unselected-note", "ngựa HORSE_001, nhưng yêu cầu chỉ chọn HORSE_006")]
+    [InlineData("null-note", "ngựa HORSE_006 không được null")]
+    [InlineData("long-note", "ngựa HORSE_006 vượt quá 2.000 ký tự")]
+    public async Task Submission_validation_identifies_the_specific_contact_horse_or_note_error(string invalid, string message)
+    {
+        using var factory = new ApiFactory(database); using var customer = factory.Customer();
+        customer.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        var input = SubmissionTest.Input("2028-12-20", "2028-12-22", "HORSE_006");
+        input = invalid switch {
+            "pickup" => input with { Pickup = null! },
+            "delivery" => input with { Delivery = null! },
+            "missing-horses" => input with { Horses = null! },
+            "empty-horses" => input with { Horses = [] },
+            "too-many" => input with { Horses = Enumerable.Range(1, 7).Select(i => $"HORSE_{i:000}").ToArray() },
+            "blank-id" => input with { Horses = [""] },
+            "duplicate" => input with { Horses = ["HORSE_006", "HORSE_006"] },
+            "missing-notes" => input with { HorseNotes = null! },
+            "unselected-note" => input with { HorseNotes = new Dictionary<string, string> { ["HORSE_001"] = "Gentle handling" } },
+            "null-note" => input with { HorseNotes = new Dictionary<string, string> { ["HORSE_006"] = null! } },
+            "long-note" => input with { HorseNotes = new Dictionary<string, string> { ["HORSE_006"] = new string('a', 2001) } },
+            _ => throw new InvalidOperationException()
+        };
+        var response = await customer.PostAsync("/api/customer/requests", SubmissionTest.Body(input));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("VALIDATION_ERROR", json.RootElement.GetProperty("errorCode").GetString());
+        Assert.Contains(message, json.RootElement.GetProperty("message").GetString());
+    }
+
     [Fact]
     public async Task Requests_accept_only_three_shared_document_types_and_reject_horse_scope_on_create_and_update()
     {

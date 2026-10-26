@@ -8,7 +8,6 @@ internal static class SwaggerRequestEditor
         .swagger-ui .request-json-editor,.swagger-ui .request-file-picker{width:100%;max-width:1100px;padding:16px;border:1px solid #ccd9d3;border-radius:8px;background:#fff;box-sizing:border-box}
         .swagger-ui .request-json-editor h4,.swagger-ui .request-file-picker h4{margin:0 0 8px;font-size:16px}
         .swagger-ui .request-json-editor textarea{display:block;width:100%;min-height:480px;resize:vertical;font:13px/1.6 Consolas,monospace;box-sizing:border-box;white-space:pre;tab-size:2;background:#f8faf9}
-        .swagger-ui .request-editor-tools{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:10px 0}
         .swagger-ui .request-file-picker input[type=file]{display:block;width:100%;max-width:none;margin:12px 0}
         .swagger-ui .request-file-picker ul{padding-left:20px;overflow-wrap:anywhere}
         .swagger-ui .request-editor-error{color:#b42318;white-space:pre-wrap}
@@ -29,7 +28,9 @@ internal static class SwaggerRequestEditor
             if (isSubmission && request.body instanceof FormData) {
                 // swagger-client parses JSON-looking strings and explodes them by default.
                 // Restore this endpoint's actual contract: one JSON text field plus files.
-                const state = window.ui.oas3Selectors.requestBodyValue(match[1], method);
+                // Swagger stores PUT form state under its route template, not the concrete request ID.
+                const path = method === "put" ? "/api/customer/requests/{requestId}" : match[1];
+                const state = window.ui.oas3Selectors.requestBodyValue(path, method);
                 const data = state && state.getIn(["Data", "value"]);
                 if (typeof data === "string") {
                     const body = new FormData(); body.append("Data", data);
@@ -51,24 +52,15 @@ internal static class SwaggerRequestEditor
             const React = system.React;
             const h = React.createElement;
             function JsonEditor(props) {
-                const [error, setError] = React.useState("");
                 const value = typeof props.value === "string" ? props.value : JSON.stringify(props.value || {}, null, 2);
                 React.useEffect(function() {
                     if (props.dispatchInitialValue) props.onChange(value, props.keyName);
                 }, []);
-                function format() {
-                    try { props.onChange(JSON.stringify(JSON.parse(value), null, 2), props.keyName); setError(""); }
-                    catch (e) { setError("JSON chưa hợp lệ: " + e.message); }
-                }
                 return h("section", {className: "request-json-editor"},
                     h("h4", null, "1. Thông tin yêu cầu — JSON"),
                     h("p", null, "Sửa thông tin yêu cầu tại đây. Chọn giấy tờ ở phần 2; Swagger tự cập nhật documents trong JSON, không cần ghép tên file thủ công."),
-                    h("div", {className: "request-editor-tools"},
-                        h("button", {type: "button", className: "btn", disabled: props.disabled, onClick: format}, "Định dạng JSON"),
-                        h("span", null, "Ngày và địa chỉ, người nhận/giao, ngựa, hướng dẫn và giấy tờ")),
                     h("textarea", {"aria-label": "Thông tin yêu cầu JSON", spellCheck: false, value: value, disabled: props.disabled,
-                        onChange: function(e) { props.onChange(e.target.value, props.keyName); setError(""); }}),
-                    error ? h("p", {role: "alert", className: "request-editor-error"}, error) : null);
+                        onChange: function(e) { props.onChange(e.target.value, props.keyName); }}));
             }
             function FilePicker(props) {
                 const root = React.useRef(null);
