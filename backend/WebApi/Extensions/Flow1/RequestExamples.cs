@@ -72,7 +72,7 @@ public sealed class RequestExamples : ISchemaFilter, IOperationFilter
     {
         if (type == typeof(HorseInput)) return new HorseInput("Thunder", "Thoroughbred", "STALLION", "2020-05-15",
             "981" + DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture)[^12..], "500000000", "VND",
-            Passport(), "Nhạy cảm với tiếng ồn.");
+            Passport(), "Nhạy cảm với tiếng ồn.", "INTACT", 520.50m);
         if (type == typeof(PassportInput)) return Passport();
         if (type == typeof(RequestDraftInput)) return new RequestDraftInput("Hà Nội, Việt Nam", "Tokyo, Nhật Bản", "VN", "JP", "AIR", Date(TravelDay), Date(TravelDay.AddDays(2)), Care);
         if (type == typeof(RequestUpdateInput)) return new RequestUpdateInput("Hà Nội, Việt Nam", "Tokyo, Nhật Bản", "VN", "JP", "AIR", Date(TravelDay), Date(TravelDay.AddDays(2)), Care,

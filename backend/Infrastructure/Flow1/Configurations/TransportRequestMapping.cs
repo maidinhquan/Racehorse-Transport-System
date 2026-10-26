@@ -21,7 +21,6 @@ public sealed class TransportRequestMapping : IEntityTypeConfiguration<Transport
         entity.Property(row => row.DeliveryPostalCode).HasColumnType("nvarchar(20)");
         entity.Property(row => row.DeliveryInstructions).HasColumnType("nvarchar(1000)");
         entity.Property(row => row.CareInstructions).HasColumnType("nvarchar(2000)");
-        entity.Property(row => row.DeclaredValueVnd).HasColumnType("decimal(18,2)");
         entity.Property(row => row.RequestID).HasColumnType("varchar(50)").IsRequired();
         entity.Property(row => row.CustomerID).HasColumnType("varchar(50)").IsRequired();
         entity.Property(row => row.Departure).HasColumnType("nvarchar(255)").IsRequired();

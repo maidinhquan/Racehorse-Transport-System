@@ -209,7 +209,6 @@ CREATE TABLE TRANSPORT_REQUEST (
     DeliveryPostalCode NVARCHAR(20) NULL,
     DeliveryInstructions NVARCHAR(1000) NULL,
     CareInstructions NVARCHAR(2000) NULL,
-    DeclaredValueVnd DECIMAL(18,2) NULL,
     RequestID VARCHAR(50) NOT NULL,
     CustomerID VARCHAR(50) NOT NULL,
     Departure NVARCHAR(255) NOT NULL,
@@ -266,8 +265,7 @@ CREATE TABLE TRANSPORT_REQUEST (
     CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Distance CHECK ([DistanceKm] IS NULL OR [DistanceKm]>(0)),
     CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Route CHECK ([OriginCountry] IS NULL AND [DestinationCountry] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [TransportType] IS NOT NULL),
     -- The backend resolves the minimum from BUSINESS_POLICY and stores the applied days.
-    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Preparation CHECK ([PreparationDays] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [PreparationDays]>=0),
-    CONSTRAINT CK_F1W_TRANSPORT_REQUEST_DeclaredValueVnd CHECK ([DeclaredValueVnd] IS NULL OR ([DeclaredValueVnd]>0 AND [DeclaredValueVnd]<=9999999999 AND [DeclaredValueVnd]=ROUND([DeclaredValueVnd],0)))
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Preparation CHECK ([PreparationDays] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [PreparationDays]>=0)
 );
 
 -- 10. Bảng REQUEST_HORSE_MAPPING: Khử quan hệ N-N giữa Request và Horse

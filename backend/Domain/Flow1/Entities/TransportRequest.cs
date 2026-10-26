@@ -13,7 +13,6 @@ public sealed class TransportRequest
     public string? DeliveryPostalCode { get; set; }
     public string? DeliveryInstructions { get; set; }
     public string? CareInstructions { get; set; }
-    public decimal? DeclaredValueVnd { get; set; }
     public string RequestID { get; set; } = null!;
     public string CustomerID { get; set; } = null!;
     public string Departure { get; set; } = null!;

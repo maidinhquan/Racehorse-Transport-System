@@ -9,6 +9,20 @@ public sealed class NoteDescriptions : ISchemaFilter
 {
     public void Apply(OpenApiSchema schema, SchemaFilterContext context)
     {
+        if (context.Type == typeof(HorseInput))
+        {
+            if (schema.Properties.TryGetValue("reproductiveStatus", out var reproduction))
+            {
+                reproduction.Description = "Tình trạng sinh sản: INTACT (chưa triệt sản), NOT_PREGNANT (không mang thai), PREGNANT (mang thai), GELDED (đã thiến). Có thể bỏ trống/null khi chưa có thông tin.";
+                reproduction.Enum = new List<IOpenApiAny> { new OpenApiString("INTACT"), new OpenApiString("NOT_PREGNANT"), new OpenApiString("PREGNANT"), new OpenApiString("GELDED") };
+            }
+            if (schema.Properties.TryGetValue("weight", out var weight))
+            {
+                weight.Description = "Cân nặng theo kg, số dương tối đa 2 chữ số thập phân. Ví dụ 520.5. Có thể bỏ trống/null khi chưa đo; không truyền chuỗi kèm kg.";
+                weight.Example = new OpenApiDouble(520.5);
+                weight.Minimum = 0.01m; weight.Maximum = 99999999.99m; weight.MultipleOf = 0.01m;
+            }
+        }
         if (context.Type == typeof(ContactInput) && schema.Properties.TryGetValue("cityId", out var city))
         {
             schema.Required.Add("cityId");

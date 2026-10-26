@@ -17,6 +17,10 @@ public sealed class HorseService(IDataSession data, AccessService access, TimePr
     public Task<object> SaveAsync(string actor, string? id, HorseInput input, CancellationToken ct) => data.WriteAsync<object>(async token =>
     {
         await access.AccountAsync(actor, UserRoles.Customer, token);
+        Require(input.ReproductiveStatus is null or "INTACT" or "NOT_PREGNANT" or "PREGNANT" or "GELDED",
+            "VALIDATION_ERROR", "reproductiveStatus must be INTACT, NOT_PREGNANT, PREGNANT or GELDED.", 400);
+        Require(input.Weight is null || input.Weight > 0 && input.Weight <= 99999999.99m && decimal.Round(input.Weight.Value, 2) == input.Weight,
+            "VALIDATION_ERROR", "weight must be a positive number in kg with at most two decimal places (maximum 99999999.99).", 400);
         var horse = id is null ? new Horse { OwnerID = actor } : await access.HorseAsync(id, actor, token);
         if (id is not null) await EditableAsync(id, token);
         Require(DateTime.TryParseExact(input.Dob, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var dob)
@@ -31,6 +35,7 @@ public sealed class HorseService(IDataSession data, AccessService access, TimePr
         Require(!(await data.ListAsync<Horse>(h => h.Microchip_ISO == input.Microchip && h.HorseID != id, token)).Any(),
             "VALIDATION_ERROR", "Microchip is already registered.", 400);
         horse.Name = Required(input.Name, 100); horse.Breed = Required(input.Breed, 100); horse.Sex = input.Sex;
+        horse.ReproductiveStatus = input.ReproductiveStatus; horse.Weight = input.Weight;
         horse.DOB = dob; horse.Microchip_ISO = input.Microchip; horse.DeclaredValueVnd = value;
         horse.FEI_Passport_No = Required(input.Passport.Number, 50); horse.PassportIssuedBy = Required(input.Passport.Authority, 200);
         horse.PassportIssuedDate = issue; horse.PassportExpiryDate = expiry; horse.SpecialHealthNotes = input.HealthNotes;

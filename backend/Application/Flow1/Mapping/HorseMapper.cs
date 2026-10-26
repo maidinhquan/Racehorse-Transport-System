@@ -5,6 +5,7 @@ public static class HorseMapper
     public static object View(Horse horse) => new
     {
         id = horse.HorseID, name = horse.Name, breed = horse.Breed, sex = horse.Sex,
+        reproductiveStatus = horse.ReproductiveStatus, weight = horse.Weight,
         dob = horse.DOB?.ToString("yyyy-MM-dd"), microchip = horse.Microchip_ISO,
         value = horse.DeclaredValueVnd?.ToString("0"), currency = "VND",
         passport = new { number = horse.FEI_Passport_No, authority = horse.PassportIssuedBy,
