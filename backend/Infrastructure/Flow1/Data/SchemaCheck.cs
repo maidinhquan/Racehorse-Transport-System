@@ -21,6 +21,12 @@ public sealed class SchemaCheck(string connectionString)
                     AND COL_LENGTH('dbo.CONTRACT_VERSION','TermsAcceptedAtUtc') IS NOT NULL
                     AND COL_LENGTH('dbo.TRANSPORT_REQUEST','CancellationPreviousStatus') IS NOT NULL
                     AND COL_LENGTH('dbo.TRANSPORT_REQUEST','RevisionFeedback') IS NOT NULL
+                    AND COL_LENGTH('dbo.TRANSPORT_REQUEST','CreatedAtUtc') IS NOT NULL
+                    AND COL_LENGTH('dbo.TRANSPORT_REQUEST','SubmissionContentHash') IS NOT NULL
+                    AND COL_LENGTH('dbo.TRANSPORT_REQUEST','PickupCityId') IS NOT NULL
+                    AND COL_LENGTH('dbo.TRANSPORT_REQUEST','DeliveryCityId') IS NOT NULL
+                    AND COL_LENGTH('dbo.TRANSPORT_REQUEST','PickupCityName') IS NOT NULL
+                    AND COL_LENGTH('dbo.TRANSPORT_REQUEST','DeliveryCityName') IS NOT NULL
                     AND OBJECT_ID('dbo.BUSINESS_POLICY') IS NOT NULL
                     AND OBJECT_ID('dbo.SUPPORTED_ROUTE') IS NOT NULL
                     AND COL_LENGTH('dbo.HORSE','RowVersion') IS NULL

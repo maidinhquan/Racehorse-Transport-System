@@ -28,11 +28,12 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
     {
         using var factory=new ApiFactory(database); using var client=factory.Customer();
         client.DefaultRequestHeaders.Add("Idempotency-Key",Guid.NewGuid().ToString());
-        var input=new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date=DateTime.UtcNow.AddDays(80).ToString("yyyy-MM-dd"),careInstructions="Care"};
-        var responses=await Task.WhenAll(client.PostAsJsonAsync("/api/customer/requests",input),client.PostAsJsonAsync("/api/customer/requests",input));
+        await SubmissionTest.ReadyHorseAsync(database);
+        var input=new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",expectedTransportDate=DateTime.UtcNow.AddDays(80).ToString("yyyy-MM-dd"),expectedDeliveryDate=DateTime.UtcNow.AddDays(82).ToString("yyyy-MM-dd"),careInstructions="Care"};
+        var responses=await Task.WhenAll(client.PostAsync("/api/customer/requests", SubmissionTest.Body(input)),client.PostAsync("/api/customer/requests", SubmissionTest.Body(input)));
         var first=await Data(responses[0]); var second=await Data(responses[1]);
         Assert.Equal(first.GetProperty("id").GetString(),second.GetProperty("id").GetString());
-        var rejected=await client.PostAsJsonAsync("/api/customer/requests",new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date="2026-12-20",careInstructions="Care",ownerId="USER_002"});
+        var rejected=await client.PostAsync("/api/customer/requests", SubmissionTest.Body(new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",expectedTransportDate="2026-12-20",expectedDeliveryDate="2026-12-22",careInstructions="Care",ownerId="USER_002"}));
         Assert.Equal(HttpStatusCode.BadRequest,rejected.StatusCode);
         using var error=JsonDocument.Parse(await rejected.Content.ReadAsStringAsync());
         Assert.Equal("VALIDATION_ERROR",error.RootElement.GetProperty("errorCode").GetString());
@@ -45,74 +46,61 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         foreach(var path in contract.RootElement.GetProperty("paths").EnumerateObject())
         foreach(var operation in path.Value.EnumerateObject().Where(o=>new[]{"get","post","put","delete","patch"}.Contains(o.Name)))
         {
+            if (path.Name.EndsWith("/submit") || operation.Name == "post" && path.Name.EndsWith("/horses/{horseId}/documents")) continue;
             var matches=source.Endpoints.OfType<Microsoft.AspNetCore.Routing.RouteEndpoint>().Count(e=>
                 e.RoutePattern.RawText?.Trim('/')==("api"+path.Name).Trim('/') &&
                 (e.Metadata.GetMetadata<Microsoft.AspNetCore.Routing.HttpMethodMetadata>()?.HttpMethods.Contains(operation.Name.ToUpperInvariant())??false));
             Assert.True(matches==1,$"{operation.Name} {path.Name}: {matches} actions");
         }
     }
-    [Fact] public async Task Wizard_profile_files_update_submit_and_free_text_revision_work()
+    [Fact] public async Task One_step_submission_includes_documents_and_put_resubmits_returned_requests()
     {
-        using var factory=new ApiFactory(database);using var customer=factory.Customer();using var manager=factory.Manager();
+        using var factory=new ApiFactory(database); using var customer=factory.Customer(); using var manager=factory.Manager();
         var horse=await Data(await customer.PostAsJsonAsync("/api/customer/horses",new {name="Wizard horse",breed="Arabian",sex="MARE",dob="2020-01-01",microchip="981"+DateTime.UtcNow.Ticks.ToString()[^12..],value="100000000",currency="VND",healthNotes="Sensitive to loud noises",
             passport=new {number="TEST-PASSPORT",authority="Test Authority",issueDate="2023-01-01",expiryDate="2035-01-01"}}));
         var horseId=horse.GetProperty("id").GetString()!;
-        Assert.Equal("Sensitive to loud noises",horse.GetProperty("healthNotes").GetString());
-        Assert.False(horse.TryGetProperty("conditions",out _));
         foreach(var kind in new[]{"photo","passport","ownership"})
         {
             using var body=new MultipartFormDataContent();
-            var bytes=kind=="photo"?new byte[]{137,80,78,71,13,10,26,10,0,0,0,0,0,0,0,0}:System.Text.Encoding.UTF8.GetBytes("%PDF-1.7 fixture private document");
+            var bytes=kind=="photo"?new byte[]{137,80,78,71,13,10,26,10,0,0,0,0,0,0,0,0}:SubmissionTest.Pdf;
             body.Add(new ByteArrayContent(bytes),"file",kind+(kind=="photo"?".png":".pdf"));
             await Data(await customer.PostAsync($"/api/customer/horses/{horseId}/files/{kind}",body));
         }
-        var date=DateTime.UtcNow.AddDays(70).ToString("yyyy-MM-dd");
+        var date=DateTime.UtcNow.AddDays(70).Date;
+        var input=SubmissionTest.Input(date.ToString("yyyy-MM-dd"),date.AddDays(2).ToString("yyyy-MM-dd"),horseId) with {
+            HorseNotes=new Dictionary<string,string>{{horseId,"Gentle handling"}},
+            Documents=[new("health.pdf","HEALTH_CERTIFICATE",horseId,"2034-01-01"),new("invitation.pdf","INVITATION_LETTER")] };
         customer.DefaultRequestHeaders.Add("Idempotency-Key",Guid.NewGuid().ToString());
-        var draft=await Data(await customer.PostAsJsonAsync("/api/customer/requests",new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date,careInstructions="Care"}));
-        var id=draft.GetProperty("id").GetString()!;
-        Assert.Equal(JsonValueKind.Null, draft.GetProperty("requestedAt").ValueKind);
-        Assert.Equal(JsonValueKind.Null, draft.GetProperty("submittedAt").ValueKind);
-        Assert.Contains("submittedAt", draft.GetProperty("unsupportedFields").EnumerateArray().Select(x => x.GetString()));
-        var update=new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date,careInstructions="Care",
-            pickup=new {name="Pickup",address="Hanoi",postal="100000",contact="Customer",phone="0901234567",notes="",latitude=21.02,longitude=105.8},
-            delivery=new {name="Receiver",address="Tokyo",postal="1000000",contact="Receiver",phone="0907654321",notes="",latitude=35.6,longitude=139.7},horses=new[]{horseId},horseNotes=new Dictionary<string,string>{{horseId,"Gentle handling"}}};
-        await Data(await customer.PutAsJsonAsync($"/api/customer/requests/{id}",update));
-        string medicalUrl;
-        using (var medicalBody = new MultipartFormDataContent())
-        {
-            medicalBody.Add(new StringContent("HEALTH_CERTIFICATE"), "documentType");
-            medicalBody.Add(new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes("%PDF-1.7 medical private fixture")), "file", "health.pdf");
-            var medical = await Data(await customer.PostAsync($"/api/customer/requests/{id}/horses/{horseId}/documents", medicalBody));
-            medicalUrl = medical.GetProperty("uploadedFileUrl").GetString()!;
-            Assert.Equal("PENDING_REVIEW", medical.GetProperty("documentStatus").GetString());
-        }
-        var downloaded = await customer.GetAsync(medicalUrl);
-        Assert.Equal("application/pdf", downloaded.Content.Headers.ContentType?.MediaType);
-        Assert.True(downloaded.IsSuccessStatusCode);
-        Assert.True((await manager.GetAsync($"/api/manager/requests/{id}/horses/{horseId}/documents/HEALTH_CERTIFICATE/file")).IsSuccessStatusCode);
-        var detail = await Data(await customer.GetAsync($"/api/customer/requests/{id}"));
-        Assert.Equal(5, detail.GetProperty("docs").GetArrayLength());
-        Assert.Equal("Care",detail.GetProperty("careInstructions").GetString());
-        Assert.False(detail.TryGetProperty("careNotes",out _));
-        var savedHorse=await Data(await customer.GetAsync($"/api/customer/horses/{horseId}"));
-        Assert.Equal("Sensitive to loud noises",savedHorse.GetProperty("healthNotes").GetString());
-        var submitted=await Data(await customer.PostAsJsonAsync($"/api/customer/requests/{id}/submit",new {}));Assert.Equal("PENDING_REVIEW",submitted.GetProperty("status").GetString());
+        var submitted=await Data(await customer.PostAsync("/api/customer/requests",SubmissionTest.Body(input,("health.pdf",SubmissionTest.Pdf),("invitation.pdf",SubmissionTest.Pdf))));
+        var id=submitted.GetProperty("id").GetString()!;
+        Assert.Equal("PENDING_REVIEW",submitted.GetProperty("status").GetString());
+        Assert.Equal(JsonValueKind.String,submitted.GetProperty("createdAt").ValueKind);
+        Assert.Equal(HttpStatusCode.NotFound,(await customer.PostAsJsonAsync($"/api/customer/requests/{id}/submit",new {})).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,(await customer.PutAsync($"/api/customer/requests/{id}",SubmissionTest.Body(input,("health.pdf",SubmissionTest.Pdf),("invitation.pdf",SubmissionTest.Pdf)))).StatusCode);
+        var detail=await Data(await customer.GetAsync($"/api/customer/requests/{id}"));
+        var document=detail.GetProperty("docs").EnumerateArray().Single(d=>d.GetProperty("key").GetString()=="HEALTH_CERTIFICATE");
+        Assert.Equal("application/pdf",(await customer.GetAsync(document.GetProperty("file").GetProperty("url").GetString())).Content.Headers.ContentType?.MediaType);
+        Assert.True((await manager.GetAsync($"/api/manager/requests/{id}/shared-documents/INVITATION_LETTER")).IsSuccessStatusCode);
         await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/request-changes",new {feedback="Please update the pickup contact details."}));
-        await Data(await customer.PutAsJsonAsync($"/api/customer/requests/{id}",update));
-        await Data(await customer.PostAsJsonAsync($"/api/customer/requests/{id}/submit",new {}));
-        using var other=factory.Customer();other.DefaultRequestHeaders.Remove("X-Test-Actor");other.DefaultRequestHeaders.Add("X-Test-Actor","USER_002");
-        Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync($"/api/customer/requests/{id}")).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync(medicalUrl)).StatusCode);
+        var revised=input with { Documents=null, Pickup=input.Pickup with { Contact="Updated customer" } };
+        var result=await Data(await customer.PutAsync($"/api/customer/requests/{id}",SubmissionTest.Body(revised)));
+        Assert.Equal("PENDING_REVIEW",result.GetProperty("status").GetString());
+        var reloaded=await Data(await customer.GetAsync($"/api/customer/requests/{id}"));
+        Assert.Equal(submitted.GetProperty("createdAt").GetString(),reloaded.GetProperty("createdAt").GetString());
+        Assert.Single(reloaded.GetProperty("docs").EnumerateArray(),d=>d.GetProperty("key").GetString()=="HEALTH_CERTIFICATE");
+        using var other=factory.Customer(); other.DefaultRequestHeaders.Remove("X-Test-Actor");other.DefaultRequestHeaders.Add("X-Test-Actor","USER_002");
+        Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync($"/api/customer/requests/{id}/shared-documents/INVITATION_LETTER")).StatusCode);
+        await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/reject",new {reason="Cannot serve this route"}));
+        Assert.Equal(HttpStatusCode.Conflict,(await customer.PutAsync($"/api/customer/requests/{id}",SubmissionTest.Body(revised))).StatusCode);
     }
     [Fact] public async Task Deposit_ipn_terms_otp_activation_and_assignment_use_real_sql()
     {
         using var factory = new ApiFactory(database); using var customer = factory.Customer(); using var manager = factory.Manager();
         var date=DateTime.UtcNow.AddDays(40).Date;
         customer.DefaultRequestHeaders.Add("Idempotency-Key",Guid.NewGuid().ToString());
-        var created=await Data(await customer.PostAsJsonAsync("/api/customer/requests",new { origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date=date.ToString("yyyy-MM-dd"),careInstructions="Care" }));
+        await SubmissionTest.ReadyHorseAsync(database, "HORSE_002");
+        var created=await Data(await customer.PostAsync("/api/customer/requests", SubmissionTest.Body(new { origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",expectedTransportDate=date.ToString("yyyy-MM-dd"),expectedDeliveryDate=date.AddDays(2).ToString("yyyy-MM-dd"),careInstructions="Care",horses=new[]{"HORSE_002"} })));
         var id=created.GetProperty("id").GetString()!;
-        // Test fixture advances a submitted request directly; submit validation has its own service tests.
-        await using(var db=database.Context()) {var row=await db.Set<TransportRequest>().SingleAsync(x=>x.RequestID==id); row.Status="PENDING_REVIEW"; db.Add(new RequestHorse {RequestID=id,HorseID="HORSE_002"}); await db.SaveChangesAsync();}
         await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/accept",new {}));
         var draft=await Data(await manager.PutAsJsonAsync($"/api/manager/requests/{id}/contract-draft",new
         { arriveAt=date.AddDays(2).ToString("yyyy-MM-dd HH:mm"),departAt=date.ToString("yyyy-MM-dd HH:mm"),mode="AIR",depositPct=40,

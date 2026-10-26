@@ -32,17 +32,20 @@ public sealed class RequestsController(RequestService requests, RequestDetailsSe
 
     [HttpPost("customer/requests")]
     [Authorize(Roles = UserRoles.Customer)]
-    public async Task<IActionResult> CreateAsync(RequestDraftInput input, CancellationToken ct) =>
-        Reply(await requests.CreateAsync(Actor, IdempotencyKey, input, ct), 201);
+    [Consumes("multipart/form-data"), RequestSizeLimit(64 * 1024 * 1024), RequestFormLimits(MultipartBodyLengthLimit = 64 * 1024 * 1024)]
+    public async Task<IActionResult> CreateAsync([FromForm] RequestSubmissionForm form, CancellationToken ct)
+    {
+        var submission = await form.ReadAsync(ct);
+        return Reply(await requests.CreateAsync(Actor, IdempotencyKey, submission.Input, submission.Files, ct), 201);
+    }
 
     [HttpPut("customer/requests/{requestId}")]
     [Authorize(Roles = UserRoles.Customer)]
-    public async Task<IActionResult> UpdateAsync(string requestId, RequestUpdateInput input, CancellationToken ct) =>
-        Reply(await requests.UpdateAsync(Actor, requestId, input, ct));
-
-    [HttpPost("customer/requests/{requestId}/submit")]
-    [Authorize(Roles = UserRoles.Customer)]
-    public async Task<IActionResult> SubmitAsync(string requestId, CancellationToken ct) =>
-        Reply(await requests.SubmitAsync(Actor, requestId, ct));
+    [Consumes("multipart/form-data"), RequestSizeLimit(64 * 1024 * 1024), RequestFormLimits(MultipartBodyLengthLimit = 64 * 1024 * 1024)]
+    public async Task<IActionResult> UpdateAsync(string requestId, [FromForm] RequestSubmissionForm form, CancellationToken ct)
+    {
+        var submission = await form.ReadAsync(ct);
+        return Reply(await requests.UpdateAsync(Actor, requestId, submission.Input, submission.Files, ct));
+    }
 
 }

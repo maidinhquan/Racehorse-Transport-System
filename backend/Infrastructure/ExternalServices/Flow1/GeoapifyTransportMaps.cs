@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
 using Application.Common.Flow1;
 using Application.Flow1.Interfaces;
 using Application.Services.Flow1;
@@ -10,8 +11,9 @@ namespace Infrastructure.ExternalServices.Flow1;
 
 // Geoapify permits storage with attribution, including its Free plan. The map renderer
 // remains independent; no Mapbox geocoding or routing results enter this adapter.
-public sealed class GeoapifyTransportMaps(HttpClient http, Flow1MapOptions options, OsmRequestGate gate, TimeProvider clock)
-    : IGeocodingProvider, ILocationVerifier, IRoadRouter
+public sealed partial class GeoapifyTransportMaps(HttpClient http, Flow1MapOptions options, OsmRequestGate gate, TimeProvider clock,
+    IMemoryCache? cityCache = null)
+    : IGeocodingProvider, ILocationVerifier, IRoadRouter, ICityLocations
 {
     public const string SourceAttribution = "Powered by Geoapify | © OpenStreetMap contributors (ODbL)";
     public string? Attribution => SourceAttribution;

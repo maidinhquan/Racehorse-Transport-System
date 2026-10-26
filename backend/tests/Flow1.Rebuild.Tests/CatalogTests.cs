@@ -17,16 +17,19 @@ public sealed class CatalogTests(SqlFixture database) : IClassFixture<SqlFixture
         var session = new SqlSession(db); var access = new AccessService(session); var policy = new PolicyService(session);
         await new CatalogService(session,policy).ValidateAsync("VN","TH","AIR",default);
         var provider = new CaptureGeocoder(); var locations = new LocationService(session,access,provider);
-        await locations.SearchAsync("USER_001","Bangkok","TH",default); Assert.Equal("TH",provider.Country);
+        await locations.SearchAsync("USER_001","Bangkok","TH","fixture-bangkok",default); Assert.Equal("TH",provider.Country);
         var country=await db.FindAsync<Country>("TH"); country!.IsActive=false; await db.SaveChangesAsync();
         provider.Country=null;
-        await Assert.ThrowsAsync<BusinessRuleException>(()=>locations.SearchAsync("USER_001","Bangkok","TH",default));
+        await Assert.ThrowsAsync<BusinessRuleException>(()=>locations.SearchAsync("USER_001","Bangkok","TH","fixture-bangkok",default));
         Assert.Null(provider.Country);
         await Assert.ThrowsAsync<BusinessRuleException>(()=>new CatalogService(session,policy).ValidateAsync("VN","TH","AIR",default));
     }
-    private sealed class CaptureGeocoder : IGeocodingProvider
+    private sealed class CaptureGeocoder : IGeocodingProvider, ICityLocations
     {
         public string? Country;
+        public Task<IReadOnlyList<CitySelection>> CitiesAsync(string query, string country, CancellationToken ct) => throw new NotSupportedException();
+        public Task<CitySelection> VerifyCityAsync(MapPoint point, string cityId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<GeocodeCandidate>> SearchInCityAsync(string query, string country, string cityId, CancellationToken ct) => SearchAsync(query, country, ct);
         public Task<IReadOnlyList<GeocodeCandidate>> SearchAsync(string address,string countryCode,CancellationToken ct=default)
         { Country=countryCode; return Task.FromResult<IReadOnlyList<GeocodeCandidate>>([new(address,new(100,13,countryCode),true,"Test provider")]); }
     }

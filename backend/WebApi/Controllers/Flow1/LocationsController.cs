@@ -11,7 +11,12 @@ namespace WebApi.Controllers.Flow1;
 public sealed class LocationsController(LocationService locations) : EndpointController
 {
     [HttpGet("locations/search")]
-    public async Task<IActionResult> SearchAsync([FromQuery] string q, [FromQuery] string country, CancellationToken ct) =>
-        Reply(await locations.SearchAsync(Actor, q, country, ct));
+    public async Task<IActionResult> SearchAsync([FromQuery] string q, [FromQuery] string country,
+        [FromQuery, System.ComponentModel.DataAnnotations.Required] string cityId, CancellationToken ct) =>
+        Reply(await locations.SearchAsync(Actor, q, country, cityId, ct));
+
+    [HttpGet("locations/cities")]
+    public async Task<IActionResult> CitiesAsync([FromQuery] string q, [FromQuery] string country, CancellationToken ct) =>
+        Reply(await locations.CitiesAsync(Actor, q, country, ct));
 
 }

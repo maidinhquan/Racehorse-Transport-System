@@ -2,6 +2,10 @@ namespace Domain.Flow1.Entities;
 
 public sealed class TransportRequest
 {
+    public string? PickupCityId { get; set; }
+    public string? PickupCityName { get; set; }
+    public string? DeliveryCityId { get; set; }
+    public string? DeliveryCityName { get; set; }
     public string? PickupStableName { get; set; }
     public string? PickupPostalCode { get; set; }
     public string? PickupInstructions { get; set; }
@@ -19,6 +23,7 @@ public sealed class TransportRequest
     public string Destination { get; set; } = null!;
     public string? Purpose { get; set; }
     public string? TransportType { get; set; }
+    public DateTime? CreatedAtUtc { get; set; }
     public DateTime? ExpectedDate { get; set; }
     public DateTime? CommittedDeadline { get; set; }
     public string? DesignatedReceiverName { get; set; }
@@ -37,6 +42,7 @@ public sealed class TransportRequest
     public string? DestinationCountry { get; set; }
     public int? PreparationDays { get; set; }
     public string? SubmissionKeyHash { get; set; }
+    public string? SubmissionContentHash { get; set; }
     public string? RevisionFeedback { get; set; }
     public string? CancellationPreviousStatus { get; set; }
     public string? CancellationReason { get; set; }

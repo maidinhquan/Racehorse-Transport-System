@@ -82,8 +82,16 @@ public sealed class TestRenderer(IPrivateFiles files) : IContractRenderer
     public Task<string> RenderAsync(JsonElement snapshot,CancellationToken ct) => files.PutAsync(new UploadedFile(Encoding.UTF8.GetBytes("%PDF-1.7 test fixture "+snapshot.GetRawText()),"contract.pdf"),false,ct);
 }
 
-public sealed class TestLocations : ILocationVerifier
+public sealed class TestLocations : ILocationVerifier, ICityLocations
 {
+    public Task<IReadOnlyList<CitySelection>> CitiesAsync(string query, string country, CancellationToken ct) => throw new NotSupportedException();
+    public Task<IReadOnlyList<GeocodeCandidate>> SearchInCityAsync(string query, string country, string cityId, CancellationToken ct) => throw new NotSupportedException();
+    public Task<CitySelection> VerifyCityAsync(MapPoint point, string cityId, CancellationToken ct)
+    {
+        if (cityId != (point.CountryCode == "VN" ? "fixture-hanoi" : "fixture-tokyo"))
+            throw new Application.Common.Exceptions.BusinessRuleException("Coordinates outside city", 400, "CITY_MISMATCH");
+        return Task.FromResult(new CitySelection(cityId, point.CountryCode == "VN" ? "Hanoi" : "Tokyo", point.CountryCode));
+    }
     public Task VerifyAsync(MapPoint point,CancellationToken ct)
     {
         if(point.CountryCode is not ("VN" or "JP")) throw new InvalidOperationException("Unexpected fixture country");

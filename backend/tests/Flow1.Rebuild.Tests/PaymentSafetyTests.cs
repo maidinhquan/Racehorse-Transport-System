@@ -23,13 +23,14 @@ public sealed class PaymentSafetyTests(SqlFixture database) : IClassFixture<SqlF
     {
         using var factory = new ApiFactory(database); using var customer = factory.Customer(); using var manager = factory.Manager();
         var date = DateTime.UtcNow.AddDays(60).Date;
+        var horseId = await SubmissionTest.NewHorseAsync(database);
         customer.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
-        var request = await Data(await customer.PostAsJsonAsync("/api/customer/requests", new { origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date=date.ToString("yyyy-MM-dd"),careInstructions="Care" }));
+        var request = await Data(await customer.PostAsync("/api/customer/requests", SubmissionTest.Body( new { origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",expectedTransportDate=date.ToString("yyyy-MM-dd"),expectedDeliveryDate=date.AddDays(2).ToString("yyyy-MM-dd"),careInstructions="Care",horses=new[]{horseId} })));
         var id = request.GetProperty("id").GetString()!;
         await using (var db = database.Context())
         {
             (await db.Set<TransportRequest>().SingleAsync(x=>x.RequestID==id)).Status="PENDING_REVIEW";
-            db.Add(new RequestHorse {RequestID=id,HorseID="HORSE_002"}); await db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
         await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/accept",new {}));
         var draft=await Data(await manager.PutAsJsonAsync($"/api/manager/requests/{id}/contract-draft",new {

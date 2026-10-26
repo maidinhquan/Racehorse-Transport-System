@@ -1,12 +1,16 @@
 # SQL đang sử dụng
 
-Chỉ có ba script triển khai:
+Các script triển khai:
 
 | File | Khi nào dùng |
 |---|---|
 | `000_legacy_schema.sql` | Khởi tạo schema gốc cho **database trống**. Không dùng để reset database có dữ liệu. |
 | `001_registration_unique_indexes.sql` | Index riêng của đăng ký tài khoản; giữ độc lập với Flow 1. Script yêu cầu chọn HorseTransportDB. |
-| **`002_flow1.sql`** | **Toàn bộ schema Flow 1 hiện hành**, chạy một file này sau schema gốc. Không cần chạy 003–009. |
+| **`002_flow1.sql`** | **Schema nền tảng Flow 1**, chạy sau schema gốc. Đã bao gồm CreatedAtUtc; tính năng giới hạn địa chỉ theo tỉnh/thành phố cần thêm 004_request_city_scope.sql. |
+| `003_request_created_at.sql` | Nâng cấp database đã chạy Flow 1: chỉ thêm CreatedAtUtc nullable với default UTC cho bản ghi mới; giữ null cho bản ghi cũ, không reset dữ liệu. |
+| `004_request_city_scope.sql` | Thêm ID địa giới và tên tỉnh/thành phố đã chọn cho điểm nhận/giao; chạy trước khi triển khai xác minh địa chỉ theo thành phố. Không cần bảng danh mục toàn thế giới. |
+
+| `005_request_submission_content.sql` | Thêm hash nội dung/file cho khóa chống gửi trùng của POST request một bước; chạy trước khi triển khai API multipart mới. |
 
 ## Cách chạy Flow 1
 

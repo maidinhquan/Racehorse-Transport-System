@@ -10,6 +10,10 @@ public sealed class TransportRequestMapping : IEntityTypeConfiguration<Transport
     {
         entity.ToTable("TRANSPORT_REQUEST", table => table.UseSqlOutputClause(false));
         entity.HasKey(row => row.RequestID);
+        entity.Property(row => row.PickupCityId).HasColumnType("varchar(1024)");
+        entity.Property(row => row.DeliveryCityId).HasColumnType("varchar(1024)");
+        entity.Property(row => row.PickupCityName).HasColumnType("nvarchar(255)");
+        entity.Property(row => row.DeliveryCityName).HasColumnType("nvarchar(255)");
         entity.Property(row => row.PickupStableName).HasColumnType("nvarchar(200)");
         entity.Property(row => row.PickupPostalCode).HasColumnType("nvarchar(20)");
         entity.Property(row => row.PickupInstructions).HasColumnType("nvarchar(1000)");
@@ -27,6 +31,7 @@ public sealed class TransportRequestMapping : IEntityTypeConfiguration<Transport
         entity.Property(row => row.Destination).HasColumnType("nvarchar(255)").IsRequired();
         entity.Property(row => row.Purpose).HasColumnType("nvarchar(100)");
         entity.Property(row => row.TransportType).HasColumnType("varchar(50)");
+        entity.Property(row => row.CreatedAtUtc).HasColumnType("datetime2(7)");
         entity.Property(row => row.ExpectedDate).HasColumnType("datetime");
         entity.Property(row => row.CommittedDeadline).HasColumnType("datetime");
         entity.Property(row => row.DesignatedReceiverName).HasColumnType("nvarchar(100)");
@@ -45,6 +50,7 @@ public sealed class TransportRequestMapping : IEntityTypeConfiguration<Transport
         entity.Property(row => row.DestinationCountry).HasColumnType("varchar(2)");
         entity.Property(row => row.PreparationDays).HasColumnType("int");
         entity.Property(row => row.SubmissionKeyHash).HasColumnType("varchar(64)");
+        entity.Property(row => row.SubmissionContentHash).HasColumnType("varchar(64)");
         entity.Property(row => row.RevisionFeedback).HasColumnType("nvarchar(2000)");
         entity.Property(row => row.CancellationPreviousStatus).HasColumnType("varchar(50)");
         entity.Property(row => row.CancellationReason).HasColumnType("nvarchar(1000)");

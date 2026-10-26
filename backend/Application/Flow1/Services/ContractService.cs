@@ -42,6 +42,8 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         Require(row.Status is "CONTRACT_PREPARATION" or "CONTRACT_CHANGES_REQUESTED", "INVALID_STATE", "Request is not open for drafting.");
         await catalogs.ValidateAsync(row.OriginCountry!, row.DestinationCountry!, input.Mode, token);
         Require(SnapshotBuilder.Timestamp(input.DepartAt).Date == row.ExpectedDate?.Date, "VALIDATION_ERROR", "The plan must keep the customer departure date.", 400);
+        Require(row.CommittedDeadline is null || SnapshotBuilder.Timestamp(input.ArriveAt).Date == row.CommittedDeadline.Value.Date,
+            "VALIDATION_ERROR", "The plan must keep the customer delivery date.", 400);
         Require(input.Items.Count > 0 && input.Items.All(i => i.Amount >= 0 && i.Amount == decimal.Truncate(i.Amount) && (!i.Required || i.Amount > 0) && !string.IsNullOrWhiteSpace(i.Desc))
             && input.Items.Sum(i => i.Amount) is > 0 and <= 9999999999m, "VALIDATION_ERROR", "Complete commercial price lines in whole VND.", 400);
         Require(input.Terms.Count > 0 && input.Terms.All(t => !string.IsNullOrWhiteSpace(t.Title) && !string.IsNullOrWhiteSpace(t.Text)), "VALIDATION_ERROR", "Complete contract terms.", 400);

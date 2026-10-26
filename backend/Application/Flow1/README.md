@@ -34,9 +34,9 @@ Nhánh `Refactor-Flow1`, nền `Truong` tại `cacc5be`. Cập nhật 24/10/2026
 | CatalogService, PolicyService, LocationService | Danh mục hoạt động, policy có kiểu/đơn vị/phạm vi, tìm địa điểm theo COUNTRY. |
 | DirectoryService | Profile, khách hàng và nhân sự; không trả credential. |
 | HorseService, HorseAvailabilityService, HorseFilesService | Hồ sơ ngựa, xung đột lịch, quyền sửa và file riêng. |
-| RequestService | Tạo/lưu/gửi request; mapping ngựa; khóa chống trùng create. |
+| RequestService | Gửi đầy đủ request và hồ sơ một lần; gửi lại CHANGES_REQUESTED; khóa chống trùng toàn bộ nội dung/file. |
 | RequestDetailsService | Dữ liệu chi tiết từ request, version, payment và giấy tờ thật. |
-| RequestDocumentsService, ChecklistService | Upload/tải hồ sơ theo request; upload không đồng nghĩa VERIFIED. |
+| RequestDocumentsService, ChecklistService | Đọc hồ sơ chung/từng ngựa theo request; nhận hồ sơ qua POST/PUT request không đồng nghĩa VERIFIED. |
 | RequestReviewService | Manager nhận queue chung: chấp nhận, yêu cầu sửa, từ chối. |
 | SnapshotBuilder | Chốt đầy đủ nội dung thương mại/hai bên/ngựa/lịch/điều khoản/policy; không chứa giá vốn hoặc OTP. |
 | ContractService | Soạn, lưu, phát hành, đọc version/PDF, chấp nhận điều khoản và phản hồi tự do. |
@@ -51,7 +51,7 @@ Nhánh `Refactor-Flow1`, nền `Truong` tại `cacc5be`. Cập nhật 24/10/2026
 
 ## Quy tắc đang thực thi
 
-- Request: DRAFT → PENDING_REVIEW → CONTRACT_PREPARATION → CONTRACT_READY → DEPOSIT_VERIFIED → ACTIVATED, cùng các nhánh sửa/từ chối/hủy.
+- Request mới: PENDING_REVIEW → CONTRACT_PREPARATION → CONTRACT_READY → DEPOSIT_VERIFIED → ACTIVATED, cùng các nhánh sửa/từ chối/hủy.
 - Ký hợp lệ: CONTRACT EFFECTIVE, CONTRACT_VERSION SIGNED, đúng một TRIP_PLAN PLANNING. Retry ký không tạo chuyến thứ hai.
 - Chính sách: COUNTRY nước đến → TRANSPORT_MODE → GLOBAL. Cấu hình hiện hữu nhưng sai kiểu, đơn vị, miền giá trị phải báo lỗi; không bỏ qua để dùng mức thấp hơn.
 - COUNTRY/SUPPORTED_ROUTE/COST_RATE/CONTRACT_TEMPLATE đọc từ SQL. Adapter bản đồ không khóa danh mục ở VN/JP; service kiểm nước/tuyến hoạt động.
@@ -74,7 +74,7 @@ Nhánh `Refactor-Flow1`, nền `Truong` tại `cacc5be`. Cập nhật 24/10/2026
 
 65 method/path trong `data/Flow1/flow1.openapi.json` đều có đúng một action runtime, đã kiểm bằng EndpointDataSource. Có thêm hai đường tải medical record và bốn đường bàn giao integration được giữ lại. Các response chi tiết trả dữ liệu lưu thực tế; đây không phải chứng nhận toàn bộ payload khớp tuyệt đối schema ví dụ cũ.
 
-- Đại ca đã chốt: request `requestedAt` và `submittedAt` trả null + unsupportedFields; không lấy ExpectedDate giả làm ngày tạo/gửi.
+- createdAt là UTC thực khi tạo; bản ghi cũ không rõ trả null. submittedAt chưa lưu riêng và vẫn thuộc unsupportedFields. Không lấy ExpectedDate giả làm ngày tạo/gửi.
 - Horse color/fluDate/vetName/vetPhone không có cột tương ứng: null + unsupportedFields.
 - Readiness của Gate/insurance/quarantine không do module Flow 1 triển khai: response trip trả null + unsupportedFields. Không bịa trạng thái đã sẵn sàng. Timeline/milestones và audit collections cũ không được dựng giả.
 - Một số dữ liệu minh họa như company/supplements/companyDocs/complaints không có projection trong module này. Không đưa mảng rỗng giả để coi như đã triển khai Flow 2–6.
@@ -119,3 +119,19 @@ Bộ Rebuild chạy SQL thật trên `.\SQLEXPRESS` (hoặc FLOW1_TEST_SQL), t�
 ## Code cũ
 
 `Application/Flow1/Legacy` và scalar context/models cũ chỉ phục vụ fixture/direct-service test/harness lịch sử. Không đăng ký vào host mới, không có controller cũ song song. Các cổng tích hợp cũ được đổi tên và cập nhật caller để build được. Chưa xóa toàn bộ fixture cũ; 88 test legacy cần môi trường/đặc tả cũ đang skip, không được tính là đã qua trên Reviewed schema.
+
+## Khoảng ngày khách hàng yêu cầu
+
+POST/PUT customer/requests nhận expectedTransportDate (ngày bắt đầu) và expectedDeliveryDate (ngày giao/kết thúc), yyyy-MM-dd; kết thúc phải bằng hoặc sau bắt đầu. Không nhận date cũ. Hai trường lưu vào ExpectedDate và CommittedDeadline có sẵn. Khi lập hợp đồng, Manager giữ hai ngày khách đã chọn, bổ sung giờ UTC cụ thể.
+
+GET customer/horses/selectable nhận cùng hai tham số để kiểm tra giao nhau trên toàn khoảng, tính cả ngày đầu/cuối. Kết quả không giữ chỗ. Submit kiểm tra lại trong transaction; hộ chiếu phải còn hạn qua ngày giao. Đây là kiểm tra lịch dự kiến trong dữ liệu request, không xác nhận ngựa đã được bàn giao thực tế.
+
+createdAt do server ghi UTC khi tạo, không phải trường khách nhập. Chạy backend/database/003_request_created_at.sql cho database hiện có trước khi cập nhật runtime; đơn cũ giữ null nếu không biết thời điểm tạo. 002_flow1.sql cũng bao gồm cột này cho cài đặt mới.
+
+## Gửi yêu cầu một bước
+
+POST /api/customer/requests và PUT /api/customer/requests/{requestId} dùng multipart/form-data: trường data là chuỗi JSON đầy đủ theo RequestUpdateInput; files là danh sách tệp. Xem contracts/API-Flow/Flow1/RequestSubmission.md. POST tạo thẳng PENDING_REVIEW; PUT chỉ CHANGES_REQUESTED và gửi lại PENDING_REVIEW. Không có API submit hay API upload hồ sơ từng ngựa theo request riêng. Hồ sơ ngựa dùng chung vẫn có API riêng.
+
+Mỗi data.documents[] khai báo fileName, documentType, horseId (chỉ với hồ sơ từng ngựa), expiryDate nếu có. File phải được đính kèm và khớp duy nhất theo tên. PUT giữ hồ sơ cũ không được thay thế; hồ sơ của ngựa bỏ khỏi đơn bị bỏ khỏi liên kết theo đơn. Thông tin/files khác nhau không được dùng lại Idempotency-Key; chữ ký nội dung lưu tại SubmissionContentHash, không đặt vào hợp đồng khách.
+
+Thực hiện migration 005_request_submission_content.sql cho database đang có trước khi triển khai. 002_flow1.sql cũng bổ sung cột này. Các bản ghi được kiểm tra và lưu trong transaction; tệp lưu riêng theo hash trước transaction, nên lỗi DB có thể để lại bytes riêng tư chưa được tham chiếu (không có đơn thiếu trong queue). Không xóa tự động tệp hash có thể đang dùng chung.

@@ -46,6 +46,11 @@ public sealed class RequestExamples : ISchemaFilter, IOperationFilter
             operation.Description += "\n\n**Dữ liệu mẫu:** Các mã như HORSE_001, REQUEST_001, CONTRACT_001 chỉ minh họa. Khi test, thay bằng mã đã tạo/được phân công cho đúng tài khoản và đúng trạng thái.";
 
         if (operation.RequestBody is null) return;
+        if (controller.Name == "RequestsController")
+        {
+            context.SchemaGenerator.GenerateSchema(typeof(RequestUpdateInput), context.SchemaRepository);
+            operation.RequestBody.Description += " data là chuỗi JSON theo schema RequestUpdateInput, files là danh sách tệp. Các trường ngày, liên hệ/thành phố, horses và horseNotes là bắt buộc. Hồ sơ theo đơn được gắn trong documents với fileName/documentType/horseId/expiryDate; tên file phải khớp files. Hồ sơ chung dùng INVITATION_LETTER, COMPETITION_REGISTRATION, ATA_CARNET và không có horseId; hồ sơ từng ngựa dùng mã UPPER_SNAKE_CASE tối đa 50 ký tự, ví dụ COGGINS_TEST, EQUINE_FLU_VAX, DOMESTIC_VET_PASS, HEALTH_CERTIFICATE.";
+        }
         var bodyType = context.MethodInfo.GetParameters().Select(p => p.ParameterType)
             .FirstOrDefault(t => t.Namespace == "Application.Flow1.Dtos");
         var sample = bodyType is null ? null : Sample(bodyType);
@@ -74,8 +79,8 @@ public sealed class RequestExamples : ISchemaFilter, IOperationFilter
             "981" + DateTime.UtcNow.Ticks.ToString(CultureInfo.InvariantCulture)[^12..], "500000000", "VND",
             Passport(), "Nhạy cảm với tiếng ồn.");
         if (type == typeof(PassportInput)) return Passport();
-        if (type == typeof(RequestDraftInput)) return new RequestDraftInput("Hà Nội, Việt Nam", "Tokyo, Nhật Bản", "VN", "JP", "AIR", Date(TravelDay), Care);
-        if (type == typeof(RequestUpdateInput)) return new RequestUpdateInput("Hà Nội, Việt Nam", "Tokyo, Nhật Bản", "VN", "JP", "AIR", Date(TravelDay), Care,
+        if (type == typeof(RequestDraftInput)) return new RequestDraftInput("Hà Nội, Việt Nam", "Tokyo, Nhật Bản", "VN", "JP", "AIR", Date(TravelDay), Date(TravelDay.AddDays(2)), Care);
+        if (type == typeof(RequestUpdateInput)) return new RequestUpdateInput("Hà Nội, Việt Nam", "Tokyo, Nhật Bản", "VN", "JP", "AIR", Date(TravelDay), Date(TravelDay.AddDays(2)), Care,
             Pickup(), Delivery(), ["HORSE_001"], new Dictionary<string, string> { ["HORSE_001"] = "Dùng dây dắt quen thuộc khi tiếp nhận ngựa." });
         if (type == typeof(ContactInput)) return Pickup();
         if (type == typeof(ContractDraftInput)) return new ContractDraftInput(Arrival, Budget(), Departure, 40, "", Items(), "AIR",
@@ -99,9 +104,9 @@ public sealed class RequestExamples : ISchemaFilter, IOperationFilter
 
     private static PassportInput Passport() => new("VN-HORSE-2021-001", "Đơn vị cấp hộ chiếu ngựa", "2021-06-01", Date(DateTime.UtcNow.Date.AddYears(5)));
     private static ContactInput Pickup() => new("Trại ngựa Hà Nội", "Hà Nội, Việt Nam", "100000", "Nguyễn Văn A", "+84901234567",
-        "Gọi trước 30 phút khi đến nhận ngựa.", 21.0278m, 105.8342m);
+        "Gọi trước 30 phút khi đến nhận ngựa.", 21.0278m, 105.8342m, "COPY_PICKUP_CITY_ID_FROM_LOCATIONS_CITIES");
     private static ContactInput Delivery() => new("Sân đua Tokyo", "Tokyo Racecourse, Fuchu, Tokyo, Japan", "1830024", "Yuki Tanaka", "+81312345678",
-        "Liên hệ người nhận trước khi đến cổng.", 35.666m, 139.485m);
+        "Liên hệ người nhận trước khi đến cổng.", 35.666m, 139.485m, "COPY_DELIVERY_CITY_ID_FROM_LOCATIONS_CITIES");
     private static BudgetInput Budget() => new(10000000, 2000000, 500000, 2500000, 1000000);
     private static PriceItem[] Items() =>
     [
@@ -129,10 +134,12 @@ public sealed class RequestExamples : ISchemaFilter, IOperationFilter
         "recordid" or "document" => new OpenApiString("LEGAL_MEDICAL_RECORD_001"),
         "tripid" or "id" => new OpenApiString("TRIP_001"),
         "eventid" => new OpenApiString("HANDOFF_EVENT_001"),
+        "cityid" => new OpenApiString("COPY_CITY_ID_FROM_LOCATIONS_CITIES"),
         "origincountry" or "country" => new OpenApiString("VN"),
         "destinationcountry" => new OpenApiString("JP"),
         "mode" => new OpenApiString("AIR"),
-        "date" => new OpenApiString(Date(TravelDay)),
+        "expectedTransportDate" => new OpenApiString(Date(TravelDay)),
+        "expectedDeliveryDate" => new OpenApiString(Date(TravelDay.AddDays(2))),
         "q" => new OpenApiString("Hà Nội"),
         "lat" => new OpenApiDouble(21.0278),
         "lng" => new OpenApiDouble(105.8342),
@@ -147,7 +154,14 @@ public sealed class RequestExamples : ISchemaFilter, IOperationFilter
         if (schema.Reference is not null) schema = repository.Schemas[schema.Reference.Id];
         foreach (var (name, property) in schema.Properties)
         {
-            if (name.Equals("DocumentType", StringComparison.OrdinalIgnoreCase))
+            if (name.Equals("Data", StringComparison.OrdinalIgnoreCase))
+            {
+                property.Example = new OpenApiString(JsonSerializer.Serialize(Sample(typeof(RequestUpdateInput)), Json));
+                property.Description = "JSON đầy đủ của yêu cầu: tuyến, hai ngày, pickup/delivery có cityId, horses, horseNotes, documents. Mỗi documents[].fileName phải khớp tên tệp trong files. Không gửi RequestID hoặc đường dẫn file.";
+            }
+            else if (name.Equals("Files", StringComparison.OrdinalIgnoreCase))
+                property.Description = "Chọn các tệp khai báo trong data.documents. Mỗi tệp tối đa 10 MiB; tổng tối đa 60 MiB/33 tệp. Bỏ trống khi không có tệp mới; PUT giữ hồ sơ cũ nếu không gửi thay thế.";
+            else if (name.Equals("DocumentType", StringComparison.OrdinalIgnoreCase))
             {
                 property.Example = property.Default = new OpenApiString("HEALTH_CERTIFICATE");
                 property.Description = "Mã loại giấy tờ viết hoa; ví dụ HEALTH_CERTIFICATE. Upload chưa đồng nghĩa đã được chuyên viên duyệt.";

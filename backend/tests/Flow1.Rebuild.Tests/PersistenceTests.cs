@@ -29,15 +29,19 @@ public sealed class PersistenceTests(SqlFixture fixture) : IClassFixture<SqlFixt
     }
     [Fact] public async Task Request_create_retry_is_idempotent_and_different_input_conflicts()
     {
-        await using var db = fixture.Context(); var session = new SqlSession(db);
-        var access = new AccessService(session); var policies = new PolicyService(session);
-        var service = new RequestService(session, access, new CatalogService(session, policies), policies, TimeProvider.System);
-        var key = Guid.NewGuid().ToString();
-        var input = new RequestDraftInput("Pickup", "Delivery", "VN", "JP", "AIR", DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd"), "Care");
-        var result = await service.CreateAsync("USER_001", key, input, default);
-        var retry = await service.CreateAsync("USER_001", key, input, default);
-        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(result), System.Text.Json.JsonSerializer.Serialize(retry));
-        await Assert.ThrowsAsync<BusinessRuleException>(() => service.CreateAsync("USER_001", key, input with { Destination = "Other" }, default));
+        using var factory = new ApiFactory(fixture); using var client = factory.Customer();
+        await SubmissionTest.ReadyHorseAsync(fixture);
+        client.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        var input = SubmissionTest.Input(DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd"), DateTime.UtcNow.AddDays(32).ToString("yyyy-MM-dd"));
+        var first = await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input));
+        var retry = await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input));
+        Assert.True(first.IsSuccessStatusCode,await first.Content.ReadAsStringAsync());
+        Assert.True(retry.IsSuccessStatusCode,await retry.Content.ReadAsStringAsync());
+        using var firstJson=System.Text.Json.JsonDocument.Parse(await first.Content.ReadAsStringAsync());
+        using var retryJson=System.Text.Json.JsonDocument.Parse(await retry.Content.ReadAsStringAsync());
+        Assert.Equal(firstJson.RootElement.GetProperty("data").GetProperty("id").GetString(),retryJson.RootElement.GetProperty("data").GetProperty("id").GetString());
+        Assert.Equal(firstJson.RootElement.GetProperty("data").GetProperty("createdAt").GetString(),retryJson.RootElement.GetProperty("data").GetProperty("createdAt").GetString());
+        Assert.Equal(System.Net.HttpStatusCode.Conflict,(await client.PostAsync("/api/customer/requests",SubmissionTest.Body(input with { CareInstructions="Different" }))).StatusCode);
     }
     [Fact] public async Task Schema_has_composite_request_horse_key_without_rowversion()
     {

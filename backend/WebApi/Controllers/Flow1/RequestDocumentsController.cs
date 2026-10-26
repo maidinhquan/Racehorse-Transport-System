@@ -10,12 +10,15 @@ namespace WebApi.Controllers.Flow1;
 [Route("api"), Authorize, EnableRateLimiting("flow1-customer")]
 public sealed class RequestDocumentsController(RequestDocumentsService documents, ChecklistService checklist) : EndpointController
 {
-    [HttpPost("customer/requests/{requestId}/horses/{horseId}/documents")]
+    [HttpGet("customer/requests/{requestId}/shared-documents/{documentType}")]
     [Authorize(Roles = UserRoles.Customer)]
-    [Consumes("multipart/form-data"), RequestSizeLimit(11 * 1024 * 1024)]
-    public async Task<IActionResult> UploadAsync(string requestId, string horseId, [FromForm] MedicalFileForm form, CancellationToken ct) =>
-        Reply(await documents.UploadAsync(Actor, requestId, horseId, form.DocumentType, form.ExpiryDate, await FileBinding.ReadAsync(form.File, ct), ct), 201);
+    public async Task<IActionResult> SharedAsync(string requestId, string documentType, CancellationToken ct) =>
+        Binary(await documents.SharedAsync(Actor, requestId, documentType, false, ct));
 
+    [HttpGet("manager/requests/{requestId}/shared-documents/{documentType}")]
+    [Authorize(Roles = UserRoles.LogisticsManager)]
+    public async Task<IActionResult> ManagerSharedAsync(string requestId, string documentType, CancellationToken ct) =>
+        Binary(await documents.SharedAsync(Actor, requestId, documentType, true, ct));
     [HttpGet("customer/requests/{requestId}/document-checklist")]
     [Authorize(Roles = UserRoles.Customer)]
     public async Task<IActionResult> ChecklistAsync(string requestId, CancellationToken ct) =>

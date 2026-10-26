@@ -2,4 +2,6 @@
 <PropertyGroup><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><IsTestProject>true</IsTestProject><IsPackable>false</IsPackable></PropertyGroup>
 <ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/><PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.30"/><PackageReference Include="xunit" Version="2.9.3"/><PackageReference Include="xunit.runner.visualstudio" Version="3.1.1"><PrivateAssets>all</PrivateAssets></PackageReference><ProjectReference Include="../../WebApi/WebApi.csproj"/></ItemGroup>
 <ItemGroup><None Include="../../../data/HorseTransportDB_Reviewed.sql" Link="Schema.sql" CopyToOutputDirectory="PreserveNewest"/><None Include="../../../data/Flow1/flow1.openapi.json" Link="Contract.json" CopyToOutputDirectory="PreserveNewest"/></ItemGroup>
+<ItemGroup><None Include="../../database/004_request_city_scope.sql" Link="CityScope.sql" CopyToOutputDirectory="PreserveNewest"/></ItemGroup>
+<ItemGroup><None Include="../../database/005_request_submission_content.sql" Link="SubmissionContent.sql" CopyToOutputDirectory="PreserveNewest"/></ItemGroup>
 </Project>

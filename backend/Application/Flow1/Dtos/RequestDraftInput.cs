@@ -4,5 +4,5 @@ namespace Application.Flow1.Dtos;
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record RequestDraftInput([Required, MaxLength(255)] string Origin,
     [Required, MaxLength(255)] string Destination, [Required] string OriginCountry,
-    [Required] string DestinationCountry, [Required] string Mode, [Required] string Date,
+    [Required] string DestinationCountry, [Required] string Mode, [Required] string ExpectedTransportDate, [Required] string ExpectedDeliveryDate,
     [MaxLength(2000)] string CareInstructions);

@@ -29,6 +29,10 @@ public sealed class RequestDetailsService(IDataSession data, AccessService acces
         var horseIds = links.Select(x => x.HorseID).ToArray();
         var horses = await data.ListAsync<Horse>(x => horseIds.Contains(x.HorseID), ct);
         var docs = new List<object>();
+        foreach (var shared in new[] { (Type: "INVITATION_LETTER", Key: request.InvitationLetterFileUrl),
+            (Type: "COMPETITION_REGISTRATION", Key: request.CompetitionRegistrationFileUrl), (Type: "ATA_CARNET", Key: request.AtaCarnetFileUrl) })
+            if (shared.Key is not null) docs.Add(new { key = shared.Type, scope = "REQUEST", status = "SUBMITTED",
+                file = new { url = $"/api/{(manager ? "manager" : "customer")}/requests/{id}/shared-documents/{shared.Type}" } });
         foreach (var horse in horses)
         foreach (var file in new[] { (Kind: "photo", Key: horse.PhotoUrl), (Kind: "passport", Key: horse.PassportScanUrl),
             (Kind: "ownership", Key: horse.OwnershipCertificateFileUrl), (Kind: "value-proof", Key: horse.ValuationDocumentFileUrl) })
