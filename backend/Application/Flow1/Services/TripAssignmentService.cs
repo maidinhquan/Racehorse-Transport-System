@@ -70,7 +70,6 @@ public sealed class TripAssignmentService(IDataSession data, AccessService acces
     public static object View(Trip trip, TransportRequest? request = null) => new { id = trip.TripID, tripId = trip.TripID, requestId = trip.RequestID, tripStatus = trip.Status,
         status = trip.Status, mode = request?.TransportType, plannedDepart = request?.ExpectedDate?.ToString("yyyy-MM-dd HH:mm"),
         eta = request?.CommittedDeadline?.ToString("yyyy-MM-dd HH:mm"),
-        readiness = (object?)null, unsupportedFields = new[] { "readiness" },
         deployment = new { status = trip.DeploymentStatus ?? "NOT_CONFIRMED", eventId = trip.HandoffEventId, reason = trip.DeploymentReason, at = trip.DeploymentAtUtc },
         specialistId = trip.AssignedSpecialistId, coordinatorId = trip.AssignedCoordinatorId };
 }
