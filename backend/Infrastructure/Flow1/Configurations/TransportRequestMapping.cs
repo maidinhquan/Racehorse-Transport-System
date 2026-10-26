@@ -20,9 +20,6 @@ public sealed class TransportRequestMapping : IEntityTypeConfiguration<Transport
         entity.Property(row => row.DeliveryStableName).HasColumnType("nvarchar(200)");
         entity.Property(row => row.DeliveryPostalCode).HasColumnType("nvarchar(20)");
         entity.Property(row => row.DeliveryInstructions).HasColumnType("nvarchar(1000)");
-        entity.Property(row => row.InvitationLetterFileUrl).HasColumnType("nvarchar(500)");
-        entity.Property(row => row.CompetitionRegistrationFileUrl).HasColumnType("nvarchar(500)");
-        entity.Property(row => row.AtaCarnetFileUrl).HasColumnType("nvarchar(500)");
         entity.Property(row => row.CareInstructions).HasColumnType("nvarchar(2000)");
         entity.Property(row => row.DeclaredValueVnd).HasColumnType("decimal(18,2)");
         entity.Property(row => row.RequestID).HasColumnType("varchar(50)").IsRequired();

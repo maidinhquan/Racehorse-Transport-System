@@ -105,7 +105,7 @@ public sealed partial class RelationalFlow1Service(IDataStore db, IPrivateFiles 
         var customer = await db.FindAsync<FlowUser>(r.CustomerID, ct);
         return new(r.RequestID, Token(r.RowVersion), r.Status, r.Departure, r.Destination, r.ExpectedDate, r.CommittedDeadline,
             r.ManagerNotes, r.DistanceKm, r.PreparationDays, r.PickupContactName, r.PickupContactPhone,
-            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct),r.BaseCost,r.DeclaredValueVnd,SharedDocuments(r));
+            r.DesignatedReceiverName, r.DesignatedReceiverPhone, horses, contracts,input,input is null?null:estimates.LocationAttribution,customer?.FullName,customer?.Email,r.DeclaredValueUsd,await RequestDocuments(r.RequestID,ct),r.BaseCost,r.DeclaredValueVnd);
     }
     public Task<FlowRequestCard> DetailAsync(string id, string actor, bool manager, CancellationToken ct) =>
         db.RunAsync(async t => await Card(await Request(id, actor, manager, t), t,manager), ct);
@@ -197,7 +197,7 @@ public sealed partial class RelationalFlow1Service(IDataStore db, IPrivateFiles 
         Require(max<long.MaxValue,"REQUEST_NUMBER_EXHAUSTED","Request number range exhausted.");
         return prefix+(max+1).ToString("D3",CultureInfo.InvariantCulture);
     }
-    private async Task<FlowRequestCard> SubmitCore(string actor,string key,FlowRequestInput i,string? id,string? version,IReadOnlyList<PreparedDocument> documents,CancellationToken ct,RequestSharedKeys? shared=null)
+    private async Task<FlowRequestCard> SubmitCore(string actor,string key,FlowRequestInput i,string? id,string? version,IReadOnlyList<PreparedDocument> documents,CancellationToken ct)
     {
         Require(i is not null && i.Trip is not null && i.Trip.Pickup is not null && i.Trip.Delivery is not null && i.Horses is not null && i.PickupContact is not null && i.Receiver is not null,"VALIDATION_ERROR","Complete all required request fields.");
         Key(key); ValidateDeclaredValue(i.DeclaredValueUsd);
@@ -214,13 +214,13 @@ public sealed partial class RelationalFlow1Service(IDataStore db, IPrivateFiles 
             if(r is not null)
             {
                 Require(r.CustomerID==actor,"FORBIDDEN","Request belongs to another account.");
-                if(id is null) { Require(r.Departure==i.Trip.Pickup.Address && r.Destination==i.Trip.Delivery.Address && r.OriginCountry==i.Trip.Pickup.Country && r.DestinationCountry==i.Trip.Delivery.Country && r.TransportType==i.Trip.PreferredTransportMode && r.PickupLatitude==decimal.Round((decimal)i.Trip.Pickup.Lat,6) && r.PickupLongitude==decimal.Round((decimal)i.Trip.Pickup.Lng,6) && r.DeliveryLatitude==decimal.Round((decimal)i.Trip.Delivery.Lat,6) && r.DeliveryLongitude==decimal.Round((decimal)i.Trip.Delivery.Lng,6) && r.ExpectedDate==Utc(i.DepartureAt) && r.CommittedDeadline==Utc(i.DeliveryAt) && r.Purpose==i.Purpose.Trim() && r.PickupContactName==i.PickupContact.Name.Trim() && r.PickupContactPhone==i.PickupContact.Phone && r.DesignatedReceiverName==i.Receiver.Name.Trim() && r.DesignatedReceiverPhone==i.Receiver.Phone && (await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==rid,t)).Select(x=>x.HorseID).Order().SequenceEqual(i.Horses.Select(x=>x.HorseId).Order()),"IDEMPOTENCY_KEY_REUSED","Key used with different request data."); Require(r.DeclaredValueUsd==i.DeclaredValueUsd && SameWizard(r,i) && await SameHorseCare(rid,i,t) && SameShared(r,shared) && await SameDocuments(rid,documents,t),"IDEMPOTENCY_KEY_REUSED","Declared value or documents differ from the original submission."); return await Card(r,t); }
+                if(id is null) { Require(r.Departure==i.Trip.Pickup.Address && r.Destination==i.Trip.Delivery.Address && r.OriginCountry==i.Trip.Pickup.Country && r.DestinationCountry==i.Trip.Delivery.Country && r.TransportType==i.Trip.PreferredTransportMode && r.PickupLatitude==decimal.Round((decimal)i.Trip.Pickup.Lat,6) && r.PickupLongitude==decimal.Round((decimal)i.Trip.Pickup.Lng,6) && r.DeliveryLatitude==decimal.Round((decimal)i.Trip.Delivery.Lat,6) && r.DeliveryLongitude==decimal.Round((decimal)i.Trip.Delivery.Lng,6) && r.ExpectedDate==Utc(i.DepartureAt) && r.CommittedDeadline==Utc(i.DeliveryAt) && r.Purpose==i.Purpose.Trim() && r.PickupContactName==i.PickupContact.Name.Trim() && r.PickupContactPhone==i.PickupContact.Phone && r.DesignatedReceiverName==i.Receiver.Name.Trim() && r.DesignatedReceiverPhone==i.Receiver.Phone && (await db.QueryAsync<FlowRequestHorse>(x=>x.RequestID==rid,t)).Select(x=>x.HorseID).Order().SequenceEqual(i.Horses.Select(x=>x.HorseId).Order()),"IDEMPOTENCY_KEY_REUSED","Key used with different request data."); Require(r.DeclaredValueUsd==i.DeclaredValueUsd && SameWizard(r,i) && await SameHorseCare(rid,i,t) && await SameDocuments(rid,documents,t),"IDEMPOTENCY_KEY_REUSED","Declared value or documents differ from the original submission."); return await Card(r,t); }
                 Require(RequestReady(r),"DATA_REVIEW_REQUIRED","Legacy request needs review before entering the new revision workflow.");
                 Check(r.RowVersion,version??""); Require(r.Status=="CHANGES_REQUESTED" && !(await db.QueryAsync<FlowContract>(c=>c.RequestID==rid && c.ContractStatus!="CANCELLED",t)).Any(),"REVISION_CLOSED","Only requests returned for changes can be revised.");
             }
             else { Require(id is null,"NOT_FOUND","Request not found."); r=new(){RequestID=rid,CustomerID=actor,SubmissionKeyHash=submissionHash,Departure=i.Trip.Pickup.Address,Destination=i.Trip.Delivery.Address,Status="PENDING"}; db.Add(r); }
             var value=await HorseValue(i,actor,t); Require(value==declaredValue,"STALE_VERSION","Horse value changed; reload before submitting.");
-            await ApplyRequest(r,i,estimate,t); r.DeclaredValueVnd=value; if(shared is not null)ApplyShared(r,shared); await SaveDocuments(r,documents,i.Horses,t); await db.SaveAsync(t); return await Card(r,t);
+            await ApplyRequest(r,i,estimate,t); r.DeclaredValueVnd=value; await SaveDocuments(r,documents,i.Horses,t); await db.SaveAsync(t); return await Card(r,t);
         },ct);
     }
     public Task<FlowRequestCard> ReviewAsync(string id,string actor,string action,FlowAction i,CancellationToken ct)=>db.RunAsync(async t=>{

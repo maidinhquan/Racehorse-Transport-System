@@ -34,8 +34,7 @@ public static class SwaggerLayout
                 """;
             if (!html.Contains(anchor, StringComparison.Ordinal))
                 throw new InvalidOperationException("Swagger UI initializer changed; update the Flow 1 display-order hook.");
-            html = html.Replace("</head>", SwaggerRequestEditor.Styles + "\n</head>", StringComparison.Ordinal);
-            return new MemoryStream(Encoding.UTF8.GetBytes(html.Replace(anchor, sorters + "\n" + SwaggerRequestEditor.Script + "\n" + anchor, StringComparison.Ordinal)));
+            return new MemoryStream(Encoding.UTF8.GetBytes(html.Replace(anchor, sorters + "\n" + anchor, StringComparison.Ordinal)));
         };
     }
 }

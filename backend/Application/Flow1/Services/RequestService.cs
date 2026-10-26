@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Application.Flow1.Dtos;
-using UploadedFile = Application.DTOs.Flow1.UploadedFile;
 using Application.Flow1.Interfaces;
 using Application.Flow1.Mapping;
 using Domain.Flow1.Entities;
@@ -11,7 +10,7 @@ using Domain.Enums;
 using static Application.Flow1.Rules.BusinessRules;
 namespace Application.Flow1.Services;
 public sealed class RequestService(IDataSession data, AccessService access, CatalogService catalogs, PolicyService policies,
-    TimeProvider clock, IPrivateFiles files, ILocationVerifier? locations = null)
+    TimeProvider clock, ILocationVerifier? locations = null)
 {
     public async Task<object> DetailAsync(string actor, string id, bool manager, CancellationToken ct)
     {
@@ -26,19 +25,19 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         var links = await data.ListAsync<RequestHorse>(x => ids.Contains(x.RequestID), ct);
         return requests.OrderByDescending(x => x.ExpectedDate).Select(x => RequestMapper.View(x, links.Where(l => l.RequestID == x.RequestID).ToArray())).ToArray();
     }
-    public async Task<object> CreateAsync(string actor, string key, RequestUpdateInput input, IReadOnlyList<UploadedFile> uploads, CancellationToken ct)
+    public async Task<object> CreateAsync(string actor, string key, RequestUpdateInput input, CancellationToken ct)
     {
         await access.AccountAsync(actor, UserRoles.Customer, ct);
         Require(Guid.TryParse(key, out _), "INVALID_IDEMPOTENCY_KEY", "Idempotency-Key must be a UUID.", 400);
         var keyHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Guid.Parse(key).ToString("N")))).ToLowerInvariant();
-        var prepared = await PrepareAsync(input, uploads, ct);
+        var prepared = await PrepareAsync(input, ct);
         return await data.WriteAsync<object>(async token =>
         {
             await access.AccountAsync(actor, UserRoles.Customer, token);
             var prior = (await data.ListAsync<TransportRequest>(x => x.CustomerID == actor && x.SubmissionKeyHash == keyHash, token)).SingleOrDefault();
             if (prior is not null)
             {
-                Require(prior.SubmissionContentHash == prepared.Hash, "IDEMPOTENCY_KEY_REUSED", "The same key was used with different request content or files.");
+                Require(prior.SubmissionContentHash == prepared.Hash, "IDEMPOTENCY_KEY_REUSED", "The same key was used with different request content.");
                 return RequestMapper.View(prior, await data.ListAsync<RequestHorse>(x => x.RequestID == prior.RequestID, token));
             }
             var row = new TransportRequest { CustomerID = actor, Status = "PENDING_REVIEW", SubmissionKeyHash = keyHash,
@@ -47,16 +46,16 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
             await ValidateReadyAsync(actor, row, input.Horses, token);
             data.Add(row); await data.SaveAsync(token);
             var links = AddLinks(row.RequestID, input);
-            await ApplyDocumentsAsync(row, prepared.Documents, input.Horses, token);
+            await RemoveUnselectedDocumentsAsync(row.RequestID, input.Horses, token);
             await NotifyAsync(row, token);
             return RequestMapper.View(row, links);
         }, ct);
     }
-    public async Task<object> UpdateAsync(string actor, string id, RequestUpdateInput input, IReadOnlyList<UploadedFile> uploads, CancellationToken ct)
+    public async Task<object> UpdateAsync(string actor, string id, RequestUpdateInput input, CancellationToken ct)
     {
         var current = await access.RequestAsync(id, actor, false, ct);
         Require(current.Status == "CHANGES_REQUESTED", "INVALID_STATE", "Only requests returned for changes can be resubmitted.");
-        var prepared = await PrepareAsync(input, uploads, ct);
+        var prepared = await PrepareAsync(input, ct);
         return await data.WriteAsync<object>(async token =>
         {
             var row = await access.RequestAsync(id, actor, false, token);
@@ -66,15 +65,14 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
             foreach (var link in await data.ListAsync<RequestHorse>(x => x.RequestID == id, token)) data.Remove(link);
             await data.SaveAsync(token);
             var links = AddLinks(id, input);
-            await ApplyDocumentsAsync(row, prepared.Documents, input.Horses, token);
+            await RemoveUnselectedDocumentsAsync(row.RequestID, input.Horses, token);
             row.Status = "PENDING_REVIEW";
             await NotifyAsync(row, token);
             return RequestMapper.View(row, links);
         }, ct);
     }
-    private sealed record StoredDocument(RequestDocumentInput Input, string Key, DateTime? Expiry);
-    private sealed record Prepared(CitySelection Pickup, CitySelection Delivery, IReadOnlyList<StoredDocument> Documents, string Hash);
-    private async Task<Prepared> PrepareAsync(RequestUpdateInput input, IReadOnlyList<UploadedFile> uploads, CancellationToken ct)
+    private sealed record Prepared(CitySelection Pickup, CitySelection Delivery, string Hash);
+    private async Task<Prepared> PrepareAsync(RequestUpdateInput input, CancellationToken ct)
     {
         Require(input.Pickup is not null, "VALIDATION_ERROR", "Thiếu thông tin bên giao ngựa. Vui lòng điền pickup.", 400);
         Require(input.Delivery is not null, "VALIDATION_ERROR", "Thiếu thông tin bên nhận ngựa. Vui lòng điền delivery.", 400);
@@ -106,36 +104,11 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         Require(locations is ICityLocations, "CITY_PROVIDER_UNSUPPORTED", "City-scoped verification currently requires Geoapify.", 503);
         var pickup = await ((ICityLocations)locations!).VerifyCityAsync(new((double)input.Pickup!.Longitude!.Value, (double)input.Pickup.Latitude!.Value, input.OriginCountry), input.Pickup.CityId!, ct);
         var delivery = await ((ICityLocations)locations!).VerifyCityAsync(new((double)input.Delivery!.Longitude!.Value, (double)input.Delivery.Latitude!.Value, input.DestinationCountry), input.Delivery.CityId!, ct);
-        var docs = input.Documents ?? [];
-        Require(docs.All(d => d is not null && !string.IsNullOrWhiteSpace(d.FileName)) && docs.Count <= 3 && docs.Count == uploads.Count && uploads.Sum(f => (long)f.Bytes.Length) <= 30L * 1024 * 1024
-            && uploads.Select(f => f.FileName).Distinct(StringComparer.Ordinal).Count() == uploads.Count
-            && docs.Select(d => d.FileName).Distinct(StringComparer.Ordinal).Count() == docs.Count
-            && docs.Select(d => d.DocumentType).Distinct().Count() == docs.Count,
-            "VALIDATION_ERROR", "Each document must match exactly one uniquely named file and scope/type; at most three shared files and 30 MiB total.", 400);
-        var validated = new List<(RequestDocumentInput Input, UploadedFile Upload, DateTime? Expiry)>();
-        foreach (var doc in docs)
-        {
-            var shared = doc.DocumentType is "INVITATION_LETTER" or "COMPETITION_REGISTRATION" or "ATA_CARNET";
-            Require(shared, "VALIDATION_ERROR", "Request attachments only allow INVITATION_LETTER, COMPETITION_REGISTRATION and ATA_CARNET; horse documents belong to their own workflow.", 400);
-            var upload = uploads.SingleOrDefault(f => f.FileName == doc.FileName);
-            Require(upload is not null && !doc.FileName.Contains('/') && !doc.FileName.Contains('\\'), "VALIDATION_ERROR", "Document fileName must match an attached filename.", 400);
-            DateTime? expiry = null;
-            if (doc.ExpiryDate is not null)
-            {
-                Require(DateTime.TryParseExact(doc.ExpiryDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed), "VALIDATION_ERROR", "Document expiryDate must be yyyy-MM-dd.", 400);
-                expiry = DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
-            }
-            validated.Add((doc, upload!, expiry));
-        }
-        // Canonical order makes retries insensitive to multipart ordering and dictionary order.
-        var canonical = new { Input = input with { Horses = input.Horses.OrderBy(x => x, StringComparer.Ordinal).ToArray(),
-            HorseNotes = input.HorseNotes!.OrderBy(x => x.Key, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.Value),
-            Documents = docs.OrderBy(d => d.FileName, StringComparer.Ordinal).ToArray() },
-            Files = uploads.OrderBy(f => f.FileName, StringComparer.Ordinal).Select(f => new { f.FileName, Hash = Convert.ToHexString(SHA256.HashData(f.Bytes)) }) };
+        // Canonical order makes retries insensitive to horse and dictionary ordering.
+        var canonical = input with { Horses = input.Horses.OrderBy(x => x, StringComparer.Ordinal).ToArray(),
+            HorseNotes = input.HorseNotes!.OrderBy(x => x.Key, StringComparer.Ordinal).ToDictionary(x => x.Key, x => x.Value) };
         var hash = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(canonical))).ToLowerInvariant();
-        var stored = new List<StoredDocument>();
-        foreach (var doc in validated) stored.Add(new(doc.Input, await files.PutAsync(doc.Upload, false, ct), doc.Expiry));
-        return new(pickup, delivery, stored, hash);
+        return new(pickup, delivery, hash);
     }
     private async Task ApplySubmissionAsync(TransportRequest row, RequestUpdateInput input, Prepared prepared, CancellationToken ct)
     {
@@ -144,7 +117,6 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         row.Purpose = input.Purpose;
         row.PickupCityId = prepared.Pickup.CityId; row.PickupCityName = prepared.Pickup.Label;
         row.DeliveryCityId = prepared.Delivery.CityId; row.DeliveryCityName = prepared.Delivery.Label;
-        Require(prepared.Documents.All(d => d.Expiry is null || d.Expiry > row.CommittedDeadline), "REQUIRED_DOCUMENT_MISSING", "Attached documents must remain valid beyond delivery.", 400);
     }
     private IReadOnlyList<RequestHorse> AddLinks(string id, RequestUpdateInput input)
     {
@@ -152,20 +124,10 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         foreach (var link in links) data.Add(link);
         return links;
     }
-    private async Task ApplyDocumentsAsync(TransportRequest row, IReadOnlyList<StoredDocument> documents, IReadOnlyList<string> selected, CancellationToken ct)
+    private async Task RemoveUnselectedDocumentsAsync(string requestId, IReadOnlyList<string> selected, CancellationToken ct)
     {
-        foreach (var old in await data.ListAsync<MedicalRecord>(m => m.RequestID == row.RequestID, ct))
+        foreach (var old in await data.ListAsync<MedicalRecord>(m => m.RequestID == requestId, ct))
             if (!selected.Contains(old.HorseID)) data.Remove(old);
-        foreach (var doc in documents)
-        {
-            switch (doc.Input.DocumentType)
-            {
-                case "INVITATION_LETTER": row.InvitationLetterFileUrl = doc.Key; break;
-                case "COMPETITION_REGISTRATION": row.CompetitionRegistrationFileUrl = doc.Key; break;
-                case "ATA_CARNET": row.AtaCarnetFileUrl = doc.Key; break;
-
-            }
-        }
     }
     private async Task NotifyAsync(TransportRequest row, CancellationToken ct)
     {

@@ -68,12 +68,6 @@ public sealed class FlowRequest
     public string? DeliveryPostalCode { get; set; }
     [Column("DeliveryInstructions", TypeName = "nvarchar(1000)")]
     public string? DeliveryInstructions { get; set; }
-    [Column("InvitationLetterFileUrl", TypeName = "nvarchar(500)")]
-    public string? InvitationLetterFileUrl { get; set; }
-    [Column("CompetitionRegistrationFileUrl", TypeName = "nvarchar(500)")]
-    public string? CompetitionRegistrationFileUrl { get; set; }
-    [Column("AtaCarnetFileUrl", TypeName = "nvarchar(500)")]
-    public string? AtaCarnetFileUrl { get; set; }
     [Column("CareInstructions", TypeName = "nvarchar(2000)")]
     public string? CareInstructions { get; set; }
     [Column("DeclaredValueVnd", TypeName = "decimal(18,2)")]

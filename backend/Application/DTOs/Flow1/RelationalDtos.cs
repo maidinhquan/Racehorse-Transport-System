@@ -6,8 +6,6 @@ public sealed record HorseSelection(string HorseId, string Version, string? Care
 public sealed record FlowRequestInput(EstimateInput Trip, DateTimeOffset DepartureAt, DateTimeOffset DeliveryAt,
     string Purpose, ContactInput PickupContact, ContactInput Receiver, IReadOnlyList<HorseSelection> Horses,
     decimal? DeclaredValueUsd = null, string? CareInstructions = null);
-public sealed record RequestSharedUploads(UploadedFile? InvitationLetter = null,
-    UploadedFile? CompetitionRegistration = null, UploadedFile? AtaCarnet = null);
 public sealed record RequestDocumentUpload(string HorseId, UploadedFile File);
 public sealed record FlowRequestDocument(string DocumentId, string? HorseId, string DocumentType, string Status);
 public sealed record HorseDocumentState(string DocumentType, string Status, string? FileKind);
@@ -52,10 +50,10 @@ public sealed record FlowRequestCard(string RequestId, string Version, string St
     IReadOnlyList<FlowHorseCard> Horses, IReadOnlyList<FlowContractCard> Contracts, FlowRequestInput? Input = null, string? MapAttribution = null,
     string? CustomerName = null, string? CustomerEmail = null, decimal? DeclaredValueUsd = null,
     IReadOnlyList<FlowRequestDocument>? Documents = null, decimal? EstimatedTransportCost = null,
-    decimal? DeclaredValueVnd = null, IReadOnlyList<FlowRequestDocument>? SharedDocuments = null);
+    decimal? DeclaredValueVnd = null);
 public sealed record FlowHandoff(FlowTripCard Trip, string RequestId, string Departure, string Destination,
     DateTime? DepartureAt, DateTime? DeliveryAt, string ContractId, string PdfSha256, IReadOnlyList<FlowHorseCard> Horses,
     decimal? DeclaredValueUsd = null, IReadOnlyList<FlowRequestDocument>? Documents = null,
-    decimal? DeclaredValueVnd = null, IReadOnlyList<FlowRequestDocument>? SharedDocuments = null);
+    decimal? DeclaredValueVnd = null);
 public sealed record ContractPdfModel(Dictionary<string, string> Values, Dictionary<string, string>[] Horses,
     IReadOnlyList<ClauseCard>? Clauses = null, IReadOnlyList<string>? AdditionalClauses = null, CostAmounts? Costs = null);

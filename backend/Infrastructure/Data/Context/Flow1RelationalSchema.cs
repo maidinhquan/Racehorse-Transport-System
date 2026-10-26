@@ -30,9 +30,6 @@ public static class Flow1RelationalSchema
           AND COL_LENGTH('dbo.TRANSPORT_REQUEST','DeliveryStableName')=400
           AND COL_LENGTH('dbo.TRANSPORT_REQUEST','DeliveryPostalCode')=40
           AND COL_LENGTH('dbo.TRANSPORT_REQUEST','DeliveryInstructions')=2000
-          AND COL_LENGTH('dbo.TRANSPORT_REQUEST','InvitationLetterFileUrl')=1000
-          AND COL_LENGTH('dbo.TRANSPORT_REQUEST','CompetitionRegistrationFileUrl')=1000
-          AND COL_LENGTH('dbo.TRANSPORT_REQUEST','AtaCarnetFileUrl')=1000
           AND COL_LENGTH('dbo.TRANSPORT_REQUEST','CareInstructions')=4000
           AND COL_LENGTH('dbo.REQUEST_HORSE_MAPPING','CareInstructions')=4000
           AND COL_LENGTH('dbo.HORSE','PhotoUrl')=1000 AND COL_LENGTH('dbo.HORSE','PassportScanUrl')=1000
@@ -52,7 +49,7 @@ public static class Flow1RelationalSchema
           AND EXISTS(SELECT 1 FROM sys.check_constraints WHERE name='CK_F1D_DeclaredValueUsd'
             AND LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(definition,N'[',N''),N']',N''),N'(',N''),N')',N''),N' ',N''))=N'declaredvalueusdisnullordeclaredvalueusd>0')
           AND (SELECT COUNT(*) FROM sys.foreign_keys WHERE name IN ('FK_F1_Specialist','FK_F1_Coordinator','FK_Contract_Request') AND is_disabled=0 AND is_not_trusted=0)=3
-          AND NOT EXISTS(SELECT 1 FROM (VALUES ('CK_F1W_HORSE_OwnershipCertificateFileUrl'),('CK_F1W_HORSE_ValuationDocumentFileUrl'),('CK_F1W_HORSE_DeclaredValueVnd'),('CK_F1W_TRANSPORT_REQUEST_InvitationLetterFileUrl'),('CK_F1W_TRANSPORT_REQUEST_CompetitionRegistrationFileUrl'),('CK_F1W_TRANSPORT_REQUEST_AtaCarnetFileUrl'),('CK_F1W_TRANSPORT_REQUEST_DeclaredValueVnd'),('CK_F1W_HORSE_PassportDates'),('CK_F1S_HORSE_PhotoUrl'),('CK_F1S_HORSE_PassportScanUrl'),('CK_F1S_TRANSPORT_REQUEST_Pickup'),('CK_F1S_TRANSPORT_REQUEST_Delivery'),('CK_F1S_TRANSPORT_REQUEST_Distance'),('CK_F1S_TRANSPORT_REQUEST_Route'),('CK_F1S_TRANSPORT_REQUEST_Preparation'),('CK_F1D_DeclaredValueUsd'),('CK_F1S_TRIP_PLAN_Deployment'),('CK_F1Final_Handoff'),('CK_F1S_CONTRACT_PdfUrl'),('CK_F1S_CONTRACT_Deposit'),('CK_F1S_CONTRACT_Pdf'),('CK_F1S_CONTRACT_Publication'),('CK_F1S_CONTRACT_OtpAttempts'),('CK_F1S_CONTRACT_Otp'),('CK_F1S_CONTRACT_SignDeadline'),('CK_F1S_CONTRACT_Signed'),('CK_F1S_CONTRACT_Extension'),('CK_F1S_CONTRACT_Cancellation'),('CK_F1Final_Feedback'),('CK_F1Final_Refund'),('CK_F1S_PAYMENT_Attempt'),('CK_F1S_PAYMENT_Success'),('CK_F1S_PAYMENT_Received'),('CK_F1S_PAYMENT_Review'),('CK_F1S_PAYMENT_Reviewer')) expected(n)
+          AND NOT EXISTS(SELECT 1 FROM (VALUES ('CK_F1W_HORSE_OwnershipCertificateFileUrl'),('CK_F1W_HORSE_ValuationDocumentFileUrl'),('CK_F1W_HORSE_DeclaredValueVnd'),('CK_F1W_TRANSPORT_REQUEST_DeclaredValueVnd'),('CK_F1W_HORSE_PassportDates'),('CK_F1S_HORSE_PhotoUrl'),('CK_F1S_HORSE_PassportScanUrl'),('CK_F1S_TRANSPORT_REQUEST_Pickup'),('CK_F1S_TRANSPORT_REQUEST_Delivery'),('CK_F1S_TRANSPORT_REQUEST_Distance'),('CK_F1S_TRANSPORT_REQUEST_Route'),('CK_F1S_TRANSPORT_REQUEST_Preparation'),('CK_F1D_DeclaredValueUsd'),('CK_F1S_TRIP_PLAN_Deployment'),('CK_F1Final_Handoff'),('CK_F1S_CONTRACT_PdfUrl'),('CK_F1S_CONTRACT_Deposit'),('CK_F1S_CONTRACT_Pdf'),('CK_F1S_CONTRACT_Publication'),('CK_F1S_CONTRACT_OtpAttempts'),('CK_F1S_CONTRACT_Otp'),('CK_F1S_CONTRACT_SignDeadline'),('CK_F1S_CONTRACT_Signed'),('CK_F1S_CONTRACT_Extension'),('CK_F1S_CONTRACT_Cancellation'),('CK_F1Final_Feedback'),('CK_F1Final_Refund'),('CK_F1S_PAYMENT_Attempt'),('CK_F1S_PAYMENT_Success'),('CK_F1S_PAYMENT_Received'),('CK_F1S_PAYMENT_Review'),('CK_F1S_PAYMENT_Reviewer')) expected(n)
             WHERE NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE name=expected.n AND is_disabled=0 AND is_not_trusted=0))
           AND NOT EXISTS(
             SELECT 1 FROM (VALUES

@@ -305,9 +305,9 @@ Backend tính tổng declaredValueVnd từ ngựa được chọn, lưu trên re
 
 ### Ba tệp chung của request
 
-`POST /api/customer/requests/with-documents` (hoặc `/{id}/revision-with-documents`) nhận multipart payload, thêm ba file đơn tùy chọn: invitationLetter, competitionRegistration, ataCarnet. Chỉ nộp một lần/request, không cần horseIds cho ba file này. `files`/`horseIds` cũ vẫn là hồ sơ bổ sung theo ngựa, tối đa 10 file; toàn form tối đa 70 MB. Revision bỏ trống file chung thì giữ file cũ; gửi file thì thay file tương ứng.
+`POST /api/customer/requests` và `PUT /api/customer/requests/{requestId}` nhận JSON trực tiếp theo RequestUpdateInput. Không đính kèm tệp tại bước gửi yêu cầu. PUT chỉ nhận yêu cầu CHANGES_REQUESTED và gửi lại PENDING_REVIEW.
 
-Response `sharedDocuments` luôn có ba mục với documentId/documentType = INVITATION_LETTER, COMPETITION_REGISTRATION, ATA_CARNET; horseId = null; status UPLOADED/NOT_PROVIDED. Đây là trạng thái nộp tệp, không thêm quy trình xét duyệt. Customer/Manager đọc bằng endpoint `/api/{customer|manager}/requests/{id}/documents/{documentId}` có kiểm tra quyền. Không nhận URL tệp do client tự cung cấp.
+Chi tiết yêu cầu chỉ liệt kê hồ sơ ngựa và medical record hiện có; không còn danh sách giấy tờ chung theo yêu cầu.
 
 Sổ tiêm, ngày tiêm, giấy chứng nhận sức khỏe và bác sĩ thú y riêng được xử lý sau ký bởi Flow 3. Không yêu cầu nộp trước ký, không tạo trạng thái đã duyệt giả. Checkbox xác nhận và nút tiếp tục giữa các bước do frontend giữ; chưa có API lưu nháp từng bước. Gửi cuối dùng Idempotency-Key ổn định để retry không tạo trùng request.
 

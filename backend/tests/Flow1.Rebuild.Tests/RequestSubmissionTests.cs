@@ -46,41 +46,47 @@ public sealed class RequestSubmissionTests(SqlFixture database) : IClassFixture<
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal("VALIDATION_ERROR", json.RootElement.GetProperty("errorCode").GetString());
-        Assert.Contains(message, json.RootElement.GetProperty("message").GetString());
+        if (invalid is "pickup" or "delivery" or "missing-horses" or "missing-notes")
+        {
+            var field = invalid switch { "missing-horses" => "horses", "missing-notes" => "horseNotes", _ => invalid };
+            Assert.True(json.RootElement.GetProperty("errors").TryGetProperty(field, out var errors));
+            Assert.NotEmpty(errors.EnumerateArray());
+        }
+        else Assert.Contains(message, json.RootElement.GetProperty("message").GetString());
     }
 
     [Fact]
-    public async Task Requests_accept_only_three_shared_document_types_and_reject_horse_scope_on_create_and_update()
+    public async Task Removed_documents_are_rejected_on_create_and_update()
     {
         using var factory = new ApiFactory(database); using var customer = factory.Customer(); using var manager = factory.Manager();
         var horse = await SubmissionTest.NewHorseAsync(database);
         var day = DateTime.UtcNow.AddDays(160).Date;
-        var input = SubmissionTest.Input(day.ToString("yyyy-MM-dd"), day.AddDays(2).ToString("yyyy-MM-dd"), horse) with {
-            Documents = [new("invite.pdf", "INVITATION_LETTER"), new("competition.pdf", "COMPETITION_REGISTRATION"), new("ata.pdf", "ATA_CARNET")] };
+        var input = SubmissionTest.Input(day.ToString("yyyy-MM-dd"), day.AddDays(2).ToString("yyyy-MM-dd"), horse);
         customer.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
-        var created = await customer.PostAsync("/api/customer/requests", SubmissionTest.Body(input,
-            ("invite.pdf", SubmissionTest.Pdf), ("competition.pdf", SubmissionTest.Pdf), ("ata.pdf", SubmissionTest.Pdf)));
+        var created = await customer.PostAsync("/api/customer/requests", SubmissionTest.Body(input));
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         using var result = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
         var id = result.RootElement.GetProperty("data").GetProperty("id").GetString();
-        await using var db = database.Context();
-        var saved = await db.Set<TransportRequest>().SingleAsync(r => r.RequestID == id);
-        Assert.NotNull(saved.InvitationLetterFileUrl); Assert.NotNull(saved.CompetitionRegistrationFileUrl); Assert.NotNull(saved.AtaCarnetFileUrl);
-        Assert.Empty(await db.Set<MedicalRecord>().Where(m => m.RequestID == id).ToListAsync());
-        var decision = await manager.PostAsJsonAsync($"/api/manager/requests/{id}/request-changes", new { feedback = "Please update the pickup contact details." });
-        Assert.True(decision.IsSuccessStatusCode);
-        var count = await db.Set<TransportRequest>().CountAsync();
-        foreach (var (type, attachHorse) in new[] { ("HEALTH_CERTIFICATE", false), ("INVITATION_LETTER", true) })
+        Assert.True((await manager.PostAsJsonAsync($"/api/manager/requests/{id}/request-changes", new { feedback = "Update contact" })).IsSuccessStatusCode);
+        foreach (var type in new[] { "INVITATION_LETTER", "COMPETITION_REGISTRATION", "ATA_CARNET" })
         {
-            var body = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(input, new JsonSerializerOptions(JsonSerializerDefaults.Web)))!;
-            var document = new System.Text.Json.Nodes.JsonObject { ["fileName"] = "invalid.pdf", ["documentType"] = type };
-            if (attachHorse) document["horseId"] = horse;
-            body["documents"] = new System.Text.Json.Nodes.JsonArray(document);
-            customer.DefaultRequestHeaders.Remove("Idempotency-Key"); customer.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
-            Assert.Equal(HttpStatusCode.BadRequest, (await customer.PostAsync("/api/customer/requests", SubmissionTest.Body(body, ("invalid.pdf", SubmissionTest.Pdf)))).StatusCode);
-            Assert.Equal(HttpStatusCode.BadRequest, (await customer.PutAsync($"/api/customer/requests/{id}", SubmissionTest.Body(body, ("invalid.pdf", SubmissionTest.Pdf)))).StatusCode);
+            var body = JsonSerializer.SerializeToNode(input, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+            body["documents"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["fileName"] = "old.pdf", ["documentType"] = type });
+            Assert.Equal(HttpStatusCode.BadRequest, (await customer.PostAsync("/api/customer/requests", SubmissionTest.Body(body))).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await customer.PutAsync($"/api/customer/requests/{id}", SubmissionTest.Body(body))).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await customer.GetAsync($"/api/customer/requests/{id}/shared-documents/{type}")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await manager.GetAsync($"/api/manager/requests/{id}/shared-documents/{type}")).StatusCode);
         }
-        Assert.Equal(count, await db.Set<TransportRequest>().CountAsync());
+        using var oldForm = new MultipartFormDataContent();
+        oldForm.Add(new StringContent(JsonSerializer.Serialize(input)), "data");
+        oldForm.Add(new ByteArrayContent(SubmissionTest.Pdf), "files", "old.pdf");
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, (await customer.PostAsync("/api/customer/requests", oldForm)).StatusCode);
+        await using var db = database.Context();
+        Assert.Empty(await db.Set<MedicalRecord>().Where(m => m.RequestID == id).ToListAsync());
+        var connection = db.Database.GetDbConnection(); await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST') AND name IN ('InvitationLetterFileUrl','CompetitionRegistrationFileUrl','AtaCarnetFileUrl')";
+        Assert.Equal(0, Convert.ToInt32(await command.ExecuteScalarAsync()));
     }
 
     [Fact]
@@ -108,63 +114,56 @@ public sealed class RequestSubmissionTests(SqlFixture database) : IClassFixture<
         Assert.Equal(HttpStatusCode.NotFound,(await client.PostAsync("/api/customer/requests",SubmissionTest.Body(input))).StatusCode);
         Assert.Equal(count,await db.Set<TransportRequest>().CountAsync());
         var horse=await SubmissionTest.NewHorseAsync(database);
-        input=input with { Horses=[horse], Documents=[new("invitation.pdf","INVITATION_LETTER")] };
-        await db.Database.ExecuteSqlRawAsync("CREATE TRIGGER dbo.TestFailSharedMetadata ON dbo.TRANSPORT_REQUEST AFTER INSERT, UPDATE AS BEGIN IF EXISTS(SELECT 1 FROM inserted WHERE InvitationLetterFileUrl IS NOT NULL) THROW 51000, 'Simulated metadata persistence failure', 1; END;");
+        input=input with { Horses=[horse] };
+        await db.Database.ExecuteSqlRawAsync("CREATE TRIGGER dbo.TestFailRequestMetadata ON dbo.TRANSPORT_REQUEST AFTER INSERT, UPDATE AS BEGIN IF EXISTS(SELECT 1 FROM inserted WHERE PickupContactName IS NOT NULL) THROW 51000, 'Simulated metadata persistence failure', 1; END;");
         try
         {
-            Assert.Equal(HttpStatusCode.InternalServerError,(await client.PostAsync("/api/customer/requests",SubmissionTest.Body(input,("invitation.pdf",SubmissionTest.Pdf)))).StatusCode);
+            Assert.Equal(HttpStatusCode.InternalServerError,(await client.PostAsync("/api/customer/requests",SubmissionTest.Body(input))).StatusCode);
             Assert.Equal(count,await db.Set<TransportRequest>().CountAsync());
             Assert.Empty(await db.Set<RequestHorse>().Where(h=>h.HorseID==horse).ToListAsync());
             Assert.Empty(await db.Set<MedicalRecord>().Where(h=>h.HorseID==horse).ToListAsync());
         }
-        finally { await db.Database.ExecuteSqlRawAsync("DROP TRIGGER dbo.TestFailSharedMetadata;"); }
+        finally { await db.Database.ExecuteSqlRawAsync("DROP TRIGGER dbo.TestFailRequestMetadata;"); }
     }
 
     [Fact]
-    public async Task Failed_submission_leaves_no_request_and_retries_compare_contacts_and_file_bytes()
+    public async Task Failed_submission_leaves_no_request_and_retries_compare_contacts()
     {
         using var factory = new ApiFactory(database); using var client = factory.Customer();
         var horse = await SubmissionTest.NewHorseAsync(database);
         var day = DateTime.UtcNow.AddDays(100).Date;
-        var input = SubmissionTest.Input(day.ToString("yyyy-MM-dd"), day.AddDays(2).ToString("yyyy-MM-dd"), horse) with {
-            Documents = [new("invitation.pdf", "INVITATION_LETTER", "2099-01-01")] };
-        await using var db = database.Context();
-        var count = await db.Set<TransportRequest>().CountAsync();
+        var input = SubmissionTest.Input(day.ToString("yyyy-MM-dd"), day.AddDays(2).ToString("yyyy-MM-dd"), horse);
+        await using var db = database.Context(); var count = await db.Set<TransportRequest>().CountAsync();
         client.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input))).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input,("invitation.pdf","not a valid file signature"u8.ToArray())))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input with { Pickup = null! }))).StatusCode);
         Assert.Equal(count, await db.Set<TransportRequest>().CountAsync());
-        var created = await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input,("invitation.pdf",SubmissionTest.Pdf)));
+        var created = await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input));
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
-        var retry = await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input,("invitation.pdf",SubmissionTest.Pdf)));
-        Assert.Equal(HttpStatusCode.Created, retry.StatusCode);
-        Assert.Equal(count+1, await db.Set<TransportRequest>().CountAsync());
-        Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsync("/api/customer/requests",SubmissionTest.Body(input with {
-            Pickup=input.Pickup with { Phone="0901112223" } },("invitation.pdf",SubmissionTest.Pdf)))).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsync("/api/customer/requests",SubmissionTest.Body(input,("invitation.pdf","%PDF-1.7 altered attachment content"u8.ToArray())))).StatusCode);
-        client.DefaultRequestHeaders.Remove("Idempotency-Key");client.DefaultRequestHeaders.Add("Idempotency-Key",Guid.NewGuid().ToString());
-        Assert.Equal(HttpStatusCode.Conflict,(await client.PostAsync("/api/customer/requests",SubmissionTest.Body(input,("invitation.pdf",SubmissionTest.Pdf)))).StatusCode);
-        Assert.Equal(count+1,await db.Set<TransportRequest>().CountAsync());
-        using var json=JsonDocument.Parse(await created.Content.ReadAsStringAsync());
-        var id=json.RootElement.GetProperty("data").GetProperty("id").GetString();
-        Assert.Empty(await db.Set<MedicalRecord>().Where(m=>m.RequestID==id).ToListAsync());
-        Assert.NotNull((await db.Set<TransportRequest>().SingleAsync(r=>r.RequestID==id)).InvitationLetterFileUrl);
-        Assert.Single(await db.Set<RequestHorse>().Where(m=>m.RequestID==id).ToListAsync());
+        Assert.Equal(HttpStatusCode.Created, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input))).StatusCode);
+        Assert.Equal(count + 1, await db.Set<TransportRequest>().CountAsync());
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input with { Pickup = input.Pickup with { Phone = "0901112223" } }))).StatusCode);
+        client.DefaultRequestHeaders.Remove("Idempotency-Key"); client.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input))).StatusCode);
+        Assert.Equal(count + 1, await db.Set<TransportRequest>().CountAsync());
     }
 
     [Fact]
-    public void Swagger_exposes_multipart_submission_and_no_separate_submit_or_document_upload()
+    public void Swagger_exposes_json_submission_without_request_upload_fields_or_shared_routes()
     {
         using var factory = new ApiFactory(database); using var client = factory.Customer();
-        var swagger=factory.Services.GetRequiredService<ISwaggerProvider>().GetSwagger("v1");
-        var post=swagger.Paths["/api/customer/requests"].Operations[Microsoft.OpenApi.Models.OperationType.Post];
-        Assert.Single(post.RequestBody.Content);
-        var schema=post.RequestBody.Content["multipart/form-data"].Schema;
-        if(schema.Reference is not null)schema=swagger.Components.Schemas[schema.Reference.Id];
-        Assert.Contains(schema.Properties.Keys,n=>n.Equals("data",StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(schema.Properties.Keys,n=>n.Equals("files",StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain("/api/customer/requests/{requestId}/submit",swagger.Paths.Keys);
-        Assert.False(swagger.Paths.TryGetValue("/api/customer/requests/{requestId}/horses/{horseId}/documents",out var oldUpload)
-            && oldUpload.Operations.ContainsKey(Microsoft.OpenApi.Models.OperationType.Post));
+        var swagger = factory.Services.GetRequiredService<ISwaggerProvider>().GetSwagger("v1");
+        foreach (var operation in new[] { swagger.Paths["/api/customer/requests"].Operations[Microsoft.OpenApi.Models.OperationType.Post],
+            swagger.Paths["/api/customer/requests/{requestId}"].Operations[Microsoft.OpenApi.Models.OperationType.Put] })
+        {
+            Assert.Contains("application/json", operation.RequestBody.Content.Keys);
+            Assert.DoesNotContain("multipart/form-data", operation.RequestBody.Content.Keys);
+            var schema = operation.RequestBody.Content["application/json"].Schema;
+            if (schema.Reference is not null) schema = swagger.Components.Schemas[schema.Reference.Id];
+            Assert.DoesNotContain("documents", schema.Properties.Keys);
+            Assert.DoesNotContain("files", schema.Properties.Keys);
+        }
+        Assert.DoesNotContain(swagger.Paths.Keys, p => p.Contains("shared-documents"));
+        Assert.DoesNotContain("/api/customer/requests/{requestId}/submit", swagger.Paths.Keys);
     }
+
 }

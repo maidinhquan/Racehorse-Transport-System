@@ -208,9 +208,6 @@ CREATE TABLE TRANSPORT_REQUEST (
     DeliveryStableName NVARCHAR(200) NULL,
     DeliveryPostalCode NVARCHAR(20) NULL,
     DeliveryInstructions NVARCHAR(1000) NULL,
-    InvitationLetterFileUrl NVARCHAR(500) NULL,
-    CompetitionRegistrationFileUrl NVARCHAR(500) NULL,
-    AtaCarnetFileUrl NVARCHAR(500) NULL,
     CareInstructions NVARCHAR(2000) NULL,
     DeclaredValueVnd DECIMAL(18,2) NULL,
     RequestID VARCHAR(50) NOT NULL,
@@ -270,9 +267,6 @@ CREATE TABLE TRANSPORT_REQUEST (
     CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Route CHECK ([OriginCountry] IS NULL AND [DestinationCountry] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [TransportType] IS NOT NULL),
     -- The backend resolves the minimum from BUSINESS_POLICY and stores the applied days.
     CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Preparation CHECK ([PreparationDays] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [PreparationDays]>=0),
-    CONSTRAINT CK_F1W_TRANSPORT_REQUEST_InvitationLetterFileUrl CHECK ([InvitationLetterFileUrl] IS NULL OR ([InvitationLetterFileUrl] LIKE 'private/%' AND LEN([InvitationLetterFileUrl])>8)),
-    CONSTRAINT CK_F1W_TRANSPORT_REQUEST_CompetitionRegistrationFileUrl CHECK ([CompetitionRegistrationFileUrl] IS NULL OR ([CompetitionRegistrationFileUrl] LIKE 'private/%' AND LEN([CompetitionRegistrationFileUrl])>8)),
-    CONSTRAINT CK_F1W_TRANSPORT_REQUEST_AtaCarnetFileUrl CHECK ([AtaCarnetFileUrl] IS NULL OR ([AtaCarnetFileUrl] LIKE 'private/%' AND LEN([AtaCarnetFileUrl])>8)),
     CONSTRAINT CK_F1W_TRANSPORT_REQUEST_DeclaredValueVnd CHECK ([DeclaredValueVnd] IS NULL OR ([DeclaredValueVnd]>0 AND [DeclaredValueVnd]<=9999999999 AND [DeclaredValueVnd]=ROUND([DeclaredValueVnd],0)))
 );
 
@@ -420,7 +414,7 @@ CREATE TABLE CUSTOMS_CLEARANCE (
     SegmentID VARCHAR(50) NOT NULL,
     BorderCrossingName NVARCHAR(200) NULL,
     CustomsAgentName NVARCHAR(100) NULL,
-    DocumentType VARCHAR(50) NULL, -- EXPORT, IMPORT, ATA_CARNET
+    DocumentType VARCHAR(50) NULL, -- EXPORT, IMPORT
     DeclarationNumber VARCHAR(100) NULL,
     Status VARCHAR(50) NOT NULL,
     ClearedAt DATETIME NULL,

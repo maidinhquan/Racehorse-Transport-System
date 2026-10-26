@@ -17,17 +17,14 @@ internal static class SubmissionTest
         new("Receiver", "Tokyo", "1000000", "Receiver", "0907654321", "", 35.6m, 139.7m, "fixture-tokyo"),
         [horse], new Dictionary<string, string>());
 
-    internal static MultipartFormDataContent Body(object input, params (string Name, byte[] Bytes)[] uploads)
+    internal static HttpContent Body(object input)
     {
         var node = JsonSerializer.SerializeToNode(input, new JsonSerializerOptions(JsonSerializerDefaults.Web))!.AsObject();
         // Complete old fixture inputs with valid contacts; explicit supplied fields always win.
         var defaults = JsonSerializer.SerializeToNode(Input("2027-12-25", "2027-12-27"), new JsonSerializerOptions(JsonSerializerDefaults.Web))!.AsObject();
         foreach (var field in new[] { "pickup", "delivery", "horses", "horseNotes" })
             if (!node.ContainsKey(field)) node[field] = defaults[field]!.DeepClone();
-        var form = new MultipartFormDataContent();
-        form.Add(new StringContent(node.ToJsonString()), "data");
-        foreach (var file in uploads) form.Add(new ByteArrayContent(file.Bytes), "files", file.Name);
-        return form;
+        return JsonContent.Create(node);
     }
 
     internal static async Task ReadyHorseAsync(SqlFixture database, string id = "HORSE_001")

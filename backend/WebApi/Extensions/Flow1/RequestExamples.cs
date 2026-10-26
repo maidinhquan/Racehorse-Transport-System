@@ -19,10 +19,6 @@ public sealed class RequestExamples : ISchemaFilter, IOperationFilter
 
     public void Apply(OpenApiSchema schema, SchemaFilterContext context)
     {
-        if (context.Type == typeof(RequestDocumentInput) && schema.Properties.TryGetValue("documentType", out var type))
-            type.Enum = new List<IOpenApiAny> { new OpenApiString("INVITATION_LETTER"), new OpenApiString("COMPETITION_REGISTRATION"), new OpenApiString("ATA_CARNET") };
-        if (context.Type == typeof(RequestUpdateInput) && schema.Properties.TryGetValue("documents", out var documents))
-            documents.MaxItems = 3;
         var sample = Sample(context.Type);
         if (sample is not null) schema.Example = Example(sample);
     }
@@ -50,11 +46,6 @@ public sealed class RequestExamples : ISchemaFilter, IOperationFilter
             operation.Description += "\n\n**Dữ liệu mẫu:** Các mã như HORSE_001, REQUEST_001, CONTRACT_001 chỉ minh họa. Khi test, thay bằng mã đã tạo/được phân công cho đúng tài khoản và đúng trạng thái.";
 
         if (operation.RequestBody is null) return;
-        if (controller.Name == "RequestsController")
-        {
-            context.SchemaGenerator.GenerateSchema(typeof(RequestUpdateInput), context.SchemaRepository);
-            operation.RequestBody.Description += " data là chuỗi JSON theo schema RequestUpdateInput, files chỉ gồm ba giấy tờ chung: Thư mời (INVITATION_LETTER), Đăng ký thi đấu (COMPETITION_REGISTRATION), ATA Carnet (ATA_CARNET). Không nhận horseId hoặc giấy tờ riêng từng ngựa trong documents. Tên file phải khớp fileName; tối đa 3 tệp, 10 MiB/tệp, tổng 30 MiB.";
-        }
         var bodyType = context.MethodInfo.GetParameters().Select(p => p.ParameterType)
             .FirstOrDefault(t => t.Namespace == "Application.Flow1.Dtos");
         var sample = bodyType is null ? null : Sample(bodyType);
@@ -158,20 +149,7 @@ public sealed class RequestExamples : ISchemaFilter, IOperationFilter
         if (schema.Reference is not null) schema = repository.Schemas[schema.Reference.Id];
         foreach (var (name, property) in schema.Properties)
         {
-            if (name.Equals("Data", StringComparison.OrdinalIgnoreCase))
-            {
-                property.Example = new OpenApiString(JsonSerializer.Serialize(Sample(typeof(RequestUpdateInput)), new JsonSerializerOptions(Json) {
-                    WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(System.Text.Unicode.UnicodeRanges.All) }));
-                property.Extensions["x-request-json-editor"] = new OpenApiBoolean(true);
-                property.Description = "JSON đầy đủ của yêu cầu: tuyến, hai ngày, pickup/delivery có cityId, horses, horseNotes, documents. Mỗi documents[].fileName phải khớp tên tệp trong files. Chỉ nhận INVITATION_LETTER, COMPETITION_REGISTRATION, ATA_CARNET; không truyền horseId. Không gửi RequestID hoặc đường dẫn file.";
-            }
-            else if (name.Equals("Files", StringComparison.OrdinalIgnoreCase))
-            {
-                property.Extensions["x-request-file-picker"] = new OpenApiBoolean(true);
-                property.MaxItems = 3;
-                property.Description = "Chọn các tệp khai báo trong data.documents. Mỗi tệp tối đa 10 MiB; tổng tối đa 30 MiB/3 tệp. Bỏ trống khi không có tệp mới; PUT giữ hồ sơ cũ nếu không gửi thay thế.";
-            }
-            else if (name.Equals("DocumentType", StringComparison.OrdinalIgnoreCase))
+            if (name.Equals("DocumentType", StringComparison.OrdinalIgnoreCase))
             {
                 property.Example = property.Default = new OpenApiString("HEALTH_CERTIFICATE");
                 property.Description = "Mã loại giấy tờ viết hoa; ví dụ HEALTH_CERTIFICATE. Upload chưa đồng nghĩa đã được chuyên viên duyệt.";

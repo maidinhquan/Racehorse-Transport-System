@@ -12,9 +12,6 @@ public sealed class TransportRequest
     public string? DeliveryStableName { get; set; }
     public string? DeliveryPostalCode { get; set; }
     public string? DeliveryInstructions { get; set; }
-    public string? InvitationLetterFileUrl { get; set; }
-    public string? CompetitionRegistrationFileUrl { get; set; }
-    public string? AtaCarnetFileUrl { get; set; }
     public string? CareInstructions { get; set; }
     public decimal? DeclaredValueVnd { get; set; }
     public string RequestID { get; set; } = null!;

@@ -73,24 +73,4 @@ public sealed partial class RelationalFlow1Service
         Require(total <= 9999999999m, "VALIDATION_ERROR", "Total declared value exceeds the supported VND limit.");
         return complete ? total : null; // Existing legacy profiles may not have VND values yet.
     }
-    private async Task<RequestSharedKeys> PrepareShared(RequestSharedUploads? uploads, CancellationToken ct) => new(
-        uploads?.InvitationLetter is null ? null : await files.PutAsync(uploads.InvitationLetter, false, ct),
-        uploads?.CompetitionRegistration is null ? null : await files.PutAsync(uploads.CompetitionRegistration, false, ct),
-        uploads?.AtaCarnet is null ? null : await files.PutAsync(uploads.AtaCarnet, false, ct));
-    private sealed record RequestSharedKeys(string? Invitation, string? Competition, string? Ata);
-    private static void ApplyShared(FlowRequest r, RequestSharedKeys keys)
-    {
-        r.InvitationLetterFileUrl = keys.Invitation ?? r.InvitationLetterFileUrl;
-        r.CompetitionRegistrationFileUrl = keys.Competition ?? r.CompetitionRegistrationFileUrl;
-        r.AtaCarnetFileUrl = keys.Ata ?? r.AtaCarnetFileUrl;
-    }
-    private static bool SameShared(FlowRequest r, RequestSharedKeys? k) => r.InvitationLetterFileUrl == k?.Invitation &&
-        r.CompetitionRegistrationFileUrl == k?.Competition && r.AtaCarnetFileUrl == k?.Ata;
-    private static string? SharedFile(FlowRequest r, string type) => type switch
-    {
-        "INVITATION_LETTER" => r.InvitationLetterFileUrl, "COMPETITION_REGISTRATION" => r.CompetitionRegistrationFileUrl,
-        "ATA_CARNET" => r.AtaCarnetFileUrl, _ => null
-    };
-    private static IReadOnlyList<FlowRequestDocument> SharedDocuments(FlowRequest r) => SharedTypes.Select(type => new FlowRequestDocument(type,null,type,SharedFile(r,type) is null?"NOT_PROVIDED":"UPLOADED")).ToArray();
-    private static readonly string[] SharedTypes = ["INVITATION_LETTER", "COMPETITION_REGISTRATION", "ATA_CARNET"];
 }
