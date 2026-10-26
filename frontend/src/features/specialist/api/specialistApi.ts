@@ -1,4 +1,11 @@
 import { apiClient } from '../../../shared/api/apiClient';
+import { flow3Api, type ReadyConfirmInput, type SubmitFeasibilityRequest } from '../../../shared/api/flow3Api';
+import {
+  flow2Api,
+  type CompanyDocumentVersionInput,
+  type PhysicalCopyInput,
+  type QuarantineBookingConfirmInput,
+} from '../../../shared/api/flow2Api';
 import { SPECIALIST_ENDPOINTS } from './specialistEndpoints';
 import type {
   ApiResponse,
@@ -59,19 +66,71 @@ export const specialistApi = {
   getPackages: () => getOr<RegPackage[]>(SPECIALIST_ENDPOINTS.REQUIREMENT_SETS, mockPackages),
   getAudit: () => getOr<AuditEntry[]>(SPECIALIST_ENDPOINTS.AUDIT, mockAudit),
 
-  applyRequirementSet: (tripId: string, pkgId: string) => send('put', SPECIALIST_ENDPOINTS.APPLY_REQUIREMENT_SET(tripId), { pkgId }),
-  confirmDocsReady: (tripId: string) => send('post', SPECIALIST_ENDPOINTS.DOCS_READY(tripId)),
-  saveInsurance: (tripId: string, body: unknown) => send('put', SPECIALIST_ENDPOINTS.INSURANCE(tripId), body),
-  verifyInsurance: (tripId: string) => send('post', SPECIALIST_ENDPOINTS.VERIFY_INSURANCE(tripId)),
-  recordClearance: (tripId: string, body: unknown) => send('post', SPECIALIST_ENDPOINTS.CLEARANCE(tripId), body),
-  reviewCustomerDoc: (tripId: string, body: unknown) => send('post', SPECIALIST_ENDPOINTS.REVIEW_CUSTOMER_DOC(tripId), body),
-  createDocRequest: (body: unknown) => send('post', SPECIALIST_ENDPOINTS.DOC_REQUESTS, body),
-  recordDocument: (body: unknown) => send('post', SPECIALIST_ENDPOINTS.DOCUMENTS, body),
-  reviewDocument: (docId: string, body: unknown) => send('post', SPECIALIST_ENDPOINTS.REVIEW_DOCUMENT(docId), body),
-  saveBooking: (body: unknown) => send('post', SPECIALIST_ENDPOINTS.QUARANTINE_BOOKINGS, body),
+  // ----- FLOW 3: Khả thi & Docs READY -----
+  /** F3-J02: Lấy thông tin ngữ cảnh giao việc và kiểm tra yêu cầu */
+  getPlanningContext: (tripId: string) => flow3Api.getSpecialistPlanningContext(tripId),
+
+  /** F3-J03: Đánh giá và công bố tính khả thi */
+  submitFeasibility: (tripId: string, body: SubmitFeasibilityRequest) =>
+    flow3Api.submitFeasibility(tripId, body),
+
+  /** F3-J16: Xác nhận toàn bộ hồ sơ sẵn sàng (Docs READY) */
+  confirmDocsReady: (tripId: string, body?: Partial<ReadyConfirmInput>) => {
+    const payload: ReadyConfirmInput = {
+      planVersion: body?.planVersion ?? 1,
+      feasibilityVersion: body?.feasibilityVersion ?? 1,
+      notes: body?.notes ?? 'Hồ sơ đã sẵn sàng',
+      ...body,
+    };
+    return flow3Api.confirmDocsReady(tripId, payload);
+  },
+
+  // ----- FLOW 2: Bộ yêu cầu & Checklist -----
+  /** F2-J12: Checklist hồ sơ tự động */
+  getChecklist: (tripId: string) => flow2Api.getChecklist(tripId),
+
+  /** F2-J13: Xem trước tác động khi thay đổi bộ yêu cầu */
+  previewRequirementSet: (tripId: string, pkgId: string) =>
+    flow2Api.previewRequirementSet(tripId, pkgId),
+
+  applyRequirementSet: (tripId: string, pkgId: string) =>
+    send('put', SPECIALIST_ENDPOINTS.APPLY_REQUIREMENT_SET(tripId), { pkgId }),
+
+  // ----- FLOW 2: Khách nộp & Yêu cầu bổ sung -----
+  reviewCustomerDoc: (tripId: string, body: unknown) =>
+    send('post', SPECIALIST_ENDPOINTS.REVIEW_CUSTOMER_DOC(tripId), body),
+  createDocRequest: (body: unknown) =>
+    send('post', SPECIALIST_ENDPOINTS.DOC_REQUESTS, body),
+  fulfillDocRequest: (supplementRef: string, note?: string) =>
+    flow2Api.fulfillDocRequest(supplementRef, note),
+
+  // ----- FLOW 2: Tài liệu công ty & Bản gốc -----
+  recordDocument: (body: unknown) =>
+    send('post', SPECIALIST_ENDPOINTS.DOCUMENTS, body),
+  createDocumentVersion: (docRef: string, body: CompanyDocumentVersionInput) =>
+    flow2Api.createDocumentVersion(docRef, body),
+  reviewDocument: (docId: string, body: unknown) =>
+    send('post', SPECIALIST_ENDPOINTS.REVIEW_DOCUMENT(docId), body),
+  updatePhysicalCopy: (docRef: string, body: PhysicalCopyInput) =>
+    flow2Api.updatePhysicalCopy(docRef, body),
+
+  // ----- FLOW 2: Bảo hiểm & Kiểm dịch & Thông quan -----
+  saveInsurance: (tripId: string, body: unknown) =>
+    send('put', SPECIALIST_ENDPOINTS.INSURANCE(tripId), body),
+  verifyInsurance: (tripId: string) =>
+    send('post', SPECIALIST_ENDPOINTS.VERIFY_INSURANCE(tripId)),
+  recordClearance: (tripId: string, body: unknown) =>
+    send('post', SPECIALIST_ENDPOINTS.CLEARANCE(tripId), body),
+  saveBooking: (body: unknown) =>
+    send('post', SPECIALIST_ENDPOINTS.QUARANTINE_BOOKINGS, body),
+  confirmQuarantineBooking: (bookingId: string, body: QuarantineBookingConfirmInput) =>
+    flow2Api.confirmQuarantineBooking(bookingId, body),
+
+  // ----- Danh mục thiết lập -----
   saveDocType: (body: DocType) => send('put', SPECIALIST_ENDPOINTS.DOC_TYPES, body),
   saveRegulation: (body: Regulation) => send('put', SPECIALIST_ENDPOINTS.REGULATIONS, body),
   savePackage: (body: RegPackage) => send('put', SPECIALIST_ENDPOINTS.REQUIREMENT_SETS, body),
 };
 
 export default specialistApi;
+

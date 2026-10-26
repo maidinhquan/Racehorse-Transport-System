@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../shared/api/apiClient";
 import ThemeToggle from "../../shared/components/ThemeToggle/ThemeToggle";
 import { DemoDataToggle } from "../../shared/components";
@@ -34,8 +33,6 @@ interface DashboardApiResponse {
 }
 
 const AdminDashboard: React.FC = () => {
-  const navigate = useNavigate();
-
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -69,10 +66,9 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("userRole");
-    localStorage.removeItem("userFullName");
-    navigate("/login");
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = "/login";
   };
 
   const filteredUsers = users.filter((u) => {

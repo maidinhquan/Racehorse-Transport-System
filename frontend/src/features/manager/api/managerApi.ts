@@ -1,5 +1,6 @@
 import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
+import { flow3Api, type PlanDecisionInput } from '../../../shared/api/flow3Api';
 import { MANAGER_ENDPOINTS as E } from './managerEndpoints';
 import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, Staff, Transaction, TransportRequest, Trip } from '../types';
 export interface CostPlanDto {
@@ -85,5 +86,24 @@ export const managerApi = {
   replyComplaint: (id: string, body: unknown) => apiRequest('post', E.COMPLAINT_REPLY(id), body),
   resolveComplaint: (id: string, body: unknown) => apiRequest('post', E.COMPLAINT_RESOLVE(id), body),
   escalateComplaint: (id: string) => apiRequest('post', E.COMPLAINT_ESCALATE(id)),
+
+  // ==========================================================================
+  // Flow 3 Integration (F3-J10, F3-J11, F3-J16, F3-J17, F3-J18, F3-J19)
+  // ==========================================================================
+  /** F3-J10: Xem tổng hợp chuẩn bị, feasibility và phương án */
+  getTripPreparation: (tripId: string) => flow3Api.getPreparation(tripId),
+
+  /** F3-J11: Phê duyệt phương án hoặc yêu cầu điều chỉnh */
+  decideTripPlan: (tripId: string, body: PlanDecisionInput) => flow3Api.decidePlan(tripId, body),
+
+  /** F3-J17: Kiểm tra điều kiện khởi hành (cả 2 READY) */
+  getTripReadiness: (tripId: string) => flow3Api.getReadiness(tripId),
+
+  /** F3-J18: Phê duyệt cho phép chuyến xe khởi hành */
+  approveTripDeparture: (tripId: string) => flow3Api.approveDeparture(tripId),
+
+  /** F3-J19: Lịch sử đánh giá, phương án và READY */
+  getTripPlanningHistory: (tripId: string) => flow3Api.getPlanningHistory(tripId),
 };
 export default managerApi;
+

@@ -1,6 +1,7 @@
 import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
 import { apiMessage } from '../../../shared/api/apiError';
+import { flow2Api } from '../../../shared/api/flow2Api';
 import type { ComplaintInput, ContractChangeInput, CustomerNotification, CustomerProfile, FileRef, Horse, HorseInput, TransportRequest, TripInfoInput, ContractVersion, DocRecord, Payment } from '../types';
 import { city } from '../hooks/customerRules';
 import { CUSTOMER_ENDPOINTS } from './customerEndpoints';
@@ -123,5 +124,23 @@ export const customerApi = {
   confirmAcceptance: (id: string) => apiRequest('post', CUSTOMER_ENDPOINTS.ACCEPTANCE(id)),
   raiseComplaint: (_id: string, body: ComplaintInput) => apiRequest('post', CUSTOMER_ENDPOINTS.COMPLAINTS, body),
   mockDeposit: async (_id: string) => false,
+
+  // ==========================================================================
+  // Flow 2 Integration (Hồ sơ bổ sung & Kiểm dịch)
+  // ==========================================================================
+  /** F2: Danh sách yêu cầu bổ sung hồ sơ cho đơn vận chuyển */
+  getSupplements: (requestId: string) => flow2Api.getCustomerSupplements(requestId),
+
+  /** F2: Tải lên chứng từ phản hồi yêu cầu bổ sung */
+  uploadSupplementDocument: async (requestId: string, supplementId: string, file: File) => {
+    const data = new FormData();
+    data.append('file', file);
+    return apiRequest('post', CUSTOMER_ENDPOINTS.SUPPLEMENT_DOCUMENT(requestId, supplementId), data);
+  },
+
+  /** F2: Xác nhận hoàn tất bổ sung hồ sơ */
+  submitSupplement: (requestId: string, supplementId: string) =>
+    apiRequest('post', CUSTOMER_ENDPOINTS.SUPPLEMENT_SUBMIT(requestId, supplementId)),
 };
 export default customerApi;
+
