@@ -64,11 +64,20 @@ internal static class SwaggerRequestEditor
                     error ? h("p", {role: "alert", className: "request-editor-error"}, error) : null);
             }
             function FilePicker(props) {
-                const files = props.value && props.value.toArray ? props.value.toArray() : (Array.isArray(props.value) ? props.value : []);
+                const files = (props.value && props.value.toArray ? props.value.toArray() : (Array.isArray(props.value) ? props.value : []))
+                    .filter(function(file) { return file instanceof File; });
                 const input = React.useRef(null);
                 function clear() { props.onChange(system.Im.List()); if (input.current) input.current.value = ""; }
                 return h("section", {className: "request-file-picker"},
                     h("h4", null, "2. Giấy tờ đính kèm — chọn tệp"),
+                    h("h5", null, "Giấy tờ chung của yêu cầu"),
+                    h("ul", null,
+                        h("li", null, h("strong", null, "Thư mời"), " — documentType: ", h("code", null, "INVITATION_LETTER")),
+                        h("li", null, h("strong", null, "Giấy đăng ký tham gia thi đấu"), " — documentType: ", h("code", null, "COMPETITION_REGISTRATION")),
+                        h("li", null, h("strong", null, "Sổ ATA Carnet (tạm xuất, tái nhập)"), " — documentType: ", h("code", null, "ATA_CARNET"))),
+                    h("p", null, "Ba loại giấy tờ chung không truyền horseId. Trong JSON documents, khai báo documentType và fileName đúng tên tệp được chọn."),
+                    h("h5", null, "Giấy tờ riêng của từng ngựa"),
+                    h("p", null, "Giấy sức khỏe, xét nghiệm hoặc tiêm phòng: khai báo documentType tương ứng và horseId của ngựa trong yêu cầu."),
                     h("p", null, "Có thể chọn nhiều tệp cùng lúc. Mỗi tệp tối đa 10 MiB; tổng tối đa 60 MiB và 33 tệp. Tên tệp phải khớp documents[].fileName trong JSON."),
                     h("input", {ref: input, type: "file", multiple: true, accept: ".pdf,.png,.jpg,.jpeg", disabled: props.disabled,
                         "aria-label": "Chọn giấy tờ đính kèm", onChange: function(e) { props.onChange(system.Im.List(Array.from(e.target.files || []))); }}),
