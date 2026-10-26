@@ -24,6 +24,7 @@ public sealed class ContractRenderer(Flow1ContractOptions options, IPrivateFiles
             Render(body, snapshot, 2); body.Append("</html>");
             await File.WriteAllTextAsync(html, body.ToString(), new UTF8Encoding(false), ct);
             var start = new ProcessStartInfo(executable!) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true, RedirectStandardOutput = true };
+            if (options.DisableBrowserSandbox) start.ArgumentList.Add("--no-sandbox");
             foreach (var arg in new[] { "--headless", "--disable-gpu", "--no-first-run", "--no-pdf-header-footer", "--user-data-dir=" + Path.Combine(job, "profile"), "--print-to-pdf=" + pdf, new Uri(html).AbsoluteUri }) start.ArgumentList.Add(arg);
             using var process = Process.Start(start) ?? throw Failure("PDF_CONVERSION_FAILED", "Could not start renderer.", 503);
             var stdout = process.StandardOutput.ReadToEndAsync(ct); var stderr = process.StandardError.ReadToEndAsync(ct);
