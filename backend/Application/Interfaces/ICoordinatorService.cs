@@ -21,6 +21,7 @@ namespace Application.Interfaces
         Task<VehicleDto> CreateVehicleAsync(CreateVehicleDto dto);
         Task<VehicleDto?> UpdateVehicleAsync(string vehicleId, CreateVehicleDto dto);
         Task<bool> UpdateVehicleStatusAsync(string vehicleId, UpdateVehicleStatusDto dto);
+        Task<bool> DeleteVehicleAsync(string vehicleId);
         Task<List<ResourceScheduleItemDto>> GetVehicleScheduleAsync(string vehicleId);
         Task<List<VehicleDto>> GetAvailableVehiclesAsync(string? tripId = null, int? legId = null);
 

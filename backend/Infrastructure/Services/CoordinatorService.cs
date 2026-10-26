@@ -251,22 +251,7 @@ namespace Infrastructure.Services
             var existingTrip = await _context.TripPlans.FirstOrDefaultAsync(t => t.RequestId == dto.RequestId && t.Status != "CANCELLED");
             if (existingTrip != null)
             {
-                return new PlanningTripDto
-                {
-                    TripId = existingTrip.TripId,
-                    RequestId = request.RequestId,
-                    TripCode = existingTrip.TripId.Replace("TRIP_", "TRP-"),
-                    CustomerName = request.Customer?.FullName ?? "Khách hàng cá nhân",
-                    Origin = request.Departure,
-                    Destination = request.Destination,
-                    HorseCount = request.RequestHorseMappings.Count > 0 ? request.RequestHorseMappings.Count : 2,
-                    TransportType = request.TransportType ?? "ROAD",
-                    PlannedDepartureAt = request.ExpectedDate ?? DateTime.UtcNow.AddDays(2),
-                    DeliveryDeadline = request.CommittedDeadline ?? DateTime.UtcNow.AddDays(5),
-                    TripStatus = existingTrip.Status,
-                    Stage = "NEED_ROUTE",
-                    AllowedActions = new List<string> { "CREATE_ROUTE", "CALCULATE_ROUTE", "CHOOSE_VEHICLE", "CHOOSE_DRIVER", "CHOOSE_ESCORT" }
-                };
+                throw new InvalidOperationException($"Đơn yêu cầu này đã được lập kế hoạch trước đó (Mã chuyến: {existingTrip.TripId}). Không thể tạo mới kế hoạch.");
             }
 
             var nextNum = await _context.TripPlans.CountAsync() + 1;
@@ -284,7 +269,12 @@ namespace Infrastructure.Services
                 TotalDistanceKm = dto.TotalDistanceKm ?? 50.0m,
                 TTotalHours = 4.0m,
                 TotalCost = dto.TotalCost ?? request.BaseCost ?? 5000.0m,
-                Status = "PLANNING"
+                Status = "PLANNING",
+                OperationsStatus = "NOT_READY",
+                DocumentsStatus = "NOT_READY",
+                RouteStatus = "DRAFT",
+                CurrentRouteVersion = 1,
+                DeploymentStatus = "PENDING"
             };
 
             _context.TripPlans.Add(newTrip);
@@ -784,6 +774,28 @@ namespace Infrastructure.Services
             return true;
         }
 
+        public async Task<bool> DeleteVehicleAsync(string vehicleId)
+        {
+            var vehicle = await _context.Vehicles.FindAsync(vehicleId);
+            if (vehicle == null) return false;
+
+            // Kiểm tra xe có đang nằm trong chuyến đi đang thực hiện hoặc lên kế hoạch không
+            var hasActiveAssignment = await _context.TripVehicleAssignments
+                .Include(tva => tva.Trip)
+                .AnyAsync(tva => tva.VehicleId == vehicleId &&
+                    tva.Trip != null &&
+                    (tva.Trip.Status == "IN_TRANSIT" || tva.Trip.Status == "READY_TO_DEPART" || tva.Trip.Status == "PLANNING"));
+
+            if (hasActiveAssignment)
+            {
+                throw new InvalidOperationException($"Không thể vô hiệu hóa phương tiện {vehicleId} vì xe đang được phân công trong chuyến đi.");
+            }
+
+            vehicle.Status = "INACTIVE";
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         public Task<List<ResourceScheduleItemDto>> GetVehicleScheduleAsync(string vehicleId)
         {
             return Task.FromResult(new List<ResourceScheduleItemDto>
@@ -803,7 +815,49 @@ namespace Infrastructure.Services
 
         public async Task<List<VehicleDto>> GetAvailableVehiclesAsync(string? tripId = null, int? legId = null)
         {
-            return await GetVehiclesAsync(status: "READY");
+            var query = _context.Vehicles
+                .Where(v => v.Status == "AVAILABLE" || v.Status == "READY")
+                .Where(v => v.Status != "INACTIVE" && v.Status != "MAINTENANCE" && v.Status != "ON_TRIP");
+
+            if (!string.IsNullOrEmpty(tripId))
+            {
+                var busyVehicleIds = await _context.TripVehicleAssignments
+                    .Include(tva => tva.Trip)
+                    .Where(tva => tva.TripId != tripId &&
+                        tva.Trip != null &&
+                        (tva.Trip.Status == "IN_TRANSIT" || tva.Trip.Status == "READY_TO_DEPART"))
+                    .Select(tva => tva.VehicleId)
+                    .Distinct()
+                    .ToListAsync();
+
+                query = query.Where(v => !busyVehicleIds.Contains(v.VehicleId));
+            }
+
+            var vehicles = await query.ToListAsync();
+            return vehicles.Select(v =>
+            {
+                bool isJp = v.VehicleId.Contains("_JP_");
+                string regCountry = isJp ? "JP" : "VN";
+                string plate = isJp
+                    ? (v.VehicleId == "VEH_JP_01" ? "品川 300 あ 12-34" : "成田 500 い 56-78")
+                    : v.VehicleId.Replace("VEH_BOX_", "51C-10") + ".45";
+
+                return new VehicleDto
+                {
+                    VehicleId = v.VehicleId,
+                    PlateNumber = plate,
+                    Type = v.Type ?? (isJp ? "HORSEBOX_JP_LUXURY" : "HORSEBOX_3_STALLS"),
+                    RegistrationCountry = regCountry,
+                    TotalStalls = v.CapacityStalls ?? 3,
+                    AvailableStalls = v.CapacityStalls ?? 3,
+                    PayloadKg = isJp ? 10000 : 8000,
+                    RegistrationExpiry = DateTime.UtcNow.AddMonths(18),
+                    MaxRangeKm = v.MaxRangeKm,
+                    FuelCostPerKm = v.FuelCostPerKm,
+                    Status = v.Status ?? "AVAILABLE",
+                    IsAvailable = true
+                };
+            }).ToList();
         }
 
         // =========================================================================
@@ -1031,6 +1085,46 @@ namespace Infrastructure.Services
                             warnings.Add($"Dự kiến giao trễ hạn ({currentDeparture:dd/MM/yyyy HH:mm} > {deadline.Value:dd/MM/yyyy HH:mm}), đã có giải trình: '{dto.DeadlineJustification}'.");
                         }
                     }
+
+                    // 4. KIỂM TRA LEAD TIME SÂN BAY (4 - 6 tiếng trước giờ cất cánh - IATA LAR)
+                    var airLegIndex = -1;
+                    for (int lIdx = 0; lIdx < legs.Count; lIdx++)
+                    {
+                        if (legs[lIdx].Mode == "AIR")
+                        {
+                            airLegIndex = lIdx;
+                            break;
+                        }
+                    }
+
+                    if (airLegIndex > 0)
+                    {
+                        var groundLegBeforeAir = legs[airLegIndex - 1];
+                        var airLeg = legs[airLegIndex];
+                        var groundArrivalAtAirport = groundLegBeforeAir.ArrivalAt;
+                        var flightDeparture = airLeg.DepartureAt;
+
+                        var leadTimeHours = (flightDeparture - groundArrivalAtAirport).TotalHours;
+                        if (leadTimeHours < 4.0)
+                        {
+                            errors.Add($"Thời gian xe đến sân bay ({groundArrivalAtAirport:dd/MM/yyyy HH:mm}) quá sát giờ bay ({flightDeparture:dd/MM/yyyy HH:mm}) - chỉ cách {leadTimeHours:F1}h. Quy định tiếp nhận động vật sống (IATA LAR) bắt buộc phải có mặt trước giờ bay tối thiểu từ 4 đến 6 tiếng để làm thủ tục hải quan và kiểm tra thú y.");
+                        }
+                    }
+
+                    var flightBooking = await _context.FlightBookings
+                        .Where(fb => fb.TripId == dto.TripId)
+                        .OrderByDescending(fb => fb.BookingVersion)
+                        .FirstOrDefaultAsync();
+
+                    if (flightBooking != null && airLegIndex > 0)
+                    {
+                        var groundArrivalAtAirport = legs[airLegIndex - 1].ArrivalAt;
+                        var leadTimeHours = (flightBooking.DepartureAt - groundArrivalAtAirport).TotalHours;
+                        if (leadTimeHours < 4.0)
+                        {
+                            errors.Add($"Thời gian đến sân bay ({groundArrivalAtAirport:dd/MM/yyyy HH:mm}) trước giờ bay thực tế ({flightBooking.DepartureAt:dd/MM/yyyy HH:mm}) chưa đủ 4 tiếng (hiện tại: {leadTimeHours:F1}h). Cần bố trí đến trước ít nhất 4 - 6 tiếng.");
+                        }
+                    }
                 }
             }
 
@@ -1144,6 +1238,7 @@ namespace Infrastructure.Services
             if (trip == null) return false;
 
             trip.Status = "PENDING_APPROVAL";
+            trip.RouteStatus = "PENDING_APPROVAL";
             await _context.SaveChangesAsync();
             return true;
         }
@@ -1152,19 +1247,24 @@ namespace Infrastructure.Services
         {
             var segments = await _context.RouteSegments
                 .Where(s => s.TripId == tripId)
-                .OrderBy(s => s.ExpectedEta)
+                .OrderBy(s => s.SequenceOrder ?? 1)
+                .ThenBy(s => s.ExpectedEta)
                 .ToListAsync();
 
             return segments.Select(s => new RouteSegmentItemDto
             {
                 SegmentId = s.SegmentId,
+                SequenceOrder = s.SequenceOrder ?? 1,
                 LocationName = s.LocationName,
                 SegmentType = s.SegmentType ?? "STOP",
                 TransportMode = s.TransportMode,
                 FacilityId = s.FacilityId,
                 CarrierName = s.CarrierName,
                 FlightVoyageNo = s.FlightVoyageNo,
+                PlannedTime = s.PlannedTime,
                 ExpectedEta = s.ExpectedEta,
+                Lat = s.Latitude,
+                Lng = s.Longitude,
                 Status = s.Status
             }).ToList();
         }
@@ -1184,13 +1284,18 @@ namespace Infrastructure.Services
                 {
                     SegmentId = "SEG_" + Guid.NewGuid().ToString("N")[..8].ToUpper(),
                     TripId = tripId,
+                    SequenceOrder = item.SequenceOrder > 0 ? item.SequenceOrder : seq,
                     FacilityId = item.FacilityId,
                     LocationName = item.LocationName,
                     SegmentType = item.SegmentType ?? (seq == 1 ? "ORIGIN" : seq == dto.Segments.Count ? "DESTINATION" : "REST_STOP"),
                     TransportMode = item.TransportMode ?? "ROAD",
                     CarrierName = item.CarrierName,
                     FlightVoyageNo = item.FlightVoyageNo,
-                    ExpectedEta = item.ExpectedEta ?? DateTime.UtcNow.AddHours(seq * 4),
+                    PlannedTime = item.PlannedTime ?? item.ExpectedEta ?? DateTime.UtcNow.AddHours(seq * 4),
+                    ExpectedEta = item.ExpectedEta ?? item.PlannedTime ?? DateTime.UtcNow.AddHours(seq * 4),
+                    Latitude = item.Lat,
+                    Longitude = item.Lng,
+                    Coordinates = (item.Lat.HasValue && item.Lng.HasValue ? $"{item.Lat},{item.Lng}" : null),
                     Status = item.Status ?? "PLANNED"
                 };
                 _context.RouteSegments.Add(segment);
@@ -1198,6 +1303,7 @@ namespace Infrastructure.Services
             }
 
             trip.Status = "PLANNING";
+            trip.RouteStatus = "DRAFT";
             await _context.SaveChangesAsync();
             return true;
         }
@@ -1256,7 +1362,11 @@ namespace Infrastructure.Services
             // Nấc 1 (Bước 4): Phê duyệt phương án lộ trình & dự toán (PLAN_APPROVED)
             // Không ép buộc phải có mã vé máy bay BOOKED tại bước này
             trip.Status = "PLAN_APPROVED";
+            trip.RouteStatus = "APPROVED";
+            trip.RouteApprovedAt = DateTime.UtcNow;
+            trip.RouteApprovedBy = dto.ApprovedBy ?? "USR_MGR_01";
             trip.RejectionReason = null;
+            trip.RouteReturnReason = null;
             await _context.SaveChangesAsync();
             return true;
         }
@@ -1268,6 +1378,8 @@ namespace Infrastructure.Services
 
             // Quản lý từ chối: Cập nhật trạng thái RETURNED và lưu vết lý do từ chối
             trip.Status = "RETURNED";
+            trip.RouteStatus = "RETURNED";
+            trip.RouteReturnReason = dto.Reason;
             trip.RejectionReason = dto.Reason;
             await _context.SaveChangesAsync();
             return true;
@@ -1903,8 +2015,16 @@ namespace Infrastructure.Services
             bool routeCreated = trip.RouteSegments.Any();
             if (!routeCreated) missing.Add("Chưa tạo chuỗi chặng lộ trình (ROUTE_REQUIRED)");
 
-            bool routeApproved = trip.Status == "APPROVED" || trip.Status == "READY" || trip.Status == "READY_TO_DEPART" || trip.Status == "IN_TRANSIT" || trip.Status == "COMPLETED" || trip.Status == "EXECUTING" || trip.Status == "PLANNING" || trip.Status == "PLAN_APPROVED" || trip.Status == "SUBMITTED" || trip.Status == "PENDING_APPROVAL";
-            if (!routeApproved) missing.Add("Lộ trình chưa được Logistics Manager phê duyệt (ROUTE_APPROVED)");
+            bool routeApproved = trip.RouteStatus == "APPROVED" || trip.Status == "PLAN_APPROVED" || trip.Status == "APPROVED" || trip.Status == "READY" || trip.Status == "READY_TO_DEPART" || trip.Status == "IN_TRANSIT" || trip.Status == "COMPLETED";
+            if (trip.RouteStatus == "RETURNED")
+            {
+                routeApproved = false;
+                missing.Add($"Lộ trình bị Quản lý trả về yêu cầu sửa đổi: {trip.RouteReturnReason ?? trip.RejectionReason}");
+            }
+            else if (!routeApproved)
+            {
+                missing.Add("Lộ trình chưa được Logistics Manager phê duyệt (ROUTE_APPROVED)");
+            }
 
             var horseCount = await _context.RequestHorseMappings.CountAsync(m => m.RequestId == trip.RequestId);
             if (horseCount <= 0) horseCount = 2;
@@ -2072,7 +2192,7 @@ namespace Infrastructure.Services
                 ? (routeCreated && routeApproved && outboundReady && flightConfirmed && inboundReady && independentResourcesVerified)
                 : (routeCreated && routeApproved && outboundReady);
 
-            bool confirmedByCoordinator = trip.Status == "READY_TO_DEPART" || trip.Status == "READY" || trip.Status == "IN_TRANSIT" || trip.Status == "COMPLETED";
+            bool confirmedByCoordinator = trip.OperationsStatus == "READY" || trip.Status == "READY_TO_DEPART" || trip.Status == "READY" || trip.Status == "IN_TRANSIT" || trip.Status == "COMPLETED";
 
             return new OperationsReadinessDto
             {
@@ -2116,8 +2236,9 @@ namespace Infrastructure.Services
             if (trip == null) return false;
 
             // Ghi nhận mốc xác nhận nguồn lực (Operations READY)
+            trip.OperationsStatus = "READY";
             trip.ResourcesConfirmedAt = DateTime.UtcNow;
-            trip.ResourcesConfirmedBy = "USR_COORD_01";
+            trip.ResourcesConfirmedBy = dto?.ConfirmedBy ?? "USR_COORD_01";
 
             foreach (var va in trip.VehicleAssignments)
             {
@@ -2143,16 +2264,15 @@ namespace Infrastructure.Services
             var missing = new List<string>(opReadiness.MissingConditions);
 
             // 1. ĐIỀU KIỆN OPERATIONS READY (Điều phối viên chốt tài nguyên 2 chặng)
-            bool operationsReady = opReadiness.IsReady && (trip?.ResourcesConfirmedAt.HasValue == true || opReadiness.ConfirmedByCoordinator);
-            if (!operationsReady && trip?.ResourcesConfirmedAt.HasValue != true)
+            bool operationsReady = (trip?.OperationsStatus == "READY" || opReadiness.IsReady) && (trip?.ResourcesConfirmedAt.HasValue == true || opReadiness.ConfirmedByCoordinator);
+            if (!operationsReady && trip?.ResourcesConfirmedAt.HasValue != true && trip?.OperationsStatus != "READY")
             {
                 missing.Add("OPERATIONS_NOT_CONFIRMED: Điều phối viên chưa bấm Xác nhận nguồn lực (Operations READY)");
             }
 
             // 2. ĐIỀU KIỆN LEGAL/DOCS READY (Chuyên viên giấy tờ hoàn tất hồ sơ kiểm dịch)
             bool legalReady = trip != null
-                && trip.EarliestDepartureDate.HasValue
-                && (trip.DocumentExpiryDate == null || trip.DocumentExpiryDate.Value >= DateTime.UtcNow.Date);
+                && (trip.DocumentsStatus == "READY" || (trip.EarliestDepartureDate.HasValue && (trip.DocumentExpiryDate == null || trip.DocumentExpiryDate.Value >= DateTime.UtcNow.Date)));
 
             if (!legalReady)
             {

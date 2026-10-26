@@ -25,6 +25,7 @@ namespace WebApi.Controllers
             return Success(data, "Lấy thông tin dashboard điều phối thành công");
         }
 
+        [HttpGet("trips")]
         [HttpGet("planning-trips")]
         public async Task<IActionResult> GetPlanningTrips()
         {
@@ -51,6 +52,10 @@ namespace WebApi.Controllers
             {
                 return NotFoundFailure(ex.Message);
             }
+            catch (InvalidOperationException ex)
+            {
+                return Failure(ex.Message, statusCode: StatusCodes.Status409Conflict);
+            }
             catch (Exception ex)
             {
                 return Failure(ex.Message);
@@ -68,6 +73,10 @@ namespace WebApi.Controllers
             catch (KeyNotFoundException ex)
             {
                 return NotFoundFailure(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Failure(ex.Message, statusCode: StatusCodes.Status409Conflict);
             }
             catch (Exception ex)
             {
@@ -144,12 +153,30 @@ namespace WebApi.Controllers
         }
 
         [HttpPatch("vehicles/{vehicleId}/status")]
-        [HttpPut("vehicles/{vehicleId}/status")]
         public async Task<IActionResult> UpdateVehicleStatus(string vehicleId, [FromBody] UpdateVehicleStatusDto dto)
         {
             var success = await _coordinatorService.UpdateVehicleStatusAsync(vehicleId, dto);
             if (!success) return NotFoundFailure($"Không tìm thấy xe: {vehicleId}");
             return SuccessMessage("Cập nhật trạng thái phương tiện thành công");
+        }
+
+        [HttpDelete("vehicles/{vehicleId}")]
+        public async Task<IActionResult> DeleteVehicle(string vehicleId)
+        {
+            try
+            {
+                var success = await _coordinatorService.DeleteVehicleAsync(vehicleId);
+                if (!success) return NotFoundFailure($"Không tìm thấy xe: {vehicleId}");
+                return SuccessMessage($"Vô hiệu hóa phương tiện {vehicleId} thành công (chuyển sang trạng thái INACTIVE)");
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Failure(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return Failure(ex.Message);
+            }
         }
 
         [HttpGet("vehicles/{vehicleId}/schedule")]
