@@ -74,8 +74,8 @@ Nhánh `Refactor-Flow1`, nền `Truong` tại `cacc5be`. Cập nhật 24/10/2026
 
 65 method/path trong `data/Flow1/flow1.openapi.json` đều có đúng một action runtime, đã kiểm bằng EndpointDataSource. Có thêm hai đường tải medical record và bốn đường bàn giao integration được giữ lại. Các response chi tiết trả dữ liệu lưu thực tế; đây không phải chứng nhận toàn bộ payload khớp tuyệt đối schema ví dụ cũ.
 
-- createdAt là UTC thực khi tạo; bản ghi cũ không rõ trả null. submittedAt chưa lưu riêng và vẫn thuộc unsupportedFields. Không lấy ExpectedDate giả làm ngày tạo/gửi.
-- Horse color/fluDate/vetName/vetPhone không có cột tương ứng: null + unsupportedFields.
+- createdAt là UTC thực khi tạo; bản ghi cũ không rõ trả null. Không trả submittedAt vì chưa có dữ liệu lưu riêng. Không lấy ExpectedDate giả làm ngày tạo/gửi.
+- Horse không trả color/fluDate/vetName/vetPhone hoặc unsupportedFields vì không có dữ liệu lưu tương ứng.
 - Readiness của Gate/insurance/quarantine không do module Flow 1 triển khai: response trip trả null + unsupportedFields. Không bịa trạng thái đã sẵn sàng. Timeline/milestones và audit collections cũ không được dựng giả.
 - Một số dữ liệu minh họa như company/supplements/companyDocs/complaints không có projection trong module này. Không đưa mảng rỗng giả để coi như đã triển khai Flow 2–6.
 - Download payment receipt trả 501 PAYMENT_RECEIPT_UNAVAILABLE sau khi kiểm quyền: SQL Reviewed không lưu file biên nhận, IPN cũng không cung cấp PDF. GET payment vẫn có bằng chứng gateway. Không trả JSON detail giả làm file PDF.

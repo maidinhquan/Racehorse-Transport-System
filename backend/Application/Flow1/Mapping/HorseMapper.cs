@@ -12,9 +12,7 @@ public static class HorseMapper
             scan = File(horse, "passport", horse.PassportScanUrl) },
         healthNotes = horse.SpecialHealthNotes,
         photo = File(horse, "photo", horse.PhotoUrl), ownership = File(horse, "ownership", horse.OwnershipCertificateFileUrl),
-        valueProof = File(horse, "value-proof", horse.ValuationDocumentFileUrl),
-        color = (string?)null, fluDate = (string?)null, vetName = (string?)null, vetPhone = (string?)null,
-        unsupportedFields = new[] { "color", "fluDate", "vetName", "vetPhone" }
+        valueProof = File(horse, "value-proof", horse.ValuationDocumentFileUrl)
     };
     private static object? File(Horse horse, string kind, string? key) => key is null ? null :
         new { name = kind + Path.GetExtension(key), url = $"/api/customer/horses/{horse.HorseID}/files/{kind}" };

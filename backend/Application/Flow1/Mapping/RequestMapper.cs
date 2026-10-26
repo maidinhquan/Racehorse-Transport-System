@@ -4,8 +4,7 @@ public static class RequestMapper
 {
     public static object View(TransportRequest request, IReadOnlyList<RequestHorse> horses) => new
     {
-        createdAt = request.CreatedAtUtc is DateTime created ? DateTime.SpecifyKind(created, DateTimeKind.Utc) : (DateTime?)null, submittedAt = (DateTime?)null,
-        unsupportedFields = new[] { "submittedAt" },
+        createdAt = request.CreatedAtUtc is DateTime created ? DateTime.SpecifyKind(created, DateTimeKind.Utc) : (DateTime?)null,
         id = request.RequestID, customerId = request.CustomerID, origin = request.Departure,
         destination = request.Destination, originCountry = request.OriginCountry, destinationCountry = request.DestinationCountry,
         purpose = request.Purpose, mode = request.TransportType, expectedTransportDate = request.ExpectedDate?.ToString("yyyy-MM-dd"), expectedDeliveryDate = request.CommittedDeadline?.ToString("yyyy-MM-dd"), status = request.Status,
