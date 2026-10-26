@@ -16,7 +16,7 @@ public sealed class RequiredContractClauseTests
         var c=await f.Service.DraftAsync(r.RequestId,"manager","required-clauses-draft",new(r.Version,Price:100000000,Costs:CustomerTransportTests.Quote(100000000),PreparationDays:2),default);
         return(r,c);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Migration_seeds_A_through_L_once_and_preserves_operator_edits()
     {
         await using var db=await Flow1TestDatabase.CreateAsync();
@@ -28,7 +28,7 @@ public sealed class RequiredContractClauseTests
         Assert.Equal("Operator revision",await db.ScalarAsync<string>("SELECT BodyContent FROM CONTRACT_TEMPLATE WHERE TemplateID='flow1-required-clause-01';"));
         Assert.Equal(12,await db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT_TEMPLATE WHERE TemplateID LIKE 'flow1-required-clause-%';"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Publication_automatically_adds_all_required_clauses_and_crud_cannot_deactivate_them()
     {
         await using var f=await Fixture.Create();var(_,c)=await Draft(f);
@@ -43,7 +43,7 @@ public sealed class RequiredContractClauseTests
         await f.Service.SaveClauseAsync(optional.ClauseId,"manager",new("Optional","Extra catalogue text","VI",false),default);
         Assert.Equal(13,(await f.Service.ContractTermsAsync(c.ContractId,"owner",false,default)).Clauses.Count);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Missing_required_clause_blocks_publication_without_creating_invoice_or_published_pdf()
     {
         await using var f=await Fixture.Create();var(_,c)=await Draft(f);
@@ -53,7 +53,7 @@ public sealed class RequiredContractClauseTests
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));
         Assert.Null((await f.Service.ContractAsync(c.ContractId,"manager",true,default)).PdfSha256);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Additional_terms_are_only_in_pdf_and_reissue_keeps_then_explicitly_replaces_them()
     {
         const string additional="PDF_ONLY_SENTINEL_20261020: Chăm sóc theo thỏa thuận riêng.";
@@ -74,7 +74,7 @@ public sealed class RequiredContractClauseTests
         Assert.Empty((await f.Service.ContractTermsAsync(c.ContractId,"owner",false,default)).AdditionalClauses);
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM CONTRACT;"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Price_only_feedback_cannot_silently_replace_additional_terms()
     {
         await using var f=await Fixture.Create();var(r,c)=await Draft(f);
@@ -86,7 +86,7 @@ public sealed class RequiredContractClauseTests
         c=await f.Service.ReissueAsync(c.ContractId,"manager",input with {AdditionalClauses=null},default);
         Assert.Equal("Original additional clause",Assert.Single((await f.Service.ContractTermsAsync(c.ContractId,"owner",false,default)).AdditionalClauses));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Terms_http_uses_standard_envelope_and_does_not_expose_another_customers_pdf()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();
@@ -99,7 +99,7 @@ public sealed class RequiredContractClauseTests
         Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync($"/api/customer/contracts/{c.ContractId}/terms")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.GetAsync($"/api/customer/contracts/{c.ContractId}/terms")).StatusCode);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Invalid_additional_clauses_are_rejected_before_pdf_publication()
     {
         await using var f=await Fixture.Create();var(_,c)=await Draft(f);
@@ -107,7 +107,7 @@ public sealed class RequiredContractClauseTests
             await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.PublishAsync(c.ContractId,"manager",new(c.Version,AdditionalClauses:input),default));
         Assert.Null((await f.Service.ContractAsync(c.ContractId,"manager",true,default)).PdfSha256);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Signed_pdf_and_its_terms_cannot_be_reissued_or_changed_by_later_catalogue_edits()
     {
         await using var f=await Fixture.Create();var c=await f.Signed();

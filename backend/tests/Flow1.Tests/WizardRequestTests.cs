@@ -22,7 +22,7 @@ public sealed class WizardRequestTests
         new("Receiver","0900000001","Delivery stable","100000","Call before arrival"),
         [new(h.HorseId,h.Version,"Feed at 8 AM")],CareInstructions:"Quiet transport");
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Horse_profile_roundtrips_and_missing_trip_documents_do_not_block_request()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();var h=await Horse(f);
@@ -43,7 +43,7 @@ public sealed class WizardRequestTests
         Assert.Equal("IDEMPOTENCY_KEY_REUSED",(await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.SubmitAsync("owner","wizard-submit-one",Input(h) with { PickupContact=Input(h).PickupContact with { PostalCode="999" } },null,null,default))).ErrorCode);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Shared_documents_are_private_request_files_and_revisions_keep_or_replace_them()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();var h=await Horse(f);var input=Input(h);
@@ -64,7 +64,7 @@ public sealed class WizardRequestTests
         Assert.Equal(Document("replacement").Bytes,(await f.Service.RequestDocumentAsync(r.RequestId,"ATA_CARNET","owner",false,default)).Bytes);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Invalid_profile_dates_value_missing_ownership_and_oversized_notes_are_rejected()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();var input=CustomerTransportTests.Horse();
@@ -76,7 +76,7 @@ public sealed class WizardRequestTests
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRANSPORT_REQUEST WHERE SubmissionKeyHash IS NOT NULL;"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Insurance_uses_server_horse_values_instead_of_the_client_estimate_value()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();var h=await Horse(f,input:CustomerTransportTests.Horse() with { DeclaredValueVnd=1000000000m });
@@ -86,7 +86,7 @@ public sealed class WizardRequestTests
         Assert.Equal(1000000000m,r.DeclaredValueVnd);Assert.Equal(5000000m,plan.Costs.Insurance);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Multipart_wizard_and_swagger_match_the_public_contract()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();using var app=new RelationalHttpFactory(f);using var customer=app.Client();

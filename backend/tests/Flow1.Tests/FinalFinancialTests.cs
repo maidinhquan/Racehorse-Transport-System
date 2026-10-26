@@ -6,7 +6,7 @@ using Fixture=Flow1.Tests.RelationalFlow1Tests.Fixture;
 namespace Flow1.Tests;
 public sealed class FinalFinancialTests
 {
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Late_receipt_is_retained_without_enabling_otp_or_auto_cancelling_the_request()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();var p=await f.Session(c);var callback=f.Callback(p);
@@ -16,7 +16,7 @@ public sealed class FinalFinancialTests
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.CancelOverdueAsync(c.ContractId,"manager",new(c.Version,"Unresolved money"),default));
         Assert.NotEqual("CANCELLED",c.Status);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Excess_receipt_after_signing_preserves_assignment_and_exactly_one_trip()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();var old=await f.Session(c);f.Time.Value=f.Time.Value.AddMinutes(16);var current=await f.Session(c,"second-attempt-key");
@@ -32,7 +32,7 @@ public sealed class FinalFinancialTests
         await f.Service.OperationsPdfAsync(released.TripId,"route",released.EventId!,default);
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Signed_contract_can_be_assigned_without_reopening_financial_or_preparation_review()
     {
         await using var f=await Fixture.Create();var c=await f.Signed();
@@ -44,7 +44,7 @@ public sealed class FinalFinancialTests
         Assert.Equal("EFFECTIVE",c.Status);Assert.Equal("CONFIRMED",c.Trip!.DeploymentStatus);
         Assert.Single(await f.Service.OperationsAsync("docs",default));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task A_repeated_provider_transaction_on_another_attempt_does_not_allocate_money_twice()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();var old=await f.Session(c);f.Time.Value=f.Time.Value.AddMinutes(16);var current=await f.Session(c,"second-attempt-key");
@@ -52,7 +52,7 @@ public sealed class FinalFinancialTests
         c=await f.Service.ContractAsync(c.ContractId,"owner",false,default);Assert.Equal(40000000,c.PaidAmount);Assert.Equal(2,c.Payments.Count);Assert.Contains(c.Payments,p=>p.Status=="REVIEW_REQUIRED");
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.SendOtpAsync(c.ContractId,"owner",new(c.Version,PdfSha256:c.PdfSha256),default));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Zero_money_overdue_cancellation_does_not_invent_payment_or_change_issued_pdf()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();var hash=c.PdfSha256;f.Time.Value=f.Time.Value.AddHours(25);
@@ -60,7 +60,7 @@ public sealed class FinalFinancialTests
         Assert.Equal("CANCELLED",c.Status);Assert.Equal(hash,c.PdfSha256);Assert.Null(c.SignedAt);Assert.Null(c.Trip);
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM PAYMENT;"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Shared_deadline_is_not_reset_by_sending_otp_and_signing_cannot_use_a_changed_account_email()
     {
         await using var f=await Fixture.Create();var c=await f.Paid();var due=c.SignDeadline;

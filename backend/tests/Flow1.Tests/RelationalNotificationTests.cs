@@ -6,7 +6,7 @@ namespace Flow1.Tests;
 
 public sealed class RelationalNotificationTests
 {
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Activation_notice_is_transactional_deduplicated_and_owned_without_exposing_otp_reservations()
     {
         await using var f = await RelationalFlow1Tests.Fixture.Create();
@@ -33,7 +33,7 @@ public sealed class RelationalNotificationTests
         Assert.Equal(0, otherResponse.RootElement.GetProperty("data").GetArrayLength());
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Operational_notifications_are_sent_once_and_handoff_cannot_be_held_or_resumed()
     {
         await using var f = await RelationalFlow1Tests.Fixture.Create(); var c = await f.Signed();

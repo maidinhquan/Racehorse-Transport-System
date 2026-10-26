@@ -13,7 +13,7 @@ public sealed class ContractWizardTests
 {
     private static async Task<FlowRequestCard> Accepted(Fixture f)
     {var r=await f.Request();return await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version),default);}
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Draft_can_change_domestic_mode_schedule_prices_and_notes_then_reopen_and_publish()
     {
         await using var f=await Fixture.Create();var r=await Accepted(f);
@@ -38,7 +38,7 @@ public sealed class ContractWizardTests
         Assert.Equal("Quiet handling",Assert.Single(model.AdditionalClauses!));
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('CONTRACT') AND name='DraftTermsJson';"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Invalid_prices_dates_modes_and_stale_updates_leave_the_draft_unchanged()
     {
         await using var f=await Fixture.Create();var r=await Accepted(f);
@@ -51,7 +51,7 @@ public sealed class ContractWizardTests
         Assert.Equal("STALE_VERSION",(await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.UpdateDraftAsync(c.ContractId,"manager",new(old,CommercialNotes:"B"),default))).ErrorCode);
         Assert.Equal("A",(await f.Service.ContractAsync(c.ContractId,"manager",true,default)).CommercialNotes);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Domestic_air_can_switch_back_to_road_and_invalid_Japan_road_is_rejected()
     {
         await using var f=await Fixture.Create();var r=await Accepted(f);
@@ -62,7 +62,7 @@ public sealed class ContractWizardTests
         var error=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.RequestCostsAsync(r.RequestId,"manager",new(TransportMode:"ROAD"),default));
         Assert.Equal("UNSUPPORTED_TRANSPORT_MODE",error.ErrorCode);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Published_unpaid_terms_can_be_reissued_but_payment_and_signature_lock_all_edits()
     {
         await using var f=await Fixture.Create();var(r,c)=await f.Published();
@@ -74,7 +74,7 @@ public sealed class ContractWizardTests
         Assert.Equal("PAYMENT_STARTED",(await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ReissueAsync(c.ContractId,"manager",input,default))).ErrorCode);
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.UpdateDraftAsync(c.ContractId,"manager",new(c.Version,CommercialNotes:"Blocked"),default));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Rendering_failure_keeps_draft_without_invoice_or_publication_notice()
     {
         await using var f=await Fixture.Create();var r=await Accepted(f);var c=await f.Service.DraftAsync(r.RequestId,"manager","failed-pdf-draft",new(r.Version),default);
@@ -84,7 +84,7 @@ public sealed class ContractWizardTests
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='FLOW1_CONTRACT_READY';"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Draft_update_and_customer_get_use_the_same_five_lines_and_contract_code()
     {
         await using var f=await Fixture.Create();var r=await Accepted(f);using var app=new RelationalHttpFactory(f);using var manager=app.Client("manager","LOGISTICS_MANAGER");
@@ -96,7 +96,7 @@ public sealed class ContractWizardTests
         Assert.Equal(c.ContractCode,value.ContractCode);Assert.Equal(c.TotalPrice,value.Costs!.Total);Assert.Equal("HTTP note",value.CommercialNotes);
         using var other=app.Client("other");Assert.Equal(HttpStatusCode.Forbidden,(await other.PutAsJsonAsync($"/api/manager/contracts/{c.ContractId}/draft",new{})).StatusCode);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Legacy_internal_costs_are_not_exposed_as_customer_selling_lines_or_rewrite_published_pdf()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();var hash=c.PdfSha256;

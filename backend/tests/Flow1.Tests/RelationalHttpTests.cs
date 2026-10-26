@@ -50,7 +50,7 @@ public sealed class RelationalHttpTests
     {var text=await response.Content.ReadAsStringAsync();Assert.True(response.IsSuccessStatusCode,text);return JsonSerializer.Deserialize<ApiResponse<T>>(text,new JsonSerializerOptions(JsonSerializerDefaults.Web))!.Data!;}
     private static async Task<T> Post<T>(HttpClient c,string url,object data,string? key=null)
     {using var r=new HttpRequestMessage(HttpMethod.Post,url){Content=JsonContent.Create(data)};if(key is not null)r.Headers.Add("Idempotency-Key",key);return await Read<T>(await c.SendAsync(r));}
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Full_typed_http_chain_uses_only_current_schema_and_retired_routes_are_not_exposed()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();using var app=new RelationalHttpFactory(f);using var customer=app.Client();using var manager=app.Client("manager","LOGISTICS_MANAGER");
@@ -90,7 +90,7 @@ public sealed class RelationalHttpTests
         Assert.Equal(HttpStatusCode.Forbidden,(await customer.GetAsync("/api/manager/requests")).StatusCode);
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Missing_schema_fails_closed_without_startup_migration_and_current_schema_restores_access()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();await using var empty=await Flow1TestDatabase.CreateAsync(migrate:false);
@@ -101,7 +101,7 @@ public sealed class RelationalHttpTests
         await empty.ScriptAsync("002_flow1.sql");
         Assert.Equal(HttpStatusCode.OK,(await c.GetAsync("/api/customer/requests")).StatusCode);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Real_login_on_current_schema_requires_matching_password_instead_of_a_common_development_bypass()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();using var app=new RelationalHttpFactory(f);using var anonymous=app.Client(null);

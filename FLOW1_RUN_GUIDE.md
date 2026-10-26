@@ -1,3 +1,5 @@
+> Các phần mô tả UI/harness cũ phía dưới là lịch sử. Contract API hiện hành: contracts/API-Flow/Flow1/RequestSubmission.md; schema duy nhất: HorseTransportDB/HorseTransportDB_Reviewed.sql.
+
 # Hướng dẫn chạy và kiểm tra Flow 1
 
 Đối chiếu source working tree ngày 21/10/2026. Tài liệu đi cùng `FLOW1_FLOW23_INTEGRATION.md` ở root. Các đường dẫn trong tài liệu tính từ repository root. Đây là hướng dẫn backend hiện có, không khẳng định frontend đã tích hợp đủ.
@@ -29,32 +31,17 @@ Compose hiện hardcode SQL host `host.docker.internal,1433`, DB `HorseTransport
 
 Cần .NET SDK 8 và SQL Server. Script `backend/tools/start-flow1-local.ps1` dùng server `.\SQLEXPRESS`, Windows integrated authentication và cổng backend 5129. Script không tự tạo DB/chạy SQL. Chỉ chạy một backend tại cổng này. PDF native cần browser/renderer được cấu hình; các đường dẫn Linux trong `.env.example` không dùng trực tiếp cho Windows.
 
-## 3. Khởi tạo/nâng cấp database trước khi mở web
+## 3. Tạo lại database test
 
-Chạy PowerShell từ root. Các lệnh dưới dùng SQL instance ví dụ `.\SQLEXPRESS` bằng Windows authentication; thay server nếu khác. Kiểm tra `$LASTEXITCODE` sau mỗi lệnh, lỗi thì dừng, không chạy tiếp.
-
-### Máy mới, chưa có database
+Schema hiện hành nằm trong `HorseTransportDB/HorseTransportDB_Reviewed.sql`. Chạy từ root:
 
 ```powershell
-sqlcmd -S '.\SQLEXPRESS' -E -C -b -Q "IF DB_ID(N'HorseTransportDB') IS NULL CREATE DATABASE [HorseTransportDB];"
-sqlcmd -S '.\SQLEXPRESS' -E -C -b -d HorseTransportDB -f 65001 -i backend/database/000_legacy_schema.sql
-sqlcmd -S '.\SQLEXPRESS' -E -C -b -d HorseTransportDB -f 65001 -i backend/database/001_registration_unique_indexes.sql
-sqlcmd -S '.\SQLEXPRESS' -E -C -b -d HorseTransportDB -f 65001 -i backend/database/002_flow1.sql
+sqlcmd -S '.\SQLEXPRESS' -E -C -b -f 65001 -i HorseTransportDB/HorseTransportDB_Reviewed.sql
 ```
 
-`000` chỉ dành cho database trống; câu tạo DB có kiểm tra tồn tại không làm cho `000` an toàn trên DB đã có bảng. Không dùng script tổng hợp cũ để reset dữ liệu.
+File reset/recreate HorseTransportDB_Reviewed và dữ liệu mẫu. Cấu hình backend trỏ tới database này. Không có migration đánh số; khi sửa schema, sửa file Reviewed rồi tạo lại dữ liệu test. Các script cũ đã được loại bỏ.
 
-### Đã có database
-
-1. Dừng backend đang ghi dữ liệu.
-2. Backup database, kiểm tra khả năng restore; giữ cả private files nếu đã có hợp đồng/tệp ngựa.
-3. Kiểm tra đúng DB/server và dữ liệu xung đột, đọc `backend/database/README.md`.
-4. Chạy `001` nếu chưa áp dụng phần đăng ký; chạy **`002_flow1.sql`** để đưa Flow 1 về schema hiện hành. Không chạy lại `000`.
-5. Script báo lỗi thì xử lý nguyên nhân trước khi mở ứng dụng. Không tự xóa constraint hoặc dữ liệu để ép chạy.
-
-`002` tự chứa, có transaction/guard/khóa migration; chạy lại được với schema tương thích và giữ nội dung đã sửa của 12 điều khoản bắt buộc. Không cần các script 003–009. Script có thay đổi schema nên vẫn phải review/backup, không xem khả năng chạy lại là bảo đảm cho mọi schema của các nhánh khác.
-
-**Hiện chưa có bước `db-init` tự động.** Backend có guard schema và có thể trả 503 `FLOW1_SQL_SCHEMA_REQUIRED` nếu thiếu schema; guard không tự nâng cấp DB. Đừng hướng dẫn đồng đội rằng chỉ `docker compose up` là tự cập nhật SQL.
+Kiểm tra runtime hiện hành bằng `dotnet test backend/tests/Flow1.Rebuild.Tests/Flow1.Rebuild.Tests.csproj`. Bộ test tự tạo database GUID riêng từ đúng file schema này. Các harness/test RowVersion đời cũ đã nghỉ dùng; Swagger fixture vẫn dùng schema Reviewed.
 
 ## 4. Cấu hình riêng, không push secrets
 
@@ -192,7 +179,7 @@ Connected harness: `backend/tools/Flow1SwaggerHarness` và `backend/tools/flow1-
 - Payload/response: `backend/Application/DTOs/Flow1/RelationalDtos.cs`, Swagger examples trong `backend/WebApi/Extensions/Flow1SwaggerExamples.cs`.
 - Nghiệp vụ: `backend/Application/Services/Flow1/Relational/`.
 - Entity/mapping: `backend/Domain/Flow1/FlowRows.cs`, `backend/Infrastructure/Data/Context/Flow1RelationalContext.cs`.
-- SQL: `backend/database/000_legacy_schema.sql`, `001_registration_unique_indexes.sql`, `002_flow1.sql`.
+- Schema test hiện hành: `HorseTransportDB/HorseTransportDB_Reviewed.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
 - PDF: `backend/Infrastructure/ExternalServices/Flow1/CodeContractDocumentGenerator.cs`.
 
 Nếu tài liệu ví dụ trong contracts khác trạng thái/role/payload hiện hành, đối chiếu source trên và xác nhận nghiệp vụ trước sửa. Không tự bật lại decline/hold, thêm owner Manager hoặc đổi về ký trước cọc chỉ để khớp ví dụ cũ.
@@ -281,11 +268,11 @@ Kiểm chứng bỏ ack ngày 20/10/2026: 142 Flow1.Tests + 47 Registration.Test
 - Phát hành lại: `POST /api/manager/contracts/{id}/reissue`, bỏ trống `depositRate` thì giữ tỷ lệ hiện tại. Chỉ đổi trước khi có tiền/giao dịch chưa giải quyết; feedback giới hạn mục sửa thì đổi tỷ lệ thuộc nhóm `PRICE`.
 - Tỷ lệ phải lớn hơn 0, không quá 100%, tối đa hai chữ số thập phân; tiền cọc làm tròn VND phải dương. Response hợp đồng trả `depositRate` và `depositAmount`. PDF và hóa đơn dùng cùng số tiền.
 - Giá demo vẫn dùng tỷ lệ tham khảo mặc định 40%. Flow 2/3 lấy tiền cọc thực tế từ CONTRACT/INVOICE, không tự nhân 40%.
-- Database đã dùng bản 002 cũ cần chạy lại `backend/database/002_flow1.sql` rồi khởi động lại backend. Không chạy file mẫu tạo mới lên database có dữ liệu.
+- Schema test hiện hành: `HorseTransportDB/HorseTransportDB_Reviewed.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
 
 ### Tinh gọn schema Flow 1
 
-SQL `002_flow1.sql` hiện bỏ `CONTRACT_TEMPLATE.Version` và bốn cột CONTRACT: `LastExtensionTarget`, `BaseContractPrice_P`, `ExchangeRateToLocal`, `ActualGrossProfit_AGP`. Giá hiện hành vẫn ở `TotalQuotedPrice`, tỷ lệ/số cọc ở `DepositRateStandard`/`DepositAmount`. Response không còn `extensionTarget`; `extensionReason` và `version` chống cập nhật chồng chéo vẫn giữ. Không còn cơ chế quy đổi tỷ giá hoặc lưu riêng giá cơ sở/lợi nhuận trong CONTRACT.
+- Schema test hiện hành: `HorseTransportDB/HorseTransportDB_Reviewed.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
 
 Giữ nguyên `USER.ResetOtpCode`/`ResetOtpExpiry` của luồng tài khoản và chỉ lưu một `CONTRACT.CompletionDeadline` cho cọc, xác minh và ký OTP. Khi nâng cấp database có dữ liệu, backup trước, chạy lại 002, rồi dùng backend cùng phiên bản. Không chạy file database mẫu xóa/tạo mới lên DB đang dùng.
 
@@ -293,12 +280,12 @@ Giữ nguyên `USER.ResetOtpCode`/`ResetOtpExpiry` của luồng tài khoản v�
 
 - Mỗi Request có tối đa một CONTRACT, được bảo vệ bởi unique index trên `RequestID`; cập nhật/phát hành lại cùng bản ghi. Không có cột `IsCurrent`; dùng `ContractStatus` để chặn bản đã hủy.
 - Chỉ lưu `CONTRACT.CompletionDeadline`. Bỏ `EffectiveSignDeadline`, `DepositDeadline`, `SignedDepositDeadline`. Hai trường response `signDeadline`/`depositDeadline` cùng suy ra từ hạn chung để giữ tương thích client. `INVOICE.DueDate` vẫn là hạn từng hóa đơn.
-- `002_flow1.sql` khởi tạo schema cuối và có thể chạy lại: sửa ràng buộc/index theo định nghĩa hiện tại, thêm trường thiếu và seed những dòng chưa có. Không còn các tầng schema003–009 hay kiểm tra fingerprint. Dữ liệu test từ flow cũ được chuẩn hóa hạn chung, không duy trì cơ chế lịch sử.
+- Schema test hiện hành: `HorseTransportDB/HorseTransportDB_Reviewed.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
 - Cấu trúc hoàn chỉnh cũng có trong `HorseTransportDB/HorseTransportDB.sql`; file đó dùng để tạo mới database mẫu. `USER.ResetOtpCode` giữ nguyên.
 
 ## Wizard tạo yêu cầu: hồ sơ ngựa và giấy tờ chung (21/10/2026)
 
-Chạy lại `backend/database/002_flow1.sql` trước khi khởi động backend mới. SQL mẫu `HorseTransportDB/HorseTransportDB.sql` đã có các cột mới; file mẫu có DROP DATABASE, chỉ dùng để tạo/reset DB thử nghiệm. Không sửa frontend trong đợt này.
+- Schema test hiện hành: `HorseTransportDB/HorseTransportDB_Reviewed.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
 
 ### Tạo/cập nhật hồ sơ ngựa
 

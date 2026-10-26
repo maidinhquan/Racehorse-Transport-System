@@ -18,7 +18,7 @@ public sealed class DepositRateTests
         return await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version),default);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Custom_percentage_is_used_by_HTTP_PDF_invoice_payment_and_OTP_activation()
     {
         await using var f=await Fixture.Create();var r=await Accepted(f);
@@ -49,7 +49,7 @@ public sealed class DepositRateTests
         Assert.Equal("REISSUE_CLOSED",denied.ErrorCode);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Default_is_40_and_reissue_preserves_or_changes_rate_before_payment_only()
     {
         await using var f=await Fixture.Create();var(r,c)=await f.Published();Assert.Equal(40m,c.DepositRate);
@@ -65,7 +65,7 @@ public sealed class DepositRateTests
         Assert.Equal(30m,(await f.Service.ContractAsync(c.ContractId,"manager",true,default)).DepositRate);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Invalid_rates_and_idempotent_payload_changes_do_not_mutate_draft()
     {
         await using var f=await Fixture.Create();var r=await Accepted(f);
@@ -84,7 +84,7 @@ public sealed class DepositRateTests
         Assert.Equal(547,(await Assert.ThrowsAsync<SqlException>(()=>f.Db.ExecuteAsync("UPDATE CONTRACT SET DepositAmount=1;"))).Number);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Feedback_for_non_price_fields_cannot_change_deposit_rate()
     {
         await using var f=await Fixture.Create();var(r,c)=await f.Published();
@@ -94,7 +94,7 @@ public sealed class DepositRateTests
         Assert.Equal("FIELD_LOCKED",error.ErrorCode);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Upgrade_from_fixed_40_preserves_verified_money_and_is_repeatable()
     {
         await using var f=await Fixture.Create();var c=await f.Paid();

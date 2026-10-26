@@ -12,7 +12,7 @@ namespace Flow1.Tests;
 
 public sealed class FinalWorkflowTests
 {
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Removed_decline_is_not_exposed_and_feedback_and_cancellation_remain_available()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();
@@ -36,7 +36,7 @@ public sealed class FinalWorkflowTests
         Assert.Equal("CANCELLED",c.Status);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Consolidated_migration_removes_legacy_manager_ownership_and_preserves_requests()
     {
         await using var f=await Fixture.Create();var r=await f.Request();
@@ -58,7 +58,7 @@ public sealed class FinalWorkflowTests
         c=await f.Service.ContractAsync(c.ContractId,"owner",false,default);
         return await f.Service.SignAsync(c.ContractId,"owner",new(c.Version,Otp:f.Email.Code,PdfSha256:c.PdfSha256),default);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Deposit_precedes_otp_and_signing_alone_activates_exactly_one_trip()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();var deadline=c.SignDeadline;
@@ -74,7 +74,7 @@ public sealed class FinalWorkflowTests
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM PAYMENT;"));
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.LifecycleAsync(c.ContractId,"manager",true,"withdraw",new(c.Version,"Try changing signed terms"),default));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Managers_share_requests_without_claiming_and_stale_updates_still_fail()
     {
         await using var f=await Fixture.Create();var r=await f.Request();
@@ -89,7 +89,7 @@ public sealed class FinalWorkflowTests
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ContractAsync(c.ContractId,"other",false,default));
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST') AND name='AssignedManagerId';"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Any_manager_can_reject_and_customer_receives_the_reason()
     {
         await using var f=await Fixture.Create();var r=await f.Request();
@@ -97,7 +97,7 @@ public sealed class FinalWorkflowTests
         Assert.Equal("REJECTED",r.Status);
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM NOTIFICATION WHERE Type='REQUEST_REJECTED' AND UserID='owner' AND Message=N'Không đủ thời gian chuẩn bị';"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Feedback_and_cancellation_notify_active_managers_and_can_be_handled_by_another_manager()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();
@@ -112,7 +112,7 @@ public sealed class FinalWorkflowTests
         c=await f.Service.CancellationAsync(c.ContractId,"manager2",true,"approve",new(c.Version,"Đồng ý hủy",CancellationId:c.CancellationId),default);
         Assert.Equal("CANCELLED",c.Status);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Catalogue_edits_do_not_change_issued_pdf_and_reissue_overwrites_the_same_contract()
     {
         await using var f=await Fixture.Create();var(r,c)=await f.Published();var oldPdf=await f.Service.PdfAsync(c.ContractId,"owner",false,default);var oldHash=c.PdfSha256;
@@ -126,7 +126,7 @@ public sealed class FinalWorkflowTests
         Assert.Equal(12,clauses.Count);Assert.Equal("Nội dung mới chỉ cho hợp đồng phát hành sau.",clauses.Single(x=>x.ClauseId==f.ClauseId).Content);
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.tables WHERE name='CONTRACT_CLAUSE';"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Feedback_locks_payment_and_rejected_feedback_keeps_pdf_and_restarts_shared_deadline()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();var hash=c.PdfSha256;
@@ -136,7 +136,7 @@ public sealed class FinalWorkflowTests
         Assert.Equal(hash,c.PdfSha256);Assert.Equal(f.Time.Value.UtcDateTime.AddHours(24),c.SignDeadline);Assert.Equal(c.SignDeadline,c.DepositDeadline);
         Assert.Equal("REJECTED",c.FeedbackStatus);await f.Session(c);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Reissue_validates_requested_fields_and_transport_dates_without_overwriting_on_error()
     {
         await using var f=await Fixture.Create();var(r,c)=await f.Published();
@@ -147,7 +147,7 @@ public sealed class FinalWorkflowTests
         c=await f.Service.ReissueAsync(c.ContractId,"manager",input,default);var updated=await f.Service.DetailAsync(r.RequestId,"owner",false,default);
         Assert.Equal(input.DepartureAt.UtcDateTime,updated.DepartureAt);Assert.Equal(input.DeliveryAt.UtcDateTime,updated.DeliveryAt);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Payment_attempt_blocks_feedback_and_late_or_mismatched_money_never_enables_signing()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();var pid=await f.Session(c);c=await f.Service.ContractAsync(c.ContractId,"owner",false,default);
@@ -156,7 +156,7 @@ public sealed class FinalWorkflowTests
         Assert.True(c.Payments.Single().ReviewRequired);Assert.Equal(0,c.PaidAmount);Assert.Null(c.Trip);
         await Assert.ThrowsAsync<BusinessRuleException>(()=>Sign(f,c));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Signing_retry_after_transaction_failure_preserves_money_and_creates_one_trip()
     {
         await using var f=await Fixture.Create();var c=await f.Paid();await f.Service.SendOtpAsync(c.ContractId,"owner",new(c.Version,PdfSha256:c.PdfSha256),default);c=await f.Service.ContractAsync(c.ContractId,"owner",false,default);
@@ -167,7 +167,7 @@ public sealed class FinalWorkflowTests
         await f.Service.SignAsync(c.ContractId,"owner",new(c.Version,Otp:f.Email.Code,PdfSha256:c.PdfSha256),default);
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRIP_PLAN;"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Otp_failure_attempts_persist_and_extension_during_email_revokes_the_challenge()
     {
         await using var f=await Fixture.Create();var c=await f.Paid();
@@ -180,7 +180,7 @@ public sealed class FinalWorkflowTests
         f.Email.DuringSend=async()=>{var current=await f.NewService().ContractAsync(c.ContractId,"manager",true,default);await f.NewService().LifecycleAsync(c.ContractId,"manager",true,"extend",new(current.Version,"More time",Deadline:f.Time.Value.AddHours(25)),default);};
         var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.SendOtpAsync(c.ContractId,"owner",new(c.Version,PdfSha256:c.PdfSha256),default));Assert.Equal("OTP_REVOKED",e.ErrorCode);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Only_named_staff_receive_handoff_and_direct_downloads_are_authorized()
     {
         await using var f=await Fixture.Create();var c=await f.Signed();
@@ -198,7 +198,7 @@ public sealed class FinalWorkflowTests
         await f.Service.OperationsPdfAsync(old.TripId,"route",old.EventId!,default);
         Assert.Single(await f.Service.OperationsAsync("route",default));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Paid_unsigned_cancellation_requires_explicit_full_refund_confirmation()
     {
         await using var f=await Fixture.Create();var c=await f.Paid();
@@ -211,7 +211,7 @@ public sealed class FinalWorkflowTests
         c=await f.Service.CancellationAsync(c.ContractId,"manager",true,"refund-complete",new(c.Version,"Verified bank refund",Target:"BANK-REFUND-123",CancellationId:c.CancellationId),default);
         Assert.Equal("COMPLETED",c.RefundStatus);Assert.Equal("CANCELLED",c.Status);Assert.Equal(40000000,c.PaidAmount);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Publication_rechecks_catalogue_and_customer_after_renderer_io()
     {
         await using var f=await Fixture.Create();var r=await f.Request();r=await f.Service.ReviewAsync(r.RequestId,"manager","accept",new(r.Version,"Accepted"),default);
@@ -220,7 +220,7 @@ public sealed class FinalWorkflowTests
         var e=await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.PublishAsync(c.ContractId,"manager",new(c.Version,ClauseIds:[f.ClauseId]),default));
         Assert.Equal("CLAUSES_CHANGED",e.ErrorCode);Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task All_new_routes_have_openapi_schema_and_reject_wrong_roles_or_invalid_payloads()
     {
         await using var f=await Fixture.Create();using var app=new RelationalHttpFactory(f);using var manager=app.Client("manager","LOGISTICS_MANAGER");using var customer=app.Client();

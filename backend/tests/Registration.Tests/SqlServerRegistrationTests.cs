@@ -45,9 +45,9 @@ internal sealed class SqlTestDatabase : IAsyncDisposable
         try
         {
             var root = new DirectoryInfo(AppContext.BaseDirectory);
-            while (root is not null && !File.Exists(Path.Combine(root.FullName, "HorseTransportDB", "HorseTransportDB.sql"))) root = root.Parent;
+            while (root is not null && !File.Exists(Path.Combine(root.FullName, "HorseTransportDB", "HorseTransportDB_Reviewed.sql"))) root = root.Parent;
             if (root is null) throw new InvalidOperationException("Cannot find the repository SQL schema.");
-            var schema = await File.ReadAllTextAsync(Path.Combine(root.FullName, "HorseTransportDB", "HorseTransportDB.sql"));
+            var schema = await File.ReadAllTextAsync(Path.Combine(root.FullName, "HorseTransportDB", "HorseTransportDB_Reviewed.sql"));
             // Execute ONLY the USER table definition. Never execute the database-reset script.
             var table = Regex.Match(schema, @"CREATE TABLE \[USER\] \([\s\S]*?\r?\n\);");
             if (!table.Success) throw new InvalidOperationException("USER table not found in schema.");

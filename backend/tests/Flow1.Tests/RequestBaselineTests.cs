@@ -30,7 +30,7 @@ public sealed class RequestBaselineTests
             "Transport", new("Owner", "0900000000"), new("Receiver", "0900000001"), horses, 150000.25m);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Current_declared_value_guard_is_repeatable_and_preserves_rows_and_relations()
     {
         await using var db = await Flow1TestDatabase.CreateAsync();
@@ -45,7 +45,7 @@ public sealed class RequestBaselineTests
         Assert.Equal(547, (await Assert.ThrowsAsync<SqlException>(() => db.ExecuteAsync("UPDATE TRANSPORT_REQUEST SET DeclaredValueUsd=-1;"))).Number);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Total_and_multiple_horse_documents_commit_together_and_retry_does_not_duplicate_or_verify_them()
     {
         await using var f = await RelationalFlow1Tests.Fixture.Create(); var input = await Input(f, true);
@@ -65,7 +65,7 @@ public sealed class RequestBaselineTests
         Assert.Equal(0, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM INVOICE;"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Invalid_values_unselected_horse_duplicate_files_and_booking_failure_do_not_create_partial_requests()
     {
         await using var f = await RelationalFlow1Tests.Fixture.Create(); var input = await Input(f, true);
@@ -83,7 +83,7 @@ public sealed class RequestBaselineTests
         Assert.Equal(1, await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM LEGAL_MEDICAL_RECORD;"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Returned_request_revision_preserves_selected_horse_files_and_removes_links_to_excluded_horses()
     {
         await using var f = await RelationalFlow1Tests.Fixture.Create(); var input = await Input(f, true);
@@ -103,7 +103,7 @@ public sealed class RequestBaselineTests
         await Assert.ThrowsAsync<BusinessRuleException>(() => f.Service.RequestDocumentAsync(r.RequestId, excluded.DocumentId, "owner", false, default));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Real_private_store_rejects_disguised_files_and_concurrent_retry_commits_one_request_and_document()
     {
         await using var f = await RelationalFlow1Tests.Fixture.Create(); var input = await Input(f);
@@ -130,7 +130,7 @@ public sealed class RequestBaselineTests
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Missing_or_replaced_declared_value_guard_requires_explicit_initializer()
     {
         await using var f = await RelationalFlow1Tests.Fixture.Create();
@@ -143,7 +143,7 @@ public sealed class RequestBaselineTests
         Assert.NotNull(await f.Service.ListAsync("owner",false,default));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Multipart_http_stores_links_authorizes_downloads_and_does_not_inflate_transport_quote_or_deposit()
     {
         await using var f = await RelationalFlow1Tests.Fixture.Create(); var input = await Input(f);

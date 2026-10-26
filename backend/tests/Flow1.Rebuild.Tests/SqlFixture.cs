@@ -24,11 +24,6 @@ public sealed class SqlFixture : IAsyncLifetime
                 await using var command = new SqlCommand(batch, sql) { CommandTimeout = 120 };
                 await command.ExecuteNonQueryAsync();
             }
-            sql.ChangeDatabase(Name);
-            await using var cityMigration = new SqlCommand(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "CityScope.sql")), sql);
-            await cityMigration.ExecuteNonQueryAsync();
-            await using var submissionMigration = new SqlCommand(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "SubmissionContent.sql")), sql);
-            await submissionMigration.ExecuteNonQueryAsync();
         }
         catch { await DisposeAsync(); throw; }
     }

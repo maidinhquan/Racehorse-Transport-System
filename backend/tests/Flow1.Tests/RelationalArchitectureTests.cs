@@ -15,7 +15,7 @@ public sealed class RelationalArchitectureTests
         Assert.Null(web.GetType("WebApi.Controllers.Flow1.CustomerTransportController"));
         foreach(var assembly in new[]{application,infrastructure,web}) Assert.DoesNotContain(assembly.GetReferencedAssemblies(),a=>a.Name=="Flow1LegacySupport");
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Retained_files_need_matching_operator_fingerprint_and_never_supply_runtime_payloads()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();var root=Path.Combine(Path.GetTempPath(),"flow1-retained-"+Guid.NewGuid().ToString("N"));
@@ -32,7 +32,7 @@ public sealed class RelationalArchitectureTests
         }finally{File.Delete(file);Directory.Delete(root);}
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Disabled_checks_or_missing_unique_indexes_close_the_api_before_business_writes()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();using var app=new RelationalHttpFactory(f);using var c=app.Client();

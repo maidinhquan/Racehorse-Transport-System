@@ -1,5 +1,5 @@
 -- SAMPLE DATABASE ONLY: this file DROPS and recreates HorseTransportDB.
--- For an existing database with data, run reviewed backend/database/002_flow1.sql instead.
+-- Historical schema. Current test database source: HorseTransportDB/HorseTransportDB_Reviewed.sql.
 -- Flow 1 schema is defined directly below; sample data from the team is retained.
 -- =============================================================================
 -- BƯỚC 1: TẠO VÀ CHUYỂN VÀO CƠ SỞ DỮ LIỆU CHÍNH THỨC

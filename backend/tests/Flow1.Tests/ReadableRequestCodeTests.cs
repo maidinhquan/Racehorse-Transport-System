@@ -7,7 +7,7 @@ using Xunit;
 namespace Flow1.Tests;
 public sealed class ReadableRequestCodeTests
 {
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Distinct_simultaneous_submissions_get_distinct_numbers_and_a_new_year_restarts_the_sequence()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();
@@ -23,7 +23,7 @@ public sealed class ReadableRequestCodeTests
         var next=first.Input! with {Trip=first.Input!.Trip with{DesiredDepartureDate=first.Input.Trip.DesiredDepartureDate.AddYears(1)},DepartureAt=first.Input.DepartureAt.AddYears(1),DeliveryAt=first.Input.DeliveryAt.AddYears(1)};
         Assert.Equal("REQ_2027_001",(await f.Service.SubmitAsync("owner","numbering-next-year",next,null,null,default)).RequestId);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Sequential_ids_follow_legacy_numbers_and_retries_keep_the_same_request()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();
@@ -42,7 +42,7 @@ public sealed class ReadableRequestCodeTests
         Assert.Equal(1,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRANSPORT_REQUEST WHERE RequestID='REQ_2026_003' AND SubmissionKeyHash IS NULL;"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Replays_of_pre008_hash_ids_still_resolve_without_renaming_or_duplicates()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();
@@ -56,7 +56,7 @@ public sealed class ReadableRequestCodeTests
         Assert.Equal(0,await f.Db.ScalarAsync<int>("SELECT COUNT(*) FROM TRANSPORT_REQUEST WHERE SubmissionKeyHash IS NOT NULL;"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Migration_is_repeatable_and_missing_or_disabled_unique_index_closes_runtime()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();
@@ -71,7 +71,7 @@ public sealed class ReadableRequestCodeTests
         Assert.NotNull(await f.Service.ListAsync("owner",false,default));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Demo_transport_price_does_not_change_when_manager_quotes_a_different_price()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();

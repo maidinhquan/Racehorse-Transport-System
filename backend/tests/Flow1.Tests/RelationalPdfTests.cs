@@ -26,7 +26,7 @@ public sealed class RelationalPdfTests
         Assert.Contains("Năm khoản giá hợp đồng (VND)",document.Descendants(office+"text").Single().Value);
         Assert.NotEmpty(document.Descendants(text+"line-break"));Assert.Contains("&lt;&amp;&gt;",xml);
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Real_pdf_contains_twelve_required_and_additional_clauses_in_immutable_private_bytes()
     {
 

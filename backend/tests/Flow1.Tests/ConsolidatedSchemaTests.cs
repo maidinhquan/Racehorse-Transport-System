@@ -6,7 +6,7 @@ namespace Flow1.Tests;
 
 public sealed class ConsolidatedSchemaTests
 {
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Upgrade_removes_retired_ack_columns_and_checks_without_changing_trip_identity()
     {
         await using var db=await Flow1TestDatabase.CreateAsync(migrate:false);
@@ -58,7 +58,7 @@ public sealed class ConsolidatedSchemaTests
         return columns+checks+links;
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Current_schema_is_complete_and_reapply_preserves_its_definition()
     {
         await using var current=await Flow1TestDatabase.CreateAsync(migrate:false);
@@ -70,7 +70,7 @@ public sealed class ConsolidatedSchemaTests
         Assert.Equal("ACCEPTED",await current.ScalarAsync<string>("SELECT Status FROM TRANSPORT_REQUEST WHERE RequestID='req-1';"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Already_upgraded_database_keeps_paid_contract_request_and_invoice_values_on_reapply()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();await f.Paid();
@@ -85,7 +85,7 @@ public sealed class ConsolidatedSchemaTests
         Assert.Equal(before,await f.Db.ScalarAsync<string>(values));Assert.Equal(1,await Ready(f.Db));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Partial_active_installation_upgrades_without_resetting_legacy_values()
     {
         await using var db=await Flow1TestDatabase.CreateAsync(migrate:false);
@@ -96,7 +96,7 @@ public sealed class ConsolidatedSchemaTests
         Assert.Equal("Keep this decision",await db.ScalarAsync<string>("SELECT ManagerNotes FROM TRANSPORT_REQUEST WHERE RequestID='req-1';"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task A_late_incompatible_column_rolls_back_every_prior_stage()
     {
         await using var db=await Flow1TestDatabase.CreateAsync(migrate:false);

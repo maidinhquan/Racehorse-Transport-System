@@ -69,7 +69,7 @@ public sealed class CostRateTests
         public Task<RoadRouteResult> CalculateAsync(RoadRouteQuery query,CancellationToken ct=default)=>throw new InvalidOperationException("Demo must not call maps");
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Migration_adds_only_one_table_and_keeps_eight_cost_item_columns_and_operator_rates()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();
@@ -81,7 +81,7 @@ public sealed class CostRateTests
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.UpdateCostRateAsync(rate.CostRateId,"manager",new(rate.Version,220000),default));
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.CostRatesAsync("owner",default));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Draft_defaults_to_five_group_total_and_rate_edits_do_not_change_saved_costs()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();var r=await f.Request();
@@ -95,7 +95,7 @@ public sealed class CostRateTests
         Assert.Equal(plan.Costs,await f.Service.ContractCostsAsync(c.ContractId,"manager",default));
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ContractCostsAsync(c.ContractId,"owner",default));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Manager_override_is_saved_and_signed_costs_cannot_be_reissued()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();var c=await f.Signed();
@@ -105,7 +105,7 @@ public sealed class CostRateTests
         await Assert.ThrowsAsync<BusinessRuleException>(()=>f.Service.ReissueAsync(c.ContractId,"manager",new(c.Version,90000000,2,new(request.DepartureAt!.Value),new(request.DeliveryAt!.Value),[],"blocked",Costs:new(1,1,1,1,1)),default));
         Assert.Equal(before,await f.Service.ContractCostsAsync(c.ContractId,"manager",default));
     }
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Http_cost_endpoints_use_real_tariffs_and_keep_breakdown_manager_only()
     {
         await using var f=await RelationalFlow1Tests.Fixture.Create();var r=await f.Request();

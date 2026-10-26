@@ -66,5 +66,5 @@ PUT không gửi lại file chưa thay sẽ giữ liên kết cũ. File mới c�
 - Request, liên kết ngựa, metadata hồ sơ và thông báo được commit cùng nhau. Lỗi không để lại đơn chưa đầy đủ trong queue. Bytes theo hash chưa được tham chiếu có thể còn lại khi transaction thất bại; không tự xóa bytes có thể đang dùng chung.
 - Cùng Idempotency-Key và cùng đầy đủ data/file trả cùng RequestID; thay liên hệ, ngày, ngựa, ghi chú, metadata hoặc bytes thì `409 IDEMPOTENCY_KEY_REUSED`. Thứ tự multipart và thứ tự dictionary không ảnh hưởng hash.
 - API không nhận customerId, requestId, createdAt hoặc trạng thái do khách tự đặt. createdAt do server ghi UTC.
-- Với database đang chạy, áp dụng lần lượt các migration còn thiếu `003_request_created_at.sql`, `004_request_city_scope.sql`, `005_request_submission_content.sql` trước triển khai. Không chạy script tạo/reset database trên dữ liệu thật.
-- Đây là thay đổi contract cho frontend: gửi multipart trực tiếp, không tạo nháp hoặc gọi submit riêng. Commit code không tự triển khai hoặc chạy migration trên database dùng chung.
+- Database hiện là dữ liệu test: tạo lại từ `HorseTransportDB/HorseTransportDB_Reviewed.sql`. CreatedAtUtc, các cột city và SubmissionContentHash được định nghĩa trực tiếp trong file này, không dùng script migration đánh số.
+- Đây là thay đổi contract cho frontend: gửi multipart trực tiếp, không tạo nháp hoặc gọi submit riêng. Commit code không tự triển khai hoặc reset database đang chạy.

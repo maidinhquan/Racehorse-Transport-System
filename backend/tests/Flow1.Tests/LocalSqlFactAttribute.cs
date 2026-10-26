@@ -11,13 +11,11 @@ using Xunit;
 
 namespace Flow1.Tests;
 
-public sealed class LocalSqlFactAttribute : FactAttribute
+// Historical SQL tests target the retired RowVersion/migration context, not AddRequestModule.
+// Current SQL coverage lives in Flow1.Rebuild.Tests and executes the canonical Reviewed schema.
+public sealed class LegacySqlFactAttribute : FactAttribute
 {
-    public LocalSqlFactAttribute()
-    {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RACEHORSE_TEST_SQL_SERVER")))
-            Skip = "Set RACEHORSE_TEST_SQL_SERVER to a local SQL Server instance for disposable database tests.";
-    }
+    public LegacySqlFactAttribute() => Skip = "Retired legacy SQL/migration contract. Run Flow1.Rebuild.Tests against HorseTransportDB/HorseTransportDB_Reviewed.sql.";
 }
 
 internal sealed class FlowClock : TimeProvider
@@ -73,28 +71,13 @@ internal sealed class Flow1TestDatabase : IAsyncDisposable
         ConnectionString = builder.ConnectionString;
     }
 
-    public static async Task<Flow1TestDatabase> CreateAsync(bool migrate = true)
-    {
-        var db = new Flow1TestDatabase();
-        await ExecuteOnAsync(db.masterConnection, $"CREATE DATABASE [{db.name}];");
-        try
-        {
-            await db.ScriptAsync("000_legacy_schema.sql");
-            await db.ExecuteAsync("""
-                INSERT INTO dbo.[USER](UserID,PasswordHash,Role,FullName) VALUES ('owner','fixture','CUSTOMER',N'Owner');
-                INSERT INTO dbo.TRANSPORT_REQUEST(RequestID,CustomerID,Departure,Destination,Status)
-                VALUES ('req-1','owner',N'A',N'B','ACCEPTED');
-                """);
-            if (migrate) await db.MigrateAsync();
-            return db;
-        }
-        catch { await db.DisposeAsync(); throw; }
-    }
+    public static Task<Flow1TestDatabase> CreateAsync(bool migrate = true) =>
+        throw new NotSupportedException("The legacy SQL fixture is retired. Use Flow1.Rebuild.Tests/SqlFixture with HorseTransportDB/HorseTransportDB_Reviewed.sql.");
 
     public HorseTransportDbContext Context() => new(new DbContextOptionsBuilder<HorseTransportDbContext>()
         .UseSqlServer(ConnectionString).Options);
-    public Task MigrateAsync() => ScriptAsync("002_flow1.sql");
-    public Task ScriptAsync(string filename) => ExecuteAsync(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Sql", filename)));
+    public Task MigrateAsync() => throw new NotSupportedException("Numbered migrations were removed; use the Reviewed reset schema.");
+    public Task ScriptAsync(string filename) => throw new NotSupportedException("Legacy migration assertions are retired; no SQL file is loaded.");
     public Task ExecuteAsync(string sql) => ExecuteOnAsync(ConnectionString, sql);
     public async Task<T> ScalarAsync<T>(string sql)
     {

@@ -24,7 +24,7 @@ public sealed class SimpleRelationalFoundationTests
         VALUES ('i-one','c-one','DEPOSIT','VND',40000000,'UNPAID');
         """);
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Current_schema_is_repeatable_and_preserves_base_relations_and_business_rows()
     {
         await using var db = await Flow1TestDatabase.CreateAsync(migrate:false);
@@ -42,7 +42,7 @@ public sealed class SimpleRelationalFoundationTests
         Assert.Equal("ACCEPTED",await db.ScalarAsync<string>("SELECT Status FROM TRANSPORT_REQUEST WHERE RequestID='req-1';"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Reapply_preserves_existing_signature_and_money_without_reallocating_cash()
     {
         await using var db = await Flow1TestDatabase.CreateAsync(); await InsertContract(db); await InsertInvoice(db);
@@ -56,7 +56,7 @@ public sealed class SimpleRelationalFoundationTests
         Assert.Equal(1234m, await db.ScalarAsync<decimal>("SELECT PaidAmount FROM INVOICE;"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Wrong_column_type_rolls_back_without_retyping_or_leaving_partial_schema()
     {
         await using var db=await Flow1TestDatabase.CreateAsync(migrate:false);
@@ -67,7 +67,7 @@ public sealed class SimpleRelationalFoundationTests
         Assert.Equal(0,await db.ScalarAsync<int>("SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('HORSE') AND name='PhotoUrl';"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Coordinates_floor_fixed_deposit_and_otp_guards_reject_invalid_or_missing_evidence()
     {
         await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script); await InsertContract(db);
@@ -89,7 +89,7 @@ public sealed class SimpleRelationalFoundationTests
         Assert.Equal(40000000m, await db.ScalarAsync<decimal>("SELECT DepositAmount FROM CONTRACT;"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Current_contract_and_verified_vnpay_receipt_have_unique_keys_and_success_needs_both_codes_and_amount()
     {
         await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script); await InsertContract(db); await InsertInvoice(db);
@@ -106,7 +106,7 @@ public sealed class SimpleRelationalFoundationTests
         Assert.Equal(0m, await db.ScalarAsync<decimal>("SELECT PaidAmount FROM INVOICE;")); // No trigger invents ledger allocation.
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Deadline_cancellation_and_handoff_current_state_are_guarded_and_transaction_rollback_preserves_cash()
     {
         await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script); await InsertContract(db); await InsertInvoice(db);
@@ -134,7 +134,7 @@ public sealed class SimpleRelationalFoundationTests
         Assert.Equal(0m, await db.ScalarAsync<decimal>("SELECT PaidAmount FROM INVOICE;"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Rowversion_changes_on_edit_and_a_stale_write_cannot_overwrite_the_newer_decision()
     {
         await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script);
@@ -147,7 +147,7 @@ public sealed class SimpleRelationalFoundationTests
         Assert.Equal("New decision", await db.ScalarAsync<string>("SELECT ManagerNotes FROM TRANSPORT_REQUEST WHERE RequestID='req-1';"));
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Explicit_initializer_repairs_disabled_guards_and_indexes()
     {
         await using var db = await Flow1TestDatabase.CreateAsync(); await db.ScriptAsync(Script);

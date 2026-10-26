@@ -12,7 +12,5 @@
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1"><PrivateAssets>all</PrivateAssets></PackageReference>
     <ProjectReference Include="../../WebApi/WebApi.csproj" />
-    <None Include="../../database/000_legacy_schema.sql" Link="Sql/000_legacy_schema.sql" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../../database/002_flow1.sql" Link="Sql/002_flow1.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

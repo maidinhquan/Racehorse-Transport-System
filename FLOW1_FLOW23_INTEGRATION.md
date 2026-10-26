@@ -128,7 +128,7 @@ Event ở đây là ID lưu DB trong giao dịch bàn giao, **không phải mess
 
 ## 6. Database dùng chung và khóa nối
 
-Áp dụng `backend/database/002_flow1.sql` hiện hành trước khi test trên DB cá nhân. Không chỉ chép entity mới mà bỏ SQL. Dùng cùng database, không copy danh sách chuyến sang bảng riêng chỉ để nối các luồng.
+Dùng `HorseTransportDB/HorseTransportDB_Reviewed.sql` để tạo lại database test trước khi chạy backend hiện hành. Các flow phải trỏ cùng database Reviewed; không còn migration đánh số.
 
 | Nguồn | Khóa/cột cần hiểu | Ý nghĩa |
 |---|---|---|
@@ -210,7 +210,7 @@ Các lỗi expected 400/401/403/409 là kết quả cần assert theo từng ca,
 | backend/Domain/Flow1/FlowRows.cs | Entity map bảng/cột |
 | backend/Infrastructure/Data/Context/Flow1RelationalContext.cs | EF/FK/transaction/concurrency |
 | backend/Infrastructure/Data/Context/Flow1RelationalSchema.cs | Guard schema triển khai |
-| backend/database/002_flow1.sql | Schema cuối/constraint/seed điều khoản |
+| HorseTransportDB/HorseTransportDB_Reviewed.sql | Schema test hiện hành, reset/recreate trực tiếp |
 | backend/Domain/Enums/UserRoles.cs | Role chuẩn và normalization |
 | backend/tests/Flow1.Tests/ | Ca nghiệp vụ/phân quyền/tiền/tệp/concurrency |
 
@@ -230,7 +230,7 @@ Cập nhật bỏ ack: SQL 002 bỏ RoutingAcknowledgedBy/AtUtc và DocumentsAck
 - Phát hành lại: `POST /api/manager/contracts/{id}/reissue`, bỏ trống `depositRate` thì giữ tỷ lệ hiện tại. Chỉ đổi trước khi có tiền/giao dịch chưa giải quyết; feedback giới hạn mục sửa thì đổi tỷ lệ thuộc nhóm `PRICE`.
 - Tỷ lệ phải lớn hơn 0, không quá 100%, tối đa hai chữ số thập phân; tiền cọc làm tròn VND phải dương. Response hợp đồng trả `depositRate` và `depositAmount`. PDF và hóa đơn dùng cùng số tiền.
 - Giá demo vẫn dùng tỷ lệ tham khảo mặc định 40%. Flow 2/3 lấy tiền cọc thực tế từ CONTRACT/INVOICE, không tự nhân 40%.
-- Database đã dùng bản 002 cũ cần chạy lại `backend/database/002_flow1.sql` rồi khởi động lại backend. Không chạy file mẫu tạo mới lên database có dữ liệu.
+Dùng `HorseTransportDB/HorseTransportDB_Reviewed.sql` để tạo lại database test trước khi chạy backend hiện hành. Các flow phải trỏ cùng database Reviewed; không còn migration đánh số.
 
 ### Tinh gọn schema Flow 1
 

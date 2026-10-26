@@ -9,6 +9,6 @@ Geoapify encodings of a place ID can differ for the same boundary. Membership is
 
 Current implementation requires Geoapify as the data provider. OSM/Mapbox adapters fail explicitly with `CITY_PROVIDER_UNSUPPORTED` for scoped operations; Mapbox can still render previews independently.
 
-Deployment: run `backend/database/004_request_city_scope.sql` on the configured Flow 1 database, then update/restart the backend. Existing rows keep null city fields until edited; complete POST/PUT request submissions require verified selections. The script is additive and does not reset data. It has not been applied to the shared running database by this side conversation.
+Deployment: recreate the test database from `HorseTransportDB/HorseTransportDB_Reviewed.sql`, which directly defines the four city columns. Complete POST/PUT request submissions require verified selections. There are no numbered migrations. Editing the schema file does not reset the running database.
 
 The check proves that the selected coordinates belong to the selected administrative boundary. It does not prove that arbitrary free-text notes, a building name, or a manually typed address label accurately describes that point.

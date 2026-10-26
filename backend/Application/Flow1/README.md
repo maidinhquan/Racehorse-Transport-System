@@ -126,7 +126,7 @@ POST/PUT customer/requests nhận expectedTransportDate (ngày bắt đầu) và
 
 GET customer/horses/selectable nhận cùng hai tham số để kiểm tra giao nhau trên toàn khoảng, tính cả ngày đầu/cuối. Kết quả không giữ chỗ. Submit kiểm tra lại trong transaction; hộ chiếu phải còn hạn qua ngày giao. Đây là kiểm tra lịch dự kiến trong dữ liệu request, không xác nhận ngựa đã được bàn giao thực tế.
 
-createdAt do server ghi UTC khi tạo, không phải trường khách nhập. Chạy backend/database/003_request_created_at.sql cho database hiện có trước khi cập nhật runtime; đơn cũ giữ null nếu không biết thời điểm tạo. 002_flow1.sql cũng bao gồm cột này cho cài đặt mới.
+createdAt do server ghi UTC khi tạo, không phải trường khách nhập. Cột này nằm trực tiếp trong HorseTransportDB/HorseTransportDB_Reviewed.sql; tạo lại DB test từ file này khi đổi schema.
 
 ## Gửi yêu cầu một bước
 
@@ -134,4 +134,4 @@ POST /api/customer/requests và PUT /api/customer/requests/{requestId} dùng mul
 
 Mỗi data.documents[] khai báo fileName, documentType, horseId (chỉ với hồ sơ từng ngựa), expiryDate nếu có. File phải được đính kèm và khớp duy nhất theo tên. PUT giữ hồ sơ cũ không được thay thế; hồ sơ của ngựa bỏ khỏi đơn bị bỏ khỏi liên kết theo đơn. Thông tin/files khác nhau không được dùng lại Idempotency-Key; chữ ký nội dung lưu tại SubmissionContentHash, không đặt vào hợp đồng khách.
 
-Thực hiện migration 005_request_submission_content.sql cho database đang có trước khi triển khai. 002_flow1.sql cũng bổ sung cột này. Các bản ghi được kiểm tra và lưu trong transaction; tệp lưu riêng theo hash trước transaction, nên lỗi DB có thể để lại bytes riêng tư chưa được tham chiếu (không có đơn thiếu trong queue). Không xóa tự động tệp hash có thể đang dùng chung.
+SubmissionContentHash nằm trực tiếp trong CREATE TABLE TRANSPORT_REQUEST của HorseTransportDB/HorseTransportDB_Reviewed.sql; không dùng migration đánh số. Các bản ghi được kiểm tra và lưu trong transaction; tệp lưu riêng theo hash trước transaction, nên lỗi DB có thể để lại bytes riêng tư chưa được tham chiếu (không có đơn thiếu trong queue). Không xóa tự động tệp hash có thể đang dùng chung.

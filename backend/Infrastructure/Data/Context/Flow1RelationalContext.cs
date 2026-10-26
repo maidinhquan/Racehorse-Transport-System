@@ -57,7 +57,7 @@ public sealed class Flow1Data(Flow1RelationalContext db,string? retainedRoot=nul
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         try
         {
-            if(!await Flow1RelationalSchema.IsReadyAsync(db,ct))throw Error("Flow1 requires reviewed backend/database/002_flow1.sql and their trusted guards. No migration runs automatically.","FLOW1_SQL_SCHEMA_REQUIRED",503);
+            if(!await Flow1RelationalSchema.IsReadyAsync(db,ct))throw Error("The legacy Flow1 relational context is retired. Use AddRequestModule with HorseTransportDB/HorseTransportDB_Reviewed.sql.","FLOW1_SQL_SCHEMA_REQUIRED",503);
             // A complete source switch requires reviewed conversion, not per-row JSON fallback.
             // Empty retained004 columns are harmless; nonempty legacy state closes the typed API.
             foreach(var table in new[]{"HORSE","TRANSPORT_REQUEST","CONTRACT","USER"})

@@ -8,7 +8,7 @@ namespace Flow1.Tests;
 
 public sealed class SharedDeadlineTests
 {
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task One_persisted_deadline_drives_payment_and_signing_without_a_current_flag()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();
@@ -29,7 +29,7 @@ public sealed class SharedDeadlineTests
         Assert.Equal("CONTRACT_CLOSED",error.ErrorCode);
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Cancelled_contract_cannot_be_reissued_signed_or_duplicated_for_the_same_request()
     {
         await using var f=await Fixture.Create();var(r,c)=await f.Published();

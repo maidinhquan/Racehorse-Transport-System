@@ -18,7 +18,7 @@ public sealed class ObsoleteColumnRemovalTests
           ('LastExtensionTarget','BaseContractPrice_P','ExchangeRateToLocal','ActualGrossProfit_AGP');
         """;
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Clean_schema_keeps_teammate_reset_OTP_and_supports_clauses_extension_and_both_EF_models()
     {
         await using var f=await Fixture.Create();var(_,c)=await f.Published();
@@ -39,7 +39,7 @@ public sealed class ObsoleteColumnRemovalTests
         Assert.NotEmpty(await context.Contracts.ToListAsync());
     }
 
-    [LocalSqlFact]
+    [LegacySqlFact]
     public async Task Populated_upgrade_preserves_deadlines_money_reset_OTP_and_is_repeatable()
     {
         await using var f=await Fixture.Create();var c=await f.Signed();
