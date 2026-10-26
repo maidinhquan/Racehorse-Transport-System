@@ -114,6 +114,17 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         var contract=draft.GetProperty("contractId").GetString()!;
         await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/contract/publish",new {versionNo=1}));
         var published = await Data(await customer.GetAsync($"/api/customer/requests/{id}/contract"));
+        var managerVersion = await Data(await manager.GetAsync($"/api/manager/contracts/{contract}/versions/1"));
+        var customerVersion = await Data(await customer.GetAsync($"/api/customer/contracts/{contract}/versions/1"));
+        foreach (var version in new[] { managerVersion, customerVersion, published.GetProperty("currentVersion") })
+        {
+            foreach (var removed in new[] { "v", "number", "state", "validUntil" })
+                Assert.False(version.TryGetProperty(removed, out _), $"Redundant field {removed} must not be exposed.");
+            Assert.Equal(1, version.GetProperty("versionNo").GetInt32());
+            Assert.Equal("ISSUED", version.GetProperty("versionStatus").GetString());
+            Assert.Equal("ISSUED", version.GetProperty("contractStatus").GetString());
+            Assert.Equal(JsonValueKind.String, version.GetProperty("currentDeadline").ValueKind);
+        }
         var frozen = published.GetProperty("currentVersion").GetProperty("snapshot").GetRawText();
         Assert.True(published.GetProperty("currentVersion").GetProperty("snapshot").GetProperty("parties").TryGetProperty("provider", out _));
         Assert.DoesNotContain("INTERNAL_", frozen);

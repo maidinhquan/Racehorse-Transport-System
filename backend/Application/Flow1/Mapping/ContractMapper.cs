@@ -14,11 +14,10 @@ public static class ContractMapper
         return new
         {
             contractId = contract.ContractID, requestId = contract.RequestID, versionNo = version.VersionNo,
-            v = version.VersionNo, number = contract.ContractID, requestStatus = request.Status,
-            contractStatus = contract.ContractStatus, versionStatus = version.VersionStatus, state = version.VersionStatus,
+            requestStatus = request.Status,
+            contractStatus = contract.ContractStatus, versionStatus = version.VersionStatus,
             issuedAt = Format(version.PublishedAtUtc), signedAt = Format(version.SignedAtUtc),
             termsAcceptedAt = Format(version.TermsAcceptedAtUtc),
-            validUntil = Format(legacy ? ReadDate(snapshot, "CompletionDeadline") : ReadDate(Field(snapshot, "paymentObligations"), "completionDeadlineUtc")),
             currentDeadline = Format(contract.CompletionDeadline), currency = "VND",
             items = Field(commercial, "items"), total = legacy ? Field(snapshot, "TotalQuotedPrice") : Field(commercial, "totalPrice"),
             depositPct = legacy ? Field(snapshot, "DepositRateStandard") : Field(commercial, "depositPercent"), depositAmount = legacy ? Field(snapshot, "DepositAmount") : Field(commercial, "depositAmount"),
