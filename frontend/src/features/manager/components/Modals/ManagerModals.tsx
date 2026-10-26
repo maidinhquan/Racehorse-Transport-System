@@ -12,7 +12,7 @@ import {
   fmtDateTime,
   fmtMoney,
 } from '../../hooks/managerRules';
-import type { PaymentConfirmation } from '../../../../shared/api/flow1';
+import type { PaymentConfirmation } from '../../../../shared/api/contractClient';
 import { DateTimeField } from '../DateField/DateTimeField';
 
 // ---------------------------------------------------------------------------

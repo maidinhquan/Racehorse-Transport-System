@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ThemeToggle } from '../../../../shared/components';
+import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { SPECIALIST_INITIALS, SPECIALIST_NAME } from '../../data/mockData';
 import './SpecialistLayout.css';
@@ -93,6 +93,7 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
         <header className="spc-topbar">
           <h1>{title}</h1>
           <div className="spc-topbar__user">
+            <DemoDataToggle role="specialist" />
             <ThemeToggle showLabel={false} />
             <button type="button" className="spc-icon-btn" aria-label="Thông báo"><Icon name="bell" /></button>
             

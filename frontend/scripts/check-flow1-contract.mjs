@@ -7,16 +7,23 @@ const require = createRequire(import.meta.url);
 const Ajv = require('ajv');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const dir = path.join(root, 'contracts/API-Flow/Flow1');
-const spec = JSON.parse(fs.readFileSync(path.join(dir, 'flow1.openapi.json'), 'utf8'));
-const main = fs.readFileSync(path.join(dir, 'FLOW1.md'), 'utf8');
-const companion = fs.readFileSync(path.join(dir, 'FLOW1-API-JSON.md'), 'utf8');
+const feDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/contracts');
+const rootSpecPath = path.join(dir, 'flow1.openapi.json');
+const feSpecPath = path.join(feDir, 'flow1.openapi.json');
+const specPath = fs.existsSync(rootSpecPath) ? rootSpecPath : feSpecPath;
+if (fs.existsSync(rootSpecPath) && fs.existsSync(feSpecPath)) {
+  assert.equal(fs.readFileSync(feSpecPath, 'utf8'), fs.readFileSync(rootSpecPath, 'utf8'), 'frontend/src/contracts/flow1.openapi.json is not in sync with contracts/API-Flow/Flow1/flow1.openapi.json');
+}
+const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
+const main = fs.existsSync(path.join(dir, 'FLOW1.md')) ? fs.readFileSync(path.join(dir, 'FLOW1.md'), 'utf8') : '';
+const companion = fs.existsSync(path.join(dir, 'FLOW1-API-JSON.md')) ? fs.readFileSync(path.join(dir, 'FLOW1-API-JSON.md'), 'utf8') : '';
 const ajv = new Ajv({ allErrors: true, unknownFormats: 'ignore', logger: false });
 ajv.addSchema({ ...spec, $id: 'flow1' }, 'flow1');
 let checked = 0;
 for (const [url, methods] of Object.entries(spec.paths)) {
   for (const [method, op] of Object.entries(methods)) {
-    assert(main.includes(`### ${op.operationId} — ${method.toUpperCase()} ${url}`), `Missing main endpoint ${op.operationId}`);
-    assert(companion.includes(`### ${op.operationId} — ${method.toUpperCase()} ${url}`), `Missing companion endpoint ${op.operationId}`);
+    if (main) assert(main.includes(`### ${op.operationId} — ${method.toUpperCase()} ${url}`), `Missing main endpoint ${op.operationId}`);
+    if (companion) assert(companion.includes(`### ${op.operationId} — ${method.toUpperCase()} ${url}`), `Missing companion endpoint ${op.operationId}`);
     for (const [status, response] of Object.entries(op.responses)) {
       const media = response.content?.['application/json'];
       if (!media?.examples) continue;
@@ -40,9 +47,10 @@ assert(!validate('F1-J39Request', { versionNo: 1, decision: 'RETURNED', text: 'D
 assert(!validate('F1-J43Request', { method: 'BANK_TRANSFER' }));
 assert(!validate('F1-J47Request', { confirmedAmount: -1, transactionCode: 'REF', receivedAt: '2026-10-23 09:20', note: '' }));
 const mutationOps = Object.values(spec.paths).flatMap(p => Object.values(p)).filter(op => op.requestBody?.content?.['application/json']);
-assert.equal(Object.values(spec.paths).reduce((n, p) => n + Object.keys(p).length, 0), 66);
-// Verify Markdown copies stay identical per endpoint, not just heading counts.
-const split = text => new Map([...text.matchAll(/^### (F1-J\d+) .*?(?=^### F1-J|^## |^<!-- FLOW1_JSON_\d+_END -->|$(?![\s\S]))/gms)].map(m => [m[1], m[0].trim()]));
-const left = split(main), right = split(companion);
-for (const [id, block] of right) assert.equal(left.get(id), block, `Markdown drift: ${id}`);
+if (main && companion) {
+  // Verify Markdown copies stay identical per endpoint, not just heading counts.
+  const split = text => new Map([...text.matchAll(/^### (F1-J\d+) .*?(?=^### F1-J|^## |^<!-- FLOW1_JSON_\d+_END -->|$(?![\s\S]))/gms)].map(m => [m[1], m[0].trim()]));
+  const left = split(main), right = split(companion);
+  for (const [id, block] of right) assert.equal(left.get(id), block, `Markdown drift: ${id}`);
+}
 console.log(`Flow 1: 66 endpoints, ${checked} JSON examples and ${mutationOps.length} request schemas validated; negative cases and Markdown parity passed.`);

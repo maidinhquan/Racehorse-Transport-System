@@ -1,0 +1,250 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Racehorse Transport System — Coordinator Role API",
+    "version": "1.0.0",
+    "description": "Toàn bộ API endpoints dành riêng cho Role Fleet & Route Coordinator (Điều phối viên Phương tiện & Tuyến)."
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API Base URL"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "tags": [
+    { "name": "Trips Planning", "description": "Lập kế hoạch chuyến đi, tuyến đường và sẵn sàng vận hành" },
+    { "name": "Resources & Fleet", "description": "Quản lý đội xe, tổ xe và phân công phương tiện" },
+    { "name": "Flight & Tracking", "description": "Phương án hàng không, cập nhật ETA và mốc hành trình" }
+  ],
+  "paths": {
+    "/coordinator/trips": {
+      "get": {
+        "tags": ["Trips Planning"],
+        "summary": "Danh sách các chuyến đi Coordinator phụ trách",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    },
+    "/coordinator/trips/{tripId}": {
+      "get": {
+        "tags": ["Trips Planning"],
+        "summary": "Chi tiết chuyến đi và trạng thái sẵn sàng",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    },
+    "/coordinator/trips/{tripId}/route/submit": {
+      "post": {
+        "tags": ["Trips Planning"],
+        "summary": "Đệ trình phương án tuyến đường cho Manager duyệt",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "stops": { "type": "array", "items": { "type": "object" } },
+                  "distanceKm": { "type": "number" },
+                  "durationHours": { "type": "number" },
+                  "plannedDepart": { "type": "string" },
+                  "eta": { "type": "string" },
+                  "notes": { "type": "string" }
+                },
+                "required": ["stops", "distanceKm", "plannedDepart", "eta"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/coordinator/trips/{tripId}/assignments": {
+      "post": {
+        "tags": ["Resources & Fleet"],
+        "summary": "Phân công xe chuyên dụng và tổ xe cho chuyến",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "vehicleId": { "type": "string" },
+                  "primaryDriverId": { "type": "string" },
+                  "secondaryDriverId": { "type": "string" },
+                  "escortId": { "type": "string" },
+                  "vetId": { "type": "string" },
+                  "notes": { "type": "string" }
+                },
+                "required": ["vehicleId", "primaryDriverId"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/coordinator/trips/{tripId}/operations-readiness/confirm": {
+      "post": {
+        "tags": ["Trips Planning"],
+        "summary": "Xác nhận Sẵn sàng Vận hành (Operations READY)",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/coordinator/trips/{tripId}/eta": {
+      "put": {
+        "tags": ["Flight & Tracking"],
+        "summary": "Cập nhật thời gian dự kiến đến (ETA)",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "eta": { "type": "string" },
+                  "reason": { "type": "string" }
+                },
+                "required": ["eta"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/coordinator/trips/{tripId}/milestones": {
+      "post": {
+        "tags": ["Flight & Tracking"],
+        "summary": "Ghi nhận mốc hành trình",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string", "enum": ["DEPARTED", "ARRIVED_STOP", "LEFT_STOP", "ARRIVED_DESTINATION"] },
+                  "stopIndex": { "type": "integer" },
+                  "at": { "type": "string" },
+                  "notes": { "type": "string" }
+                },
+                "required": ["type", "stopIndex", "at"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/coordinator/trips/{tripId}/flight": {
+      "post": {
+        "tags": ["Flight & Tracking"],
+        "summary": "Đề xuất phương án chuyến bay & ngân sách",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "airline": { "type": "string" },
+                  "flightNo": { "type": "string" },
+                  "departureAirport": { "type": "string" },
+                  "arrivalAirport": { "type": "string" },
+                  "departAt": { "type": "string" },
+                  "arriveAt": { "type": "string" },
+                  "budget": { "type": "number", "minimum": 1 }
+                },
+                "required": ["airline", "flightNo", "departAt", "arriveAt", "budget"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/coordinator/trips/{tripId}/flight/booking": {
+      "post": {
+        "tags": ["Flight & Tracking"],
+        "summary": "Ghi nhận mã đặt chỗ/booking từ hãng hàng không",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "bookingRef": { "type": "string" } },
+                "required": ["bookingRef"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/coordinator/vehicles": {
+      "get": {
+        "tags": ["Resources & Fleet"],
+        "summary": "Danh sách đội xe chuyên dụng",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    },
+    "/coordinator/staff": {
+      "get": {
+        "tags": ["Resources & Fleet"],
+        "summary": "Danh sách tài xế, áp tải và bác sĩ thú y",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    },
+    "/coordinator/incidents": {
+      "get": {
+        "tags": ["Resources & Fleet"],
+        "summary": "Danh sách các sự cố trên tuyến đường",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "StandardEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object", "nullable": true }
+        },
+        "required": ["success", "message", "data"]
+      }
+    }
+  }
+}

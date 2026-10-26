@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { apiClient } from './apiClient';
-import { flow1 } from './flow1';
-import spec from '../../../../contracts/API-Flow/Flow1/flow1.openapi.json';
+import { contractClient } from './contractClient';
+import spec from '../../contracts/flow1.openapi.json';
 import { customerApi } from '../../features/customer/api/customerApi';
 import { managerApi } from '../../features/manager/api/managerApi';
 import type { HorseInput } from '../../features/customer/types';
@@ -32,7 +32,7 @@ describe('Flow 1 wire contract', () => {
     await expect(customerApi.getHorses()).rejects.toThrow('color');
   });
   it('rejects obsolete rowVersion and malformed OTP before sending', async () => {
-    await expect(flow1('post', '/customer/contracts/CONTRACT_001/sign', { versionNo: 1, otp: '482913', rowVersion: 'fake' })).rejects.toThrow('contract');
+    await expect(contractClient('post', '/customer/contracts/CONTRACT_001/sign', { versionNo: 1, otp: '482913', rowVersion: 'fake' })).rejects.toThrow('contract');
     await expect(customerApi.signContract('CONTRACT_001', '00000X', 1)).rejects.toThrow('contract');
     expect(request).not.toHaveBeenCalled();
   });
@@ -62,7 +62,7 @@ describe('Flow 1 wire contract', () => {
     expect(request.mock.calls[0][0]?.data).toEqual(selected);
   });
   it('blocks transfer initiation until its contract is supported', async () => {
-    await expect(flow1('post', '/customer/invoices/INVOICE_001/payment-session', { method: 'BANK_TRANSFER' })).rejects.toThrow('contract');
+    await expect(contractClient('post', '/customer/invoices/INVOICE_001/payment-session', { method: 'BANK_TRANSFER' })).rejects.toThrow('contract');
     expect(request).not.toHaveBeenCalled();
   });
 });

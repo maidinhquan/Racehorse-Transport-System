@@ -11,10 +11,22 @@ import type {
   Trip,
 } from '../types';
 import { managerApi } from '../api/managerApi';
-import { apiMessage, type PaymentConfirmation } from '../../../shared/api/flow1';
+import { apiMessage } from '../../../shared/api/apiError';
+import type { PaymentConfirmation } from '../../../shared/api/contractClient';
 import {
   MANAGER_NAME,
+  mockActualCosts,
+  mockComplaints,
+  mockCustomers,
+  mockHorses,
+  mockIncidents,
+  mockNotifications,
+  mockRequests,
+  mockStaff,
+  mockTransactions,
+  mockTrips,
 } from '../data/mockData';
+import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import {
   addDays,
   addHours,
@@ -56,9 +68,22 @@ interface ManagerState extends ManagerData {
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const DATA_KEYS: Array<keyof ManagerData> = ['customers', 'horses', 'staff', 'requests', 'trips', 'transactions', 'incidents', 'complaints', 'actualCosts', 'notifications'];
 
+const initialDemo = getDemoMode('manager');
+
 let state: ManagerState = {
-  customers: [], horses: [], staff: [], requests: [], trips: [], transactions: [],
-  incidents: [], complaints: [], actualCosts: [], notifications: [], loading: false, loaded: false, toast: null,
+  customers: initialDemo ? clone(mockCustomers) : [],
+  horses: initialDemo ? clone(mockHorses) : [],
+  staff: initialDemo ? clone(mockStaff) : [],
+  requests: initialDemo ? clone(mockRequests) : [],
+  trips: initialDemo ? clone(mockTrips) : [],
+  transactions: initialDemo ? clone(mockTransactions) : [],
+  incidents: initialDemo ? clone(mockIncidents) : [],
+  complaints: initialDemo ? clone(mockComplaints) : [],
+  actualCosts: initialDemo ? clone(mockActualCosts) : [],
+  notifications: initialDemo ? clone(mockNotifications) : [],
+  loading: false,
+  loaded: false,
+  toast: null,
 };
 const listeners = new Set<() => void>();
 const setState = (patch: Partial<ManagerState> | ((s: ManagerState) => Partial<ManagerState>)) => {
@@ -69,6 +94,47 @@ const subscribe = (l: () => void) => { listeners.add(l); return () => { listener
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('rts_demo_mode_change', (event: Event) => {
+    const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
+    if (customEvent.detail && customEvent.detail.role === 'manager') {
+      if (customEvent.detail.enabled) {
+        setState({
+          customers: clone(mockCustomers),
+          horses: clone(mockHorses),
+          staff: clone(mockStaff),
+          requests: clone(mockRequests),
+          trips: clone(mockTrips),
+          transactions: clone(mockTransactions),
+          incidents: clone(mockIncidents),
+          complaints: clone(mockComplaints),
+          actualCosts: clone(mockActualCosts),
+          notifications: clone(mockNotifications),
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
+      } else {
+        setState({
+          customers: [],
+          horses: [],
+          staff: [],
+          requests: [],
+          trips: [],
+          transactions: [],
+          incidents: [],
+          complaints: [],
+          actualCosts: [],
+          notifications: [],
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
+      }
+    }
+  });
+}
 const ok = (message: string, id?: string): ActionResult => { toast(message); return { ok: true, message, id }; };
 const fail = (message: string): ActionResult => { toast(message); return { ok: false, message }; };
 
@@ -97,12 +163,55 @@ async function loadAll() {
       managerApi.getCustomers(), managerApi.getHorses(), managerApi.getStaff(), managerApi.getRequests(),
       managerApi.getTrips(), managerApi.getTransactions(), managerApi.getNotifications(),
     ]);
-    setState({ customers, horses, staff, requests, trips, transactions, notifications, loading: false, loaded: true });
+    const isDemo = getDemoMode('manager');
+    if (!isDemo) {
+      setState({
+        customers: customers || [],
+        horses: horses || [],
+        staff: staff || [],
+        requests: requests || [],
+        trips: trips || [],
+        transactions: transactions || [],
+        notifications: notifications || [],
+        loading: false,
+        loaded: true,
+      });
+      return;
+    }
+    setState({
+      customers: customers?.length ? customers : clone(mockCustomers),
+      horses: horses?.length ? horses : clone(mockHorses),
+      staff: staff?.length ? staff : clone(mockStaff),
+      requests: requests?.length ? requests : clone(mockRequests),
+      trips: trips?.length ? trips : clone(mockTrips),
+      transactions: transactions?.length ? transactions : clone(mockTransactions),
+      notifications: notifications?.length ? notifications : clone(mockNotifications),
+      loading: false,
+      loaded: true,
+    });
     const extra = await Promise.allSettled([managerApi.getIncidents(), managerApi.getComplaints(), managerApi.getActualCosts()]);
-    if (extra[0].status === 'fulfilled') setState({ incidents: extra[0].value });
-    if (extra[1].status === 'fulfilled') setState({ complaints: extra[1].value });
-    if (extra[2].status === 'fulfilled') setState({ actualCosts: extra[2].value });
-  } catch (error) { setState({ loading: false, loaded: true }); toast(apiMessage(error)); }
+    if (extra[0].status === 'fulfilled') setState({ incidents: extra[0].value?.length ? extra[0].value : clone(mockIncidents) });
+    if (extra[1].status === 'fulfilled') setState({ complaints: extra[1].value?.length ? extra[1].value : clone(mockComplaints) });
+    if (extra[2].status === 'fulfilled') setState({ actualCosts: extra[2].value?.length ? extra[2].value : clone(mockActualCosts) });
+  } catch (error) {
+    const isDemo = getDemoMode('manager');
+    if (isDemo) {
+      setState({
+        customers: clone(mockCustomers),
+        horses: clone(mockHorses),
+        staff: clone(mockStaff),
+        requests: clone(mockRequests),
+        trips: clone(mockTrips),
+        transactions: clone(mockTransactions),
+        notifications: clone(mockNotifications),
+        loading: false,
+        loaded: true,
+      });
+    } else {
+      setState({ loading: false, loaded: true });
+    }
+    toast(apiMessage(error));
+  }
 }
 const running = new Set<string>();
 async function perform(key: string, action: () => Promise<unknown>, message: string): Promise<ActionResult> {

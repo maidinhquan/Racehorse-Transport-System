@@ -19,7 +19,7 @@ import {
   today,
 } from '../../hooks/customerRules';
 import { customerApi } from '../../api/customerApi';
-import type { FormOptions } from '../../../../shared/api/flow1';
+import type { FormOptions } from '../../../../shared/api/contractClient';
 import './CreateRequestPage.css';
 
 /**

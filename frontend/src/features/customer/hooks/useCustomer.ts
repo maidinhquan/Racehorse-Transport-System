@@ -16,7 +16,7 @@ import type {
   TripInfoInput,
 } from '../types';
 import { customerApi } from '../api/customerApi';
-import { apiMessage } from '../../../shared/api/flow1';
+import { apiMessage } from '../../../shared/api/apiError';
 import { getCurrentUser } from '../../auth/api/authApi';
 import {
   FILE_DOC_KEYS,
@@ -76,6 +76,9 @@ interface CustomerState {
   toast: { id: number; message: string } | null;
 }
 
+import { getDemoMode } from '../../../shared/context/DemoModeContext';
+import { mockHorses, mockNotifications, mockRequests } from '../data/mockData';
+
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 const getInitialProfile = (): CustomerProfile => {
@@ -96,11 +99,13 @@ const getInitialProfile = (): CustomerProfile => {
   return p;
 };
 
+const initialDemo = getDemoMode('customer');
+
 let state: CustomerState = {
   profile: getInitialProfile(),
-  horses: [],
-  requests: [],
-  notifications: [],
+  horses: initialDemo ? clone(mockHorses) : [],
+  requests: initialDemo ? clone(mockRequests) : [],
+  notifications: initialDemo ? clone(mockNotifications) : [],
   otp: null,
   loading: false,
   loaded: false,
@@ -118,6 +123,33 @@ const subscribe = (l: () => void) => { listeners.add(l); return () => { listener
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('rts_demo_mode_change', (event: Event) => {
+    const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
+    if (customEvent.detail && customEvent.detail.role === 'customer') {
+      if (customEvent.detail.enabled) {
+        setState({
+          horses: clone(mockHorses),
+          requests: clone(mockRequests),
+          notifications: clone(mockNotifications),
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
+      } else {
+        setState({
+          horses: [],
+          requests: [],
+          notifications: [],
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
+      }
+    }
+  });
+}
 const ok = (message: string, id?: string): ActionResult => { toast(message); return { ok: true, message, id }; };
 const fail = (message: string): ActionResult => { toast(message); return { ok: false, message }; };
 
@@ -192,8 +224,41 @@ async function loadAll() {
   } catch {
     // ignore
   }
-  setState({ profile, horses, requests, notifications, loading: false, loaded: true });
-  } catch (error) { setState({ loading: false, loaded: true }); toast(apiMessage(error)); }
+  const isDemo = getDemoMode('customer');
+    if (!isDemo) {
+      setState({
+        profile,
+        horses: horses || [],
+        requests: requests || [],
+        notifications: notifications || [],
+        loading: false,
+        loaded: true,
+      });
+      return;
+    }
+    setState({
+      profile,
+      horses: (horses && horses.length > 0) ? horses : clone(mockHorses),
+      requests: (requests && requests.length > 0) ? requests : clone(mockRequests),
+      notifications: (notifications && notifications.length > 0) ? notifications : clone(mockNotifications),
+      loading: false,
+      loaded: true,
+    });
+  } catch (error) {
+    const isDemo = getDemoMode('customer');
+    if (isDemo) {
+      setState({
+        horses: clone(mockHorses),
+        requests: clone(mockRequests),
+        notifications: clone(mockNotifications),
+        loading: false,
+        loaded: true,
+      });
+    } else {
+      setState({ loading: false, loaded: true });
+    }
+    toast(apiMessage(error));
+  }
 }
 
 // ============================================================================

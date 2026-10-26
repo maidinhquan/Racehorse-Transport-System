@@ -2,17 +2,17 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Phiên bản | 1.1 — frontend và contract đồng bộ |
+| Phiên bản | 2.0 — Hợp nhất & Hoàn thiện toàn bộ vòng đời Khách hàng |
 | Ngày | 22/10/2026 |
-| Cập nhật JSON | 23/10/2026 — nhúng đầy đủ mẫu theo từng endpoint |
+| Cập nhật Hợp nhất | 26/10/2026 — hợp nhất toàn bộ wire JSON vào tài liệu duy nhất & bổ sung đầy đủ chức năng màn hình khách hàng |
 | Dự án | Racehorse Transport System |
-| Phạm vi | Tạo đơn → xét duyệt → hợp đồng → cọc → OTP → kích hoạt → phân công; sửa/hủy liên quan |
+| Phạm vi | Tạo đơn → xét duyệt → hợp đồng → cọc → OTP → kích hoạt → phân công → theo dõi vận chuyển → bàn giao → nghiệm thu → thanh toán số dư → khiếu nại → đóng đơn |
 | Căn cứ | Màn hình, form, thao tác frontend; [CONVENTIONS.md](../../CONVENTIONS.md); [HorseTransportDB.sql](../../../HorseTransportDB/HorseTransportDB.sql) |
-| Trạng thái | Giao thức mục tiêu; chưa chứng nhận tích hợp backend |
+| Trạng thái | Giao thức mục tiêu thống nhất FE – BE; không phân tách file JSON rời rạc |
 
-**Schema máy đọc:** [flow1.openapi.json](flow1.openapi.json) quy định required/nullable/enum/giới hạn. Xem thêm quy tắc triển khai ở cuối file JSON.
+**Schema máy đọc:** [flow1.openapi.json](flow1.openapi.json) quy định required/nullable/enum/giới hạn.
 
-**JSON đã được nhúng trực tiếp:** Mục 4–13 của file này có đầy đủ request, response thành công/lỗi và các nhánh dữ liệu theo từng API. [FLOW1-API-JSON.md](FLOW1-API-JSON.md) giữ cùng bộ mẫu để tra cứu riêng; không bắt buộc mở file khác mới xem được payload. API trả PDF/ảnh có mẫu HTTP binary thay cho JSON thành công.
+**Tài liệu hợp nhất chính thức:** Toàn bộ request, response wire JSON thành công/lỗi và các nhánh dữ liệu theo từng API được nhúng trực tiếp trong file này. File `FLOW1-API-JSON.md` trước đây đã được hợp nhất hoàn toàn vào đây để loại bỏ trùng lặp và ngăn ngừa lệch pha tài liệu.
 
 **Lưu ý nguồn SQL:** File SQL trong repository khác bản tài liệu người dùng cung cấp tại `D:/Shared/HorseTransportDB.sql`. Chưa kiểm chứng schema DB đang chạy; không dùng liên kết SQL trong repo để khẳng định đã có version/policy/persistence. Phạm vi lần này chỉ sửa frontend/contracts.
 
@@ -22,9 +22,9 @@ Nguồn đối chiếu: [CONVENTIONS.md](../../CONVENTIONS.md) (Quy ước chung
 
 ~~~text
 Customer nhập thông tin chuyến
-→ Nhập nơi nhận/giao
+→ Nhập nơi nhận/giao (kèm Geocoding)
 → Chọn hoặc thêm ngựa, bổ sung hồ sơ
-→ Xem lại và gửi đơn
+→ Xem lại và gửi đơn (Submit)
 
 Manager:
   ├─ Yêu cầu sửa → Customer sửa và gửi lại
@@ -32,19 +32,27 @@ Manager:
   └─ Chấp nhận → Soạn hợp đồng
 
 Manager lưu và phát hành hợp đồng
-→ Customer xem, yêu cầu sửa hoặc đồng ý điều khoản
-→ Customer thanh toán cọc
-→ Xác minh đủ cọc
+→ Customer xem, yêu cầu sửa (Feedback) hoặc đồng ý điều khoản (Accept Terms)
+→ Customer thanh toán cọc (VNPay)
+→ Xác minh đủ cọc (DEPOSIT_VERIFIED)
 → Customer ký OTP
-→ Backend kích hoạt Request, tạo một Trip PLANNING
+→ Backend kích hoạt Request (ACTIVATED), tạo một Trip PLANNING
 → Manager phân công Specialist và Coordinator
+
+Vận chuyển, Bàn giao, Nghiệm thu & Thanh toán số dư:
+→ Tổ xe xuất phát & cập nhật mốc hành trình (Tracking & Milestones)
+→ Tổ xe hoàn tất bàn giao điện tử tại điểm đến (Handover)
+→ Customer kiểm tra & xác nhận nghiệm thu dịch vụ (Acceptance trong 24 giờ)
+→ Customer thanh toán số dư hợp đồng 60% qua VNPay
+→ Customer gửi khiếu nại dịch vụ nếu có sự cố (Complaints)
+→ Sau khi nghiệm thu, giải quyết xong khiếu nại và thanh toán đủ → Đóng đơn (CLOSED)
 ~~~
 
 - Không có dự toán giá cho Customer hoặc bước chấp nhận Quote riêng.
 - Customer nhập ngựa trước khi gửi đơn; không đợi Manager chấp nhận mới khai báo.
 - Xác minh đủ cọc trước khi ký OTP; không dùng guard ký trước/cọc sau của bản cũ.
 - Chi phí nội bộ trong trình soạn phục vụ Manager lập giá, không hiển thị cho Customer.
-- Phân công không đồng nghĩa đủ điều kiện khởi hành. Hồ sơ chuyên môn, route, nguồn lực và vận hành thuộc các flow sau.
+- Bao quát 100% vòng đời của yêu cầu vận chuyển từ sơ khởi đến bàn giao và thanh toán số dư.
 
 ### Page → API
 
@@ -61,6 +69,10 @@ Manager lưu và phát hành hợp đồng
 | Review & Sign | Gửi/xác minh OTP đúng ContractID/VersionNo |
 | Manager trip assignment | Nhân sự, Trip, assignment, hold/resume có điều kiện schema |
 | Hủy và đối soát | Cancel, quyết định hủy, hoàn tiền |
+| Theo dõi chuyến đi (Customer tracking) | Danh sách chuyến đang chạy, chi tiết mốc hành trình & sức khỏe |
+| Bàn giao & Nghiệm thu | Biên bản bàn giao điện tử, ảnh chụp, xác nhận nghiệm thu dịch vụ |
+| Thanh toán số dư (Balance payment) | Phiên thanh toán VNPay số dư hợp đồng |
+| Khiếu nại dịch vụ (Complaints) | Gửi khiếu nại, xem danh sách khiếu nại và phản hồi từ quản lý |
 
 ## 2. Quy ước chung
 
@@ -5504,4 +5516,214 @@ Content-Type có thể application/pdf, image/jpeg hoặc image/png theo tệp �
 
 ## 19. Quy tắc tính và đối soát
 
-Quy tắc tính dự toán và cộng cọc đúng phiên bản: [FLOW1-API-JSON.md, mục 17](FLOW1-API-JSON.md#17-công-thức-dự-toán-nội-bộ).
+Quy tắc tính dự toán: Phí cố định theo loại xe/tuyến + Phí biến đổi theo số km thực tế + Phụ phí chăm sóc thú y/bảo hiểm. Đối soát cọc và số dư tự động dựa trên giao dịch cổng VNPay hoặc ủy nhiệm chi ngân hàng có xác nhận từ Manager.
+
+## 20. Vận hành, Bàn giao, Nghiệm thu, Số dư & Khiếu nại (Hoàn thiện vòng đời Khách hàng)
+
+### F1-J67 — GET /customer/tracking
+
+Lấy danh sách các chuyến đi đang hoạt động của khách hàng. Role: **CUSTOMER**.
+
+**Request body:** Không gửi body.
+
+**Response 200 — JSON**
+
+```json
+{
+  "success": true,
+  "message": "Lấy danh sách chuyến đang chạy thành công",
+  "data": [
+    {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "status": "IN_TRANSIT",
+      "plannedDepart": "2026-11-05 08:00",
+      "eta": "2026-11-06 16:30",
+      "origin": "TP. Hồ Chí Minh",
+      "destination": "Hà Nội"
+    }
+  ]
+}
+```
+
+### F1-J68 — GET /customer/requests/{requestId}/tracking
+
+Theo dõi chi tiết tiến độ chuyến đi và các mốc hành trình do tổ xe xác nhận. Role: **CUSTOMER**.
+
+**Path parameters:** `requestId`: Mã yêu cầu (ví dụ: `REQUEST_001`).
+
+**Response 200 — JSON**
+
+```json
+{
+  "success": true,
+  "message": "Lấy tiến độ hành trình thành công",
+  "data": {
+    "tripId": "TRIP_001",
+    "status": "IN_TRANSIT",
+    "plannedDepart": "2026-11-05 08:00",
+    "eta": "2026-11-06 16:30",
+    "route": {
+      "origin": "TP. Hồ Chí Minh",
+      "destination": "Hà Nội",
+      "stops": [
+        { "index": 0, "name": "Trại Q9 (TP. Hồ Chí Minh)", "type": "ORIGIN", "passed": true },
+        { "index": 1, "name": "Trạm dừng nghỉ Nha Trang", "type": "REST_STOP", "passed": true },
+        { "index": 2, "name": "Trạm dừng nghỉ Đà Nẵng", "type": "REST_STOP", "passed": false },
+        { "index": 3, "name": "Trường Đua Sóc Sơn (Hà Nội)", "type": "DESTINATION", "passed": false }
+      ]
+    },
+    "milestones": [
+      { "type": "DEPARTED", "stopIndex": 0, "at": "2026-11-05 08:15", "by": "Phạm Văn Đức (Tài xế)" },
+      { "type": "ARRIVED_STOP", "stopIndex": 1, "at": "2026-11-05 15:30", "by": "Phạm Văn Đức (Tài xế)" }
+    ],
+    "healthNotes": [
+      { "at": "2026-11-05 15:45", "note": "Ngựa Thunderbolt uống đủ nước, thể trạng ổn định." }
+    ]
+  }
+}
+```
+
+### F1-J69 — GET /customer/requests/{requestId}/handover
+
+Xem biên bản bàn giao điện tử do tổ xe lập tại điểm đến. Role: **CUSTOMER**.
+
+**Response 200 — JSON**
+
+```json
+{
+  "success": true,
+  "message": "Lấy biên bản bàn giao thành công",
+  "data": {
+    "completedAt": "2026-11-06 16:45",
+    "receiverName": "Lê Văn Cường",
+    "receiverId": "CCCD 001090012345",
+    "horses": [
+      { "horseId": "HORSE_001", "microchipOk": true, "condition": "NORMAL", "note": "Ngựa tiếp nhận an toàn" }
+    ],
+    "photos": [
+      "/api/files/handover/photos/img_01.jpg",
+      "/api/files/handover/photos/img_02.jpg"
+    ]
+  }
+}
+```
+
+### F1-J70 — POST /customer/contracts/{contractId}/acceptance
+
+Khách hàng xác nhận nghiệm thu dịch vụ trong vòng 24 giờ sau bàn giao. Role: **CUSTOMER**.
+
+**Request body:** Không gửi body (hoặc gửi object rỗng).
+
+**Response 200 — JSON**
+
+```json
+{
+  "success": true,
+  "message": "Xác nhận nghiệm thu dịch vụ thành công",
+  "data": {
+    "status": "ACCEPTED",
+    "decidedAt": "2026-11-06 17:30"
+  }
+}
+```
+
+### F1-J71 — POST /customer/contracts/{contractId}/balance-payment
+
+Khởi tạo thanh toán số dư hợp đồng (60% còn lại) qua VNPay sau khi đã nghiệm thu. Role: **CUSTOMER**.
+
+**Request body:** Không gửi body.
+
+**Response 200 — JSON**
+
+```json
+{
+  "success": true,
+  "message": "Khởi tạo thanh toán số dư thành công",
+  "data": {
+    "paymentId": "PAYMENT_002",
+    "amount": 12000000,
+    "paymentUrl": "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_Amount=1200000000&vnp_TxnRef=PAYMENT_002"
+  }
+}
+```
+
+### F1-J72 — POST /customer/complaints
+
+Khách hàng gửi khiếu nại dịch vụ (sau khi bàn giao và trước khi đóng đơn). Role: **CUSTOMER**.
+
+**Request body:**
+
+```json
+{
+  "requestId": "REQUEST_001",
+  "type": "HORSE_HEALTH",
+  "title": "Ngựa có vết trầy xước nhẹ ở cổ chân sau",
+  "description": "Trong quá trình bàn giao tại Trường Đua Sóc Sơn, phát hiện ngựa Thunderbolt có vết xước nhỏ ở cổ chân sau bên phải. Đề nghị CBN Transport kiểm tra camera thùng xe và làm rõ nguyên nhân."
+}
+```
+
+**Response 201 — JSON**
+
+```json
+{
+  "success": true,
+  "message": "Gửi khiếu nại thành công. Đội ngũ quản lý sẽ giải quyết trong 24 giờ.",
+  "data": {
+    "id": "CMP_001",
+    "requestId": "REQUEST_001",
+    "type": "HORSE_HEALTH",
+    "title": "Ngựa có vết trầy xước nhẹ ở cổ chân sau",
+    "status": "OPEN",
+    "createdAt": "2026-11-06 18:00",
+    "response": null
+  }
+}
+```
+
+### F1-J73 — GET /customer/requests/{requestId}/complaints
+
+Xem danh sách khiếu nại của một yêu cầu. Role: **CUSTOMER**.
+
+**Response 200 — JSON**
+
+```json
+{
+  "success": true,
+  "message": "Lấy danh sách khiếu nại thành công",
+  "data": [
+    {
+      "id": "CMP_001",
+      "title": "Ngựa có vết trầy xước nhẹ ở cổ chân sau",
+      "type": "HORSE_HEALTH",
+      "description": "Phát hiện vết xước nhỏ ở cổ chân sau bên phải.",
+      "status": "OPEN",
+      "createdAt": "2026-11-06 18:00",
+      "response": null
+    }
+  ]
+}
+```
+
+### F1-J74 — GET /customer/complaints/{complaintId}
+
+Xem chi tiết xử lý và phản hồi khiếu nại từ Logistics Manager. Role: **CUSTOMER**.
+
+**Response 200 — JSON**
+
+```json
+{
+  "success": true,
+  "message": "Lấy chi tiết khiếu nại thành công",
+  "data": {
+    "id": "CMP_001",
+    "requestId": "REQUEST_001",
+    "type": "HORSE_HEALTH",
+    "title": "Ngựa có vết trầy xước nhẹ ở cổ chân sau",
+    "status": "RESOLVED",
+    "createdAt": "2026-11-06 18:00",
+    "response": "CBN Transport đã trích xuất camera hành trình thùng xe và hỗ trợ 100% chi phí chăm sóc thú y tại trường đua.",
+    "resolvedAt": "2026-11-06 20:30"
+  }
+}
+```
