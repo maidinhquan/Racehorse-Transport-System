@@ -59,13 +59,23 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         var horse=await Data(await customer.PostAsJsonAsync("/api/customer/horses",new {name="Wizard horse",breed="Arabian",sex="MARE",dob="2020-01-01",microchip="981"+DateTime.UtcNow.Ticks.ToString()[^12..],value="100000000",currency="VND",healthNotes="Sensitive to loud noises",
             passport=new {number="TEST-PASSPORT",authority="Test Authority",issueDate="2023-01-01",expiryDate="2035-01-01"}}));
         var horseId=horse.GetProperty("id").GetString()!;
-        foreach(var kind in new[]{"photo","passport","ownership"})
+        Assert.Equal(JsonValueKind.Null, horse.GetProperty("valueProof").ValueKind);
+        foreach(var kind in new[]{"photo","passport","ownership","value-proof"})
         {
             using var body=new MultipartFormDataContent();
             var bytes=kind=="photo"?new byte[]{137,80,78,71,13,10,26,10,0,0,0,0,0,0,0,0}:SubmissionTest.Pdf;
             body.Add(new ByteArrayContent(bytes),"file",kind+(kind=="photo"?".png":".pdf"));
             await Data(await customer.PostAsync($"/api/customer/horses/{horseId}/files/{kind}",body));
         }
+        var savedHorse = await Data(await customer.GetAsync($"/api/customer/horses/{horseId}"));
+        var proof = savedHorse.GetProperty("valueProof");
+        Assert.Equal("value-proof.pdf", proof.GetProperty("name").GetString());
+        var proofUrl = proof.GetProperty("url").GetString()!;
+        Assert.Equal($"/api/customer/horses/{horseId}/files/value-proof", proofUrl);
+        Assert.Equal(SubmissionTest.Pdf, await customer.GetByteArrayAsync(proofUrl));
+        var horseList = await Data(await customer.GetAsync("/api/customer/horses"));
+        Assert.Equal(proofUrl, horseList.EnumerateArray().Single(h => h.GetProperty("id").GetString() == horseId)
+            .GetProperty("valueProof").GetProperty("url").GetString());
         var date=DateTime.UtcNow.AddDays(70).Date;
         var input=SubmissionTest.Input(date.ToString("yyyy-MM-dd"),date.AddDays(2).ToString("yyyy-MM-dd"),horseId) with {
             HorseNotes=new Dictionary<string,string>{{horseId,"Gentle handling"}},

@@ -12,6 +12,7 @@ public static class HorseMapper
             scan = File(horse, "passport", horse.PassportScanUrl) },
         healthNotes = horse.SpecialHealthNotes,
         photo = File(horse, "photo", horse.PhotoUrl), ownership = File(horse, "ownership", horse.OwnershipCertificateFileUrl),
+        valueProof = File(horse, "value-proof", horse.ValuationDocumentFileUrl),
         color = (string?)null, fluDate = (string?)null, vetName = (string?)null, vetPhone = (string?)null,
         unsupportedFields = new[] { "color", "fluDate", "vetName", "vetPhone" }
     };
