@@ -32,7 +32,8 @@ public sealed class GeoapifyTransportMapsTests
 
     [Theory]
     [InlineData("VN", "vi")]
-    [InlineData("JP", "ja")]
+    [InlineData("JP", "en")]
+    [InlineData("TH", "en")]
     public async Task Search_encodes_query_filters_country_and_keeps_data_source_distinct_from_map(string country, string language)
     {
         var maps = new GeoapifyTransportMaps(new(new Handler(request => {

@@ -67,7 +67,7 @@ public sealed class GeoapifyTransportMaps(HttpClient http, Flow1MapOptions optio
     {
         if (string.IsNullOrWhiteSpace(address) || address.Length > 255 || (countryCode is not { Length: 2 } || countryCode.Any(c => c is < 'A' or > 'Z')))
             throw Error("Enter an address and a two-letter uppercase country code.", "INVALID_LOCATION");
-        using var doc = await GetAsync($"v1/geocode/search?text={Uri.EscapeDataString(address)}&filter=countrycode:{countryCode.ToLowerInvariant()}&lang={(countryCode == "JP" ? "ja" : countryCode == "VN" ? "vi" : "en")}&limit=5&format=json", ct);
+        using var doc = await GetAsync($"v1/geocode/search?text={Uri.EscapeDataString(address)}&filter=countrycode:{countryCode.ToLowerInvariant()}&lang={(countryCode == "VN" ? "vi" : "en")}&limit=5&format=json", ct);
         return Parse<IReadOnlyList<GeocodeCandidate>>(() =>
         {
             var result = new List<GeocodeCandidate>();

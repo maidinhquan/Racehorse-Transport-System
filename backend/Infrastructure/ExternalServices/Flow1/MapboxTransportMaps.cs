@@ -60,7 +60,7 @@ public sealed class MapboxTransportMaps(HttpClient http, Flow1MapOptions options
         if (string.IsNullOrWhiteSpace(address) || address.Length > 255 || address.Contains(';') ||
             Regex.Matches(address, @"[\p{L}\p{N}]+").Count > 20 || (countryCode is not { Length: 2 } || countryCode.Any(c => c is < 'A' or > 'Z')))
             throw Error("Enter a supported country and address of at most 20 words without semicolons.", "INVALID_LOCATION");
-        var language = countryCode == "JP" ? "&language=ja" : "";
+        var language = countryCode == "VN" ? "&language=vi" : "&language=en";
         using var doc = await GetAsync($"search/geocode/v6/forward?q={Uri.EscapeDataString(address)}&country={countryCode.ToLowerInvariant()}{language}&limit=5&autocomplete=false&permanent=true", ct);
         return Parse<IReadOnlyList<GeocodeCandidate>>(() =>
         {

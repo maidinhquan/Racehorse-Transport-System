@@ -43,15 +43,17 @@ public sealed class MapboxTransportMapsTests
         var error = await Assert.ThrowsAsync<BusinessRuleException>(() => Maps("bad image " + Token).PreviewAsync(Road().Points[0], default));
         Assert.Equal("MAP_PROVIDER_UNAVAILABLE", error.ErrorCode); Assert.DoesNotContain(Token, error.ToString());
     }
-    [Fact]
-    public async Task Japan_forward_uses_Japanese_language_and_country_filter()
+    [Theory]
+    [InlineData("JP", "en")]
+    [InlineData("VN", "vi")]
+    public async Task Forward_uses_English_abroad_and_Vietnamese_in_Vietnam(string country, string language)
     {
         var maps = new MapboxTransportMaps(new(new Handler(request => {
             var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(request.RequestUri!.Query);
-            Assert.Equal("jp", query["country"]); Assert.Equal("ja", query["language"]);
-            return new(HttpStatusCode.OK) { Content = new StringContent(Feature.Replace("\"VN\"", "\"JP\"")) };
+            Assert.Equal(country.ToLowerInvariant(), query["country"]); Assert.Equal(language, query["language"]);
+            return new(HttpStatusCode.OK) { Content = new StringContent(Feature.Replace("\"VN\"", $"\"{country}\"")) };
         })), Options(), new FlowClock());
-        Assert.Equal("JP", Assert.Single(await maps.SearchAsync("Tokyo", "JP")).Point.CountryCode);
+        Assert.Equal(country, Assert.Single(await maps.SearchAsync("Tokyo", country)).Point.CountryCode);
     }
     [Theory]
     [InlineData("OSM")]

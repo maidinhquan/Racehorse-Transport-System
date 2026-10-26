@@ -86,7 +86,7 @@ public sealed class OsmTransportMaps(HttpClient http, Flow1MapOptions options, O
     {
         if (string.IsNullOrWhiteSpace(address) || address.Length > 255 || (countryCode is not { Length: 2 } || countryCode.Any(c => c is < 'A' or > 'Z')))
             throw Error("Enter an address and a two-letter uppercase country code.", "INVALID_LOCATION");
-        var endpoint = Endpoint(options.GeocodingBaseUrl, $"search?format=jsonv2&addressdetails=1&limit=5&countrycodes={countryCode.ToLowerInvariant()}&q={Uri.EscapeDataString(address)}");
+        var endpoint = Endpoint(options.GeocodingBaseUrl, $"search?format=jsonv2&addressdetails=1&accept-language={(countryCode == "VN" ? "vi" : "en")}&limit=5&countrycodes={countryCode.ToLowerInvariant()}&q={Uri.EscapeDataString(address)}");
         using var doc = await gate.ExecuteAsync(() => GetAsync(endpoint, ct), ct);
         try
         {

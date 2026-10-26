@@ -56,6 +56,8 @@ public sealed class MapAndFileTests
         var client = new HttpClient(new Handler(request => {
             called = request.RequestUri;
             Assert.Contains("RaceHorse-Tests", request.Headers.UserAgent.ToString());
+            var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(request.RequestUri!.Query);
+            Assert.Equal("vi", query["accept-language"]);
             return new(HttpStatusCode.OK) { Content = new StringContent("""[{"display_name":"Hồ Chí Minh","lat":"10.8","lon":"106.6","address":{"country_code":"vn"}}]""") };
         }));
         var maps = new OsmTransportMaps(client, new() { GeocodingBaseUrl = "https://configured.example.invalid/", UserAgent = "RaceHorse-Tests/1.0", MayPersistResults = true }, new(), new FlowClock());
