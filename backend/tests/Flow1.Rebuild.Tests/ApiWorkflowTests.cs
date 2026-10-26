@@ -28,11 +28,11 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
     {
         using var factory=new ApiFactory(database); using var client=factory.Customer();
         client.DefaultRequestHeaders.Add("Idempotency-Key",Guid.NewGuid().ToString());
-        var input=new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date=DateTime.UtcNow.AddDays(80).ToString("yyyy-MM-dd"),careNotes="Care"};
+        var input=new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date=DateTime.UtcNow.AddDays(80).ToString("yyyy-MM-dd"),careInstructions="Care"};
         var responses=await Task.WhenAll(client.PostAsJsonAsync("/api/customer/requests",input),client.PostAsJsonAsync("/api/customer/requests",input));
         var first=await Data(responses[0]); var second=await Data(responses[1]);
         Assert.Equal(first.GetProperty("id").GetString(),second.GetProperty("id").GetString());
-        var rejected=await client.PostAsJsonAsync("/api/customer/requests",new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date="2026-12-20",careNotes="Care",ownerId="USER_002"});
+        var rejected=await client.PostAsJsonAsync("/api/customer/requests",new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date="2026-12-20",careInstructions="Care",ownerId="USER_002"});
         Assert.Equal(HttpStatusCode.BadRequest,rejected.StatusCode);
         using var error=JsonDocument.Parse(await rejected.Content.ReadAsStringAsync());
         Assert.Equal("VALIDATION_ERROR",error.RootElement.GetProperty("errorCode").GetString());
@@ -54,9 +54,11 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
     [Fact] public async Task Wizard_profile_files_update_submit_and_free_text_revision_work()
     {
         using var factory=new ApiFactory(database);using var customer=factory.Customer();using var manager=factory.Manager();
-        var horse=await Data(await customer.PostAsJsonAsync("/api/customer/horses",new {name="Wizard horse",breed="Arabian",sex="MARE",dob="2020-01-01",microchip="981"+DateTime.UtcNow.Ticks.ToString()[^12..],value="100000000",currency="VND",conditions="Care",
+        var horse=await Data(await customer.PostAsJsonAsync("/api/customer/horses",new {name="Wizard horse",breed="Arabian",sex="MARE",dob="2020-01-01",microchip="981"+DateTime.UtcNow.Ticks.ToString()[^12..],value="100000000",currency="VND",healthNotes="Sensitive to loud noises",
             passport=new {number="TEST-PASSPORT",authority="Test Authority",issueDate="2023-01-01",expiryDate="2035-01-01"}}));
         var horseId=horse.GetProperty("id").GetString()!;
+        Assert.Equal("Sensitive to loud noises",horse.GetProperty("healthNotes").GetString());
+        Assert.False(horse.TryGetProperty("conditions",out _));
         foreach(var kind in new[]{"photo","passport","ownership"})
         {
             using var body=new MultipartFormDataContent();
@@ -66,12 +68,12 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         }
         var date=DateTime.UtcNow.AddDays(70).ToString("yyyy-MM-dd");
         customer.DefaultRequestHeaders.Add("Idempotency-Key",Guid.NewGuid().ToString());
-        var draft=await Data(await customer.PostAsJsonAsync("/api/customer/requests",new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date,careNotes="Care"}));
+        var draft=await Data(await customer.PostAsJsonAsync("/api/customer/requests",new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date,careInstructions="Care"}));
         var id=draft.GetProperty("id").GetString()!;
         Assert.Equal(JsonValueKind.Null, draft.GetProperty("requestedAt").ValueKind);
         Assert.Equal(JsonValueKind.Null, draft.GetProperty("submittedAt").ValueKind);
         Assert.Contains("submittedAt", draft.GetProperty("unsupportedFields").EnumerateArray().Select(x => x.GetString()));
-        var update=new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date,careNotes="Care",
+        var update=new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date,careInstructions="Care",
             pickup=new {name="Pickup",address="Hanoi",postal="100000",contact="Customer",phone="0901234567",notes="",latitude=21.02,longitude=105.8},
             delivery=new {name="Receiver",address="Tokyo",postal="1000000",contact="Receiver",phone="0907654321",notes="",latitude=35.6,longitude=139.7},horses=new[]{horseId},horseNotes=new Dictionary<string,string>{{horseId,"Gentle handling"}}};
         await Data(await customer.PutAsJsonAsync($"/api/customer/requests/{id}",update));
@@ -90,6 +92,10 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         Assert.True((await manager.GetAsync($"/api/manager/requests/{id}/horses/{horseId}/documents/HEALTH_CERTIFICATE/file")).IsSuccessStatusCode);
         var detail = await Data(await customer.GetAsync($"/api/customer/requests/{id}"));
         Assert.Equal(5, detail.GetProperty("docs").GetArrayLength());
+        Assert.Equal("Care",detail.GetProperty("careInstructions").GetString());
+        Assert.False(detail.TryGetProperty("careNotes",out _));
+        var savedHorse=await Data(await customer.GetAsync($"/api/customer/horses/{horseId}"));
+        Assert.Equal("Sensitive to loud noises",savedHorse.GetProperty("healthNotes").GetString());
         var submitted=await Data(await customer.PostAsJsonAsync($"/api/customer/requests/{id}/submit",new {}));Assert.Equal("PENDING_REVIEW",submitted.GetProperty("status").GetString());
         await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/request-changes",new {feedback="Please update the pickup contact details."}));
         await Data(await customer.PutAsJsonAsync($"/api/customer/requests/{id}",update));
@@ -103,7 +109,7 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         using var factory = new ApiFactory(database); using var customer = factory.Customer(); using var manager = factory.Manager();
         var date=DateTime.UtcNow.AddDays(40).Date;
         customer.DefaultRequestHeaders.Add("Idempotency-Key",Guid.NewGuid().ToString());
-        var created=await Data(await customer.PostAsJsonAsync("/api/customer/requests",new { origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date=date.ToString("yyyy-MM-dd"),careNotes="Care" }));
+        var created=await Data(await customer.PostAsJsonAsync("/api/customer/requests",new { origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date=date.ToString("yyyy-MM-dd"),careInstructions="Care" }));
         var id=created.GetProperty("id").GetString()!;
         // Test fixture advances a submitted request directly; submit validation has its own service tests.
         await using(var db=database.Context()) {var row=await db.Set<TransportRequest>().SingleAsync(x=>x.RequestID==id); row.Status="PENDING_REVIEW"; db.Add(new RequestHorse {RequestID=id,HorseID="HORSE_002"}); await db.SaveChangesAsync();}

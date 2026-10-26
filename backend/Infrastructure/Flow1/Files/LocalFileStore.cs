@@ -11,7 +11,14 @@ public sealed class LocalFileStore(string root) : IPrivateFiles
     {
         Require(file.Bytes.Length is >= 16 and <= Maximum, "INVALID_FILE_SIZE", "File must contain 16 bytes to 10 MiB.", 400);
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        var suffix = extension switch { ".jpeg" => "jpg", ".jpg" => "jpg", ".png" => "png", ".pdf" when !photo => "pdf", _ => "" };
+        // Some cameras/export tools use .jpg for PNG bytes (and vice versa).
+        // Only normalize between allowed image types; never trust ContentType.
+        var suffix = extension switch
+        {
+            ".jpeg" or ".jpg" or ".png" => Valid(file.Bytes, "png") ? "png" : Valid(file.Bytes, "jpg") ? "jpg" : "",
+            ".pdf" when !photo => "pdf",
+            _ => ""
+        };
         Require(Valid(file.Bytes, suffix), "INVALID_FILE_TYPE", "File signature must match an allowed image or PDF.", 400);
         var hash = Convert.ToHexString(SHA256.HashData(file.Bytes)).ToLowerInvariant();
         Directory.CreateDirectory(root);

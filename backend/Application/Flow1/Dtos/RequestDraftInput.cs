@@ -5,4 +5,4 @@ namespace Application.Flow1.Dtos;
 public sealed record RequestDraftInput([Required, MaxLength(255)] string Origin,
     [Required, MaxLength(255)] string Destination, [Required] string OriginCountry,
     [Required] string DestinationCountry, [Required] string Mode, [Required] string Date,
-    [MaxLength(2000)] string CareNotes);
+    [MaxLength(2000)] string CareInstructions);

@@ -33,7 +33,7 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         {
             Require(prior.Departure == input.Origin && prior.Destination == input.Destination && prior.TransportType == input.Mode
                 && prior.OriginCountry == input.OriginCountry && prior.DestinationCountry == input.DestinationCountry
-                && prior.ExpectedDate?.ToString("yyyy-MM-dd") == input.Date && prior.CareInstructions == input.CareNotes,
+                && prior.ExpectedDate?.ToString("yyyy-MM-dd") == input.Date && prior.CareInstructions == input.CareInstructions,
                 "IDEMPOTENCY_KEY_REUSED", "The same key was used with different request content.");
             return RequestMapper.View(prior, await data.ListAsync<RequestHorse>(x => x.RequestID == prior.RequestID, token));
         }
@@ -52,7 +52,7 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
     {
         var row = await access.RequestAsync(id, actor, false, token);
         Require(row.Status is "DRAFT" or "CHANGES_REQUESTED", "INVALID_STATE", "Request cannot be edited.");
-        await ApplyAsync(row, new(input.Origin, input.Destination, input.OriginCountry, input.DestinationCountry, input.Mode, input.Date, input.CareNotes), token);
+        await ApplyAsync(row, new(input.Origin, input.Destination, input.OriginCountry, input.DestinationCountry, input.Mode, input.Date, input.CareInstructions), token);
         Require(input.Horses.Count <= 6 && input.Horses.Distinct().Count() == input.Horses.Count, "VALIDATION_ERROR", "Select up to six distinct horses.", 400);
         ApplyContacts(row, input.Pickup, input.Delivery);
         foreach (var link in await data.ListAsync<RequestHorse>(x => x.RequestID == id, token)) data.Remove(link);
@@ -108,7 +108,7 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         row.Departure = Required(input.Origin, 255); row.Destination = Required(input.Destination, 255);
         row.OriginCountry = input.OriginCountry; row.DestinationCountry = input.DestinationCountry;
         row.TransportType = input.Mode; row.ExpectedDate = DateTime.SpecifyKind(date, DateTimeKind.Utc);
-        row.CareInstructions = input.CareNotes;
+        row.CareInstructions = input.CareInstructions;
         row.PreparationDays = (int)await policies.NumberAsync("MIN_PREPARATION_DAYS", "DAY", input.DestinationCountry, input.Mode, 0, null, true, ct);
     }
     private static void ApplyContacts(TransportRequest row, ContactInput pickup, ContactInput delivery)

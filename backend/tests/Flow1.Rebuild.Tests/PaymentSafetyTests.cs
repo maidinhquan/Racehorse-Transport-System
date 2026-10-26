@@ -24,7 +24,7 @@ public sealed class PaymentSafetyTests(SqlFixture database) : IClassFixture<SqlF
         using var factory = new ApiFactory(database); using var customer = factory.Customer(); using var manager = factory.Manager();
         var date = DateTime.UtcNow.AddDays(60).Date;
         customer.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
-        var request = await Data(await customer.PostAsJsonAsync("/api/customer/requests", new { origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date=date.ToString("yyyy-MM-dd"),careNotes="Care" }));
+        var request = await Data(await customer.PostAsJsonAsync("/api/customer/requests", new { origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",date=date.ToString("yyyy-MM-dd"),careInstructions="Care" }));
         var id = request.GetProperty("id").GetString()!;
         await using (var db = database.Context())
         {

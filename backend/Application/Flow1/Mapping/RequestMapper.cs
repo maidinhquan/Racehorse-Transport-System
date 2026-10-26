@@ -11,7 +11,7 @@ public static class RequestMapper
         mode = request.TransportType, date = request.ExpectedDate?.ToString("yyyy-MM-dd"), status = request.Status,
         horseCount = horses.Count, horses = horses.Select(x => x.HorseID).ToArray(),
         horseNotes = horses.ToDictionary(x => x.HorseID, x => x.CareInstructions ?? ""),
-        careNotes = request.CareInstructions, preparationDays = request.PreparationDays,
+        careInstructions = request.CareInstructions, preparationDays = request.PreparationDays,
         pickup = new { name = request.PickupStableName, address = request.Departure, postal = request.PickupPostalCode,
             contact = request.PickupContactName, phone = request.PickupContactPhone, notes = request.PickupInstructions,
             latitude = request.PickupLatitude, longitude = request.PickupLongitude },

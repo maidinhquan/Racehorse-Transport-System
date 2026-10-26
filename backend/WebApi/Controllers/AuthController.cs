@@ -119,7 +119,6 @@ namespace WebApi.Controllers
             {
                 user = new User
                 {
-                    UserId = "USR_GG_" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper(),
                     Username = email.Split('@')[0],
                     FullName = fullName,
                     Email = email,

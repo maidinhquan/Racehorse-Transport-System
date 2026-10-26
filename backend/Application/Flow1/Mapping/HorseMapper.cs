@@ -10,7 +10,7 @@ public static class HorseMapper
         passport = new { number = horse.FEI_Passport_No, authority = horse.PassportIssuedBy,
             issueDate = horse.PassportIssuedDate?.ToString("yyyy-MM-dd"), expiryDate = horse.PassportExpiryDate?.ToString("yyyy-MM-dd"),
             scan = File(horse, "passport", horse.PassportScanUrl) },
-        conditions = horse.SpecialHealthNotes,
+        healthNotes = horse.SpecialHealthNotes,
         photo = File(horse, "photo", horse.PhotoUrl), ownership = File(horse, "ownership", horse.OwnershipCertificateFileUrl),
         color = (string?)null, fluDate = (string?)null, vetName = (string?)null, vetPhone = (string?)null,
         unsupportedFields = new[] { "color", "fluDate", "vetName", "vetPhone" }

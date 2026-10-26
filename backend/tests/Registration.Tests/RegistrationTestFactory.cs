@@ -38,6 +38,7 @@ public sealed class CapturingEmailSender : IRegistrationEmailSender
 
 public sealed class FakeUserDAO : IUserDAO
 {
+    private int nextUserId;
     public List<User> Users { get; } = [];
     public bool FailNextWrite { get; set; }
     private readonly object gate = new();
@@ -69,6 +70,7 @@ public sealed class FakeUserDAO : IUserDAO
         {
             if (FailNextWrite) { FailNextWrite = false; throw new InvalidOperationException("Simulated DB failure"); }
             if (Users.Any(u => u.Email == entity.Email || u.Phone == entity.Phone)) throw new DuplicateUserException();
+            entity.UserId ??= $"USER_{++nextUserId:000}";
             Users.Add(entity);
             return entity;
         }

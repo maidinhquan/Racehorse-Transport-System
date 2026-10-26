@@ -51,7 +51,9 @@ namespace Infrastructure.Data.Context
             base.OnModelCreating(modelBuilder);
 
             // Tự động load các cấu hình IEntityTypeConfiguration nếu có
-            modelBuilder.ApplyConfigurationsFromAssembly(typeof(HorseTransportDbContext).Assembly);
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(HorseTransportDbContext).Assembly,
+                type => type.Namespace == "Infrastructure.Data.Configurations" ||
+                    type.Namespace?.StartsWith("Infrastructure.Data.Configurations.", StringComparison.Ordinal) == true);
 
             // Mặc định DeleteBehavior là Restrict để tránh lỗi multiple cascade paths trong SQL Server
             foreach (var relationship in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))

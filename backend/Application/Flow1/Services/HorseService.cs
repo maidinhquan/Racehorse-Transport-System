@@ -33,7 +33,7 @@ public sealed class HorseService(IDataSession data, AccessService access, TimePr
         horse.Name = Required(input.Name, 100); horse.Breed = Required(input.Breed, 100); horse.Sex = input.Sex;
         horse.DOB = dob; horse.Microchip_ISO = input.Microchip; horse.DeclaredValueVnd = value;
         horse.FEI_Passport_No = Required(input.Passport.Number, 50); horse.PassportIssuedBy = Required(input.Passport.Authority, 200);
-        horse.PassportIssuedDate = issue; horse.PassportExpiryDate = expiry; horse.SpecialHealthNotes = input.Conditions;
+        horse.PassportIssuedDate = issue; horse.PassportExpiryDate = expiry; horse.SpecialHealthNotes = input.HealthNotes;
         if (id is null) data.Add(horse);
         await data.SaveAsync(token);
         return HorseMapper.View(horse);

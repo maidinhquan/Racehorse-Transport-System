@@ -193,6 +193,10 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Cổng kết nối API giữa Frontend và Backend - RaceHorse Transport"
     });
     c.OperationFilter<Flow1SwaggerExamples>();
+    c.SchemaFilter<NoteDescriptions>();
+    c.SchemaFilter<RequestExamples>();
+    c.OperationFilter<RequestExamples>();
+    c.DocumentFilter<FlowOrder>();
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -234,6 +238,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "RaceHorse Transport API v1");
+        c.OrderByFlow();
+        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+        c.EnableFilter();
     });
 }
 

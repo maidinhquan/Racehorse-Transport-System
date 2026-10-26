@@ -63,6 +63,13 @@ Nhánh `Refactor-Flow1`, nền `Truong` tại `cacc5be`. Cập nhật 24/10/2026
 - Không endpoint Manager xác nhận tiền thủ công. Hoàn tiền chỉ cập nhật RefundStatus; không gọi ngân hàng/chuyển tiền.
 - File theo request/ngựa và quyền người dùng; có thêm GET customer/manager `/requests/{requestId}/documents/{recordId}` để tải chính xác giấy tờ upload, kể cả cùng loại có nhiều bản.
 
+## Tên hướng dẫn chăm sóc và lưu ý sức khỏe
+
+- API hồ sơ ngựa dùng `healthNotes` (thay `conditions`), lưu vào `HORSE.SpecialHealthNotes`.
+- API tạo/cập nhật/đọc yêu cầu dùng `careInstructions` (thay `careNotes`), lưu vào `TRANSPORT_REQUEST.CareInstructions`.
+- `horseNotes` vẫn là dictionary ghi hướng dẫn riêng cho từng HorseID trong yêu cầu, lưu vào `REQUEST_HORSE_MAPPING.CareInstructions`.
+- Các field JSON cũ không còn được nhận bởi DTO runtime mới. Khi nối frontend cần dùng tên mới; endpoint và cột SQL giữ nguyên. Snapshot hợp đồng đã lưu không được sửa; snapshot mới dùng `healthNotes` cho ngựa.
+
 ## Hợp đồng API và giới hạn dữ liệu
 
 65 method/path trong `data/Flow1/flow1.openapi.json` đều có đúng một action runtime, đã kiểm bằng EndpointDataSource. Có thêm hai đường tải medical record và bốn đường bàn giao integration được giữ lại. Các response chi tiết trả dữ liệu lưu thực tế; đây không phải chứng nhận toàn bộ payload khớp tuyệt đối schema ví dụ cũ.

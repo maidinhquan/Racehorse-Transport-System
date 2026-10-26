@@ -35,7 +35,7 @@ public sealed class SnapshotBuilder(IDataSession data, Flow1ContractOptions opti
             route = new { originCountry = request.OriginCountry, destinationCountry = request.DestinationCountry, mode = input.Mode,
                 departureAtUtc = Timestamp(input.DepartAt), deliveryAtUtc = Timestamp(input.ArriveAt), preparationDays = preparation },
             horses = horses.Select(h => new { id = h.HorseID, name = h.Name, h.Microchip_ISO, h.FEI_Passport_No, h.Breed, h.Sex, h.DOB, h.Weight,
-                h.PassportIssuedBy, h.PassportIssuedDate, h.PassportExpiryDate, h.DeclaredValueVnd, h.SpecialHealthNotes,
+                h.PassportIssuedBy, h.PassportIssuedDate, h.PassportExpiryDate, h.DeclaredValueVnd, healthNotes = h.SpecialHealthNotes,
                 careInstructions = links.Single(l => l.HorseID == h.HorseID).CareInstructions }).ToArray(),
             careInstructions = request.CareInstructions,
             commercial = new { currency = "VND", items = input.Items, totalPrice = input.Items.Sum(x => x.Amount), depositPercent = input.DepositPct,
