@@ -7,7 +7,7 @@
 - Không còn `POST .../{requestId}/submit` hoặc `POST .../{requestId}/horses/{horseId}/documents`.
 - Đơn `REJECTED` kết thúc, không mở lại qua PUT. Đơn `DRAFT` cũ không được gửi qua API mới; khách tạo yêu cầu đầy đủ mới.
 
-Content-Type: `multipart/form-data`, gồm `data` (chuỗi JSON UTF-8) và `files` (nhiều file). Giới hạn 33 file, 10 MiB/file, tổng file 60 MiB, body 64 MiB. PDF/PNG/JPEG phải có chữ ký hợp lệ. Không đưa URL do khách cung cấp vào database.
+Content-Type: `multipart/form-data`, gồm `data` (chuỗi JSON UTF-8) và `files` (nhiều file). Giới hạn 3 file, 10 MiB/file, tổng file 30 MiB, body 64 MiB. PDF/PNG/JPEG phải có chữ ký hợp lệ. Không đưa URL do khách cung cấp vào database.
 
 ## Ví dụ data
 
@@ -38,12 +38,13 @@ ID thành phố/ngựa dưới đây là minh họa. Phải lấy cityId thật 
   "horseNotes": {"HORSE_001": "Dùng dây dắt quen thuộc."},
   "documents": [
     {"fileName": "invitation.pdf", "documentType": "INVITATION_LETTER"},
-    {"fileName": "health.pdf", "documentType": "HEALTH_CERTIFICATE", "horseId": "HORSE_001", "expiryDate": "2028-01-31"}
+    {"fileName": "competition.pdf", "documentType": "COMPETITION_REGISTRATION"},
+    {"fileName": "ata.pdf", "documentType": "ATA_CARNET"}
   ]
 }
 ```
 
-Chọn hai file `invitation.pdf` và `health.pdf` trong trường `files` của Swagger. Không dùng đường dẫn máy cá nhân làm fileName. Nếu không có hồ sơ theo đơn cần đính kèm, gửi `documents: []` và không có files; hồ sơ ngựa dùng chung vẫn phải đầy đủ.
+Chọn ba file `invitation.pdf`, `competition.pdf` và `ata.pdf` trong trường `files` của Swagger. Không dùng đường dẫn máy cá nhân làm fileName. Nếu không có hồ sơ theo đơn cần đính kèm, gửi `documents: []` và không có files; hồ sơ ngựa dùng chung vẫn phải đầy đủ.
 
 ## Nơi lưu và hồ sơ bắt buộc
 
@@ -52,13 +53,12 @@ Chọn hai file `invitation.pdf` và `health.pdf` trong trường `files` của 
 | INVITATION_LETTER | Không có horseId | TRANSPORT_REQUEST.InvitationLetterFileUrl |
 | COMPETITION_REGISTRATION | Không có horseId | TRANSPORT_REQUEST.CompetitionRegistrationFileUrl |
 | ATA_CARNET | Không có horseId | TRANSPORT_REQUEST.AtaCarnetFileUrl |
-| Mã UPPER_SNAKE_CASE tối đa 50 ký tự: COGGINS_TEST / EQUINE_FLU_VAX / DOMESTIC_VET_PASS / HEALTH_CERTIFICATE… | horseId thuộc horses | LEGAL_MEDICAL_RECORD, RequestID + HorseID |
 
-Không mặc định buộc mọi chuyến phải có thư mời/ATA Carnet. Nhóm file chung phụ thuộc mục đích và yêu cầu nghiệp vụ; API không tự phát minh checklist pháp lý theo quốc gia. Điều kiện nền vẫn yêu cầu ngựa thuộc khách, có ảnh, scan hộ chiếu, giấy sở hữu, giá trị khai báo dương và hộ chiếu còn hạn qua ngày giao. Tài liệu có expiryDate được gửi phải còn hạn qua ngày giao. Trạng thái tài liệu mới là `PENDING_REVIEW`, không tự coi là VERIFIED.
+Không mặc định buộc mọi chuyến phải có thư mời/ATA Carnet. Nhóm file chung phụ thuộc mục đích và yêu cầu nghiệp vụ; API không tự phát minh checklist pháp lý theo quốc gia. Điều kiện nền vẫn yêu cầu ngựa thuộc khách, có ảnh, scan hộ chiếu, giấy sở hữu, giá trị khai báo dương và hộ chiếu còn hạn qua ngày giao. Tài liệu có expiryDate được gửi phải còn hạn qua ngày giao. Request tạo/sửa không tạo LEGAL_MEDICAL_RECORD và không thu giấy tờ chuyên môn của từng ngựa.
 
 Đọc hồ sơ chung qua `GET /api/{customer|manager}/requests/{requestId}/shared-documents/{documentType}`. Đọc hồ sơ từng ngựa qua `GET /api/{customer|manager}/requests/{requestId}/documents/{recordId}`. Các URL có trong chi tiết đơn; quyền được kiểm tra phía server.
 
-PUT không gửi lại file chưa thay sẽ giữ liên kết cũ. File mới cùng horseId/documentType thay bản liên kết hiện tại và quay về PENDING_REVIEW. Bỏ ngựa khỏi đơn sẽ bỏ hồ sơ theo đơn của ngựa đó, không xóa hồ sơ HORSE hoặc bytes dùng chung.
+Request tạo/sửa chỉ nhận giấy tờ chung: INVITATION_LETTER, COMPETITION_REGISTRATION, ATA_CARNET, tối đa một file mỗi loại. Không gửi horseId, không thu giấy tờ chuyên môn của từng ngựa tại bước này. PUT giữ nguyên giấy tờ chung cũ nếu không gửi file thay thế.
 
 ## Transaction, retry và triển khai
 

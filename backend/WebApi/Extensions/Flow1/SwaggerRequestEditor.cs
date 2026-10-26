@@ -72,8 +72,6 @@ internal static class SwaggerRequestEditor
             }
             function FilePicker(props) {
                 const root = React.useRef(null);
-                const sequence = React.useRef(0);
-                const [drafts, setDrafts] = React.useState([]);
                 const [error, setError] = React.useState("");
                 const [, refresh] = React.useReducer(function(n) { return n + 1; }, 0);
                 const shared = [["INVITATION_LETTER", "Thư mời"], ["COMPETITION_REGISTRATION", "Giấy đăng ký tham gia thi đấu"], ["ATA_CARNET", "Sổ ATA Carnet"]];
@@ -97,13 +95,13 @@ internal static class SwaggerRequestEditor
                     return {path: path, method: method, state: state, data: data, docs: data.documents || [], files: files};
                 }
                 function save(ctx, docs, files) {
-                    if (docs.length > 33 || files.length > 33 || files.some(function(f) { return f.size > 10 * 1024 * 1024; }) ||
-                        files.reduce(function(total, f) { return total + f.size; }, 0) > 60 * 1024 * 1024)
-                        throw new Error("Tối đa 33 tệp, mỗi tệp 10 MiB và tổng 60 MiB.");
+                    if (docs.length > 3 || files.length > 3 || files.some(function(f) { return f.size > 10 * 1024 * 1024; }) ||
+                        files.reduce(function(total, f) { return total + f.size; }, 0) > 30 * 1024 * 1024)
+                        throw new Error("Tối đa 3 giấy tờ chung, mỗi tệp 10 MiB và tổng 30 MiB.");
                     const names = docs.map(function(d) { return d.fileName; });
-                    const scopes = docs.map(function(d) { return (d.horseId || "") + ":" + d.documentType; });
+                    const scopes = docs.map(function(d) { return d.documentType; });
                     if (new Set(names).size !== names.length) throw new Error("Tên file bị trùng. Đổi tên file để mỗi giấy tờ có một tên riêng.");
-                    if (new Set(scopes).size !== scopes.length) throw new Error("Mỗi ngựa chỉ có một file cho mỗi loại giấy tờ. Chọn thay thế tại dòng đã có.");
+                    if (new Set(scopes).size !== scopes.length) throw new Error("Mỗi loại giấy tờ chung chỉ có một file. Chọn thay thế tại ô đã có.");
                     // Swagger's multipart reducer updates one field per action.
                     const pathMethod = [ctx.path, ctx.method];
                     system.oas3Actions.setRequestBodyValue({pathMethod: pathMethod,
@@ -114,10 +112,8 @@ internal static class SwaggerRequestEditor
                 function change(index, doc, file) {
                     try {
                         const ctx = context();
-                        if (!/^[A-Z][A-Z0-9_]{0,49}$/.test(doc.documentType)) throw new Error("Chọn hoặc nhập mã loại giấy tờ viết HOA, không dấu, tối đa 50 ký tự.");
-                        if (sharedTypes.includes(doc.documentType)) {
-                            if (doc.horseId) throw new Error("Giấy tờ chung không gắn horseId.");
-                        } else if (!(ctx.data.horses || []).includes(doc.horseId)) throw new Error("Chọn ngựa có trong danh sách horses của JSON.");
+                        if (!sharedTypes.includes(doc.documentType) || "horseId" in doc)
+                            throw new Error("Chỉ nhận ba loại giấy tờ chung, không truyền horseId.");
                         const old = ctx.docs[index];
                         const updated = Object.assign({}, doc);
                         if (file) updated.fileName = file.name;
@@ -137,7 +133,6 @@ internal static class SwaggerRequestEditor
                 }
                 let ctx;
                 try { ctx = context(); } catch (_) { ctx = {docs: [], files: [], data: {horses: []}}; }
-                const horses = Array.isArray(ctx.data.horses) ? ctx.data.horses.filter(function(id) { return typeof id === "string"; }) : [];
                 function picker(label, onFile, disabled) {
                     return h("input", {type: "file", accept: ".pdf,.png,.jpg,.jpeg", disabled: props.disabled || disabled,
                         "aria-label": label, onChange: function(e) { const file = e.target.files && e.target.files[0]; if (file) onFile(file); e.target.value = ""; }});
@@ -147,33 +142,9 @@ internal static class SwaggerRequestEditor
                     const file = ctx.files.find(function(f) { return f.name === doc.fileName; });
                     return file ? file.name + " (" + Math.ceil(file.size / 1024) + " KiB)" : doc.fileName + " — chưa chọn tệp tương ứng.";
                 }
-                function horseRow(doc, index, draftId) {
-                    const draft = draftId != null;
-                    function update(field, value) {
-                        const updated = Object.assign({}, doc, {[field]: value});
-                        if (draft) setDrafts(function(rows) { return rows.map(function(row) { return row.id === draftId ? {id: draftId, doc: updated} : row; }); });
-                        else change(index, updated);
-                    }
-                    return h("div", {className: "request-document-card", key: draft ? "draft-" + draftId : "doc-" + index},
-                        h("div", {className: "request-document-fields"},
-                            h("label", null, "Ngựa", h("select", {value: doc.horseId || "", disabled: props.disabled, "aria-label": "Ngựa của giấy tờ",
-                                onChange: function(e) { update("horseId", e.target.value); }}, h("option", {value: ""}, "Chọn ngựa"),
-                                horses.map(function(id) { return h("option", {key: id, value: id}, id); }))),
-                            h("label", null, "Loại giấy tờ (mã)", h("input", {value: doc.documentType || "", list: "request-document-types", disabled: props.disabled,
-                                "aria-label": "Loại giấy tờ của ngựa", onChange: function(e) { update("documentType", e.target.value); }})),
-                            h("label", null, "Hạn giấy tờ (nếu có)", h("input", {type: "date", value: doc.expiryDate || "", disabled: props.disabled,
-                                "aria-label": "Hạn giấy tờ của ngựa", onChange: function(e) { update("expiryDate", e.target.value || null); }}))),
-                        picker("Chọn file giấy tờ của ngựa", function(file) {
-                            if (change(index, doc, file) && draft) setDrafts(function(rows) { return rows.filter(function(row) { return row.id !== draftId; }); });
-                        }, !doc.horseId || !doc.documentType),
-                        h("p", null, fileName(doc)),
-                        h("button", {type: "button", className: "btn", disabled: props.disabled, onClick: function() {
-                            if (draft) setDrafts(function(rows) { return rows.filter(function(row) { return row.id !== draftId; }); }); else remove(index);
-                        }}, "Bỏ giấy tờ mới này"));
-                }
                 return h("section", {ref: root, className: "request-file-picker"},
                     h("h4", null, "2. Giấy tờ đính kèm — chọn đúng loại"),
-                    h("p", null, "Chọn từng file tại đúng ô bên dưới. Swagger tự cập nhật documents trong JSON. Tối đa 33 tệp, mỗi tệp 10 MiB, tổng 60 MiB."),
+                    h("p", null, "Chọn từng file tại đúng ô bên dưới. Swagger tự cập nhật documents trong JSON. Chỉ ba loại giấy tờ chung của yêu cầu; tối đa 3 tệp, mỗi tệp 10 MiB, tổng 30 MiB. Không upload giấy tờ riêng từng ngựa ở bước này."),
                     h("h5", null, "Giấy tờ chung của yêu cầu (không gắn ngựa)"),
                     shared.map(function(item) {
                         const index = ctx.docs.findIndex(function(d) { return d.documentType === item[0] && !d.horseId; });
@@ -183,19 +154,6 @@ internal static class SwaggerRequestEditor
                             h("p", null, fileName(doc)),
                             doc ? h("button", {type: "button", className: "btn", disabled: props.disabled, onClick: function() { remove(index); }}, "Bỏ tệp mới này") : null);
                     }),
-                    h("h5", null, "Giấy tờ riêng của từng ngựa"),
-                    h("p", null, "Chọn ngựa, loại giấy tờ, hạn và file. Dòng chưa chọn file chưa được thêm vào JSON. PUT bỏ tệp mới không xóa hồ sơ đã lưu trên server."),
-                    h("datalist", {id: "request-document-types"}, [["HEALTH_CERTIFICATE", "Giấy chứng nhận sức khỏe"], ["COGGINS_TEST", "Kết quả xét nghiệm Coggins"],
-                        ["EQUINE_FLU_VAX", "Chứng nhận tiêm phòng cúm ngựa"], ["DOMESTIC_VET_PASS", "Giấy thú y nội địa"], ["PASSPORT", "Hộ chiếu"],
-                        ["OWNERSHIP", "Chứng nhận sở hữu"], ["VALUATION", "Giấy định giá"], ["VACCINATION", "Chứng nhận tiêm phòng"]]
-                        .map(function(item) { return h("option", {key: item[0], value: item[0]}, item[1]); })),
-                    ctx.docs.map(function(doc, index) { return sharedTypes.includes(doc.documentType) ? null : horseRow(doc, index, null); }),
-                    drafts.map(function(row) { return horseRow(row.doc, -1, row.id); }),
-                    h("button", {type: "button", className: "btn", disabled: props.disabled || !horses.length, onClick: function() {
-                        if (ctx.docs.length + drafts.length >= 33) { setError("Tối đa 33 giấy tờ."); return; }
-                        setDrafts(function(rows) { return rows.concat([{id: ++sequence.current, doc: {horseId: horses[0], documentType: "HEALTH_CERTIFICATE", fileName: ""}}]); });
-                    }}, "Thêm giấy tờ cho ngựa"),
-                    !horses.length ? h("p", null, "Điền danh sách horses trong JSON trước khi thêm giấy tờ cho ngựa.") : null,
                     error ? h("p", {role: "alert", className: "request-editor-error"}, error) : null);
             }
             return {wrapComponents: {

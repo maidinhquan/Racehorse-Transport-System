@@ -95,18 +95,16 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         var pickup = await ((ICityLocations)locations!).VerifyCityAsync(new((double)input.Pickup!.Longitude!.Value, (double)input.Pickup.Latitude!.Value, input.OriginCountry), input.Pickup.CityId!, ct);
         var delivery = await ((ICityLocations)locations!).VerifyCityAsync(new((double)input.Delivery!.Longitude!.Value, (double)input.Delivery.Latitude!.Value, input.DestinationCountry), input.Delivery.CityId!, ct);
         var docs = input.Documents ?? [];
-        Require(docs.All(d => d is not null && !string.IsNullOrWhiteSpace(d.FileName)) && docs.Count <= 33 && docs.Count == uploads.Count && uploads.Sum(f => (long)f.Bytes.Length) <= 60L * 1024 * 1024
+        Require(docs.All(d => d is not null && !string.IsNullOrWhiteSpace(d.FileName)) && docs.Count <= 3 && docs.Count == uploads.Count && uploads.Sum(f => (long)f.Bytes.Length) <= 30L * 1024 * 1024
             && uploads.Select(f => f.FileName).Distinct(StringComparer.Ordinal).Count() == uploads.Count
             && docs.Select(d => d.FileName).Distinct(StringComparer.Ordinal).Count() == docs.Count
-            && docs.Select(d => (d.HorseId, d.DocumentType)).Distinct().Count() == docs.Count,
-            "VALIDATION_ERROR", "Each document must match exactly one uniquely named file and scope/type; at most 33 files and 60 MiB total.", 400);
+            && docs.Select(d => d.DocumentType).Distinct().Count() == docs.Count,
+            "VALIDATION_ERROR", "Each document must match exactly one uniquely named file and scope/type; at most three shared files and 30 MiB total.", 400);
         var validated = new List<(RequestDocumentInput Input, UploadedFile Upload, DateTime? Expiry)>();
         foreach (var doc in docs)
         {
             var shared = doc.DocumentType is "INVITATION_LETTER" or "COMPETITION_REGISTRATION" or "ATA_CARNET";
-            Require(System.Text.RegularExpressions.Regex.IsMatch(doc.DocumentType ?? "", @"\A[A-Z][A-Z0-9_]{0,49}\z")
-                && (shared ? doc.HorseId is null : input.Horses.Contains(doc.HorseId!)),
-                "VALIDATION_ERROR", "Use an uppercase document code and the correct selected horse (or no horse for shared documents).", 400);
+            Require(shared, "VALIDATION_ERROR", "Request attachments only allow INVITATION_LETTER, COMPETITION_REGISTRATION and ATA_CARNET; horse documents belong to their own workflow.", 400);
             var upload = uploads.SingleOrDefault(f => f.FileName == doc.FileName);
             Require(upload is not null && !doc.FileName.Contains('/') && !doc.FileName.Contains('\\'), "VALIDATION_ERROR", "Document fileName must match an attached filename.", 400);
             DateTime? expiry = null;
@@ -145,7 +143,7 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
     private async Task ApplyDocumentsAsync(TransportRequest row, IReadOnlyList<StoredDocument> documents, IReadOnlyList<string> selected, CancellationToken ct)
     {
         foreach (var old in await data.ListAsync<MedicalRecord>(m => m.RequestID == row.RequestID, ct))
-            if (!selected.Contains(old.HorseID) || documents.Any(d => d.Input.HorseId == old.HorseID && d.Input.DocumentType == old.DocumentType)) data.Remove(old);
+            if (!selected.Contains(old.HorseID)) data.Remove(old);
         foreach (var doc in documents)
         {
             switch (doc.Input.DocumentType)
@@ -153,8 +151,7 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
                 case "INVITATION_LETTER": row.InvitationLetterFileUrl = doc.Key; break;
                 case "COMPETITION_REGISTRATION": row.CompetitionRegistrationFileUrl = doc.Key; break;
                 case "ATA_CARNET": row.AtaCarnetFileUrl = doc.Key; break;
-                default: data.Add(new MedicalRecord { RequestID = row.RequestID, HorseID = doc.Input.HorseId!, DocumentType = doc.Input.DocumentType,
-                    RequirementStatus = "MANDATORY", DocumentStatus = "PENDING_REVIEW", UploadedFileUrl = doc.Key, ExpiryDate = doc.Expiry }); break;
+
             }
         }
     }

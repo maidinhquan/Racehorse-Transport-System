@@ -69,16 +69,16 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         var date=DateTime.UtcNow.AddDays(70).Date;
         var input=SubmissionTest.Input(date.ToString("yyyy-MM-dd"),date.AddDays(2).ToString("yyyy-MM-dd"),horseId) with {
             HorseNotes=new Dictionary<string,string>{{horseId,"Gentle handling"}},
-            Documents=[new("health.pdf","HEALTH_CERTIFICATE",horseId,"2034-01-01"),new("invitation.pdf","INVITATION_LETTER")] };
+            Documents=[new("competition.pdf","COMPETITION_REGISTRATION","2034-01-01"),new("invitation.pdf","INVITATION_LETTER")] };
         customer.DefaultRequestHeaders.Add("Idempotency-Key",Guid.NewGuid().ToString());
-        var submitted=await Data(await customer.PostAsync("/api/customer/requests",SubmissionTest.Body(input,("health.pdf",SubmissionTest.Pdf),("invitation.pdf",SubmissionTest.Pdf))));
+        var submitted=await Data(await customer.PostAsync("/api/customer/requests",SubmissionTest.Body(input,("competition.pdf",SubmissionTest.Pdf),("invitation.pdf",SubmissionTest.Pdf))));
         var id=submitted.GetProperty("id").GetString()!;
         Assert.Equal("PENDING_REVIEW",submitted.GetProperty("status").GetString());
         Assert.Equal(JsonValueKind.String,submitted.GetProperty("createdAt").ValueKind);
         Assert.Equal(HttpStatusCode.NotFound,(await customer.PostAsJsonAsync($"/api/customer/requests/{id}/submit",new {})).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict,(await customer.PutAsync($"/api/customer/requests/{id}",SubmissionTest.Body(input,("health.pdf",SubmissionTest.Pdf),("invitation.pdf",SubmissionTest.Pdf)))).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,(await customer.PutAsync($"/api/customer/requests/{id}",SubmissionTest.Body(input,("competition.pdf",SubmissionTest.Pdf),("invitation.pdf",SubmissionTest.Pdf)))).StatusCode);
         var detail=await Data(await customer.GetAsync($"/api/customer/requests/{id}"));
-        var document=detail.GetProperty("docs").EnumerateArray().Single(d=>d.GetProperty("key").GetString()=="HEALTH_CERTIFICATE");
+        var document=detail.GetProperty("docs").EnumerateArray().Single(d=>d.GetProperty("key").GetString()=="COMPETITION_REGISTRATION");
         Assert.Equal("application/pdf",(await customer.GetAsync(document.GetProperty("file").GetProperty("url").GetString())).Content.Headers.ContentType?.MediaType);
         Assert.True((await manager.GetAsync($"/api/manager/requests/{id}/shared-documents/INVITATION_LETTER")).IsSuccessStatusCode);
         await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/request-changes",new {feedback="Please update the pickup contact details."}));
@@ -87,7 +87,7 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         Assert.Equal("PENDING_REVIEW",result.GetProperty("status").GetString());
         var reloaded=await Data(await customer.GetAsync($"/api/customer/requests/{id}"));
         Assert.Equal(submitted.GetProperty("createdAt").GetString(),reloaded.GetProperty("createdAt").GetString());
-        Assert.Single(reloaded.GetProperty("docs").EnumerateArray(),d=>d.GetProperty("key").GetString()=="HEALTH_CERTIFICATE");
+        Assert.Single(reloaded.GetProperty("docs").EnumerateArray(),d=>d.GetProperty("key").GetString()=="COMPETITION_REGISTRATION");
         using var other=factory.Customer(); other.DefaultRequestHeaders.Remove("X-Test-Actor");other.DefaultRequestHeaders.Add("X-Test-Actor","USER_002");
         Assert.Equal(HttpStatusCode.NotFound,(await other.GetAsync($"/api/customer/requests/{id}/shared-documents/INVITATION_LETTER")).StatusCode);
         await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/reject",new {reason="Cannot serve this route"}));

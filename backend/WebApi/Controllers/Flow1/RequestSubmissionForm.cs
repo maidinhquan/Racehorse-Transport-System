@@ -16,8 +16,8 @@ public sealed class RequestSubmissionForm
         try { input = JsonSerializer.Deserialize<RequestUpdateInput>(Data, new JsonSerializerOptions(JsonSerializerDefaults.Web)); }
         catch (JsonException) { throw Failure("VALIDATION_ERROR", "data must contain valid request JSON without unknown fields.", 400); }
         Require(input is not null, "VALIDATION_ERROR", "data must contain the complete request.", 400);
-        Require(Files.Count <= 33 && Files.Sum(f => f.Length) <= 60L * 1024 * 1024,
-            "INVALID_FILE_SIZE", "At most 33 files and 60 MiB of file bytes are allowed.", 400);
+        Require(Files.Count <= 3 && Files.Sum(f => f.Length) <= 30L * 1024 * 1024,
+            "INVALID_FILE_SIZE", "At most three shared files and 30 MiB of file bytes are allowed.", 400);
         var uploads = new List<UploadedFile>();
         foreach (var file in Files) uploads.Add(await FileBinding.ReadAsync(file, ct));
         return (input!, uploads);
