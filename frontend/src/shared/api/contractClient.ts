@@ -49,7 +49,7 @@ function validateParameters(match: ReturnType<typeof matchFlow1Operation>, url: 
   for (const parameter of match.operation.parameters ?? []) {
     let value: unknown = parameter.in === 'path' ? decodeURIComponent(values[names.indexOf(parameter.name) + 1])
       : parameter.in === 'query' ? query?.[parameter.name]
-      : Object.entries(headers).find(([name]) => name.toLowerCase() === parameter.name.toLowerCase())?.[1];
+        : Object.entries(headers).find(([name]) => name.toLowerCase() === parameter.name.toLowerCase())?.[1];
     if (value === undefined || value === null) {
       if (parameter.required) throw new Flow1ApiError(`Thiếu ${parameter.in} ${parameter.name} theo contract Flow 1.`, 'CLIENT_CONTRACT_ERROR');
       continue;

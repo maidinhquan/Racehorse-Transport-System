@@ -1249,8 +1249,6 @@ Tạo DRAFT. Role: **CUSTOMER**.
 ```
 
 
-
-
 **Lịch mong muốn (helo.html):** `pickupAt` và `date` là ngày ISO bắt buộc; `pickupAt` là ngày CBN đến lấy ngựa, `date` là ngày mong muốn giao. `today <= pickupAt <= date`; kiểm tra thời gian chuẩn bị trên `pickupAt`. Không tự suy diễn ngày lấy ngựa khi khách chưa nhập.
 
 ### F1-J19 — PUT /customer/requests/{requestId}
@@ -1381,8 +1379,6 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
 
 
 **Lịch mong muốn (helo.html):** `pickupAt` và `date` là ngày ISO bắt buộc; `pickupAt` là ngày CBN đến lấy ngựa, `date` là ngày mong muốn giao. `today <= pickupAt <= date`; kiểm tra thời gian chuẩn bị trên `pickupAt`. Không tự suy diễn ngày lấy ngựa khi khách chưa nhập.
@@ -3795,8 +3791,6 @@ Tạo session. Role: **CUSTOMER**.
 ```
 
 
-
-
 **Thứ tự mới:** chỉ tạo phiên cọc sau khi version đã ký (`SIGNED`, `signedAt` có giá trị) và Request `AWAITING_DEPOSIT`. Return không xác nhận tiền.
 
 ### F1-J44 — GET /customer/payments/{paymentId}
@@ -4088,8 +4082,6 @@ Gửi OTP ký. Role: **CUSTOMER**.
 ```
 
 
-
-
 **Thứ tự mới:** đồng ý điều khoản → ký OTP → `SIGNED` / `AWAITING_DEPOSIT`. Không yêu cầu đã trả cọc và không tạo Trip trong API ký. IPN xác minh đủ tiền của version đã ký mới kích hoạt và tạo đúng một Trip.
 
 ### F1-J51 — POST /customer/contracts/{contractId}/sign
@@ -4142,11 +4134,6 @@ Ký và tạo một Trip. Role: **CUSTOMER**.
   "data": null
 }
 ```
-
-
-
-
-**Thứ tự mới:** đồng ý điều khoản → ký OTP → `SIGNED` / `AWAITING_DEPOSIT`. Không yêu cầu đã trả cọc và không tạo Trip trong API ký. IPN xác minh đủ tiền của version đã ký mới kích hoạt và tạo đúng một Trip.
 
 ## 12. Hủy và hoàn
 

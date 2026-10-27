@@ -13,7 +13,7 @@ const ops = Object.values(specification.paths).flatMap(methods => Object.values(
 function response(name: string) {
   const op = ops.find(item => item['x-client-name'] === name)!;
   const [status, result] = Object.entries(op.responses).find(([code]) => Number(code) < 300)!;
-  const content = result.content as Record<string, { examples: { success: { value: unknown } } }>;
+  const content = (result as { content: Record<string, { examples: { success: { value: unknown } } }> }).content;
   return { status: Number(status), data: structuredClone(content['application/json'].examples.success.value) };
 }
 
@@ -62,7 +62,7 @@ describe('Flow 6 API boundary', () => {
     request.mockRejectedValueOnce({ isAxiosError: true, response: { status: 409, data: { ...error, errorCode: 'STALE_VERSION' } } });
     await expect(flow6Api.acceptDelivery(requestId, acceptance, key)).rejects.toMatchObject({ errorCode: 'STALE_VERSION' });
     expect(request).toHaveBeenCalledTimes(2);
-    expect(request.mock.calls.every(([config]) => config?.data.expectedVersion === 1)).toBe(true);
+    expect(request.mock.calls.every(([config]) => (config?.data as { expectedVersion?: number })?.expectedVersion === 1)).toBe(true);
   });
 
   it('only starts a payment session, never sends an amount or declares payment verified', async () => {
@@ -90,7 +90,7 @@ describe('Flow 6 API boundary', () => {
     await flow6Api.uploadDriverEvidence(requestId, file, key);
     const config = request.mock.calls[0][0];
     expect(config?.data).toBeInstanceOf(FormData);
-    expect(config?.data.get('file')).toBe(file);
+    expect((config?.data as FormData).get('file')).toBe(file);
     expect(config?.headers?.['Content-Type']).toBeUndefined();
     expect(config?.headers?.['Idempotency-Key']).toBe(key);
     await expect(flow6Api.uploadDriverEvidence(requestId, new File(['x'], 'x.html', { type: 'text/html' }), key)).rejects.toMatchObject({ errorCode: 'INVALID_FILE' });
