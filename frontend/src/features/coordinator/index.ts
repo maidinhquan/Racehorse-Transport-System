@@ -2,6 +2,10 @@
 export * from './types';
 export * from './api/coordinatorApi';
 export * from './api/coordinatorEndpoints';
+// Flow 3 — Planning, Routing & Departure Approval
+export * from './api/flow3Api';
+export * from './api/flow3Endpoints';
+export type * from './types/flow3.types';
 export * from './data/mockData';
 export * from './hooks/useCoordinator';
 export * from './hooks/useCoordinatorFilter';
