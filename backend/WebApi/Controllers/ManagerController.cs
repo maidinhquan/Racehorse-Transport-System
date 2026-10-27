@@ -12,15 +12,18 @@ namespace WebApi.Controllers
     {
         private readonly ICoordinatorService _coordinatorService;
         private readonly IFlow1ManagerService _managerService;
+        private readonly IManagerOperationsService _operationsService;
         private readonly HorseTransportDbContext _context;
 
         public ManagerController(
             ICoordinatorService coordinatorService,
             IFlow1ManagerService managerService,
+            IManagerOperationsService operationsService,
             HorseTransportDbContext context)
         {
             _coordinatorService = coordinatorService;
             _managerService = managerService;
+            _operationsService = operationsService;
             _context = context;
         }
 
@@ -65,6 +68,24 @@ namespace WebApi.Controllers
             var data = await _managerService.RejectRequestAsync(id, dto);
             if (data == null) return NotFoundFailure($"Không tìm thấy yêu cầu: {id}");
             return Success(data, "Đã từ chối yêu cầu vận chuyển");
+        }
+
+        [HttpPost("requests/{id}/close")]
+        public async Task<IActionResult> CloseRequest(string id, CancellationToken cancellationToken)
+        {
+            var managerName = User?.Identity?.Name ?? "Logistics Manager";
+            var ok = await _operationsService.CloseRequestAsync(id, managerName, cancellationToken);
+            if (!ok) return NotFoundFailure($"Không tìm thấy yêu cầu: {id}");
+            return SuccessMessage($"Đã đóng yêu cầu vận chuyển {id}");
+        }
+
+        [HttpPost("requests/{id}/collection-notes")]
+        public async Task<IActionResult> AddCollectionNote(string id, [FromBody] dynamic body, CancellationToken cancellationToken)
+        {
+            var note = (string)(body?.note ?? "Ghi nhận công nợ");
+            var managerName = User?.Identity?.Name ?? "Logistics Manager";
+            await _operationsService.AddCollectionNoteAsync(id, note, managerName, cancellationToken);
+            return SuccessMessage("Ghi nhận nội dung theo dõi công nợ thành công");
         }
 
         [HttpPost("requests/{id}/cost-estimate")]
@@ -191,6 +212,141 @@ namespace WebApi.Controllers
         public IActionResult GetNotifications()
         {
             return Success(Array.Empty<object>(), "Lấy danh sách thông báo thành công");
+        }
+
+        // =========================================================================
+        // TRIP DEPLOYMENT, ASSIGNMENT & DEPARTURE APPROVAL
+        // =========================================================================
+
+        [HttpPost("trips/{id}/assignment")]
+        public async Task<IActionResult> AssignTrip(string id, [FromBody] ManagerTripAssignmentDto dto, CancellationToken cancellationToken)
+        {
+            var ok = await _operationsService.AssignTripAsync(id, dto, cancellationToken);
+            if (!ok) return NotFoundFailure($"Không tìm thấy chuyến đi: {id}");
+            return SuccessMessage("Phân công Chuyên viên hồ sơ và Điều phối viên tuyến thành công");
+        }
+
+        [HttpPost("trips/{id}/approve-departure")]
+        public async Task<IActionResult> ApproveDeparture(string id, CancellationToken cancellationToken)
+        {
+            var managerName = User?.Identity?.Name ?? "Logistics Manager";
+            var result = await _operationsService.ApproveDepartureAsync(id, managerName, cancellationToken);
+            if (!result.Success) return Failure(result.Message, null, 409);
+            return SuccessMessage(result.Message);
+        }
+
+        [HttpPost("trips/{id}/route/decision")]
+        public async Task<IActionResult> DecideRoute(string id, [FromBody] ManagerRouteDecisionDto dto, CancellationToken cancellationToken)
+        {
+            var managerName = User?.Identity?.Name ?? "Logistics Manager";
+            var ok = await _operationsService.DecideRouteAsync(id, dto, managerName, cancellationToken);
+            if (!ok) return NotFoundFailure($"Không tìm thấy chuyến đi: {id}");
+            return SuccessMessage(dto.Approve ? "Đã phê duyệt phương án tuyến" : "Đã trả lại phương án tuyến yêu cầu điều chỉnh");
+        }
+
+        [HttpPost("trips/{id}/flight/decision")]
+        public async Task<IActionResult> DecideFlight(string id, [FromBody] ManagerFlightDecisionDto dto, CancellationToken cancellationToken)
+        {
+            var managerName = User?.Identity?.Name ?? "Logistics Manager";
+            await _operationsService.DecideFlightAsync(id, dto, managerName, cancellationToken);
+            return SuccessMessage(dto.Approve ? "Đã duyệt ngân sách chuyến bay" : "Đã từ chối ngân sách chuyến bay");
+        }
+
+        [HttpPost("trips/{id}/handover-resolution")]
+        public async Task<IActionResult> ResolveHandover(string id, [FromBody] HandoverResolutionDto dto, CancellationToken cancellationToken)
+        {
+            var managerName = User?.Identity?.Name ?? "Logistics Manager";
+            await _operationsService.ResolveHandoverRefusalAsync(id, dto, managerName, cancellationToken);
+            return SuccessMessage("Ghi nhận quyết định xử lý từ chối bàn giao thành công");
+        }
+
+        // =========================================================================
+        // INCIDENTS, ACTUAL COSTS & COMPLAINTS
+        // =========================================================================
+
+        [HttpGet("incidents")]
+        public async Task<IActionResult> GetIncidents(CancellationToken cancellationToken)
+        {
+            var data = await _operationsService.GetIncidentsAsync(cancellationToken);
+            return Success(data, "Lấy danh sách sự cố thành công");
+        }
+
+        [HttpPut("incidents/{id}/status")]
+        public async Task<IActionResult> UpdateIncidentStatus(string id, [FromBody] IncidentStatusUpdateDto dto, CancellationToken cancellationToken)
+        {
+            var managerName = User?.Identity?.Name ?? "Logistics Manager";
+            var ok = await _operationsService.UpdateIncidentStatusAsync(id, dto.Status, managerName, cancellationToken);
+            if (!ok) return NotFoundFailure($"Không tìm thấy sự cố: {id}");
+            return SuccessMessage($"Cập nhật trạng thái sự cố {id} thành công");
+        }
+
+        [HttpPost("incidents/{id}/plans/{planId}/decision")]
+        public async Task<IActionResult> DecideIncidentPlan(string id, string planId, [FromBody] IncidentPlanDecisionDto dto, CancellationToken cancellationToken)
+        {
+            var managerName = User?.Identity?.Name ?? "Logistics Manager";
+            var ok = await _operationsService.DecideIncidentPlanAsync(id, planId, dto, managerName, cancellationToken);
+            if (!ok) return NotFoundFailure($"Không tìm thấy sự cố {id} hoặc phương án {planId}");
+            return SuccessMessage(dto.Approve ? $"Đã duyệt phương án xử lý {planId}" : $"Đã từ chối phương án {planId}");
+        }
+
+        [HttpGet("actual-costs")]
+        public async Task<IActionResult> GetActualCosts(CancellationToken cancellationToken)
+        {
+            var data = await _operationsService.GetActualCostsAsync(cancellationToken);
+            return Success(data, "Lấy danh sách chi phí thực tế thành công");
+        }
+
+        [HttpPut("trips/{id}/actual-costs")]
+        public async Task<IActionResult> SaveActualCosts(string id, [FromBody] SaveActualCostDto dto, CancellationToken cancellationToken)
+        {
+            var ok = await _operationsService.SaveActualCostsAsync(id, dto, cancellationToken);
+            if (!ok) return NotFoundFailure($"Không tìm thấy chuyến đi: {id}");
+            return SuccessMessage($"Lưu chi phí thực tế cho chuyến {id} thành công");
+        }
+
+        [HttpGet("complaints")]
+        public async Task<IActionResult> GetComplaints(CancellationToken cancellationToken)
+        {
+            var data = await _operationsService.GetComplaintsAsync(cancellationToken);
+            return Success(data, "Lấy danh sách khiếu nại thành công");
+        }
+
+        [HttpPost("complaints/{id}/replies")]
+        public async Task<IActionResult> ReplyComplaint(string id, [FromBody] ComplaintReplyDto dto, CancellationToken cancellationToken)
+        {
+            var managerName = User?.Identity?.Name ?? "Logistics Manager";
+            var ok = await _operationsService.ReplyComplaintAsync(id, dto, managerName, cancellationToken);
+            if (!ok) return NotFoundFailure($"Không tìm thấy khiếu nại: {id}");
+            return SuccessMessage("Gửi phản hồi khiếu nại thành công");
+        }
+
+        [HttpPost("complaints/{id}/resolve")]
+        public async Task<IActionResult> ResolveComplaint(string id, [FromBody] ComplaintResolveDto dto, CancellationToken cancellationToken)
+        {
+            var managerName = User?.Identity?.Name ?? "Logistics Manager";
+            var ok = await _operationsService.ResolveComplaintAsync(id, dto, managerName, cancellationToken);
+            if (!ok) return NotFoundFailure($"Không tìm thấy khiếu nại: {id}");
+            return SuccessMessage("Đã giải quyết khiếu nại thành công");
+        }
+
+        [HttpPost("complaints/{id}/escalate")]
+        public async Task<IActionResult> EscalateComplaint(string id, CancellationToken cancellationToken)
+        {
+            var managerName = User?.Identity?.Name ?? "Logistics Manager";
+            var ok = await _operationsService.EscalateComplaintAsync(id, managerName, cancellationToken);
+            if (!ok) return NotFoundFailure($"Không tìm thấy khiếu nại: {id}");
+            return SuccessMessage("Đã chuyển cấp xử lý khiếu nại lên Ban Điều Hành");
+        }
+
+        // =========================================================================
+        // OPERATIONAL & FINANCIAL REPORTS
+        // =========================================================================
+
+        [HttpGet("reports/overview")]
+        public async Task<IActionResult> GetReportsOverview(CancellationToken cancellationToken)
+        {
+            var data = await _operationsService.GetReportsOverviewAsync(cancellationToken);
+            return Success(data, "Lấy báo cáo doanh thu, chi phí vận hành và hiệu suất thành công");
         }
 
         // =========================================================================

@@ -5,16 +5,26 @@ import type {
   ActualCost,
   ContractDraft,
   ExtraCost,
-  RevisionField,
   Transaction,
   TransportRequest,
   Trip,
 } from '../types';
 import { managerApi } from '../api/managerApi';
-import { apiMessage, type PaymentConfirmation } from '../../../shared/api/flow1';
+import { apiMessage } from '../../../shared/api/apiError';
 import {
   MANAGER_NAME,
+  mockActualCosts,
+  mockComplaints,
+  mockCustomers,
+  mockHorses,
+  mockIncidents,
+  mockNotifications,
+  mockRequests,
+  mockStaff,
+  mockTransactions,
+  mockTrips,
 } from '../data/mockData';
+import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import {
   addDays,
   addHours,
@@ -56,9 +66,22 @@ interface ManagerState extends ManagerData {
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const DATA_KEYS: Array<keyof ManagerData> = ['customers', 'horses', 'staff', 'requests', 'trips', 'transactions', 'incidents', 'complaints', 'actualCosts', 'notifications'];
 
+const initialDemo = getDemoMode('manager');
+
 let state: ManagerState = {
-  customers: [], horses: [], staff: [], requests: [], trips: [], transactions: [],
-  incidents: [], complaints: [], actualCosts: [], notifications: [], loading: false, loaded: false, toast: null,
+  customers: initialDemo ? clone(mockCustomers) : [],
+  horses: initialDemo ? clone(mockHorses) : [],
+  staff: initialDemo ? clone(mockStaff) : [],
+  requests: initialDemo ? clone(mockRequests) : [],
+  trips: initialDemo ? clone(mockTrips) : [],
+  transactions: initialDemo ? clone(mockTransactions) : [],
+  incidents: initialDemo ? clone(mockIncidents) : [],
+  complaints: initialDemo ? clone(mockComplaints) : [],
+  actualCosts: initialDemo ? clone(mockActualCosts) : [],
+  notifications: initialDemo ? clone(mockNotifications) : [],
+  loading: false,
+  loaded: false,
+  toast: null,
 };
 const listeners = new Set<() => void>();
 const setState = (patch: Partial<ManagerState> | ((s: ManagerState) => Partial<ManagerState>)) => {
@@ -69,6 +92,47 @@ const subscribe = (l: () => void) => { listeners.add(l); return () => { listener
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('rts_demo_mode_change', (event: Event) => {
+    const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
+    if (customEvent.detail && customEvent.detail.role === 'manager') {
+      if (customEvent.detail.enabled) {
+        setState({
+          customers: clone(mockCustomers),
+          horses: clone(mockHorses),
+          staff: clone(mockStaff),
+          requests: clone(mockRequests),
+          trips: clone(mockTrips),
+          transactions: clone(mockTransactions),
+          incidents: clone(mockIncidents),
+          complaints: clone(mockComplaints),
+          actualCosts: clone(mockActualCosts),
+          notifications: clone(mockNotifications),
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
+      } else {
+        setState({
+          customers: [],
+          horses: [],
+          staff: [],
+          requests: [],
+          trips: [],
+          transactions: [],
+          incidents: [],
+          complaints: [],
+          actualCosts: [],
+          notifications: [],
+          loading: false,
+          loaded: true,
+        });
+        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
+      }
+    }
+  });
+}
 const ok = (message: string, id?: string): ActionResult => { toast(message); return { ok: true, message, id }; };
 const fail = (message: string): ActionResult => { toast(message); return { ok: false, message }; };
 
@@ -97,12 +161,55 @@ async function loadAll() {
       managerApi.getCustomers(), managerApi.getHorses(), managerApi.getStaff(), managerApi.getRequests(),
       managerApi.getTrips(), managerApi.getTransactions(), managerApi.getNotifications(),
     ]);
-    setState({ customers, horses, staff, requests, trips, transactions, notifications, loading: false, loaded: true });
+    const isDemo = getDemoMode('manager');
+    if (!isDemo) {
+      setState({
+        customers: customers || [],
+        horses: horses || [],
+        staff: staff || [],
+        requests: requests || [],
+        trips: trips || [],
+        transactions: transactions || [],
+        notifications: notifications || [],
+        loading: false,
+        loaded: true,
+      });
+      return;
+    }
+    setState({
+      customers: customers?.length ? customers : clone(mockCustomers),
+      horses: horses?.length ? horses : clone(mockHorses),
+      staff: staff?.length ? staff : clone(mockStaff),
+      requests: requests?.length ? requests : clone(mockRequests),
+      trips: trips?.length ? trips : clone(mockTrips),
+      transactions: transactions?.length ? transactions : clone(mockTransactions),
+      notifications: notifications?.length ? notifications : clone(mockNotifications),
+      loading: false,
+      loaded: true,
+    });
     const extra = await Promise.allSettled([managerApi.getIncidents(), managerApi.getComplaints(), managerApi.getActualCosts()]);
-    if (extra[0].status === 'fulfilled') setState({ incidents: extra[0].value });
-    if (extra[1].status === 'fulfilled') setState({ complaints: extra[1].value });
-    if (extra[2].status === 'fulfilled') setState({ actualCosts: extra[2].value });
-  } catch (error) { setState({ loading: false, loaded: true }); toast(apiMessage(error)); }
+    if (extra[0].status === 'fulfilled') setState({ incidents: extra[0].value?.length ? extra[0].value : clone(mockIncidents) });
+    if (extra[1].status === 'fulfilled') setState({ complaints: extra[1].value?.length ? extra[1].value : clone(mockComplaints) });
+    if (extra[2].status === 'fulfilled') setState({ actualCosts: extra[2].value?.length ? extra[2].value : clone(mockActualCosts) });
+  } catch (error) {
+    const isDemo = getDemoMode('manager');
+    if (isDemo) {
+      setState({
+        customers: clone(mockCustomers),
+        horses: clone(mockHorses),
+        staff: clone(mockStaff),
+        requests: clone(mockRequests),
+        trips: clone(mockTrips),
+        transactions: clone(mockTransactions),
+        notifications: clone(mockNotifications),
+        loading: false,
+        loaded: true,
+      });
+    } else {
+      setState({ loading: false, loaded: true });
+    }
+    toast(apiMessage(error));
+  }
 }
 const running = new Set<string>();
 async function perform(key: string, action: () => Promise<unknown>, message: string): Promise<ActionResult> {
@@ -127,9 +234,9 @@ const managerActions = {
     if (reqIn(state, id)?.status !== 'PENDING_REVIEW') return Promise.resolve(fail('Yêu cầu chưa ở hàng chờ xét duyệt.'));
     return perform(id, () => managerApi.acceptRequest(id), 'Đã chấp thuận yêu cầu.');
   },
-  requestRevision(id: string, feedback: string, fields: RevisionField[]) {
-    if (feedback.trim().length < 10 || !fields.length) return Promise.resolve(fail('Chọn mục cần sửa và nhập góp ý ít nhất 10 ký tự.'));
-    return perform(id, () => managerApi.requestRevision(id, feedback.trim(), fields), 'Đã gửi yêu cầu chỉnh sửa.');
+  requestRevision(id: string, feedback: string) {
+    if (feedback.trim().length < 10) return Promise.resolve(fail('Nhập góp ý ít nhất 10 ký tự.'));
+    return perform(id, () => managerApi.requestRevision(id, feedback.trim()), 'Đã gửi yêu cầu chỉnh sửa.');
   },
   rejectRequest(id: string, reason: string) {
     if (reason.trim().length < 10) return Promise.resolve(fail('Nhập lý do ít nhất 10 ký tự.'));
@@ -197,24 +304,17 @@ const managerActions = {
     if (!v?.contractId) return Promise.resolve(fail('Không tìm thấy hợp đồng.'));
     return perform(id, () => managerApi.remindSign(v.contractId!, v.v), 'Đã gửi nhắc hoàn tất hợp đồng.');
   },
-  verifyTransaction(id: string, body: PaymentConfirmation) {
-    if (!Number.isInteger(body.confirmedAmount) || body.confirmedAmount <= 0 || !body.transactionCode.trim() || !body.receivedAt) return Promise.resolve(fail('Điền số tiền thực nhận, mã giao dịch và thời điểm nhận tiền.'));
-    return perform(id, () => managerApi.verifyTransaction(id, body), 'Đã đối soát giao dịch.');
-  },
-  rejectTransaction(id: string, reason: string) {
-    return perform(id, () => managerApi.rejectTransaction(id, reason), 'Đã từ chối chứng từ.');
-  },
-  confirmRefund(id: string, reference: string, note: string) {
-    const tx = state.transactions.find(x => x.id === id);
-    if (!tx?.contractId || !reference.trim() || note.trim().length < 5) return Promise.resolve(fail('Cần hợp đồng, mã tham chiếu hoàn tiền và ghi chú.'));
-    return perform(id, () => managerApi.confirmRefund(tx.contractId!, reference.trim(), note.trim()), 'Đã ghi nhận hoàn tiền.');
+  confirmRefund(requestId: string) {
+    const request = reqIn(state, requestId), contractId = request?.contractId ?? (request && curVersion(request)?.contractId);
+    if (!contractId) return Promise.resolve(fail('Không tìm thấy hợp đồng để ghi nhận trạng thái hoàn tiền.'));
+    return perform(requestId, () => managerApi.confirmRefund(contractId), 'Đã cập nhật trạng thái hoàn tiền theo máy chủ.');
   },
   confirmDeployment(id: string, specialistId: string, coordinatorId: string) {
     if (!specialistId || !coordinatorId) return Promise.resolve(fail('Chọn đủ người phụ trách.'));
     return perform(id, () => managerApi.deployTrip(id, { specialistId, coordinatorId }), 'Đã phân công chuyến.');
   },
-  holdTrip(_id: string, _reason: string): ActionResult { return fail('Tạm dừng chuyến chưa được backend hỗ trợ trong phạm vi này.'); },
-  resumeTrip(_id: string): ActionResult { return fail('Tiếp tục chuyến chưa được backend hỗ trợ trong phạm vi này.'); },
+  holdTrip(id: string, reason: string) { return perform(id, () => managerApi.holdTrip(id, reason.trim()), 'Đã tạm dừng chuyến.'); },
+  resumeTrip(id: string) { return perform(id, () => managerApi.resumeTrip(id), 'Đã gửi yêu cầu tiếp tục chuẩn bị chuyến.'); },
   approveRoute(tripId: string): ActionResult {
     const t = tripIn(state, tripId);
     if (!t?.route || t.route.status !== 'PENDING_APPROVAL') return fail('Không có phương án tuyến chờ duyệt.');

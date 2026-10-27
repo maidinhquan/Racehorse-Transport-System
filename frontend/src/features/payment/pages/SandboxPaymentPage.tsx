@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { flow1 } from '../../../shared/api/flow1'
+import { contractClient } from '../../../shared/api/contractClient'
 import './SandboxPaymentPage.css'
 
 type Payment = { id: string; amount: number; status: string; responseCode?: string }
@@ -31,7 +31,7 @@ export default function SandboxPaymentPage() {
         setChecking(true)
         const paymentId = sessionStorage.getItem('last_deposit_payment_id')
         if (!paymentId) throw new Error('Không tìm thấy phiên thanh toán. Mở lại yêu cầu để kiểm tra trạng thái từ máy chủ.')
-        const dto = await flow1<{ id: string; amount: number; status: string }>('get', `/customer/payments/${paymentId}`)
+        const dto = await contractClient<{ id: string; amount: number; status: string }>('get', `/customer/payments/${paymentId}`)
         const result: Payment = { ...dto, status: dto.status === 'SUCCESS' ? 'Paid' : ['FAILED', 'REJECTED'].includes(dto.status) ? 'Failed' : 'Pending' }
         if (controller.signal.aborted) return
         setPayment(result)

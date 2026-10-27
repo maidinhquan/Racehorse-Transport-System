@@ -17,4 +17,12 @@ public class CostItemDAO : BaseDAO<CostItem>, ICostItemDAO
             .Where(c => c.ContractId == contractId)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<List<CostItem>> GetByTripIdAsync(string tripId, CancellationToken cancellationToken = default)
+    {
+        return await DbSet.AsNoTracking()
+            .Include(c => c.Contract)
+            .Where(c => c.Contract != null && c.Contract.TripId == tripId)
+            .ToListAsync(cancellationToken);
+    }
 }

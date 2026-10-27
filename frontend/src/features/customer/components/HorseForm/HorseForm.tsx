@@ -34,6 +34,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({ value: h, onChange, locked
   );
 
   const fileCard = (field: FileField | 'scan', empty: string) => {
+    if (field === 'flu' || field === 'health') return <p className="cus-hint">Nộp tài liệu này trong phần hồ sơ của từng ngựa khi tạo yêu cầu vận chuyển.</p>;
     const file = field === 'scan' ? h.passport.scan : h[field];
     const update = (f?: FileRef) => (field === 'scan' ? setPass('scan', f) : set(field, f));
     return file ? (

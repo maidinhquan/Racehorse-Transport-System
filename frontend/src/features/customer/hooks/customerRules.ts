@@ -407,7 +407,7 @@ export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[numbe
   if (!r.date || r.date < today()) e.push([0, 'Ngày vận chuyển phải từ hôm nay trở đi.']);
   (['pickup', 'delivery'] as const).forEach((k) => {
     const p = r[k], label = k === 'pickup' ? 'Điểm nhận' : 'Điểm giao';
-    if (!p.name.trim() || !p.address.trim() || !p.contact.trim() || !p.phone.trim()) e.push([1, `${label}: còn thiếu tên, địa chỉ, người liên hệ hoặc số điện thoại.`]);
+    if (!p.name.trim() || !p.address.trim() || !p.contact.trim() || !p.phone.trim()) e.push([0, `${label}: còn thiếu tên, địa chỉ, người liên hệ hoặc số điện thoại.`]);
   });
   if (r.horseCount < 1 || r.horseCount > 6 || pickedHorses(r).length !== r.horseCount) e.push([2, 'Chọn đủ số ngựa, từ 1 đến 6.']);
   r.horses.forEach((id, i) => { if (!id) e.push([2, `Chưa chọn ngựa ở vị trí ${i + 1}/${r.horses.length}.`]); });

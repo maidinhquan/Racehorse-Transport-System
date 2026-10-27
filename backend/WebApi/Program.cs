@@ -38,6 +38,11 @@ builder.Services.AddScoped<IInvoiceDAO, Infrastructure.DAOs.InvoiceDAO>();
 builder.Services.AddScoped<IPaymentDAO, Infrastructure.DAOs.PaymentDAO>();
 builder.Services.AddScoped<ICostItemDAO, Infrastructure.DAOs.CostItemDAO>();
 builder.Services.AddScoped<ITripPlanDAO, Infrastructure.DAOs.TripPlanDAO>();
+builder.Services.AddScoped<IPolicyAndTermDAO, Infrastructure.DAOs.PolicyAndTermDAO>();
+builder.Services.AddScoped<IQuarantineBookingDAO, Infrastructure.DAOs.QuarantineBookingDAO>();
+builder.Services.AddScoped<ICustomsClearanceDAO, Infrastructure.DAOs.CustomsClearanceDAO>();
+builder.Services.AddScoped<IIncidentDAO, Infrastructure.DAOs.IncidentDAO>();
+builder.Services.AddScoped<INotificationDAO, Infrastructure.DAOs.NotificationDAO>();
 
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -46,6 +51,8 @@ builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
 builder.Services.AddScoped<ICustomerHorseService, CustomerHorseService>();
 builder.Services.AddScoped<IFlow1CustomerService, Infrastructure.Services.Flow1CustomerService>();
 builder.Services.AddScoped<IFlow1ManagerService, Infrastructure.Services.Flow1ManagerService>();
+builder.Services.AddScoped<ISpecialistService, Infrastructure.Services.SpecialistService>();
+builder.Services.AddScoped<IManagerOperationsService, Infrastructure.Services.ManagerOperationsService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 
 // =============================================================================

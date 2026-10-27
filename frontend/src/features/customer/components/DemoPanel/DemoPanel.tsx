@@ -12,6 +12,7 @@ import {
   qrExpired,
   versionState,
 } from '../../hooks/customerRules';
+import { useDemoMode } from '../../../../shared/context/DemoModeContext';
 import { Modal, ReasonModal } from '../Modals';
 import './DemoPanel.css';
 
@@ -22,7 +23,8 @@ type Dialog = '' | 'changes' | 'reject' | 'supplement';
  * để đi hết luồng của khách hàng. Không thuộc cổng khách hàng thật.
  */
 export const DemoPanel: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
-  if (import.meta.env.VITE_ENABLE_DEMO !== 'true') return null;
+  const { enabled: isDemoMode } = useDemoMode('customer');
+  if (!isDemoMode) return null;
   const { horses, actions } = useCustomer();
   const d = actions.demo;
   const [dialog, setDialog] = useState<Dialog>('');
