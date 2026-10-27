@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Entities
@@ -27,6 +27,32 @@ namespace Domain.Entities
         [Column("Status")]
         [StringLength(50)]
         public string Status { get; set; } = null!;
+
+        // Quản lý Phiên bản & Khóa lạc quan (Flow 3 v2 Optimistic Concurrency & Binding)
+        [Column("Version")]
+        public int Version { get; set; } = 1;
+
+        [Column("PlanVersion")]
+        public int PlanVersion { get; set; } = 1;
+
+        [Column("ContextVersion")]
+        public int ContextVersion { get; set; } = 1;
+
+        [Column("ReadinessVersion")]
+        public int ReadinessVersion { get; set; } = 1;
+
+        [Column("DraftPlanJson")]
+        public string? DraftPlanJson { get; set; }
+
+        [Column("ApprovedPlanJson")]
+        public string? ApprovedPlanJson { get; set; }
+
+        [Column("OpenChange")]
+        public bool OpenChange { get; set; } = false;
+
+        [Column("EffectiveOriginPlaceId")]
+        [StringLength(50)]
+        public string? EffectiveOriginPlaceId { get; set; }
 
         // Bàn giao triển khai từ Flow 1 (Deployment)
         [Column("DeploymentStatus")]
@@ -120,10 +146,14 @@ namespace Domain.Entities
         [Column("RejectionReason")]
         [StringLength(500)]
         public string? RejectionReason { get; set; }
+
         // Navigation properties
         [ForeignKey(nameof(RequestId))]
         [InverseProperty(nameof(TransportRequest.TripPlans))]
         public virtual TransportRequest? Request { get; set; }
+
+        [ForeignKey(nameof(EffectiveOriginPlaceId))]
+        public virtual PartnerFacility? EffectiveOriginPlace { get; set; }
 
         [InverseProperty(nameof(TripVehicleAssignment.Trip))]
         public virtual ICollection<TripVehicleAssignment> VehicleAssignments { get; set; } = new List<TripVehicleAssignment>();
@@ -148,6 +178,14 @@ namespace Domain.Entities
 
         [InverseProperty(nameof(FlightBooking.Trip))]
         public virtual ICollection<FlightBooking> FlightBookings { get; set; } = new List<FlightBooking>();
+
+        [InverseProperty(nameof(PickupRelocationProposal.Trip))]
+        public virtual ICollection<PickupRelocationProposal> PickupRelocations { get; set; } = new List<PickupRelocationProposal>();
+
+        [InverseProperty(nameof(TripPlanningHistory.Trip))]
+        public virtual ICollection<TripPlanningHistory> PlanningHistories { get; set; } = new List<TripPlanningHistory>();
+
+        [InverseProperty(nameof(PlanningAttachment.Trip))]
+        public virtual ICollection<PlanningAttachment> PlanningAttachments { get; set; } = new List<PlanningAttachment>();
     }
 }
-

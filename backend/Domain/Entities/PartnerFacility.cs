@@ -19,6 +19,11 @@ namespace Domain.Entities
         [StringLength(50)]
         public string? FacilityType { get; set; }
 
+        // Flow 3 v2: Place Purposes đa chức năng (REST, FUEL, QUARANTINE, BORDER, AIRPORT)
+        [Column("Purposes")]
+        [StringLength(100)]
+        public string? Purposes { get; set; }
+
         [Column("CountryCode")]
         [StringLength(3)]
         public string CountryCode { get; set; } = "VN";
@@ -39,9 +44,34 @@ namespace Domain.Entities
         [StringLength(100)]
         public string? Coordinates { get; set; }
 
+        [Column("Latitude", TypeName = "decimal(9, 6)")]
+        public decimal? Latitude { get; set; }
+
+        [Column("Longitude", TypeName = "decimal(9, 6)")]
+        public decimal? Longitude { get; set; }
+
         [Column("TimeZone")]
         [StringLength(50)]
         public string? TimeZone { get; set; }
+
+        [Column("OperatingHours")]
+        [StringLength(50)]
+        public string? OperatingHours { get; set; } = "24/7";
+
+        [Column("SupportsOvernight")]
+        public bool SupportsOvernight { get; set; } = false;
+
+        [Column("HasTruckParking")]
+        public bool HasTruckParking { get; set; } = true;
+
+        [Column("HasLoadingArea")]
+        public bool HasLoadingArea { get; set; } = true;
+
+        [Column("HasStabling")]
+        public bool HasStabling { get; set; } = true;
+
+        [Column("HasWaterFeed")]
+        public bool HasWaterFeed { get; set; } = true;
 
         [Column("CapacityStalls")]
         public int? CapacityStalls { get; set; }
@@ -76,4 +106,3 @@ namespace Domain.Entities
         public virtual ICollection<RouteSegment> RouteSegments { get; set; } = new List<RouteSegment>();
     }
 }
-

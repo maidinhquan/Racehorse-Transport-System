@@ -1,5 +1,104 @@
+using System.Text.Json.Serialization;
+
 namespace Application.DTOs
 {
+    public class ReadinessCheckDto
+    {
+        [JsonPropertyName("code")]
+        public string Code { get; set; } = string.Empty;
+
+        [JsonPropertyName("group")]
+        public string Group { get; set; } = "SHARED"; // SHARED, ROAD, AIR
+
+        [JsonPropertyName("tab")]
+        public string Tab { get; set; } = "overview"; // overview, route, resources, readiness, incidents
+
+        [JsonPropertyName("label")]
+        public string Label { get; set; } = string.Empty;
+
+        [JsonPropertyName("ok")]
+        public bool Ok { get; set; }
+
+        [JsonPropertyName("detail")]
+        public string Detail { get; set; } = string.Empty;
+    }
+
+    public class ReadinessDto
+    {
+        [JsonPropertyName("tripId")]
+        public string TripId { get; set; } = string.Empty;
+
+        [JsonPropertyName("binding")]
+        public BindingDto Binding { get; set; } = new();
+
+        [JsonPropertyName("readinessVersion")]
+        public int ReadinessVersion { get; set; } = 1;
+
+        [JsonPropertyName("approvedPlanVersion")]
+        public int? ApprovedPlanVersion { get; set; }
+
+        [JsonPropertyName("docsReady")]
+        public bool DocsReady { get; set; }
+
+        [JsonPropertyName("opsReady")]
+        public bool OpsReady { get; set; }
+
+        [JsonPropertyName("canApproveDeparture")]
+        public bool CanApproveDeparture { get; set; }
+
+        [JsonPropertyName("openChange")]
+        public bool OpenChange { get; set; }
+
+        [JsonPropertyName("checkedAt")]
+        public string CheckedAt { get; set; } = string.Empty;
+
+        [JsonPropertyName("checks")]
+        public List<ReadinessCheckDto> Checks { get; set; } = new();
+
+        [JsonPropertyName("blockers")]
+        public List<BlockerDto> Blockers { get; set; } = new();
+    }
+
+    public class DepartureInputDto
+    {
+        [JsonPropertyName("expectedVersion")]
+        public int ExpectedVersion { get; set; }
+
+        [JsonPropertyName("approvedPlanVersion")]
+        public int ApprovedPlanVersion { get; set; }
+
+        [JsonPropertyName("readinessVersion")]
+        public int ReadinessVersion { get; set; }
+    }
+
+    public class DepartureResultDto
+    {
+        [JsonPropertyName("tripId")]
+        public string TripId { get; set; } = string.Empty;
+
+        [JsonPropertyName("requestId")]
+        public string RequestId { get; set; } = string.Empty;
+
+        [JsonPropertyName("tripStatus")]
+        public string TripStatus { get; set; } = "READY_TO_DEPART";
+
+        [JsonPropertyName("requestStatus")]
+        public string RequestStatus { get; set; } = "SCHEDULED";
+
+        [JsonPropertyName("binding")]
+        public BindingDto Binding { get; set; } = new();
+
+        [JsonPropertyName("approvedPlanVersion")]
+        public int ApprovedPlanVersion { get; set; }
+
+        [JsonPropertyName("approvedBy")]
+        public ActorDto ApprovedBy { get; set; } = new();
+
+        [JsonPropertyName("approvedAt")]
+        public string ApprovedAt { get; set; } = string.Empty;
+    }
+
+    // --- Legacy compatibility classes ---
     public class OperationsReadinessDto
     {
         public string TripId { get; set; } = string.Empty;
@@ -89,4 +188,3 @@ namespace Application.DTOs
         public List<string> MissingConditions { get; set; } = new();
     }
 }
-

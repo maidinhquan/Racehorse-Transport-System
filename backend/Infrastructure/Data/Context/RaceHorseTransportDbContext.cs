@@ -39,7 +39,15 @@ namespace Infrastructure.Data.Context
         public DbSet<Handover> Handovers { get; set; } = null!;
         public DbSet<HandoverItem> HandoverItems { get; set; } = null!;
 
-        // 5. Phân vùng Hợp đồng & Tài chính
+        // 5. Phân vùng Flow 3 v2 (Đối tác bay, Lịch bay, Đổi điểm nhận, Idempotency, Lịch sử, Chứng từ)
+        public DbSet<AirPartner> AirPartners { get; set; } = null!;
+        public DbSet<FlightCatalogItem> FlightCatalogs { get; set; } = null!;
+        public DbSet<PickupRelocationProposal> PickupRelocations { get; set; } = null!;
+        public DbSet<IdempotencyRecord> IdempotencyRecords { get; set; } = null!;
+        public DbSet<TripPlanningHistory> TripPlanningHistories { get; set; } = null!;
+        public DbSet<PlanningAttachment> PlanningAttachments { get; set; } = null!;
+
+        // 6. Phân vùng Hợp đồng & Tài chính
         public DbSet<ContractTemplate> ContractTemplates { get; set; } = null!;
         public DbSet<Contract> Contracts { get; set; } = null!;
         public DbSet<CostItem> CostItems { get; set; } = null!;

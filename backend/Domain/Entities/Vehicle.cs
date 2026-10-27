@@ -29,16 +29,31 @@ namespace Domain.Entities
         public string OperatingCountry { get; set; } = "VN";
 
         [Column("PlateNumber")]
-        [StringLength(20)]
+        [StringLength(50)]
         public string? PlateNumber { get; set; }
 
         [Column("Status")]
         [StringLength(50)]
         public string? Status { get; set; }
 
+        // Thông số kỹ thuật phục vụ kiểm soát cầu hầm & tải trọng (Flow 3 v2 Truck-Check)
+        [Column("Height_m", TypeName = "decimal(4, 2)")]
+        public decimal? HeightM { get; set; }
+
+        [Column("Width_m", TypeName = "decimal(4, 2)")]
+        public decimal? WidthM { get; set; }
+
+        [Column("Length_m", TypeName = "decimal(4, 2)")]
+        public decimal? LengthM { get; set; }
+
+        [Column("Gross_Weight_Tons", TypeName = "decimal(5, 2)")]
+        public decimal? GrossWeightTons { get; set; }
+
+        [Column("Axle_Weight_Tons", TypeName = "decimal(5, 2)")]
+        public decimal? AxleWeightTons { get; set; }
+
         // Navigation properties
         [InverseProperty(nameof(TripVehicleAssignment.Vehicle))]
         public virtual ICollection<TripVehicleAssignment> VehicleAssignments { get; set; } = new List<TripVehicleAssignment>();
     }
 }
-
