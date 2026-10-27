@@ -1,100 +1,172 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { DateField } from '../../components/DateField/DateField';
 import { WizardStepper, wizardPath } from '../../components/WizardStepper/WizardStepper';
-import { RequestPlacesFields, type RequestPlaces } from '../../components/RequestPlaces/RequestPlacesFields';
 import { Note } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
 import type { RequestField, TripInfoInput } from '../../types';
-import { FIELD_LABEL, addDays, city, emptyPlace, fmtDate, isSupportedRoute, today } from '../../hooks/customerRules';
+import {
+  BOOKING_DESTINATIONS,
+  BOOKING_ORIGINS,
+  FIELD_LABEL,
+  ROUTE_RULE,
+  addDays,
+  cityLabel,
+  city,
+  fmtDate,
+  isSupportedRoute,
+  today,
+} from '../../hooks/customerRules';
 import { customerApi } from '../../api/customerApi';
-import type { FormOptions } from '../../../../shared/api/contractClient';
+import type { FormOptions } from '../../../../shared/api/flow1';
 import './CreateRequestPage.css';
 
-/** First of three steps: schedule, pickup address/contact, delivery address/contact. */
+/**
+ * Bước 1/4 – Thông tin chuyến: tuyến, ngày vận chuyển mong muốn, số ngựa và ghi chú chăm sóc.
+ * Dùng cho cả tạo mới (/customer/requests/new) và sửa (/customer/requests/:requestId/edit).
+ */
 export const CreateRequestPage: React.FC = () => {
   const navigate = useNavigate();
   const { requestId } = useParams<{ requestId: string }>();
   const { getRequest, actions } = useCustomer();
   const r = requestId ? getRequest(requestId) : undefined;
-  const [form, setForm] = useState<TripInfoInput>(() => ({ origin: r?.origin ?? '', destination: r?.destination ?? '', date: r?.date ?? '', horseCount: r?.horseCount ?? 1, careNotes: r?.careNotes ?? '' }));
-  const [places, setPlaces] = useState<RequestPlaces>(() => ({ pickup: { ...(r?.pickup ?? emptyPlace()) }, delivery: { ...(r?.delivery ?? emptyPlace()) } }));
-  const [tried, setTried] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const savingRef = useRef(false);
-  // A draft created before a failed details save is reused on retry.
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
-  const draftId = useRef<string | undefined>(requestId);
+  const editing = !!requestId;
+
+  // Lấy dữ liệu tạm từ Landing Page nếu tạo mới
+  const savedPrelim = !editing ? (() => {
+    try {
+      const raw = sessionStorage.getItem('preliminaryRequest');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  })() : null;
+
+  const [form, setForm] = useState<TripInfoInput>(() => ({
+    origin: r?.origin ?? savedPrelim?.origin ?? '',
+    destination: r?.destination ?? savedPrelim?.destination ?? '',
+    date: r?.date ?? addDays(today(), 3),
+    horseCount: r?.horseCount ?? savedPrelim?.horseCount ?? 1,
+    careNotes: r?.careNotes ?? '',
+  }));
+  const set = <K extends keyof TripInfoInput>(k: K, v: TripInfoInput[K]) => setForm((f) => ({ ...f, [k]: v }));
+
   const [options, setOptions] = useState<FormOptions | null>(null);
   const [optionsError, setOptionsError] = useState('');
   useEffect(() => {
     let active = true; setOptions(null); setOptionsError('');
     if (isSupportedRoute(form.origin, form.destination)) {
-      customerApi.getFormOptions(form.origin, form.destination).then(value => { if (active) setOptions(value); })
-        .catch(() => { if (active) setOptionsError('Chưa tải được quy định cho tuyến này. Vui lòng thử lại.'); });
+      customerApi.getFormOptions(form.origin, form.destination).then(value => {
+        if (active) setOptions(value);
+      }).catch(() => { if (active) setOptionsError('Chưa tải được quy định cho tuyến này. Vui lòng thử lại sau.'); });
     }
     return () => { active = false; };
   }, [form.origin, form.destination]);
+  const minLead = options?.preparationDays;
+  const minDate = addDays(today(), minLead ?? 0);
 
-  if (requestId && (!r || !['DRAFT', 'CHANGES_REQUESTED'].includes(r.status))) return <CustomerLayout title="Yêu cầu vận chuyển">
-    <Note tone="grey" title="Không thể sửa yêu cầu này">Chỉ sửa được bản nháp hoặc yêu cầu đang được Manager yêu cầu chỉnh sửa.</Note>
-    <button type="button" className="cus-btn" onClick={() => navigate(`/customer/requests/${requestId}`)}>Quay lại</button>
-  </CustomerLayout>;
+  if (editing && (!r || !['DRAFT', 'CHANGES_REQUESTED'].includes(r.status))) {
+    return (
+      <CustomerLayout title="Yêu cầu vận chuyển">
+        <Note tone="grey" title="Không thể sửa yêu cầu này">Chỉ sửa được bản nháp hoặc yêu cầu đang được Manager yêu cầu chỉnh sửa.</Note>
+        <button type="button" className="cus-btn" style={{ marginTop: 12 }} onClick={() => navigate(requestId ? `/customer/requests/${requestId}` : '/customer/requests')}>Quay lại</button>
+      </CustomerLayout>
+    );
+  }
 
   const revising = r?.status === 'CHANGES_REQUESTED';
   const allowed: RequestField[] = revising ? r?.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'] : ['route', 'date', 'places', 'horses', 'notes'];
-  const lock = (field: RequestField) => !allowed.includes(field);
-  const minDate = addDays(today(), options?.preparationDays ?? 0);
+  const lock = (f: RequestField) => !allowed.includes(f);
   const routeEnabled = options?.supportedRoutes.some(route => route.originCountry === city(form.origin).country && route.destinationCountry === city(form.destination).country && route.mode === (city(form.destination).country === 'JP' ? 'AIR' : 'ROAD'));
-  const tripValid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!form.date && form.date >= minDate;
-  const placeValid = Object.values(places).every(p => p.name.trim() && p.address.trim() && p.contact.trim() && /^[+0-9 ()-]{8,}$/.test(p.phone.trim()));
-  const hint = !form.origin || !form.destination ? 'Chọn thành phố trong địa chỉ nhận và giao ngựa.'
-    : form.origin === form.destination ? 'Thành phố nhận và giao phải khác nhau.'
-    : !isSupportedRoute(form.origin, form.destination) ? 'Chỉ nhận vận chuyển trong Việt Nam và từ Việt Nam đến Nhật Bản.'
-    : optionsError || (!options ? 'Đang tải quy định của tuyến…'
-    : !routeEnabled ? 'Tuyến này hiện chưa nhận yêu cầu vận chuyển.'
+  const valid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!form.date && form.date >= minDate && form.horseCount > 0;
+
+  const hint = !form.origin || !form.destination ? 'Chọn điểm đi, điểm đến, ngày và số ngựa để tiếp tục.'
+    : form.origin === form.destination ? 'Điểm đi và điểm đến phải khác nhau.'
+    : !isSupportedRoute(form.origin, form.destination) ? `Tuyến này không nhận đơn mới. ${ROUTE_RULE}`
     : !form.date ? 'Chọn ngày vận chuyển mong muốn.'
-    : form.date < minDate ? `Tuyến này cần chuẩn bị ${options.preparationDays} ngày, vui lòng chọn từ ${fmtDate(minDate)}.` : '');
-  const back = r ? `/customer/requests/${r.id}` : '/customer/requests';
+    : form.date < minDate ? `Tuyến này cần chuẩn bị ${minLead} ngày (từ ${fmtDate(minDate)}).`
+    : optionsError || (!options ? 'Đang tải quy định của tuyến…' : 'Ngày vận chuyển không được ở quá khứ.');
+
+  const cityOptions = (selected: string, list: typeof BOOKING_ORIGINS) => (
+    <>
+      <option value="">Chọn thành phố</option>
+      {list.map((c) => <option key={c.name} value={c.name}>{cityLabel(c.name)}</option>)}
+      {selected && !list.some((c) => c.name === selected) && <option value={selected} disabled>{cityLabel(selected)} – không còn nhận</option>}
+    </>
+  );
+
   const save = async () => {
-    if (savingRef.current) return;
-    setTried(true);
-    if (!tripValid || !placeValid) { actions.showToast(!tripValid ? hint : 'Điền đủ địa chỉ, người liên hệ và số điện thoại hợp lệ ở cả hai địa điểm.'); return; }
-    savingRef.current = true; setSaving(true);
-    try {
-      if (!draftId.current) {
-        const created = await actions.createDraft({ ...form, horseCount: 1, careNotes: '' }, idempotencyKey);
-        if (!created.ok || !created.id) return;
-        draftId.current = created.id;
-      }
-      const result = await actions.saveRequestDetails(draftId.current, form, places.pickup, places.delivery);
-      if (!result.ok) return;
-      navigate(wizardPath({ id: draftId.current }, revising && r!.wizardStep >= 3 ? 3 : 2));
-    } finally { savingRef.current = false; setSaving(false); }
+    if (!editing) {
+      const res = await actions.createDraft(form);
+      if (res.ok && res.id) navigate(`/customer/requests/${res.id}/wizard/1`);
+      return;
+    }
+    const res = await actions.updateTripInfo(r!.id, form);
+    if (!res.ok) return;
+    navigate(revising && r!.wizardStep >= 3 ? `/customer/requests/${r!.id}/wizard/3` : wizardPath(r!, Math.max(1, Math.min(r!.wizardStep, 3))));
   };
 
-  return <CustomerLayout title="Yêu cầu vận chuyển"><div className="cus-create-flow">
-    <button type="button" className="cus-back" onClick={() => navigate(back)}><Icon name="back" />{r ? `Quay lại ${r.id}` : 'Yêu cầu vận chuyển'}</button>
-    <h2 className="cus-title">{revising ? `Sửa yêu cầu ${r!.id}` : 'Tạo yêu cầu vận chuyển'}</h2>
-    <p className="cus-subtitle">Nhập nơi nhận, nơi giao và ngày vận chuyển. Thông tin từng ngựa được khai báo ở bước tiếp theo.</p>
-    <WizardStepper request={r ?? null} current={0} />
-    {revising && r?.feedback && <Note tone="yellow" title="Góp ý của Manager">{r.feedback}<p>Được phép sửa: {allowed.map(field => FIELD_LABEL[field]).join(', ')}</p></Note>}
-    <fieldset className="cus-create__fieldset" disabled={saving}>
-      <section className="cus-card cus-create__schedule"><div className="cus-create__schedule-heading"><span className="cus-create__calendar"><Icon name="calendar" /></span><div>
-        <h3>Ngày vận chuyển mong muốn <span>*</span></h3><p>CBN sẽ xác nhận lịch sau khi xét duyệt yêu cầu.</p>
-      </div></div><div className="cus-field cus-create__date"><label className="cus-create__sr" htmlFor="cr-date">Ngày vận chuyển mong muốn</label>
-        <DateField id="cr-date" value={form.date} min={minDate} disabled={lock('date') || saving} invalid={tried && (!form.date || form.date < minDate)} onChange={date => setForm(f => ({ ...f, date }))} />
-      </div></section>
-      <p className="cus-create__required">Các trường có dấu * là bắt buộc.</p>
-      <RequestPlacesFields places={places} origin={form.origin} destination={form.destination} tried={tried} locked={lock}
-        onPlaceChange={(key, place) => setPlaces(p => ({ ...p, [key]: place }))}
-        onCityChange={(key, value) => { setForm(f => ({ ...f, [key === 'pickup' ? 'origin' : 'destination']: value })); setPlaces(p => ({ ...p, [key]: { ...p[key], latitude: undefined, longitude: undefined } })); }} />
-      {(tried || optionsError) && hint && <Note tone="red" title="Kiểm tra thông tin nhận/giao">{hint}</Note>}
-      <div className="cus-create__actions"><button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(back)}>Hủy</button>
-        <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={save} disabled={saving}>{saving ? 'Đang lưu…' : 'Lưu & tiếp tục: Ngựa & hồ sơ'}</button>
+  return (
+    <CustomerLayout title="Yêu cầu vận chuyển">
+      <button type="button" className="cus-back" onClick={() => navigate(r ? `/customer/requests/${r.id}` : '/customer/requests')}>
+        <Icon name="back" />{r ? `Quay lại ${r.id}` : 'Yêu cầu vận chuyển'}
+      </button>
+      <h2 className="cus-title">{revising ? `Sửa yêu cầu ${r!.id}` : r ? `Tiếp tục yêu cầu ${r.id}` : 'Tạo yêu cầu vận chuyển'}</h2>
+      <p className="cus-subtitle">Bước 1/4: Thông tin chuyến. Tiếp theo là điểm nhận/giao, ngựa & hồ sơ, rồi xem lại và gửi Manager xét duyệt.</p>
+      <WizardStepper request={r ?? null} current={0} />
+
+      {revising && r?.feedback && (
+        <Note tone="yellow" title="Góp ý của Manager">
+          {r.feedback}
+          <div className="cus-muted" style={{ marginTop: 4 }}>Được phép sửa: {allowed.map((f) => FIELD_LABEL[f]).join(', ')}</div>
+        </Note>
+      )}
+
+      <div className="cus-card cus-create">
+        <h3 className="cus-card__title">Thông tin chuyến</h3>
+        <div className="cus-create__grid">
+          <div className="cus-field">
+            <label htmlFor="cr-origin">Điểm đi *</label>
+            <select id="cr-origin" className="cus-select" value={form.origin} disabled={lock('route')} onChange={(e) => set('origin', e.target.value)}>
+              {cityOptions(form.origin, BOOKING_ORIGINS)}
+            </select>
+          </div>
+          <div className="cus-field">
+            <label htmlFor="cr-dest">Điểm đến *</label>
+            <select id="cr-dest" className="cus-select" value={form.destination} disabled={lock('route')} onChange={(e) => set('destination', e.target.value)}>
+              {cityOptions(form.destination, BOOKING_DESTINATIONS)}
+            </select>
+          </div>
+          <div className="cus-field">
+            <label htmlFor="cr-date">Ngày vận chuyển mong muốn *</label>
+            <DateField id="cr-date" value={form.date || minDate} min={minDate} disabled={lock('date')} onChange={(v) => set('date', v)} />
+          </div>
+          <div className="cus-field">
+            <label htmlFor="cr-count">Số lượng ngựa *</label>
+            <select id="cr-count" className="cus-select" value={form.horseCount} disabled={lock('horses')} onChange={(e) => set('horseCount', Number(e.target.value))}>
+              {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} ngựa</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="cus-field">
+          <label htmlFor="cr-notes">Yêu cầu chăm sóc đặc biệt (không bắt buộc)</label>
+          <textarea id="cr-notes" className="cus-textarea" rows={3} value={form.careNotes} disabled={lock('notes')}
+            placeholder="Lịch ăn uống, điểm dừng nghỉ, đồ dùng quen thuộc…" onChange={(e) => set('careNotes', e.target.value)} />
+        </div>
+
+        {!valid && <Note tone="grey" title="Thông tin chuyến">{hint}</Note>}
+        <Note tone="yellow" title="Giá hợp đồng">Quản lý xét duyệt yêu cầu và phát hành hợp đồng có giá chính thức sau khi bạn khai báo ngựa và gửi đơn.</Note>
+
+        <div className="cus-create__actions">
+          <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(r ? `/customer/requests/${r.id}` : '/customer/requests')}>Hủy</button>
+          <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" disabled={!valid} onClick={save}>
+            {revising && r!.wizardStep >= 3 ? 'Lưu & xem lại' : 'Lưu & tiếp tục'}
+          </button>
+        </div>
       </div>
-    </fieldset>
-  </div></CustomerLayout>;
+    </CustomerLayout>
+  );
 };
+
 export default CreateRequestPage;

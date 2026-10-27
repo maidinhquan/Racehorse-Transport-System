@@ -163,7 +163,7 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
         <p>Yêu cầu chuyển sang <b>Đang soạn hợp đồng</b>. Bạn sẽ lập phương án, giá bán và điều khoản ở bước Hợp đồng & giá.</p>
         {r.dossier.some((d) => d.status !== 'APPROVED') && <p className="mgr-muted">Lưu ý: một số giấy tờ chưa được Specialist duyệt. Việc này không chặn chấp thuận nhưng phải hoàn tất trước khi khởi hành.</p>}
       </Modal>
-      <RevisionModal open={dialog === 'revise'} requestId={r.id} onClose={close} onSubmit={async (fb) => (await actions.requestRevision(r.id, fb)).ok} />
+      <RevisionModal open={dialog === 'revise'} requestId={r.id} onClose={close} onSubmit={async (fb, fields) => (await actions.requestRevision(r.id, fb, fields)).ok} />
       <ReasonModal open={dialog === 'reject'} title={`Từ chối ${r.id}`} okText="Từ chối yêu cầu" danger minLength={10}
         intro={<p>Khách hàng nhận được lý do từ chối. Yêu cầu bị từ chối không thể mở lại.</p>}
         placeholder="VD: Không thể bố trí phương tiện cho ngày vận chuyển đã chọn." onClose={close} onSubmit={async (x) => (await actions.rejectRequest(r.id, x)).ok} />

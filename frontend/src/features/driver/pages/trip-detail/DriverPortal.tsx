@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { BrandLogo } from '../../../../shared/components/brand-logo/BrandLogo';
-import { DemoDataToggle } from '../../../../shared/components';
 import './DriverPortal.css';
 
 export const DriverPortal = () => {
@@ -51,16 +50,13 @@ export const DriverPortal = () => {
             <p className="driver-trip-sub">Tài xế: Nguyễn Thanh Quốc Linh</p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <DemoDataToggle role="driver" compact />
-          <button
-            type="button"
-            className="btn-sos"
-            onClick={() => alert('Đã gửi cảnh báo SOS khẩn cấp kèm tọa độ về Trung tâm!')}
-          >
-            🚨 SOS
-          </button>
-        </div>
+        <button
+          type="button"
+          className="btn-sos"
+          onClick={() => alert('Đã gửi cảnh báo SOS khẩn cấp kèm tọa độ về Trung tâm!')}
+        >
+          🚨 SOS
+        </button>
       </header>
 
       <div className="driver-tabs">

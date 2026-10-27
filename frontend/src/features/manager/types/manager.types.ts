@@ -73,7 +73,6 @@ export interface DossierItem {
 // Yêu cầu vận chuyển
 // ---------------------------------------------------------------------------
 export type RequestStatus =
-  | 'DRAFT'
   | 'PENDING_REVIEW'
   | 'CHANGES_REQUESTED'
   | 'REJECTED'
@@ -139,7 +138,6 @@ export interface TransportRequest {
   /** Bản nháp hợp đồng chưa phát hành */
   draft?: ContractDraft;
   dossier: DossierItem[];
-  refund?: { status: 'REQUESTED' | 'PROCESSING' | 'REFUNDED'; amount?: number; at?: string | null; refundedAt?: string | null; reference?: string };
   cancellation?: Cancellation;
   acceptance?: Acceptance;
   collection: CollectionNote[];

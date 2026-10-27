@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { ActionResult, ContractDraft, CustomerInfo, HorseRef, TransportRequest } from '../../types';
 import { curVersion, draftError, fmtDateTime, initialDraft } from '../../hooks/managerRules';
 import { managerApi } from '../../api/managerApi';
-import { apiMessage } from '../../../../shared/api/apiError';
+import { apiMessage } from '../../../../shared/api/flow1';
 import { PlanStep } from './steps/PlanStep';
 import { PricingStep } from './steps/PricingStep';
 import { TermsStep } from './steps/TermsStep';

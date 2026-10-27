@@ -34,7 +34,7 @@ export type BadgeKind = 'request' | 'contract' | 'payment' | 'trip' | 'deploymen
 
 const TONES: Record<BadgeKind, Record<string, BadgeTone>> = {
   request: {
-    DRAFT: 'muted', PENDING_REVIEW: 'warn', CHANGES_REQUESTED: 'muted', REJECTED: 'bad', CONTRACT_PREPARATION: 'info', CONTRACT_READY: 'info',
+    PENDING_REVIEW: 'warn', CHANGES_REQUESTED: 'muted', REJECTED: 'bad', CONTRACT_PREPARATION: 'info', CONTRACT_READY: 'info',
     CONTRACT_CHANGES_REQUESTED: 'warn', DEPOSIT_VERIFIED: 'info', CANCELLATION_REQUESTED: 'bad', ACTIVATED: 'brand', SCHEDULED: 'ok',
     IN_TRANSIT: 'brand', DELIVERED: 'ok', CLOSED: 'muted', CANCELLED: 'muted',
   } satisfies Record<RequestStatus, BadgeTone>,

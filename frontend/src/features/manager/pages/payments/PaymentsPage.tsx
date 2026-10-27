@@ -1,12 +1,14 @@
+import { downloadFile } from '../../../../shared/api/downloadFile';
 import React, { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ManagerLayout, Icon } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { CustomerCell, Note, Pager } from '../../components/Common/Common';
-import { Modal, ReasonModal } from '../../components/Modals';
+import { Modal, ReasonModal, VerifyPaymentModal } from '../../components/Modals';
+import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useManager } from '../../hooks/useManager';
 import { useManagerFilter } from '../../hooks/useManagerFilter';
-import type { PaymentMethod, PaymentStatus, PaymentType, TransportRequest } from '../../types';
+import type { PaymentMethod, PaymentStatus, PaymentType, Transaction } from '../../types';
 import {
   METHOD_LABEL,
   PAYMENT_STATUS_LABEL,
@@ -25,30 +27,35 @@ import {
 
 type Tab = 'verify' | 'overdue' | 'all';
 
-/** VNPAY status, outstanding deposits, and manual refund-status bookkeeping. */
+/** Tiền cọc & thanh toán: hàng chờ xác minh, cọc chưa thanh toán, toàn bộ giao dịch */
 export const PaymentsPage: React.FC = () => {
   const { tab = 'verify' } = useParams();
   const navigate = useNavigate();
   const { data, transactions, requests, getRequest, actions } = useManager();
-  const [refund, setRefund] = useState<TransportRequest | null>(null);
+  const [review, setReview] = useState<string>('');
+  const [refund, setRefund] = useState<Transaction | null>(null);
+  const [refundReference, setRefundReference] = useState('');
+  const [refundNote, setRefundNote] = useState('');
   const [cancelId, setCancelId] = useState('');
   const on: Tab = (['verify', 'overdue', 'all'] as Tab[]).includes(tab as Tab) ? (tab as Tab) : 'verify';
 
-  const refunds = requests.filter(r => r.refund && ['REQUESTED', 'PROCESSING'].includes(r.refund.status));
+  const queue = transactions.filter((x) => x.status === 'PENDING_CONFIRMATION' && x.type !== 'REFUND');
+  const refunds = transactions.filter((x) => x.type === 'REFUND' && x.status === 'PENDING_CONFIRMATION');
   const gateway = transactions.filter((x) => x.status === 'PROCESSING');
   const cancels = requests.filter((r) => r.status === 'CANCELLATION_REQUESTED');
   const outstandingDeposits = awaitingDeposit(data);
-  const all = [...transactions].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+  const all = [...transactions].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const f = useManagerFilter(all, (x) => [x.id, x.requestId, x.ref ?? '', customerOf(data, getRequest(x.requestId))?.company ?? ''].join(' '), {
     status: (x, v) => x.status === v, type: (x, v) => x.type === v, method: (x, v) => x.method === v,
   }, 12);
+  const reviewTx = transactions.find((x) => x.id === review);
 
-  const TABS: Array<[Tab, string, number?]> = [['verify', 'Cần xử lý', refunds.length + cancels.length], ['overdue', 'Cọc chưa thanh toán', outstandingDeposits.length], ['all', 'Tất cả giao dịch']];
+  const TABS: Array<[Tab, string, number?]> = [['verify', 'Cần xử lý', queue.length + refunds.length + cancels.length], ['overdue', 'Cọc chưa thanh toán', outstandingDeposits.length], ['all', 'Tất cả giao dịch']];
 
   return (
     <ManagerLayout title="Tiền cọc & thanh toán">
       <div className="mgr-head">
-        <div><h2 className="mgr-title">Tiền cọc & thanh toán</h2><p className="mgr-subtitle">Theo dõi giao dịch VNPAY, tiền cọc và trạng thái hoàn tiền. Thanh toán được backend xác minh qua IPN.</p></div>
+        <div><h2 className="mgr-title">Tiền cọc & thanh toán</h2><p className="mgr-subtitle">Xác minh chuyển khoản, theo dõi cọc chưa thanh toán, xác nhận hoàn tiền và tra cứu mọi giao dịch.</p></div>
       </div>
       <div className="mgr-tabs" role="tablist">
         {TABS.map(([k, label, n]) => (
@@ -69,24 +76,53 @@ export const PaymentsPage: React.FC = () => {
               ))}
             </section>
           )}
+          <section className="mgr-card" style={{ padding: 0 }}>
+            <h3 className="mgr-card__title" style={{ padding: '20px 22px 4px' }}>Chuyển khoản chờ xác minh ({queue.length})</h3>
+            <div className="mgr-table-wrap">
+              <table className="mgr-table">
+                <thead><tr><th>Giao dịch</th><th>Yêu cầu</th><th>Khách hàng</th><th>Loại</th><th className="num">Khai báo</th><th className="num">Phải thu</th><th>Chứng từ</th><th /></tr></thead>
+                <tbody>
+                  {queue.map((x) => {
+                    const r = getRequest(x.requestId)!;
+                    const expected = x.type === 'DEPOSIT' ? depositOf(r) : x.amount;
+                    return (
+                      <tr key={x.id}>
+                        <td><b className="mgr-id">{x.id}</b><div className="mgr-muted">{fmtDateTime(x.createdAt)}</div></td>
+                        <td><Link className="mgr-link" to={`/manager/requests/${x.requestId}`}>{x.requestId}</Link></td>
+                        <td><CustomerCell c={customerOf(data, r)} /></td>
+                        <td>{PAYMENT_TYPE_LABEL[x.type]}<div className="mgr-muted">{METHOD_LABEL[x.method]}</div></td>
+                        <td className="num">{fmtMoney(x.amount)}</td>
+                        <td className={`num ${expected !== x.amount ? 'mgr-bad' : ''}`}>{fmtMoney(expected)}</td>
+                        <td>{x.ref}{x.receipt && <div><button type="button" className="mgr-link" onClick={() => downloadFile(x.receipt!).catch(error => actions.showToast(error.message))}>{x.receipt}</button></div>}</td>
+                        <td><button type="button" className="mgr-btn mgr-btn--solid mgr-btn--sm" onClick={() => setReview(x.id)}>Xem & xác minh</button></td>
+                      </tr>
+                    );
+                  })}
+                  {!queue.length && <tr><td colSpan={8} className="mgr-empty">Không có chuyển khoản nào chờ xác minh.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
           <section className="mgr-card">
             <h3 className="mgr-card__title">Lệnh hoàn tiền chờ thực hiện ({refunds.length})</h3>
-            {refunds.map(r => <div key={r.id} className="mgr-row">
-              <div><b>{r.id} • {r.refund?.amount != null ? fmtMoney(r.refund.amount) : 'Số tiền theo đối soát'}</b><span>{customerOf(data, r)?.company} • {r.refund?.status}</span></div>
-              <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => setRefund(r)}>Ghi nhận trạng thái hoàn tiền</button>
-            </div>)}
+            {refunds.map((x) => (
+              <div key={x.id} className="mgr-row">
+                <div><b>{x.id} • {fmtMoney(x.amount)}</b><span>{x.requestId} • {customerOf(data, getRequest(x.requestId))?.company} • tạo {fmtDateTime(x.createdAt)}</span></div>
+                <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => setRefund(x)}>Xác nhận đã hoàn</button>
+              </div>
+            ))}
             {!refunds.length && <p className="mgr-hint" style={{ marginTop: 0 }}>Không có lệnh hoàn tiền nào.</p>}
           </section>
           {gateway.length > 0 && (
             <section className="mgr-card">
               <h3 className="mgr-card__title">Cổng thanh toán đang xử lý ({gateway.length})</h3>
-              <p className="mgr-hint" style={{ marginTop: 0 }}>VNPAY gửi IPN về backend để xác minh chữ ký, số tiền và cập nhật giao dịch. Return URL không xác nhận tiền.</p>
+              <p className="mgr-hint" style={{ marginTop: 0 }}>Giao dịch qua cổng (QR Sandbox, VNPay) do nhà cung cấp xác nhận tự động – Manager không xác minh thủ công.</p>
               {gateway.map((x) => <div key={x.id} className="mgr-row"><div><b>{x.id} • {fmtMoney(x.amount)}</b><span>{x.requestId} • {METHOD_LABEL[x.method]} • {fmtDateTime(x.createdAt)}</span></div><StatusBadge kind="payment" status={x.status} /></div>)}
-
+              <DemoPanel buttons={gateway.map((x) => ({ label: `Cổng thanh toán xác nhận ${x.id}`, run: () => actions.demo.gatewayConfirm(x.id) }))} />
             </section>
           )}
-          <Note tone="grey" title="Thanh toán qua VNPAY">
-            Khách chỉ ký OTP sau khi backend xác minh đủ cọc đúng phiên bản hợp đồng. Manager không xác nhận hoặc từ chối thanh toán thủ công.
+          <Note tone="grey" title="Cổng thanh toán và chuyển khoản được xử lý riêng">
+            Thanh toán qua cổng được nhà cung cấp xác nhận qua callback. Chuyển khoản được Manager đối chiếu với sao kê ngân hàng tại đây. Khách chỉ ký OTP được khi tiền cọc đã xác minh.
           </Note>
         </>
       )}
@@ -164,9 +200,13 @@ export const PaymentsPage: React.FC = () => {
         </>
       )}
 
-      <Modal open={!!refund} title={`Ghi nhận hoàn tiền • ${refund?.id ?? ''}`} okText="Ghi nhận đã hoàn tất" onClose={() => setRefund(null)}
-        onOk={async () => { if (refund && (await actions.confirmRefund(refund.id)).ok) setRefund(null); }}>
-        <p>Chỉ cập nhật trạng thái hoàn tiền sau khi hoàn tất xử lý bên ngoài hệ thống. Thao tác này không chuyển tiền.</p>
+      <VerifyPaymentModal tx={reviewTx} request={reviewTx ? getRequest(reviewTx.requestId) : undefined} onClose={() => setReview('')}
+        onVerify={async (id, body) => (await actions.verifyTransaction(id, body)).ok} onReject={async (id, reason) => (await actions.rejectTransaction(id, reason)).ok} />
+      <Modal open={!!refund} title={`Xác nhận hoàn tiền • ${refund?.id ?? ''}`} okText="Đã chuyển hoàn" onClose={() => setRefund(null)}
+        onOk={async () => { if (refund && (await actions.confirmRefund(refund.id, refundReference, refundNote)).ok) { setRefund(null); setRefundReference(''); setRefundNote(''); } }}>
+        <p>Xác nhận đã chuyển hoàn <b>{refund ? fmtMoney(refund.amount) : ''}</b> cho khách hàng của {refund?.requestId}. Thao tác được ghi vào lịch sử yêu cầu.</p>
+        <div className="mgr-field"><label htmlFor="refund-reference">Mã tham chiếu hoàn tiền *</label><input id="refund-reference" className="mgr-input" value={refundReference} onChange={e => setRefundReference(e.target.value)} /></div>
+        <div className="mgr-field"><label htmlFor="refund-note">Ghi chú kiểm tra *</label><textarea id="refund-note" className="mgr-textarea" value={refundNote} onChange={e => setRefundNote(e.target.value)} /></div>
       </Modal>
       <ReasonModal open={!!cancelId} title={`Hủy ${cancelId}`} okText="Hủy yêu cầu" danger minLength={10} confirmText="Tôi hiểu thao tác này không thể hoàn tác."
         placeholder="VD: Khách không phản hồi sau 3 lần nhắc và hạn chung đã hết." onClose={() => setCancelId('')} onSubmit={async (x) => (await actions.cancelRequest(cancelId, x)).ok} />

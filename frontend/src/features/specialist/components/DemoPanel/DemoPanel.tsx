@@ -1,7 +1,6 @@
 import React from 'react';
 import type { SpecTrip } from '../../types';
 import { useSpecialist } from '../../hooks/useSpecialist';
-import { useDemoMode } from '../../../../shared/context/DemoModeContext';
 import './DemoPanel.css';
 
 /**
@@ -9,8 +8,6 @@ import './DemoPanel.css';
  * Không nút nào là một quyết định duyệt của Specialist (trừ "chuẩn bị đủ hồ sơ" để đi nhanh tới Docs READY).
  */
 export const DemoPanel: React.FC<{ trip?: SpecTrip }> = ({ trip }) => {
-  const { enabled: isDemoMode } = useDemoMode('specialist');
-  if (!isDemoMode) return null;
   const { trips, customerDocs, actions } = useSpecialist();
   const d = actions.demo;
   const pick = (test: (t: SpecTrip) => boolean) => (trip && test(trip) ? trip : trip ? undefined : trips.find(test));

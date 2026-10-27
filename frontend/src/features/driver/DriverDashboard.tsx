@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DemoDataToggle, ThemeToggle } from '../../shared/components';
+import { ThemeToggle } from '../../shared/components';
 import './DriverDashboard.css';
 
 // ==========================================
@@ -197,7 +197,6 @@ function DriverDashboard() {
           <h2 className="top-bar-title">{activeTab === 'driver' ? 'Dashboard Tài xế' : 'Dashboard Hộ tống'}</h2>
           
           <div className="top-bar-right">
-            <DemoDataToggle role="driver" />
             <ThemeToggle showLabel={false} />
             <button className="notification-btn">
               🔔

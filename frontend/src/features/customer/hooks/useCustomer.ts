@@ -16,7 +16,7 @@ import type {
   TripInfoInput,
 } from '../types';
 import { customerApi } from '../api/customerApi';
-import { apiMessage } from '../../../shared/api/apiError';
+import { apiMessage } from '../../../shared/api/flow1';
 import { getCurrentUser } from '../../auth/api/authApi';
 import {
   FILE_DOC_KEYS,
@@ -76,9 +76,6 @@ interface CustomerState {
   toast: { id: number; message: string } | null;
 }
 
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
-import { mockHorses, mockNotifications, mockRequests } from '../data/mockData';
-
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 const getInitialProfile = (): CustomerProfile => {
@@ -99,13 +96,11 @@ const getInitialProfile = (): CustomerProfile => {
   return p;
 };
 
-const initialDemo = getDemoMode('customer');
-
 let state: CustomerState = {
   profile: getInitialProfile(),
-  horses: initialDemo ? clone(mockHorses) : [],
-  requests: initialDemo ? clone(mockRequests) : [],
-  notifications: initialDemo ? clone(mockNotifications) : [],
+  horses: [],
+  requests: [],
+  notifications: [],
   otp: null,
   loading: false,
   loaded: false,
@@ -123,33 +118,6 @@ const subscribe = (l: () => void) => { listeners.add(l); return () => { listener
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('rts_demo_mode_change', (event: Event) => {
-    const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
-    if (customEvent.detail && customEvent.detail.role === 'customer') {
-      if (customEvent.detail.enabled) {
-        setState({
-          horses: clone(mockHorses),
-          requests: clone(mockRequests),
-          notifications: clone(mockNotifications),
-          loading: false,
-          loaded: true,
-        });
-        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
-      } else {
-        setState({
-          horses: [],
-          requests: [],
-          notifications: [],
-          loading: false,
-          loaded: true,
-        });
-        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
-      }
-    }
-  });
-}
 const ok = (message: string, id?: string): ActionResult => { toast(message); return { ok: true, message, id }; };
 const fail = (message: string): ActionResult => { toast(message); return { ok: false, message }; };
 
@@ -224,41 +192,8 @@ async function loadAll() {
   } catch {
     // ignore
   }
-  const isDemo = getDemoMode('customer');
-    if (!isDemo) {
-      setState({
-        profile,
-        horses: horses || [],
-        requests: requests || [],
-        notifications: notifications || [],
-        loading: false,
-        loaded: true,
-      });
-      return;
-    }
-    setState({
-      profile,
-      horses: (horses && horses.length > 0) ? horses : clone(mockHorses),
-      requests: (requests && requests.length > 0) ? requests : clone(mockRequests),
-      notifications: (notifications && notifications.length > 0) ? notifications : clone(mockNotifications),
-      loading: false,
-      loaded: true,
-    });
-  } catch (error) {
-    const isDemo = getDemoMode('customer');
-    if (isDemo) {
-      setState({
-        horses: clone(mockHorses),
-        requests: clone(mockRequests),
-        notifications: clone(mockNotifications),
-        loading: false,
-        loaded: true,
-      });
-    } else {
-      setState({ loading: false, loaded: true });
-    }
-    toast(apiMessage(error));
-  }
+  setState({ profile, horses, requests, notifications, loading: false, loaded: true });
+  } catch (error) { setState({ loading: false, loaded: true }); toast(apiMessage(error)); }
 }
 
 // ============================================================================
@@ -301,48 +236,16 @@ const customerActions = {
   },
 
   // ----- Bước 1: thông tin chuyến -----
-  async createDraft(input: TripInfoInput, idempotencyKey?: string): Promise<ActionResult> {
+  async createDraft(input: TripInfoInput): Promise<ActionResult> {
     const err = validateTripInfo(input); if (err) return fail(err);
     try {
-      const r = await customerApi.createRequest(input, idempotencyKey);
+      const r = await customerApi.createRequest(input);
       if (!r?.id || r.status !== 'DRAFT') return fail('API chưa trả bản nháp hợp lệ.');
       r.horseCount = input.horseCount;
       r.horses = Array.from({ length: input.horseCount }, () => '');
       setState(s => ({ requests: [r, ...s.requests] }));
       return ok(`Đã tạo bản nháp ${r.id}.`, r.id);
     } catch (error) { return fail(apiMessage(error)); }
-  },
-
-  /** Save the merged schedule/address step with one PUT; publish local changes only after success. */
-  async saveRequestDetails(id: string, input: TripInfoInput, pickup: Place, delivery: Place): Promise<ActionResult> {
-    const current = findReq(id);
-    if (!current || !['DRAFT', 'CHANGES_REQUESTED'].includes(current.status)) return fail('Yêu cầu này không thể chỉnh sửa.');
-    const trip = { ...input, horseCount: current.horseCount, careNotes: current.careNotes };
-    const err = validateTripInfo(trip);
-    if (err) return fail(err);
-    if ([pickup, delivery].some(p => !p.name.trim() || !p.address.trim() || !p.contact.trim() || !/^[+0-9 ()-]{8,}$/.test(p.phone.trim()))) return fail('Điền đủ địa chỉ, người liên hệ và số điện thoại hợp lệ cho cả hai địa điểm.');
-    if (current.status === 'CHANGES_REQUESTED') {
-      const allowed = current.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'];
-      if ((!allowed.includes('route') && (trip.origin !== current.origin || trip.destination !== current.destination))
-        || (!allowed.includes('date') && trip.date !== current.date)
-        || (!allowed.includes('places') && (JSON.stringify(pickup) !== JSON.stringify(current.pickup) || JSON.stringify(delivery) !== JSON.stringify(current.delivery)))) return fail('Manager chỉ cho phép sửa các mục đã nêu trong góp ý.');
-    }
-    const updated: TransportRequest = { ...current, ...trip, pickup: { ...pickup }, delivery: { ...delivery }, wizardStep: Math.max(current.wizardStep, 2) };
-    try {
-      await customerApi.saveRequest(updated);
-      updateReq(id, r => { Object.assign(r, updated); log(r, 'CUSTOMER', 'Lưu thông tin nhận và giao ngựa'); });
-      return ok('Đã lưu lịch nhận, địa chỉ và người liên hệ.', id);
-    } catch (error) { return fail(apiMessage(error)); }
-  },
-
-  setHorseCount(id: string, count: number): ActionResult {
-    const r = findReq(id);
-    if (!r || !['DRAFT', 'CHANGES_REQUESTED'].includes(r.status)) return fail('Yêu cầu này không thể chỉnh sửa.');
-    if (r.status === 'CHANGES_REQUESTED' && !(r.revisionFields ?? ['horses']).includes('horses')) return fail('Manager không cho phép sửa danh sách ngựa.');
-    if (!Number.isInteger(count) || count < 1 || count > 6) return fail('Số lượng ngựa từ 1 đến 6.');
-    if (r.horses.slice(count).some(Boolean)) return fail('Bỏ ngựa ở các vị trí cuối trước khi giảm số lượng để tránh mất thông tin.');
-    updateReq(id, x => resizeHorses(x, count));
-    return { ok: true, message: '' };
   },
 
   async updateTripInfo(id: string, input: TripInfoInput): Promise<ActionResult> {
@@ -390,14 +293,14 @@ const customerActions = {
   setHorseSlot(id: string, slot: number, horseId: string): ActionResult {
     const r = findReq(id);
     if (!r) return fail('Không tìm thấy yêu cầu.');
-    if (r.status === 'CHANGES_REQUESTED' && !(r.revisionFields ?? ['horses']).includes('horses')) return fail('Manager không cho phép sửa danh sách ngựa.');
+    if (r.status === 'CHANGES_REQUESTED' && !r.revisionFields?.includes('horses')) return fail('Manager không cho phép sửa danh sách ngựa.');
     if (horseId && r.horses.some((h, i) => h === horseId && i !== slot)) return fail('Ngựa này đã được chọn trong đơn.');
     updateReq(id, (x) => { x.horses[slot] = horseId; });
     return { ok: true, message: '' };
   },
   setHorseNote(id: string, horseId: string, note: string) {
     const current = findReq(id);
-    if (current?.status === 'CHANGES_REQUESTED' && !(current.revisionFields ?? ['notes']).includes('notes')) return;
+    if (current?.status === 'CHANGES_REQUESTED' && !current.revisionFields?.includes('notes')) return;
     updateReq(id, (r) => { r.horseNotes[horseId] = note; });
   },
   async completeHorsesStep(id: string): Promise<ActionResult> {

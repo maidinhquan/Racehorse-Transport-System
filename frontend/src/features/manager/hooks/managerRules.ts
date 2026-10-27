@@ -89,7 +89,6 @@ export const isInternational = (o: string, d: string) => !VN_CITIES.includes(o) 
 export const routeText = (r: Pick<TransportRequest, 'origin' | 'destination'>) => `${cityLabel(r.origin)} → ${cityLabel(r.destination)}`;
 
 export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
-  DRAFT: 'Bản nháp',
   PENDING_REVIEW: 'Chờ xét duyệt', CHANGES_REQUESTED: 'Chờ khách chỉnh sửa', REJECTED: 'Đã từ chối', CONTRACT_PREPARATION: 'Đang soạn hợp đồng',
   CONTRACT_READY: 'Hợp đồng đã phát hành', CONTRACT_CHANGES_REQUESTED: 'Khách yêu cầu sửa hợp đồng', DEPOSIT_VERIFIED: 'Đã xác minh cọc – chờ ký',
   CANCELLATION_REQUESTED: 'Khách yêu cầu hủy', ACTIVATED: 'Đã kích hoạt', SCHEDULED: 'Sẵn sàng khởi hành', IN_TRANSIT: 'Đang vận chuyển',

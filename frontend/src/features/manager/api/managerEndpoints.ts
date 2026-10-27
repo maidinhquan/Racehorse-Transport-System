@@ -15,11 +15,4 @@ export const MANAGER_ENDPOINTS = {
   COMPLAINT_RESOLVE: (id: string) => `/manager/complaints/${id}/resolve`,
   COMPLAINT_ESCALATE: (id: string) => `/manager/complaints/${id}/escalate`,
   ACTUAL_COST_LIST: '/manager/actual-costs',
-
-  // Flow 3 (F3-J10, F3-J11, F3-J17, F3-J18)
-  TRIP_PREPARATION: (tripId: string) => `/manager/trips/${tripId}/preparation`,
-  FLOW3_PLAN_DECISION: (tripId: string) => `/manager/trips/${tripId}/plan/decision`,
-  TRIP_READINESS: (tripId: string) => `/manager/trips/${tripId}/readiness`,
-  FLOW3_DEPARTURE_APPROVE: (tripId: string) => `/manager/trips/${tripId}/departure/approve`,
 } as const;
-

@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TransportRequest } from '../../../types';
 import { useCustomer } from '../../../hooks/useCustomer';
-import { fmtDate, wizardErrors } from '../../../hooks/customerRules';
+import { cityLabel, fmtDate, wizardErrors } from '../../../hooks/customerRules';
 import { Note, PlaceBlock } from '../../../components/Common/Common';
-import { DocumentRows } from '../../../components/DocumentList/DocumentList';
+import { RequestDocuments } from '../../../components/DocumentList/DocumentList';
 import { wizardPath } from '../../../components/WizardStepper/WizardStepper';
 
-/** Bước 3/3 – xem lại toàn bộ, sửa lỗi chặn gửi rồi gửi Manager xét duyệt */
+/** Bước 4/4 – xem lại toàn bộ, sửa lỗi chặn gửi rồi gửi Manager xét duyệt */
 export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
   const navigate = useNavigate();
   const { horses, docsOf, actions } = useCustomer();
@@ -15,6 +15,7 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const [submitting, setSubmitting] = useState(false);
   const errs = wizardErrors(r, horses);
   const docs = docsOf(r);
+  const notes = Object.entries(r.horseNotes).filter(([id, n]) => n && r.horses.includes(id));
 
   const section = (title: string, step: number, body: React.ReactNode) => (
     <div className="cus-card">
@@ -34,22 +35,34 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
 
   return (
     <div className="cus-stack">
-      {section('Nhận & giao ngựa', 0, <>
-        <div className="cus-kv"><div><span>Ngày vận chuyển mong muốn</span><b>{fmtDate(r.date)}</b></div></div>
-        <div className="cus-grid2 cus-wizard__review-places">
-          <div><div className="cus-eyebrow">Nhận ngựa</div><PlaceBlock place={r.pickup} city={r.origin} who="Người bàn giao" /></div>
-          <div><div className="cus-eyebrow">Giao ngựa</div><PlaceBlock place={r.delivery} city={r.destination} who="Người nhận" /></div>
+      {section('Thông tin chuyến', 0, (
+        <>
+          <div className="cus-kv">
+            <div><span>Tuyến</span><b>{cityLabel(r.origin)} → {cityLabel(r.destination)}</b></div>
+            <div><span>Ngày vận chuyển mong muốn</span><b>{fmtDate(r.date)}</b></div>
+            <div><span>Số lượng ngựa</span><b>{r.horseCount}</b></div>
+          </div>
+          {r.careNotes && <p className="cus-lines" style={{ marginTop: 10 }}><b>Yêu cầu chăm sóc:</b> {r.careNotes}</p>}
+        </>
+      ))}
+      {section('Điểm nhận & giao', 1, (
+        <div className="cus-grid2">
+          <div><div className="cus-eyebrow">Điểm nhận</div><PlaceBlock place={r.pickup} who="Người liên hệ" /></div>
+          <div><div className="cus-eyebrow">Điểm giao</div><PlaceBlock place={r.delivery} who="Người nhận" /></div>
         </div>
-      </>)}
-      {section('Ngựa & hồ sơ', 2, <>
-        <p className="cus-subtitle">{r.horseCount} ngựa trong chuyến. Hướng dẫn chăm sóc được ghi theo từng con.</p>
-        {docs.perHorse.map(({ horse, items }) => <section key={horse.id} className="cus-wizard__review-horse">
-          <h4>{horse.name}<small>{horse.microchip}</small></h4>
-          <div className="cus-wizard__review-care"><b>Chăm sóc trong chuyến</b><p className="cus-lines">{r.horseNotes[horse.id] || 'Không có yêu cầu riêng.'}</p></div>
-          <DocumentRows requestId={r.id} items={items} editable={false} />
-        </section>)}
-      </>)}
-      {section('Giấy tờ chung của yêu cầu', 2, <DocumentRows requestId={r.id} items={docs.shared} editable={false} />)}
+      ))}
+      {section('Ngựa & hồ sơ', 2, (
+        <>
+          <p className="cus-subtitle" style={{ marginTop: -6, marginBottom: 12 }}>Mỗi giấy tờ có trạng thái riêng; tải lên không đồng nghĩa đã được duyệt.</p>
+          <RequestDocuments requestId={r.id} shared={docs.shared} perHorse={docs.perHorse} editable={false} />
+          {notes.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div className="cus-eyebrow">Yêu cầu chăm sóc riêng</div>
+              {notes.map(([id, n]) => <p key={id} className="cus-lines"><b>{horses.find((h) => h.id === id)?.name ?? id}:</b> {n}</p>)}
+            </div>
+          )}
+        </>
+      ))}
 
       {errs.length > 0 && (
         <Note tone="red" title="Chưa thể gửi yêu cầu">

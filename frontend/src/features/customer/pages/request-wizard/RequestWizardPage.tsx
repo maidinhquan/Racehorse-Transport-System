@@ -5,11 +5,12 @@ import { WizardStepper } from '../../components/WizardStepper/WizardStepper';
 import { Note } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
 import { cityLabel } from '../../hooks/customerRules';
+import { PlacesStep } from './steps/PlacesStep';
 import { HorsesStep } from './steps/HorsesStep';
 import { ReviewStep } from './steps/ReviewStep';
 import './RequestWizardPage.css';
 
-/** Three logical steps; legacy wizard/1 redirects to the merged address/schedule form. */
+/** Wizard khai báo chi tiết: 1 điểm nhận & giao → 2 ngựa & hồ sơ → 3 xem lại & gửi */
 export const RequestWizardPage: React.FC = () => {
   const navigate = useNavigate();
   const { requestId = '', step = '1' } = useParams<{ requestId: string; step: string }>();
@@ -25,7 +26,6 @@ export const RequestWizardPage: React.FC = () => {
   }
   if (!['DRAFT', 'CHANGES_REQUESTED'].includes(r.status)) return <Navigate to={`/customer/requests/${r.id}`} replace />;
   const n = Math.min(Math.max(Number(step) || 1, 1), 3);
-  if (n === 1) return <Navigate to={`/customer/requests/${r.id}/edit`} replace />;
   if (n > r.wizardStep) return <Navigate to={`/customer/requests/${r.id}/wizard/${Math.max(1, r.wizardStep)}`} replace />;
 
   return (
@@ -35,6 +35,7 @@ export const RequestWizardPage: React.FC = () => {
       <p className="cus-subtitle">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • {r.horseCount} ngựa</p>
       <WizardStepper request={r} current={n} />
       {r.status === 'CHANGES_REQUESTED' && r.feedback && <Note tone="yellow" title="Góp ý của Manager">{r.feedback}</Note>}
+      {n === 1 && <PlacesStep request={r} />}
       {n === 2 && <HorsesStep request={r} />}
       {n === 3 && <ReviewStep request={r} />}
     </CustomerLayout>
