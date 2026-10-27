@@ -1,4 +1,6 @@
 import { apiClient } from '../../../shared/api/apiClient';
+import { flow3Api, type FlightBookingInput, type PlanDraftInput, type ReadyConfirmInput, type ResourcesConfirmInput } from '../../../shared/api/flow3Api';
+import { flow2Api } from '../../../shared/api/flow2Api';
 import { COORDINATOR_ENDPOINTS } from './coordinatorEndpoints';
 import type {
   ApiResponse,
@@ -81,6 +83,62 @@ export const coordinatorApi = {
   /** Ghi nhận mã đặt chỗ từ hãng bay */
   bookFlight: (tripId: string, bookingRef: string) =>
     send('post', COORDINATOR_ENDPOINTS.FLIGHT_BOOKING(tripId), { bookingRef }),
+
+  // ==========================================================================
+  // Flow 3 Integration (F3-J04 -> F3-J20)
+  // ==========================================================================
+  /** F3-J04: Lấy khoảng khả thi và phương án hiện hành */
+  getPlanningContext: (tripId: string) => flow3Api.getCoordinatorPlanningContext(tripId),
+
+  /** F3-J05: Tra cứu danh mục chuyến bay phù hợp */
+  getAvailableFlights: (tripId: string, feasibilityVersion: number) =>
+    flow3Api.getFlights(tripId, feasibilityVersion),
+
+  /** F3-J06: Lưu bộ phương án nháp (tuyến, lịch, xe, nhân sự, chuyến bay) */
+  savePlanDraft: (tripId: string, body: PlanDraftInput) => flow3Api.savePlanDraft(tripId, body),
+
+  /** F3-J07: Kiểm tra tính hợp lệ của phương án nháp */
+  validatePlan: (tripId: string, body: PlanDraftInput) => flow3Api.validatePlan(tripId, body),
+
+  /** F3-J08: Gửi duyệt phương án và giữ nguồn lực tạm */
+  submitPlan: (tripId: string, planVersion: number) => flow3Api.submitPlan(tripId, planVersion),
+
+  /** F3-J09: Rút lại phương án chưa duyệt */
+  withdrawPlan: (tripId: string, planVersion: number, reason: string) =>
+    flow3Api.withdrawPlan(tripId, planVersion, reason),
+
+  /** F3-J12: Đề xuất thay đổi phương án đã duyệt */
+  proposePlanChanges: (tripId: string, reason: string) => flow3Api.proposePlanChanges(tripId, reason),
+
+  /** F3-J13: Xác nhận mã booking máy bay */
+  confirmFlightBookingFlow3: (tripId: string, body: FlightBookingInput) =>
+    flow3Api.confirmFlightBooking(tripId, body),
+
+  /** F3-J14: Xác nhận khả dụng thực tế nguồn lực */
+  confirmResourcesAvailability: (tripId: string, body: ResourcesConfirmInput) =>
+    flow3Api.confirmResources(tripId, body),
+
+  /** F3-J15: Xác nhận Ops READY */
+  confirmOpsReady: (tripId: string, body: ReadyConfirmInput) => flow3Api.confirmOpsReady(tripId, body),
+
+  /** F3-J19: Lịch sử lập kế hoạch */
+  getPlanningHistory: (tripId: string) => flow3Api.getPlanningHistory(tripId),
+
+  /** F3-J20: Hủy booking chuyến bay khi có sự cố */
+  cancelFlightBooking: (tripId: string, reason: string) => flow3Api.cancelFlightBooking(tripId, reason),
+
+  // ==========================================================================
+  // Flow 2 Integration
+  // ==========================================================================
+  /** F2: Danh mục trạm kiểm tra / checkpoint */
+  getCheckpoints: () => flow2Api.getCheckpoints(),
+
+  /** F2: Lưu nháp tuyến đường */
+  saveRouteDraft: (tripId: string, body: unknown) => flow2Api.saveRouteDraft(tripId, body),
+
+  /** F2: Mở lại tuyến đường khi cần điều chỉnh */
+  reopenRoute: (tripId: string, reason: string) => flow2Api.reopenRoute(tripId, reason),
 };
 
 export default coordinatorApi;
+

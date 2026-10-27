@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ThemeToggle } from '../../../../shared/components';
+import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
 import { useManager } from '../../hooks/useManager';
 import { fmtDateTime } from '../../hooks/managerRules';
 import { MANAGER_INITIALS, MANAGER_NAME } from '../../data/mockData';
@@ -104,6 +104,7 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
         <header className="mgr-topbar">
           <h1>{title}</h1>
           <div className="mgr-topbar__user">
+            <DemoDataToggle role="manager" />
             <ThemeToggle showLabel={false} />
 
             {/* Chuông thông báo */}

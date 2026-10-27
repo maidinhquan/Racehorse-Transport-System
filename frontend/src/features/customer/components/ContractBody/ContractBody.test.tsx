@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ContractBody } from './ContractBody';
 import { canAcceptTerms, canSign, depositState } from '../../hooks/customerRules';
-import spec from '../../../../../../contracts/API-Flow/Flow1/flow1.openapi.json';
+import spec from '../../../../contracts/flow1.openapi.json';
 import type { ContractVersion, TransportRequest } from '../../types';
 const sample = spec.paths['/customer/contracts/{contractId}/versions/{versionNo}'].get.responses['200'].content['application/json'].examples.case1.value.data;
 

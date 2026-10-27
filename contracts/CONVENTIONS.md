@@ -1,15 +1,17 @@
 # Quy ước API — Racehorse Transport System
 
-Cập nhật 23/10/2026. Áp dụng cho thiết kế Flow 1. Tài liệu mô tả giao thức FE–BE mục tiêu; không xác nhận backend hiện có đã triển khai giao thức này.
+Cập nhật 24/10/2026. Áp dụng cho thiết kế Flow 1, Flow 2 và Flow 3. Tài liệu mô tả giao thức FE–BE mục tiêu; không xác nhận backend hiện có đã triển khai giao thức này.
 
 ## 1. Phạm vi và nguồn chuẩn
 
 - Flow, quyền và điều kiện nghiệp vụ: [FLOW1.md](API-Flow/Flow1/FLOW1.md).
 - Toàn bộ ví dụ request/response: [FLOW1-API-JSON.md](API-Flow/Flow1/FLOW1-API-JSON.md).
 - Kiểu dữ liệu, required, nullable, enum và giới hạn: [flow1.openapi.json](API-Flow/Flow1/flow1.openapi.json).
-- Khi thay đổi payload, cập nhật đồng thời ba tài liệu và frontend. Nếu có khác biệt chưa giải quyết, dừng thao tác liên quan; không chọn một mẫu tùy ý.
+- Flow 2: [flow và đối chiếu frontend](API-Flow/Flow2/FLOW2.md), [JSON từng API](API-Flow/Flow2/FLOW2-API-JSON.md), [OpenAPI](API-Flow/Flow2/flow2.openapi.json). Flow 2 mới có contract; caller frontend chưa được tích hợp.
+- Flow 3: [flow đã đổi ngày 24/10/2026](API-Flow/Flow3/FLOW3.md), [JSON từng API](API-Flow/Flow3/FLOW3-API-JSON.md), [OpenAPI](API-Flow/Flow3/flow3.openapi.json), [kịch bản](API-Flow/Flow3/flow3.examples.json). Specialist đánh giá khả thi trước lập phương án; Manager duyệt rồi hai bên hoàn tất và xác nhận READY; duyệt khởi hành riêng. Flow 3 thay thế phần điều phối/readiness trùng trong Flow 2; API hồ sơ/danh mục Flow 2 tiếp tục dùng.
+- Khi thay đổi payload, cập nhật đồng thời tài liệu liên quan và frontend trong bước tích hợp. Nếu có khác biệt chưa giải quyết, dừng thao tác liên quan; không chọn một mẫu tùy ý.
 - Quy tắc ID và SQL do người dùng cung cấp tại `D:/Shared/ID_NAME_RULE.md`, `D:/Shared/HorseTransportDB.sql` là tài liệu tham khảo thiết kế. SQL trong repository là phiên bản khác; chưa kiểm chứng schema của DB đang chạy. Không sửa DB/backend trong công việc này.
-- Endpoint cũ trong ứng dụng không phải nguồn thiết kế Flow 1. Xác thực và các flow vận hành sau phân công nằm ngoài phạm vi thay đổi giao thức này.
+- Endpoint cũ trong ứng dụng không phải nguồn thiết kế Flow 1/2/3. Flow 2 xử lý hồ sơ, Flow 3 điều phối đánh giá khả thi tới duyệt khởi hành; xác thực và vận hành sau xuất phát thực tế nằm ngoài phạm vi các contract này.
 
 ## 2. URL, xác thực và role
 
@@ -19,6 +21,8 @@ Base: `VITE_API_URL`, mặc định `/api`. Method/path trong tài liệu nằm 
 |---|---|
 | `/customer/*` | `CUSTOMER` |
 | `/manager/*` | `LOGISTICS_MANAGER` |
+| `/specialist/*` | `TRANSPORT_SPECIALIST` |
+| `/coordinator/*` | `FLEET_ROUTE_COORDINATOR` |
 | `/master/*`, `/locations/*` | Người dùng đăng nhập, chỉ dữ liệu được cấp quyền |
 
 Role chuẩn: `CUSTOMER`, `LOGISTICS_MANAGER`, `TRANSPORT_SPECIALIST`, `FLEET_ROUTE_COORDINATOR`, `DRIVER_ESCORT`, `ADMIN`. `SYSTEM` chỉ là actor hệ thống trong history. Không truyền role/owner thay cho quyền JWT. Không tự thay USER được chọn bằng một ID nhân viên cố định.
@@ -42,7 +46,7 @@ Lỗi:
 ```
 
 - `success`, `message`, `data` bắt buộc. Lỗi có `errorCode`; `errors` chỉ cần khi có lỗi field.
-- List Flow 1 trả `data: []`, không đổi sang `{items,page,...}`. Chưa áp dụng phân trang server; lọc/phân trang hiện tại trên FE. Muốn thêm phải đổi contract và caller cùng lúc.
+- List Flow 1/2 trả `data: []`, không đổi sang `{items,page,...}`. Chưa áp dụng phân trang server; lọc/phân trang hiện tại trên FE. Muốn thêm phải đổi contract và caller cùng lúc.
 - Field optional được bỏ khi chưa có; field nullable nhận null khi chưa phát sinh. Arrays luôn là arrays. Không coi response thiếu data hay HTTP lỗi là dữ liệu mẫu hoặc thành công.
 - PDF/ảnh thành công trả binary đúng MIME, không envelope. Lỗi tải binary vẫn trả envelope JSON theo status. FE không tạo bản in từ dữ liệu hiện tại để thay một PDF phiên bản tải thất bại.
 - 200 đọc/cập nhật; 201 tạo; 400 validation; 401 chưa đăng nhập; 403 sai quyền; 404 không có tài nguyên; 409 sai trạng thái/phiên bản/còn tiền cần đối soát; 429 giới hạn gửi; 500 lỗi máy chủ.
@@ -102,3 +106,9 @@ Trip: `PLANNING`, `READY_TO_DEPART`, `IN_TRANSIT`, `COMPLETED`. `deployment.stat
 - Cọc và acknowledgement gắn đúng ContractID + VersionNo. Ký thành công trả Request ACTIVATED và TripID thật. FE không tự sinh Trip.
 - Mutation chờ API rồi cập nhật/refetch; lỗi giữ nguyên trạng thái nghiệp vụ. Form còn đang soạn chỉ là dữ liệu UI, không phải dữ liệu đã lưu.
 - Notifications mark-read và nhắc có endpoint riêng. Khi chưa có realtime, chủ động tải lại sau thao tác; không hứa SignalR đã hoạt động.
+
+## 8. Điểm nối Flow 2–3 sau thay đổi ngày 24/10/2026
+
+Flow 3 là chuẩn cho thứ tự mới: Manager giao snapshot/hạn giao → Specialist đánh giá khoảng khả thi → Coordinator lập phương án → Manager duyệt → hoàn thiện giấy phụ thuộc lịch và booking/nguồn lực → Docs READY + Ops READY cùng bản → Manager duyệt khởi hành. Ngày dự kiến đủ giấy chưa phải READY; không bắt BOOKED/resourcesConfirmed trước duyệt phương án. Hạn giấy kiểm tra tại từng điểm dùng, deadline khách là ràng buộc bắt buộc.
+
+Các endpoint Flow 2 được đánh dấu deprecated/superseded chỉ để tra cứu payload cũ. Những method/path giữ lại (docs-ready, booking, resources/confirm, preparation, readiness, departure/approve) dùng schema Flow 3 khi tích hợp flow mới; không có đường đi qua schema cũ để bỏ gate. Danh mục và xử lý hồ sơ không bị thay thế giữ contract Flow 2. PlanVersion mới là revision bộ phương án, không tự đồng nhất với routeVersion/resourceVersion/flightVersion cũ. EvidenceVersion trong ReadyStamp là revision lúc xác nhận; backend kiểm tra dependency bị ảnh hưởng, không bắt hai stamp được ghi ở hai thời điểm có cùng evidenceVersion.

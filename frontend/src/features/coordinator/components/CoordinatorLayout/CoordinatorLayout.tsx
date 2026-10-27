@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ThemeToggle } from '../../../../shared/components';
+import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
 import { useCoordinator } from '../../hooks/useCoordinator';
 import { COORDINATOR_NAME } from '../../data/mockData';
 import './CoordinatorLayout.css';
@@ -98,6 +98,7 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
         <header className="crd-topbar">
           <h1>{title}</h1>
           <div className="crd-topbar__user">
+            <DemoDataToggle role="coordinator" />
             <ThemeToggle showLabel={false} />
             <button type="button" className="crd-icon-btn" aria-label="Thông báo"><Icon name="bell" /></button>
 
