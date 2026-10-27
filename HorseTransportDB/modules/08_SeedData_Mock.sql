@@ -70,13 +70,13 @@ GO
 -- PHÂN VÙNG 2: ĐỐI TÁC & TRẠM DỪNG NGHỈ/Y TẾ (PARTNER & FACILITY)
 -- =============================================================================
 
--- 7. Bảng PARTNER_FACILITY: Các trạm dừng nghỉ, phòng khám thú y đối tác
-INSERT INTO PARTNER_FACILITY (FacilityID, Name, FacilityType, CountryCode, State_Province, City, Address, Coordinates, TimeZone, CapacityStalls, ContactPerson, ContactPhone, TaxID_BusinessCode, Status) VALUES
-('FAC_001', N'Trạm Kiểm Dịch & Nghỉ Chân Cầu Treo', 'REST_STATION', 'VN', N'Hà Tĩnh',   N'Hương Sơn',   N'Cửa khẩu Quốc tế Cầu Treo, Hà Tĩnh', '18.3976,105.1842', 'UTC+7', 8,  N'Lê Văn Bình',   '0988112233', '2801928374', 'ACTIVE'),
-('FAC_002', N'Bệnh Viện Thú Y & Kiểm Dịch Vientiane', 'VET_CLINIC', 'LA', N'Vientiane', N'Vientiane', N'Km 12 Thadeua Road, Vientiane',       '17.9254,102.6645', 'UTC+7', 12, N'Dr. Somchai',   '+8562055667788', 'LA99281726', 'ACTIVE'),
-('FAC_003', N'Trạm Dịch Vụ Nghỉ Chân Mộc Bài',      'REST_STATION', 'VN', N'Tây Ninh',  N'Bến Cầu',     N'Khu Kinh tế Cửa khẩu Mộc Bài',       '11.0650,106.1720', 'UTC+7', 6,  N'Trần Minh Tâm', '0918776655', '3901827364', 'ACTIVE'),
-('FAC_004', N'Trung Tâm Thú Y Hoàng Gia Phnom Penh', 'VET_CLINIC',  'KH', N'Phnom Penh',N'Phnom Penh',  N'St. 271, Sangkat Boeung Tumpun',     '11.5560,104.9280', 'UTC+7', 10, N'Dr. Chea Rath', '+85512345678', 'KH88192837', 'ACTIVE'),
-('FAC_005', N'Trạm Nghỉ Chuyên Dụng Đà Nẵng',       'REST_STATION', 'VN', N'Đà Nẵng',   N'Hòa Vang',    N'Km 24 Đường Tránh Nam Hải Vân',      '16.0544,108.2022', 'UTC+7', 8,  N'Đặng Quốc Bảo', '0905123123', '0401928381', 'ACTIVE');
+-- 7. Bảng PARTNER_FACILITY: Các trạm dừng nghỉ, phòng khám thú y đối tác (Place v2)
+INSERT INTO PARTNER_FACILITY (FacilityID, Name, FacilityType, Purposes, CountryCode, State_Province, City, Address, Coordinates, Latitude, Longitude, TimeZone, OperatingHours, SupportsOvernight, HasTruckParking, HasLoadingArea, HasStabling, HasWaterFeed, CapacityStalls, ContactPerson, ContactPhone, TaxID_BusinessCode, Status) VALUES
+('FAC_001', N'Trạm Kiểm Dịch & Nghỉ Chân Cầu Treo', 'REST_STATION', N'REST,QUARANTINE,BORDER', 'VN', N'Hà Tĩnh',   N'Hương Sơn',   N'Cửa khẩu Quốc tế Cầu Treo, Hà Tĩnh', '18.3976,105.1842', 18.397600, 105.184200, 'UTC+7', '24/7', 1, 1, 1, 1, 1, 8,  N'Lê Văn Bình',   '0988112233', '2801928374', 'ACTIVE'),
+('FAC_002', N'Bệnh Viện Thú Y & Kiểm Dịch Vientiane', 'VET_CLINIC', N'REST,QUARANTINE', 'LA', N'Vientiane', N'Vientiane', N'Km 12 Thadeua Road, Vientiane',       '17.9254,102.6645', 17.925400, 102.664500, 'UTC+7', '06:00-22:00', 0, 1, 1, 1, 1, 12, N'Dr. Somchai',   '+8562055667788', 'LA99281726', 'ACTIVE'),
+('FAC_003', N'Trạm Dịch Vụ Nghỉ Chân Mộc Bài',      'REST_STATION', N'REST,FUEL,BORDER', 'VN', N'Tây Ninh',  N'Bến Cầu',     N'Khu Kinh tế Cửa khẩu Mộc Bài',       '11.0650,106.1720', 11.065000, 106.172000, 'UTC+7', '24/7', 1, 1, 1, 1, 1, 6,  N'Trần Minh Tâm', '0918776655', '3901827364', 'ACTIVE'),
+('FAC_004', N'Trung Tâm Thú Y Hoàng Gia Phnom Penh', 'VET_CLINIC',  N'REST,QUARANTINE', 'KH', N'Phnom Penh',N'Phnom Penh',  N'St. 271, Sangkat Boeung Tumpun',     '11.5560,104.9280', 11.556000, 104.928000, 'UTC+7', '06:00-21:00', 0, 1, 1, 1, 1, 10, N'Dr. Chea Rath', '+85512345678', 'KH88192837', 'ACTIVE'),
+('FAC_005', N'Trạm Nghỉ Chuyên Dụng Đà Nẵng',       'REST_STATION', N'REST,FUEL', 'VN', N'Đà Nẵng',   N'Hòa Vang',    N'Km 24 Đường Tránh Nam Hải Vân',      '16.0544,108.2022', 16.054400, 108.202200, 'UTC+7', '24/7', 1, 1, 1, 1, 1, 8,  N'Đặng Quốc Bảo', '0905123123', '0401928381', 'ACTIVE');
 GO
 
 -- 8. Bảng FACILITY_CONTRACT: Hợp đồng nguyên tắc biểu phí lưu chuồng và dịch vụ
@@ -144,13 +144,13 @@ INSERT INTO TRIP_PLAN (TripID, RequestID, TotalDistance_km, T_Total_Hours, Total
 ('TRIP_2026_005', 'REQ_2026_001', 4350.00, 35.00, 14200.00, 'RETURNED',        N'Cần đổi tài xế chặng 1 vì giấy phép sắp hết hạn; điều chỉnh lại thời gian dừng tại sân bay đón', '2026-10-17 14:00:00', N'Phạm Hải (Coordinator)', '2026-10-24 00:00:00', '2026-10-30 23:59:59', N'Hồ sơ xuất cảnh có hiệu lực từ 24/10 đến 30/10.');
 GO
 
--- 15. Bảng VEHICLE: Đội xe chuyên dụng chở ngựa đua (Việt Nam & Quốc tế)
-INSERT INTO VEHICLE (VehicleID, Type, CapacityStalls, MaxRange_km, FuelCost_Per_Km, Status, OperatingCountry, PlateNumber) VALUES
-('VEH_BOX_01', 'HORSEBOX_3_STALLS', 3, 900.00,  1.20, 'AVAILABLE',   'VN', N'51C-101.45'),
-('VEH_BOX_02', 'HORSEBOX_6_STALLS', 6, 1200.00, 1.80, 'ON_TRIP',     'VN', N'51C-202.88'),
-('VEH_BOX_03', 'HORSEBOX_2_STALLS', 2, 750.00,  1.00, 'MAINTENANCE', 'VN', N'29B-303.12'),
-('VEH_JP_01',  'HORSEBOX_3_STALLS', 3, 1000.00, 2.50, 'AVAILABLE',   'JP', N'品川 300 あ 12-34'),
-('VEH_JP_02',  'HORSEBOX_6_STALLS', 6, 1300.00, 3.20, 'AVAILABLE',   'JP', N'成田 500 い 56-78');
+-- 15. Bảng VEHICLE: Đội xe chuyên dụng chở ngựa đua (Việt Nam & Quốc tế - Truck Spec v2)
+INSERT INTO VEHICLE (VehicleID, Type, CapacityStalls, MaxRange_km, FuelCost_Per_Km, Status, OperatingCountry, PlateNumber, Height_m, Width_m, Length_m, Gross_Weight_Tons, Axle_Weight_Tons) VALUES
+('VEH_BOX_01', 'HORSEBOX_3_STALLS', 3, 900.00,  1.20, 'AVAILABLE',   'VN', N'51C-101.45', 3.80, 2.50, 10.00, 18.00, 4.00),
+('VEH_BOX_02', 'HORSEBOX_6_STALLS', 6, 1200.00, 1.80, 'ON_TRIP',     'VN', N'51C-202.88', 3.90, 2.55, 12.00, 24.00, 6.00),
+('VEH_BOX_03', 'HORSEBOX_2_STALLS', 2, 750.00,  1.00, 'MAINTENANCE', 'VN', N'29B-303.12', 3.40, 2.30,  7.50, 10.00, 3.50),
+('VEH_JP_01',  'HORSEBOX_3_STALLS', 3, 1000.00, 2.50, 'AVAILABLE',   'JP', N'品川 300 あ 12-34', 3.80, 2.50, 10.00, 18.00, 4.00),
+('VEH_JP_02',  'HORSEBOX_6_STALLS', 6, 1300.00, 3.20, 'AVAILABLE',   'JP', N'成田 500 い 56-78', 3.90, 2.55, 12.00, 24.00, 6.00);
 GO
 
 -- 16. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái theo từng chặng độc lập (Chặng 1 & Chặng 2)
@@ -266,5 +266,23 @@ INSERT INTO PAYMENT (PaymentID, InvoiceID, ConfirmedByUserID, CurrencyCode, Amou
 ('PAY_002', 'INV_102', 'USR_MGR_01', 'USD', 5100.00,     'BANK_TRANSFER',  'TXN_VCB_8829102938', 'SUCCESS', '2026-09-18 10:15:00'),
 ('PAY_003', 'INV_201', 'USR_MGR_01', 'USD', 1680.00,     'STRIPE_GATEWAY', 'TXN_STRIPE_001994', 'SUCCESS', '2026-09-30 09:20:00'),
 ('PAY_004', 'INV_301', 'USR_MGR_01', 'VND', 58000000.00, 'VNPAY_GATEWAY',  'VNPAY_20261007_019', 'SUCCESS', '2026-10-07 14:45:00');
+GO
+
+-- =============================================================================
+-- PHÂN VÙNG 6: DỮ LIỆU MẪU ĐỐI TÁC BAY & LỊCH CHUYẾN BAY (FLOW 3 V2)
+-- =============================================================================
+
+-- 28. Bảng AIR_PARTNER: Đối tác vận tải hàng không mẫu (Flow 3 v2)
+INSERT INTO AIR_PARTNER (PartnerID, PartnerName, CountryCode, ContactEmail, ContactPhone, Status) VALUES
+('PARTNER_NCA', N'Nippon Cargo Airlines', 'JP', 'charter@nca.aero', '+81355551234', 'ACTIVE'),
+('PARTNER_KLINE', N'K-Line Air Service', 'JP', 'cargo@kline.co.jp', '+81355555678', 'ACTIVE'),
+('PARTNER_VN_CARGO', N'Vietnam Airlines Cargo', 'VN', 'cargo@vietnamairlines.com', '19001100', 'ACTIVE');
+GO
+
+-- 29. Bảng FLIGHT_CATALOG: Lịch bay chở ngựa đối tác cung cấp (Flow 3 v2)
+INSERT INTO FLIGHT_CATALOG (ServiceID, PartnerID, ProviderFlightCode, Airline, OriginAirportPlaceId, DestAirportPlaceId, DepartureTime, ArrivalTime, DepartureTimeZone, ArrivalTimeZone, PriceVND, CapacityHorses, CareProvider, DirectFlight, IsActive) VALUES
+('SVC_NCA_102', 'PARTNER_NCA', 'KZ-102', N'NCA Airlines', 'AP_SGN', 'AP_NRT', '05:00', '11:00', 'Asia/Ho_Chi_Minh', 'Asia/Tokyo', 125000000.00, 4, 'AIRLINE', 1, 1),
+('SVC_NCA_104', 'PARTNER_NCA', 'KZ-104', N'NCA Airlines', 'AP_HAN', 'AP_HND', '08:00', '14:30', 'Asia/Ho_Chi_Minh', 'Asia/Tokyo', 135000000.00, 4, 'AIRLINE', 1, 1),
+('SVC_VNA_801', 'PARTNER_VN_CARGO', 'VN-801', N'Vietnam Airlines', 'AP_SGN', 'AP_NRT', '06:00', '12:15', 'Asia/Ho_Chi_Minh', 'Asia/Tokyo', 115000000.00, 2, 'AIRLINE', 1, 1);
 GO
 

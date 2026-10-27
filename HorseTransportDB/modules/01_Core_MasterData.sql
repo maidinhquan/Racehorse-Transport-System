@@ -89,17 +89,26 @@ CREATE TABLE POLICY_AND_TERM (
 );
 GO
 
--- 6. Bảng PARTNER_FACILITY: Quản lý trạm đối tác trong và ngoài nước (Trạm dừng nghỉ/Phòng khám)
+-- 6. Bảng PARTNER_FACILITY: Quản lý trạm đối tác trong và ngoài nước (Trạm dừng nghỉ/Phòng khám/Place v2)
 CREATE TABLE PARTNER_FACILITY (
     FacilityID VARCHAR(50) NOT NULL,
     Name NVARCHAR(200) NOT NULL,
     FacilityType VARCHAR(50) NULL, -- VET_CLINIC, REST_STATION, QUARANTINE
+    Purposes NVARCHAR(100) NULL, -- Flow 3 v2: REST, FUEL, QUARANTINE, BORDER, AIRPORT
     CountryCode VARCHAR(3) NOT NULL DEFAULT 'VN',
     State_Province NVARCHAR(100) NULL,
     City NVARCHAR(100) NULL,
     Address NVARCHAR(500) NULL,
     Coordinates VARCHAR(100) NULL,
+    Latitude DECIMAL(9,6) NULL,
+    Longitude DECIMAL(9,6) NULL,
     TimeZone VARCHAR(50) NULL, -- Múi giờ để tính ETA
+    OperatingHours VARCHAR(50) NULL DEFAULT '24/7', -- '24/7' hoặc '06:00-22:00'
+    SupportsOvernight BIT NOT NULL DEFAULT 0,
+    HasTruckParking BIT NOT NULL DEFAULT 1,
+    HasLoadingArea BIT NOT NULL DEFAULT 1,
+    HasStabling BIT NOT NULL DEFAULT 1,
+    HasWaterFeed BIT NOT NULL DEFAULT 1,
     CapacityStalls INT NULL,
     ContactPerson NVARCHAR(100) NULL,
     ContactPhone VARCHAR(20) NULL,
@@ -165,6 +174,12 @@ CREATE TABLE VEHICLE (
     Status VARCHAR(50) NULL,
     OperatingCountry VARCHAR(10) NULL DEFAULT 'VN', -- 'VN', 'JP', 'SG'
     PlateNumber NVARCHAR(50) NULL, -- Biển số xe thực tế
+    -- Thông số kỹ thuật phục vụ kiểm soát cầu hầm & tải trọng (Flow 3 v2 Truck-Check)
+    Height_m DECIMAL(4, 2) NULL,
+    Width_m DECIMAL(4, 2) NULL,
+    Length_m DECIMAL(4, 2) NULL,
+    Gross_Weight_Tons DECIMAL(5, 2) NULL,
+    Axle_Weight_Tons DECIMAL(5, 2) NULL,
     CONSTRAINT PK_Vehicle PRIMARY KEY (VehicleID)
 );
 GO
