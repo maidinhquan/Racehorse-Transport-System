@@ -283,6 +283,7 @@ public class Flow1CustomerService : IFlow1CustomerService
 
             if (hasPassportFile)
             {
+                var pName = Path.GetFileName(horse.PassportScanUrl);
                 checklist.Items.Add(new DocumentChecklistItemDto
                 {
                     Key = "passport",
@@ -292,7 +293,11 @@ public class Flow1CustomerService : IFlow1CustomerService
                     Status = hasPassportNumber && !passportExpired ? "SUBMITTED" : "ACTION_REQUIRED",
                     Optional = false,
                     Note = "Đã có scan hộ chiếu hợp lệ.",
-                    File = new FileRefDto { Name = Path.GetFileName(horse.PassportScanUrl), Url = $"/api/customer/horses/{horse.HorseId}/files/passport" }
+                    File = new FileRefDto
+                    {
+                        Name = !string.IsNullOrWhiteSpace(pName) ? pName : "passport.pdf",
+                        Url = !string.IsNullOrWhiteSpace(horse.PassportScanUrl) ? horse.PassportScanUrl : $"/api/customer/horses/{horse.HorseId}/files/passport"
+                    }
                 });
             }
 
@@ -310,6 +315,7 @@ public class Flow1CustomerService : IFlow1CustomerService
             }
             else
             {
+                var oName = Path.GetFileName(horse.OwnershipCertificateFileUrl);
                 checklist.Items.Add(new DocumentChecklistItemDto
                 {
                     Key = "ownership",
@@ -319,7 +325,11 @@ public class Flow1CustomerService : IFlow1CustomerService
                     Status = "SUBMITTED",
                     Optional = false,
                     Note = "Đã có giấy chứng nhận sở hữu.",
-                    File = new FileRefDto { Name = Path.GetFileName(horse.OwnershipCertificateFileUrl), Url = $"/api/customer/horses/{horse.HorseId}/files/ownership" }
+                    File = new FileRefDto
+                    {
+                        Name = !string.IsNullOrWhiteSpace(oName) ? oName : "ownership.pdf",
+                        Url = !string.IsNullOrWhiteSpace(horse.OwnershipCertificateFileUrl) ? horse.OwnershipCertificateFileUrl : $"/api/customer/horses/{horse.HorseId}/files/ownership"
+                    }
                 });
             }
 
@@ -328,6 +338,7 @@ public class Flow1CustomerService : IFlow1CustomerService
             var hasFlu = fluRecord != null && !string.IsNullOrWhiteSpace(fluRecord.UploadedFileUrl);
             if (hasFlu)
             {
+                var fName = Path.GetFileName(fluRecord!.UploadedFileUrl);
                 checklist.Items.Add(new DocumentChecklistItemDto
                 {
                     Key = "flu",
@@ -337,10 +348,17 @@ public class Flow1CustomerService : IFlow1CustomerService
                     Status = "SUBMITTED",
                     Optional = true,
                     Note = "Đã nộp sổ tiêm phòng.",
-                    File = new FileRefDto { Name = Path.GetFileName(fluRecord!.UploadedFileUrl), Url = fluRecord.UploadedFileUrl }
+                    File = new FileRefDto
+                    {
+                        Name = !string.IsNullOrWhiteSpace(fName) ? fName : "flu.pdf",
+                        Url = !string.IsNullOrWhiteSpace(fluRecord!.UploadedFileUrl) ? fluRecord!.UploadedFileUrl : $"/api/customer/horses/{horse.HorseId}/files/flu"
+                    }
                 });
             }
         }
+
+        // Đảm bảo tuyệt đối không có item nào thiếu File trong Items theo đúng OpenAPI F1-J23
+        checklist.Items.RemoveAll(item => item.File == null);
 
         return checklist;
     }
@@ -751,7 +769,11 @@ public class Flow1CustomerService : IFlow1CustomerService
                 Key = r.DocumentType?.ToLowerInvariant() ?? "doc",
                 Scope = r.HorseId,
                 Status = r.DocumentStatus ?? "SUBMITTED",
-                File = new FileRefDto { Name = Path.GetFileName(r.UploadedFileUrl), Url = r.UploadedFileUrl },
+                File = new FileRefDto
+                {
+                    Name = Path.GetFileName(r.UploadedFileUrl) ?? "doc.pdf",
+                    Url = r.UploadedFileUrl ?? string.Empty
+                },
                 UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
             }).ToList()
         };

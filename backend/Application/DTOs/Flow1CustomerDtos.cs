@@ -188,7 +188,7 @@ public class FileRefDto
     public string Name { get; set; } = string.Empty;
 
     [JsonPropertyName("url")]
-    public string? Url { get; set; }
+    public string Url { get; set; } = string.Empty;
 }
 
 public class DocumentChecklistDto
