@@ -29,12 +29,13 @@ namespace Application.Services
 
             var normalizedRole = UserRoles.NormalizeRole(user.Role);
 
+            var cleanName = System.Text.RegularExpressions.Regex.Replace(user.FullName ?? string.Empty, @"\s*\([^)]*\)", "").Trim();
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.UserId),
                 new Claim(ClaimTypes.NameIdentifier, user.UserId),
                 new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
-                new Claim(ClaimTypes.Name, user.FullName ?? string.Empty),
+                new Claim(ClaimTypes.Name, string.IsNullOrEmpty(cleanName) ? (user.FullName ?? string.Empty) : cleanName),
                 new Claim(ClaimTypes.Role, normalizedRole),
                 new Claim("role", normalizedRole),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())

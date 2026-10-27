@@ -23,7 +23,7 @@ export const CustomerHomePage: React.FC = () => {
     <CustomerLayout title="Trang chủ">
       <div className="cus-card cus-home__welcome">
         <div>
-          <h2 className="cus-title">Chào mừng trở lại, {profile.name.split(' ')[0]}</h2>
+          <h2 className="cus-title">Chào mừng trở lại, {profile.name || 'Quý khách'}</h2>
           <p className="cus-subtitle">Quản lý ngựa và các yêu cầu vận chuyển của bạn ở một nơi.</p>
         </div>
         <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={() => navigate('/customer/requests/new')}>

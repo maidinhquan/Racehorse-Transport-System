@@ -11,19 +11,19 @@ GO
 
 -- 1. Bảng USER: Đầy đủ các Actor theo phân quyền (có cả tài khoản hoạt động và bị khóa)
 INSERT INTO [USER] (UserID, Username, PasswordHash, Role, FullName, Email, Phone, ForgotPasswordRequest, ResetPasswordRequest, IsActive) VALUES
-('USR_CUST_01', 'nguyenvana',     'HASH_SECURE_01', 'Customer',   N'Nguyễn Văn A (CLB Hà Nội)',         'vana.horse@gmail.com',        '0901234567', NULL, NULL, 1),
-('USR_CUST_02', 'tranvanb',      'HASH_SECURE_02', 'Customer',   N'Trần Văn B (Trang trại Sài Gòn)',   'tranb.racing@gmail.com',      '0908889999', NULL, NULL, 1),
-('USR_CUST_03', 'lethic_locked', 'HASH_SECURE_03', 'Customer',   N'Lê Thị C (Khách vi phạm)',          'lethic.locked@gmail.com',     '0911223344', NULL, NULL, 0),
-('USR_MGR_01',  'manager_linh',  'HASH_SECURE_04', 'Manager',    N'Trần Thị Linh (Logistics Manager)', 'linh.manager@cbntransport.com','0912345678', NULL, NULL, 1),
-('USR_SPEC_01', 'spec_tuan',     'HASH_SECURE_05', 'Specialist', N'Lê Tuấn (Thẩm định pháp lý/thú y)', 'tuan.specialist@cbntransport.com','0923456789', NULL, NULL, 1),
-('USR_COORD_01','coord_hai',     'HASH_SECURE_06', 'Coordinator',N'Phạm Hải (Điều phối xe & tuyến)',   'hai.coord@cbntransport.com',  '0934567890', NULL, NULL, 1),
-('USR_DRV_01',  'driver_hung',   'HASH_SECURE_07', 'Driver',     N'Hoàng Hùng (Tài xế quốc tế 1)',     'hung.driver@cbntransport.com','0945678901', NULL, NULL, 1),
-('USR_DRV_02',  'driver_thanh',  'HASH_SECURE_08', 'Driver',     N'Vũ Thành (Tài xế quốc tế 2)',       'thanh.driver@cbntransport.com','0946789012', NULL, NULL, 1),
-('USR_ESC_01',  'escort_hoa',    'HASH_SECURE_09', 'Escort',     N'BS. Đỗ Hoa (Bác sĩ thú y áp tải)', 'hoa.escort@cbntransport.com', '0956789012', NULL, NULL, 1),
-('USR_ESC_02',  'escort_nam',    'HASH_SECURE_10', 'Escort',     N'BS. Phan Nam (Kỹ thuật viên ngựa)',  'nam.escort@cbntransport.com', '0957890123', NULL, NULL, 1),
-('USR_DRV_JP_01','driver_kenji', 'HASH_SECURE_11', 'Driver',     N'Kenji Sato (Tài xế quốc tế Tokyo)', 'kenji.driver@cbntransport.jp', '0981112233', NULL, NULL, 1),
-('USR_DRV_JP_02','driver_daiki', 'HASH_SECURE_12', 'Driver',     N'Daiki Tanaka (Phụ lái Nhật Bản)',   'daiki.driver@cbntransport.jp', '0982223344', NULL, NULL, 1),
-('USR_ESC_JP_01','vet_yumi',     'HASH_SECURE_13', 'Escort',     N'BS. Yumi Mori (Bác sĩ thú y Tokyo)','yumi.vet@cbntransport.jp',     '0983334455', NULL, NULL, 1);
+('USR_CUST_01', 'nguyenvana',     'HASH_SECURE_01', 'Customer',   N'Nguyễn Văn A',         'vana.horse@gmail.com',        '0901234567', NULL, NULL, 1),
+('USR_CUST_02', 'tranvanb',      'HASH_SECURE_02', 'Customer',   N'Trần Văn B',   'tranb.racing@gmail.com',      '0908889999', NULL, NULL, 1),
+('USR_CUST_03', 'lethic_locked', 'HASH_SECURE_03', 'Customer',   N'Lê Thị C',          'lethic.locked@gmail.com',     '0911223344', NULL, NULL, 0),
+('USR_MGR_01',  'manager_linh',  'HASH_SECURE_04', 'Manager',    N'Trần Thị Linh', 'linh.manager@cbntransport.com','0912345678', NULL, NULL, 1),
+('USR_SPEC_01', 'spec_tuan',     'HASH_SECURE_05', 'Specialist', N'Lê Tuấn', 'tuan.specialist@cbntransport.com','0923456789', NULL, NULL, 1),
+('USR_COORD_01','coord_hai',     'HASH_SECURE_06', 'Coordinator',N'Phạm Hải',   'hai.coord@cbntransport.com',  '0934567890', NULL, NULL, 1),
+('USR_DRV_01',  'driver_hung',   'HASH_SECURE_07', 'Driver',     N'Hoàng Hùng',     'hung.driver@cbntransport.com','0945678901', NULL, NULL, 1),
+('USR_DRV_02',  'driver_thanh',  'HASH_SECURE_08', 'Driver',     N'Vũ Thành',       'thanh.driver@cbntransport.com','0946789012', NULL, NULL, 1),
+('USR_ESC_01',  'escort_hoa',    'HASH_SECURE_09', 'Escort',     N'Đỗ Hoa', 'hoa.escort@cbntransport.com', '0956789012', NULL, NULL, 1),
+('USR_ESC_02',  'escort_nam',    'HASH_SECURE_10', 'Escort',     N'Phan Nam',  'nam.escort@cbntransport.com', '0957890123', NULL, NULL, 1),
+('USR_DRV_JP_01','driver_kenji', 'HASH_SECURE_11', 'Driver',     N'Kenji Sato', 'kenji.driver@cbntransport.jp', '0981112233', NULL, NULL, 1),
+('USR_DRV_JP_02','driver_daiki', 'HASH_SECURE_12', 'Driver',     N'Daiki Tanaka',   'daiki.driver@cbntransport.jp', '0982223344', NULL, NULL, 1),
+('USR_ESC_JP_01','vet_yumi',     'HASH_SECURE_13', 'Escort',     N'Yumi Mori',     'yumi.vet@cbntransport.jp',     '0983334455', NULL, NULL, 1);
 GO
 
 -- 2. Bảng HORSE: Đa dạng cá thể (Ngựa đực Stallion, Ngựa cái Mare, Ngựa thiến Gelding)

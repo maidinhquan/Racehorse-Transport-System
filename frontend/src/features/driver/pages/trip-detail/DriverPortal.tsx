@@ -48,7 +48,7 @@ export const DriverPortal = () => {
           <BrandLogo compact />
           <div>
             <h1 className="driver-trip-code">Chuyến: TRP-2026</h1>
-            <p className="driver-trip-sub">Tài xế: Nguyễn Thanh Quốc Linh</p>
+            <p className="driver-trip-sub">Tài xế: {(localStorage.getItem('userFullName') || 'Hoàng Hùng').replace(/\s*\([^)]*\)/g, '').trim()}</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

@@ -58,9 +58,18 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [userMenuOpen]);
 
+  const currentCoordinatorName = (localStorage.getItem('userFullName') || COORDINATOR_NAME).replace(/\s*\([^)]*\)/g, '').trim() || COORDINATOR_NAME;
+  const coordinatorInitials = currentCoordinatorName
+    .split(' ')
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join('')
+    .slice(-2)
+    .toUpperCase() || 'PH';
+
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
+    localStorage.clear();
+    sessionStorage.clear();
     navigate('/login');
   };
 
@@ -116,8 +125,8 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
                   padding: '4px 8px 4px 4px', cursor: 'pointer', color: 'inherit', font: 'inherit',
                 }}
               >
-                <span className="crd-avatar">DQ</span>
-                <span className="crd-user-name">{COORDINATOR_NAME}</span>
+                <span className="crd-avatar">{coordinatorInitials}</span>
+                <span className="crd-user-name">{currentCoordinatorName}</span>
                 <Icon name="chevron" className="crd-user-chevron" />
               </button>
 
@@ -132,9 +141,9 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px' }}>
-                    <span className="crd-avatar" style={{ width: 36, height: 36, fontSize: 13 }}>DQ</span>
+                    <span className="crd-avatar" style={{ width: 36, height: 36, fontSize: 13 }}>{coordinatorInitials}</span>
                     <div>
-                      <b style={{ display: 'block', fontSize: 13 }}>{COORDINATOR_NAME}</b>
+                      <b style={{ display: 'block', fontSize: 13 }}>{currentCoordinatorName}</b>
                       <span style={{ fontSize: 11, color: 'var(--crd-muted)' }}>Fleet & Route Coordinator</span>
                     </div>
                   </div>

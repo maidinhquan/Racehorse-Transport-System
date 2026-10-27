@@ -994,16 +994,16 @@ GO
 -- 1. Bảng USER: Đầy đủ các Actor theo phân quyền (có cả tài khoản hoạt động và bị khóa)
 -- Include new columns ForgotPasswordRequest and ResetPasswordRequest (nullable)
 INSERT INTO [USER] (UserID, Username, PasswordHash, Role, FullName, Email, Phone, ForgotPasswordRequest, ResetPasswordRequest, IsActive) VALUES
-('USER_001', 'nguyenvana', 'HASH_SECURE_01', 'CUSTOMER', N'Nguyễn Văn A (CLB Hà Nội)', 'vana.horse@gmail.com', '0901234567', NULL, NULL, 1),
-('USER_002', 'tranvanb', 'HASH_SECURE_02', 'CUSTOMER', N'Trần Văn B (Trang trại Sài Gòn)', 'tranb.racing@gmail.com', '0908889999', NULL, NULL, 1),
-('USER_003', 'lethic_locked', 'HASH_SECURE_03', 'CUSTOMER', N'Lê Thị C (Khách vi phạm)', 'lethic.locked@gmail.com', '0911223344', NULL, NULL, 0),
-('USER_004', 'manager_linh', 'HASH_SECURE_04', 'LOGISTICS_MANAGER', N'Trần Thị Linh (Logistics Manager)', 'linh.manager@cbntransport.com', '0912345678', NULL, NULL, 1),
-('USER_005', 'spec_tuan', 'HASH_SECURE_05', 'TRANSPORT_SPECIALIST', N'Lê Tuấn (Thẩm định pháp lý/thú y)', 'tuan.specialist@cbntransport.com', '0923456789', NULL, NULL, 1),
-('USER_006', 'coord_hai', 'HASH_SECURE_06', 'FLEET_ROUTE_COORDINATOR', N'Phạm Hải (Điều phối xe & tuyến)', 'hai.coord@cbntransport.com', '0934567890', NULL, NULL, 1),
-('USER_007', 'driver_hung', 'HASH_SECURE_07', 'DRIVER_ESCORT', N'Hoàng Hùng (Tài xế quốc tế 1)', 'hung.driver@cbntransport.com', '0945678901', NULL, NULL, 1),
-('USER_008', 'driver_thanh', 'HASH_SECURE_08', 'DRIVER_ESCORT', N'Vũ Thành (Tài xế quốc tế 2)', 'thanh.driver@cbntransport.com', '0946789012', NULL, NULL, 1),
-('USER_009', 'escort_hoa', 'HASH_SECURE_09', 'DRIVER_ESCORT', N'BS. Đỗ Hoa (Bác sĩ thú y áp tải)', 'hoa.escort@cbntransport.com', '0956789012', NULL, NULL, 1),
-('USER_010', 'escort_nam', 'HASH_SECURE_10', 'DRIVER_ESCORT', N'BS. Phan Nam (Kỹ thuật viên ngựa)', 'nam.escort@cbntransport.com', '0957890123', NULL, NULL, 1);
+('USER_001', 'nguyenvana', 'HASH_SECURE_01', 'CUSTOMER', N'Nguyễn Văn A', 'vana.horse@gmail.com', '0901234567', NULL, NULL, 1),
+('USER_002', 'tranvanb', 'HASH_SECURE_02', 'CUSTOMER', N'Trần Văn B', 'tranb.racing@gmail.com', '0908889999', NULL, NULL, 1),
+('USER_003', 'lethic_locked', 'HASH_SECURE_03', 'CUSTOMER', N'Lê Thị C', 'lethic.locked@gmail.com', '0911223344', NULL, NULL, 0),
+('USER_004', 'manager_linh', 'HASH_SECURE_04', 'LOGISTICS_MANAGER', N'Trần Thị Linh', 'linh.manager@cbntransport.com', '0912345678', NULL, NULL, 1),
+('USER_005', 'spec_tuan', 'HASH_SECURE_05', 'TRANSPORT_SPECIALIST', N'Lê Tuấn', 'tuan.specialist@cbntransport.com', '0923456789', NULL, NULL, 1),
+('USER_006', 'coord_hai', 'HASH_SECURE_06', 'FLEET_ROUTE_COORDINATOR', N'Phạm Hải', 'hai.coord@cbntransport.com', '0934567890', NULL, NULL, 1),
+('USER_007', 'driver_hung', 'HASH_SECURE_07', 'DRIVER_ESCORT', N'Hoàng Hùng', 'hung.driver@cbntransport.com', '0945678901', NULL, NULL, 1),
+('USER_008', 'driver_thanh', 'HASH_SECURE_08', 'DRIVER_ESCORT', N'Vũ Thành', 'thanh.driver@cbntransport.com', '0946789012', NULL, NULL, 1),
+('USER_009', 'escort_hoa', 'HASH_SECURE_09', 'DRIVER_ESCORT', N'Đỗ Hoa', 'hoa.escort@cbntransport.com', '0956789012', NULL, NULL, 1),
+('USER_010', 'escort_nam', 'HASH_SECURE_10', 'DRIVER_ESCORT', N'Phan Nam', 'nam.escort@cbntransport.com', '0957890123', NULL, NULL, 1);
 
 -- Sample catalogs and mutable policy values. These are data, not service constants.
 INSERT INTO COUNTRY (CountryCode, CountryName, IsActive) VALUES

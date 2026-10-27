@@ -61,9 +61,10 @@ function LoginPage() {
     fullName: string,
     email?: string
   ) => {
+    const cleanName = (fullName || "").replace(/\s*\([^)]*\)/g, "").trim();
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("userRole", role);
-    localStorage.setItem("userFullName", fullName);
+    localStorage.setItem("userFullName", cleanName || fullName || "");
     if (email) {
       localStorage.setItem("userEmail", email);
     }
@@ -225,13 +226,14 @@ function LoginPage() {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="email">
-              Email
+              Email hoặc Tên tài khoản
             </label>
 
             <input
               id="email"
-              type="email"
-              placeholder="Nhập email"
+              type="text"
+              autoComplete="username"
+              placeholder="Nhập email hoặc tên tài khoản"
               value={email}
               onChange={(event) =>
                 setEmail(event.target.value)
@@ -349,7 +351,7 @@ function LoginPage() {
               onClick={() =>
                 handleQuickLogin("vana.horse@gmail.com")
               }
-              title="Khách hàng: vana.horse@gmail.com"
+              title="Khách hàng: Nguyễn Văn A (vana.horse@gmail.com)"
             >
               🐴 Customer
             </button>
@@ -360,7 +362,7 @@ function LoginPage() {
               onClick={() =>
                 handleQuickLogin("linh.manager@cbntransport.com")
               }
-              title="Quản lý: linh.manager@cbntransport.com"
+              title="Quản lý: Trần Thị Linh (linh.manager@cbntransport.com)"
             >
               📋 Logistics Manager
             </button>
@@ -371,7 +373,7 @@ function LoginPage() {
               onClick={() =>
                 handleQuickLogin("tuan.specialist@cbntransport.com")
               }
-              title="Chuyên viên: tuan.specialist@cbntransport.com"
+              title="Chuyên viên: Lê Tuấn (tuan.specialist@cbntransport.com)"
             >
               🩺 Specialist
             </button>
@@ -382,7 +384,7 @@ function LoginPage() {
               onClick={() =>
                 handleQuickLogin("hai.coord@cbntransport.com")
               }
-              title="Điều phối: hai.coord@cbntransport.com"
+              title="Điều phối: Phạm Hải (hai.coord@cbntransport.com)"
             >
               🗺️ Coordinator
             </button>
@@ -393,7 +395,7 @@ function LoginPage() {
               onClick={() =>
                 handleQuickLogin("hung.driver@cbntransport.com")
               }
-              title="Tài xế: hung.driver@cbntransport.com"
+              title="Tài xế: Hoàng Hùng (hung.driver@cbntransport.com)"
             >
               🚚 Driver / Escort
             </button>

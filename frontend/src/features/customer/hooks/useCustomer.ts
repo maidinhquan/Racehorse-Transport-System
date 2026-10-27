@@ -81,10 +81,13 @@ import { mockHorses, mockNotifications, mockRequests } from '../data/mockData';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
+const cleanCustomerName = (s: string) => s.replace(/\s*\([^)]*\)/g, '').trim();
+
 const getInitialProfile = (): CustomerProfile => {
   const p: CustomerProfile = { id: '', name: '', initials: '', email: '', phone: '', company: '' };
   try {
-    const storedName = localStorage.getItem('userFullName');
+    const rawStored = localStorage.getItem('userFullName');
+    const storedName = rawStored ? cleanCustomerName(rawStored) : '';
     const storedEmail = localStorage.getItem('userEmail');
     if (storedName) {
       p.name = storedName;
@@ -194,7 +197,7 @@ async function loadAll() {
   try {
     if (currentUserRes?.data) {
       const u = currentUserRes.data;
-      if (u.fullName) profile.name = u.fullName;
+      if (u.fullName) profile.name = cleanCustomerName(u.fullName);
       if (u.email) {
         profile.email = u.email;
         try {
@@ -205,7 +208,8 @@ async function loadAll() {
       }
       if (u.phoneNumber) profile.phone = u.phoneNumber;
     } else {
-      const storedName = localStorage.getItem('userFullName');
+      const rawStored = localStorage.getItem('userFullName');
+      const storedName = rawStored ? cleanCustomerName(rawStored) : '';
       const storedEmail = localStorage.getItem('userEmail');
       if (storedName) {
         profile.name = storedName;
@@ -213,6 +217,9 @@ async function loadAll() {
       if (storedEmail) {
         profile.email = storedEmail;
       }
+    }
+    if (profile.name) {
+      profile.name = cleanCustomerName(profile.name);
     }
     profile.initials = (profile.name || 'Alex Equine')
       .split(' ')

@@ -149,13 +149,13 @@ Tất cả các tài khoản dưới đây đều dùng chung mật khẩu: **`P
 | Email | Họ và tên | Vai trò (Role) | Ghi chú |
 | :--- | :--- | :--- | :--- |
 | `user@example.com` | Nguyen Van A | CUSTOMER | Tài khoản chuẩn hợp đồng Frontend |
-| `vana.horse@gmail.com` | Nguyễn Văn A (CLB Hà Nội) | CUSTOMER | Khách hàng sở hữu ngựa |
-| `tranb.racing@gmail.com` | Trần Văn B (Trang trại Sài Gòn) | CUSTOMER | Khách hàng trang trại |
+| `vana.horse@gmail.com` | Nguyễn Văn A | CUSTOMER | Khách hàng sở hữu ngựa (CLB Hà Nội) |
+| `tranb.racing@gmail.com` | Trần Văn B | CUSTOMER | Khách hàng trang trại (Trang trại Sài Gòn) |
 | `linh.manager@cbntransport.com`| Trần Thị Linh | LOGISTICS_MANAGER | Quản lý điều phối |
 | `tuan.specialist@cbntransport.com`| Lê Tuấn | TRANSPORT_SPECIALIST | Chuyên viên thẩm định/thú y |
 | `hai.coord@cbntransport.com` | Phạm Hải | FLEET_ROUTE_COORDINATOR | Điều phối tuyến |
 | `hung.driver@cbntransport.com`| Hoàng Hùng | DRIVER_ESCORT | Tài xế vận chuyển |
-| `hoa.escort@cbntransport.com` | BS. Đỗ Hoa | DRIVER_ESCORT | Bác sĩ thú y áp tải |
+| `hoa.escort@cbntransport.com` | Đỗ Hoa | DRIVER_ESCORT | Bác sĩ thú y áp tải |
 
 ---
 

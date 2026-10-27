@@ -61,9 +61,18 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [userMenuOpen]);
 
+  const currentSpecialistName = (localStorage.getItem('userFullName') || SPECIALIST_NAME).replace(/\s*\([^)]*\)/g, '').trim() || SPECIALIST_NAME;
+  const specialistInitials = currentSpecialistName
+    .split(' ')
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join('')
+    .slice(-2)
+    .toUpperCase() || SPECIALIST_INITIALS;
+
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
+    localStorage.clear();
+    sessionStorage.clear();
     navigate('/login');
   };
 
@@ -105,17 +114,17 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
                 aria-label="Menu chuyên viên"
                 aria-expanded={userMenuOpen}
               >
-                <span className="spc-avatar">{SPECIALIST_INITIALS}</span>
-                <span className="spc-user-name">{SPECIALIST_NAME}</span>
+                <span className="spc-avatar">{specialistInitials}</span>
+                <span className="spc-user-name">{currentSpecialistName}</span>
                 <Icon name="chevron" className="spc-user-chevron" />
               </button>
 
               {userMenuOpen && (
                 <div className="spc-user-menu" role="menu">
                   <div className="spc-user-menu__header">
-                    <div className="spc-user-menu__avatar">{SPECIALIST_INITIALS}</div>
+                    <div className="spc-user-menu__avatar">{specialistInitials}</div>
                     <div className="spc-user-menu__info">
-                      <b>{SPECIALIST_NAME}</b>
+                      <b>{currentSpecialistName}</b>
                       <span>Transport Specialist</span>
                     </div>
                   </div>

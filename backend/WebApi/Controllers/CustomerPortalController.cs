@@ -39,7 +39,11 @@ public class CustomerPortalController : ControllerBase
             return NotFound(ApiResponse<object?>.FailWithCode("Không tìm thấy hoặc không có quyền truy cập tài nguyên", "NOT_FOUND"));
         }
 
-        var nameParts = (user.FullName ?? "Khách hàng").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var rawName = user.FullName ?? "Khách hàng";
+        var cleanName = System.Text.RegularExpressions.Regex.Replace(rawName, @"\s*\([^)]*\)", "").Trim();
+        if (string.IsNullOrEmpty(cleanName)) cleanName = rawName;
+
+        var nameParts = cleanName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var initials = nameParts.Length > 0
             ? string.Concat(nameParts.Select(p => p[0])).ToUpperInvariant()
             : "KH";
@@ -48,7 +52,7 @@ public class CustomerPortalController : ControllerBase
         var data = new
         {
             id = user.UserId,
-            name = user.FullName ?? "Khách hàng",
+            name = cleanName,
             initials = initials,
             email = user.Email ?? "",
             phone = string.IsNullOrWhiteSpace(user.Phone) ? "+84901234567" : user.Phone,

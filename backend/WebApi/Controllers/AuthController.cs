@@ -74,7 +74,7 @@ namespace WebApi.Controllers
             var data = new AuthResponseData
             {
                 UserId = FormatUserId(user.UserId),
-                FullName = user.FullName,
+                FullName = CleanFullName(user.FullName),
                 Email = user.Email ?? inputEmail,
                 Role = UserRoles.NormalizeRole(user.Role),
                 AccessToken = token
@@ -142,7 +142,7 @@ namespace WebApi.Controllers
             var data = new AuthResponseData
             {
                 UserId = FormatUserId(user.UserId),
-                FullName = user.FullName,
+                FullName = CleanFullName(user.FullName),
                 Email = user.Email ?? email,
                 Role = UserRoles.NormalizeRole(user.Role),
                 AccessToken = token
@@ -284,7 +284,7 @@ namespace WebApi.Controllers
             var data = new CurrentUserResponseData
             {
                 UserId = FormatUserId(user.UserId),
-                FullName = user.FullName,
+                FullName = CleanFullName(user.FullName),
                 Email = user.Email ?? string.Empty,
                 Role = UserRoles.NormalizeRole(user.Role)
             };
@@ -295,6 +295,13 @@ namespace WebApi.Controllers
         // =========================================================================
         // HELPER METHODS
         // =========================================================================
+
+        public static string CleanFullName(string? fullName)
+        {
+            if (string.IsNullOrWhiteSpace(fullName)) return string.Empty;
+            var clean = System.Text.RegularExpressions.Regex.Replace(fullName, @"\s*\([^)]*\)", "").Trim();
+            return string.IsNullOrEmpty(clean) ? fullName.Trim() : clean;
+        }
 
         private static bool VerifyPassword(string inputPassword, string storedHash)
         {

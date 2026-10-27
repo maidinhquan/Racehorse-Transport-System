@@ -69,9 +69,18 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
     return () => document.removeEventListener('mousedown', close);
   }, [open, userMenuOpen]);
 
+  const currentManagerName = (localStorage.getItem('userFullName') || MANAGER_NAME).replace(/\s*\([^)]*\)/g, '').trim() || MANAGER_NAME;
+  const managerInitials = currentManagerName
+    .split(' ')
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join('')
+    .slice(-2)
+    .toUpperCase() || MANAGER_INITIALS;
+
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
+    localStorage.clear();
+    sessionStorage.clear();
     navigate('/login');
   };
 
@@ -144,17 +153,17 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
                 aria-label="Menu tài khoản"
                 aria-expanded={userMenuOpen}
               >
-                <span className="mgr-avatar">{MANAGER_INITIALS}</span>
-                <span className="mgr-user-name">{MANAGER_NAME}</span>
+                <span className="mgr-avatar">{managerInitials}</span>
+                <span className="mgr-user-name">{currentManagerName}</span>
                 <Icon name="chevron" className="mgr-user-chevron" />
               </button>
 
               {userMenuOpen && (
                 <div className="mgr-user-menu" role="menu">
                   <div className="mgr-user-menu__header">
-                    <div className="mgr-user-menu__avatar">{MANAGER_INITIALS}</div>
+                    <div className="mgr-user-menu__avatar">{managerInitials}</div>
                     <div className="mgr-user-menu__info">
-                      <b>{MANAGER_NAME}</b>
+                      <b>{currentManagerName}</b>
                       <span>Logistics Manager</span>
                     </div>
                   </div>
