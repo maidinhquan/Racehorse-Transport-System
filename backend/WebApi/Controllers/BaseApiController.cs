@@ -1,23 +1,32 @@
 using Microsoft.AspNetCore.Mvc;
 using Application.DTOs;
+using System.Security.Claims;
 
 namespace WebApi.Controllers
 {
     /// <summary>
     /// Base Controller mẫu cho toàn bộ các Controller trong dự án sau này.
-    /// Bất kỳ Controller nào tạo sau này (HorsesController, TripsController, PaymentsController...)
-    /// chỉ cần kế thừa class này là tự động có route chuẩn "api/[controller]" và các hàm trả kết quả chuẩn hóa.
+    /// Kế thừa class này để có route chuẩn "api/[controller]" và các hàm trả kết quả chuẩn hóa theo OpenAPI.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public abstract class BaseApiController : ControllerBase
     {
-        protected IActionResult Success<T>(T data, string message = "Thao tác thành công")
+        protected string CurrentUserId => User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                       ?? User?.FindFirst("sub")?.Value
+                                       ?? "USER_007";
+
+        protected IActionResult Success<T>(T data, string message = "OK")
         {
             return Ok(ApiResponse<T>.Ok(data, message));
         }
 
-        protected IActionResult SuccessMessage(string message = "Thao tác thành công")
+        protected IActionResult CreatedSuccess<T>(T data, string message = "OK")
+        {
+            return StatusCode(StatusCodes.Status201Created, ApiResponse<T>.Ok(data, message));
+        }
+
+        protected IActionResult SuccessMessage(string message = "OK")
         {
             return Ok(ApiResponse<object?>.Ok(null, message));
         }
@@ -33,4 +42,3 @@ namespace WebApi.Controllers
         }
     }
 }
-

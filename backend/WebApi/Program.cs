@@ -223,6 +223,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<IdempotencyMiddleware>();
 app.UseRateLimiter();
 
 app.MapControllers();

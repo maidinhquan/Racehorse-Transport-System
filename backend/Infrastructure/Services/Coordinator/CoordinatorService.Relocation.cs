@@ -131,10 +131,10 @@ namespace Infrastructure.Services
                     Country = facility?.Country ?? "VN",
                     Address = facility?.Address ?? "Địa chỉ cơ sở",
                     Geo = new GeoDto { Lat = (double)(facility?.Latitude ?? 10.77m), Lng = (double)(facility?.Longitude ?? 106.70m) },
-                    Functions = new List<string> { "QUARANTINE", "REST" },
+                    Functions = (facility?.Purposes ?? "REST,QUARANTINE").Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
                     Hours = facility?.OperatingHours ?? "24/7",
                     Contact = facility?.ContactPerson ?? "Quản lý",
-                    Phone = facility?.ContactPhone ?? "+84901234567",
+                    Phone = facility?.ContactPhone ?? string.Empty,
                     Status = "ACTIVE",
                     UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
                 },

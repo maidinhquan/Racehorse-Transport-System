@@ -16,13 +16,13 @@ namespace Infrastructure.Services
         {
             return new List<Vehicle>
             {
-                new() { VehicleId = "VEH_BOX_01", Type = "HORSEBOX_3_STALLS", CapacityStalls = 3, MaxRangeKm = 900, FuelCostPerKm = 1.20m, Status = "AVAILABLE" },
-                new() { VehicleId = "VEH_BOX_02", Type = "HORSEBOX_6_STALLS", CapacityStalls = 6, MaxRangeKm = 1200, FuelCostPerKm = 1.80m, Status = "ON_TRIP" },
-                new() { VehicleId = "VEH_BOX_03", Type = "HORSEBOX_2_STALLS", CapacityStalls = 2, MaxRangeKm = 750, FuelCostPerKm = 1.00m, Status = "MAINTENANCE" },
-                new() { VehicleId = "VEH_BOX_04", Type = "HORSEBOX_4_STALLS", CapacityStalls = 4, MaxRangeKm = 1000, FuelCostPerKm = 1.40m, Status = "AVAILABLE" },
-                new() { VehicleId = "VEH_BOX_05", Type = "HORSEBOX_3_STALLS", CapacityStalls = 3, MaxRangeKm = 950, FuelCostPerKm = 1.25m, Status = "READY" },
-                new() { VehicleId = "VEH_JP_01", Type = "HORSEBOX_4_STALLS_JP", CapacityStalls = 4, MaxRangeKm = 800, FuelCostPerKm = 1.60m, Status = "READY" },
-                new() { VehicleId = "VEH_JP_02", Type = "HORSEBOX_2_STALLS_JP", CapacityStalls = 2, MaxRangeKm = 650, FuelCostPerKm = 1.30m, Status = "AVAILABLE" }
+                new() { VehicleId = "VEH_BOX_01", Type = "HORSEBOX_3_STALLS", CapacityStalls = 3, MaxRangeKm = 900, FuelCostPerKm = 1.20m, Status = "AVAILABLE", OperatingCountry = "VN", PlateNumber = "51C-101.45", HeightM = 3.80m, WidthM = 2.50m, LengthM = 10.00m, GrossWeightTons = 18.00m, AxleWeightTons = 4.00m },
+                new() { VehicleId = "VEH_BOX_02", Type = "HORSEBOX_6_STALLS", CapacityStalls = 6, MaxRangeKm = 1200, FuelCostPerKm = 1.80m, Status = "ON_TRIP", OperatingCountry = "VN", PlateNumber = "51C-202.88", HeightM = 3.90m, WidthM = 2.55m, LengthM = 12.00m, GrossWeightTons = 24.00m, AxleWeightTons = 6.00m },
+                new() { VehicleId = "VEH_BOX_03", Type = "HORSEBOX_2_STALLS", CapacityStalls = 2, MaxRangeKm = 750, FuelCostPerKm = 1.00m, Status = "MAINTENANCE", OperatingCountry = "VN", PlateNumber = "29B-303.12", HeightM = 3.40m, WidthM = 2.30m, LengthM = 7.50m, GrossWeightTons = 10.00m, AxleWeightTons = 3.50m },
+                new() { VehicleId = "VEH_BOX_04", Type = "HORSEBOX_4_STALLS", CapacityStalls = 4, MaxRangeKm = 1000, FuelCostPerKm = 1.40m, Status = "AVAILABLE", OperatingCountry = "VN", PlateNumber = "51C-404.11", HeightM = 3.85m, WidthM = 2.50m, LengthM = 11.00m, GrossWeightTons = 20.00m, AxleWeightTons = 5.00m },
+                new() { VehicleId = "VEH_BOX_05", Type = "HORSEBOX_3_STALLS", CapacityStalls = 3, MaxRangeKm = 950, FuelCostPerKm = 1.25m, Status = "READY", OperatingCountry = "VN", PlateNumber = "51C-505.22", HeightM = 3.80m, WidthM = 2.50m, LengthM = 10.00m, GrossWeightTons = 18.00m, AxleWeightTons = 4.00m },
+                new() { VehicleId = "VEH_JP_01", Type = "HORSEBOX_3_STALLS", CapacityStalls = 3, MaxRangeKm = 1000, FuelCostPerKm = 2.50m, Status = "AVAILABLE", OperatingCountry = "JP", PlateNumber = "品川 300 あ 12-34", HeightM = 3.80m, WidthM = 2.50m, LengthM = 10.00m, GrossWeightTons = 18.00m, AxleWeightTons = 4.00m },
+                new() { VehicleId = "VEH_JP_02", Type = "HORSEBOX_6_STALLS", CapacityStalls = 6, MaxRangeKm = 1300, FuelCostPerKm = 3.20m, Status = "AVAILABLE", OperatingCountry = "JP", PlateNumber = "成田 500 い 56-78", HeightM = 3.90m, WidthM = 2.55m, LengthM = 12.00m, GrossWeightTons = 24.00m, AxleWeightTons = 6.00m }
             };
         }
 

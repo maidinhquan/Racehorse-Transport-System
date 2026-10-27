@@ -70,7 +70,8 @@ namespace Application.Interfaces
         Task<List<StaffV2Dto>> GetStaffListV2Async(string? tripId, string? leg, string? status);
         Task<StaffV2Dto> UpdateStaffStatusV2Async(string staffId, StaffStatusDto dto, string userId);
 
-        // 10. Truck Feasibility, Vehicle Options & Reports (F3-J19, J26, J27, J53, J55)
+        // 10. Truck Feasibility, Vehicle Options & Reports (F3-J19, J25, J26, J27, J53, J55)
+        Task<RoutingDto> CalculateRouteV2Async(string tripId, RoutingInputDto dto);
         Task<ValidationDto> CheckTruckFeasibilityAsync(string tripId, PlanCommandDto dto);
         Task<List<VehicleOptionDto>> GetVehicleOptionsV2Async(string tripId, string? leg);
         Task<List<TripHistoryItemDto>> GetPlanningHistoryAsync(string tripId);

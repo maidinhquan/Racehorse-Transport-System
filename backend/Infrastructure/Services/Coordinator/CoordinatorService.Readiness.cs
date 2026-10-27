@@ -531,6 +531,9 @@ namespace Infrastructure.Services
             bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue;
             bool opsReady = trip.OperationsStatus == "READY" || (trip.ResourcesConfirmedAt.HasValue && planApproved);
 
+            DateTime? plannedDepart = trip.Request?.ExpectedDate ?? trip.EarliestDepartureDate;
+            bool timeNotExpired = !plannedDepart.HasValue || plannedDepart.Value >= DateTime.UtcNow.AddHours(-1);
+
             var checks = new List<ReadinessCheckDto>
             {
                 new()
@@ -575,8 +578,8 @@ namespace Infrastructure.Services
                     Group = "SHARED",
                     Tab = "overview",
                     Label = "Thời gian xuất phát dự kiến còn hiệu lực trên máy chủ",
-                    Ok = true,
-                    Detail = "Giờ xuất phát hợp lệ"
+                    Ok = timeNotExpired,
+                    Detail = timeNotExpired ? "Giờ xuất phát hợp lệ" : "Thời gian xuất phát dự kiến đã quá hạn so với giờ hệ thống"
                 }
             };
 
@@ -585,6 +588,7 @@ namespace Infrastructure.Services
             if (!noOpenChange) blockers.Add(new BlockerDto { Code = "OPEN_CHANGE_EXISTS", Field = "openChange", Message = "Có bản sửa đổi đang mở dở chưa chốt" });
             if (!docsReady) blockers.Add(new BlockerDto { Code = "DOCS_NOT_READY", Field = "docsReady", Message = "Chuyên viên chưa hoàn tất hồ sơ kiểm dịch" });
             if (!opsReady) blockers.Add(new BlockerDto { Code = "OPS_NOT_READY", Field = "opsReady", Message = "Chưa hoàn tất nguồn lực vận hành" });
+            if (!timeNotExpired) blockers.Add(new BlockerDto { Code = "PLANNED_DEPARTURE_EXPIRED", Field = "departureTime", Message = "Thời gian xuất phát dự kiến đã quá hạn" });
 
             trip.ReadinessVersion += 1;
             await _context.SaveChangesAsync();

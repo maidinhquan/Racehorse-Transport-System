@@ -132,7 +132,7 @@ namespace Infrastructure.Services
                     Status = booking.BookingConfirmed ? "BOOKED" : "CANCELLED",
                     EvidenceFileId = "FILE_001",
                     RecordedAt = booking.CreatedAt?.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
-                    RecordedBy = new ActorDto { UserId = "USER_007", Name = "Điều phối viên" }
+                    RecordedBy = new ActorDto { UserId = trip.AssignedCoordinatorId ?? "USR_COORD_01", Name = "Điều phối viên" }
                 };
             }
 
@@ -148,7 +148,7 @@ namespace Infrastructure.Services
                     Reason = latestReloc.Reason,
                     HandoverAt = latestReloc.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm"),
                     Valid = true,
-                    By = new ActorDto { UserId = latestReloc.ProposedBy ?? "USER_007", Name = "Điều phối viên" },
+                    By = new ActorDto { UserId = latestReloc.ProposedBy ?? trip.AssignedCoordinatorId ?? "USR_COORD_01", Name = "Điều phối viên" },
                     At = latestReloc.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")
                 };
             }
@@ -167,11 +167,25 @@ namespace Infrastructure.Services
             bool opsReadyBool = trip.OperationsStatus == "READY" || (trip.ResourcesConfirmedAt.HasValue && trip.RouteStatus == "APPROVED");
             bool docsReadyBool = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue;
 
+            var contract = await _context.Contracts.FirstOrDefaultAsync(c => c.TripId == trip.TripId);
+            string contractId = contract?.ContractId ?? ("CTR_" + trip.TripId);
+
+            PartnerFacility? originFacility = null;
+            if (!string.IsNullOrEmpty(trip.EffectiveOriginPlaceId))
+            {
+                originFacility = await _context.PartnerFacilities.FindAsync(trip.EffectiveOriginPlaceId);
+            }
+
+            var reqDocsCount = await _context.LegalMedicalRecords.CountAsync(r => r.RequestId == trip.RequestId);
+            if (reqDocsCount == 0) reqDocsCount = 5;
+            var approvedDocsCount = await _context.LegalMedicalRecords.CountAsync(r => r.RequestId == trip.RequestId && r.SpecialistReviewStatus == "APPROVED");
+            if (approvedDocsCount == 0 && docsReadyBool) approvedDocsCount = reqDocsCount;
+
             return new TripContextDto
             {
                 TripId = cleanTripId,
                 RequestId = trip.RequestId,
-                ContractId = "CONTRACT_" + trip.RequestId.Replace("REQUEST_", ""),
+                ContractId = contractId,
                 Status = trip.Status,
                 Mode = mode,
                 Binding = new BindingDto
@@ -181,16 +195,20 @@ namespace Infrastructure.Services
                     PlanVersion = trip.PlanVersion,
                     ExpectedVersion = trip.Version
                 },
-                Deployment = "CONFIRMED",
-                SpecialistId = "USER_006",
-                CoordinatorId = "USER_007",
+                Deployment = trip.DeploymentStatus ?? "CONFIRMED",
+                SpecialistId = trip.AssignedSpecialistId ?? "USR_SPEC_01",
+                CoordinatorId = trip.AssignedCoordinatorId ?? "USR_COORD_01",
                 HorseIds = horses,
                 Pickup = new EndpointDto
                 {
-                    Name = trip.Request?.CustomerName ?? "Trại đón ngựa",
-                    Address = trip.Request?.Departure ?? "Điểm đón khách hàng",
-                    Country = "VN",
-                    Geo = new GeoDto { Lat = 10.7769, Lng = 106.7009 },
+                    Name = originFacility?.FacilityName ?? trip.Request?.CustomerName ?? "Trại đón ngựa",
+                    Address = originFacility?.Address ?? trip.Request?.Departure ?? "Điểm đón khách hàng",
+                    Country = originFacility?.Country ?? "VN",
+                    Geo = new GeoDto
+                    {
+                        Lat = (double)(originFacility?.Latitude ?? 10.7769m),
+                        Lng = (double)(originFacility?.Longitude ?? 106.7009m)
+                    },
                     Access = new AccessLimitsDto { MaxHeightM = 4.0, MaxWidthM = 2.6, MaxGrossT = 20 }
                 },
                 Delivery = new EndpointDto
@@ -208,7 +226,7 @@ namespace Infrastructure.Services
                     {
                         Ready = true,
                         ConfirmedAt = trip.ResourcesConfirmedAt.Value.ToString("yyyy-MM-dd HH:mm"),
-                        ConfirmedBy = new ActorDto { UserId = trip.ResourcesConfirmedBy ?? "USER_007", Name = "Điều phối viên" },
+                        ConfirmedBy = new ActorDto { UserId = trip.ResourcesConfirmedBy ?? coordinatorId, Name = "Điều phối viên" },
                         Source = "COORDINATOR"
                     }
                     : null,
@@ -226,15 +244,15 @@ namespace Infrastructure.Services
                     {
                         Ready = true,
                         ConfirmedAt = trip.EarliestDepartureDate?.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
-                        ConfirmedBy = new ActorDto { UserId = "USER_006", Name = "Chuyên viên pháp lý" },
+                        ConfirmedBy = new ActorDto { UserId = trip.AssignedSpecialistId ?? "USR_SPEC_01", Name = "Chuyên viên pháp lý" },
                         Source = "SPECIALIST"
                     }
                     : null,
                 Documents = new DocumentSummaryDto
                 {
                     RequirementSetApplied = true,
-                    Required = 5,
-                    Approved = docsReadyBool ? 5 : 4,
+                    Required = reqDocsCount,
+                    Approved = approvedDocsCount,
                     InsuranceStatus = "VERIFIED",
                     QuarantineConfirmed = true,
                     ValidityMode = "ASSUMED_VALID_FOR_TRIP",
@@ -245,11 +263,11 @@ namespace Infrastructure.Services
                 },
                 PickupAccess = new PickupAccessDto
                 {
-                    Result = "ACCESSIBLE",
-                    Proof = "Đã khảo sát thực tế đường vào đạt tĩnh không xe tải lớn",
+                    Result = latestReloc?.AccessEvaluation ?? "ACCESSIBLE",
+                    Proof = latestReloc?.Reason ?? "Đã khảo sát thực tế đường vào đạt tĩnh không xe tải lớn",
                     Valid = true,
-                    By = new ActorDto { UserId = "USER_007", Name = "Điều phối viên" },
-                    At = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
+                    By = new ActorDto { UserId = latestReloc?.ProposedBy ?? coordinatorId, Name = "Điều phối viên" },
+                    At = latestReloc?.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
                 },
                 PickupRelocation = relocDto,
                 Booking = bookingDto,
@@ -636,10 +654,112 @@ namespace Infrastructure.Services
         // =========================================================================
         // 4. TRUCK FEASIBILITY & VEHICLE OPTIONS (F3-J26, J27, J55)
         // =========================================================================
+        public async Task<RoutingDto> CalculateRouteV2Async(string tripId, RoutingInputDto dto)
+        {
+            var cleanTripId = tripId?.Trim() ?? string.Empty;
+            var trip = await _context.TripPlans
+                .Include(t => t.Request)
+                .Include(t => t.RouteSegments)
+                    .ThenInclude(s => s.Facility)
+                .FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
+
+            if (trip == null)
+            {
+                throw new KeyNotFoundException($"Không tìm thấy chuyến đi có mã {tripId}");
+            }
+
+            if (dto.ExpectedVersion > 0 && trip.Version != dto.ExpectedVersion)
+            {
+                throw new InvalidOperationException("STALE_VERSION: Phiên bản chuyến đi đã thay đổi");
+            }
+
+            double fromLat = 10.7769, fromLng = 106.7009;
+            double toLat = 10.8231, toLng = 106.6297;
+
+            if (!string.IsNullOrEmpty(trip.EffectiveOriginPlaceId))
+            {
+                var fac = await _context.PartnerFacilities.FindAsync(trip.EffectiveOriginPlaceId);
+                if (fac?.Latitude != null && fac?.Longitude != null)
+                {
+                    fromLat = (double)fac.Latitude.Value;
+                    fromLng = (double)fac.Longitude.Value;
+                }
+            }
+            else if (trip.RouteSegments.Any())
+            {
+                var firstSeg = trip.RouteSegments.OrderBy(s => s.SequenceOrder).First();
+                if (firstSeg.Facility?.Latitude != null && firstSeg.Facility?.Longitude != null)
+                {
+                    fromLat = (double)firstSeg.Facility.Latitude.Value;
+                    fromLng = (double)firstSeg.Facility.Longitude.Value;
+                }
+            }
+
+            if (trip.RouteSegments.Count > 1)
+            {
+                var lastSeg = trip.RouteSegments.OrderByDescending(s => s.SequenceOrder).First();
+                if (lastSeg.Facility?.Latitude != null && lastSeg.Facility?.Longitude != null)
+                {
+                    toLat = (double)lastSeg.Facility.Latitude.Value;
+                    toLng = (double)lastSeg.Facility.Longitude.Value;
+                }
+            }
+
+            var routeResult = await _mapRoutingService.CalculateLegRoutingAsync(fromLat, fromLng, toLat, toLng, weightTons: 10.0m, heightMeters: 3.8m);
+
+            var geometry = routeResult.path.Select(p => new List<double> { p[1], p[0] }).ToList();
+            if (!geometry.Any())
+            {
+                geometry = new List<List<double>>
+                {
+                    new List<double> { fromLng, fromLat },
+                    new List<double> { toLng, toLat }
+                };
+            }
+
+            double km = (double)routeResult.distanceKm;
+            double driveMin = routeResult.durationMinutes;
+
+            var segments = new List<RoutingSegmentDto>
+            {
+                new RoutingSegmentDto
+                {
+                    FromStopKey = "stop-origin",
+                    ToStopKey = "stop-destination",
+                    Leg = trip.Request?.TransportType?.Contains("AIR") == true ? "outbound" : "road",
+                    Km = km,
+                    DriveMin = driveMin,
+                    Geometry = geometry
+                }
+            };
+
+            return new RoutingDto
+            {
+                RoutingId = "ROUTING_" + Guid.NewGuid().ToString("N")[..8].ToUpper(),
+                PlanVersion = dto.PlanVersion > 0 ? dto.PlanVersion : trip.PlanVersion,
+                PolicyVersion = 1,
+                Provider = routeResult.source ?? "OSRM",
+                TruckVerified = true,
+                Demo = false,
+                CheckedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
+                Segments = segments,
+                Stops = new List<string> { "stop-origin", "stop-destination" },
+                TotalKm = km,
+                DriveMin = driveMin,
+                StopMin = 0,
+                FlyMin = 0,
+                Eta = DateTime.UtcNow.AddMinutes(driveMin).ToString("yyyy-MM-dd HH:mm"),
+                Issues = new List<BlockerDto>()
+            };
+        }
+
         public async Task<ValidationDto> CheckTruckFeasibilityAsync(string tripId, PlanCommandDto dto)
         {
             var cleanTripId = tripId?.Trim() ?? string.Empty;
-            var trip = await _context.TripPlans.FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
+            var trip = await _context.TripPlans
+                .Include(t => t.VehicleAssignments)
+                    .ThenInclude(va => va.Vehicle)
+                .FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
 
             if (trip == null)
             {
@@ -647,18 +767,33 @@ namespace Infrastructure.Services
             }
 
             var blockers = new List<BlockerDto>();
-            var vehicles = await _context.Vehicles.ToListAsync();
+            var candidateVehicles = trip.VehicleAssignments.Select(va => va.Vehicle).Where(v => v != null).ToList();
 
-            // Giả lập kiểm tra chiều cao tĩnh không cầu hầm theo kích thước xe
-            var largeVehicles = vehicles.Where(v => (v.HeightM ?? 3.8m) > 4.2m).ToList();
-            if (largeVehicles.Any())
+            if (dto.Plan?.Resources != null)
             {
-                blockers.Add(new BlockerDto
+                var planVehIds = dto.Plan.Resources.Select(r => r.VehicleId).Where(id => !string.IsNullOrEmpty(id)).Distinct().ToList();
+                var extraVehicles = await _context.Vehicles.Where(v => planVehIds.Contains(v.VehicleId)).ToListAsync();
+                foreach (var ev in extraVehicles)
                 {
-                    Code = "BRIDGE_CLEARANCE_EXCEEDED",
-                    Field = "truckProfile.heightM",
-                    Message = "Cầu hầm tuyến đường giới hạn tĩnh không 4.2m; xe đã chọn vượt quá giới hạn."
-                });
+                    if (!candidateVehicles.Any(cv => cv!.VehicleId == ev.VehicleId))
+                    {
+                        candidateVehicles.Add(ev);
+                    }
+                }
+            }
+
+            decimal maxHeightLimit = 4.2m;
+            foreach (var v in candidateVehicles)
+            {
+                if (v != null && (v.HeightM ?? 3.8m) > maxHeightLimit)
+                {
+                    blockers.Add(new BlockerDto
+                    {
+                        Code = "BRIDGE_CLEARANCE_EXCEEDED",
+                        Field = "truckProfile.heightM",
+                        Message = $"Phương tiện {v.VehicleId} ({v.PlateNumber}) có chiều cao {v.HeightM}m vượt quá giới hạn tĩnh không tuyến đường ({maxHeightLimit}m)."
+                    });
+                }
             }
 
             return new ValidationDto
@@ -673,7 +808,7 @@ namespace Infrastructure.Services
                 PlanVersion = trip.PlanVersion,
                 Valid = blockers.Count == 0,
                 Blockers = blockers,
-                Eta = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd HH:mm"),
+                Eta = DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd HH:mm"),
                 ResourceHoldsCreated = false
             };
         }
@@ -735,18 +870,7 @@ namespace Infrastructure.Services
 
             if (!histories.Any())
             {
-                return new List<TripHistoryItemDto>
-                {
-                    new()
-                    {
-                        EventId = "EVENT_INIT",
-                        At = DateTime.UtcNow.AddDays(-2).ToString("yyyy-MM-dd HH:mm"),
-                        By = new ActorDto { UserId = "USER_007", Name = "Điều phối viên" },
-                        Action = "TRIP_INITIALIZED",
-                        PlanVersion = 1,
-                        Detail = "Khởi tạo hồ sơ điều phối chuyến đi"
-                    }
-                };
+                return new List<TripHistoryItemDto>();
             }
 
             return histories.Select(h => new TripHistoryItemDto
@@ -804,6 +928,84 @@ namespace Infrastructure.Services
 
         private PlanDto BuildDefaultPlanFromTrip(TripPlan trip, string mode, bool isDraft)
         {
+            var stops = new List<StopDto>();
+
+            if (trip.RouteSegments != null && trip.RouteSegments.Any())
+            {
+                foreach (var seg in trip.RouteSegments.OrderBy(s => s.SequenceOrder))
+                {
+                    stops.Add(new StopDto
+                    {
+                        StopId = "SEG_" + seg.SegmentId,
+                        ClientKey = "stop-" + seg.SequenceOrder,
+                        Type = seg.SequenceOrder == 1 ? "ORIGIN" : "WAYPOINT",
+                        Name = seg.Facility?.FacilityName ?? seg.TransportMode,
+                        Geo = new GeoDto
+                        {
+                            Lat = (double)(seg.Facility?.Latitude ?? 10.7769m),
+                            Lng = (double)(seg.Facility?.Longitude ?? 106.7009m)
+                        },
+                        Required = true,
+                        ArriveAt = seg.EstimatedDepartureTime?.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
+                        DepartAt = seg.EstimatedArrivalTime?.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.AddHours(2).ToString("yyyy-MM-dd HH:mm")
+                    });
+                }
+            }
+
+            if (!stops.Any())
+            {
+                stops.Add(new StopDto
+                {
+                    StopId = "STOP_001",
+                    ClientKey = "stop-origin",
+                    Type = "ORIGIN",
+                    Name = trip.Request?.Departure ?? "Điểm đón",
+                    Geo = new GeoDto { Lat = 10.7769, Lng = 106.7009 },
+                    Required = true,
+                    ArriveAt = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd HH:mm"),
+                    DepartAt = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd HH:mm")
+                });
+                stops.Add(new StopDto
+                {
+                    StopId = "STOP_002",
+                    ClientKey = "stop-destination",
+                    Type = "DESTINATION",
+                    Name = trip.Request?.Destination ?? "Điểm giao",
+                    Geo = new GeoDto { Lat = 10.8231, Lng = 106.6297 },
+                    Required = true,
+                    ArriveAt = DateTime.UtcNow.AddDays(2).AddHours(3).ToString("yyyy-MM-dd HH:mm"),
+                    DepartAt = DateTime.UtcNow.AddDays(2).AddHours(3).ToString("yyyy-MM-dd HH:mm")
+                });
+            }
+
+            var resources = new List<RoadResourcesDto>();
+            if (trip.VehicleAssignments != null && trip.VehicleAssignments.Any())
+            {
+                foreach (var va in trip.VehicleAssignments)
+                {
+                    resources.Add(new RoadResourcesDto
+                    {
+                        Leg = va.LegType?.ToLower() ?? (mode == "AIR" ? (va.LegNumber == 2 ? "inbound" : "outbound") : "road"),
+                        VehicleId = va.VehicleId,
+                        Crew = new CrewDto
+                        {
+                            MainDriver = va.DriverId ?? string.Empty,
+                            CoDriver = va.CoDriverId ?? string.Empty,
+                            Veterinarian = va.VeterinarianId ?? va.EscortId ?? string.Empty
+                        }
+                    });
+                }
+            }
+            else
+            {
+                resources.Add(new RoadResourcesDto
+                {
+                    Leg = mode == "AIR" ? "outbound" : "road",
+                    VehicleId = string.Empty,
+                    Crew = new CrewDto()
+                });
+            }
+
             return new PlanDto
             {
                 PlanVersion = trip.PlanVersion,
@@ -811,45 +1013,8 @@ namespace Infrastructure.Services
                 Mode = mode,
                 PlannedDepart = trip.Request?.ExpectedDate?.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd HH:mm"),
                 Eta = DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd HH:mm"),
-                Stops = new List<StopDto>
-                {
-                    new()
-                    {
-                        StopId = "STOP_001",
-                        ClientKey = "stop-origin",
-                        Type = "ORIGIN",
-                        Name = trip.Request?.Departure ?? "Điểm đón Việt Nam",
-                        Geo = new GeoDto { Lat = 10.7769, Lng = 106.7009 },
-                        Required = true,
-                        ArriveAt = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd HH:mm"),
-                        DepartAt = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd HH:mm")
-                    },
-                    new()
-                    {
-                        StopId = "STOP_002",
-                        ClientKey = "stop-destination",
-                        Type = "DESTINATION",
-                        Name = trip.Request?.Destination ?? "Điểm giao nhận đích",
-                        Geo = new GeoDto { Lat = 10.9, Lng = 106.8 },
-                        Required = true,
-                        ArriveAt = DateTime.UtcNow.AddDays(2).AddHours(3).ToString("yyyy-MM-dd HH:mm"),
-                        DepartAt = DateTime.UtcNow.AddDays(2).AddHours(3).ToString("yyyy-MM-dd HH:mm")
-                    }
-                },
-                Resources = new List<RoadResourcesDto>
-                {
-                    new()
-                    {
-                        Leg = mode == "AIR" ? "outbound" : "road",
-                        VehicleId = "VEH_BOX_01",
-                        Crew = new CrewDto
-                        {
-                            MainDriver = "USR_DRV_01",
-                            CoDriver = "USR_DRV_02",
-                            Veterinarian = "USR_ESC_01"
-                        }
-                    }
-                },
+                Stops = stops,
+                Resources = resources,
                 Note = "Kế hoạch mặc định theo đơn hàng"
             };
         }

@@ -20,30 +20,21 @@ namespace Infrastructure.Services
             if (minStalls.HasValue) query = query.Where(v => (v.CapacityStalls ?? 0) >= minStalls.Value);
 
             var vehicles = await query.ToListAsync();
-            if (!vehicles.Any())
-            {
-                vehicles = GetDefaultVehicles();
-                _context.Vehicles.AddRange(vehicles);
-                await _context.SaveChangesAsync();
-            }
 
             var result = vehicles.Select(v =>
             {
-                bool isJp = v.VehicleId.Contains("_JP_");
-                string regCountry = isJp ? "JP" : "VN";
-                string plate = isJp
-                    ? (v.VehicleId == "VEH_JP_01" ? "品川 300 あ 12-34" : "成田 500 い 56-78")
-                    : v.VehicleId.Replace("VEH_BOX_", "51C-10") + ".45";
+                string regCountry = !string.IsNullOrWhiteSpace(v.OperatingCountry) ? v.OperatingCountry : (v.VehicleId.Contains("_JP_") ? "JP" : "VN");
+                string plate = !string.IsNullOrWhiteSpace(v.PlateNumber) ? v.PlateNumber : v.VehicleId;
 
                 return new VehicleDto
                 {
                     VehicleId = v.VehicleId,
                     PlateNumber = plate,
-                    Type = v.Type ?? (isJp ? "HORSEBOX_JP_LUXURY" : "HORSEBOX_3_STALLS"),
+                    Type = v.Type ?? (regCountry == "JP" ? "HORSEBOX_JP_LUXURY" : "HORSEBOX_3_STALLS"),
                     RegistrationCountry = regCountry,
                     TotalStalls = v.CapacityStalls ?? 3,
                     AvailableStalls = v.CapacityStalls ?? 3,
-                    PayloadKg = isJp ? 10000 : 8000,
+                    PayloadKg = regCountry == "JP" ? 10000 : 8000,
                     RegistrationExpiry = DateTime.UtcNow.AddMonths(18),
                     MaxRangeKm = v.MaxRangeKm,
                     FuelCostPerKm = v.FuelCostPerKm,
@@ -65,20 +56,18 @@ namespace Infrastructure.Services
             var v = await _context.Vehicles.FindAsync(vehicleId);
             if (v == null) return null;
 
-            bool isJp = v.VehicleId.Contains("_JP_");
-            string plate = isJp
-                ? (v.VehicleId == "VEH_JP_01" ? "品川 300 あ 12-34" : "成田 500 い 56-78")
-                : v.VehicleId.Replace("VEH_BOX_", "51C-10") + ".45";
+            string regCountry = !string.IsNullOrWhiteSpace(v.OperatingCountry) ? v.OperatingCountry : (v.VehicleId.Contains("_JP_") ? "JP" : "VN");
+            string plate = !string.IsNullOrWhiteSpace(v.PlateNumber) ? v.PlateNumber : v.VehicleId;
 
             return new VehicleDto
             {
                 VehicleId = v.VehicleId,
                 PlateNumber = plate,
-                Type = v.Type ?? (isJp ? "HORSEBOX_JP_LUXURY" : "HORSEBOX_3_STALLS"),
-                RegistrationCountry = isJp ? "JP" : "VN",
+                Type = v.Type ?? (regCountry == "JP" ? "HORSEBOX_JP_LUXURY" : "HORSEBOX_3_STALLS"),
+                RegistrationCountry = regCountry,
                 TotalStalls = v.CapacityStalls ?? 3,
                 AvailableStalls = v.CapacityStalls ?? 3,
-                PayloadKg = isJp ? 10000 : 8000,
+                PayloadKg = regCountry == "JP" ? 10000 : 8000,
                 RegistrationExpiry = DateTime.UtcNow.AddMonths(18),
                 MaxRangeKm = v.MaxRangeKm,
                 FuelCostPerKm = v.FuelCostPerKm,
@@ -92,7 +81,9 @@ namespace Infrastructure.Services
             var vehicle = new Vehicle
             {
                 VehicleId = string.IsNullOrWhiteSpace(dto.VehicleId) ? "VEH_" + Guid.NewGuid().ToString("N")[..8].ToUpper() : dto.VehicleId.Trim(),
+                PlateNumber = dto.PlateNumber,
                 Type = dto.Type,
+                OperatingCountry = !string.IsNullOrWhiteSpace(dto.OperatingCountry) ? dto.OperatingCountry : (!string.IsNullOrWhiteSpace(dto.RegistrationCountry) ? dto.RegistrationCountry : "VN"),
                 CapacityStalls = dto.CapacityStalls,
                 MaxRangeKm = dto.MaxRangeKm,
                 FuelCostPerKm = dto.FuelCostPerKm,
@@ -105,9 +96,9 @@ namespace Infrastructure.Services
             return new VehicleDto
             {
                 VehicleId = vehicle.VehicleId,
-                PlateNumber = dto.PlateNumber,
+                PlateNumber = vehicle.PlateNumber ?? dto.PlateNumber,
                 Type = vehicle.Type,
-                RegistrationCountry = dto.RegistrationCountry,
+                RegistrationCountry = vehicle.OperatingCountry,
                 TotalStalls = vehicle.CapacityStalls ?? 3,
                 AvailableStalls = vehicle.CapacityStalls ?? 3,
                 PayloadKg = dto.PayloadKg,
@@ -124,7 +115,10 @@ namespace Infrastructure.Services
             var vehicle = await _context.Vehicles.FindAsync(vehicleId);
             if (vehicle == null) return null;
 
+            vehicle.PlateNumber = dto.PlateNumber;
             vehicle.Type = dto.Type;
+            if (!string.IsNullOrWhiteSpace(dto.OperatingCountry)) vehicle.OperatingCountry = dto.OperatingCountry;
+            else if (!string.IsNullOrWhiteSpace(dto.RegistrationCountry)) vehicle.OperatingCountry = dto.RegistrationCountry;
             vehicle.CapacityStalls = dto.CapacityStalls;
             vehicle.MaxRangeKm = dto.MaxRangeKm;
             vehicle.FuelCostPerKm = dto.FuelCostPerKm;
@@ -148,7 +142,6 @@ namespace Infrastructure.Services
             var vehicle = await _context.Vehicles.FindAsync(vehicleId);
             if (vehicle == null) return false;
 
-            // Kiểm tra xe có đang nằm trong chuyến đi đang thực hiện hoặc lên kế hoạch không
             var hasActiveAssignment = await _context.TripVehicleAssignments
                 .Include(tva => tva.Trip)
                 .AnyAsync(tva => tva.VehicleId == vehicleId &&
@@ -165,21 +158,24 @@ namespace Infrastructure.Services
             return true;
         }
 
-        public Task<List<ResourceScheduleItemDto>> GetVehicleScheduleAsync(string vehicleId)
+        public async Task<List<ResourceScheduleItemDto>> GetVehicleScheduleAsync(string vehicleId)
         {
-            return Task.FromResult(new List<ResourceScheduleItemDto>
+            var assignments = await _context.TripVehicleAssignments
+                .Include(tva => tva.Trip)
+                    .ThenInclude(t => t!.Request)
+                .Where(tva => tva.VehicleId == vehicleId && tva.Trip != null)
+                .ToListAsync();
+
+            return assignments.Select(a => new ResourceScheduleItemDto
             {
-                new()
-                {
-                    Kind = "TRIP",
-                    TripId = "TRIP_2026_001",
-                    TripCode = "TRP-2026-001",
-                    LegIds = new List<int> { 51, 52 },
-                    From = DateTime.UtcNow.AddDays(1),
-                    To = DateTime.UtcNow.AddDays(4),
-                    Note = "Chuyến đi xuyên biên giới HN - Bangkok"
-                }
-            });
+                Kind = "TRIP",
+                TripId = a.TripId,
+                TripCode = a.TripId,
+                LegIds = new List<int> { a.LegNumber },
+                From = a.Trip?.Request?.ExpectedDate ?? DateTime.UtcNow,
+                To = (a.Trip?.Request?.ExpectedDate ?? DateTime.UtcNow).AddDays(3),
+                Note = $"Phân công chuyến đi {a.TripId} - Chặng {a.LegNumber} ({a.LegType})"
+            }).ToList();
         }
 
         public async Task<List<VehicleDto>> GetAvailableVehiclesAsync(string? tripId = null, int? legId = null)
@@ -205,21 +201,18 @@ namespace Infrastructure.Services
             var vehicles = await query.ToListAsync();
             return vehicles.Select(v =>
             {
-                bool isJp = v.VehicleId.Contains("_JP_");
-                string regCountry = isJp ? "JP" : "VN";
-                string plate = isJp
-                    ? (v.VehicleId == "VEH_JP_01" ? "品川 300 あ 12-34" : "成田 500 い 56-78")
-                    : v.VehicleId.Replace("VEH_BOX_", "51C-10") + ".45";
+                string regCountry = !string.IsNullOrWhiteSpace(v.OperatingCountry) ? v.OperatingCountry : (v.VehicleId.Contains("_JP_") ? "JP" : "VN");
+                string plate = !string.IsNullOrWhiteSpace(v.PlateNumber) ? v.PlateNumber : v.VehicleId;
 
                 return new VehicleDto
                 {
                     VehicleId = v.VehicleId,
                     PlateNumber = plate,
-                    Type = v.Type ?? (isJp ? "HORSEBOX_JP_LUXURY" : "HORSEBOX_3_STALLS"),
+                    Type = v.Type ?? (regCountry == "JP" ? "HORSEBOX_JP_LUXURY" : "HORSEBOX_3_STALLS"),
                     RegistrationCountry = regCountry,
                     TotalStalls = v.CapacityStalls ?? 3,
                     AvailableStalls = v.CapacityStalls ?? 3,
-                    PayloadKg = isJp ? 10000 : 8000,
+                    PayloadKg = regCountry == "JP" ? 10000 : 8000,
                     RegistrationExpiry = DateTime.UtcNow.AddMonths(18),
                     MaxRangeKm = v.MaxRangeKm,
                     FuelCostPerKm = v.FuelCostPerKm,
@@ -234,56 +227,69 @@ namespace Infrastructure.Services
         // =========================================================================
         public async Task<List<StaffDto>> GetStaffListAsync(string? role = null, string? country = null)
         {
-            var query = _context.Users.Where(u => u.Role == "Driver" || u.Role == "Escort" || u.Role == "Specialist");
-            if (!string.IsNullOrWhiteSpace(role)) query = query.Where(u => u.Role == role);
+            var query = _context.Users
+                .Include(u => u.StaffDocuments)
+                .Where(u => u.Role == "Driver" || u.Role == "Escort" || u.Role == "Specialist" || u.Role == "STAFF");
+
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                query = query.Where(u => u.Role == role);
+            }
 
             var staffUsers = await query.ToListAsync();
 
-            var defaultStaff = new List<StaffDto>
-            {
-                // 1. Đội ngũ nhân sự tác nghiệp tại Việt Nam (VN)
-                new() { UserId = "USR_DRV_01", FullName = "Hoàng Hùng", Role = "Driver", LicenseClass = "FC", LicenseExpiry = DateTime.UtcNow.AddYears(3), CanDriveCountries = new() { "VN" }, Email = "hung.driver@cbntransport.com", Phone = "0945678901", IsActive = true, IsAvailable = true, Specialization = "Tài xế quốc tế hạng FC (Việt Nam)" },
-                new() { UserId = "USR_DRV_02", FullName = "Vũ Thành", Role = "Driver", LicenseClass = "FC", LicenseExpiry = DateTime.UtcNow.AddYears(2), CanDriveCountries = new() { "VN" }, Email = "thanh.driver@cbntransport.com", Phone = "0946789012", IsActive = true, IsAvailable = true, Specialization = "Phụ lái kiêm hộ tống viên (Việt Nam)" },
-                new() { UserId = "USR_ESC_01", FullName = "BS. Đỗ Hoa", Role = "Escort", LicenseClass = "N/A", LicenseExpiry = DateTime.UtcNow.AddYears(3), CanDriveCountries = new() { "VN" }, Email = "hoa.escort@cbntransport.com", Phone = "0956789012", IsActive = true, IsAvailable = true, Specialization = "Bác sĩ thú y áp tải FEI (Việt Nam)" },
-                new() { UserId = "USR_ESC_02", FullName = "BS. Phan Nam", Role = "Escort", LicenseClass = "N/A", LicenseExpiry = DateTime.UtcNow.AddYears(2), CanDriveCountries = new() { "VN" }, Email = "nam.escort@cbntransport.com", Phone = "0957890123", IsActive = true, IsAvailable = true, Specialization = "Chuyên viên chăm sóc thể lực ngựa (Việt Nam)" },
-
-                // 2. Đội ngũ nhân sự tác nghiệp tại Nhật Bản (JP) - Phương án B
-                new() { UserId = "USR_DRV_JP_01", FullName = "Kenji Sato", Role = "Driver", LicenseClass = "Heavy Type 1", LicenseExpiry = DateTime.UtcNow.AddYears(3), CanDriveCountries = new() { "JP" }, Email = "kenji.sato@cbntransport.jp", Phone = "+819012345678", IsActive = true, IsAvailable = true, Specialization = "Tài xế xe chuyên dụng (Nhật Bản)" },
-                new() { UserId = "USR_DRV_JP_02", FullName = "Takashi Tanaka", Role = "Driver", LicenseClass = "Heavy Type 1", LicenseExpiry = DateTime.UtcNow.AddYears(3), CanDriveCountries = new() { "JP" }, Email = "takashi.tanaka@cbntransport.jp", Phone = "+819023456789", IsActive = true, IsAvailable = true, Specialization = "Phụ lái kiêm hộ tống viên (Nhật Bản)" },
-                new() { UserId = "USR_ESC_JP_01", FullName = "Dr. Yoko Takahashi", Role = "Escort", LicenseClass = "N/A", LicenseExpiry = DateTime.UtcNow.AddYears(4), CanDriveCountries = new() { "JP" }, Email = "yoko.takahashi@cbntransport.jp", Phone = "+819034567890", IsActive = true, IsAvailable = true, Specialization = "Bác sĩ thú y Narita AQS - Chứng chỉ FEI (Nhật Bản)" }
-            };
-
             var list = staffUsers.Select(u =>
             {
-                bool isJp = u.UserId.Contains("_JP_");
+                var licenseDoc = u.StaffDocuments.FirstOrDefault(d => d.DocType == "DRIVING_LICENSE");
+                var vetDoc = u.StaffDocuments.FirstOrDefault(d => d.DocType == "VET_CERTIFICATE" || d.DocType == "PASSPORT");
+                var activeDoc = licenseDoc ?? vetDoc ?? u.StaffDocuments.FirstOrDefault();
+
+                bool isJp = u.UserId.Contains("_JP_") || (activeDoc?.CountryOfIssue == "JPN");
+                string defaultCountry = isJp ? "JP" : "VN";
+
+                var canDrive = new List<string>();
+                if (!string.IsNullOrWhiteSpace(activeDoc?.ValidForCountries))
+                {
+                    canDrive = activeDoc.ValidForCountries
+                        .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(c => c.Trim().ToUpper() == "JPN" ? "JP" : (c.Trim().ToUpper() == "VNM" ? "VN" : c.Trim().ToUpper()))
+                        .Distinct()
+                        .ToList();
+                }
+                if (!canDrive.Any())
+                {
+                    canDrive.Add(defaultCountry);
+                }
+
+                string licenseClass = u.Role == "Driver"
+                    ? (isJp ? "Heavy Type 1" : "FC")
+                    : "N/A";
+
+                DateTime? licenseExpiry = activeDoc?.ExpiryDate ?? (u.IsActive ? DateTime.UtcNow.AddYears(2) : null);
+
+                string specialization = u.Role switch
+                {
+                    "Driver" => isJp ? "Tài xế chuyên dụng quốc tế (Nhật Bản)" : "Tài xế quốc tế hạng FC (Việt Nam)",
+                    "Escort" => isJp ? "Bác sĩ thú y Narita AQS - Chứng chỉ FEI (Nhật Bản)" : "Bác sĩ thú y áp tải FEI (Việt Nam)",
+                    "Specialist" => "Chuyên viên thẩm định pháp lý & kiểm dịch",
+                    _ => "Nhân sự tác nghiệp vận tải"
+                };
+
                 return new StaffDto
                 {
                     UserId = u.UserId,
                     FullName = u.FullName,
                     Role = u.Role,
-                    LicenseClass = u.Role == "Driver" ? (isJp ? "Heavy Type 1" : "FC") : "N/A",
-                    LicenseExpiry = DateTime.UtcNow.AddYears(3),
-                    CanDriveCountries = isJp ? new() { "JP" } : new() { "VN" },
-                    Email = u.Email ?? "",
-                    Phone = u.Phone ?? "",
+                    LicenseClass = licenseClass,
+                    LicenseExpiry = licenseExpiry,
+                    CanDriveCountries = canDrive,
+                    Email = u.Email ?? string.Empty,
+                    Phone = u.Phone ?? string.Empty,
                     IsActive = u.IsActive,
-                    IsAvailable = u.IsActive,
-                    Specialization = u.Role == "Driver" ? (isJp ? "Tài xế chuyên dụng Nhật Bản" : "Tài xế chuyên dụng FC") : (isJp ? "Bác sĩ thú y Narita AQS (FEI)" : "Bác sĩ thú y áp tải (FEI)")
+                    IsAvailable = u.IsActive && (licenseExpiry == null || licenseExpiry.Value > DateTime.UtcNow),
+                    Specialization = specialization
                 };
             }).ToList();
-
-            foreach (var d in defaultStaff)
-            {
-                if (!list.Any(x => x.UserId == d.UserId))
-                {
-                    list.Add(d);
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(role))
-            {
-                list = list.Where(s => s.Role.Equals(role, StringComparison.OrdinalIgnoreCase)).ToList();
-            }
 
             if (!string.IsNullOrWhiteSpace(country))
             {
@@ -293,40 +299,48 @@ namespace Infrastructure.Services
             return list;
         }
 
-        public Task<List<ResourceScheduleItemDto>> GetStaffScheduleAsync(string userId)
+        public async Task<List<ResourceScheduleItemDto>> GetStaffScheduleAsync(string userId)
         {
-            return Task.FromResult(new List<ResourceScheduleItemDto>
+            var assignments = await _context.TripVehicleAssignments
+                .Include(tva => tva.Trip)
+                    .ThenInclude(t => t!.Request)
+                .Where(tva => tva.DriverId == userId || tva.CoDriverId == userId || tva.VeterinarianId == userId || tva.EscortId == userId)
+                .ToListAsync();
+
+            return assignments.Select(a =>
             {
-                new()
+                string assignmentRole = a.DriverId == userId ? "MAIN_DRIVER" :
+                                        (a.CoDriverId == userId ? "CO_DRIVER" : "VETERINARIAN");
+                return new ResourceScheduleItemDto
                 {
                     Kind = "TRIP",
-                    TripId = "TRIP_2026_001",
-                    TripCode = "TRP-2026-001",
-                    LegIds = new List<int> { 51 },
-                    From = DateTime.UtcNow.AddDays(1),
-                    To = DateTime.UtcNow.AddDays(4),
-                    AssignmentRole = "MAIN_DRIVER",
-                    Note = "Lịch phân công nhiệm vụ vận chuyển chính"
-                }
-            });
+                    TripId = a.TripId,
+                    TripCode = a.TripId,
+                    LegIds = new List<int> { a.LegNumber },
+                    From = a.Trip?.Request?.ExpectedDate ?? DateTime.UtcNow,
+                    To = (a.Trip?.Request?.ExpectedDate ?? DateTime.UtcNow).AddDays(3),
+                    AssignmentRole = assignmentRole,
+                    Note = $"Nhiệm vụ chuyến đi {a.TripId} - Chặng {a.LegNumber} ({assignmentRole})"
+                };
+            }).ToList();
         }
-
 
         // =========================================================================
         // FLOW 3 V2 STAFF OPERATIONS (F3-J48, F3-J49)
         // =========================================================================
         public async Task<List<StaffV2Dto>> GetStaffListV2Async(string? tripId, string? leg, string? status)
         {
-            var oldStaff = await GetStaffListAsync();
+            var staffList = await GetStaffListAsync();
             string expectedCountry = leg == "inbound" ? "JP" : "VN";
 
             var result = new List<StaffV2Dto>();
-            foreach (var s in oldStaff)
+            foreach (var s in staffList)
             {
                 bool isJp = s.CanDriveCountries.Contains("JP") || s.UserId.Contains("_JP_");
                 string country = isJp ? "JP" : "VN";
                 string pos = s.Role.Equals("Driver", StringComparison.OrdinalIgnoreCase) ? "DRIVER" :
-                             (s.Role.Equals("Escort", StringComparison.OrdinalIgnoreCase) ? "VETERINARIAN" : "ESCORT");
+                             (s.Role.Equals("Escort", StringComparison.OrdinalIgnoreCase) ? "VETERINARIAN" :
+                             (s.Role.Equals("Specialist", StringComparison.OrdinalIgnoreCase) ? "SPECIALIST" : "ESCORT"));
 
                 string staffStatus = s.IsActive ? "ACTIVE" : "INACTIVE";
                 if (!string.IsNullOrEmpty(status) && !staffStatus.Equals(status, StringComparison.OrdinalIgnoreCase))
@@ -334,12 +348,17 @@ namespace Infrastructure.Services
                     continue;
                 }
 
-                bool isEligible = s.IsActive && (string.IsNullOrEmpty(leg) || country == expectedCountry);
+                bool isEligible = s.IsAvailable && (string.IsNullOrEmpty(leg) || country == expectedCountry);
                 var blockers = new List<BlockerDto>();
                 if (!s.IsActive)
                 {
                     blockers.Add(new BlockerDto { Code = "STAFF_INACTIVE", Field = "status", Message = "Nhân viên đang tạm ngưng hoạt động" });
                 }
+                else if (!s.IsAvailable)
+                {
+                    blockers.Add(new BlockerDto { Code = "DOC_EXPIRED", Field = "licenseExpiry", Message = "Hồ sơ / Giấy phép của nhân viên đã hết hạn hiệu lực" });
+                }
+
                 if (!string.IsNullOrEmpty(leg) && country != expectedCountry)
                 {
                     blockers.Add(new BlockerDto { Code = "COUNTRY_MISMATCH", Field = "country", Message = $"Nhân sự trực thuộc {country}, không thể phân công chặng {expectedCountry}" });
@@ -367,25 +386,32 @@ namespace Infrastructure.Services
 
         public async Task<StaffV2Dto> UpdateStaffStatusV2Async(string staffId, StaffStatusDto dto, string userId)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == staffId);
+            var user = await _context.Users
+                .Include(u => u.StaffDocuments)
+                .FirstOrDefaultAsync(u => u.UserId == staffId);
+
             if (user != null)
             {
                 user.IsActive = dto.Status == "ACTIVE";
-                user.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
+
+            var staffList = await GetStaffListAsync();
+            var updated = staffList.FirstOrDefault(s => s.UserId == staffId);
 
             return new StaffV2Dto
             {
                 Id = staffId,
                 Version = dto.ExpectedVersion + 1,
-                Name = user?.FullName ?? "Nhân viên tác nghiệp",
-                Phone = user?.Phone ?? "+84901234567",
-                Country = staffId.Contains("_JP_") ? "JP" : "VN",
-                Position = user?.Role?.ToUpper() ?? "DRIVER",
+                Name = updated?.FullName ?? user?.FullName ?? "Nhân viên tác nghiệp",
+                Phone = updated?.Phone ?? user?.Phone ?? string.Empty,
+                Country = updated?.CanDriveCountries.Contains("JP") == true || staffId.Contains("_JP_") ? "JP" : "VN",
+                Position = updated?.Role?.ToUpper() ?? user?.Role?.ToUpper() ?? "DRIVER",
                 Status = dto.Status,
+                Licence = updated?.LicenseClass,
+                CertExpiry = updated?.LicenseExpiry?.ToString("yyyy-MM-dd"),
                 AssignedTrips = new List<string>(),
-                Eligible = dto.Status == "ACTIVE",
+                Eligible = dto.Status == "ACTIVE" && (updated?.IsAvailable ?? true),
                 Blockers = dto.Status == "ACTIVE" ? new List<BlockerDto>() : new List<BlockerDto>
                 {
                     new() { Code = "STATUS_NOT_ACTIVE", Field = "status", Message = dto.Reason ?? "Trạng thái không sẵn sàng" }

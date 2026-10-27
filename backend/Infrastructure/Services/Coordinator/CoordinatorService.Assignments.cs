@@ -60,20 +60,18 @@ namespace Infrastructure.Services
                 {
                     new()
                     {
-                        VehicleId = vaVn?.VehicleId ?? "VEH_BOX_01",
-                        PlateNumber = vaVn?.Vehicle != null ? (vaVn.Vehicle.VehicleId.Replace("VEH_BOX_", "51C-10") + ".45") : "51C-101.45",
-                        MainDriverId = vaVn?.DriverId ?? "USR_DRV_01",
-                        CoDriverId = "USR_DRV_02",
-                        VeterinarianId = vaVn?.EscortId ?? "USR_ESC_01",
+                        VehicleId = vnVehId,
+                        PlateNumber = vnPlate,
+                        MainDriverId = vnDriverId,
+                        CoDriverId = vnCoDriverId,
+                        VeterinarianId = vnVetId,
                         Horses = horses.Select((h, i) => new HorseStallAllocationDto { HorseId = h.HorseId, StallNumber = i + 1 }).ToList(),
                         Staff = new List<StaffRoleItemDto>
                         {
-                            new() { UserId = vaVn?.DriverId ?? "USR_DRV_01", AssignmentRole = "MAIN_DRIVER" },
-                            new() { UserId = "USR_DRV_02", AssignmentRole = "CO_DRIVER" },
-                            new() { UserId = vaVn?.EscortId ?? "USR_ESC_01", AssignmentRole = "VETERINARIAN" }
+                            new() { UserId = vnDriverId, AssignmentRole = "MAIN_DRIVER" },
+                            new() { UserId = vnCoDriverId, AssignmentRole = "CO_DRIVER" },
+                            new() { UserId = vnVetId, AssignmentRole = "VETERINARIAN" }
                         }
-                    }
-                }
             });
 
             if (isInternational)
@@ -101,20 +99,18 @@ namespace Infrastructure.Services
                     {
                         new()
                         {
-                            VehicleId = vaJp?.VehicleId ?? "VEH_JP_01",
-                            PlateNumber = vaJp?.VehicleId == "VEH_JP_02" ? "成田 500 い 56-78" : "品川 300 あ 12-34",
-                            MainDriverId = vaJp?.DriverId ?? "USR_DRV_JP_01",
-                            CoDriverId = "USR_DRV_JP_02",
-                            VeterinarianId = vaJp?.EscortId ?? "USR_ESC_JP_01",
+                            VehicleId = jpVehId,
+                            PlateNumber = jpPlate,
+                            MainDriverId = jpDriverId,
+                            CoDriverId = jpCoDriverId,
+                            VeterinarianId = jpVetId,
                             Horses = horses.Select((h, i) => new HorseStallAllocationDto { HorseId = h.HorseId, StallNumber = i + 1 }).ToList(),
                             Staff = new List<StaffRoleItemDto>
                             {
-                                new() { UserId = vaJp?.DriverId ?? "USR_DRV_JP_01", AssignmentRole = "MAIN_DRIVER" },
-                                new() { UserId = "USR_DRV_JP_02", AssignmentRole = "CO_DRIVER" },
-                                new() { UserId = vaJp?.EscortId ?? "USR_ESC_JP_01", AssignmentRole = "VETERINARIAN" }
+                                new() { UserId = jpDriverId, AssignmentRole = "MAIN_DRIVER" },
+                                new() { UserId = jpCoDriverId, AssignmentRole = "CO_DRIVER" },
+                                new() { UserId = jpVetId, AssignmentRole = "VETERINARIAN" }
                             }
-                        }
-                    }
                 });
             }
 
@@ -170,7 +166,6 @@ namespace Infrastructure.Services
                             {
                                 errors.Add(new AssignmentErrorDto { Code = "RESOURCE_COUNTRY_NOT_ELIGIBLE", LegId = leg.LegId, Message = $"Xe {v.VehicleId} đăng ký tại Nhật Bản không thể dùng cho chặng đón tại Việt Nam (VN)!" });
                             }
-                        }
 
                         if (string.IsNullOrEmpty(v.MainDriverId))
                         {
@@ -198,16 +193,12 @@ namespace Infrastructure.Services
                         {
                             errors.Add(new AssignmentErrorDto { Code = "INDEPENDENT_ROLES_VIOLATION", LegId = leg.LegId, Message = $"Tại chặng {leg.LegId}: Phụ lái và Bác sĩ thú y không được trùng nhau!" });
                         }
-                    }
-                }
                 else if (leg.Mode == "AIR")
                 {
                     if (leg.FlightBookingId == null || leg.FlightBookingId == 0)
                     {
                         errors.Add(new AssignmentErrorDto { Code = "FLIGHT_BOOKING_REQUIRED", LegId = leg.LegId, Message = "Chặng hàng không (AIR) bắt buộc phải có thông tin đặt vé máy bay đã xác nhận!" });
                     }
-                }
-            }
 
             // KIỂM TRA ĐỘC LẬP TÀI NGUYÊN GIỮA HAI CHẶNG ĐƯỜNG BỘ VN VÀ JP (Phương án B)
             if (outboundVeh != null && inboundVeh != null)
@@ -225,7 +216,6 @@ namespace Infrastructure.Services
                 {
                     errors.Add(new AssignmentErrorDto { Code = "STAFF_CROSS_LEG_CONFLICT", Message = $"Phương án B: Nhân sự chặng Việt Nam không được trùng với nhân sự chặng Nhật Bản! ({string.Join(", ", overlapping)})" });
                 }
-            }
 
             return Task.FromResult(new ValidateAssignmentsResponseDto
             {
@@ -280,8 +270,6 @@ namespace Infrastructure.Services
                     {
                         vehicleEntity.Status = "READY";
                     }
-                }
-            }
 
             await _context.SaveChangesAsync();
             return true;
@@ -310,7 +298,6 @@ namespace Infrastructure.Services
                 {
                     throw new InvalidOperationException("Vi phạm quy chuẩn an toàn: Phụ lái và Bác sĩ thú y không được trùng nhau!");
                 }
-            }
 
             var vehicle = await _context.Vehicles.FindAsync(dto.VehicleId);
             if (vehicle == null) throw new KeyNotFoundException($"Không tìm thấy phương tiện: {dto.VehicleId}");
@@ -322,21 +309,15 @@ namespace Infrastructure.Services
             }
 
             var driver = await _context.Users.FindAsync(dto.DriverId);
-            if (driver == null || !driver.IsActive || driver.Role != "Driver")
+            if (driver == null || !driver.IsActive || (!driver.Role.Equals("Driver", StringComparison.OrdinalIgnoreCase) && !driver.Role.Equals("STAFF", StringComparison.OrdinalIgnoreCase)))
             {
-                if (!dto.DriverId.StartsWith("USR_DRV"))
-                {
-                    throw new InvalidOperationException($"Nhân sự {dto.DriverId} không hợp lệ hoặc không có vai trò Tài xế!");
-                }
+                throw new InvalidOperationException($"Nhân sự {dto.DriverId} không hợp lệ hoặc không có vai trò Tài xế!");
             }
 
             var escort = await _context.Users.FindAsync(dto.EscortId);
-            if (escort == null || !escort.IsActive || (escort.Role != "Escort" && escort.Role != "Specialist"))
+            if (escort == null || !escort.IsActive || (!escort.Role.Equals("Escort", StringComparison.OrdinalIgnoreCase) && !escort.Role.Equals("Specialist", StringComparison.OrdinalIgnoreCase) && !escort.Role.Equals("STAFF", StringComparison.OrdinalIgnoreCase)))
             {
-                if (!dto.EscortId.StartsWith("USR_ESC"))
-                {
-                    throw new InvalidOperationException($"Nhân sự {dto.EscortId} không hợp lệ hoặc không có vai trò Hộ tống/Bác sĩ thú y!");
-                }
+                throw new InvalidOperationException($"Nhân sự {dto.EscortId} không hợp lệ hoặc không có vai trò Hộ tống/Bác sĩ thú y!");
             }
 
             bool isJp = dto.LegNumber == 2 || dto.LegType == "INBOUND" || dto.VehicleId.Contains("_JP_") || dto.DriverId.Contains("_JP_");
@@ -379,4 +360,3 @@ namespace Infrastructure.Services
         }
 
     }
-}
