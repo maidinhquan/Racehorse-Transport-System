@@ -153,27 +153,9 @@ namespace Infrastructure.Services
 
                 if (trip != null)
                 {
-                    // 1. PlannedDeparture >= EarliestDepartureDate (Không chạy xe khi hồ sơ chưa xong)
-                    if (trip.EarliestDepartureDate.HasValue && dto.PlannedDepartureAt < trip.EarliestDepartureDate.Value)
-                    {
-                        errors.Add($"Thời gian khởi hành dự kiến ({dto.PlannedDepartureAt:dd/MM/yyyy HH:mm}) sớm hơn Ngày sớm nhất hồ sơ sẵn sàng do Chuyên viên giấy tờ công bố ({trip.EarliestDepartureDate.Value:dd/MM/yyyy HH:mm})!");
-                    }
-
-                    // 2. Thời điểm đến trạm kiểm dịch / sân bay / cửa khẩu <= DocumentExpiryDate (Giấy tờ phải còn hạn tại thời điểm làm thủ tục)
-                    if (trip.DocumentExpiryDate.HasValue)
-                    {
-                        foreach (var leg in legs)
-                        {
-                            var toPoint = points.FirstOrDefault(p => p.Sequence == leg.ToSequence);
-                            if (toPoint != null && (toPoint.Type == "QUARANTINE_STATION" || toPoint.Type == "AIRPORT" || toPoint.Type == "LAND_BORDER"))
-                            {
-                                if (leg.ArrivalAt > trip.DocumentExpiryDate.Value)
-                                {
-                                    errors.Add($"Thời điểm đến {toPoint.Name} ({leg.ArrivalAt:dd/MM/yyyy HH:mm}) vượt quá Hạn chót giấy tờ kiểm dịch/xuất cảnh ({trip.DocumentExpiryDate.Value:dd/MM/yyyy HH:mm})!");
-                                }
-                            }
-                        }
-                    }
+                    // [FLOW 3 V2 RETIRED]: Gate ràng buộc lịch giấy tờ (timed-documents F3-J21/J22) và gate khảo sát khả thi (F3-J03)
+                    // đã bãi bỏ hoàn toàn. Coordinator và Specialist chạy song song; giấy tờ được coi là ASSUMED_VALID_FOR_TRIP.
+                    // Không chặn PlannedDepartureAt < EarliestDepartureDate hoặc ArrivalAt > DocumentExpiryDate ở bước tính tuyến.
 
                     // 3. ETA <= CommittedDeadline (Đảm bảo đúng hẹn với khách)
                     var deadline = trip.Request?.CommittedDeadline;

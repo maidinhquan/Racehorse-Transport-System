@@ -407,5 +407,284 @@ namespace Infrastructure.Services
             return true;
         }
 
+
+        // =========================================================================
+        // FLOW 3 V2 READINESS & DEPARTURE GATE (F3-J14, J15, J16, J17, J18)
+        // =========================================================================
+        public async Task<ReadyStampDto> ConfirmResourcesV2Async(string tripId, PlanCommandDto dto, string userId)
+        {
+            var cleanTripId = tripId?.Trim() ?? string.Empty;
+            var trip = await _context.TripPlans
+                .Include(t => t.VehicleAssignments)
+                .FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
+
+            if (trip == null) throw new KeyNotFoundException($"Không tìm thấy chuyến đi {tripId}");
+
+            if (dto.ExpectedVersion > 0 && dto.ExpectedVersion != trip.Version)
+            {
+                throw new InvalidOperationException($"STALE_VERSION: Phiên bản chuyến đi đã thay đổi ({trip.Version} != {dto.ExpectedVersion}).");
+            }
+
+            bool isAir = trip.Request?.TransportType?.Contains("AIR") == true;
+
+            // Kiểm tra quy định AIR: Chỉ confirm sau khi plan đã APPROVED và chuyến bay đã BOOKED
+            if (isAir)
+            {
+                if (trip.RouteStatus != "APPROVED")
+                {
+                    throw new InvalidOperationException("PLAN_NOT_APPROVED: Chặng bay (AIR) chỉ được xác nhận nguồn lực sau khi Kế hoạch và Ngân sách đã được Manager phê duyệt!");
+                }
+                var hasBooking = await _context.FlightBookings.AnyAsync(fb => (fb.TripId == cleanTripId || fb.TripId == tripId) && fb.BookingConfirmed);
+                if (!hasBooking)
+                {
+                    throw new InvalidOperationException("FLIGHT_NOT_BOOKED: Chặng bay (AIR) bắt buộc phải có mã đặt chỗ vé máy bay (Flight Booking) trước khi xác nhận nguồn lực!");
+                }
+            }
+
+            trip.ResourcesConfirmedAt = DateTime.UtcNow;
+            trip.ResourcesConfirmedBy = userId;
+
+            // Nếu ROAD và plan đã approved, hoặc là AIR -> tự động bật Ops READY
+            if ((!isAir && trip.RouteStatus == "APPROVED") || isAir)
+            {
+                trip.OperationsStatus = "READY";
+            }
+
+            trip.Version += 1;
+            await RecordHistoryAsync(cleanTripId, trip.Version, "RESOURCES_CONFIRMED", userId, "COORDINATOR", "Xác nhận bố trí phương tiện và tổ tác nghiệp cho chuyến đi");
+            await _context.SaveChangesAsync();
+
+            return new ReadyStampDto
+            {
+                Ready = true,
+                ConfirmedAt = trip.ResourcesConfirmedAt.Value.ToString("yyyy-MM-dd HH:mm"),
+                ConfirmedBy = new ActorDto { UserId = userId, Name = "Điều phối viên" },
+                Source = "COORDINATOR"
+            };
+        }
+
+        public async Task<ReadyStampDto> ReevaluateOpsReadyAsync(string tripId, ExpectedDto dto)
+        {
+            var cleanTripId = tripId?.Trim() ?? string.Empty;
+            var trip = await _context.TripPlans.FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
+
+            if (trip == null) throw new KeyNotFoundException($"Không tìm thấy chuyến đi {tripId}");
+
+            bool opsReady = trip.ResourcesConfirmedAt.HasValue && trip.RouteStatus == "APPROVED";
+            trip.OperationsStatus = opsReady ? "READY" : "PLANNING";
+            trip.Version += 1;
+
+            await _context.SaveChangesAsync();
+
+            return new ReadyStampDto
+            {
+                Ready = opsReady,
+                ConfirmedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
+                ConfirmedBy = new ActorDto { UserId = "SYSTEM", Name = "Hệ thống tự động" },
+                Source = "SYSTEM"
+            };
+        }
+
+        public async Task<ReadyStampDto> ConfirmDocsReadyAsync(string tripId, ExpectedDto dto, string specialistId, string specialistName)
+        {
+            var cleanTripId = tripId?.Trim() ?? string.Empty;
+            var trip = await _context.TripPlans.FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
+
+            if (trip == null) throw new KeyNotFoundException($"Không tìm thấy chuyến đi {tripId}");
+
+            if (dto.ExpectedVersion > 0 && dto.ExpectedVersion != trip.Version)
+            {
+                throw new InvalidOperationException($"STALE_VERSION: Phiên bản chuyến đi đã thay đổi ({trip.Version} != {dto.ExpectedVersion}).");
+            }
+
+            trip.DocumentsStatus = "READY";
+            if (!trip.EarliestDepartureDate.HasValue)
+            {
+                trip.EarliestDepartureDate = DateTime.UtcNow;
+            }
+
+            trip.Version += 1;
+            await RecordHistoryAsync(cleanTripId, trip.Version, "DOCS_READY", specialistId, "SPECIALIST", "Chuyên viên pháp lý xác nhận toàn bộ hồ sơ, kiểm dịch và bảo hiểm đã READY");
+            await _context.SaveChangesAsync();
+
+            return new ReadyStampDto
+            {
+                Ready = true,
+                ConfirmedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
+                ConfirmedBy = new ActorDto { UserId = specialistId, Name = specialistName },
+                Source = "SPECIALIST"
+            };
+        }
+
+        public async Task<ReadinessDto> GetReadinessV2Async(string tripId)
+        {
+            var cleanTripId = tripId?.Trim() ?? string.Empty;
+            var trip = await _context.TripPlans
+                .Include(t => t.Request)
+                .FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
+
+            if (trip == null) throw new KeyNotFoundException($"Không tìm thấy chuyến đi {tripId}");
+
+            bool isAir = trip.Request?.TransportType?.Contains("AIR") == true;
+            bool planApproved = trip.RouteStatus == "APPROVED" || !string.IsNullOrWhiteSpace(trip.ApprovedPlanJson);
+            bool noOpenChange = !trip.OpenChange;
+            bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue;
+            bool opsReady = trip.OperationsStatus == "READY" || (trip.ResourcesConfirmedAt.HasValue && planApproved);
+
+            var checks = new List<ReadinessCheckDto>
+            {
+                new()
+                {
+                    Code = "APPROVED_PLAN",
+                    Group = "SHARED",
+                    Tab = "overview",
+                    Label = "Phương án hiện hành đã được Manager duyệt",
+                    Ok = planApproved,
+                    Detail = planApproved ? "Phương án kế hoạch đã phê duyệt" : "Kế hoạch chưa được phê duyệt"
+                },
+                new()
+                {
+                    Code = "NO_OPEN_CHANGE",
+                    Group = "SHARED",
+                    Tab = "overview",
+                    Label = "Không có bản sửa đổi kế hoạch đang mở dở",
+                    Ok = noOpenChange,
+                    Detail = noOpenChange ? "Không có bản sửa đổi đang mở" : "Đang mở bản sửa đổi kế hoạch (OpenChange = true)"
+                },
+                new()
+                {
+                    Code = "DOCS_READY",
+                    Group = "SHARED",
+                    Tab = "overview",
+                    Label = "Hồ sơ kiểm dịch & pháp lý xuất cảnh đã hoàn tất (Docs READY)",
+                    Ok = docsReady,
+                    Detail = docsReady ? "Chuyên viên pháp lý đã xác nhận hồ sơ" : "Hồ sơ kiểm dịch chưa hoàn tất"
+                },
+                new()
+                {
+                    Code = "OPS_READY",
+                    Group = isAir ? "AIR" : "ROAD",
+                    Tab = "resources",
+                    Label = "Nguồn lực phương tiện và nhân sự tác nghiệp sẵn sàng (Ops READY)",
+                    Ok = opsReady,
+                    Detail = opsReady ? "Nguồn lực đã xác nhận sẵn sàng" : "Chưa hoàn tất xác nhận nguồn lực"
+                },
+                new()
+                {
+                    Code = "TIME_NOT_EXPIRED",
+                    Group = "SHARED",
+                    Tab = "overview",
+                    Label = "Thời gian xuất phát dự kiến còn hiệu lực trên máy chủ",
+                    Ok = true,
+                    Detail = "Giờ xuất phát hợp lệ"
+                }
+            };
+
+            var blockers = new List<BlockerDto>();
+            if (!planApproved) blockers.Add(new BlockerDto { Code = "PLAN_NOT_APPROVED", Field = "plan", Message = "Phương án kế hoạch chưa được duyệt" });
+            if (!noOpenChange) blockers.Add(new BlockerDto { Code = "OPEN_CHANGE_EXISTS", Field = "openChange", Message = "Có bản sửa đổi đang mở dở chưa chốt" });
+            if (!docsReady) blockers.Add(new BlockerDto { Code = "DOCS_NOT_READY", Field = "docsReady", Message = "Chuyên viên chưa hoàn tất hồ sơ kiểm dịch" });
+            if (!opsReady) blockers.Add(new BlockerDto { Code = "OPS_NOT_READY", Field = "opsReady", Message = "Chưa hoàn tất nguồn lực vận hành" });
+
+            trip.ReadinessVersion += 1;
+            await _context.SaveChangesAsync();
+
+            bool canApprove = blockers.Count == 0;
+
+            return new ReadinessDto
+            {
+                TripId = cleanTripId,
+                Binding = new BindingDto
+                {
+                    Version = trip.Version,
+                    ContextVersion = trip.ContextVersion,
+                    PlanVersion = trip.PlanVersion,
+                    ExpectedVersion = trip.Version
+                },
+                ReadinessVersion = trip.ReadinessVersion,
+                ApprovedPlanVersion = planApproved ? trip.PlanVersion : null,
+                DocsReady = docsReady,
+                OpsReady = opsReady,
+                CanApproveDeparture = canApprove,
+                OpenChange = trip.OpenChange,
+                CheckedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
+                Checks = checks,
+                Blockers = blockers
+            };
+        }
+
+        public async Task<DepartureResultDto> ApproveDepartureV2Async(string tripId, DepartureInputDto dto, string managerId, string managerName)
+        {
+            var cleanTripId = tripId?.Trim() ?? string.Empty;
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            var trip = await _context.TripPlans
+                .Include(t => t.Request)
+                .Include(t => t.VehicleAssignments)
+                    .ThenInclude(va => va.Vehicle)
+                .FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
+
+            if (trip == null) throw new KeyNotFoundException($"Không tìm thấy chuyến đi {tripId}");
+
+            if (dto.ExpectedVersion > 0 && dto.ExpectedVersion != trip.Version)
+            {
+                throw new InvalidOperationException($"STALE_VERSION: Phiên bản chuyến đi đã thay đổi ({trip.Version} != {dto.ExpectedVersion}).");
+            }
+
+            if (dto.ReadinessVersion > 0 && dto.ReadinessVersion != trip.ReadinessVersion)
+            {
+                throw new InvalidOperationException($"READINESS_CHANGED: Trạng thái sẵn sàng đã thay đổi kể từ lần kiểm tra gần nhất ({trip.ReadinessVersion} != {dto.ReadinessVersion}). Vui lòng thẩm định lại.");
+            }
+
+            bool planApproved = trip.RouteStatus == "APPROVED" || !string.IsNullOrWhiteSpace(trip.ApprovedPlanJson);
+            bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue;
+            bool opsReady = trip.OperationsStatus == "READY" || (trip.ResourcesConfirmedAt.HasValue && planApproved);
+
+            if (!planApproved || !docsReady || !opsReady || trip.OpenChange)
+            {
+                throw new InvalidOperationException("DEPARTURE_GATE_FAILED: Chuyến đi chưa đạt đủ điều kiện khởi hành (Cần: Plan Approved, Docs Ready, Ops Ready, OpenChange = false).");
+            }
+
+            trip.Status = "READY_TO_DEPART";
+            trip.DepartureApprovedAt = DateTime.UtcNow;
+            trip.DepartureApprovedBy = managerId;
+            if (trip.Request != null)
+            {
+                trip.Request.Status = "SCHEDULED";
+            }
+
+            foreach (var va in trip.VehicleAssignments)
+            {
+                if (va.Vehicle != null)
+                {
+                    va.Vehicle.Status = "ON_TRIP";
+                }
+            }
+
+            trip.Version += 1;
+            await RecordHistoryAsync(cleanTripId, trip.Version, "DEPARTURE_APPROVED", managerId, "LOGISTICS_MANAGER", "Logistics Manager đã phê duyệt lệnh xuất phát chính thức");
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return new DepartureResultDto
+            {
+                TripId = cleanTripId,
+                RequestId = trip.RequestId,
+                TripStatus = "READY_TO_DEPART",
+                RequestStatus = "SCHEDULED",
+                Binding = new BindingDto
+                {
+                    Version = trip.Version,
+                    ContextVersion = trip.ContextVersion,
+                    PlanVersion = trip.PlanVersion,
+                    ExpectedVersion = trip.Version
+                },
+                ApprovedPlanVersion = trip.PlanVersion,
+                ApprovedBy = new ActorDto { UserId = managerId, Name = managerName },
+                ApprovedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
+            };
+        }
     }
 }

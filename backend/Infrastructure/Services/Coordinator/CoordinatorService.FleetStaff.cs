@@ -311,5 +311,86 @@ namespace Infrastructure.Services
             });
         }
 
+
+        // =========================================================================
+        // FLOW 3 V2 STAFF OPERATIONS (F3-J48, F3-J49)
+        // =========================================================================
+        public async Task<List<StaffV2Dto>> GetStaffListV2Async(string? tripId, string? leg, string? status)
+        {
+            var oldStaff = await GetStaffListAsync();
+            string expectedCountry = leg == "inbound" ? "JP" : "VN";
+
+            var result = new List<StaffV2Dto>();
+            foreach (var s in oldStaff)
+            {
+                bool isJp = s.CanDriveCountries.Contains("JP") || s.UserId.Contains("_JP_");
+                string country = isJp ? "JP" : "VN";
+                string pos = s.Role.Equals("Driver", StringComparison.OrdinalIgnoreCase) ? "DRIVER" :
+                             (s.Role.Equals("Escort", StringComparison.OrdinalIgnoreCase) ? "VETERINARIAN" : "ESCORT");
+
+                string staffStatus = s.IsActive ? "ACTIVE" : "INACTIVE";
+                if (!string.IsNullOrEmpty(status) && !staffStatus.Equals(status, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                bool isEligible = s.IsActive && (string.IsNullOrEmpty(leg) || country == expectedCountry);
+                var blockers = new List<BlockerDto>();
+                if (!s.IsActive)
+                {
+                    blockers.Add(new BlockerDto { Code = "STAFF_INACTIVE", Field = "status", Message = "Nhân viên đang tạm ngưng hoạt động" });
+                }
+                if (!string.IsNullOrEmpty(leg) && country != expectedCountry)
+                {
+                    blockers.Add(new BlockerDto { Code = "COUNTRY_MISMATCH", Field = "country", Message = $"Nhân sự trực thuộc {country}, không thể phân công chặng {expectedCountry}" });
+                }
+
+                result.Add(new StaffV2Dto
+                {
+                    Id = s.UserId,
+                    Version = 1,
+                    Name = s.FullName,
+                    Phone = s.Phone,
+                    Country = country,
+                    Position = pos,
+                    Status = staffStatus,
+                    Licence = s.LicenseClass,
+                    CertExpiry = s.LicenseExpiry?.ToString("yyyy-MM-dd"),
+                    AssignedTrips = new List<string>(),
+                    Eligible = isEligible,
+                    Blockers = blockers
+                });
+            }
+
+            return result;
+        }
+
+        public async Task<StaffV2Dto> UpdateStaffStatusV2Async(string staffId, StaffStatusDto dto, string userId)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == staffId);
+            if (user != null)
+            {
+                user.IsActive = dto.Status == "ACTIVE";
+                user.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+
+            return new StaffV2Dto
+            {
+                Id = staffId,
+                Version = dto.ExpectedVersion + 1,
+                Name = user?.FullName ?? "Nhân viên tác nghiệp",
+                Phone = user?.Phone ?? "+84901234567",
+                Country = staffId.Contains("_JP_") ? "JP" : "VN",
+                Position = user?.Role?.ToUpper() ?? "DRIVER",
+                Status = dto.Status,
+                AssignedTrips = new List<string>(),
+                Eligible = dto.Status == "ACTIVE",
+                Blockers = dto.Status == "ACTIVE" ? new List<BlockerDto>() : new List<BlockerDto>
+                {
+                    new() { Code = "STATUS_NOT_ACTIVE", Field = "status", Message = dto.Reason ?? "Trạng thái không sẵn sàng" }
+                }
+            };
+        }
     }
 }
