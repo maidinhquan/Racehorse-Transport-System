@@ -1,0 +1,495 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Racehorse Transport System — Logistics Manager Role API",
+    "version": "1.0.0",
+    "description": "Toàn bộ API endpoints dành riêng cho Role Logistics Manager (Quản lý Vận hành) phục vụ mọi tính năng trên giao diện cổng Quản lý."
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API Base URL"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "tags": [
+    { "name": "Layout & Directory", "description": "Danh bạ khách hàng, ngựa, nhân sự và thông báo" },
+    { "name": "Requests Management", "description": "Xét duyệt, từ chối, yêu cầu sửa đổi và hủy yêu cầu" },
+    { "name": "Contract Editor", "description": "Soạn thảo, dự toán chi phí, lưu nháp và phát hành hợp đồng" },
+    { "name": "Payments & Reconciliation", "description": "Đối soát chuyển khoản ngân hàng và hoàn tiền cọc" },
+    { "name": "Trips & Deployment", "description": "Phân công nhân sự, duyệt tuyến đường và duyệt khởi hành" },
+    { "name": "Incidents & Complaints", "description": "Quản lý sự cố phát sinh và giải quyết khiếu nại khách hàng" }
+  ],
+  "paths": {
+    "/manager/customers": {
+      "get": {
+        "tags": ["Layout & Directory"],
+        "summary": "Danh sách khách hàng trong hệ thống",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    },
+    "/manager/horses": {
+      "get": {
+        "tags": ["Layout & Directory"],
+        "summary": "Danh sách ngựa toàn hệ thống",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    },
+    "/manager/staff": {
+      "get": {
+        "tags": ["Layout & Directory"],
+        "summary": "Danh sách nhân sự vận hành",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    },
+    "/manager/notifications": {
+      "get": {
+        "tags": ["Layout & Directory"],
+        "summary": "Danh sách thông báo quản lý",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    },
+    "/manager/notifications/{id}/read": {
+      "post": {
+        "tags": ["Layout & Directory"],
+        "summary": "Đánh dấu đã đọc một thông báo",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/notifications/read-all": {
+      "post": {
+        "tags": ["Layout & Directory"],
+        "summary": "Đánh dấu đã đọc tất cả thông báo",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/requests": {
+      "get": {
+        "tags": ["Requests Management"],
+        "summary": "Danh sách yêu cầu vận chuyển cần xử lý",
+        "parameters": [{ "name": "status", "in": "query", "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } } }
+      }
+    },
+    "/manager/requests/{id}": {
+      "get": {
+        "tags": ["Requests Management"],
+        "summary": "Chi tiết toàn diện của một yêu cầu",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } } }
+      }
+    },
+    "/manager/requests/{id}/accept": {
+      "post": {
+        "tags": ["Requests Management"],
+        "summary": "Chấp thuận yêu cầu, bắt đầu soạn hợp đồng",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } } }
+      }
+    },
+    "/manager/requests/{id}/request-changes": {
+      "post": {
+        "tags": ["Requests Management"],
+        "summary": "Yêu cầu khách hàng chỉnh sửa thông tin đơn",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "feedback": { "type": "string", "minLength": 10 },
+                  "fields": { "type": "array", "items": { "type": "string", "enum": ["route", "date", "places", "horses", "notes"] } }
+                },
+                "required": ["feedback", "fields"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/requests/{id}/reject": {
+      "post": {
+        "tags": ["Requests Management"],
+        "summary": "Từ chối yêu cầu vận chuyển kèm lý do",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "reason": { "type": "string", "minLength": 10 } },
+                "required": ["reason"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/requests/{id}/contract-editor": {
+      "get": {
+        "tags": ["Contract Editor"],
+        "summary": "Lấy dữ liệu khởi tạo trình soạn hợp đồng",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "mode", "in": "query", "schema": { "type": "string", "enum": ["ROAD", "AIR"] } }
+        ],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } } }
+      }
+    },
+    "/manager/requests/{id}/cost-estimate": {
+      "post": {
+        "tags": ["Contract Editor"],
+        "summary": "Tính dự toán chi phí nội bộ",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "transportMode": { "type": "string", "enum": ["ROAD", "AIR"] },
+                  "departureAt": { "type": "string" },
+                  "deliveryAt": { "type": "string" }
+                },
+                "required": ["transportMode", "departureAt", "deliveryAt"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } } }
+      }
+    },
+    "/manager/requests/{id}/contract-draft": {
+      "put": {
+        "tags": ["Contract Editor"],
+        "summary": "Lưu bản nháp hợp đồng",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": { "type": "string" },
+                  "departAt": { "type": "string" },
+                  "arriveAt": { "type": "string" },
+                  "budget": { "type": "number" },
+                  "items": { "type": "array", "items": { "type": "object" } },
+                  "depositPct": { "type": "integer", "minimum": 10, "maximum": 100 },
+                  "note": { "type": "string" },
+                  "exception": { "type": "string" },
+                  "terms": { "type": "array", "items": { "type": "object" } }
+                },
+                "required": ["mode", "departAt", "arriveAt", "items", "depositPct", "terms"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      },
+      "delete": {
+        "tags": ["Contract Editor"],
+        "summary": "Hủy bỏ bản nháp hợp đồng",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/requests/{id}/contract/publish": {
+      "post": {
+        "tags": ["Contract Editor"],
+        "summary": "Phát hành hợp đồng chính thức tới khách hàng",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "versionNo": { "type": "integer" } },
+                "required": ["versionNo"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/contracts/{contractId}/feedback/decision": {
+      "post": {
+        "tags": ["Contract Editor"],
+        "summary": "Quyết định xử lý phản hồi sửa đổi của khách",
+        "parameters": [{ "name": "contractId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "versionNo": { "type": "integer" },
+                  "decision": { "type": "string", "enum": ["ACCEPTED", "REJECTED"] },
+                  "text": { "type": "string", "minLength": 10 }
+                },
+                "required": ["versionNo", "decision", "text"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/contracts/{contractId}/extend-deadline": {
+      "post": {
+        "tags": ["Contract Editor"],
+        "summary": "Gia hạn thời hạn hoàn tất cọc và ký OTP",
+        "parameters": [{ "name": "contractId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "versionNo": { "type": "integer" },
+                  "reason": { "type": "string", "minLength": 5 }
+                },
+                "required": ["versionNo", "reason"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/payments": {
+      "get": {
+        "tags": ["Payments & Reconciliation"],
+        "summary": "Danh sách các giao dịch thanh toán và đối soát",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } } }
+      }
+    },
+    "/manager/payments/{id}/confirm": {
+      "post": {
+        "tags": ["Payments & Reconciliation"],
+        "summary": "Xác nhận đối soát giao dịch chuyển khoản ngân hàng",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "confirmedAmount": { "type": "number", "minimum": 1 },
+                  "transactionCode": { "type": "string" },
+                  "receivedAt": { "type": "string" },
+                  "note": { "type": "string" }
+                },
+                "required": ["confirmedAmount", "transactionCode", "receivedAt"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/payments/{id}/reject": {
+      "post": {
+        "tags": ["Payments & Reconciliation"],
+        "summary": "Từ chối chứng từ giao dịch sai lệch",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "reason": { "type": "string" } },
+                "required": ["reason"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/contracts/{contractId}/refund/complete": {
+      "post": {
+        "tags": ["Payments & Reconciliation"],
+        "summary": "Ghi nhận hoàn tất hoàn tiền đặt cọc",
+        "parameters": [{ "name": "contractId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reference": { "type": "string" },
+                  "note": { "type": "string", "minLength": 5 }
+                },
+                "required": ["reference", "note"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/trips": {
+      "get": {
+        "tags": ["Trips & Deployment"],
+        "summary": "Danh sách các chuyến đi",
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } } }
+      }
+    },
+    "/manager/trips/{id}": {
+      "get": {
+        "tags": ["Trips & Deployment"],
+        "summary": "Chi tiết một chuyến đi",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } } }
+      }
+    },
+    "/manager/trips/{id}/assignment": {
+      "post": {
+        "tags": ["Trips & Deployment"],
+        "summary": "Phân công Chuyên viên hồ sơ và Điều phối viên tuyến",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "specialistId": { "type": "string" },
+                  "coordinatorId": { "type": "string" }
+                },
+                "required": ["specialistId", "coordinatorId"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/trips/{id}/route/decision": {
+      "post": {
+        "tags": ["Trips & Deployment"],
+        "summary": "Phê duyệt hoặc yêu cầu làm lại phương án tuyến",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "approve": { "type": "boolean" },
+                  "reason": { "type": "string" }
+                },
+                "required": ["approve"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/trips/{id}/approve-departure": {
+      "post": {
+        "tags": ["Trips & Deployment"],
+        "summary": "Phê duyệt cho phép chuyến đi khởi hành",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/incidents": {
+      "get": {
+        "tags": ["Incidents & Complaints"],
+        "summary": "Danh sách các sự cố trên đường",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/complaints": {
+      "get": {
+        "tags": ["Incidents & Complaints"],
+        "summary": "Danh sách khiếu nại của khách hàng",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/complaints/{id}/replies": {
+      "post": {
+        "tags": ["Incidents & Complaints"],
+        "summary": "Trả lời hoặc gửi đề xuất giải quyết khiếu nại",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": { "type": "string", "minLength": 10 },
+                  "propose": { "type": "boolean" },
+                  "amount": { "type": "number", "minimum": 0 }
+                },
+                "required": ["text"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/manager/requests/{id}/close": {
+      "post": {
+        "tags": ["Requests Management"],
+        "summary": "Đóng đơn vận chuyển khi đã đủ điều kiện",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "StandardEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object", "nullable": true }
+        },
+        "required": ["success", "message", "data"]
+      }
+    }
+  }
+}
