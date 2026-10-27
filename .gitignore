@@ -12,6 +12,9 @@ landing_page/
 spark-AKA-3D-lib-for-render-3D/
 
 
+# Database Tools & Scripts (Local only)
+HorseTransportDB/tools/
+
 # Visual Studio
 .vs/
 

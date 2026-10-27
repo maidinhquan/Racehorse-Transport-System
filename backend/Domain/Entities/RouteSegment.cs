@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Entities
@@ -44,6 +44,16 @@ namespace Domain.Entities
 
         [Column("ActualTime")]
         public DateTime? ActualTime { get; set; }
+
+        [Column("Latitude", TypeName = "decimal(9, 6)")]
+        public decimal? Latitude { get; set; }
+
+        [Column("Longitude", TypeName = "decimal(9, 6)")]
+        public decimal? Longitude { get; set; }
+
+        [Column("Coordinates")]
+        [StringLength(100)]
+        public string? Coordinates { get; set; }
 
         [Column("Status")]
         [StringLength(50)]
