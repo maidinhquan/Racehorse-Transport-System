@@ -29,6 +29,7 @@ namespace Application.DTOs
         public int? ExpectedFlightBookingId { get; set; }
         public int? ExpectedFlightBookingVersion { get; set; }
         public string? Note { get; set; }
+        public string? ConfirmedBy { get; set; }
     }
 
     public class DepartureConditionsDto

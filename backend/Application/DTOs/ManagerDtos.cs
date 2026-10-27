@@ -4,6 +4,7 @@ namespace Application.DTOs
     {
         public int ExpectedVersion { get; set; } = 1;
         public string? Note { get; set; }
+        public string? ApprovedBy { get; set; }
     }
 
     public class ManagerReturnRouteDto
@@ -22,6 +23,11 @@ namespace Application.DTOs
         public string DeploymentStatus { get; set; } = "CONFIRMED";
         public DateTime? PlannedDepartureAt { get; set; }
         public DepartureConditionsDto Conditions { get; set; } = new();
+
+    public class ManagerApproveDepartureDto
+    {
+        public string? Note { get; set; }
+        public string? ApprovedBy { get; set; }
     }
 }
 
