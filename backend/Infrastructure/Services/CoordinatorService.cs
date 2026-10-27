@@ -990,7 +990,7 @@ namespace Infrastructure.Services
                     legPath = GenerateInterpolatedPoints((double)from.Lat, (double)from.Lng, (double)to.Lat, (double)to.Lng, 6);
                     distanceSource = "FLIGHT_SCHEDULE";
                 }
-                else if (legInput?.ManualDistanceKm.HasValue == true)
+                else if (legInput?.ManualDistanceKm.HasValue == true && legInput.ManualDistanceKm.Value > 0)
                 {
                     legDistanceKm = legInput.ManualDistanceKm.Value;
                     var speed = 50.0m;
@@ -1247,14 +1247,14 @@ namespace Infrastructure.Services
         {
             var segments = await _context.RouteSegments
                 .Where(s => s.TripId == tripId)
-                .OrderBy(s => s.SequenceOrder ?? 1)
+                .OrderBy(s => s.SequenceOrder)
                 .ThenBy(s => s.ExpectedEta)
                 .ToListAsync();
 
             return segments.Select(s => new RouteSegmentItemDto
             {
                 SegmentId = s.SegmentId,
-                SequenceOrder = s.SequenceOrder ?? 1,
+                SequenceOrder = s.SequenceOrder,
                 LocationName = s.LocationName,
                 SegmentType = s.SegmentType ?? "STOP",
                 TransportMode = s.TransportMode,
@@ -1364,7 +1364,7 @@ namespace Infrastructure.Services
             trip.Status = "PLAN_APPROVED";
             trip.RouteStatus = "APPROVED";
             trip.RouteApprovedAt = DateTime.UtcNow;
-            trip.RouteApprovedBy = dto.ApprovedBy ?? "USR_MGR_01";
+            trip.RouteApprovedBy = dto?.ApprovedBy ?? "USR_MGR_01";
             trip.RejectionReason = null;
             trip.RouteReturnReason = null;
             await _context.SaveChangesAsync();
@@ -2431,7 +2431,7 @@ namespace Infrastructure.Services
                     var toLngStr = toLng.ToString(CultureInfo.InvariantCulture);
                     var toLatStr = toLat.ToString(CultureInfo.InvariantCulture);
 
-                    var url = $"https://api.mapbox.com/directions/v5/mapbox/driving/{fromLngStr},{fromLatStr};{toLngStr},{toLatStr}?geometries=geojson&overview=full&radiuses=unlimited;unlimited&access_token={token}";
+                    var url = $"https://api.mapbox.com/directions/v5/mapbox/driving/{fromLngStr},{fromLatStr};{toLngStr},{toLatStr}?geometries=geojson&overview=full&access_token={token}";
 
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     cts.CancelAfter(TimeSpan.FromSeconds(8));
@@ -2471,10 +2471,143 @@ namespace Infrastructure.Services
                 }
                 catch
                 {
-                    // Tự động fallback về Haversine khi mất mạng hoặc API lỗi
+                    // Fallback sang Geoapify / OSRM
                 }
             }
 
+            // =========================================================================
+            // LỚP 2: Geoapify Routing API (Dữ liệu dự án cấu hình chính thức)
+            // =========================================================================
+            var geoapifyKey = _configuration?["Maps:Geoapify:ApiKey"]
+                ?? _configuration?["Flow1:Maps:Geoapify:ApiKey"]
+                ?? "167c9593184a44aaa2dc377cea7535f6";
+
+            if (!string.IsNullOrWhiteSpace(geoapifyKey) && _httpClientFactory != null)
+            {
+                try
+                {
+                    var client = _httpClientFactory.CreateClient("GeoapifyClient");
+                    var fromLatStr = fromLat.ToString(CultureInfo.InvariantCulture);
+                    var fromLngStr = fromLng.ToString(CultureInfo.InvariantCulture);
+                    var toLatStr = toLat.ToString(CultureInfo.InvariantCulture);
+                    var toLngStr = toLng.ToString(CultureInfo.InvariantCulture);
+                    var url = $"https://api.geoapify.com/v1/routing?waypoints={fromLatStr},{fromLngStr}|{toLatStr},{toLngStr}&mode=drive&apiKey={geoapifyKey}&format=geojson";
+
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts.CancelAfter(TimeSpan.FromSeconds(8));
+
+                    var response = await client.GetAsync(url, cts.Token);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var json = await response.Content.ReadAsStringAsync(cts.Token);
+                        using var doc = JsonDocument.Parse(json);
+                        if (doc.RootElement.TryGetProperty("features", out var features) && features.GetArrayLength() > 0)
+                        {
+                            var firstFeature = features[0];
+                            var props = firstFeature.GetProperty("properties");
+                            var distanceMeters = props.GetProperty("distance").GetDouble();
+                            var durationSeconds = props.GetProperty("time").GetDouble();
+                            var distKm = Math.Round((decimal)(distanceMeters / 1000.0), 1);
+                            var durMin = (int)Math.Ceiling(durationSeconds / 60.0);
+
+                            var path = new List<double[]>();
+                            if (firstFeature.TryGetProperty("geometry", out var geom) && geom.TryGetProperty("coordinates", out var coords))
+                            {
+                                var type = geom.TryGetProperty("type", out var t) ? t.GetString() : "LineString";
+                                if (type == "MultiLineString")
+                                {
+                                    foreach (var line in coords.EnumerateArray())
+                                    {
+                                        foreach (var pt in line.EnumerateArray())
+                                        {
+                                            var lng = pt[0].GetDouble();
+                                            var lat = pt[1].GetDouble();
+                                            path.Add(new double[] { Math.Round(lat, 5), Math.Round(lng, 5) });
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    foreach (var pt in coords.EnumerateArray())
+                                    {
+                                        var lng = pt[0].GetDouble();
+                                        var lat = pt[1].GetDouble();
+                                        path.Add(new double[] { Math.Round(lat, 5), Math.Round(lng, 5) });
+                                    }
+                                }
+                            }
+
+                            if (path.Count > 0)
+                            {
+                                return (distKm, durMin, path, "GEOAPIFY_ROUTING");
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback sang OSRM
+                }
+            }
+
+            // =========================================================================
+            // LỚP 3: OSRM Routing (OpenStreetMap public router, 100% miễn phí, không cần token)
+            // =========================================================================
+            if (_httpClientFactory != null)
+            {
+                try
+                {
+                    var client = _httpClientFactory.CreateClient();
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RaceHorseTransport/1.0");
+                    var fromLngStr = fromLng.ToString(CultureInfo.InvariantCulture);
+                    var fromLatStr = fromLat.ToString(CultureInfo.InvariantCulture);
+                    var toLngStr = toLng.ToString(CultureInfo.InvariantCulture);
+                    var toLatStr = toLat.ToString(CultureInfo.InvariantCulture);
+                    var url = $"https://router.project-osrm.org/route/v1/driving/{fromLngStr},{fromLatStr};{toLngStr},{toLatStr}?overview=full&geometries=geojson";
+
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    cts.CancelAfter(TimeSpan.FromSeconds(8));
+
+                    var response = await client.GetAsync(url, cts.Token);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var json = await response.Content.ReadAsStringAsync(cts.Token);
+                        using var doc = JsonDocument.Parse(json);
+                        if (doc.RootElement.TryGetProperty("routes", out var routes) && routes.GetArrayLength() > 0)
+                        {
+                            var firstRoute = routes[0];
+                            var distanceMeters = firstRoute.GetProperty("distance").GetDouble();
+                            var durationSeconds = firstRoute.GetProperty("duration").GetDouble();
+                            var distKm = Math.Round((decimal)(distanceMeters / 1000.0), 1);
+                            var durMin = (int)Math.Ceiling(durationSeconds / 60.0);
+
+                            var path = new List<double[]>();
+                            if (firstRoute.TryGetProperty("geometry", out var geom) && geom.TryGetProperty("coordinates", out var coords))
+                            {
+                                foreach (var pt in coords.EnumerateArray())
+                                {
+                                    var lng = pt[0].GetDouble();
+                                    var lat = pt[1].GetDouble();
+                                    path.Add(new double[] { Math.Round(lat, 5), Math.Round(lng, 5) });
+                                }
+                            }
+
+                            if (path.Count > 0)
+                            {
+                                return (distKm, durMin, path, "OSRM_DIRECTIONS");
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback sang Haversine
+                }
+            }
+
+            // =========================================================================
+            // LỚP 4: Haversine Fallback (Đường thẳng chỉ dùng khi máy mất hoàn toàn kết nối Internet)
+            // =========================================================================
             var dist = (decimal)CalculateDistance(fromLat, fromLng, toLat, toLng);
             if (dist < 5) dist = 35;
             var driveHours = dist / 50.0m;
