@@ -255,7 +255,7 @@ namespace Infrastructure.Services
 
         public async Task<List<SpecialistTripDto>> GetTripsAsync(CancellationToken cancellationToken = default)
         {
-            // Sync with real DB TripPlans if available
+            // 1. Sync with real DB TripPlans if available
             try
             {
                 var dbTrips = await _tripPlanDao.GetAllWithDetailsAsync(cancellationToken);
@@ -297,6 +297,122 @@ namespace Infrastructure.Services
                         }
 
                         _runtimeTrips[t.TripId] = dto;
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback gracefully
+            }
+
+            // 2. Sync real submitted TransportRequests from DB
+            try
+            {
+                var submittedRequests = await _context.TransportRequests
+                    .Include(r => r.Customer)
+                    .Include(r => r.RequestHorseMappings)
+                        .ThenInclude(m => m.Horse)
+                    .Where(r => r.Status != "DRAFT")
+                    .ToListAsync(cancellationToken);
+
+                foreach (var req in submittedRequests)
+                {
+                    var existingTrip = _runtimeTrips.Values.FirstOrDefault(t => t.RequestId == req.RequestId);
+                    var tripId = existingTrip?.Id ?? ("TRP-" + req.RequestId.Replace("REQUEST_", "").PadLeft(3, '0'));
+
+                    var isJapan = req.Destination != null && (req.Destination.Contains("Tokyo") || req.Destination.Contains("Japan") || req.Destination.Contains("Osaka"));
+
+                    if (!_runtimeTrips.ContainsKey(tripId))
+                    {
+                        var dto = new SpecialistTripDto
+                        {
+                            Id = tripId,
+                            RequestId = req.RequestId,
+                            CustomerName = req.Customer?.FullName ?? "Khách hàng",
+                            Origin = req.Departure ?? "Điểm đi",
+                            Destination = req.Destination ?? "Điểm đến",
+                            OriginCountry = "VN",
+                            DestCountry = isJapan ? "JP" : "VN",
+                            Mode = req.TransportType ?? (isJapan ? "AIR" : "ROAD"),
+                            Status = req.Status == "COMPLETED" ? "COMPLETED" : "PLANNING",
+                            Deployment = "CONFIRMED",
+                            PlannedDepart = req.ExpectedDate?.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
+                            Eta = req.CommittedDeadline?.ToString("yyyy-MM-dd HH:mm") ?? req.ExpectedDate?.AddDays(1).ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-dd HH:mm"),
+                            Horses = req.RequestHorseMappings.Select(m => new SpecHorseDto
+                            {
+                                Id = m.HorseId,
+                                Name = m.Horse?.Name ?? m.HorseId,
+                                Microchip = m.Horse?.MicrochipIso ?? "",
+                                PassportNo = m.Horse?.FeiPassportNo ?? ""
+                            }).ToList()
+                        };
+
+                        _runtimeTrips[tripId] = dto;
+                    }
+
+                    // Sync Customer Documents for all horses in this request
+                    foreach (var m in req.RequestHorseMappings)
+                    {
+                        var horse = m.Horse;
+                        if (horse == null) continue;
+
+                        if (!string.IsNullOrWhiteSpace(horse.PassportScanUrl))
+                        {
+                            var key = $"{tripId}_passport_{horse.HorseId}";
+                            if (!_runtimeCustomerDocs.ContainsKey(key))
+                            {
+                                _runtimeCustomerDocs[key] = new CustomerDocDto
+                                {
+                                    TripId = tripId,
+                                    Key = "passport",
+                                    Scope = horse.HorseId,
+                                    Status = "SUBMITTED",
+                                    Optional = false,
+                                    File = Path.GetFileName(horse.PassportScanUrl),
+                                    Note = "Hộ chiếu ngựa quốc tế"
+                                };
+                            }
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(horse.OwnershipCertificateFileUrl))
+                        {
+                            var key = $"{tripId}_ownership_{horse.HorseId}";
+                            if (!_runtimeCustomerDocs.ContainsKey(key))
+                            {
+                                _runtimeCustomerDocs[key] = new CustomerDocDto
+                                {
+                                    TripId = tripId,
+                                    Key = "ownership",
+                                    Scope = horse.HorseId,
+                                    Status = "SUBMITTED",
+                                    Optional = false,
+                                    File = Path.GetFileName(horse.OwnershipCertificateFileUrl),
+                                    Note = "Giấy chứng nhận sở hữu ngựa"
+                                };
+                            }
+                        }
+                    }
+
+                    // Also sync LegalMedicalRecords for this request
+                    var medRecords = await _recordDao.GetByRequestIdAsync(req.RequestId, cancellationToken);
+                    foreach (var mr in medRecords)
+                    {
+                        var docKey = mr.DocumentType == "VACCINATION" ? "flu" : "health";
+                        var key = $"{tripId}_{docKey}_{mr.HorseId}";
+                        if (!_runtimeCustomerDocs.ContainsKey(key))
+                        {
+                            _runtimeCustomerDocs[key] = new CustomerDocDto
+                            {
+                                TripId = tripId,
+                                Key = docKey,
+                                Scope = mr.HorseId,
+                                Status = mr.DocumentStatus ?? "SUBMITTED",
+                                Optional = mr.DocumentType == "VACCINATION",
+                                File = Path.GetFileName(mr.UploadedFileUrl),
+                                Expiry = mr.ExpiryDate?.ToString("yyyy-MM-dd"),
+                                Note = mr.DocumentType == "VACCINATION" ? "Sổ tiêm ngừa cúm" : "Giấy chứng nhận sức khỏe"
+                            };
+                        }
                     }
                 }
             }
@@ -536,9 +652,10 @@ namespace Infrastructure.Services
             return true;
         }
 
-        public Task<List<CustomerDocDto>> GetCustomerDocsAsync(CancellationToken cancellationToken = default)
+        public async Task<List<CustomerDocDto>> GetCustomerDocsAsync(CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(_runtimeCustomerDocs.Values.OrderBy(d => d.TripId).ThenBy(d => d.Key).ToList());
+            await GetTripsAsync(cancellationToken);
+            return _runtimeCustomerDocs.Values.OrderBy(d => d.TripId).ThenBy(d => d.Key).ToList();
         }
 
         public async Task<bool> ReviewCustomerDocAsync(string tripId, ReviewCustomerDocDto dto, string specialistName, CancellationToken cancellationToken = default)

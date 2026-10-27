@@ -91,31 +91,11 @@ if (typeof window !== 'undefined') {
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
     if (customEvent.detail && customEvent.detail.role === 'specialist') {
-      if (customEvent.detail.enabled) {
-        setState({
-          trips: clone(mockTrips),
-          customerDocs: clone(mockCustomerDocs),
-          documents: clone(mockDocuments),
-          requests: clone(mockRequests),
-          bookings: clone(mockBookings),
-          audit: clone(mockAudit),
-          loading: false,
-          loaded: true,
-        });
-        toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
-      } else {
-        setState({
-          trips: [],
-          customerDocs: [],
-          documents: [],
-          requests: [],
-          bookings: [],
-          audit: [],
-          loading: false,
-          loaded: true,
-        });
-        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
-      }
+      setState({ loaded: false });
+      void loadAll();
+      toast(customEvent.detail.enabled
+        ? 'Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.'
+        : 'Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
     }
   });
 }
@@ -146,16 +126,61 @@ async function loadAll() {
       specialistApi.getTrips(), specialistApi.getCustomerDocs(), specialistApi.getDocuments(), specialistApi.getRequests(), specialistApi.getBookings(),
       specialistApi.getDocTypes(), specialistApi.getRegulations(), specialistApi.getPackages(), specialistApi.getAudit(),
     ]);
-    if (!getDemoMode('specialist')) {
-      setState({ trips: [], customerDocs: [], documents: [], requests: [], bookings: [], docTypes, regulations, packages, audit: [], loading: false, loaded: true });
+    const isDemo = getDemoMode('specialist');
+    if (!isDemo) {
+      setState({
+        trips: trips || [],
+        customerDocs: customerDocs || [],
+        documents: documents || [],
+        requests: requests || [],
+        bookings: bookings || [],
+        docTypes: docTypes || [],
+        regulations: regulations || [],
+        packages: packages || [],
+        audit: auditLog || [],
+        loading: false,
+        loaded: true,
+      });
       return;
     }
-    setState({ trips, customerDocs, documents, requests, bookings, docTypes, regulations, packages, audit: auditLog, loading: false, loaded: true });
+
+    let displayTrips = trips || [];
+    const existingIds = new Set(displayTrips.map((t) => t.id));
+    const extraMocks = clone(mockTrips).filter((m) => !existingIds.has(m.id));
+    displayTrips = [...displayTrips, ...extraMocks];
+
+    let displayDocs = customerDocs || [];
+    const existingDocKeys = new Set(displayDocs.map((d) => `${d.tripId}_${d.key}_${d.scope}`));
+    const extraMockDocs = clone(mockCustomerDocs).filter((m) => !existingDocKeys.has(`${m.tripId}_${m.key}_${m.scope}`));
+    displayDocs = [...displayDocs, ...extraMockDocs];
+
+    setState({
+      trips: displayTrips,
+      customerDocs: displayDocs,
+      documents: (documents && documents.length > 0) ? documents : clone(mockDocuments),
+      requests: (requests && requests.length > 0) ? requests : clone(mockRequests),
+      bookings: (bookings && bookings.length > 0) ? bookings : clone(mockBookings),
+      docTypes: (docTypes && docTypes.length > 0) ? docTypes : clone(mockDocTypes),
+      regulations: (regulations && regulations.length > 0) ? regulations : clone(mockRegulations),
+      packages: (packages && packages.length > 0) ? packages : clone(mockPackages),
+      audit: (auditLog && auditLog.length > 0) ? auditLog : clone(mockAudit),
+      loading: false,
+      loaded: true,
+    });
   } catch {
-    if (!getDemoMode('specialist')) {
+    const isDemo = getDemoMode('specialist');
+    if (!isDemo) {
       setState({ trips: [], customerDocs: [], documents: [], requests: [], bookings: [], loading: false, loaded: true });
     } else {
-      setState({ loading: false, loaded: true });
+      setState({
+        trips: clone(mockTrips),
+        customerDocs: clone(mockCustomerDocs),
+        documents: clone(mockDocuments),
+        requests: clone(mockRequests),
+        bookings: clone(mockBookings),
+        loading: false,
+        loaded: true,
+      });
     }
   }
 }
