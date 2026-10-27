@@ -50,6 +50,10 @@ namespace Infrastructure.Data.Context
         {
             base.OnModelCreating(modelBuilder);
 
+            // Cấu hình Composite Key cho RequestHorseMapping
+            modelBuilder.Entity<RequestHorseMapping>()
+                .HasKey(m => new { m.RequestId, m.HorseId });
+
             // Tự động load các cấu hình IEntityTypeConfiguration nếu có
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(HorseTransportDbContext).Assembly);
 

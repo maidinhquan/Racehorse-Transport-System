@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/.git/
+**/*.user
+**/*.suo
+tests/
+tools/
+database/
+*.md
+test-sandbox.ps1

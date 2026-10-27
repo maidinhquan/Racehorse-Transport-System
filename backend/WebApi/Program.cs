@@ -30,10 +30,22 @@ builder.Services.AddDbContext<HorseTransportDbContext>(options =>
 // =============================================================================
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IUserDAO, Infrastructure.DAOs.UserDAO>();
+builder.Services.AddScoped<ITransportRequestDAO, Infrastructure.DAOs.TransportRequestDAO>();
+builder.Services.AddScoped<IRequestHorseMappingDAO, Infrastructure.DAOs.RequestHorseMappingDAO>();
+builder.Services.AddScoped<ILegalMedicalRecordDAO, Infrastructure.DAOs.LegalMedicalRecordDAO>();
+builder.Services.AddScoped<IContractDAO, Infrastructure.DAOs.ContractDAO>();
+builder.Services.AddScoped<IInvoiceDAO, Infrastructure.DAOs.InvoiceDAO>();
+builder.Services.AddScoped<IPaymentDAO, Infrastructure.DAOs.PaymentDAO>();
+builder.Services.AddScoped<ICostItemDAO, Infrastructure.DAOs.CostItemDAO>();
+builder.Services.AddScoped<ITripPlanDAO, Infrastructure.DAOs.TripPlanDAO>();
+
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
+builder.Services.AddScoped<ICustomerHorseService, CustomerHorseService>();
+builder.Services.AddScoped<IFlow1CustomerService, Infrastructure.Services.Flow1CustomerService>();
+builder.Services.AddScoped<IFlow1ManagerService, Infrastructure.Services.Flow1ManagerService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 
 // =============================================================================

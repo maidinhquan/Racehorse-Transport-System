@@ -45,6 +45,39 @@ namespace Domain.Entities
         [Column("DOB", TypeName = "date")]
         public DateTime? Dob { get; set; }
 
+        [Column("PhotoUrl")]
+        [StringLength(500)]
+        public string? PhotoUrl { get; set; }
+
+        [Column("PassportScanUrl")]
+        [StringLength(500)]
+        public string? PassportScanUrl { get; set; }
+
+        [Column("PassportIssuedBy")]
+        [StringLength(200)]
+        public string? PassportIssuedBy { get; set; }
+
+        [Column("PassportIssuedDate", TypeName = "date")]
+        public DateTime? PassportIssuedDate { get; set; }
+
+        [Column("PassportExpiryDate", TypeName = "date")]
+        public DateTime? PassportExpiryDate { get; set; }
+
+        [Column("OwnershipCertificateFileUrl")]
+        [StringLength(500)]
+        public string? OwnershipCertificateFileUrl { get; set; }
+
+        [Column("ValuationDocumentFileUrl")]
+        [StringLength(500)]
+        public string? ValuationDocumentFileUrl { get; set; }
+
+        [Column("DeclaredValueVnd", TypeName = "decimal(18, 2)")]
+        public decimal? DeclaredValueVnd { get; set; }
+
+        [Column("SpecialHealthNotes")]
+        [StringLength(2000)]
+        public string? SpecialHealthNotes { get; set; }
+
         // Navigation properties
         [ForeignKey(nameof(OwnerId))]
         [InverseProperty(nameof(Entities.User.Horses))]
