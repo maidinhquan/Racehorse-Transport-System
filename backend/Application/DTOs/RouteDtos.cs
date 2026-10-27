@@ -118,12 +118,14 @@ namespace Application.DTOs
     public class RouteSegmentItemDto
     {
         public string? SegmentId { get; set; }
+        public int SequenceOrder { get; set; } = 1;
         public string LocationName { get; set; } = string.Empty;
         public string SegmentType { get; set; } = "ORIGIN"; // ORIGIN, REST_STOP, CHECKPOINT, DESTINATION
         public string TransportMode { get; set; } = "ROAD";
         public string? FacilityId { get; set; }
         public string? CarrierName { get; set; }
         public string? FlightVoyageNo { get; set; }
+        public DateTime? PlannedTime { get; set; }
         public DateTime? ExpectedEta { get; set; }
         public string? Status { get; set; } = "PLANNED";
         public decimal? Lat { get; set; }
