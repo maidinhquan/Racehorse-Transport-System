@@ -96,8 +96,8 @@ export interface SpecialistData {
 
 export const docType = (data: SpecialistData, id: string) => data.docTypes.find((d) => d.id === id);
 export const typeName = (data: SpecialistData, id: string) => docType(data, id)?.name ?? id;
-export const horseName = (t: SpecTrip, id: string | null) => (id ? t.horses.find((h) => h.id === id)?.name ?? id : 'Toàn chuyến');
-export const deployed = (t: SpecTrip) => t.deployment === 'CONFIRMED';
+export const horseName = (t?: SpecTrip | null, id?: string | null) => (id && t?.horses ? t.horses.find((h) => h.id === id)?.name ?? id : (id || 'Toàn chuyến'));
+export const deployed = (t?: SpecTrip | null) => Boolean(t && t.deployment === 'CONFIRMED');
 export const shortName = (city: string) => (city === 'Ho Chi Minh City' ? 'HCMC' : city);
 export const ruleLabel =(c: CountryCode, d: Direction) => `${COUNTRY_VI[c]} • ${DIRECTION_VI[d]}`;
 

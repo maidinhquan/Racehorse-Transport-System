@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
+import { DemoDataToggle, ErrorBoundary, ThemeToggle } from '../../../../shared/components';
 import { cleanDisplayName, getInitials } from '../../../../shared/utils/textUtils';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { SPECIALIST_INITIALS, SPECIALIST_NAME } from '../../data/mockData';
@@ -145,7 +145,7 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
         <nav className="spc-mobile-nav">
           {NAV.map(([to, label]) => <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}
         </nav>
-        <main className="spc-view">{children}</main>
+        <main className="spc-view"><ErrorBoundary>{children}</ErrorBoundary></main>
       </div>
       {toast && <div className="spc-toast" role="status" key={toast.id}>{toast.message}</div>}
     </div>

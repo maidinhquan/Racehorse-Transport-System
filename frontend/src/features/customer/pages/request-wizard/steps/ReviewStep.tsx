@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { TransportRequest } from '../../../types';
+import type { Horse, TransportRequest } from '../../../types';
 import { useCustomer } from '../../../hooks/useCustomer';
 import { fmtDate, wizardErrors } from '../../../hooks/customerRules';
 import { Note, PlaceBlock } from '../../../components/Common/Common';
 import { DocumentRows } from '../../../components/DocumentList/DocumentList';
+import { DateField } from '../../../components/DateField/DateField';
 import { wizardPath } from '../../../components/WizardStepper/WizardStepper';
 
 /** Bước 3/3 – xem lại toàn bộ, sửa lỗi chặn gửi rồi gửi Manager xét duyệt */
@@ -13,6 +14,9 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const { horses, docsOf, actions } = useCustomer();
   const [agree, setAgree] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editingHorse, setEditingHorse] = useState<Horse | null>(null);
+  const [newExpiryDate, setNewExpiryDate] = useState('');
+  const [savingHorse, setSavingHorse] = useState(false);
   const errs = wizardErrors(r, horses);
   const docs = docsOf(r);
 
@@ -22,6 +26,32 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
       {body}
     </div>
   );
+
+  const openEditPassport = (h: Horse) => {
+    setEditingHorse(h);
+    setNewExpiryDate(h.passport.expiryDate || r.date || '');
+  };
+
+  const savePassportExpiry = async () => {
+    if (!editingHorse || !newExpiryDate) return;
+    setSavingHorse(true);
+    const { id: horseId, ...rest } = editingHorse;
+    void horseId;
+    const res = await actions.updateHorse(editingHorse.id, {
+      ...rest,
+      passport: {
+        ...editingHorse.passport,
+        expiryDate: newExpiryDate,
+      },
+    });
+    setSavingHorse(false);
+    if (res.ok) {
+      setEditingHorse(null);
+      actions.showToast(`Đã cập nhật hạn hộ chiếu cho ${editingHorse.name}`);
+    } else {
+      actions.showToast(res.message || 'Cập nhật thất bại');
+    }
+  };
 
   const submit = async () => {
     setSubmitting(true);
@@ -54,11 +84,46 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
       {errs.length > 0 && (
         <Note tone="red" title="Chưa thể gửi yêu cầu">
           <ul className="cus-wizard__errors">
-            {errs.map(([step, msg]) => (
-              <li key={msg}>{msg} <button type="button" className="cus-link" onClick={() => navigate(wizardPath(r, step))}>Sửa</button></li>
-            ))}
+            {errs.map(([step, msg]) => {
+              const horseObj = horses.find(h => msg.startsWith(h.name));
+              const isExpiryConflict = msg.includes('Hộ chiếu hết hạn');
+              return (
+                <li key={msg} style={{ marginBottom: isExpiryConflict ? 10 : 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <span>{msg}</span>
+                  {isExpiryConflict && horseObj ? (
+                    <span style={{ display: 'inline-flex', gap: 8 }}>
+                      <button type="button" className="cus-btn cus-btn--sm" onClick={() => navigate(wizardPath(r, 0))}>Đổi ngày đi</button>
+                      <button type="button" className="cus-btn cus-btn--sm cus-btn--solid" onClick={() => openEditPassport(horseObj)}>Sửa hạn hộ chiếu</button>
+                    </span>
+                  ) : (
+                    <button type="button" className="cus-link" onClick={() => navigate(wizardPath(r, step))}>Sửa</button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </Note>
+      )}
+
+      {editingHorse && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'grid', placeItems: 'center', zIndex: 1000, padding: 16 }}>
+          <div className="cus-card" style={{ maxWidth: 440, width: '100%', background: '#fff', borderRadius: 14, padding: 24, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <h3 className="cus-card__title" style={{ marginTop: 0 }}>Cập nhật hạn hộ chiếu • {editingHorse.name}</h3>
+            <p className="cus-subtitle" style={{ marginTop: -8, marginBottom: 16 }}>
+              Ngày vận chuyển của đơn là <b>{fmtDate(r.date)}</b>. Ngày hết hạn hộ chiếu phải từ ngày này trở đi.
+            </p>
+            <div className="cus-field">
+              <label htmlFor="modal-expiry-date">Ngày hết hạn hộ chiếu mới *</label>
+              <DateField id="modal-expiry-date" value={newExpiryDate} min={r.date} onChange={setNewExpiryDate} />
+            </div>
+            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" className="cus-btn" disabled={savingHorse} onClick={() => setEditingHorse(null)}>Hủy</button>
+              <button type="button" className="cus-btn cus-btn--solid" disabled={!newExpiryDate || savingHorse} onClick={savePassportExpiry}>
+                {savingHorse ? 'Đang lưu...' : 'Lưu hạn hộ chiếu'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <label className="cus-check">

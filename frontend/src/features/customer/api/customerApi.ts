@@ -5,11 +5,17 @@ import { flow2Api } from '../../../shared/api/flow2Api';
 import type { ComplaintInput, ContractChangeInput, CustomerNotification, CustomerProfile, FileRef, Horse, HorseInput, TransportRequest, TripInfoInput, ContractVersion, DocRecord, Payment } from '../types';
 import { city } from '../hooks/customerRules';
 import { CUSTOMER_ENDPOINTS } from './customerEndpoints';
-const horseBody = (h: HorseInput) => ({
-  name: h.name.trim(), breed: h.breed.trim(), sex: h.sex, dob: h.dob,
-  microchip: h.microchip.trim(), value: h.value, currency: 'VND', conditions: h.conditions,
-  passport: { number: h.passport.number, authority: h.passport.authority, issueDate: h.passport.issueDate, expiryDate: h.passport.expiryDate },
-});
+const horseBody = (h: HorseInput) => {
+  let conditions = (h.conditions || '').trim();
+  if (h.color?.trim() && !conditions.includes('[Màu lông:')) {
+    conditions = conditions ? `${conditions}\n[Màu lông: ${h.color.trim()}]` : `[Màu lông: ${h.color.trim()}]`;
+  }
+  return {
+    name: h.name.trim(), breed: h.breed.trim(), sex: h.sex, dob: h.dob,
+    microchip: h.microchip.trim(), value: h.value, currency: 'VND', conditions,
+    passport: { number: h.passport.number, authority: h.passport.authority, issueDate: h.passport.issueDate, expiryDate: h.passport.expiryDate },
+  };
+};
 type WireRequest = Omit<TransportRequest, 'history' | 'revisions' | 'status'> & { status: TransportRequest['status'] | 'IN_PROGRESS' };
 const requestFromWire = (r: WireRequest): TransportRequest => ({ ...r,
   status: r.status === 'IN_PROGRESS' ? 'IN_TRANSIT' : r.status,
@@ -40,7 +46,15 @@ export const customerApi = {
   getProfile: () => contractClient<CustomerProfile>('get', '/customer/profile'),
   getHorses: async () => {
     const horses = await contractClient<Horse[]>('get', '/customer/horses');
-    return horses.map(h => ({ ...h, ...Object.fromEntries((h.unsupportedFields ?? []).map(key => [key, ''])) }));
+    return horses.map(h => {
+      const unsupported = (h.unsupportedFields ?? []).filter(key => key !== 'color');
+      let color = h.color || '';
+      if (!color && h.conditions?.includes('[Màu lông:')) {
+        const m = h.conditions.match(/\[Màu lông:\s*([^\]]+)\]/);
+        if (m) color = m[1].trim();
+      }
+      return { ...h, ...Object.fromEntries(unsupported.map(key => [key, ''])), color, unsupportedFields: unsupported };
+    });
   },
   getRequests: async () => {
     const requests = (await contractClient<WireRequest[]>('get', '/customer/requests')).map(requestFromWire);
@@ -55,7 +69,16 @@ export const customerApi = {
   },
   getSelectableHorses: (date: string, excludeRequestId: string) => contractClient<Array<{ id: string; name: string; selectable: boolean; conflict: unknown; documentWarnings: string[] }>>('get', '/customer/horses/selectable', undefined, { date, excludeRequestId }),
   getRequest: async (id: string) => requestFromWire(await contractClient<WireRequest>('get', `/customer/requests/${id}`)),
-  getHorse: (id: string) => contractClient<Horse>('get', `/customer/horses/${id}`),
+  getHorse: async (id: string) => {
+    const h = await contractClient<Horse>('get', `/customer/horses/${id}`);
+    const unsupported = (h.unsupportedFields ?? []).filter(key => key !== 'color');
+    let color = h.color || '';
+    if (!color && h.conditions?.includes('[Màu lông:')) {
+      const m = h.conditions.match(/\[Màu lông:\s*([^\]]+)\]/);
+      if (m) color = m[1].trim();
+    }
+    return { ...h, color, unsupportedFields: unsupported };
+  },
   getSupportedRoutes: () => contractClient<FormOptions['supportedRoutes']>('get', '/master/supported-routes'),
   getChecklist: (id: string) => contractClient<{ requestId: string; canSubmit: boolean; issues: Array<{ message: string }> }>('get', `/customer/requests/${id}/document-checklist`),
   getNotifications: () => contractClient<CustomerNotification[]>('get', '/customer/notifications'),

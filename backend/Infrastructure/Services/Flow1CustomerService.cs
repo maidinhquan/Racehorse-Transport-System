@@ -281,17 +281,20 @@ public class Flow1CustomerService : IFlow1CustomerService
                 });
             }
 
-            checklist.Items.Add(new DocumentChecklistItemDto
+            if (hasPassportFile)
             {
-                Key = "passport",
-                Scope = horse.HorseId,
-                Name = "Hộ chiếu ngựa",
-                Kind = "file",
-                Status = hasPassportFile && hasPassportNumber && !passportExpired ? "SUBMITTED" : "MISSING",
-                Optional = false,
-                Note = hasPassportFile ? "Đã có scan hộ chiếu hợp lệ." : "Bắt buộc phải có scan hộ chiếu.",
-                File = hasPassportFile ? new FileRefDto { Name = Path.GetFileName(horse.PassportScanUrl), Url = $"/api/customer/horses/{horse.HorseId}/files/passport" } : null
-            });
+                checklist.Items.Add(new DocumentChecklistItemDto
+                {
+                    Key = "passport",
+                    Scope = horse.HorseId,
+                    Name = "Hộ chiếu ngựa",
+                    Kind = "file",
+                    Status = hasPassportNumber && !passportExpired ? "SUBMITTED" : "ACTION_REQUIRED",
+                    Optional = false,
+                    Note = "Đã có scan hộ chiếu hợp lệ.",
+                    File = new FileRefDto { Name = Path.GetFileName(horse.PassportScanUrl), Url = $"/api/customer/horses/{horse.HorseId}/files/passport" }
+                });
+            }
 
             // 2. Kiểm tra Giấy chứng nhận sở hữu (Bắt buộc)
             var hasOwnership = !string.IsNullOrWhiteSpace(horse.OwnershipCertificateFileUrl);
@@ -305,33 +308,38 @@ public class Flow1CustomerService : IFlow1CustomerService
                     Message = $"{horse.Name}: Chưa nộp giấy chứng nhận sở hữu."
                 });
             }
-
-            checklist.Items.Add(new DocumentChecklistItemDto
+            else
             {
-                Key = "ownership",
-                Scope = horse.HorseId,
-                Name = "Chứng nhận sở hữu",
-                Kind = "file",
-                Status = hasOwnership ? "SUBMITTED" : "MISSING",
-                Optional = false,
-                Note = hasOwnership ? "Đã có giấy chứng nhận sở hữu." : "Bắt buộc phải có giấy chứng nhận sở hữu.",
-                File = hasOwnership ? new FileRefDto { Name = Path.GetFileName(horse.OwnershipCertificateFileUrl), Url = $"/api/customer/horses/{horse.HorseId}/files/ownership" } : null
-            });
+                checklist.Items.Add(new DocumentChecklistItemDto
+                {
+                    Key = "ownership",
+                    Scope = horse.HorseId,
+                    Name = "Chứng nhận sở hữu",
+                    Kind = "file",
+                    Status = "SUBMITTED",
+                    Optional = false,
+                    Note = "Đã có giấy chứng nhận sở hữu.",
+                    File = new FileRefDto { Name = Path.GetFileName(horse.OwnershipCertificateFileUrl), Url = $"/api/customer/horses/{horse.HorseId}/files/ownership" }
+                });
+            }
 
             // 3. Sổ tiêm ngừa cúm (Kiểm tra y tế theo BA/Tester rule)
             var fluRecord = records.FirstOrDefault(r => r.HorseId == horse.HorseId && r.DocumentType == "VACCINATION");
             var hasFlu = fluRecord != null && !string.IsNullOrWhiteSpace(fluRecord.UploadedFileUrl);
-            checklist.Items.Add(new DocumentChecklistItemDto
+            if (hasFlu)
             {
-                Key = "flu",
-                Scope = horse.HorseId,
-                Name = "Sổ tiêm ngừa cúm",
-                Kind = "file",
-                Status = hasFlu ? "SUBMITTED" : "MISSING",
-                Optional = true,
-                Note = hasFlu ? "Đã nộp sổ tiêm phòng." : "Specialist sẽ kiểm tra trước xuất phát.",
-                File = hasFlu ? new FileRefDto { Name = Path.GetFileName(fluRecord!.UploadedFileUrl), Url = fluRecord.UploadedFileUrl } : null
-            });
+                checklist.Items.Add(new DocumentChecklistItemDto
+                {
+                    Key = "flu",
+                    Scope = horse.HorseId,
+                    Name = "Sổ tiêm ngừa cúm",
+                    Kind = "file",
+                    Status = "SUBMITTED",
+                    Optional = true,
+                    Note = "Đã nộp sổ tiêm phòng.",
+                    File = new FileRefDto { Name = Path.GetFileName(fluRecord!.UploadedFileUrl), Url = fluRecord.UploadedFileUrl }
+                });
+            }
         }
 
         return checklist;

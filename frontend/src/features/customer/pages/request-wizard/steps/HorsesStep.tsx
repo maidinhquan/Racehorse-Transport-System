@@ -18,6 +18,7 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const [draft, setDraft] = useState<HorseInput>(emptyHorse());
   const [selectable, setSelectable] = useState<string[] | null>(null);
   const [availabilityError, setAvailabilityError] = useState('');
+  const [changingHorse, setChangingHorse] = useState(false);
   useEffect(() => {
     let active = true;
     customerApi.getSelectableHorses(r.date, r.id).then(rows => { if (active) { setSelectable(rows.filter(h => h.selectable).map(h => h.id)); setAvailabilityError(''); } })
@@ -31,12 +32,14 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const pick = (id: string) => {
     if (id && !selectable?.includes(id)) { actions.showToast('Ngựa chưa được xác nhận khả dụng cho ngày này.'); return; }
     actions.setHorseSlot(r.id, slot, id);
+    setChangingHorse(false);
   };
   const saveNew = async () => {
     const res = await actions.createHorse(draft);
     if (!res.ok || !res.id) return;
     actions.setHorseSlot(r.id, slot, res.id);
     setDraft(emptyHorse());
+    setChangingHorse(false);
     setMode('existing');
   };
   const next = async () => {
@@ -72,7 +75,7 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
         </div>
         <div className="cus-wizard__chips">
           {r.horses.map((id, i) => (
-            <button key={i} type="button" className={`cus-chip ${i === slot ? 'on' : ''} ${id ? 'cus-chip--done' : ''}`} onClick={() => { setSlot(i); setMode('existing'); }}>
+            <button key={i} type="button" className={`cus-chip ${i === slot ? 'on' : ''} ${id ? 'cus-chip--done' : ''}`} onClick={() => { setSlot(i); setMode('existing'); setChangingHorse(false); }}>
               {id ? <><Icon name="check" />{horses.find((h) => h.id === id)?.name ?? id}</> : `Ngựa ${i + 1}`}
             </button>
           ))}
@@ -85,27 +88,43 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
 
         {mode === 'existing' ? (
           <>
-            <div className="cus-wizard__picker">
-              {horses.map((h) => {
-                const taken = r.horses.some((id, i) => id === h.id && i !== slot);
-                const unavailable = !selectable?.includes(h.id);
-                const locked = r.status === 'CHANGES_REQUESTED' && !(r.revisionFields ?? ['horses']).includes('horses');
-                return (
-                  <label key={h.id} className={`cus-pick ${selectedId === h.id ? 'selected' : ''} ${taken ? 'disabled' : ''}`}>
-                    <input type="radio" name="pick-horse" checked={selectedId === h.id} disabled={taken || unavailable || locked} onChange={() => pick(h.id)} />
-                    <span className="cus-pick__thumb">{h.photo?.url ? <img src={h.photo.url} alt="" /> : <Icon name="horse" />}</span>
-                    <span className="cus-pick__text"><b>{h.name}</b><small>{horseLine(h)}{taken ? ' • Đã chọn ở vị trí khác' : ''}</small></span>
-                    <TripStatusBadge label={horseRequests(h, requests).length ? 'Đã dùng trong đơn' : 'Chưa dùng'} tone={horseRequests(h, requests).length ? 'info' : 'muted'} />
-                  </label>
-                );
-              })}
-              {!horses.length && <p className="cus-subtitle">Bạn chưa có ngựa. Chọn “Thêm ngựa mới” để khai báo.</p>}
-            </div>
-            {selected && (
+            {(!selected || changingHorse) ? (
+              <>
+                {changingHorse && selected && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, padding: '8px 12px', background: '#f8fafc', borderRadius: 8 }}>
+                    <span>Đang chọn ngựa cho vị trí {slot + 1} (hiện tại: <b>{selected.name}</b>)</span>
+                    <button type="button" className="cus-btn cus-btn--sm" onClick={() => setChangingHorse(false)}>Hủy đổi</button>
+                  </div>
+                )}
+                <div className="cus-wizard__picker">
+                  {horses.map((h) => {
+                    const taken = r.horses.some((id, i) => id === h.id && i !== slot);
+                    const unavailable = !selectable?.includes(h.id);
+                    const locked = r.status === 'CHANGES_REQUESTED' && !(r.revisionFields ?? ['horses']).includes('horses');
+                    return (
+                      <label key={h.id} className={`cus-pick ${selectedId === h.id ? 'selected' : ''} ${taken ? 'disabled' : ''}`}>
+                        <input type="radio" name="pick-horse" checked={selectedId === h.id} disabled={taken || unavailable || locked} onChange={() => pick(h.id)} />
+                        <span className="cus-pick__thumb">{h.photo?.url ? <img src={h.photo.url} alt="" /> : <Icon name="horse" />}</span>
+                        <span className="cus-pick__text"><b>{h.name}</b><small>{horseLine(h)}{taken ? ' • Đã chọn ở vị trí khác' : ''}</small></span>
+                        <TripStatusBadge label={horseRequests(h, requests).length ? 'Đã dùng trong đơn' : 'Chưa dùng'} tone={horseRequests(h, requests).length ? 'info' : 'muted'} />
+                      </label>
+                    );
+                  })}
+                  {!horses.length && <p className="cus-subtitle">Bạn chưa có ngựa. Chọn “Thêm ngựa mới” để khai báo.</p>}
+                </div>
+              </>
+            ) : null}
+
+            {selected && !changingHorse && (
               <div className="cus-wizard__profile">
                 <div className="cus-wizard__profile-head">
-                  <b>{selected.name}</b><span>{selected.microchip || selected.id}</span>
-                  <button type="button" className="cus-btn cus-btn--sm" onClick={() => actions.setHorseSlot(r.id, slot, '')}>Bỏ khỏi yêu cầu</button>
+                  <div>
+                    <b>{selected.name}</b><span>{selected.microchip || selected.id}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" className="cus-btn cus-btn--sm" onClick={() => setChangingHorse(true)}>Chọn ngựa khác</button>
+                    <button type="button" className="cus-btn cus-btn--sm" onClick={() => { actions.setHorseSlot(r.id, slot, ''); setChangingHorse(true); }}>Bỏ khỏi yêu cầu</button>
+                  </div>
                 </div>
                 <p className="cus-subtitle">Thông tin hộ chiếu, sở hữu, giá trị và y tế lấy từ “Ngựa của tôi”. Có thể sửa thông tin hoặc tải tệp ngay bên dưới.</p>
                 <DocumentRows requestId={r.id} items={horseDocItems(r, selected)} editable backTo={backTo} />

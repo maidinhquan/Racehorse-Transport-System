@@ -255,7 +255,7 @@ async function loadAll() {
         loaded: true,
       });
     } else {
-      setState({ loading: false, loaded: true });
+      setState({ horses: [], requests: [], notifications: [], loading: false, loaded: true });
     }
     toast(apiMessage(error));
   }

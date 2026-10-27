@@ -25,13 +25,16 @@ export const HorseForm: React.FC<HorseFormProps> = ({ value: h, onChange, locked
   const setPass = (k: keyof HorseInput['passport'], v: string | FileRef | undefined) => onChange({ ...h, passport: { ...h.passport, [k]: v } });
   const bad = (k: string) => (invalid.includes(k) ? 'invalid' : '');
 
-  const text = (label: string, k: 'name' | 'breed' | 'color' | 'microchip' | 'vetName' | 'vetPhone' | 'value', lock = false, type = 'text') => (
-    <div className="cus-field">
-      <label htmlFor={`hf-${k}`}>{label}{h.unsupportedFields?.includes(k) && ' (chưa thể lưu trực tuyến)'}</label>
-      <input id={`hf-${k}`} className={`cus-input ${bad(k)}`} type={type} value={h[k] ?? ''} disabled={h.unsupportedFields?.includes(k)} readOnly={lock && locked}
-        onChange={(e) => set(k, e.target.value)} />
-    </div>
-  );
+  const text = (label: string, k: 'name' | 'breed' | 'color' | 'microchip' | 'vetName' | 'vetPhone' | 'value', lock = false, type = 'text') => {
+    const isUnsupported = k !== 'color' && h.unsupportedFields?.includes(k);
+    return (
+      <div className="cus-field">
+        <label htmlFor={`hf-${k}`}>{label}{isUnsupported && ' (chưa thể lưu trực tuyến)'}</label>
+        <input id={`hf-${k}`} className={`cus-input ${bad(k)}`} type={type} value={h[k] ?? ''} disabled={isUnsupported} readOnly={lock && locked}
+          onChange={(e) => set(k, e.target.value)} placeholder={k === 'color' ? 'Nhập màu lông (VD: Nâu sẫm, Bạch mã, Hạt dẻ...)' : undefined} />
+      </div>
+    );
+  };
 
   const fileCard = (field: FileField | 'scan', empty: string) => {
     if (field === 'flu' || field === 'health') return <p className="cus-hint">Nộp tài liệu này trong phần hồ sơ của từng ngựa khi tạo yêu cầu vận chuyển.</p>;

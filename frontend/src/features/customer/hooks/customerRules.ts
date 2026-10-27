@@ -216,7 +216,7 @@ export const horseRequests = (h: Horse, requests: TransportRequest[]) =>
 export const HORSE_LOCKED_FIELDS = ['name', 'breed', 'sex', 'dob', 'microchip'] as const;
 
 export const emptyHorse = (): Omit<Horse, 'id'> => ({
-  unsupportedFields: ['color', 'fluDate', 'vetName', 'vetPhone'],
+  unsupportedFields: ['fluDate', 'vetName', 'vetPhone'],
   name: '', breed: '', sex: '', dob: '', color: '', microchip: '', value: '', currency: 'VND',
   passport: { number: '', authority: '', issueDate: '', expiryDate: '' },
   fluDate: '', conditions: '', vetName: '', vetPhone: '',
@@ -418,7 +418,11 @@ export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[numbe
     if (!h.passport.number.trim()) e.push([2, `${h.name}: thiếu số hộ chiếu ngựa.`]);
     if (!h.passport.scan && !docRecord(r, 'passport', id)?.file) e.push([2, `${h.name}: thiếu bản scan hộ chiếu ngựa.`]);
     if (!h.ownership && !docRecord(r, 'ownership', id)?.file) e.push([2, `${h.name}: thiếu chứng nhận sở hữu.`]);
-    if (passportStatus(h) === 'EXPIRED') e.push([2, `${h.name}: hộ chiếu đã hết hạn, hãy cập nhật trước khi gửi.`]);
+    if (passportStatus(h) === 'EXPIRED') {
+      e.push([2, `${h.name}: Hộ chiếu đã hết hạn, hãy cập nhật trước khi gửi.`]);
+    } else if (r.date && h.passport.expiryDate && h.passport.expiryDate < r.date) {
+      e.push([0, `${h.name}: Hộ chiếu hết hạn (${fmtDate(h.passport.expiryDate)}) trước ngày vận chuyển (${fmtDate(r.date)}). Hãy đổi ngày đi hoặc cập nhật hạn hộ chiếu.`]);
+    }
   });
   return e;
 }

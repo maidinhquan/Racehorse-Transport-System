@@ -480,8 +480,8 @@ export function useSpecialist() {
   const stats = useMemo(() => {
     const active = snap.trips.filter((t) => t.status !== 'COMPLETED');
     return {
-      awaiting: snap.documents.filter((d) => d.status === 'SUBMITTED' && deployed(snap.trips.find((t) => t.id === d.tripId)!)).length
-        + snap.customerDocs.filter((d) => d.status === 'SUBMITTED' && deployed(snap.trips.find((t) => t.id === d.tripId)!)).length,
+      awaiting: snap.documents.filter((d) => d.status === 'SUBMITTED' && deployed(snap.trips.find((t) => t.id === d.tripId))).length
+        + snap.customerDocs.filter((d) => d.status === 'SUBMITTED' && deployed(snap.trips.find((t) => t.id === d.tripId))).length,
       missing: missingItems(snap).length,
       rejected: snap.documents.filter((d) => d.status === 'REJECTED').length + snap.customerDocs.filter((d) => d.status === 'ACTION_REQUIRED').length,
       expiring: snap.documents.filter((d) => active.some((t) => t.id === d.tripId) && (expiringOrExpired(d) || docEffective(d) === 'EXPIRED')).length,

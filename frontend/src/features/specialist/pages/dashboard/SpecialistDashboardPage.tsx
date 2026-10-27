@@ -19,8 +19,9 @@ export const SpecialistDashboardPage: React.FC = () => {
   const alerts: Alert[] = [];
   trips.filter((t) => t.deployment === 'NOT_CONFIRMED').forEach((t) => alerts.push({ tone: 'info', title: `${t.id} chờ Manager giao`, sub: `${t.requestId} • khởi hành ${fmtDateTime(t.plannedDepart)}`, to: `/specialist/trips/${t.id}` }));
   trips.filter((t) => t.deployment === 'CONFIRMED' && t.status === 'PLANNING' && !t.reqSet).forEach((t) => alerts.push({ tone: 'warn', title: `${t.id}: chưa áp dụng bộ yêu cầu hồ sơ`, sub: `${t.origin} → ${t.destination}`, to: `/specialist/trips/${t.id}` }));
-  customerDocs.filter((d) => d.status === 'SUBMITTED' && trips.find((t) => t.id === d.tripId)?.deployment === 'CONFIRMED').forEach((d) => {
-    const t = trips.find((x) => x.id === d.tripId)!;
+  customerDocs.filter((d) => d.status === 'SUBMITTED').forEach((d) => {
+    const t = trips.find((x) => x.id === d.tripId);
+    if (!t || t.deployment !== 'CONFIRMED') return;
     alerts.push({ tone: 'warn', title: `${CUSTOMER_DOC_NAME[d.key]} chờ duyệt`, sub: `${t.id} • ${d.scope === 'request' ? 'Giấy tờ chung' : horseName(t, d.scope)}`, to: `/specialist/trips/${t.id}/customer` });
   });
   documents.filter((d) => d.status === 'SUBMITTED').forEach((d) => alerts.push({ tone: 'warn', title: `${typeName(data, d.typeId)} chờ duyệt`, sub: `${d.tripId} • ${d.id} v${d.versions.length}`, to: `/specialist/documents/${d.id}` }));
