@@ -17,3 +17,6 @@ export * from './pages/fleet/FleetPage';
 export * from './pages/crew/CrewPage';
 export * from './pages/flights/FlightsPage';
 export * from './pages/incidents/IncidentsPage';
+export * from './pages/incident-detail/IncidentDetailPage';
+export * from './pages/monitor/MonitorPage';
+export * from './pages/places/PlacesPage';

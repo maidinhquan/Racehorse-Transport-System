@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CoordinatorLayout } from '../../components/CoordinatorLayout';
 import { TripStatusBadge, type BadgeTone } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useCoordinator } from '../../hooks/useCoordinator';
-import { SEVERITY_LABEL, fmtDateTime } from '../../hooks/coordinatorRules';
+import { INCIDENT_TYPE_LABEL, SEVERITY_LABEL, fmtDateTime } from '../../hooks/coordinatorRules';
 import type { IncidentSeverity } from '../../types';
 import './IncidentsPage.css';
 
@@ -20,7 +20,7 @@ export const IncidentsPage: React.FC = () => {
       <div className="crd-head">
         <div>
           <h2 className="crd-title">Sự cố</h2>
-          <p className="crd-subtitle">Sự cố do tổ xe báo trên đường. Coordinator theo dõi và điều chỉnh ETA; Manager quyết định phương án xử lý.</p>
+          <p className="crd-subtitle">Sự cố do tổ xe báo trên đường. Coordinator tiếp nhận và lập phương án giải cứu / thay thế; Manager duyệt phương án có chi phí, trễ ETA, đổi xe hoặc đổi lộ trình. Cứu hộ khẩn cấp không chờ duyệt.</p>
         </div>
         <label className="crd-incident__toggle"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} /> Chỉ hiện sự cố đang mở</label>
       </div>
@@ -28,19 +28,20 @@ export const IncidentsPage: React.FC = () => {
       <div className="crd-card">
         <div className="crd-table-wrap">
           <table className="crd-table">
-            <thead><tr><th>Sự cố</th><th>Chuyến</th><th>Mô tả</th><th>Mức độ</th><th>Báo lúc</th><th>Trạng thái</th></tr></thead>
+            <thead><tr><th>Sự cố</th><th>Chuyến</th><th>Mô tả</th><th>Mức độ</th><th>Phương án</th><th>Báo lúc</th><th>Trạng thái</th></tr></thead>
             <tbody>
               {list.map((i) => (
-                <tr key={i.id} className="clickable" onClick={() => navigate(`/coordinator/trips/${i.tripId}/tracking`)}>
-                  <td><span className="crd-strong">{i.id}</span><div className="crd-muted">{i.type.replace(/_/g, ' ').toLowerCase()}</div></td>
+                <tr key={i.id} className="clickable" onClick={() => navigate(`/coordinator/incidents/${i.id}`)}>
+                  <td><span className="crd-strong">{i.id}</span><div className="crd-muted">{INCIDENT_TYPE_LABEL[i.type] ?? i.type}</div></td>
                   <td>{i.tripId}</td>
                   <td className="crd-incident__desc">{i.description}</td>
                   <td><TripStatusBadge tone={SEVERITY_TONE[i.severity]} label={SEVERITY_LABEL[i.severity]} /></td>
+                  <td>{i.plans?.length ? i.plans.map((p) => <TripStatusBadge key={p.id} status={p.status} />) : <span className="crd-muted">—</span>}</td>
                   <td>{fmtDateTime(i.reportedAt)}<div className="crd-muted">{i.reportedBy}</div></td>
                   <td><TripStatusBadge status={i.status} /></td>
                 </tr>
               ))}
-              {!list.length && <tr><td colSpan={6} className="crd-empty">Không có sự cố.</td></tr>}
+              {!list.length && <tr><td colSpan={7} className="crd-empty">Không có sự cố.</td></tr>}
             </tbody>
           </table>
         </div>

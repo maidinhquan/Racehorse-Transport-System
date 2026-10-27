@@ -33,8 +33,14 @@ import {
 import SandboxPaymentPage from "../../features/payment/pages/SandboxPaymentPage";
 
 // ==================== ROLE DASHBOARDS ====================
+// ==================== ROLE DASHBOARDS ====================
 import AdminDashboard from "../../features/admin/AdminDashboard";
-import DriverDashboard from "../../features/driver/DriverDashboard";
+import {
+  JourneyPage as DriverDashboard,
+  TripDetailPage as DriverTripDetailPage,
+  IncidentsPage as DriverIncidentsPage,
+  HistoryPage as DriverHistoryPage,
+} from "../../features/driver";
 import {
   ManagerDashboardPage,
   RequestsPage as ManagerRequestsPage,
@@ -60,14 +66,15 @@ import {
 import {
   CoordinatorDashboardPage,
   TripManagementPage,
-  TripDetailPage,
+  TripDetailPage as CoordinatorTripDetailPage,
   FleetPage,
   CrewPage,
   FlightsPage,
-  IncidentsPage,
+  IncidentsPage as CoordinatorIncidentsPage,
+  IncidentDetailPage as CoordinatorIncidentDetailPage,
+  MonitorPage,
+  PlacesPage,
 } from "../../features/coordinator";
-import { DriverPortal } from "../../features/driver/pages/trip-detail/DriverPortal";
-import { HandoverPage } from "../../features/driver/pages/handover/HandoverPage";
 import { LandingPage } from "../../features/landing/LandingPage";
 import { RequireAuth } from "../../features/auth/RequireAuth";
 
@@ -90,9 +97,17 @@ function AppRouter() {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
         {/* ==================== DRIVER ==================== */}
-        <Route path="/driver/dashboard" element={<DriverDashboard />} />
-        <Route path="/driver/trip-detail" element={<DriverPortal />} />
-        <Route path="/driver/handover" element={<HandoverPage />} />
+        <Route path="/driver" element={<Navigate to="/driver/journey" replace />} />
+        <Route path="/driver/dashboard" element={<Navigate to="/driver/journey" replace />} />
+        <Route path="/driver/journey" element={<DriverDashboard />} />
+        <Route path="/driver/journey/:tripId" element={<DriverDashboard />} />
+        <Route path="/driver/trips" element={<DriverTripDetailPage />} />
+        <Route path="/driver/trips/:tripId" element={<DriverTripDetailPage />} />
+        <Route path="/driver/trips/:tripId/:tab" element={<DriverTripDetailPage />} />
+        <Route path="/driver/trip-detail" element={<DriverTripDetailPage />} />
+        <Route path="/driver/handover" element={<Navigate to="/driver/journey" replace />} />
+        <Route path="/driver/incidents" element={<DriverIncidentsPage />} />
+        <Route path="/driver/history" element={<DriverHistoryPage />} />
 
         {/* ==================== MANAGER ==================== */}
         <Route path="/manager" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><Navigate to="/manager/dashboard" replace /></RequireAuth>} />
@@ -119,12 +134,15 @@ function AppRouter() {
         <Route path="/coordinator/dashboard" element={<CoordinatorDashboardPage />} />
         <Route path="/coordinator/overview" element={<Navigate to="/coordinator/dashboard" replace />} />
         <Route path="/coordinator/trips" element={<TripManagementPage />} />
-        <Route path="/coordinator/trips/:tripId" element={<TripDetailPage />} />
-        <Route path="/coordinator/trips/:tripId/:tab" element={<TripDetailPage />} />
+        <Route path="/coordinator/trips/:tripId" element={<CoordinatorTripDetailPage />} />
+        <Route path="/coordinator/trips/:tripId/:tab" element={<CoordinatorTripDetailPage />} />
         <Route path="/coordinator/fleet" element={<FleetPage />} />
         <Route path="/coordinator/crew" element={<CrewPage />} />
         <Route path="/coordinator/flights" element={<FlightsPage />} />
-        <Route path="/coordinator/incidents" element={<IncidentsPage />} />
+        <Route path="/coordinator/incidents" element={<CoordinatorIncidentsPage />} />
+        <Route path="/coordinator/incidents/:incidentId" element={<CoordinatorIncidentDetailPage />} />
+        <Route path="/coordinator/monitor" element={<MonitorPage />} />
+        <Route path="/coordinator/places" element={<PlacesPage />} />
 
         {/* ==================== SPECIALIST ==================== */}
         <Route path="/specialist" element={<Navigate to="/specialist/dashboard" replace />} />

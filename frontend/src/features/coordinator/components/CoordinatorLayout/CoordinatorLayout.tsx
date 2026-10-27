@@ -22,6 +22,7 @@ const PATHS: Record<string, React.ReactNode> = {
   back: <path d="m15 18-6-6 6-6" />,
   bell: <path d="M6 9a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7zM10 20a2 2 0 0 0 4 0" />,
   chevron: <path d="m6 9 6 6 6-6" />,
+  list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
@@ -71,7 +72,9 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
 
   const NAV: Array<[string, string, string, number?]> = [
     ['/coordinator/dashboard', 'Tổng quan', 'home'],
+    ['/coordinator/monitor', 'Giám sát hành trình', 'pin', stats.inTransit + stats.delaysToHandle],
     ['/coordinator/trips', 'Quản lý chuyến', 'map', stats.needRoute + stats.needResources],
+    ['/coordinator/places', 'Quản lý địa điểm', 'list'],
     ['/coordinator/fleet', 'Đội xe', 'truck'],
     ['/coordinator/crew', 'Phân công nhân sự', 'users'],
     ['/coordinator/flights', 'Chuyến bay', 'plane'],
@@ -165,6 +168,17 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
                     onClick={() => { setUserMenuOpen(false); navigate('/coordinator/trips'); }}
                   >
                     <Icon name="map" /> Quản lý chuyến
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+                      border: 0, background: 'none', padding: '9px 12px', borderRadius: '8px',
+                      cursor: 'pointer', font: '500 13px Inter, sans-serif', color: 'var(--crd-ink)',
+                    }}
+                    onClick={() => { setUserMenuOpen(false); navigate('/coordinator/monitor'); }}
+                  >
+                    <Icon name="pin" /> Giám sát hành trình
                   </button>
                   <div style={{ height: '1px', background: 'var(--crd-line)', margin: '6px 0' }} />
                   <button

@@ -28,3 +28,9 @@
 /* danh sách việc còn thiếu */
 .crd-gap-list { margin: 0; padding-left: 18px; color: #b45309; font-size: 13px; line-height: 1.8; }
 .crd-gap-list--plain { color: #334155; }
+
+.crd-track-inc { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; border: 1px solid var(--crd-line); background: var(--crd-card); color: inherit; font: inherit; text-align: left; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+.crd-track-inc + .crd-track-inc { margin-top: 8px; }
+.crd-track-inc:hover { border-color: var(--crd-orange); }
+.crd-track-inc span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.crd-track-inc small { color: var(--crd-muted); font-size: 12px; }

@@ -3,7 +3,9 @@ import type {
   ActionResult,
   CoordinatorDashboardStats,
   CrewAssignment,
+  DelayProposalRequestDto,
   FlightProposalRequestDto,
+  RescuePlanRequestDto,
   Incident,
   LegKey,
   RouteStop,
@@ -16,8 +18,12 @@ import { COORDINATOR_NAME, mockIncidents, mockStaff, mockTrips, mockVehicles } f
 import {
   SLOTS,
   SLOT_LABEL,
+  RESCUE_KIND_LABEL,
   canPlan,
+  delayPending,
   isActiveTrip,
+  isOpenIncident,
+  planNeedsApproval,
   milestoneText,
   nextMilestone,
   nowStamp,
@@ -100,6 +106,25 @@ const fail = (message: string): ActionResult => { toast(message); return { ok: f
 const updateTrip = (tripId: string, fn: (t: Trip) => Trip) =>
   setState((s) => ({ trips: s.trips.map((t) => (t.id === tripId ? fn(clone(t)) : t)) }));
 const findTrip = (tripId: string) => state.trips.find((t) => t.id === tripId);
+const updateIncident = (incidentId: string, fn: (i: Incident) => Incident) =>
+  setState((s) => ({ incidents: s.incidents.map((i) => (i.id === incidentId ? fn(clone(i)) : i)) }));
+
+/** Áp dụng phương án đã duyệt: đổi xe dự phòng, cộng trễ ETA */
+function applyPlan(incidentId: string, planId: string) {
+  const i = state.incidents.find((x) => x.id === incidentId); const p = i?.plans?.find((x) => x.id === planId);
+  const t = i && findTrip(i.tripId); if (!i || !p || !t) return;
+  if (p.backupVehicleId) {
+    const v = state.vehicles.find((x) => x.id === p.backupVehicleId);
+    updateTrip(t.id, (x) => ({ ...x, vehicleId: p.backupVehicleId }));
+    updateIncident(incidentId, (x) => ({ ...x, log: [...(x.log ?? []), { at: nowStamp(), text: `Đổi sang xe ${v?.plate ?? p.backupVehicleId}` }] }));
+  }
+  if (p.etaHours > 0) {
+    const d = new Date(t.eta.replace(' ', 'T')); d.setMinutes(d.getMinutes() + Math.round(p.etaHours * 60));
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const eta = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    updateTrip(t.id, (x) => ({ ...x, eta, etaHistory: [...x.etaHistory, { from: x.eta, to: eta, at: nowStamp(), by: COORDINATOR_NAME, reason: `Phương án ${planId} – ${RESCUE_KIND_LABEL[p.kind]}` }] }));
+  }
+}
 
 async function loadAll() {
   if (state.loading || state.loaded) return;
@@ -245,7 +270,77 @@ const actions = {
     return ok('Đã cập nhật ETA và thông báo cho khách hàng.');
   },
 
+  // ---------- Sự cố & phương án giải cứu ----------
+  async acknowledgeIncident(incidentId: string): Promise<ActionResult> {
+    const i = state.incidents.find((x) => x.id === incidentId); if (!i || i.status !== 'NEW') return fail('Sự cố không ở trạng thái mới.');
+    await coordinatorApi.acknowledgeIncident(incidentId);
+    updateIncident(incidentId, (x) => ({ ...x, status: 'IN_PROGRESS', ackBy: COORDINATOR_NAME, ackAt: nowStamp(),
+      log: [...(x.log ?? []), { at: nowStamp(), text: `Coordinator ${COORDINATOR_NAME} tiếp nhận và đang lập phương án` }] }));
+    return ok('Đã tiếp nhận. Tổ xe được báo giữ an toàn và chờ phương án.');
+  },
+  async proposeRescuePlan(incidentId: string, body: RescuePlanRequestDto): Promise<ActionResult> {
+    const i = state.incidents.find((x) => x.id === incidentId); if (!i || !isOpenIncident(i)) return fail('Sự cố đã khắc phục hoặc đã đóng.');
+    if (body.desc.trim().length < 10) return fail('Mô tả phương án ít nhất 10 ký tự.');
+    if (body.cost < 0 || body.etaHours < 0) return fail('Chi phí và số giờ trễ không được âm.');
+    if (body.kind === 'VEHICLE_CHANGE' && !body.backupVehicleId && !/thuê|đối tác/i.test(body.desc)) return fail('Chọn xe dự phòng hoặc ghi rõ phương án thuê xe đối tác.');
+    await coordinatorApi.proposeRescuePlan(incidentId, body);
+    const needs = planNeedsApproval(body);
+    const plan = { ...body, desc: body.desc.trim(), id: `PL-${String(Date.now()).slice(-4)}`, at: nowStamp(), by: COORDINATOR_NAME, status: needs ? 'PENDING_APPROVAL' as const : 'APPLIED' as const };
+    updateIncident(incidentId, (x) => ({ ...x, status: x.status === 'NEW' ? 'IN_PROGRESS' : x.status, plans: [...(x.plans ?? []), plan],
+      log: [...(x.log ?? []), { at: nowStamp(), text: `Coordinator đề xuất: ${RESCUE_KIND_LABEL[body.kind].toLowerCase()}` }] }));
+    if (!needs) applyPlan(incidentId, plan.id);
+    return ok(needs ? 'Đã gửi đề xuất cho Manager phê duyệt.' : 'Phương án được áp dụng ngay – không phát sinh chi phí/thời gian.');
+  },
+  async resolveIncident(incidentId: string, note: string): Promise<ActionResult> {
+    const i = state.incidents.find((x) => x.id === incidentId); if (!i || !isOpenIncident(i)) return fail('Sự cố đã khắc phục hoặc đã đóng.');
+    if (note.trim().length < 5) return fail('Ghi chú cách đã khắc phục.');
+    await coordinatorApi.resolveIncident(incidentId, note);
+    updateIncident(incidentId, (x) => ({ ...x, status: 'RESOLVED', resolvedAt: nowStamp(), resolveNote: note.trim(),
+      log: [...(x.log ?? []), { at: nowStamp(), text: `Báo đã khắc phục: ${note.trim()}` }] }));
+    return ok('Đã báo khắc phục. Chờ Manager đóng sự cố.');
+  },
+
+  // ---------- Báo chậm khởi hành ----------
+  async proposeDepartureDelay(tripId: string, body: DelayProposalRequestDto): Promise<ActionResult> {
+    const t = findTrip(tripId); const d = t?.departureDelay;
+    if (!t || !d || d.status !== 'REPORTED') return fail('Không có báo chậm khởi hành cần xử lý.');
+    if (!body.plannedDepart || !body.eta || body.eta <= body.plannedDepart || body.plannedDepart <= d.oldDepart) return fail('Lịch mới phải sau lịch đi cũ và ETA phải sau giờ đi.');
+    if (body.proposal.trim().length < 10) return fail('Mô tả phương án ít nhất 10 ký tự.');
+    await coordinatorApi.proposeDepartureDelay(tripId, body);
+    updateTrip(tripId, (x) => ({ ...x, departureDelay: x.departureDelay && { ...x.departureDelay, status: 'PENDING_APPROVAL', proposedDepart: body.plannedDepart, proposedEta: body.eta, proposal: body.proposal.trim(), proposedBy: COORDINATOR_NAME } }));
+    return ok('Đã gửi lịch khởi hành mới cho Manager phê duyệt.');
+  },
+
   // ---------- Nút demo (giả lập thao tác của Manager / tài xế) ----------
+  demoDriverDelay(tripId: string): ActionResult {
+    const t = findTrip(tripId); if (!t || t.status !== 'READY_TO_DEPART') return fail('Chỉ chuyến sẵn sàng khởi hành mới báo chậm được.');
+    if (delayPending(t)) return fail('Đang có báo chậm chưa xử lý.');
+    const driver = state.staff.find((s) => s.id === t.crew.MAIN_DRIVER)?.name ?? 'Tài xế';
+    updateTrip(tripId, (x) => ({ ...x, departureDelay: { status: 'REPORTED', at: nowStamp(), by: driver, reason: 'Demo: xe cần kiểm tra phanh trước khi chở ngựa.', oldDepart: x.plannedDepart, oldEta: x.eta } }));
+    return ok('Demo: tài xế báo chậm khởi hành.');
+  },
+  demoApproveDelay(tripId: string): ActionResult {
+    const t = findTrip(tripId); const d = t?.departureDelay;
+    if (!d || d.status !== 'PENDING_APPROVAL' || !d.proposedDepart || !d.proposedEta) return fail('Không có lịch mới chờ duyệt.');
+    updateTrip(tripId, (x) => ({ ...x, plannedDepart: d.proposedDepart!, eta: d.proposedEta!, departureDelay: { ...d, status: 'APPROVED' },
+      etaHistory: [...x.etaHistory, { from: x.eta, to: d.proposedEta!, at: nowStamp(), by: 'Linh Pham', reason: 'Duyệt lịch khởi hành mới' }] }));
+    return ok('Demo: Manager duyệt lịch khởi hành mới.');
+  },
+  demoDecidePlan(incidentId: string, planId: string, approve: boolean): ActionResult {
+    const i = state.incidents.find((x) => x.id === incidentId); const p = i?.plans?.find((x) => x.id === planId);
+    if (!p || p.status !== 'PENDING_APPROVAL') return fail('Phương án không chờ duyệt.');
+    updateIncident(incidentId, (x) => ({ ...x, plans: (x.plans ?? []).map((y) => (y.id === planId ? { ...y, status: approve ? 'APPROVED' : 'REJECTED', decisionNote: approve ? 'Manager đồng ý.' : 'Manager yêu cầu phương án khác.' } : y)),
+      log: [...(x.log ?? []), { at: nowStamp(), text: `Manager ${approve ? 'duyệt' : 'từ chối'} phương án ${planId}` }] }));
+    if (approve) applyPlan(incidentId, planId);
+    return ok(approve ? 'Demo: Manager duyệt phương án – đã áp dụng cho chuyến.' : 'Demo: Manager từ chối phương án.');
+  },
+  demoCloseIncident(incidentId: string): ActionResult {
+    const i = state.incidents.find((x) => x.id === incidentId); if (i?.status !== 'RESOLVED') return fail('Sự cố chưa được báo khắc phục.');
+    updateIncident(incidentId, (x) => ({ ...x, status: 'CLOSED', log: [...(x.log ?? []), { at: nowStamp(), text: 'Manager đóng sự cố' }] }));
+    return ok('Demo: Manager đóng sự cố.');
+  },
+
+  // ---------- Nút demo – lập kế hoạch ----------
   demoDeploy(tripId: string): ActionResult {
     updateTrip(tripId, (x) => ({ ...x, deploymentStatus: 'CONFIRMED' }));
     return ok('Demo: Manager đã giao chuyến cho Coordinator.');
@@ -315,6 +410,7 @@ export const useCoordinator = () => {
       totalVehicles: snap.vehicles.length,
       inTransit: snap.trips.filter((t) => t.status === 'IN_TRANSIT').length,
       openIncidents: snap.incidents.filter((i) => !['RESOLVED', 'CLOSED'].includes(i.status)).length,
+      delaysToHandle: snap.trips.filter((t) => t.departureDelay?.status === 'REPORTED').length,
     };
   }, [snap]);
 

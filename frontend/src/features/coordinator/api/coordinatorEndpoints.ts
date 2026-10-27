@@ -11,4 +11,8 @@ export const COORDINATOR_ENDPOINTS = {
   VEHICLES: '/coordinator/vehicles',
   STAFF: '/coordinator/staff',
   INCIDENTS: '/coordinator/incidents',
+  INCIDENT_ACK: (incidentId: string) => `/coordinator/incidents/${incidentId}/acknowledge`,
+  INCIDENT_PLANS: (incidentId: string) => `/coordinator/incidents/${incidentId}/plans`,
+  INCIDENT_RESOLVE: (incidentId: string) => `/coordinator/incidents/${incidentId}/resolve`,
+  DEPARTURE_DELAY_PROPOSAL: (tripId: string) => `/coordinator/trips/${tripId}/departure-delay/proposal`,
 } as const;

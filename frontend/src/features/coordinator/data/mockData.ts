@@ -109,6 +109,11 @@ export const mockTrips: Trip[] = [
     vehicleId: 'VH-11', crew: { MAIN_DRIVER: 'EMP-25', CO_DRIVER: 'EMP-23', VETERINARIAN: 'EMP-32' },
     resourcesConfirmed: { at: '2026-10-02 16:00', by: COORDINATOR_NAME },
     milestones: [], etaHistory: [],
+    departureDelay: {
+      status: 'REPORTED', at: '2026-10-04 09:30', by: 'Bui Van Long',
+      reason: 'Xe VH-11 báo lỗi hệ thống treo khí, cần kiểm tra trước khi chở 3 ngựa.',
+      oldDepart: '2026-10-09 05:00', oldEta: '2026-10-10 18:00',
+    },
   },
   {
     id: 'TRP-904', requestId: 'TRN-8921', customer: 'Royal Turf Club Bangkok',
@@ -158,6 +163,21 @@ export const mockTrips: Trip[] = [
 ];
 
 export const mockIncidents: Incident[] = [
-  { id: 'INC-301', tripId: 'TRP-901', type: 'BORDER_DELAY', severity: 'MEDIUM', status: 'IN_PROGRESS', reportedAt: '2026-10-04 10:40', reportedBy: 'Nguyen Van Hung', description: 'Chậm trễ tại cửa khẩu Mộc Bài do kiểm tra hồ sơ kéo dài.' },
+  {
+    id: 'INC-305', tripId: 'TRP-901', type: 'BAD_WEATHER', severity: 'HIGH', status: 'NEW', reportedAt: '2026-10-04 11:05', reportedBy: 'Nguyen Van Hung',
+    location: 'Tại Moc Bai Border Gate', description: 'Mưa lớn, đoạn sau cửa khẩu Bavet ngập cục bộ; ngựa hơi căng thẳng nhưng ổn định.',
+    plans: [], log: [{ at: '2026-10-04 11:05', text: 'Tổ xe báo sự cố qua ứng dụng tài xế' }],
+  },
+  {
+    id: 'INC-301', tripId: 'TRP-901', type: 'BORDER_DELAY', severity: 'MEDIUM', status: 'IN_PROGRESS', reportedAt: '2026-10-04 10:40', reportedBy: 'Nguyen Van Hung',
+    location: 'Tại Moc Bai Border Gate', description: 'Chậm trễ tại cửa khẩu Mộc Bài do kiểm tra hồ sơ kéo dài.',
+    ackBy: COORDINATOR_NAME, ackAt: '2026-10-04 10:45',
+    plans: [{ id: 'PL-11', kind: 'ROUTE_ADJUSTMENT', desc: 'Giữ ngựa trong xe có thông gió, bác sĩ theo dõi 30 phút/lần; dời điểm nghỉ Phnom Penh sang 20:00.', cost: 0, payer: 'COMPANY', etaHours: 2, status: 'PENDING_APPROVAL', at: '2026-10-04 10:55', by: COORDINATOR_NAME }],
+    log: [
+      { at: '2026-10-04 10:40', text: 'Tổ xe báo sự cố qua ứng dụng tài xế' },
+      { at: '2026-10-04 10:45', text: `Coordinator ${COORDINATOR_NAME} tiếp nhận` },
+      { at: '2026-10-04 10:55', text: 'Coordinator đề xuất: đổi lộ trình' },
+    ],
+  },
   { id: 'INC-288', tripId: 'TRP-880', type: 'HORSE_HEALTH', severity: 'LOW', status: 'CLOSED', reportedAt: '2026-09-29 15:20', reportedBy: 'Dr. Le Thu Trang', description: 'Ngựa hơi mệt sau chặng dài, đã cho nghỉ thêm 30 phút.' },
 ];

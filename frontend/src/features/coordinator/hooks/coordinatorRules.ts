@@ -1,5 +1,11 @@
 import type {
   CrewAssignment,
+  DelayStatus,
+  Incident,
+  PlanPayer,
+  PlanStatus,
+  RescueKind,
+  RescuePlan,
   CrewSlot,
   FlightStatus,
   IncidentSeverity,
@@ -53,6 +59,23 @@ export const VEHICLE_STATUS_LABEL: Record<VehicleStatus, string> = { READY: 'S�
 export const SEVERITY_LABEL: Record<IncidentSeverity, string> = { LOW: 'Thấp', MEDIUM: 'Trung bình', HIGH: 'Cao', CRITICAL: 'Nghiêm trọng' };
 export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = { NEW: 'Mới', IN_PROGRESS: 'Đang xử lý', RESOLVED: 'Đã xử lý', CLOSED: 'Đã đóng' };
 export const SLOTS: CrewSlot[] = ['MAIN_DRIVER', 'CO_DRIVER', 'VETERINARIAN'];
+export const INCIDENT_TYPE_LABEL: Record<string, string> = {
+  VEHICLE_BREAKDOWN: 'Hỏng xe', BORDER_DELAY: 'Chậm tại cửa khẩu', BAD_WEATHER: 'Thời tiết xấu', TRAFFIC_ACCIDENT: 'Tai nạn giao thông',
+  HORSE_HEALTH: 'Sức khoẻ ngựa', CUSTOMS_HOLD: 'Hải quan tạm giữ', ROAD_CLOSURE: 'Đường bị chặn', OTHER: 'Khác',
+};
+export const RESCUE_KIND_LABEL: Record<RescueKind, string> = {
+  VEHICLE_CHANGE: 'Đổi xe dự phòng', EXTERNAL_RESCUE: 'Thuê cứu hộ bên ngoài (xe cẩu / sửa chữa lưu động)',
+  EMERGENCY_VET: 'Đưa ngựa tới trạm thú y cấp cứu gần nhất', ROUTE_ADJUSTMENT: 'Đổi lộ trình', CREW_CHANGE: 'Thay nhân sự',
+};
+export const PAYER_LABEL: Record<PlanPayer, string> = { COMPANY: 'CBN Transport', CUSTOMER: 'Khách hàng', INSURANCE: 'Bảo hiểm (dự kiến)' };
+export const PLAN_STATUS_LABEL: Record<PlanStatus, string> = { PENDING_APPROVAL: 'Chờ Manager duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Bị từ chối', APPLIED: 'Đã áp dụng' };
+export const DELAY_LABEL: Record<DelayStatus, string> = {
+  REPORTED: 'Tài xế báo chậm khởi hành', PENDING_APPROVAL: 'Chờ Manager duyệt lịch mới', APPROVED: 'Đã duyệt lịch mới', REJECTED: 'Lịch mới bị từ chối',
+};
+export const PLACE_TYPE_LABEL: Record<string, string> = {
+  AIRPORT: 'Sân bay', LAND_BORDER: 'Cửa khẩu đường bộ', QUARANTINE_STATION: 'Trạm kiểm dịch', REST_STOP: 'Điểm nghỉ', DESTINATION: 'Điểm tiếp nhận',
+};
+export const fmtUsd = (n: number) => `$${n.toLocaleString('en-US')}`;
 
 export const countryName = (c: string) => COUNTRY_NAME[c] || c;
 export const modeLabel = (m: Trip['mode']) => (m === 'AIR' ? 'Hàng không' : 'Đường bộ');
@@ -190,3 +213,36 @@ export function nextMilestone(t: Trip): { type: MilestoneType; stopIndex: number
 
 export const milestoneText = (t: Trip, m: { type: MilestoneType; stopIndex: number }) =>
   `${MILESTONE_LABEL[m.type]}${t.route.stops[m.stopIndex] ? ' – ' + t.route.stops[m.stopIndex].name : ''}`;
+
+// ============================================================================
+// Giám sát hành trình & sự cố
+// ============================================================================
+/** Vị trí suy ra từ mốc gần nhất (không có GPS): đang ở trạm → tên trạm, đang chạy → đoạn tuyến */
+export function whereNow(t: Trip): string {
+  const m = lastMilestone(t);
+  const name = (i: number) => t.route.stops[i]?.name ?? '';
+  if (!m) return t.status === 'READY_TO_DEPART' ? `Chờ xuất phát tại ${name(0) || t.origin}` : t.origin;
+  if (['ARRIVED_STOP', 'ARRIVED_CHECKPOINT', 'ARRIVED_DESTINATION'].includes(m.type)) return `Tại ${name(m.stopIndex)}`;
+  return name(m.stopIndex + 1) ? `Trên tuyến ${name(m.stopIndex)} → ${name(m.stopIndex + 1)}` : `Gần ${name(m.stopIndex)}`;
+}
+
+/** ETA hiện tại muộn hơn ETA ban đầu */
+export const etaSlipped = (t: Trip) => t.etaHistory.length > 0 && t.eta > t.etaHistory[0].from;
+
+export const delayPending = (t: Trip) => !!t.departureDelay && ['REPORTED', 'PENDING_APPROVAL'].includes(t.departureDelay.status);
+
+export const isOpenIncident = (i: Incident) => !['RESOLVED', 'CLOSED'].includes(i.status);
+
+/** Phương án có chi phí, làm trễ ETA, đổi xe, đổi lộ trình hoặc thuê cứu hộ ngoài phải chờ Manager duyệt */
+export const planNeedsApproval = (p: Pick<RescuePlan, 'kind' | 'cost' | 'etaHours'>) =>
+  p.cost > 0 || p.etaHours > 0 || ['VEHICLE_CHANGE', 'ROUTE_ADJUSTMENT', 'EXTERNAL_RESCUE'].includes(p.kind);
+
+/** Gợi ý loại phương án theo loại sự cố */
+export const suggestKind = (type: string): RescueKind =>
+  /BREAKDOWN|ACCIDENT/.test(type) ? 'VEHICLE_CHANGE'
+    : /HEALTH/.test(type) ? 'EMERGENCY_VET'
+      : /BORDER|WEATHER|ROAD_CLOSURE|TRAFFIC|CUSTOMS/.test(type) ? 'ROUTE_ADJUSTMENT' : 'VEHICLE_CHANGE';
+
+/** Xe dự phòng hợp lệ: sẵn sàng, đủ ngăn, không trùng chuyến khác */
+export const backupVehicles = (t: Trip, vehicles: Vehicle[], trips: Trip[]) =>
+  vehicles.filter((v) => v.id !== t.vehicleId && v.status === 'READY' && v.stalls >= t.horses.length && !vehicleConflict(v.id, t, trips));

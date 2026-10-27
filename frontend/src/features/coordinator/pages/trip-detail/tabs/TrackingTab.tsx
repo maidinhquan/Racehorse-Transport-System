@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Trip } from '../../../types';
 import { useCoordinator } from '../../../hooks/useCoordinator';
 import {
+  DELAY_LABEL,
+  INCIDENT_TYPE_LABEL,
   MILESTONE_LABEL,
+  delayPending,
+  isOpenIncident,
+  whereNow,
   STOP_LABEL,
   fmtDateTime,
   lastMilestone,
@@ -11,12 +17,16 @@ import {
 } from '../../../hooks/coordinatorRules';
 import { RouteMap } from '../../../components/RouteMap/RouteMap';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
-import { UpdateEtaModal } from '../../../components/Modals';
+import { DelayProposalModal, UpdateEtaModal } from '../../../components/Modals';
 
 /** Theo dõi hành trình: bản đồ ở trên, các mốc ở dưới, kèm nút demo tài xế cập nhật mốc */
 export const TrackingTab: React.FC<{ trip: Trip }> = ({ trip }) => {
-  const { actions } = useCoordinator();
+  const navigate = useNavigate();
+  const { actions, incidents } = useCoordinator();
   const [etaOpen, setEtaOpen] = useState(false);
+  const [delayOpen, setDelayOpen] = useState(false);
+  const openInc = incidents.filter((i) => i.tripId === trip.id && isOpenIncident(i));
+  const d = trip.departureDelay;
   const stops = trip.route.stops;
   const m = lastMilestone(trip);
   const n = nextMilestone(trip);
@@ -24,9 +34,22 @@ export const TrackingTab: React.FC<{ trip: Trip }> = ({ trip }) => {
 
   return (
     <>
+      {d && d.status !== 'APPROVED' && (
+        <div className="crd-note crd-note--yellow" style={{ marginTop: 0, marginBottom: 16 }}>
+          <div>
+            <b>{DELAY_LABEL[d.status]} • {fmtDateTime(d.at)} • {d.by}</b>
+            {d.reason}
+            {d.status === 'PENDING_APPROVAL' && <><br />Đề xuất: khởi hành {fmtDateTime(d.proposedDepart)}, đến {fmtDateTime(d.proposedEta)} – {d.proposal}</>}
+            <div className="crd-btn-row">
+              {d.status === 'REPORTED' && <button type="button" className="crd-btn crd-btn--solid crd-btn--sm" onClick={() => setDelayOpen(true)}>Đề xuất lịch mới cho Manager</button>}
+              {d.status === 'PENDING_APPROVAL' && <button type="button" className="crd-btn crd-btn--sm" onClick={() => actions.demoApproveDelay(trip.id)}>Demo: Manager duyệt lịch mới</button>}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="crd-card">
         <h3 className="crd-card__title"><span>Theo dõi hành trình</span><TripStatusBadge status={trip.status} /></h3>
-        <p className="crd-muted" style={{ marginTop: -6 }}>Vị trí dựa trên các mốc tổ xe xác nhận trên ứng dụng tài xế; không có GPS trực tiếp.</p>
+        <p className="crd-muted" style={{ marginTop: -6 }}><b>{whereNow(trip)}</b> • Vị trí dựa trên các mốc tổ xe xác nhận trên ứng dụng tài xế; không có GPS trực tiếp.</p>
         <RouteMap stops={stops} current={cur} height={300} />
         <div className="crd-track-stats">
           <div className="crd-stat"><span>Mốc gần nhất</span><b>{m ? milestoneText(trip, m) : 'Chưa xuất phát'}</b><small>{m ? fmtDateTime(m.at) : ''}</small></div>
@@ -37,6 +60,16 @@ export const TrackingTab: React.FC<{ trip: Trip }> = ({ trip }) => {
         {trip.status !== 'COMPLETED' && (
           <div className="crd-btn-row"><button type="button" className="crd-btn crd-btn--sm" onClick={() => setEtaOpen(true)}>Cập nhật ETA</button></div>
         )}
+      </div>
+
+      <div className="crd-card">
+        <h3 className="crd-card__title"><span>Sự cố cần theo dõi</span><TripStatusBadge tone={openInc.length ? 'bad' : 'ok'} label={String(openInc.length)} /></h3>
+        {openInc.length ? openInc.map((i) => (
+          <button key={i.id} type="button" className="crd-track-inc" onClick={() => navigate(`/coordinator/incidents/${i.id}`)}>
+            <span><b>{i.id} • {INCIDENT_TYPE_LABEL[i.type] ?? i.type}</b><small>{fmtDateTime(i.reportedAt)} • {i.location ?? i.description}</small></span>
+            <TripStatusBadge status={i.status} />
+          </button>
+        )) : <p className="crd-muted">Không có sự cố đang mở.</p>}
       </div>
 
       <div className="crd-card">
@@ -73,13 +106,15 @@ export const TrackingTab: React.FC<{ trip: Trip }> = ({ trip }) => {
           <div className="crd-demo__title">Điều khiển demo • tài xế cập nhật mốc</div>
           <p>Giả lập thao tác tài xế ghi nhận trên ứng dụng tài xế.{n ? ` Mốc kế tiếp: ${milestoneText(trip, n)}.` : ''}</p>
           <div className="crd-btn-row" style={{ marginTop: 0 }}>
-            <button type="button" className={`crd-btn crd-btn--sm ${trip.status === 'READY_TO_DEPART' ? 'crd-btn--solid' : ''}`} disabled={trip.status !== 'READY_TO_DEPART'} onClick={() => actions.demoMilestone(trip.id, 'depart')}>Demo: Tài xế xuất phát</button>
+            <button type="button" className={`crd-btn crd-btn--sm ${trip.status === 'READY_TO_DEPART' ? 'crd-btn--solid' : ''}`} disabled={trip.status !== 'READY_TO_DEPART' || delayPending(trip)} onClick={() => actions.demoMilestone(trip.id, 'depart')}>Demo: Tài xế xuất phát</button>
+            <button type="button" className="crd-btn crd-btn--sm" disabled={trip.status !== 'READY_TO_DEPART' || delayPending(trip)} onClick={() => actions.demoDriverDelay(trip.id)}>Demo: Tài xế báo chậm khởi hành</button>
             <button type="button" className={`crd-btn crd-btn--sm ${n && n.type !== 'ARRIVED_DESTINATION' && trip.status === 'IN_TRANSIT' ? 'crd-btn--solid' : ''}`} disabled={trip.status !== 'IN_TRANSIT' || !n} onClick={() => actions.demoMilestone(trip.id, 'next')}>Demo: Tài xế ghi nhận mốc tiếp theo</button>
             <button type="button" className="crd-btn crd-btn--sm" disabled={trip.status !== 'IN_TRANSIT' || !n} onClick={() => actions.demoMilestone(trip.id, 'arrive')}>Demo: Tài xế đến điểm giao</button>
           </div>
         </div>
       )}
 
+      {delayOpen && <DelayProposalModal trip={trip} onClose={() => setDelayOpen(false)} onSubmit={(body) => actions.proposeDepartureDelay(trip.id, body)} />}
       {etaOpen && (
         <UpdateEtaModal trip={trip} open onClose={() => setEtaOpen(false)} onSubmit={async (eta, reason) => (await actions.updateEta(trip.id, eta, reason)).ok} />
       )}

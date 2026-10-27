@@ -46,7 +46,18 @@ export type FlightStatus = 'DRAFT' | 'BUDGET_PENDING' | 'BUDGET_APPROVED' | 'BOO
 export type IncidentSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type IncidentStatus = 'NEW' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
 
+/** Phương án giải cứu / thay thế khi có sự cố */
+export type RescueKind = 'VEHICLE_CHANGE' | 'EXTERNAL_RESCUE' | 'EMERGENCY_VET' | 'ROUTE_ADJUSTMENT' | 'CREW_CHANGE';
+export type PlanPayer = 'COMPANY' | 'CUSTOMER' | 'INSURANCE';
+export type PlanStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'APPLIED';
+
+/** Tài xế báo chậm khởi hành → Coordinator đề xuất lịch mới → Manager duyệt */
+export type DelayStatus = 'REPORTED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
+
 export type TripDetailTab = 'overview' | 'route' | 'resources' | 'flight' | 'tracking';
+
+/** Địa điểm cấu hình sẵn: cửa khẩu, sân bay, trạm kiểm dịch, điểm nghỉ */
+export type PlaceType = 'AIRPORT' | 'LAND_BORDER' | 'QUARANTINE_STATION' | 'REST_STOP' | 'DESTINATION' | string;
 
 // ---------------------------------------------------------------------------
 // MODELS
@@ -111,6 +122,19 @@ export interface EtaChange {
   reason: string;
 }
 
+export interface DepartureDelay {
+  status: DelayStatus;
+  at: string;
+  by: string;
+  reason: string;
+  oldDepart: string;
+  oldEta: string;
+  proposedDepart?: string;
+  proposedEta?: string;
+  proposal?: string;
+  proposedBy?: string;
+}
+
 export interface Trip {
   id: string;
   requestId: string;
@@ -135,6 +159,7 @@ export interface Trip {
   resourcesConfirmed?: { at: string; by: string };
   milestones: Milestone[];
   etaHistory: EtaChange[];
+  departureDelay?: DepartureDelay;
 }
 
 export interface Vehicle {
@@ -168,6 +193,32 @@ export interface Incident {
   reportedAt: string;
   reportedBy: string;
   description: string;
+  location?: string;
+  plans?: RescuePlan[];
+  log?: IncidentLog[];
+  ackBy?: string;
+  ackAt?: string;
+  resolvedAt?: string;
+  resolveNote?: string;
+}
+
+export interface RescuePlan {
+  id: string;
+  kind: RescueKind;
+  desc: string;
+  cost: number;
+  payer: PlanPayer;
+  etaHours: number;
+  status: PlanStatus;
+  at: string;
+  by: string;
+  backupVehicleId?: string;
+  decisionNote?: string;
+}
+
+export interface IncidentLog {
+  at: string;
+  text: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -195,6 +246,14 @@ export interface RecordMilestoneRequestDto {
   note?: string;
 }
 
+export type RescuePlanRequestDto = Pick<RescuePlan, 'kind' | 'desc' | 'cost' | 'payer' | 'etaHours' | 'backupVehicleId'>;
+
+export interface DelayProposalRequestDto {
+  plannedDepart: string;
+  eta: string;
+  proposal: string;
+}
+
 export type FlightProposalRequestDto = Omit<FlightPlan, 'status' | 'bookingRef'>;
 
 // ---------------------------------------------------------------------------
@@ -219,4 +278,5 @@ export interface CoordinatorDashboardStats {
   totalVehicles: number;
   inTransit: number;
   openIncidents: number;
+  delaysToHandle: number;
 }

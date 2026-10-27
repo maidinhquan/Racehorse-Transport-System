@@ -174,3 +174,4 @@ button.crd-stat:hover { border-color: var(--crd-orange); }
   .crd-view { padding: 20px 16px 40px; }
   .crd-grid2, .crd-kv { grid-template-columns: 1fr; }
 }
+.crd-error { color: #dc2626; font-size: 12px; margin: 8px 0 0; }

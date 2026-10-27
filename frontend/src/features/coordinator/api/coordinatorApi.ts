@@ -3,6 +3,8 @@ import { COORDINATOR_ENDPOINTS } from './coordinatorEndpoints';
 import type {
   ApiResponse,
   AssignResourcesRequestDto,
+  DelayProposalRequestDto,
+  RescuePlanRequestDto,
   FlightProposalRequestDto,
   Incident,
   RecordMilestoneRequestDto,
@@ -77,6 +79,21 @@ export const coordinatorApi = {
   /** Đề xuất phương án bay (Manager duyệt ngân sách) */
   proposeFlight: (tripId: string, body: FlightProposalRequestDto) =>
     send('post', COORDINATOR_ENDPOINTS.FLIGHT(tripId), body),
+
+  /** Tiếp nhận sự cố do tổ xe báo */
+  acknowledgeIncident: (incidentId: string) => send('post', COORDINATOR_ENDPOINTS.INCIDENT_ACK(incidentId)),
+
+  /** Đề xuất phương án giải cứu / thay thế (Manager duyệt nếu có chi phí hoặc trễ ETA) */
+  proposeRescuePlan: (incidentId: string, body: RescuePlanRequestDto) =>
+    send('post', COORDINATOR_ENDPOINTS.INCIDENT_PLANS(incidentId), body),
+
+  /** Báo đã khắc phục sự cố – Manager đóng sự cố */
+  resolveIncident: (incidentId: string, note: string) =>
+    send('post', COORDINATOR_ENDPOINTS.INCIDENT_RESOLVE(incidentId), { note }),
+
+  /** Đề xuất lịch khởi hành mới khi tài xế báo chậm */
+  proposeDepartureDelay: (tripId: string, body: DelayProposalRequestDto) =>
+    send('post', COORDINATOR_ENDPOINTS.DEPARTURE_DELAY_PROPOSAL(tripId), body),
 
   /** Ghi nhận mã đặt chỗ từ hãng bay */
   bookFlight: (tripId: string, bookingRef: string) =>

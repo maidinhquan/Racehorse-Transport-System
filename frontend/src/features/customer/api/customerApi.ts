@@ -126,23 +126,26 @@ async function uploadHorseFiles(id: string, h: HorseInput) {
     await contractClient<FileRef>('post', `/customer/horses/${id}/files/${fileType}`, form);
   }
 }
-const mapHorse = (h: Horse): Horse => ({
-  ...h,
-  color: h.color ?? '',
-  fluDate: h.fluDate ?? '',
-  conditions: h.conditions ?? '',
-  vetName: h.vetName ?? '',
-  vetPhone: h.vetPhone ?? '',
-  value: (h.value as string | null) ?? '',
-  passport: {
-    number: h.passport?.number ?? '',
-    authority: h.passport?.authority ?? '',
-    issueDate: h.passport?.issueDate ?? '',
-    expiryDate: h.passport?.expiryDate ?? '',
-    scan: h.passport?.scan,
-  },
-  ...Object.fromEntries((h.unsupportedFields ?? []).map(key => [key, ''])),
-});
+const mapHorse = (h: Horse): Horse => {
+  const actualValue = (h as any)._originalValue !== undefined ? (h as any)._originalValue : h.value;
+  return {
+    ...h,
+    color: h.color ?? '',
+    fluDate: h.fluDate ?? '',
+    conditions: h.conditions ?? '',
+    vetName: h.vetName ?? '',
+    vetPhone: h.vetPhone ?? '',
+    value: actualValue != null ? String(actualValue) : '',
+    passport: {
+      number: h.passport?.number ?? '',
+      authority: h.passport?.authority ?? '',
+      issueDate: h.passport?.issueDate ?? '',
+      expiryDate: h.passport?.expiryDate ?? '',
+      scan: h.passport?.scan,
+    },
+    ...Object.fromEntries((h.unsupportedFields ?? []).map(key => [key, ''])),
+  };
+};
 
 export const customerApi = {
   getProfile: () => contractClient<CustomerProfile>('get', '/customer/profile'),

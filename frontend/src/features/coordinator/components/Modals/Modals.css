@@ -13,3 +13,5 @@
 .crd-modal__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
 .crd-modal__error { color: #b91c1c; font-size: 12px; margin-top: 4px; }
 @media (max-width: 600px) { .crd-modal__grid { grid-template-columns: 1fr; } }
+.crd-rescue-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; }
+@media (max-width: 600px) { .crd-rescue-grid { grid-template-columns: 1fr; } }
