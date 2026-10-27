@@ -1,3 +1,6 @@
+-- Canonical test schema: reset/recreate using this file; no numbered migrations are required.
+-- Includes RemoveRequestSharedDocuments: retired request attachment columns are omitted;
+-- customs fixtures use EXPORT/IMPORT only, so no legacy-data cleanup is needed.
 -- Flow 1 scope 2026-10-24: VNPAY only; progress via current Status, no history/audit tables.
 -- Reviewed sample only: do not run against an active database as a migration.
 -- Reviewed copy: source data/HorseTransportDB.sql is preserved.
@@ -207,17 +210,14 @@ CREATE TABLE TRANSPORT_REQUEST (
     DeliveryStableName NVARCHAR(200) NULL,
     DeliveryPostalCode NVARCHAR(20) NULL,
     DeliveryInstructions NVARCHAR(1000) NULL,
-    InvitationLetterFileUrl NVARCHAR(500) NULL,
-    CompetitionRegistrationFileUrl NVARCHAR(500) NULL,
-    AtaCarnetFileUrl NVARCHAR(500) NULL,
     CareInstructions NVARCHAR(2000) NULL,
-    DeclaredValueVnd DECIMAL(18,2) NULL,
     RequestID VARCHAR(50) NOT NULL,
     CustomerID VARCHAR(50) NOT NULL,
     Departure NVARCHAR(255) NOT NULL,
     Destination NVARCHAR(255) NOT NULL,
     Purpose NVARCHAR(100) NULL,
     TransportType VARCHAR(50) NULL,
+    CreatedAtUtc DATETIME2(7) NULL DEFAULT SYSUTCDATETIME(),
     ExpectedDate DATETIME NULL,
     CommittedDeadline DATETIME NULL,
     DesignatedReceiverName NVARCHAR(100) NULL,
@@ -225,6 +225,10 @@ CREATE TABLE TRANSPORT_REQUEST (
     BaseCost DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NOT NULL,
     -- Flow 1
+    PickupCityId VARCHAR(1024) NULL,
+    PickupCityName NVARCHAR(255) NULL,
+    DeliveryCityId VARCHAR(1024) NULL,
+    DeliveryCityName NVARCHAR(255) NULL,
     PickupLatitude DECIMAL(9,6) NULL,
     PickupLongitude DECIMAL(9,6) NULL,
     DeliveryLatitude DECIMAL(9,6) NULL,
@@ -237,6 +241,7 @@ CREATE TABLE TRANSPORT_REQUEST (
     DestinationCountry VARCHAR(2) NULL,
     PreparationDays INT NULL,
     SubmissionKeyHash VARCHAR(64) NULL,
+    SubmissionContentHash VARCHAR(64) NULL,
     -- Latest revision feedback only; no field-group restriction or history is introduced.
     RevisionFeedback NVARCHAR(2000) NULL,
     -- Request-level cancellation also supports requests without a contract.
@@ -262,11 +267,7 @@ CREATE TABLE TRANSPORT_REQUEST (
     CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Distance CHECK ([DistanceKm] IS NULL OR [DistanceKm]>(0)),
     CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Route CHECK ([OriginCountry] IS NULL AND [DestinationCountry] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [TransportType] IS NOT NULL),
     -- The backend resolves the minimum from BUSINESS_POLICY and stores the applied days.
-    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Preparation CHECK ([PreparationDays] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [PreparationDays]>=0),
-    CONSTRAINT CK_F1W_TRANSPORT_REQUEST_InvitationLetterFileUrl CHECK ([InvitationLetterFileUrl] IS NULL OR ([InvitationLetterFileUrl] LIKE 'private/%' AND LEN([InvitationLetterFileUrl])>8)),
-    CONSTRAINT CK_F1W_TRANSPORT_REQUEST_CompetitionRegistrationFileUrl CHECK ([CompetitionRegistrationFileUrl] IS NULL OR ([CompetitionRegistrationFileUrl] LIKE 'private/%' AND LEN([CompetitionRegistrationFileUrl])>8)),
-    CONSTRAINT CK_F1W_TRANSPORT_REQUEST_AtaCarnetFileUrl CHECK ([AtaCarnetFileUrl] IS NULL OR ([AtaCarnetFileUrl] LIKE 'private/%' AND LEN([AtaCarnetFileUrl])>8)),
-    CONSTRAINT CK_F1W_TRANSPORT_REQUEST_DeclaredValueVnd CHECK ([DeclaredValueVnd] IS NULL OR ([DeclaredValueVnd]>0 AND [DeclaredValueVnd]<=9999999999 AND [DeclaredValueVnd]=ROUND([DeclaredValueVnd],0)))
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Preparation CHECK ([PreparationDays] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [PreparationDays]>=0)
 );
 
 -- 10. Bảng REQUEST_HORSE_MAPPING: Khử quan hệ N-N giữa Request và Horse
@@ -413,7 +414,7 @@ CREATE TABLE CUSTOMS_CLEARANCE (
     SegmentID VARCHAR(50) NOT NULL,
     BorderCrossingName NVARCHAR(200) NULL,
     CustomsAgentName NVARCHAR(100) NULL,
-    DocumentType VARCHAR(50) NULL, -- EXPORT, IMPORT, ATA_CARNET
+    DocumentType VARCHAR(50) NULL, -- EXPORT, IMPORT
     DeclarationNumber VARCHAR(100) NULL,
     Status VARCHAR(50) NOT NULL,
     ClearedAt DATETIME NULL,
