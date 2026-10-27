@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
+import { cleanDisplayName, getInitials } from '../../../../shared/utils/textUtils';
 import { useManager } from '../../hooks/useManager';
 import { fmtDateTime } from '../../hooks/managerRules';
 import { MANAGER_INITIALS, MANAGER_NAME } from '../../data/mockData';
@@ -69,14 +70,8 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
     return () => document.removeEventListener('mousedown', close);
   }, [open, userMenuOpen]);
 
-  const currentManagerName = (localStorage.getItem('userFullName') || MANAGER_NAME).replace(/\s*\([^)]*\)/g, '').trim() || MANAGER_NAME;
-  const managerInitials = currentManagerName
-    .split(' ')
-    .filter(Boolean)
-    .map((p) => p[0])
-    .join('')
-    .slice(-2)
-    .toUpperCase() || MANAGER_INITIALS;
+  const currentManagerName = cleanDisplayName(localStorage.getItem('userFullName')) || MANAGER_NAME;
+  const managerInitials = getInitials(currentManagerName, MANAGER_INITIALS);
 
   const handleLogout = () => {
     localStorage.clear();

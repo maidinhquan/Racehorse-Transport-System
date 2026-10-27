@@ -5,6 +5,7 @@ import axios from "axios";
 
 import { login, googleLogin } from "../../api/authApi";
 import type { UserRole } from "../../types/auth.types";
+import { cleanDisplayName } from "../../../../shared/utils/textUtils";
 
 import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
 
@@ -61,7 +62,7 @@ function LoginPage() {
     fullName: string,
     email?: string
   ) => {
-    const cleanName = (fullName || "").replace(/\s*\([^)]*\)/g, "").trim();
+    const cleanName = cleanDisplayName(fullName);
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("userRole", role);
     localStorage.setItem("userFullName", cleanName || fullName || "");

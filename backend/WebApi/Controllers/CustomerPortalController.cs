@@ -40,7 +40,7 @@ public class CustomerPortalController : ControllerBase
         }
 
         var rawName = user.FullName ?? "Khách hàng";
-        var cleanName = System.Text.RegularExpressions.Regex.Replace(rawName, @"\s*\([^)]*\)", "").Trim();
+        var cleanName = Application.Common.TextEncodingHelper.CleanFullName(rawName);
         if (string.IsNullOrEmpty(cleanName)) cleanName = rawName;
 
         var nameParts = cleanName.Split(' ', StringSplitOptions.RemoveEmptyEntries);

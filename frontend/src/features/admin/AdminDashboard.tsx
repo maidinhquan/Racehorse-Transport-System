@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { apiClient } from "../../shared/api/apiClient";
 import ThemeToggle from "../../shared/components/ThemeToggle/ThemeToggle";
 import { DemoDataToggle } from "../../shared/components";
+import { cleanDisplayName } from "../../shared/utils/textUtils";
 import "./AdminDashboard.css";
 
 interface AdminStats {
@@ -40,7 +41,7 @@ const AdminDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedRole, setSelectedRole] = useState<string>("ALL");
 
-  const currentAdminName = localStorage.getItem("userFullName") || "Quản trị viên";
+  const currentAdminName = cleanDisplayName(localStorage.getItem("userFullName")) || "Quản trị viên";
 
   const fetchDashboardData = async () => {
     setIsLoading(true);

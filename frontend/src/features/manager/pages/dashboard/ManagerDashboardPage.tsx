@@ -5,6 +5,7 @@ import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { CustomerCell, RouteCell } from '../../components/Common/Common';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useManager } from '../../hooks/useManager';
+import { cleanDisplayName } from '../../../../shared/utils/textUtils';
 import { MANAGER_NAME } from '../../data/mockData';
 import {
   MILESTONE_LABEL,
@@ -38,7 +39,7 @@ export const ManagerDashboardPage: React.FC = () => {
     ['Bàn giao chờ đóng đơn', stats.delivered, '/manager/requests?status=DELIVERED', 'check'],
   ];
 
-  const currentManagerName = (localStorage.getItem('userFullName') || MANAGER_NAME).replace(/\s*\([^)]*\)/g, '').trim() || MANAGER_NAME;
+  const currentManagerName = cleanDisplayName(localStorage.getItem('userFullName')) || MANAGER_NAME;
 
   return (
     <ManagerLayout title="Tổng quan">

@@ -298,9 +298,7 @@ namespace WebApi.Controllers
 
         public static string CleanFullName(string? fullName)
         {
-            if (string.IsNullOrWhiteSpace(fullName)) return string.Empty;
-            var clean = System.Text.RegularExpressions.Regex.Replace(fullName, @"\s*\([^)]*\)", "").Trim();
-            return string.IsNullOrEmpty(clean) ? fullName.Trim() : clean;
+            return Application.Common.TextEncodingHelper.CleanFullName(fullName);
         }
 
         private static bool VerifyPassword(string inputPassword, string storedHash)

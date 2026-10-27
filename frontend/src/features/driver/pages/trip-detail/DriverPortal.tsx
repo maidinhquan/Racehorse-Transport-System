@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BrandLogo } from '../../../../shared/components/brand-logo/BrandLogo';
 import { DemoDataToggle } from '../../../../shared/components';
+import { cleanDisplayName } from '../../../../shared/utils/textUtils';
 import './DriverPortal.css';
 
 export const DriverPortal = () => {
@@ -48,7 +49,7 @@ export const DriverPortal = () => {
           <BrandLogo compact />
           <div>
             <h1 className="driver-trip-code">Chuyến: TRP-2026</h1>
-            <p className="driver-trip-sub">Tài xế: {(localStorage.getItem('userFullName') || 'Hoàng Hùng').replace(/\s*\([^)]*\)/g, '').trim()}</p>
+            <p className="driver-trip-sub">Tài xế: {cleanDisplayName(localStorage.getItem('userFullName')) || 'Hoàng Hùng'}</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

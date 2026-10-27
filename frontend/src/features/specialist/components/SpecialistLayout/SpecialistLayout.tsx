@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
+import { cleanDisplayName, getInitials } from '../../../../shared/utils/textUtils';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { SPECIALIST_INITIALS, SPECIALIST_NAME } from '../../data/mockData';
 import './SpecialistLayout.css';
@@ -61,14 +62,8 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [userMenuOpen]);
 
-  const currentSpecialistName = (localStorage.getItem('userFullName') || SPECIALIST_NAME).replace(/\s*\([^)]*\)/g, '').trim() || SPECIALIST_NAME;
-  const specialistInitials = currentSpecialistName
-    .split(' ')
-    .filter(Boolean)
-    .map((p) => p[0])
-    .join('')
-    .slice(-2)
-    .toUpperCase() || SPECIALIST_INITIALS;
+  const currentSpecialistName = cleanDisplayName(localStorage.getItem('userFullName')) || SPECIALIST_NAME;
+  const specialistInitials = getInitials(currentSpecialistName, SPECIALIST_INITIALS);
 
   const handleLogout = () => {
     localStorage.clear();

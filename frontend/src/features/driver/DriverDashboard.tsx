@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { DemoDataToggle, ThemeToggle } from '../../shared/components';
+import { cleanDisplayName, getInitials } from '../../shared/utils/textUtils';
 import './DriverDashboard.css';
 
 // ==========================================
@@ -204,15 +205,19 @@ function DriverDashboard() {
               <span className="notification-badge"></span>
             </button>
             
-            <div className="user-profile">
-              <div className="avatar">
-                {((localStorage.getItem('userFullName') || 'Hoàng Hùng').replace(/\s*\([^)]*\)/g, '').trim().split(' ').filter(Boolean).map((p) => p[0]).join('').slice(-2).toUpperCase()) || 'HH'}
-              </div>
-              <div className="user-info">
-                <span className="user-name">{(localStorage.getItem('userFullName') || 'Hoàng Hùng').replace(/\s*\([^)]*\)/g, '').trim()}</span>
-                <span className="user-role">{activeTab === 'driver' ? 'Tài xế chính' : 'Nhân viên Hộ tống'}</span>
-              </div>
-            </div>
+            {(() => {
+              const driverName = cleanDisplayName(localStorage.getItem('userFullName')) || 'Hoàng Hùng';
+              const driverInitials = getInitials(driverName, 'HH');
+              return (
+                <div className="user-profile">
+                  <div className="avatar">{driverInitials}</div>
+                  <div className="user-info">
+                    <span className="user-name">{driverName}</span>
+                    <span className="user-role">{activeTab === 'driver' ? 'Tài xế chính' : 'Nhân viên Hộ tống'}</span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </header>
 

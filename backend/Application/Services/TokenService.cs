@@ -29,7 +29,7 @@ namespace Application.Services
 
             var normalizedRole = UserRoles.NormalizeRole(user.Role);
 
-            var cleanName = System.Text.RegularExpressions.Regex.Replace(user.FullName ?? string.Empty, @"\s*\([^)]*\)", "").Trim();
+            var cleanName = Application.Common.TextEncodingHelper.CleanFullName(user.FullName);
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.UserId),

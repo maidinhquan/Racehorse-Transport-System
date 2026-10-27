@@ -77,21 +77,20 @@ interface CustomerState {
 }
 
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
+import { cleanDisplayName, getInitials } from '../../../shared/utils/textUtils';
 import { mockHorses, mockNotifications, mockRequests } from '../data/mockData';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
-
-const cleanCustomerName = (s: string) => s.replace(/\s*\([^)]*\)/g, '').trim();
 
 const getInitialProfile = (): CustomerProfile => {
   const p: CustomerProfile = { id: '', name: '', initials: '', email: '', phone: '', company: '' };
   try {
     const rawStored = localStorage.getItem('userFullName');
-    const storedName = rawStored ? cleanCustomerName(rawStored) : '';
+    const storedName = cleanDisplayName(rawStored);
     const storedEmail = localStorage.getItem('userEmail');
     if (storedName) {
       p.name = storedName;
-      p.initials = storedName.split(' ').filter(Boolean).map((n) => n[0]).join('').slice(-2).toUpperCase();
+      p.initials = getInitials(storedName, 'VA');
     }
     if (storedEmail) {
       p.email = storedEmail;
@@ -197,7 +196,7 @@ async function loadAll() {
   try {
     if (currentUserRes?.data) {
       const u = currentUserRes.data;
-      if (u.fullName) profile.name = cleanCustomerName(u.fullName);
+      if (u.fullName) profile.name = cleanDisplayName(u.fullName);
       if (u.email) {
         profile.email = u.email;
         try {
@@ -209,7 +208,7 @@ async function loadAll() {
       if (u.phoneNumber) profile.phone = u.phoneNumber;
     } else {
       const rawStored = localStorage.getItem('userFullName');
-      const storedName = rawStored ? cleanCustomerName(rawStored) : '';
+      const storedName = cleanDisplayName(rawStored);
       const storedEmail = localStorage.getItem('userEmail');
       if (storedName) {
         profile.name = storedName;
@@ -219,15 +218,9 @@ async function loadAll() {
       }
     }
     if (profile.name) {
-      profile.name = cleanCustomerName(profile.name);
+      profile.name = cleanDisplayName(profile.name);
     }
-    profile.initials = (profile.name || 'Alex Equine')
-      .split(' ')
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join('')
-      .slice(-2)
-      .toUpperCase();
+    profile.initials = getInitials(profile.name, 'VA');
   } catch {
     // ignore
   }

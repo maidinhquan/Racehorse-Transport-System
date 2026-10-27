@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
+import { cleanDisplayName, getInitials } from '../../../../shared/utils/textUtils';
 import { useCustomer } from '../../hooks/useCustomer';
 import { fmtDateTime } from '../../hooks/customerRules';
 import './CustomerLayout.css';
@@ -69,9 +70,12 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children 
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [open, userMenuOpen]);
 
+  const displayName = cleanDisplayName(profile.name);
+  const displayInitials = getInitials(displayName, profile.initials || 'VA');
+
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
+    localStorage.clear();
+    sessionStorage.clear();
     navigate('/login');
   };
 
@@ -159,25 +163,25 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children 
                 aria-label="Menu tài khoản"
                 aria-expanded={userMenuOpen}
               >
-                <span className="cus-avatar">{profile.initials}</span>
-                <span className="cus-user-name">{profile.name}</span>
+                <span className="cus-avatar">{displayInitials}</span>
+                <span className="cus-user-name">{displayName}</span>
                 <Icon name="chevron" className="cus-user-chevron" />
               </button>
 
-              {userMenuOpen && (
-                <div className="cus-user-menu" role="menu">
-                  <div className="cus-user-menu__header">
-                    <div className="cus-user-menu__avatar">{profile.initials}</div>
-                    <div className="cus-user-menu__info">
-                      <b>{profile.name}</b>
-                      <span>{profile.company}</span>
-                      <small>{profile.email}</small>
-                    </div>
-                  </div>
-                  <div className="cus-user-menu__divider" />
-                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/home'); }}>
-                    <Icon name="home" /> Trang chủ
-                  </button>
+                  {userMenuOpen && (
+                    <div className="cus-user-menu" role="menu">
+                      <div className="cus-user-menu__header">
+                        <div className="cus-user-menu__avatar">{displayInitials}</div>
+                        <div className="cus-user-menu__info">
+                          <b>{displayName}</b>
+                          <span>{profile.company}</span>
+                          <small>{profile.email}</small>
+                        </div>
+                      </div>
+                      <div className="cus-user-menu__divider" />
+                      <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/home'); }}>
+                        <Icon name="home" /> Trang chủ
+                      </button>
                   <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/requests'); }}>
                     <Icon name="file" /> Yêu cầu vận chuyển
                   </button>

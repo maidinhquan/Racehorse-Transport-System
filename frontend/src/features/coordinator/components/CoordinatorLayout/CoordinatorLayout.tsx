@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
+import { cleanDisplayName, getInitials } from '../../../../shared/utils/textUtils';
 import { useCoordinator } from '../../hooks/useCoordinator';
 import { COORDINATOR_NAME } from '../../data/mockData';
 import './CoordinatorLayout.css';
@@ -58,14 +59,8 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [userMenuOpen]);
 
-  const currentCoordinatorName = (localStorage.getItem('userFullName') || COORDINATOR_NAME).replace(/\s*\([^)]*\)/g, '').trim() || COORDINATOR_NAME;
-  const coordinatorInitials = currentCoordinatorName
-    .split(' ')
-    .filter(Boolean)
-    .map((p) => p[0])
-    .join('')
-    .slice(-2)
-    .toUpperCase() || 'PH';
+  const currentCoordinatorName = cleanDisplayName(localStorage.getItem('userFullName')) || COORDINATOR_NAME;
+  const coordinatorInitials = getInitials(currentCoordinatorName, 'PH');
 
   const handleLogout = () => {
     localStorage.clear();
