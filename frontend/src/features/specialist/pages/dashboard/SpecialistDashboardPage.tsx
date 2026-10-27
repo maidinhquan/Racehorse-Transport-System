@@ -24,7 +24,7 @@ export const SpecialistDashboardPage: React.FC = () => {
     if (!t || t.deployment !== 'CONFIRMED') return;
     alerts.push({ tone: 'warn', title: `${CUSTOMER_DOC_NAME[d.key]} chờ duyệt`, sub: `${t.id} • ${d.scope === 'request' ? 'Giấy tờ chung' : horseName(t, d.scope)}`, to: `/specialist/trips/${t.id}/customer` });
   });
-  documents.filter((d) => d.status === 'SUBMITTED').forEach((d) => alerts.push({ tone: 'warn', title: `${typeName(data, d.typeId)} chờ duyệt`, sub: `${d.tripId} • ${d.id} v${d.versions.length}`, to: `/specialist/documents/${d.id}` }));
+  documents.filter((d) => d.status === 'SUBMITTED').forEach((d) => alerts.push({ tone: 'warn', title: `${typeName(data, d.typeId)} chờ duyệt`, sub: `${d.tripId} • ${d.id} v${d.versions?.length ?? 1}`, to: `/specialist/documents/${d.id}` }));
   documents.filter((d) => d.status === 'REJECTED').forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} bị từ chối – cần bản mới`, sub: `${d.tripId} • ${d.rejectReason ?? ''}`, to: `/specialist/documents/${d.id}` }));
   documents.filter((d) => docEffective(d) === 'EXPIRED' && active.some((t) => t.id === d.tripId)).forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} đã hết hạn`, sub: `${d.tripId} • hết hạn ${fmtDate(d.expiry)}`, to: `/specialist/documents/${d.id}` }));
   requests.filter((q) => q.status === 'SUBMITTED').forEach((q) => alerts.push({ tone: 'info', title: `Khách đã phản hồi ${q.id}`, sub: `${CUSTOMER_DOC_NAME[q.key]} • ${q.tripId}`, to: `/specialist/trips/${q.tripId}/customer` }));
@@ -73,6 +73,13 @@ export const SpecialistDashboardPage: React.FC = () => {
                     </tr>
                   );
                 })}
+                {!active.length && (
+                  <tr>
+                    <td colSpan={5} className="spc-empty" style={{ textAlign: 'center', padding: '24px' }}>
+                      Chưa có chuyến vận chuyển nào.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

@@ -24,7 +24,6 @@ type Dialog = '' | 'changes' | 'reject' | 'supplement';
  */
 export const DemoPanel: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
   const { enabled: isDemoMode } = useDemoMode('customer');
-  if (!isDemoMode) return null;
   const { horses, actions } = useCustomer();
   const d = actions.demo;
   const [dialog, setDialog] = useState<Dialog>('');
@@ -34,6 +33,8 @@ export const DemoPanel: React.FC<{ request: TransportRequest }> = ({ request: r 
   const [supHorse, setSupHorse] = useState('');
   const [supReason, setSupReason] = useState('');
   const [error, setError] = useState('');
+
+  if (!isDemoMode) return null;
 
   const v = curVersion(r), vs = v ? versionState(v) : undefined;
   const pendingDeposit = [...depositPayments(r)].reverse().find((p) => p.status === 'PROCESSING');
