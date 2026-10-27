@@ -1,17 +1,10 @@
 # Flow 2 — toàn bộ JSON API
 
-## Cập nhật helo.html — 26/10/2026
+## Cập nhật Final_Flow3.html — 27/10/2026
 
-Specialist gửi danh sách hồ sơ có thời hạn trước; Coordinator chốt lịch khởi hành
-trên đúng version đó, sau đó Specialist mới chuẩn bị/cấp giấy tờ chính thức.
-Không thay đổi dữ liệu đã cấp khi xem trước. API bổ sung và guard nằm tại
-[Operations/OPERATIONS.md](../Operations/OPERATIONS.md) và
-[operations.openapi.json](../Operations/operations.openapi.json).
-Các mô tả cũ cho phép làm hồ sơ trước khi chốt lịch được thay bằng quy tắc này.
-Frontend/API contract đã cập nhật; backend chưa được triển khai trong thay đổi này.
+[Flow 3 v2](../Flow3/FLOW3.md) là nguồn chuẩn cho phần phối hợp: hồ sơ và điều phối chạy song song sau giao việc. ROAD xác nhận nguồn lực trước submit; AIR duyệt tổng thể rồi booking/xác nhận thực tế. Không dùng feasibility hoặc timed-documents để chặn lập phương án/cấp giấy. Giả định đồ án giấy tờ còn hiệu lực suốt chuyến; các kiểm tra đủ hồ sơ, bảo hiểm, kiểm dịch và chứng chỉ nhân sự vẫn áp dụng. Duyệt khởi hành riêng sau hai nhánh READY hợp lệ. Chỉ cập nhật tài liệu, chưa triển khai backend/DB.
 
-
-> **ĐÃ ĐỔI FLOW ngày 24/10/2026:** [Flow 3](../Flow3/FLOW3.md) là nguồn chuẩn cho đánh giá Specialist → lập phương án → Manager duyệt → hoàn tất booking/nguồn lực/hồ sơ → hai READY → Manager cho phép khởi hành. Các API chuẩn bị/duyệt trùng được đánh dấu SUPERSEDED bên dưới; JSON/schema cũ chỉ tra cứu lịch sử, không triển khai cùng flow mới. Các API hồ sơ và danh mục không bị thay thế tiếp tục áp dụng.
+Các API hồ sơ Flow 2 không bị thay thế tiếp tục dùng; các mẫu điều phối đã SUPERSEDED bên dưới chỉ là lịch sử, dùng schema Flow 3 v2 khi tích hợp.
 
 Ngày 24/10/2026. Giao thức mục tiêu dựa trên frontend; chưa nối caller hiện có hoặc kiểm thử backend thật. Không sửa DB/backend. Mẫu thành công chỉ dùng khi backend đã lưu đầy đủ và trả được dữ liệu đúng schema; nếu chưa có khả năng này phải trả 501, không giả mẫu thành dữ liệu thật.
 

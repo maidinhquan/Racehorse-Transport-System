@@ -8,8 +8,8 @@ interface RequireAuthProps {
 
 export const RequireAuth: React.FC<RequireAuthProps> = ({ children, allowedRoles }) => {
   const location = useLocation();
-  const token = localStorage.getItem('accessToken');
-  const role = localStorage.getItem('userRole');
+  const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
+  const role = sessionStorage.getItem('userRole') || localStorage.getItem('userRole');
 
   if (!token) {
     return <Navigate to="/login" state={{ from: location }} replace />;

@@ -70,6 +70,11 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
   }, [open, userMenuOpen]);
 
   const handleLogout = () => {
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('userFullName');
+    sessionStorage.removeItem('userEmail');
+    sessionStorage.removeItem('userRole');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
     navigate('/login');

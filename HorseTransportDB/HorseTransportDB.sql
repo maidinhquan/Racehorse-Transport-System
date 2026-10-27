@@ -1,3 +1,6 @@
+-- SAMPLE DATABASE ONLY: this file DROPS and recreates HorseTransportDB.
+-- Historical schema. Current test database source: HorseTransportDB/HorseTransportDB_Reviewed.sql.
+-- Flow 1 schema is defined directly below; sample data from the team is retained.
 -- =============================================================================
 -- BƯỚC 1: TẠO VÀ CHUYỂN VÀO CƠ SỞ DỮ LIỆU CHÍNH THỨC
 -- =============================================================================
@@ -17,6 +20,15 @@ CREATE DATABASE HorseTransportDB;
 GO
 
 USE HorseTransportDB;
+GO
+
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET NUMERIC_ROUNDABORT OFF;
 GO
 
 -- =============================================================================
@@ -46,6 +58,13 @@ CREATE TABLE [USER] (
 
 -- 2. Bảng HORSE: Lưu trữ lý lịch cá thể ngựa đua
 CREATE TABLE HORSE (
+    PassportIssuedBy NVARCHAR(200) NULL,
+    PassportIssuedDate DATE NULL,
+    PassportExpiryDate DATE NULL,
+    OwnershipCertificateFileUrl NVARCHAR(500) NULL,
+    ValuationDocumentFileUrl NVARCHAR(500) NULL,
+    DeclaredValueVnd DECIMAL(18,2) NULL,
+    SpecialHealthNotes NVARCHAR(2000) NULL,
     HorseID VARCHAR(50) NOT NULL,
     OwnerID VARCHAR(50) NOT NULL,
     Microchip_ISO VARCHAR(50) NOT NULL,
@@ -56,8 +75,18 @@ CREATE TABLE HORSE (
     ReproductiveStatus VARCHAR(50) NULL,
     Weight DECIMAL(10, 2) NULL,
     DOB DATE NULL,
+    -- Flow 1
+    PhotoUrl NVARCHAR(500) NULL,
+    PassportScanUrl NVARCHAR(500) NULL,
+    RowVersion ROWVERSION NOT NULL,
     CONSTRAINT PK_Horse PRIMARY KEY (HorseID),
-    CONSTRAINT FK_Horse_Owner FOREIGN KEY (OwnerID) REFERENCES [USER](UserID)
+    CONSTRAINT FK_Horse_Owner FOREIGN KEY (OwnerID) REFERENCES [USER](UserID),
+    CONSTRAINT CK_F1S_HORSE_PhotoUrl CHECK ([PhotoUrl] IS NULL OR [PhotoUrl] like 'private/%' AND len([PhotoUrl])>(8)),
+    CONSTRAINT CK_F1S_HORSE_PassportScanUrl CHECK ([PassportScanUrl] IS NULL OR [PassportScanUrl] like 'private/%' AND len([PassportScanUrl])>(8)),
+    CONSTRAINT CK_F1W_HORSE_OwnershipCertificateFileUrl CHECK ([OwnershipCertificateFileUrl] IS NULL OR ([OwnershipCertificateFileUrl] LIKE 'private/%' AND LEN([OwnershipCertificateFileUrl])>8)),
+    CONSTRAINT CK_F1W_HORSE_ValuationDocumentFileUrl CHECK ([ValuationDocumentFileUrl] IS NULL OR ([ValuationDocumentFileUrl] LIKE 'private/%' AND LEN([ValuationDocumentFileUrl])>8)),
+    CONSTRAINT CK_F1W_HORSE_DeclaredValueVnd CHECK ([DeclaredValueVnd] IS NULL OR ([DeclaredValueVnd]>0 AND [DeclaredValueVnd]<=9999999999 AND [DeclaredValueVnd]=ROUND([DeclaredValueVnd],0))),
+    CONSTRAINT CK_F1W_HORSE_PassportDates CHECK ([PassportIssuedDate] IS NULL OR [PassportExpiryDate] IS NULL OR [PassportExpiryDate]>[PassportIssuedDate])
 );
 
 -- 3. (MỚI) Bảng STAFF_DOCUMENT: Quản lý giấy tờ (Passport, Visa) của nhân sự theo xe
@@ -165,6 +194,14 @@ CREATE TABLE FACILITY_CERTIFICATION (
 
 -- 9. Bảng TRANSPORT_REQUEST: Yêu cầu vận chuyển
 CREATE TABLE TRANSPORT_REQUEST (
+    PickupStableName NVARCHAR(200) NULL,
+    PickupPostalCode NVARCHAR(20) NULL,
+    PickupInstructions NVARCHAR(1000) NULL,
+    DeliveryStableName NVARCHAR(200) NULL,
+    DeliveryPostalCode NVARCHAR(20) NULL,
+    DeliveryInstructions NVARCHAR(1000) NULL,
+    CareInstructions NVARCHAR(2000) NULL,
+    DeclaredValueVnd DECIMAL(18,2) NULL,
     RequestID VARCHAR(50) NOT NULL,
     CustomerID VARCHAR(50) NOT NULL,
     Departure NVARCHAR(255) NOT NULL,
@@ -177,12 +214,35 @@ CREATE TABLE TRANSPORT_REQUEST (
     DesignatedReceiverPhone VARCHAR(20) NULL,
     BaseCost DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NOT NULL,
+    -- Flow 1
+    PickupLatitude DECIMAL(9,6) NULL,
+    PickupLongitude DECIMAL(9,6) NULL,
+    DeliveryLatitude DECIMAL(9,6) NULL,
+    DeliveryLongitude DECIMAL(9,6) NULL,
+    DistanceKm DECIMAL(10,2) NULL,
+    PickupContactName NVARCHAR(100) NULL,
+    PickupContactPhone VARCHAR(20) NULL,
+    ManagerNotes NVARCHAR(1000) NULL,
+    OriginCountry VARCHAR(2) NULL,
+    DestinationCountry VARCHAR(2) NULL,
+    PreparationDays INT NULL,
+    RowVersion ROWVERSION NOT NULL,
+    DeclaredValueUsd DECIMAL(18,2) NULL,
+    SubmissionKeyHash VARCHAR(64) NULL,
     CONSTRAINT PK_TransportRequest PRIMARY KEY (RequestID),
-    CONSTRAINT FK_TransportRequest_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID)
+    CONSTRAINT FK_TransportRequest_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Pickup CHECK ([PickupLatitude] IS NULL AND [PickupLongitude] IS NULL OR [PickupLatitude] IS NOT NULL AND [PickupLongitude] IS NOT NULL AND ([PickupLatitude]>=(-90) AND [PickupLatitude]<=(90)) AND ([PickupLongitude]>=(-180) AND [PickupLongitude]<=(180))),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Delivery CHECK ([DeliveryLatitude] IS NULL AND [DeliveryLongitude] IS NULL OR [DeliveryLatitude] IS NOT NULL AND [DeliveryLongitude] IS NOT NULL AND ([DeliveryLatitude]>=(-90) AND [DeliveryLatitude]<=(90)) AND ([DeliveryLongitude]>=(-180) AND [DeliveryLongitude]<=(180))),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Distance CHECK ([DistanceKm] IS NULL OR [DistanceKm]>(0)),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Route CHECK ([OriginCountry] IS NULL AND [DestinationCountry] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [TransportType] IS NOT NULL AND [OriginCountry]='VN' AND ([DestinationCountry]='VN' AND [TransportType] IN ('ROAD','AIR') OR [DestinationCountry]='JP' AND [TransportType]='AIR')),
+    CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Preparation CHECK ([PreparationDays] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [PreparationDays]>=case when [TransportType]='AIR' then (7) when [DistanceKm]>(500) then (3) else (2) end AND ([TransportType]='AIR' OR [DistanceKm] IS NOT NULL)),
+    CONSTRAINT CK_F1D_DeclaredValueUsd CHECK ([DeclaredValueUsd] IS NULL OR [DeclaredValueUsd]>(0)),
+    CONSTRAINT CK_F1W_TRANSPORT_REQUEST_DeclaredValueVnd CHECK ([DeclaredValueVnd] IS NULL OR ([DeclaredValueVnd]>0 AND [DeclaredValueVnd]<=9999999999 AND [DeclaredValueVnd]=ROUND([DeclaredValueVnd],0)))
 );
 
 -- 10. Bảng REQUEST_HORSE_MAPPING: Khử quan hệ N-N giữa Request và Horse
 CREATE TABLE REQUEST_HORSE_MAPPING (
+    CareInstructions NVARCHAR(2000) NULL,
     RequestHorseID VARCHAR(50) NOT NULL,
     RequestID VARCHAR(50) NOT NULL,
     HorseID VARCHAR(50) NOT NULL,
@@ -236,8 +296,21 @@ CREATE TABLE TRIP_PLAN (
     T_Total_Hours DECIMAL(10, 2) NULL,
     TotalCost DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NOT NULL,
+    -- Flow 1
+    DeploymentStatus VARCHAR(12) NULL,
+    DeploymentReason NVARCHAR(1000) NULL,
+    DeploymentBy VARCHAR(50) NULL,
+    DeploymentAtUtc DATETIME2(7) NULL,
+    HandoffEventId VARCHAR(50) NULL,
+    RowVersion ROWVERSION NOT NULL,
+    AssignedSpecialistId VARCHAR(50) NULL,
+    AssignedCoordinatorId VARCHAR(50) NULL,
     CONSTRAINT PK_TripPlan PRIMARY KEY (TripID),
-    CONSTRAINT FK_TripPlan_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID)
+    CONSTRAINT FK_TripPlan_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
+    CONSTRAINT CK_F1S_TRIP_PLAN_Deployment CHECK ([DeploymentStatus] IS NULL OR ([DeploymentStatus]='ON_HOLD' OR [DeploymentStatus]='CONFIRMED' OR [DeploymentStatus]='PENDING') AND [DeploymentReason] IS NOT NULL AND [DeploymentBy] IS NOT NULL AND [DeploymentAtUtc] IS NOT NULL AND ([DeploymentStatus]='CONFIRMED' AND [HandoffEventId] IS NOT NULL OR ([DeploymentStatus]='ON_HOLD' OR [DeploymentStatus]='PENDING') AND [HandoffEventId] IS NULL)),
+    CONSTRAINT CK_F1Final_Handoff CHECK ([DeploymentStatus] IS NULL OR ([DeploymentStatus]='CONFIRMED' OR [DeploymentStatus]='PENDING')),
+    CONSTRAINT FK_F1_Specialist FOREIGN KEY (AssignedSpecialistId) REFERENCES [USER](UserID),
+    CONSTRAINT FK_F1_Coordinator FOREIGN KEY (AssignedCoordinatorId) REFERENCES [USER](UserID)
 );
 
 -- 14. Bảng VEHICLE: Quản lý xe chuyên dụng
@@ -314,7 +387,7 @@ CREATE TABLE CUSTOMS_CLEARANCE (
     SegmentID VARCHAR(50) NOT NULL,
     BorderCrossingName NVARCHAR(200) NULL,
     CustomsAgentName NVARCHAR(100) NULL,
-    DocumentType VARCHAR(50) NULL, -- EXPORT, IMPORT, ATA_CARNET
+    DocumentType VARCHAR(50) NULL, -- EXPORT, IMPORT
     DeclarationNumber VARCHAR(100) NULL,
     Status VARCHAR(50) NOT NULL,
     ClearedAt DATETIME NULL,
@@ -398,7 +471,6 @@ CREATE TABLE CONTRACT_TEMPLATE (
     TemplateName NVARCHAR(255) NOT NULL,
     LanguageCode VARCHAR(10) NOT NULL DEFAULT 'VI',
     BodyContent NVARCHAR(MAX) NOT NULL,
-    Version VARCHAR(20) NOT NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
     UpdatedAt DATETIME NULL,
@@ -407,21 +479,65 @@ CREATE TABLE CONTRACT_TEMPLATE (
 
 -- 24. Bảng CONTRACT: Hợp đồng với khách hàng
 CREATE TABLE CONTRACT (
+    CommercialNotes NVARCHAR(2000) NULL,
     ContractID VARCHAR(50) NOT NULL,
-    TripID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NULL,
     CustomerID VARCHAR(50) NOT NULL,
     ContractCode VARCHAR(50) NOT NULL,
     CurrencyCode VARCHAR(3) NOT NULL DEFAULT 'USD',
-    ExchangeRateToLocal DECIMAL(10, 4) NULL,
     TotalQuotedPrice DECIMAL(12, 2) NULL,
-    BaseContractPrice_P DECIMAL(12, 2) NULL,
     DepositRateStandard DECIMAL(5, 2) NULL,
-    ActualGrossProfit_AGP DECIMAL(12, 2) NULL,
     SignedAt DATETIME NULL,
     ContractStatus VARCHAR(50) NOT NULL,
+    -- Flow 1
+    RequestID VARCHAR(50) NOT NULL,
+    CompletionDeadline DATETIME2(7) NULL,
+    PdfUrl VARCHAR(500) NULL,
+    SignOtpHash VARCHAR(255) NULL,
+    SignOtpExpiry DATETIME2(7) NULL,
+    SignOtpFailedAttempts INT NOT NULL CONSTRAINT DF_F1S_CONTRACT_SignOtpFailedAttempts DEFAULT ((0)),
+    DepositAmount DECIMAL(12,2) NULL,
+    PdfSha256 CHAR(64) NULL,
+    SignOtpSentAtUtc DATETIME2(7) NULL,
+    SignerEmail VARCHAR(255) NULL,
+    PublishedAtUtc DATETIME2(7) NULL,
+    PublishedBy VARCHAR(50) NULL,
+    LastExtensionReason NVARCHAR(1000) NULL,
+    LastExtensionBy VARCHAR(50) NULL,
+    LastExtensionAtUtc DATETIME2(7) NULL,
+    CancellationId VARCHAR(50) NULL,
+    CancellationStatus VARCHAR(12) NULL,
+    CancellationReason NVARCHAR(1000) NULL,
+    CancellationRequestedAtUtc DATETIME2(7) NULL,
+    CancellationDecisionReason NVARCHAR(1000) NULL,
+    CancellationDecidedBy VARCHAR(50) NULL,
+    CancellationDecidedAtUtc DATETIME2(7) NULL,
+    RowVersion ROWVERSION NOT NULL,
+    CustomerFeedback NVARCHAR(2000) NULL,
+    FeedbackFields VARCHAR(200) NULL,
+    FeedbackStatus VARCHAR(20) NULL,
+    FeedbackAtUtc DATETIME2(7) NULL,
+    ManagerFeedback NVARCHAR(2000) NULL,
+    FeedbackHandledAtUtc DATETIME2(7) NULL,
+    RefundAmount DECIMAL(12,2) NULL,
+    RefundStatus VARCHAR(20) NULL,
+    RefundReference VARCHAR(100) NULL,
     CONSTRAINT PK_Contract PRIMARY KEY (ContractID),
     CONSTRAINT FK_Contract_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
-    CONSTRAINT FK_Contract_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID)
+    CONSTRAINT FK_Contract_Customer FOREIGN KEY (CustomerID) REFERENCES [USER](UserID),
+    CONSTRAINT CK_F1S_CONTRACT_PdfUrl CHECK ([PdfUrl] IS NULL OR [PdfUrl] like 'private/%' AND len([PdfUrl])>(8)),
+    CONSTRAINT CK_F1S_CONTRACT_Deposit CHECK ([DepositAmount] IS NULL OR [CurrencyCode]='VND' AND [TotalQuotedPrice] IS NOT NULL AND [TotalQuotedPrice]>(0) AND [TotalQuotedPrice]=round([TotalQuotedPrice],(0)) AND [DepositRateStandard] IS NOT NULL AND [DepositRateStandard]>(0) AND [DepositRateStandard]<=(100) AND [DepositAmount]>(0) AND [DepositAmount]<=[TotalQuotedPrice] AND [DepositAmount]=round(([TotalQuotedPrice]*[DepositRateStandard])/(100),(0))),
+    CONSTRAINT CK_F1S_CONTRACT_Pdf CHECK ([PdfUrl] IS NULL AND [PdfSha256] IS NULL OR [PdfUrl] IS NOT NULL AND [PdfSha256] IS NOT NULL AND len([PdfSha256])=(64) AND NOT [PdfSha256] like ('%[^0-9a-f]%') collate Latin1_General_100_BIN2),
+    CONSTRAINT CK_F1S_CONTRACT_Publication CHECK ([PublishedAtUtc] IS NULL OR [PublishedBy] IS NOT NULL AND [PdfUrl] IS NOT NULL AND [PdfSha256] IS NOT NULL AND [DepositAmount] IS NOT NULL AND [CompletionDeadline] IS NOT NULL),
+    CONSTRAINT CK_F1S_CONTRACT_OtpAttempts CHECK ([SignOtpFailedAttempts]>=(0) AND [SignOtpFailedAttempts]<=(5)),
+    CONSTRAINT CK_F1S_CONTRACT_Otp CHECK ([SignOtpHash] IS NULL OR len([SignOtpHash])=(64) AND NOT [SignOtpHash] like ('%[^0-9a-f]%') collate Latin1_General_100_BIN2 AND [SignOtpExpiry] IS NOT NULL AND [SignOtpSentAtUtc] IS NOT NULL AND [SignOtpExpiry]>[SignOtpSentAtUtc] AND [PublishedAtUtc] IS NOT NULL AND [SignedAt] IS NULL),
+    CONSTRAINT CK_F1S_CONTRACT_SignDeadline CHECK (CompletionDeadline IS NULL OR PublishedAtUtc IS NULL OR CompletionDeadline>PublishedAtUtc),
+    CONSTRAINT CK_F1S_CONTRACT_Signed CHECK (PublishedAtUtc IS NULL OR SignedAt IS NULL OR (SignerEmail IS NOT NULL AND CompletionDeadline IS NOT NULL AND CompletionDeadline>SignedAt AND SignOtpHash IS NULL)),
+    CONSTRAINT CK_F1S_CONTRACT_Extension CHECK ([LastExtensionReason] IS NULL AND [LastExtensionBy] IS NULL AND [LastExtensionAtUtc] IS NULL OR [LastExtensionReason] IS NOT NULL AND [LastExtensionBy] IS NOT NULL AND [LastExtensionAtUtc] IS NOT NULL),
+    CONSTRAINT CK_F1S_CONTRACT_Cancellation CHECK ([CancellationId] IS NULL AND [CancellationStatus] IS NULL AND [CancellationReason] IS NULL AND [CancellationRequestedAtUtc] IS NULL AND [CancellationDecisionReason] IS NULL AND [CancellationDecidedBy] IS NULL AND [CancellationDecidedAtUtc] IS NULL OR [CancellationId] IS NOT NULL AND [CancellationStatus] IS NOT NULL AND [CancellationReason] IS NOT NULL AND [CancellationRequestedAtUtc] IS NOT NULL AND ([CancellationStatus]='PENDING' AND [CancellationDecisionReason] IS NULL AND [CancellationDecidedBy] IS NULL AND [CancellationDecidedAtUtc] IS NULL OR ([CancellationStatus]='REJECTED' OR [CancellationStatus]='APPROVED') AND [CancellationDecisionReason] IS NOT NULL AND [CancellationDecidedBy] IS NOT NULL AND [CancellationDecidedAtUtc] IS NOT NULL)),
+    CONSTRAINT CK_F1Final_Feedback CHECK ([FeedbackStatus] IS NULL OR ([FeedbackStatus]='REJECTED' OR [FeedbackStatus]='ACCEPTED' OR [FeedbackStatus]='PENDING') AND [CustomerFeedback] IS NOT NULL AND [FeedbackFields] IS NOT NULL AND [FeedbackAtUtc] IS NOT NULL),
+    CONSTRAINT CK_F1Final_Refund CHECK ([RefundStatus] IS NULL AND [RefundAmount] IS NULL AND [RefundReference] IS NULL OR ([RefundStatus]='COMPLETED' OR [RefundStatus]='PROCESSING' OR [RefundStatus]='REQUESTED') AND [RefundAmount]>(0) AND ([RefundStatus]<>'COMPLETED' OR [RefundReference] IS NOT NULL)),
+    CONSTRAINT FK_Contract_Request FOREIGN KEY (RequestID) REFERENCES [TRANSPORT_REQUEST](RequestID)
 );
 
 -- 25. Bảng COST_ITEM: Các khoản mục chi phí thực tế
@@ -463,11 +579,55 @@ CREATE TABLE PAYMENT (
     TransactionCode VARCHAR(100) NULL,
     Status VARCHAR(50) NOT NULL,
     PaymentDate DATETIME NOT NULL DEFAULT GETDATE(),
+    -- Flow 1
+    VnpayBankCode VARCHAR(50) NULL,
+    VnpayResponseCode VARCHAR(10) NULL,
+    VnpayTransactionStatus VARCHAR(10) NULL,
+    VnpayTmnCode VARCHAR(8) NULL,
+    VnpayCreatedAtUtc DATETIME2(7) NULL,
+    VnpayExpiresAtUtc DATETIME2(7) NULL,
+    VnpayReceivedAmount DECIMAL(12,2) NULL,
+    FinancialReviewRequired BIT NOT NULL CONSTRAINT DF_F1S_PAYMENT_FinancialReviewRequired DEFAULT ((0)),
+    FinancialReviewReason NVARCHAR(1000) NULL,
+    FinancialReviewedBy VARCHAR(50) NULL,
+    FinancialReviewedAtUtc DATETIME2(7) NULL,
+    RowVersion ROWVERSION NOT NULL,
     CONSTRAINT PK_Payment PRIMARY KEY (PaymentID),
     CONSTRAINT FK_Payment_Invoice FOREIGN KEY (InvoiceID) REFERENCES INVOICE(InvoiceID),
-    CONSTRAINT FK_Payment_ConfirmedBy FOREIGN KEY (ConfirmedByUserID) REFERENCES [USER](UserID)
+    CONSTRAINT FK_Payment_ConfirmedBy FOREIGN KEY (ConfirmedByUserID) REFERENCES [USER](UserID),
+    CONSTRAINT CK_F1S_PAYMENT_Attempt CHECK ([VnpayTmnCode] IS NULL OR [Method] IS NOT NULL AND [Method]='VNPAY' AND [CurrencyCode]='VND' AND [Amount]>(0) AND [Amount]=round([Amount],(0)) AND [VnpayCreatedAtUtc] IS NOT NULL AND [VnpayExpiresAtUtc] IS NOT NULL AND [VnpayExpiresAtUtc]>[VnpayCreatedAtUtc] AND ([Status]='REVIEW_REQUIRED' OR [Status]='SUCCESS' OR [Status]='FAILED' OR [Status]='PENDING_GATEWAY')),
+    CONSTRAINT CK_F1S_PAYMENT_Success CHECK ([VnpayTmnCode] IS NULL OR [Status]<>'SUCCESS' OR [VnpayResponseCode] IS NOT NULL AND [VnpayResponseCode]='00' AND [VnpayTransactionStatus] IS NOT NULL AND [VnpayTransactionStatus]='00' AND [TransactionCode] IS NOT NULL AND [VnpayReceivedAmount] IS NOT NULL AND [VnpayReceivedAmount]=[Amount]),
+    CONSTRAINT CK_F1S_PAYMENT_Received CHECK ([VnpayReceivedAmount] IS NULL OR [VnpayReceivedAmount]>(0) AND [VnpayReceivedAmount]=round([VnpayReceivedAmount],(0))),
+    CONSTRAINT CK_F1S_PAYMENT_Review CHECK ([FinancialReviewRequired]=(0) OR [FinancialReviewReason] IS NOT NULL),
+    CONSTRAINT CK_F1S_PAYMENT_Reviewer CHECK ([FinancialReviewedBy] IS NULL AND [FinancialReviewedAtUtc] IS NULL OR [FinancialReviewedBy] IS NOT NULL AND [FinancialReviewedAtUtc] IS NOT NULL)
 );
 
+
+-- 28. COST_RATE: Don gia tinh 5 nhom chi phi (VND)
+CREATE TABLE COST_RATE (
+    CostRateID varchar(50) NOT NULL CONSTRAINT PK_COST_RATE PRIMARY KEY,
+    Code varchar(50) NOT NULL CONSTRAINT UQ_COST_RATE_Code UNIQUE,
+    CostGroup varchar(20) NOT NULL,
+    CalculationUnit varchar(40) NOT NULL,
+    Rate decimal(18,6) NOT NULL,
+    CurrencyCode varchar(3) NOT NULL CONSTRAINT DF_COST_RATE_Currency DEFAULT 'VND',
+    IsActive bit NOT NULL CONSTRAINT DF_COST_RATE_Active DEFAULT 1,
+    RowVersion rowversion NOT NULL,
+    CONSTRAINT CK_COST_RATE_Value CHECK (Rate>0 AND (Code<>'INSURANCE_RATE' OR Rate<=1)),
+    CONSTRAINT CK_COST_RATE_Currency CHECK (CurrencyCode='VND'),
+    CONSTRAINT CK_COST_RATE_Group CHECK (CostGroup IN ('TRANSPORT','CREW','PERMIT','VET','INSURANCE'))
+);
+
+-- Flow 1: Chi muc bao ve quan he va giao dich khong trung lap.
+CREATE UNIQUE INDEX UX_INVOICE_ContractID_Deposit ON [INVOICE] ([ContractID]) WHERE ([InvoiceType]='DEPOSIT');
+CREATE UNIQUE INDEX UX_F1S_VnpayReceipt ON [PAYMENT] ([VnpayTmnCode], [TransactionCode]) WHERE ([VnpayTmnCode] IS NOT NULL AND [TransactionCode] IS NOT NULL AND [Status]='SUCCESS');
+CREATE INDEX IX_F1S_OtpBudget ON [NOTIFICATION] ([UserID], [Type], [Channel], [SentAt]);
+CREATE UNIQUE INDEX UX_F1N_RequestSubmission ON [TRANSPORT_REQUEST] ([CustomerID], [SubmissionKeyHash]) WHERE ([SubmissionKeyHash] IS NOT NULL);
+CREATE UNIQUE INDEX UX_TRIP_PLAN_RequestID ON [TRIP_PLAN] ([RequestID]);
+CREATE INDEX IX_CONTRACT_RequestID ON [CONTRACT] ([RequestID]);
+CREATE UNIQUE INDEX UX_CONTRACT_RequestID ON [CONTRACT] ([RequestID]);
+
+GO
 
 -- DataSet
 -- =============================================================================
@@ -517,9 +677,9 @@ INSERT INTO POLICY_AND_TERM (PolicyID, PolicyType, Title, Content, Version, Effe
 ('POL_002', 'TRANSPORT_RULE',   N'Quy chế Dinh dưỡng và Nghỉ ngơi cho Ngựa Đua',         N'<p>Bắt buộc dừng nghỉ mỗi 4-6 giờ đường bộ, cho uống nước bù điện giải định kỳ.</p>',       'v1.1', '2026-03-01', 1, 'USR_SPEC_01','2026-03-01 00:00:00');
 
 -- 6. Bảng CONTRACT_TEMPLATE: Biểu mẫu hợp đồng chuẩn hóa
-INSERT INTO CONTRACT_TEMPLATE (TemplateID, TemplateName, LanguageCode, BodyContent, Version, IsActive, CreatedAt) VALUES
-('TMPL_001', N'Mẫu Hợp Đồng Vận Tải Ngựa Quốc Tế (Đường Bộ)', 'VI', N'<article>Nội dung mẫu hợp đồng giao nhận ngựa chuyên dụng...</article>', 'v2.0', 1, '2026-01-01 00:00:00'),
-('TMPL_002', N'International Racehorse Transport Agreement',   'EN', N'<article>Terms and conditions for cross-border equine transport...</article>', 'v2.0', 1, '2026-01-01 00:00:00');
+INSERT INTO CONTRACT_TEMPLATE (TemplateID, TemplateName, LanguageCode, BodyContent, IsActive, CreatedAt) VALUES
+('TMPL_001', N'Mẫu Hợp Đồng Vận Tải Ngựa Quốc Tế (Đường Bộ)', 'VI', N'<article>Nội dung mẫu hợp đồng giao nhận ngựa chuyên dụng...</article>', 1, '2026-01-01 00:00:00'),
+('TMPL_002', N'International Racehorse Transport Agreement', 'EN', N'<article>Terms and conditions for cross-border equine transport...</article>', 1, '2026-01-01 00:00:00');
 
 -- =============================================================================
 -- PHÂN VÙNG 2: ĐỐI TÁC & TRẠM DỪNG NGHỈ/Y TẾ (PARTNER & FACILITY)
@@ -622,7 +782,7 @@ INSERT INTO ROUTE_SEGMENT (SegmentID, TripID, FacilityID, LocationName, SegmentT
 
 -- 19. Bảng CUSTOMS_CLEARANCE: Thủ tục thông quan biên giới
 INSERT INTO CUSTOMS_CLEARANCE (ClearanceID, TripID, SegmentID, BorderCrossingName, CustomsAgentName, DocumentType, DeclarationNumber, Status, ClearedAt) VALUES
-('CST_001', 'TRIP_2026_001', 'SEG_101', N'Cửa khẩu Quốc tế Cầu Treo', N'Đại lý HQ Miền Trung', 'ATA_CARNET', 'VN-CARNET-2026-088', 'CLEARED', '2026-09-15 17:00:00'),
+('CST_001', 'TRIP_2026_001', 'SEG_101', N'Cửa khẩu Quốc tế Cầu Treo', N'Đại lý HQ Miền Trung', NULL, NULL, 'CLEARED', '2026-09-15 17:00:00'),
 ('CST_002', 'TRIP_2026_002', 'SEG_201', N'Cửa khẩu Quốc tế Mộc Bài',  N'Đại lý Tân Cảng',       'EXPORT',     'TK-XNK-VN-9928172',   'CLEARED', '2026-10-05 10:30:00');
 
 -- 20. Bảng HEALTH_LOG: Nhật ký sinh hiệu sức khỏe cá thể ngựa (Insert-Only)
@@ -658,10 +818,10 @@ INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerifie
 -- =============================================================================
 
 -- 24. Bảng CONTRACT: 3 hợp đồng vận chuyển
-INSERT INTO CONTRACT (ContractID, TripID, CustomerID, ContractCode, CurrencyCode, ExchangeRateToLocal, TotalQuotedPrice, BaseContractPrice_P, DepositRateStandard, ActualGrossProfit_AGP, SignedAt, ContractStatus) VALUES
-('CTR_2026_001', 'TRIP_2026_001', 'USR_CUST_01', 'HD-CBN-2026-001', 'USD', 25450.0000, 8500.00, 8500.00, 0.40, 2300.00, '2026-09-02 14:00:00', 'SETTLED'),
-('CTR_2026_002', 'TRIP_2026_002', 'USR_CUST_02', 'HD-CBN-2026-002', 'USD', 25450.0000, 4200.00, 4200.00, 0.40, 950.00,  '2026-09-28 10:00:00', 'SETTLED'),
-('CTR_2026_003', 'TRIP_2026_003', 'USR_CUST_01', 'HD-CBN-2026-003', 'VND', 1.0000,     145000000.00, 145000000.00, 0.40, NULL, '2026-10-06 09:30:00', 'EXECUTING');
+INSERT INTO CONTRACT (ContractID, TripID, RequestID, CustomerID, ContractCode, CurrencyCode, TotalQuotedPrice, DepositRateStandard, SignedAt, ContractStatus) VALUES
+('CTR_2026_001', 'TRIP_2026_001', 'REQ_2026_001', 'USR_CUST_01', 'HD-CBN-2026-001', 'USD', 8500.00, 0.40, '2026-09-02 14:00:00', 'SETTLED'),
+('CTR_2026_002', 'TRIP_2026_002', 'REQ_2026_002', 'USR_CUST_02', 'HD-CBN-2026-002', 'USD', 4200.00, 0.40, '2026-09-28 10:00:00', 'SETTLED'),
+('CTR_2026_003', 'TRIP_2026_003', 'REQ_2026_003', 'USR_CUST_01', 'HD-CBN-2026-003', 'VND', 145000000.00, 0.40, '2026-10-06 09:30:00', 'EXECUTING');
 
 -- 25. Bảng COST_ITEM: Các mục chi phí dự toán và phát sinh
 INSERT INTO COST_ITEM (CostItemID, ContractID, CategoryName, SubcodeName, Bearer, CurrencyCode, TotalMoney, EvidenceUrl) VALUES
@@ -687,5 +847,43 @@ INSERT INTO PAYMENT (PaymentID, InvoiceID, ConfirmedByUserID, CurrencyCode, Amou
 ('PAY_002', 'INV_102', 'USR_MGR_01', 'USD', 5100.00,     'BANK_TRANSFER',  'TXN_VCB_8829102938', 'SUCCESS', '2026-09-18 10:15:00'),
 ('PAY_003', 'INV_201', 'USR_MGR_01', 'USD', 1680.00,     'STRIPE_GATEWAY', 'TXN_STRIPE_001994', 'SUCCESS', '2026-09-30 09:20:00'),
 ('PAY_004', 'INV_301', 'USR_MGR_01', 'VND', 58000000.00, 'VNPAY_GATEWAY',  'VNPAY_20261007_019', 'SUCCESS', '2026-10-07 14:45:00');
+
+GO
+
+-- Flow 1: 10 don gia VND; ty le bao hiem 0.5% la gia dinh cua du an.
+INSERT INTO COST_RATE (CostRateID, Code, CostGroup, CalculationUnit, Rate, CurrencyCode, IsActive) VALUES
+('rate-ROAD_KM', 'ROAD_KM', 'TRANSPORT', 'KM_VEHICLE', 200000, 'VND', 1),
+('rate-AIR_HORSE', 'AIR_HORSE', 'TRANSPORT', 'HORSE', 3000000, 'VND', 1),
+('rate-STABLE_NIGHT', 'STABLE_NIGHT', 'TRANSPORT', 'HORSE_NIGHT', 250000, 'VND', 1),
+('rate-CREW_DAY', 'CREW_DAY', 'CREW', 'PERSON_DAY', 300000, 'VND', 1),
+('rate-PERMIT_TRIP', 'PERMIT_TRIP', 'PERMIT', 'TRIP', 1000000, 'VND', 1),
+('rate-PERMIT_HORSE', 'PERMIT_HORSE', 'PERMIT', 'HORSE', 5000000, 'VND', 1),
+('rate-VET_DAY', 'VET_DAY', 'VET', 'PERSON_DAY', 500000, 'VND', 1),
+('rate-CARE_DAY', 'CARE_DAY', 'VET', 'HORSE_DAY', 300000, 'VND', 1),
+('rate-INSURANCE_MIN', 'INSURANCE_MIN', 'INSURANCE', 'TRIP', 2000000, 'VND', 1),
+('rate-INSURANCE_RATE', 'INSURANCE_RATE', 'INSURANCE', 'VALUE_RATIO', 0.005, 'VND', 1);
+
+-- 12 dieu khoan bat buoc: noi dung A-L de cap nhat sau.
+-- Twelve fixed clauses from the approved contract wizard.
+DECLARE @Flow1Terms TABLE(TemplateID varchar(50),Title nvarchar(255),Content nvarchar(max));
+INSERT INTO @Flow1Terms VALUES
+(N'flow1-required-clause-01',N'Điều 1. Thông tin và tư cách các bên',N'CBN Transport (Bên A) cung cấp dịch vụ cho Customer (Bên B). Thông tin pháp lý, người đại diện và liên hệ được ghi trong hồ sơ hợp đồng. Customer phải có quyền sở hữu hoặc ủy quyền vận chuyển ngựa hợp lệ.'),
+(N'flow1-required-clause-02',N'Điều 2. Đối tượng vận chuyển',N'Danh sách, số lượng, định danh, hộ chiếu và yêu cầu sức khỏe/chăm sóc ngựa lấy trực tiếp từ Transport Request đã được duyệt. Customer chịu trách nhiệm khai báo trung thực; tình trạng ngựa được ghi nhận tại lúc tiếp nhận và bàn giao. Manager không tự sửa dữ liệu thuộc Customer.'),
+(N'flow1-required-clause-03',N'Điều 3. Phạm vi dịch vụ',N'CBN Transport tổ chức nhận/giao ngựa, chặng đường bộ, nhân sự hộ tống, bác sĩ thú y, kiểm dịch, bảo hiểm và thủ tục liên quan. Tuyến Việt Nam đến Nhật Bản bao gồm dịch vụ hàng không trực tiếp do bên thứ ba cung cấp. Xe, tài xế và số chuyến bay cụ thể được xác định trong Trip.'),
+(N'flow1-required-clause-04',N'Điều 4. Địa điểm, lộ trình và thời gian',N'Địa điểm nhận/giao, người nhận được ủy quyền, ngày khởi hành mong muốn và hạn giao lấy từ Request đã duyệt. Thay đổi kế hoạch vận hành do người có thẩm quyền phê duyệt; không được sửa cam kết hoặc dữ liệu Request trong hợp đồng đã ký.'),
+(N'flow1-required-clause-05',N'Điều 5. Giá trị hợp đồng',N'Giá bán chính thức và từng hạng mục thể hiện trong hợp đồng. Giá bao gồm bảo hiểm và những dịch vụ được ghi nhận; khoản chưa bao gồm phải thể hiện rõ. Chi phí nội bộ, giá sàn và lợi nhuận không cung cấp cho Customer. Chi phí phát sinh không làm thay đổi giá trị hợp đồng gốc.'),
+(N'flow1-required-clause-06',N'Điều 6. Thanh toán và xử lý quá hạn',N'Manager quyết định tỷ lệ tiền cọc thể hiện trong hợp đồng. Một hạn chung 24 giờ kể từ phát hành áp dụng cho nộp cọc, xác minh và ký OTP; Manager có thể gia hạn, quá hạn không tự hủy. Sau bàn giao hợp lệ, Customer nghiệm thu trước rồi thanh toán số dư và hệ thống xác minh trong một thời hạn chung 24 giờ; chỉ có tranh chấp được tạm dừng theo điều khoản xử lý tranh chấp.'),
+(N'flow1-required-clause-07',N'Điều 7. Quyền và nghĩa vụ các bên',N'CBN Transport tổ chức phương tiện/nhân sự đạt yêu cầu, hồ sơ, kiểm dịch, chăm sóc, bảo hiểm, theo dõi và bàn giao đúng người. Customer cung cấp thông tin/hồ sơ trung thực, chuẩn bị ngựa, phối hợp nhận/giao, nghiệm thu và thanh toán. Mỗi bên chịu trách nhiệm đối với nghĩa vụ của mình.'),
+(N'flow1-required-clause-08',N'Điều 8. Bảo hiểm và cấp cứu thú y',N'CBN Transport thu xếp bảo hiểm từ lúc tiếp nhận đến bàn giao theo phạm vi và loại trừ của đơn bảo hiểm thực tế. Trong trường hợp cấp cứu đe dọa sức khỏe hoặc tính mạng ngựa, bác sĩ thú y được thực hiện biện pháp chuyên môn cần thiết trong phạm vi Customer ủy quyền trước mà không bị áp hạn mức tiền cứng. Phải ghi chứng cứ, thông báo Manager và Customer sớm; chi phí và trách nhiệm phân định sau.'),
+(N'flow1-required-clause-09',N'Điều 9. Sự cố, thay đổi và chi phí phát sinh',N'Driver và bác sĩ thú y ghi nhận sự cố. Coordinator đề xuất thay đổi phương án, Manager phê duyệt các quyết định thuộc thẩm quyền. Chi phí phát sinh được phân định theo nguyên nhân, trách nhiệm, bảo hiểm và hợp đồng. Khoản Customer phải trả chưa được ủy quyền trước cần Customer xác nhận khi áp dụng; cấp cứu đã ủy quyền được xử lý theo Điều 8. Không sửa hợp đồng gốc.'),
+(N'flow1-required-clause-10',N'Điều 10. Bàn giao, nghiệm thu và thanh toán cuối',N'Driver bàn giao cho người nhận hợp lệ và ghi biên bản, tình trạng ngựa, chữ ký, hình ảnh. Kể từ bàn giao, Customer có chung 24 giờ để xem xét và xác nhận nghiệm thu TRƯỚC, thanh toán số dư SAU và chờ xác minh. Im lặng hoặc quá hạn không đồng nghĩa chấp nhận; không được giữ ngựa tùy tiện vì chậm thanh toán.'),
+(N'flow1-required-clause-11',N'Điều 11. Hủy dịch vụ và giải quyết tranh chấp',N'Khiếu nại phải ghi nhận chứng cứ và được Manager xem xét. Phần tiền tranh chấp được tạm dừng theo thỏa thuận, phần không tranh chấp vẫn có nghĩa vụ thanh toán. Khi hai bên xác nhận kết quả giải quyết, bắt đầu lại nguyên 24 giờ để hoàn tất nghiệm thu/thanh toán còn thiếu. Vi phạm, hủy, hoàn trả/bồi thường theo từng trường hợp, không tự áp một mức phạt chung. Tranh chấp không thống nhất xử lý ngoài hệ thống.'),
+(N'flow1-required-clause-12',N'Điều 12. Ký kết, hiệu lực và lưu trữ',N'Customer xác nhận nội dung hiện hành; hợp đồng chỉ có hiệu lực sau khi cọc đã xác minh và Customer ký OTP thành công. Sau ký, không bên nào được sửa, xóa, thay thế nội dung; bản ký và lịch sử trước ký được bảo lưu, không có phụ lục trong Demo. Trip đóng khi Manager ghi đóng Request sau khi hết 24 giờ của chu kỳ cuối, đã bàn giao, nghiệm thu, xác minh đủ thanh toán và không còn khiếu nại.');
+UPDATE c SET TemplateName=s.Title,BodyContent=s.Content,UpdatedAt=SYSUTCDATETIME()
+FROM CONTRACT_TEMPLATE c JOIN @Flow1Terms s ON s.TemplateID=c.TemplateID
+WHERE LEN(c.BodyContent)=1 AND c.BodyContent COLLATE Latin1_General_100_BIN2 BETWEEN 'A' AND 'L';
+INSERT INTO CONTRACT_TEMPLATE(TemplateID,TemplateName,LanguageCode,BodyContent,IsActive,CreatedAt)
+SELECT s.TemplateID,s.Title,'VI',s.Content,1,SYSUTCDATETIME() FROM @Flow1Terms s
+WHERE NOT EXISTS(SELECT 1 FROM CONTRACT_TEMPLATE c WHERE c.TemplateID=s.TemplateID);
 
 GO

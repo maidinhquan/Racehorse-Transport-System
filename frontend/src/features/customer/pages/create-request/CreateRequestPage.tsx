@@ -7,7 +7,7 @@ import { RequestPlacesFields, type RequestPlaces } from '../../components/Reques
 import { Note } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
 import type { RequestField, TripInfoInput } from '../../types';
-import { FIELD_LABEL, addDays, city, emptyPlace, fmtDate, isSupportedRoute, today } from '../../hooks/customerRules';
+import { FIELD_LABEL, addDays, city, emptyPlace, fmtDate, getCityId, getDefaultCoordinates, isSupportedRoute, today } from '../../hooks/customerRules';
 import { customerApi } from '../../api/customerApi';
 import type { FormOptions } from '../../../../shared/api/contractClient';
 import './CreateRequestPage.css';
@@ -46,32 +46,51 @@ export const CreateRequestPage: React.FC = () => {
   const allowed: RequestField[] = revising ? r?.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'] : ['route', 'date', 'places', 'horses', 'notes'];
   const lock = (field: RequestField) => !allowed.includes(field);
   const minDate = addDays(today(), options?.preparationDays ?? 0);
-  const routeEnabled = options?.supportedRoutes.some(route => route.originCountry === city(form.origin).country && route.destinationCountry === city(form.destination).country && route.mode === (city(form.destination).country === 'JP' ? 'AIR' : 'ROAD'));
-  const tripValid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!form.pickupAt && form.pickupAt >= minDate && !!form.date && form.date >= form.pickupAt;
+  const routeEnabled = options?.supportedRoutes?.some(route => route.originCountry === city(form.origin).country && route.destinationCountry === city(form.destination).country && route.mode === (city(form.destination).country === 'JP' ? 'AIR' : 'ROAD')) ?? false;
+  const tripValid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!form.date && form.date >= minDate;
   const placeValid = Object.values(places).every(p => p.name.trim() && p.address.trim() && p.contact.trim() && /^[+0-9 ()-]{8,}$/.test(p.phone.trim()));
   const hint = !form.origin || !form.destination ? 'Chọn thành phố trong địa chỉ nhận và giao ngựa.'
     : form.origin === form.destination ? 'Thành phố nhận và giao phải khác nhau.'
     : !isSupportedRoute(form.origin, form.destination) ? 'Chỉ nhận vận chuyển trong Việt Nam và từ Việt Nam đến Nhật Bản.'
     : optionsError || (!options ? 'Đang tải quy định của tuyến…'
     : !routeEnabled ? 'Tuyến này hiện chưa nhận yêu cầu vận chuyển.'
-    : !form.pickupAt ? 'Chọn ngày mong muốn CBN đến lấy ngựa.'
-    : form.pickupAt < minDate ? `Ngày lấy ngựa cần từ ${fmtDate(minDate)} để đủ thời gian chuẩn bị.`
-    : !form.date ? 'Chọn ngày mong muốn ngựa tới nơi giao.'
-    : form.date < form.pickupAt ? 'Ngày giao mong muốn phải từ ngày lấy ngựa trở đi.'
-    : form.date < minDate ? `Tuyến này cần chuẩn bị ${options.preparationDays} ngày, vui lòng chọn từ ${fmtDate(minDate)}.` : '');
+    : !form.date ? 'Chọn ngày vận chuyển mong muốn.'
+    : form.date < minDate ? `Tuyến này cần chuẩn bị ${options?.preparationDays ?? 3} ngày, vui lòng chọn từ ${fmtDate(minDate)}.` : '');
   const back = r ? `/customer/requests/${r.id}` : '/customer/requests';
   const save = async () => {
     if (savingRef.current) return;
     setTried(true);
     if (!tripValid || !placeValid) { actions.showToast(!tripValid ? hint : 'Điền đủ địa chỉ, người liên hệ và số điện thoại hợp lệ ở cả hai địa điểm.'); return; }
+
+    const pickupCoords = places.pickup.latitude != null && places.pickup.longitude != null
+      ? { latitude: places.pickup.latitude, longitude: places.pickup.longitude }
+      : getDefaultCoordinates(form.origin);
+    const deliveryCoords = places.delivery.latitude != null && places.delivery.longitude != null
+      ? { latitude: places.delivery.latitude, longitude: places.delivery.longitude }
+      : getDefaultCoordinates(form.destination);
+
+    const readyPickup = {
+      ...places.pickup,
+      ...pickupCoords,
+      cityId: places.pickup.cityId || getCityId(form.origin),
+      cityName: form.origin,
+    };
+    const readyDelivery = {
+      ...places.delivery,
+      ...deliveryCoords,
+      cityId: places.delivery.cityId || getCityId(form.destination),
+      cityName: form.destination,
+    };
+    setPlaces({ pickup: readyPickup, delivery: readyDelivery });
+
     savingRef.current = true; setSaving(true);
     try {
       if (!draftId.current) {
-        const created = await actions.createDraft({ ...form, horseCount: 1, careNotes: '' }, idempotencyKey);
+        const created = await actions.createDraft({ ...form, pickupAt: form.pickupAt || form.date, horseCount: 1, careNotes: '' }, idempotencyKey);
         if (!created.ok || !created.id) return;
         draftId.current = created.id;
       }
-      const result = await actions.saveRequestDetails(draftId.current, form, places.pickup, places.delivery);
+      const result = await actions.saveRequestDetails(draftId.current, form, readyPickup, readyDelivery);
       if (!result.ok) return;
       navigate(wizardPath({ id: draftId.current }, revising && r!.wizardStep >= 3 ? 3 : 2));
     } finally { savingRef.current = false; setSaving(false); }
@@ -80,23 +99,54 @@ export const CreateRequestPage: React.FC = () => {
   return <CustomerLayout title="Yêu cầu vận chuyển"><div className="cus-create-flow">
     <button type="button" className="cus-back" onClick={() => navigate(back)}><Icon name="back" />{r ? `Quay lại ${r.id}` : 'Yêu cầu vận chuyển'}</button>
     <h2 className="cus-title">{revising ? `Sửa yêu cầu ${r!.id}` : 'Tạo yêu cầu vận chuyển'}</h2>
-    <p className="cus-subtitle">Nhập địa chỉ cùng ngày lấy và ngày giao mong muốn. Thông tin từng ngựa được khai báo ở bước tiếp theo.</p>
+    <p className="cus-subtitle">Nhập nơi nhận, nơi giao và ngày vận chuyển. Thông tin từng ngựa được khai báo ở bước tiếp theo.</p>
     <WizardStepper request={r ?? null} current={0} />
     {revising && r?.feedback && <Note tone="yellow" title="Góp ý của Manager">{r.feedback}<p>Được phép sửa: {allowed.map(field => FIELD_LABEL[field]).join(', ')}</p></Note>}
     <fieldset className="cus-create__fieldset" disabled={saving}>
-      <section className="cus-card cus-create__schedule"><div className="cus-create__schedule-heading"><span className="cus-create__calendar"><Icon name="calendar" /></span><div>
-        <h3>Lịch vận chuyển mong muốn <span>*</span></h3><p>CBN sẽ xác nhận lịch sau khi xét duyệt yêu cầu.</p>
-      </div></div><div className="cus-create__dates">
-        <div className="cus-field"><label htmlFor="cr-pickup">Mong muốn CBN đến lấy ngựa *</label><DateField id="cr-pickup" value={form.pickupAt} min={minDate} max={form.date || undefined} disabled={lock('date') || saving} invalid={tried && (!form.pickupAt || form.pickupAt < minDate)} onChange={pickupAt => setForm(f => ({ ...f, pickupAt }))} /></div>
-        <div className="cus-field"><label htmlFor="cr-date">Mong muốn ngựa tới nơi giao *</label><DateField id="cr-date" value={form.date} min={form.pickupAt || minDate} disabled={lock('date') || saving} invalid={tried && (!form.date || form.date < form.pickupAt)} onChange={date => setForm(f => ({ ...f, date }))} /></div>
-      </div></section>
+      <section className="cus-card cus-create__schedule">
+        <div className="cus-create__schedule-left">
+          <span className="cus-create__calendar"><Icon name="calendar" /></span>
+          <div className="cus-create__schedule-title-group">
+            <h3>Lịch vận chuyển mong muốn <span>*</span></h3>
+            <p>CBN sẽ xác nhận lịch sau khi xét duyệt yêu cầu.</p>
+          </div>
+        </div>
+        <div className="cus-create__schedule-dates">
+          <div className="cus-field cus-create__date-col">
+            <label htmlFor="cr-pickup">Mong muốn CBN đến lấy ngựa <span>*</span></label>
+            <DateField
+              id="cr-pickup"
+              value={form.pickupAt || form.date}
+              min={minDate}
+              disabled={lock('date') || saving}
+              invalid={tried && (!form.pickupAt && !form.date)}
+              onChange={pickupAt => setForm(f => ({ ...f, pickupAt, date: f.date && f.date >= pickupAt ? f.date : pickupAt }))}
+            />
+          </div>
+          <div className="cus-field cus-create__date-col">
+            <label htmlFor="cr-date">Mong muốn ngựa tới nơi giao <span>*</span></label>
+            <DateField
+              id="cr-date"
+              ariaLabel="Ngày vận chuyển mong muốn"
+              value={form.date}
+              min={form.pickupAt || minDate}
+              disabled={lock('date') || saving}
+              invalid={tried && (!form.date || form.date < minDate)}
+              onChange={date => setForm(f => ({ ...f, date, pickupAt: f.pickupAt || date }))}
+            />
+          </div>
+        </div>
+      </section>
       <p className="cus-create__required">Các trường có dấu * là bắt buộc.</p>
       <RequestPlacesFields places={places} origin={form.origin} destination={form.destination} tried={tried} locked={lock}
         onPlaceChange={(key, place) => setPlaces(p => ({ ...p, [key]: place }))}
         onCityChange={(key, value) => { setForm(f => ({ ...f, [key === 'pickup' ? 'origin' : 'destination']: value })); setPlaces(p => ({ ...p, [key]: { ...p[key], latitude: undefined, longitude: undefined } })); }} />
       {(tried || optionsError) && hint && <Note tone="red" title="Kiểm tra thông tin nhận/giao">{hint}</Note>}
-      <div className="cus-create__actions"><button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(back)}>Hủy</button>
-        <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={save} disabled={saving}>{saving ? 'Đang lưu…' : 'Lưu & tiếp tục: Ngựa & hồ sơ'}</button>
+      <div className="cus-create__actions">
+        <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(back)}>Hủy</button>
+        <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={save} disabled={saving}>
+          {saving ? 'Đang lưu…' : 'Lưu & tiếp tục: Ngựa & hồ sơ →'}
+        </button>
       </div>
     </fieldset>
   </div></CustomerLayout>;

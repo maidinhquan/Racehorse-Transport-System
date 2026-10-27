@@ -10,6 +10,7 @@ import type {
   DocRecord,
   DocStatus,
   Horse,
+  HorseInput,
   HorseDocKey,
   HorseProfileStatus,
   Lifecycle,
@@ -20,7 +21,6 @@ import type {
   RequestDetailTab,
   RequestField,
   RequestStatus,
-  SharedDocKey,
   StopType,
   TransportRequest,
   Trip,
@@ -100,6 +100,34 @@ export const city = (name: string): City => CITIES.find((c) => c.name === name) 
 export const cityLabel = (name: string) => (name ? `${name}, ${city(name).country}` : '—');
 export const shortCity = (name: string) => (name === 'Ho Chi Minh City' ? 'HCMC' : name || '—');
 export const isInternational = (a: string, b: string) => city(a).country !== city(b).country;
+
+export function getDefaultCoordinates(cityName?: string): { latitude: number; longitude: number } {
+  const c = (cityName || '').toLowerCase();
+  if (c.includes('tokyo')) return { latitude: 35.6762, longitude: 139.6503 };
+  if (c.includes('chiba')) return { latitude: 35.6074, longitude: 140.1065 };
+  if (c.includes('osaka')) return { latitude: 34.6937, longitude: 135.5023 };
+  if (c.includes('nagoya')) return { latitude: 35.1815, longitude: 136.9066 };
+  if (c.includes('sapporo')) return { latitude: 43.0618, longitude: 141.3545 };
+  if (c.includes('fukuoka')) return { latitude: 33.5904, longitude: 130.4017 };
+  if (c.includes('hanoi') || c.includes('hà nội')) return { latitude: 21.0285, longitude: 105.8542 };
+  if (c.includes('binh duong') || c.includes('bình dương')) return { latitude: 10.9805, longitude: 106.6519 };
+  if (c.includes('da nang') || c.includes('đà nẵng')) return { latitude: 16.0544, longitude: 108.2022 };
+  return { latitude: 10.7769, longitude: 106.7009 };
+}
+
+export function getCityId(cityName?: string): string {
+  const c = (cityName || '').toLowerCase();
+  if (c.includes('hanoi') || c.includes('hà nội')) return '51bbbbbbbbbbbbbbbbbbbb';
+  if (c.includes('ho chi minh') || c.includes('hcmc') || c.includes('sài gòn')) return '51aaaaaaaaaaaaaaaaaaaa';
+  if (c.includes('binh duong') || c.includes('bình dương')) return '51dddddddddddddddddddd';
+  if (c.includes('da nang') || c.includes('đà nẵng')) return '51eeeeeeeeeeeeeeeeeeee';
+  if (c.includes('tokyo')) return '51ffffffffffffffffffff';
+  if (c.includes('osaka')) return '51111111111111111111';
+  if (c.includes('nagoya')) return '51222222222222222222';
+  if (c.includes('sapporo')) return '51333333333333333333';
+  if (c.includes('fukuoka')) return '51444444444444444444';
+  return '51aaaaaaaaaaaaaaaaaaaa';
+}
 
 /** Đơn mới chỉ nhận tuyến Việt Nam → Việt Nam và Việt Nam → Nhật Bản */
 export const BOOKING_ORIGINS = CITIES.filter((c) => c.country === 'VN');
@@ -223,7 +251,92 @@ export const emptyHorse = (): Omit<Horse, 'id'> => ({
   passport: { number: '', authority: '', issueDate: '', expiryDate: '' },
   fluDate: '', conditions: '', vetName: '', vetPhone: '',
 });
-export const emptyPlace = (): Place => ({ name: '', address: '', postal: '', contact: '', phone: '', notes: '' });
+
+/**
+ * Kiểm tra toàn bộ dữ liệu biểu mẫu ngựa và trả về bản đồ lỗi theo từng trường:
+ * key -> thông báo lỗi tiếng Việt
+ */
+export function validateHorseForm(h: HorseInput): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  // 1. Tên ngựa (bắt buộc)
+  if (!h.name || !h.name.trim()) {
+    errors.name = 'Vui lòng nhập tên ngựa.';
+  }
+
+  // 2. Giống ngựa (bắt buộc)
+  if (!h.breed || !h.breed.trim()) {
+    errors.breed = 'Vui lòng nhập giống ngựa.';
+  }
+
+  // 3. Giới tính (bắt buộc)
+  if (!h.sex) {
+    errors.sex = 'Vui lòng chọn giới tính.';
+  }
+
+  // 4. Ngày sinh (bắt buộc & <= hôm nay)
+  if (!h.dob) {
+    errors.dob = 'Vui lòng chọn ngày sinh.';
+  } else if (h.dob > today()) {
+    errors.dob = 'Ngày sinh không được lớn hơn ngày hiện tại.';
+  }
+
+  // 5. Số microchip (bắt buộc 15 chữ số)
+  const chip = (h.microchip || '').trim();
+  if (!chip) {
+    errors.microchip = 'Vui lòng nhập số microchip (15 chữ số).';
+  } else if (!/^\d{15}$/.test(chip)) {
+    errors.microchip = 'Microchip phải gồm đúng 15 chữ số.';
+  }
+
+  // 6. Số hộ chiếu (bắt buộc)
+  if (!h.passport?.number || !h.passport.number.trim()) {
+    errors.passNumber = 'Vui lòng nhập số hộ chiếu.';
+  }
+
+  // 7. Cơ quan cấp hộ chiếu (bắt buộc)
+  if (!h.passport?.authority || !h.passport.authority.trim()) {
+    errors.passAuth = 'Vui lòng nhập cơ quan cấp hộ chiếu.';
+  }
+
+  // 8. Ngày cấp hộ chiếu (bắt buộc & <= hôm nay)
+  if (!h.passport?.issueDate) {
+    errors.passIssue = 'Vui lòng chọn ngày cấp hộ chiếu.';
+  } else if (h.passport.issueDate > today()) {
+    errors.passIssue = 'Ngày cấp hộ chiếu không được lớn hơn hôm nay.';
+  }
+
+  // 9. Ngày hết hạn hộ chiếu (bắt buộc & >= ngày cấp)
+  if (!h.passport?.expiryDate) {
+    errors.passExp = 'Vui lòng chọn ngày hết hạn hộ chiếu.';
+  } else if (h.passport.issueDate && h.passport.expiryDate < h.passport.issueDate) {
+    errors.passExp = 'Ngày hết hạn phải sau hoặc bằng ngày cấp.';
+  }
+
+  // 10. Giá trị khai báo (bắt buộc > 0 VND)
+  const valStr = String(h.value ?? '').trim();
+  if (h.currency !== 'VND' || !valStr || !/^\d+$/.test(valStr) || Number(valStr) <= 0) {
+    errors.value = 'Giá trị khai báo phải là số nguyên VND lớn hơn 0.';
+  }
+
+  return errors;
+}
+
+/** Mapping giữa key lỗi và ID của phần tử input trong DOM để scroll & focus */
+export const HORSE_FIELD_ELEMENT_IDS: Record<string, string> = {
+  name: 'hf-name',
+  breed: 'hf-breed',
+  sex: 'hf-sex',
+  dob: 'hf-dob',
+  microchip: 'hf-microchip',
+  passNumber: 'hf-pass-no',
+  passAuth: 'hf-pass-auth',
+  passIssue: 'hf-pass-issue',
+  passExp: 'hf-pass-exp',
+  value: 'hf-value',
+};
+
+export const emptyPlace = (): Place => ({ name: '', address: '', postal: '', contact: '', phone: '', notes: '', cityId: '', cityName: '' });
 
 // ============================================================================
 // Hợp đồng & đặt cọc
@@ -350,20 +463,9 @@ export const HORSE_FILE_FIELD: Partial<Record<HorseDocKey, 'ownership' | 'valueP
 export const docRecord = (r: TransportRequest, key: DocKey, scope: string): DocRecord | undefined =>
   (r.docs || []).find((d) => d.key === key && d.scope === scope);
 
-/** Giấy tờ chung của đơn (thư mời, đăng ký giải; ATA Carnet cho tuyến Việt Nam → Nhật Bản) */
-export function sharedDocItems(r: TransportRequest): DocItem[] {
-  const keys: SharedDocKey[] = ['invite', 'raceReg'];
-  if (city(r.destination).country === 'JP' && isInternational(r.origin, r.destination)) keys.push('ataCarnet');
-  return keys.map((key) => {
-    const rec = docRecord(r, key, 'request');
-    return {
-      key, scope: 'request', name: DOC_NAME[key], kind: 'file', optional: true,
-      status: rec?.status ?? 'OPTIONAL', file: rec?.file, issue: rec?.issue,
-      note: rec?.file ? `Đã tải lên: ${rec.file.name}`
-        : key === 'ataCarnet' ? 'Tùy yêu cầu tạm quản, không mặc định bắt buộc.'
-        : 'Có điều kiện: chỉ cần khi chuyến phục vụ thi đấu / sự kiện.',
-    };
-  });
+/** Giấy tờ chung của đơn: Đã loại bỏ hồ sơ dùng chung theo Flow 1 */
+export function sharedDocItems(_r?: TransportRequest): DocItem[] {
+  return [];
 }
 
 /** Hồ sơ của một ngựa trong đơn: trạng thái lấy từ bản ghi giấy tờ, nếu chưa có thì suy ra từ hồ sơ ngựa */
@@ -409,16 +511,16 @@ export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[numbe
   if (!r.pickupAt || r.pickupAt < today() || r.pickupAt > r.date) e.push([0, 'Ngày lấy ngựa phải từ hôm nay và không sau ngày giao mong muốn.']);
   (['pickup', 'delivery'] as const).forEach((k) => {
     const p = r[k], label = k === 'pickup' ? 'Điểm nhận' : 'Điểm giao';
-    if (!p.name.trim() || !p.address.trim() || !p.contact.trim() || !p.phone.trim()) e.push([0, `${label}: còn thiếu tên, địa chỉ, người liên hệ hoặc số điện thoại.`]);
+    if (!String(p?.name ?? '').trim() || !String(p?.address ?? '').trim() || !String(p?.contact ?? '').trim() || !String(p?.phone ?? '').trim()) e.push([0, `${label}: còn thiếu tên, địa chỉ, người liên hệ hoặc số điện thoại.`]);
   });
   if (r.horseCount < 1 || r.horseCount > 6 || pickedHorses(r).length !== r.horseCount) e.push([2, 'Chọn đủ số ngựa, từ 1 đến 6.']);
   r.horses.forEach((id, i) => { if (!id) e.push([2, `Chưa chọn ngựa ở vị trí ${i + 1}/${r.horses.length}.`]); });
   pickedHorses(r).forEach((id) => {
     const h = horses.find((x) => x.id === id);
     if (!h) { e.push([2, `Không tìm thấy hồ sơ ${id}.`]); return; }
-    if (!h.microchip.trim()) e.push([2, `${h.name}: thiếu số microchip.`]);
-    if (!h.passport.number.trim()) e.push([2, `${h.name}: thiếu số hộ chiếu ngựa.`]);
-    if (!h.passport.scan && !docRecord(r, 'passport', id)?.file) e.push([2, `${h.name}: thiếu bản scan hộ chiếu ngựa.`]);
+    if (!String(h.microchip ?? '').trim()) e.push([2, `${h.name}: thiếu số microchip.`]);
+    if (!String(h.passport?.number ?? '').trim()) e.push([2, `${h.name}: thiếu số hộ chiếu ngựa.`]);
+    if (!h.passport?.scan && !docRecord(r, 'passport', id)?.file) e.push([2, `${h.name}: thiếu bản scan hộ chiếu ngựa.`]);
     if (!h.ownership && !docRecord(r, 'ownership', id)?.file) e.push([2, `${h.name}: thiếu chứng nhận sở hữu.`]);
     if (passportStatus(h) === 'EXPIRED') e.push([2, `${h.name}: hộ chiếu đã hết hạn, hãy cập nhật trước khi gửi.`]);
   });

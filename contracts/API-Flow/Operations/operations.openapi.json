@@ -3,7 +3,7 @@
   "info": {
     "title": "helo reference — planning, cases and settlement additions",
     "version": "1.0.0",
-    "description": "Frontend target contract only; backend implementation and DB migrations are not included."
+    "description": "Frontend target contract only; backend implementation and DB migrations are not included. Planning/timed-document operations are superseded by Flow 3 v2 on 27/10/2026."
   },
   "servers": [
     {
@@ -20,7 +20,7 @@
       "get": {
         "operationId": "F2-J53",
         "summary": "Resolve the short-validity document list from the assigned trip requirement set; do not issue documents yet.",
-        "description": "Resolve the short-validity document list from the assigned trip requirement set; do not issue documents yet.",
+        "description": "SUPERSEDED 27/10/2026 by Flow 3 v2: parallel preparation, no timed-document scheduling gate. Historical payload only. Retired mutation returns 409 CONTRACT_SUPERSEDED; no workflow transition.",
         "x-role": "TRANSPORT_SPECIALIST",
         "x-implementation-status": "requires-backend-implementation",
         "parameters": [
@@ -144,14 +144,16 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "x-superseded-by": "../Flow3/flow3.openapi.json"
       }
     },
     "/specialist/trips/{tripId}/timed-documents/send": {
       "post": {
         "operationId": "F2-J54",
         "summary": "Freeze and send the requirement-derived list to the assigned Coordinator. No body; server resolves lead/validity days.",
-        "description": "Freeze and send the requirement-derived list to the assigned Coordinator. No body; server resolves lead/validity days.",
+        "description": "SUPERSEDED 27/10/2026 by Flow 3 v2: parallel preparation, no timed-document scheduling gate. Historical payload only. Retired mutation returns 409 CONTRACT_SUPERSEDED; no workflow transition.",
         "x-role": "TRANSPORT_SPECIALIST",
         "x-implementation-status": "requires-backend-implementation",
         "parameters": [
@@ -168,33 +170,6 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "const": true
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "$ref": "#/components/schemas/TimedDocuments"
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "message",
-                    "data"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
           "400": {
             "description": "Error; no success on rejected transitions",
             "content": {
@@ -241,6 +216,12 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Use Flow 3 v2 parallel preparation",
+                  "errorCode": "CONTRACT_SUPERSEDED",
+                  "data": null
                 }
               }
             }
@@ -275,145 +256,16 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "x-superseded-by": "../Flow3/flow3.openapi.json"
       }
     },
     "/coordinator/trips/{tripId}/timed-documents": {
       "get": {
         "operationId": "F3-J21",
         "summary": "F3-J21",
-        "description": "",
-        "x-role": "FLEET_ROUTE_COORDINATOR",
-        "x-implementation-status": "requires-backend-implementation",
-        "parameters": [
-          {
-            "name": "tripId",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 50,
-              "pattern": "^[A-Za-z0-9_-]+$"
-            },
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "const": true
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "$ref": "#/components/schemas/TimedDocuments"
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "message",
-                    "data"
-                  ],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Error; no success on rejected transitions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Error; no success on rejected transitions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Error; no success on rejected transitions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Error; no success on rejected transitions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Error; no success on rejected transitions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Error; no success on rejected transitions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Error; no success on rejected transitions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Error; no success on rejected transitions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/coordinator/trips/{tripId}/timed-documents/schedule": {
-      "post": {
-        "operationId": "F3-J22",
-        "summary": "Schedule the SENT list version. Validate earliest departure, trip readiness, arrival commitment and document validity. SCHEDULED unlocks Specialist document preparation; stale version returns 409.",
-        "description": "Schedule the SENT list version. Validate earliest departure, trip readiness, arrival commitment and document validity. SCHEDULED unlocks Specialist document preparation; stale version returns 409.",
+        "description": "SUPERSEDED 27/10/2026 by Flow 3 v2: parallel preparation, no timed-document scheduling gate. Historical payload only. Retired mutation returns 409 CONTRACT_SUPERSEDED; no workflow transition.",
         "x-role": "FLEET_ROUTE_COORDINATOR",
         "x-implementation-status": "requires-backend-implementation",
         "parameters": [
@@ -538,6 +390,118 @@
             }
           }
         },
+        "deprecated": true,
+        "x-superseded-by": "../Flow3/flow3.openapi.json"
+      }
+    },
+    "/coordinator/trips/{tripId}/timed-documents/schedule": {
+      "post": {
+        "operationId": "F3-J22",
+        "summary": "Schedule the SENT list version. Validate earliest departure, trip readiness, arrival commitment and document validity. SCHEDULED unlocks Specialist document preparation; stale version returns 409.",
+        "description": "SUPERSEDED 27/10/2026 by Flow 3 v2: parallel preparation, no timed-document scheduling gate. Historical payload only. Retired mutation returns 409 CONTRACT_SUPERSEDED; no workflow transition.",
+        "x-role": "FLEET_ROUTE_COORDINATOR",
+        "x-implementation-status": "requires-backend-implementation",
+        "parameters": [
+          {
+            "name": "tripId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 50,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Error; no success on rejected transitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error; no success on rejected transitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error; no success on rejected transitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error; no success on rejected transitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error; no success on rejected transitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "success": false,
+                  "message": "Use Flow 3 v2 parallel preparation",
+                  "errorCode": "CONTRACT_SUPERSEDED",
+                  "data": null
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error; no success on rejected transitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error; no success on rejected transitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Error; no success on rejected transitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -563,7 +527,9 @@
               }
             }
           }
-        }
+        },
+        "deprecated": true,
+        "x-superseded-by": "../Flow3/flow3.openapi.json"
       }
     },
     "/manager/incidents": {

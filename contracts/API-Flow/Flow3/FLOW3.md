@@ -1,142 +1,151 @@
-# API Contract — Flow 3: đánh giá khả thi, lập phương án và duyệt khởi hành
-
-## Cập nhật helo.html — 26/10/2026
-
-Specialist gửi danh sách hồ sơ có thời hạn trước; Coordinator chốt lịch khởi hành
-trên đúng version đó, sau đó Specialist mới chuẩn bị/cấp giấy tờ chính thức.
-Không thay đổi dữ liệu đã cấp khi xem trước. API bổ sung và guard nằm tại
-[Operations/OPERATIONS.md](../Operations/OPERATIONS.md) và
-[operations.openapi.json](../Operations/operations.openapi.json).
-Các mô tả cũ cho phép làm hồ sơ trước khi chốt lịch được thay bằng quy tắc này.
-Frontend/API contract đã cập nhật; backend chưa được triển khai trong thay đổi này.
-
+# API Contract — Flow 3: lập tuyến, bố trí nguồn lực và duyệt khởi hành
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Phiên bản | 1.0 — flow sửa theo yêu cầu ngày 24/10/2026 |
-| Đầu vào | Request ACTIVATED, Contract EFFECTIVE, Trip PLANNING, deployment CONFIRMED; Manager đã giao Specialist/Coordinator và hạn giao thống nhất với khách từ Flow 1 |
-| Kết thúc | Manager duyệt khởi hành riêng: Trip READY_TO_DEPART, Request SCHEDULED |
-| Phạm vi | Thiết kế API contract, chưa triển khai frontend/backend/DB/migration |
-| Nguồn ưu tiên | Trình tự mới trong ảnh người dùng ngày 24/10/2026; frontend chỉ làm nguồn đối chiếu màn hình và trường dữ liệu |
+| Phiên bản | 2.0.0 — 27/10/2026, ghi đè Flow 3 cũ |
+| Frontend đối chiếu | `D:/Shared/Final_Flow3.html` |
+| Phạm vi | Thiết kế API contract; chưa triển khai backend/database hoặc nối HTML vào API |
+| Đầu vào | Trip PLANNING, Request ACTIVATED, Contract EFFECTIVE, cọc đã xác minh, deployment CONFIRMED, đã giao Specialist/Coordinator |
+| Kết thúc | Manager duyệt khởi hành: Trip READY_TO_DEPART, Request SCHEDULED; DEPARTED thuộc Flow 4 |
 
-[JSON từng API](FLOW3-API-JSON.md) · [OpenAPI 3.1](flow3.openapi.json) · [Kịch bản ROAD/AIR và nhánh lỗi](flow3.examples.json) · [Quy ước](../../CONVENTIONS.md).
+[JSON từng API](FLOW3-API-JSON.md) · [OpenAPI](flow3.openapi.json) · [Kịch bản nghiệm thu](flow3.examples.json) · [Quy ước](../../CONVENTIONS.md).
 
-## 1. Trình tự mới
+## 1. Quy trình thay thế bản cũ
 
-1. **Manager giao thông tin chuyến và hạn giao đã thống nhất với khách.** Đọc snapshot hợp đồng, danh sách ngựa, tuyến/phương thức và phân công từ Flow 1. Coordinator không tự đổi hạn giao.
-2. **Specialist kiểm tra hồ sơ và công bố đánh giá khả thi.** Ghi ngày/giờ sớm nhất dự kiến đủ điều kiện, hiệu lực từng giấy tờ tại nơi cần sử dụng và những mục còn thiếu hoặc cần lịch/chuyến bay chính thức để hoàn thiện. Đây là dự kiến có điều kiện, chưa phải Docs READY.
-3. **Coordinator lập phương án trong khoảng khả thi.** Tuyến, xe, ba vị trí nhân sự mỗi ROAD, chuyến bay và thời gian giao phải đồng thời phù hợp hồ sơ và hạn giao khách. Lưu nháp không giữ nguồn lực; gửi duyệt mới kiểm tra lại và giữ tạm.
-4. **Manager duyệt phương án hoặc trả lại có lý do.** Duyệt đúng phiên bản phương án, đánh giá Specialist và deadline snapshot. AIR duyệt luôn đề xuất dịch vụ/ngân sách nằm trong bản này. Chưa yêu cầu booking, Docs READY hoặc Ops READY ở mốc này.
-5. **Sau duyệt**, Specialist hoàn thiện các mục phụ thuộc lịch chính thức; Coordinator xác nhận booking và khả dụng thực tế của nguồn lực theo phương án được duyệt.
-6. **Hai bên xác nhận READY cùng phương án.** Specialist xác nhận Docs READY, Coordinator xác nhận Ops READY. Backend kiểm tra lại; Manager thực hiện phê duyệt khởi hành riêng. Driver xác nhận khởi hành thực tế ở Flow 4.
+Sau giao việc, hai nhánh chạy ngay và song song: Specialist xử lý hồ sơ khách/CBN, bảo hiểm, kiểm dịch bằng Flow 2 rồi xác nhận Docs READY; Coordinator lập tuyến, bố trí xe/người, chọn dịch vụ bay, gửi Manager duyệt và hoàn tất vận hành. Không bắt Coordinator đợi planning-feasibility, earliestReadyAt hoặc danh sách giấy tờ có thời hạn.
 
-Specialist có thể chuẩn bị giấy tờ không phụ thuộc lịch từ sớm. Coordinator có thể xem danh mục trước, nhưng không lưu/gửi phương án chính thức khi chưa có đánh giá khả thi hợp lệ. Không bắt Specialist hoàn tất mục cần lịch/chuyến bay trước khi Coordinator được lập phương án.
+Theo giả định đồ án trong frontend này, giấy tờ được xem là còn hiệu lực suốt chuyến. Vẫn bắt đủ hồ sơ được duyệt, bảo hiểm VERIFIED bao phủ lịch chuyến và lịch kiểm dịch bắt buộc được xác nhận. Checklist rỗng/chưa áp bộ yêu cầu không tự READY. Chứng chỉ nhân sự vẫn kiểm tra hạn. Thay lịch/tuyến/bộ yêu cầu/bảo hiểm phải đánh giá lại dấu READY liên quan.
 
-## 2. Ranh giới với Flow 2 và chuyển đổi endpoint
+### ROAD
 
-Flow 2 tiếp tục quản lý hồ sơ khách, chứng từ CBN và phiên bản/file/review, bộ yêu cầu, bảo hiểm, lịch kiểm dịch, yêu cầu bổ sung. **Flow 3 này là nguồn chuẩn mới cho thứ tự chuẩn bị và điều phối tới duyệt khởi hành.** Những phần trùng trong bản Flow 2 ngày 24/10 trước thay đổi được đánh dấu superseded; không triển khai song song hai quy trình.
+1. Lưu nháp tuyến và xe + MAIN_DRIVER, CO_DRIVER, VETERINARIAN.
+2. Tính tuyến, kiểm tra nghỉ/chăm sóc, hạn giao, tiếp cận địa chỉ và giới hạn xe. Coordinator xác nhận bố trí nguồn lực **trước submit**.
+3. Gửi cả tuyến và nguồn lực đã xác nhận; Manager duyệt/trả có lý do. Chưa cần Docs READY tại mốc này.
+4. APPROVED + xác nhận nguồn lực còn đúng tạo Ops READY do server tính.
 
-| Contract cũ | Contract Flow 3 |
+### AIR
+
+1. Chọn bên dịch vụ và nhập mã do bên đó cung cấp. Lookup đúng partnerId + providerFlightCode, trả lịch/giá/sân bay/chăm sóc/sức chứa và lỗi phù hợp Trip.
+2. Lập ROAD trước/sau bay: hai xe và sáu người riêng, ba vị trí mỗi chặng. Không bố trí bác sĩ CBN trên máy bay; đối tác chịu trách nhiệm chăm sóc khi bàn giao/chờ/bay.
+3. Gửi phương án tổng thể với nguồn lực **dự kiến**. Manager duyệt tuyến, nguồn lực dự kiến và ngân sách trong cùng quyết định. **Không bắt booking/resourcesConfirmed trước mốc này.**
+4. Coordinator liên hệ và đặt dịch vụ bên ngoài, ghi nhận booking đúng bản duyệt rồi xác nhận nguồn lực thực tế. Server tính Ops READY.
+
+Nút duyệt chi phí bay riêng vẫn có API nhưng không thay duyệt tổng thể, không giữ chỗ và không mở booking khi plan chưa APPROVED. Submit tổng thể tự đưa flight DRAFT/REJECTED sang BUDGET_PENDING; approve tổng thể đồng thời duyệt đúng ngân sách đó. Một bên không đáp ứng thì tra bên khác; không tự sửa hợp đồng/hạn giao hoặc sinh chuyến/booking giả.
+
+### Hội tụ
+
+Manager đọc readiness rồi duyệt khởi hành riêng khi Docs READY + Ops READY còn đúng, đủ bảo hiểm/kiểm dịch/booking AIR, nguồn lực khả dụng, tuyến/địa chỉ hợp lệ và không sự cố chặn. POST recheck trong transaction; GET không đủ để ra quyết định. Duyệt phương án không tự khởi hành.
+
+## 2. Phiên bản và giữ nguồn lực
+
+`version` là revision tổng hợp planning của Trip, tăng sau mỗi mutation thành công. Mọi mutation gửi expectedVersion; catalogue dùng revision từng record. `contextVersion` tăng khi đầu vào Flow 1/phân công đổi. `planVersion` là revision nội dung, tăng đơn điệu khi sửa nội dung; submit/rút/quyết định chỉ tăng version. Không dùng v/routeVersion HTML làm khóa backend. Draft/approvedPlan tách riêng, draft có thể thiếu; submit bắt đủ.
+
+Server lưu resourcesConfirmed/docsReady/routing/pickupAccess kèm dependency snapshot, actor/time và valid/invalidatedReason. Docs READY có thể lập trước phương án; không bắt version tổng hợp của hai dấu bằng nhau. Backend đối chiếu dependency với approved plan hiện tại; thay đổi ảnh hưởng mới vô hiệu dấu. Xác nhận dấu bên kia không tự hủy dấu còn đúng. Khi planVersion đổi, server tái đánh giá; client không tự mang READY sang bản mới.
+
+ROAD confirm trước submit kiểm tra và giữ tạm nguyên tử. AIR draft không giữ; submit giữ tạm nguyên tử. Manager duyệt chuyển sang phân công xác nhận. Một xe/người chỉ thuộc một Trip active, kiểm tra toàn hệ thống, không chỉ danh sách UI; không dùng lại giữa hai ROAD của AIR. Trả/rút giải phóng đúng giữ tạm, không giải phóng approved cũ. Không tự hết hạn hold nếu chưa có policy.
+
+J12 tạo draft thay thế có lý do, giữ approved snapshot và lịch sử. Có bản sửa mở thì chặn departure. Duyệt mới chuyển nguồn lực/thay approved nguyên tử. Booking BOOKED không overwrite: J20 ghi nhận hủy đối tác trước duyệt bản thay flight/lịch/số ngựa; chỉ giữ booking nếu backend xác minh không bị ảnh hưởng. Rút draft không tự hủy booking.
+
+Idempotency-Key UUID bắt buộc mọi mutation, scope actor + method + path; lưu bền vững >=24h. Cùng key/body chuẩn hóa trả cùng kết quả; khác body IDEMPOTENCY_CONFLICT. Key khác + revision cũ STALE_VERSION. Kiểm JWT/scope trước replay. POST validate chỉ đọc không cần key; POST routing/truck-check lưu bằng chứng nên cần key. Không nhận actor/time/status/READY/deadline/giá đối tác từ client.
+
+## 3. Tuyến, địa điểm, nghỉ và bản đồ
+
+Điểm nhận/giao là snapshot request riêng tư, không thêm vào catalogue công cộng. Place có nhiều chức năng REST/FUEL/QUARANTINE/BORDER/AIRPORT. placeId là khóa opaque server cấp; adapter checkpoints cũ giữ kiểu khóa nguồn, không suy DB ID từ PL-* demo. Trip/request/horse/vehicle/user theo TRIP_*/REQUEST_*/HORSE_*/VEHICLE_*/USER_*. EMP-* trong HTML phải map USER_*, không tạo actor mới. serviceId opaque; bookingId integer.
+
+Stops theo thứ tự, ORIGIN/DESTINATION cố định; không xóa/đổi type để né điểm bắt buộc. Một place đa chức năng có nhiều purposes trong một lần ghé. AIR có hai AIRPORT kề nhau, một chuyến thẳng, hai ROAD độc lập. Backend resolve tọa độ/place/private endpoints và tính giờ, không tin geometry/plannedAt/ETA client.
+
+Leaflet hiển thị; OSRM tham khảo đường bộ, không chứng minh hạn chế xe tải. Routing phía server trả geometry từng đoạn [lat,lng], km, duration, lịch arrive/depart. Không nối thẳng tọa độ rồi gọi là đường thực. DEMO/SIM chỉ Trip demo khi capability cho phép, nhãn rõ; không dùng duyệt chuyến thật.
+
+Policy demo lấy J01, version và nhãn “Đề xuất cho đồ án”, không là luật: careIntervalH=4, shortRestMin=45, roadEpisodeH=12, recoveryRestH=8, truckFactor=1.2, airportHandoverH=3, airportReceiveH=2. Thiếu cấu hình chặn tính/submit, không tự default. Không nhân truckFactor hai lần.
+
+- Cộng dồn lái + chờ không nghỉ đến lần chăm sóc hợp lệ; không vượt careIntervalH, kiểm ngay trước khi tới trạm.
+- REST cần active, chỗ xe, nước/thức ăn, đủ capacity, mở cửa toàn khoảng ghé, dwell >= shortRestMin. Nghỉ trên xe cần onboardCare; xuống xe cần loadingArea + stabling.
+- Nghỉ ngắn reset care clock, không reset roadEpisode. Chỉ hồi phục ngoài xe đủ recoveryRestH reset đợt đường bộ; đổ xăng/kiểm dịch không tự là nghỉ.
+- Giờ mở 24/7 hoặc HH:mm–HH:mm, hỗ trợ qua đêm. Toàn khoảng ghé nằm trong giờ mở, hai đầu bằng nhau không hợp lệ.
+- AIR đến sân bay trước giờ bay ít nhất airportHandoverH; tiếp nhận sau hạ cánh airportReceiveH. Care confirmation gắn flight version; bay không là nghỉ hồi phục. Reset clock đường bộ chặng đến chỉ khi có bàn giao chăm sóc rõ.
+- ETA server gồm lái/dừng/bay/bàn giao <= deliveryDeadline từ Flow 1. Không phù hợp thì Manager xử lý cam kết qua Flow 1, nhập reason không vượt deadline.
+
+Place create/update chặn trùng tọa độ trong 50m, ưu tiên thêm chức năng vào địa điểm hiện có. Place đã tham chiếu kể cả history không xóa; đổi trạng thái không rewrite approved snapshot. Catalogue capacity là khả năng cơ sở, không phải chỗ trống realtime.
+
+## 4. Xe, nhân sự và tiếp cận
+
+Request 1–4 ngựa, kiểm mapping thực không tin count client. Xe READY, đủ stalls, đúng quốc gia/khu vực, không bảo trì/xung đột. Ba người khác nhau: hai DRIVER và một VETERINARIAN đủ chuyên môn/chứng chỉ đến hết khoảng phân công. AIR hai xe/sáu người khác nhau đúng quốc gia chặng. Không coi một EscortID là đủ hai vị trí.
+
+Flow 3 không thêm/xóa hồ sơ nhân viên. Coordinator/Manager chỉ đổi ACTIVE/ON_LEAVE/INACTIVE. Người đang IN_TRANSIT phải thay qua flow sự cố trước nghỉ/ngừng. Thay trạng thái vô hiệu xác nhận nguồn lực Trip PLANNING liên quan và báo Manager. Trip READY_TO_DEPART bị ảnh hưởng phải chặn xuất phát, xử lý lại phê duyệt; không dùng READY cũ vượt gate.
+
+vehicle.spec là kích thước/grossT cố định từ phân hệ xe đã xác minh, không suy từ stalls như fixture HTML. So pickup.access/delivery.access (maxHeightM/maxWidthM/maxLengthM/maxWeightT, dùng grossT). AIR outbound so pickup, inbound so delivery. Chưa có giới hạn khai báo không tự bịa giới hạn, vẫn xác minh tiếp cận. J27 trả eligible/blockers để lọc xe.
+
+TruckProfile theo road/outbound/inbound: heightM,widthM,lengthM,currentT,grossT,axleT >0; currentT<=grossT; axleT<=currentT; vehicleId đúng xe. Không cho giảm kích thước/grossT khác spec để né hạn chế. J26 kiểm đường cấm/cầu/hầm theo đúng xe/lịch/stops, lưu server evidence; client không gửi ok/provider/signature. HERE_TRUCK là provider mục tiêu trong HTML; key/config ở server, không nhận key/URL tùy ý từ client. Provider lỗi trả 503 ROUTING_UNAVAILABLE, không fallback thành verified. Snap endpoint lệch >250m hoặc critical/violation/restricted notice chặn.
+
+HTML cuối file ẩn khối truck/access, guard submit cuối chỉ kiểm số ngựa. Contract vẫn bắt các điều kiện này tại submit/approve/departure; khi tích hợp FE cần hiện lại thao tác hoặc kết quả xác minh để hoàn tất, không chỉ hiện lỗi sau duyệt.
+
+## 5. Đổi điểm nhận
+
+J28 xác minh ACCESSIBLE/INACCESSIBLE đúng xe/profile/địa chỉ, căn cứ >=8 ký tự và acknowledgement. Nếu không vào được, J29 trả cơ sở active cùng quốc gia, QUARANTINE, có truckParking/loadingArea/waterFeed/capacity đủ và tọa độ; mở toàn bộ 30 phút bàn giao. Khoảng cách đường thẳng chỉ tham khảo.
+
+J30 tạo PROPOSED, reason >=10 ký tự, đã liên hệ cơ sở. J31 Manager APPROVE → MANAGER_APPROVED; RETURN cần reason >=5 → REJECTED. J32 Manager ghi nhận khách đã đồng ý thực tế qua PHONE/EMAIL/WRITTEN, note >=10 và acknowledgement → CUSTOMER_CONFIRMED. Thông báo gửi khách không là consent.
+
+Chỉ CUSTOMER_CONFIRMED mới dùng làm ORIGIN draft, giữ pickup gốc request/hợp đồng. Nội dung nêu khách tự đưa ngựa đến, giờ/trách nhiệm bàn giao; không tự phát sinh phí hay sửa giá. Recheck placeVersion/xe/profile/giờ hẹn ở từng bước. J33 mở đề xuất lại, giữ history, xóa evidence phụ thuộc, tính lại tuyến và xin consent mới. Không đổi điểm giao bằng API này; điểm giao không vào được thì thay xe hoặc xử lý hợp đồng đúng thẩm quyền.
+
+## 6. Đối tác bay và booking
+
+Coordinator CRUD bên dịch vụ, Manager chỉ đọc catalogue. Tuyến/lịch bay đối tác cung cấp là read-only, không có endpoint Coordinator tự tạo/sửa/xóa schedule. Catalogue demo sample=true. Không có lịch phù hợp trả data=[]/blockers để tra bên khác; không hứa thực tế luôn có chuyến.
+
+Lookup mã trim/case-fold trong đúng partner. Cùng partner có nhiều lịch cùng mã trả FLIGHT_CODE_AMBIGUOUS kèm candidates; chọn serviceId rõ. Chọn serviceId+catalogVersion vào draft; server snapshot partner/code/airports/local times+IANA zones/giờ chuẩn/giá VND/capacity/care. Quy đổi VN/JP cùng instant trước so sánh, không so chuỗi local. USD demo phải thay báo giá VND đã xác nhận; không đổi nhãn hay đoán tỷ giá. Chi phí vận hành không sửa giá khách.
+
+Budget DRAFT → BUDGET_PENDING → BUDGET_APPROVED/REJECTED; plan DRAFT → PENDING_APPROVAL → APPROVED/RETURNED. J11 duyệt tổng thể AIR gồm ngân sách. J40/J41 cho nút chi phí riêng, không thay J11. BUDGET_APPROVED không là BOOKED.
+
+J13 sau APPROVED tổng thể + đúng budget snapshot. bookingRef 4–100, confirmedHorses đúng số ngựa, acknowledged=true, source PARTNER_REFERENCE/DEMO. File tùy chọn từ J42, không object URL/base64 giả. Không trùng mã trim/case-fold cùng đối tác ở Trip khác. Recheck catalogue/khả dụng/lịch/giá/care; thay đổi trả FLIGHT_CATALOG_CHANGED, không tự refresh approved snapshot. DEMO chỉ Trip/capability demo. Upload PDF/JPEG/PNG thật <=10 MiB, kiểm nội dung/MIME/quét và ownership trước gắn; download luôn xác thực, không trả binary giả.
+
+J20 ghi nhận hủy đã được đối tác xác nhận (hoặc demo), reference/lý do/evidence/history. Không gọi API hãng thật hoặc báo hoàn tiền chỉ bằng ghi nhận hủy. Partner có tham chiếu không xóa. Đổi catalogue không sửa snapshot, nhưng vô hiệu bằng chứng liên quan và chặn khi không còn phù hợp.
+
+## 7. READY và giao thức
+
+J14 ROAD confirm ở draft đủ bộ, AIR sau approved+booking. Response có resourcesConfirmed và opsReady server tính. J15 recheck/reconfirm cho caller cũ cùng gate; UI chỉ cần nút J14, không bắt thêm nút Ops READY. J16 Specialist xác nhận đủ hồ sơ/bảo hiểm, được trước duyệt tuyến; phụ thuộc đổi phải kiểm lại. Không dùng 0/0 hoặc boolean client để READY.
+
+J18 nhận expectedVersion+approvedPlanVersion+readinessVersion vừa đọc. Transaction khóa/đọc lại tất cả dependency; quá plannedDepart, còn draft thay đổi hoặc điều kiện đổi trả READINESS_CHANGED/blockers. Thành công cập nhật Trip+Request, audit/notification nguyên tử, không tạo DEPARTED. Sau READY_TO_DEPART khóa sửa planning/hồ sơ; lùi lịch/thu hồi phê duyệt là workflow riêng, không tự unlock. Driver vẫn kiểm trước xuất phát thực tế. Sự cố/khả dụng đổi phải chặn dù từng approved.
+
+readinessVersion do server cấp cho tập kết quả kiểm tra/dependency, không phải timestamp client hoặc planVersion. Thay đổi nguồn ngoài/capability/thời gian làm gate đổi phải được phát hiện khi đọc/lệnh duyệt, kể cả version của nội dung plan chưa đổi. J17 trả checks có code/group/tab/label/ok/detail cho checklist của frontend và blockers cho lý do chặn; client không tự tính canApproveDeparture từ vài cờ.
+
+Base /api; Bearer JWT role FLEET_ROUTE_COORDINATOR (HTML alias FLEET_COORDINATOR), TRANSPORT_SPECIALIST, LOGISTICS_MANAGER. Staff chỉ Trip được giao; Manager trong scope quản lý; file/history cùng kiểm quyền. 403 sai role, 404 ngoài scope. Place/partner mutation chỉ Coordinator; staff-status cho Coordinator/Manager. Không CRUD xe từ Flow 3.
+
+Envelope {success,message,data}; list data array. ID/status/version/time server cấp. Timestamp YYYY-MM-DD HH:mm theo Asia/Ho_Chi_Minh, kiểm ngày lịch thật, lưu UTC. Tiền nguyên VND. Error có errorCode/blockers[{code,field,message}], không SQL/stack. 400 validation, 401 auth, 403 role, 404 scope, 409 business/stale, 413 quá file, 415 MIME, 429 rate, 500 internal, 501 unsupported, 503 provider lỗi. Capability false trả 501, không fallback mock.
+
+Các mã chính: STALE_VERSION, IDEMPOTENCY_CONFLICT, DEPLOYMENT_REQUIRED, PLAN_LOCKED, RESOURCE_CONFLICT, RESOURCES_NOT_CONFIRMED, INVALID_CREW, VEHICLE_ACCESS_RESTRICTED, PICKUP_CONSENT_REQUIRED, PLACE_CHANGED, CARE_POLICY_VIOLATION, DELIVERY_DEADLINE_EXCEEDED, ROUTING_REQUIRED, TRUCK_ROUTE_REQUIRED, FLIGHT_PROVIDER_MISMATCH, FLIGHT_CODE_AMBIGUOUS, FLIGHT_CATALOG_CHANGED, PLAN_NOT_APPROVED, OLD_BOOKING_ACTIVE, BOOKING_REFERENCE_DUPLICATE, DOCS_NOT_READY, READINESS_CHANGED, DEPARTURE_APPROVAL_LOCKED, RECORD_REFERENCED, CONTRACT_SUPERSEDED.
+
+## 8. Chuyển đổi endpoint cũ
+
+| Cũ | Chuẩn v2 |
 |---|---|
-| F2-J28 docs-ready | F3-J16, cùng method/path, payload mới gắn phương án và feasibility |
-| F2-J35–J38: trips/vehicles/staff/checkpoints | Tiếp tục dùng cho danh sách/danh mục; không dùng mock thay dữ liệu thật |
-| F2-J39 chi tiết chuyến | Giữ projection cơ bản; lấy trạng thái chuẩn bị và phiên bản mới qua F3-J02/J04/J10 |
-| F2-J40 route-draft + J42 resources + J44 flight proposal | F3-J06 plan-draft: lưu một bộ tuyến/lịch/xe/nhân sự/đề xuất AIR nhất quán |
-| F2-J41 submit, J46 reopen, J49 route decision | F3-J08 gửi, J09 rút, J11 quyết định, J12 đề xuất thay phương án đã duyệt |
-| F2-J43 resources confirm, J45 booking | F3-J14, F3-J13, cùng method/path nhưng kiểm tra bản đã duyệt; Ops READY riêng F3-J15 |
-| F2-J47 preparation, J48 readiness, J51 departure | F3-J10, J17, J18 cùng method/path, dùng schema Flow 3 |
-| F2-J50 flight decision | Không quyết định riêng để vượt duyệt phương án; ngân sách nằm trong F3-J11 |
+| F3-J03 planning-feasibility | Retired, không là gate; mutation cũ 409 CONTRACT_SUPERSEDED |
+| F3-J21/J22 timed-documents | Retired khỏi planning; lịch nằm plan-draft, không unlock hồ sơ |
+| F2-J53/J54 timed-documents | Chỉ metadata/history nếu còn hiển thị; không block giấy; lệnh tuần tự cũ CONTRACT_SUPERSEDED |
+| F3-J06/J08/J11 | Giữ URL, schema v2, ROAD/AIR gate khác nhau |
+| F3-J13/J14/J16/J17/J18 | Giữ booking/resources/docs-ready/readiness/departure URL, một schema v2 |
+| F2 route-draft/resources/flight-proposals | Caller chuyển Flow 3, không chạy workflow cũ song song |
+| F2-J36/J37 | Giữ URL vehicle/staff, mở rộng projection spec/status/assignment |
+| F2-J38 checkpoints | Adapter đọc cùng catalogue places, không hai nguồn khác nhau |
+| Flow 1 | Giữ contract riêng về cọc/ký/kích hoạt/giao việc, chỉ đọc kết quả |
+| Flow 4–5 | Khởi hành thực tế, báo cáo đường/sự cố/thay người đang chạy thuộc vận hành |
 
-Đây là thay đổi contract trước tích hợp, chưa khẳng định caller cũ tương thích. Khi tích hợp, đổi capability và caller cùng đợt; gọi mutation cũ đã thay thế trả 409 CONTRACT_SUPERSEDED, không chạy workflow cũ. Những path được giữ dùng schema Flow 3 khi deployment đã chuyển sang contract này. Không thêm prefix `/flow3` cho API nghiệp vụ; endpoint capability là metadata.
+OpenAPI/JSON Flow 3 là nguồn schema v2; chỉ dẫn role cũ trỏ URL khác phải chuyển theo bảng này. Backend triển khai công bố capability.version=2.0.0; không hai schema để bỏ gate. Không tuyên bố DTO/revision/snapshot đã có bảng/migration; cần triển khai persistence, hold, file, audit, idempotency và provider riêng.
 
-## 3. Khoảng khả thi và hiệu lực tại điểm dùng
+## 9. Ánh xạ frontend và nghiệm thu
 
-`earliestReadyAt` là dự kiến sớm nhất đủ điều kiện xuất phát. `constraints` liệt kê từng yêu cầu giấy tờ có phạm vi ngựa/chuyến, hiệu lực và mốc cần dùng. `dependencies` ghi mục cần lịch chính thức/chuyến bay, ai hoàn thiện và điều kiện để hoàn thiện. `planningAllowed` do backend tính, không phải boolean Specialist tự bật.
-
-- Thiếu bộ yêu cầu, thiếu ngày hiệu lực bắt buộc, chưa đánh giá một điều kiện, không biết ngày có thể hoàn thiện, hoặc chưa đủ dữ liệu đối chiếu: planningAllowed=false và có blockers. Không coi constraints rỗng là hợp lệ nếu chưa chứng minh tuyến không có yêu cầu thời hạn.
-- `constraints`/`dependencies` là kết quả rà soát theo requirement snapshot, không thay thế checklist Flow 2. Backend đối chiếu đủ các mục; không nhận danh sách bỏ bớt để qua kiểm tra. Dòng ngày tháng dựa trên tài liệu đã kiểm tra hoặc dự kiến có ghi chú, không phải trích luật pháp.
-- `useAt` là DEPARTURE, ARRIVAL, CHECKPOINT, FLIGHT_DEPARTURE hoặc FLIGHT_ARRIVAL. CHECKPOINT bắt buộc checkpointId; backend gắn tới mốc cụ thể trong stops; bỏ mốc để né kiểm tra bị từ chối. Mỗi địa điểm trung gian chỉ xuất hiện một lần trong demo để tránh ánh xạ mơ hồ.
-- Hiệu lực so với **thời điểm sử dụng dự kiến**: `validFrom <= useTime <= validUntil`. Nếu giấy ghi ngày hết hạn, Specialist ghi biên thời gian đúng quy định áp dụng; không tự giả định mọi giấy có hiệu lực tới 23:59. Bao phủ tới ETA chỉ bắt buộc với tài liệu cần bao phủ toàn hành trình và bảo hiểm; không thay thế kiểm tra riêng tại từng điểm dùng.
-- `mustCoverWholeTrip=true` đòi từ lúc nhận/vận chuyển ngựa đến lúc giao; trong contract này nhận ngựa để vận chuyển là plannedDepart. Nếu có nhận sớm hơn phải có mốc nhận thật và bổ sung contract trước tích hợp, không bỏ trống phần thời gian đó.
-- `schedule-dependent` có thể còn thiếu file trước duyệt phương án, nhưng phải có đường hoàn thiện khả thi. Sau duyệt phải có bằng chứng và được Specialist kiểm duyệt trước Docs READY; thông quan thực tế ở tương lai vẫn thuộc Flow 4.
-- Khi submit và khi Manager duyệt, BE yêu cầu `plannedDepart >= earliestReadyAt`, `eta <= deliveryDeadline` và đủ thời gian còn lại để hoàn thiện từng dependency trước khởi hành. `expectedLeadMinutes` là thời lượng dự kiến Specialist cung cấp, tính từ giờ máy chủ lúc xét duyệt; kiểm tra lại sau khi thời gian trôi qua. Các dependency độc lập có thể làm song song; nếu thực tế phụ thuộc nối tiếp mà chưa biểu diễn được thì chặn với DEPENDENCY_UNRESOLVED, không cộng/loại bỏ thời gian tùy ý. Trường completionRule chỉ giải thích cho người đọc, không dùng văn bản đó thay kiểm tra số liệu.
-- Không có khoảng khả thi đáp ứng hạn giao: chặn submit/approve. Manager thống nhất lại với khách bằng quy trình Flow 1 rồi giao snapshot mới; nhập một lý do không đủ quyền vượt hạn giao hoặc giấy hết hạn.
-
-Ví dụ minh họa: dự kiến sẵn sàng từ **25/10/2026 08:00**, giấy cần dùng trước **30/10/2026 18:00**. Xuất phát 29/10 nhưng qua điểm kiểm tra 31/10 vẫn **không hợp lệ**, dù giao trước hạn khách 02/11. Bộ [examples](flow3.examples.json) có nhánh này và trường hợp đúng vào biên hiệu lực. Các ngày chỉ là dữ liệu demo.
-
-Thời gian API `YYYY-MM-DD HH:mm`, múi giờ Asia/Ho_Chi_Minh cho cả hai nước; chuyển giờ sân bay về cùng múi giờ trước so sánh. Backend chuyển UTC khi lưu. Định dạng không thay thế kiểm tra ngày lịch thật. Tiền nguyên VND; flight catalog demo phải cung cấp giá VND, không đổi USD bằng đổi nhãn.
-
-## 4. Phiên bản, nguồn lực và chuyến bay
-
-`contextVersion` do BE tăng khi snapshot Flow 1 hoặc phân công thay đổi. `feasibilityVersion` tăng khi Specialist đánh giá lại; gắn `contextVersion` và `documentSetVersion`. `planVersion` là revision nghiệp vụ đơn điệu trong một Trip, gồm cả tuyến, lịch, nguồn lực và đề xuất bay. Lưu nháp, gửi, rút, quyết định đều trả revision mới; luôn dùng bản vừa đọc. Không tự tăng phiên bản ở frontend, không suy từ số dòng hoặc tạo bảng mới chỉ vì DTO có version.
-
-`draft` và `approvedPlan` tách nhau. Sau duyệt, tạo draft thay đổi qua J12, giữ bản đã duyệt cho tới khi bản thay thế được chấp nhận. Trong lúc còn draft thay đổi hoặc bản mới chờ duyệt, chặn khởi hành để tránh dùng bản cũ trong khi đang xử lý thay đổi. Rút/trả về bản thay thế chỉ giải phóng giữ tạm của bản đó; bản approved cũ và phân công cũ còn nguyên. Có thể hủy draft thay đổi bằng J09 (WITHDRAWN), khi đó dùng bản approved cũ nếu mọi bằng chứng còn hợp lệ.
-
-| Thao tác | Trạng thái/bằng chứng | Giữ nguồn lực |
-|---|---|---|
-| Lưu nháp | DRAFT, cho phép thiếu trường; submit đòi đủ | Không giữ |
-| Submit | PENDING_APPROVAL, khóa chỉnh sửa; chưa cần READY/booking | Kiểm tra toàn hệ thống, giữ tạm nguyên tử; xung đột rollback toàn bộ |
-| Manager trả lại | RETURNED; reason >=5 ký tự | Giải phóng giữ tạm của bản bị trả |
-| Rút nháp/đang chờ/trả lại | WITHDRAWN | Giải phóng giữ tạm của bản đó |
-| Manager duyệt | APPROVED, lưu snapshot feasibility/context và ngân sách AIR | Chuyển giữ tạm thành CONFIRMED; thay bản cũ nguyên tử |
-| Thay bản approved | Bản cũ SUPERSEDED chỉ khi bản mới APPROVED | Chuyển/đổi giữ lịch nguyên tử, không giải phóng phần cần giữ trước khi có thay thế |
-
-Không tự hết hạn giữ tạm khi chưa có policy. Cùng một người/xe không phục vụ hai Trip active theo hạn chế demo hiện tại; BE kiểm tra mọi chuyến, kể cả không hiện trong danh sách role. Ba slot MAIN_DRIVER/CO_DRIVER/VETERINARIAN độc lập, không dùng lại giữa hai ROAD của AIR. Thời gian phân công vẫn lưu theo chặng để kiểm tra bằng cấp, bàn giao và khả dụng. Không diễn giải EscortID duy nhất thành đủ hai vị trí.
-
-ROAD có một leg `road`; AIR có `outbound` và `inbound`, nối ROAD_ORIGIN → AIR → ROAD_DESTINATION. Mỗi ROAD có xe đủ sức chứa và đủ ba người phù hợp quốc gia/chuyên môn; bằng/chứng chỉ bao phủ chặng. Quốc gia/sân bay theo snapshot Trip và catalog, không hardcode VN/JP trong component. Bộ đệm bàn giao trước/sau bay và thời gian nghỉ lấy capability; thiếu cấu hình thì chặn submit, không tự gán phút.
-
-AIR chọn từ catalog demo có provider, số hiệu, sân bay, lịch, sức chứa, giá VND, dịch vụ trọn gói. Chỉ bay thẳng, không bố trí bác sĩ CBN trên máy bay. Chọn chuyến không phải booking, không gọi API hãng thật. Catalog change làm proposal stale, phải refetch và duyệt đúng bản. Phương án chứa catalog flight reference, backend chụp lịch/giá version khi lưu, không tin tên/giá do client nhập.
-
-Sau duyệt, J13 ghi mã xác nhận đối tác/demo kèm nguồn DEMO hoặc PARTNER_REFERENCE. DEMO chỉ khi capability cho phép, vẫn phải có chứng cứ demo được server lưu và phân biệt với booking thực. Không tự sinh booking giả trong production. Retry không tạo booking trùng; FlightBookingID vẫn INT. Thay phương án không được ghi đè booking đã xác nhận: J20 ghi nhận hủy bên ngoài/demo, lưu lịch sử. Còn booking cũ chưa hủy thì chặn duyệt bản thay thế có đổi flight/lịch/horse; thay đổi không ảnh hưởng booking có thể giữ cùng bookingId sau khi BE xác minh phạm vi tương đương.
-
-## 5. READY và duyệt khởi hành
-
-Sau APPROVED: Coordinator J13 booking nếu AIR → J14 xác nhận nguồn lực thực tế → J15 Ops READY. Specialist hoàn thiện mục phụ thuộc lịch bằng API Flow 2 → J16 Docs READY. Hai nhánh làm song song sau duyệt, không chờ nhau.
-
-J14 xác nhận đủ bộ xe/crew, chưa tự là Ops READY. J15 kiểm tra lại cả bộ đã duyệt, booking AIR và thời gian bàn giao; J16 kiểm tra hồ sơ/bảo hiểm/lịch kiểm dịch/supplement theo phương án và thời điểm dùng. Không dùng boolean READY client gửi. Mỗi READY trả người/thời điểm, contextVersion, feasibilityVersion, planVersion và evidenceVersion. Docs còn gắn documentSetVersion/insuranceVersion. EvidenceVersion do BE tăng khi bất cứ booking, nguồn lực, hồ sơ, bảo hiểm, kiểm dịch, capability hoặc bằng chứng readiness nào đổi, kể cả xác nhận READY.
-
-`evidenceVersion` trong ReadyStamp là revision tại lúc xác nhận, không bắt mọi stamp bằng evidenceVersion hiện tại: xác nhận Ops READY sau Docs READY không tự làm Docs READY mất giá trị. Ba khóa contextVersion/feasibilityVersion/planVersion phải cùng bản hiện hành; BE kiểm tra riêng các dependency của từng stamp. Bằng chứng không liên quan đổi chỉ tăng khóa chống tranh chấp, không tự hủy READY phía kia. Mutation dùng binding mới nhất từ context/readiness; stamp cũ chỉ còn giá trị nếu dependency của nó chưa bị ảnh hưởng. Không so toàn bộ binding bằng phép equality đơn giản để suy ra READY.
-
-GET readiness chỉ hiển thị. POST departure/approve nhận đúng bộ revision GET trả, đọc lại bằng chứng và kiểm tra trong transaction: phân công/contract/request còn hợp lệ; đánh giá khả thi còn đúng; kế hoạch approved; không còn thay đổi đang mở; đủ cả READY cùng bản; nguồn lực thật còn khả dụng; AIR booking đúng; hồ sơ tại tất cả điểm dùng còn hạn; bảo hiểm bao phủ; lịch kiểm dịch bắt buộc xác nhận; không blocker. Điều kiện đổi trả 409 READINESS_CHANGED và blocker để tải lại.
-
-Quá giờ plannedDepart mà chưa xuất phát không được dùng đánh giá giờ cũ để phê duyệt. Contract này chặn phê duyệt khi `serverNow > plannedDepart`; Coordinator điều chỉnh lịch qua duyệt thay đổi rồi hai bên đánh giá lại. Sau duyệt khởi hành, Driver ở Flow 4 vẫn kiểm tra điều kiện theo thời điểm thực tế trước DEPARTED, không chỉ đọc cờ READY_TO_DEPART.
-
-Thành công đổi Trip READY_TO_DEPART + Request SCHEDULED nguyên tử, lưu revision và audit, không tạo DEPARTED. Sau READY_TO_DEPART, mutation kế hoạch/hồ sơ trả 409 DEPARTURE_APPROVAL_LOCKED; thu hồi duyệt khởi hành chưa chốt, không tự mở khóa. Sau IN_TRANSIT chuyển Flow 4–5. Trip hủy theo flow có thẩm quyền phải giải phóng reservation và xử lý booking, không xóa history.
-
-Thay hồ sơ/đánh giá/lịch/nguồn lực/booking làm các bằng chứng liên quan không còn đúng: mất READY tương ứng; không xóa lịch sử. Nếu context/feasibility đổi, cả hai READY không còn giá trị cho version cũ; approved snapshot được giữ để đối chiếu nhưng phải duyệt bản kế hoạch cập nhật trước khi READY lại. Không sửa approved tại chỗ.
-
-## 6. Giao thức, quyền và lỗi
-
-Base `/api`, Bearer JWT; role chuẩn theo [CONVENTIONS](../../CONVENTIONS.md). Specialist/Coordinator chỉ đọc/sửa Trip được giao, Manager có phạm vi quản lý. USER ID lấy từ JWT, thời điểm/ID/status/version do server cấp. Đối tượng ngoài phạm vi trả 404, role không hợp lệ trả 403. Không nhận actor hoặc deadline từ mutation.
-
-Mọi mutation POST/PUT dùng `Idempotency-Key` UUID (trừ POST validate chỉ đọc). Key scope actor + method + path, lưu bền vững tối thiểu 24 giờ; payload đã chuẩn hóa phải giống. Retry key cũ trả response cũ; khác payload 409 IDEMPOTENCY_CONFLICT. Update khác key với revision cũ trả 409 STALE_VERSION. PUT create draft/feasibility gửi expectedVersion=null chỉ khi chưa có bản; draft RETURNED có thể lưu lại với revision cũ; WITHDRAWN tạo draft mới expectedVersion=null, cấp planVersion tiếp theo của Trip.
-
-Mã chính: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 NOT_FOUND; 409 STALE_VERSION / FEASIBILITY_REQUIRED / DOCUMENT_WINDOW_VIOLATION / DELIVERY_DEADLINE_EXCEEDED / DEPENDENCY_UNRESOLVED / RESOURCE_CONFLICT / FLIGHT_CATALOG_CHANGED / PLAN_NOT_APPROVED / OLD_BOOKING_ACTIVE / READINESS_CHANGED / DEPARTURE_APPROVAL_LOCKED / CONTRACT_SUPERSEDED; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Blockers có code, field, message; nếu liên quan giấy có constraintKey và useTime để FE chỉ đúng điểm dùng bị lỗi. Schema lỗi không lộ SQL/stack trace.
-
-## 7. Đối chiếu frontend và persistence
-
-| Nguồn đã đọc | Điều chỉnh cần làm khi tích hợp |
+| Script/màn hình Final_Flow3.html | API |
 |---|---|
-| Specialist types SpecTrip/Checklist, DocsReadyCard | Thêm đánh giá khả thi gồm ngày sớm nhất, từng hạn giấy tờ, mục cần lịch; READY phải gắn phương án |
-| Coordinator RouteTab/ResourcesTab và coordinator.types.ts | Dùng plan-draft chung; route.version cũ không tự là planVersion; submit trước xác nhận thực tế |
-| Coordinator FlightTab/FlightPlan | Bổ sung catalog demo và version; đổi mẫu USD sang dữ liệu VND thật; booking chỉ sau APPROVED |
-| coordinatorRules.ts vehicleConflict/crewConflict | Nháp không chiếm nguồn lực; server giữ tạm khi submit, vẫn giữ quy tắc một Trip active trong demo |
-| Manager PrepareStage | Bỏ điều kiện resourcesConfirmed trước duyệt phương án; hiển thị feasibility và dependency; duyệt cả bundle/ngân sách |
-| Manager DepartStage | Đọc fresh readiness từ server, await mutation, kiểm tra phiên bản và không tự đổi trạng thái |
-| SQL/ID tham khảo D:/Shared; DAO/entity hiện có | Chưa xác nhận có persistence cho feasibility, plan snapshot/revisions, giữ tạm, READY bindings và idempotency |
+| canPlan/parallelLanes/f/monitor/f/trip | J04/J23/J24 |
+| placesPage/pl-edit/pl-status/pl-del | J43–J47 |
+| pl-geo/geoSearch và chọn tọa độ | Tái dùng F1-J10 `GET /locations/search` theo contract Flow 1; giới hạn quốc gia và scope phù hợp, chọn kết quả không tự lưu place |
+| rpRoute/rpCalc/rpWriteTimes/Leaflet/journeyDetail | J25/J26/J07 |
+| f-vehicle/groundLegs/f-crew-save | J06/J14/J27 |
+| f3-staff-status/f/crew | J48/J49, không thêm/xóa nhân viên |
+| f3-truck-profile/check, f3-pickup-* | J06/J26/J28–J33, cần hiện thao tác đang ẩn |
+| air-rental-providers/svc-code/svc-partner | J05/J34–J39/J50/J51/J54 |
+| fa-send/m-flight/fa-revision | J40/J41/J12 |
+| f-route-submit/m-route-approve/m-route-return | J08/J11 |
+| f-flight-book/recordBooking | J13/J42/J52 |
+| s-docs-ready/readiness/m-approve-depart | J16/J17/J18 |
+| Driver report markers | J53 đọc từ Flow 5, gắn milestone, không GPS/traffic realtime |
 
-Contract chỉ đề xuất DTO, không tuyên bố bảng FEASIBILITY/PLAN/FLIGHT_CATALOG tồn tại và không thay schema. Flight catalog ref là opaque key do server cung cấp, không phải FlightBookingID hay mã bảng mới. checkpointId giữ integer từ catalog; VEHICLE_*, USER_*, HORSE_*, TRIP_*, REQUEST_* theo ID_NAME_RULE. Bộ API F2-J36/37/38 đọc danh mục tiếp tục dùng schema Flow 2.
-
-Capability mặc định false khi chưa nghiệm thu persistence; thao tác chưa hỗ trợ trả 501. Không fallback về mock, không bật READY vì 0/0, không coi đã viết contract là đã chạy được. Flow 2 legacy examples giữ để tra cứu nhưng không phải bằng chứng triển khai flow mới.
-
-## 8. Nghiệm thu contract và triển khai sau này
-
-- ROAD và AIR đi đúng sáu bước; Manager có thể duyệt phương án khi dependencies cần lịch còn mở nhưng khả thi; chưa được duyệt khởi hành.
-- Thiếu feasibility/đánh giá không đủ/ngoài hiệu lực/điểm dùng thiếu/hạn giao vượt đều chặn submit, không chỉ cảnh báo.
-- Xuất phát trước hết hạn nhưng dùng giấy sau hết hạn bị chặn; biên validUntil được phép; bảo hiểm kiểm tra toàn hành trình.
-- Nháp không giữ; submit hai chuyến tranh cùng xe chỉ một thành công; trả/rút giải phóng đúng bản; duyệt kiểm tra lại khả dụng.
-- Approval và booking là hai thao tác; book trước duyệt bị chặn; ROAD không yêu cầu flight; AIR thiếu booking chặn Ops READY.
-- Hai READY cùng snapshot; stale GET → POST bị chặn; thay version không giữ READY cũ; không có đường bỏ qua bằng API legacy.
-- Thay kế hoạch giữ lịch sử, không overwrite booking; xử lý booking cũ trước duyệt đổi chuyến bay; draft thay đổi đang mở chặn departure.
-- Retry không tạo trùng; actor giả/role sai/chuyến chưa giao không được mutate; unsupported trả 501.
-- Duyệt departure nguyên tử, còn Driver DEPARTED ở Flow 4; frontend/backend/DB và kiểm thử tích hợp thật là công việc tiếp theo.
+Kịch bản trong flow3.examples.json là mục tiêu nghiệm thu, không bằng chứng API đã chạy. Validator kiểm ref/schema/mẫu request-response/input âm/đồng bộ tài liệu và fixture. Khi triển khai cần integration: hai Trip tranh xe chỉ một thành công; retry không trùng; role/scope/file; ROAD pre-confirm; AIR không vòng lặp booking; stale catalogue/consent/READY; rollback approve/departure và history.

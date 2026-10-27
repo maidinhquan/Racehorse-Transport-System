@@ -19,7 +19,9 @@ namespace Application.Services
 
         public string GenerateAccessToken(User user)
         {
-            var keyString = _config["Jwt:Key"] ?? "RaceHorseTransportSecretKey2026_SWP391_Project_SecuredKey_SuperSafe!";
+            var keyString = _config["Jwt:Key"];
+            if (string.IsNullOrWhiteSpace(keyString) || Encoding.UTF8.GetByteCount(keyString) < 32)
+                throw new InvalidOperationException("Configure a private Jwt:Key of at least 32 bytes through the environment or local configuration.");
             var issuer = _config["Jwt:Issuer"] ?? "RaceHorseTransportBackend";
             var audience = _config["Jwt:Audience"] ?? "RaceHorseTransportFrontend";
             var expireMinutes = int.TryParse(_config["Jwt:ExpireMinutes"], out var exp) ? exp : 1440;

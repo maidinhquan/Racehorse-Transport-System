@@ -1,5 +1,10 @@
 // Routes for flows after Flow 1. Flow 1 is defined in managerApi.ts.
 export const MANAGER_ENDPOINTS = {
+  PLANNING: '/manager/planning',
+  TRIP_ROUTE: (tripId: string) => `/manager/trips/${tripId}/route`,
+  APPROVE_ROUTE: (tripId: string, routeVersionId: number) => `/manager/trips/${tripId}/routes/${routeVersionId}/approve`,
+  RETURN_ROUTE: (tripId: string, routeVersionId: number) => `/manager/trips/${tripId}/routes/${routeVersionId}/return`,
+  DEPARTURE_CONDITIONS: (tripId: string) => `/manager/trips/${tripId}/departure-conditions`,
   CLOSE_REQUEST: (id: string) => `/manager/requests/${id}/close`,
   COLLECTION_NOTE: (id: string) => `/manager/requests/${id}/collection-notes`,
   ROUTE_DECISION: (id: string) => `/manager/trips/${id}/route/decision`,

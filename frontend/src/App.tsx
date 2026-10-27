@@ -1,11 +1,14 @@
 import AppRouter from "./app/router/AppRouter";
 import { ThemeProvider } from "./shared/context/ThemeContext";
+import { ErrorBoundary } from "./shared/components/ErrorBoundary/ErrorBoundary";
 
 function App() {
   return (
-    <ThemeProvider>
-      <AppRouter />
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AppRouter />
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

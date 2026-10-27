@@ -8,7 +8,7 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const accessToken = localStorage.getItem("accessToken");
+  const accessToken = sessionStorage.getItem("accessToken") || localStorage.getItem("accessToken");
 
   if (accessToken && config.headers) {
     config.headers.Authorization = `Bearer ${accessToken}`;

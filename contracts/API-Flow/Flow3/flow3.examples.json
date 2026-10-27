@@ -1,0 +1,1425 @@
+{
+  "contractVersion": "2.0.0",
+  "status": "ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS",
+  "source": "D:/Shared/Final_Flow3.html",
+  "road": {
+    "draftRequest": {
+      "expectedVersion": 10,
+      "plannedDepart": "2026-11-10 06:00",
+      "stops": [
+        {
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": ""
+        },
+        {
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": ""
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "note": ""
+    },
+    "routing": {
+      "routingId": "ROUTING_001",
+      "planVersion": 1,
+      "policyVersion": 1,
+      "provider": "HERE_TRUCK",
+      "truckVerified": true,
+      "demo": false,
+      "checkedAt": "2026-11-10 06:00",
+      "segments": [
+        {
+          "fromStopKey": "stop-origin",
+          "toStopKey": "stop-destination",
+          "leg": "road",
+          "km": 20,
+          "driveMin": 30,
+          "geometry": [
+            [
+              10.7769,
+              106.7009
+            ],
+            [
+              10.9,
+              106.8
+            ]
+          ]
+        }
+      ],
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "totalKm": 20,
+      "driveMin": 30,
+      "stopMin": 0,
+      "flyMin": 0,
+      "eta": "2026-11-10 06:30",
+      "issues": []
+    }
+  },
+  "air": {
+    "approvedPlan": {
+      "planVersion": 1,
+      "status": "APPROVED",
+      "mode": "AIR",
+      "plannedDepart": "2026-11-10 11:00",
+      "eta": "2026-11-10 23:00",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "air-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-origin",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:00",
+          "departAt": "2026-11-10 11:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "air-departure",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_001",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 210,
+          "unload": false,
+          "careNote": "",
+          "name": "air-departure",
+          "geo": {
+            "lat": 10.8188,
+            "lng": 106.6519
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:30",
+          "departAt": "2026-11-10 15:00",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_003",
+          "clientKey": "air-arrival",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_002",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 120,
+          "unload": false,
+          "careNote": "",
+          "name": "air-arrival",
+          "geo": {
+            "lat": 35.772,
+            "lng": 140.3929
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 20:30",
+          "departAt": "2026-11-10 22:30",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_004",
+          "clientKey": "air-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-destination",
+          "geo": {
+            "lat": 35.8,
+            "lng": 140.4
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 23:00",
+          "departAt": "2026-11-10 23:00",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "outbound",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        },
+        {
+          "leg": "inbound",
+          "vehicleId": "VEHICLE_002",
+          "crew": {
+            "MAIN_DRIVER": "USER_011",
+            "CO_DRIVER": "USER_012",
+            "VETERINARIAN": "USER_013"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_002",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": {
+        "flightVersion": 1,
+        "status": "BUDGET_APPROVED",
+        "service": {
+          "serviceId": "SERVICE_001",
+          "catalogVersion": 1,
+          "partnerId": "PARTNER_001",
+          "partnerName": "Thông tin đã xác minh",
+          "providerFlightCode": "EQA-DEMO-01",
+          "flightNo": "EQA 7710",
+          "fromAirportId": "AIRPORT_001",
+          "toAirportId": "AIRPORT_002",
+          "fromCountry": "VN",
+          "toCountry": "JP",
+          "departLocal": "2026-11-10 15:00",
+          "departZone": "Asia/Ho_Chi_Minh",
+          "arriveLocal": "2026-11-10 22:30",
+          "arriveZone": "Asia/Tokyo",
+          "departAt": "2026-11-10 15:00",
+          "arriveAt": "2026-11-10 20:30",
+          "capacity": 4,
+          "costVnd": 105000000,
+          "currency": "VND",
+          "careIncluded": true,
+          "direct": true,
+          "status": "AVAILABLE",
+          "sample": true,
+          "eligible": true,
+          "blockers": []
+        },
+        "careAcknowledged": true
+      },
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "air-origin",
+            "toStopKey": "air-departure",
+            "leg": "outbound",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.8188,
+                106.6519
+              ]
+            ]
+          },
+          {
+            "fromStopKey": "air-arrival",
+            "toStopKey": "air-destination",
+            "leg": "inbound",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                35.772,
+                140.3929
+              ],
+              [
+                35.8,
+                140.4
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "air-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-origin",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:00",
+            "departAt": "2026-11-10 11:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "air-departure",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_001",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 210,
+            "unload": false,
+            "careNote": "",
+            "name": "air-departure",
+            "geo": {
+              "lat": 10.8188,
+              "lng": 106.6519
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:30",
+            "departAt": "2026-11-10 15:00",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_003",
+            "clientKey": "air-arrival",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_002",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 120,
+            "unload": false,
+            "careNote": "",
+            "name": "air-arrival",
+            "geo": {
+              "lat": 35.772,
+              "lng": 140.3929
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 20:30",
+            "departAt": "2026-11-10 22:30",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_004",
+            "clientKey": "air-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-destination",
+            "geo": {
+              "lat": 35.8,
+              "lng": 140.4
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 23:00",
+            "departAt": "2026-11-10 23:00",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 40,
+        "driveMin": 60,
+        "stopMin": 330,
+        "flyMin": 330,
+        "eta": "2026-11-10 23:00",
+        "issues": []
+      },
+      "note": ""
+    },
+    "contextAfterApproval": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "contractId": "CONTRACT_001",
+      "status": "PLANNING",
+      "mode": "AIR",
+      "binding": {
+        "version": 11,
+        "contextVersion": 1,
+        "planVersion": 1
+      },
+      "deployment": "CONFIRMED",
+      "specialistId": "USER_006",
+      "coordinatorId": "USER_007",
+      "horseIds": [
+        "HORSE_001",
+        "HORSE_002"
+      ],
+      "pickup": {
+        "name": "Trại nhận ngựa",
+        "address": "Địa chỉ nhận ngựa theo hợp đồng",
+        "country": "VN",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "access": null
+      },
+      "delivery": {
+        "name": "Trại giao ngựa",
+        "address": "Địa chỉ nhận ngựa theo hợp đồng",
+        "country": "JP",
+        "geo": {
+          "lat": 35.8,
+          "lng": 140.4
+        },
+        "access": null
+      },
+      "deliveryDeadline": "2026-11-12 18:00",
+      "draft": null,
+      "approvedPlan": {
+        "planVersion": 1,
+        "status": "APPROVED",
+        "mode": "AIR",
+        "plannedDepart": "2026-11-10 11:00",
+        "eta": "2026-11-10 23:00",
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "air-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-origin",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:00",
+            "departAt": "2026-11-10 11:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "air-departure",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_001",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 210,
+            "unload": false,
+            "careNote": "",
+            "name": "air-departure",
+            "geo": {
+              "lat": 10.8188,
+              "lng": 106.6519
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:30",
+            "departAt": "2026-11-10 15:00",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_003",
+            "clientKey": "air-arrival",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_002",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 120,
+            "unload": false,
+            "careNote": "",
+            "name": "air-arrival",
+            "geo": {
+              "lat": 35.772,
+              "lng": 140.3929
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 20:30",
+            "departAt": "2026-11-10 22:30",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_004",
+            "clientKey": "air-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-destination",
+            "geo": {
+              "lat": 35.8,
+              "lng": 140.4
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 23:00",
+            "departAt": "2026-11-10 23:00",
+            "placeVersion": null
+          }
+        ],
+        "resources": [
+          {
+            "leg": "outbound",
+            "vehicleId": "VEHICLE_001",
+            "crew": {
+              "MAIN_DRIVER": "USER_008",
+              "CO_DRIVER": "USER_009",
+              "VETERINARIAN": "USER_010"
+            },
+            "truckProfile": {
+              "vehicleId": "VEHICLE_001",
+              "heightM": 3.8,
+              "widthM": 2.5,
+              "lengthM": 10,
+              "currentT": 12,
+              "grossT": 18,
+              "axleT": 4
+            }
+          },
+          {
+            "leg": "inbound",
+            "vehicleId": "VEHICLE_002",
+            "crew": {
+              "MAIN_DRIVER": "USER_011",
+              "CO_DRIVER": "USER_012",
+              "VETERINARIAN": "USER_013"
+            },
+            "truckProfile": {
+              "vehicleId": "VEHICLE_002",
+              "heightM": 3.8,
+              "widthM": 2.5,
+              "lengthM": 10,
+              "currentT": 12,
+              "grossT": 18,
+              "axleT": 4
+            }
+          }
+        ],
+        "flight": {
+          "flightVersion": 1,
+          "status": "BUDGET_APPROVED",
+          "service": {
+            "serviceId": "SERVICE_001",
+            "catalogVersion": 1,
+            "partnerId": "PARTNER_001",
+            "partnerName": "Thông tin đã xác minh",
+            "providerFlightCode": "EQA-DEMO-01",
+            "flightNo": "EQA 7710",
+            "fromAirportId": "AIRPORT_001",
+            "toAirportId": "AIRPORT_002",
+            "fromCountry": "VN",
+            "toCountry": "JP",
+            "departLocal": "2026-11-10 15:00",
+            "departZone": "Asia/Ho_Chi_Minh",
+            "arriveLocal": "2026-11-10 22:30",
+            "arriveZone": "Asia/Tokyo",
+            "departAt": "2026-11-10 15:00",
+            "arriveAt": "2026-11-10 20:30",
+            "capacity": 4,
+            "costVnd": 105000000,
+            "currency": "VND",
+            "careIncluded": true,
+            "direct": true,
+            "status": "AVAILABLE",
+            "sample": true,
+            "eligible": true,
+            "blockers": []
+          },
+          "careAcknowledged": true
+        },
+        "routing": {
+          "routingId": "ROUTING_001",
+          "planVersion": 1,
+          "policyVersion": 1,
+          "provider": "HERE_TRUCK",
+          "truckVerified": true,
+          "demo": false,
+          "checkedAt": "2026-11-10 06:00",
+          "segments": [
+            {
+              "fromStopKey": "air-origin",
+              "toStopKey": "air-departure",
+              "leg": "outbound",
+              "km": 20,
+              "driveMin": 30,
+              "geometry": [
+                [
+                  10.7769,
+                  106.7009
+                ],
+                [
+                  10.8188,
+                  106.6519
+                ]
+              ]
+            },
+            {
+              "fromStopKey": "air-arrival",
+              "toStopKey": "air-destination",
+              "leg": "inbound",
+              "km": 20,
+              "driveMin": 30,
+              "geometry": [
+                [
+                  35.772,
+                  140.3929
+                ],
+                [
+                  35.8,
+                  140.4
+                ]
+              ]
+            }
+          ],
+          "stops": [
+            {
+              "stopId": "STOP_001",
+              "clientKey": "air-origin",
+              "type": "ORIGIN",
+              "placeId": null,
+              "purposes": [],
+              "dwellMin": 0,
+              "unload": false,
+              "careNote": "",
+              "name": "air-origin",
+              "geo": {
+                "lat": 10.7769,
+                "lng": 106.7009
+              },
+              "required": true,
+              "arriveAt": "2026-11-10 11:00",
+              "departAt": "2026-11-10 11:00",
+              "placeVersion": null
+            },
+            {
+              "stopId": "STOP_002",
+              "clientKey": "air-departure",
+              "type": "AIRPORT",
+              "placeId": "AIRPORT_001",
+              "purposes": [
+                "AIRPORT"
+              ],
+              "dwellMin": 210,
+              "unload": false,
+              "careNote": "",
+              "name": "air-departure",
+              "geo": {
+                "lat": 10.8188,
+                "lng": 106.6519
+              },
+              "required": true,
+              "arriveAt": "2026-11-10 11:30",
+              "departAt": "2026-11-10 15:00",
+              "placeVersion": 1
+            },
+            {
+              "stopId": "STOP_003",
+              "clientKey": "air-arrival",
+              "type": "AIRPORT",
+              "placeId": "AIRPORT_002",
+              "purposes": [
+                "AIRPORT"
+              ],
+              "dwellMin": 120,
+              "unload": false,
+              "careNote": "",
+              "name": "air-arrival",
+              "geo": {
+                "lat": 35.772,
+                "lng": 140.3929
+              },
+              "required": true,
+              "arriveAt": "2026-11-10 20:30",
+              "departAt": "2026-11-10 22:30",
+              "placeVersion": 1
+            },
+            {
+              "stopId": "STOP_004",
+              "clientKey": "air-destination",
+              "type": "DESTINATION",
+              "placeId": null,
+              "purposes": [],
+              "dwellMin": 0,
+              "unload": false,
+              "careNote": "",
+              "name": "air-destination",
+              "geo": {
+                "lat": 35.8,
+                "lng": 140.4
+              },
+              "required": true,
+              "arriveAt": "2026-11-10 23:00",
+              "departAt": "2026-11-10 23:00",
+              "placeVersion": null
+            }
+          ],
+          "totalKm": 40,
+          "driveMin": 60,
+          "stopMin": 330,
+          "flyMin": 330,
+          "eta": "2026-11-10 23:00",
+          "issues": []
+        },
+        "note": ""
+      },
+      "resourcesConfirmed": null,
+      "opsReady": null,
+      "docsReady": null,
+      "documents": {
+        "requirementSetApplied": true,
+        "required": 5,
+        "approved": 5,
+        "insuranceStatus": "VERIFIED",
+        "quarantineConfirmed": true,
+        "validityMode": "ASSUMED_VALID_FOR_TRIP",
+        "blockers": []
+      },
+      "pickupAccess": {
+        "result": "ACCESSIBLE",
+        "proof": "Đã khảo sát và đối chiếu kích thước xe",
+        "valid": true,
+        "by": {
+          "userId": "USER_001",
+          "name": "Thông tin đã xác minh"
+        },
+        "at": "2026-11-10 06:00"
+      },
+      "pickupRelocation": null,
+      "booking": null,
+      "blockers": []
+    },
+    "routing": {
+      "routingId": "ROUTING_001",
+      "planVersion": 1,
+      "policyVersion": 1,
+      "provider": "HERE_TRUCK",
+      "truckVerified": true,
+      "demo": false,
+      "checkedAt": "2026-11-10 06:00",
+      "segments": [
+        {
+          "fromStopKey": "air-origin",
+          "toStopKey": "air-departure",
+          "leg": "outbound",
+          "km": 20,
+          "driveMin": 30,
+          "geometry": [
+            [
+              10.7769,
+              106.7009
+            ],
+            [
+              10.8188,
+              106.6519
+            ]
+          ]
+        },
+        {
+          "fromStopKey": "air-arrival",
+          "toStopKey": "air-destination",
+          "leg": "inbound",
+          "km": 20,
+          "driveMin": 30,
+          "geometry": [
+            [
+              35.772,
+              140.3929
+            ],
+            [
+              35.8,
+              140.4
+            ]
+          ]
+        }
+      ],
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "air-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-origin",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:00",
+          "departAt": "2026-11-10 11:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "air-departure",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_001",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 210,
+          "unload": false,
+          "careNote": "",
+          "name": "air-departure",
+          "geo": {
+            "lat": 10.8188,
+            "lng": 106.6519
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:30",
+          "departAt": "2026-11-10 15:00",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_003",
+          "clientKey": "air-arrival",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_002",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 120,
+          "unload": false,
+          "careNote": "",
+          "name": "air-arrival",
+          "geo": {
+            "lat": 35.772,
+            "lng": 140.3929
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 20:30",
+          "departAt": "2026-11-10 22:30",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_004",
+          "clientKey": "air-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-destination",
+          "geo": {
+            "lat": 35.8,
+            "lng": 140.4
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 23:00",
+          "departAt": "2026-11-10 23:00",
+          "placeVersion": null
+        }
+      ],
+      "totalKm": 40,
+      "driveMin": 60,
+      "stopMin": 330,
+      "flyMin": 330,
+      "eta": "2026-11-10 23:00",
+      "issues": []
+    }
+  },
+  "flightService": {
+    "serviceId": "SERVICE_001",
+    "catalogVersion": 1,
+    "partnerId": "PARTNER_001",
+    "partnerName": "Thông tin đã xác minh",
+    "providerFlightCode": "EQA-DEMO-01",
+    "flightNo": "EQA 7710",
+    "fromAirportId": "AIRPORT_001",
+    "toAirportId": "AIRPORT_002",
+    "fromCountry": "VN",
+    "toCountry": "JP",
+    "departLocal": "2026-11-10 15:00",
+    "departZone": "Asia/Ho_Chi_Minh",
+    "arriveLocal": "2026-11-10 22:30",
+    "arriveZone": "Asia/Tokyo",
+    "departAt": "2026-11-10 15:00",
+    "arriveAt": "2026-11-10 20:30",
+    "capacity": 4,
+    "costVnd": 105000000,
+    "currency": "VND",
+    "careIncluded": true,
+    "direct": true,
+    "status": "AVAILABLE",
+    "sample": true,
+    "eligible": true,
+    "blockers": []
+  },
+  "scenarios": [
+    {
+      "id": "parallel-preparation",
+      "given": "ROAD/AIR sau giao việc",
+      "when": [
+        "deployment=CONFIRMED",
+        "no feasibility",
+        "no timed-documents schedule"
+      ],
+      "then": [
+        "J06 allowed",
+        "Flow2 document preparation allowed"
+      ],
+      "reason": "Không tuần tự hóa hai nhánh"
+    },
+    {
+      "id": "road-submit-missing-confirm",
+      "given": "ROAD DRAFT đủ tuyến nhưng chưa confirm",
+      "when": [
+        "resourcesConfirmed=null"
+      ],
+      "then": [
+        "J08 → 409 RESOURCES_NOT_CONFIRMED"
+      ],
+      "reason": "Không gửi ROAD trước bố trí"
+    },
+    {
+      "id": "road-happy-path",
+      "given": "ROAD hai nhánh độc lập",
+      "when": [
+        "J06",
+        "J28",
+        "J26",
+        "J14",
+        "J08",
+        "J11 APPROVE",
+        "J16",
+        "J17",
+        "J18"
+      ],
+      "then": [
+        "Trip READY_TO_DEPART",
+        "Request SCHEDULED",
+        "no DEPARTED"
+      ],
+      "reason": "Duyệt phương án khác duyệt khởi hành"
+    },
+    {
+      "id": "air-no-booking-before-approval",
+      "given": "AIR phương án dự kiến",
+      "when": [
+        "J39",
+        "J06",
+        "J26",
+        "J08",
+        "no booking",
+        "no resourcesConfirmed"
+      ],
+      "then": [
+        "J11 allowed",
+        "J13 allowed only after approved",
+        "J14 only after booking"
+      ],
+      "reason": "Không vòng lặp book→approve"
+    },
+    {
+      "id": "air-happy-path",
+      "given": "AIR tổng thể và booking bên ngoài",
+      "when": [
+        "J54",
+        "J39",
+        "J06",
+        "J28",
+        "J26",
+        "J08",
+        "J11",
+        "J13",
+        "J14",
+        "J16",
+        "J17",
+        "J18"
+      ],
+      "then": [
+        "Both ground legs valid",
+        "Budget+plan approved",
+        "BOOKED not DEPARTED"
+      ],
+      "reason": "Không gọi API hãng bay thật"
+    },
+    {
+      "id": "air-budget-only",
+      "given": "Ngân sách duyệt riêng, tuyến chưa approved",
+      "when": [
+        "J40",
+        "J41 APPROVE"
+      ],
+      "then": [
+        "J13 → 409 PLAN_NOT_APPROVED"
+      ],
+      "reason": "Duyệt chi phí không mở booking"
+    },
+    {
+      "id": "partner-code-mismatch",
+      "given": "Mã của partner A nhưng chọn partner B",
+      "when": [
+        "J54 with mismatched partner"
+      ],
+      "then": [
+        "409 FLIGHT_PROVIDER_MISMATCH"
+      ],
+      "reason": "Không tự chọn đối tác đầu tiên"
+    },
+    {
+      "id": "partner-code-ambiguous",
+      "given": "Một partner nhiều lịch cùng mã",
+      "when": [
+        "J54 ambiguous code"
+      ],
+      "then": [
+        "409 FLIGHT_CODE_AMBIGUOUS",
+        "J05 lists candidates"
+      ],
+      "reason": "Chọn serviceId rõ"
+    },
+    {
+      "id": "no-provider-match",
+      "given": "Bên dịch vụ hiện tại không đáp ứng",
+      "when": [
+        "J05 empty"
+      ],
+      "then": [
+        "data=[]",
+        "choose another partner"
+      ],
+      "reason": "Không bịa lịch, không auto cancel Trip"
+    },
+    {
+      "id": "catalog-changed",
+      "given": "Đối tác đổi lịch/giá sau approved",
+      "when": [
+        "J13/J11 with old catalogVersion"
+      ],
+      "then": [
+        "409 FLIGHT_CATALOG_CHANGED",
+        "J12 revision required"
+      ],
+      "reason": "Giữ snapshot"
+    },
+    {
+      "id": "crew-separation",
+      "given": "AIR dùng chung người/xe hai chặng",
+      "when": [
+        "outbound vehicle/crew reused inbound"
+      ],
+      "then": [
+        "409 INVALID_CREW or RESOURCE_CONFLICT"
+      ],
+      "reason": "Hai xe sáu người"
+    },
+    {
+      "id": "active-trip-resource-race",
+      "given": "Hai Trip khác nhau tranh cùng xe",
+      "when": [
+        "Concurrent J14 ROAD or J08 AIR"
+      ],
+      "then": [
+        "Exactly one transaction succeeds",
+        "Other 409 RESOURCE_CONFLICT",
+        "No partial hold"
+      ],
+      "reason": "Kiểm ngoài scope danh sách UI"
+    },
+    {
+      "id": "care-rest-not-fuel",
+      "given": "Tới điểm sau 4.1h, trước đó chỉ dừng nhiên liệu",
+      "when": [
+        "careIntervalH=4",
+        "FUEL no REST"
+      ],
+      "then": [
+        "409 CARE_POLICY_VIOLATION"
+      ],
+      "reason": "Không reset đồng hồ bằng đổ xăng"
+    },
+    {
+      "id": "short-rest-not-recovery",
+      "given": "Đợt đường bộ 12.1h dù đã nghỉ ngắn",
+      "when": [
+        "roadEpisodeH=12",
+        "REST 45min onboard"
+      ],
+      "then": [
+        "409 CARE_POLICY_VIOLATION"
+      ],
+      "reason": "Nghỉ ngắn không reset đợt"
+    },
+    {
+      "id": "overnight-opening",
+      "given": "Cơ sở mở 18:00–06:00, ghé 05:45 trong 45 phút",
+      "when": [
+        "arrival=2026-11-10 05:45",
+        "dwell=45"
+      ],
+      "then": [
+        "Rejected: end=06:30 after close"
+      ],
+      "reason": "Kiểm toàn khoảng ghé"
+    },
+    {
+      "id": "delivery-deadline",
+      "given": "ETA vượt cam kết",
+      "when": [
+        "eta=2026-11-13 18:01",
+        "deadline=2026-11-13 18:00"
+      ],
+      "then": [
+        "409 DELIVERY_DEADLINE_EXCEEDED"
+      ],
+      "reason": "Reason không vượt deadline"
+    },
+    {
+      "id": "pickup-consent",
+      "given": "Xe không vào được",
+      "when": [
+        "J28 INACCESSIBLE",
+        "J30 PROPOSED",
+        "J31 APPROVE",
+        "J32 consent"
+      ],
+      "then": [
+        "ORIGIN unchanged before J32",
+        "After consent recompute routing",
+        "Original pickup unchanged"
+      ],
+      "reason": "Gửi thông báo không là đồng ý"
+    },
+    {
+      "id": "pickup-place-changed",
+      "given": "Cơ sở đổi sau Manager approve",
+      "when": [
+        "old placeVersion",
+        "J32"
+      ],
+      "then": [
+        "409 PLACE_CHANGED",
+        "re-propose"
+      ],
+      "reason": "Không giữ consent cho nơi mới"
+    },
+    {
+      "id": "pickup-revision",
+      "given": "Thay điểm nhận đã CUSTOMER_CONFIRMED",
+      "when": [
+        "J33"
+      ],
+      "then": [
+        "Archive consent",
+        "Clear affected route/confirmation",
+        "Require new customer confirmation"
+      ],
+      "reason": "Không overwrite"
+    },
+    {
+      "id": "vehicle-access-limit",
+      "given": "Xe dài 12m, pickup maxLengthM=10",
+      "when": [
+        "J27"
+      ],
+      "then": [
+        "eligible=false",
+        "VEHICLE_ACCESS_RESTRICTED"
+      ],
+      "reason": "Lọc ngay khi chọn xe"
+    },
+    {
+      "id": "truck-osrm-only",
+      "given": "Có OSRM nhưng thiếu truck verification",
+      "when": [
+        "J25",
+        "J08"
+      ],
+      "then": [
+        "409 TRUCK_ROUTE_REQUIRED"
+      ],
+      "reason": "OSRM không chứng minh tải trọng cầu"
+    },
+    {
+      "id": "provider-down",
+      "given": "HERE timeout",
+      "when": [
+        "J26"
+      ],
+      "then": [
+        "503 ROUTING_UNAVAILABLE",
+        "No verified fallback"
+      ],
+      "reason": "Không success giả"
+    },
+    {
+      "id": "demo-isolation",
+      "given": "Trip thật dùng DEMO routing/booking",
+      "when": [
+        "source=DEMO on non-demo trip"
+      ],
+      "then": [
+        "Rejected",
+        "No READY"
+      ],
+      "reason": "Không fixture lên API thật"
+    },
+    {
+      "id": "docs-before-plan",
+      "given": "Specialist đủ giấy/bảo hiểm khi chưa có route",
+      "when": [
+        "J16 before J06"
+      ],
+      "then": [
+        "Docs READY permitted",
+        "Plan changes reevaluate relevant dependencies"
+      ],
+      "reason": "Không chờ approved plan"
+    },
+    {
+      "id": "empty-checklist",
+      "given": "Chưa áp bộ yêu cầu, required=0",
+      "when": [
+        "J16"
+      ],
+      "then": [
+        "409 DOCS_NOT_READY"
+      ],
+      "reason": "0/0 không tự đủ"
+    },
+    {
+      "id": "ready-independent-versions",
+      "given": "Docs READY rồi confirm Ops",
+      "when": [
+        "J16",
+        "J14 increases aggregate version"
+      ],
+      "then": [
+        "Docs stays valid if dependencies unchanged"
+      ],
+      "reason": "Không bắt stamp version bằng nhau"
+    },
+    {
+      "id": "stale-readiness",
+      "given": "GET readiness rồi đổi staff status",
+      "when": [
+        "J17",
+        "J49 ON_LEAVE",
+        "J18 old binding"
+      ],
+      "then": [
+        "409 READINESS_CHANGED or STALE_VERSION",
+        "No departure commit"
+      ],
+      "reason": "POST recheck"
+    },
+    {
+      "id": "staff-in-transit",
+      "given": "Cho nghỉ người đang vận chuyển",
+      "when": [
+        "J49 ON_LEAVE",
+        "active IN_TRANSIT assignment"
+      ],
+      "then": [
+        "409 STAFF_IN_TRANSIT",
+        "Use incident replacement first"
+      ],
+      "reason": "Không bỏ crew đang chạy"
+    },
+    {
+      "id": "booking-history",
+      "given": "Thay flight đã BOOKED",
+      "when": [
+        "J12",
+        "old booking active",
+        "J11"
+      ],
+      "then": [
+        "409 OLD_BOOKING_ACTIVE",
+        "J20 before approving changed flight"
+      ],
+      "reason": "Không overwrite booking"
+    },
+    {
+      "id": "booking-deduplication",
+      "given": "Hai Trip cùng partner và bookingRef khác hoa/thường",
+      "when": [
+        "EQA-BOOK-001",
+        " eqa-book-001 "
+      ],
+      "then": [
+        "409 BOOKING_REFERENCE_DUPLICATE"
+      ],
+      "reason": "Khóa unique ở server"
+    },
+    {
+      "id": "idempotent-retry",
+      "given": "Retry cùng key/body",
+      "when": [
+        "J13 repeated"
+      ],
+      "then": [
+        "Same response/bookingId",
+        "No extra booking/history/notifications"
+      ],
+      "reason": "Khác body IDEMPOTENCY_CONFLICT"
+    },
+    {
+      "id": "scope-and-actor",
+      "given": "Staff khác Trip hoặc giả actor/status",
+      "when": [
+        "Foreign trip GET/POST",
+        "actor/status in strict JSON body"
+      ],
+      "then": [
+        "404 foreign resource",
+        "400 extra fields",
+        "403 wrong role"
+      ],
+      "reason": "JWT quyết định actor"
+    },
+    {
+      "id": "file-safety",
+      "given": "Tệp giả PDF hoặc quá 10MiB",
+      "when": [
+        "J42"
+      ],
+      "then": [
+        "400 content mismatch or 415 MIME or 413 too large",
+        "No file bound to booking"
+      ],
+      "reason": "Không object URL là evidence"
+    },
+    {
+      "id": "referenced-catalog-delete",
+      "given": "Xóa place/partner có history reference",
+      "when": [
+        "J38 or J47"
+      ],
+      "then": [
+        "409 RECORD_REFERENCED",
+        "Use status mutation"
+      ],
+      "reason": "Không xóa lịch sử"
+    },
+    {
+      "id": "late-departure",
+      "given": "serverNow qua plannedDepart",
+      "when": [
+        "J18"
+      ],
+      "then": [
+        "409 READINESS_CHANGED",
+        "Reschedule via authorized revision workflow"
+      ],
+      "reason": "Không duyệt giờ đã qua"
+    },
+    {
+      "id": "locked-after-approval",
+      "given": "Sửa plan sau READY_TO_DEPART",
+      "when": [
+        "J06"
+      ],
+      "then": [
+        "409 DEPARTURE_APPROVAL_LOCKED"
+      ],
+      "reason": "Không auto unlock"
+    },
+    {
+      "id": "driver-map-report",
+      "given": "Báo tắc đường gắn mốc, không GPS",
+      "when": [
+        "J53"
+      ],
+      "then": [
+        "locationSource=MILESTONE_REPORT",
+        "isGps=false",
+        "Unknown geo stays null"
+      ],
+      "reason": "Không claim realtime traffic"
+    }
+  ]
+}

@@ -157,10 +157,18 @@ async function loadAll() {
   if (state.loading || state.loaded) return;
   setState({ loading: true });
   try {
-    const [customers, horses, staff, requests, trips, transactions, notifications] = await Promise.all([
+    const [customersRes, horsesRes, staffRes, requestsRes, tripsRes, txsRes, notifsRes] = await Promise.allSettled([
       managerApi.getCustomers(), managerApi.getHorses(), managerApi.getStaff(), managerApi.getRequests(),
       managerApi.getTrips(), managerApi.getTransactions(), managerApi.getNotifications(),
     ]);
+    const customers = customersRes.status === 'fulfilled' && customersRes.value ? customersRes.value : [];
+    const horses = horsesRes.status === 'fulfilled' && horsesRes.value ? horsesRes.value : [];
+    const staff = staffRes.status === 'fulfilled' && staffRes.value ? staffRes.value : [];
+    const requests = requestsRes.status === 'fulfilled' && requestsRes.value ? requestsRes.value : [];
+    const trips = tripsRes.status === 'fulfilled' && tripsRes.value ? tripsRes.value : [];
+    const transactions = txsRes.status === 'fulfilled' && txsRes.value ? txsRes.value : [];
+    const notifications = notifsRes.status === 'fulfilled' && notifsRes.value ? notifsRes.value : [];
+
     const isDemo = getDemoMode('manager');
     if (!isDemo) {
       setState({
@@ -208,7 +216,6 @@ async function loadAll() {
     } else {
       setState({ loading: false, loaded: true });
     }
-    toast(apiMessage(error));
   }
 }
 const running = new Set<string>();
@@ -320,20 +327,22 @@ const managerActions = {
     if (!t?.route || t.route.status !== 'PENDING_APPROVAL') return fail('Không có phương án tuyến chờ duyệt.');
     if (t.deployment.status !== 'CONFIRMED') return fail('Chuyến chưa được phân công hoặc đang tạm dừng.');
     if (!t.route.resourcesConfirmed) return fail('Coordinator chưa xác nhận bố trí xe và nhân sự.');
+    const version = t.route.v || 1;
     mutate((d) => { const x = tripIn(d, tripId)!; x.route!.status = 'APPROVED'; x.route!.decidedAt = nowStamp(); log(d, reqIn(d, x.requestId)!, `Duyệt phương án tuyến v${x.route!.v}`, tripId); });
-    void managerApi.decideRoute(tripId, { approve: true });
+    void managerApi.approveRoute(tripId, version).catch(() => managerApi.decideRoute(tripId, { approve: true }));
     return ok(`Đã duyệt phương án tuyến v${t.route.v} của ${tripId}.`);
   },
   returnRoute(tripId: string, reason: string): ActionResult {
     const t = tripIn(state, tripId);
     if (!t?.route || t.route.status !== 'PENDING_APPROVAL') return fail('Không có phương án tuyến chờ duyệt.');
-    if (reason.trim().length < 10) return fail('Nhập lý do yêu cầu làm lại (ít nhất 10 ký tự).');
+    if (reason.trim().length < 5) return fail('Nhập lý do yêu cầu làm lại (ít nhất 5 ký tự).');
+    const version = t.route.v || 1;
     mutate((d) => {
       const x = tripIn(d, tripId)!;
       x.route!.status = 'CHANGES_REQUESTED'; x.route!.decisionNote = reason.trim(); x.route!.decidedAt = nowStamp();
       log(d, reqIn(d, x.requestId)!, `Yêu cầu làm lại tuyến v${x.route!.v}`, reason.trim());
     });
-    void managerApi.decideRoute(tripId, { approve: false, reason });
+    void managerApi.returnRoute(tripId, version, reason.trim()).catch(() => managerApi.decideRoute(tripId, { approve: false, reason }));
     return ok(`Đã trả phương án tuyến về Coordinator.`);
   },
   decideFlight(tripId: string, approve: boolean, note = ''): ActionResult {

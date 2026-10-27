@@ -1,5 +1,8 @@
 # Chỉ dẫn API — Role: Transport Specialist (Chuyên viên Hồ sơ & Kiểm dịch)
 
+> **Flow 3 đã thay thế ngày 27/10/2026:** [quy trình v2](../../API-Flow/Flow3/FLOW3.md) và [API/JSON chuẩn](../../API-Flow/Flow3/FLOW3-API-JSON.md) là nguồn hiện hành cho planning/nguồn lực/bay/READY/khởi hành. Bảng và quy tắc planning cũ bên dưới chỉ tra cứu lịch sử khi khác v2: hai nhánh song song, ba người mỗi ROAD; ROAD confirm trước submit, AIR approve rồi book/confirm; không feasibility/timed-documents gate. API role JSON cũ không thay schema v2.
+
+
 | Thuộc tính | Giá trị |
 |---|---|
 | Phiên bản | 2.1 — Bản đồ Tra cứu & Điều hướng Role (Navigation & Integration Matrix) |

@@ -1,6 +1,6 @@
 # Quy ước API — Racehorse Transport System
 
-Cập nhật 24/10/2026. Áp dụng cho thiết kế Flow 1, Flow 2 và Flow 3. Tài liệu mô tả giao thức FE–BE mục tiêu; không xác nhận backend hiện có đã triển khai giao thức này.
+Cập nhật 27/10/2026 (Flow 3 v2). Áp dụng cho thiết kế Flow 1, Flow 2 và Flow 3. Tài liệu mô tả giao thức FE–BE mục tiêu; không xác nhận backend hiện có đã triển khai giao thức này.
 
 ## 1. Phạm vi và nguồn chuẩn
 
@@ -10,10 +10,10 @@ Cập nhật 24/10/2026. Áp dụng cho thiết kế Flow 1, Flow 2 và Flow 3. 
 - Toàn bộ ví dụ request/response: [FLOW1-API-JSON.md](API-Flow/Flow1/FLOW1-API-JSON.md).
 - Kiểu dữ liệu, required, nullable, enum và giới hạn: [flow1.openapi.json](API-Flow/Flow1/flow1.openapi.json).
 - Flow 2: [flow và đối chiếu frontend](API-Flow/Flow2/FLOW2.md), [JSON từng API](API-Flow/Flow2/FLOW2-API-JSON.md), [OpenAPI](API-Flow/Flow2/flow2.openapi.json). Flow 2 mới có contract; caller frontend chưa được tích hợp.
-- Flow 3: [flow đã đổi ngày 24/10/2026](API-Flow/Flow3/FLOW3.md), [JSON từng API](API-Flow/Flow3/FLOW3-API-JSON.md), [OpenAPI](API-Flow/Flow3/flow3.openapi.json), [kịch bản](API-Flow/Flow3/flow3.examples.json). Specialist đánh giá khả thi trước lập phương án; Manager duyệt rồi hai bên hoàn tất và xác nhận READY; duyệt khởi hành riêng. Flow 3 thay thế phần điều phối/readiness trùng trong Flow 2; API hồ sơ/danh mục Flow 2 tiếp tục dùng.
+- Flow 3 v2 (27/10/2026): [quy trình Final_Flow3.html](API-Flow/Flow3/FLOW3.md), [JSON từng API](API-Flow/Flow3/FLOW3-API-JSON.md), [OpenAPI](API-Flow/Flow3/flow3.openapi.json), [kịch bản](API-Flow/Flow3/flow3.examples.json). Hai nhánh hồ sơ/điều phối song song ngay sau giao việc; ROAD confirm trước submit, AIR duyệt tổng thể rồi booking/confirm; duyệt khởi hành riêng. Không còn feasibility/timed-documents gate. Chỉ cập nhật contract, chưa triển khai backend.
 - Khi thay đổi payload, cập nhật đồng thời tài liệu liên quan và frontend trong bước tích hợp. Nếu có khác biệt chưa giải quyết, dừng thao tác liên quan; không chọn một mẫu tùy ý.
 - Quy tắc ID và SQL do người dùng cung cấp tại `D:/Shared/ID_NAME_RULE.md`, `D:/Shared/HorseTransportDB.sql` là tài liệu tham khảo thiết kế. SQL trong repository là phiên bản khác; chưa kiểm chứng schema của DB đang chạy. Không sửa DB/backend trong công việc này.
-- Endpoint cũ trong ứng dụng không phải nguồn thiết kế Flow 1/2/3. Flow 2 xử lý hồ sơ, Flow 3 điều phối đánh giá khả thi tới duyệt khởi hành; xác thực và vận hành sau xuất phát thực tế nằm ngoài phạm vi các contract này.
+- Endpoint cũ trong ứng dụng không phải nguồn thiết kế Flow 1/2/3. Flow 2 xử lý hồ sơ, Flow 3 điều phối lập tuyến/nguồn lực tới duyệt khởi hành; xác thực và vận hành sau xuất phát thực tế nằm ngoài phạm vi các contract này.
 
 ## 2. URL, xác thực và role
 
@@ -28,6 +28,8 @@ Base: `VITE_API_URL`, mặc định `/api`. Method/path trong tài liệu nằm 
 | `/master/*`, `/locations/*` | Người dùng đăng nhập, chỉ dữ liệu được cấp quyền |
 
 Role chuẩn: `CUSTOMER`, `LOGISTICS_MANAGER`, `TRANSPORT_SPECIALIST`, `FLEET_ROUTE_COORDINATOR`, `DRIVER_ESCORT`, `ADMIN`. `SYSTEM` chỉ là actor hệ thống trong history. Không truyền role/owner thay cho quyền JWT. Không tự thay USER được chọn bằng một ID nhân viên cố định.
+
+Prefix thể hiện role mặc định. Ngoại lệ tường minh trong Flow 3 v2: J48/J49 tại `/coordinator/staff` cho cả Coordinator và Manager theo `x-roles`; vẫn kiểm scope quản lý nhân sự. Không suy quyền toàn bộ prefix từ ngoại lệ này.
 
 Header JSON: `Authorization: Bearer <token>`, `Accept: application/json`, `Content-Type: application/json`. Upload dùng FormData; bỏ Content-Type để trình duyệt sinh boundary. GET/DELETE và POST được ghi không body phải không gửi body.
 
@@ -109,8 +111,10 @@ Trip: `PLANNING`, `READY_TO_DEPART`, `IN_TRANSIT`, `COMPLETED`. `deployment.stat
 - Mutation chờ API rồi cập nhật/refetch; lỗi giữ nguyên trạng thái nghiệp vụ. Form còn đang soạn chỉ là dữ liệu UI, không phải dữ liệu đã lưu.
 - Notifications mark-read và nhắc có endpoint riêng. Khi chưa có realtime, chủ động tải lại sau thao tác; không hứa SignalR đã hoạt động.
 
-## 8. Điểm nối Flow 2–3 sau thay đổi ngày 24/10/2026
+## 8. Điểm nối Flow 2–3 theo Final_Flow3.html (27/10/2026)
 
-Flow 3 là chuẩn cho thứ tự mới: Manager giao snapshot/hạn giao → Specialist đánh giá khoảng khả thi → Coordinator lập phương án → Manager duyệt → hoàn thiện giấy phụ thuộc lịch và booking/nguồn lực → Docs READY + Ops READY cùng bản → Manager duyệt khởi hành. Ngày dự kiến đủ giấy chưa phải READY; không bắt BOOKED/resourcesConfirmed trước duyệt phương án. Hạn giấy kiểm tra tại từng điểm dùng, deadline khách là ràng buộc bắt buộc.
+[Flow 3 v2](API-Flow/Flow3/FLOW3.md) thay thế mô tả phối hợp trước đó. Sau deployment CONFIRMED, Specialist xử lý hồ sơ/bảo hiểm/kiểm dịch và Coordinator lập tuyến/xe/nhân sự song song. Không chờ feasibility hoặc chốt danh sách giấy tờ có thời hạn. Giả định đồ án giấy tờ còn hiệu lực suốt chuyến; vẫn phải đủ hồ sơ được duyệt, insurance VERIFIED bao phủ và lịch kiểm dịch cần thiết. Không 0/0 tự READY.
 
-Các endpoint Flow 2 được đánh dấu deprecated/superseded chỉ để tra cứu payload cũ. Những method/path giữ lại (docs-ready, booking, resources/confirm, preparation, readiness, departure/approve) dùng schema Flow 3 khi tích hợp flow mới; không có đường đi qua schema cũ để bỏ gate. Danh mục và xử lý hồ sơ không bị thay thế giữ contract Flow 2. PlanVersion mới là revision bộ phương án, không tự đồng nhất với routeVersion/resourceVersion/flightVersion cũ. EvidenceVersion trong ReadyStamp là revision lúc xác nhận; backend kiểm tra dependency bị ảnh hưởng, không bắt hai stamp được ghi ở hai thời điểm có cùng evidenceVersion.
+ROAD xác nhận nguồn lực trước gửi duyệt; AIR gửi nguồn lực dự kiến, Manager duyệt tổng thể/ngân sách rồi mới booking và xác nhận thực tế. Duyệt chi phí riêng không thay duyệt tổng thể. J14 tính Ops READY, không bắt nút mới. Specialist có thể Docs READY trước duyệt tuyến; khi dependency thay đổi server đánh giá lại. Manager chỉ duyệt khởi hành khi hai nhánh còn đúng approved plan, không bản thay đổi mở, đủ bằng chứng và không blocker.
+
+Endpoint cũ trùng Flow 2/Operations chỉ tra cứu; mutation đã retired trả CONTRACT_SUPERSEDED. Các path giữ lại dùng đúng schema v2 duy nhất. version tổng hợp và planVersion nội dung do backend cấp, không tự đồng nhất routeVersion cũ. Dấu READY so theo dependency, không bắt hai dấu có cùng aggregate version. Chính sách giữ nguồn lực, idempotency, truck routing, consent đổi điểm nhận và file xem Flow 3 v2. Các quy tắc tiền/ký Flow 1 giữ nguồn riêng hiện hành.

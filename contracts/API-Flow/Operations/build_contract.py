@@ -54,10 +54,20 @@ add('F5-U03','post','/customer/complaints/{complaintId}/resolution','CUSTOMER',r
 add('F4-U01','get','/customer/requests/{requestId}/settlement','CUSTOMER',ref('Settlement'),description='Authoritative final invoice: contract total, verified deposit/balance, applied deductions and pending adjustments. No computed client-side payment amount.')
 add('F4-U02','post','/customer/requests/{requestId}/acceptance','CUSTOMER',ref('Acceptance'),description='Confirm verified handover/acceptance if no blocking complaint. Backend opens/updates the shared deadline. No client-written acceptance.')
 schemas['Error']=O(dict(success={'const':False},message=S(),errorCode=S(),data={'type':'null'}))
+# Preserve historical timed-document schema for reference; never run its old gates.
+for methods in paths.values():
+ for operation in methods.values():
+  if operation.get('operationId') in ['F2-J53','F2-J54','F3-J21','F3-J22']:
+   operation['deprecated']=True
+   operation['description']='SUPERSEDED 27/10/2026 by Flow 3 v2: parallel preparation, no timed-document scheduling gate. Historical payload only. Retired mutation returns 409 CONTRACT_SUPERSEDED; no workflow transition.'
+   operation['x-superseded-by']='../Flow3/flow3.openapi.json'
+   if operation['operationId'] in ['F2-J54','F3-J22']:
+    operation['responses'].pop('200',None)
+    operation['responses']['409']['content']['application/json']['example']={'success':False,'message':'Use Flow 3 v2 parallel preparation','errorCode':'CONTRACT_SUPERSEDED','data':None}
 spec=dict(openapi='3.1.0',info=dict(title='helo reference — planning, cases and settlement additions',version='1.0.0',description='Frontend target contract only; backend implementation and DB migrations are not included.'),servers=[dict(url='/api')],security=[{'bearerAuth':[]}],paths=paths,components=dict(securitySchemes=dict(bearerAuth=dict(type='http',scheme='bearer')),schemas=schemas))
 text=json.dumps(spec,ensure_ascii=False,indent=2)+'\n';(ROOT/'operations.openapi.json').write_text(text,encoding='utf-8')
 repo=ROOT.parents[2];(repo/'frontend/src/contracts/operations.openapi.json').write_text(text,encoding='utf-8')
-md='''# helo.html — API additions (26/10/2026)
+md='''# API additions — cập nhật điểm nối Flow 3 ngày 27/10/2026
 
 This contract defines the reference changes for frontend integration. It does not
 claim that backend endpoints or the current database implement them. Existing
@@ -70,9 +80,11 @@ the HTML demo's illustrative USD amounts.
 - Required pickup and desired-arrival dates are distinct. No guessed pickup dates.
 - Accept terms → OTP signature → SIGNED / AWAITING_DEPOSIT → verified VNPAY IPN →
   EFFECTIVE / ACTIVATED and exactly one Trip. No Trip is created by frontend/sign API.
-- Specialist sends the short-validity requirement list first. Coordinator schedules
-  departure from that version and its earliest date. Specialist prepares official
-  documents only when scheduling is confirmed (or server says no timed list is required).
+- Flow 3 planning is superseded by [Flow 3 v2](../Flow3/FLOW3.md), based on
+  Final_Flow3.html. Document preparation and coordination run in parallel after deployment.
+  F2-J53/J54 and F3-J21/J22 below are historical timed-document operations, not planning gates.
+  Retired commands return 409 CONTRACT_SUPERSEDED. The project assumes document validity
+  throughout the trip; insurance, completeness and staff qualifications still require checks.
 - Every list, detail, file and mutation is authorized by resource ownership or staff
   assignment. Customer cases remain within their request; staff use a combined hub.
 - Emergency care happens immediately; commercial/operational proposals require

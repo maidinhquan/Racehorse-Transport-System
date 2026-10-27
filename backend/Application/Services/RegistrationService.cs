@@ -75,7 +75,7 @@ public sealed class RegistrationService(
             await EnsureAvailableAsync(pending.Email, pending.PhoneNumber, cancellationToken);
             var user = new User
             {
-                UserId = "USR_CUST_" + Guid.NewGuid().ToString("N"), Username = null,
+                Username = null,
                 FullName = pending.FullName, Email = pending.Email, Phone = pending.PhoneNumber,
                 PasswordHash = pending.PasswordHash, Role = UserRoles.Customer, IsActive = true
             };

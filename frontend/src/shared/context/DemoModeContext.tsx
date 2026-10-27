@@ -11,34 +11,46 @@ export const ALL_DEMO_ROLES: DemoRole[] = [
   'driver',
 ];
 
-const GLOBAL_STORAGE_KEY = 'rts_demo_mode_global';
-const STORAGE_PREFIX = 'rts_demo_mode_';
+const SESSION_STORAGE_KEY = 'rts_demo_mode_session';
+const SESSION_PREFIX = 'rts_demo_mode_';
+
+// Dọn dẹp key cũ trong localStorage nếu có để tránh lưu vĩnh viễn trạng thái BẬT từ trước
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('rts_demo_mode_global');
+    ALL_DEMO_ROLES.forEach((r) => localStorage.removeItem(`rts_demo_mode_${r}`));
+  } catch {
+    // ignore
+  }
+}
 
 /** Lấy trạng thái chế độ dữ liệu mẫu toàn hệ thống (hoặc theo vai trò) */
 export function getDemoMode(role?: DemoRole): boolean {
   try {
-    const globalVal = localStorage.getItem(GLOBAL_STORAGE_KEY);
-    if (globalVal !== null) {
-      return globalVal === 'true';
+    if (typeof window === 'undefined') return false;
+    const sessionVal = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (sessionVal !== null) {
+      return sessionVal === 'true';
     }
     if (role) {
-      const roleVal = localStorage.getItem(`${STORAGE_PREFIX}${role}`);
+      const roleVal = sessionStorage.getItem(`${SESSION_PREFIX}${role}`);
       if (roleVal !== null) {
         return roleVal === 'true';
       }
     }
-    return true; // Mặc định BẬT để có thể kiểm thử ngay
+    // Mặc định luôn luôn TẮT (false) khi bật trang web lên, người dùng cần thì mới bấm bật
+    return false;
   } catch {
-    return true;
+    return false;
   }
 }
 
-/** Lưu trạng thái chế độ dữ liệu mẫu đồng bộ toàn hệ thống */
+/** Lưu trạng thái chế độ dữ liệu mẫu đồng bộ trong phiên làm việc */
 export function setDemoModeStorage(enabled: boolean) {
   try {
-    localStorage.setItem(GLOBAL_STORAGE_KEY, String(enabled));
+    sessionStorage.setItem(SESSION_STORAGE_KEY, String(enabled));
     ALL_DEMO_ROLES.forEach((r) => {
-      localStorage.setItem(`${STORAGE_PREFIX}${r}`, String(enabled));
+      sessionStorage.setItem(`${SESSION_PREFIX}${r}`, String(enabled));
     });
   } catch {
     // Bỏ qua lỗi truy cập storage
@@ -74,7 +86,7 @@ export function notifyDemoModeChange(roleOrEnabled?: DemoRole | boolean, maybeEn
 // Lắng nghe thay đổi từ các tab trình duyệt khác (StorageEvent) để đồng bộ đa tab
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (e: StorageEvent) => {
-    if (e.key === GLOBAL_STORAGE_KEY && e.newValue !== null) {
+    if (e.key === SESSION_STORAGE_KEY && e.newValue !== null) {
       const nextEnabled = e.newValue === 'true';
       ALL_DEMO_ROLES.forEach((r) => {
         window.dispatchEvent(

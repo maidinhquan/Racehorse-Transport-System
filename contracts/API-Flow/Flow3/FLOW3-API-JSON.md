@@ -1,121 +1,155 @@
-# Flow 3 — JSON đầy đủ từng API
+# Flow 3 v2 — JSON từng API
 
-## Cập nhật helo.html — 26/10/2026
+Cập nhật 27/10/2026 theo `Final_Flow3.html`, ghi đè contract cũ. **Chỉ tài liệu mục tiêu, chưa triển khai backend/DB.**
 
-Specialist gửi danh sách hồ sơ có thời hạn trước; Coordinator chốt lịch khởi hành
-trên đúng version đó, sau đó Specialist mới chuẩn bị/cấp giấy tờ chính thức.
-Không thay đổi dữ liệu đã cấp khi xem trước. API bổ sung và guard nằm tại
-[Operations/OPERATIONS.md](../Operations/OPERATIONS.md) và
-[operations.openapi.json](../Operations/operations.openapi.json).
-Các mô tả cũ cho phép làm hồ sơ trước khi chốt lịch được thay bằng quy tắc này.
-Frontend/API contract đã cập nhật; backend chưa được triển khai trong thay đổi này.
+[Quy tắc nghiệp vụ](FLOW3.md) · [OpenAPI](flow3.openapi.json) · [Kịch bản](flow3.examples.json).
 
-
-Ngày 24/10/2026. Thiết kế mục tiêu theo flow mới trong ảnh người dùng. Chưa triển khai backend/frontend/DB. [Flow và quy tắc](FLOW3.md) · [OpenAPI 3.1](flow3.openapi.json) · [Kịch bản](flow3.examples.json).
-
-Mẫu từng API độc lập, không phải một chuỗi request liên tiếp. Revision/ID phải lấy từ response thật. Context ROAD không dùng để book AIR. Base `/api`, Bearer JWT; actor/time/status do server cấp. Tất cả POST/PUT đổi trạng thái gửi Idempotency-Key UUID; POST validate chỉ đọc không cần key. GET không body. Danh sách data array. Mutation chưa hỗ trợ trả 501, không trả mẫu thành dữ liệu đã lưu.
-
-## Danh mục
+Base `/api`, Bearer JWT. Mẫu mỗi API độc lập; lấy ID/revision từ response thật, không chạy nối tiếp các mẫu có cùng version. GET/DELETE không body; DELETE gửi expectedVersion qua query. Mutation có Idempotency-Key UUID, riêng POST validate read-only không cần. List trả data array; binary tải xác thực. Actor/time/status/deadline/giá server cấp. Thời gian Asia/Ho_Chi_Minh; tiền nguyên VND.
 
 | Mã | Method | Endpoint | Chức năng |
 |---|---|---|---|
-| F3-J01 | GET | /master/flow3-capabilities | Khả năng flow mới và cấu hình vận hành |
-| F3-J02 | GET | /specialist/trips/{tripId}/planning-context | Thông tin Manager giao và đánh giá Specialist |
-| F3-J03 | PUT | /specialist/trips/{tripId}/planning-feasibility | Ghi đánh giá khả thi trước lập phương án |
-| F3-J04 | GET | /coordinator/trips/{tripId}/planning-context | Khoảng khả thi và bộ phương án hiện hành |
-| F3-J05 | GET | /coordinator/flights | Danh mục chuyến bay demo phù hợp chuyến |
-| F3-J06 | PUT | /coordinator/trips/{tripId}/plan-draft | Lưu bộ phương án nháp |
-| F3-J07 | POST | /coordinator/trips/{tripId}/plan/validate | Kiểm tra nháp, không giữ lịch |
-| F3-J08 | POST | /coordinator/trips/{tripId}/plan/submit | Gửi duyệt và giữ tạm nguồn lực |
-| F3-J09 | POST | /coordinator/trips/{tripId}/plan/withdraw | Rút phương án chưa duyệt |
-| F3-J10 | GET | /manager/trips/{tripId}/preparation | Manager xem feasibility, dependency và phương án |
-| F3-J11 | POST | /manager/trips/{tripId}/plan/decision | Duyệt toàn bộ phương án hoặc trả lại |
-| F3-J12 | POST | /coordinator/trips/{tripId}/plan/changes | Tạo đề xuất thay phương án đã duyệt |
-| F3-J13 | POST | /coordinator/trips/{tripId}/flight/booking | Xác nhận booking sau duyệt phương án |
-| F3-J14 | POST | /coordinator/trips/{tripId}/resources/confirm | Xác nhận khả dụng thực tế xe và nhân sự |
-| F3-J15 | POST | /coordinator/trips/{tripId}/ops-ready | Coordinator xác nhận Ops READY |
-| F3-J16 | POST | /specialist/trips/{tripId}/docs-ready | Specialist xác nhận Docs READY theo lịch được duyệt |
-| F3-J17 | GET | /manager/trips/{tripId}/readiness | Đọc điều kiện khởi hành hiện hành |
-| F3-J18 | POST | /manager/trips/{tripId}/departure/approve | Manager cho phép khởi hành sau hai READY |
-| F3-J19 | GET | /trips/{tripId}/planning-history | Lịch sử đánh giá, phương án, booking và READY |
-| F3-J20 | POST | /coordinator/trips/{tripId}/flight/booking/cancel | Ghi nhận hủy booking để xử lý phương án thay thế |
+| F3-J01 | GET | `/master/flow3-capabilities` | Khả năng triển khai và policy Flow 3 v2 |
+| F3-J02 | GET | `/specialist/trips/{tripId}/planning-context` | Context cho nhánh hồ sơ song song |
+| F3-J04 | GET | `/coordinator/trips/{tripId}/planning-context` | Context điều phối và cả hai nhánh chuẩn bị |
+| F3-J05 | GET | `/coordinator/flights` | Tra chuyến bay đối tác (read-only) |
+| F3-J06 | PUT | `/coordinator/trips/{tripId}/plan-draft` | Lưu nháp tuyến, lịch, xe và nhân sự |
+| F3-J07 | POST | `/coordinator/trips/{tripId}/plan/validate` | Kiểm nháp, không giữ nguồn lực |
+| F3-J08 | POST | `/coordinator/trips/{tripId}/plan/submit` | Gửi tổng thể và giữ tạm nguyên tử |
+| F3-J09 | POST | `/coordinator/trips/{tripId}/plan/withdraw` | Rút nháp/chờ duyệt/trả lại |
+| F3-J10 | GET | `/manager/trips/{tripId}/preparation` | Manager xem hai nhánh và bundle cần duyệt |
+| F3-J11 | POST | `/manager/trips/{tripId}/plan/decision` | Duyệt/trả toàn bộ phương án |
+| F3-J12 | POST | `/coordinator/trips/{tripId}/plan/changes` | Tạo bản điều chỉnh approved/flight proposal |
+| F3-J13 | POST | `/coordinator/trips/{tripId}/flight/booking` | Ghi nhận booking đã xác nhận bởi đối tác |
+| F3-J14 | POST | `/coordinator/trips/{tripId}/resources/confirm` | Xác nhận bố trí xe/người và tính Ops READY |
+| F3-J15 | POST | `/coordinator/trips/{tripId}/ops-ready` | Kiểm tra/xác nhận lại Ops READY |
+| F3-J16 | POST | `/specialist/trips/{tripId}/docs-ready` | Xác nhận Docs READY độc lập nhánh điều phối |
+| F3-J17 | GET | `/manager/trips/{tripId}/readiness` | Đọc gate và revision duyệt khởi hành |
+| F3-J18 | POST | `/manager/trips/{tripId}/departure/approve` | Duyệt khởi hành riêng |
+| F3-J19 | GET | `/trips/{tripId}/planning-history` | Lịch sử phương án, quyết định và bằng chứng |
+| F3-J20 | POST | `/coordinator/trips/{tripId}/flight/booking/cancel` | Ghi nhận hủy booking đã được đối tác xác nhận |
+| F3-J23 | GET | `/coordinator/trips` | Danh sách chuyến được giao và KPI planning |
+| F3-J24 | GET | `/coordinator/trips/{tripId}` | Chi tiết chuyến, điểm nhận/giao, ngựa và readiness |
+| F3-J25 | POST | `/coordinator/trips/{tripId}/plan/routing` | Tính tuyến đường bộ tham khảo |
+| F3-J26 | POST | `/coordinator/trips/{tripId}/plan/truck-check` | Kiểm tuyến theo kích thước/tải trọng xe |
+| F3-J27 | GET | `/coordinator/trips/{tripId}/vehicle-options` | Lọc xe theo chặng/sức chứa/quốc gia/lối vào |
+| F3-J28 | PUT | `/coordinator/trips/{tripId}/pickup-access` | Ghi xác minh xe có vào địa chỉ nhận |
+| F3-J29 | GET | `/coordinator/trips/{tripId}/pickup-relocation/candidates` | Tìm cơ sở tiếp nhận thay thế |
+| F3-J30 | POST | `/coordinator/trips/{tripId}/pickup-relocation` | Đề xuất điểm nhận thay thế |
+| F3-J31 | POST | `/manager/trips/{tripId}/pickup-relocation/decision` | Manager xét đề xuất điểm nhận |
+| F3-J32 | POST | `/manager/trips/{tripId}/pickup-relocation/customer-consent` | Ghi nhận khách đã đồng ý thực tế |
+| F3-J33 | POST | `/coordinator/trips/{tripId}/pickup-relocation/revisions` | Mở lại đề xuất điểm nhận đã chốt |
+| F3-J34 | GET | `/coordinator/air-partners` | Danh sách bên dịch vụ bay |
+| F3-J35 | POST | `/coordinator/air-partners` | Thêm bên dịch vụ |
+| F3-J36 | PUT | `/coordinator/air-partners/{partnerId}` | Sửa thông tin bên dịch vụ |
+| F3-J37 | PUT | `/coordinator/air-partners/{partnerId}/status` | Kích hoạt/ngừng bên dịch vụ |
+| F3-J38 | DELETE | `/coordinator/air-partners/{partnerId}` | Xóa đối tác chưa từng tham chiếu |
+| F3-J39 | PUT | `/coordinator/trips/{tripId}/flight/selection` | Chọn dịch vụ đúng partner/mã vào draft |
+| F3-J40 | POST | `/coordinator/trips/{tripId}/flight/proposal/submit` | Gửi riêng chi phí dịch vụ bay |
+| F3-J41 | POST | `/manager/trips/{tripId}/flight/decision` | Manager xét ngân sách bay riêng |
+| F3-J42 | POST | `/coordinator/trips/{tripId}/flight/evidence` | Upload bằng chứng đối tác (tùy chọn booking) |
+| F3-J43 | GET | `/coordinator/places` | Danh mục đa chức năng cho bản đồ |
+| F3-J44 | POST | `/coordinator/places` | Thêm địa điểm dùng chung |
+| F3-J45 | PUT | `/coordinator/places/{placeId}` | Sửa địa điểm và giờ mở |
+| F3-J46 | PUT | `/coordinator/places/{placeId}/status` | Đổi trạng thái cơ sở |
+| F3-J47 | DELETE | `/coordinator/places/{placeId}` | Xóa địa điểm chưa được tham chiếu |
+| F3-J48 | GET | `/coordinator/staff` | Danh mục nhân sự và trạng thái vận hành |
+| F3-J49 | PUT | `/coordinator/staff/{staffId}/status` | Đổi ACTIVE/ON_LEAVE/INACTIVE |
+| F3-J50 | GET | `/manager/flights` | Manager đọc catalogue bay |
+| F3-J51 | GET | `/manager/air-partners` | Manager đọc bên dịch vụ |
+| F3-J52 | GET | `/trips/{tripId}/planning-files/{fileId}` | Tải bằng chứng planning có xác thực |
+| F3-J53 | GET | `/coordinator/trips/{tripId}/route-reports` | Đọc báo cáo tài xế gắn mốc trên bản đồ |
+| F3-J54 | GET | `/coordinator/flights/lookup` | Tra mã chuyến trong đúng bên dịch vụ |
+| F3-J55 | GET | `/coordinator/vehicles` | Danh mục xe và thông số đã xác minh |
 
-## Lỗi chung
+F3-J03/J21/J22 đã retired; xem bảng chuyển đổi trong FLOW3.md. Không còn feasibility/timed-document gate. Mỗi endpoint sau đây bao gồm schema, JSON thành công và mã lỗi trong OpenAPI.
 
-400 validation/header; 401 chưa đăng nhập; 403 sai role; 404 không tìm thấy trong phạm vi được giao; 409 stale hoặc điều kiện nghiệp vụ; 429 giới hạn; 500 lỗi hệ thống; 501 capability/persistence chưa hỗ trợ. Mỗi operation có schema/mẫu cho toàn bộ mã lỗi trong OpenAPI. Lỗi nghiệp vụ 409 dùng đúng errorCode và blockers theo FLOW3.md.
+## F3-J01 — GET /master/flow3-capabilities
+
+Khả năng triển khai và policy Flow 3 v2.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`, `LOGISTICS_MANAGER`, `TRANSPORT_SPECIALIST`.
+
+**Điều kiện và ảnh hưởng:** Metadata contract mục tiêu; flags thực tế chỉ true sau nghiệm thu. Không lộ API key. Chưa có persistence/provider thì false và mutation trả 501.
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "version": "2.0.0",
+    "implementationStatus": "DESIGNED_NOT_IMPLEMENTED",
+    "parallelPreparation": true,
+    "documentValidityMode": "ASSUMED_VALID_FOR_TRIP",
+    "feasibilityRequired": false,
+    "timedDocumentsGate": false,
+    "roadConfirmBeforeSubmit": true,
+    "airConfirmAfterBooking": true,
+    "demoEnabled": false,
+    "routingAvailable": false,
+    "truckRoutingAvailable": false,
+    "persistenceAvailable": false,
+    "policy": null,
+    "currency": "VND",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "maxHorses": 4,
+    "maxUploadBytes": 10485760
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
 
 ```json
 {
   "success": false,
-  "message": "Giấy không còn hiệu lực khi tới điểm sử dụng",
-  "errorCode": "DOCUMENT_WINDOW_VIOLATION",
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
   "data": null,
   "blockers": [
     {
-      "code": "DOCUMENT_WINDOW_VIOLATION",
-      "field": "stops[1].plannedAt",
-      "message": "Thời điểm dùng giấy sau validUntil",
-      "constraintKey": "HEALTH:HORSE_001",
-      "useTime": "2026-10-31 10:00"
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
     }
   ]
 }
 ```
-
-
-## F3-J01 — GET /master/flow3-capabilities
-
-Khả năng flow mới và cấu hình vận hành. Role: `TRANSPORT_SPECIALIST`, `FLEET_ROUTE_COORDINATOR`, `LOGISTICS_MANAGER`.
-
-
-**Request:**
-
-Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "features": {
-      "feasibility": false,
-      "planVersioning": false,
-      "reservations": false,
-      "flightCatalog": false,
-      "demoBooking": false,
-      "readyBindings": false,
-      "departureApproval": false,
-      "idempotency": false
-    },
-    "airHandoverBeforeMinutes": null,
-    "airHandoverAfterMinutes": null,
-    "continuousDriveLimitMinutes": null,
-    "minimumRestMinutes": null,
-    "reason": "Chưa nghiệm thu backend/persistence và cấu hình vận hành"
-  }
-}
-```
-
-**Điều kiện/ảnh hưởng:** Không hỗ trợ phải false; thiếu buffer hoặc giới hạn nghỉ thì chặn submit, không điền số mặc định.
-
-**Schema:** `#/components/schemas/F3-J01Response` trong OpenAPI.
-
 
 ## F3-J02 — GET /specialist/trips/{tripId}/planning-context
 
-Thông tin Manager giao và đánh giá Specialist. Role: `TRANSPORT_SPECIALIST`.
+Context cho nhánh hồ sơ song song.
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
+**Role:** `TRANSPORT_SPECIALIST`.
 
-**Request:**
+**Điều kiện và ảnh hưởng:** Chỉ Trip được giao. Không tạo feasibility gate; không đợi Coordinator chốt lịch để chuẩn bị giấy.
 
-Không gửi body.
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
 
 ```json
 {
@@ -124,287 +158,255 @@ Không gửi body.
   "data": {
     "tripId": "TRIP_001",
     "requestId": "REQUEST_001",
-    "tripStatus": "PLANNING",
-    "requestStatus": "ACTIVATED",
-    "contractStatus": "EFFECTIVE",
-    "contextVersion": 1,
     "contractId": "CONTRACT_001",
-    "contractVersion": 1,
-    "deliveryDeadline": "2026-11-02 18:00",
-    "originCountry": "VN",
-    "destinationCountry": "VN",
+    "status": "PLANNING",
     "mode": "ROAD",
-    "horseIds": [
-      "HORSE_001"
-    ],
-    "deploymentStatus": "CONFIRMED",
-    "specialistId": "USER_005",
-    "coordinatorId": "USER_006",
-    "documentSetVersion": 3,
-    "evidenceVersion": 8,
-    "feasibility": {
-      "version": 1,
+    "binding": {
+      "version": 10,
       "contextVersion": 1,
-      "documentSetVersion": 3,
-      "earliestReadyAt": "2026-10-25 08:00",
-      "constraints": [
-        {
-          "key": "HEALTH:HORSE_001",
-          "typeId": "HEALTH_CERTIFICATE",
-          "horseId": "HORSE_001",
-          "validFrom": "2026-10-25 08:00",
-          "validUntil": "2026-10-30 18:00",
-          "useAt": "CHECKPOINT",
-          "checkpointId": 102,
-          "mustCoverWholeTrip": false,
-          "basis": "ESTIMATED_ISSUANCE",
-          "note": "Ví dụ dự kiến, Specialist phải kiểm tra giấy thật sau duyệt."
-        }
-      ],
-      "dependencies": [
-        {
-          "key": "EXPORT_SCHEDULE",
-          "description": "Hoàn thiện giấy theo lịch chính thức",
-          "needs": "OFFICIAL_SCHEDULE",
-          "owner": "TRANSPORT_SPECIALIST",
-          "expectedLeadMinutes": 120,
-          "completionRule": "Lịch đã duyệt phải còn đủ thời gian hoàn thiện trước điểm dùng",
-          "resolved": false
-        }
-      ],
-      "planningAllowed": true,
-      "blockers": [],
-      "assessed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      }
+      "planVersion": 1
     },
-    "draft": null,
-    "approvedPlan": {
-      "version": 4,
-      "contextVersion": 1,
-      "feasibilityVersion": 1,
-      "status": "APPROVED",
-      "replacesPlanVersion": null,
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-10-26 08:00",
-      "eta": "2026-10-26 16:00",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": "2026-11-10 06:30",
       "stops": [
         {
-          "checkpointId": null,
-          "name": "Điểm nhận theo hợp đồng",
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
           "type": "ORIGIN",
-          "country": "VN",
-          "lat": 10.8,
-          "lng": 106.7,
-          "plannedAt": "2026-10-26 08:00"
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
         },
         {
-          "checkpointId": 102,
-          "name": "Điểm kiểm tra demo",
-          "type": "QUARANTINE_STATION",
-          "country": "VN",
-          "lat": 10.8,
-          "lng": 106.7,
-          "plannedAt": "2026-10-26 10:00"
-        },
-        {
-          "checkpointId": null,
-          "name": "Điểm giao theo hợp đồng",
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
           "type": "DESTINATION",
-          "country": "VN",
-          "lat": 11.0,
-          "lng": 107.0,
-          "plannedAt": "2026-10-26 16:00"
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
         }
       ],
-      "legs": [
+      "resources": [
         {
-          "key": "road",
-          "country": "VN",
-          "startStopIndex": 0,
-          "endStopIndex": 2,
+          "leg": "road",
           "vehicleId": "VEHICLE_001",
           "crew": {
-            "MAIN_DRIVER": "USER_010",
-            "CO_DRIVER": "USER_011",
-            "VETERINARIAN": "USER_012"
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
           }
         }
       ],
       "flight": null,
-      "reservationState": "CONFIRMED",
-      "decisionNote": "Chấp thuận phương án trong khoảng khả thi",
-      "submitted": {
-        "by": "USER_006",
-        "at": "2026-10-24 11:00"
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "stop-origin",
+            "toStopKey": "stop-destination",
+            "leg": "road",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.9,
+                106.8
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:30",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 20,
+        "driveMin": 30,
+        "stopMin": 0,
+        "flyMin": 0,
+        "eta": "2026-11-10 06:30",
+        "issues": []
       },
-      "decided": {
-        "by": "USER_004",
-        "at": "2026-10-24 11:30"
-      }
+      "note": ""
     },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": null,
+    "pickupRelocation": null,
     "booking": null,
-    "resourcesConfirmed": {
-      "binding": {
-        "contextVersion": 1,
-        "feasibilityVersion": 1,
-        "planVersion": 4,
-        "evidenceVersion": 8
-      },
-      "confirmed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      },
-      "documentSetVersion": 3,
-      "insuranceVersion": 1
-    },
-    "docsReady": {
-      "binding": {
-        "contextVersion": 1,
-        "feasibilityVersion": 1,
-        "planVersion": 4,
-        "evidenceVersion": 8
-      },
-      "confirmed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      },
-      "documentSetVersion": 3,
-      "insuranceVersion": 1
-    },
-    "opsReady": {
-      "binding": {
-        "contextVersion": 1,
-        "feasibilityVersion": 1,
-        "planVersion": 4,
-        "evidenceVersion": 8
-      },
-      "confirmed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      },
-      "documentSetVersion": 3,
-      "insuranceVersion": 1
-    },
     "blockers": []
   }
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Chỉ Specialist được giao; snapshot deadline/horse/mode từ Flow 1. Không sửa hạn giao ở đây.
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Schema:** `#/components/schemas/F3-J02Response` trong OpenAPI.
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
 
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
 
-## F3-J03 — PUT /specialist/trips/{tripId}/planning-feasibility
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-Ghi đánh giá khả thi trước lập phương án. Role: `TRANSPORT_SPECIALIST`.
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Request:**
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
 
 ```json
 {
-  "contextVersion": 1,
-  "documentSetVersion": 3,
-  "earliestReadyAt": "2026-10-25 08:00",
-  "constraints": [
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
     {
-      "key": "HEALTH:HORSE_001",
-      "typeId": "HEALTH_CERTIFICATE",
-      "horseId": "HORSE_001",
-      "validFrom": "2026-10-25 08:00",
-      "validUntil": "2026-10-30 18:00",
-      "useAt": "CHECKPOINT",
-      "checkpointId": 102,
-      "mustCoverWholeTrip": false,
-      "basis": "ESTIMATED_ISSUANCE",
-      "note": "Ví dụ dự kiến, Specialist phải kiểm tra giấy thật sau duyệt."
-    }
-  ],
-  "expectedVersion": null,
-  "dependencies": [
-    {
-      "key": "EXPORT_SCHEDULE",
-      "description": "Hoàn thiện giấy theo lịch chính thức",
-      "needs": "OFFICIAL_SCHEDULE",
-      "owner": "TRANSPORT_SPECIALIST",
-      "expectedLeadMinutes": 120,
-      "completionRule": "Lịch đã duyệt phải còn đủ thời gian hoàn thiện trước điểm dùng"
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
     }
   ]
 }
 ```
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "version": 1,
-    "contextVersion": 1,
-    "documentSetVersion": 3,
-    "earliestReadyAt": "2026-10-25 08:00",
-    "constraints": [
-      {
-        "key": "HEALTH:HORSE_001",
-        "typeId": "HEALTH_CERTIFICATE",
-        "horseId": "HORSE_001",
-        "validFrom": "2026-10-25 08:00",
-        "validUntil": "2026-10-30 18:00",
-        "useAt": "CHECKPOINT",
-        "checkpointId": 102,
-        "mustCoverWholeTrip": false,
-        "basis": "ESTIMATED_ISSUANCE",
-        "note": "Ví dụ dự kiến, Specialist phải kiểm tra giấy thật sau duyệt."
-      }
-    ],
-    "dependencies": [
-      {
-        "key": "EXPORT_SCHEDULE",
-        "description": "Hoàn thiện giấy theo lịch chính thức",
-        "needs": "OFFICIAL_SCHEDULE",
-        "owner": "TRANSPORT_SPECIALIST",
-        "expectedLeadMinutes": 120,
-        "completionRule": "Lịch đã duyệt phải còn đủ thời gian hoàn thiện trước điểm dùng",
-        "resolved": false
-      }
-    ],
-    "planningAllowed": true,
-    "blockers": [],
-    "assessed": {
-      "by": "USER_005",
-      "at": "2026-10-24 10:00"
-    }
-  }
-}
-```
-
-**Điều kiện/ảnh hưởng:** expectedVersion=null chỉ lần đầu. BE đối chiếu requirement snapshot và tính planningAllowed, blockers, dependency.resolved. Không cho bỏ yêu cầu bắt buộc. Thay version làm bindings READY cũ stale; approved giữ lịch sử, cần kế hoạch cập nhật được duyệt. Mutation chỉ khi PLANNING.
-
-**Schema:** `#/components/schemas/F3-J03Response`, `#/components/schemas/F3-J03Request` trong OpenAPI.
-
-
 ## F3-J04 — GET /coordinator/trips/{tripId}/planning-context
 
-Khoảng khả thi và bộ phương án hiện hành. Role: `FLEET_ROUTE_COORDINATOR`.
+Context điều phối và cả hai nhánh chuẩn bị.
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
+**Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Request:**
+**Điều kiện và ảnh hưởng:** Context điều phối và cả hai nhánh chuẩn bị
 
-Không gửi body.
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
 
 ```json
 {
@@ -413,193 +415,257 @@ Không gửi body.
   "data": {
     "tripId": "TRIP_001",
     "requestId": "REQUEST_001",
-    "tripStatus": "PLANNING",
-    "requestStatus": "ACTIVATED",
-    "contractStatus": "EFFECTIVE",
-    "contextVersion": 1,
     "contractId": "CONTRACT_001",
-    "contractVersion": 1,
-    "deliveryDeadline": "2026-11-02 18:00",
-    "originCountry": "VN",
-    "destinationCountry": "VN",
+    "status": "PLANNING",
     "mode": "ROAD",
-    "horseIds": [
-      "HORSE_001"
-    ],
-    "deploymentStatus": "CONFIRMED",
-    "specialistId": "USER_005",
-    "coordinatorId": "USER_006",
-    "documentSetVersion": 3,
-    "evidenceVersion": 8,
-    "feasibility": {
-      "version": 1,
+    "binding": {
+      "version": 10,
       "contextVersion": 1,
-      "documentSetVersion": 3,
-      "earliestReadyAt": "2026-10-25 08:00",
-      "constraints": [
-        {
-          "key": "HEALTH:HORSE_001",
-          "typeId": "HEALTH_CERTIFICATE",
-          "horseId": "HORSE_001",
-          "validFrom": "2026-10-25 08:00",
-          "validUntil": "2026-10-30 18:00",
-          "useAt": "CHECKPOINT",
-          "checkpointId": 102,
-          "mustCoverWholeTrip": false,
-          "basis": "ESTIMATED_ISSUANCE",
-          "note": "Ví dụ dự kiến, Specialist phải kiểm tra giấy thật sau duyệt."
-        }
-      ],
-      "dependencies": [
-        {
-          "key": "EXPORT_SCHEDULE",
-          "description": "Hoàn thiện giấy theo lịch chính thức",
-          "needs": "OFFICIAL_SCHEDULE",
-          "owner": "TRANSPORT_SPECIALIST",
-          "expectedLeadMinutes": 120,
-          "completionRule": "Lịch đã duyệt phải còn đủ thời gian hoàn thiện trước điểm dùng",
-          "resolved": false
-        }
-      ],
-      "planningAllowed": true,
-      "blockers": [],
-      "assessed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      }
+      "planVersion": 1
     },
-    "draft": null,
-    "approvedPlan": {
-      "version": 4,
-      "contextVersion": 1,
-      "feasibilityVersion": 1,
-      "status": "APPROVED",
-      "replacesPlanVersion": null,
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-10-26 08:00",
-      "eta": "2026-10-26 16:00",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": "2026-11-10 06:30",
       "stops": [
         {
-          "checkpointId": null,
-          "name": "Điểm nhận theo hợp đồng",
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
           "type": "ORIGIN",
-          "country": "VN",
-          "lat": 10.8,
-          "lng": 106.7,
-          "plannedAt": "2026-10-26 08:00"
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
         },
         {
-          "checkpointId": 102,
-          "name": "Điểm kiểm tra demo",
-          "type": "QUARANTINE_STATION",
-          "country": "VN",
-          "lat": 10.8,
-          "lng": 106.7,
-          "plannedAt": "2026-10-26 10:00"
-        },
-        {
-          "checkpointId": null,
-          "name": "Điểm giao theo hợp đồng",
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
           "type": "DESTINATION",
-          "country": "VN",
-          "lat": 11.0,
-          "lng": 107.0,
-          "plannedAt": "2026-10-26 16:00"
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
         }
       ],
-      "legs": [
+      "resources": [
         {
-          "key": "road",
-          "country": "VN",
-          "startStopIndex": 0,
-          "endStopIndex": 2,
+          "leg": "road",
           "vehicleId": "VEHICLE_001",
           "crew": {
-            "MAIN_DRIVER": "USER_010",
-            "CO_DRIVER": "USER_011",
-            "VETERINARIAN": "USER_012"
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
           }
         }
       ],
       "flight": null,
-      "reservationState": "CONFIRMED",
-      "decisionNote": "Chấp thuận phương án trong khoảng khả thi",
-      "submitted": {
-        "by": "USER_006",
-        "at": "2026-10-24 11:00"
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "stop-origin",
+            "toStopKey": "stop-destination",
+            "leg": "road",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.9,
+                106.8
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:30",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 20,
+        "driveMin": 30,
+        "stopMin": 0,
+        "flyMin": 0,
+        "eta": "2026-11-10 06:30",
+        "issues": []
       },
-      "decided": {
-        "by": "USER_004",
-        "at": "2026-10-24 11:30"
-      }
+      "note": ""
     },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": null,
+    "pickupRelocation": null,
     "booking": null,
-    "resourcesConfirmed": {
-      "binding": {
-        "contextVersion": 1,
-        "feasibilityVersion": 1,
-        "planVersion": 4,
-        "evidenceVersion": 8
-      },
-      "confirmed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      },
-      "documentSetVersion": 3,
-      "insuranceVersion": 1
-    },
-    "docsReady": {
-      "binding": {
-        "contextVersion": 1,
-        "feasibilityVersion": 1,
-        "planVersion": 4,
-        "evidenceVersion": 8
-      },
-      "confirmed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      },
-      "documentSetVersion": 3,
-      "insuranceVersion": 1
-    },
-    "opsReady": {
-      "binding": {
-        "contextVersion": 1,
-        "feasibilityVersion": 1,
-        "planVersion": 4,
-        "evidenceVersion": 8
-      },
-      "confirmed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      },
-      "documentSetVersion": 3,
-      "insuranceVersion": 1
-    },
     "blockers": []
   }
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Chỉ Coordinator được giao; không tự coi feasibility là Docs READY. draft và approvedPlan độc lập.
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Schema:** `#/components/schemas/F3-J04Response` trong OpenAPI.
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
 
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
 
 ## F3-J05 — GET /coordinator/flights
 
-Danh mục chuyến bay demo phù hợp chuyến. Role: `FLEET_ROUTE_COORDINATOR`.
+Tra chuyến bay đối tác (read-only).
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | query | Có |
-| feasibilityVersion | query | Có |
+**Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Request:**
+**Điều kiện và ảnh hưởng:** Có tripId thì kiểm assignment, lịch/country/số ngựa. Không có lịch phù hợp trả []; không tự tạo schedule. Giá VND báo giá đã xác nhận.
 
-Không gửi body.
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| query | `tripId` | Không | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| query | `partnerId` | Không | `{"type": "string", "example": "PARTNER_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+| query | `code` | Không | `{"type": "string", "example": "EQA-DEMO-01", "minLength": 1, "maxLength": 100}` |
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
 
 ```json
 {
@@ -607,415 +673,134 @@ Không gửi body.
   "message": "OK",
   "data": [
     {
-      "catalogRef": "DEMO-DIRECT-01",
+      "serviceId": "SERVICE_001",
       "catalogVersion": 1,
-      "provider": "Đối tác demo",
-      "airline": "Demo Air",
-      "flightNo": "DEMO101",
-      "fromCheckpointId": 201,
-      "toCheckpointId": 202,
-      "originCountry": "VN",
-      "destinationCountry": "JP",
-      "departAt": "2026-10-27 08:00",
-      "arriveAt": "2026-10-27 14:00",
-      "stalls": 6,
-      "cost": 180000000,
+      "partnerId": "PARTNER_001",
+      "partnerName": "Thông tin đã xác minh",
+      "providerFlightCode": "EQA-DEMO-01",
+      "flightNo": "EQA 7710",
+      "fromAirportId": "AIRPORT_001",
+      "toAirportId": "AIRPORT_002",
+      "fromCountry": "VN",
+      "toCountry": "JP",
+      "departLocal": "2026-11-10 15:00",
+      "departZone": "Asia/Ho_Chi_Minh",
+      "arriveLocal": "2026-11-10 22:30",
+      "arriveZone": "Asia/Tokyo",
+      "departAt": "2026-11-10 15:00",
+      "arriveAt": "2026-11-10 20:30",
+      "capacity": 4,
+      "costVnd": 105000000,
       "currency": "VND",
+      "careIncluded": true,
       "direct": true,
-      "fullCare": true
+      "status": "AVAILABLE",
+      "sample": true,
+      "eligible": true,
+      "blockers": []
     }
   ]
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Tuyến/phương thức/horse từ Trip được giao; ROAD trả []; AIR lọc theo lịch, sức chứa và feasibility. Chưa có catalog thật trả 501; [] không được fallback mock. Chọn không giữ chỗ/không là booking.
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Schema:** `#/components/schemas/F3-J05Response` trong OpenAPI.
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
 
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
 
 ## F3-J06 — PUT /coordinator/trips/{tripId}/plan-draft
 
-Lưu bộ phương án nháp. Role: `FLEET_ROUTE_COORDINATOR`.
+Lưu nháp tuyến, lịch, xe và nhân sự.
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
+**Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Request:**
+**Điều kiện và ảnh hưởng:** PLANNING + deployed. Tạo nếu chưa có draft, sửa DRAFT/RETURNED; không sửa APPROVED tại chỗ. Server cấp planVersion nội dung mới, tính dependency và invalidation. Draft cho thiếu, không giữ mới; thay bộ đã confirm giải phóng hold draft không còn dùng. Không nhận deadline/ETA/geometry/status/actor. Chọn bay qua J39.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
 
 ```json
 {
-  "expectedVersion": null,
-  "contextVersion": 1,
-  "feasibilityVersion": 1,
-  "plannedDepart": "2026-10-26 08:00",
-  "eta": "2026-10-26 16:00",
+  "expectedVersion": 10,
+  "plannedDepart": "2026-11-10 06:00",
   "stops": [
     {
-      "checkpointId": null,
-      "name": "Điểm nhận theo hợp đồng",
+      "clientKey": "stop-origin",
       "type": "ORIGIN",
-      "country": "VN",
-      "lat": 10.8,
-      "lng": 106.7,
-      "plannedAt": "2026-10-26 08:00"
+      "placeId": null,
+      "purposes": [],
+      "dwellMin": 0,
+      "unload": false,
+      "careNote": ""
     },
     {
-      "checkpointId": 102,
-      "name": "Điểm kiểm tra demo",
-      "type": "QUARANTINE_STATION",
-      "country": "VN",
-      "lat": 10.8,
-      "lng": 106.7,
-      "plannedAt": "2026-10-26 10:00"
-    },
-    {
-      "checkpointId": null,
-      "name": "Điểm giao theo hợp đồng",
+      "clientKey": "stop-destination",
       "type": "DESTINATION",
-      "country": "VN",
-      "lat": 11.0,
-      "lng": 107.0,
-      "plannedAt": "2026-10-26 16:00"
+      "placeId": null,
+      "purposes": [],
+      "dwellMin": 0,
+      "unload": false,
+      "careNote": ""
     }
   ],
-  "legs": [
+  "resources": [
     {
-      "key": "road",
-      "country": "VN",
-      "startStopIndex": 0,
-      "endStopIndex": 2,
+      "leg": "road",
       "vehicleId": "VEHICLE_001",
       "crew": {
-        "MAIN_DRIVER": "USER_010",
-        "CO_DRIVER": "USER_011",
-        "VETERINARIAN": "USER_012"
+        "MAIN_DRIVER": "USER_008",
+        "CO_DRIVER": "USER_009",
+        "VETERINARIAN": "USER_010"
+      },
+      "truckProfile": {
+        "vehicleId": "VEHICLE_001",
+        "heightM": 3.8,
+        "widthM": 2.5,
+        "lengthM": 10,
+        "currentT": 12,
+        "grossT": 18,
+        "axleT": 4
       }
     }
   ],
-  "flight": null
+  "note": ""
 }
 ```
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "version": 1,
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "status": "DRAFT",
-    "replacesPlanVersion": null,
-    "mode": "ROAD",
-    "plannedDepart": "2026-10-26 08:00",
-    "eta": "2026-10-26 16:00",
-    "stops": [
-      {
-        "checkpointId": null,
-        "name": "Điểm nhận theo hợp đồng",
-        "type": "ORIGIN",
-        "country": "VN",
-        "lat": 10.8,
-        "lng": 106.7,
-        "plannedAt": "2026-10-26 08:00"
-      },
-      {
-        "checkpointId": 102,
-        "name": "Điểm kiểm tra demo",
-        "type": "QUARANTINE_STATION",
-        "country": "VN",
-        "lat": 10.8,
-        "lng": 106.7,
-        "plannedAt": "2026-10-26 10:00"
-      },
-      {
-        "checkpointId": null,
-        "name": "Điểm giao theo hợp đồng",
-        "type": "DESTINATION",
-        "country": "VN",
-        "lat": 11.0,
-        "lng": 107.0,
-        "plannedAt": "2026-10-26 16:00"
-      }
-    ],
-    "legs": [
-      {
-        "key": "road",
-        "country": "VN",
-        "startStopIndex": 0,
-        "endStopIndex": 2,
-        "vehicleId": "VEHICLE_001",
-        "crew": {
-          "MAIN_DRIVER": "USER_010",
-          "CO_DRIVER": "USER_011",
-          "VETERINARIAN": "USER_012"
-        }
-      }
-    ],
-    "flight": null,
-    "reservationState": "NONE",
-    "decisionNote": null,
-    "submitted": null,
-    "decided": null
-  }
-}
-```
-
-**Điều kiện/ảnh hưởng:** Không nhận actor/status/giá bay. planningAllowed phải true và context/feasibility đúng. Backend cấp version tăng đơn điệu; cho phép stops/legs thiếu và crew/vehicle null ở nháp nhưng báo qua validate. Chỉ sửa DRAFT/RETURNED; không chiếm nguồn lực. Không có draft gửi expectedVersion=null. Bản thay thế tạo qua J12 trước; flight snapshot lấy catalog, ROAD flight=null.
-
-**Schema:** `#/components/schemas/F3-J06Response`, `#/components/schemas/F3-J06Request` trong OpenAPI.
-
-
-## F3-J07 — POST /coordinator/trips/{tripId}/plan/validate
-
-Kiểm tra nháp, không giữ lịch. Role: `FLEET_ROUTE_COORDINATOR`.
-
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-
-**Request:**
-
-```json
-{
-  "contextVersion": 1,
-  "feasibilityVersion": 1,
-  "planVersion": 1
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "planVersion": 1,
-    "canSubmit": true,
-    "canApprovePlan": false,
-    "checks": [],
-    "dependenciesRemaining": [
-      "EXPORT_SCHEDULE"
-    ],
-    "reservesResources": false
-  }
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ đọc, không cần Idempotency-Key. Không đạt nghiệp vụ trả 200 canSubmit=false và checks; stale trả 409. Validate không bảo đảm slot còn rảnh khi submit. Phải kiểm tra đủ ràng buộc ngày dùng và deadline, nguồn lực và lead time hoàn thiện dependency.
-
-**Schema:** `#/components/schemas/F3-J07Response`, `#/components/schemas/F3-J07Request` trong OpenAPI.
-
-
-## F3-J08 — POST /coordinator/trips/{tripId}/plan/submit
-
-Gửi duyệt và giữ tạm nguồn lực. Role: `FLEET_ROUTE_COORDINATOR`.
-
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
-
-**Request:**
-
-```json
-{
-  "contextVersion": 1,
-  "feasibilityVersion": 1,
-  "planVersion": 1
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "version": 2,
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "status": "PENDING_APPROVAL",
-    "replacesPlanVersion": null,
-    "mode": "ROAD",
-    "plannedDepart": "2026-10-26 08:00",
-    "eta": "2026-10-26 16:00",
-    "stops": [
-      {
-        "checkpointId": null,
-        "name": "Điểm nhận theo hợp đồng",
-        "type": "ORIGIN",
-        "country": "VN",
-        "lat": 10.8,
-        "lng": 106.7,
-        "plannedAt": "2026-10-26 08:00"
-      },
-      {
-        "checkpointId": 102,
-        "name": "Điểm kiểm tra demo",
-        "type": "QUARANTINE_STATION",
-        "country": "VN",
-        "lat": 10.8,
-        "lng": 106.7,
-        "plannedAt": "2026-10-26 10:00"
-      },
-      {
-        "checkpointId": null,
-        "name": "Điểm giao theo hợp đồng",
-        "type": "DESTINATION",
-        "country": "VN",
-        "lat": 11.0,
-        "lng": 107.0,
-        "plannedAt": "2026-10-26 16:00"
-      }
-    ],
-    "legs": [
-      {
-        "key": "road",
-        "country": "VN",
-        "startStopIndex": 0,
-        "endStopIndex": 2,
-        "vehicleId": "VEHICLE_001",
-        "crew": {
-          "MAIN_DRIVER": "USER_010",
-          "CO_DRIVER": "USER_011",
-          "VETERINARIAN": "USER_012"
-        }
-      }
-    ],
-    "flight": null,
-    "reservationState": "TEMPORARY",
-    "decisionNote": null,
-    "submitted": {
-      "by": "USER_006",
-      "at": "2026-10-24 11:00"
-    },
-    "decided": null
-  }
-}
-```
-
-**Điều kiện/ảnh hưởng:** DRAFT/RETURNED -> PENDING_APPROVAL. Đọc lại feasibility, giấy tại mốc dùng, deadline, lịch AIR, sức chứa/chuyên môn/đất nước; kiểm tra đủ cả ba slot mỗi ROAD. Giữ tạm toàn bộ xe/người trong transaction. Không đòi booking/resourcesConfirmed/Ops READY/Docs READY. Xung đột rollback toàn bộ.
-
-**Schema:** `#/components/schemas/F3-J08Response`, `#/components/schemas/F3-J08Request` trong OpenAPI.
-
-
-## F3-J09 — POST /coordinator/trips/{tripId}/plan/withdraw
-
-Rút phương án chưa duyệt. Role: `FLEET_ROUTE_COORDINATOR`.
-
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
-
-**Request:**
-
-```json
-{
-  "contextVersion": 1,
-  "feasibilityVersion": 1,
-  "planVersion": 2,
-  "reason": "Cần sửa lại lịch trình phù hợp"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "version": 3,
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "status": "WITHDRAWN",
-    "replacesPlanVersion": null,
-    "mode": "ROAD",
-    "plannedDepart": "2026-10-26 08:00",
-    "eta": "2026-10-26 16:00",
-    "stops": [
-      {
-        "checkpointId": null,
-        "name": "Điểm nhận theo hợp đồng",
-        "type": "ORIGIN",
-        "country": "VN",
-        "lat": 10.8,
-        "lng": 106.7,
-        "plannedAt": "2026-10-26 08:00"
-      },
-      {
-        "checkpointId": 102,
-        "name": "Điểm kiểm tra demo",
-        "type": "QUARANTINE_STATION",
-        "country": "VN",
-        "lat": 10.8,
-        "lng": 106.7,
-        "plannedAt": "2026-10-26 10:00"
-      },
-      {
-        "checkpointId": null,
-        "name": "Điểm giao theo hợp đồng",
-        "type": "DESTINATION",
-        "country": "VN",
-        "lat": 11.0,
-        "lng": 107.0,
-        "plannedAt": "2026-10-26 16:00"
-      }
-    ],
-    "legs": [
-      {
-        "key": "road",
-        "country": "VN",
-        "startStopIndex": 0,
-        "endStopIndex": 2,
-        "vehicleId": "VEHICLE_001",
-        "crew": {
-          "MAIN_DRIVER": "USER_010",
-          "CO_DRIVER": "USER_011",
-          "VETERINARIAN": "USER_012"
-        }
-      }
-    ],
-    "flight": null,
-    "reservationState": "RELEASED",
-    "decisionNote": null,
-    "submitted": {
-      "by": "USER_006",
-      "at": "2026-10-24 11:00"
-    },
-    "decided": null
-  }
-}
-```
-
-**Điều kiện/ảnh hưởng:** DRAFT/RETURNED/PENDING_APPROVAL -> WITHDRAWN; release đúng giữ tạm của bản này, không release approved cũ. Không rút APPROVED. Bản mới tăng revision toàn Trip, không dùng lại số cũ.
-
-**Schema:** `#/components/schemas/F3-J09Response`, `#/components/schemas/F3-J09Request` trong OpenAPI.
-
-
-## F3-J10 — GET /manager/trips/{tripId}/preparation
-
-Manager xem feasibility, dependency và phương án. Role: `LOGISTICS_MANAGER`.
-
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-
-**Request:**
-
-Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
+**Response 200 — mẫu mục tiêu**
 
 ```json
 {
@@ -1024,446 +809,189 @@ Không gửi body.
   "data": {
     "tripId": "TRIP_001",
     "requestId": "REQUEST_001",
-    "tripStatus": "PLANNING",
-    "requestStatus": "ACTIVATED",
-    "contractStatus": "EFFECTIVE",
-    "contextVersion": 1,
     "contractId": "CONTRACT_001",
-    "contractVersion": 1,
-    "deliveryDeadline": "2026-11-02 18:00",
-    "originCountry": "VN",
-    "destinationCountry": "VN",
+    "status": "PLANNING",
     "mode": "ROAD",
-    "horseIds": [
-      "HORSE_001"
-    ],
-    "deploymentStatus": "CONFIRMED",
-    "specialistId": "USER_005",
-    "coordinatorId": "USER_006",
-    "documentSetVersion": 3,
-    "evidenceVersion": 8,
-    "feasibility": {
-      "version": 1,
+    "binding": {
+      "version": 11,
       "contextVersion": 1,
-      "documentSetVersion": 3,
-      "earliestReadyAt": "2026-10-25 08:00",
-      "constraints": [
-        {
-          "key": "HEALTH:HORSE_001",
-          "typeId": "HEALTH_CERTIFICATE",
-          "horseId": "HORSE_001",
-          "validFrom": "2026-10-25 08:00",
-          "validUntil": "2026-10-30 18:00",
-          "useAt": "CHECKPOINT",
-          "checkpointId": 102,
-          "mustCoverWholeTrip": false,
-          "basis": "ESTIMATED_ISSUANCE",
-          "note": "Ví dụ dự kiến, Specialist phải kiểm tra giấy thật sau duyệt."
-        }
-      ],
-      "dependencies": [
-        {
-          "key": "EXPORT_SCHEDULE",
-          "description": "Hoàn thiện giấy theo lịch chính thức",
-          "needs": "OFFICIAL_SCHEDULE",
-          "owner": "TRANSPORT_SPECIALIST",
-          "expectedLeadMinutes": 120,
-          "completionRule": "Lịch đã duyệt phải còn đủ thời gian hoàn thiện trước điểm dùng",
-          "resolved": false
-        }
-      ],
-      "planningAllowed": true,
-      "blockers": [],
-      "assessed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      }
+      "planVersion": 2
     },
-    "draft": null,
-    "approvedPlan": {
-      "version": 4,
-      "contextVersion": 1,
-      "feasibilityVersion": 1,
-      "status": "APPROVED",
-      "replacesPlanVersion": null,
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 2,
+      "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-10-26 08:00",
-      "eta": "2026-10-26 16:00",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": null,
       "stops": [
         {
-          "checkpointId": null,
-          "name": "Điểm nhận theo hợp đồng",
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
           "type": "ORIGIN",
-          "country": "VN",
-          "lat": 10.8,
-          "lng": 106.7,
-          "plannedAt": "2026-10-26 08:00"
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
         },
         {
-          "checkpointId": 102,
-          "name": "Điểm kiểm tra demo",
-          "type": "QUARANTINE_STATION",
-          "country": "VN",
-          "lat": 10.8,
-          "lng": 106.7,
-          "plannedAt": "2026-10-26 10:00"
-        },
-        {
-          "checkpointId": null,
-          "name": "Điểm giao theo hợp đồng",
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
           "type": "DESTINATION",
-          "country": "VN",
-          "lat": 11.0,
-          "lng": 107.0,
-          "plannedAt": "2026-10-26 16:00"
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
         }
       ],
-      "legs": [
+      "resources": [
         {
-          "key": "road",
-          "country": "VN",
-          "startStopIndex": 0,
-          "endStopIndex": 2,
+          "leg": "road",
           "vehicleId": "VEHICLE_001",
           "crew": {
-            "MAIN_DRIVER": "USER_010",
-            "CO_DRIVER": "USER_011",
-            "VETERINARIAN": "USER_012"
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
           }
         }
       ],
       "flight": null,
-      "reservationState": "CONFIRMED",
-      "decisionNote": "Chấp thuận phương án trong khoảng khả thi",
-      "submitted": {
-        "by": "USER_006",
-        "at": "2026-10-24 11:00"
-      },
-      "decided": {
-        "by": "USER_004",
-        "at": "2026-10-24 11:30"
-      }
+      "routing": null,
+      "note": ""
     },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": null,
+    "pickupRelocation": null,
     "booking": null,
-    "resourcesConfirmed": {
-      "binding": {
-        "contextVersion": 1,
-        "feasibilityVersion": 1,
-        "planVersion": 4,
-        "evidenceVersion": 8
-      },
-      "confirmed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      },
-      "documentSetVersion": 3,
-      "insuranceVersion": 1
-    },
-    "docsReady": {
-      "binding": {
-        "contextVersion": 1,
-        "feasibilityVersion": 1,
-        "planVersion": 4,
-        "evidenceVersion": 8
-      },
-      "confirmed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      },
-      "documentSetVersion": 3,
-      "insuranceVersion": 1
-    },
-    "opsReady": {
-      "binding": {
-        "contextVersion": 1,
-        "feasibilityVersion": 1,
-        "planVersion": 4,
-        "evidenceVersion": 8
-      },
-      "confirmed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
-      },
-      "documentSetVersion": 3,
-      "insuranceVersion": 1
-    },
     "blockers": []
   }
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Thay F2-J47; chưa có READY/booking vẫn cho xem và xét duyệt phương án. Cần refetch trước quyết định.
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Schema:** `#/components/schemas/F3-J10Response` trong OpenAPI.
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
 
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
 
-## F3-J11 — POST /manager/trips/{tripId}/plan/decision
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-Duyệt toàn bộ phương án hoặc trả lại. Role: `LOGISTICS_MANAGER`.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Request:**
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
 
-```json
-{
-  "contextVersion": 1,
-  "feasibilityVersion": 1,
-  "planVersion": 2,
-  "decision": "APPROVE",
-  "reason": "Chấp thuận phương án và nguồn lực"
-}
-```
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
+**Mẫu lỗi nghiệp vụ (409)**
 
 ```json
 {
-  "success": true,
-  "message": "OK",
-  "data": {
-    "version": 4,
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "status": "APPROVED",
-    "replacesPlanVersion": null,
-    "mode": "ROAD",
-    "plannedDepart": "2026-10-26 08:00",
-    "eta": "2026-10-26 16:00",
-    "stops": [
-      {
-        "checkpointId": null,
-        "name": "Điểm nhận theo hợp đồng",
-        "type": "ORIGIN",
-        "country": "VN",
-        "lat": 10.8,
-        "lng": 106.7,
-        "plannedAt": "2026-10-26 08:00"
-      },
-      {
-        "checkpointId": 102,
-        "name": "Điểm kiểm tra demo",
-        "type": "QUARANTINE_STATION",
-        "country": "VN",
-        "lat": 10.8,
-        "lng": 106.7,
-        "plannedAt": "2026-10-26 10:00"
-      },
-      {
-        "checkpointId": null,
-        "name": "Điểm giao theo hợp đồng",
-        "type": "DESTINATION",
-        "country": "VN",
-        "lat": 11.0,
-        "lng": 107.0,
-        "plannedAt": "2026-10-26 16:00"
-      }
-    ],
-    "legs": [
-      {
-        "key": "road",
-        "country": "VN",
-        "startStopIndex": 0,
-        "endStopIndex": 2,
-        "vehicleId": "VEHICLE_001",
-        "crew": {
-          "MAIN_DRIVER": "USER_010",
-          "CO_DRIVER": "USER_011",
-          "VETERINARIAN": "USER_012"
-        }
-      }
-    ],
-    "flight": null,
-    "reservationState": "CONFIRMED",
-    "decisionNote": "Chấp thuận phương án trong khoảng khả thi",
-    "submitted": {
-      "by": "USER_006",
-      "at": "2026-10-24 11:00"
-    },
-    "decided": {
-      "by": "USER_004",
-      "at": "2026-10-24 11:30"
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
     }
-  }
+  ]
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Chỉ PENDING_APPROVAL. APPROVE recheck feasibility/nguồn lực tạm/thời điểm dùng/hạn giao/lead time/catalog, xác nhận phân công và ngân sách AIR trong snapshot, tăng revision (mẫu version=4 độc lập). Chưa đòi READY hay booking. RETURN tăng revision, ghi lý do, giải phóng giữ tạm của bản đó. Thay flight trên bản đã BOOKED chặn OLD_BOOKING_ACTIVE cho tới khi có J20; booking không bị ảnh hưởng có thể giữ khi BE xác minh tương đương.
+## F3-J07 — POST /coordinator/trips/{tripId}/plan/validate
 
-**Schema:** `#/components/schemas/F3-J11Response`, `#/components/schemas/F3-J11Request` trong OpenAPI.
+Kiểm nháp, không giữ nguồn lực.
 
+**Role:** `FLEET_ROUTE_COORDINATOR`.
 
-## F3-J12 — POST /coordinator/trips/{tripId}/plan/changes
+**Điều kiện và ảnh hưởng:** Read-only: thiếu điều kiện trả 200 valid=false + blockers; stale binding 409. Không tạo hold hoặc dấu READY; không bắt feasibility/docs-ready/booking AIR.
 
-Tạo đề xuất thay phương án đã duyệt. Role: `FLEET_ROUTE_COORDINATOR`.
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
-
-**Request:**
+**Request JSON**
 
 ```json
 {
-  "contextVersion": 1,
-  "feasibilityVersion": 1,
-  "approvedPlanVersion": 4,
-  "reason": "Đề xuất điều chỉnh lịch phương tiện"
+  "expectedVersion": 10,
+  "planVersion": 1
 }
 ```
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "version": 5,
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "status": "DRAFT",
-    "replacesPlanVersion": 4,
-    "mode": "ROAD",
-    "plannedDepart": "2026-10-26 08:00",
-    "eta": "2026-10-26 16:00",
-    "stops": [
-      {
-        "checkpointId": null,
-        "name": "Điểm nhận theo hợp đồng",
-        "type": "ORIGIN",
-        "country": "VN",
-        "lat": 10.8,
-        "lng": 106.7,
-        "plannedAt": "2026-10-26 08:00"
-      },
-      {
-        "checkpointId": 102,
-        "name": "Điểm kiểm tra demo",
-        "type": "QUARANTINE_STATION",
-        "country": "VN",
-        "lat": 10.8,
-        "lng": 106.7,
-        "plannedAt": "2026-10-26 10:00"
-      },
-      {
-        "checkpointId": null,
-        "name": "Điểm giao theo hợp đồng",
-        "type": "DESTINATION",
-        "country": "VN",
-        "lat": 11.0,
-        "lng": 107.0,
-        "plannedAt": "2026-10-26 16:00"
-      }
-    ],
-    "legs": [
-      {
-        "key": "road",
-        "country": "VN",
-        "startStopIndex": 0,
-        "endStopIndex": 2,
-        "vehicleId": "VEHICLE_001",
-        "crew": {
-          "MAIN_DRIVER": "USER_010",
-          "CO_DRIVER": "USER_011",
-          "VETERINARIAN": "USER_012"
-        }
-      }
-    ],
-    "flight": null,
-    "reservationState": "NONE",
-    "decisionNote": null,
-    "submitted": null,
-    "decided": null
-  }
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ PLANNING, có APPROVED, không có draft đang mở. Copy sang DRAFT revision mới gắn feasibility mới nhất; giữ approved và booking/history. Chặn departure trong khi thay đổi đang mở. Nháp không giữ thêm; khi submit bỏ qua xung đột với giữ lịch của cùng Trip nhưng phải kiểm tra Trip khác. Approval mới chuyển reservation nguyên tử và đánh giá lại READY.
-
-**Schema:** `#/components/schemas/F3-J12Response`, `#/components/schemas/F3-J12Request` trong OpenAPI.
-
-
-## F3-J13 — POST /coordinator/trips/{tripId}/flight/booking
-
-Xác nhận booking sau duyệt phương án. Role: `FLEET_ROUTE_COORDINATOR`.
-
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
-
-**Request:**
-
-```json
-{
-  "binding": {
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "planVersion": 4,
-    "evidenceVersion": 8
-  },
-  "catalogRef": "DEMO-DIRECT-01",
-  "bookingRef": "DEMO-REF-20261027",
-  "source": "DEMO"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": 300,
-    "planVersion": 4,
-    "catalogRef": "DEMO-DIRECT-01",
-    "bookingRef": "DEMO-REF-20261027",
-    "source": "DEMO",
-    "status": "BOOKED",
-    "confirmed": {
-      "by": "USER_006",
-      "at": "2026-10-24 12:00"
-    },
-    "cancellationRef": null,
-    "cancelled": null
-  }
-}
-```
-
-**Điều kiện/ảnh hưởng:** AIR APPROVED đúng catalog/lịch/giá và binding hiện hành, không có thay đổi đang mở; ROAD từ chối VALIDATION_ERROR. Không tự gọi hãng hay sinh mã production. DEMO cần capability cho phép. Tăng evidenceVersion, invalidates Ops READY. Retry cùng key trả cùng bookingId; đã có BOOKED cùng bản/ref/source trả bản cũ, ref khác trả 409 BOOKING_ALREADY_CONFIRMED. Response mẫu độc lập phải dùng context AIR tương ứng.
-
-**Schema:** `#/components/schemas/F3-J13Response`, `#/components/schemas/F3-J13Request` trong OpenAPI.
-
-
-## F3-J14 — POST /coordinator/trips/{tripId}/resources/confirm
-
-Xác nhận khả dụng thực tế xe và nhân sự. Role: `FLEET_ROUTE_COORDINATOR`.
-
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
-
-**Request:**
-
-```json
-{
-  "binding": {
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "planVersion": 4,
-    "evidenceVersion": 8
-  }
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
+**Response 200 — mẫu mục tiêu**
 
 ```json
 {
@@ -1471,141 +999,76 @@ Xác nhận khả dụng thực tế xe và nhân sự. Role: `FLEET_ROUTE_COORD
   "message": "OK",
   "data": {
     "binding": {
+      "version": 10,
       "contextVersion": 1,
-      "feasibilityVersion": 1,
-      "planVersion": 4,
-      "evidenceVersion": 9
+      "planVersion": null
     },
-    "confirmed": {
-      "by": "USER_005",
-      "at": "2026-10-24 10:00"
-    },
-    "documentSetVersion": null,
-    "insuranceVersion": null
+    "planVersion": 1,
+    "valid": true,
+    "blockers": [],
+    "eta": "2026-11-10 06:30",
+    "resourceHoldsCreated": false
   }
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Chỉ phương án APPROVED hiện hành, không thay đổi đang mở. Recheck toàn hệ thống và lịch/bằng/chứng chỉ; tăng evidenceVersion, lưu binding/actor/time thực. Chưa phải Ops READY. Không cần Docs READY.
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Schema:** `#/components/schemas/F3-J14Response`, `#/components/schemas/F3-J14Request` trong OpenAPI.
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
 
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
 
-## F3-J15 — POST /coordinator/trips/{tripId}/ops-ready
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-Coordinator xác nhận Ops READY. Role: `FLEET_ROUTE_COORDINATOR`.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Request:**
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
 
-```json
-{
-  "binding": {
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "planVersion": 4,
-    "evidenceVersion": 8
-  }
-}
-```
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
+**Mẫu lỗi nghiệp vụ (409)**
 
 ```json
 {
-  "success": true,
-  "message": "OK",
-  "data": {
-    "binding": {
-      "contextVersion": 1,
-      "feasibilityVersion": 1,
-      "planVersion": 4,
-      "evidenceVersion": 9
-    },
-    "confirmed": {
-      "by": "USER_005",
-      "at": "2026-10-24 10:00"
-    },
-    "documentSetVersion": null,
-    "insuranceVersion": null
-  }
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Recheck APPROVED, feasibility đúng, nguồn lực xác nhận còn hợp lệ và AIR booking đúng hai ROAD/buffer. Không đòi Docs READY. Tăng evidenceVersion và trả ReadyStamp mới; FE refetch context trước thao tác kế tiếp.
+## F3-J08 — POST /coordinator/trips/{tripId}/plan/submit
 
-**Schema:** `#/components/schemas/F3-J15Response`, `#/components/schemas/F3-J15Request` trong OpenAPI.
+Gửi tổng thể và giữ tạm nguyên tử.
 
+**Role:** `FLEET_ROUTE_COORDINATOR`.
 
-## F3-J16 — POST /specialist/trips/{tripId}/docs-ready
+**Điều kiện và ảnh hưởng:** ROAD phải resourcesConfirmed hợp lệ. AIR chỉ đủ bộ dự kiến, chưa cần booking/confirm thực tế; tự submit budget nếu DRAFT/REJECTED. Cả hai kiểm server routing, truck, access, care, deadline, source, resource conflict và giữ tạm toàn bộ trong transaction. Không đợi Specialist feasibility/Docs READY.
 
-Specialist xác nhận Docs READY theo lịch được duyệt. Role: `TRANSPORT_SPECIALIST`.
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
-
-**Request:**
+**Request JSON**
 
 ```json
 {
-  "binding": {
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "planVersion": 4,
-    "evidenceVersion": 8
-  },
-  "documentSetVersion": 3,
-  "insuranceVersion": 1
+  "expectedVersion": 10,
+  "planVersion": 1
 }
 ```
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "binding": {
-      "contextVersion": 1,
-      "feasibilityVersion": 1,
-      "planVersion": 4,
-      "evidenceVersion": 9
-    },
-    "confirmed": {
-      "by": "USER_005",
-      "at": "2026-10-24 10:00"
-    },
-    "documentSetVersion": 3,
-    "insuranceVersion": 1
-  }
-}
-```
-
-**Điều kiện/ảnh hưởng:** Thay F2-J28. Chỉ APPROVED đúng context/feasibility; hoàn thiện dependencies bằng Flow 2, BE đánh giá đủ required/conditionMet và hồ sơ còn hạn tại từng điểm dùng, supplement, bảo hiểm, lịch kiểm dịch. Không cần Ops READY, không bắt có kết quả thông quan tương lai. Tăng evidenceVersion. Bộ yêu cầu rỗng/chưa cấu hình không READY.
-
-**Schema:** `#/components/schemas/F3-J16Response`, `#/components/schemas/F3-J16Request` trong OpenAPI.
-
-
-## F3-J17 — GET /manager/trips/{tripId}/readiness
-
-Đọc điều kiện khởi hành hiện hành. Role: `LOGISTICS_MANAGER`.
-
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-
-**Request:**
-
-Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
+**Response 200 — mẫu mục tiêu**
 
 ```json
 {
@@ -1613,79 +1076,2778 @@ Không gửi body.
   "message": "OK",
   "data": {
     "tripId": "TRIP_001",
-    "serverNow": "2026-10-26 07:30",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
     "binding": {
+      "version": 11,
       "contextVersion": 1,
-      "feasibilityVersion": 1,
-      "planVersion": 4,
-      "evidenceVersion": 8
+      "planVersion": 1
     },
-    "documentSetVersion": 3,
-    "insuranceVersion": 1,
-    "canApprove": true,
-    "docsReady": {
-      "binding": {
-        "contextVersion": 1,
-        "feasibilityVersion": 1,
-        "planVersion": 4,
-        "evidenceVersion": 8
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
       },
-      "confirmed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
       },
-      "documentSetVersion": 3,
-      "insuranceVersion": 1
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "PENDING_APPROVAL",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": "2026-11-10 06:30",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "stop-origin",
+            "toStopKey": "stop-destination",
+            "leg": "road",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.9,
+                106.8
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:30",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 20,
+        "driveMin": 30,
+        "stopMin": 0,
+        "flyMin": 0,
+        "eta": "2026-11-10 06:30",
+        "issues": []
+      },
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": {
+      "valid": true,
+      "planVersion": 1,
+      "contextVersion": 1,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00",
+      "invalidatedReason": null
+    },
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "ACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, RESOURCE_CONFLICT, INVALID_CREW, RESOURCES_NOT_CONFIRMED, TRUCK_ROUTE_REQUIRED, PICKUP_CONSENT_REQUIRED, VEHICLE_ACCESS_RESTRICTED, CARE_POLICY_VIOLATION, DELIVERY_DEADLINE_EXCEEDED, FLIGHT_CATALOG_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J09 — POST /coordinator/trips/{tripId}/plan/withdraw
+
+Rút nháp/chờ duyệt/trả lại.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** WITHDRAWN, giải phóng hold đúng draft, giữ approved cũ và history; không hủy booking đối tác. Không rút approved bằng endpoint này.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "planVersion": 1
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": null
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": null,
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": null,
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J10 — GET /manager/trips/{tripId}/preparation
+
+Manager xem hai nhánh và bundle cần duyệt.
+
+**Role:** `LOGISTICS_MANAGER`.
+
+**Điều kiện và ảnh hưởng:** Manager xem hai nhánh và bundle cần duyệt
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 10,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "DRAFT",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": "2026-11-10 06:30",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "stop-origin",
+            "toStopKey": "stop-destination",
+            "leg": "road",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.9,
+                106.8
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:30",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 20,
+        "driveMin": 30,
+        "stopMin": 0,
+        "flyMin": 0,
+        "eta": "2026-11-10 06:30",
+        "issues": []
+      },
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": null,
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J11 — POST /manager/trips/{tripId}/plan/decision
+
+Duyệt/trả toàn bộ phương án.
+
+**Role:** `LOGISTICS_MANAGER`.
+
+**Điều kiện và ảnh hưởng:** Chỉ đúng pending snapshot. RETURN cần reason>=5, giải phóng hold draft. APPROVE recheck atomic; ROAD cần confirm còn đúng; AIR duyệt cả budget/nguồn lực dự kiến, chưa booking, xóa confirm thực tế cũ. Không yêu cầu Docs READY. Approved cũ chỉ SUPERSEDED khi approve mới thành công.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "planVersion": 1,
+  "decision": "APPROVE"
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": null,
+    "approvedPlan": {
+      "planVersion": 1,
+      "status": "APPROVED",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": "2026-11-10 06:30",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "stop-origin",
+            "toStopKey": "stop-destination",
+            "leg": "road",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.9,
+                106.8
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:30",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 20,
+        "driveMin": 30,
+        "stopMin": 0,
+        "flyMin": 0,
+        "eta": "2026-11-10 06:30",
+        "issues": []
+      },
+      "note": ""
+    },
+    "resourcesConfirmed": {
+      "valid": true,
+      "planVersion": 1,
+      "contextVersion": 1,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00",
+      "invalidatedReason": null
     },
     "opsReady": {
-      "binding": {
-        "contextVersion": 1,
-        "feasibilityVersion": 1,
-        "planVersion": 4,
-        "evidenceVersion": 8
+      "valid": true,
+      "planVersion": 1,
+      "contextVersion": 1,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
       },
-      "confirmed": {
-        "by": "USER_005",
-        "at": "2026-10-24 10:00"
+      "at": "2026-11-10 06:00",
+      "invalidatedReason": null
+    },
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "ACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
       },
-      "documentSetVersion": 3,
-      "insuranceVersion": 1
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, RESOURCE_CONFLICT, INVALID_CREW, RESOURCES_NOT_CONFIRMED, TRUCK_ROUTE_REQUIRED, PICKUP_CONSENT_REQUIRED, VEHICLE_ACCESS_RESTRICTED, CARE_POLICY_VIOLATION, DELIVERY_DEADLINE_EXCEEDED, FLIGHT_CATALOG_CHANGED, OLD_BOOKING_ACTIVE`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J12 — POST /coordinator/trips/{tripId}/plan/changes
+
+Tạo bản điều chỉnh approved/flight proposal.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Giữ approved/booking/history; tạo DRAFT nội dung revision mới, vô hiệu evidence bị ảnh hưởng và chặn departure. Flight pending có thể rút trước khi sửa; không overwrite BOOKED. Không tự gửi duyệt hoặc đổi hạn giao.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "reason": "Đã kiểm tra và xác nhận phương án"
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 2
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 2,
+      "status": "DRAFT",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": "2026-11-10 06:30",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": null,
+      "note": ""
+    },
+    "approvedPlan": {
+      "planVersion": 1,
+      "status": "APPROVED",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": "2026-11-10 06:30",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "stop-origin",
+            "toStopKey": "stop-destination",
+            "leg": "road",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.9,
+                106.8
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:30",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 20,
+        "driveMin": 30,
+        "stopMin": 0,
+        "flyMin": 0,
+        "eta": "2026-11-10 06:30",
+        "issues": []
+      },
+      "note": ""
+    },
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": null,
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J13 — POST /coordinator/trips/{tripId}/flight/booking
+
+Ghi nhận booking đã xác nhận bởi đối tác.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** AIR approved plan + budget đúng flightVersion/catalog snapshot; confirmedHorses đúng mapping. Booking external, không gọi hãng thật; mã unique case-fold theo partner giữa các Trip. File tùy chọn phải thuộc Trip, đã scan. DEMO chỉ trip demo/capability. Thành công xóa confirm vận hành để J14 kiểm lại.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "planVersion": 1,
+  "flightVersion": 1,
+  "bookingRef": "EQA-BOOK-001",
+  "confirmedHorses": 2,
+  "acknowledged": true,
+  "source": "PARTNER_REFERENCE",
+  "note": "",
+  "evidenceFileId": null
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "AIR",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "JP",
+      "geo": {
+        "lat": 35.8,
+        "lng": 140.4
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": null,
+    "approvedPlan": {
+      "planVersion": 1,
+      "status": "APPROVED",
+      "mode": "AIR",
+      "plannedDepart": "2026-11-10 11:00",
+      "eta": "2026-11-10 23:00",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "air-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-origin",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:00",
+          "departAt": "2026-11-10 11:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "air-departure",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_001",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 210,
+          "unload": false,
+          "careNote": "",
+          "name": "air-departure",
+          "geo": {
+            "lat": 10.8188,
+            "lng": 106.6519
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:30",
+          "departAt": "2026-11-10 15:00",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_003",
+          "clientKey": "air-arrival",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_002",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 120,
+          "unload": false,
+          "careNote": "",
+          "name": "air-arrival",
+          "geo": {
+            "lat": 35.772,
+            "lng": 140.3929
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 20:30",
+          "departAt": "2026-11-10 22:30",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_004",
+          "clientKey": "air-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-destination",
+          "geo": {
+            "lat": 35.8,
+            "lng": 140.4
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 23:00",
+          "departAt": "2026-11-10 23:00",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "outbound",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        },
+        {
+          "leg": "inbound",
+          "vehicleId": "VEHICLE_002",
+          "crew": {
+            "MAIN_DRIVER": "USER_011",
+            "CO_DRIVER": "USER_012",
+            "VETERINARIAN": "USER_013"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_002",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": {
+        "flightVersion": 1,
+        "status": "BOOKED",
+        "service": {
+          "serviceId": "SERVICE_001",
+          "catalogVersion": 1,
+          "partnerId": "PARTNER_001",
+          "partnerName": "Thông tin đã xác minh",
+          "providerFlightCode": "EQA-DEMO-01",
+          "flightNo": "EQA 7710",
+          "fromAirportId": "AIRPORT_001",
+          "toAirportId": "AIRPORT_002",
+          "fromCountry": "VN",
+          "toCountry": "JP",
+          "departLocal": "2026-11-10 15:00",
+          "departZone": "Asia/Ho_Chi_Minh",
+          "arriveLocal": "2026-11-10 22:30",
+          "arriveZone": "Asia/Tokyo",
+          "departAt": "2026-11-10 15:00",
+          "arriveAt": "2026-11-10 20:30",
+          "capacity": 4,
+          "costVnd": 105000000,
+          "currency": "VND",
+          "careIncluded": true,
+          "direct": true,
+          "status": "AVAILABLE",
+          "sample": true,
+          "eligible": true,
+          "blockers": []
+        },
+        "careAcknowledged": true
+      },
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "air-origin",
+            "toStopKey": "air-departure",
+            "leg": "outbound",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.8188,
+                106.6519
+              ]
+            ]
+          },
+          {
+            "fromStopKey": "air-arrival",
+            "toStopKey": "air-destination",
+            "leg": "inbound",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                35.772,
+                140.3929
+              ],
+              [
+                35.8,
+                140.4
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "air-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-origin",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:00",
+            "departAt": "2026-11-10 11:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "air-departure",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_001",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 210,
+            "unload": false,
+            "careNote": "",
+            "name": "air-departure",
+            "geo": {
+              "lat": 10.8188,
+              "lng": 106.6519
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:30",
+            "departAt": "2026-11-10 15:00",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_003",
+            "clientKey": "air-arrival",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_002",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 120,
+            "unload": false,
+            "careNote": "",
+            "name": "air-arrival",
+            "geo": {
+              "lat": 35.772,
+              "lng": 140.3929
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 20:30",
+            "departAt": "2026-11-10 22:30",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_004",
+            "clientKey": "air-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-destination",
+            "geo": {
+              "lat": 35.8,
+              "lng": 140.4
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 23:00",
+            "departAt": "2026-11-10 23:00",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 40,
+        "driveMin": 60,
+        "stopMin": 330,
+        "flyMin": 330,
+        "eta": "2026-11-10 23:00",
+        "issues": []
+      },
+      "note": ""
+    },
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "ACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": null,
+    "booking": {
+      "bookingId": 1,
+      "planVersion": 1,
+      "flightVersion": 1,
+      "partnerId": "PARTNER_001",
+      "bookingRef": "EQA-BOOK-001",
+      "confirmedHorses": 2,
+      "source": "PARTNER_REFERENCE",
+      "status": "BOOKED",
+      "evidenceFileId": null,
+      "recordedAt": "2026-11-10 06:00",
+      "recordedBy": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      }
     },
     "blockers": []
   }
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Thay F2-J48. Bao gồm cả READY đúng bản, giờ server và revision bằng chứng. canApprove=false nếu có blocker/unsupported/draft thay đổi hoặc giờ xuất phát đã qua. GET không cấp quyền bỏ qua kiểm tra POST.
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Schema:** `#/components/schemas/F3-J17Response` trong OpenAPI.
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
 
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
 
-## F3-J18 — POST /manager/trips/{tripId}/departure/approve
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-Manager cho phép khởi hành sau hai READY. Role: `LOGISTICS_MANAGER`.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLAN_NOT_APPROVED, FLIGHT_CATALOG_CHANGED, BOOKING_REFERENCE_DUPLICATE`; schema `Error`, JSON mẫu trong OpenAPI.
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Request:**
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
 
 ```json
 {
-  "binding": {
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "planVersion": 4,
-    "evidenceVersion": 8
-  },
-  "documentSetVersion": 3,
-  "insuranceVersion": 1
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
 }
 ```
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
+## F3-J14 — POST /coordinator/trips/{tripId}/resources/confirm
+
+Xác nhận bố trí xe/người và tính Ops READY.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** ROAD DRAFT đủ bộ trước submit, tạo hold nguyên tử; không cần plan approved. AIR sau approved+BOOKED đúng plan, kiểm thực tế. Không dùng chung gate booking AIR cho ROAD; opsReady chỉ valid khi toàn bộ điều kiện vận hành đã đủ.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "planVersion": 1
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "DRAFT",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": "2026-11-10 06:30",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "stop-origin",
+            "toStopKey": "stop-destination",
+            "leg": "road",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.9,
+                106.8
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:30",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 20,
+        "driveMin": 30,
+        "stopMin": 0,
+        "flyMin": 0,
+        "eta": "2026-11-10 06:30",
+        "issues": []
+      },
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": {
+      "valid": true,
+      "planVersion": 1,
+      "contextVersion": 1,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00",
+      "invalidatedReason": null
+    },
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "ACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, RESOURCE_CONFLICT, INVALID_CREW, PLAN_NOT_APPROVED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J15 — POST /coordinator/trips/{tripId}/ops-ready
+
+Kiểm tra/xác nhận lại Ops READY.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Compatibility command sau APPROVED, cùng kiểm tra vận hành như J14; không boolean client. J14 đã tính Ops READY nên frontend không bắt thêm nút mới.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "planVersion": 1
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": null,
+    "approvedPlan": {
+      "planVersion": 1,
+      "status": "APPROVED",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": "2026-11-10 06:30",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "stop-origin",
+            "toStopKey": "stop-destination",
+            "leg": "road",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.9,
+                106.8
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:30",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 20,
+        "driveMin": 30,
+        "stopMin": 0,
+        "flyMin": 0,
+        "eta": "2026-11-10 06:30",
+        "issues": []
+      },
+      "note": ""
+    },
+    "resourcesConfirmed": {
+      "valid": true,
+      "planVersion": 1,
+      "contextVersion": 1,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00",
+      "invalidatedReason": null
+    },
+    "opsReady": {
+      "valid": true,
+      "planVersion": 1,
+      "contextVersion": 1,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00",
+      "invalidatedReason": null
+    },
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "ACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLAN_NOT_APPROVED, RESOURCES_NOT_CONFIRMED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J16 — POST /specialist/trips/{tripId}/docs-ready
+
+Xác nhận Docs READY độc lập nhánh điều phối.
+
+**Role:** `TRANSPORT_SPECIALIST`.
+
+**Điều kiện và ảnh hưởng:** PLANNING, đúng assigned Specialist, đã áp bộ yêu cầu/đủ hồ sơ approved + insurance VERIFIED; không bắt plan approved/feasibility/timed schedule. Stamp lưu doc/insurance/context dependency; plan/lịch đổi đánh giá lại, không sao chép valid mù.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "DRAFT",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": "2026-11-10 06:30",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "stop-origin",
+            "toStopKey": "stop-destination",
+            "leg": "road",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.9,
+                106.8
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:30",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 20,
+        "driveMin": 30,
+        "stopMin": 0,
+        "flyMin": 0,
+        "eta": "2026-11-10 06:30",
+        "issues": []
+      },
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": {
+      "valid": true,
+      "planVersion": null,
+      "contextVersion": 1,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00",
+      "invalidatedReason": null
+    },
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": null,
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DOCS_NOT_READY, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J17 — GET /manager/trips/{tripId}/readiness
+
+Đọc gate và revision duyệt khởi hành.
+
+**Role:** `LOGISTICS_MANAGER`.
+
+**Điều kiện và ảnh hưởng:** Projection do server tính, không tạo READY. checkedAt không cấp lease; POST phải recheck toàn bộ.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "binding": {
+      "version": 10,
+      "contextVersion": 1,
+      "planVersion": null
+    },
+    "readinessVersion": 10,
+    "approvedPlanVersion": 1,
+    "docsReady": true,
+    "opsReady": true,
+    "canApproveDeparture": true,
+    "openChange": false,
+    "checkedAt": "2026-11-09 15:00",
+    "checks": [
+      {
+        "code": "DEPLOYMENT_CONFIRMED",
+        "group": "SHARED",
+        "tab": "overview",
+        "label": "Đã giao việc và đúng phân công",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "CONTRACT_EFFECTIVE",
+        "group": "SHARED",
+        "tab": "overview",
+        "label": "Hợp đồng hiệu lực và cọc đã xác minh",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "APPROVED_PLAN",
+        "group": "SHARED",
+        "tab": "route",
+        "label": "Đúng phương án được Manager duyệt, không bản sửa mở",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "RESOURCES_CONFIRMED",
+        "group": "SHARED",
+        "tab": "resources",
+        "label": "Xe và ba người mỗi ROAD khả dụng, đã xác nhận",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "TRUCK_ROUTE_VERIFIED",
+        "group": "SHARED",
+        "tab": "route",
+        "label": "Tuyến theo đúng kích thước và tải trọng xe",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "ENDPOINT_ACCESS_VERIFIED",
+        "group": "SHARED",
+        "tab": "route",
+        "label": "Xe tiếp cận được điểm nhận/giao hoặc điểm nhận thay thế đã đồng ý",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "CARE_POLICY_VALID",
+        "group": "SHARED",
+        "tab": "route",
+        "label": "Lịch dừng nghỉ và bàn giao phù hợp",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "DELIVERY_DEADLINE_VALID",
+        "group": "SHARED",
+        "tab": "route",
+        "label": "ETA trong hạn giao và chưa quá giờ khởi hành",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "DOCUMENTS_APPROVED",
+        "group": "SHARED",
+        "tab": "readiness",
+        "label": "Đủ bộ hồ sơ được duyệt",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "INSURANCE_VERIFIED",
+        "group": "SHARED",
+        "tab": "readiness",
+        "label": "Bảo hiểm đã xác minh và bao phủ",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "QUARANTINE_VALID",
+        "group": "SHARED",
+        "tab": "readiness",
+        "label": "Lịch kiểm dịch bắt buộc đã xác nhận hoặc không yêu cầu",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "DOCS_READY_VALID",
+        "group": "SHARED",
+        "tab": "readiness",
+        "label": "Docs READY còn đúng nội dung hiện tại",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "OPS_READY_VALID",
+        "group": "SHARED",
+        "tab": "resources",
+        "label": "Ops READY còn đúng nội dung hiện tại",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      },
+      {
+        "code": "NO_BLOCKING_INCIDENT",
+        "group": "SHARED",
+        "tab": "incidents",
+        "label": "Không sự cố đang chặn khởi hành",
+        "ok": true,
+        "detail": "Đã kiểm tra theo bằng chứng hiện hành"
+      }
+    ],
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J18 — POST /manager/trips/{tripId}/departure/approve
+
+Duyệt khởi hành riêng.
+
+**Role:** `LOGISTICS_MANAGER`.
+
+**Điều kiện và ảnh hưởng:** Atomic recheck context/contract/deposit/plan+no open change, resources, truck/access/care, Docs/Ops READY, insurance/quarantine, AIR budget+booking, deadline/serverNow<=plannedDepart/no blocking incident. Change returns 409 blockers. Commit Trip READY_TO_DEPART + Request SCHEDULED + audit/notification, không DEPARTED.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "approvedPlanVersion": 1,
+  "readinessVersion": 10
+}
+```
+
+**Response 200 — mẫu mục tiêu**
 
 ```json
 {
@@ -1697,39 +3859,69 @@ Manager cho phép khởi hành sau hai READY. Role: `LOGISTICS_MANAGER`.
     "tripStatus": "READY_TO_DEPART",
     "requestStatus": "SCHEDULED",
     "binding": {
+      "version": 11,
       "contextVersion": 1,
-      "feasibilityVersion": 1,
-      "planVersion": 4,
-      "evidenceVersion": 8
+      "planVersion": 1
     },
-    "approved": {
-      "by": "USER_004",
-      "at": "2026-10-26 07:30"
-    }
+    "approvedPlanVersion": 1,
+    "approvedBy": {
+      "userId": "USER_001",
+      "name": "Thông tin đã xác minh"
+    },
+    "approvedAt": "2026-11-09 15:00"
   }
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Thay F2-J51. Transaction recheck toàn bộ bằng chứng hiện tại và serverNow<=plannedDepart. Trip READY_TO_DEPART + Request SCHEDULED cùng transaction; không tạo DEPARTED. Retry cùng key trả approval cũ; key mới đúng snapshot đã duyệt trả kết quả cũ nếu trạng thái còn READY_TO_DEPART, không thêm event; snapshot khác hoặc IN_TRANSIT trả 409. Hết hạn idempotency vẫn không duyệt trùng snapshot.
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Schema:** `#/components/schemas/F3-J18Response`, `#/components/schemas/F3-J18Request` trong OpenAPI.
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
 
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `READINESS_CHANGED, STALE_VERSION, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: READINESS_CHANGED",
+  "errorCode": "READINESS_CHANGED",
+  "data": null,
+  "blockers": [
+    {
+      "code": "READINESS_CHANGED",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
 
 ## F3-J19 — GET /trips/{tripId}/planning-history
 
-Lịch sử đánh giá, phương án, booking và READY. Role: `TRANSPORT_SPECIALIST`, `FLEET_ROUTE_COORDINATOR`, `LOGISTICS_MANAGER`.
+Lịch sử phương án, quyết định và bằng chứng.
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| limit | query | Không |
-| cursor | query | Không |
+**Role:** `FLEET_ROUTE_COORDINATOR`, `LOGISTICS_MANAGER`, `TRANSPORT_SPECIALIST`.
 
-**Request:**
+**Điều kiện và ảnh hưởng:** Cùng quyền assigned trip/manager scope; immutable history cả rút/trả, consent/booking hủy và invalidation. Không hard-delete để làm sạch revision.
 
-Không gửi body.
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
 
 ```json
 {
@@ -1737,74 +3929,5116 @@ Không gửi body.
   "message": "OK",
   "data": [
     {
-      "planVersion": 4,
-      "feasibilityVersion": 1,
-      "action": "APPROVED",
-      "actor": "USER_004",
-      "at": "2026-10-24 11:30",
-      "note": "Duyệt bộ phương án, chưa là cho phép khởi hành"
+      "eventId": "EVENT_001",
+      "at": "2026-11-10 06:00",
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "action": "Thông tin đã xác minh",
+      "planVersion": null,
+      "detail": "Đã kiểm tra và xác nhận phương án"
     }
   ]
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Cùng phạm vi Trip được giao/quản lý, thứ tự thời gian tăng. Không xóa bản cũ. Chỉ lịch sử nghiệp vụ, không trả file hoặc thông tin nhạy cảm ngoài quyền. Nếu >limit dùng cursor từ response header X-Next-Cursor.
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Schema:** `#/components/schemas/F3-J19Response` trong OpenAPI.
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
 
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
 
-## F3-J20 — POST /coordinator/trips/{tripId}/flight/booking/cancel
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-Ghi nhận hủy booking để xử lý phương án thay thế. Role: `FLEET_ROUTE_COORDINATOR`.
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
 
-| Tham số | Vị trí | Bắt buộc |
-|---|---|---|
-| tripId | path | Có |
-| Idempotency-Key | header | Có |
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Request:**
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
 
 ```json
 {
-  "binding": {
-    "contextVersion": 1,
-    "feasibilityVersion": 1,
-    "planVersion": 4,
-    "evidenceVersion": 8
-  },
-  "bookingId": 300,
-  "cancellationRef": "DEMO-CANCEL-01",
-  "reason": "Đổi chuyến bay theo đề xuất mới"
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
 }
 ```
 
-**Response 200 — mẫu mục tiêu khi đã triển khai:**
+## F3-J20 — POST /coordinator/trips/{tripId}/flight/booking/cancel
+
+Ghi nhận hủy booking đã được đối tác xác nhận.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Chỉ pre-departure; không gọi hãng/hủy ngoài thực tế. Lưu xác nhận hủy + lịch sử, vô hiệu Ops READY; không tự hoàn tiền hoặc rewrite booking. Retry không ghi đôi.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "bookingId": 1,
+  "cancellationRef": "Thông tin đã xác minh",
+  "reason": "Đã kiểm tra và xác nhận phương án",
+  "partnerConfirmed": true,
+  "evidenceFileId": null
+}
+```
+
+**Response 200 — mẫu mục tiêu**
 
 ```json
 {
   "success": true,
   "message": "OK",
   "data": {
-    "id": 300,
-    "planVersion": 4,
-    "catalogRef": "DEMO-DIRECT-01",
-    "bookingRef": "DEMO-REF-20261027",
-    "source": "DEMO",
-    "status": "CANCELLED",
-    "confirmed": {
-      "by": "USER_006",
-      "at": "2026-10-24 12:00"
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "AIR",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 1
     },
-    "cancellationRef": "DEMO-CANCEL-01",
-    "cancelled": {
-      "by": "USER_006",
-      "at": "2026-10-24 14:00"
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "JP",
+      "geo": {
+        "lat": 35.8,
+        "lng": 140.4
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": null,
+    "approvedPlan": {
+      "planVersion": 1,
+      "status": "APPROVED",
+      "mode": "AIR",
+      "plannedDepart": "2026-11-10 11:00",
+      "eta": "2026-11-10 23:00",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "air-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-origin",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:00",
+          "departAt": "2026-11-10 11:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "air-departure",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_001",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 210,
+          "unload": false,
+          "careNote": "",
+          "name": "air-departure",
+          "geo": {
+            "lat": 10.8188,
+            "lng": 106.6519
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:30",
+          "departAt": "2026-11-10 15:00",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_003",
+          "clientKey": "air-arrival",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_002",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 120,
+          "unload": false,
+          "careNote": "",
+          "name": "air-arrival",
+          "geo": {
+            "lat": 35.772,
+            "lng": 140.3929
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 20:30",
+          "departAt": "2026-11-10 22:30",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_004",
+          "clientKey": "air-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-destination",
+          "geo": {
+            "lat": 35.8,
+            "lng": 140.4
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 23:00",
+          "departAt": "2026-11-10 23:00",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "outbound",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        },
+        {
+          "leg": "inbound",
+          "vehicleId": "VEHICLE_002",
+          "crew": {
+            "MAIN_DRIVER": "USER_011",
+            "CO_DRIVER": "USER_012",
+            "VETERINARIAN": "USER_013"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_002",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": {
+        "flightVersion": 1,
+        "status": "BUDGET_APPROVED",
+        "service": {
+          "serviceId": "SERVICE_001",
+          "catalogVersion": 1,
+          "partnerId": "PARTNER_001",
+          "partnerName": "Thông tin đã xác minh",
+          "providerFlightCode": "EQA-DEMO-01",
+          "flightNo": "EQA 7710",
+          "fromAirportId": "AIRPORT_001",
+          "toAirportId": "AIRPORT_002",
+          "fromCountry": "VN",
+          "toCountry": "JP",
+          "departLocal": "2026-11-10 15:00",
+          "departZone": "Asia/Ho_Chi_Minh",
+          "arriveLocal": "2026-11-10 22:30",
+          "arriveZone": "Asia/Tokyo",
+          "departAt": "2026-11-10 15:00",
+          "arriveAt": "2026-11-10 20:30",
+          "capacity": 4,
+          "costVnd": 105000000,
+          "currency": "VND",
+          "careIncluded": true,
+          "direct": true,
+          "status": "AVAILABLE",
+          "sample": true,
+          "eligible": true,
+          "blockers": []
+        },
+        "careAcknowledged": true
+      },
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "air-origin",
+            "toStopKey": "air-departure",
+            "leg": "outbound",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.8188,
+                106.6519
+              ]
+            ]
+          },
+          {
+            "fromStopKey": "air-arrival",
+            "toStopKey": "air-destination",
+            "leg": "inbound",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                35.772,
+                140.3929
+              ],
+              [
+                35.8,
+                140.4
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "air-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-origin",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:00",
+            "departAt": "2026-11-10 11:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "air-departure",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_001",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 210,
+            "unload": false,
+            "careNote": "",
+            "name": "air-departure",
+            "geo": {
+              "lat": 10.8188,
+              "lng": 106.6519
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:30",
+            "departAt": "2026-11-10 15:00",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_003",
+            "clientKey": "air-arrival",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_002",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 120,
+            "unload": false,
+            "careNote": "",
+            "name": "air-arrival",
+            "geo": {
+              "lat": 35.772,
+              "lng": 140.3929
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 20:30",
+            "departAt": "2026-11-10 22:30",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_004",
+            "clientKey": "air-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-destination",
+            "geo": {
+              "lat": 35.8,
+              "lng": 140.4
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 23:00",
+            "departAt": "2026-11-10 23:00",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 40,
+        "driveMin": 60,
+        "stopMin": 330,
+        "flyMin": 330,
+        "eta": "2026-11-10 23:00",
+        "issues": []
+      },
+      "note": ""
+    },
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "ACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": null,
+    "booking": {
+      "bookingId": 1,
+      "planVersion": 1,
+      "flightVersion": 1,
+      "partnerId": "PARTNER_001",
+      "bookingRef": "EQA-BOOK-001",
+      "confirmedHorses": 2,
+      "source": "PARTNER_REFERENCE",
+      "status": "CANCELLED",
+      "evidenceFileId": null,
+      "recordedAt": "2026-11-10 06:00",
+      "recordedBy": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      }
+    },
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, OLD_BOOKING_ACTIVE`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J23 — GET /coordinator/trips
+
+Danh sách chuyến được giao và KPI planning.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Danh sách chuyến được giao và KPI planning
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| query | `status` | Không | `{"type": "string", "example": "PLANNING", "enum": ["PLANNING", "READY_TO_DEPART", "IN_TRANSIT", "COMPLETED"]}` |
+| query | `mode` | Không | `{"type": "string", "example": "ROAD", "enum": ["ROAD", "AIR"]}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "mode": "ROAD",
+      "status": "PLANNING",
+      "planningState": "AWAITING_ROUTE",
+      "plannedDepart": null,
+      "eta": null,
+      "deliveryDeadline": "2026-11-10 06:00",
+      "horseCount": 2,
+      "docsReady": false,
+      "opsReady": false,
+      "blockerCount": 0
+    }
+  ]
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J24 — GET /coordinator/trips/{tripId}
+
+Chi tiết chuyến, điểm nhận/giao, ngựa và readiness.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Chi tiết chuyến, điểm nhận/giao, ngựa và readiness
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 10,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "DRAFT",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": "2026-11-10 06:30",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "stop-origin",
+            "toStopKey": "stop-destination",
+            "leg": "road",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.9,
+                106.8
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:30",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 20,
+        "driveMin": 30,
+        "stopMin": 0,
+        "flyMin": 0,
+        "eta": "2026-11-10 06:30",
+        "issues": []
+      },
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": null,
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J25 — POST /coordinator/trips/{tripId}/plan/routing
+
+Tính tuyến đường bộ tham khảo.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Resolve current saved stops từ server; provider URL/key server, không SSRF URL client. Tính geometry/times theo policy; OSRM không truck verification. Lưu routing evidence tăng aggregate version; client refetch context. Dữ liệu demo chỉ Trip demo được bật.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "planVersion": 1
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "routingId": "ROUTING_001",
+    "planVersion": 1,
+    "policyVersion": 1,
+    "provider": "OSRM",
+    "truckVerified": false,
+    "demo": false,
+    "checkedAt": "2026-11-10 06:00",
+    "segments": [
+      {
+        "fromStopKey": "stop-origin",
+        "toStopKey": "stop-destination",
+        "leg": "road",
+        "km": 20,
+        "driveMin": 30,
+        "geometry": [
+          [
+            10.7769,
+            106.7009
+          ],
+          [
+            10.9,
+            106.8
+          ]
+        ]
+      }
+    ],
+    "stops": [
+      {
+        "stopId": "STOP_001",
+        "clientKey": "stop-origin",
+        "type": "ORIGIN",
+        "placeId": null,
+        "purposes": [],
+        "dwellMin": 0,
+        "unload": false,
+        "careNote": "",
+        "name": "Thông tin đã xác minh",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "required": true,
+        "arriveAt": "2026-11-10 06:00",
+        "departAt": "2026-11-10 06:00",
+        "placeVersion": null
+      },
+      {
+        "stopId": "STOP_002",
+        "clientKey": "stop-destination",
+        "type": "DESTINATION",
+        "placeId": null,
+        "purposes": [],
+        "dwellMin": 0,
+        "unload": false,
+        "careNote": "",
+        "name": "Thông tin đã xác minh",
+        "geo": {
+          "lat": 10.9,
+          "lng": 106.8
+        },
+        "required": true,
+        "arriveAt": "2026-11-10 06:30",
+        "departAt": "2026-11-10 06:30",
+        "placeVersion": null
+      }
+    ],
+    "totalKm": 20,
+    "driveMin": 30,
+    "stopMin": 0,
+    "flyMin": 0,
+    "eta": "2026-11-10 06:30",
+    "issues": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, ROUTING_REQUIRED, CARE_POLICY_VIOLATION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 503:** `ROUTING_UNAVAILABLE`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J26 — POST /coordinator/trips/{tripId}/plan/truck-check
+
+Kiểm tuyến theo kích thước/tải trọng xe.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** HERE_TRUCK server-side từng ROAD với profile đúng xe; validate gross/current/axle/spec. Critical restriction hoặc snap>250m chặn. Lưu provider result/dependency, không tin client signature/ok; provider unavailable 503 không fallback OSRM thành verified. Refetch version sau thành công.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "planVersion": 1
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "routingId": "ROUTING_001",
+    "planVersion": 1,
+    "policyVersion": 1,
+    "provider": "HERE_TRUCK",
+    "truckVerified": true,
+    "demo": false,
+    "checkedAt": "2026-11-10 06:00",
+    "segments": [
+      {
+        "fromStopKey": "stop-origin",
+        "toStopKey": "stop-destination",
+        "leg": "road",
+        "km": 20,
+        "driveMin": 30,
+        "geometry": [
+          [
+            10.7769,
+            106.7009
+          ],
+          [
+            10.9,
+            106.8
+          ]
+        ]
+      }
+    ],
+    "stops": [
+      {
+        "stopId": "STOP_001",
+        "clientKey": "stop-origin",
+        "type": "ORIGIN",
+        "placeId": null,
+        "purposes": [],
+        "dwellMin": 0,
+        "unload": false,
+        "careNote": "",
+        "name": "Thông tin đã xác minh",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "required": true,
+        "arriveAt": "2026-11-10 06:00",
+        "departAt": "2026-11-10 06:00",
+        "placeVersion": null
+      },
+      {
+        "stopId": "STOP_002",
+        "clientKey": "stop-destination",
+        "type": "DESTINATION",
+        "placeId": null,
+        "purposes": [],
+        "dwellMin": 0,
+        "unload": false,
+        "careNote": "",
+        "name": "Thông tin đã xác minh",
+        "geo": {
+          "lat": 10.9,
+          "lng": 106.8
+        },
+        "required": true,
+        "arriveAt": "2026-11-10 06:30",
+        "departAt": "2026-11-10 06:30",
+        "placeVersion": null
+      }
+    ],
+    "totalKm": 20,
+    "driveMin": 30,
+    "stopMin": 0,
+    "flyMin": 0,
+    "eta": "2026-11-10 06:30",
+    "issues": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, TRUCK_ROUTE_REQUIRED, VEHICLE_ACCESS_RESTRICTED, CARE_POLICY_VIOLATION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 503:** `ROUTING_UNAVAILABLE`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J27 — GET /coordinator/trips/{tripId}/vehicle-options
+
+Lọc xe theo chặng/sức chứa/quốc gia/lối vào.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** ROAD leg=road, AIR outbound/inbound. Check vehicle.spec so access pickup/delivery, status/conflict/capacity; unknown spec có blocker không tự suy stalls. GET không giữ xe.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| query | `leg` | Có | `{"type": "string", "example": "road", "enum": ["road", "outbound", "inbound"]}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "id": "VEHICLE_001",
+      "plate": "51C-12345",
+      "stalls": 4,
+      "country": "VN",
+      "status": "READY",
+      "spec": {
+        "heightM": 3.8,
+        "widthM": 2.5,
+        "lengthM": 10,
+        "grossT": 18
+      },
+      "eligible": true,
+      "blockers": [],
+      "assignedTrips": []
+    }
+  ]
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J28 — PUT /coordinator/trips/{tripId}/pickup-access
+
+Ghi xác minh xe có vào địa chỉ nhận.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** DRAFT (hoặc chưa có route), xe/profile đã lưu; proof>=8, acknowledged. Bind server xe/profile/request endpoint. Consent đã chốt không sửa đè: J33 trước. Vô hiệu routing/confirm liên quan.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "result": "ACCESSIBLE",
+  "proof": "Đã khảo sát và đối chiếu kích thước xe",
+  "acknowledged": true
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "DRAFT",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": null,
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": null,
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "ACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PICKUP_CONSENT_REQUIRED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J29 — GET /coordinator/trips/{tripId}/pickup-relocation/candidates
+
+Tìm cơ sở tiếp nhận thay thế.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Cùng country active QUARANTINE, parking/loading/waterFeed/capacity và mở toàn khoảng handover; km đường thẳng gắn nhãn. Không đặt cơ sở realtime.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "place": {
+        "id": "PLACE_001",
+        "version": 1,
+        "name": "Cơ sở nghỉ chăm sóc ngựa",
+        "country": "VN",
+        "province": "Thông tin đã xác minh",
+        "address": "Thông tin đã xác minh",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "functions": [
+          "QUARANTINE",
+          "REST"
+        ],
+        "hours": "24/7",
+        "contact": "Thông tin đã xác minh",
+        "phone": "+84901234567",
+        "notes": "",
+        "rest": {
+          "truckParking": true,
+          "onboardCare": true,
+          "waterFeed": true,
+          "loadingArea": true,
+          "stabling": true,
+          "capacity": 4
+        },
+        "fuel": null,
+        "airport": null,
+        "service": {
+          "kind": "Thông tin đã xác minh",
+          "capacity": "Thông tin đã xác minh"
+        },
+        "status": "ACTIVE",
+        "sample": true,
+        "updatedAt": "2026-11-10 06:00"
+      },
+      "straightLineKm": null,
+      "eligible": true,
+      "blockers": []
+    }
+  ]
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J30 — POST /coordinator/trips/{tripId}/pickup-relocation
+
+Đề xuất điểm nhận thay thế.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Chỉ sau INACCESSIBLE đúng xe; DRAFT, placeVersion live, reason>=10 + facilityConfirmed. PROPOSED không đổi ORIGIN. Lưu place/access snapshot và notify Manager. Consent đang chốt cần J33 trước.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "placeId": "PLACE_001",
+  "placeVersion": 1,
+  "reason": "Lối vào hẹp, khách đưa ngựa đến cơ sở đã liên hệ",
+  "handoverAt": "2026-11-10 06:00",
+  "facilityConfirmed": true
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "DRAFT",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": null,
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": null,
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "INACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": {
+      "relocationId": "MEETING_001",
+      "status": "PROPOSED",
+      "placeSnapshot": {
+        "id": "PLACE_001",
+        "version": 1,
+        "name": "Cơ sở nghỉ chăm sóc ngựa",
+        "country": "VN",
+        "province": "Thông tin đã xác minh",
+        "address": "Thông tin đã xác minh",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "functions": [
+          "QUARANTINE",
+          "REST"
+        ],
+        "hours": "24/7",
+        "contact": "Thông tin đã xác minh",
+        "phone": "+84901234567",
+        "notes": "",
+        "rest": {
+          "truckParking": true,
+          "onboardCare": true,
+          "waterFeed": true,
+          "loadingArea": true,
+          "stabling": true,
+          "capacity": 4
+        },
+        "fuel": null,
+        "airport": null,
+        "service": {
+          "kind": "Thông tin đã xác minh",
+          "capacity": "Thông tin đã xác minh"
+        },
+        "status": "ACTIVE",
+        "sample": true,
+        "updatedAt": "2026-11-10 06:00"
+      },
+      "reason": "Đã kiểm tra và xác nhận phương án",
+      "handoverAt": "2026-11-10 06:00",
+      "customerConsent": null,
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLACE_CHANGED, PICKUP_CONSENT_REQUIRED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J31 — POST /manager/trips/{tripId}/pickup-relocation/decision
+
+Manager xét đề xuất điểm nhận.
+
+**Role:** `LOGISTICS_MANAGER`.
+
+**Điều kiện và ảnh hưởng:** APPROVE PROPOSED→MANAGER_APPROVED sau recheck; RETURN PROPOSED/MANAGER_APPROVED→REJECTED reason>=5. Không tự coi khách đồng ý hoặc đổi ORIGIN.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "relocationId": "MEETING_001",
+  "decision": "APPROVE"
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "DRAFT",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": null,
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": null,
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "INACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": {
+      "relocationId": "MEETING_001",
+      "status": "MANAGER_APPROVED",
+      "placeSnapshot": {
+        "id": "PLACE_001",
+        "version": 1,
+        "name": "Cơ sở nghỉ chăm sóc ngựa",
+        "country": "VN",
+        "province": "Thông tin đã xác minh",
+        "address": "Thông tin đã xác minh",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "functions": [
+          "QUARANTINE",
+          "REST"
+        ],
+        "hours": "24/7",
+        "contact": "Thông tin đã xác minh",
+        "phone": "+84901234567",
+        "notes": "",
+        "rest": {
+          "truckParking": true,
+          "onboardCare": true,
+          "waterFeed": true,
+          "loadingArea": true,
+          "stabling": true,
+          "capacity": 4
+        },
+        "fuel": null,
+        "airport": null,
+        "service": {
+          "kind": "Thông tin đã xác minh",
+          "capacity": "Thông tin đã xác minh"
+        },
+        "status": "ACTIVE",
+        "sample": true,
+        "updatedAt": "2026-11-10 06:00"
+      },
+      "reason": "Đã kiểm tra và xác nhận phương án",
+      "handoverAt": "2026-11-10 06:00",
+      "customerConsent": null,
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLACE_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J32 — POST /manager/trips/{tripId}/pickup-relocation/customer-consent
+
+Ghi nhận khách đã đồng ý thực tế.
+
+**Role:** `LOGISTICS_MANAGER`.
+
+**Điều kiện và ảnh hưởng:** Chỉ MANAGER_APPROVED đúng relocation/version/vehicle/profile/place/handoverAt. Channel PHONE/EMAIL/WRITTEN, note>=10, acknowledged; chuyển CUSTOMER_CONFIRMED, ORIGIN draft mới dùng place; giữ pickup gốc, invalidate routing/confirm, notify Coordinator. Không chỉ gửi thông báo là consent.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "relocationId": "MEETING_001",
+  "placeVersion": 1,
+  "channel": "PHONE",
+  "note": "Khách đồng ý tự đưa ngựa đến điểm tiếp nhận lúc đã hẹn",
+  "acknowledged": true
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 2
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 2,
+      "status": "DRAFT",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": null,
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": "PLACE_001",
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Điểm tiếp nhận đã thống nhất",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": null,
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "INACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": {
+      "relocationId": "MEETING_001",
+      "status": "CUSTOMER_CONFIRMED",
+      "placeSnapshot": {
+        "id": "PLACE_001",
+        "version": 1,
+        "name": "Cơ sở nghỉ chăm sóc ngựa",
+        "country": "VN",
+        "province": "Thông tin đã xác minh",
+        "address": "Thông tin đã xác minh",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "functions": [
+          "QUARANTINE",
+          "REST"
+        ],
+        "hours": "24/7",
+        "contact": "Thông tin đã xác minh",
+        "phone": "+84901234567",
+        "notes": "",
+        "rest": {
+          "truckParking": true,
+          "onboardCare": true,
+          "waterFeed": true,
+          "loadingArea": true,
+          "stabling": true,
+          "capacity": 4
+        },
+        "fuel": null,
+        "airport": null,
+        "service": {
+          "kind": "Thông tin đã xác minh",
+          "capacity": "Thông tin đã xác minh"
+        },
+        "status": "ACTIVE",
+        "sample": true,
+        "updatedAt": "2026-11-10 06:00"
+      },
+      "reason": "Đã kiểm tra và xác nhận phương án",
+      "handoverAt": "2026-11-10 06:00",
+      "customerConsent": {
+        "channel": "PHONE",
+        "note": "Khách đồng ý tự đưa ngựa đến điểm tiếp nhận lúc đã hẹn",
+        "recordedBy": {
+          "userId": "USER_001",
+          "name": "Thông tin đã xác minh"
+        },
+        "at": "2026-11-10 06:00"
+      },
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLACE_CHANGED, PICKUP_CONSENT_REQUIRED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J33 — POST /coordinator/trips/{tripId}/pickup-relocation/revisions
+
+Mở lại đề xuất điểm nhận đã chốt.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Chỉ draft chỉnh sửa; archive consent, clear access/relocation/routing/confirm hiện hành; giữ lịch sử, quay điểm gốc cho tới consent mới. Không overwrite thỏa thuận cũ.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "ROAD",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 2
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.9,
+        "lng": 106.8
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 2,
+      "status": "DRAFT",
+      "mode": "ROAD",
+      "plannedDepart": "2026-11-10 06:00",
+      "eta": null,
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "stop-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "stop-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "Thông tin đã xác minh",
+          "geo": {
+            "lat": 10.9,
+            "lng": 106.8
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 06:30",
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "road",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": null,
+      "routing": null,
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": null,
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J34 — GET /coordinator/air-partners
+
+Danh sách bên dịch vụ bay.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Danh sách bên dịch vụ bay
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "id": "PARTNER_001",
+      "version": 1,
+      "name": "Equus Air Charter",
+      "contact": "Thông tin đã xác minh",
+      "email": "booking@equusair.example",
+      "phone": "Thông tin đã xác minh",
+      "services": "Thông tin đã xác minh",
+      "status": "ACTIVE",
+      "sample": true,
+      "updatedAt": "2026-11-10 06:00"
+    }
+  ]
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J35 — POST /coordinator/air-partners
+
+Thêm bên dịch vụ.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Thêm bên dịch vụ
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "name": "Equus Air Charter",
+  "contact": "Thông tin đã xác minh",
+  "email": "booking@equusair.example",
+  "phone": "Thông tin đã xác minh",
+  "services": "Thông tin đã xác minh"
+}
+```
+
+**Response 201 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "PARTNER_001",
+    "version": 1,
+    "name": "Equus Air Charter",
+    "contact": "Thông tin đã xác minh",
+    "email": "booking@equusair.example",
+    "phone": "Thông tin đã xác minh",
+    "services": "Thông tin đã xác minh",
+    "status": "ACTIVE",
+    "sample": false,
+    "updatedAt": "2026-11-10 06:00"
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J36 — PUT /coordinator/air-partners/{partnerId}
+
+Sửa thông tin bên dịch vụ.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Chỉ thông tin partner, không sửa schedule; tăng record version, không rewrite snapshot plan/hợp đồng.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `partnerId` | Có | `{"type": "string", "example": "PARTNER_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 1,
+  "name": "Equus Air Charter",
+  "contact": "Thông tin đã xác minh",
+  "email": "booking@equusair.example",
+  "phone": "Thông tin đã xác minh",
+  "services": "Thông tin đã xác minh"
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "PARTNER_001",
+    "version": 2,
+    "name": "Equus Air Charter",
+    "contact": "Thông tin đã xác minh",
+    "email": "booking@equusair.example",
+    "phone": "Thông tin đã xác minh",
+    "services": "Thông tin đã xác minh",
+    "status": "ACTIVE",
+    "sample": false,
+    "updatedAt": "2026-11-10 06:00"
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J37 — PUT /coordinator/air-partners/{partnerId}/status
+
+Kích hoạt/ngừng bên dịch vụ.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Notify/invalidate live operational evidence bị ảnh hưởng, giữ snapshot/history. Không tự hủy booking đối tác.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `partnerId` | Có | `{"type": "string", "example": "PARTNER_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 1,
+  "status": "ACTIVE"
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "PARTNER_001",
+    "version": 2,
+    "name": "Equus Air Charter",
+    "contact": "Thông tin đã xác minh",
+    "email": "booking@equusair.example",
+    "phone": "Thông tin đã xác minh",
+    "services": "Thông tin đã xác minh",
+    "status": "ACTIVE",
+    "sample": false,
+    "updatedAt": "2026-11-10 06:00"
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J38 — DELETE /coordinator/air-partners/{partnerId}
+
+Xóa đối tác chưa từng tham chiếu.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** DELETE không body, version ở query + idempotency header. Nếu catalogue schedule/plan/contract/booking/history tham chiếu trả 409, chỉ đổi status.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `partnerId` | Có | `{"type": "string", "example": "PARTNER_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+| query | `expectedVersion` | Có | `{"type": "integer", "minimum": 1, "maximum": 9007199254740991, "example": 1}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "PARTNER_001",
+    "deleted": true
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, RECORD_REFERENCED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J39 — PUT /coordinator/trips/{tripId}/flight/selection
+
+Chọn dịch vụ đúng partner/mã vào draft.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** AIR DRAFT, serviceId + partnerId + providerFlightCode + catalogVersion phải cùng bản. Server resolve snapshot/giá VND/lịch/khả dụng/sân bay/capacity/care; không nhận giá tên tự nhập. Thay nội dung tăng planVersion, clear dependent route/budget/confirm; không tạo booking.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "serviceId": "SERVICE_001",
+  "catalogVersion": 1,
+  "partnerId": "PARTNER_001",
+  "providerFlightCode": "EQA-DEMO-01",
+  "careAcknowledged": true
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "AIR",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 2
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "JP",
+      "geo": {
+        "lat": 35.8,
+        "lng": 140.4
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 2,
+      "status": "DRAFT",
+      "mode": "AIR",
+      "plannedDepart": "2026-11-10 11:00",
+      "eta": null,
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "air-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-origin",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:00",
+          "departAt": "2026-11-10 11:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "air-departure",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_001",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 210,
+          "unload": false,
+          "careNote": "",
+          "name": "air-departure",
+          "geo": {
+            "lat": 10.8188,
+            "lng": 106.6519
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:30",
+          "departAt": "2026-11-10 15:00",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_003",
+          "clientKey": "air-arrival",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_002",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 120,
+          "unload": false,
+          "careNote": "",
+          "name": "air-arrival",
+          "geo": {
+            "lat": 35.772,
+            "lng": 140.3929
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 20:30",
+          "departAt": "2026-11-10 22:30",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_004",
+          "clientKey": "air-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-destination",
+          "geo": {
+            "lat": 35.8,
+            "lng": 140.4
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 23:00",
+          "departAt": "2026-11-10 23:00",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "outbound",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        },
+        {
+          "leg": "inbound",
+          "vehicleId": "VEHICLE_002",
+          "crew": {
+            "MAIN_DRIVER": "USER_011",
+            "CO_DRIVER": "USER_012",
+            "VETERINARIAN": "USER_013"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_002",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": {
+        "flightVersion": 1,
+        "status": "DRAFT",
+        "service": {
+          "serviceId": "SERVICE_001",
+          "catalogVersion": 1,
+          "partnerId": "PARTNER_001",
+          "partnerName": "Thông tin đã xác minh",
+          "providerFlightCode": "EQA-DEMO-01",
+          "flightNo": "EQA 7710",
+          "fromAirportId": "AIRPORT_001",
+          "toAirportId": "AIRPORT_002",
+          "fromCountry": "VN",
+          "toCountry": "JP",
+          "departLocal": "2026-11-10 15:00",
+          "departZone": "Asia/Ho_Chi_Minh",
+          "arriveLocal": "2026-11-10 22:30",
+          "arriveZone": "Asia/Tokyo",
+          "departAt": "2026-11-10 15:00",
+          "arriveAt": "2026-11-10 20:30",
+          "capacity": 4,
+          "costVnd": 105000000,
+          "currency": "VND",
+          "careIncluded": true,
+          "direct": true,
+          "status": "AVAILABLE",
+          "sample": true,
+          "eligible": true,
+          "blockers": []
+        },
+        "careAcknowledged": true
+      },
+      "routing": null,
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "ACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, FLIGHT_PROVIDER_MISMATCH, FLIGHT_CATALOG_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J40 — POST /coordinator/trips/{tripId}/flight/proposal/submit
+
+Gửi riêng chi phí dịch vụ bay.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** AIR DRAFT proposal→BUDGET_PENDING, lưu snapshot bất biến; chưa thay tổng thể J08. Không hold slot hãng hoặc mở booking.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "flightVersion": 1
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "AIR",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "JP",
+      "geo": {
+        "lat": 35.8,
+        "lng": 140.4
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "DRAFT",
+      "mode": "AIR",
+      "plannedDepart": "2026-11-10 11:00",
+      "eta": "2026-11-10 23:00",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "air-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-origin",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:00",
+          "departAt": "2026-11-10 11:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "air-departure",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_001",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 210,
+          "unload": false,
+          "careNote": "",
+          "name": "air-departure",
+          "geo": {
+            "lat": 10.8188,
+            "lng": 106.6519
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:30",
+          "departAt": "2026-11-10 15:00",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_003",
+          "clientKey": "air-arrival",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_002",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 120,
+          "unload": false,
+          "careNote": "",
+          "name": "air-arrival",
+          "geo": {
+            "lat": 35.772,
+            "lng": 140.3929
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 20:30",
+          "departAt": "2026-11-10 22:30",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_004",
+          "clientKey": "air-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-destination",
+          "geo": {
+            "lat": 35.8,
+            "lng": 140.4
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 23:00",
+          "departAt": "2026-11-10 23:00",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "outbound",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        },
+        {
+          "leg": "inbound",
+          "vehicleId": "VEHICLE_002",
+          "crew": {
+            "MAIN_DRIVER": "USER_011",
+            "CO_DRIVER": "USER_012",
+            "VETERINARIAN": "USER_013"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_002",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": {
+        "flightVersion": 1,
+        "status": "BUDGET_PENDING",
+        "service": {
+          "serviceId": "SERVICE_001",
+          "catalogVersion": 1,
+          "partnerId": "PARTNER_001",
+          "partnerName": "Thông tin đã xác minh",
+          "providerFlightCode": "EQA-DEMO-01",
+          "flightNo": "EQA 7710",
+          "fromAirportId": "AIRPORT_001",
+          "toAirportId": "AIRPORT_002",
+          "fromCountry": "VN",
+          "toCountry": "JP",
+          "departLocal": "2026-11-10 15:00",
+          "departZone": "Asia/Ho_Chi_Minh",
+          "arriveLocal": "2026-11-10 22:30",
+          "arriveZone": "Asia/Tokyo",
+          "departAt": "2026-11-10 15:00",
+          "arriveAt": "2026-11-10 20:30",
+          "capacity": 4,
+          "costVnd": 105000000,
+          "currency": "VND",
+          "careIncluded": true,
+          "direct": true,
+          "status": "AVAILABLE",
+          "sample": true,
+          "eligible": true,
+          "blockers": []
+        },
+        "careAcknowledged": true
+      },
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "air-origin",
+            "toStopKey": "air-departure",
+            "leg": "outbound",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.8188,
+                106.6519
+              ]
+            ]
+          },
+          {
+            "fromStopKey": "air-arrival",
+            "toStopKey": "air-destination",
+            "leg": "inbound",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                35.772,
+                140.3929
+              ],
+              [
+                35.8,
+                140.4
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "air-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-origin",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:00",
+            "departAt": "2026-11-10 11:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "air-departure",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_001",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 210,
+            "unload": false,
+            "careNote": "",
+            "name": "air-departure",
+            "geo": {
+              "lat": 10.8188,
+              "lng": 106.6519
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:30",
+            "departAt": "2026-11-10 15:00",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_003",
+            "clientKey": "air-arrival",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_002",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 120,
+            "unload": false,
+            "careNote": "",
+            "name": "air-arrival",
+            "geo": {
+              "lat": 35.772,
+              "lng": 140.3929
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 20:30",
+            "departAt": "2026-11-10 22:30",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_004",
+            "clientKey": "air-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-destination",
+            "geo": {
+              "lat": 35.8,
+              "lng": 140.4
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 23:00",
+            "departAt": "2026-11-10 23:00",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 40,
+        "driveMin": 60,
+        "stopMin": 330,
+        "flyMin": 330,
+        "eta": "2026-11-10 23:00",
+        "issues": []
+      },
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "ACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, FLIGHT_CATALOG_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J41 — POST /manager/trips/{tripId}/flight/decision
+
+Manager xét ngân sách bay riêng.
+
+**Role:** `LOGISTICS_MANAGER`.
+
+**Điều kiện và ảnh hưởng:** BUDGET_PENDING đúng flightVersion; APPROVE→BUDGET_APPROVED, RETURN→REJECTED reason>=5. Không thay J11 và không mở J13 khi plan chưa approved. J11 vẫn có thể quyết định tổng thể ngân sách cùng bundle.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "flightVersion": 1,
+  "decision": "APPROVE"
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "status": "PLANNING",
+    "mode": "AIR",
+    "binding": {
+      "version": 11,
+      "contextVersion": 1,
+      "planVersion": 1
+    },
+    "deployment": "CONFIRMED",
+    "specialistId": "USER_006",
+    "coordinatorId": "USER_007",
+    "horseIds": [
+      "HORSE_001",
+      "HORSE_002"
+    ],
+    "pickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "delivery": {
+      "name": "Trại giao ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "JP",
+      "geo": {
+        "lat": 35.8,
+        "lng": 140.4
+      },
+      "access": null
+    },
+    "deliveryDeadline": "2026-11-12 18:00",
+    "draft": {
+      "planVersion": 1,
+      "status": "DRAFT",
+      "mode": "AIR",
+      "plannedDepart": "2026-11-10 11:00",
+      "eta": "2026-11-10 23:00",
+      "stops": [
+        {
+          "stopId": "STOP_001",
+          "clientKey": "air-origin",
+          "type": "ORIGIN",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-origin",
+          "geo": {
+            "lat": 10.7769,
+            "lng": 106.7009
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:00",
+          "departAt": "2026-11-10 11:00",
+          "placeVersion": null
+        },
+        {
+          "stopId": "STOP_002",
+          "clientKey": "air-departure",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_001",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 210,
+          "unload": false,
+          "careNote": "",
+          "name": "air-departure",
+          "geo": {
+            "lat": 10.8188,
+            "lng": 106.6519
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 11:30",
+          "departAt": "2026-11-10 15:00",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_003",
+          "clientKey": "air-arrival",
+          "type": "AIRPORT",
+          "placeId": "AIRPORT_002",
+          "purposes": [
+            "AIRPORT"
+          ],
+          "dwellMin": 120,
+          "unload": false,
+          "careNote": "",
+          "name": "air-arrival",
+          "geo": {
+            "lat": 35.772,
+            "lng": 140.3929
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 20:30",
+          "departAt": "2026-11-10 22:30",
+          "placeVersion": 1
+        },
+        {
+          "stopId": "STOP_004",
+          "clientKey": "air-destination",
+          "type": "DESTINATION",
+          "placeId": null,
+          "purposes": [],
+          "dwellMin": 0,
+          "unload": false,
+          "careNote": "",
+          "name": "air-destination",
+          "geo": {
+            "lat": 35.8,
+            "lng": 140.4
+          },
+          "required": true,
+          "arriveAt": "2026-11-10 23:00",
+          "departAt": "2026-11-10 23:00",
+          "placeVersion": null
+        }
+      ],
+      "resources": [
+        {
+          "leg": "outbound",
+          "vehicleId": "VEHICLE_001",
+          "crew": {
+            "MAIN_DRIVER": "USER_008",
+            "CO_DRIVER": "USER_009",
+            "VETERINARIAN": "USER_010"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_001",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        },
+        {
+          "leg": "inbound",
+          "vehicleId": "VEHICLE_002",
+          "crew": {
+            "MAIN_DRIVER": "USER_011",
+            "CO_DRIVER": "USER_012",
+            "VETERINARIAN": "USER_013"
+          },
+          "truckProfile": {
+            "vehicleId": "VEHICLE_002",
+            "heightM": 3.8,
+            "widthM": 2.5,
+            "lengthM": 10,
+            "currentT": 12,
+            "grossT": 18,
+            "axleT": 4
+          }
+        }
+      ],
+      "flight": {
+        "flightVersion": 1,
+        "status": "BUDGET_APPROVED",
+        "service": {
+          "serviceId": "SERVICE_001",
+          "catalogVersion": 1,
+          "partnerId": "PARTNER_001",
+          "partnerName": "Thông tin đã xác minh",
+          "providerFlightCode": "EQA-DEMO-01",
+          "flightNo": "EQA 7710",
+          "fromAirportId": "AIRPORT_001",
+          "toAirportId": "AIRPORT_002",
+          "fromCountry": "VN",
+          "toCountry": "JP",
+          "departLocal": "2026-11-10 15:00",
+          "departZone": "Asia/Ho_Chi_Minh",
+          "arriveLocal": "2026-11-10 22:30",
+          "arriveZone": "Asia/Tokyo",
+          "departAt": "2026-11-10 15:00",
+          "arriveAt": "2026-11-10 20:30",
+          "capacity": 4,
+          "costVnd": 105000000,
+          "currency": "VND",
+          "careIncluded": true,
+          "direct": true,
+          "status": "AVAILABLE",
+          "sample": true,
+          "eligible": true,
+          "blockers": []
+        },
+        "careAcknowledged": true
+      },
+      "routing": {
+        "routingId": "ROUTING_001",
+        "planVersion": 1,
+        "policyVersion": 1,
+        "provider": "HERE_TRUCK",
+        "truckVerified": true,
+        "demo": false,
+        "checkedAt": "2026-11-10 06:00",
+        "segments": [
+          {
+            "fromStopKey": "air-origin",
+            "toStopKey": "air-departure",
+            "leg": "outbound",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                10.7769,
+                106.7009
+              ],
+              [
+                10.8188,
+                106.6519
+              ]
+            ]
+          },
+          {
+            "fromStopKey": "air-arrival",
+            "toStopKey": "air-destination",
+            "leg": "inbound",
+            "km": 20,
+            "driveMin": 30,
+            "geometry": [
+              [
+                35.772,
+                140.3929
+              ],
+              [
+                35.8,
+                140.4
+              ]
+            ]
+          }
+        ],
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "air-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-origin",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:00",
+            "departAt": "2026-11-10 11:00",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "air-departure",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_001",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 210,
+            "unload": false,
+            "careNote": "",
+            "name": "air-departure",
+            "geo": {
+              "lat": 10.8188,
+              "lng": 106.6519
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 11:30",
+            "departAt": "2026-11-10 15:00",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_003",
+            "clientKey": "air-arrival",
+            "type": "AIRPORT",
+            "placeId": "AIRPORT_002",
+            "purposes": [
+              "AIRPORT"
+            ],
+            "dwellMin": 120,
+            "unload": false,
+            "careNote": "",
+            "name": "air-arrival",
+            "geo": {
+              "lat": 35.772,
+              "lng": 140.3929
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 20:30",
+            "departAt": "2026-11-10 22:30",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_004",
+            "clientKey": "air-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "air-destination",
+            "geo": {
+              "lat": 35.8,
+              "lng": 140.4
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 23:00",
+            "departAt": "2026-11-10 23:00",
+            "placeVersion": null
+          }
+        ],
+        "totalKm": 40,
+        "driveMin": 60,
+        "stopMin": 330,
+        "flyMin": 330,
+        "eta": "2026-11-10 23:00",
+        "issues": []
+      },
+      "note": ""
+    },
+    "approvedPlan": null,
+    "resourcesConfirmed": null,
+    "opsReady": null,
+    "docsReady": null,
+    "documents": {
+      "requirementSetApplied": true,
+      "required": 5,
+      "approved": 5,
+      "insuranceStatus": "VERIFIED",
+      "quarantineConfirmed": true,
+      "validityMode": "ASSUMED_VALID_FOR_TRIP",
+      "blockers": []
+    },
+    "pickupAccess": {
+      "result": "ACCESSIBLE",
+      "proof": "Đã khảo sát và đối chiếu kích thước xe",
+      "valid": true,
+      "by": {
+        "userId": "USER_001",
+        "name": "Thông tin đã xác minh"
+      },
+      "at": "2026-11-10 06:00"
+    },
+    "pickupRelocation": null,
+    "booking": null,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, FLIGHT_CATALOG_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J42 — POST /coordinator/trips/{tripId}/flight/evidence
+
+Upload bằng chứng đối tác (tùy chọn booking).
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Multipart expectedVersion + file bytes thật; PDF/JPEG/PNG <=10485760. Check assignment/state, magic bytes/MIME/scan, private storage; không public URL/base64. Trả fileId; refetch context revision trước J13/J20. Upload đơn thuần không là BOOKED.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request multipart/form-data:** `expectedVersion` và `file` bytes thật PDF/JPEG/PNG <=10 MiB; trình duyệt tự sinh boundary. Không gửi JSON/base64/object URL.
+
+**Response 201 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "fileId": "FILE_001",
+    "fileName": "booking.pdf",
+    "contentType": "application/pdf",
+    "size": 2048,
+    "uploadedAt": "2026-11-10 06:00",
+    "uploadedBy": {
+      "userId": "USER_001",
+      "name": "Thông tin đã xác minh"
     }
   }
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Chỉ PLANNING có approved và proposal thay đổi đang mở, đúng booking hiện hành. Ghi chứng cứ hủy bên ngoài/demo, không gọi hãng tự hủy; không xóa booking cũ. Tăng evidenceVersion, mất Ops READY, giữ lịch sử. Hủy thất bại không được ghi CANCELLED. Retry key cũ trả kết quả cũ; booking đã CANCELLED cùng ref trả kết quả đã lưu khi vẫn PLANNING. Backend phải kiểm tra nguồn/chứng cứ tương ứng booking.source.
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Schema:** `#/components/schemas/F3-J20Response`, `#/components/schemas/F3-J20Request` trong OpenAPI.
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
 
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 413:** `FILE_TOO_LARGE`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 415:** `UNSUPPORTED_MEDIA_TYPE`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J43 — GET /coordinator/places
+
+Danh mục đa chức năng cho bản đồ.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Danh mục đa chức năng cho bản đồ
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| query | `country` | Không | `{"type": "string", "example": "VN", "pattern": "^[A-Z]{2}$"}` |
+| query | `function` | Không | `{"type": "string", "example": "REST", "enum": ["REST", "FUEL", "QUARANTINE", "BORDER", "AIRPORT"]}` |
+| query | `status` | Không | `{"type": "string", "example": "ACTIVE", "enum": ["ACTIVE", "SUSPENDED", "INACTIVE"]}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "id": "PLACE_001",
+      "version": 1,
+      "name": "Cơ sở nghỉ chăm sóc ngựa",
+      "country": "VN",
+      "province": "Thông tin đã xác minh",
+      "address": "Thông tin đã xác minh",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "functions": [
+        "REST"
+      ],
+      "hours": "24/7",
+      "contact": "Thông tin đã xác minh",
+      "phone": "+84901234567",
+      "notes": "",
+      "rest": {
+        "truckParking": true,
+        "onboardCare": true,
+        "waterFeed": true,
+        "loadingArea": true,
+        "stabling": true,
+        "capacity": 4
+      },
+      "fuel": null,
+      "airport": null,
+      "service": null,
+      "status": "ACTIVE",
+      "sample": true,
+      "updatedAt": "2026-11-10 06:00"
+    }
+  ]
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J44 — POST /coordinator/places
+
+Thêm địa điểm dùng chung.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Check coordinates, functions and conditional extras: REST capacity>0, AIRPORT IATA/horseHandling; duplicate<50m chặn. Không tạo pickup/delivery cá nhân vào public catalogue. Server status ACTIVE/sample=false.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "name": "Cơ sở nghỉ chăm sóc ngựa",
+  "country": "VN",
+  "province": "Thông tin đã xác minh",
+  "address": "Thông tin đã xác minh",
+  "geo": {
+    "lat": 10.7769,
+    "lng": 106.7009
+  },
+  "functions": [
+    "REST"
+  ],
+  "hours": "24/7",
+  "contact": "Thông tin đã xác minh",
+  "phone": "+84901234567",
+  "notes": "",
+  "rest": {
+    "truckParking": true,
+    "onboardCare": true,
+    "waterFeed": true,
+    "loadingArea": true,
+    "stabling": true,
+    "capacity": 4
+  },
+  "fuel": null,
+  "airport": null,
+  "service": null
+}
+```
+
+**Response 201 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "PLACE_001",
+    "version": 1,
+    "name": "Cơ sở nghỉ chăm sóc ngựa",
+    "country": "VN",
+    "province": "Thông tin đã xác minh",
+    "address": "Thông tin đã xác minh",
+    "geo": {
+      "lat": 10.7769,
+      "lng": 106.7009
+    },
+    "functions": [
+      "REST"
+    ],
+    "hours": "24/7",
+    "contact": "Thông tin đã xác minh",
+    "phone": "+84901234567",
+    "notes": "",
+    "rest": {
+      "truckParking": true,
+      "onboardCare": true,
+      "waterFeed": true,
+      "loadingArea": true,
+      "stabling": true,
+      "capacity": 4
+    },
+    "fuel": null,
+    "airport": null,
+    "service": null,
+    "status": "ACTIVE",
+    "sample": false,
+    "updatedAt": "2026-11-10 06:00"
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `DUPLICATE_PLACE`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: DUPLICATE_PLACE",
+  "errorCode": "DUPLICATE_PLACE",
+  "data": null,
+  "blockers": [
+    {
+      "code": "DUPLICATE_PLACE",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J45 — PUT /coordinator/places/{placeId}
+
+Sửa địa điểm và giờ mở.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Validate hours qua đêm và extras đúng functions, version tăng; không rewrite approved snapshot. Live consent/evidence stale phải re-evaluate và báo Trip liên quan.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `placeId` | Có | `{"type": "string", "example": "PLACE_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 1,
+  "name": "Cơ sở nghỉ chăm sóc ngựa",
+  "country": "VN",
+  "province": "Thông tin đã xác minh",
+  "address": "Thông tin đã xác minh",
+  "geo": {
+    "lat": 10.7769,
+    "lng": 106.7009
+  },
+  "functions": [
+    "REST"
+  ],
+  "hours": "24/7",
+  "contact": "Thông tin đã xác minh",
+  "phone": "+84901234567",
+  "notes": "",
+  "rest": {
+    "truckParking": true,
+    "onboardCare": true,
+    "waterFeed": true,
+    "loadingArea": true,
+    "stabling": true,
+    "capacity": 4
+  },
+  "fuel": null,
+  "airport": null,
+  "service": null
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "PLACE_001",
+    "version": 2,
+    "name": "Cơ sở nghỉ chăm sóc ngựa",
+    "country": "VN",
+    "province": "Thông tin đã xác minh",
+    "address": "Thông tin đã xác minh",
+    "geo": {
+      "lat": 10.7769,
+      "lng": 106.7009
+    },
+    "functions": [
+      "REST"
+    ],
+    "hours": "24/7",
+    "contact": "Thông tin đã xác minh",
+    "phone": "+84901234567",
+    "notes": "",
+    "rest": {
+      "truckParking": true,
+      "onboardCare": true,
+      "waterFeed": true,
+      "loadingArea": true,
+      "stabling": true,
+      "capacity": 4
+    },
+    "fuel": null,
+    "airport": null,
+    "service": null,
+    "status": "ACTIVE",
+    "sample": false,
+    "updatedAt": "2026-11-10 06:00"
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, DUPLICATE_PLACE`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J46 — PUT /coordinator/places/{placeId}/status
+
+Đổi trạng thái cơ sở.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Tạm ngừng/đóng invalidate evidence bị ảnh hưởng; không xóa history hoặc tự đổi điểm trên plan đã duyệt.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `placeId` | Có | `{"type": "string", "example": "PLACE_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 1,
+  "status": "ACTIVE",
+  "reason": "Đã kiểm tra và xác nhận phương án"
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "PLACE_001",
+    "version": 2,
+    "name": "Cơ sở nghỉ chăm sóc ngựa",
+    "country": "VN",
+    "province": "Thông tin đã xác minh",
+    "address": "Thông tin đã xác minh",
+    "geo": {
+      "lat": 10.7769,
+      "lng": 106.7009
+    },
+    "functions": [
+      "REST"
+    ],
+    "hours": "24/7",
+    "contact": "Thông tin đã xác minh",
+    "phone": "+84901234567",
+    "notes": "",
+    "rest": {
+      "truckParking": true,
+      "onboardCare": true,
+      "waterFeed": true,
+      "loadingArea": true,
+      "stabling": true,
+      "capacity": 4
+    },
+    "fuel": null,
+    "airport": null,
+    "service": null,
+    "status": "ACTIVE",
+    "sample": false,
+    "updatedAt": "2026-11-10 06:00"
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J47 — DELETE /coordinator/places/{placeId}
+
+Xóa địa điểm chưa được tham chiếu.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Không body. Check mọi plan/consent/checkpoint/catalog/history reference trong transaction; có tham chiếu chỉ đổi trạng thái.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `placeId` | Có | `{"type": "string", "example": "PLACE_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+| query | `expectedVersion` | Có | `{"type": "integer", "minimum": 1, "maximum": 9007199254740991, "example": 1}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "PLACE_001",
+    "deleted": true
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, RECORD_REFERENCED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J48 — GET /coordinator/staff
+
+Danh mục nhân sự và trạng thái vận hành.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`, `LOGISTICS_MANAGER`.
+
+**Điều kiện và ảnh hưởng:** tripId/leg phải đi cặp khi tính eligible theo chặng; check assigned scope. Không expose payroll/password/PII ngoài quyền. Không tạo/xóa nhân viên trong Flow 3.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| query | `tripId` | Không | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| query | `leg` | Không | `{"type": "string", "example": "road", "enum": ["road", "outbound", "inbound"]}` |
+| query | `status` | Không | `{"type": "string", "example": "ACTIVE", "enum": ["ACTIVE", "ON_LEAVE", "INACTIVE"]}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "id": "USER_008",
+      "version": 1,
+      "name": "Thông tin đã xác minh",
+      "phone": "Thông tin đã xác minh",
+      "country": "VN",
+      "position": "DRIVER",
+      "status": "ACTIVE",
+      "licence": "FC",
+      "certExpiry": null,
+      "assignedTrips": [],
+      "eligible": true,
+      "blockers": []
+    }
+  ]
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J49 — PUT /coordinator/staff/{staffId}/status
+
+Đổi ACTIVE/ON_LEAVE/INACTIVE.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`, `LOGISTICS_MANAGER`.
+
+**Điều kiện và ảnh hưởng:** IN_TRANSIT không cho nghỉ/ngừng nếu chưa thay qua incident workflow. PLANNING liên quan clear confirmation/opsReady và notify Manager. READY_TO_DEPART liên quan phải chặn actual departure, không để dấu cũ hợp thức.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `staffId` | Có | `{"type": "string", "example": "USER_008", "pattern": "^USER_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 1,
+  "status": "ACTIVE"
+}
+```
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "USER_008",
+    "version": 2,
+    "name": "Thông tin đã xác minh",
+    "phone": "Thông tin đã xác minh",
+    "country": "VN",
+    "position": "DRIVER",
+    "status": "ACTIVE",
+    "licence": "FC",
+    "certExpiry": null,
+    "assignedTrips": [],
+    "eligible": true,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION, STAFF_IN_TRANSIT`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J50 — GET /manager/flights
+
+Manager đọc catalogue bay.
+
+**Role:** `LOGISTICS_MANAGER`.
+
+**Điều kiện và ảnh hưởng:** Read-only; tripId phải manager scope. Không chỉnh lịch/giá đối tác.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| query | `tripId` | Không | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| query | `partnerId` | Không | `{"type": "string", "example": "PARTNER_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "serviceId": "SERVICE_001",
+      "catalogVersion": 1,
+      "partnerId": "PARTNER_001",
+      "partnerName": "Thông tin đã xác minh",
+      "providerFlightCode": "EQA-DEMO-01",
+      "flightNo": "EQA 7710",
+      "fromAirportId": "AIRPORT_001",
+      "toAirportId": "AIRPORT_002",
+      "fromCountry": "VN",
+      "toCountry": "JP",
+      "departLocal": "2026-11-10 15:00",
+      "departZone": "Asia/Ho_Chi_Minh",
+      "arriveLocal": "2026-11-10 22:30",
+      "arriveZone": "Asia/Tokyo",
+      "departAt": "2026-11-10 15:00",
+      "arriveAt": "2026-11-10 20:30",
+      "capacity": 4,
+      "costVnd": 105000000,
+      "currency": "VND",
+      "careIncluded": true,
+      "direct": true,
+      "status": "AVAILABLE",
+      "sample": true,
+      "eligible": true,
+      "blockers": []
+    }
+  ]
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J51 — GET /manager/air-partners
+
+Manager đọc bên dịch vụ.
+
+**Role:** `LOGISTICS_MANAGER`.
+
+**Điều kiện và ảnh hưởng:** Manager đọc bên dịch vụ
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "id": "PARTNER_001",
+      "version": 1,
+      "name": "Equus Air Charter",
+      "contact": "Thông tin đã xác minh",
+      "email": "booking@equusair.example",
+      "phone": "Thông tin đã xác minh",
+      "services": "Thông tin đã xác minh",
+      "status": "ACTIVE",
+      "sample": true,
+      "updatedAt": "2026-11-10 06:00"
+    }
+  ]
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J52 — GET /trips/{tripId}/planning-files/{fileId}
+
+Tải bằng chứng planning có xác thực.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`, `LOGISTICS_MANAGER`, `TRANSPORT_SPECIALIST`.
+
+**Điều kiện và ảnh hưởng:** File phải thuộc Trip và actor assigned/scope; trả MIME+Content-Disposition an toàn, lỗi JSON. Không dùng fileId để đọc path tùy ý; file booking chỉ role có quyền nghiệp vụ được cấp.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| path | `fileId` | Có | `{"type": "string", "example": "FILE_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+
+**Request body:** Không gửi.
+
+**Response 200:** binary MIME từ metadata; Content-Disposition an toàn. Không envelope khi thành công.
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J53 — GET /coordinator/trips/{tripId}/route-reports
+
+Đọc báo cáo tài xế gắn mốc trên bản đồ.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Projection Flow 5 có stopId/geo nullable; thiếu vị trí không bịa GPS. Không ghi traffic/sửa đường tự động từ HERE. Không có báo cáo trả []; chưa có sự cố không chứng minh đường không tắc.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "incidentId": "INCIDENT_001",
+      "type": "ROAD_CLOSURE",
+      "stopId": null,
+      "location": "Thông tin đã xác minh",
+      "geo": null,
+      "at": "2026-11-10 06:00",
+      "description": "Đã kiểm tra và xác nhận phương án",
+      "blocking": true,
+      "locationSource": "MILESTONE_REPORT",
+      "isGps": false
+    }
+  ]
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J54 — GET /coordinator/flights/lookup
+
+Tra mã chuyến trong đúng bên dịch vụ.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Lookup trim/case-fold; không map mã bên khác. Không thấy toàn catalogue trả 404; mã thuộc partner khác 409 mismatch chỉ trong catalogue actor có quyền. Nhiều lịch cùng partner/code 409 ambiguous (dùng J05 lấy candidates để chọn serviceId). Lookup không chọn/giữ/booking.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| query | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| query | `partnerId` | Có | `{"type": "string", "example": "PARTNER_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+| query | `providerFlightCode` | Có | `{"type": "string", "example": "EQA-DEMO-01", "minLength": 1, "maxLength": 100}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "serviceId": "SERVICE_001",
+    "catalogVersion": 1,
+    "partnerId": "PARTNER_001",
+    "partnerName": "Thông tin đã xác minh",
+    "providerFlightCode": "EQA-DEMO-01",
+    "flightNo": "EQA 7710",
+    "fromAirportId": "AIRPORT_001",
+    "toAirportId": "AIRPORT_002",
+    "fromCountry": "VN",
+    "toCountry": "JP",
+    "departLocal": "2026-11-10 15:00",
+    "departZone": "Asia/Ho_Chi_Minh",
+    "arriveLocal": "2026-11-10 22:30",
+    "arriveZone": "Asia/Tokyo",
+    "departAt": "2026-11-10 15:00",
+    "arriveAt": "2026-11-10 20:30",
+    "capacity": 4,
+    "costVnd": 105000000,
+    "currency": "VND",
+    "careIncluded": true,
+    "direct": true,
+    "status": "AVAILABLE",
+    "sample": true,
+    "eligible": true,
+    "blockers": []
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `FLIGHT_PROVIDER_MISMATCH, FLIGHT_CODE_AMBIGUOUS`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: FLIGHT_PROVIDER_MISMATCH",
+  "errorCode": "FLIGHT_PROVIDER_MISMATCH",
+  "data": null,
+  "blockers": [
+    {
+      "code": "FLIGHT_PROVIDER_MISMATCH",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J55 — GET /coordinator/vehicles
+
+Danh mục xe và thông số đã xác minh.
+
+**Role:** `FLEET_ROUTE_COORDINATOR`.
+
+**Điều kiện và ảnh hưởng:** Giữ URL F2-J36, mở rộng projection spec/assignment. eligible ở đây chỉ khả dụng chung; chọn theo Trip phải dùng J27. Không CRUD xe bằng Flow 3.
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "id": "VEHICLE_001",
+      "plate": "51C-12345",
+      "stalls": 4,
+      "country": "VN",
+      "status": "READY",
+      "spec": {
+        "heightM": 3.8,
+        "widthM": 2.5,
+        "lengthM": 10,
+        "grossT": 18
+      },
+      "eligible": true,
+      "blockers": [],
+      "assignedTrips": []
+    }
+  ]
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```

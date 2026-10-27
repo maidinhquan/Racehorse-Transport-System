@@ -69,6 +69,14 @@ export const managerApi = {
   deployTrip: (id: string, body: { specialistId: string; coordinatorId: string }) => contractClient<Trip>('post', `/manager/trips/${id}/assignment`, body),
   holdTrip: (id: string, reason: string) => contractClient<Trip>('post', `/manager/trips/${id}/hold`, { reason }),
   resumeTrip: (id: string) => contractClient<Trip>('post', `/manager/trips/${id}/resume`),
+  // Flow 3: Manager route review & planning endpoints
+  getPlanningTrips: () => apiRequest('get', E.PLANNING),
+  getTripRoute: (tripId: string) => apiRequest('get', E.TRIP_ROUTE(tripId)),
+  approveRoute: (tripId: string, routeVersionId: number, body?: { expectedVersion?: number; note?: string }) =>
+    apiRequest('post', E.APPROVE_ROUTE(tripId, routeVersionId), { expectedVersion: body?.expectedVersion ?? routeVersionId, note: body?.note ?? 'Approved by Manager' }),
+  returnRoute: (tripId: string, routeVersionId: number, reason: string, expectedVersion?: number) =>
+    apiRequest('post', E.RETURN_ROUTE(tripId, routeVersionId), { expectedVersion: expectedVersion ?? routeVersionId, reason }),
+  getDepartureConditions: (tripId: string) => apiRequest('get', E.DEPARTURE_CONDITIONS(tripId)),
   // Out-of-scope screens keep their existing routes; no fabricated successful response.
   getIncidents: () => apiRequest<Incident[]>('get', E.INCIDENTS),
   getComplaints: () => apiRequest<Complaint[]>('get', E.COMPLAINTS),

@@ -8,6 +8,11 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=HorseTransportDB;User Id=${SQL_USER};Password=${SQL_PASSWORD};Encrypt=True;TrustServerCertificate=True;"
+      RegistrationEmail__Mode: Development
+      RegistrationEmail__Smtp__Host: "localhost"
+      RegistrationEmail__Smtp__Port: "25"
+      RegistrationEmail__Smtp__From: "noreply@racehorse.local"
+      Jwt__Key: "RaceHorseTransportSecretKey2026_SWP391_Project_SecuredKey_SuperSafe!"
     restart: unless-stopped
 
   frontend:

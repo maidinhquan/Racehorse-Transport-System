@@ -119,7 +119,6 @@ namespace WebApi.Controllers
             {
                 user = new User
                 {
-                    UserId = "USR_GG_" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper(),
                     Username = email.Split('@')[0],
                     FullName = fullName,
                     Email = email,
@@ -286,7 +285,8 @@ namespace WebApi.Controllers
                 UserId = FormatUserId(user.UserId),
                 FullName = user.FullName,
                 Email = user.Email ?? string.Empty,
-                Role = UserRoles.NormalizeRole(user.Role)
+                Role = UserRoles.NormalizeRole(user.Role),
+                PhoneNumber = user.Phone
             };
 
             return Ok(ApiResponse<CurrentUserResponseData>.Ok(data, "User retrieved successfully"));
@@ -317,15 +317,6 @@ namespace WebApi.Controllers
             catch
             {
                 // Không phải chuỗi BCrypt hash hợp lệ
-            }
-
-            // 3. Cho phép các mật khẩu dev phổ biến với các tài khoản seed sẵn trong database
-            if (inputPassword == "Password123!" ||
-                inputPassword == "123456" ||
-                inputPassword == "admin123" ||
-                inputPassword == "string")
-            {
-                return true;
             }
 
             return false;

@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { Note, RouteText } from '../../components/Common/Common';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import { openFile } from '../../components/DocumentList/FilePickButton';
 import { useCustomer } from '../../hooks/useCustomer';
+import { FilePreviewModal } from '../../components/Modals/FilePreviewModal';
 import type { FileRef } from '../../types';
 import {
   DOC_NAME,
@@ -23,6 +23,7 @@ export const HorseDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { horseId = '', tab = 'overview' } = useParams<{ horseId: string; tab: string }>();
   const { horses, requests } = useCustomer();
+  const [preview, setPreview] = useState<{ file: FileRef; title: string } | null>(null);
   const h = horses.find((x) => x.id === horseId);
   if (!h) {
     return <CustomerLayout title="Ngựa của tôi"><Note tone="grey" title="Không tìm thấy ngựa">Ngựa {horseId} không có trong thư viện của bạn.</Note></CustomerLayout>;
@@ -32,7 +33,7 @@ export const HorseDetailPage: React.FC = () => {
   const fileRow = (label: string, file?: FileRef) => (
     <div className="cus-hd__file">
       <span>{label}</span>
-      {file ? <><b>{file.name}</b><button type="button" className="cus-btn cus-btn--sm" onClick={() => openFile(file)}>Xem tệp</button></> : <TripStatusBadge label="Còn thiếu" tone="bad" />}
+      {file ? <><b>{file.name}</b><button type="button" className="cus-btn cus-btn--sm" onClick={() => setPreview({ file, title: label })}>Xem tệp</button></> : <TripStatusBadge label="Còn thiếu" tone="bad" />}
     </div>
   );
   const reqDocs = used.flatMap((r) => r.docs.filter((d) => d.scope === h.id).map((d) => ({ r, d })));
@@ -41,7 +42,16 @@ export const HorseDetailPage: React.FC = () => {
     <CustomerLayout title="Ngựa của tôi">
       <button type="button" className="cus-back" onClick={() => navigate('/customer/horses')}><Icon name="back" />Ngựa của tôi</button>
       <div className="cus-card cus-hd__hero">
-        <div className="cus-hd__photo">{h.photo?.url ? <img src={h.photo.url} alt={h.name} /> : <Icon name="horse" />}</div>
+        <div
+          className="cus-hd__photo"
+          style={{ cursor: h.photo?.url ? 'pointer' : 'default' }}
+          title={h.photo?.url ? 'Bấm để xem ảnh phóng to' : undefined}
+          onClick={() => {
+            if (h.photo) setPreview({ file: h.photo, title: `Ảnh nhận diện: ${h.name}` });
+          }}
+        >
+          {h.photo?.url ? <img src={h.photo.url} alt={h.name} /> : <Icon name="horse" />}
+        </div>
         <div style={{ flex: 1, minWidth: 200 }}>
           <h2 className="cus-title cus-detail__title">{h.name} <TripStatusBadge label={used.length ? 'Đã dùng trong yêu cầu' : 'Chưa dùng'} tone={used.length ? 'info' : 'muted'} /></h2>
           <p className="cus-subtitle">{horseLine(h)} • {h.id}</p>
@@ -139,6 +149,12 @@ export const HorseDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+      <FilePreviewModal
+        open={!!preview}
+        file={preview?.file}
+        title={preview?.title}
+        onClose={() => setPreview(null)}
+      />
     </CustomerLayout>
   );
 };

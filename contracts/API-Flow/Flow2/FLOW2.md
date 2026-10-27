@@ -1,17 +1,10 @@
 # API Contract — Flow 2: hồ sơ chuyến và phần điều phối đã được Flow 3 thay thế
 
-## Cập nhật helo.html — 26/10/2026
+## Cập nhật Final_Flow3.html — 27/10/2026
 
-Specialist gửi danh sách hồ sơ có thời hạn trước; Coordinator chốt lịch khởi hành
-trên đúng version đó, sau đó Specialist mới chuẩn bị/cấp giấy tờ chính thức.
-Không thay đổi dữ liệu đã cấp khi xem trước. API bổ sung và guard nằm tại
-[Operations/OPERATIONS.md](../Operations/OPERATIONS.md) và
-[operations.openapi.json](../Operations/operations.openapi.json).
-Các mô tả cũ cho phép làm hồ sơ trước khi chốt lịch được thay bằng quy tắc này.
-Frontend/API contract đã cập nhật; backend chưa được triển khai trong thay đổi này.
+[Flow 3 v2](../Flow3/FLOW3.md) là nguồn chuẩn cho phần phối hợp: hồ sơ và điều phối chạy song song sau giao việc. ROAD xác nhận nguồn lực trước submit; AIR duyệt tổng thể rồi booking/xác nhận thực tế. Không dùng feasibility hoặc timed-documents để chặn lập phương án/cấp giấy. Giả định đồ án giấy tờ còn hiệu lực suốt chuyến; các kiểm tra đủ hồ sơ, bảo hiểm, kiểm dịch và chứng chỉ nhân sự vẫn áp dụng. Duyệt khởi hành riêng sau hai nhánh READY hợp lệ. Chỉ cập nhật tài liệu, chưa triển khai backend/DB.
 
-
-> **ĐÃ ĐỔI FLOW ngày 24/10/2026:** [Flow 3](../Flow3/FLOW3.md) là nguồn chuẩn cho đánh giá Specialist → lập phương án → Manager duyệt → hoàn tất booking/nguồn lực/hồ sơ → hai READY → Manager cho phép khởi hành. Các API chuẩn bị/duyệt trùng được đánh dấu SUPERSEDED bên dưới; JSON/schema cũ chỉ tra cứu lịch sử, không triển khai cùng flow mới. Các API hồ sơ và danh mục không bị thay thế tiếp tục áp dụng.
+Các API hồ sơ Flow 2 không bị thay thế tiếp tục dùng; các mẫu điều phối đã SUPERSEDED bên dưới chỉ là lịch sử, dùng schema Flow 3 v2 khi tích hợp.
 
 | Thuộc tính | Giá trị |
 |---|---|
@@ -26,13 +19,13 @@ Frontend/API contract đã cập nhật; backend chưa được triển khai tro
 
 ## 1. Flow và ranh giới
 
-1. Manager giao thông tin chuyến, hạn giao thống nhất với khách và Specialist/Coordinator từ Flow 1.
-2. Specialist dùng các API hồ sơ trong Flow 2 để rà soát, rồi công bố đánh giá khả thi qua F3-J03: ngày sớm nhất dự kiến đủ điều kiện, hiệu lực tại từng điểm dùng, mục còn thiếu/phụ thuộc lịch.
-3. Coordinator dùng Flow 3 lập phương án phù hợp cả hồ sơ lẫn hạn giao; Manager duyệt phương án trước booking và xác nhận nguồn lực thực tế.
-4. Sau duyệt, Specialist hoàn thiện chứng từ/bảo hiểm/lịch kiểm dịch bằng API Flow 2; Coordinator hoàn tất booking và xác nhận nguồn lực bằng Flow 3.
-5. Specialist xác nhận Docs READY qua F3-J16, Coordinator xác nhận Ops READY qua F3-J15 cùng phương án; Manager xem và duyệt khởi hành riêng qua F3-J17/J18. Không dùng F2-J28/J51 cũ để bỏ qua phiên bản phương án.
+1. Manager giao Trip/snapshot/hạn giao và Specialist/Coordinator qua Flow 1.
+2. Specialist xử lý hồ sơ khách/CBN, bảo hiểm và kiểm dịch bằng Flow 2, xác nhận Docs READY F3-J16 khi đủ; không đợi phương án được duyệt.
+3. Coordinator lập tuyến/nguồn lực song song. ROAD xác nhận bố trí trước submit; AIR duyệt nguồn lực dự kiến trước booking/confirm.
+4. Manager duyệt phương án F3-J11, riêng AIR bao gồm ngân sách. Coordinator hoàn tất booking AIR và xác nhận vận hành F3-J13/J14; Ops READY do server tính.
+5. Manager đọc F3-J17 và duyệt khởi hành F3-J18 khi đủ cả hai nhánh cùng nội dung còn đúng. Driver DEPARTED thuộc Flow 4.
 
-Ngày sớm nhất là dự kiến có điều kiện, không phải Docs READY. Không đòi hoàn tất giấy cần lịch chính thức trước khi lập/duyệt phương án. Hiệu lực kiểm tra tại nơi cần dùng giấy, không chỉ ngày xuất phát hoặc ETA. Chỉ nhân sự được phân công có quyền xử lý Trip; role đúng chưa đủ quyền mọi chuyến. Driver DEPARTED thuộc Flow 4; không tạo lại Trip/hợp đồng/cọc/OTP.
+Không dùng F3-J03/F3-J21/J22 cũ làm gate. Giả định hiệu lực giấy theo đồ án ở Flow 3 v2; không bỏ kiểm tra đủ hồ sơ/bảo hiểm/chứng chỉ/kiểm dịch. Chỉ người được giao Trip được xử lý, không tạo lại hợp đồng/Trip/cọc/OTP.
 
 ## 2. Đối chiếu màn hình và hành động
 
@@ -78,7 +71,7 @@ Checklist gộp theo (typeId, horseId), PER_TRIP dùng horseId=null; hai nguồn
 
 REQUIRED trước checkpoint được counted; CONDITIONAL chỉ counted khi conditionMet=true do BE xác định; conditionMet=null chưa đánh giá được thì chặn readiness, không bỏ qua. OPTIONAL không chặn. AT_CHECKPOINT chưa phát sinh không phải giấy tờ bắt buộc trước xuất phát, nhưng thiếu config không được biến thành optional. Bộ rỗng hoặc thiếu quy định phải NOT_READY, không dùng 0/0 làm READY.
 
-CustomerDoc duyệt đúng documentVersion; hiệu lực kiểm tra tại từng mốc cần sử dụng theo constraints của Flow 3. Chỉ giấy bắt buộc bao phủ toàn hành trình mới đòi hiệu lực tới ETA. Yêu cầu bổ sung OPEN → SUBMITTED sau khi khách upload bản mới → FULFILLED khi Specialist duyệt bản mới. File SUBMITTED không tự thành APPROVED. REJECTED cần remark >=5 ký tự, khi chiếu sang CustomerDoc.status là ACTION_REQUIRED và issue chứa lý do.
+CustomerDoc duyệt đúng documentVersion; Flow 3 v2 áp dụng giả định đồ án giấy tờ còn hiệu lực suốt chuyến, không còn constraints/feasibility gate. Bảo hiểm vẫn kiểm tra bao phủ lịch chuyến. Yêu cầu bổ sung OPEN → SUBMITTED sau khi khách upload bản mới → FULFILLED khi Specialist duyệt bản mới. File SUBMITTED không tự thành APPROVED. REJECTED cần remark >=5 ký tự, khi chiếu sang CustomerDoc.status là ACTION_REQUIRED và issue chứa lý do.
 
 Khách nộp bổ sung cho HORSE dùng multipart Flow 1 J17, `documentType` lấy từ DocType.customerKey tương ứng. Khi Request ACTIVATED và Trip PLANNING, chỉ cho nộp lại hồ sơ có yêu cầu bổ sung đang mở; giữ nguyên snapshot hợp đồng đã ký, tăng documentVersion và documentSetVersion, mất Docs READY. Sau upload refetch J52 và hồ sơ/checklist; không suy phiên bản từ response upload cũ. Nhánh scope=request chưa có persistence được xác nhận: trả 501, không gửi qua URL horse hoặc tạo HORSE giả.
 
@@ -90,17 +83,15 @@ Bảo hiểm bao phủ tất cả ngựa từ ngày nhận đến hết ETA; lư
 
 Lịch kiểm dịch REQUESTED → BOOKED khi có ref thật; BOOKED không đồng nghĩa đã kiểm dịch đạt. `quarantineOk` chỉ true khi tất cả lịch bắt buộc trong bộ của chuyến đã xác nhận và phù hợp tuyến/ngày. Tuyến không yêu cầu lịch phải trả lý do NOT_REQUIRED trong readiness; không mặc định mọi ROAD là không cần kiểm dịch.
 
-## 5. Tuyến, bản đồ và nguồn lực — chuyển sang Flow 3
+## 5. Tuyến, bản đồ và nguồn lực — chuyển sang Flow 3 v2
 
-[FLOW3.md mục 3–4](../Flow3/FLOW3.md) thay thế trình tự điều phối cũ. Draft không giữ nguồn lực; submit kiểm tra và giữ tạm; Manager duyệt phương án xác nhận phân công; Coordinator mới hoàn tất booking và xác nhận thực tế. Không còn trình tự BOOKED → confirm resources → submit route. Mỗi ROAD vẫn cần xe và ba người độc lập; AIR có hai ROAD riêng và dịch vụ bay trọn gói.
+[FLOW3.md](../Flow3/FLOW3.md) thay thế toàn bộ thứ tự điều phối cũ. ROAD confirm ở draft trước submit và giữ tạm nguyên tử; AIR draft chỉ dự kiến, submit giữ tạm, Manager duyệt rồi book/confirm. Cả hai có xe và ba người mỗi ROAD, AIR hai bộ riêng. Không đưa BOOKED thành điều kiện submit AIR.
 
-Danh mục xe/nhân sự/checkpoints F2-J36–J38 tiếp tục dùng. Lưu full bộ phương án bằng F3-J06; các route-draft/resources/flight-proposals cũ đã được thay thế, không trộn revision cũ với planVersion. Quy tắc bản đồ, tọa độ, cơ sở và nguồn dữ liệu vẫn phải kiểm tra tại server, không fallback mock.
+Danh mục F2-J36/J37 giữ URL; schema bổ sung và vehicle-options/staff/places ở Flow 3 v2 là nguồn hiện hành. F2-J38 checkpoints đọc cùng catalogue, không tự đổi kiểu ID. Các mẫu route-draft/resources/flight-proposals cũ dưới đây chỉ tra cứu lịch sử; dùng plan-draft và actions v2.
 
-## 6. Duyệt khởi hành và xử lý tranh chấp — chuyển sang Flow 3
+## 6. Duyệt khởi hành và tranh chấp — chuyển sang Flow 3 v2
 
-[FLOW3.md mục 5–6](../Flow3/FLOW3.md) là chuẩn mới: phải đủ Docs READY + Ops READY cùng phương án, feasibility hiện hành, booking/nguồn lực/hồ sơ và thời điểm dùng còn hợp lệ. GET chỉ hiển thị; POST recheck trong transaction. Contract Flow 3 quy định phiên bản bằng chứng và Idempotency-Key cho mọi mutation mới. Các API Flow 2 không bị thay thế giữ yêu cầu key cũ cho POST đổi trạng thái/tạo dữ liệu (trừ requirement-set-preview).
-
-Không duyệt khi chỉ route APPROVED hoặc chỉ có cờ Docs READY cũ. Phê duyệt khởi hành và DEPARTED là hai mốc khác nhau. Những endpoint giữ cùng method/path phải chuyển sang payload Flow 3; không chấp nhận hai schema để đi đường tắt.
+Đủ Docs READY + Ops READY theo approved plan hiện tại, đúng phiên bản/nguồn lực/booking/bảo hiểm/kiểm dịch/tuyến xe tải/consent và không blocker. Không có feasibility gate. GET chỉ hiển thị; POST recheck trong transaction. Các endpoint giữ cùng method/path dùng schema v2 duy nhất. Không duyệt chỉ bằng cờ route APPROVED; duyệt khởi hành khác DEPARTED.
 
 ## 7. Khoảng trống frontend và persistence — chưa được sửa trong lần viết contract
 

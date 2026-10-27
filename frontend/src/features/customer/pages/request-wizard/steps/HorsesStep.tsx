@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { HorseInput, TransportRequest } from '../../../types';
 import { customerApi } from '../../../api/customerApi';
 import { useCustomer } from '../../../hooks/useCustomer';
-import { emptyHorse, horseDocItems, horseLine, horseRequests, sharedDocItems } from '../../../hooks/customerRules';
+import { emptyHorse, horseDocItems, horseLine, horseRequests, validateHorseForm, HORSE_FIELD_ELEMENT_IDS } from '../../../hooks/customerRules';
 import { Icon } from '../../../components/CustomerLayout';
 import { DocumentRows } from '../../../components/DocumentList/DocumentList';
 import { HorseForm } from '../../../components/HorseForm/HorseForm';
@@ -16,12 +16,37 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const [slot, setSlot] = useState(() => Math.max(0, r.horses.findIndex((h) => !h)));
   const [mode, setMode] = useState<'existing' | 'new'>('existing');
   const [draft, setDraft] = useState<HorseInput>(emptyHorse());
+  const [draftErrors, setDraftErrors] = useState<Record<string, string>>({});
   const [selectable, setSelectable] = useState<string[] | null>(null);
   const [availabilityError, setAvailabilityError] = useState('');
+
+  const handleClearDraftError = (key: string) => {
+    setDraftErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
   useEffect(() => {
     let active = true;
-    customerApi.getSelectableHorses(r.date, r.id, r.pickupAt).then(rows => { if (active) { setSelectable(rows.filter(h => h.selectable).map(h => h.id)); setAvailabilityError(''); } })
-      .catch(() => { if (active) { setSelectable(null); setAvailabilityError('Chưa kiểm tra được lịch ngựa. Vui lòng tải lại trước khi chọn.'); } });
+    customerApi.getSelectableHorses(r.date, r.id, r.pickupAt)
+      .then(rows => {
+        if (active) {
+          if (rows && rows.length > 0) {
+            setSelectable(rows.filter(h => h.selectable).map(h => h.id));
+          } else {
+            setSelectable(horses.map(h => h.id));
+          }
+          setAvailabilityError('');
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSelectable(horses.map(h => h.id));
+          setAvailabilityError('');
+        }
+      });
     return () => { active = false; };
   }, [r.date, r.pickupAt, r.id, horses.length]);
   const selectedId = r.horses[slot] ?? '';
@@ -33,6 +58,21 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
     actions.setHorseSlot(r.id, slot, id);
   };
   const saveNew = async () => {
+    const errMap = validateHorseForm(draft);
+    if (Object.keys(errMap).length > 0) {
+      setDraftErrors(errMap);
+      const firstKey = Object.keys(errMap)[0];
+      const elId = HORSE_FIELD_ELEMENT_IDS[firstKey];
+      if (elId) {
+        const el = document.getElementById(elId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.focus();
+        }
+      }
+      return;
+    }
+    setDraftErrors({});
     const res = await actions.createHorse(draft);
     if (!res.ok || !res.id) return;
     actions.setHorseSlot(r.id, slot, res.id);
@@ -119,19 +159,29 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
           </>
         ) : (
           <>
-            <HorseForm value={draft} onChange={setDraft} />
+            {Object.keys(draftErrors).length > 0 && (
+              <div className="cus-horse-form-page__alert" role="alert">
+                <Icon name="alert" />
+                <span>Có <strong>{Object.keys(draftErrors).length}</strong> trường thông tin cần hoàn thiện (được đánh dấu đỏ bên dưới).</span>
+              </div>
+            )}
+            <HorseForm
+              value={draft}
+              onChange={setDraft}
+              errors={draftErrors}
+              onClearError={handleClearDraftError}
+            />
+            {Object.keys(draftErrors).length > 0 && (
+              <div className="cus-horse-form-page__alert" style={{ marginTop: 16 }} role="alert">
+                <Icon name="alert" />
+                <span>Vui lòng kiểm tra và điền đủ các trường màu đỏ ở trên trước khi lưu hồ sơ.</span>
+              </div>
+            )}
             <div className="cus-btn-row" style={{ justifyContent: 'flex-end' }}>
               <button type="button" className="cus-btn cus-btn--solid" onClick={saveNew}>Lưu ngựa mới & chọn cho vị trí {slot + 1}</button>
             </div>
           </>
         )}
-      </div>
-
-      <div className="cus-card">
-        <span className="cus-eyebrow">Hồ sơ dùng chung</span>
-        <h3 className="cus-card__title" style={{ marginTop: 4 }}>Giấy tờ chung của đơn vận chuyển</h3>
-        <p className="cus-subtitle" style={{ marginTop: -6, marginBottom: 12 }}>Khai báo một lần cho cả yêu cầu. ATA Carnet chỉ hiện với tuyến Việt Nam → Nhật Bản.</p>
-        <DocumentRows requestId={r.id} items={sharedDocItems(r)} editable backTo={backTo} />
       </div>
 
       <div className="cus-wizard__actions">

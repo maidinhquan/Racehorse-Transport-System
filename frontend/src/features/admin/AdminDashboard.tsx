@@ -69,6 +69,11 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   const handleLogout = () => {
+    sessionStorage.removeItem("accessToken");
+    sessionStorage.removeItem("userRole");
+    sessionStorage.removeItem("userFullName");
+    sessionStorage.removeItem("userEmail");
+    sessionStorage.removeItem("user");
     localStorage.removeItem("accessToken");
     localStorage.removeItem("userRole");
     localStorage.removeItem("userFullName");

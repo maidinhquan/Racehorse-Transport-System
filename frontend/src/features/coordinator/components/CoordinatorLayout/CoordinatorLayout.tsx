@@ -59,6 +59,11 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
   }, [userMenuOpen]);
 
   const handleLogout = () => {
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('userFullName');
+    sessionStorage.removeItem('userEmail');
+    sessionStorage.removeItem('userRole');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
     navigate('/login');

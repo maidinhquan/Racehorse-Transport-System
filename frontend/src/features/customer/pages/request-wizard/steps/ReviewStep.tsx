@@ -49,7 +49,6 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
           <DocumentRows requestId={r.id} items={items} editable={false} />
         </section>)}
       </>)}
-      {section('Giấy tờ chung của yêu cầu', 2, <DocumentRows requestId={r.id} items={docs.shared} editable={false} />)}
 
       {errs.length > 0 && (
         <Note tone="red" title="Chưa thể gửi yêu cầu">

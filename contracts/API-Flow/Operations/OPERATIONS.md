@@ -1,4 +1,4 @@
-# helo.html — API additions (26/10/2026)
+# API additions — cập nhật điểm nối Flow 3 ngày 27/10/2026
 
 This contract defines the reference changes for frontend integration. It does not
 claim that backend endpoints or the current database implement them. Existing
@@ -11,9 +11,11 @@ the HTML demo's illustrative USD amounts.
 - Required pickup and desired-arrival dates are distinct. No guessed pickup dates.
 - Accept terms → OTP signature → SIGNED / AWAITING_DEPOSIT → verified VNPAY IPN →
   EFFECTIVE / ACTIVATED and exactly one Trip. No Trip is created by frontend/sign API.
-- Specialist sends the short-validity requirement list first. Coordinator schedules
-  departure from that version and its earliest date. Specialist prepares official
-  documents only when scheduling is confirmed (or server says no timed list is required).
+- Flow 3 planning is superseded by [Flow 3 v2](../Flow3/FLOW3.md), based on
+  Final_Flow3.html. Document preparation and coordination run in parallel after deployment.
+  F2-J53/J54 and F3-J21/J22 below are historical timed-document operations, not planning gates.
+  Retired commands return 409 CONTRACT_SUPERSEDED. The project assumes document validity
+  throughout the trip; insurance, completeness and staff qualifications still require checks.
 - Every list, detail, file and mutation is authorized by resource ownership or staff
   assignment. Customer cases remain within their request; staff use a combined hub.
 - Emergency care happens immediately; commercial/operational proposals require
@@ -29,10 +31,10 @@ the HTML demo's illustrative USD amounts.
 
 | ID | Method | Path | Role |
 |---|---|---|---|
-| F2-J53 | GET | `/specialist/trips/{tripId}/timed-documents` | TRANSPORT_SPECIALIST |
-| F2-J54 | POST | `/specialist/trips/{tripId}/timed-documents/send` | TRANSPORT_SPECIALIST |
-| F3-J21 | GET | `/coordinator/trips/{tripId}/timed-documents` | FLEET_ROUTE_COORDINATOR |
-| F3-J22 | POST | `/coordinator/trips/{tripId}/timed-documents/schedule` | FLEET_ROUTE_COORDINATOR |
+| F2-J53 (retired) | GET | `/specialist/trips/{tripId}/timed-documents` | TRANSPORT_SPECIALIST |
+| F2-J54 (retired) | POST | `/specialist/trips/{tripId}/timed-documents/send` | TRANSPORT_SPECIALIST |
+| F3-J21 (retired) | GET | `/coordinator/trips/{tripId}/timed-documents` | FLEET_ROUTE_COORDINATOR |
+| F3-J22 (retired) | POST | `/coordinator/trips/{tripId}/timed-documents/schedule` | FLEET_ROUTE_COORDINATOR |
 | F5-M01 | GET | `/manager/incidents` | LOGISTICS_MANAGER |
 | F5-M02 | POST | `/manager/incidents` | LOGISTICS_MANAGER |
 | F5-M03 | GET | `/manager/incidents/{incidentId}` | LOGISTICS_MANAGER |

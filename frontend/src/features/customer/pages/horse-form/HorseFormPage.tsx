@@ -5,7 +5,7 @@ import { HorseForm } from '../../components/HorseForm/HorseForm';
 import { Note } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
 import type { HorseInput } from '../../types';
-import { emptyHorse, horseRequests } from '../../hooks/customerRules';
+import { emptyHorse, horseRequests, validateHorseForm, HORSE_FIELD_ELEMENT_IDS } from '../../hooks/customerRules';
 import './HorseFormPage.css';
 
 /** Thêm ngựa mới (/customer/horses/new) hoặc sửa hồ sơ (/customer/horses/:horseId/edit?back=…) */
@@ -21,7 +21,7 @@ export const HorseFormPage: React.FC = () => {
     void _id;
     return JSON.parse(JSON.stringify(rest)) as HorseInput;
   });
-  const [invalid, setInvalid] = useState<string[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const back = params.get('back') || (h ? `/customer/horses/${h.id}` : '/customer/horses');
 
   if (horseId && !h) {
@@ -29,11 +29,31 @@ export const HorseFormPage: React.FC = () => {
   }
   const lockedBy = h ? horseRequests(h, requests).map((r) => r.id) : [];
 
+  const handleClearError = (key: string) => {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
   const save = async () => {
-    const bad: string[] = [];
-    if (!form.name.trim()) bad.push('name');
-    setInvalid(bad);
-    if (bad.length) { actions.showToast('Nhập tên ngựa.'); return; }
+    const errMap = validateHorseForm(form);
+    if (Object.keys(errMap).length > 0) {
+      setErrors(errMap);
+      const firstKey = Object.keys(errMap)[0];
+      const elId = HORSE_FIELD_ELEMENT_IDS[firstKey];
+      if (elId) {
+        const el = document.getElementById(elId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.focus();
+        }
+      }
+      return;
+    }
+    setErrors({});
     const res = await (h ? actions.updateHorse(h.id, form) : actions.createHorse(form));
     if (res.ok) navigate(h ? back : `/customer/horses/${res.id}`);
   };
@@ -46,7 +66,25 @@ export const HorseFormPage: React.FC = () => {
         {h ? `${h.name} • ${h.id}` : 'Lưu ngựa vào thư viện riêng. Giấy tờ còn thiếu có thể tải lên sau; Specialist chỉ kiểm duyệt khi ngựa thuộc yêu cầu đã kích hoạt.'}
       </p>
       <div className="cus-horse-form-page">
-        <HorseForm value={form} onChange={setForm} lockedBy={lockedBy} invalid={invalid} />
+        {Object.keys(errors).length > 0 && (
+          <div className="cus-horse-form-page__alert" role="alert">
+            <Icon name="alert" />
+            <span>Có <strong>{Object.keys(errors).length}</strong> trường thông tin cần hoàn thiện (được đánh dấu đỏ bên dưới).</span>
+          </div>
+        )}
+        <HorseForm
+          value={form}
+          onChange={setForm}
+          lockedBy={lockedBy}
+          errors={errors}
+          onClearError={handleClearError}
+        />
+        {Object.keys(errors).length > 0 && (
+          <div className="cus-horse-form-page__alert" style={{ marginTop: 16 }} role="alert">
+            <Icon name="alert" />
+            <span>Vui lòng kiểm tra và điền đủ các trường màu đỏ ở trên trước khi lưu hồ sơ.</span>
+          </div>
+        )}
         <div className="cus-btn-row cus-horse-form-page__actions">
           <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(back)}>Hủy</button>
           <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={save}>{h ? 'Lưu thay đổi' : 'Lưu hồ sơ ngựa'}</button>

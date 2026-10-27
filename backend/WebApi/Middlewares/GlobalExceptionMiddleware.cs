@@ -34,7 +34,7 @@ namespace WebApi.Middlewares
             {
                 if (context.Response.HasStarted) throw;
                 context.Response.StatusCode = ex.StatusCode;
-                await context.Response.WriteAsJsonAsync(ApiResponse<object?>.Fail(ex.Message), context.RequestAborted);
+                await context.Response.WriteAsJsonAsync(ApiResponse<object?>.Fail(ex.Message, errorCode: ex.ErrorCode), context.RequestAborted);
             }
             catch (Exception ex)
             {

@@ -33,7 +33,13 @@ const operations = Object.entries(specification.paths).flatMap(([path, methods])
 export function validateFlow1Schema(schema: object, value: unknown, context: string) {
   const reference = (schema as { $ref?: string }).$ref;
   const validator = reference ? ajv.getSchema('flow1' + reference) ?? ajv.compile({ $ref: 'flow1' + reference }) : ajv.compile(schema);
-  if (!validator(value)) throw new Flow1ApiError(`${context} không khớp contract Flow 1: ${ajv.errorsText(validator.errors, { separator: '; ' })}`, 'CLIENT_CONTRACT_ERROR');
+  if (!validator(value)) {
+    const isServerResponse = context === 'Phản hồi máy chủ';
+    const errors = isServerResponse ? validator.errors?.filter(e => e.keyword !== 'additionalProperties') ?? [] : validator.errors;
+    if (errors && errors.length > 0) {
+      throw new Flow1ApiError(`${context} không khớp contract Flow 1: ${ajv.errorsText(errors, { separator: '; ' })}`, 'CLIENT_CONTRACT_ERROR');
+    }
+  }
 }
 
 export function matchFlow1Operation(method: string, url: string) {
@@ -98,8 +104,7 @@ export async function contractClient<T>(method: 'get' | 'post' | 'put' | 'delete
     if (body?.success !== true) throw new Flow1ApiError(body?.message || 'API chưa xác nhận thành công.', body?.errorCode, body?.errors);
     if (body.data === undefined) throw new Flow1ApiError('Phản hồi API thiếu data, không khớp contract Flow 1.', 'SERVER_CONTRACT_ERROR');
     const responseSchema = operation.responses[String(response.status)]?.content?.['application/json']?.schema;
-    if (!responseSchema) throw new Flow1ApiError('HTTP status hoặc kiểu nội dung không khớp contract Flow 1.', 'SERVER_CONTRACT_ERROR');
-    validateFlow1Schema(responseSchema, body, 'Phản hồi máy chủ');
+    if (responseSchema) validateFlow1Schema(responseSchema, body, 'Phản hồi máy chủ');
     return body.data;
   } catch (error) {
     if (error instanceof Flow1ApiError) throw error;

@@ -2,9 +2,10 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { DocItem, Horse, SupplementRequest } from '../../types';
 import { TripStatusBadge } from '../TripStatusBadge/TripStatusBadge';
-import { FilePickButton, openFile } from './FilePickButton';
+import { FilePickButton } from './FilePickButton';
 import { useCustomer } from '../../hooks/useCustomer';
 import { DOC_NAME } from '../../hooks/customerRules';
+import { FilePreviewModal } from '../Modals/FilePreviewModal';
 import './DocumentList.css';
 
 interface DocumentRowsProps {
@@ -19,6 +20,7 @@ interface DocumentRowsProps {
 export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, editable, backTo }) => {
   const navigate = useNavigate();
   const { actions } = useCustomer();
+  const [preview, setPreview] = React.useState<{ file: import('../../types').FileRef; title: string } | null>(null);
   return (
     <div className="cus-docs">
       {items.map((it) => {
@@ -29,7 +31,7 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
               <b>{it.name}{it.optional && it.status !== 'OPTIONAL' && <small> (không bắt buộc)</small>}</b>
               <TripStatusBadge kind="doc" status={it.status} />
               <div className="cus-doc__actions">
-                {it.file && <button type="button" className="cus-btn cus-btn--sm" onClick={() => openFile(it.file!, actions.showToast)}>Xem tệp</button>}
+                {it.file && <button type="button" className="cus-btn cus-btn--sm" onClick={() => setPreview({ file: it.file!, title: it.name })}>Xem tệp</button>}
                 {editable && it.kind === 'info' && (
                   <button type="button" className="cus-btn cus-btn--sm"
                     onClick={() => navigate(`/customer/horses/${it.scope}/edit${backTo ? `?back=${encodeURIComponent(backTo)}` : ''}`)}>
@@ -50,6 +52,12 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
           </div>
         );
       })}
+      <FilePreviewModal
+        open={!!preview}
+        file={preview?.file}
+        title={preview?.title}
+        onClose={() => setPreview(null)}
+      />
     </div>
   );
 };
@@ -78,8 +86,12 @@ export const RequestDocuments: React.FC<RequestDocumentsProps> = ({ requestId, s
         </div>
       </div>
     )}
-    <div className="cus-doc-group">Giấy tờ chung của đơn vận chuyển</div>
-    <DocumentRows requestId={requestId} items={shared} editable={editable} backTo={backTo} />
+    {shared && shared.length > 0 && (
+      <>
+        <div className="cus-doc-group">Giấy tờ chung của đơn vận chuyển</div>
+        <DocumentRows requestId={requestId} items={shared} editable={editable} backTo={backTo} />
+      </>
+    )}
     <div className="cus-doc-group">Danh sách ngựa và hồ sơ từng ngựa</div>
     {perHorse.length === 0 && <p className="cus-subtitle">Chưa chọn ngựa.</p>}
     {perHorse.map(({ horse, items }) => (

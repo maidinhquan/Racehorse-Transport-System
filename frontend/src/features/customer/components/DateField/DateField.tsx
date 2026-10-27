@@ -5,6 +5,7 @@ import './DateField.css';
 
 interface DateFieldProps {
   id?: string;
+  ariaLabel?: string;
   /** Giá trị 'YYYY-MM-DD' ('' = chưa chọn) */
   value: string;
   onChange: (iso: string) => void;
@@ -23,7 +24,7 @@ const WEEKDAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
  * Ô ngày "gõ và chọn": gõ trực tiếp dd/mm/yyyy hoặc bấm biểu tượng lịch để chọn.
  * Dùng cho mọi ô chọn ngày trong trang khách hàng.
  */
-export const DateField: React.FC<DateFieldProps> = ({ id, value, onChange, min, max, disabled, invalid }) => {
+export const DateField: React.FC<DateFieldProps> = ({ id, ariaLabel, value, onChange, min, max, disabled, invalid }) => {
   const [text, setText] = useState(fmtDate(value) === '—' ? '' : fmtDate(value));
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState<[number, number]>(() => {
@@ -63,7 +64,7 @@ export const DateField: React.FC<DateFieldProps> = ({ id, value, onChange, min, 
   return (
     <div className="cus-date" ref={boxRef}>
       <div className={`cus-date__field ${invalid || badText ? 'invalid' : ''} ${disabled ? 'disabled' : ''}`}>
-        <input id={id} type="text" inputMode="numeric" placeholder="dd/mm/yyyy" value={text} disabled={disabled}
+        <input id={id} aria-label={ariaLabel} type="text" inputMode="numeric" placeholder="dd/mm/yyyy" value={text} disabled={disabled}
           title={badText ? (typed ? `Chỉ chọn được từ ${fmtDate(min)}${max ? ` đến ${fmtDate(max)}` : ''}.` : 'Ngày không hợp lệ (dd/mm/yyyy).') : 'Gõ ngày dd/mm/yyyy hoặc bấm biểu tượng lịch'}
           onChange={(e) => onType(e.target.value)}
           onBlur={() => { if (value) setText(fmtDate(value)); }} />

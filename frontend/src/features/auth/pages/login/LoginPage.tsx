@@ -5,6 +5,7 @@ import axios from "axios";
 
 import { login, googleLogin } from "../../api/authApi";
 import type { UserRole } from "../../types/auth.types";
+import { resetCustomerState } from "../../../customer/hooks/useCustomer";
 
 import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
 
@@ -61,12 +62,19 @@ function LoginPage() {
     fullName: string,
     email?: string
   ) => {
+    sessionStorage.setItem("accessToken", accessToken);
+    sessionStorage.setItem("userRole", role);
+    sessionStorage.setItem("userFullName", fullName);
+    if (email) {
+      sessionStorage.setItem("userEmail", email);
+    }
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("userRole", role);
     localStorage.setItem("userFullName", fullName);
     if (email) {
       localStorage.setItem("userEmail", email);
     }
+    resetCustomerState();
   };
 
   const handleQuickLogin = async (
@@ -339,7 +347,7 @@ function LoginPage() {
         {/* DEMO ROLE SECTION - Đăng nhập nhanh tài khoản mẫu */}
         <div className="demo-role-section">
           <p className="demo-role-title">
-            ⚡ Đăng nhập nhanh tài khoản mẫu (Mật khẩu: 123456)
+            ⚡ Đăng nhập nhanh tài khoản mẫu (Sử dụng mật khẩu lưu trong Database)
           </p>
 
           <div className="demo-role-grid">
@@ -347,20 +355,31 @@ function LoginPage() {
               type="button"
               className="demo-role-button"
               onClick={() =>
-                handleQuickLogin("vana.horse@gmail.com")
+                handleQuickLogin("vana.horse@gmail.com", "HASH_SECURE_01")
               }
-              title="Khách hàng: vana.horse@gmail.com"
+              title="Khách hàng 1: vana.horse@gmail.com | Mật khẩu: HASH_SECURE_01"
             >
-              🐴 Customer
+              🐴 KH 1: Nguyễn Văn A
             </button>
 
             <button
               type="button"
               className="demo-role-button"
               onClick={() =>
-                handleQuickLogin("linh.manager@cbntransport.com")
+                handleQuickLogin("tranb.racing@gmail.com", "HASH_SECURE_02")
               }
-              title="Quản lý: linh.manager@cbntransport.com"
+              title="Khách hàng 2: tranb.racing@gmail.com | Mật khẩu: HASH_SECURE_02"
+            >
+              🐴 KH 2: Trần Văn B
+            </button>
+
+            <button
+              type="button"
+              className="demo-role-button"
+              onClick={() =>
+                handleQuickLogin("linh.manager@cbntransport.com", "HASH_SECURE_04")
+              }
+              title="Quản lý: linh.manager@cbntransport.com | Mật khẩu: HASH_SECURE_04"
             >
               📋 Logistics Manager
             </button>
@@ -369,9 +388,9 @@ function LoginPage() {
               type="button"
               className="demo-role-button"
               onClick={() =>
-                handleQuickLogin("tuan.specialist@cbntransport.com")
+                handleQuickLogin("tuan.specialist@cbntransport.com", "HASH_SECURE_05")
               }
-              title="Chuyên viên: tuan.specialist@cbntransport.com"
+              title="Chuyên viên: tuan.specialist@cbntransport.com | Mật khẩu: HASH_SECURE_05"
             >
               🩺 Specialist
             </button>
@@ -380,9 +399,9 @@ function LoginPage() {
               type="button"
               className="demo-role-button"
               onClick={() =>
-                handleQuickLogin("hai.coord@cbntransport.com")
+                handleQuickLogin("hai.coord@cbntransport.com", "HASH_SECURE_06")
               }
-              title="Điều phối: hai.coord@cbntransport.com"
+              title="Điều phối: hai.coord@cbntransport.com | Mật khẩu: HASH_SECURE_06"
             >
               🗺️ Coordinator
             </button>
@@ -391,14 +410,12 @@ function LoginPage() {
               type="button"
               className="demo-role-button"
               onClick={() =>
-                handleQuickLogin("hung.driver@cbntransport.com")
+                handleQuickLogin("hung.driver@cbntransport.com", "HASH_SECURE_07")
               }
-              title="Tài xế: hung.driver@cbntransport.com"
+              title="Tài xế: hung.driver@cbntransport.com | Mật khẩu: HASH_SECURE_07"
             >
               🚚 Driver / Escort
             </button>
-
-
           </div>
         </div>
 
