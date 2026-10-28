@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Application.DTOs;
 using Application.Interfaces;
@@ -35,23 +35,6 @@ namespace Infrastructure.Services
 
             var vehicles = await _context.Vehicles.ToListAsync();
             var incidents = await _context.Incidents.ToListAsync();
-
-            if (!vehicles.Any())
-            {
-                vehicles = GetDefaultVehicles();
-                _context.Vehicles.AddRange(vehicles);
-                await _context.SaveChangesAsync();
-            }
-
-            if (!trips.Any())
-            {
-                await SeedSampleTripsAsync();
-                trips = await _context.TripPlans
-                    .Include(t => t.Request)
-                    .Include(t => t.RouteSegments)
-                    .Include(t => t.VehicleAssignments)
-                    .ToListAsync();
-            }
 
             var needRoute = trips.Count(t => !t.RouteSegments.Any() || t.Status == "PLANNING");
             var needAssignment = trips.Count(t => !t.VehicleAssignments.Any());
@@ -104,21 +87,6 @@ namespace Infrastructure.Services
                 .Include(t => t.VehicleAssignments)
                     .ThenInclude(va => va.Escort)
                 .ToListAsync();
-
-            if (!trips.Any())
-            {
-                await SeedSampleTripsAsync();
-                trips = await _context.TripPlans
-                    .Include(t => t.Request)
-                    .Include(t => t.RouteSegments)
-                    .Include(t => t.VehicleAssignments)
-                        .ThenInclude(va => va.Vehicle)
-                    .Include(t => t.VehicleAssignments)
-                        .ThenInclude(va => va.Driver)
-                    .Include(t => t.VehicleAssignments)
-                        .ThenInclude(va => va.Escort)
-                    .ToListAsync();
-            }
 
             var result = new List<PlanningTripDto>();
 
@@ -200,11 +168,6 @@ namespace Infrastructure.Services
         // =========================================================================
         public async Task<List<UnplannedRequestDto>> GetUnplannedRequestsAsync()
         {
-            if (!await _context.TransportRequests.AnyAsync())
-            {
-                await SeedSampleTripsAsync();
-            }
-
             var requests = await _context.TransportRequests
                 .Include(r => r.Customer)
                 .Include(r => r.RequestHorseMappings)
