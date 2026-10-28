@@ -4,6 +4,7 @@ import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
 import { cleanDisplayName, getInitials } from '../../../../shared/utils/textUtils';
 import { useCustomer } from '../../hooks/useCustomer';
 import { fmtDateTime } from '../../hooks/customerRules';
+import { clearAuthSession } from '../../../auth/api/authApi';
 import './CustomerLayout.css';
 
 // ---------------------------------------------------------------------------
@@ -71,11 +72,9 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children 
   }, [open, userMenuOpen]);
 
   const displayName = cleanDisplayName(profile.name);
-  const displayInitials = getInitials(displayName, profile.initials || 'VA');
-
+  const displayInitials = profile.initials || getInitials(displayName);
   const handleLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear();
+    clearAuthSession();
     navigate('/login');
   };
 

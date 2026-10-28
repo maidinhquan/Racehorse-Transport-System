@@ -4,6 +4,7 @@ import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
 import { cleanDisplayName, getInitials } from '../../../../shared/utils/textUtils';
 import { useCoordinator } from '../../hooks/useCoordinator';
 import { COORDINATOR_NAME } from '../../data/mockData';
+import { clearAuthSession } from '../../../auth/api/authApi';
 import './CoordinatorLayout.css';
 
 // ---------------------------------------------------------------------------
@@ -63,8 +64,7 @@ export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({ title, chi
   const coordinatorInitials = getInitials(currentCoordinatorName, 'PH');
 
   const handleLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear();
+    clearAuthSession();
     navigate('/login');
   };
 

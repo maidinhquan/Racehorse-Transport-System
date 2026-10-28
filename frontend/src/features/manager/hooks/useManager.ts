@@ -94,6 +94,25 @@ const getSnapshot = () => state;
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('rts_auth_logout', () => {
+    const isDemo = getDemoMode('manager');
+    setState({
+      customers: isDemo ? clone(mockCustomers) : [],
+      horses: isDemo ? clone(mockHorses) : [],
+      staff: isDemo ? clone(mockStaff) : [],
+      requests: isDemo ? clone(mockRequests) : [],
+      trips: isDemo ? clone(mockTrips) : [],
+      transactions: isDemo ? clone(mockTransactions) : [],
+      incidents: isDemo ? clone(mockIncidents) : [],
+      complaints: isDemo ? clone(mockComplaints) : [],
+      actualCosts: isDemo ? clone(mockActualCosts) : [],
+      notifications: isDemo ? clone(mockNotifications) : [],
+      loading: false,
+      loaded: false,
+      toast: null,
+    });
+  });
+
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
     if (customEvent.detail && customEvent.detail.role === 'manager') {

@@ -180,12 +180,30 @@ public class Flow1CustomerService : IFlow1CustomerService
         if (!string.IsNullOrWhiteSpace(input.Destination)) req.Destination = input.Destination;
         if (DateTime.TryParse(input.Date, out var dt)) req.ExpectedDate = dt.Date;
         if (!string.IsNullOrWhiteSpace(input.Mode)) req.TransportType = input.Mode;
+        if (!string.IsNullOrWhiteSpace(input.OriginCountry)) req.OriginCountry = input.OriginCountry;
+        if (!string.IsNullOrWhiteSpace(input.DestinationCountry)) req.DestinationCountry = input.DestinationCountry;
+
+        if (input.Pickup != null)
+        {
+            if (!string.IsNullOrWhiteSpace(input.Pickup.Name)) req.PickupStableName = input.Pickup.Name;
+            if (!string.IsNullOrWhiteSpace(input.Pickup.Postal)) req.PickupPostalCode = input.Pickup.Postal;
+            if (!string.IsNullOrWhiteSpace(input.Pickup.Notes)) req.PickupInstructions = input.Pickup.Notes;
+            if (input.Pickup.Latitude.HasValue) req.PickupLatitude = (decimal)input.Pickup.Latitude.Value;
+            if (input.Pickup.Longitude.HasValue) req.PickupLongitude = (decimal)input.Pickup.Longitude.Value;
+        }
 
         if (input.Delivery != null)
         {
             req.DesignatedReceiverName = input.Delivery.Contact;
             req.DesignatedReceiverPhone = input.Delivery.Phone;
+            if (!string.IsNullOrWhiteSpace(input.Delivery.Name)) req.DeliveryStableName = input.Delivery.Name;
+            if (!string.IsNullOrWhiteSpace(input.Delivery.Postal)) req.DeliveryPostalCode = input.Delivery.Postal;
+            if (!string.IsNullOrWhiteSpace(input.Delivery.Notes)) req.DeliveryInstructions = input.Delivery.Notes;
+            if (input.Delivery.Latitude.HasValue) req.DeliveryLatitude = (decimal)input.Delivery.Latitude.Value;
+            if (input.Delivery.Longitude.HasValue) req.DeliveryLongitude = (decimal)input.Delivery.Longitude.Value;
         }
+
+        if (!string.IsNullOrWhiteSpace(input.CareNotes)) req.CareInstructions = input.CareNotes;
 
         // Lưu ghi chú & notes dạng JSON trong Purpose
         var notesJson = JsonSerializer.Serialize(input.HorseNotes ?? new Dictionary<string, string>());
@@ -745,21 +763,25 @@ public class Flow1CustomerService : IFlow1CustomerService
             CareNotes = careNotes,
             Pickup = new PlaceDto
             {
-                Name = req.Departure,
+                Name = !string.IsNullOrWhiteSpace(req.PickupStableName) ? req.PickupStableName : req.Departure,
                 Address = req.Departure,
-                Contact = req.DesignatedReceiverName ?? "Người gửi",
-                Phone = req.DesignatedReceiverPhone ?? "+84901234567",
-                Postal = "",
-                Notes = ""
+                Contact = "Người gửi",
+                Phone = "+84901234567",
+                Postal = req.PickupPostalCode ?? "",
+                Notes = req.PickupInstructions ?? "",
+                Latitude = req.PickupLatitude.HasValue ? (double)req.PickupLatitude.Value : null,
+                Longitude = req.PickupLongitude.HasValue ? (double)req.PickupLongitude.Value : null
             },
             Delivery = new PlaceDto
             {
-                Name = req.Destination,
+                Name = !string.IsNullOrWhiteSpace(req.DeliveryStableName) ? req.DeliveryStableName : req.Destination,
                 Address = req.Destination,
                 Contact = req.DesignatedReceiverName ?? "Người nhận",
                 Phone = req.DesignatedReceiverPhone ?? "+84901234567",
-                Postal = "",
-                Notes = ""
+                Postal = req.DeliveryPostalCode ?? "",
+                Notes = req.DeliveryInstructions ?? "",
+                Latitude = req.DeliveryLatitude.HasValue ? (double)req.DeliveryLatitude.Value : null,
+                Longitude = req.DeliveryLongitude.HasValue ? (double)req.DeliveryLongitude.Value : null
             },
             Horses = horses.Select(h => h.HorseId).ToList(),
             HorseNotes = notes,

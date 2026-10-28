@@ -5,6 +5,7 @@ import { cleanDisplayName, getInitials } from '../../../../shared/utils/textUtil
 import { useManager } from '../../hooks/useManager';
 import { fmtDateTime } from '../../hooks/managerRules';
 import { MANAGER_INITIALS, MANAGER_NAME } from '../../data/mockData';
+import { clearAuthSession } from '../../../auth/api/authApi';
 import './ManagerLayout.css';
 
 // ---------------------------------------------------------------------------
@@ -74,8 +75,7 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
   const managerInitials = getInitials(currentManagerName, MANAGER_INITIALS);
 
   const handleLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear();
+    clearAuthSession();
     navigate('/login');
   };
 

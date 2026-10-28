@@ -162,3 +162,23 @@ export const getCurrentUser = async (): Promise<
 
   return response.data;
 };
+
+/* =========================
+   LOGOUT / CLEAR AUTH SESSION
+   Preserves theme and demo mode preferences across login sessions.
+========================= */
+export const clearAuthSession = () => {
+  try {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userFullName");
+    localStorage.removeItem("userEmail");
+    sessionStorage.clear();
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("rts_auth_logout"));
+    }
+  } catch {
+    // Ignore storage errors
+  }
+};

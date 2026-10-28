@@ -4,6 +4,7 @@ import { DemoDataToggle, ErrorBoundary, ThemeToggle } from '../../../../shared/c
 import { cleanDisplayName, getInitials } from '../../../../shared/utils/textUtils';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { SPECIALIST_INITIALS, SPECIALIST_NAME } from '../../data/mockData';
+import { clearAuthSession } from '../../../auth/api/authApi';
 import './SpecialistLayout.css';
 
 // ---------------------------------------------------------------------------
@@ -66,8 +67,7 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
   const specialistInitials = getInitials(currentSpecialistName, SPECIALIST_INITIALS);
 
   const handleLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear();
+    clearAuthSession();
     navigate('/login');
   };
 

@@ -61,14 +61,24 @@ export const customerApi = {
     return requests.map(r => {
       if (r.status !== 'DRAFT') return r;
       try {
-        const saved = JSON.parse(sessionStorage.getItem(`flow1-progress:${r.id}`) || 'null');
+        const raw = sessionStorage.getItem(`flow1-progress:${r.id}`) || localStorage.getItem(`flow1-progress:${r.id}`);
+        const saved = JSON.parse(raw || 'null');
         if (saved && saved.horseCount >= 1 && saved.horseCount <= 6) return { ...r, horseCount: Math.max(saved.horseCount, r.horses.length), horses: Array.from({ length: Math.max(saved.horseCount, r.horses.length) }, (_, i) => r.horses[i] || ''), wizardStep: saved.wizardStep ?? r.wizardStep };
       } catch { /* Invalid UI metadata must not affect server data. */ }
       return { ...r, horseCount: Math.max(1, r.horses.length), horses: r.horses.length ? r.horses : [''] };
     });
   },
   getSelectableHorses: (date: string, excludeRequestId: string) => contractClient<Array<{ id: string; name: string; selectable: boolean; conflict: unknown; documentWarnings: string[] }>>('get', '/customer/horses/selectable', undefined, { date, excludeRequestId }),
-  getRequest: async (id: string) => requestFromWire(await contractClient<WireRequest>('get', `/customer/requests/${id}`)),
+  getRequest: async (id: string) => {
+    const r = requestFromWire(await contractClient<WireRequest>('get', `/customer/requests/${id}`));
+    if (r.status !== 'DRAFT') return r;
+    try {
+      const raw = sessionStorage.getItem(`flow1-progress:${r.id}`) || localStorage.getItem(`flow1-progress:${r.id}`);
+      const saved = JSON.parse(raw || 'null');
+      if (saved && saved.horseCount >= 1 && saved.horseCount <= 6) return { ...r, horseCount: Math.max(saved.horseCount, r.horses.length), horses: Array.from({ length: Math.max(saved.horseCount, r.horses.length) }, (_, i) => r.horses[i] || ''), wizardStep: saved.wizardStep ?? r.wizardStep };
+    } catch { /* Invalid UI metadata must not affect server data. */ }
+    return { ...r, horseCount: Math.max(1, r.horses.length), horses: r.horses.length ? r.horses : [''] };
+  },
   getHorse: async (id: string) => {
     const h = await contractClient<Horse>('get', `/customer/horses/${id}`);
     const unsupported = (h.unsupportedFields ?? []).filter(key => key !== 'color');

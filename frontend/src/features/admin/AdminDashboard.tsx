@@ -3,6 +3,7 @@ import { apiClient } from "../../shared/api/apiClient";
 import ThemeToggle from "../../shared/components/ThemeToggle/ThemeToggle";
 import { DemoDataToggle } from "../../shared/components";
 import { cleanDisplayName } from "../../shared/utils/textUtils";
+import { clearAuthSession } from "../auth/api/authApi";
 import "./AdminDashboard.css";
 
 interface AdminStats {
@@ -67,8 +68,7 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear();
+    clearAuthSession();
     window.location.href = "/login";
   };
 

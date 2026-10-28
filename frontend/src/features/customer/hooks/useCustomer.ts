@@ -117,7 +117,11 @@ const listeners = new Set<() => void>();
 const setState = (patch: Partial<CustomerState> | ((s: CustomerState) => Partial<CustomerState>)) => {
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
   for (const r of state.requests.filter(r => r.status === 'DRAFT')) {
-    try { sessionStorage.setItem(`flow1-progress:${r.id}`, JSON.stringify({ horseCount: r.horseCount, wizardStep: r.wizardStep })); } catch { /* UI metadata is optional. */ }
+    try {
+      const prog = JSON.stringify({ horseCount: r.horseCount, wizardStep: r.wizardStep });
+      sessionStorage.setItem(`flow1-progress:${r.id}`, prog);
+      localStorage.setItem(`flow1-progress:${r.id}`, prog);
+    } catch { /* UI metadata is optional. */ }
   }
   listeners.forEach((l) => l());
 };
@@ -127,6 +131,20 @@ const getSnapshot = () => state;
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('rts_auth_logout', () => {
+    const isDemo = getDemoMode('customer');
+    setState({
+      profile: { id: '', name: '', initials: '', email: '', phone: '', company: '' },
+      horses: isDemo ? clone(mockHorses) : [],
+      requests: isDemo ? clone(mockRequests) : [],
+      notifications: isDemo ? clone(mockNotifications) : [],
+      otp: null,
+      loading: false,
+      loaded: false,
+      toast: null,
+    });
+  });
+
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
     if (customEvent.detail && customEvent.detail.role === 'customer') {
@@ -425,7 +443,10 @@ const customerActions = {
     if (!apiRes.request || apiRes.request.status !== 'PENDING_REVIEW') return fail('Máy chủ chưa xác nhận gửi đơn.');
     const saved = apiRes.request;
     setState(s => ({ requests: s.requests.map(x => x.id === id ? saved : x) }));
-    try { sessionStorage.removeItem(`flow1-progress:${id}`); } catch { /* Optional UI metadata. */ }
+    try {
+      sessionStorage.removeItem(`flow1-progress:${id}`);
+      localStorage.removeItem(`flow1-progress:${id}`);
+    } catch { /* Optional UI metadata. */ }
     return ok(`Đã gửi ${saved.id}. Logistics Manager sẽ xét duyệt yêu cầu.`, saved.id);
   },
 

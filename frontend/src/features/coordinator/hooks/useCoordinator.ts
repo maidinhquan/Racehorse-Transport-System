@@ -67,6 +67,18 @@ const getSnapshot = () => state;
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('rts_auth_logout', () => {
+    setState({
+      trips: [],
+      vehicles: [],
+      staff: [],
+      incidents: [],
+      loading: false,
+      loaded: false,
+      toast: null,
+    });
+  });
+
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
     if (customEvent.detail && customEvent.detail.role === 'coordinator') {

@@ -88,6 +88,23 @@ const getSnapshot = () => state;
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('rts_auth_logout', () => {
+    setState({
+      trips: [],
+      customerDocs: [],
+      requests: [],
+      bookings: [],
+      regulations: [],
+      docTypes: [],
+      packages: [],
+      documents: [],
+      audit: [],
+      loading: false,
+      loaded: false,
+      toast: null,
+    });
+  });
+
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
     if (customEvent.detail && customEvent.detail.role === 'specialist') {
