@@ -21,7 +21,7 @@ namespace WebApi.Controllers
         [HttpGet("flow3-capabilities")]
         public async Task<IActionResult> GetFlow3Capabilities()
         {
-            var capabilities = await _coordinatorService.GetCapabilitiesAsync();
+            var capabilities = await _coordinatorService.GetFlow3CapabilitiesAsync();
             return Success(capabilities, "OK");
         }
     }

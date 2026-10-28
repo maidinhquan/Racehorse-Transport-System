@@ -15,7 +15,6 @@ namespace WebApi.Controllers
 
     [ApiController]
     [Route("api/coordinator")]
-    [Route("api/[controller]")]
     public class CoordinatorController : BaseApiController
     {
         private readonly ICoordinatorService _coordinatorService;
@@ -86,6 +85,16 @@ namespace WebApi.Controllers
         public async Task<IActionResult> SubmitPlan(string tripId, [FromBody] PlanCommandDto dto)
         {
             var data = await _coordinatorService.SubmitPlanAsync(tripId, dto, CurrentUserId);
+            return Success(data, "OK");
+        }
+
+        /// <summary>
+        /// F3-J11: Duyệt/trả toàn bộ phương án (Điều phối & Quản lý)
+        /// </summary>
+        [HttpPost("trips/{tripId}/plan/decision")]
+        public async Task<IActionResult> PlanDecision(string tripId, [FromBody] PlanDecisionInputDto dto)
+        {
+            var data = await _coordinatorService.PlanDecisionAsync(tripId, dto, CurrentUserId, "Logistics Manager");
             return Success(data, "OK");
         }
 

@@ -201,6 +201,16 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // =============================================================================
+// TỰ ĐỘNG KHỞI TẠO VÀ ĐỒNG BỘ SCHEMA / DATASET FLOW 3
+// =============================================================================
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<HorseTransportDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    await Infrastructure.Data.DbInitializer.InitializeAsync(dbContext, logger);
+}
+
+// =============================================================================
 // 7. PIPELINE XỬ LÝ HTTP REQUEST (THỨ TỰ CHUẨN)
 // =============================================================================
 

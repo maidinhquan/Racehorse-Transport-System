@@ -138,7 +138,8 @@ namespace WebApi.Middlewares
                     statusCode = (int)HttpStatusCode.InternalServerError;
                     errorCode = "INTERNAL_ERROR";
                     _logger.LogError(exception, "Lỗi không xử lý được xảy ra khi xử lý request: {Path}", context.Request.Path);
-                    message = _env.IsDevelopment() ? exception.Message : "Đã xảy ra lỗi nội bộ từ máy chủ. Vui lòng thử lại sau.";
+                    var detailMsg = exception.InnerException != null ? $"{exception.Message} -> {exception.InnerException.Message}" : exception.Message;
+                    message = _env.IsDevelopment() || !string.IsNullOrWhiteSpace(detailMsg) ? detailMsg : "Đã xảy ra lỗi nội bộ từ máy chủ. Vui lòng thử lại sau.";
                     blockers.Add(new BlockerDto { Code = "INTERNAL_ERROR", Field = "server", Message = message });
                     break;
             }

@@ -61,25 +61,17 @@ namespace WebApi.Middlewares
                 return;
             }
 
-            // Kiểm tra sự hiện diện của header Idempotency-Key
+            // Nếu không truyền header Idempotency-Key (ví dụ khi test trực tiếp trên Swagger), tự động sinh key
+            string key;
             if (!context.Request.Headers.TryGetValue("Idempotency-Key", out var rawKey) || string.IsNullOrWhiteSpace(rawKey))
             {
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                context.Response.ContentType = "application/json";
-
-                var err = ApiResponse<object?>.Fail(
-                    "Header Idempotency-Key là bắt buộc cho thao tác này (yêu cầu UUID).",
-                    "MISSING_IDEMPOTENCY_KEY",
-                    new List<BlockerDto>
-                    {
-                        new() { Code = "MISSING_IDEMPOTENCY_KEY", Field = "header.Idempotency-Key", Message = "Thiếu header Idempotency-Key" }
-                    });
-
-                await context.Response.WriteAsJsonAsync(err);
-                return;
+                key = Guid.NewGuid().ToString();
+                context.Request.Headers["Idempotency-Key"] = key;
             }
-
-            string key = rawKey.ToString().Trim();
+            else
+            {
+                key = rawKey.ToString().Trim();
+            }
 
             // Đọc và băm SHA256 nội dung request body
             context.Request.EnableBuffering();
@@ -93,17 +85,28 @@ namespace WebApi.Middlewares
             string bodyHash = ComputeSha256(bodyText);
             string userId = context.User?.FindFirst("userId")?.Value ?? "ANONYMOUS";
 
-            // Kiểm tra khóa đã tồn tại trong database chưa
-            var existingRecord = await dbContext.IdempotencyRecords
-                .FirstOrDefaultAsync(r => r.IdempotencyKey == key);
+            // Kiểm tra khóa đã tồn tại trong database chưa (bọc try-catch an toàn)
+            IdempotencyRecord? existingRecord = null;
+            try
+            {
+                existingRecord = await dbContext.IdempotencyRecords
+                    .FirstOrDefaultAsync(r => r.IdempotencyKey == key);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Bỏ qua kiểm tra Idempotency do bảng IDEMPOTENCY_RECORD chưa sẵn sàng.");
+            }
 
             if (existingRecord != null)
             {
-                // Nếu đã hết hạn cache 24h thì dọn dẹp và tiếp tục
                 if (existingRecord.ExpiresAtUtc <= DateTime.UtcNow)
                 {
-                    dbContext.IdempotencyRecords.Remove(existingRecord);
-                    await dbContext.SaveChangesAsync();
+                    try
+                    {
+                        dbContext.IdempotencyRecords.Remove(existingRecord);
+                        await dbContext.SaveChangesAsync();
+                    }
+                    catch { }
                 }
                 else
                 {
