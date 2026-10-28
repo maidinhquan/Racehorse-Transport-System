@@ -12,6 +12,7 @@ public static class HorseMapper
             issueDate = horse.PassportIssuedDate?.ToString("yyyy-MM-dd"), expiryDate = horse.PassportExpiryDate?.ToString("yyyy-MM-dd"),
             scan = File(horse, "passport", horse.PassportScanUrl) },
         healthNotes = horse.SpecialHealthNotes,
+        conditions = horse.SpecialHealthNotes ?? "",
         photo = File(horse, "photo", horse.PhotoUrl), ownership = File(horse, "ownership", horse.OwnershipCertificateFileUrl),
         valueProof = File(horse, "value-proof", horse.ValuationDocumentFileUrl)
     };

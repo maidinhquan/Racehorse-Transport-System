@@ -11,7 +11,13 @@ export interface FormOptions {
   defaultDepositPct: number;
   contractDeadlineHours: number;
   supportedRoutes: Array<{ id: string; originCountry: string; destinationCountry: string; mode: 'ROAD' | 'AIR' }>;
+  /** Returned instead of `supportedRoutes` when origin, destination and mode are all given. */
+  selectedRoute?: FormOptions['supportedRoutes'][number];
 }
+
+/** Normalizes both response shapes of `/customer/request-form-options` to always include `supportedRoutes`. */
+export const withRouteList = (o: FormOptions): FormOptions =>
+  o.supportedRoutes ? o : { ...o, supportedRoutes: o.selectedRoute ? [o.selectedRoute] : [] };
 
 type Parameter = { name: string; in: 'path' | 'query' | 'header'; required?: boolean; schema: { type?: string } & Record<string, unknown> };
 type Media = { schema: object };
@@ -34,7 +40,7 @@ export function validateFlow1Schema(schema: object, value: unknown, context: str
   const reference = (schema as { $ref?: string }).$ref;
   const validator = reference ? ajv.getSchema('flow1' + reference) ?? ajv.compile({ $ref: 'flow1' + reference }) : ajv.compile(schema);
   if (!validator(value)) {
-    const isServerResponse = context === 'Phản hồi máy chủ';
+    const isServerResponse = context.includes('Phản hồi');
     const errors = isServerResponse ? validator.errors?.filter(e => e.keyword !== 'additionalProperties') ?? [] : validator.errors;
     if (errors && errors.length > 0) {
       throw new Flow1ApiError(`${context} không khớp contract Flow 1: ${ajv.errorsText(errors, { separator: '; ' })}`, 'CLIENT_CONTRACT_ERROR');
@@ -86,20 +92,33 @@ function validateMultipart(schema: object, data: unknown, photoOnly: boolean) {
 
 const pending = new Set<string>();
 
+export function normalizeContractUrl(url: string): string {
+  return url.replace(/\/([A-Z_]+)-(\d+)(?=[/?#]|$)/g, (_, p, n) => `/${p}_${n.padStart(3, '0')}`);
+}
+
 /** Flow 1 only: exact endpoints, parameter/body validation, authenticated transport and validated responses. */
 export async function contractClient<T>(method: 'get' | 'post' | 'put' | 'delete', url: string, data?: unknown, params?: object, options: ContractRequestOptions = {}): Promise<T> {
-  const match = matchFlow1Operation(method, url), operation = match.operation;
+  const normalizedUrl = normalizeContractUrl(url);
+  const normalizedParams = params ? { ...(params as Record<string, unknown>) } : undefined;
+  if (normalizedParams) {
+    for (const [k, v] of Object.entries(normalizedParams)) {
+      if (typeof v === 'string' && /^[A-Z_]+-\d+$/.test(v)) {
+        normalizedParams[k] = v.replace(/^([A-Z_]+)-(\d+)$/, (_, p, n) => `${p}_${n.padStart(3, '0')}`);
+      }
+    }
+  }
+  const match = matchFlow1Operation(method, normalizedUrl), operation = match.operation;
   const headers: Record<string, string | undefined> = { ...options.headers };
-  validateParameters(match, url, params, headers);
+  validateParameters(match, normalizedUrl, normalizedParams, headers);
   const content = operation.requestBody?.content;
   if (content?.['application/json']) validateFlow1Schema(content['application/json'].schema, data, 'Dữ liệu gửi lên');
-  else if (content?.['multipart/form-data']) { validateMultipart(content['multipart/form-data'].schema, data, url.endsWith('/files/photo')); headers['Content-Type'] = undefined; }
+  else if (content?.['multipart/form-data']) { validateMultipart(content['multipart/form-data'].schema, data, normalizedUrl.endsWith('/files/photo')); headers['Content-Type'] = undefined; }
   else if (data !== undefined) throw new Flow1ApiError('Endpoint không nhận request body theo contract Flow 1.', 'CLIENT_CONTRACT_ERROR');
-  const key = `${method}:${url}`;
+  const key = `${method}:${normalizedUrl}`;
   if (method !== 'get' && pending.has(key)) throw new Flow1ApiError('Thao tác đang được xử lý.', 'REQUEST_PENDING');
   if (method !== 'get') pending.add(key);
   try {
-    const response = await apiClient.request<{ success: boolean; message: string; errorCode?: string; errors?: Record<string, string[]>; data: T }>({ method, url, data, params, headers });
+    const response = await apiClient.request<{ success: boolean; message: string; errorCode?: string; errors?: Record<string, string[]>; data: T }>({ method, url: normalizedUrl, data, params: normalizedParams, headers });
     const body = response.data;
     if (body?.success !== true) throw new Flow1ApiError(body?.message || 'API chưa xác nhận thành công.', body?.errorCode, body?.errors);
     if (body.data === undefined) throw new Flow1ApiError('Phản hồi API thiếu data, không khớp contract Flow 1.', 'SERVER_CONTRACT_ERROR');

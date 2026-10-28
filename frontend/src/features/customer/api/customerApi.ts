@@ -1,9 +1,11 @@
 import { apiRequest } from '../../../shared/api/apiRequest';
-import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
+import { contractClient, withRouteList, type FormOptions } from '../../../shared/api/contractClient';
 import { apiMessage } from '../../../shared/api/apiError';
 import type { ComplaintInput, ContractChangeInput, CustomerNotification, CustomerProfile, FileRef, Horse, HorseInput, Place, TransportRequest, TripInfoInput, ContractVersion, DocRecord, Payment } from '../types';
-import { city, getCityId, getDefaultCoordinates } from '../hooks/customerRules';
+import { city, getCityId, registerBackendCity } from '../hooks/customerRules';
 import { CUSTOMER_ENDPOINTS } from './customerEndpoints';
+import { getDemoMode } from '../../../shared/context/DemoModeContext';
+import { contractFromWire, documentKey, fileFromWire, paymentFromWire, type WirePayment, type WireHorse, type WireContract } from '../../../shared/api/flow1Wire';
 
 export const DEFAULT_FORM_OPTIONS: FormOptions = {
   currency: 'VND',
@@ -19,16 +21,22 @@ export const DEFAULT_FORM_OPTIONS: FormOptions = {
 
 const horseBody = (h: HorseInput) => ({
   name: h.name.trim(), breed: h.breed.trim(), sex: h.sex, dob: h.dob,
-  microchip: h.microchip.trim(), value: h.value, currency: 'VND', conditions: h.conditions,
+  microchip: h.microchip.trim(), value: h.value.trim(), currency: 'VND', healthNotes: h.conditions || '',
+  ...(h.reproductiveStatus != null ? { reproductiveStatus: h.reproductiveStatus } : {}),
+  ...(h.weight != null ? { weight: h.weight } : {}),
   passport: { number: h.passport.number, authority: h.passport.authority, issueDate: h.passport.issueDate, expiryDate: h.passport.expiryDate },
 });
 type WireRequest = any;
-const requestFromWire = (r: any): TransportRequest => {
+export const requestFromWire = (r: any): TransportRequest => {
+  const origin = r?.pickup?.cityName || r?.origin || '';
+  const destination = r?.delivery?.cityName || r?.destination || '';
+  if (r?.pickup?.cityName && r?.originCountry) registerBackendCity(origin, r.originCountry);
+  if (r?.delivery?.cityName && r?.destinationCountry) registerBackendCity(destination, r.destinationCountry);
   const versions: ContractVersion[] = Array.isArray(r?.versions)
-    ? r.versions.map((v: any) => ({ ...v, deadlineHistory: Array.isArray(v.deadlineHistory) ? v.deadlineHistory : [] }))
+    ? r.versions.map((v: WireContract) => contractFromWire(v) as ContractVersion)
     : [];
 
-  const rawDate = r?.date || r?.expectedTransportDate || r?.expectedDeliveryDate || (r?.createdAt ? String(r.createdAt).slice(0, 10) : '') || '';
+  const rawDate = r?.expectedDeliveryDate || '';
   const date = rawDate.length >= 10 ? rawDate.slice(0, 10) : rawDate;
   const requestedAt = r?.requestedAt || r?.createdAt || '';
   const status = r?.status === 'IN_PROGRESS' ? 'IN_TRANSIT' : (r?.status || 'DRAFT');
@@ -36,8 +44,8 @@ const requestFromWire = (r: any): TransportRequest => {
   return {
     ...r,
     id: r?.id || '',
-    origin: r?.origin || '',
-    destination: r?.destination || '',
+    origin,
+    destination,
     date,
     horseCount: r?.horseCount ?? (Array.isArray(r?.horses) ? r.horses.length : 1),
     pickupAt: r?.pickupAt || r?.expectedTransportDate || '',
@@ -45,7 +53,7 @@ const requestFromWire = (r: any): TransportRequest => {
     submittedAt: r?.submittedAt || r?.createdAt || requestedAt,
     status,
     feedback: r?.feedback || r?.revisionFeedback || '',
-    revisionFields: Array.isArray(r?.revisionFields) ? r.revisionFields : [],
+    revisionFields: Array.isArray(r?.revisionFields) ? r.revisionFields : undefined,
     reason: r?.reason || r?.cancellation?.reason || '',
     careNotes: r?.careNotes || r?.careInstructions || '',
     pickup: {
@@ -77,8 +85,13 @@ const requestFromWire = (r: any): TransportRequest => {
     wizardStep: r?.wizardStep ?? (Array.isArray(r?.horses) && r.horses.length ? 3 : 1),
     revisions: Array.isArray(r?.revisions) ? r.revisions : [],
     versions,
-    payments: Array.isArray(r?.payments) ? r.payments : [],
-    docs: Array.isArray(r?.docs) ? r.docs : [],
+    payments: Array.isArray(r?.payments) ? r.payments.map((p: any) => ({ ...p,
+      type: 'DEPOSIT', contractId: p.contractId,
+      versionNo: p.versionNo, confirmedAmount: p.receivedAmount ?? 0,
+      status: p.status === 'PENDING_GATEWAY' || p.status === 'REVIEW_REQUIRED' ? 'PROCESSING' : p.status,
+      createdAt: p.createdAt ?? '', confirmedAt: p.paidAt,
+    })) : [],
+    docs: Array.isArray(r?.docs) ? r.docs.map((d: any) => ({ ...d, key: documentKey(d.key), file: fileFromWire(d.file, documentKey(d.key)) })) : [],
     supplements: Array.isArray(r?.supplements) ? r.supplements : [],
     companyDocs: Array.isArray(r?.companyDocs) ? r.companyDocs : [],
     complaints: Array.isArray(r?.complaints) ? r.complaints : [],
@@ -91,32 +104,57 @@ const requestFromWire = (r: any): TransportRequest => {
   };
 };
 export interface PaymentSession { id: string; invoiceId: string; amount: number; currency: 'VND'; method: 'VNPAY'; status: string; paymentUrl: string; expiresAt: string }
+export const toContractId = (id: string): string => {
+  if (!id || typeof id !== 'string') return id;
+  return id.replace(/^([A-Z_]+)-(\d+)$/, (_, prefix, num) => `${prefix}_${num.padStart(3, '0')}`);
+};
+export const toHorseContractId = (id: string): string => {
+  if (!id || typeof id !== 'string') return id;
+  const trimmed = id.trim();
+  if (/^HORSE_\d{3,}$/.test(trimmed)) return trimmed;
+  const contract = toContractId(trimmed);
+  if (/^HORSE_\d{3,}$/.test(contract)) return contract;
+  if (/^HOR_\d{3,}$/.test(contract)) return contract.replace(/^HOR_/, 'HORSE_');
+  const numMatch = trimmed.match(/\d+/);
+  if (numMatch) return `HORSE_${numMatch[0].padStart(3, '0')}`;
+  return trimmed;
+};
+
 export type HorseFileType = 'photo' | 'passport' | 'ownership' | 'value-proof';
 const DOCUMENT_TYPES: Record<string, string> = { passport: 'PASSPORT', ownership: 'OWNERSHIP', valueProof: 'VALUATION', flu: 'VACCINATION', health: 'HEALTH_CERTIFICATE' };
-const contactBody = (p?: Partial<Place>, fallbackCity?: string) => ({
-  name: p?.name?.trim() || '',
-  address: p?.address?.trim() || '',
-  postal: p?.postal?.trim() || '',
-  contact: p?.contact?.trim() || '',
-  phone: p?.phone?.trim() || '',
-  notes: p?.notes?.trim() || '',
-  latitude: p?.latitude ?? getDefaultCoordinates(fallbackCity).latitude,
-  longitude: p?.longitude ?? getDefaultCoordinates(fallbackCity).longitude,
-  cityId: p?.cityId || getCityId(fallbackCity),
-});
+
+const contactBody = (p?: Partial<Place>, fallbackCity?: string) => {
+  void fallbackCity;
+  return {
+    name: p?.name?.trim() || '',
+    address: p?.address?.trim() || '',
+    postal: p?.postal?.trim() || '',
+    contact: p?.contact?.trim() || '',
+    phone: p?.phone?.trim() || '',
+    notes: p?.notes?.trim() || '',
+    cityId: p?.cityId || '',
+    latitude: p?.latitude,
+    longitude: p?.longitude,
+  };
+};
 
 const routeBody = (r: TripInfoInput | TransportRequest) => ({
   origin: r.origin, destination: r.destination,
   originCountry: city(r.origin).country, destinationCountry: city(r.destination).country,
-  pickupAt: r.pickupAt ?? '', mode: city(r.destination).country === 'JP' ? 'AIR' : 'ROAD', date: r.date, careNotes: r.careNotes || '',
+  expectedTransportDate: r.pickupAt ?? '', mode: r.mode || (city(r.destination).country === 'JP' ? 'AIR' : 'ROAD'), expectedDeliveryDate: r.date, careInstructions: r.careNotes || '',
 });
 
 export const requestBody = (r: TransportRequest) => ({
   ...routeBody(r),
+  ...(r.purpose != null ? { purpose: r.purpose } : {}),
   pickup: contactBody(r.pickup, r.origin),
   delivery: contactBody(r.delivery, r.destination),
-  horses: (r.horses || []).filter(Boolean),
-  horseNotes: r.horseNotes || {},
+  horses: (r.horses || []).filter(Boolean).map(toHorseContractId),
+  horseNotes: Object.fromEntries(
+    Object.entries(r.horseNotes || {})
+      .filter(([id, v]) => r.horses.includes(id) && typeof v === 'string')
+      .map(([k, v]) => [toHorseContractId(k), v])
+  ),
 });
 async function uploadHorseFiles(id: string, h: HorseInput) {
   const files: Array<[HorseFileType, FileRef | undefined]> = [['photo', h.photo], ['passport', h.passport.scan], ['ownership', h.ownership], ['value-proof', h.valueProof]];
@@ -126,31 +164,37 @@ async function uploadHorseFiles(id: string, h: HorseInput) {
     await contractClient<FileRef>('post', `/customer/horses/${id}/files/${fileType}`, form);
   }
 }
-const mapHorse = (h: Horse): Horse => {
-  const actualValue = (h as any)._originalValue !== undefined ? (h as any)._originalValue : h.value;
+const mapHorse = (h: WireHorse): Horse => {
   return {
     ...h,
-    color: h.color ?? '',
-    fluDate: h.fluDate ?? '',
-    conditions: h.conditions ?? '',
-    vetName: h.vetName ?? '',
-    vetPhone: h.vetPhone ?? '',
-    value: actualValue != null ? String(actualValue) : '',
+    breed: h.breed ?? '', sex: (h.sex ?? '') as Horse['sex'], dob: h.dob ?? '',
+    color: '', fluDate: '', vetName: '', vetPhone: '', conditions: h.healthNotes ?? '',
+    unsupportedFields: ['color', 'fluDate', 'vetName', 'vetPhone', 'flu', 'health'],
+    value: h.value != null ? String(h.value) : '',
+    photo: fileFromWire(h.photo, 'Ảnh ngựa'), ownership: fileFromWire(h.ownership, 'Giấy sở hữu'),
+    valueProof: fileFromWire(h.valueProof, 'Chứng từ định giá'),
+    reproductiveStatus: h.reproductiveStatus as Horse['reproductiveStatus'],
     passport: {
       number: h.passport?.number ?? '',
       authority: h.passport?.authority ?? '',
       issueDate: h.passport?.issueDate ?? '',
       expiryDate: h.passport?.expiryDate ?? '',
-      scan: h.passport?.scan,
+      scan: fileFromWire(h.passport?.scan, 'Hộ chiếu'),
     },
-    ...Object.fromEntries((h.unsupportedFields ?? []).map(key => [key, ''])),
   };
 };
 
 export const customerApi = {
-  getProfile: () => contractClient<CustomerProfile>('get', '/customer/profile'),
+  uploadHorseFile: (id: string, type: HorseFileType, file: File) => {
+    const form = new FormData(); form.append('file', file);
+    return contractClient<FileRef>('post', `/customer/horses/${id}/files/${type}`, form);
+  },
+  getProfile: async (): Promise<CustomerProfile> => {
+    const p = await contractClient<{ id: string; fullName: string; email: string; phone: string }>('get', '/customer/profile');
+    return { ...p, name: p.fullName, company: '', initials: p.fullName.split(' ').filter(Boolean).map(n => n[0]).join('').slice(-2) };
+  },
   getHorses: async () => {
-    const horses = await contractClient<Horse[]>('get', '/customer/horses');
+    const horses = await contractClient<WireHorse[]>('get', '/customer/horses');
     return (horses || []).map(mapHorse);
   },
   getRequests: async () => {
@@ -165,30 +209,34 @@ export const customerApi = {
       return { ...r, horseCount: Math.max(1, r.horses.length), horses: r.horses.length ? r.horses : [''] };
     });
   },
-  getSelectableHorses: async (date: string, excludeRequestId?: string, pickupAt?: string) => {
-    try {
-      return await contractClient<Array<{ id: string; name: string; selectable: boolean; conflict: unknown; documentWarnings: string[] }>>('get', '/customer/horses/selectable', undefined, { date, ...(excludeRequestId ? { excludeRequestId } : {}), ...(pickupAt ? { pickupAt } : {}) });
-    } catch {
-      return [];
+  getSelectableHorses: (date: string, _excludeRequestId?: string, pickupAt?: string) =>
+    contractClient<Array<{ id: string; name: string; selectable: boolean; conflict: unknown; documentWarnings: string[] }>>('get', '/customer/horses/selectable', undefined,
+      { expectedTransportDate: pickupAt || date, expectedDeliveryDate: date }),
+  getRequest: async (id: string) => {
+    const request = requestFromWire(await contractClient<WireRequest>('get', `/customer/requests/${id}`));
+    if (request.versions.length) {
+      const deposit = await customerApi.getDeposit(id);
+      request.payments = deposit.transactions.map(p => ({ ...p, type: 'DEPOSIT', confirmedAmount: p.receivedAmount ?? 0, createdAt: '', confirmedAt: p.paidAt } as Payment));
     }
+    return request;
   },
-  getRequest: async (id: string) => requestFromWire(await contractClient<WireRequest>('get', `/customer/requests/${id}`)),
   getHorse: async (id: string) => {
-    const h = await contractClient<Horse>('get', `/customer/horses/${id}`);
+    const h = await contractClient<WireHorse>('get', `/customer/horses/${id}`);
     return mapHorse(h);
   },
   getSupportedRoutes: () => contractClient<FormOptions['supportedRoutes']>('get', '/master/supported-routes'),
-  getChecklist: (id: string) => contractClient<{ requestId: string; canSubmit: boolean; issues: Array<{ message: string }> }>('get', `/customer/requests/${id}/document-checklist`),
+  getChecklist: (id: string) => contractClient<{ requestId: string; horses: Array<{ horseId: string; documents: Array<{ key: string; scope: string; required: boolean; status: string; file?: { url: string } }>; medical: Array<{ id: string; type: string; status: string; expiryDate?: string }> }> }>('get', `/customer/requests/${id}/document-checklist`),
   getNotifications: () => contractClient<CustomerNotification[]>('get', '/customer/notifications'),
   markNotificationRead: (id: string) => contractClient('post', `/customer/notifications/${id}/read`),
   markAllNotificationsRead: () => contractClient('post', '/customer/notifications/read-all'),
   getFormOptions: async (origin?: string, destination?: string, mode?: string): Promise<FormOptions> => {
     try {
-      return await contractClient<FormOptions>('get', '/customer/request-form-options', undefined, {
+      return withRouteList(await contractClient<FormOptions>('get', '/customer/request-form-options', undefined, {
         ...(origin ? { originCountry: city(origin).country } : {}), ...(destination ? { destinationCountry: city(destination).country } : {}),
         ...(mode || destination ? { mode: mode || (city(destination!).country === 'JP' ? 'AIR' : 'ROAD') } : {}),
-      });
-    } catch {
+      }));
+    } catch (error) {
+      if (!getDemoMode('customer')) throw error;
       return {
         ...DEFAULT_FORM_OPTIONS,
         preparationDays: destination && city(destination).country === 'JP' ? 7 : 3,
@@ -199,21 +247,17 @@ export const customerApi = {
     try {
       const res = await contractClient<Array<{ cityId: string; label: string; countryCode: string }>>('get', '/locations/cities', undefined, { country, q });
       if (res && res.length > 0) return res;
-    } catch {
-      // Fallback
-    }
+    } catch (error) { if (!getDemoMode('customer')) throw error; }
     return [];
   },
   searchLocations: async (address: string, country = 'VN', cityName?: string, cityId?: string) => {
     try {
-      const targetCityId = cityId || (cityName ? getCityId(cityName) : undefined);
+      const targetCityId = cityId || (getDemoMode('customer') && cityName ? getCityId(cityName) : undefined);
       const queryParams: Record<string, string> = { q: address, country };
       if (targetCityId) queryParams.cityId = targetCityId;
       const res = await contractClient<Array<{ label: string; point: { latitude: number; longitude: number; countryCode: string } }>>('get', '/locations/search', undefined, queryParams);
-      if (res && res.length > 0) return res;
-    } catch {
-      // Backend /locations/search not found or failed, fallback below
-    }
+      if (!getDemoMode('customer') || res?.length) return res;
+    } catch (error) { if (!getDemoMode('customer')) throw error; }
 
     const q = address.trim();
     const cityUpper = (cityName || '').toLowerCase();
@@ -296,17 +340,21 @@ export const customerApi = {
     await contractClient<Horse>('put', `/customer/horses/${id}`, horseBody(body));
     await uploadHorseFiles(id, body); return true;
   },
-  createRequest: async (body: TripInfoInput, idempotencyKey: string = crypto.randomUUID()) => requestFromWire(await contractClient<WireRequest>('post', '/customer/requests', routeBody(body), undefined, { headers: { 'Idempotency-Key': idempotencyKey } })),
+  createRequest: async (body: TransportRequest, idempotencyKey: string = crypto.randomUUID()) => requestFromWire(await contractClient<WireRequest>('post', '/customer/requests', requestBody(body), undefined, { headers: { 'Idempotency-Key': idempotencyKey } })),
   saveRequest: async (r: TransportRequest) => requestFromWire(await contractClient<WireRequest>('put', `/customer/requests/${r.id}`, requestBody(r))),
   submitRequest: async (id: string, body: TransportRequest) => {
     try {
       let request: TransportRequest;
-      if (body.status === 'CHANGES_REQUESTED' && !id.startsWith('TRN-')) {
+      if (body.status === 'CHANGES_REQUESTED') {
         request = requestFromWire(await contractClient<WireRequest>('put', `/customer/requests/${id}`, requestBody(body)));
       } else {
-        request = requestFromWire(await contractClient<WireRequest>('post', '/customer/requests', requestBody(body), undefined, {
-          headers: { 'Idempotency-Key': crypto.randomUUID() },
-        }));
+        const storageKey = `flow1-submit:${id}`;
+        const fingerprint = JSON.stringify(requestBody(body));
+        const previous = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
+        const key = previous?.fingerprint === fingerprint ? previous.key : crypto.randomUUID();
+        sessionStorage.setItem(storageKey, JSON.stringify({ fingerprint, key }));
+        request = await customerApi.createRequest(body, key);
+        sessionStorage.removeItem(storageKey);
       }
       return { ok: true, requestId: request.id, request };
     } catch (error) { return { ok: false, message: apiMessage(error) }; }
@@ -316,22 +364,26 @@ export const customerApi = {
     if (!file.file) throw new Error('Chọn tệp thật từ máy trước khi tải lên.');
     const documentType = DOCUMENT_TYPES[key];
     if (!documentType) throw new Error('Loại giấy tờ không có trong contract Flow 1.');
-    if (scope === 'request') throw new Error('Contract Flow 1 chưa có API nộp giấy tờ chung.');
     const data = new FormData(); data.append('file', file.file); data.append('documentType', documentType);
     if (expiryDate) data.append('expiryDate', expiryDate);
-    return contractClient<DocRecord>('post', `/customer/requests/${requestId}/horses/${scope}/documents`, data);
+    const reqId = toContractId(requestId);
+    const horseId = toContractId(scope);
+    return contractClient<DocRecord>('post', `/customer/requests/${reqId}/horses/${horseId}/documents`, data);
   },
-  getContractVersion: (contractId: string, versionNo: number) => contractClient<ContractVersion>('get', `/customer/contracts/${contractId}/versions/${versionNo}`),
-  getDeposit: (requestId: string) => contractClient<{ invoiceId: string; canPay: boolean }>('get', `/customer/requests/${requestId}/deposit`),
+  getContractVersion: async (contractId: string, versionNo: number) => contractFromWire(await contractClient<WireContract>('get', `/customer/contracts/${contractId}/versions/${versionNo}`)) as ContractVersion,
+  getDeposit: (requestId: string) => contractClient<{ invoiceId: string; canPay: boolean; transactions: Array<Payment & { receivedAmount?: number; paidAt?: string }> }>('get', `/customer/requests/${requestId}/deposit`),
   createPaymentSession: (invoiceId: string) => contractClient<PaymentSession>('post', `/customer/invoices/${invoiceId}/payment-session`, { method: 'VNPAY' }),
-  getPayment: (paymentId: string) => contractClient<Payment>('get', `/customer/payments/${paymentId}`),
-  getContract: (requestId: string) => contractClient<{ currentVersion: ContractVersion | null }>('get', `/customer/requests/${requestId}/contract`),
+  getPayment: async (paymentId: string) => paymentFromWire(await contractClient<WirePayment>('get', `/customer/payments/${paymentId}`)) as Payment,
+  getContract: async (requestId: string) => {
+    const result = await contractClient<{ currentVersion: WireContract | null }>('get', `/customer/requests/${requestId}/contract`);
+    return { ...result, currentVersion: result.currentVersion ? contractFromWire(result.currentVersion) as ContractVersion : null };
+  },
   acceptTerms: (id: string, versionNo: number) => contractClient<{ termsAcceptedAt: string }>('post', `/customer/contracts/${id}/accept-terms`, { versionNo }),
   requestContractChange: (id: string, body: ContractChangeInput, versionNo: number) => contractClient('post', `/customer/contracts/${id}/feedback`, {
     versionNo, text: [body.text, body.proposedDate && `Ngày đề xuất: ${body.proposedDate}`, body.proposedNotes, body.commercial, body.other].filter(Boolean).join('\n'),
   }),
   sendSignOtp: (id: string, versionNo: number) => contractClient<{ expiresInSeconds: number; resendAfterSeconds: number; sentTo: string }>('post', `/customer/contracts/${id}/sign-otp`, { versionNo }),
-  signContract: (id: string, otp: string, versionNo: number) => contractClient<{ requestId: string; requestStatus: 'AWAITING_DEPOSIT'; tripId: null; tripStatus: null; signedAt: string }>('post', `/customer/contracts/${id}/sign`, { versionNo, otp }),
+  signContract: (id: string, otp: string, versionNo: number) => contractClient<{ requestId: string; requestStatus: 'ACTIVATED'; tripId: string; tripStatus: 'PLANNING'; signedAt: string }>('post', `/customer/contracts/${id}/sign`, { versionNo, otp }),
   payDeposit: async (requestId: string) => {
     try {
       const deposit = await customerApi.getDeposit(requestId);

@@ -7,6 +7,7 @@ import type {
   CustomerNotification,
   CustomerProfile,
   DocKey,
+  DocRecord,
   FileRef,
   Horse,
   HorseInput,
@@ -16,11 +17,11 @@ import type {
   TripInfoInput,
 } from '../types';
 import { customerApi } from '../api/customerApi';
+import { readRequestDrafts, writeRequestDrafts, mergeRequestDrafts } from '../api/requestDrafts';
 import { apiMessage } from '../../../shared/api/apiError';
 import { getCurrentUser } from '../../auth/api/authApi';
 import {
   FILE_DOC_KEYS,
-  HORSE_LOCKED_FIELDS,
   addHours,
   balanceDue,
   canAcceptTerms,
@@ -41,7 +42,6 @@ import {
   fmtDateTime,
   fmtMoney,
   horseDocItems,
-  horseRequests,
   isActive,
   isPast,
   isSupportedRoute,
@@ -80,8 +80,11 @@ interface CustomerState {
 
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { mockHorses, mockNotifications, mockRequests } from '../data/mockData';
+import { getSharedRequests, saveSharedRequest, toCustomerRequest } from '../../../shared/utils/sharedRequests';
+import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
 const getInitialProfile = (): CustomerProfile => {
   const p: CustomerProfile = { id: '', name: '', initials: '', email: '', phone: '', company: '' };
@@ -102,11 +105,16 @@ const getInitialProfile = (): CustomerProfile => {
 };
 
 const initialDemo = getDemoMode('customer');
-
 let state: CustomerState = {
   profile: getInitialProfile(),
   horses: initialDemo ? clone(mockHorses) : [],
-  requests: initialDemo ? clone(mockRequests) : [],
+  requests: initialDemo
+    ? (() => {
+        const initialShared = getSharedRequests().map(toCustomerRequest);
+        const initialMock = clone(mockRequests);
+        return [...initialShared, ...initialMock.filter((m) => !initialShared.some((s) => cleanId(s.id) === cleanId(m.id)))];
+      })()
+    : readRequestDrafts(),
   notifications: initialDemo ? clone(mockNotifications) : [],
   otp: null,
   loading: false,
@@ -116,12 +124,34 @@ let state: CustomerState = {
 const listeners = new Set<() => void>();
 const setState = (patch: Partial<CustomerState> | ((s: CustomerState) => Partial<CustomerState>)) => {
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
+  if (!getDemoMode('customer')) writeRequestDrafts(state.requests);
   for (const r of state.requests.filter(r => r.status === 'DRAFT')) {
     try { sessionStorage.setItem(`flow1-progress:${r.id}`, JSON.stringify({ horseCount: r.horseCount, wizardStep: r.wizardStep })); } catch { /* UI metadata is optional. */ }
   }
   listeners.forEach((l) => l());
 };
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+
+const syncController = createSyncController({
+  intervalMs: 15000,
+  onRefresh: ({ silent, force }) => loadAll({ silent, force }),
+  eventType: 'requests_updated',
+});
+
+let unsubscribeSyncController: (() => void) | null = null;
+
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  if (listeners.size === 1) {
+    unsubscribeSyncController = syncController.subscribe();
+  }
+  return () => {
+    listeners.delete(l);
+    if (listeners.size === 0 && unsubscribeSyncController) {
+      unsubscribeSyncController();
+      unsubscribeSyncController = null;
+    }
+  };
+};
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
@@ -141,13 +171,37 @@ export function resetCustomerState() {
 
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('rts_requests_updated', () => {
+    const isDemo = getDemoMode('customer');
+    if (isDemo) {
+      const shared = getSharedRequests().map(toCustomerRequest);
+      setState((s) => {
+        const newRequests = [...s.requests];
+        for (const req of shared) {
+          const idx = newRequests.findIndex((r) => cleanId(r.id) === cleanId(req.id));
+          if (idx >= 0) {
+            newRequests[idx] = { ...newRequests[idx], ...req };
+          } else {
+            newRequests.unshift(req);
+          }
+        }
+        return { requests: newRequests };
+      });
+    } else {
+      void syncRequestsOnly();
+    }
+  });
+
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
     if (customEvent.detail && customEvent.detail.role === 'customer') {
       if (customEvent.detail.enabled) {
+        const shared = getSharedRequests().map(toCustomerRequest);
+        const mock = clone(mockRequests);
+        const merged = [...shared, ...mock.filter((m) => !shared.some((s) => cleanId(s.id) === cleanId(m.id)))];
         setState({
           horses: clone(mockHorses),
-          requests: clone(mockRequests),
+          requests: merged,
           notifications: clone(mockNotifications),
           loading: false,
           loaded: true,
@@ -159,8 +213,9 @@ if (typeof window !== 'undefined') {
           requests: [],
           notifications: [],
           loading: false,
-          loaded: true,
+          loaded: false,
         });
+        void loadAll({ force: true });
         toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
       }
     }
@@ -169,12 +224,20 @@ if (typeof window !== 'undefined') {
 const ok = (message: string, id?: string): ActionResult => { toast(message); return { ok: true, message, id }; };
 const fail = (message: string): ActionResult => { toast(message); return { ok: false, message }; };
 
-const findReq = (id: string) => state.requests.find((r) => r.id === id);
-const findHorse = (id: string) => state.horses.find((h) => h.id === id);
+const findReq = (id: string) => state.requests.find((r) => r.id === id || cleanId(r.id) === cleanId(id));
+const findHorse = (id: string) => state.horses.find((h) => h.id === id || cleanId(h.id) === cleanId(id));
 /** Sửa một yêu cầu trên bản sao rồi ghi lại vào store */
 const updateReq = (id: string, fn: (r: TransportRequest) => void) => {
-  setState((s) => ({ requests: s.requests.map((r) => { if (r.id !== id) return r; const c = clone(r); fn(c); return c; }) }));
-
+  setState((s) => ({
+    requests: s.requests.map((r) => {
+      if (r.id !== id && cleanId(r.id) !== cleanId(id)) return r;
+      const c = clone(r);
+      fn(c);
+      if (!getDemoMode('customer') && c.status === 'CHANGES_REQUESTED') c.editingLocally = true;
+      if (getDemoMode('customer')) saveSharedRequest(c);
+      return c;
+    }),
+  }));
 };
 const ACTOR: Record<ActorRole, string> = {
   CUSTOMER: '', LOGISTICS_MANAGER: 'Linh Pham', TRANSPORT_SPECIALIST: 'Hoang Thu Ha', FLEET_ROUTE_COORDINATOR: 'Dang Minh Quan',
@@ -186,106 +249,160 @@ const notify = (title: string, body: string, link: string) =>
   setState((s) => ({ notifications: [{ id: `N-${Date.now()}`, title, body, at: nowStamp(), read: false, link }, ...s.notifications] }));
 const nextId = (prefix: string, list: string[]) => {
   const numbers = list
-    .filter((x) => typeof x === 'string' && x.startsWith(`${prefix}-`))
+    .filter((x) => typeof x === 'string' && (x.startsWith(`${prefix}-`) || x.startsWith(`${prefix}_`)))
     .map((x) => {
-      const part = x.split('-')[1];
+      const part = x.includes('_') ? x.split('_')[1] : x.split('-')[1];
       const n = parseInt(part, 10);
       return !isNaN(n) && n < 1000000 ? n : 0;
     });
   const max = numbers.length > 0 ? Math.max(1000, ...numbers) : 8945;
-  return `${prefix}-${max + 1}`;
+  return `${prefix}_${max + 1}`;
 };
 
-async function loadAll() {
-  const currentEmail = typeof window !== 'undefined' ? (sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail')) : null;
-  if (state.loading) return;
-  if (state.loaded && (!currentEmail || state.profile.email === currentEmail)) return;
-  setState({ loading: true });
-  try {
-    const [profileRes, horsesRes, requestsRes, notificationsRes, currentUserRes] = await Promise.allSettled([
-      customerApi.getProfile(),
-      customerApi.getHorses(),
-      customerApi.getRequests(),
-      customerApi.getNotifications(),
-      getCurrentUser(),
-    ]);
+let currentLoadSeq = 0;
+let inFlightPromise: Promise<void> | null = null;
+let inFlightSyncPromise: Promise<void> | null = null;
 
-    const profile: CustomerProfile = profileRes.status === 'fulfilled' && profileRes.value ? profileRes.value : getInitialProfile();
-    const horses: Horse[] = horsesRes.status === 'fulfilled' && horsesRes.value ? horsesRes.value : [];
-    const requests: TransportRequest[] = requestsRes.status === 'fulfilled' && requestsRes.value ? requestsRes.value : [];
-    const notifications: CustomerNotification[] = notificationsRes.status === 'fulfilled' && notificationsRes.value ? notificationsRes.value : [];
-
+async function syncRequestsOnly(): Promise<void> {
+  if (inFlightSyncPromise) return inFlightSyncPromise;
+  inFlightSyncPromise = (async () => {
     try {
-      const u = currentUserRes.status === 'fulfilled' ? currentUserRes.value?.data : null;
-      if (u) {
-        if (u.fullName) profile.name = u.fullName;
-        if (u.email) {
-          profile.email = u.email;
-          try {
-            sessionStorage.setItem('userEmail', u.email);
-            localStorage.setItem('userEmail', u.email);
-          } catch {
-            // ignore
+      const rawRequests = await customerApi.getRequests();
+      const isDemo = getDemoMode('customer');
+      if (!isDemo) {
+        setState((prev) => ({
+          ...prev,
+          requests: mergeRequestDrafts(rawRequests, prev.requests),
+        }));
+        return;
+      }
+      const shared = getSharedRequests().map(toCustomerRequest);
+      const merged = [...shared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+      const mock = clone(mockRequests);
+      const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
+      setState((prev) => ({ ...prev, requests: allDemoRequests }));
+    } catch {
+      // Ignore background sync errors
+    } finally {
+      inFlightSyncPromise = null;
+    }
+  })();
+  return inFlightSyncPromise;
+}
+
+async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
+  const { force = false, silent = false } = options;
+  const currentEmail = typeof window !== 'undefined' ? (sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail')) : null;
+  if (!force && state.loaded && (!currentEmail || state.profile.email === currentEmail)) return;
+
+  // Lightweight background sync: once already loaded, background polling or sync only fetches requests
+  // to avoid exhausting backend rate limits (30 reqs/min).
+  if (silent && state.loaded) {
+    return syncRequestsOnly();
+  }
+
+  if (inFlightPromise) {
+    if (silent) return inFlightPromise;
+  }
+
+  const seq = ++currentLoadSeq;
+  if (!silent) {
+    setState({ loading: true });
+  }
+
+  inFlightPromise = (async () => {
+    try {
+      const [profileRes, horsesRes, requestsRes, notificationsRes, currentUserRes] = await Promise.allSettled([
+        customerApi.getProfile(),
+        customerApi.getHorses(),
+        customerApi.getRequests(),
+        customerApi.getNotifications(),
+        getCurrentUser(),
+      ]);
+
+      if (seq !== currentLoadSeq) {
+        return;
+      }
+
+      const profile: CustomerProfile = profileRes.status === 'fulfilled' && profileRes.value ? profileRes.value : getInitialProfile();
+      const horses: Horse[] = horsesRes.status === 'fulfilled' && horsesRes.value ? horsesRes.value : [];
+      const notifications: CustomerNotification[] = notificationsRes.status === 'fulfilled' && notificationsRes.value ? notificationsRes.value : [];
+
+      try {
+        const u = currentUserRes.status === 'fulfilled' ? currentUserRes.value?.data : null;
+        if (u) {
+          if (u.fullName) profile.name = u.fullName;
+          if (u.email) {
+            profile.email = u.email;
+            try {
+              sessionStorage.setItem('userEmail', u.email);
+              localStorage.setItem('userEmail', u.email);
+            } catch {
+              // ignore
+            }
+          }
+          if (u.phoneNumber) profile.phone = u.phoneNumber;
+        } else {
+          const storedName = sessionStorage.getItem('userFullName') || localStorage.getItem('userFullName');
+          const storedEmail = sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail');
+          if (storedName) {
+            profile.name = storedName;
+          }
+          if (storedEmail) {
+            profile.email = storedEmail;
           }
         }
-        if (u.phoneNumber) profile.phone = u.phoneNumber;
-      } else {
-        const storedName = sessionStorage.getItem('userFullName') || localStorage.getItem('userFullName');
-        const storedEmail = sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail');
-        if (storedName) {
-          profile.name = storedName;
-        }
-        if (storedEmail) {
-          profile.email = storedEmail;
-        }
+        profile.initials = (profile.name || 'Alex Equine')
+          .split(' ')
+          .filter(Boolean)
+          .map((n) => n[0])
+          .join('')
+          .slice(-2)
+          .toUpperCase();
+      } catch {
+        // ignore
       }
-      profile.initials = (profile.name || 'Alex Equine')
-        .split(' ')
-        .filter(Boolean)
-        .map((n) => n[0])
-        .join('')
-        .slice(-2)
-        .toUpperCase();
-    } catch {
-      // ignore
-    }
 
-    const isDemo = getDemoMode('customer');
-    if (!isDemo) {
-      setState({
+      const baseRequests = requestsRes.status === 'fulfilled' && requestsRes.value ? requestsRes.value : [];
+      const isDemo = getDemoMode('customer');
+      if (!isDemo) {
+        setState((prev) => ({
+          ...prev,
+          profile,
+          horses: horses || [],
+          requests: mergeRequestDrafts(baseRequests, prev.requests),
+          notifications: notifications || [],
+          loading: false,
+          loaded: true,
+        }));
+        return;
+      }
+
+      const shared = getSharedRequests().map(toCustomerRequest);
+      const merged = [...shared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+      const mock = clone(mockRequests);
+      const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
+      setState((prev) => ({
+        ...prev,
         profile,
-        horses: horses || [],
-        requests: requests || [],
-        notifications: notifications || [],
+        horses: horses && horses.length > 0 ? horses : clone(mockHorses),
+        requests: allDemoRequests,
+        notifications: notifications && notifications.length > 0 ? notifications : clone(mockNotifications),
         loading: false,
         loaded: true,
-      });
-      return;
+      }));
+    } catch (error) {
+      if (seq === currentLoadSeq) {
+        setState({ loading: false, loaded: true });
+      }
+    } finally {
+      if (seq === currentLoadSeq) {
+        inFlightPromise = null;
+      }
     }
+  })();
 
-    setState({
-      profile,
-      horses: horses && horses.length > 0 ? horses : clone(mockHorses),
-      requests: requests && requests.length > 0 ? requests : clone(mockRequests),
-      notifications: notifications && notifications.length > 0 ? notifications : clone(mockNotifications),
-      loading: false,
-      loaded: true,
-    });
-  } catch (error) {
-    const isDemo = getDemoMode('customer');
-    if (isDemo) {
-      setState({
-        profile: getInitialProfile(),
-        horses: clone(mockHorses),
-        requests: clone(mockRequests),
-        notifications: clone(mockNotifications),
-        loading: false,
-        loaded: true,
-      });
-    } else {
-      setState({ loading: false, loaded: true });
-    }
-  }
+  return inFlightPromise;
 }
 
 // ============================================================================
@@ -313,8 +430,16 @@ const resizeHorses = (r: TransportRequest, count: number) => {
 };
 
 const customerActions = {
+  async loadRequest(id: string) {
+    if (getDemoMode('customer') || id.startsWith('LOCAL_')) return;
+    if (findReq(id)?.editingLocally) return;
+    try {
+      const request = await customerApi.getRequest(id);
+      setState(s => ({ requests: s.requests.some(r => r.id === id) ? s.requests.map(r => r.id === id ? request : r) : [...s.requests, request] }));
+    } catch (error) { toast(apiMessage(error)); }
+  },
   reset: resetCustomerState,
-  reload: () => { setState({ loaded: false }); void loadAll(); },
+  reload: () => { void loadAll({ force: true, silent: false }); },
   clearToast: () => setState({ toast: null }),
   showToast: (message: string) => toast(message),
   async markNotificationRead(id: string) {
@@ -327,20 +452,9 @@ const customerActions = {
   },
 
   // ----- Bước 1: thông tin chuyến -----
-  async createDraft(input: TripInfoInput, idempotencyKey?: string): Promise<ActionResult> {
+  async createDraft(input: TripInfoInput, _idempotencyKey?: string): Promise<ActionResult> {
     const err = validateTripInfo(input); if (err) return fail(err);
-    try {
-      const r = await customerApi.createRequest(input, idempotencyKey);
-      if (r?.id && r.status === 'DRAFT') {
-        r.horseCount = input.horseCount;
-        r.horses = Array.from({ length: input.horseCount }, () => '');
-        setState(s => ({ requests: [r, ...s.requests] }));
-        return ok(`Đã tạo bản nháp ${r.id}.`, r.id);
-      }
-    } catch {
-      // Backend returned 404 or failed: create local draft to allow flow to proceed
-    }
-    const id = nextId('TRN', state.requests.map(x => x.id));
+    const id = getDemoMode('customer') ? nextId('TRN', state.requests.map(x => x.id)) : `LOCAL_${crypto.randomUUID()}`;
     const now = nowStamp();
     const draftReq: TransportRequest = {
       id,
@@ -373,6 +487,8 @@ const customerActions = {
       payments: [],
     };
     setState(s => ({ requests: [draftReq, ...s.requests] }));
+    if (getDemoMode('customer')) saveSharedRequest(draftReq);
+    notifySync('requests_updated');
     return ok(`Đã tạo bản nháp ${id}.`, id);
   },
 
@@ -391,12 +507,8 @@ const customerActions = {
         || (!allowed.includes('places') && (JSON.stringify(pickup) !== JSON.stringify(current.pickup) || JSON.stringify(delivery) !== JSON.stringify(current.delivery)))) return fail('Manager chỉ cho phép sửa các mục đã nêu trong góp ý.');
     }
     const updated: TransportRequest = { ...current, ...trip, pickup: { ...pickup }, delivery: { ...delivery }, wizardStep: Math.max(current.wizardStep, 2) };
-    try {
-      await customerApi.saveRequest(updated);
-    } catch {
-      // Backend returned 404: proceed locally
-    }
     updateReq(id, r => { Object.assign(r, updated); log(r, 'CUSTOMER', 'Lưu thông tin nhận và giao ngựa'); });
+    notifySync('requests_updated');
     return ok('Đã lưu lịch nhận, địa chỉ và người liên hệ.', id);
   },
 
@@ -425,17 +537,12 @@ const customerActions = {
     }
     const err = validateTripInfo(input);
     if (err) return fail(err);
-    updateReq(id, (x) => {
-      x.origin = input.origin; x.destination = input.destination; x.date = input.date; x.pickupAt = input.pickupAt; x.careNotes = input.careNotes.trim();
+    updateReq(id, x => {
+      Object.assign(x, input, { careNotes: input.careNotes.trim() });
       resizeHorses(x, input.horseCount);
-      log(x, 'CUSTOMER', 'Cập nhật thông tin chuyến', `${input.origin} → ${input.destination} • ${fmtDateTime(input.date)} • ${input.horseCount} ngựa`);
+      log(x, 'CUSTOMER', 'Lưu thông tin chuyến');
     });
-    try {
-      await customerApi.saveRequest(findReq(id)!);
-    } catch {
-      // Backend 404 fallback
-    }
-    return ok('Đã lưu thông tin chuyến.');
+    return ok('Đã lưu thông tin chuyến trong bản nháp.');
   },
 
   // ----- Bước 2: điểm nhận & điểm giao -----
@@ -447,11 +554,7 @@ const customerActions = {
     const phoneOk = (p: string) => /^[+0-9 ()-]{8,}$/.test(p.trim());
     if (!phoneOk(pickup.phone) || !phoneOk(delivery.phone)) return fail('Số điện thoại không hợp lệ.');
     updateReq(id, (r) => { r.pickup = pickup; r.delivery = delivery; r.wizardStep = Math.max(r.wizardStep, 2); });
-    try {
-      await customerApi.saveRequest(findReq(id)!);
-    } catch {
-      // Backend 404 fallback
-    }
+    notifySync('requests_updated');
     return ok('Đã lưu điểm nhận và điểm giao.');
   },
 
@@ -473,13 +576,11 @@ const customerActions = {
     const r = findReq(id);
     if (!r) return fail('Không tìm thấy yêu cầu.');
     if (r.horses.some((h) => !h)) return fail(`Hãy chọn đủ ${r.horseCount} ngựa.`);
-    updateReq(id, (x) => { x.wizardStep = Math.max(x.wizardStep, 3); });
-    try {
-      await customerApi.saveRequest(findReq(id)!);
-    } catch {
-      // Backend 404 fallback
-    }
-    return ok('Đã lưu danh sách ngựa và hồ sơ.');
+    // Required horse documents (photo, passport scan, ownership…) must be complete before review.
+    const horseErrors = wizardErrors(r, state.horses).filter(([step]) => step === 2).map(([, message]) => message);
+    if (horseErrors.length) return fail(`Chưa thể tiếp tục: ${horseErrors[0]}${horseErrors.length > 1 ? ` (và ${horseErrors.length - 1} mục khác còn thiếu)` : ''}`);
+    updateReq(id, x => { x.wizardStep = Math.max(x.wizardStep, 3); });
+    return ok('Đã lưu danh sách ngựa trong bản nháp.');
   },
 
   async submitRequest(id: string): Promise<ActionResult> {
@@ -488,16 +589,24 @@ const customerActions = {
     const errs = wizardErrors(r, state.horses);
     if (errs.length) return fail(`Chưa gửi được: ${errs[0][1]}`);
     
-    try {
-      const apiRes = await customerApi.submitRequest(id, r);
-      if (apiRes?.ok && apiRes.request?.status === 'PENDING_REVIEW') {
+    const isDemo = getDemoMode('customer');
+    if (!isDemo) {
+      try {
+        const apiRes = await customerApi.submitRequest(id, r);
+        if (!apiRes?.ok) {
+          return fail(apiRes?.message || 'Không thể gửi yêu cầu lên máy chủ.');
+        }
         const saved = apiRes.request;
-        setState(s => ({ requests: s.requests.map(x => x.id === id ? saved : x) }));
-        try { sessionStorage.removeItem(`flow1-progress:${id}`); } catch { /* Optional UI metadata. */ }
-        return ok(`Đã gửi ${saved.id}. Logistics Manager sẽ xét duyệt yêu cầu.`, saved.id);
+        if (saved) {
+          setState(s => ({ requests: s.requests.map(x => (x.id === id || cleanId(x.id) === cleanId(id)) ? saved : x) }));
+        }
+        await loadAll({ force: true, silent: true });
+        try { sessionStorage.removeItem(`flow1-progress:${id}`); } catch {}
+        notifySync('requests_updated');
+        return ok(`Đã gửi ${saved?.id || id}. Logistics Manager sẽ xét duyệt yêu cầu.`, saved?.id || id);
+      } catch (error) {
+        return fail(apiMessage(error));
       }
-    } catch {
-      // Backend 404 fallback
     }
 
     updateReq(id, x => {
@@ -507,17 +616,24 @@ const customerActions = {
     });
     try { sessionStorage.removeItem(`flow1-progress:${id}`); } catch { /* Optional UI metadata. */ }
     notify('Đã gửi yêu cầu', `Yêu cầu ${id} đang chờ Logistics Manager xét duyệt.`, `/customer/requests/${id}`);
+    notifySync('requests_updated');
     return ok(`Đã gửi ${id}. Logistics Manager sẽ xét duyệt yêu cầu.`, id);
   },
 
   async cancelRequest(id: string, reason: string): Promise<ActionResult> {
     const r = findReq(id);
     if (!r || !canCancel(r)) return fail('Không thể hủy yêu cầu ở trạng thái hiện tại.');
+    if (id.startsWith('LOCAL_') && r.status === 'DRAFT') {
+      setState(s => ({ requests: s.requests.filter(x => x.id !== id) }));
+      return ok('Đã xóa bản nháp.');
+    }
     if (reason.trim().length < 5) return fail('Nhập lý do hủy (ít nhất 5 ký tự).');
     try {
       await customerApi.cancelRequest(id, reason.trim());
       const updated = await customerApi.getRequest(id);
       setState(s => ({ requests: s.requests.map(x => x.id === id ? updated : x) }));
+      await loadAll({ force: true, silent: true });
+      notifySync('requests_updated');
       return ok('Đã gửi yêu cầu hủy và cập nhật trạng thái từ máy chủ.');
     } catch (error) { return fail(apiMessage(error)); }
   },
@@ -525,66 +641,55 @@ const customerActions = {
   // ----- Ngựa của tôi -----
   async createHorse(input: HorseInput): Promise<ActionResult> {
     const err = validateHorse(input); if (err) return fail(err);
+    if (getDemoMode('customer')) {
+      const id = nextId('HOR', state.horses.map(h => h.id));
+      setState(s => ({ horses: [{ ...input, id }, ...s.horses] }));
+      return ok(`Đã thêm ${input.name.trim()}.`, id);
+    }
     try {
       const result = await customerApi.createHorse(input);
       const horses = await customerApi.getHorses(); setState({ horses });
       return ok(`Đã thêm ${input.name.trim()}.`, result.id);
-    } catch {
-      const id = nextId('HOR', state.horses.map(h => h.id));
-      const newHorse: Horse = {
-        id,
-        name: input.name.trim(),
-        breed: input.breed.trim(),
-        sex: input.sex,
-        dob: input.dob,
-        color: input.color || '',
-        microchip: input.microchip.trim(),
-        value: input.value,
-        currency: 'VND',
-        passport: { ...input.passport },
-        photo: input.photo,
-        ownership: input.ownership,
-        valueProof: input.valueProof,
-        conditions: input.conditions || '',
-        fluDate: input.fluDate || '',
-        vetName: input.vetName || '',
-        vetPhone: input.vetPhone || '',
-      };
-      setState(s => ({ horses: [newHorse, ...s.horses] }));
-      return ok(`Đã thêm ${input.name.trim()}.`, id);
+    } catch (error) {
+      try { setState({ horses: await customerApi.getHorses() }); } catch { /* Keep the original save/upload error. */ }
+      return fail(apiMessage(error));
     }
   },
   async updateHorse(id: string, input: HorseInput): Promise<ActionResult> {
     const h = findHorse(id); if (!h) return fail('Không tìm thấy ngựa.');
     const err = validateHorse(input); if (err) return fail(err);
-    const next = { ...input };
-    if (horseRequests(h, state.requests).length) HORSE_LOCKED_FIELDS.forEach(k => { (next as unknown as Record<string, unknown>)[k] = h[k]; });
-    try {
-      await customerApi.updateHorse(id, next);
-      const horses = await customerApi.getHorses();
-      setState({ horses });
-    } catch {
-      setState(s => ({
-        horses: s.horses.map(item => item.id === id ? { ...item, ...next } : item)
-      }));
+    if (getDemoMode('customer')) {
+      setState(s => ({ horses: s.horses.map(item => item.id === id ? { ...item, ...input } : item) }));
+      return ok('Đã lưu hồ sơ ngựa.');
     }
-    return ok('Đã lưu hồ sơ ngựa.');
+    try {
+      await customerApi.updateHorse(id, input);
+      setState({ horses: await customerApi.getHorses() });
+      return ok('Đã lưu hồ sơ ngựa.');
+    } catch (error) { return fail(apiMessage(error)); }
   },
 
   // ----- Giấy tờ -----
   async uploadDoc(requestId: string, key: DocKey, scope: string, file: FileRef): Promise<ActionResult> {
     const r = findReq(requestId);
     if (!r || !isActive(r) || !FILE_DOC_KEYS.includes(key)) return fail('Không thể nộp giấy tờ cho yêu cầu này.');
-    try {
-      if (['DRAFT', 'CHANGES_REQUESTED'].includes(r.status)) await customerApi.saveRequest(r);
-      await customerApi.uploadDocument(requestId, key, scope, file);
-      const updated = await customerApi.getRequest(requestId);
-      if (updated.status === 'DRAFT') {
-        updated.horseCount = r.horseCount; updated.horses = [...r.horses]; updated.wizardStep = r.wizardStep;
-      }
-      setState(s => ({ requests: s.requests.map(x => x.id === requestId ? updated : x) }));
-      return ok('Đã nộp giấy tờ. Trạng thái duyệt được lấy từ máy chủ.');
-    } catch (error) { return fail(apiMessage(error)); }
+    if (!getDemoMode('customer')) {
+      const fileTypes: Partial<Record<DocKey, string>> = { passport: 'passport', ownership: 'ownership', valueProof: 'value-proof' };
+      const fileType = fileTypes[key];
+      if (!fileType) return fail('Tài liệu này chưa hỗ trợ nộp trực tuyến. Vui lòng liên hệ chuyên viên phụ trách.');
+      if (!file.file) return fail('Chọn tệp từ máy trước khi tải lên.');
+      try {
+        await customerApi.uploadHorseFile(scope, fileType as 'passport' | 'ownership' | 'value-proof', file.file);
+        setState({ horses: await customerApi.getHorses() });
+        return ok('Đã lưu tài liệu vào hồ sơ ngựa.');
+      } catch (error) { return fail(apiMessage(error)); }
+    }
+    updateReq(requestId, x => {
+      const doc: DocRecord = { key, scope, status: 'SUBMITTED', file, updatedAt: nowStamp() };
+      const index = x.docs.findIndex(d => d.key === key && d.scope === scope);
+      if (index < 0) x.docs.push(doc); else x.docs[index] = doc;
+    });
+    return ok('Đã cập nhật tài liệu demo.');
   },
 
   // ----- Hợp đồng -----
@@ -594,6 +699,7 @@ const customerActions = {
     try {
       const result = await customerApi.acceptTerms(v.contractId, v.v);
       updateReq(id, x => { curVersion(x)!.termsAcceptedAt = result.termsAcceptedAt; });
+      notifySync('requests_updated');
       return ok('Đã đồng ý điều khoản. Tiếp tục thanh toán cọc.');
     } catch (error) { return fail(apiMessage(error)); }
   },
@@ -605,6 +711,7 @@ const customerActions = {
       await customerApi.requestContractChange(v.contractId, input, v.v);
       const updated = await customerApi.getRequest(id);
       setState(s => ({ requests: s.requests.map(x => x.id === id ? updated : x) }));
+      notifySync('requests_updated');
       return ok('Đã gửi yêu cầu sửa hợp đồng.');
     } catch (error) { return fail(apiMessage(error)); }
   },
@@ -628,11 +735,12 @@ const customerActions = {
     if (!/^\d{6}$/.test(code)) return fail('Nhập đủ 6 chữ số OTP.');
     try {
       const result = await customerApi.signContract(v.contractId, code, v.v);
-      if (result.requestStatus !== 'AWAITING_DEPOSIT' || result.tripId !== null) return fail('API ký chưa trả đúng trạng thái chờ cọc. Hãy tải lại trạng thái.');
+      if (result.requestStatus !== 'ACTIVATED' || !result.tripId || result.tripStatus !== 'PLANNING') return fail('Chưa nhận được kết quả kích hoạt chuyến. Hãy tải lại trạng thái.');
       setState({ otp: null });
       const updated = await customerApi.getRequest(id);
       setState(s => ({ requests: s.requests.map(x => x.id === id ? updated : x) }));
-      return ok('Đã ký hợp đồng. Thanh toán tiền cọc để kích hoạt yêu cầu.');
+      notifySync('requests_updated');
+      return ok('Đã ký hợp đồng và kích hoạt yêu cầu. Chuyến đi đang chờ bố trí.');
     } catch (error) { return fail(apiMessage(error)); }
   },
 
@@ -972,9 +1080,15 @@ export function needsCustomerAction(r: TransportRequest) {
 // ============================================================================
 // Hook
 // ============================================================================
-export function useCustomer() {
+export function useCustomer(requestId?: string) {
   const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   const currentEmail = typeof window !== 'undefined' ? (sessionStorage.getItem('userEmail') || localStorage.getItem('userEmail')) : null;
+  useEffect(() => {
+    if (!requestId) return;
+    void actions.loadRequest(requestId);
+    const timer = setInterval(() => { void actions.loadRequest(requestId); }, 15000);
+    return () => clearInterval(timer);
+  }, [requestId]);
 
   useEffect(() => {
     if (currentEmail && snap.profile.email && currentEmail !== snap.profile.email) {

@@ -30,13 +30,26 @@ export const RequestWizardPage: React.FC = () => {
 
   return (
     <CustomerLayout title="Yêu cầu vận chuyển">
-      <button type="button" className="cus-back" onClick={() => navigate(`/customer/requests/${r.id}`)}><Icon name="back" />Quay lại {r.id}</button>
-      <h2 className="cus-title">{r.status === 'CHANGES_REQUESTED' ? `Sửa yêu cầu ${r.id}` : 'Tạo yêu cầu vận chuyển'}</h2>
-      <p className="cus-subtitle">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • {r.horseCount} ngựa</p>
-      <WizardStepper request={r} current={n} />
-      {r.status === 'CHANGES_REQUESTED' && r.feedback && <Note tone="yellow" title="Góp ý của Manager">{r.feedback}</Note>}
-      {n === 2 && <HorsesStep request={r} />}
-      {n === 3 && <ReviewStep request={r} />}
+      <div className="cus-create-flow">
+        <button
+          type="button"
+          className="cus-back"
+          onClick={() => navigate(n === 2 ? `/customer/requests/${r.id}/edit` : `/customer/requests/${r.id}/wizard/2`)}
+        >
+          <Icon name="back" />
+          {n === 2 ? 'Quay lại: Nhận & giao ngựa' : 'Quay lại: Ngựa & hồ sơ'}
+        </button>
+        <h2 className="cus-title">{r.status === 'CHANGES_REQUESTED' ? `Sửa yêu cầu ${r.id}` : 'Tạo yêu cầu vận chuyển'}</h2>
+        <p className="cus-subtitle">
+          {n === 2
+            ? `${cityLabel(r.origin)} → ${cityLabel(r.destination)} • Khai báo số lượng và thông tin từng ngựa trong chuyến. Hồ sơ giấy tờ được kiểm tra ngay tại đây.`
+            : `${cityLabel(r.origin)} → ${cityLabel(r.destination)} • Kiểm tra lại toàn bộ thông tin lộ trình, địa chỉ nhận giao và hồ sơ ngựa trước khi gửi xét duyệt.`}
+        </p>
+        <WizardStepper request={r} current={n} />
+        {r.status === 'CHANGES_REQUESTED' && r.feedback && <Note tone="yellow" title="Góp ý của Manager">{r.feedback}</Note>}
+        {n === 2 && <HorsesStep request={r} />}
+        {n === 3 && <ReviewStep request={r} />}
+      </div>
     </CustomerLayout>
   );
 };

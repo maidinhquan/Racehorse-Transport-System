@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import type { FileRef } from '../../types';
 import { downloadFile } from '../../../../shared/api/downloadFile';
+import { useAuthFileUrl } from '../../../../shared/api/useAuthFileUrl';
 import { Icon } from '../CustomerLayout';
 import './Modals.css';
 
@@ -12,6 +13,7 @@ interface FilePreviewModalProps {
 }
 
 export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ open, file, onClose, title }) => {
+  const viewUrl = useAuthFileUrl(open ? file?.url : undefined);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -70,13 +72,13 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ open, file, 
         </div>
 
         <div className="cus-preview-modal__body">
-          {isImage && file.url ? (
+          {isImage && viewUrl ? (
             <div className="cus-preview-modal__image-wrapper">
-              <img src={file.url} alt={file.name} className="cus-preview-modal__img" />
+              <img src={viewUrl} alt={file.name} className="cus-preview-modal__img" />
             </div>
-          ) : isPdf && file.url ? (
+          ) : isPdf && viewUrl ? (
             <div className="cus-preview-modal__pdf-wrapper">
-              <iframe src={file.url} title={file.name} className="cus-preview-modal__iframe" />
+              <iframe src={viewUrl} title={file.name} className="cus-preview-modal__iframe" />
             </div>
           ) : (
             <div className="cus-preview-modal__fallback">

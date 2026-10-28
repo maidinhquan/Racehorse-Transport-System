@@ -31,7 +31,7 @@ const CHANGE_ITEMS: Array<[ChangeItem, string]> = [
   ['date', 'Ngày vận chuyển mong muốn'], ['notes', 'Yêu cầu chăm sóc đặc biệt'], ['commercial', 'Điều khoản thương mại (giá, thanh toán)'], ['other', 'Thay đổi khác'],
 ];
 
-/** Tab Hợp đồng & chi phí: trình tự 1 đồng ý điều khoản → 2 ký OTP → 3 đặt cọc; yêu cầu sửa ngay trên trang */
+/** Tab Hợp đồng & chi phí: đồng ý điều khoản → xác minh cọc → ký OTP. */
 export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -73,9 +73,9 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
   };
 
   const status: Record<string, [('blue' | 'yellow' | 'grey' | 'green'), string, string]> = {
-    ISSUED: v.termsAcceptedAt ? ['blue', 'Đã đồng ý điều khoản – ký OTP', `Xem lại và ký ${ctRef(v)} trước ${fmtDateTime(v.validUntil)}. Sau khi ký bạn mới thanh toán cọc.`]
-      : ['blue', 'Xem hợp đồng của bạn', 'Đồng ý điều khoản, ký OTP, sau đó thanh toán cọc qua VNPAY.'],
-    SIGNED: ['blue', 'Đã ký – chờ xác minh tiền cọc', 'Nội dung đã ký chỉ để xem. Yêu cầu chỉ được kích hoạt và tạo chuyến sau khi backend xác minh đủ tiền cọc.'],
+    ISSUED: v.termsAcceptedAt ? ['blue', 'Đã đồng ý điều khoản', `Thanh toán và xác minh tiền cọc, rồi ký ${ctRef(v)} trước ${fmtDateTime(v.validUntil)}.`]
+      : ['blue', 'Xem hợp đồng của bạn', 'Đồng ý điều khoản, thanh toán và xác minh tiền cọc, sau đó ký OTP.'],
+    SIGNED: ['green', 'Đã ký – yêu cầu được kích hoạt', 'Tiền cọc đã được xác minh. Hợp đồng có hiệu lực và chuyến đi được tạo.'],
     CHANGES_REQUESTED: ['yellow', 'Đã yêu cầu sửa – chờ Manager', 'Phiên bản này không thể ký trong khi Manager xem xét yêu cầu sửa của bạn.'],
     EXPIRED: ['grey', 'Phiên bản hợp đồng đã hết hạn', `${ctRef(v)} hết hạn lúc ${fmtDateTime(v.validUntil)} và không thể ký. Yêu cầu vẫn còn hiệu lực – CBN Transport có thể gia hạn hoặc phát hành phiên bản mới.`],
     EFFECTIVE: ['green', 'Hợp đồng có hiệu lực', `Ký OTP lúc ${fmtDateTime(v.signedAt)}. Phiên bản đã ký chỉ để xem.`],

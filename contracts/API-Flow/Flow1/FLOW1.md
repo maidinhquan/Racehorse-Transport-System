@@ -418,11 +418,11 @@ Thông tin Customer. Role: **CUSTOMER**.
   "message": "OK",
   "data": {
     "id": "USER_001",
-    "name": "Nguyen Van A",
-    "initials": "NA",
+    "fullName": "Nguyen Van A",
+    "username": "customer_a",
     "email": "customer@example.com",
     "phone": "+84901234567",
-    "company": "Trang trại A"
+    "role": "CUSTOMER"
   }
 }
 ```
@@ -437,6 +437,7 @@ Thông tin Customer. Role: **CUSTOMER**.
   "data": null
 }
 ```
+
 
 ### F1-J02 — GET /customer/horses
 
@@ -460,6 +461,9 @@ Danh sách ngựa. Role: **CUSTOMER**.
       "microchip": "985112004571029",
       "value": "120000000",
       "currency": "VND",
+      "healthNotes": "Khỏe mạnh",
+      "reproductiveStatus": "INTACT",
+      "weight": 520,
       "passport": {
         "number": "VN-EQ-2020-1029",
         "authority": "Cơ quan cấp",
@@ -470,7 +474,6 @@ Danh sách ngựa. Role: **CUSTOMER**.
           "url": "/api/customer/horses/HORSE_001/files/passport"
         }
       },
-      "conditions": "",
       "photo": {
         "name": "horse.png",
         "url": "/api/customer/horses/HORSE_001/files/photo"
@@ -479,16 +482,10 @@ Danh sách ngựa. Role: **CUSTOMER**.
         "name": "ownership.pdf",
         "url": "/api/customer/horses/HORSE_001/files/ownership"
       },
-      "color": null,
-      "fluDate": null,
-      "vetName": null,
-      "vetPhone": null,
-      "unsupportedFields": [
-        "color",
-        "fluDate",
-        "vetName",
-        "vetPhone"
-      ]
+      "valueProof": {
+        "name": "valueProof.pdf",
+        "url": "/api/customer/horses/HORSE_001/files/value-proof"
+      }
     }
   ]
 }
@@ -504,6 +501,7 @@ Danh sách ngựa. Role: **CUSTOMER**.
   "data": null
 }
 ```
+
 
 ### F1-J03 — GET /customer/notifications
 
@@ -556,10 +554,11 @@ Danh sách Customer. Role: **LOGISTICS_MANAGER**.
   "data": [
     {
       "id": "USER_001",
-      "name": "Nguyen Van A",
-      "company": "Trang trại A",
+      "fullName": "Nguyen Van A",
+      "username": "customer_a",
       "email": "customer@example.com",
-      "phone": "+84901234567"
+      "phone": "+84901234567",
+      "role": "CUSTOMER"
     }
   ]
 }
@@ -575,6 +574,7 @@ Danh sách Customer. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
+
 
 ### F1-J05 — GET /manager/horses
 
@@ -593,8 +593,36 @@ Danh sách ngựa cho Manager. Role: **LOGISTICS_MANAGER**.
       "id": "HORSE_001",
       "name": "Thunderbolt",
       "breed": "Thoroughbred",
+      "sex": "STALLION",
+      "dob": "2020-03-14",
       "microchip": "985112004571029",
-      "passportNo": "VN-EQ-2020-1029"
+      "value": "120000000",
+      "currency": "VND",
+      "healthNotes": "Khỏe mạnh",
+      "reproductiveStatus": "INTACT",
+      "weight": 520,
+      "passport": {
+        "number": "VN-EQ-2020-1029",
+        "authority": "Cơ quan cấp",
+        "issueDate": "2023-04-10",
+        "expiryDate": "2028-04-09",
+        "scan": {
+          "name": "passport.pdf",
+          "url": "/api/customer/horses/HORSE_001/files/passport"
+        }
+      },
+      "photo": {
+        "name": "horse.png",
+        "url": "/api/customer/horses/HORSE_001/files/photo"
+      },
+      "ownership": {
+        "name": "ownership.pdf",
+        "url": "/api/customer/horses/HORSE_001/files/ownership"
+      },
+      "valueProof": {
+        "name": "valueProof.pdf",
+        "url": "/api/customer/horses/HORSE_001/files/value-proof"
+      }
     }
   ]
 }
@@ -610,6 +638,7 @@ Danh sách ngựa cho Manager. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
+
 
 ### F1-J06 — GET /manager/staff
 
@@ -628,13 +657,13 @@ Nhân sự phân công. Role: **LOGISTICS_MANAGER**.
       "id": "USER_005",
       "name": "Nguyen Thi B",
       "role": "TRANSPORT_SPECIALIST",
-      "load": 1
+      "isActive": true
     },
     {
       "id": "USER_006",
       "name": "Tran Van C",
       "role": "FLEET_ROUTE_COORDINATOR",
-      "load": 2
+      "isActive": true
     }
   ]
 }
@@ -652,6 +681,7 @@ Nhân sự phân công. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
+
 
 ### F1-J07 — GET /manager/notifications
 
@@ -760,26 +790,12 @@ Cấu hình form đã resolve. Role: **CUSTOMER**.
     "preparationDays": 7,
     "defaultDepositPct": 40,
     "contractDeadlineHours": 24,
-    "supportedRoutes": [
-      {
-        "id": "ROUTE_001",
-        "originCountry": "VN",
-        "destinationCountry": "VN",
-        "mode": "ROAD"
-      },
-      {
-        "id": "ROUTE_002",
-        "originCountry": "VN",
-        "destinationCountry": "VN",
-        "mode": "AIR"
-      },
-      {
-        "id": "ROUTE_003",
-        "originCountry": "VN",
-        "destinationCountry": "JP",
-        "mode": "AIR"
-      }
-    ]
+    "selectedRoute": {
+      "id": "ROUTE_003",
+      "originCountry": "VN",
+      "destinationCountry": "JP",
+      "mode": "AIR"
+    }
   }
 }
 ```
@@ -832,6 +848,7 @@ Cấu hình form đã resolve. Role: **CUSTOMER**.
 }
 ```
 
+
 ### F1-J10 — GET /locations/search
 
 Gợi ý địa chỉ. Role: **Người dùng đã đăng nhập theo phạm vi dữ liệu**.
@@ -842,6 +859,7 @@ Gợi ý địa chỉ. Role: **Người dùng đã đăng nhập theo phạm vi 
 |---|---|
 | q | Trại ngựa |
 | country | VN |
+| cityId | 0123456789abcdef012345 |
 
 **Request body:** Không gửi body.
 
@@ -880,7 +898,47 @@ Gợi ý địa chỉ. Role: **Người dùng đã đăng nhập theo phạm vi 
 }
 ```
 
-<!-- FLOW1_JSON_4_END -->
+
+### F1-J68 — GET /locations/cities
+
+Tìm tỉnh/thành phố. Role: **Người dùng đã đăng nhập theo phạm vi dữ liệu**.
+
+**Query parameters — gửi trên URL**
+
+| Tên | Giá trị ví dụ |
+|---|---|
+| q | Hồ Chí Minh |
+| country | VN |
+
+**Request body:** Không gửi body.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "cityId": "0123456789abcdef012345",
+      "label": "Thành phố Hồ Chí Minh",
+      "countryCode": "VN"
+    }
+  ]
+}
+```
+
+**Response lỗi 400 — VALIDATION_ERROR**
+
+```json
+{
+  "success": false,
+  "message": "Dữ liệu không hợp lệ",
+  "errorCode": "VALIDATION_ERROR",
+  "data": null
+}
+```
+
 
 ## 5. Ngựa và hồ sơ
 
@@ -975,6 +1033,9 @@ Chi tiết ngựa. Role: **CUSTOMER**.
     "microchip": "985112004571029",
     "value": "120000000",
     "currency": "VND",
+    "healthNotes": "Khỏe mạnh",
+    "reproductiveStatus": "INTACT",
+    "weight": 520,
     "passport": {
       "number": "VN-EQ-2020-1029",
       "authority": "Cơ quan cấp",
@@ -985,7 +1046,6 @@ Chi tiết ngựa. Role: **CUSTOMER**.
         "url": "/api/customer/horses/HORSE_001/files/passport"
       }
     },
-    "conditions": "",
     "photo": {
       "name": "horse.png",
       "url": "/api/customer/horses/HORSE_001/files/photo"
@@ -994,16 +1054,10 @@ Chi tiết ngựa. Role: **CUSTOMER**.
       "name": "ownership.pdf",
       "url": "/api/customer/horses/HORSE_001/files/ownership"
     },
-    "color": null,
-    "fluDate": null,
-    "vetName": null,
-    "vetPhone": null,
-    "unsupportedFields": [
-      "color",
-      "fluDate",
-      "vetName",
-      "vetPhone"
-    ]
+    "valueProof": {
+      "name": "valueProof.pdf",
+      "url": "/api/customer/horses/HORSE_001/files/value-proof"
+    }
   }
 }
 ```
@@ -1018,6 +1072,7 @@ Chi tiết ngựa. Role: **CUSTOMER**.
   "data": null
 }
 ```
+
 
 ### F1-J12 — POST /customer/horses
 
@@ -1040,7 +1095,9 @@ Thêm ngựa. Role: **CUSTOMER**.
     "issueDate": "2023-04-10",
     "expiryDate": "2028-04-09"
   },
-  "conditions": ""
+  "healthNotes": "Khỏe mạnh",
+  "reproductiveStatus": "INTACT",
+  "weight": 520
 }
 ```
 
@@ -1059,39 +1116,39 @@ Thêm ngựa. Role: **CUSTOMER**.
     "microchip": "985112004571029",
     "value": "120000000",
     "currency": "VND",
-    "conditions": "",
+    "healthNotes": "Khỏe mạnh",
+    "reproductiveStatus": "INTACT",
+    "weight": 520,
     "passport": {
       "number": "VN-EQ-2020-1029",
       "authority": "Cơ quan cấp",
       "issueDate": "2023-04-10",
-      "expiryDate": "2028-04-09"
+      "expiryDate": "2028-04-09",
+      "scan": null
     },
-    "color": null,
-    "fluDate": null,
-    "vetName": null,
-    "vetPhone": null,
-    "unsupportedFields": [
-      "color",
-      "fluDate",
-      "vetName",
-      "vetPhone"
+    "photo": null,
+    "ownership": null,
+    "valueProof": null
+  }
+}
+```
+
+**Response lỗi 400 — VALIDATION_ERROR**
+
+```json
+{
+  "success": false,
+  "message": "Dữ liệu không hợp lệ",
+  "errorCode": "VALIDATION_ERROR",
+  "data": null,
+  "errors": {
+    "microchip": [
+      "Microchip phải gồm đúng 15 chữ số"
     ]
   }
 }
 ```
 
-**Quy tắc:** value là string theo input FE nhưng lưu DeclaredValueVnd numeric. sex dùng mã chuẩn. Response chỉ thể hiện field có nơi lưu đã xác định, không giả lập color/fluDate/vetName/vetPhone chưa có persistence. Ngay sau create chưa upload thì không có property file; gọi upload riêng rồi GET để lấy FileRef.
-
-**Response lỗi 409 — HORSE_MICROCHIP_DUPLICATE**
-
-```json
-{
-  "success": false,
-  "message": "Microchip đã tồn tại",
-  "errorCode": "HORSE_MICROCHIP_DUPLICATE",
-  "data": null
-}
-```
 
 ### F1-J13 — PUT /customer/horses/{horseId}
 
@@ -1120,7 +1177,9 @@ Sửa hồ sơ ngựa. Role: **CUSTOMER**.
     "issueDate": "2023-04-10",
     "expiryDate": "2028-04-09"
   },
-  "conditions": "Cần theo dõi khẩu phần"
+  "healthNotes": "Khỏe mạnh",
+  "reproductiveStatus": "INTACT",
+  "weight": 520
 }
 ```
 
@@ -1139,6 +1198,9 @@ Sửa hồ sơ ngựa. Role: **CUSTOMER**.
     "microchip": "985112004571029",
     "value": "120000000",
     "currency": "VND",
+    "healthNotes": "Khỏe mạnh",
+    "reproductiveStatus": "INTACT",
+    "weight": 520,
     "passport": {
       "number": "VN-EQ-2020-1029",
       "authority": "Cơ quan cấp",
@@ -1149,7 +1211,6 @@ Sửa hồ sơ ngựa. Role: **CUSTOMER**.
         "url": "/api/customer/horses/HORSE_001/files/passport"
       }
     },
-    "conditions": "Cần theo dõi khẩu phần",
     "photo": {
       "name": "horse.png",
       "url": "/api/customer/horses/HORSE_001/files/photo"
@@ -1158,30 +1219,25 @@ Sửa hồ sơ ngựa. Role: **CUSTOMER**.
       "name": "ownership.pdf",
       "url": "/api/customer/horses/HORSE_001/files/ownership"
     },
-    "color": null,
-    "fluDate": null,
-    "vetName": null,
-    "vetPhone": null,
-    "unsupportedFields": [
-      "color",
-      "fluDate",
-      "vetName",
-      "vetPhone"
-    ]
+    "valueProof": {
+      "name": "valueProof.pdf",
+      "url": "/api/customer/horses/HORSE_001/files/value-proof"
+    }
   }
 }
 ```
 
-**Response lỗi 409 — HORSE_NOT_EDITABLE**
+**Response lỗi 404 — NOT_FOUND**
 
 ```json
 {
   "success": false,
-  "message": "Thông tin ngựa đang bị khóa theo nghiệp vụ",
-  "errorCode": "HORSE_NOT_EDITABLE",
+  "message": "Không tìm thấy hoặc không có quyền truy cập tài nguyên",
+  "errorCode": "NOT_FOUND",
   "data": null
 }
 ```
+
 
 ### F1-J14 — GET /customer/horses/selectable
 
@@ -1191,7 +1247,8 @@ Ngựa có thể chọn. Role: **CUSTOMER**.
 
 | Tên | Giá trị ví dụ |
 |---|---|
-| date | 2026-11-20 |
+| expectedTransportDate | 2026-11-19 |
+| expectedDeliveryDate | 2026-11-20 |
 
 **Request body:** Không gửi body.
 
@@ -1205,6 +1262,41 @@ Ngựa có thể chọn. Role: **CUSTOMER**.
     {
       "id": "HORSE_001",
       "name": "Thunderbolt",
+      "horse": {
+        "id": "HORSE_001",
+        "name": "Thunderbolt",
+        "breed": "Thoroughbred",
+        "sex": "STALLION",
+        "dob": "2020-03-14",
+        "microchip": "985112004571029",
+        "value": "120000000",
+        "currency": "VND",
+        "healthNotes": "Khỏe mạnh",
+        "reproductiveStatus": "INTACT",
+        "weight": 520,
+        "passport": {
+          "number": "VN-EQ-2020-1029",
+          "authority": "Cơ quan cấp",
+          "issueDate": "2023-04-10",
+          "expiryDate": "2028-04-09",
+          "scan": {
+            "name": "passport.pdf",
+            "url": "/api/customer/horses/HORSE_001/files/passport"
+          }
+        },
+        "photo": {
+          "name": "horse.png",
+          "url": "/api/customer/horses/HORSE_001/files/photo"
+        },
+        "ownership": {
+          "name": "ownership.pdf",
+          "url": "/api/customer/horses/HORSE_001/files/ownership"
+        },
+        "valueProof": {
+          "name": "valueProof.pdf",
+          "url": "/api/customer/horses/HORSE_001/files/value-proof"
+        }
+      },
       "selectable": true,
       "conflict": null,
       "documentWarnings": []
@@ -1213,7 +1305,7 @@ Ngựa có thể chọn. Role: **CUSTOMER**.
 }
 ```
 
-**Quy tắc:** date chỉ phục vụ kiểm tra sơ bộ tại ngày chọn, không bảo đảm toàn bộ khoảng lịch của đơn mới. Chuyến đã ký giữ lịch theo departAt → arriveAt trong CONTRACT_VERSION.ContentSnapshot của đúng version SIGNED; arriveAt là thời điểm giao ngựa dự kiến. Chuyến chưa bàn giao thực tế vẫn bị coi là đang bận khi quá arriveAt. Khi Manager chốt/phát hành lịch và trước ký, backend kiểm tra lại xung đột cả khoảng trong transaction; submit chỉ kiểm tra sơ bộ khi đơn chưa có ngày giao dự kiến. Không thêm trường ngày kết thúc riêng.
+**Quy tắc:** selectable = true khi không trùng lịch. Thiếu file chỉ là documentWarnings, không chặn chọn ngựa.
 
 **Response lỗi 400 — VALIDATION_ERROR**
 
@@ -1224,12 +1316,13 @@ Ngựa có thể chọn. Role: **CUSTOMER**.
   "errorCode": "VALIDATION_ERROR",
   "data": null,
   "errors": {
-    "date": [
+    "expectedTransportDate": [
       "Ngày không hợp lệ"
     ]
   }
 }
 ```
+
 
 ### F1-J15 — POST /customer/horses/{horseId}/files/{fileType}
 
@@ -1315,64 +1408,6 @@ Body là bytes file, không phải JSON và không có success/data envelope.
 }
 ```
 
-### F1-J17 — POST /customer/requests/{requestId}/horses/{horseId}/documents
-
-Nộp hồ sơ theo đơn. Role: **CUSTOMER**.
-
-**Path parameters**
-
-| Tên | Giá trị ví dụ |
-|---|---|
-| requestId | REQUEST_001 |
-| horseId | HORSE_001 |
-
-**Request: multipart/form-data, không có JSON body.**
-
-| Field | Kiểu | Bắt buộc | Ví dụ |
-|---|---|---|---|
-| documentType | string | Có | PASSPORT |
-| expiryDate | date | Không | 2028-04-09 |
-| file | binary | Có | passport.pdf |
-
-**Response 201**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "key": "passport",
-    "scope": "HORSE_001",
-    "status": "SUBMITTED",
-    "file": {
-      "name": "passport.pdf",
-      "url": "/api/customer/horses/HORSE_001/files/passport"
-    },
-    "updatedAt": "2026-10-23 07:50"
-  }
-}
-```
-
-**Quy tắc:** documentType PASSPORT chỉ minh họa; dùng catalog đã chốt. DocRecord là projection UI từ LEGAL_MEDICAL_RECORD, không tự đánh dấu APPROVED.
-
-**Response lỗi 400 — VALIDATION_ERROR**
-
-```json
-{
-  "success": false,
-  "message": "Dữ liệu không hợp lệ",
-  "errorCode": "VALIDATION_ERROR",
-  "data": null,
-  "errors": {
-    "file": [
-      "Nội dung file không hợp lệ"
-    ]
-  }
-}
-```
-
-<!-- FLOW1_JSON_5_END -->
-
 ## 6. Tạo, hoàn thiện và gửi đơn
 
 | Method | Endpoint | Mục đích |
@@ -1453,9 +1488,38 @@ Tạo DRAFT. Role: **CUSTOMER**.
   "originCountry": "VN",
   "destinationCountry": "JP",
   "mode": "AIR",
-  "date": "2026-11-20",
-  "careNotes": "",
-  "pickupAt": "2026-11-19"
+  "expectedTransportDate": "2026-11-19",
+  "expectedDeliveryDate": "2026-11-20",
+  "careInstructions": "Chăm sóc theo hồ sơ ngựa",
+  "pickup": {
+    "name": "Trại ngựa A",
+    "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+    "postal": "700000",
+    "contact": "Nguyen Van A",
+    "phone": "+84901234567",
+    "notes": "Gọi trước khi đến",
+    "cityId": "0123456789abcdef012345",
+    "latitude": 10.8231,
+    "longitude": 106.6297
+  },
+  "delivery": {
+    "name": "Tokyo Racecourse",
+    "address": "Địa chỉ giao tại Tokyo",
+    "postal": "1830024",
+    "contact": "Yuki Tanaka",
+    "phone": "+81312345678",
+    "notes": "",
+    "cityId": "0123456789abcdef012346",
+    "latitude": 35.668,
+    "longitude": 139.484
+  },
+  "horses": [
+    "HORSE_001"
+  ],
+  "horseNotes": {
+    "HORSE_001": "Lưu ý khẩu phần"
+  },
+  "purpose": null
 }
 ```
 
@@ -1467,58 +1531,73 @@ Tạo DRAFT. Role: **CUSTOMER**.
   "message": "OK",
   "data": {
     "id": "REQUEST_001",
+    "customerId": "USER_001",
     "origin": "Ho Chi Minh City",
     "destination": "Tokyo",
-    "date": "2026-11-20",
-    "horseCount": 0,
-    "requestedAt": "2026-10-23 07:30",
+    "originCountry": "VN",
+    "destinationCountry": "JP",
+    "mode": "AIR",
+    "expectedTransportDate": "2026-11-19",
+    "expectedDeliveryDate": "2026-11-20",
     "status": "DRAFT",
-    "careNotes": "Chăm sóc theo hồ sơ ngựa",
+    "careInstructions": "Chăm sóc theo hồ sơ ngựa",
+    "horses": [
+      "HORSE_001"
+    ],
+    "horseCount": 1,
+    "horseNotes": {
+      "HORSE_001": "Lưu ý khẩu phần"
+    },
     "pickup": {
-      "name": "",
-      "address": "",
-      "postal": "",
+      "name": "Trại ngựa A",
+      "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+      "postal": "700000",
       "contact": "Nguyen Van A",
       "phone": "+84901234567",
-      "notes": ""
+      "notes": "Gọi trước khi đến",
+      "cityId": "0123456789abcdef012345",
+      "cityName": "TP. Hồ Chí Minh",
+      "latitude": 10.8231,
+      "longitude": 106.6297
     },
     "delivery": {
-      "name": "",
-      "address": "",
-      "postal": "",
-      "contact": "",
-      "phone": "",
-      "notes": ""
+      "name": "Tokyo Racecourse",
+      "address": "Địa chỉ giao tại Tokyo",
+      "postal": "1830024",
+      "contact": "Yuki Tanaka",
+      "phone": "+81312345678",
+      "notes": "",
+      "cityId": "0123456789abcdef012346",
+      "cityName": "Tokyo",
+      "latitude": 35.668,
+      "longitude": 139.484
     },
-    "horses": [],
-    "horseNotes": {},
-    "wizardStep": 1,
     "versions": [],
     "payments": [],
     "docs": [],
-    "supplements": [],
-    "companyDocs": [],
-    "complaints": [],
-    "pickupAt": "2026-11-19"
+    "dossier": [],
+    "revisionFeedback": null,
+    "createdAt": "2026-10-23 07:30"
   }
 }
 ```
 
-**Quy tắc:** Header Idempotency-Key bắt buộc cho create theo baseline. ID backend; số slot mong muốn trong wizard thuộc state FE, response horseCount là số mapping thực hiện có.
-
-**Response lỗi 400 — UNSUPPORTED_ROUTE**
+**Response lỗi 400 — VALIDATION_ERROR**
 
 ```json
 {
   "success": false,
-  "message": "Tuyến hoặc phương thức không được hỗ trợ",
-  "errorCode": "UNSUPPORTED_ROUTE",
-  "data": null
+  "message": "Dữ liệu không hợp lệ",
+  "errorCode": "VALIDATION_ERROR",
+  "data": null,
+  "errors": {
+    "horses": [
+      "Tối thiểu 1 ngựa"
+    ]
+  }
 }
 ```
 
-
-**Lịch mong muốn (helo.html):** `pickupAt` và `date` là ngày ISO bắt buộc; `pickupAt` là ngày CBN đến lấy ngựa, `date` là ngày mong muốn giao. `today <= pickupAt <= date`; kiểm tra thời gian chuẩn bị trên `pickupAt`. Không tự suy diễn ngày lấy ngựa khi khách chưa nhập.
 
 ### F1-J19 — PUT /customer/requests/{requestId}
 
@@ -1539,8 +1618,9 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
   "originCountry": "VN",
   "destinationCountry": "JP",
   "mode": "AIR",
-  "date": "2026-11-20",
-  "careNotes": "Chăm sóc theo hồ sơ ngựa",
+  "expectedTransportDate": "2026-11-19",
+  "expectedDeliveryDate": "2026-11-20",
+  "careInstructions": "Chăm sóc theo hồ sơ ngựa",
   "pickup": {
     "name": "Trại ngựa A",
     "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
@@ -1548,6 +1628,7 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
     "contact": "Nguyen Van A",
     "phone": "+84901234567",
     "notes": "Gọi trước khi đến",
+    "cityId": "0123456789abcdef012345",
     "latitude": 10.8231,
     "longitude": 106.6297
   },
@@ -1558,6 +1639,7 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
     "contact": "Yuki Tanaka",
     "phone": "+81312345678",
     "notes": "",
+    "cityId": "0123456789abcdef012346",
     "latitude": 35.668,
     "longitude": 139.484
   },
@@ -1567,7 +1649,7 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
   "horseNotes": {
     "HORSE_001": "Lưu ý khẩu phần"
   },
-  "pickupAt": "2026-11-19"
+  "purpose": null
 }
 ```
 
@@ -1579,14 +1661,23 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
   "message": "OK",
   "data": {
     "id": "REQUEST_001",
+    "customerId": "USER_001",
     "origin": "Ho Chi Minh City",
     "destination": "Tokyo",
-    "date": "2026-11-20",
+    "originCountry": "VN",
+    "destinationCountry": "JP",
+    "mode": "AIR",
+    "expectedTransportDate": "2026-11-19",
+    "expectedDeliveryDate": "2026-11-20",
+    "status": "PENDING_REVIEW",
+    "careInstructions": "Chăm sóc theo hồ sơ ngựa",
+    "horses": [
+      "HORSE_001"
+    ],
     "horseCount": 1,
-    "requestedAt": "2026-10-23 07:30",
-    "submittedAt": "2026-10-23 08:00",
-    "status": "DRAFT",
-    "careNotes": "Chăm sóc theo hồ sơ ngựa",
+    "horseNotes": {
+      "HORSE_001": "Lưu ý khẩu phần"
+    },
     "pickup": {
       "name": "Trại ngựa A",
       "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
@@ -1594,6 +1685,8 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
       "contact": "Nguyen Van A",
       "phone": "+84901234567",
       "notes": "Gọi trước khi đến",
+      "cityId": "0123456789abcdef012345",
+      "cityName": "TP. Hồ Chí Minh",
       "latitude": 10.8231,
       "longitude": 106.6297
     },
@@ -1604,16 +1697,11 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
       "contact": "Yuki Tanaka",
       "phone": "+81312345678",
       "notes": "",
+      "cityId": "0123456789abcdef012346",
+      "cityName": "Tokyo",
       "latitude": 35.668,
       "longitude": 139.484
     },
-    "horses": [
-      "HORSE_001"
-    ],
-    "horseNotes": {
-      "HORSE_001": "Lưu ý khẩu phần"
-    },
-    "wizardStep": 3,
     "versions": [],
     "payments": [],
     "docs": [
@@ -1622,21 +1710,16 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
         "scope": "HORSE_001",
         "status": "SUBMITTED",
         "file": {
-          "name": "passport.pdf",
           "url": "/api/customer/horses/HORSE_001/files/passport"
-        },
-        "updatedAt": "2026-10-23 07:50"
+        }
       }
     ],
-    "supplements": [],
-    "companyDocs": [],
-    "complaints": [],
-    "pickupAt": "2026-11-19"
+    "dossier": [],
+    "revisionFeedback": null,
+    "createdAt": "2026-10-23 07:30"
   }
 }
 ```
-
-**Quy tắc:** Chỉ DRAFT/CHANGES_REQUESTED; không gửi state, history, versions, payments hoặc trip. Response draft hoàn chỉnh vẫn chưa tự submit.
 
 **Response lỗi 409 — INVALID_STATE**
 
@@ -1649,103 +1732,6 @@ Lưu dữ liệu Customer. Role: **CUSTOMER**.
 }
 ```
 
-
-**Lịch mong muốn (helo.html):** `pickupAt` và `date` là ngày ISO bắt buộc; `pickupAt` là ngày CBN đến lấy ngựa, `date` là ngày mong muốn giao. `today <= pickupAt <= date`; kiểm tra thời gian chuẩn bị trên `pickupAt`. Không tự suy diễn ngày lấy ngựa khi khách chưa nhập.
-
-### F1-J20 — POST /customer/requests/{requestId}/submit
-
-Gửi/gửi lại. Role: **CUSTOMER**.
-
-**Path parameters**
-
-| Tên | Giá trị ví dụ |
-|---|---|
-| requestId | REQUEST_001 |
-
-**Request body:** Không gửi body.
-
-**Response 200**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "REQUEST_001",
-    "origin": "Ho Chi Minh City",
-    "destination": "Tokyo",
-    "date": "2026-11-20",
-    "horseCount": 1,
-    "requestedAt": "2026-10-23 07:30",
-    "submittedAt": "2026-10-23 08:00",
-    "status": "PENDING_REVIEW",
-    "careNotes": "Chăm sóc theo hồ sơ ngựa",
-    "pickup": {
-      "name": "Trại ngựa A",
-      "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
-      "postal": "700000",
-      "contact": "Nguyen Van A",
-      "phone": "+84901234567",
-      "notes": "Gọi trước khi đến",
-      "latitude": 10.8231,
-      "longitude": 106.6297
-    },
-    "delivery": {
-      "name": "Tokyo Racecourse",
-      "address": "Địa chỉ giao tại Tokyo",
-      "postal": "1830024",
-      "contact": "Yuki Tanaka",
-      "phone": "+81312345678",
-      "notes": "",
-      "latitude": 35.668,
-      "longitude": 139.484
-    },
-    "horses": [
-      "HORSE_001"
-    ],
-    "horseNotes": {
-      "HORSE_001": "Lưu ý khẩu phần"
-    },
-    "wizardStep": 3,
-    "versions": [],
-    "payments": [],
-    "docs": [
-      {
-        "key": "passport",
-        "scope": "HORSE_001",
-        "status": "SUBMITTED",
-        "file": {
-          "name": "passport.pdf",
-          "url": "/api/customer/horses/HORSE_001/files/passport"
-        },
-        "updatedAt": "2026-10-23 07:50"
-      }
-    ],
-    "supplements": [],
-    "companyDocs": [],
-    "complaints": [],
-    "pickupAt": "2026-11-19"
-  }
-}
-```
-
-**Quy tắc:** Body không có. Backend kiểm tra mapping/tuyến/hồ sơ và lịch sơ bộ theo ngày, không chỉ dùng validation FE. Đơn chưa có arriveAt không được coi đã giữ lịch toàn khoảng; phải kiểm tra lại khi chốt hợp đồng và trước ký. Chưa tạo Contract/Trip.
-
-**Response lỗi 400 — REQUIRED_DOCUMENT_MISSING**
-
-```json
-{
-  "success": false,
-  "message": "Thiếu hồ sơ Customer phải nộp",
-  "errorCode": "REQUIRED_DOCUMENT_MISSING",
-  "data": null,
-  "errors": {
-    "horses.HORSE_001.passport.scan": [
-      "Chưa nộp scan hộ chiếu"
-    ]
-  }
-}
-```
 
 ### F1-J21 — GET /customer/requests
 
@@ -1762,14 +1748,23 @@ Danh sách Customer Request. Role: **CUSTOMER**.
   "data": [
     {
       "id": "REQUEST_001",
+      "customerId": "USER_001",
       "origin": "Ho Chi Minh City",
       "destination": "Tokyo",
-      "date": "2026-11-20",
-      "horseCount": 1,
-      "requestedAt": "2026-10-23 07:30",
-      "submittedAt": "2026-10-23 08:00",
+      "originCountry": "VN",
+      "destinationCountry": "JP",
+      "mode": "AIR",
+      "expectedTransportDate": "2026-11-19",
+      "expectedDeliveryDate": "2026-11-20",
       "status": "PENDING_REVIEW",
-      "careNotes": "Chăm sóc theo hồ sơ ngựa",
+      "careInstructions": "Chăm sóc theo hồ sơ ngựa",
+      "horses": [
+        "HORSE_001"
+      ],
+      "horseCount": 1,
+      "horseNotes": {
+        "HORSE_001": "Lưu ý khẩu phần"
+      },
       "pickup": {
         "name": "Trại ngựa A",
         "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
@@ -1777,6 +1772,8 @@ Danh sách Customer Request. Role: **CUSTOMER**.
         "contact": "Nguyen Van A",
         "phone": "+84901234567",
         "notes": "Gọi trước khi đến",
+        "cityId": "0123456789abcdef012345",
+        "cityName": "TP. Hồ Chí Minh",
         "latitude": 10.8231,
         "longitude": 106.6297
       },
@@ -1787,16 +1784,11 @@ Danh sách Customer Request. Role: **CUSTOMER**.
         "contact": "Yuki Tanaka",
         "phone": "+81312345678",
         "notes": "",
+        "cityId": "0123456789abcdef012346",
+        "cityName": "Tokyo",
         "latitude": 35.668,
         "longitude": 139.484
       },
-      "horses": [
-        "HORSE_001"
-      ],
-      "horseNotes": {
-        "HORSE_001": "Lưu ý khẩu phần"
-      },
-      "wizardStep": 3,
       "versions": [],
       "payments": [],
       "docs": [
@@ -1805,16 +1797,13 @@ Danh sách Customer Request. Role: **CUSTOMER**.
           "scope": "HORSE_001",
           "status": "SUBMITTED",
           "file": {
-            "name": "passport.pdf",
             "url": "/api/customer/horses/HORSE_001/files/passport"
-          },
-          "updatedAt": "2026-10-23 07:50"
+          }
         }
       ],
-      "supplements": [],
-      "companyDocs": [],
-      "complaints": [],
-      "pickupAt": "2026-11-19"
+      "dossier": [],
+      "revisionFeedback": null,
+      "createdAt": "2026-10-23 07:30"
     }
   ]
 }
@@ -1830,6 +1819,7 @@ Danh sách Customer Request. Role: **CUSTOMER**.
   "data": null
 }
 ```
+
 
 ### F1-J22 — GET /customer/requests/{requestId}
 
@@ -1851,14 +1841,23 @@ Chi tiết Customer Request. Role: **CUSTOMER**.
   "message": "OK",
   "data": {
     "id": "REQUEST_001",
+    "customerId": "USER_001",
     "origin": "Ho Chi Minh City",
     "destination": "Tokyo",
-    "date": "2026-11-20",
-    "horseCount": 1,
-    "requestedAt": "2026-10-23 07:30",
-    "submittedAt": "2026-10-23 08:00",
+    "originCountry": "VN",
+    "destinationCountry": "JP",
+    "mode": "AIR",
+    "expectedTransportDate": "2026-11-19",
+    "expectedDeliveryDate": "2026-11-20",
     "status": "PENDING_REVIEW",
-    "careNotes": "Chăm sóc theo hồ sơ ngựa",
+    "careInstructions": "Chăm sóc theo hồ sơ ngựa",
+    "horses": [
+      "HORSE_001"
+    ],
+    "horseCount": 1,
+    "horseNotes": {
+      "HORSE_001": "Lưu ý khẩu phần"
+    },
     "pickup": {
       "name": "Trại ngựa A",
       "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
@@ -1866,6 +1865,8 @@ Chi tiết Customer Request. Role: **CUSTOMER**.
       "contact": "Nguyen Van A",
       "phone": "+84901234567",
       "notes": "Gọi trước khi đến",
+      "cityId": "0123456789abcdef012345",
+      "cityName": "TP. Hồ Chí Minh",
       "latitude": 10.8231,
       "longitude": 106.6297
     },
@@ -1876,16 +1877,11 @@ Chi tiết Customer Request. Role: **CUSTOMER**.
       "contact": "Yuki Tanaka",
       "phone": "+81312345678",
       "notes": "",
+      "cityId": "0123456789abcdef012346",
+      "cityName": "Tokyo",
       "latitude": 35.668,
       "longitude": 139.484
     },
-    "horses": [
-      "HORSE_001"
-    ],
-    "horseNotes": {
-      "HORSE_001": "Lưu ý khẩu phần"
-    },
-    "wizardStep": 3,
     "versions": [],
     "payments": [],
     "docs": [
@@ -1894,16 +1890,13 @@ Chi tiết Customer Request. Role: **CUSTOMER**.
         "scope": "HORSE_001",
         "status": "SUBMITTED",
         "file": {
-          "name": "passport.pdf",
           "url": "/api/customer/horses/HORSE_001/files/passport"
-        },
-        "updatedAt": "2026-10-23 07:50"
+        }
       }
     ],
-    "supplements": [],
-    "companyDocs": [],
-    "complaints": [],
-    "pickupAt": "2026-11-19"
+    "dossier": [],
+    "revisionFeedback": null,
+    "createdAt": "2026-10-23 07:30"
   }
 }
 ```
@@ -1918,6 +1911,7 @@ Chi tiết Customer Request. Role: **CUSTOMER**.
   "data": null
 }
 ```
+
 
 ### F1-J23 — GET /customer/requests/{requestId}/document-checklist
 
@@ -1939,46 +1933,23 @@ Checklist tài liệu. Role: **CUSTOMER**.
   "message": "OK",
   "data": {
     "requestId": "REQUEST_001",
-    "canSubmit": true,
-    "items": [
+    "horses": [
       {
-        "key": "passport",
-        "scope": "HORSE_001",
-        "name": "Hộ chiếu ngựa",
-        "kind": "file",
-        "status": "SUBMITTED",
-        "optional": false,
-        "note": "Đã nộp, chưa Specialist duyệt",
-        "file": {
-          "name": "passport.pdf",
-          "url": "/api/customer/horses/HORSE_001/files/passport"
-        }
+        "horseId": "HORSE_001",
+        "documents": [
+          {
+            "key": "photo",
+            "scope": "HORSE_001",
+            "required": true,
+            "status": "SUBMITTED",
+            "file": {
+              "url": "/api/customer/horses/HORSE_001/files/photo"
+            }
+          }
+        ],
+        "medical": []
       }
-    ],
-    "issues": [],
-    "warnings": []
-  }
-}
-```
-
-**Response nhánh: 200 thiếu hồ sơ, chưa được submit**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "requestId": "REQUEST_001",
-    "canSubmit": false,
-    "items": [],
-    "issues": [
-      {
-        "field": "horses.HORSE_001.passport.scan",
-        "code": "REQUIRED_DOCUMENT_MISSING",
-        "message": "Chưa nộp scan hộ chiếu"
-      }
-    ],
-    "warnings": []
+    ]
   }
 }
 ```
@@ -1994,7 +1965,6 @@ Checklist tài liệu. Role: **CUSTOMER**.
 }
 ```
 
-<!-- FLOW1_JSON_6_END -->
 
 ## 7. Manager xét duyệt
 
@@ -2046,37 +2016,59 @@ Danh sách Manager Request. Role: **LOGISTICS_MANAGER**.
       "customerId": "USER_001",
       "origin": "Ho Chi Minh City",
       "destination": "Tokyo",
-      "date": "2026-11-20",
+      "originCountry": "VN",
+      "destinationCountry": "JP",
+      "mode": "AIR",
+      "expectedTransportDate": "2026-11-19",
+      "expectedDeliveryDate": "2026-11-20",
       "status": "PENDING_REVIEW",
+      "careInstructions": "Chăm sóc theo hồ sơ ngựa",
       "horses": [
         "HORSE_001"
       ],
+      "horseCount": 1,
+      "horseNotes": {
+        "HORSE_001": "Lưu ý khẩu phần"
+      },
       "pickup": {
         "name": "Trại ngựa A",
         "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+        "postal": "700000",
         "contact": "Nguyen Van A",
-        "phone": "+84901234567"
+        "phone": "+84901234567",
+        "notes": "Gọi trước khi đến",
+        "cityId": "0123456789abcdef012345",
+        "cityName": "TP. Hồ Chí Minh",
+        "latitude": 10.8231,
+        "longitude": 106.6297
       },
       "delivery": {
         "name": "Tokyo Racecourse",
         "address": "Địa chỉ giao tại Tokyo",
+        "postal": "1830024",
         "contact": "Yuki Tanaka",
-        "phone": "+81312345678"
+        "phone": "+81312345678",
+        "notes": "",
+        "cityId": "0123456789abcdef012346",
+        "cityName": "Tokyo",
+        "latitude": 35.668,
+        "longitude": 139.484
       },
-      "careNotes": "Chăm sóc theo hồ sơ ngựa",
-      "submittedAt": "2026-10-23 08:00",
       "versions": [],
-      "dossier": [
+      "payments": [],
+      "docs": [
         {
-          "name": "Hộ chiếu ngựa",
+          "key": "passport",
           "scope": "HORSE_001",
-          "status": "PENDING_REVIEW",
-          "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
-          "note": "Chưa được Specialist duyệt"
+          "status": "SUBMITTED",
+          "file": {
+            "url": "/api/customer/horses/HORSE_001/files/passport"
+          }
         }
       ],
-      "collection": [],
-      "pickupAt": "2026-11-19"
+      "dossier": [],
+      "revisionFeedback": null,
+      "createdAt": "2026-10-23 07:30"
     }
   ]
 }
@@ -2092,6 +2084,7 @@ Danh sách Manager Request. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
+
 
 ### F1-J25 — GET /manager/requests/{requestId}
 
@@ -2116,37 +2109,59 @@ Chi tiết Manager Request. Role: **LOGISTICS_MANAGER**.
     "customerId": "USER_001",
     "origin": "Ho Chi Minh City",
     "destination": "Tokyo",
-    "date": "2026-11-20",
+    "originCountry": "VN",
+    "destinationCountry": "JP",
+    "mode": "AIR",
+    "expectedTransportDate": "2026-11-19",
+    "expectedDeliveryDate": "2026-11-20",
     "status": "PENDING_REVIEW",
+    "careInstructions": "Chăm sóc theo hồ sơ ngựa",
     "horses": [
       "HORSE_001"
     ],
+    "horseCount": 1,
+    "horseNotes": {
+      "HORSE_001": "Lưu ý khẩu phần"
+    },
     "pickup": {
       "name": "Trại ngựa A",
       "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+      "postal": "700000",
       "contact": "Nguyen Van A",
-      "phone": "+84901234567"
+      "phone": "+84901234567",
+      "notes": "Gọi trước khi đến",
+      "cityId": "0123456789abcdef012345",
+      "cityName": "TP. Hồ Chí Minh",
+      "latitude": 10.8231,
+      "longitude": 106.6297
     },
     "delivery": {
       "name": "Tokyo Racecourse",
       "address": "Địa chỉ giao tại Tokyo",
+      "postal": "1830024",
       "contact": "Yuki Tanaka",
-      "phone": "+81312345678"
+      "phone": "+81312345678",
+      "notes": "",
+      "cityId": "0123456789abcdef012346",
+      "cityName": "Tokyo",
+      "latitude": 35.668,
+      "longitude": 139.484
     },
-    "careNotes": "Chăm sóc theo hồ sơ ngựa",
-    "submittedAt": "2026-10-23 08:00",
     "versions": [],
+    "payments": [],
+    "docs": [],
     "dossier": [
       {
-        "name": "Hộ chiếu ngựa",
+        "key": "passport",
         "scope": "HORSE_001",
-        "status": "PENDING_REVIEW",
-        "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
-        "note": "Chưa được Specialist duyệt"
+        "status": "SUBMITTED",
+        "file": {
+          "url": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/passport/file"
+        }
       }
     ],
-    "collection": [],
-    "pickupAt": "2026-11-19"
+    "revisionFeedback": null,
+    "createdAt": "2026-10-23 07:30"
   }
 }
 ```
@@ -2161,6 +2176,7 @@ Chi tiết Manager Request. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
+
 
 ### F1-J26 — POST /manager/requests/{requestId}/accept
 
@@ -2185,42 +2201,62 @@ Tiếp nhận đơn. Role: **LOGISTICS_MANAGER**.
     "customerId": "USER_001",
     "origin": "Ho Chi Minh City",
     "destination": "Tokyo",
-    "date": "2026-11-20",
+    "originCountry": "VN",
+    "destinationCountry": "JP",
+    "mode": "AIR",
+    "expectedTransportDate": "2026-11-19",
+    "expectedDeliveryDate": "2026-11-20",
     "status": "CONTRACT_PREPARATION",
+    "careInstructions": "Chăm sóc theo hồ sơ ngựa",
     "horses": [
       "HORSE_001"
     ],
+    "horseCount": 1,
+    "horseNotes": {
+      "HORSE_001": "Lưu ý khẩu phần"
+    },
     "pickup": {
       "name": "Trại ngựa A",
       "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+      "postal": "700000",
       "contact": "Nguyen Van A",
-      "phone": "+84901234567"
+      "phone": "+84901234567",
+      "notes": "Gọi trước khi đến",
+      "cityId": "0123456789abcdef012345",
+      "cityName": "TP. Hồ Chí Minh",
+      "latitude": 10.8231,
+      "longitude": 106.6297
     },
     "delivery": {
       "name": "Tokyo Racecourse",
       "address": "Địa chỉ giao tại Tokyo",
+      "postal": "1830024",
       "contact": "Yuki Tanaka",
-      "phone": "+81312345678"
+      "phone": "+81312345678",
+      "notes": "",
+      "cityId": "0123456789abcdef012346",
+      "cityName": "Tokyo",
+      "latitude": 35.668,
+      "longitude": 139.484
     },
-    "careNotes": "Chăm sóc theo hồ sơ ngựa",
-    "submittedAt": "2026-10-23 08:00",
     "versions": [],
-    "dossier": [
+    "payments": [],
+    "docs": [
       {
-        "name": "Hộ chiếu ngựa",
+        "key": "passport",
         "scope": "HORSE_001",
-        "status": "PENDING_REVIEW",
-        "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
-        "note": "Chưa được Specialist duyệt"
+        "status": "SUBMITTED",
+        "file": {
+          "url": "/api/customer/horses/HORSE_001/files/passport"
+        }
       }
     ],
-    "collection": [],
-    "pickupAt": "2026-11-19"
+    "dossier": [],
+    "revisionFeedback": null,
+    "createdAt": "2026-10-23 07:30"
   }
 }
 ```
-
-**Quy tắc:** PENDING_REVIEW → CONTRACT_PREPARATION, chưa Trip.
 
 **Response lỗi 409 — INVALID_STATE**
 
@@ -2232,6 +2268,7 @@ Tiếp nhận đơn. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
+
 
 ### F1-J27 — POST /manager/requests/{requestId}/request-changes
 
@@ -2247,7 +2284,7 @@ Yêu cầu sửa. Role: **LOGISTICS_MANAGER**.
 
 ```json
 {
-  "feedback": "Vui lòng xác nhận lại nơi nhận."
+  "feedback": "Vui lòng cập nhật lại người nhận tại điểm đến Tokyo"
 }
 ```
 
@@ -2262,54 +2299,81 @@ Yêu cầu sửa. Role: **LOGISTICS_MANAGER**.
     "customerId": "USER_001",
     "origin": "Ho Chi Minh City",
     "destination": "Tokyo",
-    "date": "2026-11-20",
+    "originCountry": "VN",
+    "destinationCountry": "JP",
+    "mode": "AIR",
+    "expectedTransportDate": "2026-11-19",
+    "expectedDeliveryDate": "2026-11-20",
     "status": "CHANGES_REQUESTED",
+    "careInstructions": "Chăm sóc theo hồ sơ ngựa",
     "horses": [
       "HORSE_001"
     ],
+    "horseCount": 1,
+    "horseNotes": {
+      "HORSE_001": "Lưu ý khẩu phần"
+    },
     "pickup": {
       "name": "Trại ngựa A",
       "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+      "postal": "700000",
       "contact": "Nguyen Van A",
-      "phone": "+84901234567"
+      "phone": "+84901234567",
+      "notes": "Gọi trước khi đến",
+      "cityId": "0123456789abcdef012345",
+      "cityName": "TP. Hồ Chí Minh",
+      "latitude": 10.8231,
+      "longitude": 106.6297
     },
     "delivery": {
       "name": "Tokyo Racecourse",
       "address": "Địa chỉ giao tại Tokyo",
+      "postal": "1830024",
       "contact": "Yuki Tanaka",
-      "phone": "+81312345678"
+      "phone": "+81312345678",
+      "notes": "",
+      "cityId": "0123456789abcdef012346",
+      "cityName": "Tokyo",
+      "latitude": 35.668,
+      "longitude": 139.484
     },
-    "careNotes": "Chăm sóc theo hồ sơ ngựa",
-    "submittedAt": "2026-10-23 08:00",
     "versions": [],
-    "dossier": [
+    "payments": [],
+    "docs": [
       {
-        "name": "Hộ chiếu ngựa",
+        "key": "passport",
         "scope": "HORSE_001",
-        "status": "PENDING_REVIEW",
-        "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
-        "note": "Chưa được Specialist duyệt"
+        "status": "SUBMITTED",
+        "file": {
+          "url": "/api/customer/horses/HORSE_001/files/passport"
+        }
       }
     ],
-    "collection": [],
-    "feedback": "Vui lòng xác nhận lại nơi nhận.",
-    "pickupAt": "2026-11-19"
+    "dossier": [],
+    "revisionFeedback": "Vui lòng cập nhật lại người nhận tại điểm đến Tokyo",
+    "createdAt": "2026-10-23 07:30"
   }
 }
 ```
 
-**Quy tắc:** Chỉ nhận feedback (10–2000 ký tự), lưu TRANSPORT_REQUEST.RevisionFeedback và chuyển PENDING_REVIEW → CHANGES_REQUESTED. Customer được sửa toàn bộ các trường Customer được phép sửa trước duyệt; không có fields/revisionFields và không khóa theo nhóm. Gửi lại → PENDING_REVIEW, giữ lời nhắn gần nhất; lịch sử nhiều vòng chưa thuộc phạm vi lần này.
+**Quy tắc:** feedback là trường nghiệp vụ chính thức.
 
-**Response lỗi 409 — INVALID_STATE**
+**Response lỗi 400 — VALIDATION_ERROR**
 
 ```json
 {
   "success": false,
-  "message": "Trạng thái hiện tại không cho phép thao tác",
-  "errorCode": "INVALID_STATE",
-  "data": null
+  "message": "Dữ liệu không hợp lệ",
+  "errorCode": "VALIDATION_ERROR",
+  "data": null,
+  "errors": {
+    "feedback": [
+      "Lý do yêu cầu sửa tối thiểu 10 ký tự"
+    ]
+  }
 }
 ```
+
 
 ### F1-J28 — POST /manager/requests/{requestId}/reject
 
@@ -2325,7 +2389,7 @@ Từ chối. Role: **LOGISTICS_MANAGER**.
 
 ```json
 {
-  "reason": "Không đáp ứng được lịch vận chuyển."
+  "reason": "Không đủ năng lực vận chuyển tuyến đường này trong thời gian yêu cầu"
 }
 ```
 
@@ -2340,38 +2404,59 @@ Từ chối. Role: **LOGISTICS_MANAGER**.
     "customerId": "USER_001",
     "origin": "Ho Chi Minh City",
     "destination": "Tokyo",
-    "date": "2026-11-20",
+    "originCountry": "VN",
+    "destinationCountry": "JP",
+    "mode": "AIR",
+    "expectedTransportDate": "2026-11-19",
+    "expectedDeliveryDate": "2026-11-20",
     "status": "REJECTED",
+    "careInstructions": "Chăm sóc theo hồ sơ ngựa",
     "horses": [
       "HORSE_001"
     ],
+    "horseCount": 1,
+    "horseNotes": {
+      "HORSE_001": "Lưu ý khẩu phần"
+    },
     "pickup": {
       "name": "Trại ngựa A",
       "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+      "postal": "700000",
       "contact": "Nguyen Van A",
-      "phone": "+84901234567"
+      "phone": "+84901234567",
+      "notes": "Gọi trước khi đến",
+      "cityId": "0123456789abcdef012345",
+      "cityName": "TP. Hồ Chí Minh",
+      "latitude": 10.8231,
+      "longitude": 106.6297
     },
     "delivery": {
       "name": "Tokyo Racecourse",
       "address": "Địa chỉ giao tại Tokyo",
+      "postal": "1830024",
       "contact": "Yuki Tanaka",
-      "phone": "+81312345678"
+      "phone": "+81312345678",
+      "notes": "",
+      "cityId": "0123456789abcdef012346",
+      "cityName": "Tokyo",
+      "latitude": 35.668,
+      "longitude": 139.484
     },
-    "careNotes": "Chăm sóc theo hồ sơ ngựa",
-    "submittedAt": "2026-10-23 08:00",
     "versions": [],
-    "dossier": [
+    "payments": [],
+    "docs": [
       {
-        "name": "Hộ chiếu ngựa",
+        "key": "passport",
         "scope": "HORSE_001",
-        "status": "PENDING_REVIEW",
-        "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
-        "note": "Chưa được Specialist duyệt"
+        "status": "SUBMITTED",
+        "file": {
+          "url": "/api/customer/horses/HORSE_001/files/passport"
+        }
       }
     ],
-    "collection": [],
-    "reason": "Không đáp ứng được lịch vận chuyển.",
-    "pickupAt": "2026-11-19"
+    "dossier": [],
+    "revisionFeedback": "Không đủ năng lực vận chuyển tuyến đường này trong thời gian yêu cầu",
+    "createdAt": "2026-10-23 07:30"
   }
 }
 ```
@@ -2387,7 +2472,6 @@ Từ chối. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-<!-- FLOW1_JSON_7_END -->
 
 ## 8. Manager soạn hợp đồng
 
@@ -2484,7 +2568,11 @@ Dữ liệu editor. Role: **LOGISTICS_MANAGER**.
 |---|---|
 | requestId | REQUEST_001 |
 
-Query `mode` (ROAD/AIR, optional) chọn phương thức để resolve defaults; không đổi draft khi GET. Role vẫn LOGISTICS_MANAGER.
+**Query parameters — gửi trên URL**
+
+| Tên | Giá trị ví dụ |
+|---|---|
+| mode | AIR |
 
 **Request body:** Không gửi body.
 
@@ -2500,52 +2588,103 @@ Query `mode` (ROAD/AIR, optional) chọn phương thức để resolve defaults;
       "customerId": "USER_001",
       "origin": "Ho Chi Minh City",
       "destination": "Tokyo",
-      "date": "2026-11-20",
+      "originCountry": "VN",
+      "destinationCountry": "JP",
+      "mode": "AIR",
+      "expectedTransportDate": "2026-11-19",
+      "expectedDeliveryDate": "2026-11-20",
       "status": "CONTRACT_PREPARATION",
+      "careInstructions": "Chăm sóc theo hồ sơ ngựa",
       "horses": [
         "HORSE_001"
       ],
+      "horseCount": 1,
+      "horseNotes": {
+        "HORSE_001": "Lưu ý khẩu phần"
+      },
       "pickup": {
         "name": "Trại ngựa A",
         "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
+        "postal": "700000",
         "contact": "Nguyen Van A",
-        "phone": "+84901234567"
+        "phone": "+84901234567",
+        "notes": "Gọi trước khi đến",
+        "cityId": "0123456789abcdef012345",
+        "cityName": "TP. Hồ Chí Minh",
+        "latitude": 10.8231,
+        "longitude": 106.6297
       },
       "delivery": {
         "name": "Tokyo Racecourse",
         "address": "Địa chỉ giao tại Tokyo",
+        "postal": "1830024",
         "contact": "Yuki Tanaka",
-        "phone": "+81312345678"
+        "phone": "+81312345678",
+        "notes": "",
+        "cityId": "0123456789abcdef012346",
+        "cityName": "Tokyo",
+        "latitude": 35.668,
+        "longitude": 139.484
       },
-      "careNotes": "Chăm sóc theo hồ sơ ngựa",
-      "submittedAt": "2026-10-23 08:00",
       "versions": [],
-      "dossier": [
+      "payments": [],
+      "docs": [
         {
-          "name": "Hộ chiếu ngựa",
+          "key": "passport",
           "scope": "HORSE_001",
-          "status": "PENDING_REVIEW",
-          "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
-          "note": "Chưa được Specialist duyệt"
+          "status": "SUBMITTED",
+          "file": {
+            "url": "/api/customer/horses/HORSE_001/files/passport"
+          }
         }
       ],
-      "collection": [],
-      "pickupAt": "2026-11-19"
+      "dossier": [],
+      "revisionFeedback": null,
+      "createdAt": "2026-10-23 07:30"
     },
     "customer": {
       "id": "USER_001",
-      "name": "Nguyen Van A",
-      "company": "Trang trại A",
+      "fullName": "Nguyen Van A",
+      "username": "customer_a",
       "email": "customer@example.com",
-      "phone": "+84901234567"
+      "phone": "+84901234567",
+      "role": "CUSTOMER"
     },
     "horses": [
       {
         "id": "HORSE_001",
         "name": "Thunderbolt",
         "breed": "Thoroughbred",
+        "sex": "STALLION",
+        "dob": "2020-03-14",
         "microchip": "985112004571029",
-        "passportNo": "VN-EQ-2020-1029"
+        "value": "120000000",
+        "currency": "VND",
+        "healthNotes": "Khỏe mạnh",
+        "reproductiveStatus": "INTACT",
+        "weight": 520,
+        "passport": {
+          "number": "VN-EQ-2020-1029",
+          "authority": "Cơ quan cấp",
+          "issueDate": "2023-04-10",
+          "expiryDate": "2028-04-09",
+          "scan": {
+            "name": "passport.pdf",
+            "url": "/api/customer/horses/HORSE_001/files/passport"
+          }
+        },
+        "photo": {
+          "name": "horse.png",
+          "url": "/api/customer/horses/HORSE_001/files/photo"
+        },
+        "ownership": {
+          "name": "ownership.pdf",
+          "url": "/api/customer/horses/HORSE_001/files/ownership"
+        },
+        "valueProof": {
+          "name": "valueProof.pdf",
+          "url": "/api/customer/horses/HORSE_001/files/value-proof"
+        }
       }
     ],
     "draft": null,
@@ -2566,137 +2705,8 @@ Query `mode` (ROAD/AIR, optional) chọn phương thức để resolve defaults;
           "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
         }
       ]
-    }
-  }
-}
-```
-
-**Response nhánh: 200 đã có draft**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "request": {
-      "id": "REQUEST_001",
-      "customerId": "USER_001",
-      "origin": "Ho Chi Minh City",
-      "destination": "Tokyo",
-      "date": "2026-11-20",
-      "status": "CONTRACT_PREPARATION",
-      "horses": [
-        "HORSE_001"
-      ],
-      "pickup": {
-        "name": "Trại ngựa A",
-        "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
-        "contact": "Nguyen Van A",
-        "phone": "+84901234567"
-      },
-      "delivery": {
-        "name": "Tokyo Racecourse",
-        "address": "Địa chỉ giao tại Tokyo",
-        "contact": "Yuki Tanaka",
-        "phone": "+81312345678"
-      },
-      "careNotes": "Chăm sóc theo hồ sơ ngựa",
-      "submittedAt": "2026-10-23 08:00",
-      "versions": [],
-      "dossier": [
-        {
-          "name": "Hộ chiếu ngựa",
-          "scope": "HORSE_001",
-          "status": "PENDING_REVIEW",
-          "file": "/api/manager/requests/REQUEST_001/horses/HORSE_001/documents/PASSPORT/file",
-          "note": "Chưa được Specialist duyệt"
-        }
-      ],
-      "collection": [],
-      "pickupAt": "2026-11-19"
     },
-    "customer": {
-      "id": "USER_001",
-      "name": "Nguyen Van A",
-      "company": "Trang trại A",
-      "email": "customer@example.com",
-      "phone": "+84901234567"
-    },
-    "horses": [
-      {
-        "id": "HORSE_001",
-        "name": "Thunderbolt",
-        "breed": "Thoroughbred",
-        "microchip": "985112004571029",
-        "passportNo": "VN-EQ-2020-1029"
-      }
-    ],
-    "draft": {
-      "mode": "AIR",
-      "departAt": "2026-11-20 08:00",
-      "arriveAt": "2026-11-21 18:00",
-      "budget": {
-        "TRANSPORT": 12000000,
-        "PROCEDURE": 2000000,
-        "VET": 1000000,
-        "INSURANCE": 1000000,
-        "STAFF": 1000000
-      },
-      "items": [
-        {
-          "desc": "Vận chuyển",
-          "amount": 16000000,
-          "required": true
-        },
-        {
-          "desc": "Thủ tục",
-          "amount": 2000000,
-          "required": true
-        },
-        {
-          "desc": "Chăm sóc thú y",
-          "amount": 1000000,
-          "required": true
-        },
-        {
-          "desc": "Bảo hiểm",
-          "amount": 1000000,
-          "required": true
-        }
-      ],
-      "depositPct": 40,
-      "note": "",
-      "exception": "",
-      "terms": [
-        {
-          "title": "Phạm vi dịch vụ",
-          "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
-        },
-        {
-          "title": "Thanh toán",
-          "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
-        }
-      ],
-      "savedAt": "2026-10-23 08:30"
-    },
-    "currentContract": null,
-    "versions": [],
-    "defaults": {
-      "currency": "VND",
-      "preparationDays": 7,
-      "defaultDepositPct": 40,
-      "contractDeadlineHours": 24,
-      "terms": [
-        {
-          "title": "Phạm vi dịch vụ",
-          "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
-        },
-        {
-          "title": "Thanh toán",
-          "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
-        }
-      ]
-    }
+    "internalCosts": []
   }
 }
 ```
@@ -2711,6 +2721,7 @@ Query `mode` (ROAD/AIR, optional) chọn phương thức để resolve defaults;
   "data": null
 }
 ```
+
 
 ### F1-J30 — PUT /manager/requests/{requestId}/contract-draft
 
@@ -2781,73 +2792,31 @@ Lưu draft. Role: **LOGISTICS_MANAGER**.
   "success": true,
   "message": "OK",
   "data": {
-    "requestId": "REQUEST_001",
     "contractId": "CONTRACT_001",
+    "requestId": "REQUEST_001",
     "versionNo": 1,
-    "draft": {
-      "mode": "AIR",
-      "departAt": "2026-11-20 08:00",
-      "arriveAt": "2026-11-21 18:00",
-      "budget": {
-        "TRANSPORT": 12000000,
-        "PROCEDURE": 2000000,
-        "VET": 1000000,
-        "INSURANCE": 1000000,
-        "STAFF": 1000000
-      },
-      "items": [
-        {
-          "desc": "Vận chuyển",
-          "amount": 16000000,
-          "required": true
-        },
-        {
-          "desc": "Thủ tục",
-          "amount": 2000000,
-          "required": true
-        },
-        {
-          "desc": "Chăm sóc thú y",
-          "amount": 1000000,
-          "required": true
-        },
-        {
-          "desc": "Bảo hiểm",
-          "amount": 1000000,
-          "required": true
-        }
-      ],
-      "depositPct": 40,
-      "note": "",
-      "exception": "",
-      "terms": [
-        {
-          "title": "Phạm vi dịch vụ",
-          "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
-        },
-        {
-          "title": "Thanh toán",
-          "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
-        }
-      ],
-      "savedAt": "2026-10-23 08:30"
-    }
+    "status": "DRAFT",
+    "savedAt": "2026-10-23 08:30"
   }
 }
 ```
 
-**Quy tắc:** contractId/versionNo response do backend cấp; không gửi rowVersion. Không ghi đè snapshot ISSUED/SIGNED.
-
-**Response lỗi 409 — PAYMENT_RECONCILIATION_REQUIRED**
+**Response lỗi 400 — VALIDATION_ERROR**
 
 ```json
 {
   "success": false,
-  "message": "Cần đối soát tiền trước khi thực hiện",
-  "errorCode": "PAYMENT_RECONCILIATION_REQUIRED",
-  "data": null
+  "message": "Dữ liệu không hợp lệ",
+  "errorCode": "VALIDATION_ERROR",
+  "data": null,
+  "errors": {
+    "items": [
+      "Cần ít nhất một khoản mục"
+    ]
+  }
 }
 ```
+
 
 ### F1-J31 — DELETE /manager/requests/{requestId}/contract-draft
 
@@ -2982,11 +2951,15 @@ Version cho Manager. Role: **LOGISTICS_MANAGER**.
   "message": "OK",
   "data": {
     "contractId": "CONTRACT_001",
-    "v": 1,
-    "number": "CONTRACT_001",
-    "issuedAt": "2026-10-23 09:00",
-    "validUntil": "2026-10-24 09:00",
-    "currency": "VND",
+    "requestId": "REQUEST_001",
+    "versionNo": 1,
+    "requestStatus": "CONTRACT_READY",
+    "contractStatus": "ISSUED",
+    "versionStatus": "ISSUED",
+    "currentDeadline": "2026-10-24 08:00",
+    "issuedAt": "2026-10-23 08:00",
+    "signedAt": null,
+    "termsAcceptedAt": "2026-10-23 08:15",
     "items": [
       {
         "desc": "Vận chuyển",
@@ -3012,10 +2985,6 @@ Version cho Manager. Role: **LOGISTICS_MANAGER**.
     "total": 20000000,
     "depositPct": 40,
     "depositAmount": 8000000,
-    "state": "ISSUED",
-    "note": "",
-    "termsAcceptedAt": null,
-    "signedAt": null,
     "terms": [
       {
         "title": "Phạm vi dịch vụ",
@@ -3029,109 +2998,37 @@ Version cho Manager. Role: **LOGISTICS_MANAGER**.
     "mode": "AIR",
     "departAt": "2026-11-20 08:00",
     "arriveAt": "2026-11-21 18:00",
-    "budget": {
-      "TRANSPORT": 12000000,
-      "PROCEDURE": 2000000,
-      "VET": 1000000,
-      "INSURANCE": 1000000,
-      "STAFF": 1000000
-    },
-    "exception": "",
     "snapshot": {
-      "origin": "Ho Chi Minh City",
-      "destination": "Tokyo",
-      "date": "2026-11-20",
-      "careNotes": "Chăm sóc theo hồ sơ đã chốt",
+      "route": {
+        "departureAtUtc": "2026-11-20T08:00:00Z",
+        "deliveryAtUtc": "2026-11-21T18:00:00Z",
+        "mode": "AIR"
+      },
       "pickup": {
-        "name": "Trại ngựa A",
-        "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
-        "postal": "700000",
-        "contact": "Nguyen Van A",
-        "phone": "+84901234567",
-        "notes": "Gọi trước khi đến"
+        "cityName": "Ho Chi Minh City"
       },
       "delivery": {
-        "name": "Tokyo Racecourse",
-        "address": "Địa chỉ giao tại Tokyo",
-        "postal": "1830024",
-        "contact": "Yuki Tanaka",
-        "phone": "+81312345678",
-        "notes": ""
+        "cityName": "Tokyo"
+      },
+      "parties": {
+        "customer": {
+          "id": "USER_001"
+        }
       },
       "horses": [
         {
           "id": "HORSE_001",
           "name": "Thunderbolt",
-          "breed": "Thoroughbred",
-          "microchip": "985112004571029",
-          "passportNo": "VN-EQ-2020-1029"
+          "microchip_ISO": "985112004571029",
+          "feI_Passport_No": "VN-EQ-2020-1029"
         }
-      ],
-      "customer": {
-        "id": "USER_001",
-        "name": "Nguyen Van A",
-        "company": "Trang trại A",
-        "email": "customer@example.com",
-        "phone": "+84901234567"
-      },
-      "supplier": {
-        "legalName": "Đơn vị vận chuyển ngựa (dữ liệu minh họa)",
-        "address": "Địa chỉ pháp lý đơn vị vận chuyển",
-        "taxCode": "DEMO-TAX",
-        "representative": "Đại diện bên cung cấp",
-        "email": "transport@example.com",
-        "phone": "+84900000000"
-      },
-      "contractId": "CONTRACT_001",
-      "v": 1,
-      "number": "CONTRACT_001",
-      "issuedAt": "2026-10-23 09:00",
-      "mode": "AIR",
-      "departAt": "2026-11-20 08:00",
-      "arriveAt": "2026-11-21 18:00",
-      "total": 20000000,
-      "depositPct": 40,
-      "validUntil": "2026-10-24 09:00",
-      "terms": [
-        {
-          "title": "Phạm vi dịch vụ",
-          "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
-        },
-        {
-          "title": "Thanh toán",
-          "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
-        }
-      ],
-      "items": [
-        {
-          "desc": "Vận chuyển",
-          "amount": 16000000,
-          "required": true
-        },
-        {
-          "desc": "Thủ tục",
-          "amount": 2000000,
-          "required": true
-        },
-        {
-          "desc": "Chăm sóc thú y",
-          "amount": 1000000,
-          "required": true
-        },
-        {
-          "desc": "Bảo hiểm",
-          "amount": 1000000,
-          "required": true
-        }
-      ],
-      "currency": "VND",
-      "pickupAt": "2026-11-19"
-    }
+      ]
+    },
+    "pdfUrl": "/api/customer/contracts/CONTRACT_001/versions/1/pdf",
+    "note": ""
   }
 }
 ```
-
-**Quy tắc:** Bao gồm budget/exception/terms, không có contractVersion dạng base64.
 
 **Response lỗi 404 — NOT_FOUND**
 
@@ -3144,7 +3041,6 @@ Version cho Manager. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-<!-- FLOW1_JSON_8_END -->
 
 ## 9. Customer xem, đồng ý hoặc phản hồi hợp đồng
 
@@ -3244,11 +3140,15 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
     "requestId": "REQUEST_001",
     "currentVersion": {
       "contractId": "CONTRACT_001",
-      "v": 1,
-      "number": "CONTRACT_001",
-      "issuedAt": "2026-10-23 09:00",
-      "validUntil": "2026-10-24 09:00",
-      "currency": "VND",
+      "requestId": "REQUEST_001",
+      "versionNo": 1,
+      "requestStatus": "CONTRACT_READY",
+      "contractStatus": "ISSUED",
+      "versionStatus": "ISSUED",
+      "currentDeadline": "2026-10-24 08:00",
+      "issuedAt": "2026-10-23 08:00",
+      "signedAt": null,
+      "termsAcceptedAt": "2026-10-23 08:15",
       "items": [
         {
           "desc": "Vận chuyển",
@@ -3274,10 +3174,6 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
       "total": 20000000,
       "depositPct": 40,
       "depositAmount": 8000000,
-      "state": "ISSUED",
-      "note": "",
-      "termsAcceptedAt": null,
-      "signedAt": null,
       "terms": [
         {
           "title": "Phạm vi dịch vụ",
@@ -3292,109 +3188,34 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
       "departAt": "2026-11-20 08:00",
       "arriveAt": "2026-11-21 18:00",
       "snapshot": {
-        "origin": "Ho Chi Minh City",
-        "destination": "Tokyo",
-        "date": "2026-11-20",
-        "careNotes": "Chăm sóc theo hồ sơ đã chốt",
+        "route": {
+          "departureAtUtc": "2026-11-20T08:00:00Z",
+          "deliveryAtUtc": "2026-11-21T18:00:00Z",
+          "mode": "AIR"
+        },
         "pickup": {
-          "name": "Trại ngựa A",
-          "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
-          "postal": "700000",
-          "contact": "Nguyen Van A",
-          "phone": "+84901234567",
-          "notes": "Gọi trước khi đến"
+          "cityName": "Ho Chi Minh City"
         },
         "delivery": {
-          "name": "Tokyo Racecourse",
-          "address": "Địa chỉ giao tại Tokyo",
-          "postal": "1830024",
-          "contact": "Yuki Tanaka",
-          "phone": "+81312345678",
-          "notes": ""
+          "cityName": "Tokyo"
+        },
+        "parties": {
+          "customer": {
+            "id": "USER_001"
+          }
         },
         "horses": [
           {
             "id": "HORSE_001",
             "name": "Thunderbolt",
-            "breed": "Thoroughbred",
-            "microchip": "985112004571029",
-            "passportNo": "VN-EQ-2020-1029"
+            "microchip_ISO": "985112004571029",
+            "feI_Passport_No": "VN-EQ-2020-1029"
           }
-        ],
-        "customer": {
-          "id": "USER_001",
-          "name": "Nguyen Van A",
-          "company": "Trang trại A",
-          "email": "customer@example.com",
-          "phone": "+84901234567"
-        },
-        "supplier": {
-          "legalName": "Đơn vị vận chuyển ngựa (dữ liệu minh họa)",
-          "address": "Địa chỉ pháp lý đơn vị vận chuyển",
-          "taxCode": "DEMO-TAX",
-          "representative": "Đại diện bên cung cấp",
-          "email": "transport@example.com",
-          "phone": "+84900000000"
-        },
-        "contractId": "CONTRACT_001",
-        "v": 1,
-        "number": "CONTRACT_001",
-        "issuedAt": "2026-10-23 09:00",
-        "mode": "AIR",
-        "departAt": "2026-11-20 08:00",
-        "arriveAt": "2026-11-21 18:00",
-        "total": 20000000,
-        "depositPct": 40,
-        "validUntil": "2026-10-24 09:00",
-        "terms": [
-          {
-            "title": "Phạm vi dịch vụ",
-            "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
-          },
-          {
-            "title": "Thanh toán",
-            "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
-          }
-        ],
-        "items": [
-          {
-            "desc": "Vận chuyển",
-            "amount": 16000000,
-            "required": true
-          },
-          {
-            "desc": "Thủ tục",
-            "amount": 2000000,
-            "required": true
-          },
-          {
-            "desc": "Chăm sóc thú y",
-            "amount": 1000000,
-            "required": true
-          },
-          {
-            "desc": "Bảo hiểm",
-            "amount": 1000000,
-            "required": true
-          }
-        ],
-        "currency": "VND",
-        "pickupAt": "2026-11-19"
-      }
+        ]
+      },
+      "pdfUrl": "/api/customer/contracts/CONTRACT_001/versions/1/pdf",
+      "note": ""
     }
-  }
-}
-```
-
-**Response nhánh: 200 chưa có bản được phát hành**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "requestId": "REQUEST_001",
-    "currentVersion": null
   }
 }
 ```
@@ -3409,6 +3230,7 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
   "data": null
 }
 ```
+
 
 ### F1-J35 — GET /customer/contracts/{contractId}/versions/{versionNo}
 
@@ -3431,11 +3253,15 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
   "message": "OK",
   "data": {
     "contractId": "CONTRACT_001",
-    "v": 1,
-    "number": "CONTRACT_001",
-    "issuedAt": "2026-10-23 09:00",
-    "validUntil": "2026-10-24 09:00",
-    "currency": "VND",
+    "requestId": "REQUEST_001",
+    "versionNo": 1,
+    "requestStatus": "CONTRACT_READY",
+    "contractStatus": "ISSUED",
+    "versionStatus": "ISSUED",
+    "currentDeadline": "2026-10-24 08:00",
+    "issuedAt": "2026-10-23 08:00",
+    "signedAt": null,
+    "termsAcceptedAt": "2026-10-23 08:15",
     "items": [
       {
         "desc": "Vận chuyển",
@@ -3461,10 +3287,6 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
     "total": 20000000,
     "depositPct": 40,
     "depositAmount": 8000000,
-    "state": "ISSUED",
-    "note": "",
-    "termsAcceptedAt": null,
-    "signedAt": null,
     "terms": [
       {
         "title": "Phạm vi dịch vụ",
@@ -3479,244 +3301,33 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
     "departAt": "2026-11-20 08:00",
     "arriveAt": "2026-11-21 18:00",
     "snapshot": {
-      "origin": "Ho Chi Minh City",
-      "destination": "Tokyo",
-      "date": "2026-11-20",
-      "careNotes": "Chăm sóc theo hồ sơ đã chốt",
+      "route": {
+        "departureAtUtc": "2026-11-20T08:00:00Z",
+        "deliveryAtUtc": "2026-11-21T18:00:00Z",
+        "mode": "AIR"
+      },
       "pickup": {
-        "name": "Trại ngựa A",
-        "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
-        "postal": "700000",
-        "contact": "Nguyen Van A",
-        "phone": "+84901234567",
-        "notes": "Gọi trước khi đến"
+        "cityName": "Ho Chi Minh City"
       },
       "delivery": {
-        "name": "Tokyo Racecourse",
-        "address": "Địa chỉ giao tại Tokyo",
-        "postal": "1830024",
-        "contact": "Yuki Tanaka",
-        "phone": "+81312345678",
-        "notes": ""
+        "cityName": "Tokyo"
+      },
+      "parties": {
+        "customer": {
+          "id": "USER_001"
+        }
       },
       "horses": [
         {
           "id": "HORSE_001",
           "name": "Thunderbolt",
-          "breed": "Thoroughbred",
-          "microchip": "985112004571029",
-          "passportNo": "VN-EQ-2020-1029"
+          "microchip_ISO": "985112004571029",
+          "feI_Passport_No": "VN-EQ-2020-1029"
         }
-      ],
-      "customer": {
-        "id": "USER_001",
-        "name": "Nguyen Van A",
-        "company": "Trang trại A",
-        "email": "customer@example.com",
-        "phone": "+84901234567"
-      },
-      "supplier": {
-        "legalName": "Đơn vị vận chuyển ngựa (dữ liệu minh họa)",
-        "address": "Địa chỉ pháp lý đơn vị vận chuyển",
-        "taxCode": "DEMO-TAX",
-        "representative": "Đại diện bên cung cấp",
-        "email": "transport@example.com",
-        "phone": "+84900000000"
-      },
-      "contractId": "CONTRACT_001",
-      "v": 1,
-      "number": "CONTRACT_001",
-      "issuedAt": "2026-10-23 09:00",
-      "mode": "AIR",
-      "departAt": "2026-11-20 08:00",
-      "arriveAt": "2026-11-21 18:00",
-      "total": 20000000,
-      "depositPct": 40,
-      "validUntil": "2026-10-24 09:00",
-      "terms": [
-        {
-          "title": "Phạm vi dịch vụ",
-          "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
-        },
-        {
-          "title": "Thanh toán",
-          "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
-        }
-      ],
-      "items": [
-        {
-          "desc": "Vận chuyển",
-          "amount": 16000000,
-          "required": true
-        },
-        {
-          "desc": "Thủ tục",
-          "amount": 2000000,
-          "required": true
-        },
-        {
-          "desc": "Chăm sóc thú y",
-          "amount": 1000000,
-          "required": true
-        },
-        {
-          "desc": "Bảo hiểm",
-          "amount": 1000000,
-          "required": true
-        }
-      ],
-      "currency": "VND",
-      "pickupAt": "2026-11-19"
-    }
-  }
-}
-```
-
-**Response nhánh: 200 version cũ chỉ đọc**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "contractId": "CONTRACT_001",
-    "v": 1,
-    "number": "CONTRACT_001",
-    "issuedAt": "2026-10-23 09:00",
-    "validUntil": "2026-10-24 09:00",
-    "currency": "VND",
-    "items": [
-      {
-        "desc": "Vận chuyển",
-        "amount": 16000000,
-        "required": true
-      },
-      {
-        "desc": "Thủ tục",
-        "amount": 2000000,
-        "required": true
-      },
-      {
-        "desc": "Chăm sóc thú y",
-        "amount": 1000000,
-        "required": true
-      },
-      {
-        "desc": "Bảo hiểm",
-        "amount": 1000000,
-        "required": true
-      }
-    ],
-    "total": 20000000,
-    "depositPct": 40,
-    "depositAmount": 8000000,
-    "state": "SUPERSEDED",
-    "note": "",
-    "termsAcceptedAt": null,
-    "signedAt": null,
-    "terms": [
-      {
-        "title": "Phạm vi dịch vụ",
-        "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
-      },
-      {
-        "title": "Thanh toán",
-        "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
-      }
-    ],
-    "mode": "AIR",
-    "departAt": "2026-11-20 08:00",
-    "arriveAt": "2026-11-21 18:00",
-    "snapshot": {
-      "origin": "Ho Chi Minh City",
-      "destination": "Tokyo",
-      "date": "2026-11-20",
-      "careNotes": "Chăm sóc theo hồ sơ đã chốt",
-      "pickup": {
-        "name": "Trại ngựa A",
-        "address": "Địa chỉ nhận tại TP. Hồ Chí Minh",
-        "postal": "700000",
-        "contact": "Nguyen Van A",
-        "phone": "+84901234567",
-        "notes": "Gọi trước khi đến"
-      },
-      "delivery": {
-        "name": "Tokyo Racecourse",
-        "address": "Địa chỉ giao tại Tokyo",
-        "postal": "1830024",
-        "contact": "Yuki Tanaka",
-        "phone": "+81312345678",
-        "notes": ""
-      },
-      "horses": [
-        {
-          "id": "HORSE_001",
-          "name": "Thunderbolt",
-          "breed": "Thoroughbred",
-          "microchip": "985112004571029",
-          "passportNo": "VN-EQ-2020-1029"
-        }
-      ],
-      "customer": {
-        "id": "USER_001",
-        "name": "Nguyen Van A",
-        "company": "Trang trại A",
-        "email": "customer@example.com",
-        "phone": "+84901234567"
-      },
-      "supplier": {
-        "legalName": "Đơn vị vận chuyển ngựa (dữ liệu minh họa)",
-        "address": "Địa chỉ pháp lý đơn vị vận chuyển",
-        "taxCode": "DEMO-TAX",
-        "representative": "Đại diện bên cung cấp",
-        "email": "transport@example.com",
-        "phone": "+84900000000"
-      },
-      "contractId": "CONTRACT_001",
-      "v": 1,
-      "number": "CONTRACT_001",
-      "issuedAt": "2026-10-23 09:00",
-      "mode": "AIR",
-      "departAt": "2026-11-20 08:00",
-      "arriveAt": "2026-11-21 18:00",
-      "total": 20000000,
-      "depositPct": 40,
-      "validUntil": "2026-10-24 09:00",
-      "terms": [
-        {
-          "title": "Phạm vi dịch vụ",
-          "text": "Vận chuyển và chăm sóc theo nội dung hai bên đã thống nhất."
-        },
-        {
-          "title": "Thanh toán",
-          "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
-        }
-      ],
-      "items": [
-        {
-          "desc": "Vận chuyển",
-          "amount": 16000000,
-          "required": true
-        },
-        {
-          "desc": "Thủ tục",
-          "amount": 2000000,
-          "required": true
-        },
-        {
-          "desc": "Chăm sóc thú y",
-          "amount": 1000000,
-          "required": true
-        },
-        {
-          "desc": "Bảo hiểm",
-          "amount": 1000000,
-          "required": true
-        }
-      ],
-      "currency": "VND",
-      "pickupAt": "2026-11-19"
-    }
+      ]
+    },
+    "pdfUrl": "/api/customer/contracts/CONTRACT_001/versions/1/pdf",
+    "note": ""
   }
 }
 ```
@@ -3731,6 +3342,7 @@ Hợp đồng hiện hành. Role: **CUSTOMER**.
   "data": null
 }
 ```
+
 
 ### F1-J36 — GET /customer/contracts/{contractId}/versions/{versionNo}/pdf
 
@@ -3949,7 +3561,7 @@ Gia hạn. Role: **LOGISTICS_MANAGER**.
 ```json
 {
   "versionNo": 1,
-  "reason": "Khách cần thêm thời gian hoàn tất."
+  "reason": "Khách hàng yêu cầu thêm thời gian hoàn thiện hồ sơ hải quan"
 }
 ```
 
@@ -3960,18 +3572,15 @@ Gia hạn. Role: **LOGISTICS_MANAGER**.
   "success": true,
   "message": "OK",
   "data": {
-    "requestId": "REQUEST_001",
     "contractId": "CONTRACT_001",
     "versionNo": 1,
-    "previousValidUntil": "2026-10-24 09:00",
-    "validUntil": "2026-10-25 09:00",
-    "reason": "Khách cần thêm thời gian hoàn tất.",
-    "by": "USER_004",
-    "at": "2026-10-24 08:30"
+    "newDeadline": "2026-10-25 08:00",
+    "reason": "Khách hàng yêu cầu thêm thời gian hoàn thiện hồ sơ hải quan",
+    "by": "USER_002",
+    "at": "2026-10-23 10:00"
   }
 }
 ```
-
 
 **Response lỗi 409 — INVALID_STATE**
 
@@ -3983,6 +3592,7 @@ Gia hạn. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
+
 
 ### F1-J41 — POST /manager/contracts/{contractId}/reminder
 
@@ -4005,26 +3615,23 @@ Nhắc hoàn tất. Role: **LOGISTICS_MANAGER**.
   "data": {
     "contractId": "CONTRACT_001",
     "versionNo": 1,
-    "notificationId": "NOTIFICATION_003",
+    "notificationId": "NOTIFICATION_001",
     "queued": true
   }
 }
 ```
-
-**Quy tắc:** queued không có nghĩa email đã giao; đích nhận từ backend, không nhận email tùy ý.
 
 **Response lỗi 429 — RATE_LIMITED**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác vượt giới hạn, vui lòng thử lại",
+  "message": "Vui lòng chờ trước khi gửi nhắc nhở tiếp theo",
   "errorCode": "RATE_LIMITED",
   "data": null
 }
 ```
 
-<!-- FLOW1_JSON_9_END -->
 
 ## 10. Cọc và xác minh
 
@@ -4128,94 +3735,12 @@ Nghĩa vụ tiền cọc. Role: **CUSTOMER**.
     "requiredAmount": 8000000,
     "paidAmount": 0,
     "remainingAmount": 8000000,
-    "validUntil": "2026-10-24 09:00",
     "canPay": true,
+    "validUntil": "2026-10-24 08:00",
     "transactions": []
   }
 }
 ```
-
-**Response nhánh: 200 đang chờ provider**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "requestId": "REQUEST_001",
-    "contractId": "CONTRACT_001",
-    "versionNo": 1,
-    "invoiceId": "INVOICE_001",
-    "currency": "VND",
-    "requiredAmount": 8000000,
-    "paidAmount": 0,
-    "remainingAmount": 8000000,
-    "validUntil": "2026-10-24 09:00",
-    "canPay": false,
-    "transactions": [
-      {
-        "id": "PAYMENT_001",
-        "type": "DEPOSIT",
-        "method": "VNPAY",
-        "amount": 8000000,
-        "status": "PROCESSING",
-        "createdAt": "2026-10-23 09:15",
-        "invoiceId": "INVOICE_001",
-        "contractId": "CONTRACT_001",
-        "versionNo": 1,
-        "currency": "VND",
-        "providerStatus": "PENDING_GATEWAY"
-      }
-    ]
-  }
-}
-```
-
-**Response nhánh: 200 đã nhận một phần**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "requestId": "REQUEST_001",
-    "contractId": "CONTRACT_001",
-    "versionNo": 1,
-    "invoiceId": "INVOICE_001",
-    "currency": "VND",
-    "requiredAmount": 8000000,
-    "paidAmount": 4000000,
-    "remainingAmount": 4000000,
-    "validUntil": "2026-10-24 09:00",
-    "canPay": true,
-    "transactions": []
-  }
-}
-```
-
-**Response nhánh: 200 quá hạn, chưa đủ cọc**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "requestId": "REQUEST_001",
-    "contractId": "CONTRACT_001",
-    "versionNo": 1,
-    "invoiceId": "INVOICE_001",
-    "currency": "VND",
-    "requiredAmount": 8000000,
-    "paidAmount": 0,
-    "remainingAmount": 8000000,
-    "validUntil": "2026-10-24 09:00",
-    "canPay": false,
-    "transactions": []
-  }
-}
-```
-
-**Quy tắc:** canPay=false khi chưa đồng ý/còn payment chờ/quá hạn/hủy hoặc không còn phải thu; tính ở backend.
 
 **Response lỗi 404 — NOT_FOUND**
 
@@ -4227,6 +3752,7 @@ Nghĩa vụ tiền cọc. Role: **CUSTOMER**.
   "data": null
 }
 ```
+
 
 ### F1-J43 — POST /customer/invoices/{invoiceId}/payment-session
 
@@ -4300,67 +3826,21 @@ Trạng thái cho Customer. Role: **CUSTOMER**.
   "message": "OK",
   "data": {
     "id": "PAYMENT_001",
-    "type": "DEPOSIT",
-    "method": "VNPAY",
-    "amount": 8000000,
-    "status": "PROCESSING",
-    "createdAt": "2026-10-23 09:15",
+    "paymentId": "PAYMENT_001",
     "invoiceId": "INVOICE_001",
     "contractId": "CONTRACT_001",
     "versionNo": 1,
-    "currency": "VND",
-    "providerStatus": "PENDING_GATEWAY"
-  }
-}
-```
-
-**Response nhánh: 200 provider đã xác minh**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "PAYMENT_001",
-    "type": "DEPOSIT",
-    "method": "VNPAY",
     "amount": 8000000,
+    "currency": "VND",
+    "method": "VNPAY",
     "status": "SUCCESS",
-    "createdAt": "2026-10-23 09:15",
-    "invoiceId": "INVOICE_001",
-    "contractId": "CONTRACT_001",
-    "versionNo": 1,
-    "currency": "VND",
-    "providerStatus": "SUCCESS",
-    "confirmedAt": "2026-10-23 09:20"
+    "databaseStatus": "SUCCESS",
+    "receivedAmount": 8000000,
+    "paidAt": "2026-10-23 09:15",
+    "reviewRequired": false
   }
 }
 ```
-
-**Response nhánh: 200 cần đối soát**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "PAYMENT_001",
-    "type": "DEPOSIT",
-    "method": "VNPAY",
-    "amount": 8000000,
-    "status": "PROCESSING",
-    "createdAt": "2026-10-23 09:15",
-    "invoiceId": "INVOICE_001",
-    "contractId": "CONTRACT_001",
-    "versionNo": 1,
-    "currency": "VND",
-    "providerStatus": "REVIEW_REQUIRED",
-    "reason": "Cần đối chiếu kết quả provider"
-  }
-}
-```
-
-**Quy tắc:** status UI PROCESSING, providerStatus trạng thái canonical; không ghi PROCESSING vào nhánh SQL chỉ cho PENDING_GATEWAY/SUCCESS/FAILED/REVIEW_REQUIRED.
 
 **Response lỗi 404 — NOT_FOUND**
 
@@ -4372,6 +3852,7 @@ Trạng thái cho Customer. Role: **CUSTOMER**.
   "data": null
 }
 ```
+
 
 ### F1-J45 — GET /manager/payments
 
@@ -4387,29 +3868,19 @@ Danh sách giao dịch Manager. Role: **LOGISTICS_MANAGER**.
   "message": "OK",
   "data": [
     {
-      "id": "PAYMENT_002",
-      "requestId": "REQUEST_001",
-      "type": "DEPOSIT",
-      "method": "VNPAY",
-      "amount": 8000000,
-      "status": "PROCESSING",
-      "createdAt": "2026-10-23 09:15",
+      "id": "PAYMENT_001",
+      "paymentId": "PAYMENT_001",
       "invoiceId": "INVOICE_001",
       "contractId": "CONTRACT_001",
       "versionNo": 1,
+      "amount": 8000000,
       "currency": "VND",
-      "providerStatus": "PENDING_GATEWAY"
-    },
-    {
-      "id": "CONTRACT_002",
-      "contractId": "CONTRACT_002",
-      "requestId": "REQUEST_002",
-      "versionNo": 1,
-      "type": "REFUND",
-      "status": "PENDING_CONFIRMATION",
-      "currency": "VND",
-      "rowKind": "CONTRACT_REFUND",
-      "refundStatus": "REQUESTED"
+      "method": "VNPAY",
+      "status": "SUCCESS",
+      "databaseStatus": "SUCCESS",
+      "receivedAmount": 8000000,
+      "paidAt": "2026-10-23 09:15",
+      "reviewRequired": false
     }
   ]
 }
@@ -4426,10 +3897,6 @@ Danh sách giao dịch Manager. Role: **LOGISTICS_MANAGER**.
 }
 ```
 
-
-
-
-**Projection hoàn tiền:** rowKind=CONTRACT_REFUND lấy từ CONTRACT.Refund*, id bằng ContractID; đây là khóa dòng UI, không PaymentID và không phải một Payment REFUND tự sinh. Nút ghi nhận status gọi F1-J55 qua contractId, không chuyển tiền. refundStatus đọc trực tiếp CONTRACT.RefundStatus; status=PENDING_CONFIRMATION chỉ là nhãn tương thích danh sách UI khi REQUESTED/PROCESSING, COMPLETED hiển thị SUCCESS. Amount/time/reference không bắt buộc và không được bịa nếu chưa lưu. GET payment detail/receipt không nhận dòng projection này. Nếu backend không cung cấp projection thì không dựng hàng đợi từ dữ liệu giả.
 
 ### F1-J46 — GET /manager/payments/{paymentId}
 
@@ -4450,18 +3917,19 @@ Chi tiết giao dịch. Role: **LOGISTICS_MANAGER**.
   "success": true,
   "message": "OK",
   "data": {
-    "id": "PAYMENT_002",
-    "requestId": "REQUEST_001",
-    "type": "DEPOSIT",
-    "method": "VNPAY",
-    "amount": 8000000,
-    "status": "PROCESSING",
-    "createdAt": "2026-10-23 09:15",
+    "id": "PAYMENT_001",
+    "paymentId": "PAYMENT_001",
     "invoiceId": "INVOICE_001",
     "contractId": "CONTRACT_001",
     "versionNo": 1,
+    "amount": 8000000,
     "currency": "VND",
-    "providerStatus": "PENDING_GATEWAY"
+    "method": "VNPAY",
+    "status": "SUCCESS",
+    "databaseStatus": "SUCCESS",
+    "receivedAmount": 8000000,
+    "paidAt": "2026-10-23 09:15",
+    "reviewRequired": false
   }
 }
 ```
@@ -4476,6 +3944,7 @@ Chi tiết giao dịch. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
+
 
 ### F1-J49 — GET /customer/payments/{paymentId}/receipt
 
@@ -4662,32 +4131,26 @@ Ký và tạo một Trip. Role: **CUSTOMER**.
     "requestId": "REQUEST_001",
     "contractId": "CONTRACT_001",
     "versionNo": 1,
-    "requestStatus": "AWAITING_DEPOSIT",
+    "requestStatus": "ACTIVATED",
     "versionStatus": "SIGNED",
-    "tripId": null,
-    "tripStatus": null,
-    "signedAt": "2026-10-23 09:25"
+    "tripId": "TRIP_001",
+    "tripStatus": "PLANNING",
+    "signedAt": "2026-10-23 09:30"
   }
 }
 ```
-
-**Quy tắc:** VersionNo là integer, không RowVersion/base64; không gửi pdfSha256. Atomic signature/Request/Trip; không cộng tiền ở bước ký.
 
 **Response lỗi 400 — OTP_INVALID_OR_EXPIRED**
 
 ```json
 {
   "success": false,
-  "message": "OTP không đúng hoặc đã hết hạn",
+  "message": "Mã OTP không hợp lệ hoặc đã hết hạn",
   "errorCode": "OTP_INVALID_OR_EXPIRED",
   "data": null
 }
 ```
 
-<!-- FLOW1_JSON_11_END -->
-
-
-**Thứ tự mới:** đồng ý điều khoản → ký OTP → `SIGNED` / `AWAITING_DEPOSIT`. Không yêu cầu đã trả cọc và không tạo Trip trong API ký. IPN xác minh đủ tiền của version đã ký mới kích hoạt và tạo đúng một Trip.
 
 ## 12. Hủy và hoàn tiền Flow 1
 
@@ -4975,21 +4438,21 @@ Danh sách Trip. Role: **LOGISTICS_MANAGER**.
   "data": [
     {
       "id": "TRIP_001",
+      "tripId": "TRIP_001",
       "requestId": "REQUEST_001",
-      "mode": "AIR",
       "status": "PLANNING",
-      "deployment": {
-        "status": "NOT_CONFIRMED"
-      },
+      "tripStatus": "PLANNING",
+      "mode": "AIR",
       "plannedDepart": "2026-11-20 08:00",
       "eta": "2026-11-21 18:00",
-      "readiness": {
-        "docsReady": 0,
-        "docsTotal": 0,
-        "insurance": "MISSING",
-        "quarantineOk": false
-      },
-      "milestones": []
+      "specialistId": "USER_005",
+      "coordinatorId": "USER_006",
+      "deployment": {
+        "status": "CONFIRMED",
+        "eventId": "HANDOFF_EVENT_001",
+        "reason": "Assigned by Logistics Manager",
+        "at": "2026-10-23 09:30"
+      }
     }
   ]
 }
@@ -5005,6 +4468,7 @@ Danh sách Trip. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
+
 
 ### F1-J57 — GET /manager/trips/{tripId}
 
@@ -5026,21 +4490,21 @@ Chi tiết Trip. Role: **LOGISTICS_MANAGER**.
   "message": "OK",
   "data": {
     "id": "TRIP_001",
+    "tripId": "TRIP_001",
     "requestId": "REQUEST_001",
-    "mode": "AIR",
     "status": "PLANNING",
-    "deployment": {
-      "status": "NOT_CONFIRMED"
-    },
+    "tripStatus": "PLANNING",
+    "mode": "AIR",
     "plannedDepart": "2026-11-20 08:00",
     "eta": "2026-11-21 18:00",
-    "readiness": {
-      "docsReady": 0,
-      "docsTotal": 0,
-      "insurance": "MISSING",
-      "quarantineOk": false
-    },
-    "milestones": []
+    "specialistId": "USER_005",
+    "coordinatorId": "USER_006",
+    "deployment": {
+      "status": "CONFIRMED",
+      "eventId": "HANDOFF_EVENT_001",
+      "reason": "Assigned by Logistics Manager",
+      "at": "2026-10-23 09:30"
+    }
   }
 }
 ```
@@ -5055,6 +4519,7 @@ Chi tiết Trip. Role: **LOGISTICS_MANAGER**.
   "data": null
 }
 ```
+
 
 ### F1-J58 — POST /manager/trips/{tripId}/assignment
 
@@ -5083,40 +4548,36 @@ Giao việc. Role: **LOGISTICS_MANAGER**.
   "message": "OK",
   "data": {
     "id": "TRIP_001",
+    "tripId": "TRIP_001",
     "requestId": "REQUEST_001",
-    "mode": "AIR",
     "status": "PLANNING",
-    "deployment": {
-      "status": "CONFIRMED",
-      "specialistId": "USER_005",
-      "coordinatorId": "USER_006",
-      "at": "2026-10-23 09:40"
-    },
+    "tripStatus": "PLANNING",
+    "mode": "AIR",
     "plannedDepart": "2026-11-20 08:00",
     "eta": "2026-11-21 18:00",
-    "readiness": {
-      "docsReady": 0,
-      "docsTotal": 0,
-      "insurance": "MISSING",
-      "quarantineOk": false
-    },
-    "milestones": []
+    "specialistId": "USER_005",
+    "coordinatorId": "USER_006",
+    "deployment": {
+      "status": "CONFIRMED",
+      "eventId": "HANDOFF_EVENT_001",
+      "reason": "Assigned by Logistics Manager",
+      "at": "2026-10-23 09:30"
+    }
   }
 }
 ```
 
-**Quy tắc:** DTO/UI role mapping rõ; FK USER_*. Sau commit mới task/handoff, không tự READY_TO_DEPART.
-
-**Response lỗi 409 — TRIP_ALREADY_ASSIGNED**
+**Response lỗi 409 — INVALID_STATE**
 
 ```json
 {
   "success": false,
-  "message": "Trip đã được phân công",
-  "errorCode": "TRIP_ALREADY_ASSIGNED",
+  "message": "Trạng thái hiện tại không cho phép thao tác",
+  "errorCode": "INVALID_STATE",
   "data": null
 }
 ```
+
 
 ### F1-J59 — POST /manager/trips/{tripId}/hold
 
@@ -5128,13 +4589,11 @@ Tạm dừng. Role: **LOGISTICS_MANAGER**.
 |---|---|
 | tripId | TRIP_001 |
 
-**Điều kiện thực hiện:** ON_HOLD thuộc TRIP_PLAN.DeploymentStatus, không thuộc TRIP_PLAN.Status. Chỉ Manager hold chuyến đã CONFIRMED và Trip.Status = PLANNING hoặc READY_TO_DEPART; giữ HandoffEventId và hai nhân sự được giao. Hold lưu DeploymentReason/By/AtUtc mới nhất và metadata nghiệp vụ, chuyển Trip về PLANNING nếu trước đó READY_TO_DEPART để thu hồi Gate 2. Resume chỉ ON_HOLD → CONFIRMED, kiểm tra lại phân công; giữ Trip PLANNING, phải đánh giá/duyệt khởi hành lại, không tự READY_TO_DEPART. ON_HOLD chặn khởi hành và mở tác vụ triển khai mới; không xóa lịch sử hoặc dữ liệu đã chuẩn bị. Không dùng hold/resume này cho Trip IN_TRANSIT/COMPLETED. Request không tự đổi trạng thái chỉ vì hold; nếu Gate 1 thực sự mất hiệu lực mới SCHEDULED → ACTIVATED. Retry không tạo handoff mới hoặc ghi metadata trùng. SQL CHECK chỉ kiểm tra tổ hợp một dòng; các guard chuyển trạng thái/quyền/metadata do backend thực hiện.
-
 **Request JSON**
 
 ```json
 {
-  "reason": "Chờ xác nhận lịch triển khai."
+  "reason": "Thời tiết xấu tại sân bay Tân Sơn Nhất, tạm hoãn kế hoạch bay"
 }
 ```
 
@@ -5146,24 +4605,36 @@ Tạm dừng. Role: **LOGISTICS_MANAGER**.
   "message": "OK",
   "data": {
     "id": "TRIP_001",
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
     "status": "PLANNING",
+    "tripStatus": "PLANNING",
+    "mode": "AIR",
+    "plannedDepart": "2026-11-20 08:00",
+    "eta": "2026-11-21 18:00",
+    "specialistId": "USER_005",
+    "coordinatorId": "USER_006",
     "deployment": {
-      "status": "ON_HOLD"
+      "status": "ON_HOLD",
+      "eventId": "HANDOFF_EVENT_001",
+      "reason": "Thời tiết xấu tại sân bay Tân Sơn Nhất, tạm hoãn kế hoạch bay",
+      "at": "2026-10-23 10:00"
     }
   }
 }
 ```
 
-**Response lỗi 501 — FEATURE_NOT_SUPPORTED**
+**Response lỗi 409 — INVALID_STATE**
 
 ```json
 {
   "success": false,
-  "message": "Chức năng tạm dừng/tiếp tục chưa được hỗ trợ",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "message": "Trạng thái hiện tại không cho phép thao tác",
+  "errorCode": "INVALID_STATE",
   "data": null
 }
 ```
+
 
 ### F1-J60 — POST /manager/trips/{tripId}/resume
 
@@ -5175,11 +4646,7 @@ Tiếp tục. Role: **LOGISTICS_MANAGER**.
 |---|---|
 | tripId | TRIP_001 |
 
-**Điều kiện thực hiện:** ON_HOLD thuộc TRIP_PLAN.DeploymentStatus, không thuộc TRIP_PLAN.Status. Chỉ Manager hold chuyến đã CONFIRMED và Trip.Status = PLANNING hoặc READY_TO_DEPART; giữ HandoffEventId và hai nhân sự được giao. Hold lưu DeploymentReason/By/AtUtc mới nhất và metadata nghiệp vụ, chuyển Trip về PLANNING nếu trước đó READY_TO_DEPART để thu hồi Gate 2. Resume chỉ ON_HOLD → CONFIRMED, kiểm tra lại phân công; giữ Trip PLANNING, phải đánh giá/duyệt khởi hành lại, không tự READY_TO_DEPART. ON_HOLD chặn khởi hành và mở tác vụ triển khai mới; không xóa lịch sử hoặc dữ liệu đã chuẩn bị. Không dùng hold/resume này cho Trip IN_TRANSIT/COMPLETED. Request không tự đổi trạng thái chỉ vì hold; nếu Gate 1 thực sự mất hiệu lực mới SCHEDULED → ACTIVATED. Retry không tạo handoff mới hoặc ghi metadata trùng. SQL CHECK chỉ kiểm tra tổ hợp một dòng; các guard chuyển trạng thái/quyền/metadata do backend thực hiện.
-
 **Request body:** Không gửi body.
-
-**Quy tắc:** Body không có. Không force READY_TO_DEPART, không rollback IN_TRANSIT.
 
 **Response 200**
 
@@ -5189,26 +4656,36 @@ Tiếp tục. Role: **LOGISTICS_MANAGER**.
   "message": "OK",
   "data": {
     "id": "TRIP_001",
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
     "status": "PLANNING",
+    "tripStatus": "PLANNING",
+    "mode": "AIR",
+    "plannedDepart": "2026-11-20 08:00",
+    "eta": "2026-11-21 18:00",
+    "specialistId": "USER_005",
+    "coordinatorId": "USER_006",
     "deployment": {
-      "status": "CONFIRMED"
+      "status": "CONFIRMED",
+      "eventId": "HANDOFF_EVENT_001",
+      "reason": "Resumed; departure approval must be evaluated again",
+      "at": "2026-10-23 11:00"
     }
   }
 }
 ```
 
-**Response lỗi 501 — FEATURE_NOT_SUPPORTED**
+**Response lỗi 409 — INVALID_STATE**
 
 ```json
 {
   "success": false,
-  "message": "Chức năng tạm dừng/tiếp tục chưa được hỗ trợ",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "message": "Trạng thái hiện tại không cho phép thao tác",
+  "errorCode": "INVALID_STATE",
   "data": null
 }
 ```
 
-<!-- FLOW1_JSON_13_END -->
 
 ## 14. Khoảng trống phải chốt trước implementation
 
@@ -5363,7 +4840,7 @@ Dự toán chi phí nội bộ theo lịch trình đang soạn. Role: **LOGISTIC
 
 ### F1-J63 — POST /customer/notifications/read-all
 
-Đánh dấu toàn bộ thông báo đã đọc. Role: **CUSTOMER**.
+Bổ sung theo frontend. Role: **CUSTOMER**.
 
 **Request body:** Không gửi body.
 
@@ -5374,22 +4851,22 @@ Dự toán chi phí nội bộ theo lịch trình đang soạn. Role: **LOGISTIC
   "success": true,
   "message": "OK",
   "data": {
-    "updatedCount": 2,
-    "readAt": "2026-10-23 10:00"
+    "updated": 2
   }
 }
 ```
 
-**Response lỗi 501 — FEATURE_NOT_SUPPORTED**
+**Response lỗi 401 — UNAUTHORIZED**
 
 ```json
 {
   "success": false,
-  "message": "Chức năng chưa được máy chủ hỗ trợ",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "message": "Vui lòng đăng nhập",
+  "errorCode": "UNAUTHORIZED",
   "data": null
 }
 ```
+
 
 ### F1-J64 — POST /manager/notifications/{notificationId}/read
 
@@ -5423,7 +4900,7 @@ Dự toán chi phí nội bộ theo lịch trình đang soạn. Role: **LOGISTIC
 
 ### F1-J65 — POST /manager/notifications/read-all
 
-Đánh dấu toàn bộ thông báo đã đọc. Role: **LOGISTICS_MANAGER**.
+Bổ sung theo frontend. Role: **LOGISTICS_MANAGER**.
 
 **Request body:** Không gửi body.
 
@@ -5434,22 +4911,22 @@ Dự toán chi phí nội bộ theo lịch trình đang soạn. Role: **LOGISTIC
   "success": true,
   "message": "OK",
   "data": {
-    "updatedCount": 2,
-    "readAt": "2026-10-23 10:00"
+    "updated": 2
   }
 }
 ```
 
-**Response lỗi 501 — FEATURE_NOT_SUPPORTED**
+**Response lỗi 403 — FORBIDDEN_ROLE**
 
 ```json
 {
   "success": false,
-  "message": "Chức năng chưa được máy chủ hỗ trợ",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "message": "Không đúng vai trò",
+  "errorCode": "FORBIDDEN_ROLE",
   "data": null
 }
 ```
+
 
 ## 17. Giới hạn và nghiệm thu tích hợp
 
@@ -5539,254 +5016,6 @@ Nhận thông báo server-to-server từ VNPay. Không dùng Bearer token Custom
 
 
 **Kích hoạt sau IPN:** chỉ giao dịch hợp lệ của version đã ký mới được cộng tiền; đủ cọc → contract EFFECTIVE, Request ACTIVATED và tạo duy nhất một Trip PLANNING trong cùng transaction. IPN trùng không tạo thêm Trip. IPN thiếu chữ ký/sai số tiền hoặc version không hợp lệ không thay trạng thái.
-
-## 21. Vận hành, Bàn giao, Nghiệm thu, Số dư & Khiếu nại (Hoàn thiện vòng đời Khách hàng)
-
-### F1-J68 — GET /customer/tracking
-
-Lấy danh sách các chuyến đi đang hoạt động của khách hàng. Role: **CUSTOMER**.
-
-**Request body:** Không gửi body.
-
-**Response 200 — JSON**
-
-```json
-{
-  "success": true,
-  "message": "Lấy danh sách chuyến đang chạy thành công",
-  "data": [
-    {
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "status": "IN_TRANSIT",
-      "plannedDepart": "2026-11-05 08:00",
-      "eta": "2026-11-06 16:30",
-      "origin": "TP. Hồ Chí Minh",
-      "destination": "Hà Nội"
-    }
-  ]
-}
-```
-
-### F1-J69 — GET /customer/requests/{requestId}/tracking
-
-Theo dõi chi tiết tiến độ chuyến đi và các mốc hành trình do tổ xe xác nhận. Role: **CUSTOMER**.
-
-**Path parameters:** `requestId`: Mã yêu cầu (ví dụ: `REQUEST_001`).
-
-**Response 200 — JSON**
-
-```json
-{
-  "success": true,
-  "message": "Lấy tiến độ hành trình thành công",
-  "data": {
-    "tripId": "TRIP_001",
-    "status": "IN_TRANSIT",
-    "plannedDepart": "2026-11-05 08:00",
-    "eta": "2026-11-06 16:30",
-    "route": {
-      "origin": "TP. Hồ Chí Minh",
-      "destination": "Hà Nội",
-      "stops": [
-        {
-          "index": 0,
-          "name": "Trại Q9 (TP. Hồ Chí Minh)",
-          "type": "ORIGIN",
-          "passed": true
-        },
-        {
-          "index": 1,
-          "name": "Trạm dừng nghỉ Nha Trang",
-          "type": "REST_STOP",
-          "passed": true
-        },
-        {
-          "index": 2,
-          "name": "Trạm dừng nghỉ Đà Nẵng",
-          "type": "REST_STOP",
-          "passed": false
-        },
-        {
-          "index": 3,
-          "name": "Trường Đua Sóc Sơn (Hà Nội)",
-          "type": "DESTINATION",
-          "passed": false
-        }
-      ]
-    },
-    "milestones": [
-      {
-        "type": "DEPARTED",
-        "stopIndex": 0,
-        "at": "2026-11-05 08:15",
-        "by": "Phạm Văn Đức (Tài xế)"
-      },
-      {
-        "type": "ARRIVED_STOP",
-        "stopIndex": 1,
-        "at": "2026-11-05 15:30",
-        "by": "Phạm Văn Đức (Tài xế)"
-      }
-    ],
-    "healthNotes": [
-      {
-        "at": "2026-11-05 15:45",
-        "note": "Ngựa Thunderbolt uống đủ nước, thể trạng ổn định."
-      }
-    ]
-  }
-}
-```
-
-### F1-J70 — GET /customer/requests/{requestId}/handover
-
-Xem biên bản bàn giao điện tử do tổ xe lập tại điểm đến. Role: **CUSTOMER**.
-
-**Response 200 — JSON**
-
-```json
-{
-  "success": true,
-  "message": "Lấy biên bản bàn giao thành công",
-  "data": {
-    "completedAt": "2026-11-06 16:45",
-    "receiverName": "Lê Văn Cường",
-    "receiverId": "CCCD 001090012345",
-    "horses": [
-      {
-        "horseId": "HORSE_001",
-        "microchipOk": true,
-        "condition": "NORMAL",
-        "note": "Ngựa tiếp nhận an toàn"
-      }
-    ],
-    "photos": [
-      "/api/files/handover/photos/img_01.jpg",
-      "/api/files/handover/photos/img_02.jpg"
-    ]
-  }
-}
-```
-
-### F1-J71 — POST /customer/contracts/{contractId}/acceptance
-
-Khách hàng xác nhận nghiệm thu dịch vụ trong vòng 24 giờ sau bàn giao. Role: **CUSTOMER**.
-
-**Request body:** Không gửi body (hoặc gửi object rỗng).
-
-**Response 200 — JSON**
-
-```json
-{
-  "success": true,
-  "message": "Xác nhận nghiệm thu dịch vụ thành công",
-  "data": {
-    "status": "ACCEPTED",
-    "decidedAt": "2026-11-06 17:30"
-  }
-}
-```
-
-### F1-J72 — POST /customer/contracts/{contractId}/balance-payment
-
-Khởi tạo thanh toán số dư hợp đồng (60% còn lại) qua VNPay sau khi đã nghiệm thu. Role: **CUSTOMER**.
-
-**Request body:** Không gửi body.
-
-**Response 200 — JSON**
-
-```json
-{
-  "success": true,
-  "message": "Khởi tạo thanh toán số dư thành công",
-  "data": {
-    "paymentId": "PAYMENT_002",
-    "amount": 12000000,
-    "paymentUrl": "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_Amount=1200000000&vnp_TxnRef=PAYMENT_002"
-  }
-}
-```
-
-### F1-J73 — POST /customer/complaints
-
-Khách hàng gửi khiếu nại dịch vụ (sau khi bàn giao và trước khi đóng đơn). Role: **CUSTOMER**.
-
-**Request body:**
-
-```json
-{
-  "requestId": "REQUEST_001",
-  "type": "HORSE_HEALTH",
-  "title": "Ngựa có vết trầy xước nhẹ ở cổ chân sau",
-  "description": "Trong quá trình bàn giao tại Trường Đua Sóc Sơn, phát hiện ngựa Thunderbolt có vết xước nhỏ ở cổ chân sau bên phải. Đề nghị CBN Transport kiểm tra camera thùng xe và làm rõ nguyên nhân."
-}
-```
-
-**Response 201 — JSON**
-
-```json
-{
-  "success": true,
-  "message": "Gửi khiếu nại thành công. Đội ngũ quản lý sẽ giải quyết trong 24 giờ.",
-  "data": {
-    "id": "CMP_001",
-    "requestId": "REQUEST_001",
-    "type": "HORSE_HEALTH",
-    "title": "Ngựa có vết trầy xước nhẹ ở cổ chân sau",
-    "status": "OPEN",
-    "createdAt": "2026-11-06 18:00",
-    "response": null
-  }
-}
-```
-
-### F1-J74 — GET /customer/requests/{requestId}/complaints
-
-Xem danh sách khiếu nại của một yêu cầu. Role: **CUSTOMER**.
-
-**Response 200 — JSON**
-
-```json
-{
-  "success": true,
-  "message": "Lấy danh sách khiếu nại thành công",
-  "data": [
-    {
-      "id": "CMP_001",
-      "title": "Ngựa có vết trầy xước nhẹ ở cổ chân sau",
-      "type": "HORSE_HEALTH",
-      "description": "Phát hiện vết xước nhỏ ở cổ chân sau bên phải.",
-      "status": "OPEN",
-      "createdAt": "2026-11-06 18:00",
-      "response": null
-    }
-  ]
-}
-```
-
-### F1-J75 — GET /customer/complaints/{complaintId}
-
-Xem chi tiết xử lý và phản hồi khiếu nại từ Logistics Manager. Role: **CUSTOMER**.
-
-**Response 200 — JSON**
-
-```json
-{
-  "success": true,
-  "message": "Lấy chi tiết khiếu nại thành công",
-  "data": {
-    "id": "CMP_001",
-    "requestId": "REQUEST_001",
-    "type": "HORSE_HEALTH",
-    "title": "Ngựa có vết trầy xước nhẹ ở cổ chân sau",
-    "status": "RESOLVED",
-    "createdAt": "2026-11-06 18:00",
-    "response": "CBN Transport đã trích xuất camera hành trình thùng xe và hỗ trợ 100% chi phí chăm sóc thú y tại trường đua.",
-    "resolvedAt": "2026-11-06 20:30"
-  }
-}
-```
 
 ## Kiểm tra bộ hợp đồng hiện hành
 

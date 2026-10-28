@@ -248,13 +248,13 @@ export const mockRequests: TransportRequest[] = [
         issue: 'Lần tiêm cúm gần nhất đã quá 12 tháng. Vui lòng tiêm nhắc lại và tải sổ tiêm mới.', updatedAt: '2026-10-03 14:10' },
       { key: 'health', scope: 'HOR-1035', status: 'PENDING_REVIEW', file: { name: 'shadowfax-health-cert.pdf' }, updatedAt: '2026-10-03 16:00' },
     ],
-    supplements: [{ id: 'SUP-301', key: 'raceReg', scope: 'request', reason: 'Chuyến phục vụ giải Tokyo Autumn Cup – cần giấy đăng ký giải để làm thủ tục tạm nhập.', at: '2026-10-03 14:20', by: 'Hoang Thu Ha', status: 'OPEN' }],
+    supplements: [{ id: 'SUP-301', key: 'flu', scope: 'HOR-1035', reason: 'Lần tiêm cúm gần nhất đã quá 12 tháng. Vui lòng tiêm nhắc lại và tải sổ tiêm mới.', at: '2026-10-03 14:10', by: 'Hoang Thu Ha', status: 'OPEN' }],
     companyDocs: companyDocs(true, 'PROCESSING'),
     trip: trip('TRP-902', { status: 'PLANNING', mode: 'AIR', routeApproved: false, plannedDepart: '2026-10-18 06:00', eta: '2026-10-19 06:00', stops: [] }),
     history: [
       hist('2026-10-03 08:30', 'CUSTOMER', 'Ký hợp đồng bằng OTP', 'CT-8924 v1 – yêu cầu được kích hoạt'),
       hist('2026-10-03 14:10', 'TRANSPORT_SPECIALIST', 'Từ chối giấy tờ', 'Sổ tiêm ngừa – Shadowfax'),
-      hist('2026-10-03 14:20', 'TRANSPORT_SPECIALIST', 'Yêu cầu bổ sung giấy tờ', 'Giấy đăng ký giải đua'),
+      hist('2026-10-03 14:10', 'TRANSPORT_SPECIALIST', 'Yêu cầu bổ sung giấy tờ', 'Sổ tiêm ngừa – Shadowfax'),
     ],
   }),
   req({

@@ -8,7 +8,7 @@ main = (ROOT / 'FLOW1.md').read_text(encoding='utf-8')
 companion = (ROOT / 'FLOW1-API-JSON.md').read_text(encoding='utf-8')
 schemas = spec['components']['schemas']
 ops = {v['operationId']: v for p in spec['paths'].values() for k,v in p.items() if k in ['get','post','put','delete','patch']}
-assert len(ops) == 65 and 'F1-J47' not in ops and 'F1-J48' not in ops
+assert len(ops) == 64 and 'F1-J47' not in ops and 'F1-J48' not in ops and 'F1-J17' not in ops and 'F1-J20' not in ops
 assert 'F1-J67' in ops and ops['F1-J67']['security'] == []
 checked = 0
 for path, methods in spec['paths'].items():
@@ -47,7 +47,10 @@ for name in ['F1-J40','F1-J52','F1-J53','F1-J54','F1-J59']:
     assert schemas[name+'Request']['properties']['reason']['maxLength'] == 1000
 assert not ops['F1-J55'].get('requestBody')
 assert schemas['F1-J43Request']['properties']['method']['enum'] == ['VNPAY']
-sql = (ROOT.parents[2] / 'data/HorseTransportDB_Reviewed.sql').read_text(encoding='utf-8')
+sql_path = ROOT.parents[2] / 'data/HorseTransportDB_Reviewed.sql'
+if not sql_path.exists():
+    sql_path = ROOT.parents[2] / 'HorseTransportDB/HorseTransportDB_Reviewed.sql'
+sql = sql_path.read_text(encoding='utf-8')
 assert 'BANK_TRANSFER' not in sql
 for marker in ['CK_Payment_Method','CK_Payment_Status','CancellationPreviousStatus','RevisionFeedback','TermsAcceptedAtUtc','ContentSnapshot NVARCHAR(MAX) NOT NULL']:
     assert marker in sql, marker

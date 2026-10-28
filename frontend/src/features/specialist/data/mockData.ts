@@ -161,20 +161,15 @@ export const mockTrips: SpecTrip[] = [
 // Giấy tờ khách hàng (cùng bộ hồ sơ với cổng Khách hàng)
 // ---------------------------------------------------------------------------
 const NOTE: Partial<Record<CustomerDocKey, string>> = {
-  invite: 'Có điều kiện: chỉ cần khi chuyến phục vụ thi đấu / sự kiện.',
-  raceReg: 'Có điều kiện: chỉ cần khi chuyến phục vụ thi đấu / sự kiện.',
-  ataCarnet: 'Tùy yêu cầu tạm quản, không mặc định bắt buộc.',
   bio: 'Giống, giới tính, ngày sinh, microchip',
   valueProof: 'Không bắt buộc',
   conditions: 'Không bắt buộc',
   vet: 'Tên & số điện thoại bác sĩ thú y riêng',
 };
-const SHARED: CustomerDocKey[] = ['invite', 'raceReg'];
 const PER_HORSE: CustomerDocKey[] = ['passport', 'ownership', 'bio', 'valueProof', 'flu', 'health', 'conditions', 'vet'];
-const OPTIONAL_KEYS: CustomerDocKey[] = ['invite', 'raceReg', 'ataCarnet', 'valueProof', 'conditions'];
+const OPTIONAL_KEYS: CustomerDocKey[] = ['valueProof', 'conditions'];
 
 function dossier(t: SpecTrip, base: CustomerDocStatus, over: Partial<Record<string, Partial<CustomerDoc>>> = {}): CustomerDoc[] {
-  const shared = t.destCountry === 'JP' ? [...SHARED, 'ataCarnet' as const] : SHARED;
   const make = (key: CustomerDocKey, scope: string): CustomerDoc => {
     const optional = OPTIONAL_KEYS.includes(key);
     const o = over[`${key}:${scope}`] ?? over[key] ?? {};
@@ -184,13 +179,12 @@ function dossier(t: SpecTrip, base: CustomerDocStatus, over: Partial<Record<stri
       file: hasFile && base !== 'MISSING' ? `${scope.toLowerCase()}-${key}.pdf` : undefined, ...o,
     };
   };
-  return [...shared.map((k) => make(k, 'request')), ...t.horses.flatMap((h) => PER_HORSE.map((k) => make(k, h.id)))];
+  return t.horses.flatMap((h) => PER_HORSE.map((k) => make(k, h.id)));
 }
 const trip = (id: string) => mockTrips.find((t) => t.id === id)!;
 
 export const mockCustomerDocs: CustomerDoc[] = [
   ...dossier(trip('TRP-902'), 'APPROVED', {
-    raceReg: { optional: false, status: 'ACTION_REQUIRED', issue: 'Chuyến phục vụ giải Tokyo Autumn Cup – cần giấy đăng ký giải để làm thủ tục tạm nhập.' },
     flu: { status: 'ACTION_REQUIRED', file: 'shadowfax-vaccination.pdf', issue: 'Lần tiêm cúm gần nhất đã quá 12 tháng. Vui lòng tiêm nhắc lại và tải sổ tiêm mới.' },
     health: { status: 'SUBMITTED', file: 'shadowfax-health-cert.pdf', expiry: '2026-10-25' },
   }),
@@ -228,7 +222,6 @@ export const mockDocuments: TripDocument[] = [
 // Yêu cầu bổ sung, lịch kiểm dịch, nhật ký
 // ---------------------------------------------------------------------------
 export const mockRequests: DocRequest[] = [
-  { id: 'DR-301', tripId: 'TRP-902', key: 'raceReg', scope: 'request', reason: 'Chuyến phục vụ giải Tokyo Autumn Cup – cần giấy đăng ký giải để làm thủ tục tạm nhập.', dueAt: '2026-10-10', status: 'OPEN', createdAt: '2026-10-03 14:20', history: [['2026-10-03 14:20', 'Gửi yêu cầu cho khách hàng']] },
   { id: 'DR-302', tripId: 'TRP-902', key: 'flu', scope: 'HOR-1035', reason: 'Lần tiêm cúm gần nhất đã quá 12 tháng. Vui lòng tiêm nhắc lại và tải sổ tiêm mới.', dueAt: '2026-10-12', status: 'OPEN', createdAt: '2026-10-03 14:10', history: [['2026-10-03 14:10', 'Từ chối sổ tiêm và yêu cầu nộp lại']] },
   { id: 'DR-280', tripId: 'TRP-903', key: 'health', scope: 'HOR-1029', reason: 'Giấy chứng nhận sức khỏe phải cấp trong vòng 10 ngày trước khởi hành.', status: 'FULFILLED', createdAt: '2026-09-29 10:00', history: [['2026-09-29 10:00', 'Gửi yêu cầu'], ['2026-10-01 09:00', 'Đã duyệt bản mới']] },
 ];

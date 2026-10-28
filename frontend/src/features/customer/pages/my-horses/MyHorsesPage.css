@@ -15,3 +15,9 @@
 .cus-horse-card__usage { background: #f8fafc; border-radius: 10px; padding: 10px 12px; font-size: 12px; margin-top: auto; }
 .cus-horse-card__usage b { display: block; }
 .cus-horse-card__usage span { color: #64748b; }
+/* Keep real photos inside the 150px header; badge stays on top. */
+.cus-horse-card__photo { overflow: hidden; }
+.cus-horse-card__photo img { position: absolute; inset: 0; display: block; }
+.cus-horse-card__photo .cus-badge { z-index: 1; }
+/* Taller photo header so the horse is clearly visible. */
+.cus-horse-card__photo { height: 190px; }

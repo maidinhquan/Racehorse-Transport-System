@@ -17,6 +17,7 @@ import {
   passportStatus,
 } from '../../hooks/customerRules';
 import './HorseDetailPage.css';
+import { AuthImage } from '../../../../shared/components/AuthImage';
 
 /** Chi tiết hồ sơ ngựa: thông tin, giấy tờ đã lưu, giấy tờ theo từng yêu cầu và lịch sử vận chuyển */
 export const HorseDetailPage: React.FC = () => {
@@ -50,7 +51,7 @@ export const HorseDetailPage: React.FC = () => {
             if (h.photo) setPreview({ file: h.photo, title: `Ảnh nhận diện: ${h.name}` });
           }}
         >
-          {h.photo?.url ? <img src={h.photo.url} alt={h.name} /> : <Icon name="horse" />}
+          <AuthImage framed src={h.photo?.url} alt={h.name} fallback={<Icon name="horse" />} />
         </div>
         <div style={{ flex: 1, minWidth: 200 }}>
           <h2 className="cus-title cus-detail__title">{h.name} <TripStatusBadge label={used.length ? 'Đã dùng trong yêu cầu' : 'Chưa dùng'} tone={used.length ? 'info' : 'muted'} /></h2>

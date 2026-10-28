@@ -19,7 +19,7 @@ import './TripDetailPage.css';
 function downloadManifest(data: SpecialistData, t: SpecTrip) {
   const rows: string[][] = [['Nhóm', 'Giấy tờ', 'Ngựa', 'Trạng thái', 'Tệp']];
   data.customerDocs.filter((d) => d.tripId === t.id && !d.optional).forEach((d) =>
-    rows.push(['Khách hàng cung cấp', CUSTOMER_DOC_NAME[d.key], d.scope === 'request' ? 'Toàn chuyến' : horseName(t, d.scope), CUSTOMER_DOC_LABEL[d.status], d.file ?? '']));
+    rows.push(['Khách hàng cung cấp', CUSTOMER_DOC_NAME[d.key], horseName(t, d.scope), CUSTOMER_DOC_LABEL[d.status], d.file ?? '']));
   checklist(data, t).items.filter((i) => i.provider === 'CBN').forEach((i) =>
     rows.push(['CBN Transport', itemName(data, t, i), horseName(t, i.horseId), CHECKLIST_LABEL[i.status], i.doc?.versions[i.doc.versions.length - 1]?.file ?? '']));
   const csv = '﻿' + rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');

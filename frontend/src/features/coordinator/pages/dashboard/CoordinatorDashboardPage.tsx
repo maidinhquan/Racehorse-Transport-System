@@ -19,9 +19,9 @@ export function CoordinatorDashboardPage() {
   const active = coordTrips();
   const a: Array<[string, string, string, string]> = [];
   trips.filter(etaOverdue).forEach((t: Any) => a.push(['bad', `Quá giờ dự kiến đến mà chưa xác nhận đã tới • ${t.id}`, `Dự kiến đến ${dt(t.eta)} • liên hệ đội vận chuyển và xác nhận giờ đến điều chỉnh`, `f/trip/${t.id}/progress`]));
-  returned.forEach((t: Any) => a.push(['bad', `Tuyến ${t.id} bị trả lại`, curRoute(t).note || '', `f/trip/${t.id}/route`]));
-  planning.filter((t: Any) => t.deployment.status === 'ON_HOLD').forEach((t: Any) => a.push(['', `Tạm dừng triển khai ${t.id}`, String(t.deployment.holdReason || ''), `f/trip/${t.id}`]));
-  active.forEach((t: Any) => { const v = emp((t.crew || {}).VETERINARIAN); if (v && v.certExpiry < t.eta.slice(0, 10)) a.push(['bad', `Chứng chỉ của ${v.name} hết hạn trước khi ${t.id} kết thúc`, `Hiệu lực đến ${date(v.certExpiry)}`, `f/trip/${t.id}/resources`]); });
+  returned.forEach((t: Any) => a.push(['bad', `Tuyến ${t.id} bị trả lại`, curRoute(t)?.note || '', `f/trip/${t.id}/route`]));
+  planning.filter((t: Any) => t.deployment?.status === 'ON_HOLD').forEach((t: Any) => a.push(['', `Tạm dừng triển khai ${t.id}`, String(t.deployment?.holdReason || ''), `f/trip/${t.id}`]));
+  active.forEach((t: Any) => { const v = emp((t.crew || {}).VETERINARIAN); if (v && v.certExpiry < (t.eta || '').slice(0, 10)) a.push(['bad', `Chứng chỉ của ${v.name} hết hạn trước khi ${t.id} kết thúc`, `Hiệu lực đến ${date(v.certExpiry)}`, `f/trip/${t.id}/resources`]); });
   db.vehicles.filter((v: Any) => v.status !== 'READY').forEach((v: Any) => { const u = trips.find((t: Any) => tripVehicleIds(t).includes(v.id) && ACTIVE_TRIP.includes(t.status)); if (u) a.push(['bad', `${v.plate} đang ${human(v.status).toLowerCase()} nhưng được phân cho ${u.id}`, 'Hãy phân xe khác.', `f/trip/${u.id}/resources`]); });
   trips.filter((t: Any) => t.flight && t.flight.status === 'BUDGET_APPROVED').forEach((t: Any) => a.push(['blue', `Đặt chuyến bay cho ${t.id}`, `Đã duyệt ngân sách ${t.flight.airline} ${t.flight.flightNo}`, `f/trip/${t.id}/flight`]));
   db.incidents.filter((i: Any) => i.status !== 'CLOSED' && !i.plans.length).forEach((i: Any) => a.push(['', `${i.id} có thể cần điều chỉnh tuyến`, `${incTypeVi(i.type)} • ${i.tripId}`, `f/incident/${i.id}`]));
@@ -53,7 +53,7 @@ export function CoordinatorDashboardPage() {
               { label: 'Chuyến', render: (t: Any) => <><b style={{ color: 'var(--ink)' }}>{t.id}</b><br /><small className="muted">{human(t.mode)}</small></> },
               { label: 'Tuyến đường', render: (t: Any) => <RouteCell r={reqOfTrip(t)} /> },
               { label: 'Khởi hành', render: (t: Any) => dt(t.plannedDepart) },
-              { label: 'Lập kế hoạch', render: (t: Any) => <><PillT p={planPill(t)} />{deployed(t) && resourceGaps(t).length && planState(t) !== 'MISSING_RESOURCES' ? <><br /><small className="muted" style={{ whiteSpace: 'normal' }}>{resourceGaps(t).join(', ')}</small></> : null}</> },
+              { label: 'Lập kế hoạch', render: (t: Any) => <><PillT p={planPill(t)} />{deployed(t) && (resourceGaps(t) || []).length && planState(t) !== 'MISSING_RESOURCES' ? <><br /><small className="muted" style={{ whiteSpace: 'normal' }}>{(resourceGaps(t) || []).join(', ')}</small></> : null}</> },
             ]} />
         </div>
         <div className="stack">

@@ -34,7 +34,7 @@ export const DeployModal: React.FC<{ open: boolean; tripId: string; staff: Staff
       <label htmlFor={id}>{label} *</label>
       <select id={id} className="mgr-select" value={value} onChange={(e) => { set(e.target.value); setError(''); }}>
         <option value="">— Chọn —</option>
-        {staff.filter((s) => s.role === role).map((s) => <option key={s.id} value={s.id}>{s.name} • đang phụ trách {s.load} chuyến</option>)}
+        {staff.filter((s) => s.role === role).map((s) => <option key={s.id} value={s.id}>{s.name}{s.load != null ? ` • đang phụ trách ${s.load} chuyến` : ''}</option>)}
       </select>
     </div>
   );

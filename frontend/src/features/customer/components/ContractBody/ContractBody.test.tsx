@@ -4,7 +4,8 @@ import { ContractBody } from './ContractBody';
 import { canAcceptTerms, canSign, depositState } from '../../hooks/customerRules';
 import spec from '../../../../contracts/flow1.openapi.json';
 import type { ContractVersion, TransportRequest } from '../../types';
-const sample = spec.paths['/customer/contracts/{contractId}/versions/{versionNo}'].get.responses['200'].content['application/json'].examples.case1.value.data;
+import { contractFromWire, type WireContract } from '../../../../shared/api/flow1Wire';
+const sample = contractFromWire(spec.paths['/customer/contracts/{contractId}/versions/{versionNo}'].get.responses['200'].content['application/json'].examples.case1.value.data as unknown as WireContract);
 
 describe('Published contract content', () => {
   it('counts only verified money for the current contract version', () => {

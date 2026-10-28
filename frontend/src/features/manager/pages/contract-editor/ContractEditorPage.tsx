@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ManagerLayout } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
@@ -37,6 +37,12 @@ export const ContractEditorPage: React.FC = () => {
   const { requestId } = useParams();
   const navigate = useNavigate();
   const { data, getRequest, tripFor, customer, horses, actions } = useManager();
+  useEffect(() => {
+    if (!requestId) return;
+    void actions.loadRequest(requestId);
+    const timer = setInterval(() => { void actions.loadRequest(requestId); }, 15000);
+    return () => clearInterval(timer);
+  }, [requestId, actions]);
   const [editing, setEditing] = useState(false);
   const [response, setResponse] = useState('');
   const [dialog, setDialog] = useState<Dialog>('');
@@ -84,7 +90,7 @@ export const ContractEditorPage: React.FC = () => {
   const isVoid = state === 'VOID';
   const blockedByMoney = verifiedDeposit(data, r) > 0 || depositPaid(data, r) || !!pendingTx(data, r);
   const canIssue = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) && !isSigned(r) && !blockedByMoney;
-  const editorOpen = canIssue && (!v || isVoid || state === 'CHANGES_REQUESTED' || state === 'EXPIRED' || editing);
+  const editorOpen = canIssue && (['CONTRACT_PREPARATION', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) || !v || isVoid || state === 'CHANGES_REQUESTED' || state === 'EXPIRED' || editing);
   const change = v?.change && !v.change.response ? v.change : undefined;
   const canManage = !!v && !v.signedAt && ['ISSUED', 'EXPIRED'].includes(state!) && ['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status);
   const processing = data.transactions.find((x) => x.requestId === r.id && x.status === 'PROCESSING');

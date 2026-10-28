@@ -30,19 +30,83 @@ export interface Db {
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
+import { getSharedRequests } from '../../../shared/utils/sharedRequests';
+
+const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+
 const emptyDb = (): Db => ({
-  trips: [], requests: [], customers: [], horses: [], vehicles: [], employees: [], places: [], incidents: [], complaints: [],
-  notifications: [], audit: [], air: { partners: [], routes: [], schedules: [] }, vetStations: [], quarantineBookings: [], clearances: [],
-  cities: clone((seed as Any).cities), users: { coordinator: clone((seed as Any).ROLES.FC.user), manager: clone((seed as Any).ROLES.LM), specialist: clone((seed as Any).ROLES.TS) }, seq: 1040,
+  trips: [],
+  requests: [],
+  customers: clone((seed as Any).customers),
+  horses: clone((seed as Any).horses),
+  vehicles: clone((seed as Any).vehicles),
+  employees: clone((seed as Any).employees),
+  places: clone((seed as Any).places),
+  incidents: [],
+  complaints: [],
+  notifications: [],
+  audit: [],
+  air: clone((seed as Any).air),
+  vetStations: clone((seed as Any).vetStations),
+  quarantineBookings: [],
+  clearances: [],
+  cities: clone((seed as Any).cities),
+  users: { coordinator: clone((seed as Any).ROLES.FC.user), manager: clone((seed as Any).ROLES.LM), specialist: clone((seed as Any).ROLES.TS) },
+  seq: 1040,
 });
 
 function seededDb(): Db {
   const s = clone(seed as Any);
+  const shared = getSharedRequests();
+  const sharedTrips = shared.map((r: any) => ({
+    id: `TRP-${(r.id || '').replace(/^TRN[_-]/, '')}`,
+    requestId: r.id,
+    customerName: r.customerName || (r.pickup?.contact) || 'Khách hàng',
+    origin: r.origin,
+    destination: r.destination,
+    status: 'PLANNING',
+    deployment: { status: 'CONFIRMED', assignees: { coordinator: 'EMP-15', specialist: 'EMP-11' } },
+    plannedDepart: `${r.date || '2026-12-26'} 06:00`,
+    eta: `${r.date || '2026-12-26'} 22:00`,
+    mode: r.destination?.includes('Sapporo') || r.destination?.includes('Tokyo') ? 'AIR' : 'ROAD',
+    routes: [],
+    crew: {},
+    horses: r.horses || [],
+  }));
+  const mergedTrips = [...sharedTrips, ...s.trips.filter((t: any) => !sharedTrips.some((st: any) => cleanId(st.id) === cleanId(t.id) || cleanId(st.requestId) === cleanId(t.requestId)))];
+  const sharedRequests = shared.map((r: any) => ({
+    id: r.id,
+    customer: r.customerId || 'CUS-001',
+    customerName: r.customerName || 'Khách hàng',
+    origin: r.origin,
+    destination: r.destination,
+    date: r.date,
+    count: r.horseCount || (r.horses ? r.horses.length : 1),
+    horses: r.horses || [],
+    pickup: r.pickup || {},
+    delivery: r.delivery || {},
+    status: r.status,
+  }));
+  const mergedRequests = [...sharedRequests, ...s.requests.filter((sr: any) => !sharedRequests.some((sh: any) => cleanId(sh.id) === cleanId(sr.id)))];
   return {
-    trips: s.trips, requests: s.requests, customers: s.customers, horses: s.horses, vehicles: s.vehicles, employees: s.employees,
-    places: s.places, incidents: s.incidents, complaints: s.complaints, notifications: s.notifications, audit: [],
-    air: s.air, vetStations: s.vetStations, quarantineBookings: s.quarantineBookings, clearances: s.clearances || [], cities: s.cities,
-    users: { coordinator: s.ROLES.FC.user, manager: s.ROLES.LM, specialist: s.ROLES.TS }, seq: s.seq || 1040,
+    trips: mergedTrips,
+    requests: mergedRequests,
+    customers: s.customers,
+    horses: s.horses,
+    vehicles: s.vehicles,
+    employees: s.employees,
+    places: s.places,
+    incidents: s.incidents,
+    complaints: s.complaints,
+    notifications: s.notifications,
+    audit: [],
+    air: s.air,
+    vetStations: s.vetStations,
+    quarantineBookings: s.quarantineBookings,
+    clearances: s.clearances || [],
+    cities: s.cities,
+    users: { coordinator: s.ROLES.FC.user, manager: s.ROLES.LM, specialist: s.ROLES.TS },
+    seq: s.seq || 1040,
   };
 }
 
@@ -70,6 +134,10 @@ const resetHooks: Array<() => void> = [];
 export const onReset = (fn: () => void) => { resetHooks.push(fn); };
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('rts_requests_updated', () => {
+    resetDemo(demoOn());
+  });
+
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const e = event as CustomEvent<{ role: string; enabled: boolean }>;
     if (e.detail?.role === 'coordinator') {

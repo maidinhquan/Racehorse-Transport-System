@@ -12,7 +12,7 @@ import './ContractPages.css';
 export const ReviewSignPage: React.FC = () => {
   const navigate = useNavigate();
   const { requestId = '' } = useParams<{ requestId: string }>();
-  const { horses, getRequest, actions } = useCustomer();
+  const { horses, getRequest, actions } = useCustomer(requestId);
   useClock(30000);
   const [confirmed, setConfirmed] = useState(false);
   const [otpOpen, setOtpOpen] = useState(false);

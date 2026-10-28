@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ManagerLayout } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
@@ -16,7 +16,13 @@ const SECTIONS: Array<[string, string]> = [['review', 'Thông tin & xét duyệt
 /** Chi tiết yêu cầu: xét duyệt → chuyến đi & sự cố → bàn giao, khiếu nại & đóng đơn */
 export const RequestDetailPage: React.FC = () => {
   const { requestId, section = 'review' } = useParams();
-  const { getRequest, tripFor, customer, data } = useManager();
+  const { getRequest, tripFor, customer, data, actions } = useManager();
+  useEffect(() => {
+    if (!requestId) return;
+    void actions.loadRequest(requestId);
+    const timer = setInterval(() => { void actions.loadRequest(requestId); }, 15000);
+    return () => clearInterval(timer);
+  }, [requestId, actions]);
   const r = getRequest(requestId);
 
   if (!r) {

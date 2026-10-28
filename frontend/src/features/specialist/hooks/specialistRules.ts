@@ -69,7 +69,6 @@ export const CUSTOMER_DOC_LABEL: Record<CustomerDocStatus, string> = {
   MISSING: 'Còn thiếu', OPTIONAL: 'Không bắt buộc', SUBMITTED: 'Chờ duyệt', APPROVED: 'Đã duyệt', ACTION_REQUIRED: 'Cần bổ sung',
 };
 export const CUSTOMER_DOC_NAME: Record<CustomerDocKey, string> = {
-  invite: 'Thư mời thi đấu', raceReg: 'Giấy đăng ký giải đua', ataCarnet: 'ATA Carnet (nếu áp dụng)',
   passport: 'Hộ chiếu ngựa', ownership: 'Chứng nhận sở hữu ngựa', bio: 'Thông tin sinh học', valueProof: 'Giá trị thương mại',
   flu: 'Sổ tiêm ngừa', health: 'Giấy chứng nhận sức khỏe', conditions: 'Ghi chú sức khỏe đặc biệt', vet: 'Bác sĩ thú y riêng',
 };
@@ -94,9 +93,10 @@ export interface SpecialistData {
   audit: AuditEntry[];
 }
 
+const cleanId = (x?: string | null) => (x || '').replace(/-/g, '_');
 export const docType = (data: SpecialistData, id: string) => data.docTypes.find((d) => d.id === id);
 export const typeName = (data: SpecialistData, id: string) => docType(data, id)?.name ?? id;
-export const horseName = (t: SpecTrip, id: string | null) => (id ? t.horses.find((h) => h.id === id)?.name ?? id : 'Toàn chuyến');
+export const horseName = (t: SpecTrip, id: string | null) => (id ? t.horses.find((h) => h.id === id || cleanId(h.id) === cleanId(id))?.name ?? id : 'Toàn chuyến');
 export const deployed = (t: SpecTrip) => t.deployment === 'CONFIRMED';
 export const shortName = (city: string) => (city === 'Ho Chi Minh City' ? 'HCMC' : city);
 export const ruleLabel =(c: CountryCode, d: Direction) => `${COUNTRY_VI[c]} • ${DIRECTION_VI[d]}`;
@@ -158,9 +158,9 @@ export function tripRules(data: SpecialistData, t: SpecTrip): ReqSetSnapshot['ru
 // Checklist của chuyến
 // ============================================================================
 export const findDoc = (data: SpecialistData, t: SpecTrip, typeId: string, horseId: string | null) =>
-  [...data.documents].reverse().find((d) => d.tripId === t.id && d.typeId === typeId && d.horseId === horseId);
+  [...data.documents].reverse().find((d) => (d.tripId === t.id || cleanId(d.tripId) === cleanId(t.id)) && d.typeId === typeId && (d.horseId === horseId || (d.horseId && horseId && cleanId(d.horseId) === cleanId(horseId))));
 export const customerDoc = (data: SpecialistData, tripId: string, key: CustomerDocKey, scope: string) =>
-  data.customerDocs.find((d) => d.tripId === tripId && d.key === key && d.scope === scope);
+  data.customerDocs.find((d) => (d.tripId === tripId || cleanId(d.tripId) === cleanId(tripId)) && d.key === key && (d.scope === scope || cleanId(d.scope) === cleanId(scope)));
 export const latestVersion = (d?: TripDocument) => d?.versions[d.versions.length - 1];
 
 /** Trạng thái thực tế của chứng từ: đã duyệt nhưng hết hạn trước khi chuyến đến nơi thì là hết hạn */

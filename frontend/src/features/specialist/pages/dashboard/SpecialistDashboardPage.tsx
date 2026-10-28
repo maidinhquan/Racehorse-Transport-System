@@ -19,14 +19,16 @@ export const SpecialistDashboardPage: React.FC = () => {
   const alerts: Alert[] = [];
   trips.filter((t) => t.deployment === 'NOT_CONFIRMED').forEach((t) => alerts.push({ tone: 'info', title: `${t.id} chờ Manager giao`, sub: `${t.requestId} • khởi hành ${fmtDateTime(t.plannedDepart)}`, to: `/specialist/trips/${t.id}` }));
   trips.filter((t) => t.deployment === 'CONFIRMED' && t.status === 'PLANNING' && !t.reqSet).forEach((t) => alerts.push({ tone: 'warn', title: `${t.id}: chưa áp dụng bộ yêu cầu hồ sơ`, sub: `${t.origin} → ${t.destination}`, to: `/specialist/trips/${t.id}` }));
-  customerDocs.filter((d) => d.status === 'SUBMITTED' && trips.find((t) => t.id === d.tripId)?.deployment === 'CONFIRMED').forEach((d) => {
-    const t = trips.find((x) => x.id === d.tripId)!;
-    alerts.push({ tone: 'warn', title: `${CUSTOMER_DOC_NAME[d.key]} chờ duyệt`, sub: `${t.id} • ${d.scope === 'request' ? 'Giấy tờ chung' : horseName(t, d.scope)}`, to: `/specialist/trips/${t.id}/customer` });
+  customerDocs.filter((d) => d.status === 'SUBMITTED' && trips.find((t) => t.id === d.tripId || t.id.replace(/-/g, '_') === d.tripId.replace(/-/g, '_'))?.deployment === 'CONFIRMED').forEach((d) => {
+    const t = trips.find((x) => x.id === d.tripId || x.id.replace(/-/g, '_') === d.tripId.replace(/-/g, '_'));
+    if (t) {
+      alerts.push({ tone: 'warn', title: `${CUSTOMER_DOC_NAME[d.key] || d.key} chờ duyệt`, sub: `${t.id} • ${horseName(t, d.scope)}`, to: `/specialist/trips/${t.id}/customer` });
+    }
   });
   documents.filter((d) => d.status === 'SUBMITTED').forEach((d) => alerts.push({ tone: 'warn', title: `${typeName(data, d.typeId)} chờ duyệt`, sub: `${d.tripId} • ${d.id} v${d.versions.length}`, to: `/specialist/documents/${d.id}` }));
   documents.filter((d) => d.status === 'REJECTED').forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} bị từ chối – cần bản mới`, sub: `${d.tripId} • ${d.rejectReason ?? ''}`, to: `/specialist/documents/${d.id}` }));
-  documents.filter((d) => docEffective(d) === 'EXPIRED' && active.some((t) => t.id === d.tripId)).forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} đã hết hạn`, sub: `${d.tripId} • hết hạn ${fmtDate(d.expiry)}`, to: `/specialist/documents/${d.id}` }));
-  requests.filter((q) => q.status === 'SUBMITTED').forEach((q) => alerts.push({ tone: 'info', title: `Khách đã phản hồi ${q.id}`, sub: `${CUSTOMER_DOC_NAME[q.key]} • ${q.tripId}`, to: `/specialist/trips/${q.tripId}/customer` }));
+  documents.filter((d) => docEffective(d) === 'EXPIRED' && active.some((t) => t.id === d.tripId || t.id.replace(/-/g, '_') === d.tripId.replace(/-/g, '_'))).forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} đã hết hạn`, sub: `${d.tripId} • hết hạn ${fmtDate(d.expiry)}`, to: `/specialist/documents/${d.id}` }));
+  requests.filter((q) => q.status === 'SUBMITTED').forEach((q) => alerts.push({ tone: 'info', title: `Khách đã phản hồi ${q.id}`, sub: `${CUSTOMER_DOC_NAME[q.key] || q.key} • ${q.tripId}`, to: `/specialist/trips/${q.tripId}/customer` }));
 
   const card = (to: string, icon: string, label: string, n: number, small: string, cls: 'warn' | 'bad' | '' = 'warn') => (
     <button type="button" className={`spc-stat ${n ? cls : ''}`} onClick={() => navigate(to)}>

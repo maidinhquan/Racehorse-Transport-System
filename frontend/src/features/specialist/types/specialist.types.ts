@@ -133,7 +133,6 @@ export interface SpecTrip {
 // Giấy tờ khách hàng cung cấp (cùng dữ liệu với cổng Khách hàng)
 // ---------------------------------------------------------------------------
 export type CustomerDocKey =
-  | 'invite' | 'raceReg' | 'ataCarnet'
   | 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu' | 'health' | 'conditions' | 'vet';
 
 export type CustomerDocStatus = 'MISSING' | 'OPTIONAL' | 'SUBMITTED' | 'APPROVED' | 'ACTION_REQUIRED';
@@ -141,7 +140,7 @@ export type CustomerDocStatus = 'MISSING' | 'OPTIONAL' | 'SUBMITTED' | 'APPROVED
 export interface CustomerDoc {
   tripId: string;
   key: CustomerDocKey;
-  /** 'request' = giấy tờ chung, hoặc mã ngựa */
+  /** Mã ngựa (horseId) */
   scope: string;
   status: CustomerDocStatus;
   optional: boolean;

@@ -53,6 +53,9 @@ public static class ProviderRegistration
             var storage = sp.GetRequiredService<IOptions<Flow1PrivateFileOptions>>().Value;
             return new LocalFlow1PrivateFileStore(Flow1PrivateStoragePath.Resolve(storage.Root, environment));
         });
+        // Per-customer requests/minute across Flow 1 customer endpoints (incl. location search).
+        // Default 30; raise it in appsettings.Development.json for manual testing.
+        var customerPerMinute = Math.Max(1, config.GetValue("Flow1:RateLimit:CustomerPerMinute", 30));
         services.AddRateLimiter(options =>
         {
             options.AddPolicy("flow1-contract-otp", context => RateLimitPartition.GetFixedWindowLimiter(
@@ -60,7 +63,7 @@ public static class ProviderRegistration
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 25, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
             options.AddPolicy("flow1-customer", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = customerPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             var registrationRejected = options.OnRejected;
             options.OnRejected = async (context, ct) =>
             {

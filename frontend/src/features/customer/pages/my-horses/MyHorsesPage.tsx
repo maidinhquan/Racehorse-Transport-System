@@ -6,6 +6,7 @@ import { useCustomer } from '../../hooks/useCustomer';
 import { useHorseFilter } from '../../hooks/useCustomerFilter';
 import { PROFILE_LABEL, fmtDate, horseLine, horseRequests, profileStatus, shortCity } from '../../hooks/customerRules';
 import './MyHorsesPage.css';
+import { AuthImage } from '../../../../shared/components/AuthImage';
 
 /** Ngựa của tôi: thư viện hồ sơ ngựa riêng của khách hàng (không phải hàng chờ duyệt) */
 export const MyHorsesPage: React.FC = () => {
@@ -40,7 +41,7 @@ export const MyHorsesPage: React.FC = () => {
           return (
             <article key={h.id} className="cus-card cus-horse-card">
               <div className="cus-horse-card__photo">
-                {h.photo?.url ? <img src={h.photo.url} alt={h.name} /> : <Icon name="horse" />}
+                <AuthImage framed src={h.photo?.url} alt={h.name} fallback={<Icon name="horse" />} />
                 <TripStatusBadge label={used.length ? 'Đã dùng trong yêu cầu' : 'Chưa dùng'} tone={used.length ? 'info' : 'muted'} />
               </div>
               <div className="cus-horse-card__body">

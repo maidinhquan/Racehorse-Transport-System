@@ -132,6 +132,14 @@ export function getCityId(cityName?: string): string {
 /** Đơn mới chỉ nhận tuyến Việt Nam → Việt Nam và Việt Nam → Nhật Bản */
 export const BOOKING_ORIGINS = CITIES.filter((c) => c.country === 'VN');
 export const BOOKING_DESTINATIONS = CITIES.filter((c) => ['VN', 'JP'].includes(c.country));
+/** Keep the actual city labels returned by the backend selectable during revisions. */
+export function registerBackendCity(name: string, country: CountryCode) {
+  if (!name || CITIES.some(c => c.name === name)) return;
+  const entry = { name, country, code: name };
+  CITIES.push(entry);
+  if (country === 'VN') BOOKING_ORIGINS.push(entry);
+  if (country === 'VN' || country === 'JP') BOOKING_DESTINATIONS.push(entry);
+}
 export const ROUTE_RULE = 'CBN Transport chỉ nhận đơn mới cho tuyến Việt Nam → Việt Nam và Việt Nam → Nhật Bản.';
 export const isSupportedRoute = (a: string, b: string) =>
   !!a && !!b && a !== b && BOOKING_ORIGINS.some((c) => c.name === a) && BOOKING_DESTINATIONS.some((c) => c.name === b);
@@ -148,7 +156,7 @@ export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
   CONTRACT_PREPARATION: 'Đang soạn hợp đồng',
   CONTRACT_READY: 'Hợp đồng sẵn sàng',
   CONTRACT_CHANGES_REQUESTED: 'Đã yêu cầu sửa hợp đồng',
-  DEPOSIT_VERIFIED: 'Cọc đã xác minh (dữ liệu cũ)',
+  DEPOSIT_VERIFIED: 'Đã xác minh cọc – chờ ký',
   AWAITING_DEPOSIT: 'Đã ký – chờ đặt cọc',
   CANCELLATION_REQUESTED: 'Chờ duyệt hủy',
   ACTIVATED: 'Đã kích hoạt – chuẩn bị',
@@ -213,7 +221,7 @@ export const horseLine = (h: Horse) => [h.breed, SEX_LABEL[h.sex] ?? h.sex, hors
 export function passportStatus(h: Horse): PassportStatus {
   const p = h.passport;
   if (!p.number || !p.scan) return 'MISSING';
-  if (p.expiryDate && p.expiryDate < today()) return 'EXPIRED';
+  if (p.expiryDate && p.expiryDate <= today()) return 'EXPIRED';
   if (p.expiryDate && (stampToMs(p.expiryDate) - stampToMs(today())) / 86400000 <= 90) return 'EXPIRING_SOON';
   return 'VALID';
 }
@@ -246,7 +254,6 @@ export const horseRequests = (h: Horse, requests: TransportRequest[]) =>
 export const HORSE_LOCKED_FIELDS = ['name', 'breed', 'sex', 'dob', 'microchip'] as const;
 
 export const emptyHorse = (): Omit<Horse, 'id'> => ({
-  unsupportedFields: ['color', 'fluDate', 'vetName', 'vetPhone'],
   name: '', breed: '', sex: '', dob: '', color: '', microchip: '', value: '', currency: 'VND',
   passport: { number: '', authority: '', issueDate: '', expiryDate: '' },
   fluDate: '', conditions: '', vetName: '', vetPhone: '',
@@ -309,15 +316,17 @@ export function validateHorseForm(h: HorseInput): Record<string, string> {
   // 9. Ngày hết hạn hộ chiếu (bắt buộc & >= ngày cấp)
   if (!h.passport?.expiryDate) {
     errors.passExp = 'Vui lòng chọn ngày hết hạn hộ chiếu.';
-  } else if (h.passport.issueDate && h.passport.expiryDate < h.passport.issueDate) {
-    errors.passExp = 'Ngày hết hạn phải sau hoặc bằng ngày cấp.';
+  } else if (h.passport.expiryDate <= today() || (h.passport.issueDate && h.passport.expiryDate <= h.passport.issueDate)) {
+    errors.passExp = 'Hộ chiếu phải còn hạn và ngày hết hạn phải sau ngày cấp.';
   }
 
   // 10. Giá trị khai báo (bắt buộc > 0 VND)
   const valStr = String(h.value ?? '').trim();
-  if (h.currency !== 'VND' || !valStr || !/^\d+$/.test(valStr) || Number(valStr) <= 0) {
-    errors.value = 'Giá trị khai báo phải là số nguyên VND lớn hơn 0.';
+  if (h.currency !== 'VND' || !/^[1-9]\d{0,9}$/.test(valStr)) {
+    errors.value = 'Giá trị khai báo phải là số nguyên VND từ 1 đến 9.999.999.999.';
   }
+  if (h.passport?.issueDate && h.dob && h.passport.issueDate < h.dob) errors.passIssue = 'Ngày cấp hộ chiếu không được trước ngày sinh.';
+  if ((h.conditions || '').length > 2000) errors.conditions = 'Ghi chú sức khỏe tối đa 2.000 ký tự.';
 
   return errors;
 }
@@ -417,7 +426,7 @@ export const canAcceptTerms = (r: TransportRequest) => {
 };
 export const canPayDeposit = (r: TransportRequest) => {
   const v = curVersion(r);
-  return !!v && r.status === 'AWAITING_DEPOSIT' && versionState(v) === 'SIGNED' && !!v.signedAt
+  return !!v && r.status === 'CONTRACT_READY' && versionState(v) === 'ISSUED' && !!v.termsAcceptedAt && !v.signedAt && !isPast(v.validUntil)
     && ['NONE', 'FAILED'].includes(depositState(r));
 };
 export function signBlock(r: TransportRequest): string {
@@ -427,9 +436,10 @@ export function signBlock(r: TransportRequest): string {
   if (versionState(v) === 'EXPIRED' || isPast(v.validUntil)) return 'Đã quá hạn ký. Chờ Manager gia hạn hoặc phát hành phiên bản mới.';
   if (versionState(v) !== 'ISSUED' || v.signedAt) return 'Phiên bản này đã ký hoặc không thể ký.';
   if (!v.termsAcceptedAt) return 'Hãy đồng ý điều khoản hợp đồng trước.';
+  if (r.status !== 'DEPOSIT_VERIFIED' || depositState(r) !== 'VERIFIED') return 'Tiền cọc phải được xác minh đủ trước khi ký OTP.';
   return '';
 }
-export const canSign = (r: TransportRequest) => ['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status) && !signBlock(r);
+export const canSign = (r: TransportRequest) => r.status === 'DEPOSIT_VERIFIED' && !signBlock(r);
 export const canRequestContractChange = (r: TransportRequest) => {
   const v = curVersion(r);
   return !!v && r.status === 'CONTRACT_READY' && ['ISSUED', 'EXPIRED'].includes(versionState(v)) && !hasDepositMoney(r);
@@ -441,11 +451,8 @@ export const canCancel = (r: TransportRequest) =>
 // ============================================================================
 // Giấy tờ (giấy tờ chung + hồ sơ từng ngựa)
 // ============================================================================
-export const FILE_DOC_KEYS: DocKey[] = ['invite', 'raceReg', 'ataCarnet', 'passport', 'ownership', 'valueProof', 'flu', 'health'];
+export const FILE_DOC_KEYS: DocKey[] = ['passport', 'ownership', 'valueProof', 'flu', 'health'];
 export const DOC_NAME: Record<DocKey, string> = {
-  invite: 'Thư mời thi đấu',
-  raceReg: 'Giấy đăng ký giải đua',
-  ataCarnet: 'ATA Carnet (nếu áp dụng)',
   passport: 'Hộ chiếu ngựa',
   ownership: 'Chứng nhận sở hữu ngựa',
   bio: 'Thông tin sinh học',
@@ -461,7 +468,7 @@ export const HORSE_FILE_FIELD: Partial<Record<HorseDocKey, 'ownership' | 'valueP
 };
 
 export const docRecord = (r: TransportRequest, key: DocKey, scope: string): DocRecord | undefined =>
-  (r.docs || []).find((d) => d.key === key && d.scope === scope);
+  (r.docs || []).find((d) => d.key === key && (d.scope === scope || d.scope.replace(/-/g, '_') === scope.replace(/-/g, '_')));
 
 /** Giấy tờ chung của đơn: Đã loại bỏ hồ sơ dùng chung theo Flow 1 */
 export function sharedDocItems(_r?: TransportRequest): DocItem[] {
@@ -490,7 +497,7 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
       `Giống: ${h.breed || '—'} • Giới tính: ${SEX_LABEL[h.sex] ?? '—'} • Sinh: ${fmtDate(h.dob)} • Microchip: ${h.microchip || '—'}`),
     item('valueProof', 'file', fileOf('valueProof') ? 'SUBMITTED' : 'OPTIONAL',
       `Giá trị khai báo: ${h.value ? `${Number(h.value).toLocaleString('en-US')} ${h.currency}` : '—'}`, true),
-    item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : 'MISSING', `Tiêm cúm gần nhất: ${fmtDate(h.fluDate)}`),
+    item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : h.unsupportedFields?.includes('flu') ? 'NOT_REQUIRED_YET' : 'MISSING', `Tiêm cúm gần nhất: ${fmtDate(h.fluDate)}`),
     item('health', 'file', fileOf('health') ? 'SUBMITTED' : 'NOT_REQUIRED_YET',
       fileOf('health') ? `Tệp: ${fileOf('health')!.name}` : 'Specialist kiểm tra yêu cầu hiệu lực trước khởi hành.'),
     item('conditions', 'info', h.conditions ? 'SUBMITTED' : 'OPTIONAL', h.conditions || 'Không khai báo tình trạng đặc biệt.', true),
@@ -520,9 +527,11 @@ export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[numbe
     if (!h) { e.push([2, `Không tìm thấy hồ sơ ${id}.`]); return; }
     if (!String(h.microchip ?? '').trim()) e.push([2, `${h.name}: thiếu số microchip.`]);
     if (!String(h.passport?.number ?? '').trim()) e.push([2, `${h.name}: thiếu số hộ chiếu ngựa.`]);
+    if (!h.photo) e.push([2, `${h.name}: thiếu ảnh nhận diện.`]);
     if (!h.passport?.scan && !docRecord(r, 'passport', id)?.file) e.push([2, `${h.name}: thiếu bản scan hộ chiếu ngựa.`]);
     if (!h.ownership && !docRecord(r, 'ownership', id)?.file) e.push([2, `${h.name}: thiếu chứng nhận sở hữu.`]);
     if (passportStatus(h) === 'EXPIRED') e.push([2, `${h.name}: hộ chiếu đã hết hạn, hãy cập nhật trước khi gửi.`]);
+    else if (h.passport.expiryDate && h.passport.expiryDate <= r.date) e.push([2, `${h.name}: hộ chiếu phải còn hạn qua ngày giao mong muốn.`]);
   });
   return e;
 }
@@ -613,7 +622,7 @@ export function lifecycle(r: TransportRequest): Lifecycle {
     case 'CONTRACT_CHANGES_REQUESTED': return { at: 3, note: 'Manager đang xem yêu cầu sửa' };
     case 'CONTRACT_READY':
       if (v && versionState(v) === 'EXPIRED') return { at: 3, exc: 'warn', note: 'Phiên bản đã hết hạn' };
-      if (v?.termsAcceptedAt) return { at: 4, note: 'Đồng ý điều khoản – ký OTP' };
+      if (v?.termsAcceptedAt) return { at: 4, note: 'Thanh toán và xác minh tiền cọc' };
       return { at: 3, note: 'Xem & đồng ý điều khoản' };
     case 'AWAITING_DEPOSIT': return { at: 4, note: ds === 'PENDING' ? 'Đang xác minh cọc' : 'Đã ký – cần đặt cọc' };
     case 'DEPOSIT_VERIFIED': return v && versionState(v) === 'EXPIRED' ? { at: 4, exc: 'warn', note: 'Quá hạn ký' } : { at: 4, note: 'Đã xác minh cọc – ký OTP' };

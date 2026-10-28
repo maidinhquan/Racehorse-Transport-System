@@ -7,10 +7,11 @@ import { RequestPlacesFields, type RequestPlaces } from '../../components/Reques
 import { Note } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
 import type { RequestField, TripInfoInput } from '../../types';
-import { FIELD_LABEL, addDays, city, emptyPlace, fmtDate, getCityId, getDefaultCoordinates, isSupportedRoute, today } from '../../hooks/customerRules';
+import { FIELD_LABEL, addDays, city, emptyPlace, fmtDate, isSupportedRoute, today } from '../../hooks/customerRules';
 import { customerApi } from '../../api/customerApi';
 import type { FormOptions } from '../../../../shared/api/contractClient';
 import './CreateRequestPage.css';
+import { apiMessage } from '../../../../shared/api/apiError';
 
 /** First of three steps: schedule, pickup address/contact, delivery address/contact. */
 export const CreateRequestPage: React.FC = () => {
@@ -32,7 +33,7 @@ export const CreateRequestPage: React.FC = () => {
     let active = true; setOptions(null); setOptionsError('');
     if (isSupportedRoute(form.origin, form.destination)) {
       customerApi.getFormOptions(form.origin, form.destination).then(value => { if (active) setOptions(value); })
-        .catch(() => { if (active) setOptionsError('Chưa tải được quy định cho tuyến này. Vui lòng thử lại.'); });
+        .catch(error => { if (active) setOptionsError(`Chưa tải được quy định cho tuyến này: ${apiMessage(error)}`); });
     }
     return () => { active = false; };
   }, [form.origin, form.destination]);
@@ -48,7 +49,7 @@ export const CreateRequestPage: React.FC = () => {
   const minDate = addDays(today(), options?.preparationDays ?? 0);
   const routeEnabled = options?.supportedRoutes?.some(route => route.originCountry === city(form.origin).country && route.destinationCountry === city(form.destination).country && route.mode === (city(form.destination).country === 'JP' ? 'AIR' : 'ROAD')) ?? false;
   const tripValid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!form.date && form.date >= minDate;
-  const placeValid = Object.values(places).every(p => p.name.trim() && p.address.trim() && p.contact.trim() && /^[+0-9 ()-]{8,}$/.test(p.phone.trim()));
+  const placeValid = Object.values(places).every(p => p.name.trim() && p.address.trim() && p.contact.trim() && /^[+0-9 ()-]{8,}$/.test(p.phone.trim()) && p.cityId && p.latitude != null && p.longitude != null);
   const hint = !form.origin || !form.destination ? 'Chọn thành phố trong địa chỉ nhận và giao ngựa.'
     : form.origin === form.destination ? 'Thành phố nhận và giao phải khác nhau.'
     : !isSupportedRoute(form.origin, form.destination) ? 'Chỉ nhận vận chuyển trong Việt Nam và từ Việt Nam đến Nhật Bản.'
@@ -60,25 +61,25 @@ export const CreateRequestPage: React.FC = () => {
   const save = async () => {
     if (savingRef.current) return;
     setTried(true);
-    if (!tripValid || !placeValid) { actions.showToast(!tripValid ? hint : 'Điền đủ địa chỉ, người liên hệ và số điện thoại hợp lệ ở cả hai địa điểm.'); return; }
+    if (!tripValid || !placeValid) { actions.showToast(!tripValid ? hint : 'Điền đủ thông tin, chọn tỉnh/thành phố và xác định vị trí nhận/giao trên bản đồ.'); return; }
 
     const pickupCoords = places.pickup.latitude != null && places.pickup.longitude != null
       ? { latitude: places.pickup.latitude, longitude: places.pickup.longitude }
-      : getDefaultCoordinates(form.origin);
+      : {};
     const deliveryCoords = places.delivery.latitude != null && places.delivery.longitude != null
       ? { latitude: places.delivery.latitude, longitude: places.delivery.longitude }
-      : getDefaultCoordinates(form.destination);
+      : {};
 
     const readyPickup = {
       ...places.pickup,
       ...pickupCoords,
-      cityId: places.pickup.cityId || getCityId(form.origin),
+      cityId: places.pickup.cityId,
       cityName: form.origin,
     };
     const readyDelivery = {
       ...places.delivery,
       ...deliveryCoords,
-      cityId: places.delivery.cityId || getCityId(form.destination),
+      cityId: places.delivery.cityId,
       cityName: form.destination,
     };
     setPlaces({ pickup: readyPickup, delivery: readyDelivery });
@@ -140,7 +141,7 @@ export const CreateRequestPage: React.FC = () => {
       <p className="cus-create__required">Các trường có dấu * là bắt buộc.</p>
       <RequestPlacesFields places={places} origin={form.origin} destination={form.destination} tried={tried} locked={lock}
         onPlaceChange={(key, place) => setPlaces(p => ({ ...p, [key]: place }))}
-        onCityChange={(key, value) => { setForm(f => ({ ...f, [key === 'pickup' ? 'origin' : 'destination']: value })); setPlaces(p => ({ ...p, [key]: { ...p[key], latitude: undefined, longitude: undefined } })); }} />
+        onCityChange={(key, value) => { setForm(f => ({ ...f, [key === 'pickup' ? 'origin' : 'destination']: value })); setPlaces(p => ({ ...p, [key]: { ...p[key], cityId: '', latitude: undefined, longitude: undefined } })); }} />
       {(tried || optionsError) && hint && <Note tone="red" title="Kiểm tra thông tin nhận/giao">{hint}</Note>}
       <div className="cus-create__actions">
         <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(back)}>Hủy</button>

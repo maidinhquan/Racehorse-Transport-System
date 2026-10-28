@@ -108,3 +108,7 @@
   .cus-horse-form__photo-info { min-width: 0; flex-basis: 100%; }
   .cus-horse-form .cus-file__text { flex-basis: 100%; }
 }
+/* Photo fills the fixed thumbnail instead of growing to its natural size. */
+.cus-horse-form__thumb { position: relative; }
+.cus-horse-form__thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.cus-horse-form__thumb { flex-basis: 200px; width: 200px; height: 150px; }

@@ -25,6 +25,7 @@ import {
   mockTrips,
 } from '../data/mockData';
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
+import { getSharedRequests, saveSharedRequest, toManagerRequest } from '../../../shared/utils/sharedRequests';
 import {
   addDays,
   addHours,
@@ -65,14 +66,22 @@ interface ManagerState extends ManagerData {
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const DATA_KEYS: Array<keyof ManagerData> = ['customers', 'horses', 'staff', 'requests', 'trips', 'transactions', 'incidents', 'complaints', 'actualCosts', 'notifications'];
+const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+
+import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
 
 const initialDemo = getDemoMode('manager');
-
 let state: ManagerState = {
   customers: initialDemo ? clone(mockCustomers) : [],
   horses: initialDemo ? clone(mockHorses) : [],
   staff: initialDemo ? clone(mockStaff) : [],
-  requests: initialDemo ? clone(mockRequests) : [],
+  requests: initialDemo
+    ? (() => {
+        const initialShared = getSharedRequests().map(toManagerRequest);
+        const initialMock = clone(mockRequests);
+        return [...initialShared, ...initialMock.filter((m) => !initialShared.some((s) => cleanId(s.id) === cleanId(m.id)))];
+      })()
+    : [],
   trips: initialDemo ? clone(mockTrips) : [],
   transactions: initialDemo ? clone(mockTransactions) : [],
   incidents: initialDemo ? clone(mockIncidents) : [],
@@ -88,21 +97,66 @@ const setState = (patch: Partial<ManagerState> | ((s: ManagerState) => Partial<M
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
   listeners.forEach((l) => l());
 };
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+
+const syncController = createSyncController({
+  intervalMs: 15000,
+  onRefresh: ({ silent, force }) => loadAll({ silent, force }),
+  eventType: 'requests_updated',
+});
+
+let unsubscribeSyncController: (() => void) | null = null;
+
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  if (listeners.size === 1) {
+    unsubscribeSyncController = syncController.subscribe();
+  }
+  return () => {
+    listeners.delete(l);
+    if (listeners.size === 0 && unsubscribeSyncController) {
+      unsubscribeSyncController();
+      unsubscribeSyncController = null;
+    }
+  };
+};
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('rts_requests_updated', () => {
+    const isDemo = getDemoMode('manager');
+    if (isDemo) {
+      const shared = getSharedRequests().map(toManagerRequest);
+      setState((s) => {
+        const newRequests = [...s.requests];
+        for (const req of shared) {
+          const idx = newRequests.findIndex((r) => cleanId(r.id) === cleanId(req.id));
+          if (idx >= 0) {
+            newRequests[idx] = { ...newRequests[idx], ...req };
+          } else {
+            newRequests.unshift(req);
+          }
+        }
+        return { requests: newRequests };
+      });
+    } else {
+      void syncRequestsOnly();
+    }
+  });
+
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
     if (customEvent.detail && customEvent.detail.role === 'manager') {
       if (customEvent.detail.enabled) {
+        const shared = getSharedRequests().map(toManagerRequest);
+        const mock = clone(mockRequests);
+        const merged = [...shared, ...mock.filter((m) => !shared.some((s) => cleanId(s.id) === cleanId(m.id)))];
         setState({
           customers: clone(mockCustomers),
           horses: clone(mockHorses),
           staff: clone(mockStaff),
-          requests: clone(mockRequests),
+          requests: merged,
           trips: clone(mockTrips),
           transactions: clone(mockTransactions),
           incidents: clone(mockIncidents),
@@ -126,8 +180,9 @@ if (typeof window !== 'undefined') {
           actualCosts: [],
           notifications: [],
           loading: false,
-          loaded: true,
+          loaded: false,
         });
+        void loadAll({ force: true });
         toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
       }
     }
@@ -142,7 +197,7 @@ const mutate = (fn: (d: ManagerData) => void) => setState((s) => {
   fn(d);
   return d;
 });
-const reqIn = (d: ManagerData, id: string) => d.requests.find((r) => r.id === id);
+const reqIn = (d: ManagerData, id: string) => d.requests.find((r) => r.id === id || cleanId(r.id) === cleanId(id));
 const tripIn = (d: ManagerData, id: string) => d.trips.find((t) => t.id === id);
 const actorName = (d: ManagerData, r: TransportRequest, role: ActorRole) =>
   role === 'LOGISTICS_MANAGER' ? MANAGER_NAME : role === 'CUSTOMER' ? customerOf(d, r)?.name ?? 'Khách hàng'
@@ -153,101 +208,263 @@ const nextNum = (ids: string[], prefix: string, min: number) =>
   `${prefix}-${Math.max(min, ...ids.map((x) => Number(x.replace(/\D/g, '')) || 0)) + 1}`;
 const nextTx = (d: ManagerData) => nextNum(d.transactions.filter((x) => x.id.startsWith('PAY-') && !x.id.startsWith('PAY-R')).map((x) => x.id), 'PAY', 5200);
 
-async function loadAll() {
-  if (state.loading || state.loaded) return;
-  setState({ loading: true });
-  try {
-    const [customersRes, horsesRes, staffRes, requestsRes, tripsRes, txsRes, notifsRes] = await Promise.allSettled([
-      managerApi.getCustomers(), managerApi.getHorses(), managerApi.getStaff(), managerApi.getRequests(),
-      managerApi.getTrips(), managerApi.getTransactions(), managerApi.getNotifications(),
-    ]);
-    const customers = customersRes.status === 'fulfilled' && customersRes.value ? customersRes.value : [];
-    const horses = horsesRes.status === 'fulfilled' && horsesRes.value ? horsesRes.value : [];
-    const staff = staffRes.status === 'fulfilled' && staffRes.value ? staffRes.value : [];
-    const requests = requestsRes.status === 'fulfilled' && requestsRes.value ? requestsRes.value : [];
-    const trips = tripsRes.status === 'fulfilled' && tripsRes.value ? tripsRes.value : [];
-    const transactions = txsRes.status === 'fulfilled' && txsRes.value ? txsRes.value : [];
-    const notifications = notifsRes.status === 'fulfilled' && notifsRes.value ? notifsRes.value : [];
+let currentLoadSeq = 0;
+let inFlightPromise: Promise<void> | null = null;
+let inFlightSyncPromise: Promise<void> | null = null;
+const mergeRequestList = (incoming: TransportRequest[], current: TransportRequest[]) => incoming.map(r => {
+  const previous = current.find(p => p.id === r.id);
+  return previous?.status === r.status ? { ...r, versions: previous.versions, dossier: previous.dossier, draft: previous.draft } : r;
+});
 
-    const isDemo = getDemoMode('manager');
-    if (!isDemo) {
-      setState({
-        customers: customers || [],
-        horses: horses || [],
-        staff: staff || [],
-        requests: requests || [],
-        trips: trips || [],
-        transactions: transactions || [],
-        notifications: notifications || [],
-        loading: false,
-        loaded: true,
-      });
-      return;
+async function syncRequestsOnly(): Promise<void> {
+  if (inFlightSyncPromise) return inFlightSyncPromise;
+  inFlightSyncPromise = (async () => {
+    try {
+      const rawRequests = await managerApi.getRequests();
+      const isDemo = getDemoMode('manager');
+      if (!isDemo) {
+        setState((prev) => ({
+          ...prev,
+          requests: mergeRequestList(rawRequests, prev.requests),
+        }));
+        return;
+      }
+      const shared = getSharedRequests().map(toManagerRequest);
+      const merged = [...shared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+      const mock = clone(mockRequests);
+      const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
+      setState((prev) => ({ ...prev, requests: allDemoRequests }));
+    } catch (error) {
+      // Background sync stays quiet for users; keep the reason visible to developers.
+      console.error('[manager] background request sync failed', error);
+    } finally {
+      inFlightSyncPromise = null;
     }
-    setState({
-      customers: customers?.length ? customers : clone(mockCustomers),
-      horses: horses?.length ? horses : clone(mockHorses),
-      staff: staff?.length ? staff : clone(mockStaff),
-      requests: requests?.length ? requests : clone(mockRequests),
-      trips: trips?.length ? trips : clone(mockTrips),
-      transactions: transactions?.length ? transactions : clone(mockTransactions),
-      notifications: notifications?.length ? notifications : clone(mockNotifications),
-      loading: false,
-      loaded: true,
-    });
-    const extra = await Promise.allSettled([managerApi.getIncidents(), managerApi.getComplaints(), managerApi.getActualCosts()]);
-    if (extra[0].status === 'fulfilled') setState({ incidents: extra[0].value?.length ? extra[0].value : clone(mockIncidents) });
-    if (extra[1].status === 'fulfilled') setState({ complaints: extra[1].value?.length ? extra[1].value : clone(mockComplaints) });
-    if (extra[2].status === 'fulfilled') setState({ actualCosts: extra[2].value?.length ? extra[2].value : clone(mockActualCosts) });
-  } catch (error) {
-    const isDemo = getDemoMode('manager');
-    if (isDemo) {
-      setState({
-        customers: clone(mockCustomers),
-        horses: clone(mockHorses),
-        staff: clone(mockStaff),
-        requests: clone(mockRequests),
-        trips: clone(mockTrips),
-        transactions: clone(mockTransactions),
-        notifications: clone(mockNotifications),
-        loading: false,
-        loaded: true,
-      });
-    } else {
-      setState({ loading: false, loaded: true });
-    }
-  }
+  })();
+  return inFlightSyncPromise;
 }
+
+async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
+  const { force = false, silent = false } = options;
+  if (!force && state.loaded) return;
+
+  // Lightweight background sync: once already loaded, background polling or sync only fetches requests
+  // to avoid exhausting backend rate limits (30 reqs/min).
+  if (silent && state.loaded) {
+    return syncRequestsOnly();
+  }
+
+  if (inFlightPromise) {
+    if (silent) return inFlightPromise;
+  }
+
+  const seq = ++currentLoadSeq;
+  if (!silent) {
+    setState({ loading: true });
+  }
+
+  inFlightPromise = (async () => {
+    try {
+      const [customersRes, horsesRes, staffRes, requestsRes, tripsRes, txsRes, notifsRes] = await Promise.allSettled([
+        managerApi.getCustomers(), managerApi.getHorses(), managerApi.getStaff(), managerApi.getRequests(),
+        managerApi.getTrips(), managerApi.getTransactions(), managerApi.getNotifications(),
+      ]);
+
+      if (seq !== currentLoadSeq) {
+        return;
+      }
+
+      const customers = customersRes.status === 'fulfilled' && customersRes.value ? customersRes.value : [];
+      const horses = horsesRes.status === 'fulfilled' && horsesRes.value ? horsesRes.value : [];
+      const staff = staffRes.status === 'fulfilled' && staffRes.value ? staffRes.value : [];
+      const trips = tripsRes.status === 'fulfilled' && tripsRes.value ? tripsRes.value : [];
+      const transactions = txsRes.status === 'fulfilled' && txsRes.value ? txsRes.value : [];
+      const notifications = notifsRes.status === 'fulfilled' && notifsRes.value ? notifsRes.value : [];
+      const baseRequests = requestsRes.status === 'fulfilled' && requestsRes.value ? requestsRes.value : [];
+      // Surface list failures (auth, contract mismatch…) instead of silently showing an empty list.
+      if (requestsRes.status === 'rejected') {
+        console.error('[manager] GET /manager/requests failed', requestsRes.reason);
+        toast(`Không tải được danh sách yêu cầu: ${apiMessage(requestsRes.reason)}`);
+      }
+
+      const isDemo = getDemoMode('manager');
+      if (!isDemo) {
+        setState((prev) => ({
+          ...prev,
+          customers: customers || [],
+          horses: horses || [],
+          staff: staff || [],
+          requests: mergeRequestList(baseRequests, prev.requests),
+          trips: trips || [],
+          transactions: transactions || [],
+          notifications: notifications || [],
+          loading: false,
+          loaded: true,
+        }));
+        return;
+      }
+      const shared = getSharedRequests().map(toManagerRequest);
+      const merged = [...shared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+      const mock = clone(mockRequests);
+      const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
+      setState((prev) => ({
+        ...prev,
+        customers: customers?.length ? customers : clone(mockCustomers),
+        horses: horses?.length ? horses : clone(mockHorses),
+        staff: staff?.length ? staff : clone(mockStaff),
+        requests: allDemoRequests,
+        trips: trips?.length ? trips : clone(mockTrips),
+        transactions: transactions?.length ? transactions : clone(mockTransactions),
+        notifications: notifications?.length ? notifications : clone(mockNotifications),
+        loading: false,
+        loaded: true,
+      }));
+      const extra = await Promise.allSettled([managerApi.getIncidents(), managerApi.getComplaints(), managerApi.getActualCosts()]);
+      if (seq !== currentLoadSeq) return;
+      if (extra[0].status === 'fulfilled') setState({ incidents: extra[0].value?.length ? extra[0].value : clone(mockIncidents) });
+      if (extra[1].status === 'fulfilled') setState({ complaints: extra[1].value?.length ? extra[1].value : clone(mockComplaints) });
+      if (extra[2].status === 'fulfilled') setState({ actualCosts: extra[2].value?.length ? extra[2].value : clone(mockActualCosts) });
+    } catch (error) {
+      if (seq === currentLoadSeq) {
+        setState({ loading: false, loaded: true });
+      }
+    } finally {
+      if (seq === currentLoadSeq) {
+        inFlightPromise = null;
+      }
+    }
+  })();
+
+  return inFlightPromise;
+}
+
 const running = new Set<string>();
 async function perform(key: string, action: () => Promise<unknown>, message: string): Promise<ActionResult> {
   if (running.has(key)) return fail('Thao tác đang được xử lý.');
   running.add(key);
   try {
-    await action(); setState({ loaded: false }); await loadAll(); return ok(message);
-  } catch (error) { return fail(apiMessage(error)); }
-  finally { running.delete(key); }
+    await action();
+    await loadAll({ force: true, silent: true });
+    if (key.startsWith('REQUEST_')) {
+      const request = await managerApi.getRequest(key);
+      setState(s => ({ requests: s.requests.map(r => r.id === key ? request : r) }));
+    }
+    notifySync('requests_updated');
+    return ok(message);
+  } catch (error) {
+    return fail(apiMessage(error));
+  } finally {
+    running.delete(key);
+  }
 }
 
 // ============================================================================
 // Hành động của Logistics Manager
 // ============================================================================
 const managerActions = {
-  reload: () => { setState({ loaded: false }); void loadAll(); },
+  async loadRequest(id: string) {
+    if (getDemoMode('manager')) return;
+    try {
+      const request = await managerApi.getRequest(id);
+      setState(s => ({ requests: s.requests.some(r => r.id === id) ? s.requests.map(r => r.id === id ? request : r) : [...s.requests, request],
+        transactions: s.transactions.map(p => request.versions.some(v => v.contractId === p.contractId) ? { ...p, requestId: id } : p),
+      }));
+    } catch (error) { toast(apiMessage(error)); }
+  },
+  reload: () => { void loadAll({ force: true, silent: false }); },
   clearToast: () => setState({ toast: null }),
   showToast: (m: string) => toast(m),
   markAllRead: () => perform('notifications', () => managerApi.markAllRead(), 'Đã đánh dấu thông báo đã đọc.'),
   markRead: (id: string) => perform(id, () => managerApi.markRead(id), 'Đã đọc thông báo.'),
-  acceptRequest(id: string) {
-    if (reqIn(state, id)?.status !== 'PENDING_REVIEW') return Promise.resolve(fail('Yêu cầu chưa ở hàng chờ xét duyệt.'));
-    return perform(id, () => managerApi.acceptRequest(id), 'Đã chấp thuận yêu cầu.');
+  async acceptRequest(id: string): Promise<ActionResult> {
+    const r = reqIn(state, id);
+    if (!r || r.status !== 'PENDING_REVIEW') return fail('Yêu cầu chưa ở hàng chờ xét duyệt.');
+    const isDemo = getDemoMode('manager');
+    if (!isDemo) {
+      return perform(id, async () => {
+        const updated = await managerApi.acceptRequest(id);
+        mutate((d) => {
+          const target = reqIn(d, id);
+          if (target) {
+            Object.assign(target, updated);
+            target.status = updated.status || 'CONTRACT_PREPARATION';
+            log(d, target, 'Chấp thuận yêu cầu', 'Chuyển sang bước soạn hợp đồng');
+          }
+        });
+      }, `Đã chấp thuận yêu cầu ${id}.`);
+    }
+    mutate((d) => {
+      const x = reqIn(d, id);
+      if (x) {
+        x.status = 'CONTRACT_PREPARATION';
+        log(d, x, 'Chấp thuận yêu cầu', 'Chuyển sang bước soạn hợp đồng');
+        saveSharedRequest(x);
+      }
+    });
+    notifySync('requests_updated');
+    return ok('Đã chấp thuận yêu cầu.');
   },
-  requestRevision(id: string, feedback: string) {
-    if (feedback.trim().length < 10) return Promise.resolve(fail('Nhập góp ý ít nhất 10 ký tự.'));
-    return perform(id, () => managerApi.requestRevision(id, feedback.trim()), 'Đã gửi yêu cầu chỉnh sửa.');
+  async requestRevision(id: string, feedback: string): Promise<ActionResult> {
+    if (feedback.trim().length < 10) return fail('Nhập góp ý ít nhất 10 ký tự.');
+    const r = reqIn(state, id);
+    if (!r) return fail('Không tìm thấy yêu cầu.');
+    const isDemo = getDemoMode('manager');
+    if (!isDemo) {
+      return perform(id, async () => {
+        const updated = await managerApi.requestRevision(id, feedback.trim());
+        mutate((d) => {
+          const target = reqIn(d, id);
+          if (target) {
+            Object.assign(target, updated);
+            target.status = updated.status || 'CHANGES_REQUESTED';
+            target.feedback = feedback.trim();
+            log(d, target, 'Yêu cầu chỉnh sửa', feedback.trim());
+          }
+        });
+      }, 'Đã gửi yêu cầu chỉnh sửa.');
+    }
+    mutate((d) => {
+      const x = reqIn(d, id);
+      if (x) {
+        x.status = 'CHANGES_REQUESTED';
+        x.feedback = feedback.trim();
+        log(d, x, 'Yêu cầu chỉnh sửa', feedback.trim());
+        saveSharedRequest(x);
+      }
+    });
+    notifySync('requests_updated');
+    return ok('Đã gửi yêu cầu chỉnh sửa.');
   },
-  rejectRequest(id: string, reason: string) {
-    if (reason.trim().length < 10) return Promise.resolve(fail('Nhập lý do ít nhất 10 ký tự.'));
-    return perform(id, () => managerApi.rejectRequest(id, reason.trim()), 'Đã từ chối yêu cầu.');
+  async rejectRequest(id: string, reason: string): Promise<ActionResult> {
+    if (reason.trim().length < 10) return fail('Nhập lý do ít nhất 10 ký tự.');
+    const r = reqIn(state, id);
+    if (!r) return fail('Không tìm thấy yêu cầu.');
+    const isDemo = getDemoMode('manager');
+    if (!isDemo) {
+      return perform(id, async () => {
+        const updated = await managerApi.rejectRequest(id, reason.trim());
+        mutate((d) => {
+          const target = reqIn(d, id);
+          if (target) {
+            Object.assign(target, updated);
+            target.status = updated.status || 'REJECTED';
+            target.reason = reason.trim();
+            log(d, target, 'Từ chối yêu cầu', reason.trim());
+          }
+        });
+      }, 'Đã từ chối yêu cầu.');
+    }
+    mutate((d) => {
+      const x = reqIn(d, id);
+      if (x) {
+        x.status = 'REJECTED';
+        x.reason = reason.trim();
+        log(d, x, 'Từ chối yêu cầu', reason.trim());
+        saveSharedRequest(x);
+      }
+    });
+    notifySync('requests_updated');
+    return ok('Đã từ chối yêu cầu.');
   },
   cancelRequest(id: string, reason: string) {
     if (reason.trim().length < 10) return Promise.resolve(fail('Nhập lý do ít nhất 10 ký tự.'));
@@ -258,18 +475,34 @@ const managerActions = {
     if (!v?.contractId || note.trim().length < 5) return Promise.resolve(fail('Thiếu hợp đồng hoặc ghi chú quyết định.'));
     return perform(id, () => managerApi.decideCancellation(v.contractId!, approve, note.trim()), 'Đã ghi nhận quyết định hủy.');
   },
-  closeRequest(id: string): ActionResult {
+  async closeRequest(id: string): Promise<ActionResult> {
     const r = reqIn(state, id);
     if (!r || r.status !== 'DELIVERED') return fail('Chỉ đóng được yêu cầu đã bàn giao.');
     const miss = closureChecks(state, r).filter((c) => !c[1]);
     if (miss.length) return fail(`Chưa đủ điều kiện đóng: ${miss[0][0]}.`);
+    const isDemo = getDemoMode('manager');
+    if (!isDemo) {
+      return perform(id, async () => {
+        await managerApi.closeRequest(id);
+        mutate((d) => {
+          const x = reqIn(d, id);
+          if (x) {
+            x.status = 'CLOSED'; x.closedAt = nowStamp();
+            const v = x.versions.find((y) => y.signedAt); if (v) v.state = 'FULFILLED';
+            log(d, x, 'Đóng yêu cầu', 'Đủ mọi điều kiện đóng – hợp đồng đã hoàn thành');
+          }
+        });
+      }, `Đã đóng ${id}.`);
+    }
     mutate((d) => {
       const x = reqIn(d, id)!;
       x.status = 'CLOSED'; x.closedAt = nowStamp();
       const v = x.versions.find((y) => y.signedAt); if (v) v.state = 'FULFILLED';
       log(d, x, 'Đóng yêu cầu', 'Đủ mọi điều kiện đóng – hợp đồng đã hoàn thành');
+      saveSharedRequest(x);
     });
     void managerApi.closeRequest(id);
+    notifySync('requests_updated');
     return ok(`Đã đóng ${id}.`);
   },
   addCollectionNote(id: string, note: string): ActionResult {
@@ -282,8 +515,9 @@ const managerActions = {
   // ----- Hợp đồng -----
   async saveDraft(id: string, draft: ContractDraft): Promise<ActionResult> {
     return perform(id, async () => {
-      const result = await managerApi.saveContractDraft(id, draft);
-      mutate(d => { const r = reqIn(d, id); if (r) r.draft = result.draft; });
+        await managerApi.saveContractDraft(id, draft);
+        const editor = await managerApi.getContractEditor(id);
+        mutate(d => { const r = reqIn(d, id); if (r) r.draft = editor.draft ?? undefined; });
     }, 'Đã lưu bản nháp hợp đồng trên máy chủ.');
   },
   discardDraft(id: string) { return perform(id, () => managerApi.discardContractDraft(id), 'Đã bỏ bản nháp.'); },
@@ -754,7 +988,7 @@ export function useManager() {
     };
   }, [snap]);
 
-  const getRequest = (id?: string) => snap.requests.find((r) => r.id === id);
+  const getRequest = (id?: string) => snap.requests.find((r) => r.id === id || (id && cleanId(r.id) === cleanId(id)));
   const getTrip = (id?: string) => snap.trips.find((t) => t.id === id);
   const tripFor = (requestId: string) => tripOfReq(snap, requestId);
   const customer = (r?: TransportRequest) => customerOf(snap, r);

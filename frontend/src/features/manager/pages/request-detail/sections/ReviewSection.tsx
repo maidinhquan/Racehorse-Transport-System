@@ -35,8 +35,8 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
   const [dialog, setDialog] = useState<Dialog>('');
   const close = () => setDialog('');
   const c = customer(r), v = curVersion(r), held = moneyHeld(data, r);
-  const horseInfo = (id: string) => horses.find((h) => h.id === id);
-  const dossierScopes = Array.from(new Set(r.dossier.map((d) => d.scope)));
+  const horseInfo = (id: string) => horses.find((h) => h.id === id || h.id.replace(/-/g, '_') === id.replace(/-/g, '_'));
+  const dossierScopes = Array.from(new Set((r.dossier ?? []).map((d) => d.scope)));
 
   return (
     <>
@@ -97,13 +97,19 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
             <p className="mgr-hint" style={{ marginTop: 0 }}>Transport Specialist duyệt giấy tờ; Manager chỉ theo dõi để đánh giá yêu cầu.</p>
             {dossierScopes.map((scope) => (
               <div key={scope}>
-                <div className="mgr-section-title">{scope === 'request' ? 'Giấy tờ theo đơn' : horseName(data, scope)}</div>
-                {r.dossier.filter((d) => d.scope === scope).map((d) => (
-                  <div key={d.name} className="mgr-row">
-                    <div><b>{d.name}</b><span>{d.file ? <button type="button" className="mgr-link" onClick={() => downloadFile(d.file!).catch(error => actions.showToast(error.message))}>{d.file}</button> : 'Chưa có tệp'}{d.note ? ` • ${d.note}` : ''}</span></div>
-                    <StatusBadge kind="dossier" status={d.status} />
-                  </div>
-                ))}
+                <div className="mgr-section-title">{horseName(data, scope)}</div>
+                {(r.dossier ?? []).filter((d) => d.scope === scope).map((d) => {
+                  const fileName = typeof d.file === 'object' && d.file ? ((d.file as any).name || '') : (d.file || '');
+                  return (
+                    <div key={d.name} className="mgr-row">
+                      <div>
+                        <b>{d.name}</b>
+                        <span>{fileName ? <button type="button" className="mgr-link" onClick={() => downloadFile(fileName).catch(error => actions.showToast(error.message))}>{fileName}</button> : 'Chưa có tệp'}{d.note ? ` • ${d.note}` : ''}</span>
+                      </div>
+                      <StatusBadge kind="dossier" status={d.status} />
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </section>

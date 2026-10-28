@@ -67,6 +67,8 @@ export interface HorsePassport {
 }
 
 export interface Horse {
+  reproductiveStatus?: 'INTACT' | 'NOT_PREGNANT' | 'PREGNANT' | 'GELDED' | null;
+  weight?: number | null;
   unsupportedFields?: string[];
   id: string;
   name: string;
@@ -131,6 +133,9 @@ export interface DeadlineChange {
 }
 
 export interface ContractVersion {
+  versionNo?: number;
+  contractStatus?: string;
+  pdfUrl?: string | null;
   v: number;
   number: string;
   contractId?: string;
@@ -192,11 +197,9 @@ export interface Refund {
 // ---------------------------------------------------------------------------
 // Giấy tờ
 // ---------------------------------------------------------------------------
-/** Giấy tờ chung của đơn */
-export type SharedDocKey = 'invite' | 'raceReg' | 'ataCarnet';
 /** Hồ sơ theo từng ngựa */
 export type HorseDocKey = 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu' | 'health' | 'conditions' | 'vet';
-export type DocKey = SharedDocKey | HorseDocKey;
+export type DocKey = HorseDocKey;
 
 export type DocStatus =
   | 'MISSING'
@@ -208,7 +211,7 @@ export type DocStatus =
   | 'APPROVED'
   | 'ACTION_REQUIRED';
 
-/** Bản ghi giấy tờ đã nộp trong một đơn ('request' = giấy tờ chung, hoặc mã ngựa) */
+/** Bản ghi giấy tờ đã nộp trong một đơn (scope = mã ngựa) */
 export interface DocRecord {
   key: DocKey;
   scope: string;
@@ -346,6 +349,9 @@ export interface RequestRevision {
 }
 
 export interface TransportRequest {
+  editingLocally?: boolean;
+  mode?: TransportMode;
+  purpose?: string | null;
   id: string;
   origin: string;
   destination: string;
@@ -404,6 +410,7 @@ export interface CustomerNotification {
 // DTO & kết quả
 // ---------------------------------------------------------------------------
 export interface TripInfoInput {
+  mode?: TransportMode;
   pickupAt: string;
   origin: string;
   destination: string;

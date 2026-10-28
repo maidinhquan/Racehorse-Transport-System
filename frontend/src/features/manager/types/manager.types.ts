@@ -262,7 +262,7 @@ export interface Staff {
   id: string;
   name: string;
   role: 'TRANSPORT_SPECIALIST' | 'FLEET_ROUTE_COORDINATOR';
-  load: number;
+  load?: number;
 }
 
 export interface RouteStop {

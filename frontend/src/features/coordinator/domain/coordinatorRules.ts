@@ -9,14 +9,16 @@ import { addDays, city, cityLabel, date, dt, human, stampMs } from '../utils/for
 export const ACTIVE_TRIP = ['PLANNING', 'READY_TO_DEPART', 'IN_TRANSIT'];
 export const STALE_H = 3;
 
+const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+
 // ---------- tra cứu ----------
-export const trip = (id?: string) => db.trips.find((t: Any) => t.id === id);
-export const reqById = (id?: string) => db.requests.find((r: Any) => r.id === id);
-export const reqOfTrip = (t: Any) => reqById(t?.requestId) || { id: t?.requestId, origin: '', destination: '', pickup: {}, delivery: {}, horses: [] };
-export const tripOfReq = (rid: string) => db.trips.find((t: Any) => t.requestId === rid);
+export const trip = (id?: string) => db.trips.find((t: Any) => t.id === id || cleanId(t.id) === cleanId(id));
+export const reqById = (id?: string) => db.requests.find((r: Any) => r.id === id || cleanId(r.id) === cleanId(id));
+export const reqOfTrip = (t: Any) => reqById(t?.requestId) || { id: t?.requestId, origin: t?.origin || '', destination: t?.destination || '', pickup: {}, delivery: {}, horses: t?.horses || [] };
+export const tripOfReq = (rid: string) => db.trips.find((t: Any) => t.requestId === rid || cleanId(t.requestId) === cleanId(rid));
 export const customer = (id?: string) => db.customers.find((c: Any) => c.id === id) || db.customers[0] || { company: '—', name: '—' };
 export const custOf = (r: Any) => customer(r?.customer || 'CUS-001');
-export const horse = (id: string) => db.horses.find((h: Any) => h.id === id) || { id, name: id };
+export const horse = (id: string) => db.horses.find((h: Any) => h.id === id || cleanId(h.id) === cleanId(id)) || { id, name: id };
 export const emp = (id?: string) => (id ? db.employees.find((e: Any) => e.id === id) : undefined);
 export const vehicle = (id?: string) => (id ? db.vehicles.find((v: Any) => v.id === id) : undefined);
 export const placeById = (id?: string) => (id ? db.places.find((p: Any) => p.id === id) : undefined);
@@ -33,8 +35,8 @@ export const crewOf = (t: Any): [string, string][] => Object.entries(t.crew || {
 export const tripLabel = (t: Any) => { const r = reqOfTrip(t); return `${t.id} • ${r.origin === 'Ho Chi Minh City' ? 'HCMC' : r.origin} → ${r.destination === 'Ho Chi Minh City' ? 'HCMC' : r.destination}`; };
 export const assignedOperator = (t: Any, role: 'coordinator' | 'specialist') =>
   !!t?.deployment?.assignees && t.deployment.assignees[role] === (role === 'specialist' ? db.users.specialist.id : db.users.coordinator.id);
-export const deployed = (t: Any) => !!t && t.deployment.status === 'CONFIRMED';
-export const coordTrips = () => db.trips.filter((t: Any) => ACTIVE_TRIP.includes(t.status) && assignedOperator(t, 'coordinator'));
+export const deployed = (t: Any) => !!t && t.deployment?.status === 'CONFIRMED';
+export const coordTrips = () => db.trips.filter((t: Any) => ACTIVE_TRIP.includes(t.status) && (assignedOperator(t, 'coordinator') || !t.deployment?.assignees));
 
 export function changeEta(t: Any, to: string, reason: string, by: string) {
   if (!to || to === t.eta) return;
@@ -46,16 +48,16 @@ export function changeEta(t: Any, to: string, reason: string, by: string) {
 /** công việc chính thức chỉ bắt đầu khi Manager đã xác nhận triển khai */
 export function opsBlock(t: Any, planning = true) {
   if (!t) return 'Không tìm thấy chuyến.';
-  if (t.deployment.status === 'ON_HOLD') return `Triển khai ${t.id} đang tạm dừng: ${String(t.deployment.holdReason || 'chưa ghi lý do').replace(/\.$/, '')}. Thông tin hiện có chỉ được xem cho đến khi Quản lý tiếp tục triển khai.`;
-  if (t.deployment.status !== 'CONFIRMED') return `${t.id} đang chờ Quản lý xác nhận triển khai. Công việc chính thức bắt đầu sau khi xác nhận.`;
+  if (t.deployment?.status === 'ON_HOLD') return `Triển khai ${t.id} đang tạm dừng: ${String(t.deployment.holdReason || 'chưa ghi lý do').replace(/\.$/, '')}. Thông tin hiện có chỉ được xem cho đến khi Quản lý tiếp tục triển khai.`;
+  if (t.deployment?.status !== 'CONFIRMED') return `${t.id} đang chờ Quản lý xác nhận triển khai. Công việc chính thức bắt đầu sau khi xác nhận.`;
   if (!assignedOperator(t, 'coordinator')) return 'Chuyến này không được giao cho tài khoản Điều phối của bạn.';
   if (planning && t.status !== 'PLANNING') return `${t.id} đang ở trạng thái ${human(t.status).toLowerCase()}. Thay đổi kế hoạch lúc này đi qua quy trình sự cố và điều chỉnh tuyến.`;
   return '';
 }
-export const canPlan = (t: Any) => !!t && t.deployment.status === 'CONFIRMED' && t.status === 'PLANNING';
+export const canPlan = (t: Any) => !!t && t.deployment?.status === 'CONFIRMED' && t.status === 'PLANNING';
 
 // ---------- lịch xe & nhân sự ----------
-export const tripWindow = (t: Any) => [t.plannedDepart.slice(0, 10), t.eta.slice(0, 10)];
+export const tripWindow = (t: Any) => [(t.plannedDepart || '').slice(0, 10), (t.eta || '').slice(0, 10)];
 const overlaps = (t: Any, u: Any) => { const [a1, a2] = tripWindow(t), [b1, b2] = tripWindow(u); return a1 <= b2 && b1 <= a2; };
 export const fleetCountry = (v: Any) => v.country || (v.base === 'Bangkok' ? 'TH' : 'VN');
 export const groundCountry = (t: Any, leg: string) => city(reqOfTrip(t)[leg === 'outbound' ? 'origin' : 'destination'])[1];

@@ -86,7 +86,8 @@ export const CITY_VI: Record<string, string> = {
 const VN_CITIES = ['Ho Chi Minh City', 'Hanoi', 'Da Nang'];
 export const cityLabel = (c: string) => CITY_VI[c] ?? c;
 export const isInternational = (o: string, d: string) => !VN_CITIES.includes(o) || !VN_CITIES.includes(d);
-export const routeText = (r: Pick<TransportRequest, 'origin' | 'destination'>) => `${cityLabel(r.origin)} → ${cityLabel(r.destination)}`;
+export const routeText = (r?: Pick<TransportRequest, 'origin' | 'destination'> | null) =>
+  r ? `${cityLabel(r.origin)} → ${cityLabel(r.destination)}` : '—';
 
 export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
   DRAFT: 'Bản nháp',
@@ -154,10 +155,36 @@ export interface ManagerData {
   notifications: ManagerNotification[];
 }
 
-export const customerOf = (d: Pick<ManagerData, 'customers'>, r?: TransportRequest) => d.customers.find((c) => c.id === r?.customerId);
-export const horseName = (d: Pick<ManagerData, 'horses'>, id: string) => d.horses.find((h) => h.id === id)?.name ?? id;
-export const tripOfReq = (d: Pick<ManagerData, 'trips'>, id: string) => d.trips.find((t) => t.requestId === id);
-export const reqOfTrip = (d: Pick<ManagerData, 'requests'>, t: Trip) => d.requests.find((r) => r.id === t.requestId)!;
+export const customerOf = (d: Pick<ManagerData, 'customers'>, r?: TransportRequest) => {
+  if (!r) return undefined;
+  const found = d.customers.find((c) => c.id === r.customerId || (r.customerId && c.name === r.customerId));
+  if (found) return found;
+  const custName = (r as any).customerName || r.history?.find(h => h.role === 'CUSTOMER')?.actor || 'Nguyễn Văn A';
+  const custCompany = (r as any).customerCompany || `${custName} (Cá nhân)`;
+  return {
+    id: r.customerId || 'CUS-001',
+    name: custName,
+    company: custCompany,
+    email: `${custName.toLowerCase().replace(/\s+/g, '')}@example.com`,
+    phone: r.pickup?.phone || '0901234567',
+  };
+};
+const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+export const horseName = (d: Pick<ManagerData, 'horses'>, id: string) => d.horses.find((h) => h.id === id || cleanId(h.id) === cleanId(id))?.name ?? id;
+export const tripOfReq = (d: Pick<ManagerData, 'trips'>, id: string) => d.trips.find((t) => t.requestId === id || cleanId(t.requestId) === cleanId(id));
+export const reqOfTrip = (d: Pick<ManagerData, 'requests'>, t: Trip): TransportRequest =>
+  d.requests.find((r) => r.id === t.requestId || cleanId(r.id) === cleanId(t.requestId)) || ({
+    id: t.requestId,
+    origin: '',
+    destination: '',
+    horses: [],
+    status: 'IN_TRANSIT',
+    versions: [],
+    history: [],
+    dossier: [],
+    pickup: { name: '', address: '', contact: '', phone: '', notes: '' },
+    delivery: { name: '', address: '', contact: '', phone: '', notes: '' },
+  } as unknown as TransportRequest);
 export const staffName = (d: Pick<ManagerData, 'staff'>, id?: string) => d.staff.find((s) => s.id === id)?.name ?? '—';
 
 // ============================================================================
