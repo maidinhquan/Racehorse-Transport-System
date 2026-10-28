@@ -23,6 +23,7 @@ const PATHS: Record<string, React.ReactNode> = {
   expand: <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
   users: <><circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-3.3 3.1-6 7-6s7 2.7 7 6" /></>,
+  user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
@@ -119,6 +120,9 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
                       {c.id === me?.id && <Icon name="check" />}
                     </button>
                   ))}
+                  <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); navigate('/driver/profile'); }}>
+                    <Icon name="user" /> Hồ sơ của tôi
+                  </button>
                   <hr />
                   <button type="button" role="menuitem" className="drv-user__logout" onClick={logout}><Icon name="logout" /> Đăng xuất</button>
                 </div>

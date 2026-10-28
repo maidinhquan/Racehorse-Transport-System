@@ -1,22 +1,14 @@
-// Public API của feature Coordinator (Fleet & Route Coordinator)
-export * from './types';
-export * from './api/coordinatorApi';
-export * from './api/coordinatorEndpoints';
-export * from './data/mockData';
-export * from './hooks/useCoordinator';
-export * from './hooks/useCoordinatorFilter';
-export * from './hooks/coordinatorRules';
-export * from './components/TripStatusBadge/TripStatusBadge';
-export * from './components/RouteMap/RouteMap';
-export * from './components/CoordinatorLayout';
-export * from './components/Modals';
-export * from './pages/dashboard/CoordinatorDashboardPage';
-export * from './pages/trips/TripManagementPage';
-export * from './pages/trip-detail/TripDetailPage';
-export * from './pages/fleet/FleetPage';
-export * from './pages/crew/CrewPage';
-export * from './pages/flights/FlightsPage';
-export * from './pages/incidents/IncidentsPage';
-export * from './pages/incident-detail/IncidentDetailPage';
-export * from './pages/monitor/MonitorPage';
-export * from './pages/places/PlacesPage';
+// Public API của feature Coordinator (Điều phối đội xe & tuyến) – giao diện theo bản HTML demo "CBN Transport"
+export { CoordinatorLayout } from './components/layout/CoordinatorLayout';
+export { NotificationsPage as CoordinatorNotificationsPage } from './pages/account/NotificationsPage';
+export { ProfilePage as CoordinatorProfilePage } from './pages/account/ProfilePage';
+export { CrewPage } from './pages/crew/CrewPage';
+export { CoordinatorDashboardPage } from './pages/dashboard/CoordinatorDashboardPage';
+export { FleetPage } from './pages/fleet/FleetPage';
+export { VehicleDetailPage } from './pages/fleet/VehicleDetailPage';
+export { FlightsPage } from './pages/flights/FlightsPage';
+export { IncidentDetailPage } from './pages/incidents/IncidentDetailPage';
+export { IncidentsPage } from './pages/incidents/IncidentsPage';
+export { MonitorPage } from './pages/monitor/MonitorPage';
+export { PlacesPage } from './pages/places/PlacesPage';
+export { TripDetailPage } from './pages/trip-detail/TripDetailPage';

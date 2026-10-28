@@ -89,7 +89,7 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   return (
     <div className="cus-stack">
       {availabilityError && <p role="alert">{availabilityError}</p>}
-      <div className="cus-card">
+      <div className="cus-card cus-wizard__horse-card">
         <div className="cus-wizard__horse-head">
           <div>
             <span className="cus-eyebrow">Thông tin từng ngựa</span>
@@ -171,12 +171,6 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
               errors={draftErrors}
               onClearError={handleClearDraftError}
             />
-            {Object.keys(draftErrors).length > 0 && (
-              <div className="cus-horse-form-page__alert" style={{ marginTop: 16 }} role="alert">
-                <Icon name="alert" />
-                <span>Vui lòng kiểm tra và điền đủ các trường màu đỏ ở trên trước khi lưu hồ sơ.</span>
-              </div>
-            )}
             <div className="cus-btn-row" style={{ justifyContent: 'flex-end' }}>
               <button type="button" className="cus-btn cus-btn--solid" onClick={saveNew}>Lưu ngựa mới & chọn cho vị trí {slot + 1}</button>
             </div>

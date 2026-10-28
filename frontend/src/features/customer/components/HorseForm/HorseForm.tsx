@@ -83,7 +83,12 @@ export const HorseForm: React.FC<HorseFormProps> = ({
   };
 
   const fileCard = (field: FileField | 'scan', empty: string) => {
-    if (field === 'flu' || field === 'health') return <p className="cus-hint">Nộp tài liệu này trong phần hồ sơ của từng ngựa khi tạo yêu cầu vận chuyển.</p>;
+    if (field === 'flu' || field === 'health') return (
+      <div className="cus-horse-form__document-note">
+        <Icon name="file" />
+        <span>Nộp tài liệu này trong hồ sơ của ngựa khi tạo yêu cầu vận chuyển.</span>
+      </div>
+    );
     const file = field === 'scan' ? h.passport.scan : h[field];
     const update = (f?: FileRef) => (field === 'scan' ? setPass('scan', f) : set(field, f));
     return file ? (
@@ -105,20 +110,34 @@ export const HorseForm: React.FC<HorseFormProps> = ({
 
   return (
     <div className="cus-card cus-horse-form">
+      <div className="cus-horse-form__heading">
+        <h3 className="cus-card__title">Thông tin &amp; hồ sơ ngựa</h3>
+        <p className="cus-subtitle">Lưu một lần tại “Ngựa của tôi” để sử dụng khi tạo yêu cầu vận chuyển. Tải tài liệu lên không có nghĩa hồ sơ đã được chuyên viên duyệt.</p>
+      </div>
       <section>
         <h4>01 · Ảnh nhận diện</h4>
         <div className="cus-horse-form__photo">
-          <div
+          <button
+            type="button"
             className="cus-horse-form__thumb"
-            style={{ cursor: h.photo?.url ? 'pointer' : 'default' }}
+            disabled={!h.photo?.url}
+            aria-label={h.photo?.url ? 'Xem ảnh nhận diện ngựa' : 'Chưa có ảnh nhận diện ngựa'}
             title={h.photo?.url ? 'Bấm để xem ảnh phóng to' : undefined}
             onClick={() => {
               if (h.photo) setPreview({ file: h.photo, title: 'Ảnh nhận diện ngựa' });
             }}
           >
-            {h.photo?.url ? <img src={h.photo.url} alt={h.name || 'Ảnh ngựa'} /> : <Icon name="horse" />}
+            {h.photo?.url ? <img src={h.photo.url} alt={h.name || 'Ảnh ngựa'} /> : 'Chưa có ảnh'}
+          </button>
+          <div className="cus-horse-form__photo-info">
+            <b>{h.photo?.name || 'Chưa tải ảnh nhận diện'}</b>
+            <p>Định dạng: JPG, JPEG, PNG · tối đa 10 MB.</p>
+            <div className="cus-horse-form__file-actions">
+              <FilePickButton label={h.photo ? 'Thay ảnh' : 'Tải ảnh lên'} onPick={(file) => set('photo', file)} onError={actions.showToast}
+                types={PHOTO_TYPES} className={`cus-btn cus-btn--sm${h.photo ? '' : ' cus-btn--solid'}`} />
+              {h.photo && <button type="button" className="cus-btn cus-btn--sm cus-btn--danger" onClick={() => set('photo', undefined)}>Xóa ảnh</button>}
+            </div>
           </div>
-          {fileCard('photo', 'Chưa có ảnh')}
         </div>
       </section>
 
@@ -180,6 +199,10 @@ export const HorseForm: React.FC<HorseFormProps> = ({
 
       <section>
         <h4>03 · Hộ chiếu ngựa</h4>
+        <div className="cus-horse-form__section-summary">
+          <p className="cus-subtitle">Thông tin hộ chiếu và bản scan</p>
+          <span className={`cus-horse-form__file-status${h.passport.scan ? ' is-uploaded' : ''}`}>{h.passport.scan ? 'Đã tải bản scan' : 'Chưa tải bản scan'}</span>
+        </div>
         <div className="cus-horse-form__grid">
           <div className={`cus-field ${isBad('passNumber') ? 'has-error' : ''}`}>
             <label htmlFor="hf-pass-no">Số hộ chiếu *</label>
@@ -257,6 +280,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
 
       <section>
         <h4>04 · Chứng nhận sở hữu & giá trị thương mại</h4>
+        <p className="cus-subtitle">Hồ sơ sở hữu và bằng chứng định giá (nếu có)</p>
         {fileCard('ownership', 'Chưa có giấy chứng nhận sở hữu')}
         <div className="cus-horse-form__grid" style={{ marginTop: 12 }}>
           {text('Giá trị khai báo (VND) *', 'value', false, 'number')}
@@ -271,7 +295,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
       </section>
 
       <section>
-        <h4>05 · Tiêm ngừa & sức khỏe</h4>
+        <h4>05 · Hồ sơ tiêm ngừa & sức khỏe</h4>
         <div className="cus-horse-form__grid">
           <div className="cus-field">
             <label htmlFor="hf-flu">Ngày tiêm cúm gần nhất{h.unsupportedFields?.includes('fluDate') && ' (chưa thể lưu trực tuyến)'}</label>

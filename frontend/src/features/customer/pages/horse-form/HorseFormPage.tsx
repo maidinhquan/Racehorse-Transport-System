@@ -59,7 +59,7 @@ export const HorseFormPage: React.FC = () => {
   };
 
   return (
-    <CustomerLayout title="Ngựa của tôi">
+    <CustomerLayout title="Ngựa của tôi" narrow>
       <button type="button" className="cus-back" onClick={() => navigate(back)}><Icon name="back" />{h ? `Quay lại` : 'Ngựa của tôi'}</button>
       <h2 className="cus-title">{h ? 'Sửa hồ sơ ngựa' : 'Thêm ngựa mới'}</h2>
       <p className="cus-subtitle" style={{ marginBottom: 16 }}>
@@ -79,12 +79,6 @@ export const HorseFormPage: React.FC = () => {
           errors={errors}
           onClearError={handleClearError}
         />
-        {Object.keys(errors).length > 0 && (
-          <div className="cus-horse-form-page__alert" style={{ marginTop: 16 }} role="alert">
-            <Icon name="alert" />
-            <span>Vui lòng kiểm tra và điền đủ các trường màu đỏ ở trên trước khi lưu hồ sơ.</span>
-          </div>
-        )}
         <div className="cus-btn-row cus-horse-form-page__actions">
           <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(back)}>Hủy</button>
           <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={save}>{h ? 'Lưu thay đổi' : 'Lưu hồ sơ ngựa'}</button>

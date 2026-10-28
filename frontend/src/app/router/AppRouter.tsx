@@ -65,15 +65,17 @@ import {
 } from "../../features/specialist";
 import {
   CoordinatorDashboardPage,
-  TripManagementPage,
   TripDetailPage as CoordinatorTripDetailPage,
   FleetPage,
+  VehicleDetailPage,
   CrewPage,
   FlightsPage,
   IncidentsPage as CoordinatorIncidentsPage,
   IncidentDetailPage as CoordinatorIncidentDetailPage,
   MonitorPage,
   PlacesPage,
+  CoordinatorNotificationsPage,
+  CoordinatorProfilePage,
 } from "../../features/coordinator";
 import { LandingPage } from "../../features/landing/LandingPage";
 import { RequireAuth } from "../../features/auth/RequireAuth";
@@ -108,10 +110,12 @@ function AppRouter() {
         <Route path="/driver/handover" element={<Navigate to="/driver/journey" replace />} />
         <Route path="/driver/incidents" element={<DriverIncidentsPage />} />
         <Route path="/driver/history" element={<DriverHistoryPage />} />
+        <Route path="/driver/profile" element={<DriverDashboard />} />
 
         {/* ==================== MANAGER ==================== */}
         <Route path="/manager" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><Navigate to="/manager/dashboard" replace /></RequireAuth>} />
         <Route path="/manager/dashboard" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerDashboardPage /></RequireAuth>} />
+        <Route path="/manager/profile" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerDashboardPage /></RequireAuth>} />
         <Route path="/manager/overview" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><Navigate to="/manager/dashboard" replace /></RequireAuth>} />
         <Route path="/manager/requests" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerRequestsPage /></RequireAuth>} />
         <Route path="/manager/requests/:requestId" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerRequestDetailPage /></RequireAuth>} />
@@ -133,20 +137,24 @@ function AppRouter() {
         <Route path="/coordinator" element={<Navigate to="/coordinator/dashboard" replace />} />
         <Route path="/coordinator/dashboard" element={<CoordinatorDashboardPage />} />
         <Route path="/coordinator/overview" element={<Navigate to="/coordinator/dashboard" replace />} />
-        <Route path="/coordinator/trips" element={<TripManagementPage />} />
+        <Route path="/coordinator/trips" element={<Navigate to="/coordinator/monitor" replace />} />
         <Route path="/coordinator/trips/:tripId" element={<CoordinatorTripDetailPage />} />
         <Route path="/coordinator/trips/:tripId/:tab" element={<CoordinatorTripDetailPage />} />
         <Route path="/coordinator/fleet" element={<FleetPage />} />
+        <Route path="/coordinator/fleet/:vehicleId" element={<VehicleDetailPage />} />
         <Route path="/coordinator/crew" element={<CrewPage />} />
         <Route path="/coordinator/flights" element={<FlightsPage />} />
         <Route path="/coordinator/incidents" element={<CoordinatorIncidentsPage />} />
         <Route path="/coordinator/incidents/:incidentId" element={<CoordinatorIncidentDetailPage />} />
         <Route path="/coordinator/monitor" element={<MonitorPage />} />
         <Route path="/coordinator/places" element={<PlacesPage />} />
+        <Route path="/coordinator/notifications" element={<CoordinatorNotificationsPage />} />
+        <Route path="/coordinator/profile" element={<CoordinatorProfilePage />} />
 
         {/* ==================== SPECIALIST ==================== */}
         <Route path="/specialist" element={<Navigate to="/specialist/dashboard" replace />} />
         <Route path="/specialist/dashboard" element={<SpecialistDashboardPage />} />
+        <Route path="/specialist/profile" element={<SpecialistDashboardPage />} />
         <Route path="/specialist/trips" element={<AssignedTripsPage />} />
         <Route path="/specialist/trips/:tripId" element={<SpecialistTripDetailPage />} />
         <Route path="/specialist/trips/:tripId/:tab" element={<SpecialistTripDetailPage />} />

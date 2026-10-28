@@ -1,74 +1,38 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { CoordinatorLayout } from '../../components/CoordinatorLayout';
-import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import { loadCheckpointCatalog, type CheckpointDto } from '../../api/checkpointCatalog';
-import { PLACE_TYPE_LABEL, countryName } from '../../hooks/coordinatorRules';
-import './PlacesPage.css';
+// Quản lý địa điểm: danh mục dùng chung cho lập lộ trình (nghỉ, nhiên liệu, kiểm dịch, cửa khẩu, sân bay)
+import { DataTable, Icon, Pill } from '../../components/common/ui';
+import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
+import type { Any } from '../../store/coordinatorStore';
+import { db, useCoordinatorStore } from '../../store/coordinatorStore';
+import { dt } from '../../utils/format';
+import { PF, PF_COLOR, PLACE_ST, placeDelete, placeEdit, placeStatus, placeUsedIn } from '../../workflows/routePlanner';
 
-/** Quản lý địa điểm: cửa khẩu, sân bay, trạm kiểm dịch, điểm nghỉ dùng khi lập tuyến */
-export const PlacesPage: React.FC = () => {
-  const [items, setItems] = useState<CheckpointDto[]>([]);
-  const [source, setSource] = useState<'demo' | 'api' | ''>('');
-  const [q, setQ] = useState('');
-  const [country, setCountry] = useState('all');
-  const [type, setType] = useState('all');
-
-  useEffect(() => {
-    let alive = true;
-    void loadCheckpointCatalog().then((r) => { if (alive) { setItems(r.items); setSource(r.source); } });
-    return () => { alive = false; };
-  }, []);
-
-  const countries = useMemo(() => [...new Set(items.map((x) => x.country))].sort(), [items]);
-  const types = useMemo(() => [...new Set(items.map((x) => x.type))].sort(), [items]);
-  const rows = items.filter((x) =>
-    (country === 'all' || x.country === country) && (type === 'all' || x.type === type)
-    && (!q.trim() || x.name.toLowerCase().includes(q.trim().toLowerCase())));
-
+export function PlacesPage() {
+  useCoordinatorStore();
+  const countries = [...new Set(db.places.map((p: Any) => p.country))] as string[];
   return (
     <CoordinatorLayout title="Quản lý địa điểm">
-      <div className="crd-head">
-        <div>
-          <h2 className="crd-title">Quản lý địa điểm</h2>
-          <p className="crd-subtitle">Danh mục cửa khẩu, sân bay, trạm kiểm dịch và điểm nghỉ dùng khi lập tuyến. Điểm có toạ độ sẽ được gợi ý khi bạn chấm điểm dừng trên bản đồ.</p>
-        </div>
-        {source && <TripStatusBadge tone={source === 'api' ? 'ok' : 'muted'} label={source === 'api' ? 'Dữ liệu hệ thống' : 'Dữ liệu mẫu'} />}
-      </div>
-
-      <div className="crd-toolbar">
-        <input className="crd-input crd-places__search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm tên địa điểm…" aria-label="Tìm địa điểm" />
-        <select className="crd-select" value={country} onChange={(e) => setCountry(e.target.value)} aria-label="Quốc gia">
-          <option value="all">Tất cả quốc gia</option>
-          {countries.map((c) => <option key={c} value={c}>{countryName(c)}</option>)}
-        </select>
-        <select className="crd-select" value={type} onChange={(e) => setType(e.target.value)} aria-label="Loại địa điểm">
-          <option value="all">Tất cả loại</option>
-          {types.map((t) => <option key={t} value={t}>{PLACE_TYPE_LABEL[t] ?? t}</option>)}
-        </select>
-      </div>
-
-      <div className="crd-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="crd-table-wrap">
-          <table className="crd-table">
-            <thead><tr><th>Mã</th><th>Tên địa điểm</th><th>Loại</th><th>Quốc gia</th><th>Toạ độ</th><th>Trạng thái</th></tr></thead>
-            <tbody>
-              {rows.map((x) => (
-                <tr key={x.checkpointId}>
-                  <td className="crd-strong">{x.checkpointId}</td>
-                  <td>{x.name}</td>
-                  <td>{PLACE_TYPE_LABEL[x.type] ?? x.type}</td>
-                  <td>{countryName(x.country)}</td>
-                  <td className="crd-muted">{x.lat != null && x.lng != null ? `${x.lat.toFixed(4)}, ${x.lng.toFixed(4)}` : 'Chưa có'}</td>
-                  <td><TripStatusBadge tone={x.active ? 'ok' : 'muted'} label={x.active ? 'Đang dùng' : 'Ngừng dùng'} /></td>
-                </tr>
-              ))}
-              {!rows.length && <tr><td colSpan={6} className="crd-empty">{items.length ? 'Không có địa điểm phù hợp.' : 'Đang tải danh mục…'}</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <div className="head"><div><h2 className="page-title">Quản lý địa điểm</h2><p className="subtitle">Danh mục dùng chung cho lập lộ trình: điểm nghỉ, tiếp nhiên liệu, kiểm dịch, cửa khẩu, sân bay. Một địa điểm có thể có nhiều chức năng. Điểm nhận/giao lấy từ yêu cầu khách hàng. <b>Dữ liệu mẫu.</b></p></div>
+        <button type="button" className="btn solid" onClick={() => placeEdit('')}><Icon name="plus" />Thêm địa điểm</button></div>
+      <DataTable id="f-places" rows={db.places} style={{ marginTop: 16 }} search={(p: Any) => [p.name, p.province, p.address, p.country].join(' ')}
+        filters={[
+          { key: 'f', label: 'Mọi chức năng', options: Object.keys(PF).map((k) => [k, PF[k]] as [string, string]), test: (p: Any, v) => p.functions.includes(v) },
+          { key: 'c', label: 'Mọi quốc gia', options: countries.map((c) => [c, c] as [string, string]), test: (p: Any, v) => p.country === v },
+          { key: 's', label: 'Mọi trạng thái', options: Object.keys(PLACE_ST).map((k) => [k, PLACE_ST[k][1]] as [string, string]), test: (p: Any, v) => p.status === v },
+        ]}
+        cols={[
+          { label: 'Địa điểm', sort: (p: Any) => p.name, render: (p: Any) => <><b style={{ color: 'var(--ink)' }}>{p.name}</b><br /><small className="muted">{p.province}, {p.country}{p.sample ? ' • mẫu' : ''}</small></> },
+          { label: 'Chức năng', render: (p: Any) => p.functions.map((fn: string, k: number) => <span key={fn}>{k ? ' ' : null}<span className="pl-fn" style={{ ['--c' as Any]: PF_COLOR[fn] }}>{PF[fn]}</span></span>) },
+          { label: 'Giờ hoạt động', render: (p: Any) => p.hours || '—' },
+          { label: 'Tọa độ', render: (p: Any) => (p.lat != null ? `${Number(p.lat).toFixed(4)}, ${Number(p.lng).toFixed(4)}` : <span className="t-bad">Chưa có</span>) },
+          { label: 'Dùng trong kế hoạch', render: (p: Any) => { const u = placeUsedIn(p); return u.length ? u.map((t: Any) => t.id).join(', ') : '—'; } },
+          { label: 'Trạng thái', render: (p: Any) => <><Pill v={PLACE_ST[p.status][0]} label={PLACE_ST[p.status][1]} /><br /><small className="muted">cập nhật {dt(p.updatedAt)}</small></> },
+          { label: '', render: (p: Any) => <span className="btn-row" style={{ margin: 0, flexWrap: 'nowrap', gap: 6 }}>
+            <button type="button" className="btn ghost sm" onClick={() => placeEdit(p.id)}>Xem/sửa</button>
+            <button type="button" className="btn ghost sm" onClick={() => placeStatus(p.id)}>Trạng thái</button>
+            {placeUsedIn(p).length ? null : <button type="button" className="btn danger sm" onClick={() => placeDelete(p.id)}>Xóa</button>}</span> },
+        ]} />
+      <p className="hint">Địa điểm đã dùng trong lịch sử chuyến không xóa được – chỉ tạm ngừng hoặc ngừng sử dụng. Sức chứa là khả năng tiếp nhận của cơ sở, không phải chỗ trống thời gian thực.</p>
     </CoordinatorLayout>
   );
-};
-
+}
 export default PlacesPage;

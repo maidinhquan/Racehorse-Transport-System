@@ -1,5 +1,5 @@
-.cus-horse-form-page { max-width: 900px; }
-.cus-horse-form-page__actions { justify-content: flex-end; }
+.cus-horse-form-page { width: 100%; min-width: 0; }
+.cus-horse-form-page__actions { justify-content: space-between; gap: 12px; margin-top: 24px; padding-top: 20px; }
 
 .cus-horse-form-page__alert {
   display: flex;

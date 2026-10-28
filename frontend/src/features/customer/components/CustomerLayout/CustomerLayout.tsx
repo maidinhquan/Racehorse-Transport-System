@@ -28,6 +28,7 @@ const PATHS: Record<string, React.ReactNode> = {
   chat: <path d="M4 5h16v11H8l-4 4z" />,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
   chevron: <path d="m6 9 6 6 6-6" />,
+  user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
@@ -40,9 +41,10 @@ export const Icon: React.FC<{ name: string; className?: string }> = ({ name, cla
 interface CustomerLayoutProps {
   title: string;
   children: React.ReactNode;
+  narrow?: boolean;
 }
 
-export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children }) => {
+export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children, narrow = false }) => {
   const navigate = useNavigate();
   const { profile, stats, notifications, toast, actions } = useCustomer();
   const [open, setOpen] = useState(false);
@@ -180,22 +182,13 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children 
                     <div className="cus-user-menu__avatar">{profile.initials}</div>
                     <div className="cus-user-menu__info">
                       <b>{profile.name}</b>
-                      <span>{profile.company}</span>
+                      <span>{profile.company || 'Tài khoản khách hàng'}</span>
                       <small>{profile.email}</small>
                     </div>
                   </div>
                   <div className="cus-user-menu__divider" />
-                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/home'); }}>
-                    <Icon name="home" /> Trang chủ
-                  </button>
-                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/requests'); }}>
-                    <Icon name="file" /> Yêu cầu vận chuyển
-                  </button>
-                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/horses'); }}>
-                    <Icon name="horse" /> Ngựa của tôi
-                  </button>
-                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/history'); }}>
-                    <Icon name="clock" /> Lịch sử & Hóa đơn
+                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/profile'); }}>
+                    <Icon name="user" /> Hồ sơ của tôi
                   </button>
                   <div className="cus-user-menu__divider" />
                   <button type="button" className="cus-user-menu__item cus-user-menu__logout" onClick={handleLogout}>
@@ -209,7 +202,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children 
         <nav className="cus-mobile-nav">
           {NAV.map(([to, label]) => <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}
         </nav>
-        <main className="cus-view">{children}</main>
+        <main className={`cus-view${narrow ? ' cus-view--narrow' : ''}`}>{children}</main>
       </div>
 
       {toast && <div className="cus-toast" role="status" key={toast.id}>{toast.message}</div>}

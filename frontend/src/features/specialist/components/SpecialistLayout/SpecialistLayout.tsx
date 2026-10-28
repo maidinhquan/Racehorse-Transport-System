@@ -26,6 +26,7 @@ const PATHS: Record<string, React.ReactNode> = {
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
   download: <path d="M12 4v12M7 11l5 5 5-5M5 20h14" />,
   chevron: <path d="m6 9 6 6 6-6" />,
+  user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
@@ -125,14 +126,8 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
                     </div>
                   </div>
                   <div className="spc-user-menu__divider" />
-                  <button type="button" className="spc-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/specialist/dashboard'); }}>
-                    <Icon name="home" /> Tổng quan
-                  </button>
-                  <button type="button" className="spc-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/specialist/trips'); }}>
-                    <Icon name="truck" /> Chuyến được giao
-                  </button>
-                  <button type="button" className="spc-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/specialist/regulations'); }}>
-                    <Icon name="list" /> Quy định & thiết lập
+                  <button type="button" className="spc-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/specialist/profile'); }}>
+                    <Icon name="user" /> Hồ sơ của tôi
                   </button>
                   <div className="spc-user-menu__divider" />
                   <button type="button" className="spc-user-menu__item spc-user-menu__logout" onClick={handleLogout}>

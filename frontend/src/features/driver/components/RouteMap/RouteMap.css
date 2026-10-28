@@ -1,10 +1,13 @@
+/* ── Wrapper ───────────────────────────────────────────── */
 .drv-geo-map {
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--bg-surface, #fff);
+  position: relative;
 }
 
+/* ── Canvas ────────────────────────────────────────────── */
 .drv-geo-map .drv-geo-map__canvas {
   width: 100%;
   position: relative;
@@ -13,6 +16,118 @@
   background: #e2e8f0;
 }
 
+/* ── Canvas clips at bottom to merge with toolbar ──────── */
+.drv-geo-map .drv-geo-map__canvas {
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+}
+
+/* ── Toolbar row (below canvas) ────────────────────────── */
+.drv-geo-map__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-surface, #fff);
+}
+
+/* ── Fullscreen button inside toolbar ──────────────────── */
+.drv-geo-map__fullscreen-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.drv-geo-map__fullscreen-btn:hover {
+  background: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transform: translateY(-1px);
+}
+.drv-geo-map__fullscreen-btn svg { flex-shrink: 0; }
+
+/* ── Fullscreen overlay ────────────────────────────────── */
+.drv-geo-map-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+}
+
+.drv-geo-map-overlay__canvas {
+  flex: 1;
+  position: relative;
+}
+
+.drv-geo-map-overlay__canvas .leaflet-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* Close button */
+.drv-geo-map-overlay__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(15,23,42,0.85);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 10px;
+  color: #f1f5f9;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transition: background 0.15s, transform 0.1s;
+}
+.drv-geo-map-overlay__close:hover {
+  background: rgba(239,68,68,0.8);
+  transform: translateY(-1px);
+}
+.drv-geo-map-overlay__close kbd {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.1);
+  font-family: inherit;
+}
+
+/* Footer bar in fullscreen */
+.drv-geo-map-overlay__footer {
+  padding: 10px 16px;
+  background: rgba(15,23,42,0.9);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  color: #94a3b8;
+  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: center;
+}
+.drv-geo-map-overlay__footer span {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.drv-geo-map-overlay__footer i {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+
+/* ── Legend & notices (normal mode) ───────────────────── */
 .drv-geo-map .drv-geo-map__legend {
   display: flex;
   flex-wrap: wrap;

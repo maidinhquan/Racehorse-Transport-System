@@ -1,2 +1,0 @@
-.crd-places__search { width: 280px; max-width: 100%; }
-@media (max-width: 600px) { .crd-places__search, .crd-toolbar .crd-select { width: 100%; } }

@@ -1,8 +1,0 @@
-.crd-inc-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 16px; align-items: start; }
-.crd-inc-grid .crd-stack > .crd-card + .crd-card { margin-top: 16px; }
-.crd-inc-plan { border: 1px solid var(--crd-line); border-radius: 12px; padding: 14px; }
-.crd-inc-plan + .crd-inc-plan { margin-top: 10px; }
-.crd-inc-plan.ok { border-color: #86efac; background: #f0fdf4; }
-[data-theme="dark"] .crd-inc-plan.ok { background: rgba(34, 197, 94, .06); border-color: rgba(34, 197, 94, .3); }
-.crd-detail__title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-@media (max-width: 900px) { .crd-inc-grid { grid-template-columns: 1fr; } }
