@@ -11,6 +11,7 @@ namespace Application.Interfaces
 
         // 1. Capabilities & System Policies (F3-J01)
         Task<CapabilitiesDto> GetFlow3CapabilitiesAsync();
+        Task<CapabilitiesDto> GetCapabilitiesAsync() => GetFlow3CapabilitiesAsync();
 
         // 2. Context & Queue V2 (F3-J02, J04, J10, J23, J24)
         Task<TripContextDto> GetTripContextAsync(string tripId, string role);

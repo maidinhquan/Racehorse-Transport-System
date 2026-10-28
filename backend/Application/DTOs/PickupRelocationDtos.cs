@@ -28,6 +28,9 @@ namespace Application.DTOs
         [JsonPropertyName("result")]
         public string Result { get; set; } = "ACCESSIBLE"; // ACCESSIBLE, INACCESSIBLE
 
+        [JsonPropertyName("accessResult")]
+        public string? AccessResult { set { if (!string.IsNullOrEmpty(value)) Result = value; } }
+
         [JsonPropertyName("proof")]
         public string Proof { get; set; } = string.Empty;
 

@@ -41,6 +41,9 @@ namespace Application.DTOs
 
         [JsonPropertyName("planVersion")]
         public int PlanVersion { get; set; }
+
+        [JsonPropertyName("plan")]
+        public PlanDto? Plan { get; set; }
     }
 
     public class ReasonCommandDto

@@ -52,7 +52,7 @@ namespace Infrastructure.Services
             if (horseCount <= 0) horseCount = 2;
 
             bool hasAirLeg = trip.RouteSegments.Any(s => s.TransportMode == "AIR") ||
-                             (trip.Request != null && trip.Request.Destination.Contains("Tokyo", StringComparison.OrdinalIgnoreCase)) ||
+                             (trip.Request?.Destination?.Contains("Tokyo", StringComparison.OrdinalIgnoreCase) == true) ||
                              cleanTripId.Equals("TRIP_2026_001", StringComparison.OrdinalIgnoreCase);
 
             var flightBooking = hasAirLeg
@@ -415,6 +415,7 @@ namespace Infrastructure.Services
         {
             var cleanTripId = tripId?.Trim() ?? string.Empty;
             var trip = await _context.TripPlans
+                .Include(t => t.Request)
                 .Include(t => t.VehicleAssignments)
                 .FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
 
@@ -425,7 +426,7 @@ namespace Infrastructure.Services
                 throw new InvalidOperationException($"STALE_VERSION: Phiên bản chuyến đi đã thay đổi ({trip.Version} != {dto.ExpectedVersion}).");
             }
 
-            bool isAir = trip.Request?.TransportType?.Contains("AIR") == true;
+            bool isAir = IsAirTrip(trip);
 
             // Kiểm tra quy định AIR: Chỉ confirm sau khi plan đã APPROVED và chuyến bay đã BOOKED
             if (isAir)
@@ -525,14 +526,14 @@ namespace Infrastructure.Services
 
             if (trip == null) throw new KeyNotFoundException($"Không tìm thấy chuyến đi {tripId}");
 
-            bool isAir = trip.Request?.TransportType?.Contains("AIR") == true;
+            bool isAir = IsAirTrip(trip);
             bool planApproved = trip.RouteStatus == "APPROVED" || !string.IsNullOrWhiteSpace(trip.ApprovedPlanJson);
             bool noOpenChange = !trip.OpenChange;
             bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue;
             bool opsReady = trip.OperationsStatus == "READY" || (trip.ResourcesConfirmedAt.HasValue && planApproved);
 
             DateTime? plannedDepart = trip.Request?.ExpectedDate ?? trip.EarliestDepartureDate;
-            bool timeNotExpired = !plannedDepart.HasValue || plannedDepart.Value >= DateTime.UtcNow.AddHours(-1);
+            bool timeNotExpired = !plannedDepart.HasValue || plannedDepart.Value >= DateTime.UtcNow.AddHours(-1) || trip.Status == "READY_TO_DEPART" || trip.Status == "PENDING_APPROVAL";
 
             var checks = new List<ReadinessCheckDto>
             {

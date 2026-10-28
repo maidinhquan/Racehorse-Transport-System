@@ -1,13 +1,61 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Application.DTOs
 {
+    public class StringListOrSingleConverter : JsonConverter<List<string>>
+    {
+        public override List<string> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                var str = reader.GetString();
+                if (string.IsNullOrWhiteSpace(str)) return new List<string>();
+                return str.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                          .Select(s => s.Trim())
+                          .ToList();
+            }
+
+            if (reader.TokenType == JsonTokenType.StartArray)
+            {
+                var list = new List<string>();
+                while (reader.Read())
+                {
+                    if (reader.TokenType == JsonTokenType.EndArray)
+                        break;
+                    if (reader.TokenType == JsonTokenType.String)
+                    {
+                        var s = reader.GetString();
+                        if (s != null) list.Add(s);
+                    }
+                }
+                return list;
+            }
+
+            return new List<string>();
+        }
+
+        public override void Write(Utf8JsonWriter writer, List<string> value, JsonSerializerOptions options)
+        {
+            writer.WriteStartArray();
+            if (value != null)
+            {
+                foreach (var item in value)
+                {
+                    writer.WriteStringValue(item);
+                }
+            }
+            writer.WriteEndArray();
+        }
+    }
+
     public class StopInputDto
     {
         [JsonPropertyName("placeId")]
         public string PlaceId { get; set; } = string.Empty;
 
         [JsonPropertyName("purposes")]
+        [JsonConverter(typeof(StringListOrSingleConverter))]
         public List<string> Purposes { get; set; } = new();
 
         [JsonPropertyName("dwellMin")]
@@ -32,6 +80,7 @@ namespace Application.DTOs
         public string? PlaceId { get; set; }
 
         [JsonPropertyName("purposes")]
+        [JsonConverter(typeof(StringListOrSingleConverter))]
         public List<string> Purposes { get; set; } = new();
 
         [JsonPropertyName("dwellMin")]
@@ -62,15 +111,68 @@ namespace Application.DTOs
         public int? PlaceVersion { get; set; }
     }
 
+    public class CrewDtoConverter : JsonConverter<CrewDto>
+    {
+        public override CrewDto Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var crew = new CrewDto();
+            if (reader.TokenType != JsonTokenType.StartObject)
+            {
+                return crew;
+            }
+
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.EndObject)
+                    break;
+
+                if (reader.TokenType == JsonTokenType.PropertyName)
+                {
+                    var propName = reader.GetString()?.ToLowerInvariant();
+                    reader.Read();
+                    var propValue = reader.GetString();
+
+                    if (propName != null)
+                    {
+                        if (propName.Contains("main") || propName == "maindriver" || propName == "main_driver")
+                        {
+                            crew.MainDriver = propValue;
+                        }
+                        else if (propName.Contains("co") || propName == "codriver" || propName == "co_driver")
+                        {
+                            crew.CoDriver = propValue;
+                        }
+                        else if (propName.Contains("vet") || propName == "escort")
+                        {
+                            crew.Veterinarian = propValue;
+                        }
+                    }
+                }
+            }
+
+            return crew;
+        }
+
+        public override void Write(Utf8JsonWriter writer, CrewDto value, JsonSerializerOptions options)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("mainDriver", value.MainDriver ?? string.Empty);
+            writer.WriteString("coDriver", value.CoDriver ?? string.Empty);
+            writer.WriteString("veterinarian", value.Veterinarian ?? string.Empty);
+            writer.WriteEndObject();
+        }
+    }
+
+    [JsonConverter(typeof(CrewDtoConverter))]
     public class CrewDto
     {
-        [JsonPropertyName("MAIN_DRIVER")]
+        [JsonPropertyName("mainDriver")]
         public string? MainDriver { get; set; }
 
-        [JsonPropertyName("CO_DRIVER")]
+        [JsonPropertyName("coDriver")]
         public string? CoDriver { get; set; }
 
-        [JsonPropertyName("VETERINARIAN")]
+        [JsonPropertyName("veterinarian")]
         public string? Veterinarian { get; set; }
     }
 

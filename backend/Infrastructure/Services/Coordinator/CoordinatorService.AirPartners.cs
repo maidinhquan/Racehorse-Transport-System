@@ -31,7 +31,7 @@ namespace Infrastructure.Services
                 Services = "Vận chuyển ngựa thi đấu quốc tế bằng máy bay chuyên dụng",
                 Status = p.Status,
                 Sample = true,
-                UpdatedAt = p.UpdatedAtUtc.ToString("yyyy-MM-dd HH:mm")
+                UpdatedAt = (p.UpdatedAt ?? p.CreatedAt).ToString("yyyy-MM-dd HH:mm")
             }).ToList();
         }
 
@@ -51,7 +51,7 @@ namespace Infrastructure.Services
                 Services = "Vận chuyển ngựa quốc tế",
                 Status = partner.Status,
                 Sample = true,
-                UpdatedAt = partner.UpdatedAtUtc.ToString("yyyy-MM-dd HH:mm")
+                UpdatedAt = (partner.UpdatedAt ?? partner.CreatedAt).ToString("yyyy-MM-dd HH:mm")
             };
         }
 
@@ -66,8 +66,8 @@ namespace Infrastructure.Services
                 ContactEmail = dto.Email,
                 ContactPhone = dto.Phone,
                 Status = "ACTIVE",
-                CreatedAtUtc = DateTime.UtcNow,
-                UpdatedAtUtc = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
             _context.AirPartners.Add(partner);
@@ -84,7 +84,7 @@ namespace Infrastructure.Services
                 Services = dto.Services,
                 Status = partner.Status,
                 Sample = false,
-                UpdatedAt = partner.UpdatedAtUtc.ToString("yyyy-MM-dd HH:mm")
+                UpdatedAt = (partner.UpdatedAt ?? partner.CreatedAt).ToString("yyyy-MM-dd HH:mm")
             };
         }
 
@@ -99,7 +99,7 @@ namespace Infrastructure.Services
             partner.PartnerName = dto.Name;
             partner.ContactEmail = dto.Email;
             partner.ContactPhone = dto.Phone;
-            partner.UpdatedAtUtc = DateTime.UtcNow;
+            partner.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
@@ -114,7 +114,7 @@ namespace Infrastructure.Services
                 Services = dto.Services,
                 Status = partner.Status,
                 Sample = false,
-                UpdatedAt = partner.UpdatedAtUtc.ToString("yyyy-MM-dd HH:mm")
+                UpdatedAt = (partner.UpdatedAt ?? partner.CreatedAt).ToString("yyyy-MM-dd HH:mm")
             };
         }
 
@@ -127,7 +127,7 @@ namespace Infrastructure.Services
             }
 
             partner.Status = dto.Status;
-            partner.UpdatedAtUtc = DateTime.UtcNow;
+            partner.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
@@ -142,7 +142,7 @@ namespace Infrastructure.Services
                 Services = "Vận chuyển ngựa",
                 Status = partner.Status,
                 Sample = false,
-                UpdatedAt = partner.UpdatedAtUtc.ToString("yyyy-MM-dd HH:mm")
+                UpdatedAt = (partner.UpdatedAt ?? partner.CreatedAt).ToString("yyyy-MM-dd HH:mm")
             };
         }
 
@@ -199,17 +199,17 @@ namespace Infrastructure.Services
                 OriginAirportPlaceName = f.OriginAirportPlaceId.Contains("SGN") ? "Sân bay Quốc tế Tân Sơn Nhất (SGN)" : "Sân bay Nội Bài (HAN)",
                 DestAirportPlaceId = f.DestAirportPlaceId,
                 DestAirportPlaceName = "Sân bay Quốc tế Narita (NRT)",
-                DepartureTime = f.DepartureTime.ToString("yyyy-MM-dd HH:mm"),
-                ArrivalTime = f.ArrivalTime.ToString("yyyy-MM-dd HH:mm"),
+                DepartureTime = f.DepartureTime,
+                ArrivalTime = f.ArrivalTime,
                 DepartureTimeZone = f.DepartureTimeZone ?? "Asia/Ho_Chi_Minh",
                 ArrivalTimeZone = f.ArrivalTimeZone ?? "Asia/Tokyo",
-                DurationMinutes = (int)(f.ArrivalTime - f.DepartureTime).TotalMinutes,
+                DurationMinutes = (TimeSpan.TryParse(f.ArrivalTime, out var arr) && TimeSpan.TryParse(f.DepartureTime, out var dep)) ? (int)(arr - dep).TotalMinutes : 360,
                 PriceVnd = f.PriceVnd,
                 CapacityHorses = f.CapacityHorses,
                 CareProvider = f.CareProvider ?? "AIRLINE",
                 DirectFlight = f.DirectFlight,
                 Sample = true,
-                UpdatedAt = f.UpdatedAtUtc.ToString("yyyy-MM-dd HH:mm")
+                UpdatedAt = f.CreatedAt.ToString("yyyy-MM-dd HH:mm")
             }).ToList();
         }
 
@@ -217,7 +217,11 @@ namespace Infrastructure.Services
         {
             var flight = await _context.FlightCatalogs
                 .Include(f => f.Partner)
-                .FirstOrDefaultAsync(f => f.PartnerId == partnerId && f.ProviderFlightCode == providerFlightCode);
+                .FirstOrDefaultAsync(f =>
+                    (f.PartnerId == partnerId && f.ProviderFlightCode == providerFlightCode) ||
+                    f.ProviderFlightCode == providerFlightCode ||
+                    f.ServiceId == providerFlightCode ||
+                    f.PartnerId == partnerId);
 
             if (flight == null) return null;
 
@@ -230,11 +234,11 @@ namespace Infrastructure.Services
                 Airline = flight.Airline,
                 ProviderFlightCode = flight.ProviderFlightCode,
                 OriginAirportPlaceId = flight.OriginAirportPlaceId,
-                OriginAirportPlaceName = "Sân bay Tân Sơn Nhất (SGN)",
+                OriginAirportPlaceName = flight.OriginAirportPlaceId.Contains("SGN") ? "Sân bay Quốc tế Tân Sơn Nhất (SGN)" : "Sân bay Quốc tế Nội Bài (HAN)",
                 DestAirportPlaceId = flight.DestAirportPlaceId,
-                DestAirportPlaceName = "Sân bay Narita (NRT)",
-                DepartureTime = flight.DepartureTime.ToString("yyyy-MM-dd HH:mm"),
-                ArrivalTime = flight.ArrivalTime.ToString("yyyy-MM-dd HH:mm"),
+                DestAirportPlaceName = "Sân bay Quốc tế Narita (NRT)",
+                DepartureTime = flight.DepartureTime,
+                ArrivalTime = flight.ArrivalTime,
                 PriceVnd = flight.PriceVnd,
                 CapacityHorses = flight.CapacityHorses,
                 DirectFlight = flight.DirectFlight
@@ -251,10 +255,11 @@ namespace Infrastructure.Services
                 throw new KeyNotFoundException($"Không tìm thấy chuyến đi có mã {tripId}");
             }
 
-            var flight = await LookupFlightAsync(dto.PartnerId, dto.ProviderFlightCode);
+            string lookupCode = !string.IsNullOrEmpty(dto.ProviderFlightCode) ? dto.ProviderFlightCode : dto.ServiceId;
+            var flight = await LookupFlightAsync(dto.PartnerId, lookupCode);
             if (flight == null)
             {
-                throw new KeyNotFoundException($"Không tìm thấy chuyến bay {dto.ProviderFlightCode} của đối tác {dto.PartnerId}");
+                throw new KeyNotFoundException($"Không tìm thấy chuyến bay {lookupCode} của đối tác {dto.PartnerId}");
             }
 
             PlanDto plan = !string.IsNullOrWhiteSpace(trip.DraftPlanJson)

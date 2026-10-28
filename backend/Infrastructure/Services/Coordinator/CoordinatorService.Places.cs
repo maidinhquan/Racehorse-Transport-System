@@ -16,7 +16,7 @@ namespace Infrastructure.Services
 
             if (!string.IsNullOrEmpty(country))
             {
-                query = query.Where(f => f.Country == country);
+                query = query.Where(f => f.CountryCode == country);
             }
 
             if (!string.IsNullOrEmpty(status))
@@ -31,7 +31,7 @@ namespace Infrastructure.Services
 
             if (!string.IsNullOrEmpty(q))
             {
-                query = query.Where(f => f.FacilityName.Contains(q) || (f.Address != null && f.Address.Contains(q)));
+                query = query.Where(f => f.Name.Contains(q) || (f.Address != null && f.Address.Contains(q)));
             }
 
             var facilities = await query.ToListAsync();
@@ -59,7 +59,7 @@ namespace Infrastructure.Services
                     double distM = CalculateHaversineDistanceM(dto.Geo.Lat, dto.Geo.Lng, (double)f.Latitude!.Value, (double)f.Longitude!.Value);
                     if (distM < 50.0)
                     {
-                        throw new InvalidOperationException($"DUPLICATE_COORDINATES: Tọa độ nhập vào cách cơ sở '{f.FacilityName}' ({f.FacilityId}) chỉ {distM:F1}m (vi phạm quy tắc chống trùng 50m)!");
+                        throw new InvalidOperationException($"DUPLICATE_COORDINATES: Tọa độ nhập vào cách cơ sở '{f.Name}' ({f.FacilityId}) chỉ {distM:F1}m (vi phạm quy tắc chống trùng 50m)!");
                     }
                 }
             }
@@ -68,8 +68,8 @@ namespace Infrastructure.Services
             var facility = new PartnerFacility
             {
                 FacilityId = newId,
-                FacilityName = dto.Name,
-                Country = dto.Country,
+                Name = dto.Name,
+                CountryCode = dto.Country,
                 City = dto.Province,
                 Address = dto.Address,
                 Purposes = string.Join(",", dto.Functions),
@@ -83,9 +83,7 @@ namespace Infrastructure.Services
                 HasStabling = dto.Rest?.HasStabling ?? true,
                 HasWaterFeed = dto.Rest?.HasWater ?? true,
                 Latitude = dto.Geo != null ? (decimal)dto.Geo.Lat : null,
-                Longitude = dto.Geo != null ? (decimal)dto.Geo.Lng : null,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                Longitude = dto.Geo != null ? (decimal)dto.Geo.Lng : null
             };
 
             _context.PartnerFacilities.Add(facility);
@@ -102,8 +100,8 @@ namespace Infrastructure.Services
                 throw new KeyNotFoundException($"Không tìm thấy địa điểm {placeId}");
             }
 
-            facility.FacilityName = dto.Name;
-            facility.Country = dto.Country;
+            facility.Name = dto.Name;
+            facility.CountryCode = dto.Country;
             facility.City = dto.Province;
             facility.Address = dto.Address;
             facility.Purposes = string.Join(",", dto.Functions);
@@ -121,7 +119,6 @@ namespace Infrastructure.Services
                 facility.HasStabling = dto.Rest.HasStabling;
                 facility.HasWaterFeed = dto.Rest.HasWater;
             }
-            facility.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
             return MapFacilityToPlaceDto(facility);
@@ -136,7 +133,6 @@ namespace Infrastructure.Services
             }
 
             facility.Status = dto.Status;
-            facility.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
             return MapFacilityToPlaceDto(facility);
@@ -154,7 +150,7 @@ namespace Infrastructure.Services
             bool isReferenced = await _context.TripPlans.AnyAsync(t => t.EffectiveOriginPlaceId == placeId);
             if (isReferenced)
             {
-                throw new InvalidOperationException($"CANNOT_DELETE_PLACE: Địa điểm '{facility.FacilityName}' đang được sử dụng làm điểm đón trong kế hoạch vận chuyển!");
+                throw new InvalidOperationException($"CANNOT_DELETE_PLACE: Địa điểm '{facility.Name}' đang được sử dụng làm điểm đón trong kế hoạch vận chuyển!");
             }
 
             _context.PartnerFacilities.Remove(facility);
@@ -174,8 +170,8 @@ namespace Infrastructure.Services
             {
                 Id = f.FacilityId,
                 Version = 1,
-                Name = f.FacilityName,
-                Country = f.Country ?? "VN",
+                Name = f.Name,
+                Country = f.CountryCode ?? "VN",
                 Province = f.City ?? "TP. Hồ Chí Minh",
                 Address = f.Address ?? "Địa chỉ",
                 Geo = new GeoDto { Lat = (double)(f.Latitude ?? 10.7769m), Lng = (double)(f.Longitude ?? 106.7009m) },
@@ -186,7 +182,7 @@ namespace Infrastructure.Services
                 Notes = f.FacilityType ?? string.Empty,
                 Status = f.Status ?? "ACTIVE",
                 Sample = true,
-                UpdatedAt = f.UpdatedAt?.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
+                UpdatedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
                 Rest = functions.Contains("REST") ? new RestFacilitiesDto
                 {
                     ParkingStalls = 10,
@@ -232,4 +228,3 @@ namespace Infrastructure.Services
         private static double ToRadians(double deg) => deg * (Math.PI / 180);
     }
 }
-

@@ -39,8 +39,29 @@ namespace Infrastructure.Services
                 || trip?.RouteSegments.Any(s => s.TransportMode == "AIR") == true
                 || tripId == "TRIP_2026_001";
 
-            var vaVn = trip?.VehicleAssignments.FirstOrDefault(v => !v.VehicleId.Contains("_JP_"));
-            var vaJp = trip?.VehicleAssignments.FirstOrDefault(v => v.VehicleId.Contains("_JP_"));
+            var vaVn = trip?.VehicleAssignments.FirstOrDefault(v => v.LegNumber == 1 || v.LegType == "OUTBOUND" || (!string.IsNullOrEmpty(v.VehicleId) && !v.VehicleId.Contains("_JP_")));
+            var vaJp = trip?.VehicleAssignments.FirstOrDefault(v => v.LegNumber == 2 || v.LegType == "INBOUND" || (!string.IsNullOrEmpty(v.VehicleId) && v.VehicleId.Contains("_JP_")));
+
+            // Lấy dữ liệu mặc định từ database (Dataset) thay vì hardcode chuỗi tĩnh
+            var defaultVnVeh = await _context.Vehicles.FirstOrDefaultAsync(v => v.OperatingCountry == "VN" || !v.VehicleId.Contains("_JP_"));
+            var defaultVnDrivers = await _context.Users.Where(u => u.IsActive && (u.Role == "Driver" || u.Role == "STAFF") && !u.UserId.Contains("_JP_")).Take(2).ToListAsync();
+            var defaultVnVet = await _context.Users.FirstOrDefaultAsync(u => u.IsActive && (u.Role == "Escort" || u.Role == "Specialist" || u.Role == "STAFF") && !u.UserId.Contains("_JP_"));
+
+            var vnVehId = vaVn?.VehicleId ?? defaultVnVeh?.VehicleId ?? "VEH_BOX_01";
+            var vnPlate = vaVn?.Vehicle?.PlateNumber ?? defaultVnVeh?.PlateNumber ?? "51C-101.45";
+            var vnDriverId = vaVn?.DriverId ?? defaultVnDrivers.FirstOrDefault()?.UserId ?? "USR_DRV_01";
+            var vnCoDriverId = vaVn?.CoDriverId ?? (defaultVnDrivers.Count > 1 ? defaultVnDrivers[1].UserId : "USR_DRV_02");
+            var vnVetId = vaVn?.VeterinarianId ?? vaVn?.EscortId ?? defaultVnVet?.UserId ?? "USR_ESC_01";
+
+            var defaultJpVeh = await _context.Vehicles.FirstOrDefaultAsync(v => v.OperatingCountry == "JP" || v.VehicleId.Contains("_JP_"));
+            var defaultJpDrivers = await _context.Users.Where(u => u.IsActive && (u.Role == "Driver" || u.Role == "STAFF") && u.UserId.Contains("_JP_")).Take(2).ToListAsync();
+            var defaultJpVet = await _context.Users.FirstOrDefaultAsync(u => u.IsActive && (u.Role == "Escort" || u.Role == "Specialist" || u.Role == "STAFF") && u.UserId.Contains("_JP_"));
+
+            var jpVehId = vaJp?.VehicleId ?? defaultJpVeh?.VehicleId ?? "VEH_JP_01";
+            var jpPlate = vaJp?.Vehicle?.PlateNumber ?? defaultJpVeh?.PlateNumber ?? "品川 300 あ 12-34";
+            var jpDriverId = vaJp?.DriverId ?? defaultJpDrivers.FirstOrDefault()?.UserId ?? "USR_DRV_JP_01";
+            var jpCoDriverId = vaJp?.CoDriverId ?? (defaultJpDrivers.Count > 1 ? defaultJpDrivers[1].UserId : "USR_DRV_JP_02");
+            var jpVetId = vaJp?.VeterinarianId ?? vaJp?.EscortId ?? defaultJpVet?.UserId ?? "USR_ESC_JP_01";
 
             var flightBooking = await _context.FlightBookings
                 .Where(fb => fb.TripId == tripId)
@@ -53,6 +74,8 @@ namespace Infrastructure.Services
             legs.Add(new LegAssignmentDto
             {
                 LegId = 51,
+                LegNumber = 1,
+                LegType = "OUTBOUND",
                 Sequence = 1,
                 Mode = "ROAD",
                 Country = "VN",
@@ -72,6 +95,8 @@ namespace Infrastructure.Services
                             new() { UserId = vnCoDriverId, AssignmentRole = "CO_DRIVER" },
                             new() { UserId = vnVetId, AssignmentRole = "VETERINARIAN" }
                         }
+                    }
+                }
             });
 
             if (isInternational)
@@ -80,6 +105,8 @@ namespace Infrastructure.Services
                 legs.Add(new LegAssignmentDto
                 {
                     LegId = 52,
+                    LegNumber = 2,
+                    LegType = "AIR",
                     Sequence = 2,
                     Mode = "AIR",
                     Country = "INTL",
@@ -92,6 +119,8 @@ namespace Infrastructure.Services
                 legs.Add(new LegAssignmentDto
                 {
                     LegId = 53,
+                    LegNumber = 3,
+                    LegType = "INBOUND",
                     Sequence = 3,
                     Mode = "ROAD",
                     Country = "JP",
@@ -111,6 +140,8 @@ namespace Infrastructure.Services
                                 new() { UserId = jpCoDriverId, AssignmentRole = "CO_DRIVER" },
                                 new() { UserId = jpVetId, AssignmentRole = "VETERINARIAN" }
                             }
+                        }
+                    }
                 });
             }
 
@@ -166,6 +197,7 @@ namespace Infrastructure.Services
                             {
                                 errors.Add(new AssignmentErrorDto { Code = "RESOURCE_COUNTRY_NOT_ELIGIBLE", LegId = leg.LegId, Message = $"Xe {v.VehicleId} đăng ký tại Nhật Bản không thể dùng cho chặng đón tại Việt Nam (VN)!" });
                             }
+                        }
 
                         if (string.IsNullOrEmpty(v.MainDriverId))
                         {
@@ -193,12 +225,16 @@ namespace Infrastructure.Services
                         {
                             errors.Add(new AssignmentErrorDto { Code = "INDEPENDENT_ROLES_VIOLATION", LegId = leg.LegId, Message = $"Tại chặng {leg.LegId}: Phụ lái và Bác sĩ thú y không được trùng nhau!" });
                         }
+                    }
+                }
                 else if (leg.Mode == "AIR")
                 {
                     if (leg.FlightBookingId == null || leg.FlightBookingId == 0)
                     {
                         errors.Add(new AssignmentErrorDto { Code = "FLIGHT_BOOKING_REQUIRED", LegId = leg.LegId, Message = "Chặng hàng không (AIR) bắt buộc phải có thông tin đặt vé máy bay đã xác nhận!" });
                     }
+                }
+            }
 
             // KIỂM TRA ĐỘC LẬP TÀI NGUYÊN GIỮA HAI CHẶNG ĐƯỜNG BỘ VN VÀ JP (Phương án B)
             if (outboundVeh != null && inboundVeh != null)
@@ -216,6 +252,7 @@ namespace Infrastructure.Services
                 {
                     errors.Add(new AssignmentErrorDto { Code = "STAFF_CROSS_LEG_CONFLICT", Message = $"Phương án B: Nhân sự chặng Việt Nam không được trùng với nhân sự chặng Nhật Bản! ({string.Join(", ", overlapping)})" });
                 }
+            }
 
             return Task.FromResult(new ValidateAssignmentsResponseDto
             {
@@ -255,7 +292,7 @@ namespace Infrastructure.Services
                     {
                         AssignmentId = "ASG_" + Guid.NewGuid().ToString("N")[..8].ToUpper(),
                         TripId = tripId,
-                        LegNumber = leg.LegNumber,
+                        LegNumber = leg.LegNumber > 0 ? leg.LegNumber : (leg.Country == "JP" ? 2 : 1),
                         LegType = leg.LegType ?? (leg.LegNumber == 2 || leg.Country == "JP" ? "INBOUND" : "OUTBOUND"),
                         VehicleId = v.VehicleId,
                         DriverId = v.MainDriverId ?? (leg.Country == "JP" ? "USR_DRV_JP_01" : "USR_DRV_01"),
@@ -270,6 +307,8 @@ namespace Infrastructure.Services
                     {
                         vehicleEntity.Status = "READY";
                     }
+                }
+            }
 
             await _context.SaveChangesAsync();
             return true;
@@ -298,6 +337,7 @@ namespace Infrastructure.Services
                 {
                     throw new InvalidOperationException("Vi phạm quy chuẩn an toàn: Phụ lái và Bác sĩ thú y không được trùng nhau!");
                 }
+            }
 
             var vehicle = await _context.Vehicles.FindAsync(dto.VehicleId);
             if (vehicle == null) throw new KeyNotFoundException($"Không tìm thấy phương tiện: {dto.VehicleId}");
@@ -358,5 +398,5 @@ namespace Infrastructure.Services
             await _context.SaveChangesAsync();
             return true;
         }
-
     }
+}

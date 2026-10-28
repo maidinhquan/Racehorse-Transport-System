@@ -57,8 +57,8 @@ namespace Infrastructure.Services
                 {
                     Id = f.FacilityId,
                     Version = 1,
-                    Name = f.FacilityName,
-                    Country = f.Country ?? "VN",
+                    Name = f.Name,
+                    Country = f.CountryCode ?? "VN",
                     Province = f.City ?? "TP. Hồ Chí Minh",
                     Address = f.Address ?? "Địa chỉ cơ sở",
                     Geo = new GeoDto { Lat = (double)(f.Latitude ?? 10.7769m), Lng = (double)(f.Longitude ?? 106.7009m) },
@@ -99,10 +99,11 @@ namespace Infrastructure.Services
             }
 
             var facility = await _context.PartnerFacilities.FirstOrDefaultAsync(f => f.FacilityId == dto.PlaceId);
-            string placeName = facility?.FacilityName ?? "Cơ sở kiểm dịch tiếp nhận";
+            string placeName = facility?.Name ?? "Cơ sở kiểm dịch tiếp nhận";
 
             var relocation = new PickupRelocationProposal
             {
+                RelocationId = "RELOC_" + Guid.NewGuid().ToString("N")[..8].ToUpper(),
                 TripId = cleanTripId,
                 OriginalAddress = trip.Request?.Departure ?? "Địa chỉ gốc của khách",
                 AccessEvaluation = "INACCESSIBLE",
@@ -110,7 +111,7 @@ namespace Infrastructure.Services
                 Reason = dto.Reason,
                 Status = "PROPOSED",
                 ProposedBy = userId,
-                CreatedAtUtc = DateTime.UtcNow
+                ProposedAt = DateTime.UtcNow
             };
 
             _context.PickupRelocations.Add(relocation);
@@ -128,7 +129,7 @@ namespace Infrastructure.Services
                     Id = dto.PlaceId,
                     Version = dto.PlaceVersion,
                     Name = placeName,
-                    Country = facility?.Country ?? "VN",
+                    Country = facility?.CountryCode ?? "VN",
                     Address = facility?.Address ?? "Địa chỉ cơ sở",
                     Geo = new GeoDto { Lat = (double)(facility?.Latitude ?? 10.77m), Lng = (double)(facility?.Longitude ?? 106.70m) },
                     Functions = (facility?.Purposes ?? "REST,QUARANTINE").Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
@@ -169,7 +170,7 @@ namespace Infrastructure.Services
 
             proposal.ManagerDecision = dto.Decision;
             proposal.ManagerDecisionBy = managerId;
-            proposal.ManagerDecisionAtUtc = DateTime.UtcNow;
+            proposal.ManagerDecisionAt = DateTime.UtcNow;
 
             if (dto.Decision == "APPROVE")
             {
@@ -191,7 +192,7 @@ namespace Infrastructure.Services
                 Status = proposal.Status,
                 PlaceSnapshot = new PlaceDto { Id = proposal.CandidatePlaceId, Name = "Điểm đổi nhận" },
                 Reason = proposal.Reason,
-                HandoverAt = proposal.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm"),
+                HandoverAt = proposal.ProposedAt.ToString("yyyy-MM-dd HH:mm"),
                 Valid = true,
                 By = new ActorDto { UserId = managerId, Name = "Quản lý vận tải" },
                 At = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
@@ -221,8 +222,8 @@ namespace Infrastructure.Services
 
             proposal.CustomerConsentMethod = dto.Channel;
             proposal.CustomerConsentNote = dto.Note;
-            proposal.CustomerConsentRecordedBy = managerId;
-            proposal.CustomerConsentRecordedAtUtc = DateTime.UtcNow;
+            proposal.CustomerConsentConfirmedBy = managerId;
+            proposal.CustomerConsentConfirmedAt = DateTime.UtcNow;
             proposal.Status = "CUSTOMER_CONFIRMED";
 
             // Khi khách hàng đã đồng ý thực tế: cập nhật điểm đón chính thức mới

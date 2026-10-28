@@ -261,19 +261,20 @@ namespace Infrastructure.Services
                     canDrive.Add(defaultCountry);
                 }
 
-                string licenseClass = u.Role == "Driver"
+                bool isDriverUser = u.Role.Equals("Driver", StringComparison.OrdinalIgnoreCase) || u.UserId.Contains("DRV", StringComparison.OrdinalIgnoreCase);
+                bool isVetUser = u.Role.Equals("Escort", StringComparison.OrdinalIgnoreCase) || u.UserId.Contains("ESC", StringComparison.OrdinalIgnoreCase) || u.UserId.Contains("VET", StringComparison.OrdinalIgnoreCase);
+
+                string licenseClass = isDriverUser
                     ? (isJp ? "Heavy Type 1" : "FC")
-                    : "N/A";
+                    : (isVetUser ? "FEI-VET" : "N/A");
 
                 DateTime? licenseExpiry = activeDoc?.ExpiryDate ?? (u.IsActive ? DateTime.UtcNow.AddYears(2) : null);
 
-                string specialization = u.Role switch
-                {
-                    "Driver" => isJp ? "Tài xế chuyên dụng quốc tế (Nhật Bản)" : "Tài xế quốc tế hạng FC (Việt Nam)",
-                    "Escort" => isJp ? "Bác sĩ thú y Narita AQS - Chứng chỉ FEI (Nhật Bản)" : "Bác sĩ thú y áp tải FEI (Việt Nam)",
-                    "Specialist" => "Chuyên viên thẩm định pháp lý & kiểm dịch",
-                    _ => "Nhân sự tác nghiệp vận tải"
-                };
+                string specialization = isDriverUser
+                    ? (isJp ? "Tài xế chuyên dụng quốc tế (Nhật Bản)" : "Tài xế quốc tế hạng FC (Việt Nam)")
+                    : (isVetUser
+                        ? (isJp ? "Bác sĩ thú y Narita AQS - Chứng chỉ FEI (Nhật Bản)" : "Bác sĩ thú y áp tải FEI (Việt Nam)")
+                        : (u.Role.Equals("Specialist", StringComparison.OrdinalIgnoreCase) ? "Chuyên viên thẩm định pháp lý & kiểm dịch" : "Nhân sự tác nghiệp vận tải"));
 
                 return new StaffDto
                 {
@@ -338,8 +339,10 @@ namespace Infrastructure.Services
             {
                 bool isJp = s.CanDriveCountries.Contains("JP") || s.UserId.Contains("_JP_");
                 string country = isJp ? "JP" : "VN";
-                string pos = s.Role.Equals("Driver", StringComparison.OrdinalIgnoreCase) ? "DRIVER" :
-                             (s.Role.Equals("Escort", StringComparison.OrdinalIgnoreCase) ? "VETERINARIAN" :
+                bool isDrv = s.Role.Equals("Driver", StringComparison.OrdinalIgnoreCase) || s.UserId.Contains("DRV", StringComparison.OrdinalIgnoreCase);
+                bool isVet = s.Role.Equals("Escort", StringComparison.OrdinalIgnoreCase) || s.UserId.Contains("ESC", StringComparison.OrdinalIgnoreCase) || s.UserId.Contains("VET", StringComparison.OrdinalIgnoreCase);
+                string pos = isDrv ? "DRIVER" :
+                             (isVet ? "VETERINARIAN" :
                              (s.Role.Equals("Specialist", StringComparison.OrdinalIgnoreCase) ? "SPECIALIST" : "ESCORT"));
 
                 string staffStatus = s.IsActive ? "ACTIVE" : "INACTIVE";
