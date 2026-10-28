@@ -15,8 +15,7 @@ type Schema = Record<string, unknown>;
 type Content = Record<string, { schema: Schema }>;
 type Operation = {
   operationId: string;
-  'x-kind'?: 'json' | 'upload' | 'download';
-  parameters: Array<{ name: string; in: 'path' | 'query' | 'header'; schema: Schema }>;
+  parameters: Array<{ name: string; in: 'path' | 'query' | 'header'; required?: boolean; schema: Schema }>;
   requestBody?: { content: Content };
   responses: Record<string, { content?: Content }>;
 };
@@ -98,6 +97,11 @@ export async function flow3Request<T>(operationId: string, options: Options): Pr
 
   // Resolve path parameters
   const pathParameters = op.parameters.filter(p => p.in === 'path');
+  for (const name of Object.keys(options.path)) {
+    if (!pathParameters.some(p => p.name === name)) {
+      throw new Flow3ApiError(`Path param không có trong contract: ${name}`, 'CONTRACT_VALIDATION_ERROR');
+    }
+  }
   let url = entry.path;
   for (const parameter of pathParameters) {
     const value = options.path[parameter.name];
@@ -113,11 +117,28 @@ export async function flow3Request<T>(operationId: string, options: Options): Pr
   const queryObj: Record<string, string | number | boolean> = {};
   if (options.query) {
     for (const [k, v] of Object.entries(options.query)) {
-      if (v !== undefined) queryObj[k] = v;
+      if (v === undefined) continue;
+      if (!queryParameters.some(p => p.name === k)) {
+        throw new Flow3ApiError(`Query không có trong contract: ${k}`, 'CONTRACT_VALIDATION_ERROR');
+      }
+      queryObj[k] = v;
     }
+  }
+  for (const parameter of queryParameters) {
+    const value = queryObj[parameter.name];
+    if (value === undefined) {
+      if (parameter.required) throw new Flow3ApiError(`Thiếu query: ${parameter.name}`, 'CONTRACT_VALIDATION_ERROR');
+    } else validate(parameter.schema, value);
   }
 
   const headers: Record<string, string | undefined> = { Accept: 'application/json' };
+  const binaryTypes = [...new Set(Object.entries(op.responses)
+    .filter(([status]) => status.startsWith('2'))
+    .flatMap(([, response]) => Object.entries(response.content ?? {})
+      .filter(([, media]) => media.schema.type === 'string' && media.schema.format === 'binary')
+      .map(([mime]) => mime)))];
+  const isDownload = binaryTypes.length > 0;
+  if (isDownload) headers.Accept = binaryTypes.join(', ');
 
   // Idempotency key for mutations
   if (method !== 'get') {
@@ -130,10 +151,10 @@ export async function flow3Request<T>(operationId: string, options: Options): Pr
 
   let data: unknown = options.body;
 
-  if (op['x-kind'] === 'upload') {
+  const multipartSchema = op.requestBody?.content['multipart/form-data']?.schema;
+  if (multipartSchema) {
     const file = options.file;
     if (
-      options.body !== undefined ||
       !(file instanceof File) ||
       !file.size ||
       file.size > 10 * 1024 * 1024 ||
@@ -144,7 +165,13 @@ export async function flow3Request<T>(operationId: string, options: Options): Pr
         'INVALID_FILE',
       );
     }
+    const fields = options.body ?? {};
+    if (typeof fields !== 'object' || fields === null || Array.isArray(fields) || fields instanceof FormData || Object.hasOwn(fields, 'file')) {
+      throw new Flow3ApiError('Trường multipart không hợp lệ.', 'CONTRACT_VALIDATION_ERROR');
+    }
+    validate(multipartSchema, { ...fields, file: file.name });
     const form = new FormData();
+    for (const [name, value] of Object.entries(fields)) form.append(name, String(value));
     form.append('file', file);
     data = form;
     headers['Content-Type'] = undefined; // Browser sets multipart boundary
@@ -166,7 +193,7 @@ export async function flow3Request<T>(operationId: string, options: Options): Pr
       data,
       headers,
       params: Object.keys(queryObj).length > 0 ? queryObj : undefined,
-      ...(op['x-kind'] === 'download' ? { responseType: 'blob' as const } : {}),
+      ...(isDownload ? { responseType: 'blob' as const } : {}),
     });
 
     if (result.status >= 400) return await serverError(result.data, result.status);
@@ -174,10 +201,12 @@ export async function flow3Request<T>(operationId: string, options: Options): Pr
     const response = op.responses[String(result.status)];
     if (!response) throw new Flow3ApiError('HTTP status không khớp contract Flow 3.', 'INVALID_RESPONSE_STATUS', result.status);
 
-    if (op['x-kind'] === 'download') {
+    if (isDownload) {
+      const contentType = result.data instanceof Blob ? result.data.type.split(';')[0].trim().toLowerCase() : '';
       if (
         !(result.data instanceof Blob) ||
-        !['application/pdf', 'image/jpeg', 'image/png'].includes(result.data.type) ||
+        !binaryTypes.includes(contentType) ||
+        !response.content?.[contentType] ||
         !result.data.size
       ) {
         throw new Flow3ApiError('Máy chủ chưa trả tệp hợp lệ.', 'INVALID_FILE_RESPONSE');
@@ -189,7 +218,8 @@ export async function flow3Request<T>(operationId: string, options: Options): Pr
     if (envelope?.success === false) return await serverError(envelope, result.status);
 
     const contentSchema = response.content?.['application/json']?.schema;
-    if (contentSchema) validate(contentSchema, result.data);
+    if (!contentSchema) throw new Flow3ApiError('Máy chủ chưa trả JSON theo contract Flow 3.', 'INVALID_RESPONSE_TYPE', result.status);
+    validate(contentSchema, result.data);
 
     return (result.data as { data: T }).data;
   } catch (error) {

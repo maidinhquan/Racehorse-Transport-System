@@ -26,7 +26,7 @@ export const flow3Api = {
     flow3Request<T.Context>('F3-J02', { path: { tripId } }),
 
   /** F3-J16 – Xác nhận Docs READY độc lập nhánh điều phối (TRANSPORT_SPECIALIST) */
-  confirmDocsReady: (tripId: string, body: T.PlanCommand, idempotencyKey: string) =>
+  confirmDocsReady: (tripId: string, body: T.Expected, idempotencyKey: string) =>
     flow3Request<T.Context>('F3-J16', { path: { tripId }, body, idempotencyKey }),
 
   // ─── COORDINATOR — Context & Trip list ───────────────────────────────────────
@@ -46,7 +46,7 @@ export const flow3Api = {
   // ─── COORDINATOR — Plan draft & lifecycle ────────────────────────────────────
 
   /** F3-J05 – Tra chuyến bay đối tác (read-only) */
-  getFlights: (query?: { fromAirportId?: string; toAirportId?: string; departDate?: string; partnerId?: string }) =>
+  getFlights: (query?: { tripId?: string; partnerId?: string; code?: string }) =>
     flow3Request<Array<T.FlightService>>('F3-J05', { path: {}, query }),
 
   /** F3-J06 – Lưu nháp tuyến, lịch, xe và nhân sự */
@@ -54,15 +54,15 @@ export const flow3Api = {
     flow3Request<T.Context>('F3-J06', { path: { tripId }, body, idempotencyKey }),
 
   /** F3-J07 – Kiểm nháp, không giữ nguồn lực */
-  validatePlan: (tripId: string, body: T.PlanCommand, idempotencyKey: string) =>
-    flow3Request<T.Validation>('F3-J07', { path: { tripId }, body, idempotencyKey }),
+  validatePlan: (tripId: string, body: T.PlanCommand) =>
+    flow3Request<T.Validation>('F3-J07', { path: { tripId }, body }),
 
   /** F3-J08 – Gửi tổng thể và giữ tạm nguyên tử */
   submitPlan: (tripId: string, body: T.PlanCommand, idempotencyKey: string) =>
     flow3Request<T.Context>('F3-J08', { path: { tripId }, body, idempotencyKey }),
 
   /** F3-J09 – Rút nháp/chờ duyệt/trả lại */
-  withdrawPlan: (tripId: string, body: T.ReasonCommand, idempotencyKey: string) =>
+  withdrawPlan: (tripId: string, body: T.PlanCommand, idempotencyKey: string) =>
     flow3Request<T.Context>('F3-J09', { path: { tripId }, body, idempotencyKey }),
 
   /** F3-J12 – Tạo bản điều chỉnh approved/flight proposal */
@@ -73,16 +73,16 @@ export const flow3Api = {
 
   /** F3-J25 – Tính tuyến đường bộ tham khảo */
   calculateRouting: (tripId: string, body: T.RoutingInput, idempotencyKey: string) =>
-    flow3Request<T.Context>('F3-J25', { path: { tripId }, body, idempotencyKey }),
+    flow3Request<T.Routing>('F3-J25', { path: { tripId }, body, idempotencyKey }),
 
   /** F3-J26 – Kiểm tuyến theo kích thước/tải trọng xe */
   checkTruckRouting: (tripId: string, body: T.RoutingInput, idempotencyKey: string) =>
-    flow3Request<T.Context>('F3-J26', { path: { tripId }, body, idempotencyKey }),
+    flow3Request<T.Routing>('F3-J26', { path: { tripId }, body, idempotencyKey }),
 
   // ─── COORDINATOR — Vehicle & Staff resources ─────────────────────────────────
 
   /** F3-J27 – Lọc xe theo chặng/sức chứa/quốc gia/lối vào */
-  getVehicleOptions: (tripId: string, query?: { leg?: string; country?: string }) =>
+  getVehicleOptions: (tripId: string, query: { leg: T.RoadResources['leg'] }) =>
     flow3Request<Array<T.VehicleOption>>('F3-J27', { path: { tripId }, query }),
 
   /** F3-J55 – Danh mục xe và thông số đã xác minh */
@@ -90,7 +90,7 @@ export const flow3Api = {
     flow3Request<Array<T.VehicleOption>>('F3-J55', { path: {} }),
 
   /** F3-J48 – Danh mục nhân sự và trạng thái vận hành */
-  getStaff: (query?: { position?: string; status?: string; country?: string }) =>
+  getStaff: (query?: { tripId?: string; leg?: T.RoadResources['leg']; status?: T.Staff['status'] }) =>
     flow3Request<Array<T.Staff>>('F3-J48', { path: {}, query }),
 
   /** F3-J49 – Đổi ACTIVE/ON_LEAVE/INACTIVE */
@@ -120,7 +120,7 @@ export const flow3Api = {
     flow3Request<T.Context>('F3-J30', { path: { tripId }, body, idempotencyKey }),
 
   /** F3-J33 – Mở lại đề xuất điểm nhận đã chốt */
-  reopenPickupRelocation: (tripId: string, body: T.ReasonCommand, idempotencyKey: string) =>
+  reopenPickupRelocation: (tripId: string, body: T.Expected, idempotencyKey: string) =>
     flow3Request<T.Context>('F3-J33', { path: { tripId }, body, idempotencyKey }),
 
   // ─── COORDINATOR — Air partners ──────────────────────────────────────────────
@@ -142,8 +142,8 @@ export const flow3Api = {
     flow3Request<T.Partner>('F3-J37', { path: { partnerId }, body, idempotencyKey }),
 
   /** F3-J38 – Xóa đối tác chưa từng tham chiếu */
-  deleteAirPartner: (partnerId: string, idempotencyKey: string) =>
-    flow3Request<T.Deleted>('F3-J38', { path: { partnerId }, idempotencyKey }),
+  deleteAirPartner: (partnerId: string, expectedVersion: number, idempotencyKey: string) =>
+    flow3Request<T.Deleted>('F3-J38', { path: { partnerId }, query: { expectedVersion }, idempotencyKey }),
 
   // ─── COORDINATOR — Flight selection & booking ────────────────────────────────
 
@@ -164,17 +164,17 @@ export const flow3Api = {
     flow3Request<T.Context>('F3-J20', { path: { tripId }, body, idempotencyKey }),
 
   /** F3-J42 – Upload bằng chứng đối tác (tùy chọn booking) */
-  uploadFlightEvidence: (tripId: string, body: { expectedVersion: number; label: string; fileId?: string }, idempotencyKey: string) =>
-    flow3Request<T.Context>('F3-J42', { path: { tripId }, body, idempotencyKey }),
+  uploadFlightEvidence: (tripId: string, file: File, expectedVersion: number, idempotencyKey: string) =>
+    flow3Request<T.F3File>('F3-J42', { path: { tripId }, body: { expectedVersion }, file, idempotencyKey }),
 
   /** F3-J54 – Tra mã chuyến trong đúng bên dịch vụ */
-  lookupFlight: (query: { partnerId: string; flightCode: string; date: string }) =>
+  lookupFlight: (query: { tripId: string; partnerId: string; providerFlightCode: string }) =>
     flow3Request<T.FlightService>('F3-J54', { path: {}, query }),
 
   // ─── COORDINATOR — Places ────────────────────────────────────────────────────
 
   /** F3-J43 – Danh mục đa chức năng cho bản đồ */
-  getPlaces: (query?: { functions?: string; country?: string; status?: string }) =>
+  getPlaces: (query?: { function?: T.Place['functions'][number]; country?: string; status?: T.Place['status'] }) =>
     flow3Request<Array<T.Place>>('F3-J43', { path: {}, query }),
 
   /** F3-J44 – Thêm địa điểm dùng chung */
@@ -190,8 +190,8 @@ export const flow3Api = {
     flow3Request<T.Place>('F3-J46', { path: { placeId }, body, idempotencyKey }),
 
   /** F3-J47 – Xóa địa điểm chưa được tham chiếu */
-  deletePlace: (placeId: string, idempotencyKey: string) =>
-    flow3Request<T.Deleted>('F3-J47', { path: { placeId }, idempotencyKey }),
+  deletePlace: (placeId: string, expectedVersion: number, idempotencyKey: string) =>
+    flow3Request<T.Deleted>('F3-J47', { path: { placeId }, query: { expectedVersion }, idempotencyKey }),
 
   // ─── COORDINATOR — Route reports & history ───────────────────────────────────
 
@@ -234,7 +234,7 @@ export const flow3Api = {
     flow3Request<T.Context>('F3-J41', { path: { tripId }, body, idempotencyKey }),
 
   /** F3-J50 – Manager đọc catalogue bay */
-  getManagerFlights: (query?: { fromAirportId?: string; toAirportId?: string; partnerId?: string }) =>
+  getManagerFlights: (query?: { tripId?: string; partnerId?: string }) =>
     flow3Request<Array<T.FlightService>>('F3-J50', { path: {}, query }),
 
   /** F3-J51 – Manager đọc bên dịch vụ */
@@ -243,7 +243,7 @@ export const flow3Api = {
 
   // ─── SHARED — File download ──────────────────────────────────────────────────
 
-  /** F3-J52 – Tải bằng chứng planning có xác thực (trả metadata JSON, không phải blob) */
+  /** F3-J52 – Tải nội dung tệp planning có xác thực. */
   downloadPlanningFile: (tripId: string, fileId: string) =>
-    flow3Request<T.F3File>('F3-J52', { path: { tripId, fileId } }),
+    flow3Request<Blob>('F3-J52', { path: { tripId, fileId } }),
 };
