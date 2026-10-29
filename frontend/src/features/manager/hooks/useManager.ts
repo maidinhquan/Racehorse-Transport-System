@@ -786,24 +786,24 @@ const demoActions = {
     });
     return ok(`Demo: khách ký OTP ${id}. Hệ thống tạo ${tripId} – chờ Manager phân công.`, tripId);
   },
-  customerRequestChange(id: string): ActionResult {
+  customerRequestChange(id: string, customText?: string): ActionResult {
     const r = reqIn(state, id), v = r && curVersion(r);
     if (!r || !v || r.status !== 'CONTRACT_READY' || versionState(v) !== 'ISSUED' || depositPaid(state, r)) return fail('Demo: chỉ yêu cầu sửa được hợp đồng đang hiệu lực, chưa có cọc.');
     mutate((d) => {
       const x = reqIn(d, id)!, y = curVersion(x)!;
       y.state = 'CHANGES_REQUESTED';
-      y.change = { at: nowStamp(), text: 'Đề nghị dời ngày vận chuyển thêm 3 ngày và giảm 5% cước vì đặt nhiều chuyến trong quý.', proposedDate: addDays(x.date, 3), commercial: 'Giảm 5% cước vận chuyển' };
+      y.change = { at: nowStamp(), text: customText?.trim() || 'Đề nghị dời ngày vận chuyển thêm 3 ngày và giảm 5% cước vì đặt nhiều chuyến trong quý.', proposedDate: addDays(x.date, 3), commercial: 'Giảm 5% cước vận chuyển' };
       x.status = 'CONTRACT_CHANGES_REQUESTED';
       log(d, x, 'Yêu cầu sửa hợp đồng', y.change.text, 'CUSTOMER');
     });
     return ok(`Demo: khách yêu cầu sửa hợp đồng ${id}.`);
   },
-  customerRequestCancel(id: string): ActionResult {
+  customerRequestCancel(id: string, customReason?: string): ActionResult {
     const r = reqIn(state, id);
     if (!r || !['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status)) return fail('Demo: chỉ gửi yêu cầu hủy được khi hợp đồng đã phát hành, chưa ký.');
     mutate((d) => {
       const x = reqIn(d, id)!;
-      x.cancellation = { reason: 'Kế hoạch thi đấu thay đổi, không còn nhu cầu vận chuyển.', at: nowStamp(), status: 'REQUESTED', prevStatus: x.status };
+      x.cancellation = { reason: customReason?.trim() || 'Kế hoạch thi đấu thay đổi, không còn nhu cầu vận chuyển.', at: nowStamp(), status: 'REQUESTED', prevStatus: x.status };
       x.status = 'CANCELLATION_REQUESTED';
       log(d, x, 'Yêu cầu hủy', x.cancellation.reason, 'CUSTOMER');
     });

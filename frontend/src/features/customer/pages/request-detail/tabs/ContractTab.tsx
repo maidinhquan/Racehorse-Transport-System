@@ -4,6 +4,7 @@ import type { TransportRequest } from '../../../types';
 import { useCustomer } from '../../../hooks/useCustomer';
 import {
   canAcceptTerms,
+  canCancel,
   canPayDeposit,
   canRequestContractChange,
   canSign,
@@ -14,6 +15,7 @@ import {
   fmtDate,
   fmtDateTime,
   fmtMoney,
+  hasDepositMoney,
   signBlock,
   today,
   versionState,
@@ -22,7 +24,7 @@ import { Icon } from '../../../components/CustomerLayout';
 import { ContractBody } from '../../../components/ContractBody/ContractBody';
 import { DateField } from '../../../components/DateField/DateField';
 import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
-import { AcceptTermsModal } from '../../../components/Modals';
+import { AcceptTermsModal, Modal, ReasonModal } from '../../../components/Modals';
 import { LockedCard, Note } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 
@@ -38,6 +40,7 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
   const { horses, actions } = useCustomer();
   const [termsOpen, setTermsOpen] = useState(false);
   const [changeOpen, setChangeOpen] = useState(params.get('change') === '1');
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [items, setItems] = useState<Partial<Record<ChangeItem, string>>>({});
   const [text, setText] = useState('');
   const v = curVersion(r);
@@ -62,8 +65,12 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
   const canChange = canRequestContractChange(r);
 
   const submitChange = async () => {
+    if (!text.trim()) {
+      actions.showToast('Vui lòng nhập giải thích nội dung cần sửa.');
+      return;
+    }
     const res = await actions.requestContractChange(r.id, {
-      text,
+      text: text.trim(),
       proposedDate: 'date' in items ? items.date ?? '' : undefined,
       proposedNotes: items.notes?.trim() || undefined,
       commercial: items.commercial?.trim() || undefined,
@@ -89,49 +96,6 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
       <Note tone={tone} title={title}>{msg}</Note>
       {r.status === 'CANCELLATION_REQUESTED' && r.cancelRequest && (
         <Note tone="yellow" title={`Đã yêu cầu hủy • ${fmtDateTime(r.cancelRequest.at)}`}>{r.cancelRequest.reason} – CBN Transport đối soát thanh toán trước khi hủy chính thức.</Note>
-      )}
-
-      {changeOpen && canChange && (
-        <div className="cus-card cus-rc" style={{ marginTop: 16 }}>
-          <h3 className="cus-card__title">
-            <span><span className="cus-eyebrow">Đề nghị thay đổi • {ctRef(v)}</span><br />Yêu cầu sửa hợp đồng</span>
-            <button type="button" className="cus-btn cus-btn--sm" onClick={() => setChangeOpen(false)}>Đóng</button>
-          </h3>
-          <div className="cus-field">
-            <label htmlFor="rc-add">Bạn muốn sửa nội dung nào?</label>
-            <select id="rc-add" className="cus-select" value="" onChange={(e) => { const k = e.target.value as ChangeItem; if (k) setItems((x) => ({ ...x, [k]: '' })); }}>
-              <option value="">— Chọn mục cần sửa —</option>
-              {CHANGE_ITEMS.filter(([k]) => !(k in items)).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
-          </div>
-          {(Object.keys(items) as ChangeItem[]).map((k) => (
-            <div key={k} className="cus-rc__item">
-              <div className="cus-rc__item-head">
-                <b>{CHANGE_ITEMS.find((x) => x[0] === k)?.[1]}</b>
-                <button type="button" className="cus-link" onClick={() => setItems((x) => { const n = { ...x }; delete n[k]; return n; })}>Bỏ</button>
-              </div>
-              {k === 'date' ? (
-                <>
-                  <p className="cus-muted" style={{ margin: '0 0 6px' }}>Hiện tại: {fmtDate(r.date)}</p>
-                  <DateField value={items.date ?? ''} min={today()} onChange={(d) => setItems((x) => ({ ...x, date: d }))} />
-                </>
-              ) : (
-                <textarea className="cus-textarea" rows={2} value={items[k] ?? ''} onChange={(e) => setItems((x) => ({ ...x, [k]: e.target.value }))}
-                  placeholder={k === 'notes' ? 'Yêu cầu chăm sóc mới' : k === 'commercial' ? 'VD: Đề nghị giảm phí thủ tục' : 'Mô tả thay đổi'} />
-              )}
-            </div>
-          ))}
-          <div className="cus-field" style={{ marginTop: 12 }}>
-            <label htmlFor="rc-text">Giải thích nội dung cần sửa *</label>
-            <textarea id="rc-text" className="cus-textarea" rows={3} value={text} onChange={(e) => setText(e.target.value)}
-              placeholder="VD: Chúng tôi đã có giấy phép nhập khẩu còn hiệu lực, đề nghị giảm phí thủ tục." />
-          </div>
-          <p className="cus-muted">Đổi tuyến hoặc số lượng ngựa cần Manager xét duyệt lại yêu cầu; hãy mô tả ở trên. {ctRef(v)} không thể ký cho tới khi Manager trả lời hoặc phát hành phiên bản mới.</p>
-          <div className="cus-btn-row" style={{ justifyContent: 'flex-end' }}>
-            <button type="button" className="cus-btn" onClick={() => setChangeOpen(false)}>Hủy</button>
-            <button type="button" className="cus-btn cus-btn--solid" onClick={submitChange}>Gửi yêu cầu sửa</button>
-          </div>
-        </div>
       )}
 
       {v.change && (
@@ -161,7 +125,16 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
             <div className="cus-ct-actions">
               <div>
                 <button type="button" className="cus-btn" onClick={() => navigate(`/customer/requests/${r.id}/contract/v/${v.v}`)}><Icon name="file" />Xem hợp đồng đầy đủ</button>
-                {canChange && !changeOpen && <button type="button" className="cus-btn" onClick={() => setChangeOpen(true)}><Icon name="chat" />{state === 'EXPIRED' ? 'Yêu cầu phiên bản cập nhật' : 'Yêu cầu sửa'}</button>}
+                {canChange && (
+                  <button type="button" className="cus-btn" onClick={() => setChangeOpen(true)}>
+                    <Icon name="chat" />{state === 'EXPIRED' ? 'Yêu cầu phiên bản cập nhật' : 'Yêu cầu sửa'}
+                  </button>
+                )}
+                {canCancel(r) && (
+                  <button type="button" className="cus-btn cus-btn--danger" onClick={() => setCancelOpen(true)}>
+                    Hủy hợp đồng
+                  </button>
+                )}
               </div>
               <div>
                 {canAcceptTerms(r) && <button type="button" className="cus-btn cus-btn--solid" onClick={() => setTermsOpen(true)}>Đồng ý điều khoản</button>}
@@ -223,6 +196,75 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
           <DemoPanel request={r} />
         </div>
       </div>
+
+      <Modal
+        open={changeOpen && canChange}
+        title={`Đề nghị thay đổi • ${ctRef(v)}`}
+        wide
+        okText="Gửi yêu cầu sửa"
+        cancelText="Đóng"
+        onOk={submitChange}
+        onClose={() => setChangeOpen(false)}
+      >
+        <p className="cus-muted" style={{ marginTop: 0 }}>
+          Đổi tuyến hoặc số lượng ngựa cần Manager xét duyệt lại yêu cầu. {ctRef(v)} không thể ký cho tới khi Manager trả lời hoặc phát hành phiên bản mới.
+        </p>
+        <div className="cus-field">
+          <label htmlFor="rc-add">Bạn muốn sửa nội dung nào?</label>
+          <select id="rc-add" className="cus-select" value="" onChange={(e) => { const k = e.target.value as ChangeItem; if (k) setItems((x) => ({ ...x, [k]: '' })); }}>
+            <option value="">— Chọn mục cần sửa —</option>
+            {CHANGE_ITEMS.filter(([k]) => !(k in items)).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </select>
+        </div>
+        {(Object.keys(items) as ChangeItem[]).map((k) => (
+          <div key={k} className="cus-rc__item">
+            <div className="cus-rc__item-head">
+              <b>{CHANGE_ITEMS.find((x) => x[0] === k)?.[1]}</b>
+              <button type="button" className="cus-link" onClick={() => setItems((x) => { const n = { ...x }; delete n[k]; return n; })}>Bỏ</button>
+            </div>
+            {k === 'date' ? (
+              <>
+                <p className="cus-muted" style={{ margin: '0 0 6px' }}>Hiện tại: {fmtDate(r.date)}</p>
+                <DateField value={items.date ?? ''} min={today()} onChange={(d) => setItems((x) => ({ ...x, date: d }))} />
+              </>
+            ) : (
+              <textarea className="cus-textarea" rows={2} value={items[k] ?? ''} onChange={(e) => setItems((x) => ({ ...x, [k]: e.target.value }))}
+                placeholder={k === 'notes' ? 'Yêu cầu chăm sóc mới' : k === 'commercial' ? 'VD: Đề nghị giảm phí thủ tục' : 'Mô tả thay đổi'} />
+            )}
+          </div>
+        ))}
+        <div className="cus-field" style={{ marginTop: 12 }}>
+          <label htmlFor="rc-text">Giải thích nội dung cần sửa *</label>
+          <textarea id="rc-text" className="cus-textarea" rows={3} value={text} onChange={(e) => setText(e.target.value)}
+            placeholder="VD: Chúng tôi đã có giấy phép nhập khẩu còn hiệu lực, đề nghị giảm phí thủ tục." />
+        </div>
+      </Modal>
+
+      <ReasonModal
+        open={cancelOpen}
+        title={`Hủy hợp đồng ${r.id}?`}
+        okText={hasDepositMoney(r) ? 'Gửi yêu cầu hủy' : 'Hủy hợp đồng'}
+        danger
+        confirmText="Tôi muốn hủy hợp đồng này"
+        intro={
+          <>
+            <p>Hủy hợp đồng sẽ dừng yêu cầu vận chuyển này. Yêu cầu vẫn được lưu trong lịch sử để bạn tham chiếu.</p>
+            {hasDepositMoney(r) && (
+              <Note tone="yellow" title="Đã có thanh toán tiền cọc">
+                Yêu cầu hủy được gửi tới CBN Transport; nhân viên sẽ đối soát khoản thanh toán và hoàn tiền cho bạn.
+              </Note>
+            )}
+          </>
+        }
+        label="Lý do hủy hợp đồng *"
+        placeholder="VD: Kế hoạch thay đổi, giải đua bị hoãn nên chúng tôi muốn hủy hợp đồng."
+        minLength={5}
+        onClose={() => setCancelOpen(false)}
+        onSubmit={async (reason) => {
+          const res = await actions.cancelRequest(r.id, reason);
+          return res.ok;
+        }}
+      />
 
       <AcceptTermsModal open={termsOpen} requestId={r.id} onClose={() => setTermsOpen(false)}
         onAccepted={() => { setTermsOpen(false); navigate(`/customer/requests/${r.id}/deposit`); }} />

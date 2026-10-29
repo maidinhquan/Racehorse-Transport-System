@@ -27,7 +27,7 @@ import {
   versionState,
 } from '../../../hooks/managerRules';
 
-type Dialog = '' | 'accept' | 'revise' | 'reject' | 'cancel' | 'cancel-ok' | 'cancel-no';
+type Dialog = '' | 'accept' | 'revise' | 'reject' | 'cancel' | 'cancel-ok' | 'cancel-no' | 'demo-cancel';
 
 /** Mục 1: thông tin yêu cầu, hồ sơ (chỉ xem), quyết định của Manager, lịch sử */
 export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
@@ -159,7 +159,7 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
 
           <DemoPanel buttons={[
             { label: `Khách hàng gửi lại ${r.id} sau chỉnh sửa`, run: () => actions.demo.customerResubmit(r.id), hidden: r.status !== 'CHANGES_REQUESTED', primary: true },
-            { label: `Khách hàng yêu cầu hủy ${r.id}`, run: () => actions.demo.customerRequestCancel(r.id), hidden: !['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status) },
+            { label: `Khách hàng yêu cầu hủy ${r.id}`, run: () => setDialog('demo-cancel'), hidden: !['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status) },
           ]} />
         </aside>
       </div>
@@ -188,6 +188,12 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
         placeholder="VD: Đã đặt chỗ chuyến bay không hoàn được; đề nghị dời ngày thay vì hủy." onClose={close} onSubmit={async (x) => {
           const res = await actions.decideCancellation(r.id, false, x);
           return res.ok;
+        }} />
+      <ReasonModal open={dialog === 'demo-cancel'} title={`Demo: Khách hàng yêu cầu hủy ${r.id}`} okText="Gửi yêu cầu hủy" danger minLength={5}
+        label="Lý do hủy yêu cầu *" placeholder="VD: Kế hoạch thi đấu thay đổi, không còn nhu cầu vận chuyển." onClose={close} onSubmit={async (reason) => {
+          actions.demo.customerRequestCancel(r.id, reason);
+          close();
+          return true;
         }} />
     </>
   );
