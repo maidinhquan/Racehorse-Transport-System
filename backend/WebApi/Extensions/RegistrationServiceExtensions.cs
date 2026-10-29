@@ -31,7 +31,11 @@ public static class RegistrationServiceExtensions
         services.AddSingleton<IRegistrationRequestLimiter, MemoryRegistrationRequestLimiter>();
 
         var emailMode = configuration["RegistrationEmail:Mode"] ?? (environment.IsDevelopment() ? "Development" : "Smtp");
-        if (emailMode == "Development" && environment.IsDevelopment())
+        var hasSmtpCredentials = !string.IsNullOrWhiteSpace(configuration["RegistrationEmail:Smtp:Host"]) &&
+                                 !string.IsNullOrWhiteSpace(configuration["RegistrationEmail:Smtp:From"]) &&
+                                 !string.IsNullOrWhiteSpace(configuration["RegistrationEmail:Smtp:Password"]);
+
+        if (environment.IsDevelopment() && (emailMode == "Development" || !hasSmtpCredentials))
             services.AddSingleton<IRegistrationEmailSender, DevelopmentRegistrationEmailSender>();
         else if (emailMode == "Smtp")
         {

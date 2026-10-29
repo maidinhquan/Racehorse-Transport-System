@@ -27,6 +27,21 @@ namespace Infrastructure.Services
             _httpClientFactory = httpClientFactory;
         }
 
+        private string? GetGeoapifyApiKey() =>
+            FirstNonEmpty(
+                _configuration?["Maps:Geoapify:ApiKey"],
+                _configuration?["Flow1:Maps:Geoapify:ApiKey"],
+                _configuration?["GEOAPIFY_API_KEY"]);
+
+        private string? GetMapboxAccessToken() =>
+            FirstNonEmpty(
+                _configuration?["Maps:Mapbox:AccessToken"],
+                _configuration?["Flow1:Maps:Mapbox:AccessToken"],
+                _configuration?["MAPBOX_ACCESS_TOKEN"]);
+
+        private static string? FirstNonEmpty(params string?[] values) =>
+            values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
         // =========================================================================
         // 1. TÍNH TOÁN TUYẾN ĐƯỜNG ĐA TẦNG (MULTI-TIER ROUTING ENGINE)
         // =========================================================================
@@ -44,9 +59,7 @@ namespace Infrastructure.Services
             // LỚP 1: Geoapify Truck Routing API
             // Tuyến đường chuyên dụng cho xe tải/xe chở ngựa lớn & kiểm soát tải trọng cầu, chiều cao hầm
             // -------------------------------------------------------------------------
-            var geoapifyKey = _configuration?["Maps:Geoapify:ApiKey"]
-                ?? _configuration?["Flow1:Maps:Geoapify:ApiKey"]
-                ?? "167c9593184a44aaa2dc377cea7535f6";
+            var geoapifyKey = GetGeoapifyApiKey();
 
             if (!string.IsNullOrWhiteSpace(geoapifyKey) && _httpClientFactory != null)
             {
@@ -109,9 +122,7 @@ namespace Infrastructure.Services
                                 string liveTraffic = "FLOWING";
                                 try
                                 {
-                                    var trafficToken = _configuration?["Maps:Mapbox:AccessToken"]
-                                        ?? _configuration?["Flow1:Maps:Mapbox:AccessToken"]
-                                        ?? "pk.eyJ1IjoiaWNld29ybSIsImEiOiJjbXZhY3RyazQwM3k2MndvbWhsN2Fmb29tIn0.20kPK7DHlQJDDbjXdhAQCw";
+                                    var trafficToken = GetMapboxAccessToken();
                                     if (!string.IsNullOrWhiteSpace(trafficToken))
                                     {
                                         var mapboxClient = _httpClientFactory.CreateClient("MapboxClient");
@@ -164,9 +175,7 @@ namespace Infrastructure.Services
             // -------------------------------------------------------------------------
             // LỚP 2: Mapbox Directions API (Driving-Traffic: Kẹt xe & đường sửa chữa thời gian thực)
             // -------------------------------------------------------------------------
-            var token = _configuration?["Maps:Mapbox:AccessToken"]
-                ?? _configuration?["Flow1:Maps:Mapbox:AccessToken"]
-                ?? "pk.eyJ1IjoiaWNld29ybSIsImEiOiJjbXZhY3RyazQwM3k2MndvbWhsN2Fmb29tIn0.20kPK7DHlQJDDbjXdhAQCw";
+            var token = GetMapboxAccessToken();
 
             if (!string.IsNullOrWhiteSpace(token) && _httpClientFactory != null)
             {
@@ -306,9 +315,7 @@ namespace Infrastructure.Services
             var cCode = string.IsNullOrWhiteSpace(country) ? "VN" : country.Trim().ToUpper();
 
             // 1. Try Mapbox Geocoding (high accuracy for Vietnamese and international free-text addresses)
-            var mapboxToken = _configuration?["Maps:Mapbox:AccessToken"]
-                ?? _configuration?["Flow1:Maps:Mapbox:AccessToken"]
-                ?? "pk.eyJ1IjoiaWNld29ybSIsImEiOiJjbXZhY3RyazQwM3k2MndvbWhsN2Fmb29tIn0.20kPK7DHlQJDDbjXdhAQCw";
+            var mapboxToken = GetMapboxAccessToken();
 
             if (!string.IsNullOrWhiteSpace(mapboxToken) && _httpClientFactory != null)
             {
@@ -368,9 +375,7 @@ namespace Infrastructure.Services
             }
 
             // 2. Try Geoapify Geocoding
-            var geoapifyKey = _configuration?["Maps:Geoapify:ApiKey"]
-                ?? _configuration?["Flow1:Maps:Geoapify:ApiKey"]
-                ?? "167c9593184a44aaa2dc377cea7535f6";
+            var geoapifyKey = GetGeoapifyApiKey();
 
             if (!string.IsNullOrWhiteSpace(geoapifyKey) && _httpClientFactory != null)
             {

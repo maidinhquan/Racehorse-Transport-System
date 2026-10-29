@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -17,7 +17,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true).AddEnvironmentVariables();
+LoadDotEnvFile(builder.Environment.ContentRootPath);
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true).AddEnvironmentVariables();
+MapEnvironmentVariablesToConfiguration(builder.Configuration);
 
 // =============================================================================
 // 1. KẾT NỐI DATABASE VỚI SQL SERVER
@@ -113,9 +115,9 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 // =============================================================================
 // 5. CẤU HÌNH JWT AUTHENTICATION
 // =============================================================================
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "RaceHorseTransportSecretKey2026_SWP391_Project_SecuredKey_SuperSafe!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "RaceHorseTransportBackend";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "RaceHorseTransportFrontend";
+var jwtKey = TokenService.ResolveJwtKey(builder.Configuration, builder.Environment.IsDevelopment());
+var jwtIssuer = string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Issuer"]) ? "RaceHorseTransportBackend" : builder.Configuration["Jwt:Issuer"]!;
+var jwtAudience = string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Audience"]) ? "RaceHorseTransportFrontend" : builder.Configuration["Jwt:Audience"]!;
 
 builder.Services.AddAuthentication(options =>
 {
@@ -229,5 +231,80 @@ app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();
+
+static void LoadDotEnvFile(string startDirectory)
+{
+    var dir = new DirectoryInfo(startDirectory);
+    while (dir is not null)
+    {
+        var envFile = Path.Combine(dir.FullName, ".env");
+        if (File.Exists(envFile))
+        {
+            foreach (var rawLine in File.ReadAllLines(envFile))
+            {
+                var line = rawLine.Trim();
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+                    continue;
+
+                var separatorIndex = line.IndexOf('=');
+                if (separatorIndex <= 0)
+                    continue;
+
+                var key = line[..separatorIndex].Trim();
+                var value = line[(separatorIndex + 1)..].Trim().Trim('"', '\'');
+
+                if (!string.IsNullOrWhiteSpace(key) &&
+                    !string.IsNullOrWhiteSpace(value) &&
+                    !value.StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase) &&
+                    string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(key)))
+                {
+                    Environment.SetEnvironmentVariable(key, value);
+                }
+            }
+            break;
+        }
+        dir = dir.Parent;
+    }
+}
+
+static void MapEnvironmentVariablesToConfiguration(ConfigurationManager config)
+{
+    var mappings = new (string EnvKey, string ConfigKey)[]
+    {
+        ("JWT_SECRET_KEY", "Jwt:Key"),
+        ("MAPBOX_ACCESS_TOKEN", "Maps:Mapbox:AccessToken"),
+        ("GEOAPIFY_API_KEY", "Maps:Geoapify:ApiKey"),
+        ("REGISTRATION_EMAIL_MODE", "RegistrationEmail:Mode"),
+        ("SMTP_HOST", "RegistrationEmail:Smtp:Host"),
+        ("SMTP_PORT", "RegistrationEmail:Smtp:Port"),
+        ("SMTP_USERNAME", "RegistrationEmail:Smtp:Username"),
+        ("SMTP_PASSWORD", "RegistrationEmail:Smtp:Password"),
+        ("SMTP_FROM", "RegistrationEmail:Smtp:From")
+    };
+
+    var overrides = new Dictionary<string, string?>();
+    foreach (var (envKey, configKey) in mappings)
+    {
+        var envVal = Environment.GetEnvironmentVariable(envKey);
+        if (!string.IsNullOrWhiteSpace(envVal) &&
+            !envVal.StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(config[configKey]))
+        {
+            overrides[configKey] = envVal;
+        }
+    }
+
+    if (overrides.TryGetValue("RegistrationEmail:Smtp:Username", out var smtpUser) &&
+        string.IsNullOrWhiteSpace(config["RegistrationEmail:Smtp:From"]) &&
+        !overrides.ContainsKey("RegistrationEmail:Smtp:From"))
+    {
+        overrides["RegistrationEmail:Smtp:From"] = smtpUser;
+    }
+
+    if (overrides.Count > 0)
+    {
+        config.AddInMemoryCollection(overrides);
+    }
+}
 
 public partial class Program { }
