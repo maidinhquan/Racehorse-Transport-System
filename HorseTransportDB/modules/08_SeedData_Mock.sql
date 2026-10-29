@@ -286,3 +286,80 @@ INSERT INTO FLIGHT_CATALOG (ServiceID, PartnerID, ProviderFlightCode, Airline, O
 ('SVC_VNA_801', 'PARTNER_VN_CARGO', 'VN-801', N'Vietnam Airlines', 'AP_SGN', 'AP_NRT', '06:00', '12:15', 'Asia/Ho_Chi_Minh', 'Asia/Tokyo', 115000000.00, 2, 'AIRLINE', 1, 1);
 GO
 
+-- =============================================================================
+-- PHÂN VÙNG 7: DỮ LIỆU DANH MỤC QUỐC GIA, CHÍNH SÁCH & QUYẾT TOÁN (FLOW 6)
+-- =============================================================================
+
+-- 30. Bảng COUNTRY & SUPPORTED_ROUTE
+INSERT INTO COUNTRY (CountryCode, CountryName, IsActive) VALUES
+('VN', N'Việt Nam', 1),
+('JP', N'Nhật Bản', 1);
+GO
+
+INSERT INTO SUPPORTED_ROUTE (RouteID, OriginCountry, DestinationCountry, TransportMode, IsActive) VALUES
+('ROUTE_001', 'VN', 'VN', 'ROAD', 1),
+('ROUTE_002', 'VN', 'VN', 'AIR', 1),
+('ROUTE_003', 'VN', 'JP', 'AIR', 1);
+GO
+
+-- 31. Bảng BUSINESS_POLICY: Chính sách tham số hoá
+INSERT INTO BUSINESS_POLICY (PolicyID, Code, ValueType, NumberValue, TextValue, BoolValue, Unit, ScopeType, ScopeID, Description, UpdatedBy) VALUES
+('BUSINESS_POLICY_001', 'MIN_PREPARATION_DAYS', 'NUMBER', 3, NULL, NULL, 'DAY', 'GLOBAL', NULL, N'Số ngày chuẩn bị tối thiểu mặc định khi không có cấu hình phạm vi cụ thể.', 'USR_MGR_01'),
+('BUSINESS_POLICY_002', 'MIN_PREPARATION_DAYS', 'NUMBER', 7, NULL, NULL, 'DAY', 'COUNTRY', 'JP', N'Số ngày chuẩn bị tối thiểu khi quốc gia đích là Nhật Bản.', 'USR_MGR_01'),
+('BUSINESS_POLICY_003', 'CONTRACT_DEADLINE_HOURS', 'NUMBER', 24, NULL, NULL, 'HOUR', 'GLOBAL', NULL, N'Thời hạn chung để thanh toán cọc, xác minh cọc và ký hợp đồng.', 'USR_MGR_01'),
+('BUSINESS_POLICY_004', 'DEFAULT_DEPOSIT_PERCENT', 'NUMBER', 40, NULL, NULL, 'PERCENT', 'GLOBAL', NULL, N'Tỷ lệ cọc mặc định; 40 tương ứng 40 phần trăm, chốt vào hợp đồng lúc phát hành.', 'USR_MGR_01'),
+('BUSINESS_POLICY_005', 'SIGN_OTP_TTL_MINUTES', 'NUMBER', 5, NULL, NULL, 'MINUTE', 'GLOBAL', NULL, N'Thời gian hiệu lực của một mã OTP ký hợp đồng.', 'USR_MGR_01'),
+('BUSINESS_POLICY_006', 'SIGN_OTP_RESEND_SECONDS', 'NUMBER', 60, NULL, NULL, 'SECOND', 'GLOBAL', NULL, N'Khoảng chờ tối thiểu trước khi cấp lại OTP ký hợp đồng.', 'USR_MGR_01'),
+('BUSINESS_POLICY_007', 'SIGN_OTP_MAX_ATTEMPTS', 'NUMBER', 5, NULL, NULL, 'ATTEMPT', 'GLOBAL', NULL, N'Số lần nhập sai tối đa của một mã OTP ký hợp đồng.', 'USR_MGR_01'),
+('BUSINESS_POLICY_008', 'FEEDBACK_WINDOW_HOURS', 'NUMBER', 24, NULL, NULL, 'HOUR', 'GLOBAL', NULL, N'Thời lượng cửa sổ phản hồi sau tất toán hoặc sau khi khách chấp nhận kết quả giải quyết khiếu nại.', 'USR_MGR_01');
+GO
+
+-- 32. Bảng COST_RATE: Đơn giá định mức VND
+INSERT INTO COST_RATE (CostRateID, Code, CostGroup, CalculationUnit, Rate, CurrencyCode, IsActive) VALUES
+('COST_RATE_001', 'ROAD_KM', 'TRANSPORT', 'KM_VEHICLE', 200000, 'VND', 1),
+('COST_RATE_002', 'AIR_HORSE', 'TRANSPORT', 'HORSE', 3000000, 'VND', 1),
+('COST_RATE_003', 'STABLE_NIGHT', 'TRANSPORT', 'HORSE_NIGHT', 250000, 'VND', 1),
+('COST_RATE_004', 'CREW_DAY', 'CREW', 'PERSON_DAY', 300000, 'VND', 1),
+('COST_RATE_005', 'PERMIT_TRIP', 'PERMIT', 'TRIP', 1000000, 'VND', 1),
+('COST_RATE_006', 'PERMIT_HORSE', 'PERMIT', 'HORSE', 5000000, 'VND', 1),
+('COST_RATE_007', 'VET_DAY', 'VET', 'PERSON_DAY', 500000, 'VND', 1),
+('COST_RATE_008', 'CARE_DAY', 'VET', 'HORSE_DAY', 300000, 'VND', 1),
+('COST_RATE_009', 'INSURANCE_MIN', 'INSURANCE', 'TRIP', 2000000, 'VND', 1),
+('COST_RATE_010', 'INSURANCE_RATE', 'INSURANCE', 'VALUE_RATIO', 0.005, 'VND', 1);
+GO
+
+-- 33. Bảng CONTRACT_VERSION: Bản chụp hợp đồng mẫu
+INSERT INTO CONTRACT_VERSION
+    (ContractID, VersionNo, VersionStatus, ContentSnapshot, PdfUrl,
+     CreatedBy, CreatedAtUtc, PublishedBy, PublishedAtUtc, SignedAtUtc, SignerEmail)
+SELECT c.ContractID, 1,
+       CASE WHEN c.SignedAt IS NOT NULL THEN 'SIGNED' ELSE 'DRAFT' END,
+       N'{"contractId":"' + c.ContractID + N'","status":"' + c.ContractStatus + N'"}',
+       'private/demo/' + c.ContractID + '_v1.pdf',
+       'USR_MGR_01', SYSUTCDATETIME(), 'USR_MGR_01', SYSUTCDATETIME(), CONVERT(DATETIME2(7), c.SignedAt), 'customer@example.com'
+FROM CONTRACT c;
+GO
+
+UPDATE CONTRACT SET CurrentVersionNo = 1;
+GO
+
+-- 34. Bảng HANDOVER_REVISION
+INSERT INTO HANDOVER_REVISION(HandoverRevisionID, HandoverID, TripID, RevisionNo, Status, ContentSnapshot, OtpEmail, CreatedBy, CreatedAtUtc) VALUES
+('HANDOVER_REVISION_001', 'HO_DL_001', 'TRIP_2026_001', 1, 'CONFIRMED', N'{"receiver":"Kenji Sato","items":2}', 'receiver1@example.com', 'USR_DRV_01', '2026-09-17T17:30:00'),
+('HANDOVER_REVISION_002', 'HO_DL_002', 'TRIP_2026_002', 1, 'CONFIRMED', N'{"receiver":"Nguyen Minh","items":1}', 'receiver2@example.com', 'USR_DRV_02', '2026-10-06T18:30:00');
+GO
+
+-- 35. Bảng TRIP_SETTLEMENT, CUSTOMER_FEEDBACK, CUSTOMER_CASE
+INSERT INTO TRIP_SETTLEMENT(SettlementID, ContractID, TripID, CustomerID, ContractVersionNo, HandoverRevisionID, FinalInvoiceID, Status, PreparedBy, CreatedAtUtc, SettledBy, SettledAtUtc, ClosedAtUtc) VALUES
+('SETTLEMENT_001', 'CTR_2026_001', 'TRIP_2026_001', 'USR_CUST_01', 1, 'HANDOVER_REVISION_001', 'INV_102', 'CLOSED', 'USR_MGR_01', '2026-09-17T17:30:00', 'USR_MGR_01', '2026-09-18T10:15:00', '2026-09-19T10:15:00'),
+('SETTLEMENT_002', 'CTR_2026_002', 'TRIP_2026_002', 'USR_CUST_02', 1, 'HANDOVER_REVISION_002', 'INV_202', 'AWAITING_PAYMENT', 'USR_MGR_01', '2026-10-06T18:30:00', NULL, NULL, NULL);
+GO
+
+INSERT INTO CUSTOMER_FEEDBACK(FeedbackID, SettlementID, Rating, Comment, CreatedAtUtc) VALUES
+('CUSTOMER_FEEDBACK_001', 'SETTLEMENT_001', 5, N'Dịch vụ vận chuyển tốt, chu đáo', '2026-09-18T12:00:00');
+GO
+
+INSERT INTO CUSTOMER_CASE(CaseID, SettlementID, CaseType, Status, Subject, Description, OpenedAtUtc) VALUES
+('CUSTOMER_CASE_001', 'SETTLEMENT_002', 'COMPLAINT', 'OPEN', N'Khiếu nại giờ giao nhận', N'Khách hàng yêu cầu kiểm tra lý do giao trễ 30 phút.', '2026-10-06T20:00:00');
+GO
+
