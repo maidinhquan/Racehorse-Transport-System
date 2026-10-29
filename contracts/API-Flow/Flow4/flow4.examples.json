@@ -1,0 +1,688 @@
+{
+  "contractVersion": "1.0.0",
+  "status": "ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS",
+  "road": {
+    "binding": {
+      "executionVersion": 10,
+      "approvedPlanVersion": 1,
+      "assignmentVersion": 1
+    },
+    "serverTime": "2026-11-10 06:00",
+    "trip": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "mode": "ROAD",
+      "tripStatus": "READY_TO_DEPART",
+      "requestStatus": "SCHEDULED",
+      "phase": "AWAITING_DEPARTURE",
+      "lastMilestoneId": null,
+      "eta": {
+        "currentEta": "2026-11-10 18:00",
+        "deliveryDeadline": "2026-11-11 18:00",
+        "pendingProposalId": null,
+        "proposedEta": null,
+        "version": 1
+      }
+    },
+    "horses": [
+      {
+        "horseId": "HORSE_001",
+        "name": "Bạch Long",
+        "microchip": "704123456789012",
+        "careInstructions": ""
+      }
+    ],
+    "pickup": {
+      "name": "Đã kiểm tra tại hiện trường",
+      "address": "Đã kiểm tra tại hiện trường",
+      "country": "VN",
+      "geo": null
+    },
+    "delivery": {
+      "name": "Đã kiểm tra tại hiện trường",
+      "address": "Đã kiểm tra tại hiện trường",
+      "country": "VN",
+      "geo": null
+    },
+    "flight": null,
+    "legs": [
+      {
+        "key": "road",
+        "mode": "ROAD",
+        "status": "PENDING",
+        "assignedUserIds": [
+          "USER_011",
+          "USER_012",
+          "USER_013"
+        ],
+        "crew": [
+          {
+            "userId": "USER_011",
+            "name": "Nguyễn Văn An",
+            "duty": "MAIN_DRIVER"
+          },
+          {
+            "userId": "USER_012",
+            "name": "Trần Văn Bình",
+            "duty": "CO_DRIVER"
+          },
+          {
+            "userId": "USER_013",
+            "name": "Lê Văn Cường",
+            "duty": "VETERINARIAN"
+          }
+        ],
+        "vehicleId": "VEHICLE_001",
+        "from": "Điểm nhận ngựa",
+        "to": "Điểm giao cuối",
+        "milestoneIds": [
+          "MILESTONE_001",
+          "MILESTONE_002"
+        ]
+      }
+    ],
+    "milestones": [
+      {
+        "id": "MILESTONE_001",
+        "leg": "road",
+        "kind": "DEPARTED",
+        "sequence": 1,
+        "label": "Xuất phát đường bộ",
+        "status": "PENDING",
+        "plannedAt": "2026-11-10 06:00",
+        "occurredAt": null,
+        "recordedAt": null,
+        "recordedBy": null,
+        "revision": 1,
+        "note": "",
+        "evidenceFileIds": [],
+        "geo": null,
+        "actions": {
+          "canComplete": true,
+          "canRequestCorrection": false,
+          "canRecordHealth": false,
+          "canProposeEta": false,
+          "blockers": []
+        }
+      },
+      {
+        "id": "MILESTONE_002",
+        "leg": "road",
+        "kind": "FINAL_ARRIVED",
+        "sequence": 2,
+        "label": "Đến điểm giao cuối",
+        "status": "PENDING",
+        "plannedAt": "2026-11-10 18:00",
+        "occurredAt": null,
+        "recordedAt": null,
+        "recordedBy": null,
+        "revision": 1,
+        "note": "",
+        "evidenceFileIds": [],
+        "geo": null,
+        "actions": {
+          "canComplete": false,
+          "canRequestCorrection": false,
+          "canRecordHealth": false,
+          "canProposeEta": false,
+          "blockers": []
+        }
+      }
+    ],
+    "map": {
+      "routeSource": "APPROVED_PLAN",
+      "locationSource": "CONFIRMED_MILESTONE",
+      "lastConfirmedMilestoneId": null,
+      "markerGeo": null,
+      "isGps": false,
+      "routePoints": []
+    },
+    "policy": {
+      "version": 1,
+      "lateMilestoneMinutes": null,
+      "healthIntervalMinutes": null,
+      "minimumHealthPhotos": null,
+      "configured": false,
+      "note": "Chưa chốt ngưỡng; không tự gán mặc định"
+    },
+    "blockers": [],
+    "handoverAvailable": false
+  },
+  "air": {
+    "binding": {
+      "executionVersion": 10,
+      "approvedPlanVersion": 1,
+      "assignmentVersion": 1
+    },
+    "serverTime": "2026-11-10 06:00",
+    "trip": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "mode": "AIR",
+      "tripStatus": "READY_TO_DEPART",
+      "requestStatus": "SCHEDULED",
+      "phase": "AWAITING_DEPARTURE",
+      "lastMilestoneId": null,
+      "eta": {
+        "currentEta": "2026-11-10 18:00",
+        "deliveryDeadline": "2026-11-11 18:00",
+        "pendingProposalId": null,
+        "proposedEta": null,
+        "version": 1
+      }
+    },
+    "horses": [
+      {
+        "horseId": "HORSE_001",
+        "name": "Bạch Long",
+        "microchip": "704123456789012",
+        "careInstructions": ""
+      }
+    ],
+    "pickup": {
+      "name": "Đã kiểm tra tại hiện trường",
+      "address": "Đã kiểm tra tại hiện trường",
+      "country": "VN",
+      "geo": null
+    },
+    "delivery": {
+      "name": "Đã kiểm tra tại hiện trường",
+      "address": "Đã kiểm tra tại hiện trường",
+      "country": "VN",
+      "geo": null
+    },
+    "flight": {
+      "bookingId": "BOOKING_001",
+      "partnerName": "Đã kiểm tra tại hiện trường",
+      "flightCode": "EQ123",
+      "originAirport": "SGN",
+      "destinationAirport": "NRT",
+      "plannedDepartureAt": "2026-11-10 12:00",
+      "plannedArrivalAt": "2026-11-10 16:00"
+    },
+    "legs": [
+      {
+        "key": "outbound",
+        "mode": "ROAD",
+        "status": "PENDING",
+        "assignedUserIds": [
+          "USER_011",
+          "USER_012",
+          "USER_013"
+        ],
+        "crew": [
+          {
+            "userId": "USER_011",
+            "name": "Nguyễn Văn An",
+            "duty": "MAIN_DRIVER"
+          },
+          {
+            "userId": "USER_012",
+            "name": "Trần Văn Bình",
+            "duty": "CO_DRIVER"
+          },
+          {
+            "userId": "USER_013",
+            "name": "Lê Văn Cường",
+            "duty": "VETERINARIAN"
+          }
+        ],
+        "vehicleId": "VEHICLE_001",
+        "from": "Điểm nhận ngựa",
+        "to": "Điểm giao cuối",
+        "milestoneIds": [
+          "MILESTONE_001",
+          "MILESTONE_002",
+          "MILESTONE_003"
+        ]
+      },
+      {
+        "key": "air",
+        "mode": "AIR",
+        "status": "PENDING",
+        "assignedUserIds": [],
+        "crew": [],
+        "vehicleId": null,
+        "from": "Điểm nhận ngựa",
+        "to": "Điểm giao cuối",
+        "milestoneIds": [
+          "MILESTONE_004",
+          "MILESTONE_005"
+        ]
+      },
+      {
+        "key": "inbound",
+        "mode": "ROAD",
+        "status": "PENDING",
+        "assignedUserIds": [
+          "USER_014",
+          "USER_015",
+          "USER_016"
+        ],
+        "crew": [
+          {
+            "userId": "USER_014",
+            "name": "Nhân sự đầu đến 14",
+            "duty": "MAIN_DRIVER"
+          },
+          {
+            "userId": "USER_015",
+            "name": "Nhân sự đầu đến 15",
+            "duty": "CO_DRIVER"
+          },
+          {
+            "userId": "USER_016",
+            "name": "Nhân sự đầu đến 16",
+            "duty": "VETERINARIAN"
+          }
+        ],
+        "vehicleId": "VEHICLE_002",
+        "from": "Điểm nhận ngựa",
+        "to": "Điểm giao cuối",
+        "milestoneIds": [
+          "MILESTONE_006",
+          "MILESTONE_007",
+          "MILESTONE_008"
+        ]
+      }
+    ],
+    "milestones": [
+      {
+        "id": "MILESTONE_001",
+        "leg": "outbound",
+        "kind": "DEPARTED",
+        "sequence": 1,
+        "label": "DEPARTED",
+        "status": "PENDING",
+        "plannedAt": "2026-11-10 06:00",
+        "occurredAt": null,
+        "recordedAt": null,
+        "recordedBy": null,
+        "revision": 1,
+        "note": "",
+        "evidenceFileIds": [],
+        "geo": null,
+        "actions": {
+          "canComplete": true,
+          "canRequestCorrection": false,
+          "canRecordHealth": false,
+          "canProposeEta": false,
+          "blockers": []
+        }
+      },
+      {
+        "id": "MILESTONE_002",
+        "leg": "outbound",
+        "kind": "AIRPORT_ORIGIN_ARRIVED",
+        "sequence": 2,
+        "label": "AIRPORT_ORIGIN_ARRIVED",
+        "status": "PENDING",
+        "plannedAt": "2026-11-10 09:00",
+        "occurredAt": null,
+        "recordedAt": null,
+        "recordedBy": null,
+        "revision": 1,
+        "note": "",
+        "evidenceFileIds": [],
+        "geo": null,
+        "actions": {
+          "canComplete": false,
+          "canRequestCorrection": false,
+          "canRecordHealth": false,
+          "canProposeEta": false,
+          "blockers": []
+        }
+      },
+      {
+        "id": "MILESTONE_003",
+        "leg": "outbound",
+        "kind": "AIR_HANDOVER",
+        "sequence": 3,
+        "label": "AIR_HANDOVER",
+        "status": "PENDING",
+        "plannedAt": "2026-11-10 10:00",
+        "occurredAt": null,
+        "recordedAt": null,
+        "recordedBy": null,
+        "revision": 1,
+        "note": "",
+        "evidenceFileIds": [],
+        "geo": null,
+        "actions": {
+          "canComplete": false,
+          "canRequestCorrection": false,
+          "canRecordHealth": false,
+          "canProposeEta": false,
+          "blockers": []
+        }
+      },
+      {
+        "id": "MILESTONE_004",
+        "leg": "air",
+        "kind": "AIR_DEPARTED",
+        "sequence": 4,
+        "label": "AIR_DEPARTED",
+        "status": "PENDING",
+        "plannedAt": "2026-11-10 12:00",
+        "occurredAt": null,
+        "recordedAt": null,
+        "recordedBy": null,
+        "revision": 1,
+        "note": "",
+        "evidenceFileIds": [],
+        "geo": null,
+        "actions": {
+          "canComplete": false,
+          "canRequestCorrection": false,
+          "canRecordHealth": false,
+          "canProposeEta": false,
+          "blockers": []
+        }
+      },
+      {
+        "id": "MILESTONE_005",
+        "leg": "air",
+        "kind": "AIR_ARRIVED",
+        "sequence": 5,
+        "label": "AIR_ARRIVED",
+        "status": "PENDING",
+        "plannedAt": "2026-11-10 16:00",
+        "occurredAt": null,
+        "recordedAt": null,
+        "recordedBy": null,
+        "revision": 1,
+        "note": "",
+        "evidenceFileIds": [],
+        "geo": null,
+        "actions": {
+          "canComplete": false,
+          "canRequestCorrection": false,
+          "canRecordHealth": false,
+          "canProposeEta": false,
+          "blockers": []
+        }
+      },
+      {
+        "id": "MILESTONE_006",
+        "leg": "inbound",
+        "kind": "AIR_RECEIVED",
+        "sequence": 6,
+        "label": "AIR_RECEIVED",
+        "status": "PENDING",
+        "plannedAt": "2026-11-10 17:00",
+        "occurredAt": null,
+        "recordedAt": null,
+        "recordedBy": null,
+        "revision": 1,
+        "note": "",
+        "evidenceFileIds": [],
+        "geo": null,
+        "actions": {
+          "canComplete": false,
+          "canRequestCorrection": false,
+          "canRecordHealth": false,
+          "canProposeEta": false,
+          "blockers": []
+        }
+      },
+      {
+        "id": "MILESTONE_007",
+        "leg": "inbound",
+        "kind": "DEPARTED",
+        "sequence": 7,
+        "label": "DEPARTED",
+        "status": "PENDING",
+        "plannedAt": "2026-11-10 17:30",
+        "occurredAt": null,
+        "recordedAt": null,
+        "recordedBy": null,
+        "revision": 1,
+        "note": "",
+        "evidenceFileIds": [],
+        "geo": null,
+        "actions": {
+          "canComplete": false,
+          "canRequestCorrection": false,
+          "canRecordHealth": false,
+          "canProposeEta": false,
+          "blockers": []
+        }
+      },
+      {
+        "id": "MILESTONE_008",
+        "leg": "inbound",
+        "kind": "FINAL_ARRIVED",
+        "sequence": 8,
+        "label": "FINAL_ARRIVED",
+        "status": "PENDING",
+        "plannedAt": "2026-11-10 18:00",
+        "occurredAt": null,
+        "recordedAt": null,
+        "recordedBy": null,
+        "revision": 1,
+        "note": "",
+        "evidenceFileIds": [],
+        "geo": null,
+        "actions": {
+          "canComplete": false,
+          "canRequestCorrection": false,
+          "canRecordHealth": false,
+          "canProposeEta": false,
+          "blockers": []
+        }
+      }
+    ],
+    "map": {
+      "routeSource": "APPROVED_PLAN",
+      "locationSource": "CONFIRMED_MILESTONE",
+      "lastConfirmedMilestoneId": null,
+      "markerGeo": null,
+      "isGps": false,
+      "routePoints": []
+    },
+    "policy": {
+      "version": 1,
+      "lateMilestoneMinutes": null,
+      "healthIntervalMinutes": null,
+      "minimumHealthPhotos": null,
+      "configured": false,
+      "note": "Chưa chốt ngưỡng; không tự gán mặc định"
+    },
+    "blockers": [],
+    "handoverAvailable": false
+  },
+  "scenarios": [
+    {
+      "id": "road-departure",
+      "given": "Manager đã duyệt, precheck đạt",
+      "when": "J05 với version vừa đọc",
+      "then": "Trip/Request IN_TRANSIT, chỉ một DEPARTED, thông báo sau commit"
+    },
+    {
+      "id": "approval-is-not-departure",
+      "given": "Trip READY_TO_DEPART",
+      "when": "GET J03/J04, thời gian plannedDepart tới",
+      "then": "Không tự DEPARTED"
+    },
+    {
+      "id": "readiness-race",
+      "given": "J04 canDepart=true rồi xe bị hỏng",
+      "when": "J05",
+      "then": "409 READINESS_CHANGED hoặc INCIDENT_BLOCKING, không commit"
+    },
+    {
+      "id": "next-only",
+      "given": "Mốc 1 chưa hoàn tất",
+      "when": "J06 mốc 2",
+      "then": "409 MILESTONE_NOT_NEXT"
+    },
+    {
+      "id": "completed-locked",
+      "given": "Mốc đã COMPLETED",
+      "when": "Gửi key mới cho cùng mốc",
+      "then": "409 MILESTONE_ALREADY_COMPLETED"
+    },
+    {
+      "id": "idempotent-retry",
+      "given": "J05 đã commit",
+      "when": "Retry cùng principal/key/body",
+      "then": "Response gốc; không thêm history/outbox/mốc"
+    },
+    {
+      "id": "idempotency-conflict",
+      "given": "Key đã dùng",
+      "when": "Cùng key nhưng khác body/path",
+      "then": "409 IDEMPOTENCY_CONFLICT"
+    },
+    {
+      "id": "different-leg",
+      "given": "Tài xế outbound",
+      "when": "Hoàn tất inbound hoặc dùng file Trip khác",
+      "then": "404 tài nguyên ngoài scope hoặc 409 NOT_ASSIGNED_LEG khi có quyền xem Trip"
+    },
+    {
+      "id": "checkpoint-held",
+      "given": "CHECKPOINT_ARRIVED, kết quả HELD",
+      "when": "J06 CHECKPOINT_DEPARTED",
+      "then": "409 CHECKPOINT_NOT_CLEARED; J23 chăm sóc vẫn được"
+    },
+    {
+      "id": "checkpoint-clearance",
+      "given": "Specialist CLEARED có bằng chứng",
+      "when": "Còn sự cố sức khỏe chặn",
+      "then": "Vẫn chặn đi tiếp; không coi CLEARED gỡ mọi blocker"
+    },
+    {
+      "id": "air-sequence",
+      "given": "AIR plan đã duyệt và booking thật",
+      "when": "Outbound DEPARTED → airport → J13 → J14 actual departure → actual arrival → J15 → inbound DEPARTED → FINAL_ARRIVED",
+      "then": "Kiểm next/scope/bằng chứng; AIR_HANDOVER và AIR_RECEIVED thông báo ba bên"
+    },
+    {
+      "id": "air-estimate",
+      "given": "Đã tới giờ bay dự kiến",
+      "when": "J14 ESTIMATED_SCHEDULE hoặc GET",
+      "then": "Không AIR_DEPARTED/AIR_ARRIVED tự động, không đổi approved snapshot"
+    },
+    {
+      "id": "air-missing-horse",
+      "given": "Có hai ngựa",
+      "when": "J13/J15 chỉ gửi một ngựa",
+      "then": "409 HORSE_SET_MISMATCH"
+    },
+    {
+      "id": "correction-pending",
+      "given": "Mốc đã hoàn tất",
+      "when": "J08",
+      "then": "Giữ nguyên mốc, lưu original/proposed"
+    },
+    {
+      "id": "correction-order",
+      "given": "Giờ sửa vượt giờ mốc kế tiếp",
+      "when": "J10 APPROVE",
+      "then": "409 INVALID_EVENT_TIME, giữ cả yêu cầu và dữ liệu gốc"
+    },
+    {
+      "id": "correction-history",
+      "given": "Yêu cầu hợp lệ đúng revision",
+      "when": "J10 APPROVE",
+      "then": "Tăng revision, lưu cả before/after/actor/reason, không lùi Trip state"
+    },
+    {
+      "id": "eta-proposal",
+      "given": "ETA hiện hành 18:00",
+      "when": "J17 đề xuất 19:00",
+      "then": "Hiển thị hai ETA, current vẫn 18:00"
+    },
+    {
+      "id": "eta-manager",
+      "given": "ETA vượt hạn giao hoặc đổi lịch chính thức",
+      "when": "J20 APPROVE",
+      "then": "PENDING_MANAGER, chưa đổi currentEta; J21 cần phương án Flow5 hợp lệ"
+    },
+    {
+      "id": "incident-link",
+      "given": "Chậm do xe hỏng",
+      "when": "Đề xuất chỉ ghi lý do, không incident",
+      "then": "409 INCIDENT_REQUIRED; không dùng ETA thay xử lý sự cố"
+    },
+    {
+      "id": "health-abnormal",
+      "given": "Ngựa có dấu hiệu bất thường",
+      "when": "J23 ABNORMAL không incident",
+      "then": "Lưu quan sát ngay, incidentRequired=true, không coi gate vận chuyển đạt"
+    },
+    {
+      "id": "vet-permission",
+      "given": "Driver không phải bác sĩ được phân công",
+      "when": "J25 FIT",
+      "then": "403 hoặc 409 VETERINARIAN_REQUIRED; không ghi kết luận"
+    },
+    {
+      "id": "vet-not-fit",
+      "given": "Bác sĩ kết luận NOT_FIT",
+      "when": "J06 đi tiếp",
+      "then": "409 INCIDENT_BLOCKING; chăm sóc tiếp tục"
+    },
+    {
+      "id": "customer-scope",
+      "given": "Customer A",
+      "when": "Đọc request/file/horse của B",
+      "then": "404, không lộ sự tồn tại hoặc nội dung nội bộ"
+    },
+    {
+      "id": "file-validation",
+      "given": "Upload giả JPEG hoặc HEALTH PDF hoặc >10MiB",
+      "when": "J30",
+      "then": "400/415/413; không file được gắn nghiệp vụ"
+    },
+    {
+      "id": "alerts-policy",
+      "given": "Ngưỡng policy null",
+      "when": "Chạy job cảnh báo",
+      "then": "Không tự đặt 30 phút/ảnh; UI hiện chưa cấu hình"
+    },
+    {
+      "id": "alert-ack",
+      "given": "Cảnh báo OPEN",
+      "when": "J28/J29",
+      "then": "Chỉ ack/contact, không tự hoàn tất mốc"
+    },
+    {
+      "id": "last-location",
+      "given": "Chưa có mốc geo xác nhận",
+      "when": "J32 map",
+      "then": "markerGeo=null; không nội suy vị trí GPS"
+    },
+    {
+      "id": "final-arrival",
+      "given": "FINAL_ARRIVED hoàn tất",
+      "when": "Đọc J03 và chuyển Flow6",
+      "then": "AWAITING_HANDOVER, Trip/Request IN_TRANSIT; chưa COMPLETED/DELIVERED/acceptanceWindow"
+    },
+    {
+      "id": "handover-contract",
+      "given": "Đã đến điểm giao cuối",
+      "when": "Bàn giao hợp lệ bằng Flow6",
+      "then": "Trip COMPLETED, Request DELIVERED theo Flow6; không tự đóng"
+    },
+    {
+      "id": "transaction-rollback",
+      "given": "Lỗi ghi history/outbox trong mutation",
+      "when": "Commit",
+      "then": "Rollback trạng thái, retry an toàn"
+    },
+    {
+      "id": "capability-off",
+      "given": "persistenceAvailable=false",
+      "when": "Gọi mutation",
+      "then": "501 FEATURE_NOT_SUPPORTED, không fallback mock"
+    },
+    {
+      "id": "health-amendment",
+      "given": "Nhật ký đã ghi",
+      "when": "J24 với lý do",
+      "then": "Append supersedesId, bản cũ còn; không sửa kết luận bác sĩ"
+    }
+  ]
+}

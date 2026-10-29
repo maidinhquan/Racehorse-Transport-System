@@ -1,5 +1,7 @@
 # Chỉ dẫn API — Role: Fleet & Route Coordinator (Điều phối viên)
 
+Xử lý sự cố dùng [Flow 5](../../API-Flow/Flow5/FLOW5.md) ngày 29/10/2026: Coordinator tiếp nhận, giao việc, recovery, kiểm tra cho tiếp tục và đóng incident có guard; Manager duyệt phần cần thẩm quyền. Không POST milestone thay tài xế hoặc đổi ETA trực tiếp để bỏ qua xử lý sự cố. Kết quả bàn giao đọc theo Flow 6 v1.1.
+
 > **Flow 3 đã thay thế ngày 27/10/2026:** [quy trình v2](../../API-Flow/Flow3/FLOW3.md) và [API/JSON chuẩn](../../API-Flow/Flow3/FLOW3-API-JSON.md) là nguồn hiện hành cho planning/nguồn lực/bay/READY/khởi hành. Bảng và quy tắc planning cũ bên dưới chỉ tra cứu lịch sử khi khác v2: hai nhánh song song, ba người mỗi ROAD; ROAD confirm trước submit, AIR approve rồi book/confirm; không feasibility/timed-documents gate. API role JSON cũ không thay schema v2.
 
 
@@ -63,8 +65,8 @@
 | | | Nhập mã đặt chỗ/booking hãng bay | `POST /coordinator/trips/{tripId}/flight/booking` | Ghi nhận mã vận đơn hàng không (AWB / Booking Ref) |
 | **Quản lý Đội xe (Fleet)** | `/coordinator/fleet` | Danh sách phương tiện chuyên dụng | `GET /coordinator/vehicles` | Trạng thái xe, tải trọng số ngựa, hạn đăng kiểm |
 | **Quản lý Tổ xe (Crew/Staff)** | `/coordinator/crew` | Danh sách tài xế, áp tải, thú y | `GET /coordinator/staff` | Bằng lái, lịch rảnh, trạng thái phân công |
-| **Giám sát & Cập nhật ETA** | `/coordinator/trips/:id` | Cập nhật thời gian dự kiến đến nơi (ETA) | `PUT /coordinator/trips/{tripId}/eta` | Điều chỉnh ETA khi có chậm trễ hoặc thời tiết xấu |
-| | | Ghi nhận mốc hành trình | `POST /coordinator/trips/{tripId}/milestones` | Hỗ trợ ghi nhận mốc khi tổ xe mất kết nối mạng |
+| **Giám sát & Cập nhật ETA** | `/coordinator/trips/:id` | Đề xuất/xét ETA, vượt phạm vi chuyển Manager | F4-J18/J20/J21 trong [Flow 4](../../API-Flow/Flow4/FLOW4.md) | Giữ ETA hiện hành tới khi quyết định hợp lệ; không PUT trực tiếp |
+| | | Xét đính chính mốc, theo dõi thông tin AIR | F4-J09/J10/J14 | Mốc thực tế do tổ xe đúng chặng ghi; giữ lịch sử, demo không có offline |
 | **Giám sát Sự cố (Incidents)** | `/coordinator/incidents` | Danh sách sự cố phương tiện và giao thông | `GET /coordinator/incidents` | Xem cảnh báo hỏng xe, tắc đường, sự cố sức khỏe ngựa |
 
 ---

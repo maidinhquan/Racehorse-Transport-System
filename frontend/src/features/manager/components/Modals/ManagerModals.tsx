@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from './Modal';
 import type { ActualCost, ActualKey, ExtraCost, Payer, Staff } from '../../types';
+import { isQuickLoginAccount } from '../../../auth/quickLoginAccounts';
 import {
   ACTUAL_LABEL,
   PAYER_LABEL,
@@ -23,29 +24,51 @@ export const RevisionModal: React.FC<{ open: boolean; requestId: string; onClose
 // ---------------------------------------------------------------------------
 // Phân công Specialist + Coordinator
 // ---------------------------------------------------------------------------
-export const DeployModal: React.FC<{ open: boolean; tripId: string; staff: Staff[]; onClose: () => void; onSubmit: (specialistId: string, coordinatorId: string) => boolean | Promise<boolean> }> = ({ open, tripId, staff, onClose, onSubmit }) => {
+export const DeployModal: React.FC<{ open: boolean; tripId: string; staff: Staff[]; loadStaff?: () => Promise<Staff[]>; onClose: () => void; onSubmit: (specialistId: string, coordinatorId: string) => boolean | Promise<boolean> }> = ({ open, tripId, staff, loadStaff, onClose, onSubmit }) => {
   const [sp, setSp] = useState('');
   const [co, setCo] = useState('');
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState('');
+  const [availableStaff, setAvailableStaff] = useState<Staff[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [retry, setRetry] = useState(0);
   useEffect(() => { if (open) { setSp(''); setCo(''); setConfirm(false); setError(''); } }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    if (!loadStaff) { setAvailableStaff(staff); setLoading(false); setLoadError(''); return; }
+    let active = true;
+    setAvailableStaff([]); setLoading(true); setLoadError(''); setSp(''); setCo('');
+    loadStaff().then(rows => { if (active) setAvailableStaff(rows); })
+      .catch(() => { if (active) setLoadError('Không tải được danh sách nhân sự từ database. Vui lòng thử lại.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [open, loadStaff, staff, retry]);
+  const members = (role: Staff['role']) => availableStaff.filter(s => s.role === role)
+    .sort((a, b) => Number(isQuickLoginAccount(b.id, b.role)) - Number(isQuickLoginAccount(a.id, a.role)) || a.name.localeCompare(b.name, 'vi'));
   const pick = (role: Staff['role'], value: string, set: (v: string) => void, label: string, id: string) => (
     <div className="mgr-field">
       <label htmlFor={id}>{label} *</label>
-      <select id={id} className="mgr-select" value={value} onChange={(e) => { set(e.target.value); setError(''); }}>
+      <select id={id} className="mgr-select" value={value} disabled={loading || !!loadError} onChange={(e) => { set(e.target.value); setError(''); }}>
         <option value="">— Chọn —</option>
-        {staff.filter((s) => s.role === role).map((s) => <option key={s.id} value={s.id}>{s.name}{s.load != null ? ` • đang phụ trách ${s.load} chuyến` : ''}</option>)}
+        {members(role).map((s) => <option key={s.id} value={s.id}>{s.name} • {s.id}{s.load != null ? ` • đang phụ trách ${s.load} chuyến` : ''}{isQuickLoginAccount(s.id, s.role) ? ' (Recommend)' : ''}</option>)}
       </select>
+      {!loading && !loadError && members(role).length === 0 && <p className="mgr-hint">Database chưa có nhân sự đang hoạt động thuộc vai trò này.</p>}
     </div>
   );
   const submit = async () => {
+    if (loading || loadError) return;
     if (!sp || !co) return setError('Chọn một Transport Specialist và một Fleet Coordinator.');
+    if (!members('TRANSPORT_SPECIALIST').some(s => s.id === sp) || !members('FLEET_ROUTE_COORDINATOR').some(s => s.id === co)) return setError('Nhân sự đã thay đổi. Vui lòng chọn lại.');
     if (!confirm) return setError('Tích ô xác nhận để khóa phân công.');
     if (await onSubmit(sp, co)) onClose();
   };
   return (
-    <Modal open={open} title={`Phân công người phụ trách • ${tripId}`} okText="Giao việc & xác nhận triển khai" onClose={onClose} onOk={submit} error={error}>
+    <Modal open={open} title={`Phân công người phụ trách • ${tripId}`} okText="Giao việc & xác nhận triển khai" onClose={onClose} onOk={submit} error={error} okDisabled={loading || !!loadError}>
       <p>Chuyến chỉ được triển khai chính thức sau khi Manager phân công. Nhân viên nhận chuyến ngay, không cần xác nhận nhận việc.</p>
+      <p className="mgr-hint">Hiển thị toàn bộ nhân sự đang hoạt động theo từng vai trò. (Recommend) là người có tài khoản đăng nhập nhanh ở trang đăng nhập.</p>
+      {loading && <p role="status">Đang tải danh sách nhân sự…</p>}
+      {loadError && <p role="alert">{loadError} <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => setRetry(v => v + 1)}>Thử lại</button></p>}
       {pick('TRANSPORT_SPECIALIST', sp, setSp, 'Transport Specialist (hồ sơ, bảo hiểm, kiểm dịch)', 'mgr-dep-sp')}
       {pick('FLEET_ROUTE_COORDINATOR', co, setCo, 'Fleet Coordinator (tuyến, xe, nhân sự)', 'mgr-dep-co')}
       <label className="mgr-check"><input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} /> Tôi xác nhận triển khai chuyến và khóa phân công.</label>

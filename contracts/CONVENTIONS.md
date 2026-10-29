@@ -1,8 +1,14 @@
 # Quy ước API — Racehorse Transport System
 
-Cập nhật 27/10/2026 (Flow 3 v2). Áp dụng cho thiết kế Flow 1, Flow 2 và Flow 3. Tài liệu mô tả giao thức FE–BE mục tiêu; không xác nhận backend hiện có đã triển khai giao thức này.
+Cập nhật 29/10/2026 (bổ sung Flow 4). Áp dụng cho các flow có contract được liệt kê bên dưới. Tài liệu mô tả giao thức FE–BE mục tiêu; không xác nhận backend hiện có đã triển khai giao thức này.
 
 ## 1. Phạm vi và nguồn chuẩn
+
+- Flow 5 (29/10/2026): [nghiệp vụ](API-Flow/Flow5/FLOW5.md), [JSON từng API](API-Flow/Flow5/FLOW5-API-JSON.md), [OpenAPI](API-Flow/Flow5/flow5.openapi.json), [kịch bản](API-Flow/Flow5/flow5.examples.json). Coordinator tiếp nhận/điều phối/đóng incident, Manager duyệt thay đổi cần thiết và thỏa thuận khách; không thu thêm phí sự cố từ Customer. Thay incident workflow trong Operations cũ; complaint/settlement sau bàn giao theo Flow 6. Nhánh kết thúc sớm cần capability financial handoff thật; không bàn giao/hoàn tiền giả. Chỉ contract, chưa triển khai backend/DB.
+
+- Flow 6 v1.1 (29/10/2026): giữ nghiệp vụ 26/10, bổ sung guard FINAL_ARRIVED Flow 4 và blockers Flow 5, [JSON kịch bản](API-Flow/Flow6/flow6.examples.json), lỗi từng API. Policy giờ theo server; bản 48/24 trong fixture là minh họa, không chốt thời hạn mới. OpenAPI/JSON/SDK mirror được đồng bộ; chưa nối màn hình hoặc chạy thanh toán thật.
+
+- Flow 4 (29/10/2026): [nghiệp vụ](API-Flow/Flow4/FLOW4.md), [JSON từng API](API-Flow/Flow4/FLOW4-API-JSON.md), [OpenAPI](API-Flow/Flow4/flow4.openapi.json), [kịch bản](API-Flow/Flow4/flow4.examples.json). Nhận READY_TO_DEPART từ Flow 3; Driver ghi xuất phát và mốc theo chặng; FINAL_ARRIVED chưa hoàn tất Trip, bàn giao theo Flow 6. Có revision/idempotency/history, không GPS realtime. Chỉ contract, chưa triển khai backend/DB.
 
 - Flow 6 (26/10/2026): [quy tắc hiện hành](API-Flow/Flow6/FLOW6.md), [JSON từng API](API-Flow/Flow6/FLOW6-API-JSON.md), [OpenAPI](API-Flow/Flow6/flow6.openapi.json), [review checklist](API-Flow/Flow6/REVIEW.md). Khách nghiệm thu cuối cùng rồi thanh toán; quá hạn chỉ cảnh báo; Manager gia hạn/xử lý tranh chấp/đóng. Thay thế mô tả hậu bàn giao cũ; backend chưa triển khai. Riêng Flow 6 có revision/idempotency và history bắt buộc như tài liệu này quy định.
 

@@ -5,6 +5,7 @@ import axios from "axios";
 
 import { login, googleLogin } from "../../api/authApi";
 import type { UserRole } from "../../types/auth.types";
+import { QUICK_LOGIN_ACCOUNTS } from "../../quickLoginAccounts";
 import { resetCustomerState } from "../../../customer/hooks/useCustomer";
 
 import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
@@ -351,71 +352,18 @@ function LoginPage() {
           </p>
 
           <div className="demo-role-grid">
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("vana.horse@gmail.com", "HASH_SECURE_01")
-              }
-              title="Khách hàng 1: vana.horse@gmail.com | Mật khẩu: HASH_SECURE_01"
-            >
-              🐴 KH 1: Nguyễn Văn A
-            </button>
-
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("tranb.racing@gmail.com", "HASH_SECURE_02")
-              }
-              title="Khách hàng 2: tranb.racing@gmail.com | Mật khẩu: HASH_SECURE_02"
-            >
-              🐴 KH 2: Trần Văn B
-            </button>
-
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("linh.manager@cbntransport.com", "HASH_SECURE_04")
-              }
-              title="Quản lý: linh.manager@cbntransport.com | Mật khẩu: HASH_SECURE_04"
-            >
-              📋 Logistics Manager
-            </button>
-
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("tuan.specialist@cbntransport.com", "HASH_SECURE_05")
-              }
-              title="Chuyên viên: tuan.specialist@cbntransport.com | Mật khẩu: HASH_SECURE_05"
-            >
-              🩺 Specialist
-            </button>
-
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("hai.coord@cbntransport.com", "HASH_SECURE_06")
-              }
-              title="Điều phối: hai.coord@cbntransport.com | Mật khẩu: HASH_SECURE_06"
-            >
-              🗺️ Coordinator
-            </button>
-
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("hung.driver@cbntransport.com", "HASH_SECURE_07")
-              }
-              title="Tài xế: hung.driver@cbntransport.com | Mật khẩu: HASH_SECURE_07"
-            >
-              🚚 Driver / Escort
-            </button>
+            {QUICK_LOGIN_ACCOUNTS.map(account => (
+              <button
+                key={account.id}
+                type="button"
+                className="demo-role-button"
+                disabled={isLoading}
+                onClick={() => handleQuickLogin(account.email, account.password)}
+                title={`${account.email} • ${account.id}`}
+              >
+                {account.label}
+              </button>
+            ))}
           </div>
         </div>
 

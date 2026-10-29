@@ -1,5 +1,9 @@
 # Chỉ dẫn API — Role: Customer (Khách hàng)
 
+Sự cố dùng [Flow 5](../../API-Flow/Flow5/FLOW5.md), J29–J33/J36/J38/J41: xem thông tin được chia sẻ và phản hồi đúng đề nghị; không thu thêm phí sự cố. [Flow 6 v1.1](../../API-Flow/Flow6/FLOW6.md) quy định nghiệm thu trước trả số dư, giải quyết vấn đề trước nghiệm thu, Manager đóng sau đủ nghĩa vụ; không tự nghiệm thu/đóng vì im lặng.
+
+Theo dõi hành trình/sức khỏe sau duyệt khởi hành dùng [Flow 4](../../API-Flow/Flow4/FLOW4.md), F4-J32–J34 (29/10/2026): chỉ đơn/ngựa của khách, projection và file đã chia sẻ; không GPS realtime. Schema role cũ không thay schema Flow 4. Bàn giao/nghiệm thu/thanh toán dùng Flow 6 hiện hành.
+
 | Thuộc tính | Giá trị |
 |---|---|
 | Phiên bản | 2.1 — Bản đồ Tra cứu & Điều hướng Role (Navigation & Integration Matrix) |

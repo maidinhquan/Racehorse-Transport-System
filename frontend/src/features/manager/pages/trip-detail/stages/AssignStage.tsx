@@ -5,6 +5,8 @@ import { DeployModal, ReasonModal } from '../../../components/Modals';
 import { useManager } from '../../../hooks/useManager';
 import type { Trip } from '../../../types';
 import { fmtDateTime, staffName } from '../../../hooks/managerRules';
+import { managerApi } from '../../../api/managerApi';
+import { getDemoMode } from '../../../../../shared/context/DemoModeContext';
 
 /** Bước 1: Manager chọn đích danh Specialist + Coordinator; có thể tạm dừng / tiếp tục */
 export const AssignStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
@@ -32,7 +34,7 @@ export const AssignStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
         </div>
       )}
       <p className="mgr-hint">Nhân viên nhận chuyến ngay sau khi giao việc, không cần xác nhận nhận việc.</p>
-      <DeployModal open={dialog === 'deploy'} tripId={t.id} staff={staff} onClose={() => setDialog('')} onSubmit={async (sp, co) => (await actions.confirmDeployment(t.id, sp, co)).ok} />
+      <DeployModal open={dialog === 'deploy'} tripId={t.id} staff={staff} loadStaff={getDemoMode('manager') ? undefined : managerApi.getStaff} onClose={() => setDialog('')} onSubmit={async (sp, co) => (await actions.confirmDeployment(t.id, sp, co)).ok} />
       <ReasonModal open={dialog === 'hold'} title={`Tạm dừng ${t.id}`} okText="Tạm dừng" danger minLength={10}
         intro={<p>Specialist và Coordinator ngừng chuẩn bị cho đến khi Manager cho tiếp tục.</p>}
         placeholder="VD: Khách hàng đang xin dời lịch, chờ xác nhận ngày mới." onClose={() => setDialog('')} onSubmit={async (x) => (await actions.holdTrip(t.id, x)).ok} />

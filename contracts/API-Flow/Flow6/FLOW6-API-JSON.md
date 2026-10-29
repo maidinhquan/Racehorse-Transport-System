@@ -1,6 +1,10 @@
 # Flow 6 — Request/response từng API
 
+**1.1.0 — 29/10/2026. Contract đích; chưa triển khai backend/DB, chưa nối các màn hình cũ.**
+
 > Sinh từ `build_contract.py`. Đọc [FLOW6.md](FLOW6.md) trước khi triển khai. Ví dụ là các snapshot độc lập, không phải chuỗi lệnh chạy liên tiếp; lấy lại version thật từ GET/response.
+
+[OpenAPI](flow6.openapi.json) · [Kịch bản ROAD/AIR và nghiệm thu](flow6.examples.json) · [Review backend/frontend](REVIEW.md).
 
 Base `/api`; Bearer token theo role. Mọi POST cần `Idempotency-Key` UUID; cùng key cho retry cùng payload. JSON dùng envelope, download dùng binary.
 
@@ -68,6 +72,21 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J02 — GET /manager/aftercare
 
 Danh sách bàn giao, quá hạn và tranh chấp. Vai trò: **LOGISTICS_MANAGER**.
@@ -101,11 +120,30 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J03 — GET /driver/trips/{tripId}/handover
 
 Hồ sơ bàn giao của chặng được phân công. Vai trò: **DRIVER_ESCORT**.
 
-Chỉ tổ xe được giao chặng giao cuối. Không trả tài chính, hồ sơ tranh chấp hoặc khách của chuyến khác.
+Chỉ tổ xe được giao chặng giao cuối. arrivedAtDestination lấy từ FINAL_ARRIVED đã xác nhận của Flow4, không từ GPS/ETA/giờ dự kiến. canComplete kiểm blocker hiện hành của mọi incident Flow5 liên quan bàn giao. Không trả tài chính, hồ sơ tranh chấp hoặc khách của chuyến khác.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | True | `{"type": "string", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
 
 Không gửi request body.
 
@@ -137,11 +175,31 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J04 — POST /driver/trips/{tripId}/handover-attempts
 
 Ghi nhận bàn giao chưa thành công. Vai trò: **DRIVER_ESCORT**.
 
 Chưa có bàn giao thành công, đã tới điểm giao. Giữ Trip chưa COMPLETED; chưa mở thời hạn nghiệm thu. Thông báo Coordinator và Manager.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | True | `{"type": "string", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -196,11 +254,31 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: HANDOVER_ALREADY_COMPLETED, HANDOVER_NOT_READY, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: HANDOVER_ALREADY_COMPLETED",
+  "errorCode": "HANDOVER_ALREADY_COMPLETED",
+  "data": null
+}
+```
+
 ## F6-J05 — POST /driver/trips/{tripId}/handover
 
 Hoàn thành bàn giao và mở thời hạn nghiệm thu. Vai trò: **DRIVER_ESCORT**.
 
-Server kiểm tra phân công, tới điểm giao, người nhận đã đăng ký/được duyệt, đủ đúng mỗi ngựa một lần, microchip, ảnh, chữ ký và file cùng request. Atomic: Trip COMPLETED, Request DELIVERED, phase AWAITING_ACCEPTANCE, một deadline theo policy. Không phải nghiệm thu Customer.
+Server recheck FINAL_ARRIVED Flow4 và toàn bộ blocker Flow5 liên quan bàn giao dưới cùng transaction boundary, kể cả context trước đó canComplete=true. Kiểm phân công chặng cuối, người nhận đã đăng ký/được duyệt, đủ đúng mỗi ngựa một lần, microchip, ảnh, chữ ký và file cùng request. Chữ ký gắn snapshot đầy đủ nội dung receiver/horses/condition/note/version đã cho người nhận xem; đổi nội dung phải ký lại, không tái dùng signature file cho biên bản khác. Atomic: Trip COMPLETED, Request DELIVERED, phase AWAITING_ACCEPTANCE, một deadline theo policy. Không phải nghiệm thu Customer.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | True | `{"type": "string", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -286,11 +364,31 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: HANDOVER_NOT_READY, HANDOVER_ALREADY_COMPLETED, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: HANDOVER_NOT_READY",
+  "errorCode": "HANDOVER_NOT_READY",
+  "data": null
+}
+```
+
 ## F6-J06 — POST /manager/trips/{tripId}/receiver-authorizations
 
 Duyệt người nhận thay thế trước bàn giao. Vai trò: **LOGISTICS_MANAGER**.
 
 Chỉ trước bàn giao thành công; ghi bằng chứng ủy quyền và actor. Không sửa hợp đồng đã ký. version lấy từ HandoverContext.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | True | `{"type": "string", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -336,11 +434,30 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J07 — GET /customer/requests/{requestId}/aftercare
 
 Đọc hồ sơ Flow 6 và hành động được phép. Vai trò: **CUSTOMER**.
 
 Sau bàn giao thành công. Chỉ chủ yêu cầu/phạm vi quản lý. Customer chỉ nhận bằng chứng và thông tin được chia sẻ, không có ghi chú hay chi phí nội bộ. actions chỉ hỗ trợ UI; mutation luôn recheck.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
 
 Không gửi request body.
 
@@ -477,6 +594,21 @@ Response 200:
     ],
     "closure": null
   }
+}
+```
+
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
 }
 ```
 
@@ -486,6 +618,10 @@ Response 200:
 
 Sau bàn giao thành công. Chỉ chủ yêu cầu/phạm vi quản lý. Customer chỉ nhận bằng chứng và thông tin được chia sẻ, không có ghi chú hay chi phí nội bộ. actions chỉ hỗ trợ UI; mutation luôn recheck.
 
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+
 Không gửi request body.
 
 Response 200:
@@ -624,11 +760,30 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J09 — GET /coordinator/requests/{requestId}/aftercare
 
 Theo dõi kết quả bàn giao. Vai trò: **FLEET_ROUTE_COORDINATOR**.
 
 Coordinator được phân công chỉ đọc kết quả và lần bàn giao thất bại; không có quyền nghiệm thu, xác minh tiền hoặc đóng đơn.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
 
 Không gửi request body.
 
@@ -677,11 +832,31 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J10 — POST /customer/requests/{requestId}/aftercare/acceptance
 
 Customer xác nhận nghiệm thu cuối cùng. Vai trò: **CUSTOMER**.
 
 Chỉ chủ yêu cầu, trong hạn RUNNING, chưa ACCEPTED, không khiếu nại/tranh chấp/điều chỉnh chờ. Kiểm đúng statementVersion. Atomic: ACCEPTED, khóa khiếu nại mới, mở paymentWindow riêng. Nếu không còn nợ thì READY_TO_CLOSE khi không nghĩa vụ treo. Không chờ hết 24/48h.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -814,11 +989,31 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: ACCEPTANCE_WINDOW_EXPIRED, ALREADY_ACCEPTED, OPEN_COMPLAINT, OPEN_DISPUTE, PENDING_ADJUSTMENT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: ACCEPTANCE_WINDOW_EXPIRED",
+  "errorCode": "ACCEPTANCE_WINDOW_EXPIRED",
+  "data": null
+}
+```
+
 ## F6-J11 — POST /customer/requests/{requestId}/aftercare/complaints
 
 Báo vấn đề hoặc từ chối nghiệm thu. Vai trò: **CUSTOMER**.
 
 Bàn giao xong, chưa ACCEPTED, trong hạn RUNNING hoặc đang PAUSED vì khiếu nại/tranh chấp trước nghiệm thu; quá hạn phải được gia hạn. Khóa nghiệm thu/thanh toán, pause thời hạn một lần; REFUSAL không đóng đơn. horseId nếu có phải thuộc chuyến.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -973,11 +1168,32 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: ALREADY_ACCEPTED, ACCEPTANCE_WINDOW_EXPIRED, REQUEST_CLOSED, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: ALREADY_ACCEPTED",
+  "errorCode": "ALREADY_ACCEPTED",
+  "data": null
+}
+```
+
 ## F6-J12 — POST /customer/requests/{requestId}/aftercare/complaints/{complaintId}/messages
 
 Trao đổi và bổ sung bằng chứng khiếu nại. Vai trò: **CUSTOMER**.
 
 Khiếu nại thuộc đúng request và chưa RESOLVED; CLOSED không cho ghi mới. Message hiển thị cho Customer; không dùng để lưu ghi chú nội bộ.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `complaintId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -1134,6 +1350,21 @@ Response 201:
     "actions": [],
     "closure": null
   }
+}
+```
+
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
 }
 ```
 
@@ -1143,6 +1374,12 @@ Trao đổi và bổ sung bằng chứng khiếu nại. Vai trò: **LOGISTICS_MA
 
 Khiếu nại thuộc đúng request và chưa RESOLVED; CLOSED không cho ghi mới. Message hiển thị cho Customer; không dùng để lưu ghi chú nội bộ.
 
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `complaintId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
 Request JSON:
@@ -1301,11 +1538,32 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J14 — POST /manager/requests/{requestId}/aftercare/complaints/{complaintId}/proposals
 
 Đề xuất giải quyết và khoản giảm. Vai trò: **LOGISTICS_MANAGER**.
 
 Khiếu nại OPEN/PROPOSED; đề xuất mới supersede bản PENDING cũ. Không sửa bản ACCEPTED. Khoản giảm chưa trừ hóa đơn; không cộng thêm tiền khách. Không dùng trong tranh chấp đã có quyết định cuối.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `complaintId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -1472,11 +1730,33 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J15 — POST /customer/requests/{requestId}/aftercare/complaints/{complaintId}/proposals/{proposalId}/decision
 
 Customer đồng ý hoặc từ chối đúng bản đề xuất. Vai trò: **CUSTOMER**.
 
 Đúng proposalVersion hiện hành PENDING. ACCEPTED => AGREED và pendingAdjustment; REJECTED => OPEN, giữ khóa. Đồng ý phương án không phải nghiệm thu bàn giao.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `complaintId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+| path | `proposalId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -1645,11 +1925,32 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STALE_PROPOSAL, REQUEST_CLOSED, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STALE_PROPOSAL",
+  "errorCode": "STALE_PROPOSAL",
+  "data": null
+}
+```
+
 ## F6-J16 — POST /manager/requests/{requestId}/aftercare/complaints/{complaintId}/resolution/apply
 
 Áp dụng kết quả đã được khách đồng ý. Vai trò: **LOGISTICS_MANAGER**.
 
 Chỉ proposal ACCEPTED. Atomic áp dụng khoản giảm một lần, tạo nghĩa vụ hoàn nếu thừa tiền, chuyển complaint RESOLVED. Không gửi số tiền lại. Khi hết khiếu nại, không tranh chấp và hết pendingAdjustment: mở lại đủ acceptanceHours từ server now; còn vụ mở giữ PAUSED.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `complaintId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -1822,11 +2123,31 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: PROPOSAL_NOT_ACCEPTED, RECONCILIATION_REQUIRED, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: PROPOSAL_NOT_ACCEPTED",
+  "errorCode": "PROPOSAL_NOT_ACCEPTED",
+  "data": null
+}
+```
+
 ## F6-J17 — POST /manager/requests/{requestId}/aftercare/acceptance-window/extensions
 
 Gia hạn kiểm tra và nghiệm thu. Vai trò: **LOGISTICS_MANAGER**.
 
 Chưa ACCEPTED, không tranh chấp/complaint/pendingAdjustment. newDueAt > now và > hạn hiện tại, trong maxExtensionHours. Giữ lịch sử; không xóa bộ đếm cũ. Chỉ cửa sổ nghiệm thu, không sửa paymentWindow.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -1971,11 +2292,31 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J18 — POST /manager/requests/{requestId}/aftercare/dispute
 
 Chuyển đơn sang đang giải quyết. Vai trò: **LOGISTICS_MANAGER**.
 
 Đơn đã bàn giao, chưa CLOSED, chưa có dispute mở. NO_RESPONSE chỉ sau quá hạn; PAYMENT_DISAGREEMENT có thể sau ACCEPTED. Request UNDER_RESOLUTION, chặn nghiệm thu/khởi tạo tiền/đóng. Hủy phiên đang chờ theo khả năng provider; tiền về muộn vẫn phải đối soát.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -2117,11 +2458,31 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J19 — POST /manager/requests/{requestId}/aftercare/dispute/updates
 
 Ghi diễn biến giải quyết có thể chia sẻ với khách. Vai trò: **LOGISTICS_MANAGER**.
 
 Dispute OPEN/DECISION_RECORDED. Chỉ bằng chứng được phép chia sẻ. Không tự đánh dấu khách đồng ý.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -2273,11 +2634,31 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J20 — POST /manager/requests/{requestId}/aftercare/dispute/decisions
 
 Ghi nhận kết quả cuối cùng của tranh chấp. Vai trò: **LOGISTICS_MANAGER**.
 
 Dispute OPEN. CUSTOMER_AGREEMENT phải tham chiếu các proposal đã được chính Customer chấp nhận, bao phủ mọi complaint chưa giải quyết. EXTERNAL_DECISION cần reference và bằng chứng hợp lệ, Manager xác nhận đã kiểm chứng. COMPANY_WAIVER chỉ miễn nghĩa vụ khách còn nợ, không khẳng định khách đồng ý, không phủ nhận yêu cầu bồi thường chưa xử lý. RESUME_ACCEPTANCE chỉ khi chưa ACCEPTED, waiverAmount=0. Không ghi đè quyết định đã lưu; lỗi cần quy trình hiệu chỉnh riêng, chưa hỗ trợ.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -2446,11 +2827,32 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: INVALID_DECISION_BASIS, OPEN_COMPLAINT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: INVALID_DECISION_BASIS",
+  "errorCode": "INVALID_DECISION_BASIS",
+  "data": null
+}
+```
+
 ## F6-J21 — POST /manager/requests/{requestId}/aftercare/dispute/decisions/{decisionId}/apply
 
 Áp dụng quyết định và hóa đơn trong một transaction. Vai trò: **LOGISTICS_MANAGER**.
 
 Quyết định RECORDED, đúng request. Đối soát payment đang xử lý trước. reduction không vượt giá còn lại, waiver không vượt nợ sau reduction; khoản đã áp dụng không tính hai lần. Giải quyết các complaint trong phạm vi quyết định. RESUME_ACCEPTANCE => mở thời hạn mới. CLOSE_AFTER_DISPUTE => bỏ yêu cầu nghiệm thu bằng NOT_REQUIRED_BY_DISPUTE nếu chưa ký nghiệm thu, không tạo acceptedAt. Nợ/hoàn còn treo vẫn chặn đóng.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `decisionId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -2614,11 +3016,31 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: INVALID_DECISION_BASIS, UNSETTLED_PAYMENT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: INVALID_DECISION_BASIS",
+  "errorCode": "INVALID_DECISION_BASIS",
+  "data": null
+}
+```
+
 ## F6-J22 — POST /customer/requests/{requestId}/aftercare/payment-sessions
 
 Khởi tạo thanh toán số dư VNPay. Vai trò: **CUSTOMER**.
 
 Server tính amount=outstanding theo invoiceVersion, không nhận amount/returnUrl từ client. Bình thường phải ACCEPTED; ngoại lệ quyết định CLOSE_AFTER_DISPUTE đã APPLIED và cho phép thu nợ. Không vụ mở, pendingAdjustment/refund, pendingPayment; nợ >0. Quá hạn thanh toán vẫn được trả và ghi nhận trễ. Return trình duyệt không xác minh tiền.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -2652,11 +3074,31 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STALE_INVOICE, OPEN_COMPLAINT, OPEN_DISPUTE, PENDING_ADJUSTMENT, UNSETTLED_PAYMENT, PENDING_REFUND, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STALE_INVOICE",
+  "errorCode": "STALE_INVOICE",
+  "data": null
+}
+```
+
 ## F6-J23 — GET /customer/requests/{requestId}/aftercare/payments/{paymentId}
 
 Đọc kết quả thanh toán đã xác minh trên server. Vai trò: **CUSTOMER**.
 
 PAYMENT phải thuộc Request và Customer. Chỉ đọc; không xác minh từ query browser, không tự xử lý IPN.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `paymentId` | True | `{"type": "string", "pattern": "^PAYMENT_\\d{3,}$", "maxLength": 50}` |
 
 Không gửi request body.
 
@@ -2677,11 +3119,32 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J24 — POST /manager/requests/{requestId}/aftercare/refunds/{refundId}/confirmation
 
 Ghi nhận bằng chứng khoản hoàn đã chuyển thực tế. Vai trò: **LOGISTICS_MANAGER**.
 
 Nghĩa vụ refund có sẵn PENDING/PROCESSING/FAILED. Người có quyền tài chính được cấu hình kiểm tra reference, số tiền đúng nghĩa vụ, bằng chứng thanh toán. Không phải API chuyển tiền hoặc duyệt hoàn = đã hoàn. Chỉ ghi verifiedAt sau kiểm chứng; chống reference trùng.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `refundId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -2863,11 +3326,31 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: PENDING_REFUND, RECONCILIATION_REQUIRED, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: PENDING_REFUND",
+  "errorCode": "PENDING_REFUND",
+  "data": null
+}
+```
+
 ## F6-J25 — POST /manager/requests/{requestId}/aftercare/closure
 
 Manager đóng đơn sau kiểm tra toàn bộ nghĩa vụ. Vai trò: **LOGISTICS_MANAGER**.
 
 Atomic recheck đủ bàn giao, không vụ mở, không pendingAdjustment/payment/reconciliation/refund, outstanding=0, refundDue=0. NORMAL cần ACCEPTED. AFTER_DISPUTE cần quyết định CLOSE_AFTER_DISPUTE đã APPLIED. Không chờ hết acceptanceWindow sau đã ACCEPTED. Không tự đóng, không tự nghiệm thu, không đánh dấu nợ đã thanh toán.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -3011,11 +3494,31 @@ Response 200:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: CLOSURE_BLOCKED, OUTSTANDING_BALANCE, PENDING_REFUND, UNSETTLED_PAYMENT, OPEN_COMPLAINT, OPEN_DISPUTE, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: CLOSURE_BLOCKED",
+  "errorCode": "CLOSURE_BLOCKED",
+  "data": null
+}
+```
+
 ## F6-J26 — POST /driver/requests/{requestId}/aftercare/files
 
 Tải bằng chứng thật cho đúng yêu cầu. Vai trò: **DRIVER_ESCORT**.
 
 PDF/JPEG/PNG 1 byte–10 MiB, kiểm bytes/MIME, malware và quyền. Driver chỉ chặng giao được phân công; cho upload trước handover. Client gửi đúng một file multipart, không URL/base64. Không tăng aftercare.version chỉ vì upload file chưa gắn.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -3039,6 +3542,21 @@ Response 201:
       "name": "Nguyễn Minh An"
     }
   }
+}
+```
+
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
 }
 ```
 
@@ -3048,15 +3566,40 @@ Tải bằng chứng có kiểm quyền. Vai trò: **DRIVER_ESCORT**.
 
 File thuộc đúng Request và được chia sẻ với role. Token Bearer, binary đúng MIME. Driver chỉ file bàn giao mình có quyền; không thấy tài liệu tranh chấp. Không dùng URL công khai.
 
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `fileId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+
 Không gửi request body.
 
 Response 200: binary theo MIME file; `Content-Disposition: attachment`. Lỗi vẫn là JSON.
+
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
 
 ## F6-J28 — POST /customer/requests/{requestId}/aftercare/files
 
 Tải bằng chứng thật cho đúng yêu cầu. Vai trò: **CUSTOMER**.
 
 PDF/JPEG/PNG 1 byte–10 MiB, kiểm bytes/MIME, malware và quyền. Driver chỉ chặng giao được phân công; cho upload trước handover. Client gửi đúng một file multipart, không URL/base64. Không tăng aftercare.version chỉ vì upload file chưa gắn.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -3080,6 +3623,21 @@ Response 201:
       "name": "Nguyễn Minh An"
     }
   }
+}
+```
+
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
 }
 ```
 
@@ -3089,15 +3647,40 @@ Tải bằng chứng có kiểm quyền. Vai trò: **CUSTOMER**.
 
 File thuộc đúng Request và được chia sẻ với role. Token Bearer, binary đúng MIME. Driver chỉ file bàn giao mình có quyền; không thấy tài liệu tranh chấp. Không dùng URL công khai.
 
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `fileId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+
 Không gửi request body.
 
 Response 200: binary theo MIME file; `Content-Disposition: attachment`. Lỗi vẫn là JSON.
+
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
 
 ## F6-J30 — POST /manager/requests/{requestId}/aftercare/files
 
 Tải bằng chứng thật cho đúng yêu cầu. Vai trò: **LOGISTICS_MANAGER**.
 
 PDF/JPEG/PNG 1 byte–10 MiB, kiểm bytes/MIME, malware và quyền. Driver chỉ chặng giao được phân công; cho upload trước handover. Client gửi đúng một file multipart, không URL/base64. Không tăng aftercare.version chỉ vì upload file chưa gắn.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
 
@@ -3124,15 +3707,50 @@ Response 201:
 }
 ```
 
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
+
 ## F6-J31 — GET /manager/requests/{requestId}/aftercare/files/{fileId}
 
 Tải bằng chứng có kiểm quyền. Vai trò: **LOGISTICS_MANAGER**.
 
 File thuộc đúng Request và được chia sẻ với role. Token Bearer, binary đúng MIME. Driver chỉ file bàn giao mình có quyền; không thấy tài liệu tranh chấp. Không dùng URL công khai.
 
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `fileId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+
 Không gửi request body.
 
 Response 200: binary theo MIME file; `Content-Disposition: attachment`. Lỗi vẫn là JSON.
+
+Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+
+Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+
+Mẫu lỗi 409 (không commit một phần):
+
+```json
+{
+  "success": false,
+  "message": "Thao tác bị chặn: STATE_CONFLICT",
+  "errorCode": "STATE_CONFLICT",
+  "data": null
+}
+```
 
 ## Lỗi chung
 

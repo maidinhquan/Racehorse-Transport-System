@@ -95,4 +95,19 @@ invalid('CloseInput', { expectedVersion: 1, mode: 'AUTO', reason: 'Tự động 
 invalid('ComplaintInput', { expectedVersion: 1, kind: 'ISSUE', category: 'OTHER', title: 'Vấn đề', description: 'Kiểm tra lại', horseId: 'HORSE_001', evidenceFileIds: ['x', 'x'] });
 assert.equal(spec['x-payment-verification'].browserCallable, false);
 assert.ok(!Object.keys(spec.paths).some(p => /ipn|verify-payment|auto-close/.test(p)), 'No browser payment confirmation or auto-close endpoint');
-console.log(`Flow 6 contract OK: ${ids.size} operations, ${Object.keys(spec.components.schemas).length} schemas, ${inputs} JSON requests, ${examples} examples; mirror, SDK coverage and negative payloads verified. Backend guards still require integration tests.`);
+const targets = read(path.join(here, 'flow6.examples.json'));
+assert.equal(targets.contractVersion, spec.info.version);
+assert.equal(targets.status, 'ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS');
+assert.equal(targets.scenarios.length, 40);
+assert.equal(new Set(targets.scenarios.map(s => s.id)).size, 40);
+for (const [key, name] of [['handoverContext', 'HandoverContext'], ['awaitingAcceptance', 'Aftercare'], ['acceptedAwaitingPayment', 'Aftercare'], ['normalClosure', 'Aftercare']]) {
+  validate({ $ref: '#/components/schemas/' + name }, targets[key], key);
+}
+assert.equal(targets.awaitingAcceptance.phase, 'AWAITING_ACCEPTANCE');
+assert.equal(targets.acceptedAwaitingPayment.acceptance.status, 'ACCEPTED');
+assert.equal(targets.normalClosure.phase, 'CLOSED');
+for (const match of docs.matchAll(/```json\n([\s\S]*?)\n```/g)) JSON.parse(match[1]);
+const handoverOperation = Object.values(spec.paths).flatMap(Object.values).find(op => op['x-client-name'] === 'completeHandover');
+assert.ok(handoverOperation.description.includes('FINAL_ARRIVED') && handoverOperation.description.includes('Flow5'));
+assert.ok(handoverOperation.responses['409'].content['application/json'].examples.HANDOVER_NOT_READY);
+console.log(`Flow 6 contract OK: ${ids.size} operations, ${Object.keys(spec.components.schemas).length} schemas, ${inputs} JSON requests, ${examples} examples; mirror, SDK, negative payloads and 40 acceptance targets verified. Backend guards still require integration tests.`);

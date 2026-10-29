@@ -8,6 +8,10 @@ the HTML demo's illustrative USD amounts.
 
 ## Business rules
 
+- Incident handling is superseded by [Flow 5](../Flow5/FLOW5.md), [JSON](../Flow5/FLOW5-API-JSON.md) and [OpenAPI](../Flow5/flow5.openapi.json), dated 29/10/2026. Coordinator accepts/resolves/reopens with guards; Manager approves relevant recovery changes and customer agreements. Legacy `PUT /manager/incidents/{incidentId}/status` must not bypass checks; target behavior is 409 CONTRACT_SUPERSEDED. Legacy complaints/compensation/settlement use [Flow 6 v1.1](../Flow6/FLOW6.md). Existing generic instructions below are historical where they differ.
+
+- Tracking/execution is now defined by [Flow 4](../Flow4/FLOW4.md), [JSON](../Flow4/FLOW4-API-JSON.md) and [OpenAPI](../Flow4/flow4.openapi.json) dated 29/10/2026. Legacy F4-U01/U02 below are settlement/acceptance operations superseded by [Flow 6](../Flow6/FLOW6.md); they are not Flow 4 tracking APIs. Do not implement their old payloads in parallel with the current contracts.
+
 - Required pickup and desired-arrival dates are distinct. No guessed pickup dates.
 - Accept terms → OTP signature → SIGNED / AWAITING_DEPOSIT → verified VNPAY IPN →
   EFFECTIVE / ACTIVATED and exactly one Trip. No Trip is created by frontend/sign API.

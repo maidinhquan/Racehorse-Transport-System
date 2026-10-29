@@ -1,5 +1,9 @@
 # Chỉ dẫn API — Role: Transport Specialist (Chuyên viên Hồ sơ & Kiểm dịch)
 
+Sự cố dùng [Flow 5](../../API-Flow/Flow5/FLOW5.md), J21/task liên quan: chỉ kiểm tra hồ sơ/bảo hiểm thực sự bị ảnh hưởng, giữ kết quả còn phù hợp. Không tự duyệt recovery nguồn lực hoặc đóng incident; khiếu nại/nghiệm thu thuộc Flow 6 hiện hành.
+
+Trong hành trình dùng [Flow 4](../../API-Flow/Flow4/FLOW4.md) (29/10/2026): F4-J11/J12 đọc và ghi kết quả checkpoint thực tế với bằng chứng. HELD/SUPPLEMENT_REQUIRED chặn rời điểm; CLEARED không gỡ blocker sức khỏe/nguồn lực. Schema role cũ không thay schema Flow 4.
+
 > **Flow 3 đã thay thế ngày 27/10/2026:** [quy trình v2](../../API-Flow/Flow3/FLOW3.md) và [API/JSON chuẩn](../../API-Flow/Flow3/FLOW3-API-JSON.md) là nguồn hiện hành cho planning/nguồn lực/bay/READY/khởi hành. Bảng và quy tắc planning cũ bên dưới chỉ tra cứu lịch sử khi khác v2: hai nhánh song song, ba người mỗi ROAD; ROAD confirm trước submit, AIR approve rồi book/confirm; không feasibility/timed-documents gate. API role JSON cũ không thay schema v2.
 
 

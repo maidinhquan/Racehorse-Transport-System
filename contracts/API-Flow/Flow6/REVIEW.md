@@ -1,5 +1,7 @@
 # Flow 6 — Hướng dẫn review cho backend/frontend
 
+Cập nhật 29/10/2026, contract 1.1.0. [flow6.examples.json](flow6.examples.json) bổ sung 40 kịch bản máy đọc và snapshot độc lập. Các con số thời hạn trong mẫu là policy minh họa; client lấy giá trị thật từ server.
+
 Đọc [FLOW6.md](FLOW6.md), sau đó import [flow6.openapi.json](flow6.openapi.json) vào Postman hoặc Swagger Editor. Base `/api`, token Bearer theo role; mọi POST cần Idempotency-Key mới cho thao tác mới. **Hiện chưa có server Flow 6 triển khai.** Không gửi ví dụ vào production. Các mẫu trong [FLOW6-API-JSON.md](FLOW6-API-JSON.md) là snapshot độc lập; dùng version thực sau mỗi response.
 
 ## Thứ tự kiểm thử khi backend sẵn sàng
@@ -15,6 +17,10 @@
 | Trường hợp | Kết quả mong đợi |
 |---|---|
 | Driver khác chuyến / khách khác chủ / file của request khác | 404, không thay đổi dữ liệu |
+| Đến giờ ETA nhưng chưa có FINAL_ARRIVED từ Flow 4 | HANDOVER_NOT_READY, không mở đồng hồ |
+| Context xanh rồi incident Flow 5 mới chặn bàn giao | POST recheck transaction, không bàn giao theo GET cũ |
+| Đổi nội dung biên bản sau lấy chữ ký hoặc tái dùng signature cho bản khác | Yêu cầu ký lại, giữ đúng snapshot liên kết |
+| Kết thúc sớm Flow 5 chưa có bàn giao hợp lệ | Không dùng handover giả; handoff cần pre-handover settlement extension thực có |
 | Bàn giao sai người, thiếu một ngựa, trùng ngựa hoặc thiếu chữ ký | Bị chặn, không mở đồng hồ |
 | Bàn giao thất bại | Lưu attempt, không COMPLETED/không deadline |
 | Hai POST bàn giao đồng thời | Một biên bản, một deadline |

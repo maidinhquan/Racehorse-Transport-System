@@ -1,10 +1,11 @@
 # Flow 6 — Bàn giao, nghiệm thu, thanh toán và giải quyết tranh chấp
 
-**Bản review 1.0.0 — 26/10/2026.** Quy tắc đã thống nhất với chủ dự án trong cuộc trao đổi này thay thế phần Flow 6 cũ trong HTML, Flow 1 lịch sử và Operations. Đây là API contract đích và SDK gọi API frontend, **chưa có backend/DB triển khai, chưa nối các màn hình cũ và chưa kiểm thử thanh toán thật**.
+**Bản review 1.1.0 — 29/10/2026.** Giữ quy tắc Flow 6 ngày 26/10/2026, bổ sung điểm nối Flow 4–5, JSON lỗi tại từng API và kịch bản máy đọc. Quy tắc này thay thế phần Flow 6 cũ trong HTML, Flow 1 lịch sử và Operations. Đây là API contract đích và SDK gọi API frontend, **chưa có backend/DB triển khai, chưa nối các màn hình cũ và chưa kiểm thử thanh toán thật**.
 
 - [Toàn bộ endpoint, JSON gửi/nhận](FLOW6-API-JSON.md).
 - [OpenAPI 3.1 để import vào Swagger Editor/Postman](flow6.openapi.json).
 - [Kịch bản bạn review cần kiểm tra](REVIEW.md).
+- [JSON kịch bản và snapshot nghiệm thu/thanh toán/đóng](flow6.examples.json).
 - Frontend mới: `frontend/src/features/aftercare/api/flow6Api.ts`, `flow6Client.ts`, DTO cùng feature. Không gọi client cũ để bỏ qua guard của contract mới.
 
 ## 1. Phạm vi và quyết định nghiệp vụ
@@ -84,7 +85,11 @@ Policy do server cung cấp. Giá trị **đề xuất để review**: nghiệm 
 
 Server kiểm Trip đã tới điểm giao, tổ xe đúng phân công, danh sách ngựa chính xác không trùng/thiếu, ảnh từng ngựa, microchip, chữ ký và người nhận đã đăng ký/được Manager duyệt. Tình trạng ABNORMAL phải có mô tả; không bắt khai “bình thường” mới nhận bàn giao. Trường hợp thực tế chưa thể giao phải ghi lần thất bại.
 
+`arrivedAtDestination` lấy từ **FINAL_ARRIVED đã xác nhận trong [Flow 4](../Flow4/FLOW4.md)**, không từ ETA, giờ dự kiến hoặc marker bản đồ. FINAL_ARRIVED chỉ mở giai đoạn bàn giao, Trip/Request vẫn IN_TRANSIT trước khi handover hợp lệ. GET HandoverContext.version là revision bàn giao của server, độc lập executionVersion Flow 4; server phải cập nhật/invalidate context khi dependency thay đổi. POST bàn giao recheck mọi blocker [Flow 5](../Flow5/FLOW5.md) thực sự ảnh hưởng bàn giao dưới cùng transaction boundary; canComplete=true từ GET cũ không đủ. Sự cố REPORTED chưa được tiếp nhận vẫn phải được xét. Một incident RESOLVED không thay bằng chứng sức khỏe/pháp lý/custody còn đang chặn; chăm sóc vẫn tiếp tục khi chưa thể bàn giao.
+
 Handover chỉ được tạo một lần cho một Trip/Request. Hai tổ xe gửi đồng thời phải chỉ có một kết quả. Retry không tạo thêm deadline. File tham chiếu phải có thật, được upload cho Request này và đúng loại: ảnh/chữ ký là JPEG/PNG; tài liệu quyết định có thể PDF. Client không gửi link tự chế. Không cần lưu số định danh đầy đủ của người nhận trong contract này; dùng xác nhận kiểm tra đối chiếu và người nhận đã được duyệt.
+
+Trước khi lấy chữ ký, giao diện cho người nhận xem toàn bộ receiver, danh sách ngựa/tình trạng, note và nội dung biên bản của đúng version. Server lưu snapshot bất biến cùng dấu liên kết nội dung và signatureFileId trong transaction bàn giao; chữ ký không được tái dùng cho biên bản khác. Đổi nội dung sau khi ký phải hiển thị và ký lại, không chỉ gửi lại ảnh chữ ký cũ. Đây là xác nhận nghiệp vụ, không tự coi ảnh chữ ký là chữ ký số có chứng thư. Backend cần review cơ chế lưu chứng cứ này trước khi công bố hoàn tất hỗ trợ.
 
 Giao thất bại: lưu attempt + lý do, thông báo Coordinator/Manager, không COMPLETED và chưa mở nghiệm thu. Người nhận thay thế chỉ được Manager ghi nhận trước khi bàn giao thành công, có căn cứ ủy quyền. Không sửa hợp đồng đã ký.
 
@@ -158,7 +163,9 @@ Nghiệm thu và khiếu nại đồng thời: cùng aggregate lock; chỉ một
 
 API Flow 6 dùng namespace `/.../aftercare` để không nhận lẫn payload cũ thiếu version/consent/idempotency. Các API cũ acceptance, balance-payment, complaint, settlement không được triển khai song song thành đường bỏ qua guard. Nếu cần giữ compatibility, adapter backend phải dùng cùng service và đầy đủ quyền/guard; không đủ dữ liệu thì từ chối, không tự gán consent/version.
 
-Thay thế phần hậu bàn giao F1-J70–J73 trong tài liệu lịch sử và Operations F4-U01/U02, F5-M07/M08/M09, F5-U02/U03. RequestCases F5-U01 vẫn có thể đọc incidents Flow5, nhưng complaint projection phải theo Flow6; không cho nghĩa vụ chưa có persistence được coi đã xong. Không sửa endpoint xử lý sự cố Flow5 trong đợt này.
+Thay thế phần hậu bàn giao F1-J70–J73 trong tài liệu lịch sử và Operations F4-U01/U02, F5-M07/M08/M09, F5-U02/U03. RequestCases F5-U01 chỉ là compatibility read; incident dùng Flow 5 hiện hành, complaint projection phải theo Flow 6, không hai workflow bồi thường hoặc ledger riêng. Ghi/đóng incident do Flow 5 phụ trách, không Manager đổi status tùy ý trong Operations cũ.
+
+Flow 5 không thể tiếp tục trước bàn giao có nhánh thương lượng kết thúc và handoff nghĩa vụ. Các endpoint aftercare bình thường trong contract này yêu cầu bàn giao hợp lệ; không tạo handover/acceptedAt giả để xử lý kết thúc sớm. Extension pre-handover settlement phải được triển khai riêng và công bố capability thật trước khi nhận handoff F5-J39; khi chưa có trả 501 và giữ hồ sơ nghĩa vụ mở. REFERRED không đồng nghĩa đã hoàn tiền hoặc đóng Trip/Request.
 
 `customerApi.confirmAcceptance/payBalance/raiseComplaint` và hook cũ vẫn dùng kiểu optimistic chưa phù hợp; cần migrate màn hình theo flow6Api trước dùng thật. Các thay đổi Flow1/2 từ lượt trước chưa được đảo hết theo quyết định mới; Flow6 không xác nhận chúng đã hoàn tất.
 
@@ -179,4 +186,4 @@ npm run test:run -- src/features/aftercare/api/flow6Client.test.ts
 npm run build
 ```
 
-Validator kiểm schema, examples, mirror, typed client coverage và những trường hợp payload sai. Unit tests mock HTTP để kiểm SDK không giả thành công. Những guard ownership, concurrency, due dates, accounting và webhook ở REVIEW.md phải được backend integration test sau khi triển khai; không gọi chúng là đã pass bằng schema tests.
+Generator tạo OpenAPI, JSON từng API, flow6.examples.json và đồng bộ mirror/DTO/API client đã có. Các snapshot trong flow6.examples.json là độc lập; giá trị 48/24 giờ minh họa không thay policy máy chủ hoặc quyết định chưa chốt. Validator kiểm schema, examples, mirror, typed client coverage và những trường hợp payload sai. Unit tests mock HTTP để kiểm SDK không giả thành công. Những guard ownership, concurrency, due dates, accounting và webhook ở REVIEW.md phải được backend integration test sau khi triển khai; không gọi chúng là đã pass bằng schema tests.

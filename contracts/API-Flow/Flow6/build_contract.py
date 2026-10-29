@@ -294,11 +294,11 @@ add('getPolicy', 'get', '/master/flow6-policy', 'AUTHENTICATED', 'Đọc policy 
 add('getManagerQueue', 'get', '/manager/aftercare', ROLES['manager'], 'Danh sách bàn giao, quá hạn và tranh chấp', array(ref('QueueItem'), 0, 10000),
     guards='Chỉ phạm vi quản lý được cấp quyền. Danh sách rỗng vẫn trả []; không fallback demo.')
 add('getDriverHandover', 'get', '/driver/trips/{tripId}/handover', ROLES['driver'], 'Hồ sơ bàn giao của chặng được phân công', ref('HandoverContext'),
-    guards='Chỉ tổ xe được giao chặng giao cuối. Không trả tài chính, hồ sơ tranh chấp hoặc khách của chuyến khác.')
+    guards='Chỉ tổ xe được giao chặng giao cuối. arrivedAtDestination lấy từ FINAL_ARRIVED đã xác nhận của Flow4, không từ GPS/ETA/giờ dự kiến. canComplete kiểm blocker hiện hành của mọi incident Flow5 liên quan bàn giao. Không trả tài chính, hồ sơ tranh chấp hoặc khách của chuyến khác.')
 add('recordHandoverAttempt', 'post', '/driver/trips/{tripId}/handover-attempts', ROLES['driver'], 'Ghi nhận bàn giao chưa thành công', ref('HandoverContext'), ref('AttemptInput'),
     guards='Chưa có bàn giao thành công, đã tới điểm giao. Giữ Trip chưa COMPLETED; chưa mở thời hạn nghiệm thu. Thông báo Coordinator và Manager.', status=201)
 add('completeHandover', 'post', '/driver/trips/{tripId}/handover', ROLES['driver'], 'Hoàn thành bàn giao và mở thời hạn nghiệm thu', ref('HandoverContext'), ref('HandoverInput'),
-    guards='Server kiểm tra phân công, tới điểm giao, người nhận đã đăng ký/được duyệt, đủ đúng mỗi ngựa một lần, microchip, ảnh, chữ ký và file cùng request. Atomic: Trip COMPLETED, Request DELIVERED, phase AWAITING_ACCEPTANCE, một deadline theo policy. Không phải nghiệm thu Customer.', status=201)
+    guards='Server recheck FINAL_ARRIVED Flow4 và toàn bộ blocker Flow5 liên quan bàn giao dưới cùng transaction boundary, kể cả context trước đó canComplete=true. Kiểm phân công chặng cuối, người nhận đã đăng ký/được duyệt, đủ đúng mỗi ngựa một lần, microchip, ảnh, chữ ký và file cùng request. Chữ ký gắn snapshot đầy đủ nội dung receiver/horses/condition/note/version đã cho người nhận xem; đổi nội dung phải ký lại, không tái dùng signature file cho biên bản khác. Atomic: Trip COMPLETED, Request DELIVERED, phase AWAITING_ACCEPTANCE, một deadline theo policy. Không phải nghiệm thu Customer.', status=201)
 add('authorizeReceiver', 'post', '/manager/trips/{tripId}/receiver-authorizations', ROLES['manager'], 'Duyệt người nhận thay thế trước bàn giao', ref('HandoverContext'), ref('ReceiverInput'),
     guards='Chỉ trước bàn giao thành công; ghi bằng chứng ủy quyền và actor. Không sửa hợp đồng đã ký. version lấy từ HandoverContext.', status=201)
 for role in ['customer', 'manager']:
@@ -515,9 +515,27 @@ for path, method, op, response, body, status in operations:
                      409: 'STATE_CONFLICT', 413: 'FILE_TOO_LARGE', 415: 'UNSUPPORTED_FILE_TYPE',
                      429: 'RATE_LIMITED', 500: 'INTERNAL_ERROR', 501: 'FEATURE_NOT_SUPPORTED'}[int(code)]
             res['content']['application/json']['example'] = {'success': False, 'message': 'Thao tác chưa được thực hiện.', 'errorCode': error, 'data': None}
+            if code == '409':
+                business_codes = {
+                    'completeHandover': ['HANDOVER_NOT_READY', 'HANDOVER_ALREADY_COMPLETED'],
+                    'recordHandoverAttempt': ['HANDOVER_ALREADY_COMPLETED', 'HANDOVER_NOT_READY'],
+                    'acceptDelivery': ['ACCEPTANCE_WINDOW_EXPIRED', 'ALREADY_ACCEPTED', 'OPEN_COMPLAINT', 'OPEN_DISPUTE', 'PENDING_ADJUSTMENT'],
+                    'reportIssue': ['ALREADY_ACCEPTED', 'ACCEPTANCE_WINDOW_EXPIRED', 'REQUEST_CLOSED'],
+                    'decideProposal': ['STALE_PROPOSAL', 'REQUEST_CLOSED'],
+                    'applyComplaintResolution': ['PROPOSAL_NOT_ACCEPTED', 'RECONCILIATION_REQUIRED'],
+                    'recordDisputeDecision': ['INVALID_DECISION_BASIS', 'OPEN_COMPLAINT'],
+                    'applyDisputeDecision': ['INVALID_DECISION_BASIS', 'UNSETTLED_PAYMENT'],
+                    'createBalancePayment': ['STALE_INVOICE', 'OPEN_COMPLAINT', 'OPEN_DISPUTE', 'PENDING_ADJUSTMENT', 'UNSETTLED_PAYMENT', 'PENDING_REFUND'],
+                    'confirmRefund': ['PENDING_REFUND', 'RECONCILIATION_REQUIRED'],
+                    'closeRequest': ['CLOSURE_BLOCKED', 'OUTSTANDING_BALANCE', 'PENDING_REFUND', 'UNSETTLED_PAYMENT', 'OPEN_COMPLAINT', 'OPEN_DISPUTE'],
+                }.get(op['x-client-name'], ['STATE_CONFLICT'])
+                names = list(dict.fromkeys(business_codes + ['STALE_VERSION', 'IDEMPOTENCY_CONFLICT', 'REQUEST_IN_PROGRESS']))
+                res['content']['application/json'].pop('example', None)
+                res['content']['application/json']['examples'] = {name: {'value': {
+                    'success': False, 'message': 'Thao tác bị chặn: ' + name, 'errorCode': name, 'data': None}} for name in names}
 
-spec = {'openapi': '3.1.0', 'info': {'title': 'CBN Transport — Flow 6', 'version': '1.0.0',
-        'description': 'Contract mục tiêu để review. Backend/DB và UI hiện tại chưa triển khai đầy đủ. Quy tắc Flow 6 ngày 26/10/2026 thay thế mô tả cũ.'},
+spec = {'openapi': '3.1.0', 'info': {'title': 'CBN Transport — Flow 6', 'version': '1.1.0',
+        'description': 'Contract mục tiêu, đồng bộ Flow4/5 ngày 29/10/2026; giữ quy tắc Flow6 ngày 26/10. Backend/DB và UI hiện tại chưa triển khai đầy đủ.'},
         'servers': [{'url': '/api'}], 'security': [{'bearerAuth': []}],
         'paths': paths, 'components': {'securitySchemes': {'bearerAuth': {'type': 'http', 'scheme': 'bearer', 'bearerFormat': 'JWT'}}, 'schemas': S},
         'x-payment-verification': {'transport': 'GET /payments/vnpay/ipn', 'owner': 'existing payment gateway backend',
@@ -589,13 +607,19 @@ target.parent.mkdir(parents=True, exist_ok=True)
 target.write_text(api, encoding='utf-8')
 
 md = '# Flow 6 — Request/response từng API\n\n'
+md += '**1.1.0 — 29/10/2026. Contract đích; chưa triển khai backend/DB, chưa nối các màn hình cũ.**\n\n'
 md += '> Sinh từ `build_contract.py`. Đọc [FLOW6.md](FLOW6.md) trước khi triển khai. Ví dụ là các snapshot độc lập, không phải chuỗi lệnh chạy liên tiếp; lấy lại version thật từ GET/response.\n\n'
+md += '[OpenAPI](flow6.openapi.json) · [Kịch bản ROAD/AIR và nghiệm thu](flow6.examples.json) · [Review backend/frontend](REVIEW.md).\n\n'
 md += 'Base `/api`; Bearer token theo role. Mọi POST cần `Idempotency-Key` UUID; cùng key cho retry cùng payload. JSON dùng envelope, download dùng binary.\n\n'
 md += '| ID | Method | Path | Vai trò | Chức năng |\n|---|---|---|---|---|\n'
 for path, method, op, response, body, status in operations:
     md += f"| {op['operationId']} | {method.upper()} | `{path}` | {op['x-role']} | {op['summary']} |\n"
 for path, method, op, response, body, status in operations:
     md += f"\n## {op['operationId']} — {method.upper()} {path}\n\n{op['summary']}. Vai trò: **{op['x-role']}**.\n\n{op['description']}\n"
+    if op['parameters']:
+        md += '\n| Vị trí | Tên | Bắt buộc | Schema |\n|---|---|---|---|\n'
+        for parameter in op['parameters']:
+            md += f"| {parameter['in']} | `{parameter['name']}` | {parameter['required']} | `{json.dumps(parameter['schema'], ensure_ascii=False)}` |\n"
     if method != 'get':
         md += '\nHeader: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).\n'
     if body:
@@ -609,6 +633,61 @@ for path, method, op, response, body, status in operations:
     else:
         example = op['responses'][str(status)]['content']['application/json']['examples']['success']['value']
         md += f'\nResponse {status}:\n\n```json\n' + json.dumps(example, ensure_ascii=False, indent=2) + '\n```\n'
+    md += '\nLỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.\n'
+    md += '\nMã 409: ' + ', '.join(op['responses']['409']['content']['application/json']['examples']) + '.\n'
+    error_example = next(iter(op['responses']['409']['content']['application/json']['examples'].values()))['value']
+    md += '\nMẫu lỗi 409 (không commit một phần):\n\n```json\n' + json.dumps(error_example, ensure_ascii=False, indent=2) + '\n```\n'
 md += '\n## Lỗi chung\n\n401 chưa đăng nhập; 403 sai role; 404 không thuộc phạm vi; 409 version/trạng thái không còn hợp lệ; 413 file quá lớn; 415 sai định dạng; 429 giới hạn; 501 chưa triển khai. Mã nghiệp vụ chi tiết ở FLOW6.md.\n\n```json\n' + json.dumps({'success': False, 'message': 'Hồ sơ đã thay đổi, hãy tải lại trước khi xác nhận.', 'errorCode': 'STALE_VERSION', 'data': None}, ensure_ascii=False, indent=2) + '\n```\n'
 (ROOT / 'FLOW6-API-JSON.md').write_text(md, encoding='utf-8')
+
+scenario_rows = [
+    ('road-arrival', 'ROAD FINAL_ARRIVED đã xác nhận, không blocker liên quan', 'Driver đọc context và bàn giao', 'COMPLETED/DELIVERED và đúng một acceptanceWindow'),
+    ('air-final-leg', 'AIR đã tiếp nhận và inbound FINAL_ARRIVED', 'Tổ inbound bàn giao', 'Chỉ crew chặng cuối được ghi; outbound không được'),
+    ('eta-not-arrival', 'ETA hoặc plannedArrival tới giờ, chưa FINAL_ARRIVED', 'POST handover', '409 HANDOVER_NOT_READY, không deadline'),
+    ('incident-handover-race', 'GET canComplete=true rồi phát sinh incident chặn bàn giao', 'POST handover', '409 HANDOVER_NOT_READY, recheck Flow5 dưới transaction'),
+    ('resolved-not-safe', 'Incident RESOLVED nhưng dependency khác vẫn chặn', 'POST handover', 'Không coi status incident là đủ điều kiện bàn giao'),
+    ('wrong-owner', 'Customer A hoặc Driver khác assignment', 'GET/POST request/file ngoài scope', '404, không lộ dữ liệu'),
+    ('wrong-role', 'Coordinator gửi acceptance/closure', 'Mutation', '403, không thay trạng thái'),
+    ('receiver-not-authorized', 'Người nhận chưa được đăng ký/Manager duyệt', 'POST handover', '409 HANDOVER_NOT_READY'),
+    ('horse-set', 'Trip có hai ngựa', 'Bàn giao thiếu/trùng/ngựa ngoài Trip', '400/409; không hoàn tất'),
+    ('abnormal-condition', 'Ngựa có condition ABNORMAL', 'Ghi tình trạng đúng kèm note và bằng chứng', 'Không bắt khai NORMAL; các blocker an toàn liên quan vẫn phải xử lý'),
+    ('signature-binding', 'Người nhận ký nội dung cũ', 'Đổi receiver/horses/condition/note hoặc tái dùng signature file', 'Yêu cầu ký lại, giữ snapshot gốc'),
+    ('handover-failed', 'Người nhận vắng mặt/từ chối', 'recordHandoverAttempt', 'Lưu attempt, chưa COMPLETED/DELIVERED, chưa đồng hồ'),
+    ('handover-race', 'Hai POST bàn giao đồng thời', 'Commit', 'Đúng một handover/deadline/outbox'),
+    ('idempotent-replay', 'Mutation đã commit', 'Retry cùng key/body dù aggregate version tăng', 'Response cũ, không thêm side effect'),
+    ('idempotency-conflict', 'Key đã dùng', 'Khác body', '409 IDEMPOTENCY_CONFLICT'),
+    ('policy-snapshot', 'Policy thay sau bàn giao', 'GET aftercare', 'Không đổi dueAt đã mở; client dùng policy snapshot/serverTime'),
+    ('acceptance-consent', 'Không complaint/dispute và trong hạn', 'Đúng statementVersion + confirmed=true', 'ACCEPTED và mở paymentWindow riêng; không chờ hết hạn'),
+    ('acceptance-race', 'Acceptance và complaint cùng version', 'Hai POST đồng thời', 'Chỉ một thành công, không ACCEPTED cùng complaint mới'),
+    ('late-acceptance', 'AcceptanceWindow OVERDUE', 'Customer accept', '409 ACCEPTANCE_WINDOW_EXPIRED, Manager cần gia hạn'),
+    ('overdue-alert-only', 'Hết hạn, khách im lặng', 'Job', 'Cảnh báo một lần/lần mở hoặc gia hạn, không auto accept/close'),
+    ('extension', 'Chưa nghiệm thu, không vụ mở', 'newDueAt tăng hợp lệ', 'Lưu old/new deadline + reason/actor, không reset mất lịch sử'),
+    ('multiple-complaints', 'Hai complaint mở', 'Chỉ apply một kết quả', 'Vẫn PAUSED, chưa mở payment/acceptance'),
+    ('proposal-not-acceptance', 'Customer đồng ý resolution proposal', 'Chưa Manager apply', 'AGREED + pendingAdjustment, chưa nghiệm thu hoặc giảm tiền'),
+    ('proposal-rejected', 'Customer REJECT hoặc gửi proposalVersion cũ', 'Decision', 'Giữ/mở complaint; không giả đồng ý'),
+    ('apply-once', 'Proposal/decision đã áp dụng', 'Apply key khác', 'Không cộng adjustment hoặc mở deadline hai lần'),
+    ('dispute-basis', 'Manager ghi CUSTOMER_AGREEMENT nhưng không có consent/bằng chứng', 'Record decision', 'INVALID_DECISION_BASIS, không giả khách chấp thuận'),
+    ('waiver-limits', 'Còn yêu cầu bồi thường chưa giải quyết', 'COMPANY_WAIVER', 'Không dùng miễn nợ để phủ nhận khiếu nại; không ghi tiền đã nhận'),
+    ('close-after-dispute', 'Quyết định hợp lệ CLOSE_AFTER_DISPUTE đã APPLIED', 'Chưa ACCEPTED', 'NOT_REQUIRED_BY_DISPUTE, không acceptedAt giả; tài chính vẫn phải đủ'),
+    ('zero-balance', 'Outstanding=0', 'Customer tạo payment session', 'Không tạo session tiền 0; kiểm nghĩa vụ khác để READY_TO_CLOSE'),
+    ('client-amount', 'Client gửi amount hoặc browser Return success', 'Payment', 'Không nhận amount client, không ghi VERIFIED từ Return'),
+    ('ipn-validation', 'Sai checksum/merchant/reference/amount/currency', 'Gateway IPN', 'Không ghi verified money; đối soát theo payment protocol'),
+    ('ipn-repeated', 'Callback hợp lệ lặp/đồng thời', 'IPN', 'Ghi tiền một lần, cập nhật invoice/aftercare atomically'),
+    ('late-payment', 'Phiên hết hạn/đổi invoice/dispute/closed', 'Tiền thật callback tới muộn', 'Ghi nhận một lần và tạo reconciliation/refund, không bỏ tiền hoặc tự reopen/close'),
+    ('refund-proof', 'Có refund obligation', 'Manager ghi reference/bằng chứng', 'Chỉ VERIFIED sau kiểm chứng; không API chuyển tiền, không amount tùy ý'),
+    ('close-normal', 'Bàn giao, ACCEPTED, hết nợ/hoàn/vụ mở/đối soát', 'Manager close NORMAL', 'CLOSED một lần; closure snapshot/history'),
+    ('close-blocked', 'Pending payment/refund/adjustment hoặc complaint/dispute', 'Manager close', '409 CLOSURE_BLOCKED và blocker cụ thể'),
+    ('termination-before-handover', 'Flow5 kết thúc sớm chưa có handover hợp lệ', 'Gọi aftercare normal để thanh toán/đóng', 'Không tạo handover giả; extension pre-handover settlement riêng phải có capability'),
+    ('file-safety', 'File Trip khác/giả MIME/quá 10MiB', 'Upload/download/link', '404/400/415/413, không gắn file'),
+    ('transaction-rollback', 'Lỗi ghi audit/outbox/ledger', 'Mutation commit', 'Rollback state và financial adjustment, retry an toàn'),
+    ('unsupported', 'Backend/persistence/payment integration chưa triển khai', 'Mutation', '501 FEATURE_NOT_SUPPORTED, không mock success'),
+]
+dump(ROOT / 'flow6.examples.json', {
+    'contractVersion': spec['info']['version'], 'status': 'ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS',
+    'policyExampleIsNotFixedBusinessDecision': True,
+    'handoverContext': example_for(ref('HandoverContext')), 'awaitingAcceptance': example_for(ref('Aftercare')),
+    'acceptedAwaitingPayment': response_example('acceptDelivery', ref('Aftercare')),
+    'normalClosure': response_example('closeRequest', ref('Aftercare')),
+    'scenarios': [{'id': a, 'given': b, 'when': c, 'then': d} for a,b,c,d in scenario_rows],
+})
 print(f'Generated Flow 6: {len(operations)} operations, {len(S)} DTO schemas, examples, frontend mirror and typed API.')

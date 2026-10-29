@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "CBN Transport — Flow 6",
-    "version": "1.0.0",
-    "description": "Contract mục tiêu để review. Backend/DB và UI hiện tại chưa triển khai đầy đủ. Quy tắc Flow 6 ngày 26/10/2026 thay thế mô tả cũ."
+    "version": "1.1.0",
+    "description": "Contract mục tiêu, đồng bộ Flow4/5 ngày 29/10/2026; giữ quy tắc Flow6 ngày 26/10. Backend/DB và UI hiện tại chưa triển khai đầy đủ."
   },
   "servers": [
     {
@@ -154,11 +154,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -392,11 +420,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -488,7 +544,7 @@
       "get": {
         "operationId": "F6-J03",
         "summary": "Hồ sơ bàn giao của chặng được phân công",
-        "description": "Chỉ tổ xe được giao chặng giao cuối. Không trả tài chính, hồ sơ tranh chấp hoặc khách của chuyến khác.",
+        "description": "Chỉ tổ xe được giao chặng giao cuối. arrivedAtDestination lấy từ FINAL_ARRIVED đã xác nhận của Flow4, không từ GPS/ETA/giờ dự kiến. canComplete kiểm blocker hiện hành của mọi incident Flow5 liên quan bàn giao. Không trả tài chính, hồ sơ tranh chấp hoặc khách của chuyến khác.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -639,11 +695,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -733,7 +817,7 @@
       "post": {
         "operationId": "F6-J05",
         "summary": "Hoàn thành bàn giao và mở thời hạn nghiệm thu",
-        "description": "Server kiểm tra phân công, tới điểm giao, người nhận đã đăng ký/được duyệt, đủ đúng mỗi ngựa một lần, microchip, ảnh, chữ ký và file cùng request. Atomic: Trip COMPLETED, Request DELIVERED, phase AWAITING_ACCEPTANCE, một deadline theo policy. Không phải nghiệm thu Customer.",
+        "description": "Server recheck FINAL_ARRIVED Flow4 và toàn bộ blocker Flow5 liên quan bàn giao dưới cùng transaction boundary, kể cả context trước đó canComplete=true. Kiểm phân công chặng cuối, người nhận đã đăng ký/được duyệt, đủ đúng mỗi ngựa một lần, microchip, ảnh, chữ ký và file cùng request. Chữ ký gắn snapshot đầy đủ nội dung receiver/horses/condition/note/version đã cho người nhận xem; đổi nội dung phải ký lại, không tái dùng signature file cho biên bản khác. Atomic: Trip COMPLETED, Request DELIVERED, phase AWAITING_ACCEPTANCE, một deadline theo policy. Không phải nghiệm thu Customer.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -923,11 +1007,47 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "HANDOVER_NOT_READY": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: HANDOVER_NOT_READY",
+                      "errorCode": "HANDOVER_NOT_READY",
+                      "data": null
+                    }
+                  },
+                  "HANDOVER_ALREADY_COMPLETED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: HANDOVER_ALREADY_COMPLETED",
+                      "errorCode": "HANDOVER_ALREADY_COMPLETED",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -1220,11 +1340,47 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "HANDOVER_ALREADY_COMPLETED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: HANDOVER_ALREADY_COMPLETED",
+                      "errorCode": "HANDOVER_ALREADY_COMPLETED",
+                      "data": null
+                    }
+                  },
+                  "HANDOVER_NOT_READY": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: HANDOVER_NOT_READY",
+                      "errorCode": "HANDOVER_NOT_READY",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -1492,11 +1648,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -1866,11 +2050,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -2221,11 +2433,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -2485,11 +2725,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -2832,11 +3100,71 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "ACCEPTANCE_WINDOW_EXPIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: ACCEPTANCE_WINDOW_EXPIRED",
+                      "errorCode": "ACCEPTANCE_WINDOW_EXPIRED",
+                      "data": null
+                    }
+                  },
+                  "ALREADY_ACCEPTED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: ALREADY_ACCEPTED",
+                      "errorCode": "ALREADY_ACCEPTED",
+                      "data": null
+                    }
+                  },
+                  "OPEN_COMPLAINT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: OPEN_COMPLAINT",
+                      "errorCode": "OPEN_COMPLAINT",
+                      "data": null
+                    }
+                  },
+                  "OPEN_DISPUTE": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: OPEN_DISPUTE",
+                      "errorCode": "OPEN_DISPUTE",
+                      "data": null
+                    }
+                  },
+                  "PENDING_ADJUSTMENT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: PENDING_ADJUSTMENT",
+                      "errorCode": "PENDING_ADJUSTMENT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -3210,11 +3538,55 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "ALREADY_ACCEPTED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: ALREADY_ACCEPTED",
+                      "errorCode": "ALREADY_ACCEPTED",
+                      "data": null
+                    }
+                  },
+                  "ACCEPTANCE_WINDOW_EXPIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: ACCEPTANCE_WINDOW_EXPIRED",
+                      "errorCode": "ACCEPTANCE_WINDOW_EXPIRED",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_CLOSED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_CLOSED",
+                      "errorCode": "REQUEST_CLOSED",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -3614,11 +3986,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -4012,11 +4412,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -4416,11 +4844,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -4832,11 +5288,47 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STALE_PROPOSAL": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_PROPOSAL",
+                      "errorCode": "STALE_PROPOSAL",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_CLOSED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_CLOSED",
+                      "errorCode": "REQUEST_CLOSED",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -5246,11 +5738,47 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "PROPOSAL_NOT_ACCEPTED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: PROPOSAL_NOT_ACCEPTED",
+                      "errorCode": "PROPOSAL_NOT_ACCEPTED",
+                      "data": null
+                    }
+                  },
+                  "RECONCILIATION_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: RECONCILIATION_REQUIRED",
+                      "errorCode": "RECONCILIATION_REQUIRED",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -5618,11 +6146,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -5988,11 +6544,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -6370,11 +6954,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -6760,11 +7372,47 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "INVALID_DECISION_BASIS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: INVALID_DECISION_BASIS",
+                      "errorCode": "INVALID_DECISION_BASIS",
+                      "data": null
+                    }
+                  },
+                  "OPEN_COMPLAINT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: OPEN_COMPLAINT",
+                      "errorCode": "OPEN_COMPLAINT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -7172,11 +7820,47 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "INVALID_DECISION_BASIS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: INVALID_DECISION_BASIS",
+                      "errorCode": "INVALID_DECISION_BASIS",
+                      "data": null
+                    }
+                  },
+                  "UNSETTLED_PAYMENT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: UNSETTLED_PAYMENT",
+                      "errorCode": "UNSETTLED_PAYMENT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -7433,11 +8117,79 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STALE_INVOICE": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_INVOICE",
+                      "errorCode": "STALE_INVOICE",
+                      "data": null
+                    }
+                  },
+                  "OPEN_COMPLAINT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: OPEN_COMPLAINT",
+                      "errorCode": "OPEN_COMPLAINT",
+                      "data": null
+                    }
+                  },
+                  "OPEN_DISPUTE": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: OPEN_DISPUTE",
+                      "errorCode": "OPEN_DISPUTE",
+                      "data": null
+                    }
+                  },
+                  "PENDING_ADJUSTMENT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: PENDING_ADJUSTMENT",
+                      "errorCode": "PENDING_ADJUSTMENT",
+                      "data": null
+                    }
+                  },
+                  "UNSETTLED_PAYMENT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: UNSETTLED_PAYMENT",
+                      "errorCode": "UNSETTLED_PAYMENT",
+                      "data": null
+                    }
+                  },
+                  "PENDING_REFUND": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: PENDING_REFUND",
+                      "errorCode": "PENDING_REFUND",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -7694,11 +8446,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -8096,11 +8876,47 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "PENDING_REFUND": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: PENDING_REFUND",
+                      "errorCode": "PENDING_REFUND",
+                      "data": null
+                    }
+                  },
+                  "RECONCILIATION_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: RECONCILIATION_REQUIRED",
+                      "errorCode": "RECONCILIATION_REQUIRED",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -8472,11 +9288,79 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "CLOSURE_BLOCKED": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: CLOSURE_BLOCKED",
+                      "errorCode": "CLOSURE_BLOCKED",
+                      "data": null
+                    }
+                  },
+                  "OUTSTANDING_BALANCE": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: OUTSTANDING_BALANCE",
+                      "errorCode": "OUTSTANDING_BALANCE",
+                      "data": null
+                    }
+                  },
+                  "PENDING_REFUND": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: PENDING_REFUND",
+                      "errorCode": "PENDING_REFUND",
+                      "data": null
+                    }
+                  },
+                  "UNSETTLED_PAYMENT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: UNSETTLED_PAYMENT",
+                      "errorCode": "UNSETTLED_PAYMENT",
+                      "data": null
+                    }
+                  },
+                  "OPEN_COMPLAINT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: OPEN_COMPLAINT",
+                      "errorCode": "OPEN_COMPLAINT",
+                      "data": null
+                    }
+                  },
+                  "OPEN_DISPUTE": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: OPEN_DISPUTE",
+                      "errorCode": "OPEN_DISPUTE",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -8736,11 +9620,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -8981,11 +9893,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -9230,11 +10170,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -9475,11 +10443,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -9724,11 +10720,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -9969,11 +10993,39 @@
                 "schema": {
                   "$ref": "#/components/schemas/Error"
                 },
-                "example": {
-                  "success": false,
-                  "message": "Thao tác chưa được thực hiện.",
-                  "errorCode": "STATE_CONFLICT",
-                  "data": null
+                "examples": {
+                  "STATE_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STATE_CONFLICT",
+                      "errorCode": "STATE_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null
+                    }
+                  },
+                  "REQUEST_IN_PROGRESS": {
+                    "value": {
+                      "success": false,
+                      "message": "Thao tác bị chặn: REQUEST_IN_PROGRESS",
+                      "errorCode": "REQUEST_IN_PROGRESS",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
