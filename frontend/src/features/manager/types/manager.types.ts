@@ -250,6 +250,10 @@ export interface Transaction {
   createdAt: string;
   confirmedAt?: string;
   rejectReason?: string;
+  /** VNPay session expiry (ms) and reconciliation flags from the server */
+  qrExpiresAtMs?: number;
+  reviewRequired?: boolean;
+  reviewReason?: string | null;
 }
 
 // ---------------------------------------------------------------------------

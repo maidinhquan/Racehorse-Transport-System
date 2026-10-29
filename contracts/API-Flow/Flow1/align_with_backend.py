@@ -161,6 +161,11 @@ def patch(d):
     for k in ('errorCode',):
         if k in S.get('Error', {}).get('properties', {}): nullable(S['Error']['properties'][k])
 
+    # F1-J69 (cancel a stuck payment) returns the same payment view as F1-J46.
+    if 'F1-J69Response200' in S and 'F1-J46Response200' in S:
+        S['F1-J69Response200']['properties']['data'] = json.loads(json.dumps(S['F1-J46Response200']['properties']['data']))
+        log.append('F1-J69: payment view (same as F1-J46)')
+
     # Examples must show the backend shapes (they feed FLOW1-API-JSON.md docs and contract:check).
     examples = {
         'F1-J31': [{'requestId': 'REQUEST_002', 'deleted': True}],

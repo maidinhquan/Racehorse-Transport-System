@@ -8,7 +8,7 @@ main = (ROOT / 'FLOW1.md').read_text(encoding='utf-8')
 companion = (ROOT / 'FLOW1-API-JSON.md').read_text(encoding='utf-8')
 schemas = spec['components']['schemas']
 ops = {v['operationId']: v for p in spec['paths'].values() for k,v in p.items() if k in ['get','post','put','delete','patch']}
-assert len(ops) == 64 and 'F1-J47' not in ops and 'F1-J48' not in ops and 'F1-J17' not in ops and 'F1-J20' not in ops
+assert len(ops) == 65 and 'F1-J47' not in ops and 'F1-J48' not in ops and 'F1-J17' not in ops and 'F1-J20' not in ops
 assert 'F1-J67' in ops and ops['F1-J67']['security'] == []
 checked = 0
 for path, methods in spec['paths'].items():

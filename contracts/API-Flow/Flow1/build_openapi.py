@@ -7,7 +7,7 @@ import json, re, copy
 ROOT = Path(__file__).resolve().parent
 source = (ROOT / 'FLOW1-API-JSON.md').read_text(encoding='utf-8')
 blocks = re.findall(r'^### (F1-J\d+) — (\w+) ([^\n]+)\n(.*?)(?=^### F1-J|^## |\Z)', source, re.M | re.S)
-assert len(blocks) == 64, f"Expected 64 blocks, got {len(blocks)}"
+assert len(blocks) == 65, f"Expected 65 blocks, got {len(blocks)}"
 assert not any(op[0] in ['F1-J47', 'F1-J48', 'F1-J17', 'F1-J20'] for op in blocks)
 
 str_type = {'type': 'string'}

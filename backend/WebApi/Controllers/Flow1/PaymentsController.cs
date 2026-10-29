@@ -30,6 +30,11 @@ public sealed class PaymentsController(PaymentService payments) : EndpointContro
     public async Task<IActionResult> SessionAsync(string invoiceId, PaymentInput input, CancellationToken ct) =>
         Reply(await payments.SessionAsync(Actor, invoiceId, input.Method, HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1", ct), 201);
 
+    [HttpPost("manager/payments/{paymentId}/cancel")]
+    [Authorize(Roles = UserRoles.LogisticsManager)]
+    public async Task<IActionResult> CancelAsync(string paymentId, ReasonInput input, CancellationToken ct) =>
+        Reply(await payments.CancelAsync(Actor, paymentId, input.Reason, ct));
+
     [HttpGet("manager/payments")]
     [Authorize(Roles = UserRoles.LogisticsManager)]
     public async Task<IActionResult> ListAsync(CancellationToken ct) =>

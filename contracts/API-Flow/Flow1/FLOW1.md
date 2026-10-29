@@ -3946,6 +3946,62 @@ Chi tiết giao dịch. Role: **LOGISTICS_MANAGER**.
 ```
 
 
+### F1-J69 — POST /manager/payments/{paymentId}/cancel
+
+Huỷ giao dịch VNPay bị treo. Role: **LOGISTICS_MANAGER**.
+
+**Path parameters**
+
+| Tên | Giá trị ví dụ |
+|---|---|
+| paymentId | PAYMENT_005 |
+
+**Request JSON**
+
+```json
+{
+  "reason": "Khách xác nhận không thanh toán, phiên VNPay đã hết hạn."
+}
+```
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "PAYMENT_005",
+    "paymentId": "PAYMENT_005",
+    "invoiceId": "INVOICE_005",
+    "contractId": "CONTRACT_005",
+    "versionNo": 1,
+    "amount": 400000,
+    "currency": "VND",
+    "method": "VNPAY",
+    "status": "REJECTED",
+    "databaseStatus": "FAILED",
+    "receivedAmount": null,
+    "paidAt": null,
+    "reviewRequired": false
+  }
+}
+```
+
+**Quy tắc:** Backend hỏi VNPay (querydr) trước khi huỷ: nếu VNPay xác nhận đã thanh toán thì ghi nhận cọc như IPN và trả về giao dịch thành công thay vì huỷ. Chỉ huỷ được giao dịch đang chờ cổng có phiên VNPay đã hết hạn; giao dịch chuyển FAILED với lý do của Manager và khách có thể thanh toán lại. Nếu sau đó VNPay vẫn báo đã thu tiền, khoản tiền được ghi REVIEW_REQUIRED để đối soát/hoàn tiền, không bị mất.
+
+**Response lỗi 409 — PAYMENT_SESSION_OPEN**
+
+```json
+{
+  "success": false,
+  "message": "The VNPay session is still open; it can be cancelled after it expires.",
+  "errorCode": "PAYMENT_SESSION_OPEN",
+  "data": null
+}
+```
+
+
 ### F1-J49 — GET /customer/payments/{paymentId}/receipt
 
 Biên nhận đã xác minh. Role: **CUSTOMER**.

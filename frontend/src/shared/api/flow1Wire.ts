@@ -21,7 +21,7 @@ export interface WireContract {
 export interface WirePayment {
   id: string; contractId: string; invoiceId: string; versionNo: number; amount: number; method: string;
   status: string; databaseStatus?: string; receivedAmount?: number | null; paidAt?: string | null;
-  reviewRequired?: boolean; reviewReason?: string | null; expiresAt?: string | null;
+  reviewRequired?: boolean; reviewReason?: string | null; expiresAt?: string | null; createdAt?: string | null;
 }
 /** Customer's contract change request as returned on request details (`contractFeedback`). */
 export interface WireContractFeedback {
@@ -55,7 +55,7 @@ export function attachContractFeedback<V extends { issuedAt?: string }>(versions
 export const utcMs = (s?: string | null) => (s ? Date.parse(`${s.replace(' ', 'T')}:00Z`) || undefined : undefined);
 export const paymentFromWire = (p: WirePayment) => ({
   ...p, qrExpiresAtMs: utcMs(p.expiresAt), type: 'DEPOSIT' as const, confirmedAmount: p.receivedAmount ?? 0,
-  createdAt: '', confirmedAt: p.paidAt ?? undefined,
+  createdAt: p.createdAt ?? '', confirmedAt: p.paidAt ?? undefined,
 });
 
 export const contractFromWire = (v: WireContract) => ({

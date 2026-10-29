@@ -16,6 +16,8 @@ public static class ProviderRegistration
     {
         services.AddSingleton(config.GetSection("Flow1:Vnpay").Get<Flow1VnpayOptions>() ?? new());
         services.AddSingleton<IPaymentGateway, VnpaySandboxGateway>();
+        // Resolve deposits whose IPN never arrived (not in automated tests, which control time and providers).
+        if (!environment.IsEnvironment("Testing")) services.AddHostedService<WebApi.Extensions.Flow1.PaymentReconciliationWorker>();
         services.AddHttpClient<IGatewayQuery,VnpayQueryGateway>(c=>c.Timeout=TimeSpan.FromSeconds(15))
             .RemoveAllLoggers().ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
         services.AddSingleton<IOtpSecurity>(new ContractOtpSecurity(config["Flow1:Contracts:OtpHmacKey"]));

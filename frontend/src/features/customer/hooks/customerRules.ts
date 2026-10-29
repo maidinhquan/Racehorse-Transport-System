@@ -410,7 +410,8 @@ export function depositState(r: TransportRequest): DepositState {
   const payments = depositPayments(r);
   const paid = payments.filter(p => p.status === 'SUCCESS').reduce((sum, p) => sum + verifiedPaymentAmount(p), 0);
   if (depositAmount(r) > 0 && paid >= depositAmount(r)) return 'VERIFIED';
-  if (payments.some(p => ['PROCESSING', 'PENDING_CONFIRMATION'].includes(p.status))) return 'PENDING';
+  // A gateway session that expired without payment no longer blocks paying again (the server reconciles it with VNPay).
+  if (payments.some(p => ['PROCESSING', 'PENDING_CONFIRMATION'].includes(p.status) && !abandonedSession(p) && !p.reviewRequired)) return 'PENDING';
   if (['FAILED', 'REJECTED'].includes(last(payments)?.status ?? '')) return 'FAILED';
   return 'NONE';
 }

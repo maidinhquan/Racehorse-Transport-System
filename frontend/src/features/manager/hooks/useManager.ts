@@ -373,6 +373,27 @@ const managerActions = {
     } catch (error) { toast(apiMessage(error)); }
   },
   reload: () => { void loadAll({ force: true, silent: false }); },
+  async cancelPayment(id: string, reason: string): Promise<ActionResult> {
+    try {
+      const p = await managerApi.cancelPayment(id, reason);
+      await loadAll({ force: true, silent: true });
+      notifySync('requests_updated');
+      return p.status === 'SUCCESS'
+        ? ok(`${id}: VNPay xác nhận khách ĐÃ thanh toán – không huỷ, đã ghi nhận cọc.`)
+        : ok(`Đã huỷ ${id}. Khách có thể thanh toán lại.`);
+    } catch (error) { return fail(apiMessage(error)); }
+  },
+  /** Reading a pending payment makes the server query VNPay (querydr) and record the result. */
+  async reconcilePayment(id: string): Promise<ActionResult> {
+    try {
+      const p = await managerApi.getPayment(id);
+      await loadAll({ force: true, silent: true });
+      notifySync('requests_updated');
+      return ok(p.status === 'SUCCESS' ? `${id}: VNPay xác nhận đã thanh toán – đã ghi nhận cọc.`
+        : ['FAILED', 'REJECTED'].includes(p.status) ? `${id}: không có giao dịch thành công – khách có thể thanh toán lại.`
+        : `${id}: VNPay chưa trả kết quả. Hệ thống tự kiểm tra lại mỗi 5 phút.`);
+    } catch (error) { return fail(apiMessage(error)); }
+  },
   clearToast: () => setState({ toast: null }),
   showToast: (m: string) => toast(m),
   markAllRead: () => perform('notifications', () => managerApi.markAllRead(), 'Đã đánh dấu thông báo đã đọc.'),

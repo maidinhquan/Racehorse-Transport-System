@@ -60,6 +60,8 @@ export const managerApi = {
   getRequests: async () => (await contractClient<WireRequest[]>('get', '/manager/requests')).map(requestFromWire),
   getRequest: async (id: string) => requestFromWire(await contractClient<WireRequest>('get', `/manager/requests/${id}`)),
   getTrip: async (id: string) => tripFromWire(await contractClient('get', `/manager/trips/${id}`)),
+  /** F1-J69: server asks VNPay first; only an expired, unconfirmed session is cancelled (customer can pay again). */
+  cancelPayment: async (id: string, reason: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('post', `/manager/payments/${id}/cancel`, { reason })), requestId: '' } as Transaction),
   getPayment: async (id: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('get', `/manager/payments/${id}`)), requestId: '' } as Transaction),
   getContractVersion: async (id: string, versionNo: number) => versionFromWire(await contractClient<WireContract>('get', `/manager/contracts/${id}/versions/${versionNo}`)),
   getTrips: async () => (await contractClient<any[]>('get', '/manager/trips')).map(tripFromWire),

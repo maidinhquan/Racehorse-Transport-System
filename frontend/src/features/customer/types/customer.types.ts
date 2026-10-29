@@ -185,6 +185,9 @@ export interface Payment {
   reason?: string;
   /** Mốc hết hạn mã QR (ms theo đồng hồ demo). QR có hiệu lực 5 phút. */
   qrExpiresAtMs?: number;
+  /** Funds VNPay confirmed but outside the open deposit window: CBN reconciles / refunds */
+  reviewRequired?: boolean;
+  reviewReason?: string | null;
 }
 
 export interface Refund {

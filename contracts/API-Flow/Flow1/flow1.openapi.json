@@ -7592,6 +7592,163 @@
         ]
       }
     },
+    "/manager/payments/{paymentId}/cancel": {
+      "post": {
+        "operationId": "F1-J69",
+        "summary": "Huỷ giao dịch VNPay bị treo. Role: **LOGISTICS_MANAGER**.",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J69Response200"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": true,
+                      "message": "OK",
+                      "data": {
+                        "id": "PAYMENT_005",
+                        "paymentId": "PAYMENT_005",
+                        "invoiceId": "INVOICE_005",
+                        "contractId": "CONTRACT_005",
+                        "versionNo": 1,
+                        "amount": 400000,
+                        "currency": "VND",
+                        "method": "VNPAY",
+                        "status": "REJECTED",
+                        "databaseStatus": "FAILED",
+                        "receivedAmount": null,
+                        "paidAt": null,
+                        "reviewRequired": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J69Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "The VNPay session is still open; it can be cancelled after it expires.",
+                      "errorCode": "PAYMENT_SESSION_OPEN",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 50,
+              "pattern": "^[A-Z_]+_\\d{3,}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/F1-J69Request"
+              },
+              "example": {
+                "reason": "Khách xác nhận không thanh toán, phiên VNPay đã hết hạn."
+              }
+            }
+          }
+        }
+      }
+    },
     "/customer/payments/{paymentId}/receipt": {
       "get": {
         "operationId": "F1-J49",
@@ -23854,6 +24011,144 @@
         "additionalProperties": true
       },
       "F1-J46Response404": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "null"
+          },
+          "errorCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message",
+          "success"
+        ],
+        "additionalProperties": true
+      },
+      "F1-J69Request": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "F1-J69Response200": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "paymentId": {
+                "type": "string"
+              },
+              "invoiceId": {
+                "type": "string"
+              },
+              "contractId": {
+                "type": "string"
+              },
+              "versionNo": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "amount": {
+                "type": "number",
+                "minimum": 0
+              },
+              "currency": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "method": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "databaseStatus": {
+                "type": "string"
+              },
+              "receivedAmount": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "paidAt": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reviewRequired": {
+                "type": "boolean"
+              },
+              "reviewReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "invoiceId",
+              "amount",
+              "status"
+            ],
+            "additionalProperties": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "message",
+          "success"
+        ],
+        "additionalProperties": false
+      },
+      "F1-J69Response409": {
         "type": "object",
         "properties": {
           "data": {

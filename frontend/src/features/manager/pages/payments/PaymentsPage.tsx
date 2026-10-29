@@ -35,7 +35,13 @@ export const PaymentsPage: React.FC = () => {
   const on: Tab = (['verify', 'overdue', 'all'] as Tab[]).includes(tab as Tab) ? (tab as Tab) : 'verify';
 
   const refunds = requests.filter(r => r.refund && ['REQUESTED', 'PROCESSING'].includes(r.refund.status));
-  const gateway = transactions.filter((x) => x.status === 'PROCESSING');
+  // In flight at VNPay vs. funds VNPay confirmed that could not be applied (reconcile / refund).
+  const gateway = transactions.filter((x) => x.status === 'PROCESSING' && !x.reviewRequired);
+  const review = transactions.filter((x) => x.reviewRequired);
+  const [checking, setChecking] = useState('');
+  const [cancelPaymentId, setCancelPaymentId] = useState('');
+  const reconcile = async (id: string) => { setChecking(id); try { await actions.reconcilePayment(id); } finally { setChecking(''); } };
+  const nowMs = Date.now();
   const cancels = requests.filter((r) => r.status === 'CANCELLATION_REQUESTED');
   const outstandingDeposits = awaitingDeposit(data);
   const all = [...transactions].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
@@ -80,9 +86,50 @@ export const PaymentsPage: React.FC = () => {
           {gateway.length > 0 && (
             <section className="mgr-card">
               <h3 className="mgr-card__title">Cổng thanh toán đang xử lý ({gateway.length})</h3>
-              <p className="mgr-hint" style={{ marginTop: 0 }}>VNPAY gửi IPN về backend để xác minh chữ ký, số tiền và cập nhật giao dịch. Return URL không xác nhận tiền.</p>
-              {gateway.map((x) => <div key={x.id} className="mgr-row"><div><b>{x.id} • {fmtMoney(x.amount)}</b><span>{x.requestId} • {METHOD_LABEL[x.method]} • {fmtDateTime(x.createdAt)}</span></div><StatusBadge kind="payment" status={x.status} /></div>)}
+              <p className="mgr-hint" style={{ marginTop: 0 }}>
+                Kết quả về qua IPN của VNPAY. Nếu IPN bị lỡ (VNPAY lỗi, mất kết nối), hệ thống tự hỏi lại VNPAY mỗi 5 phút; bấm <b>Kiểm tra với VNPay</b> để đối soát ngay.
+                Đã trừ tiền → ghi nhận cọc; thất bại hoặc phiên hết hạn mà VNPAY không có giao dịch → đánh dấu thất bại và khách thanh toán lại.
+              </p>
+              {gateway.map((x) => {
+                const expired = !!x.qrExpiresAtMs && nowMs >= x.qrExpiresAtMs;
+                return (
+                  <div key={x.id} className="mgr-row">
+                    <div>
+                      <b>{x.id} • {fmtMoney(x.amount)}</b>
+                      <span>
+                        {x.requestId ? <Link className="mgr-link" to={`/manager/requests/${x.requestId}`}>{x.requestId}</Link> : '—'} • {METHOD_LABEL[x.method]}
+                        {x.createdAt ? ` • tạo ${fmtDateTime(x.createdAt)}` : ''}
+                        {x.qrExpiresAtMs ? ` • ${expired ? 'phiên đã hết hạn' : `hết hạn sau ${Math.max(1, Math.ceil((x.qrExpiresAtMs - nowMs) / 60000))} phút`}` : ''}
+                      </span>
+                    </div>
+                    <div className="mgr-btn-row" style={{ alignItems: 'center' }}>
+                      <StatusBadge tone={expired ? 'warn' : 'brand'} label={expired ? 'Quá hạn – chờ đối soát' : 'Khách đang thanh toán'} />
+                      <button type="button" className="mgr-btn mgr-btn--sm" disabled={checking === x.id} onClick={() => void reconcile(x.id)}>
+                        {checking === x.id ? 'Đang hỏi VNPay…' : 'Kiểm tra với VNPay'}
+                      </button>
+                      {expired && (
+                        <button type="button" className="mgr-btn mgr-btn--sm mgr-btn--danger" onClick={() => setCancelPaymentId(x.id)}>Huỷ giao dịch</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
 
+            </section>
+          )}
+          {review.length > 0 && (
+            <section className="mgr-card">
+              <h3 className="mgr-card__title">Cần đối soát / hoàn tiền ({review.length})</h3>
+              <p className="mgr-hint" style={{ marginTop: 0 }}>VNPAY xác nhận khách đã bị trừ tiền nhưng khoản này không áp được vào cọc hiện hành (đã đổi phiên bản hợp đồng, quá hạn, đã đủ cọc…). Liên hệ khách để hoàn tiền hoặc xử lý theo hợp đồng.</p>
+              {review.map((x) => (
+                <div key={x.id} className="mgr-row">
+                  <div>
+                    <b>{x.id} • {fmtMoney(x.confirmedAmount ?? x.amount)}</b>
+                    <span>{x.requestId ? <Link className="mgr-link" to={`/manager/requests/${x.requestId}`}>{x.requestId}</Link> : '—'} • {x.reviewReason ?? 'Cần đối soát'}</span>
+                  </div>
+                  <StatusBadge tone="bad" label="Đã trừ tiền – cần xử lý" />
+                </div>
+              ))}
             </section>
           )}
           <Note tone="grey" title="Thanh toán qua VNPAY">
@@ -168,6 +215,10 @@ export const PaymentsPage: React.FC = () => {
         onOk={async () => { if (refund && (await actions.confirmRefund(refund.id)).ok) setRefund(null); }}>
         <p>Chỉ cập nhật trạng thái hoàn tiền sau khi hoàn tất xử lý bên ngoài hệ thống. Thao tác này không chuyển tiền.</p>
       </Modal>
+      <ReasonModal open={!!cancelPaymentId} title={`Huỷ giao dịch ${cancelPaymentId}`} okText="Huỷ giao dịch" danger minLength={5}
+        intro={<p>Hệ thống sẽ <b>hỏi VNPay trước</b>: nếu khách đã bị trừ tiền thì ghi nhận cọc thay vì huỷ. Nếu không, giao dịch chuyển <b>thất bại</b> và khách có thể thanh toán lại. Tiền VNPay báo muộn (nếu có) sẽ vào mục đối soát/hoàn tiền.</p>}
+        placeholder="VD: Khách xác nhận không thanh toán; phiên VNPay đã hết hạn." onClose={() => setCancelPaymentId('')}
+        onSubmit={async (x) => (await actions.cancelPayment(cancelPaymentId, x)).ok} />
       <ReasonModal open={!!cancelId} title={`Hủy ${cancelId}`} okText="Hủy yêu cầu" danger minLength={10} confirmText="Tôi hiểu thao tác này không thể hoàn tác."
         placeholder="VD: Khách không phản hồi sau 3 lần nhắc và hạn chung đã hết." onClose={() => setCancelId('')} onSubmit={async (x) => (await actions.cancelRequest(cancelId, x)).ok} />
     </ManagerLayout>
