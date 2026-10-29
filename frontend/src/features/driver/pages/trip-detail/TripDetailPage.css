@@ -1,0 +1,32 @@
+.drv-horse { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--drv-line); }
+.drv-horse:last-of-type { border-bottom: 0; }
+.drv-horse__thumb { width: 42px; height: 42px; border-radius: 10px; background: var(--drv-orange-soft); color: var(--drv-orange-text); display: grid; place-items: center; font-weight: 800; flex: none; }
+.drv-horse__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.drv-horse__text span { font-size: 12px; color: var(--drv-muted); }
+
+.drv-stops { list-style: none; margin: 0; padding: 0; }
+.drv-stops li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--drv-line); }
+.drv-stops li:last-child { border-bottom: 0; }
+.drv-stops li.done { opacity: .72; }
+.drv-stops li.now { background: var(--drv-hover-bg); margin: 0 -12px; padding: 12px; border-radius: 10px; opacity: 1; }
+.drv-stops__badge { width: 28px; height: 28px; border-radius: 50%; color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; }
+.drv-stops__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.drv-stops__text span { font-size: 12px; color: var(--drv-muted); }
+.drv-stops__tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+.drv-pkg { border: 1px solid #bbf7d0; background: #f0fdf4; border-radius: 12px; padding: 14px 16px; }
+.drv-pkg + .drv-pkg { margin-top: 12px; }
+[data-theme="dark"] .drv-pkg { background: rgba(34, 197, 94, .06); border-color: rgba(34, 197, 94, .25); }
+.drv-pkg__head { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+.drv-verify { border: 1px solid var(--drv-line); border-radius: 12px; padding: 14px; }
+.drv-verify + .drv-verify { margin-top: 10px; }
+.drv-verify.ok { border-color: #86efac; background: #f0fdf4; }
+[data-theme="dark"] .drv-verify.ok { background: rgba(34, 197, 94, .06); border-color: rgba(34, 197, 94, .3); }
+.drv-checklist { list-style: none; padding: 0; margin: 10px 0 0; }
+.drv-checklist li { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; font-size: 13px; color: var(--drv-muted); }
+.drv-checklist li.ok { color: #166534; }
+[data-theme="dark"] .drv-checklist li.ok { color: #86efac; }
+.drv-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+.drv-two .drv-hint { text-align: center; }
+@media (max-width: 900px) { .drv-two { grid-template-columns: 1fr; } }

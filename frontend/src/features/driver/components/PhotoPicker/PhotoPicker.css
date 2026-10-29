@@ -1,0 +1,7 @@
+.drv-photos { display: flex; flex-wrap: wrap; gap: 10px; }
+.drv-photos__item, .drv-photos__add { width: 92px; height: 92px; border-radius: 10px; overflow: hidden; position: relative; flex: none; }
+.drv-photos__item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.drv-photos__item button { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgba(15, 23, 42, .7); color: #fff; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.drv-photos__item button .drv-i { width: 14px; height: 14px; }
+.drv-photos__add { border: 1px dashed var(--drv-muted, #94a3b8); background: var(--drv-card, #fff); color: var(--drv-muted, #64748b); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; font: 600 12px Inter, system-ui, sans-serif; }
+.drv-photos__add:hover { border-color: var(--drv-orange, #f57c00); color: var(--drv-orange-text, #ea580c); }

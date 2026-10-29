@@ -1,0 +1,7 @@
+.spc-legend { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.spc-legend > div { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 12px; }
+.spc-legend b { display: block; font-size: 13px; }
+.spc-legend span { font-size: 12px; color: #64748b; }
+.spc-rp__chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #eff6ff; color: #1d4ed8; white-space: nowrap; }
+.spc-rp__chip.bad { background: #fee2e2; color: #b91c1c; }
+@media (max-width: 900px) { .spc-legend { grid-template-columns: 1fr 1fr; } }

@@ -1,0 +1,48 @@
+.brand-logo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Inter', sans-serif;
+}
+
+.brand-logo-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background-color: #F57C00;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.brand-logo-btn:hover .brand-logo-icon {
+  background-color: #E65100;
+}
+
+.brand-logo-title {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.2;
+  transition: color 0.2s ease;
+}
+
+.brand-logo-btn:hover .brand-logo-title {
+  color: #F57C00;
+}
+
+.brand-logo-subtitle {
+  display: block;
+  font-size: 11px;
+  color: #6B7280;
+}

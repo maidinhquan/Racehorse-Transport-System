@@ -1,0 +1,762 @@
+/* ==========================================================================
+   CBN TRANSPORT — PUBLIC LANDING PAGE
+   Layout and styles mirroring CBN Transport (1).html
+   ========================================================================== */
+
+:root {
+  --orange: #f57c00;
+  --orange-soft: #ffedd5;
+  --orange-text: #ea580c;
+  --ink: #0f172a;
+  --text: #334155;
+  --muted: #64748b;
+  --faint: #94a3b8;
+  --line: #e5e7eb;
+  --bg: #f8fafc;
+  --green: #16a34a;
+  --green-soft: #dcfce7;
+  --red: #dc2626;
+  --red-soft: #fee2e2;
+  --amber: #d97706;
+  --amber-soft: #fef3c7;
+  --blue: #2563eb;
+  --blue-soft: #dbeafe;
+}
+
+/* ── Container ── */
+.lp {
+  --dusk: #1e293b;
+  --peach: #fdba74;
+  --sand: #fbfaf8;
+  color: var(--text);
+  background: var(--sand);
+  min-height: 100vh;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.lp *,
+.lp *::before,
+.lp *::after {
+  box-sizing: border-box;
+}
+
+/* ── Sticky Top Navigation ── */
+.lp-nav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px max(24px, calc((100% - 1160px) / 2));
+  background: rgba(251, 250, 248, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(229, 231, 235, 0.6);
+}
+
+.lp-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.lp-brand-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--orange);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(245, 124, 0, 0.35);
+}
+
+.lp-links {
+  display: flex;
+  gap: 4px;
+}
+
+.lp-links button {
+  background: none;
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.lp-links button:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--orange-text);
+}
+
+.lp-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lp-lang-switch {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.lp-lang-switch button {
+  border: 0;
+  background: transparent;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.lp-lang-switch button.active {
+  background: var(--orange-soft);
+  color: var(--orange-text);
+}
+
+/* ── Buttons ── */
+.lp .btn {
+  height: 38px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.lp .btn.lg {
+  height: 42px;
+  font-size: 14px;
+  border-radius: 10px;
+  padding: 0 20px;
+}
+
+.lp .btn.solid {
+  background: var(--orange);
+  color: #fff;
+  border-color: var(--orange);
+}
+
+.lp .btn.solid:hover {
+  background: var(--orange-text);
+  border-color: var(--orange-text);
+  box-shadow: 0 4px 12px rgba(245, 124, 0, 0.25);
+}
+
+.lp .btn.ghost {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.lp .btn.ghost:hover {
+  border-color: var(--muted);
+  background: #f8fafc;
+}
+
+.lp .btn.dark {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.lp .btn.dark:hover {
+  background: #1e293b;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+}
+
+/* ── Hero Section (Dusk-Road Radial Gradient) ── */
+.lp-hero {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding: 72px 20px 120px;
+  background:
+    radial-gradient(60% 55% at 50% 108%, rgba(245, 124, 0, 0.85), transparent 70%),
+    radial-gradient(38% 45% at 12% 92%, rgba(30, 41, 59, 0.55), transparent 70%),
+    radial-gradient(38% 45% at 88% 92%, rgba(30, 41, 59, 0.45), transparent 70%),
+    radial-gradient(55% 40% at 50% 75%, rgba(253, 186, 116, 0.75), transparent 75%),
+    var(--sand);
+}
+
+.lp-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--orange-text);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.lp-hero h1 {
+  margin: 24px auto 0;
+  max-width: 900px;
+  font-size: clamp(34px, 5.5vw, 64px);
+  line-height: 1.08;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.lp-hero > p {
+  margin: 18px auto 0;
+  max-width: 580px;
+  font-size: 17px;
+  line-height: 1.55;
+  color: #475569;
+  text-wrap: balance;
+}
+
+/* ── Quick Quote Calculator Box ── */
+.lp-quote {
+  margin: 40px auto 0;
+  max-width: 880px;
+  text-align: left;
+  background: #fff;
+  border-radius: 24px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.04);
+}
+
+.lp-quote-title {
+  padding: 2px 6px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.lp-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 120px auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.lp-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  min-width: 0;
+}
+
+.lp-fields select,
+.lp-fields input {
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0 12px;
+  background: #f8fafc;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0;
+  width: 100%;
+  outline: 0;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.lp-fields select:focus,
+.lp-fields input:focus {
+  border-color: var(--orange);
+  background: #fff;
+}
+
+.lp-fields .btn {
+  height: 44px;
+  border-radius: 12px;
+  font-size: 14px;
+  padding: 0 20px;
+}
+
+.lp-result {
+  margin-top: 14px;
+  padding: 14px 6px 4px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.lp-result b {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-result .muted {
+  color: var(--muted);
+}
+
+/* ── Trust Badges ── */
+.lp-trust {
+  margin: 32px auto 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.lp-trust span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(229, 231, 235, 0.7);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.lp-trust svg {
+  width: 15px;
+  height: 15px;
+  color: var(--orange);
+}
+
+/* ── Sections ── */
+.lp-section {
+  padding: 96px max(24px, calc((100% - 1160px) / 2)) 0;
+  scroll-margin-top: 80px;
+}
+
+.lp-section h2 {
+  font-size: clamp(26px, 3.6vw, 40px);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  color: var(--ink);
+  max-width: 640px;
+  text-wrap: balance;
+  margin: 0;
+}
+
+.lp-section .lp-lead {
+  margin-top: 14px;
+  max-width: 600px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ── 3-Column Services ── */
+.lp-grid3 {
+  margin-top: 40px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.lp-service {
+  padding: 28px;
+  border-radius: 20px;
+  background: #fff;
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.lp-service:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+}
+
+.lp-service .ic {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--orange-soft);
+  color: var(--orange-text);
+  display: grid;
+  place-items: center;
+}
+
+.lp-service .ic svg {
+  width: 22px;
+  height: 22px;
+}
+
+.lp-service h3 {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.lp-service p {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text);
+  margin: 0;
+}
+
+/* ── 4-Step Process ── */
+.lp-steps {
+  margin-top: 40px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  counter-reset: s;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-steps li {
+  padding: 0 24px 0 0;
+  position: relative;
+}
+
+.lp-steps li::before {
+  counter-increment: s;
+  content: counter(s);
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+}
+
+.lp-steps li::after {
+  content: '';
+  position: absolute;
+  top: 19px;
+  left: 38px;
+  right: 0;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--peach) 0 8px, transparent 8px 14px);
+  z-index: 1;
+}
+
+.lp-steps li:last-child::after {
+  display: none;
+}
+
+.lp-steps b {
+  display: block;
+  margin-top: 18px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.lp-steps span {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* ── 2-Card Pricing ── */
+.lp-prices {
+  margin-top: 40px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.lp-price {
+  padding: 32px;
+  border-radius: 24px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.lp-price.feature {
+  background: var(--dusk);
+  color: #cbd5e1;
+  border-color: var(--dusk);
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.16);
+}
+
+.lp-price .eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--orange-text);
+}
+
+.lp-price.feature .eyebrow {
+  color: var(--peach);
+}
+
+.lp-price .amount {
+  margin-top: 14px;
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-price.feature .amount {
+  color: #fff;
+}
+
+.lp-price .amount small {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+.lp-price.feature .amount small {
+  color: #94a3b8;
+}
+
+.lp-price ul {
+  margin-top: 24px;
+  display: grid;
+  gap: 12px;
+  font-size: 13px;
+  padding: 0;
+}
+
+.lp-price li {
+  list-style: none;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.lp-price li svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  color: var(--orange);
+  margin-top: 1px;
+}
+
+.lp-note {
+  margin-top: 18px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* ── Routes Pills ── */
+.lp-routes {
+  margin-top: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lp-routes span {
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.lp-routes small {
+  margin-left: 6px;
+  color: var(--faint);
+  font-weight: 700;
+}
+
+/* ── Conversion CTA Banner ── */
+.lp-band {
+  margin: 96px max(24px, calc((100% - 1160px) / 2)) 0;
+  padding: 52px 48px;
+  border-radius: 28px;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  background: radial-gradient(70% 120% at 100% 100%, rgba(245, 124, 0, 0.75), transparent 70%), var(--dusk);
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+}
+
+.lp-band h2 {
+  font-size: clamp(24px, 3vw, 36px);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  max-width: 540px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.lp-band p {
+  margin-top: 10px;
+  color: #cbd5e1;
+  font-size: 15px;
+}
+
+.lp-band .btn.ghost {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.lp-band .btn.ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #fff;
+}
+
+/* ── Footer ── */
+.lp-foot {
+  margin-top: 64px;
+  padding: 32px max(24px, calc((100% - 1160px) / 2)) 48px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  gap: 20px 40px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.lp-foot b {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.lp-foot span {
+  color: var(--ink);
+}
+
+.lp-portal {
+  color: var(--orange-text);
+  font-weight: 600;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.lp-portal:hover {
+  text-decoration: underline;
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .lp-links {
+    display: none;
+  }
+  .lp-grid3 {
+    grid-template-columns: 1fr;
+  }
+  .lp-steps {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 32px;
+  }
+  .lp-steps li:nth-child(2)::after {
+    display: none;
+  }
+  .lp-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .lp-nav {
+    padding: 12px 16px;
+  }
+  .lp-brand {
+    font-size: 17px;
+  }
+  .lp-cta .btn.lg {
+    height: 38px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+  .lp-cta .hide-sm {
+    display: none;
+  }
+  .lp-hero {
+    padding: 48px 16px 80px;
+  }
+  .lp-hero > p {
+    font-size: 15px;
+  }
+  .lp-quote {
+    border-radius: 20px;
+    padding: 16px;
+  }
+  .lp-fields {
+    grid-template-columns: 1fr;
+  }
+  .lp-steps,
+  .lp-prices {
+    grid-template-columns: 1fr;
+  }
+  .lp-steps li::after {
+    display: none;
+  }
+  .lp-band {
+    padding: 32px 24px;
+    border-radius: 20px;
+  }
+}
+
+.lp-request-cta{display:flex;justify-content:center;margin:28px 0}.lp-request-cta .btn{display:inline-flex;align-items:center;gap:10px;padding:15px 24px;border-radius:10px}

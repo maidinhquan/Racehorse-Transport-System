@@ -1,0 +1,36 @@
+.crd-detail__title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* tuyến đường */
+.crd-stop-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--crd-line, #e5e7eb); }
+.crd-stop-row:last-child { border-bottom: 0; }
+.crd-stop-row__no { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-size: 12px; font-weight: 700; flex: none; }
+.crd-stop-row__body { flex: 1; min-width: 0; }
+.crd-stop-row__body b { display: block; }
+.crd-stop-row__actions { display: flex; gap: 4px; }
+
+/* xe & nhân sự */
+.crd-unit { border: 1px solid var(--crd-line, #e5e7eb); border-radius: 14px; padding: 18px 20px; background: var(--crd-card, #fff); }
+.crd-unit__head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--crd-line, #e5e7eb); margin-bottom: 16px; }
+.crd-unit__eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--crd-muted, #64748b); }
+.crd-unit__title { font-size: 17px; font-weight: 700; margin: 2px 0 4px; }
+.crd-vehicle { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--crd-line, #f1f5f9); }
+.crd-vehicle:last-child { border-bottom: 0; }
+.crd-vehicle.selected { background: var(--crd-orange-soft, #fff7ed); margin: 0 -10px; padding: 12px 10px; border-radius: 10px; }
+.crd-leg-tabs { display: flex; gap: 20px; border-bottom: 1px solid var(--crd-line, #e5e7eb); margin: 14px 0 16px; }
+.crd-leg-tabs button { border: 0; background: none; padding: 8px 0; font: 500 14px Inter, system-ui, sans-serif; color: var(--crd-muted, #64748b); cursor: pointer; border-bottom: 2px solid transparent; }
+.crd-leg-tabs button.on { color: var(--crd-orange-text, #ea580c); border-bottom-color: var(--crd-orange, #f57c00); }
+
+/* theo dõi hành trình */
+.crd-track-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.crd-track-stats .crd-stat b { font-size: 15px; }
+@media (max-width: 900px) { .crd-track-stats { grid-template-columns: 1fr 1fr; } }
+
+/* danh sách việc còn thiếu */
+.crd-gap-list { margin: 0; padding-left: 18px; color: #b45309; font-size: 13px; line-height: 1.8; }
+.crd-gap-list--plain { color: #334155; }
+
+.crd-track-inc { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; border: 1px solid var(--crd-line); background: var(--crd-card); color: inherit; font: inherit; text-align: left; border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+.crd-track-inc + .crd-track-inc { margin-top: 8px; }
+.crd-track-inc:hover { border-color: var(--crd-orange); }
+.crd-track-inc span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.crd-track-inc small { color: var(--crd-muted); font-size: 12px; }
