@@ -48,6 +48,7 @@ import {
   nowStamp,
   outstanding,
   pendingTx,
+  receivedDepositTx,
   readinessChecks,
   today,
   tripOfReq,
@@ -521,11 +522,19 @@ const managerActions = {
     }, 'Đã lưu bản nháp hợp đồng trên máy chủ.');
   },
   discardDraft(id: string) { return perform(id, () => managerApi.discardContractDraft(id), 'Đã bỏ bản nháp.'); },
-  async issueContract(id: string, draft: ContractDraft, _responseText = ''): Promise<ActionResult> {
+  async issueContract(id: string, draft: ContractDraft, responseText = ''): Promise<ActionResult> {
     const r = reqIn(state, id);
-    if (!r || isSigned(r) || verifiedDeposit(state, r) > 0 || depositPaid(state, r) || pendingTx(state, r)) return fail('Yêu cầu không đủ điều kiện phát hành hợp đồng.');
+    if (!r || isSigned(r) || verifiedDeposit(state, r) > 0 || depositPaid(state, r) || receivedDepositTx(state, r)) return fail('Yêu cầu không đủ điều kiện phát hành hợp đồng.');
     const err = draftError(draft); if (err) return fail(err);
+    const published = curVersion(r);
+    const openChange = published?.change && !published.change.response ? published : undefined;
+    if (openChange && responseText.trim() && responseText.trim().length < 10) return fail('Phản hồi gửi khách hàng cần ít nhất 10 ký tự.');
     return perform(id, async () => {
+      // A pending customer change request is accepted with the Manager's reply before the new version is issued.
+      // (Without a reply, the server marks it accepted when publishing.)
+      if (openChange?.contractId && responseText.trim()) {
+        await managerApi.respondContractChange(openChange.contractId, openChange.v, 'ACCEPTED', responseText.trim());
+      }
       const saved = await managerApi.saveContractDraft(id, draft);
       await managerApi.publishContract(id, saved.versionNo);
     }, 'Đã phát hành hợp đồng. Hạn hoàn tất được lấy từ máy chủ.');

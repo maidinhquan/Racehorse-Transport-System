@@ -338,6 +338,15 @@ export const verifiedDeposit = (d: Pick<ManagerData, 'transactions'>, r: Transpo
 export const depositPaid = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => depositOf(r) > 0 && verifiedDeposit(d, r) >= depositOf(r);
 export const pendingTx = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest, type: PaymentType = 'DEPOSIT') =>
   d.transactions.find((x) => x.requestId === r.id && x.type === type && (type !== 'DEPOSIT' || (x.contractId === curVersion(r)?.contractId && x.versionNo === curVersion(r)?.v)) && ['PENDING_CONFIRMATION', 'PROCESSING'].includes(x.status));
+/**
+ * Money actually received for the current version. An unpaid VNPay session (customer opened the gateway and left)
+ * is PROCESSING with no received amount and must not block re-issuing; the backend applies the same rule.
+ */
+export const receivedDepositTx = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => {
+  const v = curVersion(r);
+  return d.transactions.find((x) => x.requestId === r.id && x.type === 'DEPOSIT' && !!v?.contractId && x.contractId === v.contractId && x.versionNo === v.v
+    && (['SUCCESS', 'PENDING_CONFIRMATION'].includes(x.status) || (x.confirmedAmount ?? 0) > 0));
+};
 export const balanceDue = (r: TransportRequest) => Math.max(0, totalOf(r) - depositOf(r));
 export const verifiedBalance = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => sumTx(d, r, 'BALANCE', ['SUCCESS']);
 export const outstanding = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => Math.max(0, balanceDue(r) - verifiedBalance(d, r));

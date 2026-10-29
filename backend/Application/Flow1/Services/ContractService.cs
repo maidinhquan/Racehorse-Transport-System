@@ -132,6 +132,12 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
             draft.ContentSnapshot = frozen; draft.VersionStatus = "ISSUED"; draft.PdfUrl = pdf; draft.PublishedAtUtc = now; draft.PublishedBy = actor;
             contract.PublishedAtUtc = now; contract.PublishedBy = actor; contract.PdfUrl = pdf; contract.CompletionDeadline = deadline;
             contract.TotalQuotedPrice = total; contract.DepositAmount = amount; contract.DepositRateStandard = node["commercial"]!["depositPercent"]!.GetValue<decimal>();
+            // Publishing a replacement answers a still-open change request.
+            if (contract.FeedbackStatus == "PENDING")
+            {
+                contract.FeedbackStatus = "ACCEPTED"; contract.FeedbackHandledAtUtc = now;
+                contract.ManagerFeedback ??= $"Đã phát hành phiên bản {version} theo yêu cầu sửa của bạn.";
+            }
             contract.ContractStatus = "ISSUED"; contract.SignOtpHash = null; contract.SignOtpExpiry = null; contract.SignOtpSentAtUtc = null; contract.SignOtpFailedAttempts = 0;
             row.ExpectedDate = departure; row.CommittedDeadline = node["route"]!["deliveryAtUtc"]!.GetValue<DateTime>();
             row.PreparationDays = preparation; row.TransportType = null; row.Status = "CONTRACT_READY";
@@ -184,12 +190,31 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
     }, ct);
     public Task<object> DecideFeedbackAsync(string actor, string id, FeedbackDecision input, CancellationToken ct) => data.WriteAsync<object>(async token =>
     {
-        var contract = await access.ContractAsync(id, actor, true, token); await CurrentAsync(contract, input.VersionNo, token);
+        var contract = await access.ContractAsync(id, actor, true, token);
+        // The customer's feedback is about the latest PUBLISHED version. The Manager may already have saved a
+        // replacement draft (which becomes CurrentVersionNo), so do not require the version to be "current".
+        var published = (await data.ListAsync<ContractVersion>(v => v.ContractID == contract.ContractID && v.PublishedAtUtc != null, token))
+            .OrderByDescending(v => v.VersionNo).FirstOrDefault();
+        Require(published is not null && published.VersionNo == input.VersionNo, "CONTRACT_NOT_CURRENT", "Answer the feedback on the latest published version.");
         Require(contract.FeedbackStatus == "PENDING" && contract.SignedAt is null, "INVALID_STATE", "No pending feedback.");
         Require(input.Decision is "ACCEPTED" or "REJECTED", "VALIDATION_ERROR", "Invalid decision.", 400);
         contract.FeedbackStatus = input.Decision; contract.ManagerFeedback = Required(input.Text); contract.FeedbackHandledAtUtc = clock.GetUtcNow().UtcDateTime;
         var row = await data.FindAsync<TransportRequest>(token, contract.RequestID) ?? throw Failure("NOT_FOUND", "Request not found.", 404);
-        if (input.Decision == "REJECTED") row.Status = "CONTRACT_READY";
+        if (input.Decision == "REJECTED")
+        {
+            row.Status = "CONTRACT_READY";
+            // Keeping the published version: drop an unpublished replacement draft so the customer can accept, pay and sign it.
+            if (contract.CurrentVersionNo is int current && current != published!.VersionNo)
+            {
+                var draft = await data.FindAsync<ContractVersion>(token, contract.ContractID, current);
+                if (draft?.VersionStatus == "DRAFT")
+                {
+                    contract.CurrentVersionNo = null; await data.SaveAsync(token);
+                    data.Remove(draft); await data.SaveAsync(token);
+                }
+                contract.CurrentVersionNo = published.VersionNo;
+            }
+        }
         notifications.Add(row.CustomerID, row.RequestID, "FEEDBACK_DECIDED", "Contract feedback reviewed", contract.ManagerFeedback);
         return new { contractId = id, versionNo = input.VersionNo, decision = input.Decision, requestStatus = row.Status };
     }, ct);

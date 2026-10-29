@@ -5,7 +5,7 @@ import type { ComplaintInput, ContractChangeInput, CustomerNotification, Custome
 import { city, getCityId, registerBackendCity } from '../hooks/customerRules';
 import { CUSTOMER_ENDPOINTS } from './customerEndpoints';
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
-import { contractFromWire, documentKey, fileFromWire, paymentFromWire, type WirePayment, type WireHorse, type WireContract } from '../../../shared/api/flow1Wire';
+import { attachContractFeedback, contractFromWire, documentKey, fileFromWire, paymentFromWire, utcMs, type WirePayment, type WireHorse, type WireContract } from '../../../shared/api/flow1Wire';
 
 export const DEFAULT_FORM_OPTIONS: FormOptions = {
   currency: 'VND',
@@ -32,9 +32,9 @@ export const requestFromWire = (r: any): TransportRequest => {
   const destination = r?.delivery?.cityName || r?.destination || '';
   if (r?.pickup?.cityName && r?.originCountry) registerBackendCity(origin, r.originCountry);
   if (r?.delivery?.cityName && r?.destinationCountry) registerBackendCity(destination, r.destinationCountry);
-  const versions: ContractVersion[] = Array.isArray(r?.versions)
+  const versions: ContractVersion[] = attachContractFeedback(Array.isArray(r?.versions)
     ? r.versions.map((v: WireContract) => contractFromWire(v) as ContractVersion)
-    : [];
+    : [], r?.contractFeedback);
 
   const rawDate = r?.expectedDeliveryDate || '';
   const date = rawDate.length >= 10 ? rawDate.slice(0, 10) : rawDate;
@@ -89,7 +89,7 @@ export const requestFromWire = (r: any): TransportRequest => {
       type: 'DEPOSIT', contractId: p.contractId,
       versionNo: p.versionNo, confirmedAmount: p.receivedAmount ?? 0,
       status: p.status === 'PENDING_GATEWAY' || p.status === 'REVIEW_REQUIRED' ? 'PROCESSING' : p.status,
-      createdAt: p.createdAt ?? '', confirmedAt: p.paidAt,
+      createdAt: p.createdAt ?? '', confirmedAt: p.paidAt, qrExpiresAtMs: utcMs(p.expiresAt),
     })) : [],
     docs: Array.isArray(r?.docs) ? r.docs.map((d: any) => ({ ...d, key: documentKey(d.key), file: fileFromWire(d.file, documentKey(d.key)) })) : [],
     supplements: Array.isArray(r?.supplements) ? r.supplements : [],
@@ -216,7 +216,7 @@ export const customerApi = {
     const request = requestFromWire(await contractClient<WireRequest>('get', `/customer/requests/${id}`));
     if (request.versions.length) {
       const deposit = await customerApi.getDeposit(id);
-      request.payments = deposit.transactions.map(p => ({ ...p, type: 'DEPOSIT', confirmedAmount: p.receivedAmount ?? 0, createdAt: '', confirmedAt: p.paidAt } as Payment));
+      request.payments = deposit.transactions.map(p => ({ ...p, type: 'DEPOSIT', confirmedAmount: p.receivedAmount ?? 0, createdAt: '', confirmedAt: p.paidAt, qrExpiresAtMs: utcMs((p as { expiresAt?: string }).expiresAt) } as Payment));
     }
     return request;
   },

@@ -140,6 +140,8 @@ public sealed class PaymentService(IDataSession data, AccessService access, IPay
         status = payment.Status == "PENDING_GATEWAY" ? "PROCESSING" : payment.Status == "FAILED" ? "REJECTED" : payment.Status == "REVIEW_REQUIRED" ? "PROCESSING" : "SUCCESS",
         databaseStatus = payment.Status, receivedAmount = payment.VnpayReceivedAmount,
         paidAt = payment.VnpayReceivedAmount is null ? (DateTime?)null : payment.PaymentDate,
-        reviewRequired = payment.FinancialReviewRequired, reviewReason = payment.FinancialReviewReason
+        reviewRequired = payment.FinancialReviewRequired, reviewReason = payment.FinancialReviewReason,
+        // When an unpaid VNPay session stops being payable; the client treats abandoned sessions as no money in flight.
+        expiresAt = payment.VnpayExpiresAtUtc?.ToString("yyyy-MM-dd HH:mm")
     };
 }

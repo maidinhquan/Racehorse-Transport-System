@@ -70,7 +70,7 @@ export const ReviewSignPage: React.FC = () => {
       </div>
 
       <OtpModal open={otpOpen} requestId={r.id} onClose={() => setOtpOpen(false)}
-        onSigned={() => { setOtpOpen(false); navigate(`/customer/requests/${r.id}/deposit`); }} />
+        onSigned={() => { setOtpOpen(false); navigate(`/customer/requests/${r.id}/payment`); }} />
       <ReasonModal open={cancelOpen} title={`Hủy ${r.id}?`} okText="Gửi yêu cầu hủy" danger confirmText="Tôi muốn hủy yêu cầu này"
         intro={<p>Yêu cầu hủy được gửi tới backend để kiểm tra trạng thái hợp đồng và tiền cọc thực tế.</p>}
         onClose={() => setCancelOpen(false)} onSubmit={async (reason) => { const ok = (await actions.cancelRequest(r.id, reason)).ok; if (ok) navigate(`/customer/requests/${r.id}`); return ok; }} />

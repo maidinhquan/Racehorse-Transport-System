@@ -5,22 +5,24 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5129:8080"
+    # Secrets and keys come from .env (not committed). Values under `environment` override env_file,
+    # so keys that live in .env are not repeated here.
+    env_file:
+      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=HorseTransportDB;User Id=${SQL_USER};Password=${SQL_PASSWORD};Encrypt=True;TrustServerCertificate=True;"
-      RegistrationEmail__Mode: Development
-      RegistrationEmail__Smtp__Host: "localhost"
-      RegistrationEmail__Smtp__Port: "25"
-      RegistrationEmail__Smtp__From: "noreply@racehorse.local"
-      Jwt__Key: "RaceHorseTransportSecretKey2026_SWP391_Project_SecuredKey_SuperSafe!"
-      Flow1__Maps__Geoapify__ApiKey: "${GEOAPIFY_API_KEY:-}"
-      Flow1__Contracts__OtpHmacKey: "RaceHorseTransportFlow1_OtpHmacSecretKey_AtLeast32Bytes_2026"
-      Flow1__Contracts__Issuer__legalName: "Công ty Cổ phần Vận chuyển Ngựa Đua RaceHorse"
-      Flow1__Contracts__Issuer__address: "Số 123 Đường Vận Chuyển, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh"
-      Flow1__Contracts__Issuer__email: "contact@racehorsetransport.vn"
-      Flow1__Contracts__Issuer__phone: "0901234567"
-      Flow1__Contracts__Issuer__representative: "Nguyễn Văn Quản Lý"
-      Flow1__Contracts__Issuer__taxCode: "0312345678"
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=${SQL_DATABASE:-HorseTransportDB};User Id=${SQL_USER};Password=${SQL_PASSWORD};Encrypt=True;TrustServerCertificate=True;"
+      RegistrationEmail__Mode: "${REGISTRATION_EMAIL_MODE:-Development}"
+      RegistrationEmail__Smtp__Host: "${SMTP_HOST:-localhost}"
+      RegistrationEmail__Smtp__Port: "${SMTP_PORT:-25}"
+      RegistrationEmail__Smtp__From: "${SMTP_FROM:-noreply@racehorse.local}"
+      RegistrationEmail__Smtp__Username: "${SMTP_USERNAME:-}"
+      RegistrationEmail__Smtp__Password: "${SMTP_PASSWORD:-}"
+      Smtp__Host: "${SMTP_HOST:-smtp.gmail.com}"
+      Smtp__Port: "${SMTP_PORT:-587}"
+      Smtp__Username: "${SMTP_USERNAME:-}"
+      Smtp__Password: "${SMTP_PASSWORD:-}"
+      Smtp__FromEmail: "${SMTP_FROM:-}"
     volumes:
       - backend_app_data:/app/App_Data
     restart: unless-stopped
@@ -37,6 +39,38 @@ services:
     command: npm run dev -- --host 0.0.0.0
     environment:
       VITE_API_URL: http://localhost:5129/api
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Public HTTPS tunnel so VNPay can call the IPN on this machine (http://backend:8080/api/payments/vnpay/ipn).
+  # Starts automatically when .env contains COMPOSE_PROFILES=tunnel plus NGROK_AUTHTOKEN;
+  # without them `docker compose up` simply skips it. Register once with VNPay:
+  #   https://<your-dev-domain>.ngrok-free.app/api/payments/vnpay/ipn
+  # Inspect forwarded requests at http://localhost:4040
+  tunnel:
+    image: ngrok/ngrok:3
+    profiles: ["tunnel"]
+    # A free ngrok account uses its permanent dev domain automatically (shown at http://localhost:4040
+    # and in the ngrok dashboard under Domains), so the IPN URL only has to be registered once.
+    command: ["http", "backend:8080", "--log=stdout"]
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    ports:
+      - "4040:4040"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Same purpose without any account (Cloudflare Quick Tunnel): set COMPOSE_PROFILES=quicktunnel.
+  # The public URL is random and CHANGES on every restart, so the VNPay IPN URL must be updated each time.
+  # Current URL: open http://localhost:2000/quicktunnel  (or: docker compose logs quicktunnel)
+  quicktunnel:
+    image: cloudflare/cloudflared:2024.12.2
+    profiles: ["quicktunnel"]
+    command: ["tunnel", "--no-autoupdate", "--metrics", "0.0.0.0:2000", "--url", "http://backend:8080"]
+    ports:
+      - "2000:2000"
     depends_on:
       - backend
     restart: unless-stopped

@@ -417,7 +417,13 @@ export function depositState(r: TransportRequest): DepositState {
 export const DEPOSIT_STATE_LABEL: Record<DepositState, string> = {
   NONE: 'Chưa đủ cọc', PENDING: 'Chờ xác minh', VERIFIED: 'Đã xác minh đủ cọc', FAILED: 'Thanh toán thất bại',
 };
-export const hasDepositMoney = (r: TransportRequest) => depositPayments(r).some(p => ['PROCESSING', 'PENDING_CONFIRMATION', 'SUCCESS'].includes(p.status));
+// A VNPay session the customer left without paying expires (15 min); allow 5 more minutes for a late gateway callback.
+const abandonedSession = (p: Payment) => p.status === 'PROCESSING' && !!p.qrExpiresAtMs && clockMs() >= p.qrExpiresAtMs + 5 * 60_000;
+// Money actually received for the current version (a VNPay page opened but not paid does not count).
+// The backend refuses to replace a version that received money, and late payments go to reconciliation.
+export const hasReceivedDeposit = (r: TransportRequest) =>
+  depositPayments(r).some(p => ['PENDING_CONFIRMATION', 'SUCCESS'].includes(p.status) || (p.confirmedAmount ?? 0) > 0);
+export const hasDepositMoney = (r: TransportRequest) => depositPayments(r).some(p => ['PROCESSING', 'PENDING_CONFIRMATION', 'SUCCESS'].includes(p.status) && !abandonedSession(p));
 export const depositPaidAmount = (r: TransportRequest) => depositPayments(r).filter(p => p.status === 'SUCCESS').reduce((sum, p) => sum + verifiedPaymentAmount(p), 0);
 
 export const canAcceptTerms = (r: TransportRequest) => {
@@ -442,7 +448,7 @@ export function signBlock(r: TransportRequest): string {
 export const canSign = (r: TransportRequest) => r.status === 'DEPOSIT_VERIFIED' && !signBlock(r);
 export const canRequestContractChange = (r: TransportRequest) => {
   const v = curVersion(r);
-  return !!v && r.status === 'CONTRACT_READY' && ['ISSUED', 'EXPIRED'].includes(versionState(v)) && !hasDepositMoney(r);
+  return !!v && r.status === 'CONTRACT_READY' && ['ISSUED', 'EXPIRED'].includes(versionState(v)) && !hasReceivedDeposit(r);
 };
 export const canCancel = (r: TransportRequest) =>
   ['DRAFT', 'PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT']

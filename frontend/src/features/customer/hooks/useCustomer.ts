@@ -326,6 +326,13 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
 
       const profile: CustomerProfile = profileRes.status === 'fulfilled' && profileRes.value ? profileRes.value : getInitialProfile();
       const horses: Horse[] = horsesRes.status === 'fulfilled' && horsesRes.value ? horsesRes.value : [];
+      // Surface load failures instead of silently showing empty lists.
+      for (const [label, res] of [['ngựa', horsesRes], ['yêu cầu', requestsRes]] as const) {
+        if (res.status === 'rejected') {
+          console.error(`[customer] loading ${label} failed`, res.reason);
+          toast(`Không tải được danh sách ${label}: ${apiMessage(res.reason)}`);
+        }
+      }
       const notifications: CustomerNotification[] = notificationsRes.status === 'fulfilled' && notificationsRes.value ? notificationsRes.value : [];
 
       try {

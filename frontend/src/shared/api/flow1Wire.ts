@@ -21,10 +21,40 @@ export interface WireContract {
 export interface WirePayment {
   id: string; contractId: string; invoiceId: string; versionNo: number; amount: number; method: string;
   status: string; databaseStatus?: string; receivedAmount?: number | null; paidAt?: string | null;
-  reviewRequired?: boolean; reviewReason?: string | null;
+  reviewRequired?: boolean; reviewReason?: string | null; expiresAt?: string | null;
 }
+/** Customer's contract change request as returned on request details (`contractFeedback`). */
+export interface WireContractFeedback {
+  text?: string | null; status?: string | null; managerReply?: string | null; receivedAt?: string | null; handledAt?: string | null;
+}
+const anyUtcMs = (s?: string | null) => {
+  if (!s) return 0;
+  const iso = s.includes('T') ? s : s.replace(' ', 'T');
+  return Date.parse(/(Z|[+-]\d\d:?\d\d)$/i.test(iso) ? iso : `${iso.length <= 16 ? `${iso}:00` : iso}Z`) || 0;
+};
+const minuteText = (s?: string | null) => (s ? s.replace('T', ' ').slice(0, 16) : '');
+/**
+ * The backend keeps one change request per contract without a version number. Attach it to the latest
+ * version published before it was received; pending requests therefore land on the current version.
+ */
+export function attachContractFeedback<V extends { issuedAt?: string }>(versions: V[], feedback?: WireContractFeedback | null): V[] {
+  if (!feedback?.text) return versions;
+  const received = anyUtcMs(feedback.receivedAt);
+  const published = versions.filter(v => v.issuedAt);
+  const target = [...published].reverse().find(v => !received || anyUtcMs(v.issuedAt) <= received) ?? published[published.length - 1];
+  if (!target) return versions;
+  const handled = feedback.status && feedback.status !== 'PENDING' && feedback.managerReply;
+  const change = {
+    at: minuteText(feedback.receivedAt), text: feedback.text,
+    ...(handled ? { response: { at: minuteText(feedback.handledAt), text: feedback.managerReply!, decision: feedback.status === 'ACCEPTED' ? 'RETURNED' as const : 'KEPT' as const } } : {}),
+  };
+  return versions.map(v => (v === target ? { ...v, change } : v));
+}
+
+/** Server timestamps are UTC "yyyy-MM-dd HH:mm". */
+export const utcMs = (s?: string | null) => (s ? Date.parse(`${s.replace(' ', 'T')}:00Z`) || undefined : undefined);
 export const paymentFromWire = (p: WirePayment) => ({
-  ...p, type: 'DEPOSIT' as const, confirmedAmount: p.receivedAmount ?? 0,
+  ...p, qrExpiresAtMs: utcMs(p.expiresAt), type: 'DEPOSIT' as const, confirmedAmount: p.receivedAmount ?? 0,
   createdAt: '', confirmedAt: p.paidAt ?? undefined,
 });
 

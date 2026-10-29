@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ManagerLayout } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { BackLink, LockedCard, Note } from '../../components/Common/Common';
-import { WorkflowNav } from '../../components/WorkflowNav/WorkflowNav';
+import { WorkflowHeader } from '../../components/WorkflowNav/WorkflowHeader';
 import { ContractPreview } from '../../components/ContractPreview/ContractPreview';
 import { Modal, ReasonModal } from '../../components/Modals';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
@@ -22,7 +22,7 @@ import {
   isAccepted,
   isSigned,
   pendingTx,
-  routeText,
+  receivedDepositTx,
   timeLeft,
   versionState,
 } from '../../hooks/managerRules';
@@ -58,21 +58,8 @@ export const ContractEditorPage: React.FC = () => {
   }
   const t = tripFor(r.id), v = curVersion(r), state = v ? versionState(v) : undefined, c = customer(r);
   const head = (
-    <>
-      <BackLink to="/manager/contracts">Danh sách hợp đồng</BackLink>
-      <div className="mgr-head">
-        <div>
-          <h2 className="mgr-title mgr-ce__title">{v ? `Hợp đồng ${ctRef(v)}` : 'Hợp đồng nháp'} • {r.id} {state && <StatusBadge kind="contract" status={state} />}</h2>
-          <p className="mgr-subtitle">{c?.company} • {routeText(r)} • <StatusBadge status={r.status} /></p>
-        </div>
-        <div className="mgr-btn-row">
-          {v && <button type="button" className="mgr-btn" onClick={() => setDialog('view')}>Xem toàn bộ hợp đồng</button>}
-          <Link className="mgr-btn" to={`/manager/requests/${r.id}`}>Mở yêu cầu</Link>
-          {t && <Link className="mgr-btn mgr-btn--solid" to={`/manager/trips/${t.id}`}>Đến chuyến {t.id} →</Link>}
-        </div>
-      </div>
-      <WorkflowNav request={r} trip={t} current="contract" />
-    </>
+    <WorkflowHeader request={r} trip={t} customer={c} current="contract"
+      actions={v ? <button type="button" className="mgr-btn" onClick={() => setDialog('view')}>Xem toàn bộ hợp đồng</button> : undefined} />
   );
 
   if (!isAccepted(r)) {
@@ -87,7 +74,7 @@ export const ContractEditorPage: React.FC = () => {
   }
 
   const isVoid = state === 'VOID';
-  const blockedByMoney = verifiedDeposit(data, r) > 0 || depositPaid(data, r) || !!pendingTx(data, r);
+  const blockedByMoney = verifiedDeposit(data, r) > 0 || depositPaid(data, r) || !!receivedDepositTx(data, r);
   const canIssue = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) && !isSigned(r) && !blockedByMoney;
   const editorOpen = canIssue && (['CONTRACT_PREPARATION', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) || !v || isVoid || state === 'CHANGES_REQUESTED' || state === 'EXPIRED' || editing);
   const change = v?.change && !v.change.response ? v.change : undefined;
@@ -128,7 +115,7 @@ export const ContractEditorPage: React.FC = () => {
                 <div><span>Tiền cọc</span><b>{depositPaid(data, r) ? 'Đã xác minh' : pendingTx(data, r) ? 'Đang chờ xác minh' : 'Chưa thanh toán'}</b></div>
               </div>
               {v.exception && <p className="mgr-hint">Lý do bán dưới giá sàn: {v.exception}</p>}
-              {blockedByMoney && !v.signedAt && <p className="mgr-hint">Khách đã thanh toán / đang thanh toán cọc cho phiên bản này nên không phát hành lại được.</p>}
+              {blockedByMoney && !v.signedAt && <p className="mgr-hint">Khách đã chuyển tiền cọc cho phiên bản này nên không phát hành lại được; cần đối soát/hoàn tiền trước.</p>}
             </section>
           )}
 

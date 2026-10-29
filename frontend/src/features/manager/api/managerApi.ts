@@ -2,7 +2,7 @@ import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
 import { MANAGER_ENDPOINTS as E } from './managerEndpoints';
 import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, Staff, Transaction, TransportRequest, Trip } from '../types';
-import { contractFromWire, documentKey, paymentFromWire, type WireContract, type WireHorse, type WirePayment } from '../../../shared/api/flow1Wire';
+import { attachContractFeedback, contractFromWire, documentKey, paymentFromWire, type WireContract, type WireHorse, type WirePayment } from '../../../shared/api/flow1Wire';
 export interface CostPlanDto {
   costs: {
     transport: number;
@@ -42,7 +42,7 @@ const requestFromWire = (r: WireRequest): TransportRequest => ({ ...r,
   date: r.expectedDeliveryDate ?? '', pickupAt: r.expectedTransportDate ?? '', careNotes: r.careInstructions ?? '',
   submittedAt: r.createdAt ?? '', feedback: r.revisionFeedback ?? '',
   reason: r.reason ?? r.rejectionReason ?? r.cancellation?.reason ?? '', status: r.status,
-  history: [], collection: [], versions: (r.versions ?? []).filter((v: WireContract) => v.versionStatus !== 'DRAFT').map(versionFromWire),
+  history: [], collection: [], versions: attachContractFeedback((r.versions ?? []).filter((v: WireContract) => v.versionStatus !== 'DRAFT').map(versionFromWire), r.contractFeedback),
   dossier: (r.dossier ?? []).map((d: any) => ({ ...d, name: documentKey(d.key),
     status: d.status === 'SUBMITTED' ? 'PENDING_REVIEW' : d.status, file: d.file?.url,
   })),
@@ -84,7 +84,7 @@ export const managerApi = {
     }
     const draft = data.draft ? { ...versionFromWire(data.draft), budget, exception: '' } as ContractDraft : null;
     return { ...data, draft, customer: { ...data.customer, company: '' }, horses: data.horses.map(horseFromWire),
-      request: requestFromWire(data.request), versions: data.versions.map(versionFromWire), currentContract: data.currentContract ? versionFromWire(data.currentContract) : null };
+      request: requestFromWire(data.request), versions: attachContractFeedback(data.versions.map(versionFromWire), data.request?.contractFeedback), currentContract: data.currentContract ? versionFromWire(data.currentContract) : null };
   },
   saveContractDraft: (id: string, draft: ContractDraft) => contractClient<{ requestId: string; contractId: string; versionNo: number; status: string; savedAt: string }>('put', `/manager/requests/${id}/contract-draft`, {
     departAt: draft.departAt, arriveAt: draft.arriveAt,

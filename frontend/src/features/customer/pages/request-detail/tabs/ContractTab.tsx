@@ -60,7 +60,9 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
     );
   }
 
-  const state = versionState(v), ds = depositState(r), paid = ds === 'VERIFIED';
+  // While the Manager reviews the customer's change request, the published version stays ISSUED on the server.
+  const state = r.status === 'CONTRACT_CHANGES_REQUESTED' && versionState(v) === 'ISSUED' ? 'CHANGES_REQUESTED' : versionState(v);
+  const ds = depositState(r), paid = ds === 'VERIFIED';
   const live = state === 'ISSUED' && ['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status);
   const canChange = canRequestContractChange(r);
 
