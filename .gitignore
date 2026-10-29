@@ -1,8 +1,13 @@
+# Environment Variables & Secrets (NEVER commit real tokens/passwords)
+.env
+.env.*
+!**/.env.example
+frontend/.env
+frontend/.env.local
+
 # React
 frontend/node_modules/
 frontend/dist/
-frontend/.env
-frontend/.env.local
 
 # Data files & Requirements
 data/
@@ -10,7 +15,6 @@ data/
 !backend/Infrastructure/Data/**
 landing_page/
 spark-AKA-3D-lib-for-render-3D/
-
 
 # Database Tools & Scripts (Local only)
 HorseTransportDB/tools/
@@ -21,7 +25,7 @@ HorseTransportDB/tools/
 # VS Code
 .vscode/
 
-# .NET - dùng sau này
+# .NET
 **/bin/
 **/obj/
 
@@ -30,6 +34,7 @@ Thumbs.db
 Desktop.ini
 
 # Sandbox credentials and local transaction storage
+**/appsettings.Local.json
 backend/appsettings.Local.json
 backend/App_Data/
 backend/WebApi/appsettings.Local.json

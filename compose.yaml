@@ -8,6 +8,15 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=HorseTransportDB;User Id=${SQL_USER};Password=${SQL_PASSWORD};Encrypt=True;TrustServerCertificate=True;"
+      Jwt__Key: "${JWT_SECRET_KEY:-}"
+      RegistrationEmail__Mode: "${REGISTRATION_EMAIL_MODE:-Development}"
+      RegistrationEmail__Smtp__Host: "${SMTP_HOST:-smtp.gmail.com}"
+      RegistrationEmail__Smtp__Port: "${SMTP_PORT:-587}"
+      RegistrationEmail__Smtp__Username: "${SMTP_USERNAME:-}"
+      RegistrationEmail__Smtp__Password: "${SMTP_PASSWORD:-}"
+      RegistrationEmail__Smtp__From: "${SMTP_FROM:-}"
+      Maps__Mapbox__AccessToken: "${MAPBOX_ACCESS_TOKEN:-}"
+      Maps__Geoapify__ApiKey: "${GEOAPIFY_API_KEY:-}"
     restart: unless-stopped
 
   frontend:

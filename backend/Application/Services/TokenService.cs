@@ -4,12 +4,14 @@ using Domain.Entities;
 using Domain.Enums;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Application.Services
 {
     public class TokenService : ITokenService
     {
+        private static readonly string DevelopmentFallbackKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
         private readonly IConfiguration _config;
 
         public TokenService(IConfiguration config)
@@ -17,11 +19,27 @@ namespace Application.Services
             _config = config;
         }
 
+        public static string ResolveJwtKey(IConfiguration config, bool isDevelopment = true)
+        {
+            var configuredKey = config["Jwt:Key"] ?? config["JWT_SECRET_KEY"];
+            if (!string.IsNullOrWhiteSpace(configuredKey) && !configuredKey.StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase))
+            {
+                return configuredKey;
+            }
+
+            if (!isDevelopment)
+            {
+                throw new InvalidOperationException("Chưa cấu hình khóa bí mật JWT ('Jwt:Key' hoặc biến môi trường 'JWT_SECRET_KEY').");
+            }
+
+            return DevelopmentFallbackKey;
+        }
+
         public string GenerateAccessToken(User user)
         {
-            var keyString = _config["Jwt:Key"] ?? "RaceHorseTransportSecretKey2026_SWP391_Project_SecuredKey_SuperSafe!";
-            var issuer = _config["Jwt:Issuer"] ?? "RaceHorseTransportBackend";
-            var audience = _config["Jwt:Audience"] ?? "RaceHorseTransportFrontend";
+            var keyString = ResolveJwtKey(_config);
+            var issuer = string.IsNullOrWhiteSpace(_config["Jwt:Issuer"]) ? "RaceHorseTransportBackend" : _config["Jwt:Issuer"]!;
+            var audience = string.IsNullOrWhiteSpace(_config["Jwt:Audience"]) ? "RaceHorseTransportFrontend" : _config["Jwt:Audience"]!;
             var expireMinutes = int.TryParse(_config["Jwt:ExpireMinutes"], out var exp) ? exp : 1440;
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
@@ -52,4 +70,3 @@ namespace Application.Services
         }
     }
 }
-
