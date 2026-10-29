@@ -318,11 +318,9 @@ export function draftError(d: ContractDraft): string {
   if (!d.departAt || !d.arriveAt) return 'Nhập ngày giờ khởi hành và đến dự kiến (Bước 1).';
   if (d.arriveAt <= d.departAt) return 'Thời gian đến phải sau thời gian khởi hành (Bước 1).';
 
-  if (!d.budget.VET || !d.budget.INSURANCE) return 'Dự toán nội bộ phải có chi phí bác sĩ thú y và bảo hiểm (Bước 2).';
   if (d.items.some((i) => i.required && !(Number(i.amount) > 0))) return 'Các khoản bắt buộc trong bảng giá phải lớn hơn 0 (Bước 2).';
   if (d.items.some((i) => Number(i.amount) < 0)) return 'Giá các khoản mục không được âm (Bước 2).';
   if (!(d.depositPct >= 1 && d.depositPct <= 100)) return 'Tỷ lệ cọc phải từ 1% đến 100% (Bước 2).';
-  if (sumItems(d.items) < floorPrice(d.budget) && d.exception.trim().length < 10) return `Giá bán thấp hơn giá sàn ${fmtMoney(floorPrice(d.budget))}: nhập lý do ngoại lệ (ít nhất 10 ký tự, Bước 2).`;
   const bad = d.terms.findIndex((t) => !t.title.trim() || t.text.trim().length < 10);
   if (bad >= 0) return `Điều ${bad + 1} cần có tiêu đề và nội dung (ít nhất 10 ký tự, Bước 3).`;
   return '';

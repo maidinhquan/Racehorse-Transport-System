@@ -130,7 +130,11 @@ export async function contractClient<T>(method: 'get' | 'post' | 'put' | 'delete
     const response = (error as { response?: { status: number; data?: { message?: string; errorCode?: string; errors?: Record<string, string[]> } } }).response;
     if (response?.data) {
       const schema = operation.responses[String(response.status)]?.content?.['application/json']?.schema;
-      if (schema) validateFlow1Schema(schema, response.data, 'Phản hồi lỗi máy chủ');
+      // A mismatched error body must never hide the server's own message from the user.
+      if (schema) {
+        try { validateFlow1Schema(schema, response.data, 'Phản hồi lỗi máy chủ'); }
+        catch (contractError) { console.warn('[flow1] error response does not match contract', normalizedUrl, contractError); }
+      }
       throw new Flow1ApiError(response.data.message || 'Máy chủ từ chối thao tác.', response.data.errorCode, response.data.errors);
     }
     throw error;

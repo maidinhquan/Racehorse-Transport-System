@@ -20,6 +20,8 @@ public static class RequestMapper
             contact = request.DesignatedReceiverName, phone = request.DesignatedReceiverPhone, notes = request.DeliveryInstructions,
             latitude = request.DeliveryLatitude, longitude = request.DeliveryLongitude },
         revisionFeedback = request.RevisionFeedback,
+        // Manager's reason is stored in ManagerNotes when a request is rejected.
+        rejectionReason = request.Status == "REJECTED" ? request.ManagerNotes : null,
         cancellation = request.CancellationReason is null ? null : new { reason = request.CancellationReason,
             requestedAt = request.CancellationRequestedAtUtc, previousStatus = request.CancellationPreviousStatus }
     };

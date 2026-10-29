@@ -54,7 +54,7 @@ export const requestFromWire = (r: any): TransportRequest => {
     status,
     feedback: r?.feedback || r?.revisionFeedback || '',
     revisionFields: Array.isArray(r?.revisionFields) ? r.revisionFields : undefined,
-    reason: r?.reason || r?.cancellation?.reason || '',
+    reason: r?.reason || r?.rejectionReason || r?.cancellation?.reason || '',
     careNotes: r?.careNotes || r?.careInstructions || '',
     pickup: {
       name: r?.pickup?.name || '',

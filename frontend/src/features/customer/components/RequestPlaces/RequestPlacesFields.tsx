@@ -74,6 +74,7 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
   const [search, setSearch] = useState<{ key: PlaceKey; text: string } | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const dropdown = useRef<HTMLDivElement>(null);
 
   const activeCity = search ? (search.key === 'pickup' ? origin : destination) : '';
@@ -92,8 +93,8 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
     setSearching(true);
     const timeout = setTimeout(() => {
       customerApi.searchLocations(search.text.trim(), searchCountry, activeCity, searchCityId)
-        .then(rows => { if (active) setSuggestions(rows); })
-        .catch(() => { if (active) setSuggestions([]); })
+        .then(rows => { if (active) { setSuggestions(rows); setSearchError(''); } })
+        .catch(error => { if (active) { setSuggestions([]); setSearchError(apiMessage(error)); } })
         .finally(() => { if (active) setSearching(false); });
     }, 900); // Each backend search is rate-limited (~1 req/s plus boundary checks); avoid one per keystroke.
     return () => { active = false; clearTimeout(timeout); };
@@ -195,8 +196,8 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
                 setSearch({ key, text });
                 setSearching(true);
                 customerApi.searchLocations(text, itemCountry, selectedCity, itemCityId)
-                  .then(rows => setSuggestions(rows))
-                  .catch(() => setSuggestions([]))
+                  .then(rows => { setSuggestions(rows); setSearchError(''); })
+                  .catch(error => { setSuggestions([]); setSearchError(apiMessage(error)); })
                   .finally(() => setSearching(false));
               }}
             >
@@ -227,7 +228,7 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
               >
                 <Icon name="pin" />{item.label}
               </button>
-            )) : <p>Không tìm thấy. Thử nhập số nhà và tên đường (VD: 12 Nguyễn Huệ, Quận 1) thay vì tên quán/cửa hàng.</p>}
+            )) : <p role={searchError ? 'alert' : undefined}>{searchError ? `Không tìm được địa chỉ: ${searchError}` : 'Không tìm thấy. Thử nhập số nhà và tên đường (VD: 12 Nguyễn Huệ, Quận 1) thay vì tên quán/cửa hàng.'}</p>}
           </div>}
           {place.latitude != null && place.longitude != null && (
             <small className="cus-create__location-confirmed">

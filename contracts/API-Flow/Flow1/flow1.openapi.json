@@ -5075,9 +5075,8 @@
                       "success": true,
                       "message": "OK",
                       "data": {
-                        "requestId": "REQUEST_001",
-                        "discarded": true,
-                        "draft": null
+                        "requestId": "REQUEST_002",
+                        "deleted": true
                       }
                     }
                   }
@@ -6304,15 +6303,11 @@
                       "success": true,
                       "message": "OK",
                       "data": {
-                        "requestId": "REQUEST_001",
-                        "contractId": "CONTRACT_001",
+                        "requestId": "REQUEST_002",
+                        "contractId": "CONTRACT_002",
                         "versionNo": 1,
-                        "requestStatus": "CONTRACT_CHANGES_REQUESTED",
-                        "feedbackStatus": "PENDING",
-                        "change": {
-                          "at": "2026-10-23 09:05",
-                          "text": "Đề nghị xem lại khoản phí vận chuyển"
-                        }
+                        "status": "CONTRACT_CHANGES_REQUESTED",
+                        "feedback": "Xin dời ngày vận chuyển sang 20/11."
                       }
                     }
                   }
@@ -8043,9 +8038,11 @@
                       "success": true,
                       "message": "OK",
                       "data": {
-                        "id": "REQUEST_001",
+                        "requestId": "REQUEST_002",
                         "status": "CANCELLED",
-                        "reason": "Không còn nhu cầu vận chuyển."
+                        "reason": "Khách đổi kế hoạch.",
+                        "requestedAt": null,
+                        "previousStatus": "PENDING_REVIEW"
                       }
                     }
                   },
@@ -8054,12 +8051,11 @@
                       "success": true,
                       "message": "OK",
                       "data": {
-                        "requestId": "REQUEST_001",
-                        "contractId": "CONTRACT_001",
-                        "cancellationId": "CANCELLATION_001",
-                        "requestStatus": "CANCELLATION_REQUESTED",
-                        "cancellationStatus": "PENDING",
-                        "reason": "Không còn nhu cầu vận chuyển."
+                        "requestId": "REQUEST_002",
+                        "status": "CANCELLATION_REQUESTED",
+                        "reason": "Khách đổi kế hoạch.",
+                        "requestedAt": "2026-10-29T05:00:00Z",
+                        "previousStatus": "CONTRACT_READY"
                       }
                     }
                   }
@@ -8205,9 +8201,11 @@
                       "success": true,
                       "message": "OK",
                       "data": {
-                        "id": "REQUEST_001",
+                        "requestId": "REQUEST_002",
                         "status": "CANCELLED",
-                        "reason": "Không còn nhu cầu vận chuyển."
+                        "reason": "Không liên hệ được khách.",
+                        "requestedAt": null,
+                        "previousStatus": "PENDING_REVIEW"
                       }
                     }
                   }
@@ -8353,12 +8351,11 @@
                       "success": true,
                       "message": "OK",
                       "data": {
-                        "requestId": "REQUEST_001",
-                        "contractId": "CONTRACT_001",
-                        "cancellationId": "CANCELLATION_001",
-                        "cancellationStatus": "APPROVED",
-                        "requestStatus": "CANCELLED",
-                        "decisionReason": "Đã đối soát và chấp thuận hủy."
+                        "requestId": "REQUEST_002",
+                        "status": "CANCELLED",
+                        "reason": "Khách đổi kế hoạch.",
+                        "requestedAt": "2026-10-29T05:00:00Z",
+                        "previousStatus": "CONTRACT_READY"
                       }
                     }
                   },
@@ -8367,12 +8364,11 @@
                       "success": true,
                       "message": "OK",
                       "data": {
-                        "requestId": "REQUEST_001",
-                        "contractId": "CONTRACT_001",
-                        "cancellationId": "CANCELLATION_001",
-                        "cancellationStatus": "REJECTED",
-                        "requestStatus": "DEPOSIT_VERIFIED",
-                        "decisionReason": "Chưa đủ điều kiện hủy."
+                        "requestId": "REQUEST_002",
+                        "status": "CONTRACT_READY",
+                        "reason": null,
+                        "requestedAt": null,
+                        "previousStatus": null
                       }
                     }
                   }
@@ -10407,7 +10403,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -10417,12 +10416,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J02Response200": {
         "type": "object",
@@ -10492,7 +10489,7 @@
                   "anyOf": [
                     {
                       "type": "string",
-                      "pattern": "^[1-9]\\d{0,9}$",
+                      "pattern": "^\\d{1,12}$",
                       "maxLength": 10
                     },
                     {
@@ -10698,7 +10695,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -10708,12 +10708,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J03Response200": {
         "type": "object",
@@ -10722,38 +10720,53 @@
             "type": "array",
             "items": {
               "type": "object",
+              "additionalProperties": true,
               "properties": {
-                "at": {
-                  "type": "string",
-                  "pattern": "^(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})?$"
-                },
-                "body": {
+                "id": {
                   "type": "string"
                 },
-                "id": {
-                  "type": "string",
-                  "maxLength": 50,
-                  "pattern": "^(?:NOTIFICATION)_\\d{3,}$"
+                "referenceId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
-                "link": {
+                "type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "body": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "at": {
                   "type": "string"
                 },
                 "read": {
                   "type": "boolean"
                 },
-                "title": {
-                  "type": "string"
+                "link": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
-                "at",
-                "body",
                 "id",
-                "link",
-                "read",
-                "title"
-              ],
-              "additionalProperties": false
+                "at",
+                "read"
+              ]
             }
           },
           "message": {
@@ -10777,7 +10790,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -10787,12 +10803,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J04Response200": {
         "type": "object",
@@ -10882,7 +10896,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -10892,12 +10909,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J05Response200": {
         "type": "object",
@@ -10967,7 +10982,7 @@
                   "anyOf": [
                     {
                       "type": "string",
-                      "pattern": "^[1-9]\\d{0,9}$",
+                      "pattern": "^\\d{1,12}$",
                       "maxLength": 10
                     },
                     {
@@ -11173,7 +11188,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -11183,12 +11201,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J06Response200": {
         "type": "object",
@@ -11241,7 +11257,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -11251,12 +11270,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J07Response200": {
         "type": "object",
@@ -11265,39 +11282,53 @@
             "type": "array",
             "items": {
               "type": "object",
+              "additionalProperties": true,
               "properties": {
-                "at": {
-                  "type": "string",
-                  "pattern": "^(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})?$"
-                },
                 "id": {
-                  "type": "string",
-                  "maxLength": 50,
-                  "pattern": "^(?:NOTIFICATION)_\\d{3,}$"
+                  "type": "string"
                 },
-                "link": {
+                "referenceId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "body": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "at": {
                   "type": "string"
                 },
                 "read": {
                   "type": "boolean"
                 },
-                "text": {
-                  "type": "string",
-                  "maxLength": 2000
-                },
-                "title": {
-                  "type": "string"
+                "link": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
-                "at",
                 "id",
-                "link",
-                "read",
-                "text",
-                "title"
-              ],
-              "additionalProperties": false
+                "at",
+                "read"
+              ]
             }
           },
           "message": {
@@ -11321,7 +11352,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -11331,12 +11365,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J08Response200": {
         "type": "object",
@@ -11403,7 +11435,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -11413,12 +11448,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J09Response200": {
         "type": "object",
@@ -11565,7 +11598,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -11575,12 +11611,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J10Response200": {
         "type": "object",
@@ -11619,14 +11653,35 @@
                     "latitude",
                     "longitude"
                   ],
-                  "additionalProperties": false
+                  "additionalProperties": true
+                },
+                "mayPersist": {
+                  "type": "boolean"
+                },
+                "attribution": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "provider": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "previewProvider": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
                 "label",
                 "point"
               ],
-              "additionalProperties": false
+              "additionalProperties": true
             }
           },
           "message": {
@@ -11650,7 +11705,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "errors": {
             "type": "object",
@@ -11669,13 +11727,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
-          "errors",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J68Response200": {
         "type": "object",
@@ -11724,7 +11779,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -11734,12 +11792,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J11Response200": {
         "type": "object",
@@ -11807,7 +11863,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[1-9]\\d{0,9}$",
+                    "pattern": "^\\d{1,12}$",
                     "maxLength": 10
                   },
                   {
@@ -12012,7 +12068,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -12022,12 +12081,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J12Request": {
         "type": "object",
@@ -12207,7 +12264,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[1-9]\\d{0,9}$",
+                    "pattern": "^\\d{1,12}$",
                     "maxLength": 10
                   },
                   {
@@ -12412,7 +12469,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "errors": {
             "type": "object",
@@ -12431,13 +12491,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
-          "errors",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J13Request": {
         "type": "object",
@@ -12617,7 +12674,7 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "pattern": "^[1-9]\\d{0,9}$",
+                    "pattern": "^\\d{1,12}$",
                     "maxLength": 10
                   },
                   {
@@ -12822,7 +12879,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -12832,12 +12892,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J14Response200": {
         "type": "object",
@@ -12916,7 +12974,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[1-9]\\d{0,9}$",
+                          "pattern": "^\\d{1,12}$",
                           "maxLength": 10
                         },
                         {
@@ -13150,7 +13208,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "errors": {
             "type": "object",
@@ -13169,13 +13230,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
-          "errors",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J15Response201": {
         "type": "object",
@@ -13218,7 +13276,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "errors": {
             "type": "object",
@@ -13237,13 +13298,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
-          "errors",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J16Response404": {
         "type": "object",
@@ -13252,7 +13310,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -13262,12 +13323,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J18Request": {
         "type": "object",
@@ -13531,24 +13590,45 @@
                 "type": "string"
               },
               "originCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "destinationCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "mode": {
-                "type": "string",
-                "enum": [
-                  "ROAD",
-                  "AIR"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "ROAD",
+                      "AIR"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "expectedTransportDate": {
@@ -13607,37 +13687,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -13649,37 +13759,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -13931,7 +14071,10 @@
                       "type": "string"
                     },
                     "versionNo": {
-                      "type": "integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
                       "minimum": 1
                     },
                     "amount": {
@@ -13939,10 +14082,16 @@
                       "minimum": 0
                     },
                     "currency": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "method": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "status": {
                       "type": "string"
@@ -13973,15 +14122,18 @@
                     },
                     "reviewRequired": {
                       "type": "boolean"
+                    },
+                    "reviewReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "id",
                     "invoiceId",
-                    "contractId",
-                    "versionNo",
                     "amount",
-                    "method",
                     "status"
                   ],
                   "additionalProperties": true
@@ -14018,6 +14170,12 @@
                     "type": "null"
                   }
                 ]
+              },
+              "rejectionReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -14047,7 +14205,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "errors": {
             "type": "object",
@@ -14066,13 +14227,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
-          "errors",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J19Request": {
         "type": "object",
@@ -14336,24 +14494,45 @@
                 "type": "string"
               },
               "originCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "destinationCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "mode": {
-                "type": "string",
-                "enum": [
-                  "ROAD",
-                  "AIR"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "ROAD",
+                      "AIR"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "expectedTransportDate": {
@@ -14412,37 +14591,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -14454,37 +14663,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -14736,7 +14975,10 @@
                       "type": "string"
                     },
                     "versionNo": {
-                      "type": "integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
                       "minimum": 1
                     },
                     "amount": {
@@ -14744,10 +14986,16 @@
                       "minimum": 0
                     },
                     "currency": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "method": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "status": {
                       "type": "string"
@@ -14778,15 +15026,18 @@
                     },
                     "reviewRequired": {
                       "type": "boolean"
+                    },
+                    "reviewReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "id",
                     "invoiceId",
-                    "contractId",
-                    "versionNo",
                     "amount",
-                    "method",
                     "status"
                   ],
                   "additionalProperties": true
@@ -14823,6 +15074,12 @@
                     "type": "null"
                   }
                 ]
+              },
+              "rejectionReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -14852,7 +15109,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -14862,12 +15122,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J21Response200": {
         "type": "object",
@@ -14900,24 +15158,45 @@
                   "type": "string"
                 },
                 "originCountry": {
-                  "type": "string",
-                  "enum": [
-                    "VN",
-                    "JP"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "VN",
+                        "JP"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "destinationCountry": {
-                  "type": "string",
-                  "enum": [
-                    "VN",
-                    "JP"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "VN",
+                        "JP"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "mode": {
-                  "type": "string",
-                  "enum": [
-                    "ROAD",
-                    "AIR"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "ROAD",
+                        "AIR"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "expectedTransportDate": {
@@ -14976,37 +15255,67 @@
                   "type": "object",
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "address": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "postal": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "contact": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "phone": {
-                      "type": "string",
+                      "type": [
+                        "string",
+                        "null"
+                      ],
                       "maxLength": 20
                     },
                     "notes": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "cityId": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "cityName": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "latitude": {
-                      "type": "number",
+                      "type": [
+                        "number",
+                        "null"
+                      ],
                       "minimum": -90,
                       "maximum": 90
                     },
                     "longitude": {
-                      "type": "number",
+                      "type": [
+                        "number",
+                        "null"
+                      ],
                       "minimum": -180,
                       "maximum": 180
                     }
@@ -15018,37 +15327,67 @@
                   "type": "object",
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "address": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "postal": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "contact": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "phone": {
-                      "type": "string",
+                      "type": [
+                        "string",
+                        "null"
+                      ],
                       "maxLength": 20
                     },
                     "notes": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "cityId": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "cityName": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "latitude": {
-                      "type": "number",
+                      "type": [
+                        "number",
+                        "null"
+                      ],
                       "minimum": -90,
                       "maximum": 90
                     },
                     "longitude": {
-                      "type": "number",
+                      "type": [
+                        "number",
+                        "null"
+                      ],
                       "minimum": -180,
                       "maximum": 180
                     }
@@ -15300,7 +15639,10 @@
                         "type": "string"
                       },
                       "versionNo": {
-                        "type": "integer",
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
                         "minimum": 1
                       },
                       "amount": {
@@ -15308,10 +15650,16 @@
                         "minimum": 0
                       },
                       "currency": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "method": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "status": {
                         "type": "string"
@@ -15342,15 +15690,18 @@
                       },
                       "reviewRequired": {
                         "type": "boolean"
+                      },
+                      "reviewReason": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
                       "id",
                       "invoiceId",
-                      "contractId",
-                      "versionNo",
                       "amount",
-                      "method",
                       "status"
                     ],
                     "additionalProperties": true
@@ -15387,6 +15738,12 @@
                       "type": "null"
                     }
                   ]
+                },
+                "rejectionReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -15417,7 +15774,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -15427,12 +15787,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J22Response200": {
         "type": "object",
@@ -15463,24 +15821,45 @@
                 "type": "string"
               },
               "originCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "destinationCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "mode": {
-                "type": "string",
-                "enum": [
-                  "ROAD",
-                  "AIR"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "ROAD",
+                      "AIR"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "expectedTransportDate": {
@@ -15539,37 +15918,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -15581,37 +15990,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -15863,7 +16302,10 @@
                       "type": "string"
                     },
                     "versionNo": {
-                      "type": "integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
                       "minimum": 1
                     },
                     "amount": {
@@ -15871,10 +16313,16 @@
                       "minimum": 0
                     },
                     "currency": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "method": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "status": {
                       "type": "string"
@@ -15905,15 +16353,18 @@
                     },
                     "reviewRequired": {
                       "type": "boolean"
+                    },
+                    "reviewReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "id",
                     "invoiceId",
-                    "contractId",
-                    "versionNo",
                     "amount",
-                    "method",
                     "status"
                   ],
                   "additionalProperties": true
@@ -15950,6 +16401,12 @@
                     "type": "null"
                   }
                 ]
+              },
+              "rejectionReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -15979,7 +16436,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -15989,12 +16449,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J23Response200": {
         "type": "object",
@@ -16062,7 +16520,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -16072,12 +16533,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J24Response200": {
         "type": "object",
@@ -16110,24 +16569,45 @@
                   "type": "string"
                 },
                 "originCountry": {
-                  "type": "string",
-                  "enum": [
-                    "VN",
-                    "JP"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "VN",
+                        "JP"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "destinationCountry": {
-                  "type": "string",
-                  "enum": [
-                    "VN",
-                    "JP"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "VN",
+                        "JP"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "mode": {
-                  "type": "string",
-                  "enum": [
-                    "ROAD",
-                    "AIR"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "ROAD",
+                        "AIR"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "expectedTransportDate": {
@@ -16186,37 +16666,67 @@
                   "type": "object",
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "address": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "postal": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "contact": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "phone": {
-                      "type": "string",
+                      "type": [
+                        "string",
+                        "null"
+                      ],
                       "maxLength": 20
                     },
                     "notes": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "cityId": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "cityName": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "latitude": {
-                      "type": "number",
+                      "type": [
+                        "number",
+                        "null"
+                      ],
                       "minimum": -90,
                       "maximum": 90
                     },
                     "longitude": {
-                      "type": "number",
+                      "type": [
+                        "number",
+                        "null"
+                      ],
                       "minimum": -180,
                       "maximum": 180
                     }
@@ -16228,37 +16738,67 @@
                   "type": "object",
                   "properties": {
                     "name": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "address": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "postal": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "contact": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "phone": {
-                      "type": "string",
+                      "type": [
+                        "string",
+                        "null"
+                      ],
                       "maxLength": 20
                     },
                     "notes": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "cityId": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "cityName": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "latitude": {
-                      "type": "number",
+                      "type": [
+                        "number",
+                        "null"
+                      ],
                       "minimum": -90,
                       "maximum": 90
                     },
                     "longitude": {
-                      "type": "number",
+                      "type": [
+                        "number",
+                        "null"
+                      ],
                       "minimum": -180,
                       "maximum": 180
                     }
@@ -16510,7 +17050,10 @@
                         "type": "string"
                       },
                       "versionNo": {
-                        "type": "integer",
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
                         "minimum": 1
                       },
                       "amount": {
@@ -16518,10 +17061,16 @@
                         "minimum": 0
                       },
                       "currency": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "method": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "status": {
                         "type": "string"
@@ -16552,15 +17101,18 @@
                       },
                       "reviewRequired": {
                         "type": "boolean"
+                      },
+                      "reviewReason": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       }
                     },
                     "required": [
                       "id",
                       "invoiceId",
-                      "contractId",
-                      "versionNo",
                       "amount",
-                      "method",
                       "status"
                     ],
                     "additionalProperties": true
@@ -16597,6 +17149,12 @@
                       "type": "null"
                     }
                   ]
+                },
+                "rejectionReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
@@ -16627,7 +17185,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -16637,12 +17198,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J25Response200": {
         "type": "object",
@@ -16673,24 +17232,45 @@
                 "type": "string"
               },
               "originCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "destinationCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "mode": {
-                "type": "string",
-                "enum": [
-                  "ROAD",
-                  "AIR"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "ROAD",
+                      "AIR"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "expectedTransportDate": {
@@ -16749,37 +17329,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -16791,37 +17401,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -17073,7 +17713,10 @@
                       "type": "string"
                     },
                     "versionNo": {
-                      "type": "integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
                       "minimum": 1
                     },
                     "amount": {
@@ -17081,10 +17724,16 @@
                       "minimum": 0
                     },
                     "currency": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "method": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "status": {
                       "type": "string"
@@ -17115,15 +17764,18 @@
                     },
                     "reviewRequired": {
                       "type": "boolean"
+                    },
+                    "reviewReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "id",
                     "invoiceId",
-                    "contractId",
-                    "versionNo",
                     "amount",
-                    "method",
                     "status"
                   ],
                   "additionalProperties": true
@@ -17159,6 +17811,12 @@
                   {
                     "type": "null"
                   }
+                ]
+              },
+              "rejectionReason": {
+                "type": [
+                  "string",
+                  "null"
                 ]
               }
             },
@@ -17189,7 +17847,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -17199,12 +17860,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J26Response200": {
         "type": "object",
@@ -17235,24 +17894,45 @@
                 "type": "string"
               },
               "originCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "destinationCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "mode": {
-                "type": "string",
-                "enum": [
-                  "ROAD",
-                  "AIR"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "ROAD",
+                      "AIR"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "expectedTransportDate": {
@@ -17311,37 +17991,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -17353,37 +18063,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -17635,7 +18375,10 @@
                       "type": "string"
                     },
                     "versionNo": {
-                      "type": "integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
                       "minimum": 1
                     },
                     "amount": {
@@ -17643,10 +18386,16 @@
                       "minimum": 0
                     },
                     "currency": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "method": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "status": {
                       "type": "string"
@@ -17677,15 +18426,18 @@
                     },
                     "reviewRequired": {
                       "type": "boolean"
+                    },
+                    "reviewReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "id",
                     "invoiceId",
-                    "contractId",
-                    "versionNo",
                     "amount",
-                    "method",
                     "status"
                   ],
                   "additionalProperties": true
@@ -17722,6 +18474,12 @@
                     "type": "null"
                   }
                 ]
+              },
+              "rejectionReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -17751,7 +18509,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -17761,12 +18522,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J27Request": {
         "type": "object",
@@ -17811,24 +18570,45 @@
                 "type": "string"
               },
               "originCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "destinationCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "mode": {
-                "type": "string",
-                "enum": [
-                  "ROAD",
-                  "AIR"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "ROAD",
+                      "AIR"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "expectedTransportDate": {
@@ -17887,37 +18667,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -17929,37 +18739,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -18211,7 +19051,10 @@
                       "type": "string"
                     },
                     "versionNo": {
-                      "type": "integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
                       "minimum": 1
                     },
                     "amount": {
@@ -18219,10 +19062,16 @@
                       "minimum": 0
                     },
                     "currency": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "method": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "status": {
                       "type": "string"
@@ -18253,15 +19102,18 @@
                     },
                     "reviewRequired": {
                       "type": "boolean"
+                    },
+                    "reviewReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "id",
                     "invoiceId",
-                    "contractId",
-                    "versionNo",
                     "amount",
-                    "method",
                     "status"
                   ],
                   "additionalProperties": true
@@ -18298,6 +19150,12 @@
                     "type": "null"
                   }
                 ]
+              },
+              "rejectionReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -18327,7 +19185,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "errors": {
             "type": "object",
@@ -18346,13 +19207,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
-          "errors",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J28Request": {
         "type": "object",
@@ -18397,24 +19255,45 @@
                 "type": "string"
               },
               "originCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "destinationCountry": {
-                "type": "string",
-                "enum": [
-                  "VN",
-                  "JP"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "VN",
+                      "JP"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "mode": {
-                "type": "string",
-                "enum": [
-                  "ROAD",
-                  "AIR"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "ROAD",
+                      "AIR"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "expectedTransportDate": {
@@ -18473,37 +19352,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -18515,37 +19424,67 @@
                 "type": "object",
                 "properties": {
                   "name": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "address": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "postal": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "contact": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "phone": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "maxLength": 20
                   },
                   "notes": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityId": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "cityName": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "latitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -90,
                     "maximum": 90
                   },
                   "longitude": {
-                    "type": "number",
+                    "type": [
+                      "number",
+                      "null"
+                    ],
                     "minimum": -180,
                     "maximum": 180
                   }
@@ -18797,7 +19736,10 @@
                       "type": "string"
                     },
                     "versionNo": {
-                      "type": "integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
                       "minimum": 1
                     },
                     "amount": {
@@ -18805,10 +19747,16 @@
                       "minimum": 0
                     },
                     "currency": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "method": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "status": {
                       "type": "string"
@@ -18839,15 +19787,18 @@
                     },
                     "reviewRequired": {
                       "type": "boolean"
+                    },
+                    "reviewReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "id",
                     "invoiceId",
-                    "contractId",
-                    "versionNo",
                     "amount",
-                    "method",
                     "status"
                   ],
                   "additionalProperties": true
@@ -18884,6 +19835,12 @@
                     "type": "null"
                   }
                 ]
+              },
+              "rejectionReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -18913,7 +19870,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -18923,12 +19883,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J29Response200": {
         "type": "object",
@@ -18962,24 +19920,45 @@
                     "type": "string"
                   },
                   "originCountry": {
-                    "type": "string",
-                    "enum": [
-                      "VN",
-                      "JP"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "VN",
+                          "JP"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "destinationCountry": {
-                    "type": "string",
-                    "enum": [
-                      "VN",
-                      "JP"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "VN",
+                          "JP"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "mode": {
-                    "type": "string",
-                    "enum": [
-                      "ROAD",
-                      "AIR"
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "ROAD",
+                          "AIR"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
                     ]
                   },
                   "expectedTransportDate": {
@@ -19038,37 +20017,67 @@
                     "type": "object",
                     "properties": {
                       "name": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "address": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "postal": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "contact": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "phone": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 20
                       },
                       "notes": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "cityId": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "cityName": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "latitude": {
-                        "type": "number",
+                        "type": [
+                          "number",
+                          "null"
+                        ],
                         "minimum": -90,
                         "maximum": 90
                       },
                       "longitude": {
-                        "type": "number",
+                        "type": [
+                          "number",
+                          "null"
+                        ],
                         "minimum": -180,
                         "maximum": 180
                       }
@@ -19080,37 +20089,67 @@
                     "type": "object",
                     "properties": {
                       "name": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "address": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "postal": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "contact": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "phone": {
-                        "type": "string",
+                        "type": [
+                          "string",
+                          "null"
+                        ],
                         "maxLength": 20
                       },
                       "notes": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "cityId": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "cityName": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "latitude": {
-                        "type": "number",
+                        "type": [
+                          "number",
+                          "null"
+                        ],
                         "minimum": -90,
                         "maximum": 90
                       },
                       "longitude": {
-                        "type": "number",
+                        "type": [
+                          "number",
+                          "null"
+                        ],
                         "minimum": -180,
                         "maximum": 180
                       }
@@ -19362,7 +20401,10 @@
                           "type": "string"
                         },
                         "versionNo": {
-                          "type": "integer",
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
                           "minimum": 1
                         },
                         "amount": {
@@ -19370,10 +20412,16 @@
                           "minimum": 0
                         },
                         "currency": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "method": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "status": {
                           "type": "string"
@@ -19404,15 +20452,18 @@
                         },
                         "reviewRequired": {
                           "type": "boolean"
+                        },
+                        "reviewReason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
                         "id",
                         "invoiceId",
-                        "contractId",
-                        "versionNo",
                         "amount",
-                        "method",
                         "status"
                       ],
                       "additionalProperties": true
@@ -19448,6 +20499,12 @@
                       {
                         "type": "null"
                       }
+                    ]
+                  },
+                  "rejectionReason": {
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   }
                 },
@@ -19525,7 +20582,7 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "pattern": "^[1-9]\\d{0,9}$",
+                          "pattern": "^\\d{1,12}$",
                           "maxLength": 10
                         },
                         {
@@ -20436,7 +21493,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -20446,12 +21506,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J30Request": {
         "type": "object",
@@ -20633,7 +21691,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "errors": {
             "type": "object",
@@ -20652,38 +21713,29 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
-          "errors",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J31Response200": {
         "type": "object",
         "properties": {
           "data": {
             "type": "object",
+            "additionalProperties": true,
             "properties": {
-              "discarded": {
-                "type": "boolean"
-              },
-              "draft": {
-                "type": "null"
-              },
               "requestId": {
-                "type": "string",
-                "pattern": "^REQUEST_\\d{3,}$",
-                "maxLength": 50
+                "type": "string"
+              },
+              "deleted": {
+                "type": "boolean"
               }
             },
             "required": [
-              "discarded",
-              "draft",
-              "requestId"
-            ],
-            "additionalProperties": false
+              "requestId",
+              "deleted"
+            ]
           },
           "message": {
             "type": "string"
@@ -20706,7 +21758,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -20716,12 +21771,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J32Request": {
         "type": "object",
@@ -20825,7 +21878,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -20835,12 +21891,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J33Response200": {
         "type": "object",
@@ -21089,7 +22143,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -21099,12 +22156,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J34Response200": {
         "type": "object",
@@ -21372,7 +22427,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -21382,12 +22440,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J35Response200": {
         "type": "object",
@@ -21636,7 +22692,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -21646,12 +22705,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J36Response404": {
         "type": "object",
@@ -21660,7 +22717,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -21670,12 +22730,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J37Request": {
         "type": "object",
@@ -21750,7 +22808,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -21760,12 +22821,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J38Request": {
         "type": "object",
@@ -21792,56 +22851,33 @@
         "properties": {
           "data": {
             "type": "object",
+            "additionalProperties": true,
             "properties": {
-              "change": {
-                "type": "object",
-                "properties": {
-                  "at": {
-                    "type": "string",
-                    "pattern": "^(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})?$"
-                  },
-                  "text": {
-                    "type": "string",
-                    "maxLength": 2000
-                  }
-                },
-                "required": [
-                  "at",
-                  "text"
-                ],
-                "additionalProperties": false
-              },
-              "contractId": {
-                "type": "string",
-                "pattern": "^CONTRACT_\\d{3,}$",
-                "maxLength": 50
-              },
-              "feedbackStatus": {
+              "requestId": {
                 "type": "string"
               },
-              "requestId": {
-                "type": "string",
-                "pattern": "^REQUEST_\\d{3,}$",
-                "maxLength": 50
-              },
-              "requestStatus": {
+              "contractId": {
                 "type": "string"
               },
               "versionNo": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 9007199254740991
+                "type": "integer"
+              },
+              "status": {
+                "type": "string"
+              },
+              "feedback": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
-              "change",
-              "contractId",
-              "feedbackStatus",
               "requestId",
-              "requestStatus",
-              "versionNo"
-            ],
-            "additionalProperties": false
+              "contractId",
+              "versionNo",
+              "status"
+            ]
           },
           "message": {
             "type": "string"
@@ -21864,7 +22900,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -21874,12 +22913,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J39Request": {
         "type": "object",
@@ -21913,45 +22950,27 @@
         "properties": {
           "data": {
             "type": "object",
+            "additionalProperties": true,
             "properties": {
               "contractId": {
-                "type": "string",
-                "pattern": "^CONTRACT_\\d{3,}$",
-                "maxLength": 50
+                "type": "string"
+              },
+              "versionNo": {
+                "type": "integer"
               },
               "decision": {
                 "type": "string"
               },
-              "feedbackStatus": {
-                "type": "string"
-              },
-              "managerFeedback": {
-                "type": "string"
-              },
-              "requestId": {
-                "type": "string",
-                "pattern": "^REQUEST_\\d{3,}$",
-                "maxLength": 50
-              },
               "requestStatus": {
                 "type": "string"
-              },
-              "versionNo": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 9007199254740991
               }
             },
             "required": [
               "contractId",
+              "versionNo",
               "decision",
-              "feedbackStatus",
-              "managerFeedback",
-              "requestId",
-              "requestStatus",
-              "versionNo"
-            ],
-            "additionalProperties": false
+              "requestStatus"
+            ]
           },
           "message": {
             "type": "string"
@@ -21974,7 +22993,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -21984,12 +23006,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J40Request": {
         "type": "object",
@@ -22033,13 +23053,22 @@
                 "type": "string"
               },
               "reason": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "by": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "at": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
@@ -22064,7 +23093,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -22074,12 +23106,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J41Response200": {
         "type": "object",
@@ -22097,7 +23127,10 @@
                 "type": "string"
               },
               "versionNo": {
-                "type": "integer"
+                "type": [
+                  "integer",
+                  "null"
+                ]
               },
               "notificationId": {
                 "type": "string"
@@ -22127,7 +23160,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -22137,12 +23173,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J42Response200": {
         "type": "object",
@@ -22204,7 +23238,10 @@
                       "type": "string"
                     },
                     "versionNo": {
-                      "type": "integer",
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
                       "minimum": 1
                     },
                     "amount": {
@@ -22212,10 +23249,16 @@
                       "minimum": 0
                     },
                     "currency": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "method": {
-                      "type": "string"
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     },
                     "status": {
                       "type": "string"
@@ -22246,15 +23289,18 @@
                     },
                     "reviewRequired": {
                       "type": "boolean"
+                    },
+                    "reviewReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "id",
                     "invoiceId",
-                    "contractId",
-                    "versionNo",
                     "amount",
-                    "method",
                     "status"
                   ],
                   "additionalProperties": true
@@ -22286,7 +23332,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -22296,12 +23345,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J43Request": {
         "type": "object",
@@ -22331,8 +23378,15 @@
                 "maximum": 9007199254740991
               },
               "currency": {
-                "type": "string",
-                "const": "VND"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "VND"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "expiresAt": {
                 "type": "string",
@@ -22349,22 +23403,29 @@
                 "maxLength": 50
               },
               "method": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "paymentUrl": {
                 "type": "string"
               },
               "status": {
                 "type": "string"
+              },
+              "reviewReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "amount",
-              "currency",
               "expiresAt",
               "id",
               "invoiceId",
-              "method",
               "paymentUrl",
               "status"
             ],
@@ -22391,7 +23452,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -22401,12 +23465,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J44Response200": {
         "type": "object",
@@ -22433,7 +23495,10 @@
                 "type": "string"
               },
               "versionNo": {
-                "type": "integer",
+                "type": [
+                  "integer",
+                  "null"
+                ],
                 "minimum": 1
               },
               "amount": {
@@ -22441,10 +23506,16 @@
                 "minimum": 0
               },
               "currency": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "method": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "status": {
                 "type": "string"
@@ -22475,15 +23546,18 @@
               },
               "reviewRequired": {
                 "type": "boolean"
+              },
+              "reviewReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "id",
               "invoiceId",
-              "contractId",
-              "versionNo",
               "amount",
-              "method",
               "status"
             ],
             "additionalProperties": true
@@ -22503,7 +23577,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -22513,12 +23590,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J45Response200": {
         "type": "object",
@@ -22547,7 +23622,10 @@
                   "type": "string"
                 },
                 "versionNo": {
-                  "type": "integer",
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
                   "minimum": 1
                 },
                 "amount": {
@@ -22555,10 +23633,16 @@
                   "minimum": 0
                 },
                 "currency": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "method": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "status": {
                   "type": "string"
@@ -22589,15 +23673,18 @@
                 },
                 "reviewRequired": {
                   "type": "boolean"
+                },
+                "reviewReason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "required": [
                 "id",
                 "invoiceId",
-                "contractId",
-                "versionNo",
                 "amount",
-                "method",
                 "status"
               ],
               "additionalProperties": true
@@ -22618,7 +23705,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -22628,12 +23718,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J46Response200": {
         "type": "object",
@@ -22660,7 +23748,10 @@
                 "type": "string"
               },
               "versionNo": {
-                "type": "integer",
+                "type": [
+                  "integer",
+                  "null"
+                ],
                 "minimum": 1
               },
               "amount": {
@@ -22668,10 +23759,16 @@
                 "minimum": 0
               },
               "currency": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "method": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "status": {
                 "type": "string"
@@ -22702,15 +23799,18 @@
               },
               "reviewRequired": {
                 "type": "boolean"
+              },
+              "reviewReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "id",
               "invoiceId",
-              "contractId",
-              "versionNo",
               "amount",
-              "method",
               "status"
             ],
             "additionalProperties": true
@@ -22730,7 +23830,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -22740,12 +23843,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J49Response404": {
         "type": "object",
@@ -22754,7 +23855,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -22764,12 +23868,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J50Request": {
         "type": "object",
@@ -22879,10 +23981,13 @@
                 "type": "integer"
               },
               "requestStatus": {
-                "const": "ACTIVATED"
+                "type": "string"
               },
               "versionStatus": {
-                "const": "SIGNED"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "tripId": {
                 "type": "string"
@@ -22891,15 +23996,17 @@
                 "const": "PLANNING"
               },
               "signedAt": {
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
               "requestId",
               "requestStatus",
               "tripId",
-              "tripStatus",
-              "signedAt"
+              "tripStatus"
             ],
             "additionalProperties": true
           }
@@ -22918,7 +24025,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -22928,12 +24038,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J52Request": {
         "type": "object",
@@ -22954,43 +24062,37 @@
         "properties": {
           "data": {
             "type": "object",
+            "additionalProperties": true,
             "properties": {
-              "cancellationId": {
-                "type": "string"
-              },
-              "cancellationStatus": {
-                "type": "string"
-              },
-              "contractId": {
-                "type": "string",
-                "pattern": "^CONTRACT_\\d{3,}$",
-                "maxLength": 50
-              },
-              "id": {
-                "type": "string",
-                "maxLength": 50,
-                "pattern": "^(?:REQUEST)_\\d{3,}$"
-              },
-              "reason": {
-                "type": "string",
-                "maxLength": 2000
-              },
               "requestId": {
-                "type": "string",
-                "pattern": "^REQUEST_\\d{3,}$",
-                "maxLength": 50
-              },
-              "requestStatus": {
                 "type": "string"
               },
               "status": {
                 "type": "string"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "requestedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "previousStatus": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
-              "reason"
-            ],
-            "additionalProperties": false
+              "requestId",
+              "status"
+            ]
           },
           "message": {
             "type": "string"
@@ -23013,7 +24115,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -23023,12 +24128,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J53Request": {
         "type": "object",
@@ -23049,26 +24152,37 @@
         "properties": {
           "data": {
             "type": "object",
+            "additionalProperties": true,
             "properties": {
-              "id": {
-                "type": "string",
-                "maxLength": 50,
-                "pattern": "^(?:REQUEST)_\\d{3,}$"
-              },
-              "reason": {
-                "type": "string",
-                "maxLength": 2000
+              "requestId": {
+                "type": "string"
               },
               "status": {
                 "type": "string"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "requestedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "previousStatus": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
-              "id",
-              "reason",
+              "requestId",
               "status"
-            ],
-            "additionalProperties": false
+            ]
           },
           "message": {
             "type": "string"
@@ -23091,7 +24205,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -23101,12 +24218,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J54Request": {
         "type": "object",
@@ -23135,39 +24250,37 @@
         "properties": {
           "data": {
             "type": "object",
+            "additionalProperties": true,
             "properties": {
-              "cancellationId": {
-                "type": "string"
-              },
-              "cancellationStatus": {
-                "type": "string"
-              },
-              "contractId": {
-                "type": "string",
-                "pattern": "^CONTRACT_\\d{3,}$",
-                "maxLength": 50
-              },
-              "decisionReason": {
-                "type": "string"
-              },
               "requestId": {
-                "type": "string",
-                "pattern": "^REQUEST_\\d{3,}$",
-                "maxLength": 50
-              },
-              "requestStatus": {
                 "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "requestedAt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "previousStatus": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "required": [
-              "cancellationId",
-              "cancellationStatus",
-              "contractId",
-              "decisionReason",
               "requestId",
-              "requestStatus"
-            ],
-            "additionalProperties": false
+              "status"
+            ]
           },
           "message": {
             "type": "string"
@@ -23190,7 +24303,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -23200,33 +24316,34 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J55Response200": {
         "type": "object",
         "properties": {
           "data": {
             "type": "object",
+            "additionalProperties": true,
             "properties": {
               "contractId": {
-                "type": "string",
-                "pattern": "^CONTRACT_\\d{3,}$",
-                "maxLength": 50
+                "type": "string"
               },
               "refundStatus": {
-                "const": "COMPLETED"
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "statusOnly": {
+                "type": "boolean"
               }
             },
             "required": [
-              "contractId",
-              "refundStatus"
-            ],
-            "additionalProperties": false
+              "contractId"
+            ]
           },
           "message": {
             "type": "string"
@@ -23249,7 +24366,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -23259,12 +24379,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J56Response200": {
         "type": "object",
@@ -23413,7 +24531,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -23423,12 +24544,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J57Response200": {
         "type": "object",
@@ -23574,7 +24693,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -23584,12 +24706,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J58Request": {
         "type": "object",
@@ -23755,7 +24875,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -23765,12 +24888,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J59Request": {
         "type": "object",
@@ -23930,7 +25051,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -23940,12 +25064,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J60Response200": {
         "type": "object",
@@ -24091,7 +25213,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -24101,12 +25226,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J61Request": {
         "type": "object",
@@ -24144,34 +25267,22 @@
                 "type": "object",
                 "properties": {
                   "crew": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 9007199254740991
+                    "type": "number"
                   },
                   "insurance": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 9007199254740991
+                    "type": "number"
                   },
                   "permit": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 9007199254740991
+                    "type": "number"
                   },
                   "total": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 9007199254740991
+                    "type": "number"
                   },
                   "transport": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 9007199254740991
+                    "type": "number"
                   },
                   "vet": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 9007199254740991
+                    "type": "number"
                   }
                 },
                 "required": [
@@ -24182,7 +25293,7 @@
                   "transport",
                   "vet"
                 ],
-                "additionalProperties": false
+                "additionalProperties": true
               },
               "crewCount": {
                 "type": "integer",
@@ -24204,17 +25315,16 @@
                 "maximum": 9007199254740991
               },
               "insuredValueVnd": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
+                "type": [
+                  "number",
+                  "null"
+                ]
               },
               "minimumInsuranceAssumed": {
                 "type": "boolean"
               },
               "roadDistanceKm": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991
+                "type": "number"
               },
               "stableNights": {
                 "type": "integer",
@@ -24233,13 +25343,12 @@
               "currency",
               "days",
               "doctorCount",
-              "insuredValueVnd",
               "minimumInsuranceAssumed",
               "roadDistanceKm",
               "stableNights",
               "vehicleCount"
             ],
-            "additionalProperties": false
+            "additionalProperties": true
           },
           "message": {
             "type": "string"
@@ -24262,7 +25371,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -24272,12 +25384,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J62Response200": {
         "type": "object",
@@ -24321,7 +25431,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -24331,12 +25444,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J63Response200": {
         "type": "object",
@@ -24374,7 +25485,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -24384,12 +25498,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J64Response200": {
         "type": "object",
@@ -24433,7 +25545,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -24443,12 +25558,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J65Response200": {
         "type": "object",
@@ -24486,7 +25599,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -24496,12 +25612,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J66Response404": {
         "type": "object",
@@ -24510,7 +25624,10 @@
             "type": "null"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"
@@ -24520,12 +25637,10 @@
           }
         },
         "required": [
-          "data",
-          "errorCode",
           "message",
           "success"
         ],
-        "additionalProperties": false
+        "additionalProperties": true
       },
       "F1-J67Response200": {
         "type": "object",
@@ -24553,7 +25668,10 @@
             "type": "string"
           },
           "errorCode": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "data": {},
           "errors": {

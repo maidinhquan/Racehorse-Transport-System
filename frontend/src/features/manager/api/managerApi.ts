@@ -32,12 +32,16 @@ export interface ContractEditorData {
 }
 type WireRequest = Record<string, any>;
 const versionFromWire = (v: WireContract): ContractVersion => contractFromWire(v) as unknown as ContractVersion;
+// Older requests can have null place fields (e.g. no postal code or city); the UI expects strings.
+const PLACE_TEXT = ['name', 'address', 'postal', 'contact', 'phone', 'notes', 'cityId', 'cityName'];
+const placeFromWire = (p: Record<string, unknown> | null | undefined) =>
+  Object.fromEntries(Object.entries(p ?? {}).map(([k, v]) => [k, v == null && PLACE_TEXT.includes(k) ? '' : v])) as unknown as TransportRequest['pickup'];
 const requestFromWire = (r: WireRequest): TransportRequest => ({ ...r,
   id: r.id, customerId: r.customerId, origin: r.origin, destination: r.destination,
-  horses: r.horses ?? [], pickup: r.pickup, delivery: r.delivery,
+  horses: r.horses ?? [], pickup: placeFromWire(r.pickup), delivery: placeFromWire(r.delivery),
   date: r.expectedDeliveryDate ?? '', pickupAt: r.expectedTransportDate ?? '', careNotes: r.careInstructions ?? '',
   submittedAt: r.createdAt ?? '', feedback: r.revisionFeedback ?? '',
-  reason: r.reason ?? r.cancellation?.reason ?? '', status: r.status,
+  reason: r.reason ?? r.rejectionReason ?? r.cancellation?.reason ?? '', status: r.status,
   history: [], collection: [], versions: (r.versions ?? []).filter((v: WireContract) => v.versionStatus !== 'DRAFT').map(versionFromWire),
   dossier: (r.dossier ?? []).map((d: any) => ({ ...d, name: documentKey(d.key),
     status: d.status === 'SUBMITTED' ? 'PENDING_REVIEW' : d.status, file: d.file?.url,
@@ -60,7 +64,10 @@ export const managerApi = {
   getContractVersion: async (id: string, versionNo: number) => versionFromWire(await contractClient<WireContract>('get', `/manager/contracts/${id}/versions/${versionNo}`)),
   getTrips: async () => (await contractClient<any[]>('get', '/manager/trips')).map(tripFromWire),
   getTransactions: async () => (await contractClient<WirePayment[]>('get', '/manager/payments')).map(p => ({ ...paymentFromWire(p), requestId: '' } as Transaction)),
-  getNotifications: () => contractClient<ManagerNotification[]>('get', '/manager/notifications'),
+  // Backend sends `body` (same as customer) and customer-side links; map to the manager UI shape.
+  getNotifications: async (): Promise<ManagerNotification[]> =>
+    (await contractClient<Array<{ id: string; at: string; title?: string | null; body?: string | null; read: boolean; link?: string | null }>>('get', '/manager/notifications'))
+      .map(n => ({ id: n.id, at: n.at, title: n.title ?? '', text: n.body ?? '', read: n.read, link: (n.link ?? '').replace(/^\/customer\//, '/manager/') })),
   markRead: (id: string) => contractClient('post', `/manager/notifications/${id}/read`),
   markAllRead: () => contractClient('post', '/manager/notifications/read-all'),
   acceptRequest: async (id: string) => requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/accept`)),
@@ -80,8 +87,13 @@ export const managerApi = {
       request: requestFromWire(data.request), versions: data.versions.map(versionFromWire), currentContract: data.currentContract ? versionFromWire(data.currentContract) : null };
   },
   saveContractDraft: (id: string, draft: ContractDraft) => contractClient<{ requestId: string; contractId: string; versionNo: number; status: string; savedAt: string }>('put', `/manager/requests/${id}/contract-draft`, {
-    mode: draft.mode, departAt: draft.departAt, arriveAt: draft.arriveAt, budget: draft.budget,
-    items: draft.items, depositPct: draft.depositPct, note: draft.note, exception: draft.exception, terms: draft.terms,
+    mode: draft.mode, departAt: draft.departAt, arriveAt: draft.arriveAt,
+    // Internal cost estimate was removed from the editor; backend still expects the field.
+    budget: { TRANSPORT: 0, PROCEDURE: 0, VET: 0, INSURANCE: 0, STAFF: 0 },
+    // Send only the fields in the contract (UI keeps extra keys such as ids on lines/terms).
+    items: draft.items.map(i => ({ desc: i.desc, amount: Math.round(Number(i.amount) || 0), required: !!i.required })),
+    depositPct: draft.depositPct, note: draft.note, exception: '',
+    terms: draft.terms.map(t => ({ title: t.title, text: t.text })),
   }),
   discardContractDraft: (id: string) => contractClient('delete', `/manager/requests/${id}/contract-draft`),
   publishContract: (id: string, versionNo: number) => contractClient<{ contractId: string; versionNo: number; validUntil: string }>('post', `/manager/requests/${id}/contract/publish`, { versionNo }),

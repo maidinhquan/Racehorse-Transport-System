@@ -526,6 +526,10 @@ for opid, method, path, body, req, responses in operations:
         op['responses'] = {'200': {'description': 'Provider acknowledgement; not application envelope', 'content': {'application/json': {'schema': {'type': 'object', 'required': ['RspCode', 'Message'], 'properties': {'RspCode': {'type': 'string', 'enum': ['00', '01', '02', '04', '97', '99']}, 'Message': {'type': 'string'}}, 'additionalProperties': False}, 'example': {'RspCode': '00', 'Message': 'Confirm Success'}}}}}
     spec['paths'].setdefault(path, {})[method.lower()] = op
 
+# Response schemas inferred from examples are then aligned with the real backend responses.
+from align_with_backend import patch as align_with_backend
+align_with_backend(spec)
+
 out = ROOT / 'flow1.openapi.json'
 out.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
 print(f'Built {len(operations)} operations, {len(components)} schemas at {out.name}')

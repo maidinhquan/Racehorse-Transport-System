@@ -23,7 +23,6 @@ import {
   isSigned,
   pendingTx,
   routeText,
-  sumBudget,
   timeLeft,
   versionState,
 } from '../../hooks/managerRules';
@@ -109,24 +108,6 @@ export const ContractEditorPage: React.FC = () => {
 
       <div className="mgr-grid-main">
         <div className="mgr-stack">
-          {editorOpen && (
-            <section className="mgr-card" style={{ border: '2px solid #f97316' }}>
-              <ContractWizard key={`${r.id}-${v?.v ?? 0}`} request={r} customer={c} horses={horses}
-                onSave={async (d) => {
-                  return await actions.saveDraft(r.id, d);
-                }}
-                onIssue={async (d) => {
-                  const res = await actions.issueContract(r.id, d, response);
-                  if (res.ok) {
-                    setEditing(false);
-                    setResponse('');
-                  }
-                  return res;
-                }}
-                onCancel={editing && !isVoid ? () => setEditing(false) : undefined} />
-            </section>
-          )}
-
           {v && (
             <section className="mgr-card">
               <div className="mgr-between">
@@ -141,7 +122,6 @@ export const ContractEditorPage: React.FC = () => {
                 <div><span>Phiên bản</span><b>{ctRef(v)} • {CONTRACT_STATE_LABEL[state!]}</b></div>
                 <div><span>Giá hợp đồng</span><b>{fmtMoney(v.total)}</b></div>
                 <div><span>Tiền cọc ({v.depositPct}%)</span><b>{fmtMoney(depositOf(r))}</b></div>
-                <div><span>Dự toán nội bộ</span><b>{fmtMoney(sumBudget(v.budget))}</b><div className="mgr-muted">Biên {v.total ? Math.round(((v.total - sumBudget(v.budget)) / v.total) * 100) : 0}%</div></div>
                 <div><span>Phát hành</span><b>{fmtDateTime(v.issuedAt)}</b></div>
                 <div><span>{v.signedAt ? 'Ký OTP' : 'Hạn hoàn tất'}</span><b>{v.signedAt ? fmtDateTime(v.signedAt) : `${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)})`}</b></div>
                 <div><span>Khách đồng ý điều khoản</span><b>{v.termsAcceptedAt ? fmtDateTime(v.termsAcceptedAt) : 'Chưa'}</b></div>
@@ -171,8 +151,9 @@ export const ContractEditorPage: React.FC = () => {
             </section>
           )}
 
+          {/* Single contract editor: placed after the change-request card ("soạn … ngay bên dưới"). */}
           {editorOpen && (
-            <section className="mgr-card">
+            <section className="mgr-card" style={{ border: '2px solid #f97316' }}>
               <ContractWizard key={`${r.id}-${v?.v ?? 0}`} request={r} customer={c} horses={horses}
                 onSave={async (d) => {
                   return await actions.saveDraft(r.id, d);
@@ -185,7 +166,7 @@ export const ContractEditorPage: React.FC = () => {
                   }
                   return res;
                 }}
-                onCancel={editing ? () => setEditing(false) : undefined} />
+                onCancel={editing && !isVoid ? () => setEditing(false) : undefined} />
             </section>
           )}
 
