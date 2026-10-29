@@ -134,6 +134,24 @@ export const mockTrips: Trip[] = [
     milestones: [], etaHistory: [],
   },
   {
+    id: 'TRIP_2026_006', requestId: 'REQ_2026_005', customer: 'Nguyễn Văn A (CLB Hà Nội)',
+    origin: 'Hà Nội', destination: 'Bangkok', originCountry: 'VN', destinationCountry: 'TH',
+    mode: 'ROAD', horses: ['Tia Chớp Đỏ (Red Lightning)', 'Bão Táp Xanh (Blue Storm)'],
+    plannedDepart: '2026-11-10 06:00', eta: '2026-11-13 18:00',
+    status: 'PLANNING', deploymentStatus: 'CONFIRMED',
+    route: {
+      version: 1, status: 'DRAFT',
+      stops: [
+        { id: 's1', name: 'Trang trại Sóc Sơn Stable A', type: 'ORIGIN', country: 'VN', plannedAt: '2026-11-10 06:00', lat: 21.2850, lng: 105.8500 },
+        { id: 's2', name: 'Trạm Kiểm Dịch & Nghỉ Chân Cầu Treo', type: 'REST_STOP', country: 'VN', plannedAt: '2026-11-10 14:00', lat: 18.3976, lng: 105.1842, checkpointId: 101 },
+        { id: 's3', name: 'Bệnh Viện Thú Y & Kiểm Dịch Vientiane', type: 'QUARANTINE_STATION', country: 'LA', plannedAt: '2026-11-11 11:00', lat: 17.9254, lng: 102.6645, checkpointId: 102 },
+        { id: 's4', name: 'CLB Đua Ngựa Hoàng Gia Bangkok', type: 'DESTINATION', country: 'TH', plannedAt: '2026-11-13 18:00', lat: 13.7367, lng: 100.5420 },
+      ],
+    },
+    crew: {},
+    milestones: [], etaHistory: [],
+  },
+  {
     id: 'TRP-905', requestId: 'TRN-8939', customer: 'Royal Turf Club Bangkok',
     origin: 'Singapore', destination: 'Bangkok', originCountry: 'SG', destinationCountry: 'TH',
     mode: 'ROAD', horses: ['Siam Glory'], plannedDepart: '2026-10-30 05:00', eta: '2026-11-01 17:00',

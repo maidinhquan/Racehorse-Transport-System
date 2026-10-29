@@ -363,3 +363,101 @@ INSERT INTO CUSTOMER_CASE(CaseID, SettlementID, CaseType, Status, Subject, Descr
 ('CUSTOMER_CASE_001', 'SETTLEMENT_002', 'COMPLAINT', 'OPEN', N'Khiếu nại giờ giao nhận', N'Khách hàng yêu cầu kiểm tra lý do giao trễ 30 phút.', '2026-10-06T20:00:00');
 GO
 
+-- =============================================================================
+-- 36. FLOW 3 DEMO: ĐƠN YÊU CẦU ĐÃ DUYỆT & BÀN GIAO CHO COORDINATOR LẬP KẾ HOẠCH
+-- =============================================================================
+IF NOT EXISTS (SELECT 1 FROM TRANSPORT_REQUEST WHERE RequestID = 'REQ_2026_005')
+BEGIN
+    INSERT INTO TRANSPORT_REQUEST (
+        RequestID, CustomerID, Departure, Destination, Purpose, TransportType,
+        ExpectedDate, CommittedDeadline, DesignatedReceiverName, DesignatedReceiverPhone,
+        BaseCost, Status, PickupLatitude, PickupLongitude, DeliveryLatitude, DeliveryLongitude,
+        DistanceKm, PickupStableName, PickupPostalCode, PickupInstructions,
+        DeliveryStableName, DeliveryPostalCode, DeliveryInstructions, CareInstructions,
+        DeclaredValueVnd, OriginCountry, DestinationCountry, PreparationDays
+    ) VALUES (
+        'REQ_2026_005', 'USR_CUST_01',
+        N'Trang trại Ngựa Thể Thao Sóc Sơn, Hà Nội', N'CLB Đua Ngựa Hoàng Gia Bangkok, Thái Lan',
+        N'Tham dự Cúp Đua Ngựa Hữu Nghị ASEAN 2026', 'ROAD_CROSS_BORDER',
+        DATEADD(DAY, 5, GETDATE()), DATEADD(DAY, 8, GETDATE()),
+        N'Somchai Prasert (Bangkok Polo Club)', '+66812349999',
+        9500.00, 'APPROVED',
+        21.285000, 105.850000, 13.736700, 100.542000, 1350.00,
+        N'Trang trại Sóc Sơn - Stable A', N'100000',
+        N'Đường nội bộ trải nhựa rộng 8m, xe chuyên dụng 6 chuồng vào tận cửa chuồng nhận ngựa',
+        N'Bangkok Royal Polo Stable', N'10330',
+        N'Cổng số 2 đường Henri Dunant, có trạm kiểm tra thú y tiếp nhận 24/7',
+        N'Cho ngựa ăn cỏ Timothy và yến mạch mỗi 4 tiếng, uống nước bù điện giải định kỳ',
+        5000000000.00, 'VN', 'TH', 3
+    );
+
+    INSERT INTO REQUEST_HORSE_MAPPING (RequestHorseID, RequestID, HorseID) VALUES 
+    ('RHM_006', 'REQ_2026_005', 'HRS_001'),
+    ('RHM_007', 'REQ_2026_005', 'HRS_002');
+
+    INSERT INTO LEGAL_MEDICAL_RECORD (
+        RecordID, HorseID, RequestID, VerifiedBy, DocumentType, RequirementStatus, DocumentStatus, UploadedFileUrl, ExpiryDate
+    ) VALUES
+    ('REC_007', 'HRS_001', 'REQ_2026_005', 'USR_SPEC_01', 'COGGINS_TEST', 'MANDATORY', 'VERIFIED', 'https://storage.cbntransport.com/docs/coggins_hrs1.pdf', DATEADD(MONTH, 3, GETDATE())),
+    ('REC_008', 'HRS_002', 'REQ_2026_005', 'USR_SPEC_01', 'EQUINE_FLU_VAX', 'MANDATORY', 'VERIFIED', 'https://storage.cbntransport.com/docs/flu_hrs2.pdf', DATEADD(MONTH, 4, GETDATE()));
+
+    INSERT INTO TRIP_PLAN (
+        TripID, RequestID, TotalDistance_km, T_Total_Hours, TotalCost, Status,
+        [Version], PlanVersion, ContextVersion, ReadinessVersion, DraftPlanJson, ApprovedPlanJson, OpenChange,
+        EffectiveOriginPlaceId, DeploymentStatus, DeploymentReason, DeploymentBy, DeploymentAtUtc, HandoffEventId,
+        AssignedCoordinatorId, AssignedSpecialistId,
+        OperationsStatus, ResourcesConfirmedAt, ResourcesConfirmedBy,
+        DocumentsStatus, EarliestDepartureDate, DocumentExpiryDate, SpecialistLegalNote, DocumentsConfirmedAt, DocumentsConfirmedBy,
+        CurrentRouteVersion, RouteStatus
+    ) VALUES (
+        'TRIP_2026_006', 'REQ_2026_005', 1350.00, 38.00, 7200.00, 'PLANNING',
+        1, 1, 1, 1, NULL, NULL, 0, NULL,
+        'CONFIRMED', N'Bàn giao triển khai thành công từ Flow 1', 'USR_MGR_01', SYSUTCDATETIME(), 'EVT_HO_006',
+        'USR_COORD_01', 'USR_SPEC_01',
+        'NOT_READY', NULL, NULL,
+        'READY', DATEADD(DAY, 4, GETDATE()), DATEADD(DAY, 15, GETDATE()),
+        N'Hồ sơ thú y xét nghiệm Coggins và tiêm phòng Cúm đã được thẩm định đạt chuẩn xuất cảnh sang Thái Lan.',
+        SYSUTCDATETIME(), N'Lê Tuấn (Specialist)',
+        1, 'DRAFT'
+    );
+
+    INSERT INTO CONTRACT (
+        ContractID, TripID, CustomerID, ContractCode, CurrencyCode, ExchangeRateToLocal,
+        TotalQuotedPrice, BaseContractPrice_P, DepositRateStandard, ActualGrossProfit_AGP,
+        SignedAt, ContractStatus, CurrentVersionNo, RequestID, DepositAmount
+    ) VALUES (
+        'CTR_2026_004', 'TRIP_2026_006', 'USR_CUST_01', 'HD-CBN-2026-004', 'USD', 25450.0000,
+        9500.00, 9500.00, 0.40, 2500.00, DATEADD(DAY, -1, GETDATE()), 'EXECUTING', 1, 'REQ_2026_005', 3800.00
+    );
+
+    INSERT INTO CONTRACT_VERSION (
+        ContractID, VersionNo, VersionStatus, ContentSnapshot, PdfUrl,
+        CreatedBy, CreatedAtUtc, PublishedBy, PublishedAtUtc, SignedAtUtc, SignerEmail
+    ) VALUES (
+        'CTR_2026_004', 1, 'SIGNED',
+        N'{"contractId":"CTR_2026_004","code":"HD-CBN-2026-004","status":"SIGNED","depositAmount":3800.00}',
+        'private/demo/CTR_2026_004_v1.pdf',
+        'USR_MGR_01', SYSUTCDATETIME(), 'USR_MGR_01', SYSUTCDATETIME(), SYSUTCDATETIME(), 'vana.horse@gmail.com'
+    );
+
+    INSERT INTO INVOICE (
+        InvoiceID, ContractID, ContractVersionNo, InvoiceType, CurrencyCode,
+        TotalPayableAmount, PaidAmount, DueDate, PaymentStatus
+    ) VALUES (
+        'INV_401', 'CTR_2026_004', 1, 'DEPOSIT_40', 'USD', 3800.00, 3800.00, DATEADD(DAY, 2, GETDATE()), 'PAID'
+    );
+
+    INSERT INTO NOTIFICATION (
+        NotificationID, UserID, ReferenceID, Type, Channel, Title, Message, IsRead, SentAt
+    ) VALUES (
+        'NOTIF_005', 'USR_COORD_01', 'TRIP_2026_006', 'TRIP_ASSIGN', 'WEB_ALERT',
+        N'Chuyến đi mới cần lập kế hoạch (Flow 3)',
+        N'Chuyến TRIP_2026_006 (Đơn REQ_2026_005) đã được duyệt và bàn giao. Vui lòng lập lộ trình và phân công xe/tài xế.',
+        0, SYSUTCDATETIME()
+    );
+END;
+GO
+
+
+
+

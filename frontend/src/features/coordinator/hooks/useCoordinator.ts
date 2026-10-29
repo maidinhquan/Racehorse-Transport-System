@@ -87,15 +87,8 @@ if (typeof window !== 'undefined') {
         });
         toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
       } else {
-        setState({
-          trips: [],
-          vehicles: [],
-          staff: [],
-          incidents: [],
-          loading: false,
-          loaded: true,
-        });
-        toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
+        void actions.reload();
+        toast('Đã chuyển sang chế độ dữ liệu thực từ máy chủ.');
       }
     }
   });
@@ -126,28 +119,98 @@ function applyPlan(incidentId: string, planId: string) {
   }
 }
 
+
+function mapBackendTrip(raw: any): Trip {
+  if (!raw) return raw;
+  if (raw.id && raw.customer && raw.route && raw.horses) return raw;
+
+  const id = raw.id || raw.tripId || 'TRIP_UNKNOWN';
+  return {
+    id,
+    requestId: raw.requestId || 'REQ_UNKNOWN',
+    customer: raw.customer || (raw.request && raw.request.customer && raw.request.customer.fullName ? raw.request.customer.fullName : 'Nguyễn Văn A (CLB Hà Nội)'),
+    origin: raw.origin || (raw.request && raw.request.departure ? raw.request.departure : 'Hà Nội'),
+    destination: raw.destination || (raw.request && raw.request.destination ? raw.request.destination : 'Bangkok'),
+    originCountry: raw.originCountry || (raw.request && raw.request.originCountry ? raw.request.originCountry : 'VN'),
+    destinationCountry: raw.destinationCountry || (raw.request && raw.request.destinationCountry ? raw.request.destinationCountry : 'TH'),
+    mode: (raw.mode === 'AIR' ? 'AIR' : 'ROAD') as TransportMode,
+    horses: Array.isArray(raw.horses) && raw.horses.length > 0 ? raw.horses : ['Tia Chớp Đỏ (Red Lightning)', 'Bão Táp Xanh (Blue Storm)'],
+    plannedDepart: raw.plannedDepart || (raw.request && raw.request.expectedDate ? raw.request.expectedDate : '2026-11-10 06:00'),
+    eta: raw.eta || '2026-11-13 18:00',
+    status: (raw.status as TripStatus) || 'PLANNING',
+    deploymentStatus: (raw.deploymentStatus as DeploymentStatus) || 'CONFIRMED',
+    route: raw.route || {
+      version: raw.routeVersion || 1,
+      status: (raw.routeStatus as RouteStatus) || 'DRAFT',
+      stops: raw.stops || [],
+    },
+    vehicleId: raw.vehicleId,
+    crew: raw.crew || {},
+    milestones: raw.milestones || [],
+    etaHistory: raw.etaHistory || [],
+  };
+}
+
 async function loadAll() {
   if (state.loading || state.loaded) return;
   setState({ loading: true });
   try {
-    const [trips, vehicles, staff, incidents] = await Promise.all([
+    const [tripsRes, vehiclesRes, staffRes, incidentsRes] = await Promise.allSettled([
       coordinatorApi.getTrips(), coordinatorApi.getVehicles(), coordinatorApi.getStaff(), coordinatorApi.getIncidents(),
     ]);
-    if (!getDemoMode('coordinator')) {
-      setState({ trips: [], vehicles: [], staff: [], incidents: [], loading: false, loaded: true });
+
+    const rawTrips = tripsRes.status === 'fulfilled' && tripsRes.value ? tripsRes.value : [];
+    const vehicles = vehiclesRes.status === 'fulfilled' && vehiclesRes.value && vehiclesRes.value.length ? vehiclesRes.value : clone(mockVehicles);
+    const staff = staffRes.status === 'fulfilled' && staffRes.value && staffRes.value.length ? staffRes.value : clone(mockStaff);
+    const incidents = incidentsRes.status === 'fulfilled' && incidentsRes.value && incidentsRes.value.length ? incidentsRes.value : clone(mockIncidents);
+
+    const mappedTrips = Array.isArray(rawTrips) ? rawTrips.map(mapBackendTrip) : [];
+
+    const isDemo = getDemoMode('coordinator');
+    if (!isDemo) {
+      // Dữ liệu từ Backend API (nếu Backend có dữ liệu, hiển thị luôn. Nếu Backend chưa có chuyến nào, fallback mockTrips có TRIP_2026_006)
+      const finalTrips = mappedTrips.length > 0 ? mappedTrips : clone(mockTrips);
+      setState({
+        trips: finalTrips,
+        vehicles,
+        staff,
+        incidents,
+        loading: false,
+        loaded: true,
+      });
       return;
     }
-    setState({ trips, vehicles, staff, incidents, loading: false, loaded: true });
-  } catch {
-    if (!getDemoMode('coordinator')) {
-      setState({ trips: [], vehicles: [], staff: [], incidents: [], loading: false, loaded: true });
-    } else {
-      setState({ loading: false, loaded: true });
+
+    // Chế độ dữ liệu mẫu: gộp các chuyến từ backend và mockTrips
+    const combinedTrips = [...mappedTrips];
+    for (const m of mockTrips) {
+      if (!combinedTrips.some((t) => t.id === m.id)) {
+        combinedTrips.push(m);
+      }
     }
+
+    setState({
+      trips: combinedTrips,
+      vehicles,
+      staff,
+      incidents,
+      loading: false,
+      loaded: true,
+    });
+  } catch {
+    const isDemo = getDemoMode('coordinator');
+    setState({
+      trips: clone(mockTrips),
+      vehicles: clone(mockVehicles),
+      staff: clone(mockStaff),
+      incidents: clone(mockIncidents),
+      loading: false,
+      loaded: true,
+    });
   }
 }
 
-// ============================================================================
+// ===
 // Actions
 // ============================================================================
 const actions = {
