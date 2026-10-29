@@ -1,5 +1,9 @@
 # Chỉ dẫn API — Role: Logistics Manager (Quản lý Vận hành)
 
+Sự cố theo [Flow 5](../../API-Flow/Flow5/FLOW5.md): duyệt recovery/thỏa thuận khách, không PUT status để đóng sự cố tùy ý. Bàn giao/nghiệm thu/thanh toán/khiếu nại/đóng đơn theo [Flow 6 v1.1](../../API-Flow/Flow6/FLOW6.md), chỉ Manager đóng đơn khi đủ nghĩa vụ; quá hạn chỉ cảnh báo.
+
+Vận hành sau READY_TO_DEPART dùng [Flow 4](../../API-Flow/Flow4/FLOW4.md) (29/10/2026): F4-J35 giám sát, J21 duyệt ETA cần Manager. Duyệt Flow 3 chưa phải xuất phát thực tế; FINAL_ARRIVED chưa hoàn tất Trip. Schema role cũ không thay schema Flow 4.
+
 > **Flow 3 đã thay thế ngày 27/10/2026:** [quy trình v2](../../API-Flow/Flow3/FLOW3.md) và [API/JSON chuẩn](../../API-Flow/Flow3/FLOW3-API-JSON.md) là nguồn hiện hành cho planning/nguồn lực/bay/READY/khởi hành. Bảng và quy tắc planning cũ bên dưới chỉ tra cứu lịch sử khi khác v2: hai nhánh song song, ba người mỗi ROAD; ROAD confirm trước submit, AIR approve rồi book/confirm; không feasibility/timed-documents gate. API role JSON cũ không thay schema v2.
 
 
