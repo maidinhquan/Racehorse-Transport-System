@@ -75,8 +75,8 @@ export const managerApi = {
   rejectRequest: async (id: string, reason: string) => requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/reject`, { reason })),
   cancelRequest: (id: string, reason: string) => contractClient('post', `/manager/requests/${id}/cancel`, { reason }),
   decideCancellation: (id: string, approve: boolean, reason: string) => contractClient('post', `/manager/contracts/${id}/cancellation/decision`, { decision: approve ? 'APPROVED' : 'REJECTED', reason }),
-  getContractEditor: async (id: string, mode?: string): Promise<ContractEditorData> => {
-    const data = await contractClient<any>('get', `/manager/requests/${id}/contract-editor`, undefined, mode ? { mode } : undefined);
+  getContractEditor: async (id: string): Promise<ContractEditorData> => {
+    const data = await contractClient<any>('get', `/manager/requests/${id}/contract-editor`);
     const budget: ContractDraft['budget'] = { TRANSPORT: 0, STAFF: 0, PROCEDURE: 0, VET: 0, INSURANCE: 0 };
     const keys: Record<string, keyof typeof budget> = { TRANSPORT: 'TRANSPORT', CREW: 'STAFF', PERMIT: 'PROCEDURE', VET: 'VET', INSURANCE: 'INSURANCE' };
     for (const item of data.internalCosts ?? []) {
@@ -87,7 +87,7 @@ export const managerApi = {
       request: requestFromWire(data.request), versions: data.versions.map(versionFromWire), currentContract: data.currentContract ? versionFromWire(data.currentContract) : null };
   },
   saveContractDraft: (id: string, draft: ContractDraft) => contractClient<{ requestId: string; contractId: string; versionNo: number; status: string; savedAt: string }>('put', `/manager/requests/${id}/contract-draft`, {
-    mode: draft.mode, departAt: draft.departAt, arriveAt: draft.arriveAt,
+    departAt: draft.departAt, arriveAt: draft.arriveAt,
     // Internal cost estimate was removed from the editor; backend still expects the field.
     budget: { TRANSPORT: 0, PROCEDURE: 0, VET: 0, INSURANCE: 0, STAFF: 0 },
     // Send only the fields in the contract (UI keeps extra keys such as ids on lines/terms).

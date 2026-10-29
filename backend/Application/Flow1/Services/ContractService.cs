@@ -12,7 +12,7 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
     SnapshotBuilder snapshots, IContractRenderer renderer, IPrivateFiles files,
     NotificationService notifications, Flow1ContractOptions issuer, TimeProvider clock, RequestDetailsService details)
 {
-    public async Task<object> EditorAsync(string actor, string request, CancellationToken ct, string? mode = null)
+    public async Task<object> EditorAsync(string actor, string request, CancellationToken ct)
     {
         var row = await access.RequestAsync(request, actor, true, ct);
         var contract = (await data.ListAsync<Contract>(c => c.RequestID == request, ct)).SingleOrDefault();
@@ -23,7 +23,7 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         var versions = contract is null ? [] : await data.ListAsync<ContractVersion>(x => x.ContractID == contract.ContractID, ct);
         var published = versions.Where(x => x.PublishedAtUtc is not null).OrderByDescending(x => x.VersionNo).FirstOrDefault();
         var clauses = (await data.ListAsync<ContractClause>(c => c.IsActive, ct)).Select(c => new { id = c.TemplateID, title = c.TemplateName, text = c.BodyContent, language = c.LanguageCode }).ToArray();
-        var defaults = JsonSerializer.SerializeToNode(await catalogs.FormAsync(row.OriginCountry!, row.DestinationCountry!, mode ?? row.TransportType!, ct))!.AsObject();
+        var defaults = JsonSerializer.SerializeToNode(await catalogs.ContractOptionsAsync(row.OriginCountry!, row.DestinationCountry!, ct))!.AsObject();
         defaults["terms"] = JsonSerializer.SerializeToNode(clauses);
         return new { requestId = request, status = row.Status, contractId = contract?.ContractID,
             request = await details.GetAsync(actor, request, true, ct),
@@ -40,10 +40,14 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
     {
         var row = await access.RequestAsync(request, actor, true, token);
         Require(row.Status is "CONTRACT_PREPARATION" or "CONTRACT_CHANGES_REQUESTED", "INVALID_STATE", "Request is not open for drafting.");
-        await catalogs.ValidateAsync(row.OriginCountry!, row.DestinationCountry!, input.Mode, token);
-        Require(SnapshotBuilder.Timestamp(input.DepartAt).Date == row.ExpectedDate?.Date, "VALIDATION_ERROR", "The plan must keep the customer departure date.", 400);
-        Require(row.CommittedDeadline is null || SnapshotBuilder.Timestamp(input.ArriveAt).Date == row.CommittedDeadline.Value.Date,
-            "VALIDATION_ERROR", "The plan must keep the customer delivery date.", 400);
+        Require(input.Mode is null, "VALIDATION_ERROR", "Transport mode is decided by the Coordinator in Flow 3, not in the contract.", 400);
+        await catalogs.ContractOptionsAsync(row.OriginCountry!, row.DestinationCountry!, token);
+        // The Manager may propose dates other than the customer's request; the contract shows both
+        // (route.requested* in the snapshot) and the customer accepts by signing or asks for changes.
+        var proposedDeparture = SnapshotBuilder.Timestamp(input.DepartAt);
+        var proposedDelivery = SnapshotBuilder.Timestamp(input.ArriveAt);
+        Require(proposedDeparture > clock.GetUtcNow().UtcDateTime, "VALIDATION_ERROR", "The proposed departure must be in the future.", 400);
+        await RequireHorsesFreeAsync(request, proposedDeparture, proposedDelivery, token);
         Require(input.Items.Count > 0 && input.Items.All(i => i.Amount >= 0 && i.Amount == decimal.Truncate(i.Amount) && (!i.Required || i.Amount > 0) && !string.IsNullOrWhiteSpace(i.Desc))
             && input.Items.Sum(i => i.Amount) is > 0 and <= 9999999999m, "VALIDATION_ERROR", "Complete commercial price lines in whole VND.", 400);
         Require(input.Terms.Count > 0 && input.Terms.All(t => !string.IsNullOrWhiteSpace(t.Title) && !string.IsNullOrWhiteSpace(t.Text)), "VALIDATION_ERROR", "Complete contract terms.", 400);
@@ -101,6 +105,8 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         var node = JsonNode.Parse(original)!.AsObject(); var now = clock.GetUtcNow().UtcDateTime;
         Require(node["commercial"] is JsonObject && node["route"] is JsonObject && node["appliedPolicies"] is JsonObject,
             "CONTRACT_DRAFT_REQUIRES_SAVE", "Save this draft with the Reviewed editor before publication.", 400);
+        Require(node["route"]!["transportModeDecision"]?.GetValue<string>() == "FLOW3" && node["route"]!["mode"] is null,
+            "CONTRACT_DRAFT_REQUIRES_SAVE", "Save this draft again; transport mode must be decided in Flow 3.", 400);
         var hours = node["appliedPolicies"]!["contractDeadlineHours"]!.GetValue<decimal>();
         var deadline = now.AddHours((double)hours);
         var departure = node["route"]!["departureAtUtc"]!.GetValue<DateTime>();
@@ -116,7 +122,7 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
             Require(contract.CurrentVersionNo == version && draft.VersionStatus == "DRAFT" && draft.ContentSnapshot == original && contract.SignedAt is null,
                 "CONTRACT_NOT_CURRENT", "Draft changed during rendering.");
             Require(row.Status is "CONTRACT_PREPARATION" or "CONTRACT_CHANGES_REQUESTED", "INVALID_STATE", "Request cannot be published.");
-            await catalogs.ValidateAsync(row.OriginCountry!, row.DestinationCountry!, node["route"]!["mode"]!.GetValue<string>(), token);
+            await catalogs.ContractOptionsAsync(row.OriginCountry!, row.DestinationCountry!, token);
             Require(clock.GetUtcNow().UtcDateTime < deadline, "CONTRACT_EXPIRED", "Publication window elapsed.");
             foreach (var old in await data.ListAsync<ContractVersion>(v => v.ContractID == contract.ContractID && v.VersionStatus == "ISSUED" && v.VersionNo != version, token)) old.VersionStatus = "SUPERSEDED";
             foreach (var invoice in await data.ListAsync<Invoice>(i => i.ContractID == contract.ContractID && i.ContractVersionNo != version, token))
@@ -128,7 +134,7 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
             contract.TotalQuotedPrice = total; contract.DepositAmount = amount; contract.DepositRateStandard = node["commercial"]!["depositPercent"]!.GetValue<decimal>();
             contract.ContractStatus = "ISSUED"; contract.SignOtpHash = null; contract.SignOtpExpiry = null; contract.SignOtpSentAtUtc = null; contract.SignOtpFailedAttempts = 0;
             row.ExpectedDate = departure; row.CommittedDeadline = node["route"]!["deliveryAtUtc"]!.GetValue<DateTime>();
-            row.PreparationDays = preparation; row.TransportType = node["route"]!["mode"]!.GetValue<string>(); row.Status = "CONTRACT_READY";
+            row.PreparationDays = preparation; row.TransportType = null; row.Status = "CONTRACT_READY";
             var invoiceRow = new Invoice { ContractID = contract.ContractID, ContractVersionNo = version, InvoiceType = "DEPOSIT", CurrencyCode = "VND",
                 TotalPayableAmount = amount, PaidAmount = 0, DueDate = deadline, PaymentStatus = "UNPAID" };
             data.Add(invoiceRow); notifications.Add(row.CustomerID, request, "CONTRACT_ISSUED", "Contract issued", $"Contract {contract.ContractID}, version {version} is ready.");
@@ -187,6 +193,19 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         notifications.Add(row.CustomerID, row.RequestID, "FEEDBACK_DECIDED", "Contract feedback reviewed", contract.ManagerFeedback);
         return new { contractId = id, versionNo = input.VersionNo, decision = input.Decision, requestStatus = row.Status };
     }, ct);
+    // Same overlap rule as HorseAvailabilityService: a horse cannot be in two active requests on overlapping dates.
+    private async Task RequireHorsesFreeAsync(string request, DateTime departure, DateTime delivery, CancellationToken ct)
+    {
+        var horseIds = (await data.ListAsync<RequestHorse>(h => h.RequestID == request, ct)).Select(h => h.HorseID).ToArray();
+        var otherIds = (await data.ListAsync<RequestHorse>(h => horseIds.Contains(h.HorseID) && h.RequestID != request, ct)).Select(h => h.RequestID).Distinct().ToArray();
+        if (otherIds.Length == 0) return;
+        var start = departure.Date; var end = delivery.Date;
+        var clashes = await data.ListAsync<TransportRequest>(q => otherIds.Contains(q.RequestID) && q.Status != "DRAFT" && q.Status != "CHANGES_REQUESTED"
+            && q.Status != "CLOSED" && q.Status != "CANCELLED" && q.Status != "REJECTED" && q.ExpectedDate != null
+            && q.ExpectedDate.Value.Date <= end && (q.CommittedDeadline ?? q.ExpectedDate)!.Value.Date >= start, ct);
+        Require(clashes.Count == 0, "HORSE_SCHEDULE_CONFLICT",
+            $"A horse in this request is booked by {string.Join(", ", clashes.Select(c => c.RequestID))} in the proposed dates.", 409);
+    }
     public async Task<ContractVersion> CurrentAsync(Contract contract, int number, CancellationToken ct)
     {
         Require(contract.CurrentVersionNo == number, "CONTRACT_NOT_CURRENT", "The selected version is not current.");

@@ -254,6 +254,7 @@ export function initialDraft(r: TransportRequest): ContractDraft {
     if (d.budget && sumBudget(d.budget) < 100000) {
       d.budget = defaultBudget(r);
     }
+    delete d.mode;
     return d;
   }
   const v = curVersion(r);
@@ -271,17 +272,15 @@ export function initialDraft(r: TransportRequest): ContractDraft {
       b.INSURANCE = fresh.INSURANCE;
       b.STAFF = fresh.STAFF;
     }
-    const mode = v.mode || defaultMode(r);
+    const mode = undefined;
     const minPrep = 0;
     const minDepartDate = addDays(today(), minPrep);
 
-    let departAt = v.departAt || `${r.date || minDepartDate} 06:00`;
-    if (departAt.slice(0, 10) < minDepartDate) {
-      departAt = `${minDepartDate} 08:00`;
-    }
-    let arriveAt = v.arriveAt || `${mode === 'AIR' ? addDays(departAt.slice(0, 10), 1) : departAt.slice(0, 10)} ${mode === 'AIR' ? '18:00' : '20:00'}`;
+    // Start from the customer's requested pickup date; the Manager may then propose another date (PlanStep warns).
+    const departAt = v.departAt || `${r.pickupAt || r.date || minDepartDate} 08:00`;
+    let arriveAt = v.arriveAt || `${r.date || addDays(departAt.slice(0, 10), 1)} 18:00`;
     if (arriveAt <= departAt) {
-      arriveAt = `${addDays(departAt.slice(0, 10), mode === 'AIR' ? 1 : 2)} 18:00`;
+      arriveAt = `${addDays(departAt.slice(0, 10), 1)} 18:00`;
     }
 
     const items = (v.items && v.items.length > 0) ? v.items.map((i) => ({ ...i })) : defaultItems(r);
@@ -299,14 +298,14 @@ export function initialDraft(r: TransportRequest): ContractDraft {
       terms,
     };
   }
-  const mode = defaultMode(r);
+  const mode = undefined;
   const minPrep = 0;
   const minDepartDate = addDays(today(), minPrep);
-  let departAt = `${r.date || minDepartDate} 06:00`;
+  let departAt = `${r.pickupAt || minDepartDate} 06:00`;
   if (departAt.slice(0, 10) < minDepartDate) {
     departAt = `${minDepartDate} 08:00`;
   }
-  let arriveAt = `${mode === 'AIR' ? addDays(departAt.slice(0, 10), 1) : departAt.slice(0, 10)} ${mode === 'AIR' ? '18:00' : '20:00'}`;
+  let arriveAt = `${r.date || addDays(departAt.slice(0, 10), 1)} 18:00`;
   return {
     mode, departAt, arriveAt,
     budget: defaultBudget(r), items: defaultItems(r), depositPct: DEPOSIT_PCT, note: '', exception: '', terms: DEFAULT_TERMS.map((t) => ({ ...t })),

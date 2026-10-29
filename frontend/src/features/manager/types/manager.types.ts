@@ -194,7 +194,8 @@ export interface ContractVersion {
   issuedAt: string;
   /** Hạn chung 24 giờ: thanh toán cọc + xác minh + ký OTP */
   validUntil: string;
-  mode: TransportMode;
+  mode?: TransportMode;
+  modeDeferred?: boolean;
   departAt: string;
   arriveAt: string;
   items: ContractItem[];
@@ -214,7 +215,7 @@ export interface ContractVersion {
 
 /** Bản nháp trong trình soạn hợp đồng 4 bước */
 export interface ContractDraft {
-  mode: TransportMode;
+  mode?: TransportMode;
   departAt: string;
   arriveAt: string;
   budget: Budget;
@@ -342,7 +343,7 @@ export interface EtaChange {
 export interface Trip {
   id: string;
   requestId: string;
-  mode: TransportMode;
+  mode?: TransportMode;
   status: TripStatus;
   deployment: {
     status: DeploymentStatus;

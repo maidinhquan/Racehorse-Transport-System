@@ -20,7 +20,7 @@ export const TrackingTab: React.FC<{ request: TransportRequest }> = ({ request: 
         <div className="cus-kv">
           <div><span>Dự kiến xuất phát</span><b>{fmtDateTime(t.plannedDepart)}</b></div>
           <div><span>{s.adjusted ? 'ETA điều chỉnh' : 'ETA'}</span><b>{fmtDateTime(t.eta)}</b></div>
-          <div><span>Phương thức</span><b>{t.mode === 'AIR' ? 'Hàng không + đường bộ' : 'Đường bộ'}</b></div>
+          <div><span>Phương thức</span><b>{t.mode === 'AIR' ? 'Hàng không + đường bộ' : t.mode === 'ROAD' ? 'Đường bộ' : 'Chờ Coordinator lập phương án'}</b></div>
           <div><span>Mốc xác nhận gần nhất</span><b>{s.m ? s.lastLabel : 'Chưa xuất phát'}</b></div>
           {s.m && <div><span>Xác nhận lúc</span><b>{fmtDateTime(s.m.at)}</b></div>}
           {s.adjusted && <div><span>ETA ban đầu</span><b><s>{fmtDateTime(t.etaOriginal)}</s></b></div>}

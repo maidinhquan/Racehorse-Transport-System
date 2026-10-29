@@ -30,9 +30,12 @@ export const ItemsTable: React.FC<{ v: ContractVersion }> = ({ v }) => {
 /** Nội dung hợp đồng: A. Tổng quan vận chuyển, B. Giá chính thức, C. Thông tin hợp đồng & điều khoản */
 export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVersion; horses: Horse[] }> = ({ request: r, v }) => {
   const snapshot = v.snapshot;
-  if (!snapshot || !v.terms?.length || !v.mode) return <div className="cus-note cus-note--yellow" role="alert">Chưa có đủ nội dung phiên bản hợp đồng từ máy chủ. Tải lại dữ liệu trước khi đồng ý điều khoản hoặc ký.</div>;
+  if (!snapshot || !v.terms?.length || (!v.mode && !v.modeDeferred)) return <div className="cus-note cus-note--yellow" role="alert">Chưa có đủ nội dung phiên bản hợp đồng từ máy chủ. Tải lại dữ liệu trước khi đồng ý điều khoản hoặc ký.</div>;
   const plan = { mode: v.mode };
   const detail = snapshot;
+  // The Manager may propose dates different from the customer's request.
+  const datesChanged = !!(detail.requestedPickupAt && v.departAt && detail.requestedPickupAt !== v.departAt.slice(0, 10))
+    || !!(detail.requestedDate && v.arriveAt && detail.requestedDate !== v.arriveAt.slice(0, 10));
   const state = versionState(v);
   const dep = Math.round((v.total * v.depositPct) / 100);
   return (
@@ -41,15 +44,21 @@ export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVers
         <h3 className="cus-card__title">A. Tổng quan vận chuyển</h3>
         <div className="cus-kv">
           <div><span>Mã yêu cầu</span><b>{r.id}</b></div>
-          <div><span>Mong muốn CBN đến lấy ngựa</span><b>{fmtDate(detail.pickupAt)}</b></div>
-          <div><span>Mong muốn ngựa tới nơi giao</span><b>{fmtDate(detail.date)}</b></div>
+          <div><span>Bạn yêu cầu lấy ngựa</span><b>{fmtDate(detail.requestedPickupAt || detail.pickupAt)}</b></div>
+          <div><span>Bạn yêu cầu giao ngựa</span><b>{fmtDate(detail.requestedDate || detail.date)}</b></div>
           <div><span>Điểm đi</span><b>{cityLabel(detail.origin)}</b></div>
           <div><span>Điểm đến</span><b>{cityLabel(detail.destination)}</b></div>
-          <div><span>Phương thức dự kiến</span><b>{plan.mode === 'AIR' ? 'Hàng không + đường bộ' : 'Đường bộ'}</b></div>
+          <div><span>Phương thức vận chuyển</span><b>{v.modeDeferred ? 'Coordinator quyết định khi lập kế hoạch vận chuyển' : plan.mode === 'AIR' ? 'Hàng không + đường bộ' : 'Đường bộ'}</b></div>
           <div><span>Số ngựa</span><b>{detail.horses.length}</b></div>
-          <div><span>Khởi hành dự kiến</span><b>{fmtDateTime(v.departAt)}</b></div>
-          <div><span>Đến dự kiến</span><b>{fmtDateTime(v.arriveAt)}</b></div>
+          <div><span>Khởi hành dự kiến</span><b className={datesChanged ? 'cus-bad' : undefined}>{fmtDateTime(v.departAt)}</b></div>
+          <div><span>Đến dự kiến</span><b className={datesChanged ? 'cus-bad' : undefined}>{fmtDateTime(v.arriveAt)}</b></div>
         </div>
+        {datesChanged && (
+          <div className="cus-note cus-note--yellow" role="note" style={{ marginTop: 12 }}>
+            <b>CBN đề xuất lịch khác ngày bạn yêu cầu.</b> Lấy ngựa {fmtDate(detail.requestedPickupAt)} → {fmtDate(v.departAt?.slice(0, 10))}; giao ngựa {fmtDate(detail.requestedDate)} → {fmtDate(v.arriveAt?.slice(0, 10))}.
+            {' '}Nếu đồng ý, hãy tiếp tục ký hợp đồng; nếu không, chọn "Yêu cầu sửa hợp đồng".
+          </div>
+        )}
         <div className="cus-grid2" style={{ marginTop: 14 }}>
           <div><div className="cus-eyebrow">Điểm nhận</div><PlaceBlock place={detail.pickup} who="Người liên hệ" /></div>
           <div><div className="cus-eyebrow">Điểm giao</div><PlaceBlock place={detail.delivery} who="Người nhận" /></div>

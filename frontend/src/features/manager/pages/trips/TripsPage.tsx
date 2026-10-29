@@ -68,7 +68,7 @@ export const TripsPage: React.FC = () => {
                     <td><b className="mgr-id">{t.id}</b><div className="mgr-muted">{t.requestId}</div></td>
                     <td><CustomerCell c={customerOf(data, r)} /></td>
                     <td><RouteCell r={r} /></td>
-                    <td>{MODE_LABEL[t.mode]}<div className="mgr-muted">{r.horses.length} ngựa</div></td>
+                    <td>{t.mode ? MODE_LABEL[t.mode] : 'Chờ Coordinator lập phương án'}<div className="mgr-muted">{r.horses.length} ngựa</div></td>
                     <td className="mgr-nowrap">{fmtDateTime(t.plannedDepart)}<div className="mgr-muted">ETA {fmtDateTime(t.eta)}</div></td>
                     <td>{t.route ? <StatusBadge kind="route" status={t.route.status} label={`v${t.route.v} • ${t.route.status === 'APPROVED' ? 'Đã duyệt' : t.route.status === 'PENDING_APPROVAL' ? 'Chờ duyệt' : 'Làm lại'}`} /> : <StatusBadge tone="muted" label="Chưa gửi" />}</td>
                     <td>{t.status === 'PLANNING' ? <MiniProgress done={checks.filter((c) => c.ok).length} total={checks.length} /> : <span className="mgr-muted">—</span>}</td>

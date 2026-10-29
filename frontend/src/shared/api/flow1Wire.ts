@@ -15,6 +15,7 @@ export interface WireContract {
   total?: number | null; depositPct?: number | null; depositAmount?: number | null;
   note?: string | null; terms?: Array<{ title: string; text: string }> | null;
   mode?: 'ROAD' | 'AIR' | null; departAt?: string | null; arriveAt?: string | null;
+  modeDeferred?: boolean;
   snapshot?: Record<string, unknown>; pdfUrl?: string | null;
 }
 export interface WirePayment {
@@ -45,6 +46,8 @@ function snapshotFromWire(raw?: Record<string, unknown>) {
     ...s,
     origin: s.pickup.cityName ?? s.pickup.address ?? '', destination: s.delivery.cityName ?? s.delivery.address ?? '',
     pickupAt: s.route.departureAtUtc?.slice(0, 10) ?? '', date: s.route.deliveryAtUtc?.slice(0, 10) ?? '',
+    // Dates the customer originally requested (the contract may propose different ones).
+    requestedPickupAt: s.route.requestedTransportDate ?? undefined, requestedDate: s.route.requestedDeliveryDate ?? undefined,
     careNotes: s.careInstructions ?? '',
     pickup: { ...s.pickup, notes: s.pickup.instructions ?? '' }, delivery: { ...s.delivery, notes: s.delivery.instructions ?? '' },
     horses: (s.horses ?? []).map((h: any) => ({ ...h, microchip: h.microchip_ISO, passportNo: h.feI_Passport_No ?? h.fEI_Passport_No })),

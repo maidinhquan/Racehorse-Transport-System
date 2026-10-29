@@ -14,6 +14,13 @@ services:
       RegistrationEmail__Smtp__From: "noreply@racehorse.local"
       Jwt__Key: "RaceHorseTransportSecretKey2026_SWP391_Project_SecuredKey_SuperSafe!"
       Flow1__Maps__Geoapify__ApiKey: "${GEOAPIFY_API_KEY:-}"
+      Flow1__Contracts__OtpHmacKey: "RaceHorseTransportFlow1_OtpHmacSecretKey_AtLeast32Bytes_2026"
+      Flow1__Contracts__Issuer__legalName: "Công ty Cổ phần Vận chuyển Ngựa Đua RaceHorse"
+      Flow1__Contracts__Issuer__address: "Số 123 Đường Vận Chuyển, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh"
+      Flow1__Contracts__Issuer__email: "contact@racehorsetransport.vn"
+      Flow1__Contracts__Issuer__phone: "0901234567"
+      Flow1__Contracts__Issuer__representative: "Nguyễn Văn Quản Lý"
+      Flow1__Contracts__Issuer__taxCode: "0312345678"
     volumes:
       - backend_app_data:/app/App_Data
     restart: unless-stopped

@@ -29,6 +29,8 @@ public sealed class SchemaCheck(string connectionString)
                     AND COL_LENGTH('dbo.TRANSPORT_REQUEST','DeliveryCityName') IS NOT NULL
                     AND OBJECT_ID('dbo.BUSINESS_POLICY') IS NOT NULL
                     AND OBJECT_ID('dbo.SUPPORTED_ROUTE') IS NOT NULL
+                    AND EXISTS(SELECT 1 FROM sys.check_constraints WHERE name='CK_F1S_TRANSPORT_REQUEST_Route'
+                        AND parent_object_id=OBJECT_ID('dbo.TRANSPORT_REQUEST') AND definition NOT LIKE '%TransportType%')
                     AND COL_LENGTH('dbo.HORSE','RowVersion') IS NULL
                     AND COL_LENGTH('dbo.CONTRACT','PdfSha256') IS NULL
                     AND EXISTS(SELECT 1 FROM sys.sequences WHERE name='SEQ_TRANSPORT_REQUEST_ID' AND is_cycling=0)

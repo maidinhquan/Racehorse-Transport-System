@@ -15,6 +15,24 @@ const example = (path: string, method: string, status = '200') => {
 beforeEach(() => { request.mockReset(); sessionStorage.clear(); });
 
 describe('Flow 1 wire contract', () => {
+  it('does not send a legacy draft mode when saving a contract', async () => {
+    request.mockResolvedValue({ status: 200, data: example('/manager/requests/{requestId}/contract-draft', 'put') });
+    const input = structuredClone(spec.paths['/manager/requests/{requestId}/contract-draft'].put.requestBody.content['application/json'].example);
+    const draft = { ...input, mode: 'AIR' } as unknown as import('../../features/manager/types').ContractDraft;
+    await managerApi.saveContractDraft('REQUEST_001', draft);
+    expect(request.mock.calls[0][0]?.data).not.toHaveProperty('mode');
+  });
+  it('accepts a frozen contract with the transport mode explicitly deferred', async () => {
+    const response = example('/customer/contracts/{contractId}/versions/{versionNo}', 'get');
+    delete response.data.mode;
+    response.data.modeDeferred = true;
+    response.data.snapshot.route.mode = null;
+    response.data.snapshot.route.transportModeDecision = 'FLOW3';
+    request.mockResolvedValue({ status: 200, data: response });
+    const result = await contractClient<any>('get', '/customer/contracts/CONTRACT_001/versions/1');
+    expect(result.modeDeferred).toBe(true);
+    expect(result.mode).toBeUndefined();
+  });
   it('keeps an empty list empty without introducing demo horses', async () => {
     request.mockResolvedValue({ status: 200, data: { success: true, message: 'OK', data: [] } });
     expect(await customerApi.getHorses()).toEqual([]);

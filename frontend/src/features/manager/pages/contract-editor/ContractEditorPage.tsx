@@ -230,7 +230,7 @@ export const ContractEditorPage: React.FC = () => {
       {v && (
         <Modal open={dialog === 'view'} title={`Hợp đồng ${ctRef(v)}`} wide cancelText="Đóng" onClose={close}>
           <ContractPreview request={r} customer={c} horses={horses}
-            content={{ snapshot: v.snapshot, ref: ctRef(v), mode: v.mode, departAt: v.departAt, arriveAt: v.arriveAt, items: v.items, depositPct: v.depositPct, terms: v.terms, note: v.note, issuedAt: v.issuedAt, validUntil: v.validUntil, signedAt: v.signedAt }} />
+            content={{ snapshot: v.snapshot, ref: ctRef(v), mode: v.mode, modeDeferred: v.modeDeferred, departAt: v.departAt, arriveAt: v.arriveAt, items: v.items, depositPct: v.depositPct, terms: v.terms, note: v.note, issuedAt: v.issuedAt, validUntil: v.validUntil, signedAt: v.signedAt }} />
         </Modal>
       )}
       <ReasonModal open={dialog === 'extend'} title={`Gia hạn ${r.id}`} okText="Gia hạn theo chính sách" onClose={close}

@@ -4844,18 +4844,6 @@
               "maxLength": 50,
               "pattern": "^[A-Z_]+_\\d{3,}$"
             }
-          },
-          {
-            "name": "mode",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "ROAD",
-                "AIR"
-              ]
-            }
           }
         ]
       }
@@ -5007,7 +4995,6 @@
                 "$ref": "#/components/schemas/F1-J30Request"
               },
               "example": {
-                "mode": "AIR",
                 "departAt": "2026-11-20 08:00",
                 "arriveAt": "2026-11-21 18:00",
                 "budget": {
@@ -14041,6 +14028,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "modeDeferred": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -14945,6 +14935,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "modeDeferred": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -15609,6 +15602,9 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "modeDeferred": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -16272,6 +16268,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "modeDeferred": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -17020,6 +17019,9 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "modeDeferred": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -17683,6 +17685,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "modeDeferred": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -18345,6 +18350,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "modeDeferred": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -19021,6 +19029,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "modeDeferred": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -19706,6 +19717,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "modeDeferred": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -20371,6 +20385,9 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "modeDeferred": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -20987,6 +21004,9 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "modeDeferred": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -21217,6 +21237,9 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "modeDeferred": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -21447,6 +21470,9 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "modeDeferred": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -21595,11 +21621,7 @@
             }
           },
           "mode": {
-            "type": "string",
-            "enum": [
-              "ROAD",
-              "AIR"
-            ]
+            "type": "null"
           },
           "note": {
             "type": "string",
@@ -21633,7 +21655,6 @@
           "depositPct",
           "exception",
           "items",
-          "mode",
           "note",
           "terms"
         ],
@@ -22117,6 +22138,9 @@
                     "type": "null"
                   }
                 ]
+              },
+              "modeDeferred": {
+                "type": "boolean"
               }
             },
             "required": [
@@ -22390,6 +22414,9 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "modeDeferred": {
+                        "type": "boolean"
                       }
                     },
                     "required": [
@@ -22666,6 +22693,9 @@
                     "type": "null"
                   }
                 ]
+              },
+              "modeDeferred": {
+                "type": "boolean"
               }
             },
             "required": [

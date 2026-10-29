@@ -5,6 +5,22 @@ namespace Application.Flow1.Services;
 
 public sealed class CatalogService(IDataSession data, PolicyService policies)
 {
+    public async Task<object> ContractOptionsAsync(string origin, string destination, CancellationToken ct)
+    {
+        var modes = (await RoutesAsync(ct)).Where(r => r.OriginCountry == origin && r.DestinationCountry == destination)
+            .Select(r => r.TransportMode).Distinct().ToArray();
+        Require(modes.Length > 0, "UNSUPPORTED_ROUTE", "The requested route is not active.", 400);
+        // Reserve enough preparation time for any supported plan, without selecting a mode.
+        decimal preparation = 0;
+        foreach (var mode in modes)
+            preparation = Math.Max(preparation, await policies.NumberAsync("MIN_PREPARATION_DAYS", "DAY", destination, mode, 0, null, true, ct));
+        return new
+        {
+            currency = "VND", preparationDays = preparation,
+            defaultDepositPct = await policies.NumberAsync("DEFAULT_DEPOSIT_PERCENT", "PERCENT", destination, null, 1, 100, false, ct),
+            contractDeadlineHours = await policies.NumberAsync("CONTRACT_DEADLINE_HOURS", "HOUR", destination, null, 1, null, false, ct)
+        };
+    }
     public async Task<IReadOnlyList<SupportedRoute>> RoutesAsync(CancellationToken ct)
     {
         var active = (await data.ListAsync<Country>(c => c.IsActive, ct)).Select(c => c.CountryCode).ToHashSet();

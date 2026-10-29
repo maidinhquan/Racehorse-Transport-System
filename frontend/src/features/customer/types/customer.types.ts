@@ -142,6 +142,7 @@ export interface ContractVersion {
   snapshot?: ContractSnapshot;
   terms?: Array<{ title: string; text: string }>;
   mode?: TransportMode;
+  modeDeferred?: boolean;
   departAt?: string;
   arriveAt?: string;
   depositAmount?: number;
@@ -293,7 +294,7 @@ export interface Handover {
 export interface Trip {
   id: string;
   status: TripStatus;
-  mode: TransportMode;
+  mode?: TransportMode;
   plannedDepart: string;
   eta: string;
   etaOriginal?: string;
@@ -466,6 +467,9 @@ export type RequestDetailTab =
 /** Immutable published content; absent means the backend cannot provide a historical snapshot. */
 export interface ContractSnapshot {
   pickupAt?: string;
+  /** Ngày khách yêu cầu ban đầu (hợp đồng có thể đề xuất ngày khác) */
+  requestedPickupAt?: string;
+  requestedDate?: string;
   origin: string;
   destination: string;
   date: string;

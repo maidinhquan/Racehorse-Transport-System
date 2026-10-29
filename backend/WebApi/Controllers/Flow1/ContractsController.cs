@@ -22,8 +22,8 @@ public sealed class ContractsController(ContractService contracts, ContractLifec
 
     [HttpGet("manager/requests/{requestId}/contract-editor")]
     [Authorize(Roles = UserRoles.LogisticsManager)]
-    public async Task<IActionResult> EditorAsync(string requestId, CancellationToken ct, [FromQuery] string? mode = null) =>
-        Reply(await contracts.EditorAsync(Actor, requestId, ct, mode));
+    public async Task<IActionResult> EditorAsync(string requestId, CancellationToken ct) =>
+        Reply(await contracts.EditorAsync(Actor, requestId, ct));
 
     [HttpPut("manager/requests/{requestId}/contract-draft")]
     [Authorize(Roles = UserRoles.LogisticsManager)]

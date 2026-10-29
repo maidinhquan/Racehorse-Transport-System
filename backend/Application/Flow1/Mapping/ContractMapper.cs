@@ -23,7 +23,8 @@ public static class ContractMapper
             depositPct = legacy ? Field(snapshot, "DepositRateStandard") : Field(commercial, "depositPercent"), depositAmount = legacy ? Field(snapshot, "DepositAmount") : Field(commercial, "depositAmount"),
             note = legacy ? Field(snapshot, "CommercialNotes") : Field(commercial, "notes"), terms = legacy ? LegacyTerms(Field(snapshot, "Clauses")) : Field(snapshot, "terms"), mode = Field(route, "mode"),
             departAt = Format(ReadDate(route, "departureAtUtc")), arriveAt = Format(ReadDate(route, "deliveryAtUtc")),
-            snapshot,
+            requestedTransportDate = Field(route, "requestedTransportDate"), requestedDeliveryDate = Field(route, "requestedDeliveryDate"),
+            snapshot, modeDeferred = Field(route, "transportModeDecision")?.GetString() == "FLOW3",
             unsupportedFields = legacy ? new[] { "items", "mode", "departAt", "arriveAt" } : Array.Empty<string>(),
             pdfUrl = version.PdfUrl is null ? null : $"/api/customer/contracts/{contract.ContractID}/versions/{version.VersionNo}/pdf"
         };

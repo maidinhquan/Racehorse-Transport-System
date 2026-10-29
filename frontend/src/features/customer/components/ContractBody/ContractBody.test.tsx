@@ -8,6 +8,18 @@ import { contractFromWire, type WireContract } from '../../../../shared/api/flow
 const sample = contractFromWire(spec.paths['/customer/contracts/{contractId}/versions/{versionNo}'].get.responses['200'].content['application/json'].examples.case1.value.data as unknown as WireContract);
 
 describe('Published contract content', () => {
+  it('renders a complete contract whose transport mode is deferred to planning', () => {
+    const version = { ...structuredClone(sample), mode: undefined, modeDeferred: true } as unknown as ContractVersion;
+    const request = { id: 'REQUEST_001', versions: [version] } as unknown as TransportRequest;
+    render(<ContractBody request={request} v={version} horses={[]} />);
+    expect(screen.getByText('Coordinator quyết định khi lập kế hoạch vận chuyển')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+  it('still rejects missing mode when the server has not marked it deferred', () => {
+    const version = { ...structuredClone(sample), mode: undefined, modeDeferred: false } as unknown as ContractVersion;
+    render(<ContractBody request={{ id: 'REQUEST_001' } as TransportRequest} v={version} horses={[]} />);
+    expect(screen.getByRole('alert')).toBeTruthy();
+  });
   it('counts only verified money for the current contract version', () => {
     const version = { ...sample, v: 2 } as unknown as ContractVersion;
     const payment = { id: 'PAYMENT_001', contractId: version.contractId, versionNo: 1, type: 'DEPOSIT', method: 'VNPAY', amount: 8000000, status: 'SUCCESS' };

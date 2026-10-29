@@ -117,6 +117,28 @@ def patch(d):
     j61['properties']['roadDistanceKm'] = dict(NUM)
     j61['properties']['insuredValueVnd'] = {'type': ['number', 'null']}
     log.append('F1-J61: decimal costs')
+    # Contracts defer the operational transport mode until Flow 3. Historic versions can still contain a mode.
+    request = S['F1-J30Request']
+    request['properties']['mode'] = {'type': 'null'}
+    optional(request, 'mode')
+    for root in responses.values():
+        for o in objects(root):
+            p = o['properties']
+            if {'versionNo', 'snapshot', 'contractId'} <= p.keys():
+                if 'mode' in p: nullable(p['mode'])
+                p['modeDeferred'] = dict(BOOL)
+            if {'departureAtUtc', 'deliveryAtUtc', 'mode'} <= p.keys():
+                nullable(p['mode'])
+                p['transportModeDecision'] = dict(STR)
+            if {'preparationDays', 'defaultDepositPct', 'contractDeadlineHours'} <= p.keys():
+                optional(o, 'selectedRoute')
+    editor = d['paths']['/manager/requests/{requestId}/contract-editor']['get']
+    editor['parameters'] = [p for p in editor.get('parameters', []) if p.get('name') != 'mode']
+    media = d['paths']['/manager/requests/{requestId}/contract-draft']['put']['requestBody']['content']['application/json']
+    media.get('example', {}).pop('mode', None)
+    for ex in media.get('examples', {}).values(): ex.get('value', {}).pop('mode', None)
+    log.append('Contracts: transport mode deferred to Flow 3')
+
     # Program.cs serializes with JsonIgnoreCondition.WhenWritingNull: a null value is OMITTED, not sent as null.
     # So in responses every nullable property must also be optional.
     def allows_null(v):
