@@ -10460,6 +10460,76 @@
         "security": [],
         "description": "Nhận thông báo server-to-server từ VNPay. Không dùng Bearer token Customer; xác thực bằng chữ ký provider. Path thống nhất endpoint sandbox hiện có, phần tích hợp Invoice/Contract là thiết kế đích.\n\n**Request body:** Không gửi body. Query nhận nguyên bộ tham số vnp_* do VNPay ký, gồm vnp_TmnCode, vnp_TxnRef, vnp_Amount, vnp_ResponseCode, vnp_TransactionStatus, vnp_TransactionNo, vnp_SecureHash và các tham số provider khác. Không cắt bỏ tham số trước khi kiểm tra chữ ký, từ chối query trùng khóa. vnp_Amount theo đơn vị provider, quy đổi đúng về VND để so khớp PAYMENT.Amount.\n\n**Response 200 — JSON provider, không dùng success/message/data**\n\n```json\n{\n  \"RspCode\": \"00\",\n  \"Message\": \"Confirm Success\"\n}\n```\n\n**Quy tắc:** Kiểm tra chữ ký, merchant, TxnRef đã lưu, amount/currency, Invoice và ContractVersion. Chỉ SUCCESS khi responseCode và transactionStatus cùng 00. Khóa giao dịch khi cập nhật PAYMENT và tính lại INVOICE.PaidAmount từ PAYMENT SUCCESS của đúng invoice/version; callback lặp không cộng tiền hai lần. Chỉ DEPOSIT_VERIFIED khi đủ cọc và Request còn hợp lệ; không tự tạo Trip. Callback sau hủy, trong lúc chờ hủy hoặc quá hạn phải giữ bằng chứng tiền, bật FinancialReviewRequired và không mở ký/kích hoạt. Payload không hợp lệ không được ghi SUCCESS; lỗi lưu trữ không trả xác nhận thành công. RspCode dùng hợp đồng adapter VNPay: 00 đã xử lý, 01 không thấy giao dịch, 02 đã xử lý, 04 sai số tiền, 97 sai xác thực, 99 lỗi khác. Các mã provider là chuỗi, không phải HTTP status. Browser Return chỉ đọc kết quả đã lưu; Customer kiểm tra bằng J44.\n\n\n**Kích hoạt sau IPN:** chỉ giao dịch hợp lệ của version đã ký mới được cộng tiền; đủ cọc → contract EFFECTIVE, Request ACTIVATED và tạo duy nhất một Trip PLANNING trong cùng transaction. IPN trùng không tạo thêm Trip. IPN thiếu chữ ký/sai số tiền hoặc version không hợp lệ không thay trạng thái."
       }
+    },
+    "/locations/tiles/{z}/{x}/{y}.png": {
+      "get": {
+        "operationId": "F1-J70",
+        "summary": "Ảnh nền Geoapify cho bản đồ khách hàng",
+        "description": "Backend dùng Geoapify key đã cấu hình; không trả key cho trình duyệt. PNG có cache riêng tư một giờ, giới hạn 300 yêu cầu/phút/tài khoản.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "z",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 19
+            }
+          },
+          {
+            "name": "x",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "y",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PNG map tile",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid tile coordinates"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Inactive account"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "503": {
+            "description": "Map provider unavailable"
+          }
+        }
+      }
     }
   },
   "components": {
