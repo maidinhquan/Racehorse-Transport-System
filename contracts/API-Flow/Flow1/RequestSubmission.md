@@ -51,5 +51,5 @@ Bước tạo/sửa yêu cầu không nhận `documents`, `files` hoặc URL t�
 - Request, liên kết ngựa và thông báo được commit cùng nhau. Lỗi không để lại đơn chưa đầy đủ trong queue.
 - Cùng Idempotency-Key và cùng nội dung trả cùng RequestID; thay nội dung trả `409 IDEMPOTENCY_KEY_REUSED`. Thứ tự ngựa và dictionary không ảnh hưởng hash.
 - API không nhận customerId, requestId, createdAt hoặc trạng thái do khách tự đặt. createdAt do server ghi UTC.
-- Database mới dùng `HorseTransportDB/HorseTransportDB_Reviewed.sql`. Database hiện có dùng `HorseTransportDB/RemoveRequestSharedDocuments.sql` để bỏ các cột đã ngừng sử dụng mà không tạo lại database.
+- Database test dùng `HorseTransportDB/HorseTransportDB_Reviewed.sql` để tạo lại schema và dữ liệu mẫu. Schema đã bỏ các cột tài liệu dùng chung; không cần chạy migration riêng.
 - Frontend gửi JSON trực tiếp cho POST/PUT; không tạo nháp hoặc gọi submit riêng.

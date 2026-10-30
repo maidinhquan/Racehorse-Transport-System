@@ -1,40 +1,55 @@
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Application.DTOs;
+using Application.Interfaces;
+using Application.Services;
+using Domain.Interfaces.DAOs;
+using Infrastructure.Data.Context;
+using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Application.DTOs;
-using Application.Services;
-using Infrastructure.Data.Context;
-using Domain.Interfaces.DAOs;
-using Application.Interfaces;
-using Infrastructure.Services;
-
-using WebApi.Middlewares;
 using WebApi.Extensions;
 using WebApi.Extensions.Flow1;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using WebApi.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 if (builder.Environment.IsDevelopment())
-    builder.Configuration.AddJsonFile("App_Data/flow1/runtime-config/appsettings.Flow1Sandbox.Local.json", optional: true);
+    builder.Configuration.AddJsonFile(
+        "App_Data/flow1/runtime-config/appsettings.Flow1Sandbox.Local.json",
+        optional: true
+    );
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true);
-if (builder.Environment.IsDevelopment()) builder.Configuration.AddJsonFile("appsettings.Flow1Sandbox.Local.json", optional: true);
+if (builder.Environment.IsDevelopment())
+    builder.Configuration.AddJsonFile("appsettings.Flow1Sandbox.Local.json", optional: true);
 builder.Configuration.AddEnvironmentVariables();
+
 // The same private configuration is mounted under /app in Docker. Resolve it
 // against this checkout when running the approved localhost Swagger on Windows.
 if (builder.Environment.IsDevelopment() && OperatingSystem.IsWindows())
-    foreach (var key in new[] { "Flow1:PrivateFiles:Root", "Flow1:Contracts:WorkRoot", "Flow1:LegacyImport:SourceRoot" })
-        if (builder.Configuration[key] is string value && value.StartsWith("/app/", StringComparison.Ordinal))
+    foreach (
+        var key in new[]
+        {
+            "Flow1:PrivateFiles:Root",
+            "Flow1:Contracts:WorkRoot",
+            "Flow1:LegacyImport:SourceRoot",
+        }
+    )   
+        if (
+            builder.Configuration[key] is string value
+            && value.StartsWith("/app/", StringComparison.Ordinal)
+        )
             builder.Configuration[key] = value[5..];
 
 // =============================================================================
 // 1. KẾT NỐI DATABASE VỚI SQL SERVER
 // =============================================================================
 builder.Services.AddDbContext<HorseTransportDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
 
 // =============================================================================
 // 2. ĐĂNG KÝ CÁC DỊCH VỤ NỀN TẢNG (CACHE, TOKEN, EMAIL, DAO & AUTH SERVICE)
@@ -55,21 +70,26 @@ builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
 // =============================================================================
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.SetIsOriginAllowed(_ => true) // Cho phép mọi origin từ local dev
-              .AllowAnyMethod()               // Cho phép mọi method: GET, POST, PUT, DELETE, PATCH, OPTIONS
-              .AllowAnyHeader()               // Cho phép mọi header: Content-Type, Authorization...
-              .AllowCredentials()            // Hỗ trợ truyền Cookie, JWT Bearer Token
-              .WithExposedHeaders("Content-Disposition", "X-Pagination", "X-Total-Count");
-    });
+    options.AddPolicy(
+        "AllowFrontend",
+        policy =>
+        {
+            policy
+                .SetIsOriginAllowed(_ => true) // Cho phép mọi origin từ local dev
+                .AllowAnyMethod() // Cho phép mọi method: GET, POST, PUT, DELETE, PATCH, OPTIONS
+                .AllowAnyHeader() // Cho phép mọi header: Content-Type, Authorization...
+                .AllowCredentials() // Hỗ trợ truyền Cookie, JWT Bearer Token
+                .WithExposedHeaders("Content-Disposition", "X-Pagination", "X-Total-Count");
+        }
+    );
 });
 
 // =============================================================================
 // 4. CẤU HÌNH CONTROLLERS & JSON SERIALIZER TOÀN CỤC
 // Tránh lỗi vòng lặp quan hệ EF Core khi thêm các bảng mới sau này.
 // =============================================================================
-builder.Services.AddControllers()
+builder
+    .Services.AddControllers()
     .AddJsonOptions(options =>
     {
         // Chống lỗi đệ quy vòng lặp khi entity có liên kết 1-nhiều, nhiều-nhiều (Horse, Trip, User...)
@@ -93,10 +113,13 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = actionContext =>
     {
-        var errors = actionContext.ModelState
-            .Where(e => e.Value?.Errors.Count > 0)
+        var errors = actionContext
+            .ModelState.Where(e => e.Value?.Errors.Count > 0)
             .ToDictionary(
-                kvp => string.IsNullOrEmpty(kvp.Key) ? "general" : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
+                kvp =>
+                    string.IsNullOrEmpty(kvp.Key)
+                        ? "general"
+                        : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
                 kvp => kvp.Value!.Errors.Select(x => x.ErrorMessage).ToArray()
             );
 
@@ -105,7 +128,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
             Success = false,
             Message = "Validation failed",
             Data = null,
-            Errors = errors
+            Errors = errors,
         };
 
         return new BadRequestObjectResult(errorResponse);
@@ -118,67 +141,72 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "RaceHorseTransportBackend";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "RaceHorseTransportFrontend";
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    var jwtKey = builder.Configuration["Jwt:Key"];
-    if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
-        throw new InvalidOperationException("Configure a private Jwt:Key of at least 32 bytes through the environment or local configuration.");
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
-    options.TokenValidationParameters = new TokenValidationParameters
+builder
+    .Services.AddAuthentication(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtIssuer,
-        ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-    };
-
-    // Chuẩn hóa định dạng lỗi 401 & 403 theo đúng chuẩn JSON hợp đồng
-    options.Events = new JwtBearerEvents
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
     {
-        OnMessageReceived = context =>
+        var jwtKey = builder.Configuration["Jwt:Key"];
+        if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
+            throw new InvalidOperationException(
+                "Configure a private Jwt:Key of at least 32 bytes through the environment or local configuration."
+            );
+        options.RequireHttpsMetadata = false;
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            var authHeader = context.Request.Headers.Authorization.ToString();
-            if (!string.IsNullOrEmpty(authHeader))
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        };
+
+        // Chuẩn hóa định dạng lỗi 401 & 403 theo đúng chuẩn JSON hợp đồng
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
             {
-                if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                var authHeader = context.Request.Headers.Authorization.ToString();
+                if (!string.IsNullOrEmpty(authHeader))
                 {
-                    context.Token = authHeader.Substring("Bearer ".Length).Trim();
+                    if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Token = authHeader.Substring("Bearer ".Length).Trim();
+                    }
+                    else
+                    {
+                        context.Token = authHeader.Trim();
+                    }
                 }
-                else
-                {
-                    context.Token = authHeader.Trim();
-                }
-            }
-            return Task.CompletedTask;
-        },
-        OnChallenge = async context =>
-        {
-            context.HandleResponse();
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            context.Response.ContentType = "application/json";
+                return Task.CompletedTask;
+            },
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json";
 
-            var response = ApiResponse<object?>.Fail("Unauthorized or invalid token");
-            await context.Response.WriteAsJsonAsync(response);
-        },
-        OnForbidden = async context =>
-        {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            context.Response.ContentType = "application/json";
+                var response = ApiResponse<object?>.Fail("Unauthorized or invalid token");
+                await context.Response.WriteAsJsonAsync(response);
+            },
+            OnForbidden = async context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
 
-            var response = ApiResponse<object?>.Fail("Forbidden: You do not have permission to access this resource");
-            await context.Response.WriteAsJsonAsync(response);
-        }
-    };
-});
+                var response = ApiResponse<object?>.Fail(
+                    "Forbidden: You do not have permission to access this resource"
+                );
+                await context.Response.WriteAsJsonAsync(response);
+            },
+        };
+    });
 
 // =============================================================================
 // 6. CẤU HÌNH SWAGGER / OPENAPI (CÓ NÚT AUTHORIZE TEST JWT)
@@ -186,41 +214,49 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "RaceHorse Transport API",
-        Version = "v1",
-        Description = "Cổng kết nối API giữa Frontend và Backend - RaceHorse Transport"
-    });
+    c.SwaggerDoc(
+        "v1",
+        new OpenApiInfo
+        {
+            Title = "RaceHorse Transport API",
+            Version = "v1",
+            Description = "Cổng kết nối API giữa Frontend và Backend - RaceHorse Transport",
+        }
+    );
     c.OperationFilter<Flow1SwaggerExamples>();
     c.SchemaFilter<NoteDescriptions>();
     c.SchemaFilter<RequestExamples>();
     c.OperationFilter<RequestExamples>();
     c.DocumentFilter<FlowOrder>();
 
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "Nhập token JWT theo định dạng: Bearer {token}",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+    c.AddSecurityDefinition(
+        "Bearer",
+        new OpenApiSecurityScheme
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
+            Description = "Nhập token JWT theo định dạng: Bearer {token}",
+            Name = "Authorization",
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.ApiKey,
+            Scheme = "Bearer",
         }
-    });
+    );
+
+    c.AddSecurityRequirement(
+        new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer",
+                    },
+                },
+                Array.Empty<string>()
+            },
+        }
+    );
 });
 
 var app = builder.Build();

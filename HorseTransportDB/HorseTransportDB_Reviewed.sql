@@ -1,4 +1,6 @@
 -- Canonical test schema: reset/recreate using this file; no numbered migrations are required.
+-- Includes RemoveRequestSharedDocuments: retired request attachment columns are omitted;
+-- customs fixtures use EXPORT/IMPORT only, so no legacy-data cleanup is needed.
 -- Flow 1 scope 2026-10-24: VNPAY only; progress via current Status, no history/audit tables.
 -- Reviewed sample only: do not run against an active database as a migration.
 -- Reviewed copy: source data/HorseTransportDB.sql is preserved.
