@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Racehorse Transport — Flow 4: thực hiện và theo dõi hành trình",
-    "version": "1.0.0",
-    "description": "Contract đích 29/10/2026; chưa triển khai backend/DB. Thời gian Asia/Ho_Chi_Minh. Không GPS realtime."
+    "version": "1.1.0",
+    "description": "Contract đích 30/10/2026; chưa triển khai backend/DB. Thời gian Asia/Ho_Chi_Minh. Không GPS realtime."
   },
   "servers": [
     {
@@ -64,7 +64,7 @@
                   "success": true,
                   "message": "OK",
                   "data": {
-                    "version": "1.0.0",
+                    "version": "1.1.0",
                     "implementationStatus": "DESIGNED_NOT_IMPLEMENTED",
                     "persistenceAvailable": false,
                     "filesAvailable": false,
@@ -338,7 +338,7 @@
       "get": {
         "operationId": "F4-J02",
         "summary": "Nhiệm vụ vận chuyển được phân công",
-        "description": "Chỉ chuyến có assignment của JWT, gồm lịch sử trong scope. Không trả mọi chuyến cho mọi tài xế.",
+        "description": "Chỉ chuyến có assignment của JWT, gồm lịch sử trong scope và thông tin xe phân công. Không trả mọi chuyến cho mọi tài xế.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -655,7 +655,7 @@
       "get": {
         "operationId": "F4-J03",
         "summary": "Context hành trình và thao tác theo phân công",
-        "description": "Driver chỉ có action ở chặng được giao; Specialist chỉ tác vụ checkpoint. Mốc/route từ approved snapshot, không sinh mốc dựa lịch giờ máy khách.",
+        "description": "Driver chỉ có action ở chặng được giao; Specialist chỉ tác vụ checkpoint. Mốc/route từ approved snapshot, trả đầy đủ thông tin xe (biển số, loại xe, số khoang) theo từng chặng ROAD.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -781,6 +781,14 @@
                           }
                         ],
                         "vehicleId": "VEHICLE_001",
+                        "vehicle": {
+                          "vehicleId": "VEHICLE_001",
+                          "plateNumber": "51B-888.99",
+                          "type": "Xe chuyên dụng 4 khoang điều hòa",
+                          "capacityStalls": 4,
+                          "heightM": 3.8,
+                          "grossWeightTons": 8.5
+                        },
                         "from": "Điểm nhận ngựa",
                         "to": "Điểm giao cuối",
                         "milestoneIds": [
@@ -805,6 +813,7 @@
                         "note": "",
                         "evidenceFileIds": [],
                         "geo": null,
+                        "requiresHealthCheck": false,
                         "actions": {
                           "canComplete": true,
                           "canRequestCorrection": false,
@@ -828,6 +837,7 @@
                         "note": "",
                         "evidenceFileIds": [],
                         "geo": null,
+                        "requiresHealthCheck": false,
                         "actions": {
                           "canComplete": false,
                           "canRequestCorrection": false,
@@ -1113,7 +1123,7 @@
       "get": {
         "operationId": "F4-J04",
         "summary": "Kiểm tra trước xuất phát thực tế",
-        "description": "Kiểm lại approval, nguồn lực, hồ sơ, bảo hiểm, tình trạng ngựa và blocker hiện hành. GET không xuất phát. Inbound cũng dùng check theo chặng.",
+        "description": "Kiểm lại approval, nguồn lực, xe, hồ sơ, bảo hiểm, tình trạng ngựa và blocker hiện hành. Yêu cầu xác nhận HORSES_CHECKED và VEHICLE_VERIFIED. GET không xuất phát. Inbound cũng dùng check theo chặng.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -1447,7 +1457,7 @@
       "post": {
         "operationId": "F4-J05",
         "summary": "Xác nhận xuất phát thực tế",
-        "description": "Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip và Request IN_TRANSIT nguyên tử; không tạo Trip mới.",
+        "description": "Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement (HORSES_CHECKED, VEHICLE_VERIFIED) server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip và Request IN_TRANSIT nguyên tử; khóa duyệt lại Flow 3; không tạo Trip mới.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -1871,7 +1881,7 @@
       "post": {
         "operationId": "F4-J06",
         "summary": "Xác nhận mốc kế tiếp của chặng",
-        "description": "Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. FINAL_ARRIVED chỉ mở Flow 6; Trip/Request vẫn IN_TRANSIT.",
+        "description": "Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. Trạm có cờ requiresHealthCheck phải hoàn tất HealthLog trước khi hoàn tất mốc. Ngựa có trạng thái ABNORMAL chặn mốc tiếp theo cho đến khi có xác nhận FIT. FINAL_ARRIVED chỉ mở Flow 6; Trip/Request vẫn IN_TRANSIT.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -2248,6 +2258,21 @@
                       "blockers": [
                         {
                           "code": "HEALTH_CHECK_REQUIRED",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  },
+                  "VET_CLEARANCE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: VET_CLEARANCE_REQUIRED",
+                      "errorCode": "VET_CLEARANCE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "VET_CLEARANCE_REQUIRED",
                           "field": "execution",
                           "message": "Tải lại và kiểm tra điều kiện liên quan"
                         }
@@ -4538,7 +4563,7 @@
       "post": {
         "operationId": "F4-J13",
         "summary": "Bàn giao ngựa cho đối tác AIR đầu đi",
-        "description": "MAIN_DRIVER/CO_DRIVER outbound, đúng mốc AIR_HANDOVER sau tới sân bay; đủ toàn bộ ngựa và booking hiện hành, bằng chứng đối tác. Không bàn giao cho người nhận cuối. Thông báo Manager/Customer/Coordinator sau commit.",
+        "description": "MAIN_DRIVER/CO_DRIVER outbound, đúng mốc AIR_HANDOVER sau tới sân bay (kho Cargo Terminal); đủ toàn bộ ngựa và booking hiện hành, bằng chứng đối tác. Ngựa có trạng thái ABNORMAL chặn bàn giao cho đến khi có xác nhận FIT. Không bàn giao cho người nhận cuối. Thông báo Manager/Customer/Coordinator sau commit.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -4848,6 +4873,36 @@
                         }
                       ]
                     }
+                  },
+                  "VET_CLEARANCE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: VET_CLEARANCE_REQUIRED",
+                      "errorCode": "VET_CLEARANCE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "VET_CLEARANCE_REQUIRED",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  },
+                  "INCIDENT_BLOCKING": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: INCIDENT_BLOCKING",
+                      "errorCode": "INCIDENT_BLOCKING",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "INCIDENT_BLOCKING",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
                   }
                 }
               }
@@ -4949,7 +5004,7 @@
                   "HORSE_001"
                 ],
                 "bookingId": "BOOKING_001",
-                "partnerReference": "Biên nhận đối tác AIR",
+                "partnerReference": "Biên nhận đối tác AIR tại kho Cargo Terminal",
                 "allHorsesChecked": true,
                 "note": "",
                 "evidenceFileIds": [
@@ -5393,7 +5448,7 @@
       "post": {
         "operationId": "F4-J15",
         "summary": "Kiểm tra và tiếp nhận ngựa đầu đến",
-        "description": "MAIN_DRIVER/CO_DRIVER inbound sau AIR_ARRIVED có bằng chứng; đủ ngựa và tình trạng nhận. Bất thường ghi health/Flow 5, không khai bình thường giả. Mở inbound khi tất cả gate đủ; thông báo Manager/Customer/Coordinator.",
+        "description": "MAIN_DRIVER/CO_DRIVER inbound sau AIR_ARRIVED có bằng chứng; đủ ngựa và tình trạng nhận tại kho Cargo Terminal. Bất thường ghi health/Flow 5, không khai bình thường giả. Mở inbound khi tất cả gate đủ; thông báo Manager/Customer/Coordinator.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -5804,7 +5859,7 @@
                   "HORSE_001"
                 ],
                 "bookingId": "BOOKING_001",
-                "partnerReference": "Biên nhận đối tác AIR",
+                "partnerReference": "Biên nhận đối tác AIR tại kho Cargo Terminal",
                 "allHorsesChecked": true,
                 "note": "",
                 "evidenceFileIds": [
@@ -8399,7 +8454,7 @@
       "post": {
         "operationId": "F4-J23",
         "summary": "Ghi chăm sóc và quan sát sức khỏe",
-        "description": "Mọi nhân sự được giao ở chặng, gồm bác sĩ, được ghi; khi blocker hành trình còn mở vẫn cho chăm sóc. Checklist máy chủ quyết định ảnh/chỉ số cần có. ABNORMAL lưu ngay và trả incidentRequired=true nếu chưa liên kết incident; không tự mở mốc hay coi báo cáo là sự cố đã xử lý.",
+        "description": "Mọi nhân sự được giao ở chặng, gồm bác sĩ, được ghi; khi blocker hành trình còn mở vẫn cho chăm sóc. Checklist máy chủ quyết định ảnh/chỉ số cần có. ABNORMAL lưu ngay và trả incidentRequired=true nếu chưa liên kết incident; tự động kích hoạt chốt chặn an toàn cho chuyến đi.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -9244,7 +9299,7 @@
       "post": {
         "operationId": "F4-J25",
         "summary": "Bác sĩ ghi kết luận và khả năng tiếp tục",
-        "description": "JWT DRIVER_ESCORT và assignment crewDuty=VETERINARIAN với chứng chỉ/qualification hợp lệ; không tạo role VET mới. NOT_FIT/NEEDS_REVIEW chặn phần liên quan. FIT chỉ giải quyết gate chuyên môn, không tự resume/đóng incident; kết luận mới append-only.",
+        "description": "JWT DRIVER_ESCORT và assignment crewDuty=VETERINARIAN với chứng chỉ/qualification hợp lệ; không tạo role VET mới. NOT_FIT/NEEDS_REVIEW chặn phần liên quan. FIT giải phóng chốt chặn y tế chuyên môn nhưng không tự resume các blocker sự cố khác; kết luận mới append-only.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -11009,7 +11064,7 @@
       "post": {
         "operationId": "F4-J30",
         "summary": "Upload bằng chứng hành trình thật",
-        "description": "FormData file bytes + purpose, horseId bắt buộc với HEALTH. HEALTH chỉ JPEG/PNG, mục khác PDF/JPEG/PNG <=10 MiB. Kiểm nội dung/MIME/quét và scope; chưa gắn file không tự hoàn tất mốc. Upload độc lập không đổi executionVersion.",
+        "description": "FormData file bytes + purpose, horseId bắt buộc với HEALTH. HEALTH/EXPENSE chỉ JPEG/PNG, mục khác PDF/JPEG/PNG <=10 MiB. Kiểm nội dung/MIME/quét và scope; chưa gắn file không tự hoàn tất mốc. Upload độc lập không đổi executionVersion.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -11250,6 +11305,60 @@
               }
             }
           },
+          "413": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "FILE_TOO_LARGE": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: FILE_TOO_LARGE",
+                      "errorCode": "FILE_TOO_LARGE",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "FILE_TOO_LARGE",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "UNSUPPORTED_MEDIA_TYPE": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: UNSUPPORTED_MEDIA_TYPE",
+                      "errorCode": "UNSUPPORTED_MEDIA_TYPE",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "UNSUPPORTED_MEDIA_TYPE",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
           "429": {
             "description": "Không commit một phần nghiệp vụ.",
             "content": {
@@ -11321,60 +11430,6 @@
                       "blockers": [
                         {
                           "code": "FEATURE_NOT_SUPPORTED",
-                          "field": "execution",
-                          "message": "Tải lại và kiểm tra điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "FILE_TOO_LARGE": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: FILE_TOO_LARGE",
-                      "errorCode": "FILE_TOO_LARGE",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "FILE_TOO_LARGE",
-                          "field": "execution",
-                          "message": "Tải lại và kiểm tra điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "UNSUPPORTED_MEDIA_TYPE": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: UNSUPPORTED_MEDIA_TYPE",
-                      "errorCode": "UNSUPPORTED_MEDIA_TYPE",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "UNSUPPORTED_MEDIA_TYPE",
                           "field": "execution",
                           "message": "Tải lại và kiểm tra điều kiện liên quan"
                         }
@@ -11729,7 +11784,7 @@
       "get": {
         "operationId": "F4-J32",
         "summary": "Khách xem hành trình đơn của mình",
-        "description": "Projection đã lọc nội dung nội bộ, chỉ ngựa/đơn của JWT. Có ETA hiện hành/đề xuất riêng và bản đồ mốc đã xác nhận; không lộ booking nội bộ, cost hoặc hồ sơ nhân sự.",
+        "description": "Projection đã lọc nội dung nội bộ, chỉ ngựa/đơn của JWT. Có ETA hiện hành/đề xuất riêng và bản đồ mốc đã xác nhận; không lộ booking nội bộ, chi phí phát sinh hoặc hồ sơ nhân sự.",
         "tags": [
           "CUSTOMER"
         ],
@@ -12873,6 +12928,14 @@
                           }
                         ],
                         "vehicleId": "VEHICLE_001",
+                        "vehicle": {
+                          "vehicleId": "VEHICLE_001",
+                          "plateNumber": "51B-888.99",
+                          "type": "Xe chuyên dụng 4 khoang điều hòa",
+                          "capacityStalls": 4,
+                          "heightM": 3.8,
+                          "grossWeightTons": 8.5
+                        },
                         "from": "Điểm nhận ngựa",
                         "to": "Điểm giao cuối",
                         "milestoneIds": [
@@ -12897,6 +12960,7 @@
                         "note": "",
                         "evidenceFileIds": [],
                         "geo": null,
+                        "requiresHealthCheck": false,
                         "actions": {
                           "canComplete": true,
                           "canRequestCorrection": false,
@@ -12920,6 +12984,7 @@
                         "note": "",
                         "evidenceFileIds": [],
                         "geo": null,
+                        "requiresHealthCheck": false,
                         "actions": {
                           "canComplete": false,
                           "canRequestCorrection": false,
@@ -12948,6 +13013,711 @@
                     "blockers": [],
                     "handoverAvailable": false
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: VALIDATION_ERROR",
+                      "errorCode": "VALIDATION_ERROR",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "VALIDATION_ERROR",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "UNAUTHENTICATED": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: UNAUTHENTICATED",
+                      "errorCode": "UNAUTHENTICATED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "UNAUTHENTICATED",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: FORBIDDEN",
+                      "errorCode": "FORBIDDEN",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "FORBIDDEN",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: NOT_FOUND",
+                      "errorCode": "NOT_FOUND",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "NOT_FOUND",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "STALE_VERSION",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "IDEMPOTENCY_CONFLICT",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  },
+                  "TRIP_STATE_INVALID": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: TRIP_STATE_INVALID",
+                      "errorCode": "TRIP_STATE_INVALID",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "TRIP_STATE_INVALID",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: RATE_LIMITED",
+                      "errorCode": "RATE_LIMITED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "RATE_LIMITED",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: INTERNAL_ERROR",
+                      "errorCode": "INTERNAL_ERROR",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "INTERNAL_ERROR",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "FEATURE_NOT_SUPPORTED": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: FEATURE_NOT_SUPPORTED",
+                      "errorCode": "FEATURE_NOT_SUPPORTED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "FEATURE_NOT_SUPPORTED",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/driver/trips/{tripId}/expenses": {
+      "post": {
+        "operationId": "F4-J36",
+        "summary": "Ghi nhận chi phí phát sinh trên đường",
+        "description": "Tổ xe ghi nhận chi phí thực tế (vé BOT, cỏ/nước, thuốc khẩn cấp) kèm ảnh biên lai/hóa đơn. Không tự ý sửa giá cước hợp đồng của khách hàng. Dữ liệu được chuyển Flow 6 đối soát hoàn ứng.",
+        "tags": [
+          "DRIVER_ESCORT"
+        ],
+        "x-roles": [
+          "DRIVER_ESCORT"
+        ],
+        "x-implementation-status": "DESIGNED_NOT_IMPLEMENTED",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "TRIP_001",
+              "pattern": "^TRIP_\\d{3,}$",
+              "maxLength": 50
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Mẫu contract mục tiêu, không xác nhận API đã triển khai.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ExpenseRecord"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "success": true,
+                  "message": "OK",
+                  "data": {
+                    "id": "EXPENSE_001",
+                    "tripId": "TRIP_001",
+                    "entry": {
+                      "expectedVersion": 10,
+                      "category": "TOLL_FEE",
+                      "amountVnd": 150000,
+                      "occurredAt": "2026-11-10 06:00",
+                      "reason": "Giờ thực tế khác thời điểm nhập ban đầu",
+                      "milestoneId": null,
+                      "receiptFileIds": []
+                    },
+                    "recordedBy": {
+                      "userId": "USER_011",
+                      "name": "Nguyễn Văn An",
+                      "role": "DRIVER_ESCORT",
+                      "crewDuty": null
+                    },
+                    "recordedAt": "2026-11-10 06:00",
+                    "status": "RECORDED"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: VALIDATION_ERROR",
+                      "errorCode": "VALIDATION_ERROR",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "VALIDATION_ERROR",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "UNAUTHENTICATED": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: UNAUTHENTICATED",
+                      "errorCode": "UNAUTHENTICATED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "UNAUTHENTICATED",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: FORBIDDEN",
+                      "errorCode": "FORBIDDEN",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "FORBIDDEN",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: NOT_FOUND",
+                      "errorCode": "NOT_FOUND",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "NOT_FOUND",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "STALE_VERSION",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  },
+                  "IDEMPOTENCY_CONFLICT": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: IDEMPOTENCY_CONFLICT",
+                      "errorCode": "IDEMPOTENCY_CONFLICT",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "IDEMPOTENCY_CONFLICT",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  },
+                  "TRIP_STATE_INVALID": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: TRIP_STATE_INVALID",
+                      "errorCode": "TRIP_STATE_INVALID",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "TRIP_STATE_INVALID",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  },
+                  "NOT_ASSIGNED_LEG": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: NOT_ASSIGNED_LEG",
+                      "errorCode": "NOT_ASSIGNED_LEG",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "NOT_ASSIGNED_LEG",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  },
+                  "EVIDENCE_INVALID": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: EVIDENCE_INVALID",
+                      "errorCode": "EVIDENCE_INVALID",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "EVIDENCE_INVALID",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: RATE_LIMITED",
+                      "errorCode": "RATE_LIMITED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "RATE_LIMITED",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: INTERNAL_ERROR",
+                      "errorCode": "INTERNAL_ERROR",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "INTERNAL_ERROR",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "FEATURE_NOT_SUPPORTED": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: FEATURE_NOT_SUPPORTED",
+                      "errorCode": "FEATURE_NOT_SUPPORTED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "FEATURE_NOT_SUPPORTED",
+                          "field": "execution",
+                          "message": "Tải lại và kiểm tra điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpenseInput"
+              },
+              "example": {
+                "expectedVersion": 10,
+                "category": "TOLL_FEE",
+                "amountVnd": 150000,
+                "occurredAt": "2026-11-10 06:00",
+                "reason": "Giờ thực tế khác thời điểm nhập ban đầu",
+                "milestoneId": null,
+                "receiptFileIds": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/trips/{tripId}/execution/expenses": {
+      "get": {
+        "operationId": "F4-J37",
+        "summary": "Danh sách chi phí phát sinh chuyến đi",
+        "description": "Đọc danh sách chi phí phát sinh thực tế do tổ xe ghi nhận trong hành trình để phục vụ đối soát hoàn ứng.",
+        "tags": [
+          "DRIVER_ESCORT"
+        ],
+        "x-roles": [
+          "DRIVER_ESCORT",
+          "FLEET_ROUTE_COORDINATOR",
+          "LOGISTICS_MANAGER",
+          "TRANSPORT_SPECIALIST"
+        ],
+        "x-implementation-status": "DESIGNED_NOT_IMPLEMENTED",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "TRIP_001",
+              "pattern": "^TRIP_\\d{3,}$",
+              "maxLength": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mẫu contract mục tiêu, không xác nhận API đã triển khai.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ExpenseRecord"
+                      },
+                      "minItems": 0,
+                      "maxItems": 1000
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "success": true,
+                  "message": "OK",
+                  "data": []
                 }
               }
             }
@@ -13632,7 +14402,7 @@
         "properties": {
           "version": {
             "type": "string",
-            "const": "1.0.0"
+            "const": "1.1.0"
           },
           "implementationStatus": {
             "type": "string",
@@ -13848,6 +14618,10 @@
               }
             ]
           },
+          "requiresHealthCheck": {
+            "type": "boolean",
+            "example": false
+          },
           "actions": {
             "$ref": "#/components/schemas/Actions"
           }
@@ -13867,7 +14641,72 @@
           "note",
           "evidenceFileIds",
           "geo",
+          "requiresHealthCheck",
           "actions"
+        ],
+        "additionalProperties": false
+      },
+      "VehicleSummary": {
+        "type": "object",
+        "properties": {
+          "vehicleId": {
+            "type": "string",
+            "example": "VEHICLE_001",
+            "pattern": "^VEHICLE_\\d{3,}$",
+            "maxLength": 50
+          },
+          "plateNumber": {
+            "type": "string",
+            "example": "51B-888.99",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "type": {
+            "type": "string",
+            "example": "Xe chuyên dụng 4 khoang điều hòa",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "capacityStalls": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "example": 4
+          },
+          "heightM": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 5,
+                "example": 3.8
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "grossWeightTons": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 50,
+                "example": 8.5
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "vehicleId",
+          "plateNumber",
+          "type",
+          "capacityStalls",
+          "heightM",
+          "grossWeightTons"
         ],
         "additionalProperties": false
       },
@@ -13934,6 +14773,16 @@
               }
             ]
           },
+          "vehicle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VehicleSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "from": {
             "type": "string",
             "example": "Điểm nhận ngựa"
@@ -13963,6 +14812,7 @@
           "assignedUserIds",
           "crew",
           "vehicleId",
+          "vehicle",
           "from",
           "to",
           "milestoneIds"
@@ -14362,9 +15212,10 @@
             "items": {
               "type": "string",
               "example": "HORSES_CHECKED",
-              "minLength": 1,
-              "maxLength": 100,
-              "pattern": "^[A-Za-z0-9_-]+$"
+              "enum": [
+                "HORSES_CHECKED",
+                "VEHICLE_VERIFIED"
+              ]
             },
             "minItems": 0,
             "maxItems": 100,
@@ -14411,9 +15262,10 @@
             "items": {
               "type": "string",
               "example": "HORSES_CHECKED",
-              "minLength": 1,
-              "maxLength": 100,
-              "pattern": "^[A-Za-z0-9_-]+$"
+              "enum": [
+                "HORSES_CHECKED",
+                "VEHICLE_VERIFIED"
+              ]
             },
             "minItems": 1,
             "maxItems": 100,
@@ -15172,7 +16024,7 @@
           },
           "partnerReference": {
             "type": "string",
-            "example": "Biên nhận đối tác AIR",
+            "example": "Biên nhận đối tác AIR tại kho Cargo Terminal",
             "minLength": 1,
             "maxLength": 255
           },
@@ -15579,6 +16431,128 @@
           "entry",
           "recordedBy",
           "recordedAt"
+        ],
+        "additionalProperties": false
+      },
+      "ExpenseInput": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 10
+          },
+          "category": {
+            "type": "string",
+            "example": "TOLL_FEE",
+            "enum": [
+              "TOLL_FEE",
+              "FEED_SUPPLIES",
+              "EMERGENCY_CARE",
+              "OTHER"
+            ]
+          },
+          "amountVnd": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 100000000,
+            "example": 150000
+          },
+          "occurredAt": {
+            "type": "string",
+            "example": "2026-11-10 06:00",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2} (?:[01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Giờ thực tế khác thời điểm nhập ban đầu",
+            "minLength": 5,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "milestoneId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "example": "MILESTONE_001",
+                "minLength": 1,
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receiptFileIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "example": "EVIDENCE_001",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            },
+            "minItems": 0,
+            "maxItems": 100,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "category",
+          "amountVnd",
+          "occurredAt",
+          "reason",
+          "milestoneId",
+          "receiptFileIds"
+        ],
+        "additionalProperties": false
+      },
+      "ExpenseRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "EXPENSE_001",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "tripId": {
+            "type": "string",
+            "example": "TRIP_001",
+            "pattern": "^TRIP_\\d{3,}$",
+            "maxLength": 50
+          },
+          "entry": {
+            "$ref": "#/components/schemas/ExpenseInput"
+          },
+          "recordedBy": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "recordedAt": {
+            "type": "string",
+            "example": "2026-11-10 06:00",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2} (?:[01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "status": {
+            "type": "string",
+            "example": "RECORDED",
+            "enum": [
+              "RECORDED",
+              "SUBMITTED_TO_FLOW6"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "tripId",
+          "entry",
+          "recordedBy",
+          "recordedAt",
+          "status"
         ],
         "additionalProperties": false
       },
@@ -16269,7 +17243,8 @@
               "MILESTONE",
               "AIR",
               "CHECKPOINT",
-              "HEALTH"
+              "HEALTH",
+              "EXPENSE"
             ]
           },
           "uploadedAt": {
@@ -16299,7 +17274,8 @@
               "MILESTONE",
               "AIR",
               "CHECKPOINT",
-              "HEALTH"
+              "HEALTH",
+              "EXPENSE"
             ]
           },
           "horseId": {
@@ -16322,5 +17298,5 @@
     }
   },
   "x-id-policy": "IDs for new execution records are opaque backend-issued keys, not assertions about SQL tables.",
-  "x-contract-source": "FLOW4.md; Flow3 v2; Flow6 v1; agreed Flow4 business baseline 18/10/2026"
+  "x-contract-source": "FLOW4.md; Flow3 v2; Flow6 v1; agreed Flow4 business baseline 18/10/2026; updated 30/10/2026"
 }
