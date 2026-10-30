@@ -24,7 +24,7 @@ public sealed class RequestDetailsService(IDataSession data, AccessService acces
             id = x.PaymentID, invoiceId = x.InvoiceID, amount = x.Amount, currency = x.CurrencyCode,
             method = x.Method, status = x.Status, receivedAmount = x.VnpayReceivedAmount,
             paidAt = x.VnpayReceivedAmount is null ? null : x.PaymentDate.ToString("yyyy-MM-dd HH:mm"),
-            reviewRequired = x.FinancialReviewRequired, expiresAt = x.VnpayExpiresAtUtc?.ToString("yyyy-MM-dd HH:mm")
+            reviewRequired = x.FinancialReviewRequired
         }));
         var horseIds = links.Select(x => x.HorseID).ToArray();
         var horses = await data.ListAsync<Horse>(x => horseIds.Contains(x.HorseID), ct);

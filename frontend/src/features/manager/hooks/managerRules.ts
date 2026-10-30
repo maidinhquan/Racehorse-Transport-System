@@ -254,7 +254,7 @@ export function initialDraft(r: TransportRequest): ContractDraft {
     if (d.budget && sumBudget(d.budget) < 100000) {
       d.budget = defaultBudget(r);
     }
-    delete d.mode;
+    d.mode ??= r.mode;
     return d;
   }
   const v = curVersion(r);
@@ -272,7 +272,7 @@ export function initialDraft(r: TransportRequest): ContractDraft {
       b.INSURANCE = fresh.INSURANCE;
       b.STAFF = fresh.STAFF;
     }
-    const mode = undefined;
+    const mode = v.mode ?? r.mode;
     const minPrep = 0;
     const minDepartDate = addDays(today(), minPrep);
 
@@ -298,7 +298,7 @@ export function initialDraft(r: TransportRequest): ContractDraft {
       terms,
     };
   }
-  const mode = undefined;
+  const mode = r.mode;
   const minPrep = 0;
   const minDepartDate = addDays(today(), minPrep);
   let departAt = `${r.pickupAt || minDepartDate} 06:00`;
@@ -314,6 +314,7 @@ export function initialDraft(r: TransportRequest): ContractDraft {
 
 /** Kiểm tra bản nháp trước khi phát hành; trả về '' nếu hợp lệ */
 export function draftError(d: ContractDraft): string {
+  if (d.mode !== 'ROAD' && d.mode !== 'AIR') return 'Chọn phương thức vận chuyển (Bước 1).';
   if (!d.departAt || !d.arriveAt) return 'Nhập ngày giờ khởi hành và đến dự kiến (Bước 1).';
   if (d.arriveAt <= d.departAt) return 'Thời gian đến phải sau thời gian khởi hành (Bước 1).';
 

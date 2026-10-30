@@ -1,7 +1,7 @@
 import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
 import { MANAGER_ENDPOINTS as E } from './managerEndpoints';
-import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, Staff, Transaction, TransportRequest, Trip } from '../types';
+import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, Staff, Transaction, TransportMode, TransportRequest, Trip } from '../types';
 import { attachContractFeedback, contractFromWire, documentKey, paymentFromWire, type WireContract, type WireHorse, type WirePayment } from '../../../shared/api/flow1Wire';
 export interface CostPlanDto {
   costs: {
@@ -28,7 +28,7 @@ export interface ContractEditorData {
   request: TransportRequest; customer: CustomerInfo; horses: HorseRef[];
   draft: ContractDraft | null; currentContract: ContractVersion | null;
   versions: ContractVersion[];
-  defaults: Omit<FormOptions, 'supportedRoutes'> & { terms: ContractDraft['terms'] };
+  defaults: FormOptions & { terms: ContractDraft['terms'] };
 }
 type WireRequest = Record<string, any>;
 const versionFromWire = (v: WireContract): ContractVersion => contractFromWire(v) as unknown as ContractVersion;
@@ -77,8 +77,8 @@ export const managerApi = {
   rejectRequest: async (id: string, reason: string) => requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/reject`, { reason })),
   cancelRequest: (id: string, reason: string) => contractClient('post', `/manager/requests/${id}/cancel`, { reason }),
   decideCancellation: (id: string, approve: boolean, reason: string) => contractClient('post', `/manager/contracts/${id}/cancellation/decision`, { decision: approve ? 'APPROVED' : 'REJECTED', reason }),
-  getContractEditor: async (id: string): Promise<ContractEditorData> => {
-    const data = await contractClient<any>('get', `/manager/requests/${id}/contract-editor`);
+  getContractEditor: async (id: string, mode?: TransportMode): Promise<ContractEditorData> => {
+    const data = await contractClient<any>('get', `/manager/requests/${id}/contract-editor`, undefined, mode ? { mode } : undefined);
     const budget: ContractDraft['budget'] = { TRANSPORT: 0, STAFF: 0, PROCEDURE: 0, VET: 0, INSURANCE: 0 };
     const keys: Record<string, keyof typeof budget> = { TRANSPORT: 'TRANSPORT', CREW: 'STAFF', PERMIT: 'PROCEDURE', VET: 'VET', INSURANCE: 'INSURANCE' };
     for (const item of data.internalCosts ?? []) {
@@ -89,7 +89,7 @@ export const managerApi = {
       request: requestFromWire(data.request), versions: attachContractFeedback(data.versions.map(versionFromWire), data.request?.contractFeedback), currentContract: data.currentContract ? versionFromWire(data.currentContract) : null };
   },
   saveContractDraft: (id: string, draft: ContractDraft) => contractClient<{ requestId: string; contractId: string; versionNo: number; status: string; savedAt: string }>('put', `/manager/requests/${id}/contract-draft`, {
-    departAt: draft.departAt, arriveAt: draft.arriveAt,
+    mode: draft.mode, departAt: draft.departAt, arriveAt: draft.arriveAt,
     // Internal cost estimate was removed from the editor; backend still expects the field.
     budget: { TRANSPORT: 0, PROCEDURE: 0, VET: 0, INSURANCE: 0, STAFF: 0 },
     // Send only the fields in the contract (UI keeps extra keys such as ids on lines/terms).

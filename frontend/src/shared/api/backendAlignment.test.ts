@@ -8,6 +8,7 @@ import { readRequestDrafts, writeRequestDrafts, mergeRequestDrafts } from '../..
 import { contractFromWire } from './flow1Wire';
 import { canPayDeposit, canSign } from '../../features/customer/hooks/customerRules';
 import type { TransportRequest } from '../../features/customer/types';
+import { initialDraft } from '../../features/manager/hooks/managerRules';
 
 vi.mock('./apiClient', () => ({ apiClient: { request: vi.fn() } }));
 const request = vi.mocked(apiClient.request);
@@ -26,6 +27,17 @@ const rawRequest = {
 beforeEach(() => { request.mockReset(); sessionStorage.clear(); localStorage.clear(); });
 
 describe('backend DTO alignment', () => {
+  it('sends the chosen contract mode through request validation and requests policies for that mode', async () => {
+    request.mockResolvedValueOnce(reply({ ...rawRequest, status: 'CONTRACT_PREPARATION' }));
+    const r = await managerApi.getRequest(rawRequest.id);
+    const draft = { ...initialDraft(r), mode: 'ROAD' as const };
+    request.mockResolvedValueOnce(reply({ requestId: r.id, contractId: 'CONTRACT_001', versionNo: 1, status: 'DRAFT', savedAt: '2026-10-30T00:00:00Z' }));
+    await managerApi.saveContractDraft(r.id, draft);
+    expect(request.mock.calls[1][0]?.data).toMatchObject({ mode: 'ROAD' });
+    request.mockResolvedValueOnce(reply({ request: rawRequest, customer: {}, horses: [], draft: null, currentContract: null, versions: [], defaults: {} }));
+    await managerApi.getContractEditor(r.id, 'AIR');
+    expect(request.mock.calls[2][0]?.params).toEqual({ mode: 'AIR' });
+  });
   it('round-trips health notes and preserves weight/reproduction while uploading the real file', async () => {
     request.mockResolvedValueOnce(reply(horse));
     const h = await customerApi.getHorse(horse.id);
@@ -69,10 +81,10 @@ describe('backend DTO alignment', () => {
     expect(v).toMatchObject({ v: 3, state: 'ISSUED', validUntil: '2027-01-01 12:00' });
     expect(v.snapshot?.horses[0]).toMatchObject({ microchip: '981000000000001', passportNo: 'P001' });
   });
-  it('uses the two backend schedule query parameters directly', async () => {
+  it('sends the schedule and excludes the request being edited from horse reservations', async () => {
     request.mockResolvedValueOnce(reply([]));
     await customerApi.getSelectableHorses('2027-01-04', 'REQUEST_001', '2027-01-01');
-    expect(request.mock.calls[0][0]?.params).toEqual({ expectedTransportDate: '2027-01-01', expectedDeliveryDate: '2027-01-04' });
+    expect(request.mock.calls[0][0]?.params).toEqual({ expectedTransportDate: '2027-01-01', expectedDeliveryDate: '2027-01-04', excludeRequestId: 'REQUEST_001' });
   });
   it('shows field validation errors from both axios and wrapped errors', () => {
     const errors = { file: ['The File field is required.'] };

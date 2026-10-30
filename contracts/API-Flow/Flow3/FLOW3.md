@@ -1,151 +1,1749 @@
-# API Contract — Flow 3: lập tuyến, bố trí nguồn lực và duyệt khởi hành
+# API Contract — Flow 3
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Phiên bản | 2.0.0 — 27/10/2026, ghi đè Flow 3 cũ |
-| Frontend đối chiếu | `D:/Shared/Final_Flow3.html` |
-| Phạm vi | Thiết kế API contract; chưa triển khai backend/database hoặc nối HTML vào API |
-| Đầu vào | Trip PLANNING, Request ACTIVATED, Contract EFFECTIVE, cọc đã xác minh, deployment CONFIRMED, đã giao Specialist/Coordinator |
-| Kết thúc | Manager duyệt khởi hành: Trip READY_TO_DEPART, Request SCHEDULED; DEPARTED thuộc Flow 4 |
+| Phiên bản | 1.0 — hợp đồng đích theo SRS và Reviewed |
+| Ngày | 24/10/2026 |
+| Phạm vi | Lập phương án, nguồn lực, booking, phê duyệt hai mốc |
+| Trạng thái | Chưa chứng nhận backend/frontend đã triển khai; từng API ghi dependency |
+| Căn cứ | [SRS](../../../data/SE2040_Group2_ASM2%20(1).docx), [SQL Reviewed](../../../data/HorseTransportDB_Reviewed.sql), [NAME](../../../data/DATABASE_STATUS_CONVENTION.md), [ID](../../../data/ID_NAME_RULE_Reviewed.md), [Flow 1](../Flow1/FLOW1.md), [Convention nền](../../CONVENTIONS.md) |
 
-[JSON từng API](FLOW3-API-JSON.md) · [OpenAPI](flow3.openapi.json) · [Kịch bản nghiệm thu](flow3.examples.json) · [Quy ước](../../CONVENTIONS.md).
+File tự chứa luồng, quyền, DTO, request/response thành công/lỗi, mapping SQL và kiểm tra bàn giao; theo mẫu FLOW1.md. Các API và trường chưa có persistence được đánh dấu rõ, không coi ví dụ là dữ liệu đã tồn tại. Chỉ tạo hai file Markdown trong lần này, không tạo OpenAPI riêng.
 
-## 1. Quy trình thay thế bản cũ
+## 1. Luồng chính thức
 
-Sau giao việc, hai nhánh chạy ngay và song song: Specialist xử lý hồ sơ khách/CBN, bảo hiểm, kiểm dịch bằng Flow 2 rồi xác nhận Docs READY; Coordinator lập tuyến, bố trí xe/người, chọn dịch vụ bay, gửi Manager duyệt và hoàn tất vận hành. Không bắt Coordinator đợi planning-feasibility, earliestReadyAt hoặc danh sách giấy tờ có thời hạn.
+Flow 1 bàn giao Trip PLANNING/Request ACTIVATED, hợp đồng EFFECTIVE/bản SIGNED/cọc đủ và Manager giao Specialist/Coordinator. Coordinator lập route/lịch/phân công nháp → phối hợp Specialist feasibility → gửi duyệt, kiểm conflict và giữ lịch tạm → Manager Gate 1 → duyệt thì assignments CONFIRMED, Request SCHEDULED → xác nhận AIR booking sau Gate 1 → Specialist Documents READY + Coordinator Operations READY → Manager Gate 2 → Trip READY_TO_DEPART → Flow 4 xác nhận xuất phát thực tế mới Trip IN_TRANSIT/Request IN_PROGRESS.
 
-Theo giả định đồ án trong frontend này, giấy tờ được xem là còn hiệu lực suốt chuyến. Vẫn bắt đủ hồ sơ được duyệt, bảo hiểm VERIFIED bao phủ lịch chuyến và lịch kiểm dịch bắt buộc được xác nhận. Checklist rỗng/chưa áp bộ yêu cầu không tự READY. Chứng chỉ nhân sự vẫn kiểm tra hạn. Thay lịch/tuyến/bộ yêu cầu/bảo hiểm phải đánh giá lại dấu READY liên quan.
+Main-flow 03 là khung; BR-21–28 bổ sung hai mốc duyệt. Không hiểu duyệt phương án là quyền tự xuất phát. Mỗi ROAD có ba người độc lập; AIR gồm ROAD_ORIGIN → AIR → ROAD_DESTINATION, hai ROAD phân công riêng; đối tác AIR chăm sóc trọn gói, không bắt buộc Vet CBN bay cùng.
 
-### ROAD
-
-1. Lưu nháp tuyến và xe + MAIN_DRIVER, CO_DRIVER, VETERINARIAN.
-2. Tính tuyến, kiểm tra nghỉ/chăm sóc, hạn giao, tiếp cận địa chỉ và giới hạn xe. Coordinator xác nhận bố trí nguồn lực **trước submit**.
-3. Gửi cả tuyến và nguồn lực đã xác nhận; Manager duyệt/trả có lý do. Chưa cần Docs READY tại mốc này.
-4. APPROVED + xác nhận nguồn lực còn đúng tạo Ops READY do server tính.
-
-### AIR
-
-1. Chọn bên dịch vụ và nhập mã do bên đó cung cấp. Lookup đúng partnerId + providerFlightCode, trả lịch/giá/sân bay/chăm sóc/sức chứa và lỗi phù hợp Trip.
-2. Lập ROAD trước/sau bay: hai xe và sáu người riêng, ba vị trí mỗi chặng. Không bố trí bác sĩ CBN trên máy bay; đối tác chịu trách nhiệm chăm sóc khi bàn giao/chờ/bay.
-3. Gửi phương án tổng thể với nguồn lực **dự kiến**. Manager duyệt tuyến, nguồn lực dự kiến và ngân sách trong cùng quyết định. **Không bắt booking/resourcesConfirmed trước mốc này.**
-4. Coordinator liên hệ và đặt dịch vụ bên ngoài, ghi nhận booking đúng bản duyệt rồi xác nhận nguồn lực thực tế. Server tính Ops READY.
-
-Nút duyệt chi phí bay riêng vẫn có API nhưng không thay duyệt tổng thể, không giữ chỗ và không mở booking khi plan chưa APPROVED. Submit tổng thể tự đưa flight DRAFT/REJECTED sang BUDGET_PENDING; approve tổng thể đồng thời duyệt đúng ngân sách đó. Một bên không đáp ứng thì tra bên khác; không tự sửa hợp đồng/hạn giao hoặc sinh chuyến/booking giả.
-
-### Hội tụ
-
-Manager đọc readiness rồi duyệt khởi hành riêng khi Docs READY + Ops READY còn đúng, đủ bảo hiểm/kiểm dịch/booking AIR, nguồn lực khả dụng, tuyến/địa chỉ hợp lệ và không sự cố chặn. POST recheck trong transaction; GET không đủ để ra quyết định. Duyệt phương án không tự khởi hành.
-
-## 2. Phiên bản và giữ nguồn lực
-
-`version` là revision tổng hợp planning của Trip, tăng sau mỗi mutation thành công. Mọi mutation gửi expectedVersion; catalogue dùng revision từng record. `contextVersion` tăng khi đầu vào Flow 1/phân công đổi. `planVersion` là revision nội dung, tăng đơn điệu khi sửa nội dung; submit/rút/quyết định chỉ tăng version. Không dùng v/routeVersion HTML làm khóa backend. Draft/approvedPlan tách riêng, draft có thể thiếu; submit bắt đủ.
-
-Server lưu resourcesConfirmed/docsReady/routing/pickupAccess kèm dependency snapshot, actor/time và valid/invalidatedReason. Docs READY có thể lập trước phương án; không bắt version tổng hợp của hai dấu bằng nhau. Backend đối chiếu dependency với approved plan hiện tại; thay đổi ảnh hưởng mới vô hiệu dấu. Xác nhận dấu bên kia không tự hủy dấu còn đúng. Khi planVersion đổi, server tái đánh giá; client không tự mang READY sang bản mới.
-
-ROAD confirm trước submit kiểm tra và giữ tạm nguyên tử. AIR draft không giữ; submit giữ tạm nguyên tử. Manager duyệt chuyển sang phân công xác nhận. Một xe/người chỉ thuộc một Trip active, kiểm tra toàn hệ thống, không chỉ danh sách UI; không dùng lại giữa hai ROAD của AIR. Trả/rút giải phóng đúng giữ tạm, không giải phóng approved cũ. Không tự hết hạn hold nếu chưa có policy.
-
-J12 tạo draft thay thế có lý do, giữ approved snapshot và lịch sử. Có bản sửa mở thì chặn departure. Duyệt mới chuyển nguồn lực/thay approved nguyên tử. Booking BOOKED không overwrite: J20 ghi nhận hủy đối tác trước duyệt bản thay flight/lịch/số ngựa; chỉ giữ booking nếu backend xác minh không bị ảnh hưởng. Rút draft không tự hủy booking.
-
-Idempotency-Key UUID bắt buộc mọi mutation, scope actor + method + path; lưu bền vững >=24h. Cùng key/body chuẩn hóa trả cùng kết quả; khác body IDEMPOTENCY_CONFLICT. Key khác + revision cũ STALE_VERSION. Kiểm JWT/scope trước replay. POST validate chỉ đọc không cần key; POST routing/truck-check lưu bằng chứng nên cần key. Không nhận actor/time/status/READY/deadline/giá đối tác từ client.
-
-## 3. Tuyến, địa điểm, nghỉ và bản đồ
-
-Điểm nhận/giao là snapshot request riêng tư, không thêm vào catalogue công cộng. Place có nhiều chức năng REST/FUEL/QUARANTINE/BORDER/AIRPORT. placeId là khóa opaque server cấp; adapter checkpoints cũ giữ kiểu khóa nguồn, không suy DB ID từ PL-* demo. Trip/request/horse/vehicle/user theo TRIP_*/REQUEST_*/HORSE_*/VEHICLE_*/USER_*. EMP-* trong HTML phải map USER_*, không tạo actor mới. serviceId opaque; bookingId integer.
-
-Stops theo thứ tự, ORIGIN/DESTINATION cố định; không xóa/đổi type để né điểm bắt buộc. Một place đa chức năng có nhiều purposes trong một lần ghé. AIR có hai AIRPORT kề nhau, một chuyến thẳng, hai ROAD độc lập. Backend resolve tọa độ/place/private endpoints và tính giờ, không tin geometry/plannedAt/ETA client.
-
-Leaflet hiển thị; OSRM tham khảo đường bộ, không chứng minh hạn chế xe tải. Routing phía server trả geometry từng đoạn [lat,lng], km, duration, lịch arrive/depart. Không nối thẳng tọa độ rồi gọi là đường thực. DEMO/SIM chỉ Trip demo khi capability cho phép, nhãn rõ; không dùng duyệt chuyến thật.
-
-Policy demo lấy J01, version và nhãn “Đề xuất cho đồ án”, không là luật: careIntervalH=4, shortRestMin=45, roadEpisodeH=12, recoveryRestH=8, truckFactor=1.2, airportHandoverH=3, airportReceiveH=2. Thiếu cấu hình chặn tính/submit, không tự default. Không nhân truckFactor hai lần.
-
-- Cộng dồn lái + chờ không nghỉ đến lần chăm sóc hợp lệ; không vượt careIntervalH, kiểm ngay trước khi tới trạm.
-- REST cần active, chỗ xe, nước/thức ăn, đủ capacity, mở cửa toàn khoảng ghé, dwell >= shortRestMin. Nghỉ trên xe cần onboardCare; xuống xe cần loadingArea + stabling.
-- Nghỉ ngắn reset care clock, không reset roadEpisode. Chỉ hồi phục ngoài xe đủ recoveryRestH reset đợt đường bộ; đổ xăng/kiểm dịch không tự là nghỉ.
-- Giờ mở 24/7 hoặc HH:mm–HH:mm, hỗ trợ qua đêm. Toàn khoảng ghé nằm trong giờ mở, hai đầu bằng nhau không hợp lệ.
-- AIR đến sân bay trước giờ bay ít nhất airportHandoverH; tiếp nhận sau hạ cánh airportReceiveH. Care confirmation gắn flight version; bay không là nghỉ hồi phục. Reset clock đường bộ chặng đến chỉ khi có bàn giao chăm sóc rõ.
-- ETA server gồm lái/dừng/bay/bàn giao <= deliveryDeadline từ Flow 1. Không phù hợp thì Manager xử lý cam kết qua Flow 1, nhập reason không vượt deadline.
-
-Place create/update chặn trùng tọa độ trong 50m, ưu tiên thêm chức năng vào địa điểm hiện có. Place đã tham chiếu kể cả history không xóa; đổi trạng thái không rewrite approved snapshot. Catalogue capacity là khả năng cơ sở, không phải chỗ trống realtime.
-
-## 4. Xe, nhân sự và tiếp cận
-
-Request 1–4 ngựa, kiểm mapping thực không tin count client. Xe READY, đủ stalls, đúng quốc gia/khu vực, không bảo trì/xung đột. Ba người khác nhau: hai DRIVER và một VETERINARIAN đủ chuyên môn/chứng chỉ đến hết khoảng phân công. AIR hai xe/sáu người khác nhau đúng quốc gia chặng. Không coi một EscortID là đủ hai vị trí.
-
-Flow 3 không thêm/xóa hồ sơ nhân viên. Coordinator/Manager chỉ đổi ACTIVE/ON_LEAVE/INACTIVE. Người đang IN_TRANSIT phải thay qua flow sự cố trước nghỉ/ngừng. Thay trạng thái vô hiệu xác nhận nguồn lực Trip PLANNING liên quan và báo Manager. Trip READY_TO_DEPART bị ảnh hưởng phải chặn xuất phát, xử lý lại phê duyệt; không dùng READY cũ vượt gate.
-
-vehicle.spec là kích thước/grossT cố định từ phân hệ xe đã xác minh, không suy từ stalls như fixture HTML. So pickup.access/delivery.access (maxHeightM/maxWidthM/maxLengthM/maxWeightT, dùng grossT). AIR outbound so pickup, inbound so delivery. Chưa có giới hạn khai báo không tự bịa giới hạn, vẫn xác minh tiếp cận. J27 trả eligible/blockers để lọc xe.
-
-TruckProfile theo road/outbound/inbound: heightM,widthM,lengthM,currentT,grossT,axleT >0; currentT<=grossT; axleT<=currentT; vehicleId đúng xe. Không cho giảm kích thước/grossT khác spec để né hạn chế. J26 kiểm đường cấm/cầu/hầm theo đúng xe/lịch/stops, lưu server evidence; client không gửi ok/provider/signature. HERE_TRUCK là provider mục tiêu trong HTML; key/config ở server, không nhận key/URL tùy ý từ client. Provider lỗi trả 503 ROUTING_UNAVAILABLE, không fallback thành verified. Snap endpoint lệch >250m hoặc critical/violation/restricted notice chặn.
-
-HTML cuối file ẩn khối truck/access, guard submit cuối chỉ kiểm số ngựa. Contract vẫn bắt các điều kiện này tại submit/approve/departure; khi tích hợp FE cần hiện lại thao tác hoặc kết quả xác minh để hoàn tất, không chỉ hiện lỗi sau duyệt.
-
-## 5. Đổi điểm nhận
-
-J28 xác minh ACCESSIBLE/INACCESSIBLE đúng xe/profile/địa chỉ, căn cứ >=8 ký tự và acknowledgement. Nếu không vào được, J29 trả cơ sở active cùng quốc gia, QUARANTINE, có truckParking/loadingArea/waterFeed/capacity đủ và tọa độ; mở toàn bộ 30 phút bàn giao. Khoảng cách đường thẳng chỉ tham khảo.
-
-J30 tạo PROPOSED, reason >=10 ký tự, đã liên hệ cơ sở. J31 Manager APPROVE → MANAGER_APPROVED; RETURN cần reason >=5 → REJECTED. J32 Manager ghi nhận khách đã đồng ý thực tế qua PHONE/EMAIL/WRITTEN, note >=10 và acknowledgement → CUSTOMER_CONFIRMED. Thông báo gửi khách không là consent.
-
-Chỉ CUSTOMER_CONFIRMED mới dùng làm ORIGIN draft, giữ pickup gốc request/hợp đồng. Nội dung nêu khách tự đưa ngựa đến, giờ/trách nhiệm bàn giao; không tự phát sinh phí hay sửa giá. Recheck placeVersion/xe/profile/giờ hẹn ở từng bước. J33 mở đề xuất lại, giữ history, xóa evidence phụ thuộc, tính lại tuyến và xin consent mới. Không đổi điểm giao bằng API này; điểm giao không vào được thì thay xe hoặc xử lý hợp đồng đúng thẩm quyền.
-
-## 6. Đối tác bay và booking
-
-Coordinator CRUD bên dịch vụ, Manager chỉ đọc catalogue. Tuyến/lịch bay đối tác cung cấp là read-only, không có endpoint Coordinator tự tạo/sửa/xóa schedule. Catalogue demo sample=true. Không có lịch phù hợp trả data=[]/blockers để tra bên khác; không hứa thực tế luôn có chuyến.
-
-Lookup mã trim/case-fold trong đúng partner. Cùng partner có nhiều lịch cùng mã trả FLIGHT_CODE_AMBIGUOUS kèm candidates; chọn serviceId rõ. Chọn serviceId+catalogVersion vào draft; server snapshot partner/code/airports/local times+IANA zones/giờ chuẩn/giá VND/capacity/care. Quy đổi VN/JP cùng instant trước so sánh, không so chuỗi local. USD demo phải thay báo giá VND đã xác nhận; không đổi nhãn hay đoán tỷ giá. Chi phí vận hành không sửa giá khách.
-
-Budget DRAFT → BUDGET_PENDING → BUDGET_APPROVED/REJECTED; plan DRAFT → PENDING_APPROVAL → APPROVED/RETURNED. J11 duyệt tổng thể AIR gồm ngân sách. J40/J41 cho nút chi phí riêng, không thay J11. BUDGET_APPROVED không là BOOKED.
-
-J13 sau APPROVED tổng thể + đúng budget snapshot. bookingRef 4–100, confirmedHorses đúng số ngựa, acknowledged=true, source PARTNER_REFERENCE/DEMO. File tùy chọn từ J42, không object URL/base64 giả. Không trùng mã trim/case-fold cùng đối tác ở Trip khác. Recheck catalogue/khả dụng/lịch/giá/care; thay đổi trả FLIGHT_CATALOG_CHANGED, không tự refresh approved snapshot. DEMO chỉ Trip/capability demo. Upload PDF/JPEG/PNG thật <=10 MiB, kiểm nội dung/MIME/quét và ownership trước gắn; download luôn xác thực, không trả binary giả.
-
-J20 ghi nhận hủy đã được đối tác xác nhận (hoặc demo), reference/lý do/evidence/history. Không gọi API hãng thật hoặc báo hoàn tiền chỉ bằng ghi nhận hủy. Partner có tham chiếu không xóa. Đổi catalogue không sửa snapshot, nhưng vô hiệu bằng chứng liên quan và chặn khi không còn phù hợp.
-
-## 7. READY và giao thức
-
-J14 ROAD confirm ở draft đủ bộ, AIR sau approved+booking. Response có resourcesConfirmed và opsReady server tính. J15 recheck/reconfirm cho caller cũ cùng gate; UI chỉ cần nút J14, không bắt thêm nút Ops READY. J16 Specialist xác nhận đủ hồ sơ/bảo hiểm, được trước duyệt tuyến; phụ thuộc đổi phải kiểm lại. Không dùng 0/0 hoặc boolean client để READY.
-
-J18 nhận expectedVersion+approvedPlanVersion+readinessVersion vừa đọc. Transaction khóa/đọc lại tất cả dependency; quá plannedDepart, còn draft thay đổi hoặc điều kiện đổi trả READINESS_CHANGED/blockers. Thành công cập nhật Trip+Request, audit/notification nguyên tử, không tạo DEPARTED. Sau READY_TO_DEPART khóa sửa planning/hồ sơ; lùi lịch/thu hồi phê duyệt là workflow riêng, không tự unlock. Driver vẫn kiểm trước xuất phát thực tế. Sự cố/khả dụng đổi phải chặn dù từng approved.
-
-readinessVersion do server cấp cho tập kết quả kiểm tra/dependency, không phải timestamp client hoặc planVersion. Thay đổi nguồn ngoài/capability/thời gian làm gate đổi phải được phát hiện khi đọc/lệnh duyệt, kể cả version của nội dung plan chưa đổi. J17 trả checks có code/group/tab/label/ok/detail cho checklist của frontend và blockers cho lý do chặn; client không tự tính canApproveDeparture từ vài cờ.
-
-Base /api; Bearer JWT role FLEET_ROUTE_COORDINATOR (HTML alias FLEET_COORDINATOR), TRANSPORT_SPECIALIST, LOGISTICS_MANAGER. Staff chỉ Trip được giao; Manager trong scope quản lý; file/history cùng kiểm quyền. 403 sai role, 404 ngoài scope. Place/partner mutation chỉ Coordinator; staff-status cho Coordinator/Manager. Không CRUD xe từ Flow 3.
-
-Envelope {success,message,data}; list data array. ID/status/version/time server cấp. Timestamp YYYY-MM-DD HH:mm theo Asia/Ho_Chi_Minh, kiểm ngày lịch thật, lưu UTC. Tiền nguyên VND. Error có errorCode/blockers[{code,field,message}], không SQL/stack. 400 validation, 401 auth, 403 role, 404 scope, 409 business/stale, 413 quá file, 415 MIME, 429 rate, 500 internal, 501 unsupported, 503 provider lỗi. Capability false trả 501, không fallback mock.
-
-Các mã chính: STALE_VERSION, IDEMPOTENCY_CONFLICT, DEPLOYMENT_REQUIRED, PLAN_LOCKED, RESOURCE_CONFLICT, RESOURCES_NOT_CONFIRMED, INVALID_CREW, VEHICLE_ACCESS_RESTRICTED, PICKUP_CONSENT_REQUIRED, PLACE_CHANGED, CARE_POLICY_VIOLATION, DELIVERY_DEADLINE_EXCEEDED, ROUTING_REQUIRED, TRUCK_ROUTE_REQUIRED, FLIGHT_PROVIDER_MISMATCH, FLIGHT_CODE_AMBIGUOUS, FLIGHT_CATALOG_CHANGED, PLAN_NOT_APPROVED, OLD_BOOKING_ACTIVE, BOOKING_REFERENCE_DUPLICATE, DOCS_NOT_READY, READINESS_CHANGED, DEPARTURE_APPROVAL_LOCKED, RECORD_REFERENCED, CONTRACT_SUPERSEDED.
-
-## 8. Chuyển đổi endpoint cũ
-
-| Cũ | Chuẩn v2 |
+| Màn hình SRS | API |
 |---|---|
-| F3-J03 planning-feasibility | Retired, không là gate; mutation cũ 409 CONTRACT_SUPERSEDED |
-| F3-J21/J22 timed-documents | Retired khỏi planning; lịch nằm plan-draft, không unlock hồ sơ |
-| F2-J53/J54 timed-documents | Chỉ metadata/history nếu còn hiển thị; không block giấy; lệnh tuần tự cũ CONTRACT_SUPERSEDED |
-| F3-J06/J08/J11 | Giữ URL, schema v2, ROAD/AIR gate khác nhau |
-| F3-J13/J14/J16/J17/J18 | Giữ booking/resources/docs-ready/readiness/departure URL, một schema v2 |
-| F2 route-draft/resources/flight-proposals | Caller chuyển Flow 3, không chạy workflow cũ song song |
-| F2-J36/J37 | Giữ URL vehicle/staff, mở rộng projection spec/status/assignment |
-| F2-J38 checkpoints | Adapter đọc cùng catalogue places, không hai nguồn khác nhau |
-| Flow 1 | Giữ contract riêng về cọc/ký/kích hoạt/giao việc, chỉ đọc kết quả |
-| Flow 4–5 | Khởi hành thực tế, báo cáo đường/sự cố/thay người đang chạy thuộc vận hành |
+| Dashboard/Planning | J01–03 |
+| Route/Stops/Crew/Fleet | J04–09 |
+| Flight catalog/proposal | J10–11 |
+| Validate/Submit/Withdraw/Gate 1 | J12–17 |
+| Booking/Change proposal | J18–20 |
+| Operations READY/Gate 2 | J21–25 |
+| Execution package | J26 |
 
-OpenAPI/JSON Flow 3 là nguồn schema v2; chỉ dẫn role cũ trỏ URL khác phải chuyển theo bảng này. Backend triển khai công bố capability.version=2.0.0; không hai schema để bỏ gate. Không tuyên bố DTO/revision/snapshot đã có bảng/migration; cần triển khai persistence, hold, file, audit, idempotency và provider riêng.
+Trip state khác plan state và reservation state. Draft không giữ lịch; submit mới HELD; rút/trả RELEASED; duyệt CONFIRMED. Không ghi PENDING_APPROVAL/PLAN_APPROVED/RETURNED vào Trip.Status. Gate 1 mất hiệu lực trước khởi hành: Request SCHEDULED → ACTIVATED; nếu chỉ Gate 2 thu hồi mà Gate 1 còn đúng, Request giữ SCHEDULED. Sau xuất phát, thay đổi qua phối hợp Flow 5, không quay Trip về PLANNING.
 
-## 9. Ánh xạ frontend và nghiệm thu
+Thay đổi đã duyệt: change-proposals tạo draft kế tiếp (ví dụ v2); chỉnh/validate/submit/decision dùng lại J07–17 với expectedPlanVersionNo của bản mới. GET plan có thể nhận query planVersionNo để đọc bản cụ thể, mặc định bản đang làm việc; Manager phải đọc đúng bản submitted. Gate 1 của bản mới không tự ghi đè bản hiện hành trước khi duyệt; khi duyệt mới thay bản hiện hành và thay reservations trong transaction, nhả đúng phần lịch cũ không còn dùng. Booking cũ cần xử lý supersession/cancel theo đối tác trước booking mới; nếu chưa có workflow này thì 501.
 
-| Script/màn hình Final_Flow3.html | API |
+
+## 2. Quy ước chung
+
+### 2.1 Base URL và quyền
+
+Base URL /api. Mọi path dưới đây nằm sau /api. Header JSON: Authorization: Bearer <token>, Accept: application/json, Content-Type: application/json. Upload dùng FormData, không tự đặt boundary. GET và command ghi không body phải không gửi body.
+
+Customer chỉ xem/sửa tài nguyên thuộc mình. Specialist phải đúng TRIP_PLAN.AssignedSpecialistId; Coordinator phải đúng AssignedCoordinatorId. Manager role LOGISTICS_MANAGER, hàng đợi chung, không AssignedManagerId/claim. Sai role 403; ngoài scope/không tồn tại 404. Actor/owner/time lấy từ JWT/server, không tin client. ADMIN không tự được làm quyết định nghiệp vụ nếu chưa có policy.
+
+Mutation chuẩn bị mới yêu cầu DeploymentStatus CONFIRMED; ON_HOLD khóa ghi triển khai mới nhưng vẫn cho đọc đúng quyền. Trong chuyến IN_TRANSIT, Specialist còn nhiệm vụ thủ tục thực tế; không dùng hold trước khởi hành để quay Trip về PLANNING. File/download cũng kiểm quyền, biết ID không có nghĩa được xem.
+
+### 2.2 Envelope, HTTP và nullable
+
+```json
+{"success":true,"message":"OK","data":{}}
+```
+
+```json
+{"success":false,"message":"Dữ liệu không hợp lệ","errorCode":"VALIDATION_ERROR","data":null,"errors":{"field":["Lý do"]}}
+```
+
+200 đọc/cập nhật; 201 tạo; 400 validation; 401 chưa đăng nhập; 403 sai role; 404 ngoài scope; 409 sai state/stale version/conflict; 429 rate limit; 500 lỗi server; 501 FEATURE_NOT_SUPPORTED khi thiếu capability/persistence. Lỗi có data:null; errors optional khi có lỗi field. Lists trả data:[] theo Flow 1, không đổi sang wrapper phân trang. Query filter optional trừ khi endpoint ghi khác; path params bắt buộc. Không trả mock khi GET rỗng hoặc server lỗi.
+
+Field optional chưa có được bỏ; field explicit nullable trả null. Arrays luôn là arrays. Null readiness/insurance khi thiếu dependency không có nghĩa đã đạt. blockers:[] chỉ dùng khi đã kiểm và không có blocker, không dùng để che chưa kiểm. Binary PDF/ảnh trả HTTP đúng MIME, lỗi vẫn envelope JSON, không envelope binary thành công.
+
+### 2.3 ID, tiền, thời gian, file
+
+ID backend theo ID_NAME_RULE_Reviewed: USER_*, HORSE_*, REQUEST_*, TRIP_*, CONTRACT_*. Hồ sơ LEGAL_MEDICAL_RECORD_*, booking QUARANTINE_BOOKING_*, clearance CUSTOMS_CLEARANCE_*, route ROUTE_SEGMENT_*, assignment TRIP_ASSIGNMENT_* do Sequence cấp, không COUNT/MAX+1. FlightBookingID là INT IDENTITY, không FLIGHT_BOOKING_001. planVersionNo/expectedPlanVersionNo là phiên bản nghiệp vụ đích >=1, cần schema, không RowVersion và không tự bằng RouteVersionID INT của booking.
+
+Tiền VND nguyên đồng; giữ giá hợp đồng ký, không tự tính lại từ rate mới. Date YYYY-MM-DD. Timestamp DTO theo Flow 1: YYYY-MM-DD HH:mm, chuẩn hóa Asia/Ho_Chi_Minh; DB UTC. Lịch sân bay theo timezone nguồn phải chuyển đúng trước so sánh, không gắn Z vào giờ địa phương. Ví dụ là dữ liệu minh họa, không phản ánh giờ hiện tại.
+
+PDF/JPG/JPEG/PNG <=10 MiB; server kiểm MIME/nội dung/quyền. FileRef gồm name/url endpoint có quyền, không private storage key/đường dẫn ổ đĩa. URL bằng chứng trong body phải resolve tới tệp đã upload đúng scope; không fetch URL tùy ý. Catalog mã mới trong ví dụ phải được chốt trước implement, không coi mọi giấy tờ là bắt buộc cho mọi tuyến.
+
+### 2.4 Version, retry và persistence
+
+Mutations chỉ nhận fields mô tả, reject mass assignment status/actor/owner/history/ready từ client. Kiểm scope/state/version trong transaction; expectedPlanVersionNo khác hiện hành trả 409 PLAN_VERSION_CONFLICT. Retry không tạo trùng record/booking/giữ lịch hoặc gửi notification lặp. Nếu dùng Idempotency-Key cần persistence bền vững theo actor/resource/action, không chỉ FE disable nút.
+
+Persistence BASE nghĩa có bảng/cột nền, không khẳng định endpoint đã implement. CẦN BỔ SUNG nghĩa ví dụ 200/201 chỉ là shape đích sau khi có schema/capability; hiện thiếu thì trả 501/data:null. Không dùng Notification JSON/localStorage/memory để giả lưu đủ thông tin hoặc giả READY. Endpoint BASE vẫn cần quyền, validation, transaction và backend thật.
+
+### 2.5 Nguồn ưu tiên
+
+SRS quyết định hành vi; SQL Reviewed quyết định cột có thật; NAME/ID Reviewed quyết định mã. CONVENTIONS.md là nền Flow 1; các link D:/Shared, enum Request IN_TRANSIT và giới hạn hold cũ trong đó không ghi đè rule mới: Request IN_PROGRESS, Trip IN_TRANSIT; SQL DeploymentStatus có ON_HOLD. Không sửa SQL/backend/FE trong lần viết contract này. Các quyết định mới của nhóm về khiếu nại/OTP bàn giao Flow 6 không mở rộng tùy tiện quyền sửa hợp đồng đã ký.
+
+## 3. DTO và state machine
+
+| Field | Kiểu / quy tắc |
 |---|---|
-| canPlan/parallelLanes/f/monitor/f/trip | J04/J23/J24 |
-| placesPage/pl-edit/pl-status/pl-del | J43–J47 |
-| pl-geo/geoSearch và chọn tọa độ | Tái dùng F1-J10 `GET /locations/search` theo contract Flow 1; giới hạn quốc gia và scope phù hợp, chọn kết quả không tự lưu place |
-| rpRoute/rpCalc/rpWriteTimes/Leaflet/journeyDetail | J25/J26/J07 |
-| f-vehicle/groundLegs/f-crew-save | J06/J14/J27 |
-| f3-staff-status/f/crew | J48/J49, không thêm/xóa nhân viên |
-| f3-truck-profile/check, f3-pickup-* | J06/J26/J28–J33, cần hiện thao tác đang ẩn |
-| air-rental-providers/svc-code/svc-partner | J05/J34–J39/J50/J51/J54 |
-| fa-send/m-flight/fa-revision | J40/J41/J12 |
-| f-route-submit/m-route-approve/m-route-return | J08/J11 |
-| f-flight-book/recordBooking | J13/J42/J52 |
-| s-docs-ready/readiness/m-approve-depart | J16/J17/J18 |
-| Driver report markers | J53 đọc từ Flow 5, gắn milestone, không GPS/traffic realtime |
+| tripId/requestId/horseId | string ID chuẩn; kiểm liên kết, không chỉ tiền tố |
+| tripStatus | PLANNING / READY_TO_DEPART / IN_TRANSIT / COMPLETED |
+| requestStatus | ACTIVATED sau ký; SCHEDULED sau Gate 1; IN_PROGRESS lúc xuất phát |
+| deploymentStatus | PENDING / CONFIRMED / ON_HOLD; null khi chưa ghi triển khai |
+| planVersionNo/expectedPlanVersionNo | integer >=1, phiên bản nghiệp vụ đích; không field SQL đã có |
+| plan.status | DRAFT / SUBMITTED / APPROVED / CHANGES_REQUESTED / WITHDRAWN, tách Trip.Status |
+| documentStatus | PENDING_REVIEW / VERIFIED / REJECTED / EXPIRED; không APPROVED thay VERIFIED |
+| requirementStatus | MANDATORY / OPTIONAL / NOT_APPLICABLE; null chưa phân loại, không tự đạt |
+| readiness.status | NOT_READY / READY theo version; object null khi không có persistence |
+| file | FileRef name/url có quyền; binary tải qua endpoint riêng |
+| capabilities | boolean từng nhóm theo backend thật; false không dùng để giấu lỗi HTTP |
+| issues/blockers | array code/message, scope/field nếu có; không coi chưa kiểm là [] |
 
-Kịch bản trong flow3.examples.json là mục tiêu nghiệm thu, không bằng chứng API đã chạy. Validator kiểm ref/schema/mẫu request-response/input âm/đồng bộ tài liệu và fixture. Khi triển khai cần integration: hai Trip tranh xe chỉ một thành công; retry không trùng; role/scope/file; ROAD pre-confirm; AIR không vòng lặp booking; stale catalogue/consent/READY; rollback approve/departure và history.
+## 4. API và payload
+
+| Mã | Method/path | Mục đích |
+|---|---|---|
+| F3-J01 | `GET /coordinator/dashboard` | Dashboard điều phối |
+| F3-J02 | `GET /coordinator/trips?status=PLANNING` | Trip được giao |
+| F3-J03 | `GET /coordinator/trips/{tripId}/planning` | Chi tiết planning |
+| F3-J04 | `GET /coordinator/facilities?tripId=TRIP_003` | Danh mục cơ sở phù hợp |
+| F3-J05 | `GET /coordinator/vehicles/availability?tripId=TRIP_003&from=2026-11-05%2006:00&to=2026-11-05%2012:00` | Xe khả dụng theo khoảng thời gian |
+| F3-J06 | `GET /coordinator/staff/availability?tripId=TRIP_003&countryCode=VN&duty=VET&from=2026-11-05%2006:00&to=2026-11-05%2012:00` | Nhân sự theo chặng/nhiệm vụ |
+| F3-J07 | `GET /coordinator/trips/{tripId}/plan` | Đọc phương án nháp |
+| F3-J08 | `PUT /coordinator/trips/{tripId}/plan` | Lưu nháp route/lịch |
+| F3-J09 | `PUT /coordinator/trips/{tripId}/plan/road-assignments` | Lưu phân công nháp ROAD |
+| F3-J10 | `GET /coordinator/flights?tripId=TRIP_003&directOnly=true` | Danh mục bay thẳng demo |
+| F3-J11 | `PUT /coordinator/trips/{tripId}/plan/flight-proposal` | Chọn chuyến bay đề xuất |
+| F3-J12 | `POST /coordinator/trips/{tripId}/plan/validate` | Validate trước gửi |
+| F3-J13 | `POST /coordinator/trips/{tripId}/plan/submit` | Gửi duyệt Gate 1 |
+| F3-J14 | `POST /coordinator/trips/{tripId}/plan/withdraw` | Rút phương án chờ duyệt |
+| F3-J15 | `GET /manager/plans?status=SUBMITTED` | Manager queue Gate 1 |
+| F3-J16 | `GET /manager/trips/{tripId}/plan` | Manager đọc bản được trình |
+| F3-J17 | `POST /manager/trips/{tripId}/plan/decision` | Manager quyết định Gate 1 |
+| F3-J18 | `POST /coordinator/trips/{tripId}/flight-booking/confirm` | Xác nhận booking AIR |
+| F3-J19 | `GET /coordinator/trips/{tripId}/flight-booking` | Đọc booking Trip |
+| F3-J20 | `POST /coordinator/trips/{tripId}/plan/change-proposals` | Đề xuất đổi bản đã duyệt |
+| F3-J21 | `GET /coordinator/trips/{tripId}/operations-readiness` | Kiểm Operations readiness |
+| F3-J22 | `POST /coordinator/trips/{tripId}/operations-readiness/confirm` | Xác nhận Operations READY |
+| F3-J23 | `GET /manager/trips/{tripId}/departure-gate` | Manager kiểm Gate 2 |
+| F3-J24 | `POST /manager/trips/{tripId}/departure-gate/approve` | Duyệt khởi hành Gate 2 |
+| F3-J25 | `POST /manager/trips/{tripId}/departure-gate/revoke` | Thu hồi Gate 2 trước xuất phát |
+| F3-J26 | `GET /coordinator/trips/{tripId}/execution-package` | Bàn giao dữ liệu cho vận hành |
+
+### F3-J01 — GET /coordinator/dashboard
+
+Dashboard điều phối. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ.
+
+**Dữ liệu SQL:** TRIP_PLAN.AssignedCoordinatorId/Status và Request.
+
+**Side effect và retry:** Chỉ tổng hợp scope được giao.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
+
+**Request body:** Không gửi body.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "assignedTripCount": 2,
+    "planningTripCount": 2
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+
+### F3-J02 — GET /coordinator/trips?status=PLANNING
+
+Trip được giao. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ.
+
+**Dữ liệu SQL:** Trip/Request/Contract/version.
+
+**Side effect và retry:** Hiển thị hold, không mutate triển khai khi ON_HOLD.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
+
+**Request body:** Không gửi body.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "tripId": "TRIP_003",
+      "requestId": "REQUEST_003",
+      "tripStatus": "PLANNING",
+      "requestStatus": "ACTIVATED",
+      "contractStatus": "EFFECTIVE",
+      "versionStatus": "SIGNED",
+      "deploymentStatus": "CONFIRMED",
+      "assignedSpecialistId": "USER_005",
+      "assignedCoordinatorId": "USER_006"
+    }
+  ]
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+
+### F3-J03 — GET /coordinator/trips/{tripId}/planning
+
+Chi tiết planning. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ.
+
+**Dữ liệu SQL:** ROUTE_SEGMENT/assignment/FLIGHT_BOOKING có nền.
+
+**Side effect và retry:** Route seed không chứng minh là phương án đã duyệt; thiếu section null/capability=false.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
+
+**Request body:** Không gửi body.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "requestId": "REQUEST_003",
+    "tripStatus": "PLANNING",
+    "requestStatus": "ACTIVATED",
+    "contractStatus": "EFFECTIVE",
+    "versionStatus": "SIGNED",
+    "deploymentStatus": "CONFIRMED",
+    "assignedSpecialistId": "USER_005",
+    "assignedCoordinatorId": "USER_006",
+    "plan": null,
+    "operationsReadiness": null,
+    "capabilities": {
+      "versionedPlanning": false,
+      "resourceHolds": false
+    }
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+
+### F3-J04 — GET /coordinator/facilities?tripId=TRIP_003
+
+Danh mục cơ sở phù hợp. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ.
+
+**Dữ liệu SQL:** PARTNER_FACILITY/FACILITY_CONTRACT/FACILITY_CERTIFICATION.
+
+**Side effect và retry:** Kiểm country, sức chứa, chứng nhận và hợp đồng tại ngày dùng; không hardcode địa danh.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
+
+**Request body:** Không gửi body.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "facilityId": "FACILITY_003",
+      "countryCode": "VN",
+      "status": "ACTIVE",
+      "capacityStalls": 10
+    }
+  ]
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+
+### F3-J05 — GET /coordinator/vehicles/availability?tripId=TRIP_003&from=2026-11-05%2006:00&to=2026-11-05%2012:00
+
+Xe khả dụng theo khoảng thời gian. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ. from/to bắt buộc, to>from.
+
+**Dữ liệu SQL:** VEHICLE thuộc tính có, thiếu calendar/interval reservations.
+
+**Side effect và retry:** Tra cứu không giữ lịch. AVAILABLE không đồng nghĩa không có reservation tương lai.
+
+**Persistence:** CẦN BỔ SUNG — Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "vehicleId": "VEHICLE_001",
+      "capacityStalls": 2,
+      "status": "AVAILABLE",
+      "available": true
+    }
+  ]
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J06 — GET /coordinator/staff/availability?tripId=TRIP_003&countryCode=VN&duty=VET&from=2026-11-05%2006:00&to=2026-11-05%2012:00
+
+Nhân sự theo chặng/nhiệm vụ. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ. Cần from/to khi tính available; quốc gia lấy từ chặng.
+
+**Dữ liệu SQL:** USER/STAFF_DOCUMENT chưa đủ duty/qualification/calendar.
+
+**Side effect và retry:** VET là duty đích, không tự thêm USER.Role=VET vào một client.
+
+**Persistence:** CẦN BỔ SUNG — Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "userId": "USER_009",
+      "duty": "VET",
+      "available": true,
+      "eligible": true
+    }
+  ]
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J07 — GET /coordinator/trips/{tripId}/plan
+
+Đọc phương án nháp. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ.
+
+**Dữ liệu SQL:** Chưa có plan aggregate/version/order liên kết route/crew.
+
+**Side effect và retry:** Không gán plan.status vào Trip.Status.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "status": "DRAFT",
+    "segments": [],
+    "assignments": [],
+    "flightProposal": null
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J08 — PUT /coordinator/trips/{tripId}/plan
+
+Lưu nháp route/lịch. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ. sequence liên tục, lịch tăng hợp lý, location theo Trip/route.
+
+**Dữ liệu SQL:** ROUTE_SEGMENT thiếu sequence/plan version và planned start/end.
+
+**Side effect và retry:** Draft không giữ lịch; bản đã APPROVED không sửa đè. Nghỉ theo quy định/policy thực, không tự chốt 4 hay 6 giờ từ mô tả chung.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1,
+  "segments": [
+    {
+      "sequence": 1,
+      "segmentType": "REST_STOP",
+      "transportMode": "ROAD",
+      "locationName": "Điểm nghỉ theo tuyến",
+      "expectedEta": "2026-11-05 10:00"
+    },
+    {
+      "sequence": 2,
+      "segmentType": "DESTINATION",
+      "transportMode": "ROAD",
+      "locationName": "Điểm giao theo Request",
+      "expectedEta": "2026-11-05 18:00"
+    }
+  ]
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+| `segments` | array | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "status": "DRAFT",
+    "resourcesHeld": false
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "PLAN_VERSION_CONFLICT",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J09 — PUT /coordinator/trips/{tripId}/plan/road-assignments
+
+Lưu phân công nháp ROAD. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ. Mỗi ROAD có ba USER độc lập; xe đủ stalls theo số ngựa thực; người/xe đủ điều kiện quốc gia và lịch.
+
+**Dữ liệu SQL:** Không giả TRIP_VEHICLE_ASSIGNMENT hiện tại đủ ba người theo chặng.
+
+**Side effect và retry:** Không giữ lịch draft; hai ROAD của AIR có assignment riêng; Vet CBN không bắt buộc bay cùng.
+
+**Persistence:** CẦN BỔ SUNG — Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1,
+  "assignments": [
+    {
+      "segmentSequence": 1,
+      "vehicleId": "VEHICLE_001",
+      "driverId": "USER_007",
+      "escortId": "USER_009",
+      "veterinarianId": "USER_010",
+      "from": "2026-11-05 06:00",
+      "to": "2026-11-05 12:00"
+    }
+  ]
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+| `assignments` | array | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "saved": true,
+    "resourcesHeld": false
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "RESOURCE_NOT_ELIGIBLE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J10 — GET /coordinator/flights?tripId=TRIP_003&directOnly=true
+
+Danh mục bay thẳng demo. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ. Chỉ Trip AIR.
+
+**Dữ liệu SQL:** FLIGHT_BOOKING không phải catalog chuyến khả dụng.
+
+**Side effect và retry:** Catalog demo cấu hình, không hãng thật; flightOptionKey là khóa nguồn, không FlightBookingID. Sân bay theo route, ví dụ không hardcode.
+
+**Persistence:** CẦN BỔ SUNG — Cần demo catalog cấu hình/availability; không tái dùng một booking làm catalog. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "flightOptionKey": "DEMO-HAN-NRT-20261105",
+      "airline": "Demo carrier",
+      "flightNumber": "DEMO-102",
+      "departureAirport": "HAN",
+      "arrivalAirport": "NRT",
+      "directFlight": true,
+      "departureAt": "2026-11-05 12:00",
+      "arrivalAt": "2026-11-05 18:00"
+    }
+  ]
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "AIR_NOT_APPLICABLE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J11 — PUT /coordinator/trips/{tripId}/plan/flight-proposal
+
+Chọn chuyến bay đề xuất. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ. AIR có ROAD_ORIGIN → AIR → ROAD_DESTINATION, lịch ROAD phù hợp thời gian handoff/tiếp nhận.
+
+**Dữ liệu SQL:** Cần flight proposal theo version và policy buffer.
+
+**Side effect và retry:** Chỉ chọn, chưa booking. SQL BookingConfirmed DEFAULT 1 không cho phép confirm sớm; backend ghi rõ nếu có bản chưa confirm.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1,
+  "flightOptionKey": "DEMO-HAN-NRT-20261105"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+| `flightOptionKey` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "flightSelected": true,
+    "bookingConfirmed": false
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "FLIGHT_SCHEDULE_MISMATCH",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J12 — POST /coordinator/trips/{tripId}/plan/validate
+
+Validate trước gửi. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ.
+
+**Dữ liệu SQL:** Versioned plan/resource và Flow 2 feasibility.
+
+**Side effect và retry:** Chỉ kiểm, chưa submit/giữ lịch; feasibility phải đúng bản.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "valid": false,
+    "issues": [
+      {
+        "code": "DOCUMENT_FEASIBILITY_REQUIRED",
+        "field": "plan",
+        "message": "Chưa có đánh giá khả thi hồ sơ"
+      }
+    ]
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "PLAN_VERSION_CONFLICT",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J13 — POST /coordinator/trips/{tripId}/plan/submit
+
+Gửi duyệt Gate 1. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ. Đủ phương án, feasibility đạt và nguồn lực phù hợp; chưa bắt Documents READY.
+
+**Dữ liệu SQL:** Không có plan status/version/interval holds trong Reviewed.
+
+**Side effect và retry:** Trong transaction kiểm conflict rồi HELD và SUBMITTED. Lỗi rollback toàn bộ, notify Manager sau commit.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "tripStatus": "PLANNING",
+    "planVersionNo": 1,
+    "planStatus": "SUBMITTED",
+    "resourceReservationStatus": "HELD"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "RESOURCE_CONFLICT",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J14 — POST /coordinator/trips/{tripId}/plan/withdraw
+
+Rút phương án chờ duyệt. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ. Chỉ SUBMITTED và chưa có quyết định thắng trước.
+
+**Dữ liệu SQL:** Chưa có transition/holds.
+
+**Side effect và retry:** Giải phóng đúng hold của bản đó, giữ lịch sử. Muốn sửa thì draft; không giải phóng bản khác.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1,
+  "reason": "Cần chỉnh lịch"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+| `reason` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planStatus": "WITHDRAWN",
+    "resourceReservationStatus": "RELEASED"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "PLAN_ALREADY_DECIDED",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J15 — GET /manager/plans?status=SUBMITTED
+
+Manager queue Gate 1. Role **LOGISTICS_MANAGER**.
+
+**Điều kiện:** Manager đúng role, kế hoạch đã submit thật.
+
+**Dữ liệu SQL:** Chưa có plan status/version.
+
+**Side effect và retry:** Không dùng Trip.Status để suy SUBMITTED.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": [
+    {
+      "tripId": "TRIP_003",
+      "planVersionNo": 1,
+      "planStatus": "SUBMITTED"
+    }
+  ]
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J16 — GET /manager/trips/{tripId}/plan
+
+Manager đọc bản được trình. Role **LOGISTICS_MANAGER**.
+
+**Điều kiện:** Đọc bản được trình bất biến, không draft đang sửa.
+
+**Dữ liệu SQL:** Cần version snapshot/holds/feasibility.
+
+**Side effect và retry:** Flight là proposal, không fake booking confirmed.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "status": "SUBMITTED",
+    "segments": [
+      {
+        "segmentId": "ROUTE_SEGMENT_008",
+        "sequence": 1,
+        "segmentType": "DESTINATION",
+        "transportMode": "ROAD",
+        "locationName": "Điểm giao theo Request",
+        "expectedEta": "2026-11-05 18:00"
+      }
+    ],
+    "assignments": [
+      {
+        "segmentSequence": 1,
+        "vehicleId": "VEHICLE_001",
+        "driverId": "USER_007",
+        "escortId": "USER_009",
+        "veterinarianId": "USER_010",
+        "from": "2026-11-05 06:00",
+        "to": "2026-11-05 18:00"
+      }
+    ],
+    "documentFeasibility": {
+      "feasible": true
+    }
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J17 — POST /manager/trips/{tripId}/plan/decision
+
+Manager quyết định Gate 1. Role **LOGISTICS_MANAGER**.
+
+**Điều kiện:** Chỉ SUBMITTED đúng version; hold còn hiệu lực, nguồn lực còn đủ; feasibility Specialist đạt. decision APPROVED hoặc CHANGES_REQUESTED.
+
+**Dữ liệu SQL:** Cần approval/version/holds/actor/time/reason.
+
+**Side effect và retry:** Duyệt xác nhận assignments và Request SCHEDULED; trả cần reason và nhả hold; Trip vẫn PLANNING. Hai quyết định đồng thời chỉ một thắng.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1,
+  "decision": "APPROVED",
+  "reason": "Phương án và tính khả thi hồ sơ đạt"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+| `decision` | string | Có |
+| `reason` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "planStatus": "APPROVED",
+    "tripStatus": "PLANNING",
+    "requestStatus": "SCHEDULED",
+    "resourceReservationStatus": "CONFIRMED"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "RESOURCE_CONFLICT",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J18 — POST /coordinator/trips/{tripId}/flight-booking/confirm
+
+Xác nhận booking AIR. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ. Chỉ AIR, Gate 1 APPROVED hiện hành và flight proposal phù hợp.
+
+**Dữ liệu SQL:** FLIGHT_BOOKING có nền, thiếu current/version binding/catalog/checkpoint/unique nghiệp vụ.
+
+**Side effect và retry:** Demo sinh mã duy nhất, retry trả booking cũ, không gọi hãng thật. ROAD-only không tạo booking giả.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Cần idempotency, active booking và history supersession. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "flightBookingId": 301,
+    "tripId": "TRIP_003",
+    "bookingVersion": 1,
+    "bookingReference": "DEMO-BOOKING-301",
+    "bookingConfirmed": true
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "PLAN_NOT_APPROVED",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J19 — GET /coordinator/trips/{tripId}/flight-booking
+
+Đọc booking Trip. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng assignment Trip, chỉ trả booking đúng Trip.
+
+**Dữ liệu SQL:** FLIGHT_BOOKING rows có; model active/replaced history chưa có.
+
+**Side effect và retry:** Không suy active từ MAX ID. Endpoint trả một active booking cần dependency current; không tự chọn tùy ý nhiều bản.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "flightBookingId": 301,
+    "tripId": "TRIP_003",
+    "bookingVersion": 1,
+    "bookingReference": "DEMO-BOOKING-301",
+    "bookingConfirmed": true
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "BOOKING_NOT_FOUND",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J20 — POST /coordinator/trips/{tripId}/plan/change-proposals
+
+Đề xuất đổi bản đã duyệt. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng assignment và bản APPROVED; nếu IN_TRANSIT phối hợp Flow 5, không reset Trip.
+
+**Dữ liệu SQL:** Thiếu change/version/booking history.
+
+**Side effect và retry:** Giữ bản1, bản2 chưa thành hiện hành; Flow 2 đánh giá impact, Manager duyệt đổi lịch đã duyệt/chi phí; xử lý booking cũ trước thay.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1,
+  "reason": "Hãng báo đổi lịch",
+  "changes": {
+    "departureAt": "2026-11-06 12:00"
+  }
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+| `reason` | string | Có |
+| `changes` | object | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "proposedPlanVersionNo": 2,
+    "currentApprovedPlanVersionNo": 1,
+    "requiresApproval": true
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "PLAN_CHANGE_NOT_ALLOWED",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J21 — GET /coordinator/trips/{tripId}/operations-readiness
+
+Kiểm Operations readiness. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ.
+
+**Dữ liệu SQL:** Plan/resources/active booking theo version.
+
+**Side effect và retry:** Tách Documents READY, không thay bằng deployment CONFIRMED.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "status": "NOT_READY",
+    "blockers": [
+      {
+        "code": "RESOURCE_CONFIRMATION_REQUIRED",
+        "message": "Chưa đủ xác nhận nguồn lực"
+      }
+    ]
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J22 — POST /coordinator/trips/{tripId}/operations-readiness/confirm
+
+Xác nhận Operations READY. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng Coordinator được giao; mutation chuẩn bị cần deployment CONFIRMED, Trip PLANNING trừ guard nói rõ. Gate 1 approved, resources confirmed/còn khả dụng, AIR booking confirmed nếu áp dụng.
+
+**Dữ liệu SQL:** Thiếu Operations readiness snapshot/version.
+
+**Side effect và retry:** Ghi riêng actor/time/version; chưa đổi READY_TO_DEPART.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "status": "READY",
+    "confirmedBy": "USER_006"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "OPERATIONS_NOT_READY",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J23 — GET /manager/trips/{tripId}/departure-gate
+
+Manager kiểm Gate 2. Role **LOGISTICS_MANAGER**.
+
+**Điều kiện:** Tính lại điều kiện thực từ bản hiện hành, đúng role.
+
+**Dữ liệu SQL:** Hai readiness, plan approval, resources và booking hiện hành.
+
+**Side effect và retry:** Chỉ true sau kiểm đầy đủ; không suy từ một status.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "tripStatus": "PLANNING",
+    "documentsReadiness": "READY",
+    "operationsReadiness": "READY",
+    "canApprove": true,
+    "blockers": []
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J24 — POST /manager/trips/{tripId}/departure-gate/approve
+
+Duyệt khởi hành Gate 2. Role **LOGISTICS_MANAGER**.
+
+**Điều kiện:** Deployment CONFIRMED; plan APPROVED; hai readiness READY cùng version; nguồn lực, booking, giấy tờ/bảo hiểm còn hiệu lực.
+
+**Dữ liệu SQL:** Trip.Status có, các dữ liệu chứng minh Gate 2 chưa có.
+
+**Side effect và retry:** Lưu phê duyệt và đổi Trip trong transaction; thực tế start thuộc Flow 4.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1,
+  "reason": "Đủ phương án, nguồn lực, hồ sơ và bảo hiểm"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+| `reason` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "tripStatus": "READY_TO_DEPART",
+    "requestStatus": "SCHEDULED"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "DEPARTURE_BLOCKED",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J25 — POST /manager/trips/{tripId}/departure-gate/revoke
+
+Thu hồi Gate 2 trước xuất phát. Role **LOGISTICS_MANAGER**.
+
+**Điều kiện:** Chỉ READY_TO_DEPART, chưa xuất phát.
+
+**Dữ liệu SQL:** Cần revoke/gate metadata, không chỉ Status.
+
+**Side effect và retry:** Giữ plan nếu không đổi; invalidate đúng phần; Request giữ SCHEDULED nếu Gate 1 còn hợp lệ.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1,
+  "reason": "Nguồn lực mất khả dụng"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+| `reason` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "tripStatus": "PLANNING",
+    "departureApproval": "REVOKED"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "TRIP_ALREADY_DEPARTED",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F3-J26 — GET /coordinator/trips/{tripId}/execution-package
+
+Bàn giao dữ liệu cho vận hành. Role **FLEET_ROUTE_COORDINATOR**.
+
+**Điều kiện:** Đúng assignment, Gate 2 còn hiệu lực.
+
+**Dữ liệu SQL:** Cần execution snapshot đúng plan/readiness/gate.
+
+**Side effect và retry:** Chỉ package thật; Flow 4 revalidate lúc start, không tự GPS/milestone/Trip completed.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Assignment hiện chỉ cấp Trip với Driver/Escort/Vehicle, thiếu segment/Vet/interval, giữ lịch/xác nhận/giải phóng và kiểm xung đột bền vững. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "tripStatus": "READY_TO_DEPART",
+    "horseIds": [
+      "HORSE_001"
+    ],
+    "segments": [
+      {
+        "segmentId": "ROUTE_SEGMENT_008",
+        "sequence": 1,
+        "segmentType": "DESTINATION",
+        "transportMode": "ROAD",
+        "locationName": "Điểm giao theo Request",
+        "expectedEta": "2026-11-05 18:00"
+      }
+    ],
+    "documentsReadiness": "READY",
+    "operationsReadiness": "READY",
+    "departureApproved": true,
+    "assignments": [
+      {
+        "segmentSequence": 1,
+        "vehicleId": "VEHICLE_001",
+        "driverId": "USER_007",
+        "escortId": "USER_009",
+        "veterinarianId": "USER_010",
+        "from": "2026-11-05 06:00",
+        "to": "2026-11-05 18:00"
+      }
+    ]
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "DEPARTURE_BLOCKED",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+## 5. Mapping database và dependency chưa có
+
+| Nhóm | Có trong Reviewed | Thiếu |
+|---|---|---|
+| Route | ROUTE_SEGMENT location/type/mode/ETA/ActualTime/status | version, sequence, start/end, catalog airport/checkpoint và bản duyệt bất biến |
+| Crew | TRIP_VEHICLE_ASSIGNMENT Trip/Vehicle/Driver/Escort | segment, Vet, interval, hold/confirm/release và concurrent conflict locks |
+| Fleet | VEHICLE capacity/status, STAFF_DOCUMENT | calendar eligibility theo khoảng; không suy stalls từ chuỗi Type |
+| Gate 1 | Trip/deployment không phải plan approval | plan version/submit/decision/actor/time/reason và feasibility reference |
+| AIR | FLIGHT_BOOKING INT ID/BookingVersion/Confirmed/reference | flight catalog/proposal, current/superseded/cancel history, idempotency/version FK |
+| Gate 2 | Trip có READY_TO_DEPART | Docs/Operations readiness riêng và departure approve/revoke cùng version |
+| Change | Không có plan-change aggregate | bản đề xuất/hiện hành và impact/invalidation/lịch sử |
+
+RouteVersionID/checkpoint INT trong FLIGHT_BOOKING chưa có catalog FK; không tự bịa prefix/đồng nhất planVersionNo với RouteVersionID. Không dùng Note/Notification JSON để giả dữ liệu nghiệp vụ. BookingConfirmed DEFAULT 1 không cấp quyền đặt bay trước Gate 1.
+
+SRS cần Vet độc lập nhưng USER.Role hiện không có VET. veterinarianId là USER được xác minh nhiệm vụ chuyên môn; cần chốt task/qualification và quyền trước implement, không dùng ADMIN hoặc tạo role ở một client để né thiếu model. Không sửa SQL/backend trong lần tạo tài liệu này.
+
+## 6. Checklist nghiệm thu và bàn giao
+
+| Căn cứ | Nghiệm thu |
+|---|---|
+| BR-21 | Assignment, Gate 1, Gate 2 tách; Manager queue chung, không claim |
+| BR-22 | Draft không hold, submit giữ tạm, trả/rút giải phóng, approve confirmed; transaction conflict chỉ một thắng |
+| BR-23 | Thiếu Vet/trùng ba người/thiếu stalls/sai quốc gia/hết giấy/đụng lịch bị chặn |
+| BR-24/26 | AIR có hai ROAD riêng và lịch nối phù hợp, không hardcode sân bay; ROAD không booking giả |
+| BR-25/27 | Chọn không booking; confirm trước Gate 1 bị chặn; retry không trùng; thay booking giữ lịch sử |
+| BR-28/56 | Thiếu một readiness, khác version, insurance hết hạn, ON_HOLD, nguồn lực mất khả dụng đều chặn Gate 2/start |
+| BR-29–33/47 | Bàn giao bản hiện hành; ETA đề xuất khác ETA xác nhận; không GPS tự hoàn tất |
+
+Test 404 khác assignment, 403 sai role, 409 stale version/conflict, 501 thiếu dependency; lỗi giữ draft và không fake success. Hold trước xuất phát giữ event/phân công, thu hồi Gate 2 khi cần; resume không tự READY_TO_DEPART. Thời gian handoff/buffer/nghỉ lấy từ rule/policy thực, không tự chốt hằng số chưa có cấu hình.
+
+Flow 1 cung cấp owner/ngựa/cọc/hợp đồng/version và assignment. Flow 2 cung cấp feasibility rồi Documents READY/bảo hiểm theo version. Flow 3 cung cấp route/sequence/lịch, ba người từng ROAD, ngựa, booking nếu AIR, điểm kiểm soát và Gate 2 còn hiệu lực cho Flow 4. Flow 4 kiểm lại khi start, cập nhật actual; Flow 3 không tự bàn giao/hoàn tất Flow 6.
+
+Worker đích cảnh báo nguồn lực mất khả dụng/hold/lịch hãng, invalidate điều kiện và notify. Không tự duyệt, đặt bay, khởi hành hoặc đặt TTL hold khi chưa chốt/lưu policy. Chưa có persistence thì API cần dependency trả 501; chưa có runtime/API/E2E được chứng minh bằng việc tạo tài liệu này.

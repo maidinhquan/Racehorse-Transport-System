@@ -1,230 +1,175 @@
-# API Contract — Flow 2: hồ sơ chuyến và phần điều phối đã được Flow 3 thay thế
-
-## Cập nhật Final_Flow3.html — 27/10/2026
-
-[Flow 3 v2](../Flow3/FLOW3.md) là nguồn chuẩn cho phần phối hợp: hồ sơ và điều phối chạy song song sau giao việc. ROAD xác nhận nguồn lực trước submit; AIR duyệt tổng thể rồi booking/xác nhận thực tế. Không dùng feasibility hoặc timed-documents để chặn lập phương án/cấp giấy. Giả định đồ án giấy tờ còn hiệu lực suốt chuyến; các kiểm tra đủ hồ sơ, bảo hiểm, kiểm dịch và chứng chỉ nhân sự vẫn áp dụng. Duyệt khởi hành riêng sau hai nhánh READY hợp lệ. Chỉ cập nhật tài liệu, chưa triển khai backend/DB.
-
-Các API hồ sơ Flow 2 không bị thay thế tiếp tục dùng; các mẫu điều phối đã SUPERSEDED bên dưới chỉ là lịch sử, dùng schema Flow 3 v2 khi tích hợp.
+# API Contract — Flow 2
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Phiên bản | 1.0 — phần điều phối được Flow 3 thay thế theo thay đổi 24/10/2026 |
+| Phiên bản | 1.0 — hợp đồng đích theo SRS và Reviewed |
 | Ngày | 24/10/2026 |
-| Đầu vào | Flow 1 đã ký, Request ACTIVATED, Trip PLANNING và đã phân công Specialist/Coordinator |
-| Kết thúc | Manager duyệt: Trip READY_TO_DEPART, Request SCHEDULED |
-| Phạm vi thay đổi lần này | Tài liệu contract; không sửa frontend, DB, backend hoặc migration |
-| Trạng thái | Thiết kế mục tiêu; chưa xác nhận frontend hiện tại đã gọi đúng hoặc backend đã hỗ trợ |
+| Phạm vi | Hồ sơ, kiểm dịch, thông quan, bảo hiểm |
+| Trạng thái | Chưa chứng nhận backend/frontend đã triển khai; từng API ghi dependency |
+| Căn cứ | [SRS](../../../data/SE2040_Group2_ASM2%20(1).docx), [SQL Reviewed](../../../data/HorseTransportDB_Reviewed.sql), [NAME](../../../data/DATABASE_STATUS_CONVENTION.md), [ID](../../../data/ID_NAME_RULE_Reviewed.md), [Flow 1](../Flow1/FLOW1.md), [Convention nền](../../CONVENTIONS.md) |
 
-[JSON đầy đủ từng API](FLOW2-API-JSON.md) · [OpenAPI 3.1](flow2.openapi.json) · [Mẫu nhánh ROAD/AIR](flow2.examples.json) · [Quy ước chung](../../CONVENTIONS.md).
+File tự chứa luồng, quyền, DTO, request/response thành công/lỗi, mapping SQL và kiểm tra bàn giao; theo mẫu FLOW1.md. Các API và trường chưa có persistence được đánh dấu rõ, không coi ví dụ là dữ liệu đã tồn tại. Chỉ tạo hai file Markdown trong lần này, không tạo OpenAPI riêng.
 
-## 1. Flow và ranh giới
+## 1. Luồng chính thức
 
-1. Manager giao Trip/snapshot/hạn giao và Specialist/Coordinator qua Flow 1.
-2. Specialist xử lý hồ sơ khách/CBN, bảo hiểm và kiểm dịch bằng Flow 2, xác nhận Docs READY F3-J16 khi đủ; không đợi phương án được duyệt.
-3. Coordinator lập tuyến/nguồn lực song song. ROAD xác nhận bố trí trước submit; AIR duyệt nguồn lực dự kiến trước booking/confirm.
-4. Manager duyệt phương án F3-J11, riêng AIR bao gồm ngân sách. Coordinator hoàn tất booking AIR và xác nhận vận hành F3-J13/J14; Ops READY do server tính.
-5. Manager đọc F3-J17 và duyệt khởi hành F3-J18 khi đủ cả hai nhánh cùng nội dung còn đúng. Driver DEPARTED thuộc Flow 4.
+Flow 1: đủ cọc, ký OTP, Request ACTIVATED, Contract EFFECTIVE, version SIGNED, tạo Trip PLANNING; Manager giao Specialist/Coordinator và CONFIRMED triển khai. Specialist xác định checklist → reuse hồ sơ baseline → yêu cầu bổ sung → thẩm định → đánh giá khả thi theo lịch cho Gate 1 → chuẩn bị hồ sơ công ty/bảo hiểm → xác nhận Documents READY đúng bản đã duyệt → phối hợp Gate 2. Trong hành trình vẫn ghi kết quả kiểm dịch/thông quan thực và chặn phần tiếp nếu chưa đạt.
 
-Không dùng F3-J03/F3-J21/J22 cũ làm gate. Giả định hiệu lực giấy theo đồ án ở Flow 3 v2; không bỏ kiểm tra đủ hồ sơ/bảo hiểm/chứng chỉ/kiểm dịch. Chỉ người được giao Trip được xử lý, không tạo lại hợp đồng/Trip/cọc/OTP.
+Main-flow 02 là khung; BR-48–62 là chi tiết. Mũi tên sang Flow 4 không bỏ qua Gate 2 ở Flow 3. Feasibility đạt chưa Documents READY; hồ sơ khách upload chưa VERIFIED; phí bảo hiểm chưa chứng minh đã mua. Specialist không tự hủy hợp đồng ký vì quá hạn giấy tờ. Flow 2 và 3 chuẩn bị song song.
 
-## 2. Đối chiếu màn hình và hành động
-
-| Frontend đã đọc | Dữ liệu/thao tác | API |
-|---|---|---|
-| Specialist AssignedTripsPage, TripDetailPage | Chuyến, ngựa, requirement snapshot, tiến độ | J02, J11–J14 |
-| CustomerDocsTab, SupplementModal | Hồ sơ khách, duyệt bản cụ thể, yêu cầu bổ sung | J03, J05, J15–J18, J52 |
-| CompanyDocsTab, RecordDocModal, DocumentReviewPage | Chứng từ CBN, lịch sử file/review, bản cứng | J04, J19–J23 |
-| InsuranceTab, InsuranceModal, VerifyInsuranceModal | Hãng/số bảo hiểm, khoảng hiệu lực, coverage, xác minh | J24–J25 |
-| CompanyDocsTab, BookingModal | Station, slot, notes, ref xác nhận | J06, J26–J27 |
-| RequirementSetCard, DocsReadyCard | Checklist và Docs READY | J07–J09, J12–J14, J28 |
-| RegulationsPage, SetupModals, AuditPage | Loại giấy tờ, quy định, bộ yêu cầu, audit | J07–J10, J29–J34 |
-| Coordinator TripManagementPage/TripDetailPage | Chuyến, route, nguồn lực, legs, flight | J35, J39 |
-| RouteTab, RouteMap, AddStopModal | Tọa độ, danh mục cơ sở, sắp xếp, lưu, gửi tuyến | J38, J40–J41, J46 |
-| ResourcesTab, FleetPage, CrewPage | Xe, staff, năng lực, gắn từng chặng, xác nhận | J36–J37, J42–J43 |
-| FlightTab, FlightsPage, FlightModal | Đề xuất, duyệt ngân sách, mã đặt chỗ | J44–J45, J50 |
-| Manager PrepareStage | Hồ sơ/bảo hiểm/kiểm dịch, duyệt bundle tuyến và ngân sách | J47–J50 |
-| Manager DepartStage | Fresh readiness và duyệt khởi hành | J48, J51 |
-| Customer DocumentList, documents tab | Nhận lý do bổ sung, upload bản mới, xem kết quả | J52 + Flow 1 J17/J22/J23 |
-| Mọi role | Khả năng backend thực sự đã bật | J01 |
-
-Jxx trong bảng là F2-Jxx, không phải mã endpoint Flow 1. Không lấy specialistEndpoints/coordinatorEndpoints hiện tại làm tiêu chuẩn thiết kế. Layout, trường form, types và hành vi UI là nguồn yêu cầu; code API cũ chỉ giúp tìm caller cần sửa.
-
-## 3. DTO, role, ID và kiểu dữ liệu
-
-- Tiền VND nguyên đồng, gồm coverage bảo hiểm, cost bay và budget Manager. coverage là tiền bảo hiểm, cost là chi phí bay; không gộp với giá hợp đồng đã ký hoặc thay đổi cọc.
-- Timestamp YYYY-MM-DD HH:mm ở Asia/Ho_Chi_Minh; DATE là YYYY-MM-DD. Form datetime-local đổi T thành dấu cách trước gửi. BE chuyển UTC tại persistence; không tự thêm Z vào giờ địa phương.
-- JSON success là success/message/data; danh sách trả array; required/nullable/enum/giới hạn được định nghĩa bằng schema tường minh trong OpenAPI, không suy ra từ một mẫu. Mutation không nhận actor/time/status/ID tự cấp hoặc aggregate nguyên GET.
-- USER/HORSE/TRIP/REQUEST/VEHICLE/ROUTE_SEGMENT/LEGAL_MEDICAL_RECORD/QUARANTINE_BOOKING theo ID_NAME_RULE. FlightBookingID là INT; RouteVersionID/checkpointId là số và không tự đổi sang FACILITY ID.
-- PASSPORT, VN_EXPORT, VN_JP_AIR là khóa danh mục ứng dụng, không tuyên bố có bảng DOC_TYPE/REGULATION/REQUIREMENT_SET. Supplement.id là reference opaque do BE cấp; không tự tạo bảng SUPPLEMENT hay lấy COUNT+1.
-- JWT role Specialist TRANSPORT_SPECIALIST; Coordinator FLEET_ROUTE_COORDINATOR; Manager LOGISTICS_MANAGER. Staff.role DRIVER/ESCORT/VETERINARIAN là **phân loại năng lực cho UI**, không phải ba JWT role mới: tài khoản gốc DRIVER_ESCORT và chứng chỉ/nhiệm vụ phù hợp. Không lấy tên người thay cho USER ID trong phân công.
-- Projection theo role giữ cách frontend đang render: Specialist deployment là string, Coordinator deploymentStatus là string, Manager deployment là object. Cả ba phải phản ánh cùng Trip/deployment thật; không lưu ba trạng thái độc lập.
-- Coordinator route.version ↔ Manager route.v; RETURNED ↔ CHANGES_REQUESTED. Coordinator flight.cost ↔ Manager flight.budget; BUDGET_APPROVED ↔ APPROVED. BOOKED là cùng trạng thái, phải có bookingRef thực.
-- Field mới như documentVersion, documentSetVersion, resourceVersion, insurance.v, flight.version là metadata nghiệp vụ để xác nhận đúng bản đã xem. FE đọc từ response, không đếm array hoặc bịa revision. Chưa có nơi lưu thì báo chưa hỗ trợ.
-
-## 4. Hồ sơ và Docs READY
-
-Bộ áp dụng phải cùng origin/dest/mode, ACTIVE và đủ quy định cần thiết: VN→VN dùng VN DOMESTIC; VN→JP dùng VN EXPORT + JP IMPORT. Các nội dung quy định trong ví dụ chỉ là dữ liệu minh họa, không khẳng định yêu cầu pháp lý thực tế đã được kiểm chứng.
-
-BE chụp pkgV, từng regV và RequirementLine khi áp dụng. Thay đổi bộ về sau không tự thay checklist chuyến cũ. Nếu xem preview rồi cấu hình đổi, apply kiểm tra lại pkgV và snapshot nguồn, trả 409 STALE_CONFIGURATION khi không còn đúng bản.
-
-Checklist gộp theo (typeId, horseId), PER_TRIP dùng horseId=null; hai nguồn trùng chọn mức nghiêm nhất REQUIRED > CONDITIONAL > OPTIONAL, giai đoạn sớm nhất BEFORE_SUBMIT > BEFORE_DEPART > AT_CHECKPOINT. Provider/scope mâu thuẫn không chọn ngẫu nhiên: 409 REQUIREMENT_CONFIGURATION_CONFLICT.
-
-REQUIRED trước checkpoint được counted; CONDITIONAL chỉ counted khi conditionMet=true do BE xác định; conditionMet=null chưa đánh giá được thì chặn readiness, không bỏ qua. OPTIONAL không chặn. AT_CHECKPOINT chưa phát sinh không phải giấy tờ bắt buộc trước xuất phát, nhưng thiếu config không được biến thành optional. Bộ rỗng hoặc thiếu quy định phải NOT_READY, không dùng 0/0 làm READY.
-
-CustomerDoc duyệt đúng documentVersion; Flow 3 v2 áp dụng giả định đồ án giấy tờ còn hiệu lực suốt chuyến, không còn constraints/feasibility gate. Bảo hiểm vẫn kiểm tra bao phủ lịch chuyến. Yêu cầu bổ sung OPEN → SUBMITTED sau khi khách upload bản mới → FULFILLED khi Specialist duyệt bản mới. File SUBMITTED không tự thành APPROVED. REJECTED cần remark >=5 ký tự, khi chiếu sang CustomerDoc.status là ACTION_REQUIRED và issue chứa lý do.
-
-Khách nộp bổ sung cho HORSE dùng multipart Flow 1 J17, `documentType` lấy từ DocType.customerKey tương ứng. Khi Request ACTIVATED và Trip PLANNING, chỉ cho nộp lại hồ sơ có yêu cầu bổ sung đang mở; giữ nguyên snapshot hợp đồng đã ký, tăng documentVersion và documentSetVersion, mất Docs READY. Sau upload refetch J52 và hồ sơ/checklist; không suy phiên bản từ response upload cũ. Nhánh scope=request chưa có persistence được xác nhận: trả 501, không gửi qua URL horse hoặc tạo HORSE giả.
-
-Chứng từ CBN: bản mới SUBMITTED → APPROVED/REJECTED. Phiên bản nộp lại giữ file/review bản cũ, không overwrite file đang được xem. `physicalCopy` chỉ là nhận bản gốc, không thay quyết định duyệt.
-
-Thay file, reject, áp dụng bộ khác, sửa bảo hiểm, thay danh sách ngựa hoặc lịch làm giấy/bảo hiểm không còn hợp lệ phải mất Docs READY. Nếu Trip đã READY_TO_DEPART, không âm thầm sửa bằng chứng: trả 409 DEPARTURE_APPROVAL_LOCKED; quy trình thu hồi phê duyệt phải được chốt riêng. Sau khởi hành, nghiệp vụ phát sinh thuộc flow sau.
-
-Bảo hiểm bao phủ tất cả ngựa từ ngày nhận đến hết ETA; lưu mới PENDING, xác minh đúng insuranceVersion mới VERIFIED. Ba checkbox trong modal là lời xác nhận của Specialist, không phải bằng chứng để BE bỏ kiểm tra. Không tự điền hãng/coverage mặc định hoặc đổi giá trị USD sang VND bằng thay nhãn.
-
-Lịch kiểm dịch REQUESTED → BOOKED khi có ref thật; BOOKED không đồng nghĩa đã kiểm dịch đạt. `quarantineOk` chỉ true khi tất cả lịch bắt buộc trong bộ của chuyến đã xác nhận và phù hợp tuyến/ngày. Tuyến không yêu cầu lịch phải trả lý do NOT_REQUIRED trong readiness; không mặc định mọi ROAD là không cần kiểm dịch.
-
-## 5. Tuyến, bản đồ và nguồn lực — chuyển sang Flow 3 v2
-
-[FLOW3.md](../Flow3/FLOW3.md) thay thế toàn bộ thứ tự điều phối cũ. ROAD confirm ở draft trước submit và giữ tạm nguyên tử; AIR draft chỉ dự kiến, submit giữ tạm, Manager duyệt rồi book/confirm. Cả hai có xe và ba người mỗi ROAD, AIR hai bộ riêng. Không đưa BOOKED thành điều kiện submit AIR.
-
-Danh mục F2-J36/J37 giữ URL; schema bổ sung và vehicle-options/staff/places ở Flow 3 v2 là nguồn hiện hành. F2-J38 checkpoints đọc cùng catalogue, không tự đổi kiểu ID. Các mẫu route-draft/resources/flight-proposals cũ dưới đây chỉ tra cứu lịch sử; dùng plan-draft và actions v2.
-
-## 6. Duyệt khởi hành và tranh chấp — chuyển sang Flow 3 v2
-
-Đủ Docs READY + Ops READY theo approved plan hiện tại, đúng phiên bản/nguồn lực/booking/bảo hiểm/kiểm dịch/tuyến xe tải/consent và không blocker. Không có feasibility gate. GET chỉ hiển thị; POST recheck trong transaction. Các endpoint giữ cùng method/path dùng schema v2 duy nhất. Không duyệt chỉ bằng cờ route APPROVED; duyệt khởi hành khác DEPARTED.
-
-## 7. Khoảng trống frontend và persistence — chưa được sửa trong lần viết contract
-
-| Bằng chứng trong dự án | Việc cần làm khi tích hợp |
+| Màn hình SRS | API |
 |---|---|
-| specialistApi/coordinatorApi getOr, mock state khởi tạo | Không fallback API lỗi thành mock/empty thành công trong chế độ thật |
-| useSpecialist dùng mutate trước void API; Coordinator không kiểm boolean send | await response trước đổi trạng thái; giữ form và hiện lỗi khi thất bại |
-| RecordDocModal chỉ giữ tên file, DocumentReviewPage mở sample | Giữ File, multipart bytes; tải đúng bản có Bearer, không dựng tài liệu minh họa |
-| InsuranceModal và FlightModal ghi USD | VND; bỏ mặc định 100000 USD, không tự đổi số tiền mẫu |
-| CUSTOMER_KEY_TYPE/TYPE_CUSTOMER_KEY hardcode DT-1/2/3 | Dùng DocType.customerKey từ API, không đoán khóa DB |
-| ApplySetModal/checklist/DocsReadyCard tính cục bộ | BE là nguồn checklist/conditionMet/READY; giữ UI preview nhưng không tự phê duyệt |
-| togglePhysicalCopy, confirmBooking, markRequestFulfilled chỉ local | Có API riêng J23/J27/J17 và audit; không chỉ đổi bộ nhớ |
-| Coordinator addStop/remove/move và ID STOP-* local | Staging rồi PUT; chỉ ID tạm ở UI, không gửi lưu |
-| checkpointCatalog fallback dữ liệu mẫu | Catalog thật, phân biệt không hỗ trợ và danh sách rỗng |
-| Manager PrepareStage/DepartStage mutate local trước void API | Await J49–J51, dùng readiness từ API; không đổi route/Trip bằng demo |
-| Specialist/Coordinator demo controls, tự approve route/flight/departure | Không dùng làm bằng chứng thật, tắt trên chế độ tích hợp |
-| LEGAL_MEDICAL_RECORD bắt buộc HorseID và thiếu metadata/version/review | PER_TRIP, documentVersion, số/cơ quan cấp, bản cứng và lịch sử chưa có nơi lưu xác nhận; giữ feature tắt/501 |
-| Không thấy nguồn lưu reqSet/insurance/Docs READY/supplement/config catalog trong SQL tham khảo | Không thêm bảng/cột trong công việc này; capability false và chặn duyệt cuối nếu bằng chứng bắt buộc chưa có |
-| TRIP_VEHICLE_ASSIGNMENT chỉ DriverID/EscortID, không leg/CO_DRIVER/VETERINARIAN rõ ràng | Không gán nhầm slot hoặc coi AIR đủ hai chặng; resources chưa được chứng nhận |
-| VEHICLE thiếu plate/country/base/service/features; USER/chứng chỉ thiếu một phần metadata UI | Cần nguồn dữ liệu thật được xác nhận, không điền mặc định để vượt readiness |
-| ROUTE_SEGMENT có route points nhưng không route approval version/lat/lng rõ ràng | Không khẳng định đủ persistence cho route-versioning/map; 501 khi chưa lưu được |
-| FLIGHT_BOOKING có INT, route/airport numeric IDs nhưng thiếu budget proposal/decision/cost | Không insert booking giả để thay đề xuất; không tự sinh checkpoint ID từ mảng demo |
-| TRIP_PLAN chưa xác nhận lưu approvedAt/Docs READY/evidence revisions | Không đổi Status đơn lẻ rồi tuyên bố duyệt thành công |
+| Customer Documents/Upload | J04/J07 |
+| Specialist Dashboard/Assigned Trips | J01–03 |
+| Checklist/Review Queue/Detail | J05–11 |
+| Document Requests/CBN/Insurance | J12–16 |
+| Feasibility/Readiness | J14/J17–18 |
+| Quarantine/Customs/Impact/Manager summary | J19–23; package J24–25; quy định/audit J26–27 |
 
-Nguồn đối chiếu SQL/ID chỉ đọc: D:/Shared/HorseTransportDB.sql và D:/Shared/ID_NAME_RULE.md do người dùng cung cấp. File SQL trong repository có phiên bản khác; chưa truy vấn DB thực tế. Những thiếu hụt ở bảng trên là giới hạn thiết kế cần nghiệm thu, không phải chỉ dẫn hay quyền sửa DB/backend.
+## 2. Quy ước chung
 
-## 8. Nghiệm thu và cách dùng
+### 2.1 Base URL và quyền
 
-- Đọc flow/quyền trước; dùng JSON và schema cho tên field, required, nullable, enum, giới hạn. Chốt adapter frontend theo bảng mục 7 rồi mới nối API thật.
-- Mọi feature trả bởi J01 hiện minh họa enabled=false cho đến khi backend được nghiệm thu. Capability không thay quyền JWT; enabled=true cũng phải kiểm tra quyền và bằng chứng mỗi lần.
-- Các schema mới được viết tường minh, không suy required từ JSON mẫu. Một số quy tắc liên field (AIR legs, ngày, reservations, policy) phải được backend kiểm tra ngoài JSON Schema.
-- Từ thư mục gốc repository, chạy `python contracts/API-Flow/Flow2/build_contract.py` rồi `node contracts/API-Flow/Flow2/validate_contract.mjs` (cần dependencies frontend đã cài). Validator kiểm toàn bộ request/response/error, nhánh ROAD/AIR, thiếu field, enum sai, số tiền âm, revision 0 không hợp lệ; phát hiện stale thật giữa hai lần gọi vẫn cần kiểm thử tích hợp backend và đồng nhất JSON giữa hai Markdown; không chạy DB hay sửa backend.
-- Chưa có kết quả kiểm thử tích hợp hoặc tuyên bố frontend hiện tại đã chạy theo contract này. Phần minh họa pháp lý và catalog phải được nhóm nghiệp vụ kiểm chứng trước dùng thật.
+Base URL /api. Mọi path dưới đây nằm sau /api. Header JSON: Authorization: Bearer <token>, Accept: application/json, Content-Type: application/json. Upload dùng FormData, không tự đặt boundary. GET và command ghi không body phải không gửi body.
 
-## 9. Request/response đầy đủ theo từng API
+Customer chỉ xem/sửa tài nguyên thuộc mình. Specialist phải đúng TRIP_PLAN.AssignedSpecialistId; Coordinator phải đúng AssignedCoordinatorId. Manager role LOGISTICS_MANAGER, hàng đợi chung, không AssignedManagerId/claim. Sai role 403; ngoài scope/không tồn tại 404. Actor/owner/time lấy từ JWT/server, không tin client. ADMIN không tự được làm quyết định nghiệp vụ nếu chưa có policy.
 
-<!-- FLOW2_ENDPOINTS_START -->
+Mutation chuẩn bị mới yêu cầu DeploymentStatus CONFIRMED; ON_HOLD khóa ghi triển khai mới nhưng vẫn cho đọc đúng quyền. Trong chuyến IN_TRANSIT, Specialist còn nhiệm vụ thủ tục thực tế; không dùng hold trước khởi hành để quay Trip về PLANNING. File/download cũng kiểm quyền, biết ID không có nghĩa được xem.
 
-### F2-J01 — GET /master/flow2-capabilities
+### 2.2 Envelope, HTTP và nullable
 
-Khả năng Flow 2 được triển khai. Role: **AUTHENTICATED**. Feature: `core`.
+```json
+{"success":true,"message":"OK","data":{}}
+```
+
+```json
+{"success":false,"message":"Dữ liệu không hợp lệ","errorCode":"VALIDATION_ERROR","data":null,"errors":{"field":["Lý do"]}}
+```
+
+200 đọc/cập nhật; 201 tạo; 400 validation; 401 chưa đăng nhập; 403 sai role; 404 ngoài scope; 409 sai state/stale version/conflict; 429 rate limit; 500 lỗi server; 501 FEATURE_NOT_SUPPORTED khi thiếu capability/persistence. Lỗi có data:null; errors optional khi có lỗi field. Lists trả data:[] theo Flow 1, không đổi sang wrapper phân trang. Query filter optional trừ khi endpoint ghi khác; path params bắt buộc. Không trả mock khi GET rỗng hoặc server lỗi.
+
+Field optional chưa có được bỏ; field explicit nullable trả null. Arrays luôn là arrays. Null readiness/insurance khi thiếu dependency không có nghĩa đã đạt. blockers:[] chỉ dùng khi đã kiểm và không có blocker, không dùng để che chưa kiểm. Binary PDF/ảnh trả HTTP đúng MIME, lỗi vẫn envelope JSON, không envelope binary thành công.
+
+### 2.3 ID, tiền, thời gian, file
+
+ID backend theo ID_NAME_RULE_Reviewed: USER_*, HORSE_*, REQUEST_*, TRIP_*, CONTRACT_*. Hồ sơ LEGAL_MEDICAL_RECORD_*, booking QUARANTINE_BOOKING_*, clearance CUSTOMS_CLEARANCE_*, route ROUTE_SEGMENT_*, assignment TRIP_ASSIGNMENT_* do Sequence cấp, không COUNT/MAX+1. FlightBookingID là INT IDENTITY, không FLIGHT_BOOKING_001. planVersionNo/expectedPlanVersionNo là phiên bản nghiệp vụ đích >=1, cần schema, không RowVersion và không tự bằng RouteVersionID INT của booking.
+
+Tiền VND nguyên đồng; giữ giá hợp đồng ký, không tự tính lại từ rate mới. Date YYYY-MM-DD. Timestamp DTO theo Flow 1: YYYY-MM-DD HH:mm, chuẩn hóa Asia/Ho_Chi_Minh; DB UTC. Lịch sân bay theo timezone nguồn phải chuyển đúng trước so sánh, không gắn Z vào giờ địa phương. Ví dụ là dữ liệu minh họa, không phản ánh giờ hiện tại.
+
+PDF/JPG/JPEG/PNG <=10 MiB; server kiểm MIME/nội dung/quyền. FileRef gồm name/url endpoint có quyền, không private storage key/đường dẫn ổ đĩa. URL bằng chứng trong body phải resolve tới tệp đã upload đúng scope; không fetch URL tùy ý. Catalog mã mới trong ví dụ phải được chốt trước implement, không coi mọi giấy tờ là bắt buộc cho mọi tuyến.
+
+### 2.4 Version, retry và persistence
+
+Mutations chỉ nhận fields mô tả, reject mass assignment status/actor/owner/history/ready từ client. Kiểm scope/state/version trong transaction; expectedPlanVersionNo khác hiện hành trả 409 PLAN_VERSION_CONFLICT. Retry không tạo trùng record/booking/giữ lịch hoặc gửi notification lặp. Nếu dùng Idempotency-Key cần persistence bền vững theo actor/resource/action, không chỉ FE disable nút.
+
+Persistence BASE nghĩa có bảng/cột nền, không khẳng định endpoint đã implement. CẦN BỔ SUNG nghĩa ví dụ 200/201 chỉ là shape đích sau khi có schema/capability; hiện thiếu thì trả 501/data:null. Không dùng Notification JSON/localStorage/memory để giả lưu đủ thông tin hoặc giả READY. Endpoint BASE vẫn cần quyền, validation, transaction và backend thật.
+
+### 2.5 Nguồn ưu tiên
+
+SRS quyết định hành vi; SQL Reviewed quyết định cột có thật; NAME/ID Reviewed quyết định mã. CONVENTIONS.md là nền Flow 1; các link D:/Shared, enum Request IN_TRANSIT và giới hạn hold cũ trong đó không ghi đè rule mới: Request IN_PROGRESS, Trip IN_TRANSIT; SQL DeploymentStatus có ON_HOLD. Không sửa SQL/backend/FE trong lần viết contract này. Các quyết định mới của nhóm về khiếu nại/OTP bàn giao Flow 6 không mở rộng tùy tiện quyền sửa hợp đồng đã ký.
+
+## 3. DTO và state machine
+
+| Field | Kiểu / quy tắc |
+|---|---|
+| tripId/requestId/horseId | string ID chuẩn; kiểm liên kết, không chỉ tiền tố |
+| tripStatus | PLANNING / READY_TO_DEPART / IN_TRANSIT / COMPLETED |
+| requestStatus | ACTIVATED sau ký; SCHEDULED sau Gate 1; IN_PROGRESS lúc xuất phát |
+| deploymentStatus | PENDING / CONFIRMED / ON_HOLD; null khi chưa ghi triển khai |
+| planVersionNo/expectedPlanVersionNo | integer >=1, phiên bản nghiệp vụ đích; không field SQL đã có |
+| plan.status | DRAFT / SUBMITTED / APPROVED / CHANGES_REQUESTED / WITHDRAWN, tách Trip.Status |
+| documentStatus | PENDING_REVIEW / VERIFIED / REJECTED / EXPIRED; không APPROVED thay VERIFIED |
+| requirementStatus | MANDATORY / OPTIONAL / NOT_APPLICABLE; null chưa phân loại, không tự đạt |
+| readiness.status | NOT_READY / READY theo version; object null khi không có persistence |
+| file | FileRef name/url có quyền; binary tải qua endpoint riêng |
+| capabilities | boolean từng nhóm theo backend thật; false không dùng để giấu lỗi HTTP |
+| issues/blockers | array code/message, scope/field nếu có; không coi chưa kiểm là [] |
+
+## 4. API và payload
+
+| Mã | Method/path | Mục đích |
+|---|---|---|
+| F2-J01 | `GET /specialist/dashboard` | Dashboard hồ sơ |
+| F2-J02 | `GET /specialist/trips?status=PLANNING` | Danh sách Trip được giao |
+| F2-J03 | `GET /specialist/trips/{tripId}/dossier` | Chi tiết hồ sơ Trip |
+| F2-J04 | `GET /customer/trips/{tripId}/documents` | Customer xem hồ sơ |
+| F2-J05 | `GET /specialist/trips/{tripId}/document-checklist` | Checklist áp dụng |
+| F2-J06 | `GET /master/document-options?tripId=TRIP_003` | Catalog hồ sơ theo scope |
+| F2-J07 | `POST /customer/trips/{tripId}/horses/{horseId}/documents` | Upload bổ sung |
+| F2-J08 | `GET /specialist/document-reviews?status=PENDING_REVIEW` | Hàng đợi thẩm định |
+| F2-J09 | `GET /specialist/document-reviews/{recordId}` | Chi tiết thẩm định |
+| F2-J10 | `GET /specialist/document-reviews/{recordId}/file` | Tải file có quyền |
+| F2-J11 | `POST /specialist/document-reviews/{recordId}/decision` | Thẩm định tài liệu |
+| F2-J12 | `POST /specialist/trips/{tripId}/document-requests` | Tạo yêu cầu bổ sung |
+| F2-J13 | `POST /specialist/trips/{tripId}/company-documents` | Upload hồ sơ công ty |
+| F2-J14 | `POST /specialist/trips/{tripId}/document-feasibility` | Đánh giá khả thi hồ sơ |
+| F2-J15 | `GET /specialist/trips/{tripId}/insurance` | Xem bảo hiểm |
+| F2-J16 | `PUT /specialist/trips/{tripId}/insurance` | Ghi mua/xác minh bảo hiểm |
+| F2-J17 | `GET /specialist/trips/{tripId}/documents-readiness` | Kiểm tra Documents readiness |
+| F2-J18 | `POST /specialist/trips/{tripId}/documents-readiness/confirm` | Xác nhận Documents READY |
+| F2-J19 | `POST /specialist/trips/{tripId}/quarantine-bookings` | Ghi nhận booking kiểm dịch |
+| F2-J20 | `POST /specialist/quarantine-bookings/{bookingId}/result` | Ghi kết quả kiểm dịch |
+| F2-J21 | `POST /specialist/trips/{tripId}/customs-clearances` | Ghi kết quả thông quan |
+| F2-J22 | `POST /specialist/trips/{tripId}/document-impact-assessments` | Đánh giá ảnh hưởng thay đổi |
+| F2-J23 | `GET /manager/trips/{tripId}/document-summary` | Manager xem tổng hợp hồ sơ |
+| F2-J24 | `GET /specialist/trips/{tripId}/document-package` | Đọc bộ hồ sơ đi đường |
+| F2-J25 | `POST /specialist/trips/{tripId}/document-package/export` | Tạo bộ hồ sơ xuất |
+| F2-J26 | `GET /specialist/regulations?tripId=TRIP_003` | Tra cứu quy định |
+| F2-J27 | `GET /specialist/trips/{tripId}/document-audit` | Tra cứu audit hồ sơ |
+
+### F2-J01 — GET /specialist/dashboard
+
+Dashboard hồ sơ. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** TRIP_PLAN/LMR theo assignment.
+
+**Side effect và retry:** Đếm từ dữ liệu thực, không thay state khi mở trang.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
 
 **Request body:** Không gửi body.
 
-**Response 200 — mẫu mục tiêu khi đã triển khai**
+**Response 200**
 
 ```json
 {
   "success": true,
   "message": "OK",
   "data": {
-    "features": [
-      {
-        "key": "configuration",
-        "enabled": false,
-        "reason": "Chưa nghiệm thu backend và nguồn lưu bền vững"
-      },
-      {
-        "key": "core",
-        "enabled": false,
-        "reason": "Chưa nghiệm thu backend và nguồn lưu bền vững"
-      },
-      {
-        "key": "document-review",
-        "enabled": false,
-        "reason": "Chưa nghiệm thu backend và nguồn lưu bền vững"
-      },
-      {
-        "key": "document-versions",
-        "enabled": false,
-        "reason": "Chưa nghiệm thu backend và nguồn lưu bền vững"
-      },
-      {
-        "key": "flight-budget",
-        "enabled": false,
-        "reason": "Chưa nghiệm thu backend và nguồn lưu bền vững"
-      },
-      {
-        "key": "insurance",
-        "enabled": false,
-        "reason": "Chưa nghiệm thu backend và nguồn lưu bền vững"
-      },
-      {
-        "key": "readiness",
-        "enabled": false,
-        "reason": "Chưa nghiệm thu backend và nguồn lưu bền vững"
-      },
-      {
-        "key": "requirements",
-        "enabled": false,
-        "reason": "Chưa nghiệm thu backend và nguồn lưu bền vững"
-      },
-      {
-        "key": "resources",
-        "enabled": false,
-        "reason": "Chưa nghiệm thu backend và nguồn lưu bền vững"
-      },
-      {
-        "key": "route-versioning",
-        "enabled": false,
-        "reason": "Chưa nghiệm thu backend và nguồn lưu bền vững"
-      },
-      {
-        "key": "supplements",
-        "enabled": false,
-        "reason": "Chưa nghiệm thu backend và nguồn lưu bền vững"
-      }
-    ],
-    "checkpointSuggestionRadiusMeters": 5000
+    "assignedTripCount": 2,
+    "pendingReviewCount": 3
   }
 }
 ```
 
-**Response 501 — khi chưa hỗ trợ**
+**Response lỗi 409**
 
 ```json
 {
   "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
   "data": null
 }
 ```
 
-**Schema:** `#/components/schemas/F2-J01Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
 
-### F2-J02 — GET /specialist/trips
+### F2-J02 — GET /specialist/trips?status=PLANNING
 
-Chuyến Specialist được giao. Role: **TRANSPORT_SPECIALIST**. Feature: `core`.
+Danh sách Trip được giao. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** Trip join Request/Contract, filter AssignedSpecialistId.
+
+**Side effect và retry:** Đọc được ON_HOLD đúng quyền, action ghi bị khóa.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
 
 **Request body:** Không gửi body.
 
-**Response 200 — mẫu mục tiêu khi đã triển khai**
+**Response 200**
 
 ```json
 {
@@ -232,2239 +177,100 @@ Chuyến Specialist được giao. Role: **TRANSPORT_SPECIALIST**. Feature: `cor
   "message": "OK",
   "data": [
     {
-      "id": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "customerName": "Nguyen Van A",
-      "origin": "Ho Chi Minh City",
-      "destination": "Tokyo",
-      "originCountry": "VN",
-      "destCountry": "JP",
-      "mode": "AIR",
-      "status": "PLANNING",
-      "deployment": "CONFIRMED",
-      "plannedDepart": "2026-11-20 08:00",
-      "eta": "2026-11-21 18:00",
-      "horses": [
-        {
-          "id": "HORSE_001",
-          "name": "Thunderbolt",
-          "microchip": "985112004571029",
-          "passportNo": "VN-EQ-2020-1029"
-        }
-      ],
-      "reqSet": null,
-      "docsReady": null,
-      "insurance": null,
-      "checkpoints": [
-        {
-          "name": "Sân bay Narita",
-          "type": "AIRPORT",
-          "country": "JP",
-          "plannedAt": "2026-11-21 14:00",
-          "arrivedAt": null,
-          "clearance": null
-        }
-      ],
-      "documentSetVersion": 3
-    }
-  ]
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ trả phạm vi được phân công; query tripId tùy chọn ở danh sách theo chuyến. Trống trả [].
-
-**Schema:** `#/components/schemas/F2-J02Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J03 — GET /specialist/customer-documents
-
-Hồ sơ khách đã nộp. Role: **TRANSPORT_SPECIALIST**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | query | Không | string |
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": [
-    {
-      "tripId": "TRIP_001",
-      "key": "passport",
-      "scope": "HORSE_001",
-      "documentVersion": 1,
-      "status": "SUBMITTED",
-      "optional": false,
-      "file": "/api/specialist/trips/TRIP_001/customer-documents/HORSE_001/passport/file",
-      "note": "Chờ Specialist kiểm tra",
-      "issue": null,
-      "expiry": null,
-      "reviewedAt": null,
-      "reviewedBy": null
-    }
-  ]
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ trả phạm vi được phân công; query tripId tùy chọn ở danh sách theo chuyến. Trống trả [].
-
-**Schema:** `#/components/schemas/F2-J03Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J04 — GET /specialist/documents
-
-Chứng từ CBN. Role: **TRANSPORT_SPECIALIST**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | query | Không | string |
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": [
-    {
-      "id": "LEGAL_MEDICAL_RECORD_002",
-      "tripId": "TRIP_001",
-      "typeId": "EXPORT_HEALTH",
-      "horseId": "HORSE_001",
-      "status": "SUBMITTED",
-      "number": "CERT-001",
-      "issuer": "Đơn vị cấp giấy A",
-      "issuedAt": "2026-11-15",
-      "expiry": "2026-12-01",
-      "versions": [
-        {
-          "v": 1,
-          "file": "/api/specialist/documents/LEGAL_MEDICAL_RECORD_002/versions/1/file",
-          "at": "2026-10-24 09:00",
-          "by": "USER_005"
-        }
-      ],
-      "reviews": [],
-      "rejectReason": null,
-      "physicalCopy": false
-    }
-  ]
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ trả phạm vi được phân công; query tripId tùy chọn ở danh sách theo chuyến. Trống trả [].
-
-**Schema:** `#/components/schemas/F2-J04Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J05 — GET /specialist/document-requests
-
-Yêu cầu bổ sung. Role: **TRANSPORT_SPECIALIST**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | query | Không | string |
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": [
-    {
-      "id": "SUP:TRIP_001:HORSE_001:passport:1",
-      "tripId": "TRIP_001",
-      "key": "passport",
-      "scope": "HORSE_001",
-      "reason": "Vui lòng nộp bản hộ chiếu còn hiệu lực",
-      "dueAt": null,
-      "status": "OPEN",
-      "createdAt": "2026-10-24 09:00",
-      "history": [
-        [
-          "2026-10-24 09:00",
-          "Gửi yêu cầu bổ sung"
-        ]
-      ]
-    }
-  ]
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ trả phạm vi được phân công; query tripId tùy chọn ở danh sách theo chuyến. Trống trả [].
-
-**Schema:** `#/components/schemas/F2-J05Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J06 — GET /specialist/quarantine-bookings
-
-Lịch kiểm dịch. Role: **TRANSPORT_SPECIALIST**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | query | Không | string |
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": [
-    {
-      "id": "QUARANTINE_BOOKING_001",
-      "tripId": "TRIP_001",
-      "station": "Trạm kiểm dịch A",
-      "slot": "2026-11-20",
-      "ref": "",
-      "status": "REQUESTED",
-      "notes": "",
-      "confirmedAt": null
-    }
-  ]
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ trả phạm vi được phân công; query tripId tùy chọn ở danh sách theo chuyến. Trống trả [].
-
-**Schema:** `#/components/schemas/F2-J06Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J07 — GET /specialist/document-types
-
-Loại giấy tờ. Role: **TRANSPORT_SPECIALIST**. Feature: `configuration`.
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": [
-    {
-      "id": "PASSPORT",
-      "name": "Hộ chiếu ngựa",
-      "group": "IDENTITY",
-      "scope": "PER_HORSE",
-      "provider": "CUSTOMER",
-      "validityDays": null,
-      "status": "ACTIVE",
-      "customerKey": "passport"
-    }
-  ]
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ trả phạm vi được phân công; query tripId tùy chọn ở danh sách theo chuyến. Trống trả [].
-
-**Schema:** `#/components/schemas/F2-J07Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J08 — GET /specialist/regulations
-
-Quy định nội bộ. Role: **TRANSPORT_SPECIALIST**. Feature: `configuration`.
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": [
-    {
-      "id": "VN_EXPORT",
-      "v": 1,
-      "effectiveFrom": "2026-10-24",
-      "country": "VN",
-      "direction": "EXPORT",
-      "lines": [
-        {
-          "typeId": "PASSPORT",
-          "provider": "CUSTOMER",
-          "scope": "PER_HORSE",
-          "level": "REQUIRED",
-          "stage": "BEFORE_DEPART",
-          "condition": ""
-        }
-      ],
-      "note": "Quy định demo nội bộ, chưa xác minh pháp lý",
-      "status": "ACTIVE"
-    }
-  ]
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ trả phạm vi được phân công; query tripId tùy chọn ở danh sách theo chuyến. Trống trả [].
-
-**Schema:** `#/components/schemas/F2-J08Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J09 — GET /specialist/requirement-sets
-
-Bộ yêu cầu. Role: **TRANSPORT_SPECIALIST**. Feature: `configuration`.
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": [
-    {
-      "id": "VN_JP_AIR",
-      "v": 1,
-      "effectiveFrom": "2026-10-24",
-      "name": "Việt Nam → Nhật Bản",
-      "items": [
-        [
-          "VN",
-          "EXPORT"
-        ],
-        [
-          "JP",
-          "IMPORT"
-        ]
-      ],
-      "origin": "VN",
-      "dest": "JP",
-      "modes": [
-        "AIR"
-      ],
-      "note": "",
-      "status": "ACTIVE"
-    }
-  ]
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ trả phạm vi được phân công; query tripId tùy chọn ở danh sách theo chuyến. Trống trả [].
-
-**Schema:** `#/components/schemas/F2-J09Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J10 — GET /specialist/audit
-
-Nhật ký thao tác. Role: **TRANSPORT_SPECIALIST**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | query | Không | string |
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": [
-    {
-      "at": "2026-10-24 09:00",
-      "actor": "Specialist A",
-      "role": "TRANSPORT_SPECIALIST",
-      "action": "REVIEW_CUSTOMER_DOCUMENT",
-      "entity": "TRIP_001",
-      "detail": "Đã kiểm tra hồ sơ"
-    }
-  ]
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ trả phạm vi được phân công; query tripId tùy chọn ở danh sách theo chuyến. Trống trả [].
-
-**Schema:** `#/components/schemas/F2-J10Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J11 — GET /specialist/trips/{tripId}
-
-Chi tiết chuyến cho Specialist. Role: **TRANSPORT_SPECIALIST**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "TRIP_001",
-    "requestId": "REQUEST_001",
-    "customerName": "Nguyen Van A",
-    "origin": "Ho Chi Minh City",
-    "destination": "Tokyo",
-    "originCountry": "VN",
-    "destCountry": "JP",
-    "mode": "AIR",
-    "status": "PLANNING",
-    "deployment": "CONFIRMED",
-    "plannedDepart": "2026-11-20 08:00",
-    "eta": "2026-11-21 18:00",
-    "horses": [
-      {
-        "id": "HORSE_001",
-        "name": "Thunderbolt",
-        "microchip": "985112004571029",
-        "passportNo": "VN-EQ-2020-1029"
-      }
-    ],
-    "reqSet": null,
-    "docsReady": null,
-    "insurance": null,
-    "checkpoints": [
-      {
-        "name": "Sân bay Narita",
-        "type": "AIRPORT",
-        "country": "JP",
-        "plannedAt": "2026-11-21 14:00",
-        "arrivedAt": null,
-        "clearance": null
-      }
-    ],
-    "documentSetVersion": 3
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Schema:** `#/components/schemas/F2-J11Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J12 — GET /specialist/trips/{tripId}/checklist
-
-Checklist do backend đánh giá. Role: **TRANSPORT_SPECIALIST**. Feature: `requirements`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "items": [
-      {
-        "typeId": "PASSPORT",
-        "horseId": "HORSE_001",
-        "provider": "CUSTOMER",
-        "level": "REQUIRED",
-        "stage": "BEFORE_DEPART",
-        "condition": "",
-        "conditionMet": null,
-        "counted": true,
-        "status": "SUBMITTED",
-        "doc": null,
-        "missingRule": null
-      }
-    ],
-    "ready": 0,
-    "total": 1,
-    "pending": 1,
-    "needs": 0,
-    "status": "NOT_READY",
-    "documentSetVersion": 3
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Schema:** `#/components/schemas/F2-J12Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J13 — POST /specialist/trips/{tripId}/requirement-set-preview
-
-Xem trước thay đổi checklist. Role: **TRANSPORT_SPECIALIST**. Feature: `requirements`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "pkgId": "VN_JP_AIR",
-  "pkgV": 1
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "snapshot": {
-      "pkgId": "VN_JP_AIR",
-      "pkgV": 1,
-      "name": "Việt Nam → Nhật Bản",
-      "at": "2026-10-24 09:00",
-      "by": "USER_005",
-      "rules": [
-        {
-          "country": "VN",
-          "direction": "EXPORT",
-          "regId": "VN_EXPORT",
-          "regV": 1,
-          "lines": [
-            {
-              "typeId": "PASSPORT",
-              "provider": "CUSTOMER",
-              "scope": "PER_HORSE",
-              "level": "REQUIRED",
-              "stage": "BEFORE_DEPART",
-              "condition": ""
-            }
-          ]
-        },
-        {
-          "country": "JP",
-          "direction": "IMPORT",
-          "regId": "JP_IMPORT",
-          "regV": 1,
-          "lines": [
-            {
-              "typeId": "PASSPORT",
-              "provider": "CUSTOMER",
-              "scope": "PER_HORSE",
-              "level": "REQUIRED",
-              "stage": "BEFORE_DEPART",
-              "condition": ""
-            }
-          ]
-        }
-      ]
-    },
-    "checklist": {
-      "items": [
-        {
-          "typeId": "PASSPORT",
-          "horseId": "HORSE_001",
-          "provider": "CUSTOMER",
-          "level": "REQUIRED",
-          "stage": "BEFORE_DEPART",
-          "condition": "",
-          "conditionMet": null,
-          "counted": true,
-          "status": "SUBMITTED",
-          "doc": null,
-          "missingRule": null
-        }
-      ],
-      "ready": 0,
-      "total": 1,
-      "pending": 1,
-      "needs": 0,
-      "status": "NOT_READY",
-      "documentSetVersion": 3
-    },
-    "changes": [
-      {
-        "action": "ADD",
-        "typeId": "PASSPORT",
-        "horseId": null
-      }
-    ]
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ đọc, không áp dụng/sửa dữ liệu; điều kiện phải được BE xác định.
-
-**Schema:** `#/components/schemas/F2-J13Request`, `#/components/schemas/F2-J13Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J14 — PUT /specialist/trips/{tripId}/requirement-set
-
-Áp dụng snapshot bộ yêu cầu. Role: **TRANSPORT_SPECIALIST**. Feature: `requirements`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "pkgId": "VN_JP_AIR",
-  "pkgV": 1
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "trip": {
-      "id": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "customerName": "Nguyen Van A",
-      "origin": "Ho Chi Minh City",
-      "destination": "Tokyo",
-      "originCountry": "VN",
-      "destCountry": "JP",
-      "mode": "AIR",
-      "status": "PLANNING",
-      "deployment": "CONFIRMED",
-      "plannedDepart": "2026-11-20 08:00",
-      "eta": "2026-11-21 18:00",
-      "horses": [
-        {
-          "id": "HORSE_001",
-          "name": "Thunderbolt",
-          "microchip": "985112004571029",
-          "passportNo": "VN-EQ-2020-1029"
-        }
-      ],
-      "reqSet": {
-        "pkgId": "VN_JP_AIR",
-        "pkgV": 1,
-        "name": "Việt Nam → Nhật Bản",
-        "at": "2026-10-24 09:00",
-        "by": "USER_005",
-        "rules": [
-          {
-            "country": "VN",
-            "direction": "EXPORT",
-            "regId": "VN_EXPORT",
-            "regV": 1,
-            "lines": [
-              {
-                "typeId": "PASSPORT",
-                "provider": "CUSTOMER",
-                "scope": "PER_HORSE",
-                "level": "REQUIRED",
-                "stage": "BEFORE_DEPART",
-                "condition": ""
-              }
-            ]
-          },
-          {
-            "country": "JP",
-            "direction": "IMPORT",
-            "regId": "JP_IMPORT",
-            "regV": 1,
-            "lines": [
-              {
-                "typeId": "PASSPORT",
-                "provider": "CUSTOMER",
-                "scope": "PER_HORSE",
-                "level": "REQUIRED",
-                "stage": "BEFORE_DEPART",
-                "condition": ""
-              }
-            ]
-          }
-        ]
-      },
-      "docsReady": null,
-      "insurance": null,
-      "checkpoints": [
-        {
-          "name": "Sân bay Narita",
-          "type": "AIRPORT",
-          "country": "JP",
-          "plannedAt": "2026-11-21 14:00",
-          "arrivedAt": null,
-          "clearance": null
-        }
-      ],
-      "documentSetVersion": 3
-    },
-    "snapshot": {
-      "pkgId": "VN_JP_AIR",
-      "pkgV": 1,
-      "name": "Việt Nam → Nhật Bản",
-      "at": "2026-10-24 09:00",
-      "by": "USER_005",
-      "rules": [
-        {
-          "country": "VN",
-          "direction": "EXPORT",
-          "regId": "VN_EXPORT",
-          "regV": 1,
-          "lines": [
-            {
-              "typeId": "PASSPORT",
-              "provider": "CUSTOMER",
-              "scope": "PER_HORSE",
-              "level": "REQUIRED",
-              "stage": "BEFORE_DEPART",
-              "condition": ""
-            }
-          ]
-        },
-        {
-          "country": "JP",
-          "direction": "IMPORT",
-          "regId": "JP_IMPORT",
-          "regV": 1,
-          "lines": [
-            {
-              "typeId": "PASSPORT",
-              "provider": "CUSTOMER",
-              "scope": "PER_HORSE",
-              "level": "REQUIRED",
-              "stage": "BEFORE_DEPART",
-              "condition": ""
-            }
-          ]
-        }
-      ]
-    },
-    "checklist": {
-      "items": [
-        {
-          "typeId": "PASSPORT",
-          "horseId": "HORSE_001",
-          "provider": "CUSTOMER",
-          "level": "REQUIRED",
-          "stage": "BEFORE_DEPART",
-          "condition": "",
-          "conditionMet": null,
-          "counted": true,
-          "status": "SUBMITTED",
-          "doc": null,
-          "missingRule": null
-        }
-      ],
-      "ready": 0,
-      "total": 1,
-      "pending": 1,
-      "needs": 0,
-      "status": "NOT_READY",
-      "documentSetVersion": 3
-    },
-    "docsReady": null
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Snapshot do BE dựng từ đúng pkgV và regV; giữ bản chuyến cũ. Invalidate Docs READY.
-
-**Schema:** `#/components/schemas/F2-J14Request`, `#/components/schemas/F2-J14Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J15 — POST /specialist/trips/{tripId}/customer-documents/review
-
-Duyệt bản khách nộp. Role: **TRANSPORT_SPECIALIST**. Feature: `document-review`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "key": "passport",
-  "scope": "HORSE_001",
-  "documentVersion": 1,
-  "decision": "APPROVED",
-  "remark": "Đã kiểm tra"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "document": {
-      "tripId": "TRIP_001",
-      "key": "passport",
-      "scope": "HORSE_001",
-      "documentVersion": 1,
-      "status": "APPROVED",
-      "optional": false,
-      "file": "/api/specialist/trips/TRIP_001/customer-documents/HORSE_001/passport/file",
-      "note": "Chờ Specialist kiểm tra",
-      "issue": null,
-      "expiry": null,
-      "reviewedAt": "2026-10-24 09:00",
-      "reviewedBy": "USER_005"
-    },
-    "documentSetVersion": 4,
-    "docsReady": null
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Kiểm tra đúng bản đã xem, hiệu lực tới ETA; REJECTED cần remark >=5. Scope=request là nhánh chưa đủ persistence.
-
-**Schema:** `#/components/schemas/F2-J15Request`, `#/components/schemas/F2-J15Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J16 — POST /specialist/document-requests
-
-Gửi yêu cầu bổ sung cho khách. Role: **TRANSPORT_SPECIALIST**. Feature: `supplements`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "tripId": "TRIP_001",
-  "key": "passport",
-  "scope": "HORSE_001",
-  "reason": "Vui lòng nộp bản còn hiệu lực",
-  "dueAt": null
-}
-```
-
-**Response 201 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "SUP:TRIP_001:HORSE_001:passport:1",
-    "tripId": "TRIP_001",
-    "key": "passport",
-    "scope": "HORSE_001",
-    "reason": "Vui lòng nộp bản hộ chiếu còn hiệu lực",
-    "dueAt": null,
-    "status": "OPEN",
-    "createdAt": "2026-10-24 09:00",
-    "history": [
-      [
-        "2026-10-24 09:00",
-        "Gửi yêu cầu bổ sung"
-      ]
-    ]
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Một OPEN/SUBMITTED trên trip/key/scope; gửi thông báo, mất Docs READY; upload lại chỉ SUBMITTED, duyệt xong mới FULFILLED.
-
-**Schema:** `#/components/schemas/F2-J16Request`, `#/components/schemas/F2-J16Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J17 — POST /specialist/document-requests/{supplementRef}/fulfill
-
-Hoàn tất yêu cầu đã được duyệt. Role: **TRANSPORT_SPECIALIST**. Feature: `supplements`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| supplementRef | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "SUP:TRIP_001:HORSE_001:passport:1",
-    "tripId": "TRIP_001",
-    "key": "passport",
-    "scope": "HORSE_001",
-    "reason": "Vui lòng nộp bản hộ chiếu còn hiệu lực",
-    "dueAt": null,
-    "status": "FULFILLED",
-    "createdAt": "2026-10-24 09:00",
-    "history": [
-      [
-        "2026-10-24 09:00",
-        "Gửi yêu cầu bổ sung"
-      ],
-      [
-        "2026-10-24 10:00",
-        "Đã duyệt bản bổ sung"
-      ]
-    ]
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ sau đúng bản được APPROVED; idempotent nếu FULFILLED, không bỏ qua duyệt.
-
-**Schema:** `#/components/schemas/F2-J17Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J18 — GET /specialist/trips/{tripId}/customer-documents/{scope}/{key}/file
-
-Đọc file khách có quyền. Role: **TRANSPORT_SPECIALIST**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| scope | path | Có | string |
-| key | path | Có | string |
-
-**Request body:** Không gửi body.
-
-**Response 200:** Binary đúng MIME, có quyền; không bọc JSON thành công. Lỗi vẫn JSON.
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Schema:** , trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J19 — POST /specialist/documents
-
-Ghi nhận chứng từ CBN với file thật. Role: **TRANSPORT_SPECIALIST**. Feature: `document-versions`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| Idempotency-Key | header | Có | string |
-
-**Multipart:** metadata JSON dưới đây và file thật PDF/JPEG/PNG <=10 MiB.
-
-```json
-{
-  "tripId": "TRIP_001",
-  "typeId": "EXPORT_HEALTH",
-  "horseId": "HORSE_001",
-  "number": "CERT-001",
-  "issuer": "Đơn vị cấp giấy A",
-  "issuedAt": "2026-11-15",
-  "expiry": "2026-12-01"
-}
-```
-
-**Response 201 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "document": {
-      "id": "LEGAL_MEDICAL_RECORD_002",
-      "tripId": "TRIP_001",
-      "typeId": "EXPORT_HEALTH",
-      "horseId": "HORSE_001",
-      "status": "SUBMITTED",
-      "number": "CERT-001",
-      "issuer": "Đơn vị cấp giấy A",
-      "issuedAt": "2026-11-15",
-      "expiry": "2026-12-01",
-      "versions": [
-        {
-          "v": 1,
-          "file": "/api/specialist/documents/LEGAL_MEDICAL_RECORD_002/versions/1/file",
-          "at": "2026-10-24 09:00",
-          "by": "USER_005"
-        }
-      ],
-      "reviews": [],
-      "rejectReason": null,
-      "physicalCopy": false
-    },
-    "docsReady": null
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** FormData metadata JSON và file bytes <=10 MiB. PER_HORSE bắt buộc horseId thuộc chuyến; PER_TRIP chỉ bật khi có lưu bền vững.
-
-**Schema:** `#/components/schemas/F2-J19Request`, `#/components/schemas/F2-J19Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J20 — POST /specialist/documents/{documentRef}/versions
-
-Nộp bản mới cùng chứng từ. Role: **TRANSPORT_SPECIALIST**. Feature: `document-versions`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| documentRef | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Multipart:** metadata JSON dưới đây và file thật PDF/JPEG/PNG <=10 MiB.
-
-```json
-{
-  "expectedVersion": 1,
-  "number": "CERT-002",
-  "issuer": "Đơn vị cấp giấy A",
-  "issuedAt": "2026-11-16",
-  "expiry": "2026-12-02"
-}
-```
-
-**Response 201 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "document": {
-      "id": "LEGAL_MEDICAL_RECORD_002",
-      "tripId": "TRIP_001",
-      "typeId": "EXPORT_HEALTH",
-      "horseId": "HORSE_001",
-      "status": "SUBMITTED",
-      "number": "CERT-002",
-      "issuer": "Đơn vị cấp giấy A",
-      "issuedAt": "2026-11-16",
-      "expiry": "2026-12-02",
-      "versions": [
-        {
-          "v": 1,
-          "file": "/api/specialist/documents/LEGAL_MEDICAL_RECORD_002/versions/1/file",
-          "at": "2026-10-24 09:00",
-          "by": "USER_005"
-        },
-        {
-          "v": 2,
-          "file": "/api/specialist/documents/LEGAL_MEDICAL_RECORD_002/versions/2/file",
-          "at": "2026-10-24 09:00",
-          "by": "USER_005"
-        }
-      ],
-      "reviews": [],
-      "rejectReason": null,
-      "physicalCopy": false
-    },
-    "docsReady": null
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** BE cấp version mới, reset SUBMITTED, giữ file/review cũ, mất Docs READY.
-
-**Schema:** `#/components/schemas/F2-J20Request`, `#/components/schemas/F2-J20Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J21 — GET /specialist/documents/{documentRef}/versions/{versionNo}/file
-
-Đọc file đúng bản chứng từ. Role: **TRANSPORT_SPECIALIST**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| documentRef | path | Có | string |
-| versionNo | path | Có | integer |
-
-**Request body:** Không gửi body.
-
-**Response 200:** Binary đúng MIME, có quyền; không bọc JSON thành công. Lỗi vẫn JSON.
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Schema:** , trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J22 — POST /specialist/documents/{documentRef}/review
-
-Duyệt phiên bản chứng từ. Role: **TRANSPORT_SPECIALIST**. Feature: `document-versions`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| documentRef | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "version": 1,
-  "decision": "APPROVED",
-  "remark": "Đã kiểm tra"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "document": {
-      "id": "LEGAL_MEDICAL_RECORD_002",
-      "tripId": "TRIP_001",
-      "typeId": "EXPORT_HEALTH",
-      "horseId": "HORSE_001",
-      "status": "APPROVED",
-      "number": "CERT-001",
-      "issuer": "Đơn vị cấp giấy A",
-      "issuedAt": "2026-11-15",
-      "expiry": "2026-12-01",
-      "versions": [
-        {
-          "v": 1,
-          "file": "/api/specialist/documents/LEGAL_MEDICAL_RECORD_002/versions/1/file",
-          "at": "2026-10-24 09:00",
-          "by": "USER_005"
-        }
-      ],
-      "reviews": [
-        {
-          "v": 1,
-          "decision": "APPROVED",
-          "at": "2026-10-24 09:00",
-          "by": "USER_005",
-          "remark": "Đã kiểm tra bản nộp"
-        }
-      ],
-      "rejectReason": null,
-      "physicalCopy": false
-    },
-    "docsReady": null
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ bản SUBMITTED mới nhất; không suy version từ array.length. REJECTED cần remark >=5; hết hạn trước ETA không duyệt.
-
-**Schema:** `#/components/schemas/F2-J22Request`, `#/components/schemas/F2-J22Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J23 — PUT /specialist/documents/{documentRef}/physical-copy
-
-Ghi nhận bản cứng. Role: **TRANSPORT_SPECIALIST**. Feature: `document-versions`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| documentRef | path | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "version": 1,
-  "physicalCopy": true
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "LEGAL_MEDICAL_RECORD_002",
-    "tripId": "TRIP_001",
-    "typeId": "EXPORT_HEALTH",
-    "horseId": "HORSE_001",
-    "status": "SUBMITTED",
-    "number": "CERT-001",
-    "issuer": "Đơn vị cấp giấy A",
-    "issuedAt": "2026-11-15",
-    "expiry": "2026-12-01",
-    "versions": [
-      {
-        "v": 1,
-        "file": "/api/specialist/documents/LEGAL_MEDICAL_RECORD_002/versions/1/file",
-        "at": "2026-10-24 09:00",
-        "by": "USER_005"
-      }
-    ],
-    "reviews": [],
-    "rejectReason": null,
-    "physicalCopy": true
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** PUT giá trị tuyệt đối, không toggle mù; có audit. Không tự biến scan thành APPROVED.
-
-**Schema:** `#/components/schemas/F2-J23Request`, `#/components/schemas/F2-J23Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J24 — PUT /specialist/trips/{tripId}/insurance
-
-Ghi nhận bảo hiểm. Role: **TRANSPORT_SPECIALIST**. Feature: `insurance`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "insurer": "Đơn vị bảo hiểm A",
-  "policy": "POL-2026-001",
-  "validFrom": "2026-11-20",
-  "validTo": "2026-11-22",
-  "coverage": 120000000,
-  "currency": "VND"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "insurance": {
-      "v": 1,
-      "insurer": "Đơn vị bảo hiểm A",
-      "policy": "POL-2026-001",
-      "validFrom": "2026-11-20",
-      "validTo": "2026-11-22",
-      "coverage": 120000000,
-      "currency": "VND",
-      "status": "PENDING",
-      "checkedBy": null,
-      "checkedAt": null
-    },
-    "docsReady": null
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Schema:** `#/components/schemas/F2-J24Request`, `#/components/schemas/F2-J24Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J25 — POST /specialist/trips/{tripId}/insurance/verify
-
-Xác minh bảo hiểm. Role: **TRANSPORT_SPECIALIST**. Feature: `insurance`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "insuranceVersion": 1,
-  "allHorsesCovered": true,
-  "wholeJourneyCovered": true,
-  "scopeChecked": true
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "v": 1,
-    "insurer": "Đơn vị bảo hiểm A",
-    "policy": "POL-2026-001",
-    "validFrom": "2026-11-20",
-    "validTo": "2026-11-22",
-    "coverage": 120000000,
-    "currency": "VND",
-    "status": "VERIFIED",
-    "checkedBy": "USER_005",
-    "checkedAt": "2026-10-24 09:00"
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** BE kiểm tra ngựa và khoảng departure–ETA; checkbox không thay dữ liệu thực.
-
-**Schema:** `#/components/schemas/F2-J25Request`, `#/components/schemas/F2-J25Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J26 — POST /specialist/quarantine-bookings
-
-Đề nghị lịch kiểm dịch. Role: **TRANSPORT_SPECIALIST**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "tripId": "TRIP_001",
-  "station": "Trạm kiểm dịch A",
-  "slot": "2026-11-20",
-  "notes": ""
-}
-```
-
-**Response 201 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "QUARANTINE_BOOKING_001",
-    "tripId": "TRIP_001",
-    "station": "Trạm kiểm dịch A",
-    "slot": "2026-11-20",
-    "ref": "",
-    "status": "REQUESTED",
-    "notes": "",
-    "confirmedAt": null
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Schema:** `#/components/schemas/F2-J26Request`, `#/components/schemas/F2-J26Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J27 — POST /specialist/quarantine-bookings/{bookingId}/confirm
-
-Ghi nhận xác nhận từ trạm. Role: **TRANSPORT_SPECIALIST**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| bookingId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "ref": "Q-CONF-001"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "QUARANTINE_BOOKING_001",
-    "tripId": "TRIP_001",
-    "station": "Trạm kiểm dịch A",
-    "slot": "2026-11-20",
-    "ref": "Q-CONF-001",
-    "status": "BOOKED",
-    "notes": "",
-    "confirmedAt": "2026-10-24 09:00"
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ REQUESTED -> BOOKED với xác nhận thật; không đồng nghĩa kiểm dịch đạt hoặc đặt lịch tự động.
-
-**Schema:** `#/components/schemas/F2-J27Request`, `#/components/schemas/F2-J27Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J28 — POST /specialist/trips/{tripId}/docs-ready
-
-> **SUPERSEDED:** dùng [F3-J16](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Xác nhận Docs READY. Role: **TRANSPORT_SPECIALIST**. Feature: `readiness`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "documentSetVersion": 3,
-  "insuranceVersion": 1
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "docsReady": {
-      "at": "2026-10-24 09:00",
-      "by": "USER_005"
-    },
-    "documentSetVersion": 3,
-    "insuranceVersion": 1
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** BE tính lại checklist, hồ sơ khách, supplement, bảo hiểm; thiếu config/stale ->409, không nhận booleans ready do FE gửi.
-
-**Schema:** `#/components/schemas/F2-J28Request`, `#/components/schemas/F2-J28Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J29 — POST /specialist/document-types
-
-Tạo document-types. Role: **TRANSPORT_SPECIALIST**. Feature: `configuration`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "name": "Hộ chiếu ngựa",
-  "group": "IDENTITY",
-  "scope": "PER_HORSE",
-  "provider": "CUSTOMER",
-  "validityDays": null,
-  "status": "ACTIVE",
-  "customerKey": "passport"
-}
-```
-
-**Response 201 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "PASSPORT",
-    "name": "Hộ chiếu ngựa",
-    "group": "IDENTITY",
-    "scope": "PER_HORSE",
-    "provider": "CUSTOMER",
-    "validityDays": null,
-    "status": "ACTIVE",
-    "customerKey": "passport"
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Khóa ứng dụng do BE cấp, không phải PK bảng SQL mới. Tắt khi chưa có nơi lưu/quyền quản trị danh mục.
-
-**Schema:** `#/components/schemas/F2-J29Request`, `#/components/schemas/F2-J29Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J30 — PUT /specialist/document-types/{configKey}
-
-Sửa document-types. Role: **TRANSPORT_SPECIALIST**. Feature: `configuration`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| configKey | path | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "name": "Hộ chiếu ngựa",
-  "group": "IDENTITY",
-  "scope": "PER_HORSE",
-  "provider": "CUSTOMER",
-  "validityDays": null,
-  "status": "ACTIVE",
-  "customerKey": "passport"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "PASSPORT",
-    "name": "Hộ chiếu ngựa",
-    "group": "IDENTITY",
-    "scope": "PER_HORSE",
-    "provider": "CUSTOMER",
-    "validityDays": null,
-    "status": "ACTIVE",
-    "customerKey": "passport"
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Bộ/quy định đã áp dụng tăng v, giữ snapshot chuyến; currentVersion query cho entity có v, server chống sửa đồng thời.
-
-**Schema:** `#/components/schemas/F2-J30Request`, `#/components/schemas/F2-J30Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J31 — POST /specialist/regulations
-
-Tạo regulations. Role: **TRANSPORT_SPECIALIST**. Feature: `configuration`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "country": "VN",
-  "direction": "EXPORT",
-  "lines": [
-    {
-      "typeId": "PASSPORT",
-      "provider": "CUSTOMER",
-      "scope": "PER_HORSE",
-      "level": "REQUIRED",
-      "stage": "BEFORE_DEPART",
-      "condition": ""
-    }
-  ],
-  "note": "Quy định demo nội bộ, chưa xác minh pháp lý",
-  "status": "ACTIVE"
-}
-```
-
-**Response 201 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "VN_EXPORT",
-    "v": 1,
-    "effectiveFrom": "2026-10-24",
-    "country": "VN",
-    "direction": "EXPORT",
-    "lines": [
-      {
-        "typeId": "PASSPORT",
-        "provider": "CUSTOMER",
-        "scope": "PER_HORSE",
-        "level": "REQUIRED",
-        "stage": "BEFORE_DEPART",
-        "condition": ""
-      }
-    ],
-    "note": "Quy định demo nội bộ, chưa xác minh pháp lý",
-    "status": "ACTIVE"
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Khóa ứng dụng do BE cấp, không phải PK bảng SQL mới. Tắt khi chưa có nơi lưu/quyền quản trị danh mục.
-
-**Schema:** `#/components/schemas/F2-J31Request`, `#/components/schemas/F2-J31Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J32 — PUT /specialist/regulations/{configKey}
-
-Sửa regulations. Role: **TRANSPORT_SPECIALIST**. Feature: `configuration`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| configKey | path | Có | string |
-| currentVersion | query | Có | integer |
-
-**Request JSON**
-
-```json
-{
-  "country": "VN",
-  "direction": "EXPORT",
-  "lines": [
-    {
-      "typeId": "PASSPORT",
-      "provider": "CUSTOMER",
-      "scope": "PER_HORSE",
-      "level": "REQUIRED",
-      "stage": "BEFORE_DEPART",
-      "condition": ""
-    }
-  ],
-  "note": "Quy định demo nội bộ, chưa xác minh pháp lý",
-  "status": "ACTIVE"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "VN_EXPORT",
-    "v": 1,
-    "effectiveFrom": "2026-10-24",
-    "country": "VN",
-    "direction": "EXPORT",
-    "lines": [
-      {
-        "typeId": "PASSPORT",
-        "provider": "CUSTOMER",
-        "scope": "PER_HORSE",
-        "level": "REQUIRED",
-        "stage": "BEFORE_DEPART",
-        "condition": ""
-      }
-    ],
-    "note": "Quy định demo nội bộ, chưa xác minh pháp lý",
-    "status": "ACTIVE"
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Bộ/quy định đã áp dụng tăng v, giữ snapshot chuyến; currentVersion query cho entity có v, server chống sửa đồng thời.
-
-**Schema:** `#/components/schemas/F2-J32Request`, `#/components/schemas/F2-J32Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J33 — POST /specialist/requirement-sets
-
-Tạo requirement-sets. Role: **TRANSPORT_SPECIALIST**. Feature: `configuration`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "name": "Việt Nam → Nhật Bản",
-  "items": [
-    [
-      "VN",
-      "EXPORT"
-    ],
-    [
-      "JP",
-      "IMPORT"
-    ]
-  ],
-  "origin": "VN",
-  "dest": "JP",
-  "modes": [
-    "AIR"
-  ],
-  "note": "",
-  "status": "ACTIVE"
-}
-```
-
-**Response 201 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "VN_JP_AIR",
-    "v": 1,
-    "effectiveFrom": "2026-10-24",
-    "name": "Việt Nam → Nhật Bản",
-    "items": [
-      [
-        "VN",
-        "EXPORT"
-      ],
-      [
-        "JP",
-        "IMPORT"
-      ]
-    ],
-    "origin": "VN",
-    "dest": "JP",
-    "modes": [
-      "AIR"
-    ],
-    "note": "",
-    "status": "ACTIVE"
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Khóa ứng dụng do BE cấp, không phải PK bảng SQL mới. Tắt khi chưa có nơi lưu/quyền quản trị danh mục.
-
-**Schema:** `#/components/schemas/F2-J33Request`, `#/components/schemas/F2-J33Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J34 — PUT /specialist/requirement-sets/{configKey}
-
-Sửa requirement-sets. Role: **TRANSPORT_SPECIALIST**. Feature: `configuration`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| configKey | path | Có | string |
-| currentVersion | query | Có | integer |
-
-**Request JSON**
-
-```json
-{
-  "name": "Việt Nam → Nhật Bản",
-  "items": [
-    [
-      "VN",
-      "EXPORT"
-    ],
-    [
-      "JP",
-      "IMPORT"
-    ]
-  ],
-  "origin": "VN",
-  "dest": "JP",
-  "modes": [
-    "AIR"
-  ],
-  "note": "",
-  "status": "ACTIVE"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "VN_JP_AIR",
-    "v": 1,
-    "effectiveFrom": "2026-10-24",
-    "name": "Việt Nam → Nhật Bản",
-    "items": [
-      [
-        "VN",
-        "EXPORT"
-      ],
-      [
-        "JP",
-        "IMPORT"
-      ]
-    ],
-    "origin": "VN",
-    "dest": "JP",
-    "modes": [
-      "AIR"
-    ],
-    "note": "",
-    "status": "ACTIVE"
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Bộ/quy định đã áp dụng tăng v, giữ snapshot chuyến; currentVersion query cho entity có v, server chống sửa đồng thời.
-
-**Schema:** `#/components/schemas/F2-J34Request`, `#/components/schemas/F2-J34Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J35 — GET /coordinator/trips
-
-Chuyến Coordinator được giao. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `core`.
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": [
-    {
-      "id": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "customer": "Nguyen Van A",
-      "origin": "Ho Chi Minh City",
-      "destination": "Tokyo",
-      "originCountry": "VN",
-      "destinationCountry": "JP",
-      "mode": "AIR",
-      "horses": [
-        "HORSE_001"
-      ],
-      "plannedDepart": "2026-11-20 08:00",
-      "eta": "2026-11-21 18:00",
-      "status": "PLANNING",
+      "tripId": "TRIP_003",
+      "requestId": "REQUEST_003",
+      "tripStatus": "PLANNING",
+      "requestStatus": "ACTIVATED",
+      "contractStatus": "EFFECTIVE",
+      "versionStatus": "SIGNED",
       "deploymentStatus": "CONFIRMED",
-      "route": {
-        "version": 1,
-        "status": "DRAFT",
-        "stops": [
-          {
-            "id": "ROUTE_SEGMENT_001",
-            "name": "Trại ngựa A",
-            "type": "ORIGIN",
-            "country": "VN",
-            "plannedAt": "2026-11-20 08:00",
-            "lat": 10.82,
-            "lng": 106.65,
-            "checkpointId": null
-          },
-          {
-            "id": "ROUTE_SEGMENT_002",
-            "name": "SGN",
-            "type": "AIRPORT",
-            "country": "VN",
-            "plannedAt": "2026-11-20 10:00",
-            "lat": 10.82,
-            "lng": 106.65,
-            "checkpointId": 101
-          },
-          {
-            "id": "ROUTE_SEGMENT_003",
-            "name": "NRT",
-            "type": "AIRPORT",
-            "country": "JP",
-            "plannedAt": "2026-11-21 14:00",
-            "lat": 35.77,
-            "lng": 140.39,
-            "checkpointId": 201
-          },
-          {
-            "id": "ROUTE_SEGMENT_004",
-            "name": "Trạm kiểm dịch A",
-            "type": "QUARANTINE_STATION",
-            "country": "JP",
-            "plannedAt": "2026-11-21 16:00",
-            "lat": 35.77,
-            "lng": 140.39,
-            "checkpointId": 203
-          },
-          {
-            "id": "ROUTE_SEGMENT_005",
-            "name": "Trại ngựa B",
-            "type": "DESTINATION",
-            "country": "JP",
-            "plannedAt": "2026-11-21 18:00",
-            "lat": 35.77,
-            "lng": 140.39,
-            "checkpointId": null
-          }
-        ],
-        "submittedAt": null,
-        "reviewedAt": null,
-        "returnReason": null
-      },
-      "vehicleId": null,
-      "crew": {},
-      "legs": {
-        "outbound": {
-          "key": "outbound",
-          "title": "Chặng VN",
-          "country": "VN",
-          "from": "Trại ngựa A",
-          "to": "SGN",
-          "vehicleId": null,
-          "crew": {}
-        },
-        "inbound": {
-          "key": "inbound",
-          "title": "Chặng JP",
-          "country": "JP",
-          "from": "NRT",
-          "to": "Trại ngựa B",
-          "vehicleId": null,
-          "crew": {}
-        }
-      },
-      "flight": {
-        "version": 1,
-        "airline": "Hãng bay A",
-        "flightNo": "AIR001",
-        "fromAirport": "SGN",
-        "toAirport": "NRT",
-        "departAt": "2026-11-20 12:00",
-        "arriveAt": "2026-11-21 14:00",
-        "cost": 25000000,
-        "currency": "VND",
-        "departureAirportCheckpointId": 101,
-        "arrivalAirportCheckpointId": 201,
-        "status": "BUDGET_PENDING",
-        "bookingRef": null,
-        "bookingId": null
-      },
-      "resourcesConfirmed": null,
-      "resourceVersion": 0,
-      "milestones": [],
-      "etaHistory": []
+      "assignedSpecialistId": "USER_005",
+      "assignedCoordinatorId": "USER_006"
     }
   ]
 }
 ```
 
-**Response 501 — khi chưa hỗ trợ**
+**Response lỗi 409**
 
 ```json
 {
   "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
   "data": null
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Metadata thiếu trong SQL phải lấy từ nguồn đã xác nhận, không bịa biển số/quốc gia/chứng chỉ.
 
-**Schema:** `#/components/schemas/F2-J35Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
+### F2-J03 — GET /specialist/trips/{tripId}/dossier
 
-### F2-J36 — GET /coordinator/vehicles
+Chi tiết hồ sơ Trip. Role **TRANSPORT_SPECIALIST**.
 
-Xe để phân công. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `core`.
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** LMR theo Request, ngựa từ REQUEST_HORSE_MAPPING.
+
+**Side effect và retry:** Thiếu sections thì null/capability=false; không fake READY.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
 
 **Request body:** Không gửi body.
 
-**Response 200 — mẫu mục tiêu khi đã triển khai**
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "requestId": "REQUEST_003",
+    "tripStatus": "PLANNING",
+    "requestStatus": "ACTIVATED",
+    "contractStatus": "EFFECTIVE",
+    "versionStatus": "SIGNED",
+    "deploymentStatus": "CONFIRMED",
+    "assignedSpecialistId": "USER_005",
+    "assignedCoordinatorId": "USER_006",
+    "documents": [],
+    "insurance": null,
+    "documentsReadiness": null,
+    "capabilities": {
+      "insurance": false,
+      "readiness": false
+    }
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+
+### F2-J04 — GET /customer/trips/{tripId}/documents
+
+Customer xem hồ sơ. Role **CUSTOMER**.
+
+**Điều kiện:** Customer JWT là owner của Request/Trip.
+
+**Dữ liệu SQL:** LMR theo Request, reuse hồ sơ baseline Flow 1.
+
+**Side effect và retry:** Ẩn ghi chú nội bộ, không quyền sửa hồ sơ công ty.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
+
+**Request body:** Không gửi body.
+
+**Response 200**
 
 ```json
 {
@@ -2472,42 +278,235 @@ Xe để phân công. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `core`.
   "message": "OK",
   "data": [
     {
-      "id": "VEHICLE_001",
-      "plate": "51C-12345",
-      "model": "Xe vận chuyển ngựa",
-      "stalls": 4,
-      "country": "VN",
-      "base": "Ho Chi Minh City",
-      "status": "READY",
-      "nextService": "2026-12-01",
-      "features": "Thông gió, vách ngăn"
+      "recordId": "LEGAL_MEDICAL_RECORD_007",
+      "horseId": "HORSE_001",
+      "documentType": "COGGINS_TEST",
+      "documentStatus": "PENDING_REVIEW",
+      "expiryDate": "2026-11-30"
     }
   ]
 }
 ```
 
-**Response 501 — khi chưa hỗ trợ**
+**Response lỗi 409**
 
 ```json
 {
   "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+
+### F2-J05 — GET /specialist/trips/{tripId}/document-checklist
+
+Checklist áp dụng. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** LMR chỉ đại diện record đã nộp, không đủ mục chưa nộp.
+
+**Side effect và retry:** Sinh yêu cầu theo tuyến/mode/ngựa/điểm kiểm soát, không cố định mọi giấy cho mọi Trip. key là DTO key, không PK mới.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu checklist có scope/phase, review reason/time/revision/history, document requests và hồ sơ công ty cấp Trip. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "items": [
+      {
+        "key": "HORSE_001:COGGINS_TEST:PRE_DEPARTURE",
+        "horseId": "HORSE_001",
+        "responsibleParty": "CUSTOMER",
+        "scope": "HORSE",
+        "phase": "PRE_DEPARTURE",
+        "documentType": "COGGINS_TEST",
+        "requirementStatus": "MANDATORY",
+        "recordId": null,
+        "satisfied": false
+      }
+    ]
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "CHECKLIST_NOT_CONFIGURED",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
   "errorCode": "FEATURE_NOT_SUPPORTED",
   "data": null
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Metadata thiếu trong SQL phải lấy từ nguồn đã xác nhận, không bịa biển số/quốc gia/chứng chỉ.
 
-**Schema:** `#/components/schemas/F2-J36Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
+### F2-J06 — GET /master/document-options?tripId=TRIP_003
 
-### F2-J37 — GET /coordinator/staff
+Catalog hồ sơ theo scope. Role **USER đăng nhập đúng scope**.
 
-Nhân sự theo năng lực. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `core`.
+**Điều kiện:** Đúng scope Customer/assignment nghiệp vụ.
+
+**Dữ liệu SQL:** POLICY_AND_TERM là text; chưa có catalog rule có cấu trúc.
+
+**Side effect và retry:** Ví dụ catalog không phải danh sách pháp lý đầy đủ; scope TRIP/SEGMENT/HORSE và responsibleParty CUSTOMER/COMPANY là DTO đích.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu checklist có scope/phase, review reason/time/revision/history, document requests và hồ sơ công ty cấp Trip. Chưa có thì trả 501.
 
 **Request body:** Không gửi body.
 
-**Response 200 — mẫu mục tiêu khi đã triển khai**
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "documentTypes": [
+      "COGGINS_TEST",
+      "DOMESTIC_VET_PASS",
+      "EQUINE_FLU_VAX"
+    ],
+    "requirementStatuses": [
+      "MANDATORY",
+      "OPTIONAL",
+      "NOT_APPLICABLE"
+    ],
+    "phases": [
+      "PRE_DEPARTURE",
+      "AT_CONTROL",
+      "AT_HANDOVER"
+    ]
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J07 — POST /customer/trips/{tripId}/horses/{horseId}/documents
+
+Upload bổ sung. Role **CUSTOMER**.
+
+**Điều kiện:** Ngựa thuộc Request của Customer, đang được phép bổ sung theo checklist/yêu cầu. Không nhận VerifiedBy/DocumentStatus từ client.
+
+**Dữ liệu SQL:** LMR.HorseID/RequestID/DocumentType/UploadedFileUrl/ExpiryDate; thiếu lịch sử thay thế.
+
+**Side effect và retry:** Upload không tự VERIFIED. Giữ bản cũ nếu thay thế, notify Specialist sau commit. Reuse handler F1-J17, không tạo hai record cho hai URL.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu checklist có scope/phase, review reason/time/revision/history, document requests và hồ sơ công ty cấp Trip. Chưa có thì trả 501.
+
+**Request multipart/form-data**
+
+```json
+{
+  "documentType": "COGGINS_TEST",
+  "expiryDate": "2026-11-30",
+  "file": "<binary>"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `documentType` | string | Có |
+| `expiryDate` | string | Có |
+| `file` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 201** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "recordId": "LEGAL_MEDICAL_RECORD_007",
+    "documentStatus": "PENDING_REVIEW"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "DOCUMENT_UPDATE_NOT_ALLOWED",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J08 — GET /specialist/document-reviews?status=PENDING_REVIEW
+
+Hàng đợi thẩm định. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** LMR join Trip qua RequestID và AssignedSpecialistId.
+
+**Side effect và retry:** Không tự mở quyền duyệt mọi Request chưa được giao chỉ vì endpoint là queue.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
+
+**Request body:** Không gửi body.
+
+**Response 200**
 
 ```json
 {
@@ -2515,40 +514,1093 @@ Nhân sự theo năng lực. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `core`.
   "message": "OK",
   "data": [
     {
-      "id": "USER_008",
-      "name": "Driver A",
-      "role": "DRIVER",
-      "country": "VN",
-      "phone": "+84901234567",
-      "licence": null,
-      "certExpiry": null
+      "recordId": "LEGAL_MEDICAL_RECORD_007",
+      "requestId": "REQUEST_003",
+      "horseId": "HORSE_001",
+      "documentStatus": "PENDING_REVIEW"
     }
   ]
 }
 ```
 
-**Response 501 — khi chưa hỗ trợ**
+**Response lỗi 409**
 
 ```json
 {
   "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+
+### F2-J09 — GET /specialist/document-reviews/{recordId}
+
+Chi tiết thẩm định. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** LMR và HORSE identity.
+
+**Side effect và retry:** Không có history thì bỏ optional history, không fake actor/time.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
+
+**Request body:** Không gửi body.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "recordId": "LEGAL_MEDICAL_RECORD_007",
+    "documentType": "COGGINS_TEST",
+    "documentStatus": "PENDING_REVIEW",
+    "expiryDate": "2026-11-30",
+    "file": {
+      "name": "test.pdf",
+      "url": "/api/specialist/document-reviews/LEGAL_MEDICAL_RECORD_007/file"
+    }
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+
+### F2-J10 — GET /specialist/document-reviews/{recordId}/file
+
+Tải file có quyền. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** Resolve UploadedFileUrl từ record, kiểm scope rồi đọc storage.
+
+**Side effect và retry:** Stream đúng MIME; tải không được không dùng blob/mock thay tệp backend.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
+
+**Request body:** Không gửi body.
+
+**Response 200 — binary**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/pdf
+Content-Disposition: inline; filename="document.pdf"
+
+<bytes thật>
+```
+
+**Response lỗi 404**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "FILE_NOT_AVAILABLE",
+  "data": null
+}
+```
+
+
+### F2-J11 — POST /specialist/document-reviews/{recordId}/decision
+
+Thẩm định tài liệu. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip. Chỉ bản hiện hành đang chờ xét; decision chỉ VERIFIED/REJECTED; từ chối bắt buộc reason.
+
+**Dữ liệu SQL:** LMR.DocumentStatus/VerifiedBy có; reason/reviewedAt/version/history không có.
+
+**Side effect và retry:** Kiểm giấy phù hợp ngựa/nước và hạn tại điểm dùng. Invalid readiness mục bị ảnh hưởng, không reset mọi hồ sơ.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu checklist có scope/phase, review reason/time/revision/history, document requests và hồ sơ công ty cấp Trip. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "decision": "VERIFIED",
+  "reason": "Đã đối chiếu đúng ngựa và hiệu lực",
+  "expectedPlanVersionNo": 1
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `decision` | string | Có |
+| `reason` | string | Có |
+| `expectedPlanVersionNo` | integer | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "recordId": "LEGAL_MEDICAL_RECORD_007",
+    "documentStatus": "VERIFIED",
+    "verifiedBy": "USER_005",
+    "reviewedAt": "2026-10-25 09:00"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "DOCUMENT_NOT_VALID_FOR_USE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
   "errorCode": "FEATURE_NOT_SUPPORTED",
   "data": null
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Metadata thiếu trong SQL phải lấy từ nguồn đã xác nhận, không bịa biển số/quốc gia/chứng chỉ.
 
-**Schema:** `#/components/schemas/F2-J37Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
+### F2-J12 — POST /specialist/trips/{tripId}/document-requests
 
-### F2-J38 — GET /coordinator/checkpoints
+Tạo yêu cầu bổ sung. Role **TRANSPORT_SPECIALIST**.
 
-Danh mục điểm dừng cho bản đồ. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `core`.
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** NOTIFICATION có message, không đủ để lưu lifecycle document request.
+
+**Side effect và retry:** Lưu yêu cầu rồi notify; quá hạn không tự hủy hợp đồng ký hoặc tự hoàn tất Trip.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu checklist có scope/phase, review reason/time/revision/history, document requests và hồ sơ công ty cấp Trip. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "horseIds": [
+    "HORSE_001"
+  ],
+  "documentType": "COGGINS_TEST",
+  "reason": "Bổ sung bản còn hạn tại thời điểm sử dụng",
+  "dueAt": "2026-10-28 17:00"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `horseIds` | array | Có |
+| `documentType` | string | Có |
+| `reason` | string | Có |
+| `dueAt` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 201** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "requested": true,
+    "dueAt": "2026-10-28 17:00"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "DEADLINE_NOT_FEASIBLE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J13 — POST /specialist/trips/{tripId}/company-documents
+
+Upload hồ sơ công ty. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip. EXPORT_PERMIT là ví dụ catalog đích, chỉ dùng nếu rule thực sự áp dụng.
+
+**Dữ liệu SQL:** Chưa có document model cấp Trip/Segment và owner company.
+
+**Side effect và retry:** Customer không tự duyệt/chỉnh hồ sơ công ty. Không gán HorseID giả vào LMR NOT NULL.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu checklist có scope/phase, review reason/time/revision/history, document requests và hồ sơ công ty cấp Trip. Chưa có thì trả 501.
+
+**Request multipart/form-data**
+
+```json
+{
+  "documentType": "EXPORT_PERMIT",
+  "scope": "TRIP",
+  "expiryDate": "2026-12-01",
+  "file": "<binary>"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `documentType` | string | Có |
+| `scope` | string | Có |
+| `expiryDate` | string | Có |
+| `file` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 201** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "scope": "TRIP",
+    "recorded": true
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J14 — POST /specialist/trips/{tripId}/document-feasibility
+
+Đánh giá khả thi hồ sơ. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip. Đọc lịch đề xuất đúng bản.
+
+**Dữ liệu SQL:** Chưa có feasibility theo version với actor/time/reason.
+
+**Side effect và retry:** Feasible chỉ phục vụ Gate 1, không Documents READY; không thay quyền Manager.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1,
+  "feasible": true,
+  "note": "Có thể hoàn tất trước thời điểm sử dụng"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+| `feasible` | boolean | Có |
+| `note` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "feasible": true,
+    "documentsReadiness": "NOT_READY"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J15 — GET /specialist/trips/{tripId}/insurance
+
+Xem bảo hiểm. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** COST_ITEM/COST_RATE chỉ chi phí.
+
+**Side effect và retry:** Có phí trong hợp đồng chưa chứng minh mua/còn hiệu lực; không tự ACTIVE.
+
+**Persistence:** CẦN BỔ SUNG — Chưa có policy insurer/coverage/evidence/history bảo hiểm. Chưa có thì trả 501.
 
 **Request body:** Không gửi body.
 
-**Response 200 — mẫu mục tiêu khi đã triển khai**
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "policyNumber": "DEMO-INS-001",
+    "status": "ACTIVE",
+    "horseIds": [
+      "HORSE_001"
+    ],
+    "coverageFrom": "2026-11-05 06:00",
+    "coverageUntil": "2026-11-10 20:00"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J16 — PUT /specialist/trips/{tripId}/insurance
+
+Ghi mua/xác minh bảo hiểm. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip. Coverage end > start, bao phủ đủ ngựa/phần vận chuyển và thời điểm dùng.
+
+**Dữ liệu SQL:** Chưa có model insurance/upload binding.
+
+**Side effect và retry:** Giữ policy cũ khi gia hạn/thay; chi phí phát sinh công ty trình Manager; không tự thu phí sự cố Customer.
+
+**Persistence:** CẦN BỔ SUNG — Cần policy version, insurer, scope, thời hạn và bằng chứng mua thật. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1,
+  "policyNumber": "DEMO-INS-001",
+  "insurer": "Demo insurer",
+  "horseIds": [
+    "HORSE_001"
+  ],
+  "coverageFrom": "2026-11-05 06:00",
+  "coverageUntil": "2026-11-10 20:00",
+  "evidenceUrl": "/api/specialist/trips/TRIP_003/insurance/file"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+| `policyNumber` | string | Có |
+| `insurer` | string | Có |
+| `horseIds` | array | Có |
+| `coverageFrom` | string | Có |
+| `coverageUntil` | string | Có |
+| `evidenceUrl` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "status": "ACTIVE"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INSURANCE_COVERAGE_INSUFFICIENT",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J17 — GET /specialist/trips/{tripId}/documents-readiness
+
+Kiểm tra Documents readiness. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** Checklist + insurance + phương án đã duyệt.
+
+**Side effect và retry:** Chỉ kiểm điều kiện; không xác nhận thay Specialist/Manager.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu checklist có scope/phase, review reason/time/revision/history, document requests và hồ sơ công ty cấp Trip. Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "status": "NOT_READY",
+    "blockers": [
+      {
+        "code": "INSURANCE_NOT_ACTIVE",
+        "message": "Chưa có bảo hiểm được xác minh"
+      }
+    ]
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J18 — POST /specialist/trips/{tripId}/documents-readiness/confirm
+
+Xác nhận Documents READY. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip. Gate 1 đã duyệt, mọi mục PRE_DEPARTURE áp dụng và bảo hiểm đủ hiệu lực.
+
+**Dữ liệu SQL:** Không có Documents readiness snapshot/version/confirmation.
+
+**Side effect và retry:** Lưu readiness theo bản, notify Coordinator/Manager. Không đổi Trip READY_TO_DEPART, không yêu cầu customs tại mốc tương lai đã CLEARED.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu checklist có scope/phase, review reason/time/revision/history, document requests và hồ sơ công ty cấp Trip. Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 1,
+    "status": "READY",
+    "confirmedBy": "USER_005",
+    "confirmedAt": "2026-11-04 09:00"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "DOCUMENTS_NOT_READY",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J19 — POST /specialist/trips/{tripId}/quarantine-bookings
+
+Ghi nhận booking kiểm dịch. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip. End > start, cơ sở active/phù hợp quy định và có xác nhận.
+
+**Dữ liệu SQL:** QUARANTINE_BOOKING; derive RequestID, StationName và Country tên hiển thị, không ISO trong cột Country.
+
+**Side effect và retry:** Chỉ booking, không tự hoàn tất theo lịch. Actor/history nghiệp vụ đầy đủ cần bổ sung nếu đi kèm quyết định, không hứa đã lưu các field thiếu.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
+
+**Request JSON**
+
+```json
+{
+  "facilityId": "FACILITY_003",
+  "expectedStartDate": "2026-11-03 08:00",
+  "expectedEndDate": "2026-11-04 08:00",
+  "confirmationNumber": "DEMO-QUARANTINE-1"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `facilityId` | string | Có |
+| `expectedStartDate` | string | Có |
+| `expectedEndDate` | string | Có |
+| `confirmationNumber` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 201**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "bookingId": "QUARANTINE_BOOKING_003",
+    "status": "CONFIRMED"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+
+### F2-J20 — POST /specialist/quarantine-bookings/{bookingId}/result
+
+Ghi kết quả kiểm dịch. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip. Dựa kết quả thực và loại thủ tục áp dụng.
+
+**Dữ liệu SQL:** Booking có status/lịch dự kiến, thiếu actual/evidence/kết luận/reason/history.
+
+**Side effect và retry:** Booking COMPLETED không tự là customs CLEARED hay đủ khả năng đi tiếp.
+
+**Persistence:** CẦN BỔ SUNG — Cần kết quả thực tế và cơ chế giữ/chặn, không chỉ cập nhật Status. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "status": "COMPLETED",
+  "actualAt": "2026-11-04 08:00",
+  "reason": "Có kết quả kiểm dịch đạt",
+  "evidenceUrl": "/api/specialist/quarantine-bookings/QUARANTINE_BOOKING_003/file"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `status` | string | Có |
+| `actualAt` | string | Có |
+| `reason` | string | Có |
+| `evidenceUrl` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "bookingId": "QUARANTINE_BOOKING_003",
+    "status": "COMPLETED"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "CONTROL_RESULT_INCOMPLETE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J21 — POST /specialist/trips/{tripId}/customs-clearances
+
+Ghi kết quả thông quan. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip. Cho tác nghiệp IN_TRANSIT nếu đúng phân công. Segment cùng Trip; status PENDING/ON_HOLD/CLEARED/REJECTED. CLEARED cần chứng cứ/thời điểm.
+
+**Dữ liệu SQL:** CUSTOMS_CLEARANCE status/ClearedAt có, thiếu actual nhập/reason/evidence/history và link blocker.
+
+**Side effect và retry:** Chưa hoàn thành/hold/reject chặn đúng phần tiếp; Driver đến trạm không tự CLEARED.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu checklist có scope/phase, review reason/time/revision/history, document requests và hồ sơ công ty cấp Trip. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "segmentId": "ROUTE_SEGMENT_007",
+  "documentType": "EXPORT",
+  "declarationNumber": "DEMO-CUSTOMS-3",
+  "status": "ON_HOLD",
+  "actualAt": "2026-11-05 08:00",
+  "reason": "Cần bổ sung chứng từ",
+  "evidenceUrl": "/api/specialist/trips/TRIP_003/customs/file"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `segmentId` | string | Có |
+| `documentType` | string | Có |
+| `declarationNumber` | string | Có |
+| `status` | string | Có |
+| `actualAt` | string | Có |
+| `reason` | string | Có |
+| `evidenceUrl` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "clearanceId": "CUSTOMS_CLEARANCE_003",
+    "status": "ON_HOLD",
+    "clearedAt": null,
+    "blocksNextLeg": true
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "CLEARANCE_EVIDENCE_REQUIRED",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J22 — POST /specialist/trips/{tripId}/document-impact-assessments
+
+Đánh giá ảnh hưởng thay đổi. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** Cần liên kết record/insurance/checklist với plan version.
+
+**Side effect và retry:** Giữ kết quả không ảnh hưởng, không kéo dài expiry; bất khả thi/chi phí/dời lịch đã duyệt báo Coordinator/Manager.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu checklist có scope/phase, review reason/time/revision/history, document requests và hồ sơ công ty cấp Trip. Thiếu phiên bản phương án và readiness/feasibility có actor/time tham chiếu version. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 2,
+  "reason": "Đổi lịch cần kiểm lại bảo hiểm"
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+| `reason` | string | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "planVersionNo": 2,
+    "affectedItems": [
+      "INSURANCE"
+    ],
+    "unchangedItems": [
+      "HORSE_001:COGGINS_TEST"
+    ],
+    "documentsReadiness": "NOT_READY"
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J23 — GET /manager/trips/{tripId}/document-summary
+
+Manager xem tổng hợp hồ sơ. Role **LOGISTICS_MANAGER**.
+
+**Điều kiện:** Manager đúng role; chỉ xem, không duyệt chuyên môn thay Specialist.
+
+**Dữ liệu SQL:** Trip/Request/LMR có nền, readiness/insurance chỉ trả khi có dependency.
+
+**Side effect và retry:** Projection thiếu section null, không giả READY.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
+
+**Request body:** Không gửi body.
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "documents": [],
+    "insurance": null,
+    "documentsReadiness": null,
+    "capabilities": {
+      "readiness": false
+    }
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
+  "data": null
+}
+```
+
+
+### F2-J24 — GET /specialist/trips/{tripId}/document-package
+
+Đọc bộ hồ sơ đi đường. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** LMR có file nền; package đầy đủ cần company documents/checklist/insurance.
+
+**Side effect và retry:** Manifest gồm record thật; trạng thái đạt cần checklist đã tính đúng. Không tự tạo tài liệu đã duyệt hoặc giấy tờ gốc.
+
+**Persistence:** CẦN BỔ SUNG — Thiếu checklist có scope/phase, review reason/time/revision/history, document requests và hồ sơ công ty cấp Trip. Chưa có thì trả 501.
+
+**Request body:** Không gửi body.
+
+**Response 200** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "documents": [
+      {
+        "recordId": "LEGAL_MEDICAL_RECORD_007",
+        "horseId": "HORSE_001",
+        "documentStatus": "VERIFIED"
+      }
+    ],
+    "missingItems": [],
+    "canExport": false
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "DOCUMENT_PACKAGE_INCOMPLETE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J25 — POST /specialist/trips/{tripId}/document-package/export
+
+Tạo bộ hồ sơ xuất. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip. Chỉ xuất các file hợp lệ đúng scope và quyền.
+
+**Dữ liệu SQL:** Chưa có package manifest/version/storage binding.
+
+**Side effect và retry:** Sinh ZIP thật và lưu manifest/bản dùng; endpoint download phải kiểm quyền, trả application/zip, lỗi envelope. Không dùng link giả.
+
+**Persistence:** CẦN BỔ SUNG — Cần package export, immutable manifest và authorized download; canExport chỉ true sau implement. Chưa có thì trả 501.
+
+**Request JSON**
+
+```json
+{
+  "expectedPlanVersionNo": 1
+}
+```
+
+| Field | Kiểu | Bắt buộc |
+|---|---|---|
+| `expectedPlanVersionNo` | integer | Có |
+
+Body chỉ gồm keys trên; text trim không rỗng (reason/note <=2000), ID thuộc scope, integer version >=1, date/time đúng mục 2. File trong ví dụ là placeholder binary multipart thật, không phải chuỗi được lưu. Arrays không rỗng khi thao tác yêu cầu có ngựa/chặng. Các enum và validation nghiệp vụ theo điều kiện endpoint, không suy từ một giá trị mẫu.
+
+**Response 201** — sau bổ sung persistence
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_003",
+    "file": {
+      "name": "documents.zip",
+      "url": "/api/specialist/trips/TRIP_003/document-package/file"
+    }
+  }
+}
+```
+
+**Response lỗi 409**
+
+```json
+{
+  "success": false,
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "DOCUMENT_PACKAGE_INCOMPLETE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
+  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "data": null
+}
+```
+
+
+### F2-J26 — GET /specialist/regulations?tripId=TRIP_003
+
+Tra cứu quy định. Role **TRANSPORT_SPECIALIST**.
+
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
+
+**Dữ liệu SQL:** POLICY_AND_TERM theo loại, ngày hiệu lực/IsActive; thiếu mapping rule có cấu trúc nên không tự sinh nghĩa vụ từ mọi dòng.
+
+**Side effect và retry:** Đọc nội dung POLICY_AND_TERM thật; metadata không chứng minh rule checklist đã được mô hình hóa. Tạo/sửa chính sách là quyền quản trị cần phân công riêng, không tự cấp cho Customer.
+
+**Persistence:** BASE — có bảng nền cho phần mô tả; vẫn phải triển khai backend và kiểm điều kiện.
+
+**Request body:** Không gửi body.
+
+**Response 200**
 
 ```json
 {
@@ -2556,1505 +1608,43 @@ Danh mục điểm dừng cho bản đồ. Role: **FLEET_ROUTE_COORDINATOR**. Fe
   "message": "OK",
   "data": [
     {
-      "checkpointId": 101,
-      "name": "Sân bay SGN",
-      "country": "VN",
-      "type": "AIRPORT",
-      "lat": 10.8188,
-      "lng": 106.652,
-      "active": true
+      "policyId": "POLICY_TERM_001",
+      "policyType": "CUSTOMS_GUIDE",
+      "version": "v1.0",
+      "effectiveDate": "2026-10-01",
+      "isActive": true
     }
   ]
 }
 ```
 
-**Response 501 — khi chưa hỗ trợ**
+**Response lỗi 409**
 
 ```json
 {
   "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "INVALID_STATE",
   "data": null
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Metadata thiếu trong SQL phải lấy từ nguồn đã xác nhận, không bịa biển số/quốc gia/chứng chỉ.
 
-**Schema:** `#/components/schemas/F2-J38Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
+### F2-J27 — GET /specialist/trips/{tripId}/document-audit
 
-### F2-J39 — GET /coordinator/trips/{tripId}
+Tra cứu audit hồ sơ. Role **TRANSPORT_SPECIALIST**.
 
-Chi tiết chuyến Coordinator. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `core`.
+**Điều kiện:** Đúng Specialist được giao; mutation chuẩn bị cần Deployment CONFIRMED; record/ngựa/Request cùng Trip.
 
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
+**Dữ liệu SQL:** Không có audit chuyên môn Flow 2 đầy đủ trong Reviewed.
+
+**Side effect và retry:** Chỉ trả event đã lưu; không suy lịch sử từ trạng thái cuối hoặc NOTIFICATION.SentAt.
+
+**Persistence:** CẦN BỔ SUNG — Cần audit bền vững theo BR-62, đính chính giữ bản cũ; không dùng bảng Flow 6 đã bỏ. Chưa có thì trả 501.
 
 **Request body:** Không gửi body.
 
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "TRIP_001",
-    "requestId": "REQUEST_001",
-    "customer": "Nguyen Van A",
-    "origin": "Ho Chi Minh City",
-    "destination": "Tokyo",
-    "originCountry": "VN",
-    "destinationCountry": "JP",
-    "mode": "AIR",
-    "horses": [
-      "HORSE_001"
-    ],
-    "plannedDepart": "2026-11-20 08:00",
-    "eta": "2026-11-21 18:00",
-    "status": "PLANNING",
-    "deploymentStatus": "CONFIRMED",
-    "route": {
-      "version": 1,
-      "status": "DRAFT",
-      "stops": [
-        {
-          "id": "ROUTE_SEGMENT_001",
-          "name": "Trại ngựa A",
-          "type": "ORIGIN",
-          "country": "VN",
-          "plannedAt": "2026-11-20 08:00",
-          "lat": 10.82,
-          "lng": 106.65,
-          "checkpointId": null
-        },
-        {
-          "id": "ROUTE_SEGMENT_002",
-          "name": "SGN",
-          "type": "AIRPORT",
-          "country": "VN",
-          "plannedAt": "2026-11-20 10:00",
-          "lat": 10.82,
-          "lng": 106.65,
-          "checkpointId": 101
-        },
-        {
-          "id": "ROUTE_SEGMENT_003",
-          "name": "NRT",
-          "type": "AIRPORT",
-          "country": "JP",
-          "plannedAt": "2026-11-21 14:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": 201
-        },
-        {
-          "id": "ROUTE_SEGMENT_004",
-          "name": "Trạm kiểm dịch A",
-          "type": "QUARANTINE_STATION",
-          "country": "JP",
-          "plannedAt": "2026-11-21 16:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": 203
-        },
-        {
-          "id": "ROUTE_SEGMENT_005",
-          "name": "Trại ngựa B",
-          "type": "DESTINATION",
-          "country": "JP",
-          "plannedAt": "2026-11-21 18:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": null
-        }
-      ],
-      "submittedAt": null,
-      "reviewedAt": null,
-      "returnReason": null
-    },
-    "vehicleId": null,
-    "crew": {},
-    "legs": {
-      "outbound": {
-        "key": "outbound",
-        "title": "Chặng VN",
-        "country": "VN",
-        "from": "Trại ngựa A",
-        "to": "SGN",
-        "vehicleId": null,
-        "crew": {}
-      },
-      "inbound": {
-        "key": "inbound",
-        "title": "Chặng JP",
-        "country": "JP",
-        "from": "NRT",
-        "to": "Trại ngựa B",
-        "vehicleId": null,
-        "crew": {}
-      }
-    },
-    "flight": {
-      "version": 1,
-      "airline": "Hãng bay A",
-      "flightNo": "AIR001",
-      "fromAirport": "SGN",
-      "toAirport": "NRT",
-      "departAt": "2026-11-20 12:00",
-      "arriveAt": "2026-11-21 14:00",
-      "cost": 25000000,
-      "currency": "VND",
-      "departureAirportCheckpointId": 101,
-      "arrivalAirportCheckpointId": 201,
-      "status": "BUDGET_PENDING",
-      "bookingRef": null,
-      "bookingId": null
-    },
-    "resourcesConfirmed": null,
-    "resourceVersion": 0,
-    "milestones": [],
-    "etaHistory": []
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Schema:** `#/components/schemas/F2-J39Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J40 — PUT /coordinator/trips/{tripId}/route-draft
-
-> **SUPERSEDED:** dùng [F3-J06](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Lưu thứ tự và tọa độ điểm dừng. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `route-versioning`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "expectedRouteVersion": 0,
-  "stops": [
-    {
-      "id": "ROUTE_SEGMENT_001",
-      "name": "Trại ngựa A",
-      "type": "ORIGIN",
-      "country": "VN",
-      "plannedAt": "2026-11-20 08:00",
-      "lat": 10.82,
-      "lng": 106.65,
-      "checkpointId": null
-    },
-    {
-      "id": "ROUTE_SEGMENT_002",
-      "name": "SGN",
-      "type": "AIRPORT",
-      "country": "VN",
-      "plannedAt": "2026-11-20 10:00",
-      "lat": 10.82,
-      "lng": 106.65,
-      "checkpointId": 101
-    },
-    {
-      "id": "ROUTE_SEGMENT_003",
-      "name": "NRT",
-      "type": "AIRPORT",
-      "country": "JP",
-      "plannedAt": "2026-11-21 14:00",
-      "lat": 35.77,
-      "lng": 140.39,
-      "checkpointId": 201
-    },
-    {
-      "id": "ROUTE_SEGMENT_004",
-      "name": "Trạm kiểm dịch A",
-      "type": "QUARANTINE_STATION",
-      "country": "JP",
-      "plannedAt": "2026-11-21 16:00",
-      "lat": 35.77,
-      "lng": 140.39,
-      "checkpointId": 203
-    },
-    {
-      "id": "ROUTE_SEGMENT_005",
-      "name": "Trại ngựa B",
-      "type": "DESTINATION",
-      "country": "JP",
-      "plannedAt": "2026-11-21 18:00",
-      "lat": 35.77,
-      "lng": 140.39,
-      "checkpointId": null
-    }
-  ]
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "version": 1,
-    "status": "DRAFT",
-    "stops": [
-      {
-        "id": "ROUTE_SEGMENT_001",
-        "name": "Trại ngựa A",
-        "type": "ORIGIN",
-        "country": "VN",
-        "plannedAt": "2026-11-20 08:00",
-        "lat": 10.82,
-        "lng": 106.65,
-        "checkpointId": null
-      },
-      {
-        "id": "ROUTE_SEGMENT_002",
-        "name": "SGN",
-        "type": "AIRPORT",
-        "country": "VN",
-        "plannedAt": "2026-11-20 10:00",
-        "lat": 10.82,
-        "lng": 106.65,
-        "checkpointId": 101
-      },
-      {
-        "id": "ROUTE_SEGMENT_003",
-        "name": "NRT",
-        "type": "AIRPORT",
-        "country": "JP",
-        "plannedAt": "2026-11-21 14:00",
-        "lat": 35.77,
-        "lng": 140.39,
-        "checkpointId": 201
-      },
-      {
-        "id": "ROUTE_SEGMENT_004",
-        "name": "Trạm kiểm dịch A",
-        "type": "QUARANTINE_STATION",
-        "country": "JP",
-        "plannedAt": "2026-11-21 16:00",
-        "lat": 35.77,
-        "lng": 140.39,
-        "checkpointId": 203
-      },
-      {
-        "id": "ROUTE_SEGMENT_005",
-        "name": "Trại ngựa B",
-        "type": "DESTINATION",
-        "country": "JP",
-        "plannedAt": "2026-11-21 18:00",
-        "lat": 35.77,
-        "lng": 140.39,
-        "checkpointId": null
-      }
-    ],
-    "submittedAt": null,
-    "reviewedAt": null,
-    "returnReason": null
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Thêm/xóa/sắp xếp là staging trước PUT. Điểm mới không gửi ID tạm; BE cấp ROUTE_SEGMENT_*. Đổi cấu trúc mất xác nhận resources và duyệt tuyến cũ.
-
-**Schema:** `#/components/schemas/F2-J40Request`, `#/components/schemas/F2-J40Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J41 — POST /coordinator/trips/{tripId}/route/submit
-
-> **SUPERSEDED:** dùng [F3-J08](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Gửi tuyến chờ duyệt. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `route-versioning`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "routeVersion": 1,
-  "resourceVersion": 3
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "version": 1,
-    "status": "PENDING_APPROVAL",
-    "stops": [
-      {
-        "id": "ROUTE_SEGMENT_001",
-        "name": "Trại ngựa A",
-        "type": "ORIGIN",
-        "country": "VN",
-        "plannedAt": "2026-11-20 08:00",
-        "lat": 10.82,
-        "lng": 106.65,
-        "checkpointId": null
-      },
-      {
-        "id": "ROUTE_SEGMENT_002",
-        "name": "SGN",
-        "type": "AIRPORT",
-        "country": "VN",
-        "plannedAt": "2026-11-20 10:00",
-        "lat": 10.82,
-        "lng": 106.65,
-        "checkpointId": 101
-      },
-      {
-        "id": "ROUTE_SEGMENT_003",
-        "name": "NRT",
-        "type": "AIRPORT",
-        "country": "JP",
-        "plannedAt": "2026-11-21 14:00",
-        "lat": 35.77,
-        "lng": 140.39,
-        "checkpointId": 201
-      },
-      {
-        "id": "ROUTE_SEGMENT_004",
-        "name": "Trạm kiểm dịch A",
-        "type": "QUARANTINE_STATION",
-        "country": "JP",
-        "plannedAt": "2026-11-21 16:00",
-        "lat": 35.77,
-        "lng": 140.39,
-        "checkpointId": 203
-      },
-      {
-        "id": "ROUTE_SEGMENT_005",
-        "name": "Trại ngựa B",
-        "type": "DESTINATION",
-        "country": "JP",
-        "plannedAt": "2026-11-21 18:00",
-        "lat": 35.77,
-        "lng": 140.39,
-        "checkpointId": null
-      }
-    ],
-    "submittedAt": "2026-10-24 09:00",
-    "reviewedAt": null,
-    "returnReason": null
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Cần resourcesConfirmed; AIR BOOKED và đủ hai chặng xe. DRAFT/RETURNED -> PENDING_APPROVAL. Không đợi route APPROVED mới confirm resources.
-
-**Schema:** `#/components/schemas/F2-J41Request`, `#/components/schemas/F2-J41Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J42 — PUT /coordinator/trips/{tripId}/resources
-
-> **SUPERSEDED:** dùng [F3-J06](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Lưu phân công chặng đang sửa. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `resources`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "expectedResourceVersion": 0,
-  "leg": "outbound",
-  "vehicleId": null,
-  "crew": {
-    "MAIN_DRIVER": "USER_008",
-    "CO_DRIVER": "USER_009",
-    "VETERINARIAN": "USER_010"
-  }
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "TRIP_001",
-    "requestId": "REQUEST_001",
-    "customer": "Nguyen Van A",
-    "origin": "Ho Chi Minh City",
-    "destination": "Tokyo",
-    "originCountry": "VN",
-    "destinationCountry": "JP",
-    "mode": "AIR",
-    "horses": [
-      "HORSE_001"
-    ],
-    "plannedDepart": "2026-11-20 08:00",
-    "eta": "2026-11-21 18:00",
-    "status": "PLANNING",
-    "deploymentStatus": "CONFIRMED",
-    "route": {
-      "version": 1,
-      "status": "DRAFT",
-      "stops": [
-        {
-          "id": "ROUTE_SEGMENT_001",
-          "name": "Trại ngựa A",
-          "type": "ORIGIN",
-          "country": "VN",
-          "plannedAt": "2026-11-20 08:00",
-          "lat": 10.82,
-          "lng": 106.65,
-          "checkpointId": null
-        },
-        {
-          "id": "ROUTE_SEGMENT_002",
-          "name": "SGN",
-          "type": "AIRPORT",
-          "country": "VN",
-          "plannedAt": "2026-11-20 10:00",
-          "lat": 10.82,
-          "lng": 106.65,
-          "checkpointId": 101
-        },
-        {
-          "id": "ROUTE_SEGMENT_003",
-          "name": "NRT",
-          "type": "AIRPORT",
-          "country": "JP",
-          "plannedAt": "2026-11-21 14:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": 201
-        },
-        {
-          "id": "ROUTE_SEGMENT_004",
-          "name": "Trạm kiểm dịch A",
-          "type": "QUARANTINE_STATION",
-          "country": "JP",
-          "plannedAt": "2026-11-21 16:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": 203
-        },
-        {
-          "id": "ROUTE_SEGMENT_005",
-          "name": "Trại ngựa B",
-          "type": "DESTINATION",
-          "country": "JP",
-          "plannedAt": "2026-11-21 18:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": null
-        }
-      ],
-      "submittedAt": null,
-      "reviewedAt": null,
-      "returnReason": null
-    },
-    "vehicleId": null,
-    "crew": {},
-    "legs": {
-      "outbound": {
-        "key": "outbound",
-        "title": "Chặng VN",
-        "country": "VN",
-        "from": "Trại ngựa A",
-        "to": "SGN",
-        "vehicleId": null,
-        "crew": {
-          "MAIN_DRIVER": "USER_008",
-          "CO_DRIVER": "USER_009",
-          "VETERINARIAN": "USER_010"
-        }
-      },
-      "inbound": {
-        "key": "inbound",
-        "title": "Chặng JP",
-        "country": "JP",
-        "from": "NRT",
-        "to": "Trại ngựa B",
-        "vehicleId": null,
-        "crew": {}
-      }
-    },
-    "flight": {
-      "version": 1,
-      "airline": "Hãng bay A",
-      "flightNo": "AIR001",
-      "fromAirport": "SGN",
-      "toAirport": "NRT",
-      "departAt": "2026-11-20 12:00",
-      "arriveAt": "2026-11-21 14:00",
-      "cost": 25000000,
-      "currency": "VND",
-      "departureAirportCheckpointId": 101,
-      "arrivalAirportCheckpointId": 201,
-      "status": "BUDGET_PENDING",
-      "bookingRef": null,
-      "bookingId": null
-    },
-    "resourcesConfirmed": null,
-    "resourceVersion": 1,
-    "milestones": [],
-    "etaHistory": []
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** ROAD leg=null; AIR phải outbound/inbound. PUT full xe/crew của chặng; slot thiếu là chưa phân công. Không sửa PENDING_APPROVAL/APPROVED, phải reopen.
-
-**Schema:** `#/components/schemas/F2-J42Request`, `#/components/schemas/F2-J42Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J43 — POST /coordinator/trips/{tripId}/resources/confirm
-
-> **SUPERSEDED:** dùng [F3-J14](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Xác nhận nguồn lực. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `resources`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "routeVersion": 1,
-  "resourceVersion": 3,
-  "flightVersion": 1
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "TRIP_001",
-    "requestId": "REQUEST_001",
-    "customer": "Nguyen Van A",
-    "origin": "Ho Chi Minh City",
-    "destination": "Tokyo",
-    "originCountry": "VN",
-    "destinationCountry": "JP",
-    "mode": "AIR",
-    "horses": [
-      "HORSE_001"
-    ],
-    "plannedDepart": "2026-11-20 08:00",
-    "eta": "2026-11-21 18:00",
-    "status": "PLANNING",
-    "deploymentStatus": "CONFIRMED",
-    "route": {
-      "version": 1,
-      "status": "DRAFT",
-      "stops": [
-        {
-          "id": "ROUTE_SEGMENT_001",
-          "name": "Trại ngựa A",
-          "type": "ORIGIN",
-          "country": "VN",
-          "plannedAt": "2026-11-20 08:00",
-          "lat": 10.82,
-          "lng": 106.65,
-          "checkpointId": null
-        },
-        {
-          "id": "ROUTE_SEGMENT_002",
-          "name": "SGN",
-          "type": "AIRPORT",
-          "country": "VN",
-          "plannedAt": "2026-11-20 10:00",
-          "lat": 10.82,
-          "lng": 106.65,
-          "checkpointId": 101
-        },
-        {
-          "id": "ROUTE_SEGMENT_003",
-          "name": "NRT",
-          "type": "AIRPORT",
-          "country": "JP",
-          "plannedAt": "2026-11-21 14:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": 201
-        },
-        {
-          "id": "ROUTE_SEGMENT_004",
-          "name": "Trạm kiểm dịch A",
-          "type": "QUARANTINE_STATION",
-          "country": "JP",
-          "plannedAt": "2026-11-21 16:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": 203
-        },
-        {
-          "id": "ROUTE_SEGMENT_005",
-          "name": "Trại ngựa B",
-          "type": "DESTINATION",
-          "country": "JP",
-          "plannedAt": "2026-11-21 18:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": null
-        }
-      ],
-      "submittedAt": null,
-      "reviewedAt": null,
-      "returnReason": null
-    },
-    "vehicleId": null,
-    "crew": {},
-    "legs": {
-      "outbound": {
-        "key": "outbound",
-        "title": "Chặng VN",
-        "country": "VN",
-        "from": "Trại ngựa A",
-        "to": "SGN",
-        "vehicleId": "VEHICLE_001",
-        "crew": {
-          "MAIN_DRIVER": "USER_008",
-          "CO_DRIVER": "USER_009",
-          "VETERINARIAN": "USER_010"
-        }
-      },
-      "inbound": {
-        "key": "inbound",
-        "title": "Chặng JP",
-        "country": "JP",
-        "from": "NRT",
-        "to": "Trại ngựa B",
-        "vehicleId": "VEHICLE_002",
-        "crew": {
-          "MAIN_DRIVER": "USER_011",
-          "CO_DRIVER": "USER_012",
-          "VETERINARIAN": "USER_013"
-        }
-      }
-    },
-    "flight": {
-      "version": 1,
-      "airline": "Hãng bay A",
-      "flightNo": "AIR001",
-      "fromAirport": "SGN",
-      "toAirport": "NRT",
-      "departAt": "2026-11-20 12:00",
-      "arriveAt": "2026-11-21 14:00",
-      "cost": 25000000,
-      "currency": "VND",
-      "departureAirportCheckpointId": 101,
-      "arrivalAirportCheckpointId": 201,
-      "status": "BOOKED",
-      "bookingRef": "BOOK-001",
-      "bookingId": 300
-    },
-    "resourcesConfirmed": {
-      "at": "2026-10-24 09:00",
-      "by": "USER_006"
-    },
-    "resourceVersion": 3,
-    "milestones": [],
-    "etaHistory": []
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** BE kiểm tra xung đột/chứng chỉ, 3 người khác nhau, đủ stalls, đúng quốc gia; AIR đủ hai chặng + BOOKED. Không đòi route APPROVED.
-
-**Schema:** `#/components/schemas/F2-J43Request`, `#/components/schemas/F2-J43Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J44 — POST /coordinator/trips/{tripId}/flight/proposals
-
-> **SUPERSEDED:** dùng [F3-J06](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Đề xuất ngân sách bay. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `flight-budget`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "expectedFlightVersion": 0,
-  "airline": "Hãng bay A",
-  "flightNo": "AIR001",
-  "fromAirport": "SGN",
-  "toAirport": "NRT",
-  "departAt": "2026-11-20 12:00",
-  "arriveAt": "2026-11-21 14:00",
-  "cost": 25000000,
-  "currency": "VND",
-  "departureAirportCheckpointId": 101,
-  "arrivalAirportCheckpointId": 201
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "version": 1,
-    "airline": "Hãng bay A",
-    "flightNo": "AIR001",
-    "fromAirport": "SGN",
-    "toAirport": "NRT",
-    "departAt": "2026-11-20 12:00",
-    "arriveAt": "2026-11-21 14:00",
-    "cost": 25000000,
-    "currency": "VND",
-    "departureAirportCheckpointId": 101,
-    "arrivalAirportCheckpointId": 201,
-    "status": "BUDGET_PENDING",
-    "bookingRef": null,
-    "bookingId": null
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** AIR bay thẳng, sân bay đúng quốc gia/thứ tự tuyến, VND. Không insert FLIGHT_BOOKING BookingConfirmed=1 khi mới đề xuất.
-
-**Schema:** `#/components/schemas/F2-J44Request`, `#/components/schemas/F2-J44Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J45 — POST /coordinator/trips/{tripId}/flight/booking
-
-> **SUPERSEDED:** dùng [F3-J13](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Ghi nhận mã đặt chỗ. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `flight-budget`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "flightVersion": 1,
-  "bookingRef": "BOOK-001"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "version": 1,
-    "airline": "Hãng bay A",
-    "flightNo": "AIR001",
-    "fromAirport": "SGN",
-    "toAirport": "NRT",
-    "departAt": "2026-11-20 12:00",
-    "arriveAt": "2026-11-21 14:00",
-    "cost": 25000000,
-    "currency": "VND",
-    "departureAirportCheckpointId": 101,
-    "arrivalAirportCheckpointId": 201,
-    "status": "BOOKED",
-    "bookingRef": "BOOK-001",
-    "bookingId": 300
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ BUDGET_APPROVED đúng bản với mã thật. bookingId INT, không FLIGHT_BOOKING_001.
-
-**Schema:** `#/components/schemas/F2-J45Request`, `#/components/schemas/F2-J45Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J46 — POST /coordinator/trips/{tripId}/route/reopen
-
-> **SUPERSEDED:** dùng [F3-J09/F3-J12](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Mở bản mới khi đổi kế hoạch. Role: **FLEET_ROUTE_COORDINATOR**. Feature: `route-versioning`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "routeVersion": 1,
-  "reason": "Cần đổi trạm nghỉ và bố trí lại xe"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "TRIP_001",
-    "requestId": "REQUEST_001",
-    "customer": "Nguyen Van A",
-    "origin": "Ho Chi Minh City",
-    "destination": "Tokyo",
-    "originCountry": "VN",
-    "destinationCountry": "JP",
-    "mode": "AIR",
-    "horses": [
-      "HORSE_001"
-    ],
-    "plannedDepart": "2026-11-20 08:00",
-    "eta": "2026-11-21 18:00",
-    "status": "PLANNING",
-    "deploymentStatus": "CONFIRMED",
-    "route": {
-      "version": 2,
-      "status": "DRAFT",
-      "stops": [
-        {
-          "id": "ROUTE_SEGMENT_001",
-          "name": "Trại ngựa A",
-          "type": "ORIGIN",
-          "country": "VN",
-          "plannedAt": "2026-11-20 08:00",
-          "lat": 10.82,
-          "lng": 106.65,
-          "checkpointId": null
-        },
-        {
-          "id": "ROUTE_SEGMENT_002",
-          "name": "SGN",
-          "type": "AIRPORT",
-          "country": "VN",
-          "plannedAt": "2026-11-20 10:00",
-          "lat": 10.82,
-          "lng": 106.65,
-          "checkpointId": 101
-        },
-        {
-          "id": "ROUTE_SEGMENT_003",
-          "name": "NRT",
-          "type": "AIRPORT",
-          "country": "JP",
-          "plannedAt": "2026-11-21 14:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": 201
-        },
-        {
-          "id": "ROUTE_SEGMENT_004",
-          "name": "Trạm kiểm dịch A",
-          "type": "QUARANTINE_STATION",
-          "country": "JP",
-          "plannedAt": "2026-11-21 16:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": 203
-        },
-        {
-          "id": "ROUTE_SEGMENT_005",
-          "name": "Trại ngựa B",
-          "type": "DESTINATION",
-          "country": "JP",
-          "plannedAt": "2026-11-21 18:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": null
-        }
-      ],
-      "submittedAt": null,
-      "reviewedAt": null,
-      "returnReason": null
-    },
-    "vehicleId": null,
-    "crew": {},
-    "legs": {
-      "outbound": {
-        "key": "outbound",
-        "title": "Chặng VN",
-        "country": "VN",
-        "from": "Trại ngựa A",
-        "to": "SGN",
-        "vehicleId": null,
-        "crew": {}
-      },
-      "inbound": {
-        "key": "inbound",
-        "title": "Chặng JP",
-        "country": "JP",
-        "from": "NRT",
-        "to": "Trại ngựa B",
-        "vehicleId": null,
-        "crew": {}
-      }
-    },
-    "flight": {
-      "version": 1,
-      "airline": "Hãng bay A",
-      "flightNo": "AIR001",
-      "fromAirport": "SGN",
-      "toAirport": "NRT",
-      "departAt": "2026-11-20 12:00",
-      "arriveAt": "2026-11-21 14:00",
-      "cost": 25000000,
-      "currency": "VND",
-      "departureAirportCheckpointId": 101,
-      "arrivalAirportCheckpointId": 201,
-      "status": "BUDGET_PENDING",
-      "bookingRef": null,
-      "bookingId": null
-    },
-    "resourcesConfirmed": null,
-    "resourceVersion": 0,
-    "milestones": [],
-    "etaHistory": []
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ PLANNING, tăng routeVersion, hủy duyệt/xác nhận liên quan. READY_TO_DEPART cần quy trình thu hồi duyệt riêng ngoài contract này.
-
-**Schema:** `#/components/schemas/F2-J46Request`, `#/components/schemas/F2-J46Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J47 — GET /manager/trips/{tripId}/preparation
-
-> **SUPERSEDED:** dùng [F3-J10](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Tổng hợp chuẩn bị cho Manager. Role: **LOGISTICS_MANAGER**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "TRIP_001",
-    "requestId": "REQUEST_001",
-    "mode": "AIR",
-    "status": "PLANNING",
-    "deployment": {
-      "status": "CONFIRMED",
-      "specialistId": "USER_005",
-      "coordinatorId": "USER_006",
-      "at": "2026-10-24 09:00"
-    },
-    "plannedDepart": "2026-11-20 08:00",
-    "eta": "2026-11-21 18:00",
-    "readiness": {
-      "docsReady": 0,
-      "docsTotal": 1,
-      "docsReadyAt": null,
-      "insurance": "MISSING",
-      "quarantineOk": false
-    },
-    "route": null,
-    "flight": null,
-    "departureApprovedAt": null,
-    "routeVersion": 1,
-    "resourceVersion": 0,
-    "flightVersion": null,
-    "milestones": [],
-    "etaHistory": []
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Schema:** `#/components/schemas/F2-J47Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J48 — GET /manager/trips/{tripId}/readiness
-
-> **SUPERSEDED:** dùng [F3-J17](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Điều kiện khởi hành. Role: **LOGISTICS_MANAGER**. Feature: `core`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "tripId": "TRIP_001",
-    "routeVersion": 1,
-    "resourceVersion": 0,
-    "flightVersion": null,
-    "canApprove": false,
-    "checks": [
-      {
-        "key": "docs",
-        "ok": false,
-        "code": "DOCS_NOT_READY",
-        "message": "Hồ sơ chưa được xác nhận"
-      }
-    ],
-    "evaluatedAt": "2026-10-24 09:00"
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Tính dữ liệu mới nhất; 0/0 hoặc missing config không phải đủ hồ sơ. ROAD/AIR có checks khác nhau.
-
-**Schema:** `#/components/schemas/F2-J48Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J49 — POST /manager/trips/{tripId}/route/decision
-
-> **SUPERSEDED:** dùng [F3-J11](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Duyệt hoặc trả tuyến. Role: **LOGISTICS_MANAGER**. Feature: `route-versioning`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "routeVersion": 1,
-  "resourceVersion": 3,
-  "decision": "APPROVED",
-  "reason": "Đã kiểm tra phương án"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "TRIP_001",
-    "requestId": "REQUEST_001",
-    "mode": "AIR",
-    "status": "PLANNING",
-    "deployment": {
-      "status": "CONFIRMED",
-      "specialistId": "USER_005",
-      "coordinatorId": "USER_006",
-      "at": "2026-10-24 09:00"
-    },
-    "plannedDepart": "2026-11-20 08:00",
-    "eta": "2026-11-21 18:00",
-    "readiness": {
-      "docsReady": 0,
-      "docsTotal": 1,
-      "docsReadyAt": null,
-      "insurance": "MISSING",
-      "quarantineOk": false
-    },
-    "route": {
-      "v": 1,
-      "status": "APPROVED",
-      "submittedAt": "2026-10-24 08:30",
-      "stops": [
-        {
-          "id": "ROUTE_SEGMENT_001",
-          "name": "Trại ngựa A",
-          "type": "ORIGIN",
-          "country": "VN",
-          "plannedAt": "2026-11-20 08:00",
-          "lat": 10.82,
-          "lng": 106.65,
-          "checkpointId": null
-        },
-        {
-          "id": "ROUTE_SEGMENT_002",
-          "name": "SGN",
-          "type": "AIRPORT",
-          "country": "VN",
-          "plannedAt": "2026-11-20 10:00",
-          "lat": 10.82,
-          "lng": 106.65,
-          "checkpointId": 101
-        },
-        {
-          "id": "ROUTE_SEGMENT_003",
-          "name": "NRT",
-          "type": "AIRPORT",
-          "country": "JP",
-          "plannedAt": "2026-11-21 14:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": 201
-        },
-        {
-          "id": "ROUTE_SEGMENT_004",
-          "name": "Trạm kiểm dịch A",
-          "type": "QUARANTINE_STATION",
-          "country": "JP",
-          "plannedAt": "2026-11-21 16:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": 203
-        },
-        {
-          "id": "ROUTE_SEGMENT_005",
-          "name": "Trại ngựa B",
-          "type": "DESTINATION",
-          "country": "JP",
-          "plannedAt": "2026-11-21 18:00",
-          "lat": 35.77,
-          "lng": 140.39,
-          "checkpointId": null
-        }
-      ],
-      "vehicle": "51C-12345 / JP-001",
-      "crew": [
-        [
-          "MAIN_DRIVER",
-          "Driver VN A"
-        ],
-        [
-          "CO_DRIVER",
-          "Driver VN B"
-        ],
-        [
-          "VETERINARIAN",
-          "Vet VN"
-        ],
-        [
-          "MAIN_DRIVER",
-          "Driver JP A"
-        ],
-        [
-          "CO_DRIVER",
-          "Driver JP B"
-        ],
-        [
-          "VETERINARIAN",
-          "Vet JP"
-        ]
-      ],
-      "resourcesConfirmed": true,
-      "note": "",
-      "decisionNote": "Đã kiểm tra phương án",
-      "decidedAt": "2026-10-24 09:00"
-    },
-    "flight": {
-      "airline": "Hãng bay A",
-      "flightNo": "AIR001",
-      "budget": 25000000,
-      "status": "BOOKED",
-      "decidedAt": "2026-10-24 08:00"
-    },
-    "departureApprovedAt": null,
-    "routeVersion": 1,
-    "resourceVersion": 3,
-    "flightVersion": 1,
-    "milestones": [],
-    "etaHistory": []
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ PENDING_APPROVAL; RETURNED reason>=10. Duyệt đúng bundle tuyến/xe/crew, không duyệt nhân sự riêng.
-
-**Schema:** `#/components/schemas/F2-J49Request`, `#/components/schemas/F2-J49Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J50 — POST /manager/trips/{tripId}/flight/decision
-
-> **SUPERSEDED:** dùng [F3-J11](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Quyết định ngân sách bay. Role: **LOGISTICS_MANAGER**. Feature: `flight-budget`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "flightVersion": 1,
-  "decision": "APPROVED",
-  "note": "Đồng ý ngân sách"
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "id": "TRIP_001",
-    "requestId": "REQUEST_001",
-    "mode": "AIR",
-    "status": "PLANNING",
-    "deployment": {
-      "status": "CONFIRMED",
-      "specialistId": "USER_005",
-      "coordinatorId": "USER_006",
-      "at": "2026-10-24 09:00"
-    },
-    "plannedDepart": "2026-11-20 08:00",
-    "eta": "2026-11-21 18:00",
-    "readiness": {
-      "docsReady": 0,
-      "docsTotal": 1,
-      "docsReadyAt": null,
-      "insurance": "MISSING",
-      "quarantineOk": false
-    },
-    "route": null,
-    "flight": {
-      "airline": "Hãng bay A",
-      "flightNo": "AIR001",
-      "budget": 25000000,
-      "status": "APPROVED",
-      "decidedAt": "2026-10-24 09:00"
-    },
-    "departureApprovedAt": null,
-    "routeVersion": 1,
-    "resourceVersion": 0,
-    "flightVersion": 1,
-    "milestones": [],
-    "etaHistory": []
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Chỉ BUDGET_PENDING; REJECTED note>=10. Manager APPROVED = Coordinator BUDGET_APPROVED, chưa BOOKED.
-
-**Schema:** `#/components/schemas/F2-J50Request`, `#/components/schemas/F2-J50Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J51 — POST /manager/trips/{tripId}/departure/approve
-
-> **SUPERSEDED:** dùng [F3-J18](../Flow3/FLOW3-API-JSON.md). Payload/schema/mẫu F2 bên dưới là bản trước thay đổi flow, không dùng cho tích hợp mới.
-
-Duyệt sẵn sàng khởi hành. Role: **LOGISTICS_MANAGER**. Feature: `readiness`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| tripId | path | Có | string |
-| Idempotency-Key | header | Có | string |
-
-**Request JSON**
-
-```json
-{
-  "routeVersion": 1,
-  "resourceVersion": 3,
-  "flightVersion": 1
-}
-```
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
-
-```json
-{
-  "success": true,
-  "message": "OK",
-  "data": {
-    "tripId": "TRIP_001",
-    "tripStatus": "READY_TO_DEPART",
-    "requestId": "REQUEST_001",
-    "requestStatus": "SCHEDULED",
-    "departureApprovedAt": "2026-10-24 09:00",
-    "approvedBy": "USER_004",
-    "routeVersion": 1,
-    "resourceVersion": 3,
-    "flightVersion": 1
-  }
-}
-```
-
-**Response 501 — khi chưa hỗ trợ**
-
-```json
-{
-  "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
-  "errorCode": "FEATURE_NOT_SUPPORTED",
-  "data": null
-}
-```
-
-**Điều kiện/ảnh hưởng:** Transaction kiểm tra tất cả bằng chứng/reservations; Trip READY_TO_DEPART + Request SCHEDULED, actor/time. Không tạo DEPARTED/IN_TRANSIT.
-
-**Schema:** `#/components/schemas/F2-J51Request`, `#/components/schemas/F2-J51Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
-
-### F2-J52 — GET /customer/requests/{requestId}/supplements
-
-Yêu cầu bổ sung khách phải xử lý. Role: **CUSTOMER**. Feature: `supplements`.
-
-| Tham số | Nơi gửi | Bắt buộc | Kiểu |
-|---|---|---|---|
-| requestId | path | Có | string |
-
-**Request body:** Không gửi body.
-
-**Response 200 — mẫu mục tiêu khi đã triển khai**
+**Response 200** — sau bổ sung persistence
 
 ```json
 {
@@ -4062,38 +1652,67 @@ Yêu cầu bổ sung khách phải xử lý. Role: **CUSTOMER**. Feature: `suppl
   "message": "OK",
   "data": [
     {
-      "id": "SUP:TRIP_001:HORSE_001:passport:1",
-      "tripId": "TRIP_001",
-      "key": "passport",
-      "scope": "HORSE_001",
-      "reason": "Vui lòng nộp bản hộ chiếu còn hiệu lực",
-      "dueAt": null,
-      "status": "OPEN",
-      "createdAt": "2026-10-24 09:00",
-      "history": [
-        [
-          "2026-10-24 09:00",
-          "Gửi yêu cầu bổ sung"
-        ]
-      ]
+      "tripId": "TRIP_003",
+      "recordId": "LEGAL_MEDICAL_RECORD_007",
+      "action": "VERIFIED",
+      "actorId": "USER_005",
+      "at": "2026-10-25 09:00",
+      "reason": "Đã đối chiếu hồ sơ"
     }
   ]
 }
 ```
 
-**Response 501 — khi chưa hỗ trợ**
+**Response lỗi 409**
 
 ```json
 {
   "success": false,
-  "message": "Chức năng chưa có nơi lưu bền vững được xác nhận",
+  "message": "Điều kiện xử lý chưa đạt",
+  "errorCode": "AUDIT_NOT_AVAILABLE",
+  "data": null
+}
+```
+
+**Response lỗi 501 khi chưa hỗ trợ**
+
+```json
+{
+  "success": false,
+  "message": "Chưa đủ persistence/capability",
   "errorCode": "FEATURE_NOT_SUPPORTED",
   "data": null
 }
 ```
 
-**Điều kiện/ảnh hưởng:** Cùng DocRequest của Specialist; upload dùng Flow 1 J17, không tạo hồ sơ độc lập. Upload chưa APPROVED/FULFILLED.
+## 5. Mapping database và dependency chưa có
 
-**Schema:** `#/components/schemas/F2-J52Response`, trong [flow2.openapi.json](flow2.openapi.json). Các lỗi chung 400/401/403/404/409/429/500 có schema và mẫu riêng trong OpenAPI.
+| Nhóm | Hiện có | Thiếu |
+|---|---|---|
+| Record ngựa | LMR RequestID/HorseID/DocumentStatus/RequirementStatus/VerifiedBy/ExpiryDate | review reason/time, lịch sử bản nộp/thẩm định và stage |
+| Checklist | Không có checklist có cấu trúc | Mục chưa nộp, scope, owner CUSTOMER/COMPANY, phase, rule/plan version |
+| Company documents | Không có model Trip-document | Không dùng HorseID giả hoặc Notification JSON |
+| Insurance | Chi phí có ở COST_ITEM/COST_RATE | policy/insurer/coverage/evidence/history |
+| Feasibility/Documents READY | Trip có status/deployment/assignment | Xác nhận đúng plan version, actor/time, invalidation |
+| Quarantine/customs | Có booking/status/ClearedAt | Kết quả/bằng chứng/reason/correction và blocker phần liên quan |
+| Nhắc/audit/quy định | POLICY_AND_TERM, NOTIFICATION có nền | Rule áp dụng cấu trúc, scheduler và audit chuyên môn BR-62 |
 
-<!-- FLOW2_ENDPOINTS_END -->
+Tên key checklist/planVersionNo là DTO đích, không tự tạo PK hoặc chứng minh schema đã tồn tại. Endpoint cần dependency không được triển khai bằng việc ghi vào field text khác nghĩa. Chưa đề xuất tên bảng mới ràng buộc nhóm; schema mở rộng phải chốt riêng.
+
+## 6. Checklist nghiệm thu và bàn giao
+
+| Căn cứ | Nghiệm thu |
+|---|---|
+| BR-48/49 | VN/VN ROAD khác VN/JP AIR; phân biệt scope/người chịu trách nhiệm/giai đoạn |
+| BR-50 | Reuse hồ sơ còn phù hợp, không bắt nộp lại sau kích hoạt |
+| BR-51/52 | Upload không tự duyệt; reject có lý do; Customer không sửa company/decision |
+| BR-53/54 | Khả thi khác READY; PRE_DEPARTURE đủ, không đòi customs tương lai |
+| BR-55/56 | Bảo hiểm thực mua; Docs/Operations riêng, cùng plan version |
+| BR-57–59 | Kiểm hiệu lực tại thời điểm dùng; đổi lịch chỉ invalidate phần ảnh hưởng; chi phí/dời lịch trình Manager |
+| BR-60–62/47 | Driver đến không CLEARED; blocker đúng phần; actor/time/evidence/history/quyền dùng cùng object |
+
+Test âm: khác Customer, Specialist không được giao, ON_HOLD ghi mới, record sai ngựa/Request, file sai MIME/quá cỡ, review bản bị thay, reject thiếu reason, tài liệu hết hạn tại điểm sử dụng, insurance sai ngựa/coverage, clearance sai Trip. Thiếu persistence kiểm 501/UI không mock hoặc READY.
+
+Flow 1 bàn giao ID/owner/ngựa/hợp đồng ký/cọc/assignment. Flow 3 bàn giao lịch/tuyến/điểm kiểm soát và version. Flow 2 bàn giao feasibility trước Gate 1, Documents READY/bảo hiểm trước Gate 2, kết quả thủ tục/blocker trong chuyến và giấy tờ cần giao cuối.
+
+Worker đích nhắc thiếu/hết hạn theo thời điểm dùng, invalidate phần ảnh hưởng, notify đúng người; không tự approve/gia hạn giấy/hủy hoặc hoàn tất Trip. Có SentAt không đủ chứng minh scheduler/audit đã triển khai. Việc tạo file này chưa kiểm runtime/API/E2E.

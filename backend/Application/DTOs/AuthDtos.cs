@@ -130,4 +130,3 @@ namespace Application.DTOs
         public int ResendAfterSeconds { get; set; } = 60;
     }
 }
-

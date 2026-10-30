@@ -4852,6 +4852,18 @@
               "maxLength": 50,
               "pattern": "^[A-Z_]+_\\d{3,}$"
             }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ROAD",
+                "AIR"
+              ]
+            }
           }
         ]
       }
@@ -5046,7 +5058,8 @@
                     "title": "Thanh toán",
                     "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
                   }
-                ]
+                ],
+                "mode": "ROAD"
               }
             }
           }
@@ -21864,7 +21877,11 @@
             }
           },
           "mode": {
-            "type": "null"
+            "type": "string",
+            "enum": [
+              "ROAD",
+              "AIR"
+            ]
           },
           "note": {
             "type": "string",
@@ -21899,7 +21916,8 @@
           "exception",
           "items",
           "note",
-          "terms"
+          "terms",
+          "mode"
         ],
         "additionalProperties": false
       },

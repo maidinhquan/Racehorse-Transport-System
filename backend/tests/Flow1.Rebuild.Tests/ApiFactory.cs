@@ -30,8 +30,6 @@ public sealed class ApiFactory(SqlFixture database) : WebApplicationFactory<Prog
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string,string?>
         { ["ConnectionStrings:Flow1"] = database.Connection, ["ConnectionStrings:DefaultConnection"] = database.Connection,
           ["Flow1:PrivateFiles:Root"] = fileRoot,
-          ["RegistrationEmail:Mode"] = "Development",
-          ["RegistrationEmail:Smtp:From"] = "noreply@racehorse.local",
           ["Jwt:Key"] = "tests-only-jwt-key-at-least-thirty-two-bytes-long" }));
         builder.ConfigureTestServices(services =>
         {

@@ -1,26 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { managerApi } from '../../../api/managerApi';
+import React from 'react';
+import type { ContractEditorData } from '../../../api/managerApi';
 import { DateTimeField } from '../../../components/DateField/DateTimeField';
-import type { ContractDraft, HorseRef, TransportRequest } from '../../../types';
-import { addDays, fmtDate, today } from '../../../hooks/managerRules';
+import type { ContractDraft, HorseRef, TransportMode, TransportRequest } from '../../../types';
+import { addDays, fmtDate, MODE_LABEL, today } from '../../../hooks/managerRules';
 
 interface StepProps {
   request: TransportRequest;
   draft: ContractDraft;
   set: (patch: Partial<ContractDraft>) => void;
   horses: HorseRef[];
+  defaults: ContractEditorData['defaults'];
+  policyReady: boolean;
 }
 
 /** Bước 1: phương án vận chuyển dự kiến (để lập giá) */
-export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses }) => {
-  const [minPrepDays, setMinPrepDays] = useState<number | null>(null);
-  const [policyError, setPolicyError] = useState('');
-  useEffect(() => {
-    let active = true; setMinPrepDays(null); setPolicyError('');
-    managerApi.getContractEditor(r.id).then(value => { if (active) setMinPrepDays(value.defaults.preparationDays); })
-      .catch(() => { if (active) setPolicyError('Chưa tải được quy định chuẩn bị; máy chủ sẽ kiểm tra khi lưu/phát hành.'); });
-    return () => { active = false; };
-  }, [r.id]);
+export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, defaults, policyReady }) => {
+  const minPrepDays = policyReady ? defaults.preparationDays : null;
+  const modes = [...new Set(defaults.supportedRoutes.map(route => route.mode))];
   const minDepartDate = addDays(today(), minPrepDays ?? 0);
 
   const isDepartTooEarly = draft.departAt && draft.departAt.slice(0, 10) < minDepartDate;
@@ -40,12 +36,16 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses }
       </p>
 
       <p className="mgr-hint">
-        {policyError || (minPrepDays === null ? 'Đang tải quy định chuẩn bị…' : `Tuyến này cần dự phòng ${minPrepDays} ngày chuẩn bị cho các phương án được hỗ trợ. Khởi hành sớm nhất: ${fmtDate(minDepartDate)}.`)}
+        {minPrepDays === null ? 'Đang tải quy định chuẩn bị cho phương thức đã chọn…' : `Phương thức ${draft.mode ? MODE_LABEL[draft.mode] : ''} cần ${minPrepDays} ngày chuẩn bị. Khởi hành sớm nhất: ${fmtDate(minDepartDate)}.`}
       </p>
       <div className="mgr-form-grid">
         <div className="mgr-field">
-          <label>Phương thức vận chuyển</label>
-          <div className="mgr-input mgr-ce__readonly">Coordinator quyết định khi lập kế hoạch vận chuyển</div>
+          <label htmlFor="ct-mode">Phương thức vận chuyển *</label>
+          <select id="ct-mode" className="mgr-input" value={draft.mode ?? ''} onChange={e => set({ mode: e.target.value as TransportMode })}>
+            <option value="" disabled>Chọn phương thức</option>
+            {modes.map(mode => <option key={mode} value={mode}>{MODE_LABEL[mode]}</option>)}
+          </select>
+          <p className="mgr-hint">Chỉ hiển thị phương thức được hỗ trợ cho tuyến này.</p>
         </div>
         <div className="mgr-field">
           <label>Ngựa theo yêu cầu (chỉ xem)</label>
@@ -108,10 +108,10 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses }
       </div>
       {(departChanged || arriveChanged) && (
         <div className="mgr-note mgr-note--warn" role="note" style={{ marginTop: 12, padding: '10px 12px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fde68a', fontSize: 13 }}>
-          <b>Bạn đang đề xuất lịch khác ngày khách yêu cầu.</b>{' '}
+          <b>Lịch hợp đồng phải giữ đúng ngày khách yêu cầu.</b>{' '}
           {departChanged && <>Lấy ngựa {fmtDate(requestedPickup)} → <b>{fmtDate(draft.departAt.slice(0, 10))}</b>. </>}
           {arriveChanged && <>Giao ngựa {fmtDate(requestedDelivery)} → <b>{fmtDate(draft.arriveAt.slice(0, 10))}</b>. </>}
-          Hợp đồng sẽ hiện cả hai mốc; khách đồng ý bằng cách ký hoặc gửi yêu cầu sửa. Hệ thống kiểm tra ngựa không bị trùng lịch khi lưu.
+          Vui lòng đưa ngày khởi hành và ngày đến về đúng các mốc khách yêu cầu trước khi lưu.
         </div>
       )}
     </>

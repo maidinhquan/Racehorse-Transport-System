@@ -1,5 +1,7 @@
 services:
   backend:
+    volumes:
+      - backend_app_data:/app/App_Data
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -11,20 +13,21 @@ services:
       - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=${SQL_DATABASE:-HorseTransportDB};User Id=${SQL_USER};Password=${SQL_PASSWORD};Encrypt=True;TrustServerCertificate=True;"
-      RegistrationEmail__Mode: "${REGISTRATION_EMAIL_MODE:-Development}"
-      RegistrationEmail__Smtp__Host: "${SMTP_HOST:-localhost}"
-      RegistrationEmail__Smtp__Port: "${SMTP_PORT:-25}"
-      RegistrationEmail__Smtp__From: "${SMTP_FROM:-noreply@racehorse.local}"
-      RegistrationEmail__Smtp__Username: "${SMTP_USERNAME:-}"
-      RegistrationEmail__Smtp__Password: "${SMTP_PASSWORD:-}"
-      Smtp__Host: "${SMTP_HOST:-smtp.gmail.com}"
-      Smtp__Port: "${SMTP_PORT:-587}"
-      Smtp__Username: "${SMTP_USERNAME:-}"
-      Smtp__Password: "${SMTP_PASSWORD:-}"
-      Smtp__FromEmail: "${SMTP_FROM:-}"
-    volumes:
-      - backend_app_data:/app/App_Data
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=${SQL_DATABASE:-HorseTransportDB};User Id=${SQL_USER:?Set SQL_USER in .env};Password=${SQL_PASSWORD:?Set SQL_PASSWORD in .env};TrustServerCertificate=True;"
+      Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__Username: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__FromEmail: ${SMTP_FROM:-}
+      Smtp__FromName: ${SMTP_FROM_NAME:-RaceHorse Transport System}
+      Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      RegistrationEmail__Mode: ${REGISTRATION_EMAIL_MODE:-Development}
+      RegistrationEmail__Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
+      RegistrationEmail__Smtp__Port: ${SMTP_PORT:-587}
+      RegistrationEmail__Smtp__Username: ${SMTP_USERNAME:-}
+      RegistrationEmail__Smtp__Password: ${SMTP_PASSWORD:-}
+      RegistrationEmail__Smtp__From: ${SMTP_FROM:-}
+      RegistrationEmail__Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
     restart: unless-stopped
 
   frontend:
@@ -76,5 +79,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  backend_app_data:
   frontend_node_modules:
   backend_app_data:
