@@ -52,6 +52,63 @@ namespace Domain.Entities
         [StringLength(50)]
         public string Status { get; set; } = null!;
 
+        [Column("PickupLatitude", TypeName = "decimal(9, 6)")]
+        public decimal? PickupLatitude { get; set; }
+
+        [Column("PickupLongitude", TypeName = "decimal(9, 6)")]
+        public decimal? PickupLongitude { get; set; }
+
+        [Column("DeliveryLatitude", TypeName = "decimal(9, 6)")]
+        public decimal? DeliveryLatitude { get; set; }
+
+        [Column("DeliveryLongitude", TypeName = "decimal(9, 6)")]
+        public decimal? DeliveryLongitude { get; set; }
+
+        [Column("DistanceKm", TypeName = "decimal(10, 2)")]
+        public decimal? DistanceKm { get; set; }
+
+        [Column("PickupStableName")]
+        [StringLength(200)]
+        public string? PickupStableName { get; set; }
+
+        [Column("PickupPostalCode")]
+        [StringLength(20)]
+        public string? PickupPostalCode { get; set; }
+
+        [Column("PickupInstructions")]
+        [StringLength(1000)]
+        public string? PickupInstructions { get; set; }
+
+        [Column("DeliveryStableName")]
+        [StringLength(200)]
+        public string? DeliveryStableName { get; set; }
+
+        [Column("DeliveryPostalCode")]
+        [StringLength(20)]
+        public string? DeliveryPostalCode { get; set; }
+
+        [Column("DeliveryInstructions")]
+        [StringLength(1000)]
+        public string? DeliveryInstructions { get; set; }
+
+        [Column("CareInstructions")]
+        [StringLength(2000)]
+        public string? CareInstructions { get; set; }
+
+        [Column("DeclaredValueVnd", TypeName = "decimal(18, 2)")]
+        public decimal? DeclaredValueVnd { get; set; }
+
+        [Column("OriginCountry")]
+        [StringLength(2)]
+        public string? OriginCountry { get; set; }
+
+        [Column("DestinationCountry")]
+        [StringLength(2)]
+        public string? DestinationCountry { get; set; }
+
+        [Column("PreparationDays")]
+        public int? PreparationDays { get; set; }
+
         // Navigation properties
         [ForeignKey(nameof(CustomerId))]
         [InverseProperty(nameof(Entities.User.TransportRequests))]

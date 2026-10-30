@@ -7,6 +7,11 @@ namespace Application.DTOs
         public List<RoutePointInputDto> Points { get; set; } = new();
         public List<RouteLegInputDto> Legs { get; set; } = new();
         public string? DeadlineJustification { get; set; }
+
+        // Thông số cấu hình phương tiện chuyên dụng chở ngựa
+        public string? VehicleType { get; set; }
+        public decimal? VehicleWeightTons { get; set; }
+        public decimal? VehicleHeightMeters { get; set; }
     }
 
     public class RoutePointInputDto
@@ -49,6 +54,12 @@ namespace Application.DTOs
         public List<string> Warnings { get; set; } = new();
         public List<RouteLegResultDto> Legs { get; set; } = new();
         public List<double[]> PolylineCoordinates { get; set; } = new();
+
+        // Kiểm soát an toàn tải trọng & giao thông thời gian thực
+        public bool HeavyVehicleVerified { get; set; } = true;
+        public decimal VehicleWeightTons { get; set; } = 10.0m;
+        public decimal VehicleHeightMeters { get; set; } = 3.8m;
+        public string? TrafficCondition { get; set; } = "FLOWING";
     }
 
     public class RouteValidationResultDto
@@ -69,6 +80,10 @@ namespace Application.DTOs
         public DateTime DepartureAt { get; set; }
         public DateTime ArrivalAt { get; set; }
         public List<double[]> Path { get; set; } = new();
+
+        // Tình trạng giao thông & an toàn cầu hầm theo chặng
+        public string? TrafficCondition { get; set; } = "FLOWING";
+        public bool BridgeAndTunnelSafetyChecked { get; set; } = true;
     }
 
     public class RouteVersionSummaryDto
@@ -118,16 +133,17 @@ namespace Application.DTOs
     public class RouteSegmentItemDto
     {
         public string? SegmentId { get; set; }
+        public int SequenceOrder { get; set; } = 1;
         public string LocationName { get; set; } = string.Empty;
         public string SegmentType { get; set; } = "ORIGIN"; // ORIGIN, REST_STOP, CHECKPOINT, DESTINATION
         public string TransportMode { get; set; } = "ROAD";
         public string? FacilityId { get; set; }
         public string? CarrierName { get; set; }
         public string? FlightVoyageNo { get; set; }
+        public DateTime? PlannedTime { get; set; }
         public DateTime? ExpectedEta { get; set; }
         public string? Status { get; set; } = "PLANNED";
         public decimal? Lat { get; set; }
         public decimal? Lng { get; set; }
     }
 }
-

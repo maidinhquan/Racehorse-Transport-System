@@ -15,6 +15,13 @@ namespace Domain.Entities
         [StringLength(50)]
         public string TripId { get; set; } = null!;
 
+        [Column("LegNumber")]
+        public int LegNumber { get; set; } = 1;
+
+        [Column("LegType")]
+        [StringLength(20)]
+        public string LegType { get; set; } = "OUTBOUND";
+
         [Column("VehicleID")]
         [StringLength(50)]
         public string VehicleId { get; set; } = null!;
@@ -23,9 +30,17 @@ namespace Domain.Entities
         [StringLength(50)]
         public string DriverId { get; set; } = null!;
 
+        [Column("CoDriverID")]
+        [StringLength(50)]
+        public string? CoDriverId { get; set; }
+
+        [Column("VeterinarianID")]
+        [StringLength(50)]
+        public string? VeterinarianId { get; set; }
+
         [Column("EscortID")]
         [StringLength(50)]
-        public string EscortId { get; set; } = null!;
+        public string? EscortId { get; set; }
 
         // Navigation properties
         [ForeignKey(nameof(TripId))]
@@ -39,6 +54,12 @@ namespace Domain.Entities
         [ForeignKey(nameof(DriverId))]
         [InverseProperty(nameof(Entities.User.DriverAssignments))]
         public virtual User? Driver { get; set; }
+
+        [ForeignKey(nameof(CoDriverId))]
+        public virtual User? CoDriver { get; set; }
+
+        [ForeignKey(nameof(VeterinarianId))]
+        public virtual User? Veterinarian { get; set; }
 
         [ForeignKey(nameof(EscortId))]
         [InverseProperty(nameof(Entities.User.EscortAssignments))]
