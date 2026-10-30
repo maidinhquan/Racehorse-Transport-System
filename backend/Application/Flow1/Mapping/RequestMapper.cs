@@ -53,6 +53,7 @@ public static class RequestMapper
                 longitude = request.DeliveryLongitude,
             },
             revisionFeedback = request.RevisionFeedback,
+            rejectionReason = request.Status == "REJECTED" ? request.ManagerNotes : null,
             cancellation = request.CancellationReason is null
                 ? null
                 : new

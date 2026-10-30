@@ -46,6 +46,13 @@ const horseInput = obj({ name: { type: 'string', minLength: 1, maxLength: 100 },
 }, ['name', 'breed', 'sex', 'dob', 'microchip', 'value', 'currency', 'passport', 'healthNotes'], false);
 schemas['F1-J12Request'] = horseInput; schemas['F1-J13Request'] = horseInput;
 schemas['F1-J18Request'] = requestInput; schemas['F1-J19Request'] = requestInput;
+schemas['F1-J30Request'].properties.mode = { type: 'string', enum: ['ROAD', 'AIR'] };
+schemas['F1-J30Request'].required = [...new Set([...schemas['F1-J30Request'].required, 'mode'])];
+const editorOperation = spec.paths['/manager/requests/{requestId}/contract-editor'].get;
+editorOperation.parameters = [...editorOperation.parameters.filter(p => p.name !== 'mode'),
+  { name: 'mode', in: 'query', required: false, schema: { type: 'string', enum: ['ROAD', 'AIR'] } }];
+const draftExample = spec.paths['/manager/requests/{requestId}/contract-draft'].put.requestBody.content['application/json'].example;
+if (draftExample) draftExample.mode ??= 'ROAD';
 schemas.Error = obj({ success: { const: false }, message: str, errorCode: str, data: {}, errors: { type: 'object', additionalProperties: arr(str) } }, ['success', 'message']);
 
 const targets = {};

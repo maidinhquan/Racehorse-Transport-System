@@ -15,12 +15,19 @@ const example = (path: string, method: string, status = '200') => {
 beforeEach(() => { request.mockReset(); sessionStorage.clear(); });
 
 describe('Flow 1 wire contract', () => {
-  it('does not send a legacy draft mode when saving a contract', async () => {
+  it('sends the selected transport mode when saving a contract', async () => {
     request.mockResolvedValue({ status: 200, data: example('/manager/requests/{requestId}/contract-draft', 'put') });
     const input = structuredClone(spec.paths['/manager/requests/{requestId}/contract-draft'].put.requestBody.content['application/json'].example);
     const draft = { ...input, mode: 'AIR' } as unknown as import('../../features/manager/types').ContractDraft;
     await managerApi.saveContractDraft('REQUEST_001', draft);
-    expect(request.mock.calls[0][0]?.data).not.toHaveProperty('mode');
+    expect(request.mock.calls[0][0]?.data).toHaveProperty('mode', 'AIR');
+  });
+  it('rejects saving a contract without a supported transport mode before sending it', async () => {
+    const input = structuredClone(spec.paths['/manager/requests/{requestId}/contract-draft'].put.requestBody.content['application/json'].example);
+    for (const mode of [undefined, null, 'SEA']) {
+      await expect(managerApi.saveContractDraft('REQUEST_001', { ...input, mode } as unknown as import('../../features/manager/types').ContractDraft)).rejects.toThrow('contract');
+    }
+    expect(request).not.toHaveBeenCalled();
   });
   it('accepts a frozen contract with the transport mode explicitly deferred', async () => {
     const response = example('/customer/contracts/{contractId}/versions/{versionNo}', 'get');

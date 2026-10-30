@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { ActionResult, ContractDraft, CustomerInfo, HorseRef, TransportRequest } from '../../types';
 import { curVersion, draftError, fmtDateTime, initialDraft } from '../../hooks/managerRules';
-import { managerApi } from '../../api/managerApi';
+import { managerApi, type ContractEditorData } from '../../api/managerApi';
 import { apiMessage } from '../../../../shared/api/apiError';
 import { PlanStep } from './steps/PlanStep';
 import { PricingStep } from './steps/PricingStep';
@@ -23,13 +23,17 @@ interface ContractWizardProps {
 export const ContractWizard: React.FC<ContractWizardProps> = ({ request: r, customer, horses, onSave, onIssue, onCancel }) => {
   const [draft, setDraft] = useState<ContractDraft>(() => initialDraft(r));
   const [editorLoaded, setEditorLoaded] = useState(false);
+  const [defaults, setDefaults] = useState<ContractEditorData['defaults'] | null>(null);
+  const [policyError, setPolicyError] = useState('');
   useEffect(() => {
     let active = true;
+    setEditorLoaded(false); setDefaults(null); setError(''); setPolicyError(''); setStep(0);
     managerApi.getContractEditor(r.id).then(editor => {
       if (!active) return;
       const next = initialDraft({ ...editor.request, draft: editor.draft ?? undefined, versions: editor.versions });
+      next.mode ??= editor.defaults.selectedRoute?.mode;
       if (!editor.draft && !editor.currentContract) { next.depositPct = editor.defaults.defaultDepositPct; next.terms = editor.defaults.terms; }
-      setDraft(next); setEditorLoaded(true);
+      setDraft(next); setDefaults(editor.defaults); setEditorLoaded(true);
     }).catch(error => { if (active) setError(apiMessage(error)); });
     return () => { active = false; };
   }, [r.id]);
@@ -37,6 +41,16 @@ export const ContractWizard: React.FC<ContractWizardProps> = ({ request: r, cust
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [issuing, setIssuing] = useState(false);
+  const policyReady = !!draft.mode && defaults?.selectedRoute?.mode === draft.mode;
+  useEffect(() => {
+    if (!editorLoaded || !draft.mode || defaults?.selectedRoute?.mode === draft.mode) return;
+    let active = true;
+    setPolicyError('');
+    managerApi.getContractEditor(r.id, draft.mode).then(editor => {
+      if (active) setDefaults(editor.defaults);
+    }).catch(error => { if (active) setPolicyError(apiMessage(error)); });
+    return () => { active = false; };
+  }, [r.id, editorLoaded, draft.mode, defaults?.selectedRoute?.mode]);
   const set = (patch: Partial<ContractDraft>) => { setDraft((d) => ({ ...d, ...patch })); setError(''); };
   const v = curVersion(r);
 
@@ -62,6 +76,7 @@ export const ContractWizard: React.FC<ContractWizardProps> = ({ request: r, cust
   };
 
   const save = async () => {
+    if (!policyReady) return;
     setSaving(true);
     setError('');
     try {
@@ -77,6 +92,7 @@ export const ContractWizard: React.FC<ContractWizardProps> = ({ request: r, cust
   };
 
   const issue = async () => {
+    if (!policyReady) return;
     const e = draftError(draft);
     if (e) {
       setError(e);
@@ -119,21 +135,22 @@ export const ContractWizard: React.FC<ContractWizardProps> = ({ request: r, cust
         ))}
       </nav>
       <div className="mgr-ce__panel">
-        {step === 0 && <PlanStep request={r} draft={draft} set={set} horses={horses} />}
+        {step === 0 && <PlanStep request={r} draft={draft} set={set} horses={horses} defaults={defaults!} policyReady={policyReady} />}
         {step === 1 && <PricingStep request={r} draft={draft} set={set} />}
         {step === 2 && <TermsStep draft={draft} set={set} />}
         {step === 3 && <ReviewStep request={r} draft={draft} customer={customer} horses={horses} />}
       </div>
+      {policyError && <p className="mgr-modal__error" role="alert">{policyError}</p>}
       {error && <p className="mgr-modal__error" role="alert" style={{ fontSize: 13 }}>{error}</p>}
       <div className="mgr-ce__foot">
         <button type="button" className="mgr-btn" disabled={step === 0 || issuing || saving} onClick={() => goTo(step - 1)}>← Quay lại</button>
         <div className="mgr-btn-row">
-          <button type="button" className="mgr-btn" disabled={saving || issuing} onClick={save}>
+          <button type="button" className="mgr-btn" disabled={saving || issuing || !policyReady} onClick={save}>
             {saving ? 'Đang lưu vào DB...' : 'Lưu bản nháp'}
           </button>
           {step < 3
-            ? <button type="button" className="mgr-btn mgr-btn--solid" disabled={issuing} onClick={() => goTo(step + 1)}>Tiếp tục →</button>
-            : <button type="button" className="mgr-btn mgr-btn--solid" disabled={issuing} onClick={issue}>
+            ? <button type="button" className="mgr-btn mgr-btn--solid" disabled={issuing || saving || !policyReady} onClick={() => goTo(step + 1)}>Tiếp tục →</button>
+            : <button type="button" className="mgr-btn mgr-btn--solid" disabled={issuing || saving || !policyReady} onClick={issue}>
                 {issuing ? 'Đang lưu & phát hành...' : 'Phát hành hợp đồng'}
               </button>}
         </div>

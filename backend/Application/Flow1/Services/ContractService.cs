@@ -23,7 +23,11 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         var versions = contract is null ? [] : await data.ListAsync<ContractVersion>(x => x.ContractID == contract.ContractID, ct);
         var published = versions.Where(x => x.PublishedAtUtc is not null).OrderByDescending(x => x.VersionNo).FirstOrDefault();
         var clauses = (await data.ListAsync<ContractClause>(c => c.IsActive, ct)).Select(c => new { id = c.TemplateID, title = c.TemplateName, text = c.BodyContent, language = c.LanguageCode }).ToArray();
-        var defaults = JsonSerializer.SerializeToNode(await catalogs.FormAsync(row.OriginCountry!, row.DestinationCountry!, mode ?? row.TransportType!, ct))!.AsObject();
+        var savedMode = current is null ? null : JsonNode.Parse(current.ContentSnapshot)?["route"]?["mode"]?.GetValue<string>();
+        var defaults = JsonSerializer.SerializeToNode(await catalogs.FormAsync(row.OriginCountry!, row.DestinationCountry!, mode ?? savedMode ?? row.TransportType!, ct))!.AsObject();
+        defaults["supportedRoutes"] = JsonSerializer.SerializeToNode((await catalogs.RoutesAsync(ct))
+            .Where(r => r.OriginCountry == row.OriginCountry && r.DestinationCountry == row.DestinationCountry)
+            .Select(r => new { id = r.RouteID, originCountry = r.OriginCountry, destinationCountry = r.DestinationCountry, mode = r.TransportMode }));
         defaults["terms"] = JsonSerializer.SerializeToNode(clauses);
         return new { requestId = request, status = row.Status, contractId = contract?.ContractID,
             request = await details.GetAsync(actor, request, true, ct),
@@ -44,6 +48,7 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         Require(SnapshotBuilder.Timestamp(input.DepartAt).Date == row.ExpectedDate?.Date, "VALIDATION_ERROR", "The plan must keep the customer departure date.", 400);
         Require(row.CommittedDeadline is null || SnapshotBuilder.Timestamp(input.ArriveAt).Date == row.CommittedDeadline.Value.Date,
             "VALIDATION_ERROR", "The plan must keep the customer delivery date.", 400);
+        await RequireHorsesFreeAsync(request, token);
         Require(input.Items.Count > 0 && input.Items.All(i => i.Amount >= 0 && i.Amount == decimal.Truncate(i.Amount) && (!i.Required || i.Amount > 0) && !string.IsNullOrWhiteSpace(i.Desc))
             && input.Items.Sum(i => i.Amount) is > 0 and <= 9999999999m, "VALIDATION_ERROR", "Complete commercial price lines in whole VND.", 400);
         Require(input.Terms.Count > 0 && input.Terms.All(t => !string.IsNullOrWhiteSpace(t.Title) && !string.IsNullOrWhiteSpace(t.Text)), "VALIDATION_ERROR", "Complete contract terms.", 400);
@@ -116,6 +121,7 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
             Require(contract.CurrentVersionNo == version && draft.VersionStatus == "DRAFT" && draft.ContentSnapshot == original && contract.SignedAt is null,
                 "CONTRACT_NOT_CURRENT", "Draft changed during rendering.");
             Require(row.Status is "CONTRACT_PREPARATION" or "CONTRACT_CHANGES_REQUESTED", "INVALID_STATE", "Request cannot be published.");
+            await RequireHorsesFreeAsync(request, token);
             await catalogs.ValidateAsync(row.OriginCountry!, row.DestinationCountry!, node["route"]!["mode"]!.GetValue<string>(), token);
             Require(clock.GetUtcNow().UtcDateTime < deadline, "CONTRACT_EXPIRED", "Publication window elapsed.");
             foreach (var old in await data.ListAsync<ContractVersion>(v => v.ContractID == contract.ContractID && v.VersionStatus == "ISSUED" && v.VersionNo != version, token)) old.VersionStatus = "SUPERSEDED";
@@ -187,6 +193,12 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         notifications.Add(row.CustomerID, row.RequestID, "FEEDBACK_DECIDED", "Contract feedback reviewed", contract.ManagerFeedback);
         return new { contractId = id, versionNo = input.VersionNo, decision = input.Decision, requestStatus = row.Status };
     }, ct);
+    private async Task RequireHorsesFreeAsync(string request, CancellationToken ct)
+    {
+        var row = await data.FindAsync<TransportRequest>(ct, request) ?? throw Failure("NOT_FOUND", "Request not found.", 404);
+        var horses = (await data.ListAsync<RequestHorse>(h => h.RequestID == request, ct)).Select(h => h.HorseID).ToArray();
+        await HorseBookingRules.RequireAvailableAsync(data, horses, row, ct);
+    }
     public async Task<ContractVersion> CurrentAsync(Contract contract, int number, CancellationToken ct)
     {
         Require(contract.CurrentVersionNo == number, "CONTRACT_NOT_CURRENT", "The selected version is not current.");

@@ -124,6 +124,7 @@ export interface TransportRequest {
   customerId: string;
   origin: string;
   destination: string;
+  mode?: TransportMode;
   /** Ngày vận chuyển mong muốn (YYYY-MM-DD) */
   date: string;
   status: RequestStatus;
