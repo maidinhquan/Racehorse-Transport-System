@@ -282,7 +282,7 @@ CREATE TABLE TRANSPORT_REQUEST (
 
 -- 10. Bảng REQUEST_HORSE_MAPPING: Khử quan hệ N-N giữa Request và Horse
 CREATE TABLE REQUEST_HORSE_MAPPING (
-    RequestHorseID VARCHAR(50) NOT NULL,
+    RequestHorseID VARCHAR(50) NOT NULL CONSTRAINT DF_REQUEST_HORSE_MAPPING_ID DEFAULT ('RHM_' + CONVERT(VARCHAR(36), NEWID())),
     CareInstructions NVARCHAR(2000) NULL,
     RequestID VARCHAR(50) NOT NULL,
     HorseID VARCHAR(50) NOT NULL,
@@ -1302,12 +1302,12 @@ INSERT INTO TRANSPORT_REQUEST (RequestID, CustomerID, Departure, Destination, Pu
 ('REQUEST_004', 'USER_003', N'Khu huấn luyện Ba Vì, Hà Nội', N'Trung tâm tiếp nhận ngựa Narita, Nhật Bản', N'Bán chuyển nhượng', N'AIR', '2026-10-20 08:00:00', '2026-10-24 16:00:00', N'Kenji Sato', N'+819012345678', 300000000.00, 'REJECTED', N'VN', N'JP', 7, N'Lê Thị C', N'0911223344', 21.200000, 105.800000, 35.770000, 140.380000, NULL, N'Từ chối do hồ sơ xét nghiệm hết hạn; không tạo hợp đồng hoặc chuyến.');
 
 -- 11. Bảng REQUEST_HORSE_MAPPING: Gán các cá thể ngựa vào từng yêu cầu
-INSERT INTO REQUEST_HORSE_MAPPING (RequestID, HorseID) VALUES
-('REQUEST_001', 'HORSE_001'),
-('REQUEST_001', 'HORSE_002'),
-('REQUEST_002', 'HORSE_003'),
-('REQUEST_003', 'HORSE_001'),
-('REQUEST_004', 'HORSE_005');
+INSERT INTO REQUEST_HORSE_MAPPING (RequestHorseID, RequestID, HorseID) VALUES
+('RHM_001', 'REQUEST_001', 'HORSE_001'),
+('RHM_002', 'REQUEST_001', 'HORSE_002'),
+('RHM_003', 'REQUEST_002', 'HORSE_003'),
+('RHM_004', 'REQUEST_003', 'HORSE_001'),
+('RHM_005', 'REQUEST_004', 'HORSE_005');
 
 -- 12. Bảng LEGAL_MEDICAL_RECORD: Giấy tờ thú y (Đủ điều kiện, Đang chờ duyệt, Bị từ chối do hết hạn)
 INSERT INTO LEGAL_MEDICAL_RECORD (RecordID, HorseID, RequestID, VerifiedBy, DocumentType, RequirementStatus, DocumentStatus, UploadedFileUrl, ExpiryDate) VALUES
