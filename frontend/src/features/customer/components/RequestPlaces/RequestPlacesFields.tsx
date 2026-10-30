@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { Place, RequestField } from '../../types';
 import { BOOKING_DESTINATIONS, BOOKING_ORIGINS, city, cityLabel, getCityId, getDefaultCoordinates } from '../../hooks/customerRules';
 import { customerApi } from '../../api/customerApi';
+import { LocationMap } from '../RouteMap/LocationMap';
 import { Icon } from '../CustomerLayout';
 import { getDemoMode } from '../../../../shared/context/DemoModeContext';
 import { apiMessage } from '../../../../shared/api/apiError';
@@ -230,6 +231,11 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
               </button>
             )) : <p role={searchError ? 'alert' : undefined}>{searchError ? `Không tìm được địa chỉ: ${searchError}` : 'Không tìm thấy. Thử nhập số nhà và tên đường (VD: 12 Nguyễn Huệ, Quận 1) thay vì tên quán/cửa hàng.'}</p>}
           </div>}
+          <div style={{ marginTop: 10, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--cus-line)' }}>
+            <LocationMap height={200} center={getDefaultCoordinates(selectedCity)} points={[
+              { latitude: place.latitude, longitude: place.longitude, label: place.address || place.name },
+            ]} />
+          </div>
           {place.latitude != null && place.longitude != null && (
             <small className="cus-create__location-confirmed">
               <Icon name="check" />Đã xác định vị trí trên bản đồ

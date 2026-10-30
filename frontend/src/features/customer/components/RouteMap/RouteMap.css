@@ -5,12 +5,13 @@
   overflow: visible;
   position: relative;
 }
-.cus-map__svg-wrap {
+.cus-map__map-wrap {
   border-radius: 12px 12px 0 0;
   overflow: hidden;
   background: radial-gradient(circle, #e2e8f0 1px, transparent 1px) 0 0 / 18px 18px, #f8fafc;
 }
-.cus-map svg { display: block; width: 100%; height: auto; }
+.cus-map__toolbar svg { display: block; width: 14px; height: 14px; }
+.cus-map__notice { margin: 0; padding: 6px 12px; color: #64748b; font-size: 12px; background: #fff; }
 .cus-map__label { font: 600 12px Inter, system-ui, sans-serif; fill: #0f172a; }
 
 /* ── Toolbar row (below SVG) ───────────────────────────── */
@@ -60,10 +61,7 @@
 
 /* ── Fullscreen button ─────────────────────────────────── */
 .cus-map__fullscreen-btn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 10;
+  position: static;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -136,12 +134,6 @@
   justify-content: center;
   padding: 56px 24px 24px;
 }
-.cus-map-overlay__inner svg {
-  width: 100%;
-  height: auto;
-  max-height: calc(100vh - 120px);
-}
-.cus-map-overlay__inner .cus-map__label { fill: #e2e8f0; font-size: 14px; }
 .cus-map-overlay__footer {
   padding: 10px 16px;
   background: rgba(15,23,42,0.9);

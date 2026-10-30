@@ -4,6 +4,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateRequestPage } from './CreateRequestPage';
 
+vi.mock('../../components/RouteMap/LocationMap', () => ({ LocationMap: () => <div aria-label="Bản đồ vị trí địa chỉ" /> }));
+
 const mocks = vi.hoisted(() => ({
   createDraft: vi.fn(), saveRequestDetails: vi.fn(), showToast: vi.fn(), getFormOptions: vi.fn(),
 }));

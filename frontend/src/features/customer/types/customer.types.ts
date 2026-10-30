@@ -266,6 +266,10 @@ export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED
 export type HorseCondition = 'NORMAL' | 'MONITOR' | 'ABNORMAL';
 
 export interface TripStop {
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
   name: string;
   type: StopType;
   plannedAt: string;

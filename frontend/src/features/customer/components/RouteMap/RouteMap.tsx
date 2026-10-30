@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import './RouteMap.css';
 import type { TripStop } from '../../types';
+import { LocationMap, validPoint } from './LocationMap';
 import { STOP_COLOR, STOP_LABEL } from '../../hooks/customerRules';
 
 interface RouteMapProps {
@@ -11,30 +12,18 @@ interface RouteMapProps {
   height?: number;
 }
 
-/** Render phần SVG tuyến (dùng lại cho cả normal + fullscreen) */
-function RouteMapSVG({ stops, current, height }: { stops: TripStop[]; current: number; height: number }) {
-  const W = 720, H = height, n = stops.length;
-  const pts = stops.map((_, i) => [
-    70 + (n === 1 ? (W - 140) / 2 : (i * (W - 140)) / (n - 1)),
-    H / 2 + Math.round(Math.sin(i * 1.25 + 0.6) * (H / 4.2)),
-  ]);
-  const line = pts.map((p) => p.join(',')).join(' ');
-  const done = current >= 0 ? pts.slice(0, current + 1).map((p) => p.join(',')).join(' ') : '';
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Tuyến gồm ${n} điểm`}>
-      <polyline points={line} fill="none" stroke="#94a3b8" strokeWidth={3} strokeDasharray="6 6" />
-      {done && <polyline points={done} fill="none" stroke="#f57c00" strokeWidth={4} />}
-      {pts.map(([x, y], i) => (
-        <g key={`${stops[i].name}-${i}`}>
-          <circle cx={x} cy={y} r={i === current ? 10 : 7} fill={i === current ? '#f57c00' : STOP_COLOR[stops[i].type]} stroke="#fff" strokeWidth={2.5} />
-          <text x={x} y={y + (i % 2 ? 26 : -16)} textAnchor="middle" className="cus-map__label">
-            {i + 1}. {stops[i].name.length > 24 ? `${stops[i].name.slice(0, 23)}…` : stops[i].name}
-          </text>
-        </g>
-      ))}
-    </svg>
-  );
+function RouteLeafletMap({ stops, current, height }: { stops: TripStop[]; current: number; height: number }) {
+  const points = stops.map((stop, index) => ({
+    latitude: stop.lat ?? stop.latitude, longitude: stop.lng ?? stop.longitude,
+    label: `${index + 1}. ${stop.name}${index === current ? ' • Mốc xác nhận gần nhất' : ''}`,
+    color: STOP_COLOR[stop.type],
+  }));
+  const missing = points.filter(point => !validPoint(point)).length;
+  return <>
+    <LocationMap points={points} current={current} height={height} route />
+    {missing > 0 && <p className="cus-map__notice">{missing} điểm dừng chưa có tọa độ để hiển thị.</p>}
+    <p className="cus-map__notice">Đường nối thể hiện thứ tự điểm dừng, vị trí theo mốc được xác nhận.</p>
+  </>;
 }
 
 // ── Fullscreen overlay ──────────────────────────────────────────────────────
@@ -56,7 +45,7 @@ function FullscreenMap({ stops, current, onClose }: { stops: TripStop[]; current
         Đóng <kbd>Esc</kbd>
       </button>
       <div className="cus-map-overlay__inner">
-        <RouteMapSVG stops={stops} current={current} height={500} />
+        <RouteLeafletMap stops={stops} current={current} height={500} />
       </div>
       <div className="cus-map-overlay__footer">
         {usedTypes.map((t) => (
@@ -70,7 +59,7 @@ function FullscreenMap({ stops, current, onClose }: { stops: TripStop[]; current
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
-/** Sơ đồ tuyến dạng SVG (không có GPS trực tiếp – vị trí theo mốc tổ xe xác nhận) */
+/** Bản đồ tuyến Leaflet (không có GPS trực tiếp – vị trí theo mốc tổ xe xác nhận) */
 export const RouteMap: React.FC<RouteMapProps> = ({ stops, current = -1, height = 240 }) => {
   const [fullscreen, setFullscreen] = useState(false);
   const openFullscreen = useCallback(() => setFullscreen(true), []);
@@ -82,8 +71,8 @@ export const RouteMap: React.FC<RouteMapProps> = ({ stops, current = -1, height 
 
   return (
     <div className="cus-map">
-      <div className="cus-map__svg-wrap">
-        <RouteMapSVG stops={stops} current={current} height={height} />
+      <div className="cus-map__map-wrap">
+        <RouteLeafletMap stops={stops} current={current} height={height} />
       </div>
 
       {/* Toolbar: nút fullscreen luôn hiển thị */}
