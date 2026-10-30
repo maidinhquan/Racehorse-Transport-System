@@ -45,10 +45,9 @@ public sealed class HorseService(IDataSession data, AccessService access, TimePr
     }, ct);
     public async Task EditableAsync(string id, CancellationToken ct)
     {
-        var links = await data.ListAsync<RequestHorse>(x => x.HorseID == id, ct);
-        var requests = links.Select(x => x.RequestID).ToArray();
-        Require(!(await data.ListAsync<TransportRequest>(x => requests.Contains(x.RequestID)
-            && x.Status != "DRAFT" && x.Status != "CHANGES_REQUESTED" && x.Status != "REJECTED" && x.Status != "CANCELLED" && x.Status != "CLOSED", ct)).Any(),
+        // Returned requests reserve the horse, while allowing customers to correct its profile.
+        var states = await HorseBookingRules.CheckAsync(data, new[] { id }, null, ct, ignoreReturnedRequests: true);
+        Require(states[id].Status != "IN_TRANSPORT_REQUEST",
             "HORSE_NOT_EDITABLE", "Horse belongs to an active submitted request.");
     }
 }

@@ -32,12 +32,13 @@ const trip = {
   readiness: { docsReady: 0, docsTotal: 1, insurance: 'MISSING', quarantineOk: false },
 } as Trip;
 
-function open(path: string) {
-  return render(<MemoryRouter initialEntries={[path]}><Routes>
+function TestApp({ path }: { path: string }) {
+  return <MemoryRouter initialEntries={[path]}><Routes>
     <Route path="/manager/requests/:requestId" element={<WorkflowHeader request={request} trip={trip} current="request" />} />
     <Route path="/manager/trips/:tripId/:stage?" element={<TripDetailPage />} />
-  </Routes></MemoryRouter>);
+  </Routes></MemoryRouter>;
 }
+const open = (path: string) => render(<TestApp path={path} />);
 beforeEach(() => { mock.getTrip.mockReturnValue(trip); mock.requests = [request]; });
 
 describe('Manager case navigation', () => {
@@ -66,5 +67,25 @@ describe('Manager case navigation', () => {
     mock.requests = [];
     open('/manager/trips/TRIP_004');
     expect(screen.getByText('Đang tải hồ sơ yêu cầu')).toBeTruthy();
+  });
+  it('locks assignment and moves to preparation when deployment is confirmed', () => {
+    const path = '/manager/trips/TRIP_004/assign';
+    const view = open(path);
+    expect(screen.getByText('Nội dung phân công')).toBeTruthy();
+    mock.getTrip.mockReturnValue({ ...trip, deployment: { status: 'CONFIRMED' } });
+    view.rerender(<TestApp path={path} />);
+    const stages = screen.getByRole('navigation', { name: 'Tiến trình chuyến đi' });
+    expect(within(stages).getByRole('button', { name: /Phân công/ })).toBeDisabled();
+    expect(within(stages).queryByRole('link', { name: /Phân công/ })).toBeNull();
+    expect(within(stages).getByRole('link', { name: /Chuẩn bị/ })).toHaveAttribute('aria-current', 'step');
+    expect(screen.getByText('Nội dung chuẩn bị')).toBeTruthy();
+    expect(screen.queryByText('Nội dung phân công')).toBeNull();
+  });
+  it.each(['CONFIRMED', 'ON_HOLD'])('keeps assignment locked when reopening an assigned trip (%s)', (status) => {
+    mock.getTrip.mockReturnValue({ ...trip, deployment: { status } });
+    open('/manager/trips/TRIP_004/assign');
+    const stages = screen.getByRole('navigation', { name: 'Tiến trình chuyến đi' });
+    expect(within(stages).getByRole('button', { name: /Phân công/ })).toBeDisabled();
+    expect(screen.getByText('Nội dung chuẩn bị')).toBeTruthy();
   });
 });

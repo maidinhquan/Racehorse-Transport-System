@@ -147,14 +147,10 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
             Require(horse.PhotoUrl is not null && horse.PassportScanUrl is not null && horse.OwnershipCertificateFileUrl is not null
                 && horse.PassportExpiryDate > row.CommittedDeadline && horse.DeclaredValueVnd > 0,
                 "REQUIRED_DOCUMENT_MISSING", "Complete horse profile and ownership documents before submission.", 400);
-            var links = await data.ListAsync<RequestHorse>(x => x.HorseID == horseId && x.RequestID != row.RequestID, token);
-            var otherIds = links.Select(x => x.RequestID).ToArray();
-            Require(!(await data.ListAsync<TransportRequest>(x => otherIds.Contains(x.RequestID)
-                && x.Status != "DRAFT" && x.Status != "CHANGES_REQUESTED" && x.Status != "REJECTED" && x.Status != "CANCELLED" && x.Status != "CLOSED"
-                && x.ExpectedDate != null && x.ExpectedDate.Value.Date <= row.CommittedDeadline!.Value.Date && (x.CommittedDeadline ?? x.ExpectedDate)!.Value.Date >= row.ExpectedDate!.Value.Date, token)).Any(),
-                "HORSE_SCHEDULE_CONFLICT", "Horse already belongs to an overlapping request.");
         }
+        await HorseBookingRules.RequireAvailableAsync(data, selected.ToArray(), row, token);
     }
+
     private async Task ApplyAsync(TransportRequest row, RequestDraftInput input, CancellationToken ct)
     {
         await catalogs.ValidateAsync(input.OriginCountry, input.DestinationCountry, input.Mode, ct);

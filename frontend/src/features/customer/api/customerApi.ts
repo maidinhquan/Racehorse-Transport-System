@@ -209,9 +209,10 @@ export const customerApi = {
       return { ...r, horseCount: Math.max(1, r.horses.length), horses: r.horses.length ? r.horses : [''] };
     });
   },
-  getSelectableHorses: (date: string, _excludeRequestId?: string, pickupAt?: string) =>
-    contractClient<Array<{ id: string; name: string; selectable: boolean; conflict: unknown; documentWarnings: string[] }>>('get', '/customer/horses/selectable', undefined,
-      { expectedTransportDate: pickupAt || date, expectedDeliveryDate: date }),
+  getSelectableHorses: (date: string, excludeRequestId?: string, pickupAt?: string) =>
+    contractClient<Array<{ id: string; name: string; selectable: boolean; conflict: { code: string } | null; availabilityStatus?: string; documentWarnings: string[] }>>('get', '/customer/horses/selectable', undefined,
+      { expectedTransportDate: pickupAt || date, expectedDeliveryDate: date,
+        excludeRequestId: excludeRequestId?.startsWith('LOCAL_') ? undefined : excludeRequestId }),
   getRequest: async (id: string) => {
     const request = requestFromWire(await contractClient<WireRequest>('get', `/customer/requests/${id}`));
     if (request.versions.length) {

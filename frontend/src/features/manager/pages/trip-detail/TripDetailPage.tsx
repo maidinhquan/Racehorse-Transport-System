@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { ManagerLayout } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { BackLink, LockedCard } from '../../components/Common/Common';
@@ -39,10 +39,15 @@ export const TripDetailPage: React.FC = () => {
       <LockedCard title="Đang tải hồ sơ yêu cầu" text="Thông tin yêu cầu liên kết với chuyến chưa được tải đầy đủ." icon="info" />
     </ManagerLayout>
   );
-  const auto = tripStage(t);
+  const assignmentLocked = t.deployment.status !== 'NOT_CONFIRMED' || t.status !== 'PLANNING';
+  const auto = Math.max(assignmentLocked ? 1 : 0, tripStage(t));
   const progressOpen = t.status !== 'PLANNING';
   const current: StageKey = STAGE_KEYS.includes(stage as StageKey) && (stage !== 'progress' || progressOpen) ? (stage as StageKey) : STAGE_KEYS[auto];
-  const done = [t.deployment.status === 'CONFIRMED' || t.status !== 'PLANNING', isReady(t) || t.status !== 'PLANNING', progressOpen, t.status === 'COMPLETED'];
+  const done = [assignmentLocked, isReady(t) || t.status !== 'PLANNING', progressOpen, t.status === 'COMPLETED'];
+
+  if (stage === 'assign' && assignmentLocked) {
+    return <Navigate to={`/manager/trips/${t.id}/${STAGE_KEYS[auto]}`} replace />;
+  }
 
   return (
     <ManagerLayout title="Chuyến đi">
@@ -54,10 +59,10 @@ export const TripDetailPage: React.FC = () => {
         </div>
       <nav className="mgr-td__tabs" aria-label="Tiến trình chuyến đi">
         {STAGE_KEYS.map((k, i) => {
-          const locked = k === 'progress' && !progressOpen;
+          const locked = (k === 'assign' && assignmentLocked) || (k === 'progress' && !progressOpen);
           const cls = `${k === current ? 'on' : ''} ${done[i] ? 'done' : ''} ${locked ? 'locked' : ''}`;
           return locked
-            ? <button key={k} type="button" className={cls} disabled title="Cần Manager duyệt khởi hành trước"><span>{i + 1}</span>{STAGE_LABELS[i]}</button>
+            ? <button key={k} type="button" className={cls} disabled title={k === 'assign' ? 'Đã giao việc và khóa phân công' : 'Cần Manager duyệt khởi hành trước'}><span>{done[i] ? '✓' : i + 1}</span>{STAGE_LABELS[i]}</button>
             : <Link key={k} to={`/manager/trips/${t.id}/${k}`} className={cls} aria-current={k === current ? 'step' : undefined}><span>{done[i] ? '✓' : i + 1}</span>{STAGE_LABELS[i]}</Link>;
         })}
       </nav>

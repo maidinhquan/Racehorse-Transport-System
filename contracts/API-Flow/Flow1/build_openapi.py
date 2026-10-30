@@ -335,6 +335,7 @@ use([14], arr(obj({
     'name': str_type,
     'horse': horse_view,
     'selectable': bool_type,
+    'availabilityStatus': {'type': 'string', 'enum': ['AVAILABLE', 'IN_TRANSPORT_REQUEST', 'DELIVERED']},
     'conflict': nullable({'type': 'object'}),
     'documentWarnings': arr(str_type)
 }, ['id', 'name', 'selectable', 'documentWarnings'], True)))
@@ -505,6 +506,10 @@ for opid, method, path, body, req, responses in operations:
             if name in ['expectedTransportDate', 'expectedDeliveryDate']: sch['pattern'] = r'^\d{4}-\d{2}-\d{2}$'
             req_param = (opid == 'F1-J10' and name == 'cityId') or (opid == 'F1-J14') or (opid == 'F1-J68')
             op['parameters'].append({'name': name, 'in': 'query', 'required': req_param, 'schema': sch})
+    if opid == 'F1-J14':
+        for name in ['excludeRequestId']:
+            op['parameters'].append({'name': name, 'in': 'query', 'required': False,
+                'schema': {'type': 'string'}})
     if opid == 'F1-J18':
         op['parameters'].append({'name': 'Idempotency-Key', 'in': 'header', 'required': True, 'schema': {'type': 'string', 'format': 'uuid'}})
     if req:

@@ -1076,7 +1076,9 @@ Ngựa có thể chọn. Role: **CUSTOMER**.
 }
 ```
 
-**Quy tắc:** selectable = true khi không trùng lịch. Thiếu file chỉ là documentWarnings, không chặn chọn ngựa.
+**Query bổ sung (tuỳ chọn):** `excludeRequestId` (chỉ đơn thuộc người gọi).
+
+**Quy tắc:** selectable = true khi ngựa không thuộc đơn vận chuyển chưa hoàn tất, kể cả khi ngày đặt khác nhau. Đơn CANCELLED/REJECTED và bản nháp không giữ ngựa. Ngựa đã giao xong được đặt lại với bất kỳ điểm đón nào. Đơn CHANGES_REQUESTED và CANCELLATION_REQUESTED vẫn giữ ngựa. Thiếu file chỉ là documentWarnings.
 
 **Response lỗi 400 — VALIDATION_ERROR**
 

@@ -21,6 +21,7 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const [draft, setDraft] = useState<HorseInput>(emptyHorse());
   const [draftErrors, setDraftErrors] = useState<Record<string, string>>({});
   const [selectable, setSelectable] = useState<string[] | null>(null);
+  const [conflicts, setConflicts] = useState<Record<string, string>>({});
   const [availabilityError, setAvailabilityError] = useState('');
 
   const handleClearDraftError = (key: string) => {
@@ -34,9 +35,12 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   useEffect(() => {
     let active = true;
     if (getDemoMode('customer')) { setSelectable(horses.map(h => h.id)); return; }
+    setSelectable(null);
+    setConflicts({});
     customerApi.getSelectableHorses(r.date, r.id, r.pickupAt)
       .then(rows => {
         if (active) {
+          setConflicts(Object.fromEntries(rows.filter(h => h.conflict).map(h => [h.id, h.conflict!.code])));
           if (rows && rows.length > 0) {
             setSelectable(rows.filter(h => h.selectable).map(h => h.id));
           } else setSelectable([]);
@@ -84,6 +88,12 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const next = async () => {
     const empty = r.horses.findIndex((h) => !h);
     if (empty >= 0) { setSlot(empty); actions.showToast(`Hãy chọn ngựa cho vị trí ${empty + 1}.`); return; }
+    const unavailableSlot = r.horses.findIndex(id => !selectable?.includes(id));
+    if (unavailableSlot >= 0) {
+      setSlot(unavailableSlot);
+      actions.showToast('Ngựa đã chọn không khả dụng. Kiểm tra đơn đang giữ ngựa.');
+      return;
+    }
     const res = await actions.completeHorsesStep(r.id);
     if (res.ok) navigate(`/customer/requests/${r.id}/wizard/3`);
   };
@@ -185,10 +195,10 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
                 const unavailable = !selectable?.includes(h.id);
                 const locked = r.status === 'CHANGES_REQUESTED' && !(r.revisionFields ?? ['horses']).includes('horses');
                 return (
-                  <label key={h.id} className={`cus-pick ${selectedId === h.id ? 'selected' : ''} ${taken ? 'disabled' : ''}`}>
+                  <label key={h.id} className={`cus-pick ${selectedId === h.id ? 'selected' : ''} ${taken || unavailable ? 'disabled' : ''}`}>
                     <input type="radio" name="pick-horse" checked={selectedId === h.id} disabled={taken || unavailable || locked} onChange={() => pick(h.id)} />
                     <span className="cus-pick__thumb"><AuthImage src={h.photo?.url} fallback={<Icon name="horse" />} /></span>
-                    <span className="cus-pick__text"><b>{h.name}</b><small>{horseLine(h)}{taken ? ' • Đã chọn ở vị trí khác' : ''}</small></span>
+                    <span className="cus-pick__text"><b>{h.name}</b><small>{horseLine(h)}{taken ? ' • Đã chọn ở vị trí khác' : conflicts[h.id] ? ' • Đang thuộc đơn chưa hoàn tất' : ''}</small></span>
                     <TripStatusBadge label={horseRequests(h, requests).length ? 'Đã dùng trong đơn' : 'Chưa dùng'} tone={horseRequests(h, requests).length ? 'info' : 'muted'} />
                   </label>
                 );

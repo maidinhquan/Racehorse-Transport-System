@@ -2325,9 +2325,17 @@
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
             }
+          },
+          {
+            "name": "excludeRequestId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
-        "description": "selectable = true khi không trùng lịch. Thiếu file chỉ là documentWarnings, không chặn chọn ngựa."
+        "description": "selectable = true khi ngựa không thuộc đơn vận chuyển chưa hoàn tất, kể cả khi ngày đặt khác nhau. Đơn CANCELLED/REJECTED và bản nháp không giữ ngựa. Ngựa đã giao xong được đặt lại với bất kỳ điểm đón nào. Đơn CHANGES_REQUESTED và CANCELLATION_REQUESTED vẫn giữ ngựa. Thiếu file chỉ là documentWarnings."
       }
     },
     "/customer/horses/{horseId}/files/{fileType}": {
@@ -13326,6 +13334,14 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "availabilityStatus": {
+                  "type": "string",
+                  "enum": [
+                    "AVAILABLE",
+                    "IN_TRANSPORT_REQUEST",
+                    "DELIVERED"
+                  ]
                 }
               },
               "required": [

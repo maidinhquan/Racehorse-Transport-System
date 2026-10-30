@@ -37,7 +37,8 @@ public sealed class HorsesController(HorseService horses, HorseAvailabilityServi
 
     [HttpGet("customer/horses/selectable")]
     [Authorize(Roles = UserRoles.Customer)]
-    public async Task<IActionResult> SelectableAsync([FromQuery] string expectedTransportDate, [FromQuery] string expectedDeliveryDate, CancellationToken ct) =>
-        Reply(await availability.SelectAsync(Actor, expectedTransportDate, expectedDeliveryDate, ct));
+    public async Task<IActionResult> SelectableAsync([FromQuery] string expectedTransportDate, [FromQuery] string expectedDeliveryDate, CancellationToken ct,
+        [FromQuery] string? excludeRequestId = null) =>
+        Reply(await availability.SelectAsync(Actor, expectedTransportDate, expectedDeliveryDate, ct, excludeRequestId));
 
 }

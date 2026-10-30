@@ -47,7 +47,7 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         var proposedDeparture = SnapshotBuilder.Timestamp(input.DepartAt);
         var proposedDelivery = SnapshotBuilder.Timestamp(input.ArriveAt);
         Require(proposedDeparture > clock.GetUtcNow().UtcDateTime, "VALIDATION_ERROR", "The proposed departure must be in the future.", 400);
-        await RequireHorsesFreeAsync(request, proposedDeparture, proposedDelivery, token);
+        await RequireHorsesFreeAsync(request, token);
         Require(input.Items.Count > 0 && input.Items.All(i => i.Amount >= 0 && i.Amount == decimal.Truncate(i.Amount) && (!i.Required || i.Amount > 0) && !string.IsNullOrWhiteSpace(i.Desc))
             && input.Items.Sum(i => i.Amount) is > 0 and <= 9999999999m, "VALIDATION_ERROR", "Complete commercial price lines in whole VND.", 400);
         Require(input.Terms.Count > 0 && input.Terms.All(t => !string.IsNullOrWhiteSpace(t.Title) && !string.IsNullOrWhiteSpace(t.Text)), "VALIDATION_ERROR", "Complete contract terms.", 400);
@@ -123,6 +123,7 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
                 "CONTRACT_NOT_CURRENT", "Draft changed during rendering.");
             Require(row.Status is "CONTRACT_PREPARATION" or "CONTRACT_CHANGES_REQUESTED", "INVALID_STATE", "Request cannot be published.");
             await catalogs.ContractOptionsAsync(row.OriginCountry!, row.DestinationCountry!, token);
+            await RequireHorsesFreeAsync(request, token);
             Require(clock.GetUtcNow().UtcDateTime < deadline, "CONTRACT_EXPIRED", "Publication window elapsed.");
             foreach (var old in await data.ListAsync<ContractVersion>(v => v.ContractID == contract.ContractID && v.VersionStatus == "ISSUED" && v.VersionNo != version, token)) old.VersionStatus = "SUPERSEDED";
             foreach (var invoice in await data.ListAsync<Invoice>(i => i.ContractID == contract.ContractID && i.ContractVersionNo != version, token))
@@ -218,18 +219,11 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         notifications.Add(row.CustomerID, row.RequestID, "FEEDBACK_DECIDED", "Contract feedback reviewed", contract.ManagerFeedback);
         return new { contractId = id, versionNo = input.VersionNo, decision = input.Decision, requestStatus = row.Status };
     }, ct);
-    // Same overlap rule as HorseAvailabilityService: a horse cannot be in two active requests on overlapping dates.
-    private async Task RequireHorsesFreeAsync(string request, DateTime departure, DateTime delivery, CancellationToken ct)
+    private async Task RequireHorsesFreeAsync(string request, CancellationToken ct)
     {
-        var horseIds = (await data.ListAsync<RequestHorse>(h => h.RequestID == request, ct)).Select(h => h.HorseID).ToArray();
-        var otherIds = (await data.ListAsync<RequestHorse>(h => horseIds.Contains(h.HorseID) && h.RequestID != request, ct)).Select(h => h.RequestID).Distinct().ToArray();
-        if (otherIds.Length == 0) return;
-        var start = departure.Date; var end = delivery.Date;
-        var clashes = await data.ListAsync<TransportRequest>(q => otherIds.Contains(q.RequestID) && q.Status != "DRAFT" && q.Status != "CHANGES_REQUESTED"
-            && q.Status != "CLOSED" && q.Status != "CANCELLED" && q.Status != "REJECTED" && q.ExpectedDate != null
-            && q.ExpectedDate.Value.Date <= end && (q.CommittedDeadline ?? q.ExpectedDate)!.Value.Date >= start, ct);
-        Require(clashes.Count == 0, "HORSE_SCHEDULE_CONFLICT",
-            $"A horse in this request is booked by {string.Join(", ", clashes.Select(c => c.RequestID))} in the proposed dates.", 409);
+        var row = await data.FindAsync<TransportRequest>(ct, request) ?? throw Failure("NOT_FOUND", "Request not found.", 404);
+        var horses = (await data.ListAsync<RequestHorse>(h => h.RequestID == request, ct)).Select(h => h.HorseID).ToArray();
+        await HorseBookingRules.RequireAvailableAsync(data, horses, row, ct);
     }
     public async Task<ContractVersion> CurrentAsync(Contract contract, int number, CancellationToken ct)
     {
