@@ -116,7 +116,9 @@ namespace WebApi.Middlewares
                     {
                         statusCode = (int)HttpStatusCode.InternalServerError;
                         errorCode = "INTERNAL_ERROR";
-                        blockers.Add(new BlockerDto { Code = "INTERNAL_ERROR", Field = "server", Message = msg });
+                        var includeDetails = _env.IsDevelopment() && !context.Request.Path.StartsWithSegments("/api/auth/register");
+                        message = includeDetails ? msg : "Đã xảy ra lỗi nội bộ từ máy chủ. Vui lòng thử lại sau.";
+                        blockers.Add(new BlockerDto { Code = "INTERNAL_ERROR", Field = "server", Message = message });
                     }
                     break;
 
@@ -139,7 +141,8 @@ namespace WebApi.Middlewares
                     errorCode = "INTERNAL_ERROR";
                     _logger.LogError(exception, "Lỗi không xử lý được xảy ra khi xử lý request: {Path}", context.Request.Path);
                     var detailMsg = exception.InnerException != null ? $"{exception.Message} -> {exception.InnerException.Message}" : exception.Message;
-                    message = _env.IsDevelopment() || !string.IsNullOrWhiteSpace(detailMsg) ? detailMsg : "Đã xảy ra lỗi nội bộ từ máy chủ. Vui lòng thử lại sau.";
+                    var includeDefaultDetails = _env.IsDevelopment() && !context.Request.Path.StartsWithSegments("/api/auth/register");
+                    message = includeDefaultDetails ? detailMsg : "Đã xảy ra lỗi nội bộ từ máy chủ. Vui lòng thử lại sau.";
                     blockers.Add(new BlockerDto { Code = "INTERNAL_ERROR", Field = "server", Message = message });
                     break;
             }
