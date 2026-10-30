@@ -39,3 +39,14 @@ backend/appsettings.Local.json
 backend/App_Data/
 backend/WebApi/appsettings.Local.json
 **/TestResults/
+
+# Local Flow 4 AI / Developer Guides (NEVER commit to git)
+FLOW4_DEV_GUIDE.md
+FLOW4_FOLDER_STRUCTURE_GUIDE.md
+rule.md
+rules.md
+RULE.md
+RULES.md
+BAO_CAO_FLOW4.md
+BAO_CAO_*.md
+*REPORT*.md
