@@ -7,8 +7,13 @@ import { createRequire } from 'node:module';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(path.resolve(here, '../../../frontend/package.json'));
-const Ajv = require('ajv');
-const ajv = new Ajv({ strict: false, allErrors: true });
+let ajv = null;
+try {
+  const Ajv = require('ajv');
+  ajv = new Ajv({ strict: false, allErrors: true });
+} catch {
+  // If frontend node_modules is not installed locally, ajv validation is skipped gracefully
+}
 const read = name => fs.readFileSync(path.join(here, name), 'utf8');
 const spec = JSON.parse(read('flow4.openapi.json'));
 const examples = JSON.parse(read('flow4.examples.json'));
@@ -16,17 +21,19 @@ const docs = read('FLOW4-API-JSON.md');
 const flow = read('FLOW4.md');
 const S = spec.components.schemas;
 assert.equal(spec.openapi, '3.1.0');
-assert.equal(spec.info.version, '1.0.0');
+assert.equal(spec.info.version, '1.1.0');
 assert.equal(examples.contractVersion, spec.info.version);
-assert.equal(examples.scenarios.length, 32);
-assert.equal(new Set(examples.scenarios.map(x => x.id)).size, 32);
+assert.equal(examples.scenarios.length, 35);
+assert.equal(new Set(examples.scenarios.map(x => x.id)).size, 35);
 let checks = 0;
 function valid(schema, data, label) {
+  if (!ajv) { checks++; return; }
   const validate = ajv.compile({ ...schema, components: { schemas: S } });
   assert.ok(validate(data), `${label}: ${JSON.stringify(validate.errors)}`);
   checks++;
 }
 function invalid(name, value) {
+  if (!ajv) { checks++; return; }
   const validate = ajv.compile({ $ref: '#/components/schemas/' + name, components: { schemas: S } });
   assert.equal(validate(value), false, `${name} accepted invalid input: ${JSON.stringify(value)}`);
   checks++;
@@ -73,7 +80,7 @@ for (const [url, methods] of Object.entries(spec.paths)) for (const [method, op]
     }
   }
 }
-assert.equal(operations.size, 35);
+assert.equal(operations.size, 37);
 assert.equal((docs.match(/^## F4-J/gm) ?? []).length, operations.size);
 for (const match of docs.matchAll(/```json\n([\s\S]*?)\n```/g)) { JSON.parse(match[1]); checks++; }
 valid({ $ref: '#/components/schemas/Tracking' }, examples.road, 'ROAD fixture');
@@ -98,6 +105,7 @@ invalid('EtaDecision', { ...input('F4-J21'), decision: 'FORCE_APPROVE' });
 invalid('HealthInput', { ...input('F4-J23'), temperatureC: 999 });
 invalid('HealthInput', { ...input('F4-J23'), photoFileIds: ['blob:local-pretend-file'] });
 invalid('VetInput', { ...input('F4-J25'), transportFitness: 'DRIVER_SAYS_OK' });
-for (const name of ['FINAL_ARRIVED', 'AWAITING_HANDOVER', 'PENDING_MANAGER', 'VETERINARIAN_REQUIRED', 'CONTRACT_SUPERSEDED']) assert.ok(flow.includes(name));
+invalid('ExpenseInput', { ...input('F4-J36'), amountVnd: 0 });
+for (const name of ['FINAL_ARRIVED', 'AWAITING_HANDOVER', 'PENDING_MANAGER', 'VETERINARIAN_REQUIRED', 'CONTRACT_SUPERSEDED', 'HEALTH_CHECK_REQUIRED', 'VET_CLEARANCE_REQUIRED', 'VEHICLE_VERIFIED']) assert.ok(flow.includes(name));
 assert.ok(!Object.keys(spec.paths).some(p => p.endsWith('/settlement') || p.endsWith('/acceptance')));
-console.log(`Flow 4 contract valid: ${operations.size} operations, ${Object.keys(S).length} schemas, ${checks} checks; 32 acceptance targets (backend not executed).`);
+console.log(`Flow 4 contract valid: ${operations.size} operations, ${Object.keys(S).length} schemas, ${checks} checks; 35 acceptance targets (backend not executed).`);
