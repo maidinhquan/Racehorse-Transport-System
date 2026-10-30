@@ -4,8 +4,10 @@ import { MODE_LABEL, cityLabel, fmtDateTime, fmtMoney, sumItems } from '../../ho
 import './ContractPreview.css';
 
 export interface ContractContent {
+  snapshot?: import('../../../customer/types').ContractSnapshot;
   ref: string;
-  mode: TransportMode;
+  mode?: TransportMode;
+  modeDeferred?: boolean;
   departAt: string;
   arriveAt: string;
   items: ContractItem[];
@@ -19,6 +21,11 @@ export interface ContractContent {
 
 /** Nội dung hợp đồng đúng như khách hàng nhận (không gồm dự toán nội bộ) */
 export const ContractPreview: React.FC<{ request: TransportRequest; customer?: CustomerInfo; horses: HorseRef[]; content: ContractContent }> = ({ request: r, customer: c, horses, content: x }) => {
+  const snapshot = x.snapshot;
+  if (x.issuedAt && !snapshot) return <p role="alert">Chưa có nội dung chốt của phiên bản hợp đồng. Tải lại dữ liệu để xem.</p>;
+  r = snapshot ? { ...r, ...snapshot, horses: snapshot.horses.map(h => h.id) } : r;
+  c = snapshot?.customer ?? c;
+  horses = snapshot ? snapshot.horses : horses;
   const total = sumItems(x.items), deposit = Math.round((total * x.depositPct) / 100);
   return (
     <article className="mgr-contract">
@@ -43,7 +50,7 @@ export const ContractPreview: React.FC<{ request: TransportRequest; customer?: C
         <h4>B. Phương án vận chuyển</h4>
         <div className="mgr-kv">
           <div><span>Tuyến</span><b>{cityLabel(r.origin)} → {cityLabel(r.destination)}</b></div>
-          <div><span>Phương thức</span><b>{MODE_LABEL[x.mode]}</b></div>
+          <div><span>Phương thức</span><b>{x.modeDeferred ? 'Coordinator quyết định khi lập kế hoạch vận chuyển' : x.mode ? MODE_LABEL[x.mode] : 'Chưa ghi nhận'}</b></div>
           <div><span>Điểm nhận</span><b>{r.pickup.name}</b><div className="mgr-muted">{r.pickup.address}</div></div>
           <div><span>Điểm giao</span><b>{r.delivery.name}</b><div className="mgr-muted">{r.delivery.address} • người nhận {r.delivery.contact}</div></div>
           <div><span>Khởi hành dự kiến</span><b>{fmtDateTime(x.departAt)}</b></div>
@@ -56,7 +63,7 @@ export const ContractPreview: React.FC<{ request: TransportRequest; customer?: C
           <tbody>
             {x.items.map((i) => <tr key={i.desc}><td>{i.desc}</td><td className="mgr-num">{fmtMoney(Number(i.amount) || 0)}</td></tr>)}
             <tr className="total"><td>Tổng giá hợp đồng</td><td className="mgr-num">{fmtMoney(total)}</td></tr>
-            <tr><td>Tiền cọc ({x.depositPct}%) – thanh toán trong hạn chung 24 giờ</td><td className="mgr-num">{fmtMoney(deposit)}</td></tr>
+            <tr><td>Tiền cọc ({x.depositPct}%) – thanh toán trong hạn ghi trong hợp đồng</td><td className="mgr-num">{fmtMoney(deposit)}</td></tr>
             <tr><td>Số dư – thanh toán trong 24 giờ sau nghiệm thu</td><td className="mgr-num">{fmtMoney(total - deposit)}</td></tr>
           </tbody>
         </table>

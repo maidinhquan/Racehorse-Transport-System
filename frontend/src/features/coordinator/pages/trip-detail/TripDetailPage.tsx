@@ -1,82 +1,43 @@
-import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { CoordinatorLayout, Icon } from '../../components/CoordinatorLayout';
-import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import { useCoordinator } from '../../hooks/useCoordinator';
-import { fmtDateTime, modeLabel, planGaps } from '../../hooks/coordinatorRules';
-import type { TripDetailTab } from '../../types';
-import { OverviewTab } from './tabs/OverviewTab';
-import { RouteTab } from './tabs/RouteTab';
+// Chi tiết chuyến của Điều phối: Tổng quan • Tuyến đường (lập lộ trình) • Xe & nhân sự • Chuyến bay • Theo dõi hành trình
+import { Navigate, useParams } from 'react-router-dom';
+import { Icon, Pill } from '../../components/common/ui';
+import { EmptyPlanPanel } from '../../components/demo/Demo';
+import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
+import { deployed, planGaps, reqOfTrip, trip } from '../../domain/coordinatorRules';
+import { go, useCoordinatorStore } from '../../store/coordinatorStore';
+import { cityLabel, dt, human } from '../../utils/format';
+import { EMPTY_PLAN_ID } from '../../workflows/coordinatorActions';
 import { ResourcesTab } from './tabs/ResourcesTab';
+import { RouteTab } from './tabs/RouteTab';
+
 import { FlightTab } from './tabs/FlightTab';
-import { TrackingTab } from './tabs/TrackingTab';
-import './TripDetailPage.css';
-
-export const TripDetailPage: React.FC = () => {
-  const { tripId, tab } = useParams<{ tripId: string; tab?: TripDetailTab }>();
-  const navigate = useNavigate();
-  const { getTrip, trips, vehicles, staff, actions } = useCoordinator();
-  const trip = getTrip(tripId);
-
-  if (!trip) {
-    return (
-      <CoordinatorLayout title="Quản lý chuyến">
-        <div className="crd-card crd-empty">Không tìm thấy chuyến {tripId}.
-          <div className="crd-btn-row" style={{ justifyContent: 'center' }}>
-            <button type="button" className="crd-btn" onClick={() => navigate('/coordinator/trips')}>Về danh sách chuyến</button>
-          </div>
-        </div>
-      </CoordinatorLayout>
-    );
-  }
-
-  const tabs: Array<[TripDetailTab, string]> = [
-    ['overview', 'Tổng quan'],
-    ['route', 'Tuyến đường'],
-    ['resources', 'Xe & nhân sự'],
-    ...(trip.mode === 'AIR' ? [['flight', 'Chuyến bay'] as [TripDetailTab, string]] : []),
-    ['tracking', 'Theo dõi hành trình'],
-  ];
-  const on: TripDetailTab = tabs.some(([k]) => k === tab) ? (tab as TripDetailTab) : 'overview';
-  const gaps = planGaps(trip, vehicles, staff, trips);
-
+import { OverviewTab } from './tabs/OverviewTab';
+import { ProgressTab } from './tabs/ProgressTab';
+const TAB_TITLES: Record<string, string> = { overview: 'Tổng quan', route: 'Tuyến đường', resources: 'Xe & nhân sự', flight: 'Chuyến bay', progress: 'Theo dõi hành trình' };
+export function TripDetailPage() {
+  useCoordinatorStore();
+  const { tripId = '', tab = 'overview' } = useParams();
+  const t = trip(tripId);
+  if (!t) return <Navigate to="/coordinator/monitor" replace />;
+  const r = reqOfTrip(t), on = TAB_TITLES[tab] && (tab !== 'flight' || t.mode === 'AIR') ? tab : 'overview';
+  const tabs = ['overview', 'route', 'resources', ...(t.mode === 'AIR' ? ['flight'] : []), 'progress'];
+  const gaps = planGaps(t);
+  const dep = t.deployment.status;
   return (
-    <CoordinatorLayout title="Quản lý chuyến">
-      <button type="button" className="crd-back" onClick={() => navigate('/coordinator/trips')}><Icon name="back" /> Quay lại Quản lý chuyến</button>
-
-      <div className="crd-head">
-        <div>
-          <h2 className="crd-title crd-detail__title">{trip.id} <TripStatusBadge status={trip.deploymentStatus === 'CONFIRMED' ? trip.status : trip.deploymentStatus} /></h2>
-          <p className="crd-subtitle">{trip.requestId} • {trip.origin} → {trip.destination} • {modeLabel(trip.mode)} • khởi hành {fmtDateTime(trip.plannedDepart)}</p>
-        </div>
-        {trip.status === 'PLANNING' && (gaps.length
-          ? <TripStatusBadge tone="warn" label={`${gaps.length} việc còn mở`} />
-          : <TripStatusBadge tone="ok" label="Đã lập kế hoạch xong" />)}
-      </div>
-
-      {trip.deploymentStatus !== 'CONFIRMED' && (
-        <div className="crd-note crd-note--yellow">
-          <div>
-            <b>Chuyến chưa được Manager giao</b>
-            Chỉ xem trước. Lập tuyến và phân công chính thức bắt đầu sau khi Manager xác nhận giao việc.
-            <div className="crd-btn-row crd-demo-action"><button type="button" className="crd-btn crd-btn--sm" onClick={() => actions.demoDeploy(trip.id)}>Demo: Manager giao chuyến</button></div>
-          </div>
-        </div>
-      )}
-
-      <div className="crd-tabs" role="tablist">
-        {tabs.map(([k, label]) => (
-          <button key={k} type="button" role="tab" className={k === on ? 'on' : ''} onClick={() => navigate(`/coordinator/trips/${trip.id}/${k}`)}>{label}</button>
-        ))}
-      </div>
-
-      {on === 'overview' && <OverviewTab trip={trip} />}
-      {on === 'route' && <RouteTab trip={trip} />}
-      {on === 'resources' && <ResourcesTab trip={trip} />}
-      {on === 'flight' && <FlightTab trip={trip} />}
-      {on === 'tracking' && <TrackingTab trip={trip} />}
+    <CoordinatorLayout title={on === 'route' ? 'Lập lộ trình' : 'Giám sát hành trình'} active="/coordinator/monitor">
+      <button type="button" className="link back" onClick={() => go('f/monitor')}>← Giám sát hành trình</button>
+      <div className="head"><div><h2 className="page-title" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>{t.id} <Pill v={t.status} /></h2>
+        <p className="subtitle">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • {human(t.mode)} • khởi hành {dt(t.plannedDepart)}</p></div>
+        {deployed(t) && t.status === 'PLANNING' ? (gaps.length ? <Pill v="NOT_READY" label={`${gaps.length} việc còn mở`} /> : <Pill v="READY" label="Hoàn tất lập kế hoạch" />) : null}</div>
+      {dep === 'CONFIRMED' ? null : <div className="note yellow"><Icon name="info" /><div><b>{dep === 'ON_HOLD' ? 'Tạm dừng triển khai' : 'Đang chờ xác nhận triển khai'}</b>{dep === 'ON_HOLD' ? `Lý do: ${String(t.deployment.holdReason || '—').replace(/\.$/, '')}. Các phiên bản tuyến và phân công hiện có chỉ được xem cho đến khi Quản lý tiếp tục triển khai.` : 'Lập tuyến và phân công chính thức bắt đầu sau khi quản lý xác nhận triển khai.'}</div></div>}
+      {t.id === EMPTY_PLAN_ID ? <EmptyPlanPanel /> : null}
+      <div className="rtabs">{tabs.map((k) => <button type="button" key={k} className={k === on ? 'on' : ''} onClick={() => go(`f/trip/${t.id}/${k}`)}>{TAB_TITLES[k]}</button>)}</div>
+      {on === 'overview' ? <OverviewTab t={t} /> : null}
+      {on === 'route' ? <RouteTab t={t} /> : null}
+      {on === 'resources' ? <ResourcesTab t={t} /> : null}
+      {on === 'flight' ? <FlightTab t={t} /> : null}
+      {on === 'progress' ? <ProgressTab t={t} /> : null}
     </CoordinatorLayout>
   );
-};
-
+}
 export default TripDetailPage;

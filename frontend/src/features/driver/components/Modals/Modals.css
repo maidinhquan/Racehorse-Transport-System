@@ -1,0 +1,12 @@
+.drv-modal { position: fixed; inset: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.drv-modal__back { position: absolute; inset: 0; background: rgba(15, 23, 42, .45); }
+.drv-modal__box { position: relative; width: 100%; max-width: 520px; max-height: calc(100vh - 32px); overflow: auto; background: var(--drv-card, #fff); color: var(--drv-ink, #0f172a); border-radius: 16px; padding: 22px 22px 18px; box-shadow: 0 24px 60px rgba(15, 23, 42, .3); box-sizing: border-box; }
+.drv-modal__title { font-size: 17px; font-weight: 700; margin: 0 0 12px; }
+.drv-modal__body { font-size: 13px; line-height: 1.55; }
+.drv-modal__body > p:first-child { margin-top: 0; }
+.drv-modal__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+@media (max-width: 600px) {
+  .drv-modal { align-items: flex-end; padding: 0; }
+  .drv-modal__box { max-width: none; border-radius: 16px 16px 0 0; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+  .drv-modal__actions .drv-btn { flex: 1; min-height: 44px; }
+}

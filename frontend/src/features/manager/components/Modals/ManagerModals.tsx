@@ -1,131 +1,77 @@
 import React, { useEffect, useState } from 'react';
 import { Modal } from './Modal';
-import type { ActualCost, ActualKey, ExtraCost, Payer, RevisionField, Staff, Transaction, TransportRequest } from '../../types';
+import type { ActualCost, ActualKey, ExtraCost, Payer, Staff } from '../../types';
+import { isQuickLoginAccount } from '../../../auth/quickLoginAccounts';
 import {
   ACTUAL_LABEL,
-  METHOD_LABEL,
   PAYER_LABEL,
-  PAYMENT_TYPE_LABEL,
-  REVISION_FIELD_LABEL,
-  depositOf,
-  fmtDateTime,
-  fmtMoney,
 } from '../../hooks/managerRules';
-import { openSampleFile } from '../Common/Common';
 
 // ---------------------------------------------------------------------------
 // Yêu cầu khách hàng chỉnh sửa
 // ---------------------------------------------------------------------------
-export const RevisionModal: React.FC<{ open: boolean; requestId: string; onClose: () => void; onSubmit: (feedback: string, fields: RevisionField[]) => boolean }> = ({ open, requestId, onClose, onSubmit }) => {
-  const [text, setText] = useState('');
-  const [fields, setFields] = useState<RevisionField[]>([]);
-  const [error, setError] = useState('');
-  useEffect(() => { if (open) { setText(''); setFields([]); setError(''); } }, [open]);
-  const toggle = (f: RevisionField) => setFields((x) => (x.includes(f) ? x.filter((y) => y !== f) : [...x, f]));
-  const submit = () => {
-    if (!fields.length) return setError('Chọn ít nhất một mục cần sửa.');
-    if (text.trim().length < 10) return setError('Nhập góp ý cho khách hàng (ít nhất 10 ký tự).');
-    if (onSubmit(text.trim(), fields)) onClose();
-  };
-  return (
-    <Modal open={open} title={`Yêu cầu chỉnh sửa • ${requestId}`} okText="Gửi yêu cầu chỉnh sửa" onClose={onClose} onOk={submit} error={error}>
-      <p>Khách hàng chỉ sửa được các mục được chọn. Sau khi khách gửi lại, yêu cầu quay về hàng chờ xét duyệt.</p>
-      <div className="mgr-field">
-        <label>Mục khách cần sửa *</label>
-        <div className="mgr-chips">
-          {(Object.keys(REVISION_FIELD_LABEL) as RevisionField[]).map((f) => (
-            <button key={f} type="button" className={`mgr-chip ${fields.includes(f) ? 'on' : ''}`} aria-pressed={fields.includes(f)} onClick={() => toggle(f)}>{REVISION_FIELD_LABEL[f]}</button>
-          ))}
-        </div>
-      </div>
-      <div className="mgr-field">
-        <label htmlFor="mgr-rev-text">Góp ý gửi khách hàng *</label>
-        <textarea id="mgr-rev-text" className="mgr-textarea" rows={4} value={text} onChange={(e) => { setText(e.target.value); setError(''); }}
-          placeholder="VD: Ngày 08/10 đội xe đã kín lịch, vui lòng chọn từ 12/10 trở đi…" />
-      </div>
-    </Modal>
-  );
+export const RevisionModal: React.FC<{ open: boolean; requestId: string; onClose: () => void; onSubmit: (feedback: string) => boolean | Promise<boolean> }> = ({ open, requestId, onClose, onSubmit }) => {
+  const [text, setText] = useState(''); const [error, setError] = useState('');
+  useEffect(() => { if (open) { setText(''); setError(''); } }, [open]);
+  return <Modal open={open} title={`Yêu cầu chỉnh sửa • ${requestId}`} okText="Gửi yêu cầu chỉnh sửa" onClose={onClose} error={error} onOk={async () => {
+    if (text.trim().length < 10) return setError('Nhập góp ý ít nhất 10 ký tự.');
+    if (await onSubmit(text.trim())) onClose();
+  }}><p>Ghi rõ nội dung cần khách bổ sung. Khách xem góp ý, cập nhật và gửi lại để xét duyệt.</p>
+    <div className="mgr-field"><label htmlFor="mgr-rev-text">Góp ý gửi khách hàng *</label><textarea id="mgr-rev-text" className="mgr-textarea" rows={4} value={text} onChange={event => setText(event.target.value)} /></div>
+  </Modal>;
 };
 
 // ---------------------------------------------------------------------------
 // Phân công Specialist + Coordinator
 // ---------------------------------------------------------------------------
-export const DeployModal: React.FC<{ open: boolean; tripId: string; staff: Staff[]; onClose: () => void; onSubmit: (specialistId: string, coordinatorId: string) => boolean }> = ({ open, tripId, staff, onClose, onSubmit }) => {
+export const DeployModal: React.FC<{ open: boolean; tripId: string; staff: Staff[]; loadStaff?: () => Promise<Staff[]>; onClose: () => void; onSubmit: (specialistId: string, coordinatorId: string) => boolean | Promise<boolean> }> = ({ open, tripId, staff, loadStaff, onClose, onSubmit }) => {
   const [sp, setSp] = useState('');
   const [co, setCo] = useState('');
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState('');
+  const [availableStaff, setAvailableStaff] = useState<Staff[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [retry, setRetry] = useState(0);
   useEffect(() => { if (open) { setSp(''); setCo(''); setConfirm(false); setError(''); } }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    if (!loadStaff) { setAvailableStaff(staff); setLoading(false); setLoadError(''); return; }
+    let active = true;
+    setAvailableStaff([]); setLoading(true); setLoadError(''); setSp(''); setCo('');
+    loadStaff().then(rows => { if (active) setAvailableStaff(rows); })
+      .catch(() => { if (active) setLoadError('Không tải được danh sách nhân sự từ database. Vui lòng thử lại.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [open, loadStaff, staff, retry]);
+  const members = (role: Staff['role']) => availableStaff.filter(s => s.role === role)
+    .sort((a, b) => Number(isQuickLoginAccount(b.id, b.role)) - Number(isQuickLoginAccount(a.id, a.role)) || a.name.localeCompare(b.name, 'vi'));
   const pick = (role: Staff['role'], value: string, set: (v: string) => void, label: string, id: string) => (
     <div className="mgr-field">
       <label htmlFor={id}>{label} *</label>
-      <select id={id} className="mgr-select" value={value} onChange={(e) => { set(e.target.value); setError(''); }}>
+      <select id={id} className="mgr-select" value={value} disabled={loading || !!loadError} onChange={(e) => { set(e.target.value); setError(''); }}>
         <option value="">— Chọn —</option>
-        {staff.filter((s) => s.role === role).map((s) => <option key={s.id} value={s.id}>{s.name} • đang phụ trách {s.load} chuyến</option>)}
+        {members(role).map((s) => <option key={s.id} value={s.id}>{s.name} • {s.id}{s.load != null ? ` • đang phụ trách ${s.load} chuyến` : ''}{isQuickLoginAccount(s.id, s.role) ? ' (Recommend)' : ''}</option>)}
       </select>
+      {!loading && !loadError && members(role).length === 0 && <p className="mgr-hint">Database chưa có nhân sự đang hoạt động thuộc vai trò này.</p>}
     </div>
   );
-  const submit = () => {
+  const submit = async () => {
+    if (loading || loadError) return;
     if (!sp || !co) return setError('Chọn một Transport Specialist và một Fleet Coordinator.');
+    if (!members('TRANSPORT_SPECIALIST').some(s => s.id === sp) || !members('FLEET_ROUTE_COORDINATOR').some(s => s.id === co)) return setError('Nhân sự đã thay đổi. Vui lòng chọn lại.');
     if (!confirm) return setError('Tích ô xác nhận để khóa phân công.');
-    if (onSubmit(sp, co)) onClose();
+    if (await onSubmit(sp, co)) onClose();
   };
   return (
-    <Modal open={open} title={`Phân công người phụ trách • ${tripId}`} okText="Giao việc & xác nhận triển khai" onClose={onClose} onOk={submit} error={error}>
+    <Modal open={open} title={`Phân công người phụ trách • ${tripId}`} okText="Giao việc & xác nhận triển khai" onClose={onClose} onOk={submit} error={error} okDisabled={loading || !!loadError}>
       <p>Chuyến chỉ được triển khai chính thức sau khi Manager phân công. Nhân viên nhận chuyến ngay, không cần xác nhận nhận việc.</p>
+      <p className="mgr-hint">Hiển thị toàn bộ nhân sự đang hoạt động theo từng vai trò. (Recommend) là người có tài khoản đăng nhập nhanh ở trang đăng nhập.</p>
+      {loading && <p role="status">Đang tải danh sách nhân sự…</p>}
+      {loadError && <p role="alert">{loadError} <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => setRetry(v => v + 1)}>Thử lại</button></p>}
       {pick('TRANSPORT_SPECIALIST', sp, setSp, 'Transport Specialist (hồ sơ, bảo hiểm, kiểm dịch)', 'mgr-dep-sp')}
-      {pick('FLEET_COORDINATOR', co, setCo, 'Fleet Coordinator (tuyến, xe, nhân sự)', 'mgr-dep-co')}
+      {pick('FLEET_ROUTE_COORDINATOR', co, setCo, 'Fleet Coordinator (tuyến, xe, nhân sự)', 'mgr-dep-co')}
       <label className="mgr-check"><input type="checkbox" checked={confirm} onChange={(e) => setConfirm(e.target.checked)} /> Tôi xác nhận triển khai chuyến và khóa phân công.</label>
-    </Modal>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Xác minh chuyển khoản
-// ---------------------------------------------------------------------------
-export const VerifyPaymentModal: React.FC<{
-  tx?: Transaction; request?: TransportRequest; onClose: () => void;
-  onVerify: (id: string) => boolean; onReject: (id: string, reason: string) => boolean;
-}> = ({ tx, request, onClose, onVerify, onReject }) => {
-  const [mode, setMode] = useState<'view' | 'reject'>('view');
-  const [checked, setChecked] = useState(false);
-  const [reason, setReason] = useState('');
-  const [error, setError] = useState('');
-  useEffect(() => { setMode('view'); setChecked(false); setReason(''); setError(''); }, [tx?.id]);
-  if (!tx || !request) return null;
-  const expected = tx.type === 'DEPOSIT' ? depositOf(request) : tx.amount;
-  const mismatch = tx.amount !== expected;
-  return (
-    <Modal open title={`Xác minh chuyển khoản • ${tx.id}`} wide onClose={onClose}
-      okText={mode === 'view' ? 'Xác nhận đã nhận đủ tiền' : 'Từ chối chứng từ'} danger={mode === 'reject'}
-      onOk={() => {
-        if (mode === 'reject') { if (reason.trim().length < 10) return setError('Nhập lý do từ chối (ít nhất 10 ký tự).'); if (onReject(tx.id, reason)) onClose(); return; }
-        if (!checked) return setError('Tích ô xác nhận đã đối chiếu sao kê ngân hàng.');
-        if (onVerify(tx.id)) onClose();
-      }} error={error}>
-      <div className="mgr-kv" style={{ marginBottom: 14 }}>
-        <div><span>Yêu cầu</span><b>{tx.requestId}</b></div>
-        <div><span>Loại</span><b>{PAYMENT_TYPE_LABEL[tx.type]} • {METHOD_LABEL[tx.method]}</b></div>
-        <div><span>Khách khai báo</span><b>{fmtMoney(tx.amount)}</b></div>
-        <div><span>Số tiền phải thu</span><b className={mismatch ? 'mgr-bad' : ''}>{fmtMoney(expected)}</b></div>
-        <div><span>Mã tham chiếu</span><b>{tx.ref ?? '—'}</b></div>
-        <div><span>Thời điểm khai báo</span><b>{fmtDateTime(tx.createdAt)}</b></div>
-      </div>
-      {tx.receipt && <p>Chứng từ: <button type="button" className="mgr-link" onClick={() => openSampleFile(tx.receipt!)}>{tx.receipt}</button></p>}
-      {mismatch && <p className="mgr-bad">Số tiền khai báo khác số tiền phải thu – kiểm tra kỹ sao kê trước khi xác nhận.</p>}
-      <div className="mgr-tabs" style={{ marginBottom: 10 }}>
-        <button type="button" className={mode === 'view' ? 'on' : ''} onClick={() => { setMode('view'); setError(''); }}>Xác nhận</button>
-        <button type="button" className={mode === 'reject' ? 'on' : ''} onClick={() => { setMode('reject'); setError(''); }}>Từ chối</button>
-      </div>
-      {mode === 'view'
-        ? <label className="mgr-check"><input type="checkbox" checked={checked} onChange={(e) => { setChecked(e.target.checked); setError(''); }} /> Tôi đã đối chiếu sao kê ngân hàng: tiền đã về tài khoản CBN Transport với đúng mã tham chiếu.</label>
-        : (
-          <div className="mgr-field">
-            <label htmlFor="mgr-tx-reason">Lý do từ chối *</label>
-            <textarea id="mgr-tx-reason" className="mgr-textarea" rows={3} value={reason} onChange={(e) => { setReason(e.target.value); setError(''); }}
-              placeholder="VD: Chưa thấy giao dịch trên sao kê ngày 04/10; vui lòng gửi lại ủy nhiệm chi rõ nét." />
-          </div>
-        )}
     </Modal>
   );
 };
@@ -136,7 +82,7 @@ export const VerifyPaymentModal: React.FC<{
 const KEYS = Object.keys(ACTUAL_LABEL) as ActualKey[];
 const emptyCosts = (): Record<ActualKey, number> => Object.fromEntries(KEYS.map((k) => [k, 0])) as Record<ActualKey, number>;
 
-export const ActualCostModal: React.FC<{ open: boolean; tripId: string; current?: ActualCost; onClose: () => void; onSubmit: (c: ActualCost['costs'], extra: ExtraCost[]) => boolean }> = ({ open, tripId, current, onClose, onSubmit }) => {
+export const ActualCostModal: React.FC<{ open: boolean; tripId: string; current?: ActualCost; onClose: () => void; onSubmit: (c: ActualCost['costs'], extra: ExtraCost[]) => boolean | Promise<boolean> }> = ({ open, tripId, current, onClose, onSubmit }) => {
   const [costs, setCosts] = useState<Record<ActualKey, number>>(emptyCosts());
   const [extra, setExtra] = useState<ExtraCost[]>([]);
   const [error, setError] = useState('');
@@ -147,7 +93,7 @@ export const ActualCostModal: React.FC<{ open: boolean; tripId: string; current?
     setError('');
   }, [open, current]);
   const setExtraAt = (i: number, patch: Partial<ExtraCost>) => setExtra((x) => x.map((e, j) => (j === i ? { ...e, ...patch } : e)));
-  const submit = () => {
+  const submit = async () => {
     if (KEYS.some((k) => !(costs[k] >= 0))) return setError('Chi phí phải là số không âm.');
     if (extra.some((e) => !e.label.trim() || !(e.amount > 0))) return setError('Khoản phát sinh cần tên và số tiền lớn hơn 0.');
     if (onSubmit(costs, extra)) onClose();

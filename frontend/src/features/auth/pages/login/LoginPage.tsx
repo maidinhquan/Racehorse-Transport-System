@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 
 import { login, googleLogin } from "../../api/authApi";
 import type { UserRole } from "../../types/auth.types";
+import { QUICK_LOGIN_ACCOUNTS } from "../../quickLoginAccounts";
+import { resetCustomerState } from "../../../customer/hooks/useCustomer";
 
 import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
 
@@ -12,6 +14,7 @@ import "./LoginPage.css";
 
 function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,9 +25,12 @@ function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const redirectByRole = (role: UserRole) => {
+    const fromPath = (location.state as any)?.from?.pathname;
+    const hasQuote = Boolean(sessionStorage.getItem('preliminaryQuote'));
+
     switch (role) {
       case "CUSTOMER":
-        navigate("/customer/home");
+        navigate(fromPath || (hasQuote ? "/customer/create-request" : "/customer/home"));
         break;
 
       case "LOGISTICS_MANAGER":
@@ -54,11 +60,22 @@ function LoginPage() {
   const saveLoginData = (
     accessToken: string,
     role: UserRole,
-    fullName: string
+    fullName: string,
+    email?: string
   ) => {
+    sessionStorage.setItem("accessToken", accessToken);
+    sessionStorage.setItem("userRole", role);
+    sessionStorage.setItem("userFullName", fullName);
+    if (email) {
+      sessionStorage.setItem("userEmail", email);
+    }
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("userRole", role);
     localStorage.setItem("userFullName", fullName);
+    if (email) {
+      localStorage.setItem("userEmail", email);
+    }
+    resetCustomerState();
   };
 
   const handleQuickLogin = async (
@@ -84,7 +101,8 @@ function LoginPage() {
       saveLoginData(
         response.data.accessToken,
         response.data.role,
-        response.data.fullName
+        response.data.fullName,
+        response.data.email || demoEmail
       );
 
       redirectByRole(response.data.role);
@@ -126,7 +144,8 @@ function LoginPage() {
       saveLoginData(
         response.data.accessToken,
         response.data.role,
-        response.data.fullName
+        response.data.fullName,
+        response.data.email || email
       );
 
       redirectByRole(response.data.role);
@@ -174,7 +193,8 @@ function LoginPage() {
       saveLoginData(
         response.data.accessToken,
         response.data.role,
-        response.data.fullName
+        response.data.fullName,
+        response.data.email
       );
 
       redirectByRole(response.data.role);
@@ -328,66 +348,22 @@ function LoginPage() {
         {/* DEMO ROLE SECTION - Đăng nhập nhanh tài khoản mẫu */}
         <div className="demo-role-section">
           <p className="demo-role-title">
-            ⚡ Đăng nhập nhanh tài khoản mẫu (Mật khẩu: 123456)
+            ⚡ Đăng nhập nhanh tài khoản mẫu (Sử dụng mật khẩu lưu trong Database)
           </p>
 
           <div className="demo-role-grid">
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("vana.horse@gmail.com")
-              }
-              title="Khách hàng: vana.horse@gmail.com"
-            >
-              🐴 Customer
-            </button>
-
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("linh.manager@cbntransport.com")
-              }
-              title="Quản lý: linh.manager@cbntransport.com"
-            >
-              📋 Logistics Manager
-            </button>
-
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("tuan.specialist@cbntransport.com")
-              }
-              title="Chuyên viên: tuan.specialist@cbntransport.com"
-            >
-              🩺 Specialist
-            </button>
-
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("hai.coord@cbntransport.com")
-              }
-              title="Điều phối: hai.coord@cbntransport.com"
-            >
-              🗺️ Coordinator
-            </button>
-
-            <button
-              type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("hung.driver@cbntransport.com")
-              }
-              title="Tài xế: hung.driver@cbntransport.com"
-            >
-              🚚 Driver / Escort
-            </button>
-
-
+            {QUICK_LOGIN_ACCOUNTS.map(account => (
+              <button
+                key={account.id}
+                type="button"
+                className="demo-role-button"
+                disabled={isLoading}
+                onClick={() => handleQuickLogin(account.email, account.password)}
+                title={`${account.email} • ${account.id}`}
+              >
+                {account.label}
+              </button>
+            ))}
           </div>
         </div>
 

@@ -1,0 +1,624 @@
+{
+  "contractVersion": "1.1.0",
+  "status": "ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS",
+  "policyExampleIsNotFixedBusinessDecision": true,
+  "handoverContext": {
+    "requestId": "REQUEST_001",
+    "tripId": "TRIP_001",
+    "version": 1,
+    "arrivedAtDestination": true,
+    "receiver": {
+      "name": "Trần Văn Bình",
+      "phone": "0901234567",
+      "authorization": "REGISTERED",
+      "authorizationReference": null
+    },
+    "horseIds": [
+      "HORSE_001"
+    ],
+    "handover": null,
+    "attempts": [],
+    "canComplete": true,
+    "blockers": []
+  },
+  "awaitingAcceptance": {
+    "requestId": "REQUEST_001",
+    "tripId": "TRIP_001",
+    "version": 1,
+    "requestStatus": "DELIVERED",
+    "tripStatus": "COMPLETED",
+    "phase": "AWAITING_ACCEPTANCE",
+    "serverTime": "2026-11-20 10:00",
+    "policy": {
+      "version": 1,
+      "defaultAcceptanceHours": "48",
+      "allowedAcceptanceHours": [
+        "24",
+        "48"
+      ],
+      "paymentHours": 24,
+      "maxExtensionHours": 168,
+      "acceptanceStatementVersion": 1,
+      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
+      "timezone": "Asia/Ho_Chi_Minh"
+    },
+    "handover": {
+      "id": "handover_001",
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "completedAt": "2026-11-20 10:00",
+      "recordedBy": {
+        "userId": "USER_001",
+        "name": "Nguyễn Minh An"
+      },
+      "receiver": {
+        "name": "Trần Văn Bình",
+        "phone": "0901234567",
+        "authorization": "REGISTERED",
+        "authorizationReference": null
+      },
+      "horses": [
+        {
+          "horseId": "HORSE_001",
+          "microchipVerified": true,
+          "condition": "NORMAL",
+          "note": "Tình trạng ổn định.",
+          "photoFileIds": [
+            "evidence_photo_001"
+          ]
+        }
+      ],
+      "signatureFileId": "evidence_signature_001",
+      "note": "Đã bàn giao đủ ngựa."
+    },
+    "acceptance": {
+      "status": "PENDING",
+      "acceptedAt": null,
+      "acceptedBy": null,
+      "statementVersion": null
+    },
+    "acceptanceWindow": {
+      "status": "RUNNING",
+      "openedAt": "2026-11-20 10:00",
+      "dueAt": "2026-11-22 10:00",
+      "remainingSeconds": 172800,
+      "overdueAt": null
+    },
+    "paymentWindow": {
+      "status": "NOT_STARTED",
+      "openedAt": null,
+      "dueAt": null,
+      "remainingSeconds": 0,
+      "overdueAt": null
+    },
+    "deadlineHistory": [
+      {
+        "id": "deadline_001",
+        "kind": "OPENED",
+        "window": "ACCEPTANCE",
+        "previousDueAt": null,
+        "newDueAt": "2026-11-22 10:00",
+        "reason": "Bàn giao thành công.",
+        "at": "2026-11-20 10:00",
+        "actor": null
+      }
+    ],
+    "complaints": [],
+    "dispute": null,
+    "settlement": {
+      "invoiceId": "INVOICE_001",
+      "invoiceVersion": 1,
+      "currency": "VND",
+      "originalTotal": 20000000,
+      "reductionTotal": 0,
+      "waiverTotal": 0,
+      "netPayable": 20000000,
+      "verifiedDeposit": 8000000,
+      "verifiedBalance": 0,
+      "outstanding": 12000000,
+      "refundDue": 0,
+      "verifiedRefund": 0,
+      "adjustments": [],
+      "pendingAdjustmentIds": [],
+      "refunds": [],
+      "pendingPaymentIds": [],
+      "canPay": false,
+      "paymentBlockers": [
+        "Chưa nghiệm thu."
+      ]
+    },
+    "actions": [
+      {
+        "action": "ACCEPT",
+        "allowed": true,
+        "blockers": []
+      },
+      {
+        "action": "REPORT_ISSUE",
+        "allowed": true,
+        "blockers": []
+      },
+      {
+        "action": "PAY",
+        "allowed": false,
+        "blockers": [
+          "Chưa nghiệm thu."
+        ]
+      }
+    ],
+    "closure": null
+  },
+  "acceptedAwaitingPayment": {
+    "requestId": "REQUEST_001",
+    "tripId": "TRIP_001",
+    "version": 2,
+    "requestStatus": "DELIVERED",
+    "tripStatus": "COMPLETED",
+    "phase": "AWAITING_PAYMENT",
+    "serverTime": "2026-11-20 10:00",
+    "policy": {
+      "version": 1,
+      "defaultAcceptanceHours": "48",
+      "allowedAcceptanceHours": [
+        "24",
+        "48"
+      ],
+      "paymentHours": 24,
+      "maxExtensionHours": 168,
+      "acceptanceStatementVersion": 1,
+      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
+      "timezone": "Asia/Ho_Chi_Minh"
+    },
+    "handover": {
+      "id": "handover_001",
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "completedAt": "2026-11-20 10:00",
+      "recordedBy": {
+        "userId": "USER_001",
+        "name": "Nguyễn Minh An"
+      },
+      "receiver": {
+        "name": "Trần Văn Bình",
+        "phone": "0901234567",
+        "authorization": "REGISTERED",
+        "authorizationReference": null
+      },
+      "horses": [
+        {
+          "horseId": "HORSE_001",
+          "microchipVerified": true,
+          "condition": "NORMAL",
+          "note": "Tình trạng ổn định.",
+          "photoFileIds": [
+            "evidence_photo_001"
+          ]
+        }
+      ],
+      "signatureFileId": "evidence_signature_001",
+      "note": "Đã bàn giao đủ ngựa."
+    },
+    "acceptance": {
+      "status": "ACCEPTED",
+      "acceptedAt": "2026-11-20 10:00",
+      "acceptedBy": {
+        "userId": "USER_001",
+        "name": "Nguyễn Minh An"
+      },
+      "statementVersion": 1
+    },
+    "acceptanceWindow": {
+      "status": "COMPLETED",
+      "openedAt": "2026-11-20 10:00",
+      "dueAt": "2026-11-22 10:00",
+      "remainingSeconds": 0,
+      "overdueAt": null
+    },
+    "paymentWindow": {
+      "status": "RUNNING",
+      "openedAt": "2026-11-20 10:00",
+      "dueAt": "2026-11-21 10:00",
+      "remainingSeconds": 86400,
+      "overdueAt": null
+    },
+    "deadlineHistory": [
+      {
+        "id": "deadline_001",
+        "kind": "OPENED",
+        "window": "ACCEPTANCE",
+        "previousDueAt": null,
+        "newDueAt": "2026-11-22 10:00",
+        "reason": "Bàn giao thành công.",
+        "at": "2026-11-20 10:00",
+        "actor": null
+      }
+    ],
+    "complaints": [],
+    "dispute": null,
+    "settlement": {
+      "invoiceId": "INVOICE_001",
+      "invoiceVersion": 1,
+      "currency": "VND",
+      "originalTotal": 20000000,
+      "reductionTotal": 0,
+      "waiverTotal": 0,
+      "netPayable": 20000000,
+      "verifiedDeposit": 8000000,
+      "verifiedBalance": 0,
+      "outstanding": 12000000,
+      "refundDue": 0,
+      "verifiedRefund": 0,
+      "adjustments": [],
+      "pendingAdjustmentIds": [],
+      "refunds": [],
+      "pendingPaymentIds": [],
+      "canPay": true,
+      "paymentBlockers": []
+    },
+    "actions": [],
+    "closure": null
+  },
+  "normalClosure": {
+    "requestId": "REQUEST_001",
+    "tripId": "TRIP_001",
+    "version": 2,
+    "requestStatus": "CLOSED",
+    "tripStatus": "COMPLETED",
+    "phase": "CLOSED",
+    "serverTime": "2026-11-20 10:00",
+    "policy": {
+      "version": 1,
+      "defaultAcceptanceHours": "48",
+      "allowedAcceptanceHours": [
+        "24",
+        "48"
+      ],
+      "paymentHours": 24,
+      "maxExtensionHours": 168,
+      "acceptanceStatementVersion": 1,
+      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
+      "timezone": "Asia/Ho_Chi_Minh"
+    },
+    "handover": {
+      "id": "handover_001",
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "completedAt": "2026-11-20 10:00",
+      "recordedBy": {
+        "userId": "USER_001",
+        "name": "Nguyễn Minh An"
+      },
+      "receiver": {
+        "name": "Trần Văn Bình",
+        "phone": "0901234567",
+        "authorization": "REGISTERED",
+        "authorizationReference": null
+      },
+      "horses": [
+        {
+          "horseId": "HORSE_001",
+          "microchipVerified": true,
+          "condition": "NORMAL",
+          "note": "Tình trạng ổn định.",
+          "photoFileIds": [
+            "evidence_photo_001"
+          ]
+        }
+      ],
+      "signatureFileId": "evidence_signature_001",
+      "note": "Đã bàn giao đủ ngựa."
+    },
+    "acceptance": {
+      "status": "ACCEPTED",
+      "acceptedAt": "2026-11-20 10:00",
+      "acceptedBy": {
+        "userId": "USER_001",
+        "name": "Nguyễn Minh An"
+      },
+      "statementVersion": 1
+    },
+    "acceptanceWindow": {
+      "status": "COMPLETED",
+      "openedAt": "2026-11-20 10:00",
+      "dueAt": "2026-11-22 10:00",
+      "remainingSeconds": 0,
+      "overdueAt": null
+    },
+    "paymentWindow": {
+      "status": "COMPLETED",
+      "openedAt": "2026-11-20 10:00",
+      "dueAt": "2026-11-21 10:00",
+      "remainingSeconds": 0,
+      "overdueAt": null
+    },
+    "deadlineHistory": [
+      {
+        "id": "deadline_001",
+        "kind": "OPENED",
+        "window": "ACCEPTANCE",
+        "previousDueAt": null,
+        "newDueAt": "2026-11-22 10:00",
+        "reason": "Bàn giao thành công.",
+        "at": "2026-11-20 10:00",
+        "actor": null
+      }
+    ],
+    "complaints": [],
+    "dispute": null,
+    "settlement": {
+      "invoiceId": "INVOICE_001",
+      "invoiceVersion": 1,
+      "currency": "VND",
+      "originalTotal": 20000000,
+      "reductionTotal": 0,
+      "waiverTotal": 0,
+      "netPayable": 20000000,
+      "verifiedDeposit": 8000000,
+      "verifiedBalance": 12000000,
+      "outstanding": 0,
+      "refundDue": 0,
+      "verifiedRefund": 0,
+      "adjustments": [],
+      "pendingAdjustmentIds": [],
+      "refunds": [],
+      "pendingPaymentIds": [],
+      "canPay": false,
+      "paymentBlockers": [
+        "Đã đủ tiền."
+      ]
+    },
+    "actions": [],
+    "closure": {
+      "mode": "NORMAL",
+      "closedAt": "2026-11-20 10:00",
+      "closedBy": {
+        "userId": "USER_001",
+        "name": "Nguyễn Minh An"
+      },
+      "reason": "Đã nghiệm thu và hoàn tất các nghĩa vụ.",
+      "decisionId": null
+    }
+  },
+  "scenarios": [
+    {
+      "id": "road-arrival",
+      "given": "ROAD FINAL_ARRIVED đã xác nhận, không blocker liên quan",
+      "when": "Driver đọc context và bàn giao",
+      "then": "COMPLETED/DELIVERED và đúng một acceptanceWindow"
+    },
+    {
+      "id": "air-final-leg",
+      "given": "AIR đã tiếp nhận và inbound FINAL_ARRIVED",
+      "when": "Tổ inbound bàn giao",
+      "then": "Chỉ crew chặng cuối được ghi; outbound không được"
+    },
+    {
+      "id": "eta-not-arrival",
+      "given": "ETA hoặc plannedArrival tới giờ, chưa FINAL_ARRIVED",
+      "when": "POST handover",
+      "then": "409 HANDOVER_NOT_READY, không deadline"
+    },
+    {
+      "id": "incident-handover-race",
+      "given": "GET canComplete=true rồi phát sinh incident chặn bàn giao",
+      "when": "POST handover",
+      "then": "409 HANDOVER_NOT_READY, recheck Flow5 dưới transaction"
+    },
+    {
+      "id": "resolved-not-safe",
+      "given": "Incident RESOLVED nhưng dependency khác vẫn chặn",
+      "when": "POST handover",
+      "then": "Không coi status incident là đủ điều kiện bàn giao"
+    },
+    {
+      "id": "wrong-owner",
+      "given": "Customer A hoặc Driver khác assignment",
+      "when": "GET/POST request/file ngoài scope",
+      "then": "404, không lộ dữ liệu"
+    },
+    {
+      "id": "wrong-role",
+      "given": "Coordinator gửi acceptance/closure",
+      "when": "Mutation",
+      "then": "403, không thay trạng thái"
+    },
+    {
+      "id": "receiver-not-authorized",
+      "given": "Người nhận chưa được đăng ký/Manager duyệt",
+      "when": "POST handover",
+      "then": "409 HANDOVER_NOT_READY"
+    },
+    {
+      "id": "horse-set",
+      "given": "Trip có hai ngựa",
+      "when": "Bàn giao thiếu/trùng/ngựa ngoài Trip",
+      "then": "400/409; không hoàn tất"
+    },
+    {
+      "id": "abnormal-condition",
+      "given": "Ngựa có condition ABNORMAL",
+      "when": "Ghi tình trạng đúng kèm note và bằng chứng",
+      "then": "Không bắt khai NORMAL; các blocker an toàn liên quan vẫn phải xử lý"
+    },
+    {
+      "id": "signature-binding",
+      "given": "Người nhận ký nội dung cũ",
+      "when": "Đổi receiver/horses/condition/note hoặc tái dùng signature file",
+      "then": "Yêu cầu ký lại, giữ snapshot gốc"
+    },
+    {
+      "id": "handover-failed",
+      "given": "Người nhận vắng mặt/từ chối",
+      "when": "recordHandoverAttempt",
+      "then": "Lưu attempt, chưa COMPLETED/DELIVERED, chưa đồng hồ"
+    },
+    {
+      "id": "handover-race",
+      "given": "Hai POST bàn giao đồng thời",
+      "when": "Commit",
+      "then": "Đúng một handover/deadline/outbox"
+    },
+    {
+      "id": "idempotent-replay",
+      "given": "Mutation đã commit",
+      "when": "Retry cùng key/body dù aggregate version tăng",
+      "then": "Response cũ, không thêm side effect"
+    },
+    {
+      "id": "idempotency-conflict",
+      "given": "Key đã dùng",
+      "when": "Khác body",
+      "then": "409 IDEMPOTENCY_CONFLICT"
+    },
+    {
+      "id": "policy-snapshot",
+      "given": "Policy thay sau bàn giao",
+      "when": "GET aftercare",
+      "then": "Không đổi dueAt đã mở; client dùng policy snapshot/serverTime"
+    },
+    {
+      "id": "acceptance-consent",
+      "given": "Không complaint/dispute và trong hạn",
+      "when": "Đúng statementVersion + confirmed=true",
+      "then": "ACCEPTED và mở paymentWindow riêng; không chờ hết hạn"
+    },
+    {
+      "id": "acceptance-race",
+      "given": "Acceptance và complaint cùng version",
+      "when": "Hai POST đồng thời",
+      "then": "Chỉ một thành công, không ACCEPTED cùng complaint mới"
+    },
+    {
+      "id": "late-acceptance",
+      "given": "AcceptanceWindow OVERDUE",
+      "when": "Customer accept",
+      "then": "409 ACCEPTANCE_WINDOW_EXPIRED, Manager cần gia hạn"
+    },
+    {
+      "id": "overdue-alert-only",
+      "given": "Hết hạn, khách im lặng",
+      "when": "Job",
+      "then": "Cảnh báo một lần/lần mở hoặc gia hạn, không auto accept/close"
+    },
+    {
+      "id": "extension",
+      "given": "Chưa nghiệm thu, không vụ mở",
+      "when": "newDueAt tăng hợp lệ",
+      "then": "Lưu old/new deadline + reason/actor, không reset mất lịch sử"
+    },
+    {
+      "id": "multiple-complaints",
+      "given": "Hai complaint mở",
+      "when": "Chỉ apply một kết quả",
+      "then": "Vẫn PAUSED, chưa mở payment/acceptance"
+    },
+    {
+      "id": "proposal-not-acceptance",
+      "given": "Customer đồng ý resolution proposal",
+      "when": "Chưa Manager apply",
+      "then": "AGREED + pendingAdjustment, chưa nghiệm thu hoặc giảm tiền"
+    },
+    {
+      "id": "proposal-rejected",
+      "given": "Customer REJECT hoặc gửi proposalVersion cũ",
+      "when": "Decision",
+      "then": "Giữ/mở complaint; không giả đồng ý"
+    },
+    {
+      "id": "apply-once",
+      "given": "Proposal/decision đã áp dụng",
+      "when": "Apply key khác",
+      "then": "Không cộng adjustment hoặc mở deadline hai lần"
+    },
+    {
+      "id": "dispute-basis",
+      "given": "Manager ghi CUSTOMER_AGREEMENT nhưng không có consent/bằng chứng",
+      "when": "Record decision",
+      "then": "INVALID_DECISION_BASIS, không giả khách chấp thuận"
+    },
+    {
+      "id": "waiver-limits",
+      "given": "Còn yêu cầu bồi thường chưa giải quyết",
+      "when": "COMPANY_WAIVER",
+      "then": "Không dùng miễn nợ để phủ nhận khiếu nại; không ghi tiền đã nhận"
+    },
+    {
+      "id": "close-after-dispute",
+      "given": "Quyết định hợp lệ CLOSE_AFTER_DISPUTE đã APPLIED",
+      "when": "Chưa ACCEPTED",
+      "then": "NOT_REQUIRED_BY_DISPUTE, không acceptedAt giả; tài chính vẫn phải đủ"
+    },
+    {
+      "id": "zero-balance",
+      "given": "Outstanding=0",
+      "when": "Customer tạo payment session",
+      "then": "Không tạo session tiền 0; kiểm nghĩa vụ khác để READY_TO_CLOSE"
+    },
+    {
+      "id": "client-amount",
+      "given": "Client gửi amount hoặc browser Return success",
+      "when": "Payment",
+      "then": "Không nhận amount client, không ghi VERIFIED từ Return"
+    },
+    {
+      "id": "ipn-validation",
+      "given": "Sai checksum/merchant/reference/amount/currency",
+      "when": "Gateway IPN",
+      "then": "Không ghi verified money; đối soát theo payment protocol"
+    },
+    {
+      "id": "ipn-repeated",
+      "given": "Callback hợp lệ lặp/đồng thời",
+      "when": "IPN",
+      "then": "Ghi tiền một lần, cập nhật invoice/aftercare atomically"
+    },
+    {
+      "id": "late-payment",
+      "given": "Phiên hết hạn/đổi invoice/dispute/closed",
+      "when": "Tiền thật callback tới muộn",
+      "then": "Ghi nhận một lần và tạo reconciliation/refund, không bỏ tiền hoặc tự reopen/close"
+    },
+    {
+      "id": "refund-proof",
+      "given": "Có refund obligation",
+      "when": "Manager ghi reference/bằng chứng",
+      "then": "Chỉ VERIFIED sau kiểm chứng; không API chuyển tiền, không amount tùy ý"
+    },
+    {
+      "id": "close-normal",
+      "given": "Bàn giao, ACCEPTED, hết nợ/hoàn/vụ mở/đối soát",
+      "when": "Manager close NORMAL",
+      "then": "CLOSED một lần; closure snapshot/history"
+    },
+    {
+      "id": "close-blocked",
+      "given": "Pending payment/refund/adjustment hoặc complaint/dispute",
+      "when": "Manager close",
+      "then": "409 CLOSURE_BLOCKED và blocker cụ thể"
+    },
+    {
+      "id": "termination-before-handover",
+      "given": "Flow5 kết thúc sớm chưa có handover hợp lệ",
+      "when": "Gọi aftercare normal để thanh toán/đóng",
+      "then": "Không tạo handover giả; extension pre-handover settlement riêng phải có capability"
+    },
+    {
+      "id": "file-safety",
+      "given": "File Trip khác/giả MIME/quá 10MiB",
+      "when": "Upload/download/link",
+      "then": "404/400/415/413, không gắn file"
+    },
+    {
+      "id": "transaction-rollback",
+      "given": "Lỗi ghi audit/outbox/ledger",
+      "when": "Mutation commit",
+      "then": "Rollback state và financial adjustment, retry an toàn"
+    },
+    {
+      "id": "unsupported",
+      "given": "Backend/persistence/payment integration chưa triển khai",
+      "when": "Mutation",
+      "then": "501 FEATURE_NOT_SUPPORTED, không mock success"
+    }
+  ]
+}

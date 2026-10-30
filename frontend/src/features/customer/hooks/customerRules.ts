@@ -10,6 +10,7 @@ import type {
   DocRecord,
   DocStatus,
   Horse,
+  HorseInput,
   HorseDocKey,
   HorseProfileStatus,
   Lifecycle,
@@ -20,7 +21,6 @@ import type {
   RequestDetailTab,
   RequestField,
   RequestStatus,
-  SharedDocKey,
   StopType,
   TransportRequest,
   Trip,
@@ -28,14 +28,13 @@ import type {
 } from '../types';
 
 // ============================================================================
-// Đồng hồ demo: bắt đầu 04/10/2026 11:30 (giờ VN) rồi chạy theo thời gian thực.
+// Đồng hồ demo: chạy theo thời gian thực để tương thích hoàn toàn với Backend C#
 // Mọi thao tác mới (gửi đơn, phát hành hợp đồng, thanh toán, mốc hành trình…) dùng chung đồng hồ này.
 // ============================================================================
-export const DEMO_CLOCK_START = Date.UTC(2026, 9, 4, 4, 30);
-const CLOCK_T0 = Date.now();
+export const DEMO_CLOCK_START = Date.now();
 const VN_OFFSET = 7 * 3600000;
 
-export const clockMs = () => DEMO_CLOCK_START + (Date.now() - CLOCK_T0);
+export const clockMs = () => Date.now();
 const msToStamp = (ms: number) => new Date(ms + VN_OFFSET).toISOString().slice(0, 16).replace('T', ' ');
 export const nowStamp = () => msToStamp(clockMs());
 export const today = () => nowStamp().slice(0, 10);
@@ -49,7 +48,11 @@ export const addDays = (d: string, n: number) => msToStamp(stampToMs(d) + n * 86
 const pad = (n: number) => String(n).padStart(2, '0');
 export const fmtDate = (d?: string) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : '—');
 export const fmtDateTime = (s?: string) => (!s ? '—' : s.length <= 10 ? fmtDate(s) : `${fmtDate(s.slice(0, 10))} ${s.slice(11, 16)}`);
-export const fmtMoney = (n: number) => `$${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+export const fmtMoney = (n: number, currency = 'VND') =>
+  currency === 'USD'
+    ? `$${Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+    : `${Number(n || 0).toLocaleString('vi-VN')} đ`;
+export const fmtVnd = (n: number) => `${Number(n || 0).toLocaleString('vi-VN')} đ`;
 
 /** "còn 21 giờ 30 phút" / "Đã hết hạn" */
 export function timeLeft(until?: string) {
@@ -77,9 +80,13 @@ export function parseViDate(text: string) {
 export const CITIES: City[] = [
   { name: 'Ho Chi Minh City', country: 'VN', code: 'HCMC' },
   { name: 'Hanoi', country: 'VN', code: 'HAN' },
+  { name: 'Binh Duong', country: 'VN', code: 'BD' },
   { name: 'Da Nang', country: 'VN', code: 'DAD' },
   { name: 'Tokyo', country: 'JP', code: 'TYO' },
   { name: 'Osaka', country: 'JP', code: 'OSA' },
+  { name: 'Nagoya', country: 'JP', code: 'NGO' },
+  { name: 'Sapporo', country: 'JP', code: 'CTS' },
+  { name: 'Fukuoka', country: 'JP', code: 'FUK' },
   { name: 'Bangkok', country: 'TH', code: 'BKK' },
   { name: 'Singapore', country: 'SG', code: 'SIN' },
   { name: 'Sydney', country: 'AU', code: 'SYD' },
@@ -94,15 +101,49 @@ export const cityLabel = (name: string) => (name ? `${name}, ${city(name).countr
 export const shortCity = (name: string) => (name === 'Ho Chi Minh City' ? 'HCMC' : name || '—');
 export const isInternational = (a: string, b: string) => city(a).country !== city(b).country;
 
+export function getDefaultCoordinates(cityName?: string): { latitude: number; longitude: number } {
+  const c = (cityName || '').toLowerCase();
+  if (c.includes('tokyo')) return { latitude: 35.6762, longitude: 139.6503 };
+  if (c.includes('chiba')) return { latitude: 35.6074, longitude: 140.1065 };
+  if (c.includes('osaka')) return { latitude: 34.6937, longitude: 135.5023 };
+  if (c.includes('nagoya')) return { latitude: 35.1815, longitude: 136.9066 };
+  if (c.includes('sapporo')) return { latitude: 43.0618, longitude: 141.3545 };
+  if (c.includes('fukuoka')) return { latitude: 33.5904, longitude: 130.4017 };
+  if (c.includes('hanoi') || c.includes('hà nội')) return { latitude: 21.0285, longitude: 105.8542 };
+  if (c.includes('binh duong') || c.includes('bình dương')) return { latitude: 10.9805, longitude: 106.6519 };
+  if (c.includes('da nang') || c.includes('đà nẵng')) return { latitude: 16.0544, longitude: 108.2022 };
+  return { latitude: 10.7769, longitude: 106.7009 };
+}
+
+export function getCityId(cityName?: string): string {
+  const c = (cityName || '').toLowerCase();
+  if (c.includes('hanoi') || c.includes('hà nội')) return '51bbbbbbbbbbbbbbbbbbbb';
+  if (c.includes('ho chi minh') || c.includes('hcmc') || c.includes('sài gòn')) return '51aaaaaaaaaaaaaaaaaaaa';
+  if (c.includes('binh duong') || c.includes('bình dương')) return '51dddddddddddddddddddd';
+  if (c.includes('da nang') || c.includes('đà nẵng')) return '51eeeeeeeeeeeeeeeeeeee';
+  if (c.includes('tokyo')) return '51ffffffffffffffffffff';
+  if (c.includes('osaka')) return '51111111111111111111';
+  if (c.includes('nagoya')) return '51222222222222222222';
+  if (c.includes('sapporo')) return '51333333333333333333';
+  if (c.includes('fukuoka')) return '51444444444444444444';
+  return '51aaaaaaaaaaaaaaaaaaaa';
+}
+
 /** Đơn mới chỉ nhận tuyến Việt Nam → Việt Nam và Việt Nam → Nhật Bản */
 export const BOOKING_ORIGINS = CITIES.filter((c) => c.country === 'VN');
 export const BOOKING_DESTINATIONS = CITIES.filter((c) => ['VN', 'JP'].includes(c.country));
+/** Keep the actual city labels returned by the backend selectable during revisions. */
+export function registerBackendCity(name: string, country: CountryCode) {
+  if (!name || CITIES.some(c => c.name === name)) return;
+  const entry = { name, country, code: name };
+  CITIES.push(entry);
+  if (country === 'VN') BOOKING_ORIGINS.push(entry);
+  if (country === 'VN' || country === 'JP') BOOKING_DESTINATIONS.push(entry);
+}
 export const ROUTE_RULE = 'CBN Transport chỉ nhận đơn mới cho tuyến Việt Nam → Việt Nam và Việt Nam → Nhật Bản.';
 export const isSupportedRoute = (a: string, b: string) =>
   !!a && !!b && a !== b && BOOKING_ORIGINS.some((c) => c.name === a) && BOOKING_DESTINATIONS.some((c) => c.name === b);
 
-/** Giá ước tính sơ bộ (không ràng buộc) */
-export const estimate = (a: string, b: string, count: number) => (isInternational(a, b) ? 1850 : 650) * Math.max(1, count);
 
 // ============================================================================
 // Nhãn trạng thái
@@ -116,6 +157,7 @@ export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
   CONTRACT_READY: 'Hợp đồng sẵn sàng',
   CONTRACT_CHANGES_REQUESTED: 'Đã yêu cầu sửa hợp đồng',
   DEPOSIT_VERIFIED: 'Đã xác minh cọc – chờ ký',
+  AWAITING_DEPOSIT: 'Đã ký – chờ đặt cọc',
   CANCELLATION_REQUESTED: 'Chờ duyệt hủy',
   ACTIVATED: 'Đã kích hoạt – chuẩn bị',
   SCHEDULED: 'Đã lên lịch',
@@ -129,6 +171,7 @@ export const FINAL_STATUSES: RequestStatus[] = ['CLOSED', 'CANCELLED', 'REJECTED
 export const isActive = (r: TransportRequest) => !FINAL_STATUSES.includes(r.status);
 
 export const CONTRACT_STATE_LABEL: Record<ContractState, string> = {
+  SIGNED: 'Đã ký – chờ tiền cọc',
   ISSUED: 'Đã phát hành – chờ ký',
   CHANGES_REQUESTED: 'Đang yêu cầu sửa',
   EXPIRED: 'Hết hạn',
@@ -147,28 +190,16 @@ export const DOC_STATUS_LABEL: Record<DocStatus, string> = {
   ACTION_REQUIRED: 'Cần nộp lại',
 };
 export const PAYMENT_STATUS_LABEL: Record<Payment['status'], string> = {
-  PROCESSING: 'Chờ xác minh', SUCCESS: 'Thành công', FAILED: 'Thất bại',
+  PENDING_CONFIRMATION: 'Chờ đối soát', PROCESSING: 'Chờ xác minh', SUCCESS: 'Thành công', FAILED: 'Thất bại', REJECTED: 'Bị từ chối',
 };
 export const FIELD_LABEL: Record<RequestField, string> = {
-  route: 'Tuyến đường', date: 'Ngày vận chuyển', count: 'Số lượng ngựa', notes: 'Ghi chú chăm sóc',
+  route: 'Tuyến đường', date: 'Ngày vận chuyển', places: 'Điểm nhận / giao', horses: 'Danh sách và số lượng ngựa', notes: 'Ghi chú chăm sóc',
 };
 export const STOP_LABEL: Record<StopType, string> = {
-  ORIGIN: 'Điểm nhận',
-  REST_STOP: 'Điểm nghỉ',
-  FUEL_STOP: 'Trạm tiếp nhiên liệu',
-  CHECKPOINT: 'Cửa khẩu',
-  AIRPORT: 'Sân bay',
-  QUARANTINE_STATION: 'Trạm kiểm dịch',
-  DESTINATION: 'Điểm giao',
+  ORIGIN: 'Điểm nhận', REST_STOP: 'Điểm nghỉ', CHECKPOINT: 'Cửa khẩu', AIRPORT: 'Sân bay', DESTINATION: 'Điểm giao',
 };
 export const STOP_COLOR: Record<StopType, string> = {
-  ORIGIN: '#0f172a',
-  REST_STOP: '#d97706',
-  FUEL_STOP: '#0284c7',
-  CHECKPOINT: '#dc2626',
-  AIRPORT: '#2563eb',
-  QUARANTINE_STATION: '#7c3aed',
-  DESTINATION: '#16a34a',
+  ORIGIN: '#0f172a', REST_STOP: '#d97706', CHECKPOINT: '#dc2626', AIRPORT: '#2563eb', DESTINATION: '#16a34a',
 };
 export const MILESTONE_LABEL: Record<MilestoneType, string> = {
   DEPARTED: 'Đã rời điểm nhận', ARRIVED_STOP: 'Đến điểm dừng', LEFT_STOP: 'Rời điểm dừng', ARRIVED_DESTINATION: 'Đến điểm giao',
@@ -177,7 +208,7 @@ export const TRIP_STATUS_LABEL: Record<Trip['status'], string> = {
   PLANNING: 'Lập kế hoạch', READY_TO_DEPART: 'Sẵn sàng khởi hành', IN_TRANSIT: 'Đang vận chuyển', COMPLETED: 'Hoàn tất',
 };
 export const SEX_LABEL: Record<string, string> = {
-  Stallion: 'Ngựa đực giống', Mare: 'Ngựa cái', Gelding: 'Ngựa thiến', Male: 'Đực', Female: 'Cái',
+  STALLION: 'Ngựa đực giống', MARE: 'Ngựa cái', GELDING: 'Ngựa thiến',
 };
 
 // ============================================================================
@@ -190,7 +221,7 @@ export const horseLine = (h: Horse) => [h.breed, SEX_LABEL[h.sex] ?? h.sex, hors
 export function passportStatus(h: Horse): PassportStatus {
   const p = h.passport;
   if (!p.number || !p.scan) return 'MISSING';
-  if (p.expiryDate && p.expiryDate < today()) return 'EXPIRED';
+  if (p.expiryDate && p.expiryDate <= today()) return 'EXPIRED';
   if (p.expiryDate && (stampToMs(p.expiryDate) - stampToMs(today())) / 86400000 <= 90) return 'EXPIRING_SOON';
   return 'VALID';
 }
@@ -204,8 +235,8 @@ export function horseIssues(h: Horse) {
   if (ps === 'MISSING') list.push('Hộ chiếu ngựa còn thiếu số hoặc bản scan');
   if (ps === 'EXPIRED') list.push('Hộ chiếu ngựa đã hết hạn');
   if (!h.ownership) list.push('Chưa có giấy chứng nhận sở hữu');
-  if (!h.fluDate) list.push('Chưa có ngày tiêm cúm gần nhất');
-  else if ((stampToMs(today()) - stampToMs(h.fluDate)) / 86400000 > 365) list.push('Tiêm phòng cúm đã quá 12 tháng');
+  if (!h.unsupportedFields?.includes('fluDate') && !h.fluDate) list.push('Chưa có ngày tiêm cúm gần nhất');
+  else if (h.fluDate && (stampToMs(today()) - stampToMs(h.fluDate)) / 86400000 > 365) list.push('Tiêm phòng cúm đã quá 12 tháng');
   return list;
 }
 export function profileStatus(h: Horse): HorseProfileStatus {
@@ -223,11 +254,98 @@ export const horseRequests = (h: Horse, requests: TransportRequest[]) =>
 export const HORSE_LOCKED_FIELDS = ['name', 'breed', 'sex', 'dob', 'microchip'] as const;
 
 export const emptyHorse = (): Omit<Horse, 'id'> => ({
-  name: '', breed: '', sex: '', dob: '', color: '', microchip: '', value: '', currency: 'USD',
+  name: '', breed: '', sex: '', dob: '', color: '', microchip: '', value: '', currency: 'VND',
   passport: { number: '', authority: '', issueDate: '', expiryDate: '' },
   fluDate: '', conditions: '', vetName: '', vetPhone: '',
 });
-export const emptyPlace = (): Place => ({ name: '', address: '', postal: '', contact: '', phone: '', notes: '' });
+
+/**
+ * Kiểm tra toàn bộ dữ liệu biểu mẫu ngựa và trả về bản đồ lỗi theo từng trường:
+ * key -> thông báo lỗi tiếng Việt
+ */
+export function validateHorseForm(h: HorseInput): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  // 1. Tên ngựa (bắt buộc)
+  if (!h.name || !h.name.trim()) {
+    errors.name = 'Vui lòng nhập tên ngựa.';
+  }
+
+  // 2. Giống ngựa (bắt buộc)
+  if (!h.breed || !h.breed.trim()) {
+    errors.breed = 'Vui lòng nhập giống ngựa.';
+  }
+
+  // 3. Giới tính (bắt buộc)
+  if (!h.sex) {
+    errors.sex = 'Vui lòng chọn giới tính.';
+  }
+
+  // 4. Ngày sinh (bắt buộc & <= hôm nay)
+  if (!h.dob) {
+    errors.dob = 'Vui lòng chọn ngày sinh.';
+  } else if (h.dob > today()) {
+    errors.dob = 'Ngày sinh không được lớn hơn ngày hiện tại.';
+  }
+
+  // 5. Số microchip (bắt buộc 15 chữ số)
+  const chip = (h.microchip || '').trim();
+  if (!chip) {
+    errors.microchip = 'Vui lòng nhập số microchip (15 chữ số).';
+  } else if (!/^\d{15}$/.test(chip)) {
+    errors.microchip = 'Microchip phải gồm đúng 15 chữ số.';
+  }
+
+  // 6. Số hộ chiếu (bắt buộc)
+  if (!h.passport?.number || !h.passport.number.trim()) {
+    errors.passNumber = 'Vui lòng nhập số hộ chiếu.';
+  }
+
+  // 7. Cơ quan cấp hộ chiếu (bắt buộc)
+  if (!h.passport?.authority || !h.passport.authority.trim()) {
+    errors.passAuth = 'Vui lòng nhập cơ quan cấp hộ chiếu.';
+  }
+
+  // 8. Ngày cấp hộ chiếu (bắt buộc & <= hôm nay)
+  if (!h.passport?.issueDate) {
+    errors.passIssue = 'Vui lòng chọn ngày cấp hộ chiếu.';
+  } else if (h.passport.issueDate > today()) {
+    errors.passIssue = 'Ngày cấp hộ chiếu không được lớn hơn hôm nay.';
+  }
+
+  // 9. Ngày hết hạn hộ chiếu (bắt buộc & >= ngày cấp)
+  if (!h.passport?.expiryDate) {
+    errors.passExp = 'Vui lòng chọn ngày hết hạn hộ chiếu.';
+  } else if (h.passport.expiryDate <= today() || (h.passport.issueDate && h.passport.expiryDate <= h.passport.issueDate)) {
+    errors.passExp = 'Hộ chiếu phải còn hạn và ngày hết hạn phải sau ngày cấp.';
+  }
+
+  // 10. Giá trị khai báo (bắt buộc > 0 VND)
+  const valStr = String(h.value ?? '').trim();
+  if (h.currency !== 'VND' || !/^[1-9]\d{0,9}$/.test(valStr)) {
+    errors.value = 'Giá trị khai báo phải là số nguyên VND từ 1 đến 9.999.999.999.';
+  }
+  if (h.passport?.issueDate && h.dob && h.passport.issueDate < h.dob) errors.passIssue = 'Ngày cấp hộ chiếu không được trước ngày sinh.';
+  if ((h.conditions || '').length > 2000) errors.conditions = 'Ghi chú sức khỏe tối đa 2.000 ký tự.';
+
+  return errors;
+}
+
+/** Mapping giữa key lỗi và ID của phần tử input trong DOM để scroll & focus */
+export const HORSE_FIELD_ELEMENT_IDS: Record<string, string> = {
+  name: 'hf-name',
+  breed: 'hf-breed',
+  sex: 'hf-sex',
+  dob: 'hf-dob',
+  microchip: 'hf-microchip',
+  passNumber: 'hf-pass-no',
+  passAuth: 'hf-pass-auth',
+  passIssue: 'hf-pass-issue',
+  passExp: 'hf-pass-exp',
+  value: 'hf-value',
+};
+
+export const emptyPlace = (): Place => ({ name: '', address: '', postal: '', contact: '', phone: '', notes: '', cityId: '', cityName: '' });
 
 // ============================================================================
 // Hợp đồng & đặt cọc
@@ -259,23 +377,28 @@ export function contractItems(r: Pick<TransportRequest, 'origin' | 'destination'
 }
 export const sumItems = (items: ContractItem[]) => items.reduce((s, i) => s + i.amount, 0);
 
-export const curVersion = (r: TransportRequest): ContractVersion | undefined => r.versions[r.versions.length - 1];
-/** Trạng thái thực tế: phiên bản đã phát hành mà quá hạn chung thì hết hạn */
+export const curVersion = (r: TransportRequest): ContractVersion | undefined =>
+  r.versions && r.versions.length > 0 ? r.versions[r.versions.length - 1] : undefined;
+/** Trạng thái thực tế: tôn trọng trạng thái từ Backend */
 export function versionState(v: ContractVersion): ContractState {
-  if (v.state === 'ISSUED' && isPast(v.validUntil)) return 'EXPIRED';
+  if (v.state === 'EXPIRED' || (v.state === 'ISSUED' && !v.signedAt && isPast(v.validUntil))) return 'EXPIRED';
   return v.state;
 }
 export const ctRef = (v: ContractVersion) => `${v.number} v${v.v}`;
 export const depositAmount = (r: TransportRequest) => {
   const v = curVersion(r);
-  return v ? Math.round((v.total * v.depositPct) / 100) : 0;
+  return v ? v.depositAmount ?? Math.round((v.total * v.depositPct) / 100) : 0;
 };
-export const contractTotal = (r: TransportRequest) => curVersion(r)?.total ?? estimate(r.origin, r.destination, r.horseCount);
-export const signedVersion = (r: TransportRequest) => r.versions.find((v) => ['EFFECTIVE', 'FULFILLED'].includes(v.state));
+export const contractTotal = (r: TransportRequest) => curVersion(r)?.total ?? 0;
+export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => ['SIGNED', 'EFFECTIVE', 'FULFILLED'].includes(v.state));
 export const isSigned = (r: TransportRequest) => !!signedVersion(r);
 
-export const depositPayments = (r: TransportRequest) => r.payments.filter((p) => p.type === 'DEPOSIT');
-export const balancePayments = (r: TransportRequest) => r.payments.filter((p) => p.type === 'BALANCE');
+export const depositPayments = (r: TransportRequest) => {
+  const v = curVersion(r);
+  return (r.payments || []).filter(p => p.type === 'DEPOSIT' && !!v?.contractId && p.contractId === v.contractId && p.versionNo === v.v);
+};
+export const verifiedPaymentAmount = (p: Payment) => p.confirmedAmount ?? (p.method === 'BANK_TRANSFER' ? 0 : p.amount);
+export const balancePayments = (r: TransportRequest) => (r.payments || []).filter((p) => p.type === 'BALANCE');
 const last = <T,>(list: T[]) => list[list.length - 1];
 
 /** QR đang xử lý nhưng đã quá 5 phút thì coi như thất bại */
@@ -284,54 +407,59 @@ export const QR_MINUTES = 5;
 export const qrExpired = (p?: Payment) => !!p && p.status === 'PROCESSING' && !!p.qrExpiresAtMs && clockMs() >= p.qrExpiresAtMs;
 
 export function depositState(r: TransportRequest): DepositState {
-  if (depositPayments(r).some((p) => p.status === 'SUCCESS')) return 'VERIFIED';
-  const p = last(depositPayments(r));
-  if (!p) return 'NONE';
-  if (p.status === 'FAILED' || qrExpired(p)) return 'FAILED';
-  return 'PENDING';
+  const payments = depositPayments(r);
+  const paid = payments.filter(p => p.status === 'SUCCESS').reduce((sum, p) => sum + verifiedPaymentAmount(p), 0);
+  if (depositAmount(r) > 0 && paid >= depositAmount(r)) return 'VERIFIED';
+  // A gateway session that expired without payment no longer blocks paying again (the server reconciles it with VNPay).
+  if (payments.some(p => ['PROCESSING', 'PENDING_CONFIRMATION'].includes(p.status) && !abandonedSession(p) && !p.reviewRequired)) return 'PENDING';
+  if (['FAILED', 'REJECTED'].includes(last(payments)?.status ?? '')) return 'FAILED';
+  return 'NONE';
 }
 export const DEPOSIT_STATE_LABEL: Record<DepositState, string> = {
-  NONE: 'Chưa thanh toán', PENDING: 'Chờ xác minh', VERIFIED: 'Đã xác minh', FAILED: 'Thanh toán thất bại',
+  NONE: 'Chưa đủ cọc', PENDING: 'Chờ xác minh', VERIFIED: 'Đã xác minh đủ cọc', FAILED: 'Thanh toán thất bại',
 };
-export const hasDepositMoney = (r: TransportRequest) => ['PENDING', 'VERIFIED'].includes(depositState(r));
-export const depositPaidAmount = (r: TransportRequest) =>
-  depositPayments(r).filter((p) => p.status === 'SUCCESS').reduce((s, p) => s + p.amount, 0);
+// A VNPay session the customer left without paying expires (15 min); allow 5 more minutes for a late gateway callback.
+const abandonedSession = (p: Payment) => p.status === 'PROCESSING' && !!p.qrExpiresAtMs && clockMs() >= p.qrExpiresAtMs + 5 * 60_000;
+// Money actually received for the current version (a VNPay page opened but not paid does not count).
+// The backend refuses to replace a version that received money, and late payments go to reconciliation.
+export const hasReceivedDeposit = (r: TransportRequest) =>
+  depositPayments(r).some(p => ['PENDING_CONFIRMATION', 'SUCCESS'].includes(p.status) || (p.confirmedAmount ?? 0) > 0);
+export const hasDepositMoney = (r: TransportRequest) => depositPayments(r).some(p => ['PROCESSING', 'PENDING_CONFIRMATION', 'SUCCESS'].includes(p.status) && !abandonedSession(p));
+export const depositPaidAmount = (r: TransportRequest) => depositPayments(r).filter(p => p.status === 'SUCCESS').reduce((sum, p) => sum + verifiedPaymentAmount(p), 0);
 
 export const canAcceptTerms = (r: TransportRequest) => {
   const v = curVersion(r);
-  return !!v && r.status === 'CONTRACT_READY' && versionState(v) === 'ISSUED' && !v.termsAcceptedAt;
+  return !!v?.snapshot && !!v.terms?.length && r.status === 'CONTRACT_READY' && versionState(v) === 'ISSUED' && !isPast(v.validUntil) && !v.termsAcceptedAt;
 };
 export const canPayDeposit = (r: TransportRequest) => {
   const v = curVersion(r);
-  return !!v && r.status === 'CONTRACT_READY' && versionState(v) === 'ISSUED' && !!v.termsAcceptedAt
+  return !!v && r.status === 'CONTRACT_READY' && versionState(v) === 'ISSUED' && !!v.termsAcceptedAt && !v.signedAt && !isPast(v.validUntil)
     && ['NONE', 'FAILED'].includes(depositState(r));
 };
 export function signBlock(r: TransportRequest): string {
   const v = curVersion(r);
   if (!v) return 'Chưa có hợp đồng.';
-  if (versionState(v) === 'EXPIRED') return 'Đã quá hạn ký. Chờ CBN Transport gia hạn hoặc phát hành phiên bản mới.';
-  if (versionState(v) !== 'ISSUED') return 'Phiên bản này không thể ký.';
+  if (!v.snapshot || !v.terms?.length) return 'Chưa tải đủ nội dung phiên bản hợp đồng.';
+  if (versionState(v) === 'EXPIRED' || isPast(v.validUntil)) return 'Đã quá hạn ký. Chờ Manager gia hạn hoặc phát hành phiên bản mới.';
+  if (versionState(v) !== 'ISSUED' || v.signedAt) return 'Phiên bản này đã ký hoặc không thể ký.';
   if (!v.termsAcceptedAt) return 'Hãy đồng ý điều khoản hợp đồng trước.';
-  if (depositState(r) !== 'VERIFIED') return 'Nút ký OTP chỉ mở sau khi tiền cọc được xác minh.';
+  if (r.status !== 'DEPOSIT_VERIFIED' || depositState(r) !== 'VERIFIED') return 'Tiền cọc phải được xác minh đủ trước khi ký OTP.';
   return '';
 }
 export const canSign = (r: TransportRequest) => r.status === 'DEPOSIT_VERIFIED' && !signBlock(r);
 export const canRequestContractChange = (r: TransportRequest) => {
   const v = curVersion(r);
-  return !!v && r.status === 'CONTRACT_READY' && ['ISSUED', 'EXPIRED'].includes(versionState(v)) && !hasDepositMoney(r);
+  return !!v && r.status === 'CONTRACT_READY' && ['ISSUED', 'EXPIRED'].includes(versionState(v)) && !hasReceivedDeposit(r);
 };
 export const canCancel = (r: TransportRequest) =>
-  ['DRAFT', 'PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED']
+  ['DRAFT', 'PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT']
     .includes(r.status);
 
 // ============================================================================
 // Giấy tờ (giấy tờ chung + hồ sơ từng ngựa)
 // ============================================================================
-export const FILE_DOC_KEYS: DocKey[] = ['invite', 'raceReg', 'ataCarnet', 'passport', 'ownership', 'valueProof', 'flu', 'health'];
+export const FILE_DOC_KEYS: DocKey[] = ['passport', 'ownership', 'valueProof', 'flu', 'health'];
 export const DOC_NAME: Record<DocKey, string> = {
-  invite: 'Thư mời thi đấu',
-  raceReg: 'Giấy đăng ký giải đua',
-  ataCarnet: 'ATA Carnet (nếu áp dụng)',
   passport: 'Hộ chiếu ngựa',
   ownership: 'Chứng nhận sở hữu ngựa',
   bio: 'Thông tin sinh học',
@@ -347,22 +475,11 @@ export const HORSE_FILE_FIELD: Partial<Record<HorseDocKey, 'ownership' | 'valueP
 };
 
 export const docRecord = (r: TransportRequest, key: DocKey, scope: string): DocRecord | undefined =>
-  r.docs.find((d) => d.key === key && d.scope === scope);
+  (r.docs || []).find((d) => d.key === key && (d.scope === scope || d.scope.replace(/-/g, '_') === scope.replace(/-/g, '_')));
 
-/** Giấy tờ chung của đơn (thư mời, đăng ký giải; ATA Carnet cho tuyến Việt Nam → Nhật Bản) */
-export function sharedDocItems(r: TransportRequest): DocItem[] {
-  const keys: SharedDocKey[] = ['invite', 'raceReg'];
-  if (city(r.destination).country === 'JP' && isInternational(r.origin, r.destination)) keys.push('ataCarnet');
-  return keys.map((key) => {
-    const rec = docRecord(r, key, 'request');
-    return {
-      key, scope: 'request', name: DOC_NAME[key], kind: 'file', optional: true,
-      status: rec?.status ?? 'OPTIONAL', file: rec?.file, issue: rec?.issue,
-      note: rec?.file ? `Đã tải lên: ${rec.file.name}`
-        : key === 'ataCarnet' ? 'Tùy yêu cầu tạm quản, không mặc định bắt buộc.'
-        : 'Có điều kiện: chỉ cần khi chuyến phục vụ thi đấu / sự kiện.',
-    };
-  });
+/** Giấy tờ chung của đơn: Đã loại bỏ hồ sơ dùng chung theo Flow 1 */
+export function sharedDocItems(_r?: TransportRequest): DocItem[] {
+  return [];
 }
 
 /** Hồ sơ của một ngựa trong đơn: trạng thái lấy từ bản ghi giấy tờ, nếu chưa có thì suy ra từ hồ sơ ngựa */
@@ -387,37 +504,41 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
       `Giống: ${h.breed || '—'} • Giới tính: ${SEX_LABEL[h.sex] ?? '—'} • Sinh: ${fmtDate(h.dob)} • Microchip: ${h.microchip || '—'}`),
     item('valueProof', 'file', fileOf('valueProof') ? 'SUBMITTED' : 'OPTIONAL',
       `Giá trị khai báo: ${h.value ? `${Number(h.value).toLocaleString('en-US')} ${h.currency}` : '—'}`, true),
-    item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : 'MISSING', `Tiêm cúm gần nhất: ${fmtDate(h.fluDate)}`),
+    item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : h.unsupportedFields?.includes('flu') ? 'NOT_REQUIRED_YET' : 'MISSING', `Tiêm cúm gần nhất: ${fmtDate(h.fluDate)}`),
     item('health', 'file', fileOf('health') ? 'SUBMITTED' : 'NOT_REQUIRED_YET',
       fileOf('health') ? `Tệp: ${fileOf('health')!.name}` : 'Specialist kiểm tra yêu cầu hiệu lực trước khởi hành.'),
     item('conditions', 'info', h.conditions ? 'SUBMITTED' : 'OPTIONAL', h.conditions || 'Không khai báo tình trạng đặc biệt.', true),
-    item('vet', 'info', h.vetName && h.vetPhone ? 'SUBMITTED' : 'NEEDS_INPUT', `Tên: ${h.vetName || '—'} • SĐT: ${h.vetPhone || '—'}`),
+    item('vet', 'info', h.unsupportedFields?.includes('vetName') ? 'NOT_REQUIRED_YET' : h.vetName && h.vetPhone ? 'SUBMITTED' : 'NEEDS_INPUT', `Tên: ${h.vetName || '—'} • SĐT: ${h.vetPhone || '—'}`),
   ];
 }
 
-export const pickedHorses = (r: TransportRequest) => [...new Set(r.horses.filter(Boolean))];
-export const openSupplements = (r: TransportRequest) => r.supplements.filter((s) => s.status === 'OPEN');
-export const rejectedDocs = (r: TransportRequest) => r.docs.filter((d) => d.status === 'ACTION_REQUIRED');
+export const pickedHorses = (r: TransportRequest) => [...new Set((r.horses || []).filter(Boolean))];
+export const openSupplements = (r: TransportRequest) => (r.supplements || []).filter((s) => s.status === 'OPEN');
+export const rejectedDocs = (r: TransportRequest) => (r.docs || []).filter((d) => d.status === 'ACTION_REQUIRED');
 export const docsNeedingAction = (r: TransportRequest) => rejectedDocs(r).length + openSupplements(r).length;
 
 /** Mọi lỗi chặn gửi đơn, kèm bước wizard sửa được (0 = thông tin chuyến) */
 export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[number, string]> {
   const e: Array<[number, string]> = [];
   if (!isSupportedRoute(r.origin, r.destination)) e.push([0, 'Tuyến này không nhận đơn mới.']);
-  if (!r.date || r.date < today()) e.push([0, 'Ngày vận chuyển phải từ hôm nay trở đi.']);
+  if (!r.date || r.date < today()) e.push([0, 'Ngày giao mong muốn phải từ hôm nay trở đi.']);
+  if (!r.pickupAt || r.pickupAt < today() || r.pickupAt > r.date) e.push([0, 'Ngày lấy ngựa phải từ hôm nay và không sau ngày giao mong muốn.']);
   (['pickup', 'delivery'] as const).forEach((k) => {
     const p = r[k], label = k === 'pickup' ? 'Điểm nhận' : 'Điểm giao';
-    if (!p.name.trim() || !p.address.trim() || !p.contact.trim() || !p.phone.trim()) e.push([1, `${label}: còn thiếu tên, địa chỉ, người liên hệ hoặc số điện thoại.`]);
+    if (!String(p?.name ?? '').trim() || !String(p?.address ?? '').trim() || !String(p?.contact ?? '').trim() || !String(p?.phone ?? '').trim()) e.push([0, `${label}: còn thiếu tên, địa chỉ, người liên hệ hoặc số điện thoại.`]);
   });
+  if (r.horseCount < 1 || r.horseCount > 6 || pickedHorses(r).length !== r.horseCount) e.push([2, 'Chọn đủ số ngựa, từ 1 đến 6.']);
   r.horses.forEach((id, i) => { if (!id) e.push([2, `Chưa chọn ngựa ở vị trí ${i + 1}/${r.horses.length}.`]); });
   pickedHorses(r).forEach((id) => {
     const h = horses.find((x) => x.id === id);
-    if (!h) return;
-    if (!h.microchip.trim()) e.push([2, `${h.name}: thiếu số microchip.`]);
-    if (!h.passport.number.trim()) e.push([2, `${h.name}: thiếu số hộ chiếu ngựa.`]);
-    if (!h.passport.scan && !docRecord(r, 'passport', id)?.file) e.push([2, `${h.name}: thiếu bản scan hộ chiếu ngựa.`]);
+    if (!h) { e.push([2, `Không tìm thấy hồ sơ ${id}.`]); return; }
+    if (!String(h.microchip ?? '').trim()) e.push([2, `${h.name}: thiếu số microchip.`]);
+    if (!String(h.passport?.number ?? '').trim()) e.push([2, `${h.name}: thiếu số hộ chiếu ngựa.`]);
+    if (!h.photo) e.push([2, `${h.name}: thiếu ảnh nhận diện.`]);
+    if (!h.passport?.scan && !docRecord(r, 'passport', id)?.file) e.push([2, `${h.name}: thiếu bản scan hộ chiếu ngựa.`]);
     if (!h.ownership && !docRecord(r, 'ownership', id)?.file) e.push([2, `${h.name}: thiếu chứng nhận sở hữu.`]);
     if (passportStatus(h) === 'EXPIRED') e.push([2, `${h.name}: hộ chiếu đã hết hạn, hãy cập nhật trước khi gửi.`]);
+    else if (h.passport.expiryDate && h.passport.expiryDate <= r.date) e.push([2, `${h.name}: hộ chiếu phải còn hạn qua ngày giao mong muốn.`]);
   });
   return e;
 }
@@ -425,71 +546,44 @@ export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[numbe
 // ============================================================================
 // Chuyến đi
 // ============================================================================
-const CITY_GEO: Record<string, { lat: number; lng: number; country: string }> = {
-  'Ho Chi Minh City': { lat: 10.7769, lng: 106.7009, country: 'VN' },
-  'Hanoi': { lat: 21.0285, lng: 105.8542, country: 'VN' },
-  'Da Nang': { lat: 16.0544, lng: 108.2022, country: 'VN' },
-  'Bangkok': { lat: 13.7367, lng: 100.5420, country: 'TH' },
-  'Tokyo': { lat: 35.6631, lng: 139.4828, country: 'JP' },
-  'Osaka': { lat: 34.6937, lng: 135.5023, country: 'JP' },
-  'Singapore': { lat: 1.3521, lng: 103.8198, country: 'SG' },
-  'London': { lat: 51.5074, lng: -0.1278, country: 'UK' },
-  'Dubai': { lat: 25.2048, lng: 55.2708, country: 'AE' },
-};
-
-const AIRPORT_GEO: Record<string, { lat: number; lng: number; name: string; country: string }> = {
-  'Ho Chi Minh City': { lat: 10.8188, lng: 106.6520, name: 'Sân bay Quốc tế Tân Sơn Nhất (SGN)', country: 'VN' },
-  'Hanoi': { lat: 21.2212, lng: 105.8072, name: 'Sân bay Quốc tế Nội Bài (HAN)', country: 'VN' },
-  'Da Nang': { lat: 16.0439, lng: 108.1994, name: 'Sân bay Quốc tế Đà Nẵng (DAD)', country: 'VN' },
-  'Bangkok': { lat: 13.6900, lng: 100.7501, name: 'Sân bay Suvarnabhumi (BKK)', country: 'TH' },
-  'Tokyo': { lat: 35.7720, lng: 140.3929, name: 'Sân bay Quốc tế Narita (NRT)', country: 'JP' },
-  'Osaka': { lat: 34.4347, lng: 135.2441, name: 'Sân bay Kansai (KIX)', country: 'JP' },
-  'Singapore': { lat: 1.3644, lng: 103.9915, name: 'Sân bay Changi (SIN)', country: 'SG' },
-  'London': { lat: 51.4700, lng: -0.4543, name: 'Sân bay London Heathrow (LHR)', country: 'UK' },
-  'Dubai': { lat: 25.2532, lng: 55.3657, name: 'Sân bay Quốc tế Dubai (DXB)', country: 'AE' },
-};
-
 export function tripTemplate(r: TransportRequest): Pick<Trip, 'mode' | 'stops' | 'plannedDepart' | 'eta'> {
   const intl = isInternational(r.origin, r.destination);
   const depart = `${r.date} 06:00`;
-  const origG = CITY_GEO[r.origin] || { lat: 10.7769, lng: 106.7009, country: 'VN' };
-  const destG = CITY_GEO[r.destination] || { lat: 21.0285, lng: 105.8542, country: 'VN' };
-  const origAir = AIRPORT_GEO[r.origin] || { lat: origG.lat + 0.05, lng: origG.lng + 0.05, name: `Sân bay ${shortCity(r.origin)}`, country: origG.country };
-  const destAir = AIRPORT_GEO[r.destination] || { lat: destG.lat + 0.05, lng: destG.lng + 0.05, name: `Sân bay ${shortCity(r.destination)}`, country: destG.country };
-
   const stops: TripStop[] = intl
     ? [
-      { id: 's1', name: r.pickup.name || r.origin, type: 'ORIGIN', country: origG.country, plannedAt: depart, lat: origG.lat, lng: origG.lng },
-      { id: 's2', name: origAir.name, type: 'AIRPORT', country: origAir.country, plannedAt: addHours(depart, 4), lat: origAir.lat, lng: origAir.lng },
-      { id: 's3', name: destAir.name, type: 'AIRPORT', country: destAir.country, plannedAt: addHours(depart, 14), lat: destAir.lat, lng: destAir.lng },
-      { id: 's4', name: `Trạm kiểm dịch ${shortCity(r.destination)}`, type: 'CHECKPOINT', country: destAir.country, plannedAt: addHours(depart, 18), lat: destAir.lat + 0.02, lng: destAir.lng + 0.02 },
-      { id: 's5', name: r.delivery.name || r.destination, type: 'DESTINATION', country: destG.country, plannedAt: addHours(depart, 24), lat: destG.lat, lng: destG.lng },
+      { name: r.pickup.name || r.origin, type: 'ORIGIN', plannedAt: depart },
+      { name: `Sân bay ${shortCity(r.origin)}`, type: 'AIRPORT', plannedAt: addHours(depart, 4) },
+      { name: `Sân bay ${shortCity(r.destination)}`, type: 'AIRPORT', plannedAt: addHours(depart, 14) },
+      { name: `Trạm kiểm dịch ${shortCity(r.destination)}`, type: 'CHECKPOINT', plannedAt: addHours(depart, 18) },
+      { name: r.delivery.name || r.destination, type: 'DESTINATION', plannedAt: addHours(depart, 24) },
     ]
     : [
-      { id: 's1', name: r.pickup.name || r.origin, type: 'ORIGIN', country: origG.country, plannedAt: depart, lat: origG.lat, lng: origG.lng },
-      { id: 's2', name: 'Trạm dừng chân giữa tuyến', type: 'REST_STOP', country: origG.country, plannedAt: addHours(depart, 6), lat: (origG.lat + destG.lat) / 2, lng: (origG.lng + destG.lng) / 2 },
-      { id: 's3', name: r.delivery.name || r.destination, type: 'DESTINATION', country: destG.country, plannedAt: addHours(depart, 14), lat: destG.lat, lng: destG.lng },
+      { name: r.pickup.name || r.origin, type: 'ORIGIN', plannedAt: depart },
+      { name: 'Trạm nghỉ giữa tuyến', type: 'REST_STOP', plannedAt: addHours(depart, 6) },
+      { name: r.delivery.name || r.destination, type: 'DESTINATION', plannedAt: addHours(depart, 14) },
     ];
   return { mode: intl ? 'AIR' : 'ROAD', stops, plannedDepart: depart, eta: stops[stops.length - 1].plannedAt };
 }
 
 /** Tóm tắt tiến độ theo mốc tổ xe xác nhận */
 export function tripSummary(t: Trip) {
-  const m = t.milestones[t.milestones.length - 1];
+  const milestones = t.milestones || [];
+  const stops = t.stops || [];
+  const m = milestones.length > 0 ? milestones[milestones.length - 1] : undefined;
   const at = m ? m.stopIndex : -1;
   // số điểm dừng đã có mốc xác nhận (điểm của mốc gần nhất và mọi điểm trước nó)
-  const done = t.status === 'COMPLETED' ? t.stops.length : at + 1;
-  const pct = t.stops.length ? Math.round((Math.min(done, t.stops.length) / t.stops.length) * 100) : 0;
-  const lastLabel = m ? `${MILESTONE_LABEL[m.type]} – ${t.stops[m.stopIndex]?.name ?? ''}` : '';
+  const done = t.status === 'COMPLETED' ? stops.length : at + 1;
+  const pct = stops.length ? Math.round((Math.min(done, stops.length) / stops.length) * 100) : 0;
+  const lastLabel = m ? `${MILESTONE_LABEL[m.type]} – ${stops[m.stopIndex]?.name ?? ''}` : '';
   return {
-    m, at, done: Math.min(done, t.stops.length), pct, lastLabel,
-    dep: t.milestones.find((x) => x.type === 'DEPARTED'),
-    arr: t.milestones.find((x) => x.type === 'ARRIVED_DESTINATION'),
+    m, at, done: Math.min(done, stops.length), pct, lastLabel,
+    dep: milestones.find((x) => x.type === 'DEPARTED'),
+    arr: milestones.find((x) => x.type === 'ARRIVED_DESTINATION'),
     adjusted: !!t.etaOriginal && t.etaOriginal !== t.eta,
   };
 }
 export const handoverState = (t?: Trip): 'PENDING' | 'COMPLETED' | null =>
-  !t ? null : t.handover ? 'COMPLETED' : t.milestones.some((m) => m.type === 'ARRIVED_DESTINATION') ? 'PENDING' : null;
+  !t ? null : t.handover ? 'COMPLETED' : (t.milestones || []).some((m) => m.type === 'ARRIVED_DESTINATION') ? 'PENDING' : null;
 
 // ============================================================================
 // Bàn giao, nghiệm thu, số dư, đóng yêu cầu
@@ -502,7 +596,7 @@ export function balanceState(r: TransportRequest): 'NONE' | 'PROCESSING' | 'VERI
   if (!p) return 'NONE';
   return p.status === 'SUCCESS' ? 'VERIFIED' : p.status === 'PROCESSING' ? 'PROCESSING' : 'FAILED';
 }
-export const openComplaints = (r: TransportRequest) => r.complaints.filter((c) => !['RESOLVED', 'CLOSED'].includes(c.status));
+export const openComplaints = (r: TransportRequest) => (r.complaints || []).filter((c) => !['RESOLVED', 'CLOSED'].includes(c.status));
 export const canComplain = (r: TransportRequest) => !!r.trip?.handover && ['DELIVERED'].includes(r.status);
 
 export function closureChecks(r: TransportRequest): Array<[string, boolean]> {
@@ -520,7 +614,7 @@ export function closureChecks(r: TransportRequest): Array<[string, boolean]> {
 // ============================================================================
 export const STAGES: Array<[string, RequestDetailTab]> = [
   ['Gửi yêu cầu', 'overview'], ['Manager xét duyệt', 'overview'], ['Soạn hợp đồng', 'contract'], ['Xem & đồng ý hợp đồng', 'contract'],
-  ['Đặt cọc & ký OTP', 'payment'], ['Lập kế hoạch & chuẩn bị', 'documents'], ['Đang vận chuyển', 'tracking'], ['Bàn giao', 'handover'],
+  ['Ký OTP & đặt cọc', 'payment'], ['Lập kế hoạch & chuẩn bị', 'documents'], ['Đang vận chuyển', 'tracking'], ['Bàn giao', 'handover'],
   ['Nghiệm thu & thanh toán', 'handover'], ['Đóng yêu cầu', 'history'],
 ];
 
@@ -535,8 +629,9 @@ export function lifecycle(r: TransportRequest): Lifecycle {
     case 'CONTRACT_CHANGES_REQUESTED': return { at: 3, note: 'Manager đang xem yêu cầu sửa' };
     case 'CONTRACT_READY':
       if (v && versionState(v) === 'EXPIRED') return { at: 3, exc: 'warn', note: 'Phiên bản đã hết hạn' };
-      if (v?.termsAcceptedAt) return ds === 'PENDING' ? { at: 4, note: 'Đang xác minh cọc' } : ds === 'FAILED' ? { at: 4, exc: 'warn', note: 'Thanh toán thất bại' } : { at: 4, note: 'Cần đặt cọc' };
+      if (v?.termsAcceptedAt) return { at: 4, note: 'Thanh toán và xác minh tiền cọc' };
       return { at: 3, note: 'Xem & đồng ý điều khoản' };
+    case 'AWAITING_DEPOSIT': return { at: 4, note: ds === 'PENDING' ? 'Đang xác minh cọc' : 'Đã ký – cần đặt cọc' };
     case 'DEPOSIT_VERIFIED': return v && versionState(v) === 'EXPIRED' ? { at: 4, exc: 'warn', note: 'Quá hạn ký' } : { at: 4, note: 'Đã xác minh cọc – ký OTP' };
     case 'CANCELLATION_REQUESTED': return { at: 4, exc: 'warn', note: 'Đang xét duyệt hủy' };
     case 'ACTIVATED':

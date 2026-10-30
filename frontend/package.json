@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "contract:check": "node scripts/check-flow1-contract.mjs",
+    "contract:check:flow6": "node ../contracts/API-Flow/Flow6/validate_contract.mjs"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
@@ -17,7 +19,8 @@
     "leaflet": "^1.9.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "ajv": "6.15.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

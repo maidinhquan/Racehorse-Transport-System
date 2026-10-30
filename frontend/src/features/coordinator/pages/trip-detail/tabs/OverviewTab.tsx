@@ -1,63 +1,51 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import type { Trip } from '../../../types';
-import { useCoordinator } from '../../../hooks/useCoordinator';
-import { SLOTS, SLOT_LABEL, crewList, fmtDateTime, modeLabel, planGaps } from '../../../hooks/coordinatorRules';
+// Chi tiết chuyến của Điều phối: Tổng quan • Tuyến đường (lập lộ trình) • Xe & nhân sự • Chuyến bay • Theo dõi hành trình
+import { Cell, PillT } from '../../../components/common/ui';
+import { DemoCard } from '../../../components/demo/Demo';
+import { curRoute, custOf, deployed, deployPill, planPill, planState, reqOfTrip, resourceGaps, resourcePill, routePill, tripHorses, tripNextAction } from '../../../domain/coordinatorRules';
+import type { Any } from '../../../store/coordinatorStore';
+import { go } from '../../../store/coordinatorStore';
+import { cityLabel, date, dt } from '../../../utils/format';
 
-export const OverviewTab: React.FC<{ trip: Trip }> = ({ trip }) => {
-  const navigate = useNavigate();
-  const { trips, vehicles, staff, actions } = useCoordinator();
-  const gaps = planGaps(trip, vehicles, staff, trips);
-  const vehicle = vehicles.find((v) => v.id === trip.vehicleId);
-  const name = (id?: string) => staff.find((s) => s.id === id)?.name ?? '—';
+const NEXT_STEP: Record<string, (t: Any) => string> = {
+  AWAITING_DEPLOYMENT: () => 'Đang chờ Quản lý vận hành xác nhận triển khai. Việc lập kế hoạch chính thức bắt đầu sau đó.',
+  ON_HOLD: () => 'Triển khai đang tạm dừng. Kế hoạch hiện có được giữ ở chế độ chỉ xem cho đến khi Quản lý tiếp tục triển khai.',
+  AWAITING_ROUTE: (t) => (curRoute(t) ? `Hoàn tất tuyến phiên bản ${curRoute(t).v} và gửi Quản lý duyệt.` : 'Bắt đầu lập tuyến.'),
+  ROUTE_PENDING: (t) => `Tuyến phiên bản ${curRoute(t) ? curRoute(t).v : ''} đang chờ Quản lý quyết định.`,
+  ROUTE_RETURNED: () => 'Quản lý đã trả lại tuyến. Hãy đọc nhận xét và tạo phiên bản chỉnh sửa.',
+  MISSING_RESOURCES: (t) => `Phân công nguồn lực còn thiếu: ${resourceGaps(t).join(', ')}.`,
+  PLANNED: () => 'Tuyến đã được duyệt và nguồn lực đã được phân công. Việc duyệt khởi hành do Quản lý quyết định.',
+};
 
+export function OverviewTab({ t }: { t: Any }) {
+  const r = reqOfTrip(t), ps = planState(t);
   return (
-    <div className="crd-grid2">
-      <div className="crd-card">
-        <h3 className="crd-card__title">Thông tin chuyến</h3>
-        <div className="crd-kv">
-          <div><span>Chuyến</span><b>{trip.id}</b></div>
-          <div><span>Yêu cầu</span><b>{trip.requestId}</b></div>
-          <div><span>Khách hàng</span><b>{trip.customer}</b></div>
-          <div><span>Phương thức</span><b>{modeLabel(trip.mode)}</b></div>
-          <div><span>Nơi đi</span><b>{trip.origin}</b></div>
-          <div><span>Nơi đến</span><b>{trip.destination}</b></div>
-          <div><span>Khởi hành dự kiến</span><b>{fmtDateTime(trip.plannedDepart)}</b></div>
-          <div><span>ETA</span><b>{fmtDateTime(trip.eta)}</b></div>
-          <div><span>Ngựa</span><b>{trip.horses.join(', ')}</b></div>
-          <div><span>Xe</span><b>{trip.mode === 'AIR' ? '2 chặng xe + chuyến bay' : vehicle ? `${vehicle.plate} • ${vehicle.stalls} ngăn` : '—'}</b></div>
-        </div>
-        {trip.mode === 'ROAD' && crewList(trip.crew).length > 0 && (
-          <>
-            <h3 className="crd-card__title" style={{ marginTop: 18 }}>Tổ xe</h3>
-            <div className="crd-kv">{SLOTS.map((k) => <div key={k}><span>{SLOT_LABEL[k]}</span><b>{name(trip.crew[k])}</b></div>)}</div>
-          </>
-        )}
-      </div>
-
-      <div className="crd-card">
-        <h3 className="crd-card__title">Việc cần làm để sẵn sàng khởi hành</h3>
-        {trip.status !== 'PLANNING' ? (
-          <div className="crd-note crd-note--green"><div><b>Đã qua bước lập kế hoạch</b>Theo dõi chuyến ở tab “Theo dõi hành trình”.</div></div>
-        ) : gaps.length ? (
-          <ul className="crd-gap-list">{gaps.map((g) => <li key={g}>{g}</li>)}</ul>
-        ) : (
-          <div className="crd-note crd-note--green"><div><b>Đã đủ điều kiện</b>Tuyến đã duyệt, xe & nhân sự đã xác nhận. Manager có thể duyệt khởi hành.</div></div>
-        )}
-        <div className="crd-btn-row">
-          <button type="button" className="crd-btn crd-btn--sm" onClick={() => navigate(`/coordinator/trips/${trip.id}/route`)}>Tuyến đường</button>
-          <button type="button" className="crd-btn crd-btn--sm" onClick={() => navigate(`/coordinator/trips/${trip.id}/resources`)}>Xe & nhân sự</button>
-        </div>
-        {trip.status === 'PLANNING' && trip.deploymentStatus === 'CONFIRMED' && (
-          <div className="crd-demo">
-            <div className="crd-demo__title">Điều khiển demo</div>
-            <p>Giả lập Manager duyệt khởi hành khi mọi điều kiện đã đủ.</p>
-            <button type="button" className="crd-btn crd-btn--sm" disabled={gaps.length > 0} onClick={() => actions.demoApproveDeparture(trip.id)}>Demo: Manager duyệt khởi hành</button>
+    <div className="grid-main">
+      <div className="stack">
+        <div className="card"><h3 className="card-title">Tổng quan chuyến</h3>
+          <div className="kv2">
+            <Cell label="Chuyến">{t.id}</Cell><Cell label="Yêu cầu">{r.id}</Cell><Cell label="Khách hàng">{custOf(r).company}</Cell><Cell label="Điểm đi">{cityLabel(r.origin)}</Cell><Cell label="Điểm đến">{cityLabel(r.destination)}</Cell>
+            <Cell label="Phương thức vận chuyển">{t.mode}</Cell><Cell label="Lấy ngựa mong muốn">{r.pickupAt ? date(r.pickupAt.slice(0, 10)) : '—'}</Cell><Cell label="Ngày vận chuyển">{date(r.date)}</Cell>
+            <Cell label="Ngựa">{tripHorses(t).length}</Cell><Cell label="Khởi hành dự kiến">{dt(t.plannedDepart)}</Cell><Cell label="Dự kiến đến">{dt(t.eta)}</Cell>
           </div>
-        )}
+          <div className="kv2" style={{ marginTop: 16 }}>
+            <Cell label="Triển khai"><PillT p={deployPill(t)} /></Cell><Cell label="Duyệt tuyến"><PillT p={routePill(t)} /></Cell>
+            <Cell label="Nguồn lực">{deployed(t) ? <PillT p={resourcePill(t)} /> : <span className="muted">Sau khi triển khai</span>}</Cell><Cell label="Lập kế hoạch"><PillT p={planPill(t)} /></Cell>
+          </div>
+        </div>
+        <div className="card"><h3 className="card-title">Bước tiếp theo</h3><p className="subtitle">{NEXT_STEP[ps] ? NEXT_STEP[ps](t) : tripNextAction(t)}</p>
+          <div className="btn-row">
+            {['AWAITING_ROUTE', 'ROUTE_PENDING', 'ROUTE_RETURNED'].includes(ps) ? <button type="button" className="btn solid" onClick={() => go(`f/trip/${t.id}/route`)}>Mở tuyến</button> : null}
+            {ps === 'MISSING_RESOURCES' ? <button type="button" className="btn solid" onClick={() => go(`f/trip/${t.id}/resources`)}>Phân công nguồn lực</button> : null}
+          </div>
+        </div>
+      </div>
+      <div className="stack">
+        <div className="card"><div className="eyebrow">Đón &amp; giao</div>
+          <div className="lines" style={{ marginTop: 10 }}><b>{r.pickup.name || r.origin}</b><br />{r.pickup.address || ''}</div>
+          <div className="lines" style={{ marginTop: 10 }}><b>{r.delivery.name || r.destination}</b><br />{r.delivery.address || ''}</div>
+        </div>
+        {t.demoFlow3 ? null : <DemoCard current={t.id} />}
       </div>
     </div>
   );
-};
-
-export default OverviewTab;
+}

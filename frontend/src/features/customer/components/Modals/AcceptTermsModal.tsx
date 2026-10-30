@@ -20,9 +20,9 @@ export const AcceptTermsModal: React.FC<AcceptTermsModalProps> = ({ open, reques
   const v = r ? curVersion(r) : undefined;
   if (!r || !v) return null;
 
-  const submit = () => {
+  const submit = async () => {
     if (!checked) return setError('Tích ô xác nhận để đồng ý điều khoản.');
-    const res = actions.acceptTerms(requestId);
+    const res = await actions.acceptTerms(requestId);
     if (!res.ok) return setError(res.message);
     onAccepted();
   };
@@ -30,11 +30,11 @@ export const AcceptTermsModal: React.FC<AcceptTermsModalProps> = ({ open, reques
   return (
     <Modal open={open} title={`Đồng ý điều khoản ${ctRef(v)}?`} okText="Đồng ý điều khoản" onClose={onClose} onOk={submit} error={error}>
       <p>
-        Tổng hợp đồng <b>{fmtMoney(v.total)} USD</b> • tiền cọc {v.depositPct}%: <b>{fmtMoney(depositAmount(r))}</b> •
+        Tổng hợp đồng <b>{fmtMoney(v.total)}</b> • tiền cọc {v.depositPct}%: <b>{fmtMoney(depositAmount(r))}</b> •
         hạn chung <b>{fmtDateTime(v.validUntil)}</b> ({timeLeft(v.validUntil)}).
       </p>
       <ul className="cus-rule-list">
-        <li>Tiếp theo, thanh toán tiền cọc. Tiền cọc được cổng thanh toán Sandbox xác minh.</li>
+        <li>Tiếp theo, thanh toán tiền cọc. Tiền cọc được máy chủ xác minh.</li>
         <li>Nút ký OTP chỉ mở sau khi xác minh. Ký OTP thành công làm hợp đồng có hiệu lực và kích hoạt yêu cầu.</li>
       </ul>
       <label className="cus-check">

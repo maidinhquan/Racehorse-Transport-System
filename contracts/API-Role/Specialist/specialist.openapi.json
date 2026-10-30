@@ -1,0 +1,304 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Racehorse Transport System — Specialist Role API",
+    "version": "1.0.0",
+    "description": "Toàn bộ API endpoints dành riêng cho Role Transport Specialist (Chuyên viên Hồ sơ & Kiểm dịch Y tế)."
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API Base URL"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "tags": [
+    { "name": "Trip Documents & Readiness", "description": "Hồ sơ y tế chuyến đi và xác nhận Documents READY" },
+    { "name": "Customer Documents Review", "description": "Kiểm duyệt hồ sơ khách hàng nộp và tạo yêu cầu bổ sung" },
+    { "name": "Clearance & Quarantine", "description": "Thông quan, kiểm dịch vùng và đặt chỗ cơ sở cách ly" },
+    { "name": "Regulations & Standards", "description": "Danh mục quy định kiểm dịch thú y, mẫu loại giấy tờ và kiểm toán" }
+  ],
+  "paths": {
+    "/specialist/trips": {
+      "get": {
+        "tags": ["Trip Documents & Readiness"],
+        "summary": "Danh sách các chuyến đi Specialist phụ trách",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    },
+    "/specialist/trips/{tripId}": {
+      "get": {
+        "tags": ["Trip Documents & Readiness"],
+        "summary": "Chi tiết hồ sơ chuyến đi và checklist y tế",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    },
+    "/specialist/trips/{tripId}/requirement-set": {
+      "put": {
+        "tags": ["Trip Documents & Readiness"],
+        "summary": "Áp dụng bộ quy định kiểm dịch theo tuyến",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "pkgId": { "type": "string" } },
+                "required": ["pkgId"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/trips/{tripId}/docs-ready": {
+      "post": {
+        "tags": ["Trip Documents & Readiness"],
+        "summary": "Xác nhận Sẵn sàng Hồ sơ (Documents READY)",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/trips/{tripId}/insurance": {
+      "put": {
+        "tags": ["Trip Documents & Readiness"],
+        "summary": "Cập nhật thông tin hợp đồng bảo hiểm vận chuyển",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "provider": { "type": "string" },
+                  "policyNumber": { "type": "string" },
+                  "coverageAmount": { "type": "number" },
+                  "validFrom": { "type": "string" },
+                  "validTo": { "type": "string" }
+                },
+                "required": ["provider", "policyNumber", "coverageAmount"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/trips/{tripId}/insurance/verify": {
+      "post": {
+        "tags": ["Trip Documents & Readiness"],
+        "summary": "Xác minh hiệu lực hợp đồng bảo hiểm",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/trips/{tripId}/clearances": {
+      "post": {
+        "tags": ["Clearance & Quarantine"],
+        "summary": "Ghi nhận chứng thư kiểm dịch và thông quan",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "certNumber": { "type": "string" },
+                  "authority": { "type": "string" },
+                  "issueDate": { "type": "string" },
+                  "expiryDate": { "type": "string" }
+                },
+                "required": ["certNumber", "authority", "issueDate", "expiryDate"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/customer-documents": {
+      "get": {
+        "tags": ["Customer Documents Review"],
+        "summary": "Danh sách toàn bộ hồ sơ khách hàng nộp cần kiểm duyệt",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      }
+    },
+    "/specialist/trips/{tripId}/customer-documents/review": {
+      "post": {
+        "tags": ["Customer Documents Review"],
+        "summary": "Phê duyệt hoặc từ chối hồ sơ khách hàng nộp",
+        "parameters": [{ "name": "tripId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "docId": { "type": "string" },
+                  "decision": { "type": "string", "enum": ["APPROVED", "REJECTED"] },
+                  "reason": { "type": "string" }
+                },
+                "required": ["docId", "decision"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/document-requests": {
+      "get": {
+        "tags": ["Customer Documents Review"],
+        "summary": "Danh sách các yêu cầu bổ sung giấy tờ",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Customer Documents Review"],
+        "summary": "Tạo yêu cầu bổ sung giấy tờ gửi khách hàng",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "requestId": { "type": "string" },
+                  "horseId": { "type": "string" },
+                  "docType": { "type": "string" },
+                  "description": { "type": "string", "minLength": 10 }
+                },
+                "required": ["requestId", "docType", "description"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/quarantine-bookings": {
+      "get": {
+        "tags": ["Clearance & Quarantine"],
+        "summary": "Danh sách đặt chỗ cơ sở cách ly kiểm dịch",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StandardEnvelope" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Clearance & Quarantine"],
+        "summary": "Ghi nhận đặt chỗ cơ sở cách ly kiểm dịch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "facilityName": { "type": "string" },
+                  "startDate": { "type": "string" },
+                  "endDate": { "type": "string" },
+                  "horseCount": { "type": "integer", "minimum": 1 },
+                  "bookingRef": { "type": "string" }
+                },
+                "required": ["facilityName", "startDate", "endDate", "horseCount"]
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/documents": {
+      "get": {
+        "tags": ["Trip Documents & Readiness"],
+        "summary": "Danh sách hồ sơ pháp lý công ty",
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "tags": ["Trip Documents & Readiness"],
+        "summary": "Tạo mới hoặc lưu hồ sơ pháp lý",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/regulations": {
+      "get": {
+        "tags": ["Regulations & Standards"],
+        "summary": "Danh mục quy định kiểm dịch thú y hiện hành",
+        "responses": { "200": { "description": "OK" } }
+      },
+      "put": {
+        "tags": ["Regulations & Standards"],
+        "summary": "Cập nhật quy định kiểm dịch thú y",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/document-types": {
+      "get": {
+        "tags": ["Regulations & Standards"],
+        "summary": "Danh mục các loại giấy tờ y tế và hải quan",
+        "responses": { "200": { "description": "OK" } }
+      },
+      "put": {
+        "tags": ["Regulations & Standards"],
+        "summary": "Cập nhật danh mục loại giấy tờ",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/requirement-sets": {
+      "get": {
+        "tags": ["Regulations & Standards"],
+        "summary": "Danh mục các bộ quy định kiểm dịch theo tuyến",
+        "responses": { "200": { "description": "OK" } }
+      },
+      "put": {
+        "tags": ["Regulations & Standards"],
+        "summary": "Cập nhật bộ quy định kiểm dịch",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/specialist/audit": {
+      "get": {
+        "tags": ["Regulations & Standards"],
+        "summary": "Nhật ký kiểm toán hồ sơ và kiểm duyệt",
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "StandardEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object", "nullable": true }
+        },
+        "required": ["success", "message", "data"]
+      }
+    }
+  }
+}

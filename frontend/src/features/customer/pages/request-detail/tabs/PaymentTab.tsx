@@ -1,3 +1,5 @@
+import { downloadFile } from '../../../../../shared/api/downloadFile';
+import { useCustomer } from '../../../hooks/useCustomer';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TransportRequest } from '../../../types';
@@ -26,6 +28,7 @@ const REFUND_LABEL = { REQUESTED: 'Đã yêu cầu hoàn', PROCESSING: 'Đang x�
 /** Tab Thanh toán: tiền cọc, các giao dịch của yêu cầu, hoàn tiền và thanh toán số dư */
 export const PaymentTab: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
   const navigate = useNavigate();
+  const { actions } = useCustomer();
   const v = curVersion(r);
   if (!v || (!v.termsAcceptedAt && !r.payments.length)) {
     return (
@@ -37,7 +40,7 @@ export const PaymentTab: React.FC<{ request: TransportRequest }> = ({ request: r
   const ds = depositState(r);
   const last = [...r.payments].reverse().find((p) => p.type === 'DEPOSIT');
   const note: Record<typeof ds, ['blue' | 'yellow' | 'green' | 'red' | 'grey', string, string]> = {
-    NONE: ['blue', 'Chờ thanh toán', `Thanh toán và xác minh tiền cọc ${fmtMoney(depositAmount(r))} USD, rồi ký OTP trước ${fmtDateTime(v.validUntil)}.`],
+    NONE: ['blue', 'Chờ thanh toán', `Thanh toán và xác minh tiền cọc ${fmtMoney(depositAmount(r))}, rồi ký OTP trước ${fmtDateTime(v.validUntil)}.`],
     PENDING: ['yellow', 'Đang xử lý / chờ xác minh', 'Cổng thanh toán chưa xác nhận giao dịch. Bấm nút không đồng nghĩa đã thanh toán.'],
     VERIFIED: r.status === 'CANCELLED' || r.status === 'CANCELLATION_REQUESTED'
       ? ['grey', 'Đã xác minh cọc – yêu cầu hủy trước khi ký', 'Hợp đồng chưa ký nên chưa có hiệu lực. Tiền cọc được hoàn đầy đủ; trạng thái hoàn tiền hiển thị bên dưới.']
@@ -68,9 +71,9 @@ export const PaymentTab: React.FC<{ request: TransportRequest }> = ({ request: r
             <div className="cus-kv">
               <div><span>Hợp đồng</span><b>{ctRef(sv)}</b></div>
               <div><span>Ngày ký</span><b>{sv.signedAt ? fmtDateTime(sv.signedAt) : 'Chưa ký'}</b></div>
-              <div><span>Tổng hợp đồng</span><b>{fmtMoney(sv.total)} USD</b></div>
-              <div><span>Tiền cọc phải trả</span><b className="cus-orange">{fmtMoney(depositAmount(r))} USD</b></div>
-              <div><span>Số dư còn lại</span><b>{fmtMoney(sv.total - depositAmount(r))} USD</b></div>
+              <div><span>Tổng hợp đồng</span><b>{fmtMoney(sv.total)}</b></div>
+              <div><span>Tiền cọc phải trả</span><b className="cus-orange">{fmtMoney(depositAmount(r))}</b></div>
+              <div><span>Số dư còn lại</span><b>{fmtMoney(sv.total - depositAmount(r))}</b></div>
               <div><span>Hạn chung cọc / ký OTP</span><b>{sv.signedAt ? 'Đã hoàn tất' : fmtDateTime(sv.validUntil)}</b></div>
             </div>
             {canSign(r) && <Note tone="green" title="Sandbox đã xác minh tiền cọc">Hãy xem lại toàn bộ hợp đồng và xác nhận lần cuối trước khi nhập OTP.</Note>}
@@ -89,7 +92,7 @@ export const PaymentTab: React.FC<{ request: TransportRequest }> = ({ request: r
                 <tbody>
                   {[...r.payments].reverse().map((p) => (
                     <tr key={p.id}>
-                      <td className="cus-id">{p.id}</td>
+                      <td className="cus-id">{p.id}{p.status === 'SUCCESS' && <div><button type="button" className="cus-link" onClick={() => downloadFile(`/customer/payments/${p.id}/receipt`, `${p.id}.pdf`).catch(error => actions.showToast(error.message))}>Biên nhận</button></div>}</td>
                       <td>{p.type === 'DEPOSIT' ? 'Tiền cọc' : 'Số dư'}</td>
                       <td>{p.method === 'QR_SANDBOX' ? 'QR Sandbox' : 'VNPay'}</td>
                       <td className="num">{fmtMoney(p.amount)}</td>

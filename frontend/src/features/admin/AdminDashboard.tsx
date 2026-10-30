@@ -2,8 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../shared/api/apiClient";
 import ThemeToggle from "../../shared/components/ThemeToggle/ThemeToggle";
-import { DemoDataToggle } from "../../shared/components/DemoDataToggle/DemoDataToggle";
-import { useDemoMode } from "../../shared/context/DemoModeContext";
+import { DemoDataToggle } from "../../shared/components";
 import "./AdminDashboard.css";
 
 interface AdminStats {
@@ -34,28 +33,8 @@ interface DashboardApiResponse {
   };
 }
 
-const MOCK_ADMIN_STATS: AdminStats = {
-  totalUsers: 14,
-  activeUsers: 12,
-  inactiveUsers: 2,
-  totalHorses: 8,
-  totalRequests: 16,
-  totalVehicles: 6,
-  databaseStatus: "Online (Demo Sandbox)",
-};
-
-const MOCK_ADMIN_USERS: AdminUser[] = [
-  { id: "USR-001", fullName: "Alex Equine", email: "alex.equine@example.com", phone: "+84 90 5550 0110", role: "CUSTOMER", isActive: true },
-  { id: "USR-002", fullName: "Linh Pham", email: "linh.pham@cbntransport.com", phone: "+84 90 5550 0122", role: "LOGISTICS_MANAGER", isActive: true },
-  { id: "USR-003", fullName: "Hoang Thu Ha", email: "ha.hoang@cbntransport.com", phone: "+84 90 5550 0133", role: "TRANSPORT_SPECIALIST", isActive: true },
-  { id: "USR-004", fullName: "Dang Minh Quan", email: "quan.dang@cbntransport.com", phone: "+84 90 5550 0144", role: "FLEET_COORDINATOR", isActive: true },
-  { id: "USR-005", fullName: "Nguyen Van Hung", email: "hung.driver@cbntransport.com", phone: "+84 90 5551 0021", role: "DRIVER", isActive: true },
-  { id: "USR-006", fullName: "Dr. Nguyen Minh Anh", email: "minhanh.vet@cbntransport.com", phone: "+84 28 5550 0142", role: "VETERINARIAN", isActive: true },
-];
-
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { enabled: isDemoMode } = useDemoMode("admin");
 
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -79,34 +58,22 @@ const AdminDashboard: React.FC = () => {
       }
     } catch (err: unknown) {
       console.error("Lỗi khi tải dữ liệu:", err);
-      if (isDemoMode) {
-        setStats(MOCK_ADMIN_STATS);
-        setUsers(MOCK_ADMIN_USERS);
-        setErrorMessage("");
-      } else {
-        setStats(null);
-        setUsers([]);
-        setErrorMessage("Không thể kết nối đến Backend hoặc Database SQL Server (Dữ liệu mẫu đang tắt).");
-      }
+      setErrorMessage("Không thể kết nối đến Backend hoặc Database SQL Server.");
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!isDemoMode && stats?.databaseStatus.includes("Demo")) {
-      setStats(null);
-      setUsers([]);
-    } else if (isDemoMode && !stats) {
-      fetchDashboardData();
-    }
-  }, [isDemoMode]);
-
-  useEffect(() => {
     fetchDashboardData();
   }, []);
 
   const handleLogout = () => {
+    sessionStorage.removeItem("accessToken");
+    sessionStorage.removeItem("userRole");
+    sessionStorage.removeItem("userFullName");
+    sessionStorage.removeItem("userEmail");
+    sessionStorage.removeItem("user");
     localStorage.removeItem("accessToken");
     localStorage.removeItem("userRole");
     localStorage.removeItem("userFullName");

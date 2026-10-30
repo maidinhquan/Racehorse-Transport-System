@@ -1,56 +1,32 @@
-import React, { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CoordinatorLayout } from '../../components/CoordinatorLayout';
-import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import { useCoordinator } from '../../hooks/useCoordinator';
-import { countryName, fmtDate, isActiveTrip, tripVehicleIds } from '../../hooks/coordinatorRules';
-import { DEMO_TODAY } from '../../data/mockData';
-import './FleetPage.css';
+// Đội xe (phương tiện chuyên dụng) và chi tiết từng xe
+import { DataTable, Icon, Pill } from '../../components/common/ui';
+import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
+import { ACTIVE_TRIP, fleetCountry, tripVehicleIds, tripWindow } from '../../domain/coordinatorRules';
+import type { Any } from '../../store/coordinatorStore';
+import { db, useCoordinatorStore } from '../../store/coordinatorStore';
+import { date, human } from '../../utils/format';
+import { equipmentAdd } from '../../workflows/coordinatorActions';
 
-export const FleetPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { vehicles, trips } = useCoordinator();
-  const [country, setCountry] = useState('all');
-  const countries = useMemo(() => [...new Set(vehicles.map((v) => v.country))], [vehicles]);
-  const list = vehicles.filter((v) => country === 'all' || v.country === country);
-  const tripOf = (id: string) => trips.find((t) => isActiveTrip(t) && tripVehicleIds(t).includes(id));
-
+export function FleetPage() {
+  useCoordinatorStore();
+  const bases = [...new Set(db.vehicles.map((v: Any) => v.base))] as string[];
   return (
     <CoordinatorLayout title="Đội xe">
-      <div className="crd-head">
-        <div>
-          <h2 className="crd-title">Đội xe</h2>
-          <p className="crd-subtitle">Xe vận chuyển ngựa theo quốc gia. Mỗi xe chỉ phục vụ một chuyến đang hoạt động; xe bảo dưỡng không được phân công.</p>
-        </div>
-        <select className="crd-select" value={country} onChange={(e) => setCountry(e.target.value)}>
-          <option value="all">Mọi quốc gia</option>
-          {countries.map((c) => <option key={c} value={c}>{countryName(c)}</option>)}
-        </select>
-      </div>
-
-      <div className="crd-fleet-grid">
-        {list.map((v) => {
-          const t = tripOf(v.id);
-          const serviceSoon = v.nextService <= DEMO_TODAY.slice(0, 8) + '31';
-          return (
-            <div key={v.id} className="crd-card crd-fleet-card">
-              <div className="crd-fleet-card__top">
-                <div><b>{v.plate}</b><div className="crd-muted">{v.model}</div></div>
-                <TripStatusBadge status={v.status} />
-              </div>
-              <div className="crd-kv">
-                <div><span>Sức chứa</span><b>{v.stalls} ngăn</b></div>
-                <div><span>Quốc gia / bãi</span><b>{countryName(v.country)} • {v.base}</b></div>
-                <div><span>Bảo dưỡng kế tiếp</span><b style={serviceSoon ? { color: '#b45309' } : undefined}>{fmtDate(v.nextService)}</b></div>
-                <div><span>Đang phục vụ</span><b>{t ? <button type="button" className="crd-link" onClick={() => navigate(`/coordinator/trips/${t.id}`)}>{t.id}</button> : 'Trống'}</b></div>
-              </div>
-              <p className="crd-muted" style={{ marginTop: 10 }}>{v.features}</p>
-            </div>
-          );
-        })}
-      </div>
+      <div className="head"><div><h2 className="page-title">Phương tiện chuyên dụng</h2><p className="subtitle">Xe tải chở ngựa: tình trạng, bảo dưỡng và chuyến đang sử dụng. Với chuyến bay, khoang máy bay và thùng vận chuyển do bên dịch vụ thuê máy bay lo; CBN chỉ bố trí xe cho 2 chặng tới/từ sân bay.</p></div>
+        <button type="button" className="btn solid" onClick={equipmentAdd}><Icon name="plus" />Thêm phương tiện</button></div>
+      <DataTable id="f-fleet" rows={db.vehicles} go={(v: Any) => `f/vehicle/${v.id}`} style={{ marginTop: 20 }} search={(v: Any) => [v.plate, v.model, v.base].join(' ')}
+        filters={[{ key: 's', label: 'Tất cả trạng thái', options: ['READY', 'MAINTENANCE', 'INACTIVE'].map((x) => [x, human(x)] as [string, string]), test: (v: Any, x) => v.status === x },
+          { key: 'b', label: 'Tất cả căn cứ', options: bases.map((b) => [b, b] as [string, string]), test: (v: Any, x) => v.base === x }]}
+        cols={[
+          { label: 'Xe', sort: (v: Any) => v.plate, render: (v: Any) => <><b style={{ color: 'var(--ink)' }}>{v.plate}</b><br /><small className="muted">{v.model}</small></> },
+          { label: 'Số ngăn', sort: (v: Any) => v.stalls, render: (v: Any) => v.stalls },
+          { label: 'Quốc gia', render: (v: Any) => fleetCountry(v) },
+          { label: 'Căn cứ', render: (v: Any) => v.base },
+          { label: 'Bảo dưỡng tiếp theo', sort: (v: Any) => v.nextService, render: (v: Any) => (v.nextService === '—' ? '—' : date(v.nextService)) },
+          { label: 'Phân công hiện tại', render: (v: Any) => { const u = db.trips.filter((t: Any) => tripVehicleIds(t).includes(v.id) && ACTIVE_TRIP.includes(t.status)); return u.length ? u.map((t: Any, k: number) => <span key={t.id}>{k ? <br /> : null}{t.id} ({date(tripWindow(t)[0])}–{date(tripWindow(t)[1])})</span>) : <span className="muted">Trống</span>; } },
+          { label: 'Trạng thái', render: (v: Any) => <Pill v={v.status} /> },
+        ]} />
     </CoordinatorLayout>
   );
-};
-
+}
 export default FleetPage;

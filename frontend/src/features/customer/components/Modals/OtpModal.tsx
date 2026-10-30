@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Modal } from './Modal';
 import { useClock, useCustomer } from '../../hooks/useCustomer';
 import { ctRef, curVersion } from '../../hooks/customerRules';
-import { DEMO_OTP } from '../../data/mockData';
 
 interface OtpModalProps {
   open: boolean;
@@ -17,13 +16,14 @@ export const OtpModal: React.FC<OtpModalProps> = ({ open, requestId, onClose, on
   const now = useClock(500);
   const [digits, setDigits] = useState<string[]>(Array(6).fill(''));
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const refs = useRef<Array<HTMLInputElement | null>>([]);
   const r = getRequest(requestId);
   const v = r ? curVersion(r) : undefined;
 
   useEffect(() => {
     if (!open) return;
-    setDigits(Array(6).fill('')); setError('');
+    setDigits(Array(6).fill('')); setError(''); setSubmitting(false);
     setTimeout(() => refs.current[0]?.focus(), 30);
   }, [open, otp?.expiresAtMs]);
 
@@ -44,16 +44,25 @@ export const OtpModal: React.FC<OtpModalProps> = ({ open, requestId, onClose, on
     if (d && i < 5) refs.current[i + 1]?.focus();
   };
 
-  const submit = () => {
-    const res = actions.verifyOtpAndSign(requestId, digits.join(''));
-    if (!res.ok) return setError(res.message);
-    onSigned();
+  const submit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await actions.verifyOtpAndSign(requestId, digits.join(''));
+      if (!res.ok) {
+        setError(res.message);
+        return;
+      }
+      onSigned();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <Modal open={open} title={`Ký ${ctRef(v)} bằng OTP`} okText="Xác minh OTP & ký" onClose={onClose} onOk={submit}
-      okDisabled={expired || digits.join('').length < 6} error={error}>
-      <p>Mã OTP đã được gửi tới <b>{profile.email}</b> (demo, chưa gửi email thật). Mã kiểm thử: <b>{DEMO_OTP}</b>.</p>
+    <Modal open={open} title={`Ký ${ctRef(v)} bằng OTP`} okText={submitting ? "Đang xác thực..." : "Xác minh OTP & ký"} onClose={onClose} onOk={submit}
+      okDisabled={expired || digits.join('').length < 6 || submitting} error={error}>
+      <p>Mã OTP đã được gửi tới <b>{profile.email}</b>. Vui lòng kiểm tra hộp thư email của bạn (kể cả mục Spam / Thư rác).</p>
       <div className="cus-otp">
         {digits.map((d, i) => (
           <input key={i} ref={(el) => { refs.current[i] = el; }} inputMode="numeric" maxLength={6} value={d} disabled={expired}
@@ -63,8 +72,8 @@ export const OtpModal: React.FC<OtpModalProps> = ({ open, requestId, onClose, on
       </div>
       <p className="cus-otp__left">{expired ? 'Mã đã hết hạn. Hãy gửi lại mã mới.' : <>Mã hết hạn sau <b>{left}</b> giây.</>}</p>
       <div className="cus-btn-row" style={{ justifyContent: 'center' }}>
-        <button type="button" className="cus-btn cus-btn--sm" onClick={() => actions.sendSignOtp(requestId)}>Gửi lại mã</button>
-        <button type="button" className="cus-btn cus-btn--sm" onClick={actions.expireOtp}>Demo: cho mã hết hạn</button>
+        <button type="button" className="cus-btn cus-btn--sm" disabled={!!otp && now < otp.resendAtMs} onClick={() => actions.sendSignOtp(requestId)}>Gửi lại mã</button>
+
       </div>
     </Modal>
   );

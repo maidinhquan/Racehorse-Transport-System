@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { TimedDocumentsCard } from '../../../../shared/components/TimedDocumentsCard/TimedDocumentsCard';
 import { useNavigate, useParams } from 'react-router-dom';
 import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
@@ -18,7 +19,7 @@ import './TripDetailPage.css';
 function downloadManifest(data: SpecialistData, t: SpecTrip) {
   const rows: string[][] = [['Nhóm', 'Giấy tờ', 'Ngựa', 'Trạng thái', 'Tệp']];
   data.customerDocs.filter((d) => d.tripId === t.id && !d.optional).forEach((d) =>
-    rows.push(['Khách hàng cung cấp', CUSTOMER_DOC_NAME[d.key], d.scope === 'request' ? 'Toàn chuyến' : horseName(t, d.scope), CUSTOMER_DOC_LABEL[d.status], d.file ?? '']));
+    rows.push(['Khách hàng cung cấp', CUSTOMER_DOC_NAME[d.key], horseName(t, d.scope), CUSTOMER_DOC_LABEL[d.status], d.file ?? '']));
   checklist(data, t).items.filter((i) => i.provider === 'CBN').forEach((i) =>
     rows.push(['CBN Transport', itemName(data, t, i), horseName(t, i.horseId), CHECKLIST_LABEL[i.status], i.doc?.versions[i.doc.versions.length - 1]?.file ?? '']));
   const csv = '﻿' + rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -34,6 +35,7 @@ export const TripDetailPage: React.FC = () => {
   const { tripId = '', tab = 'customer' } = useParams<{ tripId: string; tab: string }>();
   const { data, getTrip } = useSpecialist();
   const t = getTrip(tripId);
+  const [canPrepare, setCanPrepare] = useState(false);
 
   if (!t) {
     return <SpecialistLayout title="Chuyến được giao"><Note tone="grey" title="Không tìm thấy chuyến">Chuyến {tripId} không có trong danh sách được giao.</Note></SpecialistLayout>;
@@ -64,12 +66,13 @@ export const TripDetailPage: React.FC = () => {
         </div>
       ) : (
         <>
-          <DocsReadyCard trip={t} active={active} onTab={(k) => navigate(`/specialist/trips/${t.id}/${k}`)} />
+          {canPrepare && <DocsReadyCard trip={t} active={active} onTab={(k) => navigate(`/specialist/trips/${t.id}/${k}`)} />}
           <RequirementSetCard trip={t} />
+          <TimedDocumentsCard tripId={t.id} role="specialist" onAllowed={setCanPrepare} />
           <div className="spc-trip__body">
             <div>
               {active === 'customer' && <CustomerDocsTab trip={t} />}
-              {active === 'required' && <CompanyDocsTab trip={t} />}
+              {active === 'required' && (canPrepare ? <CompanyDocsTab trip={t} /> : <Note tone="yellow" title="Chưa thể chuẩn bị hồ sơ có thời hạn">Gửi danh sách và chờ Coordinator chốt lịch khởi hành trước.</Note>)}
               {active === 'insurance' && <InsuranceTab trip={t} />}
             </div>
             <DemoPanel trip={t} />

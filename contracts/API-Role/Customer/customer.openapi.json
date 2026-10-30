@@ -1,0 +1,1133 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Racehorse Transport System — Customer Role API",
+    "version": "1.0.0",
+    "description": "Toàn bộ API endpoints dành riêng cho Role Customer (Khách hàng) phục vụ mọi tính năng trên giao diện cổng Khách hàng."
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API Base URL"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "tags": [
+    { "name": "Profile & Notifications", "description": "Hồ sơ cá nhân và thông báo" },
+    { "name": "Horses", "description": "Quản lý danh bạ ngựa và hồ sơ giấy tờ ngựa" },
+    { "name": "Requests Wizard & Management", "description": "Tạo, lưu nháp và nộp yêu cầu vận chuyển" },
+    { "name": "Contract & Signing", "description": "Hợp đồng, điều khoản và ký số bằng OTP" },
+    { "name": "Payments", "description": "Thanh toán tiền cọc và số dư qua VNPay" },
+    { "name": "Tracking & Handover", "description": "Theo dõi tiến độ, biên bản bàn giao và nghiệm thu" },
+    { "name": "Complaints", "description": "Gửi và theo dõi khiếu nại chất lượng dịch vụ" }
+  ],
+  "paths": {
+    "/customer/profile": {
+      "get": {
+        "tags": ["Profile & Notifications"],
+        "summary": "Lấy thông tin tài khoản cá nhân",
+        "operationId": "getCustomerProfile",
+        "responses": {
+          "200": {
+            "description": "Thông tin tài khoản",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CustomerProfileEnvelope" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Profile & Notifications"],
+        "summary": "Cập nhật thông tin tài khoản cá nhân",
+        "operationId": "updateCustomerProfile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "company": { "type": "string" }
+                },
+                "required": ["name", "phone"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hồ sơ đã cập nhật",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CustomerProfileEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/notifications": {
+      "get": {
+        "tags": ["Profile & Notifications"],
+        "summary": "Danh sách thông báo",
+        "operationId": "getCustomerNotifications",
+        "responses": {
+          "200": {
+            "description": "Danh sách thông báo",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CustomerNotificationsEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/notifications/{id}/read": {
+      "post": {
+        "tags": ["Profile & Notifications"],
+        "summary": "Đánh dấu đã đọc một thông báo",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandardEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/notifications/read-all": {
+      "post": {
+        "tags": ["Profile & Notifications"],
+        "summary": "Đánh dấu đã đọc tất cả thông báo",
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandardEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/horses": {
+      "get": {
+        "tags": ["Horses"],
+        "summary": "Lấy danh sách ngựa của khách hàng",
+        "operationId": "getCustomerHorses",
+        "responses": {
+          "200": {
+            "description": "Danh sách ngựa",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HorseListEnvelope" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Horses"],
+        "summary": "Khai báo ngựa mới",
+        "operationId": "createHorse",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/HorseInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Đã tạo ngựa thành công",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HorseDetailEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/horses/{id}": {
+      "get": {
+        "tags": ["Horses"],
+        "summary": "Chi tiết một con ngựa",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết ngựa",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HorseDetailEnvelope" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Horses"],
+        "summary": "Cập nhật hồ sơ ngựa",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/HorseInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã cập nhật",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HorseDetailEnvelope" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Horses"],
+        "summary": "Xóa hồ sơ ngựa khỏi danh bạ",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Đã xóa",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandardEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/horses/{id}/files/{kind}": {
+      "post": {
+        "tags": ["Horses"],
+        "summary": "Tải tệp tài liệu cho ngựa",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "kind", "in": "path", "required": true, "schema": { "type": "string", "enum": ["photo", "passport", "ownership", "valueProof", "flu", "health"] } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                },
+                "required": ["file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tải tệp thành công",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FileRefEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/horses/selectable": {
+      "get": {
+        "tags": ["Horses"],
+        "summary": "Lọc danh sách ngựa khả dụng theo ngày xuất phát",
+        "parameters": [
+          { "name": "date", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "excludeRequestId", "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách ngựa khả dụng",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SelectableHorsesEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/request-form-options": {
+      "get": {
+        "tags": ["Requests Wizard & Management"],
+        "summary": "Lấy các thiết lập hỗ trợ tạo form đơn",
+        "parameters": [
+          { "name": "originCountry", "in": "query", "schema": { "type": "string", "default": "VN" } },
+          { "name": "destinationCountry", "in": "query", "schema": { "type": "string", "default": "VN" } },
+          { "name": "mode", "in": "query", "schema": { "type": "string", "enum": ["ROAD", "AIR"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tùy chọn tạo form",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FormOptionsEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/locations/search": {
+      "get": {
+        "tags": ["Requests Wizard & Management"],
+        "summary": "Tìm kiếm địa chỉ và lấy tọa độ địa lý",
+        "parameters": [
+          { "name": "q", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "country", "in": "query", "schema": { "type": "string", "default": "VN" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách địa chỉ gợi ý",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LocationSearchEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/requests": {
+      "get": {
+        "tags": ["Requests Wizard & Management"],
+        "summary": "Lấy danh sách yêu cầu vận chuyển",
+        "parameters": [
+          { "name": "status", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách yêu cầu",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RequestListEnvelope" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Requests Wizard & Management"],
+        "summary": "Khởi tạo yêu cầu vận chuyển nháp (Bước 1)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TripInfoInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Đã tạo bản nháp",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TransportRequestEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/requests/{id}": {
+      "get": {
+        "tags": ["Requests Wizard & Management"],
+        "summary": "Chi tiết toàn diện của một yêu cầu",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết yêu cầu",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TransportRequestEnvelope" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Requests Wizard & Management"],
+        "summary": "Lưu thông tin điểm nhận/giao và danh sách ngựa",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SaveRequestInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã lưu",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TransportRequestEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/requests/{id}/document-checklist": {
+      "get": {
+        "tags": ["Requests Wizard & Management"],
+        "summary": "Kiểm tra checklist hồ sơ giấy tờ trước khi gửi đơn",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Kết quả kiểm tra",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DocumentChecklistEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/requests/{id}/submit": {
+      "post": {
+        "tags": ["Requests Wizard & Management"],
+        "summary": "Nộp đơn chính thức để Logistics Manager xét duyệt",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Đã nộp đơn",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TransportRequestEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/requests/{id}/cancel": {
+      "post": {
+        "tags": ["Requests Wizard & Management"],
+        "summary": "Khách hàng yêu cầu hủy đơn",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "reason": { "type": "string", "minLength": 5 } },
+                "required": ["reason"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã gửi yêu cầu hủy",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandardEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/requests/{id}/contract": {
+      "get": {
+        "tags": ["Contract & Signing"],
+        "summary": "Lấy thông tin hợp đồng hiện hành",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hợp đồng hiện hành",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ContractVersionEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/contracts/{contractId}/accept-terms": {
+      "post": {
+        "tags": ["Contract & Signing"],
+        "summary": "Khách hàng xác nhận đồng ý điều khoản",
+        "parameters": [
+          { "name": "contractId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "versionNo": { "type": "integer" } },
+                "required": ["versionNo"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã đồng ý điều khoản",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandardEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/contracts/{contractId}/feedback": {
+      "post": {
+        "tags": ["Contract & Signing"],
+        "summary": "Khách hàng yêu cầu chỉnh sửa hợp đồng",
+        "parameters": [
+          { "name": "contractId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "versionNo": { "type": "integer" },
+                  "text": { "type": "string", "minLength": 10 }
+                },
+                "required": ["versionNo", "text"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã gửi phản hồi",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandardEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/contracts/{contractId}/sign-otp": {
+      "post": {
+        "tags": ["Contract & Signing"],
+        "summary": "Gửi mã OTP ký số về điện thoại/email",
+        "parameters": [
+          { "name": "contractId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "versionNo": { "type": "integer" } },
+                "required": ["versionNo"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đã gửi OTP",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandardEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/contracts/{contractId}/sign": {
+      "post": {
+        "tags": ["Contract & Signing"],
+        "summary": "Xác thực OTP và Ký hợp đồng chính thức",
+        "parameters": [
+          { "name": "contractId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "versionNo": { "type": "integer" },
+                  "otp": { "type": "string", "pattern": "^[0-9]{6}$" }
+                },
+                "required": ["versionNo", "otp"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ký thành công, chuyến đi được tạo",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandardEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/requests/{id}/deposit": {
+      "get": {
+        "tags": ["Payments"],
+        "summary": "Lấy thông tin hóa đơn đặt cọc",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin hóa đơn cọc",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DepositInvoiceEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/invoices/{invoiceId}/payment-session": {
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Tạo phiên thanh toán cọc qua cổng VNPay",
+        "parameters": [
+          { "name": "invoiceId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": { "method": { "type": "string", "enum": ["VNPAY"] } },
+                "required": ["method"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "URL thanh toán VNPay",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaymentSessionEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/payments/{paymentId}/status": {
+      "get": {
+        "tags": ["Payments"],
+        "summary": "Kiểm tra trạng thái giao dịch thanh toán",
+        "parameters": [
+          { "name": "paymentId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trạng thái giao dịch",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaymentStatusEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/tracking": {
+      "get": {
+        "tags": ["Tracking & Handover"],
+        "summary": "Danh sách các chuyến đang vận chuyển",
+        "responses": {
+          "200": {
+            "description": "Danh sách chuyến",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TrackingListEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/requests/{id}/tracking": {
+      "get": {
+        "tags": ["Tracking & Handover"],
+        "summary": "Chi tiết tiến độ và mốc hành trình của chuyến",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết theo dõi",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TripTrackingEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/requests/{id}/handover": {
+      "get": {
+        "tags": ["Tracking & Handover"],
+        "summary": "Xem biên bản bàn giao điện tử",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Biên bản bàn giao",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HandoverEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/contracts/{contractId}/acceptance": {
+      "post": {
+        "tags": ["Tracking & Handover"],
+        "summary": "Xác nhận nghiệm thu dịch vụ",
+        "parameters": [
+          { "name": "contractId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Đã nghiệm thu",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandardEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/contracts/{contractId}/balance-payment": {
+      "post": {
+        "tags": ["Payments"],
+        "summary": "Khởi tạo thanh toán số dư qua VNPay sau nghiệm thu",
+        "parameters": [
+          { "name": "contractId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "URL thanh toán số dư",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaymentSessionEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/complaints": {
+      "post": {
+        "tags": ["Complaints"],
+        "summary": "Gửi khiếu nại chất lượng dịch vụ",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "requestId": { "type": "string" },
+                  "type": { "type": "string", "enum": ["SCHEDULE_DELAY", "HORSE_HEALTH", "ATTITUDE", "DAMAGE", "OTHER"] },
+                  "title": { "type": "string", "minLength": 5 },
+                  "description": { "type": "string", "minLength": 10 }
+                },
+                "required": ["requestId", "type", "title", "description"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Đã tiếp nhận khiếu nại",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandardEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/complaints/{id}": {
+      "get": {
+        "tags": ["Complaints"],
+        "summary": "Chi tiết tiến trình và phản hồi khiếu nại",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết khiếu nại",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StandardEnvelope" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "StandardEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object", "nullable": true }
+        },
+        "required": ["success", "message", "data"]
+      },
+      "CustomerProfileEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "initials": { "type": "string" },
+              "email": { "type": "string" },
+              "phone": { "type": "string" },
+              "company": { "type": "string" }
+            }
+          }
+        }
+      },
+      "CustomerNotificationsEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "title": { "type": "string" },
+                "body": { "type": "string" },
+                "at": { "type": "string" },
+                "read": { "type": "boolean" },
+                "link": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "HorseInput": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "breed": { "type": "string" },
+          "sex": { "type": "string", "enum": ["STALLION", "MARE", "GELDING"] },
+          "dob": { "type": "string" },
+          "color": { "type": "string" },
+          "microchip": { "type": "string", "pattern": "^[0-9]{15}$" },
+          "value": { "type": "string" },
+          "currency": { "type": "string", "default": "VND" },
+          "conditions": { "type": "string" },
+          "passport": {
+            "type": "object",
+            "properties": {
+              "number": { "type": "string" },
+              "authority": { "type": "string" },
+              "issueDate": { "type": "string" },
+              "expiryDate": { "type": "string" }
+            },
+            "required": ["number", "authority", "issueDate", "expiryDate"]
+          }
+        },
+        "required": ["name", "breed", "sex", "dob", "microchip", "value", "passport"]
+      },
+      "HorseListEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/HorseInput" }
+          }
+        }
+      },
+      "HorseDetailEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "$ref": "#/components/schemas/HorseInput" }
+        }
+      },
+      "FileRefEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          }
+        }
+      },
+      "SelectableHorsesEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "selectable": { "type": "boolean" },
+                "conflict": { "type": "object", "nullable": true },
+                "documentWarnings": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        }
+      },
+      "TripInfoInput": {
+        "type": "object",
+        "properties": {
+          "origin": { "type": "string" },
+          "destination": { "type": "string" },
+          "originCountry": { "type": "string", "default": "VN" },
+          "destinationCountry": { "type": "string", "default": "VN" },
+          "mode": { "type": "string", "enum": ["ROAD", "AIR"] },
+          "date": { "type": "string" },
+          "careNotes": { "type": "string" }
+        },
+        "required": ["origin", "destination", "date"]
+      },
+      "SaveRequestInput": {
+        "allOf": [
+          { "$ref": "#/components/schemas/TripInfoInput" },
+          {
+            "type": "object",
+            "properties": {
+              "pickup": { "$ref": "#/components/schemas/Place" },
+              "delivery": { "$ref": "#/components/schemas/Place" },
+              "horses": { "type": "array", "items": { "type": "string" } },
+              "horseNotes": { "type": "object" }
+            },
+            "required": ["pickup", "delivery", "horses"]
+          }
+        ]
+      },
+      "Place": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "address": { "type": "string" },
+          "contact": { "type": "string" },
+          "phone": { "type": "string" },
+          "postal": { "type": "string" },
+          "latitude": { "type": "number", "nullable": true },
+          "longitude": { "type": "number", "nullable": true }
+        },
+        "required": ["name", "address", "contact", "phone"]
+      },
+      "TransportRequestEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      },
+      "RequestListEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "FormOptionsEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      },
+      "LocationSearchEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "DocumentChecklistEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "canSubmit": { "type": "boolean" },
+              "issues": { "type": "array", "items": { "type": "object" } }
+            }
+          }
+        }
+      },
+      "ContractVersionEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "currentVersion": { "type": "object", "nullable": true }
+            }
+          }
+        }
+      },
+      "DepositInvoiceEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      },
+      "PaymentSessionEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "paymentUrl": { "type": "string" }
+            }
+          }
+        }
+      },
+      "PaymentStatusEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      },
+      "TrackingListEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "TripTrackingEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      },
+      "HandoverEnvelope": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      }
+    }
+  }
+}

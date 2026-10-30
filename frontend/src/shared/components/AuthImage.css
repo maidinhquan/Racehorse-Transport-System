@@ -1,0 +1,13 @@
+/* Selectors are doubled (span.x > img.y) so they win over page rules like `.card__photo img`. */
+span.auth-image-frame {
+  position: absolute; inset: 0; display: block; overflow: hidden;
+  background: #0f172a; border-radius: inherit;
+}
+span.auth-image-frame > img.auth-image-frame__backdrop {
+  position: absolute; inset: -12%; width: 124%; height: 124%; max-width: none;
+  object-fit: cover; filter: blur(18px) saturate(1.15) brightness(0.85); transform: scale(1.05);
+}
+span.auth-image-frame > img.auth-image-frame__photo {
+  position: relative; inset: auto; display: block; width: 100%; height: 100%;
+  object-fit: contain; object-position: center;
+}

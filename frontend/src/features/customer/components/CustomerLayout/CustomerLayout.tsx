@@ -11,6 +11,7 @@ import './CustomerLayout.css';
 const PATHS: Record<string, React.ReactNode> = {
   home: <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
   file: <><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M8 13h8M8 17h5" /></>,
+  image: <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></>,
   horse: <><path d="M5 20v-6l3-5 2-5 3 2 4 1 2 3-2 2-3-1-1 4v5" /><path d="M9 20v-5" /></>,
   pin: <><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
@@ -27,6 +28,7 @@ const PATHS: Record<string, React.ReactNode> = {
   chat: <path d="M4 5h16v11H8l-4 4z" />,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
   chevron: <path d="m6 9 6 6 6-6" />,
+  user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
@@ -39,9 +41,10 @@ export const Icon: React.FC<{ name: string; className?: string }> = ({ name, cla
 interface CustomerLayoutProps {
   title: string;
   children: React.ReactNode;
+  narrow?: boolean;
 }
 
-export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children }) => {
+export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children, narrow = false }) => {
   const navigate = useNavigate();
   const { profile, stats, notifications, toast, actions } = useCustomer();
   const [open, setOpen] = useState(false);
@@ -70,8 +73,17 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children 
   }, [open, userMenuOpen]);
 
   const handleLogout = () => {
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('userFullName');
+    sessionStorage.removeItem('userEmail');
+    sessionStorage.removeItem('userRole');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('userFullName');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
+    actions.reset();
     navigate('/login');
   };
 
@@ -170,22 +182,13 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children 
                     <div className="cus-user-menu__avatar">{profile.initials}</div>
                     <div className="cus-user-menu__info">
                       <b>{profile.name}</b>
-                      <span>{profile.company}</span>
+                      <span>{profile.company || 'Tài khoản khách hàng'}</span>
                       <small>{profile.email}</small>
                     </div>
                   </div>
                   <div className="cus-user-menu__divider" />
-                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/home'); }}>
-                    <Icon name="home" /> Trang chủ
-                  </button>
-                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/requests'); }}>
-                    <Icon name="file" /> Yêu cầu vận chuyển
-                  </button>
-                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/horses'); }}>
-                    <Icon name="horse" /> Ngựa của tôi
-                  </button>
-                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/history'); }}>
-                    <Icon name="clock" /> Lịch sử & Hóa đơn
+                  <button type="button" className="cus-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/customer/profile'); }}>
+                    <Icon name="user" /> Hồ sơ của tôi
                   </button>
                   <div className="cus-user-menu__divider" />
                   <button type="button" className="cus-user-menu__item cus-user-menu__logout" onClick={handleLogout}>
@@ -199,7 +202,7 @@ export const CustomerLayout: React.FC<CustomerLayoutProps> = ({ title, children 
         <nav className="cus-mobile-nav">
           {NAV.map(([to, label]) => <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}
         </nav>
-        <main className="cus-view">{children}</main>
+        <main className={`cus-view${narrow ? ' cus-view--narrow' : ''}`}>{children}</main>
       </div>
 
       {toast && <div className="cus-toast" role="status" key={toast.id}>{toast.message}</div>}

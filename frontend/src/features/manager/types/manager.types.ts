@@ -20,8 +20,8 @@ export type ActorRole =
   | 'CUSTOMER'
   | 'LOGISTICS_MANAGER'
   | 'TRANSPORT_SPECIALIST'
-  | 'FLEET_COORDINATOR'
-  | 'CREW'
+  | 'FLEET_ROUTE_COORDINATOR'
+  | 'DRIVER_ESCORT'
   | 'SYSTEM';
 
 export interface HistoryEntry {
@@ -73,6 +73,7 @@ export interface DossierItem {
 // Yêu cầu vận chuyển
 // ---------------------------------------------------------------------------
 export type RequestStatus =
+  | 'DRAFT'
   | 'PENDING_REVIEW'
   | 'CHANGES_REQUESTED'
   | 'REJECTED'
@@ -80,6 +81,7 @@ export type RequestStatus =
   | 'CONTRACT_READY'
   | 'CONTRACT_CHANGES_REQUESTED'
   | 'DEPOSIT_VERIFIED'
+  | 'AWAITING_DEPOSIT'
   | 'CANCELLATION_REQUESTED'
   | 'ACTIVATED'
   | 'SCHEDULED'
@@ -89,7 +91,7 @@ export type RequestStatus =
   | 'CANCELLED';
 
 /** Trường Manager có thể yêu cầu khách sửa */
-export type RevisionField = 'date' | 'places' | 'horses' | 'notes';
+export type RevisionField = 'route' | 'date' | 'places' | 'horses' | 'notes';
 
 export interface Cancellation {
   reason: string;
@@ -116,6 +118,9 @@ export interface CollectionNote {
 
 export interface TransportRequest {
   id: string;
+  contractId?: string;
+  tripId?: string;
+  trip?: any;
   customerId: string;
   origin: string;
   destination: string;
@@ -126,6 +131,7 @@ export interface TransportRequest {
   pickup: Place;
   delivery: Place;
   careNotes: string;
+  pickupAt?: string;
   submittedAt: string;
   feedback?: string;
   revisionFields?: RevisionField[];
@@ -135,6 +141,7 @@ export interface TransportRequest {
   /** Bản nháp hợp đồng chưa phát hành */
   draft?: ContractDraft;
   dossier: DossierItem[];
+  refund?: { status: 'REQUESTED' | 'PROCESSING' | 'REFUNDED'; amount?: number; at?: string | null; refundedAt?: string | null; reference?: string };
   cancellation?: Cancellation;
   acceptance?: Acceptance;
   collection: CollectionNote[];
@@ -145,7 +152,7 @@ export interface TransportRequest {
 // ---------------------------------------------------------------------------
 // Hợp đồng & giá
 // ---------------------------------------------------------------------------
-export type ContractState = 'ISSUED' | 'CHANGES_REQUESTED' | 'EXPIRED' | 'SUPERSEDED' | 'EFFECTIVE' | 'FULFILLED' | 'VOID';
+export type ContractState = 'SIGNED' | 'ISSUED' | 'CHANGES_REQUESTED' | 'EXPIRED' | 'SUPERSEDED' | 'EFFECTIVE' | 'FULFILLED' | 'VOID';
 export type TransportMode = 'ROAD' | 'AIR';
 
 export interface ContractItem {
@@ -155,8 +162,8 @@ export interface ContractItem {
 }
 
 /** Dự toán chi phí nội bộ – chỉ Manager xem */
-export type BudgetKey = 'TRANSPORT' | 'PROCEDURE' | 'VET' | 'INSURANCE' | 'STAFF' | 'FUEL';
-export type Budget = Record<BudgetKey, number>;
+export type BudgetKey = 'TRANSPORT' | 'PROCEDURE' | 'VET' | 'INSURANCE' | 'STAFF';
+export type Budget = Record<BudgetKey, number> & { FUEL?: number };
 
 export interface ContractTerm {
   title: string;
@@ -180,10 +187,15 @@ export interface DeadlineExtension {
 export interface ContractVersion {
   v: number;
   number: string;
+  contractId?: string;
+  snapshot?: import('../../customer/types').ContractSnapshot;
+  tripId?: string;
+  trip?: any;
   issuedAt: string;
   /** Hạn chung 24 giờ: thanh toán cọc + xác minh + ký OTP */
   validUntil: string;
-  mode: TransportMode;
+  mode?: TransportMode;
+  modeDeferred?: boolean;
   departAt: string;
   arriveAt: string;
   items: ContractItem[];
@@ -203,7 +215,7 @@ export interface ContractVersion {
 
 /** Bản nháp trong trình soạn hợp đồng 4 bước */
 export interface ContractDraft {
-  mode: TransportMode;
+  mode?: TransportMode;
   departAt: string;
   arriveAt: string;
   budget: Budget;
@@ -225,6 +237,9 @@ export type PaymentStatus = 'PENDING_CONFIRMATION' | 'PROCESSING' | 'SUCCESS' | 
 export interface Transaction {
   id: string;
   requestId: string;
+  contractId?: string;
+  versionNo?: number;
+  confirmedAmount?: number;
   type: PaymentType;
   method: PaymentMethod;
   /** Số tiền khách khai báo / số tiền giao dịch */
@@ -235,6 +250,10 @@ export interface Transaction {
   createdAt: string;
   confirmedAt?: string;
   rejectReason?: string;
+  /** VNPay session expiry (ms) and reconciliation flags from the server */
+  qrExpiresAtMs?: number;
+  reviewRequired?: boolean;
+  reviewReason?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -247,8 +266,8 @@ export type StopType = 'ORIGIN' | 'REST_STOP' | 'CHECKPOINT' | 'AIRPORT' | 'QUAR
 export interface Staff {
   id: string;
   name: string;
-  role: 'TRANSPORT_SPECIALIST' | 'FLEET_COORDINATOR';
-  load: number;
+  role: 'TRANSPORT_SPECIALIST' | 'FLEET_ROUTE_COORDINATOR';
+  load?: number;
 }
 
 export interface RouteStop {
@@ -261,6 +280,7 @@ export type RouteStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'CHANGES_REQUESTED';
 export interface RoutePlan {
   v: number;
   status: RouteStatus;
+  pickupAt?: string;
   submittedAt: string;
   stops: RouteStop[];
   vehicle?: string;
@@ -327,7 +347,7 @@ export interface EtaChange {
 export interface Trip {
   id: string;
   requestId: string;
-  mode: TransportMode;
+  mode?: TransportMode;
   status: TripStatus;
   deployment: {
     status: DeploymentStatus;

@@ -158,7 +158,7 @@ export const ClosureSection: React.FC<{ request: TransportRequest }> = ({ reques
         onSubmit={(x) => actions.resolveRefusal(t.id, x).ok} />
       <ReasonModal open={dialog === 'collection'} title={`Theo dõi công nợ • ${r.id}`} okText="Ghi nhận" minLength={10} label="Nội dung *"
         placeholder="VD: Gọi khách lúc 10:00, khách hẹn thanh toán trước 17:00 hôm nay." onClose={close} onSubmit={(x) => actions.addCollectionNote(r.id, x).ok} />
-      <Modal open={dialog === 'close'} title={`Đóng ${r.id}`} okText="Đóng yêu cầu" onClose={close} onOk={() => { if (actions.closeRequest(r.id).ok) close(); }}>
+      <Modal open={dialog === 'close'} title={`Đóng ${r.id}`} okText="Đóng yêu cầu" onClose={close} onOk={async () => { if ((await actions.closeRequest(r.id)).ok) close(); }}>
         <p>Mọi điều kiện đóng đã đạt. Sau khi đóng, hợp đồng chuyển sang <b>Đã hoàn thành</b> và yêu cầu không thể chỉnh sửa.</p>
       </Modal>
       <ActualCostModal open={dialog === 'costs'} tripId={t.id} current={cost} onClose={close} onSubmit={(c, e) => actions.saveActualCosts(t.id, c, e).ok} />

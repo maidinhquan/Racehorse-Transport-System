@@ -21,6 +21,7 @@ export type RequestStatus =
   | 'CONTRACT_READY'
   | 'CONTRACT_CHANGES_REQUESTED'
   | 'DEPOSIT_VERIFIED'
+  | 'AWAITING_DEPOSIT'
   | 'CANCELLATION_REQUESTED'
   | 'ACTIVATED'
   | 'SCHEDULED'
@@ -30,12 +31,13 @@ export type RequestStatus =
   | 'CANCELLED';
 
 /** Trường Manager cho phép sửa khi yêu cầu chỉnh sửa */
-export type RequestField = 'route' | 'date' | 'count' | 'notes';
+export type RequestField = 'route' | 'date' | 'places' | 'horses' | 'notes';
 
 export interface FileRef {
   name: string;
   /** Object URL khi người dùng vừa tải lên trong phiên làm việc */
   url?: string;
+  file?: File;
 }
 
 export interface Place {
@@ -45,12 +47,16 @@ export interface Place {
   contact: string;
   phone: string;
   notes: string;
+  latitude?: number;
+  longitude?: number;
+  cityId?: string;
+  cityName?: string;
 }
 
 // ---------------------------------------------------------------------------
 // Ngựa
 // ---------------------------------------------------------------------------
-export type HorseSex = 'Stallion' | 'Mare' | 'Gelding' | 'Male' | 'Female' | '';
+export type HorseSex = 'STALLION' | 'MARE' | 'GELDING' | '';
 
 export interface HorsePassport {
   number: string;
@@ -61,6 +67,9 @@ export interface HorsePassport {
 }
 
 export interface Horse {
+  reproductiveStatus?: 'INTACT' | 'NOT_PREGNANT' | 'PREGNANT' | 'GELDED' | null;
+  weight?: number | null;
+  unsupportedFields?: string[];
   id: string;
   name: string;
   breed: string;
@@ -92,6 +101,7 @@ export type HorseProfileStatus = 'COMPLETE' | 'NEEDS_ATTENTION' | 'INCOMPLETE';
 // ---------------------------------------------------------------------------
 export type ContractState =
   | 'ISSUED'
+  | 'SIGNED'
   | 'CHANGES_REQUESTED'
   | 'EXPIRED'
   | 'SUPERSEDED'
@@ -123,8 +133,20 @@ export interface DeadlineChange {
 }
 
 export interface ContractVersion {
+  versionNo?: number;
+  contractStatus?: string;
+  pdfUrl?: string | null;
   v: number;
   number: string;
+  contractId?: string;
+  snapshot?: ContractSnapshot;
+  terms?: Array<{ title: string; text: string }>;
+  mode?: TransportMode;
+  modeDeferred?: boolean;
+  departAt?: string;
+  arriveAt?: string;
+  depositAmount?: number;
+  currency?: 'VND';
   issuedAt: string;
   /** Hạn chung: thanh toán cọc + xác minh + ký OTP (24 giờ kể từ khi phát hành) */
   validUntil: string;
@@ -144,11 +166,15 @@ export interface ContractVersion {
 // Thanh toán
 // ---------------------------------------------------------------------------
 export type PaymentType = 'DEPOSIT' | 'BALANCE';
-export type PaymentMethod = 'QR_SANDBOX' | 'VNPAY';
-export type PaymentStatus = 'PROCESSING' | 'SUCCESS' | 'FAILED';
+export type PaymentMethod = 'QR_SANDBOX' | 'VNPAY' | 'BANK_TRANSFER';
+export type PaymentStatus = 'PENDING_CONFIRMATION' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'REJECTED';
 export type DepositState = 'NONE' | 'PENDING' | 'VERIFIED' | 'FAILED';
 
 export interface Payment {
+  contractId?: string;
+  versionNo?: number;
+  invoiceId?: string;
+  confirmedAmount?: number;
   id: string;
   type: PaymentType;
   method: PaymentMethod;
@@ -159,6 +185,9 @@ export interface Payment {
   reason?: string;
   /** Mốc hết hạn mã QR (ms theo đồng hồ demo). QR có hiệu lực 5 phút. */
   qrExpiresAtMs?: number;
+  /** Funds VNPay confirmed but outside the open deposit window: CBN reconciles / refunds */
+  reviewRequired?: boolean;
+  reviewReason?: string | null;
 }
 
 export interface Refund {
@@ -172,11 +201,9 @@ export interface Refund {
 // ---------------------------------------------------------------------------
 // Giấy tờ
 // ---------------------------------------------------------------------------
-/** Giấy tờ chung của đơn */
-export type SharedDocKey = 'invite' | 'raceReg' | 'ataCarnet';
 /** Hồ sơ theo từng ngựa */
 export type HorseDocKey = 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu' | 'health' | 'conditions' | 'vet';
-export type DocKey = SharedDocKey | HorseDocKey;
+export type DocKey = HorseDocKey;
 
 export type DocStatus =
   | 'MISSING'
@@ -188,7 +215,7 @@ export type DocStatus =
   | 'APPROVED'
   | 'ACTION_REQUIRED';
 
-/** Bản ghi giấy tờ đã nộp trong một đơn ('request' = giấy tờ chung, hoặc mã ngựa) */
+/** Bản ghi giấy tờ đã nộp trong một đơn (scope = mã ngựa) */
 export interface DocRecord {
   key: DocKey;
   scope: string;
@@ -234,26 +261,18 @@ export interface CompanyDoc {
 // ---------------------------------------------------------------------------
 export type TripStatus = 'PLANNING' | 'READY_TO_DEPART' | 'IN_TRANSIT' | 'COMPLETED';
 export type TransportMode = 'ROAD' | 'AIR';
-export type StopType =
-  | 'ORIGIN'
-  | 'REST_STOP'
-  | 'FUEL_STOP'
-  | 'CHECKPOINT'
-  | 'AIRPORT'
-  | 'QUARANTINE_STATION'
-  | 'DESTINATION';
+export type StopType = 'ORIGIN' | 'REST_STOP' | 'CHECKPOINT' | 'AIRPORT' | 'DESTINATION';
 export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED_DESTINATION';
 export type HorseCondition = 'NORMAL' | 'MONITOR' | 'ABNORMAL';
 
 export interface TripStop {
-  id?: string;
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
   name: string;
   type: StopType;
   plannedAt: string;
-  country?: string;
-  lat?: number;
-  lng?: number;
-  checkpointId?: number;
 }
 
 export interface TripMilestone {
@@ -282,7 +301,7 @@ export interface Handover {
 export interface Trip {
   id: string;
   status: TripStatus;
-  mode: TransportMode;
+  mode?: TransportMode;
   plannedDepart: string;
   eta: string;
   etaOriginal?: string;
@@ -317,7 +336,7 @@ export interface Complaint {
 // ---------------------------------------------------------------------------
 // Yêu cầu vận chuyển
 // ---------------------------------------------------------------------------
-export type ActorRole = 'CUSTOMER' | 'LOGISTICS_MANAGER' | 'TRANSPORT_SPECIALIST' | 'FLEET_COORDINATOR' | 'CREW' | 'SYSTEM';
+export type ActorRole = 'CUSTOMER' | 'LOGISTICS_MANAGER' | 'TRANSPORT_SPECIALIST' | 'FLEET_ROUTE_COORDINATOR' | 'DRIVER_ESCORT' | 'SYSTEM';
 
 export interface HistoryEntry {
   at: string;
@@ -338,12 +357,16 @@ export interface RequestRevision {
 }
 
 export interface TransportRequest {
+  editingLocally?: boolean;
+  mode?: TransportMode;
+  purpose?: string | null;
   id: string;
   origin: string;
   destination: string;
   /** Ngày vận chuyển mong muốn */
   date: string;
   horseCount: number;
+  pickupAt?: string;
   requestedAt: string;
   submittedAt?: string;
   status: RequestStatus;
@@ -395,6 +418,8 @@ export interface CustomerNotification {
 // DTO & kết quả
 // ---------------------------------------------------------------------------
 export interface TripInfoInput {
+  mode?: TransportMode;
+  pickupAt: string;
   origin: string;
   destination: string;
   date: string;
@@ -445,3 +470,19 @@ export type RequestDetailTab =
   | 'handover'
   | 'complaints'
   | 'history';
+
+/** Immutable published content; absent means the backend cannot provide a historical snapshot. */
+export interface ContractSnapshot {
+  pickupAt?: string;
+  /** Ngày khách yêu cầu ban đầu (hợp đồng có thể đề xuất ngày khác) */
+  requestedPickupAt?: string;
+  requestedDate?: string;
+  origin: string;
+  destination: string;
+  date: string;
+  careNotes: string;
+  pickup: Place;
+  delivery: Place;
+  horses: Array<{ id: string; name: string; breed: string; microchip: string; passportNo: string }>;
+  customer: { id: string; name: string; company: string; email: string; phone: string };
+}

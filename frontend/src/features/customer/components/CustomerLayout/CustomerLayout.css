@@ -72,6 +72,7 @@
 .cus-avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--cus-orange-soft); color: var(--cus-orange-text); font-weight: 700; font-size: 12px; }
 .cus-user-name { font-weight: 600; font-size: 13px; }
 .cus-view { padding: 28px 32px 48px; max-width: 1180px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.cus-view--narrow { max-width: 760px; }
 
 .cus-toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 100;

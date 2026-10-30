@@ -74,9 +74,9 @@ export const HandoverTab: React.FC<{ request: TransportRequest }> = ({ request: 
           <div className="cus-card">
             <h3 className="cus-card__title">Nghiệm thu & thanh toán số dư <TripStatusBadge label={acc.status === 'ACCEPTED' ? 'Đã nghiệm thu' : 'Chờ nghiệm thu'} tone={acc.status === 'ACCEPTED' ? 'ok' : 'warn'} /></h3>
             <div className="cus-kv">
-              <div><span>Giá hợp đồng</span><b>{fmtMoney(contractTotal(r))} USD</b></div>
-              <div><span>Đã đặt cọc</span><b>{fmtMoney(depositPaidAmount(r))} USD</b></div>
-              <div><span>Số dư còn lại</span><b className="cus-orange">{fmtMoney(due)} USD</b></div>
+              <div><span>Giá hợp đồng</span><b>{fmtMoney(contractTotal(r))}</b></div>
+              <div><span>Đã đặt cọc</span><b>{fmtMoney(depositPaidAmount(r))}</b></div>
+              <div><span>Số dư còn lại</span><b className="cus-orange">{fmtMoney(due)}</b></div>
               <div><span>Hạn chung 24 giờ</span><b>{fmtDateTime(acc.dueAt)} <small className="cus-muted">({blocked ? 'tạm dừng do khiếu nại' : timeLeft(acc.dueAt)})</small></b></div>
               <div><span>Thanh toán (VNPay)</span><b>{bs === 'VERIFIED' ? 'Đã xác minh' : bs === 'PROCESSING' ? 'Đang xác minh' : bs === 'FAILED' ? 'Thất bại' : 'Chưa thanh toán'}</b></div>
               <div><span>Nghiệm thu</span><b>{acc.decidedAt ? `Đã xác nhận ${fmtDateTime(acc.decidedAt)}` : 'Chưa xác nhận'}</b></div>

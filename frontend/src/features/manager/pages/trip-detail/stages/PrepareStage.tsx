@@ -4,6 +4,7 @@ import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
 import { LockedCard, MiniProgress, Note } from '../../../components/Common/Common';
 import { Modal, ReasonModal } from '../../../components/Modals';
 import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
+import { AssignStage } from './AssignStage';
 import { useManager } from '../../../hooks/useManager';
 import type { Trip } from '../../../types';
 import { STOP_TYPE_LABEL, fmtDateTime, fmtMoney, isReady, readinessChecks, staffName } from '../../../hooks/managerRules';
@@ -23,7 +24,7 @@ export const PrepareStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
 
   return (
     <>
-      {t.deployment.status === 'ON_HOLD' && <Note tone="red" title="Chuyến đang tạm dừng">{t.deployment.holdReason}</Note>}
+      <AssignStage trip={t} />
       <div className="mgr-grid-main">
         <div className="mgr-stack">
           <details className="mgr-acc" open={!docsOk}>

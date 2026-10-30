@@ -3,6 +3,7 @@ import type {
   ActionResult,
   AuditEntry,
   ClearanceResult,
+  CustomerDoc,
   CustomerDocKey,
   DocType,
   Insurance,
@@ -58,17 +59,82 @@ interface SpecialistState extends SpecialistData {
 }
 
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
+import { getSharedRequests, saveSharedRequest } from '../../../shared/utils/sharedRequests';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+const cleanId = (x?: string | null) => (x || '').replace(/-/g, '_');
+
+function sharedTripsAndDocs(): { trips: SpecTrip[]; customerDocs: CustomerDoc[] } {
+  const shared = getSharedRequests();
+  const trips: SpecTrip[] = [];
+  const customerDocs: CustomerDoc[] = [];
+
+  for (const r of shared) {
+    const isAir = (r.origin && r.destination && (r.origin.includes('Tokyo') || r.destination.includes('Sapporo') || r.destination.includes('Japan') || r.destination.includes('Osaka')));
+    const tripId = `TRP-${(r.id || '').replace(/^TRN[_-]/, '')}`;
+    const horseList = (r.horses && r.horses.length > 0 ? r.horses : ['HOR-1029']).map((h: string) => ({
+      id: h,
+      name: h.includes('1029') ? 'Thunderbolt' : (r.horseName || h),
+      microchip: '985112004571029',
+      passportNo: 'VN-EQ-2020-1029',
+    }));
+    trips.push({
+      id: tripId,
+      requestId: r.id,
+      customerName: r.customerName || (r.pickup?.contact) || 'Nguyễn Văn A',
+      origin: r.origin,
+      destination: r.destination,
+      originCountry: 'VN',
+      destCountry: r.destination?.includes('Sapporo') || r.destination?.includes('Tokyo') ? 'JP' : 'VN',
+      mode: isAir ? 'AIR' : 'ROAD',
+      status: 'PLANNING',
+      deployment: 'CONFIRMED',
+      plannedDepart: `${r.date || '2026-12-26'} 06:00`,
+      eta: `${r.date || '2026-12-26'} 22:00`,
+      horses: horseList,
+      checkpoints: isAir ? [
+        { name: 'Sân bay Tân Sơn Nhất', type: 'AIRPORT', country: 'VN', plannedAt: `${r.date || '2026-12-26'} 10:00` },
+        { name: 'Sân bay New Chitose (AQS)', type: 'QUARANTINE_STATION', country: 'JP', plannedAt: `${r.date || '2026-12-26'} 20:00` },
+      ] : [],
+    });
+
+    if (Array.isArray(r.dossier)) {
+      for (const d of r.dossier) {
+        const key = d.name?.toLowerCase().includes('tiêm') ? 'flu' : d.name?.toLowerCase().includes('hộ chiếu') ? 'passport' : 'health';
+        customerDocs.push({
+          tripId,
+          key: key as any,
+          scope: d.scope || (r.horses && r.horses[0]) || 'request',
+          status: d.status === 'APPROVED' ? 'APPROVED' : d.status === 'ACTION_REQUIRED' ? 'ACTION_REQUIRED' : 'SUBMITTED',
+          optional: false,
+          file: typeof d.file === 'object' && d.file ? d.file.name : (d.file || ''),
+          reviewedAt: d.reviewedAt,
+          reviewedBy: d.reviewedBy,
+          note: d.note || '',
+          issue: d.issue,
+        });
+      }
+    }
+  }
+
+  return { trips, customerDocs };
+}
 
 const initialDemo = getDemoMode('specialist');
+const initialShared = sharedTripsAndDocs();
+const initialTrips = initialDemo
+  ? [...initialShared.trips, ...clone(mockTrips).filter((m) => !initialShared.trips.some((s) => cleanId(s.id) === cleanId(m.id)))]
+  : initialShared.trips;
+const initialCustomerDocs = initialDemo
+  ? [...initialShared.customerDocs, ...clone(mockCustomerDocs).filter((m) => !initialShared.customerDocs.some((s) => cleanId(s.tripId) === cleanId(m.tripId) && s.key === m.key))]
+  : initialShared.customerDocs;
 
 let state: SpecialistState = {
-  trips: initialDemo ? clone(mockTrips) : [],
+  trips: initialTrips,
   docTypes: clone(mockDocTypes),
   regulations: clone(mockRegulations),
   packages: clone(mockPackages),
-  customerDocs: initialDemo ? clone(mockCustomerDocs) : [],
+  customerDocs: initialCustomerDocs,
   documents: initialDemo ? clone(mockDocuments) : [],
   requests: initialDemo ? clone(mockRequests) : [],
   bookings: initialDemo ? clone(mockBookings) : [],
@@ -88,13 +154,35 @@ const getSnapshot = () => state;
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('rts_requests_updated', () => {
+    const sh = sharedTripsAndDocs();
+    setState((s) => {
+      const newTrips = [...s.trips];
+      for (const t of sh.trips) {
+        const idx = newTrips.findIndex((x) => cleanId(x.id) === cleanId(t.id));
+        if (idx >= 0) newTrips[idx] = { ...newTrips[idx], ...t };
+        else newTrips.unshift(t);
+      }
+      const newDocs = [...s.customerDocs];
+      for (const d of sh.customerDocs) {
+        const idx = newDocs.findIndex((x) => cleanId(x.tripId) === cleanId(d.tripId) && x.key === d.key && cleanId(x.scope) === cleanId(d.scope));
+        if (idx >= 0) newDocs[idx] = { ...newDocs[idx], ...d };
+        else newDocs.unshift(d);
+      }
+      return { trips: newTrips, customerDocs: newDocs };
+    });
+  });
+
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
     if (customEvent.detail && customEvent.detail.role === 'specialist') {
+      const sh = sharedTripsAndDocs();
       if (customEvent.detail.enabled) {
+        const mergedTrips = [...sh.trips, ...clone(mockTrips).filter((m) => !sh.trips.some((s) => cleanId(s.id) === cleanId(m.id)))];
+        const mergedDocs = [...sh.customerDocs, ...clone(mockCustomerDocs).filter((m) => !sh.customerDocs.some((s) => cleanId(s.tripId) === cleanId(m.tripId) && s.key === m.key))];
         setState({
-          trips: clone(mockTrips),
-          customerDocs: clone(mockCustomerDocs),
+          trips: mergedTrips,
+          customerDocs: mergedDocs,
           documents: clone(mockDocuments),
           requests: clone(mockRequests),
           bookings: clone(mockBookings),
@@ -105,8 +193,8 @@ if (typeof window !== 'undefined') {
         toast('Đã bật dữ liệu mẫu & hiển thị nút demo trên toàn hệ thống.');
       } else {
         setState({
-          trips: [],
-          customerDocs: [],
+          trips: sh.trips,
+          customerDocs: sh.customerDocs,
           documents: [],
           requests: [],
           bookings: [],
@@ -134,22 +222,47 @@ const mutate = (fn: (d: SpecialistData) => void) => setState((s) => {
 const audit = (d: SpecialistData, action: string, entity: string, detail?: string, role: AuditEntry['role'] = 'TRANSPORT_SPECIALIST', actor = SPECIALIST_NAME) =>
   d.audit.unshift({ at: nowStamp(), actor, role, action, entity, detail });
 const nextId = (prefix: string, ids: string[]) => `${prefix}-${Math.max(0, ...ids.map((x) => Number(x.split('-')[1]) || 0)) + 1}`;
-const tripOf = (d: SpecialistData, id: string) => d.trips.find((t) => t.id === id);
+const tripOf = (d: SpecialistData, id: string) => d.trips.find((t) => t.id === id || cleanId(t.id) === cleanId(id) || cleanId(t.requestId) === cleanId(id));
 /** Hồ sơ đổi sau khi đã xác nhận Docs READY thì xác nhận hết hiệu lực */
 const invalidateReady = (t: SpecTrip) => { if (t.status === 'PLANNING' && t.docsReady) t.docsReady = undefined; };
 
 async function loadAll() {
   if (state.loading || state.loaded) return;
   setState({ loading: true });
-  const [trips, customerDocs, documents, requests, bookings, docTypes, regulations, packages, auditLog] = await Promise.all([
-    specialistApi.getTrips(), specialistApi.getCustomerDocs(), specialistApi.getDocuments(), specialistApi.getRequests(), specialistApi.getBookings(),
-    specialistApi.getDocTypes(), specialistApi.getRegulations(), specialistApi.getPackages(), specialistApi.getAudit(),
-  ]);
-  if (!getDemoMode('specialist')) {
-    setState({ trips: [], customerDocs: [], documents: [], requests: [], bookings: [], docTypes: [], regulations: [], packages: [], audit: [], loading: false, loaded: true });
-    return;
+  try {
+    const [trips, customerDocs, documents, requests, bookings, docTypes, regulations, packages, auditLog] = await Promise.all([
+      specialistApi.getTrips(), specialistApi.getCustomerDocs(), specialistApi.getDocuments(), specialistApi.getRequests(), specialistApi.getBookings(),
+      specialistApi.getDocTypes(), specialistApi.getRegulations(), specialistApi.getPackages(), specialistApi.getAudit(),
+    ]);
+    const sh = sharedTripsAndDocs();
+    const baseTrips = trips && trips.length > 0 ? trips : [];
+    const mergedTrips = [...sh.trips, ...baseTrips.filter((bt: any) => !sh.trips.some((s) => cleanId(s.id) === cleanId(bt.id)))];
+    const baseDocs = customerDocs && customerDocs.length > 0 ? customerDocs : [];
+    const mergedDocs = [...sh.customerDocs, ...baseDocs.filter((bd: any) => !sh.customerDocs.some((s) => cleanId(s.tripId) === cleanId(bd.tripId) && s.key === bd.key))];
+
+    if (!getDemoMode('specialist')) {
+      setState({ trips: mergedTrips, customerDocs: mergedDocs, documents: documents || [], requests: requests || [], bookings: bookings || [], docTypes, regulations, packages, audit: auditLog || [], loading: false, loaded: true });
+      return;
+    }
+    const allDemoTrips = [...mergedTrips, ...clone(mockTrips).filter((m) => !mergedTrips.some((t) => cleanId(t.id) === cleanId(m.id)))];
+    const allDemoDocs = [...mergedDocs, ...clone(mockCustomerDocs).filter((m) => !mergedDocs.some((d) => cleanId(d.tripId) === cleanId(m.tripId) && d.key === m.key))];
+    setState({ trips: allDemoTrips, customerDocs: allDemoDocs, documents: documents?.length ? documents : clone(mockDocuments), requests: requests?.length ? requests : clone(mockRequests), bookings: bookings?.length ? bookings : clone(mockBookings), docTypes, regulations, packages, audit: auditLog?.length ? auditLog : clone(mockAudit), loading: false, loaded: true });
+  } catch {
+    const sh = sharedTripsAndDocs();
+    if (!getDemoMode('specialist')) {
+      setState({ trips: sh.trips, customerDocs: sh.customerDocs, documents: [], requests: [], bookings: [], loading: false, loaded: true });
+    } else {
+      setState({
+        trips: [...sh.trips, ...clone(mockTrips).filter((m) => !sh.trips.some((s) => cleanId(s.id) === cleanId(m.id)))],
+        customerDocs: [...sh.customerDocs, ...clone(mockCustomerDocs).filter((m) => !sh.customerDocs.some((s) => cleanId(s.tripId) === cleanId(m.tripId) && s.key === m.key))],
+        documents: clone(mockDocuments),
+        requests: clone(mockRequests),
+        bookings: clone(mockBookings),
+        loading: false,
+        loaded: true,
+      });
+    }
   }
-  setState({ trips, customerDocs, documents, requests, bookings, docTypes, regulations, packages, audit: auditLog, loading: false, loaded: true });
 }
 
 // ============================================================================
@@ -187,14 +300,43 @@ const specialistActions = {
     if (['MISSING', 'ACTION_REQUIRED'].includes(cd.status)) return fail('Khách hàng chưa nộp bản mới để duyệt.');
     if (cd.expiry && cd.expiry < t.eta.slice(0, 10)) return fail(`Giấy tờ hết hạn ${fmtDate(cd.expiry)}, trước khi chuyến đến nơi. Hãy yêu cầu khách bổ sung bản mới.`);
     mutate((d) => {
-      const x = customerDoc(d, tripId, key, scope)!;
-      x.status = 'APPROVED'; x.issue = undefined; x.reviewedAt = nowStamp(); x.reviewedBy = SPECIALIST_NAME;
-      d.requests.filter((q) => q.tripId === tripId && q.key === key && q.scope === scope && q.status !== 'FULFILLED')
+      const x = customerDoc(d, tripId, key, scope);
+      if (x) {
+        x.status = 'APPROVED'; x.issue = undefined; x.reviewedAt = nowStamp(); x.reviewedBy = SPECIALIST_NAME;
+      }
+      d.requests.filter((q) => (q.tripId === tripId || cleanId(q.tripId) === cleanId(tripId)) && q.key === key && (q.scope === scope || cleanId(q.scope) === cleanId(scope)) && q.status !== 'FULFILLED')
         .forEach((q) => { q.status = 'FULFILLED'; q.history.push([nowStamp(), 'Đã duyệt bản khách nộp – yêu cầu hoàn tất']); });
-      audit(d, 'Duyệt giấy tờ khách hàng', tripId, `${CUSTOMER_DOC_NAME[key]}${scope !== 'request' ? ` – ${scope}` : ''}`);
+      audit(d, 'Duyệt giấy tờ khách hàng', tripId, `${CUSTOMER_DOC_NAME[key] || key}${scope !== 'request' ? ` – ${scope}` : ''}`);
     });
+    // Sync status back to sharedRequests
+    try {
+      const shared = getSharedRequests();
+      const req = shared.find((r: any) => cleanId(r.id) === cleanId(tripId) || cleanId(r.tripId) === cleanId(tripId) || cleanId(`TRP_${(r.id || '').replace(/^TRN[_-]/, '')}`) === cleanId(tripId));
+      if (req) {
+        if (Array.isArray(req.dossier)) {
+          req.dossier.forEach((doc: any) => {
+            const docKey = doc.name?.toLowerCase().includes('tiêm') ? 'flu' : doc.name?.toLowerCase().includes('hộ chiếu') ? 'passport' : 'health';
+            if (docKey === key && (doc.scope === scope || cleanId(doc.scope) === cleanId(scope))) {
+              doc.status = 'APPROVED';
+              doc.reviewedAt = nowStamp();
+              doc.reviewedBy = SPECIALIST_NAME;
+            }
+          });
+        }
+        if (Array.isArray(req.docs)) {
+          req.docs.forEach((doc: any) => {
+            if (doc.key === key && (doc.scope === scope || cleanId(doc.scope) === cleanId(scope))) {
+              doc.status = 'APPROVED';
+            }
+          });
+        }
+        saveSharedRequest(req);
+      }
+    } catch {
+      // ignore
+    }
     void specialistApi.reviewCustomerDoc(tripId, { key, scope, decision: 'APPROVED' });
-    return ok(`Đã chấp thuận ${CUSTOMER_DOC_NAME[key]}.`);
+    return ok(`Đã chấp thuận ${CUSTOMER_DOC_NAME[key] || key}.`);
   },
   requestCustomerDoc(tripId: string, key: CustomerDocKey, scope: string, reason: string, dueAt?: string): ActionResult {
     const t = tripOf(state, tripId), cd = customerDoc(state, tripId, key, scope);
@@ -206,12 +348,42 @@ const specialistActions = {
     if (openRequestFor(state, tripId, key, scope)) return fail('Giấy tờ này đã có yêu cầu bổ sung đang mở.');
     const id = nextId('DR', state.requests.map((x) => x.id));
     mutate((d) => {
-      const x = customerDoc(d, tripId, key, scope)!;
-      x.status = 'ACTION_REQUIRED'; x.issue = reason.trim(); x.optional = false;
+      const x = customerDoc(d, tripId, key, scope);
+      if (x) {
+        x.status = 'ACTION_REQUIRED'; x.issue = reason.trim(); x.optional = false;
+      }
       d.requests.push({ id, tripId, key, scope, reason: reason.trim(), dueAt: dueAt || undefined, status: 'OPEN', createdAt: nowStamp(), history: [[nowStamp(), 'Gửi yêu cầu cho khách hàng']] });
-      invalidateReady(tripOf(d, tripId)!);
-      audit(d, 'Yêu cầu khách bổ sung', tripId, `${CUSTOMER_DOC_NAME[key]} • ${reason.trim()}`);
+      const tt = tripOf(d, tripId);
+      if (tt) invalidateReady(tt);
+      audit(d, 'Yêu cầu khách bổ sung', tripId, `${CUSTOMER_DOC_NAME[key] || key} • ${reason.trim()}`);
     });
+    // Sync status back to sharedRequests
+    try {
+      const shared = getSharedRequests();
+      const req = shared.find((r: any) => cleanId(r.id) === cleanId(tripId) || cleanId(r.tripId) === cleanId(tripId) || cleanId(`TRP_${(r.id || '').replace(/^TRN[_-]/, '')}`) === cleanId(tripId));
+      if (req) {
+        if (Array.isArray(req.dossier)) {
+          req.dossier.forEach((doc: any) => {
+            const docKey = doc.name?.toLowerCase().includes('tiêm') ? 'flu' : doc.name?.toLowerCase().includes('hộ chiếu') ? 'passport' : 'health';
+            if (docKey === key && (doc.scope === scope || cleanId(doc.scope) === cleanId(scope))) {
+              doc.status = 'ACTION_REQUIRED';
+              doc.note = reason.trim();
+            }
+          });
+        }
+        if (Array.isArray(req.docs)) {
+          req.docs.forEach((doc: any) => {
+            if (doc.key === key && (doc.scope === scope || cleanId(doc.scope) === cleanId(scope))) {
+              doc.status = 'ACTION_REQUIRED';
+              doc.issue = reason.trim();
+            }
+          });
+        }
+        saveSharedRequest(req);
+      }
+    } catch {
+      // ignore
+    }
     void specialistApi.createDocRequest({ tripId, key, scope, reason, dueAt });
     return ok(`Đã gửi yêu cầu bổ sung ${id} cho khách hàng.`, id);
   },
@@ -484,7 +656,7 @@ export function useSpecialist() {
     };
   }, [snap]);
 
-  const getTrip = (id?: string) => snap.trips.find((t) => t.id === id);
+  const getTrip = (id?: string) => snap.trips.find((t) => t.id === id || cleanId(t.id) === cleanId(id) || (id && cleanId(t.requestId) === cleanId(id)));
   const getDocument = (id?: string) => snap.documents.find((d) => d.id === id);
   /** Mục checklist có trạng thái 'chờ duyệt' của khách hàng được map về loại giấy tờ */
   const customerKeyOf = (typeId: string) => TYPE_CUSTOMER_KEY[typeId];

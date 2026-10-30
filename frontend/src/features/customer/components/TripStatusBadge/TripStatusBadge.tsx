@@ -14,18 +14,18 @@ export type BadgeTone = 'ok' | 'info' | 'warn' | 'bad' | 'muted' | 'brand';
 
 const REQUEST_TONE: Record<RequestStatus, BadgeTone> = {
   DRAFT: 'muted', PENDING_REVIEW: 'warn', CHANGES_REQUESTED: 'bad', REJECTED: 'bad', CONTRACT_PREPARATION: 'info',
-  CONTRACT_READY: 'info', CONTRACT_CHANGES_REQUESTED: 'warn', DEPOSIT_VERIFIED: 'ok', CANCELLATION_REQUESTED: 'warn',
+  CONTRACT_READY: 'info', CONTRACT_CHANGES_REQUESTED: 'warn', AWAITING_DEPOSIT: 'warn', DEPOSIT_VERIFIED: 'ok', CANCELLATION_REQUESTED: 'warn',
   ACTIVATED: 'brand', SCHEDULED: 'info', IN_TRANSIT: 'brand', DELIVERED: 'ok', CLOSED: 'muted', CANCELLED: 'muted',
 };
 const CONTRACT_TONE: Record<ContractState, BadgeTone> = {
-  ISSUED: 'info', CHANGES_REQUESTED: 'warn', EXPIRED: 'bad', SUPERSEDED: 'muted', EFFECTIVE: 'ok', FULFILLED: 'muted',
+  SIGNED: 'warn', ISSUED: 'info', CHANGES_REQUESTED: 'warn', EXPIRED: 'bad', SUPERSEDED: 'muted', EFFECTIVE: 'ok', FULFILLED: 'muted',
 };
 const DOC_TONE: Record<DocStatus, BadgeTone> = {
   MISSING: 'bad', NEEDS_INPUT: 'bad', OPTIONAL: 'muted', NOT_REQUIRED_YET: 'muted', SUBMITTED: 'info',
   PENDING_REVIEW: 'warn', APPROVED: 'ok', ACTION_REQUIRED: 'bad',
 };
 const TRIP_TONE: Record<TripStatus, BadgeTone> = { PLANNING: 'info', READY_TO_DEPART: 'ok', IN_TRANSIT: 'brand', COMPLETED: 'muted' };
-const PAY_TONE: Record<PaymentStatus, BadgeTone> = { PROCESSING: 'warn', SUCCESS: 'ok', FAILED: 'bad' };
+const PAY_TONE: Record<PaymentStatus, BadgeTone> = { PENDING_CONFIRMATION: 'warn', PROCESSING: 'warn', SUCCESS: 'ok', FAILED: 'bad', REJECTED: 'bad' };
 const DEPOSIT_TONE: Record<DepositState, BadgeTone> = { NONE: 'muted', PENDING: 'warn', VERIFIED: 'ok', FAILED: 'bad' };
 
 type BadgeKind = 'request' | 'contract' | 'doc' | 'trip' | 'payment' | 'deposit';

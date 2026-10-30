@@ -154,7 +154,7 @@ Sử dụng ApiResponse hiện có (`success`, `message`, `data` nếu có, `err
 - Cache phiên giới hạn 2.000 entries; bộ đếm email giới hạn 5.000 entries. Đầy thì từ chối, không bỏ qua giới hạn.
 - Memory cache chỉ phù hợp một instance; restart mất phiên/bộ đếm. Muốn nhiều instances cần kho phiên/bộ đếm dùng chung và thao tác atomic.
 - Trong một instance, khóa phiên bao phủ verify và ghi DB. Trong SQL Server, khóa transaction `sp_getapplock` bảo vệ lần kiểm tra trùng + insert giữa các instances Register. Lỗi lưu trước commit không tiêu thụ OTP.
-- `database/001_registration_unique_indexes.sql` bổ sung unique indexes để DB bảo vệ cả những luồng ghi khác. Script được chuẩn bị, không tự áp dụng lên HorseTransportDB. Nó dừng khi phát hiện dữ liệu cũ trùng hoặc chưa chuẩn hóa; không xóa DB, không tự sửa dữ liệu người khác.
+- Unique indexes email/phone nằm sẵn trong `HorseTransportDB/HorseTransportDB_Reviewed.sql`; tạo lại database test từ file này, không có script index riêng.
 - Các endpoint Users CRUD và Google Login hiện hữu vẫn nằm ngoài phạm vi này. Chúng chưa được sửa; không coi thay đổi Register là xác nhận toàn bộ Auth đã an toàn. Những luồng không dùng UserDAO mới không tham gia khóa registration, vì vậy cần xử lý riêng và áp dụng constraints sau khi nhóm duyệt dữ liệu.
 
 ## Frontend

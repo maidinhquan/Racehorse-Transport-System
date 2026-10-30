@@ -22,10 +22,6 @@ namespace Domain.Entities
         [Column("BodyContent")]
         public string BodyContent { get; set; } = null!;
 
-        [Column("Version")]
-        [StringLength(20)]
-        public string Version { get; set; } = null!;
-
         [Column("IsActive")]
         public bool IsActive { get; set; } = true;
 

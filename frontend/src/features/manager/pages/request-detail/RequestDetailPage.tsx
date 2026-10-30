@@ -1,11 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ManagerLayout } from '../../components/ManagerLayout';
-import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { BackLink, LockedCard } from '../../components/Common/Common';
-import { WorkflowNav } from '../../components/WorkflowNav/WorkflowNav';
+import { WorkflowHeader } from '../../components/WorkflowNav/WorkflowHeader';
 import { useManager } from '../../hooks/useManager';
-import { routeText } from '../../hooks/managerRules';
 import { ReviewSection } from './sections/ReviewSection';
 import { TripSection } from './sections/TripSection';
 import { ClosureSection } from './sections/ClosureSection';
@@ -16,7 +14,13 @@ const SECTIONS: Array<[string, string]> = [['review', 'Thông tin & xét duyệt
 /** Chi tiết yêu cầu: xét duyệt → chuyến đi & sự cố → bàn giao, khiếu nại & đóng đơn */
 export const RequestDetailPage: React.FC = () => {
   const { requestId, section = 'review' } = useParams();
-  const { getRequest, tripFor, customer, data } = useManager();
+  const { getRequest, tripFor, customer, data, actions } = useManager();
+  useEffect(() => {
+    if (!requestId) return;
+    void actions.loadRequest(requestId);
+    const timer = setInterval(() => { void actions.loadRequest(requestId); }, 15000);
+    return () => clearInterval(timer);
+  }, [requestId, actions]);
   const r = getRequest(requestId);
 
   if (!r) {
@@ -34,14 +38,7 @@ export const RequestDetailPage: React.FC = () => {
 
   return (
     <ManagerLayout title="Yêu cầu vận chuyển">
-      <BackLink to="/manager/requests">Danh sách yêu cầu</BackLink>
-      <div className="mgr-head">
-        <div>
-          <h2 className="mgr-title mgr-rd__title">{r.id} <StatusBadge status={r.status} /></h2>
-          <p className="mgr-subtitle">{customer(r)?.company} • {routeText(r)} • {r.horses.length} ngựa</p>
-        </div>
-      </div>
-      <WorkflowNav request={r} trip={t} current="request" />
+      <WorkflowHeader request={r} trip={t} customer={customer(r)} current="request" />
       <nav className="mgr-flowtabs" aria-label="Mục của yêu cầu">
         {SECTIONS.map(([k, label]) => (
           <Link key={k} to={`/manager/requests/${r.id}/${k}`} className={current === k ? 'on' : ''} aria-current={current === k ? 'page' : undefined}>

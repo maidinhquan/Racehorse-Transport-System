@@ -4,7 +4,7 @@ import { fmtDateTime } from '../../../hooks/customerRules';
 
 const ROLE_LABEL: Record<ActorRole, string> = {
   CUSTOMER: 'Khách hàng', LOGISTICS_MANAGER: 'Logistics Manager', TRANSPORT_SPECIALIST: 'Transport Specialist',
-  FLEET_COORDINATOR: 'Điều phối viên', CREW: 'Tổ xe', SYSTEM: 'Hệ thống',
+  FLEET_ROUTE_COORDINATOR: 'Điều phối viên', DRIVER_ESCORT: 'Tổ xe', SYSTEM: 'Hệ thống',
 };
 
 /** Tab Lịch sử: mọi thao tác trên yêu cầu, mới nhất trước (dùng chung với nhân viên CBN Transport) */

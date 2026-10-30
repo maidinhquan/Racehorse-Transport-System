@@ -5,12 +5,12 @@ import type {
   ActualCost,
   ContractDraft,
   ExtraCost,
-  RevisionField,
   Transaction,
   TransportRequest,
   Trip,
 } from '../types';
 import { managerApi } from '../api/managerApi';
+import { apiMessage } from '../../../shared/api/apiError';
 import {
   MANAGER_NAME,
   mockActualCosts,
@@ -24,8 +24,9 @@ import {
   mockTransactions,
   mockTrips,
 } from '../data/mockData';
+import { getDemoMode } from '../../../shared/context/DemoModeContext';
+import { getSharedRequests, saveSharedRequest, toManagerRequest } from '../../../shared/utils/sharedRequests';
 import {
-  CANCELLABLE,
   addDays,
   addHours,
   arrived,
@@ -35,6 +36,7 @@ import {
   customerOf,
   depositOf,
   depositPaid,
+  verifiedDeposit,
   draftError,
   fmtDate,
   fmtDateTime,
@@ -42,15 +44,12 @@ import {
   isReady,
   isSigned,
   milestoneText,
-  moneyHeld,
   nextMilestone,
   nowStamp,
   outstanding,
   pendingTx,
+  receivedDepositTx,
   readinessChecks,
-  stampToMs,
-  clockMs,
-  sumItems,
   today,
   tripOfReq,
   versionState,
@@ -66,18 +65,24 @@ interface ManagerState extends ManagerData {
   toast: { id: number; message: string } | null;
 }
 
-import { getDemoMode } from '../../../shared/context/DemoModeContext';
-
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const DATA_KEYS: Array<keyof ManagerData> = ['customers', 'horses', 'staff', 'requests', 'trips', 'transactions', 'incidents', 'complaints', 'actualCosts', 'notifications'];
+const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+
+import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
 
 const initialDemo = getDemoMode('manager');
-
 let state: ManagerState = {
   customers: initialDemo ? clone(mockCustomers) : [],
   horses: initialDemo ? clone(mockHorses) : [],
   staff: initialDemo ? clone(mockStaff) : [],
-  requests: initialDemo ? clone(mockRequests) : [],
+  requests: initialDemo
+    ? (() => {
+        const initialShared = getSharedRequests().map(toManagerRequest);
+        const initialMock = clone(mockRequests);
+        return [...initialShared, ...initialMock.filter((m) => !initialShared.some((s) => cleanId(s.id) === cleanId(m.id)))];
+      })()
+    : [],
   trips: initialDemo ? clone(mockTrips) : [],
   transactions: initialDemo ? clone(mockTransactions) : [],
   incidents: initialDemo ? clone(mockIncidents) : [],
@@ -93,21 +98,66 @@ const setState = (patch: Partial<ManagerState> | ((s: ManagerState) => Partial<M
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
   listeners.forEach((l) => l());
 };
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+
+const syncController = createSyncController({
+  intervalMs: 15000,
+  onRefresh: ({ silent, force }) => loadAll({ silent, force }),
+  eventType: 'requests_updated',
+});
+
+let unsubscribeSyncController: (() => void) | null = null;
+
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  if (listeners.size === 1) {
+    unsubscribeSyncController = syncController.subscribe();
+  }
+  return () => {
+    listeners.delete(l);
+    if (listeners.size === 0 && unsubscribeSyncController) {
+      unsubscribeSyncController();
+      unsubscribeSyncController = null;
+    }
+  };
+};
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('rts_requests_updated', () => {
+    const isDemo = getDemoMode('manager');
+    if (isDemo) {
+      const shared = getSharedRequests().map(toManagerRequest);
+      setState((s) => {
+        const newRequests = [...s.requests];
+        for (const req of shared) {
+          const idx = newRequests.findIndex((r) => cleanId(r.id) === cleanId(req.id));
+          if (idx >= 0) {
+            newRequests[idx] = { ...newRequests[idx], ...req };
+          } else {
+            newRequests.unshift(req);
+          }
+        }
+        return { requests: newRequests };
+      });
+    } else {
+      void syncRequestsOnly();
+    }
+  });
+
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
     if (customEvent.detail && customEvent.detail.role === 'manager') {
       if (customEvent.detail.enabled) {
+        const shared = getSharedRequests().map(toManagerRequest);
+        const mock = clone(mockRequests);
+        const merged = [...shared, ...mock.filter((m) => !shared.some((s) => cleanId(s.id) === cleanId(m.id)))];
         setState({
           customers: clone(mockCustomers),
           horses: clone(mockHorses),
           staff: clone(mockStaff),
-          requests: clone(mockRequests),
+          requests: merged,
           trips: clone(mockTrips),
           transactions: clone(mockTransactions),
           incidents: clone(mockIncidents),
@@ -131,8 +181,9 @@ if (typeof window !== 'undefined') {
           actualCosts: [],
           notifications: [],
           loading: false,
-          loaded: true,
+          loaded: false,
         });
+        void loadAll({ force: true });
         toast('Đã tắt dữ liệu mẫu & ẩn nút demo trên toàn hệ thống.');
       }
     }
@@ -147,122 +198,333 @@ const mutate = (fn: (d: ManagerData) => void) => setState((s) => {
   fn(d);
   return d;
 });
-const reqIn = (d: ManagerData, id: string) => d.requests.find((r) => r.id === id);
+const reqIn = (d: ManagerData, id: string) => d.requests.find((r) => r.id === id || cleanId(r.id) === cleanId(id));
 const tripIn = (d: ManagerData, id: string) => d.trips.find((t) => t.id === id);
 const actorName = (d: ManagerData, r: TransportRequest, role: ActorRole) =>
   role === 'LOGISTICS_MANAGER' ? MANAGER_NAME : role === 'CUSTOMER' ? customerOf(d, r)?.name ?? 'Khách hàng'
-    : role === 'TRANSPORT_SPECIALIST' ? 'Hoang Thu Ha' : role === 'FLEET_COORDINATOR' ? 'Dang Minh Quan' : role === 'CREW' ? 'Tổ xe' : 'Hệ thống';
+    : role === 'TRANSPORT_SPECIALIST' ? 'Hoang Thu Ha' : role === 'FLEET_ROUTE_COORDINATOR' ? 'Dang Minh Quan' : role === 'DRIVER_ESCORT' ? 'Tổ xe' : 'Hệ thống';
 const log = (d: ManagerData, r: TransportRequest, action: string, detail?: string, role: ActorRole = 'LOGISTICS_MANAGER') =>
   r.history.push({ at: nowStamp(), role, actor: actorName(d, r, role), action, detail });
 const nextNum = (ids: string[], prefix: string, min: number) =>
   `${prefix}-${Math.max(min, ...ids.map((x) => Number(x.replace(/\D/g, '')) || 0)) + 1}`;
 const nextTx = (d: ManagerData) => nextNum(d.transactions.filter((x) => x.id.startsWith('PAY-') && !x.id.startsWith('PAY-R')).map((x) => x.id), 'PAY', 5200);
 
-/** Hủy đơn: hủy hợp đồng chưa ký, từ chối giao dịch đang chờ, tạo lệnh hoàn tiền nếu đã có tiền */
-function cancelInPlace(d: ManagerData, r: TransportRequest, reason: string) {
-  r.status = 'CANCELLED';
-  r.reason = reason;
-  const v = curVersion(r);
-  if (v && !v.signedAt) v.state = 'VOID';
-  d.transactions.filter((x) => x.requestId === r.id && ['PENDING_CONFIRMATION', 'PROCESSING'].includes(x.status) && x.type !== 'REFUND')
-    .forEach((x) => { x.status = 'REJECTED'; x.rejectReason = 'Yêu cầu đã hủy – đối soát và hoàn trả nếu tiền đã về.'; });
-  const held = moneyHeld(d, r);
-  if (held > 0) {
-    const id = `PAY-R${r.id.slice(4)}`;
-    d.transactions.push({ id, requestId: r.id, type: 'REFUND', method: 'BANK_TRANSFER', amount: held, status: 'PENDING_CONFIRMATION', createdAt: nowStamp(), ref: `Hoàn tiền ${r.id}` });
-    log(d, r, 'Tạo lệnh hoàn tiền', `${id} • ${fmtMoney(held)}`);
-  }
+let currentLoadSeq = 0;
+let inFlightPromise: Promise<void> | null = null;
+let inFlightSyncPromise: Promise<void> | null = null;
+const mergeRequestList = (incoming: TransportRequest[], current: TransportRequest[]) => incoming.map(r => {
+  const previous = current.find(p => p.id === r.id);
+  return previous?.status === r.status ? { ...r, versions: previous.versions, dossier: previous.dossier, draft: previous.draft } : r;
+});
+
+async function syncRequestsOnly(): Promise<void> {
+  if (inFlightSyncPromise) return inFlightSyncPromise;
+  inFlightSyncPromise = (async () => {
+    try {
+      const rawRequests = await managerApi.getRequests();
+      const isDemo = getDemoMode('manager');
+      if (!isDemo) {
+        setState((prev) => ({
+          ...prev,
+          requests: mergeRequestList(rawRequests, prev.requests),
+        }));
+        return;
+      }
+      const shared = getSharedRequests().map(toManagerRequest);
+      const merged = [...shared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+      const mock = clone(mockRequests);
+      const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
+      setState((prev) => ({ ...prev, requests: allDemoRequests }));
+    } catch (error) {
+      // Background sync stays quiet for users; keep the reason visible to developers.
+      console.error('[manager] background request sync failed', error);
+    } finally {
+      inFlightSyncPromise = null;
+    }
+  })();
+  return inFlightSyncPromise;
 }
 
-async function loadAll() {
-  if (state.loading || state.loaded) return;
-  setState({ loading: true });
-  const [customers, horses, staff, requests, trips, transactions, incidents, complaints, actualCosts, notifications] = await Promise.all([
-    managerApi.getCustomers(), managerApi.getHorses(), managerApi.getStaff(), managerApi.getRequests(), managerApi.getTrips(),
-    managerApi.getTransactions(), managerApi.getIncidents(), managerApi.getComplaints(), managerApi.getActualCosts(), managerApi.getNotifications(),
-  ]);
-  if (!getDemoMode('manager')) {
-    setState({
-      customers: [], horses: [], staff: [], requests: [], trips: [], transactions: [], incidents: [], complaints: [], actualCosts: [], notifications: [],
-      loading: false, loaded: true,
-    });
-    return;
+async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
+  const { force = false, silent = false } = options;
+  if (!force && state.loaded) return;
+
+  // Lightweight background sync: once already loaded, background polling or sync only fetches requests
+  // to avoid exhausting backend rate limits (30 reqs/min).
+  if (silent && state.loaded) {
+    return syncRequestsOnly();
   }
-  setState({ customers, horses, staff, requests, trips, transactions, incidents, complaints, actualCosts, notifications, loading: false, loaded: true });
+
+  if (inFlightPromise) {
+    if (silent) return inFlightPromise;
+  }
+
+  const seq = ++currentLoadSeq;
+  if (!silent) {
+    setState({ loading: true });
+  }
+
+  inFlightPromise = (async () => {
+    try {
+      const [customersRes, horsesRes, staffRes, requestsRes, tripsRes, txsRes, notifsRes] = await Promise.allSettled([
+        managerApi.getCustomers(), managerApi.getHorses(), managerApi.getStaff(), managerApi.getRequests(),
+        managerApi.getTrips(), managerApi.getTransactions(), managerApi.getNotifications(),
+      ]);
+
+      if (seq !== currentLoadSeq) {
+        return;
+      }
+
+      const customers = customersRes.status === 'fulfilled' && customersRes.value ? customersRes.value : [];
+      const horses = horsesRes.status === 'fulfilled' && horsesRes.value ? horsesRes.value : [];
+      const staff = staffRes.status === 'fulfilled' && staffRes.value ? staffRes.value : [];
+      const trips = tripsRes.status === 'fulfilled' && tripsRes.value ? tripsRes.value : [];
+      const transactions = txsRes.status === 'fulfilled' && txsRes.value ? txsRes.value : [];
+      const notifications = notifsRes.status === 'fulfilled' && notifsRes.value ? notifsRes.value : [];
+      const baseRequests = requestsRes.status === 'fulfilled' && requestsRes.value ? requestsRes.value : [];
+      // Surface list failures (auth, contract mismatch…) instead of silently showing an empty list.
+      if (requestsRes.status === 'rejected') {
+        console.error('[manager] GET /manager/requests failed', requestsRes.reason);
+        toast(`Không tải được danh sách yêu cầu: ${apiMessage(requestsRes.reason)}`);
+      }
+
+      const isDemo = getDemoMode('manager');
+      if (!isDemo) {
+        setState((prev) => ({
+          ...prev,
+          customers: customers || [],
+          horses: horses || [],
+          staff: staff || [],
+          requests: mergeRequestList(baseRequests, prev.requests),
+          trips: trips || [],
+          transactions: transactions || [],
+          notifications: notifications || [],
+          loading: false,
+          loaded: true,
+        }));
+        return;
+      }
+      const shared = getSharedRequests().map(toManagerRequest);
+      const merged = [...shared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+      const mock = clone(mockRequests);
+      const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
+      setState((prev) => ({
+        ...prev,
+        customers: customers?.length ? customers : clone(mockCustomers),
+        horses: horses?.length ? horses : clone(mockHorses),
+        staff: staff?.length ? staff : clone(mockStaff),
+        requests: allDemoRequests,
+        trips: trips?.length ? trips : clone(mockTrips),
+        transactions: transactions?.length ? transactions : clone(mockTransactions),
+        notifications: notifications?.length ? notifications : clone(mockNotifications),
+        loading: false,
+        loaded: true,
+      }));
+      const extra = await Promise.allSettled([managerApi.getIncidents(), managerApi.getComplaints(), managerApi.getActualCosts()]);
+      if (seq !== currentLoadSeq) return;
+      if (extra[0].status === 'fulfilled') setState({ incidents: extra[0].value?.length ? extra[0].value : clone(mockIncidents) });
+      if (extra[1].status === 'fulfilled') setState({ complaints: extra[1].value?.length ? extra[1].value : clone(mockComplaints) });
+      if (extra[2].status === 'fulfilled') setState({ actualCosts: extra[2].value?.length ? extra[2].value : clone(mockActualCosts) });
+    } catch (error) {
+      if (seq === currentLoadSeq) {
+        setState({ loading: false, loaded: true });
+      }
+    } finally {
+      if (seq === currentLoadSeq) {
+        inFlightPromise = null;
+      }
+    }
+  })();
+
+  return inFlightPromise;
+}
+
+const running = new Set<string>();
+async function perform(key: string, action: () => Promise<unknown>, message: string): Promise<ActionResult> {
+  if (running.has(key)) return fail('Thao tác đang được xử lý.');
+  running.add(key);
+  try {
+    await action();
+    await loadAll({ force: true, silent: true });
+    if (key.startsWith('REQUEST_')) {
+      const request = await managerApi.getRequest(key);
+      setState(s => ({ requests: s.requests.map(r => r.id === key ? request : r) }));
+    }
+    notifySync('requests_updated');
+    return ok(message);
+  } catch (error) {
+    return fail(apiMessage(error));
+  } finally {
+    running.delete(key);
+  }
 }
 
 // ============================================================================
 // Hành động của Logistics Manager
 // ============================================================================
 const managerActions = {
-  reload: () => { setState({ loaded: false }); void loadAll(); },
+  async loadRequest(id: string) {
+    if (getDemoMode('manager')) return;
+    try {
+      const request = await managerApi.getRequest(id);
+      setState(s => ({ requests: s.requests.some(r => r.id === id) ? s.requests.map(r => r.id === id ? request : r) : [...s.requests, request],
+        transactions: s.transactions.map(p => request.versions.some(v => v.contractId === p.contractId) ? { ...p, requestId: id } : p),
+      }));
+    } catch (error) { toast(apiMessage(error)); }
+  },
+  reload: () => { void loadAll({ force: true, silent: false }); },
+  async cancelPayment(id: string, reason: string): Promise<ActionResult> {
+    try {
+      const p = await managerApi.cancelPayment(id, reason);
+      await loadAll({ force: true, silent: true });
+      notifySync('requests_updated');
+      return p.status === 'SUCCESS'
+        ? ok(`${id}: VNPay xác nhận khách ĐÃ thanh toán – không huỷ, đã ghi nhận cọc.`)
+        : ok(`Đã huỷ ${id}. Khách có thể thanh toán lại.`);
+    } catch (error) { return fail(apiMessage(error)); }
+  },
+  /** Reading a pending payment makes the server query VNPay (querydr) and record the result. */
+  async reconcilePayment(id: string): Promise<ActionResult> {
+    try {
+      const p = await managerApi.getPayment(id);
+      await loadAll({ force: true, silent: true });
+      notifySync('requests_updated');
+      return ok(p.status === 'SUCCESS' ? `${id}: VNPay xác nhận đã thanh toán – đã ghi nhận cọc.`
+        : ['FAILED', 'REJECTED'].includes(p.status) ? `${id}: không có giao dịch thành công – khách có thể thanh toán lại.`
+        : `${id}: VNPay chưa trả kết quả. Hệ thống tự kiểm tra lại mỗi 5 phút.`);
+    } catch (error) { return fail(apiMessage(error)); }
+  },
   clearToast: () => setState({ toast: null }),
   showToast: (m: string) => toast(m),
-  markAllRead: () => mutate((d) => d.notifications.forEach((n) => { n.read = true; })),
-  markRead: (id: string) => mutate((d) => { const n = d.notifications.find((x) => x.id === id); if (n) n.read = true; }),
-
-  // ----- Xét duyệt yêu cầu -----
-  acceptRequest(id: string): ActionResult {
+  markAllRead: () => perform('notifications', () => managerApi.markAllRead(), 'Đã đánh dấu thông báo đã đọc.'),
+  markRead: (id: string) => perform(id, () => managerApi.markRead(id), 'Đã đọc thông báo.'),
+  async acceptRequest(id: string): Promise<ActionResult> {
     const r = reqIn(state, id);
-    if (!r || r.status !== 'PENDING_REVIEW') return fail('Chỉ chấp thuận được yêu cầu đang chờ xét duyệt.');
-    mutate((d) => { const x = reqIn(d, id)!; x.status = 'CONTRACT_PREPARATION'; x.feedback = undefined; log(d, x, 'Chấp nhận yêu cầu', 'Mở bước soạn hợp đồng'); });
-    void managerApi.acceptRequest(id);
-    return ok(`Đã chấp thuận ${id}. Bước Hợp đồng & giá đã mở.`);
-  },
-  requestRevision(id: string, feedback: string, fields: RevisionField[]): ActionResult {
-    const r = reqIn(state, id);
-    if (!r || r.status !== 'PENDING_REVIEW') return fail('Chỉ yêu cầu chỉnh sửa được đơn đang chờ xét duyệt.');
-    if (feedback.trim().length < 10) return fail('Nhập góp ý cho khách hàng (ít nhất 10 ký tự).');
-    if (!fields.length) return fail('Chọn ít nhất một mục khách hàng cần sửa.');
+    if (!r || r.status !== 'PENDING_REVIEW') return fail('Yêu cầu chưa ở hàng chờ xét duyệt.');
+    const isDemo = getDemoMode('manager');
+    if (!isDemo) {
+      return perform(id, async () => {
+        const updated = await managerApi.acceptRequest(id);
+        mutate((d) => {
+          const target = reqIn(d, id);
+          if (target) {
+            Object.assign(target, updated);
+            target.status = updated.status || 'CONTRACT_PREPARATION';
+            log(d, target, 'Chấp thuận yêu cầu', 'Chuyển sang bước soạn hợp đồng');
+          }
+        });
+      }, `Đã chấp thuận yêu cầu ${id}.`);
+    }
     mutate((d) => {
-      const x = reqIn(d, id)!;
-      x.status = 'CHANGES_REQUESTED'; x.feedback = feedback.trim(); x.revisionFields = fields;
-      log(d, x, 'Yêu cầu chỉnh sửa', feedback.trim());
+      const x = reqIn(d, id);
+      if (x) {
+        x.status = 'CONTRACT_PREPARATION';
+        log(d, x, 'Chấp thuận yêu cầu', 'Chuyển sang bước soạn hợp đồng');
+        saveSharedRequest(x);
+      }
     });
-    void managerApi.requestRevision(id, { feedback, fields });
-    return ok(`Đã gửi yêu cầu chỉnh sửa ${id} cho khách hàng.`);
+    notifySync('requests_updated');
+    return ok('Đã chấp thuận yêu cầu.');
   },
-  rejectRequest(id: string, reason: string): ActionResult {
+  async requestRevision(id: string, feedback: string): Promise<ActionResult> {
+    if (feedback.trim().length < 10) return fail('Nhập góp ý ít nhất 10 ký tự.');
     const r = reqIn(state, id);
-    if (!r || !['PENDING_REVIEW', 'CHANGES_REQUESTED'].includes(r.status)) return fail('Chỉ từ chối được yêu cầu chưa được chấp thuận.');
-    if (reason.trim().length < 10) return fail('Nhập lý do từ chối (ít nhất 10 ký tự).');
-    mutate((d) => { const x = reqIn(d, id)!; x.status = 'REJECTED'; x.reason = reason.trim(); log(d, x, 'Từ chối yêu cầu', reason.trim()); });
-    void managerApi.rejectRequest(id, reason);
-    return ok(`Đã từ chối ${id}.`);
-  },
-  cancelRequest(id: string, reason: string): ActionResult {
-    const r = reqIn(state, id);
-    if (!r || !CANCELLABLE.includes(r.status)) return fail('Chỉ hủy được yêu cầu chưa kích hoạt (trước khi khách ký OTP).');
-    if (reason.trim().length < 10) return fail('Nhập lý do hủy (ít nhất 10 ký tự).');
-    mutate((d) => { const x = reqIn(d, id)!; log(d, x, 'Hủy yêu cầu', reason.trim()); cancelInPlace(d, x, reason.trim()); });
-    void managerApi.cancelRequest(id, reason);
-    return ok(`Đã hủy ${id}.${moneyHeld(state, r) > 0 ? ' Lệnh hoàn tiền được tạo tại Tiền cọc & thanh toán.' : ''}`);
-  },
-  decideCancellation(id: string, approve: boolean, note: string): ActionResult {
-    const r = reqIn(state, id);
-    if (!r || r.status !== 'CANCELLATION_REQUESTED' || !r.cancellation) return fail('Yêu cầu không ở trạng thái chờ duyệt hủy.');
-    if (note.trim().length < 5) return fail('Nhập ghi chú quyết định (ít nhất 5 ký tự).');
+    if (!r) return fail('Không tìm thấy yêu cầu.');
+    const isDemo = getDemoMode('manager');
+    if (!isDemo) {
+      return perform(id, async () => {
+        const updated = await managerApi.requestRevision(id, feedback.trim());
+        mutate((d) => {
+          const target = reqIn(d, id);
+          if (target) {
+            Object.assign(target, updated);
+            target.status = updated.status || 'CHANGES_REQUESTED';
+            target.feedback = feedback.trim();
+            log(d, target, 'Yêu cầu chỉnh sửa', feedback.trim());
+          }
+        });
+      }, 'Đã gửi yêu cầu chỉnh sửa.');
+    }
     mutate((d) => {
-      const x = reqIn(d, id)!, c = x.cancellation!;
-      c.status = approve ? 'APPROVED' : 'REFUSED'; c.decidedAt = nowStamp(); c.decisionNote = note.trim();
-      if (approve) { log(d, x, 'Duyệt yêu cầu hủy', note.trim()); cancelInPlace(d, x, `Khách hàng hủy: ${c.reason}`); }
-      else { x.status = c.prevStatus ?? 'CONTRACT_READY'; log(d, x, 'Từ chối yêu cầu hủy', note.trim()); }
+      const x = reqIn(d, id);
+      if (x) {
+        x.status = 'CHANGES_REQUESTED';
+        x.feedback = feedback.trim();
+        log(d, x, 'Yêu cầu chỉnh sửa', feedback.trim());
+        saveSharedRequest(x);
+      }
     });
-    void managerApi.decideCancellation(id, { approve, note });
-    return ok(approve ? `Đã duyệt hủy ${id}.` : `Đã từ chối yêu cầu hủy – ${id} tiếp tục quy trình.`);
+    notifySync('requests_updated');
+    return ok('Đã gửi yêu cầu chỉnh sửa.');
   },
-  closeRequest(id: string): ActionResult {
+  async rejectRequest(id: string, reason: string): Promise<ActionResult> {
+    if (reason.trim().length < 10) return fail('Nhập lý do ít nhất 10 ký tự.');
+    const r = reqIn(state, id);
+    if (!r) return fail('Không tìm thấy yêu cầu.');
+    const isDemo = getDemoMode('manager');
+    if (!isDemo) {
+      return perform(id, async () => {
+        const updated = await managerApi.rejectRequest(id, reason.trim());
+        mutate((d) => {
+          const target = reqIn(d, id);
+          if (target) {
+            Object.assign(target, updated);
+            target.status = updated.status || 'REJECTED';
+            target.reason = reason.trim();
+            log(d, target, 'Từ chối yêu cầu', reason.trim());
+          }
+        });
+      }, 'Đã từ chối yêu cầu.');
+    }
+    mutate((d) => {
+      const x = reqIn(d, id);
+      if (x) {
+        x.status = 'REJECTED';
+        x.reason = reason.trim();
+        log(d, x, 'Từ chối yêu cầu', reason.trim());
+        saveSharedRequest(x);
+      }
+    });
+    notifySync('requests_updated');
+    return ok('Đã từ chối yêu cầu.');
+  },
+  cancelRequest(id: string, reason: string) {
+    if (reason.trim().length < 10) return Promise.resolve(fail('Nhập lý do ít nhất 10 ký tự.'));
+    return perform(id, () => managerApi.cancelRequest(id, reason.trim()), 'Đã xử lý hủy theo trạng thái máy chủ.');
+  },
+  decideCancellation(id: string, approve: boolean, note: string) {
+    const r = reqIn(state, id), v = r && curVersion(r);
+    if (!v?.contractId || note.trim().length < 5) return Promise.resolve(fail('Thiếu hợp đồng hoặc ghi chú quyết định.'));
+    return perform(id, () => managerApi.decideCancellation(v.contractId!, approve, note.trim()), 'Đã ghi nhận quyết định hủy.');
+  },
+  async closeRequest(id: string): Promise<ActionResult> {
     const r = reqIn(state, id);
     if (!r || r.status !== 'DELIVERED') return fail('Chỉ đóng được yêu cầu đã bàn giao.');
     const miss = closureChecks(state, r).filter((c) => !c[1]);
     if (miss.length) return fail(`Chưa đủ điều kiện đóng: ${miss[0][0]}.`);
+    const isDemo = getDemoMode('manager');
+    if (!isDemo) {
+      return perform(id, async () => {
+        await managerApi.closeRequest(id);
+        mutate((d) => {
+          const x = reqIn(d, id);
+          if (x) {
+            x.status = 'CLOSED'; x.closedAt = nowStamp();
+            const v = x.versions.find((y) => y.signedAt); if (v) v.state = 'FULFILLED';
+            log(d, x, 'Đóng yêu cầu', 'Đủ mọi điều kiện đóng – hợp đồng đã hoàn thành');
+          }
+        });
+      }, `Đã đóng ${id}.`);
+    }
     mutate((d) => {
       const x = reqIn(d, id)!;
       x.status = 'CLOSED'; x.closedAt = nowStamp();
       const v = x.versions.find((y) => y.signedAt); if (v) v.state = 'FULFILLED';
       log(d, x, 'Đóng yêu cầu', 'Đủ mọi điều kiện đóng – hợp đồng đã hoàn thành');
+      saveSharedRequest(x);
     });
     void managerApi.closeRequest(id);
+    notifySync('requests_updated');
     return ok(`Đã đóng ${id}.`);
   },
   addCollectionNote(id: string, note: string): ActionResult {
@@ -273,172 +535,78 @@ const managerActions = {
   },
 
   // ----- Hợp đồng -----
-  saveDraft(id: string, draft: ContractDraft): ActionResult {
-    mutate((d) => { const x = reqIn(d, id)!; x.draft = { ...clone(draft), savedAt: nowStamp() }; });
-    void managerApi.saveContractDraft(id, draft);
-    return ok('Đã lưu bản nháp hợp đồng.');
+  async saveDraft(id: string, draft: ContractDraft): Promise<ActionResult> {
+    return perform(id, async () => {
+        await managerApi.saveContractDraft(id, draft);
+        const editor = await managerApi.getContractEditor(id);
+        mutate(d => { const r = reqIn(d, id); if (r) r.draft = editor.draft ?? undefined; });
+    }, 'Đã lưu bản nháp hợp đồng trên máy chủ.');
   },
-  discardDraft(id: string) { mutate((d) => { reqIn(d, id)!.draft = undefined; }); },
-  issueContract(id: string, draft: ContractDraft, responseText = ''): ActionResult {
+  discardDraft(id: string) { return perform(id, () => managerApi.discardContractDraft(id), 'Đã bỏ bản nháp.'); },
+  async issueContract(id: string, draft: ContractDraft, responseText = ''): Promise<ActionResult> {
     const r = reqIn(state, id);
-    if (!r || !['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status)) return fail('Yêu cầu không ở bước soạn hợp đồng.');
-    if (isSigned(r)) return fail('Hợp đồng đã ký OTP được khóa hoàn toàn.');
-    if (depositPaid(state, r)) return fail('Khách đã có tiền cọc được xác minh cho phiên bản hiện hành – không phát hành lại.');
-    const err = draftError(draft);
-    if (err) return fail(err);
-    const prev = curVersion(r);
-    const v = (prev?.v ?? 0) + 1;
-    mutate((d) => {
-      const x = reqIn(d, id)!, p = curVersion(x), at = nowStamp();
-      if (p) {
-        if (p.change && !p.change.response) {
-          p.change.response = { at, text: responseText.trim() || `Đồng ý điều chỉnh – phát hành phiên bản v${v}.`, decision: 'REVISED' };
-          if (p.change.proposedDate) x.date = p.change.proposedDate;
-        }
-        p.state = 'SUPERSEDED';
+    if (!r || isSigned(r) || verifiedDeposit(state, r) > 0 || depositPaid(state, r) || receivedDepositTx(state, r)) return fail('Yêu cầu không đủ điều kiện phát hành hợp đồng.');
+    const err = draftError(draft); if (err) return fail(err);
+    const published = curVersion(r);
+    const openChange = published?.change && !published.change.response ? published : undefined;
+    if (openChange && responseText.trim() && responseText.trim().length < 10) return fail('Phản hồi gửi khách hàng cần ít nhất 10 ký tự.');
+    return perform(id, async () => {
+      // A pending customer change request is accepted with the Manager's reply before the new version is issued.
+      // (Without a reply, the server marks it accepted when publishing.)
+      if (openChange?.contractId && responseText.trim()) {
+        await managerApi.respondContractChange(openChange.contractId, openChange.v, 'ACCEPTED', responseText.trim());
       }
-      x.versions.push({
-        v, number: `CT-${id.slice(4)}`, issuedAt: at, validUntil: addHours(at, 24), mode: draft.mode, departAt: draft.departAt, arriveAt: draft.arriveAt,
-        items: clone(draft.items).map((i) => ({ ...i, amount: Number(i.amount) })), total: sumItems(draft.items), depositPct: Number(draft.depositPct),
-        terms: clone(draft.terms), note: draft.note.trim() || undefined, budget: clone(draft.budget), exception: draft.exception.trim() || undefined,
-        state: 'ISSUED', extensions: [],
-      });
-      x.status = 'CONTRACT_READY'; x.draft = undefined;
-      log(d, x, v > 1 ? 'Phát hành hợp đồng sửa đổi' : 'Phát hành hợp đồng', `CT-${id.slice(4)} v${v} • ${fmtMoney(sumItems(draft.items))} • cọc ${draft.depositPct}%`);
-    });
-    void managerApi.issueContract(id, draft);
-    return ok(`Đã phát hành CT-${id.slice(4)} v${v}. Khách hàng có 24 giờ để thanh toán cọc và ký OTP.`);
+      const saved = await managerApi.saveContractDraft(id, draft);
+      await managerApi.publishContract(id, saved.versionNo);
+    }, 'Đã phát hành hợp đồng. Hạn hoàn tất được lấy từ máy chủ.');
   },
-  respondChange(id: string, decision: 'KEPT' | 'RETURNED', text: string): ActionResult {
+  respondChange(id: string, decision: 'KEPT' | 'RETURNED', text: string) {
     const r = reqIn(state, id), v = r && curVersion(r);
-    if (!r || !v || r.status !== 'CONTRACT_CHANGES_REQUESTED' || !v.change || v.change.response) return fail('Không có yêu cầu sửa hợp đồng đang chờ phản hồi.');
-    if (text.trim().length < 10) return fail('Nhập phản hồi cho khách hàng (ít nhất 10 ký tự).');
-    mutate((d) => {
-      const x = reqIn(d, id)!, y = curVersion(x)!, at = nowStamp();
-      y.change!.response = { at, text: text.trim(), decision };
-      if (decision === 'KEPT') {
-        y.state = 'ISSUED'; y.extensions.push({ at, from: y.validUntil, to: addHours(at, 24) }); y.validUntil = addHours(at, 24);
-        x.status = 'CONTRACT_READY';
-        log(d, x, 'Từ chối sửa – giữ phiên bản', `${ctRef(y)} • hạn chung mới ${fmtDateTime(y.validUntil)}`);
-      } else {
-        y.state = 'SUPERSEDED'; x.status = 'CHANGES_REQUESTED'; x.feedback = text.trim(); x.revisionFields = ['date', 'notes'];
-        log(d, x, 'Trả yêu cầu về cho khách chỉnh sửa', text.trim());
-      }
-    });
-    void managerApi.respondContractChange(id, { decision, text });
-    return ok(decision === 'KEPT' ? 'Đã phản hồi và giữ nguyên phiên bản hợp đồng (hạn chung 24 giờ mới).' : 'Đã trả yêu cầu về cho khách hàng chỉnh sửa.');
+    if (!v?.contractId || text.trim().length < 10) return Promise.resolve(fail('Nhập phản hồi ít nhất 10 ký tự.'));
+    return perform(id, () => managerApi.respondContractChange(v.contractId!, v.v, decision === 'KEPT' ? 'REJECTED' : 'ACCEPTED', text.trim()), 'Đã phản hồi. Hạn hợp đồng được giữ nguyên.');
   },
-  extendContract(id: string): ActionResult {
+  extendContract(id: string, reason: string) {
     const r = reqIn(state, id), v = r && curVersion(r);
-    if (!r || !v || v.signedAt || !['ISSUED', 'EXPIRED'].includes(versionState(v)) || !['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status)) return fail('Chỉ gia hạn được hợp đồng đã phát hành, chưa ký.');
-    mutate((d) => {
-      const x = reqIn(d, id)!, y = curVersion(x)!, base = Math.max(stampToMs(y.validUntil), clockMs());
-      const to = addHours(nowStamp(), (base - clockMs()) / 3600000 + 24);
-      y.extensions.push({ at: nowStamp(), from: y.validUntil, to }); y.validUntil = to; y.state = 'ISSUED';
-      log(d, x, 'Gia hạn hạn chung 24 giờ', `Đến ${fmtDateTime(to)}`);
-    });
-    void managerApi.extendContract(id);
-    return ok(`Đã gia hạn ${id} thêm 24 giờ.`);
+    if (!v?.contractId || reason.trim().length < 5) return Promise.resolve(fail('Nhập lý do gia hạn ít nhất 5 ký tự.'));
+    return perform(id, () => managerApi.extendContract(v.contractId!, v.v, reason.trim()), 'Đã gia hạn theo thời hạn máy chủ trả về.');
   },
-  remindSign(id: string): ActionResult {
-    const r = reqIn(state, id);
-    if (!r) return fail('Không tìm thấy yêu cầu.');
-    mutate((d) => log(d, reqIn(d, id)!, 'Nhắc khách hoàn tất cọc & ký OTP'));
-    void managerApi.remindSign(id);
-    return ok(`Đã gửi nhắc nhở tới ${customerOf(state, r)?.email}.`);
+  remindSign(id: string) {
+    const r = reqIn(state, id), v = r && curVersion(r);
+    if (!v?.contractId) return Promise.resolve(fail('Không tìm thấy hợp đồng.'));
+    return perform(id, () => managerApi.remindSign(v.contractId!, v.v), 'Đã gửi nhắc hoàn tất hợp đồng.');
   },
-
-  // ----- Thanh toán -----
-  verifyTransaction(txId: string): ActionResult {
-    const x = state.transactions.find((t) => t.id === txId);
-    if (!x || x.status !== 'PENDING_CONFIRMATION' || x.method !== 'BANK_TRANSFER' || x.type === 'REFUND') return fail('Chỉ xác minh được chuyển khoản đang chờ.');
-    const r = reqIn(state, x.requestId)!;
-    if (['CANCELLED', 'REJECTED'].includes(r.status)) return fail('Yêu cầu đã hủy – không xác minh, hãy từ chối và hoàn trả.');
-    mutate((d) => {
-      const t = d.transactions.find((y) => y.id === txId)!, rr = reqIn(d, t.requestId)!;
-      t.status = 'SUCCESS'; t.confirmedAt = nowStamp();
-      log(d, rr, `Xác minh ${t.type === 'DEPOSIT' ? 'tiền cọc' : 'số dư'} (chuyển khoản)`, `${t.id} • ${fmtMoney(t.amount)}`);
-      if (t.type === 'DEPOSIT' && rr.status === 'CONTRACT_READY' && depositPaid(d, rr)) rr.status = 'DEPOSIT_VERIFIED';
-    });
-    void managerApi.verifyTransaction(txId);
-    return ok(`Đã xác minh ${txId}.${x.type === 'DEPOSIT' ? ' Khách hàng có thể ký OTP.' : ''}`);
+  confirmRefund(requestId: string) {
+    const request = reqIn(state, requestId), contractId = request?.contractId ?? (request && curVersion(request)?.contractId);
+    if (!contractId) return Promise.resolve(fail('Không tìm thấy hợp đồng để ghi nhận trạng thái hoàn tiền.'));
+    return perform(requestId, () => managerApi.confirmRefund(contractId), 'Đã cập nhật trạng thái hoàn tiền theo máy chủ.');
   },
-  rejectTransaction(txId: string, reason: string): ActionResult {
-    const x = state.transactions.find((t) => t.id === txId);
-    if (!x || x.status !== 'PENDING_CONFIRMATION' || x.type === 'REFUND') return fail('Giao dịch không ở trạng thái chờ xác minh.');
-    if (reason.trim().length < 10) return fail('Nhập lý do từ chối (ít nhất 10 ký tự).');
-    mutate((d) => {
-      const t = d.transactions.find((y) => y.id === txId)!;
-      t.status = 'REJECTED'; t.rejectReason = reason.trim();
-      log(d, reqIn(d, t.requestId)!, 'Từ chối chứng từ thanh toán', `${t.id} • ${reason.trim()}`);
-    });
-    void managerApi.rejectTransaction(txId, reason);
-    return ok(`Đã từ chối ${txId}. Khách hàng được thông báo để chuyển lại.`);
+  confirmDeployment(id: string, specialistId: string, coordinatorId: string) {
+    if (!specialistId || !coordinatorId) return Promise.resolve(fail('Chọn đủ người phụ trách.'));
+    return perform(id, () => managerApi.deployTrip(id, { specialistId, coordinatorId }), 'Đã phân công chuyến.');
   },
-  confirmRefund(txId: string): ActionResult {
-    const x = state.transactions.find((t) => t.id === txId);
-    if (!x || x.type !== 'REFUND' || x.status !== 'PENDING_CONFIRMATION') return fail('Không có lệnh hoàn tiền đang chờ.');
-    mutate((d) => {
-      const t = d.transactions.find((y) => y.id === txId)!;
-      t.status = 'SUCCESS'; t.confirmedAt = nowStamp();
-      log(d, reqIn(d, t.requestId)!, 'Xác nhận đã hoàn tiền', `${t.id} • ${fmtMoney(t.amount)}`);
-    });
-    void managerApi.confirmRefund(txId);
-    return ok(`Đã ghi nhận hoàn tiền ${txId}.`);
-  },
-
-  // ----- Chuyến đi -----
-  confirmDeployment(tripId: string, specialistId: string, coordinatorId: string): ActionResult {
-    const t = tripIn(state, tripId);
-    if (!t || t.status !== 'PLANNING' || t.deployment.status !== 'NOT_CONFIRMED') return fail('Chuyến không ở trạng thái chờ phân công.');
-    if (!specialistId || !coordinatorId) return fail('Chọn một Transport Specialist và một Fleet Coordinator.');
-    mutate((d) => {
-      const x = tripIn(d, tripId)!;
-      x.deployment = { status: 'CONFIRMED', specialistId, coordinatorId, at: nowStamp() };
-      d.staff.filter((s) => [specialistId, coordinatorId].includes(s.id)).forEach((s) => { s.load += 1; });
-      log(d, reqIn(d, x.requestId)!, 'Phân công chuyến', `${tripId} → ${d.staff.find((s) => s.id === specialistId)?.name}, ${d.staff.find((s) => s.id === coordinatorId)?.name}`);
-    });
-    void managerApi.deployTrip(tripId, { specialistId, coordinatorId });
-    return ok(`Đã phân công ${tripId}. Specialist và Coordinator bắt đầu chuẩn bị.`);
-  },
-  holdTrip(tripId: string, reason: string): ActionResult {
-    const t = tripIn(state, tripId);
-    if (!t || t.status !== 'PLANNING' || t.deployment.status === 'ON_HOLD') return fail('Chỉ tạm dừng được chuyến đang chuẩn bị.');
-    if (reason.trim().length < 10) return fail('Nhập lý do tạm dừng (ít nhất 10 ký tự).');
-    mutate((d) => { const x = tripIn(d, tripId)!; x.deployment.status = 'ON_HOLD'; x.deployment.holdReason = reason.trim(); log(d, reqIn(d, x.requestId)!, 'Tạm dừng chuẩn bị chuyến', reason.trim()); });
-    void managerApi.holdTrip(tripId, reason);
-    return ok(`Đã tạm dừng ${tripId}.`);
-  },
-  resumeTrip(tripId: string): ActionResult {
-    const t = tripIn(state, tripId);
-    if (!t || t.deployment.status !== 'ON_HOLD') return fail('Chuyến không bị tạm dừng.');
-    mutate((d) => {
-      const x = tripIn(d, tripId)!;
-      x.deployment.status = x.deployment.specialistId && x.deployment.coordinatorId ? 'CONFIRMED' : 'NOT_CONFIRMED'; x.deployment.holdReason = undefined;
-      log(d, reqIn(d, x.requestId)!, 'Tiếp tục chuẩn bị chuyến', tripId);
-    });
-    void managerApi.resumeTrip(tripId);
-    return ok(`${tripId} tiếp tục chuẩn bị.`);
-  },
+  holdTrip(id: string, reason: string) { return perform(id, () => managerApi.holdTrip(id, reason.trim()), 'Đã tạm dừng chuyến.'); },
+  resumeTrip(id: string) { return perform(id, () => managerApi.resumeTrip(id), 'Đã gửi yêu cầu tiếp tục chuẩn bị chuyến.'); },
   approveRoute(tripId: string): ActionResult {
     const t = tripIn(state, tripId);
     if (!t?.route || t.route.status !== 'PENDING_APPROVAL') return fail('Không có phương án tuyến chờ duyệt.');
     if (t.deployment.status !== 'CONFIRMED') return fail('Chuyến chưa được phân công hoặc đang tạm dừng.');
     if (!t.route.resourcesConfirmed) return fail('Coordinator chưa xác nhận bố trí xe và nhân sự.');
+    const version = t.route.v || 1;
     mutate((d) => { const x = tripIn(d, tripId)!; x.route!.status = 'APPROVED'; x.route!.decidedAt = nowStamp(); log(d, reqIn(d, x.requestId)!, `Duyệt phương án tuyến v${x.route!.v}`, tripId); });
-    void managerApi.decideRoute(tripId, { approve: true });
+    void managerApi.approveRoute(tripId, version).catch(() => managerApi.decideRoute(tripId, { approve: true }));
     return ok(`Đã duyệt phương án tuyến v${t.route.v} của ${tripId}.`);
   },
   returnRoute(tripId: string, reason: string): ActionResult {
     const t = tripIn(state, tripId);
     if (!t?.route || t.route.status !== 'PENDING_APPROVAL') return fail('Không có phương án tuyến chờ duyệt.');
-    if (reason.trim().length < 10) return fail('Nhập lý do yêu cầu làm lại (ít nhất 10 ký tự).');
+    if (reason.trim().length < 5) return fail('Nhập lý do yêu cầu làm lại (ít nhất 5 ký tự).');
+    const version = t.route.v || 1;
     mutate((d) => {
       const x = tripIn(d, tripId)!;
       x.route!.status = 'CHANGES_REQUESTED'; x.route!.decisionNote = reason.trim(); x.route!.decidedAt = nowStamp();
       log(d, reqIn(d, x.requestId)!, `Yêu cầu làm lại tuyến v${x.route!.v}`, reason.trim());
     });
-    void managerApi.decideRoute(tripId, { approve: false, reason });
+    void managerApi.returnRoute(tripId, version, reason.trim()).catch(() => managerApi.decideRoute(tripId, { approve: false, reason }));
     return ok(`Đã trả phương án tuyến về Coordinator.`);
   },
   decideFlight(tripId: string, approve: boolean, note = ''): ActionResult {
@@ -648,24 +816,24 @@ const demoActions = {
     });
     return ok(`Demo: khách ký OTP ${id}. Hệ thống tạo ${tripId} – chờ Manager phân công.`, tripId);
   },
-  customerRequestChange(id: string): ActionResult {
+  customerRequestChange(id: string, customText?: string): ActionResult {
     const r = reqIn(state, id), v = r && curVersion(r);
     if (!r || !v || r.status !== 'CONTRACT_READY' || versionState(v) !== 'ISSUED' || depositPaid(state, r)) return fail('Demo: chỉ yêu cầu sửa được hợp đồng đang hiệu lực, chưa có cọc.');
     mutate((d) => {
       const x = reqIn(d, id)!, y = curVersion(x)!;
       y.state = 'CHANGES_REQUESTED';
-      y.change = { at: nowStamp(), text: 'Đề nghị dời ngày vận chuyển thêm 3 ngày và giảm 5% cước vì đặt nhiều chuyến trong quý.', proposedDate: addDays(x.date, 3), commercial: 'Giảm 5% cước vận chuyển' };
+      y.change = { at: nowStamp(), text: customText?.trim() || 'Đề nghị dời ngày vận chuyển thêm 3 ngày và giảm 5% cước vì đặt nhiều chuyến trong quý.', proposedDate: addDays(x.date, 3), commercial: 'Giảm 5% cước vận chuyển' };
       x.status = 'CONTRACT_CHANGES_REQUESTED';
       log(d, x, 'Yêu cầu sửa hợp đồng', y.change.text, 'CUSTOMER');
     });
     return ok(`Demo: khách yêu cầu sửa hợp đồng ${id}.`);
   },
-  customerRequestCancel(id: string): ActionResult {
+  customerRequestCancel(id: string, customReason?: string): ActionResult {
     const r = reqIn(state, id);
     if (!r || !['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status)) return fail('Demo: chỉ gửi yêu cầu hủy được khi hợp đồng đã phát hành, chưa ký.');
     mutate((d) => {
       const x = reqIn(d, id)!;
-      x.cancellation = { reason: 'Kế hoạch thi đấu thay đổi, không còn nhu cầu vận chuyển.', at: nowStamp(), status: 'REQUESTED', prevStatus: x.status };
+      x.cancellation = { reason: customReason?.trim() || 'Kế hoạch thi đấu thay đổi, không còn nhu cầu vận chuyển.', at: nowStamp(), status: 'REQUESTED', prevStatus: x.status };
       x.status = 'CANCELLATION_REQUESTED';
       log(d, x, 'Yêu cầu hủy', x.cancellation.reason, 'CUSTOMER');
     });
@@ -699,14 +867,14 @@ const demoActions = {
         note: x.route?.decisionNote ? `Đã điều chỉnh theo góp ý: ${x.route.decisionNote}` : undefined,
       };
       if (x.mode === 'AIR' && (!x.flight || x.flight.status === 'REJECTED')) x.flight = { airline: 'Vietnam Airlines Cargo', flightNo: 'VN-9318F', budget: x.flight ? x.flight.budget - 600 : 6200, status: 'BUDGET_PENDING' };
-      log(d, r, `Gửi phương án tuyến v${x.route.v}`, 'Kèm xe và nhân sự đã xác nhận', 'FLEET_COORDINATOR');
+      log(d, r, `Gửi phương án tuyến v${x.route.v}`, 'Kèm xe và nhân sự đã xác nhận', 'FLEET_ROUTE_COORDINATOR');
     });
     return ok(`Demo: Coordinator gửi phương án tuyến cho ${tripId}.`);
   },
   coordinatorBookFlight(tripId: string): ActionResult {
     const t = tripIn(state, tripId);
     if (!t?.flight || t.flight.status !== 'APPROVED') return fail('Demo: ngân sách chuyến bay cần được Manager duyệt trước.');
-    mutate((d) => { const x = tripIn(d, tripId)!; x.flight!.status = 'BOOKED'; log(d, reqIn(d, x.requestId)!, 'Đặt chỗ chuyến bay', `${x.flight!.airline} ${x.flight!.flightNo}`, 'FLEET_COORDINATOR'); });
+    mutate((d) => { const x = tripIn(d, tripId)!; x.flight!.status = 'BOOKED'; log(d, reqIn(d, x.requestId)!, 'Đặt chỗ chuyến bay', `${x.flight!.airline} ${x.flight!.flightNo}`, 'FLEET_ROUTE_COORDINATOR'); });
     return ok(`Demo: Coordinator đã đặt chỗ ${t.flight.flightNo}.`);
   },
   driverDepart(tripId: string): ActionResult {
@@ -716,7 +884,7 @@ const demoActions = {
       const x = tripIn(d, tripId)!, r = reqIn(d, x.requestId)!;
       x.status = 'IN_TRANSIT'; r.status = 'IN_TRANSIT';
       x.milestones.push({ type: 'DEPARTED', stopIndex: 0, at: nowStamp(), by: 'Tài xế' });
-      log(d, r, 'Xuất phát', x.route?.stops[0]?.name, 'CREW');
+      log(d, r, 'Xuất phát', x.route?.stops[0]?.name, 'DRIVER_ESCORT');
     });
     return ok(`Demo: tài xế xác nhận xuất phát ${tripId}.`);
   },
@@ -726,7 +894,7 @@ const demoActions = {
     mutate((d) => {
       const x = tripIn(d, tripId)!;
       x.milestones.push({ ...n, at: nowStamp(), by: 'Tài xế' });
-      log(d, reqIn(d, x.requestId)!, milestoneText(x, n), undefined, 'CREW');
+      log(d, reqIn(d, x.requestId)!, milestoneText(x, n), undefined, 'DRIVER_ESCORT');
     });
     return ok(`Demo: ${milestoneText(t, n)}.`);
   },
@@ -744,7 +912,7 @@ const demoActions = {
         plans: [{ id: `PLN-${id.slice(4)}`, kind: 'Thay xe dự phòng', desc: 'Điều xe dự phòng 51C-246.80 từ kho gần nhất, chuyển ngựa trong 2 giờ. ETA lùi 3 giờ.', cost: 260, payer: 'COMPANY', status: 'PENDING_APPROVAL', at: addHours(at, 0.3) }],
         log: [[at, 'Tài xế báo sự cố'], [addHours(at, 0.3), 'Specialist đề xuất thay xe dự phòng']],
       });
-      log(d, r, 'Báo sự cố', `${id} • lỗi làm mát khoang ngựa`, 'CREW');
+      log(d, r, 'Báo sự cố', `${id} • lỗi làm mát khoang ngựa`, 'DRIVER_ESCORT');
     });
     return ok(`Demo: tài xế báo sự cố ${id} – chờ Manager quyết định phương án.`, id);
   },
@@ -754,7 +922,7 @@ const demoActions = {
     mutate((d) => {
       const x = tripIn(d, tripId)!;
       x.refusal = { at: nowStamp(), reason: 'Người có mặt không phải người nhận đã đăng ký và không có giấy ủy quyền.' };
-      log(d, reqIn(d, x.requestId)!, 'Từ chối bàn giao', x.refusal.reason, 'CREW');
+      log(d, reqIn(d, x.requestId)!, 'Từ chối bàn giao', x.refusal.reason, 'DRIVER_ESCORT');
     });
     return ok('Demo: bàn giao bị từ chối – Manager cần ghi quyết định xử lý.');
   },
@@ -768,7 +936,7 @@ const demoActions = {
       x.handover = { completedAt: at, receiverName: r.delivery.contact, receiverId: 'CCCD 079****8888', signature: true, photos: [`handover-${tripId.toLowerCase()}.jpg`],
         horses: r.horses.map((horseId) => ({ horseId, microchipOk: true, condition: 'NORMAL' as const })) };
       r.status = 'DELIVERED'; r.acceptance = { status: 'PENDING', openedAt: at, dueAt: addHours(at, 24) };
-      log(d, r, 'Hoàn tất bàn giao có xác minh', `Người nhận: ${r.delivery.contact}`, 'CREW');
+      log(d, r, 'Hoàn tất bàn giao có xác minh', `Người nhận: ${r.delivery.contact}`, 'DRIVER_ESCORT');
     });
     return ok(`Demo: tổ xe hoàn tất bàn giao ${tripId}.`);
   },
@@ -850,7 +1018,7 @@ export function useManager() {
     };
   }, [snap]);
 
-  const getRequest = (id?: string) => snap.requests.find((r) => r.id === id);
+  const getRequest = (id?: string) => snap.requests.find((r) => r.id === id || (id && cleanId(r.id) === cleanId(id)));
   const getTrip = (id?: string) => snap.trips.find((t) => t.id === id);
   const tripFor = (requestId: string) => tripOfReq(snap, requestId);
   const customer = (r?: TransportRequest) => customerOf(snap, r);

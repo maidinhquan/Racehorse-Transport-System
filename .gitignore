@@ -1,11 +1,12 @@
-# React
+node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/.env
 frontend/.env.local
+CheckFlow3.html
 
 # Data files & Requirements
-data/
+/data/
 !backend/Infrastructure/Data/
 !backend/Infrastructure/Data/**
 landing_page/
@@ -31,3 +32,6 @@ backend/appsettings.Local.json
 backend/App_Data/
 backend/WebApi/appsettings.Local.json
 **/TestResults/
+
+#env
+.env

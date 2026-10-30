@@ -1,0 +1,589 @@
+{
+  "contractVersion": "1.0.0",
+  "status": "ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS",
+  "roadResourceFailure": {
+    "binding": {
+      "incidentVersion": 10,
+      "recoveryVersion": null,
+      "approvedPlanVersion": 1,
+      "executionVersion": 11,
+      "assignmentVersion": 1
+    },
+    "incident": {
+      "id": "INCIDENT_001",
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "category": "VEHICLE_RESOURCE",
+      "status": "IN_PROGRESS",
+      "scope": {
+        "leg": "road",
+        "horseIds": [],
+        "milestoneIds": []
+      },
+      "description": "Xe không thể tiếp tục, tổ xe đang chăm sóc ngựa an toàn",
+      "occurredAt": "2026-11-10 08:00",
+      "reportedAt": "2026-11-10 08:00",
+      "reportedBy": {
+        "userId": "USER_006",
+        "name": "Phạm Hải",
+        "role": "FLEET_ROUTE_COORDINATOR",
+        "crewDuty": null
+      },
+      "coordinatorId": "USER_006",
+      "hasBlockingScope": true,
+      "resolutionOutcome": null,
+      "resolvedAt": null
+    },
+    "impacts": [
+      {
+        "area": "RESOURCES",
+        "status": "AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [
+          "MILESTONE_002"
+        ],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "SCHEDULE",
+        "status": "NOT_AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "BOOKING",
+        "status": "NOT_AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "DOCUMENTS",
+        "status": "NOT_AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "INSURANCE",
+        "status": "NOT_AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "HEALTH",
+        "status": "NOT_AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "DELIVERY_DEADLINE",
+        "status": "NOT_AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "INTERNAL_COST",
+        "status": "NOT_AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      }
+    ],
+    "tasks": [],
+    "recovery": {
+      "id": "RECOVERY_001",
+      "version": 1,
+      "status": "DRAFT",
+      "content": {
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "scope": {
+          "leg": "road",
+          "horseIds": [],
+          "milestoneIds": []
+        },
+        "resources": [
+          {
+            "leg": "road",
+            "oldVehicleId": null,
+            "vehicleId": "VEHICLE_002",
+            "crew": {
+              "mainDriverId": "USER_011",
+              "coDriverId": "USER_012",
+              "veterinarianId": "USER_013"
+            },
+            "availableFrom": "2026-11-10 09:00",
+            "availableUntil": "2026-11-10 20:00",
+            "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại"
+          }
+        ],
+        "schedule": [],
+        "flight": null,
+        "proposedEta": null,
+        "internalCostVnd": 0,
+        "customerAdditionalChargeVnd": 0,
+        "careInstructions": "Xe không thể tiếp tục, tổ xe đang chăm sóc ngựa an toàn",
+        "evidenceFileIds": []
+      },
+      "requiresManager": true,
+      "approvalReasons": [],
+      "baseApprovedPlanVersion": 1,
+      "baseExecutionVersion": 11,
+      "baseAssignmentVersion": 1,
+      "approvedBy": null,
+      "approvedAt": null
+    },
+    "readiness": {
+      "binding": {
+        "incidentVersion": 10,
+        "recoveryVersion": null,
+        "approvedPlanVersion": 1,
+        "executionVersion": 11,
+        "assignmentVersion": 1
+      },
+      "readinessVersion": "CHECK_001",
+      "serverTime": "2026-11-10 08:00",
+      "checks": [],
+      "blockers": [],
+      "canApplyRecovery": false,
+      "canContinue": false,
+      "canResolve": false,
+      "blockedScopes": []
+    },
+    "complianceReviews": [],
+    "vetAssessments": [],
+    "externalActions": [],
+    "actions": {
+      "canAccept": false,
+      "canAssessImpact": false,
+      "canSubmitRecovery": false,
+      "canDecideRecovery": false,
+      "canApplyRecovery": false,
+      "canContinue": false,
+      "canResolve": false,
+      "blockers": []
+    },
+    "evidenceFileIds": []
+  },
+  "airDelay": {
+    "binding": {
+      "incidentVersion": 10,
+      "recoveryVersion": null,
+      "approvedPlanVersion": 1,
+      "executionVersion": 11,
+      "assignmentVersion": 1
+    },
+    "incident": {
+      "id": "INCIDENT_001",
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "category": "DELAY_AIR",
+      "status": "IN_PROGRESS",
+      "scope": {
+        "leg": "air",
+        "horseIds": [],
+        "milestoneIds": []
+      },
+      "description": "Xe không thể tiếp tục, tổ xe đang chăm sóc ngựa an toàn",
+      "occurredAt": "2026-11-10 08:00",
+      "reportedAt": "2026-11-10 08:00",
+      "reportedBy": {
+        "userId": "USER_006",
+        "name": "Phạm Hải",
+        "role": "FLEET_ROUTE_COORDINATOR",
+        "crewDuty": null
+      },
+      "coordinatorId": "USER_006",
+      "hasBlockingScope": true,
+      "resolutionOutcome": null,
+      "resolvedAt": null
+    },
+    "impacts": [
+      {
+        "area": "RESOURCES",
+        "status": "AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "SCHEDULE",
+        "status": "AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "BOOKING",
+        "status": "AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "DOCUMENTS",
+        "status": "UNASSESSED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "INSURANCE",
+        "status": "UNASSESSED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "HEALTH",
+        "status": "UNASSESSED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "DELIVERY_DEADLINE",
+        "status": "AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      },
+      {
+        "area": "INTERNAL_COST",
+        "status": "AFFECTED",
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "blockedMilestoneIds": [],
+        "blockedHorseIds": []
+      }
+    ],
+    "tasks": [],
+    "recovery": {
+      "id": "RECOVERY_001",
+      "version": 1,
+      "status": "DRAFT",
+      "content": {
+        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
+        "scope": {
+          "leg": "air",
+          "horseIds": [],
+          "milestoneIds": []
+        },
+        "resources": [
+          {
+            "leg": "inbound",
+            "oldVehicleId": "VEHICLE_002",
+            "vehicleId": "VEHICLE_003",
+            "crew": {
+              "mainDriverId": "USER_021",
+              "coDriverId": "USER_022",
+              "veterinarianId": "USER_023"
+            },
+            "availableFrom": "2026-11-10 09:00",
+            "availableUntil": "2026-11-10 20:00",
+            "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại"
+          }
+        ],
+        "schedule": [],
+        "flight": {
+          "oldBookingId": "BOOKING_001",
+          "partnerId": "PARTNER_001",
+          "serviceId": "SERVICE_002",
+          "catalogVersion": 1,
+          "flightCode": "EQ124",
+          "plannedDepartureAt": "2026-11-10 14:00",
+          "plannedArrivalAt": "2026-11-10 18:00",
+          "quotedCostVnd": 1000000
+        },
+        "proposedEta": null,
+        "internalCostVnd": 0,
+        "customerAdditionalChargeVnd": 0,
+        "careInstructions": "Xe không thể tiếp tục, tổ xe đang chăm sóc ngựa an toàn",
+        "evidenceFileIds": []
+      },
+      "requiresManager": true,
+      "approvalReasons": [],
+      "baseApprovedPlanVersion": 1,
+      "baseExecutionVersion": 11,
+      "baseAssignmentVersion": 1,
+      "approvedBy": null,
+      "approvedAt": null
+    },
+    "readiness": {
+      "binding": {
+        "incidentVersion": 10,
+        "recoveryVersion": null,
+        "approvedPlanVersion": 1,
+        "executionVersion": 11,
+        "assignmentVersion": 1
+      },
+      "readinessVersion": "CHECK_001",
+      "serverTime": "2026-11-10 08:00",
+      "checks": [],
+      "blockers": [],
+      "canApplyRecovery": false,
+      "canContinue": false,
+      "canResolve": false,
+      "blockedScopes": []
+    },
+    "complianceReviews": [],
+    "vetAssessments": [],
+    "externalActions": [],
+    "actions": {
+      "canAccept": false,
+      "canAssessImpact": false,
+      "canSubmitRecovery": false,
+      "canDecideRecovery": false,
+      "canApplyRecovery": false,
+      "canContinue": false,
+      "canResolve": false,
+      "blockers": []
+    },
+    "evidenceFileIds": []
+  },
+  "scenarios": [
+    {
+      "id": "report-immediate-block",
+      "given": "Xe hỏng, Trip IN_TRANSIT",
+      "when": "J03 chưa có ảnh",
+      "then": "REPORTED được lưu, block liên quan ngay; chăm sóc tiếp tục"
+    },
+    {
+      "id": "idempotent-report",
+      "given": "J03 commit",
+      "when": "Retry cùng key/body",
+      "then": "Một incident/history/outbox, response gốc"
+    },
+    {
+      "id": "different-body",
+      "given": "Đã dùng key",
+      "when": "Retry khác body/path",
+      "then": "409 IDEMPOTENCY_CONFLICT"
+    },
+    {
+      "id": "foreign-scope",
+      "given": "Driver chỉ outbound Trip A",
+      "when": "Báo Trip B/ngựa lạ",
+      "then": "404 hoặc 409 SCOPE_MISMATCH trong Trip có quyền xem"
+    },
+    {
+      "id": "accept-no-resume",
+      "given": "Sự cố mới báo",
+      "when": "J06",
+      "then": "IN_PROGRESS, không gỡ block"
+    },
+    {
+      "id": "impact-subset",
+      "given": "Xe hỏng, không ảnh hưởng bay/hồ sơ",
+      "when": "J07 đủ 8 area có lý do",
+      "then": "Chỉ nguồn lực bị đánh giá lại, giữ kết quả còn đúng"
+    },
+    {
+      "id": "impact-duplicate",
+      "given": "Có 8 entry nhưng trùng area",
+      "when": "J07",
+      "then": "400 hoặc 409 IMPACT_ASSESSMENT_INCOMPLETE"
+    },
+    {
+      "id": "parallel-work",
+      "given": "Resources và insurance affected",
+      "when": "J10 giao hai nhiệm vụ",
+      "then": "Có thể xử lý song song, DONE không thay clearance"
+    },
+    {
+      "id": "task-scope",
+      "given": "Assignee không thuộc phạm vi",
+      "when": "J10/J12",
+      "then": "409 INVALID_ASSIGNEE/NOT_TASK_ASSIGNEE"
+    },
+    {
+      "id": "emergency-care",
+      "given": "Chưa duyệt chi phí",
+      "when": "J08 EMERGENCY_CARE",
+      "then": "Lưu ngay; không phải FIT/approval"
+    },
+    {
+      "id": "vet-required",
+      "given": "Driver không là bác sĩ",
+      "when": "J22 FIT",
+      "then": "409 VETERINARIAN_REQUIRED; không ghi kết luận"
+    },
+    {
+      "id": "vet-block",
+      "given": "Bác sĩ NOT_FIT",
+      "when": "J26",
+      "then": "409 VET_CLEARANCE_REQUIRED; vẫn ghi chăm sóc"
+    },
+    {
+      "id": "replace-vehicle",
+      "given": "Xe hỏng nhưng lịch giữ nguyên",
+      "when": "Draft thay xe, J16",
+      "then": "Cần Manager do thay approved resources, không bắt đổi flight"
+    },
+    {
+      "id": "resource-race",
+      "given": "Hai recovery chọn cùng xe/người",
+      "when": "Concurrent J16",
+      "then": "Chỉ một hold thành công, bên kia RESOURCE_CONFLICT"
+    },
+    {
+      "id": "air-separation",
+      "given": "AIR hai ROAD",
+      "when": "Chọn lại xe/người outbound cho inbound",
+      "then": "409 INVALID_CREW/RESOURCE_CONFLICT"
+    },
+    {
+      "id": "approval-not-apply",
+      "given": "Manager APPROVE",
+      "when": "Đọc Flow4",
+      "then": "Chưa đổi plan/execution/booking hoặc mở mốc"
+    },
+    {
+      "id": "changed-baseline",
+      "given": "Approved plan/dependency thay sau draft",
+      "when": "J16/J17/J24",
+      "then": "409 BASELINE_CHANGED/READINESS_CHANGED, không overwrite"
+    },
+    {
+      "id": "flight-delayed",
+      "given": "Đối tác hoãn bay",
+      "when": "Recovery schedule+booking+inbound",
+      "then": "Specialist kiểm applicability liên quan; Manager duyệt lịch/cost, khách nhận thông tin"
+    },
+    {
+      "id": "no-recheck-every-document",
+      "given": "Giấy tờ giả định valid suốt chuyến",
+      "when": "Chỉ đổi xe không đổi điều kiện hồ sơ",
+      "then": "Không tự yêu cầu làm lại/gia hạn mọi giấy"
+    },
+    {
+      "id": "booking-old-active",
+      "given": "Đổi flight còn booking cũ",
+      "when": "J23 confirm new/J24",
+      "then": "409 OLD_BOOKING_ACTIVE khi ảnh hưởng, giữ evidence cũ"
+    },
+    {
+      "id": "booking-confirmation",
+      "given": "Draft chưa duyệt hoặc compliance chưa khả thi",
+      "when": "J23 NEW_BOOKING_CONFIRMED",
+      "then": "409 RECOVERY_NOT_APPROVED/COMPLIANCE_PRECHECK_REQUIRED"
+    },
+    {
+      "id": "partner-reference",
+      "given": "PARTNER_CONTACT đã ghi",
+      "when": "J25",
+      "then": "Liên hệ không phải booking confirmed"
+    },
+    {
+      "id": "customer-charge",
+      "given": "Chi phí sự cố nội bộ 1 triệu",
+      "when": "Gửi customerAdditionalChargeVnd >0",
+      "then": "400; giữ giá/contract/ledger khách"
+    },
+    {
+      "id": "customer-agreement",
+      "given": "Đổi cam kết lịch giao",
+      "when": "Manager NOTICE, khách im lặng",
+      "then": "Chưa có consent; J24 chặn CUSTOMER_AGREEMENT_REQUIRED"
+    },
+    {
+      "id": "customer-refusal",
+      "given": "Khách REJECT đề nghị lịch",
+      "when": "J32",
+      "then": "Giữ blocker, Manager thương lượng, không sửa địa chỉ giao"
+    },
+    {
+      "id": "external-consent",
+      "given": "Khách đồng ý ngoài app",
+      "when": "J33 không bằng chứng hoặc sai version",
+      "then": "400/409; không giả actor Customer"
+    },
+    {
+      "id": "apply-future-only",
+      "given": "Một số mốc đã COMPLETED",
+      "when": "J24",
+      "then": "Chỉ thay phần tương lai, mapping lịch sử, giá/địa chỉ giao giữ nguyên"
+    },
+    {
+      "id": "continue-race",
+      "given": "J25 xanh rồi qualification/insurance đổi",
+      "when": "J26 token cũ",
+      "then": "409 READINESS_CHANGED; không mở gate"
+    },
+    {
+      "id": "multiple-incidents",
+      "given": "Hai incident cùng block chặng",
+      "when": "J26 một incident",
+      "then": "Không mở chặng còn blocker từ incident khác"
+    },
+    {
+      "id": "resolve-not-trip-complete",
+      "given": "Khôi phục hợp lệ, không pending work",
+      "when": "J27",
+      "then": "Incident RESOLVED; Trip vẫn IN_TRANSIT, Driver ghi mốc Flow4"
+    },
+    {
+      "id": "manager-status-retired",
+      "given": "Manager gọi PUT status cũ",
+      "when": "status=RESOLVED",
+      "then": "409 CONTRACT_SUPERSEDED; dùng Coordinator J27 có guard"
+    },
+    {
+      "id": "termination-negotiate",
+      "given": "Không thể tiếp tục",
+      "when": "J37 và J38 ACCEPT",
+      "then": "Lưu thỏa thuận/custody/refund đề xuất, không Trip COMPLETED hoặc tiền đã hoàn"
+    },
+    {
+      "id": "termination-extension-off",
+      "given": "Chưa pre-handover settlement extension",
+      "when": "J39",
+      "then": "501, không settlementCaseId giả; chưa được resolve bằng handoff giả"
+    },
+    {
+      "id": "termination-handoff",
+      "given": "Extension thật tiếp nhận, custody đủ",
+      "when": "J39",
+      "then": "REFERRED + caseId thật; Flow5 không trả financiallySettled=true chỉ từ refer"
+    },
+    {
+      "id": "privacy",
+      "given": "Khách A",
+      "when": "Đọc incident/file của B hoặc internal file",
+      "then": "404, không lộ dữ liệu hoặc chi phí nội bộ"
+    },
+    {
+      "id": "malformed-file",
+      "given": "File giả PDF hoặc quá 10MiB",
+      "when": "J34",
+      "then": "400/415/413; không gắn vào incident"
+    },
+    {
+      "id": "reopen-after-handover",
+      "given": "Trip COMPLETED theo Flow6",
+      "when": "J28",
+      "then": "409 AFTERCARE_REQUIRED, không mở lại Trip"
+    },
+    {
+      "id": "rollback",
+      "given": "Lỗi history/outbox hoặc swap assignments",
+      "when": "J24/J26 commit",
+      "then": "Rollback DB state, retry không duplicate; không giả rollback sự kiện đối tác ngoài hệ thống"
+    },
+    {
+      "id": "post-handover-complaint",
+      "given": "Khách phản ánh sau bàn giao",
+      "when": "Vào khiếu nại",
+      "then": "Flow6 complaint/dispute, liên kết incident để tra cứu, không hai workflow bồi thường"
+    },
+    {
+      "id": "capability-off",
+      "given": "persistenceAvailable=false",
+      "when": "Mutation",
+      "then": "501 FEATURE_NOT_SUPPORTED; không mock success"
+    }
+  ]
+}

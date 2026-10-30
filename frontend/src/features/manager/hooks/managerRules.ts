@@ -41,12 +41,10 @@ import type {
 } from '../types';
 
 // ============================================================================
-// Đồng hồ demo: bắt đầu 04/10/2026 11:30 (giờ VN) rồi chạy theo thời gian thực
+// Đồng hồ chạy theo thời gian thực (đồng bộ với Backend C#)
 // ============================================================================
-const DEMO_CLOCK_START = Date.UTC(2026, 9, 4, 4, 30);
-const CLOCK_T0 = Date.now();
 const VN_OFFSET = 7 * 3600000;
-export const clockMs = () => DEMO_CLOCK_START + (Date.now() - CLOCK_T0);
+export const clockMs = () => Date.now();
 const msToStamp = (ms: number) => new Date(ms + VN_OFFSET).toISOString().slice(0, 16).replace('T', ' ');
 export const nowStamp = () => msToStamp(clockMs());
 export const today = () => nowStamp().slice(0, 10);
@@ -57,7 +55,13 @@ export const isPast = (s?: string) => !!s && stampToMs(s) < clockMs();
 export const daysUntil = (d: string) => Math.round((stampToMs(d.slice(0, 10)) - stampToMs(today())) / 86400000);
 export const fmtDate = (d?: string) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : '—');
 export const fmtDateTime = (s?: string) => (!s ? '—' : s.length <= 10 ? fmtDate(s) : `${fmtDate(s.slice(0, 10))} ${s.slice(11, 16)}`);
-export const fmtMoney = (n: number) => `${Math.round(n).toLocaleString('en-US')} USD`;
+export const fmtMoney = (n: number, currency?: string) => {
+  const curr = currency || (Math.abs(n) >= 100000 ? 'VND' : 'USD');
+  if (curr === 'VND') {
+    return `${Math.round(n).toLocaleString('vi-VN')} VND`;
+  }
+  return `${Math.round(n).toLocaleString('en-US')} USD`;
+};
 const pad = (n: number) => String(n).padStart(2, '0');
 /** 'dd/mm/yyyy' → 'yyyy-mm-dd' ('' nếu không hợp lệ) */
 export function parseViDate(text: string) {
@@ -82,16 +86,18 @@ export const CITY_VI: Record<string, string> = {
 const VN_CITIES = ['Ho Chi Minh City', 'Hanoi', 'Da Nang'];
 export const cityLabel = (c: string) => CITY_VI[c] ?? c;
 export const isInternational = (o: string, d: string) => !VN_CITIES.includes(o) || !VN_CITIES.includes(d);
-export const routeText = (r: Pick<TransportRequest, 'origin' | 'destination'>) => `${cityLabel(r.origin)} → ${cityLabel(r.destination)}`;
+export const routeText = (r?: Pick<TransportRequest, 'origin' | 'destination'> | null) =>
+  r ? `${cityLabel(r.origin)} → ${cityLabel(r.destination)}` : '—';
 
 export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
+  DRAFT: 'Bản nháp',
   PENDING_REVIEW: 'Chờ xét duyệt', CHANGES_REQUESTED: 'Chờ khách chỉnh sửa', REJECTED: 'Đã từ chối', CONTRACT_PREPARATION: 'Đang soạn hợp đồng',
-  CONTRACT_READY: 'Hợp đồng đã phát hành', CONTRACT_CHANGES_REQUESTED: 'Khách yêu cầu sửa hợp đồng', DEPOSIT_VERIFIED: 'Đã xác minh cọc – chờ ký',
+  CONTRACT_READY: 'Hợp đồng đã phát hành', CONTRACT_CHANGES_REQUESTED: 'Khách yêu cầu sửa hợp đồng', AWAITING_DEPOSIT: 'Đã ký – chờ đặt cọc', DEPOSIT_VERIFIED: 'Đã xác minh cọc (cũ)',
   CANCELLATION_REQUESTED: 'Khách yêu cầu hủy', ACTIVATED: 'Đã kích hoạt', SCHEDULED: 'Sẵn sàng khởi hành', IN_TRANSIT: 'Đang vận chuyển',
   DELIVERED: 'Đã bàn giao', CLOSED: 'Đã đóng', CANCELLED: 'Đã hủy',
 };
 export const CONTRACT_STATE_LABEL: Record<ContractState, string> = {
-  ISSUED: 'Đã phát hành', CHANGES_REQUESTED: 'Khách yêu cầu sửa', EXPIRED: 'Quá hạn chung', SUPERSEDED: 'Đã thay thế',
+  SIGNED: 'Đã ký – chờ cọc', ISSUED: 'Đã phát hành', CHANGES_REQUESTED: 'Khách yêu cầu sửa', EXPIRED: 'Quá hạn chung', SUPERSEDED: 'Đã thay thế',
   EFFECTIVE: 'Đã ký – có hiệu lực', FULFILLED: 'Đã hoàn thành', VOID: 'Đã hủy',
 };
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
@@ -118,14 +124,18 @@ export const COMPLAINT_STATUS_LABEL: Record<ComplaintStatus, string> = {
 export const COMPLAINT_TYPE_LABEL: Record<ComplaintType, string> = { HORSE_CONDITION: 'Tình trạng ngựa', DELAY: 'Chậm trễ', SERVICE: 'Chất lượng dịch vụ', BILLING: 'Thanh toán' };
 export const DOSSIER_LABEL: Record<DossierStatus, string> = { APPROVED: 'Đã duyệt', PENDING_REVIEW: 'Chờ Specialist duyệt', ACTION_REQUIRED: 'Cần nộp lại', MISSING: 'Chưa nộp' };
 export const BUDGET_LABEL: Record<BudgetKey, string> = {
-  TRANSPORT: 'Cước xe / hàng không', PROCEDURE: 'Thủ tục & giấy phép', VET: 'Bác sĩ thú y', INSURANCE: 'Bảo hiểm', STAFF: 'Nhân sự tổ xe', FUEL: 'Nhiên liệu & phí đường',
+  TRANSPORT: 'Phí vận chuyển',
+  PROCEDURE: 'Thủ tục & giấy phép',
+  VET: 'Bác sĩ thú y',
+  INSURANCE: 'Bảo hiểm',
+  STAFF: 'Nhân sự tổ xe',
 };
 export const ACTUAL_LABEL: Record<ActualKey, string> = {
   TRANSPORT: 'Cước xe / hàng không', PROCEDURE: 'Thủ tục & giấy phép', VET: 'Bác sĩ thú y', INSURANCE: 'Bảo hiểm', STAFF: 'Nhân sự tổ xe', FUEL: 'Nhiên liệu & phí đường',
 };
-export const REVISION_FIELD_LABEL: Record<RevisionField, string> = { date: 'Ngày vận chuyển', places: 'Điểm nhận / giao', horses: 'Danh sách ngựa', notes: 'Ghi chú chăm sóc' };
+export const REVISION_FIELD_LABEL: Record<RevisionField, string> = { route: 'Tuyến đường', date: 'Ngày vận chuyển', places: 'Điểm nhận / giao', horses: 'Danh sách ngựa', notes: 'Ghi chú chăm sóc' };
 export const ROLE_LABEL: Record<ActorRole, string> = {
-  CUSTOMER: 'Khách hàng', LOGISTICS_MANAGER: 'Logistics Manager', TRANSPORT_SPECIALIST: 'Transport Specialist', FLEET_COORDINATOR: 'Fleet Coordinator', CREW: 'Tổ xe', SYSTEM: 'Hệ thống',
+  CUSTOMER: 'Khách hàng', LOGISTICS_MANAGER: 'Logistics Manager', TRANSPORT_SPECIALIST: 'Transport Specialist', FLEET_ROUTE_COORDINATOR: 'Fleet Coordinator', DRIVER_ESCORT: 'Tổ xe', SYSTEM: 'Hệ thống',
 };
 export const MODE_LABEL: Record<TransportMode, string> = { ROAD: 'Đường bộ', AIR: 'Hàng không' };
 
@@ -145,16 +155,42 @@ export interface ManagerData {
   notifications: ManagerNotification[];
 }
 
-export const customerOf = (d: Pick<ManagerData, 'customers'>, r?: TransportRequest) => d.customers.find((c) => c.id === r?.customerId);
-export const horseName = (d: Pick<ManagerData, 'horses'>, id: string) => d.horses.find((h) => h.id === id)?.name ?? id;
-export const tripOfReq = (d: Pick<ManagerData, 'trips'>, id: string) => d.trips.find((t) => t.requestId === id);
-export const reqOfTrip = (d: Pick<ManagerData, 'requests'>, t: Trip) => d.requests.find((r) => r.id === t.requestId)!;
+export const customerOf = (d: Pick<ManagerData, 'customers'>, r?: TransportRequest) => {
+  if (!r) return undefined;
+  const found = d.customers.find((c) => c.id === r.customerId || (r.customerId && c.name === r.customerId));
+  if (found) return found;
+  const custName = (r as any).customerName || r.history?.find(h => h.role === 'CUSTOMER')?.actor || 'Nguyễn Văn A';
+  const custCompany = (r as any).customerCompany || `${custName} (Cá nhân)`;
+  return {
+    id: r.customerId || 'CUS-001',
+    name: custName,
+    company: custCompany,
+    email: `${custName.toLowerCase().replace(/\s+/g, '')}@example.com`,
+    phone: r.pickup?.phone || '0901234567',
+  };
+};
+const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+export const horseName = (d: Pick<ManagerData, 'horses'>, id: string) => d.horses.find((h) => h.id === id || cleanId(h.id) === cleanId(id))?.name ?? id;
+export const tripOfReq = (d: Pick<ManagerData, 'trips'>, id: string) => d.trips.find((t) => t.requestId === id || cleanId(t.requestId) === cleanId(id));
+export const reqOfTrip = (d: Pick<ManagerData, 'requests'>, t: Trip): TransportRequest =>
+  d.requests.find((r) => r.id === t.requestId || cleanId(r.id) === cleanId(t.requestId)) || ({
+    id: t.requestId,
+    origin: '',
+    destination: '',
+    horses: [],
+    status: 'IN_TRANSIT',
+    versions: [],
+    history: [],
+    dossier: [],
+    pickup: { name: '', address: '', contact: '', phone: '', notes: '' },
+    delivery: { name: '', address: '', contact: '', phone: '', notes: '' },
+  } as unknown as TransportRequest);
 export const staffName = (d: Pick<ManagerData, 'staff'>, id?: string) => d.staff.find((s) => s.id === id)?.name ?? '—';
 
 // ============================================================================
 // Hợp đồng & giá
 // ============================================================================
-export const DEPOSIT_PCT = 30;
+export const DEPOSIT_PCT = 40;
 export const MARGIN_FLOOR = 1.15;
 
 export const DEFAULT_TERMS: ContractTerm[] = [
@@ -164,7 +200,7 @@ export const DEFAULT_TERMS: ContractTerm[] = [
   { title: 'Nghĩa vụ của khách hàng', text: 'Cung cấp đầy đủ, trung thực hồ sơ ngựa và giấy tờ theo yêu cầu của Transport Specialist trước hạn.' },
   { title: 'Giá hợp đồng', text: 'Giá hợp đồng là tổng các khoản mục trong bảng giá. Không phát sinh chi phí ngoài bảng giá nếu không có thỏa thuận bằng văn bản.' },
   { title: 'Thanh toán', text: 'Khách hàng thanh toán tiền cọc theo tỷ lệ ghi trong hợp đồng; số dư thanh toán trong 24 giờ sau khi nghiệm thu bàn giao.' },
-  { title: 'Hạn chung & ký OTP', text: 'Thanh toán cọc, xác minh và ký OTP phải hoàn tất trong hạn chung 24 giờ kể từ khi phát hành; Manager có thể gia hạn.' },
+  { title: 'Hạn chung & ký OTP', text: 'Thanh toán cọc, xác minh và ký OTP phải hoàn tất trong hạn hoàn tất ghi trong hợp đồng; Manager có thể gia hạn.' },
   { title: 'Trách nhiệm của CBN Transport', text: 'Bảo đảm phương tiện, nhân sự và điều kiện chăm sóc phù hợp; mua bảo hiểm vận chuyển cho toàn bộ hành trình.' },
   { title: 'Sự cố trong hành trình', text: 'Các biện pháp an toàn khẩn cấp được thực hiện ngay; chi phí phát sinh được Manager phê duyệt và thông báo cho khách hàng.' },
   { title: 'Bàn giao & nghiệm thu', text: 'Bàn giao chỉ hoàn tất khi người nhận đăng ký hoặc người thay thế được Manager duyệt xuất trình giấy tờ tùy thân.' },
@@ -180,43 +216,98 @@ export function versionState(v: ContractVersion): ContractState {
 }
 export const ctRef = (v: Pick<ContractVersion, 'number' | 'v'>) => `${v.number} v${v.v}`;
 export const sumItems = (items: ContractItem[]) => items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
-export const sumBudget = (b: Budget) => Object.values(b).reduce((s, x) => s + (Number(x) || 0), 0);
+export const sumBudget = (b: Budget) =>
+  (Number(b.TRANSPORT) || 0) +
+  (Number(b.PROCEDURE) || 0) +
+  (Number(b.VET) || 0) +
+  (Number(b.INSURANCE) || 0) +
+  (Number(b.STAFF) || 0) +
+  (Number(b.FUEL) || 0);
 export const floorPrice = (b: Budget) => Math.ceil(sumBudget(b) * MARGIN_FLOOR);
 export const depositOf = (r: TransportRequest) => { const v = curVersion(r); return v ? Math.round((v.total * v.depositPct) / 100) : 0; };
 export const totalOf = (r: TransportRequest) => curVersion(r)?.total ?? 0;
 export const isSigned = (r: TransportRequest) => r.versions.some((v) => !!v.signedAt);
 
 export function defaultItems(r: Pick<TransportRequest, 'origin' | 'destination' | 'horses'>): ContractItem[] {
-  const intl = isInternational(r.origin, r.destination), n = Math.max(1, r.horses.length);
+  const intl = isInternational(r.origin, r.destination);
   return [
-    { desc: intl ? 'Cước vận chuyển hàng không & đường bộ' : 'Cước vận chuyển đường bộ', amount: (intl ? 1300 : 420) * n, required: true },
-    { desc: intl ? 'Thủ tục xuất nhập khẩu & kiểm dịch' : 'Giấy phép vận chuyển nội địa', amount: intl ? 320 : 80, required: true },
-    { desc: 'Bác sĩ thú y đi kèm', amount: 150 },
-    { desc: 'Bảo hiểm vận chuyển', amount: 90 * n },
+    { desc: intl ? 'Cước vận chuyển hàng không & đường bộ' : 'Cước vận chuyển đường bộ', amount: 0, required: true },
+    { desc: intl ? 'Thủ tục xuất nhập khẩu & kiểm dịch' : 'Giấy phép vận chuyển nội địa', amount: 0, required: true },
+    { desc: 'Bác sĩ thú y đi kèm', amount: 0 },
+    { desc: 'Bảo hiểm vận chuyển', amount: 0 },
   ];
 }
-export function defaultBudget(r: Pick<TransportRequest, 'origin' | 'destination' | 'horses'>): Budget {
-  const intl = isInternational(r.origin, r.destination), n = Math.max(1, r.horses.length);
-  return intl
-    ? { TRANSPORT: 950 * n, PROCEDURE: 220, VET: 110, INSURANCE: 70 * n, STAFF: 120, FUEL: 60 }
-    : { TRANSPORT: 180 * n, PROCEDURE: 50, VET: 100, INSURANCE: 70 * n, STAFF: 90, FUEL: 70 };
+export function defaultBudget(_r: Pick<TransportRequest, 'origin' | 'destination' | 'horses'>): Budget {
+  return { TRANSPORT: 0, PROCEDURE: 0, VET: 0, INSURANCE: 0, STAFF: 0 };
 }
 export const defaultMode = (r: Pick<TransportRequest, 'origin' | 'destination'>): TransportMode =>
   isInternational(r.origin, r.destination) && !['Bangkok'].includes(r.destination) ? 'AIR' : 'ROAD';
 
 /** Bản nháp ban đầu: bản đã lưu → phiên bản hiện hành → mặc định */
 export function initialDraft(r: TransportRequest): ContractDraft {
-  if (r.draft) return JSON.parse(JSON.stringify(r.draft)) as ContractDraft;
+  if (r.draft) {
+    const d = JSON.parse(JSON.stringify(r.draft)) as ContractDraft;
+    if (d.budget && (d.budget as any).FUEL) {
+      d.budget.TRANSPORT = (d.budget.TRANSPORT || 0) + (d.budget as any).FUEL;
+      delete (d.budget as any).FUEL;
+    }
+    if (d.budget && sumBudget(d.budget) < 100000) {
+      d.budget = defaultBudget(r);
+    }
+    delete d.mode;
+    return d;
+  }
   const v = curVersion(r);
   if (v) {
+    const b = { ...v.budget };
+    if ((b as any).FUEL) {
+      b.TRANSPORT = (b.TRANSPORT || 0) + ((b as any).FUEL as number);
+      delete (b as any).FUEL;
+    }
+    if (sumBudget(b) < 100000) {
+      const fresh = defaultBudget(r);
+      b.TRANSPORT = fresh.TRANSPORT;
+      b.PROCEDURE = fresh.PROCEDURE;
+      b.VET = fresh.VET;
+      b.INSURANCE = fresh.INSURANCE;
+      b.STAFF = fresh.STAFF;
+    }
+    const mode = undefined;
+    const minPrep = 0;
+    const minDepartDate = addDays(today(), minPrep);
+
+    // Start from the customer's requested pickup date; the Manager may then propose another date (PlanStep warns).
+    const departAt = v.departAt || `${r.pickupAt || r.date || minDepartDate} 08:00`;
+    let arriveAt = v.arriveAt || `${r.date || addDays(departAt.slice(0, 10), 1)} 18:00`;
+    if (arriveAt <= departAt) {
+      arriveAt = `${addDays(departAt.slice(0, 10), 1)} 18:00`;
+    }
+
+    const items = (v.items && v.items.length > 0) ? v.items.map((i) => ({ ...i })) : defaultItems(r);
+    const terms = (v.terms && v.terms.length > 0) ? v.terms.map((t) => ({ ...t })) : DEFAULT_TERMS.map((t) => ({ ...t }));
+
     return {
-      mode: v.mode, departAt: v.departAt, arriveAt: v.arriveAt, budget: { ...v.budget }, items: v.items.map((i) => ({ ...i })),
-      depositPct: v.depositPct, note: v.note ?? '', exception: v.exception ?? '', terms: v.terms.map((t) => ({ ...t })),
+      mode,
+      departAt,
+      arriveAt,
+      budget: b,
+      items,
+      depositPct: v.depositPct || DEPOSIT_PCT,
+      note: v.note ?? '',
+      exception: v.exception ?? '',
+      terms,
     };
   }
-  const mode = defaultMode(r);
+  const mode = undefined;
+  const minPrep = 0;
+  const minDepartDate = addDays(today(), minPrep);
+  let departAt = `${r.pickupAt || minDepartDate} 06:00`;
+  if (departAt.slice(0, 10) < minDepartDate) {
+    departAt = `${minDepartDate} 08:00`;
+  }
+  let arriveAt = `${r.date || addDays(departAt.slice(0, 10), 1)} 18:00`;
   return {
-    mode, departAt: `${r.date} 06:00`, arriveAt: `${mode === 'AIR' ? addDays(r.date, 1) : r.date} ${mode === 'AIR' ? '06:00' : '20:00'}`,
+    mode, departAt, arriveAt,
     budget: defaultBudget(r), items: defaultItems(r), depositPct: DEPOSIT_PCT, note: '', exception: '', terms: DEFAULT_TERMS.map((t) => ({ ...t })),
   };
 }
@@ -225,11 +316,10 @@ export function initialDraft(r: TransportRequest): ContractDraft {
 export function draftError(d: ContractDraft): string {
   if (!d.departAt || !d.arriveAt) return 'Nhập ngày giờ khởi hành và đến dự kiến (Bước 1).';
   if (d.arriveAt <= d.departAt) return 'Thời gian đến phải sau thời gian khởi hành (Bước 1).';
-  if (!d.budget.VET || !d.budget.INSURANCE) return 'Dự toán nội bộ phải có chi phí bác sĩ thú y và bảo hiểm (Bước 2).';
+
   if (d.items.some((i) => i.required && !(Number(i.amount) > 0))) return 'Các khoản bắt buộc trong bảng giá phải lớn hơn 0 (Bước 2).';
   if (d.items.some((i) => Number(i.amount) < 0)) return 'Giá các khoản mục không được âm (Bước 2).';
   if (!(d.depositPct >= 1 && d.depositPct <= 100)) return 'Tỷ lệ cọc phải từ 1% đến 100% (Bước 2).';
-  if (sumItems(d.items) < floorPrice(d.budget) && d.exception.trim().length < 10) return `Giá bán thấp hơn giá sàn ${fmtMoney(floorPrice(d.budget))}: nhập lý do ngoại lệ (ít nhất 10 ký tự, Bước 2).`;
   const bad = d.terms.findIndex((t) => !t.title.trim() || t.text.trim().length < 10);
   if (bad >= 0) return `Điều ${bad + 1} cần có tiêu đề và nội dung (ít nhất 10 ký tự, Bước 3).`;
   return '';
@@ -240,10 +330,23 @@ export function draftError(d: ContractDraft): string {
 // ============================================================================
 const sumTx = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest, type: PaymentType, statuses: PaymentStatus[]) =>
   d.transactions.filter((x) => x.requestId === r.id && x.type === type && statuses.includes(x.status)).reduce((s, x) => s + x.amount, 0);
-export const verifiedDeposit = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => sumTx(d, r, 'DEPOSIT', ['SUCCESS']);
+export const verifiedDeposit = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => {
+  const v = curVersion(r);
+  return d.transactions.filter(x => x.requestId === r.id && x.type === 'DEPOSIT' && x.status === 'SUCCESS' && !!v?.contractId && x.contractId === v.contractId && x.versionNo === v.v)
+    .reduce((sum, x) => sum + (x.confirmedAmount ?? (x.method === 'BANK_TRANSFER' ? 0 : x.amount)), 0);
+};
 export const depositPaid = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => depositOf(r) > 0 && verifiedDeposit(d, r) >= depositOf(r);
 export const pendingTx = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest, type: PaymentType = 'DEPOSIT') =>
-  d.transactions.find((x) => x.requestId === r.id && x.type === type && ['PENDING_CONFIRMATION', 'PROCESSING'].includes(x.status));
+  d.transactions.find((x) => x.requestId === r.id && x.type === type && (type !== 'DEPOSIT' || (x.contractId === curVersion(r)?.contractId && x.versionNo === curVersion(r)?.v)) && ['PENDING_CONFIRMATION', 'PROCESSING'].includes(x.status));
+/**
+ * Money actually received for the current version. An unpaid VNPay session (customer opened the gateway and left)
+ * is PROCESSING with no received amount and must not block re-issuing; the backend applies the same rule.
+ */
+export const receivedDepositTx = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => {
+  const v = curVersion(r);
+  return d.transactions.find((x) => x.requestId === r.id && x.type === 'DEPOSIT' && !!v?.contractId && x.contractId === v.contractId && x.versionNo === v.v
+    && (['SUCCESS', 'PENDING_CONFIRMATION'].includes(x.status) || (x.confirmedAmount ?? 0) > 0));
+};
 export const balanceDue = (r: TransportRequest) => Math.max(0, totalOf(r) - depositOf(r));
 export const verifiedBalance = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => sumTx(d, r, 'BALANCE', ['SUCCESS']);
 export const outstanding = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => Math.max(0, balanceDue(r) - verifiedBalance(d, r));
@@ -258,8 +361,8 @@ export const awaitingDeposit = (d: ManagerData) => d.requests.filter((r) => r.st
 // Yêu cầu
 // ============================================================================
 /** Trạng thái còn hủy được bởi Manager (trước khi kích hoạt) */
-export const CANCELLABLE: RequestStatus[] = ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED'];
-export const CONTRACT_OPEN: RequestStatus[] = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED'];
+export const CANCELLABLE: RequestStatus[] = ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT'];
+export const CONTRACT_OPEN: RequestStatus[] = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT'];
 export const ACTIVE_REQ: RequestStatus[] = ['ACTIVATED', 'SCHEDULED', 'IN_TRANSIT', 'DELIVERED'];
 const NOT_ACCEPTED: RequestStatus[] = ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'REJECTED'];
 /** Manager đã chấp thuận yêu cầu (mở bước hợp đồng) */
@@ -275,7 +378,8 @@ export function nextStep(d: Pick<ManagerData, 'transactions'>, r: TransportReque
     case 'CONTRACT_PREPARATION': return 'Soạn & phát hành hợp đồng';
     case 'CONTRACT_CHANGES_REQUESTED': return 'Phản hồi yêu cầu sửa hợp đồng';
     case 'CONTRACT_READY': return d.transactions.some((x) => x.requestId === r.id && x.status === 'PENDING_CONFIRMATION') ? 'Xác minh chuyển khoản cọc' : 'Chờ khách cọc & ký';
-    case 'DEPOSIT_VERIFIED': return 'Chờ khách ký OTP';
+    case 'AWAITING_DEPOSIT': return 'Hợp đồng đã ký – chờ xác minh cọc';
+    case 'DEPOSIT_VERIFIED': return 'Cọc đã xác minh (dữ liệu cũ)';
     case 'CANCELLATION_REQUESTED': return 'Quyết định yêu cầu hủy';
     case 'ACTIVATED': return 'Điều hành chuẩn bị chuyến';
     case 'SCHEDULED': return 'Chờ tài xế xuất phát';

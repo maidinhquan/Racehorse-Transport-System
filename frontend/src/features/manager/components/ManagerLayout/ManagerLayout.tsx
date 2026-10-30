@@ -33,6 +33,7 @@ const PATHS: Record<string, React.ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
   print: <><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2" /><rect x="6" y="14" width="12" height="7" /></>,
   chevron: <path d="m6 9 6 6 6-6" />,
+  user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
@@ -70,6 +71,11 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
   }, [open, userMenuOpen]);
 
   const handleLogout = () => {
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('userFullName');
+    sessionStorage.removeItem('userEmail');
+    sessionStorage.removeItem('userRole');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
     navigate('/login');
@@ -159,17 +165,8 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
                     </div>
                   </div>
                   <div className="mgr-user-menu__divider" />
-                  <button type="button" className="mgr-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/manager/dashboard'); }}>
-                    <Icon name="home" /> Tổng quan
-                  </button>
-                  <button type="button" className="mgr-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/manager/requests'); }}>
-                    <Icon name="inbox" /> Yêu cầu vận chuyển
-                  </button>
-                  <button type="button" className="mgr-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/manager/contracts'); }}>
-                    <Icon name="file" /> Hợp đồng & giá
-                  </button>
-                  <button type="button" className="mgr-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/manager/trips'); }}>
-                    <Icon name="truck" /> Chuyến đi
+                  <button type="button" className="mgr-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/manager/profile'); }}>
+                    <Icon name="user" /> Hồ sơ của tôi
                   </button>
                   <div className="mgr-user-menu__divider" />
                   <button type="button" className="mgr-user-menu__item mgr-user-menu__logout" onClick={handleLogout}>

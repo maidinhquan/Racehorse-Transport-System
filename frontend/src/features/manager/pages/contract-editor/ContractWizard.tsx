@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import type { ContractDraft, CustomerInfo, HorseRef, TransportRequest } from '../../types';
+import React, { useEffect, useState } from 'react';
+import type { ActionResult, ContractDraft, CustomerInfo, HorseRef, TransportRequest } from '../../types';
 import { curVersion, draftError, fmtDateTime, initialDraft } from '../../hooks/managerRules';
+import { managerApi } from '../../api/managerApi';
+import { apiMessage } from '../../../../shared/api/apiError';
 import { PlanStep } from './steps/PlanStep';
 import { PricingStep } from './steps/PricingStep';
 import { TermsStep } from './steps/TermsStep';
@@ -12,16 +14,29 @@ interface ContractWizardProps {
   request: TransportRequest;
   customer?: CustomerInfo;
   horses: HorseRef[];
-  onSave: (d: ContractDraft) => void;
-  onIssue: (d: ContractDraft) => boolean;
+  onSave: (d: ContractDraft) => void | ActionResult | Promise<void | ActionResult>;
+  onIssue: (d: ContractDraft) => boolean | ActionResult | Promise<boolean | ActionResult>;
   onCancel?: () => void;
 }
 
 /** Trình soạn hợp đồng 4 bước: phương án → chi phí & giá → điều khoản → xem trước & phát hành */
 export const ContractWizard: React.FC<ContractWizardProps> = ({ request: r, customer, horses, onSave, onIssue, onCancel }) => {
   const [draft, setDraft] = useState<ContractDraft>(() => initialDraft(r));
+  const [editorLoaded, setEditorLoaded] = useState(false);
+  useEffect(() => {
+    let active = true;
+    managerApi.getContractEditor(r.id).then(editor => {
+      if (!active) return;
+      const next = initialDraft({ ...editor.request, draft: editor.draft ?? undefined, versions: editor.versions });
+      if (!editor.draft && !editor.currentContract) { next.depositPct = editor.defaults.defaultDepositPct; next.terms = editor.defaults.terms; }
+      setDraft(next); setEditorLoaded(true);
+    }).catch(error => { if (active) setError(apiMessage(error)); });
+    return () => { active = false; };
+  }, [r.id]);
   const [step, setStep] = useState(0);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [issuing, setIssuing] = useState(false);
   const set = (patch: Partial<ContractDraft>) => { setDraft((d) => ({ ...d, ...patch })); setError(''); };
   const v = curVersion(r);
 
@@ -30,11 +45,62 @@ export const ContractWizard: React.FC<ContractWizardProps> = ({ request: r, cust
     const e = draftError(draft);
     return Number(e.match(/Bước (\d)/)?.[1]) === s + 1 ? e : '';
   };
+
   const goTo = (s: number) => {
-    if (s > step) { for (let i = step; i < s; i += 1) { const e = stepError(i); if (e) { setStep(i); setError(e); return; } } }
-    setError(''); setStep(s);
+    if (s > step) {
+      for (let i = step; i < s; i += 1) {
+        const e = stepError(i);
+        if (e) {
+          setStep(i);
+          setError(e);
+          return;
+        }
+      }
+    }
+    setError('');
+    setStep(s);
   };
-  const issue = () => { const e = draftError(draft); if (e) { setError(e); return; } onIssue(draft); };
+
+  const save = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const res = await onSave(draft);
+      if (typeof res === 'object' && res !== null && 'ok' in res && !res.ok) {
+        setError(res.message);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Lỗi lưu bản nháp');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const issue = async () => {
+    const e = draftError(draft);
+    if (e) {
+      setError(e);
+      return;
+    }
+    setIssuing(true);
+    setError('');
+    try {
+      const res = await onIssue(draft);
+      if (typeof res === 'object' && res !== null && 'ok' in res) {
+        if (!res.ok) {
+          setError(res.message);
+        }
+      } else if (res === false) {
+        setError('Không thể phát hành hợp đồng. Vui lòng kiểm tra lại dữ liệu.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Lỗi phát hành hợp đồng');
+    } finally {
+      setIssuing(false);
+    }
+  };
+
+  if (!editorLoaded) return <p role="status">{error || 'Đang tải dữ liệu soạn hợp đồng…'}</p>;
 
   return (
     <div className="mgr-ce__wizard">
@@ -60,12 +126,16 @@ export const ContractWizard: React.FC<ContractWizardProps> = ({ request: r, cust
       </div>
       {error && <p className="mgr-modal__error" role="alert" style={{ fontSize: 13 }}>{error}</p>}
       <div className="mgr-ce__foot">
-        <button type="button" className="mgr-btn" disabled={step === 0} onClick={() => goTo(step - 1)}>← Quay lại</button>
+        <button type="button" className="mgr-btn" disabled={step === 0 || issuing || saving} onClick={() => goTo(step - 1)}>← Quay lại</button>
         <div className="mgr-btn-row">
-          <button type="button" className="mgr-btn" onClick={() => onSave(draft)}>Lưu bản nháp</button>
+          <button type="button" className="mgr-btn" disabled={saving || issuing} onClick={save}>
+            {saving ? 'Đang lưu vào DB...' : 'Lưu bản nháp'}
+          </button>
           {step < 3
-            ? <button type="button" className="mgr-btn mgr-btn--solid" onClick={() => goTo(step + 1)}>Tiếp tục →</button>
-            : <button type="button" className="mgr-btn mgr-btn--solid" onClick={issue}>Phát hành hợp đồng</button>}
+            ? <button type="button" className="mgr-btn mgr-btn--solid" disabled={issuing} onClick={() => goTo(step + 1)}>Tiếp tục →</button>
+            : <button type="button" className="mgr-btn mgr-btn--solid" disabled={issuing} onClick={issue}>
+                {issuing ? 'Đang lưu & phát hành...' : 'Phát hành hợp đồng'}
+              </button>}
         </div>
       </div>
     </div>

@@ -38,7 +38,7 @@ export const NextAction: React.FC<{ request: TransportRequest }> = ({ request: r
   else if (r.status === 'CHANGES_REQUESTED') main = btn('Sửa & gửi lại', () => go('/edit'));
   else if (canAcceptTerms(r)) main = btn('Xem & đồng ý hợp đồng', () => go('/contract'));
   else if (canPayDeposit(r)) main = btn(depositState(r) === 'FAILED' ? 'Thanh toán lại tiền cọc' : 'Thanh toán tiền cọc', () => go('/deposit'), true, 'card');
-  else if (r.status === 'CONTRACT_READY' && depositState(r) === 'PENDING') main = btn('Xem trạng thái thanh toán', () => go('/payment'), false);
+  else if (r.status === 'AWAITING_DEPOSIT' && depositState(r) === 'PENDING') main = btn('Xem trạng thái thanh toán', () => go('/payment'), false);
   else if (r.status === 'CONTRACT_READY' && vs === 'EXPIRED' && canRequestContractChange(r)) main = btn('Yêu cầu phiên bản cập nhật', () => go('/contract?change=1'));
   else if (canSign(r)) main = btn('Xem lại & ký hợp đồng bằng OTP', () => go('/sign'));
   else if (r.status === 'DEPOSIT_VERIFIED') main = <p className="cus-subtitle" style={{ margin: 0 }}>{signBlock(r)}</p>;
@@ -65,7 +65,7 @@ export const NextAction: React.FC<{ request: TransportRequest }> = ({ request: r
           </>
         )}
         placeholder="VD: Giải đua bị hoãn" confirmText="Tôi muốn hủy yêu cầu này"
-        onClose={() => setCancelOpen(false)} onSubmit={(reason) => actions.cancelRequest(r.id, reason).ok} />
+        onClose={() => setCancelOpen(false)} onSubmit={async (reason) => (await actions.cancelRequest(r.id, reason)).ok} />
     </>
   );
 };

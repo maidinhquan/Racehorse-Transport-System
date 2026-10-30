@@ -1,6 +1,6 @@
 import React from 'react';
 import type { ContractVersion, Horse, TransportRequest } from '../../types';
-import { CONTRACT_TERMS, cityLabel, fmtDate, fmtDateTime, fmtMoney, isPast, pickedHorses, timeLeft, tripTemplate, versionState } from '../../hooks/customerRules';
+import { cityLabel, fmtDate, fmtDateTime, fmtMoney, isPast, timeLeft, versionState } from '../../hooks/customerRules';
 import { PlaceBlock } from '../Common/Common';
 import { TripStatusBadge } from '../TripStatusBadge/TripStatusBadge';
 import './ContractBody.css';
@@ -11,14 +11,14 @@ export const ItemsTable: React.FC<{ v: ContractVersion }> = ({ v }) => {
   return (
     <div className="cus-table-wrap">
       <table className="cus-table cus-items">
-        <thead><tr><th>Khoản mục</th><th className="num">Số tiền (USD)</th></tr></thead>
+        <thead><tr><th>Khoản mục</th><th className="num">Số tiền (VND)</th></tr></thead>
         <tbody>
           {v.items.map((i) => (
             <tr key={i.desc}><td>{i.desc}{i.required && <span className="cus-req-tag">Bắt buộc</span>}</td><td className="num">{fmtMoney(i.amount)}</td></tr>
           ))}
         </tbody>
         <tfoot>
-          <tr><td>Tổng giá trị hợp đồng</td><td className="num">{fmtMoney(v.total)} USD</td></tr>
+          <tr><td>Tổng giá trị hợp đồng</td><td className="num">{fmtMoney(v.total)}</td></tr>
           <tr className="muted"><td>Tiền cọc {v.depositPct}%</td><td className="num">{fmtMoney(dep)}</td></tr>
           <tr className="muted"><td>Số dư thanh toán sau bàn giao</td><td className="num">{fmtMoney(v.total - dep)}</td></tr>
         </tfoot>
@@ -28,8 +28,14 @@ export const ItemsTable: React.FC<{ v: ContractVersion }> = ({ v }) => {
 };
 
 /** Nội dung hợp đồng: A. Tổng quan vận chuyển, B. Giá chính thức, C. Thông tin hợp đồng & điều khoản */
-export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVersion; horses: Horse[] }> = ({ request: r, v, horses }) => {
-  const plan = tripTemplate(r);
+export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVersion; horses: Horse[] }> = ({ request: r, v }) => {
+  const snapshot = v.snapshot;
+  if (!snapshot || !v.terms?.length || (!v.mode && !v.modeDeferred)) return <div className="cus-note cus-note--yellow" role="alert">Chưa có đủ nội dung phiên bản hợp đồng từ máy chủ. Tải lại dữ liệu trước khi đồng ý điều khoản hoặc ký.</div>;
+  const plan = { mode: v.mode };
+  const detail = snapshot;
+  // The Manager may propose dates different from the customer's request.
+  const datesChanged = !!(detail.requestedPickupAt && v.departAt && detail.requestedPickupAt !== v.departAt.slice(0, 10))
+    || !!(detail.requestedDate && v.arriveAt && detail.requestedDate !== v.arriveAt.slice(0, 10));
   const state = versionState(v);
   const dep = Math.round((v.total * v.depositPct) / 100);
   return (
@@ -38,36 +44,42 @@ export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVers
         <h3 className="cus-card__title">A. Tổng quan vận chuyển</h3>
         <div className="cus-kv">
           <div><span>Mã yêu cầu</span><b>{r.id}</b></div>
-          <div><span>Ngày vận chuyển</span><b>{fmtDate(r.date)}</b></div>
-          <div><span>Điểm đi</span><b>{cityLabel(r.origin)}</b></div>
-          <div><span>Điểm đến</span><b>{cityLabel(r.destination)}</b></div>
-          <div><span>Phương thức dự kiến</span><b>{plan.mode === 'AIR' ? 'Hàng không + đường bộ' : 'Đường bộ'}</b></div>
-          <div><span>Số ngựa</span><b>{r.horseCount}</b></div>
+          <div><span>Bạn yêu cầu lấy ngựa</span><b>{fmtDate(detail.requestedPickupAt || detail.pickupAt)}</b></div>
+          <div><span>Bạn yêu cầu giao ngựa</span><b>{fmtDate(detail.requestedDate || detail.date)}</b></div>
+          <div><span>Điểm đi</span><b>{cityLabel(detail.origin)}</b></div>
+          <div><span>Điểm đến</span><b>{cityLabel(detail.destination)}</b></div>
+          <div><span>Phương thức vận chuyển</span><b>{v.modeDeferred ? 'Coordinator quyết định khi lập kế hoạch vận chuyển' : plan.mode === 'AIR' ? 'Hàng không + đường bộ' : 'Đường bộ'}</b></div>
+          <div><span>Số ngựa</span><b>{detail.horses.length}</b></div>
+          <div><span>Khởi hành dự kiến</span><b className={datesChanged ? 'cus-bad' : undefined}>{fmtDateTime(v.departAt)}</b></div>
+          <div><span>Đến dự kiến</span><b className={datesChanged ? 'cus-bad' : undefined}>{fmtDateTime(v.arriveAt)}</b></div>
         </div>
+        {datesChanged && (
+          <div className="cus-note cus-note--yellow" role="note" style={{ marginTop: 12 }}>
+            <b>CBN đề xuất lịch khác ngày bạn yêu cầu.</b> Lấy ngựa {fmtDate(detail.requestedPickupAt)} → {fmtDate(v.departAt?.slice(0, 10))}; giao ngựa {fmtDate(detail.requestedDate)} → {fmtDate(v.arriveAt?.slice(0, 10))}.
+            {' '}Nếu đồng ý, hãy tiếp tục ký hợp đồng; nếu không, chọn "Yêu cầu sửa hợp đồng".
+          </div>
+        )}
         <div className="cus-grid2" style={{ marginTop: 14 }}>
-          <div><div className="cus-eyebrow">Điểm nhận</div><PlaceBlock place={r.pickup} who="Người liên hệ" /></div>
-          <div><div className="cus-eyebrow">Điểm giao</div><PlaceBlock place={r.delivery} who="Người nhận" /></div>
+          <div><div className="cus-eyebrow">Điểm nhận</div><PlaceBlock place={detail.pickup} who="Người liên hệ" /></div>
+          <div><div className="cus-eyebrow">Điểm giao</div><PlaceBlock place={detail.delivery} who="Người nhận" /></div>
         </div>
         <div className="cus-eyebrow" style={{ marginTop: 14 }}>Ngựa</div>
         <ul className="cus-contract__horses">
-          {pickedHorses(r).map((id) => {
-            const h = horses.find((x) => x.id === id);
-            return <li key={id}><b>{h?.name ?? id}</b> • Microchip {h?.microchip || '—'} • Hộ chiếu {h?.passport.number || '—'}</li>;
-          })}
+          {detail.horses.map(h => <li key={h.id}><b>{h.name}</b> • Microchip {h.microchip || '—'} • Hộ chiếu {h.passportNo || '—'}</li>)}
         </ul>
         <div className="cus-eyebrow" style={{ marginTop: 10 }}>Yêu cầu chăm sóc đặc biệt</div>
-        <p className="cus-lines">{r.careNotes || <span className="cus-muted">Không có.</span>}</p>
+        <p className="cus-lines">{detail.careNotes || <span className="cus-muted">Không có.</span>}</p>
       </div>
 
       <div className="cus-card cus-contract__price">
         <h3 className="cus-card__title">
           <span><span className="cus-official">Giá hợp đồng chính thức</span><br />B. Giá chính thức</span>
-          <span className="cus-contract__total">{fmtMoney(v.total)} <small>USD</small></span>
+          <span className="cus-contract__total">{fmtMoney(v.total)} <small>VND</small></span>
         </h3>
         <ItemsTable v={v} />
         <div className="cus-eyebrow" style={{ marginTop: 14 }}>Điều kiện thanh toán</div>
         <ul className="cus-rule-list">
-          <li>Hạn chung 24 giờ cho thanh toán cọc, xác minh và ký OTP: {fmtDateTime(v.validUntil)} (Manager có thể gia hạn).</li>
+          <li>Hạn hoàn tất cho thanh toán cọc, xác minh và ký OTP: {fmtDateTime(v.validUntil)} (Manager có thể gia hạn).</li>
           <li>Khách hàng thanh toán cọc trước; nút ký OTP chỉ mở sau khi tiền cọc ({fmtMoney(dep)}) được xác minh đầy đủ.</li>
           <li>Hợp đồng có hiệu lực và chuyến đi được tạo chỉ sau khi ký OTP thành công.</li>
           <li>Số dư thanh toán trong 24 giờ sau khi bàn giao có xác minh.</li>
@@ -89,7 +101,7 @@ export const ContractBody: React.FC<{ request: TransportRequest; v: ContractVers
           {v.termsAcceptedAt && <div><span>Đồng ý điều khoản</span><b>{fmtDateTime(v.termsAcceptedAt)}</b></div>}
         </div>
         <div className="cus-eyebrow" style={{ marginTop: 14 }}>Điều khoản</div>
-        <ol className="cus-terms">{CONTRACT_TERMS.map((t) => <li key={t}>{t}</li>)}</ol>
+        <ol className="cus-terms">{v.terms.map((t, i) => <li key={i}><b>{t.title}</b>: {t.text}</li>)}</ol>
       </div>
     </div>
   );

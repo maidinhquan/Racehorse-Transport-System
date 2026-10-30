@@ -1,7 +1,7 @@
 import React from 'react';
 import type { SpecTrip } from '../../types';
-import { useDemoMode } from '../../../../shared/context/DemoModeContext';
 import { useSpecialist } from '../../hooks/useSpecialist';
+import { useDemoMode } from '../../../../shared/context/DemoModeContext';
 import './DemoPanel.css';
 
 /**
@@ -10,8 +10,8 @@ import './DemoPanel.css';
  */
 export const DemoPanel: React.FC<{ trip?: SpecTrip }> = ({ trip }) => {
   const { enabled: isDemoMode } = useDemoMode('specialist');
-  const { trips, customerDocs, actions } = useSpecialist();
   if (!isDemoMode) return null;
+  const { trips, customerDocs, actions } = useSpecialist();
   const d = actions.demo;
   const pick = (test: (t: SpecTrip) => boolean) => (trip && test(trip) ? trip : trip ? undefined : trips.find(test));
 
