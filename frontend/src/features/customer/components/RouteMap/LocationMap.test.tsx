@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LocationMap } from './LocationMap';
+vi.mock('./GeoapifyTiles', () => ({ addGeoapifyTiles: () => () => {} }));
 
 const mock = vi.hoisted(() => {
   const map = { setView: vi.fn(), fitBounds: vi.fn(), invalidateSize: vi.fn(), remove: vi.fn() };

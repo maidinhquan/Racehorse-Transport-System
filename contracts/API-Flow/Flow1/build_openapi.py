@@ -535,6 +535,9 @@ for opid, method, path, body, req, responses in operations:
 from align_with_backend import patch as align_with_backend
 align_with_backend(spec)
 
+# Authenticated map-image endpoint; provider key remains server-side.
+spec['paths']['/locations/tiles/{z}/{x}/{y}.png'] = {'get': {'operationId': 'F1-J70', 'summary': 'Ảnh nền Geoapify cho bản đồ khách hàng', 'description': 'Backend dùng Geoapify key đã cấu hình; không trả key cho trình duyệt. PNG có cache riêng tư một giờ, giới hạn 300 yêu cầu/phút/tài khoản.', 'security': [{'bearerAuth': []}], 'parameters': [{'name': 'z', 'in': 'path', 'required': True, 'schema': {'type': 'integer', 'minimum': 0, 'maximum': 19}}, {'name': 'x', 'in': 'path', 'required': True, 'schema': {'type': 'integer', 'minimum': 0}}, {'name': 'y', 'in': 'path', 'required': True, 'schema': {'type': 'integer', 'minimum': 0}}], 'responses': {'200': {'description': 'PNG map tile', 'content': {'image/png': {'schema': {'type': 'string', 'format': 'binary'}}}}, '400': {'description': 'Invalid tile coordinates'}, '401': {'description': 'Authentication required'}, '403': {'description': 'Inactive account'}, '429': {'description': 'Rate limit exceeded'}, '503': {'description': 'Map provider unavailable'}}}}
+
 out = ROOT / 'flow1.openapi.json'
 out.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')
 print(f'Built {len(operations)} operations, {len(components)} schemas at {out.name}')

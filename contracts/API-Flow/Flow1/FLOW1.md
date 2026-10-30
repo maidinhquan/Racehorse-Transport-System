@@ -5078,3 +5078,8 @@ Nhận thông báo server-to-server từ VNPay. Không dùng Bearer token Custom
 ## Kiểm tra bộ hợp đồng hiện hành
 
 Chạy `python contracts/API-Flow/Flow1/build_openapi.py` rồi `python contracts/API-Flow/Flow1/validate_contract.py`. Có 65 operation: bỏ J47/J48 thủ công, thêm J67 IPN; giữ số J cũ để không làm sai tham chiếu. Bộ kiểm tra frontend cũ có thể còn kỳ vọng 66 operation/J47 và phải được cập nhật khi tích hợp frontend; không dùng kết quả đó để xác nhận backend đã hỗ trợ.
+
+
+### F1-J70 — GET /locations/tiles/{z}/{x}/{y}.png
+
+Ảnh nền Geoapify cho Leaflet. Cần Bearer token và tài khoản đang hoạt động. `z`: 0–19; `x`, `y`: 0 đến 2^z−1. Trả PNG, cache riêng tư 1 giờ; giới hạn riêng 300 yêu cầu/phút/tài khoản. Geoapify key lấy từ cấu hình backend, không trả ra trình duyệt. Lỗi: 400/401/403/429/503.
