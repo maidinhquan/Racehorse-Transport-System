@@ -39,7 +39,7 @@ export function CoordinatorLayout({ title, children, active }: { title: string; 
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [menu]);
-  const u = me() || { name: 'Dang Minh Quan', initials: 'DQ' };
+  const u = me() || { name: 'Phạm Hải', initials: 'PH' };
   const notes = myNotifs(), unread = notes.filter((n: Any) => !n.read).length;
   const incCount = coordNavCount();
   const logout = () => {

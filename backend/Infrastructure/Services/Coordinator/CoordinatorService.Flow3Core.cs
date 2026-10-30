@@ -14,7 +14,7 @@ namespace Infrastructure.Services
         {
             var capabilities = new CapabilitiesDto
             {
-                Version = "2.0.0",
+                Version = "3.0.0",
                 ImplementationStatus = "AVAILABLE",
                 ParallelPreparation = true,
                 DocumentValidityMode = "ASSUMED_VALID_FOR_TRIP",
@@ -134,7 +134,8 @@ namespace Infrastructure.Services
             }
 
             bool isAir = IsAirTrip(trip);
-            string mode = isAir ? "AIR" : "ROAD";
+            string mode = CoordinatorPlanMode.Selected(trip) ?? (isAir ? "AIR" : "ROAD");
+            isAir = mode == "AIR";
 
             // Parse Draft Plan
             PlanDto? draftPlan = null;
@@ -271,13 +272,31 @@ namespace Infrastructure.Services
 
             var coordinatorId = trip.AssignedCoordinatorId ?? "USR_COORD_01";
 
+            var pickupEndpoint = new EndpointDto
+            {
+                Name = originFacility?.Name ?? trip.Request?.Customer?.FullName ?? trip.Request?.DesignatedReceiverName ?? "Trại đón ngựa",
+                Address = originFacility?.Address ?? trip.Request?.Departure ?? "Điểm đón khách hàng",
+                Country = originFacility?.CountryCode ?? "VN",
+                Geo = new GeoDto
+                {
+                    Lat = (double)(originFacility?.Latitude ?? 10.7769m),
+                    Lng = (double)(originFacility?.Longitude ?? 106.7009m)
+                },
+                Access = new AccessLimitsDto { MaxHeightM = 4.0, MaxWidthM = 2.6, MaxGrossT = 20 }
+            };
+
             return new TripContextDto
             {
                 TripId = cleanTripId,
                 RequestId = trip.RequestId,
                 ContractId = contractId,
                 Status = trip.Status,
-                Mode = mode,
+                Mode = CoordinatorPlanMode.Selected(trip) ?? (isAir ? "AIR" : "ROAD"),
+                ContractVersion = 1,
+                ModeSource = "CONTRACT",
+                PickupDate = trip.Request?.ExpectedDate?.ToString("yyyy-MM-dd") ?? DateTime.UtcNow.ToString("yyyy-MM-dd"),
+                EffectivePickup = pickupEndpoint,
+                EffectivePickupRelocationId = !string.IsNullOrEmpty(trip.EffectiveOriginPlaceId) ? latestReloc?.RelocationId : null,
                 Binding = new BindingDto
                 {
                     Version = trip.Version,
@@ -289,18 +308,7 @@ namespace Infrastructure.Services
                 SpecialistId = trip.AssignedSpecialistId ?? "USR_SPEC_01",
                 CoordinatorId = coordinatorId,
                 HorseIds = horses,
-                Pickup = new EndpointDto
-                {
-                    Name = originFacility?.Name ?? trip.Request?.Customer?.FullName ?? trip.Request?.DesignatedReceiverName ?? "Trại đón ngựa",
-                    Address = originFacility?.Address ?? trip.Request?.Departure ?? "Điểm đón khách hàng",
-                    Country = originFacility?.CountryCode ?? "VN",
-                    Geo = new GeoDto
-                    {
-                        Lat = (double)(originFacility?.Latitude ?? 10.7769m),
-                        Lng = (double)(originFacility?.Longitude ?? 106.7009m)
-                    },
-                    Access = new AccessLimitsDto { MaxHeightM = 4.0, MaxWidthM = 2.6, MaxGrossT = 20 }
-                },
+                Pickup = pickupEndpoint,
                 Delivery = new EndpointDto
                 {
                     Name = isAir ? "Trường đua Tokyo" : "Điểm giao nhận đích",
@@ -383,8 +391,8 @@ namespace Infrastructure.Services
             foreach (var t in trips)
             {
                 bool isAir = IsAirTrip(t);
-                string tripMode = isAir ? "AIR" : "ROAD";
-                if (!string.IsNullOrEmpty(mode) && !tripMode.Equals(mode, StringComparison.OrdinalIgnoreCase))
+                string? tripMode = CoordinatorPlanMode.Selected(t);
+                if (!string.IsNullOrEmpty(mode) && !string.Equals(tripMode, mode, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -455,12 +463,17 @@ namespace Infrastructure.Services
                 .Where(f => placeIds.Contains(f.FacilityId))
                 .ToDictionaryAsync(f => f.FacilityId, f => f);
 
+            string pickupAtStr = dto.PickupAt ?? dto.PlannedDepart ?? DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd HH:mm");
+            string plannedDepartStr = dto.PlannedDepart ?? (DateTime.TryParse(pickupAtStr, out var pAt) ? pAt.AddMinutes(30).ToString("yyyy-MM-dd HH:mm") : pickupAtStr);
+
             var plan = new PlanDto
             {
                 PlanVersion = trip.PlanVersion,
                 Status = "DRAFT",
                 Mode = mode,
-                PlannedDepart = dto.PlannedDepart ?? DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd HH:mm"),
+                PickupAt = pickupAtStr,
+                PlannedDepart = plannedDepartStr,
+                ReviewWarnings = new List<string>(),
                 Eta = DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd HH:mm"),
                 Stops = dto.Stops.Select((s, idx) =>
                 {
@@ -1049,6 +1062,7 @@ namespace Infrastructure.Services
         private bool IsAirTrip(TripPlan trip)
         {
             if (trip == null) return false;
+            if (CoordinatorPlanMode.Selected(trip) is { } selected) return selected == "AIR";
             var cleanTripId = trip.TripId?.Trim() ?? string.Empty;
             return cleanTripId.Equals("TRIP_2026_001", StringComparison.OrdinalIgnoreCase) ||
                    cleanTripId.Equals("TRIP_2026_004", StringComparison.OrdinalIgnoreCase) ||

@@ -12,7 +12,7 @@ export const STALE_H = 3;
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
 // ---------- tra cứu ----------
-export const trip = (id?: string) => db.trips.find((t: Any) => t.id === id || cleanId(t.id) === cleanId(id));
+export const trip = (id?: string) => db.trips.find((t: Any) => t.id === id || cleanId(t.id) === cleanId(id) || t.tripId === id || cleanId(t.tripId) === cleanId(id));
 export const reqById = (id?: string) => db.requests.find((r: Any) => r.id === id || cleanId(r.id) === cleanId(id));
 export const reqOfTrip = (t: Any) => reqById(t?.requestId) || { id: t?.requestId, origin: t?.origin || '', destination: t?.destination || '', pickup: {}, delivery: {}, horses: t?.horses || [] };
 export const tripOfReq = (rid: string) => db.trips.find((t: Any) => t.requestId === rid || cleanId(t.requestId) === cleanId(rid));
@@ -27,15 +27,26 @@ export const placeByName = (n: string) => db.places.find((p: Any) => p.name === 
 
 export const curRoute = (t: Any) => (t?.routes?.length ? t.routes[t.routes.length - 1] : null);
 export const approvedRoute = (t: Any) => [...(t.routes || [])].reverse().find((r: Any) => r.status === 'APPROVED') || null;
-export const tripStops = (t: Any): Any[] => (approvedRoute(t) || curRoute(t) || { stops: [] }).stops;
-export const lastMilestone = (t: Any) => (t.milestones?.length ? t.milestones[t.milestones.length - 1] : null);
+export const tripStops = (t: Any): Any[] => (approvedRoute(t) || curRoute(t) || { stops: [] }).stops || [];
+export const lastMilestone = (t: Any) => (t?.milestones?.length ? t.milestones[t.milestones.length - 1] : null);
 export const tripHorses = (t: Any): string[] => reqOfTrip(t).horses || [];
 export const horseCount = (r: Any) => r?.count || r?.horses?.length || 1;
 export const crewOf = (t: Any): [string, string][] => Object.entries(t.crew || {}).filter(([, v]) => v) as [string, string][];
 export const tripLabel = (t: Any) => { const r = reqOfTrip(t); return `${t.id} • ${r.origin === 'Ho Chi Minh City' ? 'HCMC' : r.origin} → ${r.destination === 'Ho Chi Minh City' ? 'HCMC' : r.destination}`; };
-export const assignedOperator = (t: Any, role: 'coordinator' | 'specialist') =>
-  !!t?.deployment?.assignees && t.deployment.assignees[role] === (role === 'specialist' ? db.users.specialist.id : db.users.coordinator.id);
-export const deployed = (t: Any) => !!t && t.deployment?.status === 'CONFIRMED';
+export const assignedOperator = (t: Any, role: 'coordinator' | 'specialist') => {
+  if (role === 'coordinator') {
+    if (t?.coordinatorId && (t.coordinatorId === db.users.coordinator?.id || t.coordinatorId === 'USER_006')) return true;
+    if (t?.deployment?.assignees?.coordinator === db.users.coordinator?.id || t?.deployment?.assignees?.coordinator === 'USER_006') return true;
+    if (t?.deployment?.coordinatorId === db.users.coordinator?.id || t?.deployment?.coordinatorId === 'USER_006') return true;
+  }
+  if (role === 'specialist') {
+    if (t?.specialistId && (t.specialistId === db.users.specialist?.id || t.specialistId === 'USER_005')) return true;
+    if (t?.deployment?.assignees?.specialist === db.users.specialist?.id || t?.deployment?.assignees?.specialist === 'USER_005') return true;
+    if (t?.deployment?.specialistId === db.users.specialist?.id || t?.deployment?.specialistId === 'USER_005') return true;
+  }
+  return !t?.deployment?.assignees;
+};
+export const deployed = (t: Any) => !!t && (t.deployment?.status === 'CONFIRMED' || t.deployment === 'CONFIRMED');
 export const coordTrips = () => db.trips.filter((t: Any) => ACTIVE_TRIP.includes(t.status) && (assignedOperator(t, 'coordinator') || !t.deployment?.assignees));
 
 export function changeEta(t: Any, to: string, reason: string, by: string) {
@@ -199,8 +210,10 @@ export const resourceGaps = (t: Any): string[] => [...new Set([
 export const routeState = (t: Any) => { const rt = curRoute(t); return rt ? rt.status : 'NONE'; };
 export function planState(t: Any) {
   if (t.status !== 'PLANNING') return t.status;
-  if (t.deployment.status === 'ON_HOLD') return 'ON_HOLD';
+  const depStatus = typeof t.deployment === 'string' ? t.deployment : t.deployment?.status;
+  if (depStatus === 'ON_HOLD') return 'ON_HOLD';
   if (!deployed(t)) return 'AWAITING_DEPLOYMENT';
+  if (t.planningState) return t.planningState;
   const rs = routeState(t);
   if (rs === 'NONE' || rs === 'DRAFT') return 'AWAITING_ROUTE';
   if (rs === 'PENDING_APPROVAL') return 'ROUTE_PENDING';

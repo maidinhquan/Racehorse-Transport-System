@@ -10,6 +10,7 @@ import { audit, commit, confirmAction, db, go, me, nextId, notify, nowStamp, ope
 import { addHours, city, cityLabel, date, dt, human, MILESTONE_LABEL, MS_VI } from '../utils/format';
 import { approveAirPlan, submitAirPlan } from './airOperations';
 import { resourceSignature, ROUTE_POLICY, RP, rpCalc, rpEnsure, rpRoute, rpRouteKey, rpState, rpWriteTimes, stop, submitRoadRoute } from './routePlanner';
+import { flow3Api } from '../api/flow3Api';
 
 const DEMO_MGR = ['Linh Pham', 'LOGISTICS_MANAGER'];
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -82,6 +83,7 @@ export function resourceConfirm(id: string) {
     if (opsBlock(t) || resourceGaps(t).length || !canPlan(t)) { toast('Điều kiện chuẩn bị đã thay đổi; kiểm tra lại.'); return; }
     t.resourcesConfirmed = { at: nowStamp(), by: me().name, vehicleId: t.vehicleId, crew: { ...(t.crew || {}) } };
     const accepted = curRoute(t);
+    void flow3Api.confirmResources(id, { expectedVersion: 0, planVersion: accepted?.v || 1 }, `rc-${id}-${Date.now()}`).catch(() => {});
     if (accepted?.status === 'APPROVED' && accepted.resourceSnapshot && accepted.resourceSnapshot.signature !== resourceSignature(t)) {
       t.routes.push({ v: accepted.v + 1, status: 'PENDING_APPROVAL', submittedAt: nowStamp(), decidedAt: null, note: 'Xe/nhân sự thay đổi sau duyệt; đề nghị Manager duyệt lại gói phương án.', stops: accepted.stops.map((s: Any) => ({ ...s })) });
       notify('LOGISTICS_MANAGER', `Thay đổi xe/nhân sự của ${id}`, 'Coordinator đã xác nhận lại nguồn lực. Cần duyệt phiên bản tuyến mới.', `m/trip/${id}/route`);
@@ -95,6 +97,7 @@ export function resourceConfirm(id: string) {
 // ---------- gửi tuyến cho Manager duyệt ----------
 export function routeSubmit(id: string) {
   const t = trip(id); if (!t) return;
+  if (!t.mode) return toast('Hợp đồng chưa ghi phương thức vận chuyển. Vui lòng liên hệ Manager.');
   const ce = horseCountError(reqOfTrip(t)); if (ce) return toast(ce);
   if (t.mode === 'AIR') return submitAirPlan(id);
   if (t.demoFlow3) {

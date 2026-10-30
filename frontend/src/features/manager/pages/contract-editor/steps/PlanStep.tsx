@@ -44,8 +44,13 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses }
       </p>
       <div className="mgr-form-grid">
         <div className="mgr-field">
-          <label>Phương thức vận chuyển</label>
-          <div className="mgr-input mgr-ce__readonly">Coordinator quyết định khi lập kế hoạch vận chuyển</div>
+          <label htmlFor="contract-transport-mode">Phương thức vận chuyển *</label>
+          <select id="contract-transport-mode" className="mgr-select" value={draft.mode || ''}
+            onChange={event => set({ mode: event.target.value as 'ROAD' | 'AIR' })}>
+            <option value="" disabled>Chọn phương thức</option>
+            <option value="ROAD">Đường bộ</option>
+            <option value="AIR">Hàng không</option>
+          </select>
         </div>
         <div className="mgr-field">
           <label>Ngựa theo yêu cầu (chỉ xem)</label>

@@ -40,8 +40,9 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
     {
         var row = await access.RequestAsync(request, actor, true, token);
         Require(row.Status is "CONTRACT_PREPARATION" or "CONTRACT_CHANGES_REQUESTED", "INVALID_STATE", "Request is not open for drafting.");
-        Require(input.Mode is null, "VALIDATION_ERROR", "Transport mode is decided by the Coordinator in Flow 3, not in the contract.", 400);
-        await catalogs.ContractOptionsAsync(row.OriginCountry!, row.DestinationCountry!, token);
+        Require(input.Mode is "ROAD" or "AIR", "VALIDATION_ERROR", "Chọn phương thức vận chuyển trong hợp đồng.", 400);
+        await catalogs.ValidateAsync(row.OriginCountry!, row.DestinationCountry!, input.Mode!, token);
+        await catalogs.ContractOptionsAsync(row.OriginCountry!, row.DestinationCountry!, token, input.Mode);
         // The Manager may propose dates other than the customer's request; the contract shows both
         // (route.requested* in the snapshot) and the customer accepts by signing or asks for changes.
         var proposedDeparture = SnapshotBuilder.Timestamp(input.DepartAt);
@@ -105,8 +106,8 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         var node = JsonNode.Parse(original)!.AsObject(); var now = clock.GetUtcNow().UtcDateTime;
         Require(node["commercial"] is JsonObject && node["route"] is JsonObject && node["appliedPolicies"] is JsonObject,
             "CONTRACT_DRAFT_REQUIRES_SAVE", "Save this draft with the Reviewed editor before publication.", 400);
-        Require(node["route"]!["transportModeDecision"]?.GetValue<string>() == "FLOW3" && node["route"]!["mode"] is null,
-            "CONTRACT_DRAFT_REQUIRES_SAVE", "Save this draft again; transport mode must be decided in Flow 3.", 400);
+        Require(node["route"]!["mode"]?.GetValue<string>() is "ROAD" or "AIR",
+            "CONTRACT_DRAFT_REQUIRES_SAVE", "Chọn phương thức và lưu lại bản nháp trước khi phát hành.", 400);
         var hours = node["appliedPolicies"]!["contractDeadlineHours"]!.GetValue<decimal>();
         var deadline = now.AddHours((double)hours);
         var departure = node["route"]!["departureAtUtc"]!.GetValue<DateTime>();
@@ -122,7 +123,8 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
             Require(contract.CurrentVersionNo == version && draft.VersionStatus == "DRAFT" && draft.ContentSnapshot == original && contract.SignedAt is null,
                 "CONTRACT_NOT_CURRENT", "Draft changed during rendering.");
             Require(row.Status is "CONTRACT_PREPARATION" or "CONTRACT_CHANGES_REQUESTED", "INVALID_STATE", "Request cannot be published.");
-            await catalogs.ContractOptionsAsync(row.OriginCountry!, row.DestinationCountry!, token);
+            await catalogs.ValidateAsync(row.OriginCountry!, row.DestinationCountry!, node["route"]!["mode"]!.GetValue<string>(), token);
+            await catalogs.ContractOptionsAsync(row.OriginCountry!, row.DestinationCountry!, token, node["route"]!["mode"]!.GetValue<string>());
             await RequireHorsesFreeAsync(request, token);
             Require(clock.GetUtcNow().UtcDateTime < deadline, "CONTRACT_EXPIRED", "Publication window elapsed.");
             foreach (var old in await data.ListAsync<ContractVersion>(v => v.ContractID == contract.ContractID && v.VersionStatus == "ISSUED" && v.VersionNo != version, token)) old.VersionStatus = "SUPERSEDED";
@@ -141,7 +143,7 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
             }
             contract.ContractStatus = "ISSUED"; contract.SignOtpHash = null; contract.SignOtpExpiry = null; contract.SignOtpSentAtUtc = null; contract.SignOtpFailedAttempts = 0;
             row.ExpectedDate = departure; row.CommittedDeadline = node["route"]!["deliveryAtUtc"]!.GetValue<DateTime>();
-            row.PreparationDays = preparation; row.TransportType = null; row.Status = "CONTRACT_READY";
+            row.PreparationDays = preparation; row.TransportType = node["route"]!["mode"]!.GetValue<string>(); row.Status = "CONTRACT_READY";
             var invoiceRow = new Invoice { ContractID = contract.ContractID, ContractVersionNo = version, InvoiceType = "DEPOSIT", CurrencyCode = "VND",
                 TotalPayableAmount = amount, PaidAmount = 0, DueDate = deadline, PaymentStatus = "UNPAID" };
             data.Add(invoiceRow); notifications.Add(row.CustomerID, request, "CONTRACT_ISSUED", "Contract issued", $"Contract {contract.ContractID}, version {version} is ready.");

@@ -31,6 +31,7 @@ export interface Db {
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
 import { getSharedRequests } from '../../../shared/utils/sharedRequests';
+import { apiClient } from '../../../shared/api/apiClient';
 
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
@@ -65,7 +66,7 @@ function seededDb(): Db {
     origin: r.origin,
     destination: r.destination,
     status: 'PLANNING',
-    deployment: { status: 'CONFIRMED', assignees: { coordinator: 'EMP-15', specialist: 'EMP-11' } },
+    deployment: { status: 'CONFIRMED', assignees: { coordinator: 'USER_006', specialist: 'USER_005' } },
     plannedDepart: `${r.date || '2026-12-26'} 06:00`,
     eta: `${r.date || '2026-12-26'} 22:00`,
     mode: r.destination?.includes('Sapporo') || r.destination?.includes('Tokyo') ? 'AIR' : 'ROAD',
@@ -124,18 +125,104 @@ const subscribe = (l: () => void) => { listeners.add(l); return () => { listener
 /** Hook: component đọc db/ui trực tiếp; mỗi lần commit() sẽ vẽ lại */
 export const useCoordinatorStore = () => useSyncExternalStore(subscribe, () => version);
 
+export async function syncCoordinatorTrips(): Promise<void> {
+  try {
+    const res = await apiClient.get<Any>('/coordinator/trips');
+    const apiTrips = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+    if (!Array.isArray(apiTrips)) return;
+
+    // The list contains planning summaries only. Addresses and horse IDs live in the trip context.
+    const contexts = await Promise.all(apiTrips.map(async (item: Any) => {
+      try {
+        const response = await apiClient.get<Any>(`/coordinator/trips/${encodeURIComponent(item.tripId || item.id)}`);
+        return response.data?.data ?? response.data;
+      } catch (error) {
+        console.error('[coordinator] Failed to load trip details:', item.tripId || item.id, error);
+        return null;
+      }
+    }));
+
+    const mappedTrips = apiTrips.map((bt: Any, index: number) => {
+      const cleanTripId = bt.tripId || bt.id;
+      const context = contexts[index];
+      const previous = db.trips.find((t: Any) => cleanId(t.id) === cleanId(cleanTripId));
+      const requestId = context?.requestId || bt.requestId;
+      if (context) {
+        const requestIndex = db.requests.findIndex((r: Any) => cleanId(r.id) === cleanId(requestId));
+        const previousRequest = db.requests[requestIndex] || {};
+        const horses = context.horseIds ?? bt.horses ?? previousRequest.horses ?? [];
+        const request = {
+          ...previousRequest, id: requestId,
+          origin: context.pickup?.cityName || context.pickup?.name || context.pickup?.address || previousRequest.origin || '',
+          destination: context.delivery?.cityName || context.delivery?.name || context.delivery?.address || previousRequest.destination || '',
+          pickup: context.pickup ?? previousRequest.pickup ?? {},
+          delivery: context.delivery ?? previousRequest.delivery ?? {},
+          horses, count: horses.length,
+          pickupAt: bt.plannedDepart, date: context.deliveryDeadline?.slice(0, 10) || previousRequest.date || '',
+          deliveryDeadline: context.deliveryDeadline,
+        };
+        if (requestIndex >= 0) db.requests[requestIndex] = request;
+        else db.requests.push(request);
+      }
+      return {
+        ...previous,
+        id: cleanTripId,
+        tripId: cleanTripId,
+        binding: context?.binding ?? previous?.binding,
+        requestId,
+        status: bt.status || 'PLANNING',
+        planningState: bt.planningState,
+        mode: context ? context.mode ?? null : bt.mode ?? previous?.mode ?? null,
+        plannedDepart: bt.plannedDepart || `${today()} 06:00`,
+        eta: context?.approvedPlan?.eta || context?.deliveryDeadline || bt.eta || previous?.eta || '',
+        deliveryDeadline: context?.deliveryDeadline || previous?.deliveryDeadline,
+        deployment: {
+          status: context?.deployment?.status || context?.deployment || bt.deployment?.status || bt.deployment || previous?.deployment?.status || 'NOT_CONFIRMED',
+          assignees: { coordinator: context?.coordinatorId || bt.coordinatorId || previous?.coordinatorId, specialist: context?.specialistId || bt.specialistId || previous?.specialistId },
+        },
+        coordinatorId: context?.coordinatorId || bt.coordinatorId || previous?.coordinatorId,
+        specialistId: context?.specialistId || bt.specialistId || previous?.specialistId,
+        routes: bt.routes ?? previous?.routes ?? [],
+        milestones: bt.milestones ?? previous?.milestones ?? [],
+        crew: bt.crew ?? previous?.crew ?? {},
+        horses: context?.horseIds ?? bt.horses ?? previous?.horses ?? [],
+      };
+    });
+
+    const isDemo = getDemoMode('coordinator');
+    if (!isDemo) {
+      db.trips = mappedTrips;
+    } else {
+      const existing = [...db.trips];
+      for (const mt of mappedTrips) {
+        const idx = existing.findIndex((x: Any) => cleanId(x.id) === cleanId(mt.id));
+        if (idx >= 0) existing[idx] = { ...existing[idx], ...mt };
+        else existing.unshift(mt);
+      }
+      db.trips = existing;
+    }
+    commit();
+  } catch (err) {
+    console.error('[coordinator] Failed to sync trips from API:', err);
+  }
+}
+
 export function resetDemo(on: boolean) {
   db = on ? seededDb() : emptyDb();
   ui.tab = {}; ui.t = {}; ui.journeyDisclosures = {};
   resetHooks.forEach((fn) => fn());
   commit();
+  void syncCoordinatorTrips();
 }
 const resetHooks: Array<() => void> = [];
 export const onReset = (fn: () => void) => { resetHooks.push(fn); };
 
 if (typeof window !== 'undefined') {
+  void syncCoordinatorTrips();
+
   window.addEventListener('rts_requests_updated', () => {
     resetDemo(demoOn());
+    void syncCoordinatorTrips();
   });
 
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
@@ -149,7 +236,16 @@ if (typeof window !== 'undefined') {
 
 // ---------- id, người dùng, nhật ký, thông báo ----------
 export const nextId = (prefix: string) => `${prefix}-${++db.seq}`;
-export const me = () => db.users.coordinator;
+export const me = () => {
+  const storedName = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null;
+  const storedEmail = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userEmail') : null;
+  if (storedName) {
+    const clean = storedName.split('(')[0].trim();
+    const initials = clean.split(' ').filter(Boolean).map((n: string) => n[0]).join('').slice(-2).toUpperCase() || 'PH';
+    return { ...db.users.coordinator, name: storedName, initials, email: storedEmail || db.users.coordinator?.email };
+  }
+  return db.users.coordinator;
+};
 export function audit(action: string, entity = '', detail = '') {
   db.audit.unshift({ at: nowStamp(), actor: me().name, role: 'FLEET_COORDINATOR', action, entity, detail });
 }

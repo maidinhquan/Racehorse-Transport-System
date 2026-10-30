@@ -2,15 +2,25 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Phiên bản | 2.0.0 — 27/10/2026, ghi đè Flow 3 cũ |
-| Frontend đối chiếu | `D:/Shared/Final_Flow3.html` |
-| Phạm vi | Thiết kế API contract; chưa triển khai backend/database hoặc nối HTML vào API |
+| Phiên bản | 3.0.0 — 30/10/2026, theo luồng đã thống nhất |
+| Nguồn nghiệp vụ | Luồng được chốt ngày 30/10/2026; HTML cũ chỉ tham khảo giao diện |
+| Phạm vi | Contract v3 mục tiêu; các thay đổi v3 chưa được tích hợp vào backend/giao diện đang chạy |
 | Đầu vào | Trip PLANNING, Request ACTIVATED, Contract EFFECTIVE, cọc đã xác minh, deployment CONFIRMED, đã giao Specialist/Coordinator |
 | Kết thúc | Manager duyệt khởi hành: Trip READY_TO_DEPART, Request SCHEDULED; DEPARTED thuộc Flow 4 |
 
 [JSON từng API](FLOW3-API-JSON.md) · [OpenAPI](flow3.openapi.json) · [Kịch bản nghiệm thu](flow3.examples.json) · [Quy ước](../../CONVENTIONS.md).
 
-## 1. Quy trình thay thế bản cũ
+## 1. Quy trình đã chốt
+
+**Phương thức do Manager chọn trong hợp đồng Flow 1.** Flow 3 đọc `mode`, `contractVersion` và `modeSource=CONTRACT`; không có API đổi phương thức. Đổi phương thức phải xử lý hợp đồng theo Flow 1, không sửa kế hoạch để vượt hợp đồng.
+
+Khách chọn **ngày nhận ngựa** (`pickupDate`). Coordinator chọn **giờ nhận cụ thể** (`pickupAt`), tính giờ đến/rời từng điểm, bàn giao, di chuyển, nghỉ và giờ giao dự kiến. `plannedDepart` là giờ rời điểm nhận sau bàn giao, do server tính. Plan bắt đầu ở `effectivePickup`, không phải bãi xe. Chặng xe rỗng từ bãi đến nơi đón thuộc điều xe nội bộ; vẫn kiểm tra xe/người đến kịp giờ nhận nhưng không đưa bãi vào hành trình chở ngựa.
+
+- ROAD: **Nhận ngựa → điểm nghỉ cần thiết → giao ngựa**.
+- AIR: **Nhận ngựa → nghỉ nếu cần → sân bay đi → sân bay đến → nghỉ nếu cần → giao ngựa**.
+- Không tự chèn điểm y tế/cách ly. Chỉ thêm điểm đó khi có yêu cầu thực tế của chuyến/Flow 2.
+- Coordinator gửi **toàn bộ tuyến và lịch trình**, xe/người, giờ hoạt động cơ sở, lịch bay nếu có cho Manager kiểm tra. Manager APPROVE hoặc RETURN kèm lý do. Quá hạn giao/lệch ngày nhận là cảnh báo khi gửi xem xét; không được tự đổi cam kết. Manager chỉ APPROVE khi hợp đồng hiện hành đã cho phép lịch đó; cần đổi cam kết thì Manager lấy đồng ý khách và xử lý Flow 1 trước, rồi lập/tính/gửi lại phương án.
+
 
 Sau giao việc, hai nhánh chạy ngay và song song: Specialist xử lý hồ sơ khách/CBN, bảo hiểm, kiểm dịch bằng Flow 2 rồi xác nhận Docs READY; Coordinator lập tuyến, bố trí xe/người, chọn dịch vụ bay, gửi Manager duyệt và hoàn tất vận hành. Không bắt Coordinator đợi planning-feasibility, earliestReadyAt hoặc danh sách giấy tờ có thời hạn.
 
@@ -63,7 +73,7 @@ Policy demo lấy J01, version và nhãn “Đề xuất cho đồ án”, khôn
 - Nghỉ ngắn reset care clock, không reset roadEpisode. Chỉ hồi phục ngoài xe đủ recoveryRestH reset đợt đường bộ; đổ xăng/kiểm dịch không tự là nghỉ.
 - Giờ mở 24/7 hoặc HH:mm–HH:mm, hỗ trợ qua đêm. Toàn khoảng ghé nằm trong giờ mở, hai đầu bằng nhau không hợp lệ.
 - AIR đến sân bay trước giờ bay ít nhất airportHandoverH; tiếp nhận sau hạ cánh airportReceiveH. Care confirmation gắn flight version; bay không là nghỉ hồi phục. Reset clock đường bộ chặng đến chỉ khi có bàn giao chăm sóc rõ.
-- ETA server gồm lái/dừng/bay/bàn giao <= deliveryDeadline từ Flow 1. Không phù hợp thì Manager xử lý cam kết qua Flow 1, nhập reason không vượt deadline.
+- ETA server gồm lái/dừng/bay/bàn giao. Nếu ETA > deliveryDeadline hoặc pickupAt lệch pickupDate, J07/J08 trả reviewWarnings để Manager kiểm tra; riêng lỗi lịch này không chặn gửi. J11 APPROVE và J18 vẫn chặn cho tới khi phương án phù hợp hoặc cam kết mới đã được khách đồng ý và ghi nhận qua Flow 1. Reason không vượt qua gate.
 
 Place create/update chặn trùng tọa độ trong 50m, ưu tiên thêm chức năng vào địa điểm hiện có. Place đã tham chiếu kể cả history không xóa; đổi trạng thái không rewrite approved snapshot. Catalogue capacity là khả năng cơ sở, không phải chỗ trống realtime.
 
@@ -79,13 +89,22 @@ TruckProfile theo road/outbound/inbound: heightM,widthM,lengthM,currentT,grossT,
 
 HTML cuối file ẩn khối truck/access, guard submit cuối chỉ kiểm số ngựa. Contract vẫn bắt các điều kiện này tại submit/approve/departure; khi tích hợp FE cần hiện lại thao tác hoặc kết quả xác minh để hoàn tất, không chỉ hiện lỗi sau duyệt.
 
-## 5. Đổi điểm nhận
+## 5. Xe không vào được: đề xuất qua Manager và khách hàng
 
-J28 xác minh ACCESSIBLE/INACCESSIBLE đúng xe/profile/địa chỉ, căn cứ >=8 ký tự và acknowledgement. Nếu không vào được, J29 trả cơ sở active cùng quốc gia, QUARANTINE, có truckParking/loadingArea/waterFeed/capacity đủ và tọa độ; mở toàn bộ 30 phút bàn giao. Khoảng cách đường thẳng chỉ tham khảo.
+1. **J28 — Coordinator xác minh INACCESSIBLE:** ghi lý do/bằng chứng theo địa chỉ, kích thước xe và phương án đang xét. Không tự đổi điểm nhận.
+2. **J29/J30 — Coordinator tìm và đề xuất điểm tập kết:** có địa chỉ/tọa độ, giờ bàn giao, lý do, ảnh hưởng lịch và chi phí dự kiến, trách nhiệm khách tự đưa ngựa ra. Điểm phải phù hợp tiếp nhận ngựa, có chỗ xe/lên xuống/nước/sức chứa và mở trong giờ hẹn; không bắt buộc là cơ sở y tế/cách ly. Trạng thái PROPOSED, gửi Manager.
+3. **J31 — Manager kiểm tra:** APPROVE → MANAGER_APPROVED; RETURN → RETURNED kèm lý do để Coordinator làm lại. Chưa đổi điểm nhận.
+4. **J56 — Manager gửi khách:** đóng băng snapshot và proposalVersion, chuyển AWAITING_CUSTOMER. Gửi thông báo không phải khách đồng ý, không đổi ORIGIN.
+5. **J57/J32 — Khách xem và quyết định:** chỉ chủ đơn xem bản đã gửi và dùng tài khoản của mình ACCEPT hoặc REJECT. Manager/Coordinator không xác nhận thay. ACCEPT → CUSTOMER_CONFIRMED; REJECT cần lý do → CUSTOMER_REJECTED và báo Manager/Coordinator đề xuất phương án khác.
+6. **Chỉ sau ACCEPT** mới cập nhật effectivePickup/ORIGIN nháp bằng đúng snapshot khách chấp nhận. Giữ pickup gốc và lịch sử; tăng version, vô hiệu routing/xác nhận nguồn lực/Ops READY liên quan, tính lại tuyến/lịch và gửi Manager duyệt phương án hoàn chỉnh.
 
-J30 tạo PROPOSED, reason >=10 ký tự, đã liên hệ cơ sở. J31 Manager APPROVE → MANAGER_APPROVED; RETURN cần reason >=5 → REJECTED. J32 Manager ghi nhận khách đã đồng ý thực tế qua PHONE/EMAIL/WRITTEN, note >=10 và acknowledgement → CUSTOMER_CONFIRMED. Thông báo gửi khách không là consent.
+Trong lúc chờ hoặc khi khách từ chối, giữ nguyên điểm nhận **đang có hiệu lực**. J33 tạo bản đề xuất mới, giữ lịch sử và thoả thuận cũ; không tự quay về điểm gốc hay áp địa điểm mới. Chỉ lần ACCEPT mới thay effectivePickup.
 
-Chỉ CUSTOMER_CONFIRMED mới dùng làm ORIGIN draft, giữ pickup gốc request/hợp đồng. Nội dung nêu khách tự đưa ngựa đến, giờ/trách nhiệm bàn giao; không tự phát sinh phí hay sửa giá. Recheck placeVersion/xe/profile/giờ hẹn ở từng bước. J33 mở đề xuất lại, giữ history, xóa evidence phụ thuộc, tính lại tuyến và xin consent mới. Không đổi điểm giao bằng API này; điểm giao không vào được thì thay xe hoặc xử lý hợp đồng đúng thẩm quyền.
+Mỗi quyết định gắn relocationId + proposalVersion bất biến. Đổi địa điểm/toạ độ/giờ/ảnh hưởng sau khi gửi phải tạo bản mới và xin lại quyết định; bản cũ trả STALE_PROPOSAL. Recheck placeVersion, xe/profile, giờ hoạt động và assignment trước khi chuyển trạng thái. Cơ sở không còn phù hợp thì chặn áp dụng, không thay bằng nơi khác tự động.
+
+Khách chỉ nhận projection gồm điểm cũ/mới, lý do, giờ, ảnh hưởng và trách nhiệm; không nhận Context chứa bản nháp, ngân sách nội bộ hoặc nhân sự. Idempotency-Key dùng cho gửi và quyết định; gửi lại cùng key/cùng nội dung trả cùng kết quả, không đổi ORIGIN hai lần. Chỉ thông báo chứ chưa bấm đồng ý không tạo consent.
+
+Việc đồng ý điểm nhận không tự sửa giá/hạn trong hợp đồng hoặc thu phí. Nếu cần thay cam kết, Manager xử lý qua Flow 1; trước khi duyệt tuyến phải khớp hợp đồng có hiệu lực. Điểm giao không đổi bằng nhóm API này.
 
 ## 6. Đối tác bay và booking
 
@@ -107,7 +126,7 @@ J18 nhận expectedVersion+approvedPlanVersion+readinessVersion vừa đọc. Tr
 
 readinessVersion do server cấp cho tập kết quả kiểm tra/dependency, không phải timestamp client hoặc planVersion. Thay đổi nguồn ngoài/capability/thời gian làm gate đổi phải được phát hiện khi đọc/lệnh duyệt, kể cả version của nội dung plan chưa đổi. J17 trả checks có code/group/tab/label/ok/detail cho checklist của frontend và blockers cho lý do chặn; client không tự tính canApproveDeparture từ vài cờ.
 
-Base /api; Bearer JWT role FLEET_ROUTE_COORDINATOR (HTML alias FLEET_COORDINATOR), TRANSPORT_SPECIALIST, LOGISTICS_MANAGER. Staff chỉ Trip được giao; Manager trong scope quản lý; file/history cùng kiểm quyền. 403 sai role, 404 ngoài scope. Place/partner mutation chỉ Coordinator; staff-status cho Coordinator/Manager. Không CRUD xe từ Flow 3.
+Base /api; Bearer JWT. Customer chỉ chủ đơn được gọi J57/J32. Role FLEET_ROUTE_COORDINATOR (HTML alias FLEET_COORDINATOR), TRANSPORT_SPECIALIST, LOGISTICS_MANAGER. Staff chỉ Trip được giao; Manager trong scope quản lý; file/history cùng kiểm quyền. 403 sai role, 404 ngoài scope. Place/partner mutation chỉ Coordinator; staff-status cho Coordinator/Manager. Không CRUD xe từ Flow 3.
 
 Envelope {success,message,data}; list data array. ID/status/version/time server cấp. Timestamp YYYY-MM-DD HH:mm theo Asia/Ho_Chi_Minh, kiểm ngày lịch thật, lưu UTC. Tiền nguyên VND. Error có errorCode/blockers[{code,field,message}], không SQL/stack. 400 validation, 401 auth, 403 role, 404 scope, 409 business/stale, 413 quá file, 415 MIME, 429 rate, 500 internal, 501 unsupported, 503 provider lỗi. Capability false trả 501, không fallback mock.
 
@@ -115,20 +134,22 @@ Các mã chính: STALE_VERSION, IDEMPOTENCY_CONFLICT, DEPLOYMENT_REQUIRED, PLAN_
 
 ## 8. Chuyển đổi endpoint cũ
 
-| Cũ | Chuẩn v2 |
+| Cũ | Chuẩn v3 |
 |---|---|
 | F3-J03 planning-feasibility | Retired, không là gate; mutation cũ 409 CONTRACT_SUPERSEDED |
 | F3-J21/J22 timed-documents | Retired khỏi planning; lịch nằm plan-draft, không unlock hồ sơ |
 | F2-J53/J54 timed-documents | Chỉ metadata/history nếu còn hiển thị; không block giấy; lệnh tuần tự cũ CONTRACT_SUPERSEDED |
-| F3-J06/J08/J11 | Giữ URL, schema v2, ROAD/AIR gate khác nhau |
-| F3-J13/J14/J16/J17/J18 | Giữ booking/resources/docs-ready/readiness/departure URL, một schema v2 |
+| F3-J06/J08/J11 | Giữ URL, schema v3, ROAD/AIR gate khác nhau |
+| F3-J13/J14/J16/J17/J18 | Giữ booking/resources/docs-ready/readiness/departure URL, một schema v3 |
 | F2 route-draft/resources/flight-proposals | Caller chuyển Flow 3, không chạy workflow cũ song song |
 | F2-J36/J37 | Giữ URL vehicle/staff, mở rộng projection spec/status/assignment |
 | F2-J38 checkpoints | Adapter đọc cùng catalogue places, không hai nguồn khác nhau |
+| J32 Manager ghi nhận consent | Retired; J56 Manager gửi và J32 Customer tự quyết định, không xác nhận thay |
+| J06 plannedDepart input | Thay bằng pickupAt; plannedDepart do server tính sau bàn giao |
 | Flow 1 | Giữ contract riêng về cọc/ký/kích hoạt/giao việc, chỉ đọc kết quả |
 | Flow 4–5 | Khởi hành thực tế, báo cáo đường/sự cố/thay người đang chạy thuộc vận hành |
 
-OpenAPI/JSON Flow 3 là nguồn schema v2; chỉ dẫn role cũ trỏ URL khác phải chuyển theo bảng này. Backend triển khai công bố capability.version=2.0.0; không hai schema để bỏ gate. Không tuyên bố DTO/revision/snapshot đã có bảng/migration; cần triển khai persistence, hold, file, audit, idempotency và provider riêng.
+OpenAPI/JSON Flow 3 là nguồn schema v3; chỉ dẫn role cũ trỏ URL khác phải chuyển theo bảng này. Backend triển khai công bố capability.version=3.0.0; không hai schema để bỏ gate. Không tuyên bố DTO/revision/snapshot đã có bảng/migration; cần triển khai persistence, hold, file, audit, idempotency và provider riêng.
 
 ## 9. Ánh xạ frontend và nghiệm thu
 
@@ -140,7 +161,7 @@ OpenAPI/JSON Flow 3 là nguồn schema v2; chỉ dẫn role cũ trỏ URL khác 
 | rpRoute/rpCalc/rpWriteTimes/Leaflet/journeyDetail | J25/J26/J07 |
 | f-vehicle/groundLegs/f-crew-save | J06/J14/J27 |
 | f3-staff-status/f/crew | J48/J49, không thêm/xóa nhân viên |
-| f3-truck-profile/check, f3-pickup-* | J06/J26/J28–J33, cần hiện thao tác đang ẩn |
+| f3-truck-profile/check, f3-pickup-* | J06/J26/J28–J33/J56/J57; Manager gửi, khách phản hồi qua portal |
 | air-rental-providers/svc-code/svc-partner | J05/J34–J39/J50/J51/J54 |
 | fa-send/m-flight/fa-revision | J40/J41/J12 |
 | f-route-submit/m-route-approve/m-route-return | J08/J11 |
@@ -149,3 +170,9 @@ OpenAPI/JSON Flow 3 là nguồn schema v2; chỉ dẫn role cũ trỏ URL khác 
 | Driver report markers | J53 đọc từ Flow 5, gắn milestone, không GPS/traffic realtime |
 
 Kịch bản trong flow3.examples.json là mục tiêu nghiệm thu, không bằng chứng API đã chạy. Validator kiểm ref/schema/mẫu request-response/input âm/đồng bộ tài liệu và fixture. Khi triển khai cần integration: hai Trip tranh xe chỉ một thành công; retry không trùng; role/scope/file; ROAD pre-confirm; AIR không vòng lặp booking; stale catalogue/consent/READY; rollback approve/departure và history.
+
+Phương thức vận chuyển do Manager chọn khi lập hợp đồng. Điều phối sử dụng phương thức trên hợp đồng; không chọn lại trong tab Tuyến đường.
+
+## 10. Tích hợp v3
+
+Xem [MIGRATION-V3.md](MIGRATION-V3.md). Không đổi import runtime sang v3 trước khi backend/DTO/khách hàng được triển khai cùng nhau. Bản `frontend/src/contracts/flow3.v3.openapi.json` là mirror thiết kế; `flow3.openapi.json` đang được ứng dụng import vẫn giữ v2 trong giai đoạn chuyển đổi.

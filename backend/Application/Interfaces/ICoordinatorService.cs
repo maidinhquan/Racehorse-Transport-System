@@ -43,11 +43,14 @@ namespace Application.Interfaces
         Task<PlanningFileDto> UploadPlanningFileAsync(string tripId, string fileName, string contentType, long size, string storagePath, string userId);
         Task<PlanningAttachment?> GetPlanningFileAsync(string tripId, string fileId);
 
-        // 6. Pickup Relocation (F3-J28..J33)
+        // 6. Pickup Relocation (F3-J28..J33, J56, J57)
         Task<PickupAccessDto> EvaluatePickupAccessAsync(string tripId, AccessInputDto dto, string userId);
         Task<List<PickupCandidateDto>> GetRelocationCandidatesAsync(string tripId);
         Task<PickupRelocationDto> ProposePickupRelocationAsync(string tripId, PickupProposalInputDto dto, string userId);
         Task<PickupRelocationDto> ManagerRelocationDecisionAsync(string tripId, PickupDecisionInputDto dto, string managerId);
+        Task<TripContextDto> SendPickupRelocationAsync(string tripId, PickupSendInputDto dto, string managerId);
+        Task<CustomerPickupProposalDto> GetCustomerPickupRelocationAsync(string tripId, string customerId);
+        Task<CustomerPickupProposalDto> CustomerRelocationDecisionAsync(string tripId, CustomerPickupDecisionInputDto dto, string customerId);
         Task<PickupRelocationDto> RecordCustomerConsentAsync(string tripId, ConsentInputDto dto, string managerId);
         Task<PickupRelocationDto> ReopenRelocationProposalAsync(string tripId, ExpectedDto dto, string userId);
 

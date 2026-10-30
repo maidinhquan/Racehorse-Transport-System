@@ -12,6 +12,7 @@ import { canPlan, checkpoint, curRoute, groundCountry, groundLegs, opsBlock, pla
 import type { Any } from '../store/coordinatorStore';
 import { audit, commit, confirmAction, db, go, me, nextId, notify, nowStamp, onReset, openModal, toast } from '../store/coordinatorStore';
 import { addHours, dt, human, stampMs } from '../utils/format';
+import { flow3Api } from '../api/flow3Api';
 
 export const PF: Record<string, string> = { REST: 'Nghỉ & chăm sóc ngựa', FUEL: 'Tiếp nhiên liệu', QUARANTINE: 'Kiểm dịch', BORDER: 'Cửa khẩu / thông quan', AIRPORT: 'Sân bay' };
 export const PF_COLOR: Record<string, string> = { REST: '#d97706', FUEL: '#64748b', QUARANTINE: '#7c3aed', BORDER: '#dc2626', AIRPORT: '#2563eb' };
@@ -19,12 +20,27 @@ export const PLACE_ST: Record<string, [string, string]> = { ACTIVE: ['READY', '�
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 export const ROUTE_POLICY: Any = clone((seed as Any).policy);
 export const ROUTING: Any = clone((seed as Any).routing);
-export const CITY_GEO: Record<string, [number, number]> = { 'Ho Chi Minh City': [10.7769, 106.7009], Hanoi: [21.0278, 105.8342], 'Da Nang': [16.0544, 108.2022], Bangkok: [13.7563, 100.5018], Singapore: [1.3521, 103.8198], Tokyo: [35.6762, 139.6503], Sydney: [-33.8688, 151.2093], Dubai: [25.2048, 55.2708], London: [51.5072, -0.1276] };
+export const CITY_GEO: Record<string, [number, number]> = {
+  'Ho Chi Minh City': [10.7769, 106.7009],
+  'Hồ Chí Minh': [10.7769, 106.7009],
+  'TP. Hồ Chí Minh': [10.7769, 106.7009],
+  'TP Hồ Chí Minh': [10.7769, 106.7009],
+  Hanoi: [21.0278, 105.8342],
+  'Hà Nội': [21.0278, 105.8342],
+  'Da Nang': [16.0544, 108.2022],
+  'Đà Nẵng': [16.0544, 108.2022],
+  Bangkok: [13.7563, 100.5018],
+  Singapore: [1.3521, 103.8198],
+  Tokyo: [35.6762, 139.6503],
+  Sydney: [-33.8688, 151.2093],
+  Dubai: [25.2048, 55.2708],
+  London: [51.5072, -0.1276],
+};
 const RP_REQUIRED = ['BORDER', 'QUARANTINE', 'AIRPORT'];
 
 export const stop = (name: string, type: string, plannedAt: string, cp?: string): Any => ({ name, type, plannedAt, cp });
 export const kmBetween = (a: number[], b: number[]) => { const R = 6371, dLa = (b[0] - a[0]) * Math.PI / 180, dLo = (b[1] - a[1]) * Math.PI / 180, x = Math.sin(dLa / 2) ** 2 + Math.cos(a[0] * Math.PI / 180) * Math.cos(b[0] * Math.PI / 180) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); };
-export const placeUsedIn = (p: Any) => db.trips.filter((t: Any) => t.routes.some((rt: Any) => rt.stops.some((s: Any) => s.placeId === p.id || s.cp === p.id || s.name === p.name)));
+export const placeUsedIn = (p: Any) => db.trips.filter((t: Any) => (t.routes || []).some((rt: Any) => (rt.stops || []).some((s: Any) => s.placeId === p.id || s.cp === p.id || s.name === p.name)));
 
 export function rpHours(hours: string) {
   const value = String(hours || '').trim();
@@ -293,7 +309,7 @@ export function rpWriteTimes(t: Any, rt: Any, calc: Any) {
 /** chỉ bổ sung tọa độ – không chèn hay đổi thứ tự điểm */
 export function rpCoords(t: Any, rt: Any) {
   const r = reqOfTrip(t); if (!r) return;
-  rt.stops.forEach((x: Any) => {
+  (rt.stops || []).forEach((x: Any) => {
     if (x.lat != null) return;
     if (x.type === 'ORIGIN' || x.type === 'DESTINATION') {
       const pl = x.type === 'ORIGIN' ? r.pickup : r.delivery, c = x.type === 'ORIGIN' ? r.origin : r.destination;
@@ -454,9 +470,11 @@ export const resourceSignature = (t: Any) => JSON.stringify([t.vehicleId || '', 
 // ---- tạo phiên bản tuyến mới ----
 export function routeNew(id: string) {
   const t = trip(id), last = curRoute(t), r = reqOfTrip(t);
+  if (!t?.mode) return toast('Hợp đồng chưa ghi phương thức vận chuyển. Vui lòng liên hệ Manager.');
   if (!canPlan(t)) return toast(opsBlock(t) || 'Lập tuyến bắt đầu sau khi Quản lý xác nhận triển khai.');
   if (last && ['DRAFT', 'PENDING_APPROVAL'].includes(last.status)) return toast(last.status === 'DRAFT' ? `Phiên bản ${last.v} vẫn là bản nháp. Chỉnh sửa và gửi phiên bản này.` : `Phiên bản ${last.v} đang chờ Quản lý quyết định.`);
   const stops = last ? last.stops.map((x: Any) => { const s = { ...x }; delete s.placeSnapshot; return s; }) : [stop(r.pickup.name || r.origin, 'ORIGIN', t.plannedDepart), stop(r.delivery.name || r.destination, 'DESTINATION', t.eta)];
+  if (!t.routes) t.routes = [];
   t.routes.push({ v: (last ? last.v : 0) + 1, status: 'DRAFT', submittedAt: null, decidedAt: null, note: '', stops });
   audit(last ? 'Started revised route version' : 'Started route version', id, `Version ${t.routes.length}`);
   go(`f/trip/${id}/route`); commit();
@@ -483,6 +501,7 @@ export function submitRoadRoute(id: string, extraCheck?: () => string, onSubmitt
     const again = extraCheck?.(); if (again) return again;
     onSubmitted?.();
     rt.status = 'PENDING_APPROVAL'; rt.submittedAt = nowStamp();
+    void flow3Api.submitPlan(id, { expectedVersion: 0, planVersion: rt.v }, `sp-${id}-${Date.now()}`).catch(() => {});
     notify('LOGISTICS_MANAGER', `Tuyến ${id} đã gửi duyệt`, `Phiên bản ${rt.v} • ${rt.stops.length} điểm dừng`, `m/trip/${id}/route`);
     audit('Submitted route', id, `Version ${rt.v}`); toast('Đã gửi tuyến cho Quản lý.');
   });
@@ -602,4 +621,4 @@ export function placeDelete(id: string) {
 }
 
 /** bổ sung tọa độ cho mọi tuyến đã có (bản đồ chỉ đọc) */
-export const ensureCoords = () => db.trips.forEach((t: Any) => t.routes.forEach((rt: Any) => rpCoords(t, rt)));
+export const ensureCoords = () => db.trips.forEach((t: Any) => (t.routes || []).forEach((rt: Any) => rpCoords(t, rt)));

@@ -76,6 +76,60 @@ export const PrepareStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
                     </div>
                   )}
                   {rt.status === 'APPROVED' && <p className="mgr-hint">Tuyến v{rt.v} được duyệt lúc {fmtDateTime(rt.decidedAt)}. Xe và nhân sự phải duy trì điều kiện đạt đến lúc khởi hành.</p>}
+                  {t.pickupRelocation && (
+                    <div className="mgr-inner" style={{ marginTop: 12 }}>
+                      <div className="mgr-between">
+                        <h4>Đề xuất đổi điểm đón ngựa (v{t.pickupRelocation.proposalVersion || 1})</h4>
+                        <StatusBadge
+                          tone={
+                            t.pickupRelocation.status === 'CUSTOMER_CONFIRMED'
+                              ? 'ok'
+                              : t.pickupRelocation.status === 'AWAITING_CUSTOMER' || t.pickupRelocation.status === 'MANAGER_APPROVED'
+                              ? 'warn'
+                              : 'bad'
+                          }
+                          label={
+                            t.pickupRelocation.status === 'PROPOSED'
+                              ? 'Chờ Manager duyệt'
+                              : t.pickupRelocation.status === 'MANAGER_APPROVED'
+                              ? 'Manager đã duyệt'
+                              : t.pickupRelocation.status === 'AWAITING_CUSTOMER'
+                              ? 'Chờ khách đồng ý'
+                              : t.pickupRelocation.status === 'CUSTOMER_CONFIRMED'
+                              ? 'Khách đã đồng ý'
+                              : 'Từ chối'
+                          }
+                        />
+                      </div>
+                      <p className="mgr-hint" style={{ marginTop: 4 }}>
+                        Lý do: {t.pickupRelocation.reason}
+                        {t.pickupRelocation.placeName ? ` • Địa điểm: ${t.pickupRelocation.placeName}` : ''}
+                      </p>
+                      {t.pickupRelocation.status === 'PROPOSED' && (
+                        <div className="mgr-actions">
+                          <button type="button" className="mgr-btn mgr-btn--solid mgr-btn--sm" onClick={() => actions.decidePickupRelocation(t.id, true)}>
+                            Duyệt đề xuất
+                          </button>
+                          <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => actions.decidePickupRelocation(t.id, false, 'Quản lý từ chối đề xuất đổi điểm đón')}>
+                            Từ chối
+                          </button>
+                        </div>
+                      )}
+                      {t.pickupRelocation.status === 'MANAGER_APPROVED' && (
+                        <div className="mgr-actions">
+                          <button type="button" className="mgr-btn mgr-btn--solid mgr-btn--sm" onClick={() => actions.sendPickupRelocation(t.id)}>
+                            Gửi cho khách hàng xác nhận (F3-J56)
+                          </button>
+                        </div>
+                      )}
+                      {t.pickupRelocation.status === 'AWAITING_CUSTOMER' && (
+                        <p className="mgr-hint">Đã gửi khách hàng lúc {fmtDateTime(t.pickupRelocation.sentAt || '')}. Chờ khách phản hồi qua cổng khách hàng (F3-J32).</p>
+                      )}
+                      {t.pickupRelocation.status === 'CUSTOMER_CONFIRMED' && (
+                        <p className="mgr-hint" style={{ color: '#059669' }}>✓ Khách hàng đã chấp thuận điểm đón mới. Tuyến đường được áp dụng effectivePickup mới.</p>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
               {t.mode === 'AIR' && (

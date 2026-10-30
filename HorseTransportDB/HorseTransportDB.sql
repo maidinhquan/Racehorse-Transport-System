@@ -555,11 +555,20 @@ CREATE TABLE PICKUP_RELOCATION (
     CustomerConsentNote NVARCHAR(500) NULL,
     CustomerConsentConfirmedBy VARCHAR(50) NULL,
     CustomerConsentConfirmedAt DATETIME2 NULL,
+    -- Các trường bổ sung cho Flow 3 v3 (Customer Relocation Decision)
+    ProposalVersion INT NOT NULL DEFAULT 1,
+    SentAt DATETIME2 NULL,
+    SentBy VARCHAR(50) NULL,
+    CustomerReplyAt DATETIME2 NULL,
+    CustomerReplyDecision VARCHAR(20) NULL,
+    CustomerReplyNote NVARCHAR(500) NULL,
+    ScheduleImpact NVARCHAR(500) NULL,
+    CustomerResponsibilities NVARCHAR(500) NULL,
     IsActive BIT NOT NULL DEFAULT 1,
     CONSTRAINT PK_PickupRelocation PRIMARY KEY (RelocationID),
     CONSTRAINT FK_PickupRelocation_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
     CONSTRAINT FK_PickupRelocation_Candidate FOREIGN KEY (CandidatePlaceId) REFERENCES PARTNER_FACILITY(FacilityID),
-    CONSTRAINT CK_PickupRelocation_Status CHECK (Status IN ('PROPOSED', 'MANAGER_APPROVED', 'CUSTOMER_CONFIRMED', 'REJECTED'))
+    CONSTRAINT CK_PickupRelocation_Status CHECK (Status IN ('PROPOSED', 'MANAGER_APPROVED', 'AWAITING_CUSTOMER', 'CUSTOMER_CONFIRMED', 'CUSTOMER_REJECTED', 'RETURNED', 'SUPERSEDED', 'REJECTED'))
 );
 
 -- 18d. Bảng IDEMPOTENCY_RECORD: Lưu cache khóa Idempotency-Key chống gửi trùng lặp (Conventions & Flow 3)

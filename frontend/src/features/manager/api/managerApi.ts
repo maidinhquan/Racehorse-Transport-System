@@ -89,7 +89,7 @@ export const managerApi = {
       request: requestFromWire(data.request), versions: attachContractFeedback(data.versions.map(versionFromWire), data.request?.contractFeedback), currentContract: data.currentContract ? versionFromWire(data.currentContract) : null };
   },
   saveContractDraft: (id: string, draft: ContractDraft) => contractClient<{ requestId: string; contractId: string; versionNo: number; status: string; savedAt: string }>('put', `/manager/requests/${id}/contract-draft`, {
-    departAt: draft.departAt, arriveAt: draft.arriveAt,
+    mode: draft.mode, departAt: draft.departAt, arriveAt: draft.arriveAt,
     // Internal cost estimate was removed from the editor; backend still expects the field.
     budget: { TRANSPORT: 0, PROCEDURE: 0, VET: 0, INSURANCE: 0, STAFF: 0 },
     // Send only the fields in the contract (UI keeps extra keys such as ids on lines/terms).
@@ -110,11 +110,42 @@ export const managerApi = {
   // Flow 3: Manager route review & planning endpoints
   getPlanningTrips: () => apiRequest('get', E.PLANNING),
   getTripRoute: (tripId: string) => apiRequest('get', E.TRIP_ROUTE(tripId)),
-  approveRoute: (tripId: string, routeVersionId: number, body?: { expectedVersion?: number; note?: string }) =>
-    apiRequest('post', E.APPROVE_ROUTE(tripId, routeVersionId), { expectedVersion: body?.expectedVersion ?? routeVersionId, note: body?.note ?? 'Approved by Manager' }),
-  returnRoute: (tripId: string, routeVersionId: number, reason: string, expectedVersion?: number) =>
-    apiRequest('post', E.RETURN_ROUTE(tripId, routeVersionId), { expectedVersion: expectedVersion ?? routeVersionId, reason }),
+  approveRoute: async (tripId: string, routeVersionId: number, body?: { expectedVersion?: number; note?: string }) => {
+    try {
+      return await apiRequest('post', E.PLAN_DECISION_F3(tripId), {
+        expectedVersion: body?.expectedVersion ?? 0,
+        planVersion: routeVersionId,
+        decision: 'APPROVE',
+        reason: body?.note ?? 'Approved by Manager',
+      });
+    } catch {
+      return await apiRequest('post', E.APPROVE_ROUTE(tripId, routeVersionId), {
+        expectedVersion: body?.expectedVersion ?? routeVersionId,
+        note: body?.note ?? 'Approved by Manager',
+      });
+    }
+  },
+  returnRoute: async (tripId: string, routeVersionId: number, reason: string, expectedVersion?: number) => {
+    try {
+      return await apiRequest('post', E.PLAN_DECISION_F3(tripId), {
+        expectedVersion: expectedVersion ?? 0,
+        planVersion: routeVersionId,
+        decision: 'RETURN',
+        reason,
+      });
+    } catch {
+      return await apiRequest('post', E.RETURN_ROUTE(tripId, routeVersionId), {
+        expectedVersion: expectedVersion ?? routeVersionId,
+        reason,
+      });
+    }
+  },
   getDepartureConditions: (tripId: string) => apiRequest('get', E.DEPARTURE_CONDITIONS(tripId)),
+  // Flow 3 v3 Relocation endpoints
+  sendPickupRelocation: (tripId: string, body: { expectedVersion: number; relocationId: string; proposalVersion: number }) =>
+    apiRequest('post', E.SEND_RELOCATION_F3(tripId), body),
+  decidePickupRelocation: (tripId: string, body: { expectedVersion: number; relocationId: string; decision: 'APPROVE' | 'RETURN'; reason?: string }) =>
+    apiRequest('post', E.RELOCATION_DECISION_F3(tripId), body),
   // Out-of-scope screens keep their existing routes; no fabricated successful response.
   getIncidents: () => apiRequest<Incident[]>('get', E.INCIDENTS),
   getComplaints: () => apiRequest<Complaint[]>('get', E.COMPLAINTS),

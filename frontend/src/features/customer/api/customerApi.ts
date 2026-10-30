@@ -400,5 +400,10 @@ export const customerApi = {
   confirmAcceptance: (id: string) => apiRequest('post', CUSTOMER_ENDPOINTS.ACCEPTANCE(id)),
   raiseComplaint: (_id: string, body: ComplaintInput) => apiRequest('post', CUSTOMER_ENDPOINTS.COMPLAINTS, body),
   mockDeposit: async (_id: string) => false,
+  // Flow 3: Customer relocation consent
+  getPickupRelocation: (tripId: string) =>
+    contractClient<any>('get', CUSTOMER_ENDPOINTS.PICKUP_RELOCATION(tripId)),
+  decidePickupRelocation: (tripId: string, body: { relocationId: string; proposalVersion: number; decision: 'ACCEPT' | 'REJECT'; note: string; acknowledged: boolean }) =>
+    contractClient<any>('post', CUSTOMER_ENDPOINTS.PICKUP_RELOCATION_DECISION(tripId), body),
 };
 export default customerApi;

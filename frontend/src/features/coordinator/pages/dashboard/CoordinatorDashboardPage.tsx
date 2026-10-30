@@ -1,15 +1,17 @@
 // Tổng quan của Điều phối: số liệu lập kế hoạch, bảng phân công, cảnh báo cần chú ý, thông báo gần đây
+import { useEffect } from 'react';
 import { DataTable, Empty, Icon, PillT, RouteCell } from '../../components/common/ui';
 import { DemoCard, EmptyPlanLaunch } from '../../components/demo/Demo';
 import { CoordinatorLayout, myNotifs } from '../../components/layout/CoordinatorLayout';
 import { ACTIVE_TRIP, coordTrips, curRoute, deployed, emp, etaOverdue, planPill, planState, reqOfTrip, resourceGaps, tripVehicleIds } from '../../domain/coordinatorRules';
 import type { Any } from '../../store/coordinatorStore';
-import { db, go, me, useCoordinatorStore } from '../../store/coordinatorStore';
+import { db, go, me, syncCoordinatorTrips, useCoordinatorStore } from '../../store/coordinatorStore';
 import { date, dt, human, incTypeVi } from '../../utils/format';
 import { notifOpen } from '../../workflows/coordinatorActions';
 
 export function CoordinatorDashboardPage() {
   useCoordinatorStore();
+  useEffect(() => { void syncCoordinatorTrips(); }, []);
   const trips = db.trips;
   const planning = trips.filter((t: Any) => t.status === 'PLANNING');
   const toRoute = planning.filter((t: Any) => planState(t) === 'AWAITING_ROUTE');
@@ -31,11 +33,11 @@ export function CoordinatorDashboardPage() {
       <span className="label"><Icon name={ic} />{label}</span><b>{list.length}</b><small>{small}</small>
     </button>
   );
-  const first = (me()?.name || 'Quân').split(' ').pop();
+  const first = (me()?.name || 'Phạm Hải').split(' ').pop();
   return (
     <CoordinatorLayout title="Tổng quan">
       <EmptyPlanLaunch />
-      <div className="head"><div><h2 className="page-title">Xin chào, {first === 'Quan' ? 'Quân' : first}</h2><p className="subtitle">Tuyến, xe và nhân sự cho các chuyến đã triển khai.</p></div></div>
+      <div className="head"><div><h2 className="page-title">Xin chào, {first === 'Hai' ? 'Hải' : first}</h2><p className="subtitle">Tuyến, xe và nhân sự cho các chuyến đã triển khai.</p></div></div>
       <div className="stats six">
         {card('map', 'Chờ lập tuyến', toRoute, toRoute.length ? `${toRoute.filter((t: Any) => curRoute(t)).length} đang có bản nháp` : 'Không có chuyến cần lập kế hoạch')}
         {card('clock', 'Tuyến chờ duyệt', pending, 'Đang chờ Quản lý', '')}
@@ -50,7 +52,7 @@ export function CoordinatorDashboardPage() {
           <DataTable id="f-dash" rows={planning} pageSize={6} emptyTitle="Không có chuyến đang lập kế hoạch" go={(t: Any) => `f/trip/${t.id}`}
             title="Phân công lập kế hoạch" titleRight={<button type="button" className="link" onClick={() => go('f/monitor')}>Xem tất cả</button>}
             cols={[
-              { label: 'Chuyến', render: (t: Any) => <><b style={{ color: 'var(--ink)' }}>{t.id}</b><br /><small className="muted">{human(t.mode)}</small></> },
+              { label: 'Chuyến', render: (t: Any) => <><b style={{ color: 'var(--ink)' }}>{t.id}</b><br /><small className="muted">{t.mode ? human(t.mode) : 'Chưa chọn phương thức'}</small></> },
               { label: 'Tuyến đường', render: (t: Any) => <RouteCell r={reqOfTrip(t)} /> },
               { label: 'Khởi hành', render: (t: Any) => dt(t.plannedDepart) },
               { label: 'Lập kế hoạch', render: (t: Any) => <><PillT p={planPill(t)} />{deployed(t) && (resourceGaps(t) || []).length && planState(t) !== 'MISSING_RESOURCES' ? <><br /><small className="muted" style={{ whiteSpace: 'normal' }}>{(resourceGaps(t) || []).join(', ')}</small></> : null}</> },

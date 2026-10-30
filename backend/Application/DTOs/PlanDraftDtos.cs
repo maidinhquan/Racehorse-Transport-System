@@ -220,6 +220,9 @@ namespace Application.DTOs
         [JsonPropertyName("expectedVersion")]
         public int ExpectedVersion { get; set; }
 
+        [JsonPropertyName("pickupAt")]
+        public string? PickupAt { get; set; }
+
         [JsonPropertyName("plannedDepart")]
         public string? PlannedDepart { get; set; }
 
@@ -244,8 +247,14 @@ namespace Application.DTOs
         [JsonPropertyName("mode")]
         public string Mode { get; set; } = "ROAD"; // ROAD, AIR
 
+        [JsonPropertyName("pickupAt")]
+        public string? PickupAt { get; set; }
+
         [JsonPropertyName("plannedDepart")]
         public string PlannedDepart { get; set; } = string.Empty;
+
+        [JsonPropertyName("reviewWarnings")]
+        public List<string> ReviewWarnings { get; set; } = new();
 
         [JsonPropertyName("eta")]
         public string? Eta { get; set; }

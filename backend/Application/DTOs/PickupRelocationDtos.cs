@@ -125,13 +125,124 @@ namespace Application.DTOs
         public string? Reason { get; set; }
     }
 
+    public class PickupSendInputDto
+    {
+        [JsonPropertyName("expectedVersion")]
+        public int ExpectedVersion { get; set; }
+
+        [JsonPropertyName("relocationId")]
+        public string RelocationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("proposalVersion")]
+        public int ProposalVersion { get; set; } = 1;
+    }
+
+    public class CustomerPickupDecisionInputDto
+    {
+        [JsonPropertyName("relocationId")]
+        public string RelocationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("proposalVersion")]
+        public int ProposalVersion { get; set; } = 1;
+
+        [JsonPropertyName("decision")]
+        public string Decision { get; set; } = "ACCEPT"; // ACCEPT, REJECT
+
+        [JsonPropertyName("note")]
+        public string Note { get; set; } = string.Empty;
+
+        [JsonPropertyName("acknowledged")]
+        public bool Acknowledged { get; set; } = true;
+    }
+
+    public class PlaceGeoDto
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("address")]
+        public string Address { get; set; } = string.Empty;
+
+        [JsonPropertyName("country")]
+        public string Country { get; set; } = "VN";
+
+        [JsonPropertyName("geo")]
+        public GeoDto Geo { get; set; } = new();
+
+        [JsonPropertyName("access")]
+        public object? Access { get; set; }
+    }
+
+    public class CustomerReplyDto
+    {
+        [JsonPropertyName("decision")]
+        public string Decision { get; set; } = "ACCEPT";
+
+        [JsonPropertyName("note")]
+        public string? Note { get; set; }
+
+        [JsonPropertyName("at")]
+        public string At { get; set; } = string.Empty;
+    }
+
+    public class CustomerPickupProposalDto
+    {
+        [JsonPropertyName("tripId")]
+        public string TripId { get; set; } = string.Empty;
+
+        [JsonPropertyName("requestId")]
+        public string RequestId { get; set; } = string.Empty;
+
+        [JsonPropertyName("relocationId")]
+        public string RelocationId { get; set; } = string.Empty;
+
+        [JsonPropertyName("proposalVersion")]
+        public int ProposalVersion { get; set; } = 1;
+
+        [JsonPropertyName("status")]
+        public string Status { get; set; } = "AWAITING_CUSTOMER"; // AWAITING_CUSTOMER, CUSTOMER_CONFIRMED, CUSTOMER_REJECTED
+
+        [JsonPropertyName("originalPickup")]
+        public PlaceGeoDto OriginalPickup { get; set; } = new();
+
+        [JsonPropertyName("proposedPickup")]
+        public PlaceGeoDto ProposedPickup { get; set; } = new();
+
+        [JsonPropertyName("handoverAt")]
+        public string HandoverAt { get; set; } = string.Empty;
+
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; } = string.Empty;
+
+        [JsonPropertyName("scheduleImpact")]
+        public string ScheduleImpact { get; set; } = string.Empty;
+
+        [JsonPropertyName("costImpactVnd")]
+        public decimal CostImpactVnd { get; set; } = 0;
+
+        [JsonPropertyName("customerResponsibilities")]
+        public string CustomerResponsibilities { get; set; } = string.Empty;
+
+        [JsonPropertyName("sentAt")]
+        public string? SentAt { get; set; }
+
+        [JsonPropertyName("replyAt")]
+        public string? ReplyAt { get; set; }
+
+        [JsonPropertyName("customerReply")]
+        public CustomerReplyDto? CustomerReply { get; set; }
+    }
+
     public class PickupRelocationDto
     {
         [JsonPropertyName("relocationId")]
         public string RelocationId { get; set; } = string.Empty;
 
+        [JsonPropertyName("proposalVersion")]
+        public int ProposalVersion { get; set; } = 1;
+
         [JsonPropertyName("status")]
-        public string Status { get; set; } = "PROPOSED"; // PROPOSED, MANAGER_APPROVED, CUSTOMER_CONFIRMED, REJECTED
+        public string Status { get; set; } = "PROPOSED"; // PROPOSED, MANAGER_APPROVED, AWAITING_CUSTOMER, CUSTOMER_CONFIRMED, CUSTOMER_REJECTED
 
         [JsonPropertyName("placeSnapshot")]
         public PlaceDto PlaceSnapshot { get; set; } = new();
@@ -142,8 +253,26 @@ namespace Application.DTOs
         [JsonPropertyName("handoverAt")]
         public string HandoverAt { get; set; } = string.Empty;
 
+        [JsonPropertyName("scheduleImpact")]
+        public string? ScheduleImpact { get; set; }
+
+        [JsonPropertyName("costImpactVnd")]
+        public decimal CostImpactVnd { get; set; } = 0;
+
+        [JsonPropertyName("customerResponsibilities")]
+        public string? CustomerResponsibilities { get; set; }
+
+        [JsonPropertyName("sentAt")]
+        public string? SentAt { get; set; }
+
+        [JsonPropertyName("sentBy")]
+        public ActorDto? SentBy { get; set; }
+
         [JsonPropertyName("customerConsent")]
         public ConsentDto? CustomerConsent { get; set; }
+
+        [JsonPropertyName("customerReply")]
+        public CustomerReplyDto? CustomerReply { get; set; }
 
         [JsonPropertyName("valid")]
         public bool Valid { get; set; } = true;

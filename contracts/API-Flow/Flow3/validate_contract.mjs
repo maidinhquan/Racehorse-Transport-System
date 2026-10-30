@@ -14,7 +14,7 @@ const examples = JSON.parse(fs.readFileSync(path.join(here, 'flow3.examples.json
 const docs = fs.readFileSync(path.join(here, 'FLOW3-API-JSON.md'), 'utf8');
 const flow = fs.readFileSync(path.join(here, 'FLOW3.md'), 'utf8');
 assert.equal(spec.openapi, '3.1.0');
-assert.equal(spec.info.version, '2.0.0');
+assert.equal(spec.info.version, '3.0.0');
 assert.equal(examples.contractVersion, spec.info.version);
 assert.equal(examples.status, 'ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS');
 const ajv = new Ajv({ allErrors: true, logger: false, unknownFormats: 'ignore' });
@@ -66,7 +66,7 @@ for (const [url, methods] of Object.entries(spec.paths)) {
       }
       invalid(name, { ...body.example, actor: 'USER_999', status: 'APPROVED' });
       if ('expectedVersion' in body.example) invalid(name, { ...body.example, expectedVersion: 0 });
-      if (schema.properties.decision) {
+      if (schema.properties.decision && name !== 'CustomerPickupDecisionInput') {
         invalid(name, { ...body.example, decision: 'RETURN' });
         invalid(name, { ...body.example, decision: 'RETURN', reason: 'x' });
         valid(body.schema, { ...body.example, decision: 'RETURN', reason: 'Cần điều chỉnh phương án' }, op.operationId + ' return');
@@ -82,13 +82,13 @@ for (const [url, methods] of Object.entries(spec.paths)) {
       assert.ok(values.length);
       for (const value of values) valid(json.schema, value, `${op.operationId} ${status}`);
       if (status.startsWith('2') && method !== 'get' && op.operationId !== 'F3-J07' && body) {
-        const data = json.example.data;
+        const data = values[0].data;
         if (data.binding) assert.ok(data.binding.version > body.example.expectedVersion, `${op.operationId} did not advance revision`);
       }
     }
   }
 }
-assert.equal(operationIds.size, 52);
+assert.equal(operationIds.size, 54);
 for (const retired of spec['x-retired-operations']) assert.ok(!operationIds.has(retired.operationId));
 assert.ok(flow.includes('ROAD') && flow.includes('AIR') && flow.includes('trước submit'));
 for (const [name, value] of [
@@ -125,8 +125,58 @@ assert.equal(air.routing.provider, 'HERE_TRUCK');
 assert.equal(air.routing.truckVerified, true);
 assert.equal(air.routing.flyMin, 330);
 const scenarioIds = new Set(examples.scenarios.map(s => s.id));
-assert.equal(scenarioIds.size, 37);
+assert.equal(scenarioIds.size, 44);
 for (const scenario of examples.scenarios) assert.ok(scenario.given && scenario.when.length && scenario.then.length && scenario.reason);
 for (const id of ['parallel-preparation', 'road-submit-missing-confirm', 'air-no-booking-before-approval', 'scope-and-actor',
   'active-trip-resource-race', 'pickup-consent', 'catalog-changed', 'ready-independent-versions', 'provider-down']) assert.ok(scenarioIds.has(id));
 console.log(`PASS: ${operationIds.size} operations, ${Object.keys(spec.components.schemas).length} schemas, ${checks} schema/example checks, ${scenarioIds.size} acceptance targets. Backend tests were not executed.`);
+
+// v3 pickup consent belongs to the authenticated customer, never a Manager-recorded acknowledgement.
+const decision = spec.paths['/customer/trips/{tripId}/pickup-relocation/decision'].post;
+assert.deepEqual(decision['x-roles'], ['CUSTOMER']);
+assert.ok(!spec.paths['/manager/trips/{tripId}/pickup-relocation/customer-consent']);
+assert.deepEqual(spec.paths['/manager/trips/{tripId}/pickup-relocation/send'].post['x-roles'], ['LOGISTICS_MANAGER']);
+assert.deepEqual(spec.paths['/customer/trips/{tripId}/pickup-relocation'].get['x-roles'], ['CUSTOMER']);
+const customerInput = decision.requestBody.content['application/json'].example;
+valid({$ref:'#/components/schemas/CustomerPickupDecisionInput'}, {...customerInput, decision:'REJECT', note:'Không đồng ý điểm nhận này'}, 'Customer rejects proposal');
+invalid('CustomerPickupDecisionInput', {...customerInput, decision:'REJECT', note:''});
+invalid('CustomerPickupDecisionInput', {...customerInput, proposalVersion:0});
+invalid('CustomerPickupDecisionInput', {...customerInput, actor:'USER_004'});
+const workflow = spec['x-workflows'].pickupRelocation;
+assert.deepEqual(workflow.transitions.filter(t=>t.changesOrigin).map(t=>[t.role,t.action]), [['CUSTOMER','ACCEPT']]);
+assert.equal(workflow.revisionKeepsEffectivePickupUntilAccepted, true);
+const publicFields = Object.keys(spec.components.schemas.CustomerPickupProposal.properties);
+for (const field of ['resources','draft','approvedPlan','binding','coordinatorId','specialistId']) assert.ok(!publicFields.includes(field));
+assert.equal(spec['x-workflows'].planningSchedule.depotTravelInHorseItinerary, false);
+assert.equal(spec['x-workflows'].planningSchedule.lateEtaMayBeSubmittedForManagerReview, true);
+assert.equal(spec['x-workflows'].planningSchedule.lateEtaMayBeApprovedWithoutCustomerAgreement, false);
+assert.equal(spec['x-workflows'].planningSchedule.automaticMedicalOrQuarantineStops, false);
+invalid('PlanDraftInput', {...examples.road.draftRequest, mode:'AIR'});
+invalid('PlanDraftInput', {...examples.road.draftRequest, plannedDepart:'2026-11-10 09:00'});
+valid({$ref:'#/components/schemas/Context'}, examples.scheduleReview.submittedWithWarnings, 'Late ETA is submitted for Manager review');
+assert.equal(examples.scheduleReview.submittedWithWarnings.draft.reviewWarnings[0].code,'DELIVERY_DEADLINE_EXCEEDED');
+for (const state of ['awaitingCustomer','accepted','rejected']) valid({$ref:'#/components/schemas/CustomerPickupProposal'},examples.pickupRelocationWorkflow[state],state);
+const send = spec.paths['/manager/trips/{tripId}/pickup-relocation/send'].post.responses['200'].content['application/json'].example.data;
+assert.equal(send.pickupRelocation.status,'AWAITING_CUSTOMER');
+assert.deepEqual(send.effectivePickup,send.pickup);
+assert.equal(send.pickupRelocation.customerConsent,null);
+assert.equal(examples.road.draftRequest.pickupAt.slice(0,10),'2026-11-10');
+assert.equal(examples.road.routing.stops[0].type,'ORIGIN');
+console.log('PASS: v3 role transitions, private customer projection, schedule review and immutable contract mode checks.');
+
+const acceptedContext = examples.pickupRelocationWorkflow.effectiveContextAfterAcceptance;
+valid({$ref:'#/components/schemas/Context'}, acceptedContext, 'Coordinator context after customer acceptance');
+assert.deepEqual(acceptedContext.pickup, send.pickup);
+assert.deepEqual(acceptedContext.effectivePickup, examples.pickupRelocationWorkflow.accepted.proposedPickup);
+assert.deepEqual(acceptedContext.draft.stops[0].geo, acceptedContext.effectivePickup.geo);
+assert.equal(acceptedContext.draft.routing, null);
+assert.equal(acceptedContext.resourcesConfirmed, null);
+assert.equal(acceptedContext.opsReady, null);
+assert.equal(acceptedContext.pickupRelocation.customerConsent.customerId, 'USER_001');
+assert.deepEqual(send.pickupRelocation.placeSnapshot.geo, examples.pickupRelocationWorkflow.awaitingCustomer.proposedPickup.geo);
+const revision = spec.paths['/coordinator/trips/{tripId}/pickup-relocation/revisions'].post.responses['200'].content['application/json'].example.data;
+assert.deepEqual(revision.effectivePickup, acceptedContext.effectivePickup);
+console.log(`PASS v3 final: ${checks} checks, including acceptance invalidation, proposal snapshot consistency and retention on revision.`);
+
+assert.deepEqual(JSON.parse(fs.readFileSync(path.join(repo,'frontend/src/contracts/flow3.v3.openapi.json'),'utf8')),spec);
+console.log('PASS: versioned v3 design mirror matches the source contract.');

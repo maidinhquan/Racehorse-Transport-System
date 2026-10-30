@@ -5,12 +5,12 @@ namespace Application.Flow1.Services;
 
 public sealed class CatalogService(IDataSession data, PolicyService policies)
 {
-    public async Task<object> ContractOptionsAsync(string origin, string destination, CancellationToken ct)
+    public async Task<object> ContractOptionsAsync(string origin, string destination, CancellationToken ct, string? selectedMode = null)
     {
-        var modes = (await RoutesAsync(ct)).Where(r => r.OriginCountry == origin && r.DestinationCountry == destination)
+        var modes = (await RoutesAsync(ct)).Where(r => r.OriginCountry == origin && r.DestinationCountry == destination && (selectedMode == null || r.TransportMode == selectedMode))
             .Select(r => r.TransportMode).Distinct().ToArray();
         Require(modes.Length > 0, "UNSUPPORTED_ROUTE", "The requested route is not active.", 400);
-        // Reserve enough preparation time for any supported plan, without selecting a mode.
+        // Once selected, calculate preparation time for the contract transport method.
         decimal preparation = 0;
         foreach (var mode in modes)
             preparation = Math.Max(preparation, await policies.NumberAsync("MIN_PREPARATION_DAYS", "DAY", destination, mode, 0, null, true, ct));

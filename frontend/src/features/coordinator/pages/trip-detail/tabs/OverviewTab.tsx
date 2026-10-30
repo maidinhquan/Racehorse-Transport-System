@@ -4,7 +4,7 @@ import { DemoCard } from '../../../components/demo/Demo';
 import { curRoute, custOf, deployed, deployPill, planPill, planState, reqOfTrip, resourceGaps, resourcePill, routePill, tripHorses, tripNextAction } from '../../../domain/coordinatorRules';
 import type { Any } from '../../../store/coordinatorStore';
 import { go } from '../../../store/coordinatorStore';
-import { cityLabel, date, dt } from '../../../utils/format';
+import { cityLabel, date, dt, human } from '../../../utils/format';
 
 const NEXT_STEP: Record<string, (t: Any) => string> = {
   AWAITING_DEPLOYMENT: () => 'Đang chờ Quản lý vận hành xác nhận triển khai. Việc lập kế hoạch chính thức bắt đầu sau đó.',
@@ -24,7 +24,7 @@ export function OverviewTab({ t }: { t: Any }) {
         <div className="card"><h3 className="card-title">Tổng quan chuyến</h3>
           <div className="kv2">
             <Cell label="Chuyến">{t.id}</Cell><Cell label="Yêu cầu">{r.id}</Cell><Cell label="Khách hàng">{custOf(r).company}</Cell><Cell label="Điểm đi">{cityLabel(r.origin)}</Cell><Cell label="Điểm đến">{cityLabel(r.destination)}</Cell>
-            <Cell label="Phương thức vận chuyển">{t.mode}</Cell><Cell label="Lấy ngựa mong muốn">{r.pickupAt ? date(r.pickupAt.slice(0, 10)) : '—'}</Cell><Cell label="Ngày vận chuyển">{date(r.date)}</Cell>
+            <Cell label="Phương thức vận chuyển">{t.mode ? human(t.mode) : 'Chưa chọn phương thức'}</Cell><Cell label="Lấy ngựa mong muốn">{r.pickupAt ? date(r.pickupAt.slice(0, 10)) : '—'}</Cell><Cell label="Ngày vận chuyển">{date(r.date)}</Cell>
             <Cell label="Ngựa">{tripHorses(t).length}</Cell><Cell label="Khởi hành dự kiến">{dt(t.plannedDepart)}</Cell><Cell label="Dự kiến đến">{dt(t.eta)}</Cell>
           </div>
           <div className="kv2" style={{ marginTop: 16 }}>

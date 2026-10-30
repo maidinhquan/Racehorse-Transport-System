@@ -125,15 +125,16 @@ export function RouteTab({ t }: { t: Any }) {
   const rt = curRoute(t), r = reqOfTrip(t), ps = RP(t.id);
   useEffect(() => { if (rt) rpRoute(t); }, [ver, t, rt]);
   if (!rt) return (
+    <>
     <div className="card pad" style={{ marginTop: 16 }}><h3 className="card-title">Chưa có lộ trình</h3><p className="subtitle">Bắt đầu từ điểm nhận và điểm giao trong yêu cầu của khách hàng.</p>
-      {canPlan(t) ? <button type="button" className="btn solid" onClick={() => routeNew(t.id)}>Bắt đầu lập lộ trình</button> : null}</div>
+      {canPlan(t) ? <button type="button" className="btn solid" disabled={!t.mode} onClick={() => routeNew(t.id)}>Bắt đầu lập lộ trình</button> : null}</div></>
   );
   rpEnsure(t, rt);
   const edit = rpEditable(t, rt), calc = rpCalc(t), f = ps.filters;
   const affected = rt.stops.filter((x: Any) => x.placeId && placeById(x.placeId) && placeById(x.placeId).status !== 'ACTIVE');
   return (<>
     <div className="rp-head card pad"><div className="rp-head-grid">
-      <div><span>Chuyến</span><b>{t.id} • {human(t.mode)}</b></div>
+      <div><span>Phương thức theo hợp đồng</span><b>{t.id} • {t.mode ? human(t.mode) : 'Chưa chọn phương thức'}</b></div>
       <div><span>Nhận → giao</span><b>{r.pickup.name || r.origin} → {r.delivery.name || r.destination}</b></div>
       <div><span>Số ngựa</span><b>{tripHorses(t).length}</b></div>
       <div><span>Khởi hành dự kiến</span><b>{dt(t.plannedDepart)}</b></div>
@@ -156,7 +157,7 @@ export function RouteTab({ t }: { t: Any }) {
           {edit ? <PlannerFilters t={t} f={f} /> : null}
           <PlannerMap t={t} onTileError={() => setTileErr(true)} />
           <div className="rp-legend"><span><i className="lg-end" />Điểm nhận/giao</span><span><i className="lg-req" />Điểm bắt buộc</span><span><i className="lg-sel" />Điểm đã chọn</span><span><i className="lg-sug" />Gợi ý</span><span><i className="lg-bad" />Không còn phù hợp</span><span><i className="lg-route" />Tuyến đường bộ</span>{t.mode === 'AIR' ? <span><i className="lg-fly" />Chặng bay</span> : null}</div>
-          <p className="hint rp-tilemsg" hidden={!tileErr}>Chưa tải được nền bản đồ (OpenStreetMap). Marker và tuyến vẫn hiển thị.</p>
+          <p className="hint rp-tilemsg" hidden={!tileErr}>Chưa tải được nền bản đồ Geoapify. Vui lòng thử lại sau.</p>
         </div>
         <div id="rp-detail"><Detail t={t} /></div>
       </div>

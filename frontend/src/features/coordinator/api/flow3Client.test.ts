@@ -15,8 +15,9 @@ const operations = Object.entries(specification.paths).flatMap(([path, methods])
 function fixture(id: string) {
   const entry = operations.find(({ op }) => op.operationId === id)!;
   const [status, response] = Object.entries(entry.op.responses).find(([code]) => code.startsWith('2'))!;
-  const media = (response as { content: { 'application/json': { example: unknown } } }).content['application/json'];
-  return { status: Number(status), data: structuredClone(media.example) };
+  const media = (response as { content: { 'application/json': { example?: unknown; examples?: Record<string, { value: unknown }> } } }).content['application/json'];
+  const ex = media.example ?? Object.values(media.examples ?? {})[0]?.value;
+  return { status: Number(status), data: structuredClone(ex) };
 }
 const failure = { success: false, message: 'Tải lại phương án.', errorCode: 'STALE_VERSION', data: null };
 beforeEach(() => { request.mockReset(); });
@@ -121,6 +122,38 @@ describe('Flow 3 contract boundary', () => {
     request.mockResolvedValueOnce(fixture('F3-J33'));
     await flow3Api.reopenPickupRelocation(tripId, { expectedVersion: 10 }, key);
     expect(request.mock.calls[1][0]?.data).toEqual({ expectedVersion: 10 });
+  });
+
+  it('handles Flow 3 v3 customer relocation workflow: manager sends, customer views and decides', async () => {
+    request.mockResolvedValueOnce(fixture('F3-J56'));
+    await flow3Api.sendPickupRelocation(tripId, { expectedVersion: 10, relocationId: 'RELOC_001', proposalVersion: 1 }, key);
+    expect(request.mock.calls[0][0]).toMatchObject({
+      method: 'post',
+      url: `/manager/trips/${tripId}/pickup-relocation/send`,
+      data: { expectedVersion: 10, relocationId: 'RELOC_001', proposalVersion: 1 },
+      headers: { 'Idempotency-Key': key }
+    });
+
+    request.mockResolvedValueOnce(fixture('F3-J57'));
+    await flow3Api.getCustomerPickupRelocation(tripId);
+    expect(request.mock.calls[1][0]).toMatchObject({
+      method: 'get',
+      url: `/customer/trips/${tripId}/pickup-relocation`
+    });
+
+    request.mockResolvedValueOnce(fixture('F3-J32'));
+    await flow3Api.customerDecidePickupRelocation(tripId, {
+      relocationId: 'RELOC_001',
+      proposalVersion: 1,
+      decision: 'ACCEPT',
+      note: 'Đồng ý điểm đón mới',
+      acknowledged: true
+    }, key);
+    expect(request.mock.calls[2][0]).toMatchObject({
+      method: 'post',
+      url: `/customer/trips/${tripId}/pickup-relocation/decision`,
+      headers: { 'Idempotency-Key': key }
+    });
   });
 
   it('withdraws a specific plan version and validates without reserving resources', async () => {

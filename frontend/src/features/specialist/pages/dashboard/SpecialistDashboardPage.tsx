@@ -36,11 +36,15 @@ export const SpecialistDashboardPage: React.FC = () => {
     </button>
   );
 
+  const storedName = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null)
+    || (typeof localStorage !== 'undefined' ? localStorage.getItem('userFullName') : null);
+  const firstName = (storedName ? storedName.split('(')[0].trim().split(' ').pop() : 'Hà') || 'Hà';
+
   return (
     <SpecialistLayout title="Tổng quan">
       <div className="spc-head">
         <div>
-          <h2 className="spc-title">Xin chào, Hà</h2>
+          <h2 className="spc-title">Xin chào, {firstName}</h2>
           <p className="spc-subtitle">Yêu cầu pháp lý và hồ sơ của mọi chuyến đã được giao.</p>
         </div>
       </div>

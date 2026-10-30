@@ -20,7 +20,7 @@ public sealed class SnapshotBuilder(IDataSession data, Flow1ContractOptions opti
         var links = await data.ListAsync<RequestHorse>(h => h.RequestID == request.RequestID, ct);
         var ids = links.Select(h => h.HorseID).ToArray();
         var horses = await data.ListAsync<Horse>(h => ids.Contains(h.HorseID), ct);
-        var defaults = JsonSerializer.SerializeToElement(await catalogs.ContractOptionsAsync(request.OriginCountry!, request.DestinationCountry!, ct));
+        var defaults = JsonSerializer.SerializeToElement(await catalogs.ContractOptionsAsync(request.OriginCountry!, request.DestinationCountry!, ct, input.Mode));
         var preparation = defaults.GetProperty("preparationDays").GetDecimal();
         var hours = defaults.GetProperty("contractDeadlineHours").GetDecimal();
         // Dates the customer originally asked for. Publication overwrites the request dates with the contract's,
@@ -38,8 +38,8 @@ public sealed class SnapshotBuilder(IDataSession data, Flow1ContractOptions opti
             delivery = new { cityId = request.DeliveryCityId, cityName = request.DeliveryCityName,
                 name = request.DeliveryStableName, address = request.Destination, contact = request.DesignatedReceiverName, phone = request.DesignatedReceiverPhone,
                 postal = request.DeliveryPostalCode, instructions = request.DeliveryInstructions, latitude = request.DeliveryLatitude, longitude = request.DeliveryLongitude },
-            route = new { originCountry = request.OriginCountry, destinationCountry = request.DestinationCountry, mode = (string?)null,
-                transportModeDecision = "FLOW3",
+            route = new { originCountry = request.OriginCountry, destinationCountry = request.DestinationCountry, mode = input.Mode,
+                transportModeDecision = "CONTRACT",
                 departureAtUtc = Timestamp(input.DepartAt), deliveryAtUtc = Timestamp(input.ArriveAt), preparationDays = preparation,
                 requestedTransportDate = requestedTransport, requestedDeliveryDate = requestedDelivery },
             horses = horses.Select(h => new { id = h.HorseID, name = h.Name, h.Microchip_ISO, h.FEI_Passport_No, h.Breed, h.Sex, h.DOB, h.Weight,

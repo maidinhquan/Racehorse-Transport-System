@@ -202,7 +202,7 @@ const reqIn = (d: ManagerData, id: string) => d.requests.find((r) => r.id === id
 const tripIn = (d: ManagerData, id: string) => d.trips.find((t) => t.id === id);
 const actorName = (d: ManagerData, r: TransportRequest, role: ActorRole) =>
   role === 'LOGISTICS_MANAGER' ? MANAGER_NAME : role === 'CUSTOMER' ? customerOf(d, r)?.name ?? 'Khách hàng'
-    : role === 'TRANSPORT_SPECIALIST' ? 'Hoang Thu Ha' : role === 'FLEET_ROUTE_COORDINATOR' ? 'Dang Minh Quan' : role === 'DRIVER_ESCORT' ? 'Tổ xe' : 'Hệ thống';
+    : role === 'TRANSPORT_SPECIALIST' ? 'Hoang Thu Ha' : role === 'FLEET_ROUTE_COORDINATOR' ? 'Phạm Hải' : role === 'DRIVER_ESCORT' ? 'Tổ xe' : 'Hệ thống';
 const log = (d: ManagerData, r: TransportRequest, action: string, detail?: string, role: ActorRole = 'LOGISTICS_MANAGER') =>
   r.history.push({ at: nowStamp(), role, actor: actorName(d, r, role), action, detail });
 const nextNum = (ids: string[], prefix: string, min: number) =>
@@ -349,6 +349,10 @@ async function perform(key: string, action: () => Promise<unknown>, message: str
     if (key.startsWith('REQUEST_')) {
       const request = await managerApi.getRequest(key);
       setState(s => ({ requests: s.requests.map(r => r.id === key ? request : r) }));
+    } else if (key.startsWith('TRIP_')) {
+      const trip = await managerApi.getTrip(key);
+      setState(s => ({ trips: s.trips.some(t => t.id === key)
+        ? s.trips.map(t => t.id === key ? trip : t) : [...s.trips, trip] }));
     }
     notifySync('requests_updated');
     return ok(message);
@@ -620,6 +624,40 @@ const managerActions = {
     });
     void managerApi.decideFlight(tripId, { approve, note });
     return ok(approve ? 'Đã duyệt ngân sách. Coordinator tiến hành đặt chỗ.' : 'Đã từ chối ngân sách chuyến bay.');
+  },
+  sendPickupRelocation(tripId: string): ActionResult {
+    const t = tripIn(state, tripId);
+    if (!t?.pickupRelocation) return fail('Không có đề xuất đổi điểm đón.');
+    mutate((d) => {
+      const x = tripIn(d, tripId)!;
+      if (x.pickupRelocation) {
+        x.pickupRelocation.status = 'AWAITING_CUSTOMER';
+        x.pickupRelocation.sentAt = nowStamp();
+      }
+    });
+    void managerApi.sendPickupRelocation(tripId, {
+      expectedVersion: 0,
+      relocationId: t.pickupRelocation.relocationId,
+      proposalVersion: t.pickupRelocation.proposalVersion || 1,
+    });
+    return ok('Đã gửi đề xuất điểm đón mới cho khách hàng xác nhận.');
+  },
+  decidePickupRelocation(tripId: string, approve: boolean, reason?: string): ActionResult {
+    const t = tripIn(state, tripId);
+    if (!t?.pickupRelocation) return fail('Không có đề xuất đổi điểm đón.');
+    mutate((d) => {
+      const x = tripIn(d, tripId)!;
+      if (x.pickupRelocation) {
+        x.pickupRelocation.status = approve ? 'MANAGER_APPROVED' : 'REJECTED';
+      }
+    });
+    void managerApi.decidePickupRelocation(tripId, {
+      expectedVersion: 0,
+      relocationId: t.pickupRelocation.relocationId,
+      decision: approve ? 'APPROVE' : 'RETURN',
+      reason,
+    });
+    return ok(approve ? 'Đã duyệt đề xuất điểm đón. Hãy gửi cho khách hàng.' : 'Đã từ chối đề xuất điểm đón.');
   },
   approveDeparture(tripId: string): ActionResult {
     const t = tripIn(state, tripId);

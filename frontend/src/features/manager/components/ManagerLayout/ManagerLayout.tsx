@@ -53,6 +53,10 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
   const boxRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const storedName = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null)
+    || (typeof localStorage !== 'undefined' ? localStorage.getItem('userFullName') : null);
+  const managerName = storedName || MANAGER_NAME;
+  const managerInitials = managerName.split(' ').filter(Boolean).map((n) => n[0]).join('').slice(-2).toUpperCase() || MANAGER_INITIALS;
 
   useEffect(() => {
     if (!toast) return;
@@ -150,17 +154,17 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
                 aria-label="Menu tài khoản"
                 aria-expanded={userMenuOpen}
               >
-                <span className="mgr-avatar">{MANAGER_INITIALS}</span>
-                <span className="mgr-user-name">{MANAGER_NAME}</span>
+                <span className="mgr-avatar">{managerInitials}</span>
+                <span className="mgr-user-name">{managerName}</span>
                 <Icon name="chevron" className="mgr-user-chevron" />
               </button>
 
               {userMenuOpen && (
                 <div className="mgr-user-menu" role="menu">
                   <div className="mgr-user-menu__header">
-                    <div className="mgr-user-menu__avatar">{MANAGER_INITIALS}</div>
+                    <div className="mgr-user-menu__avatar">{managerInitials}</div>
                     <div className="mgr-user-menu__info">
-                      <b>{MANAGER_NAME}</b>
+                      <b>{managerName}</b>
                       <span>Logistics Manager</span>
                     </div>
                   </div>
