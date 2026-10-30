@@ -1,14 +1,16 @@
 using Application.Flow1.Dtos;
-using Application.Flow1.Services;
 using Application.Flow1.Interfaces;
+using Application.Flow1.Services;
 using Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+
 namespace WebApi.Controllers.Flow1;
 
 [Route("api"), Authorize, EnableRateLimiting("flow1-customer")]
-public sealed class HorsesController(HorseService horses, HorseAvailabilityService availability) : EndpointController
+public sealed class HorsesController(HorseService horses, HorseAvailabilityService availability)
+    : EndpointController
 {
     [HttpGet("customer/horses")]
     [Authorize(Roles = UserRoles.Customer)]
@@ -32,13 +34,20 @@ public sealed class HorsesController(HorseService horses, HorseAvailabilityServi
 
     [HttpPut("customer/horses/{horseId}")]
     [Authorize(Roles = UserRoles.Customer)]
-    public async Task<IActionResult> UpdateAsync(string horseId, HorseInput input, CancellationToken ct) =>
-        Reply(await horses.SaveAsync(Actor, horseId, input, ct));
+    public async Task<IActionResult> UpdateAsync(
+        string horseId,
+        HorseInput input,
+        CancellationToken ct
+    ) => Reply(await horses.SaveAsync(Actor, horseId, input, ct));
 
     [HttpGet("customer/horses/selectable")]
     [Authorize(Roles = UserRoles.Customer)]
-    public async Task<IActionResult> SelectableAsync([FromQuery] string expectedTransportDate, [FromQuery] string expectedDeliveryDate, CancellationToken ct,
-        [FromQuery] string? excludeRequestId = null) =>
-        Reply(await availability.SelectAsync(Actor, expectedTransportDate, expectedDeliveryDate, ct, excludeRequestId));
-
+    public async Task<IActionResult> SelectableAsync(
+        [FromQuery] string expectedTransportDate,
+        [FromQuery] string expectedDeliveryDate,
+        CancellationToken ct
+    ) =>
+        Reply(
+            await availability.SelectAsync(Actor, expectedTransportDate, expectedDeliveryDate, ct)
+        );
 }

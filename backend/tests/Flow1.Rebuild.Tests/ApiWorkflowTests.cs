@@ -107,14 +107,10 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         var created=await Data(await customer.PostAsync("/api/customer/requests", SubmissionTest.Body(new { origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",expectedTransportDate=date.ToString("yyyy-MM-dd"),expectedDeliveryDate=date.AddDays(2).ToString("yyyy-MM-dd"),careInstructions="Care",horses=new[]{"HORSE_002"} })));
         var id=created.GetProperty("id").GetString()!;
         await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/accept",new {}));
-        var draftInput = new
-        { arriveAt=date.AddDays(2).ToString("yyyy-MM-dd HH:mm"),departAt=date.ToString("yyyy-MM-dd HH:mm"),depositPct=40,
+        var draft=await Data(await manager.PutAsJsonAsync($"/api/manager/requests/{id}/contract-draft",new
+        { arriveAt=date.AddDays(2).ToString("yyyy-MM-dd HH:mm"),departAt=date.ToString("yyyy-MM-dd HH:mm"),mode="AIR",depositPct=40,
           budget=new {TRANSPORT=100,PROCEDURE=100,VET=100,INSURANCE=100,STAFF=100},exception="",note="Includes listed charges",
-          items=new[]{new {amount=1000000,desc="Transport and included services",required=true}},terms=new[]{new {title="Payment",text="Verified deposit before OTP; remaining amount follows handover."}} };
-        var selectedMode = System.Text.Json.JsonSerializer.SerializeToNode(draftInput)!.AsObject();
-        selectedMode["mode"] = "AIR";
-        Assert.Equal(HttpStatusCode.BadRequest, (await manager.PutAsJsonAsync($"/api/manager/requests/{id}/contract-draft", selectedMode)).StatusCode);
-        var draft=await Data(await manager.PutAsJsonAsync($"/api/manager/requests/{id}/contract-draft",draftInput));
+          items=new[]{new {amount=1000000,desc="Transport and included services",required=true}},terms=new[]{new {title="Payment",text="Verified deposit before OTP; remaining amount follows handover."}} }));
         var contract=draft.GetProperty("contractId").GetString()!;
         await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/contract/publish",new {versionNo=1}));
         var published = await Data(await customer.GetAsync($"/api/customer/requests/{id}/contract"));
@@ -128,16 +124,7 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
             Assert.Equal("ISSUED", version.GetProperty("versionStatus").GetString());
             Assert.Equal("ISSUED", version.GetProperty("contractStatus").GetString());
             Assert.Equal(JsonValueKind.String, version.GetProperty("currentDeadline").ValueKind);
-            Assert.True(version.GetProperty("modeDeferred").GetBoolean());
-            Assert.False(version.TryGetProperty("mode", out var mode) && mode.ValueKind == JsonValueKind.String);
-            var route = version.GetProperty("snapshot").GetProperty("route");
-            Assert.Equal("FLOW3", route.GetProperty("transportModeDecision").GetString());
-            Assert.Equal(JsonValueKind.Null, route.GetProperty("mode").ValueKind);
         }
-        await using (var db = database.Context())
-            Assert.Null((await db.Set<TransportRequest>().SingleAsync(r => r.RequestID == id)).TransportType);
-        var editor = await Data(await manager.GetAsync($"/api/manager/requests/{id}/contract-editor"));
-        Assert.False(editor.GetProperty("defaults").TryGetProperty("selectedRoute", out _));
         var frozen = published.GetProperty("currentVersion").GetProperty("snapshot").GetRawText();
         Assert.True(published.GetProperty("currentVersion").GetProperty("snapshot").GetProperty("parties").TryGetProperty("provider", out _));
         Assert.DoesNotContain("INTERNAL_", frozen);
@@ -166,8 +153,6 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         await using(var db=database.Context()) Assert.Equal(1,(await db.Set<Contract>().SingleAsync(c=>c.ContractID==contract)).SignOtpFailedAttempts);
         var signed=await Data(await customer.PostAsJsonAsync($"/api/customer/contracts/{contract}/sign",new {versionNo=1,otp=code}));
         var trip=signed.GetProperty("tripId").GetString()!;Assert.Equal("ACTIVATED",signed.GetProperty("requestStatus").GetString());
-        var tripDetail = await Data(await manager.GetAsync($"/api/manager/trips/{trip}"));
-        Assert.False(tripDetail.TryGetProperty("mode", out var tripMode) && tripMode.ValueKind == JsonValueKind.String);
         var retry=await Data(await customer.PostAsJsonAsync($"/api/customer/contracts/{contract}/sign",new {versionNo=1,otp=code}));Assert.Equal(trip,retry.GetProperty("tripId").GetString());
         await Data(await manager.PostAsJsonAsync($"/api/manager/trips/{trip}/assignment",new {specialistId="USER_005",coordinatorId="USER_006"}));
         await Data(await manager.PostAsJsonAsync($"/api/manager/trips/{trip}/hold",new {reason="Recheck readiness"}));

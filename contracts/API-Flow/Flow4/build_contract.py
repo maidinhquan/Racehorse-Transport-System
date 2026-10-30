@@ -51,7 +51,7 @@ define('FlightSnapshot', {'bookingId': key('BOOKING_001'), 'partnerName': text, 
 define('Policy', {'version': integer(1, 1), 'lateMilestoneMinutes': null(integer(30, 1, 10080)),
                   'healthIntervalMinutes': null(integer(120, 1, 10080)), 'minimumHealthPhotos': null(integer(1, 0, 100)),
                   'configured': boolean, 'note': st('Chưa chốt ngưỡng; không tự gán mặc định')})
-define('Capabilities', {'version': {'type': 'string', 'const': '1.0.0'}, 'implementationStatus': en('DESIGNED_NOT_IMPLEMENTED', 'AVAILABLE'),
+define('Capabilities', {'version': {'type': 'string', 'const': '1.1.0'}, 'implementationStatus': en('DESIGNED_NOT_IMPLEMENTED', 'AVAILABLE'),
                         'persistenceAvailable': boolean, 'filesAvailable': boolean, 'notificationsAvailable': boolean,
                         'incidentIntegrationAvailable': boolean, 'gpsRealtime': {'type': 'boolean', 'const': False},
                         'timezone': {'type': 'string', 'const': 'Asia/Ho_Chi_Minh'}, 'policy': ref('Policy')})
@@ -63,9 +63,17 @@ define('Milestone', {'id': key('MILESTONE_001'), 'leg': leg, 'kind': kind, 'sequ
                      'label': st('Xuất phát đường bộ'), 'status': en('PENDING', 'COMPLETED'), 'plannedAt': stamp,
                      'occurredAt': null(stamp), 'recordedAt': null(stamp), 'recordedBy': null(ref('Actor')),
                      'revision': integer(1, 1), 'note': note, 'evidenceFileIds': files, 'geo': null(ref('Geo')),
+                     'requiresHealthCheck': boolean,
                      'actions': ref('Actions')})
+define('VehicleSummary', {'vehicleId': ident('VEHICLE'),
+                          'plateNumber': st('51B-888.99', minLength=1, maxLength=50),
+                          'type': st('Xe chuyên dụng 4 khoang điều hòa', minLength=1, maxLength=100),
+                          'capacityStalls': integer(4, 1, 20),
+                          'heightM': null(num(3.8, 1.0, 5.0)),
+                          'grossWeightTons': null(num(8.5, 1.0, 50.0))})
 define('Leg', {'key': leg, 'mode': en('ROAD', 'AIR'), 'status': en('PENDING', 'ACTIVE', 'FINISHED'),
-               'assignedUserIds': unique(ident('USER')), 'crew': arr(ref('CrewAssignment'), 0, 3), 'vehicleId': null(ident('VEHICLE')),
+               'assignedUserIds': unique(ident('USER')), 'crew': arr(ref('CrewAssignment'), 0, 3),
+               'vehicleId': null(ident('VEHICLE')), 'vehicle': null(ref('VehicleSummary')),
                'from': st('Điểm nhận ngựa'), 'to': st('Điểm giao cuối'), 'milestoneIds': unique(key('MILESTONE_001'), 1)})
 define('EtaSummary', {'currentEta': stamp, 'deliveryDeadline': stamp, 'pendingProposalId': null(key('ETA_001')),
                       'proposedEta': null(stamp), 'version': integer(1, 1)})
@@ -87,9 +95,9 @@ define('MilestoneInput', {'expectedVersion': v, 'occurredAt': stamp, 'note': not
 define('Mutation', {'binding': ref('Binding'), 'recordId': key('MILESTONE_001'), 'trip': ref('TripSummary'),
                     'blockers': arr(ref('Blocker'))})
 define('Preflight', {'binding': ref('Binding'), 'approvalValid': boolean, 'checks': arr(ref('Blocker')),
-                     'canDepart': boolean, 'requiredAcknowledgements': unique(key('HORSES_CHECKED'))})
+                     'canDepart': boolean, 'requiredAcknowledgements': unique(en('HORSES_CHECKED', 'VEHICLE_VERIFIED'))})
 define('DepartureInput', {'expectedVersion': v, 'approvedPlanVersion': integer(1, 1), 'assignmentVersion': integer(1, 1),
-                          'occurredAt': stamp, 'acknowledgements': unique(key('HORSES_CHECKED'), 1),
+                          'occurredAt': stamp, 'acknowledgements': unique(en('HORSES_CHECKED', 'VEHICLE_VERIFIED'), 1),
                           'note': note, 'evidenceFileIds': files})
 define('Checkpoint', {'id': key('CHECKPOINT_001'), 'milestoneId': key('MILESTONE_003'), 'version': integer(1, 1),
                       'status': en('PENDING', 'HELD', 'SUPPLEMENT_REQUIRED', 'CLEARED'), 'reason': note,
@@ -121,7 +129,7 @@ define('AirNoticeInput', {'expectedVersion': v, 'bookingId': key('BOOKING_001'),
 define('AirNotice', {'id': key('AIRNOTICE_001'), 'input': ref('AirNoticeInput'), 'recordedBy': ref('Actor'),
                      'recordedAt': stamp, 'requiresPlanChange': boolean, 'milestoneApplied': boolean})
 define('AirHandoverInput', {'expectedVersion': v, 'occurredAt': stamp, 'horseIds': unique(ident('HORSE'), 1),
-                           'bookingId': key('BOOKING_001'), 'partnerReference': st('Biên nhận đối tác AIR', minLength=1, maxLength=255),
+                           'bookingId': key('BOOKING_001'), 'partnerReference': st('Biên nhận đối tác AIR tại kho Cargo Terminal', minLength=1, maxLength=255),
                            'allHorsesChecked': yes, 'note': note, 'evidenceFileIds': unique(key('EVIDENCE_001'), 1)})
 define('HealthInput', {'expectedVersion': v, 'horseId': ident('HORSE'), 'leg': leg,
                        'milestoneId': null(key('MILESTONE_001')), 'observedAt': stamp,
@@ -138,6 +146,11 @@ define('VetInput', {'expectedVersion': v, 'healthLogId': key('HEALTH_001'), 'exa
                     'conclusion': text, 'transportFitness': en('FIT', 'NOT_FIT', 'NEEDS_REVIEW'),
                     'instructions': text, 'evidenceFileIds': files, 'incidentId': null(ident('INCIDENT'))})
 define('VetAssessment', {'id': key('ASSESSMENT_001'), 'entry': ref('VetInput'), 'recordedBy': ref('Actor'), 'recordedAt': stamp})
+define('ExpenseInput', {'expectedVersion': v, 'category': en('TOLL_FEE', 'FEED_SUPPLIES', 'EMERGENCY_CARE', 'OTHER'),
+                        'amountVnd': integer(150000, 1000, 100000000), 'occurredAt': stamp,
+                        'reason': reason, 'milestoneId': null(key('MILESTONE_001')), 'receiptFileIds': files})
+define('ExpenseRecord', {'id': key('EXPENSE_001'), 'tripId': ident('TRIP'), 'entry': ref('ExpenseInput'),
+                         'recordedBy': ref('Actor'), 'recordedAt': stamp, 'status': en('RECORDED', 'SUBMITTED_TO_FLOW6')})
 # Public DTOs deliberately omit internal revision/assignment data and incident work notes.
 define('PublicHealth', {'id': key('HEALTH_001'), 'horseId': ident('HORSE'), 'observedAt': stamp, 'recordedAt': stamp,
                         'recordedBy': ref('Actor'), 'condition': en('NORMAL', 'ABNORMAL'), 'observation': text,
@@ -164,8 +177,8 @@ define('History', {'id': key('EVENT_001'), 'type': st('MILESTONE_COMPLETED'), 'a
                    'beforeRevision': null(integer(1, 1)), 'afterRevision': null(integer(2, 1))})
 define('File', {'id': key('EVIDENCE_001'), 'tripId': ident('TRIP'), 'filename': st('anh-kiem-tra.jpg'),
                 'mimeType': en('image/jpeg', 'image/png', 'application/pdf'), 'sizeBytes': integer(2048, 1, 10485760),
-                'purpose': en('MILESTONE', 'AIR', 'CHECKPOINT', 'HEALTH'), 'uploadedAt': stamp})
-define('Upload', {'purpose': en('MILESTONE', 'AIR', 'CHECKPOINT', 'HEALTH'), 'horseId': ident('HORSE'),
+                'purpose': en('MILESTONE', 'AIR', 'CHECKPOINT', 'HEALTH', 'EXPENSE'), 'uploadedAt': stamp})
+define('Upload', {'purpose': en('MILESTONE', 'AIR', 'CHECKPOINT', 'HEALTH', 'EXPENSE'), 'horseId': ident('HORSE'),
                   'file': {'type': 'string', 'format': 'binary'}}, ('horseId',))
 
 def sample(schema):
@@ -220,16 +233,16 @@ customer = '/customer/requests/{requestId}'
 op('F4-J01', 'get', '/master/flow4-capabilities', STAFF + [U], 'Capability và policy theo dõi hành trình', ref('Capabilities'),
    rules='Metadata đăng nhập; flags chỉ bật sau triển khai. Policy chưa cấu hình trả null, không fallback số phút/ảnh ở client.')
 op('F4-J02', 'get', '/driver/trips', D, 'Nhiệm vụ vận chuyển được phân công', arr(ref('TripSummary')),
-   rules='Chỉ chuyến có assignment của JWT, gồm lịch sử trong scope. Không trả mọi chuyến cho mọi tài xế.', queries=[('status', en('READY_TO_DEPART', 'IN_TRANSIT', 'COMPLETED'))])
+   rules='Chỉ chuyến có assignment của JWT, gồm lịch sử trong scope và thông tin xe phân công. Không trả mọi chuyến cho mọi tài xế.', queries=[('status', en('READY_TO_DEPART', 'IN_TRANSIT', 'COMPLETED'))])
 op('F4-J03', 'get', trip, STAFF, 'Context hành trình và thao tác theo phân công', ref('Tracking'),
-   rules='Driver chỉ có action ở chặng được giao; Specialist chỉ tác vụ checkpoint. Mốc/route từ approved snapshot, không sinh mốc dựa lịch giờ máy khách.')
+   rules='Driver chỉ có action ở chặng được giao; Specialist chỉ tác vụ checkpoint. Mốc/route từ approved snapshot, trả đầy đủ thông tin xe (biển số, loại xe, số khoang) theo từng chặng ROAD.')
 op('F4-J04', 'get', driver + '/departure-check', D, 'Kiểm tra trước xuất phát thực tế', ref('Preflight'),
-   rules='Kiểm lại approval, nguồn lực, hồ sơ, bảo hiểm, tình trạng ngựa và blocker hiện hành. GET không xuất phát. Inbound cũng dùng check theo chặng.', queries=[('leg', leg)])
+   rules='Kiểm lại approval, nguồn lực, xe, hồ sơ, bảo hiểm, tình trạng ngựa và blocker hiện hành. Yêu cầu xác nhận HORSES_CHECKED và VEHICLE_VERIFIED. GET không xuất phát. Inbound cũng dùng check theo chặng.', queries=[('leg', leg)])
 op('F4-J05', 'post', driver + '/departure', D, 'Xác nhận xuất phát thực tế', ref('Mutation'), ref('DepartureInput'),
-   rules='Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip và Request IN_TRANSIT nguyên tử; không tạo Trip mới.', conflicts=['DEPARTURE_NOT_APPROVED', 'READINESS_CHANGED', 'NOT_ASSIGNED_LEG', 'INCIDENT_BLOCKING'])
+   rules='Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement (HORSES_CHECKED, VEHICLE_VERIFIED) server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip và Request IN_TRANSIT nguyên tử; khóa duyệt lại Flow 3; không tạo Trip mới.', conflicts=['DEPARTURE_NOT_APPROVED', 'READINESS_CHANGED', 'NOT_ASSIGNED_LEG', 'INCIDENT_BLOCKING'])
 op('F4-J06', 'post', driver + '/milestones/{milestoneId}/complete', D, 'Xác nhận mốc kế tiếp của chặng', ref('Mutation'), ref('MilestoneInput'),
-   rules='Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. FINAL_ARRIVED chỉ mở Flow 6; Trip/Request vẫn IN_TRANSIT.',
-   conflicts=['MILESTONE_NOT_NEXT', 'MILESTONE_ALREADY_COMPLETED', 'NOT_ASSIGNED_LEG', 'CHECKPOINT_NOT_CLEARED', 'INCIDENT_BLOCKING', 'USE_SPECIALIZED_COMMAND', 'INVALID_EVENT_TIME', 'HEALTH_CHECK_REQUIRED'])
+   rules='Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. Trạm có cờ requiresHealthCheck phải hoàn tất HealthLog trước khi hoàn tất mốc. Ngựa có trạng thái ABNORMAL chặn mốc tiếp theo cho đến khi có xác nhận FIT. FINAL_ARRIVED chỉ mở Flow 6; Trip/Request vẫn IN_TRANSIT.',
+   conflicts=['MILESTONE_NOT_NEXT', 'MILESTONE_ALREADY_COMPLETED', 'NOT_ASSIGNED_LEG', 'CHECKPOINT_NOT_CLEARED', 'INCIDENT_BLOCKING', 'USE_SPECIALIZED_COMMAND', 'INVALID_EVENT_TIME', 'HEALTH_CHECK_REQUIRED', 'VET_CLEARANCE_REQUIRED'])
 op('F4-J07', 'get', trip + '/history', STAFF, 'Lịch sử hành trình, đính chính và quyết định', arr(ref('History')),
    rules='Append-only, thứ tự recordedAt rồi ID; chỉ lịch sử trong scope, giữ cả revision cũ, actor hệ thống có systemActor=true.')
 op('F4-J08', 'post', driver + '/milestones/{milestoneId}/correction-requests', D, 'Yêu cầu đính chính mốc đã hoàn tất', ref('Correction'), ref('CorrectionInput'),
@@ -241,12 +254,12 @@ op('F4-J11', 'get', trip + '/checkpoints', STAFF, 'Kết quả cho phép đi ti�
 op('F4-J12', 'post', '/specialist/trips/{tripId}/checkpoints/{checkpointId}/decisions', T, 'Ghi kết quả kiểm tra pháp lý thực tế', ref('Mutation'), ref('CheckpointInput'),
    rules='Specialist được giao ghi kết quả từ cơ quan/bên kiểm tra cùng bằng chứng sau CHECKPOINT_ARRIVED. CLEARED không gỡ blocker sức khỏe/nguồn lực. Không tự cấp giấy phép; đây là kết quả thực tế của Flow 2 trong hành trình, không checklist pre-departure thứ hai.', conflicts=['CHECKPOINT_NOT_ARRIVED', 'EVIDENCE_INVALID'])
 op('F4-J13', 'post', driver + '/air/handover', D, 'Bàn giao ngựa cho đối tác AIR đầu đi', ref('Mutation'), ref('AirHandoverInput'),
-   rules='MAIN_DRIVER/CO_DRIVER outbound, đúng mốc AIR_HANDOVER sau tới sân bay; đủ toàn bộ ngựa và booking hiện hành, bằng chứng đối tác. Không bàn giao cho người nhận cuối. Thông báo Manager/Customer/Coordinator sau commit.', conflicts=['MILESTONE_NOT_NEXT', 'HORSE_SET_MISMATCH', 'BOOKING_CHANGED', 'NOT_ASSIGNED_LEG'])
+   rules='MAIN_DRIVER/CO_DRIVER outbound, đúng mốc AIR_HANDOVER sau tới sân bay (kho Cargo Terminal); đủ toàn bộ ngựa và booking hiện hành, bằng chứng đối tác. Ngựa có trạng thái ABNORMAL chặn bàn giao cho đến khi có xác nhận FIT. Không bàn giao cho người nhận cuối. Thông báo Manager/Customer/Coordinator sau commit.', conflicts=['MILESTONE_NOT_NEXT', 'HORSE_SET_MISMATCH', 'BOOKING_CHANGED', 'NOT_ASSIGNED_LEG', 'VET_CLEARANCE_REQUIRED', 'INCIDENT_BLOCKING'])
 op('F4-J14', 'post', coord + '/air/notices', C, 'Ghi thông tin lịch hoặc sự kiện AIR từ đối tác', ref('AirNotice'), ref('AirNoticeInput'),
    rules='ESTIMATED_SCHEDULE chỉ ghi notice và mở đề xuất thay đổi khi cần, không đổi mốc thực tế/approved plan/ETA. ACTUAL_DEPARTURE/ARRIVAL chỉ áp dụng mốc kế tiếp AIR từ nguồn có bằng chứng; không giả làm actor hãng. Giờ thực tế không tương lai, arrival >= departure, đúng booking. Thay lịch chính thức phải qua Flow 5/Manager trước áp dụng.',
    conflicts=['BOOKING_CHANGED', 'MILESTONE_NOT_NEXT', 'INVALID_EVENT_TIME', 'INCIDENT_REQUIRED'], created=True)
 op('F4-J15', 'post', driver + '/air/receive', D, 'Kiểm tra và tiếp nhận ngựa đầu đến', ref('Mutation'), ref('AirHandoverInput'),
-   rules='MAIN_DRIVER/CO_DRIVER inbound sau AIR_ARRIVED có bằng chứng; đủ ngựa và tình trạng nhận. Bất thường ghi health/Flow 5, không khai bình thường giả. Mở inbound khi tất cả gate đủ; thông báo Manager/Customer/Coordinator.', conflicts=['MILESTONE_NOT_NEXT', 'HORSE_SET_MISMATCH', 'NOT_ASSIGNED_LEG', 'BOOKING_CHANGED'])
+   rules='MAIN_DRIVER/CO_DRIVER inbound sau AIR_ARRIVED có bằng chứng; đủ ngựa và tình trạng nhận tại kho Cargo Terminal. Bất thường ghi health/Flow 5, không khai bình thường giả. Mở inbound khi tất cả gate đủ; thông báo Manager/Customer/Coordinator.', conflicts=['MILESTONE_NOT_NEXT', 'HORSE_SET_MISMATCH', 'NOT_ASSIGNED_LEG', 'BOOKING_CHANGED'])
 op('F4-J16', 'get', trip + '/air/notices', STAFF, 'Lịch sử thông tin hãng và lịch dự kiến riêng', arr(ref('AirNotice')), rules='Chỉ AIR; hiển thị nguồn, giờ nhận tin và giờ nhập; không coi giờ dự kiến là thực tế.')
 op('F4-J17', 'post', driver + '/eta-proposals', D, 'Đề xuất ETA kèm lý do', ref('EtaProposal'), ref('EtaInput'),
    rules='Nhân sự chặng được giao, Trip IN_TRANSIT; chỉ một proposal mở. ETA hiện hành không đổi. Chậm do sự cố phải liên kết incident có thật.', conflicts=['ETA_PROPOSAL_OPEN', 'INCIDENT_REQUIRED', 'INVALID_EVENT_TIME'], created=True)
@@ -260,11 +273,11 @@ op('F4-J21', 'post', '/manager/trips/{tripId}/eta-proposals/{proposalId}/decisio
 op('F4-J22', 'get', trip + '/health-logs', STAFF, 'Nhật ký chăm sóc và chỉ số từng ngựa', arr(ref('HealthLog')),
    rules='Ngựa thuộc Trip, không chẩn đoán bằng ngưỡng schema. Trả history amendment, người ghi và thời điểm quan sát/nhập riêng.', queries=[('horseId', ident('HORSE'))])
 op('F4-J23', 'post', driver + '/health-logs', D, 'Ghi chăm sóc và quan sát sức khỏe', ref('HealthLog'), ref('HealthInput'),
-   rules='Mọi nhân sự được giao ở chặng, gồm bác sĩ, được ghi; khi blocker hành trình còn mở vẫn cho chăm sóc. Checklist máy chủ quyết định ảnh/chỉ số cần có. ABNORMAL lưu ngay và trả incidentRequired=true nếu chưa liên kết incident; không tự mở mốc hay coi báo cáo là sự cố đã xử lý.', conflicts=['NOT_ASSIGNED_LEG', 'HEALTH_CHECK_REQUIRED', 'EVIDENCE_INVALID'], created=True)
+   rules='Mọi nhân sự được giao ở chặng, gồm bác sĩ, được ghi; khi blocker hành trình còn mở vẫn cho chăm sóc. Checklist máy chủ quyết định ảnh/chỉ số cần có. ABNORMAL lưu ngay và trả incidentRequired=true nếu chưa liên kết incident; tự động kích hoạt chốt chặn an toàn cho chuyến đi.', conflicts=['NOT_ASSIGNED_LEG', 'HEALTH_CHECK_REQUIRED', 'EVIDENCE_INVALID'], created=True)
 op('F4-J24', 'post', driver + '/health-logs/{healthLogId}/amendments', D, 'Bổ sung bản đính chính nhật ký sức khỏe', ref('HealthLog'), ref('HealthAmendment'),
    rules='Chỉ tác giả đang có assignment, lưu bản mới supersedesId và lý do, giữ bản cũ; replacement.expectedVersion phải bằng outer expectedVersion. Không sửa kết luận bác sĩ bằng nhật ký chăm sóc.', conflicts=['NOT_LOG_AUTHOR', 'HEALTH_LOG_SUPERSEDED'], created=True)
 op('F4-J25', 'post', driver + '/vet-assessments', D, 'Bác sĩ ghi kết luận và khả năng tiếp tục', ref('VetAssessment'), ref('VetInput'),
-   rules='JWT DRIVER_ESCORT và assignment crewDuty=VETERINARIAN với chứng chỉ/qualification hợp lệ; không tạo role VET mới. NOT_FIT/NEEDS_REVIEW chặn phần liên quan. FIT chỉ giải quyết gate chuyên môn, không tự resume/đóng incident; kết luận mới append-only.', conflicts=['VETERINARIAN_REQUIRED', 'NOT_ASSIGNED_LEG', 'EVIDENCE_INVALID'], created=True)
+   rules='JWT DRIVER_ESCORT và assignment crewDuty=VETERINARIAN với chứng chỉ/qualification hợp lệ; không tạo role VET mới. NOT_FIT/NEEDS_REVIEW chặn phần liên quan. FIT giải phóng chốt chặn y tế chuyên môn nhưng không tự resume các blocker sự cố khác; kết luận mới append-only.', conflicts=['VETERINARIAN_REQUIRED', 'NOT_ASSIGNED_LEG', 'EVIDENCE_INVALID'], created=True)
 op('F4-J26', 'get', trip + '/vet-assessments', STAFF, 'Đọc kết luận chuyên môn và hướng dẫn', arr(ref('VetAssessment')), rules='Chỉ ngựa/chuyến trong scope; giữ mọi lần đánh giá.')
 op('F4-J27', 'get', trip + '/alerts', STAFF, 'Cảnh báo trễ mốc và chăm sóc đến hạn', arr(ref('Alert')),
    rules='Ngưỡng theo policy snapshot; chưa cấu hình thì không sinh cảnh báo định kỳ giả. Cảnh báo mốc cho Driver phụ trách và Coordinator, không tự complete hoặc escalate mọi cảnh báo lên Manager.')
@@ -272,28 +285,45 @@ op('F4-J28', 'post', coord + '/alerts/{alertId}/acknowledge', C, 'Ghi đã tiế
 op('F4-J29', 'post', coord + '/contact-logs', C, 'Ghi kết quả liên hệ nhân sự không phản hồi', ref('Mutation'), ref('ContactInput'),
    rules='Người được liên hệ thuộc assignment Trip. Chỉ ghi kết quả đã liên hệ ngoài hệ thống; không tự gọi điện/gửi tin nhắn và không hoàn tất mốc.', created=True)
 op('F4-J30', 'post', trip + '/files', [D, C, T], 'Upload bằng chứng hành trình thật', ref('File'), ref('Upload'),
-   rules='FormData file bytes + purpose, horseId bắt buộc với HEALTH. HEALTH chỉ JPEG/PNG, mục khác PDF/JPEG/PNG <=10 MiB. Kiểm nội dung/MIME/quét và scope; chưa gắn file không tự hoàn tất mốc. Upload độc lập không đổi executionVersion.', created=True, multipart=True)
+   rules='FormData file bytes + purpose, horseId bắt buộc với HEALTH. HEALTH/EXPENSE chỉ JPEG/PNG, mục khác PDF/JPEG/PNG <=10 MiB. Kiểm nội dung/MIME/quét và scope; chưa gắn file không tự hoàn tất mốc. Upload độc lập không đổi executionVersion.', created=True, multipart=True)
 op('F4-J31', 'get', trip + '/files/{fileId}', STAFF, 'Tải file vận hành có kiểm quyền', None,
    rules='Kiểm Trip, assignment, file thực và metadata; không nhận URL tùy ý. Binary thật, JSON lỗi khi thất bại.', binary=True)
 op('F4-J32', 'get', customer + '/tracking', U, 'Khách xem hành trình đơn của mình', ref('PublicTracking'),
-   rules='Projection đã lọc nội dung nội bộ, chỉ ngựa/đơn của JWT. Có ETA hiện hành/đề xuất riêng và bản đồ mốc đã xác nhận; không lộ booking nội bộ, cost hoặc hồ sơ nhân sự.')
+   rules='Projection đã lọc nội dung nội bộ, chỉ ngựa/đơn của JWT. Có ETA hiện hành/đề xuất riêng và bản đồ mốc đã xác nhận; không lộ booking nội bộ, chi phí phát sinh hoặc hồ sơ nhân sự.')
 op('F4-J33', 'get', customer + '/health-logs', U, 'Khách xem chăm sóc, chỉ số, ảnh và nhận xét', arr(ref('PublicHealth')),
-   rules='Chỉ ngựa thuộc đơn, gồm kết luận/hướng dẫn và người ghi/thời điểm được chia sẻ; giữ amendment. Không mutation.', queries=[('horseId', ident('HORSE'))])
+   rules='Chỉ ngựa thuộc đơn, gồm kết luận/hướng dẫn và người ghi/thời điểm được chia sẻ; giữ amendment. Không mutation.')
 op('F4-J34', 'get', customer + '/tracking-files/{fileId}', U, 'Khách tải ảnh/bằng chứng được chia sẻ', None,
    rules='Kiểm ownership Request, ngựa và visibility của từng file; không suy quyền từ biết fileId hoặc URL. Không tự chia sẻ file AIR/checkpoint nội bộ.', binary=True)
 op('F4-J35', 'get', '/manager/trips/{tripId}/execution', M, 'Manager giám sát vận hành', ref('Tracking'),
    rules='Cùng read model J03 trong scope quản lý, không có quyền hoàn tất mốc thay tài xế.')
+op('F4-J36', 'post', driver + '/expenses', D, 'Ghi nhận chi phí phát sinh trên đường', ref('ExpenseRecord'), ref('ExpenseInput'),
+   rules='Tổ xe ghi nhận chi phí thực tế (vé BOT, cỏ/nước, thuốc khẩn cấp) kèm ảnh biên lai/hóa đơn. Không tự ý sửa giá cước hợp đồng của khách hàng. Dữ liệu được chuyển Flow 6 đối soát hoàn ứng.', conflicts=['NOT_ASSIGNED_LEG', 'EVIDENCE_INVALID'], created=True)
+op('F4-J37', 'get', trip + '/expenses', STAFF, 'Danh sách chi phí phát sinh chuyến đi', arr(ref('ExpenseRecord')),
+   rules='Đọc danh sách chi phí phát sinh thực tế do tổ xe ghi nhận trong hành trình để phục vụ đối soát hoàn ứng.')
 
 # Meaningful independent fixtures, rather than a fabricated end-to-end API run.
 tracking = sample(ref('Tracking'))
 tracking['trip']['eta'].update(currentEta='2026-11-10 18:00', deliveryDeadline='2026-11-11 18:00')
-tracking['legs'][0].update(assignedUserIds=['USER_011', 'USER_012', 'USER_013'], vehicleId='VEHICLE_001', milestoneIds=['MILESTONE_001', 'MILESTONE_002'])
+tracking['legs'][0].update(
+    assignedUserIds=['USER_011', 'USER_012', 'USER_013'],
+    vehicleId='VEHICLE_001',
+    vehicle={
+        'vehicleId': 'VEHICLE_001',
+        'plateNumber': '51B-888.99',
+        'type': 'Xe chuyên dụng 4 khoang điều hòa',
+        'capacityStalls': 4,
+        'heightM': 3.8,
+        'grossWeightTons': 8.5
+    },
+    milestoneIds=['MILESTONE_001', 'MILESTONE_002']
+)
 tracking['legs'][0]['crew'] = [{'userId': f'USER_{n:03}', 'name': name, 'duty': duty} for n, name, duty in
                               [(11, 'Nguyễn Văn An', 'MAIN_DRIVER'), (12, 'Trần Văn Bình', 'CO_DRIVER'), (13, 'Lê Văn Cường', 'VETERINARIAN')]]
 first = tracking['milestones'][0]
 first['actions']['canComplete'] = True
+first['requiresHealthCheck'] = False
 last = copy.deepcopy(first)
-last.update(id='MILESTONE_002', kind='FINAL_ARRIVED', sequence=2, label='Đến điểm giao cuối', plannedAt='2026-11-10 18:00')
+last.update(id='MILESTONE_002', kind='FINAL_ARRIVED', sequence=2, label='Đến điểm giao cuối', plannedAt='2026-11-10 18:00', requiresHealthCheck=False)
 last['actions']['canComplete'] = False
 tracking['milestones'].append(last)
 for code, method, path, operation in OPS:
@@ -316,6 +346,9 @@ for code, method, path, operation in OPS:
         response['content']['application/json']['example']['data'].update(currentEta='2026-11-10 18:00', proposedEta='2026-11-10 19:00')
     if code == 'F4-J25':
         response['content']['application/json']['example']['data']['recordedBy']['crewDuty'] = 'VETERINARIAN'
+    if code == 'F4-J36':
+        operation['requestBody']['content']['application/json']['example'].update(category='TOLL_FEE', amountVnd=150000)
+        response['content']['application/json']['example']['data']['entry'].update(category='TOLL_FEE', amountVnd=150000)
 
 # AIR fixture includes only confirmed source locations, never a moving GPS marker.
 air_tracking = copy.deepcopy(tracking)
@@ -336,31 +369,42 @@ air_sequence = [
 ]
 for i, (leg_key, event_kind, planned_at) in enumerate(air_sequence, 1):
     event = copy.deepcopy(first)
-    event.update(id=f'MILESTONE_{i:03}', leg=leg_key, kind=event_kind, sequence=i, plannedAt=planned_at, label=event_kind)
+    event.update(id=f'MILESTONE_{i:03}', leg=leg_key, kind=event_kind, sequence=i, plannedAt=planned_at, label=event_kind, requiresHealthCheck=False)
     event['actions']['canComplete'] = i == 1
     air_tracking['milestones'].append(event)
 for j, leg_key in enumerate(('outbound', 'air', 'inbound')):
     item = copy.deepcopy(tracking['legs'][0])
     item.update(key=leg_key, mode='AIR' if leg_key == 'air' else 'ROAD',
                 milestoneIds=[m['id'] for m in air_tracking['milestones'] if m['leg'] == leg_key])
-    if leg_key == 'air': item.update(assignedUserIds=[], crew=[], vehicleId=None)
+    if leg_key == 'air': item.update(assignedUserIds=[], crew=[], vehicleId=None, vehicle=None)
     if leg_key == 'inbound':
-        item.update(assignedUserIds=['USER_014', 'USER_015', 'USER_016'], vehicleId='VEHICLE_002')
+        item.update(
+            assignedUserIds=['USER_014', 'USER_015', 'USER_016'],
+            vehicleId='VEHICLE_002',
+            vehicle={
+                'vehicleId': 'VEHICLE_002',
+                'plateNumber': '51B-999.88',
+                'type': 'Xe chuyên dụng 4 khoang điều hòa',
+                'capacityStalls': 4,
+                'heightM': 3.8,
+                'grossWeightTons': 8.5
+            }
+        )
         for crew_index, crew in enumerate(item['crew'], 14): crew.update(userId=f'USER_{crew_index:03}', name=f'Nhân sự đầu đến {crew_index}')
     air_tracking['legs'].append(item)
 
 def dump(value): return json.dumps(value, ensure_ascii=False, indent=2) + '\n'
 paths = {}
 for _, method, path, operation in OPS: paths.setdefault(path, {})[method] = operation
-spec = {'openapi': '3.1.0', 'info': {'title': 'Racehorse Transport — Flow 4: thực hiện và theo dõi hành trình', 'version': '1.0.0',
-        'description': 'Contract đích 29/10/2026; chưa triển khai backend/DB. Thời gian Asia/Ho_Chi_Minh. Không GPS realtime.'},
+spec = {'openapi': '3.1.0', 'info': {'title': 'Racehorse Transport — Flow 4: thực hiện và theo dõi hành trình', 'version': '1.1.0',
+        'description': 'Contract đích 30/10/2026; chưa triển khai backend/DB. Thời gian Asia/Ho_Chi_Minh. Không GPS realtime.'},
         'servers': [{'url': '/api'}], 'security': [{'bearerAuth': []}], 'paths': paths,
         'components': {'securitySchemes': {'bearerAuth': {'type': 'http', 'scheme': 'bearer', 'bearerFormat': 'JWT'}}, 'schemas': S},
         'x-id-policy': 'IDs for new execution records are opaque backend-issued keys, not assertions about SQL tables.',
-        'x-contract-source': 'FLOW4.md; Flow3 v2; Flow6 v1; agreed Flow4 business baseline 18/10/2026'}
+        'x-contract-source': 'FLOW4.md; Flow3 v2; Flow6 v1; agreed Flow4 business baseline 18/10/2026; updated 30/10/2026'}
 (ROOT / 'flow4.openapi.json').write_text(dump(spec), encoding='utf-8')
 index = ['| Mã | Method | Endpoint | Chức năng |', '|---|---|---|---|'] + [f'| {c} | {m.upper()} | `{p}` | {o["summary"]} |' for c, m, p, o in OPS]
-md = ['# Flow 4 — JSON từng API', '', '**1.0.0 — 29/10/2026. Contract mục tiêu; chưa triển khai backend/database hoặc tích hợp frontend.**', '',
+md = ['# Flow 4 — JSON từng API', '', '**1.1.0 — 30/10/2026. Contract mục tiêu; chưa triển khai backend/database hoặc tích hợp frontend.**', '',
       '[Nghiệp vụ](FLOW4.md) · [OpenAPI](flow4.openapi.json) · [Kịch bản](flow4.examples.json).', '',
       'Base `/api`, Bearer JWT, Accept application/json. JSON dùng Content-Type application/json. GET không body. Mutation có Idempotency-Key UUID; payload và status/actor được kiểm máy chủ. Mẫu độc lập, không phải script chạy nối tiếp. Timestamp địa phương Asia/Ho_Chi_Minh. Lists trả data array.', '', *index, '']
 for code, method, path, operation in OPS:
@@ -369,7 +413,7 @@ for code, method, path, operation in OPS:
     md += [f'| {p["in"]} | `{p["name"]}` | {p["required"]} | `{json.dumps(p["schema"], ensure_ascii=False)}` |' for p in operation['parameters']]
     body = operation.get('requestBody', {}).get('content', {})
     if 'application/json' in body: md += ['', '**Request JSON**', '', '```json', dump(body['application/json']['example']).rstrip(), '```']
-    elif body: md += ['', '**Multipart:** `file` bytes thật, `purpose`, `horseId` nếu HEALTH; tối đa 10 MiB. HEALTH chỉ JPEG/PNG. Không đặt Content-Type thủ công, trình duyệt tạo boundary. Không gửi JSON/base64/object URL.']
+    elif body: md += ['', '**Multipart:** `file` bytes thật, `purpose`, `horseId` nếu HEALTH; tối đa 10 MiB. HEALTH/EXPENSE chỉ JPEG/PNG. Không đặt Content-Type thủ công, trình duyệt tạo boundary. Không gửi JSON/base64/object URL.']
     else: md += ['', '**Request body:** Không gửi.']
     for status, response in operation['responses'].items():
         content = response['content'].get('application/json')
@@ -404,18 +448,21 @@ scenarios = [
  ('health-abnormal', 'Ngựa có dấu hiệu bất thường', 'J23 ABNORMAL không incident', 'Lưu quan sát ngay, incidentRequired=true, không coi gate vận chuyển đạt'),
  ('vet-permission', 'Driver không phải bác sĩ được phân công', 'J25 FIT', '403 hoặc 409 VETERINARIAN_REQUIRED; không ghi kết luận'),
  ('vet-not-fit', 'Bác sĩ kết luận NOT_FIT', 'J06 đi tiếp', '409 INCIDENT_BLOCKING; chăm sóc tiếp tục'),
+ ('health-check-gate', 'Trạm dừng có requiresHealthCheck=true', 'J06 hoàn thành mốc khi chưa có Health Log', '409 HEALTH_CHECK_REQUIRED, mốc tiếp tục bị khóa'),
+ ('vet-clearance-gate', 'Có ngựa ABNORMAL chưa được bác sĩ khám FIT', 'J06 hoặc J13', '409 VET_CLEARANCE_REQUIRED hoặc INCIDENT_BLOCKING'),
+ ('petty-cash-expense', 'Phát sinh phí cầu đường BOT', 'J36 gửi chi phí kèm ảnh vé', 'Ghi nhận EXPENSE_001, status RECORDED, chuyển Flow 6 đối soát'),
  ('customer-scope', 'Customer A', 'Đọc request/file/horse của B', '404, không lộ sự tồn tại hoặc nội dung nội bộ'),
  ('file-validation', 'Upload giả JPEG hoặc HEALTH PDF hoặc >10MiB', 'J30', '400/415/413; không file được gắn nghiệp vụ'),
  ('alerts-policy', 'Ngưỡng policy null', 'Chạy job cảnh báo', 'Không tự đặt 30 phút/ảnh; UI hiện chưa cấu hình'),
  ('alert-ack', 'Cảnh báo OPEN', 'J28/J29', 'Chỉ ack/contact, không tự hoàn tất mốc'),
  ('last-location', 'Chưa có mốc geo xác nhận', 'J32 map', 'markerGeo=null; không nội suy vị trí GPS'),
  ('final-arrival', 'FINAL_ARRIVED hoàn tất', 'Đọc J03 và chuyển Flow6', 'AWAITING_HANDOVER, Trip/Request IN_TRANSIT; chưa COMPLETED/DELIVERED/acceptanceWindow'),
- ('handover-contract', 'Đã đến điểm giao cuối', 'Bàn giao hợp lệ bằng Flow6', 'Trip COMPLETED, Request DELIVERED theo Flow6; không tự đóng'),
+ ('handover-contract', 'Đã đến điểm giao cuối', 'Bàn giao hợp lệ bằng Flow6', 'Trip COMPLETED, Request DELIVERED theo Flow6; nhả xe AVAILABLE; không tự đóng'),
  ('transaction-rollback', 'Lỗi ghi history/outbox trong mutation', 'Commit', 'Rollback trạng thái, retry an toàn'),
  ('capability-off', 'persistenceAvailable=false', 'Gọi mutation', '501 FEATURE_NOT_SUPPORTED, không fallback mock'),
  ('health-amendment', 'Nhật ký đã ghi', 'J24 với lý do', 'Append supersedesId, bản cũ còn; không sửa kết luận bác sĩ'),
 ]
-examples = {'contractVersion': '1.0.0', 'status': 'ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS',
+examples = {'contractVersion': '1.1.0', 'status': 'ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS',
             'road': tracking, 'air': air_tracking, 'scenarios': [{'id': a, 'given': b, 'when': c, 'then': d} for a,b,c,d in scenarios]}
 (ROOT / 'flow4.examples.json').write_text(dump(examples), encoding='utf-8')
 print(f'Generated {len(OPS)} operations, {len(S)} schemas, {len(scenarios)} acceptance scenarios.')

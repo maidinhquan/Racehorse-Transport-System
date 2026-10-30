@@ -34,7 +34,7 @@ public sealed class PaymentSafetyTests(SqlFixture database) : IClassFixture<SqlF
         }
         await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/accept",new {}));
         var draft=await Data(await manager.PutAsJsonAsync($"/api/manager/requests/{id}/contract-draft",new {
-            arriveAt=date.AddDays(2).ToString("yyyy-MM-dd HH:mm"),departAt=date.ToString("yyyy-MM-dd HH:mm"),depositPct=40,
+            arriveAt=date.AddDays(2).ToString("yyyy-MM-dd HH:mm"),departAt=date.ToString("yyyy-MM-dd HH:mm"),mode="AIR",depositPct=40,
             budget=new {TRANSPORT=100,PROCEDURE=100,VET=100,INSURANCE=100,STAFF=100},exception="",note="Test",
             items=new[]{new {amount=1000000,desc="Transport",required=true}},terms=new[]{new {title="Payment",text="Deposit before signature"}} }));
         var contract=draft.GetProperty("contractId").GetString()!;

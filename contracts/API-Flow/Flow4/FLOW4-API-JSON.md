@@ -1,6 +1,6 @@
 # Flow 4 — JSON từng API
 
-**1.0.0 — 29/10/2026. Contract mục tiêu; chưa triển khai backend/database hoặc tích hợp frontend.**
+**1.1.0 — 30/10/2026. Contract mục tiêu; chưa triển khai backend/database hoặc tích hợp frontend.**
 
 [Nghiệp vụ](FLOW4.md) · [OpenAPI](flow4.openapi.json) · [Kịch bản](flow4.examples.json).
 
@@ -43,6 +43,8 @@ Base `/api`, Bearer JWT, Accept application/json. JSON dùng Content-Type applic
 | F4-J33 | GET | `/customer/requests/{requestId}/health-logs` | Khách xem chăm sóc, chỉ số, ảnh và nhận xét |
 | F4-J34 | GET | `/customer/requests/{requestId}/tracking-files/{fileId}` | Khách tải ảnh/bằng chứng được chia sẻ |
 | F4-J35 | GET | `/manager/trips/{tripId}/execution` | Manager giám sát vận hành |
+| F4-J36 | POST | `/driver/trips/{tripId}/expenses` | Ghi nhận chi phí phát sinh trên đường |
+| F4-J37 | GET | `/trips/{tripId}/execution/expenses` | Danh sách chi phí phát sinh chuyến đi |
 
 ## F4-J01 — GET /master/flow4-capabilities
 
@@ -64,7 +66,7 @@ Capability và policy theo dõi hành trình
   "success": true,
   "message": "OK",
   "data": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "implementationStatus": "DESIGNED_NOT_IMPLEMENTED",
     "persistenceAvailable": false,
     "filesAvailable": false,
@@ -124,11 +126,11 @@ Nhiệm vụ vận chuyển được phân công
 
 **Role:** DRIVER_ESCORT
 
-**Điều kiện và ảnh hưởng:** Chỉ chuyến có assignment của JWT, gồm lịch sử trong scope. Không trả mọi chuyến cho mọi tài xế.
+**Điều kiện và ảnh hưởng:** Chỉ chuyến có assignment của JWT, gồm lịch sử trong scope và thông tin xe phân công. Không trả mọi chuyến cho mọi tài xế.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| query | `status` | False | `{"type": "string", "example": "READY_TO_DEPART", "enum": ["READY_TO_DEPART", "IN_TRANSIT", "COMPLETED"]}` |
+| query | `status` | False | `{"type":"string","example":"READY_TO_DEPART","enum":["READY_TO_DEPART","IN_TRANSIT","COMPLETED"]}` |
 
 **Request body:** Không gửi.
 
@@ -182,11 +184,11 @@ Context hành trình và thao tác theo phân công
 
 **Role:** DRIVER_ESCORT, FLEET_ROUTE_COORDINATOR, LOGISTICS_MANAGER, TRANSPORT_SPECIALIST
 
-**Điều kiện và ảnh hưởng:** Driver chỉ có action ở chặng được giao; Specialist chỉ tác vụ checkpoint. Mốc/route từ approved snapshot, không sinh mốc dựa lịch giờ máy khách.
+**Điều kiện và ảnh hưởng:** Driver chỉ có action ở chặng được giao; Specialist chỉ tác vụ checkpoint. Mốc/route từ approved snapshot, trả đầy đủ thông tin xe (biển số, loại xe, số khoang) theo từng chặng ROAD.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -268,6 +270,14 @@ Context hành trình và thao tác theo phân công
           }
         ],
         "vehicleId": "VEHICLE_001",
+        "vehicle": {
+          "vehicleId": "VEHICLE_001",
+          "plateNumber": "51B-888.99",
+          "type": "Xe chuyên dụng 4 khoang điều hòa",
+          "capacityStalls": 4,
+          "heightM": 3.8,
+          "grossWeightTons": 8.5
+        },
         "from": "Điểm nhận ngựa",
         "to": "Điểm giao cuối",
         "milestoneIds": [
@@ -292,6 +302,7 @@ Context hành trình và thao tác theo phân công
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": true,
           "canRequestCorrection": false,
@@ -315,6 +326,7 @@ Context hành trình và thao tác theo phân công
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": false,
           "canRequestCorrection": false,
@@ -386,12 +398,12 @@ Kiểm tra trước xuất phát thực tế
 
 **Role:** DRIVER_ESCORT
 
-**Điều kiện và ảnh hưởng:** Kiểm lại approval, nguồn lực, hồ sơ, bảo hiểm, tình trạng ngựa và blocker hiện hành. GET không xuất phát. Inbound cũng dùng check theo chặng.
+**Điều kiện và ảnh hưởng:** Kiểm lại approval, nguồn lực, xe, hồ sơ, bảo hiểm, tình trạng ngựa và blocker hiện hành. Yêu cầu xác nhận HORSES_CHECKED và VEHICLE_VERIFIED. GET không xuất phát. Inbound cũng dùng check theo chặng.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| query | `leg` | False | `{"type": "string", "example": "road", "enum": ["road", "outbound", "air", "inbound"]}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| query | `leg` | False | `{"type":"string","example":"road","enum":["road","outbound","air","inbound"]}` |
 
 **Request body:** Không gửi.
 
@@ -455,12 +467,12 @@ Xác nhận xuất phát thực tế
 
 **Role:** DRIVER_ESCORT
 
-**Điều kiện và ảnh hưởng:** Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip và Request IN_TRANSIT nguyên tử; không tạo Trip mới.
+**Điều kiện và ảnh hưởng:** Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement (HORSES_CHECKED, VEHICLE_VERIFIED) server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip và Request IN_TRANSIT nguyên tử; khóa duyệt lại Flow 3; không tạo Trip mới.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -552,13 +564,13 @@ Xác nhận mốc kế tiếp của chặng
 
 **Role:** DRIVER_ESCORT
 
-**Điều kiện và ảnh hưởng:** Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. FINAL_ARRIVED chỉ mở Flow 6; Trip/Request vẫn IN_TRANSIT.
+**Điều kiện và ảnh hưởng:** Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. Trạm có cờ requiresHealthCheck phải hoàn tất HealthLog trước khi hoàn tất mốc. Ngựa có trạng thái ABNORMAL chặn mốc tiếp theo cho đến khi có xác nhận FIT. FINAL_ARRIVED chỉ mở Flow 6; Trip/Request vẫn IN_TRANSIT.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| path | `milestoneId` | True | `{"type": "string", "example": "MILESTONEID_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| path | `milestoneId` | True | `{"type":"string","example":"MILESTONEID_001","minLength":1,"maxLength":100,"pattern":"^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -613,7 +625,7 @@ Xác nhận mốc kế tiếp của chặng
 
 **Response 404:** NOT_FOUND; schema Error và JSON đầy đủ trong OpenAPI.
 
-**Response 409:** STALE_VERSION, IDEMPOTENCY_CONFLICT, TRIP_STATE_INVALID, MILESTONE_NOT_NEXT, MILESTONE_ALREADY_COMPLETED, NOT_ASSIGNED_LEG, CHECKPOINT_NOT_CLEARED, INCIDENT_BLOCKING, USE_SPECIALIZED_COMMAND, INVALID_EVENT_TIME, HEALTH_CHECK_REQUIRED; schema Error và JSON đầy đủ trong OpenAPI.
+**Response 409:** STALE_VERSION, IDEMPOTENCY_CONFLICT, TRIP_STATE_INVALID, MILESTONE_NOT_NEXT, MILESTONE_ALREADY_COMPLETED, NOT_ASSIGNED_LEG, CHECKPOINT_NOT_CLEARED, INCIDENT_BLOCKING, USE_SPECIALIZED_COMMAND, INVALID_EVENT_TIME, HEALTH_CHECK_REQUIRED, VET_CLEARANCE_REQUIRED; schema Error và JSON đầy đủ trong OpenAPI.
 
 **Response 429:** RATE_LIMITED; schema Error và JSON đầy đủ trong OpenAPI.
 
@@ -649,7 +661,7 @@ Lịch sử hành trình, đính chính và quyết định
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -707,9 +719,9 @@ Yêu cầu đính chính mốc đã hoàn tất
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| path | `milestoneId` | True | `{"type": "string", "example": "MILESTONEID_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| path | `milestoneId` | True | `{"type":"string","example":"MILESTONEID_001","minLength":1,"maxLength":100,"pattern":"^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -805,7 +817,7 @@ Danh sách yêu cầu đính chính
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -863,9 +875,9 @@ Duyệt hoặc từ chối đính chính
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| path | `correctionId` | True | `{"type": "string", "example": "CORRECTIONID_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| path | `correctionId` | True | `{"type":"string","example":"CORRECTIONID_001","minLength":1,"maxLength":100,"pattern":"^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -957,7 +969,7 @@ Kết quả cho phép đi tiếp tại checkpoint
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -1015,9 +1027,9 @@ Ghi kết quả kiểm tra pháp lý thực tế
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| path | `checkpointId` | True | `{"type": "string", "example": "CHECKPOINTID_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| path | `checkpointId` | True | `{"type":"string","example":"CHECKPOINTID_001","minLength":1,"maxLength":100,"pattern":"^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -1108,12 +1120,12 @@ Bàn giao ngựa cho đối tác AIR đầu đi
 
 **Role:** DRIVER_ESCORT
 
-**Điều kiện và ảnh hưởng:** MAIN_DRIVER/CO_DRIVER outbound, đúng mốc AIR_HANDOVER sau tới sân bay; đủ toàn bộ ngựa và booking hiện hành, bằng chứng đối tác. Không bàn giao cho người nhận cuối. Thông báo Manager/Customer/Coordinator sau commit.
+**Điều kiện và ảnh hưởng:** MAIN_DRIVER/CO_DRIVER outbound, đúng mốc AIR_HANDOVER sau tới sân bay (kho Cargo Terminal); đủ toàn bộ ngựa và booking hiện hành, bằng chứng đối tác. Ngựa có trạng thái ABNORMAL chặn bàn giao cho đến khi có xác nhận FIT. Không bàn giao cho người nhận cuối. Thông báo Manager/Customer/Coordinator sau commit.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -1125,7 +1137,7 @@ Bàn giao ngựa cho đối tác AIR đầu đi
     "HORSE_001"
   ],
   "bookingId": "BOOKING_001",
-  "partnerReference": "Biên nhận đối tác AIR",
+  "partnerReference": "Biên nhận đối tác AIR tại kho Cargo Terminal",
   "allHorsesChecked": true,
   "note": "",
   "evidenceFileIds": [
@@ -1176,7 +1188,7 @@ Bàn giao ngựa cho đối tác AIR đầu đi
 
 **Response 404:** NOT_FOUND; schema Error và JSON đầy đủ trong OpenAPI.
 
-**Response 409:** STALE_VERSION, IDEMPOTENCY_CONFLICT, TRIP_STATE_INVALID, MILESTONE_NOT_NEXT, HORSE_SET_MISMATCH, BOOKING_CHANGED, NOT_ASSIGNED_LEG; schema Error và JSON đầy đủ trong OpenAPI.
+**Response 409:** STALE_VERSION, IDEMPOTENCY_CONFLICT, TRIP_STATE_INVALID, MILESTONE_NOT_NEXT, HORSE_SET_MISMATCH, BOOKING_CHANGED, NOT_ASSIGNED_LEG, VET_CLEARANCE_REQUIRED, INCIDENT_BLOCKING; schema Error và JSON đầy đủ trong OpenAPI.
 
 **Response 429:** RATE_LIMITED; schema Error và JSON đầy đủ trong OpenAPI.
 
@@ -1212,8 +1224,8 @@ Ghi thông tin lịch hoặc sự kiện AIR từ đối tác
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -1309,12 +1321,12 @@ Kiểm tra và tiếp nhận ngựa đầu đến
 
 **Role:** DRIVER_ESCORT
 
-**Điều kiện và ảnh hưởng:** MAIN_DRIVER/CO_DRIVER inbound sau AIR_ARRIVED có bằng chứng; đủ ngựa và tình trạng nhận. Bất thường ghi health/Flow 5, không khai bình thường giả. Mở inbound khi tất cả gate đủ; thông báo Manager/Customer/Coordinator.
+**Điều kiện và ảnh hưởng:** MAIN_DRIVER/CO_DRIVER inbound sau AIR_ARRIVED có bằng chứng; đủ ngựa và tình trạng nhận tại kho Cargo Terminal. Bất thường ghi health/Flow 5, không khai bình thường giả. Mở inbound khi tất cả gate đủ; thông báo Manager/Customer/Coordinator.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -1326,7 +1338,7 @@ Kiểm tra và tiếp nhận ngựa đầu đến
     "HORSE_001"
   ],
   "bookingId": "BOOKING_001",
-  "partnerReference": "Biên nhận đối tác AIR",
+  "partnerReference": "Biên nhận đối tác AIR tại kho Cargo Terminal",
   "allHorsesChecked": true,
   "note": "",
   "evidenceFileIds": [
@@ -1413,7 +1425,7 @@ Lịch sử thông tin hãng và lịch dự kiến riêng
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -1471,8 +1483,8 @@ Lịch sử thông tin hãng và lịch dự kiến riêng
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -1559,8 +1571,8 @@ Lịch sử thông tin hãng và lịch dự kiến riêng
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -1647,7 +1659,7 @@ Lịch sử thông tin hãng và lịch dự kiến riêng
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -1705,9 +1717,9 @@ Xác nhận ETA hoặc trình Manager
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| path | `proposalId` | True | `{"type": "string", "example": "PROPOSALID_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| path | `proposalId` | True | `{"type":"string","example":"PROPOSALID_001","minLength":1,"maxLength":100,"pattern":"^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -1798,9 +1810,9 @@ Manager quyết định đề xuất ETA vượt phạm vi
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| path | `proposalId` | True | `{"type": "string", "example": "PROPOSALID_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| path | `proposalId` | True | `{"type":"string","example":"PROPOSALID_001","minLength":1,"maxLength":100,"pattern":"^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -1891,8 +1903,8 @@ Nhật ký chăm sóc và chỉ số từng ngựa
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| query | `horseId` | False | `{"type": "string", "example": "HORSE_001", "pattern": "^HORSE_\\d{3,}$", "maxLength": 50}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| query | `horseId` | False | `{"type":"string","example":"HORSE_001","pattern":"^HORSE_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -1946,12 +1958,12 @@ Ghi chăm sóc và quan sát sức khỏe
 
 **Role:** DRIVER_ESCORT
 
-**Điều kiện và ảnh hưởng:** Mọi nhân sự được giao ở chặng, gồm bác sĩ, được ghi; khi blocker hành trình còn mở vẫn cho chăm sóc. Checklist máy chủ quyết định ảnh/chỉ số cần có. ABNORMAL lưu ngay và trả incidentRequired=true nếu chưa liên kết incident; không tự mở mốc hay coi báo cáo là sự cố đã xử lý.
+**Điều kiện và ảnh hưởng:** Mọi nhân sự được giao ở chặng, gồm bác sĩ, được ghi; khi blocker hành trình còn mở vẫn cho chăm sóc. Checklist máy chủ quyết định ảnh/chỉ số cần có. ABNORMAL lưu ngay và trả incidentRequired=true nếu chưa liên kết incident; tự động kích hoạt chốt chặn an toàn cho chuyến đi.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -2060,9 +2072,9 @@ Bổ sung bản đính chính nhật ký sức khỏe
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| path | `healthLogId` | True | `{"type": "string", "example": "HEALTHLOGID_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| path | `healthLogId` | True | `{"type":"string","example":"HEALTHLOGID_001","minLength":1,"maxLength":100,"pattern":"^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -2171,12 +2183,12 @@ Bác sĩ ghi kết luận và khả năng tiếp tục
 
 **Role:** DRIVER_ESCORT
 
-**Điều kiện và ảnh hưởng:** JWT DRIVER_ESCORT và assignment crewDuty=VETERINARIAN với chứng chỉ/qualification hợp lệ; không tạo role VET mới. NOT_FIT/NEEDS_REVIEW chặn phần liên quan. FIT chỉ giải quyết gate chuyên môn, không tự resume/đóng incident; kết luận mới append-only.
+**Điều kiện và ảnh hưởng:** JWT DRIVER_ESCORT và assignment crewDuty=VETERINARIAN với chứng chỉ/qualification hợp lệ; không tạo role VET mới. NOT_FIT/NEEDS_REVIEW chặn phần liên quan. FIT giải phóng chốt chặn y tế chuyên môn nhưng không tự resume các blocker sự cố khác; kết luận mới append-only.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -2266,7 +2278,7 @@ Bác sĩ ghi kết luận và khả năng tiếp tục
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -2324,7 +2336,7 @@ Cảnh báo trễ mốc và chăm sóc đến hạn
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -2382,9 +2394,9 @@ Ghi đã tiếp nhận cảnh báo
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| path | `alertId` | True | `{"type": "string", "example": "ALERTID_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| path | `alertId` | True | `{"type":"string","example":"ALERTID_001","minLength":1,"maxLength":100,"pattern":"^[A-Za-z0-9_-]+$"}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -2472,8 +2484,8 @@ Ghi kết quả liên hệ nhân sự không phản hồi
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
 **Request JSON**
 
@@ -2561,14 +2573,14 @@ Upload bằng chứng hành trình thật
 
 **Role:** DRIVER_ESCORT, FLEET_ROUTE_COORDINATOR, TRANSPORT_SPECIALIST
 
-**Điều kiện và ảnh hưởng:** FormData file bytes + purpose, horseId bắt buộc với HEALTH. HEALTH chỉ JPEG/PNG, mục khác PDF/JPEG/PNG <=10 MiB. Kiểm nội dung/MIME/quét và scope; chưa gắn file không tự hoàn tất mốc. Upload độc lập không đổi executionVersion.
+**Điều kiện và ảnh hưởng:** FormData file bytes + purpose, horseId bắt buộc với HEALTH. HEALTH/EXPENSE chỉ JPEG/PNG, mục khác PDF/JPEG/PNG <=10 MiB. Kiểm nội dung/MIME/quét và scope; chưa gắn file không tự hoàn tất mốc. Upload độc lập không đổi executionVersion.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "example": "f141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
 
-**Multipart:** `file` bytes thật, `purpose`, `horseId` nếu HEALTH; tối đa 10 MiB. HEALTH chỉ JPEG/PNG. Không đặt Content-Type thủ công, trình duyệt tạo boundary. Không gửi JSON/base64/object URL.
+**Multipart:** `file` bytes thật, `purpose`, `horseId` nếu HEALTH; tối đa 10 MiB. HEALTH/EXPENSE chỉ JPEG/PNG. Không đặt Content-Type thủ công, trình duyệt tạo boundary. Không gửi JSON/base64/object URL.
 
 **Response 201 — mẫu mục tiêu**
 
@@ -2598,15 +2610,15 @@ Upload bằng chứng hành trình thật
 
 **Response 409:** STALE_VERSION, IDEMPOTENCY_CONFLICT, TRIP_STATE_INVALID; schema Error và JSON đầy đủ trong OpenAPI.
 
+**Response 413:** FILE_TOO_LARGE; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 415:** UNSUPPORTED_MEDIA_TYPE; schema Error và JSON đầy đủ trong OpenAPI.
+
 **Response 429:** RATE_LIMITED; schema Error và JSON đầy đủ trong OpenAPI.
 
 **Response 500:** INTERNAL_ERROR; schema Error và JSON đầy đủ trong OpenAPI.
 
 **Response 501:** FEATURE_NOT_SUPPORTED; schema Error và JSON đầy đủ trong OpenAPI.
-
-**Response 413:** FILE_TOO_LARGE; schema Error và JSON đầy đủ trong OpenAPI.
-
-**Response 415:** UNSUPPORTED_MEDIA_TYPE; schema Error và JSON đầy đủ trong OpenAPI.
 
 **Mẫu lỗi nghiệp vụ**
 
@@ -2636,8 +2648,8 @@ Tải file vận hành có kiểm quyền
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| path | `fileId` | True | `{"type": "string", "example": "FILEID_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| path | `fileId` | True | `{"type":"string","example":"FILEID_001","minLength":1,"maxLength":100,"pattern":"^[A-Za-z0-9_-]+$"}` |
 
 **Request body:** Không gửi.
 
@@ -2683,11 +2695,11 @@ Khách xem hành trình đơn của mình
 
 **Role:** CUSTOMER
 
-**Điều kiện và ảnh hưởng:** Projection đã lọc nội dung nội bộ, chỉ ngựa/đơn của JWT. Có ETA hiện hành/đề xuất riêng và bản đồ mốc đã xác nhận; không lộ booking nội bộ, cost hoặc hồ sơ nhân sự.
+**Điều kiện và ảnh hưởng:** Projection đã lọc nội dung nội bộ, chỉ ngựa/đơn của JWT. Có ETA hiện hành/đề xuất riêng và bản đồ mốc đã xác nhận; không lộ booking nội bộ, chi phí phát sinh hoặc hồ sơ nhân sự.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "example": "REQUEST_001", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+| path | `requestId` | True | `{"type":"string","example":"REQUEST_001","pattern":"^REQUEST_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -2808,8 +2820,8 @@ Khách xem chăm sóc, chỉ số, ảnh và nhận xét
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "example": "REQUEST_001", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| query | `horseId` | False | `{"type": "string", "example": "HORSE_001", "pattern": "^HORSE_\\d{3,}$", "maxLength": 50}` |
+| path | `requestId` | True | `{"type":"string","example":"REQUEST_001","pattern":"^REQUEST_\\d{3,}$","maxLength":50}` |
+| query | `horseId` | False | `{"type":"string","example":"HORSE_001","pattern":"^HORSE_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -2867,8 +2879,8 @@ Khách tải ảnh/bằng chứng được chia sẻ
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "example": "REQUEST_001", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `fileId` | True | `{"type": "string", "example": "FILEID_001", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9_-]+$"}` |
+| path | `requestId` | True | `{"type":"string","example":"REQUEST_001","pattern":"^REQUEST_\\d{3,}$","maxLength":50}` |
+| path | `fileId` | True | `{"type":"string","example":"FILEID_001","minLength":1,"maxLength":100,"pattern":"^[A-Za-z0-9_-]+$"}` |
 
 **Request body:** Không gửi.
 
@@ -2918,7 +2930,7 @@ Manager giám sát vận hành
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
 
 **Request body:** Không gửi.
 
@@ -3000,6 +3012,14 @@ Manager giám sát vận hành
           }
         ],
         "vehicleId": "VEHICLE_001",
+        "vehicle": {
+          "vehicleId": "VEHICLE_001",
+          "plateNumber": "51B-888.99",
+          "type": "Xe chuyên dụng 4 khoang điều hòa",
+          "capacityStalls": 4,
+          "heightM": 3.8,
+          "grossWeightTons": 8.5
+        },
         "from": "Điểm nhận ngựa",
         "to": "Điểm giao cuối",
         "milestoneIds": [
@@ -3024,6 +3044,7 @@ Manager giám sát vận hành
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": true,
           "canRequestCorrection": false,
@@ -3047,6 +3068,7 @@ Manager giám sát vận hành
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": false,
           "canRequestCorrection": false,
@@ -3075,6 +3097,155 @@ Manager giám sát vận hành
     "blockers": [],
     "handoverAvailable": false
   }
+}
+```
+
+**Response 400:** VALIDATION_ERROR; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 401:** UNAUTHENTICATED; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 403:** FORBIDDEN; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 404:** NOT_FOUND; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 409:** STALE_VERSION, IDEMPOTENCY_CONFLICT, TRIP_STATE_INVALID; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 429:** RATE_LIMITED; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 500:** INTERNAL_ERROR; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 501:** FEATURE_NOT_SUPPORTED; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện: TRIP_STATE_INVALID",
+  "errorCode": "TRIP_STATE_INVALID",
+  "data": null,
+  "blockers": [
+    {
+      "code": "TRIP_STATE_INVALID",
+      "field": "execution",
+      "message": "Tải lại và kiểm tra điều kiện liên quan"
+    }
+  ]
+}
+```
+
+## F4-J36 — POST /driver/trips/{tripId}/expenses
+
+Ghi nhận chi phí phát sinh trên đường
+
+**Role:** DRIVER_ESCORT
+
+**Điều kiện và ảnh hưởng:** Tổ xe ghi nhận chi phí thực tế (vé BOT, cỏ/nước, thuốc khẩn cấp) kèm ảnh biên lai/hóa đơn. Không tự ý sửa giá cước hợp đồng của khách hàng. Dữ liệu được chuyển Flow 6 đối soát hoàn ứng.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+| header | `Idempotency-Key` | True | `{"type":"string","example":"f141a4d2-3221-4a68-9b0e-1bac88cc1f0a","pattern":"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "expectedVersion": 10,
+  "category": "TOLL_FEE",
+  "amountVnd": 150000,
+  "occurredAt": "2026-11-10 06:00",
+  "reason": "Giờ thực tế khác thời điểm nhập ban đầu",
+  "milestoneId": null,
+  "receiptFileIds": []
+}
+```
+
+**Response 201 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "EXPENSE_001",
+    "tripId": "TRIP_001",
+    "entry": {
+      "expectedVersion": 10,
+      "category": "TOLL_FEE",
+      "amountVnd": 150000,
+      "occurredAt": "2026-11-10 06:00",
+      "reason": "Giờ thực tế khác thời điểm nhập ban đầu",
+      "milestoneId": null,
+      "receiptFileIds": []
+    },
+    "recordedBy": {
+      "userId": "USER_011",
+      "name": "Nguyễn Văn An",
+      "role": "DRIVER_ESCORT",
+      "crewDuty": null
+    },
+    "recordedAt": "2026-11-10 06:00",
+    "status": "RECORDED"
+  }
+}
+```
+
+**Response 400:** VALIDATION_ERROR; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 401:** UNAUTHENTICATED; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 403:** FORBIDDEN; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 404:** NOT_FOUND; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 409:** STALE_VERSION, IDEMPOTENCY_CONFLICT, TRIP_STATE_INVALID, NOT_ASSIGNED_LEG, EVIDENCE_INVALID; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 429:** RATE_LIMITED; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 500:** INTERNAL_ERROR; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Response 501:** FEATURE_NOT_SUPPORTED; schema Error và JSON đầy đủ trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện: NOT_ASSIGNED_LEG",
+  "errorCode": "NOT_ASSIGNED_LEG",
+  "data": null,
+  "blockers": [
+    {
+      "code": "NOT_ASSIGNED_LEG",
+      "field": "execution",
+      "message": "Tải lại và kiểm tra điều kiện liên quan"
+    }
+  ]
+}
+```
+
+## F4-J37 — GET /trips/{tripId}/execution/expenses
+
+Danh sách chi phí phát sinh chuyến đi
+
+**Role:** DRIVER_ESCORT, FLEET_ROUTE_COORDINATOR, LOGISTICS_MANAGER, TRANSPORT_SPECIALIST
+
+**Điều kiện và ảnh hưởng:** Đọc danh sách chi phí phát sinh thực tế do tổ xe ghi nhận trong hành trình để phục vụ đối soát hoàn ứng.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | True | `{"type":"string","example":"TRIP_001","pattern":"^TRIP_\\d{3,}$","maxLength":50}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": []
 }
 ```
 

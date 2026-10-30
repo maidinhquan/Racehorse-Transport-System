@@ -1,7 +1,7 @@
+using System.Security.Cryptography;
 using Domain.Entities;
 using Domain.Interfaces.DAOs;
 using Microsoft.Extensions.Configuration;
-using System.Security.Cryptography;
 
 namespace Application.Services
 {
@@ -20,7 +20,8 @@ namespace Application.Services
 
         public async Task<(bool Success, string Message)> ForgotPasswordAsync(string email)
         {
-            const string successMessage = "Liên kết đặt lại mật khẩu đã được gửi đến hòm thư của bạn.";
+            const string successMessage =
+                "Liên kết đặt lại mật khẩu đã được gửi đến hòm thư của bạn.";
 
             if (string.IsNullOrWhiteSpace(email))
             {
@@ -63,7 +64,8 @@ namespace Application.Services
 
             // 5. Gửi email chứa liên kết đặt lại mật khẩu cho người dùng
             var subject = "Yêu cầu đặt lại mật khẩu - RaceHorse Transport";
-            var body = $@"<h3>Yêu cầu đặt lại mật khẩu</h3>
+            var body =
+                $@"<h3>Yêu cầu đặt lại mật khẩu</h3>
 <p>Xin chào <strong>{user.FullName}</strong>,</p>
 <p>Bạn đã gửi yêu cầu đặt lại mật khẩu cho tài khoản tại hệ thống RaceHorse Transport.</p>
 <p>Vui lòng bấm vào nút bên dưới để tiến hành đặt lại mật khẩu mới:</p>
@@ -80,7 +82,11 @@ namespace Application.Services
             return (true, successMessage);
         }
 
-        public async Task<(bool Success, string Message)> ResetPasswordAsync(string token, string newPassword, string confirmPassword)
+        public async Task<(bool Success, string Message)> ResetPasswordAsync(
+            string token,
+            string newPassword,
+            string confirmPassword
+        )
         {
             if (string.IsNullOrWhiteSpace(token))
             {
@@ -115,7 +121,10 @@ namespace Application.Services
             // 3. Kiểm tra user.ResetOtpExpiry > DateTime.UtcNow
             if (user.ResetOtpExpiry == null || user.ResetOtpExpiry <= DateTime.UtcNow)
             {
-                return (false, "Liên kết đặt lại mật khẩu đã hết hạn, vui lòng yêu cầu liên kết mới");
+                return (
+                    false,
+                    "Liên kết đặt lại mật khẩu đã hết hạn, vui lòng yêu cầu liên kết mới"
+                );
             }
 
             // 4. Gán mật khẩu mới
@@ -134,4 +143,3 @@ namespace Application.Services
         }
     }
 }
-

@@ -1,5 +1,5 @@
 {
-  "contractVersion": "1.0.0",
+  "contractVersion": "1.1.0",
   "status": "ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS",
   "road": {
     "binding": {
@@ -73,6 +73,14 @@
           }
         ],
         "vehicleId": "VEHICLE_001",
+        "vehicle": {
+          "vehicleId": "VEHICLE_001",
+          "plateNumber": "51B-888.99",
+          "type": "Xe chuyên dụng 4 khoang điều hòa",
+          "capacityStalls": 4,
+          "heightM": 3.8,
+          "grossWeightTons": 8.5
+        },
         "from": "Điểm nhận ngựa",
         "to": "Điểm giao cuối",
         "milestoneIds": [
@@ -97,6 +105,7 @@
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": true,
           "canRequestCorrection": false,
@@ -120,6 +129,7 @@
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": false,
           "canRequestCorrection": false,
@@ -228,6 +238,14 @@
           }
         ],
         "vehicleId": "VEHICLE_001",
+        "vehicle": {
+          "vehicleId": "VEHICLE_001",
+          "plateNumber": "51B-888.99",
+          "type": "Xe chuyên dụng 4 khoang điều hòa",
+          "capacityStalls": 4,
+          "heightM": 3.8,
+          "grossWeightTons": 8.5
+        },
         "from": "Điểm nhận ngựa",
         "to": "Điểm giao cuối",
         "milestoneIds": [
@@ -243,6 +261,7 @@
         "assignedUserIds": [],
         "crew": [],
         "vehicleId": null,
+        "vehicle": null,
         "from": "Điểm nhận ngựa",
         "to": "Điểm giao cuối",
         "milestoneIds": [
@@ -277,6 +296,14 @@
           }
         ],
         "vehicleId": "VEHICLE_002",
+        "vehicle": {
+          "vehicleId": "VEHICLE_002",
+          "plateNumber": "51B-999.88",
+          "type": "Xe chuyên dụng 4 khoang điều hòa",
+          "capacityStalls": 4,
+          "heightM": 3.8,
+          "grossWeightTons": 8.5
+        },
         "from": "Điểm nhận ngựa",
         "to": "Điểm giao cuối",
         "milestoneIds": [
@@ -302,6 +329,7 @@
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": true,
           "canRequestCorrection": false,
@@ -325,6 +353,7 @@
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": false,
           "canRequestCorrection": false,
@@ -348,6 +377,7 @@
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": false,
           "canRequestCorrection": false,
@@ -371,6 +401,7 @@
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": false,
           "canRequestCorrection": false,
@@ -394,6 +425,7 @@
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": false,
           "canRequestCorrection": false,
@@ -417,6 +449,7 @@
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": false,
           "canRequestCorrection": false,
@@ -440,6 +473,7 @@
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": false,
           "canRequestCorrection": false,
@@ -463,6 +497,7 @@
         "note": "",
         "evidenceFileIds": [],
         "geo": null,
+        "requiresHealthCheck": false,
         "actions": {
           "canComplete": false,
           "canRequestCorrection": false,
@@ -625,6 +660,24 @@
       "then": "409 INCIDENT_BLOCKING; chăm sóc tiếp tục"
     },
     {
+      "id": "health-check-gate",
+      "given": "Trạm dừng có requiresHealthCheck=true",
+      "when": "J06 hoàn thành mốc khi chưa có Health Log",
+      "then": "409 HEALTH_CHECK_REQUIRED, mốc tiếp tục bị khóa"
+    },
+    {
+      "id": "vet-clearance-gate",
+      "given": "Có ngựa ABNORMAL chưa được bác sĩ khám FIT",
+      "when": "J06 hoặc J13",
+      "then": "409 VET_CLEARANCE_REQUIRED hoặc INCIDENT_BLOCKING"
+    },
+    {
+      "id": "petty-cash-expense",
+      "given": "Phát sinh phí cầu đường BOT",
+      "when": "J36 gửi chi phí kèm ảnh vé",
+      "then": "Ghi nhận EXPENSE_001, status RECORDED, chuyển Flow 6 đối soát"
+    },
+    {
       "id": "customer-scope",
       "given": "Customer A",
       "when": "Đọc request/file/horse của B",
@@ -664,7 +717,7 @@
       "id": "handover-contract",
       "given": "Đã đến điểm giao cuối",
       "when": "Bàn giao hợp lệ bằng Flow6",
-      "then": "Trip COMPLETED, Request DELIVERED theo Flow6; không tự đóng"
+      "then": "Trip COMPLETED, Request DELIVERED theo Flow6; nhả xe AVAILABLE; không tự đóng"
     },
     {
       "id": "transaction-rollback",

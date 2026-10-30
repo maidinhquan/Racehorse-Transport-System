@@ -27,14 +27,13 @@ public sealed class ContractTransportModeTests
         }
         data.Rows.Add(new BusinessPolicy { Code = "DEFAULT_DEPOSIT_PERCENT", ScopeType = "GLOBAL", ValueType = "NUMBER", Unit = "PERCENT", NumberValue = 30 });
         data.Rows.Add(new BusinessPolicy { Code = "CONTRACT_DEADLINE_HOURS", ScopeType = "GLOBAL", ValueType = "NUMBER", Unit = "HOUR", NumberValue = 24 });
-        var builder = new SnapshotBuilder(data, new Flow1ContractOptions(), new CatalogService(data, new PolicyService(data)));
+        var builder = new SnapshotBuilder(data, new Flow1ContractOptions(), new PolicyService(data));
         var input = new ContractDraftInput("2026-12-15 18:00", new(0, 0, 0, 0, 0), "2026-12-09 06:00", 30, "", [], mode, "", []);
         var snapshot = await builder.BuildAsync(new Contract { ContractID = "contract", CustomerID = "owner" }, 1,
             new TransportRequest { RequestID = "request", OriginCountry = "VN", DestinationCountry = "VN" }, input, default);
         using var json = JsonDocument.Parse(snapshot);
         var route = json.RootElement.GetProperty("route");
         Assert.Equal(mode, route.GetProperty("mode").GetString());
-        Assert.Equal("CONTRACT", route.GetProperty("transportModeDecision").GetString());
         Assert.Equal(days, route.GetProperty("preparationDays").GetDecimal());
     }
 

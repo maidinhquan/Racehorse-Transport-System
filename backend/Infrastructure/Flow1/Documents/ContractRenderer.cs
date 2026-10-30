@@ -53,15 +53,6 @@ public sealed class ContractRenderer(Flow1ContractOptions options, IPrivateFiles
         if (value.ValueKind == JsonValueKind.Object)
             foreach (var property in value.EnumerateObject())
             {
-                if (value.TryGetProperty("transportModeDecision", out var decision) && decision.GetString() == "FLOW3")
-                {
-                    if (property.Name == "transportModeDecision") continue;
-                    if (property.Name == "mode")
-                    {
-                        html.Append("<section><h3>Phương thức vận chuyển</h3><p>Coordinator quyết định khi lập kế hoạch vận chuyển.</p></section>");
-                        continue;
-                    }
-                }
                 html.Append($"<section><h{Math.Min(level, 6)}>{WebUtility.HtmlEncode(property.Name)}</h{Math.Min(level, 6)}>");
                 Render(html, property.Value, level + 1); html.Append("</section>");
             }

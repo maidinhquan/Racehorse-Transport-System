@@ -8,26 +8,6 @@ using Xunit;
 namespace Flow1.Rebuild.Tests;
 public sealed class CatalogTests(SqlFixture database) : IClassFixture<SqlFixture>
 {
-    [Fact] public async Task Contract_preparation_covers_all_supported_modes_without_selecting_one()
-    {
-        await using var db = database.Context();
-        var policies = new[] { (Mode: "ROAD", Days: 5m), (Mode: "AIR", Days: 9m) }.Select(x => new BusinessPolicy
-        {
-            Code = "MIN_PREPARATION_DAYS", ValueType = "NUMBER", NumberValue = x.Days, Unit = "DAY",
-            ScopeType = "TRANSPORT_MODE", ScopeID = x.Mode, UpdatedBy = "USER_004",
-            Description = "Contract preparation test", UpdatedAt = DateTime.UtcNow
-        }).ToArray();
-        db.AddRange(policies); await db.SaveChangesAsync();
-        try
-        {
-            var session = new SqlSession(db);
-            var result = System.Text.Json.JsonSerializer.SerializeToElement(await new CatalogService(session, new PolicyService(session))
-                .ContractOptionsAsync("VN", "VN", default));
-            Assert.Equal(9, result.GetProperty("preparationDays").GetDecimal());
-            Assert.False(result.TryGetProperty("selectedRoute", out _));
-        }
-        finally { db.RemoveRange(policies); await db.SaveChangesAsync(); }
-    }
     [Fact] public async Task Form_options_for_a_selected_route_return_only_that_route_and_its_policies()
     {
         using var factory = new ApiFactory(database); using var client = factory.Customer();

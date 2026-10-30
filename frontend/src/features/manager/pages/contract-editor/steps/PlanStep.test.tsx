@@ -17,10 +17,14 @@ const request = { id: 'REQUEST_005', horses: [], versions: [], pickupAt: '2026-1
 describe('Contract transport mode', () => {
   it('lets the Manager select the method while drafting the contract', async () => {
     const set = vi.fn();
-    render(<PlanStep request={request} draft={draft} set={set} horses={[]} />);
+    const defaults = {
+      preparationDays: 3,
+      supportedRoutes: [{ originCountry: 'VN', destinationCountry: 'VN', mode: 'ROAD' as const }, { originCountry: 'VN', destinationCountry: 'VN', mode: 'AIR' as const }],
+      selectedRoute: { originCountry: 'VN', destinationCountry: 'VN', mode: 'ROAD' as const },
+    };
+    render(<PlanStep request={request} draft={draft} set={set} horses={[]} defaults={defaults as any} policyReady={true} />);
     fireEvent.change(screen.getByLabelText('Phương thức vận chuyển *'), { target: { value: 'AIR' } });
     expect(set).toHaveBeenCalledWith({ mode: 'AIR' });
-    expect(await screen.findByText(/Tuyến này cần dự phòng/)).toBeTruthy();
   });
   it('keeps the saved method when reopening the editor and requires a selection', () => {
     expect(initialDraft({ ...request, draft: { ...draft, mode: 'AIR' } }).mode).toBe('AIR');
