@@ -154,12 +154,17 @@ CREATE TABLE PARTNER_FACILITY (
     FacilityID VARCHAR(50) NOT NULL,
     Name NVARCHAR(200) NOT NULL,
     FacilityType VARCHAR(50) NULL, -- VET_CLINIC, REST_STATION, QUARANTINE
+    Purposes NVARCHAR(100) NULL, -- Flow 3 v2: REST, FUEL, QUARANTINE, BORDER, AIRPORT
     CountryCode VARCHAR(3) NOT NULL DEFAULT 'VN',
     State_Province NVARCHAR(100) NULL,
     City NVARCHAR(100) NULL,
     Address NVARCHAR(500) NULL,
     Coordinates VARCHAR(100) NULL,
+    Latitude DECIMAL(9,6) NULL,
+    Longitude DECIMAL(9,6) NULL,
     TimeZone VARCHAR(50) NULL, -- Múi giờ để tính ETA
+    OperatingHours VARCHAR(50) NULL DEFAULT '24/7', -- '24/7' hoặc '06:00-22:00'
+    SupportsOvernight BIT NOT NULL DEFAULT 0,
     HasTruckParking BIT NOT NULL DEFAULT 1,
     HasLoadingArea BIT NOT NULL DEFAULT 1,
     HasStabling BIT NOT NULL DEFAULT 1,
@@ -208,6 +213,7 @@ CREATE TABLE FACILITY_CERTIFICATION (
 
 -- 9. Bảng TRANSPORT_REQUEST: Yêu cầu vận chuyển
 CREATE TABLE TRANSPORT_REQUEST (
+    DeclaredValueVnd DECIMAL(18,2) NULL,
     PickupStableName NVARCHAR(200) NULL,
     PickupPostalCode NVARCHAR(20) NULL,
     PickupInstructions NVARCHAR(1000) NULL,
@@ -276,10 +282,11 @@ CREATE TABLE TRANSPORT_REQUEST (
 
 -- 10. Bảng REQUEST_HORSE_MAPPING: Khử quan hệ N-N giữa Request và Horse
 CREATE TABLE REQUEST_HORSE_MAPPING (
+    RequestHorseID VARCHAR(50) NOT NULL,
     CareInstructions NVARCHAR(2000) NULL,
     RequestID VARCHAR(50) NOT NULL,
     HorseID VARCHAR(50) NOT NULL,
-    CONSTRAINT PK_RequestHorseMapping PRIMARY KEY (RequestID, HorseID),
+    CONSTRAINT PK_RequestHorseMapping PRIMARY KEY (RequestHorseID),
     CONSTRAINT FK_RHM_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
     CONSTRAINT FK_RHM_Horse FOREIGN KEY (HorseID) REFERENCES HORSE(HorseID)
 );
@@ -348,9 +355,38 @@ CREATE TABLE TRIP_PLAN (
     HandoffEventId VARCHAR(50) NULL,
     AssignedSpecialistId VARCHAR(50) NULL,
     AssignedCoordinatorId VARCHAR(50) NULL,
+
+    -- Xác nhận Điều phối viên (Coordinator / Operations READY - Flow 3)
+    OperationsStatus VARCHAR(20) NOT NULL DEFAULT 'NOT_READY', -- NOT_READY, READY
+    ResourcesConfirmedAt DATETIME2 NULL,
+    ResourcesConfirmedBy NVARCHAR(100) NULL,
+    
+    -- Xác nhận Chuyên viên pháp lý (Specialist / Documents READY - Flow 2)
+    DocumentsStatus VARCHAR(20) NOT NULL DEFAULT 'NOT_READY', -- NOT_READY, READY
+    EarliestDepartureDate DATETIME2 NULL,
+    DocumentExpiryDate DATETIME2 NULL,
+    SpecialistLegalNote NVARCHAR(500) NULL,
+    DocumentsConfirmedAt DATETIME2 NULL,
+    DocumentsConfirmedBy NVARCHAR(100) NULL,
+    
+    -- Thẩm định & Phê duyệt Lộ trình (Manager Route Review / Gate 1)
+    CurrentRouteVersion INT NOT NULL DEFAULT 1,
+    RouteStatus VARCHAR(30) NOT NULL DEFAULT 'DRAFT', -- DRAFT, PENDING_APPROVAL, APPROVED, RETURNED
+    RouteApprovedAt DATETIME2 NULL,
+    RouteApprovedBy VARCHAR(50) NULL,
+    RouteReturnReason NVARCHAR(500) NULL,
+    
+    -- Phê duyệt Khởi hành (Manager Gate 2 -> READY_TO_DEPART)
+    DepartureApprovedAt DATETIME2 NULL,
+    DepartureApprovedBy NVARCHAR(100) NULL,
+    RejectionReason NVARCHAR(500) NULL,
+
     CONSTRAINT PK_TripPlan PRIMARY KEY (TripID),
     CONSTRAINT FK_TripPlan_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
     CONSTRAINT FK_TripPlan_OriginPlace FOREIGN KEY (EffectiveOriginPlaceId) REFERENCES PARTNER_FACILITY(FacilityID),
+    CONSTRAINT CK_TRIP_PLAN_OperationsStatus CHECK (OperationsStatus IN ('NOT_READY', 'READY')),
+    CONSTRAINT CK_TRIP_PLAN_DocumentsStatus CHECK (DocumentsStatus IN ('NOT_READY', 'READY')),
+    CONSTRAINT CK_TRIP_PLAN_RouteStatus CHECK (RouteStatus IN ('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'RETURNED')),
     CONSTRAINT CK_F1S_TRIP_PLAN_Deployment CHECK ([DeploymentStatus] IS NULL OR ([DeploymentStatus] IS NOT NULL AND [DeploymentStatus] IN ('PENDING','CONFIRMED','ON_HOLD') AND [DeploymentReason] IS NOT NULL AND [DeploymentBy] IS NOT NULL AND [DeploymentAtUtc] IS NOT NULL AND (([DeploymentStatus]='PENDING' AND [HandoffEventId] IS NULL) OR ([DeploymentStatus] IN ('CONFIRMED','ON_HOLD') AND [HandoffEventId] IS NOT NULL)))),
     CONSTRAINT FK_F1_Specialist FOREIGN KEY (AssignedSpecialistId) REFERENCES [USER](UserID),
     CONSTRAINT FK_F1_Coordinator FOREIGN KEY (AssignedCoordinatorId) REFERENCES [USER](UserID)
@@ -375,36 +411,49 @@ CREATE TABLE VEHICLE (
     CONSTRAINT PK_Vehicle PRIMARY KEY (VehicleID)
 );
 
--- 15. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái
+-- 15. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái theo từng chặng độc lập
 CREATE TABLE TRIP_VEHICLE_ASSIGNMENT (
     AssignmentID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
+    LegNumber INT NOT NULL DEFAULT 1, -- 1: Chặng đi VN, 2: Chặng đến (hoặc 3 nếu có)
+    LegType VARCHAR(50) NULL, -- 'OUTBOUND' (Chặng 1), 'INBOUND' (Chặng 2)
     VehicleID VARCHAR(50) NOT NULL,
-    DriverID VARCHAR(50) NOT NULL,
-    EscortID VARCHAR(50) NOT NULL,
+    DriverID VARCHAR(50) NOT NULL, -- Tài xế chính
+    CoDriverID VARCHAR(50) NULL, -- Phụ xe / Tài xế phụ
+    VeterinarianID VARCHAR(50) NULL, -- Bác sĩ thú y áp tải
+    EscortID VARCHAR(50) NULL, -- Người áp tải kiêm nhiệm (nullable)
     CONSTRAINT PK_TripVehicleAssignment PRIMARY KEY (AssignmentID),
     CONSTRAINT FK_TVA_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
     CONSTRAINT FK_TVA_Vehicle FOREIGN KEY (VehicleID) REFERENCES VEHICLE(VehicleID),
     CONSTRAINT FK_TVA_Driver FOREIGN KEY (DriverID) REFERENCES [USER](UserID),
+    CONSTRAINT FK_TVA_CoDriver FOREIGN KEY (CoDriverID) REFERENCES [USER](UserID),
+    CONSTRAINT FK_TVA_Vet FOREIGN KEY (VeterinarianID) REFERENCES [USER](UserID),
     CONSTRAINT FK_TVA_Escort FOREIGN KEY (EscortID) REFERENCES [USER](UserID)
 );
 
--- 16. Bảng ROUTE_SEGMENT: Chặng đường & Đa phương thức
+-- 16. Bảng ROUTE_SEGMENT: Chặng đường, điểm dừng nghỉ & Vận tải đa phương thức
 CREATE TABLE ROUTE_SEGMENT (
     SegmentID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
+    SequenceOrder INT NULL DEFAULT 1, -- Thứ tự điểm dừng trên lộ trình
     FacilityID VARCHAR(50) NULL, -- Trạm dừng liên kết
     LocationName NVARCHAR(255) NOT NULL,
     SegmentType VARCHAR(50) NULL,
     TransportMode VARCHAR(50) NOT NULL DEFAULT 'ROAD', -- ROAD, AIR, SEA
     CarrierName NVARCHAR(100) NULL, -- Hãng bay/tàu
     Flight_Voyage_No VARCHAR(50) NULL, -- Số chuyến bay/tàu
+    PlannedTime DATETIME NULL, -- Thời gian dự kiến đến trạm
     ExpectedETA DATETIME NULL,
     ActualTime DATETIME NULL,
+    -- Tọa độ kinh độ / vĩ độ của điểm dừng tự do (ngoài trạm liên kết Facility)
+    Latitude DECIMAL(9,6) NULL,
+    Longitude DECIMAL(9,6) NULL,
+    Coordinates VARCHAR(100) NULL,
     Status VARCHAR(50) NULL,
     CONSTRAINT PK_RouteSegment PRIMARY KEY (SegmentID),
     CONSTRAINT FK_RouteSegment_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
-    CONSTRAINT FK_RouteSegment_Facility FOREIGN KEY (FacilityID) REFERENCES PARTNER_FACILITY(FacilityID)
+    CONSTRAINT FK_RouteSegment_Facility FOREIGN KEY (FacilityID) REFERENCES PARTNER_FACILITY(FacilityID),
+    CONSTRAINT CK_RouteSegment_Coordinates CHECK ([Latitude] IS NULL AND [Longitude] IS NULL OR [Latitude] IS NOT NULL AND [Longitude] IS NOT NULL AND ([Latitude]>=(-90) AND [Latitude]<=(90)) AND ([Longitude]>=(-180) AND [Longitude]<=(180)))
 );
 
 -- 17. (MỚI) Bảng FLIGHT_BOOKING: Quản lý đặt vé & dịch vụ bay chuyên chở ngựa (Air Leg)
@@ -634,6 +683,7 @@ CREATE TABLE CONTRACT_TEMPLATE (
     TemplateName NVARCHAR(255) NOT NULL,
     LanguageCode VARCHAR(10) NOT NULL DEFAULT 'VI',
     BodyContent NVARCHAR(MAX) NOT NULL,
+    Version VARCHAR(20) NOT NULL DEFAULT '1.0',
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
     UpdatedAt DATETIME NULL,
@@ -642,6 +692,10 @@ CREATE TABLE CONTRACT_TEMPLATE (
 
 -- 24. Bảng CONTRACT: Hợp đồng với khách hàng
 CREATE TABLE CONTRACT (
+    ContractCode VARCHAR(50) NULL,
+    ExchangeRateToLocal DECIMAL(10, 4) NULL,
+    BaseContractPrice_P DECIMAL(12, 2) NULL,
+    ActualGrossProfit_AGP DECIMAL(12, 2) NULL,
     CommercialNotes NVARCHAR(2000) NULL,
     ContractID VARCHAR(50) NOT NULL,
     -- Current working state; published content is preserved in CONTRACT_VERSION.
