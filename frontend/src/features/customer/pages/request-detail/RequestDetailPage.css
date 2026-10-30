@@ -1,0 +1,55 @@
+.cus-detail__title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cus-legacy { display: inline-block; margin-top: 6px; font-size: 11px; color: #92400e; background: #fef3c7; border-radius: 999px; padding: 2px 10px; }
+.cus-countdown { display: block; font-size: 13px; color: #334155; margin: 10px 0 0; }
+.cus-countdown .cus-i { color: #ea580c; vertical-align: -4px; margin-right: 6px; }
+.cus-tab-badge { margin-left: 6px; background: #dc2626; color: #fff; border-radius: 999px; font-size: 10px; font-weight: 700; padding: 1px 6px; }
+.cus-tab-count { margin-left: 6px; background: #f1f5f9; color: #64748b; border-radius: 999px; font-size: 10px; font-weight: 700; padding: 1px 6px; }
+
+/* tổng quan */
+.cus-status-card .cus-btn--block { margin-top: 8px; }
+.cus-matrix { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12px; margin-top: 8px; align-items: center; }
+.cus-matrix span { color: #64748b; }
+.cus-horse-line { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+.cus-horse-line:last-child { border-bottom: 0; }
+.cus-horse-line div { flex: 1; min-width: 0; }
+.cus-horse-line b { display: block; }
+.cus-horse-line small { color: #64748b; font-size: 12px; }
+
+/* hợp đồng */
+.cus-sign-steps { list-style: none; margin: 8px 0 0; padding: 0; }
+.cus-sign-steps li { padding: 8px 0 8px 28px; position: relative; border-bottom: 1px solid #f1f5f9; }
+.cus-sign-steps li::before { content: ''; position: absolute; left: 4px; top: 12px; width: 12px; height: 12px; border-radius: 50%; background: #e5e7eb; }
+.cus-sign-steps li.done::before { background: #16a34a; }
+.cus-sign-steps li.now::before { background: #f57c00; box-shadow: 0 0 0 4px #ffedd5; }
+.cus-sign-steps b { display: block; font-size: 13px; }
+.cus-sign-steps span { display: block; font-size: 12px; color: #64748b; }
+.cus-ct-actions { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.cus-ct-actions > div { display: flex; gap: 8px; flex-wrap: wrap; }
+.cus-versions { list-style: none; margin: 0; padding: 0; }
+.cus-versions li + li { border-top: 1px solid #f1f5f9; }
+.cus-versions button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 10px 2px; cursor: pointer; font: inherit; color: inherit; }
+.cus-versions button:hover { background: #fffaf3; }
+.cus-versions__top { display: flex; align-items: center; gap: 8px; }
+.cus-versions__meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; color: #64748b; margin: 4px 0; }
+.cus-versions__note { font-size: 12px; color: #92400e; }
+.cus-summary { display: flex; flex-direction: column; gap: 8px; }
+.cus-summary div { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.cus-summary div span { color: #64748b; }
+.cus-summary .hl { border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; font-size: 15px; }
+.cus-rc { border-color: #fed7aa; }
+.cus-rc__item { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
+.cus-rc__item-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+
+/* thanh toán & bàn giao */
+.cus-check-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.cus-check-list li { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; font-size: 13px; color: #64748b; }
+.cus-check-list li.ok { color: #166534; }
+.cus-check-list .cus-i { width: 16px; height: 16px; margin-top: 1px; }
+.cus-photo-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.cus-photo-strip span { border: 1px solid #e5e7eb; border-radius: 8px; padding: 18px 12px; font-size: 11px; color: #64748b; background: #f8fafc; }
+.cus-complaint-list { list-style: none; margin: 0; padding: 0; }
+.cus-complaint-list li { display: flex; justify-content: space-between; gap: 10px; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+.cus-complaint-list li:last-child { border-bottom: 0; }
+.cus-complaint-list b { display: block; }
+.cus-complaint-list p { margin: 4px 0 0; font-size: 13px; color: #334155; }
+.cus-complaint-list small { color: #64748b; font-size: 12px; }

@@ -1,0 +1,12 @@
+.drv-journey__body { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
+.drv-journey__body > .drv-card + .drv-stack { margin-top: 0; }
+.drv-journey__map { padding: 14px; position: sticky; top: 80px; }
+.drv-journey__mapbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.drv-journey__record { white-space: normal; line-height: 1.4; }
+.drv-journey__map.is-full { position: fixed; inset: 0; z-index: 250; border-radius: 0; border: 0; display: flex; flex-direction: column; }
+.drv-journey__fullnext { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 10px; font-size: 13px; }
+body.drv-map-lock { overflow: hidden; }
+@media (max-width: 900px) {
+  .drv-journey__body { grid-template-columns: 1fr; }
+  .drv-journey__map { position: static; }
+}

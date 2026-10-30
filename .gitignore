@@ -1,13 +1,14 @@
-# React
+node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/playwright-report/
 frontend/test-results/
 frontend/.env
 frontend/.env.local
+CheckFlow3.html
 
 # Data files & Requirements
-data/
+/data/
 !backend/Infrastructure/Data/
 !backend/Infrastructure/Data/**
 landing_page/
@@ -61,3 +62,32 @@ backend/FLOW*
 !.env.example
 **/appsettings.*.Local.json
 **/appsettings.Local.json
+
+# Private Flow 1 metadata, generated contract documents and spike outputs
+backend/WebApi/App_Data/
+
+# Isolated Flow1 Sandbox credentials; loaded only in Development.
+backend/WebApi/appsettings.Flow1Sandbox.Local.json
+
+# Temporary diagrams, test outputs & generated scratch images
+/*.png
+/*.jpg
+/*.jpeg
+temp_diagrams/
+template_extracted_images/
+mermaid.min.js
+test_*
+erd_test.*
+
+# Flow 1 reports and working documents (keep only FLOW1.md on git)
+contracts/API-Flow/FLOW1_*
+!contracts/API-Flow/FLOW1.md
+backend/FLOW*
+
+# Private runtime secrets (shared defaults and examples remain tracked)
+.env
+.env.*
+!.env.example
+**/appsettings.*.Local.json
+**/appsettings.Local.json
+

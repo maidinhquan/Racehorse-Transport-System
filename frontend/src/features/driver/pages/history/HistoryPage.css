@@ -1,0 +1,2 @@
+.drv-history__search { width: 280px; max-width: 100%; }
+@media (max-width: 600px) { .drv-history__search { width: 100%; } }

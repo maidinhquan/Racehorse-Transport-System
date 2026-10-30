@@ -1,0 +1,8 @@
+.cus-search {
+  flex: 1; min-width: 240px; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px;
+  border: 1px solid #e5e7eb; border-radius: 9px; background: #fff; color: #94a3b8;
+}
+.cus-search:focus-within { border-color: #f57c00; box-shadow: 0 0 0 3px #ffedd5; }
+.cus-search input { flex: 1; border: 0; outline: none; font: 13px Inter, system-ui, sans-serif; color: #0f172a; background: transparent; }
+.cus-req__dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #dc2626; margin-left: 6px; vertical-align: middle; }
+.cus-pager span { align-self: center; }

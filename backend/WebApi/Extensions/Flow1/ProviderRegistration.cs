@@ -16,6 +16,8 @@ public static class ProviderRegistration
     {
         services.AddSingleton(config.GetSection("Flow1:Vnpay").Get<Flow1VnpayOptions>() ?? new());
         services.AddSingleton<IPaymentGateway, VnpaySandboxGateway>();
+        // Resolve deposits whose IPN never arrived (not in automated tests, which control time and providers).
+        if (!environment.IsEnvironment("Testing")) services.AddHostedService<WebApi.Extensions.Flow1.PaymentReconciliationWorker>();
         services.AddHttpClient<IGatewayQuery,VnpayQueryGateway>(c=>c.Timeout=TimeSpan.FromSeconds(15))
             .RemoveAllLoggers().ConfigurePrimaryHttpMessageHandler(()=>new HttpClientHandler{AllowAutoRedirect=false});
         services.AddSingleton<IOtpSecurity>(new ContractOtpSecurity(config["Flow1:Contracts:OtpHmacKey"]));
@@ -42,6 +44,7 @@ public static class ProviderRegistration
         services.AddHttpClient<GeoapifyTransportMaps>(client => client.Timeout = TimeSpan.FromSeconds(15))
             .RemoveAllLoggers()
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+        services.AddScoped<IMapTiles>(sp => sp.GetRequiredService<GeoapifyTransportMaps>());
         services.AddScoped<IRoadRouter>(sp => Maps(sp) switch {
             "MAPBOX" => sp.GetRequiredService<MapboxTransportMaps>(), "GEOAPIFY" => sp.GetRequiredService<GeoapifyTransportMaps>(), _ => sp.GetRequiredService<OsmTransportMaps>() });
         services.AddScoped<IGeocodingProvider>(sp => Maps(sp) switch {
@@ -53,18 +56,24 @@ public static class ProviderRegistration
             var storage = sp.GetRequiredService<IOptions<Flow1PrivateFileOptions>>().Value;
             return new LocalFlow1PrivateFileStore(Flow1PrivateStoragePath.Resolve(storage.Root, environment));
         });
+        // Per-customer requests/minute across Flow 1 customer endpoints (incl. location search).
+        // Default 30; raise it in appsettings.Development.json for manual testing.
+        var customerPerMinute = Math.Max(1, config.GetValue("Flow1:RateLimit:CustomerPerMinute", 30));
         services.AddRateLimiter(options =>
         {
+            options.AddPolicy("flow1-map-tiles", context => RateLimitPartition.GetFixedWindowLimiter(
+                context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 300, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.AddPolicy("flow1-contract-otp", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 25, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
             options.AddPolicy("flow1-customer", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = customerPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             var registrationRejected = options.OnRejected;
             options.OnRejected = async (context, ct) =>
             {
-                if (context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName is "flow1-customer" or "flow1-contract-otp")
+                if (context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName is "flow1-customer" or "flow1-contract-otp" or "flow1-map-tiles")
                 {
                     context.HttpContext.Response.StatusCode = 429;
                     context.HttpContext.Response.Headers.RetryAfter = context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName == "flow1-contract-otp" ? "900" : "60";

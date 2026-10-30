@@ -1,0 +1,215 @@
+.cus-wizard__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.cus-wizard__full { grid-column: 1 / -1; }
+.cus-wizard__actions { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 24px; }
+.cus-wizard__horse-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.cus-wizard__count { background: #ffedd5; color: #c2410c; font-weight: 700; font-size: 12px; border-radius: 999px; padding: 5px 12px; white-space: nowrap; border: 1px solid #fed7aa; }
+
+/* Top Scope & Horse Count Card matching Step 1 Schedule */
+.cus-horse-step__top-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 22px 26px;
+  margin: 0 0 20px 0;
+  border-radius: 12px;
+  background: var(--cus-card);
+  border: 1px solid var(--cus-line);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+.cus-horse-step__main-card {
+  margin: 0;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid var(--cus-line);
+  background: var(--cus-card);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+/* Slots list */
+.cus-horse-step__slots-wrap {
+  margin: 18px 0 20px;
+}
+.cus-horse-step__slots-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cus-horse-step__slot-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--cus-line);
+  background: var(--cus-bg);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  text-align: left;
+}
+.cus-horse-step__slot-btn:hover {
+  border-color: #fdba74;
+  background: #fffaf5;
+}
+.cus-horse-step__slot-btn.active {
+  border-color: #ea580c;
+  background: #fff7ed;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.12);
+}
+.cus-horse-step__slot-btn.filled:not(.active) {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+.cus-horse-step__slot-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #475569;
+  flex: none;
+}
+.cus-horse-step__slot-btn.active .cus-horse-step__slot-num {
+  background: #ea580c;
+  color: #ffffff;
+}
+.cus-horse-step__slot-btn.filled .cus-horse-step__slot-num {
+  background: #16a34a;
+  color: #ffffff;
+}
+.cus-horse-step__slot-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cus-horse-step__slot-title {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--cus-ink);
+  white-space: nowrap;
+}
+.cus-horse-step__slot-sub {
+  font-size: 11px;
+  color: var(--cus-muted);
+  white-space: nowrap;
+}
+.cus-horse-step__slot-icon {
+  width: 14px;
+  height: 14px;
+  color: #16a34a;
+  flex: none;
+}
+
+/* Mode toggle */
+.cus-wizard__seg {
+  display: inline-flex;
+  border: 1px solid var(--cus-line);
+  border-radius: 10px;
+  padding: 4px;
+  background: var(--cus-bg);
+  margin-bottom: 18px;
+}
+.cus-wizard__seg button {
+  border: 0;
+  background: none;
+  padding: 8px 16px;
+  border-radius: 7px;
+  font: 600 13px Inter, system-ui, sans-serif;
+  color: var(--cus-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cus-wizard__seg button.on {
+  background: var(--cus-card);
+  color: #ea580c;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+/* Picker grid */
+.cus-wizard__picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.cus-pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1.5px solid var(--cus-line);
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  background: var(--cus-card);
+  transition: all 0.15s ease-in-out;
+}
+.cus-pick:hover:not(.disabled) {
+  border-color: #fdba74;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+.cus-pick input { accent-color: #ea580c; }
+.cus-pick.selected {
+  border-color: #ea580c;
+  background: #fff7ed;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.1);
+}
+.cus-pick.disabled { opacity: 0.5; cursor: not-allowed; }
+.cus-pick__thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: #94a3b8;
+  flex: none;
+  border: 1px solid var(--cus-line);
+}
+.cus-pick__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.cus-pick__text { flex: 1; min-width: 0; }
+.cus-pick__text b { display: block; font-size: 13.5px; color: var(--cus-ink); margin-bottom: 2px; }
+.cus-pick__text small { display: block; font-size: 12px; color: var(--cus-muted); }
+
+/* Horse profile details */
+.cus-wizard__profile {
+  margin-top: 22px;
+  border-top: 1px solid var(--cus-line);
+  padding-top: 20px;
+}
+.cus-wizard__profile-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.cus-wizard__profile-head b { font-size: 16px; color: var(--cus-ink); }
+.cus-wizard__profile-head span {
+  color: var(--cus-muted);
+  font-size: 12px;
+  background: var(--cus-bg);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--cus-line);
+}
+.cus-wizard__profile-head .cus-btn { margin-left: auto; }
+.cus-wizard__errors { margin: 4px 0 0; padding-left: 18px; line-height: 1.8; }
+
+.cus-wizard__review-places { margin-top: 18px; }
+.cus-wizard__review-horse { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--cus-line); }
+.cus-wizard__review-horse h4 { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 14px; font-size: 14.5px; }
+.cus-wizard__review-horse h4 small { color: var(--cus-muted); font-weight: 400; }
+.cus-wizard__review-care { padding: 14px 16px; background: var(--cus-bg); border-radius: 10px; border: 1px solid var(--cus-line); margin-bottom: 14px; font-size: 12.5px; }
+.cus-wizard__review-care p { margin: 6px 0 0; }
+
+@media (max-width: 768px) {
+  .cus-horse-step__top-card { flex-direction: column; align-items: stretch; gap: 16px; }
+  .cus-wizard__grid, .cus-wizard__picker { grid-template-columns: 1fr; }
+  .cus-wizard__actions { flex-direction: column-reverse; }
+  .cus-wizard__actions .cus-btn { width: 100%; }
+}
+.cus-pick__thumb { position: relative; overflow: hidden; flex: 0 0 auto; }
+.cus-pick__thumb img { position: absolute; inset: 0; display: block; }

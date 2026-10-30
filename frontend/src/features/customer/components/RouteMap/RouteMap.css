@@ -1,0 +1,149 @@
+.cus-map {
+  border: 1px solid var(--cus-line, #e5e7eb);
+  border-radius: 12px;
+  background: #f8fafc;
+  overflow: visible;
+  position: relative;
+}
+.cus-map__map-wrap {
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+  background: radial-gradient(circle, #e2e8f0 1px, transparent 1px) 0 0 / 18px 18px, #f8fafc;
+}
+.cus-map__toolbar svg { display: block; width: 14px; height: 14px; }
+.cus-map__notice { margin: 0; padding: 6px 12px; color: #64748b; font-size: 12px; background: #fff; }
+.cus-map__label { font: 600 12px Inter, system-ui, sans-serif; fill: #0f172a; }
+
+/* ── Toolbar row (below SVG) ───────────────────────────── */
+.cus-map__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 10px;
+  border-top: 1px solid var(--cus-line, #e5e7eb);
+  background: #fff;
+}
+
+/* ── Fullscreen button inside toolbar ──────────────────── */
+.cus-map__fullscreen-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.cus-map__fullscreen-btn:hover {
+  background: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transform: translateY(-1px);
+}
+
+.cus-map__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--cus-line, #e5e7eb);
+  background: #fff;
+  font-size: 11px;
+  color: #64748b;
+}
+.cus-map__legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cus-map__legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.cus-map--empty { padding: 36px; text-align: center; color: #64748b; font-size: 13px; }
+
+/* ── Fullscreen button ─────────────────────────────────── */
+.cus-map__fullscreen-btn {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  background: rgba(255,255,255,0.9);
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.cus-map__fullscreen-btn:hover {
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.16);
+  transform: translateY(-1px);
+}
+
+/* ── Fullscreen overlay ────────────────────────────────── */
+.cus-map-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #0f172a;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.cus-map-overlay__close {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(15,23,42,0.85);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 10px;
+  color: #f1f5f9;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transition: background 0.15s, transform 0.1s;
+}
+.cus-map-overlay__close:hover {
+  background: rgba(239,68,68,0.8);
+  transform: translateY(-1px);
+}
+.cus-map-overlay__close kbd {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.1);
+  font-family: inherit;
+}
+
+.cus-map-overlay__inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 56px 24px 24px;
+}
+.cus-map-overlay__footer {
+  padding: 10px 16px;
+  background: rgba(15,23,42,0.9);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  color: #94a3b8;
+  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  align-items: center;
+}
+.cus-map-overlay__footer span { display: inline-flex; align-items: center; gap: 6px; }
+.cus-map-overlay__footer i { width: 10px; height: 10px; border-radius: 50%; }

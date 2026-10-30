@@ -7,6 +7,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5129:8080"
+    # Secrets and keys come from .env (not committed). Values under `environment` override env_file,
+    # so keys that live in .env are not repeated here.
     env_file:
       - .env
     environment:
@@ -44,6 +46,39 @@ services:
       - backend
     restart: unless-stopped
 
+  # Public HTTPS tunnel so VNPay can call the IPN on this machine (http://backend:8080/api/payments/vnpay/ipn).
+  # Starts automatically when .env contains COMPOSE_PROFILES=tunnel plus NGROK_AUTHTOKEN;
+  # without them `docker compose up` simply skips it. Register once with VNPay:
+  #   https://<your-dev-domain>.ngrok-free.app/api/payments/vnpay/ipn
+  # Inspect forwarded requests at http://localhost:4040
+  tunnel:
+    image: ngrok/ngrok:3
+    profiles: ["tunnel"]
+    # A free ngrok account uses its permanent dev domain automatically (shown at http://localhost:4040
+    # and in the ngrok dashboard under Domains), so the IPN URL only has to be registered once.
+    command: ["http", "backend:8080", "--log=stdout"]
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    ports:
+      - "4040:4040"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Same purpose without any account (Cloudflare Quick Tunnel): set COMPOSE_PROFILES=quicktunnel.
+  # The public URL is random and CHANGES on every restart, so the VNPay IPN URL must be updated each time.
+  # Current URL: open http://localhost:2000/quicktunnel  (or: docker compose logs quicktunnel)
+  quicktunnel:
+    image: cloudflare/cloudflared:2024.12.2
+    profiles: ["quicktunnel"]
+    command: ["tunnel", "--no-autoupdate", "--metrics", "0.0.0.0:2000", "--url", "http://backend:8080"]
+    ports:
+      - "2000:2000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   backend_app_data:
   frontend_node_modules:
+  backend_app_data:

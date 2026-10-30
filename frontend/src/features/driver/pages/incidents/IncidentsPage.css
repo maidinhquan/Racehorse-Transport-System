@@ -1,0 +1,5 @@
+.drv-inc-where { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; background: var(--drv-bg); border: 1px solid var(--drv-line); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+.drv-inc-where span { display: block; font-size: 11px; color: var(--drv-muted); }
+.drv-inc-where b { font-size: 13px; }
+.drv-inc-where small { grid-column: 1 / -1; font-size: 11px; color: var(--drv-muted); line-height: 1.5; }
+@media (max-width: 600px) { .drv-inc-where { grid-template-columns: 1fr; } }

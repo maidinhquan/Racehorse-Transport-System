@@ -137,22 +137,20 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
     }
     private async Task ValidateReadyAsync(string actor, TransportRequest row, IReadOnlyList<string> selected, CancellationToken token)
     {
-        Require(row.ExpectedDate is not null && row.CommittedDeadline >= row.ExpectedDate && row.PreparationDays is not null && row.ExpectedDate.Value.AddDays(-row.PreparationDays.Value) > clock.GetUtcNow().UtcDateTime,
-            "VALIDATION_ERROR", "Departure is inside the preparation window.", 400);
+        Require(row.ExpectedDate is not null && row.CommittedDeadline >= row.ExpectedDate && row.PreparationDays is not null
+            // Compare calendar dates, like the form: the earliest pickup date is today + PreparationDays.
+            && row.ExpectedDate.Value.Date.AddDays(-row.PreparationDays.Value) >= clock.GetUtcNow().UtcDateTime.Date,
+            "VALIDATION_ERROR", $"Departure is inside the preparation window: choose a pickup date on or after {clock.GetUtcNow().UtcDateTime.Date.AddDays(row.PreparationDays ?? 0):yyyy-MM-dd}.", 400);
         foreach (var horseId in selected)
         {
             var horse = await access.HorseAsync(horseId, actor, token);
             Require(horse.PhotoUrl is not null && horse.PassportScanUrl is not null && horse.OwnershipCertificateFileUrl is not null
                 && horse.PassportExpiryDate > row.CommittedDeadline && horse.DeclaredValueVnd > 0,
                 "REQUIRED_DOCUMENT_MISSING", "Complete horse profile and ownership documents before submission.", 400);
-            var links = await data.ListAsync<RequestHorse>(x => x.HorseID == horseId && x.RequestID != row.RequestID, token);
-            var otherIds = links.Select(x => x.RequestID).ToArray();
-            Require(!(await data.ListAsync<TransportRequest>(x => otherIds.Contains(x.RequestID)
-                && x.Status != "DRAFT" && x.Status != "CHANGES_REQUESTED" && x.Status != "REJECTED" && x.Status != "CANCELLED" && x.Status != "CLOSED"
-                && x.ExpectedDate != null && x.ExpectedDate.Value.Date <= row.CommittedDeadline!.Value.Date && (x.CommittedDeadline ?? x.ExpectedDate)!.Value.Date >= row.ExpectedDate!.Value.Date, token)).Any(),
-                "HORSE_SCHEDULE_CONFLICT", "Horse already belongs to an overlapping request.");
         }
+        await HorseBookingRules.RequireAvailableAsync(data, selected.ToArray(), row, token);
     }
+
     private async Task ApplyAsync(TransportRequest row, RequestDraftInput input, CancellationToken ct)
     {
         await catalogs.ValidateAsync(input.OriginCountry, input.DestinationCountry, input.Mode, ct);

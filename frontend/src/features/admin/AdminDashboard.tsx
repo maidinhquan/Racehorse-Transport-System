@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../shared/api/apiClient";
 import ThemeToggle from "../../shared/components/ThemeToggle/ThemeToggle";
+import { DemoDataToggle } from "../../shared/components";
 import "./AdminDashboard.css";
 
 interface AdminStats {
@@ -68,6 +69,11 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   const handleLogout = () => {
+    sessionStorage.removeItem("accessToken");
+    sessionStorage.removeItem("userRole");
+    sessionStorage.removeItem("userFullName");
+    sessionStorage.removeItem("userEmail");
+    sessionStorage.removeItem("user");
     localStorage.removeItem("accessToken");
     localStorage.removeItem("userRole");
     localStorage.removeItem("userFullName");
@@ -96,6 +102,7 @@ const AdminDashboard: React.FC = () => {
           <p>Dữ liệu kết nối trực tiếp cơ sở dữ liệu SQL Server (HorseTransportDB)</p>
         </div>
         <div className="admin-header-actions">
+          <DemoDataToggle role="admin" />
           <ThemeToggle />
           <span className="admin-user-info">👤 {currentAdminName}</span>
           <button className="admin-refresh-btn" onClick={fetchDashboardData} title="Làm mới dữ liệu">

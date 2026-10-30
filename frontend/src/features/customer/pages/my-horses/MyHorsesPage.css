@@ -1,0 +1,23 @@
+.cus-horse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.cus-horse-grid .cus-card + .cus-card { margin-top: 0; }
+.cus-horse-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.cus-horse-card__photo { position: relative; height: 150px; background: linear-gradient(135deg, #fff7ed, #f1f5f9); display: grid; place-items: center; color: #cbd5e1; }
+.cus-horse-card__photo img { width: 100%; height: 100%; object-fit: cover; }
+.cus-horse-card__photo .cus-i { width: 56px; height: 56px; }
+.cus-horse-card__photo .cus-badge { position: absolute; top: 10px; right: 10px; }
+.cus-horse-card__body { padding: 16px 18px 18px; flex: 1; display: flex; flex-direction: column; }
+.cus-horse-card__name { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.cus-horse-card__name b { font-size: 17px; }
+.cus-horse-card__name span { font-size: 12px; color: #94a3b8; }
+.cus-horse-card__info { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; font-size: 13px; }
+.cus-horse-card__info div { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.cus-horse-card__info span { color: #64748b; }
+.cus-horse-card__usage { background: #f8fafc; border-radius: 10px; padding: 10px 12px; font-size: 12px; margin-top: auto; }
+.cus-horse-card__usage b { display: block; }
+.cus-horse-card__usage span { color: #64748b; }
+/* Keep real photos inside the 150px header; badge stays on top. */
+.cus-horse-card__photo { overflow: hidden; }
+.cus-horse-card__photo img { position: absolute; inset: 0; display: block; }
+.cus-horse-card__photo .cus-badge { z-index: 1; }
+/* Taller photo header so the horse is clearly visible. */
+.cus-horse-card__photo { height: 190px; }

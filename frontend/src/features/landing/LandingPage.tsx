@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ThemeToggle } from '../../shared/components';
 import './LandingPage.css';
 
 // SVG Icons matching CBN Transport (1).html
@@ -51,13 +52,6 @@ const Icon = ({ name }: { name: string }) => {
   }
 };
 
-const ORIGINS = [
-  { name: 'Ho Chi Minh City', cc: 'VN' },
-  { name: 'Binh Duong', cc: 'VN' },
-  { name: 'Hanoi', cc: 'VN' },
-  { name: 'Da Nang', cc: 'VN' },
-];
-
 const DESTINATIONS = [
   { name: 'Tokyo', cc: 'JP' },
   { name: 'Osaka', cc: 'JP' },
@@ -69,26 +63,16 @@ const DESTINATIONS = [
   { name: 'Ho Chi Minh City', cc: 'VN' },
 ];
 
-const JAPAN_CITIES = ['Tokyo', 'Osaka', 'Nagoya', 'Sapporo', 'Fukuoka'];
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
 
   // State
   const [lang, setLang] = useState<'vi' | 'en'>('vi');
-  const [origin, setOrigin] = useState('Ho Chi Minh City');
-  const [destination, setDestination] = useState('Tokyo');
-  const [horseCount, setHorseCount] = useState(1);
-
   // Check login state
-  const isLoggedIn = Boolean(localStorage.getItem('accessToken') || localStorage.getItem('userRole'));
-
-  // Calculate quote (matches CBN Transport 1.html formula: $1850 international, $650 domestic, 30% deposit)
-  const isInternational = JAPAN_CITIES.includes(destination);
-  const isValidRoute = origin !== destination;
-  const pricePerHorse = isInternational ? 1850 : 650;
-  const totalPrice = isValidRoute ? pricePerHorse * horseCount : 0;
-  const depositPrice = Math.round(totalPrice * 0.3);
+  const isLoggedIn = Boolean(localStorage.getItem('accessToken'));
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const isCustomer = isLoggedIn && userRole === 'CUSTOMER';
 
   const scrollTo = (id: string) => {
     if (id === 'top') {
@@ -102,15 +86,10 @@ export const LandingPage: React.FC = () => {
   };
 
   const handleRequestClick = () => {
-    if (!isValidRoute) return;
-
-    // Save preliminary quote info to session
-    sessionStorage.setItem('preliminaryQuote', JSON.stringify({ origin, destination, horseCount, totalPrice }));
-
-    if (isLoggedIn) {
+    if (isCustomer) {
       navigate('/customer/create-request');
     } else {
-      navigate('/login');
+      navigate('/login', { state: { from: { pathname: '/customer/create-request' } } });
     }
   };
 
@@ -126,12 +105,12 @@ export const LandingPage: React.FC = () => {
         <div className="lp-links">
           <button onClick={() => scrollTo('lp-services')}>{lang === 'vi' ? 'Dịch vụ' : 'Services'}</button>
           <button onClick={() => scrollTo('lp-process')}>{lang === 'vi' ? 'Quy trình' : 'Process'}</button>
-          <button onClick={() => scrollTo('lp-pricing')}>{lang === 'vi' ? 'Bảng giá' : 'Pricing'}</button>
           <button onClick={() => scrollTo('lp-routes')}>{lang === 'vi' ? 'Tuyến' : 'Routes'}</button>
           <button onClick={() => scrollTo('lp-contact')}>{lang === 'vi' ? 'Liên hệ' : 'Contact'}</button>
         </div>
 
         <div className="lp-cta">
+          <ThemeToggle showLabel={false} />
           <div className="lp-lang-switch">
             <button className={lang === 'vi' ? 'active' : ''} onClick={() => setLang('vi')}>VI</button>
             <button className={lang === 'en' ? 'active' : ''} onClick={() => setLang('en')}>EN</button>
@@ -174,75 +153,9 @@ export const LandingPage: React.FC = () => {
             : 'Book trips, manage horse records, sign contracts and follow confirmed milestones on a single portal.'}
         </p>
 
-        {/* ── QUICK QUOTE CALCULATOR ── */}
-        <div className="lp-quote" id="lp-quote">
-          <div className="lp-quote-title">
-            {lang === 'vi' ? 'Ước tính sơ bộ cho chuyến tiếp theo' : 'Preliminary estimate for your next transport'}
-          </div>
-
-          <div className="lp-fields">
-            <label>
-              {lang === 'vi' ? 'Điểm đi' : 'Origin'}
-              <select value={origin} onChange={(e) => setOrigin(e.target.value)}>
-                {ORIGINS.map((o) => (
-                  <option key={o.name} value={o.name}>{o.name}, {o.cc}</option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              {lang === 'vi' ? 'Điểm đến' : 'Destination'}
-              <select value={destination} onChange={(e) => setDestination(e.target.value)}>
-                {DESTINATIONS.map((d) => (
-                  <option key={d.name} value={d.name}>{d.name}, {d.cc}</option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              {lang === 'vi' ? 'Số ngựa' : 'Horses'}
-              <input
-                type="number"
-                min="1"
-                max="20"
-                value={horseCount}
-                onChange={(e) => setHorseCount(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)))}
-              />
-            </label>
-
-            <button className="btn solid" onClick={handleRequestClick}>
-              {lang === 'vi' ? 'Gửi yêu cầu' : 'Send request'} <Icon name="arrow" />
-            </button>
-          </div>
-
-          <div className="lp-result">
-            {isValidRoute ? (
-              <>
-                <span>
-                  <b>${totalPrice.toLocaleString()}</b> <span className="muted">USD ước tính sơ bộ</span>
-                </span>
-                <span className="muted">
-                  {isInternational ? 'Việt Nam ➔ Nhật Bản' : 'Nội địa Việt Nam'} • {horseCount} ngựa • Cọc 30%: ${depositPrice.toLocaleString()} USD
-                </span>
-              </>
-            ) : (
-              <span className="muted">
-                {lang === 'vi' ? 'Chọn điểm đến khác điểm đi để xem giá.' : 'Choose a destination different from origin.'}
-              </span>
-            )}
-          </div>
-
-          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed #fed7aa', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, color: '#64748b', flexWrap: 'wrap' }}>
-            <span>{lang === 'vi' ? 'Đã có tài khoản hoặc là nhân sự điều hành?' : 'Already have an account or staff member?'}</span>
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-              style={{ background: 'none', border: 'none', color: '#ea580c', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
-            >
-              {lang === 'vi' ? 'Đăng nhập ngay tại đây ➔' : 'Sign in here ➔'}
-            </button>
-          </div>
-        </div>
+        <div className="lp-request-cta"><button type="button" className="btn solid lg" onClick={handleRequestClick}>
+          {lang === 'vi' ? 'Tạo yêu cầu vận chuyển' : 'Create a transport request'} <Icon name="arrow" />
+        </button></div>
 
         {/* ── TRUST BADGES ── */}
         <div className="lp-trust">
@@ -306,65 +219,21 @@ export const LandingPage: React.FC = () => {
         <ol className="lp-steps">
           <li>
             <b>{lang === 'vi' ? 'Gửi yêu cầu đầy đủ' : '1. Submit Request'}</b>
-            <span>{lang === 'vi' ? 'Chọn tuyến, ngày, ngựa và yêu cầu chăm sóc. Ước tính sơ bộ chỉ để tham khảo.' : 'Select route, transport date, horses and care notes.'}</span>
+            <span>{lang === 'vi' ? 'Chọn tuyến, ngày, điểm nhận/giao, ngựa và hồ sơ rồi gửi quản lý xét duyệt.' : 'Select route, transport date, horses and care notes.'}</span>
           </li>
           <li>
             <b>{lang === 'vi' ? 'Nhận hợp đồng dự thảo' : '2. Receive Contract'}</b>
             <span>{lang === 'vi' ? 'Quản lý xem xét yêu cầu và gửi hợp đồng dịch vụ chính thức kèm mức giá chi tiết.' : 'Manager reviews the transport plan and issues the official contract.'}</span>
           </li>
           <li>
-            <b>{lang === 'vi' ? 'Ký OTP và đặt cọc' : '3. OTP Sign & Deposit'}</b>
-            <span>{lang === 'vi' ? 'Bạn ký hợp đồng bằng mã OTP và thanh toán đặt cọc 30% trực tuyến hoặc chuyển khoản.' : 'Sign securely with OTP and pay the 30% deposit to lock the schedule.'}</span>
+            <b>{lang === 'vi' ? 'Đặt cọc rồi ký OTP' : '3. Deposit & OTP Sign'}</b>
+            <span>{lang === 'vi' ? 'Đồng ý điều khoản, thanh toán cọc theo hợp đồng; sau khi cọc được xác minh, ký bằng OTP để kích hoạt chuyến.' : 'Accept the terms, pay the contract deposit, then sign with OTP after payment verification.'}</span>
           </li>
           <li>
             <b>{lang === 'vi' ? 'Theo dõi và nhận ngựa' : '4. Track & Handover'}</b>
             <span>{lang === 'vi' ? 'Theo dõi các mốc hành trình đã xác nhận đến khi bàn giao có chữ ký xác nhận tận nơi.' : 'Follow live milestones until verified handover at the destination.'}</span>
           </li>
         </ol>
-      </section>
-
-      {/* ── SECTION: PRICING ── */}
-      <section className="lp-section" id="lp-pricing">
-        <h2>{lang === 'vi' ? 'Giá rõ ràng theo từng con ngựa' : 'Clear transparent pricing per horse'}</h2>
-        <p className="lp-lead">
-          {lang === 'vi'
-            ? 'Ước tính sơ bộ tính theo tuyến và số ngựa, không có giá trị ràng buộc. Giá chính thức ghi trong hợp đồng dịch vụ.'
-            : 'Preliminary estimate based on route and horse count. Official price is locked in the service contract.'}
-        </p>
-
-        <div className="lp-prices">
-          <div className="lp-price feature">
-            <div className="eyebrow">Việt Nam ➔ Nhật Bản (International)</div>
-            <div className="amount">
-              $1,850 <small>USD / ngựa</small>
-            </div>
-            <ul>
-              <li><Icon name="check" /><span>Giấy phép xuất khẩu, khai báo hải quan, giấy phép nhập khẩu</span></li>
-              <li><Icon name="check" /><span>Thủ tục nhập khẩu và kiểm tra thú y tại Nhật Bản</span></li>
-              <li><Icon name="check" /><span>Theo dõi theo mốc hành trình và hồ sơ y tế chuyên dụng</span></li>
-              <li><Icon name="check" /><span>Bố trí 2 chặng đường bộ độc lập tại VN và Nhật Bản</span></li>
-            </ul>
-          </div>
-
-          <div className="lp-price">
-            <div className="eyebrow">Nội địa Việt Nam (Domestic)</div>
-            <div className="amount">
-              $650 <small>USD / ngựa</small>
-            </div>
-            <ul>
-              <li><Icon name="check" /><span>Giấy kiểm dịch nội địa & xe chuyên dụng đệm hơi</span></li>
-              <li><Icon name="check" /><span>Người áp tải kiêm Bác sĩ thú y đi cùng suốt chặng</span></li>
-              <li><Icon name="check" /><span>Bàn giao tận chuồng, ký nhận điện tử thời gian thực</span></li>
-              <li><Icon name="check" /><span>Bảo hiểm trách nhiệm vận chuyển ngựa đua</span></li>
-            </ul>
-          </div>
-        </div>
-
-        <p className="lp-note">
-          {lang === 'vi'
-            ? 'Giá ước tính sơ bộ, không ràng buộc. Đặt cọc 30% theo hạn ghi trong hợp đồng đã ký; phần còn lại thanh toán sau khi bàn giao được xác minh.'
-            : 'Preliminary non-binding estimate. 30% deposit upon contract signature; remainder due after verified delivery.'}
-        </p>
       </section>
 
       {/* ── SECTION: ROUTES ── */}
@@ -402,8 +271,8 @@ export const LandingPage: React.FC = () => {
           <button className="btn ghost lg" onClick={() => navigate('/login')}>
             {lang === 'vi' ? 'Đăng nhập' : 'Sign in'}
           </button>
-          <button className="btn solid lg" onClick={() => navigate(isLoggedIn ? '/customer/create-request' : '/register')}>
-            {isLoggedIn 
+          <button className="btn solid lg" onClick={() => navigate(isCustomer ? '/customer/create-request' : '/login')}>
+            {isCustomer 
               ? (lang === 'vi' ? 'Tạo yêu cầu vận chuyển' : 'Create Request')
               : (lang === 'vi' ? 'Bắt đầu ngay' : 'Get started')}
           </button>

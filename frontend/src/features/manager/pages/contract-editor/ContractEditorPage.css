@@ -1,0 +1,10 @@
+.mgr-ce__title { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mgr-ce__wizard .mgr-stepper { margin-top: 14px; }
+.mgr-ce__panel .mgr-inner + .mgr-inner { margin-top: 14px; }
+.mgr-ce__panel .mgr-inner h4 { margin: 0; }
+.mgr-ce__metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--mgr-line); }
+.mgr-ce__readonly { display: flex; align-items: center; background: #f8fafc; color: #475569; }
+.mgr-ce__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--mgr-line); }
+.mgr-ce__change .mgr-msg { max-width: none; margin-top: 10px; }
+@media (max-width: 760px) { .mgr-ce__metrics { grid-template-columns: 1fr; } }
+.mgr-ce__panel .mgr-form-grid { margin-top: 10px; }
