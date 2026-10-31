@@ -92,6 +92,26 @@ assert.equal(examples.road.map.isGps, false);
 assert.equal(examples.road.policy.lateMilestoneMinutes, null);
 assert.equal(examples.road.milestones[1].kind, 'FINAL_ARRIVED');
 assert.equal(examples.road.milestones[1].actions.canComplete, false);
+
+// Flow 6 Handoff & Status convention assertions
+assert.deepEqual(S.TripSummary.properties.requestStatus.enum, ['SCHEDULED', 'IN_PROGRESS', 'DELIVERED', 'CLOSED']);
+assert.ok(!S.TripSummary.properties.requestStatus.enum.includes('IN_TRANSIT'));
+assert.ok(!S.TripSummary.properties.requestStatus.enum.includes('UNDER_RESOLUTION'));
+assert.deepEqual(S.ExpenseRecord.properties.status.enum, ['RECORDED']);
+assert.ok(!S.ExpenseRecord.properties.status.enum.includes('SUBMITTED_TO_FLOW6'));
+
+const sampleTrip = structuredClone(operations.get('F4-J05').responses['200'].content['application/json'].example.data.trip);
+invalid('TripSummary', { ...sampleTrip, requestStatus: 'IN_TRANSIT' });
+invalid('TripSummary', { ...sampleTrip, requestStatus: 'UNDER_RESOLUTION' });
+
+const sampleExpense = structuredClone(operations.get('F4-J36').responses['201'].content['application/json'].example.data);
+invalid('ExpenseRecord', { ...sampleExpense, status: 'SUBMITTED_TO_FLOW6' });
+
+const finalArrivalScenario = examples.scenarios.find(s => s.id === 'final-arrival');
+assert.ok(finalArrivalScenario.then.includes('Trip IN_TRANSIT'));
+assert.ok(finalArrivalScenario.then.includes('Request IN_PROGRESS'));
+assert.ok(!finalArrivalScenario.then.includes('Trip/Request IN_TRANSIT'));
+
 const input = code => structuredClone(operations.get(code).requestBody.content['application/json'].example);
 invalid('DepartureInput', { ...input('F4-J05'), approvedPlanVersion: 0 });
 invalid('DepartureInput', { ...input('F4-J05'), acknowledgements: [] });
@@ -107,5 +127,7 @@ invalid('HealthInput', { ...input('F4-J23'), photoFileIds: ['blob:local-pretend-
 invalid('VetInput', { ...input('F4-J25'), transportFitness: 'DRIVER_SAYS_OK' });
 invalid('ExpenseInput', { ...input('F4-J36'), amountVnd: 0 });
 for (const name of ['FINAL_ARRIVED', 'AWAITING_HANDOVER', 'PENDING_MANAGER', 'VETERINARIAN_REQUIRED', 'CONTRACT_SUPERSEDED', 'HEALTH_CHECK_REQUIRED', 'VET_CLEARANCE_REQUIRED', 'VEHICLE_VERIFIED']) assert.ok(flow.includes(name));
+assert.ok(!flow.includes('UNDER_RESOLUTION'));
+assert.ok(flow.includes('Request IN_PROGRESS'));
 assert.ok(!Object.keys(spec.paths).some(p => p.endsWith('/settlement') || p.endsWith('/acceptance')));
 console.log(`Flow 4 contract valid: ${operations.size} operations, ${Object.keys(S).length} schemas, ${checks} checks; 35 acceptance targets (backend not executed).`);

@@ -467,7 +467,7 @@ Xác nhận xuất phát thực tế
 
 **Role:** DRIVER_ESCORT
 
-**Điều kiện và ảnh hưởng:** Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement (HORSES_CHECKED, VEHICLE_VERIFIED) server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip và Request IN_TRANSIT nguyên tử; khóa duyệt lại Flow 3; không tạo Trip mới.
+**Điều kiện và ảnh hưởng:** Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement (HORSES_CHECKED, VEHICLE_VERIFIED) server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip IN_TRANSIT và Request IN_PROGRESS nguyên tử; khóa duyệt lại Flow 3; không tạo Trip mới.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -508,7 +508,7 @@ Xác nhận xuất phát thực tế
       "requestId": "REQUEST_001",
       "mode": "ROAD",
       "tripStatus": "IN_TRANSIT",
-      "requestStatus": "IN_TRANSIT",
+      "requestStatus": "IN_PROGRESS",
       "phase": "IN_PROGRESS",
       "lastMilestoneId": "MILESTONE_001",
       "eta": {
@@ -564,7 +564,7 @@ Xác nhận mốc kế tiếp của chặng
 
 **Role:** DRIVER_ESCORT
 
-**Điều kiện và ảnh hưởng:** Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. Trạm có cờ requiresHealthCheck phải hoàn tất HealthLog trước khi hoàn tất mốc. Ngựa có trạng thái ABNORMAL chặn mốc tiếp theo cho đến khi có xác nhận FIT. FINAL_ARRIVED chỉ mở Flow 6; Trip/Request vẫn IN_TRANSIT.
+**Điều kiện và ảnh hưởng:** Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. Trạm có cờ requiresHealthCheck phải hoàn tất HealthLog trước khi hoàn tất mốc. Ngựa có trạng thái ABNORMAL chặn mốc tiếp theo cho đến khi có xác nhận FIT. FINAL_ARRIVED chỉ mở Flow 6; Trip IN_TRANSIT, Request IN_PROGRESS; chưa hoàn tất giao ngựa.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -601,7 +601,7 @@ Xác nhận mốc kế tiếp của chặng
       "requestId": "REQUEST_001",
       "mode": "ROAD",
       "tripStatus": "IN_TRANSIT",
-      "requestStatus": "IN_TRANSIT",
+      "requestStatus": "IN_PROGRESS",
       "phase": "IN_PROGRESS",
       "lastMilestoneId": null,
       "eta": {
@@ -909,7 +909,7 @@ Duyệt hoặc từ chối đính chính
       "requestId": "REQUEST_001",
       "mode": "ROAD",
       "tripStatus": "IN_TRANSIT",
-      "requestStatus": "IN_TRANSIT",
+      "requestStatus": "IN_PROGRESS",
       "phase": "IN_PROGRESS",
       "lastMilestoneId": null,
       "eta": {
@@ -1064,7 +1064,7 @@ Ghi kết quả kiểm tra pháp lý thực tế
       "requestId": "REQUEST_001",
       "mode": "ROAD",
       "tripStatus": "IN_TRANSIT",
-      "requestStatus": "IN_TRANSIT",
+      "requestStatus": "IN_PROGRESS",
       "phase": "IN_PROGRESS",
       "lastMilestoneId": null,
       "eta": {
@@ -1164,7 +1164,7 @@ Bàn giao ngựa cho đối tác AIR đầu đi
       "requestId": "REQUEST_001",
       "mode": "ROAD",
       "tripStatus": "IN_TRANSIT",
-      "requestStatus": "IN_TRANSIT",
+      "requestStatus": "IN_PROGRESS",
       "phase": "IN_PROGRESS",
       "lastMilestoneId": null,
       "eta": {
@@ -1365,7 +1365,7 @@ Kiểm tra và tiếp nhận ngựa đầu đến
       "requestId": "REQUEST_001",
       "mode": "ROAD",
       "tripStatus": "IN_TRANSIT",
-      "requestStatus": "IN_TRANSIT",
+      "requestStatus": "IN_PROGRESS",
       "phase": "IN_PROGRESS",
       "lastMilestoneId": null,
       "eta": {
@@ -1750,7 +1750,7 @@ Xác nhận ETA hoặc trình Manager
       "requestId": "REQUEST_001",
       "mode": "ROAD",
       "tripStatus": "IN_TRANSIT",
-      "requestStatus": "IN_TRANSIT",
+      "requestStatus": "IN_PROGRESS",
       "phase": "IN_PROGRESS",
       "lastMilestoneId": null,
       "eta": {
@@ -1843,7 +1843,7 @@ Manager quyết định đề xuất ETA vượt phạm vi
       "requestId": "REQUEST_001",
       "mode": "ROAD",
       "tripStatus": "IN_TRANSIT",
-      "requestStatus": "IN_TRANSIT",
+      "requestStatus": "IN_PROGRESS",
       "phase": "IN_PROGRESS",
       "lastMilestoneId": null,
       "eta": {
@@ -2424,7 +2424,7 @@ Ghi đã tiếp nhận cảnh báo
       "requestId": "REQUEST_001",
       "mode": "ROAD",
       "tripStatus": "IN_TRANSIT",
-      "requestStatus": "IN_TRANSIT",
+      "requestStatus": "IN_PROGRESS",
       "phase": "IN_PROGRESS",
       "lastMilestoneId": null,
       "eta": {
@@ -2517,7 +2517,7 @@ Ghi kết quả liên hệ nhân sự không phản hồi
       "requestId": "REQUEST_001",
       "mode": "ROAD",
       "tripStatus": "IN_TRANSIT",
-      "requestStatus": "IN_TRANSIT",
+      "requestStatus": "IN_PROGRESS",
       "phase": "IN_PROGRESS",
       "lastMilestoneId": null,
       "eta": {
@@ -3140,7 +3140,7 @@ Ghi nhận chi phí phát sinh trên đường
 
 **Role:** DRIVER_ESCORT
 
-**Điều kiện và ảnh hưởng:** Tổ xe ghi nhận chi phí thực tế (vé BOT, cỏ/nước, thuốc khẩn cấp) kèm ảnh biên lai/hóa đơn. Không tự ý sửa giá cước hợp đồng của khách hàng. Dữ liệu được chuyển Flow 6 đối soát hoàn ứng.
+**Điều kiện và ảnh hưởng:** Tổ xe ghi nhận chi phí thực tế (vé BOT, cỏ/nước, thuốc khẩn cấp) kèm ảnh biên lai/hóa đơn. Chi phí nội bộ tổ xe, không tự ý sửa đổi cước phí hợp đồng khách hàng, không tự tạo hoàn tiền Customer.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|

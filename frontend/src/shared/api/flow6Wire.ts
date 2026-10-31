@@ -1,10 +1,9 @@
 /**
- * Flow-6 API Wire Layer — Bàn giao, nghiệm thu, thanh toán và sau bàn giao
- *
- * Re-exports the typed API, endpoints and types for Flow 6.
+ * Flow 6 Wire Adapter - Re-exports Flow 6 API, Endpoints, Client and Types.
+ * Standard Flow 6 contract compliant with ID_NAME_RULE_Reviewed and DATABASE_STATUS_CONVENTION.
  */
+
 export * from '../../features/aftercare/api/flow6Api';
 export * from '../../features/aftercare/api/flow6Endpoints';
 export * from '../../features/aftercare/api/flow6Client';
 export * from '../../features/aftercare/types/flow6.types';
-
