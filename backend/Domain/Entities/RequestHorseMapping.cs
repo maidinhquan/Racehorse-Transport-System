@@ -6,11 +6,6 @@ namespace Domain.Entities
     [Table("REQUEST_HORSE_MAPPING")]
     public class RequestHorseMapping
     {
-        [Key]
-        [Column("RequestHorseID")]
-        [StringLength(50)]
-        public string RequestHorseId { get; set; } = null!;
-
         [Column("RequestID")]
         [StringLength(50)]
         public string RequestId { get; set; } = null!;
@@ -18,6 +13,10 @@ namespace Domain.Entities
         [Column("HorseID")]
         [StringLength(50)]
         public string HorseId { get; set; } = null!;
+
+        [Column("CareInstructions")]
+        [StringLength(2000)]
+        public string? CareInstructions { get; set; }
 
         // Navigation properties
         [ForeignKey(nameof(RequestId))]
@@ -29,4 +28,3 @@ namespace Domain.Entities
         public virtual Horse? Horse { get; set; }
     }
 }
-

@@ -13,12 +13,16 @@ services:
       - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=${SQL_DATABASE:-HorseTransportDB};User Id=${SQL_USER:?Set SQL_USER in .env};Password=${SQL_PASSWORD:?Set SQL_PASSWORD in .env};TrustServerCertificate=True;"
+      Jwt__Key: ${JWT_KEY:-RaceHorseTransport_SecretJwtKey_MustBeAtLeast32BytesLong_2026!}
+      Jwt__Key: ${Jwt__Key:-${JWT_KEY:-RaceHorseTransportSecretKey2026_SWP391_Project_SecuredKey_SuperSafe!}}
+      Jwt__Issuer: RaceHorseTransportBackend
+      Jwt__Audience: RaceHorseTransportFrontend
+      ConnectionStrings__DefaultConnection: "Server=${SQL_SERVER:-racehorse-db,1433};Database=${SQL_DATABASE:-HorseTransportDB};User Id=${SQL_USER:?Set SQL_USER in .env};Password=${SQL_PASSWORD:?Set SQL_PASSWORD in .env};TrustServerCertificate=True;"
       Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
       Smtp__Port: ${SMTP_PORT:-587}
       Smtp__Username: ${SMTP_USERNAME:-}
       Smtp__Password: ${SMTP_PASSWORD:-}
-      Smtp__FromEmail: ${SMTP_FROM:-}
+      Smtp__FromEmail: ${SMTP_FROM:-quangtruong1922@gmail.com}
       Smtp__FromName: ${SMTP_FROM_NAME:-RaceHorse Transport System}
       Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
       RegistrationEmail__Mode: ${REGISTRATION_EMAIL_MODE:-Development}
@@ -26,8 +30,26 @@ services:
       RegistrationEmail__Smtp__Port: ${SMTP_PORT:-587}
       RegistrationEmail__Smtp__Username: ${SMTP_USERNAME:-}
       RegistrationEmail__Smtp__Password: ${SMTP_PASSWORD:-}
-      RegistrationEmail__Smtp__From: ${SMTP_FROM:-}
+      RegistrationEmail__Smtp__From: ${SMTP_FROM:-quangtruong1922@gmail.com}
       RegistrationEmail__Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      Flow1__Contracts__OtpHmacKey: ${Flow1__Contracts__OtpHmacKey:-RaceHorseTransportFlow1SecretOtpHmacKey2026!}
+      Flow1__Maps__Provider: ${Flow1__Maps__Provider:-MAPBOX}
+      Flow1__Maps__DataProvider: ${Flow1__Maps__DataProvider:-GEOAPIFY}
+      Flow1__Maps__MayPersistResults: ${Flow1__Maps__MayPersistResults:-true}
+      Flow1__Maps__Geoapify__ApiKey: ${Flow1__Maps__Geoapify__ApiKey:-167c9593184a44aaa2dc377cea7535f6}
+      Flow1__Maps__Geoapify__ApiBaseUrl: ${Flow1__Maps__Geoapify__ApiBaseUrl:-https://api.geoapify.com/}
+      Flow1__Maps__Mapbox__AccessToken: ${Flow1__Maps__Mapbox__AccessToken:-pk.eyJ1IjoiaWNld29ybSIsImEiOiJjbXZhY3RyazQwM3k2MndvbWhsN2Fmb29tIn0.20kPK7DHlQJDDbjXdhAQCw}
+      Flow1__Maps__Mapbox__PermanentGeocodingEnabled: ${Flow1__Maps__Mapbox__PermanentGeocodingEnabled:-true}
+      Flow1__Maps__Mapbox__Attribution: ${Flow1__Maps__Mapbox__Attribution:-© Mapbox © OpenStreetMap}
+      Flow1__Vnpay__HashSecret: ${Flow1__Vnpay__HashSecret:-MZDEBQUTSMJCUMKBYBDGFRPHLTVSOEVF}
+      Flow1__Contracts__Issuer__COMPANY_NAME: ${Flow1__Contracts__Issuer__COMPANY_NAME:-CÔNG TY CỔ PHẦN VẬN CHUYỂN NGỰA ĐUA QUỐC TẾ CBN}
+      Flow1__Contracts__Issuer__COMPANY_ADDRESS: ${Flow1__Contracts__Issuer__COMPANY_ADDRESS:-Số 123 Đường Vận Tải, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh}
+      Flow1__Contracts__Issuer__COMPANY_EMAIL: ${Flow1__Contracts__Issuer__COMPANY_EMAIL:-contact@cbntransport.com}
+      Flow1__Contracts__Issuer__COMPANY_HOTLINE: ${Flow1__Contracts__Issuer__COMPANY_HOTLINE:-1900 6868}
+      Flow1__Contracts__Issuer__COMPANY_TAX_CODE: ${Flow1__Contracts__Issuer__COMPANY_TAX_CODE:-0312345678}
+      Flow1__Contracts__LibreOfficePath: ${Flow1__Contracts__LibreOfficePath:-/usr/bin/soffice}
+      Flow1__Contracts__WorkRoot: ${Flow1__Contracts__WorkRoot:-/app/App_Data/flow1/conversion}
+      Flow1__PrivateFiles__Root: ${Flow1__PrivateFiles__Root:-/app/App_Data/flow1/private-bytes}
     restart: unless-stopped
 
   frontend:
@@ -51,12 +73,20 @@ services:
   # without them `docker compose up` simply skips it. Register once with VNPay:
   #   https://<your-dev-domain>.ngrok-free.app/api/payments/vnpay/ipn
   # Inspect forwarded requests at http://localhost:4040
+  # runs without affecting offline/local compose up when the profile is omitted.
   tunnel:
     image: ngrok/ngrok:3
     profiles: ["tunnel"]
     # A free ngrok account uses its permanent dev domain automatically (shown at http://localhost:4040
     # and in the ngrok dashboard under Domains), so the IPN URL only has to be registered once.
     command: ["http", "backend:8080", "--log=stdout"]
+    profiles:
+      - tunnel
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    command:
+      - "http"
+      - "backend:8080"
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
     ports:
@@ -79,6 +109,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  backend_app_data:
   frontend_node_modules:
   backend_app_data:

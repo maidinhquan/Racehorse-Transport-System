@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Entities
@@ -59,6 +59,12 @@ namespace Domain.Entities
         public decimal? DeclaredValueVnd { get; set; }
         [Column("SpecialHealthNotes", TypeName = "nvarchar(2000)")]
         public string? SpecialHealthNotes { get; set; }
+
+        [Column("PhotoUrl", TypeName = "nvarchar(500)")]
+        public string? PhotoUrl { get; set; }
+
+        [Column("PassportScanUrl", TypeName = "nvarchar(500)")]
+        public string? PassportScanUrl { get; set; }
 
         // Navigation properties
         [ForeignKey(nameof(OwnerId))]
