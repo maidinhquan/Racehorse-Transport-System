@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Entities
@@ -146,6 +146,21 @@ namespace Domain.Entities
         [Column("RejectionReason")]
         [StringLength(500)]
         public string? RejectionReason { get; set; }
+
+        // Flow 4: In-Transit & Execution Tracking
+        [Column("ExecutionVersion")]
+        public int ExecutionVersion { get; set; } = 1;
+
+        [Column("ExecutionPhase")]
+        [StringLength(30)]
+        public string ExecutionPhase { get; set; } = "AWAITING_DEPARTURE";
+
+        [Column("CurrentEta")]
+        public DateTime? CurrentEta { get; set; }
+
+        [Column("PendingEtaProposalId")]
+        [StringLength(50)]
+        public string? PendingEtaProposalId { get; set; }
 
         // Navigation properties
         [ForeignKey(nameof(RequestId))]
