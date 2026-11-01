@@ -27,7 +27,8 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         var defaults = JsonSerializer.SerializeToNode(await catalogs.FormAsync(row.OriginCountry!, row.DestinationCountry!, mode ?? savedMode ?? row.TransportType!, ct))!.AsObject();
         defaults["supportedRoutes"] = JsonSerializer.SerializeToNode((await catalogs.RoutesAsync(ct))
             .Where(r => r.OriginCountry == row.OriginCountry && r.DestinationCountry == row.DestinationCountry)
-            .Select(r => new { id = r.RouteID, originCountry = r.OriginCountry, destinationCountry = r.DestinationCountry, mode = r.TransportMode }));
+            .Select(r => new { id = r.RouteID, originCountry = r.OriginCountry, destinationCountry = r.DestinationCountry, mode = r.TransportMode })
+            .ToArray());
         defaults["terms"] = JsonSerializer.SerializeToNode(clauses);
         return new { requestId = request, status = row.Status, contractId = contract?.ContractID,
             request = await details.GetAsync(actor, request, true, ct),

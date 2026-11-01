@@ -16,7 +16,10 @@ interface StepProps {
 /** Bước 1: phương án vận chuyển dự kiến (để lập giá) */
 export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, defaults, policyReady }) => {
   const minPrepDays = policyReady ? defaults.preparationDays : null;
-  const modes = [...new Set(defaults.supportedRoutes.map(route => route.mode))];
+  // The selected route is enough to keep the editor usable if an older server omits the optional route list.
+  const modes = [...new Set((defaults.supportedRoutes?.length ? defaults.supportedRoutes : [defaults.selectedRoute])
+    .filter((route): route is NonNullable<typeof route> => !!route)
+    .map(route => route.mode))];
   const minDepartDate = addDays(today(), minPrepDays ?? 0);
 
   const isDepartTooEarly = draft.departAt && draft.departAt.slice(0, 10) < minDepartDate;
