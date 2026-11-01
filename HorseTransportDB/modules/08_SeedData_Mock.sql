@@ -70,13 +70,13 @@ GO
 -- PHÂN VÙNG 2: ĐỐI TÁC & TRẠM DỪNG NGHỈ/Y TẾ (PARTNER & FACILITY)
 -- =============================================================================
 
--- 7. Bảng PARTNER_FACILITY: Các trạm dừng nghỉ, phòng khám thú y đối tác (Place v2)
-INSERT INTO PARTNER_FACILITY (FacilityID, Name, FacilityType, Purposes, CountryCode, State_Province, City, Address, Coordinates, Latitude, Longitude, TimeZone, OperatingHours, SupportsOvernight, HasTruckParking, HasLoadingArea, HasStabling, HasWaterFeed, CapacityStalls, ContactPerson, ContactPhone, TaxID_BusinessCode, Status) VALUES
-('FAC_001', N'Trạm Kiểm Dịch & Nghỉ Chân Cầu Treo', 'REST_STATION', N'REST,QUARANTINE,BORDER', 'VN', N'Hà Tĩnh',   N'Hương Sơn',   N'Cửa khẩu Quốc tế Cầu Treo, Hà Tĩnh', '18.3976,105.1842', 18.397600, 105.184200, 'UTC+7', '24/7', 1, 1, 1, 1, 1, 8,  N'Lê Văn Bình',   '0988112233', '2801928374', 'ACTIVE'),
-('FAC_002', N'Bệnh Viện Thú Y & Kiểm Dịch Vientiane', 'VET_CLINIC', N'REST,QUARANTINE', 'LA', N'Vientiane', N'Vientiane', N'Km 12 Thadeua Road, Vientiane',       '17.9254,102.6645', 17.925400, 102.664500, 'UTC+7', '06:00-22:00', 0, 1, 1, 1, 1, 12, N'Dr. Somchai',   '+8562055667788', 'LA99281726', 'ACTIVE'),
-('FAC_003', N'Trạm Dịch Vụ Nghỉ Chân Mộc Bài',      'REST_STATION', N'REST,FUEL,BORDER', 'VN', N'Tây Ninh',  N'Bến Cầu',     N'Khu Kinh tế Cửa khẩu Mộc Bài',       '11.0650,106.1720', 11.065000, 106.172000, 'UTC+7', '24/7', 1, 1, 1, 1, 1, 6,  N'Trần Minh Tâm', '0918776655', '3901827364', 'ACTIVE'),
-('FAC_004', N'Trung Tâm Thú Y Hoàng Gia Phnom Penh', 'VET_CLINIC',  N'REST,QUARANTINE', 'KH', N'Phnom Penh',N'Phnom Penh',  N'St. 271, Sangkat Boeung Tumpun',     '11.5560,104.9280', 11.556000, 104.928000, 'UTC+7', '06:00-21:00', 0, 1, 1, 1, 1, 10, N'Dr. Chea Rath', '+85512345678', 'KH88192837', 'ACTIVE'),
-('FAC_005', N'Trạm Nghỉ Chuyên Dụng Đà Nẵng',       'REST_STATION', N'REST,FUEL', 'VN', N'Đà Nẵng',   N'Hòa Vang',    N'Km 24 Đường Tránh Nam Hải Vân',      '16.0544,108.2022', 16.054400, 108.202200, 'UTC+7', '24/7', 1, 1, 1, 1, 1, 8,  N'Đặng Quốc Bảo', '0905123123', '0401928381', 'ACTIVE');
+-- 7. Bảng PARTNER_FACILITY: Các trạm dừng nghỉ, phòng khám thú y đối tác
+INSERT INTO PARTNER_FACILITY (FacilityID, Name, FacilityType, CountryCode, State_Province, City, Address, Coordinates, TimeZone, CapacityStalls, ContactPerson, ContactPhone, TaxID_BusinessCode, Status) VALUES
+('FAC_001', N'Trạm Kiểm Dịch & Nghỉ Chân Cầu Treo', 'REST_STATION', 'VN', N'Hà Tĩnh',   N'Hương Sơn',   N'Cửa khẩu Quốc tế Cầu Treo, Hà Tĩnh', '18.3976,105.1842', 'UTC+7', 8,  N'Lê Văn Bình',   '0988112233', '2801928374', 'ACTIVE'),
+('FAC_002', N'Bệnh Viện Thú Y & Kiểm Dịch Vientiane', 'VET_CLINIC', 'LA', N'Vientiane', N'Vientiane', N'Km 12 Thadeua Road, Vientiane',       '17.9254,102.6645', 'UTC+7', 12, N'Dr. Somchai',   '+8562055667788', 'LA99281726', 'ACTIVE'),
+('FAC_003', N'Trạm Dịch Vụ Nghỉ Chân Mộc Bài',      'REST_STATION', 'VN', N'Tây Ninh',  N'Bến Cầu',     N'Khu Kinh tế Cửa khẩu Mộc Bài',       '11.0650,106.1720', 'UTC+7', 6,  N'Trần Minh Tâm', '0918776655', '3901827364', 'ACTIVE'),
+('FAC_004', N'Trung Tâm Thú Y Hoàng Gia Phnom Penh', 'VET_CLINIC',  'KH', N'Phnom Penh',N'Phnom Penh',  N'St. 271, Sangkat Boeung Tumpun',     '11.5560,104.9280', 'UTC+7', 10, N'Dr. Chea Rath', '+85512345678', 'KH88192837', 'ACTIVE'),
+('FAC_005', N'Trạm Nghỉ Chuyên Dụng Đà Nẵng',       'REST_STATION', 'VN', N'Đà Nẵng',   N'Hòa Vang',    N'Km 24 Đường Tránh Nam Hải Vân',      '16.0544,108.2022', 'UTC+7', 8,  N'Đặng Quốc Bảo', '0905123123', '0401928381', 'ACTIVE');
 GO
 
 -- 8. Bảng FACILITY_CONTRACT: Hợp đồng nguyên tắc biểu phí lưu chuồng và dịch vụ
@@ -136,21 +136,21 @@ GO
 -- =============================================================================
 
 -- 14. Bảng TRIP_PLAN: Kế hoạch các chuyến đi (bao gồm chuyến chờ duyệt, chuyến bị trả về và chuyến hoàn thành)
-INSERT INTO TRIP_PLAN (TripID, RequestID, TotalDistance_km, T_Total_Hours, TotalCost, Status, RejectionReason, ResourcesConfirmedAt, ResourcesConfirmedBy, EarliestDepartureDate, DocumentExpiryDate, SpecialistLegalNote, AssignedCoordinatorId, AssignedSpecialistId, OperationsStatus, DocumentsStatus, RouteStatus, DeploymentStatus, DeploymentReason, DeploymentBy, DeploymentAtUtc, HandoffEventId) VALUES
-('TRIP_2026_001', 'REQ_2026_001', 1250.00, 36.50, 6200.00, 'COMPLETED',        NULL, '2026-09-14 10:00:00', N'Phạm Hải (Coordinator)', NULL, NULL, NULL, 'USR_COORD_01', 'USR_SPEC_01', 'READY', 'READY', 'APPROVED', 'CONFIRMED', N'Bàn giao triển khai thành công từ Flow 1', 'USR_MGR_01', '2026-09-14 08:00:00', 'EVT_HO_001'),
-('TRIP_2026_002', 'REQ_2026_002', 240.00,  8.00,  3100.00, 'COMPLETED',        NULL, '2026-10-04 15:00:00', N'Phạm Hải (Coordinator)', NULL, NULL, NULL, 'USR_COORD_01', 'USR_SPEC_01', 'READY', 'READY', 'APPROVED', 'CONFIRMED', N'Bàn giao triển khai thành công từ Flow 1', 'USR_MGR_01', '2026-10-04 14:00:00', 'EVT_HO_002'),
-('TRIP_2026_003', 'REQ_2026_003', 1720.00, 42.00, 4300.00, 'IN_TRANSIT',       NULL, '2026-10-08 09:00:00', N'Phạm Hải (Coordinator)', NULL, NULL, NULL, 'USR_COORD_01', 'USR_SPEC_01', 'READY', 'READY', 'APPROVED', 'CONFIRMED', N'Bàn giao triển khai thành công từ Flow 1', 'USR_MGR_01', '2026-10-08 08:30:00', 'EVT_HO_003'),
-('TRIP_2026_004', 'REQ_2026_004', 3200.00, 28.00, 9500.00, 'PENDING_APPROVAL', NULL, '2026-10-18 10:30:00', N'Phạm Hải (Coordinator)', '2026-10-19 06:00:00', '2026-10-24 23:59:59', N'Giấy Coggins test và tiêm phòng Cúm đủ điều kiện từ 19/10, hết hạn ngày 24/10. Lưu ý giờ qua Nội Bài trước 23h ngày 24/10.', 'USR_COORD_01', 'USR_SPEC_01', 'READY', 'READY', 'PENDING_APPROVAL', 'CONFIRMED', N'Bàn giao triển khai thành công từ Flow 1', 'USR_MGR_01', '2026-10-18 09:00:00', 'EVT_HO_004'),
-('TRIP_2026_005', 'REQ_2026_001', 4350.00, 35.00, 14200.00, 'RETURNED',        N'Cần đổi tài xế chặng 1 vì giấy phép sắp hết hạn; điều chỉnh lại thời gian dừng tại sân bay đón', '2026-10-17 14:00:00', N'Phạm Hải (Coordinator)', '2026-10-24 00:00:00', '2026-10-30 23:59:59', N'Hồ sơ xuất cảnh có hiệu lực từ 24/10 đến 30/10.', 'USR_COORD_01', 'USR_SPEC_01', 'NOT_READY', 'READY', 'RETURNED', 'CONFIRMED', N'Bàn giao triển khai thành công từ Flow 1', 'USR_MGR_01', '2026-10-17 10:00:00', 'EVT_HO_005');
+INSERT INTO TRIP_PLAN (TripID, RequestID, TotalDistance_km, T_Total_Hours, TotalCost, Status, RejectionReason, ResourcesConfirmedAt, ResourcesConfirmedBy, EarliestDepartureDate, DocumentExpiryDate, SpecialistLegalNote) VALUES
+('TRIP_2026_001', 'REQ_2026_001', 1250.00, 36.50, 6200.00, 'COMPLETED',        NULL, '2026-09-14 10:00:00', N'Phạm Hải (Coordinator)', NULL, NULL, NULL),
+('TRIP_2026_002', 'REQ_2026_002', 240.00,  8.00,  3100.00, 'COMPLETED',        NULL, '2026-10-04 15:00:00', N'Phạm Hải (Coordinator)', NULL, NULL, NULL),
+('TRIP_2026_003', 'REQ_2026_003', 1720.00, 42.00, 4300.00, 'IN_TRANSIT',       NULL, '2026-10-08 09:00:00', N'Phạm Hải (Coordinator)', NULL, NULL, NULL),
+('TRIP_2026_004', 'REQ_2026_004', 3200.00, 28.00, 9500.00, 'PENDING_APPROVAL', NULL, '2026-10-18 10:30:00', N'Phạm Hải (Coordinator)', '2026-10-19 06:00:00', '2026-10-24 23:59:59', N'Giấy Coggins test và tiêm phòng Cúm đủ điều kiện từ 19/10, hết hạn ngày 24/10. Lưu ý giờ qua Nội Bài trước 23h ngày 24/10.'),
+('TRIP_2026_005', 'REQ_2026_001', 4350.00, 35.00, 14200.00, 'RETURNED',        N'Cần đổi tài xế chặng 1 vì giấy phép sắp hết hạn; điều chỉnh lại thời gian dừng tại sân bay đón', '2026-10-17 14:00:00', N'Phạm Hải (Coordinator)', '2026-10-24 00:00:00', '2026-10-30 23:59:59', N'Hồ sơ xuất cảnh có hiệu lực từ 24/10 đến 30/10.');
 GO
 
--- 15. Bảng VEHICLE: Đội xe chuyên dụng chở ngựa đua (Việt Nam & Quốc tế - Truck Spec v2)
-INSERT INTO VEHICLE (VehicleID, Type, CapacityStalls, MaxRange_km, FuelCost_Per_Km, Status, OperatingCountry, PlateNumber, Height_m, Width_m, Length_m, Gross_Weight_Tons, Axle_Weight_Tons) VALUES
-('VEH_BOX_01', 'HORSEBOX_3_STALLS', 3, 900.00,  1.20, 'AVAILABLE',   'VN', N'51C-101.45', 3.80, 2.50, 10.00, 18.00, 4.00),
-('VEH_BOX_02', 'HORSEBOX_6_STALLS', 6, 1200.00, 1.80, 'ON_TRIP',     'VN', N'51C-202.88', 3.90, 2.55, 12.00, 24.00, 6.00),
-('VEH_BOX_03', 'HORSEBOX_2_STALLS', 2, 750.00,  1.00, 'MAINTENANCE', 'VN', N'29B-303.12', 3.40, 2.30,  7.50, 10.00, 3.50),
-('VEH_JP_01',  'HORSEBOX_3_STALLS', 3, 1000.00, 2.50, 'AVAILABLE',   'JP', N'品川 300 あ 12-34', 3.80, 2.50, 10.00, 18.00, 4.00),
-('VEH_JP_02',  'HORSEBOX_6_STALLS', 6, 1300.00, 3.20, 'AVAILABLE',   'JP', N'成田 500 い 56-78', 3.90, 2.55, 12.00, 24.00, 6.00);
+-- 15. Bảng VEHICLE: Đội xe chuyên dụng chở ngựa đua (Việt Nam & Quốc tế)
+INSERT INTO VEHICLE (VehicleID, Type, CapacityStalls, MaxRange_km, FuelCost_Per_Km, Status, OperatingCountry, PlateNumber) VALUES
+('VEH_BOX_01', 'HORSEBOX_3_STALLS', 3, 900.00,  1.20, 'AVAILABLE',   'VN', N'51C-101.45'),
+('VEH_BOX_02', 'HORSEBOX_6_STALLS', 6, 1200.00, 1.80, 'ON_TRIP',     'VN', N'51C-202.88'),
+('VEH_BOX_03', 'HORSEBOX_2_STALLS', 2, 750.00,  1.00, 'MAINTENANCE', 'VN', N'29B-303.12'),
+('VEH_JP_01',  'HORSEBOX_3_STALLS', 3, 1000.00, 2.50, 'AVAILABLE',   'JP', N'品川 300 あ 12-34'),
+('VEH_JP_02',  'HORSEBOX_6_STALLS', 6, 1300.00, 3.20, 'AVAILABLE',   'JP', N'成田 500 い 56-78');
 GO
 
 -- 16. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái theo từng chặng độc lập (Chặng 1 & Chặng 2)
@@ -267,197 +267,4 @@ INSERT INTO PAYMENT (PaymentID, InvoiceID, ConfirmedByUserID, CurrencyCode, Amou
 ('PAY_003', 'INV_201', 'USR_MGR_01', 'USD', 1680.00,     'STRIPE_GATEWAY', 'TXN_STRIPE_001994', 'SUCCESS', '2026-09-30 09:20:00'),
 ('PAY_004', 'INV_301', 'USR_MGR_01', 'VND', 58000000.00, 'VNPAY_GATEWAY',  'VNPAY_20261007_019', 'SUCCESS', '2026-10-07 14:45:00');
 GO
-
--- =============================================================================
--- PHÂN VÙNG 6: DỮ LIỆU MẪU ĐỐI TÁC BAY & LỊCH CHUYẾN BAY (FLOW 3 V2)
--- =============================================================================
-
--- 28. Bảng AIR_PARTNER: Đối tác vận tải hàng không mẫu (Flow 3 v2)
-INSERT INTO AIR_PARTNER (PartnerID, PartnerName, CountryCode, ContactEmail, ContactPhone, Status) VALUES
-('PARTNER_NCA', N'Nippon Cargo Airlines', 'JP', 'charter@nca.aero', '+81355551234', 'ACTIVE'),
-('PARTNER_KLINE', N'K-Line Air Service', 'JP', 'cargo@kline.co.jp', '+81355555678', 'ACTIVE'),
-('PARTNER_VN_CARGO', N'Vietnam Airlines Cargo', 'VN', 'cargo@vietnamairlines.com', '19001100', 'ACTIVE');
-GO
-
--- 29. Bảng FLIGHT_CATALOG: Lịch bay chở ngựa đối tác cung cấp (Flow 3 v2)
-INSERT INTO FLIGHT_CATALOG (ServiceID, PartnerID, ProviderFlightCode, Airline, OriginAirportPlaceId, DestAirportPlaceId, DepartureTime, ArrivalTime, DepartureTimeZone, ArrivalTimeZone, PriceVND, CapacityHorses, CareProvider, DirectFlight, IsActive) VALUES
-('SVC_NCA_102', 'PARTNER_NCA', 'KZ-102', N'NCA Airlines', 'AP_SGN', 'AP_NRT', '05:00', '11:00', 'Asia/Ho_Chi_Minh', 'Asia/Tokyo', 125000000.00, 4, 'AIRLINE', 1, 1),
-('SVC_NCA_104', 'PARTNER_NCA', 'KZ-104', N'NCA Airlines', 'AP_HAN', 'AP_HND', '08:00', '14:30', 'Asia/Ho_Chi_Minh', 'Asia/Tokyo', 135000000.00, 4, 'AIRLINE', 1, 1),
-('SVC_VNA_801', 'PARTNER_VN_CARGO', 'VN-801', N'Vietnam Airlines', 'AP_SGN', 'AP_NRT', '06:00', '12:15', 'Asia/Ho_Chi_Minh', 'Asia/Tokyo', 115000000.00, 2, 'AIRLINE', 1, 1);
-GO
-
--- =============================================================================
--- PHÂN VÙNG 7: DỮ LIỆU DANH MỤC QUỐC GIA, CHÍNH SÁCH & QUYẾT TOÁN (FLOW 6)
--- =============================================================================
-
--- 30. Bảng COUNTRY & SUPPORTED_ROUTE
-INSERT INTO COUNTRY (CountryCode, CountryName, IsActive) VALUES
-('VN', N'Việt Nam', 1),
-('JP', N'Nhật Bản', 1);
-GO
-
-INSERT INTO SUPPORTED_ROUTE (RouteID, OriginCountry, DestinationCountry, TransportMode, IsActive) VALUES
-('ROUTE_001', 'VN', 'VN', 'ROAD', 1),
-('ROUTE_002', 'VN', 'VN', 'AIR', 1),
-('ROUTE_003', 'VN', 'JP', 'AIR', 1);
-GO
-
--- 31. Bảng BUSINESS_POLICY: Chính sách tham số hoá
-INSERT INTO BUSINESS_POLICY (PolicyID, Code, ValueType, NumberValue, TextValue, BoolValue, Unit, ScopeType, ScopeID, Description, UpdatedBy) VALUES
-('BUSINESS_POLICY_001', 'MIN_PREPARATION_DAYS', 'NUMBER', 3, NULL, NULL, 'DAY', 'GLOBAL', NULL, N'Số ngày chuẩn bị tối thiểu mặc định khi không có cấu hình phạm vi cụ thể.', 'USR_MGR_01'),
-('BUSINESS_POLICY_002', 'MIN_PREPARATION_DAYS', 'NUMBER', 7, NULL, NULL, 'DAY', 'COUNTRY', 'JP', N'Số ngày chuẩn bị tối thiểu khi quốc gia đích là Nhật Bản.', 'USR_MGR_01'),
-('BUSINESS_POLICY_003', 'CONTRACT_DEADLINE_HOURS', 'NUMBER', 24, NULL, NULL, 'HOUR', 'GLOBAL', NULL, N'Thời hạn chung để thanh toán cọc, xác minh cọc và ký hợp đồng.', 'USR_MGR_01'),
-('BUSINESS_POLICY_004', 'DEFAULT_DEPOSIT_PERCENT', 'NUMBER', 40, NULL, NULL, 'PERCENT', 'GLOBAL', NULL, N'Tỷ lệ cọc mặc định; 40 tương ứng 40 phần trăm, chốt vào hợp đồng lúc phát hành.', 'USR_MGR_01'),
-('BUSINESS_POLICY_005', 'SIGN_OTP_TTL_MINUTES', 'NUMBER', 5, NULL, NULL, 'MINUTE', 'GLOBAL', NULL, N'Thời gian hiệu lực của một mã OTP ký hợp đồng.', 'USR_MGR_01'),
-('BUSINESS_POLICY_006', 'SIGN_OTP_RESEND_SECONDS', 'NUMBER', 60, NULL, NULL, 'SECOND', 'GLOBAL', NULL, N'Khoảng chờ tối thiểu trước khi cấp lại OTP ký hợp đồng.', 'USR_MGR_01'),
-('BUSINESS_POLICY_007', 'SIGN_OTP_MAX_ATTEMPTS', 'NUMBER', 5, NULL, NULL, 'ATTEMPT', 'GLOBAL', NULL, N'Số lần nhập sai tối đa của một mã OTP ký hợp đồng.', 'USR_MGR_01'),
-('BUSINESS_POLICY_008', 'FEEDBACK_WINDOW_HOURS', 'NUMBER', 24, NULL, NULL, 'HOUR', 'GLOBAL', NULL, N'Thời lượng cửa sổ phản hồi sau tất toán hoặc sau khi khách chấp nhận kết quả giải quyết khiếu nại.', 'USR_MGR_01');
-GO
-
--- 32. Bảng COST_RATE: Đơn giá định mức VND
-INSERT INTO COST_RATE (CostRateID, Code, CostGroup, CalculationUnit, Rate, CurrencyCode, IsActive) VALUES
-('COST_RATE_001', 'ROAD_KM', 'TRANSPORT', 'KM_VEHICLE', 200000, 'VND', 1),
-('COST_RATE_002', 'AIR_HORSE', 'TRANSPORT', 'HORSE', 3000000, 'VND', 1),
-('COST_RATE_003', 'STABLE_NIGHT', 'TRANSPORT', 'HORSE_NIGHT', 250000, 'VND', 1),
-('COST_RATE_004', 'CREW_DAY', 'CREW', 'PERSON_DAY', 300000, 'VND', 1),
-('COST_RATE_005', 'PERMIT_TRIP', 'PERMIT', 'TRIP', 1000000, 'VND', 1),
-('COST_RATE_006', 'PERMIT_HORSE', 'PERMIT', 'HORSE', 5000000, 'VND', 1),
-('COST_RATE_007', 'VET_DAY', 'VET', 'PERSON_DAY', 500000, 'VND', 1),
-('COST_RATE_008', 'CARE_DAY', 'VET', 'HORSE_DAY', 300000, 'VND', 1),
-('COST_RATE_009', 'INSURANCE_MIN', 'INSURANCE', 'TRIP', 2000000, 'VND', 1),
-('COST_RATE_010', 'INSURANCE_RATE', 'INSURANCE', 'VALUE_RATIO', 0.005, 'VND', 1);
-GO
-
--- 33. Bảng CONTRACT_VERSION: Bản chụp hợp đồng mẫu
-INSERT INTO CONTRACT_VERSION
-    (ContractID, VersionNo, VersionStatus, ContentSnapshot, PdfUrl,
-     CreatedBy, CreatedAtUtc, PublishedBy, PublishedAtUtc, SignedAtUtc, SignerEmail)
-SELECT c.ContractID, 1,
-       CASE WHEN c.SignedAt IS NOT NULL THEN 'SIGNED' ELSE 'DRAFT' END,
-       N'{"contractId":"' + c.ContractID + N'","status":"' + c.ContractStatus + N'"}',
-       'private/demo/' + c.ContractID + '_v1.pdf',
-       'USR_MGR_01', SYSUTCDATETIME(), 'USR_MGR_01', SYSUTCDATETIME(), CONVERT(DATETIME2(7), c.SignedAt), 'customer@example.com'
-FROM CONTRACT c;
-GO
-
-UPDATE CONTRACT SET CurrentVersionNo = 1;
-GO
-
--- 34. Bảng HANDOVER_REVISION
-INSERT INTO HANDOVER_REVISION(HandoverRevisionID, HandoverID, TripID, RevisionNo, Status, ContentSnapshot, OtpEmail, CreatedBy, CreatedAtUtc) VALUES
-('HANDOVER_REVISION_001', 'HO_DL_001', 'TRIP_2026_001', 1, 'CONFIRMED', N'{"receiver":"Kenji Sato","items":2}', 'receiver1@example.com', 'USR_DRV_01', '2026-09-17T17:30:00'),
-('HANDOVER_REVISION_002', 'HO_DL_002', 'TRIP_2026_002', 1, 'CONFIRMED', N'{"receiver":"Nguyen Minh","items":1}', 'receiver2@example.com', 'USR_DRV_02', '2026-10-06T18:30:00');
-GO
-
--- 35. Bảng TRIP_SETTLEMENT, CUSTOMER_FEEDBACK, CUSTOMER_CASE
-INSERT INTO TRIP_SETTLEMENT(SettlementID, ContractID, TripID, CustomerID, ContractVersionNo, HandoverRevisionID, FinalInvoiceID, Status, PreparedBy, CreatedAtUtc, SettledBy, SettledAtUtc, ClosedAtUtc) VALUES
-('SETTLEMENT_001', 'CTR_2026_001', 'TRIP_2026_001', 'USR_CUST_01', 1, 'HANDOVER_REVISION_001', 'INV_102', 'CLOSED', 'USR_MGR_01', '2026-09-17T17:30:00', 'USR_MGR_01', '2026-09-18T10:15:00', '2026-09-19T10:15:00'),
-('SETTLEMENT_002', 'CTR_2026_002', 'TRIP_2026_002', 'USR_CUST_02', 1, 'HANDOVER_REVISION_002', 'INV_202', 'AWAITING_PAYMENT', 'USR_MGR_01', '2026-10-06T18:30:00', NULL, NULL, NULL);
-GO
-
-INSERT INTO CUSTOMER_FEEDBACK(FeedbackID, SettlementID, Rating, Comment, CreatedAtUtc) VALUES
-('CUSTOMER_FEEDBACK_001', 'SETTLEMENT_001', 5, N'Dịch vụ vận chuyển tốt, chu đáo', '2026-09-18T12:00:00');
-GO
-
-INSERT INTO CUSTOMER_CASE(CaseID, SettlementID, CaseType, Status, Subject, Description, OpenedAtUtc) VALUES
-('CUSTOMER_CASE_001', 'SETTLEMENT_002', 'COMPLAINT', 'OPEN', N'Khiếu nại giờ giao nhận', N'Khách hàng yêu cầu kiểm tra lý do giao trễ 30 phút.', '2026-10-06T20:00:00');
-GO
-
--- =============================================================================
--- 36. FLOW 3 DEMO: ĐƠN YÊU CẦU ĐÃ DUYỆT & BÀN GIAO CHO COORDINATOR LẬP KẾ HOẠCH
--- =============================================================================
-IF NOT EXISTS (SELECT 1 FROM TRANSPORT_REQUEST WHERE RequestID = 'REQ_2026_005')
-BEGIN
-    INSERT INTO TRANSPORT_REQUEST (
-        RequestID, CustomerID, Departure, Destination, Purpose, TransportType,
-        ExpectedDate, CommittedDeadline, DesignatedReceiverName, DesignatedReceiverPhone,
-        BaseCost, Status, PickupLatitude, PickupLongitude, DeliveryLatitude, DeliveryLongitude,
-        DistanceKm, PickupStableName, PickupPostalCode, PickupInstructions,
-        DeliveryStableName, DeliveryPostalCode, DeliveryInstructions, CareInstructions,
-        DeclaredValueVnd, OriginCountry, DestinationCountry, PreparationDays
-    ) VALUES (
-        'REQ_2026_005', 'USR_CUST_01',
-        N'Trang trại Ngựa Thể Thao Sóc Sơn, Hà Nội', N'CLB Đua Ngựa Hoàng Gia Bangkok, Thái Lan',
-        N'Tham dự Cúp Đua Ngựa Hữu Nghị ASEAN 2026', 'ROAD_CROSS_BORDER',
-        DATEADD(DAY, 5, GETDATE()), DATEADD(DAY, 8, GETDATE()),
-        N'Somchai Prasert (Bangkok Polo Club)', '+66812349999',
-        9500.00, 'APPROVED',
-        21.285000, 105.850000, 13.736700, 100.542000, 1350.00,
-        N'Trang trại Sóc Sơn - Stable A', N'100000',
-        N'Đường nội bộ trải nhựa rộng 8m, xe chuyên dụng 6 chuồng vào tận cửa chuồng nhận ngựa',
-        N'Bangkok Royal Polo Stable', N'10330',
-        N'Cổng số 2 đường Henri Dunant, có trạm kiểm tra thú y tiếp nhận 24/7',
-        N'Cho ngựa ăn cỏ Timothy và yến mạch mỗi 4 tiếng, uống nước bù điện giải định kỳ',
-        5000000000.00, 'VN', 'TH', 3
-    );
-
-    INSERT INTO REQUEST_HORSE_MAPPING (RequestHorseID, RequestID, HorseID) VALUES 
-    ('RHM_006', 'REQ_2026_005', 'HRS_001'),
-    ('RHM_007', 'REQ_2026_005', 'HRS_002');
-
-    INSERT INTO LEGAL_MEDICAL_RECORD (
-        RecordID, HorseID, RequestID, VerifiedBy, DocumentType, RequirementStatus, DocumentStatus, UploadedFileUrl, ExpiryDate
-    ) VALUES
-    ('REC_007', 'HRS_001', 'REQ_2026_005', 'USR_SPEC_01', 'COGGINS_TEST', 'MANDATORY', 'VERIFIED', 'https://storage.cbntransport.com/docs/coggins_hrs1.pdf', DATEADD(MONTH, 3, GETDATE())),
-    ('REC_008', 'HRS_002', 'REQ_2026_005', 'USR_SPEC_01', 'EQUINE_FLU_VAX', 'MANDATORY', 'VERIFIED', 'https://storage.cbntransport.com/docs/flu_hrs2.pdf', DATEADD(MONTH, 4, GETDATE()));
-
-    INSERT INTO TRIP_PLAN (
-        TripID, RequestID, TotalDistance_km, T_Total_Hours, TotalCost, Status,
-        [Version], PlanVersion, ContextVersion, ReadinessVersion, DraftPlanJson, ApprovedPlanJson, OpenChange,
-        EffectiveOriginPlaceId, DeploymentStatus, DeploymentReason, DeploymentBy, DeploymentAtUtc, HandoffEventId,
-        AssignedCoordinatorId, AssignedSpecialistId,
-        OperationsStatus, ResourcesConfirmedAt, ResourcesConfirmedBy,
-        DocumentsStatus, EarliestDepartureDate, DocumentExpiryDate, SpecialistLegalNote, DocumentsConfirmedAt, DocumentsConfirmedBy,
-        CurrentRouteVersion, RouteStatus
-    ) VALUES (
-        'TRIP_2026_006', 'REQ_2026_005', 1350.00, 38.00, 7200.00, 'PLANNING',
-        1, 1, 1, 1, NULL, NULL, 0, NULL,
-        'CONFIRMED', N'Bàn giao triển khai thành công từ Flow 1', 'USR_MGR_01', SYSUTCDATETIME(), 'EVT_HO_006',
-        'USR_COORD_01', 'USR_SPEC_01',
-        'NOT_READY', NULL, NULL,
-        'READY', DATEADD(DAY, 4, GETDATE()), DATEADD(DAY, 15, GETDATE()),
-        N'Hồ sơ thú y xét nghiệm Coggins và tiêm phòng Cúm đã được thẩm định đạt chuẩn xuất cảnh sang Thái Lan.',
-        SYSUTCDATETIME(), N'Lê Tuấn (Specialist)',
-        1, 'DRAFT'
-    );
-
-    INSERT INTO CONTRACT (
-        ContractID, TripID, CustomerID, ContractCode, CurrencyCode, ExchangeRateToLocal,
-        TotalQuotedPrice, BaseContractPrice_P, DepositRateStandard, ActualGrossProfit_AGP,
-        SignedAt, ContractStatus, CurrentVersionNo, RequestID, DepositAmount
-    ) VALUES (
-        'CTR_2026_004', 'TRIP_2026_006', 'USR_CUST_01', 'HD-CBN-2026-004', 'USD', 25450.0000,
-        9500.00, 9500.00, 0.40, 2500.00, DATEADD(DAY, -1, GETDATE()), 'EXECUTING', 1, 'REQ_2026_005', 3800.00
-    );
-
-    INSERT INTO CONTRACT_VERSION (
-        ContractID, VersionNo, VersionStatus, ContentSnapshot, PdfUrl,
-        CreatedBy, CreatedAtUtc, PublishedBy, PublishedAtUtc, SignedAtUtc, SignerEmail
-    ) VALUES (
-        'CTR_2026_004', 1, 'SIGNED',
-        N'{"contractId":"CTR_2026_004","code":"HD-CBN-2026-004","status":"SIGNED","depositAmount":3800.00}',
-        'private/demo/CTR_2026_004_v1.pdf',
-        'USR_MGR_01', SYSUTCDATETIME(), 'USR_MGR_01', SYSUTCDATETIME(), SYSUTCDATETIME(), 'vana.horse@gmail.com'
-    );
-
-    INSERT INTO INVOICE (
-        InvoiceID, ContractID, ContractVersionNo, InvoiceType, CurrencyCode,
-        TotalPayableAmount, PaidAmount, DueDate, PaymentStatus
-    ) VALUES (
-        'INV_401', 'CTR_2026_004', 1, 'DEPOSIT_40', 'USD', 3800.00, 3800.00, DATEADD(DAY, 2, GETDATE()), 'PAID'
-    );
-
-    INSERT INTO NOTIFICATION (
-        NotificationID, UserID, ReferenceID, Type, Channel, Title, Message, IsRead, SentAt
-    ) VALUES (
-        'NOTIF_005', 'USR_COORD_01', 'TRIP_2026_006', 'TRIP_ASSIGN', 'WEB_ALERT',
-        N'Chuyến đi mới cần lập kế hoạch (Flow 3)',
-        N'Chuyến TRIP_2026_006 (Đơn REQ_2026_005) đã được duyệt và bàn giao. Vui lòng lập lộ trình và phân công xe/tài xế.',
-        0, SYSUTCDATETIME()
-    );
-END;
-GO
-
-
-
 

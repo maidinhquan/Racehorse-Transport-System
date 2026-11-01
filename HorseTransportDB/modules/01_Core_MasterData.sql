@@ -89,26 +89,17 @@ CREATE TABLE POLICY_AND_TERM (
 );
 GO
 
--- 6. Bảng PARTNER_FACILITY: Quản lý trạm đối tác trong và ngoài nước (Trạm dừng nghỉ/Phòng khám/Place v2)
+-- 6. Bảng PARTNER_FACILITY: Quản lý trạm đối tác trong và ngoài nước (Trạm dừng nghỉ/Phòng khám)
 CREATE TABLE PARTNER_FACILITY (
     FacilityID VARCHAR(50) NOT NULL,
     Name NVARCHAR(200) NOT NULL,
     FacilityType VARCHAR(50) NULL, -- VET_CLINIC, REST_STATION, QUARANTINE
-    Purposes NVARCHAR(100) NULL, -- Flow 3 v2: REST, FUEL, QUARANTINE, BORDER, AIRPORT
     CountryCode VARCHAR(3) NOT NULL DEFAULT 'VN',
     State_Province NVARCHAR(100) NULL,
     City NVARCHAR(100) NULL,
     Address NVARCHAR(500) NULL,
     Coordinates VARCHAR(100) NULL,
-    Latitude DECIMAL(9,6) NULL,
-    Longitude DECIMAL(9,6) NULL,
     TimeZone VARCHAR(50) NULL, -- Múi giờ để tính ETA
-    OperatingHours VARCHAR(50) NULL DEFAULT '24/7', -- '24/7' hoặc '06:00-22:00'
-    SupportsOvernight BIT NOT NULL DEFAULT 0,
-    HasTruckParking BIT NOT NULL DEFAULT 1,
-    HasLoadingArea BIT NOT NULL DEFAULT 1,
-    HasStabling BIT NOT NULL DEFAULT 1,
-    HasWaterFeed BIT NOT NULL DEFAULT 1,
     CapacityStalls INT NULL,
     ContactPerson NVARCHAR(100) NULL,
     ContactPhone VARCHAR(20) NULL,
@@ -174,83 +165,7 @@ CREATE TABLE VEHICLE (
     Status VARCHAR(50) NULL,
     OperatingCountry VARCHAR(10) NULL DEFAULT 'VN', -- 'VN', 'JP', 'SG'
     PlateNumber NVARCHAR(50) NULL, -- Biển số xe thực tế
-    -- Thông số kỹ thuật phục vụ kiểm soát cầu hầm & tải trọng (Flow 3 v2 Truck-Check)
-    Height_m DECIMAL(4, 2) NULL,
-    Width_m DECIMAL(4, 2) NULL,
-    Length_m DECIMAL(4, 2) NULL,
-    Gross_Weight_Tons DECIMAL(5, 2) NULL,
-    Axle_Weight_Tons DECIMAL(5, 2) NULL,
     CONSTRAINT PK_Vehicle PRIMARY KEY (VehicleID)
 );
-GO
-
--- 11. Bảng COUNTRY: Danh mục quốc gia
-CREATE TABLE COUNTRY (
-    CountryCode VARCHAR(2) NOT NULL,
-    CountryName NVARCHAR(100) NOT NULL,
-    IsActive BIT NOT NULL DEFAULT 1,
-    CONSTRAINT PK_Country PRIMARY KEY (CountryCode),
-    CONSTRAINT CK_Country_Code CHECK (DATALENGTH(CountryCode) = 2
-        AND CountryCode COLLATE Latin1_General_100_BIN2 NOT LIKE '%[^A-Z]%'),
-    CONSTRAINT CK_Country_Name CHECK (LEN(LTRIM(RTRIM(CountryName))) > 0)
-);
-GO
-
--- 12. Bảng SUPPORTED_ROUTE: Tuyến đường được hỗ trợ giữa các quốc gia
-CREATE TABLE SUPPORTED_ROUTE (
-    RouteID VARCHAR(50) NOT NULL,
-    OriginCountry VARCHAR(2) NOT NULL,
-    DestinationCountry VARCHAR(2) NOT NULL,
-    TransportMode VARCHAR(50) NOT NULL,
-    IsActive BIT NOT NULL DEFAULT 1,
-    CONSTRAINT PK_SupportedRoute PRIMARY KEY (RouteID),
-    CONSTRAINT FK_SupportedRoute_Origin FOREIGN KEY (OriginCountry) REFERENCES COUNTRY(CountryCode),
-    CONSTRAINT FK_SupportedRoute_Destination FOREIGN KEY (DestinationCountry) REFERENCES COUNTRY(CountryCode),
-    CONSTRAINT UQ_SupportedRoute_DirectionMode UNIQUE (OriginCountry, DestinationCountry, TransportMode),
-    CONSTRAINT CK_SupportedRoute_Mode CHECK (LEN(LTRIM(RTRIM(TransportMode))) > 0)
-);
-GO
-
-CREATE SEQUENCE dbo.[SEQ_SUPPORTED_ROUTE_ID] AS BIGINT
-    START WITH 4 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
-GO
-ALTER TABLE dbo.[SUPPORTED_ROUTE] ADD CONSTRAINT [DF_SUPPORTED_ROUTE_ID]
-    DEFAULT ('ROUTE_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_SUPPORTED_ROUTE_ID], '000', 'en-US')) FOR [RouteID];
-GO
-
--- 13. Bảng BUSINESS_POLICY: Chính sách kinh doanh tham số hoá
-CREATE TABLE BUSINESS_POLICY (
-    PolicyID VARCHAR(50) NOT NULL,
-    Code VARCHAR(100) NOT NULL,
-    ValueType VARCHAR(10) NOT NULL,
-    NumberValue DECIMAL(18,6) NULL,
-    TextValue NVARCHAR(2000) NULL,
-    BoolValue BIT NULL,
-    Unit VARCHAR(30) NULL,
-    ScopeType VARCHAR(20) NOT NULL DEFAULT 'GLOBAL',
-    ScopeID VARCHAR(50) NULL,
-    Description NVARCHAR(1000) NOT NULL,
-    UpdatedBy VARCHAR(50) NULL,
-    UpdatedAt DATETIME2(7) NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT PK_BusinessPolicy PRIMARY KEY (PolicyID),
-    CONSTRAINT FK_BusinessPolicy_Updater FOREIGN KEY (UpdatedBy) REFERENCES [USER](UserID),
-    CONSTRAINT UQ_BusinessPolicy_CodeScope UNIQUE (Code, ScopeType, ScopeID),
-    CONSTRAINT CK_BusinessPolicy_Code CHECK (LEN(LTRIM(RTRIM(Code))) > 0),
-    CONSTRAINT CK_BusinessPolicy_Value CHECK (
-        (ValueType = 'NUMBER' AND NumberValue IS NOT NULL AND TextValue IS NULL AND BoolValue IS NULL)
-        OR (ValueType = 'TEXT' AND TextValue IS NOT NULL AND NumberValue IS NULL AND BoolValue IS NULL)
-        OR (ValueType = 'BOOLEAN' AND BoolValue IS NOT NULL AND NumberValue IS NULL AND TextValue IS NULL)),
-    CONSTRAINT CK_BusinessPolicy_Scope CHECK (
-        (ScopeType = 'GLOBAL' AND ScopeID IS NULL)
-        OR (ScopeType IN ('COUNTRY', 'TRANSPORT_MODE')
-            AND ScopeID IS NOT NULL AND LEN(LTRIM(RTRIM(ScopeID))) > 0))
-);
-GO
-
-CREATE SEQUENCE dbo.[SEQ_BUSINESS_POLICY_ID] AS BIGINT
-    START WITH 12 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
-GO
-ALTER TABLE dbo.[BUSINESS_POLICY] ADD CONSTRAINT [DF_BUSINESS_POLICY_ID]
-    DEFAULT ('BUSINESS_POLICY_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_BUSINESS_POLICY_ID], '000', 'en-US')) FOR [PolicyID];
 GO
 
