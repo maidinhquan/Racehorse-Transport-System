@@ -7,7 +7,7 @@ namespace WebApi.Controllers.Flow4;
 
 [ApiController]
 [Route("api/customer/requests")]
-[Authorize(Roles = $"{UserRoles.Customer},{UserRoles.Admin}")]
+[Authorize(Roles = $"{UserRoles.Customer}")]
 public class CustomerTrackingController : BaseApiController
 {
     private readonly IFlow4CustomerTrackingService _customerTrackingService;

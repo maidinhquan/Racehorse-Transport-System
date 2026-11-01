@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Entities
@@ -85,7 +85,7 @@ namespace Domain.Entities
         // Xác nhận Điều phối viên (Coordinator / Operations READY - Flow 3)
         [Column("OperationsStatus")]
         [StringLength(20)]
-        public string OperationsStatus { get; set; } = "NOT_READY";
+        public string? OperationsStatus { get; set; } = "NOT_READY";
 
         [Column("ResourcesConfirmedAt")]
         public DateTime? ResourcesConfirmedAt { get; set; }
@@ -97,7 +97,7 @@ namespace Domain.Entities
         // Xác nhận Chuyên viên pháp lý (Specialist / Documents READY - Flow 2)
         [Column("DocumentsStatus")]
         [StringLength(20)]
-        public string DocumentsStatus { get; set; } = "NOT_READY";
+        public string? DocumentsStatus { get; set; } = "NOT_READY";
 
         [Column("EarliestDepartureDate")]
         public DateTime? EarliestDepartureDate { get; set; }
@@ -122,7 +122,7 @@ namespace Domain.Entities
 
         [Column("RouteStatus")]
         [StringLength(30)]
-        public string RouteStatus { get; set; } = "DRAFT";
+        public string? RouteStatus { get; set; } = "DRAFT";
 
         [Column("RouteApprovedAt")]
         public DateTime? RouteApprovedAt { get; set; }
@@ -153,7 +153,7 @@ namespace Domain.Entities
 
         [Column("ExecutionPhase")]
         [StringLength(30)]
-        public string ExecutionPhase { get; set; } = "AWAITING_DEPARTURE";
+        public string? ExecutionPhase { get; set; } = "AWAITING_DEPARTURE";
 
         [Column("CurrentEta")]
         public DateTime? CurrentEta { get; set; }

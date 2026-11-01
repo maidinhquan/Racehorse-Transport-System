@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Entities
@@ -13,15 +13,15 @@ namespace Domain.Entities
 
         [Column("TripID")]
         [StringLength(50)]
-        public string TripId { get; set; } = null!;
+        public string? TripId { get; set; }
 
         [Column("HorseID")]
         [StringLength(50)]
-        public string HorseId { get; set; } = null!;
+        public string? HorseId { get; set; }
 
         [Column("EscortID")]
         [StringLength(50)]
-        public string EscortId { get; set; } = null!;
+        public string? EscortId { get; set; }
 
         [Column("LogType")]
         [StringLength(50)]
@@ -50,7 +50,7 @@ namespace Domain.Entities
         // Flow 4: Detailed Vitals & Observations
         [Column("Condition")]
         [StringLength(20)]
-        public string Condition { get; set; } = "NORMAL";
+        public string? Condition { get; set; } = "NORMAL";
 
         [Column("RespiratoryRatePerMin")]
         public int? RespiratoryRatePerMin { get; set; }
@@ -90,7 +90,7 @@ namespace Domain.Entities
         public string? IncidentId { get; set; }
 
         [Column("IncidentRequired")]
-        public bool IncidentRequired { get; set; } = false;
+        public bool? IncidentRequired { get; set; } = false;
 
         [Column("SupersedesLogId")]
         [StringLength(50)]
@@ -106,10 +106,10 @@ namespace Domain.Entities
 
         [Column("LegType")]
         [StringLength(20)]
-        public string LegType { get; set; } = "road";
+        public string? LegType { get; set; } = "road";
 
         [Column("RecordedAt")]
-        public DateTime RecordedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? RecordedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
         [ForeignKey(nameof(TripId))]
@@ -125,4 +125,3 @@ namespace Domain.Entities
         public virtual User? Escort { get; set; }
     }
 }
-

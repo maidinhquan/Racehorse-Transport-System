@@ -262,14 +262,14 @@ public class Flow4HealthService : IFlow4HealthService
             },
             RecordedBy = new Flow4ActorDto
             {
-                UserId = h.EscortId,
+                UserId = h.EscortId ?? string.Empty,
                 Name = user?.FullName ?? h.Escort?.FullName ?? "Nhân viên áp tải",
                 Role = "DRIVER_ESCORT"
             },
-            RecordedAt = h.RecordedAt.ToString("yyyy-MM-dd HH:mm"),
+            RecordedAt = h.RecordedAt?.ToString("yyyy-MM-dd HH:mm") ?? h.LogTime.ToString("yyyy-MM-dd HH:mm"),
             SupersedesId = h.SupersedesLogId,
             AmendmentReason = h.AmendmentReason,
-            IncidentRequired = h.IncidentRequired
+            IncidentRequired = h.IncidentRequired ?? false
         };
     }
 }

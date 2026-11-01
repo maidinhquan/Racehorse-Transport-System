@@ -45,7 +45,7 @@ public class Flow4CustomerTrackingService : IFlow4CustomerTrackingService
                 HorseId = rhm.HorseId,
                 Name = rhm.Horse != null ? rhm.Horse.Name : rhm.HorseId,
                 Microchip = rhm.Horse != null ? rhm.Horse.MicrochipIso : "",
-                CareInstructions = null
+                CareInstructions = rhm.CareInstructions
             })
             .ToListAsync();
 
@@ -76,8 +76,8 @@ public class Flow4CustomerTrackingService : IFlow4CustomerTrackingService
             Trip = Flow4Helper.BuildTripSummary(trip, _context),
             Milestones = publicMilestones,
             Horses = horses,
-            Pickup = new Flow4EndpointDto { Name = "Điểm đón", Address = "Trang trại xuất phát", Country = "VN" },
-            Delivery = new Flow4EndpointDto { Name = "Điểm giao", Address = "Trang trại đến", Country = "VN" },
+            Pickup = new Flow4EndpointDto { Name = "Điểm đón", Address = request.Departure ?? "Trang trại xuất phát", Country = request.OriginCountry ?? "VN" },
+            Delivery = new Flow4EndpointDto { Name = "Điểm giao", Address = request.Destination ?? "Trang trại đến", Country = request.DestinationCountry ?? "VN" },
             Map = new Flow4MapDto
             {
                 RouteSource = "APPROVED_PLAN",
@@ -111,13 +111,13 @@ public class Flow4CustomerTrackingService : IFlow4CustomerTrackingService
 
         var logs = await _context.HealthLogs
             .Where(h => horseIds.Contains(h.HorseId))
-            .OrderByDescending(h => h.RecordedAt)
+            .OrderByDescending(h => h.RecordedAt ?? h.LogTime)
             .ToListAsync();
 
         return logs.Select(h => new Flow4PublicHealthDto
         {
             Id = h.LogId,
-            HorseId = h.HorseId,
+            HorseId = h.HorseId ?? string.Empty,
             ObservedAt = h.LogTime.ToString("yyyy-MM-dd HH:mm"),
             Condition = h.Condition ?? "NORMAL",
             Observation = h.Description ?? "",
@@ -127,9 +127,21 @@ public class Flow4CustomerTrackingService : IFlow4CustomerTrackingService
             TemperatureC = h.Temperature,
             HeartRateBpm = h.HeartRate,
             PhotoFileIds = !string.IsNullOrEmpty(h.PhotoFileIds)
-                ? JsonSerializer.Deserialize<List<string>>(h.PhotoFileIds) ?? new()
-                : new()
+                ? TryParsePhotoIds(h.PhotoFileIds)
+                : (!string.IsNullOrEmpty(h.MediaUrl) ? new List<string> { h.MediaUrl } : new List<string>())
         }).ToList();
+    }
+
+    private static List<string> TryParsePhotoIds(string jsonOrUrl)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(jsonOrUrl) ?? new();
+        }
+        catch
+        {
+            return new List<string> { jsonOrUrl };
+        }
     }
 
     /// <summary>
