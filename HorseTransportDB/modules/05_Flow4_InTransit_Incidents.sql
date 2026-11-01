@@ -1,16 +1,26 @@
 -- =============================================================================
 -- MODULE 05: FLOW 4 - VẬN HÀNH HIỆN TRƯỜNG & GIÁM SÁT HÀNH TRÌNH
--- Phân vùng: Nhật ký sinh hiệu sức khỏe ngựa, Sự cố, Mốc hành trình, Đính chính,
---           Đề xuất ETA 2 cấp, Đánh giá thú y, Chi phí phát sinh & Chứng từ hiện trường
+-- Căn cứ gốc: HorseTransportDB_Reviewed.sql (Bản chuẩn quy tắc toàn dự án)
 -- Tuân thủ: RULE/ID_NAME_RULE.md (Chuẩn ID: <TIỀN_TỐ>_<SỐ_THỨ_TỰ>)
 --          RULE/DATABASE_STATUS_CONVENTION.md (Chuẩn hóa trạng thái)
 -- =============================================================================
-USE HorseTransportDB;
+
+-- Tự động chọn đúng Database theo môi trường thực thi (Ưu tiên HorseTransportDB_Reviewed)
+IF EXISTS (SELECT name FROM sys.databases WHERE name = 'HorseTransportDB_Reviewed')
+BEGIN
+    USE HorseTransportDB_Reviewed;
+END
+ELSE IF EXISTS (SELECT name FROM sys.databases WHERE name = 'HorseTransportDB')
+BEGIN
+    USE HorseTransportDB;
+END
 GO
 
 -- =============================================================================
--- BƯỚC 1: DỌN DẸP BẢNG THEO THỨ TỰ PHỤ THUỘC KHÓA NGOẠI NGƯỢC
--- (Xóa code tạo bảng cũ và tạo bảng mới nguyên khối, không dùng ALTER TABLE chắp vá)
+-- BƯỚC 1: DỌN DẸP 10 BẢNG THUỘC SỞ HỮU RIÊNG CỦA FLOW 4 NẾU ĐÃ TỒN TẠI
+-- LƯU Ý BẢO VỆ TOÀN VẸN HỆ THỐNG:
+-- * TUYỆT ĐỐI KHÔNG DROP bảng INCIDENT vì bảng SETTLEMENT_ADJUSTMENT (Flow 6) đang tham chiếu FK_F6_AdjustmentIncident.
+-- * TUYỆT ĐỐI KHÔNG DROP bảng HEALTH_LOG vì đang chứa dữ liệu seed ban đầu của HorseTransportDB_Reviewed.sql.
 -- =============================================================================
 DROP TABLE IF EXISTS EXECUTION_ATTACHMENT;
 DROP TABLE IF EXISTS EXECUTION_CONTACT_LOG;
@@ -22,23 +32,18 @@ DROP TABLE IF EXISTS VET_ASSESSMENT;
 DROP TABLE IF EXISTS ETA_PROPOSAL;
 DROP TABLE IF EXISTS MILESTONE_CORRECTION_REQUEST;
 DROP TABLE IF EXISTS TRIP_MILESTONE;
-DROP TABLE IF EXISTS INCIDENT;
-DROP TABLE IF EXISTS HEALTH_LOG;
 GO
 
 -- =============================================================================
 -- BƯỚC 2: MỞ RỘNG BẢNG TRIP_PLAN CHO PHÂN HỆ FLOW 4
 -- GHI CHÚ NGUỒN GỐC (ORIGIN NOTE):
--- * BẢNG TRIP_PLAN GỐC ĐƯỢC TẠO TẠI:
---   - File module: HorseTransportDB/modules/04_Flow3_Fleet_TripPlan.sql
---   - File master: HorseTransportDB/HorseTransportDB.sql (Dòng 321)
--- * ENTITY C# TƯƠNG ỨNG TRONG BACKEND: backend/Domain/Entities/TripPlan.cs
--- * MỤC ĐÍCH: Flow 4 kế thừa bảng TRIP_PLAN từ Flow 3 và bổ sung 4 trường dữ liệu mới:
---   - ExecutionVersion: Phiên bản thực thi phục vụ khóa lạc quan (Optimistic Concurrency)
---   - ExecutionPhase: Giai đoạn hành trình (AWAITING_DEPARTURE, IN_PROGRESS, AWAITING_HANDOVER)
---   - CurrentEta: Thời gian dự kiến đến đích mới nhất
---   - PendingEtaProposalId: Mã đề xuất ETA đang chờ phê duyệt
+-- * BẢNG TRIP_PLAN GỐC ĐƯỢC TẠO TẠI: HorseTransportDB_Reviewed.sql (Dòng 321)
+-- * ENTITY C# TƯƠNG ỨNG: backend/Domain/Entities/TripPlan.cs
+-- * MỤC ĐÍCH: Bổ sung các trường phục vụ giám sát tiến độ thực tế, khóa phiên bản
+--   lạc quan (ExecutionVersion), giai đoạn (ExecutionPhase) và đề xuất ETA.
 -- =============================================================================
+
+-- Các cột phục vụ Flow 4
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ExecutionVersion')
     ALTER TABLE TRIP_PLAN ADD ExecutionVersion INT NOT NULL DEFAULT 1;
 
@@ -50,70 +55,130 @@ IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN'
 
 IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'PendingEtaProposalId')
     ALTER TABLE TRIP_PLAN ADD PendingEtaProposalId VARCHAR(50) NULL;
+
+-- Đảm bảo các cột phiên bản và phê duyệt của Backend được bổ sung an toàn nếu chưa có
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'Version')
+    ALTER TABLE TRIP_PLAN ADD [Version] INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'PlanVersion')
+    ALTER TABLE TRIP_PLAN ADD PlanVersion INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ContextVersion')
+    ALTER TABLE TRIP_PLAN ADD ContextVersion INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ReadinessVersion')
+    ALTER TABLE TRIP_PLAN ADD ReadinessVersion INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'DraftPlanJson')
+    ALTER TABLE TRIP_PLAN ADD DraftPlanJson NVARCHAR(MAX) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ApprovedPlanJson')
+    ALTER TABLE TRIP_PLAN ADD ApprovedPlanJson NVARCHAR(MAX) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'OpenChange')
+    ALTER TABLE TRIP_PLAN ADD OpenChange BIT NOT NULL DEFAULT 0;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'EffectiveOriginPlaceId')
+    ALTER TABLE TRIP_PLAN ADD EffectiveOriginPlaceId VARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'OperationsStatus')
+    ALTER TABLE TRIP_PLAN ADD OperationsStatus VARCHAR(30) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'DocumentsStatus')
+    ALTER TABLE TRIP_PLAN ADD DocumentsStatus VARCHAR(30) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'RouteStatus')
+    ALTER TABLE TRIP_PLAN ADD RouteStatus VARCHAR(30) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ResourcesConfirmedAt')
+    ALTER TABLE TRIP_PLAN ADD ResourcesConfirmedAt DATETIME2 NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ResourcesConfirmedBy')
+    ALTER TABLE TRIP_PLAN ADD ResourcesConfirmedBy NVARCHAR(100) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'EarliestDepartureDate')
+    ALTER TABLE TRIP_PLAN ADD EarliestDepartureDate DATETIME2 NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'DepartureApprovedAt')
+    ALTER TABLE TRIP_PLAN ADD DepartureApprovedAt DATETIME2 NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'DepartureApprovedBy')
+    ALTER TABLE TRIP_PLAN ADD DepartureApprovedBy VARCHAR(50) NULL;
 GO
 
 -- =============================================================================
--- BƯỚC 3: TẠO CÁC BẢNG NGUYÊN KHỐI PHỤC VỤ RIÊNG CHO FLOW 4
+-- BƯỚC 3: MỞ RỘNG BẢNG HEALTH_LOG CHO PHÂN HỆ FLOW 4 (APPEND-ONLY & CLINICAL)
+-- GHI CHÚ NGUỒN GỐC (ORIGIN NOTE):
+-- * BẢNG HEALTH_LOG GỐC ĐƯỢC TẠO TẠI: HorseTransportDB_Reviewed.sql (Bảng số 19, dòng 427)
+-- * ENTITY C# TƯƠNG ỨNG: backend/Domain/Entities/HealthLog.cs
+-- * MỤC ĐÍCH: Kế thừa 4 bản ghi seed mẫu đã có sẵn và bổ sung các chỉ số sinh hiệu
+--   chuyên sâu (nhịp thở, thức ăn, nước uống, tình trạng NORMAL/ABNORMAL kích hoạt
+--   Safety Blocker, cờ liên kết sự cố và cơ chế đính chính Append-Only qua SupersedesLogId).
+-- =============================================================================
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'MilestoneID')
+    ALTER TABLE HEALTH_LOG ADD MilestoneID VARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'LegType')
+    ALTER TABLE HEALTH_LOG ADD LegType VARCHAR(20) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'RespiratoryRatePerMin')
+    ALTER TABLE HEALTH_LOG ADD RespiratoryRatePerMin INT NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'Condition')
+    ALTER TABLE HEALTH_LOG ADD Condition VARCHAR(20) NOT NULL DEFAULT 'NORMAL';
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'PhotoFileIds')
+    ALTER TABLE HEALTH_LOG ADD PhotoFileIds NVARCHAR(MAX) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'HydrationStatus')
+    ALTER TABLE HEALTH_LOG ADD HydrationStatus NVARCHAR(100) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'AppetiteStatus')
+    ALTER TABLE HEALTH_LOG ADD AppetiteStatus NVARCHAR(100) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'FecesCondition')
+    ALTER TABLE HEALTH_LOG ADD FecesCondition NVARCHAR(100) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'Feeding')
+    ALTER TABLE HEALTH_LOG ADD Feeding NVARCHAR(500) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'Water')
+    ALTER TABLE HEALTH_LOG ADD Water NVARCHAR(500) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'RestStatus')
+    ALTER TABLE HEALTH_LOG ADD RestStatus NVARCHAR(500) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'CareNotes')
+    ALTER TABLE HEALTH_LOG ADD CareNotes NVARCHAR(MAX) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'IncidentID')
+    ALTER TABLE HEALTH_LOG ADD IncidentID VARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'IncidentRequired')
+    ALTER TABLE HEALTH_LOG ADD IncidentRequired BIT NOT NULL DEFAULT 0;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'SupersedesLogId')
+    ALTER TABLE HEALTH_LOG ADD SupersedesLogId VARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'AmendmentReason')
+    ALTER TABLE HEALTH_LOG ADD AmendmentReason NVARCHAR(1000) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'RecordedAt')
+    ALTER TABLE HEALTH_LOG ADD RecordedAt DATETIME2 NOT NULL DEFAULT GETDATE();
+
+IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_HealthLog_Supersedes')
+BEGIN
+    ALTER TABLE HEALTH_LOG ADD CONSTRAINT FK_HealthLog_Supersedes 
+    FOREIGN KEY (SupersedesLogId) REFERENCES HEALTH_LOG(LogID);
+END
+GO
+
+-- =============================================================================
+-- BƯỚC 4: TẠO 10 BẢNG MỚI ĐẶC THÙ RIÊNG PHỤC VỤ CHO 37 ENDPOINT FLOW 4
+-- Chuẩn mã ID theo RULE/ID_NAME_RULE.md: <TIỀN_TỐ>_<SỐ_THỨ_TỰ>
 -- =============================================================================
 
--- 1. BẢNG HEALTH_LOG: NHẬT KÝ SINH HIỆU SỨC KHỎE NGỰA TRÊN ĐƯỜNG (APPEND-ONLY)
--- Chuẩn mã ID: HEALTH_LOG_001, HEALTH_LOG_002...
-CREATE TABLE HEALTH_LOG (
-    LogID VARCHAR(50) NOT NULL,
-    TripID VARCHAR(50) NOT NULL,
-    HorseID VARCHAR(50) NOT NULL,
-    EscortID VARCHAR(50) NOT NULL,
-    MilestoneID VARCHAR(50) NULL,
-    LegType VARCHAR(20) NULL,                        -- 'road', 'outbound', 'air', 'inbound'
-    LogType VARCHAR(50) NULL,
-    LogTime DATETIME NOT NULL DEFAULT GETDATE(),
-    Temperature DECIMAL(4, 1) NULL,                  -- Nhiệt độ (°C)
-    HeartRate INT NULL,                              -- Nhịp tim (nhịp/phút)
-    RespiratoryRatePerMin INT NULL,                  -- Nhịp thở (lần/phút)
-    HealthStatus NVARCHAR(100) NULL,
-    Condition VARCHAR(20) NOT NULL DEFAULT 'NORMAL', -- NORMAL, ABNORMAL (Kích hoạt Safety Blocker)
-    Description NVARCHAR(MAX) NULL,
-    MediaUrl VARCHAR(500) NULL,
-    PhotoFileIds NVARCHAR(MAX) NULL,                 -- Danh sách JSON FileID ảnh chứng từ
-    HydrationStatus NVARCHAR(100) NULL,
-    AppetiteStatus NVARCHAR(100) NULL,
-    FecesCondition NVARCHAR(100) NULL,
-    Feeding NVARCHAR(500) NULL,
-    Water NVARCHAR(500) NULL,
-    RestStatus NVARCHAR(500) NULL,
-    CareNotes NVARCHAR(MAX) NULL,
-    IncidentID VARCHAR(50) NULL,
-    IncidentRequired BIT NOT NULL DEFAULT 0,
-    SupersedesLogId VARCHAR(50) NULL,                -- Lưu LogID cũ khi đính chính (Append-Only)
-    AmendmentReason NVARCHAR(1000) NULL,
-    RecordedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT PK_HealthLog PRIMARY KEY (LogID),
-    CONSTRAINT FK_HealthLog_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
-    CONSTRAINT FK_HealthLog_Horse FOREIGN KEY (HorseID) REFERENCES HORSE(HorseID),
-    CONSTRAINT FK_HealthLog_Escort FOREIGN KEY (EscortID) REFERENCES [USER](UserID),
-    CONSTRAINT FK_HealthLog_Supersedes FOREIGN KEY (SupersedesLogId) REFERENCES HEALTH_LOG(LogID)
-);
-GO
-
--- 2. BẢNG INCIDENT: BÁO CÁO SỰ CỐ PHÁT SINH KHẨN CẤP TRÊN ĐƯỜNG
--- Chuẩn mã ID: INCIDENT_001, INCIDENT_002...
-CREATE TABLE INCIDENT (
-    IncidentID VARCHAR(50) NOT NULL,
-    TripID VARCHAR(50) NOT NULL,
-    ApprovedBy VARCHAR(50) NULL,
-    IncidentType VARCHAR(50) NULL,
-    LocationCoordinates VARCHAR(100) NULL,
-    Description NVARCHAR(MAX) NULL,
-    ImageUrl VARCHAR(500) NULL,
-    AdditionalCost DECIMAL(12, 2) NULL,
-    Status VARCHAR(50) NULL,
-    CONSTRAINT PK_Incident PRIMARY KEY (IncidentID),
-    CONSTRAINT FK_Incident_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
-    CONSTRAINT FK_Incident_ApprovedBy FOREIGN KEY (ApprovedBy) REFERENCES [USER](UserID)
-);
-GO
-
--- 3. BẢNG TRIP_MILESTONE: DANH SÁCH CÁC MỐC HÀNH TRÌNH TUẦN TỰ
+-- 1. BẢNG TRIP_MILESTONE: DANH SÁCH CÁC MỐC HÀNH TRÌNH TUẦN TỰ
 -- Chuẩn mã ID: MILESTONE_001, MILESTONE_002...
 CREATE TABLE TRIP_MILESTONE (
     MilestoneID VARCHAR(50) NOT NULL,
@@ -137,7 +202,7 @@ CREATE TABLE TRIP_MILESTONE (
 );
 GO
 
--- 4. BẢNG MILESTONE_CORRECTION_REQUEST: YÊU CẦU ĐÍNH CHÍNH MỐC ĐÃ HOÀN TẤT
+-- 2. BẢNG MILESTONE_CORRECTION_REQUEST: YÊU CẦU ĐÍNH CHÍNH MỐC ĐÃ HOÀN TẤT
 -- Chuẩn mã ID: CORRECTION_001, CORRECTION_002...
 CREATE TABLE MILESTONE_CORRECTION_REQUEST (
     CorrectionID VARCHAR(50) NOT NULL,
@@ -163,7 +228,7 @@ CREATE TABLE MILESTONE_CORRECTION_REQUEST (
 );
 GO
 
--- 5. BẢNG ETA_PROPOSAL: ĐỀ XUẤT ĐIỀU CHỈNH THỜI GIAN ĐẾN NƠI (ETA 2 CẤP)
+-- 3. BẢNG ETA_PROPOSAL: ĐỀ XUẤT ĐIỀU CHỈNH THỜI GIAN ĐẾN NƠI (ETA 2 CẤP)
 -- Chuẩn mã ID: PROPOSAL_001, PROPOSAL_002...
 CREATE TABLE ETA_PROPOSAL (
     ProposalID VARCHAR(50) NOT NULL,
@@ -189,7 +254,7 @@ CREATE TABLE ETA_PROPOSAL (
 );
 GO
 
--- 6. BẢNG VET_ASSESSMENT: KẾT LUẬN ĐÁNH GIÁ THỂ TRẠNG BÁC SĨ THÚ Y
+-- 4. BẢNG VET_ASSESSMENT: KẾT LUẬN ĐÁNH GIÁ THỂ TRẠNG BÁC SĨ THÚ Y
 -- Chuẩn mã ID: ASSESSMENT_001, ASSESSMENT_002...
 CREATE TABLE VET_ASSESSMENT (
     AssessmentID VARCHAR(50) NOT NULL,
@@ -209,7 +274,7 @@ CREATE TABLE VET_ASSESSMENT (
 );
 GO
 
--- 7. BẢNG TRIP_EXPENSE: CHI PHÍ PHÁT SINH TRÊN ĐƯỜNG CỦA TỔ XE (NỘI BỘ)
+-- 5. BẢNG TRIP_EXPENSE: CHI PHÍ PHÁT SINH TRÊN ĐƯỜNG CỦA TỔ XE (NỘI BỘ)
 -- Chuẩn mã ID: EXPENSE_001, EXPENSE_002...
 CREATE TABLE TRIP_EXPENSE (
     ExpenseID VARCHAR(50) NOT NULL,
@@ -229,7 +294,7 @@ CREATE TABLE TRIP_EXPENSE (
 );
 GO
 
--- 8. BẢNG AIR_NOTICE: THÔNG BÁO LỊCH BAY TỪ HÃNG HÀNG KHÔNG
+-- 6. BẢNG AIR_NOTICE: THÔNG BÁO LỊCH BAY TỪ HÃNG HÀNG KHÔNG
 -- Chuẩn mã ID: AIR_NOTICE_001, AIR_NOTICE_002...
 CREATE TABLE AIR_NOTICE (
     NoticeID VARCHAR(50) NOT NULL,
@@ -253,7 +318,7 @@ CREATE TABLE AIR_NOTICE (
 );
 GO
 
--- 9. BẢNG LEGAL_CHECKPOINT_DECISION: KẾT QUẢ KIỂM TRA PHÁP LÝ TẠI TRẠM KIỂM SOÁT
+-- 7. BẢNG LEGAL_CHECKPOINT_DECISION: KẾT QUẢ KIỂM TRA PHÁP LÝ TẠI TRẠM KIỂM SOÁT
 -- Chuẩn mã ID: DECISION_001, DECISION_002...
 CREATE TABLE LEGAL_CHECKPOINT_DECISION (
     DecisionID VARCHAR(50) NOT NULL,
@@ -274,7 +339,7 @@ CREATE TABLE LEGAL_CHECKPOINT_DECISION (
 );
 GO
 
--- 10. BẢNG EXECUTION_ALERT: CẢNH BÁO TRỄ MỐC VÀ ĐẾN HẠN KIỂM TRA Y TẾ
+-- 8. BẢNG EXECUTION_ALERT: CẢNH BÁO TRỄ MỐC VÀ ĐẾN HẠN KIỂM TRA Y TẾ
 -- Chuẩn mã ID: ALERT_001, ALERT_002...
 CREATE TABLE EXECUTION_ALERT (
     AlertID VARCHAR(50) NOT NULL,
@@ -294,7 +359,7 @@ CREATE TABLE EXECUTION_ALERT (
 );
 GO
 
--- 11. BẢNG EXECUTION_CONTACT_LOG: NHẬT KÝ LIÊN HỆ KHẨN CẤP NGOÀI LUỒNG
+-- 9. BẢNG EXECUTION_CONTACT_LOG: NHẬT KÝ LIÊN HỆ KHẨN CẤP NGOÀI LUỒNG
 -- Chuẩn mã ID: CONTACT_LOG_001, CONTACT_LOG_002...
 CREATE TABLE EXECUTION_CONTACT_LOG (
     ContactLogID VARCHAR(50) NOT NULL,
@@ -312,7 +377,7 @@ CREATE TABLE EXECUTION_CONTACT_LOG (
 );
 GO
 
--- 12. BẢNG EXECUTION_ATTACHMENT: QUẢN LÝ METADATA CHỨNG TỪ & ẢNH HIỆN TRƯỜNG
+-- 10. BẢNG EXECUTION_ATTACHMENT: QUẢN LÝ METADATA CHỨNG TỪ & ẢNH HIỆN TRƯỜNG
 -- Chuẩn mã ID: ATTACHMENT_001, ATTACHMENT_002...
 CREATE TABLE EXECUTION_ATTACHMENT (
     FileID VARCHAR(50) NOT NULL,
@@ -330,4 +395,24 @@ CREATE TABLE EXECUTION_ATTACHMENT (
     CONSTRAINT FK_ExecutionAttachment_Horse FOREIGN KEY (HorseID) REFERENCES HORSE(HorseID),
     CONSTRAINT FK_ExecutionAttachment_User FOREIGN KEY (UploadedBy) REFERENCES [USER](UserID)
 );
+GO
+
+-- =============================================================================
+-- BƯỚC 5: KHỞI TẠO DỮ LIỆU SEED MẪU PHỤC VỤ TEST FLOW 4 TRÊN CHUYẾN TRIP_003
+-- (TRIP_003 là chuyến IN_TRANSIT có sẵn từ HorseTransportDB_Reviewed.sql)
+-- =============================================================================
+IF EXISTS (SELECT 1 FROM TRIP_PLAN WHERE TripID = 'TRIP_003')
+BEGIN
+    UPDATE TRIP_PLAN 
+    SET ExecutionVersion = 2, 
+        ExecutionPhase = 'IN_PROGRESS', 
+        CurrentEta = '2026-10-10 18:00:00' 
+    WHERE TripID = 'TRIP_003';
+
+    INSERT INTO TRIP_MILESTONE (MilestoneID, TripID, Leg, MilestoneKind, SequenceOrder, MilestoneLabel, Status, PlannedTimeUtc, OccurredTimeUtc, ConfirmedTimeUtc, ConfirmedByUserId, Note, RequiresHealthCheck, Revision)
+    VALUES 
+    ('MILESTONE_001', 'TRIP_003', 'road', 'DEPARTED',     1, N'Xuất phát từ trang trại Sóc Sơn', 'COMPLETED', '2026-10-08 08:30:00', '2026-10-08 08:35:00', '2026-10-08 08:35:00', 'USER_007', N'Xuất phát đúng giờ', 0, 1),
+    ('MILESTONE_002', 'TRIP_003', 'road', 'STOP_ARRIVED', 2, N'Trạm dừng nghỉ Đà Nẵng (Kiểm tra y tế)', 'PENDING',   '2026-10-09 11:00:00', NULL, NULL, NULL, NULL, 1, 1),
+    ('MILESTONE_003', 'TRIP_003', 'road', 'FINAL_ARRIVED',3, N'Đến điểm giao CLB Ngựa Sài Gòn',          'PENDING',   '2026-10-10 18:00:00', NULL, NULL, NULL, NULL, 0, 1);
+END
 GO
