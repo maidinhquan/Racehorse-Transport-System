@@ -62,6 +62,7 @@ backend/FLOW*
 !.env.example
 **/appsettings.*.Local.json
 **/appsettings.Local.json
+HorseTransportDB/tools/
 
 # Private Flow 1 metadata, generated contract documents and spike outputs
 backend/WebApi/App_Data/

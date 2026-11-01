@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Entities.Flow4;
 using Microsoft.EntityFrameworkCore;
 namespace Infrastructure.Data.Context
 {
@@ -39,21 +40,43 @@ namespace Infrastructure.Data.Context
         public DbSet<Handover> Handovers { get; set; } = null!;
         public DbSet<HandoverItem> HandoverItems { get; set; } = null!;
 
-        // 5. Phân vùng Hợp đồng & Tài chính
+        // 5. Phân vùng Flow 3 v2 (Đối tác bay, Lịch bay, Đổi điểm nhận, Idempotency, Lịch sử, Chứng từ)
+        public DbSet<AirPartner> AirPartners { get; set; } = null!;
+        public DbSet<FlightCatalogItem> FlightCatalogs { get; set; } = null!;
+        public DbSet<PickupRelocationProposal> PickupRelocations { get; set; } = null!;
+        public DbSet<IdempotencyRecord> IdempotencyRecords { get; set; } = null!;
+        public DbSet<TripPlanningHistory> TripPlanningHistories { get; set; } = null!;
+        public DbSet<PlanningAttachment> PlanningAttachments { get; set; } = null!;
+
+        // 6. Phân vùng Hợp đồng & Tài chính
         public DbSet<ContractTemplate> ContractTemplates { get; set; } = null!;
         public DbSet<Contract> Contracts { get; set; } = null!;
         public DbSet<CostItem> CostItems { get; set; } = null!;
         public DbSet<Invoice> Invoices { get; set; } = null!;
         public DbSet<Payment> Payments { get; set; } = null!;
 
+        // 7. Phân vùng Flow 4 (Hiện trường & Giám sát thực thi)
+        public DbSet<TripMilestone> TripMilestones { get; set; } = null!;
+        public DbSet<MilestoneCorrectionRequest> MilestoneCorrections { get; set; } = null!;
+        public DbSet<EtaProposal> EtaProposals { get; set; } = null!;
+        public DbSet<VetAssessment> VetAssessments { get; set; } = null!;
+        public DbSet<TripExpense> TripExpenses { get; set; } = null!;
+        public DbSet<AirNotice> AirNotices { get; set; } = null!;
+        public DbSet<CheckpointDecision> CheckpointDecisions { get; set; } = null!;
+        public DbSet<ExecutionAlert> ExecutionAlerts { get; set; } = null!;
+        public DbSet<ExecutionContactLog> ExecutionContactLogs { get; set; } = null!;
+        public DbSet<ExecutionAttachment> ExecutionAttachments { get; set; } = null!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+            // Cấu hình composite primary key cho REQUEST_HORSE_MAPPING theo RULE/ID_NAME_RULE.md
+            modelBuilder.Entity<RequestHorseMapping>()
+                .HasKey(r => new { r.RequestId, r.HorseId });
+
             // Tự động load các cấu hình IEntityTypeConfiguration nếu có
-            modelBuilder.ApplyConfigurationsFromAssembly(typeof(HorseTransportDbContext).Assembly,
-                type => type.Namespace == "Infrastructure.Data.Configurations" ||
-                    type.Namespace?.StartsWith("Infrastructure.Data.Configurations.", StringComparison.Ordinal) == true);
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(HorseTransportDbContext).Assembly);
 
             // Mặc định DeleteBehavior là Restrict để tránh lỗi multiple cascade paths trong SQL Server
             foreach (var relationship in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))
