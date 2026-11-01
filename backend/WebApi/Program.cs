@@ -72,7 +72,6 @@ builder.Services.AddScoped<IMapRoutingService, MapRoutingService>();
 builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
-builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
 
 // =============================================================================
 // 3. CẤU HÌNH CORS VĨNH VIỄN (ZERO-MAINTENANCE CORS CHO FRONTEND)

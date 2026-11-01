@@ -206,8 +206,9 @@
 .cbn-coord .check {margin-top: 20px; display: flex; gap: 10px; align-items: flex-start; font-size: 12px; font-weight: 500; color: var(--ink); cursor: pointer;}
 .cbn-coord .check input {margin-top: 1px; accent-color: var(--orange);}
 .cbn-coord .stack .card.demo {border-style: dashed; background: #fafafa; box-shadow: none;}
-.cbn-coord .toast {position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: var(--ink); color: #fff;
-    padding: 10px 18px; border-radius: 8px; font-size: 12px; opacity: 0; pointer-events: none; transition: .25s; z-index: 30;}
+.cbn-coord .toast {position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); background: #0f172a; color: #fff;
+    padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 10px 30px rgba(15,23,42,.35);
+    opacity: 0; pointer-events: none; transition: .25s ease; z-index: 9999; max-width: 90vw;}
 .cbn-coord .toast.show {opacity: 1; transform: translate(-50%, 0);}
 @media (max-width: 760px){
 .cbn-coord {flex-direction: column;}
@@ -508,6 +509,7 @@
 .cbn-coord .rp-pin.req {background:#dc2626;border-radius:6px}
 .cbn-coord .rp-pin.bad {background:#9ca3af}
 .cbn-coord .rp-pin.on {outline:3px solid #fde047}
+.cbn-coord .rp-pin.cur {outline:3px solid #f57c00;box-shadow:0 0 10px rgba(245,124,0,0.85)}
 .cbn-coord .rp-detail {background:#fff;border:1px solid #e1e7ee;border-radius:14px;padding:14px;margin-top:12px}
 .cbn-coord .rp-detail b {color:var(--ink)}
 .cbn-coord .rp-detail small {display:block;color:#7b8797;font-size:12px;margin-top:3px}

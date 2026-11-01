@@ -35,26 +35,102 @@ import { apiClient } from '../../../shared/api/apiClient';
 
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
-const emptyDb = (): Db => ({
-  trips: [],
-  requests: [],
-  customers: clone((seed as Any).customers),
-  horses: clone((seed as Any).horses),
-  vehicles: clone((seed as Any).vehicles),
-  employees: clone((seed as Any).employees),
-  places: clone((seed as Any).places),
-  incidents: [],
-  complaints: [],
-  notifications: [],
-  audit: [],
-  air: clone((seed as Any).air),
-  vetStations: clone((seed as Any).vetStations),
-  quarantineBookings: [],
-  clearances: [],
-  cities: clone((seed as Any).cities),
-  users: { coordinator: clone((seed as Any).ROLES.FC.user), manager: clone((seed as Any).ROLES.LM), specialist: clone((seed as Any).ROLES.TS) },
-  seq: 1040,
-});
+export const PLACES_STORAGE_KEY = 'rts_coord_places';
+export const VEHICLES_STORAGE_KEY = 'rts_coord_vehicles';
+
+export function saveVehiclesToStorage(vehicles: Any[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(vehicles));
+  } catch (e) {
+    console.warn('[coordinator] Failed to persist vehicles to localStorage', e);
+  }
+}
+
+export function loadVehiclesFromStorage(fallbackVehicles: Any[]): Any[] {
+  if (typeof window === 'undefined') return clone(fallbackVehicles);
+  try {
+    const raw = localStorage.getItem(VEHICLES_STORAGE_KEY);
+    if (!raw) return clone(fallbackVehicles);
+    const stored = JSON.parse(raw);
+    if (Array.isArray(stored) && stored.length > 0) {
+      const storedMap = new Map(stored.map((v: Any) => [v.id, v]));
+      const result = [...stored];
+      fallbackVehicles.forEach((sv: Any) => {
+        if (!storedMap.has(sv.id)) {
+          result.push(clone(sv));
+        }
+      });
+      return result;
+    }
+  } catch (e) {
+    console.warn('[coordinator] Failed to read vehicles from localStorage', e);
+  }
+  return clone(fallbackVehicles);
+}
+
+export function savePlacesToStorage(places: Any[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(PLACES_STORAGE_KEY, JSON.stringify(places));
+  } catch (e) {
+    console.warn('[coordinator] Failed to persist places to localStorage', e);
+  }
+}
+
+export function loadPlacesFromStorage(fallbackPlaces: Any[]): Any[] {
+  if (typeof window === 'undefined') return clone(fallbackPlaces);
+  try {
+    const raw = localStorage.getItem(PLACES_STORAGE_KEY);
+    if (!raw) return clone(fallbackPlaces);
+    const stored = JSON.parse(raw);
+    if (Array.isArray(stored) && stored.length > 0) {
+      const storedMap = new Map(stored.map((p: Any) => [p.id, p]));
+      const result = [...stored];
+      fallbackPlaces.forEach((sp: Any) => {
+        if (!storedMap.has(sp.id)) {
+          result.push(clone(sp));
+        }
+      });
+      return result;
+    }
+  } catch (e) {
+    console.warn('[coordinator] Failed to read places from localStorage', e);
+  }
+  return clone(fallbackPlaces);
+}
+
+const emptyDb = (): Db => {
+  const loadedPlaces = loadPlacesFromStorage((seed as Any).places);
+  const loadedVehicles = loadVehiclesFromStorage((seed as Any).vehicles);
+  const maxPlaceNum = loadedPlaces.reduce((max: number, p: Any) => {
+    const m = String(p.id || '').match(/PL-(\d+)/);
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 1040);
+  return {
+    trips: [],
+    requests: [],
+    customers: clone((seed as Any).customers),
+    horses: clone((seed as Any).horses),
+    vehicles: loadedVehicles,
+    employees: clone((seed as Any).employees),
+    places: loadedPlaces,
+    incidents: [],
+    complaints: [],
+    notifications: [],
+    audit: [],
+    air: clone((seed as Any).air),
+    vetStations: clone((seed as Any).vetStations),
+    quarantineBookings: [],
+    clearances: [],
+    cities: clone((seed as Any).cities),
+    users: { coordinator: clone((seed as Any).ROLES.FC.user), manager: clone((seed as Any).ROLES.LM), specialist: clone((seed as Any).ROLES.TS) },
+    seq: Math.max(maxPlaceNum, loadedVehicles.reduce((max: number, v: Any) => {
+      const m = String(v.id || '').match(/VH-(\d+)/);
+      return m ? Math.max(max, parseInt(m[1], 10)) : max;
+    }, 1040)),
+  };
+};
 
 function seededDb(): Db {
   const s = clone(seed as Any);
@@ -94,9 +170,9 @@ function seededDb(): Db {
     requests: mergedRequests,
     customers: s.customers,
     horses: s.horses,
-    vehicles: s.vehicles,
+    vehicles: loadVehiclesFromStorage(s.vehicles),
     employees: s.employees,
-    places: s.places,
+    places: loadPlacesFromStorage(s.places),
     incidents: s.incidents,
     complaints: s.complaints,
     notifications: s.notifications,
@@ -107,7 +183,10 @@ function seededDb(): Db {
     clearances: s.clearances || [],
     cities: s.cities,
     users: { coordinator: s.ROLES.FC.user, manager: s.ROLES.LM, specialist: s.ROLES.TS },
-    seq: s.seq || 1040,
+    seq: Math.max(s.seq || 1040, loadPlacesFromStorage(s.places).reduce((max: number, p: Any) => {
+      const m = String(p.id || '').match(/PL-(\d+)/);
+      return m ? Math.max(max, parseInt(m[1], 10)) : max;
+    }, 1040)),
   };
 }
 
@@ -115,7 +194,7 @@ export let db: Db = getDemoMode('coordinator') ? seededDb() : emptyDb();
 export const demoOn = () => getDemoMode('coordinator');
 
 /** trạng thái giao diện (tab, bảng, bộ lọc…) – giữ nguyên khi chuyển trang */
-export const ui: Any = { tab: {}, t: {}, journeyDisclosures: {} };
+export const ui: Any = { tab: {}, t: {}, journeyDisclosures: {}, lastSavedPlaceId: null, lastSavedVehicleId: null };
 
 // ---------- đăng ký vẽ lại ----------
 let version = 0;
@@ -182,7 +261,27 @@ export async function syncCoordinatorTrips(): Promise<void> {
         },
         coordinatorId: context?.coordinatorId || bt.coordinatorId || previous?.coordinatorId,
         specialistId: context?.specialistId || bt.specialistId || previous?.specialistId,
-        routes: bt.routes ?? previous?.routes ?? [],
+        routes: (bt.routes ?? previous?.routes ?? []).map((rt: Any) => {
+          if (!rt?.stops) return rt;
+          return {
+            ...rt,
+            stops: rt.stops.map((s: Any) => {
+              if (s.type === 'ORIGIN') {
+                const pickupObj = context?.pickup || previous?.pickup || db.requests.find((r: Any) => cleanId(r.id) === cleanId(requestId))?.pickup;
+                const addr = String(pickupObj?.address || pickupObj?.name || s.name || '').toLowerCase();
+                if (addr.includes('lê đức thọ') || addr.includes('gò vấp')) {
+                  if ((Math.abs(s.lat - 10.7769) < 0.005 && Math.abs(s.lng - 106.7009) < 0.005) || Math.abs(s.lat - 10.85135) < 0.001) {
+                    return { ...s, lat: 10.8550, lng: 106.6565, exactGeo: true };
+                  }
+                }
+              }
+              if (s.type === 'DESTINATION' && String(s.name || '').toLowerCase().includes('tokyo') && s.lat < 20) {
+                return { ...s, lat: 35.67686, lng: 139.763895, exactGeo: true };
+              }
+              return s;
+            }),
+          };
+        }),
         milestones: bt.milestones ?? previous?.milestones ?? [],
         crew: bt.crew ?? previous?.crew ?? {},
         horses: context?.horseIds ?? bt.horses ?? previous?.horses ?? [],

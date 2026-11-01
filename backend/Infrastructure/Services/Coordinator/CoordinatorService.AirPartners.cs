@@ -166,6 +166,178 @@ namespace Infrastructure.Services
             return new DeletedDto { Id = partnerId, Deleted = true };
         }
 
+        private static readonly List<FlightServiceDto> FallbackFlights = new()
+        {
+            new FlightServiceDto
+            {
+                ServiceId = "FS_VN_7950F",
+                CatalogVersion = 1,
+                PartnerId = "AP-S1",
+                PartnerName = "Vietnam Airlines Cargo",
+                Airline = "Vietnam Airlines Cargo",
+                ProviderFlightCode = "VN-7950F",
+                OriginAirportPlaceId = "CP-22",
+                OriginAirportPlaceName = "Sân bay Quốc tế Nội Bài (HAN)",
+                DestAirportPlaceId = "CP-25",
+                DestAirportPlaceName = "Sân bay Quốc tế Narita (NRT)",
+                DepartureTime = "2026-11-20 08:30",
+                ArrivalTime = "2026-11-20 15:45",
+                DepartureTimeZone = "Asia/Ho_Chi_Minh",
+                ArrivalTimeZone = "Asia/Tokyo",
+                DurationMinutes = 375,
+                PriceVnd = 95000000,
+                CapacityHorses = 4,
+                CareProvider = "AIRLINE",
+                DirectFlight = true,
+                Sample = true,
+                UpdatedAt = "2026-11-01 10:00"
+            },
+            new FlightServiceDto
+            {
+                ServiceId = "FS_VN_7952F",
+                CatalogVersion = 1,
+                PartnerId = "AP-S1",
+                PartnerName = "Vietnam Airlines Cargo",
+                Airline = "Vietnam Airlines Cargo",
+                ProviderFlightCode = "VN-7952F",
+                OriginAirportPlaceId = "CP-21",
+                OriginAirportPlaceName = "Sân bay Quốc tế Tân Sơn Nhất (SGN)",
+                DestAirportPlaceId = "CP-25",
+                DestAirportPlaceName = "Sân bay Quốc tế Narita (NRT)",
+                DepartureTime = "2026-12-05 10:00",
+                ArrivalTime = "2026-12-05 18:00",
+                DepartureTimeZone = "Asia/Ho_Chi_Minh",
+                ArrivalTimeZone = "Asia/Tokyo",
+                DurationMinutes = 420,
+                PriceVnd = 102500000,
+                CapacityHorses = 4,
+                CareProvider = "AIRLINE",
+                DirectFlight = true,
+                Sample = true,
+                UpdatedAt = "2026-11-01 10:00"
+            },
+            new FlightServiceDto
+            {
+                ServiceId = "FS_VN_7960F",
+                CatalogVersion = 1,
+                PartnerId = "AP-S1",
+                PartnerName = "Vietnam Airlines Cargo",
+                Airline = "Vietnam Airlines Cargo",
+                ProviderFlightCode = "VN-7960F",
+                OriginAirportPlaceId = "CP-22",
+                OriginAirportPlaceName = "Sân bay Quốc tế Nội Bài (HAN)",
+                DestAirportPlaceId = "CP-25",
+                DestAirportPlaceName = "Sân bay Quốc tế Narita (NRT)",
+                DepartureTime = "2026-12-28 09:00",
+                ArrivalTime = "2026-12-28 16:30",
+                DepartureTimeZone = "Asia/Ho_Chi_Minh",
+                ArrivalTimeZone = "Asia/Tokyo",
+                DurationMinutes = 390,
+                PriceVnd = 105000000,
+                CapacityHorses = 4,
+                CareProvider = "AIRLINE",
+                DirectFlight = true,
+                Sample = true,
+                UpdatedAt = "2026-11-01 10:00"
+            },
+            new FlightServiceDto
+            {
+                ServiceId = "FS_PBA_7780",
+                CatalogVersion = 1,
+                PartnerId = "AP-SVC-4",
+                PartnerName = "Pegasus Bloodstock Air",
+                Airline = "Pegasus Bloodstock Air",
+                ProviderFlightCode = "PBA-DEC-28",
+                OriginAirportPlaceId = "CP-22",
+                OriginAirportPlaceName = "Sân bay Quốc tế Nội Bài (HAN)",
+                DestAirportPlaceId = "CP-25",
+                DestAirportPlaceName = "Sân bay Quốc tế Narita (NRT)",
+                DepartureTime = "2026-12-28 15:00",
+                ArrivalTime = "2026-12-28 22:30",
+                DepartureTimeZone = "Asia/Ho_Chi_Minh",
+                ArrivalTimeZone = "Asia/Tokyo",
+                DurationMinutes = 390,
+                PriceVnd = 115000000,
+                CapacityHorses = 6,
+                CareProvider = "AIRLINE",
+                DirectFlight = true,
+                Sample = true,
+                UpdatedAt = "2026-11-01 10:00"
+            },
+            new FlightServiceDto
+            {
+                ServiceId = "FS_EQA_9128",
+                CatalogVersion = 1,
+                PartnerId = "AP-DEMO-SERVICE-1",
+                PartnerName = "Equus Air Charter",
+                Airline = "Equus Air Charter",
+                ProviderFlightCode = "EQA-DEC-29",
+                OriginAirportPlaceId = "CP-21",
+                OriginAirportPlaceName = "Sân bay Quốc tế Tân Sơn Nhất (SGN)",
+                DestAirportPlaceId = "CP-25",
+                DestAirportPlaceName = "Sân bay Quốc tế Narita (NRT)",
+                DepartureTime = "2026-12-29 11:00",
+                ArrivalTime = "2026-12-29 18:45",
+                DepartureTimeZone = "Asia/Ho_Chi_Minh",
+                ArrivalTimeZone = "Asia/Tokyo",
+                DurationMinutes = 405,
+                PriceVnd = 105000000,
+                CapacityHorses = 4,
+                CareProvider = "AIRLINE",
+                DirectFlight = true,
+                Sample = true,
+                UpdatedAt = "2026-11-01 10:00"
+            },
+            new FlightServiceDto
+            {
+                ServiceId = "FS_VN_8010F",
+                CatalogVersion = 1,
+                PartnerId = "AP-S1",
+                PartnerName = "Vietnam Airlines Cargo",
+                Airline = "Vietnam Airlines Cargo",
+                ProviderFlightCode = "VN-8010F",
+                OriginAirportPlaceId = "CP-21",
+                OriginAirportPlaceName = "Sân bay Quốc tế Tân Sơn Nhất (SGN)",
+                DestAirportPlaceId = "CP-25",
+                DestAirportPlaceName = "Sân bay Quốc tế Narita (NRT)",
+                DepartureTime = "2027-01-12 10:00",
+                ArrivalTime = "2027-01-12 18:00",
+                DepartureTimeZone = "Asia/Ho_Chi_Minh",
+                ArrivalTimeZone = "Asia/Tokyo",
+                DurationMinutes = 420,
+                PriceVnd = 100000000,
+                CapacityHorses = 4,
+                CareProvider = "AIRLINE",
+                DirectFlight = true,
+                Sample = true,
+                UpdatedAt = "2026-11-01 10:00"
+            },
+            new FlightServiceDto
+            {
+                ServiceId = "FS_PBA_8810",
+                CatalogVersion = 1,
+                PartnerId = "AP-SVC-4",
+                PartnerName = "Pegasus Bloodstock Air",
+                Airline = "Pegasus Bloodstock Air",
+                ProviderFlightCode = "PBA-JAN-15",
+                OriginAirportPlaceId = "CP-21",
+                OriginAirportPlaceName = "Sân bay Quốc tế Tân Sơn Nhất (SGN)",
+                DestAirportPlaceId = "CP-25",
+                DestAirportPlaceName = "Sân bay Quốc tế Narita (NRT)",
+                DepartureTime = "2027-01-15 13:00",
+                ArrivalTime = "2027-01-15 20:45",
+                DepartureTimeZone = "Asia/Ho_Chi_Minh",
+                ArrivalTimeZone = "Asia/Tokyo",
+                DurationMinutes = 405,
+                PriceVnd = 110000000,
+                CapacityHorses = 6,
+                CareProvider = "AIRLINE",
+                DirectFlight = true,
+                Sample = true,
+                UpdatedAt = "2026-11-01 10:00"
+            }
+        };
+
         public async Task<List<FlightServiceDto>> GetFlightCatalogAsync(string? partnerId, string? originAirport, string? destAirport)
         {
             var query = _context.FlightCatalogs.Include(f => f.Partner).Where(f => f.IsActive).AsQueryable();
@@ -186,6 +358,15 @@ namespace Infrastructure.Services
             }
 
             var items = await query.ToListAsync();
+
+            if (items.Count == 0)
+            {
+                var fallback = FallbackFlights.AsEnumerable();
+                if (!string.IsNullOrEmpty(partnerId)) fallback = fallback.Where(f => f.PartnerId == partnerId);
+                if (!string.IsNullOrEmpty(originAirport)) fallback = fallback.Where(f => f.OriginAirportPlaceId == originAirport);
+                if (!string.IsNullOrEmpty(destAirport)) fallback = fallback.Where(f => f.DestAirportPlaceId == destAirport);
+                return fallback.ToList();
+            }
 
             return items.Select(f => new FlightServiceDto
             {
@@ -223,7 +404,15 @@ namespace Infrastructure.Services
                     f.ServiceId == providerFlightCode ||
                     f.PartnerId == partnerId);
 
-            if (flight == null) return null;
+            if (flight == null)
+            {
+                var cleanCode = providerFlightCode?.Trim().ToLowerInvariant() ?? string.Empty;
+                var fb = FallbackFlights.FirstOrDefault(f =>
+                    f.ProviderFlightCode.ToLowerInvariant() == cleanCode ||
+                    f.ServiceId.ToLowerInvariant() == cleanCode ||
+                    (f.PartnerId == partnerId && f.ProviderFlightCode.ToLowerInvariant() == cleanCode));
+                return fb;
+            }
 
             return new FlightServiceDto
             {
@@ -366,13 +555,13 @@ namespace Infrastructure.Services
                 TripId = cleanTripId,
                 BookingVersion = nextVersion,
                 RouteVersionId = 120,
-                ProviderName = "Nippon Cargo Airlines",
-                Airline = "NCA Cargo",
-                FlightNumber = "KZ-102",
+                ProviderName = !string.IsNullOrWhiteSpace(dto.ProviderName) ? dto.ProviderName : "Nippon Cargo Airlines",
+                Airline = !string.IsNullOrWhiteSpace(dto.Airline) ? dto.Airline : "NCA Cargo",
+                FlightNumber = !string.IsNullOrWhiteSpace(dto.FlightNumber) ? dto.FlightNumber : "KZ-102",
                 DepartureAirportCheckpointId = 101,
                 ArrivalAirportCheckpointId = 201,
-                DepartureAt = DateTime.UtcNow.AddDays(2).AddHours(4),
-                ArrivalAt = DateTime.UtcNow.AddDays(2).AddHours(10),
+                DepartureAt = dto.DepartureAt ?? DateTime.UtcNow.AddDays(2).AddHours(4),
+                ArrivalAt = dto.ArrivalAt ?? DateTime.UtcNow.AddDays(2).AddHours(10),
                 DirectFlight = true,
                 BookingReference = dto.BookingRef,
                 BookingConfirmed = true,

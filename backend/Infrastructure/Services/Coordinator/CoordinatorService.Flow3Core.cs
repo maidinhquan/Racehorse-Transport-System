@@ -279,8 +279,8 @@ namespace Infrastructure.Services
                 Country = originFacility?.CountryCode ?? "VN",
                 Geo = new GeoDto
                 {
-                    Lat = (double)(originFacility?.Latitude ?? 10.7769m),
-                    Lng = (double)(originFacility?.Longitude ?? 106.7009m)
+                    Lat = (double)(originFacility?.Latitude ?? trip.Request?.PickupLatitude ?? 10.7769m),
+                    Lng = (double)(originFacility?.Longitude ?? trip.Request?.PickupLongitude ?? 106.7009m)
                 },
                 Access = new AccessLimitsDto { MaxHeightM = 4.0, MaxWidthM = 2.6, MaxGrossT = 20 }
             };
@@ -314,7 +314,7 @@ namespace Infrastructure.Services
                     Name = isAir ? "Trường đua Tokyo" : "Điểm giao nhận đích",
                     Address = trip.Request?.Destination ?? "Địa chỉ giao hàng",
                     Country = isAir ? "JP" : "VN",
-                    Geo = new GeoDto { Lat = isAir ? 35.6762 : 11.0, Lng = isAir ? 139.6503 : 106.9 }
+                    Geo = new GeoDto { Lat = (double)(trip.Request?.DeliveryLatitude ?? (isAir ? 35.6762m : 11.0m)), Lng = (double)(trip.Request?.DeliveryLongitude ?? (isAir ? 139.6503m : 106.9m)) }
                 },
                 DeliveryDeadline = trip.Request?.CommittedDeadline?.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.AddDays(5).ToString("yyyy-MM-dd HH:mm"),
                 Draft = draftPlan,
@@ -822,8 +822,8 @@ namespace Infrastructure.Services
                 throw new InvalidOperationException("STALE_VERSION: Phiên bản chuyến đi đã thay đổi");
             }
 
-            double fromLat = 10.7769, fromLng = 106.7009;
-            double toLat = 10.8231, toLng = 106.6297;
+            double fromLat = (double)(trip.Request?.PickupLatitude ?? 10.7769m), fromLng = (double)(trip.Request?.PickupLongitude ?? 106.7009m);
+            double toLat = (double)(trip.Request?.DeliveryLatitude ?? 10.8231m), toLng = (double)(trip.Request?.DeliveryLongitude ?? 106.6297m);
 
             if (!string.IsNullOrEmpty(trip.EffectiveOriginPlaceId))
             {
@@ -1129,7 +1129,7 @@ namespace Infrastructure.Services
                     ClientKey = "stop-origin",
                     Type = "ORIGIN",
                     Name = trip.Request?.Departure ?? "Điểm đón",
-                    Geo = new GeoDto { Lat = 10.7769, Lng = 106.7009 },
+                    Geo = new GeoDto { Lat = (double)(trip.Request?.PickupLatitude ?? 10.7769m), Lng = (double)(trip.Request?.PickupLongitude ?? 106.7009m) },
                     Required = true,
                     ArriveAt = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd HH:mm"),
                     DepartAt = DateTime.UtcNow.AddDays(2).ToString("yyyy-MM-dd HH:mm")
@@ -1140,7 +1140,7 @@ namespace Infrastructure.Services
                     ClientKey = "stop-destination",
                     Type = "DESTINATION",
                     Name = trip.Request?.Destination ?? "Điểm giao",
-                    Geo = new GeoDto { Lat = 10.8231, Lng = 106.6297 },
+                    Geo = new GeoDto { Lat = (double)(trip.Request?.DeliveryLatitude ?? (mode == "AIR" ? 35.6762m : 10.8231m)), Lng = (double)(trip.Request?.DeliveryLongitude ?? (mode == "AIR" ? 139.6503m : 106.6297m)) },
                     Required = true,
                     ArriveAt = DateTime.UtcNow.AddDays(2).AddHours(3).ToString("yyyy-MM-dd HH:mm"),
                     DepartAt = DateTime.UtcNow.AddDays(2).AddHours(3).ToString("yyyy-MM-dd HH:mm")

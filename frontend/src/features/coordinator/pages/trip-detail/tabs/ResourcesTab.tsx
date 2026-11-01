@@ -62,8 +62,8 @@ function GroundLeg({ t, leg }: { t: Any; leg: string }) {
   const fromAirport = t.flight?.from ? checkpoint(t.flight.from) : curRoute(t)?.stops?.filter((s: Any) => s.type === 'AIRPORT')[0]?.cp && checkpoint(curRoute(t).stops.filter((s: Any) => s.type === 'AIRPORT')[0].cp);
   const toAirport = t.flight?.to ? checkpoint(t.flight.to) : curRoute(t)?.stops?.filter((s: Any) => s.type === 'AIRPORT').slice(-1)[0]?.cp && checkpoint(curRoute(t).stops.filter((s: Any) => s.type === 'AIRPORT').slice(-1)[0].cp);
   const airport = isOrigin ? fromAirport : toAirport;
-  const begin = isOrigin ? [r.pickup?.name, r.pickup?.address].filter(Boolean).join(' · ') || cityLabel(r.origin) : airport?.name || 'Chưa chọn sân bay đến';
-  const finish = isOrigin ? airport?.name || 'Chưa chọn sân bay xuất phát' : [r.delivery?.name, r.delivery?.address].filter(Boolean).join(' · ') || cityLabel(r.destination);
+  const begin = isOrigin ? [r.pickup?.name, r.pickup?.address].filter(Boolean).join(' • ') || cityLabel(r.origin) : airport?.name || 'Chưa chọn sân bay đến';
+  const finish = isOrigin ? airport?.name || 'Chưa chọn sân bay xuất phát' : [r.delivery?.name, r.delivery?.address].filter(Boolean).join(' • ') || cityLabel(r.destination);
   const n = tripHorses(t).length, end = groundLegEndDate(t, leg), other = groundLegs(t)[isOrigin ? 'inbound' : 'outbound'];
   const base = db.vehicles.filter((v: Any) => fleetCountry(v) === co && groundServiceArea(v, co, area) && v.status === 'READY' && v.stalls >= n && !vehicleConflict(v, t) && other.vehicleId !== v.id);
   const options = base.filter((v: Any) => !vehicleAccessIssue(t, v, isOrigin ? 'pickup' : 'delivery')), hiddenByAccess = base.length - options.length;
@@ -75,10 +75,10 @@ function GroundLeg({ t, leg }: { t: Any; leg: string }) {
   return (
     <section className="cbn-road-leg">
       <header className="cbn-road-head">
-        <div><div className="eyebrow">{isOrigin ? 'CHẶNG 1 · ĐƯỜNG BỘ TRƯỚC CHUYẾN BAY' : 'CHẶNG 2 · ĐƯỜNG BỘ SAU CHUYẾN BAY'}</div>
+        <div><div className="eyebrow">{isOrigin ? 'CHẶNG 1 • PRE-FLIGHT ROAD' : 'CHẶNG 2 • POST-FLIGHT ROAD'}</div>
           <h3>ROAD {co} – {isOrigin ? 'Vận chuyển trước chuyến bay' : 'Vận chuyển sau chuyến bay'}</h3>
           <div className="cbn-road-route"><span>{begin}</span><b>→</b><span>{finish}</span></div>
-          <p className="hint">Quốc gia: {co} · {cityLabel(area)} · Hạn chứng chỉ bác sĩ: {date(end)}</p></div>
+          <p className="hint">Quốc gia: {co} • {cityLabel(area)}, {co} • Hạn chứng chỉ bác sĩ: {date(end)}</p></div>
         <Pill v={check.ok ? 'READY' : 'PENDING'} label={status} />
       </header>
       {!canEdit ? <div className="note grey" style={{ margin: '12px 0' }}>{!canPlan(t) ? 'Phân công chỉ xem khi Trip chưa được triển khai hoặc đã rời giai đoạn Planning.' : 'Tuyến đang chờ duyệt hoặc đã được Manager duyệt. Muốn thay nguồn lực, hãy tạo phiên bản tuyến mới để Manager phê duyệt lại.'}</div> : null}
@@ -87,7 +87,7 @@ function GroundLeg({ t, leg }: { t: Any; leg: string }) {
           {g.vehicleId ? <div className="cbn-road-selected"><span>Xe đang phân công</span><b>{check.vehicle?.plate || 'Không tìm thấy xe'}</b><small>{check.vehicle?.model || 'Cần thay phương tiện'} · {check.vehicleOk ? 'Đủ chỗ, phù hợp khu vực và lịch' : 'Không đáp ứng điều kiện'}</small></div> : null}
           {options.length ? <>{options.map((v: Any) => (
             <div className="cbn-road-vrow" key={v.id}>
-              <div className="grow"><b>{v.plate}</b><p>{v.model} · {v.stalls} ngăn · {v.base} ({co})</p><small>{v.features || 'Xe vận chuyển ngựa'} · Sẵn sàng</small></div>
+              <div className="grow"><b>{v.plate}</b><p>{v.model} • {v.stalls} ngăn • {v.base} ({co})</p><small>{v.features || 'Xe vận chuyển ngựa'} • Sẵn sàng</small></div>
               {canEdit ? <button type="button" className={`btn ${g.vehicleId === v.id ? 'soft' : 'solid'} sm`} disabled={g.vehicleId === v.id} onClick={() => groundVehicleSet(t.id, leg, v.id)}>{g.vehicleId === v.id ? 'Đã chọn' : 'Phân công'}</button>
                 : g.vehicleId === v.id ? <Pill v="READY" label="Đang sử dụng" /> : null}
             </div>))}
@@ -107,8 +107,8 @@ function GroundLeg({ t, leg }: { t: Any; leg: string }) {
           <p className="cbn-road-note">{isOrigin ? 'Tại sân bay xuất phát, bác sĩ A phối hợp bàn giao ngựa và hồ sơ y tế cho đơn vị hàng không.' : 'Sau thủ tục tiếp nhận và kiểm dịch, bác sĩ B tiếp nhận ngựa, hồ sơ và thông tin sức khỏe từ đơn vị hàng không.'}</p>
         </div>
       </div>
-      <details className="cbn-road-history"><summary>Lịch sử phân công chặng ({(g.history || []).length})</summary>
-        {(g.history || []).length ? (g.history || []).slice(-6).reverse().map((h: Any, k: number) => <div className="cbn-road-log" key={k}><b>{h.action}</b> · {dt(h.at)} · {h.by}<p>{h.before || '—'} → {h.after || '—'}</p></div>) : <p className="hint">Chưa có thay đổi nào được lưu.</p>}
+      <details className="cbn-road-history"><summary style={{ cursor: 'pointer', userSelect: 'none' }}>▶ Lịch sử phân công chặng ({(g.history || []).length})</summary>
+        {(g.history || []).length ? (g.history || []).slice(-6).reverse().map((h: Any, k: number) => <div className="cbn-road-log" key={k}><b>{h.action}</b> • {dt(h.at)} • {h.by}<p>{h.before || '—'} → {h.after || '—'}</p></div>) : <p className="hint">Chưa có thay đổi nào được lưu.</p>}
       </details>
     </section>
   );
@@ -116,8 +116,8 @@ function GroundLeg({ t, leg }: { t: Any; leg: string }) {
 function AirResources({ t }: { t: Any }) {
   const gaps = resourceGaps(t), leg = tabOn('f-leg', 'outbound');
   return (<>
-    <div className="cbn-air-strip"><b>Phương án B – Đường bộ trước/sau chuyến bay:</b> Mỗi chặng có một xe, tài xế chính, phụ lái kiêm Escort và bác sĩ thú y riêng. Bác sĩ A bàn giao tại sân bay đi; bác sĩ B nhận bàn giao tại sân bay đến. <b>Hãng hàng không thuê ngoài</b> bố trí nhân sự chăm sóc ngựa và phương án hỗ trợ thú y trên máy bay, không yêu cầu bác sĩ CBN bay cùng.</div>
-    <Tabs k="f-leg" fallback="outbound" items={[['outbound', `Chặng 1 · Trước chuyến bay${groundLegCheck(t, 'outbound').ok ? ' ✓' : ''}`], ['inbound', `Chặng 2 · Sau chuyến bay${groundLegCheck(t, 'inbound').ok ? ' ✓' : ''}`]]} />
+    <div className="cbn-air-strip"><b>Phương án B – Đường bộ trước/sau chuyến bay:</b> Mỗi chặng có một xe, tài xế chính, phụ lái kiêm Escort và bác sĩ thú y riêng. Bác sĩ A bàn giao tại sân bay đi; bác sĩ B nhận bàn giao tại sân bay đến. <b>Hãng hàng không không thuê ngoài</b> bố trí nhân sự chăm sóc ngựa và phương án hỗ trợ thú y trên máy bay, không yêu cầu bác sĩ CBN bay cùng.</div>
+    <Tabs k="f-leg" fallback="outbound" items={[['outbound', 'Chặng 1 - Trước chuyến bay'], ['inbound', 'Chặng 2 - Sau chuyến bay']]} />
     <div className="cbn-road-stack"><GroundLeg key={leg} t={t} leg={leg} /></div>
     <div className="card pad" style={{ marginTop: 17 }}>
       <div className="between"><h3 className="card-title">Xác nhận bố trí phương tiện &amp; nhân sự</h3><Pill v={t.resourcesConfirmed ? 'READY' : 'PENDING'} label={t.resourcesConfirmed ? 'Đã xác nhận' : 'Chưa xác nhận'} /></div>

@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './RouteMap.css';
 import type { RouteStop } from '../../types';
-import { STOP_COLOR, STOP_LABEL } from '../../hooks/driverRules';
+import { STOP_LABEL } from '../../hooks/driverRules';
 
 type GeoPoint = { lat: number; lng: number };
 
@@ -51,16 +51,20 @@ function initMap(
     if (next.index !== prev.index + 1) continue;
     const confirmed = next.index <= lastConfirmed;
     L.polyline([prev.position, next.position], {
-      color: confirmed ? '#f57c00' : '#64748b', weight: 4,
+      color: confirmed ? '#f57c00' : '#2563eb', weight: 5,
       dashArray: confirmed ? undefined : '7 8', interactive: false,
     }).addTo(layers);
   }
 
   located.forEach(({ stop, index, position }) => {
     const latest = index === lastConfirmed;
-    const marker = L.circleMarker(position, {
-      bubblingMouseEvents: false, radius: latest ? 11 : 8, color: '#fff', weight: 3,
-      fillColor: latest ? '#f57c00' : (STOP_COLOR[stop.type] ?? '#64748b'), fillOpacity: 1,
+    const isEnd = index === 0 || index === stops.length - 1;
+    const isReq = stop.type === 'CHECKPOINT' || stop.type === 'AIRPORT' || Boolean((stop as unknown as { required?: boolean }).required);
+    const pinClass = `rp-pin ${isEnd ? 'end' : isReq ? 'req' : 'sel'} ${latest ? 'cur' : ''}`;
+    const html = `<div class="${pinClass}">${index + 1}</div>`;
+    const marker = L.marker(position, {
+      icon: L.divIcon({ html, className: '', iconSize: [26, 26], iconAnchor: [13, 13] }),
+      zIndexOffset: latest ? 1200 : 1000,
     }).addTo(layers);
     const tooltip = document.createElement('span');
     tooltip.textContent = `${index + 1}. ${stop.name}`;
@@ -128,7 +132,6 @@ function FullscreenMap({ stops, current, onClose, onPick, compact }: FullscreenM
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const usedTypes = [...new Set(stops.map(s => s.type))];
 
   return createPortal(
     <div className="drv-geo-map-overlay" role="dialog" aria-modal="true" aria-label="Bản đồ toàn màn hình">
@@ -143,9 +146,10 @@ function FullscreenMap({ stops, current, onClose, onPick, compact }: FullscreenM
       </div>
       {!compact && (
         <div className="drv-geo-map-overlay__footer">
-          {usedTypes.map(type => (
-            <span key={type}><i style={{ background: STOP_COLOR[type] ?? '#64748b' }} />{STOP_LABEL[type] ?? type}</span>
-          ))}
+          <span><i style={{ background: '#0f172a' }} />Điểm nhận/giao</span>
+          <span><i style={{ background: '#dc2626', borderRadius: '4px' }} />Điểm bắt buộc</span>
+          <span><i style={{ background: '#f08a2b' }} />Điểm dừng nghỉ / trạm</span>
+          <span><i style={{ background: '#2563eb', borderRadius: '2px', height: '4px' }} />Tuyến đường bộ</span>
           <span><i style={{ background: '#f57c00' }} />Mốc xác nhận gần nhất</span>
         </div>
       )}
@@ -218,16 +222,20 @@ export function RouteMap({ stops, current = -1, height = 380, onPick, compact }:
       if (next.index !== previous.index + 1) continue;
       const confirmed = next.index <= lastConfirmed;
       L.polyline([previous.position, next.position], {
-        color: confirmed ? '#f57c00' : '#64748b', weight: 4,
+        color: confirmed ? '#f57c00' : '#2563eb', weight: 5,
         dashArray: confirmed ? undefined : '7 8', interactive: false,
       }).addTo(layers);
     }
 
     located.forEach(({ stop, index, position }) => {
       const latest = index === lastConfirmed;
-      const marker = L.circleMarker(position, {
-        bubblingMouseEvents: false, radius: latest ? 11 : 8, color: '#fff', weight: 3,
-        fillColor: latest ? '#f57c00' : (STOP_COLOR[stop.type] ?? '#64748b'), fillOpacity: 1,
+      const isEnd = index === 0 || index === stops.length - 1;
+      const isReq = stop.type === 'CHECKPOINT' || stop.type === 'AIRPORT' || Boolean((stop as unknown as { required?: boolean }).required);
+      const pinClass = `rp-pin ${isEnd ? 'end' : isReq ? 'req' : 'sel'} ${latest ? 'cur' : ''}`;
+      const html = `<div class="${pinClass}">${index + 1}</div>`;
+      const marker = L.marker(position, {
+        icon: L.divIcon({ html, className: '', iconSize: [26, 26], iconAnchor: [13, 13] }),
+        zIndexOffset: latest ? 1200 : 1000,
       }).addTo(layers);
       const tooltip = document.createElement('span');
       tooltip.textContent = `${index + 1}. ${stop.name}`;
@@ -272,9 +280,12 @@ export function RouteMap({ stops, current = -1, height = 380, onPick, compact }:
       {!stops.length && <p className="drv-geo-map__notice">Chưa có điểm dừng nào trên tuyến.</p>}
       {missing.length > 0 && <p className="drv-geo-map__notice" role="status">Chưa có tọa độ hợp lệ cho {missing.length} điểm: {missing.map(stop => stop.name).join(', ')}.</p>}
       {tileError && <p className="drv-geo-map__notice" role="status">Chưa tải được nền bản đồ. Kiểm tra kết nối Internet hoặc tải lại trang.</p>}
-      {!compact && <div className="drv-geo-map__legend">
-        {[...new Set(stops.map(stop => stop.type))].map(type => <span key={type}><i style={{ background: STOP_COLOR[type] ?? '#64748b' }} />{STOP_LABEL[type] ?? type}</span>)}
-        <span><i style={{ background: '#f57c00' }} />Mốc xác nhận gần nhất</span>
+      {!compact && <div className="drv-geo-map__legend rp-legend">
+        <span><i style={{ background: '#0f172a' }} />Điểm nhận/giao</span>
+        <span><i style={{ background: '#dc2626', borderRadius: '4px' }} />Điểm bắt buộc</span>
+        <span><i style={{ background: '#f08a2b' }} />Điểm dừng nghỉ / trạm</span>
+        <span><i style={{ background: '#2563eb', borderRadius: '2px', height: '4px' }} />Tuyến đường bộ</span>
+        <span><i style={{ background: '#f57c00', outline: '2px solid #fde047' }} />Mốc xác nhận gần nhất</span>
       </div>}
       {!compact && <p className="drv-geo-map__caption">Đường nối các điểm dừng theo thứ tự, chưa tính tuyến theo đường bộ. Vị trí dựa trên mốc xác nhận, không có GPS trực tiếp.</p>}
 

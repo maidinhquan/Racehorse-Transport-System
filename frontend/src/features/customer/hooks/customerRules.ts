@@ -249,7 +249,9 @@ export const PROFILE_LABEL: Record<HorseProfileStatus, string> = {
 
 /** Các đơn đã gửi (không còn là bản nháp) có dùng ngựa này */
 export const horseRequests = (h: Horse, requests: TransportRequest[]) =>
-  requests.filter((r) => r.status !== 'DRAFT' && r.horses.includes(h.id)).sort((a, b) => b.date.localeCompare(a.date));
+  requests.filter((r) => r.status !== 'DRAFT' && r.status !== 'CANCELLED' && r.status !== 'REJECTED' && r.horses.includes(h.id)).sort((a, b) => b.date.localeCompare(a.date));
+export const activeHorseRequests = (h: Horse, requests: TransportRequest[]) =>
+  requests.filter((r) => isActive(r) && r.status !== 'DRAFT' && r.horses.includes(h.id)).sort((a, b) => b.date.localeCompare(a.date));
 /** Ngựa đã gắn với đơn đã gửi thì khóa thông tin định danh */
 export const HORSE_LOCKED_FIELDS = ['name', 'breed', 'sex', 'dob', 'microchip'] as const;
 

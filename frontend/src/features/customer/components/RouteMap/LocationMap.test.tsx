@@ -51,6 +51,6 @@ describe('Customer Leaflet map', () => {
       { latitude: 12, longitude: 108, label: 'C' },
     ]} />);
     expect(mock.polyline.mock.calls[0][1]).toMatchObject({ color: '#f57c00', dashArray: undefined });
-    expect(mock.polyline.mock.calls[1][1]).toMatchObject({ color: '#64748b', dashArray: '6 8' });
+    expect(mock.polyline.mock.calls[1][1]).toMatchObject({ color: '#2563eb', dashArray: '6 8' });
   });
 });

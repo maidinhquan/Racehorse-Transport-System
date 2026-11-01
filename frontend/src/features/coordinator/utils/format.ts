@@ -64,7 +64,28 @@ export const addDays = (iso: string, n: number) => fromMs(stampMs(iso.slice(0, 1
 export const usd = (n: Any) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 // ---------- thành phố ----------
-export const city = (name: string): string[] => db.cities.find((c: Any) => c[0] === name) || [name || '—', '', name || '—'];
+export const city = (name: string): string[] => {
+  const norm = String(name || '').trim().toLowerCase();
+  const direct = db.cities.find((c: Any) => c[0] === name || c[0].toLowerCase() === norm);
+  if (direct) return direct;
+  if (norm.includes('hồ chí minh') || norm.includes('hcm') || norm.includes('hà nội') || norm.includes('đà nẵng') || norm.includes('việt nam') || norm.includes('vietnam')) {
+    return [name, 'VN', 'VN'];
+  }
+  if (norm.includes('tokyo') || norm.includes('nhật bản') || norm.includes('japan') || norm.includes('osaka') || norm.includes('narita')) {
+    return [name, 'JP', 'JP'];
+  }
+  if (norm.includes('bangkok') || norm.includes('thái lan') || norm.includes('thailand')) {
+    return [name, 'TH', 'TH'];
+  }
+  if (norm.includes('singapore')) return [name, 'SG', 'SG'];
+  if (norm.includes('sydney') || norm.includes('úc') || norm.includes('australia')) return [name, 'AU', 'AU'];
+  if (norm.includes('hồ chí minh') || norm.includes('hcm') || norm.includes('hà nội') || norm.includes('đà nẵng') || norm.includes('việt nam') || norm.includes('vietnam') || /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/.test(norm)) {
+    return [name, 'VN', 'VN'];
+  }
+  if (norm.includes('singapore')) return [name, 'SG', 'SG'];
+  if (norm.includes('sydney') || norm.includes('úc') || norm.includes('australia')) return [name, 'AU', 'AU'];
+  return [name || '—', '', name || '—'];
+};
 export const cityLabel = (name: string) => (name ? `${name}, ${city(name)[1]}` : '—');
 export const shortCity = (name: string) => (name === 'Ho Chi Minh City' ? 'HCMC' : name || '—');
 

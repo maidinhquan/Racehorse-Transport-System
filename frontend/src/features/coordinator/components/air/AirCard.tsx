@@ -2,12 +2,12 @@
 import { curRoute, reqOfTrip } from '../../domain/coordinatorRules';
 import type { Any } from '../../store/coordinatorStore';
 import { cityLabel, dt, human, MILESTONE_LABEL, usd } from '../../utils/format';
-import { AIR_STATUS, airportLabel, checkDraft, countHorses, editableTrip, flightBook, flightMilestone, LocalTime, resolved, serviceRevision, serviceSelect, serviceSend } from '../../workflows/airOperations';
+import { AIR_STATUS, airportLabel, charterFlightModal, countHorses, editableTrip, flightBook, flightMilestone, LocalTime, resolved, serviceRevision, serviceSend } from '../../workflows/airOperations';
 import { Pill } from '../common/ui';
 
 export function AirCard({ t }: { t: Any }) {
   const f = t.flight, snap = f?.serviceSnapshot, r = reqOfTrip(t), editable = !editableTrip(t);
-  const rt = curRoute(t), canChoose = editable && !checkDraft(t);
+  const rt = curRoute(t);
   const canBook = editable && f?.status === 'BUDGET_APPROVED' && rt?.status === 'APPROVED';
   const catalog: Any = f?.serviceId && resolved(f.serviceId);
   const altered = catalog && snap && (catalog.schedule.cost !== snap.cost || catalog.schedule.airline !== snap.airline || catalog.schedule.departLocal !== snap.departLocal || catalog.schedule.arriveLocal !== snap.arriveLocal);
@@ -22,12 +22,28 @@ export function AirCard({ t }: { t: Any }) {
         <div><small>Sân bay đến</small><b>{snap?.toName || (f ? airportLabel(f.to) : '—')}</b><span>{snap ? <LocalTime value={snap.arriveLocal} zone={snap.arriveZone} /> : f ? dt(f.arriveAt) + ' (giờ hệ thống Việt Nam)' : 'Chưa có lịch'}</span></div>
         <div><small>Chi phí thuê dịch vụ</small><b>{f ? usd(f.cost) : '—'}</b><span>Chi phí vận hành, không tự đổi giá hợp đồng</span></div>
       </div>
+      {f?.jetStallId ? (
+        <div style={{ gridColumn: 'span 4', background: '#f5f3ff', padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd6fe', margin: '4px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+            <span style={{ color: '#6d28d9', fontWeight: 700, fontSize: 12 }}>
+              ✈ HĐ Charter: <b>{f.contractNo || f.bookingRef}</b> • Chuồng bay chuyên dụng: <b style={{ color: '#4c1d95' }}>{f.jetStallId}</b> ({f.stallType || 'IATA LAR'})
+            </span>
+            <span style={{ fontSize: 11.5, color: '#5b21b6' }}>
+              👨‍⚕️ {f.inFlightCare || 'Chuyên viên thú y CBN'}
+            </span>
+          </div>
+        </div>
+      ) : null}
       {f ? <div className="fa-booking-line"><span><b>{f.bookingRef ? 'Booking: ' + f.bookingRef : 'Chưa có mã xác nhận đặt chỗ'}</b>{f.confirmedHorses ? ' · ' + f.confirmedHorses + ' ngựa được xác nhận' : ''}</span><small>{f.bookedAt ? 'Ghi nhận ' + dt(f.bookedAt) : 'Danh mục và phê duyệt nội bộ chưa thay thế booking'}</small></div> : null}
       {altered ? <p className="fa-warning">Danh mục đối tác đã thay đổi so với bản phương án này. Thông tin đã duyệt vẫn giữ nguyên; cần đối chiếu khi đặt dịch vụ.</p> : null}
       {f?.status === 'BUDGET_APPROVED' && rt?.status !== 'APPROVED' ? <p className="hint">Chi phí đã được duyệt; hoàn thiện tuyến và xe/người dự kiến để Manager duyệt phương án tổng thể trước khi chốt đặt.</p> : null}
       {t.flightSupplyIssue ? <p className="fa-warning">Chưa bố trí được dịch vụ: {t.flightSupplyIssue.reason} · đã báo Manager {dt(t.flightSupplyIssue.at)}.</p> : null}
       <div className="btn-row">
-        {canChoose ? <button type="button" className="btn solid" onClick={() => serviceSelect(t.id)}>{f ? 'Chọn lại trong bản nháp' : 'Chọn dịch vụ từ danh mục'}</button> : null}
+        {editable ? (
+          <button type="button" className="btn solid" style={{ background: '#7c3aed', color: '#fff', fontWeight: 600 }} onClick={() => charterFlightModal(t.id)}>
+            {f ? '✏️ Sửa HĐ Charter' : '📋 Nhập Hợp đồng thuê chuyến (Charter)'}
+          </button>
+        ) : null}
         {editable && f?.status === 'DRAFT' ? <button type="button" className="btn ghost" onClick={() => serviceSend(t.id)}>Gửi duyệt chi phí</button> : null}
         {canBook ? <button type="button" className="btn solid" onClick={() => flightBook(t.id)}>Ghi nhận xác nhận đặt chỗ</button> : null}
         {editable && f && ['BUDGET_PENDING', 'BUDGET_APPROVED'].includes(f.status) ? <button type="button" className="btn ghost" onClick={() => serviceRevision(t.id)}>Lập bản điều chỉnh</button> : null}

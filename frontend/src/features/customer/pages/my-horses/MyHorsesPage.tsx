@@ -12,7 +12,7 @@ import { AuthImage } from '../../../../shared/components/AuthImage';
 export const MyHorsesPage: React.FC = () => {
   const navigate = useNavigate();
   const { horses, requests } = useCustomer();
-  const usedIds = useMemo(() => new Set(requests.filter((r) => r.status !== 'DRAFT').flatMap((r) => r.horses.filter(Boolean))), [requests]);
+  const usedIds = useMemo(() => new Set(requests.filter((r) => r.status !== 'DRAFT' && r.status !== 'CANCELLED' && r.status !== 'REJECTED').flatMap((r) => r.horses.filter(Boolean))), [requests]);
   const f = useHorseFilter(horses, usedIds);
 
   return (
