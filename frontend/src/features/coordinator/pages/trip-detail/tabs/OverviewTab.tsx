@@ -5,6 +5,7 @@ import { curRoute, custOf, deployed, deployPill, planPill, planState, reqOfTrip,
 import type { Any } from '../../../store/coordinatorStore';
 import { go } from '../../../store/coordinatorStore';
 import { city, date, dt, human } from '../../../utils/format';
+import { PickupAccessCard } from '../../../components/relocation/PickupAccessCard';
 
 const NEXT_STEP: Record<string, (t: Any) => string> = {
   AWAITING_DEPLOYMENT: () => 'Đang chờ Quản lý vận hành xác nhận triển khai. Việc lập kế hoạch chính thức bắt đầu sau đó.',
@@ -42,6 +43,10 @@ export function OverviewTab({ t }: { t: Any }) {
   const deliveryName = r.delivery?.name || r.destination || 'Điểm giao';
   const deliveryAddr = r.delivery?.address || (r.destination ? `${r.destination}, ${deliveryCountry}` : 'Chưa có địa chỉ chi tiết');
 
+  const isRelocated = t.pickupRelocation?.status === 'CUSTOMER_CONFIRMED';
+  const effectivePickupName = isRelocated ? (t.pickupRelocation.placeName || pickupName) : pickupName;
+  const effectivePickupAddr = isRelocated ? (t.pickupRelocation.placeAddress || pickupAddr) : pickupAddr;
+
   return (
     <div className="grid-main">
       <div className="stack">
@@ -76,9 +81,16 @@ export function OverviewTab({ t }: { t: Any }) {
                   {COUNTRY_NAMES[pickupCountry] || pickupCountry}
                 </span>
               </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>{pickupName}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>{effectivePickupName}</span>
+                {isRelocated && (
+                  <span style={{ fontSize: 10, background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
+                    ĐIỂM ĐÃ ĐỔI
+                  </span>
+                )}
+              </div>
               <div style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
-                📍 {pickupAddr}
+                📍 {effectivePickupAddr}
               </div>
               {r.pickup?.contact || r.pickup?.phone ? (
                 <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
@@ -113,6 +125,9 @@ export function OverviewTab({ t }: { t: Any }) {
               ) : null}
             </div>
           </div>
+
+          {/* Đánh giá tiếp cận đường vào & Đổi điểm đón (F3-J28 .. J33) */}
+          <PickupAccessCard t={t} />
 
           <div className="kv2" style={{ marginTop: 18 }}>
             <Cell label="Triển khai"><PillT p={deployPill(t)} /></Cell>

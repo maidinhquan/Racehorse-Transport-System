@@ -267,6 +267,18 @@ export async function syncCoordinatorTrips(): Promise<void> {
             ...rt,
             stops: rt.stops.map((s: Any) => {
               if (s.type === 'ORIGIN') {
+                if (context?.pickupRelocation?.status === 'CUSTOMER_CONFIRMED' && context?.pickupRelocation?.placeSnapshot) {
+                  const ps = context.pickupRelocation.placeSnapshot;
+                  return {
+                    ...s,
+                    name: ps.name || s.name,
+                    address: ps.address || s.address,
+                    placeId: ps.id,
+                    lat: ps.geo?.lat ?? s.lat,
+                    lng: ps.geo?.lng ?? s.lng,
+                    exactGeo: true,
+                  };
+                }
                 const pickupObj = context?.pickup || previous?.pickup || db.requests.find((r: Any) => cleanId(r.id) === cleanId(requestId))?.pickup;
                 const addr = String(pickupObj?.address || pickupObj?.name || s.name || '').toLowerCase();
                 if (addr.includes('lê đức thọ') || addr.includes('gò vấp')) {
@@ -285,6 +297,10 @@ export async function syncCoordinatorTrips(): Promise<void> {
         milestones: bt.milestones ?? previous?.milestones ?? [],
         crew: bt.crew ?? previous?.crew ?? {},
         horses: context?.horseIds ?? bt.horses ?? previous?.horses ?? [],
+        pickupAccess: context?.pickupAccess ?? previous?.pickupAccess,
+        pickupRelocation: context?.pickupRelocation ?? previous?.pickupRelocation,
+        effectivePickup: context?.effectivePickup ?? previous?.effectivePickup,
+        effectivePickupRelocationId: context?.effectivePickupRelocationId ?? previous?.effectivePickupRelocationId,
       };
     });
 

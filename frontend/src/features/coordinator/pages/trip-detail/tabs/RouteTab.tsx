@@ -496,6 +496,27 @@ export function RouteTab({ t }: { t: Any }) {
             </button>
           </div>
         ) : null}
+        {t.pickupRelocation?.status === 'CUSTOMER_CONFIRMED' ? (
+          <div className="note green" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="check" />
+            <div>
+              <b>Điểm đón mới có hiệu lực:</b> {t.pickupRelocation.placeName || t.pickupRelocation.placeSnapshot?.name} (Khách hàng đã đồng ý dời điểm đón). Tuyến đường xuất phát từ cơ sở này.
+            </div>
+          </div>
+        ) : t.pickupAccess?.result === 'INACCESSIBLE' ? (
+          <div className="note yellow" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div>
+              <b>⚠️ Điểm đón gốc xe lớn không vào được:</b> {t.pickupRelocation ? `Đề xuất dời điểm đang ở trạng thái ${t.pickupRelocation.status}` : 'Cần lập đề xuất đổi điểm tập kết'}.
+            </div>
+            <button
+              type="button"
+              className="btn sm"
+              onClick={() => go(`f/trip/${t.id}/overview`)}
+            >
+              Xem đề xuất →
+            </button>
+          </div>
+        ) : null}
         <ol className="rp-list">{rt.stops.map((s: Any, i: number) => <StopRow key={i} t={t} rt={rt} s={s} i={i} calc={calc} edit={edit} />)}</ol>
       </div>
       <div className="rp-right">
