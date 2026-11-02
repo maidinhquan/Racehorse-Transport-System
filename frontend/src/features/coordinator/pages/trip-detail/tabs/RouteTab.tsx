@@ -215,10 +215,6 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
                   <span>Bàn giao ngựa & chuồng Jet Stall {t.flight?.jetStallId ? `(${t.flight.jetStallId})` : ''} trước giờ bay ≥ {ROUTE_POLICY.airportHandoverH}h</span>
                   {t.flight?.contractNo || t.flight?.bookingRef ? (
                     <span style={{ color: '#047857', fontWeight: 600 }}>• Theo HĐ {t.flight.contractNo || t.flight.bookingRef || t.flight.flightNo}</span>
-                  ) : edit ? (
-                    <button type="button" className="btn solid sm" onClick={() => go(`f/trip/${t.id}/flight`)} style={{ padding: '2px 8px', fontSize: 11 }}>
-                      Nhập HĐ tại tab Chuyến bay
-                    </button>
                   ) : null}
                 </>
               ) : isArrAirport ? (
@@ -253,18 +249,9 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
             </div>
           ) : null}
           {stIss.map((x: Any, k: number) => (
-            <div key={k} className="rp-issue" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-              <span><Icon name="alert" />{x.msg}</span>
-              {x.msg.includes('khởi hành chuyến bay') && edit ? (
-                <button
-                  type="button"
-                  className="btn solid sm"
-                  style={{ padding: '2px 8px', fontSize: 11, background: '#d97706', color: '#fff', fontWeight: 600 }}
-                  onClick={() => go(`f/trip/${t.id}/flight`)}
-                >
-                  👉 Nhập HĐ tại tab Chuyến bay
-                </button>
-              ) : null}
+            <div key={k} className="rp-issue">
+              <Icon name="alert" />
+              <span>{x.msg}</span>
             </div>
           ))}
         </div>

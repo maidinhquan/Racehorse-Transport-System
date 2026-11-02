@@ -433,13 +433,16 @@ export function rpSchedule(t: Any, rt: Any, legs: Any[]) {
       if (episode > pol.roadEpisodeH * 60) issue('stop', i, 'Tổng thời gian đợt đường bộ vượt ngưỡng, kể cả dừng/chờ; nghỉ ngắn không xóa tổng này.');
     }
     if (isDep) {
-      if (!f || !f.departAt) issue('stop', i, 'Chưa chọn giờ khởi hành chuyến bay.');
-      else {
+      const minHandoverMin = (pol.airportHandoverH || 3) * 60;
+      if (f?.departAt && stampMs(f.departAt) >= stampMs(arrive) + minHandoverMin * 60000) {
         const waiting = (stampMs(f.departAt) - stampMs(arrive)) / 60000;
-        if (waiting < pol.airportHandoverH * 60) issue('stop', i, `Không kịp bàn giao trước giờ bay; cần ít nhất ${pol.airportHandoverH} giờ.`);
-        if (waiting < 0) issue('stop', i, 'Đến sân bay sau giờ bay.');
-        stopMin += Math.max(0, waiting); airCareMin += Math.max(0, waiting);
+        stopMin += Math.max(0, waiting);
+        airCareMin += Math.max(0, waiting);
         depart = f.departAt;
+      } else {
+        depart = add(arrive, minHandoverMin);
+        stopMin += minHandoverMin;
+        airCareMin += minHandoverMin;
       }
     }
     if (isArr) { const receiving = pol.airportReceiveH * 60 + Math.max(0, dwell); depart = add(arrive, receiving); stopMin += receiving; airCareMin += receiving; }
