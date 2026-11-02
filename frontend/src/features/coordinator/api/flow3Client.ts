@@ -113,7 +113,7 @@ export async function flow3Request<T>(operationId: string, options: Options): Pr
   const queryObj: Record<string, string | number | boolean> = {};
   if (options.query) {
     for (const [k, v] of Object.entries(options.query)) {
-      if (v !== undefined) queryObj[k] = v;
+      if (v !== undefined) { const paramDef = queryParameters.find(p => p.name === k); if (paramDef) validate(paramDef.schema, v); queryObj[k] = v; }
     }
   }
 
