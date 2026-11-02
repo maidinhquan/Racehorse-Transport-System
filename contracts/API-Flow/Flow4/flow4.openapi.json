@@ -1457,7 +1457,7 @@
       "post": {
         "operationId": "F4-J05",
         "summary": "Xác nhận xuất phát thực tế",
-        "description": "Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement (HORSES_CHECKED, VEHICLE_VERIFIED) server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip và Request IN_TRANSIT nguyên tử; khóa duyệt lại Flow 3; không tạo Trip mới.",
+        "description": "Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement (HORSES_CHECKED, VEHICLE_VERIFIED) server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip IN_TRANSIT và Request IN_PROGRESS nguyên tử; khóa duyệt lại Flow 3; không tạo Trip mới.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -1530,7 +1530,7 @@
                       "requestId": "REQUEST_001",
                       "mode": "ROAD",
                       "tripStatus": "IN_TRANSIT",
-                      "requestStatus": "IN_TRANSIT",
+                      "requestStatus": "IN_PROGRESS",
                       "phase": "IN_PROGRESS",
                       "lastMilestoneId": "MILESTONE_001",
                       "eta": {
@@ -1881,7 +1881,7 @@
       "post": {
         "operationId": "F4-J06",
         "summary": "Xác nhận mốc kế tiếp của chặng",
-        "description": "Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. Trạm có cờ requiresHealthCheck phải hoàn tất HealthLog trước khi hoàn tất mốc. Ngựa có trạng thái ABNORMAL chặn mốc tiếp theo cho đến khi có xác nhận FIT. FINAL_ARRIVED chỉ mở Flow 6; Trip/Request vẫn IN_TRANSIT.",
+        "description": "Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. Trạm có cờ requiresHealthCheck phải hoàn tất HealthLog trước khi hoàn tất mốc. Ngựa có trạng thái ABNORMAL chặn mốc tiếp theo cho đến khi có xác nhận FIT. FINAL_ARRIVED chỉ mở Flow 6; Trip IN_TRANSIT, Request IN_PROGRESS; chưa hoàn tất giao ngựa.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -1966,7 +1966,7 @@
                       "requestId": "REQUEST_001",
                       "mode": "ROAD",
                       "tripStatus": "IN_TRANSIT",
-                      "requestStatus": "IN_TRANSIT",
+                      "requestStatus": "IN_PROGRESS",
                       "phase": "IN_PROGRESS",
                       "lastMilestoneId": null,
                       "eta": {
@@ -3509,7 +3509,7 @@
                       "requestId": "REQUEST_001",
                       "mode": "ROAD",
                       "tripStatus": "IN_TRANSIT",
-                      "requestStatus": "IN_TRANSIT",
+                      "requestStatus": "IN_PROGRESS",
                       "phase": "IN_PROGRESS",
                       "lastMilestoneId": null,
                       "eta": {
@@ -4243,7 +4243,7 @@
                       "requestId": "REQUEST_001",
                       "mode": "ROAD",
                       "tripStatus": "IN_TRANSIT",
-                      "requestStatus": "IN_TRANSIT",
+                      "requestStatus": "IN_PROGRESS",
                       "phase": "IN_PROGRESS",
                       "lastMilestoneId": null,
                       "eta": {
@@ -4636,7 +4636,7 @@
                       "requestId": "REQUEST_001",
                       "mode": "ROAD",
                       "tripStatus": "IN_TRANSIT",
-                      "requestStatus": "IN_TRANSIT",
+                      "requestStatus": "IN_PROGRESS",
                       "phase": "IN_PROGRESS",
                       "lastMilestoneId": null,
                       "eta": {
@@ -5521,7 +5521,7 @@
                       "requestId": "REQUEST_001",
                       "mode": "ROAD",
                       "tripStatus": "IN_TRANSIT",
-                      "requestStatus": "IN_TRANSIT",
+                      "requestStatus": "IN_PROGRESS",
                       "phase": "IN_PROGRESS",
                       "lastMilestoneId": null,
                       "eta": {
@@ -7379,7 +7379,7 @@
                       "requestId": "REQUEST_001",
                       "mode": "ROAD",
                       "tripStatus": "IN_TRANSIT",
-                      "requestStatus": "IN_TRANSIT",
+                      "requestStatus": "IN_PROGRESS",
                       "phase": "IN_PROGRESS",
                       "lastMilestoneId": null,
                       "eta": {
@@ -7795,7 +7795,7 @@
                       "requestId": "REQUEST_001",
                       "mode": "ROAD",
                       "tripStatus": "IN_TRANSIT",
-                      "requestStatus": "IN_TRANSIT",
+                      "requestStatus": "IN_PROGRESS",
                       "phase": "IN_PROGRESS",
                       "lastMilestoneId": null,
                       "eta": {
@@ -10421,7 +10421,7 @@
                       "requestId": "REQUEST_001",
                       "mode": "ROAD",
                       "tripStatus": "IN_TRANSIT",
-                      "requestStatus": "IN_TRANSIT",
+                      "requestStatus": "IN_PROGRESS",
                       "phase": "IN_PROGRESS",
                       "lastMilestoneId": null,
                       "eta": {
@@ -10777,7 +10777,7 @@
                       "requestId": "REQUEST_001",
                       "mode": "ROAD",
                       "tripStatus": "IN_TRANSIT",
-                      "requestStatus": "IN_TRANSIT",
+                      "requestStatus": "IN_PROGRESS",
                       "phase": "IN_PROGRESS",
                       "lastMilestoneId": null,
                       "eta": {
@@ -13270,7 +13270,7 @@
       "post": {
         "operationId": "F4-J36",
         "summary": "Ghi nhận chi phí phát sinh trên đường",
-        "description": "Tổ xe ghi nhận chi phí thực tế (vé BOT, cỏ/nước, thuốc khẩn cấp) kèm ảnh biên lai/hóa đơn. Không tự ý sửa giá cước hợp đồng của khách hàng. Dữ liệu được chuyển Flow 6 đối soát hoàn ứng.",
+        "description": "Tổ xe ghi nhận chi phí thực tế (vé BOT, cỏ/nước, thuốc khẩn cấp) kèm ảnh biên lai/hóa đơn. Chi phí nội bộ tổ xe, không tự ý sửa đổi cước phí hợp đồng khách hàng, không tự tạo hoàn tiền Customer.",
         "tags": [
           "DRIVER_ESCORT"
         ],
@@ -14911,9 +14911,8 @@
             "example": "SCHEDULED",
             "enum": [
               "SCHEDULED",
-              "IN_TRANSIT",
+              "IN_PROGRESS",
               "DELIVERED",
-              "UNDER_RESOLUTION",
               "CLOSED"
             ]
           },
@@ -16541,8 +16540,7 @@
             "type": "string",
             "example": "RECORDED",
             "enum": [
-              "RECORDED",
-              "SUBMITTED_TO_FLOW6"
+              "RECORDED"
             ]
           }
         },

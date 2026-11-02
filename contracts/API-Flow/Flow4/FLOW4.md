@@ -10,7 +10,7 @@
 
 [JSON từng API](FLOW4-API-JSON.md) · [OpenAPI 3.1](flow4.openapi.json) · [Kịch bản nghiệm thu](flow4.examples.json) · [Quy ước](../../CONVENTIONS.md).
 
-Nguồn thảo luận lưu tại `work/full-documentation-export/docs/flows/FLOW_04_05_06.md`, phần Flow 4. Chỉ dùng phần Flow 4 của bản đó: Flow 3/6 có contract mới thay thế. Không dùng phần Flow 6 cũ về tự đóng đơn/cửa sổ feedback để triển khai. Quy tắc dưới đây xác định giao thức FE–BE mục tiêu, không khẳng định schema DB hiện tại lưu được toàn bộ DTO.
+Nguồn thảo luận lưu tại `work/full-documentation-export/docs/flows/FLOW_04_05_06.md`, phần Flow 4. Chỉ dùng phần Flow 4 của bản đó: Flow 3/6 có contract mới thay thế. Điểm bàn giao sang Flow 6 tuân thủ chuẩn thống nhất: Flow 4 ghi nhận FINAL_ARRIVED, giữ Trip IN_TRANSIT và Request IN_PROGRESS. Flow 6 thực hiện kiểm người nhận/ngựa/tài sản/giấy tờ và xác nhận bàn giao bằng OTP đúng revision. Flow 4 không tự xác nhận giao xong, không mở thời hạn phản hồi, không yêu cầu ảnh chữ ký hoặc Customer nghiệm thu riêng. Thời hạn phản hồi bắt đầu sau tất toán; đóng theo điều kiện của Flow 6, không chỉ vì quá hạn. Quy tắc dưới đây xác định giao thức FE–BE mục tiêu, không khẳng định schema DB hiện tại lưu được toàn bộ DTO.
 
 ## 1. Luồng chính và ranh giới
 
@@ -18,17 +18,17 @@ ROAD: `Duyệt khởi hành (Flow 3 J18) → sinh danh sách mốc tự động 
 
 AIR: `Duyệt khởi hành → sinh mốc → outbound DEPARTED → các điểm dừng/kiểm tra → AIRPORT_ORIGIN_ARRIVED → AIR_HANDOVER → AIR_DEPARTED → AIR_ARRIVED → AIR_RECEIVED → inbound DEPARTED → các điểm dừng/kiểm tra → FINAL_ARRIVED → Flow 6`.
 
-Danh sách mốc được máy chủ tạo tự động từ snapshot phương án Flow 3 đã duyệt (`ApprovedPlanJson`) ngay trong transaction phê duyệt khởi hành (`F3-J18 / ApproveDepartureV2Async`). Chỉ sinh những điểm thực sự có trong phương án, gồm cặp đến/rời cho điểm nghỉ (`STOP_ARRIVED`/`STOP_DEPARTED`) và checkpoint (`CHECKPOINT_ARRIVED`/`CHECKPOINT_DEPARTED`) khi cần. Điểm dừng có thể đánh dấu `requiresHealthCheck: true` để bắt buộc kiểm tra y tế trước khi rời trạm. Không bắt buộc có cùng số mốc ở mọi chuyến. `sequence` tăng trên toàn hành trình, `leg` là `road`, `outbound`, `air`, `inbound`; ROAD chỉ có `road`. AIR có hai tổ ROAD độc lập như Flow 3, không cho người đầu đi ghi thay đầu đến. Khi chuyến đi đã ghi nhận xuất phát thực tế (`IN_TRANSIT`), hệ thống khóa hoàn toàn việc duyệt lại khởi hành hoặc sửa đổi kế hoạch nháp ở Flow 3.
+Danh sách mốc được máy chủ tạo tự động từ snapshot phương án Flow 3 đã duyệt (`ApprovedPlanJson`) ngay trong transaction phê duyệt khởi hành (`F3-J18 / ApproveDepartureV2Async`). Chỉ sinh những điểm thực sự có trong phương án, gồm cặp đến/rời cho điểm nghỉ (`STOP_ARRIVED`/`STOP_DEPARTED`) và checkpoint (`CHECKPOINT_ARRIVED`/`CHECKPOINT_DEPARTED`) khi cần. Điểm dừng có thể đánh dấu `requiresHealthCheck: true` để bắt buộc kiểm tra y tế trước khi rời trạm. Không bắt buộc có cùng số mốc ở mọi chuyến. `sequence` tăng trên toàn hành trình, `leg` là `road`, `outbound`, `air`, `inbound`; ROAD chỉ có `road`. AIR có hai tổ ROAD độc lập như Flow 3, không cho người đầu đi ghi thay đầu đến (đặc biệt tổ xe đầu đến có quyền bàn giao tại điểm đích). Khi chuyến đi đã ghi nhận xuất phát thực tế (`IN_TRANSIT`), hệ thống khóa hoàn toàn việc duyệt lại khởi hành hoặc sửa đổi kế hoạch nháp ở Flow 3.
 
 | Sự kiện | Trip | Request | Ý nghĩa |
 |---|---|---|---|
 | Manager duyệt Flow 3 | READY_TO_DEPART | SCHEDULED | Được phép chuẩn bị xuất phát, sinh mốc PENDING, chưa đi |
-| Xuất phát ROAD đầu thực tế | IN_TRANSIT | IN_TRANSIT | J05, ghi DEPARTED một lần, khóa sửa kế hoạch Flow 3 |
-| Các mốc giữa, kể cả inbound xuất phát | IN_TRANSIT | IN_TRANSIT | Không tạo Trip mới |
-| FINAL_ARRIVED | IN_TRANSIT | IN_TRANSIT | phase AWAITING_HANDOVER; mở Flow 6 nếu đủ điều kiện |
-| Flow 6 bàn giao hợp lệ | COMPLETED | DELIVERED | Flow 6 quyết định; nhả xe AVAILABLE; chưa tự CLOSED |
+| Xuất phát ROAD đầu thực tế | IN_TRANSIT | IN_PROGRESS | J05, ghi DEPARTED một lần, khóa sửa kế hoạch Flow 3 |
+| Các mốc giữa, kể cả inbound xuất phát | IN_TRANSIT | IN_PROGRESS | Không tạo Trip mới |
+| FINAL_ARRIVED | IN_TRANSIT | IN_PROGRESS | phase AWAITING_HANDOVER; mở Flow 6 nếu đủ điều kiện |
+| Flow 6 bàn giao hợp lệ | COMPLETED | DELIVERED | Flow 6 xác nhận OTP đúng revision; nhả xe AVAILABLE; chưa tự CLOSED |
 
-`phase` là projection vận hành, không phải enum DB mới: `AWAITING_DEPARTURE`, `IN_PROGRESS`, `AWAITING_HANDOVER`, `HANDED_OVER`. Request có thể đi tiếp UNDER_RESOLUTION/CLOSED theo Flow 6 khi đọc lịch sử. Mọi mutation vận hành bị khóa sau bàn giao; đọc và yêu cầu đính chính lịch sử vẫn kiểm scope. Đính chính sau bàn giao chỉ metadata không ảnh hưởng bằng chứng đã ký; nếu ảnh hưởng thì trả CORRECTION_REQUIRES_INCIDENT và xử lý qua quy trình Flow 5/6, không sửa biên bản đã ký.
+`phase` là projection vận hành, không phải enum DB mới: `AWAITING_DEPARTURE`, `IN_PROGRESS`, `AWAITING_HANDOVER`, `HANDED_OVER`. Request enum tuân thủ `DATABASE_STATUS_CONVENTION.md` (`SCHEDULED`, `IN_PROGRESS`, `DELIVERED`, `CLOSED`), hoàn toàn không có trạng thái `IN_TRANSIT`. Khi có khiếu nại phát sinh sau giao, khiếu nại được theo dõi độc lập tại `CUSTOMER_CASE`; Request giữ `DELIVERED` trong giai đoạn thanh toán/tất toán và chỉ chuyển `CLOSED` khi thỏa mãn điều kiện đóng hồ sơ của Flow 6. Mọi mutation vận hành bị khóa sau bàn giao; đọc và yêu cầu đính chính lịch sử vẫn kiểm scope. Đính chính sau bàn giao chỉ metadata không ảnh hưởng bằng chứng đã ký; nếu ảnh hưởng thì trả CORRECTION_REQUIRES_INCIDENT và xử lý qua quy trình Flow 5/6, không sửa biên bản đã ký.
 
 Flow 4 không lập lại tuyến, thay xe/người hoặc booking trực tiếp. Thay đổi khi đang chạy qua Flow 5, chỉ đánh giá lại phần bị ảnh hưởng; không cho sửa plan-draft Flow 3 đã khóa. Khi phương án thay đổi được phê duyệt và áp dụng, máy chủ tạo execution revision mới: giữ toàn bộ mốc đã ghi, chỉ thay các mốc tương lai và phân công liên quan, lưu mapping mốc cũ/mới; proposal và clearance bị ảnh hưởng phải recheck. Không tự nối mốc từ hai approved plan khác nhau. Giá, địa chỉ giao và hợp đồng đã ký không bị sửa bởi ETA hoặc nhật ký.
 
@@ -64,7 +64,7 @@ Mỗi mốc giữ revision. Driver J08 yêu cầu đính chính COMPLETED, nêu 
 
 ## 4. AIR và thông tin hãng
 
-J13 xác nhận ngựa đã bàn giao thực tế cho đối tác ở sân bay đi; J15 xác nhận đã kiểm tra/tiếp nhận thực tế ở đầu đến. Địa điểm tiếp nhận thực tế quy ước là Kho hàng hóa động vật sân bay (Cargo Terminal / Animal Lounge). Danh sách phải đúng toàn bộ ngựa chuyến, không trùng/thiếu, đúng booking đang có hiệu lực, có bằng chứng và tham chiếu đối tác. Chỉ tổ được giao đúng đầu vận chuyển thực hiện. Bất thường được ghi nhận và liên kết Flow 5; không bắt người nhập khai bình thường mới ghi nhận tiếp nhận.
+J13 xác nhận ngựa đã bàn giao thực tế cho đối tác ở sân bay đi; J15 xác nhận đã kiểm tra/tiếp nhận thực tế ở đầu đến. Địa điểm tiếp nhận thực tế quy ước là Kho hàng hóa động vật sân bay (Cargo Terminal / Animal Lounge). Danh sách phải đúng toàn bộ ngựa chuyến, không trùng/thiếu, đúng booking đang có hiệu lực, có bằng chứng và tham chiếu đối tác. Chỉ tổ được giao đúng đầu vận chuyển thực hiện (đặc biệt tổ xe đầu đến của AIR có quyền thực hiện tiếp nhận và bàn giao đích). Bất thường được ghi nhận và liên kết Flow 5; không bắt người nhập khai bình thường mới ghi nhận tiếp nhận.
 
 Coordinator dùng J14 ghi thông tin do đối tác cung cấp, không điều khiển chuyến bay hoặc tự nhận là hãng. ESTIMATED_SCHEDULE tách khỏi giờ thực tế, không complete milestone; actual departure/arrival chỉ ghi khi có bằng chứng, đúng thứ tự AIR và booking, timestamp không tương lai. Arrival không trước departure. Lịch đổi ảnh hưởng lịch chính thức/booking/ROAD sau bay đi qua Flow 5 và Manager; lưu notice trước, không sửa approved snapshot bằng notice.
 
@@ -98,7 +98,7 @@ IDs Trip/Request/User/Horse/Vehicle/Incident tuân quy ước hiện hành. ID m
 
 Mutation JSON có expectedVersion (J30 upload độc lập không có), Idempotency-Key UUID bắt buộc. Khóa dedupe theo principal + key, fingerprint chứa method + path + body (upload gồm hash file và metadata). Cùng principal/key với body/path khác trả IDEMPOTENCY_CONFLICT; cùng request retry trả kết quả gốc kể cả version đã đổi, sau khi xác thực lại quyền. Backend kiểm dedupe trước stale-version của chính retry, giữ key gắn bền với transaction. Các lệnh cùng executionVersion cạnh tranh chỉ một commit. Health/ETA/correction/expense responses không nhất thiết có Binding; caller refetch J03 để lấy revision mới, không suy version từ ID.
 
-Chi phí phát sinh trên đường (Petty Cash / Road Expenses): Hỗ trợ tổ xe ghi nhận các chi phí phát sinh thực tế (vé cầu đường BOT, thức ăn/nước uống bổ sung khẩn cấp, mua vật tư chăm sóc) kèm hóa đơn/biên lai ảnh chụp qua API `F4-J36 POST /driver/trips/{tripId}/expenses` và tra cứu qua `F4-J37 GET /trips/{tripId}/execution/expenses`. Chi phí phát sinh là dữ liệu ghi nhận hiện trường nội bộ, không tự ý sửa đổi cước phí hợp đồng với khách hàng, và sẽ được chuyển giao sang Flow 6 để kế toán duyệt quyết toán hoàn ứng (`TRIP_SETTLEMENT`).
+Chi phí phát sinh trên đường (Petty Cash / Road Expenses): Hỗ trợ tổ xe ghi nhận các chi phí phát sinh thực tế (vé cầu đường BOT, thức ăn/nước uống bổ sung khẩn cấp, mua vật tư chăm sóc) kèm hóa đơn/biên lai ảnh chụp qua API `F4-J36 POST /driver/trips/{tripId}/expenses` và tra cứu qua `F4-J37 GET /trips/{tripId}/execution/expenses`. Chi phí phát sinh là dữ liệu ghi nhận hiện trường nội bộ của tổ xe, lưu trạng thái `RECORDED`, không tự ý sửa đổi cước phí hợp đồng với khách hàng (`PaidAmount`/hóa đơn), không tự tạo khoản hoàn tiền khách hàng (`Customer REFUND`), và không gán tự động vào quyết toán khách hàng (`TRIP_SETTLEMENT`). Việc hoàn ứng nhân viên là quy trình nội bộ độc lập, chưa chuyển giao tự động khi chưa có module tiếp nhận bền vững.
 
 Transaction ghi trạng thái, history và outbox cùng nhau; lỗi rollback, không thông báo trước commit. Sau đó worker phát thông báo có retry/dedupe. Timestamp `YYYY-MM-DD HH:mm` theo Asia/Ho_Chi_Minh, kiểm ngày lịch thực; persistence UTC. recordedAt/serverTime do server cấp. Tiền luôn nguyên VND; Flow 4 không có thao tác thu cước hay hoàn tiền khách hàng.
 
@@ -126,10 +126,10 @@ Không lộ SQL/stack trong lỗi, không chuyển 404/501 thành mock success. 
 | Theo dõi khách hiện có | Chuyển tracking/health callers sang J32–J34 khi tích hợp; chưa nối trong công việc này |
 | Coordinator PUT `/coordinator/trips/{tripId}/eta` cũ | Chuyển J18/J20/J21; không cập nhật ETA trực tiếp bỏ duyệt |
 | Coordinator POST `/coordinator/trips/{tripId}/milestones` cũ | Không ghi thay Driver; dùng J08–J10 đính chính, J14 nhập nguồn AIR |
-| Chi phí phát sinh trên đường | F4-J36 ghi nhận, F4-J37 tra cứu; chuyển Flow 6 quyết toán hoàn ứng |
+| Chi phí phát sinh trên đường | F4-J36 ghi nhận, F4-J37 tra cứu; chi phí nội bộ tổ xe, không tự sửa tiền khách hàng |
 | F4-U01/U02 settlement/acceptance trong Operations cũ | Thuộc Flow 6 mới, không API theo dõi Flow 4; không dùng song song schema cũ |
 | Sự cố, thay xe/người/booking khi đang chạy | Flow 5; giữ nguồn chung, chỉ blocker/incidentId ở Flow 4 |
-| Đến điểm giao cuối | J06 FINAL_ARRIVED; bàn giao/chữ ký/nghiệm thu/thanh toán/nhả xe theo Flow 6 |
+| Đến điểm giao cuối | J06 FINAL_ARRIVED; Flow 6 tiếp nhận, kiểm tra và xác nhận bàn giao bằng OTP đúng revision, thu số dư và tất toán |
 
 Khi triển khai, mutation cũ cho phép bypass trả 409 CONTRACT_SUPERSEDED; caller chuyển một lần sang schema mục tiêu. File OpenAPI role cũ chỉ là index lịch sử, không được dùng định nghĩa payload thay Flow 4. Không khẳng định các route cũ hiện đã trả lỗi này. Các cấu trúc revision/audit/outbox/file/clearance mới phải được backend review persistence/migration trước tích hợp; tài liệu không tự tạo bảng.
 
@@ -137,4 +137,4 @@ Khi triển khai, mutation cũ cho phép bypass trả 409 CONTRACT_SUPERSEDED; c
 
 Chạy `python contracts/API-Flow/Flow4/build_contract.py` rồi `node contracts/API-Flow/Flow4/validate_contract.mjs` từ root repository. Generator cập nhật OpenAPI, JSON từng API cùng bảng danh mục và fixture; FLOW4.md giữ quy tắc viết tay. Validator kiểm reference, schema, mẫu request/response/lỗi, coverage và input âm.
 
-`flow4.examples.json` là kịch bản nghiệm thu mục tiêu, không phải backend test đã chạy. Trước công bố capability cần integration: hai người ghi cùng mốc chỉ một commit; retry không trùng mốc/history/thông báo; stale readiness; quyền sai chặng/khác chủ/file; checkpoint giữ; AIR đúng thứ tự/bằng chứng; ETA không bỏ duyệt Manager; bác sĩ đúng qualification; chăm sóc vẫn ghi khi blocked; trạm requiresHealthCheck chặn mốc rời trạm nếu chưa có log; ngựa ABNORMAL chặn mốc tiếp theo cho đến khi FIT; chi phí phát sinh ghi nhận hợp lệ; correction không sửa bằng chứng đã ký; FINAL_ARRIVED chưa COMPLETED; rollback state/history/outbox. Không cần hoặc hứa GPS, gửi mail/điện thoại thật hay API hãng bay trong demo này.
+`flow4.examples.json` là kịch bản nghiệm thu mục tiêu, không phải backend test đã chạy. Trước công bố capability cần integration: hai người ghi cùng mốc chỉ một commit; retry không trùng mốc/history/thông báo; stale readiness; quyền sai chặng/khác chủ/file; checkpoint giữ; AIR đúng thứ tự/bằng chứng; ETA không bỏ duyệt Manager; bác sĩ đúng qualification; chăm sóc vẫn ghi khi blocked; trạm requiresHealthCheck chặn mốc rời trạm nếu chưa có log; ngựa ABNORMAL chặn mốc tiếp theo cho đến khi FIT; chi phí phát sinh ghi nhận hợp lệ; correction không sửa bằng chứng đã ký; FINAL_ARRIVED chưa COMPLETED (Trip IN_TRANSIT, Request IN_PROGRESS); Flow 6 xác nhận bàn giao bằng OTP đúng revision; rollback state/history/outbox. Không cần hoặc hứa GPS, gửi mail/điện thoại thật hay API hãng bay trong demo này.

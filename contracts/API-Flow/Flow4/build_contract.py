@@ -79,7 +79,7 @@ define('EtaSummary', {'currentEta': stamp, 'deliveryDeadline': stamp, 'pendingPr
                       'proposedEta': null(stamp), 'version': integer(1, 1)})
 define('TripSummary', {'tripId': ident('TRIP'), 'requestId': ident('REQUEST'), 'mode': en('ROAD', 'AIR'),
                        'tripStatus': en('READY_TO_DEPART', 'IN_TRANSIT', 'COMPLETED'),
-                       'requestStatus': en('SCHEDULED', 'IN_TRANSIT', 'DELIVERED', 'UNDER_RESOLUTION', 'CLOSED'),
+                       'requestStatus': en('SCHEDULED', 'IN_PROGRESS', 'DELIVERED', 'CLOSED'),
                        'phase': en('AWAITING_DEPARTURE', 'IN_PROGRESS', 'AWAITING_HANDOVER', 'HANDED_OVER'),
                        'lastMilestoneId': null(key('MILESTONE_001')), 'eta': ref('EtaSummary')})
 define('Map', {'routeSource': en('APPROVED_PLAN'), 'locationSource': en('CONFIRMED_MILESTONE'),
@@ -150,7 +150,7 @@ define('ExpenseInput', {'expectedVersion': v, 'category': en('TOLL_FEE', 'FEED_S
                         'amountVnd': integer(150000, 1000, 100000000), 'occurredAt': stamp,
                         'reason': reason, 'milestoneId': null(key('MILESTONE_001')), 'receiptFileIds': files})
 define('ExpenseRecord', {'id': key('EXPENSE_001'), 'tripId': ident('TRIP'), 'entry': ref('ExpenseInput'),
-                         'recordedBy': ref('Actor'), 'recordedAt': stamp, 'status': en('RECORDED', 'SUBMITTED_TO_FLOW6')})
+                         'recordedBy': ref('Actor'), 'recordedAt': stamp, 'status': en('RECORDED')})
 # Public DTOs deliberately omit internal revision/assignment data and incident work notes.
 define('PublicHealth', {'id': key('HEALTH_001'), 'horseId': ident('HORSE'), 'observedAt': stamp, 'recordedAt': stamp,
                         'recordedBy': ref('Actor'), 'condition': en('NORMAL', 'ABNORMAL'), 'observation': text,
@@ -239,9 +239,9 @@ op('F4-J03', 'get', trip, STAFF, 'Context hành trình và thao tác theo phân 
 op('F4-J04', 'get', driver + '/departure-check', D, 'Kiểm tra trước xuất phát thực tế', ref('Preflight'),
    rules='Kiểm lại approval, nguồn lực, xe, hồ sơ, bảo hiểm, tình trạng ngựa và blocker hiện hành. Yêu cầu xác nhận HORSES_CHECKED và VEHICLE_VERIFIED. GET không xuất phát. Inbound cũng dùng check theo chặng.', queries=[('leg', leg)])
 op('F4-J05', 'post', driver + '/departure', D, 'Xác nhận xuất phát thực tế', ref('Mutation'), ref('DepartureInput'),
-   rules='Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement (HORSES_CHECKED, VEHICLE_VERIFIED) server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip và Request IN_TRANSIT nguyên tử; khóa duyệt lại Flow 3; không tạo Trip mới.', conflicts=['DEPARTURE_NOT_APPROVED', 'READINESS_CHANGED', 'NOT_ASSIGNED_LEG', 'INCIDENT_BLOCKING'])
+   rules='Chỉ MAIN_DRIVER/CO_DRIVER được giao ở ROAD đầu; recheck transaction với phiên bản plan/assignment hiện hành và acknowledgement (HORSES_CHECKED, VEHICLE_VERIFIED) server yêu cầu. Hoàn tất DEPARTED đầu tiên: Trip IN_TRANSIT và Request IN_PROGRESS nguyên tử; khóa duyệt lại Flow 3; không tạo Trip mới.', conflicts=['DEPARTURE_NOT_APPROVED', 'READINESS_CHANGED', 'NOT_ASSIGNED_LEG', 'INCIDENT_BLOCKING'])
 op('F4-J06', 'post', driver + '/milestones/{milestoneId}/complete', D, 'Xác nhận mốc kế tiếp của chặng', ref('Mutation'), ref('MilestoneInput'),
-   rules='Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. Trạm có cờ requiresHealthCheck phải hoàn tất HealthLog trước khi hoàn tất mốc. Ngựa có trạng thái ABNORMAL chặn mốc tiếp theo cho đến khi có xác nhận FIT. FINAL_ARRIVED chỉ mở Flow 6; Trip/Request vẫn IN_TRANSIT.',
+   rules='Chỉ mốc generic STOP/CHECKPOINT/AIRPORT_ORIGIN/FINAL_ARRIVED và DEPARTED của inbound đã đủ tiếp nhận. DEPARTED đầu dùng J05, AIR dùng J13–J15. Kiểm thứ tự, thời gian, checklist và blocker. Trạm có cờ requiresHealthCheck phải hoàn tất HealthLog trước khi hoàn tất mốc. Ngựa có trạng thái ABNORMAL chặn mốc tiếp theo cho đến khi có xác nhận FIT. FINAL_ARRIVED chỉ mở Flow 6; Trip IN_TRANSIT, Request IN_PROGRESS; chưa hoàn tất giao ngựa.',
    conflicts=['MILESTONE_NOT_NEXT', 'MILESTONE_ALREADY_COMPLETED', 'NOT_ASSIGNED_LEG', 'CHECKPOINT_NOT_CLEARED', 'INCIDENT_BLOCKING', 'USE_SPECIALIZED_COMMAND', 'INVALID_EVENT_TIME', 'HEALTH_CHECK_REQUIRED', 'VET_CLEARANCE_REQUIRED'])
 op('F4-J07', 'get', trip + '/history', STAFF, 'Lịch sử hành trình, đính chính và quyết định', arr(ref('History')),
    rules='Append-only, thứ tự recordedAt rồi ID; chỉ lịch sử trong scope, giữ cả revision cũ, actor hệ thống có systemActor=true.')
@@ -297,7 +297,7 @@ op('F4-J34', 'get', customer + '/tracking-files/{fileId}', U, 'Khách tải ản
 op('F4-J35', 'get', '/manager/trips/{tripId}/execution', M, 'Manager giám sát vận hành', ref('Tracking'),
    rules='Cùng read model J03 trong scope quản lý, không có quyền hoàn tất mốc thay tài xế.')
 op('F4-J36', 'post', driver + '/expenses', D, 'Ghi nhận chi phí phát sinh trên đường', ref('ExpenseRecord'), ref('ExpenseInput'),
-   rules='Tổ xe ghi nhận chi phí thực tế (vé BOT, cỏ/nước, thuốc khẩn cấp) kèm ảnh biên lai/hóa đơn. Không tự ý sửa giá cước hợp đồng của khách hàng. Dữ liệu được chuyển Flow 6 đối soát hoàn ứng.', conflicts=['NOT_ASSIGNED_LEG', 'EVIDENCE_INVALID'], created=True)
+   rules='Tổ xe ghi nhận chi phí thực tế (vé BOT, cỏ/nước, thuốc khẩn cấp) kèm ảnh biên lai/hóa đơn. Chi phí nội bộ tổ xe, không tự ý sửa đổi cước phí hợp đồng khách hàng, không tự tạo hoàn tiền Customer.', conflicts=['NOT_ASSIGNED_LEG', 'EVIDENCE_INVALID'], created=True)
 op('F4-J37', 'get', trip + '/expenses', STAFF, 'Danh sách chi phí phát sinh chuyến đi', arr(ref('ExpenseRecord')),
    rules='Đọc danh sách chi phí phát sinh thực tế do tổ xe ghi nhận trong hành trình để phục vụ đối soát hoàn ứng.')
 
@@ -337,10 +337,10 @@ for code, method, path, operation in OPS:
     if method != 'get' and code not in ('F4-J30',):
         data = response['content']['application/json']['example']['data']
         if 'binding' in data: data['binding']['executionVersion'] = 11
-        if 'trip' in data: data['trip'].update(tripStatus='IN_TRANSIT', requestStatus='IN_TRANSIT', phase='IN_PROGRESS')
+        if 'trip' in data: data['trip'].update(tripStatus='IN_TRANSIT', requestStatus='IN_PROGRESS', phase='IN_PROGRESS')
     if code == 'F4-J05':
         data = response['content']['application/json']['example']['data']
-        data['trip'].update(tripStatus='IN_TRANSIT', requestStatus='IN_TRANSIT', phase='IN_PROGRESS', lastMilestoneId='MILESTONE_001')
+        data['trip'].update(tripStatus='IN_TRANSIT', requestStatus='IN_PROGRESS', phase='IN_PROGRESS', lastMilestoneId='MILESTONE_001')
     if code in ('F4-J17', 'F4-J18'):
         operation['requestBody']['content']['application/json']['example']['proposedEta'] = '2026-11-10 19:00'
         response['content']['application/json']['example']['data'].update(currentEta='2026-11-10 18:00', proposedEta='2026-11-10 19:00')
@@ -426,7 +426,7 @@ for code, method, path, operation in OPS:
 (ROOT / 'FLOW4-API-JSON.md').write_text('\n'.join(md), encoding='utf-8')
 
 scenarios = [
- ('road-departure', 'Manager đã duyệt, precheck đạt', 'J05 với version vừa đọc', 'Trip/Request IN_TRANSIT, chỉ một DEPARTED, thông báo sau commit'),
+ ('road-departure', 'Manager đã duyệt, precheck đạt', 'J05 với version vừa đọc', 'Trip IN_TRANSIT, Request IN_PROGRESS, chỉ một DEPARTED, thông báo sau commit'),
  ('approval-is-not-departure', 'Trip READY_TO_DEPART', 'GET J03/J04, thời gian plannedDepart tới', 'Không tự DEPARTED'),
  ('readiness-race', 'J04 canDepart=true rồi xe bị hỏng', 'J05', '409 READINESS_CHANGED hoặc INCIDENT_BLOCKING, không commit'),
  ('next-only', 'Mốc 1 chưa hoàn tất', 'J06 mốc 2', '409 MILESTONE_NOT_NEXT'),
@@ -450,14 +450,14 @@ scenarios = [
  ('vet-not-fit', 'Bác sĩ kết luận NOT_FIT', 'J06 đi tiếp', '409 INCIDENT_BLOCKING; chăm sóc tiếp tục'),
  ('health-check-gate', 'Trạm dừng có requiresHealthCheck=true', 'J06 hoàn thành mốc khi chưa có Health Log', '409 HEALTH_CHECK_REQUIRED, mốc tiếp tục bị khóa'),
  ('vet-clearance-gate', 'Có ngựa ABNORMAL chưa được bác sĩ khám FIT', 'J06 hoặc J13', '409 VET_CLEARANCE_REQUIRED hoặc INCIDENT_BLOCKING'),
- ('petty-cash-expense', 'Phát sinh phí cầu đường BOT', 'J36 gửi chi phí kèm ảnh vé', 'Ghi nhận EXPENSE_001, status RECORDED, chuyển Flow 6 đối soát'),
+ ('petty-cash-expense', 'Phát sinh phí cầu đường BOT', 'J36 gửi chi phí kèm ảnh vé', 'Ghi nhận EXPENSE_001, status RECORDED, chi phí nội bộ không tự sửa tiền khách hàng'),
  ('customer-scope', 'Customer A', 'Đọc request/file/horse của B', '404, không lộ sự tồn tại hoặc nội dung nội bộ'),
  ('file-validation', 'Upload giả JPEG hoặc HEALTH PDF hoặc >10MiB', 'J30', '400/415/413; không file được gắn nghiệp vụ'),
  ('alerts-policy', 'Ngưỡng policy null', 'Chạy job cảnh báo', 'Không tự đặt 30 phút/ảnh; UI hiện chưa cấu hình'),
  ('alert-ack', 'Cảnh báo OPEN', 'J28/J29', 'Chỉ ack/contact, không tự hoàn tất mốc'),
  ('last-location', 'Chưa có mốc geo xác nhận', 'J32 map', 'markerGeo=null; không nội suy vị trí GPS'),
- ('final-arrival', 'FINAL_ARRIVED hoàn tất', 'Đọc J03 và chuyển Flow6', 'AWAITING_HANDOVER, Trip/Request IN_TRANSIT; chưa COMPLETED/DELIVERED/acceptanceWindow'),
- ('handover-contract', 'Đã đến điểm giao cuối', 'Bàn giao hợp lệ bằng Flow6', 'Trip COMPLETED, Request DELIVERED theo Flow6; nhả xe AVAILABLE; không tự đóng'),
+ ('final-arrival', 'FINAL_ARRIVED hoàn tất', 'Đọc J03 và chuyển Flow6', 'AWAITING_HANDOVER, Trip IN_TRANSIT, Request IN_PROGRESS; chưa COMPLETED/DELIVERED/SETTLED'),
+ ('handover-contract', 'Đã đến điểm giao cuối', 'Bàn giao hợp lệ bằng Flow6', 'Flow 6 xác nhận OTP đúng revision -> Trip COMPLETED, Request DELIVERED; nhả xe AVAILABLE; không tự đóng'),
  ('transaction-rollback', 'Lỗi ghi history/outbox trong mutation', 'Commit', 'Rollback trạng thái, retry an toàn'),
  ('capability-off', 'persistenceAvailable=false', 'Gọi mutation', '501 FEATURE_NOT_SUPPORTED, không fallback mock'),
  ('health-amendment', 'Nhật ký đã ghi', 'J24 với lý do', 'Append supersedesId, bản cũ còn; không sửa kết luận bác sĩ'),

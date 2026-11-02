@@ -78,6 +78,7 @@ import {
   CoordinatorProfilePage,
 } from "../../features/coordinator";
 import { LandingPage } from "../../features/landing/LandingPage";
+import ApiDemoPage from "../../features/demo/ApiDemoPage";
 import { RequireAuth } from "../../features/auth/RequireAuth";
 
 function AppRouter() {
@@ -207,6 +208,10 @@ function AppRouter() {
         <Route path="/customer/payments/return" element={<SandboxPaymentPage />} />
         <Route path="/customer/payments" element={<Navigate to="/customer/requests" replace />} />
         <Route path="/payment" element={<Navigate to="/customer/requests" replace />} />
+
+        {/* ==================== API DEMO & CONTRACT PLAYGROUND ==================== */}
+        <Route path="/demo/api" element={<ApiDemoPage />} />
+        <Route path="/demo-api" element={<ApiDemoPage />} />
 
         {/* ==================== NOT FOUND ==================== */}
         <Route path="*" element={<Navigate to="/login" replace />} />
