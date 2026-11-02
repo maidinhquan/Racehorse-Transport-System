@@ -140,8 +140,8 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
         icon: L.divIcon({ html, className: '', iconSize: [26, 26], iconAnchor: [13, 13] }),
         zIndexOffset: isAirport ? 1100 : latest ? 1200 : 1000,
       })
-        .bindTooltip(`${i + 1}. ${isAirport ? '✈ ' : ''}${esc(x.name)}`)
-        .bindPopup(`<b>${i + 1}. ${isAirport ? '✈ Sân bay: ' : ''}${esc(x.name)}</b><br>${STOP_LABEL[x.type] || x.type}${x.plannedAt ? ' • dự kiến ' + dt(x.plannedAt) : ''}${latest ? '<br>⭐ <b>Mốc xác nhận gần nhất</b>' : ''}`)
+        .bindTooltip(`${i + 1}. ${esc(x.name)}`)
+        .bindPopup(`<b>${i + 1}. ${isAirport ? 'Sân bay: ' : ''}${esc(x.name)}</b><br>${STOP_LABEL[x.type] || x.type}${x.plannedAt ? ' • dự kiến ' + dt(x.plannedAt) : ''}${latest ? '<br><b>Mốc xác nhận gần nhất</b>' : ''}`)
         .addTo(map);
     });
 
@@ -478,31 +478,22 @@ export function PlannerMap({ t, onTileError }: { t: Any; onTileError: () => void
         const markerColor = bad ? '#9ca3af' : (PF_COLOR[activeFn] || '#0ea5e9');
         const isSel = ps.sel === c.p.id;
 
-        if (c.p.functions?.includes('AIRPORT')) {
-          const iata = c.p.airport?.iata || c.p.name.replace(/ Airport.*/i, '');
-          const html = `<div class="rp-airport-badge ${isSel ? 'on' : ''}" style="background:#ea580c;color:#fff;padding:2px 7px;border-radius:12px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:3px;box-shadow:0 2px 5px rgba(0,0,0,0.3);border:2px solid ${isSel ? '#fde047' : '#fff'};white-space:nowrap;cursor:pointer;">${esc(iata)}</div>`;
-          L.marker([cLat, cLng], {
-            icon: L.divIcon({ html, className: '', iconSize: [54, 22], iconAnchor: [27, 11] }),
-            zIndexOffset: 950,
-          })
-            .bindTooltip(`Sân bay: ${esc(c.p.name)}${bad ? ` • ⚠️ ${c.why.join('; ')}` : ''}`)
-            .bindPopup(`<b>Sân bay: ${esc(c.p.name)}</b><br>Mã IATA: <b>${esc(c.p.airport?.iata || '—')}</b> • ${c.p.province || ''}, ${c.p.country || ''}<br>${bad ? `<span style="color:#dc2626">⚠️ ${c.why.join('; ')}</span>` : '<span style="color:#059669">✓ Đang hoạt động</span>'}`)
-            .on('click', () => rpPick(t.id, c.p.id))
-            .addTo(lg);
-        } else {
-          const fnIcons: Record<string, string> = { REST: '🏠', FUEL: '⛽', QUARANTINE: '🛡️', BORDER: '🛂' };
-          const iconChar = fnIcons[activeFn] || '📍';
-          const shortName = c.p.name.length > 20 ? c.p.name.slice(0, 18) + '…' : c.p.name;
-          const html = `<div class="rp-cand-badge ${isSel ? 'on' : ''}" style="background:${markerColor};color:#fff;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:3px;box-shadow:0 1px 4px rgba(0,0,0,0.25);border:1.5px solid ${isSel ? '#fde047' : '#fff'};white-space:nowrap;cursor:pointer;">${iconChar} ${esc(shortName)}</div>`;
-          L.marker([cLat, cLng], {
-            icon: L.divIcon({ html, className: '', iconSize: [75, 20], iconAnchor: [37, 10] }),
-            zIndexOffset: 900,
-          })
-            .bindTooltip(`${esc(c.p.name)} • ${(c.p.functions || []).map((fn: string) => PF[fn] || fn).join(', ')}${bad ? ` • ⚠️ Không phù hợp: ${c.why.join('; ')}` : ''}`)
-            .bindPopup(`<b>${esc(c.p.name)}</b><br>${(c.p.functions || []).map((fn: string) => PF[fn] || fn).join(' • ')}<br>${c.p.province || ''}, ${c.p.country || ''}${bad ? `<br><span style="color:#dc2626">⚠️ ${c.why.join('; ')}</span>` : ''}`)
-            .on('click', () => rpPick(t.id, c.p.id))
-            .addTo(lg);
-        }
+        const isAirport = c.p.functions?.includes('AIRPORT');
+        const tooltipName = isAirport && c.p.airport?.iata
+          ? `${esc(c.p.name)} (${esc(c.p.airport.iata)})`
+          : esc(c.p.name);
+
+        const dotStyle = `width:12px;height:12px;border-radius:50%;background:${markerColor};border:2px solid ${isSel ? 'var(--orange, #f57c00)' : '#fff'};box-shadow:${isSel ? '0 0 0 3px rgba(245,124,0,0.45)' : '0 1px 4px rgba(0,0,0,0.3)'};cursor:pointer;`;
+        const html = `<div class="rp-cand-dot ${isSel ? 'on' : ''}" style="${dotStyle}"></div>`;
+
+        L.marker([cLat, cLng], {
+          icon: L.divIcon({ html, className: '', iconSize: [12, 12], iconAnchor: [6, 6] }),
+          zIndexOffset: isAirport ? 950 : 900,
+        })
+          .bindTooltip(tooltipName, { direction: 'top', offset: [0, -6] })
+          .bindPopup(`<b>${esc(c.p.name)}</b><br><small>${(c.p.functions || []).map((fn: string) => PF[fn] || fn).join(' · ')} • ${c.p.province || ''}, ${c.p.country || ''}${bad ? `<br><span style="color:#dc2626">⚠️ ${c.why.join('; ')}</span>` : ''}</small>`)
+          .on('click', () => rpPick(t.id, c.p.id))
+          .addTo(lg);
       });
     }
 
@@ -520,8 +511,8 @@ export function PlannerMap({ t, onTileError }: { t: Any; onTileError: () => void
         icon: L.divIcon({ html, className: '', iconSize: [26, 26], iconAnchor: [13, 13] }),
         zIndexOffset: isAirport ? 1100 : 1000,
       })
-        .bindTooltip(`${i + 1}. ${isAirport ? '✈ ' : ''}${esc(s.name)}`)
-        .bindPopup(`<b>${i + 1}. ${isAirport ? '✈ Sân bay: ' : ''}${esc(s.name)}</b><br>Loại: ${STOP_LABEL[s.type] || s.type}${s.plannedAt ? ' • dự kiến ' + dt(s.plannedAt) : ''}`)
+        .bindTooltip(`${i + 1}. ${esc(s.name)}`)
+        .bindPopup(`<b>${i + 1}. ${isAirport ? 'Sân bay: ' : ''}${esc(s.name)}</b><br>Loại: ${STOP_LABEL[s.type] || s.type}${s.plannedAt ? ' • dự kiến ' + dt(s.plannedAt) : ''}`)
         .on('click', () => rpFocus(t.id, i, 'map'))
         .addTo(lg);
     });

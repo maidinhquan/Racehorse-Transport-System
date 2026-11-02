@@ -504,6 +504,8 @@
 .cbn-coord .lg-bad {background:#9ca3af}
 .cbn-coord .lg-route {background:#2563eb;border-radius:2px!important;height:4px!important}
 .cbn-coord .lg-fly {background:var(--orange);border-radius:2px!important;height:3px!important}
+.cbn-coord .rp-cand-dot {transition:transform .15s ease,box-shadow .15s ease}
+.cbn-coord .rp-cand-dot:hover {transform:scale(1.4);box-shadow:0 2px 6px rgba(0,0,0,.45)!important}
 .cbn-coord .rp-pin {width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11.5px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 4px #0005;background:#f08a2b}
 .cbn-coord .rp-pin.end {background:#0f172a}
 .cbn-coord .rp-pin.req {background:#dc2626;border-radius:6px}
