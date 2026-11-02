@@ -23,13 +23,13 @@ export function AirCard({ t }: { t: Any }) {
         <div><small>Chi phí thuê dịch vụ</small><b>{f ? usd(f.cost) : '—'}</b><span>Chi phí vận hành, không tự đổi giá hợp đồng</span></div>
       </div>
       {f?.jetStallId ? (
-        <div style={{ gridColumn: 'span 4', background: '#f5f3ff', padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd6fe', margin: '4px 0' }}>
+        <div style={{ gridColumn: 'span 4', background: '#f8fafc', padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0', margin: '4px 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-            <span style={{ color: '#6d28d9', fontWeight: 700, fontSize: 12 }}>
-              ✈ HĐ Charter: <b>{f.contractNo || f.bookingRef}</b> • Chuồng bay chuyên dụng: <b style={{ color: '#4c1d95' }}>{f.jetStallId}</b> ({f.stallType || 'IATA LAR'})
+            <span style={{ color: '#334155', fontWeight: 600, fontSize: 12 }}>
+              HĐ Charter: <b>{f.contractNo || f.bookingRef}</b> · Chuồng bay: <b>{f.jetStallId}</b> ({f.stallType || 'IATA LAR'})
             </span>
-            <span style={{ fontSize: 11.5, color: '#5b21b6' }}>
-              👨‍⚕️ {f.inFlightCare || 'Chuyên viên thú y CBN'}
+            <span style={{ fontSize: 11.5, color: '#475569' }}>
+              Thú y: {f.inFlightCare || 'Chuyên viên thú y CBN'}
             </span>
           </div>
         </div>
@@ -40,13 +40,13 @@ export function AirCard({ t }: { t: Any }) {
       {t.flightSupplyIssue ? <p className="fa-warning">Chưa bố trí được dịch vụ: {t.flightSupplyIssue.reason} · đã báo Manager {dt(t.flightSupplyIssue.at)}.</p> : null}
       <div className="btn-row">
         {editable ? (
-          <button type="button" className="btn solid" style={{ background: '#7c3aed', color: '#fff', fontWeight: 600 }} onClick={() => charterFlightModal(t.id)}>
-            {f?.contractNo || f?.bookingRef ? '✏️ Sửa HĐ Charter' : '📋 Nhập Hợp đồng thuê chuyến (Charter)'}
+          <button type="button" className="btn solid" onClick={() => charterFlightModal(t.id)}>
+            {f?.contractNo || f?.bookingRef ? 'Sửa HĐ Charter' : 'Nhập Hợp đồng Charter'}
           </button>
         ) : null}
         {editable ? (
-          <button type="button" className="btn ghost" style={{ color: '#7c3aed', borderColor: '#c4b5fd' }} onClick={() => selectAirportsModal(t.id)}>
-            ✈️ {f?.from && f?.to ? 'Đổi sân bay' : 'Chọn sân bay'}
+          <button type="button" className="btn ghost" onClick={() => selectAirportsModal(t.id)}>
+            {f?.from && f?.to ? 'Đổi sân bay' : 'Chọn sân bay'}
           </button>
         ) : null}
         {editable && f?.status === 'DRAFT' ? <button type="button" className="btn ghost" onClick={() => serviceSend(t.id)}>Gửi duyệt chi phí</button> : null}

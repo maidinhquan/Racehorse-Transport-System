@@ -410,8 +410,46 @@ export function selectAirportsModal(id: string) {
   const existing = t.flight;
   const airStops = rt?.stops?.filter((s: Any) => s.type === 'AIRPORT') || [];
 
-  const defaultFrom = existing?.from || airStops[0]?.cp || airStops[0]?.placeId || 'PLC-SGN-AIRPORT';
-  const defaultTo = existing?.to || airStops[1]?.cp || airStops[1]?.placeId || 'PLC-NRT-AIRPORT';
+  const originCountry = groundCountry(t, 'outbound') || 'VN';
+  const destCountry = groundCountry(t, 'inbound') || 'JP';
+
+  const allAirports = db.places.filter((p: Any) => p.functions?.includes('AIRPORT') && p.status === 'ACTIVE' && p.airport?.horseHandling);
+
+  // Sân bay cất cánh: chỉ lấy các sân bay thuộc nước xuất phát (Việt Nam)
+  let fromAirports = allAirports.filter((p: Any) => p.country === originCountry);
+  if (!fromAirports.length && originCountry === 'VN') {
+    fromAirports = allAirports.filter((p: Any) => p.country === 'VN');
+  }
+  const fromOpts: Array<[string, string]> = fromAirports.map((p: Any) => [
+    p.id,
+    `${p.name} (${p.airport?.iata || 'AIR'}) · ${p.country}`,
+  ]);
+  if (!fromOpts.length) {
+    fromOpts.push(['PLC-SGN-AIRPORT', 'Tan Son Nhat Airport (SGN) · VN']);
+    fromOpts.push(['PLC-HAN-AIRPORT', 'Noi Bai Airport (HAN) · VN']);
+  }
+
+  // Sân bay hạ cánh: chỉ lấy các sân bay thuộc nước đến
+  let toAirports = allAirports.filter((p: Any) => p.country === destCountry);
+  if (!toAirports.length) {
+    toAirports = allAirports.filter((p: Any) => p.country !== originCountry);
+  }
+  const toOpts: Array<[string, string]> = toAirports.map((p: Any) => [
+    p.id,
+    `${p.name} (${p.airport?.iata || 'AIR'}) · ${p.country}`,
+  ]);
+  if (!toOpts.length) {
+    toOpts.push(['PLC-NRT-AIRPORT', 'Narita International Airport (NRT) · JP']);
+    toOpts.push(['PLC-KIX-AIRPORT', 'Kansai International Airport (KIX) · JP']);
+  }
+
+  const defaultFrom = (existing?.from && fromOpts.some(([id]) => id === existing.from))
+    ? existing.from
+    : airStops[0]?.cp || airStops[0]?.placeId || fromOpts[0][0];
+
+  const defaultTo = (existing?.to && toOpts.some(([id]) => id === existing.to))
+    ? existing.to
+    : airStops[1]?.cp || airStops[1]?.placeId || toOpts[0][0];
 
   let defaultDepart = existing?.departAt;
   if (!defaultDepart) {
@@ -426,21 +464,10 @@ export function selectAirportsModal(id: string) {
     defaultArrive = addHours(defaultDepart, 6);
   }
 
-  const airports = db.places.filter((p: Any) => p.functions?.includes('AIRPORT') && p.status === 'ACTIVE' && p.airport?.horseHandling);
-  const airportOpts: Array<[string, string]> = airports.map((p: Any) => [
-    p.id,
-    `${p.name} (${p.airport?.iata || 'AIR'}) · ${p.country}`,
-  ]);
-  if (!airportOpts.length) {
-    airportOpts.push(['PLC-SGN-AIRPORT', 'Tan Son Nhat International Airport (SGN) · VN']);
-    airportOpts.push(['PLC-NRT-AIRPORT', 'Narita International Airport (NRT) · JP']);
-    airportOpts.push(['PLC-HAN-AIRPORT', 'Noi Bai International Airport (HAN) · VN']);
-  }
-
   openModal({
-    title: `✈️ Chọn Cặp Sân Bay Cất / Hạ Cánh cho Lộ trình · ${t.id}`,
+    title: `Chọn cặp sân bay cất / hạ cánh · ${t.id}`,
     wide: false,
-    ok: 'Ghim sân bay vào lộ trình',
+    ok: 'Lưu sân bay vào lộ trình',
     init: {
       fromAirport: defaultFrom,
       toAirport: defaultTo,
@@ -449,21 +476,18 @@ export function selectAirportsModal(id: string) {
     },
     body: () => (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ padding: '9px 12px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, fontSize: 12, color: '#5b21b6', lineHeight: 1.5 }}>
-          <b>✈ Lộ trình Đa phương thức (Đường bộ + Hàng không):</b>
-          <div style={{ marginTop: 2 }}>
-            Chọn 2 sân bay để chia lộ trình thành 2 chặng đường bộ (đón ra sân bay & từ sân bay về đích) và 1 chặng bay thẳng. Thông tin Hợp đồng Charter và Chuồng Jet Stall sẽ được nhập riêng ở tab <b>"Chuyến bay"</b>.
-          </div>
-        </div>
+        <p className="hint" style={{ margin: '0 0 2px 0', fontSize: 12.5 }}>
+          Chọn sân bay cất cánh và hạ cánh để hệ thống chia lộ trình thành 2 chặng đường bộ và 1 chặng bay thẳng.
+        </p>
 
-        <Field label="Sân bay cất cánh (Xuất phát tại VN) *">
-          <Sel name="fromAirport" options={airportOpts} />
+        <Field label="Sân bay cất cánh (Việt Nam) *">
+          <Sel name="fromAirport" options={fromOpts} />
         </Field>
-        <Field label="Sân bay hạ cánh (Đến tại nước đích) *">
-          <Sel name="toAirport" options={airportOpts} />
+        <Field label={`Sân bay hạ cánh (${destCountry === 'JP' ? 'Nhật Bản' : destCountry}) *`}>
+          <Sel name="toAirport" options={toOpts} />
         </Field>
 
-        <div className="form-grid" style={{ marginTop: 4 }}>
+        <div className="form-grid" style={{ marginTop: 2 }}>
           <Field label="Giờ cất cánh ETD dự kiến *" hint="Thời điểm máy bay cất cánh">
             <DateTimeInput name="departAt" />
           </Field>
@@ -543,7 +567,7 @@ export function selectAirportsModal(id: string) {
       commit();
       void rpRoute(t, true);
       setTimeout(() => plannerMap.fitAll?.(), 100);
-      toast(`Đã ghim 2 sân bay (${airportLabel(fromAirport)} ➔ ${airportLabel(toAirport)}) vào lộ trình. Bạn có thể sang tab "Chuyến bay" để hoàn tất HĐ Charter.`);
+      toast(`Đã lưu 2 sân bay (${airportLabel(fromAirport)} → ${airportLabel(toAirport)}) vào lộ trình.`);
     },
   });
 }
@@ -562,9 +586,43 @@ export function charterFlightModal(id: string) {
   const existing = t.flight;
   const airStops = rt?.stops?.filter((s: Any) => s.type === 'AIRPORT') || [];
 
-  // Xác định sân bay mặc định
-  const defaultFrom = existing?.from || airStops[0]?.cp || airStops[0]?.placeId || 'PLC-SGN-AIRPORT';
-  const defaultTo = existing?.to || airStops[1]?.cp || airStops[1]?.placeId || 'PLC-NRT-AIRPORT';
+  const originCountry = groundCountry(t, 'outbound') || 'VN';
+  const destCountry = groundCountry(t, 'inbound') || 'JP';
+
+  const allAirports = db.places.filter((p: Any) => p.functions?.includes('AIRPORT') && p.status === 'ACTIVE' && p.airport?.horseHandling);
+
+  let fromAirports = allAirports.filter((p: Any) => p.country === originCountry);
+  if (!fromAirports.length && originCountry === 'VN') {
+    fromAirports = allAirports.filter((p: Any) => p.country === 'VN');
+  }
+  const fromOpts: Array<[string, string]> = fromAirports.map((p: Any) => [
+    p.id,
+    `${p.name} (${p.airport?.iata || 'AIR'}) · ${p.country}`,
+  ]);
+  if (!fromOpts.length) {
+    fromOpts.push(['PLC-SGN-AIRPORT', 'Tan Son Nhat Airport (SGN) · VN']);
+    fromOpts.push(['PLC-HAN-AIRPORT', 'Noi Bai Airport (HAN) · VN']);
+  }
+
+  let toAirports = allAirports.filter((p: Any) => p.country === destCountry);
+  if (!toAirports.length) {
+    toAirports = allAirports.filter((p: Any) => p.country !== originCountry);
+  }
+  const toOpts: Array<[string, string]> = toAirports.map((p: Any) => [
+    p.id,
+    `${p.name} (${p.airport?.iata || 'AIR'}) · ${p.country}`,
+  ]);
+  if (!toOpts.length) {
+    toOpts.push(['PLC-NRT-AIRPORT', 'Narita International Airport (NRT) · JP']);
+  }
+
+  const defaultFrom = (existing?.from && fromOpts.some(([id]) => id === existing.from))
+    ? existing.from
+    : airStops[0]?.cp || airStops[0]?.placeId || fromOpts[0][0];
+
+  const defaultTo = (existing?.to && toOpts.some(([id]) => id === existing.to))
+    ? existing.to
+    : airStops[1]?.cp || airStops[1]?.placeId || toOpts[0][0];
 
   // Xác định giờ bay mặc định hợp lý theo giờ đón ngựa
   let defaultDepart = existing?.departAt;
@@ -580,19 +638,8 @@ export function charterFlightModal(id: string) {
     defaultArrive = addHours(defaultDepart, 6); // thời gian bay ~6 tiếng
   }
 
-  // Danh sách các sân bay có chức năng phục vụ ngựa
-  const airports = db.places.filter((p: Any) => p.functions?.includes('AIRPORT') && p.status === 'ACTIVE' && p.airport?.horseHandling);
-  const airportOpts: Array<[string, string]> = airports.map((p: Any) => [
-    p.id,
-    `${p.name} (${p.airport?.iata || 'AIR'}) · ${p.country}`,
-  ]);
-  if (!airportOpts.length) {
-    airportOpts.push(['PLC-SGN-AIRPORT', 'Tan Son Nhat International Airport (SGN) · VN']);
-    airportOpts.push(['PLC-NRT-AIRPORT', 'Narita International Airport (NRT) · JP']);
-  }
-
   openModal({
-    title: `Hợp đồng thuê chuyến bay Charter (Equine Air Freight) · ${t.id}`,
+    title: `Hợp đồng thuê chuyến bay Charter · ${t.id}`,
     wide: true,
     ok: 'Lưu Hợp đồng Charter & Ghi vào CSDL',
     init: {
@@ -614,13 +661,9 @@ export function charterFlightModal(id: string) {
     body: () => {
 return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {/* Thông báo nghiệp vụ */}
-          <div style={{ padding: '10px 14px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 12, color: '#1e40af' }}>
-            <b>✈ Nghiệp vụ chuyến bay Charter chuyên dụng chở ngựa đua:</b>
-            <div style={{ marginTop: 2, color: '#1d4ed8' }}>
-              Vì chuyến bay charter mang tính đặc thù và không có sẵn trên các hệ thống phân phối toàn cầu (GDS), điều phối viên trực tiếp nhập thông tin Hợp đồng thuê chuyến, giờ bay thực tế và <b>mã số chuồng chuyên dụng (Jet Stall / Air Stall)</b> vào CSDL SQL Server trước khi máy bay cất cánh.
-            </div>
-          </div>
+          <p className="hint" style={{ margin: 0, fontSize: 12.5 }}>
+            Nhập thông tin hợp đồng thuê chuyến charter, giờ bay và mã số chuồng chuyên dụng (Jet Stall) phục vụ vận chuyển ngựa.
+          </p>
 
 {/* Khối 1: Hợp đồng & Bên cung cấp */}
           <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
@@ -651,11 +694,11 @@ return (
               2. Sân bay & Lịch bay cất / hạ cánh
             </h4>
             <div className="form-grid">
-              <Field label="Sân bay cất cánh (Xuất phát) *">
-                <Sel name="fromAirport" options={airportOpts} />
+              <Field label="Sân bay cất cánh (Việt Nam) *">
+                <Sel name="fromAirport" options={fromOpts} />
               </Field>
-              <Field label="Sân bay hạ cánh (Đến) *">
-                <Sel name="toAirport" options={airportOpts} />
+              <Field label={`Sân bay hạ cánh (${destCountry === 'JP' ? 'Nhật Bản' : destCountry}) *`}>
+                <Sel name="toAirport" options={toOpts} />
               </Field>
             </div>
             <div className="form-grid" style={{ marginTop: 8 }}>
@@ -666,16 +709,7 @@ return (
                 <DateTimeInput name="arriveAt" />
               </Field>
             </div>
-            <div style={{ marginTop: 10, padding: '8px 12px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 6, fontSize: 12, color: '#5b21b6' }}>
-              <b>✈ Đồng bộ Sân bay vào Lộ trình & Bản đồ:</b>
-              <div style={{ marginTop: 3, lineHeight: 1.5 }}>
-                Khi bấm <b>"Lưu Hợp đồng Charter"</b>, hệ thống sẽ tự động đồng bộ 2 sân bay này vào lộ trình với ghim chuyên dụng <b>✈ SGN</b> và <b>✈ NRT</b>.
-                <br />Sau khi lưu, bạn có thể bấm các nút góc nhìn trên bản đồ:
-                <br />• <b>🇻🇳 Chặng VN (SGN)</b> để xem sân bay Tân Sơn Nhất.
-                <br />• <b>🇯🇵 Chặng Nhật Bản (NRT ➔ Tokyo)</b> để xem sân bay Narita.
-                <br />• <b>🌐 Toàn cảnh (VN ➔ JP)</b> để bao quát toàn bộ lộ trình liên quốc gia.
-              </div>
-            </div>
+
           </div>
 
           {/* Khối 3: Chuồng chuyên dụng Jet Stall & Nhân sự */}

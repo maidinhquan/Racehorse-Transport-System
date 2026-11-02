@@ -11,65 +11,30 @@ export function FlightTab({ t }: { t: Any }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {hasAirports && !hasContract ? (
-        <div
-          style={{
-            padding: '12px 16px',
-            background: '#fffbeb',
-            border: '1.5px solid #f59e0b',
-            borderRadius: 8,
-            fontSize: 13,
-            color: '#92400e',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 10,
-          }}
-        >
+        <div className="note yellow" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <div>
-            <b>📋 Bước 2: Hoàn tất thông tin Hợp đồng Charter & Chuồng Jet Stall</b>
-            <div style={{ color: '#78350f', marginTop: 3, fontSize: 12 }}>
-              Cặp sân bay (<b>{airportLabel(f.from)}</b> ➔ <b>{airportLabel(f.to)}</b>) đã được ghim từ tab Tuyến đường. Hãy bấm nút bên phải để nhập Số HĐ Charter, Hãng bay và Mã số chuồng chuyên dụng (Jet Stall).
+            <b>Chưa nhập thông tin Hợp đồng Charter</b>
+            <div style={{ color: '#78350f', marginTop: 2, fontSize: 12 }}>
+              Sân bay: {airportLabel(f.from)} → {airportLabel(f.to)}. Hoàn tất số HĐ bay và mã số chuồng chuyên dụng (Jet Stall).
             </div>
           </div>
           <button
             type="button"
-            className="btn solid"
-            style={{ background: '#d97706', color: '#fff', fontWeight: 700 }}
+            className="btn solid sm"
             onClick={() => charterFlightModal(t.id)}
           >
-            📋 Nhập HĐ Charter ngay
+            Nhập HĐ Charter
           </button>
         </div>
       ) : !hasAirports ? (
-        <div
-          style={{
-            padding: '12px 16px',
-            background: '#eff6ff',
-            border: '1.5px solid #93c5fd',
-            borderRadius: 8,
-            fontSize: 13,
-            color: '#1e40af',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 10,
-          }}
-        >
-          <div>
-            <b>✈️ Bước 1: Chưa chọn cặp sân bay cất / hạ cánh</b>
-            <div style={{ color: '#1d4ed8', marginTop: 3, fontSize: 12 }}>
-              Bạn có thể chọn nhanh 2 sân bay để hệ thống tự động chia chặng đón tại VN và chặng giao tại nước ngoài.
-            </div>
-          </div>
+        <div className="note" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div>Chưa chọn cặp sân bay cất / hạ cánh cho chuyến đi.</div>
           <button
             type="button"
-            className="btn solid"
-            style={{ background: '#2563eb', color: '#fff', fontWeight: 700 }}
+            className="btn solid sm"
             onClick={() => selectAirportsModal(t.id)}
           >
-            ✈️ Chọn sân bay (Cất / Hạ cánh)
+            Chọn sân bay
           </button>
         </div>
       ) : null}

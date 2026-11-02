@@ -99,11 +99,11 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
         <div
           className="rp-flight-banner"
           style={{
-            padding: '10px 14px',
-            margin: '8px 0',
-            borderRadius: 8,
-            border: hasContract ? '1.5px solid #c4b5fd' : '1.5px dashed #f59e0b',
-            background: hasContract ? '#f5f3ff' : '#fffbeb',
+            padding: '9px 12px',
+            margin: '6px 0',
+            borderRadius: 6,
+            border: '1px solid #cbd5e1',
+            background: '#f8fafc',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -113,27 +113,27 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 700, fontSize: 13, color: hasContract ? '#5b21b6' : '#b45309' }}>
-                ✈ Chặng bay: {t.flight?.from ? airportLabel(t.flight.from) : 'Sân bay đi'} ➔ {t.flight?.to ? airportLabel(t.flight.to) : 'Sân bay đến'}
+              <span style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>
+                Chặng bay: {t.flight?.from ? airportLabel(t.flight.from) : 'Sân bay đi'} → {t.flight?.to ? airportLabel(t.flight.to) : 'Sân bay đến'}
               </span>
               {hasContract ? (
-                <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: '#ede9fe', color: '#6d28d9', fontWeight: 600 }}>
+                <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: '#e2e8f0', color: '#334155', fontWeight: 600 }}>
                   {t.flight.airline || 'Hãng bay'} • {t.flight.flightNo || t.flight.contractNo}
                 </span>
               ) : (
-                <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: '#fef3c7', color: '#92400e', fontWeight: 600 }}>
-                  Chưa nhập chi tiết HĐ Charter
+                <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: '#fef3c7', color: '#92400e', fontWeight: 500 }}>
+                  Chưa nhập HĐ bay
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 12, color: hasContract ? '#6b21a8' : '#78350f', marginTop: 3 }}>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
               {t.flight?.departAt && t.flight?.arriveAt ? (
                 <>
-                  Cất cánh: <b>{dt(t.flight.departAt)}</b> ➔ Hạ cánh: <b>{dt(t.flight.arriveAt)}</b>
-                  {t.flight?.jetStallId ? <> • Chuồng bay: <b>{t.flight.jetStallId}</b></> : null}
+                  Cất cánh: <b>{dt(t.flight.departAt)}</b> → Hạ cánh: <b>{dt(t.flight.arriveAt)}</b>
+                  {t.flight?.jetStallId ? <> • Chuồng: <b>{t.flight.jetStallId}</b></> : null}
                 </>
               ) : (
-                'Đã xác định cặp sân bay cất/hạ cánh. Thông tin chi tiết HĐ, hãng bay và chuồng Jet Stall sẽ nhập ở tab Chuyến bay.'
+                'Thông tin hợp đồng và chuồng bay nhập tại tab Chuyến bay.'
               )}
             </div>
           </div>
@@ -143,24 +143,17 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
               <button
                 type="button"
                 className="btn sm ghost"
-                style={{ color: '#6d28d9', borderColor: '#c4b5fd', fontWeight: 600 }}
                 onClick={() => selectAirportsModal(t.id)}
               >
-                ✈ Đổi sân bay
+                Đổi sân bay
               </button>
             ) : null}
             <button
               type="button"
               className="btn sm solid"
-              style={{
-                background: hasContract ? '#7c3aed' : '#d97706',
-                color: '#fff',
-                fontWeight: 700,
-                boxShadow: hasContract ? '0 2px 4px rgba(124,58,237,0.25)' : '0 2px 4px rgba(217,119,6,0.25)',
-              }}
               onClick={() => go(`f/trip/${t.id}/flight`)}
             >
-              {hasContract ? '📋 Xem / Sửa HĐ tại tab Chuyến bay ➔' : '👉 Sang tab Chuyến bay nhập HĐ ➔'}
+              {hasContract ? 'Chi tiết HĐ bay →' : 'Nhập HĐ tại tab Chuyến bay →'}
             </button>
           </div>
         </div>
@@ -210,29 +203,29 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
       <div className="rp-stop-main" onClick={(e) => { if ((e.target as HTMLElement).closest('input,button,label')) return; rpFocus(t.id, i); }}>
         <span className="rp-num" style={{ background: color }}>{i + 1}</span>
         <div className="grow"><b>{s.name}</b>
-          <small>{kind}{s.required && s.type !== 'ORIGIN' && s.type !== 'DESTINATION' ? ' 🔒' : ''}{s.type === 'ORIGIN' || s.type === 'DESTINATION' ? (s.exactGeo ? ' • tọa độ từ địa chỉ khách chọn' : ' • tọa độ theo thành phố (dữ liệu mẫu)') : s.type === 'AIRPORT' ? ` • Sân bay chặng bay ${t.flight?.contractNo || t.flight?.bookingRef ? `(HĐ: ${t.flight.contractNo || t.flight.bookingRef})` : '(Chưa nhập HĐ)'}` : p ? ' • ' + p.country : ' • chưa có trong danh mục'}{isAirport && edit ? <button type="button" className="link" style={{ marginLeft: 6, fontSize: 11 }} onClick={() => selectAirportsModal(t.id)}>✏️ Đổi sân bay</button> : null}</small>
+          <small>{kind}{s.required && s.type !== 'ORIGIN' && s.type !== 'DESTINATION' ? ' 🔒' : ''}{s.type === 'ORIGIN' || s.type === 'DESTINATION' ? (s.exactGeo ? ' • tọa độ từ địa chỉ khách chọn' : ' • tọa độ theo thành phố (dữ liệu mẫu)') : s.type === 'AIRPORT' ? ` • Sân bay ${t.flight?.contractNo || t.flight?.bookingRef ? `(HĐ: ${t.flight.contractNo || t.flight.bookingRef})` : ''}` : p ? ' • ' + p.country : ' • chưa có trong danh mục'}{isAirport && edit ? <button type="button" className="link" style={{ marginLeft: 6, fontSize: 11 }} onClick={() => selectAirportsModal(t.id)}>Đổi sân bay</button> : null}</small>
           {purposes}
           <div className="rp-times">{row && row.arrive ? `Đến ${dt(row.arrive)}` : ''}{mid ? <> • dừng {edit && !s.required ? <><input type="number" min="0" step="5" className="rp-dwell" value={s.dwellMin} onChange={(e) => rpSetStop(t.id, i, 'dwellMin', e.target.value)} /> phút</> : fmtMin(s.dwellMin)}</> : null}{row && row.depart ? ` • rời ${dt(row.depart)}` : ''}{i === 0 && edit ? <button type="button" className="link" style={{ marginLeft: 8, fontSize: 11 }} onClick={() => rpEditDepart(t.id)}>✏️ Đổi giờ đón</button> : null}</div>
           {mid && s.purposes.includes('REST') ? <label className="rp-unload">{edit ? <input type="checkbox" checked={!!s.unload} onChange={(e) => rpSetStop(t.id, i, 'unload', e.target.checked)} /> : (s.unload ? '✓' : '✗')} Đưa ngựa xuống xe (nghỉ {s.unload ? 'ngoài xe' : 'trên xe'})</label> : null}
           {/* Đối với sân bay: hiển thị thông tin nghiệp vụ hàng không tự động, không hiện ô nhập tay careNote */}
           {isAirport ? (
-            <div style={{ fontSize: 11.5, color: '#6d28d9', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 11.5, color: '#475569', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               {isDepAirport ? (
                 <>
-                  <span>🛫 <b>Thủ tục xuất phát:</b> Bàn giao ngựa & chuồng Jet Stall {t.flight?.jetStallId ? `(${t.flight.jetStallId})` : ''} trước giờ bay ≥ {ROUTE_POLICY.airportHandoverH}h</span>
+                  <span>Bàn giao ngựa & chuồng Jet Stall {t.flight?.jetStallId ? `(${t.flight.jetStallId})` : ''} trước giờ bay ≥ {ROUTE_POLICY.airportHandoverH}h</span>
                   {t.flight?.contractNo || t.flight?.bookingRef ? (
                     <span style={{ color: '#047857', fontWeight: 600 }}>• Theo HĐ {t.flight.contractNo || t.flight.bookingRef || t.flight.flightNo}</span>
                   ) : edit ? (
-                    <button type="button" className="btn solid sm" onClick={() => go(`f/trip/${t.id}/flight`)} style={{ padding: '2px 8px', fontSize: 11, background: '#d97706', color: '#fff', fontWeight: 600 }}>
-                      👉 Nhập HĐ tại tab Chuyến bay
+                    <button type="button" className="btn solid sm" onClick={() => go(`f/trip/${t.id}/flight`)} style={{ padding: '2px 8px', fontSize: 11 }}>
+                      Nhập HĐ tại tab Chuyến bay
                     </button>
                   ) : null}
                 </>
               ) : isArrAirport ? (
                 <>
-                  <span>🛬 <b>Thủ tục tiếp nhận:</b> Nhận ngựa sau chuyến bay & kiểm dịch nhập cảnh ({ROUTE_POLICY.airportReceiveH}h sau hạ cánh để làm thủ tục)</span>
-                  {t.flight ? (
-                    <span style={{ color: '#047857', fontWeight: 600 }}>• Hạ cánh dự kiến {dt(t.flight.arriveAt)}</span>
+                  <span>Tiếp nhận ngựa & kiểm dịch sau hạ cánh ({ROUTE_POLICY.airportReceiveH}h làm thủ tục)</span>
+                  {t.flight?.arriveAt ? (
+                    <span style={{ color: '#047857', fontWeight: 600 }}>• Hạ cánh: {dt(t.flight.arriveAt)}</span>
                   ) : null}
                 </>
               ) : null}
@@ -553,41 +546,21 @@ export function RouteTab({ t }: { t: Any }) {
             <button
               type="button"
               className="btn solid sm"
-              style={{ background: '#7c3aed', color: '#fff', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}
               onClick={() => selectAirportsModal(t.id)}
             >
-              ✈️ {t.flight?.from && t.flight?.to ? 'Đổi cặp sân bay' : 'Chọn sân bay (Cất / Hạ cánh)'}
+              {t.flight?.from && t.flight?.to ? 'Đổi sân bay' : 'Chọn sân bay'}
             </button>
           ) : null}
           <button type="button" className="link" onClick={() => go('f/places')}>Quản lý địa điểm →</button></div>
         {edit && t.mode === 'AIR' && (!rpGroups(t, rt).flight || !t.flight?.from || !t.flight?.to) ? (
-          <div style={{
-            padding: '10px 14px',
-            background: '#fef3c7',
-            border: '1.5px solid #f59e0b',
-            borderRadius: 8,
-            marginBottom: 10,
-            fontSize: 12.5,
-            color: '#92400e',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 8,
-          }}>
-            <div>
-              <b>✈️ Chuyến đi Quốc tế Đa phương thức (Đường bộ + Đường bay):</b>
-              <div style={{ color: '#78350f', marginTop: 2 }}>
-                Lộ trình hiện tại chưa có sân bay nên đang tính bằng đường bộ xuyên quốc gia. Bấm <b>"Chọn sân bay"</b> để tự động chia tách lộ trình thành 2 chặng đường bộ và 1 chặng bay thẳng.
-              </div>
-            </div>
+          <div className="note yellow" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <span>Lộ trình chưa chọn sân bay. Vui lòng chọn sân bay để phân tách chặng đường bộ và đường bay.</span>
             <button
               type="button"
               className="btn solid sm"
-              style={{ background: '#d97706', color: '#fff', fontWeight: 700, padding: '6px 12px', whiteSpace: 'nowrap' }}
               onClick={() => selectAirportsModal(t.id)}
             >
-              ✈️ Chọn sân bay ngay
+              Chọn sân bay
             </button>
           </div>
         ) : null}
