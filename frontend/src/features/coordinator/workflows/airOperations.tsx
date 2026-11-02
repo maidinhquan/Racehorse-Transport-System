@@ -9,7 +9,7 @@ import { assignedOperator, canPlan, crewOf, curRoute, groundCountry, groundLegCh
 import type { Any } from '../store/coordinatorStore';
 import { audit, commit, confirmAction, db, me, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
 import { addHours, cityLabel, dt, MILESTONE_LABEL, stampMs, usd } from '../utils/format';
-import { plannerMap, resourceSignature, ROUTE_POLICY, rpCalc, rpDeadline, rpEnsure, rpFlightKey, rpRoute, rpWriteTimes, stop, validateRoute } from './routePlanner';
+import { plannerMap, resourceSignature, ROUTE_POLICY, RP, rpCalc, rpDeadline, rpEnsure, rpFlightKey, rpRoute, rpWriteTimes, stop, validateRoute } from './routePlanner';
 import { apiClient } from '../../../shared/api/apiClient';
 
 export const SYSTEM_ZONE = 'Asia/Ho_Chi_Minh';
@@ -443,11 +443,18 @@ export function selectAirportsModal(id: string) {
     toOpts.push(['PLC-KIX-AIRPORT', 'Kansai International Airport (KIX) · JP']);
   }
 
-  const defaultFrom = (existing?.from && fromOpts.some(([id]) => id === existing.from))
+  const curFromPlace = resolveAirportPlace(existing?.from || airStops[0]?.placeId || airStops[0]?.cp);
+  const curToPlace = resolveAirportPlace(existing?.to || airStops[1]?.placeId || airStops[1]?.cp);
+
+  const defaultFrom = (curFromPlace && fromOpts.some(([id]) => id === curFromPlace.id))
+    ? curFromPlace.id
+    : (existing?.from && fromOpts.some(([id]) => id === existing.from))
     ? existing.from
     : airStops[0]?.cp || airStops[0]?.placeId || fromOpts[0][0];
 
-  const defaultTo = (existing?.to && toOpts.some(([id]) => id === existing.to))
+  const defaultTo = (curToPlace && toOpts.some(([id]) => id === curToPlace.id))
+    ? curToPlace.id
+    : (existing?.to && toOpts.some(([id]) => id === existing.to))
     ? existing.to
     : airStops[1]?.cp || airStops[1]?.placeId || toOpts[0][0];
 
@@ -513,6 +520,15 @@ export function selectAirportsModal(id: string) {
         return 'Giờ hạ cánh phải sau giờ cất cánh.';
       }
 
+      const pFrom = resolveAirportPlace(fromAirport);
+      const pTo = resolveAirportPlace(toAirport);
+
+      // Phát hiện có thực sự đổi sân bay so với sân bay đã có hay không
+      const isAirportChanged = Boolean(
+        (curFromPlace && pFrom && curFromPlace.id !== pFrom.id) ||
+        (curToPlace && pTo && curToPlace.id !== pTo.id)
+      );
+
       t.flight = {
         ...(t.flight || {}),
         isCharter: true,
@@ -531,7 +547,6 @@ export function selectAirportsModal(id: string) {
       };
 
       if (rt) {
-        const pFrom = resolveAirportPlace(fromAirport), pTo = resolveAirportPlace(toAirport);
         if (pFrom && pTo) {
           const stopFrom = Object.assign(stop(pFrom.name, 'AIRPORT', '', pFrom.id), {
             cp: pFrom.id, placeId: pFrom.id, name: pFrom.name, lat: pFrom.lat, lng: pFrom.lng,
@@ -543,23 +558,26 @@ export function selectAirportsModal(id: string) {
           });
 
           const airIdxs = rt.stops.map((s: Any, i: number) => (s.type === 'AIRPORT' ? i : -1)).filter((i: number) => i >= 0);
-          if (airIdxs.length >= 2) {
-            rt.stops[airIdxs[0]] = stopFrom;
-            rt.stops[airIdxs[1]] = stopTo;
-          } else {
+
+          if (isAirportChanged || airIdxs.length < 2) {
+            // Khi đổi sang sân bay khác: xoá hết lộ trình đã làm (các điểm dừng nghỉ trung gian, nắn tuyến cũ)
+            // và đặt lại lộ trình ban đầu: [Điểm nhận, Sân bay đi, Sân bay đến, Điểm giao]
             const origin = rt.stops[0];
             const dest = rt.stops[rt.stops.length - 1];
-            const originCountry = (origin?.placeId && placeById(origin.placeId)?.country) || 'VN';
-            const intermediate = rt.stops.slice(1, -1).filter((s: Any) => s.type !== 'AIRPORT');
-            const vnIntermediates = intermediate.filter((s: Any) => {
-              const c = s.placeId ? placeById(s.placeId)?.country : undefined;
-              return !c || c === originCountry;
-            });
-            const destIntermediates = intermediate.filter((s: Any) => {
-              const c = s.placeId ? placeById(s.placeId)?.country : undefined;
-              return c && c !== originCountry;
-            });
-            rt.stops = [origin, ...vnIntermediates, stopFrom, stopTo, ...destIntermediates, dest];
+            rt.stops = [origin, stopFrom, stopTo, dest];
+            delete rt.metrics;
+            delete rt.geom;
+            delete rt.scheduleSnapshot;
+            const ps = RP(t.id);
+            if (ps) {
+              ps.detour = {};
+              ps.sel = null;
+              ps.selStop = null;
+            }
+          } else {
+            // Nếu không thay đổi sân bay: giữ nguyên toàn bộ lộ trình và các điểm dừng trung gian đã cài sẵn
+            rt.stops[airIdxs[0]] = stopFrom;
+            rt.stops[airIdxs[1]] = stopTo;
           }
         }
       }
@@ -567,7 +585,11 @@ export function selectAirportsModal(id: string) {
       commit();
       void rpRoute(t, true);
       setTimeout(() => plannerMap.fitAll?.(), 100);
-      toast(`Đã lưu 2 sân bay (${airportLabel(fromAirport)} → ${airportLabel(toAirport)}) vào lộ trình.`);
+      if (isAirportChanged) {
+        toast(`Đã đổi sân bay sang ${airportLabel(fromAirport)} → ${airportLabel(toAirport)} và đặt lại lộ trình ban đầu.`);
+      } else {
+        toast(`Đã lưu sân bay (${airportLabel(fromAirport)} → ${airportLabel(toAirport)}). Giữ nguyên lộ trình đã cài đặt.`);
+      }
     },
   });
 }
@@ -616,11 +638,18 @@ export function charterFlightModal(id: string) {
     toOpts.push(['PLC-NRT-AIRPORT', 'Narita International Airport (NRT) · JP']);
   }
 
-  const defaultFrom = (existing?.from && fromOpts.some(([id]) => id === existing.from))
+  const curFromPlace = resolveAirportPlace(existing?.from || airStops[0]?.placeId || airStops[0]?.cp);
+  const curToPlace = resolveAirportPlace(existing?.to || airStops[1]?.placeId || airStops[1]?.cp);
+
+  const defaultFrom = (curFromPlace && fromOpts.some(([id]) => id === curFromPlace.id))
+    ? curFromPlace.id
+    : (existing?.from && fromOpts.some(([id]) => id === existing.from))
     ? existing.from
     : airStops[0]?.cp || airStops[0]?.placeId || fromOpts[0][0];
 
-  const defaultTo = (existing?.to && toOpts.some(([id]) => id === existing.to))
+  const defaultTo = (curToPlace && toOpts.some(([id]) => id === curToPlace.id))
+    ? curToPlace.id
+    : (existing?.to && toOpts.some(([id]) => id === existing.to))
     ? existing.to
     : airStops[1]?.cp || airStops[1]?.placeId || toOpts[0][0];
 
@@ -833,6 +862,11 @@ return (
       // Tự động chèn/cập nhật 2 trạm sân bay từ HĐ Charter vào lộ trình
       if (rt) {
         const pFrom = resolveAirportPlace(fromAirport), pTo = resolveAirportPlace(toAirport);
+        const isAirportChanged = Boolean(
+          (curFromPlace && pFrom && curFromPlace.id !== pFrom.id) ||
+          (curToPlace && pTo && curToPlace.id !== pTo.id)
+        );
+
         if (pFrom && pTo) {
           const stopFrom = Object.assign(stop(pFrom.name, 'AIRPORT', '', pFrom.id), {
             cp: pFrom.id, placeId: pFrom.id, name: pFrom.name, lat: pFrom.lat, lng: pFrom.lng,
@@ -844,24 +878,25 @@ return (
           });
 
           const airIdxs = rt.stops.map((s: Any, i: number) => (s.type === 'AIRPORT' ? i : -1)).filter((i: number) => i >= 0);
-          if (airIdxs.length >= 2) {
-            rt.stops[airIdxs[0]] = stopFrom;
-            rt.stops[airIdxs[1]] = stopTo;
-          } else {
-            // Chèn vào giữa điểm nhận (và chặng đón) với điểm giao (và chặng trả)
+          if (isAirportChanged || airIdxs.length < 2) {
+            // Khi đổi sang sân bay khác: xoá hết lộ trình đã làm (các điểm dừng nghỉ trung gian, nắn tuyến cũ)
+            // và đặt lại lộ trình ban đầu: [Điểm nhận, Sân bay đi, Sân bay đến, Điểm giao]
             const origin = rt.stops[0];
             const dest = rt.stops[rt.stops.length - 1];
-            const originCountry = (origin?.placeId && placeById(origin.placeId)?.country) || 'VN';
-            const intermediate = rt.stops.slice(1, -1).filter((s: Any) => s.type !== 'AIRPORT');
-            const vnIntermediates = intermediate.filter((s: Any) => {
-              const c = s.placeId ? placeById(s.placeId)?.country : undefined;
-              return !c || c === originCountry;
-            });
-            const destIntermediates = intermediate.filter((s: Any) => {
-              const c = s.placeId ? placeById(s.placeId)?.country : undefined;
-              return c && c !== originCountry;
-            });
-            rt.stops = [origin, ...vnIntermediates, stopFrom, stopTo, ...destIntermediates, dest];
+            rt.stops = [origin, stopFrom, stopTo, dest];
+            delete rt.metrics;
+            delete rt.geom;
+            delete rt.scheduleSnapshot;
+            const ps = RP(t.id);
+            if (ps) {
+              ps.detour = {};
+              ps.sel = null;
+              ps.selStop = null;
+            }
+          } else {
+            // Không đổi sân bay: giữ nguyên toàn bộ lộ trình và các điểm dừng trung gian đã cài sẵn
+            rt.stops[airIdxs[0]] = stopFrom;
+            rt.stops[airIdxs[1]] = stopTo;
           }
         }
         // Tự động xác nhận phương án chăm sóc trên khoang
