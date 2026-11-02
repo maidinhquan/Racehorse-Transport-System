@@ -6,7 +6,7 @@ import { DateTimeInput } from '../../../components/forms/DateTime';
 import { PlannerMap } from '../../../components/maps/LeafletMaps';
 import { canPlan, curRoute, placeById, reqOfTrip, trip, tripHorses } from '../../../domain/coordinatorRules';
 import type { Any } from '../../../store/coordinatorStore';
-import { commit, db, go, openModal, toast, useCoordinatorStore } from '../../../store/coordinatorStore';
+import { commit, go, openModal, toast, useCoordinatorStore } from '../../../store/coordinatorStore';
 import { addHours, dt, human, stampMs } from '../../../utils/format';
 import { airportLabel, selectAirportsModal } from '../../../workflows/airOperations';
 import { routeSubmit } from '../../../workflows/coordinatorActions';
@@ -706,19 +706,12 @@ export function RouteTab({ t }: { t: Any }) {
 }
 
 function PlannerFilters({ t, f }: { t: Any; f: Any }) {
-  const all = [...new Set(db.places.map((p: Any) => p.country as string))].filter(Boolean);
   const cands = rpCandidates(t);
   const isMultiFilter = (f.fn || []).length > 1;
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  const activeAdvCount = (f.country ? 1 : 0) +
-    (f.status && f.status !== 'ACTIVE' ? 1 : 0) +
-    (f.radius && f.radius !== 25 ? 1 : 0) +
-    (['hoursOk', 'capOk', 'loading', 'stabling', 'water', 'onboard'] as const).filter((k) => !!f[k]).length;
 
   return (
     <div className="rp-filters" style={{ padding: '8px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {/* Hàng 1: Filter Chips chính và nút Mở rộng nâng cao */}
+      {/* Hàng Filter Chips chính */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginRight: 2 }}>Hiển thị:</span>
@@ -767,7 +760,6 @@ function PlannerFilters({ t, f }: { t: Any; f: Any }) {
           })}
         </div>
 
-        {/* Nút thu gọn/mở rộng Bộ lọc nâng cao */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 11.5, color: '#64748b' }}>
             {isMultiFilter ? (
@@ -778,141 +770,8 @@ function PlannerFilters({ t, f }: { t: Any; f: Any }) {
               <span>Tìm thấy {cands.length} địa điểm</span>
             ) : null}
           </div>
-
-          <button
-            type="button"
-            className="btn ghost sm"
-            style={{
-              padding: '3px 8px',
-              fontSize: 11.5,
-              fontWeight: 600,
-              color: activeAdvCount > 0 ? '#0284c7' : '#64748b',
-              background: activeAdvCount > 0 ? '#f0f9ff' : '#ffffff',
-              border: activeAdvCount > 0 ? '1px solid #bae6fd' : '1px solid #e2e8f0',
-              borderRadius: 6,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            title="Tùy chỉnh bán kính, quốc gia và các tiện ích chi tiết"
-          >
-            ⚙️ Nâng cao {activeAdvCount > 0 ? `(${activeAdvCount})` : ''} {showAdvanced ? '▴' : '▾'}
-          </button>
         </div>
       </div>
-
-      {/* Phần bộ lọc nâng cao - Chỉ hiện khi bấm nút Nâng cao */}
-      {showAdvanced ? (
-        <div
-          style={{
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: 8,
-            padding: '8px 12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            marginTop: 4,
-          }}
-        >
-          {/* Hàng chọn quốc gia, bán kính, trạng thái */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>Phạm vi:</span>
-            <select
-              value={f.country}
-              onChange={(e) => rpSetFilter(t.id, 'country', e.target.value)}
-              style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 11.5, background: '#fff' }}
-            >
-              <option value="">Tất cả quốc gia</option>
-              {all.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <select
-              value={f.radius}
-              onChange={(e) => rpSetFilter(t.id, 'radius', Number(e.target.value))}
-              style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 11.5, background: '#fff' }}
-            >
-              <option value={25}>Trong 25 km quanh tuyến (Mặc định)</option>
-              <option value={50}>Trong 50 km quanh tuyến</option>
-              <option value={100}>Trong 100 km quanh tuyến</option>
-              <option value={200}>Trong 200 km quanh tuyến</option>
-              <option value={0}>Không giới hạn bán kính (Toàn quốc)</option>
-            </select>
-            <select
-              value={f.status}
-              onChange={(e) => rpSetFilter(t.id, 'status', e.target.value)}
-              style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 11.5, background: '#fff' }}
-            >
-              <option value="ACTIVE">Đang hoạt động</option>
-              <option value="ACTIVE_SUSP">Gồm tạm ngừng</option>
-              <option value="ALL">Mọi trạng thái</option>
-            </select>
-
-            {activeAdvCount > 0 ? (
-              <button
-                type="button"
-                style={{
-                  marginLeft: 'auto',
-                  border: 'none',
-                  background: 'none',
-                  color: '#ef4444',
-                  fontSize: 11,
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                }}
-                onClick={() => {
-                  rpSetFilter(t.id, 'country', '');
-                  rpSetFilter(t.id, 'radius', 25);
-                  rpSetFilter(t.id, 'status', 'ACTIVE');
-                  ['hoursOk', 'capOk', 'loading', 'stabling', 'water', 'onboard'].forEach((k) => rpSetFilter(t.id, k, false));
-                }}
-              >
-                Đặt lại nâng cao
-              </button>
-            ) : null}
-          </div>
-
-          {/* Hàng chọn tiện ích chi tiết */}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', fontSize: 11 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>Tiện ích:</span>
-            {([
-              ['hoursOk', '🕒 Mở cửa lúc dự kiến ghé'],
-              ['capOk', `🐴 Sức chứa ≥ ${tripHorses(t).length} ngựa`],
-              ['loading', '🚚 Có khu lên/xuống'],
-              ['stabling', '🏠 Có chỗ lưu ngựa'],
-              ['water', '💧 Nước/thức ăn'],
-              ['onboard', '🩺 Chăm sóc trên xe'],
-            ] as Array<[string, string]>).map(([k, label]) => {
-              const checked = !!f[k];
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  style={{
-                    padding: '2px 8px',
-                    borderRadius: 12,
-                    fontSize: 11,
-                    fontWeight: checked ? 600 : 400,
-                    background: checked ? '#ecfdf5' : '#ffffff',
-                    border: checked ? '1px solid #10b981' : '1px solid #e2e8f0',
-                    color: checked ? '#047857' : '#475569',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 3,
-                    transition: 'all 0.15s ease',
-                  }}
-                  onClick={() => rpSetFilter(t.id, k, !checked)}
-                >
-                  {checked ? <span style={{ fontWeight: 800 }}>✓</span> : null}
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -1564,9 +1564,6 @@ function PlaceForm({ p, fm }: { p: Any; fm: { v: Any; set: (k: string, v: Any) =
       <div className="pl-fns">{Object.keys(PF).map((fn) => <label key={fn}><input type="checkbox" checked={fns.includes(fn)} onChange={(e) => toggle(fn, e.target.checked)} /> {PF[fn]}</label>)}</div>
     </div>
     <div id="pl-extras">
-      {fns.includes('REST') ? <fieldset className="pl-fs"><legend>Điểm nghỉ</legend>
-        <Chk name="r1">Đỗ được xe chuyên dụng</Chk><Chk name="r2">Chăm sóc ngựa trên xe</Chk><Chk name="r3">Có nước / thức ăn</Chk><Chk name="r4">Có khu lên/xuống ngựa</Chk><Chk name="r5">Có chỗ lưu ngựa</Chk>
-        <Field label="Sức chứa cơ sở (số ngựa)"><Inp name="r6" type="number" min="0" /></Field></fieldset> : null}
       {fns.includes('FUEL') ? <fieldset className="pl-fs"><legend>Trạm nhiên liệu</legend><Field label="Loại nhiên liệu"><Inp name="f1" /></Field><Chk name="f2">Xe tải lớn vào được</Chk></fieldset> : null}
       {fns.includes('AIRPORT') ? <fieldset className="pl-fs"><legend>Sân bay</legend><Field label="Mã sân bay (IATA)"><Inp name="a1" maxLength={3} /></Field><Chk name="a2">Tiếp nhận vận chuyển ngựa</Chk></fieldset> : null}
       {fns.some((x) => ['QUARANTINE', 'BORDER'].includes(x)) ? <fieldset className="pl-fs"><legend>Kiểm dịch / cửa khẩu</legend><Field label="Loại dịch vụ"><Inp name="s1" /></Field><Field label="Khả năng tiếp nhận"><Inp name="s2" /></Field></fieldset> : null}
