@@ -16,7 +16,6 @@ const NAV: Array<[string, string, string]> = [
   ['/coordinator/places', 'Quản lý địa điểm', 'list'],
   ['/coordinator/fleet', 'Đội xe', 'truck'],
   ['/coordinator/crew', 'Quản lý nhân sự', 'users'],
-  ['/coordinator/flights', 'Dịch vụ bay & đối tác', 'plane'],
   ['/coordinator/incidents', 'Sự cố & khiếu nại', 'alert'],
 ];
 

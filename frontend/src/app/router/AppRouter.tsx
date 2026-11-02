@@ -69,7 +69,6 @@ import {
   FleetPage,
   VehicleDetailPage,
   CrewPage,
-  FlightsPage,
   IncidentsPage as CoordinatorIncidentsPage,
   IncidentDetailPage as CoordinatorIncidentDetailPage,
   MonitorPage,
@@ -144,7 +143,7 @@ function AppRouter() {
         <Route path="/coordinator/fleet" element={<FleetPage />} />
         <Route path="/coordinator/fleet/:vehicleId" element={<VehicleDetailPage />} />
         <Route path="/coordinator/crew" element={<CrewPage />} />
-        <Route path="/coordinator/flights" element={<FlightsPage />} />
+        <Route path="/coordinator/flights" element={<Navigate to="/coordinator/dashboard" replace />} />
         <Route path="/coordinator/incidents" element={<CoordinatorIncidentsPage />} />
         <Route path="/coordinator/incidents/:incidentId" element={<CoordinatorIncidentDetailPage />} />
         <Route path="/coordinator/monitor" element={<MonitorPage />} />
