@@ -96,6 +96,29 @@ export function normalizeContractUrl(url: string): string {
   return url.replace(/\/([A-Z_]+)-(\d+)(?=[/?#]|$)/g, (_, p, n) => `/${p}_${n.padStart(3, '0')}`);
 }
 
+/** Normalize legacy database / server contract versions where terms used TemplateName/BodyContent or PascalCase */
+function normalizeFlow1ResponseBody(data: unknown): void {
+  if (!data || typeof data !== 'object') return;
+  const walk = (obj: any) => {
+    if (!obj || typeof obj !== 'object') return;
+    if (Array.isArray(obj)) {
+      obj.forEach(walk);
+      return;
+    }
+    if (Array.isArray(obj.terms)) {
+      obj.terms = obj.terms.map((t: any) => {
+        if (!t || typeof t !== 'object') return t;
+        const title = t.title ?? t.Title ?? t.TemplateName ?? '';
+        const text = t.text ?? t.content ?? t.Content ?? t.BodyContent ?? '';
+        return { ...t, title, text };
+      });
+    }
+    if (Array.isArray(obj.versions)) obj.versions.forEach(walk);
+    if (obj.currentVersion) walk(obj.currentVersion);
+  };
+  walk(data);
+}
+
 /** Flow 1 only: exact endpoints, parameter/body validation, authenticated transport and validated responses. */
 export async function contractClient<T>(method: 'get' | 'post' | 'put' | 'delete', url: string, data?: unknown, params?: object, options: ContractRequestOptions = {}): Promise<T> {
   const normalizedUrl = normalizeContractUrl(url);
@@ -122,6 +145,7 @@ export async function contractClient<T>(method: 'get' | 'post' | 'put' | 'delete
     const body = response.data;
     if (body?.success !== true) throw new Flow1ApiError(body?.message || 'API chưa xác nhận thành công.', body?.errorCode, body?.errors);
     if (body.data === undefined) throw new Flow1ApiError('Phản hồi API thiếu data, không khớp contract Flow 1.', 'SERVER_CONTRACT_ERROR');
+    normalizeFlow1ResponseBody(body.data);
     const responseSchema = operation.responses[String(response.status)]?.content?.['application/json']?.schema;
     if (responseSchema) validateFlow1Schema(responseSchema, body, 'Phản hồi máy chủ');
     return body.data;
