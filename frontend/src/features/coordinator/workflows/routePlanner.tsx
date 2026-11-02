@@ -475,7 +475,8 @@ function rpSimulateDemo(t: Any, rt: Any) {
   if (t.mode === 'AIR') {
     const { groups, airErr } = rpGroups(t, rt);
     if (!groups || !groups.length) {
-      ps.routing = { status: 'idle', key: rpRouteKey(t, rt), legs: [], error: airErr };
+      if (ps.routing.key === rpRouteKey(t, rt) && ps.routing.status === 'no_airports') return;
+      ps.routing = { status: 'no_airports', key: rpRouteKey(t, rt), legs: [], message: airErr };
       return;
     }
   }
@@ -497,7 +498,8 @@ export async function rpRoute(t: Any, force = false) {
   if (missing.length) { ps.routing = { status: 'error', key, error: `Thiếu tọa độ cho: ${missing.map((x: Any) => x.name).join(', ')}.` }; commit(); return; }
   const { groups, airErr } = rpGroups(t, rt);
   if (!groups || !groups.length) {
-    ps.routing = { status: 'idle', key, legs: [], error: airErr };
+    if (ps.routing.key === key && ps.routing.status === 'no_airports') return;
+    ps.routing = { status: 'no_airports', key, legs: [], message: airErr };
     commit();
     return;
   }

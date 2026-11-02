@@ -424,7 +424,7 @@ function Summary({ t }: { t: Any }) {
 }
 
 export function RouteTab({ t }: { t: Any }) {
-  const ver = useCoordinatorStore();
+  useCoordinatorStore();
   const [tileErr, setTileErr] = useState(false);
   const [viewLeg, setViewLeg] = useState<'all' | 'vn' | 'jp'>('all');
   const [isMaximized, setIsMaximized] = useState(false);
@@ -441,7 +441,15 @@ export function RouteTab({ t }: { t: Any }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [isMaximized]);
   const rt = curRoute(t), r = reqOfTrip(t), ps = RP(t.id);
-  useEffect(() => { if (rt) rpRoute(t); }, [ver, t, rt]);
+  const routeKey = rt ? rpRouteKey(t, rt) : '';
+  useEffect(() => {
+    if (rt) {
+      const ps = RP(t.id);
+      if (ps.routing.key !== routeKey || ps.routing.status === 'idle') {
+        void rpRoute(t);
+      }
+    }
+  }, [t.id, routeKey]);
   if (!rt) return (
     <>
       <div className="card pad" style={{ marginTop: 16 }}><h3 className="card-title">Chưa có lộ trình</h3><p className="subtitle">Bắt đầu từ điểm nhận và điểm giao trong yêu cầu của khách hàng.</p>
