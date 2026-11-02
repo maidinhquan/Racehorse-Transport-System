@@ -2,7 +2,7 @@
 import { curRoute, reqOfTrip } from '../../domain/coordinatorRules';
 import type { Any } from '../../store/coordinatorStore';
 import { cityLabel, dt, human, MILESTONE_LABEL, usd } from '../../utils/format';
-import { AIR_STATUS, airportLabel, charterFlightModal, countHorses, editableTrip, flightBook, flightMilestone, LocalTime, resolved, serviceRevision, serviceSend } from '../../workflows/airOperations';
+import { AIR_STATUS, airportLabel, charterFlightModal, countHorses, editableTrip, flightBook, flightMilestone, LocalTime, resolved, selectAirportsModal, serviceRevision, serviceSend } from '../../workflows/airOperations';
 import { Pill } from '../common/ui';
 
 export function AirCard({ t }: { t: Any }) {
@@ -41,7 +41,12 @@ export function AirCard({ t }: { t: Any }) {
       <div className="btn-row">
         {editable ? (
           <button type="button" className="btn solid" style={{ background: '#7c3aed', color: '#fff', fontWeight: 600 }} onClick={() => charterFlightModal(t.id)}>
-            {f ? '✏️ Sửa HĐ Charter' : '📋 Nhập Hợp đồng thuê chuyến (Charter)'}
+            {f?.contractNo || f?.bookingRef ? '✏️ Sửa HĐ Charter' : '📋 Nhập Hợp đồng thuê chuyến (Charter)'}
+          </button>
+        ) : null}
+        {editable ? (
+          <button type="button" className="btn ghost" style={{ color: '#7c3aed', borderColor: '#c4b5fd' }} onClick={() => selectAirportsModal(t.id)}>
+            ✈️ {f?.from && f?.to ? 'Đổi sân bay' : 'Chọn sân bay'}
           </button>
         ) : null}
         {editable && f?.status === 'DRAFT' ? <button type="button" className="btn ghost" onClick={() => serviceSend(t.id)}>Gửi duyệt chi phí</button> : null}

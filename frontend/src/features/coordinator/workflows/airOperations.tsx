@@ -398,6 +398,158 @@ export const airChanged = () => commit();
 
 
 /**
+ * Chọn cặp Sân bay cất / hạ cánh cho lộ trình (nhanh & trực quan)
+ * Phục vụ nghiệp vụ Lập lộ trình (Route Planner): Điều phối viên chỉ cần xác định sân bay đi và sân bay đến.
+ * Sau khi chọn xong, lộ trình sẽ tự động phân tách thành 2 chặng đường bộ và 1 chặng bay.
+ * Thông tin HĐ Charter chi tiết sẽ được nhập riêng ở tab "Chuyến bay".
+ */
+export function selectAirportsModal(id: string) {
+  const t = trip(id);
+  if (!t) return toast('Không tìm thấy chuyến đi.');
+  const rt = curRoute(t);
+  const existing = t.flight;
+  const airStops = rt?.stops?.filter((s: Any) => s.type === 'AIRPORT') || [];
+
+  const defaultFrom = existing?.from || airStops[0]?.cp || airStops[0]?.placeId || 'PLC-SGN-AIRPORT';
+  const defaultTo = existing?.to || airStops[1]?.cp || airStops[1]?.placeId || 'PLC-NRT-AIRPORT';
+
+  let defaultDepart = existing?.departAt;
+  if (!defaultDepart) {
+    if (t.plannedDepart) {
+      defaultDepart = addHours(t.plannedDepart, 4);
+    } else {
+      defaultDepart = nowStamp();
+    }
+  }
+  let defaultArrive = existing?.arriveAt;
+  if (!defaultArrive && defaultDepart) {
+    defaultArrive = addHours(defaultDepart, 6);
+  }
+
+  const airports = db.places.filter((p: Any) => p.functions?.includes('AIRPORT') && p.status === 'ACTIVE' && p.airport?.horseHandling);
+  const airportOpts: Array<[string, string]> = airports.map((p: Any) => [
+    p.id,
+    `${p.name} (${p.airport?.iata || 'AIR'}) · ${p.country}`,
+  ]);
+  if (!airportOpts.length) {
+    airportOpts.push(['PLC-SGN-AIRPORT', 'Tan Son Nhat International Airport (SGN) · VN']);
+    airportOpts.push(['PLC-NRT-AIRPORT', 'Narita International Airport (NRT) · JP']);
+    airportOpts.push(['PLC-HAN-AIRPORT', 'Noi Bai International Airport (HAN) · VN']);
+  }
+
+  openModal({
+    title: `✈️ Chọn Cặp Sân Bay Cất / Hạ Cánh cho Lộ trình · ${t.id}`,
+    wide: false,
+    ok: 'Ghim sân bay vào lộ trình',
+    init: {
+      fromAirport: defaultFrom,
+      toAirport: defaultTo,
+      departAt: defaultDepart ? defaultDepart.replace(' ', 'T') : '',
+      arriveAt: defaultArrive ? defaultArrive.replace(' ', 'T') : '',
+    },
+    body: () => (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ padding: '9px 12px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, fontSize: 12, color: '#5b21b6', lineHeight: 1.5 }}>
+          <b>✈ Lộ trình Đa phương thức (Đường bộ + Hàng không):</b>
+          <div style={{ marginTop: 2 }}>
+            Chọn 2 sân bay để chia lộ trình thành 2 chặng đường bộ (đón ra sân bay & từ sân bay về đích) và 1 chặng bay thẳng. Thông tin Hợp đồng Charter và Chuồng Jet Stall sẽ được nhập riêng ở tab <b>"Chuyến bay"</b>.
+          </div>
+        </div>
+
+        <Field label="Sân bay cất cánh (Xuất phát tại VN) *">
+          <Sel name="fromAirport" options={airportOpts} />
+        </Field>
+        <Field label="Sân bay hạ cánh (Đến tại nước đích) *">
+          <Sel name="toAirport" options={airportOpts} />
+        </Field>
+
+        <div className="form-grid" style={{ marginTop: 4 }}>
+          <Field label="Giờ cất cánh ETD dự kiến *" hint="Thời điểm máy bay cất cánh">
+            <DateTimeInput name="departAt" />
+          </Field>
+          <Field label="Giờ hạ cánh ETA dự kiến *" hint="Thời điểm hạ cánh tại nước đến">
+            <DateTimeInput name="arriveAt" />
+          </Field>
+        </div>
+      </div>
+    ),
+    onOk: async (v) => {
+      const fromAirport = String(v.fromAirport || '').trim();
+      const toAirport = String(v.toAirport || '').trim();
+      const departAt = String(v.departAt || '').replace('T', ' ');
+      const arriveAt = String(v.arriveAt || '').replace('T', ' ');
+
+      if (!fromAirport || !toAirport || fromAirport === toAirport) {
+        return 'Sân bay cất cánh và sân bay hạ cánh phải khác nhau.';
+      }
+      if (!departAt || !arriveAt) {
+        return 'Vui lòng chọn ngày giờ cất cánh và hạ cánh dự kiến.';
+      }
+      if (stampMs(arriveAt) <= stampMs(departAt)) {
+        return 'Giờ hạ cánh phải sau giờ cất cánh.';
+      }
+
+      t.flight = {
+        ...(t.flight || {}),
+        isCharter: true,
+        status: t.flight?.status || 'DRAFT',
+        from: fromAirport,
+        to: toAirport,
+        departAt,
+        arriveAt,
+        serviceSnapshot: {
+          ...(t.flight?.serviceSnapshot || {}),
+          fromName: airportLabel(fromAirport),
+          toName: airportLabel(toAirport),
+          departLocal: departAt,
+          arriveLocal: arriveAt,
+        },
+      };
+
+      if (rt) {
+        const pFrom = resolveAirportPlace(fromAirport), pTo = resolveAirportPlace(toAirport);
+        if (pFrom && pTo) {
+          const stopFrom = Object.assign(stop(pFrom.name, 'AIRPORT', '', pFrom.id), {
+            cp: pFrom.id, placeId: pFrom.id, name: pFrom.name, lat: pFrom.lat, lng: pFrom.lng,
+            required: true, purposes: ['AIRPORT'], dwellMin: 0, unload: false,
+          });
+          const stopTo = Object.assign(stop(pTo.name, 'AIRPORT', '', pTo.id), {
+            cp: pTo.id, placeId: pTo.id, name: pTo.name, lat: pTo.lat, lng: pTo.lng,
+            required: true, purposes: ['AIRPORT'], dwellMin: 0, unload: false,
+          });
+
+          const airIdxs = rt.stops.map((s: Any, i: number) => (s.type === 'AIRPORT' ? i : -1)).filter((i: number) => i >= 0);
+          if (airIdxs.length >= 2) {
+            rt.stops[airIdxs[0]] = stopFrom;
+            rt.stops[airIdxs[1]] = stopTo;
+          } else {
+            const origin = rt.stops[0];
+            const dest = rt.stops[rt.stops.length - 1];
+            const originCountry = (origin?.placeId && placeById(origin.placeId)?.country) || 'VN';
+            const intermediate = rt.stops.slice(1, -1).filter((s: Any) => s.type !== 'AIRPORT');
+            const vnIntermediates = intermediate.filter((s: Any) => {
+              const c = s.placeId ? placeById(s.placeId)?.country : undefined;
+              return !c || c === originCountry;
+            });
+            const destIntermediates = intermediate.filter((s: Any) => {
+              const c = s.placeId ? placeById(s.placeId)?.country : undefined;
+              return c && c !== originCountry;
+            });
+            rt.stops = [origin, ...vnIntermediates, stopFrom, stopTo, ...destIntermediates, dest];
+          }
+        }
+      }
+
+      commit();
+      void rpRoute(t, true);
+      setTimeout(() => plannerMap.fitAll?.(), 100);
+      toast(`Đã ghim 2 sân bay (${airportLabel(fromAirport)} ➔ ${airportLabel(toAirport)}) vào lộ trình. Bạn có thể sang tab "Chuyến bay" để hoàn tất HĐ Charter.`);
+    },
+  });
+}
+
+
+/**
  * Nhập liệu thủ công Hợp đồng thuê chuyến bay Charter (Manual Input / Admin Panel)
  * Chuyến bay charter chuyên dụng cho ngựa đua mang tính đặc thù (không có sẵn trên GDS).
  * Điều phối viên tự nhập Hợp đồng thuê chuyến, giờ bay, mã số chuồng chuyên dụng (Jet Stall)
@@ -665,8 +817,17 @@ return (
             // Chèn vào giữa điểm nhận (và chặng đón) với điểm giao (và chặng trả)
             const origin = rt.stops[0];
             const dest = rt.stops[rt.stops.length - 1];
+            const originCountry = (origin?.placeId && placeById(origin.placeId)?.country) || 'VN';
             const intermediate = rt.stops.slice(1, -1).filter((s: Any) => s.type !== 'AIRPORT');
-            rt.stops = [origin, ...intermediate, stopFrom, stopTo, dest];
+            const vnIntermediates = intermediate.filter((s: Any) => {
+              const c = s.placeId ? placeById(s.placeId)?.country : undefined;
+              return !c || c === originCountry;
+            });
+            const destIntermediates = intermediate.filter((s: Any) => {
+              const c = s.placeId ? placeById(s.placeId)?.country : undefined;
+              return c && c !== originCountry;
+            });
+            rt.stops = [origin, ...vnIntermediates, stopFrom, stopTo, ...destIntermediates, dest];
           }
         }
         // Tự động xác nhận phương án chăm sóc trên khoang
