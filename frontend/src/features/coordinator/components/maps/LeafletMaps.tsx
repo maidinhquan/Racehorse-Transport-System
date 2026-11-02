@@ -118,7 +118,7 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
       const flight = air && stops[i - 1]?.type === 'AIRPORT' && stops[i]?.type === 'AIRPORT';
       const segmentGeom = geom && Array.isArray(geom[i - 1]) ? geom[i - 1] : null;
       L.polyline(segmentGeom && !flight ? segmentGeom : [pts[i - 1]!, pts[i]!], {
-        color: flight ? '#7c3aed' : done ? '#f57c00' : '#2563eb',
+        color: flight ? '#ea580c' : done ? '#f57c00' : '#2563eb',
         weight: done ? 5 : 5,
         opacity: 0.85,
         dashArray: flight ? '2 10' : (!segmentGeom && !done) ? '6 8' : undefined,
@@ -459,7 +459,7 @@ export function PlannerMap({ t, onTileError }: { t: Any; onTileError: () => void
       const aLat = Number(a?.lat), aLng = Number(a?.lng), bLat = Number(b?.lat), bLng = Number(b?.lng);
       if (Number.isFinite(aLat) && Number.isFinite(aLng) && Number.isFinite(bLat) && Number.isFinite(bLng)) {
         L.polyline([[aLat, aLng], [bLat, bLng]], {
-          color: '#7c3aed',
+          color: '#ea580c',
           weight: 3,
           dashArray: '2 10',
         })
@@ -480,13 +480,13 @@ export function PlannerMap({ t, onTileError }: { t: Any; onTileError: () => void
 
         if (c.p.functions?.includes('AIRPORT')) {
           const iata = c.p.airport?.iata || c.p.name.replace(/ Airport.*/i, '');
-          const html = `<div class="rp-airport-badge ${isSel ? 'on' : ''}" style="background:#7c3aed;color:#fff;padding:2px 7px;border-radius:12px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:3px;box-shadow:0 2px 5px rgba(0,0,0,0.3);border:2px solid ${isSel ? '#fde047' : '#fff'};white-space:nowrap;cursor:pointer;">✈ ${esc(iata)}</div>`;
+          const html = `<div class="rp-airport-badge ${isSel ? 'on' : ''}" style="background:#ea580c;color:#fff;padding:2px 7px;border-radius:12px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:3px;box-shadow:0 2px 5px rgba(0,0,0,0.3);border:2px solid ${isSel ? '#fde047' : '#fff'};white-space:nowrap;cursor:pointer;">${esc(iata)}</div>`;
           L.marker([cLat, cLng], {
             icon: L.divIcon({ html, className: '', iconSize: [54, 22], iconAnchor: [27, 11] }),
             zIndexOffset: 950,
           })
-            .bindTooltip(`✈ Sân bay: ${esc(c.p.name)}${bad ? ` • ⚠️ ${c.why.join('; ')}` : ''}`)
-            .bindPopup(`<b>✈ Sân bay: ${esc(c.p.name)}</b><br>Mã IATA: <b>${esc(c.p.airport?.iata || '—')}</b> • ${c.p.province || ''}, ${c.p.country || ''}<br>${bad ? `<span style="color:#dc2626">⚠️ ${c.why.join('; ')}</span>` : '<span style="color:#059669">✓ Đang hoạt động</span>'}`)
+            .bindTooltip(`Sân bay: ${esc(c.p.name)}${bad ? ` • ⚠️ ${c.why.join('; ')}` : ''}`)
+            .bindPopup(`<b>Sân bay: ${esc(c.p.name)}</b><br>Mã IATA: <b>${esc(c.p.airport?.iata || '—')}</b> • ${c.p.province || ''}, ${c.p.country || ''}<br>${bad ? `<span style="color:#dc2626">⚠️ ${c.why.join('; ')}</span>` : '<span style="color:#059669">✓ Đang hoạt động</span>'}`)
             .on('click', () => rpPick(t.id, c.p.id))
             .addTo(lg);
         } else {

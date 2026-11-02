@@ -273,7 +273,6 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
             <button
               type="button"
               className="btn ghost sm"
-              style={{ color: '#7c3aed', borderColor: '#c4b5fd', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
               onClick={() => {
                 const la = s.lat != null ? s.lat : p?.lat;
                 const lo = s.lng != null ? s.lng : p?.lng;
@@ -284,7 +283,7 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
               }}
               title="Phóng to và định vị sân bay này trên bản đồ"
             >
-              📍 Xem trên map
+              Xem trên bản đồ
             </button>
           ) : null}
           {edit && (s.type === 'ORIGIN' || s.type === 'DESTINATION') ? (
@@ -343,13 +342,13 @@ function Detail({ t }: { t: Any }) {
       return (
         <div className="rp-detail" style={{ maxHeight: 360, overflowY: 'auto' }}>
           <div className="between" style={{ marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
-            <span style={{ fontWeight: 700, fontSize: 13, color: '#1e293b' }}>
-              📍 Địa điểm khớp bộ lọc ({cands.length})
+            <span style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>
+              Địa điểm khớp bộ lọc ({cands.length})
             </span>
             <button
               type="button"
               className="link"
-              style={{ fontSize: 11.5, fontWeight: 600, color: '#7c3aed' }}
+              style={{ fontSize: 11.5, fontWeight: 600 }}
               onClick={() => {
                 const pts = cands
                   .map((c: Any) => [Number(c.p.lat), Number(c.p.lng)] as [number, number])
@@ -360,7 +359,7 @@ function Detail({ t }: { t: Any }) {
               }}
               title="Phóng to bản đồ để thấy tất cả các địa điểm đang lọc"
             >
-              🗺️ Xem tất cả trên map
+              Xem tất cả trên bản đồ
             </button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -368,7 +367,6 @@ function Detail({ t }: { t: Any }) {
               const p = c.p;
               const activeFn = (p.functions || []).find((fn: string) => (f.fn || []).includes(fn)) || (p.functions || [])[0];
               const color = PF_COLOR[activeFn] || '#2563eb';
-              const isAirport = p.functions?.includes('AIRPORT');
               return (
                 <div
                   key={p.id}
@@ -388,10 +386,10 @@ function Detail({ t }: { t: Any }) {
                     <div style={{ fontWeight: 600, fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <span style={{ color, fontSize: 10 }}>●</span>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {isAirport ? '✈ ' : ''}{p.name}
+                        {p.name}
                       </span>
                       {p.airport?.iata ? (
-                        <span style={{ fontSize: 10.5, padding: '1px 5px', borderRadius: 4, background: '#ede9fe', color: '#6d28d9', fontWeight: 700 }}>
+                        <span style={{ fontSize: 10.5, padding: '1px 5px', borderRadius: 4, background: '#ffedd5', color: '#ea580c', fontWeight: 600 }}>
                           {p.airport.iata}
                         </span>
                       ) : null}
@@ -571,8 +569,8 @@ export function RouteTab({ t }: { t: Any }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: 12, flexWrap: 'wrap', gap: 6 }}>
             {t.mode === 'AIR' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>🗺️ Góc nhìn:</span>
+                <span style={{ fontWeight: 600, color: '#475569' }}>
+                  Góc nhìn:
                 </span>
                 <button
                   type="button"
@@ -580,21 +578,20 @@ export function RouteTab({ t }: { t: Any }) {
                   style={{
                     padding: '3px 10px',
                     fontSize: 12,
-                    background: viewLeg === 'all' ? '#7c3aed' : '#ffffff',
+                    background: viewLeg === 'all' ? 'var(--orange, #f57c00)' : '#ffffff',
                     color: viewLeg === 'all' ? '#ffffff' : '#334155',
-                    border: viewLeg === 'all' ? '1.5px solid #6d28d9' : '1px solid #cbd5e1',
-                    fontWeight: 700,
+                    border: viewLeg === 'all' ? '1px solid var(--orange, #f57c00)' : '1px solid #cbd5e1',
+                    fontWeight: 600,
                     borderRadius: 6,
                     cursor: 'pointer',
-                    boxShadow: viewLeg === 'all' ? '0 2px 4px rgba(124,58,237,0.3)' : 'none',
                   }}
                   onClick={() => {
                     setViewLeg('all');
                     plannerMap.fitAll?.();
                   }}
-                  title="Xem toàn cảnh tuyến bao gồm cả chặng bay Việt Nam ➔ Nhật Bản"
+                  title="Xem toàn cảnh tuyến bao gồm cả chặng bay Việt Nam → Nhật Bản"
                 >
-                  🌐 Toàn cảnh (VN ➔ JP)
+                  Toàn cảnh (VN → JP)
                 </button>
                 <button
                   type="button"
@@ -602,21 +599,20 @@ export function RouteTab({ t }: { t: Any }) {
                   style={{
                     padding: '3px 10px',
                     fontSize: 12,
-                    background: viewLeg === 'vn' ? '#7c3aed' : '#ffffff',
+                    background: viewLeg === 'vn' ? 'var(--orange, #f57c00)' : '#ffffff',
                     color: viewLeg === 'vn' ? '#ffffff' : '#334155',
-                    border: viewLeg === 'vn' ? '1.5px solid #6d28d9' : '1px solid #cbd5e1',
-                    fontWeight: 700,
+                    border: viewLeg === 'vn' ? '1px solid var(--orange, #f57c00)' : '1px solid #cbd5e1',
+                    fontWeight: 600,
                     borderRadius: 6,
                     cursor: 'pointer',
-                    boxShadow: viewLeg === 'vn' ? '0 2px 4px rgba(124,58,237,0.3)' : 'none',
                   }}
                   onClick={() => {
                     setViewLeg('vn');
                     plannerMap.fitGroup?.(0);
                   }}
-                  title="Phóng to chặng đường bộ tại Việt Nam: Điểm nhận ➔ Tân Sơn Nhất (SGN)"
+                  title="Phóng to chặng đường bộ tại Việt Nam: Điểm nhận → Sân bay Tân Sơn Nhất (SGN)"
                 >
-                  🇻🇳 Chặng VN (SGN)
+                  Chặng VN (SGN)
                 </button>
                 <button
                   type="button"
@@ -624,26 +620,25 @@ export function RouteTab({ t }: { t: Any }) {
                   style={{
                     padding: '3px 10px',
                     fontSize: 12,
-                    background: viewLeg === 'jp' ? '#7c3aed' : '#ffffff',
+                    background: viewLeg === 'jp' ? 'var(--orange, #f57c00)' : '#ffffff',
                     color: viewLeg === 'jp' ? '#ffffff' : '#334155',
-                    border: viewLeg === 'jp' ? '1.5px solid #6d28d9' : '1px solid #cbd5e1',
-                    fontWeight: 700,
+                    border: viewLeg === 'jp' ? '1px solid var(--orange, #f57c00)' : '1px solid #cbd5e1',
+                    fontWeight: 600,
                     borderRadius: 6,
                     cursor: 'pointer',
-                    boxShadow: viewLeg === 'jp' ? '0 2px 4px rgba(124,58,237,0.3)' : 'none',
                   }}
                   onClick={() => {
                     setViewLeg('jp');
                     plannerMap.fitGroup?.(1);
                   }}
-                  title="Phóng to chặng đường bộ tại Nhật Bản: Narita (NRT) ➔ Tokyo"
+                  title="Phóng to chặng đường bộ tại Nhật Bản: Sân bay Narita (NRT) → Điểm giao"
                 >
-                  🇯🇵 Chặng Nhật Bản (NRT ➔ Tokyo)
+                  Chặng Nhật Bản (NRT → Tokyo)
                 </button>
               </div>
             ) : (
               <span style={{ fontWeight: 600, color: '#475569' }}>
-                🗺️ Bản đồ lộ trình vận chuyển:
+                Bản đồ lộ trình vận chuyển:
               </span>
             )}
 
@@ -698,7 +693,7 @@ export function RouteTab({ t }: { t: Any }) {
           <div className="rp-legend">
             <span><i className="lg-end" />Điểm nhận/giao</span>
             <span><i className="lg-req" />Điểm bắt buộc</span>
-            <span><i style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', width: 14, height: 10, borderRadius: 2, display: 'inline-block' }} />Sân bay (✈)</span>
+            <span><i style={{ background: '#f57c00', width: 14, height: 10, borderRadius: 2, display: 'inline-block' }} />Sân bay</span>
             <span><i className="lg-sel" />Điểm đã chọn</span>
             <span><i className="lg-sug" />Gợi ý</span>
             <span><i className="lg-bad" />Không còn phù hợp</span>

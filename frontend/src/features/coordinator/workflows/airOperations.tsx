@@ -713,8 +713,8 @@ return (
           </div>
 
           {/* Khối 3: Chuồng chuyên dụng Jet Stall & Nhân sự */}
-          <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: 12 }}>
-            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, color: '#5b21b6', fontWeight: 700 }}>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, color: '#1e293b', fontWeight: 700 }}>
               3. Thiết bị chuồng bay chuyên dụng (Equine Jet Stall / Air Stall)
             </h4>
             <div className="form-grid">

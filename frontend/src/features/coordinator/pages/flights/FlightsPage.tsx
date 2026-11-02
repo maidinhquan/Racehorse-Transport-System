@@ -23,13 +23,12 @@ export function FlightsPage() {
           <button
             type="button"
             className="btn solid"
-            style={{ background: '#7c3aed', color: '#fff', fontWeight: 700, padding: '8px 16px', fontSize: 13, boxShadow: '0 2px 6px rgba(124,58,237,0.3)' }}
             onClick={() => {
               const targetTrip = mine.find((x: Any) => x.status !== 'COMPLETED') || db.trips.find((x: Any) => x.mode === 'AIR');
               if (targetTrip) charterFlightModal(targetTrip.id);
             }}
           >
-            📋 Nhập Hợp đồng thuê chuyến Charter
+            Nhập Hợp đồng Charter
           </button>
         </div>
         <div className="fa-notice"><Icon name="info" /><span>Chuyến bay charter chuyên dụng cho ngựa đua mang tính đặc thù (không có sẵn trên GDS). Điều phối viên nhận Hợp đồng thuê chuyến từ đối tác/hãng bay và nhập trực tiếp vào hệ thống trước khi cất cánh.</span></div>

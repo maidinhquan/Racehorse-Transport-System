@@ -91,7 +91,7 @@ export const shortCity = (name: string) => (name === 'Ho Chi Minh City' ? 'HCMC'
 
 // ---------- điểm dừng & mốc ----------
 export const STOP_COLOR: Record<string, string> = {
-  ORIGIN: '#0f172a', DESTINATION: '#16a34a', CHECKPOINT: '#dc2626', AIRPORT: '#2563eb', QUARANTINE_STATION: '#7c3aed', REST_STOP: '#d97706', FUEL_STOP: '#64748b',
+  ORIGIN: '#0f172a', DESTINATION: '#16a34a', CHECKPOINT: '#dc2626', AIRPORT: '#ea580c', QUARANTINE_STATION: '#0284c7', REST_STOP: '#d97706', FUEL_STOP: '#64748b',
 };
 export const STOP_LABEL: Record<string, string> = {
   ORIGIN: 'Điểm đi', DESTINATION: 'Điểm đến', CHECKPOINT: 'Cửa khẩu', AIRPORT: 'Sân bay', QUARANTINE_STATION: 'Trạm kiểm dịch', REST_STOP: 'Điểm nghỉ', FUEL_STOP: 'Điểm đổ nhiên liệu',

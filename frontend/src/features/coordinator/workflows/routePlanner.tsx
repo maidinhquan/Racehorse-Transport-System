@@ -15,7 +15,7 @@ import { audit, closeModal, commit, confirmAction, db, go, me, nextId, notify, n
 import { addHours, dt, human, stampMs } from '../utils/format';
 
 export const PF: Record<string, string> = { REST: 'Nghỉ & chăm sóc ngựa', FUEL: 'Tiếp nhiên liệu', QUARANTINE: 'Kiểm dịch', BORDER: 'Cửa khẩu / thông quan', AIRPORT: 'Sân bay' };
-export const PF_COLOR: Record<string, string> = { REST: '#d97706', FUEL: '#64748b', QUARANTINE: '#7c3aed', BORDER: '#dc2626', AIRPORT: '#7c3aed' };
+export const PF_COLOR: Record<string, string> = { REST: '#d97706', FUEL: '#64748b', QUARANTINE: '#0284c7', BORDER: '#dc2626', AIRPORT: '#ea580c' };
 export const PLACE_ST: Record<string, [string, string]> = { ACTIVE: ['READY', 'Đang hoạt động'], SUSPENDED: ['PENDING', 'Tạm ngừng'], INACTIVE: ['CANCELLED', 'Ngừng sử dụng'] };
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 export const ROUTE_POLICY: Any = clone((seed as Any).policy);
