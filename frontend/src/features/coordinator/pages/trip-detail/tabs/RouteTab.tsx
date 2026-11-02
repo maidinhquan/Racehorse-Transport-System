@@ -93,7 +93,43 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
   const excessWait = waitingMin >= (ROUTE_POLICY.airportHandoverH + 1.5) * 60;
 
   if (i < rt.stops.length - 1) {
-    if (fl && i === fl[0]) {
+    if (t.mode === 'AIR' && !fl) {
+      legInfo = (
+        <div
+          className="rp-flight-banner"
+          style={{
+            padding: '12px 14px',
+            margin: '8px 0',
+            borderRadius: 8,
+            border: '1px dashed var(--orange, #f57c00)',
+            background: '#fffaf5',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 10,
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 13, color: '#c2410c' }}>
+              Chưa chọn cặp sân bay cất / hạ cánh
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
+              Vận chuyển Hàng không cần chọn sân bay cất cánh và hạ cánh để hệ thống lập lộ trình chặng đón và chặng trả (không tìm tuyến đường bộ xuyên lục địa).
+            </div>
+          </div>
+          {edit ? (
+            <button
+              type="button"
+              className="btn solid sm"
+              onClick={() => selectAirportsModal(t.id)}
+            >
+              Chọn sân bay ngay
+            </button>
+          ) : null}
+        </div>
+      );
+    } else if (fl && i === fl[0]) {
       const hasContract = !!(t.flight?.contractNo || t.flight?.bookingRef || t.flight?.flightNo);
       legInfo = (
         <div
@@ -328,6 +364,32 @@ function Detail({ t }: { t: Any }) {
 
 function Summary({ t }: { t: Any }) {
   const ps = RP(t.id), rt = curRoute(t), calc = rpCalc(t), deadline = rt && rt.status !== 'DRAFT' && rt.deadlineSnapshot ? rt.deadlineSnapshot : rpDeadline(t), rs = ps.routing;
+
+  if (t.mode === 'AIR' && rt && !rpGroups(t, rt).flight) {
+    const edit = rpEditable(t, rt);
+    return (
+      <div className="card pad rp-sum">
+        <div className="note yellow" style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <b>Chưa chọn tuyến máy bay (sân bay cất / hạ cánh)</b>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+              Vận chuyển Hàng không gồm 2 chặng đường bộ kết nối qua 1 chuyến bay thẳng. Vui lòng chọn cặp sân bay để hệ thống phân tách chặng và tìm tuyến đường bộ đón/trả.
+            </p>
+          </div>
+          {edit ? (
+            <button
+              type="button"
+              className="btn solid sm"
+              onClick={() => selectAirportsModal(t.id)}
+            >
+              Chọn sân bay ngay
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
   const status = rs.status === 'loading' ? <div className="rp-state"><span className="geo-spin" />Đang tính tuyến…</div>
     : rs.status === 'error' || rs.status === 'noroute' ? (
       <div className="rp-state bad"><Icon name="alert" /><span>{rs.status === 'noroute' ? 'Không tìm được đường: ' : 'Lỗi routing: '}{rs.error} Danh sách điểm hiện tại chưa có tuyến hợp lệ.</span>

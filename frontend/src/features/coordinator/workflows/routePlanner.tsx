@@ -153,16 +153,13 @@ export function rpGroups(t: Any, rt: Any): { groups: number[][]; flight: [number
   const s = rt.stops;
   if (t.mode !== 'AIR') return { groups: [[...s.keys()]], flight: null };
   const airports = s.map((x: Any, i: number) => (x.type === 'AIRPORT' ? i : -1)).filter((i: number) => i >= 0);
-  if (airports.length === 0) {
-    return { groups: [[...s.keys()]], flight: null, airErr: 'Chuyến AIR cần 2 sân bay (sân bay cất cánh và hạ cánh).' };
-  }
-  if (airports.length === 1) {
-    const a = airports[0];
-    const groups: number[][] = [[...Array(a + 1).keys()]];
-    if (s.length - 1 > a) {
-      groups.push([...Array(s.length - a).keys()].map((k) => k + a));
-    }
-    return { groups, flight: null, airErr: 'Chuyến AIR cần đủ 2 sân bay để tạo chặng bay giữa hai sân bay.' };
+  if (airports.length < 2) {
+    // Chưa chọn tuyến máy bay: KHÔNG tìm tuyến đường bộ trực tiếp giữa điểm nhận và điểm giao
+    return {
+      groups: [],
+      flight: null,
+      airErr: 'Chưa chọn sân bay. Vui lòng chọn cặp sân bay cất / hạ cánh để hệ thống lập lộ trình.',
+    };
   }
   const a = airports[0], b = airports[airports.length - 1];
   const groups = [[...Array(a + 1).keys()], [...Array(s.length - b).keys()].map((k) => k + b)];
@@ -475,6 +472,13 @@ export const rpRouteKey = (t: Any, rt: Any) => JSON.stringify([rt.status !== 'DR
 function rpSimulateDemo(t: Any, rt: Any) {
   const ps = RP(t.id);
   if (rt.status !== 'DRAFT' && rt.routingSnapshot) { ps.routing = { ...clone(rt.routingSnapshot), key: rpRouteKey(t, rt) }; return; }
+  if (t.mode === 'AIR') {
+    const { groups, airErr } = rpGroups(t, rt);
+    if (!groups || !groups.length) {
+      ps.routing = { status: 'idle', key: rpRouteKey(t, rt), legs: [], error: airErr };
+      return;
+    }
+  }
   if (rt.stops.some((s: Any) => s.lat == null || s.lng == null)) { ps.routing = { status: 'error', key: rpRouteKey(t, rt), error: 'Điểm mới chưa có tọa độ.' }; return; }
   const pts = rt.stops.map((s: Any) => [s.lat, s.lng]);
   ps.routing = { status: 'ok', key: rpRouteKey(t, rt), sim: true, at: nowStamp(), legs: pts.slice(1).map((p: number[], i: number) => { const km = kmBetween(pts[i], p) * 1.3; return { km, min: km, geom: [pts[i], p] }; }) };
@@ -491,8 +495,12 @@ export async function rpRoute(t: Any, force = false) {
   const seq = ++ps.seq;
   const missing = rt.stops.filter((x: Any) => x.lat == null || x.lng == null);
   if (missing.length) { ps.routing = { status: 'error', key, error: `Thiếu tọa độ cho: ${missing.map((x: Any) => x.name).join(', ')}.` }; commit(); return; }
-  const { groups } = rpGroups(t, rt);
-  if (!groups || !groups.length) return;
+  const { groups, airErr } = rpGroups(t, rt);
+  if (!groups || !groups.length) {
+    ps.routing = { status: 'idle', key, legs: [], error: airErr };
+    commit();
+    return;
+  }
   ps.routing = { status: 'loading', key, legs: ps.routing.legs || [] }; commit();
   const res = await Promise.all(
     groups.map(async (g) => {
@@ -537,12 +545,20 @@ export function rpCalc(t: Any) {
   const rt = curRoute(t), ps = RP(t.id);
   if (!rt) return null;
   if (rt.status !== 'DRAFT' && rt.scheduleSnapshot) return clone(rt.scheduleSnapshot);
+  if (t.mode === 'AIR') {
+    const { flight } = rpGroups(t, rt);
+    if (!flight) return null;
+  }
   return ps.routing.status === 'ok' && ps.routing.key === rpRouteKey(t, rt) ? rpSchedule(t, rt, ps.routing.legs) : null;
 }
 
 /** gợi ý địa điểm gần đoạn đường bộ đang chọn (lọc khoảng cách thô; độ lệch thực tế tính bằng routing) */
 export function rpCandidates(t: Any) {
   const rt = curRoute(t), ps = RP(t.id), f = ps.filters, seg = ps.seg, calc = rpCalc(t);
+  if (t.mode === 'AIR') {
+    const { flight } = rpGroups(t, rt);
+    if (!flight) return [];
+  }
   const used = new Set((rt?.stops || []).map((x: Any) => x.placeId).filter(Boolean));
   const n = tripHorses(t).length;
 

@@ -111,9 +111,11 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
       return Number.isFinite(lat) && Number.isFinite(lng) ? ([lat, lng] as [number, number]) : null;
     });
     const air = t && t.mode === 'AIR';
+    const hasAirports = stops.some((s: Any) => s.type === 'AIRPORT');
 
     for (let i = 1; i < pts.length; i++) {
       if (!pts[i - 1] || !pts[i]) continue;
+      if (air && !hasAirports) continue;
       const done = current >= 0 && i <= current;
       const flight = air && stops[i - 1]?.type === 'AIRPORT' && stops[i]?.type === 'AIRPORT';
       const segmentGeom = geom && Array.isArray(geom[i - 1]) ? geom[i - 1] : null;
@@ -417,39 +419,42 @@ export function PlannerMap({ t, onTileError }: { t: Any; onTileError: () => void
     lg.clearLayers();
     const ok = ps.routing.status === 'ok' && ps.routing.key === rpRouteKey(t, rt);
     const { flight } = rpGroups(t, rt);
+    const isAirWithoutFlight = t.mode === 'AIR' && !flight;
 
-    const drawnLegs = (ps.routing.legs && ps.routing.legs.some((l: Any) => l && Array.isArray(l.geom) && l.geom.length > 1)) || (ok && ps.routing.legs && ps.routing.legs.length);
-    if (drawnLegs) {
-      (ps.routing.legs || []).forEach((l: Any, i: number) => {
-        if (!l || !Array.isArray(l.geom) || !l.geom.length) return;
-        // Đoạn đường chỉ đỏ khi chính đoạn đó chưa đạt chuẩn: chạy liên tục > 4h chưa nghỉ (sinceCare), cắt qua biên giới, hoặc lỗi routing.
-        // Cảnh báo đợt đường bộ (hành trình tổng > 12h cần nghỉ qua đêm) là cảnh báo toàn chuyến, không làm đỏ từng đoạn ngắn đã phân đoạn chuẩn.
-        const bad = calc && calc.issues.some((x: Any) => x.seg === i && !x.msg.includes('Đợt đường bộ'));
-        L.polyline(l.geom, {
-          color: bad ? '#dc2626' : ps.seg === i ? '#f08a2b' : '#2563eb',
-          weight: ps.seg === i ? 7 : 5,
-          opacity: 0.85,
-          dashArray: l.sim ? '6 8' : undefined,
-        })
-          .on('click', () => rpSeg(t.id, i))
-          .addTo(lg);
-      });
-    } else if (rt.stops && rt.stops.length >= 2) {
-      // Khi đang chờ routing hoặc routing chưa sẵn sàng: vẽ đường nét đứt tạm giữa các điểm đường bộ để người dùng luôn thấy tuyến đường
-      for (let i = 1; i < rt.stops.length; i++) {
-        const sA = rt.stops[i - 1], sB = rt.stops[i];
-        const isFlight = flight && i - 1 === flight[0] && i === flight[1];
-        if (isFlight) continue;
-        const pA = [Number(sA?.lat), Number(sA?.lng)], pB = [Number(sB?.lat), Number(sB?.lng)];
-        if (Number.isFinite(pA[0]) && Number.isFinite(pA[1]) && Number.isFinite(pB[0]) && Number.isFinite(pB[1])) {
-          L.polyline([pA as [number, number], pB as [number, number]], {
-            color: '#2563eb',
-            weight: 4,
-            opacity: 0.75,
-            dashArray: '6 8',
+    if (!isAirWithoutFlight) {
+      const drawnLegs = (ps.routing.legs && ps.routing.legs.some((l: Any) => l && Array.isArray(l.geom) && l.geom.length > 1)) || (ok && ps.routing.legs && ps.routing.legs.length);
+      if (drawnLegs) {
+        (ps.routing.legs || []).forEach((l: Any, i: number) => {
+          if (!l || !Array.isArray(l.geom) || !l.geom.length) return;
+          // Đoạn đường chỉ đỏ khi chính đoạn đó chưa đạt chuẩn: chạy liên tục > 4h chưa nghỉ (sinceCare), cắt qua biên giới, hoặc lỗi routing.
+          // Cảnh báo đợt đường bộ (hành trình tổng > 12h cần nghỉ qua đêm) là cảnh báo toàn chuyến, không làm đỏ từng đoạn ngắn đã phân đoạn chuẩn.
+          const bad = calc && calc.issues.some((x: Any) => x.seg === i && !x.msg.includes('Đợt đường bộ'));
+          L.polyline(l.geom, {
+            color: bad ? '#dc2626' : ps.seg === i ? '#f08a2b' : '#2563eb',
+            weight: ps.seg === i ? 7 : 5,
+            opacity: 0.85,
+            dashArray: l.sim ? '6 8' : undefined,
           })
-            .on('click', () => rpSeg(t.id, i - 1))
+            .on('click', () => rpSeg(t.id, i))
             .addTo(lg);
+        });
+      } else if (rt.stops && rt.stops.length >= 2) {
+        // Khi đang chờ routing hoặc routing chưa sẵn sàng: vẽ đường nét đứt tạm giữa các điểm đường bộ để người dùng luôn thấy tuyến đường
+        for (let i = 1; i < rt.stops.length; i++) {
+          const sA = rt.stops[i - 1], sB = rt.stops[i];
+          const isFlight = flight && i - 1 === flight[0] && i === flight[1];
+          if (isFlight) continue;
+          const pA = [Number(sA?.lat), Number(sA?.lng)], pB = [Number(sB?.lat), Number(sB?.lng)];
+          if (Number.isFinite(pA[0]) && Number.isFinite(pA[1]) && Number.isFinite(pB[0]) && Number.isFinite(pB[1])) {
+            L.polyline([pA as [number, number], pB as [number, number]], {
+              color: '#2563eb',
+              weight: 4,
+              opacity: 0.75,
+              dashArray: '6 8',
+            })
+              .on('click', () => rpSeg(t.id, i - 1))
+              .addTo(lg);
+          }
         }
       }
     }
