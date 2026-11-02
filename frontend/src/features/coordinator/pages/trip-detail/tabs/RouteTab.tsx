@@ -10,7 +10,7 @@ import { commit, db, go, openModal, toast, useCoordinatorStore } from '../../../
 import { addHours, dt, human, stampMs } from '../../../utils/format';
 import { airportLabel, selectAirportsModal } from '../../../workflows/airOperations';
 import { routeSubmit } from '../../../workflows/coordinatorActions';
-import { fmtMin, PF, PF_COLOR, PLACE_ST, plannerMap, ROUTE_POLICY, routeNew, routeSubmitError, ROUTING, RP, rpAdd, rpCalc, rpCandidates, rpDeadline, rpDel, rpDetour, rpEditable, rpEditEndpoint, rpEnsure, rpFixDomesticRoute, rpFlightKey, rpFocus, rpGroups, rpMove, rpPick, rpPolicy, rpPolicyModal, rpRetry, rpRoute, rpRouteKey, rpRoutingModal, rpSave, rpSeg, rpSetAirCare, rpSetFilter, rpSetPurpose, rpSetStop, rpUseSim } from '../../../workflows/routePlanner';
+import { fmtMin, PF, PF_COLOR, PLACE_ST, plannerMap, ROUTE_POLICY, routeNew, routeSubmitError, ROUTING, RP, rpAdd, rpCalc, rpCandidates, rpDeadline, rpDel, rpDetour, rpEditable, rpEditEndpoint, rpEnsure, rpFixDomesticRoute, rpFlightKey, rpFocus, rpGroups, rpMove, rpPolicy, rpPolicyModal, rpRetry, rpRoute, rpRouteKey, rpRoutingModal, rpSave, rpSeg, rpSetAirCare, rpSetFilter, rpSetPurpose, rpSetStop, rpUseSim } from '../../../workflows/routePlanner';
 
 /** Căn lùi giờ xuất phát sao cho xe vừa kịp đến sân bay trước giờ bay đúng số giờ quy định */
 function calcIdealDepart(t: Any, rt: Any) {
@@ -292,7 +292,7 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
 }
 
 function Detail({ t }: { t: Any }) {
-  const ps = RP(t.id), rt = curRoute(t), edit = rpEditable(t, rt), f = ps.filters;
+  const ps = RP(t.id), rt = curRoute(t), edit = rpEditable(t, rt);
   if (ps.sel && placeById(ps.sel)) {
     const p = placeById(ps.sel), c = rpCandidates(t).find((x: Any) => x.p.id === p.id), d = ps.detour[p.id];
     const yn = (b: Any) => (b ? 'có' : 'không');
@@ -323,130 +323,7 @@ function Detail({ t }: { t: Any }) {
     );
   }
 
-  const cands = rpCandidates(t);
-  if (f.fn && f.fn.length > 0) {
-    if (cands.length > 0) {
-      return (
-        <div className="rp-detail" style={{ maxHeight: 360, overflowY: 'auto' }}>
-          <div className="between" style={{ marginBottom: 8, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
-            <span style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>
-              Địa điểm khớp bộ lọc ({cands.length})
-            </span>
-            <button
-              type="button"
-              className="link"
-              style={{ fontSize: 11.5, fontWeight: 600 }}
-              onClick={() => {
-                const pts = cands
-                  .map((c: Any) => [Number(c.p.lat), Number(c.p.lng)] as [number, number])
-                  .filter((p: [number, number]) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
-                if (pts.length) {
-                  plannerMap.fitLeg?.(pts);
-                }
-              }}
-              title="Phóng to bản đồ để thấy tất cả các địa điểm đang lọc"
-            >
-              Xem tất cả trên bản đồ
-            </button>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {cands.map((c: Any) => {
-              const p = c.p;
-              const activeFn = (p.functions || []).find((fn: string) => (f.fn || []).includes(fn)) || (p.functions || [])[0];
-              const color = PF_COLOR[activeFn] || '#2563eb';
-              return (
-                <div
-                  key={p.id}
-                  style={{
-                    padding: '8px 10px',
-                    borderRadius: 6,
-                    border: '1px solid #e2e8f0',
-                    background: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 8,
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      <span style={{ color, fontSize: 10 }}>●</span>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {p.name}
-                      </span>
-                      {p.airport?.iata ? (
-                        <span style={{ fontSize: 10.5, padding: '1px 5px', borderRadius: 4, background: '#ffedd5', color: '#ea580c', fontWeight: 600 }}>
-                          {p.airport.iata}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                      {(p.functions || []).map((fn: string) => PF[fn] || fn).join(' • ')} • {p.province || ''}, {p.country || ''}
-                      {c.off > 0 ? ` • Cách tuyến ~${c.off.toFixed(0)} km` : ''}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                    <button
-                      type="button"
-                      className="btn ghost sm"
-                      style={{ padding: '2px 8px', fontSize: 11 }}
-                      onClick={() => {
-                        rpPick(t.id, p.id);
-                        if (p.lat != null && p.lng != null) {
-                          plannerMap.focus?.(p.lat, p.lng);
-                        }
-                      }}
-                      title="Định vị địa điểm này trên bản đồ"
-                    >
-                      📍 Xem
-                    </button>
-                    {edit ? (
-                      <button
-                        type="button"
-                        className="btn solid sm"
-                        style={{ padding: '2px 8px', fontSize: 11, background: color, color: '#fff', fontWeight: 600 }}
-                        onClick={() => rpAdd(t.id, p.id)}
-                        title="Thêm địa điểm này vào lộ trình"
-                      >
-                        ＋ Thêm
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      );
-    } else {
-      return (
-        <div className="rp-detail">
-          <p className="hint">
-            Không tìm thấy địa điểm nào phù hợp tiêu chí lọc trong bán kính hiện tại.
-          </p>
-          <button
-            type="button"
-            className="btn ghost sm"
-            style={{ marginTop: 6 }}
-            onClick={() => rpSetFilter(t.id, 'radius', 0)}
-          >
-            🌐 Mở rộng toàn quốc (Không giới hạn bán kính)
-          </button>
-        </div>
-      );
-    }
-  }
-
-  return (
-    <div className="rp-detail">
-      <p className="hint">
-        {edit
-          ? 'Bấm vào các nút bộ lọc ở trên (Sân bay, Nghỉ & chăm sóc ngựa, Tiếp nhiên liệu...) để xem vị trí trên bản đồ và thêm điểm dừng vào lộ trình.'
-          : 'Lộ trình đang ở chế độ xem.'}
-      </p>
-    </div>
-  );
+  return null;
 }
 
 function Summary({ t }: { t: Any }) {
@@ -689,7 +566,7 @@ export function RouteTab({ t }: { t: Any }) {
           </div>
           <p className="hint rp-tilemsg" hidden={!tileErr}>Chưa tải được nền bản đồ Geoapify. Vui lòng thử lại sau.</p>
         </div>
-        <div id="rp-detail"><Detail t={t} /></div>
+        {ps.sel && placeById(ps.sel) ? <div id="rp-detail"><Detail t={t} /></div> : null}
       </div>
     </div>
     <div id="rp-summary"><Summary t={t} /></div>
