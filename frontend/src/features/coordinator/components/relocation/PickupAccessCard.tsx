@@ -316,6 +316,9 @@ export const PickupAccessCard: React.FC<PickupAccessCardProps> = ({ t, onUpdated
   const pa = t.pickupAccess;
   const pr = t.pickupRelocation;
   const isInaccessible = pa?.result === 'INACCESSIBLE';
+  const isAccessLocked = !!pr && ['PROPOSED', 'MANAGER_APPROVED', 'AWAITING_CUSTOMER', 'CUSTOMER_CONFIRMED'].includes(pr.status);
+  const isConfirmedAndLocked = pr?.status === 'CUSTOMER_CONFIRMED';
+  const isPendingApprovalOrCustomer = !!pr && ['PROPOSED', 'MANAGER_APPROVED', 'AWAITING_CUSTOMER'].includes(pr.status);
 
   return (
     <div
@@ -354,19 +357,30 @@ export const PickupAccessCard: React.FC<PickupAccessCardProps> = ({ t, onUpdated
 
           <button
             type="button"
-            onClick={() => setShowAccessModal(true)}
+            onClick={() => {
+              if (isAccessLocked) {
+                toast('Không thể sửa khảo sát đường vào: Đề xuất đổi điểm đang được xử lý hoặc đã chốt với khách hàng.');
+                return;
+              }
+              setShowAccessModal(true);
+            }}
+            disabled={isAccessLocked}
+            title={isAccessLocked ? 'Khóa sửa: Đề xuất đổi điểm đón đang xử lý hoặc đã chốt' : ''}
             style={{
               fontSize: 11,
               fontWeight: 600,
               padding: '4px 10px',
               borderRadius: 6,
-              background: '#f8fafc',
-              border: '1px solid #cbd5e1',
-              color: '#334155',
-              cursor: 'pointer',
+              background: isAccessLocked ? '#f1f5f9' : '#f8fafc',
+              border: `1px solid ${isAccessLocked ? '#e2e8f0' : '#cbd5e1'}`,
+              color: isAccessLocked ? '#94a3b8' : '#334155',
+              cursor: isAccessLocked ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
             }}
           >
-            {pa ? 'Đánh giá lại' : 'Xác minh đường vào'}
+            {isAccessLocked ? '🔒 Đã khóa khảo sát' : pa ? 'Đánh giá lại' : 'Xác minh đường vào'}
           </button>
         </div>
       </div>
@@ -450,9 +464,17 @@ export const PickupAccessCard: React.FC<PickupAccessCardProps> = ({ t, onUpdated
               </div>
 
               {/* Status specific alerts */}
-              {pr.status === 'CUSTOMER_CONFIRMED' && (
-                <div style={{ marginTop: 8, fontSize: 11, color: '#166534', background: '#dcfce7', padding: '6px 10px', borderRadius: 6 }}>
-                  ✓ Điểm xuất phát của chuyến đi và lộ trình đã được cập nhật đón ngựa tại: <b>{pr.placeName}</b>.
+              {isConfirmedAndLocked && (
+                <div style={{ marginTop: 8, fontSize: 11, color: '#166534', background: '#dcfce7', padding: '8px 12px', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #bbf7d0' }}>
+                  <span style={{ fontSize: 13 }}>🔒</span>
+                  <span><b>ĐÃ CHỐT VỚI KHÁCH HÀNG:</b> Điểm đón mới đã chính thức có hiệu lực tại <b>{pr.placeName}</b>. Thỏa thuận đã chốt và không thể chỉnh sửa. Lộ trình xe đã cập nhật sang điểm này.</span>
+                </div>
+              )}
+
+              {isPendingApprovalOrCustomer && (
+                <div style={{ marginTop: 8, fontSize: 11, color: '#0369a1', background: '#e0f2fe', padding: '6px 10px', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 13 }}>🔒</span>
+                  <span><b>Biểu mẫu đề xuất đã được khóa:</b> Đang trong quy trình phê duyệt &amp; chờ khách quyết định. Không cho phép sửa đổi đè.</span>
                 </div>
               )}
 

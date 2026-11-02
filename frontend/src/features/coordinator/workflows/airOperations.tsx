@@ -367,6 +367,9 @@ export function submitAirPlan(id: string) {
   const t = trip(id), block = editableTrip(t), rt = curRoute(t);
   if (block) return toast(block);
   if (!rt || rt.status !== 'DRAFT') return toast('Chỉ gửi phiên bản tuyến nháp.');
+  if (t.pickupAccess?.result === 'INACCESSIBLE' && t.pickupRelocation?.status !== 'CUSTOMER_CONFIRMED') {
+    return toast('Không thể gửi duyệt: Điểm đón xe không vào được và chưa có điểm đón mới được khách hàng xác nhận (F3-J28 .. J32).');
+  }
   rpEnsure(t, rt);
   const calc = rpCalc(t), gaps = planningGaps(t);
   if (!calc || calc.issues.length) return toast('Tính xong tuyến và xử lý toàn bộ lỗi lịch/nghỉ/chăm sóc trước khi gửi.');

@@ -1253,6 +1253,9 @@ export const setRouteError = (m: string) => { routeSubmitError = m; if (m) toast
 export function submitRoadRoute(id: string, extraCheck?: () => string, onSubmitted?: () => void) {
   const t = trip(id), rt = curRoute(t);
   if (!rt || rt.status !== 'DRAFT') return toast('Chỉ áp dụng được phiên bản tuyến đang là bản nháp.');
+  if (t.pickupAccess?.result === 'INACCESSIBLE' && t.pickupRelocation?.status !== 'CUSTOMER_CONFIRMED') {
+    return setRouteError('Không thể chốt lộ trình: Điểm đón xe không vào được và chưa có điểm đón mới được khách hàng xác nhận (F3-J28 .. J32).');
+  }
   rpEnsure(t, rt);
   const calc = rpCalc(t), ps = RP(id);
   if (!calc) return setRouteError(ps.routing.status === 'loading' ? 'Đang tính tuyến – chờ kết quả rồi chốt lộ trình.' : 'Chưa có tuyến hợp lệ cho danh sách điểm hiện tại (routing lỗi hoặc chưa tính). Không thể chốt lộ trình.');

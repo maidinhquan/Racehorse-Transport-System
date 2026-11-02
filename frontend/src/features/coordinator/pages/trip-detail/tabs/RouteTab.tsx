@@ -467,6 +467,19 @@ export function RouteTab({ t }: { t: Any }) {
       <div><span>Hạn giao</span><b>{dt(rpDeadline(t))}</b></div>
       <div><span>Phiên bản</span><b>v{rt.v} • <Pill v={rt.status} /></b></div>
     </div></div>
+    {(() => {
+      const isPickupBlocked = t.pickupAccess?.result === 'INACCESSIBLE' && t.pickupRelocation?.status !== 'CUSTOMER_CONFIRMED';
+      return isPickupBlocked ? (
+        <div className="note red" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <b>🔒 Bị khóa bước gửi duyệt:</b> Xe chở ngựa không vào được địa chỉ đón gốc. Cần hoàn tất thỏa thuận dời điểm đón với khách hàng tại tab Tổng quan trước khi gửi duyệt lộ trình.
+          </div>
+          <button type="button" className="btn solid sm" onClick={() => go(`f/trip/${t.id}/overview`)}>
+            Đi tới tab Tổng quan →
+          </button>
+        </div>
+      ) : null;
+    })()}
     {rt.status === 'APPROVED' ? <div className="note green"><Icon name="check" /><div><b>Phiên bản v{rt.v} đã được phê duyệt & áp dụng – chỉ đọc</b>Muốn chỉnh tuyến, tạo phiên bản điều chỉnh. Thay đổi dữ liệu địa điểm không tự sửa kế hoạch đã duyệt.</div></div>
       : rt.status === 'PENDING_APPROVAL' ? <div className="note yellow"><Icon name="clock" /><div><b>Phiên bản v{rt.v} đang chờ Manager duyệt – chỉ đọc</b></div></div>
         : rt.status === 'RETURNED' ? <div className="note red"><Icon name="alert" /><div><b>Manager trả lại v{rt.v}</b>{rt.note || ''}</div></div> : null}
@@ -662,8 +675,30 @@ export function RouteTab({ t }: { t: Any }) {
     </div>
     <div id="rp-summary"><Summary t={t} /></div>
     <div className="rp-actions">
-      {edit ? <><button type="button" className="btn ghost lg" onClick={() => rpSave(t.id)}>Lưu bản nháp</button><button type="button" className="btn solid lg" onClick={() => routeSubmit(t.id)}>{t.mode === 'AIR' ? 'Gửi Manager duyệt' : 'Chốt & Áp dụng lộ trình'}</button></>
-        : canPlan(t) && ['APPROVED', 'RETURNED'].includes(rt.status) ? <button type="button" className="btn solid lg" onClick={() => routeNew(t.id)}>Tạo phiên bản điều chỉnh v{rt.v + 1}</button> : null}
+      {edit ? (() => {
+        const isPickupBlocked = t.pickupAccess?.result === 'INACCESSIBLE' && t.pickupRelocation?.status !== 'CUSTOMER_CONFIRMED';
+        return (
+          <>
+            <button type="button" className="btn ghost lg" onClick={() => rpSave(t.id)}>Lưu bản nháp</button>
+            <button
+              type="button"
+              className={`btn solid lg ${isPickupBlocked ? 'disabled' : ''}`}
+              disabled={isPickupBlocked}
+              style={isPickupBlocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+              title={isPickupBlocked ? 'Khóa gửi duyệt: Điểm đón xe không vào được và chưa có điểm đón mới được khách xác nhận.' : ''}
+              onClick={() => {
+                if (isPickupBlocked) {
+                  toast('Không thể gửi duyệt: Điểm đón xe không vào được và chưa có điểm đón mới được khách hàng xác nhận.');
+                  return;
+                }
+                routeSubmit(t.id);
+              }}
+            >
+              {isPickupBlocked ? '🔒 Khóa gửi duyệt (Chưa chốt điểm đón)' : t.mode === 'AIR' ? 'Gửi Manager duyệt' : 'Chốt & Áp dụng lộ trình'}
+            </button>
+          </>
+        );
+      })() : canPlan(t) && ['APPROVED', 'RETURNED'].includes(rt.status) ? <button type="button" className="btn solid lg" onClick={() => routeNew(t.id)}>Tạo phiên bản điều chỉnh v{rt.v + 1}</button> : null}
       <span className="hint">{t.demoFlow3 ? 'Routing: Mô phỏng riêng chuyến Demo · không phải đường thực tế' : <>Routing: {ROUTING.provider === 'SIM' ? 'Mô phỏng (dữ liệu mẫu)' : 'OSRM – ' + ROUTING.url.replace(/^https?:\/\//, '').split('/')[0]} • <button type="button" className="link" onClick={rpRoutingModal}>Đổi</button></>}</span>
     </div>
     <p className="au-error" id="f-route-error" hidden={!routeSubmitError || !edit}>{routeSubmitError}</p>
