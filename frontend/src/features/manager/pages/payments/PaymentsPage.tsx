@@ -147,15 +147,15 @@ export const PaymentsPage: React.FC = () => {
                 <thead><tr><th>Yêu cầu</th><th>Khách hàng</th><th>Hợp đồng</th><th className="num">Tiền cọc</th><th>Hạn chung</th><th>Thanh toán</th><th /></tr></thead>
                 <tbody>
                   {outstandingDeposits.map((r) => {
-                    const v = curVersion(r)!, st = versionState(v), p = pendingTx(data, r);
+                    const v = curVersion(r), st = versionState(v), p = pendingTx(data, r);
                     return (
                       <tr key={r.id} className={st === 'EXPIRED' ? 'mgr-row-attn' : ''}>
                         <td><Link className="mgr-link" to={`/manager/contracts/${r.id}`}><b>{r.id}</b></Link></td>
                         <td><CustomerCell c={customerOf(data, r)} /></td>
-                        <td>{ctRef(v)}<div><StatusBadge kind="contract" status={st} /></div></td>
+                        <td>{v ? <>{ctRef(v)}<div><StatusBadge kind="contract" status={st} /></div></> : <span className="mgr-muted">Chưa phát hành</span>}</td>
                         <td className="num">{fmtMoney(depositOf(r))}</td>
-                        <td className="mgr-nowrap">{fmtDateTime(v.validUntil)}<div className={st === 'EXPIRED' ? 'mgr-bad' : 'mgr-muted'}>{timeLeft(v.validUntil)}</div></td>
-                        <td>{p ? <StatusBadge kind="payment" status={p.status} /> : v.termsAcceptedAt ? 'Đã đồng ý điều khoản' : 'Chưa đồng ý điều khoản'}</td>
+                        <td className="mgr-nowrap">{v?.validUntil ? <>{fmtDateTime(v.validUntil)}<div className={st === 'EXPIRED' ? 'mgr-bad' : 'mgr-muted'}>{timeLeft(v.validUntil)}</div></> : '—'}</td>
+                        <td>{p ? <StatusBadge kind="payment" status={p.status} /> : v?.termsAcceptedAt ? 'Đã đồng ý điều khoản' : 'Chưa đồng ý điều khoản'}</td>
                         <td><div className="mgr-btn-row" style={{ flexWrap: 'nowrap' }}>
                           <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => actions.remindSign(r.id)}>Nhắc</button>
                           <Link className="mgr-btn mgr-btn--sm" to={`/manager/requests/${r.id}/contract`}>Gia hạn hợp đồng</Link>

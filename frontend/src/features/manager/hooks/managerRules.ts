@@ -210,11 +210,12 @@ export const DEFAULT_TERMS: ContractTerm[] = [
 
 export const curVersion = (r: TransportRequest): ContractVersion | undefined => r.versions[r.versions.length - 1];
 /** Trạng thái thực tế: phiên bản đã phát hành mà quá hạn chung thì hết hạn */
-export function versionState(v: ContractVersion): ContractState {
+export function versionState(v?: ContractVersion | null): ContractState {
+  if (!v || !v.state) return 'VOID';
   if (v.state === 'ISSUED' && !v.signedAt && isPast(v.validUntil)) return 'EXPIRED';
   return v.state;
 }
-export const ctRef = (v: Pick<ContractVersion, 'number' | 'v'>) => `${v.number} v${v.v}`;
+export const ctRef = (v?: Pick<ContractVersion, 'number' | 'v'> | null) => (v && v.number ? `${v.number} v${v.v}` : '—');
 export const sumItems = (items: ContractItem[]) => items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
 export const sumBudget = (b: Budget) =>
   (Number(b.TRANSPORT) || 0) +
