@@ -93,7 +93,28 @@ public sealed partial class AftercareService
                 await E("INSERT CUSTOMER_CASE(CaseID,SettlementID,CaseType,Subject,Description,OpenedAtUtc) VALUES(@id,@s,@t,@sub,@d,@n)",ct,("@id",key),("@s",id),("@t",type),("@sub",S(body!,"subject")),("@d",S(body!,"description")),("@n",Now));return await One(CaseSql+" WHERE CaseID=@id",ct,("@id",key));
             }
             case "F6-J30":return A(await Q(CaseSql+" WHERE SettlementID=@s ORDER BY OpenedAtUtc,CaseID",ct,("@s",id)));
-            case "F6-J31":return A(await Q(CaseSql+" ORDER BY OpenedAtUtc,CaseID",ct));
+            case "F6-J31":
+            {
+                var parts = (id ?? "").Split(':');
+                var st = parts.Length > 0 && !string.IsNullOrWhiteSpace(parts[0]) ? parts[0].ToUpperInvariant() : null;
+                var tp = parts.Length > 1 && !string.IsNullOrWhiteSpace(parts[1]) ? parts[1].ToUpperInvariant() : null;
+                var sql = CaseSql + " WHERE 1=1";
+                var args = new List<(string, object?)>();
+                if (st is not null)
+                {
+                    Require(new[] { "OPEN", "IN_PROGRESS", "RESOLVED" }.Contains(st), "VALIDATION_ERROR", "Invalid case status.", 400);
+                    sql += " AND Status=@st";
+                    args.Add(("@st", st));
+                }
+                if (tp is not null)
+                {
+                    Require(new[] { "COMPLAINT", "SUPPORT" }.Contains(tp), "VALIDATION_ERROR", "Invalid case type.", 400);
+                    sql += " AND CaseType=@tp";
+                    args.Add(("@tp", tp));
+                }
+                sql += " ORDER BY OpenedAtUtc,CaseID";
+                return A(await Q(sql, ct, args.ToArray()));
+            }
             case "F6-J32":case "F6-J33":
             {
                 var c=await One(CaseSql+" WHERE CaseID=@id",ct,("@id",id));

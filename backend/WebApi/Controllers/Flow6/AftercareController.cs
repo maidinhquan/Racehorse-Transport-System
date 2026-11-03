@@ -72,7 +72,7 @@ public sealed class AftercareController(AftercareService service) : ControllerBa
     [HttpGet("customer/flow6/settlements/{settlementId}/cases"), Authorize(Roles = UserRoles.Customer)]
     public Task<IActionResult> J30(string settlementId, CancellationToken ct) => Run("F6-J30", settlementId, null, ct);
     [HttpGet("manager/flow6/cases"), Authorize(Roles = UserRoles.LogisticsManager)]
-    public Task<IActionResult> J31(CancellationToken ct) => Run("F6-J31", null, null, ct);
+    public Task<IActionResult> J31([FromQuery] string? status, [FromQuery] string? type, CancellationToken ct) => Run("F6-J31", $"{status?.Trim()}:{type?.Trim()}", null, ct);
     [HttpPost("manager/flow6/cases/{caseId}/start"), Authorize(Roles = UserRoles.LogisticsManager)]
     public Task<IActionResult> J32(string caseId, CancellationToken ct) => Run("F6-J32", caseId, null, ct);
     [HttpPost("manager/flow6/cases/{caseId}/resolve"), Authorize(Roles = UserRoles.LogisticsManager)]
