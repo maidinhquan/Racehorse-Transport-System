@@ -105,6 +105,8 @@ public sealed class AftercareController(AftercareService service) : ControllerBa
     public Task<IActionResult> J46(string settlementId, CancellationToken ct) => Run("F6-J46", settlementId, null, ct);
     [HttpGet("manager/flow6/settlements/{settlementId}/delivery/pdf"), Authorize(Roles = UserRoles.LogisticsManager)]
     public Task<IActionResult> J47(string settlementId, CancellationToken ct) => Run("F6-J47", settlementId, null, ct);
+    [HttpPost("manager/flow6/payments/{paymentId}/review"), Authorize(Roles = UserRoles.LogisticsManager)]
+    public Task<IActionResult> J48(string paymentId, [FromBody] JsonObject body, CancellationToken ct) => Run("F6-J48", paymentId, body, ct);
     private async Task<IActionResult> Run(string operation, string? id, JsonObject? body, CancellationToken ct)
     {
         var actor = User.FindFirstValue(ClaimTypes.NameIdentifier);

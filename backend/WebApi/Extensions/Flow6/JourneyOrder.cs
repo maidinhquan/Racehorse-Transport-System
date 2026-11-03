@@ -14,7 +14,7 @@ public static class JourneyOrder
         new("Flow 6 · 04. Xem hồ sơ tất toán và biên bản đã giao", "Hồ sơ nháp được tạo hoặc lấy khi xác nhận giao. Manager có thể chuẩn bị trước; khách chỉ xem hồ sơ thuộc mình.", [14,15,16,12,13,42,41,47,46]),
         new("Flow 6 · 05. Tính số dư và lập hóa đơn cuối", "Lấy giá đã ký và tiền cọc verified. Phát hành hóa đơn đầu tiên trước điều chỉnh; sau điều chỉnh gọi lại để áp vào hóa đơn khi đủ điều kiện.", [17,18,22,23]),
         new("Flow 6 · 06. Nhánh điều chỉnh và hoàn tiền", "Chỉ dùng khi phát sinh. Manager quyết định khoản thu thêm/giảm/hoàn; ghi nhận hoàn tiền không tự chuyển tiền. Hoàn thành cần bộ xác minh đã cấu hình.", [19,20,21,27,28]),
-        new("Flow 6 · 07. Thanh toán số dư qua VNPay", "Khách mở phiên và xem kết quả. VNPay gửi IPN qua URL dùng chung /api/payments/vnpay/ipn; browser Return không ghi tiền.", [24,25,44]),
+        new("Flow 6 · 07. Thanh toán số dư qua VNPay", "Khách mở phiên và xem kết quả. VNPay gửi IPN qua URL dùng chung /api/payments/vnpay/ipn; browser Return không ghi tiền. Manager duyệt đối soát nếu thanh toán muộn.", [24,25,44,48]),
         new("Flow 6 · 08. Manager xác nhận tất toán", "Sau giao hợp lệ và đủ nghĩa vụ tài chính: chuyển SETTLED, mở thời hạn phản hồi. Không yêu cầu khách nghiệm thu riêng.", [26]),
         new("Flow 6 · 09. Khiếu nại và hỗ trợ", "Có thể khiếu nại ngay sau bàn giao dù chưa trả đủ tiền; không cần chờ bước 08. Manager xử lý OPEN → IN_PROGRESS → RESOLVED. SUPPORT dùng được sau CLOSED.", [29,30,31,32,33]),
         new("Flow 6 · 10. Đánh giá và thời hạn phản hồi", "Một đánh giá mỗi hồ sơ. Khi hết khiếu nại và nghĩa vụ tiền, mở lại đủ thời hạn; retry không kéo dài tiếp.", [34,35,43,36]),

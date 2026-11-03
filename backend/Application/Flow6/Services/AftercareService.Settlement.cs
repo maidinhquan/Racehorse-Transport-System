@@ -136,6 +136,15 @@ public sealed partial class AftercareService
             {var s=await Settlement(id,ct);Require(S(s,"handoverRevisionId") is not null,"NOT_FOUND","Confirmed delivery not found.",404);var r=await Revision(S(s,"handoverRevisionId")!,ct);return op is "F6-J46" or "F6-J47"?renderer.Render(r):r;}
             case "F6-J44":return A(await Q(PaymentSql+" WHERE InvoiceID IN(SELECT i.InvoiceID FROM INVOICE i JOIN TRIP_SETTLEMENT s ON s.ContractID=i.ContractID AND s.ContractVersionNo=i.ContractVersionNo WHERE s.SettlementID=@s)",ct,("@s",id)));
             case "F6-J45":return renderer.Render(await Revision(id,ct));
+            case "F6-J48":
+            {
+                var p=await One(PaymentSql+" WHERE PaymentID=@id",ct,("@id",id));
+                Require(S(p,"status")=="SUCCESS","INVALID_STATE","Only successful payments can be reviewed.");
+                Require(B(p,"financialReviewRequired"),"INVALID_STATE","Payment does not require financial review.");
+                var reason=S(body!,"reason")!;
+                await E("UPDATE PAYMENT SET FinancialReviewRequired=0,FinancialReviewReason=@r,FinancialReviewedBy=@a,FinancialReviewedAtUtc=@now WHERE PaymentID=@id",ct,("@r",reason),("@a",actor),("@now",Now),("@id",id));
+                return await One(PaymentSql+" WHERE PaymentID=@id",ct,("@id",id));
+            }
             default:throw new AftercareException("FEATURE_NOT_SUPPORTED","Unknown Flow 6 operation.",501);
         }
     }

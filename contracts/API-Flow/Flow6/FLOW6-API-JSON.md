@@ -53,6 +53,7 @@
 | F6-J45 | GET | `/operations/flow6/revisions/{revisionId}/pdf` | Xuất PDF đúng bản biên bản |
 | F6-J46 | GET | `/customer/flow6/settlements/{settlementId}/delivery/pdf` | Customer tải biên bản đã nhận |
 | F6-J47 | GET | `/manager/flow6/settlements/{settlementId}/delivery/pdf` | Manager tải biên bản nghiệm thu |
+| F6-J48 | POST | `/manager/flow6/payments/{paymentId}/review` | Manager duyệt đối soát thanh toán quá hạn |
 
 ## F6-J01 — GET /operations/flow6/trips
 
@@ -2433,5 +2434,52 @@ Content-Disposition: attachment; filename="delivery.pdf"
   "message": "Không thể thực hiện thao tác: manager tải biên bản nghiệm thu.",
   "data": null,
   "errorCode": "DELIVERY_NOT_CONFIRMED"
+}
+```
+
+## F6-J48 — POST /manager/flow6/payments/{paymentId}/review
+
+Manager duyệt đối soát thanh toán quá hạn hoặc cần kiểm tra tài chính.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** Payment phải ở trạng thái `SUCCESS` và đang có cờ `financialReviewRequired = true`. Cần nhập lý do đối soát (`reason`).
+
+**Ghi dữ liệu / retry:** Ghi nhận `financialReviewRequired = false`, lưu `financialReviewReason`, `financialReviewedBy` (ID Manager duyệt), `financialReviewedAtUtc` (thời điểm duyệt). Cho phép settlement tiếp tục bước tất toán (`F6-J26`).
+
+**Path parameters:** `paymentId=PAYMENT_007`. ID chỉ ở URL, không lặp body.
+
+**Request:** JSON `ReasonInput`
+
+```json
+{
+  "reason": "Đã kiểm tra sao kê ngân hàng khớp 87 triệu VND"
+}
+```
+
+**Response 200 — Payment**
+
+```json
+{
+  "success": true,
+  "message": "Manager duyệt đối soát thanh toán quá hạn thành công",
+  "data": {
+    "id": "PAYMENT_007",
+    "invoiceId": "INVOICE_008",
+    "amountVnd": 87000000,
+    "status": "SUCCESS",
+    "financialReviewRequired": false
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: manager duyệt đối soát thanh toán quá hạn.",
+  "data": null,
+  "errorCode": "FINANCIAL_REVIEW_NOT_ELIGIBLE"
 }
 ```
