@@ -19,7 +19,22 @@ public sealed class SwaggerLayout : IOperationFilter,IDocumentFilter
         {
             var name=p!["name"]!.GetValue<string>();var location=p["in"]!.GetValue<string>();
             var old=operation.Parameters.FirstOrDefault(x=>x.Name==name);if(old is not null)operation.Parameters.Remove(old);
-            operation.Parameters.Add(new(){Name=name,In=location=="path"?ParameterLocation.Path:location=="header"?ParameterLocation.Header:ParameterLocation.Query,Required=p["required"]?.GetValue<bool>()??false,Schema=Convert(p["schema"]!)});
+            var schema = Convert(p["schema"]!);
+            var param = new OpenApiParameter
+            {
+                Name = name,
+                In = location == "path" ? ParameterLocation.Path : location == "header" ? ParameterLocation.Header : ParameterLocation.Query,
+                Required = p["required"]?.GetValue<bool>() ?? false,
+                Schema = schema
+            };
+            if (name.Equals("Idempotency-Key", StringComparison.OrdinalIgnoreCase))
+            {
+                var sampleKey = Guid.NewGuid().ToString("D");
+                schema.Example = new OpenApiString(sampleKey);
+                schema.Default = new OpenApiString(sampleKey);
+                param.Example = new OpenApiString(sampleKey);
+            }
+            operation.Parameters.Add(param);
         }
         operation.Responses.Clear();var status=id is "F6-J03" or "F6-J11" or "F6-J15" or "F6-J19" or "F6-J24" or "F6-J29" or "F6-J34"?"201":"200";
         operation.Responses[status]=new(){Description="Success",Content=new Dictionary<string,OpenApiMediaType>{{id is "F6-J45" or "F6-J46" or "F6-J47"?"application/pdf":"application/json",new(){Schema=id is "F6-J45" or "F6-J46" or "F6-J47"?new(){Type="string",Format="binary"}:new(){Reference=new(){Type=ReferenceType.Schema,Id="Flow6_"+id+"Response"}}}}}};
