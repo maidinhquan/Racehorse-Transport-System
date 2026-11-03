@@ -6,6 +6,7 @@ namespace Application.DTOs
         public string PlateNumber { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;
         public string RegistrationCountry { get; set; } = "VN";
+        public string OperatingCountry { get; set; } = "VN";
         public int TotalStalls { get; set; }
         public int AvailableStalls { get; set; }
         public decimal? PayloadKg { get; set; }
@@ -23,6 +24,7 @@ namespace Application.DTOs
         public string PlateNumber { get; set; } = string.Empty;
         public string Type { get; set; } = "HORSEBOX_3_STALLS";
         public string RegistrationCountry { get; set; } = "VN";
+        public string OperatingCountry { get; set; } = "VN";
         public int CapacityStalls { get; set; } = 3;
         public decimal? PayloadKg { get; set; } = 8000;
         public DateTime? RegistrationExpiry { get; set; }

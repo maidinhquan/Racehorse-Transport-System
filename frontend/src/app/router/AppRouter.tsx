@@ -69,7 +69,6 @@ import {
   FleetPage,
   VehicleDetailPage,
   CrewPage,
-  FlightsPage,
   IncidentsPage as CoordinatorIncidentsPage,
   IncidentDetailPage as CoordinatorIncidentDetailPage,
   MonitorPage,
@@ -78,6 +77,7 @@ import {
   CoordinatorProfilePage,
 } from "../../features/coordinator";
 import { LandingPage } from "../../features/landing/LandingPage";
+import ApiDemoPage from "../../features/demo/ApiDemoPage";
 import { RequireAuth } from "../../features/auth/RequireAuth";
 
 function AppRouter() {
@@ -143,7 +143,7 @@ function AppRouter() {
         <Route path="/coordinator/fleet" element={<FleetPage />} />
         <Route path="/coordinator/fleet/:vehicleId" element={<VehicleDetailPage />} />
         <Route path="/coordinator/crew" element={<CrewPage />} />
-        <Route path="/coordinator/flights" element={<FlightsPage />} />
+        <Route path="/coordinator/flights" element={<Navigate to="/coordinator/dashboard" replace />} />
         <Route path="/coordinator/incidents" element={<CoordinatorIncidentsPage />} />
         <Route path="/coordinator/incidents/:incidentId" element={<CoordinatorIncidentDetailPage />} />
         <Route path="/coordinator/monitor" element={<MonitorPage />} />
@@ -207,6 +207,10 @@ function AppRouter() {
         <Route path="/customer/payments/return" element={<SandboxPaymentPage />} />
         <Route path="/customer/payments" element={<Navigate to="/customer/requests" replace />} />
         <Route path="/payment" element={<Navigate to="/customer/requests" replace />} />
+
+        {/* ==================== API DEMO & CONTRACT PLAYGROUND ==================== */}
+        <Route path="/demo/api" element={<ApiDemoPage />} />
+        <Route path="/demo-api" element={<ApiDemoPage />} />
 
         {/* ==================== NOT FOUND ==================== */}
         <Route path="*" element={<Navigate to="/login" replace />} />

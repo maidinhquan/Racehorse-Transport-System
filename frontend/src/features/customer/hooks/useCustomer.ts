@@ -240,7 +240,7 @@ const updateReq = (id: string, fn: (r: TransportRequest) => void) => {
   }));
 };
 const ACTOR: Record<ActorRole, string> = {
-  CUSTOMER: '', LOGISTICS_MANAGER: 'Linh Pham', TRANSPORT_SPECIALIST: 'Hoang Thu Ha', FLEET_ROUTE_COORDINATOR: 'Dang Minh Quan',
+  CUSTOMER: '', LOGISTICS_MANAGER: 'Linh Pham', TRANSPORT_SPECIALIST: 'Hoang Thu Ha', FLEET_ROUTE_COORDINATOR: 'Phạm Hải',
   DRIVER_ESCORT: 'Pham Van Duc', SYSTEM: 'Hệ thống',
 };
 const log = (r: TransportRequest, role: ActorRole, action: string, detail?: string) =>

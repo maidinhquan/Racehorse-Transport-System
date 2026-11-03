@@ -296,7 +296,15 @@ export const useDriver = () => {
 
   useEffect(() => { void loadAll(); }, []);
 
-  const me = useMemo(() => snap.crew.find((c) => c.id === snap.userId), [snap.crew, snap.userId]);
+  const me = useMemo(() => {
+    const found = snap.crew.find((c) => c.id === snap.userId);
+    if (found) return found;
+    const storedName = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null;
+    if (storedName) {
+      return { id: snap.userId, name: storedName, role: 'MAIN_DRIVER' as const, phone: '' };
+    }
+    return undefined;
+  }, [snap.crew, snap.userId]);
   const myTrips = useMemo(() => tripsOf(snap.trips, snap.userId), [snap.trips, snap.userId]);
   const activeTrips = useMemo(() => myTrips.filter(isActiveTrip), [myTrips]);
   const completedTrips = useMemo(() => myTrips.filter((t) => !isActiveTrip(t)), [myTrips]);

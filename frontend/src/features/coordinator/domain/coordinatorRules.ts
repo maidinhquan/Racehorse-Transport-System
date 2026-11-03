@@ -12,7 +12,7 @@ export const STALE_H = 3;
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
 // ---------- tra cứu ----------
-export const trip = (id?: string) => db.trips.find((t: Any) => t.id === id || cleanId(t.id) === cleanId(id));
+export const trip = (id?: string) => db.trips.find((t: Any) => t.id === id || cleanId(t.id) === cleanId(id) || t.tripId === id || cleanId(t.tripId) === cleanId(id));
 export const reqById = (id?: string) => db.requests.find((r: Any) => r.id === id || cleanId(r.id) === cleanId(id));
 export const reqOfTrip = (t: Any) => reqById(t?.requestId) || { id: t?.requestId, origin: t?.origin || '', destination: t?.destination || '', pickup: {}, delivery: {}, horses: t?.horses || [] };
 export const tripOfReq = (rid: string) => db.trips.find((t: Any) => t.requestId === rid || cleanId(t.requestId) === cleanId(rid));
@@ -27,15 +27,26 @@ export const placeByName = (n: string) => db.places.find((p: Any) => p.name === 
 
 export const curRoute = (t: Any) => (t?.routes?.length ? t.routes[t.routes.length - 1] : null);
 export const approvedRoute = (t: Any) => [...(t.routes || [])].reverse().find((r: Any) => r.status === 'APPROVED') || null;
-export const tripStops = (t: Any): Any[] => (approvedRoute(t) || curRoute(t) || { stops: [] }).stops;
-export const lastMilestone = (t: Any) => (t.milestones?.length ? t.milestones[t.milestones.length - 1] : null);
+export const tripStops = (t: Any): Any[] => (approvedRoute(t) || curRoute(t) || { stops: [] }).stops || [];
+export const lastMilestone = (t: Any) => (t?.milestones?.length ? t.milestones[t.milestones.length - 1] : null);
 export const tripHorses = (t: Any): string[] => reqOfTrip(t).horses || [];
 export const horseCount = (r: Any) => r?.count || r?.horses?.length || 1;
 export const crewOf = (t: Any): [string, string][] => Object.entries(t.crew || {}).filter(([, v]) => v) as [string, string][];
 export const tripLabel = (t: Any) => { const r = reqOfTrip(t); return `${t.id} • ${r.origin === 'Ho Chi Minh City' ? 'HCMC' : r.origin} → ${r.destination === 'Ho Chi Minh City' ? 'HCMC' : r.destination}`; };
-export const assignedOperator = (t: Any, role: 'coordinator' | 'specialist') =>
-  !!t?.deployment?.assignees && t.deployment.assignees[role] === (role === 'specialist' ? db.users.specialist.id : db.users.coordinator.id);
-export const deployed = (t: Any) => !!t && t.deployment?.status === 'CONFIRMED';
+export const assignedOperator = (t: Any, role: 'coordinator' | 'specialist') => {
+  if (role === 'coordinator') {
+    if (t?.coordinatorId && (t.coordinatorId === db.users.coordinator?.id || t.coordinatorId === 'USER_006')) return true;
+    if (t?.deployment?.assignees?.coordinator === db.users.coordinator?.id || t?.deployment?.assignees?.coordinator === 'USER_006') return true;
+    if (t?.deployment?.coordinatorId === db.users.coordinator?.id || t?.deployment?.coordinatorId === 'USER_006') return true;
+  }
+  if (role === 'specialist') {
+    if (t?.specialistId && (t.specialistId === db.users.specialist?.id || t.specialistId === 'USER_005')) return true;
+    if (t?.deployment?.assignees?.specialist === db.users.specialist?.id || t?.deployment?.assignees?.specialist === 'USER_005') return true;
+    if (t?.deployment?.specialistId === db.users.specialist?.id || t?.deployment?.specialistId === 'USER_005') return true;
+  }
+  return !t?.deployment?.assignees;
+};
+export const deployed = (t: Any) => !!t && (t.deployment?.status === 'CONFIRMED' || t.deployment === 'CONFIRMED');
 export const coordTrips = () => db.trips.filter((t: Any) => ACTIVE_TRIP.includes(t.status) && (assignedOperator(t, 'coordinator') || !t.deployment?.assignees));
 
 export function changeEta(t: Any, to: string, reason: string, by: string) {
@@ -60,7 +71,27 @@ export const canPlan = (t: Any) => !!t && t.deployment?.status === 'CONFIRMED' &
 export const tripWindow = (t: Any) => [(t.plannedDepart || '').slice(0, 10), (t.eta || '').slice(0, 10)];
 const overlaps = (t: Any, u: Any) => { const [a1, a2] = tripWindow(t), [b1, b2] = tripWindow(u); return a1 <= b2 && b1 <= a2; };
 export const fleetCountry = (v: Any) => v.country || (v.base === 'Bangkok' ? 'TH' : 'VN');
-export const groundCountry = (t: Any, leg: string) => city(reqOfTrip(t)[leg === 'outbound' ? 'origin' : 'destination'])[1];
+export const groundCountry = (t: Any, leg: string): string => {
+  const r = reqOfTrip(t);
+  const place = leg === 'outbound' ? r?.pickup : r?.delivery;
+  if (place?.country && /^[A-Z]{2}$/i.test(place.country)) {
+    return place.country.toUpperCase();
+  }
+  const cityName = leg === 'outbound' ? (r?.origin || '') : (r?.destination || '');
+  const c = city(cityName);
+  if (c && c[1]) return c[1].toUpperCase();
+
+  const fullText = `${cityName} ${place?.address || ''} ${place?.name || ''}`.toLowerCase();
+  if (fullText.includes('việt nam') || fullText.includes('vietnam') || fullText.includes('hồ chí minh') || fullText.includes('hà nội') || fullText.includes('đà nẵng') || fullText.includes('tây ninh') || fullText.includes('vn')) return 'VN';
+  if (fullText.includes('nhật bản') || fullText.includes('japan') || fullText.includes('tokyo') || fullText.includes('osaka') || fullText.includes('narita') || fullText.includes('jp')) return 'JP';
+  if (fullText.includes('thái lan') || fullText.includes('thailand') || fullText.includes('bangkok') || fullText.includes('th')) return 'TH';
+  if (fullText.includes('singapore') || fullText.includes('sg')) return 'SG';
+  if (fullText.includes('campuchia') || fullText.includes('cambodia') || fullText.includes('phnom penh') || fullText.includes('kh')) return 'KH';
+  if (fullText.includes('lào') || fullText.includes('laos') || fullText.includes('vientiane') || fullText.includes('la')) return 'LA';
+  if (fullText.includes('úc') || fullText.includes('australia') || fullText.includes('sydney') || fullText.includes('au')) return 'AU';
+
+  return leg === 'outbound' ? 'VN' : 'JP';
+};
 export const GROUND_ROLE_KEYS = ['MAIN_DRIVER', 'CO_DRIVER', 'VETERINARIAN'];
 export function groundLegs(t: Any) {
   if (!t.groundLegs) {
@@ -86,7 +117,8 @@ const unavailableIn = (e: Any, from: string, to: string) => e.avail && e.avail.s
 export const availLabel = (e: Any) => AVAIL[e.avail.status][1] + (e.avail.status !== 'AVAILABLE' && e.avail.status !== 'INACTIVE' && e.avail.from ? ` ${date(e.avail.from)}${e.avail.to ? '–' + date(e.avail.to) : ''}` : '');
 /** một tài xế / áp tải / bác sĩ chỉ được gắn vào một chuyến đang hoạt động; người đang nghỉ cũng tính là trùng lịch */
 export function crewConflict(e: Any, t: Any): Any {
-  const busy = db.trips.find((u: Any) => u.id !== t.id && tripPersonnelIds(u).includes(e.id) && ACTIVE_TRIP.includes(u.status));
+  // Chỉ coi là bận khi chuyến kia còn hoạt động VÀ trùng khoảng thời gian (giống kiểm tra trùng xe)
+  const busy = db.trips.find((u: Any) => u.id !== t.id && tripPersonnelIds(u).includes(e.id) && ACTIVE_TRIP.includes(u.status) && overlaps(t, u));
   if (busy) return busy;
   if (t && e.avail && unavailableIn(e, tripWindow(t)[0], tripWindow(t)[1])) return { id: availLabel(e) };
   return null;
@@ -119,7 +151,14 @@ export function groundLegCheck(t: Any, leg: string) {
   return { vehicleOk, crewOk, ok: vehicleOk && crewOk, vehicle: v, crew: cr, country: c };
 }
 export const groundLegName = (l: string) => (l === 'outbound' ? 'Trước chuyến bay' : 'Sau chuyến bay');
+/** Xe & nhân sự được phân công khi tuyến còn là bản nháp (hoặc bị trả lại), trước khi gửi Manager duyệt.
+ *  Khi tuyến đang chờ duyệt hoặc đã duyệt thì khóa; muốn đổi phải tạo phiên bản điều chỉnh. */
+export const routeApproved = (t: Any) => curRoute(t)?.status === 'APPROVED';
 export const groundCanEdit = (t: Any) => canPlan(t) && (!curRoute(t) || ['DRAFT', 'RETURNED'].includes(curRoute(t).status));
+export const resourceLockMsg = (t: Any) => (!canPlan(t)
+  ? 'Phân công chỉ xem khi chuyến chưa được triển khai hoặc đã rời giai đoạn lập kế hoạch.'
+  : curRoute(t)?.status === 'PENDING_APPROVAL' ? 'Tuyến đang chờ Manager duyệt; xe và nhân sự đang khóa.'
+    : 'Tuyến đã được duyệt; muốn đổi xe hoặc nhân sự, hãy tạo phiên bản điều chỉnh ở tab Tuyến đường.');
 export function recordGroundChange(t: Any, leg: string, action: string, before: string, after: string) {
   const x = groundLegs(t)[leg];
   (x.history = x.history || []).push({ at: nowStamp(), by: me().name, action, before, after });
@@ -145,20 +184,20 @@ export function readiness(t: Any) {
   const list = [
     it('shared', 'Quản lý đã xác nhận triển khai', t.deployment.status === 'CONFIRMED', 'overview', human(t.deployment.status)),
     it('shared', 'Chuyến đang lập kế hoạch', t.status === 'PLANNING', 'overview', human(t.status)),
-    it('shared', 'Phiên bản tuyến hiện tại đã được Quản lý duyệt', rt && rt.status === 'APPROVED', 'route', rt ? `Phiên bản ${rt.v} • ${human(rt.status)}` : 'Chưa có tuyến'),
+    it('shared', 'Phiên bản tuyến hiện tại đã được phê duyệt & áp dụng', rt && rt.status === 'APPROVED', 'route', rt ? `Phiên bản ${rt.v} • ${human(rt.status)}` : 'Chưa có tuyến'),
     it('shared', 'Coordinator đã xác nhận bố trí xe và nhân sự', !!t.resourcesConfirmed, 'resources', t.resourcesConfirmed ? `Xác nhận lúc ${dt(t.resourcesConfirmed.at)}` : 'Đang chờ Coordinator xác nhận'),
   ];
   if (t.mode === 'AIR') {
     const ground: Any = { outbound: groundLegCheck(t, 'outbound'), inbound: groundLegCheck(t, 'inbound') };
     list.push(
       it('air', 'Chuyến bay thẳng giữa nước đi và nước đến', f && f.direct !== false && f.from && f.to && placeById(f.from)?.country === city(r.origin)[1] && placeById(f.to)?.country === city(r.destination)[1] && f.stalls >= n, 'resources', f ? `${f.airline} ${f.flightNo} • ${f.stalls} ô` : 'Chưa có phương án bay'),
-      it('air', 'Quản lý đã duyệt ngân sách chuyến bay', f && ['BUDGET_APPROVED', 'BOOKED'].includes(f.status), 'resources', f ? human(f.status) : '—'),
-      it('air', 'Điều phối viên đã xác nhận đặt chuyến bay', f && f.status === 'BOOKED', 'resources', f && f.bookingRef ? 'Mã ' + f.bookingRef : f ? human(f.status) : '—'),
+      it('air', 'Flight budget approved by the Manager', f && ['BUDGET_APPROVED', 'BOOKED'].includes(f.status), 'resources', f ? human(f.status) : '—'),
+      it('air', 'Flight booking confirmed by the Coordinator', f && f.status === 'BOOKED', 'resources', f && f.bookingRef ? 'Mã ' + f.bookingRef : f ? human(f.status) : '—'),
       it('air', 'Đã lập chặng đường bộ đón và giao trên tuyến', rt && rt.stops.some((s: Any) => s.type === 'ORIGIN') && rt.stops.filter((s: Any) => s.type === 'AIRPORT').length === 2, 'route', rt ? `${rt.stops.length} điểm dừng` : 'Chưa có tuyến'),
       ...['outbound', 'inbound'].flatMap((l) => {
-        const g = ground[l], label = l === 'outbound' ? 'Chặng xe sân bay đi' : 'Chặng xe sân bay đến';
-        return [it('air', `${label}: xe tại ${g.country}, sẵn sàng và đủ ô`, g.vehicleOk, 'resources', g.vehicle ? `${g.vehicle.plate} • ${g.vehicle.model}` : 'Chưa phân xe'),
-          it('air', `${label}: tài xế chính + phụ lái + bác sĩ thú y tại ${g.country}`, g.crewOk, 'resources', GROUND_ROLE_KEYS.map((k) => emp(g.crew[k])?.name || 'Còn thiếu').join(' • '))];
+        const g = ground[l], label = l === 'outbound' ? 'Departure airport ground leg' : 'Arrival airport ground leg';
+        return [it('air', `${label}: vehicle in ${g.country}, ready with sufficient stalls`, g.vehicleOk, 'resources', g.vehicle ? `${g.vehicle.plate} • ${g.vehicle.model}` : 'Chưa phân xe'),
+          it('air', `${label}: main driver + co-driver + veterinarian in ${g.country}`, g.crewOk, 'resources', GROUND_ROLE_KEYS.map((k) => emp(g.crew[k])?.name || 'Còn thiếu').join(' • '))];
       }),
       it('air', 'Hãng hàng không phụ trách chăm sóc ngựa trong chuyến bay', !!(f && f.status === 'BOOKED'), 'resources', f?.airline || 'Chưa đặt hãng bay'));
   } else {
@@ -177,7 +216,7 @@ export function readiness(t: Any) {
 export function planGaps(t: Any): string[] {
   const g: string[] = [], rt = curRoute(t);
   if (!rt) g.push('Tuyến đường'); else if (rt.status === 'DRAFT' || rt.status === 'RETURNED') g.push(rt.status === 'DRAFT' ? 'Tuyến (nháp)' : 'Tuyến (bị trả lại)');
-  if (t.mode === 'AIR' && (!t.flight || t.flight.status !== 'BOOKED')) g.push('Chuyến bay');
+  if (t.mode === 'AIR' && (!t.flight || t.flight.status !== 'BOOKED')) g.push('Flight');
   if (t.mode === 'AIR') {
     for (const k of ['outbound', 'inbound']) {
       const check = groundLegCheck(t, k);
@@ -192,6 +231,8 @@ export function planGaps(t: Any): string[] {
   }
   return g;
 }
+/** Chỉ phần xe & nhân sự (không gồm tuyến và hợp đồng bay) – điều kiện để gửi Manager duyệt. */
+export const crewGaps = (t: Any): string[] => planGaps(t).filter((g) => !g.startsWith('Tuyến') && g !== 'Flight');
 export const resourceGaps = (t: Any): string[] => [...new Set([
   ...planGaps(t).filter((g) => !g.startsWith('Tuyến')),
   ...readiness(t).filter((i) => i.tab === 'resources' && !i.ok && i.label !== 'Coordinator đã xác nhận bố trí xe và nhân sự').map((i) => i.label),
@@ -199,8 +240,11 @@ export const resourceGaps = (t: Any): string[] => [...new Set([
 export const routeState = (t: Any) => { const rt = curRoute(t); return rt ? rt.status : 'NONE'; };
 export function planState(t: Any) {
   if (t.status !== 'PLANNING') return t.status;
-  if (t.deployment.status === 'ON_HOLD') return 'ON_HOLD';
+  const depStatus = typeof t.deployment === 'string' ? t.deployment : t.deployment?.status;
+  if (depStatus === 'ON_HOLD') return 'ON_HOLD';
   if (!deployed(t)) return 'AWAITING_DEPLOYMENT';
+  // Backend chỉ biết trạng thái tuyến; xe/nhân sự còn thiếu thì vẫn là MISSING_RESOURCES dù tuyến đã duyệt
+  if (t.planningState === 'READY') return 'READY';
   const rs = routeState(t);
   if (rs === 'NONE' || rs === 'DRAFT') return 'AWAITING_ROUTE';
   if (rs === 'PENDING_APPROVAL') return 'ROUTE_PENDING';

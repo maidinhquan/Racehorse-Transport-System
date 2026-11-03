@@ -31,7 +31,7 @@ export const flow3Endpoints = {
   'F3-J29': { method: 'GET',    path: '/coordinator/trips/{tripId}/pickup-relocation/candidates' },
   'F3-J30': { method: 'POST',   path: '/coordinator/trips/{tripId}/pickup-relocation' },
   'F3-J31': { method: 'POST',   path: '/manager/trips/{tripId}/pickup-relocation/decision' },
-  'F3-J32': { method: 'POST',   path: '/manager/trips/{tripId}/pickup-relocation/customer-consent' },
+  'F3-J32': { method: 'POST',   path: '/customer/trips/{tripId}/pickup-relocation/decision' },
   'F3-J33': { method: 'POST',   path: '/coordinator/trips/{tripId}/pickup-relocation/revisions' },
   'F3-J34': { method: 'GET',    path: '/coordinator/air-partners' },
   'F3-J35': { method: 'POST',   path: '/coordinator/air-partners' },
@@ -55,6 +55,8 @@ export const flow3Endpoints = {
   'F3-J53': { method: 'GET',    path: '/coordinator/trips/{tripId}/route-reports' },
   'F3-J54': { method: 'GET',    path: '/coordinator/flights/lookup' },
   'F3-J55': { method: 'GET',    path: '/coordinator/vehicles' },
+  'F3-J56': { method: 'POST',   path: '/manager/trips/{tripId}/pickup-relocation/send' },
+  'F3-J57': { method: 'GET',    path: '/customer/trips/{tripId}/pickup-relocation' },
 } as const;
 
 export type Flow3OperationId = keyof typeof flow3Endpoints;

@@ -1,11 +1,11 @@
 {
-  "contractVersion": "2.0.0",
+  "contractVersion": "3.0.0",
   "status": "ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS",
-  "source": "D:/Shared/Final_Flow3.html",
+  "source": "Flow 3 agreed workflow 2026-10-30",
   "road": {
     "draftRequest": {
       "expectedVersion": 10,
-      "plannedDepart": "2026-11-10 06:00",
+      "pickupAt": "2026-11-10 06:00",
       "stops": [
         {
           "clientKey": "stop-origin",
@@ -92,7 +92,7 @@
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -110,16 +110,16 @@
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
       "totalKm": 20,
       "driveMin": 30,
-      "stopMin": 0,
+      "stopMin": 30,
       "flyMin": 0,
-      "eta": "2026-11-10 06:30",
+      "eta": "2026-11-10 07:00",
       "issues": []
     }
   },
@@ -128,7 +128,9 @@
       "planVersion": 1,
       "status": "APPROVED",
       "mode": "AIR",
+      "pickupAt": "2026-11-10 10:30",
       "plannedDepart": "2026-11-10 11:00",
+      "reviewWarnings": [],
       "eta": "2026-11-10 23:00",
       "stops": [
         {
@@ -146,7 +148,7 @@
             "lng": 106.7009
           },
           "required": true,
-          "arriveAt": "2026-11-10 11:00",
+          "arriveAt": "2026-11-10 10:30",
           "departAt": "2026-11-10 11:00",
           "placeVersion": null
         },
@@ -342,7 +344,7 @@
               "lng": 106.7009
             },
             "required": true,
-            "arriveAt": "2026-11-10 11:00",
+            "arriveAt": "2026-11-10 10:30",
             "departAt": "2026-11-10 11:00",
             "placeVersion": null
           },
@@ -410,7 +412,7 @@
         ],
         "totalKm": 40,
         "driveMin": 60,
-        "stopMin": 330,
+        "stopMin": 360,
         "flyMin": 330,
         "eta": "2026-11-10 23:00",
         "issues": []
@@ -423,6 +425,9 @@
       "contractId": "CONTRACT_001",
       "status": "PLANNING",
       "mode": "AIR",
+      "contractVersion": 1,
+      "modeSource": "CONTRACT",
+      "pickupDate": "2026-11-10",
       "binding": {
         "version": 11,
         "contextVersion": 1,
@@ -455,13 +460,26 @@
         },
         "access": null
       },
+      "effectivePickup": {
+        "name": "Trại nhận ngựa",
+        "address": "Địa chỉ nhận ngựa theo hợp đồng",
+        "country": "VN",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "access": null
+      },
+      "effectivePickupRelocationId": null,
       "deliveryDeadline": "2026-11-12 18:00",
       "draft": null,
       "approvedPlan": {
         "planVersion": 1,
         "status": "APPROVED",
         "mode": "AIR",
+        "pickupAt": "2026-11-10 10:30",
         "plannedDepart": "2026-11-10 11:00",
+        "reviewWarnings": [],
         "eta": "2026-11-10 23:00",
         "stops": [
           {
@@ -479,7 +497,7 @@
               "lng": 106.7009
             },
             "required": true,
-            "arriveAt": "2026-11-10 11:00",
+            "arriveAt": "2026-11-10 10:30",
             "departAt": "2026-11-10 11:00",
             "placeVersion": null
           },
@@ -675,7 +693,7 @@
                 "lng": 106.7009
               },
               "required": true,
-              "arriveAt": "2026-11-10 11:00",
+              "arriveAt": "2026-11-10 10:30",
               "departAt": "2026-11-10 11:00",
               "placeVersion": null
             },
@@ -743,7 +761,7 @@
           ],
           "totalKm": 40,
           "driveMin": 60,
-          "stopMin": 330,
+          "stopMin": 360,
           "flyMin": 330,
           "eta": "2026-11-10 23:00",
           "issues": []
@@ -836,7 +854,7 @@
             "lng": 106.7009
           },
           "required": true,
-          "arriveAt": "2026-11-10 11:00",
+          "arriveAt": "2026-11-10 10:30",
           "departAt": "2026-11-10 11:00",
           "placeVersion": null
         },
@@ -904,7 +922,7 @@
       ],
       "totalKm": 40,
       "driveMin": 60,
-      "stopMin": 330,
+      "stopMin": 360,
       "flyMin": 330,
       "eta": "2026-11-10 23:00",
       "issues": []
@@ -936,6 +954,576 @@
     "sample": true,
     "eligible": true,
     "blockers": []
+  },
+  "scheduleReview": {
+    "submittedWithWarnings": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "contractId": "CONTRACT_001",
+      "status": "PLANNING",
+      "mode": "ROAD",
+      "contractVersion": 1,
+      "modeSource": "CONTRACT",
+      "pickupDate": "2026-11-10",
+      "binding": {
+        "version": 11,
+        "contextVersion": 1,
+        "planVersion": 1
+      },
+      "deployment": "CONFIRMED",
+      "specialistId": "USER_006",
+      "coordinatorId": "USER_007",
+      "horseIds": [
+        "HORSE_001",
+        "HORSE_002"
+      ],
+      "pickup": {
+        "name": "Trại nhận ngựa",
+        "address": "Địa chỉ nhận ngựa theo hợp đồng",
+        "country": "VN",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "access": null
+      },
+      "delivery": {
+        "name": "Trại giao ngựa",
+        "address": "Địa chỉ nhận ngựa theo hợp đồng",
+        "country": "VN",
+        "geo": {
+          "lat": 10.9,
+          "lng": 106.8
+        },
+        "access": null
+      },
+      "effectivePickup": {
+        "name": "Trại nhận ngựa",
+        "address": "Địa chỉ nhận ngựa theo hợp đồng",
+        "country": "VN",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "access": null
+      },
+      "effectivePickupRelocationId": null,
+      "deliveryDeadline": "2026-11-12 18:00",
+      "draft": {
+        "planVersion": 1,
+        "status": "PENDING_APPROVAL",
+        "mode": "ROAD",
+        "pickupAt": "2026-11-10 06:00",
+        "plannedDepart": "2026-11-10 06:30",
+        "reviewWarnings": [
+          {
+            "code": "DELIVERY_DEADLINE_EXCEEDED",
+            "field": "draft.eta",
+            "message": "Giờ giao dự kiến vượt hạn; cần Manager xem xét"
+          }
+        ],
+        "eta": "2026-11-13 18:00",
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.7769,
+              "lng": 106.7009
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": null
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
+            "placeVersion": null
+          }
+        ],
+        "resources": [
+          {
+            "leg": "road",
+            "vehicleId": "VEHICLE_001",
+            "crew": {
+              "MAIN_DRIVER": "USER_008",
+              "CO_DRIVER": "USER_009",
+              "VETERINARIAN": "USER_010"
+            },
+            "truckProfile": {
+              "vehicleId": "VEHICLE_001",
+              "heightM": 3.8,
+              "widthM": 2.5,
+              "lengthM": 10,
+              "currentT": 12,
+              "grossT": 18,
+              "axleT": 4
+            }
+          }
+        ],
+        "flight": null,
+        "routing": {
+          "routingId": "ROUTING_001",
+          "planVersion": 1,
+          "policyVersion": 1,
+          "provider": "HERE_TRUCK",
+          "truckVerified": true,
+          "demo": false,
+          "checkedAt": "2026-11-10 06:00",
+          "segments": [
+            {
+              "fromStopKey": "stop-origin",
+              "toStopKey": "stop-destination",
+              "leg": "road",
+              "km": 20,
+              "driveMin": 30,
+              "geometry": [
+                [
+                  10.7769,
+                  106.7009
+                ],
+                [
+                  10.9,
+                  106.8
+                ]
+              ]
+            }
+          ],
+          "stops": [
+            {
+              "stopId": "STOP_001",
+              "clientKey": "stop-origin",
+              "type": "ORIGIN",
+              "placeId": null,
+              "purposes": [],
+              "dwellMin": 0,
+              "unload": false,
+              "careNote": "",
+              "name": "Thông tin đã xác minh",
+              "geo": {
+                "lat": 10.7769,
+                "lng": 106.7009
+              },
+              "required": true,
+              "arriveAt": "2026-11-10 06:00",
+              "departAt": "2026-11-10 06:30",
+              "placeVersion": null
+            },
+            {
+              "stopId": "STOP_002",
+              "clientKey": "stop-destination",
+              "type": "DESTINATION",
+              "placeId": null,
+              "purposes": [],
+              "dwellMin": 0,
+              "unload": false,
+              "careNote": "",
+              "name": "Thông tin đã xác minh",
+              "geo": {
+                "lat": 10.9,
+                "lng": 106.8
+              },
+              "required": true,
+              "arriveAt": "2026-11-10 07:00",
+              "departAt": "2026-11-10 07:00",
+              "placeVersion": null
+            }
+          ],
+          "totalKm": 20,
+          "driveMin": 30,
+          "stopMin": 30,
+          "flyMin": 0,
+          "eta": "2026-11-10 07:00",
+          "issues": []
+        },
+        "note": ""
+      },
+      "approvedPlan": null,
+      "resourcesConfirmed": {
+        "valid": true,
+        "planVersion": 1,
+        "contextVersion": 1,
+        "by": {
+          "userId": "USER_001",
+          "name": "Thông tin đã xác minh"
+        },
+        "at": "2026-11-10 06:00",
+        "invalidatedReason": null
+      },
+      "opsReady": null,
+      "docsReady": null,
+      "documents": {
+        "requirementSetApplied": true,
+        "required": 5,
+        "approved": 5,
+        "insuranceStatus": "VERIFIED",
+        "quarantineConfirmed": true,
+        "validityMode": "ASSUMED_VALID_FOR_TRIP",
+        "blockers": []
+      },
+      "pickupAccess": {
+        "result": "ACCESSIBLE",
+        "proof": "Đã khảo sát và đối chiếu kích thước xe",
+        "valid": true,
+        "by": {
+          "userId": "USER_001",
+          "name": "Thông tin đã xác minh"
+        },
+        "at": "2026-11-10 06:00"
+      },
+      "pickupRelocation": null,
+      "booking": null,
+      "blockers": []
+    }
+  },
+  "pickupRelocationWorkflow": {
+    "awaitingCustomer": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "relocationId": "MEETING_001",
+      "proposalVersion": 1,
+      "status": "AWAITING_CUSTOMER",
+      "originalPickup": {
+        "name": "Trại nhận ngựa",
+        "address": "Địa chỉ nhận ngựa theo hợp đồng",
+        "country": "VN",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "access": null
+      },
+      "proposedPickup": {
+        "name": "Điểm tập kết đã đề xuất",
+        "address": "Địa chỉ điểm tập kết phù hợp",
+        "country": "VN",
+        "geo": {
+          "lat": 10.78,
+          "lng": 106.71
+        },
+        "access": null
+      },
+      "handoverAt": "2026-11-10 06:00",
+      "reason": "Đã kiểm tra và xác nhận phương án",
+      "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+      "costImpactVnd": 0,
+      "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+      "sentAt": "2026-11-10 06:00",
+      "replyAt": null,
+      "customerReply": null
+    },
+    "accepted": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "relocationId": "MEETING_001",
+      "proposalVersion": 1,
+      "status": "CUSTOMER_CONFIRMED",
+      "originalPickup": {
+        "name": "Trại nhận ngựa",
+        "address": "Địa chỉ nhận ngựa theo hợp đồng",
+        "country": "VN",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "access": null
+      },
+      "proposedPickup": {
+        "name": "Điểm tập kết đã đề xuất",
+        "address": "Địa chỉ điểm tập kết phù hợp",
+        "country": "VN",
+        "geo": {
+          "lat": 10.78,
+          "lng": 106.71
+        },
+        "access": null
+      },
+      "handoverAt": "2026-11-10 06:00",
+      "reason": "Đã kiểm tra và xác nhận phương án",
+      "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+      "costImpactVnd": 0,
+      "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+      "sentAt": "2026-11-10 06:00",
+      "replyAt": "2026-11-10 06:00",
+      "customerReply": null
+    },
+    "rejected": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "relocationId": "MEETING_001",
+      "proposalVersion": 1,
+      "status": "CUSTOMER_REJECTED",
+      "originalPickup": {
+        "name": "Trại nhận ngựa",
+        "address": "Địa chỉ nhận ngựa theo hợp đồng",
+        "country": "VN",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "access": null
+      },
+      "proposedPickup": {
+        "name": "Điểm tập kết đã đề xuất",
+        "address": "Địa chỉ điểm tập kết phù hợp",
+        "country": "VN",
+        "geo": {
+          "lat": 10.78,
+          "lng": 106.71
+        },
+        "access": null
+      },
+      "handoverAt": "2026-11-10 06:00",
+      "reason": "Đã kiểm tra và xác nhận phương án",
+      "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+      "costImpactVnd": 0,
+      "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+      "sentAt": "2026-11-10 06:00",
+      "replyAt": "2026-11-10 06:00",
+      "customerReply": "Điểm đề xuất quá xa, vui lòng đề xuất điểm khác"
+    },
+    "effectiveContextAfterAcceptance": {
+      "tripId": "TRIP_001",
+      "requestId": "REQUEST_001",
+      "contractId": "CONTRACT_001",
+      "status": "PLANNING",
+      "mode": "ROAD",
+      "contractVersion": 1,
+      "modeSource": "CONTRACT",
+      "pickupDate": "2026-11-10",
+      "binding": {
+        "version": 12,
+        "contextVersion": 2,
+        "planVersion": 2
+      },
+      "deployment": "CONFIRMED",
+      "specialistId": "USER_006",
+      "coordinatorId": "USER_007",
+      "horseIds": [
+        "HORSE_001",
+        "HORSE_002"
+      ],
+      "pickup": {
+        "name": "Trại nhận ngựa",
+        "address": "Địa chỉ nhận ngựa theo hợp đồng",
+        "country": "VN",
+        "geo": {
+          "lat": 10.7769,
+          "lng": 106.7009
+        },
+        "access": null
+      },
+      "delivery": {
+        "name": "Trại giao ngựa",
+        "address": "Địa chỉ nhận ngựa theo hợp đồng",
+        "country": "VN",
+        "geo": {
+          "lat": 10.9,
+          "lng": 106.8
+        },
+        "access": null
+      },
+      "effectivePickup": {
+        "name": "Điểm tập kết đã đề xuất",
+        "address": "Địa chỉ điểm tập kết phù hợp",
+        "country": "VN",
+        "geo": {
+          "lat": 10.78,
+          "lng": 106.71
+        },
+        "access": null
+      },
+      "effectivePickupRelocationId": "MEETING_001",
+      "deliveryDeadline": "2026-11-12 18:00",
+      "draft": {
+        "planVersion": 2,
+        "status": "DRAFT",
+        "mode": "ROAD",
+        "pickupAt": "2026-11-10 06:00",
+        "plannedDepart": "2026-11-10 06:30",
+        "reviewWarnings": [],
+        "eta": null,
+        "stops": [
+          {
+            "stopId": "STOP_001",
+            "clientKey": "stop-origin",
+            "type": "ORIGIN",
+            "placeId": "PLACE_001",
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Điểm tập kết đã đề xuất",
+            "geo": {
+              "lat": 10.78,
+              "lng": 106.71
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
+            "placeVersion": 1
+          },
+          {
+            "stopId": "STOP_002",
+            "clientKey": "stop-destination",
+            "type": "DESTINATION",
+            "placeId": null,
+            "purposes": [],
+            "dwellMin": 0,
+            "unload": false,
+            "careNote": "",
+            "name": "Thông tin đã xác minh",
+            "geo": {
+              "lat": 10.9,
+              "lng": 106.8
+            },
+            "required": true,
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
+            "placeVersion": null
+          }
+        ],
+        "resources": [
+          {
+            "leg": "road",
+            "vehicleId": "VEHICLE_001",
+            "crew": {
+              "MAIN_DRIVER": "USER_008",
+              "CO_DRIVER": "USER_009",
+              "VETERINARIAN": "USER_010"
+            },
+            "truckProfile": {
+              "vehicleId": "VEHICLE_001",
+              "heightM": 3.8,
+              "widthM": 2.5,
+              "lengthM": 10,
+              "currentT": 12,
+              "grossT": 18,
+              "axleT": 4
+            }
+          }
+        ],
+        "flight": null,
+        "routing": null,
+        "note": ""
+      },
+      "approvedPlan": null,
+      "resourcesConfirmed": null,
+      "opsReady": null,
+      "docsReady": null,
+      "documents": {
+        "requirementSetApplied": true,
+        "required": 5,
+        "approved": 5,
+        "insuranceStatus": "VERIFIED",
+        "quarantineConfirmed": true,
+        "validityMode": "ASSUMED_VALID_FOR_TRIP",
+        "blockers": []
+      },
+      "pickupAccess": {
+        "result": "INACCESSIBLE",
+        "proof": "Đã khảo sát và đối chiếu kích thước xe",
+        "valid": true,
+        "by": {
+          "userId": "USER_001",
+          "name": "Thông tin đã xác minh"
+        },
+        "at": "2026-11-10 06:00"
+      },
+      "pickupRelocation": {
+        "relocationId": "MEETING_001",
+        "proposalVersion": 1,
+        "status": "CUSTOMER_CONFIRMED",
+        "placeSnapshot": {
+          "id": "PLACE_001",
+          "version": 1,
+          "name": "Điểm tập kết đã đề xuất",
+          "country": "VN",
+          "province": "Thông tin đã xác minh",
+          "address": "Địa chỉ điểm tập kết phù hợp",
+          "geo": {
+            "lat": 10.78,
+            "lng": 106.71
+          },
+          "functions": [
+            "MEETING_POINT",
+            "REST"
+          ],
+          "hours": "24/7",
+          "contact": "Thông tin đã xác minh",
+          "phone": "+84901234567",
+          "notes": "",
+          "rest": {
+            "truckParking": true,
+            "onboardCare": true,
+            "waterFeed": true,
+            "loadingArea": true,
+            "stabling": true,
+            "capacity": 4
+          },
+          "fuel": null,
+          "airport": null,
+          "service": {
+            "kind": "Thông tin đã xác minh",
+            "capacity": "Thông tin đã xác minh"
+          },
+          "status": "ACTIVE",
+          "sample": true,
+          "updatedAt": "2026-11-10 06:00"
+        },
+        "reason": "Đã kiểm tra và xác nhận phương án",
+        "handoverAt": "2026-11-10 06:00",
+        "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+        "costImpactVnd": 0,
+        "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+        "sentAt": "2026-11-10 06:00",
+        "sentBy": {
+          "userId": "USER_004",
+          "name": "Quản lý"
+        },
+        "customerConsent": {
+          "channel": "PORTAL",
+          "note": "",
+          "customerId": "USER_001",
+          "recordedBy": {
+            "userId": "USER_001",
+            "name": "Khách hàng chủ đơn"
+          },
+          "at": "2026-11-10 06:00"
+        },
+        "customerReply": null,
+        "valid": true,
+        "by": {
+          "userId": "USER_006",
+          "name": "Điều phối viên"
+        },
+        "at": "2026-11-10 06:00"
+      },
+      "booking": null,
+      "blockers": []
+    }
   },
   "scenarios": [
     {
@@ -1147,15 +1735,16 @@
     },
     {
       "id": "delivery-deadline",
-      "given": "ETA vượt cam kết",
+      "given": "ETA vượt cam kết, Coordinator cần gửi Manager xem xét",
       "when": [
         "eta=2026-11-13 18:01",
         "deadline=2026-11-13 18:00"
       ],
       "then": [
-        "409 DELIVERY_DEADLINE_EXCEEDED"
+        "J08 accepts with reviewWarnings",
+        "J11 APPROVE returns DELIVERY_DEADLINE_EXCEEDED until commitment updated"
       ],
-      "reason": "Reason không vượt deadline"
+      "reason": "Manager kiểm tra; reason không vượt cam kết"
     },
     {
       "id": "pickup-consent",
@@ -1164,11 +1753,14 @@
         "J28 INACCESSIBLE",
         "J30 PROPOSED",
         "J31 APPROVE",
-        "J32 consent"
+        "J56 send",
+        "Customer J57 read",
+        "Customer J32 ACCEPT"
       ],
       "then": [
-        "ORIGIN unchanged before J32",
-        "After consent recompute routing",
+        "ORIGIN unchanged through Manager send",
+        "Only authenticated owner ACCEPT updates ORIGIN",
+        "After acceptance recompute routing",
         "Original pickup unchanged"
       ],
       "reason": "Gửi thông báo không là đồng ý"
@@ -1181,8 +1773,8 @@
         "J32"
       ],
       "then": [
-        "409 PLACE_CHANGED",
-        "re-propose"
+        "409 PLACE_CHANGED or STALE_PROPOSAL",
+        "re-propose and obtain new customer decision"
       ],
       "reason": "Không giữ consent cho nơi mới"
     },
@@ -1420,6 +2012,94 @@
         "Unknown geo stays null"
       ],
       "reason": "Không claim realtime traffic"
+    },
+    {
+      "id": "customer-rejects-pickup",
+      "given": "Đề xuất đã được Manager gửi",
+      "when": [
+        "Customer J32 REJECT with reason"
+      ],
+      "then": [
+        "CUSTOMER_REJECTED",
+        "Effective ORIGIN unchanged",
+        "Notify Manager and Coordinator"
+      ],
+      "reason": "Khách từ chối không đổi điểm nhận"
+    },
+    {
+      "id": "manager-send-not-consent",
+      "given": "Manager đã duyệt đề xuất",
+      "when": [
+        "J56 send succeeds"
+      ],
+      "then": [
+        "AWAITING_CUSTOMER",
+        "Effective ORIGIN unchanged",
+        "No customerConsent"
+      ],
+      "reason": "Gửi đi không phải đồng ý"
+    },
+    {
+      "id": "customer-ownership",
+      "given": "Khách khác hoặc nhân viên gọi J32",
+      "when": [
+        "Wrong owner or Manager/Coordinator token"
+      ],
+      "then": [
+        "404 out of scope or 403 wrong role",
+        "No state change"
+      ],
+      "reason": "Chỉ chủ đơn quyết định"
+    },
+    {
+      "id": "stale-customer-proposal",
+      "given": "Khách mở đề xuất cũ",
+      "when": [
+        "Proposal revised",
+        "ACCEPT old proposalVersion"
+      ],
+      "then": [
+        "409 STALE_PROPOSAL",
+        "No endpoint update"
+      ],
+      "reason": "Đồng ý phải gắn đúng snapshot đã gửi"
+    },
+    {
+      "id": "pickup-day-anchor",
+      "given": "Khách chọn ngày nhận 10/11",
+      "when": [
+        "Coordinator sets pickupAt and computes stop times"
+      ],
+      "then": [
+        "ORIGIN at effectivePickup",
+        "Pickup date remains customer-agreed date",
+        "No depot stop in horse itinerary"
+      ],
+      "reason": "Tách điều xe nội bộ khỏi tuyến chở ngựa"
+    },
+    {
+      "id": "contract-mode-locked",
+      "given": "Hợp đồng có hiệu lực chọn AIR",
+      "when": [
+        "Attempt ROAD in PlanDraftInput"
+      ],
+      "then": [
+        "400 schema validation",
+        "Plan.mode remains AIR"
+      ],
+      "reason": "Flow 3 không đổi mode hợp đồng"
+    },
+    {
+      "id": "no-automatic-medical-stop",
+      "given": "Chuyến không có yêu cầu kiểm dịch tại điểm trung gian",
+      "when": [
+        "Build ROAD or AIR route"
+      ],
+      "then": [
+        "Only needed rest/airport/delivery stops",
+        "No mandatory medical/quarantine detour"
+      ],
+      "reason": "Hồ sơ Flow 2 không tự biến thành điểm dừng"
     }
   ]
 }

@@ -4384,3 +4384,6 @@ Chạy `python contracts/API-Flow/Flow1/build_openapi.py` rồi `python contract
 ### F1-J70 — GET /locations/tiles/{z}/{x}/{y}.png
 
 Ảnh nền Geoapify cho Leaflet. Cần Bearer token và tài khoản đang hoạt động. `z`: 0–19; `x`, `y`: 0 đến 2^z−1. Trả PNG, cache riêng tư 1 giờ; giới hạn riêng 300 yêu cầu/phút/tài khoản. Geoapify key lấy từ cấu hình backend, không trả ra trình duyệt. Lỗi: 400/401/403/429/503.
+
+
+Phương thức hợp đồng: Manager bắt buộc chọn `mode: ROAD | AIR` khi lưu bản nháp (F1-J30). Phương thức được lưu trong snapshot và cập nhật lên yêu cầu khi phát hành. Điều phối sử dụng phương thức hợp đồng, không tự đổi phương thức.

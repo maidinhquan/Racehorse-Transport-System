@@ -275,6 +275,8 @@ export interface RouteStop {
   name: string;
   type: StopType;
   plannedAt: string;
+  lat?: number;
+  lng?: number;
 }
 
 export type RouteStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'CHANGES_REQUESTED';
@@ -367,6 +369,19 @@ export interface Trip {
   etaHistory: EtaChange[];
   handover?: Handover;
   refusal?: HandoverRefusal;
+  pickupRelocation?: {
+    relocationId: string;
+    proposalVersion?: number;
+    status: 'PROPOSED' | 'MANAGER_APPROVED' | 'AWAITING_CUSTOMER' | 'CUSTOMER_CONFIRMED' | 'CUSTOMER_REJECTED' | 'REJECTED';
+    reason: string;
+    placeName?: string;
+    placeAddress?: string;
+    handoverAt?: string;
+    scheduleImpact?: string;
+    customerResponsibilities?: string;
+    sentAt?: string;
+    customerReply?: { decision: string; note?: string; at: string };
+  };
 }
 
 // ---------------------------------------------------------------------------

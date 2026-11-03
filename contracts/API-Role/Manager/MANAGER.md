@@ -1,5 +1,8 @@
 # Chỉ dẫn API — Role: Logistics Manager (Quản lý Vận hành)
 
+> **Flow 3 v3 — thiết kế 30/10/2026:** [nghiệp vụ](../../API-Flow/Flow3/FLOW3.md), [API/JSON](../../API-Flow/Flow3/FLOW3-API-JSON.md), [chuyển đổi v2→v3](../../API-Flow/Flow3/MIGRATION-V3.md). Mode từ hợp đồng; Coordinator lập lịch; Manager kiểm tra và gửi đề xuất đổi điểm nhận; Customer tự đồng ý/từ chối. Chưa tích hợp v3 vào backend/giao diện. Các chỉ dẫn v2 bên dưới là lịch sử khi khác v3.
+
+
 Sự cố theo [Flow 5](../../API-Flow/Flow5/FLOW5.md): duyệt recovery/thỏa thuận khách, không PUT status để đóng sự cố tùy ý. Bàn giao/nghiệm thu/thanh toán/khiếu nại/đóng đơn theo [Flow 6 v1.1](../../API-Flow/Flow6/FLOW6.md), chỉ Manager đóng đơn khi đủ nghĩa vụ; quá hạn chỉ cảnh báo.
 
 Vận hành sau READY_TO_DEPART dùng [Flow 4](../../API-Flow/Flow4/FLOW4.md) (29/10/2026): F4-J35 giám sát, J21 duyệt ETA cần Manager. Duyệt Flow 3 chưa phải xuất phát thực tế; FINAL_ARRIVED chưa hoàn tất Trip. Schema role cũ không thay schema Flow 4.

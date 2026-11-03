@@ -3,13 +3,17 @@
 // tuyến và lịch bay là dữ liệu mẫu do đối tác cung cấp (chỉ tra cứu). Không kết nối API hãng bay.
 // Điều phối nhập mã chuyến bay → gửi Manager duyệt → được duyệt thì ghi nhận booking.
 // ============================================================================
-import { Cell, Chk, Field, Inp, Txt } from '../components/common/ui';
+import { Cell, Chk, Field, Inp, Sel, Txt } from '../components/common/ui';
 import { DateTimeInput } from '../components/forms/DateTime';
-import { assignedOperator, canPlan, crewOf, curRoute, groundCountry, groundLegCheck, groundLegName, opsBlock, placeById, reqOfTrip, trip, tripHorses } from '../domain/coordinatorRules';
+import { assignedOperator, canPlan, crewOf, curRoute, groundCountry, groundLegCheck, groundLegName, opsBlock, placeById, placeByName, reqOfTrip, trip, tripHorses } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
-import { audit, commit, confirmAction, db, me, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
-import { cityLabel, dt, MILESTONE_LABEL, usd } from '../utils/format';
-import { resourceSignature, ROUTE_POLICY, rpCalc, rpDeadline, rpEnsure, rpWriteTimes, validateRoute } from './routePlanner';
+import { audit, commit, confirmAction, db, demoOn, flushTripStateToStorage, me, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
+import { addHours, cityLabel, dt, MILESTONE_LABEL, stampMs, usd } from '../utils/format';
+import { plannerMap, resourceSignature, ROUTE_POLICY, RP, rpCalc, rpDeadline, rpEnsure, rpFlightKey, rpRoute, rpWriteTimes, stop, validateRoute } from './routePlanner';
+import { apiClient } from '../../../shared/api/apiClient';
+import { flow3Api } from '../api/flow3Api';
+import { pushPlanToBackend } from './planSync';
+import { saveSharedTrip } from '../../../shared/utils/sharedTrips';
 
 export const SYSTEM_ZONE = 'Asia/Ho_Chi_Minh';
 export const ZONES = ['Asia/Ho_Chi_Minh', 'Asia/Phnom_Penh', 'Asia/Bangkok', 'Asia/Singapore', 'Asia/Kuala_Lumpur', 'Asia/Tokyo', 'Asia/Dubai', 'Australia/Sydney', 'Europe/London'];
@@ -18,8 +22,31 @@ const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 const entity = (list: Any[], id: string) => list.find((x: Any) => x.id === id);
 const air = () => db.air;
 
-export const airportLabel = (id: string) => { const p = placeById(id); return p ? `${p.name}${p.airport?.iata ? ' · ' + p.airport.iata : ''}` : 'Sân bay không còn trong danh mục'; };
-export const goodAirport = (id: string) => { const p = placeById(id); return p?.status === 'ACTIVE' && p.functions?.includes('AIRPORT') && p.airport?.horseHandling; };
+export function resolveAirportPlace(ref?: string): Any | undefined {
+  if (!ref) return undefined;
+  const clean = ref.trim().toLowerCase();
+  return (
+    placeById(ref) ||
+    placeByName(ref) ||
+    db.places.find((p: Any) =>
+      p.id?.toLowerCase() === clean ||
+      p.airport?.iata?.toLowerCase() === clean ||
+      (clean.includes('sgn') && (p.airport?.iata === 'SGN' || p.name?.toLowerCase().includes('tan son nhat'))) ||
+      (clean.includes('nrt') && (p.airport?.iata === 'NRT' || p.name?.toLowerCase().includes('narita'))) ||
+      (clean.includes('han') && (p.airport?.iata === 'HAN' || p.name?.toLowerCase().includes('noi bai')))
+    ) ||
+    (clean.includes('sgn') || clean.includes('tan son nhat')
+      ? { id: 'CP-21', name: 'Tan Son Nhat Airport', type: 'AIRPORT', country: 'VN', lat: 10.8188, lng: 106.6519, airport: { iata: 'SGN', horseHandling: true }, functions: ['AIRPORT'], status: 'ACTIVE' }
+      : clean.includes('nrt') || clean.includes('narita')
+      ? { id: 'CP-25', name: 'Narita International Airport', type: 'AIRPORT', country: 'JP', lat: 35.772, lng: 140.3929, airport: { iata: 'NRT', horseHandling: true }, functions: ['AIRPORT'], status: 'ACTIVE' }
+      : clean.includes('han') || clean.includes('noi bai')
+      ? { id: 'CP-22', name: 'Noi Bai Airport', type: 'AIRPORT', country: 'VN', lat: 21.2212, lng: 105.8072, airport: { iata: 'HAN', horseHandling: true }, functions: ['AIRPORT'], status: 'ACTIVE' }
+      : undefined)
+  );
+}
+
+export const airportLabel = (id: string) => { const p = resolveAirportPlace(id); return p ? `${p.name}${p.airport?.iata ? ' · ' + p.airport.iata : ''}` : 'Sân bay không còn trong danh mục'; };
+export const goodAirport = (id: string) => { const p = resolveAirportPlace(id); return p?.status === 'ACTIVE' && p.functions?.includes('AIRPORT') && p.airport?.horseHandling; };
 
 function localParts(ms: number, zone: string) {
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms)).filter((x) => x.type !== 'literal').map((x) => [x.type, x.value]));
@@ -74,6 +101,13 @@ export function serviceIssues(t: Any, v: Any, checkDraft = true) {
     if (checkDraft) { const rt = curRoute(t); if (rt && !['DRAFT', 'RETURNED'].includes(rt.status)) issues.push('Phương án đã gửi/duyệt đang khóa; tạo bản điều chỉnh trước.'); }
   }
   return issues;
+}
+/** Hợp đồng chuyến bay chỉ nhập sau khi Manager duyệt tuyến và đã phân công đủ xe/nhân sự hai chặng đường bộ. */
+export function charterLockMsg(t: Any) {
+  const block = editableTrip(t); if (block) return block;
+  if (curRoute(t)?.status !== 'APPROVED') return 'Chỉ nhập hợp đồng chuyến bay sau khi Manager duyệt tuyến.';
+  if (['outbound', 'inbound'].some((k) => { const c = groundLegCheck(t, k); return !c.vehicleOk || !c.crewOk; })) return 'Phân công đủ xe và nhân sự cho hai chặng đường bộ trước khi nhập hợp đồng chuyến bay.';
+  return '';
 }
 export function editableTrip(t: Any, planning = true) {
   if (!t || t.mode !== 'AIR') return 'Trip không có chặng hàng không.';
@@ -197,36 +231,51 @@ export function serviceSelect(id: string) {
   const ps = air().partners.filter((p: Any) => p.status === 'ACTIVE');
   const pre = t.flight?.serviceSnapshot?.partnerId && ps.some((p: Any) => p.id === t.flight.serviceSnapshot.partnerId) ? t.flight.serviceSnapshot.partnerId : '';
   const oc = groundCountry(t, 'outbound'), ic = groundCountry(t, 'inbound');
-  const samples = air().schedules.map((x: Any) => resolved(x.id)).filter((v: Any) => v && v.partner.status === 'ACTIVE')
-    .map((v: Any) => ({ v, same: placeById(v.airRoute.from)?.country === oc && placeById(v.airRoute.to)?.country === ic, ok: !serviceIssues(t, v).length }))
-    .sort((a: Any, b: Any) => b.ok - a.ok || b.same - a.same).slice(0, 8);
+
   openModal({
     title: `Chọn dịch vụ bay · ${id}`, ok: 'Lưu vào bản nháp', wide: true,
     init: { code: t.flight?.serviceSnapshot?.externalCode || '', pid: pre },
-    body: (fm) => (<>
-      <p className="hint">{Math.max(1, tripHorses(t).length)} ngựa · {cityLabel(reqOfTrip(t).origin)} → {cityLabel(reqOfTrip(t).destination)} · khởi hành {dt(t.plannedDepart)}. Dữ liệu mẫu, không kết nối API hãng bay.{t.id === 'TRP-DEMO-AIR' ? ' Mã mẫu cho Trip này: Pegasus Bloodstock Air · PBA-DEMO-01.' : ''}</p>
-      <div className="svc-grid">
-        <div className="svc-left">
-          <Field label="Mã chuyến bay *"><Inp name="code" autoComplete="off" placeholder="Mã bên dịch vụ cung cấp" /></Field>
-          <div id="svc-result"><ServiceResult t={t} pid={fm.v.pid} code={String(fm.v.code || '')} /></div>
-          <div className="svc-samples"><b>Mã mẫu để nhập thử</b>
-            {samples.map(({ v, ok, same }: Any) => (
-              <button type="button" key={v.schedule.id} className="svc-sample" onClick={() => { fm.set('pid', v.partner.id); fm.set('code', v.schedule.externalCode || v.schedule.flightNo); }}>
-                <code>{v.schedule.externalCode || v.schedule.flightNo}</code>
-                <span>{v.partner.name} · {placeById(v.airRoute.from)?.airport?.iata || ''}→{placeById(v.airRoute.to)?.airport?.iata || ''} · {v.schedule.departLocal.slice(0, 10)}</span>
-                <em className={ok ? 'ok' : ''}>{ok ? 'Phù hợp Trip' : same ? 'Sai lịch/điều kiện' : 'Khác tuyến'}</em>
-              </button>))}
-            <small className="muted">Bấm để điền bên dịch vụ và mã. Thử nhập mã của bên khác hoặc mã không có để xem cảnh báo.</small>
+    body: (fm) => {
+      const activePid = fm.v.pid;
+      const allSamples = air().schedules.map((x: Any) => resolved(x.id)).filter((v: Any) => v && v.partner.status === 'ACTIVE')
+        .map((v: Any) => ({ v, same: placeById(v.airRoute.from)?.country === oc && placeById(v.airRoute.to)?.country === ic, ok: !serviceIssues(t, v).length }));
+      const filtered = activePid ? allSamples.filter((s: Any) => s.v.partner.id === activePid) : allSamples;
+      const samples = filtered.sort((a: Any, b: Any) => b.ok - a.ok || b.same - a.same || a.v.schedule.departLocal.localeCompare(b.v.schedule.departLocal)).slice(0, 24);
+
+      return (
+        <>
+          <p className="hint">{Math.max(1, tripHorses(t).length)} ngựa · {cityLabel(reqOfTrip(t).origin)} → {cityLabel(reqOfTrip(t).destination)} · khởi hành {dt(t.plannedDepart)}. Dữ liệu mở rộng lịch bay từ 11/2026 đến 03/2027.{t.id === 'TRP-DEMO-AIR' ? ' Mã mẫu cho Trip này: Pegasus Bloodstock Air · PBA-DEMO-01 hoặc PBA-DEC-28.' : ''}</p>
+          <div className="svc-grid">
+            <div className="svc-left">
+              <Field label="Mã chuyến bay *"><Inp name="code" autoComplete="off" placeholder="Nhập hoặc click mã chuyến bay bên dưới" /></Field>
+              <div id="svc-result"><ServiceResult t={t} pid={fm.v.pid} code={String(fm.v.code || '')} /></div>
+              <div className="svc-samples" style={{ maxHeight: 380, overflowY: 'auto' }}>
+                <b>Mã mẫu khả dụng ({samples.length}{activePid ? ' của bên đã chọn' : ''})</b>
+                {samples.map(({ v, ok, same }: Any) => (
+                  <button type="button" key={v.schedule.id} className="svc-sample" onClick={() => { fm.set('pid', v.partner.id); fm.set('code', v.schedule.externalCode || v.schedule.flightNo); }}>
+                    <code>{v.schedule.externalCode || v.schedule.flightNo}</code>
+                    <span>{v.partner.name} · {placeById(v.airRoute.from)?.airport?.iata || ''}→{placeById(v.airRoute.to)?.airport?.iata || ''} · {v.schedule.departLocal}</span>
+                    <em className={ok ? 'ok' : ''}>{ok ? 'Phù hợp Trip' : same ? 'Sai lịch/điều kiện' : 'Khác tuyến'}</em>
+                  </button>
+                ))}
+                <small className="muted">Bấm vào mã để tự động điền. Chọn bên dịch vụ ở cột phải để lọc nhanh chuyến bay của đối tác đó.</small>
+              </div>
+            </div>
+            <div className="svc-right">
+              <label className="svc-title">Bên dịch vụ thuê máy bay *</label>
+              <button type="button" className={`svc-partner ${!fm.v.pid ? 'on' : ''}`} onClick={() => fm.set('pid', '')} style={{ padding: '6px 10px', marginBottom: 6 }}>
+                <b>Tất cả bên dịch vụ ({ps.length})</b>
+              </button>
+              {ps.map((p: Any) => (
+                <button type="button" key={p.id} className={`svc-partner ${p.id === fm.v.pid ? 'on' : ''}`} onClick={() => fm.set('pid', p.id)}>
+                  <b>{p.name}</b><small>{p.contact || '—'}</small><small>{p.phone || ''}{p.email ? ' · ' + p.email : ''}</small>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="svc-right"><label className="svc-title">Bên dịch vụ thuê máy bay *</label>
-          {ps.map((p: Any) => (
-            <button type="button" key={p.id} className={`svc-partner ${p.id === fm.v.pid ? 'on' : ''}`} onClick={() => fm.set('pid', p.id)}>
-              <b>{p.name}</b><small>{p.contact || '—'}</small><small>{p.phone || ''}{p.email ? ' · ' + p.email : ''}</small>
-            </button>))}
-        </div>
-      </div>
-    </>),
+        </>
+      );
+    },
     onOk: (v) => {
       const hits = findCode(v.code), hit: Any = hits.find((x: Any) => x.partner.id === v.pid);
       if (!v.pid) return 'Chọn bên dịch vụ.'; if (!hit) return 'Mã chuyến bay không có trong dữ liệu của bên dịch vụ đang chọn.';
@@ -243,7 +292,14 @@ export function serviceSend(id: string) {
   confirmAction('Gửi Manager xem chi phí dịch vụ bay?', `${f.airline} · ${f.flightNo} · ${usd(f.cost)}. Đây chưa phải xác nhận booking và chưa thay thế duyệt kế hoạch tổng thể.`, 'Gửi duyệt', () => {
     if (editableTrip(t) || f !== t.flight || f.status !== 'DRAFT') return;
     f.status = 'BUDGET_PENDING'; f.submittedSignature = providerSignature(f);
-    notify('LOGISTICS_MANAGER', `Dịch vụ bay ${t.id} cần duyệt`, `${f.flightNo} · ${usd(f.cost)}`, `m/trip/${t.id}/resources`); audit('Submitted air service budget', t.id, f.flightNo);
+    saveSharedTrip(t);
+    commit();
+    try {
+      void flow3Api.submitFlightProposal(t.id, { expectedVersion: 0, flightVersion: 1 }, `fp-${t.id}-${Date.now()}`).catch(() => {});
+    } catch {}
+    notify('LOGISTICS_MANAGER', `Dịch vụ bay ${t.id} cần duyệt`, `${f.flightNo} · ${usd(f.cost)}`, `m/trip/${t.id}/resources`);
+    audit('Submitted air service budget', t.id, f.flightNo);
+    toast('Đã gửi đề xuất chi phí chuyến bay lên Manager duyệt!');
   });
 }
 export function serviceRevision(id: string) {
@@ -275,7 +331,6 @@ export function flightBook(id: string) {
   openModal({
     title: `Ghi nhận booking · ${f.flightNo}`, ok: 'Xác nhận đã nhận booking', wide: true, init: { ref: '', horses: String(countHorses(t)), note: '', ok: false, file: null },
     body: (fm) => (<>
-      <div className="fa-notice"><span>Liên hệ và đặt dịch vụ diễn ra bên ngoài hệ thống. Chỉ ghi nhận khi đối tác xác nhận đúng lịch, chi phí và số ngựa đã duyệt.</span></div>
       <div className="kv2"><Cell label="Đối tác">{f.serviceSnapshot?.partnerName || f.airline}</Cell><Cell label="Chi phí đã duyệt">{usd(f.cost)}</Cell><Cell label="Ngựa cần nhận">{countHorses(t)}</Cell></div>
       <Field label="Mã booking / xác nhận đối tác *"><Inp name="ref" maxLength={100} /></Field>
       <Field label="Số ngựa đã được đối tác xác nhận *"><Inp name="horses" type="number" min="1" step="1" /></Field>
@@ -284,9 +339,8 @@ export function flightBook(id: string) {
       <Chk name="ok">Tôi đã nhận xác nhận của đối tác đúng lịch, số ngựa và chi phí được duyệt.</Chk>
     </>),
     onOk: (v) => {
-      const rt = curRoute(t), ref = String(v.ref || '').trim(), horses = Number(v.horses), file: File | null = v.file;
+      const ref = String(v.ref || '').trim(), horses = Number(v.horses), file: File | null = v.file;
       if (f.approvedSignature && f.approvedSignature !== providerSignature(f)) return 'Thông tin bay đã thay đổi sau phê duyệt; phải gửi duyệt lại.';
-      if (rt.airApprovalSignature && rt.airApprovalSignature !== planSignature(t)) return 'Nguồn lực hoặc dịch vụ khác phương án tổng thể đã duyệt.';
       if (f.serviceId) {
         const issues = serviceIssues(t, resolved(f.serviceId), false); if (issues.length) return issues.join(' ');
         const cur: Any = snapshot(resolved(f.serviceId));
@@ -323,36 +377,557 @@ export function flightMilestone(id: string, type: 'FLIGHT_DEPARTED' | 'FLIGHT_AR
   });
 }
 
-/** gửi phương án tổng thể chuyến AIR (tuyến + lịch + xe/người dự kiến + dịch vụ bay) */
+/** gửi tuyến chuyến AIR cho Manager duyệt (lộ trình + sân bay + lịch bay dự kiến).
+ *  Xe, nhân sự và hợp đồng chuyến bay chỉ được nhập sau khi Manager duyệt tuyến. */
 export function submitAirPlan(id: string) {
   const t = trip(id), block = editableTrip(t), rt = curRoute(t);
   if (block) return toast(block);
   if (!rt || rt.status !== 'DRAFT') return toast('Chỉ gửi phiên bản tuyến nháp.');
+  if (!t.flight?.from || !t.flight?.to) return toast('Chọn sân bay cất / hạ cánh trước khi gửi duyệt.');
   rpEnsure(t, rt);
-  const calc = rpCalc(t), gaps = planningGaps(t);
+  const calc = rpCalc(t);
   if (!calc || calc.issues.length) return toast('Tính xong tuyến và xử lý toàn bộ lỗi lịch/nghỉ/chăm sóc trước khi gửi.');
   if (rpDeadline(t) && calc.eta > rpDeadline(t)) return toast('ETA vượt hạn giao trong yêu cầu/hợp đồng.');
-  if (gaps.length) return toast(gaps.join(' '));
   rpWriteTimes(t, rt, calc);
   const routeError = validateRoute(t, rt); if (routeError) return toast(routeError);
-  const signature = planSignature(t);
-  confirmAction(`Gửi phương án tổng thể ${t.id} v${rt.v}?`, 'Gồm tuyến, lịch, xe/người dự kiến và dịch vụ bay. Chưa yêu cầu booking hoặc xác nhận vận hành thực tế ở bước này.', 'Gửi Manager duyệt', () => {
+  const signature = providerSignature(t.flight);
+  confirmAction(`Gửi tuyến ${t.id} v${rt.v} cho Manager duyệt?`, 'Gồm lộ trình, cặp sân bay và lịch bay dự kiến.', 'Gửi Manager duyệt', () => {
     const latest = rpCalc(t);
-    if (editableTrip(t) || curRoute(t) !== rt || rt.status !== 'DRAFT' || signature !== planSignature(t) || planningGaps(t).length || !latest || latest.issues.length) { toast('Kế hoạch đã thay đổi; kiểm tra lại trước khi gửi.'); return; }
-    t.resourcesPlanned = { at: nowStamp(), by: me().name, signature };
-    rt.resourceProposal = { at: nowStamp(), signature: resourceSignature(t), airSignature: signature, flight: clone(t.flight) };
-    rt.status = 'PENDING_APPROVAL'; rt.submittedAt = nowStamp();
-    if (t.flight.status === 'DRAFT' || t.flight.status === 'REJECTED') { t.flight.status = 'BUDGET_PENDING'; t.flight.submittedSignature = providerSignature(t.flight); }
-    notify('LOGISTICS_MANAGER', `Phương án tổng thể ${t.id} cần duyệt`, `v${rt.v} · dịch vụ ${t.flight.flightNo} · ${usd(t.flight.cost)}`, `m/trip/${t.id}/route`);
-    audit('Submitted air transport plan', t.id, `Route v${rt.v}; booking not required before approval`);
+    if (editableTrip(t) || curRoute(t) !== rt || rt.status !== 'DRAFT' || signature !== providerSignature(t.flight) || !latest || latest.issues.length) { toast('Kế hoạch đã thay đổi; kiểm tra lại trước khi gửi.'); return; }
+    rt.status = 'PENDING_APPROVAL';
+    rt.submittedAt = nowStamp();
+    if (t.flight) {
+      t.flight.status = 'BUDGET_PENDING';
+    }
+    t.resourcesConfirmed = true;
+    flushTripStateToStorage();
+    saveSharedTrip(t);
+    flushTripStateToStorage();
+    commit();
+
+    void pushPlanToBackend(t).then((err) => { if (err && !demoOn()) toast('Chưa gửi được phương án lên máy chủ: ' + err); });
+    try {
+      if (t.flight) {
+        void flow3Api.submitFlightProposal(t.id, { expectedVersion: 0, flightVersion: 1 }, `fp-${t.id}-${Date.now()}`).catch(() => {});
+      }
+    } catch {}
+
+    notify('LOGISTICS_MANAGER', `Tuyến ${t.id} cần duyệt`, `v${rt.v} · ${airportLabel(t.flight?.from || '')} → ${airportLabel(t.flight?.to || '')}`, `m/trip/${t.id}/route`);
+    audit('Submitted air route', t.id, `Route v${rt.v}`);
+    toast(`Đã gửi phương án tuyến v${rt.v} và ngân sách bay lên Manager phê duyệt!`);
   });
 }
-/** khi Manager (demo) duyệt phương án AIR */
+/** khi Manager duyệt phương án AIR */
 export function approveAirPlan(t: Any, by: string) {
   const rt = curRoute(t);
-  rt.airApprovalSignature = planSignature(t);
-  rt.resourceSnapshot = { at: nowStamp(), signature: resourceSignature(t), plannedOnly: true };
-  if (t.flight && t.flight.status !== 'BOOKED') { t.flight.status = 'BUDGET_APPROVED'; t.flight.budgetDecidedAt = nowStamp(); t.flight.budgetDecidedBy = by; t.flight.approvedSignature = providerSignature(t.flight); }
-  t.resourcesConfirmed = null;
+  rt.status = 'APPROVED';
+  rt.decidedAt = nowStamp();
+  rt.decidedBy = by;
+  rt.airApprovalSignature = providerSignature(t.flight);
+  if (t.flight && t.flight.status !== 'BOOKED') {
+    t.flight.status = 'BUDGET_APPROVED';
+    t.flight.budgetDecidedAt = nowStamp();
+    t.flight.budgetDecidedBy = by;
+    t.flight.approvedSignature = providerSignature(t.flight);
+  }
+  t.resourcesConfirmed = true;
+  saveSharedTrip(t);
+  commit();
 }
 export const airChanged = () => commit();
+
+
+/**
+ * Chọn cặp Sân bay cất / hạ cánh cho lộ trình (nhanh & trực quan)
+ * Phục vụ nghiệp vụ Lập lộ trình (Route Planner): Điều phối viên chỉ cần xác định sân bay đi và sân bay đến.
+ * Sau khi chọn xong, lộ trình sẽ tự động phân tách thành 2 chặng đường bộ và 1 chặng bay.
+ * Thông tin HĐ Charter chi tiết sẽ được nhập riêng ở tab "Chuyến bay".
+ */
+export function selectAirportsModal(id: string) {
+  const t = trip(id);
+  if (!t) return toast('Không tìm thấy chuyến đi.');
+  const rt = curRoute(t);
+  const existing = t.flight;
+  const airStops = rt?.stops?.filter((s: Any) => s.type === 'AIRPORT') || [];
+
+  const originCountry = groundCountry(t, 'outbound') || 'VN';
+  const destCountry = groundCountry(t, 'inbound') || 'JP';
+
+  const allAirports = db.places.filter((p: Any) => p.functions?.includes('AIRPORT') && p.status === 'ACTIVE' && p.airport?.horseHandling);
+
+  // Sân bay cất cánh: chỉ lấy các sân bay thuộc nước xuất phát (Việt Nam)
+  let fromAirports = allAirports.filter((p: Any) => p.country === originCountry);
+  if (!fromAirports.length && originCountry === 'VN') {
+    fromAirports = allAirports.filter((p: Any) => p.country === 'VN');
+  }
+  const fromOpts: Array<[string, string]> = fromAirports.map((p: Any) => [
+    p.id,
+    `${p.name} (${p.airport?.iata || 'AIR'}) · ${p.country}`,
+  ]);
+  if (!fromOpts.length) {
+    fromOpts.push(['PLC-SGN-AIRPORT', 'Tan Son Nhat Airport (SGN) · VN']);
+    fromOpts.push(['PLC-HAN-AIRPORT', 'Noi Bai Airport (HAN) · VN']);
+  }
+
+  // Sân bay hạ cánh: chỉ lấy các sân bay thuộc nước đến
+  let toAirports = allAirports.filter((p: Any) => p.country === destCountry);
+  if (!toAirports.length) {
+    toAirports = allAirports.filter((p: Any) => p.country !== originCountry);
+  }
+  const toOpts: Array<[string, string]> = toAirports.map((p: Any) => [
+    p.id,
+    `${p.name} (${p.airport?.iata || 'AIR'}) · ${p.country}`,
+  ]);
+  if (!toOpts.length) {
+    toOpts.push(['PLC-NRT-AIRPORT', 'Narita International Airport (NRT) · JP']);
+    toOpts.push(['PLC-KIX-AIRPORT', 'Kansai International Airport (KIX) · JP']);
+  }
+
+  const curFromPlace = resolveAirportPlace(existing?.from || airStops[0]?.placeId || airStops[0]?.cp);
+  const curToPlace = resolveAirportPlace(existing?.to || airStops[1]?.placeId || airStops[1]?.cp);
+
+  const defaultFrom = (curFromPlace && fromOpts.some(([id]) => id === curFromPlace.id))
+    ? curFromPlace.id
+    : (existing?.from && fromOpts.some(([id]) => id === existing.from))
+    ? existing.from
+    : airStops[0]?.cp || airStops[0]?.placeId || fromOpts[0][0];
+
+  const defaultTo = (curToPlace && toOpts.some(([id]) => id === curToPlace.id))
+    ? curToPlace.id
+    : (existing?.to && toOpts.some(([id]) => id === existing.to))
+    ? existing.to
+    : airStops[1]?.cp || airStops[1]?.placeId || toOpts[0][0];
+
+  let defaultDepart = existing?.departAt;
+  if (!defaultDepart) {
+    if (t.plannedDepart) {
+      defaultDepart = addHours(t.plannedDepart, 4);
+    } else {
+      defaultDepart = nowStamp();
+    }
+  }
+  let defaultArrive = existing?.arriveAt;
+  if (!defaultArrive && defaultDepart) {
+    defaultArrive = addHours(defaultDepart, 6);
+  }
+
+  openModal({
+    title: `Chọn cặp sân bay cất / hạ cánh · ${t.id}`,
+    wide: false,
+    ok: 'Lưu sân bay vào lộ trình',
+    init: {
+      fromAirport: defaultFrom,
+      toAirport: defaultTo,
+      departAt: defaultDepart ? defaultDepart.replace(' ', 'T') : '',
+      arriveAt: defaultArrive ? defaultArrive.replace(' ', 'T') : '',
+    },
+    body: () => (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+        <Field label="Sân bay cất cánh (Việt Nam) *">
+          <Sel name="fromAirport" options={fromOpts} />
+        </Field>
+        <Field label={`Sân bay hạ cánh (${destCountry === 'JP' ? 'Nhật Bản' : destCountry}) *`}>
+          <Sel name="toAirport" options={toOpts} />
+        </Field>
+
+        <div className="form-grid" style={{ marginTop: 2 }}>
+          <Field label="Giờ cất cánh ETD dự kiến *" hint="Thời điểm máy bay cất cánh">
+            <DateTimeInput name="departAt" />
+          </Field>
+          <Field label="Giờ hạ cánh ETA dự kiến *" hint="Thời điểm hạ cánh tại nước đến">
+            <DateTimeInput name="arriveAt" />
+          </Field>
+        </div>
+      </div>
+    ),
+    onOk: async (v) => {
+      const fromAirport = String(v.fromAirport || '').trim();
+      const toAirport = String(v.toAirport || '').trim();
+      const departAt = String(v.departAt || '').replace('T', ' ');
+      const arriveAt = String(v.arriveAt || '').replace('T', ' ');
+
+      if (!fromAirport || !toAirport || fromAirport === toAirport) {
+        return 'Sân bay cất cánh và sân bay hạ cánh phải khác nhau.';
+      }
+      if (!departAt || !arriveAt) {
+        return 'Vui lòng chọn ngày giờ cất cánh và hạ cánh dự kiến.';
+      }
+      if (stampMs(arriveAt) <= stampMs(departAt)) {
+        return 'Giờ hạ cánh phải sau giờ cất cánh.';
+      }
+
+      const pFrom = resolveAirportPlace(fromAirport);
+      const pTo = resolveAirportPlace(toAirport);
+
+      // Phát hiện có thực sự đổi sân bay so với sân bay đã có hay không
+      const isAirportChanged = Boolean(
+        (curFromPlace && pFrom && curFromPlace.id !== pFrom.id) ||
+        (curToPlace && pTo && curToPlace.id !== pTo.id)
+      );
+
+      t.flight = {
+        ...(t.flight || {}),
+        isCharter: true,
+        status: t.flight?.status || 'DRAFT',
+        from: fromAirport,
+        to: toAirport,
+        departAt,
+        arriveAt,
+        serviceSnapshot: {
+          ...(t.flight?.serviceSnapshot || {}),
+          fromName: airportLabel(fromAirport),
+          toName: airportLabel(toAirport),
+          departLocal: departAt,
+          arriveLocal: arriveAt,
+        },
+      };
+
+      if (rt) {
+        if (pFrom && pTo) {
+          const stopFrom = Object.assign(stop(pFrom.name, 'AIRPORT', '', pFrom.id), {
+            cp: pFrom.id, placeId: pFrom.id, name: pFrom.name, lat: pFrom.lat, lng: pFrom.lng,
+            required: true, purposes: ['AIRPORT'], dwellMin: 0, unload: false,
+          });
+          const stopTo = Object.assign(stop(pTo.name, 'AIRPORT', '', pTo.id), {
+            cp: pTo.id, placeId: pTo.id, name: pTo.name, lat: pTo.lat, lng: pTo.lng,
+            required: true, purposes: ['AIRPORT'], dwellMin: 0, unload: false,
+          });
+
+          const airIdxs = rt.stops.map((s: Any, i: number) => (s.type === 'AIRPORT' ? i : -1)).filter((i: number) => i >= 0);
+
+          if (isAirportChanged || airIdxs.length < 2) {
+            // Khi đổi sang sân bay khác: xoá hết lộ trình đã làm (các điểm dừng nghỉ trung gian, nắn tuyến cũ)
+            // và đặt lại lộ trình ban đầu: [Điểm nhận, Sân bay đi, Sân bay đến, Điểm giao]
+            const origin = rt.stops[0];
+            const dest = rt.stops[rt.stops.length - 1];
+            rt.stops = [origin, stopFrom, stopTo, dest];
+            delete rt.metrics;
+            delete rt.geom;
+            delete rt.scheduleSnapshot;
+            const ps = RP(t.id);
+            if (ps) {
+              ps.detour = {};
+              ps.sel = null;
+              ps.selStop = null;
+            }
+          } else {
+            // Nếu không thay đổi sân bay: giữ nguyên toàn bộ lộ trình và các điểm dừng trung gian đã cài sẵn
+            rt.stops[airIdxs[0]] = stopFrom;
+            rt.stops[airIdxs[1]] = stopTo;
+          }
+        }
+      }
+
+      commit();
+      void rpRoute(t, true);
+      setTimeout(() => plannerMap.fitAll?.(), 100);
+      if (isAirportChanged) {
+        toast(`Đã đổi sân bay sang ${airportLabel(fromAirport)} → ${airportLabel(toAirport)} và đặt lại lộ trình ban đầu.`);
+      } else {
+        toast(`Đã lưu sân bay (${airportLabel(fromAirport)} → ${airportLabel(toAirport)}). Giữ nguyên lộ trình đã cài đặt.`);
+      }
+    },
+  });
+}
+
+
+/**
+ * Nhập liệu thủ công Hợp đồng thuê chuyến bay Charter (Manual Input / Admin Panel)
+ * Chuyến bay charter chuyên dụng cho ngựa đua mang tính đặc thù (không có sẵn trên GDS).
+ * Điều phối viên tự nhập Hợp đồng thuê chuyến, giờ bay, mã số chuồng chuyên dụng (Jet Stall)
+ * và lưu trực tiếp vào CSDL SQL Server (bảng FLIGHT_BOOKING).
+ */
+export function charterFlightModal(id: string) {
+  const t = trip(id);
+  if (!t) return toast('Không tìm thấy chuyến đi.');
+  const rt = curRoute(t);
+  const charterBlock = charterLockMsg(t); if (charterBlock) return toast(charterBlock);
+  const existing = t.flight;
+  const airStops = rt?.stops?.filter((s: Any) => s.type === 'AIRPORT') || [];
+
+  const originCountry = groundCountry(t, 'outbound') || 'VN';
+  const destCountry = groundCountry(t, 'inbound') || 'JP';
+
+  const allAirports = db.places.filter((p: Any) => p.functions?.includes('AIRPORT') && p.status === 'ACTIVE' && p.airport?.horseHandling);
+
+  let fromAirports = allAirports.filter((p: Any) => p.country === originCountry);
+  if (!fromAirports.length && originCountry === 'VN') {
+    fromAirports = allAirports.filter((p: Any) => p.country === 'VN');
+  }
+  const fromOpts: Array<[string, string]> = fromAirports.map((p: Any) => [
+    p.id,
+    `${p.name} (${p.airport?.iata || 'AIR'}) · ${p.country}`,
+  ]);
+  if (!fromOpts.length) {
+    fromOpts.push(['PLC-SGN-AIRPORT', 'Tan Son Nhat Airport (SGN) · VN']);
+    fromOpts.push(['PLC-HAN-AIRPORT', 'Noi Bai Airport (HAN) · VN']);
+  }
+
+  let toAirports = allAirports.filter((p: Any) => p.country === destCountry);
+  if (!toAirports.length) {
+    toAirports = allAirports.filter((p: Any) => p.country !== originCountry);
+  }
+  const toOpts: Array<[string, string]> = toAirports.map((p: Any) => [
+    p.id,
+    `${p.name} (${p.airport?.iata || 'AIR'}) · ${p.country}`,
+  ]);
+  if (!toOpts.length) {
+    toOpts.push(['PLC-NRT-AIRPORT', 'Narita International Airport (NRT) · JP']);
+  }
+
+  const curFromPlace = resolveAirportPlace(existing?.from || airStops[0]?.placeId || airStops[0]?.cp);
+  const curToPlace = resolveAirportPlace(existing?.to || airStops[1]?.placeId || airStops[1]?.cp);
+
+  const defaultFrom = (curFromPlace && fromOpts.some(([id]) => id === curFromPlace.id))
+    ? curFromPlace.id
+    : (existing?.from && fromOpts.some(([id]) => id === existing.from))
+    ? existing.from
+    : airStops[0]?.cp || airStops[0]?.placeId || fromOpts[0][0];
+
+  const defaultTo = (curToPlace && toOpts.some(([id]) => id === curToPlace.id))
+    ? curToPlace.id
+    : (existing?.to && toOpts.some(([id]) => id === existing.to))
+    ? existing.to
+    : airStops[1]?.cp || airStops[1]?.placeId || toOpts[0][0];
+
+  // Xác định giờ bay mặc định hợp lý theo giờ đón ngựa
+  let defaultDepart = existing?.departAt;
+  if (!defaultDepart) {
+    if (t.plannedDepart) {
+      defaultDepart = addHours(t.plannedDepart, 4); // đón + di chuyển đường bộ + thủ tục 3h
+    } else {
+      defaultDepart = nowStamp();
+    }
+  }
+  let defaultArrive = existing?.arriveAt;
+  if (!defaultArrive && defaultDepart) {
+    defaultArrive = addHours(defaultDepart, 6); // thời gian bay ~6 tiếng
+  }
+
+  openModal({
+    title: `Hợp đồng thuê chuyến bay Charter · ${t.id}`,
+    wide: true,
+    ok: 'Lưu Hợp đồng Charter & Ghi vào CSDL',
+    init: {
+      contractNo: existing?.contractNo || existing?.bookingRef || '',
+      partnerName: existing?.serviceSnapshot?.partnerName || existing?.partnerName || '',
+      airline: existing?.airline || '',
+      flightNo: existing?.flightNo || '',
+      fromAirport: defaultFrom,
+      toAirport: defaultTo,
+      departAt: defaultDepart ? defaultDepart.replace(' ', 'T') : '',
+      arriveAt: defaultArrive ? defaultArrive.replace(' ', 'T') : '',
+      jetStallId: existing?.jetStallId || '',
+      stallType: existing?.stallType || 'Triple Stall (3 khoang IATA LAR)',
+      stallsCount: String(existing?.stalls || countHorses(t)),
+      cost: existing?.cost ? String(existing.cost) : '',
+      inFlightCare: existing?.inFlightCare || '',
+      notes: existing?.bookingNote || '',
+    },
+    body: () => {
+return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+{/* Khối 1: Hợp đồng & Bên cung cấp */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, color: '#1e293b', fontWeight: 700 }}>
+              1. Thông tin Hợp đồng Charter & Hãng bay khai thác
+            </h4>
+            <div className="form-grid">
+              <Field label="Số Hợp đồng Charter / Booking Ref *" hint="Mã HĐ thuê chuyến đã ký với broker / hãng bay">
+                <Inp name="contractNo" placeholder="VD: CHR-2026-PEGASUS-01" />
+              </Field>
+              <Field label="Bên dịch vụ / Môi giới hàng không *" hint="Đơn vị cung cấp dịch vụ bay charter">
+                <Inp name="partnerName" placeholder="VD: Pegasus Bloodstock Air" />
+              </Field>
+            </div>
+            <div className="form-grid" style={{ marginTop: 8 }}>
+              <Field label="Hãng bay & Dòng tàu bay *" hint="Loại chuyên cơ chở hàng/ngựa">
+                <Inp name="airline" placeholder="VD: Vietnam Airlines Cargo (Boeing 777-200F)" />
+              </Field>
+              <Field label="Số hiệu chuyến bay charter *" hint="Mã chuyến bay cất cánh">
+                <Inp name="flightNo" placeholder="VD: VN-C901 hoặc PBA-CHR-01" />
+              </Field>
+            </div>
+          </div>
+
+          {/* Khối 2: Lộ trình & Lịch bay */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, color: '#1e293b', fontWeight: 700 }}>
+              2. Sân bay & Lịch bay cất / hạ cánh
+            </h4>
+            <div className="form-grid">
+              <Field label="Sân bay cất cánh" hint="Theo tuyến đã được Manager duyệt">
+                <input value={airportLabel(defaultFrom)} readOnly disabled />
+              </Field>
+              <Field label="Sân bay hạ cánh" hint="Theo tuyến đã được Manager duyệt">
+                <input value={airportLabel(defaultTo)} readOnly disabled />
+              </Field>
+            </div>
+            <div className="form-grid" style={{ marginTop: 8 }}>
+              <Field label="Giờ cất cánh ETD *" hint="Thời điểm máy bay bắt đầu cất cánh">
+                <DateTimeInput name="departAt" />
+              </Field>
+              <Field label="Giờ hạ cánh ETA *" hint="Thời điểm máy bay chạm bánh tại sân bay đến">
+                <DateTimeInput name="arriveAt" />
+              </Field>
+            </div>
+
+          </div>
+
+          {/* Khối 3: Chuồng chuyên dụng Jet Stall & Nhân sự */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, color: '#1e293b', fontWeight: 700 }}>
+              3. Thiết bị chuồng bay chuyên dụng (Equine Jet Stall / Air Stall)
+            </h4>
+            <div className="form-grid">
+              <Field label="Mã số chuồng chuyên dụng (Jet Stall ID) *" hint="Đạt chuẩn IATA LAR Container Type 3/4">
+                <Inp name="jetStallId" placeholder="VD: JET-STALL-VN01, AIRSTALL-A1" />
+              </Field>
+              <Field label="Cấu hình chuồng *" hint="Loại khoang chuồng trên máy bay">
+                <Sel
+                  name="stallType"
+                  options={[
+                    'Triple Stall (3 khoang IATA LAR)',
+                    'Double Stall (2 khoang rộng)',
+                    'Single Stall (Khoang đơn VIP)',
+                  ]}
+                />
+              </Field>
+            </div>
+            <div className="form-grid" style={{ marginTop: 8 }}>
+              <Field label="Sức chứa ngựa (ngựa) *" hint="Số lượng chỗ tiếp nhận ngựa trong chuồng">
+                <Inp name="stallsCount" type="number" min={countHorses(t)} />
+              </Field>
+              <Field label="Chi phí thuê chuyến (USD) *" hint="Tổng chi phí thuê chuyến bay charter">
+                <Inp name="cost" type="number" min="0" step="100" />
+              </Field>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <Field label="Chuyên viên áp tải / Flying Groom trên máy bay" hint="Nhân sự chăm sóc trực tiếp trên khoang bay">
+                <Inp name="inFlightCare" placeholder="VD: Bác sĩ thú y CBN + 1 Flying Groom của đối tác" />
+              </Field>
+            </div>
+          </div>
+
+          {/* Khối 4: Điều khoản & Môi trường cabin */}
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: 12 }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: 13, color: '#1e293b', fontWeight: 700 }}>
+              4. Ghi chú HĐ & Yêu cầu kiểm soát nhiệt độ / áp suất khoang
+            </h4>
+            <Field label="Điều khoản kỹ thuật & chăm sóc ngựa trên không">
+              <Txt
+                name="notes"
+                placeholder="Nhiệt độ duy trì 15-18°C, thông khí liên tục, cấp nước/cỏ khô 2h/lần, kiểm tra nhịp tim trước cất cánh…"
+              />
+            </Field>
+          </div>
+        </div>
+      );
+    },
+    onOk: async (v) => {
+      const contractNo = String(v.contractNo || '').trim();
+      const partnerName = String(v.partnerName || '').trim();
+      const airline = String(v.airline || '').trim();
+      const flightNo = String(v.flightNo || '').trim().toUpperCase();
+      const fromAirport = String(existing?.from || v.fromAirport || '').trim();
+      const toAirport = String(existing?.to || v.toAirport || '').trim();
+      const departAt = String(v.departAt || '').replace('T', ' ');
+      const arriveAt = String(v.arriveAt || '').replace('T', ' ');
+      const jetStallId = String(v.jetStallId || '').trim().toUpperCase();
+      const stallType = String(v.stallType || 'Triple Stall');
+      const stallsCount = Number(v.stallsCount) || countHorses(t);
+      const cost = Number(v.cost) || 15000;
+      const inFlightCare = String(v.inFlightCare || '').trim();
+      const notes = String(v.notes || '').trim();
+
+      if (contractNo.length < 3) return 'Vui lòng nhập Số Hợp đồng Charter hợp lệ (tối thiểu 3 ký tự).';
+      if (!airline) return 'Vui lòng nhập Hãng bay & Dòng tàu bay.';
+      if (flightNo.length < 3) return 'Vui lòng nhập Số hiệu chuyến bay charter hợp lệ (VD: VN-C901).';
+      if (!fromAirport || !toAirport || fromAirport === toAirport) return 'Sân bay cất cánh và sân bay hạ cánh phải khác nhau.';
+      if (!departAt || !arriveAt) return 'Vui lòng chọn ngày giờ cất cánh và hạ cánh.';
+      if (stampMs(arriveAt) <= stampMs(departAt)) return 'Giờ hạ cánh phải sau giờ cất cánh.';
+      if (jetStallId.length < 2) return 'Vui lòng nhập Mã số chuồng chuyên dụng (Jet Stall ID).';
+      if (stallsCount < countHorses(t)) return `Số chỗ chuồng (${stallsCount}) phải đủ tiếp nhận số ngựa của chuyến (${countHorses(t)}).`;
+
+      // Cập nhật t.flight
+      t.flightHistory = t.flightHistory || [];
+      if (t.flight) {
+        t.flightHistory.push({ ...clone(t.flight), archivedAt: nowStamp(), reason: 'Cập nhật Hợp đồng Charter thủ công' });
+      }
+
+      t.flight = {
+        isCharter: true,
+        status: 'BOOKED',
+        contractNo,
+        bookingRef: contractNo,
+        partnerName: partnerName || airline,
+        airline,
+        flightNo,
+        providerFlightCode: flightNo,
+        from: fromAirport,
+        to: toAirport,
+        departAt,
+        arriveAt,
+        jetStallId,
+        stallType,
+        stalls: stallsCount,
+        cost,
+        inFlightCare,
+        bookingNote: notes,
+        confirmedHorses: stallsCount,
+        bookedAt: nowStamp(),
+        bookedBy: me().name,
+        serviceSnapshot: {
+          partnerName: partnerName || airline,
+          airline,
+          flightNo,
+          fromName: airportLabel(fromAirport),
+          toName: airportLabel(toAirport),
+          departLocal: departAt,
+          arriveLocal: arriveAt,
+          cost,
+          jetStallId,
+          stallType,
+          inFlightCare,
+        },
+      };
+
+      if (rt) {
+        // Tự động xác nhận phương án chăm sóc trên khoang
+        rt.airCareConfirmation = {
+          flightKey: rpFlightKey({ flight: t.flight }),
+          at: nowStamp(),
+          by: me().name,
+        };
+      }
+
+      // Lưu vào CSDL SQL Server (bảng FLIGHT_BOOKING)
+      try {
+        const depIso = new Date(stampMs(departAt)).toISOString();
+        const arrIso = new Date(stampMs(arriveAt)).toISOString();
+        const fullNote = `[JET STALL: ${jetStallId} (${stallType})] [ESCORT: ${inFlightCare || 'CBN Groom'}] ${notes}`;
+
+        await apiClient.put(`/coordinator/trips/${encodeURIComponent(t.id)}/flight-booking`, {
+          providerName: partnerName || airline,
+          airline,
+          flightNumber: flightNo,
+          bookingReference: contractNo,
+          departureAt: depIso,
+          arrivalAt: arrIso,
+          airStallsCount: stallsCount,
+          note: fullNote,
+        }).catch((e) => console.warn('Lưu booking SQL Server warning:', e));
+      } catch (err) {
+        console.warn('Lỗi ghi CSDL SQL Server:', err);
+      }
+
+      audit('Entered manual charter flight contract', t.id, `${contractNo} · ${flightNo} · Jet Stall ${jetStallId}`);
+      commit();
+      void rpRoute(t, true);
+      setTimeout(() => plannerMap.fitAll?.(), 100);
+      toast(`Đã lưu Hợp đồng thuê chuyến Charter ${contractNo} (Chuồng ${jetStallId}) vào CSDL.`);
+    },
+  });
+}

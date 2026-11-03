@@ -15,7 +15,7 @@ export function IncidentsPage() {
   const openCmp = db.complaints.filter((c: Any) => !['RESOLVED', 'CLOSED'].includes(c.status)).length;
   return (
     <CoordinatorLayout title="Sự cố & khiếu nại">
-      <div className="head"><div><h2 className="page-title">Sự cố &amp; khiếu nại</h2><p className="subtitle">Bạn là đầu mối từ tiếp nhận đến đóng sự cố: lập phương án, phối hợp nguồn lực, cho phép tiếp tục chặng và đóng sự cố.</p></div>
+      <div className="head"><div><h2 className="page-title">Sự cố &amp; khiếu nại</h2></div>
         <button type="button" className="btn danger-solid" onClick={f5OnBehalf}><Icon name="alert" />Ghi nhận sự cố thay tổ xe</button></div>
       <Tabs k="hub-f" fallback="incidents" items={[['incidents', 'Sự cố trong chuyến', openInc], ['complaints', 'Khiếu nại liên quan', openCmp]]} />
       {on === 'incidents' ? (
@@ -39,7 +39,6 @@ export function IncidentsPage() {
             { label: 'Trạng thái', render: (c: Any) => <Pill v={c.status} label={CMP_VI[c.status] || human(c.status)} /> },
             { label: '', render: (c: Any) => <button type="button" className="btn ghost sm" onClick={() => cmpView(c.id)}>Xem</button> },
           ]} />
-        <p className="hint">Logistics Manager trả lời và giải quyết khiếu nại. Bạn có thể xem để phối hợp khi Manager cần thông tin.</p>
       </>)}
     </CoordinatorLayout>
   );

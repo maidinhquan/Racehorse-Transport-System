@@ -249,7 +249,9 @@ export const PROFILE_LABEL: Record<HorseProfileStatus, string> = {
 
 /** Các đơn đã gửi (không còn là bản nháp) có dùng ngựa này */
 export const horseRequests = (h: Horse, requests: TransportRequest[]) =>
-  requests.filter((r) => r.status !== 'DRAFT' && r.horses.includes(h.id)).sort((a, b) => b.date.localeCompare(a.date));
+  requests.filter((r) => r.status !== 'DRAFT' && r.status !== 'CANCELLED' && r.status !== 'REJECTED' && r.horses.includes(h.id)).sort((a, b) => b.date.localeCompare(a.date));
+export const activeHorseRequests = (h: Horse, requests: TransportRequest[]) =>
+  requests.filter((r) => isActive(r) && r.status !== 'DRAFT' && r.horses.includes(h.id)).sort((a, b) => b.date.localeCompare(a.date));
 /** Ngựa đã gắn với đơn đã gửi thì khóa thông tin định danh */
 export const HORSE_LOCKED_FIELDS = ['name', 'breed', 'sex', 'dob', 'microchip'] as const;
 
@@ -380,17 +382,18 @@ export const sumItems = (items: ContractItem[]) => items.reduce((s, i) => s + i.
 export const curVersion = (r: TransportRequest): ContractVersion | undefined =>
   r.versions && r.versions.length > 0 ? r.versions[r.versions.length - 1] : undefined;
 /** Trạng thái thực tế: tôn trọng trạng thái từ Backend */
-export function versionState(v: ContractVersion): ContractState {
+export function versionState(v?: ContractVersion | null): ContractState {
+  if (!v || !v.state) return 'EXPIRED';
   if (v.state === 'EXPIRED' || (v.state === 'ISSUED' && !v.signedAt && isPast(v.validUntil))) return 'EXPIRED';
   return v.state;
 }
-export const ctRef = (v: ContractVersion) => `${v.number} v${v.v}`;
+export const ctRef = (v?: Pick<ContractVersion, 'number' | 'v'> | null) => (v && v.number ? `${v.number} v${v.v}` : '—');
 export const depositAmount = (r: TransportRequest) => {
   const v = curVersion(r);
   return v ? v.depositAmount ?? Math.round((v.total * v.depositPct) / 100) : 0;
 };
 export const contractTotal = (r: TransportRequest) => curVersion(r)?.total ?? 0;
-export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => ['SIGNED', 'EFFECTIVE', 'FULFILLED'].includes(v.state));
+export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => v && ['SIGNED', 'EFFECTIVE', 'FULFILLED'].includes(v.state));
 export const isSigned = (r: TransportRequest) => !!signedVersion(r);
 
 export const depositPayments = (r: TransportRequest) => {

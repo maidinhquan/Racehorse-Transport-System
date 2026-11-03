@@ -5,7 +5,7 @@ import { EmptyPlanPanel } from '../../components/demo/Demo';
 import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
 import { deployed, planGaps, reqOfTrip, trip } from '../../domain/coordinatorRules';
 import { go, useCoordinatorStore } from '../../store/coordinatorStore';
-import { cityLabel, dt, human } from '../../utils/format';
+import { city, cityLabel, dt, human } from '../../utils/format';
 import { EMPTY_PLAN_ID } from '../../workflows/coordinatorActions';
 import { ResourcesTab } from './tabs/ResourcesTab';
 import { RouteTab } from './tabs/RouteTab';
@@ -22,16 +22,26 @@ export function TripDetailPage() {
   const r = reqOfTrip(t), on = TAB_TITLES[tab] && (tab !== 'flight' || t.mode === 'AIR') ? tab : 'overview';
   const tabs = ['overview', 'route', 'resources', ...(t.mode === 'AIR' ? ['flight'] : []), 'progress'];
   const gaps = planGaps(t);
-  const dep = t.deployment.status;
+  const dep = typeof t.deployment === 'string' ? t.deployment : t.deployment?.status || 'CONFIRMED';
   return (
     <CoordinatorLayout title={on === 'route' ? 'Lập lộ trình' : 'Giám sát hành trình'} active="/coordinator/monitor">
       <button type="button" className="link back" onClick={() => go('f/monitor')}>← Giám sát hành trình</button>
       <div className="head"><div><h2 className="page-title" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>{t.id} <Pill v={t.status} /></h2>
-        <p className="subtitle">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • {human(t.mode)} • khởi hành {dt(t.plannedDepart)}</p></div>
+        <p className="subtitle">{r.id} • {cityLabel(r.origin)}, {city(r.origin)[1] || ''} → {cityLabel(r.destination)}, {city(r.destination)[1] || ''} • {t.mode === 'AIR' ? 'Hàng không' : (t.mode ? human(t.mode) : 'Chưa chọn phương thức')} • khởi hành {dt(t.plannedDepart)}</p></div>
         {deployed(t) && t.status === 'PLANNING' ? (gaps.length ? <Pill v="NOT_READY" label={`${gaps.length} việc còn mở`} /> : <Pill v="READY" label="Hoàn tất lập kế hoạch" />) : null}</div>
       {dep === 'CONFIRMED' ? null : <div className="note yellow"><Icon name="info" /><div><b>{dep === 'ON_HOLD' ? 'Tạm dừng triển khai' : 'Đang chờ xác nhận triển khai'}</b>{dep === 'ON_HOLD' ? `Lý do: ${String(t.deployment.holdReason || '—').replace(/\.$/, '')}. Các phiên bản tuyến và phân công hiện có chỉ được xem cho đến khi Quản lý tiếp tục triển khai.` : 'Lập tuyến và phân công chính thức bắt đầu sau khi quản lý xác nhận triển khai.'}</div></div>}
       {t.id === EMPTY_PLAN_ID ? <EmptyPlanPanel /> : null}
-      <div className="rtabs">{tabs.map((k) => <button type="button" key={k} className={k === on ? 'on' : ''} onClick={() => go(`f/trip/${t.id}/${k}`)}>{TAB_TITLES[k]}</button>)}</div>
+      <div className="rtabs" style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 22, flex: 1 }}>
+          {tabs.map((k) => <button type="button" key={k} className={k === on ? 'on' : ''} onClick={() => go(`f/trip/${t.id}/${k}`)}>{TAB_TITLES[k]}</button>)}
+        </div>
+        <span className="rtabs-arrows" style={{ color: '#6b7280', fontSize: 13, userSelect: 'none', paddingRight: 4 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="7 9 12 4 17 9"></polyline>
+            <polyline points="7 15 12 20 17 15"></polyline>
+          </svg>
+        </span>
+      </div>
       {on === 'overview' ? <OverviewTab t={t} /> : null}
       {on === 'route' ? <RouteTab t={t} /> : null}
       {on === 'resources' ? <ResourcesTab t={t} /> : null}

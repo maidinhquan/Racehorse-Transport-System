@@ -87,7 +87,7 @@ const PLACES = {
 const hist = (at: string, role: ActorRole, action: string, detail?: string): HistoryEntry => ({
   at, role, action, detail,
   actor: role === 'CUSTOMER' ? mockProfile.name : role === 'LOGISTICS_MANAGER' ? 'Linh Pham' : role === 'TRANSPORT_SPECIALIST' ? 'Hoang Thu Ha'
-    : role === 'FLEET_ROUTE_COORDINATOR' ? 'Dang Minh Quan' : role === 'DRIVER_ESCORT' ? 'Pham Van Duc' : 'Hệ thống',
+    : role === 'FLEET_ROUTE_COORDINATOR' ? 'Phạm Hải' : role === 'DRIVER_ESCORT' ? 'Pham Van Duc' : 'Hệ thống',
 });
 
 function version(id: string, v: number, issuedAt: string, r: Pick<TransportRequest, 'origin' | 'destination' | 'horseCount'>,

@@ -80,6 +80,11 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
     ['/specialist/audit', 'Lịch sử thao tác', 'clock'],
   ];
 
+  const storedName = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null)
+    || (typeof localStorage !== 'undefined' ? localStorage.getItem('userFullName') : null);
+  const specialistName = storedName || SPECIALIST_NAME;
+  const specialistInitials = specialistName.split(' ').filter(Boolean).map((n) => n[0]).join('').slice(-2).toUpperCase() || SPECIALIST_INITIALS;
+
   return (
     <div className="spc-app">
       <aside className="spc-sidebar">
@@ -111,17 +116,17 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
                 aria-label="Menu chuyên viên"
                 aria-expanded={userMenuOpen}
               >
-                <span className="spc-avatar">{SPECIALIST_INITIALS}</span>
-                <span className="spc-user-name">{SPECIALIST_NAME}</span>
+                <span className="spc-avatar">{specialistInitials}</span>
+                <span className="spc-user-name">{specialistName}</span>
                 <Icon name="chevron" className="spc-user-chevron" />
               </button>
 
               {userMenuOpen && (
                 <div className="spc-user-menu" role="menu">
                   <div className="spc-user-menu__header">
-                    <div className="spc-user-menu__avatar">{SPECIALIST_INITIALS}</div>
+                    <div className="spc-user-menu__avatar">{specialistInitials}</div>
                     <div className="spc-user-menu__info">
-                      <b>{SPECIALIST_NAME}</b>
+                      <b>{specialistName}</b>
                       <span>Transport Specialist</span>
                     </div>
                   </div>

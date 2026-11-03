@@ -64,13 +64,34 @@ export const addDays = (iso: string, n: number) => fromMs(stampMs(iso.slice(0, 1
 export const usd = (n: Any) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 // ---------- thành phố ----------
-export const city = (name: string): string[] => db.cities.find((c: Any) => c[0] === name) || [name || '—', '', name || '—'];
+export const city = (name: string): string[] => {
+  const norm = String(name || '').trim().toLowerCase();
+  const direct = db.cities.find((c: Any) => c[0] === name || c[0].toLowerCase() === norm);
+  if (direct) return direct;
+  if (norm.includes('hồ chí minh') || norm.includes('hcm') || norm.includes('hà nội') || norm.includes('đà nẵng') || norm.includes('việt nam') || norm.includes('vietnam')) {
+    return [name, 'VN', 'VN'];
+  }
+  if (norm.includes('tokyo') || norm.includes('nhật bản') || norm.includes('japan') || norm.includes('osaka') || norm.includes('narita')) {
+    return [name, 'JP', 'JP'];
+  }
+  if (norm.includes('bangkok') || norm.includes('thái lan') || norm.includes('thailand')) {
+    return [name, 'TH', 'TH'];
+  }
+  if (norm.includes('singapore')) return [name, 'SG', 'SG'];
+  if (norm.includes('sydney') || norm.includes('úc') || norm.includes('australia')) return [name, 'AU', 'AU'];
+  if (norm.includes('hồ chí minh') || norm.includes('hcm') || norm.includes('hà nội') || norm.includes('đà nẵng') || norm.includes('việt nam') || norm.includes('vietnam') || /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/.test(norm)) {
+    return [name, 'VN', 'VN'];
+  }
+  if (norm.includes('singapore')) return [name, 'SG', 'SG'];
+  if (norm.includes('sydney') || norm.includes('úc') || norm.includes('australia')) return [name, 'AU', 'AU'];
+  return [name || '—', '', name || '—'];
+};
 export const cityLabel = (name: string) => (name ? `${name}, ${city(name)[1]}` : '—');
 export const shortCity = (name: string) => (name === 'Ho Chi Minh City' ? 'HCMC' : name || '—');
 
 // ---------- điểm dừng & mốc ----------
 export const STOP_COLOR: Record<string, string> = {
-  ORIGIN: '#0f172a', DESTINATION: '#16a34a', CHECKPOINT: '#dc2626', AIRPORT: '#2563eb', QUARANTINE_STATION: '#7c3aed', REST_STOP: '#d97706', FUEL_STOP: '#64748b',
+  ORIGIN: '#0f172a', DESTINATION: '#16a34a', CHECKPOINT: '#dc2626', AIRPORT: '#ea580c', QUARANTINE_STATION: '#0284c7', REST_STOP: '#d97706', FUEL_STOP: '#64748b',
 };
 export const STOP_LABEL: Record<string, string> = {
   ORIGIN: 'Điểm đi', DESTINATION: 'Điểm đến', CHECKPOINT: 'Cửa khẩu', AIRPORT: 'Sân bay', QUARANTINE_STATION: 'Trạm kiểm dịch', REST_STOP: 'Điểm nghỉ', FUEL_STOP: 'Điểm đổ nhiên liệu',

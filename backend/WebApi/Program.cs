@@ -56,10 +56,20 @@ builder.Services.AddDbContext<HorseTransportDbContext>(options =>
 // 2. ĐĂNG KÝ CÁC DỊCH VỤ NỀN TẢNG (CACHE, TOKEN, EMAIL, DAO & AUTH SERVICE)
 // =============================================================================
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
+builder.Services.AddHttpClient("MapboxClient", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
+builder.Services.AddHttpClient("GeoapifyClient", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
 builder.Services.AddScoped<IUserDAO, Infrastructure.DAOs.UserDAO>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IMapRoutingService, MapRoutingService>();
 builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
@@ -140,25 +150,20 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 // =============================================================================
 // 5. CẤU HÌNH JWT AUTHENTICATION
 // =============================================================================
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "RaceHorseTransportBackend";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "RaceHorseTransportFrontend";
+var jwtKey = TokenService.ResolveJwtKey(builder.Configuration, builder.Environment.IsDevelopment());
+var jwtIssuer = string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Issuer"]) ? "RaceHorseTransportBackend" : builder.Configuration["Jwt:Issuer"]!;
+var jwtAudience = string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Audience"]) ? "RaceHorseTransportFrontend" : builder.Configuration["Jwt:Audience"]!;
 
-builder
-    .Services.AddAuthentication(options =>
-    {
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
-    .AddJwtBearer(options =>
-    {
-        var jwtKey = builder.Configuration["Jwt:Key"];
-        if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
-            throw new InvalidOperationException(
-                "Configure a private Jwt:Key of at least 32 bytes through the environment or local configuration."
-            );
-        options.RequireHttpsMetadata = false;
-        options.SaveToken = true;
-        options.TokenValidationParameters = new TokenValidationParameters
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
@@ -292,6 +297,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<IdempotencyMiddleware>();
 app.UseRateLimiter();
 
 app.MapControllers();

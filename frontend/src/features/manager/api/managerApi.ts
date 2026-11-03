@@ -1,7 +1,7 @@
 import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
 import { MANAGER_ENDPOINTS as E } from './managerEndpoints';
-import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, Staff, Transaction, TransportMode, TransportRequest, Trip } from '../types';
+import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, RoutePlan, Staff, Transaction, TransportMode, TransportRequest, Trip } from '../types';
 import { attachContractFeedback, contractFromWire, documentKey, paymentFromWire, type WireContract, type WireHorse, type WirePayment } from '../../../shared/api/flow1Wire';
 export interface CostPlanDto {
   costs: {
@@ -31,7 +31,13 @@ export interface ContractEditorData {
   defaults: FormOptions & { terms: ContractDraft['terms'] };
 }
 type WireRequest = Record<string, any>;
-const versionFromWire = (v: WireContract): ContractVersion => contractFromWire(v) as unknown as ContractVersion;
+// Backend giữ versionStatus = SIGNED sau khi ký, còn trạng thái thực nằm ở contractStatus (EFFECTIVE/FULFILLED).
+// Hiển thị theo contractStatus để không còn báo "Đã ký – chờ cọc" khi hợp đồng đã có hiệu lực.
+const versionFromWire = (v: WireContract): ContractVersion => {
+  const c = contractFromWire(v) as unknown as ContractVersion;
+  if (v.versionStatus === 'SIGNED' && ['EFFECTIVE', 'FULFILLED'].includes(v.contractStatus)) c.state = v.contractStatus as ContractVersion['state'];
+  return c;
+};
 // Older requests can have null place fields (e.g. no postal code or city); the UI expects strings.
 const PLACE_TEXT = ['name', 'address', 'postal', 'contact', 'phone', 'notes', 'cityId', 'cityName'];
 const placeFromWire = (p: Record<string, unknown> | null | undefined) =>
@@ -47,6 +53,23 @@ const requestFromWire = (r: WireRequest): TransportRequest => ({ ...r,
     status: d.status === 'SUBMITTED' ? 'PENDING_REVIEW' : d.status, file: d.file?.url,
   })),
 } as TransportRequest);
+/** Phương án Điều phối gửi (PlanDto của backend) → RoutePlan của trang Quản lý. Bản nháp chưa gửi thì bỏ qua. */
+const routeFromPlan = (p: any): RoutePlan | undefined => {
+  if (!p || !Array.isArray(p.stops) || p.status === 'DRAFT') return undefined;
+  return {
+    v: p.planVersion || 1,
+    status: (p.status === 'RETURNED' ? 'CHANGES_REQUESTED' : p.status) as RoutePlan['status'],
+    pickupAt: p.pickupAt || undefined,
+    submittedAt: p.submittedAt || '',
+    stops: p.stops.map((s: any) => ({ name: s.name, type: s.type, plannedAt: s.arriveAt || s.departAt || '', lat: s.geo?.lat, lng: s.geo?.lng })),
+    vehicle: p.vehicleLabel || undefined,
+    crew: (p.crewLabels || []).filter((x: any) => Array.isArray(x) && x.length >= 2).map((x: any) => [x[0], x[1]] as [string, string]),
+    resourcesConfirmed: true,
+    note: p.note || undefined,
+    decisionNote: p.decisionNote || undefined,
+    decidedAt: p.decidedAt || undefined,
+  };
+};
 const tripFromWire = (t: any): Trip => ({ ...t,
   deployment: { ...t.deployment, specialistId: t.specialistId, coordinatorId: t.coordinatorId, holdReason: t.deployment?.reason },
   milestones: [], etaHistory: [],
@@ -59,12 +82,28 @@ export const managerApi = {
   getStaff: () => contractClient<Staff[]>('get', '/manager/staff'),
   getRequests: async () => (await contractClient<WireRequest[]>('get', '/manager/requests')).map(requestFromWire),
   getRequest: async (id: string) => requestFromWire(await contractClient<WireRequest>('get', `/manager/requests/${id}`)),
-  getTrip: async (id: string) => tripFromWire(await contractClient('get', `/manager/trips/${id}`)),
+  /** Phương án Điều phối gửi cho một chuyến (undefined nếu chưa gửi / đã hủy gửi). */
+  getTripPlan: async (id: string): Promise<RoutePlan | undefined> => {
+    try { return routeFromPlan(await apiRequest<any>('get', E.TRIP_PLAN(id))); } catch { return undefined; }
+  },
+  getTrip: async (id: string) => {
+    const t = tripFromWire(await contractClient('get', `/manager/trips/${id}`));
+    if (!t.route) { try { const r = routeFromPlan(await apiRequest<any>('get', E.TRIP_PLAN(t.id))); if (r) t.route = r; } catch { /* chưa có phương án */ } }
+    return t;
+  },
   /** F1-J69: server asks VNPay first; only an expired, unconfirmed session is cancelled (customer can pay again). */
   cancelPayment: async (id: string, reason: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('post', `/manager/payments/${id}/cancel`, { reason })), requestId: '' } as Transaction),
   getPayment: async (id: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('get', `/manager/payments/${id}`)), requestId: '' } as Transaction),
   getContractVersion: async (id: string, versionNo: number) => versionFromWire(await contractClient<WireContract>('get', `/manager/contracts/${id}/versions/${versionNo}`)),
-  getTrips: async () => (await contractClient<any[]>('get', '/manager/trips')).map(tripFromWire),
+  getTrips: async () => {
+    const list = (await contractClient<any[]>('get', '/manager/trips')).map(tripFromWire);
+    // Gắn phương án tuyến Điều phối đã gửi (lưu trên backend) cho các chuyến chưa có route
+    await Promise.all(list.map(async (t) => {
+      if (t.route) return;
+      try { const r = routeFromPlan(await apiRequest<any>('get', E.TRIP_PLAN(t.id))); if (r) t.route = r; } catch { /* chưa có phương án */ }
+    }));
+    return list;
+  },
   getTransactions: async () => (await contractClient<WirePayment[]>('get', '/manager/payments')).map(p => ({ ...paymentFromWire(p), requestId: '' } as Transaction)),
   // Backend sends `body` (same as customer) and customer-side links; map to the manager UI shape.
   getNotifications: async (): Promise<ManagerNotification[]> =>
@@ -110,11 +149,42 @@ export const managerApi = {
   // Flow 3: Manager route review & planning endpoints
   getPlanningTrips: () => apiRequest('get', E.PLANNING),
   getTripRoute: (tripId: string) => apiRequest('get', E.TRIP_ROUTE(tripId)),
-  approveRoute: (tripId: string, routeVersionId: number, body?: { expectedVersion?: number; note?: string }) =>
-    apiRequest('post', E.APPROVE_ROUTE(tripId, routeVersionId), { expectedVersion: body?.expectedVersion ?? routeVersionId, note: body?.note ?? 'Approved by Manager' }),
-  returnRoute: (tripId: string, routeVersionId: number, reason: string, expectedVersion?: number) =>
-    apiRequest('post', E.RETURN_ROUTE(tripId, routeVersionId), { expectedVersion: expectedVersion ?? routeVersionId, reason }),
+  approveRoute: async (tripId: string, routeVersionId: number, body?: { expectedVersion?: number; note?: string }) => {
+    try {
+      return await apiRequest('post', E.PLAN_DECISION_F3(tripId), {
+        expectedVersion: body?.expectedVersion ?? 0,
+        planVersion: routeVersionId,
+        decision: 'APPROVE',
+        reason: body?.note ?? 'Approved by Manager',
+      });
+    } catch {
+      return await apiRequest('post', E.APPROVE_ROUTE(tripId, routeVersionId), {
+        expectedVersion: body?.expectedVersion ?? routeVersionId,
+        note: body?.note ?? 'Approved by Manager',
+      });
+    }
+  },
+  returnRoute: async (tripId: string, routeVersionId: number, reason: string, expectedVersion?: number) => {
+    try {
+      return await apiRequest('post', E.PLAN_DECISION_F3(tripId), {
+        expectedVersion: expectedVersion ?? 0,
+        planVersion: routeVersionId,
+        decision: 'RETURN',
+        reason,
+      });
+    } catch {
+      return await apiRequest('post', E.RETURN_ROUTE(tripId, routeVersionId), {
+        expectedVersion: expectedVersion ?? routeVersionId,
+        reason,
+      });
+    }
+  },
   getDepartureConditions: (tripId: string) => apiRequest('get', E.DEPARTURE_CONDITIONS(tripId)),
+  // Flow 3 v3 Relocation endpoints
+  sendPickupRelocation: (tripId: string, body: { expectedVersion: number; relocationId: string; proposalVersion: number }) =>
+    apiRequest('post', E.SEND_RELOCATION_F3(tripId), body),
+  decidePickupRelocation: (tripId: string, body: { expectedVersion: number; relocationId: string; decision: 'APPROVE' | 'RETURN'; reason?: string }) =>
+    apiRequest('post', E.RELOCATION_DECISION_F3(tripId), body),
   // Out-of-scope screens keep their existing routes; no fabricated successful response.
   getIncidents: () => apiRequest<Incident[]>('get', E.INCIDENTS),
   getComplaints: () => apiRequest<Complaint[]>('get', E.COMPLAINTS),

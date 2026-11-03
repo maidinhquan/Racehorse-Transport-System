@@ -15,8 +15,13 @@ interface StepProps {
 
 /** Bước 1: phương án vận chuyển dự kiến (để lập giá) */
 export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, defaults, policyReady }) => {
-  const minPrepDays = policyReady ? defaults.preparationDays : null;
-  const modes = [...new Set(defaults.supportedRoutes.map(route => route.mode))];
+  const minPrepDays = policyReady ? (defaults?.preparationDays ?? null) : null;
+  // The selected route is enough to keep the editor usable if an older server omits the optional route list.
+  const routes = (defaults?.supportedRoutes?.length ? defaults.supportedRoutes : [defaults?.selectedRoute])
+    .filter((route): route is NonNullable<typeof route> => !!route);
+  const modes = routes.length
+    ? [...new Set(routes.map(route => route.mode))]
+    : (['ROAD', 'AIR'] as TransportMode[]);
   const minDepartDate = addDays(today(), minPrepDays ?? 0);
 
   const isDepartTooEarly = draft.departAt && draft.departAt.slice(0, 10) < minDepartDate;
@@ -43,7 +48,7 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, 
           <label htmlFor="ct-mode">Phương thức vận chuyển *</label>
           <select id="ct-mode" className="mgr-input" value={draft.mode ?? ''} onChange={e => set({ mode: e.target.value as TransportMode })}>
             <option value="" disabled>Chọn phương thức</option>
-            {modes.map(mode => <option key={mode} value={mode}>{MODE_LABEL[mode]}</option>)}
+            {(modes.length > 0 ? modes : (['ROAD', 'AIR'] as TransportMode[])).map(mode => <option key={mode} value={mode}>{MODE_LABEL[mode]}</option>)}
           </select>
           <p className="mgr-hint">Chỉ hiển thị phương thức được hỗ trợ cho tuyến này.</p>
         </div>

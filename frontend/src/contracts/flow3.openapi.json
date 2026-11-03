@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Racehorse Transport — Flow 3 / Final_Flow3.html",
-    "version": "2.0.0",
+    "title": "Racehorse Transport — Flow 3 / agreed workflow 2026-10-30",
+    "version": "3.0.0",
     "description": "Target contract only. Parallel preparation; ROAD pre-confirm, AIR approve then book/confirm. Backend/DB not implemented by these artifacts."
   },
   "servers": [
@@ -19,7 +19,7 @@
     "/master/flow3-capabilities": {
       "get": {
         "operationId": "F3-J01",
-        "summary": "Khả năng triển khai và policy Flow 3 v2",
+        "summary": "Khả năng triển khai và policy Flow 3 v3",
         "description": "Metadata contract mục tiêu; flags thực tế chỉ true sau nghiệm thu. Không lộ API key. Chưa có persistence/provider thì false và mutation trả 501.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
@@ -62,7 +62,7 @@
                   "success": true,
                   "message": "OK",
                   "data": {
-                    "version": "2.0.0",
+                    "version": "3.0.0",
                     "implementationStatus": "DESIGNED_NOT_IMPLEMENTED",
                     "parallelPreparation": true,
                     "documentValidityMode": "ASSUMED_VALID_FOR_TRIP",
@@ -364,6 +364,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 10,
                       "contextVersion": 1,
@@ -396,13 +399,26 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
-                      "eta": "2026-11-10 06:30",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
+                      "eta": "2026-11-10 07:00",
                       "stops": [
                         {
                           "stopId": "STOP_001",
@@ -420,7 +436,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -438,8 +454,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -508,7 +524,7 @@
                             },
                             "required": true,
                             "arriveAt": "2026-11-10 06:00",
-                            "departAt": "2026-11-10 06:00",
+                            "departAt": "2026-11-10 06:30",
                             "placeVersion": null
                           },
                           {
@@ -526,16 +542,16 @@
                               "lng": 106.8
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 06:30",
-                            "departAt": "2026-11-10 06:30",
+                            "arriveAt": "2026-11-10 07:00",
+                            "departAt": "2026-11-10 07:00",
                             "placeVersion": null
                           }
                         ],
                         "totalKm": 20,
                         "driveMin": 30,
-                        "stopMin": 0,
+                        "stopMin": 30,
                         "flyMin": 0,
-                        "eta": "2026-11-10 06:30",
+                        "eta": "2026-11-10 07:00",
                         "issues": []
                       },
                       "note": ""
@@ -785,7 +801,7 @@
       "get": {
         "operationId": "F3-J04",
         "summary": "Context điều phối và cả hai nhánh chuẩn bị",
-        "description": "Context điều phối và cả hai nhánh chuẩn bị",
+        "description": "Context điều phối và cả hai nhánh chuẩn bị mode/modeSource/contractVersion lấy từ hợp đồng có hiệu lực; pickupDate là ngày nhận đã thống nhất với khách. Không chọn mode từ Flow 3.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
@@ -842,6 +858,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 10,
                       "contextVersion": 1,
@@ -874,13 +893,26 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
-                      "eta": "2026-11-10 06:30",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
+                      "eta": "2026-11-10 07:00",
                       "stops": [
                         {
                           "stopId": "STOP_001",
@@ -898,7 +930,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -916,8 +948,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -986,7 +1018,7 @@
                             },
                             "required": true,
                             "arriveAt": "2026-11-10 06:00",
-                            "departAt": "2026-11-10 06:00",
+                            "departAt": "2026-11-10 06:30",
                             "placeVersion": null
                           },
                           {
@@ -1004,16 +1036,16 @@
                               "lng": 106.8
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 06:30",
-                            "departAt": "2026-11-10 06:30",
+                            "arriveAt": "2026-11-10 07:00",
+                            "departAt": "2026-11-10 07:00",
                             "placeVersion": null
                           }
                         ],
                         "totalKm": 20,
                         "driveMin": 30,
-                        "stopMin": 0,
+                        "stopMin": 30,
                         "flyMin": 0,
-                        "eta": "2026-11-10 06:30",
+                        "eta": "2026-11-10 07:00",
                         "issues": []
                       },
                       "note": ""
@@ -1598,7 +1630,7 @@
       "put": {
         "operationId": "F3-J06",
         "summary": "Lưu nháp tuyến, lịch, xe và nhân sự",
-        "description": "PLANNING + deployed. Tạo nếu chưa có draft, sửa DRAFT/RETURNED; không sửa APPROVED tại chỗ. Server cấp planVersion nội dung mới, tính dependency và invalidation. Draft cho thiếu, không giữ mới; thay bộ đã confirm giải phóng hold draft không còn dùng. Không nhận deadline/ETA/geometry/status/actor. Chọn bay qua J39.",
+        "description": "PLANNING + deployed. Tạo nếu chưa có draft, sửa DRAFT/RETURNED; không sửa APPROVED tại chỗ. Server cấp planVersion nội dung mới, tính dependency và invalidation. Draft cho thiếu, không giữ mới; thay bộ đã confirm giải phóng hold draft không còn dùng. Không nhận deadline/ETA/geometry/status/actor. Chọn bay qua J39. pickupAt là ngày/giờ nhận do Coordinator sắp xếp từ pickupDate; không nhận mode vì lấy từ hợp đồng. plannedDepart là giờ rời ORIGIN do server tính sau bàn giao. Lệch ngày/hạn giao tạo reviewWarnings để Manager kiểm tra, không tự sửa cam kết.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
@@ -1665,6 +1697,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -1697,12 +1732,25 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 2,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
                       "eta": null,
                       "stops": [
                         {
@@ -1721,7 +1769,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -1739,8 +1787,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -1936,6 +1984,21 @@
                       ]
                     }
                   },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
                   "PLAN_LOCKED": {
                     "value": {
                       "success": false,
@@ -2061,7 +2124,7 @@
               },
               "example": {
                 "expectedVersion": 10,
-                "plannedDepart": "2026-11-10 06:00",
+                "pickupAt": "2026-11-10 06:00",
                 "stops": [
                   {
                     "clientKey": "stop-origin",
@@ -2113,7 +2176,7 @@
       "post": {
         "operationId": "F3-J07",
         "summary": "Kiểm nháp, không giữ nguồn lực",
-        "description": "Read-only: thiếu điều kiện trả 200 valid=false + blockers; stale binding 409. Không tạo hold hoặc dấu READY; không bắt feasibility/docs-ready/booking AIR.",
+        "description": "Read-only: thiếu điều kiện trả 200 valid=false + blockers; stale binding 409. Không tạo hold hoặc dấu READY; không bắt feasibility/docs-ready/booking AIR. ETA vượt hạn hoặc lệch ngày nhận tạo cảnh báo để Manager xem xét; không tự đổi pickupDate/deliveryDeadline và không chặn gửi chỉ vì cảnh báo lịch.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
@@ -2173,7 +2236,8 @@
                     "planVersion": 1,
                     "valid": true,
                     "blockers": [],
-                    "eta": "2026-11-10 06:30",
+                    "eta": "2026-11-10 07:00",
+                    "warnings": [],
                     "resourceHoldsCreated": false
                   }
                 }
@@ -2326,6 +2390,21 @@
                       ]
                     }
                   },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
                   "PLAN_LOCKED": {
                     "value": {
                       "success": false,
@@ -2462,7 +2541,7 @@
       "post": {
         "operationId": "F3-J08",
         "summary": "Gửi tổng thể và giữ tạm nguyên tử",
-        "description": "ROAD phải resourcesConfirmed hợp lệ. AIR chỉ đủ bộ dự kiến, chưa cần booking/confirm thực tế; tự submit budget nếu DRAFT/REJECTED. Cả hai kiểm server routing, truck, access, care, deadline, source, resource conflict và giữ tạm toàn bộ trong transaction. Không đợi Specialist feasibility/Docs READY.",
+        "description": "ROAD phải resourcesConfirmed hợp lệ. AIR chỉ đủ bộ dự kiến, chưa cần booking/confirm thực tế; tự submit budget nếu DRAFT/REJECTED. Cả hai kiểm server routing, truck, access, care, deadline, source, resource conflict và giữ tạm toàn bộ trong transaction. Không đợi Specialist feasibility/Docs READY. ETA vượt hạn hoặc lệch ngày nhận tạo cảnh báo để Manager xem xét; không tự đổi pickupDate/deliveryDeadline và không chặn gửi chỉ vì cảnh báo lịch.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
@@ -2529,6 +2608,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -2561,13 +2643,26 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "PENDING_APPROVAL",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
-                      "eta": "2026-11-10 06:30",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
+                      "eta": "2026-11-10 07:00",
                       "stops": [
                         {
                           "stopId": "STOP_001",
@@ -2585,7 +2680,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -2603,8 +2698,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -2673,7 +2768,7 @@
                             },
                             "required": true,
                             "arriveAt": "2026-11-10 06:00",
-                            "departAt": "2026-11-10 06:00",
+                            "departAt": "2026-11-10 06:30",
                             "placeVersion": null
                           },
                           {
@@ -2691,16 +2786,16 @@
                               "lng": 106.8
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 06:30",
-                            "departAt": "2026-11-10 06:30",
+                            "arriveAt": "2026-11-10 07:00",
+                            "departAt": "2026-11-10 07:00",
                             "placeVersion": null
                           }
                         ],
                         "totalKm": 20,
                         "driveMin": 30,
-                        "stopMin": 0,
+                        "stopMin": 30,
                         "flyMin": 0,
-                        "eta": "2026-11-10 06:30",
+                        "eta": "2026-11-10 07:00",
                         "issues": []
                       },
                       "note": ""
@@ -2892,6 +2987,21 @@
                       ]
                     }
                   },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
                   "PLAN_LOCKED": {
                     "value": {
                       "success": false,
@@ -3027,21 +3137,6 @@
                       ]
                     }
                   },
-                  "DELIVERY_DEADLINE_EXCEEDED": {
-                    "value": {
-                      "success": false,
-                      "message": "Yêu cầu chưa đủ điều kiện: DELIVERY_DEADLINE_EXCEEDED",
-                      "errorCode": "DELIVERY_DEADLINE_EXCEEDED",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "DELIVERY_DEADLINE_EXCEEDED",
-                          "field": "planning",
-                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
-                        }
-                      ]
-                    }
-                  },
                   "FLIGHT_CATALOG_CHANGED": {
                     "value": {
                       "success": false,
@@ -3051,6 +3146,21 @@
                       "blockers": [
                         {
                           "code": "FLIGHT_CATALOG_CHANGED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_MISMATCH": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_MISMATCH",
+                      "errorCode": "CONTRACT_MODE_MISMATCH",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_MISMATCH",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -3230,6 +3340,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -3262,6 +3375,17 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": null,
                     "approvedPlan": null,
@@ -3426,6 +3550,21 @@
                       "blockers": [
                         {
                           "code": "DEPLOYMENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -3625,6 +3764,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 10,
                       "contextVersion": 1,
@@ -3657,13 +3799,26 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
-                      "eta": "2026-11-10 06:30",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
+                      "eta": "2026-11-10 07:00",
                       "stops": [
                         {
                           "stopId": "STOP_001",
@@ -3681,7 +3836,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -3699,8 +3854,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -3769,7 +3924,7 @@
                             },
                             "required": true,
                             "arriveAt": "2026-11-10 06:00",
-                            "departAt": "2026-11-10 06:00",
+                            "departAt": "2026-11-10 06:30",
                             "placeVersion": null
                           },
                           {
@@ -3787,16 +3942,16 @@
                               "lng": 106.8
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 06:30",
-                            "departAt": "2026-11-10 06:30",
+                            "arriveAt": "2026-11-10 07:00",
+                            "departAt": "2026-11-10 07:00",
                             "placeVersion": null
                           }
                         ],
                         "totalKm": 20,
                         "driveMin": 30,
-                        "stopMin": 0,
+                        "stopMin": 30,
                         "flyMin": 0,
-                        "eta": "2026-11-10 06:30",
+                        "eta": "2026-11-10 07:00",
                         "issues": []
                       },
                       "note": ""
@@ -4046,7 +4201,7 @@
       "post": {
         "operationId": "F3-J11",
         "summary": "Duyệt/trả toàn bộ phương án",
-        "description": "Chỉ đúng pending snapshot. RETURN cần reason>=5, giải phóng hold draft. APPROVE recheck atomic; ROAD cần confirm còn đúng; AIR duyệt cả budget/nguồn lực dự kiến, chưa booking, xóa confirm thực tế cũ. Không yêu cầu Docs READY. Approved cũ chỉ SUPERSEDED khi approve mới thành công.",
+        "description": "Chỉ đúng pending snapshot. RETURN cần reason>=5, giải phóng hold draft. APPROVE recheck atomic; ROAD cần confirm còn đúng; AIR duyệt cả budget/nguồn lực dự kiến, chưa booking, xóa confirm thực tế cũ. Không yêu cầu Docs READY. Approved cũ chỉ SUPERSEDED khi approve mới thành công. Manager kiểm tra toàn bộ tuyến, giờ nhận/đến/rời, thời gian nghỉ, xe/người, lịch bay và hạn giao. Có thể RETURN phương án chưa phù hợp. APPROVE chỉ khi đúng mode hợp đồng và ngày/hạn đã chốt; lý do không vượt qua cam kết. Nếu cần thay cam kết, Manager lấy đồng ý khách qua Flow 1, cập nhật contractVersion, yêu cầu tính/lập/gửi lại phương án.",
         "tags": [
           "LOGISTICS_MANAGER"
         ],
@@ -4113,6 +4268,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -4145,14 +4303,27 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": null,
                     "approvedPlan": {
                       "planVersion": 1,
                       "status": "APPROVED",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
-                      "eta": "2026-11-10 06:30",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
+                      "eta": "2026-11-10 07:00",
                       "stops": [
                         {
                           "stopId": "STOP_001",
@@ -4170,7 +4341,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -4188,8 +4359,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -4258,7 +4429,7 @@
                             },
                             "required": true,
                             "arriveAt": "2026-11-10 06:00",
-                            "departAt": "2026-11-10 06:00",
+                            "departAt": "2026-11-10 06:30",
                             "placeVersion": null
                           },
                           {
@@ -4276,16 +4447,16 @@
                               "lng": 106.8
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 06:30",
-                            "departAt": "2026-11-10 06:30",
+                            "arriveAt": "2026-11-10 07:00",
+                            "departAt": "2026-11-10 07:00",
                             "placeVersion": null
                           }
                         ],
                         "totalKm": 20,
                         "driveMin": 30,
-                        "stopMin": 0,
+                        "stopMin": 30,
                         "flyMin": 0,
-                        "eta": "2026-11-10 06:30",
+                        "eta": "2026-11-10 07:00",
                         "issues": []
                       },
                       "note": ""
@@ -4486,6 +4657,21 @@
                       ]
                     }
                   },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
                   "PLAN_LOCKED": {
                     "value": {
                       "success": false,
@@ -4621,21 +4807,6 @@
                       ]
                     }
                   },
-                  "DELIVERY_DEADLINE_EXCEEDED": {
-                    "value": {
-                      "success": false,
-                      "message": "Yêu cầu chưa đủ điều kiện: DELIVERY_DEADLINE_EXCEEDED",
-                      "errorCode": "DELIVERY_DEADLINE_EXCEEDED",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "DELIVERY_DEADLINE_EXCEEDED",
-                          "field": "planning",
-                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
-                        }
-                      ]
-                    }
-                  },
                   "FLIGHT_CATALOG_CHANGED": {
                     "value": {
                       "success": false,
@@ -4651,6 +4822,21 @@
                       ]
                     }
                   },
+                  "CONTRACT_MODE_MISMATCH": {
+                    "value": {
+                      "success": false,
+                      "message": "Phương án chưa phù hợp hợp đồng",
+                      "errorCode": "CONTRACT_MODE_MISMATCH",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_MISMATCH",
+                          "field": "schedule",
+                          "message": "Trả lại phương án hoặc xử lý cam kết qua Manager và khách hàng trước khi duyệt"
+                        }
+                      ]
+                    }
+                  },
                   "OLD_BOOKING_ACTIVE": {
                     "value": {
                       "success": false,
@@ -4662,6 +4848,36 @@
                           "code": "OLD_BOOKING_ACTIVE",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "DELIVERY_DEADLINE_EXCEEDED": {
+                    "value": {
+                      "success": false,
+                      "message": "Phương án chưa phù hợp hợp đồng",
+                      "errorCode": "DELIVERY_DEADLINE_EXCEEDED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "DELIVERY_DEADLINE_EXCEEDED",
+                          "field": "schedule",
+                          "message": "Trả lại phương án hoặc xử lý cam kết qua Manager và khách hàng trước khi duyệt"
+                        }
+                      ]
+                    }
+                  },
+                  "PICKUP_DATE_MISMATCH": {
+                    "value": {
+                      "success": false,
+                      "message": "Phương án chưa phù hợp hợp đồng",
+                      "errorCode": "PICKUP_DATE_MISMATCH",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "PICKUP_DATE_MISMATCH",
+                          "field": "schedule",
+                          "message": "Trả lại phương án hoặc xử lý cam kết qua Manager và khách hàng trước khi duyệt"
                         }
                       ]
                     }
@@ -4840,6 +5056,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -4872,13 +5091,26 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 2,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
-                      "eta": "2026-11-10 06:30",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
+                      "eta": "2026-11-10 07:00",
                       "stops": [
                         {
                           "stopId": "STOP_001",
@@ -4896,7 +5128,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -4914,8 +5146,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -4947,8 +5179,10 @@
                       "planVersion": 1,
                       "status": "APPROVED",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
-                      "eta": "2026-11-10 06:30",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
+                      "eta": "2026-11-10 07:00",
                       "stops": [
                         {
                           "stopId": "STOP_001",
@@ -4966,7 +5200,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -4984,8 +5218,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -5054,7 +5288,7 @@
                             },
                             "required": true,
                             "arriveAt": "2026-11-10 06:00",
-                            "departAt": "2026-11-10 06:00",
+                            "departAt": "2026-11-10 06:30",
                             "placeVersion": null
                           },
                           {
@@ -5072,16 +5306,16 @@
                               "lng": 106.8
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 06:30",
-                            "departAt": "2026-11-10 06:30",
+                            "arriveAt": "2026-11-10 07:00",
+                            "departAt": "2026-11-10 07:00",
                             "placeVersion": null
                           }
                         ],
                         "totalKm": 20,
                         "driveMin": 30,
-                        "stopMin": 0,
+                        "stopMin": 30,
                         "flyMin": 0,
-                        "eta": "2026-11-10 06:30",
+                        "eta": "2026-11-10 07:00",
                         "issues": []
                       },
                       "note": ""
@@ -5247,6 +5481,21 @@
                       "blockers": [
                         {
                           "code": "DEPLOYMENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -5456,6 +5705,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "AIR",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -5488,13 +5740,26 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": null,
                     "approvedPlan": {
                       "planVersion": 1,
                       "status": "APPROVED",
                       "mode": "AIR",
+                      "pickupAt": "2026-11-10 10:30",
                       "plannedDepart": "2026-11-10 11:00",
+                      "reviewWarnings": [],
                       "eta": "2026-11-10 23:00",
                       "stops": [
                         {
@@ -5512,7 +5777,7 @@
                             "lng": 106.7009
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 11:00",
+                          "arriveAt": "2026-11-10 10:30",
                           "departAt": "2026-11-10 11:00",
                           "placeVersion": null
                         },
@@ -5708,7 +5973,7 @@
                               "lng": 106.7009
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 11:00",
+                            "arriveAt": "2026-11-10 10:30",
                             "departAt": "2026-11-10 11:00",
                             "placeVersion": null
                           },
@@ -5776,7 +6041,7 @@
                         ],
                         "totalKm": 40,
                         "driveMin": 60,
-                        "stopMin": 330,
+                        "stopMin": 360,
                         "flyMin": 330,
                         "eta": "2026-11-10 23:00",
                         "issues": []
@@ -5974,6 +6239,21 @@
                       ]
                     }
                   },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
                   "PLAN_LOCKED": {
                     "value": {
                       "success": false,
@@ -6162,7 +6442,7 @@
       "post": {
         "operationId": "F3-J14",
         "summary": "Xác nhận bố trí xe/người và tính Ops READY",
-        "description": "ROAD DRAFT đủ bộ trước submit, tạo hold nguyên tử; không cần plan approved. AIR sau approved+BOOKED đúng plan, kiểm thực tế. Không dùng chung gate booking AIR cho ROAD; opsReady chỉ valid khi toàn bộ điều kiện vận hành đã đủ.",
+        "description": "ROAD DRAFT đủ bộ trước submit, tạo hold nguyên tử; không cần plan approved. AIR sau approved+BOOKED đúng plan, kiểm thực tế. Không dùng chung gate booking AIR cho ROAD; opsReady chỉ valid khi toàn bộ điều kiện vận hành đã đủ. ETA vượt hạn hoặc lệch ngày nhận tạo cảnh báo để Manager xem xét; không tự đổi pickupDate/deliveryDeadline và không chặn gửi chỉ vì cảnh báo lịch.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
@@ -6229,6 +6509,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -6261,13 +6544,26 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
-                      "eta": "2026-11-10 06:30",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
+                      "eta": "2026-11-10 07:00",
                       "stops": [
                         {
                           "stopId": "STOP_001",
@@ -6285,7 +6581,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -6303,8 +6599,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -6373,7 +6669,7 @@
                             },
                             "required": true,
                             "arriveAt": "2026-11-10 06:00",
-                            "departAt": "2026-11-10 06:00",
+                            "departAt": "2026-11-10 06:30",
                             "placeVersion": null
                           },
                           {
@@ -6391,16 +6687,16 @@
                               "lng": 106.8
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 06:30",
-                            "departAt": "2026-11-10 06:30",
+                            "arriveAt": "2026-11-10 07:00",
+                            "departAt": "2026-11-10 07:00",
                             "placeVersion": null
                           }
                         ],
                         "totalKm": 20,
                         "driveMin": 30,
-                        "stopMin": 0,
+                        "stopMin": 30,
                         "flyMin": 0,
-                        "eta": "2026-11-10 06:30",
+                        "eta": "2026-11-10 07:00",
                         "issues": []
                       },
                       "note": ""
@@ -6586,6 +6882,21 @@
                       "blockers": [
                         {
                           "code": "DEPLOYMENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -6840,6 +7151,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -6872,14 +7186,27 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": null,
                     "approvedPlan": {
                       "planVersion": 1,
                       "status": "APPROVED",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
-                      "eta": "2026-11-10 06:30",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
+                      "eta": "2026-11-10 07:00",
                       "stops": [
                         {
                           "stopId": "STOP_001",
@@ -6897,7 +7224,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -6915,8 +7242,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -6985,7 +7312,7 @@
                             },
                             "required": true,
                             "arriveAt": "2026-11-10 06:00",
-                            "departAt": "2026-11-10 06:00",
+                            "departAt": "2026-11-10 06:30",
                             "placeVersion": null
                           },
                           {
@@ -7003,16 +7330,16 @@
                               "lng": 106.8
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 06:30",
-                            "departAt": "2026-11-10 06:30",
+                            "arriveAt": "2026-11-10 07:00",
+                            "departAt": "2026-11-10 07:00",
                             "placeVersion": null
                           }
                         ],
                         "totalKm": 20,
                         "driveMin": 30,
-                        "stopMin": 0,
+                        "stopMin": 30,
                         "flyMin": 0,
-                        "eta": "2026-11-10 06:30",
+                        "eta": "2026-11-10 07:00",
                         "issues": []
                       },
                       "note": ""
@@ -7207,6 +7534,21 @@
                       "blockers": [
                         {
                           "code": "DEPLOYMENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -7446,6 +7788,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -7478,13 +7823,26 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
-                      "eta": "2026-11-10 06:30",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
+                      "eta": "2026-11-10 07:00",
                       "stops": [
                         {
                           "stopId": "STOP_001",
@@ -7502,7 +7860,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -7520,8 +7878,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -7590,7 +7948,7 @@
                             },
                             "required": true,
                             "arriveAt": "2026-11-10 06:00",
-                            "departAt": "2026-11-10 06:00",
+                            "departAt": "2026-11-10 06:30",
                             "placeVersion": null
                           },
                           {
@@ -7608,16 +7966,16 @@
                               "lng": 106.8
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 06:30",
-                            "departAt": "2026-11-10 06:30",
+                            "arriveAt": "2026-11-10 07:00",
+                            "departAt": "2026-11-10 07:00",
                             "placeVersion": null
                           }
                         ],
                         "totalKm": 20,
                         "driveMin": 30,
-                        "stopMin": 0,
+                        "stopMin": 30,
                         "flyMin": 0,
-                        "eta": "2026-11-10 06:30",
+                        "eta": "2026-11-10 07:00",
                         "issues": []
                       },
                       "note": ""
@@ -8570,6 +8928,51 @@
                         }
                       ]
                     }
+                  },
+                  "DELIVERY_DEADLINE_EXCEEDED": {
+                    "value": {
+                      "success": false,
+                      "message": "Phương án chưa phù hợp hợp đồng",
+                      "errorCode": "DELIVERY_DEADLINE_EXCEEDED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "DELIVERY_DEADLINE_EXCEEDED",
+                          "field": "schedule",
+                          "message": "Trả lại phương án hoặc xử lý cam kết qua Manager và khách hàng trước khi duyệt"
+                        }
+                      ]
+                    }
+                  },
+                  "PICKUP_DATE_MISMATCH": {
+                    "value": {
+                      "success": false,
+                      "message": "Phương án chưa phù hợp hợp đồng",
+                      "errorCode": "PICKUP_DATE_MISMATCH",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "PICKUP_DATE_MISMATCH",
+                          "field": "schedule",
+                          "message": "Trả lại phương án hoặc xử lý cam kết qua Manager và khách hàng trước khi duyệt"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_MISMATCH": {
+                    "value": {
+                      "success": false,
+                      "message": "Phương án chưa phù hợp hợp đồng",
+                      "errorCode": "CONTRACT_MODE_MISMATCH",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_MISMATCH",
+                          "field": "schedule",
+                          "message": "Trả lại phương án hoặc xử lý cam kết qua Manager và khách hàng trước khi duyệt"
+                        }
+                      ]
+                    }
                   }
                 }
               }
@@ -9043,6 +9446,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "AIR",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -9075,13 +9481,26 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": null,
                     "approvedPlan": {
                       "planVersion": 1,
                       "status": "APPROVED",
                       "mode": "AIR",
+                      "pickupAt": "2026-11-10 10:30",
                       "plannedDepart": "2026-11-10 11:00",
+                      "reviewWarnings": [],
                       "eta": "2026-11-10 23:00",
                       "stops": [
                         {
@@ -9099,7 +9518,7 @@
                             "lng": 106.7009
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 11:00",
+                          "arriveAt": "2026-11-10 10:30",
                           "departAt": "2026-11-10 11:00",
                           "placeVersion": null
                         },
@@ -9295,7 +9714,7 @@
                               "lng": 106.7009
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 11:00",
+                            "arriveAt": "2026-11-10 10:30",
                             "departAt": "2026-11-10 11:00",
                             "placeVersion": null
                           },
@@ -9363,7 +9782,7 @@
                         ],
                         "totalKm": 40,
                         "driveMin": 60,
-                        "stopMin": 330,
+                        "stopMin": 360,
                         "flyMin": 330,
                         "eta": "2026-11-10 23:00",
                         "issues": []
@@ -9561,6 +9980,21 @@
                       ]
                     }
                   },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
                   "PLAN_LOCKED": {
                     "value": {
                       "success": false,
@@ -9716,7 +10150,7 @@
       "get": {
         "operationId": "F3-J23",
         "summary": "Danh sách chuyến được giao và KPI planning",
-        "description": "Danh sách chuyến được giao và KPI planning",
+        "description": "Danh sách chuyến được giao và KPI planning mode/modeSource/contractVersion lấy từ hợp đồng có hiệu lực; pickupDate là ngày nhận đã thống nhất với khách. Không chọn mode từ Flow 3.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
@@ -9794,6 +10228,9 @@
                       "tripId": "TRIP_001",
                       "requestId": "REQUEST_001",
                       "mode": "ROAD",
+                      "contractVersion": 1,
+                      "modeSource": "CONTRACT",
+                      "pickupDate": "2026-11-10",
                       "status": "PLANNING",
                       "planningState": "AWAITING_ROUTE",
                       "plannedDepart": null,
@@ -10032,7 +10469,7 @@
       "get": {
         "operationId": "F3-J24",
         "summary": "Chi tiết chuyến, điểm nhận/giao, ngựa và readiness",
-        "description": "Chi tiết chuyến, điểm nhận/giao, ngựa và readiness",
+        "description": "Chi tiết chuyến, điểm nhận/giao, ngựa và readiness mode/modeSource/contractVersion lấy từ hợp đồng có hiệu lực; pickupDate là ngày nhận đã thống nhất với khách. Không chọn mode từ Flow 3.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
@@ -10089,6 +10526,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 10,
                       "contextVersion": 1,
@@ -10121,13 +10561,26 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
-                      "eta": "2026-11-10 06:30",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
+                      "eta": "2026-11-10 07:00",
                       "stops": [
                         {
                           "stopId": "STOP_001",
@@ -10145,7 +10598,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -10163,8 +10616,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -10233,7 +10686,7 @@
                             },
                             "required": true,
                             "arriveAt": "2026-11-10 06:00",
-                            "departAt": "2026-11-10 06:00",
+                            "departAt": "2026-11-10 06:30",
                             "placeVersion": null
                           },
                           {
@@ -10251,16 +10704,16 @@
                               "lng": 106.8
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 06:30",
-                            "departAt": "2026-11-10 06:30",
+                            "arriveAt": "2026-11-10 07:00",
+                            "departAt": "2026-11-10 07:00",
                             "placeVersion": null
                           }
                         ],
                         "totalKm": 20,
                         "driveMin": 30,
-                        "stopMin": 0,
+                        "stopMin": 30,
                         "flyMin": 0,
-                        "eta": "2026-11-10 06:30",
+                        "eta": "2026-11-10 07:00",
                         "issues": []
                       },
                       "note": ""
@@ -10510,7 +10963,7 @@
       "post": {
         "operationId": "F3-J25",
         "summary": "Tính tuyến đường bộ tham khảo",
-        "description": "Resolve current saved stops từ server; provider URL/key server, không SSRF URL client. Tính geometry/times theo policy; OSRM không truck verification. Lưu routing evidence tăng aggregate version; client refetch context. Dữ liệu demo chỉ Trip demo được bật.",
+        "description": "Resolve current saved stops từ server; provider URL/key server, không SSRF URL client. Tính geometry/times theo policy; OSRM không truck verification. Lưu routing evidence tăng aggregate version; client refetch context. Dữ liệu demo chỉ Trip demo được bật. ORIGIN là effectivePickup, không phải bãi xe; giờ nhận pickupAt theo ngày khách chọn. Không tự thêm điểm y tế/cách ly khi không có yêu cầu thực tế.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
@@ -10615,7 +11068,7 @@
                         },
                         "required": true,
                         "arriveAt": "2026-11-10 06:00",
-                        "departAt": "2026-11-10 06:00",
+                        "departAt": "2026-11-10 06:30",
                         "placeVersion": null
                       },
                       {
@@ -10633,16 +11086,16 @@
                           "lng": 106.8
                         },
                         "required": true,
-                        "arriveAt": "2026-11-10 06:30",
-                        "departAt": "2026-11-10 06:30",
+                        "arriveAt": "2026-11-10 07:00",
+                        "departAt": "2026-11-10 07:00",
                         "placeVersion": null
                       }
                     ],
                     "totalKm": 20,
                     "driveMin": 30,
-                    "stopMin": 0,
+                    "stopMin": 30,
                     "flyMin": 0,
-                    "eta": "2026-11-10 06:30",
+                    "eta": "2026-11-10 07:00",
                     "issues": []
                   }
                 }
@@ -10789,6 +11242,21 @@
                       "blockers": [
                         {
                           "code": "DEPLOYMENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -10988,7 +11456,7 @@
       "post": {
         "operationId": "F3-J26",
         "summary": "Kiểm tuyến theo kích thước/tải trọng xe",
-        "description": "HERE_TRUCK server-side từng ROAD với profile đúng xe; validate gross/current/axle/spec. Critical restriction hoặc snap>250m chặn. Lưu provider result/dependency, không tin client signature/ok; provider unavailable 503 không fallback OSRM thành verified. Refetch version sau thành công.",
+        "description": "HERE_TRUCK server-side từng ROAD với profile đúng xe; validate gross/current/axle/spec. Critical restriction hoặc snap>250m chặn. Lưu provider result/dependency, không tin client signature/ok; provider unavailable 503 không fallback OSRM thành verified. Refetch version sau thành công. ORIGIN là effectivePickup, không phải bãi xe; giờ nhận pickupAt theo ngày khách chọn. Không tự thêm điểm y tế/cách ly khi không có yêu cầu thực tế.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
@@ -11093,7 +11561,7 @@
                         },
                         "required": true,
                         "arriveAt": "2026-11-10 06:00",
-                        "departAt": "2026-11-10 06:00",
+                        "departAt": "2026-11-10 06:30",
                         "placeVersion": null
                       },
                       {
@@ -11111,16 +11579,16 @@
                           "lng": 106.8
                         },
                         "required": true,
-                        "arriveAt": "2026-11-10 06:30",
-                        "departAt": "2026-11-10 06:30",
+                        "arriveAt": "2026-11-10 07:00",
+                        "departAt": "2026-11-10 07:00",
                         "placeVersion": null
                       }
                     ],
                     "totalKm": 20,
                     "driveMin": 30,
-                    "stopMin": 0,
+                    "stopMin": 30,
                     "flyMin": 0,
-                    "eta": "2026-11-10 06:30",
+                    "eta": "2026-11-10 07:00",
                     "issues": []
                   }
                 }
@@ -11267,6 +11735,21 @@
                       "blockers": [
                         {
                           "code": "DEPLOYMENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -11863,6 +12346,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -11895,12 +12381,25 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
                       "eta": null,
                       "stops": [
                         {
@@ -11919,7 +12418,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -11937,8 +12436,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -12143,6 +12642,21 @@
                       ]
                     }
                   },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
                   "PLAN_LOCKED": {
                     "value": {
                       "success": false,
@@ -12296,7 +12810,7 @@
       "get": {
         "operationId": "F3-J29",
         "summary": "Tìm cơ sở tiếp nhận thay thế",
-        "description": "Cùng country active QUARANTINE, parking/loading/waterFeed/capacity và mở toàn khoảng handover; km đường thẳng gắn nhãn. Không đặt cơ sở realtime.",
+        "description": "Điểm tập kết phù hợp cùng country, active MEETING_POINT/REST hoặc cơ sở QUARANTINE thực sự có chức năng tiếp nhận; không bắt buộc y tế/cách ly. Có parking/loading/waterFeed/capacity và mở toàn khoảng handover; km đường thẳng gắn nhãn. Không đặt cơ sở realtime.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
@@ -12366,7 +12880,7 @@
                           "lng": 106.7009
                         },
                         "functions": [
-                          "QUARANTINE",
+                          "MEETING_POINT",
                           "REST"
                         ],
                         "hours": "24/7",
@@ -12690,6 +13204,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -12722,12 +13239,25 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
                       "eta": null,
                       "stops": [
                         {
@@ -12746,7 +13276,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -12764,8 +13294,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -12818,20 +13348,21 @@
                     },
                     "pickupRelocation": {
                       "relocationId": "MEETING_001",
+                      "proposalVersion": 1,
                       "status": "PROPOSED",
                       "placeSnapshot": {
                         "id": "PLACE_001",
                         "version": 1,
-                        "name": "Cơ sở nghỉ chăm sóc ngựa",
+                        "name": "Điểm tập kết đã đề xuất",
                         "country": "VN",
                         "province": "Thông tin đã xác minh",
-                        "address": "Thông tin đã xác minh",
+                        "address": "Địa chỉ điểm tập kết phù hợp",
                         "geo": {
-                          "lat": 10.7769,
-                          "lng": 106.7009
+                          "lat": 10.78,
+                          "lng": 106.71
                         },
                         "functions": [
-                          "QUARANTINE",
+                          "MEETING_POINT",
                           "REST"
                         ],
                         "hours": "24/7",
@@ -12858,11 +13389,17 @@
                       },
                       "reason": "Đã kiểm tra và xác nhận phương án",
                       "handoverAt": "2026-11-10 06:00",
+                      "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+                      "costImpactVnd": 0,
+                      "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+                      "sentAt": null,
+                      "sentBy": null,
                       "customerConsent": null,
+                      "customerReply": null,
                       "valid": true,
                       "by": {
-                        "userId": "USER_001",
-                        "name": "Thông tin đã xác minh"
+                        "userId": "USER_006",
+                        "name": "Điều phối viên"
                       },
                       "at": "2026-11-10 06:00"
                     },
@@ -13013,6 +13550,21 @@
                       "blockers": [
                         {
                           "code": "DEPLOYMENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -13178,7 +13730,10 @@
                 "placeVersion": 1,
                 "reason": "Lối vào hẹp, khách đưa ngựa đến cơ sở đã liên hệ",
                 "handoverAt": "2026-11-10 06:00",
-                "facilityConfirmed": true
+                "facilityConfirmed": true,
+                "scheduleImpact": "Đã kiểm tra và xác nhận phương án",
+                "costImpactVnd": 0,
+                "customerResponsibilities": "Đã kiểm tra và xác nhận phương án"
               }
             }
           }
@@ -13189,7 +13744,7 @@
       "post": {
         "operationId": "F3-J31",
         "summary": "Manager xét đề xuất điểm nhận",
-        "description": "APPROVE PROPOSED→MANAGER_APPROVED sau recheck; RETURN PROPOSED/MANAGER_APPROVED→REJECTED reason>=5. Không tự coi khách đồng ý hoặc đổi ORIGIN.",
+        "description": "APPROVE PROPOSED→MANAGER_APPROVED sau recheck; RETURN PROPOSED/MANAGER_APPROVED→RETURNED reason>=5. Không tự coi khách đồng ý hoặc đổi ORIGIN.",
         "tags": [
           "LOGISTICS_MANAGER"
         ],
@@ -13256,6 +13811,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -13288,12 +13846,25 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
                       "eta": null,
                       "stops": [
                         {
@@ -13312,7 +13883,7 @@
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
+                          "departAt": "2026-11-10 06:30",
                           "placeVersion": null
                         },
                         {
@@ -13330,8 +13901,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -13384,20 +13955,21 @@
                     },
                     "pickupRelocation": {
                       "relocationId": "MEETING_001",
+                      "proposalVersion": 1,
                       "status": "MANAGER_APPROVED",
                       "placeSnapshot": {
                         "id": "PLACE_001",
                         "version": 1,
-                        "name": "Cơ sở nghỉ chăm sóc ngựa",
+                        "name": "Điểm tập kết đã đề xuất",
                         "country": "VN",
                         "province": "Thông tin đã xác minh",
-                        "address": "Thông tin đã xác minh",
+                        "address": "Địa chỉ điểm tập kết phù hợp",
                         "geo": {
-                          "lat": 10.7769,
-                          "lng": 106.7009
+                          "lat": 10.78,
+                          "lng": 106.71
                         },
                         "functions": [
-                          "QUARANTINE",
+                          "MEETING_POINT",
                           "REST"
                         ],
                         "hours": "24/7",
@@ -13424,11 +13996,17 @@
                       },
                       "reason": "Đã kiểm tra và xác nhận phương án",
                       "handoverAt": "2026-11-10 06:00",
+                      "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+                      "costImpactVnd": 0,
+                      "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+                      "sentAt": null,
+                      "sentBy": null,
                       "customerConsent": null,
+                      "customerReply": null,
                       "valid": true,
                       "by": {
-                        "userId": "USER_001",
-                        "name": "Thông tin đã xác minh"
+                        "userId": "USER_006",
+                        "name": "Điều phối viên"
                       },
                       "at": "2026-11-10 06:00"
                     },
@@ -13579,6 +14157,21 @@
                       "blockers": [
                         {
                           "code": "DEPLOYMENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -13733,11 +14326,426 @@
         }
       }
     },
-    "/manager/trips/{tripId}/pickup-relocation/customer-consent": {
+    "/customer/trips/{tripId}/pickup-relocation/decision": {
       "post": {
         "operationId": "F3-J32",
-        "summary": "Ghi nhận khách đã đồng ý thực tế",
-        "description": "Chỉ MANAGER_APPROVED đúng relocation/version/vehicle/profile/place/handoverAt. Channel PHONE/EMAIL/WRITTEN, note>=10, acknowledged; chuyển CUSTOMER_CONFIRMED, ORIGIN draft mới dùng place; giữ pickup gốc, invalidate routing/confirm, notify Coordinator. Không chỉ gửi thông báo là consent.",
+        "summary": "Khách hàng đồng ý hoặc từ chối điểm nhận mới",
+        "description": "Chỉ chủ đơn, đúng snapshot proposalVersion đang AWAITING_CUSTOMER đã được Manager gửi. ACCEPT→CUSTOMER_CONFIRMED: ghi actor khách từ JWT, cập nhật ORIGIN nháp theo snapshot, giữ pickup gốc/hợp đồng, tăng trip/context/plan version và vô hiệu routing/confirm/Ops READY; tính lại tuyến. REJECT cần note>=5→CUSTOMER_REJECTED, giữ nguyên ORIGIN cũ và báo Manager/Coordinator đề xuất lại. Manager/Coordinator không xác nhận thay khách. Không trả Context nội bộ cho khách.",
+        "tags": [
+          "CUSTOMER"
+        ],
+        "x-roles": [
+          "CUSTOMER"
+        ],
+        "x-implementation-status": "DESIGNED_NOT_IMPLEMENTED",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "TRIP_001",
+              "pattern": "^TRIP_\\d{3,}$",
+              "maxLength": 50
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a",
+              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Target response after persistence succeeds; not a live implementation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CustomerPickupProposal"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                },
+                "examples": {
+                  "accepted": {
+                    "value": {
+                      "success": true,
+                      "message": "OK",
+                      "data": {
+                        "tripId": "TRIP_001",
+                        "requestId": "REQUEST_001",
+                        "relocationId": "MEETING_001",
+                        "proposalVersion": 1,
+                        "status": "CUSTOMER_CONFIRMED",
+                        "originalPickup": {
+                          "name": "Trại nhận ngựa",
+                          "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                          "country": "VN",
+                          "geo": {
+                            "lat": 10.7769,
+                            "lng": 106.7009
+                          },
+                          "access": null
+                        },
+                        "proposedPickup": {
+                          "name": "Điểm tập kết đã đề xuất",
+                          "address": "Địa chỉ điểm tập kết phù hợp",
+                          "country": "VN",
+                          "geo": {
+                            "lat": 10.78,
+                            "lng": 106.71
+                          },
+                          "access": null
+                        },
+                        "handoverAt": "2026-11-10 06:00",
+                        "reason": "Đã kiểm tra và xác nhận phương án",
+                        "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+                        "costImpactVnd": 0,
+                        "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+                        "sentAt": "2026-11-10 06:00",
+                        "replyAt": "2026-11-10 06:00",
+                        "customerReply": null
+                      }
+                    }
+                  },
+                  "rejected": {
+                    "value": {
+                      "success": true,
+                      "message": "OK",
+                      "data": {
+                        "tripId": "TRIP_001",
+                        "requestId": "REQUEST_001",
+                        "relocationId": "MEETING_001",
+                        "proposalVersion": 1,
+                        "status": "CUSTOMER_REJECTED",
+                        "originalPickup": {
+                          "name": "Trại nhận ngựa",
+                          "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                          "country": "VN",
+                          "geo": {
+                            "lat": 10.7769,
+                            "lng": 106.7009
+                          },
+                          "access": null
+                        },
+                        "proposedPickup": {
+                          "name": "Điểm tập kết đã đề xuất",
+                          "address": "Địa chỉ điểm tập kết phù hợp",
+                          "country": "VN",
+                          "geo": {
+                            "lat": 10.78,
+                            "lng": 106.71
+                          },
+                          "access": null
+                        },
+                        "handoverAt": "2026-11-10 06:00",
+                        "reason": "Đã kiểm tra và xác nhận phương án",
+                        "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+                        "costImpactVnd": 0,
+                        "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+                        "sentAt": "2026-11-10 06:00",
+                        "replyAt": "2026-11-10 06:00",
+                        "customerReply": "Điểm đề xuất quá xa, vui lòng đề xuất điểm khác"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: VALIDATION_ERROR",
+                      "errorCode": "VALIDATION_ERROR",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "VALIDATION_ERROR",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "UNAUTHENTICATED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: UNAUTHENTICATED",
+                      "errorCode": "UNAUTHENTICATED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "UNAUTHENTICATED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: FORBIDDEN",
+                      "errorCode": "FORBIDDEN",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "FORBIDDEN",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: NOT_FOUND",
+                      "errorCode": "NOT_FOUND",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "NOT_FOUND",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "STALE_PROPOSAL": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: STALE_PROPOSAL",
+                      "errorCode": "STALE_PROPOSAL",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "STALE_PROPOSAL",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "PLACE_CHANGED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: PLACE_CHANGED",
+                      "errorCode": "PLACE_CHANGED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "PLACE_CHANGED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "PICKUP_CONSENT_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: PICKUP_CONSENT_REQUIRED",
+                      "errorCode": "PICKUP_CONSENT_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "PICKUP_CONSENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: RATE_LIMITED",
+                      "errorCode": "RATE_LIMITED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "RATE_LIMITED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: INTERNAL_ERROR",
+                      "errorCode": "INTERNAL_ERROR",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "INTERNAL_ERROR",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "FEATURE_NOT_SUPPORTED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: FEATURE_NOT_SUPPORTED",
+                      "errorCode": "FEATURE_NOT_SUPPORTED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "FEATURE_NOT_SUPPORTED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerPickupDecisionInput"
+              },
+              "example": {
+                "relocationId": "MEETING_001",
+                "proposalVersion": 1,
+                "decision": "ACCEPT",
+                "note": "",
+                "acknowledged": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/manager/trips/{tripId}/pickup-relocation/send": {
+      "post": {
+        "operationId": "F3-J56",
+        "summary": "Manager gửi đề xuất điểm nhận cho khách",
+        "description": "Chỉ MANAGER_APPROVED và đúng proposalVersion; recheck nơi/xe/giờ bàn giao. Đóng băng địa chỉ, tọa độ, lý do, giờ, ảnh hưởng lịch/chi phí/trách nhiệm; chuyển AWAITING_CUSTOMER, lưu sentAt/sentBy và thông báo chủ đơn. Gửi đi không đổi ORIGIN hoặc coi là khách đồng ý. Chi phí phát sinh phải xử lý hợp đồng Flow 1, không thu tiền trong Flow 3.",
         "tags": [
           "LOGISTICS_MANAGER"
         ],
@@ -13804,10 +14812,13 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
-                      "planVersion": 2
+                      "planVersion": 1
                     },
                     "deployment": "CONFIRMED",
                     "specialistId": "USER_006",
@@ -13836,32 +14847,45 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
-                      "planVersion": 2,
+                      "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
                       "eta": null,
                       "stops": [
                         {
                           "stopId": "STOP_001",
                           "clientKey": "stop-origin",
                           "type": "ORIGIN",
-                          "placeId": "PLACE_001",
+                          "placeId": null,
                           "purposes": [],
                           "dwellMin": 0,
                           "unload": false,
                           "careNote": "",
-                          "name": "Điểm tiếp nhận đã thống nhất",
+                          "name": "Thông tin đã xác minh",
                           "geo": {
                             "lat": 10.7769,
                             "lng": 106.7009
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
-                          "placeVersion": 1
+                          "departAt": "2026-11-10 06:30",
+                          "placeVersion": null
                         },
                         {
                           "stopId": "STOP_002",
@@ -13878,8 +14902,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -13932,20 +14956,21 @@
                     },
                     "pickupRelocation": {
                       "relocationId": "MEETING_001",
-                      "status": "CUSTOMER_CONFIRMED",
+                      "proposalVersion": 1,
+                      "status": "AWAITING_CUSTOMER",
                       "placeSnapshot": {
                         "id": "PLACE_001",
                         "version": 1,
-                        "name": "Cơ sở nghỉ chăm sóc ngựa",
+                        "name": "Điểm tập kết đã đề xuất",
                         "country": "VN",
                         "province": "Thông tin đã xác minh",
-                        "address": "Thông tin đã xác minh",
+                        "address": "Địa chỉ điểm tập kết phù hợp",
                         "geo": {
-                          "lat": 10.7769,
-                          "lng": 106.7009
+                          "lat": 10.78,
+                          "lng": 106.71
                         },
                         "functions": [
-                          "QUARANTINE",
+                          "MEETING_POINT",
                           "REST"
                         ],
                         "hours": "24/7",
@@ -13972,19 +14997,20 @@
                       },
                       "reason": "Đã kiểm tra và xác nhận phương án",
                       "handoverAt": "2026-11-10 06:00",
-                      "customerConsent": {
-                        "channel": "PHONE",
-                        "note": "Khách đồng ý tự đưa ngựa đến điểm tiếp nhận lúc đã hẹn",
-                        "recordedBy": {
-                          "userId": "USER_001",
-                          "name": "Thông tin đã xác minh"
-                        },
-                        "at": "2026-11-10 06:00"
+                      "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+                      "costImpactVnd": 0,
+                      "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+                      "sentAt": "2026-11-10 06:00",
+                      "sentBy": {
+                        "userId": "USER_004",
+                        "name": "Quản lý"
                       },
+                      "customerConsent": null,
+                      "customerReply": null,
                       "valid": true,
                       "by": {
-                        "userId": "USER_001",
-                        "name": "Thông tin đã xác minh"
+                        "userId": "USER_006",
+                        "name": "Điều phối viên"
                       },
                       "at": "2026-11-10 06:00"
                     },
@@ -14141,6 +15167,21 @@
                       ]
                     }
                   },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
                   "PLAN_LOCKED": {
                     "value": {
                       "success": false,
@@ -14186,15 +15227,15 @@
                       ]
                     }
                   },
-                  "PICKUP_CONSENT_REQUIRED": {
+                  "STALE_PROPOSAL": {
                     "value": {
                       "success": false,
-                      "message": "Yêu cầu chưa đủ điều kiện: PICKUP_CONSENT_REQUIRED",
-                      "errorCode": "PICKUP_CONSENT_REQUIRED",
+                      "message": "Yêu cầu chưa đủ điều kiện: STALE_PROPOSAL",
+                      "errorCode": "STALE_PROPOSAL",
                       "data": null,
                       "blockers": [
                         {
-                          "code": "PICKUP_CONSENT_REQUIRED",
+                          "code": "STALE_PROPOSAL",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -14292,15 +15333,325 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConsentInput"
+                "$ref": "#/components/schemas/PickupSendInput"
               },
               "example": {
                 "expectedVersion": 10,
                 "relocationId": "MEETING_001",
-                "placeVersion": 1,
-                "channel": "PHONE",
-                "note": "Khách đồng ý tự đưa ngựa đến điểm tiếp nhận lúc đã hẹn",
-                "acknowledged": true
+                "proposalVersion": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customer/trips/{tripId}/pickup-relocation": {
+      "get": {
+        "operationId": "F3-J57",
+        "summary": "Khách xem đề xuất điểm nhận được Manager gửi",
+        "description": "Chỉ chủ đơn; chỉ snapshot đã gửi cho khách. Không lộ bản đề xuất nội bộ/chưa gửi, chi phí vận hành, nhân sự hay plan nội bộ. Ngoài scope hoặc chưa có bản gửi trả 404.",
+        "tags": [
+          "CUSTOMER"
+        ],
+        "x-roles": [
+          "CUSTOMER"
+        ],
+        "x-implementation-status": "DESIGNED_NOT_IMPLEMENTED",
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "TRIP_001",
+              "pattern": "^TRIP_\\d{3,}$",
+              "maxLength": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Target response after persistence succeeds; not a live implementation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CustomerPickupProposal"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                },
+                "example": {
+                  "success": true,
+                  "message": "OK",
+                  "data": {
+                    "tripId": "TRIP_001",
+                    "requestId": "REQUEST_001",
+                    "relocationId": "MEETING_001",
+                    "proposalVersion": 1,
+                    "status": "AWAITING_CUSTOMER",
+                    "originalPickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "proposedPickup": {
+                      "name": "Điểm tập kết đã đề xuất",
+                      "address": "Địa chỉ điểm tập kết phù hợp",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.78,
+                        "lng": 106.71
+                      },
+                      "access": null
+                    },
+                    "handoverAt": "2026-11-10 06:00",
+                    "reason": "Đã kiểm tra và xác nhận phương án",
+                    "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+                    "costImpactVnd": 0,
+                    "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+                    "sentAt": "2026-11-10 06:00",
+                    "replyAt": null,
+                    "customerReply": null
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: VALIDATION_ERROR",
+                      "errorCode": "VALIDATION_ERROR",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "VALIDATION_ERROR",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "UNAUTHENTICATED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: UNAUTHENTICATED",
+                      "errorCode": "UNAUTHENTICATED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "UNAUTHENTICATED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "FORBIDDEN": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: FORBIDDEN",
+                      "errorCode": "FORBIDDEN",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "FORBIDDEN",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "NOT_FOUND": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: NOT_FOUND",
+                      "errorCode": "NOT_FOUND",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "NOT_FOUND",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "STALE_VERSION": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+                      "errorCode": "STALE_VERSION",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "STALE_VERSION",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "RATE_LIMITED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: RATE_LIMITED",
+                      "errorCode": "RATE_LIMITED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "RATE_LIMITED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: INTERNAL_ERROR",
+                      "errorCode": "INTERNAL_ERROR",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "INTERNAL_ERROR",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Request rejected; no partial state transition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "FEATURE_NOT_SUPPORTED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: FEATURE_NOT_SUPPORTED",
+                      "errorCode": "FEATURE_NOT_SUPPORTED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "FEATURE_NOT_SUPPORTED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  }
+                }
               }
             }
           }
@@ -14311,7 +15662,7 @@
       "post": {
         "operationId": "F3-J33",
         "summary": "Mở lại đề xuất điểm nhận đã chốt",
-        "description": "Chỉ draft chỉnh sửa; archive consent, clear access/relocation/routing/confirm hiện hành; giữ lịch sử, quay điểm gốc cho tới consent mới. Không overwrite thỏa thuận cũ.",
+        "description": "Chỉ draft chỉnh sửa; archive snapshot/consent trong lịch sử, tạo proposalVersion mới và vô hiệu routing/confirm liên quan; giữ điểm nhận có hiệu lực hiện tại cho tới khi khách chấp nhận đề xuất mới. Không overwrite thỏa thuận cũ.",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
@@ -14378,6 +15729,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "ROAD",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -14410,32 +15764,45 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Điểm tập kết đã đề xuất",
+                      "address": "Địa chỉ điểm tập kết phù hợp",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.78,
+                        "lng": 106.71
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": "MEETING_001",
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 2,
                       "status": "DRAFT",
                       "mode": "ROAD",
-                      "plannedDepart": "2026-11-10 06:00",
+                      "pickupAt": "2026-11-10 06:00",
+                      "plannedDepart": "2026-11-10 06:30",
+                      "reviewWarnings": [],
                       "eta": null,
                       "stops": [
                         {
                           "stopId": "STOP_001",
                           "clientKey": "stop-origin",
                           "type": "ORIGIN",
-                          "placeId": null,
+                          "placeId": "PLACE_001",
                           "purposes": [],
                           "dwellMin": 0,
                           "unload": false,
                           "careNote": "",
-                          "name": "Thông tin đã xác minh",
+                          "name": "Điểm tập kết đã đề xuất",
                           "geo": {
-                            "lat": 10.7769,
-                            "lng": 106.7009
+                            "lat": 10.78,
+                            "lng": 106.71
                           },
                           "required": true,
                           "arriveAt": "2026-11-10 06:00",
-                          "departAt": "2026-11-10 06:00",
-                          "placeVersion": null
+                          "departAt": "2026-11-10 06:30",
+                          "placeVersion": 1
                         },
                         {
                           "stopId": "STOP_002",
@@ -14452,8 +15819,8 @@
                             "lng": 106.8
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 06:30",
-                          "departAt": "2026-11-10 06:30",
+                          "arriveAt": "2026-11-10 07:00",
+                          "departAt": "2026-11-10 07:00",
                           "placeVersion": null
                         }
                       ],
@@ -14643,6 +16010,21 @@
                       "blockers": [
                         {
                           "code": "DEPLOYMENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -16391,6 +17773,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "AIR",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -16423,12 +17808,25 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 2,
                       "status": "DRAFT",
                       "mode": "AIR",
+                      "pickupAt": "2026-11-10 10:30",
                       "plannedDepart": "2026-11-10 11:00",
+                      "reviewWarnings": [],
                       "eta": null,
                       "stops": [
                         {
@@ -16446,7 +17844,7 @@
                             "lng": 106.7009
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 11:00",
+                          "arriveAt": "2026-11-10 10:30",
                           "departAt": "2026-11-10 11:00",
                           "placeVersion": null
                         },
@@ -16762,6 +18160,21 @@
                       ]
                     }
                   },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
                   "PLAN_LOCKED": {
                     "value": {
                       "success": false,
@@ -16999,6 +18412,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "AIR",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -17031,12 +18447,25 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "AIR",
+                      "pickupAt": "2026-11-10 10:30",
                       "plannedDepart": "2026-11-10 11:00",
+                      "reviewWarnings": [],
                       "eta": "2026-11-10 23:00",
                       "stops": [
                         {
@@ -17054,7 +18483,7 @@
                             "lng": 106.7009
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 11:00",
+                          "arriveAt": "2026-11-10 10:30",
                           "departAt": "2026-11-10 11:00",
                           "placeVersion": null
                         },
@@ -17250,7 +18679,7 @@
                               "lng": 106.7009
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 11:00",
+                            "arriveAt": "2026-11-10 10:30",
                             "departAt": "2026-11-10 11:00",
                             "placeVersion": null
                           },
@@ -17318,7 +18747,7 @@
                         ],
                         "totalKm": 40,
                         "driveMin": 60,
-                        "stopMin": 330,
+                        "stopMin": 360,
                         "flyMin": 330,
                         "eta": "2026-11-10 23:00",
                         "issues": []
@@ -17496,6 +18925,21 @@
                       "blockers": [
                         {
                           "code": "DEPLOYMENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -17720,6 +19164,9 @@
                     "contractId": "CONTRACT_001",
                     "status": "PLANNING",
                     "mode": "AIR",
+                    "contractVersion": 1,
+                    "modeSource": "CONTRACT",
+                    "pickupDate": "2026-11-10",
                     "binding": {
                       "version": 11,
                       "contextVersion": 1,
@@ -17752,12 +19199,25 @@
                       },
                       "access": null
                     },
+                    "effectivePickup": {
+                      "name": "Trại nhận ngựa",
+                      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+                      "country": "VN",
+                      "geo": {
+                        "lat": 10.7769,
+                        "lng": 106.7009
+                      },
+                      "access": null
+                    },
+                    "effectivePickupRelocationId": null,
                     "deliveryDeadline": "2026-11-12 18:00",
                     "draft": {
                       "planVersion": 1,
                       "status": "DRAFT",
                       "mode": "AIR",
+                      "pickupAt": "2026-11-10 10:30",
                       "plannedDepart": "2026-11-10 11:00",
+                      "reviewWarnings": [],
                       "eta": "2026-11-10 23:00",
                       "stops": [
                         {
@@ -17775,7 +19235,7 @@
                             "lng": 106.7009
                           },
                           "required": true,
-                          "arriveAt": "2026-11-10 11:00",
+                          "arriveAt": "2026-11-10 10:30",
                           "departAt": "2026-11-10 11:00",
                           "placeVersion": null
                         },
@@ -17971,7 +19431,7 @@
                               "lng": 106.7009
                             },
                             "required": true,
-                            "arriveAt": "2026-11-10 11:00",
+                            "arriveAt": "2026-11-10 10:30",
                             "departAt": "2026-11-10 11:00",
                             "placeVersion": null
                           },
@@ -18039,7 +19499,7 @@
                         ],
                         "totalKm": 40,
                         "driveMin": 60,
-                        "stopMin": 330,
+                        "stopMin": 360,
                         "flyMin": 330,
                         "eta": "2026-11-10 23:00",
                         "issues": []
@@ -18217,6 +19677,21 @@
                       "blockers": [
                         {
                           "code": "DEPLOYMENT_REQUIRED",
+                          "field": "planning",
+                          "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+                        }
+                      ]
+                    }
+                  },
+                  "CONTRACT_MODE_REQUIRED": {
+                    "value": {
+                      "success": false,
+                      "message": "Yêu cầu chưa đủ điều kiện: CONTRACT_MODE_REQUIRED",
+                      "errorCode": "CONTRACT_MODE_REQUIRED",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "CONTRACT_MODE_REQUIRED",
                           "field": "planning",
                           "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
                         }
@@ -23252,7 +24727,7 @@
         "properties": {
           "version": {
             "type": "string",
-            "const": "2.0.0"
+            "const": "3.0.0"
           },
           "implementationStatus": {
             "type": "string",
@@ -23617,11 +25092,12 @@
                 "FUEL",
                 "QUARANTINE",
                 "BORDER",
-                "AIRPORT"
+                "AIRPORT",
+                "MEETING_POINT"
               ]
             },
             "minItems": 1,
-            "maxItems": 5,
+            "maxItems": 6,
             "uniqueItems": true
           },
           "hours": {
@@ -23769,11 +25245,12 @@
                 "FUEL",
                 "QUARANTINE",
                 "BORDER",
-                "AIRPORT"
+                "AIRPORT",
+                "MEETING_POINT"
               ]
             },
             "minItems": 1,
-            "maxItems": 5,
+            "maxItems": 6,
             "uniqueItems": true
           },
           "hours": {
@@ -23904,11 +25381,12 @@
                 "FUEL",
                 "QUARANTINE",
                 "BORDER",
-                "AIRPORT"
+                "AIRPORT",
+                "MEETING_POINT"
               ]
             },
             "minItems": 1,
-            "maxItems": 5,
+            "maxItems": 6,
             "uniqueItems": true
           },
           "hours": {
@@ -25815,18 +27293,18 @@
         "properties": {
           "channel": {
             "type": "string",
-            "example": "PHONE",
-            "enum": [
-              "PHONE",
-              "EMAIL",
-              "WRITTEN"
-            ]
+            "const": "PORTAL"
           },
           "note": {
             "type": "string",
-            "example": "Khách đồng ý tự đưa ngựa đến điểm tiếp nhận lúc đã hẹn",
-            "minLength": 10,
+            "example": "",
             "maxLength": 2000
+          },
+          "customerId": {
+            "type": "string",
+            "example": "USER_001",
+            "pattern": "^USER_\\d{3,}$",
+            "maxLength": 50
           },
           "recordedBy": {
             "$ref": "#/components/schemas/Actor"
@@ -25840,6 +27318,7 @@
         "required": [
           "channel",
           "note",
+          "customerId",
           "recordedBy",
           "at"
         ],
@@ -25855,14 +27334,23 @@
             "maxLength": 100,
             "pattern": "^[A-Za-z0-9_-]+$"
           },
+          "proposalVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
           "status": {
             "type": "string",
             "example": "PROPOSED",
             "enum": [
               "PROPOSED",
               "MANAGER_APPROVED",
+              "AWAITING_CUSTOMER",
               "CUSTOMER_CONFIRMED",
-              "REJECTED"
+              "CUSTOMER_REJECTED",
+              "RETURNED",
+              "SUPERSEDED"
             ]
           },
           "placeSnapshot": {
@@ -25880,10 +27368,66 @@
             "example": "2026-11-10 06:00",
             "pattern": "^\\d{4}-\\d{2}-\\d{2} (?:[01]\\d|2[0-3]):[0-5]\\d$"
           },
+          "scheduleImpact": {
+            "type": "string",
+            "example": "Đã kiểm tra và xác nhận phương án",
+            "minLength": 5,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "costImpactVnd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "example": 0
+          },
+          "customerResponsibilities": {
+            "type": "string",
+            "example": "Đã kiểm tra và xác nhận phương án",
+            "minLength": 5,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "sentAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "example": "2026-11-10 06:00",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2} (?:[01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sentBy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Actor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "customerConsent": {
             "anyOf": [
               {
                 "$ref": "#/components/schemas/Consent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "customerReply": {
+            "anyOf": [
+              {
+                "type": "string",
+                "example": "Đã kiểm tra và xác nhận phương án",
+                "minLength": 5,
+                "maxLength": 2000,
+                "pattern": "\\S"
               },
               {
                 "type": "null"
@@ -25905,11 +27449,18 @@
         },
         "required": [
           "relocationId",
+          "proposalVersion",
           "status",
           "placeSnapshot",
           "reason",
           "handoverAt",
+          "scheduleImpact",
+          "costImpactVnd",
+          "customerResponsibilities",
+          "sentAt",
+          "sentBy",
           "customerConsent",
+          "customerReply",
           "valid",
           "by",
           "at"
@@ -25993,6 +27544,26 @@
             "type": "boolean",
             "const": true,
             "example": true
+          },
+          "scheduleImpact": {
+            "type": "string",
+            "example": "Đã kiểm tra và xác nhận phương án",
+            "minLength": 5,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "costImpactVnd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "example": 0
+          },
+          "customerResponsibilities": {
+            "type": "string",
+            "example": "Đã kiểm tra và xác nhận phương án",
+            "minLength": 5,
+            "maxLength": 2000,
+            "pattern": "\\S"
           }
         },
         "required": [
@@ -26001,7 +27572,10 @@
           "placeVersion",
           "reason",
           "handoverAt",
-          "facilityConfirmed"
+          "facilityConfirmed",
+          "scheduleImpact",
+          "costImpactVnd",
+          "customerResponsibilities"
         ],
         "additionalProperties": false
       },
@@ -26059,7 +27633,7 @@
           ]
         }
       },
-      "ConsentInput": {
+      "PickupSendInput": {
         "type": "object",
         "properties": {
           "expectedVersion": {
@@ -26075,25 +27649,47 @@
             "maxLength": 100,
             "pattern": "^[A-Za-z0-9_-]+$"
           },
-          "placeVersion": {
+          "proposalVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "relocationId",
+          "proposalVersion"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerPickupDecisionInput": {
+        "type": "object",
+        "properties": {
+          "relocationId": {
+            "type": "string",
+            "example": "MEETING_001",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "proposalVersion": {
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991,
             "example": 1
           },
-          "channel": {
+          "decision": {
             "type": "string",
-            "example": "PHONE",
+            "example": "ACCEPT",
             "enum": [
-              "PHONE",
-              "EMAIL",
-              "WRITTEN"
+              "ACCEPT",
+              "REJECT"
             ]
           },
           "note": {
             "type": "string",
-            "example": "Khách đồng ý tự đưa ngựa đến điểm tiếp nhận lúc đã hẹn",
-            "minLength": 10,
+            "example": "",
             "maxLength": 2000
           },
           "acknowledged": {
@@ -26103,12 +27699,167 @@
           }
         },
         "required": [
-          "expectedVersion",
           "relocationId",
-          "placeVersion",
-          "channel",
+          "proposalVersion",
+          "decision",
           "note",
           "acknowledged"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "decision": {
+                  "const": "REJECT"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "note": {
+                  "type": "string",
+                  "example": "Đã kiểm tra và xác nhận phương án",
+                  "minLength": 5,
+                  "maxLength": 2000,
+                  "pattern": "\\S"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CustomerPickupProposal": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "example": "TRIP_001",
+            "pattern": "^TRIP_\\d{3,}$",
+            "maxLength": 50
+          },
+          "requestId": {
+            "type": "string",
+            "example": "REQUEST_001",
+            "pattern": "^REQUEST_\\d{3,}$",
+            "maxLength": 50
+          },
+          "relocationId": {
+            "type": "string",
+            "example": "MEETING_001",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9_-]+$"
+          },
+          "proposalVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "example": "AWAITING_CUSTOMER",
+            "enum": [
+              "AWAITING_CUSTOMER",
+              "CUSTOMER_CONFIRMED",
+              "CUSTOMER_REJECTED",
+              "SUPERSEDED"
+            ]
+          },
+          "originalPickup": {
+            "$ref": "#/components/schemas/Endpoint"
+          },
+          "proposedPickup": {
+            "$ref": "#/components/schemas/Endpoint"
+          },
+          "handoverAt": {
+            "type": "string",
+            "example": "2026-11-10 06:00",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2} (?:[01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Đã kiểm tra và xác nhận phương án",
+            "minLength": 5,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "scheduleImpact": {
+            "type": "string",
+            "example": "Đã kiểm tra và xác nhận phương án",
+            "minLength": 5,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "costImpactVnd": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "example": 0
+          },
+          "customerResponsibilities": {
+            "type": "string",
+            "example": "Đã kiểm tra và xác nhận phương án",
+            "minLength": 5,
+            "maxLength": 2000,
+            "pattern": "\\S"
+          },
+          "sentAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "example": "2026-11-10 06:00",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2} (?:[01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replyAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "example": "2026-11-10 06:00",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2} (?:[01]\\d|2[0-3]):[0-5]\\d$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "customerReply": {
+            "anyOf": [
+              {
+                "type": "string",
+                "example": "Đã kiểm tra và xác nhận phương án",
+                "minLength": 5,
+                "maxLength": 2000,
+                "pattern": "\\S"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "tripId",
+          "requestId",
+          "relocationId",
+          "proposalVersion",
+          "status",
+          "originalPickup",
+          "proposedPickup",
+          "handoverAt",
+          "reason",
+          "scheduleImpact",
+          "costImpactVnd",
+          "customerResponsibilities",
+          "sentAt",
+          "replyAt",
+          "customerReply"
         ],
         "additionalProperties": false
       },
@@ -26141,10 +27892,23 @@
               "AIR"
             ]
           },
+          "pickupAt": {
+            "type": "string",
+            "example": "2026-11-10 06:00",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2} (?:[01]\\d|2[0-3]):[0-5]\\d$"
+          },
           "plannedDepart": {
             "type": "string",
             "example": "2026-11-10 06:00",
             "pattern": "^\\d{4}-\\d{2}-\\d{2} (?:[01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "reviewWarnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Blocker"
+            },
+            "minItems": 0,
+            "maxItems": 100
           },
           "eta": {
             "anyOf": [
@@ -26204,7 +27968,9 @@
           "planVersion",
           "status",
           "mode",
+          "pickupAt",
           "plannedDepart",
+          "reviewWarnings",
           "eta",
           "stops",
           "resources",
@@ -26223,17 +27989,10 @@
             "maximum": 9007199254740991,
             "example": 10
           },
-          "plannedDepart": {
-            "anyOf": [
-              {
-                "type": "string",
-                "example": "2026-11-10 06:00",
-                "pattern": "^\\d{4}-\\d{2}-\\d{2} (?:[01]\\d|2[0-3]):[0-5]\\d$"
-              },
-              {
-                "type": "null"
-              }
-            ]
+          "pickupAt": {
+            "type": "string",
+            "example": "2026-11-10 06:00",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2} (?:[01]\\d|2[0-3]):[0-5]\\d$"
           },
           "stops": {
             "type": "array",
@@ -26259,7 +28018,7 @@
         },
         "required": [
           "expectedVersion",
-          "plannedDepart",
+          "pickupAt",
           "stops",
           "resources",
           "note"
@@ -26355,6 +28114,14 @@
               }
             ]
           },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Blocker"
+            },
+            "minItems": 0,
+            "maxItems": 100
+          },
           "resourceHoldsCreated": {
             "type": "boolean",
             "const": false
@@ -26366,6 +28133,7 @@
           "valid",
           "blockers",
           "eta",
+          "warnings",
           "resourceHoldsCreated"
         ],
         "additionalProperties": false
@@ -26468,6 +28236,21 @@
               "AIR"
             ]
           },
+          "contractVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "modeSource": {
+            "type": "string",
+            "const": "CONTRACT"
+          },
+          "pickupDate": {
+            "type": "string",
+            "example": "2026-11-10",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
           "binding": {
             "$ref": "#/components/schemas/Binding"
           },
@@ -26509,6 +28292,23 @@
           },
           "delivery": {
             "$ref": "#/components/schemas/Endpoint"
+          },
+          "effectivePickup": {
+            "$ref": "#/components/schemas/Endpoint"
+          },
+          "effectivePickupRelocationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "example": "MEETING_001",
+                "minLength": 1,
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9_-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "deliveryDeadline": {
             "type": "string",
@@ -26613,6 +28413,9 @@
           "contractId",
           "status",
           "mode",
+          "contractVersion",
+          "modeSource",
+          "pickupDate",
           "binding",
           "deployment",
           "specialistId",
@@ -26620,6 +28423,8 @@
           "horseIds",
           "pickup",
           "delivery",
+          "effectivePickup",
+          "effectivePickupRelocationId",
           "deliveryDeadline",
           "draft",
           "approvedPlan",
@@ -26656,6 +28461,21 @@
               "ROAD",
               "AIR"
             ]
+          },
+          "contractVersion": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "example": 1
+          },
+          "modeSource": {
+            "type": "string",
+            "const": "CONTRACT"
+          },
+          "pickupDate": {
+            "type": "string",
+            "example": "2026-11-10",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
           },
           "status": {
             "type": "string",
@@ -26734,6 +28554,9 @@
           "tripId",
           "requestId",
           "mode",
+          "contractVersion",
+          "modeSource",
+          "pickupDate",
           "status",
           "planningState",
           "plannedDepart",
@@ -27217,6 +29040,90 @@
       "path": "/coordinator/trips/{tripId}/timed-documents/schedule",
       "replacement": "J06, no sequential document unlock",
       "errorCode": "CONTRACT_SUPERSEDED"
+    },
+    {
+      "operationId": "F3-J32-LEGACY",
+      "method": "POST",
+      "path": "/manager/trips/{tripId}/pickup-relocation/customer-consent",
+      "replacement": "Manager J56 sends; customer J32 decides",
+      "errorCode": "CONTRACT_SUPERSEDED"
     }
-  ]
+  ],
+  "x-workflows": {
+    "pickupRelocation": {
+      "originChangesOnlyAfter": "CUSTOMER_ACCEPT",
+      "transitions": [
+        {
+          "from": null,
+          "action": "PROPOSE",
+          "role": "FLEET_ROUTE_COORDINATOR",
+          "operationId": "F3-J30",
+          "to": "PROPOSED",
+          "changesOrigin": false
+        },
+        {
+          "from": "PROPOSED",
+          "action": "APPROVE",
+          "role": "LOGISTICS_MANAGER",
+          "operationId": "F3-J31",
+          "to": "MANAGER_APPROVED",
+          "changesOrigin": false
+        },
+        {
+          "from": "MANAGER_APPROVED",
+          "action": "SEND",
+          "role": "LOGISTICS_MANAGER",
+          "operationId": "F3-J56",
+          "to": "AWAITING_CUSTOMER",
+          "changesOrigin": false
+        },
+        {
+          "from": "AWAITING_CUSTOMER",
+          "action": "ACCEPT",
+          "role": "CUSTOMER",
+          "operationId": "F3-J32",
+          "to": "CUSTOMER_CONFIRMED",
+          "changesOrigin": true
+        },
+        {
+          "from": "AWAITING_CUSTOMER",
+          "action": "REJECT",
+          "role": "CUSTOMER",
+          "operationId": "F3-J32",
+          "to": "CUSTOMER_REJECTED",
+          "changesOrigin": false
+        },
+        {
+          "from": "PROPOSED",
+          "action": "RETURN",
+          "role": "LOGISTICS_MANAGER",
+          "operationId": "F3-J31",
+          "to": "RETURNED",
+          "changesOrigin": false
+        },
+        {
+          "from": "MANAGER_APPROVED",
+          "action": "RETURN",
+          "role": "LOGISTICS_MANAGER",
+          "operationId": "F3-J31",
+          "to": "RETURNED",
+          "changesOrigin": false
+        }
+      ],
+      "revisionKeepsEffectivePickupUntilAccepted": true,
+      "customerMustOwnRequest": true,
+      "sentSnapshotImmutable": true
+    },
+    "planningSchedule": {
+      "modeSource": "CONTRACT",
+      "dayAnchor": "pickupDate",
+      "pickupTimeInput": "pickupAt",
+      "departureComputedAfterHandover": true,
+      "originSource": "effectivePickup",
+      "depotTravelInHorseItinerary": false,
+      "lateEtaMayBeSubmittedForManagerReview": true,
+      "lateEtaMayBeApprovedWithoutCustomerAgreement": false,
+      "automaticMedicalOrQuarantineStops": false
+    }
+  }
 }

@@ -152,7 +152,6 @@ export function f5Plan(id: string) {
         <Field label="Chi phí phát sinh (USD) *"><Inp name="cost" type="number" min="0" /></Field>
         <Field label="Bên chịu chi phí"><Sel name="payer" options={[['COMPANY', 'CBN Transport'], ['CUSTOMER', 'Khách hàng (thỏa thuận riêng)'], ['INSURANCE', 'Bảo hiểm (dự kiến)']]} /></Field>
       </div>
-      <p className="hint">Cần Manager duyệt khi: đổi lộ trình, đổi chuyến bay, phát sinh chi phí hoặc đổi thời gian giao đã cam kết. Thay xe / nhân sự giữ lịch, không phí: Điều phối tự xử lý. Chi phí không tự cộng vào số tiền khách phải trả.</p>
     </>),
     onOk: (v) => {
       const k = v.k, cost = Number(v.cost || 0), eta = String(v.eta || '').replace('T', ' ');
@@ -234,7 +233,6 @@ export function f5Close(id: string) {
       <Note tone="grey" title={`Kết quả từ ${i.result.by} (${dt(i.result.at)})`}>{i.result.text}</Note>
       <Chk name="ok">Đã kiểm tra kết quả, tình hình ổn định</Chk>
       <Field label="Ghi chú đóng *"><Txt name="note" placeholder="Kết quả kiểm tra" /></Field>
-      <p className="hint">Đóng sự cố không hoàn tất chuyến.</p>
     </>),
     onOk: (v) => {
       if (!v.ok) return 'Tick xác nhận đã kiểm tra.'; if (String(v.note).trim().length < 5) return 'Nhập ghi chú.';
@@ -301,7 +299,6 @@ export function cmpView(id: string) {
           {(m.files || []).length ? <div className="photo-strip">{m.files.map((f: string) => <button type="button" key={f} className="ph">{f}</button>)}</div> : null}
         </div>))}
       </div>
-      <p className="hint">Chỉ xem. Logistics Manager trả lời và giải quyết khiếu nại.</p>
     </>),
   });
 }
