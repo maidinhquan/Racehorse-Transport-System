@@ -9,8 +9,7 @@ import type { Any } from '../../../store/coordinatorStore';
 import { commit, go, openModal, toast, useCoordinatorStore } from '../../../store/coordinatorStore';
 import { addHours, dt, human, stampMs } from '../../../utils/format';
 import { airportLabel, selectAirportsModal } from '../../../workflows/airOperations';
-import { routeSubmit } from '../../../workflows/coordinatorActions';
-import { fmtMin, PF, PF_COLOR, PLACE_ST, plannerMap, ROUTE_POLICY, routeNew, routeSubmitError, ROUTING, RP, rpAdd, rpCalc, rpCandidates, rpDeadline, rpDel, rpDetour, rpEditable, rpEditEndpoint, rpEnsure, rpFixDomesticRoute, rpFlightKey, rpFocus, rpGroups, rpMove, rpPolicy, rpPolicyModal, rpRetry, rpRoute, rpRouteKey, rpRoutingModal, rpSave, rpSeg, rpSetAirCare, rpSetFilter, rpSetPurpose, rpSetStop, rpUseSim } from '../../../workflows/routePlanner';
+import { fmtMin, PF, PF_COLOR, PLACE_ST, plannerMap, ROUTE_POLICY, routeNew, routeSubmitError, ROUTING, RP, rpAdd, rpAutoSort, rpCalc, rpCandidates, rpDeadline, rpDel, rpDetour, rpEditable, rpEditEndpoint, rpEnsure, rpFixDomesticRoute, rpFlightKey, rpFocus, rpGroups, rpMove, rpOpenAddStop, rpPolicy, rpPolicyModal, rpRetry, rpRoute, rpRouteKey, rpRoutingModal, rpSave, rpSeg, rpSetAirCare, rpSetFilter, rpSetPurpose, rpSetStop, rpUseSim } from '../../../workflows/routePlanner';
 
 /** Căn lùi giờ xuất phát sao cho xe vừa kịp đến sân bay trước giờ bay đúng số giờ quy định */
 function calcIdealDepart(t: Any, rt: Any) {
@@ -114,9 +113,6 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
             <div style={{ fontWeight: 600, fontSize: 13, color: '#c2410c' }}>
               Chưa chọn cặp sân bay cất / hạ cánh
             </div>
-            <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
-              Vận chuyển Hàng không cần chọn sân bay cất cánh và hạ cánh để hệ thống lập lộ trình chặng đón và chặng trả (không tìm tuyến đường bộ xuyên lục địa).
-            </div>
           </div>
           {edit ? (
             <button
@@ -184,52 +180,170 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
                 Đổi sân bay
               </button>
             ) : null}
-            <button
-              type="button"
-              className="btn sm solid"
-              onClick={() => go(`f/trip/${t.id}/flight`)}
-            >
-              {hasContract ? 'Chi tiết HĐ bay →' : 'Nhập HĐ tại tab Chuyến bay →'}
-            </button>
+            {hasContract || rt.status === 'APPROVED' ? (
+              <button
+                type="button"
+                className="btn sm solid"
+                onClick={() => go(`f/trip/${t.id}/flight`)}
+              >
+                {hasContract ? 'Chi tiết HĐ bay →' : 'Nhập HĐ tại tab Chuyến bay →'}
+              </button>
+            ) : null}
           </div>
         </div>
       );
     } else {
       const l = ps.routing.status === 'ok' && ps.routing.key === rpRouteKey(t, rt) ? ps.routing.legs[i] : null;
+      const isLegOk = Boolean(l && calc && !segIss.length);
+      const isSelected = ps.seg === i;
+      const legDuration = l ? l.min * ROUTE_POLICY.truckFactor : 0;
       legInfo = (
-        <button type="button" className={`rp-leg ${ps.seg === i ? 'on' : ''} ${segIss.length ? 'bad' : ''}`} onClick={() => rpSeg(t.id, i)}>
-          {l ? `${l.km.toFixed(0)} km • ${fmtMin(l.min * ROUTE_POLICY.truckFactor)}` : '…'}{edit ? <> • <b>＋ thêm điểm dừng ở đoạn này</b></> : null}
-          {segIss.map((x: Any, k: number) => (
-            <span key={k}>
-              <Icon name="alert" />{x.msg}
-              {x.msg.includes('lãnh thổ') && edit ? (
-                <span
-                  role="button"
-                  tabIndex={0}
+        <div
+          role="button"
+          tabIndex={0}
+          className={`rp-leg ${isSelected ? 'on' : ''} ${segIss.length ? 'bad' : isLegOk ? 'ok' : ''}`}
+          onClick={(e) => {
+            if ((e.target as HTMLElement).closest('button, input, select')) return;
+            rpSeg(t.id, i);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              rpSeg(t.id, i);
+            }
+          }}
+          title={isLegOk ? 'Đoạn này đã đạt chuẩn chính sách nghỉ' : 'Bấm để kiểm tra chi tiết và thêm điểm dừng ở đoạn này'}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 700, fontSize: 11.5, color: isSelected ? '#ea580c' : isLegOk ? '#16a34a' : segIss.length ? '#dc2626' : '#64748b' }}>
+                ĐOẠN {i + 1}:
+              </span>
+              <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                {l ? `${l.km.toFixed(0)} km • ${fmtMin(legDuration)}` : 'Đang tính toán…'}
+              </span>
+              {isLegOk ? (
+                <span style={{ color: '#16a34a', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  ✓ Đạt chuẩn (≤ 4h)
+                </span>
+              ) : segIss.length ? (
+                <span style={{ color: '#dc2626', fontSize: 11, fontWeight: 700 }}>
+                  ⚠️ Cần thêm điểm dừng
+                </span>
+              ) : null}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {edit ? (
+                <button
+                  type="button"
+                  className="btn sm"
                   style={{
-                    marginLeft: 8,
                     padding: '2px 8px',
-                    background: '#2563eb',
-                    color: '#ffffff',
-                    borderRadius: 4,
-                    fontWeight: 700,
                     fontSize: 11,
+                    fontWeight: 600,
+                    borderRadius: 4,
+                    background: segIss.length ? '#dc2626' : '#0284c7',
+                    color: '#ffffff',
+                    border: 'none',
                     cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    rpFixDomesticRoute(t.id, i);
+                    rpOpenAddStop(t.id, i);
                   }}
+                  title="Mở danh mục để chọn thêm điểm dừng vào đoạn này"
                 >
-                  🛣️ Nắn tuyến qua QL1A
-                </span>
+                  ＋ Thêm điểm
+                </button>
               ) : null}
-            </span>
-          ))}
-        </button>
+              <span style={{ fontSize: 11, fontWeight: 600, color: isSelected ? '#ea580c' : '#64748b' }}>
+                {isSelected ? 'Đang kiểm tra đoạn này ▲' : 'Bấm để kiểm tra ▼'}
+              </span>
+            </div>
+          </div>
+
+          {/* Chi tiết kiểm tra khi đang chọn đoạn này */}
+          {isSelected ? (
+            <div
+              style={{
+                marginTop: 8,
+                padding: '8px 10px',
+                background: '#ffffff',
+                borderRadius: 6,
+                border: '1px solid ' + (isLegOk ? '#bbf7d0' : '#fecaca'),
+                fontSize: 11.5,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <span style={{ fontWeight: 700, color: '#334155' }}>
+                  Kiểm tra chi tiết: {s.name} → {rt.stops[i + 1]?.name}
+                </span>
+                <span style={{ color: isLegOk ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
+                  {isLegOk ? '✓ Đạt chính sách (≤ 4 giờ lái liên tục)' : '⚠️ Chưa đạt chính sách nghỉ'}
+                </span>
+              </div>
+              <div style={{ color: '#64748b' }}>
+                Thời gian lái xe: <b>{fmtMin(legDuration)}</b> (quy định tối đa: <b>{ROUTE_POLICY.careIntervalH} giờ</b> giữa 2 lần nghỉ chăm sóc).
+              </div>
+
+              {segIss.map((x: Any, k: number) => (
+                <div key={k} className="rp-leg-err" style={{ display: 'flex', gap: 6, color: '#b42318', marginTop: 4 }}>
+                  <Icon name="alert" />
+                  <span>{x.msg}</span>
+                  {x.msg.includes('lãnh thổ') && edit ? (
+                    <button
+                      type="button"
+                      style={{
+                        marginLeft: 6,
+                        padding: '1px 6px',
+                        background: '#2563eb',
+                        color: '#ffffff',
+                        borderRadius: 3,
+                        fontWeight: 700,
+                        fontSize: 10.5,
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => rpFixDomesticRoute(t.id, i)}
+                    >
+                      Nắn tuyến qua QL1A
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+
+              {edit ? (
+                <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+                  <button
+                    type="button"
+                    className="btn solid sm"
+                    style={{ fontSize: 11, padding: '3px 10px' }}
+                    onClick={() => rpOpenAddStop(t.id, i)}
+                  >
+                    ＋ Mở danh mục chọn điểm dừng cho đoạn này
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    style={{ fontSize: 11, padding: '3px 10px' }}
+                    onClick={() => rpSeg(t.id, i)}
+                  >
+                    Đóng kiểm tra
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            segIss.map((x: Any, k: number) => (
+              <div key={k} className="rp-leg-err" style={{ display: 'flex', gap: 5, color: '#b42318', marginTop: 4 }}>
+                <Icon name="alert" />
+                <span>{x.msg}</span>
+              </div>
+            ))
+          )}
+        </div>
       );
     }
   }
@@ -239,9 +353,9 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
       <div className="rp-stop-main" onClick={(e) => { if ((e.target as HTMLElement).closest('input,button,label')) return; rpFocus(t.id, i); }}>
         <span className="rp-num" style={{ background: color }}>{i + 1}</span>
         <div className="grow"><b>{s.name}</b>
-          <small>{kind}{s.required && s.type !== 'ORIGIN' && s.type !== 'DESTINATION' ? ' 🔒' : ''}{s.type === 'ORIGIN' || s.type === 'DESTINATION' ? (s.exactGeo ? ' • tọa độ từ địa chỉ khách chọn' : ' • tọa độ theo thành phố (dữ liệu mẫu)') : s.type === 'AIRPORT' ? ` • Sân bay ${t.flight?.contractNo || t.flight?.bookingRef ? `(HĐ: ${t.flight.contractNo || t.flight.bookingRef})` : ''}` : p ? ' • ' + p.country : ' • chưa có trong danh mục'}{isAirport && edit ? <button type="button" className="link" style={{ marginLeft: 6, fontSize: 11 }} onClick={() => selectAirportsModal(t.id)}>Đổi sân bay</button> : null}</small>
+          <small>{kind}{s.required && s.type !== 'ORIGIN' && s.type !== 'DESTINATION' ? ' • bắt buộc' : ''}{s.type === 'ORIGIN' || s.type === 'DESTINATION' ? (s.exactGeo ? ' • tọa độ từ địa chỉ khách chọn' : ' • tọa độ theo thành phố (dữ liệu mẫu)') : s.type === 'AIRPORT' ? ` • Sân bay ${t.flight?.contractNo || t.flight?.bookingRef ? `(HĐ: ${t.flight.contractNo || t.flight.bookingRef})` : ''}` : p ? ' • ' + p.country : ' • chưa có trong danh mục'}{isAirport && edit ? <button type="button" className="link" style={{ marginLeft: 6, fontSize: 11 }} onClick={() => selectAirportsModal(t.id)}>Đổi sân bay</button> : null}</small>
           {purposes}
-          <div className="rp-times">{row && row.arrive ? `Đến ${dt(row.arrive)}` : ''}{mid ? <> • dừng {edit && !s.required ? <><input type="number" min="0" step="5" className="rp-dwell" value={s.dwellMin} onChange={(e) => rpSetStop(t.id, i, 'dwellMin', e.target.value)} /> phút</> : fmtMin(s.dwellMin)}</> : null}{row && row.depart ? ` • rời ${dt(row.depart)}` : ''}{i === 0 && edit ? <button type="button" className="link" style={{ marginLeft: 8, fontSize: 11 }} onClick={() => rpEditDepart(t.id)}>✏️ Đổi giờ đón</button> : null}</div>
+          <div className="rp-times">{row && row.arrive ? `Đến ${dt(row.arrive)}` : ''}{mid ? <> • dừng {edit && !s.required ? <><input type="number" min="0" step="5" className="rp-dwell" value={s.dwellMin} onChange={(e) => rpSetStop(t.id, i, 'dwellMin', e.target.value)} /> phút</> : fmtMin(s.dwellMin)}</> : null}{row && row.depart ? ` • rời ${dt(row.depart)}` : ''}{i === 0 && edit ? <button type="button" className="link" style={{ marginLeft: 8, fontSize: 11 }} onClick={() => rpEditDepart(t.id)}>Đổi giờ đón</button> : null}</div>
           {mid && s.purposes.includes('REST') ? <label className="rp-unload">{edit ? <input type="checkbox" checked={!!s.unload} onChange={(e) => rpSetStop(t.id, i, 'unload', e.target.checked)} /> : (s.unload ? '✓' : '✗')} Đưa ngựa xuống xe (nghỉ {s.unload ? 'ngoài xe' : 'trên xe'})</label> : null}
           {/* Đối với sân bay: hiển thị thông tin nghiệp vụ hàng không tự động, không hiện ô nhập tay careNote */}
           {isAirport ? (
@@ -269,7 +383,7 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
           {isDepAirport && excessWait && idealDepart ? (
             <div style={{ marginTop: 8, padding: '8px 12px', background: '#fefce8', border: '1px solid #fef08a', borderRadius: 8, fontSize: 11.5, color: '#854d0e', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
               <div>
-                <span>💡 Xe đến sân bay trước giờ bay <b>{(waitingMin / 60).toFixed(1)} giờ</b> (thừa {(waitingMin / 60 - ROUTE_POLICY.airportHandoverH).toFixed(1)}h so với mức chuẩn {ROUTE_POLICY.airportHandoverH}h).</span>
+                <span>Xe đến sân bay trước giờ bay <b>{(waitingMin / 60).toFixed(1)} giờ</b> (thừa {(waitingMin / 60 - ROUTE_POLICY.airportHandoverH).toFixed(1)}h so với mức chuẩn {ROUTE_POLICY.airportHandoverH}h).</span>
                 <div style={{ color: '#a16207', marginTop: 2 }}>Tránh để ngựa chờ lâu ở sân bay: Khuyên dùng đón muộn hơn tại chuồng khách.</div>
               </div>
               {edit ? (
@@ -279,7 +393,7 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
                   style={{ padding: '3px 10px', fontSize: 11, background: '#ca8a04', color: '#fff', fontWeight: 600, border: 'none', cursor: 'pointer' }}
                   onClick={() => rpSyncDepartureToFlight(t.id)}
                 >
-                  ⚡ Căn giờ đón ({dt(idealDepart)})
+                  Căn giờ đón ({dt(idealDepart)})
                 </button>
               ) : null}
             </div>
@@ -311,7 +425,7 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
           ) : null}
           {edit && (s.type === 'ORIGIN' || s.type === 'DESTINATION') ? (
             <button type="button" className="btn ghost sm" onClick={() => rpEditEndpoint(t.id, i)} title="Ghim lại vị trí trên bản đồ">
-              📍 Ghim lại vị trí
+              Ghim lại vị trí
             </button>
           ) : edit && !s.required ? (
             <>
@@ -341,7 +455,7 @@ function Detail({ t }: { t: Any }) {
             <b>{p.name}</b>
             <Pill v={PLACE_ST[p.status][0]} label={PLACE_ST[p.status][1]} />
           </div>
-          <button type="button" className="btn ghost sm" style={{ padding: '1px 6px', fontSize: 11 }} onClick={() => { ps.sel = null; commit(); }}>✕ Đóng</button>
+          <button type="button" className="btn ghost sm" style={{ padding: '1px 6px', fontSize: 11 }} onClick={() => { ps.sel = null; commit(); }}>Đóng</button>
         </div>
         <small>{p.functions.map((fn: string) => PF[fn]).join(' • ')} • {p.province}, {p.country} • giờ hoạt động {p.hours || '—'}</small>
         {facts.map((x, k) => <p key={k}>{x}</p>)}
@@ -352,9 +466,8 @@ function Detail({ t }: { t: Any }) {
               : <><span className="t-bad">{d.error}</span> <button type="button" className="link" onClick={() => rpDetour(t.id, p.id)}>Thử lại</button></>) : null}
             {c.why.length ? <div className="rp-issue"><Icon name="alert" />Không còn phù hợp: {c.why.join('; ')}</div> : null}
           </div>
-          {edit ? <button type="button" className="btn solid block" disabled={p.status !== 'ACTIVE'} onClick={() => rpAdd(t.id, p.id)}>Thêm vào hành trình{ps.seg != null ? ` (đoạn ${ps.seg + 1})` : ''}</button> : null}
+          {edit ? <button type="button" className="btn solid block" disabled={p.status !== 'ACTIVE'} onClick={() => { rpAdd(t.id, p.id); if (curRoute(t)?.stops?.some((x: Any) => x.placeId === p.id)) { ps.sel = null; commit(); } }}>Thêm vào hành trình{ps.seg != null ? ` (đoạn ${ps.seg + 1})` : ''}</button> : null}
         </> : <p className="hint">Chọn một đoạn tuyến để xem ảnh hưởng nếu ghé địa điểm này.</p>}
-        <p className="hint">Sức chứa là khả năng tiếp nhận của cơ sở, không phải số chỗ còn trống (chưa có hệ thống đặt chỗ).</p>
       </div>
     );
   }
@@ -372,9 +485,6 @@ function Summary({ t }: { t: Any }) {
         <div className="note yellow" style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <div>
             <b>Chưa chọn tuyến máy bay (sân bay cất / hạ cánh)</b>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
-              Vận chuyển Hàng không gồm 2 chặng đường bộ kết nối qua 1 chuyến bay thẳng. Vui lòng chọn cặp sân bay để hệ thống phân tách chặng và tìm tuyến đường bộ đón/trả.
-            </p>
           </div>
           {edit ? (
             <button
@@ -398,9 +508,128 @@ function Summary({ t }: { t: Any }) {
   if (!calc) return <div className="card pad rp-sum">{status}<p className="hint">Chưa có kết quả tính tuyến cho danh sách điểm hiện tại.</p></div>;
   const issues = calc.issues, policy = rpPolicy(rt), late = !!deadline && calc.eta > deadline;
   const checked = !!rt.airCareConfirmation && rt.airCareConfirmation.flightKey === rpFlightKey(t);
+  const edit = rpEditable(t, rt);
+
+  const selectedSeg = ps.seg != null && rt && ps.routing.legs && ps.routing.legs[ps.seg] ? ps.seg : null;
+  const segLeg = selectedSeg != null ? ps.routing.legs[selectedSeg] : null;
+  const segFrom = selectedSeg != null ? rt.stops[selectedSeg] : null;
+  const segTo = selectedSeg != null ? rt.stops[selectedSeg + 1] : null;
+  const segIssues = selectedSeg != null ? (calc.issues || []).filter((x: Any) => x.seg === selectedSeg) : [];
+  const isSegOk = Boolean(selectedSeg != null && segLeg && !segIssues.length);
+  const segDriveDuration = segLeg ? segLeg.min * policy.truckFactor : 0;
+
   return (
     <div className="card pad rp-sum">{status}
       {rs.sim ? <div className="note yellow" style={{ margin: '0 0 10px' }}><div><b>Routing mô phỏng (dữ liệu mẫu)</b>Quãng đường/thời gian là ước tính, không phải đường thực tế. OSRM chỉ tham khảo đường bộ; muốn kiểm tra xe lớn cần dịch vụ định tuyến xe tải.</div></div> : null}
+
+      {/* Hộp kiểm tra chi tiết từng đoạn khi người điều phối bấm chọn một đoạn */}
+      {selectedSeg != null && segLeg ? (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: '12px 16px',
+            borderRadius: 8,
+            border: `2px solid ${isSegOk ? '#16a34a' : '#dc2626'}`,
+            background: isSegOk ? '#f0fdf4' : '#fef2f2',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  fontWeight: 800,
+                  fontSize: 12,
+                  background: isSegOk ? '#16a34a' : '#dc2626',
+                  color: '#ffffff',
+                }}
+              >
+                ĐANG KIỂM TRA ĐOẠN {selectedSeg + 1}
+              </span>
+              <b style={{ fontSize: 14, color: '#0f172a' }}>
+                {segFrom?.name || 'Điểm đón'} <span style={{ color: '#0284c7' }}>➔</span> {segTo?.name || 'Điểm đến'}
+              </b>
+            </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              {edit ? (
+                <button
+                  type="button"
+                  className="btn solid sm"
+                  style={{ fontSize: 12, background: isSegOk ? '#0284c7' : '#dc2626', color: '#fff', border: 'none' }}
+                  onClick={() => rpOpenAddStop(t.id, selectedSeg)}
+                >
+                  ＋ Thêm điểm dừng vào đoạn này
+                </button>
+              ) : null}
+              {segIssues.some((x: Any) => x.msg.includes('lãnh thổ')) && edit ? (
+                <button
+                  type="button"
+                  className="btn sm"
+                  style={{ fontSize: 12, background: '#2563eb', color: '#fff', border: 'none', fontWeight: 600 }}
+                  onClick={() => rpFixDomesticRoute(t.id, selectedSeg)}
+                >
+                  Nắn tuyến qua QL1A
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="btn ghost sm"
+                style={{ fontSize: 12 }}
+                onClick={() => {
+                  rpSeg(t.id, selectedSeg);
+                  plannerMap.fitAll?.();
+                }}
+              >
+                ✕ Bỏ chọn (Xem toàn tuyến)
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginTop: 10 }}>
+            <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Quãng đường đoạn</span>
+              <b style={{ fontSize: 15, color: '#0f172a' }}>{segLeg.km.toFixed(0)} km</b>
+            </div>
+            <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Thời gian lái (xe tải ×{policy.truckFactor})</span>
+              <b style={{ fontSize: 15, color: segDriveDuration > policy.careIntervalH * 60 ? '#dc2626' : '#16a34a' }}>
+                {fmtMin(segDriveDuration)}
+              </b>
+            </div>
+            <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Tiêu chuẩn nghỉ</span>
+              <b style={{ fontSize: 15, color: '#0f172a' }}>Tối đa {policy.careIntervalH}h/lần</b>
+            </div>
+            <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Đánh giá đoạn này</span>
+              <b style={{ fontSize: 13, color: isSegOk ? '#16a34a' : '#dc2626' }}>
+                {isSegOk ? '✓ Đạt chuẩn (≤ 4h)' : `⚠️ Chưa đạt (${segIssues.length} lỗi)`}
+              </b>
+            </div>
+          </div>
+
+          {segIssues.length ? (
+            <div style={{ marginTop: 10, padding: '8px 12px', background: '#fee2e2', borderRadius: 6, color: '#991b1b', fontSize: 12 }}>
+              <b>Vấn đề cần xử lý trên đoạn {selectedSeg + 1}:</b>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                {segIssues.map((x: Any, k: number) => (
+                  <li key={k}>{x.msg}</li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div style={{ marginTop: 10, padding: '8px 12px', background: '#dcfce7', borderRadius: 6, color: '#166534', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Icon name="check" />
+              <span><b>Đoạn này đã đạt chuẩn chính sách an toàn:</b> thời gian lái xe liên tục {fmtMin(segDriveDuration)} ≤ {policy.careIntervalH} giờ.</span>
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
+        {selectedSeg != null ? 'Tổng quan toàn bộ chuyến đi:' : 'Thông số toàn tuyến:'}
+      </div>
       <div className="rp-kpis">
         <div><span>Đường bộ</span><b>{calc.km.toFixed(0)} km</b></div>
         <div><span>Thời gian chạy</span><b>{fmtMin(calc.driveMin)}</b><small>× {policy.truckFactor} cho xe chở ngựa</small></div>
@@ -412,10 +641,10 @@ function Summary({ t }: { t: Any }) {
         ? <div className="rp-issues"><b>{issues.length + (late ? 1 : 0)} lỗi cần xử lý trước khi gửi duyệt</b><ul>
           {late ? <li>ETA {dt(calc.eta)} trễ hơn hạn giao {dt(deadline)}.</li> : null}
           {issues.map((x: Any, k: number) => <li key={k}>{x.seg != null ? `Đoạn ${x.seg + 1}→${x.seg + 2}: ` : `Điểm ${x.stop + 1}: `}{x.msg}</li>)}</ul></div>
-        : <div className="note green" style={{ margin: '10px 0 0' }}><Icon name="check" /><div><b>Lộ trình hợp lệ theo chính sách nghỉ</b>{t.mode === 'AIR' ? 'Kiểm tra thêm tuyến xe lớn, lối vào điểm nhận và nguồn lực trước khi gửi Manager duyệt.' : 'Lộ trình đã sẵn sàng. Có thể chốt và áp dụng trực tiếp cho chuyến đi.'}</div></div>}
+        : <div className="note green" style={{ margin: '10px 0 0' }}><Icon name="check" /><div><b>Lộ trình hợp lệ theo chính sách nghỉ</b></div></div>}
       {t.mode === 'AIR' ? <div className="note blue"><div><b>Chăm sóc tại sân bay và trên chuyến bay</b>
-        <p>Thời gian bàn giao/chờ/bay/tiếp nhận: {fmtMin(calc.airCareMin)}. Không được tính là nghỉ hồi phục. Mỗi chặng đường bộ có đồng hồ nghỉ riêng.</p>
-        {rpEditable(t, rt) ? <label className="check-line"><input type="checkbox" checked={checked} onChange={(e) => rpSetAirCare(t.id, e.target.checked)} /> Đã xác nhận với hãng bay/đối tác phương án chăm sóc ngựa trong lúc bàn giao, chờ, bay và tiếp nhận (demo ghi nhận thủ công).</label>
+        <p>Thời gian bàn giao/chờ/bay/tiếp nhận: {fmtMin(calc.airCareMin)}.</p>
+        {rpEditable(t, rt) ? <label className="check-line"><input type="checkbox" checked={checked} onChange={(e) => rpSetAirCare(t.id, e.target.checked)} /> Đã xác nhận với hãng bay/đối tác phương án chăm sóc ngựa trong lúc bàn giao, chờ, bay và tiếp nhận.</label>
           : <small>{checked || rt.airCareConfirmation ? 'Đã ghi nhận phương án chăm sóc theo phiên bản đã gửi.' : 'Chưa lưu xác nhận chăm sóc hãng bay.'}</small>}
       </div></div> : null}
       <p className="hint">Chính sách ({policy.label}): nghỉ chăm sóc tối đa mỗi {policy.careIntervalH} giờ, nghỉ ngắn ≥ {policy.shortRestMin} phút, đợt đường bộ ≤ {policy.roadEpisodeH} giờ, nghỉ hồi phục ngoài xe ≥ {policy.recoveryRestH} giờ{t.mode === 'AIR' ? `, bàn giao sân bay ${policy.airportHandoverH} giờ trước bay, tiếp nhận ${policy.airportReceiveH} giờ sau hạ cánh` : ''}. <button type="button" className="link" onClick={rpPolicyModal}>Cấu hình</button></p>
@@ -467,36 +696,40 @@ export function RouteTab({ t }: { t: Any }) {
       <div><span>Hạn giao</span><b>{dt(rpDeadline(t))}</b></div>
       <div><span>Phiên bản</span><b>v{rt.v} • <Pill v={rt.status} /></b></div>
     </div></div>
-    {(() => {
-      const isPickupBlocked = t.pickupAccess?.result === 'INACCESSIBLE' && t.pickupRelocation?.status !== 'CUSTOMER_CONFIRMED';
-      return isPickupBlocked ? (
-        <div className="note red" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-          <div>
-            <b>🔒 Bị khóa bước gửi duyệt:</b> Xe chở ngựa không vào được địa chỉ đón gốc. Cần hoàn tất thỏa thuận dời điểm đón với khách hàng tại tab Tổng quan trước khi gửi duyệt lộ trình.
-          </div>
-          <button type="button" className="btn solid sm" onClick={() => go(`f/trip/${t.id}/overview`)}>
-            Đi tới tab Tổng quan →
-          </button>
-        </div>
-      ) : null;
-    })()}
-    {rt.status === 'APPROVED' ? <div className="note green"><Icon name="check" /><div><b>Phiên bản v{rt.v} đã được phê duyệt & áp dụng – chỉ đọc</b>Muốn chỉnh tuyến, tạo phiên bản điều chỉnh. Thay đổi dữ liệu địa điểm không tự sửa kế hoạch đã duyệt.</div></div>
+    {rt.status === 'APPROVED' ? <div className="note green"><Icon name="check" /><div><b>Phiên bản v{rt.v} đã được phê duyệt & áp dụng – chỉ đọc</b></div></div>
       : rt.status === 'PENDING_APPROVAL' ? <div className="note yellow"><Icon name="clock" /><div><b>Phiên bản v{rt.v} đang chờ Manager duyệt – chỉ đọc</b></div></div>
         : rt.status === 'RETURNED' ? <div className="note red"><Icon name="alert" /><div><b>Manager trả lại v{rt.v}</b>{rt.note || ''}</div></div> : null}
     {affected.length ? <div className="note red"><Icon name="alert" /><div><b>Có địa điểm không còn hoạt động trong lộ trình</b>{affected.map((x: Any) => x.name).join(', ')}{rt.status === 'APPROVED' ? ' – tạo phiên bản điều chỉnh để thay thế.' : ' – thay bằng điểm khác.'}</div></div> : null}
     <div className="rp-grid">
       <div className="rp-left">
-        <div className="between" style={{ marginBottom: 8 }}><h3 className="card-title" style={{ margin: 0 }}>Các điểm theo thứ tự ({rt.stops.length})</h3>
-          {edit && t.mode === 'AIR' ? (
-            <button
-              type="button"
-              className="btn solid sm"
-              onClick={() => selectAirportsModal(t.id)}
-            >
-              {t.flight?.from && t.flight?.to ? 'Đổi sân bay' : 'Chọn sân bay'}
-            </button>
-          ) : null}
-          <button type="button" className="link" onClick={() => go('f/places')}>Quản lý địa điểm →</button></div>
+        <div className="between" style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <h3 className="card-title" style={{ margin: 0 }}>Các điểm theo thứ tự ({rt.stops.length})</h3>
+            {edit && rt.stops.length >= 4 ? (
+              <button
+                type="button"
+                className="btn ghost sm"
+                style={{ fontSize: 11.5, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                onClick={() => rpAutoSort(t.id)}
+                title="Tự động sắp xếp các điểm dừng theo đúng tiến trình từ điểm đón đến điểm giao"
+              >
+                <Icon name="check" /> Sắp xếp theo lộ trình
+              </button>
+            ) : null}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {edit && t.mode === 'AIR' ? (
+              <button
+                type="button"
+                className="btn solid sm"
+                onClick={() => selectAirportsModal(t.id)}
+              >
+                {t.flight?.from && t.flight?.to ? 'Đổi sân bay' : 'Chọn sân bay'}
+              </button>
+            ) : null}
+            <button type="button" className="link" onClick={() => go('f/places')}>Quản lý địa điểm →</button>
+          </div>
+        </div>
         {edit && t.mode === 'AIR' && (!rpGroups(t, rt).flight || !t.flight?.from || !t.flight?.to) ? (
           <div className="note yellow" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <span>Lộ trình chưa chọn sân bay. Vui lòng chọn sân bay để phân tách chặng đường bộ và đường bay.</span>
@@ -506,27 +739,6 @@ export function RouteTab({ t }: { t: Any }) {
               onClick={() => selectAirportsModal(t.id)}
             >
               Chọn sân bay
-            </button>
-          </div>
-        ) : null}
-        {t.pickupRelocation?.status === 'CUSTOMER_CONFIRMED' ? (
-          <div className="note green" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Icon name="check" />
-            <div>
-              <b>Điểm đón mới có hiệu lực:</b> {t.pickupRelocation.placeName || t.pickupRelocation.placeSnapshot?.name} (Khách hàng đã đồng ý dời điểm đón). Tuyến đường xuất phát từ cơ sở này.
-            </div>
-          </div>
-        ) : t.pickupAccess?.result === 'INACCESSIBLE' ? (
-          <div className="note yellow" style={{ marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <div>
-              <b>⚠️ Điểm đón gốc xe lớn không vào được:</b> {t.pickupRelocation ? `Đề xuất dời điểm đang ở trạng thái ${t.pickupRelocation.status}` : 'Cần lập đề xuất đổi điểm tập kết'}.
-            </div>
-            <button
-              type="button"
-              className="btn sm"
-              onClick={() => go(`f/trip/${t.id}/overview`)}
-            >
-              Xem đề xuất →
             </button>
           </div>
         ) : null}
@@ -657,48 +869,31 @@ export function RouteTab({ t }: { t: Any }) {
             </button>
           </div>
           {edit ? <PlannerFilters t={t} f={f} /> : null}
-          <PlannerMap t={t} onTileError={() => setTileErr(true)} />
+          <div className="rp-map-wrap">
+            <PlannerMap t={t} onTileError={() => setTileErr(true)} />
+            {ps.sel && placeById(ps.sel) ? <div id="rp-detail" className="rp-detail-float"><Detail t={t} /></div> : null}
+          </div>
           <div className="rp-legend">
             <span><i className="lg-end" />Điểm nhận/giao</span>
             <span><i className="lg-req" />Điểm bắt buộc</span>
             <span><i style={{ background: '#f57c00', width: 14, height: 10, borderRadius: 2, display: 'inline-block' }} />Sân bay</span>
             <span><i className="lg-sel" />Điểm đã chọn</span>
             <span><i className="lg-sug" />Gợi ý</span>
-            <span><i className="lg-bad" />Không còn phù hợp</span>
-            <span><i className="lg-route" />Tuyến đường bộ</span>
+            <span><i style={{ background: '#16a34a', width: 14, height: 4, borderRadius: 2, display: 'inline-block' }} />Đoạn đạt chuẩn (≤ 4h)</span>
+            <span><i style={{ background: '#dc2626', width: 14, height: 4, borderRadius: 2, display: 'inline-block' }} />Đoạn cần thêm trạm dừng</span>
+            <span><i style={{ background: '#ea580c', width: 14, height: 4, borderRadius: 2, display: 'inline-block', boxShadow: '0 0 0 2px #fed7aa' }} />Đoạn đang chọn</span>
             {t.mode === 'AIR' ? <span><i className="lg-fly" />Chặng bay</span> : null}
           </div>
           <p className="hint rp-tilemsg" hidden={!tileErr}>Chưa tải được nền bản đồ Geoapify. Vui lòng thử lại sau.</p>
         </div>
-        {ps.sel && placeById(ps.sel) ? <div id="rp-detail"><Detail t={t} /></div> : null}
       </div>
     </div>
     <div id="rp-summary"><Summary t={t} /></div>
     <div className="rp-actions">
-      {edit ? (() => {
-        const isPickupBlocked = t.pickupAccess?.result === 'INACCESSIBLE' && t.pickupRelocation?.status !== 'CUSTOMER_CONFIRMED';
-        return (
-          <>
-            <button type="button" className="btn ghost lg" onClick={() => rpSave(t.id)}>Lưu bản nháp</button>
-            <button
-              type="button"
-              className={`btn solid lg ${isPickupBlocked ? 'disabled' : ''}`}
-              disabled={isPickupBlocked}
-              style={isPickupBlocked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-              title={isPickupBlocked ? 'Khóa gửi duyệt: Điểm đón xe không vào được và chưa có điểm đón mới được khách xác nhận.' : ''}
-              onClick={() => {
-                if (isPickupBlocked) {
-                  toast('Không thể gửi duyệt: Điểm đón xe không vào được và chưa có điểm đón mới được khách hàng xác nhận.');
-                  return;
-                }
-                routeSubmit(t.id);
-              }}
-            >
-              {isPickupBlocked ? '🔒 Khóa gửi duyệt (Chưa chốt điểm đón)' : t.mode === 'AIR' ? 'Gửi Manager duyệt' : 'Chốt & Áp dụng lộ trình'}
-            </button>
-          </>
-        );
-      })() : canPlan(t) && ['APPROVED', 'RETURNED'].includes(rt.status) ? <button type="button" className="btn solid lg" onClick={() => routeNew(t.id)}>Tạo phiên bản điều chỉnh v{rt.v + 1}</button> : null}
+      {edit ? <>
+        <button type="button" className="btn ghost lg" onClick={() => rpSave(t.id)}>Lưu bản nháp</button>
+        <button type="button" className="btn solid lg" onClick={() => { rpSave(t.id); go(`f/trip/${t.id}/resources`); }}>Lưu &amp; phân công xe, nhân sự →</button>
+      </> : canPlan(t) && ['APPROVED', 'RETURNED'].includes(rt.status) ? <button type="button" className="btn solid lg" onClick={() => routeNew(t.id)}>Tạo phiên bản điều chỉnh v{rt.v + 1}</button> : null}
       <span className="hint">{t.demoFlow3 ? 'Routing: Mô phỏng riêng chuyến Demo · không phải đường thực tế' : <>Routing: {ROUTING.provider === 'SIM' ? 'Mô phỏng (dữ liệu mẫu)' : 'OSRM – ' + ROUTING.url.replace(/^https?:\/\//, '').split('/')[0]} • <button type="button" className="link" onClick={rpRoutingModal}>Đổi</button></>}</span>
     </div>
     <p className="au-error" id="f-route-error" hidden={!routeSubmitError || !edit}>{routeSubmitError}</p>
@@ -764,7 +959,7 @@ function PlannerFilters({ t, f }: { t: Any; f: Any }) {
           <div style={{ fontSize: 11.5, color: '#64748b' }}>
             {isMultiFilter ? (
               <span style={{ color: '#0284c7', fontWeight: 600 }}>
-                ⚡ Khớp cả {f.fn.length} tiêu chí ({cands.length})
+                Khớp cả {f.fn.length} tiêu chí ({cands.length})
               </span>
             ) : f.fn?.length === 1 ? (
               <span>Tìm thấy {cands.length} địa điểm</span>

@@ -44,7 +44,7 @@ export function FleetPage() {
 
   return (
     <CoordinatorLayout title="Đội xe">
-      <div className="head"><div><h2 className="page-title">Phương tiện chuyên dụng</h2><p className="subtitle">Xe tải chở ngựa: tình trạng, bảo dưỡng và chuyến đang sử dụng. Với chuyến bay, khoang máy bay và thùng vận chuyển do bên dịch vụ thuê máy bay lo; CBN chỉ bố trí xe cho 2 chặng tới/từ sân bay.</p></div>
+      <div className="head"><div><h2 className="page-title">Phương tiện chuyên dụng</h2><p className="subtitle">Xe tải chở ngựa: tình trạng, bảo dưỡng và chuyến đang sử dụng.</p></div>
         <button type="button" className="btn solid" onClick={() => vehicleEdit('')}><Icon name="plus" />Thêm phương tiện</button></div>
       <DataTable id="f-fleet" rows={sortedVehicles} go={(v: Any) => `f/vehicle/${v.id}`} style={{ marginTop: 20 }} search={(v: Any) => [v.plate, v.model, v.base].join(' ')}
         filters={[{ key: 's', label: 'Tất cả trạng thái', options: ['READY', 'MAINTENANCE', 'INACTIVE'].map((x) => [x, human(x)] as [string, string]), test: (v: Any, x) => v.status === x },

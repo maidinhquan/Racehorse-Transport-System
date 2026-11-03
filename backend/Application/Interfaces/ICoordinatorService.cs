@@ -125,6 +125,8 @@ namespace Application.Interfaces
         // 6. Manager Route Approval & Planning Queue
         Task<List<ManagerPlanningItemDto>> GetManagerPlanningTripsAsync();
         Task<RouteCalculateResponseDto?> GetManagerTripRouteAsync(string tripId);
+        /// <summary>Phương án (tuyến, xe, nhân sự) Điều phối đã gửi, kèm trạng thái duyệt hiện tại.</summary>
+        Task<PlanDto?> GetManagerPlanAsync(string tripId);
         Task<bool> ApproveRouteVersionAsync(string tripId, int routeVersionId, ManagerApproveRouteDto dto);
         Task<bool> ReturnRouteVersionAsync(string tripId, int routeVersionId, ManagerReturnRouteDto dto);
         Task<bool> ApproveDepartureAsync(string tripId, ManagerApproveDepartureDto? dto = null);

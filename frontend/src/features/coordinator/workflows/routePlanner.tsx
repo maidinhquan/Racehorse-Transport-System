@@ -11,8 +11,10 @@ import { PlacePickMap } from '../components/maps/LeafletMaps';
 import seed from '../data/seed.json';
 import { canPlan, checkpoint, curRoute, groundCountry, groundLegs, opsBlock, placeById, placeByName, reqOfTrip, trip, tripHorses } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
-import { audit, closeModal, commit, confirmAction, db, go, me, nextId, notify, nowStamp, onReset, openModal, savePlacesToStorage, toast, ui } from '../store/coordinatorStore';
+import { audit, closeModal, commit, confirmAction, db, demoOn, flushTripStateToStorage, go, me, nextId, notify, nowStamp, onReset, openModal, savePlacesToStorage, toast, ui } from '../store/coordinatorStore';
 import { addHours, dt, human, stampMs } from '../utils/format';
+import { saveSharedTrip } from '../../../shared/utils/sharedTrips';
+import { pushPlanToBackend } from './planSync';
 
 export const PF: Record<string, string> = { REST: 'Nghỉ & chăm sóc ngựa', FUEL: 'Tiếp nhiên liệu', QUARANTINE: 'Kiểm dịch', BORDER: 'Cửa khẩu / thông quan', AIRPORT: 'Sân bay' };
 export const PF_COLOR: Record<string, string> = { REST: '#d97706', FUEL: '#64748b', QUARANTINE: '#0284c7', BORDER: '#dc2626', AIRPORT: '#ea580c' };
@@ -408,7 +410,7 @@ export function rpSchedule(t: Any, rt: Any, legs: Any[]) {
             const pt = l.geom.find(([gLat, gLng]: [number, number]) => isPointOutsideVietnam(gLat, gLng).outside);
             if (pt) {
               const borderInfo = isPointOutsideVietnam(pt[0], pt[1]);
-              issue('seg', i - 1, `⚠️ Tuyến đường bộ bị cắt qua lãnh thổ ${borderInfo.country || 'quốc tế'}. Lộ trình nội địa cần giữ trong nước – bấm “Nắn tuyến qua QL1A” hoặc thêm trạm dừng duyên hải.`);
+              issue('seg', i - 1, `Tuyến đường bộ bị cắt qua lãnh thổ ${borderInfo.country || 'quốc tế'}. Lộ trình nội địa cần giữ trong nước – bấm “Nắn tuyến qua QL1A” hoặc thêm trạm dừng duyên hải.`);
             }
           }
         }
@@ -673,21 +675,112 @@ export async function rpDetour(tid: string, pid: string) {
   ps.detour[pid] = res.ok ? { status: 'ok', firstMin: res.legs[0].min * ROUTE_POLICY.truckFactor, km: res.legs[0].km + res.legs[1].km - base.km, min: (res.legs[0].min + res.legs[1].min - base.min) * ROUTE_POLICY.truckFactor, sim: !!res.sim } : { status: 'error', error: res.noroute ? 'Không tìm được đường qua địa điểm này.' : res.error };
   if (ps.sel === pid) commit();
 }
+/** Helper tính hình chiếu và sắp xếp mảng stops theo đúng tiến trình địa lý từ điểm nhận đến điểm giao */
+export function autoSortStopsArray(t: Any, rt: Any) {
+  if (!rt || !rt.stops || rt.stops.length <= 3) return;
+  rpCoords(t, rt);
+  const grouping = rpGroups(t, rt);
+
+  const projectScalar = (start: Any, end: Any, p: Any): number => {
+    if (start.lat == null || start.lng == null || end.lat == null || end.lng == null || p.lat == null || p.lng == null) return 0;
+    const vLat = end.lat - start.lat;
+    const vLng = end.lng - start.lng;
+    const vLenSq = vLat * vLat + vLng * vLng;
+    if (vLenSq === 0) return 0;
+    const wLat = p.lat - start.lat;
+    const wLng = p.lng - start.lng;
+    return (wLat * vLat + wLng * vLng) / vLenSq;
+  };
+
+  const sortLegStops = (startStop: Any, endStop: Any, intermediateStops: Any[]) => {
+    return [...intermediateStops].sort((a, b) => {
+      const scalarA = projectScalar(startStop, endStop, a);
+      const scalarB = projectScalar(startStop, endStop, b);
+      if (Math.abs(scalarA - scalarB) > 0.0001) {
+        return scalarA - scalarB;
+      }
+      const distA = kmBetween([startStop.lat, startStop.lng], [a.lat, a.lng]);
+      const distB = kmBetween([startStop.lat, startStop.lng], [b.lat, b.lng]);
+      return distA - distB;
+    });
+  };
+
+  if (t.mode === 'AIR' && grouping.flight && grouping.flight.length >= 2) {
+    const depAirIdx = grouping.flight[0];
+    const arrAirIdx = grouping.flight[1];
+    const origin = rt.stops[0];
+    const depAirport = rt.stops[depAirIdx];
+    const arrAirport = rt.stops[arrAirIdx];
+    const dest = rt.stops[rt.stops.length - 1];
+
+    const outboundIntermediates = rt.stops.slice(1, depAirIdx);
+    const inboundIntermediates = rt.stops.slice(arrAirIdx + 1, rt.stops.length - 1);
+
+    const sortedOutbound = sortLegStops(origin, depAirport, outboundIntermediates);
+    const sortedInbound = sortLegStops(arrAirport, dest, inboundIntermediates);
+
+    rt.stops = [origin, ...sortedOutbound, depAirport, arrAirport, ...sortedInbound, dest];
+  } else if (t.mode !== 'AIR') {
+    const origin = rt.stops[0];
+    const dest = rt.stops[rt.stops.length - 1];
+    const intermediates = rt.stops.slice(1, rt.stops.length - 1);
+
+    const sortedIntermediates = sortLegStops(origin, dest, intermediates);
+    rt.stops = [origin, ...sortedIntermediates, dest];
+  }
+}
+
+/** Tự động sắp xếp lại các điểm dừng trung gian theo đúng tiến trình lộ trình */
+export function rpAutoSort(tid: string) {
+  const t = trip(tid), rt = curRoute(t);
+  if (!t || !rt || !rpEditable(t, rt)) return toast('Chỉ sắp xếp được phiên bản nháp.');
+  if (rt.stops.length <= 3) return toast('Cần ít nhất 2 điểm dừng trung gian để sắp xếp.');
+
+  autoSortStopsArray(t, rt);
+  const ps = RP(t.id);
+  ps.selStop = null;
+  ps.seg = null;
+  audit('Auto-sorted route stops', t.id, `${rt.stops.length} stops`);
+  toast('Đã tự động sắp xếp lại các điểm dừng theo chiều di chuyển từ điểm đón đến điểm giao.');
+  rpChanged(t);
+}
+
 export function rpAdd(tid: string, pid: string, forceSeg?: number) {
   const t = trip(tid), rt = curRoute(t), ps = RP(tid), p = placeById(pid);
   if (!rpEditable(t, rt)) return toast('Chỉ sửa được phiên bản nháp.');
-  let seg = forceSeg !== undefined ? forceSeg : ps.seg;
+
+  // Đảm bảo tất cả các điểm đã có tọa độ
+  rpCoords(t, rt);
+
+  let seg = forceSeg;
   if (seg == null) {
-    let bestSeg = -1, bestDist = 1e9;
+    let bestSeg = -1, bestDetour = 1e9;
     const grouping = rpGroups(t, rt);
+    const pCountry = p?.country;
+    const outCountry = groundCountry(t, 'outbound') || 'VN';
+    const inCountry = groundCountry(t, 'inbound') || 'JP';
+
     for (let i = 0; i < rt.stops.length - 1; i++) {
+      // 1. Không chèn vào chặng bay giữa 2 sân bay
       if (grouping.flight && i === grouping.flight[0]) continue;
+
+      // 2. Với chuyến bay AIR: kiểm tra quốc gia phù hợp với từng chặng đường bộ
+      if (t.mode === 'AIR' && grouping.flight && pCountry) {
+        const isOutboundSeg = i < grouping.flight[0];
+        const isInboundSeg = i >= grouping.flight[1];
+        if (pCountry === outCountry && !isOutboundSeg) continue;
+        if (pCountry === inCountry && !isInboundSeg) continue;
+      }
+
       const a = rt.stops[i], b = rt.stops[i + 1];
       if (a.lat != null && a.lng != null && b.lat != null && b.lng != null && p && p.lat != null && p.lng != null) {
-        const mid = [(a.lat + b.lat) / 2, (a.lng + b.lng) / 2];
-        const d = kmBetween(mid, [p.lat, p.lng]);
-        if (d < bestDist) {
-          bestDist = d;
+        const distAtoP = kmBetween([a.lat, a.lng], [p.lat, p.lng]);
+        const distPtoB = kmBetween([p.lat, p.lng], [b.lat, b.lng]);
+        const distAtoB = kmBetween([a.lat, a.lng], [b.lat, b.lng]);
+        // Quãng đường phát sinh thêm khi chèn P vào giữa [A, B]
+        const detour = distAtoP + distPtoB - distAtoB;
+        if (detour < bestDetour) {
+          bestDetour = detour;
           bestSeg = i;
         }
       }
@@ -716,10 +809,17 @@ export function rpAdd(tid: string, pid: string, forceSeg?: number) {
     careNote: purposes.includes('REST') ? 'Kiểm tra ngựa, cho uống nước và thức ăn' : '',
   });
   rt.stops.splice(seg + 1, 0, s);
-  ps.selStop = seg + 1;
+
+  // Tự động tinh chỉnh thứ tự các điểm dừng trung gian để luôn giữ đúng tiến trình lộ trình
+  if (forceSeg === undefined) {
+    autoSortStopsArray(t, rt);
+  }
+
+  const newIdx = rt.stops.findIndex((x: Any) => x === s || (x.placeId && x.placeId === p.id));
+  ps.selStop = newIdx >= 0 ? newIdx : seg + 1;
   ps.seg = null;
   audit('Added route stop', t.id, p.name);
-  toast(`Đã chèn “${p.name}” vào đoạn ${seg + 1} – đang tính lại tuyến…`);
+  toast(`Đã thêm “${p.name}” vào lộ trình – đang tính lại tuyến…`);
   rpChanged(t);
 }
 
@@ -792,7 +892,7 @@ function AddStopModalBody({ tid, segIndex }: { tid: string; segIndex: number }) 
           Chèn điểm dừng vào Đoạn {segIndex + 1}:
         </div>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>
-          {fromStop?.name || 'Điểm bắt đầu'} <span style={{ color: '#0284c7' }}>➔</span> {toStop?.name || 'Điểm kết thúc'}
+          {fromStop?.name || 'Điểm bắt đầu'} <span style={{ color: '#0284c7' }}>→</span> {toStop?.name || 'Điểm kết thúc'}
         </div>
         <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>
           Điểm được chọn sẽ được chèn vào giữa 2 điểm này. Hệ thống sẽ tự động tính lại lộ trình và thời gian di chuyển.
@@ -804,7 +904,7 @@ function AddStopModalBody({ tid, segIndex }: { tid: string; segIndex: number }) 
           type="text"
           className="inp"
           style={{ flex: 1, minWidth: 200, padding: '7px 10px', fontSize: 13 }}
-          placeholder="🔍 Tìm theo tên địa điểm, địa chỉ, tỉnh/thành..."
+          placeholder="Tìm theo tên địa điểm, địa chỉ, tỉnh/thành..."
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -1062,7 +1162,7 @@ export function rpAirports(tid: string) {
       ps.selStop = null;
       ps.routing = { status: 'idle' };
       audit('Updated route airports', t.id, `${a.name} -> ${b.name}`);
-      toast(`Đã cập nhật cặp sân bay: ${a.name} ➔ ${b.name} (giữ nguyên các điểm dừng đã chọn).`);
+      toast(`Đã cập nhật cặp sân bay: ${a.name} → ${b.name} (giữ nguyên các điểm dừng đã chọn).`);
       rpChanged(t);
     },
   });
@@ -1086,10 +1186,9 @@ export function rpUseSim(tid: string) { ROUTING.provider = 'SIM'; resetRouting()
 export function rpPolicyModal() {
   const P = ROUTE_POLICY;
   openModal({
-    title: 'Chính sách nghỉ chăm sóc (Đề xuất cho đồ án)', ok: 'Lưu cấu hình',
+    title: 'Chính sách nghỉ chăm sóc', ok: 'Lưu cấu hình',
     init: { a: P.careIntervalH, b: P.shortRestMin, c: P.roadEpisodeH, d: P.recoveryRestH, e: P.truckFactor, f: P.airportHandoverH, g: P.airportReceiveH },
     body: () => (<>
-      <p className="hint" style={{ marginTop: 0 }}>Các giá trị chưa được chủ dự án chốt; không phải luật quốc tế. Áp dụng cho bản demo này.</p>
       <div className="form-grid">
         <Field label="Tối đa giữa 2 lần nghỉ chăm sóc (giờ)"><Inp name="a" type="number" min="1" step="0.5" /></Field>
         <Field label="Nghỉ ngắn tối thiểu (phút)"><Inp name="b" type="number" min="10" step="5" /></Field>
@@ -1148,9 +1247,6 @@ export function rpRoutingModal() {
           <b>Kiểm tra & Cảnh báo vi phạm ranh giới</b> trên các chặng đường bộ nội địa
         </label>
       </div>
-      <p className="hint" style={{ marginTop: 8 }}>
-        Khi bật kiểm tra ranh giới, nếu tuyến đường bộ nội địa chạy cắt qua Lào/Campuchia, hệ thống sẽ cảnh báo và cho phép bấm 1 chạm để tự động nắn tuyến bám theo QL1A trong nước.
-      </p>
     </>),
     onOk: (v) => {
       ROUTING.provider = v.prov;
@@ -1253,9 +1349,6 @@ export const setRouteError = (m: string) => { routeSubmitError = m; if (m) toast
 export function submitRoadRoute(id: string, extraCheck?: () => string, onSubmitted?: () => void) {
   const t = trip(id), rt = curRoute(t);
   if (!rt || rt.status !== 'DRAFT') return toast('Chỉ áp dụng được phiên bản tuyến đang là bản nháp.');
-  if (t.pickupAccess?.result === 'INACCESSIBLE' && t.pickupRelocation?.status !== 'CUSTOMER_CONFIRMED') {
-    return setRouteError('Không thể chốt lộ trình: Điểm đón xe không vào được và chưa có điểm đón mới được khách hàng xác nhận (F3-J28 .. J32).');
-  }
   rpEnsure(t, rt);
   const calc = rpCalc(t), ps = RP(id);
   if (!calc) return setRouteError(ps.routing.status === 'loading' ? 'Đang tính tuyến – chờ kết quả rồi chốt lộ trình.' : 'Chưa có tuyến hợp lệ cho danh sách điểm hiện tại (routing lỗi hoặc chưa tính). Không thể chốt lộ trình.');
@@ -1266,18 +1359,19 @@ export function submitRoadRoute(id: string, extraCheck?: () => string, onSubmitt
   const err = validateRoute(t, rt);
   if (err) return setRouteError(err);
   routeSubmitError = '';
-  confirmAction(`Chốt & Áp dụng tuyến phiên bản ${rt.v}?`, `${rt.stops.length} điểm dừng. Tuyến đường sẽ được phê duyệt và áp dụng trực tiếp cho chuyến đi (không cần qua Quản lý xét duyệt).`, 'Chốt & Áp dụng', () => {
-    if (rt.status !== 'DRAFT' || opsBlock(t)) { toast(opsBlock(t) || 'Phiên bản này đã được áp dụng.'); return; }
+  confirmAction(`Gửi tuyến ${t.id} v${rt.v} cho Manager duyệt?`, `${rt.stops.length} điểm dừng, kèm xe và tổ lái đã phân công.`, 'Gửi Manager duyệt', () => {
+    if (rt.status !== 'DRAFT' || opsBlock(t)) { toast(opsBlock(t) || 'Phiên bản này đã được gửi.'); return; }
     const again = extraCheck?.(); if (again) return again;
     onSubmitted?.();
-    rt.status = 'APPROVED';
+    rt.status = 'PENDING_APPROVAL';
     rt.submittedAt = nowStamp();
-    rt.decidedAt = nowStamp();
-    rt.decidedBy = me().name || 'Điều phối viên';
-    rt.note = 'Điều phối viên đã chốt & áp dụng lộ trình.';
-    rt.resourceSnapshot = { at: nowStamp(), signature: resourceSignature(t) };
-    audit('Approved route directly', id, `Version ${rt.v} (Tự duyệt Flow 3)`);
-    toast(`Đã chốt và phê duyệt lộ trình phiên bản ${rt.v}!`);
+    flushTripStateToStorage();
+    saveSharedTrip(t);
+    flushTripStateToStorage();
+    void pushPlanToBackend(t).then((err) => { if (err && !demoOn()) toast('Chưa gửi được phương án lên máy chủ: ' + err); });
+    notify('LOGISTICS_MANAGER', `Tuyến ${t.id} cần duyệt`, `v${rt.v} · ${rt.stops.length} điểm dừng`, `m/trip/${t.id}/route`);
+    audit('Submitted road route', id, `Version ${rt.v}`);
+    toast(`Đã gửi tuyến phiên bản ${rt.v} cho Manager duyệt.`);
     rpChanged(t);
   });
 }
@@ -1500,16 +1594,16 @@ function PlaceForm({ p, fm }: { p: Any; fm: { v: Any; set: (k: string, v: Any) =
 
           const countryLabel = COUNTRY_NAMES[info.country] || info.country;
           const summary = [info.address, info.province, countryLabel].filter(Boolean).join(', ');
-          fm.set('reverseMsg', summary ? `✓ Đã tự điền: ${summary}` : '✓ Đã nhận tọa độ');
-          toast(summary ? `✓ Đã tự điền địa chỉ: ${summary}` : '✓ Đã nhận tọa độ vị trí.');
+          fm.set('reverseMsg', summary ? `Đã tự điền: ${summary}` : 'Đã nhận tọa độ');
+          toast(summary ? `Đã tự điền địa chỉ: ${summary}` : 'Đã nhận tọa độ vị trí.');
         } else {
-          fm.set('reverseMsg', '✓ Đã nhận tọa độ (không có thông tin địa chỉ)');
-          toast('✓ Đã nhận tọa độ (không tìm thấy địa chỉ cụ thể, bạn có thể tự nhập).');
+          fm.set('reverseMsg', 'Đã nhận tọa độ (không có thông tin địa chỉ)');
+          toast('Đã nhận tọa độ (không tìm thấy địa chỉ cụ thể, bạn có thể tự nhập).');
         }
       } catch (err: any) {
         if (err?.name === 'AbortError') return;
-        fm.set('reverseMsg', '✓ Đã nhận tọa độ (tra cứu gặp sự cố)');
-        toast('✓ Đã nhận tọa độ. Tra cứu địa chỉ tự động gặp sự cố, bạn vui lòng tự nhập.');
+        fm.set('reverseMsg', 'Đã nhận tọa độ (tra cứu gặp sự cố)');
+        toast('Đã nhận tọa độ. Tra cứu địa chỉ tự động gặp sự cố, bạn vui lòng tự nhập.');
       } finally {
         if (!abort.signal.aborted) {
           fm.set('reverseLoading', false);
@@ -1579,12 +1673,10 @@ function PlaceForm({ p, fm }: { p: Any; fm: { v: Any; set: (k: string, v: Any) =
           if (it.country && /^[A-Z]{2}$/.test(it.country)) fm.set('country', it.country);
           fm.set('geoDone', false);
         }}>
-          <span><b>{it.label}</b><small className="geo-coord">{Number(it.lat).toFixed(5)}, {Number(it.lng).toFixed(5)}</small></span></button>))}
-        <p className="hint">Kết quả tìm địa chỉ trong demo là dữ liệu mẫu (cùng dạng API Geoapify).</p></> : <p className="hint">Không tìm thấy. Chọn trực tiếp trên bản đồ.</p>) : null}</div>
+          <span><b>{it.label}</b><small className="geo-coord">{Number(it.lat).toFixed(5)}, {Number(it.lng).toFixed(5)}</small></span></button>))}</> : <p className="hint">Không tìm thấy. Chọn trực tiếp trên bản đồ.</p>) : null}</div>
       <PlacePickMap lat={fm.v.lat === '' ? null : Number(fm.v.lat)} lng={fm.v.lng === '' ? null : Number(fm.v.lng)} onPick={onPickCoord} />
       <div style={{ marginTop: 8, padding: '8px 12px', background: fm.v.reverseLoading ? '#eff6ff' : fm.v.reverseMsg ? '#f0fdf4' : '#f8fafc', borderRadius: 8, border: '1px solid ' + (fm.v.reverseLoading ? '#bfdbfe' : fm.v.reverseMsg ? '#bbf7d0' : '#e2e8f0'), display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#475569' }}>
-          <span>📍</span>
           <span>Bấm bản đồ để ghim tọa độ, hệ thống tự động điền Tỉnh/thành, Địa chỉ &amp; Quốc gia.</span>
         </div>
         {fm.v.reverseLoading ? (

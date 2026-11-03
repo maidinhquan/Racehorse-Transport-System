@@ -43,7 +43,7 @@ export function PlacesPage() {
 
   return (
     <CoordinatorLayout title="Quản lý địa điểm">
-      <div className="head"><div><h2 className="page-title">Quản lý địa điểm</h2><p className="subtitle">Danh mục dùng chung cho lập lộ trình: điểm nghỉ, tiếp nhiên liệu, kiểm dịch, cửa khẩu, sân bay. Một địa điểm có thể có nhiều chức năng. Điểm nhận/giao lấy từ yêu cầu khách hàng. <b>Dữ liệu mẫu.</b></p></div>
+      <div className="head"><div><h2 className="page-title">Quản lý địa điểm</h2><p className="subtitle">Danh mục dùng chung cho lập lộ trình: điểm nghỉ, tiếp nhiên liệu, kiểm dịch, cửa khẩu, sân bay.</p></div>
         <button type="button" className="btn solid" onClick={() => placeEdit('')}><Icon name="plus" />Thêm địa điểm</button></div>
       <DataTable id="f-places" rows={sortedPlaces} style={{ marginTop: 16 }} search={(p: Any) => [p.name, p.province, p.address, p.country].join(' ')}
         filters={[
@@ -63,7 +63,6 @@ export function PlacesPage() {
             <button type="button" className="btn ghost sm" onClick={() => placeStatus(p.id)}>Trạng thái</button>
             {placeUsedIn(p).length ? null : <button type="button" className="btn danger sm" onClick={() => placeDelete(p.id)}>Xóa</button>}</span> },
         ]} />
-      <p className="hint">Địa điểm đã dùng trong lịch sử chuyến không xóa được – chỉ tạm ngừng hoặc ngừng sử dụng. Sức chứa là khả năng tiếp nhận của cơ sở, không phải chỗ trống thời gian thực.</p>
     </CoordinatorLayout>
   );
 }

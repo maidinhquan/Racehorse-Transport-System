@@ -474,7 +474,7 @@ namespace Infrastructure.Services
                 PickupAt = pickupAtStr,
                 PlannedDepart = plannedDepartStr,
                 ReviewWarnings = new List<string>(),
-                Eta = DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd HH:mm"),
+                Eta = dto.Eta ?? DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd HH:mm"),
                 Stops = dto.Stops.Select((s, idx) =>
                 {
                     facilities.TryGetValue(s.PlaceId ?? string.Empty, out var fac);
@@ -489,21 +489,23 @@ namespace Infrastructure.Services
                     {
                         StopId = $"STOP_{idx + 1:D3}",
                         ClientKey = $"stop-{idx + 1}",
-                        Type = stopType,
+                        Type = string.IsNullOrWhiteSpace(s.Type) ? stopType : s.Type,
                         PlaceId = s.PlaceId,
                         Purposes = s.Purposes,
                         DwellMin = s.DwellMin,
-                        CareNote = s.CareNote,
-                        Name = stopName,
-                        Geo = new GeoDto { Lat = lat, Lng = lng },
+                        CareNote = s.CareNote ?? string.Empty,
+                        Name = string.IsNullOrWhiteSpace(s.Name) ? stopName : s.Name,
+                        Geo = new GeoDto { Lat = s.Lat ?? lat, Lng = s.Lng ?? lng },
                         Required = true,
-                        ArriveAt = DateTime.UtcNow.AddDays(2).AddHours(idx * 3).ToString("yyyy-MM-dd HH:mm"),
-                        DepartAt = DateTime.UtcNow.AddDays(2).AddHours(idx * 3 + 1).ToString("yyyy-MM-dd HH:mm"),
+                        ArriveAt = s.ArriveAt ?? DateTime.UtcNow.AddDays(2).AddHours(idx * 3).ToString("yyyy-MM-dd HH:mm"),
+                        DepartAt = s.DepartAt ?? DateTime.UtcNow.AddDays(2).AddHours(idx * 3 + 1).ToString("yyyy-MM-dd HH:mm"),
                         PlaceVersion = 1
                     };
                 }).ToList(),
                 Resources = dto.Resources,
-                Note = dto.Note
+                Note = dto.Note ?? string.Empty,
+                VehicleLabel = dto.VehicleLabel,
+                CrewLabels = dto.CrewLabels ?? new List<List<string>>()
             };
 
             trip.DraftPlanJson = JsonSerializer.Serialize(plan);
@@ -621,11 +623,17 @@ namespace Infrastructure.Services
                 throw new InvalidOperationException($"STALE_VERSION: Phiên bản chuyến đi đã thay đổi ({trip.Version} != {dto.ExpectedVersion}). Vui lòng tải lại.");
             }
 
-            // Với chặng ROAD: bắt buộc confirm resources trước khi submit (nếu đã phân công xe thì tự động xác nhận)
+            // Với chặng ROAD: bắt buộc có xe trước khi submit (xe đã phân công trong DB hoặc trong phương án nháp)
             bool isAir = IsAirTrip(trip);
+            PlanDto? draftForCheck = null;
+            if (!string.IsNullOrWhiteSpace(trip.DraftPlanJson))
+            {
+                try { draftForCheck = JsonSerializer.Deserialize<PlanDto>(trip.DraftPlanJson); } catch { }
+            }
+            bool draftHasVehicle = draftForCheck != null && (draftForCheck.Resources.Any(r => !string.IsNullOrWhiteSpace(r.VehicleId)) || !string.IsNullOrWhiteSpace(draftForCheck.VehicleLabel));
             if (!isAir && !trip.ResourcesConfirmedAt.HasValue)
             {
-                if (trip.VehicleAssignments.Any())
+                if (trip.VehicleAssignments.Any() || draftHasVehicle)
                 {
                     trip.ResourcesConfirmedAt = DateTime.UtcNow;
                     trip.ResourcesConfirmedBy = userId;
@@ -652,6 +660,9 @@ namespace Infrastructure.Services
             }
 
             plan.Status = "PENDING_APPROVAL";
+            plan.SubmittedAt = DateTime.UtcNow.AddHours(7).ToString("yyyy-MM-dd HH:mm");
+            plan.DecidedAt = null;
+            plan.DecisionNote = null;
             trip.DraftPlanJson = JsonSerializer.Serialize(plan);
             trip.RouteStatus = "PENDING_APPROVAL";
             trip.Version += 1;

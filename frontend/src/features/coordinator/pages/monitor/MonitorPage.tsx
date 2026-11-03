@@ -72,7 +72,7 @@ export function MonitorPage() {
   return (
     <CoordinatorLayout title="Giám sát hành trình">
       <EmptyPlanLaunch />
-      <div className="head"><div><h2 className="page-title">Giám sát hành trình</h2><p className="subtitle">Các chuyến được giao cho bạn: theo dõi chuyến đang chạy, lập lộ trình và bố trí xe/nhân sự cho chuyến đang chuẩn bị. Bấm vào thẻ chuyến để xem đầy đủ thông tin và các thao tác. Tự làm mới mỗi 30 giây • {dt(nowStamp())}</p></div></div>
+      <div className="head"><div><h2 className="page-title">Giám sát hành trình</h2><p className="subtitle">Cập nhật lúc {dt(nowStamp())}</p></div></div>
       <div className="dr-stats" style={{ gridTemplateColumns: 'repeat(5,minmax(0,1fr))', marginTop: 16 }}>
         {stat('Đang chạy / chờ xuất phát', live.length)}{stat('Đang lập kế hoạch', planning.length)}{stat('Trễ so với ETA ban đầu', late, true)}{stat(`Quá ${STALE_H} giờ chưa cập nhật`, stale, true)}{stat('Sự cố đang mở', openInc, true)}
       </div>
@@ -80,7 +80,6 @@ export function MonitorPage() {
       {live.length ? <div className="mon-grid">{live.map((t: Any) => <MonitorCard key={t.id} t={t} />)}</div> : <div className="card" style={{ marginTop: 12 }}><Empty title="Không có chuyến đang chạy" text="Chuyến được Manager duyệt khởi hành sẽ hiện ở đây." /></div>}
       <h3 className="card-title mon-sec">Đang lập kế hoạch ({planning.length})</h3>
       {planning.length ? <div className="mon-grid">{planning.map((t: Any) => <PlanCard key={t.id} t={t} />)}</div> : <div className="card" style={{ marginTop: 12 }}><Empty title="Không có chuyến đang lập kế hoạch" text="Chuyến được Manager giao cho bạn sẽ hiện ở đây." /></div>}
-      <p className="hint">Không có GPS trực tiếp: vị trí là ước tính từ mốc gần nhất và giờ dự kiến của điểm dừng kế tiếp.</p>
     </CoordinatorLayout>
   );
 }

@@ -52,7 +52,7 @@ namespace Application.DTOs
     public class StopInputDto
     {
         [JsonPropertyName("placeId")]
-        public string PlaceId { get; set; } = string.Empty;
+        public string? PlaceId { get; set; }
 
         [JsonPropertyName("purposes")]
         [JsonConverter(typeof(StringListOrSingleConverter))]
@@ -62,7 +62,26 @@ namespace Application.DTOs
         public int DwellMin { get; set; }
 
         [JsonPropertyName("careNote")]
-        public string CareNote { get; set; } = string.Empty;
+        public string? CareNote { get; set; }
+
+        // Thông tin hiển thị do Điều phối tính sẵn (tùy chọn). Có thì lưu đúng như vậy thay vì tự sinh.
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("lat")]
+        public double? Lat { get; set; }
+
+        [JsonPropertyName("lng")]
+        public double? Lng { get; set; }
+
+        [JsonPropertyName("arriveAt")]
+        public string? ArriveAt { get; set; }
+
+        [JsonPropertyName("departAt")]
+        public string? DepartAt { get; set; }
     }
 
     public class StopDto
@@ -233,7 +252,18 @@ namespace Application.DTOs
         public List<RoadResourcesDto> Resources { get; set; } = new();
 
         [JsonPropertyName("note")]
-        public string Note { get; set; } = string.Empty;
+        public string? Note { get; set; }
+
+        [JsonPropertyName("eta")]
+        public string? Eta { get; set; }
+
+        /// <summary>Mô tả xe để Quản lý đọc (biển số, mẫu xe; chuyến AIR gồm cả hai chặng).</summary>
+        [JsonPropertyName("vehicleLabel")]
+        public string? VehicleLabel { get; set; }
+
+        /// <summary>Danh sách [vai trò, họ tên] của nhân sự đã phân công.</summary>
+        [JsonPropertyName("crewLabels")]
+        public List<List<string>> CrewLabels { get; set; } = new();
     }
 
     public class PlanDto
@@ -273,6 +303,21 @@ namespace Application.DTOs
 
         [JsonPropertyName("note")]
         public string Note { get; set; } = string.Empty;
+
+        [JsonPropertyName("vehicleLabel")]
+        public string? VehicleLabel { get; set; }
+
+        [JsonPropertyName("crewLabels")]
+        public List<List<string>> CrewLabels { get; set; } = new();
+
+        [JsonPropertyName("submittedAt")]
+        public string? SubmittedAt { get; set; }
+
+        [JsonPropertyName("decidedAt")]
+        public string? DecidedAt { get; set; }
+
+        [JsonPropertyName("decisionNote")]
+        public string? DecisionNote { get; set; }
     }
 
     public class ValidationDto

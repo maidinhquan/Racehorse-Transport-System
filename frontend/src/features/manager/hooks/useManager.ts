@@ -70,6 +70,77 @@ const DATA_KEYS: Array<keyof ManagerData> = ['customers', 'horses', 'staff', 're
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
 import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
+import { getSharedTrips, saveSharedTrip } from '../../../shared/utils/sharedTrips';
+
+function mergeTripsWithShared(baseTrips: Trip[]): Trip[] {
+  const sharedMap = getSharedTrips();
+  const res = clone(baseTrips);
+  Object.values(sharedMap).forEach((st) => {
+    // Mã chuyến bên Điều phối và Quản lý có thể khác dạng (TRP-… / TRIP_…) → khớp thêm theo mã yêu cầu
+    const idx = res.findIndex((t) => cleanId(t.id) === cleanId(st.id) || (!!st.requestId && cleanId(t.requestId) === cleanId(st.requestId)));
+    if (idx >= 0) {
+      const existing = res[idx];
+      res[idx] = {
+        ...existing,
+        plannedDepart: st.plannedDepart || existing.plannedDepart,
+        eta: st.eta || existing.eta,
+        mode: (st.mode as any) || existing.mode,
+        // Điều phối hủy gửi → tuyến về bản nháp: Quản lý không còn thấy phương án
+        route: st.route?.status === 'DRAFT' ? undefined : st.route ? {
+          ...existing.route,
+          v: st.route.v,
+          status: st.route.status as any,
+          submittedAt: st.route.submittedAt || existing.route?.submittedAt || '',
+          stops: (st.route.stops || []).map((s: any) => ({ name: s.name, type: s.type as any, plannedAt: s.plannedAt, lat: s.lat, lng: s.lng })),
+          vehicle: st.route.vehicle || existing.route?.vehicle,
+          crew: st.route.crew || existing.route?.crew || [],
+          resourcesConfirmed: st.route.resourcesConfirmed ?? existing.route?.resourcesConfirmed ?? true,
+          note: st.route.note || existing.route?.note,
+          decidedAt: st.route.decidedAt || existing.route?.decidedAt,
+          decisionNote: st.route.decisionNote || existing.route?.decisionNote,
+        } : existing.route,
+        flight: st.flight ? {
+          ...existing.flight,
+          airline: st.flight.airline || existing.flight?.airline || 'Vietnam Airlines Cargo',
+          flightNo: st.flight.flightNo || existing.flight?.flightNo || 'VN-9310F',
+          budget: st.flight.budget || existing.flight?.budget || 6800,
+          status: st.flight.status as any,
+          decidedAt: st.flight.decidedAt || existing.flight?.decidedAt,
+        } : existing.flight,
+      };
+    } else {
+      res.unshift({
+        id: st.id,
+        requestId: st.requestId || 'TRN-DEMO',
+        mode: (st.mode as any) || 'AIR',
+        status: 'PLANNING',
+        deployment: { status: 'CONFIRMED', specialistId: 'EMP-11', coordinatorId: 'EMP-15', at: '2026-10-03 09:00' },
+        plannedDepart: st.plannedDepart || '2026-10-18 06:00',
+        eta: st.eta || '2026-10-19 06:00',
+        readiness: { docsReady: 5, docsTotal: 9, insurance: 'VERIFIED', quarantineOk: true },
+        route: st.route && st.route.status !== 'DRAFT' ? {
+          v: st.route.v,
+          status: st.route.status as any,
+          submittedAt: st.route.submittedAt || '',
+          stops: (st.route.stops || []).map((s: any) => ({ name: s.name, type: s.type as any, plannedAt: s.plannedAt, lat: s.lat, lng: s.lng })),
+          vehicle: st.route.vehicle,
+          crew: st.route.crew || [],
+          resourcesConfirmed: true,
+          note: st.route.note,
+        } : undefined,
+        flight: st.flight ? {
+          airline: st.flight.airline,
+          flightNo: st.flight.flightNo,
+          budget: st.flight.budget,
+          status: st.flight.status as any,
+        } : undefined,
+        milestones: [],
+        etaHistory: [],
+      });
+    }
+  });
+  return res;
+}
 
 const initialDemo = getDemoMode('manager');
 let state: ManagerState = {
@@ -83,7 +154,7 @@ let state: ManagerState = {
         return [...initialShared, ...initialMock.filter((m) => !initialShared.some((s) => cleanId(s.id) === cleanId(m.id)))];
       })()
     : [],
-  trips: initialDemo ? clone(mockTrips) : [],
+  trips: initialDemo ? mergeTripsWithShared(mockTrips) : mergeTripsWithShared([]),
   transactions: initialDemo ? clone(mockTransactions) : [],
   incidents: initialDemo ? clone(mockIncidents) : [],
   complaints: initialDemo ? clone(mockComplaints) : [],
@@ -139,11 +210,17 @@ if (typeof window !== 'undefined') {
             newRequests.unshift(req);
           }
         }
-        return { requests: newRequests };
+        return { requests: newRequests, trips: mergeTripsWithShared(s.trips) };
       });
     } else {
       void syncRequestsOnly();
     }
+  });
+
+  window.addEventListener('rts_trips_updated', () => {
+    setState((s) => ({
+      trips: mergeTripsWithShared(s.trips),
+    }));
   });
 
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
@@ -158,7 +235,7 @@ if (typeof window !== 'undefined') {
           horses: clone(mockHorses),
           staff: clone(mockStaff),
           requests: merged,
-          trips: clone(mockTrips),
+          trips: mergeTripsWithShared(clone(mockTrips)),
           transactions: clone(mockTransactions),
           incidents: clone(mockIncidents),
           complaints: clone(mockComplaints),
@@ -296,7 +373,7 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
           horses: horses || [],
           staff: staff || [],
           requests: mergeRequestList(baseRequests, prev.requests),
-          trips: trips || [],
+          trips: mergeTripsWithShared(trips || []),
           transactions: transactions || [],
           notifications: notifications || [],
           loading: false,
@@ -308,13 +385,15 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
       const merged = [...shared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
       const mock = clone(mockRequests);
       const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
+      const baseTrips = trips?.length ? trips : clone(mockTrips);
+      const finalTrips = mergeTripsWithShared(baseTrips);
       setState((prev) => ({
         ...prev,
         customers: customers?.length ? customers : clone(mockCustomers),
         horses: horses?.length ? horses : clone(mockHorses),
         staff: staff?.length ? staff : clone(mockStaff),
         requests: allDemoRequests,
-        trips: trips?.length ? trips : clone(mockTrips),
+        trips: finalTrips,
         transactions: transactions?.length ? transactions : clone(mockTransactions),
         notifications: notifications?.length ? notifications : clone(mockNotifications),
         loading: false,
@@ -594,10 +673,16 @@ const managerActions = {
     const t = tripIn(state, tripId);
     if (!t?.route || t.route.status !== 'PENDING_APPROVAL') return fail('Không có phương án tuyến chờ duyệt.');
     if (t.deployment.status !== 'CONFIRMED') return fail('Chuyến chưa được phân công hoặc đang tạm dừng.');
-    if (!t.route.resourcesConfirmed) return fail('Coordinator chưa xác nhận bố trí xe và nhân sự.');
     const version = t.route.v || 1;
-    mutate((d) => { const x = tripIn(d, tripId)!; x.route!.status = 'APPROVED'; x.route!.decidedAt = nowStamp(); log(d, reqIn(d, x.requestId)!, `Duyệt phương án tuyến v${x.route!.v}`, tripId); });
-    void managerApi.approveRoute(tripId, version).catch(() => managerApi.decideRoute(tripId, { approve: true }));
+    mutate((d) => {
+      const x = tripIn(d, tripId)!;
+      x.route!.status = 'APPROVED';
+      x.route!.decidedAt = nowStamp();
+      saveSharedTrip(x);
+      log(d, reqIn(d, x.requestId)!, `Duyệt phương án tuyến v${x.route!.v}`, tripId);
+    });
+    void managerApi.approveRoute(tripId, version).catch(() => managerApi.decideRoute(tripId, { approve: true }))
+      .catch((e) => { if (!getDemoMode('manager')) toast(`Chưa lưu được kết quả duyệt lên máy chủ: ${apiMessage(e)}`); });
     return ok(`Đã duyệt phương án tuyến v${t.route.v} của ${tripId}.`);
   },
   returnRoute(tripId: string, reason: string): ActionResult {
@@ -607,10 +692,14 @@ const managerActions = {
     const version = t.route.v || 1;
     mutate((d) => {
       const x = tripIn(d, tripId)!;
-      x.route!.status = 'CHANGES_REQUESTED'; x.route!.decisionNote = reason.trim(); x.route!.decidedAt = nowStamp();
+      x.route!.status = 'CHANGES_REQUESTED';
+      x.route!.decisionNote = reason.trim();
+      x.route!.decidedAt = nowStamp();
+      saveSharedTrip(x);
       log(d, reqIn(d, x.requestId)!, `Yêu cầu làm lại tuyến v${x.route!.v}`, reason.trim());
     });
-    void managerApi.returnRoute(tripId, version, reason.trim()).catch(() => managerApi.decideRoute(tripId, { approve: false, reason }));
+    void managerApi.returnRoute(tripId, version, reason.trim()).catch(() => managerApi.decideRoute(tripId, { approve: false, reason }))
+      .catch((e) => { if (!getDemoMode('manager')) toast(`Chưa lưu được việc trả lại lên máy chủ: ${apiMessage(e)}`); });
     return ok(`Đã trả phương án tuyến về Coordinator.`);
   },
   decideFlight(tripId: string, approve: boolean, note = ''): ActionResult {
@@ -619,7 +708,9 @@ const managerActions = {
     if (!approve && note.trim().length < 10) return fail('Nhập lý do từ chối ngân sách (ít nhất 10 ký tự).');
     mutate((d) => {
       const x = tripIn(d, tripId)!;
-      x.flight!.status = approve ? 'APPROVED' : 'REJECTED'; x.flight!.decidedAt = nowStamp();
+      x.flight!.status = approve ? 'APPROVED' : 'REJECTED';
+      x.flight!.decidedAt = nowStamp();
+      saveSharedTrip(x);
       log(d, reqIn(d, x.requestId)!, approve ? 'Duyệt ngân sách chuyến bay' : 'Từ chối ngân sách chuyến bay', `${x.flight!.airline} ${x.flight!.flightNo} • ${fmtMoney(x.flight!.budget)}${note ? ` • ${note.trim()}` : ''}`);
     });
     void managerApi.decideFlight(tripId, { approve, note });
@@ -1028,6 +1119,17 @@ const actions: ManagerActions = { ...managerActions, demo: demoActions };
 // ============================================================================
 // Hook
 // ============================================================================
+/** Làm mới phương án tuyến của một chuyến từ backend (dùng khi đang mở trang chuyến, không tải lại cả danh sách). */
+export async function refreshTripPlan(tripId: string): Promise<void> {
+  if (getDemoMode('manager')) return;
+  const route = await managerApi.getTripPlan(tripId);
+  const cur = state.trips.find((t) => t.id === tripId);
+  if (!cur || JSON.stringify(cur.route ?? null) === JSON.stringify(route ?? null)) return;
+  // Không ghi đè kết quả Quản lý vừa bấm khi backend chưa kịp trả trạng thái mới
+  if (!route && cur.route && cur.route.status !== 'PENDING_APPROVAL') return;
+  mutate((d) => { const x = tripIn(d, tripId); if (x) x.route = route; });
+}
+
 export function useManager() {
   const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   useEffect(() => { void loadAll(); }, []);
@@ -1057,7 +1159,7 @@ export function useManager() {
   }, [snap]);
 
   const getRequest = (id?: string) => snap.requests.find((r) => r.id === id || (id && cleanId(r.id) === cleanId(id)));
-  const getTrip = (id?: string) => snap.trips.find((t) => t.id === id);
+  const getTrip = (id?: string) => snap.trips.find((t) => t.id === id || (id && cleanId(t.id) === cleanId(id)));
   const tripFor = (requestId: string) => tripOfReq(snap, requestId);
   const customer = (r?: TransportRequest) => customerOf(snap, r);
 

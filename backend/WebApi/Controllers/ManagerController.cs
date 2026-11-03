@@ -137,6 +137,14 @@ namespace WebApi.Controllers
             return Success(data, "Lấy thông tin lộ trình chuyến đi thành công");
         }
 
+        [HttpGet("trips/{tripId}/plan")]
+        public async Task<IActionResult> GetTripPlan(string tripId)
+        {
+            var data = await _coordinatorService.GetManagerPlanAsync(tripId);
+            if (data == null) return NotFoundFailure($"Chuyến {tripId} chưa có phương án tuyến");
+            return Success(data, "Lấy phương án tuyến thành công");
+        }
+
         [HttpPost("trips/{tripId}/routes/{routeVersionId}/approve")]
         public async Task<IActionResult> ApproveRouteLegacy(string tripId, int routeVersionId, [FromBody] ManagerApproveRouteDto dto)
         {

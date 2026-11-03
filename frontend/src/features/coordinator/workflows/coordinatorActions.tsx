@@ -4,13 +4,15 @@
 // ============================================================================
 import { Chk, Field, Icon, Inp, Sel, Txt } from '../components/common/ui';
 import { DateInput, DateTimeInput } from '../components/forms/DateTime';
-import { ACTIVE_TRIP, approvedRoute, canPlan, changeEta, crewConflict, crewOf, curRoute, editableF3, emp, fleetCountry, GROUND_ROLE_KEYS, groundCanEdit, groundCountry, groundLegEndDate, groundLegs, groundServiceArea, handoverState, holdText, horseCountError, isDriver, isVet, lastMilestone, nextMilestone, opsBlock, placeById, recordGroundChange, reqOfTrip, resourceGaps, routeState, staffError, trip, tripHorses, tripLabel, tripPersonnelIds, tripStops, tripVehicleIds, tripWindow, vehicle, vehicleAccessIssue, vehicleConflict } from '../domain/coordinatorRules';
+import { ACTIVE_TRIP, approvedRoute, canPlan, changeEta, crewConflict, crewOf, crewGaps, curRoute, resourceLockMsg, routeApproved, emp, fleetCountry, GROUND_ROLE_KEYS, groundCanEdit, groundCountry, groundLegEndDate, groundLegs, groundServiceArea, handoverState, holdText, horseCountError, isDriver, isVet, lastMilestone, nextMilestone, opsBlock, placeById, recordGroundChange, reqOfTrip, resourceGaps, routeState, staffError, trip, tripHorses, tripLabel, tripPersonnelIds, tripStops, tripVehicleIds, tripWindow, vehicle, vehicleAccessIssue, vehicleConflict } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
-import { audit, commit, confirmAction, db, go, me, nextId, notify, nowStamp, openModal, saveVehiclesToStorage, toast, ui } from '../store/coordinatorStore';
+import { audit, autoConfirmIfApproved, commit, confirmAction, db, demoOn, go, me, nextId, notify, nowStamp, openModal, saveVehiclesToStorage, toast, ui } from '../store/coordinatorStore';
 import { addHours, city, cityLabel, date, dt, human, MILESTONE_LABEL, MS_VI } from '../utils/format';
 import { approveAirPlan, submitAirPlan } from './airOperations';
 import { resourceSignature, ROUTE_POLICY, RP, rpCalc, rpEnsure, rpRoute, rpRouteKey, rpState, rpWriteTimes, stop, submitRoadRoute } from './routePlanner';
 import { flow3Api } from '../api/flow3Api';
+import { apiClient } from '../../../shared/api/apiClient';
+import { saveSharedTrip } from '../../../shared/utils/sharedTrips';
 
 const DEMO_MGR = ['Linh Pham', 'LOGISTICS_MANAGER'];
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -19,7 +21,7 @@ const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 export function vehicleAssign(id: string, vid: string) {
   const t = trip(id), v = vehicle(vid);
   if (!t || !v || t.mode === 'AIR') return toast('Đối với chuyến bay, hãy phân xe riêng trong từng chặng sân bay.');
-  const check = () => (!editableF3(t) ? 'Tạo phiên bản tuyến nháp trước khi đổi xe.'
+  const check = () => (!groundCanEdit(t) ? resourceLockMsg(t)
     : v.status !== 'READY' || v.stalls < Math.max(tripHorses(t).length, reqOfTrip(t).count || 0) || fleetCountry(v) !== city(reqOfTrip(t).origin)[1] || vehicleConflict(v, t) ? 'Xe không phù hợp quốc gia, sức chứa, trạng thái hoặc lịch phân công.' : '');
   const err = check(); if (err) return toast(err);
   const ai = vehicleAccessIssue(t, v, 'pickup') || vehicleAccessIssue(t, v, 'delivery'); if (ai) return toast(ai);
@@ -30,7 +32,7 @@ export function vehicleAssign(id: string, vid: string) {
 }
 export function crewSave(id: string, pick: Record<string, string>) {
   const t = trip(id); if (!t || t.mode === 'AIR') return toast('Vui lòng phân công từng chặng sân bay và bác sĩ chặng bay.');
-  if (!editableF3(t)) return toast('Tạo phiên bản tuyến nháp trước khi thay nhân sự.');
+  if (!groundCanEdit(t)) return toast(resourceLockMsg(t));
   const keys = ['MAIN_DRIVER', 'CO_DRIVER', 'VETERINARIAN'], ids = keys.map((k) => pick[k] || '');
   if (new Set(ids).size !== ids.length) return toast('Ba vị trí cần ba người khác nhau.');
   for (let i = 0; i < keys.length; i++) { const e = staffError(emp(ids[i]), t, keys[i], true); if (e) return toast(e); }
@@ -44,7 +46,7 @@ export function crewSave(id: string, pick: Record<string, string>) {
 // ---------- xe & nhân sự (hai chặng đường bộ của chuyến AIR) ----------
 export function groundVehicleSet(id: string, leg: string, vid: string) {
   const t = trip(id);
-  if (!t || t.mode !== 'AIR' || !['outbound', 'inbound'].includes(leg) || !groundCanEdit(t)) return toast('Không thể sửa nguồn lực của tuyến đã gửi hoặc đã duyệt. Hãy tạo phiên bản tuyến mới.');
+  if (!t || t.mode !== 'AIR' || !['outbound', 'inbound'].includes(leg) || !groundCanEdit(t)) return toast(resourceLockMsg(t));
   const v = vehicle(vid), c = groundCountry(t, leg), r = reqOfTrip(t), area = leg === 'outbound' ? r.origin : r.destination;
   const old = groundLegs(t)[leg], other = groundLegs(t)[leg === 'outbound' ? 'inbound' : 'outbound'];
   if (!v || fleetCountry(v) !== c || !groundServiceArea(v, c, area) || v.status !== 'READY' || v.stalls < tripHorses(t).length || vehicleConflict(v, t) || other.vehicleId === v.id) return toast('Xe không đáp ứng quốc gia/khu vực, sức chứa, tình trạng hoặc lịch phân công.');
@@ -57,7 +59,7 @@ export function groundVehicleSet(id: string, leg: string, vid: string) {
 }
 export function groundCrewSave(id: string, leg: string, ids: string[]) {
   const t = trip(id);
-  if (!t || t.mode !== 'AIR' || !['outbound', 'inbound'].includes(leg) || !groundCanEdit(t)) return toast('Không thể sửa nguồn lực đã duyệt/chờ duyệt. Hãy tạo phiên bản tuyến mới.');
+  if (!t || t.mode !== 'AIR' || !['outbound', 'inbound'].includes(leg) || !groundCanEdit(t)) return toast(resourceLockMsg(t));
   const c = groundCountry(t, leg), r = reqOfTrip(t), area = leg === 'outbound' ? r.origin : r.destination;
   const staff = ids.map((x) => emp(x)), end = groundLegEndDate(t, leg);
   if (ids.some((x) => !x) || staff.some((x) => !x) || new Set(ids).size !== 3) return toast('Phải chọn đủ ba nhân sự khác nhau cho chặng này.');
@@ -77,17 +79,13 @@ export function groundCrewSave(id: string, leg: string, ids: string[]) {
 export function resourceConfirm(id: string) {
   const t = trip(id); if (!t) return toast('Không tìm thấy Trip.');
   const block = opsBlock(t); if (block) return toast(block);
-  if (!canPlan(t)) return toast('Chỉ xác nhận xe và nhân sự khi Trip đang chuẩn bị.');
+  if (!canPlan(t) || !routeApproved(t)) return toast('Chỉ xác nhận nguồn lực sau khi tuyến được duyệt.');
   const gaps = resourceGaps(t); if (gaps.length) return toast('Chưa đủ điều kiện: ' + gaps.join(', '));
   confirmAction('Xác nhận đã bố trí xe và nhân sự?', 'Coordinator xác nhận các phương tiện, nhân sự và vé bay (nếu có) đã sẵn sàng. Manager sẽ kiểm tra trước khi duyệt khởi hành.', 'Xác nhận bố trí', () => {
-    if (opsBlock(t) || resourceGaps(t).length || !canPlan(t)) { toast('Điều kiện chuẩn bị đã thay đổi; kiểm tra lại.'); return; }
+    if (opsBlock(t) || resourceGaps(t).length || !canPlan(t) || !routeApproved(t)) { toast('Điều kiện chuẩn bị đã thay đổi; kiểm tra lại.'); return; }
     t.resourcesConfirmed = { at: nowStamp(), by: me().name, vehicleId: t.vehicleId, crew: { ...(t.crew || {}) } };
     const accepted = curRoute(t);
     void flow3Api.confirmResources(id, { expectedVersion: 0, planVersion: accepted?.v || 1 }, `rc-${id}-${Date.now()}`).catch(() => {});
-    if (accepted?.status === 'APPROVED' && accepted.resourceSnapshot && accepted.resourceSnapshot.signature !== resourceSignature(t)) {
-      t.routes.push({ v: accepted.v + 1, status: 'PENDING_APPROVAL', submittedAt: nowStamp(), decidedAt: null, note: 'Xe/nhân sự thay đổi sau duyệt; đề nghị Manager duyệt lại gói phương án.', stops: accepted.stops.map((s: Any) => ({ ...s })) });
-      notify('LOGISTICS_MANAGER', `Thay đổi xe/nhân sự của ${id}`, 'Coordinator đã xác nhận lại nguồn lực. Cần duyệt phiên bản tuyến mới.', `m/trip/${id}/route`);
-    }
     audit('Coordinator confirmed resources', id, 'Vehicle and crew confirmed');
     notify('LOGISTICS_MANAGER', `Xe và nhân sự ${id} đã xác nhận`, 'Coordinator đã hoàn thành bố trí, kiểm tra toàn bộ điều kiện để duyệt khởi hành.', `m/trip/${id}/prepare`);
     toast('Đã xác nhận xe và nhân sự.');
@@ -99,16 +97,31 @@ export function routeSubmit(id: string) {
   const t = trip(id); if (!t) return;
   if (!t.mode) return toast('Hợp đồng chưa ghi phương thức vận chuyển. Vui lòng liên hệ Manager.');
   const ce = horseCountError(reqOfTrip(t)); if (ce) return toast(ce);
+  const cg = crewGaps(t); if (cg.length) return toast('Phân công đủ xe và nhân sự trước khi gửi: ' + cg.join(', ') + '.');
   if (t.mode === 'AIR') return submitAirPlan(id);
   if (t.demoFlow3) {
     const rt = curRoute(t);
     if (!rt || rt.status !== 'DRAFT') return toast('Chỉ Điều phối gửi bản nháp.');
-    if (!t.resourcesConfirmed || resourceGaps(t).length) return toast('Xác nhận đủ xe và nhân sự trước khi gửi.');
-    const sig = resourceSignature(t);
-    return submitRoadRoute(id, () => (!t.resourcesConfirmed || resourceGaps(t).length || resourceSignature(t) !== sig ? 'Nguồn lực đã thay đổi; xác nhận và gửi lại.' : ''),
-      () => { rt.resourceProposal = { at: nowStamp(), vehicleId: t.vehicleId, crew: clone(t.crew), signature: sig, demoFlow3: true }; });
+    return submitRoadRoute(id);
   }
   return submitRoadRoute(id);
+}
+
+/** Hủy gửi: đưa phiên bản đang chờ Manager duyệt về bản nháp (cả trên backend) để chỉnh và gửi lại. */
+export function routeWithdraw(id: string) {
+  const t = trip(id), rt = t && curRoute(t);
+  if (!rt || rt.status !== 'PENDING_APPROVAL') return toast('Chỉ hủy gửi được tuyến đang chờ Manager duyệt.');
+  confirmAction(`Hủy gửi tuyến ${t.id} v${rt.v}?`, 'Tuyến quay về bản nháp; Manager sẽ không còn thấy phương án này cho đến khi gửi lại.', 'Hủy gửi', () => {
+    if (rt.status !== 'PENDING_APPROVAL') { toast('Manager đã xử lý phương án này.'); return; }
+    rt.status = 'DRAFT'; rt.submittedAt = null;
+    if (t.flight && t.flight.status === 'BUDGET_PENDING') t.flight.status = 'DRAFT';
+    saveSharedTrip(t);
+    void apiClient.post(`/coordinator/trips/${encodeURIComponent(t.id)}/plan/withdraw`, { expectedVersion: 0, reason: 'Điều phối hủy gửi để chỉnh sửa' }, { headers: { 'Idempotency-Key': `wd-${t.id}-${Date.now()}` } })
+      .catch((e) => { if (!demoOn()) toast('Chưa hủy được trên máy chủ: ' + (e?.response?.data?.message || e?.message || 'lỗi kết nối')); });
+    notify('LOGISTICS_MANAGER', `Điều phối đã hủy gửi tuyến ${t.id}`, `v${rt.v} quay về bản nháp`, `m/trip/${t.id}/route`);
+    audit('Withdrew route submission', t.id, `Version ${rt.v}`);
+    toast(`Đã hủy gửi. Tuyến v${rt.v} quay về bản nháp.`);
+  });
 }
 
 // ---------- theo dõi hành trình ----------
@@ -146,7 +159,6 @@ export function scheduleAlert(id: string) {
       <div className="field"><label>Gửi tới</label><div className="al-to">
         <Chk name="m">Quản lý vận hành</Chk><Chk name="s">Chuyên viên vận chuyển</Chk><Chk name="d">Tổ xe (tài xế / thú y)</Chk><Chk name="c">Khách hàng</Chk>
       </div></div>
-      <p className="hint">Điều chỉnh lịch do nguyên nhân bên ngoài không cần Manager duyệt. Nếu cần đổi tuyến, đổi xe hoặc phát sinh chi phí, hãy báo cáo sự cố và đề xuất phương án.</p>
     </>),
     onOk: (v) => {
       const delay = Number(v.delay), msg = String(v.msg).trim(), to = ['m', 's', 'd', 'c'].filter((k) => v[k]);
@@ -390,7 +402,7 @@ function demoApprove(t: Any) {
   const rt = curRoute(t);
   if (t.mode === 'AIR') approveAirPlan(t, DEMO_MGR[0]);
   else rt.resourceSnapshot = { at: nowStamp(), signature: resourceSignature(t) };
-  rt.status = 'APPROVED'; rt.decidedAt = nowStamp(); rt.decidedBy = DEMO_MGR[0]; rt.note = 'Quản lý đã duyệt.';
+  rt.status = 'APPROVED'; rt.decidedAt = nowStamp(); rt.decidedBy = DEMO_MGR[0]; rt.note = 'Quản lý đã duyệt.'; autoConfirmIfApproved(t);
   notify('FLEET_COORDINATOR', `Tuyến ${t.id} v${rt.v} đã được duyệt`, '', `f/trip/${t.id}`);
   db.audit.unshift({ at: nowStamp(), actor: DEMO_MGR[0], role: DEMO_MGR[1], action: 'Approved route', entity: t.id, detail: `Version ${rt.v} (demo)` });
 }

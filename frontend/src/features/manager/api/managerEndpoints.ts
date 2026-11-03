@@ -2,6 +2,8 @@
 export const MANAGER_ENDPOINTS = {
   PLANNING: '/manager/planning',
   TRIP_ROUTE: (tripId: string) => `/manager/trips/${tripId}/route`,
+  /** Phương án Điều phối đã gửi (tuyến, xe, nhân sự) kèm trạng thái duyệt */
+  TRIP_PLAN: (tripId: string) => `/manager/trips/${encodeURIComponent(tripId)}/plan`,
   APPROVE_ROUTE: (tripId: string, routeVersionId: number) => `/manager/trips/${tripId}/routes/${routeVersionId}/approve`,
   RETURN_ROUTE: (tripId: string, routeVersionId: number) => `/manager/trips/${tripId}/routes/${routeVersionId}/return`,
   DEPARTURE_CONDITIONS: (tripId: string) => `/manager/trips/${tripId}/departure-conditions`,

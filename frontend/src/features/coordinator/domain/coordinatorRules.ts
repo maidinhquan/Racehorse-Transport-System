@@ -117,7 +117,8 @@ const unavailableIn = (e: Any, from: string, to: string) => e.avail && e.avail.s
 export const availLabel = (e: Any) => AVAIL[e.avail.status][1] + (e.avail.status !== 'AVAILABLE' && e.avail.status !== 'INACTIVE' && e.avail.from ? ` ${date(e.avail.from)}${e.avail.to ? '–' + date(e.avail.to) : ''}` : '');
 /** một tài xế / áp tải / bác sĩ chỉ được gắn vào một chuyến đang hoạt động; người đang nghỉ cũng tính là trùng lịch */
 export function crewConflict(e: Any, t: Any): Any {
-  const busy = db.trips.find((u: Any) => u.id !== t.id && tripPersonnelIds(u).includes(e.id) && ACTIVE_TRIP.includes(u.status));
+  // Chỉ coi là bận khi chuyến kia còn hoạt động VÀ trùng khoảng thời gian (giống kiểm tra trùng xe)
+  const busy = db.trips.find((u: Any) => u.id !== t.id && tripPersonnelIds(u).includes(e.id) && ACTIVE_TRIP.includes(u.status) && overlaps(t, u));
   if (busy) return busy;
   if (t && e.avail && unavailableIn(e, tripWindow(t)[0], tripWindow(t)[1])) return { id: availLabel(e) };
   return null;
@@ -150,7 +151,14 @@ export function groundLegCheck(t: Any, leg: string) {
   return { vehicleOk, crewOk, ok: vehicleOk && crewOk, vehicle: v, crew: cr, country: c };
 }
 export const groundLegName = (l: string) => (l === 'outbound' ? 'Trước chuyến bay' : 'Sau chuyến bay');
+/** Xe & nhân sự được phân công khi tuyến còn là bản nháp (hoặc bị trả lại), trước khi gửi Manager duyệt.
+ *  Khi tuyến đang chờ duyệt hoặc đã duyệt thì khóa; muốn đổi phải tạo phiên bản điều chỉnh. */
+export const routeApproved = (t: Any) => curRoute(t)?.status === 'APPROVED';
 export const groundCanEdit = (t: Any) => canPlan(t) && (!curRoute(t) || ['DRAFT', 'RETURNED'].includes(curRoute(t).status));
+export const resourceLockMsg = (t: Any) => (!canPlan(t)
+  ? 'Phân công chỉ xem khi chuyến chưa được triển khai hoặc đã rời giai đoạn lập kế hoạch.'
+  : curRoute(t)?.status === 'PENDING_APPROVAL' ? 'Tuyến đang chờ Manager duyệt; xe và nhân sự đang khóa.'
+    : 'Tuyến đã được duyệt; muốn đổi xe hoặc nhân sự, hãy tạo phiên bản điều chỉnh ở tab Tuyến đường.');
 export function recordGroundChange(t: Any, leg: string, action: string, before: string, after: string) {
   const x = groundLegs(t)[leg];
   (x.history = x.history || []).push({ at: nowStamp(), by: me().name, action, before, after });
@@ -223,6 +231,8 @@ export function planGaps(t: Any): string[] {
   }
   return g;
 }
+/** Chỉ phần xe & nhân sự (không gồm tuyến và hợp đồng bay) – điều kiện để gửi Manager duyệt. */
+export const crewGaps = (t: Any): string[] => planGaps(t).filter((g) => !g.startsWith('Tuyến') && g !== 'Flight');
 export const resourceGaps = (t: Any): string[] => [...new Set([
   ...planGaps(t).filter((g) => !g.startsWith('Tuyến')),
   ...readiness(t).filter((i) => i.tab === 'resources' && !i.ok && i.label !== 'Coordinator đã xác nhận bố trí xe và nhân sự').map((i) => i.label),
@@ -233,7 +243,8 @@ export function planState(t: Any) {
   const depStatus = typeof t.deployment === 'string' ? t.deployment : t.deployment?.status;
   if (depStatus === 'ON_HOLD') return 'ON_HOLD';
   if (!deployed(t)) return 'AWAITING_DEPLOYMENT';
-  if (t.planningState) return t.planningState;
+  // Backend chỉ biết trạng thái tuyến; xe/nhân sự còn thiếu thì vẫn là MISSING_RESOURCES dù tuyến đã duyệt
+  if (t.planningState === 'READY') return 'READY';
   const rs = routeState(t);
   if (rs === 'NONE' || rs === 'DRAFT') return 'AWAITING_ROUTE';
   if (rs === 'PENDING_APPROVAL') return 'ROUTE_PENDING';

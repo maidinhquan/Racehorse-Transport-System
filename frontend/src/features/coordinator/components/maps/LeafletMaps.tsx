@@ -7,7 +7,7 @@ import { curRoute, placeById, tripStops } from '../../domain/coordinatorRules';
 import type { Any } from '../../store/coordinatorStore';
 import { db, useCoordinatorStore } from '../../store/coordinatorStore';
 import { STOP_LABEL, dt, incTypeVi } from '../../utils/format';
-import { kmBetween, PF, PF_COLOR, RP, plannerMap, rpCalc, rpCandidates, rpCoords, rpEditable, rpFocus, rpGroups, rpPick, rpRoute, rpRouteKey, rpSeg } from '../../workflows/routePlanner';
+import { fmtMin, kmBetween, PF, PF_COLOR, RP, plannerMap, ROUTE_POLICY, rpCalc, rpCandidates, rpCoords, rpEditable, rpFocus, rpGroups, rpPick, rpRoute, rpRouteKey, rpSeg } from '../../workflows/routePlanner';
 import { Empty } from '../common/ui';
 
 // Cấu hình icon mặc định Leaflet để tương thích Vite
@@ -192,7 +192,7 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
     <div className={`lf-wrap ${isMaximized ? 'is-maximized' : ''}`}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: '#334155' }}>
-          {isMaximized ? '🗺️ Bản đồ lộ trình (Toàn màn hình)' : '🗺️ Bản đồ lộ trình'}
+          {isMaximized ? 'Bản đồ lộ trình (Toàn màn hình)' : 'Bản đồ lộ trình'}
         </span>
         <button
           type="button"
@@ -228,11 +228,13 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
         <span><i className="lg-end" />Điểm nhận/giao</span>
         <span><i className="lg-req" />Điểm bắt buộc</span>
         <span><i className="lg-sel" />Điểm đã chọn</span>
-        <span><i className="lg-route" />Tuyến đường bộ</span>
+        <span><i style={{ background: '#16a34a', borderRadius: 2, height: 4, width: 14, display: 'inline-block' }} />Đoạn đạt chuẩn (≤ 4h)</span>
+        <span><i style={{ background: '#dc2626', borderRadius: 2, height: 4, width: 14, display: 'inline-block' }} />Đoạn cần thêm trạm dừng</span>
+        <span><i style={{ background: '#ea580c', borderRadius: 2, height: 4, width: 14, display: 'inline-block' }} />Đoạn đang chọn</span>
         {air ? <span><i className="lg-fly" />Chặng bay</span> : null}
         {current >= 0 ? <span><i style={{ background: '#f57c00', outline: '2px solid #fde047' }} />Mốc xác nhận gần nhất</span> : null}
       </div>
-      <p className="hint lf-cap">{geom ? 'Tuyến đường bộ theo kết quả routing đã đồng bộ từ bộ lập lộ trình.' : 'Đường nối các điểm theo thứ tự, đang tải tuyến đường bộ thực tế...'} Vị trí dựa trên mốc tổ xe xác nhận, không có GPS trực tiếp.{missing ? ` Chưa có tọa độ cho ${missing} điểm.` : ''}</p>
+      <p className="hint lf-cap">{geom ? null : 'Đang tải tuyến đường bộ...'}{missing ? ` Chưa có tọa độ cho ${missing} điểm.` : ''}</p>
     </div>
   );
 }
@@ -429,17 +431,39 @@ export function PlannerMap({ t, onTileError }: { t: Any; onTileError: () => void
           // Đoạn đường chỉ đỏ khi chính đoạn đó chưa đạt chuẩn: chạy liên tục > 4h chưa nghỉ (sinceCare), cắt qua biên giới, hoặc lỗi routing.
           // Cảnh báo đợt đường bộ (hành trình tổng > 12h cần nghỉ qua đêm) là cảnh báo toàn chuyến, không làm đỏ từng đoạn ngắn đã phân đoạn chuẩn.
           const bad = calc && calc.issues.some((x: Any) => x.seg === i && !x.msg.includes('Đợt đường bộ'));
+          const isSelected = ps.seg === i;
+          const isOk = calc && !bad;
+          const baseColor = bad ? '#dc2626' : isOk ? '#16a34a' : '#2563eb';
+
+          // Nếu đoạn đang được chọn để kiểm tra: vẽ viền hào quang màu cam nổi bật bên dưới
+          if (isSelected) {
+            L.polyline(l.geom, {
+              color: '#ea580c',
+              weight: 12,
+              opacity: 0.45,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }).addTo(lg);
+          }
+
+          const segFrom = rt.stops[i]?.name || `Điểm ${i + 1}`;
+          const segTo = rt.stops[i + 1]?.name || `Điểm ${i + 2}`;
+          const legKm = l.km ? `${l.km.toFixed(0)} km` : '';
+          const legDuration = l.min ? fmtMin(l.min * ROUTE_POLICY.truckFactor) : '';
+          const tooltipContent = `<b>Đoạn ${i + 1}: ${esc(segFrom)} → ${esc(segTo)}</b><br/>${legKm} • ${legDuration}<br/><span style="color:${bad ? '#dc2626' : '#16a34a'};font-weight:700">${bad ? '⚠️ Cần thêm điểm dừng (> 4h)' : '✓ Đạt chuẩn an toàn (≤ 4h)'}</span>${isSelected ? '<br/><small style="color:#ea580c">★ Đang chọn kiểm tra đoạn này</small>' : '<br/><small style="color:#64748b">Bấm để kiểm tra chi tiết</small>'}`;
+
           L.polyline(l.geom, {
-            color: bad ? '#dc2626' : ps.seg === i ? '#f08a2b' : '#2563eb',
-            weight: ps.seg === i ? 7 : 5,
-            opacity: 0.85,
+            color: isSelected ? '#ea580c' : baseColor,
+            weight: isSelected ? 6 : 5,
+            opacity: 0.9,
             dashArray: l.sim ? '6 8' : undefined,
           })
+            .bindTooltip(tooltipContent, { sticky: true })
             .on('click', () => rpSeg(t.id, i))
             .addTo(lg);
         });
       } else if (rt.stops && rt.stops.length >= 2) {
-        // Khi đang chờ routing hoặc routing chưa sẵn sàng: vẽ đường nét đứt tạm giữa các điểm đường bộ để người dùng luôn thấy tuyến đường
+        // Khi đang chờ routing hoặc routing chưa sẵn sàng: vẽ đường nét đứt xám tạm giữa các điểm đường bộ để người dùng luôn thấy tuyến đường
         for (let i = 1; i < rt.stops.length; i++) {
           const sA = rt.stops[i - 1], sB = rt.stops[i];
           const isFlight = flight && i - 1 === flight[0] && i === flight[1];
@@ -447,11 +471,12 @@ export function PlannerMap({ t, onTileError }: { t: Any; onTileError: () => void
           const pA = [Number(sA?.lat), Number(sA?.lng)], pB = [Number(sB?.lat), Number(sB?.lng)];
           if (Number.isFinite(pA[0]) && Number.isFinite(pA[1]) && Number.isFinite(pB[0]) && Number.isFinite(pB[1])) {
             L.polyline([pA as [number, number], pB as [number, number]], {
-              color: '#2563eb',
-              weight: 4,
-              opacity: 0.75,
+              color: '#64748b',
+              weight: 3,
+              opacity: 0.6,
               dashArray: '6 8',
             })
+              .bindTooltip(`Đoạn ${i}: Đang chờ tính toán tuyến đường...`, { sticky: true })
               .on('click', () => rpSeg(t.id, i - 1))
               .addTo(lg);
           }
@@ -496,7 +521,7 @@ export function PlannerMap({ t, onTileError }: { t: Any; onTileError: () => void
           zIndexOffset: isAirport ? 950 : 900,
         })
           .bindTooltip(tooltipName, { direction: 'top', offset: [0, -6] })
-          .bindPopup(`<b>${esc(c.p.name)}</b><br><small>${(c.p.functions || []).map((fn: string) => PF[fn] || fn).join(' · ')} • ${c.p.province || ''}, ${c.p.country || ''}${bad ? `<br><span style="color:#dc2626">⚠️ ${c.why.join('; ')}</span>` : ''}</small>`)
+          .bindPopup(`<b>${esc(c.p.name)}</b><br><small>${(c.p.functions || []).map((fn: string) => PF[fn] || fn).join(' · ')} • ${c.p.province || ''}, ${c.p.country || ''}${bad ? `<br><span style="color:#dc2626">${c.why.join('; ')}</span>` : ''}</small>`)
           .on('click', () => rpPick(t.id, c.p.id))
           .addTo(lg);
       });

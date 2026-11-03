@@ -5,12 +5,11 @@ import { curRoute, custOf, deployed, deployPill, planPill, planState, reqOfTrip,
 import type { Any } from '../../../store/coordinatorStore';
 import { go } from '../../../store/coordinatorStore';
 import { city, date, dt, human } from '../../../utils/format';
-import { PickupAccessCard } from '../../../components/relocation/PickupAccessCard';
 
 const NEXT_STEP: Record<string, (t: Any) => string> = {
   AWAITING_DEPLOYMENT: () => 'Đang chờ Quản lý vận hành xác nhận triển khai. Việc lập kế hoạch chính thức bắt đầu sau đó.',
   ON_HOLD: () => 'Triển khai đang tạm dừng. Kế hoạch hiện có được giữ ở chế độ chỉ xem cho đến khi Quản lý tiếp tục triển khai.',
-  AWAITING_ROUTE: (t) => (curRoute(t) ? `Hoàn tất tuyến phiên bản ${curRoute(t).v} và gửi Quản lý duyệt.` : 'Bắt đầu lập tuyến.'),
+  AWAITING_ROUTE: (t) => (curRoute(t) ? `Lưu tuyến phiên bản ${curRoute(t).v}, phân công xe và nhân sự rồi gửi Quản lý duyệt.` : 'Bắt đầu lập tuyến.'),
   ROUTE_PENDING: (t) => `Tuyến phiên bản ${curRoute(t) ? curRoute(t).v : ''} đang chờ Quản lý quyết định.`,
   ROUTE_RETURNED: () => 'Quản lý đã trả lại tuyến. Hãy đọc nhận xét và tạo phiên bản chỉnh sửa.',
   MISSING_RESOURCES: (t) => `Phân công nguồn lực còn thiếu: ${resourceGaps(t).join(', ')}.`,
@@ -42,10 +41,6 @@ export function OverviewTab({ t }: { t: Any }) {
 
   const deliveryName = r.delivery?.name || r.destination || 'Điểm giao';
   const deliveryAddr = r.delivery?.address || (r.destination ? `${r.destination}, ${deliveryCountry}` : 'Chưa có địa chỉ chi tiết');
-
-  const isRelocated = t.pickupRelocation?.status === 'CUSTOMER_CONFIRMED';
-  const effectivePickupName = isRelocated ? (t.pickupRelocation.placeName || pickupName) : pickupName;
-  const effectivePickupAddr = isRelocated ? (t.pickupRelocation.placeAddress || pickupAddr) : pickupAddr;
 
   return (
     <div className="grid-main">
@@ -81,16 +76,9 @@ export function OverviewTab({ t }: { t: Any }) {
                   {COUNTRY_NAMES[pickupCountry] || pickupCountry}
                 </span>
               </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>{effectivePickupName}</span>
-                {isRelocated && (
-                  <span style={{ fontSize: 10, background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
-                    ĐIỂM ĐÃ ĐỔI
-                  </span>
-                )}
-              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>{pickupName}</div>
               <div style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
-                📍 {effectivePickupAddr}
+                {pickupAddr}
               </div>
               {r.pickup?.contact || r.pickup?.phone ? (
                 <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
@@ -99,7 +87,7 @@ export function OverviewTab({ t }: { t: Any }) {
               ) : null}
               {r.pickup?.access ? (
                 <div style={{ marginTop: 8, fontSize: 11, color: '#0f766e', background: '#ccfbf1', padding: '3px 8px', borderRadius: 6, display: 'inline-block' }}>
-                  ✓ Tĩnh không xe: Cao ≤ {r.pickup.access.maxHeightM || 4}m • Rộng ≤ {r.pickup.access.maxWidthM || 2.6}m • Tải ≤ {r.pickup.access.maxGrossT || 20} tấn
+                  Tĩnh không xe: Cao ≤ {r.pickup.access.maxHeightM || 4}m • Rộng ≤ {r.pickup.access.maxWidthM || 2.6}m • Tải ≤ {r.pickup.access.maxGrossT || 20} tấn
                 </div>
               ) : null}
             </div>
@@ -116,7 +104,7 @@ export function OverviewTab({ t }: { t: Any }) {
               </div>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>{deliveryName}</div>
               <div style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
-                📍 {deliveryAddr}
+                {deliveryAddr}
               </div>
               {r.delivery?.contact || r.delivery?.phone ? (
                 <div style={{ fontSize: 11, color: '#64748b', marginTop: 6 }}>
@@ -125,9 +113,6 @@ export function OverviewTab({ t }: { t: Any }) {
               ) : null}
             </div>
           </div>
-
-          {/* Đánh giá tiếp cận đường vào & Đổi điểm đón (F3-J28 .. J33) */}
-          <PickupAccessCard t={t} />
 
           <div className="kv2" style={{ marginTop: 18 }}>
             <Cell label="Triển khai"><PillT p={deployPill(t)} /></Cell>
@@ -157,9 +142,9 @@ export function OverviewTab({ t }: { t: Any }) {
           <div style={{ marginTop: 10 }}>
             <b style={{ fontSize: 14, color: 'var(--ink)' }}>{cust.company || cust.name || '—'}</b>
             {cust.name && cust.company ? <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Đại diện: {cust.name}</div> : null}
-            {cust.phone ? <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>📞 {cust.phone}</div> : null}
-            {cust.email ? <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>✉️ {cust.email}</div> : null}
-            {cust.address ? <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, lineHeight: 1.4 }}>🏢 {cust.address}</div> : null}
+            {cust.phone ? <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>SĐT: {cust.phone}</div> : null}
+            {cust.email ? <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>Email: {cust.email}</div> : null}
+            {cust.address ? <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, lineHeight: 1.4 }}>Địa chỉ: {cust.address}</div> : null}
           </div>
         </div>
         {t.demoFlow3 ? null : <DemoCard current={t.id} />}

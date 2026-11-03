@@ -275,6 +275,8 @@ export interface RouteStop {
   name: string;
   type: StopType;
   plannedAt: string;
+  lat?: number;
+  lng?: number;
 }
 
 export type RouteStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'CHANGES_REQUESTED';

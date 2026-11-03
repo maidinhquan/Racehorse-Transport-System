@@ -54,7 +54,6 @@ export function ProgressTab({ t }: { t: Any }) {
         {reports.length ? <div className="f3-driver-reports"><b>Tình trạng tuyến do tài xế báo</b>
           {reports.map((i: Any) => <p key={i.id}><button type="button" className="link" onClick={() => go(`f/incident/${i.id}`)}>{i.id} · {incTypeVi(i.type)}</button> · {i.location} · {dt(i.at)}</p>)}
           <small>Thông tin được cập nhật từ báo cáo và mốc hành trình, không theo dõi GPS.</small></div> : null}
-        <p className="journey-footnote">Vị trí ước tính từ mốc tổ xe xác nhận, không có GPS trực tiếp. Tự làm mới mỗi 30 giây.</p>
       </section>
       <aside className="journey-side">
         <section className="card journey-next"><div className="eyebrow">Mốc tiếp theo</div><h3>{nextLabel}</h3>
