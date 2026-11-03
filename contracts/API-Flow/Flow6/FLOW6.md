@@ -32,7 +32,7 @@ Nhánh tranh chấp:
 - Im lặng/quá hạn không phải đồng ý. Hệ thống chỉ cảnh báo Manager, không tự nghiệm thu hay tự đóng.
 - Cho gia hạn có lý do, lưu hạn cũ và hạn mới. Không ghi đè đồng hồ về 0 mất lịch sử.
 - Giải quyết tranh chấp có thể kết thúc mà khách không nghiệm thu. Lưu `NOT_REQUIRED_BY_DISPUTE`, không tạo `acceptedAt/acceptedBy` giả.
-- Đóng đơn luôn là thao tác Manager có kiểm tra điều kiện; `Trip COMPLETED` không đồng nghĩa `Request CLOSED`.
+- Đóng đơn là thao tác Manager có kiểm tra điều kiện (đã SETTLED, không còn khiếu nại mở hay nghĩa vụ tài chính treo); Manager có quyền chủ động đóng bất kỳ lúc nào mà không bị chặn bởi thời hạn 24h feedback window. Hệ thống có worker tự động đóng sau 24h nếu Manager không đóng thủ công. `Trip COMPLETED` không đồng nghĩa `Request CLOSED`.
 
 ## 2. Vai trò và quyền theo tài nguyên
 

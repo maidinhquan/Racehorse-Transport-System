@@ -152,13 +152,13 @@ public sealed class LifecycleTests : IAsyncLifetime
     }
 
     [Fact]
-    public void Swagger_exposes_all_47_routes_and_explicit_request_schemas()
+    public void Swagger_exposes_all_48_routes_and_explicit_request_schemas()
     {
         using var scope=factory.Services.CreateScope();var swagger=scope.ServiceProvider.GetRequiredService<Swashbuckle.AspNetCore.Swagger.ISwaggerProvider>().GetSwagger("v1");
-        var operations=swagger.Paths.SelectMany(p=>p.Value.Operations.Values).Where(o=>o.OperationId?.StartsWith("F6-")==true).ToArray();Assert.Equal(47,operations.Length);
+        var operations=swagger.Paths.SelectMany(p=>p.Value.Operations.Values).Where(o=>o.OperationId?.StartsWith("F6-")==true).ToArray();Assert.Equal(48,operations.Length);
         Assert.Equal(11,operations.SelectMany(o=>o.Tags).Select(t=>t.Name).Distinct().Count());
         Assert.All(operations,o=>{Assert.Single(o.Tags);Assert.StartsWith("Flow 6 · ",o.Tags[0].Name);Assert.True(o.Extensions.ContainsKey("x-flow-order"));});
-        Assert.Equal(47,operations.Select(o=>((Microsoft.OpenApi.Any.OpenApiInteger)o.Extensions["x-flow-order"]).Value).Distinct().Count());
+        Assert.Equal(48,operations.Select(o=>((Microsoft.OpenApi.Any.OpenApiInteger)o.Extensions["x-flow-order"]).Value).Distinct().Count());
         var tags=swagger.Tags.Where(t=>t.Name.StartsWith("Flow 6 · ",StringComparison.Ordinal)).ToArray();Assert.Equal(11,tags.Length);
         Assert.Equal(tags.Select(t=>t.Name).OrderBy(x=>x,StringComparer.Ordinal),tags.Select(t=>t.Name));
         Assert.All(tags,t=>Assert.False(string.IsNullOrWhiteSpace(t.Description)));

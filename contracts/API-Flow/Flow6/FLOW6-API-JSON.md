@@ -1942,7 +1942,7 @@ Mở lại window sau khiếu nại/tiền.
 
 **Quyền:** LOGISTICS_MANAGER
 
-**Điều kiện:** SETTLED, hết window, không complaint mở/pending refund/adjustment/review/nợ. Nếu complaint resolved sau starts thì reset trước, không đóng.
+**Điều kiện:** SETTLED, không có complaint mở/pending refund/adjustment/review/nợ. Manager có quyền chủ động bấm đóng bất kỳ lúc nào mà không bị chặn bởi thời hạn feedback window. Nếu Manager không đóng thủ công, hệ thống sẽ tự động quét và đóng sau khi hết 24 giờ.
 
 **Ghi dữ liệu / retry:** Khóa cùng case/payment; CLOSED + ClosedAt, Request/Contract CLOSED. Trip COMPLETED/version SIGNED. Retry giữ mốc cũ. Worker tự đóng dùng cùng service guard, không public cron endpoint.
 

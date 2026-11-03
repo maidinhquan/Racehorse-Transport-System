@@ -146,10 +146,8 @@ public sealed partial class AftercareService
             {
                 var s=await Settlement(id,ct);if(S(s,"status")!="CLOSED")
                 {
-                    Require(CanClose(S(s,"status")!,D(s,"feedbackEndsAtUtc"),Now,await OpenComplaints(id,ct)||await FinancialObligations(s,ct)),"CLOSURE_BLOCKED","Feedback window or obligations remain.");
-                    await Restart(s,ct);s=await Settlement(id,ct);
-                    Require(Now>=D(s,"feedbackEndsAtUtc"),"CLOSURE_BLOCKED","A new feedback window is open.");
-                    await E("UPDATE TRIP_SETTLEMENT SET Status='CLOSED',ClosedAtUtc=@n WHERE SettlementID=@s; UPDATE CONTRACT SET ContractStatus='CLOSED' WHERE ContractID=@c; UPDATE TRANSPORT_REQUEST SET Status='CLOSED' WHERE RequestID=(SELECT RequestID FROM TRIP_PLAN WHERE TripID=@t)",ct,("@n",Now),("@s",id),("@c",S(s,"contractId")),("@t",S(s,"tripId")));
+                    Require(CanClose(S(s,"status")!,D(s,"feedbackEndsAtUtc"),Now,await OpenComplaints(id,ct)||await FinancialObligations(s,ct),allowEarlyClose:true),"CLOSURE_BLOCKED","Unresolved complaints or financial obligations remain.");
+                    await E("UPDATE TRIP_SETTLEMENT SET Status='CLOSED',ClosedAtUtc=@n,FeedbackEndsAtUtc=CASE WHEN FeedbackEndsAtUtc>@n THEN (CASE WHEN @n>FeedbackStartedAtUtc THEN @n ELSE DATEADD(millisecond,10,FeedbackStartedAtUtc) END) ELSE FeedbackEndsAtUtc END WHERE SettlementID=@s; UPDATE CONTRACT SET ContractStatus='CLOSED' WHERE ContractID=@c; UPDATE TRANSPORT_REQUEST SET Status='CLOSED' WHERE RequestID=(SELECT RequestID FROM TRIP_PLAN WHERE TripID=@t)",ct,("@n",Now),("@s",id),("@c",S(s,"contractId")),("@t",S(s,"tripId")));
                 }
                 s=await Settlement(id,ct);return J(new{settlementId=id,closedAtUtc=S(s,"closedAtUtc"),lifecycle=Lifecycle(await Scope(S(s,"tripId")!,ct))});
             }
