@@ -1,3766 +1,2437 @@
-# Flow 6 — Request/response từng API
+# Flow 6 — JSON Request / Response
 
-**1.1.0 — 29/10/2026. Contract đích; chưa triển khai backend/DB, chưa nối các màn hình cũ.**
+> Cập nhật theo backend Flow 6 đang triển khai: 47 API `/operations/flow6`, `/customer/flow6`, `/manager/flow6`. Thay danh sách 31 API `/aftercare` của bản 1.1 cũ. [OpenAPI backend](../../../backend/docs/Flow6/openapi.json) và [hướng dẫn triển khai](../../../backend/docs/Flow6/README.md) là nguồn đối chiếu. Các ví dụ là snapshot độc lập; không phải dữ liệu thật đã được tạo trên máy của bạn.
+>
+> File `build_contract.py`, `flow6.openapi.json`, `flow6.examples.json`, `REVIEW.md` và nội dung 1.1 của `FLOW6.md` trong folder này hiện vẫn thuộc thiết kế cũ; không chạy bộ sinh cũ để ghi đè bộ API backend hiện tại. Frontend cũ chưa được cập nhật trong thay đổi này.
 
-> Sinh từ `build_contract.py`. Đọc [FLOW6.md](FLOW6.md) trước khi triển khai. Ví dụ là các snapshot độc lập, không phải chuỗi lệnh chạy liên tiếp; lấy lại version thật từ GET/response.
+| ID | Method | Path sau /api | Tác dụng |
+|---|---|---|---|
+| F6-J01 | GET | `/operations/flow6/trips` | Danh sách chuyến giao nhận |
+| F6-J02 | GET | `/operations/flow6/trips/{tripId}/context` | Đầu vào và baseline |
+| F6-J03 | POST | `/operations/flow6/trips/{tripId}/delivery` | Tạo DELIVERY và revision đầu |
+| F6-J04 | GET | `/operations/flow6/handovers/{handoverId}` | Định danh biên bản |
+| F6-J05 | GET | `/operations/flow6/revisions/{revisionId}` | Đọc đúng bản giao nhận |
+| F6-J06 | PUT | `/operations/flow6/revisions/{revisionId}` | Thay nội dung draft |
+| F6-J07 | POST | `/operations/flow6/revisions/{revisionId}/otp` | Gửi hoặc gửi lại OTP |
+| F6-J08 | POST | `/operations/flow6/revisions/{revisionId}/invalidate-otp` | Thu hồi OTP để sửa draft |
+| F6-J09 | POST | `/operations/flow6/revisions/{revisionId}/confirm` | Xác nhận nhận ngựa bằng OTP |
+| F6-J10 | POST | `/operations/flow6/revisions/{revisionId}/refuse` | Ghi nhận từ chối nhận |
+| F6-J11 | POST | `/operations/flow6/handovers/{handoverId}/revisions` | Lập bản giao lại |
+| F6-J12 | GET | `/customer/flow6/settlements` | Hồ sơ của Customer |
+| F6-J13 | GET | `/customer/flow6/settlements/{settlementId}` | Chi tiết tất toán Customer |
+| F6-J14 | GET | `/manager/flow6/settlements` | Danh sách tất toán Manager |
+| F6-J15 | POST | `/manager/flow6/trips/{tripId}/settlement` | Chuẩn bị hồ sơ tất toán |
+| F6-J16 | GET | `/manager/flow6/settlements/{settlementId}` | Chi tiết hồ sơ Manager |
+| F6-J17 | GET | `/manager/flow6/settlements/{settlementId}/balance` | Tính còn phải thu |
+| F6-J18 | GET | `/customer/flow6/settlements/{settlementId}/balance` | Customer xem nghĩa vụ tiền |
+| F6-J19 | POST | `/manager/flow6/settlements/{settlementId}/adjustments` | Manager xác nhận điều chỉnh |
+| F6-J20 | GET | `/manager/flow6/settlements/{settlementId}/adjustments` | Điều chỉnh đã xác nhận |
+| F6-J21 | GET | `/customer/flow6/settlements/{settlementId}/adjustments` | Customer xem điều chỉnh |
+| F6-J22 | POST | `/manager/flow6/settlements/{settlementId}/final-invoice` | Phát hành hoặc thay invoice cuối |
+| F6-J23 | GET | `/customer/flow6/settlements/{settlementId}/invoice` | Đọc invoice cuối hiện hành |
+| F6-J24 | POST | `/customer/flow6/invoices/{invoiceId}/payment-session` | Tạo phiên VNPay trả số dư |
+| F6-J25 | GET | `/customer/flow6/payments/{paymentId}` | Đọc thanh toán số dư |
+| F6-J26 | POST | `/manager/flow6/settlements/{settlementId}/settle` | Xác nhận nghiệm thu và tất toán |
+| F6-J27 | POST | `/manager/flow6/adjustments/{adjustmentId}/refund-processing` | Ghi bắt đầu xử lý hoàn |
+| F6-J28 | POST | `/manager/flow6/adjustments/{adjustmentId}/refund-complete` | Ghi bằng chứng hoàn đủ khoản |
+| F6-J29 | POST | `/customer/flow6/settlements/{settlementId}/cases` | Gửi khiếu nại/hỗ trợ |
+| F6-J30 | GET | `/customer/flow6/settlements/{settlementId}/cases` | Theo dõi phiếu Customer |
+| F6-J31 | GET | `/manager/flow6/cases` | Hàng đợi khiếu nại/hỗ trợ |
+| F6-J32 | POST | `/manager/flow6/cases/{caseId}/start` | Đánh dấu đang xử lý |
+| F6-J33 | POST | `/manager/flow6/cases/{caseId}/resolve` | Manager phản hồi rồi đóng phiếu |
+| F6-J34 | POST | `/customer/flow6/settlements/{settlementId}/feedback` | Gửi đánh giá thông thường |
+| F6-J35 | GET | `/customer/flow6/settlements/{settlementId}/feedback` | Đọc đánh giá đã gửi |
+| F6-J36 | POST | `/manager/flow6/settlements/{settlementId}/restart-feedback-window` | Mở lại window sau khiếu nại/tiền |
+| F6-J37 | POST | `/manager/flow6/settlements/{settlementId}/close` | Đóng hồ sơ đủ điều kiện |
+| F6-J38 | GET | `/operations/flow6/trips/{tripId}/pickup-baseline` | Đọc baseline PICKUP |
+| F6-J39 | GET | `/operations/flow6/trips/{tripId}/health-logs` | Tham chiếu sức khỏe đã ghi |
+| F6-J40 | GET | `/operations/flow6/trips/{tripId}/incidents` | Tham chiếu sự cố hành trình |
+| F6-J41 | GET | `/customer/flow6/settlements/{settlementId}/delivery` | Customer đọc biên bản đã nhận |
+| F6-J42 | GET | `/manager/flow6/settlements/{settlementId}/delivery` | Manager đọc biên bản nghiệm thu |
+| F6-J43 | GET | `/manager/flow6/settlements/{settlementId}/feedback` | Manager đọc đánh giá |
+| F6-J44 | GET | `/manager/flow6/settlements/{settlementId}/payments` | Manager đọc giao dịch số dư |
+| F6-J45 | GET | `/operations/flow6/revisions/{revisionId}/pdf` | Xuất PDF đúng bản biên bản |
+| F6-J46 | GET | `/customer/flow6/settlements/{settlementId}/delivery/pdf` | Customer tải biên bản đã nhận |
+| F6-J47 | GET | `/manager/flow6/settlements/{settlementId}/delivery/pdf` | Manager tải biên bản nghiệm thu |
 
-[OpenAPI](flow6.openapi.json) · [Kịch bản ROAD/AIR và nghiệm thu](flow6.examples.json) · [Review backend/frontend](REVIEW.md).
+## F6-J01 — GET /operations/flow6/trips
 
-Base `/api`; Bearer token theo role. Mọi POST cần `Idempotency-Key` UUID; cùng key cho retry cùng payload. JSON dùng envelope, download dùng binary.
+Danh sách chuyến giao nhận.
 
-| ID | Method | Path | Vai trò | Chức năng |
-|---|---|---|---|---|
-| F6-J01 | GET | `/master/flow6-policy` | AUTHENTICATED | Đọc policy nghiệm thu và thanh toán |
-| F6-J02 | GET | `/manager/aftercare` | LOGISTICS_MANAGER | Danh sách bàn giao, quá hạn và tranh chấp |
-| F6-J03 | GET | `/driver/trips/{tripId}/handover` | DRIVER_ESCORT | Hồ sơ bàn giao của chặng được phân công |
-| F6-J04 | POST | `/driver/trips/{tripId}/handover-attempts` | DRIVER_ESCORT | Ghi nhận bàn giao chưa thành công |
-| F6-J05 | POST | `/driver/trips/{tripId}/handover` | DRIVER_ESCORT | Hoàn thành bàn giao và mở thời hạn nghiệm thu |
-| F6-J06 | POST | `/manager/trips/{tripId}/receiver-authorizations` | LOGISTICS_MANAGER | Duyệt người nhận thay thế trước bàn giao |
-| F6-J07 | GET | `/customer/requests/{requestId}/aftercare` | CUSTOMER | Đọc hồ sơ Flow 6 và hành động được phép |
-| F6-J08 | GET | `/manager/requests/{requestId}/aftercare` | LOGISTICS_MANAGER | Đọc hồ sơ Flow 6 và hành động được phép |
-| F6-J09 | GET | `/coordinator/requests/{requestId}/aftercare` | FLEET_ROUTE_COORDINATOR | Theo dõi kết quả bàn giao |
-| F6-J10 | POST | `/customer/requests/{requestId}/aftercare/acceptance` | CUSTOMER | Customer xác nhận nghiệm thu cuối cùng |
-| F6-J11 | POST | `/customer/requests/{requestId}/aftercare/complaints` | CUSTOMER | Báo vấn đề hoặc từ chối nghiệm thu |
-| F6-J12 | POST | `/customer/requests/{requestId}/aftercare/complaints/{complaintId}/messages` | CUSTOMER | Trao đổi và bổ sung bằng chứng khiếu nại |
-| F6-J13 | POST | `/manager/requests/{requestId}/aftercare/complaints/{complaintId}/messages` | LOGISTICS_MANAGER | Trao đổi và bổ sung bằng chứng khiếu nại |
-| F6-J14 | POST | `/manager/requests/{requestId}/aftercare/complaints/{complaintId}/proposals` | LOGISTICS_MANAGER | Đề xuất giải quyết và khoản giảm |
-| F6-J15 | POST | `/customer/requests/{requestId}/aftercare/complaints/{complaintId}/proposals/{proposalId}/decision` | CUSTOMER | Customer đồng ý hoặc từ chối đúng bản đề xuất |
-| F6-J16 | POST | `/manager/requests/{requestId}/aftercare/complaints/{complaintId}/resolution/apply` | LOGISTICS_MANAGER | Áp dụng kết quả đã được khách đồng ý |
-| F6-J17 | POST | `/manager/requests/{requestId}/aftercare/acceptance-window/extensions` | LOGISTICS_MANAGER | Gia hạn kiểm tra và nghiệm thu |
-| F6-J18 | POST | `/manager/requests/{requestId}/aftercare/dispute` | LOGISTICS_MANAGER | Chuyển đơn sang đang giải quyết |
-| F6-J19 | POST | `/manager/requests/{requestId}/aftercare/dispute/updates` | LOGISTICS_MANAGER | Ghi diễn biến giải quyết có thể chia sẻ với khách |
-| F6-J20 | POST | `/manager/requests/{requestId}/aftercare/dispute/decisions` | LOGISTICS_MANAGER | Ghi nhận kết quả cuối cùng của tranh chấp |
-| F6-J21 | POST | `/manager/requests/{requestId}/aftercare/dispute/decisions/{decisionId}/apply` | LOGISTICS_MANAGER | Áp dụng quyết định và hóa đơn trong một transaction |
-| F6-J22 | POST | `/customer/requests/{requestId}/aftercare/payment-sessions` | CUSTOMER | Khởi tạo thanh toán số dư VNPay |
-| F6-J23 | GET | `/customer/requests/{requestId}/aftercare/payments/{paymentId}` | CUSTOMER | Đọc kết quả thanh toán đã xác minh trên server |
-| F6-J24 | POST | `/manager/requests/{requestId}/aftercare/refunds/{refundId}/confirmation` | LOGISTICS_MANAGER | Ghi nhận bằng chứng khoản hoàn đã chuyển thực tế |
-| F6-J25 | POST | `/manager/requests/{requestId}/aftercare/closure` | LOGISTICS_MANAGER | Manager đóng đơn sau kiểm tra toàn bộ nghĩa vụ |
-| F6-J26 | POST | `/driver/requests/{requestId}/aftercare/files` | DRIVER_ESCORT | Tải bằng chứng thật cho đúng yêu cầu |
-| F6-J27 | GET | `/driver/requests/{requestId}/aftercare/files/{fileId}` | DRIVER_ESCORT | Tải bằng chứng có kiểm quyền |
-| F6-J28 | POST | `/customer/requests/{requestId}/aftercare/files` | CUSTOMER | Tải bằng chứng thật cho đúng yêu cầu |
-| F6-J29 | GET | `/customer/requests/{requestId}/aftercare/files/{fileId}` | CUSTOMER | Tải bằng chứng có kiểm quyền |
-| F6-J30 | POST | `/manager/requests/{requestId}/aftercare/files` | LOGISTICS_MANAGER | Tải bằng chứng thật cho đúng yêu cầu |
-| F6-J31 | GET | `/manager/requests/{requestId}/aftercare/files/{fileId}` | LOGISTICS_MANAGER | Tải bằng chứng có kiểm quyền |
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
 
-## F6-J01 — GET /master/flow6-policy
+**Điều kiện:** Chỉ chuyến được phân công, IN_TRANSIT hoặc COMPLETED để đọc hồ sơ cũ.
 
-Đọc policy nghiệm thu và thanh toán. Vai trò: **AUTHENTICATED**.
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Server trả cấu hình đang bật. Snapshot policy khi bàn giao; cấu hình thay đổi không sửa deadline đã mở.
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-Không gửi request body.
-
-Response 200:
-
-```json
-{
-  "success": true,
-  "message": "Thành công",
-  "data": {
-    "version": 1,
-    "defaultAcceptanceHours": "48",
-    "allowedAcceptanceHours": [
-      "24",
-      "48"
-    ],
-    "paymentHours": 24,
-    "maxExtensionHours": 168,
-    "acceptanceStatementVersion": 1,
-    "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-    "timezone": "Asia/Ho_Chi_Minh"
-  }
-}
-```
-
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
-
-```json
-{
-  "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
-}
-```
-
-## F6-J02 — GET /manager/aftercare
-
-Danh sách bàn giao, quá hạn và tranh chấp. Vai trò: **LOGISTICS_MANAGER**.
-
-Chỉ phạm vi quản lý được cấp quyền. Danh sách rỗng vẫn trả []; không fallback demo.
-
-Không gửi request body.
-
-Response 200:
+**Response 200 — TripSummary[]**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Danh sách chuyến giao nhận thành công",
   "data": [
     {
-      "requestId": "REQUEST_001",
       "tripId": "TRIP_001",
-      "customerName": "CLB Ngựa Đua",
-      "phase": "AWAITING_ACCEPTANCE",
-      "version": 1,
-      "acceptanceDueAt": "2026-11-22 10:00",
-      "paymentDueAt": null,
-      "overdue": false,
-      "openComplaints": 0,
-      "hasOpenDispute": false,
-      "outstanding": 12000000,
-      "refundDue": 0
+      "requestId": "REQUEST_001",
+      "status": "IN_TRANSIT"
     }
   ]
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 403**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: danh sách chuyến giao nhận.",
+  "data": null,
+  "errorCode": "FORBIDDEN_ROLE"
 }
 ```
 
-## F6-J03 — GET /driver/trips/{tripId}/handover
+## F6-J02 — GET /operations/flow6/trips/{tripId}/context
 
-Hồ sơ bàn giao của chặng được phân công. Vai trò: **DRIVER_ESCORT**.
+Đầu vào và baseline.
 
-Chỉ tổ xe được giao chặng giao cuối. arrivedAtDestination lấy từ FINAL_ARRIVED đã xác nhận của Flow4, không từ GPS/ETA/giờ dự kiến. canComplete kiểm blocker hiện hành của mọi incident Flow5 liên quan bàn giao. Không trả tài chính, hồ sơ tranh chấp hoặc khách của chuyến khác.
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+**Điều kiện:** Trước thao tác giao kiểm tổ hợp HANDOFF; warnings không thành trạng thái DB.
 
-Không gửi request body.
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Response 200:
+**Path parameters:** `tripId=TRIP_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Tên field biên bản giao nhận:**
+
+| Field | Ý nghĩa |
+|---|---|
+| `pickupHandoverIds` | Danh sách mã HANDOVER loại PICKUP đã xác nhận ở đầu chuyến |
+| `deliveryHandoverId` | Mã HANDOVER loại DELIVERY của chuyến; null nếu chưa tạo, có mã chưa đồng nghĩa đã xác nhận giao xong |
+
+`deliveryHandoverId` thay tên cũ `deliveryId`. Giá trị là `HANDOVER.HandoverID`, không phải TripID hoặc revisionId; không đổi cột database.
+
+**Response 200 — Context**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Đầu vào và baseline thành công",
   "data": {
-    "requestId": "REQUEST_001",
     "tripId": "TRIP_001",
-    "version": 1,
-    "arrivedAtDestination": true,
-    "receiver": {
-      "name": "Trần Văn Bình",
-      "phone": "0901234567",
-      "authorization": "REGISTERED",
-      "authorizationReference": null
+    "requestId": "REQUEST_001",
+    "contractId": "CONTRACT_001",
+    "contractVersionNo": 1,
+    "lifecycle": {
+      "tripStatus": "IN_TRANSIT",
+      "requestStatus": "IN_PROGRESS",
+      "contractStatus": "EFFECTIVE"
     },
+    "pickupHandoverIds": [],
     "horseIds": [
       "HORSE_001"
     ],
-    "handover": null,
-    "attempts": [],
-    "canComplete": true,
-    "blockers": []
+    "designatedReceiverName": "Yuki Tanaka",
+    "designatedReceiverPhone": "+81312345678",
+    "deliveryHandoverId": null,
+    "warnings": []
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: đầu vào và baseline.",
+  "data": null,
+  "errorCode": "HANDOFF_INCONSISTENT"
 }
 ```
 
-## F6-J04 — POST /driver/trips/{tripId}/handover-attempts
+## F6-J03 — POST /operations/flow6/trips/{tripId}/delivery
 
-Ghi nhận bàn giao chưa thành công. Vai trò: **DRIVER_ESCORT**.
+Tạo DELIVERY và revision đầu.
 
-Chưa có bàn giao thành công, đã tới điểm giao. Giữ Trip chưa COMPLETED; chưa mở thời hạn nghiệm thu. Thông báo Coordinator và Manager.
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Trip IN_TRANSIT, Request IN_PROGRESS, deployment CONFIRMED, Contract EFFECTIVE/current version SIGNED, đủ cọc; phân công hợp lệ. Không cần final invoice PAID. Thiếu baseline hiển thị thiếu, không giả dữ liệu. Tổ hợp status không chứng minh xe đã đến.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Khóa Trip; tạo HANDOVER DELIVERY DRAFT + ITEM + REVISION DRAFT trong transaction. Nếu đã có DELIVERY trả 409 DELIVERY_EXISTS kèm ID qua errors, không tạo lần hai. BE chụp tên và chip từng ngựa vào content.items.identity; request chỉ có horseId/kết quả kiểm, không nhận identity do FE tự cấp.
 
-Request JSON:
+**Path parameters:** `tripId=TRIP_001`. ID chỉ ở URL, không lặp body.
 
-```json
-{
-  "expectedVersion": 1,
-  "reason": "RECEIVER_ABSENT",
-  "description": "Người nhận chưa có mặt tại địa điểm giao.",
-  "evidenceFileIds": []
-}
-```
-
-Response 201:
+**Request:** JSON `DeliveryContent`
 
 ```json
 {
-  "success": true,
-  "message": "Thành công",
-  "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "arrivedAtDestination": true,
-    "receiver": {
-      "name": "Trần Văn Bình",
-      "phone": "0901234567",
-      "authorization": "REGISTERED",
-      "authorizationReference": null
-    },
-    "horseIds": [
-      "HORSE_001"
-    ],
-    "handover": null,
-    "attempts": [
-      {
-        "id": "attempt_001",
-        "at": "2026-11-20 10:00",
-        "actor": {
-          "userId": "USER_001",
-          "name": "Nguyễn Minh An"
-        },
-        "reason": "RECEIVER_ABSENT",
-        "description": "Người nhận chưa có mặt tại địa điểm giao.",
-        "evidenceFileIds": []
-      }
-    ],
-    "canComplete": true,
-    "blockers": []
-  }
-}
-```
-
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: HANDOVER_ALREADY_COMPLETED, HANDOVER_NOT_READY, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
-
-```json
-{
-  "success": false,
-  "message": "Thao tác bị chặn: HANDOVER_ALREADY_COMPLETED",
-  "errorCode": "HANDOVER_ALREADY_COMPLETED",
-  "data": null
-}
-```
-
-## F6-J05 — POST /driver/trips/{tripId}/handover
-
-Hoàn thành bàn giao và mở thời hạn nghiệm thu. Vai trò: **DRIVER_ESCORT**.
-
-Server recheck FINAL_ARRIVED Flow4 và toàn bộ blocker Flow5 liên quan bàn giao dưới cùng transaction boundary, kể cả context trước đó canComplete=true. Kiểm phân công chặng cuối, người nhận đã đăng ký/được duyệt, đủ đúng mỗi ngựa một lần, microchip, ảnh, chữ ký và file cùng request. Chữ ký gắn snapshot đầy đủ nội dung receiver/horses/condition/note/version đã cho người nhận xem; đổi nội dung phải ký lại, không tái dùng signature file cho biên bản khác. Atomic: Trip COMPLETED, Request DELIVERED, phase AWAITING_ACCEPTANCE, một deadline theo policy. Không phải nghiệm thu Customer.
-
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
-
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
-
-Request JSON:
-
-```json
-{
-  "expectedVersion": 1,
-  "receiverName": "Trần Văn Bình",
-  "identityChecked": true,
-  "authorizationChecked": true,
-  "horses": [
+  "location": "Tokyo Racecourse",
+  "receiver": {
+    "name": "Yuki Tanaka",
+    "phone": "+81312345678",
+    "authorized": true,
+    "otpEmail": "receiver@example.com"
+  },
+  "commonDocuments": null,
+  "items": [
     {
       "horseId": "HORSE_001",
       "microchipVerified": true,
-      "condition": "NORMAL",
-      "note": "Tình trạng ổn định.",
-      "photoFileIds": [
-        "evidence_photo_001"
-      ]
+      "condition": "Tỉnh táo, không có vết thương mới.",
+      "assets": "Một dây dắt",
+      "documents": null,
+      "documentsReceivedAtUtc": null
     }
-  ],
-  "signatureFileId": "evidence_signature_001",
-  "note": "Đã kiểm tra người nhận và ngựa."
-}
-```
-
-Response 201:
-
-```json
-{
-  "success": true,
-  "message": "Thành công",
-  "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "arrivedAtDestination": true,
-    "receiver": {
-      "name": "Trần Văn Bình",
-      "phone": "0901234567",
-      "authorization": "REGISTERED",
-      "authorizationReference": null
-    },
-    "horseIds": [
-      "HORSE_001"
-    ],
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
-        {
-          "horseId": "HORSE_001",
-          "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "attempts": [],
-    "canComplete": false,
-    "blockers": [
-      "Đã bàn giao."
-    ]
-  }
-}
-```
-
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: HANDOVER_NOT_READY, HANDOVER_ALREADY_COMPLETED, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
-
-```json
-{
-  "success": false,
-  "message": "Thao tác bị chặn: HANDOVER_NOT_READY",
-  "errorCode": "HANDOVER_NOT_READY",
-  "data": null
-}
-```
-
-## F6-J06 — POST /manager/trips/{tripId}/receiver-authorizations
-
-Duyệt người nhận thay thế trước bàn giao. Vai trò: **LOGISTICS_MANAGER**.
-
-Chỉ trước bàn giao thành công; ghi bằng chứng ủy quyền và actor. Không sửa hợp đồng đã ký. version lấy từ HandoverContext.
-
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `tripId` | True | `{"type": "string", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
-
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
-
-Request JSON:
-
-```json
-{
-  "expectedVersion": 1,
-  "name": "Trần Văn Hùng",
-  "phone": "0901234568",
-  "reason": "Khách ủy quyền người nhận thay thế.",
-  "evidenceFileIds": [
-    "evidence_authorization_001"
   ]
 }
 ```
 
-Response 201:
+**Response 201 — Delivery**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Tạo DELIVERY và revision đầu thành công",
   "data": {
-    "requestId": "REQUEST_001",
+    "id": "HANDOVER_001",
     "tripId": "TRIP_001",
-    "version": 2,
-    "arrivedAtDestination": true,
-    "receiver": {
-      "name": "Trần Văn Hùng",
-      "phone": "0901234568",
-      "authorization": "MANAGER_APPROVED",
-      "authorizationReference": "authorization_001"
-    },
-    "horseIds": [
-      "HORSE_001"
-    ],
-    "handover": null,
-    "attempts": [],
-    "canComplete": true,
-    "blockers": []
+    "status": "DRAFT",
+    "currentRevisionId": "HANDOVER_REVISION_001"
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: tạo delivery và revision đầu.",
+  "data": null,
+  "errorCode": "DELIVERY_EXISTS"
 }
 ```
 
-## F6-J07 — GET /customer/requests/{requestId}/aftercare
+## F6-J04 — GET /operations/flow6/handovers/{handoverId}
 
-Đọc hồ sơ Flow 6 và hành động được phép. Vai trò: **CUSTOMER**.
+Định danh biên bản.
 
-Sau bàn giao thành công. Chỉ chủ yêu cầu/phạm vi quản lý. Customer chỉ nhận bằng chứng và thông tin được chia sẻ, không có ghi chú hay chi phí nội bộ. actions chỉ hỗ trợ UI; mutation luôn recheck.
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+**Điều kiện:** Quyền theo Trip; không lặp content ở root.
 
-Không gửi request body.
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Response 200:
+**Path parameters:** `handoverId=HANDOVER_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Delivery**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Định danh biên bản thành công",
   "data": {
-    "requestId": "REQUEST_001",
+    "id": "HANDOVER_001",
     "tripId": "TRIP_001",
-    "version": 1,
-    "requestStatus": "DELIVERED",
-    "tripStatus": "COMPLETED",
-    "phase": "AWAITING_ACCEPTANCE",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
+    "status": "DRAFT",
+    "currentRevisionId": "HANDOVER_REVISION_001"
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: định danh biên bản.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
+}
+```
+
+## F6-J05 — GET /operations/flow6/revisions/{revisionId}
+
+Đọc đúng bản giao nhận.
+
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
+
+**Điều kiện:** Quyền qua Handover → Trip. Bản cũ đọc snapshot, không dựng từ item hiện tại.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Path parameters:** `revisionId=HANDOVER_REVISION_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Revision**
+
+```json
+{
+  "success": true,
+  "message": "Đọc đúng bản giao nhận thành công",
+  "data": {
+    "id": "HANDOVER_REVISION_001",
+    "handoverId": "HANDOVER_001",
+    "number": 1,
+    "status": "DRAFT",
+    "content": {
+      "location": "Tokyo Racecourse",
       "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
+        "name": "Yuki Tanaka",
+        "phone": "+81312345678",
+        "authorized": true,
+        "otpEmail": "receiver@example.com"
       },
-      "horses": [
+      "commonDocuments": null,
+      "items": [
         {
           "horseId": "HORSE_001",
           "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
+          "condition": "Tỉnh táo, không có vết thương mới.",
+          "assets": "Một dây dắt",
+          "documents": null,
+          "documentsReceivedAtUtc": null,
+          "identity": {
+            "name": "Thunderbolt",
+            "microchip": "985112004571029"
+          }
         }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "RUNNING",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 172800,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [],
-    "dispute": null,
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Chưa nghiệm thu."
       ]
     },
-    "actions": [
-      {
-        "action": "ACCEPT",
-        "allowed": true,
-        "blockers": []
-      },
-      {
-        "action": "REPORT_ISSUE",
-        "allowed": true,
-        "blockers": []
-      },
-      {
-        "action": "PAY",
-        "allowed": false,
-        "blockers": [
-          "Chưa nghiệm thu."
-        ]
-      }
-    ],
-    "closure": null
+    "createdAtUtc": "2026-11-20T10:00:00Z",
+    "confirmedAtUtc": null,
+    "refusalReason": null,
+    "refusedAtUtc": null
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: đọc đúng bản giao nhận.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
 }
 ```
 
-## F6-J08 — GET /manager/requests/{requestId}/aftercare
+## F6-J06 — PUT /operations/flow6/revisions/{revisionId}
 
-Đọc hồ sơ Flow 6 và hành động được phép. Vai trò: **LOGISTICS_MANAGER**.
+Thay nội dung draft.
 
-Sau bàn giao thành công. Chỉ chủ yêu cầu/phạm vi quản lý. Customer chỉ nhận bằng chứng và thông tin được chia sẻ, không có ghi chú hay chi phí nội bộ. actions chỉ hỗ trợ UI; mutation luôn recheck.
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
+**Điều kiện:** Chỉ latest DRAFT chưa confirmed DELIVERY. horseId unique và đúng mapping; không nhận ID/actor/status FE tự cấp.
 
-Không gửi request body.
+**Ghi dữ liệu / retry:** Khóa Handover/latest revision; đồng bộ HANDOVER/ITEM và ContentSnapshot nguyên tử. BE chụp tên và chip từng ngựa vào content.items.identity; request chỉ có horseId/kết quả kiểm, không nhận identity do FE tự cấp.
 
-Response 200:
+**Path parameters:** `revisionId=HANDOVER_REVISION_001`. ID chỉ ở URL, không lặp body.
 
-```json
-{
-  "success": true,
-  "message": "Thành công",
-  "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 1,
-    "requestStatus": "DELIVERED",
-    "tripStatus": "COMPLETED",
-    "phase": "AWAITING_ACCEPTANCE",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
-        {
-          "horseId": "HORSE_001",
-          "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "RUNNING",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 172800,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [],
-    "dispute": null,
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Chưa nghiệm thu."
-      ]
-    },
-    "actions": [
-      {
-        "action": "ACCEPT",
-        "allowed": true,
-        "blockers": []
-      },
-      {
-        "action": "REPORT_ISSUE",
-        "allowed": true,
-        "blockers": []
-      },
-      {
-        "action": "PAY",
-        "allowed": false,
-        "blockers": [
-          "Chưa nghiệm thu."
-        ]
-      }
-    ],
-    "closure": null
-  }
-}
-```
-
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Request:** JSON `DeliveryContent`
 
 ```json
 {
-  "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
-}
-```
-
-## F6-J09 — GET /coordinator/requests/{requestId}/aftercare
-
-Theo dõi kết quả bàn giao. Vai trò: **FLEET_ROUTE_COORDINATOR**.
-
-Coordinator được phân công chỉ đọc kết quả và lần bàn giao thất bại; không có quyền nghiệm thu, xác minh tiền hoặc đóng đơn.
-
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-
-Không gửi request body.
-
-Response 200:
-
-```json
-{
-  "success": true,
-  "message": "Thành công",
-  "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "phase": "AWAITING_ACCEPTANCE",
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
-        {
-          "horseId": "HORSE_001",
-          "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "attempts": [],
-    "issueSummary": ""
-  }
-}
-```
-
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
-
-```json
-{
-  "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
-}
-```
-
-## F6-J10 — POST /customer/requests/{requestId}/aftercare/acceptance
-
-Customer xác nhận nghiệm thu cuối cùng. Vai trò: **CUSTOMER**.
-
-Chỉ chủ yêu cầu, trong hạn RUNNING, chưa ACCEPTED, không khiếu nại/tranh chấp/điều chỉnh chờ. Kiểm đúng statementVersion. Atomic: ACCEPTED, khóa khiếu nại mới, mở paymentWindow riêng. Nếu không còn nợ thì READY_TO_CLOSE khi không nghĩa vụ treo. Không chờ hết 24/48h.
-
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
-
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
-
-Request JSON:
-
-```json
-{
-  "expectedVersion": 1,
-  "statementVersion": 1,
-  "confirmed": true
-}
-```
-
-Response 200:
-
-```json
-{
-  "success": true,
-  "message": "Thành công",
-  "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "DELIVERED",
-    "tripStatus": "COMPLETED",
-    "phase": "AWAITING_PAYMENT",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
-        {
-          "horseId": "HORSE_001",
-          "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "ACCEPTED",
-      "acceptedAt": "2026-11-20 10:00",
-      "acceptedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "statementVersion": 1
-    },
-    "acceptanceWindow": {
-      "status": "COMPLETED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "RUNNING",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-21 10:00",
-      "remainingSeconds": 86400,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [],
-    "dispute": null,
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": true,
-      "paymentBlockers": []
-    },
-    "actions": [],
-    "closure": null
-  }
-}
-```
-
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: ACCEPTANCE_WINDOW_EXPIRED, ALREADY_ACCEPTED, OPEN_COMPLAINT, OPEN_DISPUTE, PENDING_ADJUSTMENT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
-
-```json
-{
-  "success": false,
-  "message": "Thao tác bị chặn: ACCEPTANCE_WINDOW_EXPIRED",
-  "errorCode": "ACCEPTANCE_WINDOW_EXPIRED",
-  "data": null
-}
-```
-
-## F6-J11 — POST /customer/requests/{requestId}/aftercare/complaints
-
-Báo vấn đề hoặc từ chối nghiệm thu. Vai trò: **CUSTOMER**.
-
-Bàn giao xong, chưa ACCEPTED, trong hạn RUNNING hoặc đang PAUSED vì khiếu nại/tranh chấp trước nghiệm thu; quá hạn phải được gia hạn. Khóa nghiệm thu/thanh toán, pause thời hạn một lần; REFUSAL không đóng đơn. horseId nếu có phải thuộc chuyến.
-
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
-
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
-
-Request JSON:
-
-```json
-{
-  "expectedVersion": 1,
-  "kind": "ISSUE",
-  "category": "HORSE_CONDITION",
-  "title": "Đề nghị kiểm tra tình trạng ngựa",
-  "description": "Ngựa có vết trầy cần xác minh nguyên nhân.",
-  "horseId": "HORSE_001",
-  "evidenceFileIds": [
-    "evidence_photo_001"
+  "location": "Tokyo Racecourse",
+  "receiver": {
+    "name": "Yuki Tanaka",
+    "phone": "+81312345678",
+    "authorized": true,
+    "otpEmail": "receiver@example.com"
+  },
+  "commonDocuments": null,
+  "items": [
+    {
+      "horseId": "HORSE_001",
+      "microchipVerified": true,
+      "condition": "Tỉnh táo, không có vết thương mới.",
+      "assets": "Một dây dắt",
+      "documents": null,
+      "documentsReceivedAtUtc": null
+    }
   ]
 }
 ```
 
-Response 201:
+**Response 200 — Revision**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Thay nội dung draft thành công",
   "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "DELIVERED",
-    "tripStatus": "COMPLETED",
-    "phase": "COMPLAINT_OPEN",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
+    "id": "HANDOVER_REVISION_001",
+    "handoverId": "HANDOVER_001",
+    "number": 1,
+    "status": "DRAFT",
+    "content": {
+      "location": "Tokyo Racecourse",
       "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
+        "name": "Yuki Tanaka",
+        "phone": "+81312345678",
+        "authorized": true,
+        "otpEmail": "receiver@example.com"
       },
-      "horses": [
+      "commonDocuments": null,
+      "items": [
         {
           "horseId": "HORSE_001",
           "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "PAUSED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 172800,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [
-      {
-        "id": "complaint_001",
-        "requestId": "REQUEST_001",
-        "kind": "ISSUE",
-        "category": "HORSE_CONDITION",
-        "title": "Đề nghị kiểm tra tình trạng ngựa",
-        "description": "Ngựa có vết trầy cần xác minh nguyên nhân.",
-        "horseId": "HORSE_001",
-        "evidenceFileIds": [
-          "evidence_photo_001"
-        ],
-        "status": "OPEN",
-        "createdAt": "2026-11-20 10:00",
-        "messages": [],
-        "proposals": []
-      }
-    ],
-    "dispute": null,
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Khiếu nại chưa giải quyết."
-      ]
-    },
-    "actions": [],
-    "closure": null
-  }
-}
-```
-
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: ALREADY_ACCEPTED, ACCEPTANCE_WINDOW_EXPIRED, REQUEST_CLOSED, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
-
-```json
-{
-  "success": false,
-  "message": "Thao tác bị chặn: ALREADY_ACCEPTED",
-  "errorCode": "ALREADY_ACCEPTED",
-  "data": null
-}
-```
-
-## F6-J12 — POST /customer/requests/{requestId}/aftercare/complaints/{complaintId}/messages
-
-Trao đổi và bổ sung bằng chứng khiếu nại. Vai trò: **CUSTOMER**.
-
-Khiếu nại thuộc đúng request và chưa RESOLVED; CLOSED không cho ghi mới. Message hiển thị cho Customer; không dùng để lưu ghi chú nội bộ.
-
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `complaintId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
-
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
-
-Request JSON:
-
-```json
-{
-  "expectedVersion": 1,
-  "text": "Đã bổ sung bằng chứng để hai bên kiểm tra.",
-  "evidenceFileIds": []
-}
-```
-
-Response 201:
-
-```json
-{
-  "success": true,
-  "message": "Thành công",
-  "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "DELIVERED",
-    "tripStatus": "COMPLETED",
-    "phase": "COMPLAINT_OPEN",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
-        {
-          "horseId": "HORSE_001",
-          "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "PAUSED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 172800,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [
-      {
-        "id": "complaint_001",
-        "requestId": "REQUEST_001",
-        "kind": "ISSUE",
-        "category": "HORSE_CONDITION",
-        "title": "Đề nghị kiểm tra tình trạng ngựa",
-        "description": "Ngựa có vết trầy cần xác minh nguyên nhân.",
-        "horseId": "HORSE_001",
-        "evidenceFileIds": [
-          "evidence_photo_001"
-        ],
-        "status": "OPEN",
-        "createdAt": "2026-11-20 10:00",
-        "messages": [
-          {
-            "id": "message_001",
-            "at": "2026-11-20 10:00",
-            "actor": {
-              "userId": "USER_001",
-              "name": "Nguyễn Minh An"
-            },
-            "text": "Đã bổ sung bằng chứng để hai bên kiểm tra.",
-            "evidenceFileIds": []
+          "condition": "Tỉnh táo, không có vết thương mới.",
+          "assets": "Một dây dắt",
+          "documents": null,
+          "documentsReceivedAtUtc": null,
+          "identity": {
+            "name": "Thunderbolt",
+            "microchip": "985112004571029"
           }
-        ],
-        "proposals": []
-      }
-    ],
-    "dispute": null,
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Khiếu nại chưa giải quyết."
+        }
       ]
     },
-    "actions": [],
-    "closure": null
+    "createdAtUtc": "2026-11-20T10:00:00Z",
+    "confirmedAtUtc": null,
+    "refusalReason": null,
+    "refusedAtUtc": null
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: thay nội dung draft.",
+  "data": null,
+  "errorCode": "REVISION_NOT_EDITABLE"
 }
 ```
 
-## F6-J13 — POST /manager/requests/{requestId}/aftercare/complaints/{complaintId}/messages
+## F6-J07 — POST /operations/flow6/revisions/{revisionId}/otp
 
-Trao đổi và bổ sung bằng chứng khiếu nại. Vai trò: **LOGISTICS_MANAGER**.
+Gửi hoặc gửi lại OTP.
 
-Khiếu nại thuộc đúng request và chưa RESOLVED; CLOSED không cho ghi mới. Message hiển thị cho Customer; không dùng để lưu ghi chú nội bộ.
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `complaintId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Latest DRAFT/AWAITING_OTP; authorized=true, từng chip true, tình trạng/tài sản đã mô tả, đủ ngựa; hồ sơ bắt buộc thực dùng hợp lệ. Email actual được kiểm quyền, không nhập email mới ở đây.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Freeze snapshot; revision/Handover AWAITING_OTP. HMAC OTP theo revision/email với secret; resend sau policy, thay hash cũ, KHÔNG reset failed attempts. Không báo email delivered nếu chỉ queued; lỗi gửi trả lỗi, không log OTP.
 
-Request JSON:
+**Path parameters:** `revisionId=HANDOVER_REVISION_001`. ID chỉ ở URL, không lặp body.
 
-```json
-{
-  "expectedVersion": 1,
-  "text": "Đã bổ sung bằng chứng để hai bên kiểm tra.",
-  "evidenceFileIds": []
-}
-```
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-Response 201:
+**Response 200 — OtpState**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Gửi hoặc gửi lại OTP thành công",
   "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "DELIVERED",
-    "tripStatus": "COMPLETED",
-    "phase": "COMPLAINT_OPEN",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
+    "revisionId": "HANDOVER_REVISION_001",
+    "expiresAtUtc": "2026-11-20T10:05:00Z",
+    "resendAfterUtc": "2026-11-20T10:01:00Z",
+    "attemptsRemaining": 5
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 429**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: gửi hoặc gửi lại otp.",
+  "data": null,
+  "errorCode": "OTP_RESEND_TOO_SOON"
+}
+```
+
+## F6-J08 — POST /operations/flow6/revisions/{revisionId}/invalidate-otp
+
+Thu hồi OTP để sửa draft.
+
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
+
+**Điều kiện:** Latest AWAITING_OTP chưa confirmed. Không sửa content trước thu hồi.
+
+**Ghi dữ liệu / retry:** Về DRAFT; clear toàn bộ OTP metadata theo CHECK. Reset có chủ đích theo quyền, phải rate limit ngoài DB để không né max attempts. Lệnh này không đổi nội dung.
+
+**Path parameters:** `revisionId=HANDOVER_REVISION_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Revision**
+
+```json
+{
+  "success": true,
+  "message": "Thu hồi OTP để sửa draft thành công",
+  "data": {
+    "id": "HANDOVER_REVISION_001",
+    "handoverId": "HANDOVER_001",
+    "number": 1,
+    "status": "DRAFT",
+    "content": {
+      "location": "Tokyo Racecourse",
       "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
+        "name": "Yuki Tanaka",
+        "phone": "+81312345678",
+        "authorized": true,
+        "otpEmail": "receiver@example.com"
       },
-      "horses": [
+      "commonDocuments": null,
+      "items": [
         {
           "horseId": "HORSE_001",
           "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "PAUSED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 172800,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [
-      {
-        "id": "complaint_001",
-        "requestId": "REQUEST_001",
-        "kind": "ISSUE",
-        "category": "HORSE_CONDITION",
-        "title": "Đề nghị kiểm tra tình trạng ngựa",
-        "description": "Ngựa có vết trầy cần xác minh nguyên nhân.",
-        "horseId": "HORSE_001",
-        "evidenceFileIds": [
-          "evidence_photo_001"
-        ],
-        "status": "OPEN",
-        "createdAt": "2026-11-20 10:00",
-        "messages": [
-          {
-            "id": "message_001",
-            "at": "2026-11-20 10:00",
-            "actor": {
-              "userId": "USER_001",
-              "name": "Nguyễn Minh An"
-            },
-            "text": "Đã bổ sung bằng chứng để hai bên kiểm tra.",
-            "evidenceFileIds": []
+          "condition": "Tỉnh táo, không có vết thương mới.",
+          "assets": "Một dây dắt",
+          "documents": null,
+          "documentsReceivedAtUtc": null,
+          "identity": {
+            "name": "Thunderbolt",
+            "microchip": "985112004571029"
           }
-        ],
-        "proposals": []
-      }
-    ],
-    "dispute": null,
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Khiếu nại chưa giải quyết."
+        }
       ]
     },
-    "actions": [],
-    "closure": null
+    "createdAtUtc": "2026-11-20T10:00:00Z",
+    "confirmedAtUtc": null,
+    "refusalReason": null,
+    "refusedAtUtc": null
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: thu hồi otp để sửa draft.",
+  "data": null,
+  "errorCode": "INVALID_STATE"
 }
 ```
 
-## F6-J14 — POST /manager/requests/{requestId}/aftercare/complaints/{complaintId}/proposals
+## F6-J09 — POST /operations/flow6/revisions/{revisionId}/confirm
 
-Đề xuất giải quyết và khoản giảm. Vai trò: **LOGISTICS_MANAGER**.
+Xác nhận nhận ngựa bằng OTP.
 
-Khiếu nại OPEN/PROPOSED; đề xuất mới supersede bản PENDING cũ. Không sửa bản ACCEPTED. Khoản giảm chưa trừ hóa đơn; không cộng thêm tiền khách. Không dùng trong tranh chấp đã có quyết định cuối.
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `complaintId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Latest AWAITING_OTP, chưa hết hạn/còn attempts, email/content không đổi; kiểm lại phân công/ngựa/ủy quyền. Nhân sự nhập mã người nhận cung cấp tại chỗ; không giả người nhận có account Customer.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Khóa Trip/Handover/revision; đúng OTP → clear hash, revision/Handover CONFIRMED, Trip COMPLETED, Request DELIVERED. Contract EFFECTIVE/version SIGNED. Retry confirmed trả kết quả cũ; không tạo settlement/payment.
 
-Request JSON:
+**Path parameters:** `revisionId=HANDOVER_REVISION_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** JSON `OtpInput`
 
 ```json
 {
-  "expectedVersion": 1,
-  "description": "Đề xuất giảm tiền theo phản ánh của khách.",
-  "reductionAmount": 1000000,
-  "evidenceFileIds": []
+  "otp": "482913"
 }
 ```
 
-Response 201:
+**Response 200 — ConfirmedDelivery**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Xác nhận nhận ngựa bằng OTP thành công",
   "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "DELIVERED",
-    "tripStatus": "COMPLETED",
-    "phase": "COMPLAINT_OPEN",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
-        {
-          "horseId": "HORSE_001",
-          "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "PAUSED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 172800,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [
-      {
-        "id": "complaint_001",
-        "requestId": "REQUEST_001",
-        "kind": "ISSUE",
-        "category": "HORSE_CONDITION",
-        "title": "Đề nghị kiểm tra tình trạng ngựa",
-        "description": "Ngựa có vết trầy cần xác minh nguyên nhân.",
-        "horseId": "HORSE_001",
-        "evidenceFileIds": [
-          "evidence_photo_001"
-        ],
-        "status": "PROPOSED",
-        "createdAt": "2026-11-20 10:00",
-        "messages": [],
-        "proposals": [
+    "revision": {
+      "id": "HANDOVER_REVISION_001",
+      "handoverId": "HANDOVER_001",
+      "number": 1,
+      "status": "CONFIRMED",
+      "content": {
+        "location": "Tokyo Racecourse",
+        "receiver": {
+          "name": "Yuki Tanaka",
+          "phone": "+81312345678",
+          "authorized": true,
+          "otpEmail": "receiver@example.com"
+        },
+        "commonDocuments": null,
+        "items": [
           {
-            "id": "proposal_001",
-            "version": 1,
-            "complaintId": "complaint_001",
-            "status": "PENDING",
-            "description": "Đề xuất giảm tiền theo phản ánh của khách.",
-            "reductionAmount": 1000000,
-            "evidenceFileIds": [],
-            "createdAt": "2026-11-20 10:00",
-            "createdBy": {
-              "userId": "USER_001",
-              "name": "Nguyễn Minh An"
-            },
-            "customerDecidedAt": null,
-            "customerDecisionNote": null
+            "horseId": "HORSE_001",
+            "microchipVerified": true,
+            "condition": "Tỉnh táo, không có vết thương mới.",
+            "assets": "Một dây dắt",
+            "documents": null,
+            "documentsReceivedAtUtc": null,
+            "identity": {
+              "name": "Thunderbolt",
+              "microchip": "985112004571029"
+            }
           }
         ]
-      }
-    ],
-    "dispute": null,
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Khiếu nại chưa giải quyết."
-      ]
+      },
+      "createdAtUtc": "2026-11-20T10:00:00Z",
+      "confirmedAtUtc": "2026-11-20T10:04:00Z",
+      "refusalReason": null,
+      "refusedAtUtc": null
     },
-    "actions": [],
-    "closure": null
+    "lifecycle": {
+      "tripStatus": "COMPLETED",
+      "requestStatus": "DELIVERED",
+      "contractStatus": "EFFECTIVE"
+    }
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: xác nhận nhận ngựa bằng otp.",
+  "data": null,
+  "errorCode": "OTP_INVALID"
 }
 ```
 
-## F6-J15 — POST /customer/requests/{requestId}/aftercare/complaints/{complaintId}/proposals/{proposalId}/decision
+## F6-J10 — POST /operations/flow6/revisions/{revisionId}/refuse
 
-Customer đồng ý hoặc từ chối đúng bản đề xuất. Vai trò: **CUSTOMER**.
+Ghi nhận từ chối nhận.
 
-Đúng proposalVersion hiện hành PENDING. ACCEPTED => AGREED và pendingAdjustment; REJECTED => OPEN, giữ khóa. Đồng ý phương án không phải nghiệm thu bàn giao.
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `complaintId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
-| path | `proposalId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Latest DRAFT/AWAITING_OTP chưa confirmed; nhân sự ghi từ chối thực tế, không phải giao thành công.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** REFUSED và snapshot bất biến; clear OTP/attempts theo CHECK; Handover REFUSED, Trip IN_TRANSIT/Request IN_PROGRESS.
 
-Request JSON:
+**Path parameters:** `revisionId=HANDOVER_REVISION_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** JSON `ReasonInput`
 
 ```json
 {
-  "expectedVersion": 1,
-  "proposalVersion": 1,
-  "decision": "ACCEPTED",
-  "note": "Tôi đồng ý phương án giải quyết này."
+  "reason": "Người nhận yêu cầu kiểm tra thêm."
 }
 ```
 
-Response 200:
+**Response 200 — Revision**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Ghi nhận từ chối nhận thành công",
   "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "DELIVERED",
-    "tripStatus": "COMPLETED",
-    "phase": "COMPLAINT_OPEN",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
+    "id": "HANDOVER_REVISION_001",
+    "handoverId": "HANDOVER_001",
+    "number": 1,
+    "status": "REFUSED",
+    "content": {
+      "location": "Tokyo Racecourse",
       "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
+        "name": "Yuki Tanaka",
+        "phone": "+81312345678",
+        "authorized": true,
+        "otpEmail": "receiver@example.com"
       },
-      "horses": [
+      "commonDocuments": null,
+      "items": [
         {
           "horseId": "HORSE_001",
           "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "PAUSED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 172800,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [
-      {
-        "id": "complaint_001",
-        "requestId": "REQUEST_001",
-        "kind": "ISSUE",
-        "category": "HORSE_CONDITION",
-        "title": "Đề nghị kiểm tra tình trạng ngựa",
-        "description": "Ngựa có vết trầy cần xác minh nguyên nhân.",
-        "horseId": "HORSE_001",
-        "evidenceFileIds": [
-          "evidence_photo_001"
-        ],
-        "status": "AGREED",
-        "createdAt": "2026-11-20 10:00",
-        "messages": [],
-        "proposals": [
-          {
-            "id": "proposal_001",
-            "version": 1,
-            "complaintId": "complaint_001",
-            "status": "ACCEPTED",
-            "description": "Đề xuất giảm tiền theo phản ánh của khách.",
-            "reductionAmount": 1000000,
-            "evidenceFileIds": [],
-            "createdAt": "2026-11-20 10:00",
-            "createdBy": {
-              "userId": "USER_001",
-              "name": "Nguyễn Minh An"
-            },
-            "customerDecidedAt": "2026-11-20 10:00",
-            "customerDecisionNote": "Tôi đồng ý phương án giải quyết này."
+          "condition": "Tỉnh táo, không có vết thương mới.",
+          "assets": "Một dây dắt",
+          "documents": null,
+          "documentsReceivedAtUtc": null,
+          "identity": {
+            "name": "Thunderbolt",
+            "microchip": "985112004571029"
           }
-        ]
-      }
-    ],
-    "dispute": null,
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [
-        "proposal_001"
-      ],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Khiếu nại chưa giải quyết."
+        }
       ]
     },
-    "actions": [],
-    "closure": null
+    "createdAtUtc": "2026-11-20T10:00:00Z",
+    "confirmedAtUtc": null,
+    "refusalReason": "Người nhận yêu cầu kiểm tra thêm.",
+    "refusedAtUtc": "2026-11-20T10:05:00Z"
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STALE_PROPOSAL, REQUEST_CLOSED, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STALE_PROPOSAL",
-  "errorCode": "STALE_PROPOSAL",
-  "data": null
+  "message": "Không thể thực hiện thao tác: ghi nhận từ chối nhận.",
+  "data": null,
+  "errorCode": "INVALID_STATE"
 }
 ```
 
-## F6-J16 — POST /manager/requests/{requestId}/aftercare/complaints/{complaintId}/resolution/apply
+## F6-J11 — POST /operations/flow6/handovers/{handoverId}/revisions
 
-Áp dụng kết quả đã được khách đồng ý. Vai trò: **LOGISTICS_MANAGER**.
+Lập bản giao lại.
 
-Chỉ proposal ACCEPTED. Atomic áp dụng khoản giảm một lần, tạo nghĩa vụ hoàn nếu thừa tiền, chuyển complaint RESOLVED. Không gửi số tiền lại. Khi hết khiếu nại, không tranh chấp và hết pendingAdjustment: mở lại đủ acceptanceHours từ server now; còn vụ mở giữ PAUSED.
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `complaintId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Latest REFUSED, Trip IN_TRANSIT. Không tạo version mới sau DELIVERY confirmed.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Giữ REFUSED; insert revision số kế tiếp DRAFT TRƯỚC khi sửa ITEM để thỏa trigger. Cùng transaction đồng bộ content và Handover DRAFT. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Bản backend hiện tại không thêm bảng/Redis: kết quả được nhớ sau commit trong một tiến trình tối đa 24 giờ, có thể mất sớm do cache đầy hoặc backend khởi động lại. Không bảo đảm chống trùng xuyên tiến trình/khởi động lại. BE chụp tên và chip từng ngựa vào content.items.identity; request chỉ có horseId/kết quả kiểm, không nhận identity do FE tự cấp.
 
-Request JSON:
+**Path parameters:** `handoverId=HANDOVER_001`. ID chỉ ở URL, không lặp body.
+
+**Header bắt buộc:** `Idempotency-Key: 7b9e8dc2-7357-4ef8-a765-2e7c7ee97001`.
+
+**Request:** JSON `DeliveryContent`
 
 ```json
 {
-  "expectedVersion": 1
+  "location": "Tokyo Racecourse",
+  "receiver": {
+    "name": "Yuki Tanaka",
+    "phone": "+81312345678",
+    "authorized": true,
+    "otpEmail": "receiver@example.com"
+  },
+  "commonDocuments": null,
+  "items": [
+    {
+      "horseId": "HORSE_001",
+      "microchipVerified": true,
+      "condition": "Tỉnh táo, không có vết thương mới.",
+      "assets": "Một dây dắt",
+      "documents": null,
+      "documentsReceivedAtUtc": null
+    }
+  ]
 }
 ```
 
-Response 200:
+**Response 201 — Revision**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Lập bản giao lại thành công",
   "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "DELIVERED",
-    "tripStatus": "COMPLETED",
-    "phase": "AWAITING_ACCEPTANCE",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
+    "id": "HANDOVER_REVISION_001",
+    "handoverId": "HANDOVER_001",
+    "number": 1,
+    "status": "DRAFT",
+    "content": {
+      "location": "Tokyo Racecourse",
       "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
+        "name": "Yuki Tanaka",
+        "phone": "+81312345678",
+        "authorized": true,
+        "otpEmail": "receiver@example.com"
       },
-      "horses": [
+      "commonDocuments": null,
+      "items": [
         {
           "horseId": "HORSE_001",
           "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "RUNNING",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 172800,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [
-      {
-        "id": "complaint_001",
-        "requestId": "REQUEST_001",
-        "kind": "ISSUE",
-        "category": "HORSE_CONDITION",
-        "title": "Đề nghị kiểm tra tình trạng ngựa",
-        "description": "Ngựa có vết trầy cần xác minh nguyên nhân.",
-        "horseId": "HORSE_001",
-        "evidenceFileIds": [
-          "evidence_photo_001"
-        ],
-        "status": "RESOLVED",
-        "createdAt": "2026-11-20 10:00",
-        "messages": [],
-        "proposals": [
-          {
-            "id": "proposal_001",
-            "version": 1,
-            "complaintId": "complaint_001",
-            "status": "ACCEPTED",
-            "description": "Đề xuất giảm tiền theo phản ánh của khách.",
-            "reductionAmount": 1000000,
-            "evidenceFileIds": [],
-            "createdAt": "2026-11-20 10:00",
-            "createdBy": {
-              "userId": "USER_001",
-              "name": "Nguyễn Minh An"
-            },
-            "customerDecidedAt": "2026-11-20 10:00",
-            "customerDecisionNote": "Tôi đồng ý phương án giải quyết này."
+          "condition": "Tỉnh táo, không có vết thương mới.",
+          "assets": "Một dây dắt",
+          "documents": null,
+          "documentsReceivedAtUtc": null,
+          "identity": {
+            "name": "Thunderbolt",
+            "microchip": "985112004571029"
           }
-        ]
-      }
-    ],
-    "dispute": null,
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 2,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 1000000,
-      "waiverTotal": 0,
-      "netPayable": 19000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 11000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [
-        {
-          "id": "adjustment_001",
-          "sourceId": "proposal_001",
-          "kind": "REDUCTION",
-          "amount": 1000000,
-          "appliedAt": "2026-11-20 10:00",
-          "reason": "Đề xuất giảm tiền theo phản ánh của khách."
         }
-      ],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Chưa nghiệm thu."
       ]
     },
-    "actions": [],
-    "closure": null
+    "createdAtUtc": "2026-11-20T10:00:00Z",
+    "confirmedAtUtc": null,
+    "refusalReason": null,
+    "refusedAtUtc": null
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: PROPOSAL_NOT_ACCEPTED, RECONCILIATION_REQUIRED, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: PROPOSAL_NOT_ACCEPTED",
-  "errorCode": "PROPOSAL_NOT_ACCEPTED",
-  "data": null
+  "message": "Không thể thực hiện thao tác: lập bản giao lại.",
+  "data": null,
+  "errorCode": "DELIVERY_ALREADY_CONFIRMED"
 }
 ```
 
-## F6-J17 — POST /manager/requests/{requestId}/aftercare/acceptance-window/extensions
+## F6-J12 — GET /customer/flow6/settlements
 
-Gia hạn kiểm tra và nghiệm thu. Vai trò: **LOGISTICS_MANAGER**.
+Hồ sơ của Customer.
 
-Chưa ACCEPTED, không tranh chấp/complaint/pendingAdjustment. newDueAt > now và > hạn hiện tại, trong maxExtensionHours. Giữ lịch sử; không xóa bộ đếm cũ. Chỉ cửa sổ nghiệm thu, không sửa paymentWindow.
+**Quyền:** CUSTOMER sở hữu settlement/Contract
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** CustomerID từ token; chưa có trả [].
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Request JSON:
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-```json
-{
-  "expectedVersion": 1,
-  "newDueAt": "2026-11-24 10:00",
-  "reason": "Gia hạn theo trao đổi với khách hàng."
-}
-```
-
-Response 201:
+**Response 200 — Settlement[]**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
-  "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "DELIVERED",
-    "tripStatus": "COMPLETED",
-    "phase": "AWAITING_ACCEPTANCE",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
+  "message": "Hồ sơ của Customer thành công",
+  "data": [
+    {
+      "id": "SETTLEMENT_001",
+      "contractId": "CONTRACT_001",
       "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
-        {
-          "horseId": "HORSE_001",
-          "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "RUNNING",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-24 10:00",
-      "remainingSeconds": 345600,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      },
-      {
-        "id": "deadline_002",
-        "kind": "EXTENDED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": "2026-11-22 10:00",
-        "newDueAt": "2026-11-24 10:00",
-        "reason": "Gia hạn theo trao đổi với khách hàng.",
-        "at": "2026-11-20 10:00",
-        "actor": {
-          "userId": "USER_001",
-          "name": "Nguyễn Minh An"
-        }
-      }
-    ],
-    "complaints": [],
-    "dispute": null,
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Chưa nghiệm thu."
-      ]
-    },
-    "actions": [],
-    "closure": null
-  }
+      "contractVersionNo": 1,
+      "status": "DRAFT",
+      "handoverRevisionId": null,
+      "finalInvoiceId": null,
+      "settledAtUtc": null,
+      "closedAtUtc": null,
+      "feedbackStartsAtUtc": null,
+      "feedbackEndsAtUtc": null
+    }
+  ]
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: hồ sơ của customer.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
 }
 ```
 
-## F6-J18 — POST /manager/requests/{requestId}/aftercare/dispute
+## F6-J13 — GET /customer/flow6/settlements/{settlementId}
 
-Chuyển đơn sang đang giải quyết. Vai trò: **LOGISTICS_MANAGER**.
+Chi tiết tất toán Customer.
 
-Đơn đã bàn giao, chưa CLOSED, chưa có dispute mở. NO_RESPONSE chỉ sau quá hạn; PAYMENT_DISAGREEMENT có thể sau ACCEPTED. Request UNDER_RESOLUTION, chặn nghiệm thu/khởi tạo tiền/đóng. Hủy phiên đang chờ theo khả năng provider; tiền về muộn vẫn phải đối soát.
+**Quyền:** CUSTOMER sở hữu settlement/Contract
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Khác chủ 404; không giá vốn/OTP hash.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Request JSON:
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
 
-```json
-{
-  "expectedVersion": 1,
-  "reason": "NO_RESPONSE",
-  "description": "Khách chưa phản hồi sau thời hạn nghiệm thu.",
-  "evidenceFileIds": []
-}
-```
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-Response 201:
+**Response 200 — Settlement**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Chi tiết tất toán Customer thành công",
   "data": {
-    "requestId": "REQUEST_001",
+    "id": "SETTLEMENT_001",
+    "contractId": "CONTRACT_001",
     "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "UNDER_RESOLUTION",
-    "tripStatus": "COMPLETED",
-    "phase": "DISPUTE_IN_PROGRESS",
-    "serverTime": "2026-11-23 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
-        {
-          "horseId": "HORSE_001",
-          "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "PAUSED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 0,
-      "overdueAt": "2026-11-22 10:00"
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [],
-    "dispute": {
-      "id": "dispute_001",
-      "status": "OPEN",
-      "reason": "NO_RESPONSE",
-      "description": "Khách chưa phản hồi sau thời hạn nghiệm thu.",
-      "openedAt": "2026-11-23 10:00",
-      "evidenceFileIds": [],
-      "updates": [],
-      "decision": null
-    },
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Đang giải quyết tranh chấp."
-      ]
-    },
-    "actions": [],
-    "closure": null
+    "contractVersionNo": 1,
+    "status": "DRAFT",
+    "handoverRevisionId": null,
+    "finalInvoiceId": null,
+    "settledAtUtc": null,
+    "closedAtUtc": null,
+    "feedbackStartsAtUtc": null,
+    "feedbackEndsAtUtc": null
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: chi tiết tất toán customer.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
 }
 ```
 
-## F6-J19 — POST /manager/requests/{requestId}/aftercare/dispute/updates
+## F6-J14 — GET /manager/flow6/settlements
 
-Ghi diễn biến giải quyết có thể chia sẻ với khách. Vai trò: **LOGISTICS_MANAGER**.
+Danh sách tất toán Manager.
 
-Dispute OPEN/DECISION_RECORDED. Chỉ bằng chứng được phép chia sẻ. Không tự đánh dấu khách đồng ý.
+**Quyền:** LOGISTICS_MANAGER
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Filter status optional; GET không tạo dòng.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Request JSON:
+**Query tùy chọn:** status theo enum OpenAPI. Bỏ filter trả toàn bộ trong quyền.
 
-```json
-{
-  "expectedVersion": 1,
-  "text": "Đã bổ sung bằng chứng để hai bên kiểm tra.",
-  "evidenceFileIds": []
-}
-```
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-Response 201:
+**Response 200 — Settlement[]**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Danh sách tất toán Manager thành công",
+  "data": [
+    {
+      "id": "SETTLEMENT_001",
+      "contractId": "CONTRACT_001",
+      "tripId": "TRIP_001",
+      "contractVersionNo": 1,
+      "status": "DRAFT",
+      "handoverRevisionId": null,
+      "finalInvoiceId": null,
+      "settledAtUtc": null,
+      "closedAtUtc": null,
+      "feedbackStartsAtUtc": null,
+      "feedbackEndsAtUtc": null
+    }
+  ]
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 403**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: danh sách tất toán manager.",
+  "data": null,
+  "errorCode": "FORBIDDEN_ROLE"
+}
+```
+
+## F6-J15 — POST /manager/flow6/trips/{tripId}/settlement
+
+Chuẩn bị hồ sơ tất toán.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** Contract đúng Trip/Customer/current version SIGNED; được chuẩn bị DRAFT trước DELIVERY. Không mở window trước tất toán.
+
+**Ghi dữ liệu / retry:** Create-or-get dưới khóa Contract/Trip và unique hiện có; retry cùng hồ sơ. Chỉ link DELIVERY CONFIRMED nếu có.
+
+**Path parameters:** `tripId=TRIP_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 201 — Settlement**
+
+```json
+{
+  "success": true,
+  "message": "Chuẩn bị hồ sơ tất toán thành công",
   "data": {
-    "requestId": "REQUEST_001",
+    "id": "SETTLEMENT_001",
+    "contractId": "CONTRACT_001",
     "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "UNDER_RESOLUTION",
-    "tripStatus": "COMPLETED",
-    "phase": "DISPUTE_IN_PROGRESS",
-    "serverTime": "2026-11-23 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
-        {
-          "horseId": "HORSE_001",
-          "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "PAUSED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 0,
-      "overdueAt": "2026-11-22 10:00"
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [],
-    "dispute": {
-      "id": "dispute_001",
-      "status": "OPEN",
-      "reason": "NO_RESPONSE",
-      "description": "Khách chưa phản hồi sau thời hạn nghiệm thu.",
-      "openedAt": "2026-11-23 10:00",
-      "evidenceFileIds": [],
-      "updates": [
-        {
-          "id": "message_001",
-          "at": "2026-11-23 10:00",
-          "actor": {
-            "userId": "USER_001",
-            "name": "Nguyễn Minh An"
-          },
-          "text": "Đã bổ sung bằng chứng để hai bên kiểm tra.",
-          "evidenceFileIds": []
-        }
-      ],
-      "decision": null
-    },
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Đang giải quyết tranh chấp."
-      ]
-    },
-    "actions": [],
-    "closure": null
+    "contractVersionNo": 1,
+    "status": "DRAFT",
+    "handoverRevisionId": null,
+    "finalInvoiceId": null,
+    "settledAtUtc": null,
+    "closedAtUtc": null,
+    "feedbackStartsAtUtc": null,
+    "feedbackEndsAtUtc": null
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: chuẩn bị hồ sơ tất toán.",
+  "data": null,
+  "errorCode": "HANDOFF_INCONSISTENT"
 }
 ```
 
-## F6-J20 — POST /manager/requests/{requestId}/aftercare/dispute/decisions
+## F6-J16 — GET /manager/flow6/settlements/{settlementId}
 
-Ghi nhận kết quả cuối cùng của tranh chấp. Vai trò: **LOGISTICS_MANAGER**.
+Chi tiết hồ sơ Manager.
 
-Dispute OPEN. CUSTOMER_AGREEMENT phải tham chiếu các proposal đã được chính Customer chấp nhận, bao phủ mọi complaint chưa giải quyết. EXTERNAL_DECISION cần reference và bằng chứng hợp lệ, Manager xác nhận đã kiểm chứng. COMPANY_WAIVER chỉ miễn nghĩa vụ khách còn nợ, không khẳng định khách đồng ý, không phủ nhận yêu cầu bồi thường chưa xử lý. RESUME_ACCEPTANCE chỉ khi chưa ACCEPTED, waiverAmount=0. Không ghi đè quyết định đã lưu; lỗi cần quy trình hiệu chỉnh riêng, chưa hỗ trợ.
+**Quyền:** LOGISTICS_MANAGER
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Không lặp Customer/Request/Contract aggregate.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Request JSON:
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
 
-```json
-{
-  "expectedVersion": 1,
-  "outcome": "CLOSE_AFTER_DISPUTE",
-  "basis": "EXTERNAL_DECISION",
-  "customerAgreementProposalIds": [],
-  "reference": "EXAMPLE-RESOLUTION-01",
-  "summary": "Kết quả giải quyết được kiểm chứng và ghi nhận.",
-  "evidenceFileIds": [
-    "evidence_decision_001"
-  ],
-  "reductionAmount": 1000000,
-  "waiverAmount": 0
-}
-```
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-Response 201:
+**Response 200 — Settlement**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Chi tiết hồ sơ Manager thành công",
   "data": {
-    "requestId": "REQUEST_001",
+    "id": "SETTLEMENT_001",
+    "contractId": "CONTRACT_001",
     "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "UNDER_RESOLUTION",
-    "tripStatus": "COMPLETED",
-    "phase": "DISPUTE_IN_PROGRESS",
-    "serverTime": "2026-11-23 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
-        {
-          "horseId": "HORSE_001",
-          "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "PENDING",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "PAUSED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 0,
-      "overdueAt": "2026-11-22 10:00"
-    },
-    "paymentWindow": {
-      "status": "NOT_STARTED",
-      "openedAt": null,
-      "dueAt": null,
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [],
-    "dispute": {
-      "id": "dispute_001",
-      "status": "DECISION_RECORDED",
-      "reason": "NO_RESPONSE",
-      "description": "Khách chưa phản hồi sau thời hạn nghiệm thu.",
-      "openedAt": "2026-11-23 10:00",
-      "evidenceFileIds": [],
-      "updates": [],
-      "decision": {
-        "id": "decision_001",
-        "status": "RECORDED",
-        "outcome": "CLOSE_AFTER_DISPUTE",
-        "basis": "EXTERNAL_DECISION",
-        "customerAgreementProposalIds": [],
-        "reference": "EXAMPLE-RESOLUTION-01",
-        "summary": "Kết quả giải quyết được kiểm chứng và ghi nhận.",
-        "evidenceFileIds": [
-          "evidence_decision_001"
-        ],
-        "reductionAmount": 1000000,
-        "waiverAmount": 0,
-        "recordedAt": "2026-11-23 10:00",
-        "recordedBy": {
-          "userId": "USER_001",
-          "name": "Nguyễn Minh An"
-        }
-      }
-    },
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 12000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [
-        "decision_001"
-      ],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Đang giải quyết tranh chấp."
-      ]
-    },
-    "actions": [],
-    "closure": null
+    "contractVersionNo": 1,
+    "status": "DRAFT",
+    "handoverRevisionId": null,
+    "finalInvoiceId": null,
+    "settledAtUtc": null,
+    "closedAtUtc": null,
+    "feedbackStartsAtUtc": null,
+    "feedbackEndsAtUtc": null
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: INVALID_DECISION_BASIS, OPEN_COMPLAINT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: INVALID_DECISION_BASIS",
-  "errorCode": "INVALID_DECISION_BASIS",
-  "data": null
+  "message": "Không thể thực hiện thao tác: chi tiết hồ sơ manager.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
 }
 ```
 
-## F6-J21 — POST /manager/requests/{requestId}/aftercare/dispute/decisions/{decisionId}/apply
+## F6-J17 — GET /manager/flow6/settlements/{settlementId}/balance
 
-Áp dụng quyết định và hóa đơn trong một transaction. Vai trò: **LOGISTICS_MANAGER**.
+Tính còn phải thu.
 
-Quyết định RECORDED, đúng request. Đối soát payment đang xử lý trước. reduction không vượt giá còn lại, waiver không vượt nợ sau reduction; khoản đã áp dụng không tính hai lần. Giải quyết các complaint trong phạm vi quyết định. RESUME_ACCEPTANCE => mở thời hạn mới. CLOSE_AFTER_DISPUTE => bỏ yêu cầu nghiệm thu bằng NOT_REQUIRED_BY_DISPUTE nếu chưa ký nghiệm thu, không tạo acceptedAt. Nợ/hoàn còn treo vẫn chặn đóng.
+**Quyền:** LOGISTICS_MANAGER
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `decisionId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Giá signed snapshot và khoản Manager quyết định; thiếu snapshot không fallback giá hiện tại.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Request JSON:
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
 
-```json
-{
-  "expectedVersion": 1
-}
-```
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-Response 200:
+**Response 200 — Balance**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Tính còn phải thu thành công",
   "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "UNDER_RESOLUTION",
-    "tripStatus": "COMPLETED",
-    "phase": "AWAITING_PAYMENT",
-    "serverTime": "2026-11-23 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
-        {
-          "horseId": "HORSE_001",
-          "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
-        }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "NOT_REQUIRED_BY_DISPUTE",
-      "acceptedAt": null,
-      "acceptedBy": null,
-      "statementVersion": null
-    },
-    "acceptanceWindow": {
-      "status": "COMPLETED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 0,
-      "overdueAt": "2026-11-22 10:00"
-    },
-    "paymentWindow": {
-      "status": "RUNNING",
-      "openedAt": "2026-11-23 10:00",
-      "dueAt": "2026-11-24 10:00",
-      "remainingSeconds": 86400,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [],
-    "dispute": {
-      "id": "dispute_001",
-      "status": "RESOLVED",
-      "reason": "NO_RESPONSE",
-      "description": "Khách chưa phản hồi sau thời hạn nghiệm thu.",
-      "openedAt": "2026-11-23 10:00",
-      "evidenceFileIds": [],
-      "updates": [],
-      "decision": {
-        "id": "decision_001",
-        "status": "APPLIED",
-        "outcome": "CLOSE_AFTER_DISPUTE",
-        "basis": "EXTERNAL_DECISION",
-        "customerAgreementProposalIds": [],
-        "reference": "EXAMPLE-RESOLUTION-01",
-        "summary": "Kết quả giải quyết được kiểm chứng và ghi nhận.",
-        "evidenceFileIds": [
-          "evidence_decision_001"
-        ],
-        "reductionAmount": 1000000,
-        "waiverAmount": 0,
-        "recordedAt": "2026-11-23 10:00",
-        "recordedBy": {
-          "userId": "USER_001",
-          "name": "Nguyễn Minh An"
-        }
-      }
-    },
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 2,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 1000000,
-      "waiverTotal": 0,
-      "netPayable": 19000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 0,
-      "outstanding": 11000000,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [
-        {
-          "id": "adjustment_001",
-          "sourceId": "decision_001",
-          "kind": "REDUCTION",
-          "amount": 1000000,
-          "appliedAt": "2026-11-23 10:00",
-          "reason": "Kết quả giải quyết được kiểm chứng và ghi nhận."
-        }
-      ],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": true,
-      "paymentBlockers": []
-    },
-    "actions": [],
-    "closure": null
+    "signedPriceVnd": 20000000,
+    "chargesVnd": 0,
+    "discountsVnd": 0,
+    "depositPaidVnd": 8000000,
+    "finalDueVnd": 12000000,
+    "finalPaidVnd": 0,
+    "remainingVnd": 12000000,
+    "financialReviewRequired": false
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: INVALID_DECISION_BASIS, UNSETTLED_PAYMENT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: INVALID_DECISION_BASIS",
-  "errorCode": "INVALID_DECISION_BASIS",
-  "data": null
+  "message": "Không thể thực hiện thao tác: tính còn phải thu.",
+  "data": null,
+  "errorCode": "SIGNED_SNAPSHOT_UNAVAILABLE"
 }
 ```
 
-## F6-J22 — POST /customer/requests/{requestId}/aftercare/payment-sessions
+## F6-J18 — GET /customer/flow6/settlements/{settlementId}/balance
 
-Khởi tạo thanh toán số dư VNPay. Vai trò: **CUSTOMER**.
+Customer xem nghĩa vụ tiền.
 
-Server tính amount=outstanding theo invoiceVersion, không nhận amount/returnUrl từ client. Bình thường phải ACCEPTED; ngoại lệ quyết định CLOSE_AFTER_DISPUTE đã APPLIED và cho phép thu nợ. Không vụ mở, pendingAdjustment/refund, pendingPayment; nợ >0. Quá hạn thanh toán vẫn được trả và ghi nhận trễ. Return trình duyệt không xác minh tiền.
+**Quyền:** CUSTOMER sở hữu settlement/Contract
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Cùng phép tính Manager; chỉ giá bán, không COST_ITEM giá vốn.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Request JSON:
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
 
-```json
-{
-  "expectedVersion": 1,
-  "invoiceVersion": 1,
-  "method": "VNPAY"
-}
-```
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-Response 201:
+**Response 200 — Balance**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Customer xem nghĩa vụ tiền thành công",
   "data": {
-    "paymentId": "PAYMENT_002",
-    "requestId": "REQUEST_001",
+    "signedPriceVnd": 20000000,
+    "chargesVnd": 0,
+    "discountsVnd": 0,
+    "depositPaidVnd": 8000000,
+    "finalDueVnd": 12000000,
+    "finalPaidVnd": 0,
+    "remainingVnd": 12000000,
+    "financialReviewRequired": false
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: customer xem nghĩa vụ tiền.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
+}
+```
+
+## F6-J19 — POST /manager/flow6/settlements/{settlementId}/adjustments
+
+Manager xác nhận điều chỉnh.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** Không CLOSED; phải có final invoice hiện hành trước khi quyết định mọi adjustment. CHARGE/DISCOUNT chỉ AWAITING_PAYMENT và invoice nguồn chưa thu/không attempt chưa kết luận; REFUND có thể SETTLED nhưng nguồn đã thu đủ khoản. Nguồn phải đúng Trip/Contract/version. Không refund cọc hoặc tự biến Incident.AdditionalCost thành nợ.
+
+**Ghi dữ liệu / retry:** CreatedBy=DecidedBy từ token, giờ server; OriginalInvoiceID=current final invoice luôn có. Khoản bất biến, không Status/Bearer. REFUND khởi tạo REQUESTED; CHARGE/DISCOUNT chưa áp khi AdjustedInvoiceID null. Chặn tạo payment-session/tất toán đến khi đã áp các khoản này. Không sửa signed Contract. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Bản backend hiện tại không thêm bảng/Redis: kết quả được nhớ sau commit trong một tiến trình tối đa 24 giờ, có thể mất sớm do cache đầy hoặc backend khởi động lại. Không bảo đảm chống trùng xuyên tiến trình/khởi động lại.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Header bắt buộc:** `Idempotency-Key: 7b9e8dc2-7357-4ef8-a765-2e7c7ee97001`.
+
+**Request:** JSON `AdjustmentInput`
+
+```json
+{
+  "type": "CHARGE",
+  "amountVnd": 1000000,
+  "reason": "Chi phí bổ sung đã đối chiếu.",
+  "decisionReason": "Xác nhận theo thỏa thuận."
+}
+```
+
+**Response 201 — Adjustment**
+
+```json
+{
+  "success": true,
+  "message": "Manager xác nhận điều chỉnh thành công",
+  "data": {
+    "type": "CHARGE",
+    "amountVnd": 1000000,
+    "reason": "Chi phí bổ sung đã đối chiếu.",
+    "decisionReason": "Xác nhận theo thỏa thuận.",
+    "id": "SETTLEMENT_ADJUSTMENT_001",
+    "settlementId": "SETTLEMENT_001",
+    "originalInvoiceId": "INVOICE_001",
+    "adjustedInvoiceId": null,
+    "refundStatus": null,
+    "decidedAtUtc": "2026-11-20T10:00:00Z"
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: manager xác nhận điều chỉnh.",
+  "data": null,
+  "errorCode": "PAYMENT_RECONCILIATION_REQUIRED"
+}
+```
+
+## F6-J20 — GET /manager/flow6/settlements/{settlementId}/adjustments
+
+Điều chỉnh đã xác nhận.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** AdjustedInvoiceID null không nghĩa đã áp hóa đơn.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Adjustment[]**
+
+```json
+{
+  "success": true,
+  "message": "Điều chỉnh đã xác nhận thành công",
+  "data": [
+    {
+      "type": "CHARGE",
+      "amountVnd": 1000000,
+      "reason": "Chi phí bổ sung đã đối chiếu.",
+      "decisionReason": "Xác nhận theo thỏa thuận.",
+      "id": "SETTLEMENT_ADJUSTMENT_001",
+      "settlementId": "SETTLEMENT_001",
+      "originalInvoiceId": "INVOICE_001",
+      "adjustedInvoiceId": null,
+      "refundStatus": null,
+      "decidedAtUtc": "2026-11-20T10:00:00Z"
+    }
+  ]
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: điều chỉnh đã xác nhận.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
+}
+```
+
+## F6-J21 — GET /customer/flow6/settlements/{settlementId}/adjustments
+
+Customer xem điều chỉnh.
+
+**Quyền:** CUSTOMER sở hữu settlement/Contract
+
+**Điều kiện:** Không evidence/giá vốn nội bộ; CostItemID chỉ là nguồn ID, không cấp quyền đọc chi phí.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Adjustment[]**
+
+```json
+{
+  "success": true,
+  "message": "Customer xem điều chỉnh thành công",
+  "data": [
+    {
+      "type": "CHARGE",
+      "amountVnd": 1000000,
+      "reason": "Chi phí bổ sung đã đối chiếu.",
+      "decisionReason": "Xác nhận theo thỏa thuận.",
+      "id": "SETTLEMENT_ADJUSTMENT_001",
+      "settlementId": "SETTLEMENT_001",
+      "originalInvoiceId": "INVOICE_001",
+      "adjustedInvoiceId": null,
+      "refundStatus": null,
+      "decidedAtUtc": "2026-11-20T10:00:00Z"
+    }
+  ]
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: customer xem điều chỉnh.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
+}
+```
+
+## F6-J22 — POST /manager/flow6/settlements/{settlementId}/final-invoice
+
+Phát hành hoặc thay invoice cuối.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** DELIVERY CONFIRMED, Trip COMPLETED/Request DELIVERED. Invoice nguồn chỉ thay khi chưa thu và không attempt chưa kết luận. Có tiền cũ trả 409, không phân bổ ngầm.
+
+**Ghi dữ liệu / retry:** Khóa settlement/invoice/attempt. Nghĩa vụ theo Balance. Hủy invoice cũ TRƯỚC insert để thỏa unique filtered index; tạo FINAL_SETTLEMENT, link adjustments và FinalInvoiceID, AWAITING_PAYMENT nguyên tử. Không thu lại cọc. Retry không có điều chỉnh mới trả invoice hiện tại. Invoice đầu lấy giá ký trừ cọc, chưa có adjustment. Các lần thay chỉ áp batch chưa áp có OriginalInvoiceID=current invoice; khoản nguồn khác bị chặn. BE check số tiền sau công thức không âm hoặc tràn SQL.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** JSON `InvoiceInput`
+
+```json
+{
+  "dueAtUtc": "2026-11-22T10:00:00Z"
+}
+```
+
+**Response 201 — Invoice**
+
+```json
+{
+  "success": true,
+  "message": "Phát hành hoặc thay invoice cuối thành công",
+  "data": {
+    "id": "INVOICE_001",
+    "settlementId": "SETTLEMENT_001",
+    "totalVnd": 12000000,
+    "paidVnd": 0,
+    "status": "UNPAID",
+    "dueAtUtc": null
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: phát hành hoặc thay invoice cuối.",
+  "data": null,
+  "errorCode": "PAYMENT_RECONCILIATION_REQUIRED"
+}
+```
+
+## F6-J23 — GET /customer/flow6/settlements/{settlementId}/invoice
+
+Đọc invoice cuối hiện hành.
+
+**Quyền:** CUSTOMER sở hữu settlement/Contract
+
+**Điều kiện:** Chưa phát hành trả 404 FINAL_INVOICE_NOT_FOUND.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Invoice**
+
+```json
+{
+  "success": true,
+  "message": "Đọc invoice cuối hiện hành thành công",
+  "data": {
+    "id": "INVOICE_001",
+    "settlementId": "SETTLEMENT_001",
+    "totalVnd": 12000000,
+    "paidVnd": 0,
+    "status": "UNPAID",
+    "dueAtUtc": null
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: đọc invoice cuối hiện hành.",
+  "data": null,
+  "errorCode": "FINAL_INVOICE_NOT_FOUND"
+}
+```
+
+## F6-J24 — POST /customer/flow6/invoices/{invoiceId}/payment-session
+
+Tạo phiên VNPay trả số dư.
+
+**Quyền:** CUSTOMER sở hữu settlement/Contract
+
+**Điều kiện:** Current FINAL_SETTLEMENT chưa đủ tiền, settlement AWAITING_PAYMENT. BE lấy remaining; còn attempt chưa kết luận trả 409. Không có CHARGE/DISCOUNT chưa áp hóa đơn hoặc refund/review chưa đối soát; đối chiếu total invoice với Balance trước redirect.
+
+**Ghi dữ liệu / retry:** Lưu PAYMENT PENDING_GATEWAY trước redirect, TxnRef gắn PaymentID; không nhận amount/method body. Adapter/IPN dùng chung, không confirm tiền thủ công.
+
+**Path parameters:** `invoiceId=INVOICE_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 201 — PaymentSession**
+
+```json
+{
+  "success": true,
+  "message": "Tạo phiên VNPay trả số dư thành công",
+  "data": {
+    "paymentId": "PAYMENT_001",
+    "paymentUrl": "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?example=1",
+    "expiresAtUtc": "2026-11-20T10:15:00Z"
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: tạo phiên vnpay trả số dư.",
+  "data": null,
+  "errorCode": "PAYMENT_IN_PROGRESS"
+}
+```
+
+## F6-J25 — GET /customer/flow6/payments/{paymentId}
+
+Đọc thanh toán số dư.
+
+**Quyền:** CUSTOMER sở hữu settlement/Contract
+
+**Điều kiện:** Quyền qua invoice → settlement. Return không cập nhật tiền.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Path parameters:** `paymentId=PAYMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Payment**
+
+```json
+{
+  "success": true,
+  "message": "Đọc thanh toán số dư thành công",
+  "data": {
+    "id": "PAYMENT_001",
     "invoiceId": "INVOICE_001",
-    "invoiceVersion": 1,
-    "amount": 12000000,
-    "currency": "VND",
+    "amountVnd": 12000000,
+    "status": "PENDING_GATEWAY",
+    "financialReviewRequired": false
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: đọc thanh toán số dư.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
+}
+```
+
+## F6-J26 — POST /manager/flow6/settlements/{settlementId}/settle
+
+Xác nhận nghiệm thu và tất toán.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** DELIVERY CONFIRMED, final invoice PAID, không nợ/ngoại lệ, mọi điều chỉnh đã áp/hoàn đủ. Complaint mở không cấm ghi đủ tiền nhưng chặn đóng/reset.
+
+**Ghi dữ liệu / retry:** SETTLED + SettledBy/At, Contract SETTLED, Request DELIVERED. Mở window policy; complaint mở giữ đơn mở và reset sau giải quyết hết. Retry SETTLED không reset window.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Settlement**
+
+```json
+{
+  "success": true,
+  "message": "Xác nhận nghiệm thu và tất toán thành công",
+  "data": {
+    "id": "SETTLEMENT_001",
+    "contractId": "CONTRACT_001",
+    "tripId": "TRIP_001",
+    "contractVersionNo": 1,
+    "status": "SETTLED",
+    "handoverRevisionId": "HANDOVER_REVISION_001",
+    "finalInvoiceId": "INVOICE_001",
+    "settledAtUtc": "2026-11-20T10:00:00Z",
+    "closedAtUtc": null,
+    "feedbackStartsAtUtc": "2026-11-20T10:00:00Z",
+    "feedbackEndsAtUtc": "2026-11-21T10:00:00Z"
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: xác nhận nghiệm thu và tất toán.",
+  "data": null,
+  "errorCode": "SETTLEMENT_NOT_READY"
+}
+```
+
+## F6-J27 — POST /manager/flow6/adjustments/{adjustmentId}/refund-processing
+
+Ghi bắt đầu xử lý hoàn.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** Chỉ REFUND REQUESTED với invoice nguồn đúng; không gọi chuyển tiền.
+
+**Ghi dữ liệu / retry:** REQUESTED → PROCESSING; retry PROCESSING trả hiện tại, không lùi COMPLETED.
+
+**Path parameters:** `adjustmentId=SETTLEMENT_ADJUSTMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Refund**
+
+```json
+{
+  "success": true,
+  "message": "Ghi bắt đầu xử lý hoàn thành công",
+  "data": {
+    "adjustmentId": "SETTLEMENT_ADJUSTMENT_001",
     "status": "PROCESSING",
-    "paymentUrl": "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=PAYMENT_002",
-    "expiresAt": "2026-11-20 10:15"
+    "reference": null,
+    "refundedAtUtc": null
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STALE_INVOICE, OPEN_COMPLAINT, OPEN_DISPUTE, PENDING_ADJUSTMENT, UNSETTLED_PAYMENT, PENDING_REFUND, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STALE_INVOICE",
-  "errorCode": "STALE_INVOICE",
-  "data": null
+  "message": "Không thể thực hiện thao tác: ghi bắt đầu xử lý hoàn.",
+  "data": null,
+  "errorCode": "INVALID_STATE"
 }
 ```
 
-## F6-J23 — GET /customer/requests/{requestId}/aftercare/payments/{paymentId}
+## F6-J28 — POST /manager/flow6/adjustments/{adjustmentId}/refund-complete
 
-Đọc kết quả thanh toán đã xác minh trên server. Vai trò: **CUSTOMER**.
+Ghi bằng chứng hoàn đủ khoản.
 
-PAYMENT phải thuộc Request và Customer. Chỉ đọc; không xác minh từ query browser, không tự xử lý IPN.
+**Quyền:** LOGISTICS_MANAGER
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `paymentId` | True | `{"type": "string", "pattern": "^PAYMENT_\\d{3,}$", "maxLength": 50}` |
+**Điều kiện:** REQUESTED/PROCESSING; một giao dịch đủ Amount, tổng refund <= tiền nguồn. Check reference chống trùng trong transaction; schema chưa hỗ trợ chia nhiều lần chuyển.
 
-Không gửi request body.
+**Ghi dữ liệu / retry:** COMPLETED + RefundedBy token/At/reference; trigger bất biến. Retry cùng bằng chứng trả cũ, khác bằng chứng 409. Không tạo PAYMENT REFUND hoặc sửa SUCCESS → FAILED.
 
-Response 200:
+**Path parameters:** `adjustmentId=SETTLEMENT_ADJUSTMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** JSON `RefundInput`
+
+```json
+{
+  "reference": "REFUND-REAL-001",
+  "refundedAtUtc": "2026-11-20T11:00:00Z"
+}
+```
+
+**Response 200 — Refund**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Ghi bằng chứng hoàn đủ khoản thành công",
   "data": {
-    "paymentId": "PAYMENT_002",
-    "requestId": "REQUEST_001",
-    "invoiceId": "INVOICE_001",
-    "amount": 12000000,
-    "status": "VERIFIED",
-    "verifiedAt": "2026-11-20 10:00"
+    "adjustmentId": "SETTLEMENT_ADJUSTMENT_001",
+    "status": "COMPLETED",
+    "reference": "REFUND-REAL-001",
+    "refundedAtUtc": "2026-11-20T11:00:00Z"
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: ghi bằng chứng hoàn đủ khoản.",
+  "data": null,
+  "errorCode": "REFUND_EVIDENCE_CONFLICT"
 }
 ```
 
-## F6-J24 — POST /manager/requests/{requestId}/aftercare/refunds/{refundId}/confirmation
+## F6-J29 — POST /customer/flow6/settlements/{settlementId}/cases
 
-Ghi nhận bằng chứng khoản hoàn đã chuyển thực tế. Vai trò: **LOGISTICS_MANAGER**.
+Gửi khiếu nại/hỗ trợ.
 
-Nghĩa vụ refund có sẵn PENDING/PROCESSING/FAILED. Người có quyền tài chính được cấu hình kiểm tra reference, số tiền đúng nghĩa vụ, bằng chứng thanh toán. Không phải API chuyển tiền hoặc duyệt hoàn = đã hoàn. Chỉ ghi verifiedAt sau kiểm chứng; chống reference trùng.
+**Quyền:** CUSTOMER sở hữu settlement/Contract
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `refundId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** COMPLAINT sau DELIVERY trước CLOSED; còn nợ/chưa có window vẫn gửi được; nếu có window thì phải trước hạn. SUPPORT được tạo sau CLOSED, không mở lại.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Khóa settlement cùng close/reset; OPEN. Complaint chặn đóng nhưng không sửa payment. Không chat/accept-result. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Bản backend hiện tại không thêm bảng/Redis: kết quả được nhớ sau commit trong một tiến trình tối đa 24 giờ, có thể mất sớm do cache đầy hoặc backend khởi động lại. Không bảo đảm chống trùng xuyên tiến trình/khởi động lại.
 
-Request JSON:
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Header bắt buộc:** `Idempotency-Key: 7b9e8dc2-7357-4ef8-a765-2e7c7ee97001`.
+
+**Request:** JSON `CaseInput`
 
 ```json
 {
-  "expectedVersion": 1,
-  "reference": "BANK-EXAMPLE-REFUND-01",
-  "evidenceFileIds": [
-    "evidence_refund_001"
-  ],
-  "note": "Đã đối chiếu chứng từ chuyển khoản thực tế."
+  "type": "COMPLAINT",
+  "subject": "Tình trạng ngựa lúc nhận",
+  "description": "Cần giải thích tình trạng trong biên bản."
 }
 ```
 
-Response 200:
+**Response 201 — Case**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Gửi khiếu nại/hỗ trợ thành công",
   "data": {
-    "requestId": "REQUEST_001",
+    "type": "COMPLAINT",
+    "subject": "Tình trạng ngựa lúc nhận",
+    "description": "Cần giải thích tình trạng trong biên bản.",
+    "id": "CUSTOMER_CASE_001",
+    "settlementId": "SETTLEMENT_001",
+    "status": "OPEN",
+    "resolution": null,
+    "openedAtUtc": "2026-11-20T10:00:00Z",
+    "resolvedAtUtc": null
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: gửi khiếu nại/hỗ trợ.",
+  "data": null,
+  "errorCode": "COMPLAINT_WINDOW_CLOSED"
+}
+```
+
+## F6-J30 — GET /customer/flow6/settlements/{settlementId}/cases
+
+Theo dõi phiếu Customer.
+
+**Quyền:** CUSTOMER sở hữu settlement/Contract
+
+**Điều kiện:** Chỉ chủ; RESOLVED vẫn đọc được.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Case[]**
+
+```json
+{
+  "success": true,
+  "message": "Theo dõi phiếu Customer thành công",
+  "data": [
+    {
+      "type": "COMPLAINT",
+      "subject": "Tình trạng ngựa lúc nhận",
+      "description": "Cần giải thích tình trạng trong biên bản.",
+      "id": "CUSTOMER_CASE_001",
+      "settlementId": "SETTLEMENT_001",
+      "status": "OPEN",
+      "resolution": null,
+      "openedAtUtc": "2026-11-20T10:00:00Z",
+      "resolvedAtUtc": null
+    }
+  ]
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: theo dõi phiếu customer.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
+}
+```
+
+## F6-J31 — GET /manager/flow6/cases
+
+Hàng đợi khiếu nại/hỗ trợ.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** Filter status/type optional; không claim độc quyền.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Query tùy chọn:** status theo enum OpenAPI; type=COMPLAINT/SUPPORT. Bỏ filter trả toàn bộ trong quyền.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Case[]**
+
+```json
+{
+  "success": true,
+  "message": "Hàng đợi khiếu nại/hỗ trợ thành công",
+  "data": [
+    {
+      "type": "COMPLAINT",
+      "subject": "Tình trạng ngựa lúc nhận",
+      "description": "Cần giải thích tình trạng trong biên bản.",
+      "id": "CUSTOMER_CASE_001",
+      "settlementId": "SETTLEMENT_001",
+      "status": "OPEN",
+      "resolution": null,
+      "openedAtUtc": "2026-11-20T10:00:00Z",
+      "resolvedAtUtc": null
+    }
+  ]
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 403**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: hàng đợi khiếu nại/hỗ trợ.",
+  "data": null,
+  "errorCode": "FORBIDDEN_ROLE"
+}
+```
+
+## F6-J32 — POST /manager/flow6/cases/{caseId}/start
+
+Đánh dấu đang xử lý.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** OPEN/IN_PROGRESS; Manager nào cũng xử lý được.
+
+**Ghi dữ liệu / retry:** IN_PROGRESS + HandledBy/At server; RESOLVED không mở lại, khách còn ý kiến tạo phiếu mới.
+
+**Path parameters:** `caseId=CUSTOMER_CASE_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Case**
+
+```json
+{
+  "success": true,
+  "message": "Đánh dấu đang xử lý thành công",
+  "data": {
+    "type": "COMPLAINT",
+    "subject": "Tình trạng ngựa lúc nhận",
+    "description": "Cần giải thích tình trạng trong biên bản.",
+    "id": "CUSTOMER_CASE_001",
+    "settlementId": "SETTLEMENT_001",
+    "status": "IN_PROGRESS",
+    "resolution": null,
+    "openedAtUtc": "2026-11-20T10:00:00Z",
+    "resolvedAtUtc": null
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: đánh dấu đang xử lý.",
+  "data": null,
+  "errorCode": "INVALID_STATE"
+}
+```
+
+## F6-J33 — POST /manager/flow6/cases/{caseId}/resolve
+
+Manager phản hồi rồi đóng phiếu.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** OPEN/IN_PROGRESS; không cần Customer đồng ý theo rule hiện hành; điều chỉnh tiền là nghiệp vụ riêng.
+
+**Ghi dữ liệu / retry:** RESOLVED với ResolutionText/HandledBy/HandledAt/ResolvedAt. Complaint cuối + SETTLED + tiền hoàn thành → reset window đủ thời lượng trong transaction. Nếu tiền chưa xong thì J36 xử lý sau; retry không reset thêm.
+
+**Path parameters:** `caseId=CUSTOMER_CASE_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** JSON `ResolveInput`
+
+```json
+{
+  "resolution": "Đã giải thích và xử lý theo thỏa thuận."
+}
+```
+
+**Response 200 — Case**
+
+```json
+{
+  "success": true,
+  "message": "Manager phản hồi rồi đóng phiếu thành công",
+  "data": {
+    "type": "COMPLAINT",
+    "subject": "Tình trạng ngựa lúc nhận",
+    "description": "Cần giải thích tình trạng trong biên bản.",
+    "id": "CUSTOMER_CASE_001",
+    "settlementId": "SETTLEMENT_001",
+    "status": "RESOLVED",
+    "resolution": "Đã giải thích và xử lý theo thỏa thuận.",
+    "openedAtUtc": "2026-11-20T10:00:00Z",
+    "resolvedAtUtc": "2026-11-20T11:00:00Z"
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: manager phản hồi rồi đóng phiếu.",
+  "data": null,
+  "errorCode": "INVALID_STATE"
+}
+```
+
+## F6-J34 — POST /customer/flow6/settlements/{settlementId}/feedback
+
+Gửi đánh giá thông thường.
+
+**Quyền:** CUSTOMER sở hữu settlement/Contract
+
+**Điều kiện:** SETTLED, server now trong window, một feedback/settlement theo unique kể cả reset. Rating không complaint.
+
+**Ghi dữ liệu / retry:** Insert rating/comment và giờ server. Không chặn đóng/reset. Đã có trả 409 FEEDBACK_EXISTS. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Bản backend hiện tại không thêm bảng/Redis: kết quả được nhớ sau commit trong một tiến trình tối đa 24 giờ, có thể mất sớm do cache đầy hoặc backend khởi động lại. Không bảo đảm chống trùng xuyên tiến trình/khởi động lại.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Header bắt buộc:** `Idempotency-Key: 7b9e8dc2-7357-4ef8-a765-2e7c7ee97001`.
+
+**Request:** JSON `FeedbackInput`
+
+```json
+{
+  "rating": 5
+}
+```
+
+**Response 201 — Feedback**
+
+```json
+{
+  "success": true,
+  "message": "Gửi đánh giá thông thường thành công",
+  "data": {
+    "rating": 5,
+    "comment": null,
+    "id": "CUSTOMER_FEEDBACK_001",
+    "createdAtUtc": "2026-11-20T10:00:00Z"
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: gửi đánh giá thông thường.",
+  "data": null,
+  "errorCode": "FEEDBACK_EXISTS"
+}
+```
+
+## F6-J35 — GET /customer/flow6/settlements/{settlementId}/feedback
+
+Đọc đánh giá đã gửi.
+
+**Quyền:** CUSTOMER sở hữu settlement/Contract
+
+**Điều kiện:** Chưa có trả 404, không bịa đánh giá.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Feedback**
+
+```json
+{
+  "success": true,
+  "message": "Đọc đánh giá đã gửi thành công",
+  "data": {
+    "rating": 5,
+    "comment": null,
+    "id": "CUSTOMER_FEEDBACK_001",
+    "createdAtUtc": "2026-11-20T10:00:00Z"
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: đọc đánh giá đã gửi.",
+  "data": null,
+  "errorCode": "FEEDBACK_NOT_FOUND"
+}
+```
+
+## F6-J36 — POST /manager/flow6/settlements/{settlementId}/restart-feedback-window
+
+Mở lại window sau khiếu nại/tiền.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** SETTLED, có complaint RESOLVED sau starts hiện hành; không còn complaint mở hoặc nợ/refund. Không reset tùy ý khi refresh.
+
+**Ghi dữ liệu / retry:** Khóa settlement; max ResolvedAt làm căn cứ chống lặp. starts=server now, ends=starts+policy. Không history window.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Settlement**
+
+```json
+{
+  "success": true,
+  "message": "Mở lại window sau khiếu nại/tiền thành công",
+  "data": {
+    "id": "SETTLEMENT_001",
+    "contractId": "CONTRACT_001",
     "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "UNDER_RESOLUTION",
-    "tripStatus": "COMPLETED",
-    "phase": "READY_TO_CLOSE",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
-      },
-      "horses": [
+    "contractVersionNo": 1,
+    "status": "SETTLED",
+    "handoverRevisionId": "HANDOVER_REVISION_001",
+    "finalInvoiceId": "INVOICE_001",
+    "settledAtUtc": "2026-11-20T10:00:00Z",
+    "closedAtUtc": null,
+    "feedbackStartsAtUtc": "2026-11-20T10:00:00Z",
+    "feedbackEndsAtUtc": "2026-11-21T10:00:00Z"
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: mở lại window sau khiếu nại/tiền.",
+  "data": null,
+  "errorCode": "FEEDBACK_RESET_NOT_DUE"
+}
+```
+
+## F6-J37 — POST /manager/flow6/settlements/{settlementId}/close
+
+Đóng hồ sơ đủ điều kiện.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** SETTLED, hết window, không complaint mở/pending refund/adjustment/review/nợ. Nếu complaint resolved sau starts thì reset trước, không đóng.
+
+**Ghi dữ liệu / retry:** Khóa cùng case/payment; CLOSED + ClosedAt, Request/Contract CLOSED. Trip COMPLETED/version SIGNED. Retry giữ mốc cũ. Worker tự đóng dùng cùng service guard, không public cron endpoint.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — CloseResult**
+
+```json
+{
+  "success": true,
+  "message": "Đóng hồ sơ đủ điều kiện thành công",
+  "data": {
+    "settlementId": "SETTLEMENT_001",
+    "closedAtUtc": "2026-11-20T10:00:00Z",
+    "lifecycle": {
+      "tripStatus": "COMPLETED",
+      "requestStatus": "CLOSED",
+      "contractStatus": "CLOSED"
+    }
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: đóng hồ sơ đủ điều kiện.",
+  "data": null,
+  "errorCode": "CLOSE_BLOCKED"
+}
+```
+
+## F6-J38 — GET /operations/flow6/trips/{tripId}/pickup-baseline
+
+Đọc baseline PICKUP.
+
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
+
+**Điều kiện:** Chỉ PICKUP CONFIRMED cùng Trip. Thiếu trả [] và context warnings; snapshot cũ không có OTP thì không mô tả là đã OTP.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Path parameters:** `tripId=TRIP_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — PickupReference[]**
+
+```json
+{
+  "success": true,
+  "message": "Đọc baseline PICKUP thành công",
+  "data": [
+    {
+      "handoverId": "HANDOVER_001",
+      "receiverName": "Nguyen Van A",
+      "items": [
         {
           "horseId": "HORSE_001",
           "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
+          "condition": "Tỉnh táo, không có vết thương mới.",
+          "assets": "Một dây dắt",
+          "documents": null,
+          "documentsReceivedAtUtc": null
         }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "ACCEPTED",
-      "acceptedAt": "2026-11-20 10:00",
-      "acceptedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "statementVersion": 1
-    },
-    "acceptanceWindow": {
-      "status": "COMPLETED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "COMPLETED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-21 10:00",
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [],
-    "dispute": {
-      "id": "dispute_001",
-      "status": "RESOLVED",
-      "reason": "PAYMENT_DISAGREEMENT",
-      "description": "Khách chưa phản hồi sau thời hạn nghiệm thu.",
-      "openedAt": "2026-11-20 10:00",
-      "evidenceFileIds": [],
-      "updates": [],
-      "decision": {
-        "id": "decision_001",
-        "status": "APPLIED",
-        "outcome": "CLOSE_AFTER_DISPUTE",
-        "basis": "EXTERNAL_DECISION",
-        "customerAgreementProposalIds": [],
-        "reference": "EXAMPLE-RESOLUTION-01",
-        "summary": "Kết quả giải quyết được kiểm chứng và ghi nhận.",
-        "evidenceFileIds": [
-          "evidence_decision_001"
-        ],
-        "reductionAmount": 1000000,
-        "waiverAmount": 0,
-        "recordedAt": "2026-11-20 10:00",
-        "recordedBy": {
-          "userId": "USER_001",
-          "name": "Nguyễn Minh An"
-        }
-      }
-    },
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 2,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 1000000,
-      "waiverTotal": 0,
-      "netPayable": 19000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 12000000,
-      "outstanding": 0,
-      "refundDue": 0,
-      "verifiedRefund": 1000000,
-      "adjustments": [
-        {
-          "id": "adjustment_001",
-          "sourceId": "decision_001",
-          "kind": "REDUCTION",
-          "amount": 1000000,
-          "appliedAt": "2026-11-20 10:00",
-          "reason": "Kết quả giải quyết được kiểm chứng và ghi nhận."
-        }
-      ],
-      "pendingAdjustmentIds": [],
-      "refunds": [
-        {
-          "id": "refund_001",
-          "amount": 1000000,
-          "status": "VERIFIED",
-          "verifiedAt": "2026-11-20 10:00",
-          "reference": "BANK-EXAMPLE-REFUND-01"
-        }
-      ],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Đã đủ tiền."
       ]
-    },
-    "actions": [],
-    "closure": null
-  }
+    }
+  ]
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: PENDING_REFUND, RECONCILIATION_REQUIRED, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: PENDING_REFUND",
-  "errorCode": "PENDING_REFUND",
-  "data": null
+  "message": "Không thể thực hiện thao tác: đọc baseline pickup.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
 }
 ```
 
-## F6-J25 — POST /manager/requests/{requestId}/aftercare/closure
+## F6-J39 — GET /operations/flow6/trips/{tripId}/health-logs
 
-Manager đóng đơn sau kiểm tra toàn bộ nghĩa vụ. Vai trò: **LOGISTICS_MANAGER**.
+Tham chiếu sức khỏe đã ghi.
 
-Atomic recheck đủ bàn giao, không vụ mở, không pendingAdjustment/payment/reconciliation/refund, outstanding=0, refundDue=0. NORMAL cần ACCEPTED. AFTER_DISPUTE cần quyết định CLOSE_AFTER_DISPUTE đã APPLIED. Không chờ hết acceptanceWindow sau đã ACCEPTED. Không tự đóng, không tự nghiệm thu, không đánh dấu nợ đã thanh toán.
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Cùng Trip/ngựa Request; chỉ đọc, không kiểm chuỗi HEALTHY/NORMAL.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Request JSON:
+**Path parameters:** `tripId=TRIP_001`. ID chỉ ở URL, không lặp body.
 
-```json
-{
-  "expectedVersion": 1,
-  "mode": "NORMAL",
-  "reason": "Đã nghiệm thu và hoàn tất các nghĩa vụ."
-}
-```
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-Response 200:
+**Response 200 — HealthReference[]**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Tham chiếu sức khỏe đã ghi thành công",
+  "data": [
+    {
+      "id": "HEALTH_LOG_001",
+      "horseId": "HORSE_001",
+      "recordedAtUtc": "2026-11-20T10:00:00Z",
+      "description": null,
+      "healthStatus": null
+    }
+  ]
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: tham chiếu sức khỏe đã ghi.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
+}
+```
+
+## F6-J40 — GET /operations/flow6/trips/{tripId}/incidents
+
+Tham chiếu sự cố hành trình.
+
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
+
+**Điều kiện:** Không yêu cầu mọi incident RESOLVED để mở Flow6. Không trả giá vốn/AdditionalCost cho caller này.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Path parameters:** `tripId=TRIP_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — IncidentReference[]**
+
+```json
+{
+  "success": true,
+  "message": "Tham chiếu sự cố hành trình thành công",
+  "data": [
+    {
+      "id": "INCIDENT_001",
+      "status": null,
+      "description": null
+    }
+  ]
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: tham chiếu sự cố hành trình.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
+}
+```
+
+## F6-J41 — GET /customer/flow6/settlements/{settlementId}/delivery
+
+Customer đọc biên bản đã nhận.
+
+**Quyền:** CUSTOMER sở hữu settlement/Contract
+
+**Điều kiện:** Chỉ bản DELIVERY CONFIRMED settlement đang liên kết; không leak draft hoặc OTP hash.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Revision**
+
+```json
+{
+  "success": true,
+  "message": "Customer đọc biên bản đã nhận thành công",
   "data": {
-    "requestId": "REQUEST_001",
-    "tripId": "TRIP_001",
-    "version": 2,
-    "requestStatus": "CLOSED",
-    "tripStatus": "COMPLETED",
-    "phase": "CLOSED",
-    "serverTime": "2026-11-20 10:00",
-    "policy": {
-      "version": 1,
-      "defaultAcceptanceHours": "48",
-      "allowedAcceptanceHours": [
-        "24",
-        "48"
-      ],
-      "paymentHours": 24,
-      "maxExtensionHours": 168,
-      "acceptanceStatementVersion": 1,
-      "acceptanceStatement": "Tôi đã kiểm tra bàn giao, đồng ý kết quả xử lý nếu có và không còn yêu cầu khiếu nại đối với lần bàn giao này.",
-      "timezone": "Asia/Ho_Chi_Minh"
-    },
-    "handover": {
-      "id": "handover_001",
-      "tripId": "TRIP_001",
-      "requestId": "REQUEST_001",
-      "completedAt": "2026-11-20 10:00",
-      "recordedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
+    "id": "HANDOVER_REVISION_001",
+    "handoverId": "HANDOVER_001",
+    "number": 1,
+    "status": "CONFIRMED",
+    "content": {
+      "location": "Tokyo Racecourse",
       "receiver": {
-        "name": "Trần Văn Bình",
-        "phone": "0901234567",
-        "authorization": "REGISTERED",
-        "authorizationReference": null
+        "name": "Yuki Tanaka",
+        "phone": "+81312345678",
+        "authorized": true,
+        "otpEmail": "receiver@example.com"
       },
-      "horses": [
+      "commonDocuments": null,
+      "items": [
         {
           "horseId": "HORSE_001",
           "microchipVerified": true,
-          "condition": "NORMAL",
-          "note": "Tình trạng ổn định.",
-          "photoFileIds": [
-            "evidence_photo_001"
-          ]
+          "condition": "Tỉnh táo, không có vết thương mới.",
+          "assets": "Một dây dắt",
+          "documents": null,
+          "documentsReceivedAtUtc": null,
+          "identity": {
+            "name": "Thunderbolt",
+            "microchip": "985112004571029"
+          }
         }
-      ],
-      "signatureFileId": "evidence_signature_001",
-      "note": "Đã bàn giao đủ ngựa."
-    },
-    "acceptance": {
-      "status": "ACCEPTED",
-      "acceptedAt": "2026-11-20 10:00",
-      "acceptedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
-      },
-      "statementVersion": 1
-    },
-    "acceptanceWindow": {
-      "status": "COMPLETED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-22 10:00",
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "paymentWindow": {
-      "status": "COMPLETED",
-      "openedAt": "2026-11-20 10:00",
-      "dueAt": "2026-11-21 10:00",
-      "remainingSeconds": 0,
-      "overdueAt": null
-    },
-    "deadlineHistory": [
-      {
-        "id": "deadline_001",
-        "kind": "OPENED",
-        "window": "ACCEPTANCE",
-        "previousDueAt": null,
-        "newDueAt": "2026-11-22 10:00",
-        "reason": "Bàn giao thành công.",
-        "at": "2026-11-20 10:00",
-        "actor": null
-      }
-    ],
-    "complaints": [],
-    "dispute": null,
-    "settlement": {
-      "invoiceId": "INVOICE_001",
-      "invoiceVersion": 1,
-      "currency": "VND",
-      "originalTotal": 20000000,
-      "reductionTotal": 0,
-      "waiverTotal": 0,
-      "netPayable": 20000000,
-      "verifiedDeposit": 8000000,
-      "verifiedBalance": 12000000,
-      "outstanding": 0,
-      "refundDue": 0,
-      "verifiedRefund": 0,
-      "adjustments": [],
-      "pendingAdjustmentIds": [],
-      "refunds": [],
-      "pendingPaymentIds": [],
-      "canPay": false,
-      "paymentBlockers": [
-        "Đã đủ tiền."
       ]
     },
-    "actions": [],
-    "closure": {
-      "mode": "NORMAL",
-      "closedAt": "2026-11-20 10:00",
-      "closedBy": {
-        "userId": "USER_001",
-        "name": "Nguyễn Minh An"
+    "createdAtUtc": "2026-11-20T10:00:00Z",
+    "confirmedAtUtc": "2026-11-20T10:04:00Z",
+    "refusalReason": null,
+    "refusedAtUtc": null
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: customer đọc biên bản đã nhận.",
+  "data": null,
+  "errorCode": "DELIVERY_NOT_CONFIRMED"
+}
+```
+
+## F6-J42 — GET /manager/flow6/settlements/{settlementId}/delivery
+
+Manager đọc biên bản nghiệm thu.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** Đúng revision settlement đã liên kết; chưa có confirmed trả 404.
+
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
+
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
+
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Revision**
+
+```json
+{
+  "success": true,
+  "message": "Manager đọc biên bản nghiệm thu thành công",
+  "data": {
+    "id": "HANDOVER_REVISION_001",
+    "handoverId": "HANDOVER_001",
+    "number": 1,
+    "status": "CONFIRMED",
+    "content": {
+      "location": "Tokyo Racecourse",
+      "receiver": {
+        "name": "Yuki Tanaka",
+        "phone": "+81312345678",
+        "authorized": true,
+        "otpEmail": "receiver@example.com"
       },
-      "reason": "Đã nghiệm thu và hoàn tất các nghĩa vụ.",
-      "decisionId": null
-    }
+      "commonDocuments": null,
+      "items": [
+        {
+          "horseId": "HORSE_001",
+          "microchipVerified": true,
+          "condition": "Tỉnh táo, không có vết thương mới.",
+          "assets": "Một dây dắt",
+          "documents": null,
+          "documentsReceivedAtUtc": null,
+          "identity": {
+            "name": "Thunderbolt",
+            "microchip": "985112004571029"
+          }
+        }
+      ]
+    },
+    "createdAtUtc": "2026-11-20T10:00:00Z",
+    "confirmedAtUtc": "2026-11-20T10:04:00Z",
+    "refusalReason": null,
+    "refusedAtUtc": null
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: CLOSURE_BLOCKED, OUTSTANDING_BALANCE, PENDING_REFUND, UNSETTLED_PAYMENT, OPEN_COMPLAINT, OPEN_DISPUTE, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: CLOSURE_BLOCKED",
-  "errorCode": "CLOSURE_BLOCKED",
-  "data": null
+  "message": "Không thể thực hiện thao tác: manager đọc biên bản nghiệm thu.",
+  "data": null,
+  "errorCode": "DELIVERY_NOT_CONFIRMED"
 }
 ```
 
-## F6-J26 — POST /driver/requests/{requestId}/aftercare/files
+## F6-J43 — GET /manager/flow6/settlements/{settlementId}/feedback
 
-Tải bằng chứng thật cho đúng yêu cầu. Vai trò: **DRIVER_ESCORT**.
+Manager đọc đánh giá.
 
-PDF/JPEG/PNG 1 byte–10 MiB, kiểm bytes/MIME, malware và quyền. Driver chỉ chặng giao được phân công; cho upload trước handover. Client gửi đúng một file multipart, không URL/base64. Không tăng aftercare.version chỉ vì upload file chưa gắn.
+**Quyền:** LOGISTICS_MANAGER
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Chưa có trả 404 FEEDBACK_NOT_FOUND.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Request multipart: đúng một trường `file`, File thật PDF/JPEG/PNG, tối đa 10 MiB; không đặt boundary thủ công.
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
 
-Response 201:
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
+
+**Response 200 — Feedback**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
+  "message": "Manager đọc đánh giá thành công",
   "data": {
-    "id": "evidence_photo_001",
-    "requestId": "REQUEST_001",
-    "name": "ban-giao.png",
-    "mimeType": "image/png",
-    "sizeBytes": 1024,
-    "uploadedAt": "2026-11-20 10:00",
-    "uploadedBy": {
-      "userId": "USER_001",
-      "name": "Nguyễn Minh An"
-    }
+    "rating": 5,
+    "comment": null,
+    "id": "CUSTOMER_FEEDBACK_001",
+    "createdAtUtc": "2026-11-20T10:00:00Z"
   }
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: manager đọc đánh giá.",
+  "data": null,
+  "errorCode": "FEEDBACK_NOT_FOUND"
 }
 ```
 
-## F6-J27 — GET /driver/requests/{requestId}/aftercare/files/{fileId}
+## F6-J44 — GET /manager/flow6/settlements/{settlementId}/payments
 
-Tải bằng chứng có kiểm quyền. Vai trò: **DRIVER_ESCORT**.
+Manager đọc giao dịch số dư.
 
-File thuộc đúng Request và được chia sẻ với role. Token Bearer, binary đúng MIME. Driver chỉ file bàn giao mình có quyền; không thấy tài liệu tranh chấp. Không dùng URL công khai.
+**Quyền:** LOGISTICS_MANAGER
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `fileId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+**Điều kiện:** Tất cả attempt invoice FINAL_SETTLEMENT đúng Contract/version, gồm invoice cũ để đối soát. Chỉ đọc; không confirm/reject thủ công.
 
-Không gửi request body.
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Response 200: binary theo MIME file; `Content-Disposition: attachment`. Lỗi vẫn là JSON.
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
-
-```json
-{
-  "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
-}
-```
-
-## F6-J28 — POST /customer/requests/{requestId}/aftercare/files
-
-Tải bằng chứng thật cho đúng yêu cầu. Vai trò: **CUSTOMER**.
-
-PDF/JPEG/PNG 1 byte–10 MiB, kiểm bytes/MIME, malware và quyền. Driver chỉ chặng giao được phân công; cho upload trước handover. Client gửi đúng một file multipart, không URL/base64. Không tăng aftercare.version chỉ vì upload file chưa gắn.
-
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
-
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
-
-Request multipart: đúng một trường `file`, File thật PDF/JPEG/PNG, tối đa 10 MiB; không đặt boundary thủ công.
-
-Response 201:
+**Response 200 — Payment[]**
 
 ```json
 {
   "success": true,
-  "message": "Thành công",
-  "data": {
-    "id": "evidence_photo_001",
-    "requestId": "REQUEST_001",
-    "name": "ban-giao.png",
-    "mimeType": "image/png",
-    "sizeBytes": 1024,
-    "uploadedAt": "2026-11-20 10:00",
-    "uploadedBy": {
-      "userId": "USER_001",
-      "name": "Nguyễn Minh An"
+  "message": "Manager đọc giao dịch số dư thành công",
+  "data": [
+    {
+      "id": "PAYMENT_001",
+      "invoiceId": "INVOICE_001",
+      "amountVnd": 12000000,
+      "status": "PENDING_GATEWAY",
+      "financialReviewRequired": false
     }
-  }
+  ]
 }
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: manager đọc giao dịch số dư.",
+  "data": null,
+  "errorCode": "NOT_FOUND"
 }
 ```
 
-## F6-J29 — GET /customer/requests/{requestId}/aftercare/files/{fileId}
+## F6-J45 — GET /operations/flow6/revisions/{revisionId}/pdf
 
-Tải bằng chứng có kiểm quyền. Vai trò: **CUSTOMER**.
+Xuất PDF đúng bản biên bản.
 
-File thuộc đúng Request và được chia sẻ với role. Token Bearer, binary đúng MIME. Driver chỉ file bàn giao mình có quyền; không thấy tài liệu tranh chấp. Không dùng URL công khai.
+**Quyền:** DRIVER_ESCORT được gán DriverID hoặc EscortID trên TRIP_VEHICLE_ASSIGNMENT của Trip; không suy từ Specialist/Coordinator.
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `fileId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+**Điều kiện:** Chỉ revision AWAITING_OTP/CONFIRMED/REFUSED theo phân công; DRAFT chưa freeze trả 409. Render từ ContentSnapshot đúng bản, không từ item hiện tại.
 
-Không gửi request body.
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Response 200: binary theo MIME file; `Content-Disposition: attachment`. Lỗi vẫn là JSON.
+**Path parameters:** `revisionId=HANDOVER_REVISION_001`. ID chỉ ở URL, không lặp body.
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+**Response 200 — Binary**
 
-Mẫu lỗi 409 (không commit một phần):
+```http
+HTTP/1.1 200 OK
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="delivery.pdf"
+
+<bytes PDF sinh từ đúng snapshot>
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: xuất pdf đúng bản biên bản.",
+  "data": null,
+  "errorCode": "REVISION_NOT_FROZEN"
 }
 ```
 
-## F6-J30 — POST /manager/requests/{requestId}/aftercare/files
+## F6-J46 — GET /customer/flow6/settlements/{settlementId}/delivery/pdf
 
-Tải bằng chứng thật cho đúng yêu cầu. Vai trò: **LOGISTICS_MANAGER**.
+Customer tải biên bản đã nhận.
 
-PDF/JPEG/PNG 1 byte–10 MiB, kiểm bytes/MIME, malware và quyền. Driver chỉ chặng giao được phân công; cho upload trước handover. Client gửi đúng một file multipart, không URL/base64. Không tăng aftercare.version chỉ vì upload file chưa gắn.
+**Quyền:** CUSTOMER sở hữu settlement/Contract
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| header | `Idempotency-Key` | True | `{"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+**Điều kiện:** Chỉ DELIVERY CONFIRMED mà settlement liên kết, đúng owner. Render từ snapshot, không mở draft/OTP hash.
 
-Header: `Idempotency-Key: 1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd` (mỗi thao tác mới dùng key mới).
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Request multipart: đúng một trường `file`, File thật PDF/JPEG/PNG, tối đa 10 MiB; không đặt boundary thủ công.
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
 
-Response 201:
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-```json
-{
-  "success": true,
-  "message": "Thành công",
-  "data": {
-    "id": "evidence_photo_001",
-    "requestId": "REQUEST_001",
-    "name": "ban-giao.png",
-    "mimeType": "image/png",
-    "sizeBytes": 1024,
-    "uploadedAt": "2026-11-20 10:00",
-    "uploadedBy": {
-      "userId": "USER_001",
-      "name": "Nguyễn Minh An"
-    }
-  }
-}
+**Response 200 — Binary**
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="delivery.pdf"
+
+<bytes PDF sinh từ đúng snapshot>
 ```
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
-
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
-
-Mẫu lỗi 409 (không commit một phần):
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
+  "message": "Không thể thực hiện thao tác: customer tải biên bản đã nhận.",
+  "data": null,
+  "errorCode": "DELIVERY_NOT_CONFIRMED"
 }
 ```
 
-## F6-J31 — GET /manager/requests/{requestId}/aftercare/files/{fileId}
+## F6-J47 — GET /manager/flow6/settlements/{settlementId}/delivery/pdf
 
-Tải bằng chứng có kiểm quyền. Vai trò: **LOGISTICS_MANAGER**.
+Manager tải biên bản nghiệm thu.
 
-File thuộc đúng Request và được chia sẻ với role. Token Bearer, binary đúng MIME. Driver chỉ file bàn giao mình có quyền; không thấy tài liệu tranh chấp. Không dùng URL công khai.
+**Quyền:** LOGISTICS_MANAGER
 
-| Vị trí | Tên | Bắt buộc | Schema |
-|---|---|---|---|
-| path | `requestId` | True | `{"type": "string", "pattern": "^REQUEST_\\d{3,}$", "maxLength": 50}` |
-| path | `fileId` | True | `{"type": "string", "pattern": "^[A-Za-z0-9_-]{1,80}$"}` |
+**Điều kiện:** Chỉ DELIVERY CONFIRMED được settlement liên kết; chưa có trả 404. Không bịa URL storage hoặc PdfUrl không có SQL.
 
-Không gửi request body.
+**Ghi dữ liệu / retry:** Chỉ đọc, không tạo bản ghi hoặc đổi trạng thái.
 
-Response 200: binary theo MIME file; `Content-Disposition: attachment`. Lỗi vẫn là JSON.
+**Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
 
-Lỗi: 400 VALIDATION_ERROR; 401 UNAUTHENTICATED; 403 FORBIDDEN; 404 RESOURCE_NOT_FOUND; 409 theo guard/version; 429 RATE_LIMITED; 500 INTERNAL_ERROR; 501 FEATURE_NOT_SUPPORTED. Upload còn có 413 FILE_TOO_LARGE, 415 UNSUPPORTED_FILE_TYPE. Mẫu đầy đủ trong OpenAPI.
+**Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
-Mã 409: STATE_CONFLICT, STALE_VERSION, IDEMPOTENCY_CONFLICT, REQUEST_IN_PROGRESS.
+**Response 200 — Binary**
 
-Mẫu lỗi 409 (không commit một phần):
+```http
+HTTP/1.1 200 OK
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="delivery.pdf"
+
+<bytes PDF sinh từ đúng snapshot>
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 404**
 
 ```json
 {
   "success": false,
-  "message": "Thao tác bị chặn: STATE_CONFLICT",
-  "errorCode": "STATE_CONFLICT",
-  "data": null
-}
-```
-
-## Lỗi chung
-
-401 chưa đăng nhập; 403 sai role; 404 không thuộc phạm vi; 409 version/trạng thái không còn hợp lệ; 413 file quá lớn; 415 sai định dạng; 429 giới hạn; 501 chưa triển khai. Mã nghiệp vụ chi tiết ở FLOW6.md.
-
-```json
-{
-  "success": false,
-  "message": "Hồ sơ đã thay đổi, hãy tải lại trước khi xác nhận.",
-  "errorCode": "STALE_VERSION",
-  "data": null
+  "message": "Không thể thực hiện thao tác: manager tải biên bản nghiệm thu.",
+  "data": null,
+  "errorCode": "DELIVERY_NOT_CONFIRMED"
 }
 ```

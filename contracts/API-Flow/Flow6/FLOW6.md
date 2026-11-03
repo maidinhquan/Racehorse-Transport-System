@@ -1,5 +1,8 @@
 # Flow 6 — Bàn giao, nghiệm thu, thanh toán và giải quyết tranh chấp
 
+> **Lưu ý phiên bản:** Nội dung 1.1 bên dưới là thiết kế cũ `/aftercare`. Backend hiện tại dùng 47 API `/flow6`, OTP bàn giao và không có Customer nghiệm thu riêng. Xem [API backend hiện tại](FLOW6-API-JSON.md) và [hướng dẫn triển khai](../../../backend/docs/Flow6/README.md). Field mã biên bản giao cuối hiện dùng `deliveryHandoverId`.
+
+
 **Bản review 1.1.0 — 29/10/2026.** Giữ quy tắc Flow 6 ngày 26/10/2026, bổ sung điểm nối Flow 4–5, JSON lỗi tại từng API và kịch bản máy đọc. Quy tắc này thay thế phần Flow 6 cũ trong HTML, Flow 1 lịch sử và Operations. Đây là API contract đích và SDK gọi API frontend, **chưa có backend/DB triển khai, chưa nối các màn hình cũ và chưa kiểm thử thanh toán thật**.
 
 - [Toàn bộ endpoint, JSON gửi/nhận](FLOW6-API-JSON.md).
