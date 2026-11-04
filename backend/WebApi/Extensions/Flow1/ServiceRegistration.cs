@@ -38,16 +38,7 @@ public static class ServiceRegistration
         // Retired quote services must not force the old schema/context into the new module.
         services.RemoveAll<Application.Services.Flow1.TransportEstimateService>();
         services.RemoveAll<ICostRates>();
-        services.AddDbContext<RequestContext>(o =>
-            o.UseSqlServer(
-                connection,
-                sqlOptions => sqlOptions.EnableRetryOnFailure(
-                    maxRetryCount: 5,
-                    maxRetryDelay: TimeSpan.FromSeconds(30),
-                    errorNumbersToAdd: null
-                )
-            )
-        );
+        services.AddDbContext<RequestContext>(o => o.UseSqlServer(connection));
         services.AddScoped<IDataSession, SqlSession>();
         services.AddSingleton(new SchemaCheck(connection));
         services.AddScoped<ModuleReadiness>();
