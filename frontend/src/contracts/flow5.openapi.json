@@ -373,7 +373,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Mẫu mục tiêu sau lưu thành công, chưa xác nhận API đã triển khai.",
+            "description": "Danh sách sự cố của chuyến đi",
             "content": {
               "application/json": {
                 "schema": {
@@ -381,7 +381,7 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "const": true
+                      "example": true
                     },
                     "message": {
                       "type": "string",
@@ -390,23 +390,21 @@
                     "data": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/IncidentSummary"
-                      },
-                      "minItems": 0,
-                      "maxItems": 1000
+                        "anyOf": [
+                          {
+                            "$ref": "#/components/schemas/IncidentResponseDto"
+                          },
+                          {
+                            "$ref": "#/components/schemas/IncidentSummary"
+                          }
+                        ]
+                      }
                     }
                   },
                   "required": [
                     "success",
-                    "message",
                     "data"
-                  ],
-                  "additionalProperties": false
-                },
-                "example": {
-                  "success": true,
-                  "message": "OK",
-                  "data": []
+                  ]
                 }
               }
             }
@@ -687,8 +685,8 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "Mẫu mục tiêu sau lưu thành công, chưa xác nhận API đã triển khai.",
+          "200": {
+            "description": "Báo cáo sự cố thành công",
             "content": {
               "application/json": {
                 "schema": {
@@ -696,62 +694,61 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "const": true
+                      "example": true
                     },
                     "message": {
                       "type": "string",
-                      "example": "OK"
+                      "example": "Báo cáo sự cố thành công và đã thông báo tới Điều phối viên"
                     },
                     "data": {
-                      "$ref": "#/components/schemas/Mutation"
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/IncidentResponseDto"
+                        },
+                        {
+                          "$ref": "#/components/schemas/Mutation"
+                        }
+                      ]
                     }
                   },
                   "required": [
                     "success",
-                    "message",
                     "data"
-                  ],
-                  "additionalProperties": false
-                },
-                "example": {
-                  "success": true,
-                  "message": "OK",
-                  "data": {
-                    "binding": {
-                      "incidentVersion": 11,
-                      "recoveryVersion": null,
-                      "approvedPlanVersion": 1,
-                      "executionVersion": 11,
-                      "assignmentVersion": 1
+                  ]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Báo cáo sự cố thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
                     },
-                    "incident": {
-                      "id": "INCIDENT_001",
-                      "tripId": "TRIP_001",
-                      "requestId": "REQUEST_001",
-                      "category": "VEHICLE_RESOURCE",
-                      "status": "REPORTED",
-                      "scope": {
-                        "leg": "road",
-                        "horseIds": [],
-                        "milestoneIds": []
-                      },
-                      "description": "Xe không thể tiếp tục, tổ xe đang chăm sóc ngựa an toàn",
-                      "occurredAt": "2026-11-10 08:00",
-                      "reportedAt": "2026-11-10 08:00",
-                      "reportedBy": {
-                        "userId": "USER_006",
-                        "name": "Phạm Hải",
-                        "role": "FLEET_ROUTE_COORDINATOR",
-                        "crewDuty": null
-                      },
-                      "coordinatorId": "USER_006",
-                      "hasBlockingScope": true,
-                      "resolutionOutcome": null,
-                      "resolvedAt": null
+                    "message": {
+                      "type": "string",
+                      "example": "Báo cáo sự cố thành công và đã thông báo tới Điều phối viên"
                     },
-                    "recordId": "RECORD_001",
-                    "blockers": []
-                  }
+                    "data": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/IncidentResponseDto"
+                        },
+                        {
+                          "$ref": "#/components/schemas/Mutation"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1038,22 +1035,14 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReportInput"
-              },
-              "example": {
-                "tripId": "TRIP_001",
-                "expectedExecutionVersion": 11,
-                "category": "VEHICLE_RESOURCE",
-                "scope": {
-                  "leg": "road",
-                  "horseIds": [],
-                  "milestoneIds": []
-                },
-                "occurredAt": "2026-11-10 08:00",
-                "description": "Xe không thể tiếp tục, tổ xe đang chăm sóc ngựa an toàn",
-                "immediateCare": "",
-                "evidenceFileIds": [],
-                "healthLogIds": []
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReportIncidentInput"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ReportInput"
+                  }
+                ]
               }
             }
           }
@@ -1084,14 +1073,14 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Mẫu mục tiêu sau lưu thành công, chưa xác nhận API đã triển khai.",
+            "description": "Chi tiết sự cố",
             "content": {
               "application/json": {
                 "schema": {
@@ -1099,159 +1088,27 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "const": true
+                      "example": true
                     },
                     "message": {
                       "type": "string",
                       "example": "OK"
                     },
                     "data": {
-                      "$ref": "#/components/schemas/IncidentDetail"
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/IncidentResponseDto"
+                        },
+                        {
+                          "$ref": "#/components/schemas/IncidentDetail"
+                        }
+                      ]
                     }
                   },
                   "required": [
                     "success",
-                    "message",
                     "data"
-                  ],
-                  "additionalProperties": false
-                },
-                "example": {
-                  "success": true,
-                  "message": "OK",
-                  "data": {
-                    "binding": {
-                      "incidentVersion": 10,
-                      "recoveryVersion": null,
-                      "approvedPlanVersion": 1,
-                      "executionVersion": 11,
-                      "assignmentVersion": 1
-                    },
-                    "incident": {
-                      "id": "INCIDENT_001",
-                      "tripId": "TRIP_001",
-                      "requestId": "REQUEST_001",
-                      "category": "VEHICLE_RESOURCE",
-                      "status": "IN_PROGRESS",
-                      "scope": {
-                        "leg": "road",
-                        "horseIds": [],
-                        "milestoneIds": []
-                      },
-                      "description": "Xe không thể tiếp tục, tổ xe đang chăm sóc ngựa an toàn",
-                      "occurredAt": "2026-11-10 08:00",
-                      "reportedAt": "2026-11-10 08:00",
-                      "reportedBy": {
-                        "userId": "USER_006",
-                        "name": "Phạm Hải",
-                        "role": "FLEET_ROUTE_COORDINATOR",
-                        "crewDuty": null
-                      },
-                      "coordinatorId": "USER_006",
-                      "hasBlockingScope": true,
-                      "resolutionOutcome": null,
-                      "resolvedAt": null
-                    },
-                    "impacts": [
-                      {
-                        "area": "RESOURCES",
-                        "status": "AFFECTED",
-                        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
-                        "blockedMilestoneIds": [
-                          "MILESTONE_002"
-                        ],
-                        "blockedHorseIds": []
-                      },
-                      {
-                        "area": "SCHEDULE",
-                        "status": "NOT_AFFECTED",
-                        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
-                        "blockedMilestoneIds": [],
-                        "blockedHorseIds": []
-                      },
-                      {
-                        "area": "BOOKING",
-                        "status": "NOT_AFFECTED",
-                        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
-                        "blockedMilestoneIds": [],
-                        "blockedHorseIds": []
-                      },
-                      {
-                        "area": "DOCUMENTS",
-                        "status": "NOT_AFFECTED",
-                        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
-                        "blockedMilestoneIds": [],
-                        "blockedHorseIds": []
-                      },
-                      {
-                        "area": "INSURANCE",
-                        "status": "NOT_AFFECTED",
-                        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
-                        "blockedMilestoneIds": [],
-                        "blockedHorseIds": []
-                      },
-                      {
-                        "area": "HEALTH",
-                        "status": "NOT_AFFECTED",
-                        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
-                        "blockedMilestoneIds": [],
-                        "blockedHorseIds": []
-                      },
-                      {
-                        "area": "DELIVERY_DEADLINE",
-                        "status": "NOT_AFFECTED",
-                        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
-                        "blockedMilestoneIds": [],
-                        "blockedHorseIds": []
-                      },
-                      {
-                        "area": "INTERNAL_COST",
-                        "status": "NOT_AFFECTED",
-                        "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại",
-                        "blockedMilestoneIds": [],
-                        "blockedHorseIds": []
-                      }
-                    ],
-                    "tasks": [],
-                    "recovery": null,
-                    "readiness": {
-                      "binding": {
-                        "incidentVersion": 10,
-                        "recoveryVersion": null,
-                        "approvedPlanVersion": 1,
-                        "executionVersion": 11,
-                        "assignmentVersion": 1
-                      },
-                      "readinessVersion": "CHECK_001",
-                      "serverTime": "2026-11-10 08:00",
-                      "checks": [],
-                      "blockers": [],
-                      "canApplyRecovery": false,
-                      "canContinue": false,
-                      "canResolve": false,
-                      "blockedScopes": [
-                        {
-                          "leg": "road",
-                          "horseIds": [],
-                          "milestoneIds": []
-                        }
-                      ]
-                    },
-                    "complianceReviews": [],
-                    "vetAssessments": [],
-                    "externalActions": [],
-                    "actions": {
-                      "canAccept": false,
-                      "canAssessImpact": false,
-                      "canSubmitRecovery": false,
-                      "canDecideRecovery": false,
-                      "canApplyRecovery": false,
-                      "canContinue": false,
-                      "canResolve": false,
-                      "blockers": []
-                    },
-                    "evidenceFileIds": []
-                  }
+                  ]
                 }
               }
             }
@@ -1536,7 +1393,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Mẫu mục tiêu sau lưu thành công, chưa xác nhận API đã triển khai.",
+            "description": "Danh sách sự cố của chuyến đi",
             "content": {
               "application/json": {
                 "schema": {
@@ -1544,7 +1401,7 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "const": true
+                      "example": true
                     },
                     "message": {
                       "type": "string",
@@ -1553,23 +1410,21 @@
                     "data": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/IncidentSummary"
-                      },
-                      "minItems": 0,
-                      "maxItems": 1000
+                        "anyOf": [
+                          {
+                            "$ref": "#/components/schemas/IncidentResponseDto"
+                          },
+                          {
+                            "$ref": "#/components/schemas/IncidentSummary"
+                          }
+                        ]
+                      }
                     }
                   },
                   "required": [
                     "success",
-                    "message",
                     "data"
-                  ],
-                  "additionalProperties": false
-                },
-                "example": {
-                  "success": true,
-                  "message": "OK",
-                  "data": []
+                  ]
                 }
               }
             }
@@ -1826,16 +1681,11 @@
     "/coordinator/incidents/{incidentId}/accept": {
       "post": {
         "operationId": "F5-J06",
-        "summary": "Coordinator tiếp nhận sự cố",
-        "description": "REPORTED → IN_PROGRESS; ghi đầu mối và kế hoạch xử lý ban đầu. Không xóa blocker hoặc hoàn thành Trip.",
+        "summary": "Điều phối viên tiếp nhận sự cố",
+        "description": "Chuyển trạng thái REPORTED sang IN_PROGRESS và gán coordinatorId",
         "tags": [
           "FLEET_ROUTE_COORDINATOR"
         ],
-        "x-roles": [
-          "FLEET_ROUTE_COORDINATOR"
-        ],
-        "x-implementation-status": "DESIGNED_NOT_IMPLEMENTED",
-        "x-read-only": false,
         "parameters": [
           {
             "name": "incidentId",
@@ -1843,25 +1693,13 @@
             "required": true,
             "schema": {
               "type": "string",
-              "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
-              "maxLength": 50
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "example": "5141a4d2-3221-4a68-9b0e-1bac88cc1f0a",
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+              "example": "INC_20261103_AB12CD"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Mẫu mục tiêu sau lưu thành công, chưa xác nhận API đã triển khai.",
+            "description": "Tiếp nhận sự cố thành công",
             "content": {
               "application/json": {
                 "schema": {
@@ -1869,323 +1707,28 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "const": true
+                      "example": true
                     },
                     "message": {
                       "type": "string",
-                      "example": "OK"
+                      "example": "Điều phối viên đã tiếp nhận sự cố thành công"
                     },
                     "data": {
-                      "$ref": "#/components/schemas/Mutation"
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/IncidentResponseDto"
+                        },
+                        {
+                          "$ref": "#/components/schemas/Mutation"
+                        }
+                      ]
                     }
                   },
                   "required": [
                     "success",
-                    "message",
                     "data"
-                  ],
-                  "additionalProperties": false
-                },
-                "example": {
-                  "success": true,
-                  "message": "OK",
-                  "data": {
-                    "binding": {
-                      "incidentVersion": 11,
-                      "recoveryVersion": null,
-                      "approvedPlanVersion": 1,
-                      "executionVersion": 11,
-                      "assignmentVersion": 1
-                    },
-                    "incident": {
-                      "id": "INCIDENT_001",
-                      "tripId": "TRIP_001",
-                      "requestId": "REQUEST_001",
-                      "category": "VEHICLE_RESOURCE",
-                      "status": "IN_PROGRESS",
-                      "scope": {
-                        "leg": "road",
-                        "horseIds": [],
-                        "milestoneIds": []
-                      },
-                      "description": "Xe không thể tiếp tục, tổ xe đang chăm sóc ngựa an toàn",
-                      "occurredAt": "2026-11-10 08:00",
-                      "reportedAt": "2026-11-10 08:00",
-                      "reportedBy": {
-                        "userId": "USER_006",
-                        "name": "Phạm Hải",
-                        "role": "FLEET_ROUTE_COORDINATOR",
-                        "crewDuty": null
-                      },
-                      "coordinatorId": "USER_006",
-                      "hasBlockingScope": false,
-                      "resolutionOutcome": null,
-                      "resolvedAt": null
-                    },
-                    "recordId": "RECORD_001",
-                    "blockers": []
-                  }
+                  ]
                 }
-              }
-            }
-          },
-          "400": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "VALIDATION_ERROR": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: VALIDATION_ERROR",
-                      "errorCode": "VALIDATION_ERROR",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "VALIDATION_ERROR",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "UNAUTHENTICATED": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: UNAUTHENTICATED",
-                      "errorCode": "UNAUTHENTICATED",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "UNAUTHENTICATED",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "FORBIDDEN": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: FORBIDDEN",
-                      "errorCode": "FORBIDDEN",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "FORBIDDEN",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "NOT_FOUND": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: NOT_FOUND",
-                      "errorCode": "NOT_FOUND",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "NOT_FOUND",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "STALE_VERSION": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: STALE_VERSION",
-                      "errorCode": "STALE_VERSION",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "STALE_VERSION",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  },
-                  "IDEMPOTENCY_CONFLICT": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: IDEMPOTENCY_CONFLICT",
-                      "errorCode": "IDEMPOTENCY_CONFLICT",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "IDEMPOTENCY_CONFLICT",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  },
-                  "INCIDENT_STATE_INVALID": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: INCIDENT_STATE_INVALID",
-                      "errorCode": "INCIDENT_STATE_INVALID",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "INCIDENT_STATE_INVALID",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "RATE_LIMITED": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: RATE_LIMITED",
-                      "errorCode": "RATE_LIMITED",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "RATE_LIMITED",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "INTERNAL_ERROR": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: INTERNAL_ERROR",
-                      "errorCode": "INTERNAL_ERROR",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "INTERNAL_ERROR",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "FEATURE_NOT_SUPPORTED": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: FEATURE_NOT_SUPPORTED",
-                      "errorCode": "FEATURE_NOT_SUPPORTED",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "FEATURE_NOT_SUPPORTED",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/Command"
-              },
-              "example": {
-                "expectedVersion": 10,
-                "reason": "Cần bố trí nguồn lực thay thế phù hợp phần hành trình còn lại"
               }
             }
           }
@@ -2213,7 +1756,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -2675,7 +2218,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -3026,7 +2569,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           }
@@ -3341,7 +2884,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -3709,7 +3252,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           }
@@ -4026,7 +3569,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -4441,7 +3984,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           }
@@ -4883,7 +4426,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -5292,7 +4835,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           }
@@ -5632,7 +5175,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -6069,7 +5612,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -6496,7 +6039,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -6875,7 +6418,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           }
@@ -7190,7 +6733,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -7520,7 +7063,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -7908,7 +7451,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -8298,7 +7841,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -8739,7 +8282,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -9208,7 +8751,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           }
@@ -9534,7 +9077,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -9985,7 +9528,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -10399,7 +9942,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -11109,7 +10652,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           }
@@ -11435,7 +10978,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -11800,7 +11343,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -12213,7 +11756,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -12846,6 +12389,60 @@
               }
             }
           },
+          "413": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "FILE_TOO_LARGE": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: FILE_TOO_LARGE",
+                      "errorCode": "FILE_TOO_LARGE",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "FILE_TOO_LARGE",
+                          "field": "incident",
+                          "message": "Tải lại và xử lý điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Không commit một phần nghiệp vụ.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "UNSUPPORTED_MEDIA_TYPE": {
+                    "value": {
+                      "success": false,
+                      "message": "Không thể thực hiện: UNSUPPORTED_MEDIA_TYPE",
+                      "errorCode": "UNSUPPORTED_MEDIA_TYPE",
+                      "data": null,
+                      "blockers": [
+                        {
+                          "code": "UNSUPPORTED_MEDIA_TYPE",
+                          "field": "incident",
+                          "message": "Tải lại và xử lý điều kiện liên quan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
           "429": {
             "description": "Không commit một phần nghiệp vụ.",
             "content": {
@@ -12926,60 +12523,6 @@
                 }
               }
             }
-          },
-          "413": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "FILE_TOO_LARGE": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: FILE_TOO_LARGE",
-                      "errorCode": "FILE_TOO_LARGE",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "FILE_TOO_LARGE",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "415": {
-            "description": "Không commit một phần nghiệp vụ.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "examples": {
-                  "UNSUPPORTED_MEDIA_TYPE": {
-                    "value": {
-                      "success": false,
-                      "message": "Không thể thực hiện: UNSUPPORTED_MEDIA_TYPE",
-                      "errorCode": "UNSUPPORTED_MEDIA_TYPE",
-                      "data": null,
-                      "blockers": [
-                        {
-                          "code": "UNSUPPORTED_MEDIA_TYPE",
-                          "field": "incident",
-                          "message": "Tải lại và xử lý điều kiện liên quan"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
           }
         },
         "requestBody": {
@@ -13018,7 +12561,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -13354,7 +12897,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -13679,7 +13222,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -14077,7 +13620,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -14490,7 +14033,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -14908,7 +14451,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           }
@@ -15234,7 +14777,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           }
@@ -15549,7 +15092,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -15930,7 +15473,7 @@
             "schema": {
               "type": "string",
               "example": "INCIDENT_001",
-              "pattern": "^INCIDENT_\\d{3,}$",
+              "pattern": "^(INC|INCIDENT)_[A-Za-z0-9_-]+$",
               "maxLength": 50
             }
           },
@@ -16279,6 +15822,164 @@
               "example": {
                 "expectedVersion": 10,
                 "recoveryVersion": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "/driver/trips/{tripId}/incidents": {
+      "post": {
+        "operationId": "F5-J44",
+        "summary": "Tài xế báo cáo sự cố theo chuyến đi",
+        "description": "Tài xế gửi báo cáo sự cố hiện trường trực tiếp theo tripId",
+        "tags": [
+          "DRIVER_ESCORT"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "TRIP_001"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportIncidentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Báo cáo sự cố thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Báo cáo sự cố thành công và đã thông báo tới Điều phối viên"
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/IncidentResponseDto"
+                        },
+                        {
+                          "$ref": "#/components/schemas/Mutation"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Báo cáo sự cố thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Báo cáo sự cố thành công và đã thông báo tới Điều phối viên"
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/IncidentResponseDto"
+                        },
+                        {
+                          "$ref": "#/components/schemas/Mutation"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/{incidentId}/accept": {
+      "post": {
+        "operationId": "F5-J06-ALT",
+        "summary": "Điều phối viên tiếp nhận sự cố",
+        "description": "Chuyển trạng thái REPORTED sang IN_PROGRESS và gán coordinatorId",
+        "tags": [
+          "FLEET_ROUTE_COORDINATOR"
+        ],
+        "parameters": [
+          {
+            "name": "incidentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "INC_20261103_AB12CD"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tiếp nhận sự cố thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Điều phối viên đã tiếp nhận sự cố thành công"
+                    },
+                    "data": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/IncidentResponseDto"
+                        },
+                        {
+                          "$ref": "#/components/schemas/Mutation"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
               }
             }
           }
@@ -19606,6 +19307,151 @@
           "reason"
         ],
         "additionalProperties": false
+      },
+      "ReportIncidentInput": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "TRIP_001"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "VEHICLE_RESOURCE",
+              "DELAY_AIR",
+              "HORSE_HEALTH",
+              "OTHER"
+            ],
+            "example": "VEHICLE_RESOURCE"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Hỏng xe trên cao tốc, đã tấp vào làn khẩn cấp"
+          },
+          "immediateCare": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Đã kiểm tra ngựa trong khoang an toàn"
+          },
+          "locationCoordinates": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "10.7769,106.7009"
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "/uploads/incidents/img_001.jpg"
+          },
+          "occurredAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "2026-11-03T10:00:00Z"
+          }
+        },
+        "required": [
+          "category"
+        ]
+      },
+      "IncidentResponseDto": {
+        "type": "object",
+        "properties": {
+          "incidentId": {
+            "type": "string",
+            "example": "INC_20261103_AB12CD"
+          },
+          "tripId": {
+            "type": "string",
+            "example": "TRIP_001"
+          },
+          "category": {
+            "type": "string",
+            "example": "VEHICLE_RESOURCE"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REPORTED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "NEW"
+            ],
+            "example": "REPORTED"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Hỏng xe trên cao tốc"
+          },
+          "locationCoordinates": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "10.7769,106.7009"
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "/uploads/incidents/img_001.jpg"
+          },
+          "coordinatorId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "USER_002"
+          },
+          "reportedByUserId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "USER_001"
+          },
+          "reportedByUserName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Nguyễn Văn Hùng"
+          },
+          "reportedAt": {
+            "type": "string",
+            "example": "2026-11-03T10:00:00Z"
+          },
+          "safetyBlockerActive": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "incidentId",
+          "tripId",
+          "category",
+          "status",
+          "reportedAt",
+          "safetyBlockerActive"
+        ]
       }
     }
   },
