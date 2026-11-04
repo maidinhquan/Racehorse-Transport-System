@@ -62,7 +62,6 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
-builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
 
 // =============================================================================
 // 3. CẤU HÌNH CORS VĨNH VIỄN (ZERO-MAINTENANCE CORS CHO FRONTEND)
@@ -278,16 +277,13 @@ if (app.Environment.IsDevelopment())
         c.OrderByFlow();
         c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
         c.EnableFilter();
-        c.OrderByFlow();
-        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
-        c.EnableFilter();
     });
 }
 
 // Bật CORS cho Frontend trước Authentication và Authorization
 app.UseCors("AllowFrontend");
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
