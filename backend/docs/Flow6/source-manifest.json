@@ -1,0 +1,18 @@
+{
+  "baseCommit": "983c28e114a11339887a0157582858b09b3ef7b6",
+  "sources": {
+    "contracts/API-Flow/Flow6_MyDraft_2026-10-29/FLOW6.md": "6496206b1803f7a5e98d1821e36a8dc84e6f8e167dd36e9f21b3e61010408e9c",
+    "contracts/API-Flow/Flow6_MyDraft_2026-10-29/flow6.openapi.json": "c7f43c2e634b9ed3e19364985f64dc181f4004dec3feffd515887135d24e62a2",
+    "contracts/API-Flow/Flow6_MyDraft_2026-10-29/FLOW4_TO_FLOW6_HANDOFF.md": "91750b533b863ff06804f7aef834ed99845ad6bc3fb1bcc51542678bdd75ac6e",
+    "HorseTransportDB/HorseTransportDB_Reviewed.sql": "4ad61555be61d192227a091e30ae72c7576281d2cc34e4d521c119361e89e4b0",
+    "data/ID_NAME_RULE_Reviewed.md": "267302c0f80127563a52b6d6c9dc9ca46ca3b881e8cdf04d96603e070d382fd9",
+    "data/DATABASE_STATUS_CONVENTION.md": "cf1085a175b34410ee6f02367c60aae0e2a53c314b2d23283fa9590b9257bc9a"
+  },
+  "implementationDecisions": [
+    {
+      "date": "2026-11-02",
+      "decision": "No additional SQL tables or Redis. Process-local bounded replay cache and OTP rate limits; existing SQL revision timestamps/attempts and business constraints retained.",
+      "limitations": "Replay cache is lost on restart, may expire or be evicted, and is not atomic with SQL commit or shared between instances. See README.md."
+    }
+  ]
+}

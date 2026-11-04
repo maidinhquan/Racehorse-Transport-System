@@ -533,6 +533,17 @@ export const flow6Endpoints: Record<string, Flow6EndpointDefinition> = {
     pathParams: ["settlementId"],
     queryParams: [],
     hasRequestBody: false,
+  },
+  'F6-J48': {
+    operationId: 'F6-J48',
+    method: 'POST',
+    path: '/manager/flow6/payments/{paymentId}/review',
+    summary: "Manager duyệt đối soát thanh toán quá hạn VNPay",
+    tags: [],
+    requiresIdempotency: false,
+    pathParams: ["paymentId"],
+    queryParams: [],
+    hasRequestBody: true,
   }
 };
 

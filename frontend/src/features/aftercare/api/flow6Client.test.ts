@@ -61,7 +61,7 @@ describe('Flow 6 API Client', () => {
       horseIds: ['HORSE_001'],
       designatedReceiverName: 'Yuki Tanaka',
       designatedReceiverPhone: '+81312345678',
-      deliveryId: null,
+      deliveryHandoverId: null,
       warnings: [],
     };
 

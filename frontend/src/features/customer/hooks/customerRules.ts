@@ -672,9 +672,9 @@ export const DETAIL_TABS: Array<[RequestDetailTab, string]> = [
   ['tracking', 'Theo dõi'], ['handover', 'Bàn giao & nghiệm thu'], ['complaints', 'Khiếu nại'], ['history', 'Lịch sử'],
 ];
 export function tabVisible(r: TransportRequest, tab: RequestDetailTab) {
-  if (tab === 'tracking') return !!r.trip;
-  if (tab === 'handover') return !!handoverState(r.trip) || !!r.acceptance;
-  if (tab === 'complaints') return r.complaints.length > 0 || !!r.trip?.handover;
+  if (tab === 'tracking') return !!r.trip || ['IN_TRANSIT', 'DELIVERED', 'CLOSED'].includes(r.status);
+  if (tab === 'handover') return !!handoverState(r.trip) || !!r.acceptance || ['DELIVERED', 'CLOSED'].includes(r.status);
+  if (tab === 'complaints') return (r.complaints?.length ?? 0) > 0 || !!r.trip?.handover || ['DELIVERED', 'CLOSED'].includes(r.status);
   return true;
 }
 

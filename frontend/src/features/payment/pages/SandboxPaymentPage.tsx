@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { contractClient } from '../../../shared/api/contractClient'
+import { flow6Api } from '../../aftercare/api/flow6Api'
 import './SandboxPaymentPage.css'
 
 type Payment = { id: string; amount: number; status: string; responseCode?: string }
@@ -29,10 +30,47 @@ export default function SandboxPaymentPage() {
     async function load() {
       try {
         setChecking(true)
-        const paymentId = sessionStorage.getItem('last_deposit_payment_id')
+        const params = new URLSearchParams(location.search)
+        const vnpTxnRef = params.get('vnp_TxnRef') || ''
+        const f6Match = vnpTxnRef.match(/^F6PAYMENT([0-9]+)/)
+        const f1Match = vnpTxnRef.match(/^PAYMENT([0-9]+)/)
+        const refPaymentId = f6Match ? `PAYMENT_${f6Match[1]}` : f1Match ? `PAYMENT_${f1Match[1]}` : ''
+        const paymentId = sessionStorage.getItem('last_deposit_payment_id') || refPaymentId
+
         if (!paymentId) throw new Error('Không tìm thấy phiên thanh toán. Mở lại yêu cầu để kiểm tra trạng thái từ máy chủ.')
-        const dto = await contractClient<{ id: string; amount: number; status: string }>('get', `/customer/payments/${paymentId}`)
-        const result: Payment = { ...dto, status: dto.status === 'SUCCESS' ? 'Paid' : ['FAILED', 'REJECTED'].includes(dto.status) ? 'Failed' : 'Pending' }
+
+        // Chuyển tiếp query callback từ trình duyệt tới endpoint IPN để máy chủ xác thực chữ ký số và cập nhật DB khi test ở localhost
+        if (location.search.includes('vnp_SecureHash')) {
+          try {
+            await fetch(`/api/payments/vnpay/ipn${location.search}`)
+          } catch {
+            // Đã được xử lý hoặc ghi nhận
+          }
+        }
+
+        let dto: { id: string; amount: number; status: string; responseCode?: string }
+        if (vnpTxnRef.startsWith('F6PAYMENT')) {
+          try {
+            const f6 = await flow6Api.getCustomerPayment(paymentId)
+            dto = { id: f6.id, amount: f6.amountVnd, status: f6.status }
+          } catch {
+            dto = await contractClient<{ id: string; amount: number; status: string; responseCode?: string }>('get', `/customer/payments/${paymentId}`)
+          }
+        } else {
+          try {
+            dto = await contractClient<{ id: string; amount: number; status: string; responseCode?: string }>('get', `/customer/payments/${paymentId}`)
+          } catch {
+            const f6 = await flow6Api.getCustomerPayment(paymentId)
+            dto = { id: f6.id, amount: f6.amountVnd, status: f6.status }
+          }
+        }
+
+        const vnpResponseCode = params.get('vnp_ResponseCode')
+        if (vnpResponseCode && !dto.responseCode) {
+          dto.responseCode = vnpResponseCode
+        }
+
+        const result: Payment = { ...dto, status: ['Paid', 'SUCCESS'].includes(dto.status) ? 'Paid' : ['FAILED', 'REJECTED'].includes(dto.status) ? 'Failed' : 'Pending' }
         if (controller.signal.aborted) return
         setPayment(result)
         setError('')
@@ -82,9 +120,15 @@ export default function SandboxPaymentPage() {
         {checking && <p role="status">Đang chờ xác nhận giao dịch…</p>}
         {payment?.status === 'Pending' && !checking && <p>Chưa nhận được IPN. Kiểm tra URL IPN công khai đã đăng ký với VNPAY, rồi tải lại trang.</p>}
         <div style={{ marginTop: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <Link to="/customer/requests" style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
-            Quay về danh sách yêu cầu của tôi
-          </Link>
+          {sessionStorage.getItem('last_payment_request_id') ? (
+            <Link to={`/customer/requests/${sessionStorage.getItem('last_payment_request_id')}/handover`} style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+              Quay về yêu cầu {sessionStorage.getItem('last_payment_request_id')}
+            </Link>
+          ) : (
+            <Link to="/customer/requests" style={{ padding: '8px 16px', background: '#2563eb', color: '#fff', borderRadius: 6, textDecoration: 'none', fontWeight: 600 }}>
+              Quay về danh sách yêu cầu của tôi
+            </Link>
+          )}
           <Link to="/payment/sandbox" style={{ padding: '8px 16px', background: '#f1f5f9', color: '#334155', borderRadius: 6, textDecoration: 'none' }}>
             Thử giao dịch khác
           </Link>

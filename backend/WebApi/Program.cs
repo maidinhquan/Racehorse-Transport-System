@@ -14,6 +14,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using WebApi.Extensions;
 using WebApi.Extensions.Flow1;
+using WebApi.Extensions.Flow6;
 using WebApi.Middlewares;
 using WebApi.Realtime;
 
@@ -74,6 +75,7 @@ builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
 builder.Services.AddScoped<ISpecialistService, SpecialistService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
+builder.Services.AddFlow6Module(builder.Configuration, builder.Environment);
 
 // =============================================================================
 // 3. CẤU HÌNH CORS VĨNH VIỄN (ZERO-MAINTENANCE CORS CHO FRONTEND)

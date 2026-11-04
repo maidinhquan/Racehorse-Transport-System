@@ -6,6 +6,7 @@ import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadg
 import { RouteMap } from '../../components/RouteMap/RouteMap';
 import { DelayModal, MilestoneModal } from '../../components/Modals';
 import { useDriver } from '../../hooks/useDriver';
+import { getDemoMode } from '../../../../shared/context/DemoModeContext';
 import {
   CLEARANCE_LABEL,
   DELAY_LABEL,
@@ -86,10 +87,10 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
             </>
           )}
         </>
-      ) : handoverReady(trip) ? (
+      ) : (handoverReady(trip) || !getDemoMode('driver')) ? (
         <>
-          <div className="drv-note drv-note--blue"><Icon name="check" /><div><b>Đã đến điểm giao</b>Hoàn tất thủ tục bàn giao ngựa.</div></div>
-          <button type="button" className="drv-btn drv-btn--solid drv-btn--lg drv-btn--block" style={{ marginTop: 10 }} onClick={() => navigate(`/driver/trips/${trip.id}/handover`)}>Bắt đầu bàn giao</button>
+          <div className="drv-note drv-note--blue"><Icon name="check" /><div><b>Bàn giao ngựa (Flow 6)</b>Kiểm tra vi mạch, tạo biên bản và xác thực OTP.</div></div>
+          <button type="button" className="drv-btn drv-btn--solid drv-btn--lg drv-btn--block" style={{ marginTop: 10 }} onClick={() => navigate(`/driver/trips/${trip.id}/handover`)}>Bắt đầu bàn giao (Flow 6)</button>
         </>
       ) : (
         <p className="drv-hint">{trip.status === 'COMPLETED' ? 'Chuyến đã hoàn tất.' : trip.status === 'PLANNING' ? 'Chuyến chưa được Manager duyệt khởi hành.' : 'Không còn mốc cần ghi.'}</p>
@@ -158,7 +159,18 @@ const Journey: React.FC<{ trip: Trip }> = ({ trip }) => {
             {m ? ` • Cập nhật gần nhất: ${MILESTONE_LABEL[m.type]} ${fmtDateTime(m.at)}` : ''}
           </p>
         </div>
-        <button type="button" className="drv-btn" onClick={() => navigate(`/driver/trips/${trip.id}`)}>Thông tin chuyến đi →</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            type="button"
+            className="drv-btn drv-btn--solid"
+            onClick={() => navigate(`/driver/trips/${trip.id}/handover`)}
+          >
+            Thủ tục bàn giao (Flow 6) →
+          </button>
+          <button type="button" className="drv-btn" onClick={() => navigate(`/driver/trips/${trip.id}`)}>
+            Thông tin chuyến đi →
+          </button>
+        </div>
       </div>
 
       {trip.departureDelay && trip.departureDelay.status !== 'APPROVED' && (
@@ -211,6 +223,16 @@ export const JourneyPage: React.FC = () => {
   const { activeTrips, getTrip, loading } = useDriver();
   const picked = tripId ? getTrip(tripId) : activeTrips.length === 1 ? activeTrips[0] : undefined;
 
+  if (loading && !picked) {
+    return (
+      <DriverLayout title="Hành trình">
+        <div className="drv-card drv-empty">
+          <b>Đang tải dữ liệu chuyến từ máy chủ…</b>
+        </div>
+      </DriverLayout>
+    );
+  }
+
   if (picked && picked.status !== 'COMPLETED') {
     return <DriverLayout title="Hành trình"><Journey trip={picked} /></DriverLayout>;
   }
@@ -225,7 +247,7 @@ export const JourneyPage: React.FC = () => {
       </div>
       {activeTrips.length ? activeTrips.map((t) => (
         <TripHero key={t.id} trip={t} actions={<>
-          <button type="button" className="drv-btn drv-btn--solid drv-btn--lg" onClick={() => navigate(`/driver/journey/${t.id}`)}>Hành trình</button>
+          <button type="button" className="drv-btn drv-btn--solid drv-btn--lg" onClick={() => navigate(`/driver/trips/${t.id}/handover`)}>Thủ tục bàn giao (Flow 6)</button>
           <button type="button" className="drv-btn drv-btn--lg" onClick={() => navigate(`/driver/trips/${t.id}`)}>Chuyến đi</button>
         </>} />
       )) : (
