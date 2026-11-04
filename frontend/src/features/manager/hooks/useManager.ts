@@ -1205,11 +1205,17 @@ export async function refreshTripExecution(tripId: string): Promise<void> {
   const tracking = await flow4Api.getManagerTracking(tripId);
   if (!tracking.milestones.length) return;
   const { stops, milestones } = progressFromMilestones(tracking.milestones);
+  const DUTY: Record<string, string> = { MAIN_DRIVER: 'Tài xế chính', CO_DRIVER: 'Phụ lái', VETERINARIAN: 'Bác sĩ thú y' };
+  const crew: Array<[string, string]> = [];
+  tracking.legs.forEach((leg) => leg.crew.forEach((c) => { if (!crew.some(([, name]) => name === c.name)) crew.push([DUTY[c.duty] ?? c.duty, c.name]); }));
+  const plate = tracking.legs.find((leg) => leg.vehicle)?.vehicle;
+  const vehicle = plate ? `${plate.plateNumber} • ${plate.type}` : '';
   const cur = state.trips.find((t) => t.id === tripId);
   if (!cur) return;
   const sig = (s: unknown) => JSON.stringify(s);
-  if (sig(cur.milestones) === sig(milestones) && sig((cur.executionStops ?? []).map((s) => [s.name, s.lat, s.lng, s.plannedAt])) === sig(stops.map((s) => [s.name, s.lat, s.lng, s.plannedAt]))) return;
-  mutate((d) => { const x = tripIn(d, tripId); if (x) { x.executionStops = stops.map((s) => ({ name: s.name, plannedAt: s.plannedAt, lat: s.lat, lng: s.lng, type: s.type === 'FUEL_STOP' ? ('REST_STOP' as const) : s.type })); x.milestones = milestones; } });
+  if (sig(cur.milestones) === sig(milestones) && sig(cur.executionCrew ?? []) === sig(crew) && (cur.executionVehicle ?? '') === vehicle
+    && sig((cur.executionStops ?? []).map((s) => [s.name, s.lat, s.lng, s.plannedAt])) === sig(stops.map((s) => [s.name, s.lat, s.lng, s.plannedAt]))) return;
+  mutate((d) => { const x = tripIn(d, tripId); if (x) { x.executionStops = stops.map((s) => ({ name: s.name, plannedAt: s.plannedAt, lat: s.lat, lng: s.lng, type: s.type === 'FUEL_STOP' ? ('REST_STOP' as const) : s.type })); x.milestones = milestones; x.executionCrew = crew; x.executionVehicle = vehicle || undefined; } });
 }
 
 export function useManager() {

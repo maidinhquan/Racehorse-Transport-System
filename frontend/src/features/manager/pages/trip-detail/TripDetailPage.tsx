@@ -5,7 +5,7 @@ import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { BackLink, LockedCard } from '../../components/Common/Common';
 import { useManager } from '../../hooks/useManager';
 import { WorkflowHeader } from '../../components/WorkflowNav/WorkflowHeader';
-import { STAGE_KEYS, STAGE_LABELS, MODE_LABEL, fmtDateTime, isReady, tripStage, type StageKey } from '../../hooks/managerRules';
+import { STAGE_KEYS, STAGE_LABELS, MODE_LABEL, fmtDateTime, isReady, tripCrew, tripStage, tripVehicle, type StageKey } from '../../hooks/managerRules';
 import { AssignStage } from './stages/AssignStage';
 import { PrepareStage } from './stages/PrepareStage';
 import { DepartStage } from './stages/DepartStage';
@@ -49,6 +49,7 @@ export const TripDetailPage: React.FC = () => {
     return <Navigate to={`/manager/trips/${t.id}/${STAGE_KEYS[auto]}`} replace />;
   }
 
+  const vehicle = tripVehicle(t), crew = tripCrew(t);
   return (
     <ManagerLayout title="Chuyến đi">
       <WorkflowHeader request={r} trip={t} customer={customer(r)} current="trip" />
@@ -81,6 +82,8 @@ export const TripDetailPage: React.FC = () => {
             <div><dt>Đến dự kiến</dt><dd>{fmtDateTime(t.eta)}</dd></div>
             <div><dt>Phương thức vận chuyển</dt><dd>{t.mode ? MODE_LABEL[t.mode] : 'Chờ Coordinator lập phương án'}</dd></div>
             <div><dt>Số ngựa</dt><dd>{r.horses.length} ngựa</dd></div>
+            <div><dt>Xe (biển số)</dt><dd>{vehicle ? <><b>{vehicle.split(' • ')[0]}</b>{vehicle.includes(' • ') ? <div className="mgr-muted">{vehicle.split(' • ').slice(1).join(' • ')}</div> : null}</> : 'Chưa phân công'}</dd></div>
+            <div><dt>Tổ xe được giao</dt><dd>{crew.length ? crew.map(([role, name]) => <div key={role}>{name}<span className="mgr-muted"> • {role}</span></div>) : 'Chưa phân công'}</dd></div>
           </dl>
           <div className="mgr-td__summary-note"><b>Giai đoạn hiện tại</b><p>{STAGE_LABELS[auto]}</p></div>
         </aside>

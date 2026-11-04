@@ -354,6 +354,9 @@ export interface Trip {
   status: TripStatus;
   /** Lịch trình thực hiện (điểm dừng kèm tọa độ) từ Flow 4, cùng nguồn với tài xế và khách hàng */
   executionStops?: RouteStop[];
+  /** Tổ xe và xe được phân công theo Flow 4 (tên vai trò, tên người) */
+  executionCrew?: Array<[string, string]>;
+  executionVehicle?: string;
   deployment: {
     status: DeploymentStatus;
     specialistId?: string;

@@ -420,6 +420,11 @@ export type StageKey = (typeof STAGE_KEYS)[number];
 export const STAGE_LABELS = ['Phân công', 'Chuẩn bị', 'Duyệt khởi hành', 'Vận chuyển'];
 
 /** Danh sách mốc theo thứ tự cần xác nhận */
+/** Tổ xe của chuyến: ưu tiên phân công thật (Flow 4), nếu chưa có thì lấy theo phương án của Điều phối */
+export const tripCrew = (t: Trip): Array<[string, string]> => (t.executionCrew?.length ? t.executionCrew : t.route?.crew ?? []);
+/** Xe của chuyến dạng "biển số • loại xe" */
+export const tripVehicle = (t: Trip): string => t.executionVehicle || t.route?.vehicle || '';
+
 /** Điểm dừng của lịch trình: ưu tiên lịch thực hiện Flow 4 (mỗi điểm một mốc), nếu chưa có thì dùng phương án tuyến */
 export const tripStops = (t: Trip) => (t.executionStops?.length ? t.executionStops : t.route?.stops ?? []);
 
