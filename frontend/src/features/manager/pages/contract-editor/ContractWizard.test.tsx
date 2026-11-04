@@ -67,6 +67,15 @@ describe('contract transport mode', () => {
     expect(screen.queryByRole('option', { name: 'Đường bộ' })).not.toBeInTheDocument();
   });
 
+  it('keeps the editor usable when an older server omits supportedRoutes', async () => {
+    const data = editor('ROAD');
+    data.defaults = { ...data.defaults, supportedRoutes: undefined as never };
+    vi.mocked(managerApi.getContractEditor).mockResolvedValue(data);
+    render(<ContractWizard request={request} horses={[]} onSave={vi.fn()} onIssue={vi.fn()} />);
+    expect(await screen.findByLabelText('Phương thức vận chuyển *')).toHaveValue('ROAD');
+    expect(screen.getByRole('option', { name: 'Đường bộ' })).toBeInTheDocument();
+  });
+
   it('ignores a late policy response after switching back to the previous mode', async () => {
     let resolvePolicy!: (data: ContractEditorData) => void;
     vi.mocked(managerApi.getContractEditor).mockResolvedValueOnce(editor())

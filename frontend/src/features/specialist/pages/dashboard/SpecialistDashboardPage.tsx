@@ -5,7 +5,7 @@ import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadg
 import { MiniProgress } from '../../components/Common/Common';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
-import { CUSTOMER_DOC_NAME, docEffective, fmtDate, fmtDateTime, horseName, shortName, tripTotals, typeName } from '../../hooks/specialistRules';
+import { CUSTOMER_DOC_NAME, countryName, docEffective, fmtDate, fmtDateTime, horseName, shortName, tripTotals, typeName } from '../../hooks/specialistRules';
 import './SpecialistDashboardPage.css';
 
 type Alert = { tone: 'bad' | 'warn' | 'info'; title: string; sub: string; to: string };
@@ -18,7 +18,7 @@ export const SpecialistDashboardPage: React.FC = () => {
 
   const alerts: Alert[] = [];
   trips.filter((t) => t.deployment === 'NOT_CONFIRMED').forEach((t) => alerts.push({ tone: 'info', title: `${t.id} chờ Manager giao`, sub: `${t.requestId} • khởi hành ${fmtDateTime(t.plannedDepart)}`, to: `/specialist/trips/${t.id}` }));
-  trips.filter((t) => t.deployment === 'CONFIRMED' && t.status === 'PLANNING' && !t.reqSet).forEach((t) => alerts.push({ tone: 'warn', title: `${t.id}: chưa áp dụng bộ yêu cầu hồ sơ`, sub: `${t.origin} → ${t.destination}`, to: `/specialist/trips/${t.id}` }));
+  trips.filter((t) => t.deployment === 'CONFIRMED' && t.status === 'PLANNING' && !t.reqSet).forEach((t) => alerts.push({ tone: 'bad', title: `${t.id}: Giấy tờ đi đến ${countryName(t.destCountry)} chưa có`, sub: `${t.origin} → ${t.destination} • Vui lòng tạo bộ yêu cầu hồ sơ`, to: '/specialist/regulations/sets' }));
   customerDocs.filter((d) => d.status === 'SUBMITTED' && trips.find((t) => t.id === d.tripId || t.id.replace(/-/g, '_') === d.tripId.replace(/-/g, '_'))?.deployment === 'CONFIRMED').forEach((d) => {
     const t = trips.find((x) => x.id === d.tripId || x.id.replace(/-/g, '_') === d.tripId.replace(/-/g, '_'));
     if (t) {
@@ -36,11 +36,15 @@ export const SpecialistDashboardPage: React.FC = () => {
     </button>
   );
 
+  const storedName = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null)
+    || (typeof localStorage !== 'undefined' ? localStorage.getItem('userFullName') : null);
+  const firstName = (storedName ? storedName.split('(')[0].trim().split(' ').pop() : 'Hà') || 'Hà';
+
   return (
     <SpecialistLayout title="Tổng quan">
       <div className="spc-head">
         <div>
-          <h2 className="spc-title">Xin chào, Hà</h2>
+          <h2 className="spc-title">Xin chào, {firstName}</h2>
           <p className="spc-subtitle">Yêu cầu pháp lý và hồ sơ của mọi chuyến đã được giao.</p>
         </div>
       </div>

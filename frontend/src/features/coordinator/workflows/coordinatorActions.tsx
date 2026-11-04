@@ -4,12 +4,15 @@
 // ============================================================================
 import { Chk, Field, Icon, Inp, Sel, Txt } from '../components/common/ui';
 import { DateInput, DateTimeInput } from '../components/forms/DateTime';
-import { ACTIVE_TRIP, approvedRoute, canPlan, changeEta, crewConflict, crewOf, curRoute, editableF3, emp, fleetCountry, GROUND_ROLE_KEYS, groundCanEdit, groundCountry, groundLegEndDate, groundLegs, groundServiceArea, handoverState, holdText, horseCountError, isDriver, isVet, lastMilestone, nextMilestone, opsBlock, placeById, recordGroundChange, reqOfTrip, resourceGaps, routeState, staffError, trip, tripHorses, tripLabel, tripPersonnelIds, tripStops, tripVehicleIds, tripWindow, vehicle, vehicleAccessIssue, vehicleConflict } from '../domain/coordinatorRules';
+import { ACTIVE_TRIP, approvedRoute, canPlan, changeEta, crewConflict, crewOf, crewGaps, curRoute, resourceLockMsg, routeApproved, emp, fleetCountry, GROUND_ROLE_KEYS, groundCanEdit, groundCountry, groundLegEndDate, groundLegs, groundServiceArea, handoverState, holdText, horseCountError, isDriver, isVet, lastMilestone, nextMilestone, opsBlock, placeById, recordGroundChange, reqOfTrip, resourceGaps, routeState, staffError, trip, tripHorses, tripLabel, tripPersonnelIds, tripStops, tripVehicleIds, tripWindow, vehicle, vehicleAccessIssue, vehicleConflict } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
-import { audit, commit, confirmAction, db, go, me, nextId, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
+import { audit, autoConfirmIfApproved, commit, confirmAction, db, demoOn, go, me, nextId, notify, nowStamp, openModal, saveVehiclesToStorage, toast, ui } from '../store/coordinatorStore';
 import { addHours, city, cityLabel, date, dt, human, MILESTONE_LABEL, MS_VI } from '../utils/format';
 import { approveAirPlan, submitAirPlan } from './airOperations';
 import { resourceSignature, ROUTE_POLICY, RP, rpCalc, rpEnsure, rpRoute, rpRouteKey, rpState, rpWriteTimes, stop, submitRoadRoute } from './routePlanner';
+import { flow3Api } from '../api/flow3Api';
+import { apiClient } from '../../../shared/api/apiClient';
+import { saveSharedTrip } from '../../../shared/utils/sharedTrips';
 
 const DEMO_MGR = ['Linh Pham', 'LOGISTICS_MANAGER'];
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -18,7 +21,7 @@ const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 export function vehicleAssign(id: string, vid: string) {
   const t = trip(id), v = vehicle(vid);
   if (!t || !v || t.mode === 'AIR') return toast('Đối với chuyến bay, hãy phân xe riêng trong từng chặng sân bay.');
-  const check = () => (!editableF3(t) ? 'Tạo phiên bản tuyến nháp trước khi đổi xe.'
+  const check = () => (!groundCanEdit(t) ? resourceLockMsg(t)
     : v.status !== 'READY' || v.stalls < Math.max(tripHorses(t).length, reqOfTrip(t).count || 0) || fleetCountry(v) !== city(reqOfTrip(t).origin)[1] || vehicleConflict(v, t) ? 'Xe không phù hợp quốc gia, sức chứa, trạng thái hoặc lịch phân công.' : '');
   const err = check(); if (err) return toast(err);
   const ai = vehicleAccessIssue(t, v, 'pickup') || vehicleAccessIssue(t, v, 'delivery'); if (ai) return toast(ai);
@@ -29,7 +32,7 @@ export function vehicleAssign(id: string, vid: string) {
 }
 export function crewSave(id: string, pick: Record<string, string>) {
   const t = trip(id); if (!t || t.mode === 'AIR') return toast('Vui lòng phân công từng chặng sân bay và bác sĩ chặng bay.');
-  if (!editableF3(t)) return toast('Tạo phiên bản tuyến nháp trước khi thay nhân sự.');
+  if (!groundCanEdit(t)) return toast(resourceLockMsg(t));
   const keys = ['MAIN_DRIVER', 'CO_DRIVER', 'VETERINARIAN'], ids = keys.map((k) => pick[k] || '');
   if (new Set(ids).size !== ids.length) return toast('Ba vị trí cần ba người khác nhau.');
   for (let i = 0; i < keys.length; i++) { const e = staffError(emp(ids[i]), t, keys[i], true); if (e) return toast(e); }
@@ -43,7 +46,7 @@ export function crewSave(id: string, pick: Record<string, string>) {
 // ---------- xe & nhân sự (hai chặng đường bộ của chuyến AIR) ----------
 export function groundVehicleSet(id: string, leg: string, vid: string) {
   const t = trip(id);
-  if (!t || t.mode !== 'AIR' || !['outbound', 'inbound'].includes(leg) || !groundCanEdit(t)) return toast('Không thể sửa nguồn lực của tuyến đã gửi hoặc đã duyệt. Hãy tạo phiên bản tuyến mới.');
+  if (!t || t.mode !== 'AIR' || !['outbound', 'inbound'].includes(leg) || !groundCanEdit(t)) return toast(resourceLockMsg(t));
   const v = vehicle(vid), c = groundCountry(t, leg), r = reqOfTrip(t), area = leg === 'outbound' ? r.origin : r.destination;
   const old = groundLegs(t)[leg], other = groundLegs(t)[leg === 'outbound' ? 'inbound' : 'outbound'];
   if (!v || fleetCountry(v) !== c || !groundServiceArea(v, c, area) || v.status !== 'READY' || v.stalls < tripHorses(t).length || vehicleConflict(v, t) || other.vehicleId === v.id) return toast('Xe không đáp ứng quốc gia/khu vực, sức chứa, tình trạng hoặc lịch phân công.');
@@ -56,7 +59,7 @@ export function groundVehicleSet(id: string, leg: string, vid: string) {
 }
 export function groundCrewSave(id: string, leg: string, ids: string[]) {
   const t = trip(id);
-  if (!t || t.mode !== 'AIR' || !['outbound', 'inbound'].includes(leg) || !groundCanEdit(t)) return toast('Không thể sửa nguồn lực đã duyệt/chờ duyệt. Hãy tạo phiên bản tuyến mới.');
+  if (!t || t.mode !== 'AIR' || !['outbound', 'inbound'].includes(leg) || !groundCanEdit(t)) return toast(resourceLockMsg(t));
   const c = groundCountry(t, leg), r = reqOfTrip(t), area = leg === 'outbound' ? r.origin : r.destination;
   const staff = ids.map((x) => emp(x)), end = groundLegEndDate(t, leg);
   if (ids.some((x) => !x) || staff.some((x) => !x) || new Set(ids).size !== 3) return toast('Phải chọn đủ ba nhân sự khác nhau cho chặng này.');
@@ -76,16 +79,13 @@ export function groundCrewSave(id: string, leg: string, ids: string[]) {
 export function resourceConfirm(id: string) {
   const t = trip(id); if (!t) return toast('Không tìm thấy Trip.');
   const block = opsBlock(t); if (block) return toast(block);
-  if (!canPlan(t)) return toast('Chỉ xác nhận xe và nhân sự khi Trip đang chuẩn bị.');
+  if (!canPlan(t) || !routeApproved(t)) return toast('Chỉ xác nhận nguồn lực sau khi tuyến được duyệt.');
   const gaps = resourceGaps(t); if (gaps.length) return toast('Chưa đủ điều kiện: ' + gaps.join(', '));
   confirmAction('Xác nhận đã bố trí xe và nhân sự?', 'Coordinator xác nhận các phương tiện, nhân sự và vé bay (nếu có) đã sẵn sàng. Manager sẽ kiểm tra trước khi duyệt khởi hành.', 'Xác nhận bố trí', () => {
-    if (opsBlock(t) || resourceGaps(t).length || !canPlan(t)) { toast('Điều kiện chuẩn bị đã thay đổi; kiểm tra lại.'); return; }
+    if (opsBlock(t) || resourceGaps(t).length || !canPlan(t) || !routeApproved(t)) { toast('Điều kiện chuẩn bị đã thay đổi; kiểm tra lại.'); return; }
     t.resourcesConfirmed = { at: nowStamp(), by: me().name, vehicleId: t.vehicleId, crew: { ...(t.crew || {}) } };
     const accepted = curRoute(t);
-    if (accepted?.status === 'APPROVED' && accepted.resourceSnapshot && accepted.resourceSnapshot.signature !== resourceSignature(t)) {
-      t.routes.push({ v: accepted.v + 1, status: 'PENDING_APPROVAL', submittedAt: nowStamp(), decidedAt: null, note: 'Xe/nhân sự thay đổi sau duyệt; đề nghị Manager duyệt lại gói phương án.', stops: accepted.stops.map((s: Any) => ({ ...s })) });
-      notify('LOGISTICS_MANAGER', `Thay đổi xe/nhân sự của ${id}`, 'Coordinator đã xác nhận lại nguồn lực. Cần duyệt phiên bản tuyến mới.', `m/trip/${id}/route`);
-    }
+    void flow3Api.confirmResources(id, { expectedVersion: 0, planVersion: accepted?.v || 1 }, `rc-${id}-${Date.now()}`).catch(() => {});
     audit('Coordinator confirmed resources', id, 'Vehicle and crew confirmed');
     notify('LOGISTICS_MANAGER', `Xe và nhân sự ${id} đã xác nhận`, 'Coordinator đã hoàn thành bố trí, kiểm tra toàn bộ điều kiện để duyệt khởi hành.', `m/trip/${id}/prepare`);
     toast('Đã xác nhận xe và nhân sự.');
@@ -95,17 +95,33 @@ export function resourceConfirm(id: string) {
 // ---------- gửi tuyến cho Manager duyệt ----------
 export function routeSubmit(id: string) {
   const t = trip(id); if (!t) return;
+  if (!t.mode) return toast('Hợp đồng chưa ghi phương thức vận chuyển. Vui lòng liên hệ Manager.');
   const ce = horseCountError(reqOfTrip(t)); if (ce) return toast(ce);
+  const cg = crewGaps(t); if (cg.length) return toast('Phân công đủ xe và nhân sự trước khi gửi: ' + cg.join(', ') + '.');
   if (t.mode === 'AIR') return submitAirPlan(id);
   if (t.demoFlow3) {
     const rt = curRoute(t);
     if (!rt || rt.status !== 'DRAFT') return toast('Chỉ Điều phối gửi bản nháp.');
-    if (!t.resourcesConfirmed || resourceGaps(t).length) return toast('Xác nhận đủ xe và nhân sự trước khi gửi.');
-    const sig = resourceSignature(t);
-    return submitRoadRoute(id, () => (!t.resourcesConfirmed || resourceGaps(t).length || resourceSignature(t) !== sig ? 'Nguồn lực đã thay đổi; xác nhận và gửi lại.' : ''),
-      () => { rt.resourceProposal = { at: nowStamp(), vehicleId: t.vehicleId, crew: clone(t.crew), signature: sig, demoFlow3: true }; });
+    return submitRoadRoute(id);
   }
   return submitRoadRoute(id);
+}
+
+/** Hủy gửi: đưa phiên bản đang chờ Manager duyệt về bản nháp (cả trên backend) để chỉnh và gửi lại. */
+export function routeWithdraw(id: string) {
+  const t = trip(id), rt = t && curRoute(t);
+  if (!rt || rt.status !== 'PENDING_APPROVAL') return toast('Chỉ hủy gửi được tuyến đang chờ Manager duyệt.');
+  confirmAction(`Hủy gửi tuyến ${t.id} v${rt.v}?`, 'Tuyến quay về bản nháp; Manager sẽ không còn thấy phương án này cho đến khi gửi lại.', 'Hủy gửi', () => {
+    if (rt.status !== 'PENDING_APPROVAL') { toast('Manager đã xử lý phương án này.'); return; }
+    rt.status = 'DRAFT'; rt.submittedAt = null;
+    if (t.flight && t.flight.status === 'BUDGET_PENDING') t.flight.status = 'DRAFT';
+    saveSharedTrip(t);
+    void apiClient.post(`/coordinator/trips/${encodeURIComponent(t.id)}/plan/withdraw`, { expectedVersion: 0, reason: 'Điều phối hủy gửi để chỉnh sửa' }, { headers: { 'Idempotency-Key': `wd-${t.id}-${Date.now()}` } })
+      .catch((e) => { if (!demoOn()) toast('Chưa hủy được trên máy chủ: ' + (e?.response?.data?.message || e?.message || 'lỗi kết nối')); });
+    notify('LOGISTICS_MANAGER', `Điều phối đã hủy gửi tuyến ${t.id}`, `v${rt.v} quay về bản nháp`, `m/trip/${t.id}/route`);
+    audit('Withdrew route submission', t.id, `Version ${rt.v}`);
+    toast(`Đã hủy gửi. Tuyến v${rt.v} quay về bản nháp.`);
+  });
 }
 
 // ---------- theo dõi hành trình ----------
@@ -143,7 +159,6 @@ export function scheduleAlert(id: string) {
       <div className="field"><label>Gửi tới</label><div className="al-to">
         <Chk name="m">Quản lý vận hành</Chk><Chk name="s">Chuyên viên vận chuyển</Chk><Chk name="d">Tổ xe (tài xế / thú y)</Chk><Chk name="c">Khách hàng</Chk>
       </div></div>
-      <p className="hint">Điều chỉnh lịch do nguyên nhân bên ngoài không cần Manager duyệt. Nếu cần đổi tuyến, đổi xe hoặc phát sinh chi phí, hãy báo cáo sự cố và đề xuất phương án.</p>
     </>),
     onOk: (v) => {
       const delay = Number(v.delay), msg = String(v.msg).trim(), to = ['m', 's', 'd', 'c'].filter((k) => v[k]);
@@ -208,22 +223,22 @@ export function manualSteps(t: Any) {
 const handover = handoverState;
 
 // ---------- đội xe ----------
-export function vehicleStatusModal(vid: string) {
-  const v = vehicle(vid), busy = db.trips.find((t: Any) => tripVehicleIds(t).includes(vid) && ACTIVE_TRIP.includes(t.status));
-  openModal({
-    title: `Đổi trạng thái của ${v.plate}`, ok: 'Lưu', init: { st: v.status, note: v.note || '' },
-    body: () => (<>
-      <Field label="Trạng thái *"><Sel name="st" options={['READY', 'MAINTENANCE', 'INACTIVE'].map((x) => [x, human(x)] as [string, string])} /></Field>
-      <Field label="Ghi chú"><Inp name="note" /></Field>
-      {busy ? <div className="note yellow"><Icon name="alert" /><div><b>Đã phân cho {busy.id}</b>Chuyển sang ngừng hoạt động sẽ đánh dấu chuyến đó cần xe mới.</div></div> : null}
-    </>),
-    onOk: (x) => { v.status = x.st; v.note = x.note; audit('Changed vehicle status', v.plate, human(v.status)); toast('Đã lưu trạng thái xe.'); },
-  });
-}
-export function equipmentAdd() {
+export function vehicleEdit(vid?: string) {
+  const v = vid ? vehicle(vid) : null;
   const bases = db.cities.filter((c: Any) => ['VN', 'JP'].includes(c[1])).map((c: Any) => [c[0], cityLabel(c[0])] as [string, string]);
   openModal({
-    title: 'Thêm phương tiện chuyên dụng', ok: 'Thêm', init: { kind: 'TRUCK', code: '', stalls: '2', model: '', base: bases[0]?.[0] || '', status: 'READY', next: '', feat: '' },
+    title: v ? `Chỉnh sửa phương tiện • ${v.plate}` : 'Thêm phương tiện chuyên dụng',
+    ok: v ? 'Lưu thay đổi' : 'Thêm',
+    init: {
+      kind: 'TRUCK',
+      code: v?.plate || '',
+      stalls: String(v?.stalls || '2'),
+      model: v?.model || '',
+      base: v?.base || bases[0]?.[0] || 'Ho Chi Minh City',
+      status: v?.status || 'READY',
+      next: v?.nextService && v.nextService !== '—' ? v.nextService : '',
+      feat: v?.features && v.features !== '—' ? v.features : '',
+    },
     body: () => (<>
       <Field label="Loại *"><Sel name="kind" options={[['TRUCK', 'Xe tải chở ngựa']]} /></Field>
       <div className="form-grid"><Field label="Biển số / mã *"><Inp name="code" /></Field><Field label="Số ô (stalls) *"><Inp name="stalls" type="number" min="1" max="8" /></Field></div>
@@ -231,15 +246,120 @@ export function equipmentAdd() {
       <div className="form-grid"><Field label="Căn cứ *"><Sel name="base" options={bases} /></Field><Field label="Trạng thái *"><Sel name="status" options={[['READY', 'Sẵn sàng'], ['MAINTENANCE', 'Bảo dưỡng'], ['INACTIVE', 'Ngừng sử dụng']]} /></Field></div>
       <div className="form-grid"><Field label="Hạn kiểm định / bảo dưỡng"><div><DateInput name="next" /></div></Field><Field label="Trang bị"><Inp name="feat" /></Field></div>
     </>),
-    onOk: (v) => {
-      const code = String(v.code).trim(), model = String(v.model).trim(), stalls = Number(v.stalls);
-      if (code.length < 3 || model.length < 3) return 'Nhập biển số/mã và model.';
+    onOk: (val) => {
+      const code = String(val.code || '').trim(), model = String(val.model || '').trim(), stalls = Number(val.stalls);
+      if (code.length < 2 || model.length < 2) return 'Vui lòng nhập biển số/mã và model.';
       if (!(stalls >= 1 && stalls <= 8)) return 'Số ô từ 1 đến 8.';
-      if (db.vehicles.some((x: Any) => x.plate === code)) return 'Biển số/mã này đã có trong danh sách.';
-      const SPEC: Record<number, Any> = { 2: { heightM: 3.4, widthM: 2.4, lengthM: 8.5, grossT: 11 }, 3: { heightM: 3.6, widthM: 2.5, lengthM: 10, grossT: 15 }, 4: { heightM: 3.8, widthM: 2.5, lengthM: 12, grossT: 18 }, 6: { heightM: 4, widthM: 2.5, lengthM: 16.5, grossT: 26 } };
-      db.vehicles.push({ id: nextId('VH'), plate: code, model, stalls, status: v.status, base: v.base, country: city(v.base)[1], nextService: v.next || '—', odometer: 0, features: v.feat || '—', spec: { ...(SPEC[stalls] || SPEC[stalls >= 6 ? 6 : stalls >= 4 ? 4 : 2]) } });
-      audit('Added transport equipment', code, `Xe tải chở ngựa • ${model}`); toast(`Đã thêm ${code}.`);
+      const dup = db.vehicles.find((x: Any) => x !== v && String(x.plate || '').trim().toLowerCase() === code.toLowerCase());
+      if (dup) return `Biển số/mã “${code}” đã có trong danh sách.`;
+
+      const SPEC: Record<number, Any> = {
+        1: { heightM: 3.2, widthM: 2.2, lengthM: 7.0, grossT: 8 },
+        2: { heightM: 3.4, widthM: 2.4, lengthM: 8.5, grossT: 11 },
+        3: { heightM: 3.6, widthM: 2.5, lengthM: 10, grossT: 15 },
+        4: { heightM: 3.8, widthM: 2.5, lengthM: 12, grossT: 18 },
+        6: { heightM: 4.0, widthM: 2.5, lengthM: 16.5, grossT: 26 },
+        8: { heightM: 4.0, widthM: 2.5, lengthM: 18.0, grossT: 32 },
+      };
+
+      const now = nowStamp();
+      const nowMs = Date.now();
+      const data = {
+        plate: code,
+        model,
+        stalls,
+        status: val.status,
+        base: val.base,
+        country: city(val.base)[1] || 'VN',
+        nextService: val.next || '—',
+        features: val.feat || 'Xe chuyên dụng chở ngựa',
+        updatedAt: now,
+        lastModified: nowMs,
+        spec: { ...(SPEC[stalls] || SPEC[stalls >= 6 ? 6 : stalls >= 4 ? 4 : 2]) },
+      };
+
+      let savedVehicle: Any;
+      if (v) {
+        Object.assign(v, data);
+        const idx = db.vehicles.indexOf(v);
+        if (idx > -1) {
+          db.vehicles.splice(idx, 1);
+        }
+        db.vehicles.unshift(v);
+        savedVehicle = v;
+      } else {
+        savedVehicle = Object.assign({
+          id: nextId('VH'),
+          odometer: 0,
+          sample: false,
+        }, data);
+        db.vehicles.unshift(savedVehicle);
+      }
+
+      saveVehiclesToStorage(db.vehicles);
+
+      if (ui?.t?.['f-fleet']) {
+        ui.t['f-fleet'].q = '';
+        ui.t['f-fleet'].f = {};
+        ui.t['f-fleet'].sort = null;
+        ui.t['f-fleet'].page = 1;
+      }
+      ui.lastSavedVehicleId = savedVehicle.id;
+
+      commit();
+      audit(v ? 'Updated transport equipment' : 'Added transport equipment', code, `Xe tải chở ngựa • ${model}`);
+      toast(v ? `Đã lưu thông tin xe ${code} và đưa lên đầu danh sách.` : `Đã thêm xe ${code} vào đầu danh sách.`);
     },
+  });
+}
+
+export const equipmentAdd = () => vehicleEdit('');
+
+export function vehicleStatusModal(vid: string) {
+  const v = vehicle(vid), busy = db.trips.find((t: Any) => tripVehicleIds(t).includes(vid) && ACTIVE_TRIP.includes(t.status));
+  openModal({
+    title: `Đổi trạng thái của ${v.plate}`, ok: 'Lưu', init: { st: v.status, note: v.note || '' },
+    body: () => (<>
+      <Field label="Trạng thái *"><Sel name="st" options={['READY', 'MAINTENANCE', 'INACTIVE'].map((x) => [x, human(x)] as [string, string])} /></Field>
+      <Field label="Ghi chú"><Inp name="note" /></Field>
+      {busy ? <div className="note yellow"><Icon name="alert" /><div><b>Đã phân cho ${busy.id}</b>Chuyển sang ngừng hoạt động sẽ đánh dấu chuyến đó cần xe mới.</div></div> : null}
+    </>),
+    onOk: (x) => {
+      v.status = x.st;
+      v.note = x.note;
+      v.updatedAt = nowStamp();
+      v.lastModified = Date.now();
+      const idx = db.vehicles.indexOf(v);
+      if (idx > -1) {
+        db.vehicles.splice(idx, 1);
+        db.vehicles.unshift(v);
+      }
+      saveVehiclesToStorage(db.vehicles);
+      if (ui?.t?.['f-fleet']) {
+        ui.t['f-fleet'].sort = null;
+        ui.t['f-fleet'].page = 1;
+      }
+      ui.lastSavedVehicleId = v.id;
+      commit();
+      audit('Changed vehicle status', v.plate, human(v.status));
+      toast(`Đã lưu trạng thái xe ${v.plate}.`);
+    },
+  });
+}
+
+export function vehicleDelete(vid: string) {
+  const v = vehicle(vid);
+  if (!v) return;
+  const isUsed = db.trips.some((t: Any) => tripVehicleIds(t).includes(v.id) && ACTIVE_TRIP.includes(t.status));
+  if (isUsed) return toast('Xe đang được phân công cho chuyến – chỉ có thể đổi sang Bảo dưỡng hoặc Ngừng sử dụng.');
+  confirmAction(`Xóa xe ${v.plate}?`, 'Phương tiện chưa được gắn vào chuyến nào đang hoạt động.', 'Xóa', () => {
+    const idx = db.vehicles.indexOf(v);
+    if (idx > -1) {
+      db.vehicles.splice(idx, 1);
+      saveVehiclesToStorage(db.vehicles);
+      commit();
+      toast(`Đã xóa xe ${v.plate}.`);
+    }
   });
 }
 // ---------- nhân sự ----------
@@ -282,7 +402,7 @@ function demoApprove(t: Any) {
   const rt = curRoute(t);
   if (t.mode === 'AIR') approveAirPlan(t, DEMO_MGR[0]);
   else rt.resourceSnapshot = { at: nowStamp(), signature: resourceSignature(t) };
-  rt.status = 'APPROVED'; rt.decidedAt = nowStamp(); rt.decidedBy = DEMO_MGR[0]; rt.note = 'Quản lý đã duyệt.';
+  rt.status = 'APPROVED'; rt.decidedAt = nowStamp(); rt.decidedBy = DEMO_MGR[0]; rt.note = 'Quản lý đã duyệt.'; autoConfirmIfApproved(t);
   notify('FLEET_COORDINATOR', `Tuyến ${t.id} v${rt.v} đã được duyệt`, '', `f/trip/${t.id}`);
   db.audit.unshift({ at: nowStamp(), actor: DEMO_MGR[0], role: DEMO_MGR[1], action: 'Approved route', entity: t.id, detail: `Version ${rt.v} (demo)` });
 }

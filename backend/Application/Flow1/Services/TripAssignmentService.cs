@@ -12,7 +12,11 @@ public sealed class TripAssignmentService(IDataSession data, AccessService acces
         var trips = await data.ListAsync<Trip>(t => true, ct);
         var ids = trips.Select(t => t.RequestID).ToArray();
         var requests = (await data.ListAsync<TransportRequest>(r => ids.Contains(r.RequestID), ct)).ToDictionary(r => r.RequestID);
-        return trips.Select(t => View(t, requests.GetValueOrDefault(t.RequestID))).ToArray();
+        var records = await HorseRecordsAsync(ids, ct);
+        var tripIds = trips.Select(t => t.TripID).ToArray();
+        var policies = await data.ListAsync<TripInsuranceRecord>(i => tripIds.Contains(i.TripID), ct);
+        return trips.Select(t => View(t, requests.GetValueOrDefault(t.RequestID), Readiness(records.Where(r => r.RequestID == t.RequestID)),
+            InsuranceStatus(policies.Where(i => i.TripID == t.TripID)))).ToArray();
     }
     public async Task<object> DetailAsync(string actor, string id, CancellationToken ct)
     {
@@ -66,10 +70,30 @@ public sealed class TripAssignmentService(IDataSession data, AccessService acces
         trip.DeploymentBy = actor; trip.DeploymentAtUtc = clock.GetUtcNow().UtcDateTime;
         return await ViewAsync(trip, token);
     }, ct);
-    private async Task<object> ViewAsync(Trip trip, CancellationToken ct) => View(trip, await data.FindAsync<TransportRequest>(ct, trip.RequestID));
-    public static object View(Trip trip, TransportRequest? request = null) => new { id = trip.TripID, tripId = trip.TripID, requestId = trip.RequestID, tripStatus = trip.Status,
+    private async Task<object> ViewAsync(Trip trip, CancellationToken ct) => View(trip, await data.FindAsync<TransportRequest>(ct, trip.RequestID),
+        Readiness(await HorseRecordsAsync(new[] { trip.RequestID }, ct)),
+        InsuranceStatus(await data.ListAsync<TripInsuranceRecord>(i => i.TripID == trip.TripID, ct)));
+    /// <summary>VERIFIED khi hợp đồng bảo hiểm mới nhất đã được Specialist xác minh; PENDING khi đã có nhưng chưa xác minh; MISSING khi chưa có.</summary>
+    private static string InsuranceStatus(IEnumerable<TripInsuranceRecord> policies) =>
+        policies.OrderByDescending(i => i.CreatedAtUtc).FirstOrDefault()?.Status switch { null => "MISSING", "VERIFIED" => "VERIFIED", _ => "PENDING" };
+    /// <summary>Giấy tờ của từng ngựa trong đơn (bản ghi cấp chuyến không gắn ngựa nên không tính ở đây).</summary>
+    private async Task<List<MedicalRecord>> HorseRecordsAsync(string[] requestIds, CancellationToken ct)
+    {
+        var horseIds = (await data.ListAsync<RequestHorse>(x => requestIds.Contains(x.RequestID), ct)).Select(x => x.HorseID).Distinct().ToArray();
+        if (horseIds.Length == 0) return [];
+        return await data.ListAsync<MedicalRecord>(x => requestIds.Contains(x.RequestID) && horseIds.Contains(x.HorseID), ct);
+    }
+    /// <summary>Khi Specialist đã xác nhận Docs READY thì coi toàn bộ hồ sơ hợp lệ (xác nhận này là nguồn đúng, tự hết hiệu lực nếu hồ sơ đổi). Số giấy tờ đã duyệt / tổng số giấy tờ của đơn (mỗi loại giấy tờ theo từng ngựa tính một lần, đạt khi có bản ghi APPROVED và không còn bản ghi cần nộp lại; bản SUBMITTED trùng cũ không tính).</summary>
+    private static (int Ready, int Total) Readiness(IEnumerable<MedicalRecord> records)
+    {
+        var groups = records.GroupBy(r => (r.HorseID ?? "", r.DocumentType ?? "")).ToList();
+        return (groups.Count(g => g.Any(r => r.DocumentStatus == "APPROVED") && g.All(r => r.DocumentStatus != "ACTION_REQUIRED")), groups.Count);
+    }
+    public static object View(Trip trip, TransportRequest? request = null, (int Ready, int Total)? docs = null, string insurance = "MISSING") => new { id = trip.TripID, tripId = trip.TripID, requestId = trip.RequestID, tripStatus = trip.Status,
         status = trip.Status, mode = request?.TransportType, plannedDepart = request?.ExpectedDate?.ToString("yyyy-MM-dd HH:mm"),
         eta = request?.CommittedDeadline?.ToString("yyyy-MM-dd HH:mm"),
         deployment = new { status = trip.DeploymentStatus ?? "NOT_CONFIRMED", eventId = trip.HandoffEventId, reason = trip.DeploymentReason, at = trip.DeploymentAtUtc },
-        specialistId = trip.AssignedSpecialistId, coordinatorId = trip.AssignedCoordinatorId };
+        specialistId = trip.AssignedSpecialistId, coordinatorId = trip.AssignedCoordinatorId,
+        readiness = new { docsReady = trip.DocsReadyAtUtc.HasValue ? Math.Max(docs?.Total ?? 0, docs?.Ready ?? 0) : docs?.Ready ?? 0,
+            docsTotal = docs?.Total ?? 0, quarantineOk = trip.DocsReadyAtUtc.HasValue, docsReadyAt = trip.DocsReadyAtUtc?.ToString("yyyy-MM-dd HH:mm"), insurance } };
 }

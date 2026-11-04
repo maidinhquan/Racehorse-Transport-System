@@ -1,6 +1,8 @@
 # Flow 6 — JSON Request / Response
 
-> Sinh từ build_openapi.py, không sửa ví dụ độc lập. FLOW6.md quy định nghiệp vụ; schema quyết định required/nullable/giới hạn.
+> Cập nhật theo backend Flow 6 đang triển khai: 47 API `/operations/flow6`, `/customer/flow6`, `/manager/flow6`. Thay danh sách 31 API `/aftercare` của bản 1.1 cũ. [OpenAPI backend](../../../backend/docs/Flow6/openapi.json) và [hướng dẫn triển khai](../../../backend/docs/Flow6/README.md) là nguồn đối chiếu. Các ví dụ là snapshot độc lập; không phải dữ liệu thật đã được tạo trên máy của bạn.
+>
+> File `build_contract.py`, `flow6.openapi.json`, `flow6.examples.json`, `REVIEW.md` và nội dung 1.1 của `FLOW6.md` trong folder này hiện vẫn thuộc thiết kế cũ; không chạy bộ sinh cũ để ghi đè bộ API backend hiện tại. Frontend cũ chưa được cập nhật trong thay đổi này.
 
 | ID | Method | Path sau /api | Tác dụng |
 |---|---|---|---|
@@ -51,6 +53,7 @@
 | F6-J45 | GET | `/operations/flow6/revisions/{revisionId}/pdf` | Xuất PDF đúng bản biên bản |
 | F6-J46 | GET | `/customer/flow6/settlements/{settlementId}/delivery/pdf` | Customer tải biên bản đã nhận |
 | F6-J47 | GET | `/manager/flow6/settlements/{settlementId}/delivery/pdf` | Manager tải biên bản nghiệm thu |
+| F6-J48 | POST | `/manager/flow6/payments/{paymentId}/review` | Manager duyệt đối soát thanh toán quá hạn |
 
 ## F6-J01 — GET /operations/flow6/trips
 
@@ -105,6 +108,15 @@ Danh sách chuyến giao nhận.
 
 **Request:** Không gửi body; không gửi {} hoặc null thay thế.
 
+**Tên field biên bản giao nhận:**
+
+| Field | Ý nghĩa |
+|---|---|
+| `pickupHandoverIds` | Danh sách mã HANDOVER loại PICKUP đã xác nhận ở đầu chuyến |
+| `deliveryHandoverId` | Mã HANDOVER loại DELIVERY của chuyến; null nếu chưa tạo, có mã chưa đồng nghĩa đã xác nhận giao xong |
+
+`deliveryHandoverId` thay tên cũ `deliveryId`. Giá trị là `HANDOVER.HandoverID`, không phải TripID hoặc revisionId; không đổi cột database.
+
 **Response 200 — Context**
 
 ```json
@@ -127,7 +139,7 @@ Danh sách chuyến giao nhận.
     ],
     "designatedReceiverName": "Yuki Tanaka",
     "designatedReceiverPhone": "+81312345678",
-    "deliveryId": null,
+    "deliveryHandoverId": null,
     "warnings": []
   }
 }
@@ -677,7 +689,7 @@ Lập bản giao lại.
 
 **Điều kiện:** Latest REFUSED, Trip IN_TRANSIT. Không tạo version mới sau DELIVERY confirmed.
 
-**Ghi dữ liệu / retry:** Giữ REFUSED; insert revision số kế tiếp DRAFT TRƯỚC khi sửa ITEM để thỏa trigger. Cùng transaction đồng bộ content và Handover DRAFT. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Module idempotency bền vững phải lưu kết quả trước trả response; chưa tích hợp thì 501, không giả bảo đảm retry. BE chụp tên và chip từng ngựa vào content.items.identity; request chỉ có horseId/kết quả kiểm, không nhận identity do FE tự cấp.
+**Ghi dữ liệu / retry:** Giữ REFUSED; insert revision số kế tiếp DRAFT TRƯỚC khi sửa ITEM để thỏa trigger. Cùng transaction đồng bộ content và Handover DRAFT. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Bản backend hiện tại không thêm bảng/Redis: kết quả được nhớ sau commit trong một tiến trình tối đa 24 giờ, có thể mất sớm do cache đầy hoặc backend khởi động lại. Không bảo đảm chống trùng xuyên tiến trình/khởi động lại. BE chụp tên và chip từng ngựa vào content.items.identity; request chỉ có horseId/kết quả kiểm, không nhận identity do FE tự cấp.
 
 **Path parameters:** `handoverId=HANDOVER_001`. ID chỉ ở URL, không lặp body.
 
@@ -1095,7 +1107,7 @@ Manager xác nhận điều chỉnh.
 
 **Điều kiện:** Không CLOSED; phải có final invoice hiện hành trước khi quyết định mọi adjustment. CHARGE/DISCOUNT chỉ AWAITING_PAYMENT và invoice nguồn chưa thu/không attempt chưa kết luận; REFUND có thể SETTLED nhưng nguồn đã thu đủ khoản. Nguồn phải đúng Trip/Contract/version. Không refund cọc hoặc tự biến Incident.AdditionalCost thành nợ.
 
-**Ghi dữ liệu / retry:** CreatedBy=DecidedBy từ token, giờ server; OriginalInvoiceID=current final invoice luôn có. Khoản bất biến, không Status/Bearer. REFUND khởi tạo REQUESTED; CHARGE/DISCOUNT chưa áp khi AdjustedInvoiceID null. Chặn tạo payment-session/tất toán đến khi đã áp các khoản này. Không sửa signed Contract. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Module idempotency bền vững phải lưu kết quả trước trả response; chưa tích hợp thì 501, không giả bảo đảm retry.
+**Ghi dữ liệu / retry:** CreatedBy=DecidedBy từ token, giờ server; OriginalInvoiceID=current final invoice luôn có. Khoản bất biến, không Status/Bearer. REFUND khởi tạo REQUESTED; CHARGE/DISCOUNT chưa áp khi AdjustedInvoiceID null. Chặn tạo payment-session/tất toán đến khi đã áp các khoản này. Không sửa signed Contract. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Bản backend hiện tại không thêm bảng/Redis: kết quả được nhớ sau commit trong một tiến trình tối đa 24 giờ, có thể mất sớm do cache đầy hoặc backend khởi động lại. Không bảo đảm chống trùng xuyên tiến trình/khởi động lại.
 
 **Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
 
@@ -1552,7 +1564,7 @@ Gửi khiếu nại/hỗ trợ.
 
 **Điều kiện:** COMPLAINT sau DELIVERY trước CLOSED; còn nợ/chưa có window vẫn gửi được; nếu có window thì phải trước hạn. SUPPORT được tạo sau CLOSED, không mở lại.
 
-**Ghi dữ liệu / retry:** Khóa settlement cùng close/reset; OPEN. Complaint chặn đóng nhưng không sửa payment. Không chat/accept-result. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Module idempotency bền vững phải lưu kết quả trước trả response; chưa tích hợp thì 501, không giả bảo đảm retry.
+**Ghi dữ liệu / retry:** Khóa settlement cùng close/reset; OPEN. Complaint chặn đóng nhưng không sửa payment. Không chat/accept-result. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Bản backend hiện tại không thêm bảng/Redis: kết quả được nhớ sau commit trong một tiến trình tối đa 24 giờ, có thể mất sớm do cache đầy hoặc backend khởi động lại. Không bảo đảm chống trùng xuyên tiến trình/khởi động lại.
 
 **Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
 
@@ -1797,7 +1809,7 @@ Gửi đánh giá thông thường.
 
 **Điều kiện:** SETTLED, server now trong window, một feedback/settlement theo unique kể cả reset. Rating không complaint.
 
-**Ghi dữ liệu / retry:** Insert rating/comment và giờ server. Không chặn đóng/reset. Đã có trả 409 FEEDBACK_EXISTS. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Module idempotency bền vững phải lưu kết quả trước trả response; chưa tích hợp thì 501, không giả bảo đảm retry.
+**Ghi dữ liệu / retry:** Insert rating/comment và giờ server. Không chặn đóng/reset. Đã có trả 409 FEEDBACK_EXISTS. Header Idempotency-Key bắt buộc: cùng key/actor/operation và cùng payload trả bản ghi đã tạo; cùng key khác payload trả 409 IDEMPOTENCY_CONFLICT. Bản backend hiện tại không thêm bảng/Redis: kết quả được nhớ sau commit trong một tiến trình tối đa 24 giờ, có thể mất sớm do cache đầy hoặc backend khởi động lại. Không bảo đảm chống trùng xuyên tiến trình/khởi động lại.
 
 **Path parameters:** `settlementId=SETTLEMENT_001`. ID chỉ ở URL, không lặp body.
 
@@ -1930,7 +1942,7 @@ Mở lại window sau khiếu nại/tiền.
 
 **Quyền:** LOGISTICS_MANAGER
 
-**Điều kiện:** SETTLED, hết window, không complaint mở/pending refund/adjustment/review/nợ. Nếu complaint resolved sau starts thì reset trước, không đóng.
+**Điều kiện:** SETTLED, không có complaint mở/pending refund/adjustment/review/nợ. Manager có quyền chủ động bấm đóng bất kỳ lúc nào mà không bị chặn bởi thời hạn feedback window. Nếu Manager không đóng thủ công, hệ thống sẽ tự động quét và đóng sau khi hết 24 giờ.
 
 **Ghi dữ liệu / retry:** Khóa cùng case/payment; CLOSED + ClosedAt, Request/Contract CLOSED. Trip COMPLETED/version SIGNED. Retry giữ mốc cũ. Worker tự đóng dùng cùng service guard, không public cron endpoint.
 
@@ -2422,5 +2434,52 @@ Content-Disposition: attachment; filename="delivery.pdf"
   "message": "Không thể thực hiện thao tác: manager tải biên bản nghiệm thu.",
   "data": null,
   "errorCode": "DELIVERY_NOT_CONFIRMED"
+}
+```
+
+## F6-J48 — POST /manager/flow6/payments/{paymentId}/review
+
+Manager duyệt đối soát thanh toán quá hạn hoặc cần kiểm tra tài chính.
+
+**Quyền:** LOGISTICS_MANAGER
+
+**Điều kiện:** Payment phải ở trạng thái `SUCCESS` và đang có cờ `financialReviewRequired = true`. Cần nhập lý do đối soát (`reason`).
+
+**Ghi dữ liệu / retry:** Ghi nhận `financialReviewRequired = false`, lưu `financialReviewReason`, `financialReviewedBy` (ID Manager duyệt), `financialReviewedAtUtc` (thời điểm duyệt). Cho phép settlement tiếp tục bước tất toán (`F6-J26`).
+
+**Path parameters:** `paymentId=PAYMENT_007`. ID chỉ ở URL, không lặp body.
+
+**Request:** JSON `ReasonInput`
+
+```json
+{
+  "reason": "Đã kiểm tra sao kê ngân hàng khớp 87 triệu VND"
+}
+```
+
+**Response 200 — Payment**
+
+```json
+{
+  "success": true,
+  "message": "Manager duyệt đối soát thanh toán quá hạn thành công",
+  "data": {
+    "id": "PAYMENT_007",
+    "invoiceId": "INVOICE_008",
+    "amountVnd": 87000000,
+    "status": "SUCCESS",
+    "financialReviewRequired": false
+  }
+}
+```
+
+**Lỗi nghiệp vụ tiêu biểu — HTTP 409**
+
+```json
+{
+  "success": false,
+  "message": "Không thể thực hiện thao tác: manager duyệt đối soát thanh toán quá hạn.",
+  "data": null,
+  "errorCode": "FINANCIAL_REVIEW_NOT_ELIGIBLE"
 }
 ```

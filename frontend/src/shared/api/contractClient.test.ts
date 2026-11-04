@@ -145,17 +145,19 @@ describe('current Flow 1 request boundaries', () => {
     expect(body).not.toHaveProperty('color'); expect(body).not.toHaveProperty('fluDate'); expect(body).not.toHaveProperty('vetName');
     expect(request.mock.calls[1][0]?.url).toBe('/customer/horses/HORSE_001/files/value-proof');
   });
-  it('does not send medical files to an endpoint absent from the backend', async () => {
+  it('sends health and vaccination files to the request document endpoint', async () => {
     const file = new File(['medical'], 'health.pdf', { type: 'application/pdf' });
-    await expect(customerApi.uploadDocument('REQUEST_001', 'health', 'HORSE_001', { name: file.name, file })).rejects.toThrow('không có');
-    expect(request).not.toHaveBeenCalled();
+    request.mockResolvedValueOnce({ status: 201, data: { success: true, message: 'OK', data: { recordId: 'LMR_AB12CD34', key: 'health', scope: 'HORSE_001', status: 'SUBMITTED', file: { name: 'health.pdf', url: '/api/customer/requests/REQUEST_001/documents/LMR_AB12CD34' } } } });
+    await customerApi.uploadDocument('REQUEST_001', 'health', 'HORSE_001', { name: file.name, file });
+    expect(request.mock.calls[0][0]?.url).toBe('/customer/requests/REQUEST_001/horses/HORSE_001/documents');
+    expect((request.mock.calls[0][0]?.data as FormData).get('documentType')).toBe('HEALTH_CERTIFICATE');
   });
   it('blocks invalid multipart fields, photo PDF files and unsupported fileType routes', async () => {
     const data = new FormData(); data.set('file', new File(['pdf'], 'photo.pdf', { type: 'application/pdf' }));
     await expect(contractClient('post', '/customer/horses/HORSE_001/files/photo', data)).rejects.toThrow('JPEG');
     await expect(contractClient('post', '/customer/horses/HORSE_001/files/flu', data)).rejects.toThrow('fileType');
     data.set('documentType', 'HEALTH_CERTIFICATE'); data.set('undeclared', 'x');
-    await expect(contractClient('post', '/customer/requests/REQUEST_001/horses/HORSE_001/documents', data)).rejects.toThrow('không có');
+    await expect(contractClient('post', '/customer/requests/REQUEST_001/horses/HORSE_001/documents', data)).rejects.toThrow('additional properties');
     expect(request).not.toHaveBeenCalled();
   });
 });

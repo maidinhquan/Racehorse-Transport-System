@@ -1,0 +1,12 @@
+.mgr-map-wrap { margin-bottom: 14px; }
+.mgr-map { height: 340px; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; background: #f1f5f9; z-index: 0; }
+.mgr-map--empty { display: flex; align-items: center; justify-content: center; height: 120px; color: #64748b; font-size: 13px; }
+.mgr-map-pin span { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(15, 23, 42, .35); }
+.mgr-map-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: #64748b; }
+.mgr-map-legend i { display: inline-block; width: 22px; height: 0; margin-right: 6px; vertical-align: middle; }
+.mgr-map-legend i.road { border-top: 4px solid #2563eb; }
+.mgr-map-legend i.air { border-top: 2px dashed #ea580c; }
+.mgr-map-warn { color: #b45309; }
+.mgr-stop--btn { width: 100%; text-align: left; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.mgr-stop--btn:hover b, .mgr-stop--btn.on b { color: #ea580c; }
+@media (max-width: 640px) { .mgr-map { height: 260px; } }

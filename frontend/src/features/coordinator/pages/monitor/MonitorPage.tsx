@@ -1,11 +1,11 @@
 // Giám sát hành trình: chuyến đang chạy / chờ xuất phát và chuyến đang lập kế hoạch được giao cho Điều phối
-import type { MouseEvent } from 'react';
+import { useEffect, type MouseEvent } from 'react';
 import { Empty, Icon, Pill, PillT } from '../../components/common/ui';
 import { EmptyPlanLaunch } from '../../components/demo/Demo';
 import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
 import { agoText, coordTrips, deployed, healthFlag, horse, hoursSince, lastMilestone, legHolds, livePos, planPill, planState, reqOfTrip, resourceGaps, resourcePill, routePill, STALE_H, tripHorses, tripStops } from '../../domain/coordinatorRules';
 import type { Any } from '../../store/coordinatorStore';
-import { db, go, nowStamp, useCoordinatorStore } from '../../store/coordinatorStore';
+import { db, go, nowStamp, syncCoordinatorTrips, useCoordinatorStore } from '../../store/coordinatorStore';
 import { cityLabel, dt, human, MILESTONE_LABEL, MS_VI, stampMs, STOP_COLOR } from '../../utils/format';
 import { ALERT_CAUSE } from '../../workflows/coordinatorActions';
 
@@ -37,7 +37,7 @@ function MonitorCard({ t }: { t: Any }) {
   const to = `f/trip/${t.id}/progress`;
   return (
     <a className={`card mon-card mon-summary ${stale || inc.length ? 'warn' : ''}`} href={`/coordinator/trips/${t.id}/progress`} onClick={(e) => open(e, to)} aria-label={`Mở chi tiết hành trình ${t.id}`}>
-      <div className="between"><div className="mon-open"><b className="mon-id">{t.id}</b> <Pill v={t.status} /><span className="muted">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • {human(t.mode)} • {tripHorses(t).length} ngựa</span></div>
+      <div className="between"><div className="mon-open"><b className="mon-id">{t.id}</b> <Pill v={t.status} /><span className="muted">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • {t.mode ? human(t.mode) : 'Chưa chọn phương thức'} • {tripHorses(t).length} ngựa</span></div>
         <div className="mon-eta"><span>Dự kiến đến</span><b>{dt(t.eta)}</b></div></div>
       <LiveTrack t={t} />
       <div className="mon-kv"><div><span>Vị trí ước tính</span><b>{p.text}</b></div><div><span>Cập nhật gần nhất</span><b>{m ? `${MS_VI[m.type] || MILESTONE_LABEL[m.type]} • ${agoText(age)}${m.manual ? ' (Coordinator ghi thay)' : ''}` : 'Chưa xuất phát'}</b></div></div>
@@ -52,7 +52,7 @@ function PlanCard({ t }: { t: Any }) {
   const to = `f/trip/${t.id}`;
   return (
     <a className="card mon-card mon-summary plan" href={`/coordinator/trips/${t.id}`} onClick={(e) => open(e, to)} aria-label={`Mở chi tiết kế hoạch ${t.id}`}>
-      <div className="between"><div className="mon-open"><b className="mon-id">{t.id}</b> <PillT p={planPill(t)} /><span className="muted">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • {human(t.mode)} • {tripHorses(t).length} ngựa</span></div>
+      <div className="between"><div className="mon-open"><b className="mon-id">{t.id}</b> <PillT p={planPill(t)} /><span className="muted">{r.id} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • {t.mode ? human(t.mode) : 'Chưa chọn phương thức'} • {tripHorses(t).length} ngựa</span></div>
         <div className="mon-eta"><span>Khởi hành dự kiến</span><b>{dt(t.plannedDepart)}</b></div></div>
       <div className="mon-kv"><div><span>Lộ trình</span><b><PillT p={routePill(t)} /></b></div><div><span>Xe &amp; nhân sự</span><b>{deployed(t) ? <PillT p={resourcePill(t)} /> : '—'}</b></div></div>
       <p className="hint" style={{ margin: '8px 0 0' }}>{next}</p>
@@ -62,6 +62,7 @@ function PlanCard({ t }: { t: Any }) {
 
 export function MonitorPage() {
   useCoordinatorStore(); useAutoRefresh();
+  useEffect(() => { void syncCoordinatorTrips(); }, []);
   const mine = coordTrips(), planning = mine.filter((t: Any) => t.status === 'PLANNING');
   const live = mine.filter((t: Any) => ['IN_TRANSIT', 'READY_TO_DEPART'].includes(t.status)).sort((a: Any, b: Any) => Number(b.status === 'IN_TRANSIT') - Number(a.status === 'IN_TRANSIT'));
   const stale = live.filter((t: Any) => t.status === 'IN_TRANSIT' && (hoursSince((lastMilestone(t) || {}).at) as number) > STALE_H).length;
@@ -71,7 +72,7 @@ export function MonitorPage() {
   return (
     <CoordinatorLayout title="Giám sát hành trình">
       <EmptyPlanLaunch />
-      <div className="head"><div><h2 className="page-title">Giám sát hành trình</h2><p className="subtitle">Các chuyến được giao cho bạn: theo dõi chuyến đang chạy, lập lộ trình và bố trí xe/nhân sự cho chuyến đang chuẩn bị. Bấm vào thẻ chuyến để xem đầy đủ thông tin và các thao tác. Tự làm mới mỗi 30 giây • {dt(nowStamp())}</p></div></div>
+      <div className="head"><div><h2 className="page-title">Giám sát hành trình</h2><p className="subtitle">Cập nhật lúc {dt(nowStamp())}</p></div></div>
       <div className="dr-stats" style={{ gridTemplateColumns: 'repeat(5,minmax(0,1fr))', marginTop: 16 }}>
         {stat('Đang chạy / chờ xuất phát', live.length)}{stat('Đang lập kế hoạch', planning.length)}{stat('Trễ so với ETA ban đầu', late, true)}{stat(`Quá ${STALE_H} giờ chưa cập nhật`, stale, true)}{stat('Sự cố đang mở', openInc, true)}
       </div>
@@ -79,7 +80,6 @@ export function MonitorPage() {
       {live.length ? <div className="mon-grid">{live.map((t: Any) => <MonitorCard key={t.id} t={t} />)}</div> : <div className="card" style={{ marginTop: 12 }}><Empty title="Không có chuyến đang chạy" text="Chuyến được Manager duyệt khởi hành sẽ hiện ở đây." /></div>}
       <h3 className="card-title mon-sec">Đang lập kế hoạch ({planning.length})</h3>
       {planning.length ? <div className="mon-grid">{planning.map((t: Any) => <PlanCard key={t.id} t={t} />)}</div> : <div className="card" style={{ marginTop: 12 }}><Empty title="Không có chuyến đang lập kế hoạch" text="Chuyến được Manager giao cho bạn sẽ hiện ở đây." /></div>}
-      <p className="hint">Không có GPS trực tiếp: vị trí là ước tính từ mốc gần nhất và giờ dự kiến của điểm dừng kế tiếp.</p>
     </CoordinatorLayout>
   );
 }

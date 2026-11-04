@@ -27,7 +27,8 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         var defaults = JsonSerializer.SerializeToNode(await catalogs.FormAsync(row.OriginCountry!, row.DestinationCountry!, mode ?? savedMode ?? row.TransportType!, ct))!.AsObject();
         defaults["supportedRoutes"] = JsonSerializer.SerializeToNode((await catalogs.RoutesAsync(ct))
             .Where(r => r.OriginCountry == row.OriginCountry && r.DestinationCountry == row.DestinationCountry)
-            .Select(r => new { id = r.RouteID, originCountry = r.OriginCountry, destinationCountry = r.DestinationCountry, mode = r.TransportMode }));
+            .Select(r => new { id = r.RouteID, originCountry = r.OriginCountry, destinationCountry = r.DestinationCountry, mode = r.TransportMode })
+            .ToArray());
         defaults["terms"] = JsonSerializer.SerializeToNode(clauses);
         return new { requestId = request, status = row.Status, contractId = contract?.ContractID,
             request = await details.GetAsync(actor, request, true, ct),
@@ -170,7 +171,7 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         Require(contract.CompletionDeadline > clock.GetUtcNow().UtcDateTime, "CONTRACT_EXPIRED", "Contract has expired.");
         Require(version.VersionStatus == "ISSUED" && contract.CancellationStatus != "PENDING", "INVALID_STATE", "Contract is not open for acceptance.");
         version.TermsAcceptedAtUtc ??= clock.GetUtcNow().UtcDateTime;
-        return new { requestId = contract.RequestID, contractId = id, versionNo = number, termsAcceptedAt = version.TermsAcceptedAtUtc, requestStatus = "CONTRACT_READY" };
+        return new { requestId = contract.RequestID, contractId = id, versionNo = number, termsAcceptedAt = version.TermsAcceptedAtUtc?.ToString("yyyy-MM-dd HH:mm"), requestStatus = "CONTRACT_READY" };
     }, ct);
     public Task<object> FeedbackAsync(string actor, string id, FeedbackInput input, CancellationToken ct) => data.WriteAsync<object>(async token =>
     {

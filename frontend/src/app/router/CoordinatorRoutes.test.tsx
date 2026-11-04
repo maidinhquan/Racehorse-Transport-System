@@ -20,7 +20,7 @@ describe('Coordinator routes after replacing the old portal', () => {
   });
 
   it.each([
-    'dashboard', 'monitor', 'places', 'fleet', 'crew', 'flights',
+    'dashboard', 'monitor', 'places', 'fleet', 'crew',
     'incidents', 'notifications', 'profile',
   ])('opens the new %s page directly', (page) => {
     window.history.replaceState({}, '', `/coordinator/${page}`);
@@ -28,7 +28,7 @@ describe('Coordinator routes after replacing the old portal', () => {
     expect(container.querySelector('.cbn-coord')).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
     expect(window.location.pathname).toBe(`/coordinator/${page}`);
-    expect(screen.getByRole('link', { name: /Dịch vụ bay & đối tác/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Quản lý địa điểm/ })).toBeInTheDocument();
   });
 
   it.each(['overview', 'route', 'resources', 'progress', 'flight'])('opens the %s trip tab', (tab) => {

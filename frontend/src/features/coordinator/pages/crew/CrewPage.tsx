@@ -11,7 +11,7 @@ export function CrewPage() {
   useCoordinatorStore();
   return (
     <CoordinatorLayout title="Phân công nhân sự">
-      <div className="head"><div><h2 className="page-title">Quản lý nhân sự</h2><p className="subtitle">Tài xế, phụ lái, chuyên viên đi kèm và bác sĩ thú y. Hồ sơ do hệ thống nhân sự cung cấp; chỉ thay đổi trạng thái tại đây.</p></div></div>
+      <div className="head"><div><h2 className="page-title">Quản lý nhân sự</h2><p className="subtitle">Tài xế, phụ lái, chuyên viên đi kèm và bác sĩ thú y.</p></div></div>
       <DataTable id="f-crew" rows={db.employees} style={{ marginTop: 20 }} search={(e: Any) => [e.name, e.position, e.country].join(' ')}
         filters={[{ key: 's', label: 'Mọi trạng thái', options: Object.entries(STAFF_LABELS), test: (e: Any, v) => e.status === v }]}
         cols={[

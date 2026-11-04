@@ -88,6 +88,25 @@ public sealed class HorseBookingRulesTests
         await new HorseService(data, new AccessService(data), TimeProvider.System).EditableAsync("horse", default);
     }
 
+    [Theory]
+    [InlineData("PENDING_REVIEW")]
+    [InlineData("ACTIVATED")]
+    [InlineData("SCHEDULED")]
+    public async Task Profile_stays_editable_before_transport_starts(string status)
+    {
+        var data = History(Request("old", status));
+        await new HorseService(data, new AccessService(data), TimeProvider.System).EditableAsync("horse", default);
+    }
+
+    [Fact]
+    public async Task Profile_is_locked_while_in_transit()
+    {
+        var data = History(Request("old", "ACTIVATED"));
+        data.Add(new Trip { TripID = "trip", RequestID = "old", Status = "IN_TRANSIT" });
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            new HorseService(data, new AccessService(data), TimeProvider.System).EditableAsync("horse", default));
+    }
+
     private sealed class MemorySession(params object[] initial) : IDataSession
     {
         private readonly List<object> rows = [.. initial];

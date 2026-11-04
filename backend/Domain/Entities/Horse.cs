@@ -60,6 +60,12 @@ namespace Domain.Entities
         [Column("SpecialHealthNotes", TypeName = "nvarchar(2000)")]
         public string? SpecialHealthNotes { get; set; }
 
+        [Column("PhotoUrl", TypeName = "nvarchar(500)")]
+        public string? PhotoUrl { get; set; }
+
+        [Column("PassportScanUrl", TypeName = "nvarchar(500)")]
+        public string? PassportScanUrl { get; set; }
+
         // Navigation properties
         [ForeignKey(nameof(OwnerId))]
         [InverseProperty(nameof(Entities.User.Horses))]

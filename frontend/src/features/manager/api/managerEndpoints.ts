@@ -2,6 +2,8 @@
 export const MANAGER_ENDPOINTS = {
   PLANNING: '/manager/planning',
   TRIP_ROUTE: (tripId: string) => `/manager/trips/${tripId}/route`,
+  /** Phương án Điều phối đã gửi (tuyến, xe, nhân sự) kèm trạng thái duyệt */
+  TRIP_PLAN: (tripId: string) => `/manager/trips/${encodeURIComponent(tripId)}/plan`,
   APPROVE_ROUTE: (tripId: string, routeVersionId: number) => `/manager/trips/${tripId}/routes/${routeVersionId}/approve`,
   RETURN_ROUTE: (tripId: string, routeVersionId: number) => `/manager/trips/${tripId}/routes/${routeVersionId}/return`,
   DEPARTURE_CONDITIONS: (tripId: string) => `/manager/trips/${tripId}/departure-conditions`,
@@ -20,4 +22,10 @@ export const MANAGER_ENDPOINTS = {
   COMPLAINT_RESOLVE: (id: string) => `/manager/complaints/${id}/resolve`,
   COMPLAINT_ESCALATE: (id: string) => `/manager/complaints/${id}/escalate`,
   ACTUAL_COST_LIST: '/manager/actual-costs',
+  PLAN_DECISION_F3: (tripId: string) => `/manager/trips/${tripId}/plan/decision`,
+  READINESS_F3: (tripId: string) => `/manager/trips/${tripId}/readiness`,
+  DEPARTURE_APPROVE_F3: (tripId: string) => `/manager/trips/${tripId}/departure/approve`,
+  RELOCATION_DECISION_F3: (tripId: string) => `/manager/trips/${tripId}/pickup-relocation/decision`,
+  SEND_RELOCATION_F3: (tripId: string) => `/manager/trips/${tripId}/pickup-relocation/send`,
 } as const;
+

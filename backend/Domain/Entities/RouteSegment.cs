@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Domain.Entities
@@ -14,6 +14,9 @@ namespace Domain.Entities
         [Column("TripID")]
         [StringLength(50)]
         public string TripId { get; set; } = null!;
+
+        [Column("SequenceOrder")]
+        public int SequenceOrder { get; set; } = 1;
 
         [Column("FacilityID")]
         [StringLength(50)]
@@ -39,11 +42,24 @@ namespace Domain.Entities
         [StringLength(50)]
         public string? FlightVoyageNo { get; set; }
 
+        [Column("PlannedTime")]
+        public DateTime? PlannedTime { get; set; }
+
         [Column("ExpectedETA")]
         public DateTime? ExpectedEta { get; set; }
 
         [Column("ActualTime")]
         public DateTime? ActualTime { get; set; }
+
+        [Column("Latitude", TypeName = "decimal(9, 6)")]
+        public decimal? Latitude { get; set; }
+
+        [Column("Longitude", TypeName = "decimal(9, 6)")]
+        public decimal? Longitude { get; set; }
+
+        [Column("Coordinates")]
+        [StringLength(100)]
+        public string? Coordinates { get; set; }
 
         [Column("Status")]
         [StringLength(50)]

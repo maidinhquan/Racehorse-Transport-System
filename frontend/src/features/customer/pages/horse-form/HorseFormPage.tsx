@@ -5,7 +5,7 @@ import { HorseForm } from '../../components/HorseForm/HorseForm';
 import { Note } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
 import type { HorseInput } from '../../types';
-import { emptyHorse, horseRequests, validateHorseForm, HORSE_FIELD_ELEMENT_IDS } from '../../hooks/customerRules';
+import { emptyHorse, transportingHorseRequests, validateHorseForm, HORSE_FIELD_ELEMENT_IDS } from '../../hooks/customerRules';
 import './HorseFormPage.css';
 
 /** Thêm ngựa mới (/customer/horses/new) hoặc sửa hồ sơ (/customer/horses/:horseId/edit?back=…) */
@@ -27,7 +27,7 @@ export const HorseFormPage: React.FC = () => {
   if (horseId && !h) {
     return <CustomerLayout title="Ngựa của tôi"><Note tone="grey" title="Không tìm thấy ngựa">Ngựa {horseId} không có trong thư viện của bạn.</Note></CustomerLayout>;
   }
-  const lockedBy = h ? horseRequests(h, requests).map((r) => r.id) : [];
+  const lockedBy = h ? transportingHorseRequests(h, requests).map((r) => r.id) : [];
 
   const handleClearError = (key: string) => {
     setErrors((prev) => {

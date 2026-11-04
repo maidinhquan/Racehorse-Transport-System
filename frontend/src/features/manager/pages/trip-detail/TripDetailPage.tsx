@@ -22,7 +22,7 @@ const STAGE_DESCRIPTIONS = {
 /** Chi tiết chuyến đi theo 4 bước: phân công → chuẩn bị → duyệt khởi hành → vận chuyển */
 export const TripDetailPage: React.FC = () => {
   const { tripId, stage } = useParams();
-  const { getTrip, data, customer } = useManager();
+  const { getTrip, getRequest, data, customer } = useManager();
   const t = getTrip(tripId);
   if (!t) {
     return (
@@ -32,7 +32,7 @@ export const TripDetailPage: React.FC = () => {
       </ManagerLayout>
     );
   }
-  const r = data.requests.find((x) => x.id === t.requestId);
+  const r = (getRequest ? getRequest(t.requestId) : null) || data?.requests?.find((x: any) => x.id === t.requestId || (t.requestId && (x.id || '').replace(/-/g, '_') === t.requestId.replace(/-/g, '_')));
   if (!r) return (
     <ManagerLayout title="Chuyến đi">
       <BackLink to="/manager/trips">Danh sách chuyến</BackLink>

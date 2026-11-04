@@ -186,6 +186,7 @@ export const DOC_STATUS_LABEL: Record<DocStatus, string> = {
   NOT_REQUIRED_YET: 'Chưa bắt buộc',
   SUBMITTED: 'Đã lưu',
   PENDING_REVIEW: 'Chờ Specialist duyệt',
+  RESUBMITTED: 'Đã bổ sung, chờ duyệt',
   APPROVED: 'Đã duyệt',
   ACTION_REQUIRED: 'Cần nộp lại',
 };
@@ -249,8 +250,14 @@ export const PROFILE_LABEL: Record<HorseProfileStatus, string> = {
 
 /** Các đơn đã gửi (không còn là bản nháp) có dùng ngựa này */
 export const horseRequests = (h: Horse, requests: TransportRequest[]) =>
-  requests.filter((r) => r.status !== 'DRAFT' && r.horses.includes(h.id)).sort((a, b) => b.date.localeCompare(a.date));
-/** Ngựa đã gắn với đơn đã gửi thì khóa thông tin định danh */
+  requests.filter((r) => r.status !== 'DRAFT' && r.status !== 'CANCELLED' && r.status !== 'REJECTED' && r.horses.includes(h.id)).sort((a, b) => b.date.localeCompare(a.date));
+export const activeHorseRequests = (h: Horse, requests: TransportRequest[]) =>
+  requests.filter((r) => isActive(r) && r.status !== 'DRAFT' && r.horses.includes(h.id)).sort((a, b) => b.date.localeCompare(a.date));
+/** Đơn đã được vận chuyển (Manager xác nhận khởi hành) và chưa đóng: chỉ khi đó mới khóa hồ sơ ngựa */
+export const TRANSPORT_STARTED_STATUSES: RequestStatus[] = ['IN_TRANSIT'];
+export const transportingHorseRequests = (h: Horse, requests: TransportRequest[]) =>
+  requests.filter((r) => TRANSPORT_STARTED_STATUSES.includes(r.status) && r.horses.includes(h.id));
+/** Ngựa thuộc đơn đã bắt đầu vận chuyển thì khóa thông tin định danh */
 export const HORSE_LOCKED_FIELDS = ['name', 'breed', 'sex', 'dob', 'microchip'] as const;
 
 export const emptyHorse = (): Omit<Horse, 'id'> => ({
@@ -380,17 +387,18 @@ export const sumItems = (items: ContractItem[]) => items.reduce((s, i) => s + i.
 export const curVersion = (r: TransportRequest): ContractVersion | undefined =>
   r.versions && r.versions.length > 0 ? r.versions[r.versions.length - 1] : undefined;
 /** Trạng thái thực tế: tôn trọng trạng thái từ Backend */
-export function versionState(v: ContractVersion): ContractState {
+export function versionState(v?: ContractVersion | null): ContractState {
+  if (!v || !v.state) return 'EXPIRED';
   if (v.state === 'EXPIRED' || (v.state === 'ISSUED' && !v.signedAt && isPast(v.validUntil))) return 'EXPIRED';
   return v.state;
 }
-export const ctRef = (v: ContractVersion) => `${v.number} v${v.v}`;
+export const ctRef = (v?: Pick<ContractVersion, 'number' | 'v'> | null) => (v && v.number ? `${v.number} v${v.v}` : '—');
 export const depositAmount = (r: TransportRequest) => {
   const v = curVersion(r);
   return v ? v.depositAmount ?? Math.round((v.total * v.depositPct) / 100) : 0;
 };
 export const contractTotal = (r: TransportRequest) => curVersion(r)?.total ?? 0;
-export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => ['SIGNED', 'EFFECTIVE', 'FULFILLED'].includes(v.state));
+export const signedVersion = (r: TransportRequest) => (r.versions || []).find((v) => v && ['SIGNED', 'EFFECTIVE', 'FULFILLED'].includes(v.state));
 export const isSigned = (r: TransportRequest) => !!signedVersion(r);
 
 export const depositPayments = (r: TransportRequest) => {
@@ -492,9 +500,15 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
     const f = HORSE_FILE_FIELD[k];
     return f ? h[f] : undefined;
   };
+  /** Yêu cầu bổ sung mới nhất của giấy tờ này (OPEN hoặc SUBMITTED) */
+  const asked = (k: DocKey) => (r.supplements || [])
+    .filter((x) => x.key === k && x.status !== 'FULFILLED' && (x.scope === h.id || x.scope.replace(/-/g, '_') === h.id.replace(/-/g, '_')))
+    .sort((a, b) => b.at.localeCompare(a.at))[0];
   const item = (key: HorseDocKey, kind: 'file' | 'info', base: DocStatus, note: string, optional = false): DocItem => ({
     key, scope: h.id, name: DOC_NAME[key], kind, optional, note,
-    status: rec(key)?.status ?? base, file: kind === 'file' ? fileOf(key) : undefined, issue: rec(key)?.issue,
+    status: asked(key)?.status === 'OPEN' ? 'ACTION_REQUIRED' : asked(key)?.status === 'SUBMITTED' ? 'RESUBMITTED' : rec(key)?.status ?? base,
+    file: kind === 'file' ? fileOf(key) : undefined,
+    issue: asked(key)?.status === 'SUBMITTED' ? undefined : rec(key)?.issue ?? asked(key)?.reason,
   });
   return [
     item('passport', 'file', fileOf('passport') && p.number ? 'SUBMITTED' : 'MISSING',
@@ -515,7 +529,12 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
 export const pickedHorses = (r: TransportRequest) => [...new Set((r.horses || []).filter(Boolean))];
 export const openSupplements = (r: TransportRequest) => (r.supplements || []).filter((s) => s.status === 'OPEN');
 export const rejectedDocs = (r: TransportRequest) => (r.docs || []).filter((d) => d.status === 'ACTION_REQUIRED');
-export const docsNeedingAction = (r: TransportRequest) => rejectedDocs(r).length + openSupplements(r).length;
+/** Một giấy tờ chỉ đếm một lần dù vừa có bản bị từ chối vừa có yêu cầu bổ sung (backend gọi cùng giấy tờ là DT-2 / health) */
+const DOC_KEY_ALIAS: Record<string, string> = { 'DT-1': 'passport', 'DT-2': 'health', 'DT-3': 'flu', PASSPORT: 'passport', HEALTH_CERTIFICATE: 'health', VACCINATION: 'flu' };
+export const docsNeedingAction = (r: TransportRequest) => new Set([
+  ...rejectedDocs(r).map((d) => [d.key, d.scope] as const),
+  ...openSupplements(r).map((s) => [s.key, s.scope] as const),
+].map(([key, scope]) => `${DOC_KEY_ALIAS[key] ?? key}|${scope.replace(/-/g, '_')}`)).size;
 
 /** Mọi lỗi chặn gửi đơn, kèm bước wizard sửa được (0 = thông tin chuyến) */
 export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[number, string]> {
@@ -653,9 +672,9 @@ export const DETAIL_TABS: Array<[RequestDetailTab, string]> = [
   ['tracking', 'Theo dõi'], ['handover', 'Bàn giao & nghiệm thu'], ['complaints', 'Khiếu nại'], ['history', 'Lịch sử'],
 ];
 export function tabVisible(r: TransportRequest, tab: RequestDetailTab) {
-  if (tab === 'tracking') return !!r.trip;
-  if (tab === 'handover') return !!handoverState(r.trip) || !!r.acceptance;
-  if (tab === 'complaints') return r.complaints.length > 0 || !!r.trip?.handover;
+  if (tab === 'tracking') return !!r.trip || ['IN_TRANSIT', 'DELIVERED', 'CLOSED'].includes(r.status);
+  if (tab === 'handover') return !!handoverState(r.trip) || !!r.acceptance || ['DELIVERED', 'CLOSED'].includes(r.status);
+  if (tab === 'complaints') return (r.complaints?.length ?? 0) > 0 || !!r.trip?.handover || ['DELIVERED', 'CLOSED'].includes(r.status);
   return true;
 }
 

@@ -13,7 +13,8 @@ const SECTIONS: Array<[string, string]> = [['review', 'Thông tin & xét duyệt
 
 /** Chi tiết yêu cầu: xét duyệt → chuyến đi & sự cố → bàn giao, khiếu nại & đóng đơn */
 export const RequestDetailPage: React.FC = () => {
-  const { requestId, section = 'review' } = useParams();
+  const { requestId, section, tab } = useParams<{ requestId?: string; section?: string; tab?: string }>();
+  const activeSection = section || tab || 'review';
   const { getRequest, tripFor, customer, data, actions } = useManager();
   useEffect(() => {
     if (!requestId) return;
@@ -34,7 +35,7 @@ export const RequestDetailPage: React.FC = () => {
   const t = tripFor(r.id);
   const openInc = t ? data.incidents.some((i) => i.tripId === t.id && i.status !== 'CLOSED') : false;
   const openCmp = data.complaints.some((c) => c.requestId === r.id && c.status !== 'RESOLVED');
-  const current = SECTIONS.some(([k]) => k === section) ? section : 'review';
+  const current = SECTIONS.some(([k]) => k === activeSection) ? activeSection : 'review';
 
   return (
     <ManagerLayout title="Yêu cầu vận chuyển">

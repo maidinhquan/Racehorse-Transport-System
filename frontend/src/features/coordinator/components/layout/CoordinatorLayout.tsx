@@ -16,7 +16,6 @@ const NAV: Array<[string, string, string]> = [
   ['/coordinator/places', 'Quản lý địa điểm', 'list'],
   ['/coordinator/fleet', 'Đội xe', 'truck'],
   ['/coordinator/crew', 'Quản lý nhân sự', 'users'],
-  ['/coordinator/flights', 'Dịch vụ bay & đối tác', 'plane'],
   ['/coordinator/incidents', 'Sự cố & khiếu nại', 'alert'],
 ];
 
@@ -39,7 +38,7 @@ export function CoordinatorLayout({ title, children, active }: { title: string; 
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [menu]);
-  const u = me() || { name: 'Dang Minh Quan', initials: 'DQ' };
+  const u = me() || { name: 'Phạm Hải', initials: 'PH' };
   const notes = myNotifs(), unread = notes.filter((n: Any) => !n.read).length;
   const incCount = coordNavCount();
   const logout = () => {

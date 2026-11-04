@@ -20,6 +20,21 @@ export default defineConfig({
           "http://localhost:5129",
         changeOrigin: true,
       },
+      "/hubs": {
+        target:
+          process.env.API_PROXY_TARGET ??
+          "http://localhost:5129",
+        changeOrigin: true,
+        ws: true,
+      },
+      "/osrm": {
+        target: "https://router.project-osrm.org",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/osrm/, ""),
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RacehorseTransport/1.0",
+        },
+      },
     },
   },
 

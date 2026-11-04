@@ -16,6 +16,13 @@ public sealed class HorseFilesController(HorseFilesService files) : EndpointCont
     public async Task<IActionResult> UploadAsync(string horseId, string fileType, [FromForm] HorseFileForm form, CancellationToken ct) =>
         Reply(await files.UploadAsync(Actor, horseId, fileType, await FileBinding.ReadAsync(form.File, ct), ct), 201);
 
+    [HttpPost("customer/requests/{requestId}/horses/{horseId}/documents")]
+    [Authorize(Roles = UserRoles.Customer)]
+    [Consumes("multipart/form-data"), RequestSizeLimit(11 * 1024 * 1024)]
+    public async Task<IActionResult> UploadMedicalAsync(string requestId, string horseId, [FromForm] MedicalDocumentForm form, CancellationToken ct) =>
+        Reply(await files.UploadMedicalAsync(Actor, requestId, horseId, form.DocumentType, form.ExpiryDate,
+            await FileBinding.ReadAsync(form.File, ct), ct), 201);
+
     [HttpGet("customer/horses/{horseId}/files/{fileType}")]
     [Authorize(Roles = UserRoles.Customer)]
     public async Task<IActionResult> ReadAsync(string horseId, string fileType, CancellationToken ct) =>

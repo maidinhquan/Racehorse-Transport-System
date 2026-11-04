@@ -5046,7 +5046,8 @@
                     "title": "Thanh toán",
                     "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
                   }
-                ]
+                ],
+                "mode": "ROAD"
               }
             }
           }
@@ -21864,7 +21865,11 @@
             }
           },
           "mode": {
-            "type": "null"
+            "type": "string",
+            "enum": [
+              "ROAD",
+              "AIR"
+            ]
           },
           "note": {
             "type": "string",
@@ -21899,7 +21904,8 @@
           "exception",
           "items",
           "note",
-          "terms"
+          "terms",
+          "mode"
         ],
         "additionalProperties": false
       },

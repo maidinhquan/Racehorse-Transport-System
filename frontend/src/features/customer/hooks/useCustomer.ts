@@ -239,8 +239,23 @@ const updateReq = (id: string, fn: (r: TransportRequest) => void) => {
     }),
   }));
 };
+/** Specialist cùng trình duyệt đọc trạng thái giấy tờ từ đơn dùng chung: báo cho họ biết khách đã nộp bản mới */
+const shareSubmittedDoc = (requestId: string, key: DocKey, scope: string, file: FileRef) => {
+  try {
+    const same = (s?: string) => !!s && (s === scope || cleanId(s) === cleanId(scope));
+    const shared = getSharedRequests().find((q: any) => cleanId(q.id) === cleanId(requestId))
+      ?? getSharedRequests().find((q: any) => Array.isArray(q.horses) && q.horses.some(same));
+    if (!shared) return;
+    const docs: any[] = Array.isArray(shared.docs) ? shared.docs : (shared.docs = []);
+    const doc = { key, scope, status: 'SUBMITTED', file: { name: file.name }, updatedAt: nowStamp(), issue: undefined };
+    const index = docs.findIndex((d) => d.key === key && same(d.scope));
+    if (index < 0) docs.push(doc); else docs[index] = { ...docs[index], ...doc };
+    (shared.supplements ?? []).forEach((s: any) => { if (s.key === key && same(s.scope) && s.status === 'OPEN') s.status = 'SUBMITTED'; });
+    saveSharedRequest(shared);
+  } catch { /* Đồng bộ cục bộ chỉ là phần phụ */ }
+};
 const ACTOR: Record<ActorRole, string> = {
-  CUSTOMER: '', LOGISTICS_MANAGER: 'Linh Pham', TRANSPORT_SPECIALIST: 'Hoang Thu Ha', FLEET_ROUTE_COORDINATOR: 'Dang Minh Quan',
+  CUSTOMER: '', LOGISTICS_MANAGER: 'Linh Pham', TRANSPORT_SPECIALIST: 'Hoang Thu Ha', FLEET_ROUTE_COORDINATOR: 'Phạm Hải',
   DRIVER_ESCORT: 'Pham Van Duc', SYSTEM: 'Hệ thống',
 };
 const log = (r: TransportRequest, role: ActorRole, action: string, detail?: string) =>
@@ -681,6 +696,23 @@ const customerActions = {
     const r = findReq(requestId);
     if (!r || !isActive(r) || !FILE_DOC_KEYS.includes(key)) return fail('Không thể nộp giấy tờ cho yêu cầu này.');
     if (!getDemoMode('customer')) {
+      if (key === 'health' || key === 'flu') {
+        if (!file.file) return fail('Chọn tệp từ máy trước khi tải lên.');
+        try {
+          const saved = await customerApi.uploadDocument(requestId, key, scope, file);
+          updateReq(requestId, x => {
+            const same = (s: string) => s === scope || cleanId(s) === cleanId(scope);
+            const answered = x.supplements.some(s => s.key === key && same(s.scope) && s.status === 'OPEN') || x.docs.some(d => d.key === key && same(d.scope) && d.status === 'ACTION_REQUIRED');
+            const doc: DocRecord = { key, scope, status: answered ? 'RESUBMITTED' : 'PENDING_REVIEW', file: saved?.file ?? file, updatedAt: nowStamp() };
+            const index = x.docs.findIndex(d => d.key === key && same(d.scope));
+            if (index < 0) x.docs.push(doc); else x.docs[index] = doc;
+            x.supplements.forEach(s => { if (s.key === key && same(s.scope) && s.status === 'OPEN') s.status = 'SUBMITTED'; });
+          });
+          shareSubmittedDoc(requestId, key, scope, saved?.file ?? file);
+          await syncRequestsOnly();
+          return ok('Đã gửi giấy tờ cho Transport Specialist kiểm duyệt.');
+        } catch (error) { return fail(apiMessage(error)); }
+      }
       const fileTypes: Partial<Record<DocKey, string>> = { passport: 'passport', ownership: 'ownership', valueProof: 'value-proof' };
       const fileType = fileTypes[key];
       if (!fileType) return fail('Tài liệu này chưa hỗ trợ nộp trực tuyến. Vui lòng liên hệ chuyên viên phụ trách.');
@@ -688,15 +720,54 @@ const customerActions = {
       try {
         await customerApi.uploadHorseFile(scope, fileType as 'passport' | 'ownership' | 'value-proof', file.file);
         setState({ horses: await customerApi.getHorses() });
+        updateReq(requestId, x => {
+          const same = (s: string) => s === scope || cleanId(s) === cleanId(scope);
+          const answered = x.supplements.some(s => s.key === key && same(s.scope) && s.status === 'OPEN') || x.docs.some(d => d.key === key && same(d.scope) && d.status === 'ACTION_REQUIRED');
+          const doc: DocRecord = { key, scope, status: answered ? 'RESUBMITTED' : 'PENDING_REVIEW', file, updatedAt: nowStamp() };
+          const index = x.docs.findIndex(d => d.key === key && same(d.scope));
+          if (index < 0) x.docs.push(doc); else x.docs[index] = doc;
+          x.supplements.forEach(s => { if (s.key === key && same(s.scope) && s.status === 'OPEN') s.status = 'SUBMITTED'; });
+        });
+        shareSubmittedDoc(requestId, key, scope, file);
+        await syncRequestsOnly();
         return ok('Đã lưu tài liệu vào hồ sơ ngựa.');
       } catch (error) { return fail(apiMessage(error)); }
     }
     updateReq(requestId, x => {
-      const doc: DocRecord = { key, scope, status: 'SUBMITTED', file, updatedAt: nowStamp() };
+      const stamp = nowStamp();
+      // Cập nhật docs (nguồn dữ liệu chính cho specialist nhịn)
+      const answered = x.supplements.some(s => s.key === key && (s.scope === scope || s.scope?.replace(/-/g, '_') === scope?.replace(/-/g, '_')) && s.status === 'OPEN') || x.docs.some(d => d.key === key && d.scope === scope && d.status === 'ACTION_REQUIRED');
+      const doc: DocRecord = { key, scope, status: answered ? 'RESUBMITTED' : 'SUBMITTED', file, updatedAt: stamp };
       const index = x.docs.findIndex(d => d.key === key && d.scope === scope);
-      if (index < 0) x.docs.push(doc); else x.docs[index] = doc;
+      if (index < 0) x.docs.push(doc);
+      else x.docs[index] = { ...x.docs[index], ...doc, issue: undefined };
+      // Đồng bộ dossier nếu có (manager cũng thấy bản mới)
+      if (Array.isArray((x as any).dossier)) {
+        const DOC_KEYS: Record<string, string[]> = {
+          flu: ['tiêm', 'flu'], passport: ['hộ chiếu', 'passport'],
+          health: ['sức khỏe', 'health'], ownership: ['sở hữu', 'ownership'],
+        };
+        const aliases = DOC_KEYS[key] || [key];
+        ((x as any).dossier as any[]).forEach((d: any) => {
+          const nm = (d.name || '').toLowerCase();
+          if (aliases.some((a: string) => nm.includes(a)) && (d.scope === scope || d.scope?.replace(/-/g,'_') === scope?.replace(/-/g,'_'))) {
+            d.status = 'PENDING_REVIEW';
+            d.file = typeof file === 'object' ? (file as any).name : file;
+            d.note = undefined;
+          }
+        });
+      }
+      // Đảnh dấu supplement liên quan sang SUBMITTED
+      if (Array.isArray((x as any).supplements)) {
+        ((x as any).supplements as any[]).forEach((s: any) => {
+          if (s.key === key && (s.scope === scope || s.scope?.replace(/-/g,'_') === scope?.replace(/-/g,'_')) && s.status === 'OPEN') {
+            s.status = 'SUBMITTED';
+          }
+        });
+      }
     });
-    return ok('Đã cập nhật tài liệu demo.');
+    notifySync('requests_updated');
+    return ok('Nộp lại thành công – chuyên viên sẽ kiểm duyệt bản mới.');
   },
 
   // ----- Hợp đồng -----
@@ -930,10 +1001,10 @@ const demoActions = {
   specialistApproveAll(id: string): ActionResult {
     const r = findReq(id);
     if (!r || !['ACTIVATED', 'SCHEDULED'].includes(r.status)) return fail('Chỉ duyệt giấy tờ sau khi yêu cầu được kích hoạt.');
-    const waiting = r.docs.filter((d) => d.status === 'PENDING_REVIEW' || d.status === 'SUBMITTED');
+    const waiting = r.docs.filter((d) => d.status === 'PENDING_REVIEW' || d.status === 'RESUBMITTED' || d.status === 'SUBMITTED');
     if (!waiting.length) return fail('Không có giấy tờ nào đang chờ duyệt.');
     updateReq(id, (x) => {
-      x.docs.forEach((d) => { if (d.status === 'PENDING_REVIEW' || d.status === 'SUBMITTED') { d.status = 'APPROVED'; d.issue = undefined; } });
+      x.docs.forEach((d) => { if (d.status === 'PENDING_REVIEW' || d.status === 'RESUBMITTED' || d.status === 'SUBMITTED') { d.status = 'APPROVED'; d.issue = undefined; } });
       log(x, 'TRANSPORT_SPECIALIST', 'Duyệt giấy tờ', `${waiting.length} mục`);
     });
     notify(`Giấy tờ đã được duyệt • ${id}`, `${waiting.length} mục giấy tờ đã được chấp thuận.`, `/customer/requests/${id}/documents`);
@@ -970,7 +1041,7 @@ const demoActions = {
     const r = findReq(id);
     if (r?.status !== 'ACTIVATED' || !r.trip) return fail('Chỉ lên lịch được yêu cầu đã kích hoạt.');
     if (docsNeedingAction(r)) return fail('Còn giấy tờ cần nộp lại / bổ sung – chưa thể lên lịch.');
-    if (r.docs.some((d) => d.status === 'PENDING_REVIEW')) return fail('Còn giấy tờ chờ Specialist duyệt – hãy duyệt giấy tờ trước.');
+    if (r.docs.some((d) => d.status === 'PENDING_REVIEW' || d.status === 'RESUBMITTED')) return fail('Còn giấy tờ chờ Specialist duyệt – hãy duyệt giấy tờ trước.');
     updateReq(id, (x) => {
       const t = x.trip!, tpl = tripTemplate(x);
       t.stops = t.stops.length ? t.stops : tpl.stops;

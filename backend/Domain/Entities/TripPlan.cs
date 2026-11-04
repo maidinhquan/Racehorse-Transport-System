@@ -85,7 +85,7 @@ namespace Domain.Entities
         // Xác nhận Điều phối viên (Coordinator / Operations READY - Flow 3)
         [Column("OperationsStatus")]
         [StringLength(20)]
-        public string? OperationsStatus { get; set; } = "NOT_READY";
+        public string OperationsStatus { get; set; } = "NOT_READY";
 
         [Column("ResourcesConfirmedAt")]
         public DateTime? ResourcesConfirmedAt { get; set; }
@@ -97,7 +97,7 @@ namespace Domain.Entities
         // Xác nhận Chuyên viên pháp lý (Specialist / Documents READY - Flow 2)
         [Column("DocumentsStatus")]
         [StringLength(20)]
-        public string? DocumentsStatus { get; set; } = "NOT_READY";
+        public string DocumentsStatus { get; set; } = "NOT_READY";
 
         [Column("EarliestDepartureDate")]
         public DateTime? EarliestDepartureDate { get; set; }
@@ -122,7 +122,7 @@ namespace Domain.Entities
 
         [Column("RouteStatus")]
         [StringLength(30)]
-        public string? RouteStatus { get; set; } = "DRAFT";
+        public string RouteStatus { get; set; } = "DRAFT";
 
         [Column("RouteApprovedAt")]
         public DateTime? RouteApprovedAt { get; set; }
@@ -170,6 +170,16 @@ namespace Domain.Entities
         [ForeignKey(nameof(EffectiveOriginPlaceId))]
         public virtual PartnerFacility? EffectiveOriginPlace { get; set; }
 
+        [Column("DocsReadyAtUtc")]
+        public DateTime? DocsReadyAtUtc { get; set; }
+
+        [Column("DocsReadyBy")]
+        [StringLength(50)]
+        public string? DocsReadyBy { get; set; }
+
+        [ForeignKey(nameof(DocsReadyBy))]
+        public virtual User? DocsReadyByUser { get; set; }
+
         [InverseProperty(nameof(TripVehicleAssignment.Trip))]
         public virtual ICollection<TripVehicleAssignment> VehicleAssignments { get; set; } = new List<TripVehicleAssignment>();
 
@@ -202,5 +212,9 @@ namespace Domain.Entities
 
         [InverseProperty(nameof(PlanningAttachment.Trip))]
         public virtual ICollection<PlanningAttachment> PlanningAttachments { get; set; } = new List<PlanningAttachment>();
+        public virtual ICollection<TripInsurance> Insurances { get; set; } = new List<TripInsurance>();
+        public virtual ICollection<DocumentRequest> DocumentRequests { get; set; } = new List<DocumentRequest>();
+        public virtual ICollection<TripRequirementSet> RequirementSets { get; set; } = new List<TripRequirementSet>();
+        public virtual ICollection<TripCheckpointClearance> CheckpointClearances { get; set; } = new List<TripCheckpointClearance>();
     }
 }

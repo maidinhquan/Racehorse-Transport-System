@@ -8,6 +8,7 @@ import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadg
 import { useCustomer } from '../../hooks/useCustomer';
 import { MILESTONE_LABEL, STOP_LABEL, TRIP_STATUS_LABEL, cityLabel, fmtDateTime, tripSummary } from '../../hooks/customerRules';
 import type { TripStatus } from '../../types';
+import { CustomerRelocationCard } from '../../components/RelocationProposal/CustomerRelocationCard';
 import './CustomerTrackingPage.css';
 
 const ORDER: Record<TripStatus, number> = { IN_TRANSIT: 0, READY_TO_DEPART: 1, PLANNING: 2, COMPLETED: 3 };
@@ -80,6 +81,7 @@ export const CustomerTrackingPage: React.FC = () => {
               <span>{t.id} • {r.id}<br /><small className="cus-muted">{cityLabel(r.origin)} → {cityLabel(r.destination)} • {t.mode === 'AIR' ? 'Hàng không + đường bộ' : t.mode === 'ROAD' ? 'Đường bộ' : 'Chờ Coordinator lập phương án'} • {horseNames(r, horses)}</small></span>
               <TripStatusBadge kind="trip" status={t.status} />
             </h3>
+            <CustomerRelocationCard tripId={t.id} />
             {t.routeApproved ? <RouteMap stops={t.stops.map(stop => {
               const place = stop.type === 'ORIGIN' ? r.pickup : stop.type === 'DESTINATION' ? r.delivery : undefined;
               return { ...stop, latitude: stop.latitude ?? place?.latitude, longitude: stop.longitude ?? place?.longitude };

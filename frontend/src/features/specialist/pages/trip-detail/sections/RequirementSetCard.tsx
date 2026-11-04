@@ -75,7 +75,7 @@ export const RequirementSetCard: React.FC<{ trip: SpecTrip }> = ({ trip: t }) =>
         <button type="button" className="spc-btn spc-btn--sm" onClick={() => setShowRules((v) => !v)}>{showRules ? 'Ẩn bộ yêu cầu' : 'Xem bộ yêu cầu'}</button>
         {can && <button type="button" className="spc-btn spc-btn--sm" onClick={() => setApplyOpen(true)}>Cập nhật bộ yêu cầu…</button>}
       </div>
-      {!can && <p className="spc-muted" style={{ marginTop: 8 }}>🔒 Chuyến đã qua bước chuẩn bị – bộ yêu cầu được khóa.</p>}
+      {!can && <p className="spc-muted" style={{ marginTop: 8 }}>Chuyến đã qua bước chuẩn bị – bộ yêu cầu được khóa.</p>}
       {showRules && rs.rules.map((r) => (
         <div key={`${r.country}${r.direction}`} style={{ marginTop: 12 }}>
           <div className="spc-rp__rule"><b>{ruleLabel(r.country, r.direction)}</b><span className="spc-muted">{r.regId ? `${r.regId} • phiên bản v${r.regV}` : 'Chưa cấu hình'}</span></div>

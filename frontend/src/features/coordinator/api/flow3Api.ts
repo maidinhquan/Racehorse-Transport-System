@@ -225,9 +225,21 @@ export const flow3Api = {
   decidePickupRelocation: (tripId: string, body: T.PickupDecisionInput, idempotencyKey: string) =>
     flow3Request<T.Context>('F3-J31', { path: { tripId }, body, idempotencyKey }),
 
-  /** F3-J32 – Ghi nhận khách đã đồng ý thực tế */
-  recordPickupRelocationConsent: (tripId: string, body: T.ConsentInput, idempotencyKey: string) =>
-    flow3Request<T.Context>('F3-J32', { path: { tripId }, body, idempotencyKey }),
+  /** F3-J56 – Manager gửi đề xuất điểm nhận cho khách */
+  sendPickupRelocation: (tripId: string, body: T.PickupSendInput, idempotencyKey: string) =>
+    flow3Request<T.Context>('F3-J56', { path: { tripId }, body, idempotencyKey }),
+
+  /** F3-J57 – Khách xem đề xuất điểm nhận được Manager gửi */
+  getCustomerPickupRelocation: (tripId: string) =>
+    flow3Request<T.CustomerPickupProposal>('F3-J57', { path: { tripId } }),
+
+  /** F3-J32 – Khách hàng đồng ý hoặc từ chối điểm nhận mới */
+  customerDecidePickupRelocation: (tripId: string, body: T.CustomerPickupDecisionInput, idempotencyKey: string) =>
+    flow3Request<T.CustomerPickupProposal>('F3-J32', { path: { tripId }, body, idempotencyKey }),
+
+  /** @deprecated Dùng customerDecidePickupRelocation thay thế */
+  recordPickupRelocationConsent: (tripId: string, body: T.CustomerPickupDecisionInput, idempotencyKey: string) =>
+    flow3Request<T.CustomerPickupProposal>('F3-J32', { path: { tripId }, body, idempotencyKey }),
 
   /** F3-J41 – Manager xét ngân sách bay riêng */
   decideFlightBudget: (tripId: string, body: T.BudgetDecisionInput, idempotencyKey: string) =>

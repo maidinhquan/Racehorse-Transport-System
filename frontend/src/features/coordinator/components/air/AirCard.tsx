@@ -2,13 +2,14 @@
 import { curRoute, reqOfTrip } from '../../domain/coordinatorRules';
 import type { Any } from '../../store/coordinatorStore';
 import { cityLabel, dt, human, MILESTONE_LABEL, usd } from '../../utils/format';
-import { AIR_STATUS, airportLabel, checkDraft, countHorses, editableTrip, flightBook, flightMilestone, LocalTime, resolved, serviceRevision, serviceSelect, serviceSend } from '../../workflows/airOperations';
+import { AIR_STATUS, airportLabel, charterFlightModal, charterLockMsg, countHorses, editableTrip, flightMilestone, LocalTime, resolved, selectAirportsModal, serviceRevision, submitAirPlan } from '../../workflows/airOperations';
 import { Pill } from '../common/ui';
 
 export function AirCard({ t }: { t: Any }) {
   const f = t.flight, snap = f?.serviceSnapshot, r = reqOfTrip(t), editable = !editableTrip(t);
-  const rt = curRoute(t), canChoose = editable && !checkDraft(t);
-  const canBook = editable && f?.status === 'BUDGET_APPROVED' && rt?.status === 'APPROVED';
+  const rt = curRoute(t);
+  const routeDraft = !rt || ['DRAFT', 'RETURNED'].includes(rt.status);
+  const charterLock = charterLockMsg(t);
   const catalog: Any = f?.serviceId && resolved(f.serviceId);
   const altered = catalog && snap && (catalog.schedule.cost !== snap.cost || catalog.schedule.airline !== snap.airline || catalog.schedule.departLocal !== snap.departLocal || catalog.schedule.arriveLocal !== snap.arriveLocal);
   const departed = f?.milestones?.some((m: Any) => m.type === 'FLIGHT_DEPARTED'), arrived = f?.milestones?.some((m: Any) => m.type === 'FLIGHT_ARRIVED');
@@ -20,21 +21,45 @@ export function AirCard({ t }: { t: Any }) {
         <div><small>Đối tác / hãng khai thác</small><b>{snap?.partnerName || f?.airline || 'Chưa chọn'}</b><span>{f?.flightNo || '—'}{snap?.airline ? ' · ' + snap.airline : ''}</span></div>
         <div><small>Sân bay đi</small><b>{snap?.fromName || (f ? airportLabel(f.from) : '—')}</b><span>{snap ? <LocalTime value={snap.departLocal} zone={snap.departZone} /> : f ? dt(f.departAt) + ' (giờ hệ thống Việt Nam)' : 'Chưa có lịch'}</span></div>
         <div><small>Sân bay đến</small><b>{snap?.toName || (f ? airportLabel(f.to) : '—')}</b><span>{snap ? <LocalTime value={snap.arriveLocal} zone={snap.arriveZone} /> : f ? dt(f.arriveAt) + ' (giờ hệ thống Việt Nam)' : 'Chưa có lịch'}</span></div>
-        <div><small>Chi phí thuê dịch vụ</small><b>{f ? usd(f.cost) : '—'}</b><span>Chi phí vận hành, không tự đổi giá hợp đồng</span></div>
+        <div><small>Chi phí thuê dịch vụ</small><b>{f ? usd(f.cost) : '—'}</b></div>
       </div>
-      {f ? <div className="fa-booking-line"><span><b>{f.bookingRef ? 'Booking: ' + f.bookingRef : 'Chưa có mã xác nhận đặt chỗ'}</b>{f.confirmedHorses ? ' · ' + f.confirmedHorses + ' ngựa được xác nhận' : ''}</span><small>{f.bookedAt ? 'Ghi nhận ' + dt(f.bookedAt) : 'Danh mục và phê duyệt nội bộ chưa thay thế booking'}</small></div> : null}
+      {f?.jetStallId ? (
+        <div style={{ gridColumn: 'span 4', background: '#f8fafc', padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0', margin: '4px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+            <span style={{ color: '#334155', fontWeight: 600, fontSize: 12 }}>
+              HĐ Charter: <b>{f.contractNo || f.bookingRef}</b> · Chuồng bay: <b>{f.jetStallId}</b> ({f.stallType || 'IATA LAR'})
+            </span>
+            <span style={{ fontSize: 11.5, color: '#475569' }}>
+              Thú y: {f.inFlightCare || 'Chuyên viên thú y CBN'}
+            </span>
+          </div>
+        </div>
+      ) : null}
+      {f ? <div className="fa-booking-line"><span><b>{f.bookingRef ? 'Booking: ' + f.bookingRef : 'Chưa có mã xác nhận đặt chỗ'}</b>{f.confirmedHorses ? ' · ' + f.confirmedHorses + ' ngựa được xác nhận' : ''}</span>{f.bookedAt ? <small>{'Ghi nhận ' + dt(f.bookedAt)}</small> : null}</div> : null}
       {altered ? <p className="fa-warning">Danh mục đối tác đã thay đổi so với bản phương án này. Thông tin đã duyệt vẫn giữ nguyên; cần đối chiếu khi đặt dịch vụ.</p> : null}
-      {f?.status === 'BUDGET_APPROVED' && rt?.status !== 'APPROVED' ? <p className="hint">Chi phí đã được duyệt; hoàn thiện tuyến và xe/người dự kiến để Manager duyệt phương án tổng thể trước khi chốt đặt.</p> : null}
+      {editable && charterLock ? <p className="hint">{charterLock}</p> : null}
       {t.flightSupplyIssue ? <p className="fa-warning">Chưa bố trí được dịch vụ: {t.flightSupplyIssue.reason} · đã báo Manager {dt(t.flightSupplyIssue.at)}.</p> : null}
       <div className="btn-row">
-        {canChoose ? <button type="button" className="btn solid" onClick={() => serviceSelect(t.id)}>{f ? 'Chọn lại trong bản nháp' : 'Chọn dịch vụ từ danh mục'}</button> : null}
-        {editable && f?.status === 'DRAFT' ? <button type="button" className="btn ghost" onClick={() => serviceSend(t.id)}>Gửi duyệt chi phí</button> : null}
-        {canBook ? <button type="button" className="btn solid" onClick={() => flightBook(t.id)}>Ghi nhận xác nhận đặt chỗ</button> : null}
+        {editable ? (
+          <button type="button" className="btn solid" disabled={!!charterLock} title={charterLock || undefined} onClick={() => charterFlightModal(t.id)}>
+            {f?.contractNo || f?.bookingRef ? 'Sửa HĐ Charter' : 'Nhập Hợp đồng Charter'}
+          </button>
+        ) : null}
+        {editable && routeDraft ? (
+          <button type="button" className="btn ghost" onClick={() => selectAirportsModal(t.id)}>
+            {f?.from && f?.to ? 'Đổi sân bay' : 'Chọn sân bay'}
+          </button>
+        ) : null}
+        {editable && (!rt || rt.status === 'DRAFT') && f?.from && f?.to ? (
+          <button type="button" className="btn solid" style={{ background: '#16a34a', borderColor: '#16a34a' }} onClick={() => submitAirPlan(t.id)}>
+            Gửi Manager duyệt phương án bay
+          </button>
+        ) : null}
         {editable && f && ['BUDGET_PENDING', 'BUDGET_APPROVED'].includes(f.status) ? <button type="button" className="btn ghost" onClick={() => serviceRevision(t.id)}>Lập bản điều chỉnh</button> : null}
         {snap?.email || snap?.phone ? <span className="hint">Liên hệ: {snap.contact} · {snap.email || snap.phone}</span> : null}
         {f?.bookingEvidence?.url ? <a className="btn ghost" href={f.bookingEvidence.url} target="_blank" rel="noopener noreferrer">Xem tệp xác nhận</a> : null}
       </div>
-      {f?.status === 'BOOKED' ? <div className="fa-operational"><small>Booking đã có; vẫn cần xác nhận nguồn lực thực tế và Manager duyệt khởi hành. Mốc cất/hạ cánh được ghi ở theo dõi hành trình.</small>
+      {f?.status === 'BOOKED' ? <div className="fa-operational">
         {t.status === 'IN_TRANSIT' && !departed ? <button type="button" className="btn ghost sm" onClick={() => flightMilestone(t.id, 'FLIGHT_DEPARTED')}>Ghi nhận cất cánh</button> : null}
         {t.status === 'IN_TRANSIT' && departed && !arrived ? <button type="button" className="btn ghost sm" onClick={() => flightMilestone(t.id, 'FLIGHT_ARRIVED')}>Ghi nhận hạ cánh</button> : null}
       </div> : null}

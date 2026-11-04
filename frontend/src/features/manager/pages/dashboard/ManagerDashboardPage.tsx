@@ -38,11 +38,15 @@ export const ManagerDashboardPage: React.FC = () => {
     ['Bàn giao chờ đóng đơn', stats.delivered, '/manager/requests?status=DELIVERED', 'check'],
   ];
 
+  const storedName = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null)
+    || (typeof localStorage !== 'undefined' ? localStorage.getItem('userFullName') : null);
+  const managerName = storedName || MANAGER_NAME;
+
   return (
     <ManagerLayout title="Tổng quan">
       <div className="mgr-head">
         <div>
-          <h2 className="mgr-title">Chào {MANAGER_NAME}, đây là việc cần xử lý hôm nay</h2>
+          <h2 className="mgr-title">Chào {managerName}, đây là việc cần xử lý hôm nay</h2>
           <p className="mgr-subtitle">Xét duyệt yêu cầu, phát hành hợp đồng, xác minh thanh toán và điều hành chuyến đi.</p>
         </div>
       </div>
