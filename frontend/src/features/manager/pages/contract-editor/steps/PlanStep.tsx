@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import type { ContractEditorData } from '../../../api/managerApi';
-import { DateTimeField } from '../../../components/DateField/DateTimeField';
 import type { ContractDraft, HorseRef, TransportMode, TransportRequest } from '../../../types';
 import { addDays, fmtDate, MODE_LABEL, today } from '../../../hooks/managerRules';
 
@@ -24,14 +23,26 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, 
     : (['ROAD', 'AIR'] as TransportMode[]);
   const minDepartDate = addDays(today(), minPrepDays ?? 0);
 
-  const isDepartTooEarly = draft.departAt && draft.departAt.slice(0, 10) < minDepartDate;
   // The customer's original dates. After a version is published the request carries the contract's dates,
   // so prefer the values recorded in the contract snapshot.
   const original = [...(r.versions ?? [])].reverse().find((v) => v.snapshot?.requestedPickupAt)?.snapshot;
   const requestedPickup = original?.requestedPickupAt || r.pickupAt;
   const requestedDelivery = original?.requestedDate || r.date;
-  const departChanged = !!(requestedPickup && draft.departAt && draft.departAt.slice(0, 10) !== requestedPickup);
-  const arriveChanged = !!(requestedDelivery && draft.arriveAt && draft.arriveAt.slice(0, 10) !== requestedDelivery);
+
+  // Tự động gán cứng ngày khởi hành và đến nơi theo đúng yêu cầu của khách hàng
+  useEffect(() => {
+    if (requestedPickup && requestedDelivery) {
+      const depDate = requestedPickup.slice(0, 10);
+      const arrDate = requestedDelivery.slice(0, 10);
+      const depTime = draft.departAt && draft.departAt.length > 10 ? draft.departAt.slice(10) : ' 08:00';
+      const arrTime = draft.arriveAt && draft.arriveAt.length > 10 ? draft.arriveAt.slice(10) : ' 18:00';
+      const expectedDep = `${depDate}${depTime}`;
+      const expectedArr = `${arrDate}${arrTime}`;
+      if (draft.departAt !== expectedDep || draft.arriveAt !== expectedArr) {
+        set({ departAt: expectedDep, arriveAt: expectedArr });
+      }
+    }
+  }, [requestedPickup, requestedDelivery, draft.departAt, draft.arriveAt, set]);
 
   return (
     <>
@@ -57,68 +68,20 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, 
           <div className="mgr-input mgr-ce__readonly">{r.horses.map((id) => horses.find((h) => h.id === id)?.name ?? id).join(', ')}</div>
         </div>
         <div className="mgr-field">
-          <label htmlFor="ct-depart">Khởi hành dự kiến *</label>
-          <DateTimeField
-            id="ct-depart"
-            value={draft.departAt || `${minDepartDate} 08:00`}
-            min={minDepartDate}
-            onChange={(v) => {
-              const patch: Partial<ContractDraft> = { departAt: v };
-              if (v && draft.arriveAt && draft.arriveAt <= v) {
-                patch.arriveAt = `${addDays(v.slice(0, 10), 1)} 18:00`;
-              }
-              set(patch);
-            }}
-          />
-          <div style={{ marginTop: 4, fontSize: 12 }}>
-            <span className="mgr-hint">Khách yêu cầu lấy ngựa: {fmtDate(requestedPickup)}.</span>
-            {isDepartTooEarly && (
-              <div style={{ color: '#dc2626', marginTop: 2 }}>
-                ⚠️ Ngày khởi hành phải từ {fmtDate(minDepartDate)} trở đi.{' '}
-                <button
-                  type="button"
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#2563eb',
-                    textDecoration: 'underline',
-                    cursor: 'pointer',
-                    padding: 0,
-                    fontWeight: 600,
-                  }}
-                  onClick={() => {
-                    const newDep = `${minDepartDate} 08:00`;
-                    const newArr = `${addDays(minDepartDate, 1)} 18:00`;
-                    set({ departAt: newDep, arriveAt: newArr });
-                  }}
-                >
-                  Đặt ngày hợp lệ ({fmtDate(minDepartDate)})
-                </button>
-              </div>
-            )}
+          <label>Khởi hành theo yêu cầu (chỉ xem)</label>
+          <div className="mgr-input mgr-ce__readonly">
+            {fmtDate(requestedPickup)}
           </div>
+          <p className="mgr-hint">Khách yêu cầu lấy ngựa: {fmtDate(requestedPickup)}.</p>
         </div>
         <div className="mgr-field">
-          <label htmlFor="ct-arrive">Đến dự kiến *</label>
-          <DateTimeField
-            id="ct-arrive"
-            value={draft.arriveAt || `${addDays(draft.departAt ? draft.departAt.slice(0, 10) : minDepartDate, 1)} 18:00`}
-            min={draft.departAt ? draft.departAt.slice(0, 10) : minDepartDate}
-            onChange={(v) => set({ arriveAt: v })}
-          />
-          <div style={{ marginTop: 4, fontSize: 12 }}>
-            <span className="mgr-hint">Khách yêu cầu giao ngựa: {fmtDate(requestedDelivery)}.</span>
+          <label>Đến dự kiến theo yêu cầu (chỉ xem)</label>
+          <div className="mgr-input mgr-ce__readonly">
+            {fmtDate(requestedDelivery)}
           </div>
+          <p className="mgr-hint">Khách yêu cầu giao ngựa: {fmtDate(requestedDelivery)}.</p>
         </div>
       </div>
-      {(departChanged || arriveChanged) && (
-        <div className="mgr-note mgr-note--warn" role="note" style={{ marginTop: 12, padding: '10px 12px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fde68a', fontSize: 13 }}>
-          <b>Lịch hợp đồng phải giữ đúng ngày khách yêu cầu.</b>{' '}
-          {departChanged && <>Lấy ngựa {fmtDate(requestedPickup)} → <b>{fmtDate(draft.departAt.slice(0, 10))}</b>. </>}
-          {arriveChanged && <>Giao ngựa {fmtDate(requestedDelivery)} → <b>{fmtDate(draft.arriveAt.slice(0, 10))}</b>. </>}
-          Vui lòng đưa ngày khởi hành và ngày đến về đúng các mốc khách yêu cầu trước khi lưu.
-        </div>
-      )}
     </>
   );
 };

@@ -200,7 +200,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
     setLoading(true);
     try {
       const list = await flow6Api.getManagerSettlements();
-      const s = list.find((x) => x.tripId === t?.id || x.contractId === r.contractId) || list[0];
+      const s = list.find((x) => (t?.id && x.tripId === t.id) || (r.contractId && x.contractId === r.contractId));
       if (s) {
         setSettlement(s);
         const [balRes, delivRes, adjRes, caseRes, payRes, fbRes] = await Promise.allSettled([
@@ -219,6 +219,14 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
         }
         if (payRes.status === 'fulfilled') setPayments(payRes.value);
         if (fbRes.status === 'fulfilled') setFeedback(fbRes.value);
+      } else {
+        setSettlement(null);
+        setBalance(null);
+        setDelivery(null);
+        setAdjustments([]);
+        setCases([]);
+        setPayments([]);
+        setFeedback(null);
       }
     } catch (e) {
       console.warn('[RealManagerClosureSection] Failed to load data', e);
@@ -229,7 +237,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
 
   useEffect(() => {
     void loadFlow6Data();
-  }, [r.id]);
+  }, [r.id, t?.id]);
 
   // F6-J15: Chuẩn bị tất toán DRAFT
   const handlePrepareSettlement = async () => {

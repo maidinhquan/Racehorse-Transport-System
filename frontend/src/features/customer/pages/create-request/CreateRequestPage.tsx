@@ -46,7 +46,10 @@ export const CreateRequestPage: React.FC = () => {
   const revising = r?.status === 'CHANGES_REQUESTED';
   const allowed: RequestField[] = revising ? r?.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'] : ['route', 'date', 'places', 'horses', 'notes'];
   const lock = (field: RequestField) => !allowed.includes(field);
-  const minDate = addDays(today(), options?.preparationDays ?? 0);
+  const deadlineDays = Math.ceil((options?.contractDeadlineHours ?? 24) / 24);
+  const prepDays = options?.preparationDays ?? (city(form.destination).country === 'JP' ? 7 : 3);
+  const minLeadDays = prepDays + deadlineDays;
+  const minDate = addDays(today(), minLeadDays);
   const routeEnabled = options?.supportedRoutes?.some(route => route.originCountry === city(form.origin).country && route.destinationCountry === city(form.destination).country && route.mode === (city(form.destination).country === 'JP' ? 'AIR' : 'ROAD')) ?? false;
   const tripValid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!form.date && form.date >= minDate;
   const placeValid = Object.values(places).every(p => p.name.trim() && p.address.trim() && p.contact.trim() && /^[+0-9 ()-]{8,}$/.test(p.phone.trim()) && p.cityId && p.latitude != null && p.longitude != null);
@@ -56,7 +59,7 @@ export const CreateRequestPage: React.FC = () => {
     : optionsError || (!options ? 'Đang tải quy định của tuyến…'
     : !routeEnabled ? 'Tuyến này hiện chưa nhận yêu cầu vận chuyển.'
     : !form.date ? 'Chọn ngày vận chuyển mong muốn.'
-    : form.date < minDate ? `Tuyến này cần chuẩn bị ${options?.preparationDays ?? 3} ngày, vui lòng chọn từ ${fmtDate(minDate)}.` : '');
+    : form.date < minDate ? `Tuyến này cần ít nhất ${minLeadDays} ngày (chuẩn bị & ký hợp đồng), vui lòng chọn từ ${fmtDate(minDate)}.` : '');
   const back = r ? `/customer/requests/${r.id}` : '/customer/requests';
   const save = async () => {
     if (savingRef.current) return;

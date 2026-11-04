@@ -36,7 +36,7 @@ public static class Flow1PricingPolicy
         var vehicles = air ? 0 : (input.HorseCount + capacity!.Value - 1) / capacity.Value;
         decimal? km = air ? null : road!.DistanceMeters / 1000m;
         var lead = air ? 7 : km <= 500 ? 2 : 3;
-        var earliest = Today(clock).AddDays(lead);
+        var earliest = Today(clock).AddDays(lead + 1);
         if (input.DesiredDepartureDate < earliest || input.DesiredDepartureDate > Today(clock).AddYears(2))
             throw Error($"Departure must be between {earliest:yyyy-MM-dd} and two years from today in Vietnam.", "INVALID_DEPARTURE_DATE");
         if (options.DrivingHoursPerDay is < 1 or > 24) throw Error("Configure driving hours per day.", "COST_ASSUMPTIONS_INVALID", 503);
