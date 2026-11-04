@@ -178,7 +178,7 @@ public sealed class LifecycleTests : IAsyncLifetime
         await using(var cn=new SqlConnection(database.Connection))
         {
             await cn.OpenAsync();await using var cmd=new SqlCommand("SELECT COUNT(*) FROM sys.tables WHERE is_ms_shipped=0",cn);
-            Assert.Equal(43,Convert.ToInt32(await cmd.ExecuteScalarAsync()));
+            Assert.Equal(48,Convert.ToInt32(await cmd.ExecuteScalarAsync()));
         }
         var body=new JsonObject{["type"]="COMPLAINT",["subject"]="Check delivery",["description"]="Please check the handover"};var key=Guid.NewGuid().ToString();
         var pair=await Task.WhenAll(Post(customer,$"customer/flow6/settlements/{s}/cases",body.DeepClone().AsObject(),key),Post(customer,$"customer/flow6/settlements/{s}/cases",body.DeepClone().AsObject(),key));

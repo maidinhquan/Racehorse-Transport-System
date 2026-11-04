@@ -161,7 +161,7 @@ public class Flow4HealthService : IFlow4HealthService
         {
             AssessmentId = $"VET_{Guid.NewGuid():N}"[..20].ToUpper(),
             TripId = tripId,
-            HorseId = healthLog.HorseId,
+            HorseId = healthLog.HorseId ?? string.Empty,
             VetId = vetId,
             HealthLogId = dto.HealthLogId,
             TransportFitness = dto.TransportFitness,
@@ -244,7 +244,7 @@ public class Flow4HealthService : IFlow4HealthService
             Entry = new HealthLogInputDto
             {
                 ExpectedVersion = 1,
-                HorseId = h.HorseId,
+                HorseId = h.HorseId ?? string.Empty,
                 Leg = h.LegType ?? "road",
                 MilestoneId = h.MilestoneId,
                 ObservedAt = h.LogTime.ToString("yyyy-MM-dd HH:mm"),

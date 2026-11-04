@@ -110,7 +110,7 @@ public class Flow4CustomerTrackingService : IFlow4CustomerTrackingService
             .ToListAsync();
 
         var logs = await _context.HealthLogs
-            .Where(h => horseIds.Contains(h.HorseId))
+            .Where(h => h.HorseId != null && horseIds.Contains(h.HorseId))
             .OrderByDescending(h => h.RecordedAt ?? h.LogTime)
             .ToListAsync();
 

@@ -17,7 +17,7 @@ public interface IFlow4DriverService
     /// <summary>
     /// F4-J05: Xác nhận xuất phát thực tế (Trip -> IN_TRANSIT, Request -> IN_PROGRESS).
     /// </summary>
-    Task<Flow4MutationResultDto> ConfirmDepartureAsync(string tripId, DepartureInputDto dto, string driverId);
+    Task<Flow4MutationResultDto> ConfirmDepartureAsync(string tripId, DriverDepartureInputDto dto, string driverId);
 
     /// <summary>
     /// F4-J06: Hoàn tất mốc kế tiếp tuần tự theo SequenceOrder.

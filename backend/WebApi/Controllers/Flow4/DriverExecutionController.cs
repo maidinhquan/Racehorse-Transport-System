@@ -46,7 +46,7 @@ public class DriverExecutionController : BaseApiController
     /// F4-J05: Xác nhận xuất phát thực tế
     /// </summary>
     [HttpPost("{tripId}/departure")]
-    public async Task<IActionResult> ConfirmDeparture([FromRoute] string tripId, [FromBody] DepartureInputDto dto)
+    public async Task<IActionResult> ConfirmDeparture([FromRoute] string tripId, [FromBody] DriverDepartureInputDto dto)
     {
         var result = await _driverService.ConfirmDepartureAsync(tripId, dto, CurrentUserId);
         return Success(result);

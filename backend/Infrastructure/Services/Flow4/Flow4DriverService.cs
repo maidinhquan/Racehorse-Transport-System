@@ -118,7 +118,7 @@ public class Flow4DriverService : IFlow4DriverService
     /// <summary>
     /// F4-J05: Xác nhận xuất phát thực tế (Trip -> IN_TRANSIT, Request -> IN_PROGRESS).
     /// </summary>
-    public async Task<Flow4MutationResultDto> ConfirmDepartureAsync(string tripId, DepartureInputDto dto, string driverId)
+    public async Task<Flow4MutationResultDto> ConfirmDepartureAsync(string tripId, DriverDepartureInputDto dto, string driverId)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
 

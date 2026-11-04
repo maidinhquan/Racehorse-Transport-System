@@ -20,7 +20,7 @@ public class DepartureCheckResultDto
     public List<string> RequiredAcknowledgements { get; set; } = new() { "HORSES_CHECKED", "VEHICLE_VERIFIED" };
 }
 
-public class DepartureInputDto
+public class DriverDepartureInputDto
 {
     [JsonPropertyName("expectedVersion")]
     public int ExpectedVersion { get; set; }
