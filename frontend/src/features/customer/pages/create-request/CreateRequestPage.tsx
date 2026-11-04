@@ -46,7 +46,7 @@ export const CreateRequestPage: React.FC = () => {
   const revising = r?.status === 'CHANGES_REQUESTED';
   const allowed: RequestField[] = revising ? r?.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'] : ['route', 'date', 'places', 'horses', 'notes'];
   const lock = (field: RequestField) => !allowed.includes(field);
-  const deadlineDays = Math.ceil((options?.contractDeadlineHours ?? 24) / 24);
+  const deadlineDays = Math.max(2, Math.ceil((options?.contractDeadlineHours ?? 24) / 24) + 1);
   const prepDays = options?.preparationDays ?? (city(form.destination).country === 'JP' ? 7 : 3);
   const minLeadDays = prepDays + deadlineDays;
   const minDate = addDays(today(), minLeadDays);

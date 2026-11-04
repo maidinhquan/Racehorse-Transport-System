@@ -72,6 +72,23 @@ if (!string.IsNullOrWhiteSpace(smtpFrom))
     builder.Configuration["Smtp:FromEmail"] ??= smtpFrom;
 }
 
+// Fallback mapping for standard VNPAY_* environment variables
+var vnpayReturnUrl = builder.Configuration["VNPAY_RETURN_URL"];
+if (!string.IsNullOrWhiteSpace(vnpayReturnUrl))
+{
+    builder.Configuration["Flow1:Vnpay:ReturnUrl"] = vnpayReturnUrl;
+}
+var vnpayTmn = builder.Configuration["VNPAY_TMN_CODE"];
+if (!string.IsNullOrWhiteSpace(vnpayTmn))
+{
+    builder.Configuration["Flow1:Vnpay:TmnCode"] = vnpayTmn;
+}
+var vnpayHash = builder.Configuration["VNPAY_HASH_SECRET"];
+if (!string.IsNullOrWhiteSpace(vnpayHash))
+{
+    builder.Configuration["Flow1:Vnpay:HashSecret"] = vnpayHash;
+}
+
 // The same private configuration is mounted under /app in Docker. Resolve it
 // against this checkout when running the approved localhost Swagger on Windows.
 if (builder.Environment.IsDevelopment() && OperatingSystem.IsWindows())
