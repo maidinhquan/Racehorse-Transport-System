@@ -4,9 +4,9 @@
 -- Flow 1 scope 2026-10-24: VNPAY only; progress via current Status, no history/audit tables.
 -- Reviewed sample only: do not run against an active database as a migration.
 -- Reviewed copy: source data/HorseTransportDB.sql is preserved.
--- Creates ONLY HorseTransportDB_Reviewed. All timestamps in demo fixtures are UTC.
+-- Creates ONLY HorseTransportDB. All timestamps in demo fixtures are UTC.
 -- Private/demo paths and example URLs are placeholders, not bundled file contents.
--- SAMPLE DATABASE ONLY: this file DROPS and recreates HorseTransportDB_Reviewed.
+-- SAMPLE DATABASE ONLY: this file DROPS and recreates HorseTransportDB.
 -- Not a migration. Do not apply old migration scripts to restore removed columns.
 -- Flow 1 and Flow 6 schema is defined directly below; all monetary amounts are VND.
 -- Flow 6: 5 additional tables, totaling 37 tables / 33 monotonic sequences.
@@ -19,18 +19,18 @@ USE master;
 GO
 
 -- Buộc ngắt mọi kết nối đang mở vào Database cũ và xóa hẳn nếu đã tồn tại
-IF EXISTS (SELECT name FROM sys.databases WHERE name = 'HorseTransportDB_Reviewed')
+IF EXISTS (SELECT name FROM sys.databases WHERE name = 'HorseTransportDB')
 BEGIN
-    ALTER DATABASE HorseTransportDB_Reviewed SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE HorseTransportDB_Reviewed;
+    ALTER DATABASE HorseTransportDB SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE HorseTransportDB;
 END
 GO
 
 -- Tạo mới database hoàn toàn sạch sẽ
-CREATE DATABASE HorseTransportDB_Reviewed;
+CREATE DATABASE HorseTransportDB;
 GO
 
-USE HorseTransportDB_Reviewed;
+USE HorseTransportDB;
 GO
 
 SET ANSI_NULLS ON;
