@@ -30,6 +30,7 @@ import {
   whereNow,
 } from './driverRules';
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
+import { flow6Api } from '../../aftercare/api/flow6Api';
 
 // ============================================================================
 // Store dùng chung cho mọi trang Tài xế (giữ state khi chuyển route)
@@ -88,8 +89,14 @@ if (typeof window !== 'undefined') {
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const detail = (event as CustomEvent<{ role: string; enabled: boolean }>).detail;
     if (!detail || detail.role !== 'driver') return;
-    setState({ ...(detail.enabled ? demoData() : emptyData), loading: false, loaded: true, drafts: {}, lastRecordedMs: {} });
-    toast(detail.enabled ? 'Đã bật dữ liệu mẫu & hiển thị nút demo.' : 'Đã tắt dữ liệu mẫu & ẩn nút demo.');
+    if (detail.enabled) {
+      setState({ ...demoData(), loading: false, loaded: true, drafts: {}, lastRecordedMs: {} });
+      toast('Đã bật dữ liệu mẫu & hiển thị nút demo.');
+    } else {
+      setState({ ...emptyData, loading: false, loaded: false, drafts: {}, lastRecordedMs: {} });
+      toast('Đã tắt dữ liệu mẫu & chuyển sang dữ liệu thật từ máy chủ.');
+      void loadAll();
+    }
   });
 }
 
@@ -102,16 +109,89 @@ const isMine = (t: Trip) => Object.values(t.crew).includes(state.userId);
 const draftOf = (t: Trip) => state.drafts[t.id] ?? emptyHandoverDraft(t);
 
 async function loadAll() {
-  if (state.loading || state.loaded) return;
+  if (state.loading) return;
   setState({ loading: true });
   try {
+    if (!getDemoMode('driver')) {
+      try {
+        const f6Trips = await flow6Api.getTrips();
+        const realTrips: Trip[] = await Promise.all(
+          f6Trips.map(async (t) => {
+            try {
+              const ctx = await flow6Api.getTripContext(t.tripId);
+              return {
+                id: t.tripId,
+                requestId: t.requestId,
+                customer: ctx.designatedReceiverName || 'Khách hàng',
+                mode: 'ROAD',
+                origin: 'Điểm nhận',
+                destination: 'Điểm giao',
+                pickup: { name: 'Điểm nhận', address: '' },
+                delivery: { name: 'Điểm giao', address: '' },
+                receiver: {
+                  name: ctx.designatedReceiverName || 'Người nhận',
+                  phone: ctx.designatedReceiverPhone || '',
+                },
+                horses: ctx.horseIds || [],
+                plannedDepart: '',
+                eta: '',
+                status: t.status as any,
+                crew: {},
+                stops: [],
+                milestones: [],
+                clearances: [],
+                health: [],
+                documents: [],
+                handoverAttempts: [],
+              };
+            } catch {
+              return {
+                id: t.tripId,
+                requestId: t.requestId,
+                customer: 'Khách hàng',
+                mode: 'ROAD',
+                origin: 'Điểm nhận',
+                destination: 'Điểm giao',
+                pickup: { name: 'Điểm nhận', address: '' },
+                delivery: { name: 'Điểm giao', address: '' },
+                receiver: { name: 'Người nhận', phone: '' },
+                horses: [],
+                plannedDepart: '',
+                eta: '',
+                status: t.status as any,
+                crew: {},
+                stops: [],
+                milestones: [],
+                clearances: [],
+                health: [],
+                documents: [],
+                handoverAttempts: [],
+              };
+            }
+          })
+        );
+        setState({
+          trips: realTrips,
+          crew: [],
+          horses: [],
+          incidents: [],
+          loading: false,
+          loaded: true,
+        });
+        return;
+      } catch (err) {
+        console.warn('[useDriver] Failed to fetch real Flow 6 trips:', err);
+        setState({ ...emptyData, loading: false, loaded: true });
+        return;
+      }
+    }
+
     const [trips, crew, horses, incidents] = await Promise.all([
       driverApi.getMyTrips(), driverApi.getCrew(), driverApi.getHorses(), driverApi.getIncidents(),
     ]);
-    if (!getDemoMode('driver')) { setState({ ...emptyData, loading: false, loaded: true }); return; }
     setState({ trips, crew, horses, incidents, loading: false, loaded: true });
   } catch {
-    setState(getDemoMode('driver') ? { loading: false, loaded: true } : { ...emptyData, loading: false, loaded: true });
+    setState({ ...(getDemoMode('driver') ? demoData() : emptyData), loading: false, loaded: true });
   }
 }
 
@@ -305,7 +385,10 @@ export const useDriver = () => {
     }
     return undefined;
   }, [snap.crew, snap.userId]);
-  const myTrips = useMemo(() => tripsOf(snap.trips, snap.userId), [snap.trips, snap.userId]);
+  const myTrips = useMemo(() => {
+    if (!getDemoMode('driver')) return snap.trips;
+    return tripsOf(snap.trips, snap.userId);
+  }, [snap.trips, snap.userId]);
   const activeTrips = useMemo(() => myTrips.filter(isActiveTrip), [myTrips]);
   const completedTrips = useMemo(() => myTrips.filter((t) => !isActiveTrip(t)), [myTrips]);
   const getTrip = useCallback((id?: string) => myTrips.find((t) => t.id === id), [myTrips]);

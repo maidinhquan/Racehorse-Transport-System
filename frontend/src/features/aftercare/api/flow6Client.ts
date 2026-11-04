@@ -191,7 +191,7 @@ export async function flow6Request<T>(operationId: Flow6OperationId, options: Fl
     if (envelope?.success === false) return await serverError(envelope, result.status);
 
     const statusStr = String(result.status);
-    const expectedResponse = op.responses[statusStr];
+    const expectedResponse = op.responses[statusStr] ?? (result.status >= 200 && result.status < 300 ? (op.responses['200'] ?? op.responses['201']) : undefined);
     if (!expectedResponse) throw new Flow6ApiError('HTTP status không khớp contract Flow 6.', 'INVALID_RESPONSE_STATUS', result.status);
 
     if (options.responseType === 'blob') {
