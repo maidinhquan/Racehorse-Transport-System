@@ -22,7 +22,7 @@ const CONTRACT_TONE: Record<ContractState, BadgeTone> = {
 };
 const DOC_TONE: Record<DocStatus, BadgeTone> = {
   MISSING: 'bad', NEEDS_INPUT: 'bad', OPTIONAL: 'muted', NOT_REQUIRED_YET: 'muted', SUBMITTED: 'info',
-  PENDING_REVIEW: 'warn', APPROVED: 'ok', ACTION_REQUIRED: 'bad',
+  PENDING_REVIEW: 'warn', RESUBMITTED: 'warn', APPROVED: 'ok', ACTION_REQUIRED: 'bad',
 };
 const TRIP_TONE: Record<TripStatus, BadgeTone> = { PLANNING: 'info', READY_TO_DEPART: 'ok', IN_TRANSIT: 'brand', COMPLETED: 'muted' };
 const PAY_TONE: Record<PaymentStatus, BadgeTone> = { PENDING_CONFIRMATION: 'warn', PROCESSING: 'warn', SUCCESS: 'ok', FAILED: 'bad', REJECTED: 'bad' };

@@ -924,6 +924,9 @@ return (
       }
 
       audit('Entered manual charter flight contract', t.id, `${contractNo} · ${flightNo} · Jet Stall ${jetStallId}`);
+      // Lưu hợp đồng charter là đã giữ chỗ: báo cho Quản lý thấy chuyến bay đã BOOKED
+      saveSharedTrip(t);
+      notify('LOGISTICS_MANAGER', `Dịch vụ bay ${t.id} đã đặt chỗ`, `${contractNo} · ${flightNo}`, `m/trip/${t.id}/route`);
       commit();
       void rpRoute(t, true);
       setTimeout(() => plannerMap.fitAll?.(), 100);

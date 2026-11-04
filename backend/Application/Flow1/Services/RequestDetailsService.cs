@@ -39,6 +39,16 @@ public sealed class RequestDetailsService(IDataSession data, AccessService acces
             status = x.DocumentStatus, expiryDate = x.ExpiryDate?.ToString("yyyy-MM-dd"),
             file = x.UploadedFileUrl is null ? null : new { url = $"/api/{(manager ? "manager" : "customer")}/requests/{id}/documents/{x.RecordID}" } }));
         view[manager ? "dossier" : "docs"] = JsonSerializer.SerializeToNode(docs);
+        if (!manager)
+        {
+            // OPEN: khách cần nộp; SUBMITTED: khách đã nộp, chờ Specialist duyệt. FULFILLED không cần hiển thị.
+            var supplements = await data.ListAsync<DocumentSupplement>(x => x.RequestID == id && (x.Status == "OPEN" || x.Status == "SUBMITTED"), ct);
+            view["supplements"] = JsonSerializer.SerializeToNode(supplements.OrderBy(x => x.CreatedAtUtc).Select(x => new
+            {
+                id = x.RequestDocID, key = x.KeyName, scope = x.Scope, reason = x.Reason,
+                at = x.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm"), by = "Transport Specialist", status = x.Status,
+            }));
+        }
         view["contractFeedback"] = contract is null ? null : JsonSerializer.SerializeToNode(new
         {
             text = contract.CustomerFeedback, status = contract.FeedbackStatus, managerReply = contract.ManagerFeedback,

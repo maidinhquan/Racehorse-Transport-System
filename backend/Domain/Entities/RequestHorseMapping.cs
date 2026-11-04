@@ -19,6 +19,10 @@ namespace Domain.Entities
         [StringLength(50)]
         public string HorseId { get; set; } = null!;
 
+        [Column("CareInstructions")]
+        [StringLength(2000)]
+        public string? CareInstructions { get; set; }
+
         // Navigation properties
         [ForeignKey(nameof(RequestId))]
         [InverseProperty(nameof(TransportRequest.RequestHorseMappings))]

@@ -41,7 +41,7 @@ interface SpecialistLayoutProps {
 /** Layout trang Transport Specialist: sidebar + topbar + toast */
 export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, children }) => {
   const navigate = useNavigate();
-  const { stats, toast, actions } = useSpecialist();
+  const { trips, toast, actions } = useSpecialist();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -73,11 +73,17 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
     navigate('/login');
   };
 
-  const NAV: Array<[string, string, string, number?]> = [
-    ['/specialist/dashboard', 'Tổng quan', 'home'],
-    ['/specialist/trips', 'Chuyến được giao', 'truck', stats.awaiting],
-    ['/specialist/regulations', 'Quy định & thiết lập', 'list'],
-    ['/specialist/audit', 'Lịch sử thao tác', 'clock'],
+  const NAV: Array<{ to: string; label: string; icon: string; count?: number; countTooltip?: string }> = [
+    { to: '/specialist/dashboard', label: 'Tổng quan', icon: 'home' },
+    {
+      to: '/specialist/trips',
+      label: 'Chuyến được giao',
+      icon: 'truck',
+      count: trips.length,
+      countTooltip: `${trips.length} chuyến được giao phụ trách`,
+    },
+    { to: '/specialist/regulations', label: 'Quy định & thiết lập', icon: 'list' },
+    { to: '/specialist/audit', label: 'Lịch sử thao tác', icon: 'clock' },
   ];
 
   const storedName = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null)
@@ -93,9 +99,15 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
         </NavLink>
         <div className="spc-role"><b>Transport Specialist</b><span>Hồ sơ pháp lý & quy định</span></div>
         <nav className="spc-nav">
-          {NAV.map(([to, label, icon, count]) => (
+          {NAV.map(({ to, label, icon, count, countTooltip }) => (
             <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>
-              <Icon name={icon} /><span>{label}</span>{!!count && <em className="spc-nav__count">{count}</em>}
+              <Icon name={icon} />
+              <span>{label}</span>
+              {count !== undefined && count > 0 && (
+                <em className="spc-nav__count" title={countTooltip}>
+                  {count}
+                </em>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -144,7 +156,7 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
           </div>
         </header>
         <nav className="spc-mobile-nav">
-          {NAV.map(([to, label]) => <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}
+          {NAV.map(({ to, label }) => <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}
         </nav>
         <main className="spc-view">{children}</main>
       </div>

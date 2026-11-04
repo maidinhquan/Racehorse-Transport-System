@@ -9,13 +9,13 @@ const keys = <T extends string>(o: Record<T, string>) => Object.keys(o) as T[];
 // ---------------------------------------------------------------------------
 // Loại giấy tờ
 // ---------------------------------------------------------------------------
-export const DocTypeModal: React.FC<{ open: boolean; value?: DocType; onClose: () => void }> = ({ open, value, onClose }) => {
+export const DocTypeModal: React.FC<{ open: boolean; value?: DocType; onClose: () => void; onSaved?: (id: string) => void }> = ({ open, value, onClose, onSaved }) => {
   const { actions } = useSpecialist();
   const blank: DocType = { id: '', name: '', group: 'CUSTOMS', scope: 'PER_TRIP', provider: 'CBN', validityDays: 30, status: 'ACTIVE' };
   const [f, setF] = useState<DocType>(blank);
   const [error, setError] = useState('');
   useEffect(() => { if (open) { setF(value ? { ...value } : blank); setError(''); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-  const submit = () => { const r = actions.saveDocType(f); if (r.ok) onClose(); else setError(r.message); };
+  const submit = () => { const r = actions.saveDocType(f); if (r.ok) { onSaved?.(r.id!); onClose(); } else setError(r.message); };
   return (
     <Modal open={open} title={value ? `Sửa loại giấy tờ ${value.id}` : 'Thêm loại giấy tờ'} okText="Lưu" onClose={onClose} onOk={submit} error={error}>
       <div className="spc-field"><label htmlFor="dt-name">Tên loại giấy tờ *</label><input id="dt-name" className="spc-input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
@@ -37,7 +37,7 @@ export const DocTypeModal: React.FC<{ open: boolean; value?: DocType; onClose: (
 // ---------------------------------------------------------------------------
 // Yêu cầu theo quốc gia / hướng (danh sách dòng yêu cầu)
 // ---------------------------------------------------------------------------
-export const RegulationModal: React.FC<{ open: boolean; value?: Regulation; onClose: () => void }> = ({ open, value, onClose }) => {
+export const RegulationModal: React.FC<{ open: boolean; value?: Regulation; onClose: () => void; onSaved?: (id: string) => void }> = ({ open, value, onClose, onSaved }) => {
   const { docTypes, actions } = useSpecialist();
   const blank: Regulation = { id: '', country: 'VN', direction: 'EXPORT', lines: [], note: '', v: 1, effectiveFrom: today(), status: 'ACTIVE' };
   const [f, setF] = useState<Regulation>(blank);
@@ -50,7 +50,7 @@ export const RegulationModal: React.FC<{ open: boolean; value?: Regulation; onCl
     if (!t) return setError('Đã thêm mọi loại giấy tờ.');
     setF((x) => ({ ...x, lines: [...x.lines, { typeId: t.id, provider: t.provider, scope: t.scope, level: 'REQUIRED', stage: t.group === 'IDENTITY' ? 'BEFORE_SUBMIT' : 'BEFORE_DEPART', condition: '' }] }));
   };
-  const submit = () => { const r = actions.saveRegulation(f); if (r.ok) onClose(); else setError(r.message); };
+  const submit = () => { const r = actions.saveRegulation(f); if (r.ok) { onSaved?.(r.id!); onClose(); } else setError(r.message); };
   return (
     <Modal open={open} title={value ? `Sửa yêu cầu ${value.id} (v${value.v})` : 'Thêm yêu cầu theo quốc gia/tuyến'} okText="Lưu yêu cầu" onClose={onClose} onOk={submit} error={error} wide>
       <div className="spc-modal__grid">
@@ -88,7 +88,7 @@ export const RegulationModal: React.FC<{ open: boolean; value?: Regulation; onCl
 // ---------------------------------------------------------------------------
 const ALL_RULES: Array<[CountryCode, Direction]> = (Object.keys(COUNTRY_VI) as CountryCode[]).flatMap((c) => (['EXPORT', 'IMPORT', 'DOMESTIC'] as Direction[]).map((d) => [c, d] as [CountryCode, Direction]));
 
-export const PackageModal: React.FC<{ open: boolean; value?: RegPackage; onClose: () => void }> = ({ open, value, onClose }) => {
+export const PackageModal: React.FC<{ open: boolean; value?: RegPackage; onClose: () => void; onSaved?: (id: string) => void }> = ({ open, value, onClose, onSaved }) => {
   const { data, actions } = useSpecialist();
   const blank: RegPackage = { id: '', name: '', items: [], origin: 'VN', dest: 'VN', modes: ['ROAD'], note: '', v: 1, effectiveFrom: today(), status: 'ACTIVE' };
   const [f, setF] = useState<RegPackage>(blank);
@@ -101,7 +101,7 @@ export const PackageModal: React.FC<{ open: boolean; value?: RegPackage; onClose
     return { ...p, items, origin: o, dest: d, name: p.name && value ? p.name : pkgName(items) };
   });
   const options = ALL_RULES.filter((x) => regFor(data, x[0], x[1]) || has(x));
-  const submit = () => { const r = actions.savePackage(f); if (r.ok) onClose(); else setError(r.message); };
+  const submit = () => { const r = actions.savePackage(f); if (r.ok) { onSaved?.(r.id!); onClose(); } else setError(r.message); };
   return (
     <Modal open={open} title={value ? `Sửa bộ yêu cầu ${value.id} (v${value.v})` : 'Thêm bộ yêu cầu hồ sơ'} okText="Lưu bộ yêu cầu" onClose={onClose} onOk={submit} error={error} wide>
       <div className="spc-field"><label htmlFor="rp-name">Tên bộ *</label><input id="rp-name" className="spc-input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>

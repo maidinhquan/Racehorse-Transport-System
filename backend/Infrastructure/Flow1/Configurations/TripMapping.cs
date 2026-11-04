@@ -23,6 +23,7 @@ public sealed class TripMapping : IEntityTypeConfiguration<Trip>
         entity.Property(row => row.HandoffEventId).HasColumnType("varchar(50)");
         entity.Property(row => row.AssignedSpecialistId).HasColumnType("varchar(50)");
         entity.Property(row => row.AssignedCoordinatorId).HasColumnType("varchar(50)");
+        entity.Property(row => row.DocsReadyAtUtc).HasColumnType("datetime2(7)");
         entity.Property(row => row.TripID).HasDefaultValueSql("'TRIP_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_TRIP_PLAN_ID], '000', 'en-US')").ValueGeneratedOnAdd();
     }
 }

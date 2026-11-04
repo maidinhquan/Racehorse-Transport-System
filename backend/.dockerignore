@@ -19,3 +19,6 @@
 **/.env.*
 !**/.env.example
 **/appsettings.*.Local.json
+
+# Test projects are not part of the runtime image; excluding them keeps the build cache valid when tests change
+**/tests

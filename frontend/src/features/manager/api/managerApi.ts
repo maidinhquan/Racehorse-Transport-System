@@ -73,7 +73,7 @@ const routeFromPlan = (p: any): RoutePlan | undefined => {
 const tripFromWire = (t: any): Trip => ({ ...t,
   deployment: { ...t.deployment, specialistId: t.specialistId, coordinatorId: t.coordinatorId, holdReason: t.deployment?.reason },
   milestones: [], etaHistory: [],
-  readiness: { docsReady: 0, docsTotal: 0, insurance: 'MISSING', quarantineOk: false },
+  readiness: { insurance: 'MISSING', quarantineOk: false, ...t.readiness, docsReady: t.readiness?.docsReady ?? 0, docsTotal: t.readiness?.docsTotal ?? 0, docsReadyAt: t.readiness?.docsReadyAt || undefined },
 });
 const horseFromWire = (h: WireHorse): HorseRef => ({ ...h, breed: h.breed ?? '', passportNo: h.passport?.number ?? '' });
 export const managerApi = {
@@ -95,6 +95,8 @@ export const managerApi = {
   cancelPayment: async (id: string, reason: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('post', `/manager/payments/${id}/cancel`, { reason })), requestId: '' } as Transaction),
   getPayment: async (id: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('get', `/manager/payments/${id}`)), requestId: '' } as Transaction),
   getContractVersion: async (id: string, versionNo: number) => versionFromWire(await contractClient<WireContract>('get', `/manager/contracts/${id}/versions/${versionNo}`)),
+  /** Chỉ lấy số liệu sẵn sàng (hồ sơ, bảo hiểm, kiểm dịch) của các chuyến để làm mới nhẹ, không gọi lại phương án tuyến */
+  getTripReadiness: async () => (await contractClient<any[]>('get', '/manager/trips')).map((t) => ({ id: t.id as string, readiness: tripFromWire(t).readiness })),
   getTrips: async () => {
     const list = (await contractClient<any[]>('get', '/manager/trips')).map(tripFromWire);
     // Gắn phương án tuyến Điều phối đã gửi (lưu trên backend) cho các chuyến chưa có route

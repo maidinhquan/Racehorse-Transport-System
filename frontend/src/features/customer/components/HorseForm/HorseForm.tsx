@@ -145,7 +145,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
         {locked && (
           <div className="cus-note cus-note--grey">
             <Icon name="lock" />
-            <div><b>Thông tin định danh đã khóa</b>Ngựa thuộc yêu cầu đã gửi ({lockedBy.join(', ')}). Muốn sửa tên, giống, giới tính, ngày sinh hoặc microchip, hãy liên hệ CBN Transport.</div>
+            <div><b>Thông tin định danh đã khóa</b>Ngựa đang trong chuyến vận chuyển ({lockedBy.join(', ')}). Muốn sửa tên, giống, giới tính, ngày sinh hoặc microchip, hãy liên hệ CBN Transport.</div>
           </div>
         )}
         <div className="cus-horse-form__grid">

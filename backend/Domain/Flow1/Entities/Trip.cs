@@ -15,4 +15,5 @@ public sealed class Trip
     public string? HandoffEventId { get; set; }
     public string? AssignedSpecialistId { get; set; }
     public string? AssignedCoordinatorId { get; set; }
+    public DateTime? DocsReadyAtUtc { get; set; }
 }

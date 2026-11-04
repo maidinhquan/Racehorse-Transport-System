@@ -88,7 +88,7 @@ function snapshotFromWire(raw?: Record<string, unknown>) {
 export const documentKey = (key: string) => ({
   'value-proof': 'valueProof', PHOTO: 'photo', PASSPORT: 'passport', OWNERSHIP: 'ownership',
   OWNERSHIP_CERTIFICATE: 'ownership', VALUATION: 'valueProof', VALUATION_EVIDENCE: 'valueProof',
-  VACCINATION: 'flu', HEALTH_CERTIFICATE: 'health',
+  VACCINATION: 'flu', HEALTH_CERTIFICATE: 'health', 'DT-2': 'health', 'DT-3': 'flu',
 } as Record<string, string>)[key] ?? key;
 
 export const fileFromWire = (file?: WireFile | null, fallback = 'Tài liệu') =>

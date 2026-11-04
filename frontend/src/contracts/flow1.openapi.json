@@ -10543,6 +10543,193 @@
           }
         }
       }
+    },
+    "/customer/requests/{requestId}/horses/{horseId}/documents": {
+      "post": {
+        "operationId": "F1-J15M",
+        "summary": "Nộp giấy chứng nhận sức khỏe hoặc sổ tiêm của ngựa trong đơn. Role: **CUSTOMER**.",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J15MResponse201"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": true,
+                      "message": "OK",
+                      "data": {
+                        "recordId": "LMR_AB12CD34",
+                        "key": "health",
+                        "scope": "HORSE_001",
+                        "status": "SUBMITTED",
+                        "file": {
+                          "name": "health.pdf",
+                          "url": "/api/customer/requests/REQUEST_001/documents/LMR_AB12CD34"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J15MResponse400"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Dữ liệu không hợp lệ",
+                      "errorCode": "VALIDATION_ERROR",
+                      "data": null,
+                      "errors": {
+                        "file": [
+                          "Nội dung file không hợp lệ"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 50,
+              "pattern": "^[A-Z_]+_\\d{3,}$"
+            }
+          },
+          {
+            "name": "horseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 50,
+              "pattern": "^[A-Z_]+_\\d{3,}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Real bytes, <=10 MiB. PDF/JPEG/PNG."
+                  },
+                  "documentType": {
+                    "type": "string",
+                    "enum": [
+                      "HEALTH_CERTIFICATE",
+                      "VACCINATION"
+                    ]
+                  },
+                  "expiryDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "file",
+                  "documentType"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -26116,6 +26303,95 @@
         "required": [
           "success",
           "message"
+        ],
+        "additionalProperties": true
+      },
+      "F1-J15MResponse201": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "recordId": {
+                "type": "string"
+              },
+              "key": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "file": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "url"
+                ]
+              }
+            },
+            "required": [
+              "recordId",
+              "key",
+              "scope",
+              "status",
+              "file"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "message",
+          "success"
+        ]
+      },
+      "F1-J15MResponse400": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "null"
+          },
+          "errorCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message",
+          "success"
         ],
         "additionalProperties": true
       }

@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import type { CustomerDoc, CustomerDocKey, SpecTrip } from '../../../types';
 import { useSpecialist } from '../../../hooks/useSpecialist';
 import { CUSTOMER_DOC_NAME, customerDocCount, fmtDate, fmtDateTime, openRequestFor } from '../../../hooks/specialistRules';
-import { SupplementModal } from '../../../components/Modals';
-import { openSampleFile } from '../../../components/Common/Common';
+import { SupplementModal, DocumentPreviewModal } from '../../../components/Modals';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 
 /**
@@ -13,6 +12,7 @@ import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusB
 export const CustomerDocsTab: React.FC<{ trip: SpecTrip }> = ({ trip: t }) => {
   const { data, customerDocs, actions } = useSpecialist();
   const [sup, setSup] = useState<{ key: CustomerDocKey; scope: string } | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<CustomerDoc | null>(null);
   const cleanId = (x?: string | null) => (x || '').replace(/-/g, '_');
   const docs = customerDocs.filter((d) => d.tripId === t.id || cleanId(d.tripId) === cleanId(t.id) || (t.requestId && cleanId(d.tripId) === cleanId(t.requestId)));
   const cnt = customerDocCount(data, t);
@@ -33,13 +33,19 @@ export const CustomerDocsTab: React.FC<{ trip: SpecTrip }> = ({ trip: t }) => {
         {expiredBeforeArrival && <div className="spc-cdoc__issue">Giấy tờ hết hạn trước khi chuyến đến nơi ({fmtDate(t.eta?.slice(0, 10))}) – cần bản mới.</div>}
         {d.reviewedAt && d.status === 'APPROVED' && <div className="spc-cdoc__note">Duyệt {fmtDateTime(d.reviewedAt)} • {d.reviewedBy}</div>}
         <div className="spc-btn-row" style={{ marginTop: 8 }}>
-          {d.file && <button type="button" className="spc-btn spc-btn--sm" onClick={() => openSampleFile(d.file!)}>Xem tệp</button>}
+          {d.file && <button type="button" className="spc-btn spc-btn--sm" onClick={() => setPreviewDoc(d)}>Xem tệp</button>}
           {canReview && d.status === 'SUBMITTED' && (
             <button type="button" className="spc-btn spc-btn--sm spc-btn--solid" onClick={() => actions.approveCustomerDoc(t.id, d.key, d.scope)}>Chấp thuận</button>
           )}
+          {canReview && req?.status === 'OPEN' && (
+            <button type="button" className="spc-btn spc-btn--sm" title="Gửi lại yêu cầu nếu khách hàng không nhận được" onClick={() => actions.resendCustomerDocRequest(req.id)}>Gửi lại yêu cầu</button>
+          )}
+          {canReview && req?.status === 'SUBMITTED' && d.status === 'SUBMITTED' && (
+            <button type="button" className="spc-btn spc-btn--sm" onClick={() => setSup({ key: d.key, scope: d.scope })}>Yêu cầu nộp lại</button>
+          )}
           {canReview && (req
             ? <TripStatusBadge label={req.status === 'SUBMITTED' ? `Khách đã nộp lại • ${req.id}` : `Đang chờ khách bổ sung • ${req.id}`} tone={req.status === 'SUBMITTED' ? 'info' : 'warn'} />
-            : <button type="button" className="spc-btn spc-btn--sm" onClick={() => setSup({ key: d.key, scope: d.scope })}>Yêu cầu bổ sung</button>)}
+            :<button type="button" className="spc-btn spc-btn--sm" onClick={() => setSup({ key: d.key, scope: d.scope })}>Yêu cầu bổ sung</button>)}
         </div>
       </div>
     );
@@ -65,6 +71,19 @@ export const CustomerDocsTab: React.FC<{ trip: SpecTrip }> = ({ trip: t }) => {
         );
       })}
       {sup && <SupplementModal open trip={t} docKey={sup.key} scope={sup.scope} onClose={() => setSup(null)} />}
+      {previewDoc && (
+        <DocumentPreviewModal
+          open={!!previewDoc}
+          title={CUSTOMER_DOC_NAME[previewDoc.key] || previewDoc.key}
+          fileName={typeof previewDoc.file === 'object' ? (previewDoc.file as any).name : String(previewDoc.file || '')}
+          fileUrl={typeof previewDoc.file === 'object' ? (previewDoc.file as any).url : (String(previewDoc.file || '').startsWith('/api') || String(previewDoc.file || '').startsWith('http') || String(previewDoc.file || '').startsWith('blob:') || String(previewDoc.file || '').startsWith('data:') ? String(previewDoc.file) : undefined)}
+          customerDoc={previewDoc}
+          trip={t}
+          onClose={() => setPreviewDoc(null)}
+          onApprove={canReview && previewDoc.status === 'SUBMITTED' ? () => actions.approveCustomerDoc(t.id, previewDoc.key, previewDoc.scope) : undefined}
+          onRequestSupplement={canReview ? () => { const target = previewDoc; setPreviewDoc(null); setSup({ key: target.key, scope: target.scope }); } : undefined}
+        />
+      )}
     </div>
   );
 };

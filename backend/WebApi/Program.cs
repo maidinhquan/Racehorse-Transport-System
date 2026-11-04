@@ -15,6 +15,7 @@ using Microsoft.OpenApi.Models;
 using WebApi.Extensions;
 using WebApi.Extensions.Flow1;
 using WebApi.Middlewares;
+using WebApi.Realtime;
 
 var builder = WebApplication.CreateBuilder(args);
 if (builder.Environment.IsDevelopment())
@@ -70,6 +71,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IMapRoutingService, MapRoutingService>();
 builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
+builder.Services.AddScoped<ISpecialistService, SpecialistService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
 
@@ -177,6 +179,13 @@ builder.Services.AddAuthentication(options =>
         {
             OnMessageReceived = context =>
             {
+                // WebSocket của SignalR không gửi được header Authorization nên token đi qua query string.
+                var hubToken = context.Request.Query["access_token"].ToString();
+                if (!string.IsNullOrEmpty(hubToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = hubToken;
+                    return Task.CompletedTask;
+                }
                 var authHeader = context.Request.Headers.Authorization.ToString();
                 if (!string.IsNullOrEmpty(authHeader))
                 {
@@ -264,6 +273,8 @@ builder.Services.AddSwaggerGen(c =>
     );
 });
 
+builder.Services.AddSignalR();
+
 var app = builder.Build();
 
 // =============================================================================
@@ -295,10 +306,12 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<RealtimeBroadcastMiddleware>();
 app.UseMiddleware<IdempotencyMiddleware>();
 app.UseRateLimiter();
 
 app.MapControllers();
+app.MapHub<NotificationHub>(NotificationHub.Path);
 
 app.Run();
 

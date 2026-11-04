@@ -301,9 +301,12 @@ async function syncRequestsOnly(): Promise<void> {
       const rawRequests = await managerApi.getRequests();
       const isDemo = getDemoMode('manager');
       if (!isDemo) {
+        const readiness = await managerApi.getTripReadiness().catch(() => []);
         setState((prev) => ({
           ...prev,
           requests: mergeRequestList(rawRequests, prev.requests),
+          // Hồ sơ/bảo hiểm do Specialist cập nhật phải hiện lên Quản lý mà không cần tải lại trang
+          trips: readiness.length ? prev.trips.map((t) => { const r = readiness.find((x) => cleanId(x.id) === cleanId(t.id)); return r ? { ...t, readiness: { ...t.readiness, ...r.readiness } } : t; }) : prev.trips,
         }));
         return;
       }
@@ -664,11 +667,63 @@ const managerActions = {
     return perform(requestId, () => managerApi.confirmRefund(contractId), 'Đã cập nhật trạng thái hoàn tiền theo máy chủ.');
   },
   confirmDeployment(id: string, specialistId: string, coordinatorId: string) {
-    if (!specialistId || !coordinatorId) return Promise.resolve(fail('Chọn đủ người phụ trách.'));
-    return perform(id, () => managerApi.deployTrip(id, { specialistId, coordinatorId }), 'Đã phân công chuyến.');
-  },
-  holdTrip(id: string, reason: string) { return perform(id, () => managerApi.holdTrip(id, reason.trim()), 'Đã tạm dừng chuyến.'); },
-  resumeTrip(id: string) { return perform(id, () => managerApi.resumeTrip(id), 'Đã gửi yêu cầu tiếp tục chuẩn bị chuyến.'); },
+      if (!specialistId || !coordinatorId) return Promise.resolve(fail('Chọn đủ người phụ trách.'));
+      mutate((d) => {
+        const t = tripIn(d, id);
+        if (t) {
+          t.deployment = { status: 'CONFIRMED', specialistId, coordinatorId, at: nowStamp() };
+          saveSharedTrip(t);
+        }
+      });
+      return perform(id, async () => {
+        try {
+          const res = await managerApi.deployTrip(id, { specialistId, coordinatorId });
+          mutate((d) => {
+            const t = tripIn(d, id);
+            if (t) {
+              if (res) Object.assign(t, res);
+              t.deployment = { status: 'CONFIRMED', specialistId, coordinatorId, at: nowStamp() };
+              saveSharedTrip(t);
+            }
+          });
+          return res;
+        } catch (e) {
+          if (!getDemoMode('manager')) throw e;
+        }
+      }, 'Đã phân công chuyến.');
+    },
+    holdTrip(id: string, reason: string) {
+      mutate((d) => {
+        const t = tripIn(d, id);
+        if (t) {
+          t.deployment = { ...t.deployment, status: 'ON_HOLD', holdReason: reason.trim() };
+          saveSharedTrip(t);
+        }
+      });
+      return perform(id, async () => {
+        try {
+          return await managerApi.holdTrip(id, reason.trim());
+        } catch (e) {
+          if (!getDemoMode('manager')) throw e;
+        }
+      }, 'Đã tạm dừng chuyến.');
+    },
+    resumeTrip(id: string) {
+      mutate((d) => {
+        const t = tripIn(d, id);
+        if (t) {
+          t.deployment = { ...t.deployment, status: 'CONFIRMED', holdReason: undefined };
+          saveSharedTrip(t);
+        }
+      });
+      return perform(id, async () => {
+        try {
+          return await managerApi.resumeTrip(id);
+        } catch (e) {
+          if (!getDemoMode('manager')) throw e;
+        }
+      }, 'Đã gửi yêu cầu tiếp tục chuẩn bị chuyến.');
+    },
   approveRoute(tripId: string): ActionResult {
     const t = tripIn(state, tripId);
     if (!t?.route || t.route.status !== 'PENDING_APPROVAL') return fail('Không có phương án tuyến chờ duyệt.');

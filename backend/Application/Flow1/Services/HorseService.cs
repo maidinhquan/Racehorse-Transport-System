@@ -45,9 +45,11 @@ public sealed class HorseService(IDataSession data, AccessService access, TimePr
     }, ct);
     public async Task EditableAsync(string id, CancellationToken ct)
     {
-        // Returned requests reserve the horse, while allowing customers to correct its profile.
-        var states = await HorseBookingRules.CheckAsync(data, new[] { id }, null, ct, ignoreReturnedRequests: true);
-        Require(states[id].Status != "IN_TRANSPORT_REQUEST",
-            "HORSE_NOT_EDITABLE", "Horse belongs to an active submitted request.");
+        // The profile stays editable until the manager confirms the horse is on the road.
+        var ids = (await data.ListAsync<RequestHorse>(h => h.HorseID == id, ct)).Select(h => h.RequestID).Distinct().ToArray();
+        var requests = await data.ListAsync<TransportRequest>(r => ids.Contains(r.RequestID), ct);
+        var trips = await data.ListAsync<Trip>(t => ids.Contains(t.RequestID) && t.Status == "IN_TRANSIT", ct);
+        Require(!requests.Any(r => r.Status is "IN_TRANSIT" or "IN_PROGRESS") && trips.Count == 0,
+            "HORSE_NOT_EDITABLE", "Horse is currently being transported.");
     }
 }

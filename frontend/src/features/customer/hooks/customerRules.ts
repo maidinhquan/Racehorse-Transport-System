@@ -186,6 +186,7 @@ export const DOC_STATUS_LABEL: Record<DocStatus, string> = {
   NOT_REQUIRED_YET: 'Chưa bắt buộc',
   SUBMITTED: 'Đã lưu',
   PENDING_REVIEW: 'Chờ Specialist duyệt',
+  RESUBMITTED: 'Đã bổ sung, chờ duyệt',
   APPROVED: 'Đã duyệt',
   ACTION_REQUIRED: 'Cần nộp lại',
 };
@@ -252,7 +253,11 @@ export const horseRequests = (h: Horse, requests: TransportRequest[]) =>
   requests.filter((r) => r.status !== 'DRAFT' && r.status !== 'CANCELLED' && r.status !== 'REJECTED' && r.horses.includes(h.id)).sort((a, b) => b.date.localeCompare(a.date));
 export const activeHorseRequests = (h: Horse, requests: TransportRequest[]) =>
   requests.filter((r) => isActive(r) && r.status !== 'DRAFT' && r.horses.includes(h.id)).sort((a, b) => b.date.localeCompare(a.date));
-/** Ngựa đã gắn với đơn đã gửi thì khóa thông tin định danh */
+/** Đơn đã được vận chuyển (Manager xác nhận khởi hành) và chưa đóng: chỉ khi đó mới khóa hồ sơ ngựa */
+export const TRANSPORT_STARTED_STATUSES: RequestStatus[] = ['IN_TRANSIT'];
+export const transportingHorseRequests = (h: Horse, requests: TransportRequest[]) =>
+  requests.filter((r) => TRANSPORT_STARTED_STATUSES.includes(r.status) && r.horses.includes(h.id));
+/** Ngựa thuộc đơn đã bắt đầu vận chuyển thì khóa thông tin định danh */
 export const HORSE_LOCKED_FIELDS = ['name', 'breed', 'sex', 'dob', 'microchip'] as const;
 
 export const emptyHorse = (): Omit<Horse, 'id'> => ({
@@ -495,9 +500,15 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
     const f = HORSE_FILE_FIELD[k];
     return f ? h[f] : undefined;
   };
+  /** Yêu cầu bổ sung mới nhất của giấy tờ này (OPEN hoặc SUBMITTED) */
+  const asked = (k: DocKey) => (r.supplements || [])
+    .filter((x) => x.key === k && x.status !== 'FULFILLED' && (x.scope === h.id || x.scope.replace(/-/g, '_') === h.id.replace(/-/g, '_')))
+    .sort((a, b) => b.at.localeCompare(a.at))[0];
   const item = (key: HorseDocKey, kind: 'file' | 'info', base: DocStatus, note: string, optional = false): DocItem => ({
     key, scope: h.id, name: DOC_NAME[key], kind, optional, note,
-    status: rec(key)?.status ?? base, file: kind === 'file' ? fileOf(key) : undefined, issue: rec(key)?.issue,
+    status: asked(key)?.status === 'OPEN' ? 'ACTION_REQUIRED' : asked(key)?.status === 'SUBMITTED' ? 'RESUBMITTED' : rec(key)?.status ?? base,
+    file: kind === 'file' ? fileOf(key) : undefined,
+    issue: asked(key)?.status === 'SUBMITTED' ? undefined : rec(key)?.issue ?? asked(key)?.reason,
   });
   return [
     item('passport', 'file', fileOf('passport') && p.number ? 'SUBMITTED' : 'MISSING',
@@ -518,7 +529,12 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
 export const pickedHorses = (r: TransportRequest) => [...new Set((r.horses || []).filter(Boolean))];
 export const openSupplements = (r: TransportRequest) => (r.supplements || []).filter((s) => s.status === 'OPEN');
 export const rejectedDocs = (r: TransportRequest) => (r.docs || []).filter((d) => d.status === 'ACTION_REQUIRED');
-export const docsNeedingAction = (r: TransportRequest) => rejectedDocs(r).length + openSupplements(r).length;
+/** Một giấy tờ chỉ đếm một lần dù vừa có bản bị từ chối vừa có yêu cầu bổ sung (backend gọi cùng giấy tờ là DT-2 / health) */
+const DOC_KEY_ALIAS: Record<string, string> = { 'DT-1': 'passport', 'DT-2': 'health', 'DT-3': 'flu', PASSPORT: 'passport', HEALTH_CERTIFICATE: 'health', VACCINATION: 'flu' };
+export const docsNeedingAction = (r: TransportRequest) => new Set([
+  ...rejectedDocs(r).map((d) => [d.key, d.scope] as const),
+  ...openSupplements(r).map((s) => [s.key, s.scope] as const),
+].map(([key, scope]) => `${DOC_KEY_ALIAS[key] ?? key}|${scope.replace(/-/g, '_')}`)).size;
 
 /** Mọi lỗi chặn gửi đơn, kèm bước wizard sửa được (0 = thông tin chuyến) */
 export function wizardErrors(r: TransportRequest, horses: Horse[]): Array<[number, string]> {

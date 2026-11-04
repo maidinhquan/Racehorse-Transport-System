@@ -20,6 +20,13 @@ export default defineConfig({
           "http://localhost:5129",
         changeOrigin: true,
       },
+      "/hubs": {
+        target:
+          process.env.API_PROXY_TARGET ??
+          "http://localhost:5129",
+        changeOrigin: true,
+        ws: true,
+      },
       "/osrm": {
         target: "https://router.project-osrm.org",
         changeOrigin: true,

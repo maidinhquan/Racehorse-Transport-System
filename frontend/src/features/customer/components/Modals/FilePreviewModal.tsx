@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import type { FileRef } from '../../types';
 import { downloadFile } from '../../../../shared/api/downloadFile';
-import { useAuthFileUrl } from '../../../../shared/api/useAuthFileUrl';
+import { useAuthFile } from '../../../../shared/api/useAuthFileUrl';
 import { Icon } from '../CustomerLayout';
 import './Modals.css';
 
@@ -13,7 +13,7 @@ interface FilePreviewModalProps {
 }
 
 export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ open, file, onClose, title }) => {
-  const viewUrl = useAuthFileUrl(open ? file?.url : undefined);
+  const { url: viewUrl, type: viewType } = useAuthFile(open ? file?.url : undefined);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -25,8 +25,8 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ open, file, 
 
   if (!open || !file) return null;
 
-  const isImage = !!file.name?.match(/\.(png|jpe?g|webp|gif|svg)$/i) || !!file.file?.type?.startsWith('image/');
-  const isPdf = !!file.name?.match(/\.pdf$/i) || file.file?.type === 'application/pdf';
+  const isImage = !!file.name?.match(/\.(png|jpe?g|webp|gif|svg)$/i) || !!file.file?.type?.startsWith('image/') || !!viewType?.startsWith('image/');
+  const isPdf = !!file.name?.match(/\.pdf$/i) || file.file?.type === 'application/pdf' || viewType === 'application/pdf';
 
   const handleDownload = async () => {
     if (!file.url) return;
@@ -41,9 +41,8 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ open, file, 
   };
 
   const handleOpenNewTab = () => {
-    if (file.url) {
-      window.open(file.url, '_blank', 'noopener');
-    }
+    const target = viewUrl ?? file.url;
+    if (target) window.open(target, '_blank', 'noopener');
   };
 
   return (

@@ -206,6 +206,7 @@ export type HorseDocKey = 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu
 export type DocKey = HorseDocKey;
 
 export type DocStatus =
+  | 'RESUBMITTED'
   | 'MISSING'
   | 'NEEDS_INPUT'
   | 'OPTIONAL'
@@ -247,7 +248,8 @@ export interface SupplementRequest {
   reason: string;
   at: string;
   by: string;
-  status: 'OPEN' | 'FULFILLED';
+  /** OPEN: khách cần nộp • SUBMITTED: khách đã nộp, chờ Specialist duyệt • FULFILLED: đã duyệt */
+  status: 'OPEN' | 'SUBMITTED' | 'FULFILLED';
 }
 
 /** Giấy tờ do CBN Transport tự xử lý (khách hàng chỉ xem) */

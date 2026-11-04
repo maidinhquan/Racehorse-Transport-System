@@ -294,7 +294,8 @@ CREATE TABLE REQUEST_HORSE_MAPPING (
 -- 11. Bảng LEGAL_MEDICAL_RECORD: Giấy tờ y tế của ngựa
 CREATE TABLE LEGAL_MEDICAL_RECORD (
     RecordID VARCHAR(50) NOT NULL,
-    HorseID VARCHAR(50) NOT NULL,
+    HorseID VARCHAR(50) NULL,
+    TripID VARCHAR(50) NULL,
     RequestID VARCHAR(50) NOT NULL,
     VerifiedBy VARCHAR(50) NULL,
     DocumentType VARCHAR(50) NULL,
@@ -302,10 +303,20 @@ CREATE TABLE LEGAL_MEDICAL_RECORD (
     DocumentStatus VARCHAR(50) NULL,
     UploadedFileUrl VARCHAR(500) NULL,
     ExpiryDate DATE NULL,
+    DocumentVersion INT NOT NULL DEFAULT 1,
+    DocumentNumber VARCHAR(100) NULL,
+    IssuingAuthority NVARCHAR(255) NULL,
+    IssuedDate DATE NULL,
+    PhysicalCopyCollected BIT NOT NULL DEFAULT 0,
+    ReviewedBy VARCHAR(50) NULL,
+    ReviewedAtUtc DATETIME2 NULL,
+    RejectionReason NVARCHAR(1000) NULL,
+    DocumentScope VARCHAR(50) NOT NULL DEFAULT 'PER_HORSE',
     CONSTRAINT PK_LegalMedicalRecord PRIMARY KEY (RecordID),
     CONSTRAINT FK_LMR_Horse FOREIGN KEY (HorseID) REFERENCES HORSE(HorseID),
     CONSTRAINT FK_LMR_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
-    CONSTRAINT FK_LMR_VerifiedBy FOREIGN KEY (VerifiedBy) REFERENCES [USER](UserID)
+    CONSTRAINT FK_LMR_VerifiedBy FOREIGN KEY (VerifiedBy) REFERENCES [USER](UserID),
+    CONSTRAINT FK_LMR_ReviewedBy FOREIGN KEY (ReviewedBy) REFERENCES [USER](UserID)
 );
 
 -- 12. Bảng QUARANTINE_BOOKING: Đặt lịch cách ly (Liên kết với Trạm)
@@ -380,6 +391,8 @@ CREATE TABLE TRIP_PLAN (
     DepartureApprovedAt DATETIME2 NULL,
     DepartureApprovedBy NVARCHAR(100) NULL,
     RejectionReason NVARCHAR(500) NULL,
+    DocsReadyAtUtc DATETIME2 NULL,
+    DocsReadyBy VARCHAR(50) NULL,
 
     CONSTRAINT PK_TripPlan PRIMARY KEY (TripID),
     CONSTRAINT FK_TripPlan_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
@@ -390,6 +403,90 @@ CREATE TABLE TRIP_PLAN (
     CONSTRAINT CK_F1S_TRIP_PLAN_Deployment CHECK ([DeploymentStatus] IS NULL OR ([DeploymentStatus] IS NOT NULL AND [DeploymentStatus] IN ('PENDING','CONFIRMED','ON_HOLD') AND [DeploymentReason] IS NOT NULL AND [DeploymentBy] IS NOT NULL AND [DeploymentAtUtc] IS NOT NULL AND (([DeploymentStatus]='PENDING' AND [HandoffEventId] IS NULL) OR ([DeploymentStatus] IN ('CONFIRMED','ON_HOLD') AND [HandoffEventId] IS NOT NULL)))),
     CONSTRAINT FK_F1_Specialist FOREIGN KEY (AssignedSpecialistId) REFERENCES [USER](UserID),
     CONSTRAINT FK_F1_Coordinator FOREIGN KEY (AssignedCoordinatorId) REFERENCES [USER](UserID)
+);
+
+-- Liên kết hồ sơ pháp lý vào chuyến sau khi TRIP_PLAN đã tạo
+ALTER TABLE LEGAL_MEDICAL_RECORD ADD CONSTRAINT FK_LMR_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID);
+
+-- 13.1. Bảng TRIP_INSURANCE: Bảo hiểm vận chuyển chuyến đi (Flow 2 Specialist)
+CREATE TABLE TRIP_INSURANCE (
+    InsuranceID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    Insurer NVARCHAR(150) NOT NULL,
+    PolicyNumber VARCHAR(100) NOT NULL,
+    CoverageAmount DECIMAL(18, 0) NOT NULL DEFAULT 0,
+    ValidFrom DATE NOT NULL,
+    ValidTo DATE NOT NULL,
+    Status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    CheckedBy VARCHAR(50) NULL,
+    CheckedAtUtc DATETIME2 NULL,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_TripInsurance PRIMARY KEY (InsuranceID),
+    CONSTRAINT FK_TripInsurance_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_TripInsurance_User FOREIGN KEY (CheckedBy) REFERENCES [USER](UserID)
+);
+
+-- 13.2. Bảng TRIP_REQUIREMENT_SET: Bộ quy định & checklist áp dụng cho chuyến (Flow 2 Specialist)
+CREATE TABLE TRIP_REQUIREMENT_SET (
+    SnapshotID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    PkgId VARCHAR(50) NOT NULL,
+    PkgVersion INT NOT NULL DEFAULT 1,
+    PkgName NVARCHAR(200) NOT NULL,
+    AppliedBy VARCHAR(50) NOT NULL,
+    AppliedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    SnapshotJson NVARCHAR(MAX) NULL,
+    CONSTRAINT PK_TripRequirementSet PRIMARY KEY (SnapshotID),
+    CONSTRAINT FK_TripRequirementSet_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_TripRequirementSet_User FOREIGN KEY (AppliedBy) REFERENCES [USER](UserID)
+);
+
+-- 13.3. Bảng TRIP_CHECKPOINT_CLEARANCE: Thông quan chốt kiểm soát / cửa khẩu chuyến đi (Flow 2 Specialist)
+CREATE TABLE TRIP_CHECKPOINT_CLEARANCE (
+    ClearanceID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    CheckpointIndex INT NOT NULL,
+    CheckpointName NVARCHAR(200) NOT NULL,
+    Result VARCHAR(50) NOT NULL,
+    RefNumber VARCHAR(100) NULL,
+    ClearedBy VARCHAR(50) NOT NULL,
+    ClearedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_TripCheckpointClearance PRIMARY KEY (ClearanceID),
+    CONSTRAINT FK_TripCheckpointClearance_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_TripCheckpointClearance_User FOREIGN KEY (ClearedBy) REFERENCES [USER](UserID)
+);
+
+-- 13.4. Bảng DOCUMENT_REQUEST: Yêu cầu bổ sung giấy tờ từ chuyên viên tới khách hàng (Flow 2 Specialist)
+CREATE TABLE DOCUMENT_REQUEST (
+    RequestDocID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    RequestID VARCHAR(50) NOT NULL,
+    KeyName VARCHAR(50) NOT NULL,
+    Scope VARCHAR(50) NOT NULL,
+    Reason NVARCHAR(1000) NOT NULL,
+    DueAt DATE NULL,
+    Status VARCHAR(50) NOT NULL DEFAULT 'OPEN',
+    CreatedBy VARCHAR(50) NOT NULL,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    FulfilledAtUtc DATETIME2 NULL,
+    CONSTRAINT PK_DocumentRequest PRIMARY KEY (RequestDocID),
+    CONSTRAINT FK_DocumentRequest_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_DocumentRequest_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
+    CONSTRAINT FK_DocumentRequest_User FOREIGN KEY (CreatedBy) REFERENCES [USER](UserID)
+);
+
+-- 13.5. Bảng SPECIALIST_AUDIT_LOG: Nhật ký thao tác hồ sơ pháp lý chuyên viên (Flow 2 Specialist)
+CREATE TABLE SPECIALIST_AUDIT_LOG (
+    AuditID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NULL,
+    ActorId VARCHAR(50) NOT NULL,
+    Role VARCHAR(50) NOT NULL,
+    Action NVARCHAR(200) NOT NULL,
+    Entity NVARCHAR(100) NOT NULL,
+    Detail NVARCHAR(MAX) NULL,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_SpecialistAuditLog PRIMARY KEY (AuditID),
+    CONSTRAINT FK_SpecialistAuditLog_User FOREIGN KEY (ActorId) REFERENCES [USER](UserID)
 );
 
 -- 14. Bảng VEHICLE: Quản lý xe chuyên dụng

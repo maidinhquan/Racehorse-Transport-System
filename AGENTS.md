@@ -7,7 +7,7 @@ Dự án SWP391: hệ thống quản lý vận chuyển ngựa đua xuyên quố
 
 ## 1. Cách làm việc
 
-- **Mặc định chỉ sửa frontend.** Nếu một việc cần đổi backend, database hoặc API contract: dừng lại, nói rõ cần đổi gì và vì sao, chờ người dùng đồng ý rồi mới làm.
+- **Được phép sửa cả frontend và backend** (kể cả database, API contract, cấu hình Docker) khi việc yêu cầu cần. Khi đổi backend/database/contract, cập nhật luôn phần liên quan (migration/SQL, `contracts/`, `frontend/src/contracts`, test) và nói rõ trong câu trả lời đã đổi gì ở phía backend.
 - **Tiết kiệm token:**
   - Đọc code trước, chỉ mở trình duyệt khi đọc code không thể kết luận.
   - Tìm bằng `grep`/`rg` rồi chỉ đọc đoạn liên quan; không đọc cả file dài nếu không cần.
@@ -27,6 +27,13 @@ Dự án SWP391: hệ thống quản lý vận chuyển ngựa đua xuyên quố
 - Toàn bộ chữ trên giao diện bằng **tiếng Việt**, giọng trung tính, chuyên nghiệp.
 - Thao tác chính phải ở gần nơi người dùng đang nhìn (ví dụ chọn điểm trên bản đồ thì nút "Thêm vào hành trình" hiện ngay trên bản đồ), tránh bắt người dùng cuộn xa.
 - Nút bị khóa phải cho biết lý do (dòng chú thích hoặc `title`), không để nút "chết" không giải thích.
+- **Màu sắc:** dùng biến CSS trong `frontend/src/index.css` (`--bg-page`, `--bg-surface`, `--text-primary`, `--border-color`, `--accent-primary`…), không viết mã màu cứng trong component, để giao diện sáng và tối đều đúng. Màu cam (`--accent-primary`) chỉ dành cho thao tác chính và điểm nhấn; mỗi khu vực chỉ có một nút chính.
+- **Màu trạng thái thống nhất toàn hệ thống:** xanh lá = đã duyệt/hoàn tất, vàng = đang chờ, đỏ = lỗi/cần xử lý, xanh dương = thông tin/đã gửi, xám = không bắt buộc/chưa đến lượt. Dùng đúng component huy hiệu của feature (`TripStatusBadge`/`StatusBadge`), không tự tô màu riêng cho trạng thái.
+- **Bố cục:** mỗi khối thông tin là một thẻ (card) có tiêu đề rõ; thứ tự từ trên xuống: tiêu đề và trạng thái, nội dung, ghi chú/lý do, rồi hàng nút thao tác ở cuối thẻ. Khoảng cách, bo góc, cỡ chữ lấy từ class dùng chung của feature, không đặt số `px` rời rạc cho từng chỗ.
+- **Nhất quán giữa các vai:** cùng một giấy tờ/trạng thái phải có cùng tên gọi và cùng màu ở trang Khách hàng, Chuyên viên, Quản lý, Điều phối. Đổi nhãn ở `...Rules.ts` của một vai thì kiểm tra các vai còn lại.
+- **Không hiển thị dữ liệu bịa:** khi chưa có giá trị thật (hạn giấy tờ, ngày, số tiền) thì ẩn hoặc ghi "Chưa có", không tự điền giá trị mặc định.
+- **Hiển thị đúng số lượng:** một giấy tờ/đối tượng chỉ xuất hiện một dòng và đếm một lần, dù có nhiều bản ghi liên quan; trạng thái phải đổi ngay sau thao tác và tự làm mới khi vai khác thay đổi.
+- **Responsive:** bố cục không vỡ ở màn hình hẹp; hàng nút được phép xuống dòng, bảng rộng cuộn ngang trong thẻ chứ không làm cả trang cuộn ngang.
 
 ## 3. Quy ước code
 

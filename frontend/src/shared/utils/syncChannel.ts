@@ -36,6 +36,20 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
   }
 }
 
+const localListeners = new Set<(msg: SyncMessage) => void>();
+let realtimeConnected = false;
+
+/** SignalR báo trạng thái kết nối: khi đang kết nối, polling chỉ còn là dự phòng nên được giãn ra */
+export function setRealtimeConnected(connected: boolean): void {
+  realtimeConnected = connected;
+}
+
+/** Tin nhắn từ máy chủ (SignalR): báo cho các store trong chính tab này, nơi BroadcastChannel không gửi tới */
+export function receiveServerSync(type: SyncEventType = 'requests_updated'): void {
+  const msg: SyncMessage = { type, timestamp: Date.now(), senderId: 'server' };
+  localListeners.forEach((listener) => listener(msg));
+}
+
 let rateLimitedUntil = 0;
 
 export function notifyRateLimited(seconds = 60): void {
@@ -112,8 +126,10 @@ export function onSync(callback: (msg: SyncMessage) => void): () => void {
     broadcastChannel.addEventListener('message', handleMessage);
   }
   window.addEventListener('storage', handleStorage);
+  localListeners.add(callback);
 
   return () => {
+    localListeners.delete(callback);
     if (broadcastChannel) {
       broadcastChannel.removeEventListener('message', handleMessage);
     }
@@ -147,6 +163,7 @@ export function createSyncController(options: SyncControllerOptions): SyncContro
   let unsubscribeSync: (() => void) | null = null;
   let isHidden = typeof document !== 'undefined' ? document.hidden : false;
   let lastRefreshTime = 0;
+  let skippedTicks = 0;
 
   const triggerRefresh = (silent = true) => {
     if (silent && isRateLimited()) return;
@@ -161,6 +178,8 @@ export function createSyncController(options: SyncControllerOptions): SyncContro
     if (timer || typeof window === 'undefined') return;
     timer = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
+      // Đã có kết nối realtime thì polling chỉ là dự phòng: bỏ qua 3 trên 4 lượt
+      if (realtimeConnected && ++skippedTicks % 4 !== 0) return;
       triggerRefresh(true);
     }, intervalMs);
   };

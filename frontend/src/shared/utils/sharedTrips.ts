@@ -10,6 +10,22 @@ export interface SharedTripSyncData {
   status?: string;
   plannedDepart?: string;
   eta?: string;
+  specialistId?: string;
+  coordinatorId?: string;
+  deployment?: {
+    status: string;
+    specialistId?: string;
+    coordinatorId?: string;
+    at?: string;
+    holdReason?: string;
+  } | string;
+  customerName?: string;
+  origin?: string;
+  destination?: string;
+  originCountry?: string;
+  destCountry?: string;
+  horses?: any[];
+  checkpoints?: any[];
   route?: {
     v: number;
     status: 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'CHANGES_REQUESTED' | 'RETURNED';
@@ -138,6 +154,10 @@ export function saveSharedTrip(trip: any): void {
       };
     }
 
+    const specialistId = trip.specialistId || (typeof trip.deployment === 'object' ? trip.deployment?.specialistId : undefined) || existing.specialistId;
+    const coordinatorId = trip.coordinatorId || (typeof trip.deployment === 'object' ? trip.deployment?.coordinatorId : undefined) || existing.coordinatorId;
+    const deployment = trip.deployment || existing.deployment || (specialistId ? { status: 'CONFIRMED', specialistId, coordinatorId } : undefined);
+
     const updated: SharedTripSyncData = {
       id: trip.id,
       requestId: trip.requestId || existing.requestId,
@@ -148,6 +168,16 @@ export function saveSharedTrip(trip: any): void {
       route: routeData,
       flight: flightData,
       departureApprovedAt: trip.departureApprovedAt || existing.departureApprovedAt,
+      deployment,
+      specialistId,
+      coordinatorId,
+      customerName: trip.customerName || existing.customerName,
+      origin: trip.origin || existing.origin,
+      destination: trip.destination || existing.destination,
+      originCountry: trip.originCountry || existing.originCountry,
+      destCountry: trip.destCountry || existing.destCountry,
+      horses: trip.horses || existing.horses,
+      checkpoints: trip.checkpoints || existing.checkpoints,
       updatedAt: new Date().toISOString(),
     };
 
@@ -160,4 +190,3 @@ export function saveSharedTrip(trip: any): void {
     console.error('[sharedTrips] Failed to save shared trip:', e);
   }
 }
-

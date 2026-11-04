@@ -8,6 +8,9 @@ import "./index.css";
 
 // Expose API clients to window in dev mode for interactive console testing
 if (import.meta.env.DEV) {
+  import("./shared/api/flow2Wire").then((f2) => {
+    (window as any).flow2Api = f2.flow2Api;
+  });
   import("./shared/api/flow4Wire").then((f4) => {
     (window as any).flow4Api = f4.flow4Api;
   });

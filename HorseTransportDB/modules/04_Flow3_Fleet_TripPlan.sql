@@ -57,6 +57,8 @@ CREATE TABLE TRIP_PLAN (
     DepartureApprovedAt DATETIME2 NULL,
     DepartureApprovedBy NVARCHAR(100) NULL,
     RejectionReason NVARCHAR(500) NULL,
+    DocsReadyAtUtc DATETIME2 NULL,
+    DocsReadyBy VARCHAR(50) NULL,
     
     CONSTRAINT PK_TripPlan PRIMARY KEY (TripID),
     CONSTRAINT FK_TripPlan_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),

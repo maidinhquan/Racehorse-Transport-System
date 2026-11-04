@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TransportRequest } from '../../../types';
 import { useCustomer } from '../../../hooks/useCustomer';
-import { isActive, openSupplements } from '../../../hooks/customerRules';
+import { isActive } from '../../../hooks/customerRules';
 import { RequestDocuments } from '../../../components/DocumentList/DocumentList';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
@@ -35,7 +35,7 @@ export const DocumentsTab: React.FC<{ request: TransportRequest }> = ({ request:
           {inWizard && <Note tone="blue" title="Đang khai báo">Bạn có thể cập nhật giấy tờ ở đây hoặc trong bước “Ngựa & hồ sơ” của wizard.</Note>}
           <div style={{ marginTop: inWizard ? 14 : 0 }}>
             <RequestDocuments requestId={r.id} shared={docs.shared} perHorse={docs.perHorse} editable={isActive(r)}
-              supplements={openSupplements(r)} backTo={`/customer/requests/${r.id}/documents`} />
+              backTo={`/customer/requests/${r.id}/documents`} />
           </div>
           {inWizard && (
             <button type="button" className="cus-btn" style={{ marginTop: 14 }} onClick={() => navigate(`/customer/requests/${r.id}/wizard/${Math.max(1, Math.min(2, r.wizardStep))}`)}>

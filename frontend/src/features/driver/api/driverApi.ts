@@ -14,16 +14,20 @@ import type {
   Trip,
 } from '../types';
 import { mockCrew, mockHorses, mockIncidents, mockTrips } from '../data/mockData';
+import { getDemoMode } from '../../../shared/context/DemoModeContext';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
-/** GET có fallback về mock data khi Backend chưa chạy */
-async function getOr<T>(url: string, fallback: T): Promise<T> {
+/**
+ * GET có fallback về mock data CHỈ KHI demo mode đang bật.
+ * Khi demo tắt và API lỗi, trả về emptyFallback (mảng rỗng / undefined).
+ */
+async function getOr<T>(url: string, mockFallback: T, emptyFallback: T = [] as unknown as T): Promise<T> {
   try {
     const res = await apiClient.get<ApiResponse<T>>(url);
-    return res.data?.data ?? clone(fallback);
+    return res.data?.data ?? (getDemoMode('driver') ? clone(mockFallback) : emptyFallback);
   } catch {
-    return clone(fallback);
+    return getDemoMode('driver') ? clone(mockFallback) : emptyFallback;
   }
 }
 
@@ -43,7 +47,7 @@ export const driverApi = {
 
   /** Chi tiết một chuyến */
   getTrip: (tripId: string) =>
-    getOr<Trip | undefined>(DRIVER_ENDPOINTS.TRIP_DETAIL(tripId), mockTrips.find((t) => t.id === tripId)),
+    getOr<Trip | undefined>(DRIVER_ENDPOINTS.TRIP_DETAIL(tripId), mockTrips.find((t) => t.id === tripId), undefined),
 
   /** Danh bạ tổ xe (tài xế, phụ lái, bác sĩ thú y) */
   getCrew: () => getOr<CrewMember[]>(DRIVER_ENDPOINTS.CREW, mockCrew),
