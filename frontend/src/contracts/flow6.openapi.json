@@ -178,7 +178,7 @@
                     ],
                     "designatedReceiverName": "Yuki Tanaka",
                     "designatedReceiverPhone": "+81312345678",
-                    "deliveryId": null,
+                    "deliveryHandoverId": null,
                     "warnings": []
                   }
                 }
@@ -6478,6 +6478,126 @@
           }
         }
       }
+    },
+    "/manager/flow6/payments/{paymentId}/review": {
+      "post": {
+        "operationId": "F6-J48",
+        "summary": "Manager duyệt đối soát thanh toán quá hạn VNPay",
+        "description": "Payment SUCCESS nhưng có cờ financialReviewRequired = true do thanh toán trễ. Manager kiểm tra sao kê ngân hàng và duyệt bỏ cờ để tiếp tục bước tất toán.",
+        "x-role": "LOGISTICS_MANAGER",
+        "x-implementation-status": "implemented",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^PAYMENT_[0-9]{3,}$",
+              "maxLength": 50,
+              "description": "ID bản ghi thanh toán từ URL.",
+              "x-source": "Resource URL",
+              "example": "PAYMENT_007"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "": "#/components/schemas/ReasonInput"
+              },
+              "example": {
+                "reason": "Đã kiểm tra sao kê ngân hàng khớp tiền"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/F6-J48Response"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Manager duyệt đối soát thanh toán quá hạn thành công",
+                  "data": {
+                    "id": "PAYMENT_007",
+                    "invoiceId": "INVOICE_008",
+                    "amountVnd": 87000000,
+                    "status": "SUCCESS",
+                    "financialReviewRequired": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7066,7 +7186,7 @@
             "x-source": "TRANSPORT_REQUEST.DesignatedReceiverPhone",
             "example": "+81312345678"
           },
-          "deliveryId": {
+          "deliveryHandoverId": {
             "anyOf": [
               {
                 "type": "string",
@@ -7109,7 +7229,7 @@
           "horseIds",
           "designatedReceiverName",
           "designatedReceiverPhone",
-          "deliveryId",
+          "deliveryHandoverId",
           "warnings"
         ],
         "additionalProperties": false
@@ -7804,17 +7924,37 @@
             "example": "Xác nhận theo thỏa thuận."
           },
           "incidentId": {
-            "type": "string",
-            "pattern": "^INCIDENT_[0-9]{3,}$",
-            "maxLength": 50,
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^INCIDENT_[0-9]{3,}$",
+                "maxLength": 50,
+                "description": "Nguồn tùy chọn cùng Trip.",
+                "x-source": "SETTLEMENT_ADJUSTMENT.IncidentID",
+                "example": "INCIDENT_001"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Nguồn tùy chọn cùng Trip.",
             "x-source": "SETTLEMENT_ADJUSTMENT.IncidentID",
             "example": "INCIDENT_001"
           },
           "costItemId": {
-            "type": "string",
-            "pattern": "^COST_ITEM_[0-9]{3,}$",
-            "maxLength": 50,
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^COST_ITEM_[0-9]{3,}$",
+                "maxLength": 50,
+                "description": "Nguồn tùy chọn cùng Contract, không dùng lại.",
+                "x-source": "SETTLEMENT_ADJUSTMENT.CostItemID",
+                "example": "COST_ITEM_001"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Nguồn tùy chọn cùng Contract, không dùng lại.",
             "x-source": "SETTLEMENT_ADJUSTMENT.CostItemID",
             "example": "COST_ITEM_001"
@@ -7867,17 +8007,37 @@
             "example": "Xác nhận theo thỏa thuận."
           },
           "incidentId": {
-            "type": "string",
-            "pattern": "^INCIDENT_[0-9]{3,}$",
-            "maxLength": 50,
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^INCIDENT_[0-9]{3,}$",
+                "maxLength": 50,
+                "description": "Nguồn tùy chọn cùng Trip.",
+                "x-source": "SETTLEMENT_ADJUSTMENT.IncidentID",
+                "example": "INCIDENT_001"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Nguồn tùy chọn cùng Trip.",
             "x-source": "SETTLEMENT_ADJUSTMENT.IncidentID",
             "example": "INCIDENT_001"
           },
           "costItemId": {
-            "type": "string",
-            "pattern": "^COST_ITEM_[0-9]{3,}$",
-            "maxLength": 50,
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^COST_ITEM_[0-9]{3,}$",
+                "maxLength": 50,
+                "description": "Nguồn tùy chọn cùng Contract, không dùng lại.",
+                "x-source": "SETTLEMENT_ADJUSTMENT.CostItemID",
+                "example": "COST_ITEM_001"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Nguồn tùy chọn cùng Contract, không dùng lại.",
             "x-source": "SETTLEMENT_ADJUSTMENT.CostItemID",
             "example": "COST_ITEM_001"
@@ -9734,6 +9894,26 @@
             "items": {
               "$ref": "#/components/schemas/Payment"
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "F6-J48Response": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "": "#/components/schemas/Payment"
           }
         },
         "additionalProperties": false

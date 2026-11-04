@@ -6,6 +6,9 @@
 
 import { flow6Request } from './flow6Client';
 import type * as T from '../types/flow6.types';
+import { generateUuidV4 } from '../../../shared/utils/uuid';
+
+const ensureUuid = (key?: string): string => key ?? generateUuidV4();
 
 export const flow6Api = {
   // ==========================================
@@ -23,8 +26,8 @@ export const flow6Api = {
   },
 
   /** F6-J03: Tạo DELIVERY và revision DRAFT đầu tiên (DRIVER_ESCORT) */
-  createDelivery(tripId: string, body: T.DeliveryContent, idempotencyKey: string): Promise<T.Delivery> {
-    return flow6Request<T.Delivery>('F6-J03', { path: { tripId }, body, idempotencyKey });
+  createDelivery(tripId: string, body: T.DeliveryContent, idempotencyKey?: string): Promise<T.Delivery> {
+    return flow6Request<T.Delivery>('F6-J03', { path: { tripId }, body, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J04: Định danh biên bản giao nhận (DRIVER_ESCORT, LOGISTICS_MANAGER) */
@@ -38,33 +41,33 @@ export const flow6Api = {
   },
 
   /** F6-J06: Thay nội dung DRAFT trước khi gửi OTP (DRIVER_ESCORT) */
-  updateRevision(revisionId: string, body: T.DeliveryContent, idempotencyKey: string): Promise<T.Revision> {
-    return flow6Request<T.Revision>('F6-J06', { path: { revisionId }, body, idempotencyKey });
+  updateRevision(revisionId: string, body: T.DeliveryContent, idempotencyKey?: string): Promise<T.Revision> {
+    return flow6Request<T.Revision>('F6-J06', { path: { revisionId }, body, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J07: Gửi hoặc gửi lại OTP xác thực (DRIVER_ESCORT) */
-  sendOtp(revisionId: string, idempotencyKey: string): Promise<T.OtpState> {
-    return flow6Request<T.OtpState>('F6-J07', { path: { revisionId }, idempotencyKey });
+  sendOtp(revisionId: string, idempotencyKey?: string): Promise<T.OtpState> {
+    return flow6Request<T.OtpState>('F6-J07', { path: { revisionId }, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J08: Thu hồi OTP để sửa lại bản DRAFT (DRIVER_ESCORT) */
-  invalidateOtp(revisionId: string, idempotencyKey: string): Promise<T.Revision> {
-    return flow6Request<T.Revision>('F6-J08', { path: { revisionId }, idempotencyKey });
+  invalidateOtp(revisionId: string, idempotencyKey?: string): Promise<T.Revision> {
+    return flow6Request<T.Revision>('F6-J08', { path: { revisionId }, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J09: Xác nhận nhận ngựa bằng OTP đúng phiên bản (DRIVER_ESCORT) */
-  confirmRevision(revisionId: string, body: T.OtpInput, idempotencyKey: string): Promise<T.ConfirmedDelivery> {
-    return flow6Request<T.ConfirmedDelivery>('F6-J09', { path: { revisionId }, body, idempotencyKey });
+  confirmRevision(revisionId: string, body: T.OtpInput, idempotencyKey?: string): Promise<T.ConfirmedDelivery> {
+    return flow6Request<T.ConfirmedDelivery>('F6-J09', { path: { revisionId }, body, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J10: Ghi nhận người nhận từ chối nhận ngựa (DRIVER_ESCORT) */
-  refuseRevision(revisionId: string, body: T.ReasonInput, idempotencyKey: string): Promise<T.Revision> {
-    return flow6Request<T.Revision>('F6-J10', { path: { revisionId }, body, idempotencyKey });
+  refuseRevision(revisionId: string, body: T.ReasonInput, idempotencyKey?: string): Promise<T.Revision> {
+    return flow6Request<T.Revision>('F6-J10', { path: { revisionId }, body, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J11: Lập bản giao lại kế tiếp sau khi bị từ chối (DRIVER_ESCORT) */
-  createRedeliveryRevision(handoverId: string, body: T.DeliveryContent, idempotencyKey: string): Promise<T.Revision> {
-    return flow6Request<T.Revision>('F6-J11', { path: { handoverId }, body, idempotencyKey });
+  createRedeliveryRevision(handoverId: string, body: T.DeliveryContent, idempotencyKey?: string): Promise<T.Revision> {
+    return flow6Request<T.Revision>('F6-J11', { path: { handoverId }, body, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J38: Đọc baseline bàn giao PICKUP đầu chuyến (DRIVER_ESCORT, LOGISTICS_MANAGER) */
@@ -117,8 +120,8 @@ export const flow6Api = {
   },
 
   /** F6-J24: Tạo phiên thanh toán VNPay trả số dư */
-  createPaymentSession(invoiceId: string, idempotencyKey: string): Promise<T.PaymentSession> {
-    return flow6Request<T.PaymentSession>('F6-J24', { path: { invoiceId }, idempotencyKey });
+  createPaymentSession(invoiceId: string, idempotencyKey?: string): Promise<T.PaymentSession> {
+    return flow6Request<T.PaymentSession>('F6-J24', { path: { invoiceId }, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J25: Kiểm tra kết quả giao dịch thanh toán số dư */
@@ -127,8 +130,8 @@ export const flow6Api = {
   },
 
   /** F6-J29: Customer gửi khiếu nại hoặc hỗ trợ sau chuyến */
-  createCustomerCase(settlementId: string, body: T.CaseInput, idempotencyKey: string): Promise<T.Case> {
-    return flow6Request<T.Case>('F6-J29', { path: { settlementId }, body, idempotencyKey });
+  createCustomerCase(settlementId: string, body: T.CaseInput, idempotencyKey?: string): Promise<T.Case> {
+    return flow6Request<T.Case>('F6-J29', { path: { settlementId }, body, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J30: Customer theo dõi danh sách phiếu khiếu nại/hỗ trợ */
@@ -137,8 +140,8 @@ export const flow6Api = {
   },
 
   /** F6-J34: Customer gửi đánh giá sao (CUSTOMER_FEEDBACK) */
-  submitFeedback(settlementId: string, body: T.FeedbackInput, idempotencyKey: string): Promise<T.Feedback> {
-    return flow6Request<T.Feedback>('F6-J34', { path: { settlementId }, body, idempotencyKey });
+  submitFeedback(settlementId: string, body: T.FeedbackInput, idempotencyKey?: string): Promise<T.Feedback> {
+    return flow6Request<T.Feedback>('F6-J34', { path: { settlementId }, body, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J35: Customer đọc đánh giá đã gửi */
@@ -166,8 +169,8 @@ export const flow6Api = {
   },
 
   /** F6-J15: Chuẩn bị hồ sơ tất toán DRAFT */
-  prepareSettlement(tripId: string, idempotencyKey: string): Promise<T.Settlement> {
-    return flow6Request<T.Settlement>('F6-J15', { path: { tripId }, idempotencyKey });
+  prepareSettlement(tripId: string, idempotencyKey?: string): Promise<T.Settlement> {
+    return flow6Request<T.Settlement>('F6-J15', { path: { tripId }, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J16: Chi tiết hồ sơ tất toán (Manager) */
@@ -181,8 +184,8 @@ export const flow6Api = {
   },
 
   /** F6-J19: Manager xác nhận điều chỉnh (CHARGE, DISCOUNT, REFUND) */
-  createAdjustment(settlementId: string, body: T.AdjustmentInput, idempotencyKey: string): Promise<T.Adjustment> {
-    return flow6Request<T.Adjustment>('F6-J19', { path: { settlementId }, body, idempotencyKey });
+  createAdjustment(settlementId: string, body: T.AdjustmentInput, idempotencyKey?: string): Promise<T.Adjustment> {
+    return flow6Request<T.Adjustment>('F6-J19', { path: { settlementId }, body, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J20: Danh sách điều chỉnh đã xác nhận (Manager) */
@@ -191,48 +194,51 @@ export const flow6Api = {
   },
 
   /** F6-J22: Phát hành hoặc thay thế invoice cuối cùng */
-  issueFinalInvoice(settlementId: string, body: T.InvoiceInput, idempotencyKey: string): Promise<T.Invoice> {
-    return flow6Request<T.Invoice>('F6-J22', { path: { settlementId }, body, idempotencyKey });
+  issueFinalInvoice(settlementId: string, body: T.InvoiceInput, idempotencyKey?: string): Promise<T.Invoice> {
+    return flow6Request<T.Invoice>('F6-J22', { path: { settlementId }, body, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J26: Manager xác nhận nghiệm thu và hoàn tất tất toán */
-  settleSettlement(settlementId: string, idempotencyKey: string): Promise<T.Settlement> {
-    return flow6Request<T.Settlement>('F6-J26', { path: { settlementId }, idempotencyKey });
+  settleSettlement(settlementId: string, idempotencyKey?: string): Promise<T.Settlement> {
+    return flow6Request<T.Settlement>('F6-J26', { path: { settlementId }, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J27: Ghi nhận bắt đầu xử lý hoàn tiền */
-  startRefundProcessing(adjustmentId: string, idempotencyKey: string): Promise<T.Refund> {
-    return flow6Request<T.Refund>('F6-J27', { path: { adjustmentId }, idempotencyKey });
+  startRefundProcessing(adjustmentId: string, idempotencyKey?: string): Promise<T.Refund> {
+    return flow6Request<T.Refund>('F6-J27', { path: { adjustmentId }, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J28: Ghi nhận bằng chứng hoàn tiền đủ khoản */
-  completeRefund(adjustmentId: string, body: T.RefundInput, idempotencyKey: string): Promise<T.Refund> {
-    return flow6Request<T.Refund>('F6-J28', { path: { adjustmentId }, body, idempotencyKey });
+  completeRefund(adjustmentId: string, body: T.RefundInput, idempotencyKey?: string): Promise<T.Refund> {
+    return flow6Request<T.Refund>('F6-J28', { path: { adjustmentId }, body, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J31: Hàng đợi khiếu nại và hỗ trợ của khách hàng */
-  getManagerCases(query?: { status?: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' }): Promise<Array<T.Case>> {
+  getManagerCases(query?: {
+    status?: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+    type?: 'COMPLAINT' | 'SUPPORT';
+  }): Promise<Array<T.Case>> {
     return flow6Request<Array<T.Case>>('F6-J31', { query });
   },
 
   /** F6-J32: Đánh dấu bắt đầu xử lý khiếu nại */
-  startCaseProcessing(caseId: string, idempotencyKey: string): Promise<T.Case> {
-    return flow6Request<T.Case>('F6-J32', { path: { caseId }, idempotencyKey });
+  startCaseProcessing(caseId: string, idempotencyKey?: string): Promise<T.Case> {
+    return flow6Request<T.Case>('F6-J32', { path: { caseId }, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J33: Manager ghi phản hồi và giải quyết phiếu (RESOLVED) */
-  resolveCase(caseId: string, body: T.ResolveInput, idempotencyKey: string): Promise<T.Case> {
-    return flow6Request<T.Case>('F6-J33', { path: { caseId }, body, idempotencyKey });
+  resolveCase(caseId: string, body: T.ResolveInput, idempotencyKey?: string): Promise<T.Case> {
+    return flow6Request<T.Case>('F6-J33', { path: { caseId }, body, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J36: Mở lại feedback window sau khi xử lý xong khiếu nại và nghĩa vụ tiền */
-  restartFeedbackWindow(settlementId: string, idempotencyKey: string): Promise<T.Settlement> {
-    return flow6Request<T.Settlement>('F6-J36', { path: { settlementId }, idempotencyKey });
+  restartFeedbackWindow(settlementId: string, idempotencyKey?: string): Promise<T.Settlement> {
+    return flow6Request<T.Settlement>('F6-J36', { path: { settlementId }, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J37: Đóng hồ sơ tất toán khi đủ điều kiện (CLOSED) */
-  closeSettlement(settlementId: string, idempotencyKey: string): Promise<T.CloseResult> {
-    return flow6Request<T.CloseResult>('F6-J37', { path: { settlementId }, idempotencyKey });
+  closeSettlement(settlementId: string, idempotencyKey?: string): Promise<T.CloseResult> {
+    return flow6Request<T.CloseResult>('F6-J37', { path: { settlementId }, idempotencyKey: ensureUuid(idempotencyKey) });
   },
 
   /** F6-J42: Manager đọc biên bản giao nhận nghiệm thu */
@@ -253,5 +259,10 @@ export const flow6Api = {
   /** F6-J47: Manager tải tệp PDF biên bản nghiệm thu */
   downloadManagerDeliveryPdf(settlementId: string): Promise<Blob> {
     return flow6Request<Blob>('F6-J47', { path: { settlementId }, responseType: 'blob' });
+  },
+
+  /** F6-J48: Manager duyệt đối soát thanh toán quá hạn VNPay */
+  reviewPayment(paymentId: string, body: T.ReasonInput): Promise<T.Payment> {
+    return flow6Request<T.Payment>('F6-J48', { path: { paymentId }, body });
   },
 };

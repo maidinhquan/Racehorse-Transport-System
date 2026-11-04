@@ -46,9 +46,9 @@ export const NextAction: React.FC<{ request: TransportRequest }> = ({ request: r
   else if (['ACTIVATED', 'SCHEDULED'].includes(r.status) && docsNeedingAction(r)) {
     main = <><Note tone="red" title={`${docsNeedingAction(r)} giấy tờ cần xử lý`}>Xem lý do và tải lại giấy tờ.</Note>{btn('Xem & tải lại giấy tờ', () => go('/documents'))}</>;
   } else if (r.status === 'IN_TRANSIT' || r.status === 'SCHEDULED') main = btn('Xem theo dõi chuyến', () => navigate(`/customer/tracking/${r.id}`), r.status === 'IN_TRANSIT', 'pin');
-  else if (r.status === 'DELIVERED' && r.acceptance?.status === 'PENDING') main = btn('Xác nhận nghiệm thu', () => go('/handover'));
+  else if (r.status === 'DELIVERED' && (!r.acceptance || r.acceptance.status === 'PENDING')) main = btn('Xem biên bản bàn giao & thanh toán số dư', () => go('/handover'), true, 'card');
   else if (r.status === 'DELIVERED' && balanceState(r) === 'PROCESSING') main = <p className="cus-subtitle" style={{ margin: 0 }}>Thanh toán VNPay đang được xác minh.</p>;
-  else if (r.status === 'DELIVERED' && balanceDue(r) > 0) main = btn(`Thanh toán ${fmtMoney(balanceDue(r))} qua VNPay`, () => go('/handover'), true, 'card');
+  else if (r.status === 'DELIVERED' && r.acceptance?.status === 'ACCEPTED' && balanceDue(r) > 0) main = btn(`Thanh toán ${fmtMoney(balanceDue(r))} qua VNPay`, () => go('/handover'), true, 'card');
   else if (!['DELIVERED'].includes(r.status) && ['CLOSED', 'CANCELLED', 'REJECTED'].includes(r.status)) main = <p className="cus-subtitle" style={{ margin: 0 }}>Yêu cầu đã kết thúc.</p>;
 
   return (
