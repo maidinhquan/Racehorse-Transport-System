@@ -1,0 +1,17 @@
+namespace Domain.Enums.Flow4;
+
+public enum MilestoneKind
+{
+    DEPARTED,
+    STOP_ARRIVED,
+    STOP_DEPARTED,
+    CHECKPOINT_ARRIVED,
+    CHECKPOINT_DEPARTED,
+    AIRPORT_ORIGIN_ARRIVED,
+    AIR_HANDOVER,
+    AIR_DEPARTED,
+    AIR_ARRIVED,
+    AIR_RECEIVED,
+    FINAL_ARRIVED
+}
+

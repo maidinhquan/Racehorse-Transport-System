@@ -1,13 +1,22 @@
 /**
- * flow5Endpoints endpoint registry — maps operationId → { method, path }
+ * Flow 5 Endpoints Registry — Xử lý sự cố vận chuyển (Incident Management & Recovery)
+ * Compliant with FLOW5_capnhat.md (v1.1.0 — 03/11/2026) and IncidentsController.cs
+ * Maps operationId → { method, path }
  */
 export const flow5Endpoints = {
+  // ─── MASTER ──────────────────────────────────────────────────────────────────
   'F5-J01':    { method: 'GET',    path: '/master/flow5-capabilities' },
+
+  // ─── CORE INCIDENTS (ĐÃ TRIỂN KHAI BACKEND .NET & UI) ───────────────────────
   'F5-J02':    { method: 'GET',    path: '/incidents' },
   'F5-J03':    { method: 'POST',   path: '/incidents' },
   'F5-J04':    { method: 'GET',    path: '/incidents/{incidentId}' },
   'F5-J05':    { method: 'GET',    path: '/trips/{tripId}/incidents' },
   'F5-J06':    { method: 'POST',   path: '/coordinator/incidents/{incidentId}/accept' },
+  'F5-J06-ALT':{ method: 'POST',   path: '/incidents/{incidentId}/accept' },
+  'F5-J44':    { method: 'POST',   path: '/driver/trips/{tripId}/incidents' },
+
+  // ─── EXTENDED LIFECYCLE & COORDINATOR / MANAGER RECOVERY ─────────────────────
   'F5-J07':    { method: 'PUT',    path: '/coordinator/incidents/{incidentId}/impact-assessment' },
   'F5-J08':    { method: 'POST',   path: '/incidents/{incidentId}/updates' },
   'F5-J09':    { method: 'GET',    path: '/incidents/{incidentId}/updates' },

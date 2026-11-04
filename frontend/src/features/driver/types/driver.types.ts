@@ -244,6 +244,8 @@ export interface HandoverDraft {
 // REQUEST DTO
 // ---------------------------------------------------------------------------
 export interface RecordMilestoneRequestDto {
+  /** Mã mốc của backend (Flow 4); bắt buộc khi chạy chế độ thật */
+  milestoneId?: string;
   type: MilestoneType;
   stopIndex: number;
   at: string;

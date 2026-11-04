@@ -117,8 +117,8 @@ const unavailableIn = (e: Any, from: string, to: string) => e.avail && e.avail.s
 export const availLabel = (e: Any) => AVAIL[e.avail.status][1] + (e.avail.status !== 'AVAILABLE' && e.avail.status !== 'INACTIVE' && e.avail.from ? ` ${date(e.avail.from)}${e.avail.to ? '–' + date(e.avail.to) : ''}` : '');
 /** một tài xế / áp tải / bác sĩ chỉ được gắn vào một chuyến đang hoạt động; người đang nghỉ cũng tính là trùng lịch */
 export function crewConflict(e: Any, t: Any): Any {
-  // Chỉ coi là bận khi chuyến kia còn hoạt động VÀ trùng khoảng thời gian (giống kiểm tra trùng xe)
-  const busy = db.trips.find((u: Any) => u.id !== t.id && tripPersonnelIds(u).includes(e.id) && ACTIVE_TRIP.includes(u.status) && overlaps(t, u));
+  // Bận cho đến khi chuyến kia bàn giao xong (COMPLETED), không phụ thuộc ngày chuyến: mỗi người chỉ một chuyến chưa bàn giao
+  const busy = db.trips.find((u: Any) => u.id !== t.id && tripPersonnelIds(u).includes(e.id) && ACTIVE_TRIP.includes(u.status));
   if (busy) return busy;
   if (t && e.avail && unavailableIn(e, tripWindow(t)[0], tripWindow(t)[1])) return { id: availLabel(e) };
   return null;

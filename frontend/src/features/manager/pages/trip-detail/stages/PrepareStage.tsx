@@ -19,7 +19,7 @@ export const PrepareStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
   const [focusStop, setFocusStop] = useState<number | null>(null);
   // Tự cập nhật phương án Điều phối gửi / hủy gửi mỗi 15 giây khi đang mở trang (chỉ 1 request cho chuyến này)
   useEffect(() => {
-    const tick = () => { if (document.visibilityState === 'visible') void refreshTripPlan(t.id); };
+    const tick = () => { if (document.visibilityState === 'visible') { void refreshTripPlan(t.id); void actions.refreshReadiness(); } };
     tick();
     const id = window.setInterval(tick, 15000);
     return () => window.clearInterval(id);

@@ -55,23 +55,35 @@ services:
     restart: unless-stopped
 
   # Public HTTPS tunnel so VNPay can call the IPN on this machine (http://backend:8080/api/payments/vnpay/ipn).
-  # Starts automatically when .env contains COMPOSE_PROFILES=tunnel plus NGROK_AUTHTOKEN;
-  # without them `docker compose up` simply skips it. Register once with VNPay:
-  #   https://<your-dev-domain>.ngrok-free.app/api/payments/vnpay/ipn
+  # Starts with every `docker compose up`. It needs NGROK_AUTHTOKEN in .env (free account, see .env.example);
+  # without it the container prints a hint and exits, the rest of the stack is unaffected.
+  # The IPN URL to register with VNPay is printed in the logs: `docker compose logs tunnel`
   # Inspect forwarded requests at http://localhost:4040
   tunnel:
     image: ngrok/ngrok:3
-    profiles: ["tunnel"]
     # A free ngrok account uses its permanent dev domain automatically (shown at http://localhost:4040
     # and in the ngrok dashboard under Domains), so the IPN URL only has to be registered once.
-    command: ["http", "backend:8080", "--log=stdout"]
+    entrypoint:
+      - sh
+      - -c
+      - |
+        if [ -z "$$NGROK_AUTHTOKEN" ]; then
+          echo "[tunnel] Chua co NGROK_AUTHTOKEN trong .env nen bo qua tunnel: VNPAY se khong gui duoc IPN ve may nay."
+          exit 0
+        fi
+        ngrok --config=/var/lib/ngrok/ngrok.yml http backend:8080 --log=stdout | while IFS= read -r line; do
+          echo "$$line"
+          case "$$line" in
+            *"started tunnel"*) echo "[tunnel] IPN URL de dang ky voi VNPAY: $${line##*url=}/api/payments/vnpay/ipn" ;;
+          esac
+        done
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
     ports:
       - "4040:4040"
     depends_on:
       - backend
-    restart: unless-stopped
+    restart: on-failure
 
   # Same purpose without any account (Cloudflare Quick Tunnel): set COMPOSE_PROFILES=quicktunnel.
   # The public URL is random and CHANGES on every restart, so the VNPay IPN URL must be updated each time.

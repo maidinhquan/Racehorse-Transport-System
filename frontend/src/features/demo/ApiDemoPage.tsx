@@ -160,22 +160,42 @@ const DEMO_OPERATIONS: DemoOperation[] = [
   {
     id: 'F5-J03',
     flow: 'FLOW5',
-    name: 'F5-J03: Báo cáo sự cố khẩn cấp',
+    name: 'F5-J03: Báo cáo sự cố khẩn cấp (FLOW5_capnhat)',
     method: 'POST',
-    path: '/driver/incidents',
-    summary: 'Báo sự cố ách tắc đường hoặc sức khỏe ngựa',
+    path: '/incidents',
+    summary: 'Tài xế báo sự cố: tự động bật SafetyBlockerActive và bắn Notification tới Điều phối',
     requiresIdempotency: true,
     defaultBody: {
       tripId: 'TRIP_001',
-      title: 'Tắc đường do tai nạn giao thông',
-      description: 'Đoạn quốc lộ bị tắc nghẽn dự kiến kéo dài 1 tiếng.',
-      category: 'ROAD_CONGESTION',
-      severity: 'LOW',
-      occurredAt: '2026-11-10 10:00',
-      evidenceFileIds: [],
+      category: 'VEHICLE_RESOURCE',
+      description: 'Nổ lốp xe trên cao tốc, đã tấp vào làn khẩn cấp',
+      immediateCare: 'Đã kiểm tra ngựa trong thùng xe an toàn và bật đèn ưu tiên',
+      locationCoordinates: '10.7769,106.7009',
+      imageUrl: '/uploads/incidents/img_001.jpg',
+      occurredAt: '2026-11-03T10:00:00Z',
     },
     executor: ({ body, idempotencyKey }) =>
       flow5Api.reportIncident(body, idempotencyKey!),
+  },
+  {
+    id: 'F5-J04',
+    flow: 'FLOW5',
+    name: 'F5-J04: Chi tiết sự cố',
+    method: 'GET',
+    path: '/incidents/{incidentId}',
+    summary: 'Tra cứu chi tiết sự cố theo mã định danh',
+    defaultPathParams: { incidentId: 'INC_20261103_AB12CD' },
+    executor: ({ path }) => flow5Api.getIncidentDetail(path.incidentId),
+  },
+  {
+    id: 'F5-J06',
+    flow: 'FLOW5',
+    name: 'F5-J06: Điều phối tiếp nhận sự cố',
+    method: 'POST',
+    path: '/coordinator/incidents/{incidentId}/accept',
+    summary: 'Điều phối viên tiếp nhận: chuyển trạng thái REPORTED sang IN_PROGRESS và gán coordinatorId',
+    defaultPathParams: { incidentId: 'INC_20261103_AB12CD' },
+    executor: ({ path }) => flow5Api.acceptIncident(path.incidentId),
   },
 
   // ================= Flow 6 =================
@@ -331,9 +351,9 @@ const DEMO_OPERATIONS: DemoOperation[] = [
 ];
 
 export const ApiDemoPage: React.FC = () => {
-  const [activeFlow, setActiveFlow] = useState<'FLOW4' | 'FLOW5' | 'FLOW6'>('FLOW6');
+  const [activeFlow, setActiveFlow] = useState<'FLOW4' | 'FLOW5' | 'FLOW6'>('FLOW5');
   const [selectedOp, setSelectedOp] = useState<DemoOperation>(
-    DEMO_OPERATIONS.find(op => op.flow === 'FLOW6')!
+    DEMO_OPERATIONS.find(op => op.flow === 'FLOW5')!
   );
   const [pathParams, setPathParams] = useState<Record<string, string>>(
     selectedOp.defaultPathParams || {}

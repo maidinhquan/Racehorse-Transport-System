@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flow5Api } from './flow5Api';
-import { Flow5ApiError } from './flow5Client';
 import { apiClient } from '../../../shared/api/apiClient';
 
 vi.mock('../../../shared/api/apiClient', () => ({
@@ -11,8 +10,8 @@ vi.mock('../../../shared/api/apiClient', () => ({
 
 const mockRequest = vi.mocked(apiClient.request);
 
-describe('Flow 5 API Client', () => {
-  const incidentId = 'INCIDENT_001';
+describe('Flow 5 API Client — Incident Management & Recovery (FLOW5_capnhat.md)', () => {
+  const incidentId = 'INC_20261103_AB12CD';
   const tripId = 'TRIP_001';
   const idempotencyKey = '1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd';
 
@@ -20,15 +19,15 @@ describe('Flow 5 API Client', () => {
     vi.clearAllMocks();
   });
 
-  it('F5-J01: calls getCapabilities and returns data', async () => {
+  it('F5-J01: calls getCapabilities and returns capability config', async () => {
     const mockData = {
       version: '1.0.0',
-      implementationStatus: 'DESIGNED_NOT_IMPLEMENTED',
-      persistenceAvailable: false,
-      filesAvailable: false,
-      notificationsAvailable: false,
-      recoveryApplyAvailable: false,
-      terminationSettlementAvailable: false,
+      implementationStatus: 'AVAILABLE',
+      persistenceAvailable: true,
+      filesAvailable: true,
+      notificationsAvailable: true,
+      recoveryApplyAvailable: true,
+      terminationSettlementAvailable: true,
       currency: 'VND',
       timezone: 'Asia/Ho_Chi_Minh',
     };
@@ -42,122 +41,245 @@ describe('Flow 5 API Client', () => {
     expect(result.version).toBe('1.0.0');
     expect(mockRequest).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: 'get',
+        method: 'GET',
         url: '/master/flow5-capabilities',
       }),
     );
   });
 
-  it('F5-J04: validates path parameters', async () => {
-    await expect(flow5Api.getIncidentDetail('invalid-incident-id')).rejects.toThrow(Flow5ApiError);
-  });
-
-  it('F5-J03: reports an incident with Idempotency-Key header', async () => {
-    const body = {
+  it('F5-J03: reports incident via POST /incidents with ReportIncidentInput', async () => {
+    const input = {
       tripId,
-      expectedExecutionVersion: 11,
       category: 'VEHICLE_RESOURCE' as const,
-      scope: {
-        leg: 'road' as const,
-        horseIds: ['HORSE_001'],
-        milestoneIds: ['MILESTONE_002'],
-      },
-      occurredAt: '2026-11-10 08:00',
-      description: 'Xe bị nổ lốp trên đường cao tốc',
-      immediateCare: 'Tấp xe vào làn khẩn cấp, bật đèn cảnh báo và kiểm tra ngựa',
-      evidenceFileIds: ['EVIDENCE_001'],
-      healthLogIds: ['HEALTH_001'],
+      description: 'Nổ lốp xe trên cao tốc, đã tấp vào làn khẩn cấp',
+      immediateCare: 'Đã kiểm tra ngựa trong thùng xe an toàn và bật đèn ưu tiên',
+      locationCoordinates: '10.7769,106.7009',
+      imageUrl: '/uploads/incidents/img_001.jpg',
+      occurredAt: '2026-11-03T10:00:00Z',
     };
 
-    const mockMutation = {
-      binding: { incidentVersion: 1, recoveryVersion: null, approvedPlanVersion: 1, executionVersion: 11, assignmentVersion: 1 },
-      incident: {
-        id: incidentId,
-        tripId,
-        requestId: 'REQUEST_001',
-        category: 'VEHICLE_RESOURCE',
-        status: 'REPORTED',
-        scope: body.scope,
-        description: body.description,
-        occurredAt: body.occurredAt,
-        reportedAt: '2026-11-10 08:05',
-        reportedBy: { userId: 'USER_006', name: 'Phạm Hải', role: 'DRIVER_ESCORT', crewDuty: 'MAIN_DRIVER' },
-        coordinatorId: 'USER_006',
-        hasBlockingScope: true,
-        resolutionOutcome: null,
-        resolvedAt: null,
-      },
-      recordId: incidentId,
-      blockers: [],
+    const mockResponseDto = {
+      incidentId,
+      tripId,
+      category: 'VEHICLE_RESOURCE',
+      status: 'REPORTED',
+      description: input.description,
+      locationCoordinates: input.locationCoordinates,
+      imageUrl: input.imageUrl,
+      coordinatorId: 'USER_COORD_001',
+      reportedByUserId: 'USER_DRIVER_001',
+      reportedByUserName: 'Nguyễn Văn Hùng',
+      reportedAt: '2026-11-03T10:00:00Z',
+      safetyBlockerActive: true,
     };
 
     mockRequest.mockResolvedValueOnce({
       status: 201,
-      data: { success: true, message: 'OK', data: mockMutation },
+      data: {
+        success: true,
+        message: 'Báo cáo sự cố thành công và đã thông báo tới Điều phối viên',
+        data: mockResponseDto,
+      },
     });
 
-    const result = await flow5Api.reportIncident(body, idempotencyKey);
-    expect(result.incident.id).toBe(incidentId);
+    const result = await flow5Api.reportIncident(input, idempotencyKey);
+    expect(result.incidentId).toBe(incidentId);
+    expect(result.safetyBlockerActive).toBe(true);
+    expect(result.status).toBe('REPORTED');
     expect(mockRequest).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: 'post',
+        method: 'POST',
         url: '/incidents',
+        data: input,
         headers: expect.objectContaining({ 'Idempotency-Key': idempotencyKey }),
       }),
     );
   });
 
-  it('F5-J34: rejects file upload with unsupported file type', async () => {
-    const invalidFile = new File(['code'], 'script.sh', { type: 'application/x-sh' });
-    await expect(
-      flow5Api.uploadIncidentFile(tripId, invalidFile, { purpose: 'INCIDENT_FIELD' }, idempotencyKey),
-    ).rejects.toMatchObject({ errorCode: 'INVALID_FILE' });
-  });
+  it('F5-J44: reports trip incident via POST /driver/trips/{tripId}/incidents', async () => {
+    const input = {
+      category: 'HORSE_HEALTH' as const,
+      description: 'Ngựa Red Rum có dấu hiệu sốt và nhịp thở nhanh',
+      immediateCare: 'Đã dừng xe cho uống nước điện giải và đo thân nhiệt 39.2C',
+      locationCoordinates: 'Km 120 Quốc lộ 1A',
+    };
 
-  it('F5-J35: downloads incident file as Blob', async () => {
-    const mockBlob = new Blob(['pdf-content'], { type: 'application/pdf' });
+    const mockResponseDto = {
+      incidentId: 'INC_20261103_HEALTH',
+      tripId,
+      category: 'HORSE_HEALTH',
+      status: 'REPORTED',
+      description: input.description,
+      locationCoordinates: input.locationCoordinates,
+      imageUrl: null,
+      coordinatorId: 'USER_COORD_001',
+      reportedByUserId: 'USER_DRIVER_001',
+      reportedByUserName: 'Nguyễn Văn Hùng',
+      reportedAt: '2026-11-03T11:00:00Z',
+      safetyBlockerActive: true,
+    };
+
     mockRequest.mockResolvedValueOnce({
       status: 200,
-      data: mockBlob,
-    });
-
-    const result = await flow5Api.downloadIncidentFile(incidentId, 'FILE_001');
-    expect(result).toBe(mockBlob);
-  });
-
-  it('handles server contract error envelope properly', async () => {
-    mockRequest.mockResolvedValueOnce({
-      status: 409,
       data: {
-        success: false,
-        message: 'Phương án chưa được duyệt',
-        errorCode: 'RECOVERY_NOT_APPROVED',
-        data: null,
-        blockers: [{ code: 'RECOVERY_NOT_APPROVED', field: 'recovery', message: 'Chờ duyệt' }],
+        success: true,
+        message: 'Báo cáo sự cố thành công và đã thông báo tới Điều phối viên',
+        data: mockResponseDto,
       },
     });
 
-    const body = {
-      expectedVersion: 1,
-      recoveryVersion: 1,
-      readinessVersion: 'CHECK_001',
-      scope: { leg: 'road' as const, horseIds: ['HORSE_001'], milestoneIds: ['MILESTONE_002'] },
-      reason: 'Đã chuẩn bị xe thay thế',
+    const result = await flow5Api.reportTripIncident(tripId, input);
+    expect(result.incidentId).toBe('INC_20261103_HEALTH');
+    expect(result.safetyBlockerActive).toBe(true);
+    expect(mockRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        url: `/driver/trips/${tripId}/incidents`,
+        data: input,
+      }),
+    );
+  });
+
+  it('F5-J02: queries incidents list with filters (tripId, status)', async () => {
+    const mockList = [
+      {
+        incidentId,
+        tripId,
+        category: 'VEHICLE_RESOURCE',
+        status: 'REPORTED',
+        description: 'Nổ lốp xe',
+        locationCoordinates: '10.7769,106.7009',
+        imageUrl: null,
+        coordinatorId: 'USER_COORD_001',
+        reportedByUserId: 'USER_DRIVER_001',
+        reportedByUserName: 'Nguyễn Văn Hùng',
+        reportedAt: '2026-11-03T10:00:00Z',
+        safetyBlockerActive: true,
+      },
+    ];
+
+    mockRequest.mockResolvedValueOnce({
+      status: 200,
+      data: { success: true, message: 'OK', data: mockList },
+    });
+
+    const result = await flow5Api.getIncidents({ tripId, status: 'REPORTED' });
+    expect(result).toHaveLength(1);
+    expect(result[0].incidentId).toBe(incidentId);
+    expect(mockRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'GET',
+        url: '/incidents',
+        params: { tripId, status: 'REPORTED' },
+      }),
+    );
+  });
+
+  it('F5-J04: gets incident detail by incidentId', async () => {
+    const mockDetail = {
+      incidentId,
+      tripId,
+      category: 'VEHICLE_RESOURCE',
+      status: 'REPORTED',
+      description: 'Nổ lốp xe',
+      locationCoordinates: '10.7769,106.7009',
+      imageUrl: null,
+      coordinatorId: 'USER_COORD_001',
+      reportedByUserId: 'USER_DRIVER_001',
+      reportedByUserName: 'Nguyễn Văn Hùng',
+      reportedAt: '2026-11-03T10:00:00Z',
+      safetyBlockerActive: true,
     };
 
-    await expect(flow5Api.applyRecovery(incidentId, body, idempotencyKey)).rejects.toMatchObject({
-      errorCode: 'RECOVERY_NOT_APPROVED',
-      status: 409,
+    mockRequest.mockResolvedValueOnce({
+      status: 200,
+      data: { success: true, message: 'OK', data: mockDetail },
     });
+
+    const result = await flow5Api.getIncidentDetail(incidentId);
+    expect(result.incidentId).toBe(incidentId);
+    expect(mockRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'GET',
+        url: `/incidents/${incidentId}`,
+      }),
+    );
+  });
+
+  it('F5-J05: gets trip incidents by tripId', async () => {
+    const mockList = [
+      {
+        incidentId,
+        tripId,
+        category: 'VEHICLE_RESOURCE',
+        status: 'REPORTED',
+        description: 'Nổ lốp xe',
+        locationCoordinates: null,
+        imageUrl: null,
+        coordinatorId: 'USER_COORD_001',
+        reportedByUserId: 'USER_DRIVER_001',
+        reportedByUserName: 'Nguyễn Văn Hùng',
+        reportedAt: '2026-11-03T10:00:00Z',
+        safetyBlockerActive: true,
+      },
+    ];
+
+    mockRequest.mockResolvedValueOnce({
+      status: 200,
+      data: { success: true, message: 'OK', data: mockList },
+    });
+
+    const result = await flow5Api.getTripIncidents(tripId);
+    expect(result).toHaveLength(1);
+    expect(mockRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'GET',
+        url: `/trips/${tripId}/incidents`,
+      }),
+    );
+  });
+
+  it('F5-J06: coordinator accepts incident and transitions status to IN_PROGRESS', async () => {
+    const mockAccepted = {
+      incidentId,
+      tripId,
+      category: 'VEHICLE_RESOURCE',
+      status: 'IN_PROGRESS',
+      description: 'Nổ lốp xe',
+      locationCoordinates: null,
+      imageUrl: null,
+      coordinatorId: 'USER_COORD_001',
+      reportedByUserId: 'USER_DRIVER_001',
+      reportedByUserName: 'Nguyễn Văn Hùng',
+      reportedAt: '2026-11-03T10:00:00Z',
+      safetyBlockerActive: true,
+    };
+
+    mockRequest.mockResolvedValueOnce({
+      status: 200,
+      data: {
+        success: true,
+        message: 'Điều phối viên đã tiếp nhận sự cố thành công',
+        data: mockAccepted,
+      },
+    });
+
+    const result = await flow5Api.acceptIncident(incidentId);
+    expect(result.status).toBe('IN_PROGRESS');
+    expect(mockRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        url: `/coordinator/incidents/${incidentId}/accept`,
+      }),
+    );
   });
 
   it('prevents concurrent duplicate mutations with request lock', async () => {
     let resolver: (val: unknown) => void = () => {};
     mockRequest.mockReturnValueOnce(new Promise(res => { resolver = res; }));
 
-    const body = { expectedVersion: 1, reason: 'Tiếp nhận xử lý sự cố' };
-    const p1 = flow5Api.acceptIncident(incidentId, body, idempotencyKey);
-    const p2 = flow5Api.acceptIncident(incidentId, body, idempotencyKey);
+    const p1 = flow5Api.acceptIncident(incidentId);
+    const p2 = flow5Api.acceptIncident(incidentId);
 
     await expect(p2).rejects.toMatchObject({ errorCode: 'REQUEST_IN_PROGRESS' });
 
@@ -167,29 +289,32 @@ describe('Flow 5 API Client', () => {
         success: true,
         message: 'OK',
         data: {
-          binding: { incidentVersion: 2, recoveryVersion: null, approvedPlanVersion: 1, executionVersion: 11, assignmentVersion: 1 },
-          incident: {
-            id: incidentId,
-            tripId,
-            requestId: 'REQUEST_001',
-            category: 'VEHICLE_RESOURCE',
-            status: 'IN_PROGRESS',
-            scope: { leg: 'road', horseIds: ['HORSE_001'], milestoneIds: ['MILESTONE_002'] },
-            description: 'Đang xử lý',
-            occurredAt: '2026-11-10 08:00',
-            reportedAt: '2026-11-10 08:05',
-            reportedBy: { userId: 'USER_006', name: 'Phạm Hải', role: 'FLEET_ROUTE_COORDINATOR', crewDuty: null },
-            coordinatorId: 'USER_006',
-            hasBlockingScope: true,
-            resolutionOutcome: null,
-            resolvedAt: null,
-          },
-          recordId: incidentId,
-          blockers: [],
+          incidentId,
+          tripId,
+          category: 'VEHICLE_RESOURCE',
+          status: 'IN_PROGRESS',
+          reportedAt: '2026-11-03T10:00:00Z',
+          safetyBlockerActive: true,
         },
       },
     });
     await p1;
   });
-});
 
+  it('handles server contract error envelope properly', async () => {
+    mockRequest.mockResolvedValueOnce({
+      status: 404,
+      data: {
+        success: false,
+        message: 'Không tìm thấy sự cố.',
+        errorCode: 'INCIDENT_NOT_FOUND',
+        data: null,
+      },
+    });
+
+    await expect(flow5Api.getIncidentDetail('INC_NOT_EXIST')).rejects.toMatchObject({
+      errorCode: 'INCIDENT_NOT_FOUND',
+      status: 404,
+    });
+  });
+});

@@ -1,4 +1,4 @@
-> Các phần mô tả UI/harness cũ phía dưới là lịch sử. Contract API hiện hành: contracts/API-Flow/Flow1/RequestSubmission.md; schema duy nhất: HorseTransportDB/HorseTransportDB_Reviewed.sql.
+> Các phần mô tả UI/harness cũ phía dưới là lịch sử. Contract API hiện hành: contracts/API-Flow/Flow1/RequestSubmission.md; schema duy nhất: HorseTransportDB/HorseTransportDB.sql.
 
 # Hướng dẫn chạy và kiểm tra Flow 1
 
@@ -33,13 +33,13 @@ Cần .NET SDK 8 và SQL Server. Script `backend/tools/start-flow1-local.ps1` d�
 
 ## 3. Tạo lại database test
 
-Schema hiện hành nằm trong `HorseTransportDB/HorseTransportDB_Reviewed.sql`. Chạy từ root:
+Schema hiện hành nằm trong `HorseTransportDB/HorseTransportDB.sql`. Chạy từ root:
 
 ```powershell
-sqlcmd -S '.\SQLEXPRESS' -E -C -b -f 65001 -i HorseTransportDB/HorseTransportDB_Reviewed.sql
+sqlcmd -S '.\SQLEXPRESS' -E -C -b -f 65001 -i HorseTransportDB/HorseTransportDB.sql
 ```
 
-File reset/recreate HorseTransportDB_Reviewed và dữ liệu mẫu. Cấu hình backend trỏ tới database này. Không có migration đánh số; khi sửa schema, sửa file Reviewed rồi tạo lại dữ liệu test. Các script cũ đã được loại bỏ.
+File reset/recreate HorseTransportDB và dữ liệu mẫu. Cấu hình backend trỏ tới database này. Không có migration đánh số; khi sửa schema, sửa file Reviewed rồi tạo lại dữ liệu test. Các script cũ đã được loại bỏ.
 
 Kiểm tra runtime hiện hành bằng `dotnet test backend/tests/Flow1.Rebuild.Tests/Flow1.Rebuild.Tests.csproj`. Bộ test tự tạo database GUID riêng từ đúng file schema này. Các harness/test RowVersion đời cũ đã nghỉ dùng; Swagger fixture vẫn dùng schema Reviewed.
 
@@ -179,7 +179,7 @@ Connected harness: `backend/tools/Flow1SwaggerHarness` và `backend/tools/flow1-
 - Payload/response: `backend/Application/DTOs/Flow1/RelationalDtos.cs`, Swagger examples trong `backend/WebApi/Extensions/Flow1SwaggerExamples.cs`.
 - Nghiệp vụ: `backend/Application/Services/Flow1/Relational/`.
 - Entity/mapping: `backend/Domain/Flow1/FlowRows.cs`, `backend/Infrastructure/Data/Context/Flow1RelationalContext.cs`.
-- Schema test hiện hành: `HorseTransportDB/HorseTransportDB_Reviewed.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
+- Schema test hiện hành: `HorseTransportDB/HorseTransportDB.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
 - PDF: `backend/Infrastructure/ExternalServices/Flow1/CodeContractDocumentGenerator.cs`.
 
 Nếu tài liệu ví dụ trong contracts khác trạng thái/role/payload hiện hành, đối chiếu source trên và xác nhận nghiệp vụ trước sửa. Không tự bật lại decline/hold, thêm owner Manager hoặc đổi về ký trước cọc chỉ để khớp ví dụ cũ.
@@ -268,11 +268,11 @@ Kiểm chứng bỏ ack ngày 20/10/2026: 142 Flow1.Tests + 47 Registration.Test
 - Phát hành lại: `POST /api/manager/contracts/{id}/reissue`, bỏ trống `depositRate` thì giữ tỷ lệ hiện tại. Chỉ đổi trước khi có tiền/giao dịch chưa giải quyết; feedback giới hạn mục sửa thì đổi tỷ lệ thuộc nhóm `PRICE`.
 - Tỷ lệ phải lớn hơn 0, không quá 100%, tối đa hai chữ số thập phân; tiền cọc làm tròn VND phải dương. Response hợp đồng trả `depositRate` và `depositAmount`. PDF và hóa đơn dùng cùng số tiền.
 - Giá demo vẫn dùng tỷ lệ tham khảo mặc định 40%. Flow 2/3 lấy tiền cọc thực tế từ CONTRACT/INVOICE, không tự nhân 40%.
-- Schema test hiện hành: `HorseTransportDB/HorseTransportDB_Reviewed.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
+- Schema test hiện hành: `HorseTransportDB/HorseTransportDB.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
 
 ### Tinh gọn schema Flow 1
 
-- Schema test hiện hành: `HorseTransportDB/HorseTransportDB_Reviewed.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
+- Schema test hiện hành: `HorseTransportDB/HorseTransportDB.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
 
 Giữ nguyên `USER.ResetOtpCode`/`ResetOtpExpiry` của luồng tài khoản và chỉ lưu một `CONTRACT.CompletionDeadline` cho cọc, xác minh và ký OTP. Khi nâng cấp database có dữ liệu, backup trước, chạy lại 002, rồi dùng backend cùng phiên bản. Không chạy file database mẫu xóa/tạo mới lên DB đang dùng.
 
@@ -280,12 +280,12 @@ Giữ nguyên `USER.ResetOtpCode`/`ResetOtpExpiry` của luồng tài khoản v�
 
 - Mỗi Request có tối đa một CONTRACT, được bảo vệ bởi unique index trên `RequestID`; cập nhật/phát hành lại cùng bản ghi. Không có cột `IsCurrent`; dùng `ContractStatus` để chặn bản đã hủy.
 - Chỉ lưu `CONTRACT.CompletionDeadline`. Bỏ `EffectiveSignDeadline`, `DepositDeadline`, `SignedDepositDeadline`. Hai trường response `signDeadline`/`depositDeadline` cùng suy ra từ hạn chung để giữ tương thích client. `INVOICE.DueDate` vẫn là hạn từng hóa đơn.
-- Schema test hiện hành: `HorseTransportDB/HorseTransportDB_Reviewed.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
+- Schema test hiện hành: `HorseTransportDB/HorseTransportDB.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
 - Cấu trúc hoàn chỉnh cũng có trong `HorseTransportDB/HorseTransportDB.sql`; file đó dùng để tạo mới database mẫu. `USER.ResetOtpCode` giữ nguyên.
 
 ## Wizard tạo yêu cầu: hồ sơ ngựa và giấy tờ chung (21/10/2026)
 
-- Schema test hiện hành: `HorseTransportDB/HorseTransportDB_Reviewed.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
+- Schema test hiện hành: `HorseTransportDB/HorseTransportDB.sql`; tạo lại DB test trực tiếp, không chạy migration đánh số.
 
 ### Tạo/cập nhật hồ sơ ngựa
 

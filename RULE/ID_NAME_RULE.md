@@ -9,7 +9,7 @@
 
 # Bản đã đối chiếu với SQL Reviewed
 
-File đi kèm: `HorseTransportDB.sql`, tạo database riêng `HorseTransportDB_Reviewed`. Hai file gốc được giữ nguyên.
+File đi kèm: `HorseTransportDB.sql`, tạo database riêng `HorseTransportDB`. Hai file gốc được giữ nguyên.
 
 # Quy tắc mã định danh database
 

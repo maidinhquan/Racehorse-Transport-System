@@ -20,7 +20,7 @@ export const OverviewTab: React.FC<{ trip: Trip }> = ({ trip }) => {
               <span className="drv-horse__thumb">{(h?.name ?? id).slice(0, 1)}</span>
               <div className="drv-horse__text">
                 <b>{h?.name ?? id}</b>
-                <span>{h ? `${h.breed} • ${h.sex} • ${h.age} tuổi • ${h.color}` : ''}</span>
+                <span>{h ? [h.breed, h.sex, h.age ? `${h.age} tuổi` : '', h.color].filter(Boolean).join(' • ') : ''}</span>
                 <span>Microchip <b style={{ userSelect: 'all' }}>{h?.microchip ?? '—'}</b></span>
               </div>
             </div>

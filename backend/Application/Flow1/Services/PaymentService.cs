@@ -204,6 +204,58 @@ public sealed class PaymentService(IDataSession data, AccessService access, IPay
         payment = await data.FindAsync<Payment>(ct, id) ?? payment;
         return View(payment, invoice);
     }
+    /// <summary>
+    /// Manager confirms by hand a deposit that VNPAY has not reported (missed IPN). VNPAY is asked first, so a result it
+    /// already has is recorded normally. Otherwise the deposit is applied and flagged for financial reconciliation,
+    /// with the Manager and the reason stored on the payment.
+    /// </summary>
+    public async Task<object> ConfirmManuallyAsync(string actor, string id, string reason, CancellationToken ct)
+    {
+        await access.AccountAsync(actor, Domain.Enums.UserRoles.LogisticsManager, ct);
+        var text = (reason ?? "").Trim();
+        Require(text.Length is >= 5 and <= 900, "VALIDATION_ERROR", "Enter a confirmation reason of 5 to 900 characters.", 400);
+        var payment = await data.FindAsync<Payment>(ct, id) ?? throw Failure("NOT_FOUND", "Payment not found.", 404);
+        var invoice = await data.FindAsync<Invoice>(ct, payment.InvoiceID) ?? throw Failure("NOT_FOUND", "Invoice not found.", 404);
+        await access.ContractAsync(invoice.ContractID, actor, true, ct);
+        if (payment.Status == "PENDING_GATEWAY")
+        {
+            await ReconcileAsync(id, ct, force: true);
+            payment = await data.FindAsync<Payment>(ct, id) ?? payment;
+        }
+        if (payment.Status != "PENDING_GATEWAY") return View(payment, invoice); // resolved by VNPAY: nothing to confirm
+        await data.WriteAsync<object>(async token =>
+        {
+            var row = await data.FindAsync<Payment>(token, id);
+            if (row?.Status != "PENDING_GATEWAY") return true;
+            var inv = await data.FindAsync<Invoice>(token, row.InvoiceID) ?? throw Failure("NOT_FOUND", "Invoice not found.", 404);
+            var contract = await data.FindAsync<Contract>(token, inv.ContractID) ?? throw Failure("NOT_FOUND", "Contract not found.", 404);
+            var request = await data.FindAsync<TransportRequest>(token, contract.RequestID) ?? throw Failure("NOT_FOUND", "Request not found.", 404);
+            var open = contract.CurrentVersionNo == inv.ContractVersionNo && inv.PaymentStatus != "CANCELLED"
+                && (request.Status is "CONTRACT_READY" or "DEPOSIT_VERIFIED")
+                && contract.CancellationStatus != "PENDING" && contract.SignedAt is null
+                && inv.PaidAmount + row.Amount <= inv.TotalPayableAmount;
+            Require(open, "PAYMENT_NOT_APPLICABLE", "The deposit window for this contract version is no longer open.", 409);
+            row.Status = "SUCCESS";
+            row.VnpayResponseCode = "00"; row.VnpayTransactionStatus = "00";
+            row.TransactionCode = "MANUAL_" + row.PaymentID;
+            row.VnpayReceivedAmount = row.Amount;
+            row.PaymentDate = clock.GetUtcNow().UtcDateTime;
+            row.ConfirmedByUserID = actor;
+            row.FinancialReviewRequired = true;
+            var note = "Manual confirmation by Manager (VNPAY did not report): " + text;
+            row.FinancialReviewReason = note.Length > 1000 ? note[..1000] : note;
+            inv.PaidAmount += row.Amount;
+            inv.PaymentStatus = inv.PaidAmount >= inv.TotalPayableAmount ? "PAID" : "PARTIALLY_PAID";
+            if (inv.PaymentStatus == "PAID")
+            {
+                request.Status = "DEPOSIT_VERIFIED";
+                notifications.Add(request.CustomerID, request.RequestID, "DEPOSIT_VERIFIED", "Deposit verified", "You may now request the signing OTP.");
+            }
+            return true;
+        }, ct);
+        payment = await data.FindAsync<Payment>(ct, id) ?? payment;
+        return View(payment, invoice);
+    }
     /// <summary>Background sweep: resolves every payment still waiting for the gateway.</summary>
     public async Task<int> SweepAsync(CancellationToken ct)
     {

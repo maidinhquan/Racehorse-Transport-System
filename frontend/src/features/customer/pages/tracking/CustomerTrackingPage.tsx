@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { RouteMap } from '../../components/RouteMap/RouteMap';
@@ -7,20 +7,47 @@ import { LockedCard, Note, horseNames } from '../../components/Common/Common';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useCustomer } from '../../hooks/useCustomer';
 import { MILESTONE_LABEL, STOP_LABEL, TRIP_STATUS_LABEL, cityLabel, fmtDateTime, tripSummary } from '../../hooks/customerRules';
-import type { TripStatus } from '../../types';
+import type { Trip, TripStatus } from '../../types';
 import { CustomerRelocationCard } from '../../components/RelocationProposal/CustomerRelocationCard';
+import { flow4Api } from '../../../tracking/api/flow4Api';
+import type * as T from '../../../tracking/types/flow4.types';
+import { progressFromMilestones } from '../../../tracking/utils/progress';
 import './CustomerTrackingPage.css';
 
 const ORDER: Record<TripStatus, number> = { IN_TRANSIT: 0, READY_TO_DEPART: 1, PLANNING: 2, COMPLETED: 3 };
 
-/** Theo dõi chuyến: tuyến, các điểm dừng, mốc do tổ xe xác nhận và thay đổi ETA (không có GPS trực tiếp) */
+/** Theo dõi chuyến: tuyến, các điểm dừng, mốc do tổ xe xác nhận và thay đổi ETA (kết nối Flow 4 Backend) */
 export const CustomerTrackingPage: React.FC = () => {
   const navigate = useNavigate();
   const { requestId } = useParams<{ requestId: string }>();
   const { requests, horses, getRequest } = useCustomer();
-  const list = requests.filter((r) => r.trip && r.trip.status !== 'PLANNING').sort((a, b) => ORDER[a.trip!.status] - ORDER[b.trip!.status]);
+  // Yêu cầu đã lên lịch hoặc đang vận chuyển (chuyến thật nằm ở Flow 4, không nhất thiết có `trip` cục bộ)
+  const tracked = (x: (typeof requests)[number]) => (!!x.trip && x.trip.status !== 'PLANNING') || ['SCHEDULED', 'IN_TRANSIT', 'DELIVERED'].includes(x.status);
+  const orderOf = (x: (typeof requests)[number]) => (x.trip ? ORDER[x.trip.status] : x.status === 'IN_TRANSIT' ? 0 : x.status === 'SCHEDULED' ? 1 : 3);
+  const list = requests.filter(tracked).sort((a, b) => orderOf(a) - orderOf(b));
   const asked = requestId ? getRequest(requestId) : undefined;
   const r = asked ?? list[0];
+
+  const [liveTracking, setLiveTracking] = useState<T.PublicTracking | null>(null);
+  const [liveHealth, setLiveHealth] = useState<T.PublicHealth[]>([]);
+
+  useEffect(() => {
+    if (!r?.id) return;
+    let active = true;
+    // Lịch trình và mốc check-in của tài xế tự cập nhật mỗi 15 giây khi đang mở trang
+    const load = () => {
+      if (document.visibilityState !== 'visible') return;
+      flow4Api.getCustomerTracking(r.id).then((res) => {
+        if (active && res) setLiveTracking(res);
+      }).catch(() => {});
+      flow4Api.getCustomerHealthLogs(r.id).then((logs) => {
+        if (active && Array.isArray(logs)) setLiveHealth(logs);
+      }).catch(() => {});
+    };
+    load();
+    const timer = window.setInterval(load, 15000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [r?.id]);
 
   const head = (
     <div className="cus-head">
@@ -32,7 +59,7 @@ export const CustomerTrackingPage: React.FC = () => {
         <label className="cus-track__pick">
           <span className="cus-eyebrow">Chọn chuyến</span>
           <select className="cus-select" value={r?.id ?? ''} onChange={(e) => navigate(`/customer/tracking/${e.target.value}`)}>
-            {list.map((x) => <option key={x.id} value={x.id}>{x.id} • {x.trip!.id}: {horseNames(x, horses)} ({TRIP_STATUS_LABEL[x.trip!.status]})</option>)}
+            {list.map((x) => <option key={x.id} value={x.id}>{x.id}{x.trip ? ` • ${x.trip.id}` : ''}: {horseNames(x, horses)}{x.trip ? ` (${TRIP_STATUS_LABEL[x.trip.status]})` : ''}</option>)}
           </select>
         </label>
       )}
@@ -49,7 +76,15 @@ export const CustomerTrackingPage: React.FC = () => {
       </CustomerLayout>
     );
   }
-  const t = r.trip;
+  // Có mốc Flow 4: lịch trình và tiến độ lấy từ đó (cùng nguồn với tài xế và quản lý), ngược lại dùng dữ liệu tuyến cũ
+  const live = liveTracking?.milestones?.length ? progressFromMilestones(liveTracking.milestones, liveTracking.map?.routePoints ?? []) : null;
+  const baseTrip: Trip | undefined = r.trip ?? (liveTracking?.trip
+    ? { id: liveTracking.trip.tripId, status: liveTracking.trip.tripStatus, mode: liveTracking.trip.mode, plannedDepart: liveTracking.milestones[0]?.plannedAt ?? '',
+        eta: liveTracking.trip.eta?.currentEta ?? '', routeApproved: true, stops: [], milestones: [], etaHistory: [] }
+    : undefined);
+  const t: Trip | undefined = baseTrip && live
+    ? { ...baseTrip, routeApproved: true, stops: live.stops.map((s) => ({ name: s.name, plannedAt: s.plannedAt, lat: s.lat, lng: s.lng, latitude: s.lat, longitude: s.lng, type: s.type === 'FUEL_STOP' ? ('REST_STOP' as const) : s.type === 'QUARANTINE_STATION' ? ('CHECKPOINT' as const) : s.type })), milestones: live.milestones.map((m) => ({ ...m, note: m.note ?? '' })) }
+    : baseTrip;
   if (!t || t.status === 'PLANNING') {
     return (
       <CustomerLayout title="Theo dõi chuyến">
@@ -65,7 +100,16 @@ export const CustomerTrackingPage: React.FC = () => {
   const stopState = (i: number) => (t.status === 'COMPLETED' || i < s.at || (i === s.at && s.m && ['LEFT_STOP', 'DEPARTED'].includes(s.m.type)) ? 'done'
     : i === s.at ? 'current' : i === s.at + 1 && t.status === 'IN_TRANSIT' ? 'next' : 'planned');
   const confirmedAt = (i: number) => t.milestones.find((m) => m.stopIndex === i && ['ARRIVED_STOP', 'ARRIVED_DESTINATION', 'DEPARTED'].includes(m.type))?.at;
+
+  const liveEvents = (live ? [] : liveTracking?.milestones || []).map((m) => ({
+    at: m.occurredAt || m.plannedAt || '',
+    title: `${m.label || m.kind}`,
+    note: m.status === 'COMPLETED' ? 'Đã hoàn tất' : 'Theo kế hoạch',
+    tone: (m.status === 'COMPLETED' ? 'now' : '') as 'now' | '',
+  }));
+
   const events = [
+    ...liveEvents,
     ...t.milestones.map((m) => ({ at: m.at, title: `${MILESTONE_LABEL[m.type]} – ${t.stops[m.stopIndex]?.name ?? ''}`, note: m.note ?? '', tone: 'now' as const })),
     ...t.etaHistory.map((e) => ({ at: e.at, title: `ETA đổi thành ${fmtDateTime(e.to)}`, note: e.reason, tone: '' as const })),
     ...(t.handover ? [{ at: t.handover.completedAt, title: 'Hoàn tất bàn giao có xác minh', note: t.handover.receiverName, tone: 'done' as const }] : []),
@@ -118,7 +162,7 @@ export const CustomerTrackingPage: React.FC = () => {
               <div><span>Dự kiến xuất phát</span><b>{fmtDateTime(t.plannedDepart)}</b></div>
               {s.dep && <div><span>Xuất phát thực tế</span><b>{fmtDateTime(s.dep.at)}</b></div>}
               {s.adjusted && <div><span>ETA ban đầu</span><b><s>{fmtDateTime(t.etaOriginal)}</s></b></div>}
-              <div className="hl"><span>{s.adjusted ? 'ETA điều chỉnh' : 'ETA'}</span><b>{fmtDateTime(t.eta)}</b></div>
+              <div className="hl"><span>{s.adjusted ? 'ETA điều chỉnh' : 'ETA'}</span><b>{fmtDateTime(liveTracking?.trip?.eta?.currentEta || t.eta)}</b></div>
               {s.arr && <div><span>Đến thực tế</span><b>{fmtDateTime(s.arr.at)}</b></div>}
               {t.handover && <div><span>Bàn giao</span><b>{fmtDateTime(t.handover.completedAt)}</b></div>}
             </div>
@@ -126,6 +170,21 @@ export const CustomerTrackingPage: React.FC = () => {
             <button type="button" className="cus-btn cus-btn--block" style={{ marginTop: 10 }} onClick={() => navigate(`/customer/requests/${r.id}`)}>Xem chi tiết yêu cầu</button>
             {t.handover && <button type="button" className="cus-btn cus-btn--solid cus-btn--block" onClick={() => navigate(`/customer/requests/${r.id}/handover`)}>Bàn giao & nghiệm thu</button>}
           </div>
+
+          {liveHealth.length > 0 && (
+            <div className="cus-card">
+              <div className="cus-eyebrow">Nhật ký sức khỏe ngựa (Flow 4)</div>
+              <ul className="cus-timeline" style={{ marginTop: 10 }}>
+                {liveHealth.map((h, i) => (
+                  <li key={`${h.id || i}`} className={h.condition === 'ABNORMAL' ? 'now' : ''}>
+                    <b>Ngựa {h.horseId}: {h.condition === 'NORMAL' ? 'Bình thường' : 'Cần theo dõi'} {h.temperatureC ? `• ${h.temperatureC}°C` : ''}</b>
+                    <span>{fmtDateTime(h.observedAt)}{h.observation ? ` • ${h.observation}` : ''}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="cus-card">
             <div className="cus-eyebrow">Sự kiện hành trình</div>
             {events.length ? (

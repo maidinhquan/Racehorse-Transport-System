@@ -13,7 +13,7 @@ public sealed class SqlFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         var script = (await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Schema.sql")))
-            .Replace("HorseTransportDB_Reviewed", Name, StringComparison.Ordinal);
+            .Replace("HorseTransportDB", Name, StringComparison.Ordinal);
         await using var sql = new SqlConnection(new SqlConnectionStringBuilder(Master) { InitialCatalog = "master" }.ConnectionString);
         await sql.OpenAsync();
         try

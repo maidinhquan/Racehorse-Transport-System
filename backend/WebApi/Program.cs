@@ -118,6 +118,7 @@ builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
 builder.Services.AddScoped<ISpecialistService, SpecialistService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
+builder.Services.AddFlow4Services();
 builder.Services.AddFlow6Module(builder.Configuration, builder.Environment);
 
 // =============================================================================

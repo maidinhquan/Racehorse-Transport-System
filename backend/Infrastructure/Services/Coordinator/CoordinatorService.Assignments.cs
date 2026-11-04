@@ -159,7 +159,7 @@ namespace Infrastructure.Services
             };
         }
 
-        public Task<ValidateAssignmentsResponseDto> ValidateAssignmentsAsync(string tripId, TripAssignmentsDetailDto dto)
+        public async Task<ValidateAssignmentsResponseDto> ValidateAssignmentsAsync(string tripId, TripAssignmentsDetailDto dto)
         {
             var errors = new List<AssignmentErrorDto>();
             var warnings = new List<string>();
@@ -254,13 +254,29 @@ namespace Infrastructure.Services
                 }
             }
 
-            return Task.FromResult(new ValidateAssignmentsResponseDto
+            // Mỗi nhân sự tổ xe chỉ được giao cho một chuyến chưa bàn giao xong
+            var busy = await CrewBusyOnOtherTripsAsync(tripId);
+            foreach (var leg in dto.Legs.Where(l => l.Mode == "ROAD"))
+            {
+                foreach (var v in leg.Vehicles)
+                {
+                    foreach (var (role, id) in new[] { ("Tài xế chính", v.MainDriverId), ("Phụ lái", v.CoDriverId), ("Bác sĩ thú y", v.VeterinarianId) })
+                    {
+                        if (!string.IsNullOrEmpty(id) && busy.TryGetValue(id, out var otherTrip))
+                        {
+                            errors.Add(new AssignmentErrorDto { Code = "STAFF_BUSY_ON_ACTIVE_TRIP", LegId = leg.LegId, Message = CrewBusyMessage(role, id, otherTrip) });
+                        }
+                    }
+                }
+            }
+
+            return new ValidateAssignmentsResponseDto
             {
                 Valid = !errors.Any(),
                 Errors = errors,
                 Warnings = warnings,
                 IsComplete = !errors.Any()
-            });
+            };
         }
 
         public async Task<bool> SaveTripAssignmentsAsync(string tripId, TripAssignmentsDetailDto dto)
@@ -336,6 +352,15 @@ namespace Infrastructure.Services
                 if (dto.CoDriverId == dto.EscortId)
                 {
                     throw new InvalidOperationException("Vi phạm quy chuẩn an toàn: Phụ lái và Bác sĩ thú y không được trùng nhau!");
+                }
+            }
+
+            var busy = await CrewBusyOnOtherTripsAsync(tripId);
+            foreach (var (role, id) in new[] { ("Tài xế chính", dto.DriverId), ("Phụ lái", dto.CoDriverId), ("Hộ tống/Bác sĩ thú y", dto.EscortId) })
+            {
+                if (!string.IsNullOrEmpty(id) && busy.TryGetValue(id, out var otherTrip))
+                {
+                    throw new InvalidOperationException(CrewBusyMessage(role, id, otherTrip));
                 }
             }
 

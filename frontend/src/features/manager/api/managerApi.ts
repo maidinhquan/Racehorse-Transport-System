@@ -93,6 +93,8 @@ export const managerApi = {
   },
   /** F1-J69: server asks VNPay first; only an expired, unconfirmed session is cancelled (customer can pay again). */
   cancelPayment: async (id: string, reason: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('post', `/manager/payments/${id}/cancel`, { reason })), requestId: '' } as Transaction),
+  /** Manager xác nhận tay khi VNPay không báo IPN: server hỏi VNPay trước, nếu không có kết quả thì ghi cọc và gắn cờ đối soát. */
+  confirmPayment: async (id: string, reason: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('post', `/manager/payments/${id}/confirm`, { reason })), requestId: '' } as Transaction),
   getPayment: async (id: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('get', `/manager/payments/${id}`)), requestId: '' } as Transaction),
   getContractVersion: async (id: string, versionNo: number) => versionFromWire(await contractClient<WireContract>('get', `/manager/contracts/${id}/versions/${versionNo}`)),
   /** Chỉ lấy số liệu sẵn sàng (hồ sơ, bảo hiểm, kiểm dịch) của các chuyến để làm mới nhẹ, không gọi lại phương án tuyến */

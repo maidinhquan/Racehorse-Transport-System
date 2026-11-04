@@ -23,7 +23,9 @@ public sealed class LifecycleTests : IAsyncLifetime
     public async Task DisposeAsync(){factory.Dispose();await database.DisposeAsync();}
     private async Task Sql(string text)
     {await using var cn=new SqlConnection(database.Connection);await cn.OpenAsync();await using var cmd=new SqlCommand(text,cn);await cmd.ExecuteNonQueryAsync();}
-    private HttpClient Driver(){var c=factory.CreateClient(new(){BaseAddress=new Uri("https://localhost")});c.DefaultRequestHeaders.Add("X-Test-Actor","USER_007");c.DefaultRequestHeaders.Add("X-Test-Role","DRIVER_ESCORT");return c;}
+    // Flow 4 seed data resets TRIP_003 to READY_TO_DEPART; Flow 6 needs it in transit with the final arrival recorded.
+    private Task ArriveAtDestination()=>Sql("UPDATE TRIP_PLAN SET Status='IN_TRANSIT' WHERE TripID='TRIP_003'; UPDATE TRANSPORT_REQUEST SET Status='IN_PROGRESS' WHERE RequestID='REQUEST_003'; UPDATE ROUTE_SEGMENT SET Status='COMPLETED',ActualTime=SYSUTCDATETIME() WHERE TripID='TRIP_003' AND SegmentType='DESTINATION'");
+    private HttpClient Driver(){var c=factory.CreateClient(new(){BaseAddress=new Uri("https://localhost")});c.DefaultRequestHeaders.Add("X-Test-Actor","USER_012");c.DefaultRequestHeaders.Add("X-Test-Role","DRIVER_ESCORT");return c;}
     private static async Task<JsonObject> Ok(HttpResponseMessage response)
     {var raw=await response.Content.ReadAsStringAsync();Assert.True(response.IsSuccessStatusCode,$"{response.StatusCode}: {raw}");return JsonNode.Parse(raw)!.AsObject();}
     private static JsonObject Content()=>JsonNode.Parse("""{"location":"TP HCM","receiver":{"name":"Receiver","phone":"0901234567","authorized":true,"otpEmail":"receiver@example.invalid"},"commonDocuments":null,"items":[{"horseId":"HORSE_001","microchipVerified":true,"condition":"Healthy on inspection","assets":"Lead rope","documents":null,"documentsReceivedAtUtc":null}]}""")!.AsObject();
@@ -34,7 +36,7 @@ public sealed class LifecycleTests : IAsyncLifetime
     {
         using var driver=Driver();using var customer=factory.Customer();using var manager=factory.Manager();
         var denied=await Post(driver,"operations/flow6/trips/TRIP_003/delivery",Content());Assert.Equal(HttpStatusCode.Conflict,denied.StatusCode);
-        await Sql("UPDATE ROUTE_SEGMENT SET Status='COMPLETED',ActualTime=SYSUTCDATETIME() WHERE TripID='TRIP_003' AND SegmentType='DESTINATION'");
+        await ArriveAtDestination();
         var before=await Ok(await driver.GetAsync("/api/operations/flow6/trips/TRIP_003/context"));
         Assert.True(before["data"]!.AsObject().ContainsKey("deliveryHandoverId"));Assert.Null(before["data"]!["deliveryHandoverId"]);Assert.False(before["data"]!.AsObject().ContainsKey("deliveryId"));
         var created=await Ok(await Post(driver,"operations/flow6/trips/TRIP_003/delivery",Content()));var h=created["data"]!["id"]!.GetValue<string>();var r=created["data"]!["currentRevisionId"]!.GetValue<string>();
@@ -98,7 +100,7 @@ public sealed class LifecycleTests : IAsyncLifetime
     }
     private async Task<(string Settlement,string Revision)> NewDelivery(HttpClient driver,HttpClient customer)
     {
-        await Sql("UPDATE ROUTE_SEGMENT SET Status='COMPLETED',ActualTime=SYSUTCDATETIME() WHERE TripID='TRIP_003' AND SegmentType='DESTINATION'");
+        await ArriveAtDestination();
         var created=await Ok(await Post(driver,"operations/flow6/trips/TRIP_003/delivery",Content()));var r=created["data"]!["currentRevisionId"]!.GetValue<string>();
         await Ok(await Post(driver,$"operations/flow6/revisions/{r}/otp"));
         await Ok(await Post(driver,$"operations/flow6/revisions/{r}/confirm",new(){["otp"]=factory.Sender.Codes[r]}));
@@ -127,7 +129,7 @@ public sealed class LifecycleTests : IAsyncLifetime
     public async Task Concurrent_draft_creation_commits_exactly_one_and_refused_revision_is_immutable()
     {
         using var driver=Driver();
-        await Sql("UPDATE ROUTE_SEGMENT SET Status='COMPLETED',ActualTime=SYSUTCDATETIME() WHERE TripID='TRIP_003' AND SegmentType='DESTINATION'");
+        await ArriveAtDestination();
         var pair=await Task.WhenAll(Post(driver,"operations/flow6/trips/TRIP_003/delivery",Content()),Post(driver,"operations/flow6/trips/TRIP_003/delivery",Content()));
         Assert.Single(pair,x=>x.IsSuccessStatusCode);Assert.Single(pair,x=>x.StatusCode==HttpStatusCode.Conflict);
         var created=await Ok(pair.Single(x=>x.IsSuccessStatusCode));var h=created["data"]!["id"]!.GetValue<string>();var r=created["data"]!["currentRevisionId"]!.GetValue<string>();
@@ -177,8 +179,9 @@ public sealed class LifecycleTests : IAsyncLifetime
         var(s,r)=await NewDelivery(driver,customer);
         await using(var cn=new SqlConnection(database.Connection))
         {
+            // 48 base tables + 10 Flow 4 tables (HorseTransportDB.sql); Flow 6 must add none.
             await cn.OpenAsync();await using var cmd=new SqlCommand("SELECT COUNT(*) FROM sys.tables WHERE is_ms_shipped=0",cn);
-            Assert.Equal(43,Convert.ToInt32(await cmd.ExecuteScalarAsync()));
+            Assert.Equal(58,Convert.ToInt32(await cmd.ExecuteScalarAsync()));
         }
         var body=new JsonObject{["type"]="COMPLAINT",["subject"]="Check delivery",["description"]="Please check the handover"};var key=Guid.NewGuid().ToString();
         var pair=await Task.WhenAll(Post(customer,$"customer/flow6/settlements/{s}/cases",body.DeepClone().AsObject(),key),Post(customer,$"customer/flow6/settlements/{s}/cases",body.DeepClone().AsObject(),key));
@@ -201,14 +204,14 @@ public sealed class LifecycleTests : IAsyncLifetime
     public async Task Restarted_runtime_still_checks_existing_revision_sent_time_and_failed_attempts()
     {
         using var driver=Driver();
-        await Sql("UPDATE ROUTE_SEGMENT SET Status='COMPLETED',ActualTime=SYSUTCDATETIME() WHERE TripID='TRIP_003' AND SegmentType='DESTINATION'");
+        await ArriveAtDestination();
         var created=await Ok(await Post(driver,"operations/flow6/trips/TRIP_003/delivery",Content()));var r=created["data"]!["currentRevisionId"]!.GetValue<string>();
         await Ok(await Post(driver,$"operations/flow6/revisions/{r}/otp"));
         using var scope=factory.Services.CreateScope();using var fresh=new Infrastructure.Flow6.Runtime.MemoryGuards(factory.Clock);
         var service=ActivatorUtilities.CreateInstance<AftercareService>(scope.ServiceProvider,fresh);
-        var error=await Assert.ThrowsAsync<AftercareException>(()=>service.Invoke("F6-J07","USER_007",r,null,"","127.0.0.1",CancellationToken.None));Assert.Equal("OTP_RESEND_TOO_SOON",error.Code);
+        var error=await Assert.ThrowsAsync<AftercareException>(()=>service.Invoke("F6-J07","USER_012",r,null,"","127.0.0.1",CancellationToken.None));Assert.Equal("OTP_RESEND_TOO_SOON",error.Code);
         var wrong=factory.Sender.Codes[r]=="000000"?"111111":"000000";
-        await Assert.ThrowsAsync<AftercareException>(()=>service.Invoke("F6-J09","USER_007",r,new JsonObject{["otp"]=wrong},"","127.0.0.1",CancellationToken.None));
+        await Assert.ThrowsAsync<AftercareException>(()=>service.Invoke("F6-J09","USER_012",r,new JsonObject{["otp"]=wrong},"","127.0.0.1",CancellationToken.None));
         await using var cn=new SqlConnection(database.Connection);await cn.OpenAsync();await using var cmd=new SqlCommand("SELECT OtpFailedAttempts FROM HANDOVER_REVISION WHERE HandoverRevisionID=@r",cn);cmd.Parameters.AddWithValue("@r",r);Assert.Equal(1,Convert.ToInt32(await cmd.ExecuteScalarAsync()));
     }
 

@@ -17,8 +17,8 @@ if(args[0]=="cleanup"){
 var db="RaceHorseFlow1Swagger_"+Guid.NewGuid().ToString("N");
 var builder=new SqlConnectionStringBuilder(master){InitialCatalog=db};
 try{
-    var schema=await File.ReadAllTextAsync(Path.Combine("HorseTransportDB","HorseTransportDB_Reviewed.sql"));
-    schema=schema.Replace("HorseTransportDB_Reviewed",db,StringComparison.Ordinal);
+    var schema=await File.ReadAllTextAsync(Path.Combine("HorseTransportDB","HorseTransportDB.sql"));
+    schema=schema.Replace("HorseTransportDB",db,StringComparison.Ordinal);
     await using(var schemaConnection=new SqlConnection(master))
     {
         await schemaConnection.OpenAsync();

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../../../components/ManagerLayout';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
@@ -16,6 +16,12 @@ export const DepartStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
   const { actions } = useManager();
   const [confirm, setConfirm] = useState(false);
   const checks = readinessChecks(t), missing = checks.filter((c) => !c.ok);
+  // Hồ sơ/bảo hiểm do Specialist xác nhận phải hiện lên đây mà không cần tải lại trang
+  useEffect(() => {
+    const tick = () => { if (document.visibilityState === 'visible') void actions.refreshReadiness(); };
+    const id = window.setInterval(tick, 15000);
+    return () => window.clearInterval(id);
+  }, [t.id]);
   return (
     <div className="mgr-grid-main">
       <section className="mgr-card">

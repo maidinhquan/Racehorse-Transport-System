@@ -333,6 +333,7 @@ namespace Infrastructure.Services
         {
             var staffList = await GetStaffListAsync();
             string expectedCountry = leg == "inbound" ? "JP" : "VN";
+            var busyStaff = await CrewBusyOnOtherTripsAsync(tripId);
 
             var result = new List<StaffV2Dto>();
             foreach (var s in staffList)
@@ -351,7 +352,8 @@ namespace Infrastructure.Services
                     continue;
                 }
 
-                bool isEligible = s.IsAvailable && (string.IsNullOrEmpty(leg) || country == expectedCountry);
+                var busyTrip = busyStaff.TryGetValue(s.UserId, out var holdingTrip) ? holdingTrip : null;
+                bool isEligible = s.IsAvailable && busyTrip == null && (string.IsNullOrEmpty(leg) || country == expectedCountry);
                 var blockers = new List<BlockerDto>();
                 if (!s.IsActive)
                 {
@@ -360,6 +362,11 @@ namespace Infrastructure.Services
                 else if (!s.IsAvailable)
                 {
                     blockers.Add(new BlockerDto { Code = "DOC_EXPIRED", Field = "licenseExpiry", Message = "Hồ sơ / Giấy phép của nhân viên đã hết hạn hiệu lực" });
+                }
+
+                if (busyTrip != null)
+                {
+                    blockers.Add(new BlockerDto { Code = "RESOURCE_CONFLICT", Field = "resources.road.staff", Message = $"Nhân sự đang được giao cho chuyến {busyTrip} chưa bàn giao xong" });
                 }
 
                 if (!string.IsNullOrEmpty(leg) && country != expectedCountry)

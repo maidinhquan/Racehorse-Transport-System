@@ -4004,6 +4004,63 @@ Huỷ giao dịch VNPay bị treo. Role: **LOGISTICS_MANAGER**.
 ```
 
 
+### F1-J71 — POST /manager/payments/{paymentId}/confirm
+
+Manager xác nhận thủ công giao dịch VNPay khi IPN không về. Role: **LOGISTICS_MANAGER**.
+
+**Path parameters**
+
+| Tên | Giá trị ví dụ |
+|---|---|
+| paymentId | PAYMENT_006 |
+
+**Request JSON**
+
+```json
+{
+  "reason": "VNPay báo thành công trên cổng quản trị nhưng IPN không về."
+}
+```
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "PAYMENT_006",
+    "paymentId": "PAYMENT_006",
+    "invoiceId": "INVOICE_006",
+    "contractId": "CONTRACT_006",
+    "versionNo": 1,
+    "amount": 520000,
+    "currency": "VND",
+    "method": "VNPAY",
+    "status": "SUCCESS",
+    "databaseStatus": "SUCCESS",
+    "receivedAmount": 520000,
+    "paidAt": "2026-11-04T11:00:00",
+    "reviewRequired": true,
+    "reviewReason": "Manual confirmation by Manager (VNPAY did not report): VNPay báo thành công trên cổng quản trị nhưng IPN không về."
+  }
+}
+```
+
+**Quy tắc:** Lý do 5 đến 900 ký tự. Backend hỏi VNPay (querydr) trước: nếu VNPay đã có kết quả thì ghi nhận theo VNPay và không xác nhận tay. Nếu chưa, giao dịch được ghi là SUCCESS với mã giao dịch `MANUAL_<paymentId>`, lưu người xác nhận (`ConfirmedByUserID`), cộng vào hóa đơn cọc, chuyển yêu cầu sang DEPOSIT_VERIFIED khi đủ cọc, và gắn `reviewRequired = true` kèm lý do để đối soát với VNPay. Chỉ áp dụng khi phiên bản hợp đồng còn mở cọc (chưa ký, chưa hủy, không vượt tổng cọc).
+
+**Response lỗi 409 — PAYMENT_NOT_APPLICABLE**
+
+```json
+{
+  "success": false,
+  "message": "The deposit window for this contract version is no longer open.",
+  "errorCode": "PAYMENT_NOT_APPLICABLE",
+  "data": null
+}
+```
+
+
 ### F1-J49 — GET /customer/payments/{paymentId}/receipt
 
 Biên nhận đã xác minh. Role: **CUSTOMER**.
