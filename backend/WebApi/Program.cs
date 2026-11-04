@@ -50,7 +50,14 @@ if (builder.Environment.IsDevelopment() && OperatingSystem.IsWindows())
 // 1. KẾT NỐI DATABASE VỚI SQL SERVER
 // =============================================================================
 builder.Services.AddDbContext<HorseTransportDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions => sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null
+        )
+    )
 );
 
 // =============================================================================
