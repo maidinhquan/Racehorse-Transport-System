@@ -1,27 +1,36 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
 import { Note } from '../../../components/Common/Common';
 import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
-import { useManager } from '../../../hooks/useManager';
+import { ManagerRouteMap } from '../../../components/RouteMap/ManagerRouteMap';
+import { refreshTripExecution, useManager } from '../../../hooks/useManager';
 import type { Trip } from '../../../types';
 import {
   INCIDENT_TYPE_LABEL,
-  MILESTONE_LABEL,
   STOP_TYPE_LABEL,
   arrived,
   fmtDateTime,
   lastMilestone,
+  milestoneLabel,
   milestoneText,
   nextMilestone,
+  tripStops,
 } from '../../../hooks/managerRules';
 
 /** Bước 4: theo dõi mốc hành trình (tổ xe cập nhật thủ công), ETA, sự cố, bàn giao */
 export const ProgressStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
   const { data, actions } = useManager();
-  const stops = t.route?.stops ?? [], m = lastMilestone(t), n = nextMilestone(t);
+  // Lịch trình thực hiện (Flow 4) ưu tiên hơn phương án tuyến: cùng nguồn với tài xế, có tọa độ và tự cập nhật khi tài xế check-in
+  const stops = tripStops(t), m = lastMilestone(t), n = nextMilestone(t);
+  useEffect(() => {
+    const tick = () => { if (document.visibilityState === 'visible') void refreshTripExecution(t.id).catch(() => undefined); };
+    tick();
+    const id = window.setInterval(tick, 15000);
+    return () => window.clearInterval(id);
+  }, [t.id]);
   const departed = t.milestones.find((x) => x.type === 'DEPARTED');
-  const reached = (i: number) => t.milestones.some((x) => x.stopIndex === i && ['DEPARTED', 'ARRIVED_STOP', 'ARRIVED_DESTINATION'].includes(x.type));
+  const reached = (i: number) => t.milestones.some((x) => x.stopIndex === i && ['DEPARTED', 'ARRIVED_STOP', 'LEFT_STOP', 'ARRIVED_DESTINATION'].includes(x.type));
   const inc = data.incidents.filter((i) => i.tripId === t.id);
   const refusalOpen = !!t.refusal && !t.refusal.resolvedAt;
 
@@ -41,8 +50,9 @@ export const ProgressStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
             <div><span>Khởi hành dự kiến</span><b>{fmtDateTime(t.plannedDepart)}</b></div>
             <div><span>Khởi hành thực tế</span><b>{fmtDateTime(departed?.at)}</b></div>
             <div><span>ETA hiện tại</span><b>{fmtDateTime(t.eta)}</b></div>
-            <div><span>Mốc gần nhất</span><b>{m ? `${MILESTONE_LABEL[m.type]} • ${fmtDateTime(m.at)}` : '—'}</b></div>
+            <div><span>Mốc gần nhất</span><b>{m ? `${milestoneLabel(t, m.type)} • ${fmtDateTime(m.at)}` : '—'}</b></div>
           </div>
+          {stops.some((s) => s.lat != null && s.lng != null) && <ManagerRouteMap stops={stops} focus={m ? Math.min(m.stopIndex, stops.length - 1) : null} />}
           <div className="mgr-section-title">Các điểm trên tuyến</div>
           {stops.map((s, i) => {
             const at = t.milestones.filter((x) => x.stopIndex === i);
@@ -50,7 +60,7 @@ export const ProgressStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
               <div key={`${s.name}-${i}`} className={`mgr-stop ${reached(i) ? 'done' : ''}`}>
                 <i>{reached(i) ? '✓' : i + 1}</i>
                 <div><b>{s.name}</b><span>{STOP_TYPE_LABEL[s.type]} • dự kiến {fmtDateTime(s.plannedAt)}</span>
-                  {at.map((x) => <span key={x.type}>{MILESTONE_LABEL[x.type]} {fmtDateTime(x.at)} • {x.by}{x.note ? ` • ${x.note}` : ''}</span>)}</div>
+                  {at.map((x) => <span key={x.type}>{milestoneLabel(t, x.type)} {fmtDateTime(x.at)}{x.by ? ` • ${x.by}` : ''}{x.note ? ` • ${x.note}` : ''}</span>)}</div>
               </div>
             );
           })}

@@ -38,6 +38,7 @@ public class DriverDepartureInputDto
     public List<string> Acknowledgements { get; set; } = new();
 
     [JsonPropertyName("note")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? Note { get; set; }
 
     [JsonPropertyName("evidenceFileIds")]

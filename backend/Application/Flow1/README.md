@@ -126,7 +126,7 @@ POST/PUT customer/requests nhận expectedTransportDate (ngày bắt đầu) và
 
 GET customer/horses/selectable nhận cùng hai tham số để kiểm tra giao nhau trên toàn khoảng, tính cả ngày đầu/cuối. Kết quả không giữ chỗ. Submit kiểm tra lại trong transaction; hộ chiếu phải còn hạn qua ngày giao. Đây là kiểm tra lịch dự kiến trong dữ liệu request, không xác nhận ngựa đã được bàn giao thực tế.
 
-createdAt do server ghi UTC khi tạo, không phải trường khách nhập. Cột này nằm trực tiếp trong HorseTransportDB/HorseTransportDB_Reviewed.sql; tạo lại DB test từ file này khi đổi schema.
+createdAt do server ghi UTC khi tạo, không phải trường khách nhập. Cột này nằm trực tiếp trong HorseTransportDB/HorseTransportDB.sql; tạo lại DB test từ file này khi đổi schema.
 
 ## Gửi yêu cầu một bước
 
@@ -134,4 +134,4 @@ POST /api/customer/requests và PUT /api/customer/requests/{requestId} nhận ap
 
 Request không nhận documents/files. Hồ sơ của ngựa bỏ khỏi đơn được bỏ khỏi liên kết theo đơn. Nội dung khác nhau không được dùng lại Idempotency-Key; chữ ký nội dung lưu tại SubmissionContentHash.
 
-SubmissionContentHash nằm trực tiếp trong CREATE TABLE TRANSPORT_REQUEST của HorseTransportDB/HorseTransportDB_Reviewed.sql; không dùng migration đánh số. Các bản ghi được kiểm tra và lưu trong transaction; tệp lưu riêng theo hash trước transaction, nên lỗi DB có thể để lại bytes riêng tư chưa được tham chiếu (không có đơn thiếu trong queue). Không xóa tự động tệp hash có thể đang dùng chung.
+SubmissionContentHash nằm trực tiếp trong CREATE TABLE TRANSPORT_REQUEST của HorseTransportDB/HorseTransportDB.sql; không dùng migration đánh số. Các bản ghi được kiểm tra và lưu trong transaction; tệp lưu riêng theo hash trước transaction, nên lỗi DB có thể để lại bytes riêng tư chưa được tham chiếu (không có đơn thiếu trong queue). Không xóa tự động tệp hash có thể đang dùng chung.

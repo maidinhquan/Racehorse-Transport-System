@@ -27,33 +27,39 @@ public sealed class SqlSession(RequestContext context) : IDataSession
     {
         // Serialize this module's short write transactions, including read/decision/write.
         // External calls must be completed before entering this scope.
-        await using var transaction = await context.Database.BeginTransactionAsync(
-            System.Data.IsolationLevel.Serializable,
-            ct
-        );
-        try
+        // The context uses a retrying execution strategy, so the whole transaction runs as one retriable unit.
+        var strategy = context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            await context.Database.ExecuteSqlRawAsync(
-                """
-                DECLARE @result int;
-                EXEC @result = sys.sp_getapplock @Resource=N'RaceHorse.Flow1.Write',
-                    @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
-                IF @result < 0 THROW 51300, 'Flow 1 write busy', 1;
-                """,
+            context.ChangeTracker.Clear();
+            await using var transaction = await context.Database.BeginTransactionAsync(
+                System.Data.IsolationLevel.Serializable,
                 ct
             );
-            // Do not make decisions from an entity cached before the lock was acquired.
-            context.ChangeTracker.Clear();
-            var result = await action(ct);
-            await context.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
-            return result;
-        }
-        catch
-        {
-            await transaction.RollbackAsync(CancellationToken.None);
-            context.ChangeTracker.Clear();
-            throw;
-        }
+            try
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    """
+                    DECLARE @result int;
+                    EXEC @result = sys.sp_getapplock @Resource=N'RaceHorse.Flow1.Write',
+                        @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
+                    IF @result < 0 THROW 51300, 'Flow 1 write busy', 1;
+                    """,
+                    ct
+                );
+                // Do not make decisions from an entity cached before the lock was acquired.
+                context.ChangeTracker.Clear();
+                var result = await action(ct);
+                await context.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+                return result;
+            }
+            catch
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+                context.ChangeTracker.Clear();
+                throw;
+            }
+        });
     }
 }

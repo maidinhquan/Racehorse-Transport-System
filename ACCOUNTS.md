@@ -25,6 +25,14 @@ Các tài khoản dưới đây được lưu trữ trực tiếp trong bảng `
 | 8 | `USER_008` | `driver_thanh` | `thanh.driver@cbntransport.com` | `HASH_SECURE_08` | Vũ Thành (Tài xế quốc tế 2) | DRIVER_ESCORT (Tài xế) | Hoạt động |
 | 9 | `USER_009` | `escort_hoa` | `hoa.escort@cbntransport.com` | `HASH_SECURE_09` | BS. Đỗ Hoa (Bác sĩ thú y áp tải) | DRIVER_ESCORT (Bác sĩ thú y) | Hoạt động |
 | 10 | `USER_010` | `escort_nam` | `nam.escort@cbntransport.com` | `HASH_SECURE_10` | BS. Phan Nam (Kỹ thuật viên ngựa) | DRIVER_ESCORT (Kỹ thuật viên) | Hoạt động |
+| 11 | `USER_012` | `driver_nvhung` | `nguyenvanhung.driver@cbntransport.com` | `HASH_SECURE_12` | Nguyễn Văn Hùng (Tài xế) | DRIVER_ESCORT (Tài xế) | Hoạt động |
+| 12 | `USER_013` | `driver_lqtuan` | `lequoctuan.driver@cbntransport.com` | `HASH_SECURE_13` | Lê Quốc Tuấn (Phụ lái) | DRIVER_ESCORT (Phụ lái) | Hoạt động |
+| 13 | `USER_014` | `escort_lttrang` | `lethutrang.escort@cbntransport.com` | `HASH_SECURE_14` | BS. Lê Thu Trang (Bác sĩ thú y) | DRIVER_ESCORT (Bác sĩ thú y) | Hoạt động |
+| 14 | `USER_015` | `driver_ptson` | `phamthanhson.driver@cbntransport.com` | `HASH_SECURE_15` | Phạm Thanh Sơn (Tài xế) | DRIVER_ESCORT (Tài xế) | Hoạt động |
+| 15 | `USER_016` | `driver_blong` | `buivanlong.driver@cbntransport.com` | `HASH_SECURE_16` | Bùi Văn Long (Tài xế) | DRIVER_ESCORT (Tài xế) | Hoạt động |
+| 16 | `USER_017` | `driver_dvkhoa` | `dangvankhoa.driver@cbntransport.com` | `HASH_SECURE_17` | Đặng Văn Khoa (Phụ lái) | DRIVER_ESCORT (Phụ lái) | Hoạt động |
+| 17 | `USER_018` | `escort_nmanh` | `nguyenminhanh.escort@cbntransport.com` | `HASH_SECURE_18` | BS. Nguyễn Minh Anh (Bác sĩ thú y) | DRIVER_ESCORT (Bác sĩ thú y) | Hoạt động |
+| 18 | `USER_019` | `escort_tqbao` | `tranquocbao.escort@cbntransport.com` | `HASH_SECURE_19` | BS. Trần Quốc Bảo (Bác sĩ thú y) | DRIVER_ESCORT (Bác sĩ thú y) | Hoạt động |
 
 ---
 

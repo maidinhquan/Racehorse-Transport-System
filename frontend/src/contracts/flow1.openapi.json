@@ -10730,6 +10730,164 @@
           }
         }
       }
+    },
+    "/manager/payments/{paymentId}/confirm": {
+      "post": {
+        "operationId": "F1-J71",
+        "summary": "Manager xác nhận thủ công giao dịch VNPay khi IPN không về: hỏi VNPay trước, nếu chưa có kết quả thì ghi cọc và gắn cờ đối soát. Role: **LOGISTICS_MANAGER**.",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J71Response200"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": true,
+                      "message": "OK",
+                      "data": {
+                        "id": "PAYMENT_006",
+                        "paymentId": "PAYMENT_006",
+                        "invoiceId": "INVOICE_006",
+                        "contractId": "CONTRACT_006",
+                        "versionNo": 1,
+                        "amount": 520000,
+                        "currency": "VND",
+                        "method": "VNPAY",
+                        "status": "SUCCESS",
+                        "databaseStatus": "SUCCESS",
+                        "receivedAmount": 520000,
+                        "paidAt": "2026-11-04T11:00:00",
+                        "reviewRequired": true,
+                        "reviewReason": "Manual confirmation by Manager (VNPAY did not report): VNPay báo thành công trên cổng quản trị nhưng IPN không về."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J71Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "The deposit window for this contract version is no longer open.",
+                      "errorCode": "PAYMENT_NOT_APPLICABLE",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 50,
+              "pattern": "^[A-Z_]+_\\d{3,}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/F1-J71Request"
+              },
+              "example": {
+                "reason": "VNPay báo thành công trên cổng quản trị nhưng IPN không về."
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -26381,6 +26539,145 @@
                 "type": "string"
               }
             }
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message",
+          "success"
+        ],
+        "additionalProperties": true
+      },
+      "F1-J71Request": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 900,
+            "minLength": 5
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "F1-J71Response200": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "paymentId": {
+                "type": "string"
+              },
+              "invoiceId": {
+                "type": "string"
+              },
+              "contractId": {
+                "type": "string"
+              },
+              "versionNo": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "amount": {
+                "type": "number",
+                "minimum": 0
+              },
+              "currency": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "method": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "databaseStatus": {
+                "type": "string"
+              },
+              "receivedAmount": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "paidAt": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reviewRequired": {
+                "type": "boolean"
+              },
+              "reviewReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "invoiceId",
+              "amount",
+              "status"
+            ],
+            "additionalProperties": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "message",
+          "success"
+        ],
+        "additionalProperties": false
+      },
+      "F1-J71Response409": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "null"
+          },
+          "errorCode": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "message": {
             "type": "string"

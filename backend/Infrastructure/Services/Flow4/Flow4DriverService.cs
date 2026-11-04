@@ -120,6 +120,10 @@ public class Flow4DriverService : IFlow4DriverService
     /// </summary>
     public async Task<Flow4MutationResultDto> ConfirmDepartureAsync(string tripId, DriverDepartureInputDto dto, string driverId)
     {
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+        _context.ChangeTracker.Clear();
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         var trip = await _context.TripPlans
@@ -179,6 +183,7 @@ public class Flow4DriverService : IFlow4DriverService
         await transaction.CommitAsync();
 
         return Flow4Helper.BuildMutationResult(trip, recordId, _context);
+        });
     }
 
     /// <summary>
@@ -186,6 +191,10 @@ public class Flow4DriverService : IFlow4DriverService
     /// </summary>
     public async Task<Flow4MutationResultDto> CompleteMilestoneAsync(string tripId, string milestoneId, MilestoneCompleteInputDto dto, string driverId)
     {
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+        _context.ChangeTracker.Clear();
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         var trip = await _context.TripPlans
@@ -273,6 +282,7 @@ public class Flow4DriverService : IFlow4DriverService
         await transaction.CommitAsync();
 
         return Flow4Helper.BuildMutationResult(trip, milestone.MilestoneId, _context);
+        });
     }
 
     /// <summary>
@@ -354,6 +364,10 @@ public class Flow4DriverService : IFlow4DriverService
     /// </summary>
     public async Task<Flow4MutationResultDto> HandoverAirAsync(string tripId, AirHandoverInputDto dto, string driverId)
     {
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+        _context.ChangeTracker.Clear();
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         var trip = await _context.TripPlans.FirstOrDefaultAsync(t => t.TripId == tripId);
@@ -384,6 +398,7 @@ public class Flow4DriverService : IFlow4DriverService
         await transaction.CommitAsync();
 
         return Flow4Helper.BuildMutationResult(trip, handoverMilestone.MilestoneId, _context);
+        });
     }
 
     /// <summary>
@@ -391,6 +406,10 @@ public class Flow4DriverService : IFlow4DriverService
     /// </summary>
     public async Task<Flow4MutationResultDto> ReceiveAirAsync(string tripId, AirReceiveInputDto dto, string driverId)
     {
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+        _context.ChangeTracker.Clear();
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         var trip = await _context.TripPlans.FirstOrDefaultAsync(t => t.TripId == tripId);
@@ -421,6 +440,7 @@ public class Flow4DriverService : IFlow4DriverService
         await transaction.CommitAsync();
 
         return Flow4Helper.BuildMutationResult(trip, receiveMilestone.MilestoneId, _context);
+        });
     }
 
     /// <summary>

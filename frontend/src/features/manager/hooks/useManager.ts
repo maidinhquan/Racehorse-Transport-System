@@ -71,6 +71,8 @@ const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
 import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
 import { getSharedTrips, saveSharedTrip } from '../../../shared/utils/sharedTrips';
+import { flow4Api } from '../../tracking/api/flow4Api';
+import { progressFromMilestones } from '../../tracking/utils/progress';
 
 function mergeTripsWithShared(baseTrips: Trip[]): Trip[] {
   const sharedMap = getSharedTrips();
@@ -459,6 +461,8 @@ const managerActions = {
     } catch (error) { toast(apiMessage(error)); }
   },
   reload: () => { void loadAll({ force: true, silent: false }); },
+  /** Làm mới nhẹ (yêu cầu + hồ sơ/bảo hiểm của chuyến) để thấy thay đổi của Specialist mà không cần tải lại trang. */
+  refreshReadiness: async () => { await loadAll({ force: true, silent: true }); },
   async cancelPayment(id: string, reason: string): Promise<ActionResult> {
     try {
       const p = await managerApi.cancelPayment(id, reason);
@@ -467,6 +471,16 @@ const managerActions = {
       return p.status === 'SUCCESS'
         ? ok(`${id}: VNPay xác nhận khách ĐÃ thanh toán – không huỷ, đã ghi nhận cọc.`)
         : ok(`Đã huỷ ${id}. Khách có thể thanh toán lại.`);
+    } catch (error) { return fail(apiMessage(error)); }
+  },
+  async confirmPayment(id: string, reason: string): Promise<ActionResult> {
+    try {
+      const p = await managerApi.confirmPayment(id, reason);
+      await loadAll({ force: true, silent: true });
+      notifySync('requests_updated');
+      return p.status === 'SUCCESS'
+        ? ok(`Đã ghi nhận cọc cho ${id}. Giao dịch được gắn cờ cần đối soát với VNPay.`)
+        : ok(`${id}: VNPay đã có kết quả, hệ thống đã cập nhật theo VNPay.`);
     } catch (error) { return fail(apiMessage(error)); }
   },
   /** Reading a pending payment makes the server query VNPay (querydr) and record the result. */
@@ -1183,6 +1197,19 @@ export async function refreshTripPlan(tripId: string): Promise<void> {
   // Không ghi đè kết quả Quản lý vừa bấm khi backend chưa kịp trả trạng thái mới
   if (!route && cur.route && cur.route.status !== 'PENDING_APPROVAL') return;
   mutate((d) => { const x = tripIn(d, tripId); if (x) x.route = route; });
+}
+
+/** Làm mới lịch trình và tiến độ check-in của chuyến từ Flow 4 (nguồn chung với tài xế và khách hàng). */
+export async function refreshTripExecution(tripId: string): Promise<void> {
+  if (getDemoMode('manager')) return;
+  const tracking = await flow4Api.getManagerTracking(tripId);
+  if (!tracking.milestones.length) return;
+  const { stops, milestones } = progressFromMilestones(tracking.milestones);
+  const cur = state.trips.find((t) => t.id === tripId);
+  if (!cur) return;
+  const sig = (s: unknown) => JSON.stringify(s);
+  if (sig(cur.milestones) === sig(milestones) && sig((cur.executionStops ?? []).map((s) => [s.name, s.lat, s.lng, s.plannedAt])) === sig(stops.map((s) => [s.name, s.lat, s.lng, s.plannedAt]))) return;
+  mutate((d) => { const x = tripIn(d, tripId); if (x) { x.executionStops = stops.map((s) => ({ name: s.name, plannedAt: s.plannedAt, lat: s.lat, lng: s.lng, type: s.type === 'FUEL_STOP' ? ('REST_STOP' as const) : s.type })); x.milestones = milestones; } });
 }
 
 export function useManager() {

@@ -109,7 +109,7 @@ describe('current Flow 1 request boundaries', () => {
     const body = { origin: 'Ho Chi Minh City', destination: 'Tokyo', originCountry: 'VN', destinationCountry: 'JP', mode: 'AIR', date: '2026-11-20', pickupAt: '2026-11-19', careNotes: '' };
     await expect(contractClient('post', '/customer/requests', body)).rejects.toThrow('Idempotency-Key');
     await expect(contractClient('get', '/customer/horses/not-a-contract-id')).rejects.toThrow('horseId');
-    await expect(contractClient('post', '/manager/payments/PAYMENT_001/confirm', {})).rejects.toThrow('không có');
+    await expect(contractClient('post', '/manager/payments/PAYMENT_001/confirm', {})).rejects.toThrow('reason');
     await expect(contractClient('post', '/manager/payments/PAYMENT_001/reject', {})).rejects.toThrow('không có');
     expect(request).not.toHaveBeenCalled();
   });

@@ -420,19 +420,25 @@ export type StageKey = (typeof STAGE_KEYS)[number];
 export const STAGE_LABELS = ['Phân công', 'Chuẩn bị', 'Duyệt khởi hành', 'Vận chuyển'];
 
 /** Danh sách mốc theo thứ tự cần xác nhận */
+/** Điểm dừng của lịch trình: ưu tiên lịch thực hiện Flow 4 (mỗi điểm một mốc), nếu chưa có thì dùng phương án tuyến */
+export const tripStops = (t: Trip) => (t.executionStops?.length ? t.executionStops : t.route?.stops ?? []);
+
 export function milestonePlan(t: Trip): Array<{ type: MilestoneType; stopIndex: number }> {
-  const n = t.route?.stops.length ?? 0;
+  const n = tripStops(t).length;
   if (n < 2) return [];
   const plan: Array<{ type: MilestoneType; stopIndex: number }> = [{ type: 'DEPARTED', stopIndex: 0 }];
-  for (let i = 1; i < n - 1; i += 1) plan.push({ type: 'ARRIVED_STOP', stopIndex: i }, { type: 'LEFT_STOP', stopIndex: i });
+  if (t.executionStops?.length) for (let i = 1; i < n - 1; i += 1) plan.push({ type: 'LEFT_STOP', stopIndex: i });
+  else for (let i = 1; i < n - 1; i += 1) plan.push({ type: 'ARRIVED_STOP', stopIndex: i }, { type: 'LEFT_STOP', stopIndex: i });
   plan.push({ type: 'ARRIVED_DESTINATION', stopIndex: n - 1 });
   return plan;
 }
 export const nextMilestone = (t: Trip) => milestonePlan(t)[t.milestones.length];
 export const lastMilestone = (t: Trip) => t.milestones[t.milestones.length - 1];
 export const arrived = (t: Trip) => lastMilestone(t)?.type === 'ARRIVED_DESTINATION';
+/** Nhãn mốc: ở lịch trình Flow 4 mốc giữa chuyến là check-in tại điểm dừng (không có bước "rời trạm" riêng) */
+export const milestoneLabel = (t: Trip, type: MilestoneType) => (t.executionStops?.length && type === 'LEFT_STOP' ? 'Check-in' : MILESTONE_LABEL[type]);
 export const milestoneText = (t: Trip, m: { type: MilestoneType; stopIndex: number }) =>
-  `${MILESTONE_LABEL[m.type]} • ${t.route?.stops[m.stopIndex]?.name ?? ''}`;
+  `${milestoneLabel(t, m.type)} • ${tripStops(t)[m.stopIndex]?.name ?? ''}`;
 
 // ============================================================================
 // Bàn giao & đóng đơn

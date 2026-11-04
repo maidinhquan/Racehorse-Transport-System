@@ -35,6 +35,11 @@ public sealed class PaymentsController(PaymentService payments) : EndpointContro
     public async Task<IActionResult> CancelAsync(string paymentId, ReasonInput input, CancellationToken ct) =>
         Reply(await payments.CancelAsync(Actor, paymentId, input.Reason, ct));
 
+    [HttpPost("manager/payments/{paymentId}/confirm")]
+    [Authorize(Roles = UserRoles.LogisticsManager)]
+    public async Task<IActionResult> ConfirmAsync(string paymentId, ReasonInput input, CancellationToken ct) =>
+        Reply(await payments.ConfirmManuallyAsync(Actor, paymentId, input.Reason, ct));
+
     [HttpGet("manager/payments")]
     [Authorize(Roles = UserRoles.LogisticsManager)]
     public async Task<IActionResult> ListAsync(CancellationToken ct) =>

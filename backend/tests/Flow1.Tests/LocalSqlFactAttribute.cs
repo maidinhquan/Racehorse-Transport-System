@@ -15,7 +15,7 @@ namespace Flow1.Tests;
 // Current SQL coverage lives in Flow1.Rebuild.Tests and executes the canonical Reviewed schema.
 public sealed class LegacySqlFactAttribute : FactAttribute
 {
-    public LegacySqlFactAttribute() => Skip = "Retired legacy SQL/migration contract. Run Flow1.Rebuild.Tests against HorseTransportDB/HorseTransportDB_Reviewed.sql.";
+    public LegacySqlFactAttribute() => Skip = "Retired legacy SQL/migration contract. Run Flow1.Rebuild.Tests against HorseTransportDB/HorseTransportDB.sql.";
 }
 
 internal sealed class FlowClock : TimeProvider
@@ -72,7 +72,7 @@ internal sealed class Flow1TestDatabase : IAsyncDisposable
     }
 
     public static Task<Flow1TestDatabase> CreateAsync(bool migrate = true) =>
-        throw new NotSupportedException("The legacy SQL fixture is retired. Use Flow1.Rebuild.Tests/SqlFixture with HorseTransportDB/HorseTransportDB_Reviewed.sql.");
+        throw new NotSupportedException("The legacy SQL fixture is retired. Use Flow1.Rebuild.Tests/SqlFixture with HorseTransportDB/HorseTransportDB.sql.");
 
     public HorseTransportDbContext Context() => new(new DbContextOptionsBuilder<HorseTransportDbContext>()
         .UseSqlServer(ConnectionString).Options);

@@ -352,6 +352,8 @@ export interface Trip {
   requestId: string;
   mode?: TransportMode;
   status: TripStatus;
+  /** Lịch trình thực hiện (điểm dừng kèm tọa độ) từ Flow 4, cùng nguồn với tài xế và khách hàng */
+  executionStops?: RouteStop[];
   deployment: {
     status: DeploymentStatus;
     specialistId?: string;

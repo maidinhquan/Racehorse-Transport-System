@@ -96,39 +96,35 @@ export const driverApi = {
   /** Sự cố của các chuyến được giao */
   getIncidents: () => getOr<Incident[]>(DRIVER_ENDPOINTS.INCIDENTS, mockIncidents),
 
-  /** Ghi nhận mốc hành trình (kết nối Flow 4 Backend) */
-  recordMilestone: async (tripId: string, body: RecordMilestoneRequestDto) => {
+  /**
+   * Ghi nhận mốc hành trình (Flow 4). Chế độ demo chỉ cập nhật cục bộ. Chế độ thật dùng đúng mã mốc và phiên bản
+   * hiện tại của backend; lỗi từ backend được ném ra để giao diện hiển thị, không cập nhật giả.
+   */
+  recordMilestone: async (tripId: string, body: RecordMilestoneRequestDto): Promise<boolean> => {
+    if (getDemoMode('driver')) return true;
+    const key = generateUuidV4();
+    const { binding } = await flow4Api.getTracking(tripId);
     if (body.type === 'DEPARTED') {
-      try {
-        const key = generateUuidV4();
-        await flow4Api.confirmDeparture(tripId, {
-          expectedVersion: 1,
-          approvedPlanVersion: 1,
-          assignmentVersion: 1,
-          occurredAt: body.at,
-          acknowledgements: ['HORSES_CHECKED', 'VEHICLE_VERIFIED'],
-          note: body.note || '',
-          evidenceFileIds: [],
-        }, key);
-        return true;
-      } catch {
-        return send(DRIVER_ENDPOINTS.MILESTONES(tripId), body);
-      }
-    }
-
-    try {
-      const key = generateUuidV4();
-      const milestoneId = `MS_${body.stopIndex}_${body.type}`;
-      await flow4Api.completeMilestone(tripId, milestoneId, {
-        expectedVersion: 1,
+      const check = await flow4Api.getDepartureCheck(tripId);
+      await flow4Api.confirmDeparture(tripId, {
+        expectedVersion: binding.executionVersion,
+        approvedPlanVersion: binding.approvedPlanVersion,
+        assignmentVersion: binding.assignmentVersion,
         occurredAt: body.at,
+        acknowledgements: check.requiredAcknowledgements,
         note: body.note || '',
         evidenceFileIds: [],
       }, key);
       return true;
-    } catch {
-      return send(DRIVER_ENDPOINTS.MILESTONES(tripId), body);
     }
+    if (!body.milestoneId) throw new Error('Không xác định được mã mốc của backend.');
+    await flow4Api.completeMilestone(tripId, body.milestoneId, {
+      expectedVersion: binding.executionVersion,
+      occurredAt: body.at,
+      note: body.note || '',
+      evidenceFileIds: [],
+    }, key);
+    return true;
   },
 
   /** Báo chậm khởi hành để Coordinator đề xuất lịch mới */

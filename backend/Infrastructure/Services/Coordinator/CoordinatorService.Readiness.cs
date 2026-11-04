@@ -394,6 +394,7 @@ namespace Infrastructure.Services
             trip.Status = "READY_TO_DEPART";
             trip.DepartureApprovedAt = DateTime.UtcNow;
             trip.DepartureApprovedBy = "USR_MGR_01";
+            await EnsureExecutionMilestonesAsync(trip);
 
             foreach (var va in trip.VehicleAssignments)
             {
@@ -618,10 +619,22 @@ namespace Infrastructure.Services
             };
         }
 
+        /// <summary>Sinh các mốc hành trình (kèm tọa độ) từ phương án đã duyệt khi chuyến sẵn sàng khởi hành.</summary>
+        private async Task EnsureExecutionMilestonesAsync(TripPlan trip)
+        {
+            if (await _context.TripMilestones.AnyAsync(m => m.TripId == trip.TripId)) return;
+            var last = Infrastructure.Services.Flow4.Flow4MilestoneFactory.MaxMilestoneNumber(await _context.TripMilestones.Select(m => m.MilestoneId).ToListAsync());
+            _context.TripMilestones.AddRange(Infrastructure.Services.Flow4.Flow4MilestoneFactory.FromApprovedPlan(trip, last));
+        }
+
         public async Task<DepartureResultDto> ApproveDepartureV2Async(string tripId, DepartureInputDto dto, string managerId, string managerName)
         {
             var cleanTripId = tripId?.Trim() ?? string.Empty;
 
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+            _context.ChangeTracker.Clear();
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             var trip = await _context.TripPlans
@@ -654,6 +667,7 @@ namespace Infrastructure.Services
             trip.Status = "READY_TO_DEPART";
             trip.DepartureApprovedAt = DateTime.UtcNow;
             trip.DepartureApprovedBy = managerId;
+            await EnsureExecutionMilestonesAsync(trip);
             if (trip.Request != null)
             {
                 trip.Request.Status = "SCHEDULED";
@@ -690,6 +704,7 @@ namespace Infrastructure.Services
                 ApprovedBy = new ActorDto { UserId = managerId, Name = managerName },
                 ApprovedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
             };
+            });
         }
     }
 }

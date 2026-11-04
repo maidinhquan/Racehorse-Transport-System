@@ -12,6 +12,8 @@ import type {
   Trip,
 } from '../types';
 import { driverApi } from '../api/driverApi';
+import { tripFromTracking } from '../api/flow4Mapper';
+import { flow4Api } from '../../tracking/api/flow4Api';
 import { DEFAULT_DRIVER_USER, mockCrew, mockHorses, mockIncidents, mockTrips } from '../data/mockData';
 import {
   INCIDENT_TYPE_LABEL,
@@ -55,7 +57,17 @@ interface DriverState {
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const USER_KEY = 'rts_driver_user';
 
+/** Mã người dùng của tài khoản đang đăng nhập (claim `sub` trong access token) */
+const tokenUser = () => {
+  try {
+    const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
+    if (!token) return '';
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof payload.sub === 'string' ? payload.sub : '';
+  } catch { return ''; }
+};
 const savedUser = () => {
+  if (!getDemoMode('driver')) { const u = tokenUser(); if (u) return u; }
   try { return sessionStorage.getItem(USER_KEY) || DEFAULT_DRIVER_USER; } catch { return DEFAULT_DRIVER_USER; }
 };
 
@@ -105,8 +117,25 @@ const updateTrip = (tripId: string, fn: (t: Trip) => Trip) =>
   setState((s) => ({ trips: s.trips.map((t) => (t.id === tripId ? fn(clone(t)) : t)) }));
 const crewName = (id: string) => state.crew.find((c) => c.id === id)?.name ?? id;
 const horseName = (id: string) => state.horses.find((h) => h.id === id)?.name ?? id;
-const isMine = (t: Trip) => Object.values(t.crew).includes(state.userId);
+// Chế độ thật: backend đã lọc chuyến theo tài khoản đăng nhập
+const isMine = (t: Trip) => !getDemoMode('driver') || Object.values(t.crew).includes(state.userId);
 const draftOf = (t: Trip) => state.drafts[t.id] ?? emptyHandoverDraft(t);
+
+/** Dựng một chuyến từ dữ liệu thật: Flow 4 (hành trình) kết hợp Flow 6 (người nhận, trạng thái bàn giao) */
+async function buildLiveTrip(id: string, f6?: { tripId: string; requestId: string; status: string }) {
+  const [trackingRes, ctxRes] = await Promise.allSettled([flow4Api.getTracking(id), flow6Api.getTripContext(id)]);
+  const ctx = ctxRes.status === 'fulfilled' ? ctxRes.value : undefined;
+  const extras = { customer: ctx?.designatedReceiverName || 'Khách hàng', receiverName: ctx?.designatedReceiverName || '', receiverPhone: ctx?.designatedReceiverPhone || '' };
+  if (trackingRes.status === 'fulfilled') return tripFromTracking(trackingRes.value, extras);
+  const trip: Trip = {
+    id, requestId: f6?.requestId ?? '', customer: extras.customer, mode: 'ROAD', origin: '', destination: '',
+    pickup: { name: '', address: '' }, delivery: { name: '', address: '' },
+    receiver: { name: extras.receiverName, phone: extras.receiverPhone }, horses: ctx?.horseIds || [],
+    plannedDepart: '', eta: '', status: (f6?.status as Trip['status']) || 'IN_TRANSIT', crew: {},
+    stops: [], milestones: [], clearances: [], health: [], documents: [], handoverAttempts: [],
+  };
+  return { trip, crew: [] as CrewMember[], horses: [] as Horse[] };
+}
 
 async function loadAll() {
   if (state.loading) return;
@@ -114,73 +143,27 @@ async function loadAll() {
   try {
     if (!getDemoMode('driver')) {
       try {
-        const f6Trips = await flow6Api.getTrips();
-        const realTrips: Trip[] = await Promise.all(
-          f6Trips.map(async (t) => {
-            try {
-              const ctx = await flow6Api.getTripContext(t.tripId);
-              return {
-                id: t.tripId,
-                requestId: t.requestId,
-                customer: ctx.designatedReceiverName || 'Khách hàng',
-                mode: 'ROAD',
-                origin: 'Điểm nhận',
-                destination: 'Điểm giao',
-                pickup: { name: 'Điểm nhận', address: '' },
-                delivery: { name: 'Điểm giao', address: '' },
-                receiver: {
-                  name: ctx.designatedReceiverName || 'Người nhận',
-                  phone: ctx.designatedReceiverPhone || '',
-                },
-                horses: ctx.horseIds || [],
-                plannedDepart: '',
-                eta: '',
-                status: t.status as any,
-                crew: {},
-                stops: [],
-                milestones: [],
-                clearances: [],
-                health: [],
-                documents: [],
-                handoverAttempts: [],
-              };
-            } catch {
-              return {
-                id: t.tripId,
-                requestId: t.requestId,
-                customer: 'Khách hàng',
-                mode: 'ROAD',
-                origin: 'Điểm nhận',
-                destination: 'Điểm giao',
-                pickup: { name: 'Điểm nhận', address: '' },
-                delivery: { name: 'Điểm giao', address: '' },
-                receiver: { name: 'Người nhận', phone: '' },
-                horses: [],
-                plannedDepart: '',
-                eta: '',
-                status: t.status as any,
-                crew: {},
-                stops: [],
-                milestones: [],
-                clearances: [],
-                health: [],
-                documents: [],
-                handoverAttempts: [],
-              };
-            }
-          })
-        );
+        const [f4Res, f6Res] = await Promise.allSettled([flow4Api.getDriverTrips(), flow6Api.getTrips()]);
+        if (f4Res.status === 'rejected' && f6Res.status === 'rejected') throw f6Res.reason;
+        const f4 = f4Res.status === 'fulfilled' ? f4Res.value : [];
+        const f6 = f6Res.status === 'fulfilled' ? f6Res.value : [];
+        const ids = [...new Set([...f4.map((x) => x.tripId), ...f6.map((x) => x.tripId)])];
+        const built = await Promise.all(ids.map((id) => buildLiveTrip(id, f6.find((x) => x.tripId === id))));
+        const crewMap = new Map<string, CrewMember>();
+        const horseMap = new Map<string, Horse>();
+        built.forEach((b) => { b.crew.forEach((c) => crewMap.set(c.id, c)); b.horses.forEach((h) => horseMap.set(h.id, h)); });
         setState({
-          trips: realTrips,
-          crew: [],
-          horses: [],
+          trips: built.map((b) => b.trip),
+          crew: [...crewMap.values()],
+          horses: [...horseMap.values()],
           incidents: [],
+          userId: tokenUser() || state.userId,
           loading: false,
           loaded: true,
         });
         return;
       } catch (err) {
-        console.warn('[useDriver] Failed to fetch real Flow 6 trips:', err);
+        console.warn('[useDriver] Failed to fetch real trips:', err);
         setState({ ...emptyData, loading: false, loaded: true });
         return;
       }
@@ -223,8 +206,17 @@ const actions = {
     const last = lastMilestone(t);
     if (last && at < last.at) return fail(`Thời điểm phải sau mốc trước (${last.at}).`);
     const m = { type: n.type, stopIndex: n.stopIndex, at, by: state.userId, note: note.trim() || undefined };
-    await driverApi.recordMilestone(tripId, { type: m.type, stopIndex: m.stopIndex, at, note: m.note });
-    updateTrip(tripId, (x) => ({ ...x, milestones: [...x.milestones, m], status: n.type === 'DEPARTED' ? 'IN_TRANSIT' : x.status }));
+    try {
+      await driverApi.recordMilestone(tripId, { type: m.type, stopIndex: m.stopIndex, at, note: m.note, milestoneId: t.stops[n.stopIndex]?.id });
+    } catch (error) {
+      return fail(error instanceof Error && error.message ? error.message : 'Không ghi nhận được mốc.');
+    }
+    if (!getDemoMode('driver')) {
+      const fresh = await buildLiveTrip(tripId);
+      setState((s) => ({ trips: s.trips.map((x) => (x.id === tripId ? { ...fresh.trip, handover: x.handover, handoverAttempts: x.handoverAttempts, handoverStatus: x.handoverStatus } : x)) }));
+    } else {
+      updateTrip(tripId, (x) => ({ ...x, milestones: [...x.milestones, m], status: n.type === 'DEPARTED' ? 'IN_TRANSIT' : x.status }));
+    }
     setState((s) => ({ lastRecordedMs: { ...s.lastRecordedMs, [tripId]: Date.now() } }));
     const extra = n.type === 'ARRIVED_CHECKPOINT' ? ' Specialist đã được báo để ghi kết quả thông quan.'
       : n.type === 'ARRIVED_DESTINATION' ? ' Hãy tiến hành bàn giao.' : '';
@@ -374,7 +366,8 @@ export type DriverActions = typeof actions;
 export const useDriver = () => {
   const snap = useSyncExternalStore(subscribe, getSnapshot);
 
-  useEffect(() => { void loadAll(); }, []);
+  // Chỉ tải lần đầu: mỗi component gắn vào hook này không được kích hoạt tải lại (tránh vòng lặp khi màn hình đổi giữa "đang tải" và danh sách)
+  useEffect(() => { if (!state.loaded) void loadAll(); }, []);
 
   const me = useMemo(() => {
     const found = snap.crew.find((c) => c.id === snap.userId);

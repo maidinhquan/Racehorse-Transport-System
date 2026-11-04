@@ -23,6 +23,7 @@ public class AirHandoverInputDto
     public bool AllHorsesChecked { get; set; } = true;
 
     [JsonPropertyName("note")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? Note { get; set; }
 
     [JsonPropertyName("evidenceFileIds")]
@@ -50,6 +51,7 @@ public class AirReceiveInputDto
     public bool AllHorsesChecked { get; set; } = true;
 
     [JsonPropertyName("note")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? Note { get; set; }
 
     [JsonPropertyName("evidenceFileIds")]
@@ -68,9 +70,11 @@ public class AirNoticeInputDto
     public string Kind { get; set; } = "ESTIMATED_SCHEDULE"; // ESTIMATED_SCHEDULE, ACTUAL_DEPARTURE, ACTUAL_ARRIVAL
 
     [JsonPropertyName("departureAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? DepartureAt { get; set; }
 
     [JsonPropertyName("arrivalAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? ArrivalAt { get; set; }
 
     [JsonPropertyName("receivedAt")]
@@ -86,6 +90,7 @@ public class AirNoticeInputDto
     public List<string> EvidenceFileIds { get; set; } = new();
 
     [JsonPropertyName("incidentId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? IncidentId { get; set; }
 }
 

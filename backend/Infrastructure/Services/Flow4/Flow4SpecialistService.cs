@@ -52,6 +52,10 @@ public class Flow4SpecialistService : IFlow4SpecialistService
     /// </summary>
     public async Task<Flow4MutationResultDto> RecordCheckpointDecisionAsync(string tripId, string checkpointId, CheckpointDecisionInputDto dto, string specialistId)
     {
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+        _context.ChangeTracker.Clear();
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         var trip = await _context.TripPlans.FirstOrDefaultAsync(t => t.TripId == tripId);
@@ -83,5 +87,6 @@ public class Flow4SpecialistService : IFlow4SpecialistService
         await transaction.CommitAsync();
 
         return Flow4Helper.BuildMutationResult(trip, decision.DecisionId, _context);
+        });
     }
 }

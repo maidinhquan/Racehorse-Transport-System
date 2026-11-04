@@ -31,6 +31,9 @@ public sealed class UserDAO(HorseTransportDbContext context) : BaseDAO<User>(con
 
     public override async Task<User> AddAsync(User entity, CancellationToken cancellationToken = default)
     {
+        var strategy = Context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
         await using var transaction = await Context.Database.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -59,5 +62,6 @@ public sealed class UserDAO(HorseTransportDbContext context) : BaseDAO<User>(con
             Context.Entry(entity).State = EntityState.Detached;
             throw;
         }
+        });
     }
 }
