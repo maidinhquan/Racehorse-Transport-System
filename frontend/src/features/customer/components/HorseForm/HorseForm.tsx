@@ -7,7 +7,6 @@ import { SEX_LABEL, today } from '../../hooks/customerRules';
 import { useCustomer } from '../../hooks/useCustomer';
 import { FilePreviewModal } from '../Modals/FilePreviewModal';
 import './HorseForm.css';
-import { getDemoMode } from '../../../../shared/context/DemoModeContext';
 import { AuthImage } from '../../../../shared/components/AuthImage';
 
 interface HorseFormProps {
@@ -34,7 +33,6 @@ export const HorseForm: React.FC<HorseFormProps> = ({
   const { actions } = useCustomer();
   const [preview, setPreview] = useState<{ file: FileRef; title: string } | null>(null);
   const locked = lockedBy.length > 0;
-  const demo = getDemoMode('customer');
   const set = <K extends keyof HorseInput>(k: K, v: HorseInput[K]) => onChange({ ...h, [k]: v });
   const setPass = (k: keyof HorseInput['passport'], v: string | FileRef | undefined) => onChange({ ...h, passport: { ...h.passport, [k]: v } });
   
@@ -59,7 +57,6 @@ export const HorseForm: React.FC<HorseFormProps> = ({
           type={type}
           value={h[k] ?? ''}
           readOnly={lock && locked}
-          disabled={!demo && ['color', 'vetName', 'vetPhone'].includes(k)}
           onChange={(e) => {
             clearErr(k);
             set(k, e.target.value);
@@ -87,7 +84,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
   };
 
   const fileCard = (field: FileField | 'scan', empty: string) => {
-    if (!demo && (field === 'flu' || field === 'health')) return <p className="cus-subtitle">Tài liệu này chưa hỗ trợ lưu trực tuyến. Vui lòng liên hệ chuyên viên phụ trách.</p>;
+    
     const file = field === 'scan' ? h.passport.scan : h[field];
     const update = (f?: FileRef) => (field === 'scan' ? setPass('scan', f) : set(field, f));
     return file ? (
@@ -96,7 +93,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
         <div className="cus-file__text"><b>{file.name}</b><span>{file.file ? 'Đã chọn, chưa lưu' : 'Đã lưu'}</span></div>
         <button type="button" className="cus-btn cus-btn--sm" onClick={() => setPreview({ file, title: fileTitle(field) })}>Xem</button>
         <FilePickButton label="Thay tệp" onPick={update} onError={actions.showToast} types={field === 'photo' ? PHOTO_TYPES : undefined} />
-        {(demo || file.file) && <button type="button" className="cus-btn cus-btn--sm cus-btn--danger" onClick={() => update(undefined)}>Xóa</button>}
+        <button type="button" className="cus-btn cus-btn--sm cus-btn--danger" onClick={() => update(undefined)}>Xóa</button>
       </div>
     ) : (
       <div className={`cus-file cus-file--empty ${bad(field)}`}>
@@ -295,11 +292,11 @@ export const HorseForm: React.FC<HorseFormProps> = ({
 
       <section>
         <h4>05 · Hồ sơ tiêm ngừa & sức khỏe</h4>
-        {!demo && <p className="cus-subtitle">Ngày tiêm và thông tin bác sĩ riêng chưa hỗ trợ lưu trực tuyến. Ghi chú sức khỏe vẫn được lưu cùng hồ sơ ngựa.</p>}
+        
         <div className="cus-horse-form__grid">
           <div className="cus-field">
             <label htmlFor="hf-flu">Ngày tiêm cúm gần nhất</label>
-            <DateField id="hf-flu" value={h.fluDate ?? ''} max={today()} disabled={!demo} onChange={(v) => set('fluDate', v)} />
+            <DateField id="hf-flu" value={h.fluDate ?? ''} max={today()} onChange={(v) => set('fluDate', v)} />
           </div>
         </div>
         <div className="cus-horse-form__minor"><span className="cus-eyebrow">Sổ tiêm ngừa</span>{fileCard('flu', 'Chưa tải tệp')}</div>
