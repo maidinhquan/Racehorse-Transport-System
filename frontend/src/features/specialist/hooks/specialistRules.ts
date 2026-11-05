@@ -36,8 +36,34 @@ export const clockMs = () => DEMO_CLOCK_START + (Date.now() - CLOCK_T0);
 const msToStamp = (ms: number) => new Date(ms + VN_OFFSET).toISOString().slice(0, 16).replace('T', ' ');
 export const nowStamp = () => msToStamp(clockMs());
 export const today = () => nowStamp().slice(0, 10);
-export const stampToMs = (s: string) => Date.parse(`${(s.length <= 10 ? `${s} 00:00` : s).replace(' ', 'T')}:00Z`) - VN_OFFSET;
-export const addDays = (d: string, n: number) => msToStamp(stampToMs(d) + n * 86400000).slice(0, 10);
+export const stampToMs = (s?: string) => {
+  if (!s || !s.trim()) return Date.now();
+  const ms = Date.parse(`${(s.length <= 10 ? `${s} 00:00` : s).replace(' ', 'T')}:00Z`);
+  return isNaN(ms) ? Date.now() : ms - VN_OFFSET;
+};
+export const addDays = (d: string | undefined, n: number) => {
+  const base = d && d.trim() ? d.trim() : today();
+  const ms = stampToMs(base);
+  return msToStamp(ms + n * 86400000).slice(0, 10);
+};
+
+export function defaultDocValues(typeId: string, tripId: string = '') {
+  const num = tripId.replace(/\D/g, '') || '01';
+  switch (typeId) {
+    case 'DT-4':
+      return { number: `GPXK-${num}`, issuer: 'Cục Thú y - Bộ NN&PTNT', file: 'giay-phep-xuat-khau.pdf' };
+    case 'DT-5':
+      return { number: `GPNK-${num}`, issuer: 'Bộ Nông nghiệp, Lâm nghiệp và Thủy sản (MAFF)', file: 'giay-phep-nhap-khau.pdf' };
+    case 'DT-6':
+      return { number: `KD-${num}`, issuer: 'Chi cục Thú y Vùng VI', file: 'chung-nhan-kiem-dich.pdf' };
+    case 'DT-7':
+      return { number: `TKHQ-${num}`, issuer: 'Chi cục Hải quan Cửa khẩu', file: 'to-khai-hai-quan.pdf' };
+    case 'DT-8':
+      return { number: `GPND-${num}`, issuer: 'Sở Giao thông Vận tải', file: 'giay-phep-noi-dia.pdf' };
+    default:
+      return { number: `DOC-${num}`, issuer: 'Cơ quan chức năng có thẩm quyền', file: `${typeId ? typeId.toLowerCase() : 'chung-tu'}.pdf` };
+  }
+}
 export const fmtDate = (d?: string) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : '—');
 export const fmtDateTime = (s?: string) => (!s ? '—' : s.length <= 10 ? fmtDate(s) : `${fmtDate(s.slice(0, 10))} ${s.slice(11, 16)}`);
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -53,6 +79,18 @@ export function parseViDate(text: string) {
 // Nhãn (VI)
 // ============================================================================
 export const COUNTRY_VI: Record<CountryCode, string> = { VN: 'Việt Nam', JP: 'Nhật Bản', TH: 'Thái Lan', KH: 'Campuchia', SG: 'Singapore', UK: 'Anh', AE: 'UAE' };
+export const countryName = (c?: string) => (c ? ((COUNTRY_VI as Record<string, string>)[c] ?? c) : '—');
+
+/** Tìm bộ yêu cầu phù hợp với tuyến đi và đến (ưu tiên đúng phương thức) */
+export function findMatchingPackage(packages: RegPackage[], origin: string, dest: string, mode?: TransportMode): RegPackage | undefined {
+  const matching = packages.filter((p) => p.status !== 'RETIRED' && p.origin === origin && p.dest === dest);
+  if (!matching.length) return undefined;
+  if (mode) {
+    const exactMode = matching.find((p) => p.modes.includes(mode));
+    if (exactMode) return exactMode;
+  }
+  return matching[0];
+}
 export const DIRECTION_VI: Record<Direction, string> = { EXPORT: 'Xuất khẩu', IMPORT: 'Nhập khẩu', DOMESTIC: 'Nội địa' };
 export const GROUP_VI: Record<DocGroup, string> = { IDENTITY: 'Nhận dạng ngựa', MEDICAL: 'Thú y / sức khỏe', QUARANTINE: 'Kiểm dịch', CUSTOMS: 'Hải quan / giấy phép', OTHER: 'Khác' };
 export const LEVEL_VI: Record<RequirementLevel, string> = { REQUIRED: 'Bắt buộc', CONDITIONAL: 'Có điều kiện', OPTIONAL: 'Tùy chọn' };
@@ -97,7 +135,7 @@ const cleanId = (x?: string | null) => (x || '').replace(/-/g, '_');
 export const docType = (data: SpecialistData, id: string) => data.docTypes.find((d) => d.id === id);
 export const typeName = (data: SpecialistData, id: string) => docType(data, id)?.name ?? id;
 export const horseName = (t: SpecTrip, id: string | null) => (id ? t.horses.find((h) => h.id === id || cleanId(h.id) === cleanId(id))?.name ?? id : 'Toàn chuyến');
-export const deployed = (t: SpecTrip) => t.deployment === 'CONFIRMED';
+export const deployed = (t?: SpecTrip) => t?.deployment === 'CONFIRMED';
 export const shortName = (city: string) => (city === 'Ho Chi Minh City' ? 'HCMC' : city);
 export const ruleLabel =(c: CountryCode, d: Direction) => `${COUNTRY_VI[c]} • ${DIRECTION_VI[d]}`;
 
@@ -119,6 +157,8 @@ export function pkgWhyNot(p: RegPackage, t: SpecTrip) {
 }
 const rpKey = (items: Array<[CountryCode, Direction]>) => items.map((x) => x.join('-')).sort().join('|');
 export function suggestPackage(data: SpecialistData, t: SpecTrip) {
+  const match = findMatchingPackage(data.packages, t.originCountry, t.destCountry, t.mode);
+  if (match) return match;
   const k = rpKey(routeNeeds(t));
   const fit = data.packages.filter((p) => !pkgWhyNot(p, t));
   return fit.find((p) => rpKey(p.items) === k) ?? fit[0];
@@ -158,7 +198,7 @@ export function tripRules(data: SpecialistData, t: SpecTrip): ReqSetSnapshot['ru
 // Checklist của chuyến
 // ============================================================================
 export const findDoc = (data: SpecialistData, t: SpecTrip, typeId: string, horseId: string | null) =>
-  [...data.documents].reverse().find((d) => (d.tripId === t.id || cleanId(d.tripId) === cleanId(t.id)) && d.typeId === typeId && (d.horseId === horseId || (d.horseId && horseId && cleanId(d.horseId) === cleanId(horseId))));
+  [...data.documents].reverse().find((d) => (d.tripId === t.id || cleanId(d.tripId) === cleanId(t.id)) && d.typeId === typeId && ((d.horseId || null) === (horseId || null) || (d.horseId && horseId && cleanId(d.horseId) === cleanId(horseId))));
 export const customerDoc = (data: SpecialistData, tripId: string, key: CustomerDocKey, scope: string) =>
   data.customerDocs.find((d) => (d.tripId === tripId || cleanId(d.tripId) === cleanId(tripId)) && d.key === key && (d.scope === scope || cleanId(d.scope) === cleanId(scope)));
 export const latestVersion = (d?: TripDocument) => d?.versions[d.versions.length - 1];
@@ -243,7 +283,7 @@ export function docsReadyBlock(data: SpecialistData, t: SpecTrip) {
   const ob = opsBlock(t);
   if (ob) return ob;
   if (t.status !== 'PLANNING') return 'Chuyến đã qua bước chuẩn bị.';
-  if (!t.reqSet) return 'Chưa áp dụng bộ yêu cầu hồ sơ cho chuyến.';
+  if (!t.reqSet) return `Giấy tờ đi đến ${countryName(t.destCountry)} chưa có, vui lòng tạo bộ yêu cầu.`;
   const c = checklist(data, t), cu = customerDocCount(data, t);
   if (cu.done < cu.total) return `Còn ${cu.total - cu.done} giấy tờ khách hàng chưa được duyệt.`;
   if (c.ready < c.total) return `Còn ${c.total - c.ready} mục bắt buộc trong checklist chưa duyệt.`;
@@ -253,7 +293,11 @@ export function docsReadyBlock(data: SpecialistData, t: SpecTrip) {
 
 /** Danh sách điều đang chặn chuyến (hiển thị ở thẻ Docs READY) */
 export function blockingOf(data: SpecialistData, t: SpecTrip): Array<[boolean, string]> {
-  const c = checklist(data, t), list: Array<[boolean, string]> = [];
+  const list: Array<[boolean, string]> = [];
+  if (!t.reqSet) {
+    list.push([true, `Giấy tờ đi đến ${countryName(t.destCountry)} chưa có (vui lòng tạo bộ yêu cầu)`]);
+  }
+  const c = checklist(data, t);
   const by = (s: ChecklistStatus) => c.items.filter((i) => i.counted && i.status === s);
   by('NOT_CONFIGURED').forEach((i) => list.push([true, `${i.missingRule}: chưa cấu hình yêu cầu`]));
   ([['NOT_SUBMITTED', 'còn thiếu'], ['SUBMITTED', 'chờ duyệt'], ['REJECTED', 'bị từ chối'], ['EXPIRED', 'hết hạn']] as const)

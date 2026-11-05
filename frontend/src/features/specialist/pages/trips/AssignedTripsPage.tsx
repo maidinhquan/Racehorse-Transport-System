@@ -7,7 +7,7 @@ import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { useSpecialistFilter } from '../../hooks/useSpecialistFilter';
 import type { SpecTrip } from '../../types';
-import { COUNTRY_VI, DEPLOYMENT_LABEL, MODE_VI, checklist, deployed, fmtDateTime, shortName, tripTotals, type SpecialistData } from '../../hooks/specialistRules';
+import { COUNTRY_VI, countryName, DEPLOYMENT_LABEL, MODE_VI, checklist, deployed, fmtDateTime, shortName, tripTotals, type SpecialistData } from '../../hooks/specialistRules';
 import './AssignedTripsPage.css';
 
 const ISSUES: Array<[string, string]> = [
@@ -76,7 +76,7 @@ export const AssignedTripsPage: React.FC = () => {
                     <td>{t.originCountry === t.destCountry ? COUNTRY_VI[t.originCountry] : `${COUNTRY_VI[t.originCountry]} → ${COUNTRY_VI[t.destCountry]}`}</td>
                     <td>{MODE_VI[t.mode]}</td>
                     <td>{fmtDateTime(t.plannedDepart)}</td>
-                    <td>{t.reqSet ? <span className="spc-wrap">{t.reqSet.name} <span className="spc-muted">v{t.reqSet.pkgV}</span></span> : <TripStatusBadge label="Chưa áp dụng" tone="warn" />}</td>
+                    <td>{t.reqSet ? <span className="spc-wrap">{t.reqSet.name} <span className="spc-muted">v{t.reqSet.pkgV}</span></span> : <TripStatusBadge label={`Chưa có giấy tờ đến ${countryName(t.destCountry)}`} tone="bad" />}</td>
                     <td>
                       {x.done}/{x.total} <TripStatusBadge label={x.done === x.total ? 'Đủ' : 'Chưa đủ'} tone={x.done === x.total ? 'ok' : 'warn'} />
                       <div className="spc-muted">Khách {x.cu.done}/{x.cu.total} • Công ty {x.coDone}/{x.coTotal}</div>

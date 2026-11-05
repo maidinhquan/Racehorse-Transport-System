@@ -58,8 +58,10 @@ public sealed class Flow1SwaggerExamples : IOperationFilter
 
         var note = EndpointDescriptions.Find(controller.Name, context.MethodInfo.Name);
         var position = FlowOrder.Find(controller.Name, context.MethodInfo.Name);
-        operation.Tags = [new OpenApiTag { Name = position?.Group ?? "Flow 1 · Chức năng khác" }];
-        operation.Summary = (position is null ? "" : $"{position.Step:00}. ") + (note?.Title ?? "Chức năng Flow 1");
+        const string flow1UnifiedGroup = "Flow 1 — Tiếp nhận yêu cầu & Hợp đồng (Requests & Contracts)";
+        operation.Tags = [new OpenApiTag { Name = flow1UnifiedGroup }];
+        var stageNum = position is not null ? position.Rank / 100 : 0;
+        operation.Summary = (position is null ? "" : $"{stageNum:00}.{position.Step:00}. ") + (note?.Title ?? "Chức năng Flow 1");
         if (position is not null) operation.Extensions["x-flow-order"] = new OpenApiInteger(position.Rank);
         operation.Description = $"**Chức năng:** {note?.Function ?? "Tài liệu chức năng đang được bổ sung."}\n\n" +
             $"**Ai được dùng:** {Audience(context)}\n\n" +

@@ -27,6 +27,13 @@ namespace Infrastructure.Data.Context
         public DbSet<LegalMedicalRecord> LegalMedicalRecords { get; set; } = null!;
         public DbSet<QuarantineBooking> QuarantineBookings { get; set; } = null!;
 
+        // Flow 2: Pháp lý & Thẩm định chuyên sâu
+        public DbSet<TripInsurance> TripInsurances { get; set; } = null!;
+        public DbSet<DocumentRequest> DocumentRequests { get; set; } = null!;
+        public DbSet<TripRequirementSet> TripRequirementSets { get; set; } = null!;
+        public DbSet<TripCheckpointClearance> TripCheckpointClearances { get; set; } = null!;
+        public DbSet<SpecialistAuditLog> SpecialistAuditLogs { get; set; } = null!;
+
         // 4. Phân vùng Lộ trình, Phương tiện & Hiện trường
         public DbSet<TripPlan> TripPlans { get; set; } = null!;
         public DbSet<Vehicle> Vehicles { get; set; } = null!;
@@ -57,6 +64,10 @@ namespace Infrastructure.Data.Context
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Cấu hình composite primary key cho REQUEST_HORSE_MAPPING theo RULE/ID_NAME_RULE.md
+            modelBuilder.Entity<RequestHorseMapping>()
+                .HasKey(r => new { r.RequestId, r.HorseId });
 
             // Tự động load các cấu hình IEntityTypeConfiguration nếu có
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(HorseTransportDbContext).Assembly,

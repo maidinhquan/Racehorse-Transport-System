@@ -18,7 +18,7 @@ public sealed class FlowOrder : IDocumentFilter
          "HorseFilesController.ReadAsync", "HorsesController.DetailAsync", "HorsesController.UpdateAsync"]),
         new("Flow 1 · 03. Tạo và gửi yêu cầu vận chuyển", "Khách hàng chọn tuyến/địa điểm, tạo bản nháp, chọn ngựa, hoàn thiện hồ sơ rồi gửi Manager duyệt.",
         ["CatalogsController.RoutesAsync", "CatalogsController.OptionsAsync", "LocationsController.CitiesAsync", "LocationsController.SearchAsync",
-         "MapboxPreviewController.Get", "RequestsController.CreateAsync", "HorsesController.SelectableAsync",
+         "MapboxPreviewController.Get", "LocationTilesController.TileAsync", "RequestsController.CreateAsync", "HorsesController.SelectableAsync",
          "RequestsController.UpdateAsync", "RequestDocumentsController.ChecklistAsync",
          "RequestDocumentsController.ReadAsync",  "RequestsController.CustomerRequestsAsync",
          "RequestsController.CustomerRequestAsync"]),
@@ -36,7 +36,7 @@ public sealed class FlowOrder : IDocumentFilter
         new("Flow 1 · 07. Thanh toán tiền cọc", "Khách hàng xem tiền cọc và mở phiên VNPAY. IPN do VNPAY tự gọi; các API xem giao dịch chỉ đọc kết quả đã lưu.",
         ["PaymentsController.DepositAsync", "PaymentsController.SessionAsync", "VnpayController.IpnAsync",
          "PaymentsController.CustomerPaymentAsync", "PaymentsController.ListAsync", "PaymentsController.ManagerPaymentAsync",
-         "PaymentsController.ReceiptAsync"]),
+         "PaymentsController.ReceiptAsync", "PaymentsController.CancelAsync"]),
         new("Flow 1 · 08. Nhận OTP và ký hợp đồng", "Sau khi đồng ý điều khoản và đủ cọc đã xác minh, khách hàng nhận OTP rồi xác nhận ký.",
         ["ContractSigningController.SendAsync", "ContractSigningController.SignAsync"]),
         new("Flow 1 · 09. Phân công và bàn giao chuyến", "Manager chọn nhân sự cho chuyến đã có hợp đồng ký. Nhân sự được giao đọc hồ sơ; hold/resume dùng khi cần tạm giữ trước khởi hành.",
@@ -66,9 +66,9 @@ public sealed class FlowOrder : IDocumentFilter
         var original = document.Tags?.ToDictionary(t => t.Name, StringComparer.Ordinal) ?? new Dictionary<string, OpenApiTag>();
         var tags = new List<OpenApiTag>();
         // Keep the existing authentication group intact and put it before the Flow 1 journey.
-        if (names.Remove("Auth")) tags.Add(original.GetValueOrDefault("Auth") ?? new OpenApiTag { Name = "Auth" });
-        foreach (var stage in Stages)
-            if (names.Remove(stage.Name)) tags.Add(new OpenApiTag { Name = stage.Name, Description = stage.Description });
+        if (names.Remove("Auth")) tags.Add(original.GetValueOrDefault("Auth") ?? new OpenApiTag { Name = "Auth", Description = "Đăng nhập và xác thực hệ thống" });
+        const string flow1Tag = "Flow 1 — Tiếp nhận yêu cầu & Hợp đồng (Requests & Contracts)";
+        if (names.Remove(flow1Tag)) tags.Add(new OpenApiTag { Name = flow1Tag, Description = "Toàn bộ quy trình tiếp nhận yêu cầu, hồ sơ ngựa, lập & phát hành hợp đồng, ký OTP, cọc VNPay đến phân công chuyến." });
         foreach (var name in names.OrderBy(n => n, StringComparer.Ordinal))
             tags.Add(original.GetValueOrDefault(name) ?? new OpenApiTag { Name = name });
         document.Tags = tags;

@@ -77,7 +77,9 @@ public static class EndpointDescriptions
         ["NotificationsController.CustomerReadAllAsync"] = new("Khách hàng đánh dấu đã đọc tất cả", "Đánh dấu đã đọc các thông báo của tài khoản khách hàng và trả số bản ghi cập nhật.", "Tài khoản khách hàng đang hoạt động. Không cập nhật thông báo của người khác."),
         ["NotificationsController.ManagerNotificationsAsync"] = new("Manager xem thông báo", "Liệt kê thông báo IN_APP thuộc tài khoản Manager đang đăng nhập.", "Tài khoản Manager đang hoạt động. Không đọc thông báo của Manager khác."),
         ["NotificationsController.ManagerReadAsync"] = new("Manager đánh dấu đã đọc một thông báo", "Cập nhật trạng thái đã đọc của một thông báo thuộc Manager.", "Thông báo tồn tại và thuộc tài khoản Manager đang đăng nhập."),
-        ["NotificationsController.ManagerReadAllAsync"] = new("Manager đánh dấu đã đọc tất cả", "Đánh dấu đã đọc các thông báo thuộc tài khoản Manager và trả số bản ghi cập nhật.", "Tài khoản Manager đang hoạt động. Không cập nhật thông báo của người khác.")
+        ["NotificationsController.ManagerReadAllAsync"] = new("Manager đánh dấu đã đọc tất cả", "Đánh dấu đã đọc các thông báo thuộc tài khoản Manager và trả số bản ghi cập nhật.", "Tài khoản Manager đang hoạt động. Không cập nhật thông báo của người khác."),
+        ["LocationTilesController.TileAsync"] = new("Tải tile bản đồ vị trí", "Tải tile bản đồ phục vụ hiển thị trên giao diện người dùng.", "Yêu cầu tọa độ và mức zoom hợp lệ."),
+        ["PaymentsController.CancelAsync"] = new("Hủy phiên thanh toán tiền cọc", "Hủy giao dịch thanh toán cọc đang ở trạng thái chờ.", "Giao dịch thuộc khách hàng và chưa được thanh toán thành công.")
     };
 
     public static EndpointDescription? Find(string controller, string action) => Notes.GetValueOrDefault(controller + "." + action);

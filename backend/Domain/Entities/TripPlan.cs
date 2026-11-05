@@ -147,6 +147,21 @@ namespace Domain.Entities
         [StringLength(500)]
         public string? RejectionReason { get; set; }
 
+        // Flow 4: In-Transit & Execution Tracking
+        [Column("ExecutionVersion")]
+        public int ExecutionVersion { get; set; } = 1;
+
+        [Column("ExecutionPhase")]
+        [StringLength(30)]
+        public string? ExecutionPhase { get; set; } = "AWAITING_DEPARTURE";
+
+        [Column("CurrentEta")]
+        public DateTime? CurrentEta { get; set; }
+
+        [Column("PendingEtaProposalId")]
+        [StringLength(50)]
+        public string? PendingEtaProposalId { get; set; }
+
         // Navigation properties
         [ForeignKey(nameof(RequestId))]
         [InverseProperty(nameof(TransportRequest.TripPlans))]
@@ -154,6 +169,16 @@ namespace Domain.Entities
 
         [ForeignKey(nameof(EffectiveOriginPlaceId))]
         public virtual PartnerFacility? EffectiveOriginPlace { get; set; }
+
+        [Column("DocsReadyAtUtc")]
+        public DateTime? DocsReadyAtUtc { get; set; }
+
+        [Column("DocsReadyBy")]
+        [StringLength(50)]
+        public string? DocsReadyBy { get; set; }
+
+        [ForeignKey(nameof(DocsReadyBy))]
+        public virtual User? DocsReadyByUser { get; set; }
 
         [InverseProperty(nameof(TripVehicleAssignment.Trip))]
         public virtual ICollection<TripVehicleAssignment> VehicleAssignments { get; set; } = new List<TripVehicleAssignment>();
@@ -187,5 +212,9 @@ namespace Domain.Entities
 
         [InverseProperty(nameof(PlanningAttachment.Trip))]
         public virtual ICollection<PlanningAttachment> PlanningAttachments { get; set; } = new List<PlanningAttachment>();
+        public virtual ICollection<TripInsurance> Insurances { get; set; } = new List<TripInsurance>();
+        public virtual ICollection<DocumentRequest> DocumentRequests { get; set; } = new List<DocumentRequest>();
+        public virtual ICollection<TripRequirementSet> RequirementSets { get; set; } = new List<TripRequirementSet>();
+        public virtual ICollection<TripCheckpointClearance> CheckpointClearances { get; set; } = new List<TripCheckpointClearance>();
     }
 }
