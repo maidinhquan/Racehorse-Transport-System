@@ -9,7 +9,7 @@ import type { Any } from '../../../store/coordinatorStore';
 import { commit, go, openModal, toast, useCoordinatorStore } from '../../../store/coordinatorStore';
 import { addHours, dt, human, stampMs } from '../../../utils/format';
 import { airportLabel, selectAirportsModal } from '../../../workflows/airOperations';
-import { fmtMin, PF, PF_COLOR, PLACE_ST, plannerMap, ROUTE_POLICY, routeNew, routeSubmitError, ROUTING, RP, rpAdd, rpAutoSort, rpCalc, rpCandidates, rpDeadline, rpDel, rpDetour, rpEditable, rpEnsure, rpFixDomesticRoute, rpFlightKey, rpFocus, rpGroups, rpMove, rpOpenAddStop, rpPolicy, rpPolicyModal, rpRetry, rpRoute, rpRouteKey, rpRoutingModal, rpSave, rpSeg, rpSetAirCare, rpSetFilter, rpSetPurpose, rpSetStop, rpUseSim } from '../../../workflows/routePlanner';
+import { fmtMin, PF, PF_COLOR, PLACE_ST, plannerMap, ROUTE_POLICY, routeNew, routeSubmitError, ROUTING, RP, rpAdd, rpAutoSort, rpCalc, rpCandidates, rpDeadline, rpDel, rpDeletable, rpDetour, rpEditable, rpEnsure, rpFixDomesticRoute, rpFlightKey, rpFocus, rpGroups, rpMove, rpOpenAddStop, rpPolicy, rpPolicyModal, rpRetry, rpRoute, rpRouteKey, rpRoutingModal, rpSave, rpSeg, rpSetAirCare, rpSetFilter, rpSetPurpose, rpSetStop, rpUseSim } from '../../../workflows/routePlanner';
 
 /** Căn lùi giờ xuất phát sao cho xe vừa kịp đến sân bay trước giờ bay đúng số giờ quy định */
 function calcIdealDepart(t: Any, rt: Any) {
@@ -171,7 +171,7 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
           </div>
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {edit ? (
+            {edit && t.mode === 'AIR' ? (
               <button
                 type="button"
                 className="btn sm ghost"
@@ -423,11 +423,11 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
               Xem trên bản đồ
             </button>
           ) : null}
-          {edit && s.type !== 'ORIGIN' && s.type !== 'DESTINATION' && !s.required ? (
+          {edit && s.type !== 'ORIGIN' && s.type !== 'DESTINATION' ? (
             <>
-              <button type="button" className="btn ghost sm" disabled={i <= 1} aria-label="Lên" onClick={() => rpMove(t.id, i, -1)}>↑</button>
-              <button type="button" className="btn ghost sm" disabled={i >= rt.stops.length - 2} aria-label="Xuống" onClick={() => rpMove(t.id, i, 1)}>↓</button>
-              <button type="button" className="btn danger sm" aria-label="Bỏ" onClick={() => rpDel(t.id, i)}>✕</button>
+              {!s.required && <button type="button" className="btn ghost sm" disabled={i <= 1} aria-label="Lên" onClick={() => rpMove(t.id, i, -1)}>↑</button>}
+              {!s.required && <button type="button" className="btn ghost sm" disabled={i >= rt.stops.length - 2} aria-label="Xuống" onClick={() => rpMove(t.id, i, 1)}>↓</button>}
+              {rpDeletable(t, s) && <button type="button" className="btn danger sm" aria-label="Bỏ" onClick={() => rpDel(t.id, i)}>✕</button>}
             </>
           ) : null}
         </div>

@@ -25,7 +25,7 @@ public sealed class LifecycleTests : IAsyncLifetime
     {await using var cn=new SqlConnection(database.Connection);await cn.OpenAsync();await using var cmd=new SqlCommand(text,cn);await cmd.ExecuteNonQueryAsync();}
     // Flow 4 seed data resets TRIP_003 to READY_TO_DEPART; Flow 6 needs it in transit with the final arrival recorded.
     private Task ArriveAtDestination()=>Sql("UPDATE TRIP_PLAN SET Status='IN_TRANSIT' WHERE TripID='TRIP_003'; UPDATE TRANSPORT_REQUEST SET Status='IN_PROGRESS' WHERE RequestID='REQUEST_003'; UPDATE ROUTE_SEGMENT SET Status='COMPLETED',ActualTime=SYSUTCDATETIME() WHERE TripID='TRIP_003' AND SegmentType='DESTINATION'");
-    private HttpClient Driver(){var c=factory.CreateClient(new(){BaseAddress=new Uri("https://localhost")});c.DefaultRequestHeaders.Add("X-Test-Actor","USER_012");c.DefaultRequestHeaders.Add("X-Test-Role","DRIVER_ESCORT");return c;}
+    private HttpClient Driver(){var c=factory.CreateClient(new(){BaseAddress=new Uri("https://localhost")});c.DefaultRequestHeaders.Add("X-Test-Actor","USER_015");c.DefaultRequestHeaders.Add("X-Test-Role","DRIVER_ESCORT");return c;}
     private static async Task<JsonObject> Ok(HttpResponseMessage response)
     {var raw=await response.Content.ReadAsStringAsync();Assert.True(response.IsSuccessStatusCode,$"{response.StatusCode}: {raw}");return JsonNode.Parse(raw)!.AsObject();}
     private static JsonObject Content()=>JsonNode.Parse("""{"location":"TP HCM","receiver":{"name":"Receiver","phone":"0901234567","authorized":true,"otpEmail":"receiver@example.invalid"},"commonDocuments":null,"items":[{"horseId":"HORSE_001","microchipVerified":true,"condition":"Healthy on inspection","assets":"Lead rope","documents":null,"documentsReceivedAtUtc":null}]}""")!.AsObject();
@@ -209,9 +209,9 @@ public sealed class LifecycleTests : IAsyncLifetime
         await Ok(await Post(driver,$"operations/flow6/revisions/{r}/otp"));
         using var scope=factory.Services.CreateScope();using var fresh=new Infrastructure.Flow6.Runtime.MemoryGuards(factory.Clock);
         var service=ActivatorUtilities.CreateInstance<AftercareService>(scope.ServiceProvider,fresh);
-        var error=await Assert.ThrowsAsync<AftercareException>(()=>service.Invoke("F6-J07","USER_012",r,null,"","127.0.0.1",CancellationToken.None));Assert.Equal("OTP_RESEND_TOO_SOON",error.Code);
+        var error=await Assert.ThrowsAsync<AftercareException>(()=>service.Invoke("F6-J07","USER_015",r,null,"","127.0.0.1",CancellationToken.None));Assert.Equal("OTP_RESEND_TOO_SOON",error.Code);
         var wrong=factory.Sender.Codes[r]=="000000"?"111111":"000000";
-        await Assert.ThrowsAsync<AftercareException>(()=>service.Invoke("F6-J09","USER_012",r,new JsonObject{["otp"]=wrong},"","127.0.0.1",CancellationToken.None));
+        await Assert.ThrowsAsync<AftercareException>(()=>service.Invoke("F6-J09","USER_015",r,new JsonObject{["otp"]=wrong},"","127.0.0.1",CancellationToken.None));
         await using var cn=new SqlConnection(database.Connection);await cn.OpenAsync();await using var cmd=new SqlCommand("SELECT OtpFailedAttempts FROM HANDOVER_REVISION WHERE HandoverRevisionID=@r",cn);cmd.Parameters.AddWithValue("@r",r);Assert.Equal(1,Convert.ToInt32(await cmd.ExecuteScalarAsync()));
     }
 

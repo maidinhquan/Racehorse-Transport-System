@@ -197,7 +197,15 @@ export const managerApi = {
   addCollectionNote: (id: string, note: string) => apiRequest('post', E.COLLECTION_NOTE(id), { note }),
   decideRoute: (id: string, body: unknown) => apiRequest('post', E.ROUTE_DECISION(id), body),
   decideFlight: (id: string, body: unknown) => apiRequest('post', E.FLIGHT_DECISION(id), body),
-  approveDeparture: (id: string) => apiRequest('post', E.APPROVE_DEPARTURE(id)),
+  /** F3-J17 rồi F3-J18: lấy phiên bản hiện tại của chuyến, backend kiểm tra lại điều kiện khởi hành khi duyệt */
+  approveDeparture: async (id: string) => {
+    const readiness = await apiRequest<{ binding?: { expectedVersion?: number }; approvedPlanVersion?: number; readinessVersion?: number }>('get', E.READINESS(id));
+    return apiRequest('post', E.APPROVE_DEPARTURE(id), {
+      expectedVersion: readiness.binding?.expectedVersion ?? 0,
+      approvedPlanVersion: readiness.approvedPlanVersion ?? 0,
+      readinessVersion: readiness.readinessVersion ?? 0,
+    });
+  },
   resolveHandover: (id: string, body: unknown) => apiRequest('post', E.HANDOVER_RESOLUTION(id), body),
   saveActualCosts: (id: string, body: unknown) => apiRequest('put', E.ACTUAL_COSTS(id), body),
   setIncidentStatus: (id: string, status: string) => apiRequest('put', E.INCIDENT_STATUS(id), { status }),

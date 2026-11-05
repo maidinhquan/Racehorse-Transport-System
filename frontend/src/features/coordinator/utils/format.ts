@@ -43,19 +43,19 @@ export const pillLabel = (v: string, label?: string) => label || (ST_CLASS[v] ? 
 
 // ---------- thời gian ----------
 const pad = (n: number) => String(n).padStart(2, '0');
-/** '2026-10-18 06:00' → '18/10, 06:00'; '2026-10-18' → '18/10/2026' */
+/** '2026-10-18' → '18/10/2026' (ngày/tháng/năm, có số 0 đứng đầu) */
 export const date = (s?: string | null) => {
   if (!s) return '—';
   const [y, m, d] = String(s).slice(0, 10).split('-');
   if (!d) return String(s);
-  return `${Number(d)}/${Number(m)}/${y}`;
+  return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
 };
+/** '2026-10-18 06:00' → '18/10/2026 06:00' */
 export const dt = (s?: string | null) => {
   if (!s) return '—';
-  const [d, t] = String(s).split(' ');
+  const [d, t] = String(s).replace('T', ' ').split(' ');
   if (!t) return date(d);
-  const [, m, day] = d.split('-');
-  return `${Number(day)}/${Number(m)}, ${t}`;
+  return `${date(d)} ${t.slice(0, 5)}`;
 };
 export const stampMs = (s: string) => Date.parse(String(s).replace(' ', 'T') + (String(s).length > 10 ? ':00Z' : 'T00:00:00Z'));
 const fromMs = (ms: number) => { const d = new Date(ms); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; };

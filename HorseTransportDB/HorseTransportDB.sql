@@ -1291,14 +1291,18 @@ INSERT INTO [USER] (UserID, Username, PasswordHash, Role, FullName, Email, Phone
 ('USER_008', 'driver_thanh', 'HASH_SECURE_08', 'DRIVER_ESCORT', N'Vũ Thành (Tài xế quốc tế 2)', 'thanh.driver@cbntransport.com', '0946789012', NULL, NULL, 1),
 ('USER_009', 'escort_hoa', 'HASH_SECURE_09', 'DRIVER_ESCORT', N'BS. Đỗ Hoa (Bác sĩ thú y áp tải)', 'hoa.escort@cbntransport.com', '0956789012', NULL, NULL, 1),
 ('USER_010', 'escort_nam', 'HASH_SECURE_10', 'DRIVER_ESCORT', N'BS. Phan Nam (Kỹ thuật viên ngựa)', 'nam.escort@cbntransport.com', '0957890123', NULL, NULL, 1),
-('USER_012', 'driver_nvhung', 'HASH_SECURE_12', 'DRIVER_ESCORT', N'Nguyễn Văn Hùng (Tài xế)', 'nguyenvanhung.driver@cbntransport.com', '0905551021', NULL, NULL, 1),
+('USER_012', 'driver_nvhung', 'HASH_SECURE_12', 'DRIVER_ESCORT', N'Nguyễn Văn Hùng (Tài xế chính)', 'nguyenvanhung.driver@cbntransport.com', '0905551021', NULL, NULL, 1),
 ('USER_013', 'driver_lqtuan', 'HASH_SECURE_13', 'DRIVER_ESCORT', N'Lê Quốc Tuấn (Phụ lái)', 'lequoctuan.driver@cbntransport.com', '0905551022', NULL, NULL, 1),
-('USER_014', 'escort_lttrang', 'HASH_SECURE_14', 'DRIVER_ESCORT', N'BS. Lê Thu Trang (Bác sĩ thú y)', 'lethutrang.escort@cbntransport.com', '0285550135', NULL, NULL, 1),
+('USER_014', 'escort_lttrang', 'HASH_SECURE_14', 'DRIVER_ESCORT', N'Dr. Lê Thu Trang (Bác sĩ thú y)', 'lethutrang.escort@cbntransport.com', '0285550135', NULL, NULL, 1),
 ('USER_015', 'driver_ptson', 'HASH_SECURE_15', 'DRIVER_ESCORT', N'Phạm Thanh Sơn (Tài xế)', 'phamthanhson.driver@cbntransport.com', '0905551023', NULL, NULL, 1),
 ('USER_016', 'driver_blong', 'HASH_SECURE_16', 'DRIVER_ESCORT', N'Bùi Văn Long (Tài xế)', 'buivanlong.driver@cbntransport.com', '0905551025', NULL, NULL, 1),
 ('USER_017', 'driver_dvkhoa', 'HASH_SECURE_17', 'DRIVER_ESCORT', N'Đặng Văn Khoa (Phụ lái)', 'dangvankhoa.driver@cbntransport.com', '0905551026', NULL, NULL, 1),
 ('USER_018', 'escort_nmanh', 'HASH_SECURE_18', 'DRIVER_ESCORT', N'BS. Nguyễn Minh Anh (Bác sĩ thú y)', 'nguyenminhanh.escort@cbntransport.com', '0285550142', NULL, NULL, 1),
-('USER_019', 'escort_tqbao', 'HASH_SECURE_19', 'DRIVER_ESCORT', N'BS. Trần Quốc Bảo (Bác sĩ thú y)', 'tranquocbao.escort@cbntransport.com', '0245550177', NULL, NULL, 1);
+('USER_019', 'escort_tqbao', 'HASH_SECURE_19', 'DRIVER_ESCORT', N'BS. Trần Quốc Bảo (Bác sĩ thú y)', 'tranquocbao.escort@cbntransport.com', '0245550177', NULL, NULL, 1),
+('USER_020', 'spec_hha', 'HASH_SECURE_20', 'TRANSPORT_SPECIALIST', N'Hoàng Thu Hà (Chuyên viên thẩm định hồ sơ)', 'ha.specialist@cbntransport.com', '0905556601', NULL, NULL, 1),
+('USER_021', 'spec_vmchau', 'HASH_SECURE_21', 'TRANSPORT_SPECIALIST', N'Vũ Minh Châu (Chuyên viên kiểm dịch & hải quan)', 'chau.specialist@cbntransport.com', '0905556602', NULL, NULL, 1),
+('USER_022', 'coord_tbngoc', 'HASH_SECURE_22', 'FLEET_ROUTE_COORDINATOR', N'Trần Bảo Ngọc (Điều phối xe & lịch trình)', 'ngoc.coord@cbntransport.com', '0905556603', NULL, NULL, 1),
+('USER_024', 'admin_system', 'HASH_SECURE_24', 'ADMIN', N'Quản trị viên Hệ thống (System Admin)', 'admin@cbntransport.com', '0905556605', NULL, NULL, 1);
 
 -- Sample catalogs and mutable policy values. These are data, not service constants.
 INSERT INTO COUNTRY (CountryCode, CountryName, IsActive) VALUES
@@ -1334,7 +1338,13 @@ INSERT INTO STAFF_DOCUMENT (DocumentID, UserID, DocType, CountryOfIssue, ValidFo
 ('STAFF_DOCUMENT_002', 'USER_007', 'DRIVING_LICENSE', 'VN', N'VN', '2022-05-15', '2027-05-15', 'https://storage.cbntransport.com/docs/lic_hung.pdf', 'VALID'),
 ('STAFF_DOCUMENT_003', 'USER_009', 'PASSPORT', 'VN', N'VN, JP', '2024-02-01', '2034-02-01', 'https://storage.cbntransport.com/docs/pass_hoa.pdf', 'VALID'),
 ('STAFF_DOCUMENT_004', 'USER_008', 'PASSPORT', 'VN', N'VN, JP', '2022-08-10', '2032-08-10', 'https://storage.cbntransport.com/docs/pass_thanh.pdf', 'VALID'),
-('STAFF_DOCUMENT_005', 'USER_010', 'PASSPORT', 'VN', N'VN, JP', '2021-03-01', '2026-10-25', 'https://storage.cbntransport.com/docs/pass_nam.pdf', 'EXPIRING_SOON');
+('STAFF_DOCUMENT_005', 'USER_010', 'PASSPORT', 'VN', N'VN, JP', '2021-03-01', '2026-10-25', 'https://storage.cbntransport.com/docs/pass_nam.pdf', 'EXPIRING_SOON'),
+('STAFF_DOCUMENT_006', 'USER_012', 'DRIVING_LICENSE', 'VN', N'VN, JP', '2023-03-15', '2028-03-15', 'https://storage.cbntransport.com/docs/lic_nvhung.pdf', 'VALID'),
+('STAFF_DOCUMENT_007', 'USER_012', 'PASSPORT', 'VN', N'VN, JP', '2023-01-10', '2033-01-10', 'https://storage.cbntransport.com/docs/pass_nvhung.pdf', 'VALID'),
+('STAFF_DOCUMENT_008', 'USER_013', 'DRIVING_LICENSE', 'VN', N'VN, JP', '2023-04-20', '2028-04-20', 'https://storage.cbntransport.com/docs/lic_lqtuan.pdf', 'VALID'),
+('STAFF_DOCUMENT_009', 'USER_013', 'PASSPORT', 'VN', N'VN, JP', '2023-02-15', '2033-02-15', 'https://storage.cbntransport.com/docs/pass_lqtuan.pdf', 'VALID'),
+('STAFF_DOCUMENT_010', 'USER_014', 'VET_CERTIFICATE', 'VN', N'VN, JP', '2022-09-01', '2032-09-01', 'https://storage.cbntransport.com/docs/vet_lttrang.pdf', 'VALID'),
+('STAFF_DOCUMENT_011', 'USER_014', 'PASSPORT', 'VN', N'VN, JP', '2022-07-10', '2032-07-10', 'https://storage.cbntransport.com/docs/pass_lttrang.pdf', 'VALID');
 
 -- 4. Bảng NOTIFICATION: Lịch sử thông báo hệ thống gửi qua App/Email/SMS
 INSERT INTO NOTIFICATION (NotificationID, UserID, ReferenceID, Type, Channel, Title, Message, IsRead, SentAt) VALUES
@@ -1451,8 +1461,8 @@ INSERT INTO VEHICLE (VehicleID, Type, CapacityStalls, MaxRange_km, FuelCost_Per_
 INSERT INTO TRIP_VEHICLE_ASSIGNMENT (AssignmentID, TripID, VehicleID, DriverID, EscortID) VALUES
 ('TRIP_ASSIGNMENT_001', 'TRIP_001', 'VEHICLE_001', 'USER_007', 'USER_009'),
 ('TRIP_ASSIGNMENT_002', 'TRIP_002', 'VEHICLE_003', 'USER_008', 'USER_010'),
-('TRIP_ASSIGNMENT_003', 'TRIP_003', 'VEHICLE_002', 'USER_012', 'USER_014');
-UPDATE TRIP_VEHICLE_ASSIGNMENT SET CoDriverID = 'USER_013', VeterinarianID = 'USER_014' WHERE AssignmentID = 'TRIP_ASSIGNMENT_003';
+('TRIP_ASSIGNMENT_003', 'TRIP_003', 'VEHICLE_002', 'USER_015', 'USER_018');
+UPDATE TRIP_VEHICLE_ASSIGNMENT SET CoDriverID = 'USER_017', VeterinarianID = 'USER_018' WHERE AssignmentID = 'TRIP_ASSIGNMENT_003';
 
 -- 17. (MỚI) Bảng FLIGHT_BOOKING: Đặt dịch vụ vận chuyển hàng không mẫu
 SET IDENTITY_INSERT FLIGHT_BOOKING ON;
@@ -1479,7 +1489,7 @@ INSERT INTO HEALTH_LOG (LogID, TripID, HorseID, EscortID, LogType, LogTime, Temp
 ('HEALTH_LOG_001', 'TRIP_001', 'HORSE_001', 'USER_009', 'TRANSIT_CHECK', '2026-09-15 10:30:00', 38.1, 42, N'Ổn định', N'Ngựa uống 15L nước, ăn cỏ khô tốt.', 'https://storage.cbntransport.com/logs/log1.jpg'),
 ('HEALTH_LOG_002', 'TRIP_001', 'HORSE_002', 'USER_009', 'TRANSIT_CHECK', '2026-09-15 10:30:00', 38.2, 44, N'Ổn định', N'Thể trạng bình thường, mắt lanh lợi.', 'https://storage.cbntransport.com/logs/log2.jpg'),
 ('HEALTH_LOG_003', 'TRIP_002', 'HORSE_003', 'USER_010', 'TRANSIT_CHECK', '2026-10-05 14:00:00', 39.2, 58, N'Căng thẳng/Sốt', N'Ngựa đổ mồ hôi nhiều lúc qua phà, đã truyền điện giải.', 'https://storage.cbntransport.com/logs/log3.jpg'),
-('HEALTH_LOG_004', 'TRIP_003', 'HORSE_001', 'USER_014', 'TRANSIT_CHECK', '2026-10-09 11:00:00', 38.0, 40, N'Rất tốt', N'Dừng nghỉ tại Đà Nẵng, vận động nhẹ 30 phút.', 'https://storage.cbntransport.com/logs/log4.jpg');
+('HEALTH_LOG_004', 'TRIP_003', 'HORSE_001', 'USER_018', 'TRANSIT_CHECK', '2026-10-09 11:00:00', 38.0, 40, N'Rất tốt', N'Dừng nghỉ tại Đà Nẵng, vận động nhẹ 30 phút.', 'https://storage.cbntransport.com/logs/log4.jpg');
 
 -- 21. Bảng INCIDENT: Sự cố phát sinh khẩn cấp trên đường
 INSERT INTO INCIDENT (IncidentID, TripID, ApprovedBy, IncidentType, LocationCoordinates, Description, ImageUrl, AdditionalCost, Status) VALUES
@@ -1492,7 +1502,7 @@ INSERT INTO HANDOVER (HandoverID, TripID, HandedByUserID, Type, LocationName, Re
 ('HANDOVER_002', 'TRIP_001', 'USER_007', 'DELIVERY', N'Trung tâm tiếp nhận ngựa Narita', N'Kenji Sato', N'+819012345678', 1, 'CONFIRMED'),
 ('HANDOVER_003', 'TRIP_002', 'USER_008', 'PICKUP', N'Trại ngựa Củ Chi, TP.HCM', N'Trần Văn B', '0908889999', 1, 'CONFIRMED'),
 ('HANDOVER_004', 'TRIP_002', 'USER_008', 'DELIVERY', N'Trung tâm tiếp nhận ngựa Đà Nẵng', N'Nguyễn Minh', N'0902223344', 1, 'CONFIRMED'),
-('HANDOVER_005', 'TRIP_003', 'USER_012', 'PICKUP', N'Trang trại Sóc Sơn, Hà Nội', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED');
+('HANDOVER_005', 'TRIP_003', 'USER_015', 'PICKUP', N'Trang trại Sóc Sơn, Hà Nội', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED');
 
 -- 23. Bảng HANDOVER_ITEM: Đối soát mã chip và thể trạng lúc giao nhận
 INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerified, ConditionStatus, AssetCheck, PhotoUrl) VALUES
@@ -2316,7 +2326,7 @@ WHERE VehicleID = 'VEHICLE_003';
 GO
 
 -- 5.2. ĐỒNG BỘ ĐƠN HÀNG VÀ CHUYẾN ĐI (TRIP_PLAN & TRANSPORT_REQUEST)
--- Chuyến 1: TRIP_003 (Đường bộ Happy Path - Tài xế USER_012, Áp tải USER_014, Xe VEHICLE_002)
+-- Chuyến 1: TRIP_003 (Đường bộ Happy Path - Tài xế USER_015, Áp tải USER_018, Xe VEHICLE_002)
 IF EXISTS (SELECT 1 FROM TRIP_PLAN WHERE TripID = 'TRIP_003')
 BEGIN
     UPDATE TRIP_PLAN 
@@ -2433,14 +2443,14 @@ DELETE FROM ETA_PROPOSAL;
 INSERT INTO ETA_PROPOSAL (ProposalID, TripID, ProposedBy, ProposedEta, CurrentEtaSnapshot, Reason, RequiresManager, Status, CoordinatorDecisionBy, CoordinatorDecisionReason, CoordinatorDecisionAt, ProposedAt)
 VALUES 
 ('PROPOSAL_001', 'TRIP_001', 'USER_007', '2026-09-17 12:00:00', '2026-09-16 18:00:00', N'Chuyến bay KZ-102 bị lùi giờ cất cánh do thời tiết xấu', 0, 'APPROVED', 'USER_006', N'Đã đối chiếu lịch bay hãng NCA, trong hạn hợp đồng', '2026-09-15 18:00:00', '2026-09-15 17:30:00'),
-('PROPOSAL_002', 'TRIP_003', 'USER_012', '2026-10-11 10:00:00', '2026-10-10 18:00:00', N'Mưa lớn gây sạt lở đèo Hải Vân phải đi vòng đường tránh', 1, 'PENDING_COORDINATOR', NULL, NULL, NULL, '2026-10-09 14:00:00');
+('PROPOSAL_002', 'TRIP_003', 'USER_015', '2026-10-11 10:00:00', '2026-10-10 18:00:00', N'Mưa lớn gây sạt lở đèo Hải Vân phải đi vòng đường tránh', 1, 'PENDING_COORDINATOR', NULL, NULL, NULL, '2026-10-09 14:00:00');
 GO
 
 -- 5.6. BẢNG VET_ASSESSMENT: KẾT LUẬN THỂ TRẠNG BÁC SĨ THÚ Y
 DELETE FROM VET_ASSESSMENT;
 INSERT INTO VET_ASSESSMENT (AssessmentID, TripID, HorseID, VetID, TransportFitness, Conclusion, CareInstructions, AssessedAt)
 VALUES 
-('ASSESSMENT_001', 'TRIP_003', 'HORSE_001', 'USER_014', 'FIT', N'Thể trạng ngựa khỏe mạnh, nhịp tim 38 bpm, hô hấp 14 l/p, mắt linh hoạt, niêm mạc hồng hào', N'Bổ sung nước điện giải mỗi 4 tiếng trên xe', '2026-10-08 07:45:00'),
+('ASSESSMENT_001', 'TRIP_003', 'HORSE_001', 'USER_018', 'FIT', N'Thể trạng ngựa khỏe mạnh, nhịp tim 38 bpm, hô hấp 14 l/p, mắt linh hoạt, niêm mạc hồng hào', N'Bổ sung nước điện giải mỗi 4 tiếng trên xe', '2026-10-08 07:45:00'),
 ('ASSESSMENT_002', 'TRIP_001', 'HORSE_001', 'USER_009', 'FIT', N'Thể trạng hoàn toàn đáp ứng điều kiện bay quốc tế chuẩn IATA Live Animals Regulations', N'Cho uống nước trước giờ bay 2 tiếng', '2026-09-15 15:00:00');
 GO
 
@@ -2448,8 +2458,8 @@ GO
 DELETE FROM TRIP_EXPENSE;
 INSERT INTO TRIP_EXPENSE (ExpenseID, TripID, RecordedBy, Category, AmountVnd, OccurredAt, Reason, Status, RecordedAt)
 VALUES 
-('EXPENSE_001', 'TRIP_003', 'USER_012', 'TOLL_FEE',        250000.00, '2026-10-08 12:00:00', N'Vé trạm thu phí BOT Phước Tượng',       'RECORDED', '2026-10-08 12:05:00'),
-('EXPENSE_002', 'TRIP_003', 'USER_012', 'FEED_SUPPLIES',   450000.00, '2026-10-09 11:30:00', N'Mua bổ sung cỏ khô và muối khoáng tại Đà Nẵng', 'RECORDED', '2026-10-09 11:35:00'),
+('EXPENSE_001', 'TRIP_003', 'USER_015', 'TOLL_FEE',        250000.00, '2026-10-08 12:00:00', N'Vé trạm thu phí BOT Phước Tượng',       'RECORDED', '2026-10-08 12:05:00'),
+('EXPENSE_002', 'TRIP_003', 'USER_015', 'FEED_SUPPLIES',   450000.00, '2026-10-09 11:30:00', N'Mua bổ sung cỏ khô và muối khoáng tại Đà Nẵng', 'RECORDED', '2026-10-09 11:35:00'),
 ('EXPENSE_003', 'TRIP_001', 'USER_007', 'OTHER',          1200000.00, '2026-09-15 15:30:00', N'Phí khử trùng xe và khu lưu chuồng ga hàng không Nội Bài', 'RECORDED', '2026-09-15 15:35:00');
 GO
 
@@ -2471,7 +2481,7 @@ GO
 DELETE FROM EXECUTION_ALERT;
 INSERT INTO EXECUTION_ALERT (AlertID, TripID, MilestoneID, AlertKind, Status, Message, AssigneeUserIds, CreatedAt)
 VALUES 
-('ALERT_001', 'TRIP_003', 'MILESTONE_002', 'HEALTH_CHECK_DUE', 'OPEN', N'Đến hạn kiểm tra y tế và đo sinh hiệu ngựa tại trạm dừng Đà Nẵng', N'["USER_012","USER_014"]', '2026-10-09 10:30:00'),
+('ALERT_001', 'TRIP_003', 'MILESTONE_002', 'HEALTH_CHECK_DUE', 'OPEN', N'Đến hạn kiểm tra y tế và đo sinh hiệu ngựa tại trạm dừng Đà Nẵng', N'["USER_015","USER_018"]', '2026-10-09 10:30:00'),
 ('ALERT_002', 'TRIP_001', 'MILESTONE_014', 'ETA_CHANGE',       'RESOLVED', N'Lịch bay KZ-102 đã được cập nhật, ETA mới: 2026-09-17 12:00', N'["USER_006"]', '2026-09-15 17:30:00');
 GO
 
@@ -2479,7 +2489,7 @@ GO
 DELETE FROM EXECUTION_CONTACT_LOG;
 INSERT INTO EXECUTION_CONTACT_LOG (ContactLogID, TripID, ContactedUserID, RecordedBy, ContactedAt, Channel, Result, RecordedAt)
 VALUES 
-('CONTACT_LOG_001', 'TRIP_003', 'USER_012', 'USER_006', '2026-10-08 19:00:00', 'PHONE', N'Tài xế thông báo xe đang dừng nghỉ ngơi đúng lịch trình, ngựa khỏe mạnh, kết nối 4G ổn định', '2026-10-08 19:05:00');
+('CONTACT_LOG_001', 'TRIP_003', 'USER_015', 'USER_006', '2026-10-08 19:00:00', 'PHONE', N'Tài xế thông báo xe đang dừng nghỉ ngơi đúng lịch trình, ngựa khỏe mạnh, kết nối 4G ổn định', '2026-10-08 19:05:00');
 GO
 
 -- 5.12. BẢNG EXECUTION_ATTACHMENT: METADATA CHỨNG TỪ & ẢNH HIỆN TRƯỜNG
@@ -2487,7 +2497,7 @@ DELETE FROM EXECUTION_ATTACHMENT;
 INSERT INTO EXECUTION_ATTACHMENT (FileID, TripID, HorseID, FileName, ContentType, FileSize, Purpose, StoragePath, UploadedBy, UploadedAtUtc)
 VALUES 
 ('ATTACHMENT_001', 'TRIP_001', 'HORSE_001', N'bien_ban_kiem_dich_noi_bai.pdf', 'application/pdf', 1048576, 'CHECKPOINT', N'/storage/flow4/trips/TRIP_001/bien_ban_kiem_dich_noi_bai.pdf', 'USER_005', '2026-09-15 15:05:00'),
-('ATTACHMENT_002', 'TRIP_003', 'HORSE_001', N'anh_ngua_kham_khoi_hanh.jpg',     'image/jpeg',      2097152, 'HEALTH',     N'/storage/flow4/trips/TRIP_003/anh_ngua_kham_khoi_hanh.jpg',     'USER_014', '2026-10-08 07:50:00');
+('ATTACHMENT_002', 'TRIP_003', 'HORSE_001', N'anh_ngua_kham_khoi_hanh.jpg',     'image/jpeg',      2097152, 'HEALTH',     N'/storage/flow4/trips/TRIP_003/anh_ngua_kham_khoi_hanh.jpg',     'USER_018', '2026-10-08 07:50:00');
 GO
 
 -- 5.13. BỔ SUNG NHẬT KÝ SỨC KHỎE SINH HIỆU LÂM SÀNG (HEALTH_LOG)
@@ -2495,6 +2505,6 @@ IF NOT EXISTS (SELECT 1 FROM HEALTH_LOG WHERE LogID = 'LOG_005')
 BEGIN
     INSERT INTO HEALTH_LOG (LogID, TripID, HorseID, EscortID, LogType, LogTime, Temperature, HeartRate, HealthStatus, Description, Condition, RespiratoryRatePerMin, Feeding, Water, RestStatus, CareNotes, LegType, RecordedAt)
     VALUES 
-    ('LOG_005', 'TRIP_003', 'HORSE_001', 'USER_014', 'OBSERVATION', '2026-10-08 07:30:00', 38.0, 38, N'Tốt', N'Khám sức khỏe tổng quát trước giờ xuất phát', 'NORMAL', 14, N'Ăn cỏ khô bình thường', N'Uống 15L nước', N'Nghỉ ngơi tốt', N'Ngựa sẵn sàng lên đường', 'road', '2026-10-08 07:35:00');
+    ('LOG_005', 'TRIP_003', 'HORSE_001', 'USER_018', 'OBSERVATION', '2026-10-08 07:30:00', 38.0, 38, N'Tốt', N'Khám sức khỏe tổng quát trước giờ xuất phát', 'NORMAL', 14, N'Ăn cỏ khô bình thường', N'Uống 15L nước', N'Nghỉ ngơi tốt', N'Ngựa sẵn sàng lên đường', 'road', '2026-10-08 07:35:00');
 END
 GO

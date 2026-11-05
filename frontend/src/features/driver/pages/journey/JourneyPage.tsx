@@ -6,12 +6,10 @@ import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadg
 import { RouteMap } from '../../components/RouteMap/RouteMap';
 import { DelayModal, MilestoneModal } from '../../components/Modals';
 import { useDriver } from '../../hooks/useDriver';
-import { getDemoMode } from '../../../../shared/context/DemoModeContext';
 import {
   CLEARANCE_LABEL,
   DELAY_LABEL,
   MILESTONE_LABEL,
-  cooldownLeft,
   delayPending,
   fmtDateTime,
   handoverReady,
@@ -23,28 +21,15 @@ import {
 import type { Trip } from '../../types';
 import './JourneyPage.css';
 
-/** Đếm ngược thời gian chờ giữa 2 mốc, tự làm mới mỗi giây */
-const useCooldown = (lastMs?: number) => {
-  const [, tick] = useState(0);
-  const left = cooldownLeft(lastMs);
-  useEffect(() => {
-    if (!left) return;
-    const id = setInterval(() => tick((x) => x + 1), 1000);
-    return () => clearInterval(id);
-  }, [left]);
-  return left;
-};
-
 // ---------------------------------------------------------------------------
 // Ô ghi nhận mốc tiếp theo – nằm cạnh bản đồ
 // ---------------------------------------------------------------------------
 const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
   const navigate = useNavigate();
-  const { lastRecordedMs, actions } = useDriver();
+  const { actions, isEscort } = useDriver();
   const [msOpen, setMsOpen] = useState(false);
   const [delayOpen, setDelayOpen] = useState(false);
   const n = nextMilestone(trip);
-  const wait = useCooldown(lastRecordedMs[trip.id]);
   const delayed = delayPending(trip);
 
   return (
@@ -52,7 +37,7 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
       <h3 className="drv-card__title">Ghi nhận mốc tiếp theo</h3>
       <p className="drv-subtitle" style={{ marginTop: -6 }}>Ghi nhận từng sự kiện khi thực tế xảy ra. Cập nhật thủ công, không có GPS trực tiếp.</p>
 
-      {trip.status === 'READY_TO_DEPART' && !trip.milestones.length && (
+      {!isEscort && trip.status === 'READY_TO_DEPART' && !trip.milestones.length && (
         <>
           <div className="drv-note drv-note--grey">
             <Icon name="clock" />
@@ -62,15 +47,14 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
         </>
       )}
 
-      {n ? (
+      {isEscort ? (
+        <div className="drv-note drv-note--grey"><Icon name="check" /><div><b>Bác sĩ thú y không ghi mốc hành trình</b>Mốc hành trình do tài xế cập nhật. Bạn ghi nhật ký sức khỏe ngựa ở mục Chuyến đi, thẻ Sức khỏe.</div></div>
+      ) : n ? (
         <>
           <button type="button" className="drv-btn drv-btn--solid drv-btn--lg drv-btn--block drv-journey__record"
-            disabled={!!n.blocked || !!wait || (n.type === 'DEPARTED' && delayed)} onClick={() => setMsOpen(true)}>
+            disabled={!!n.blocked || (n.type === 'DEPARTED' && delayed)} onClick={() => setMsOpen(true)}>
             {milestoneText(trip, n)}
           </button>
-          {!n.blocked && wait > 0 && (
-            <div className="drv-note drv-note--grey"><Icon name="clock" /><div><b>Vừa ghi nhận một mốc</b>Có thể ghi mốc tiếp theo sau {wait} giây, để tránh bấm nhầm liên tiếp.</div></div>
-          )}
           {n.blocked && (
             <>
               <div className="drv-note drv-note--yellow">
@@ -87,7 +71,7 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
             </>
           )}
         </>
-      ) : (handoverReady(trip) || !getDemoMode('driver')) ? (
+      ) : handoverReady(trip) ? (
         <>
           <div className="drv-note drv-note--blue"><Icon name="check" /><div><b>Bàn giao ngựa (Flow 6)</b>Kiểm tra vi mạch, tạo biên bản và xác thực OTP.</div></div>
           <button type="button" className="drv-btn drv-btn--solid drv-btn--lg drv-btn--block" style={{ marginTop: 10 }} onClick={() => navigate(`/driver/trips/${trip.id}/handover`)}>Bắt đầu bàn giao (Flow 6)</button>
@@ -163,6 +147,8 @@ const Journey: React.FC<{ trip: Trip }> = ({ trip }) => {
           <button
             type="button"
             className="drv-btn drv-btn--solid"
+            disabled={!handoverReady(trip)}
+            title={handoverReady(trip) ? undefined : 'Chỉ mở khi đã đến mốc cuối cùng (điểm giao)'}
             onClick={() => navigate(`/driver/trips/${trip.id}/handover`)}
           >
             Thủ tục bàn giao (Flow 6) →
@@ -210,7 +196,6 @@ const Journey: React.FC<{ trip: Trip }> = ({ trip }) => {
         <div className="drv-btn-row" style={{ marginTop: 0 }}>
           <button type="button" className="drv-btn drv-btn--sm" disabled={!n?.blocked} onClick={() => actions.demoClearance(trip.id)}>Demo: Specialist ghi thông quan đạt</button>
           <button type="button" className="drv-btn drv-btn--sm" disabled={!delayPending(trip)} onClick={() => actions.demoApproveDelay(trip.id)}>Demo: Manager duyệt lịch khởi hành mới</button>
-          <button type="button" className="drv-btn drv-btn--sm" onClick={() => actions.demoFastForward()}>Demo: bỏ qua thời gian chờ giữa 2 mốc</button>
         </div>
       </div>
     </div>
@@ -247,7 +232,7 @@ export const JourneyPage: React.FC = () => {
       </div>
       {activeTrips.length ? activeTrips.map((t) => (
         <TripHero key={t.id} trip={t} actions={<>
-          <button type="button" className="drv-btn drv-btn--solid drv-btn--lg" onClick={() => navigate(`/driver/trips/${t.id}/handover`)}>Thủ tục bàn giao (Flow 6)</button>
+          <button type="button" className="drv-btn drv-btn--solid drv-btn--lg" disabled={!handoverReady(t)} title={handoverReady(t) ? undefined : 'Chỉ mở khi đã đến mốc cuối cùng (điểm giao)'} onClick={() => navigate(`/driver/trips/${t.id}/handover`)}>Thủ tục bàn giao (Flow 6)</button>
           <button type="button" className="drv-btn drv-btn--lg" onClick={() => navigate(`/driver/trips/${t.id}`)}>Chuyến đi</button>
         </>} />
       )) : (

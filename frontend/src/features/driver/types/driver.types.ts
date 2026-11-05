@@ -253,6 +253,8 @@ export interface RecordMilestoneRequestDto {
 }
 
 export interface HealthLogRequestDto {
+  /** Mốc hành trình (Flow 4) mà nhật ký này phục vụ: trạm dừng chỉ hoàn tất được khi đã có nhật ký sức khỏe của mốc đó */
+  milestoneId?: string;
   horseId: string;
   at: string;
   temp: number;

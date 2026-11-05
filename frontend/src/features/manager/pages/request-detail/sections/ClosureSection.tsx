@@ -172,8 +172,12 @@ const MockClosureSection: React.FC<{ request: TransportRequest }> = ({ request: 
 
 /** Mục 3: Bàn giao, tất toán và đóng đơn (CHẾ ĐỘ BACKEND FLOW 6 THỰC TẾ) */
 const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
-  const { tripFor } = useManager();
+  const { tripFor, actions } = useManager();
+  const notify = (message: string) => actions.showToast(message);
   const t = tripFor(r.id);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [refundTarget, setRefundTarget] = useState('');
+  const [refundRef, setRefundRef] = useState('');
   const [loading, setLoading] = useState(true);
   const [settlement, setSettlement] = useState<T6.Settlement | null>(null);
   const [balance, setBalance] = useState<T6.Balance | null>(null);
@@ -194,10 +198,12 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
   const [resolutionText, setResolutionText] = useState('');
 
   const [reviewPaymentId, setReviewPaymentId] = useState('');
+  // true: xác nhận thủ công giao dịch đang chờ VNPay; false: duyệt đối soát giao dịch đã thành công
+  const [confirmMode, setConfirmMode] = useState(false);
   const [reviewReason, setReviewReason] = useState('');
 
-  const loadFlow6Data = async () => {
-    setLoading(true);
+  const loadFlow6Data = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const list = await flow6Api.getManagerSettlements();
       const s = list.find((x) => (t?.id && x.tripId === t.id) || (r.contractId && x.contractId === r.contractId));
@@ -237,6 +243,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
 
   useEffect(() => {
     void loadFlow6Data();
+    // Tự làm mới để thấy thanh toán của khách mà không cần tải lại trang
+    const timer = setInterval(() => { void loadFlow6Data(true); }, 10000);
+    return () => clearInterval(timer);
   }, [r.id, t?.id]);
 
   // F6-J15: Chuẩn bị tất toán DRAFT
@@ -248,9 +257,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       const s = await flow6Api.prepareSettlement(t.id, key);
       setSettlement(s);
       await loadFlow6Data();
-      alert('Đã chuẩn bị hồ sơ tất toán DRAFT!');
+      notify('Đã chuẩn bị hồ sơ tất toán DRAFT!');
     } catch (err: any) {
-      alert(`Không thể tạo hồ sơ tất toán: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không thể tạo hồ sơ tất toán: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmitting(false);
     }
@@ -261,11 +270,11 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
     e.preventDefault();
     if (!settlement) return;
     if (adjAmount <= 0) {
-      alert('Số tiền điều chỉnh phải lớn hơn 0.');
+      notify('Số tiền điều chỉnh phải lớn hơn 0.');
       return;
     }
     if (adjReason.trim().length < 5) {
-      alert('Lý do điều chỉnh phải từ 5 ký tự trở lên.');
+      notify('Lý do điều chỉnh phải từ 5 ký tự trở lên.');
       return;
     }
     setSubmitting(true);
@@ -285,9 +294,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       setAdjAmount(0);
       setAdjReason('');
       await loadFlow6Data();
-      alert('Đã thêm khoản điều chỉnh chi phí thành công!');
+      notify('Đã thêm khoản điều chỉnh chi phí thành công!');
     } catch (err: any) {
-      alert(`Không thể thêm điều chỉnh: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không thể thêm điều chỉnh: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmitting(false);
     }
@@ -302,9 +311,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       const dueAtUtc = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
       await flow6Api.issueFinalInvoice(settlement.id, { dueAtUtc }, key);
       await loadFlow6Data();
-      alert('Đã phát hành hóa đơn cuối (Final Invoice) thành công!');
+      notify('Đã phát hành hóa đơn cuối thành công!');
     } catch (err: any) {
-      alert(`Không thể phát hành hóa đơn: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không thể phát hành hóa đơn: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmitting(false);
     }
@@ -318,9 +327,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       const key = generateUuidV4();
       await flow6Api.settleSettlement(settlement.id, key);
       await loadFlow6Data();
-      alert('Nghiệm thu và tất toán thành công! Trạng thái hồ sơ chuyển sang SETTLED, mở thời hạn phản hồi.');
+      notify('Nghiệm thu và tất toán thành công! Trạng thái hồ sơ chuyển sang Đã tất toán, mở thời hạn phản hồi.');
     } catch (err: any) {
-      alert(`Không thể tất toán: ${err?.message || 'Biên bản chưa CONFIRMED hoặc chưa thanh toán đủ tiền'}`);
+      notify(`Không thể tất toán: ${err?.message || 'Biên bản chưa CONFIRMED hoặc chưa thanh toán đủ tiền'}`);
     } finally {
       setSubmitting(false);
     }
@@ -334,9 +343,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       const key = generateUuidV4();
       await flow6Api.restartFeedbackWindow(settlement.id, key);
       await loadFlow6Data();
-      alert('Đã khởi động lại thời hạn phản hồi 24 giờ sau khi giải quyết khiếu nại!');
+      notify('Đã khởi động lại thời hạn phản hồi 24 giờ sau khi giải quyết khiếu nại!');
     } catch (err: any) {
-      alert(`Không thể khởi động lại hạn phản hồi: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không thể khởi động lại hạn phản hồi: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmitting(false);
     }
@@ -345,15 +354,15 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
   // F6-J37: Đóng hồ sơ tất toán (Cho phép đóng sớm allowEarlyClose theo backend)
   const handleCloseSettlement = async () => {
     if (!settlement) return;
-    if (!window.confirm('Xác nhận đóng hồ sơ tất toán này? Yêu cầu và hợp đồng sẽ chuyển sang CLOSED.')) return;
+    setConfirmCloseOpen(false);
     setSubmitting(true);
     try {
       const key = generateUuidV4();
       await flow6Api.closeSettlement(settlement.id, key);
       await loadFlow6Data();
-      alert('Hồ sơ tất toán, Yêu cầu và Hợp đồng đã được đóng hoàn tất (CLOSED)!');
+      notify('Hồ sơ tất toán, Yêu cầu và Hợp đồng đã được đóng hoàn tất !');
     } catch (err: any) {
-      alert(`Không thể đóng hồ sơ: ${err?.message || 'Còn khiếu nại chưa xử lý hoặc nghĩa vụ tiền chưa thanh toán'}`);
+      notify(`Không thể đóng hồ sơ: ${err?.message || 'Còn khiếu nại chưa xử lý hoặc nghĩa vụ tiền chưa thanh toán'}`);
     } finally {
       setSubmitting(false);
     }
@@ -367,7 +376,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       await flow6Api.startCaseProcessing(caseId, key);
       await loadFlow6Data();
     } catch (err: any) {
-      alert(`Lỗi: ${err?.message}`);
+      notify(`Lỗi: ${err?.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -377,7 +386,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
     e.preventDefault();
     if (!activeCase) return;
     if (resolutionText.trim().length < 5) {
-      alert('Nhập phương án giải quyết (ít nhất 5 ký tự).');
+      notify('Nhập phương án giải quyết (ít nhất 5 ký tự).');
       return;
     }
     setSubmitting(true);
@@ -387,9 +396,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       setActiveCase(null);
       setResolutionText('');
       await loadFlow6Data();
-      alert('Đã ghi nhận giải quyết khiếu nại thành công!');
+      notify('Đã ghi nhận giải quyết khiếu nại thành công!');
     } catch (err: any) {
-      alert(`Lỗi: ${err?.message}`);
+      notify(`Lỗi: ${err?.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -402,9 +411,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       const key = generateUuidV4();
       await flow6Api.startRefundProcessing(adjustmentId, key);
       await loadFlow6Data();
-      alert('Đã bắt đầu xử lý hoàn tiền (F6-J27)!');
+      notify('Đã bắt đầu xử lý hoàn tiền!');
     } catch (err: any) {
-      alert(`Lỗi: ${err?.message}`);
+      notify(`Lỗi: ${err?.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -412,17 +421,19 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
 
   // F6-J28: Hoàn tất hoàn tiền
   const handleCompleteRefund = async (adjustmentId: string) => {
-    const ref = window.prompt('Nhập mã giao dịch / ủy nhiệm chi hoàn tiền (ít nhất 5 ký tự):');
-    if (!ref || ref.trim().length < 5) return;
+    const ref = refundRef;
+    if (ref.trim().length < 5) return;
+    setRefundTarget('');
+    setRefundRef('');
     setSubmitting(true);
     try {
       const key = generateUuidV4();
       const nowUtc = new Date().toISOString();
       await flow6Api.completeRefund(adjustmentId, { reference: ref.trim(), refundedAtUtc: nowUtc }, key);
       await loadFlow6Data();
-      alert('Đã xác nhận hoàn tiền thành công (F6-J28)!');
+      notify('Đã xác nhận hoàn tiền thành công!');
     } catch (err: any) {
-      alert(`Lỗi: ${err?.message}`);
+      notify(`Lỗi: ${err?.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -433,18 +444,20 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
     e.preventDefault();
     if (!reviewPaymentId) return;
     if (reviewReason.trim().length < 5) {
-      alert('Nhập lý do đối soát (ít nhất 5 ký tự).');
+      notify('Nhập lý do đối soát (ít nhất 5 ký tự).');
       return;
     }
     setSubmitting(true);
     try {
-      await flow6Api.reviewPayment(reviewPaymentId, { reason: reviewReason.trim() });
+      if (confirmMode) await flow6Api.confirmPayment(reviewPaymentId, { reason: reviewReason.trim() });
+      else await flow6Api.reviewPayment(reviewPaymentId, { reason: reviewReason.trim() });
       setReviewPaymentId('');
       setReviewReason('');
+      setConfirmMode(false);
       await loadFlow6Data();
-      alert('Đã duyệt đối soát thanh toán thành công!');
+      notify(confirmMode ? 'Đã xác nhận thanh toán. Khoản này cần đối soát sao kê sau.' : 'Đã duyệt đối soát thanh toán thành công!');
     } catch (err: any) {
-      alert(`Lỗi đối soát: ${err?.message}`);
+      notify(`Lỗi đối soát: ${err?.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -462,7 +475,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert(`Không tải được tệp PDF: ${err?.message}`);
+      notify(`Không tải được tệp PDF: ${err?.message}`);
     }
   };
 
@@ -576,7 +589,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
               {/* Danh sách điều chỉnh cước phí */}
               {adjustments.length > 0 && (
                 <div style={{ marginTop: 14 }}>
-                  <b>Các khoản điều chỉnh chi phí (F6-J20):</b>
+                  <b>Các khoản điều chỉnh chi phí:</b>
                   {adjustments.map((adj) => (
                     <div key={adj.id} className="mgr-row" style={{ marginTop: 6, alignItems: 'center' }}>
                       <div style={{ flex: 1 }}>
@@ -600,7 +613,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
                             disabled={submitting}
                             onClick={() => handleStartRefund(adj.id)}
                           >
-                            Bắt đầu hoàn tiền (F6-J27)
+                            Bắt đầu hoàn tiền
                           </button>
                         )}
                         {adj.type === 'REFUND' && adj.refundStatus === 'PROCESSING' && (
@@ -608,9 +621,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
                             type="button"
                             className="mgr-btn mgr-btn--sm mgr-btn--solid"
                             disabled={submitting}
-                            onClick={() => handleCompleteRefund(adj.id)}
+                            onClick={() => { setRefundRef(''); setRefundTarget(adj.id); }}
                           >
-                            Xác nhận hoàn tiền (F6-J28)
+                            Xác nhận hoàn tiền
                           </button>
                         )}
                       </div>
@@ -658,15 +671,24 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
                     <div key={p.id} className="mgr-row" style={{ marginTop: 6 }}>
                       <div>
                         <b>{p.id} • {fmtMoney(p.amountVnd)}</b>
-                        <span>Trạng thái: {p.status}</span>
+                        <span>Trạng thái: {p.status === 'PENDING_GATEWAY' ? 'Chờ VNPay báo kết quả' : p.status}</span>
                       </div>
-                      {p.financialReviewRequired ? (
+                      {p.status === 'PENDING_GATEWAY' ? (
                         <button
                           type="button"
                           className="mgr-btn mgr-btn--sm mgr-btn--solid"
-                          onClick={() => setReviewPaymentId(p.id)}
+                          title="Dùng khi khách đã thanh toán trên cổng VNPay nhưng hệ thống chưa nhận được kết quả"
+                          onClick={() => { setConfirmMode(true); setReviewPaymentId(p.id); }}
                         >
-                          Duyệt đối soát (F6-J48)
+                          Xác nhận thủ công
+                        </button>
+                      ) : p.financialReviewRequired ? (
+                        <button
+                          type="button"
+                          className="mgr-btn mgr-btn--sm mgr-btn--solid"
+                          onClick={() => { setConfirmMode(false); setReviewPaymentId(p.id); }}
+                        >
+                          Duyệt đối soát
                         </button>
                       ) : (
                         <StatusBadge tone={p.status === 'SUCCESS' ? 'ok' : 'warn'} label={p.status} />
@@ -775,7 +797,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
                     }
                     onClick={handleSettle}
                   >
-                    Nghiệm thu & Tất toán hợp đồng (F6-J26)
+                    Nghiệm thu & Tất toán hợp đồng
                   </button>
                 </div>
               )}
@@ -791,9 +813,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
                     className="mgr-btn mgr-btn--solid mgr-btn--block"
                     disabled={submitting || openCases.length > 0}
                     title={openCases.length > 0 ? 'Vẫn còn khiếu nại đang mở' : ''}
-                    onClick={handleCloseSettlement}
+                    onClick={() => setConfirmCloseOpen(true)}
                   >
-                    Đóng hồ sơ tất toán (F6-J37)
+                    Đóng hồ sơ tất toán
                   </button>
                 </div>
               )}
@@ -824,7 +846,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
       {showAdjModal && (
         <div className="mgr-modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 8, padding: 20, width: 440, maxWidth: '90%' }}>
-            <h3 style={{ margin: '0 0 12px' }}>Thêm điều chỉnh chi phí (F6-J19)</h3>
+            <h3 style={{ margin: '0 0 12px' }}>Thêm điều chỉnh chi phí</h3>
             <form onSubmit={handleCreateAdjustment} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
                 <label style={{ display: 'block', fontWeight: 600, marginBottom: 4 }}>Loại điều chỉnh:</label>
@@ -883,7 +905,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
             <form onSubmit={handleResolveCase} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <p><b>Tiêu đề:</b> {activeCase.subject}</p>
               <div>
-                <label style={{ display: 'block', fontWeight: 600, marginBottom: 4 }}>Phương án giải quyết (F6-J33) *:</label>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 4 }}>Phương án giải quyết *:</label>
                 <textarea
                   className="mgr-input"
                   rows={3}
@@ -906,14 +928,38 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
         </div>
       )}
 
-      {/* Modal duyệt đối soát thanh toán (F6-J48) */}
+      <Modal
+        open={confirmCloseOpen}
+        title="Đóng hồ sơ tất toán"
+        okText="Đóng hồ sơ"
+        onClose={() => setConfirmCloseOpen(false)}
+        onOk={handleCloseSettlement}
+      >
+        <p>Sau khi đóng, yêu cầu và hợp đồng chuyển sang <b>Đã đóng</b> và không thể chỉnh sửa.</p>
+      </Modal>
+      <Modal
+        open={!!refundTarget}
+        title="Xác nhận đã hoàn tiền"
+        okText="Xác nhận"
+        okDisabled={refundRef.trim().length < 5}
+        onClose={() => setRefundTarget('')}
+        onOk={() => handleCompleteRefund(refundTarget)}
+      >
+        <div className="mgr-field">
+          <label htmlFor="refund-ref">Mã giao dịch / ủy nhiệm chi *</label>
+          <input id="refund-ref" type="text" className="mgr-input" value={refundRef} onChange={(e) => setRefundRef(e.target.value)} />
+        </div>
+        <p className="mgr-hint">Nhập ít nhất 5 ký tự.</p>
+      </Modal>
+
+      {/* Modal duyệt đối soát thanh toán */}
       {reviewPaymentId && (
         <div className="mgr-modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 8, padding: 20, width: 440, maxWidth: '90%' }}>
-            <h3 style={{ margin: '0 0 12px' }}>Duyệt đối soát thanh toán {reviewPaymentId} (F6-J48)</h3>
+            <h3 style={{ margin: '0 0 12px' }}>{confirmMode ? 'Xác nhận thủ công thanh toán' : 'Duyệt đối soát thanh toán'} {reviewPaymentId}</h3>
             <form onSubmit={handleReviewPayment} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label style={{ display: 'block', fontWeight: 600, marginBottom: 4 }}>Lý do duyệt đối soát *:</label>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 4 }}>{confirmMode ? 'Lý do xác nhận *:' : 'Lý do duyệt đối soát *:'}</label>
                 <input
                   type="text"
                   className="mgr-input"
@@ -924,11 +970,11 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
                 />
               </div>
               <div className="mgr-btn-row" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
-                <button type="button" className="mgr-btn" onClick={() => setReviewPaymentId('')}>
-                  Hủy
+                <button type="button" className="mgr-btn" onClick={() => { setReviewPaymentId(''); setConfirmMode(false); }}>
+                  Đóng
                 </button>
                 <button type="submit" className="mgr-btn mgr-btn--solid" disabled={submitting}>
-                  {submitting ? 'Đang duyệt...' : 'Xác nhận duyệt'}
+                  {submitting ? 'Đang xử lý...' : confirmMode ? 'Xác nhận đã thanh toán' : 'Xác nhận duyệt'}
                 </button>
               </div>
             </form>

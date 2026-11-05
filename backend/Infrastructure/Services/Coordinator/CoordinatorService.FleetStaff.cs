@@ -229,7 +229,7 @@ namespace Infrastructure.Services
         {
             var query = _context.Users
                 .Include(u => u.StaffDocuments)
-                .Where(u => u.Role == "Driver" || u.Role == "Escort" || u.Role == "Specialist" || u.Role == "STAFF");
+                .Where(u => u.Role == "Driver" || u.Role == "Escort" || u.Role == "Specialist" || u.Role == "STAFF" || u.Role == "DRIVER_ESCORT" || u.Role == "TRANSPORT_SPECIALIST");
 
             if (!string.IsNullOrWhiteSpace(role))
             {
@@ -261,8 +261,12 @@ namespace Infrastructure.Services
                     canDrive.Add(defaultCountry);
                 }
 
-                bool isDriverUser = u.Role.Equals("Driver", StringComparison.OrdinalIgnoreCase) || u.UserId.Contains("DRV", StringComparison.OrdinalIgnoreCase);
-                bool isVetUser = u.Role.Equals("Escort", StringComparison.OrdinalIgnoreCase) || u.UserId.Contains("ESC", StringComparison.OrdinalIgnoreCase) || u.UserId.Contains("VET", StringComparison.OrdinalIgnoreCase);
+                bool isDriverUser = u.Role.Equals("Driver", StringComparison.OrdinalIgnoreCase) ||
+                    u.UserId.Contains("DRV", StringComparison.OrdinalIgnoreCase) ||
+                    (u.Role.Equals("DRIVER_ESCORT", StringComparison.OrdinalIgnoreCase) && (u.Username?.StartsWith("driver") == true || u.FullName.Contains("Tài xế") || u.FullName.Contains("Phụ lái") || u.StaffDocuments.Any(d => d.DocType == "DRIVING_LICENSE")));
+                bool isVetUser = u.Role.Equals("Escort", StringComparison.OrdinalIgnoreCase) ||
+                    u.UserId.Contains("ESC", StringComparison.OrdinalIgnoreCase) || u.UserId.Contains("VET", StringComparison.OrdinalIgnoreCase) ||
+                    (u.Role.Equals("DRIVER_ESCORT", StringComparison.OrdinalIgnoreCase) && (u.Username?.StartsWith("escort") == true || u.FullName.Contains("Bác sĩ") || u.FullName.Contains("BS.") || u.FullName.Contains("Dr.") || u.StaffDocuments.Any(d => d.DocType == "VET_CERTIFICATE")));
 
                 string licenseClass = isDriverUser
                     ? (isJp ? "Heavy Type 1" : "FC")
@@ -340,8 +344,8 @@ namespace Infrastructure.Services
             {
                 bool isJp = s.CanDriveCountries.Contains("JP") || s.UserId.Contains("_JP_");
                 string country = isJp ? "JP" : "VN";
-                bool isDrv = s.Role.Equals("Driver", StringComparison.OrdinalIgnoreCase) || s.UserId.Contains("DRV", StringComparison.OrdinalIgnoreCase);
-                bool isVet = s.Role.Equals("Escort", StringComparison.OrdinalIgnoreCase) || s.UserId.Contains("ESC", StringComparison.OrdinalIgnoreCase) || s.UserId.Contains("VET", StringComparison.OrdinalIgnoreCase);
+                bool isDrv = s.Role.Equals("Driver", StringComparison.OrdinalIgnoreCase) || s.UserId.Contains("DRV", StringComparison.OrdinalIgnoreCase) || s.LicenseClass.Contains("FC") || s.LicenseClass.Contains("Heavy");
+                bool isVet = s.Role.Equals("Escort", StringComparison.OrdinalIgnoreCase) || s.UserId.Contains("ESC", StringComparison.OrdinalIgnoreCase) || s.UserId.Contains("VET", StringComparison.OrdinalIgnoreCase) || s.LicenseClass.Contains("FEI");
                 string pos = isDrv ? "DRIVER" :
                              (isVet ? "VETERINARIAN" :
                              (s.Role.Equals("Specialist", StringComparison.OrdinalIgnoreCase) ? "SPECIALIST" : "ESCORT"));

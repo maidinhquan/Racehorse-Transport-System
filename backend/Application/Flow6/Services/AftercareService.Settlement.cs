@@ -27,7 +27,9 @@ public sealed partial class AftercareService
         var final=payments.Where(x=>S(x,"InvoiceID")==S(s,"finalInvoiceId") && S(x,"Status")=="SUCCESS" && S(x,"Method")=="VNPAY" && S(x,"CurrencyCode")=="VND").Sum(x=>N(x,"Amount"));
         var adjusted=price+N(sums,"charges")-N(sums,"discounts");Money(adjusted);
         var due=Money(Math.Max(0,adjusted-deposit));
-        return J(new{signedPriceVnd=price,chargesVnd=Money(N(sums,"charges")),discountsVnd=Money(N(sums,"discounts")),depositPaidVnd=Money(deposit),finalDueVnd=due,finalPaidVnd=Money(final),remainingVnd=Math.Max(0,due-final),financialReviewRequired=payments.Any(x=>B(x,"FinancialReviewRequired"))||adjusted<deposit||final>due});
+        // Khoản thu thừa đã được hoàn tiền xong (REFUND COMPLETED) thì không còn cần đối soát.
+        var refunded=Money(N(await One("SELECT COALESCE(SUM(Amount),0) amount FROM SETTLEMENT_ADJUSTMENT WHERE SettlementID=@s AND AdjustmentType='REFUND' AND RefundStatus='COMPLETED'",ct,("@s",S(s,"id"))),"amount"));
+        return J(new{signedPriceVnd=price,chargesVnd=Money(N(sums,"charges")),discountsVnd=Money(N(sums,"discounts")),depositPaidVnd=Money(deposit),finalDueVnd=due,finalPaidVnd=Money(final),remainingVnd=Math.Max(0,due-final),financialReviewRequired=payments.Any(x=>B(x,"FinancialReviewRequired"))||adjusted<deposit||final-refunded>due});
     }
     private const string AdjustmentSql="SELECT AdjustmentID id,SettlementID settlementId,AdjustmentType type,Amount amountVnd,Reason reason,DecisionReason decisionReason,IncidentID incidentId,CostItemID costItemId,OriginalInvoiceID originalInvoiceId,AdjustedInvoiceID adjustedInvoiceId,RefundStatus refundStatus,DecidedAtUtc decidedAtUtc FROM SETTLEMENT_ADJUSTMENT";
     private const string CaseSql="SELECT CaseID id,SettlementID settlementId,CaseType type,Subject subject,Description description,Status status,ResolutionText resolution,OpenedAtUtc openedAtUtc,ResolvedAtUtc resolvedAtUtc FROM CUSTOMER_CASE";
@@ -66,7 +68,7 @@ public sealed partial class AftercareService
             }
             case "F6-J15":return await Prepare(id,actor,ct);
             case "F6-J13":case "F6-J16":return await Settlement(id,ct);
-            case "F6-J17":case "F6-J18":return await Balance(await Settlement(id,ct),ct);
+            case "F6-J17":case "F6-J18":await ReconcileSettlement(id,ct);return await Balance(await Settlement(id,ct),ct);
             case "F6-J20":case "F6-J21":return A(await Q(AdjustmentSql+" WHERE SettlementID=@s ORDER BY CreatedAtUtc,AdjustmentID",ct,("@s",id)));
             case "F6-J19":return await AddAdjustment(id,actor,body!,ct);
             case "F6-J22":return await CreateInvoice(id,body!,ct);
@@ -153,7 +155,7 @@ public sealed partial class AftercareService
             }
             case "F6-J41":case "F6-J42":case "F6-J46":case "F6-J47":
             {var s=await Settlement(id,ct);Require(S(s,"handoverRevisionId") is not null,"NOT_FOUND","Confirmed delivery not found.",404);var r=await Revision(S(s,"handoverRevisionId")!,ct);return op is "F6-J46" or "F6-J47"?renderer.Render(r):r;}
-            case "F6-J44":return A(await Q(PaymentSql+" WHERE InvoiceID IN(SELECT i.InvoiceID FROM INVOICE i JOIN TRIP_SETTLEMENT s ON s.ContractID=i.ContractID AND s.ContractVersionNo=i.ContractVersionNo WHERE s.SettlementID=@s)",ct,("@s",id)));
+            case "F6-J44":await ReconcileSettlement(id,ct);return A(await Q(PaymentSql+" WHERE InvoiceID IN(SELECT i.InvoiceID FROM INVOICE i JOIN TRIP_SETTLEMENT s ON s.ContractID=i.ContractID AND s.ContractVersionNo=i.ContractVersionNo WHERE s.SettlementID=@s)",ct,("@s",id)));
             case "F6-J45":return renderer.Render(await Revision(id,ct));
             case "F6-J48":
             {
@@ -162,6 +164,21 @@ public sealed partial class AftercareService
                 Require(B(p,"financialReviewRequired"),"INVALID_STATE","Payment does not require financial review.");
                 var reason=S(body!,"reason")!;
                 await E("UPDATE PAYMENT SET FinancialReviewRequired=0,FinancialReviewReason=@r,FinancialReviewedBy=@a,FinancialReviewedAtUtc=@now WHERE PaymentID=@id",ct,("@r",reason),("@a",actor),("@now",Now),("@id",id));
+                return await One(PaymentSql+" WHERE PaymentID=@id",ct,("@id",id));
+            }
+            case "F6-J49":
+            {
+                // Manager xác nhận thủ công khi VNPay chưa báo kết quả (IPN không về): ghi SUCCESS và giữ cờ đối soát để duyệt lại bằng F6-J48
+                var reason=(S(body!,"reason")??"").Trim();
+                Require(reason.Length is >=5 and <=900,"VALIDATION_ERROR","Enter a confirmation reason of 5 to 900 characters.",400);
+                var raw=await One("SELECT * FROM PAYMENT WHERE PaymentID=@id",ct,("@id",id));
+                Require(S(raw,"Status")=="PENDING_GATEWAY","INVALID_STATE","Only payments waiting for VNPay can be confirmed manually.");
+                var invoiceId=S(raw,"InvoiceID")!;
+                try { await ReconcilePending(ct,invoiceId); } catch (Exception e) when (e is not OperationCanceledException) { }
+                if(S(await One("SELECT Status FROM PAYMENT WHERE PaymentID=@id",ct,("@id",id)),"Status")!="PENDING_GATEWAY")return await One(PaymentSql+" WHERE PaymentID=@id",ct,("@id",id));
+                var note="Manual confirmation by Manager (VNPAY did not report): "+reason;
+                await E("UPDATE PAYMENT SET Status='SUCCESS',TransactionCode=@tx,VnpayResponseCode='00',VnpayTransactionStatus='00',VnpayReceivedAmount=Amount,PaymentDate=@now,ConfirmedByUserID=@a,FinancialReviewRequired=1,FinancialReviewReason=@r WHERE PaymentID=@id AND Status='PENDING_GATEWAY'",ct,("@tx","MANUAL_"+id),("@now",Now),("@a",actor),("@r",note.Length>1000?note[..1000]:note),("@id",id));
+                await E("UPDATE i SET PaidAmount=x.paid,PaymentStatus=CASE WHEN x.paid>=i.TotalPayableAmount THEN 'PAID' WHEN x.paid>0 THEN 'PARTIALLY_PAID' ELSE 'UNPAID' END FROM INVOICE i CROSS APPLY(SELECT COALESCE(SUM(Amount),0) paid FROM PAYMENT WHERE InvoiceID=i.InvoiceID AND Status='SUCCESS' AND Method='VNPAY') x WHERE i.InvoiceID=@i",ct,("@i",invoiceId));
                 return await One(PaymentSql+" WHERE PaymentID=@id",ct,("@id",id));
             }
             default:throw new AftercareException("FEATURE_NOT_SUPPORTED","Unknown Flow 6 operation.",501);

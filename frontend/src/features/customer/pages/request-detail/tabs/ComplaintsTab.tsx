@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { ComplaintStatus, TransportRequest } from '../../../types';
+import { useCustomer } from '../../../hooks/useCustomer';
 import { canComplain, fmtDateTime } from '../../../hooks/customerRules';
 import { COMPLAINT_TYPE_LABEL, ComplaintModal } from '../../../components/Modals';
 import { TripStatusBadge, type BadgeTone } from '../../../components/TripStatusBadge/TripStatusBadge';
@@ -56,6 +57,8 @@ const MockComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
 
 /** Tab Khiếu nại & Hỗ trợ (CHẾ ĐỘ BACKEND FLOW 6 THỰC TẾ) */
 const RealComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
+  const { actions: customerActions } = useCustomer();
+  const notify = (message: string) => customerActions.showToast(message);
   const [loading, setLoading] = useState(true);
   const [settlement, setSettlement] = useState<T6.Settlement | null>(null);
   const [cases, setCases] = useState<Array<T6.Case>>([]);
@@ -94,11 +97,11 @@ const RealComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
     e.preventDefault();
     if (!settlement) return;
     if (subject.trim().length < 5) {
-      alert('Tiêu đề phải từ 5 ký tự trở lên.');
+      notify('Tiêu đề phải từ 5 ký tự trở lên.');
       return;
     }
     if (description.trim().length < 10) {
-      alert('Nội dung mô tả phải từ 10 ký tự trở lên.');
+      notify('Nội dung mô tả phải từ 10 ký tự trở lên.');
       return;
     }
 
@@ -118,9 +121,9 @@ const RealComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
       setDescription('');
       setShowCreate(false);
       await loadCases();
-      alert(`Đã gửi ${defaultType === 'COMPLAINT' ? 'khiếu nại' : 'yêu cầu hỗ trợ'} thành công! Quản lý sẽ sớm phản hồi.`);
+      notify(`Đã gửi ${defaultType === 'COMPLAINT' ? 'khiếu nại' : 'yêu cầu hỗ trợ'} thành công! Quản lý sẽ sớm phản hồi.`);
     } catch (err: any) {
-      alert(`Không thể gửi phiếu: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không thể gửi phiếu: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmitting(false);
     }

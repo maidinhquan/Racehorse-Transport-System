@@ -10,9 +10,6 @@ export const DEMO_TODAY = '2026-10-04';
 export const DRIVER_USERS = ['EMP-21', 'EMP-31', 'EMP-25', 'EMP-24'];
 export const DEFAULT_DRIVER_USER = 'EMP-21';
 
-/** Thời gian chờ giữa 2 lần ghi mốc (giây) – tránh bấm nhầm liên tiếp */
-export const MS_COOLDOWN_SEC = 60;
-
 export const mockCrew: CrewMember[] = [
   { id: 'EMP-21', name: 'Nguyen Van Hung', role: 'DRIVER', phone: '+84 90 5551 0021' },
   { id: 'EMP-22', name: 'Le Quoc Tuan', role: 'DRIVER', phone: '+84 90 5551 0022' },
@@ -22,6 +19,9 @@ export const mockCrew: CrewMember[] = [
   { id: 'EMP-33', name: 'Vo Thi Mai', role: 'ESCORT', phone: '+84 90 5551 0033' },
   { id: 'EMP-31', name: 'Dr. Nguyen Minh Anh', role: 'VETERINARIAN', phone: '+84 28 5550 0142' },
   { id: 'EMP-32', name: 'Dr. Tran Quoc Bao', role: 'VETERINARIAN', phone: '+84 24 5550 0177' },
+  { id: 'USER_012', name: 'Nguyen Van Hung', role: 'DRIVER', phone: '+84 90 5551 0021' },
+  { id: 'USER_013', name: 'Le Quoc Tuan', role: 'DRIVER', phone: '+84 90 5551 0022' },
+  { id: 'USER_014', name: 'Dr. Le Thu Trang', role: 'VETERINARIAN', phone: '+84 28 5550 0135' },
 ];
 
 export const mockHorses: Horse[] = [

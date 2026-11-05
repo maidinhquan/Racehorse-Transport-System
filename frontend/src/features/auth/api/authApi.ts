@@ -162,3 +162,28 @@ export const getCurrentUser = async (): Promise<
 
   return response.data;
 };
+
+/* =========================
+   QUICK LOGIN / DEMO ACCOUNTS
+========================= */
+
+export interface QuickLoginAccount {
+  id: string;
+  username?: string;
+  role: string;
+  label: string;
+  email: string;
+  phone?: string;
+  password?: string;
+}
+
+export const getQuickLoginAccounts = async (
+  role?: string
+): Promise<ApiResponse<QuickLoginAccount[]>> => {
+  const response = await apiClient.get<ApiResponse<QuickLoginAccount[]>>(
+    "/auth/quick-login-accounts",
+    { params: role ? { role } : undefined }
+  );
+
+  return response.data;
+};

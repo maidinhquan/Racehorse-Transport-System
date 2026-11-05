@@ -206,6 +206,8 @@ const MockDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
 
 /** Tab Bàn giao thực tế của tài xế (CHẾ ĐỘ BACKEND FLOW 6 - OTP & MICROCHIP) */
 const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
+  const { actions: driverActions } = useDriver();
+  const notify = (message: string) => driverActions.showToast(message);
   const [loading, setLoading] = useState(true);
   const [context, setContext] = useState<T6.Context | null>(null);
   const [delivery, setDelivery] = useState<T6.Delivery | null>(null);
@@ -303,7 +305,7 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
   // F6-J03: Tạo delivery draft
   const handleCreateDraft = async () => {
     if (!receiverName || !receiverPhone || !otpEmail) {
-      alert('Vui lòng nhập đầy đủ họ tên, SĐT và email nhận OTP của người nhận!');
+      notify('Vui lòng nhập đầy đủ họ tên, SĐT và email nhận OTP của người nhận!');
       return;
     }
     setSubmitting(true);
@@ -312,9 +314,9 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       const deliv = await flow6Api.createDelivery(trip.id, buildContent(), key);
       setDelivery(deliv);
       await loadBackendData();
-      alert('Đã tạo biên bản bàn giao bản nháp thành công!');
+      notify('Đã tạo biên bản bàn giao bản nháp thành công!');
     } catch (err: any) {
-      alert(`Không thể tạo biên bản: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không thể tạo biên bản: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmitting(false);
     }
@@ -328,9 +330,9 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       const key = generateUuidV4();
       const updated = await flow6Api.updateRevision(revision.id, buildContent(), key);
       setRevision(updated);
-      alert('Đã lưu nội dung bản nháp!');
+      notify('Đã lưu nội dung bản nháp!');
     } catch (err: any) {
-      alert(`Không thể lưu bản nháp: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không thể lưu bản nháp: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmitting(false);
     }
@@ -340,15 +342,15 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
   const handleSendOtp = async () => {
     if (!revision?.id) return;
     if (!otpEmail) {
-      alert('Vui lòng nhập email người nhận để gửi mã OTP!');
+      notify('Vui lòng nhập email người nhận để gửi mã OTP!');
       return;
     }
     if (!authorized) {
-      alert('Vui lòng đối chiếu giấy tờ và tích xác nhận quyền của người nhận ở Mục 1!');
+      notify('Vui lòng đối chiếu giấy tờ và tích xác nhận quyền của người nhận ở Mục 1!');
       return;
     }
     if (!horseItems.every((h) => h.microchipVerified)) {
-      alert('Vui lòng quét vi mạch và tích chọn "Đã quét khớp vi mạch" cho tất cả các con ngựa ở Mục 2!');
+      notify('Vui lòng quét vi mạch và tích chọn "Đã quét khớp vi mạch" cho tất cả các con ngựa ở Mục 2!');
       return;
     }
     setSubmitting(true);
@@ -359,9 +361,9 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
 
       const otpRes = await flow6Api.sendOtp(revision.id, generateUuidV4());
       await loadBackendData();
-      alert(`Mã OTP đã được gửi đến: ${otpEmail}. Mã có hiệu lực đến: ${fmtDateTime(otpRes.expiresAtUtc)}\n(Ở môi trường test, mã OTP cũng được ghi nhận trong console backend)`);
+      notify(`Mã OTP đã được gửi đến: ${otpEmail}. Mã có hiệu lực đến: ${fmtDateTime(otpRes.expiresAtUtc)}`);
     } catch (err: any) {
-      alert(`Không gửi được OTP: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không gửi được OTP: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmitting(false);
     }
@@ -375,9 +377,9 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       const key = generateUuidV4();
       await flow6Api.invalidateOtp(revision.id, key);
       await loadBackendData();
-      alert('Đã thu hồi OTP. Biên bản chuyển về DRAFT để chỉnh sửa.');
+      notify('Đã thu hồi OTP. Biên bản chuyển về DRAFT để chỉnh sửa.');
     } catch (err: any) {
-      alert(`Không thu hồi được OTP: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không thu hồi được OTP: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmitting(false);
     }
@@ -387,7 +389,7 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
   const handleConfirmOtp = async () => {
     if (!revision?.id) return;
     if (otpCode.trim().length !== 6) {
-      alert('Vui lòng nhập đúng 6 chữ số OTP!');
+      notify('Vui lòng nhập đúng 6 chữ số OTP!');
       return;
     }
     setSubmitting(true);
@@ -395,9 +397,9 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       const key = generateUuidV4();
       await flow6Api.confirmRevision(revision.id, { otp: otpCode.trim() }, key);
       await loadBackendData();
-      alert('Xác nhận nhận ngựa thành công! Chuyến đi đã hoàn tất.');
+      notify('Xác nhận nhận ngựa thành công! Chuyến đi đã hoàn tất.');
     } catch (err: any) {
-      alert(`Xác nhận OTP thất bại: ${err?.message || 'Mã OTP không đúng hoặc đã hết hạn'}`);
+      notify(`Xác nhận OTP thất bại: ${err?.message || 'Mã OTP không đúng hoặc đã hết hạn'}`);
     } finally {
       setSubmitting(false);
     }
@@ -407,7 +409,7 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
   const handleRefuse = async () => {
     if (!revision?.id) return;
     if (refuseReason.trim().length < 5) {
-      alert('Vui lòng nhập lý do từ chối (ít nhất 5 ký tự).');
+      notify('Vui lòng nhập lý do từ chối (ít nhất 5 ký tự).');
       return;
     }
     setSubmitting(true);
@@ -415,9 +417,9 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       const key = generateUuidV4();
       await flow6Api.refuseRevision(revision.id, { reason: refuseReason.trim() }, key);
       await loadBackendData();
-      alert('Đã ghi nhận từ chối bàn giao. Chuyến tiếp tục duy trì trạng thái IN_TRANSIT.');
+      notify('Đã ghi nhận từ chối bàn giao. Chuyến tiếp tục ở trạng thái Đang vận chuyển.');
     } catch (err: any) {
-      alert(`Không thể ghi nhận từ chối: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không thể ghi nhận từ chối: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmitting(false);
     }
@@ -432,9 +434,9 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       const nextRev = await flow6Api.createRedeliveryRevision(delivery.id, buildContent(), key);
       setRevision(nextRev);
       await loadBackendData();
-      alert('Đã tạo phiên bản giao lại mới (DRAFT). Bạn có thể chỉnh sửa và gửi lại OTP.');
+      notify('Đã tạo phiên bản giao lại mới (DRAFT). Bạn có thể chỉnh sửa và gửi lại OTP.');
     } catch (err: any) {
-      alert(`Không thể lập bản giao lại: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không thể lập bản giao lại: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmitting(false);
     }
@@ -452,7 +454,7 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert(`Không tải được PDF: ${err?.message || 'Lỗi tải tệp'}`);
+      notify(`Không tải được PDF: ${err?.message || 'Lỗi tải tệp'}`);
     }
   };
 

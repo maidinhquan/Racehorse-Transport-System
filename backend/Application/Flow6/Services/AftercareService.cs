@@ -83,7 +83,7 @@ public sealed partial class AftercareService(IAftercareStore db, IOtpSecurity se
     private async Task Eligible(JsonObject scope,CancellationToken ct)
     {
         Require(S(scope,"TripStatus")=="IN_TRANSIT" && S(scope,"RequestStatus")=="IN_PROGRESS" && S(scope,"ContractStatus")=="EFFECTIVE" && S(scope,"VersionStatus")=="SIGNED" && S(scope,"DeploymentStatus")=="CONFIRMED","INVALID_STATE","Trip is not eligible for delivery.");
-        var arrived=await Q("SELECT SegmentID FROM ROUTE_SEGMENT WHERE TripID=@t AND SegmentType='DESTINATION' AND Status='COMPLETED' AND ActualTime IS NOT NULL",ct,("@t",S(scope,"TripID")));
+        var arrived=await Q("SELECT SegmentID FROM ROUTE_SEGMENT WHERE TripID=@t AND SegmentType='DESTINATION' AND Status='COMPLETED' AND ActualTime IS NOT NULL UNION ALL SELECT MilestoneID FROM TRIP_MILESTONE WHERE TripID=@t AND MilestoneKind='FINAL_ARRIVED' AND Status='COMPLETED' AND OccurredAt IS NOT NULL",ct,("@t",S(scope,"TripID")));
         Require(arrived.Count>0,"HANDOVER_NOT_READY","Actual final arrival must be recorded; ETA is not evidence of arrival.");
         var paid=await One("SELECT COALESCE(SUM(p.Amount),0) paid FROM INVOICE i JOIN PAYMENT p ON p.InvoiceID=i.InvoiceID AND p.Status='SUCCESS' AND p.Method='VNPAY' AND p.CurrencyCode='VND' WHERE i.ContractID=@c AND i.ContractVersionNo=@v AND i.InvoiceType='DEPOSIT' AND i.PaymentStatus='PAID'",ct,("@c",S(scope,"ContractID")),("@v",N(scope,"CurrentVersionNo")));
         Require(N(scope,"DepositAmount")>0 && N(paid,"paid")>=N(scope,"DepositAmount"),"DEPOSIT_NOT_VERIFIED","Verified deposit is insufficient.");

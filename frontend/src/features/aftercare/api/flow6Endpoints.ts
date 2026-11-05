@@ -544,6 +544,17 @@ export const flow6Endpoints: Record<string, Flow6EndpointDefinition> = {
     pathParams: ["paymentId"],
     queryParams: [],
     hasRequestBody: true,
+  },
+  'F6-J49': {
+    operationId: 'F6-J49',
+    method: 'POST',
+    path: '/manager/flow6/payments/{paymentId}/confirm',
+    summary: "Manager xác nhận thủ công thanh toán số dư đang chờ VNPay",
+    tags: [],
+    requiresIdempotency: false,
+    pathParams: ["paymentId"],
+    queryParams: [],
+    hasRequestBody: true,
   }
 };
 

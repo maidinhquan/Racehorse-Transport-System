@@ -75,7 +75,7 @@ public class DriverExecutionController : BaseApiController
         [FromBody] MilestoneCorrectionInputDto dto)
     {
         var result = await _driverService.RequestCorrectionAsync(tripId, milestoneId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -105,7 +105,7 @@ public class DriverExecutionController : BaseApiController
     public async Task<IActionResult> ProposeEta([FromRoute] string tripId, [FromBody] EtaProposalInputDto dto)
     {
         var result = await _driverService.ProposeDriverEtaAsync(tripId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -115,7 +115,7 @@ public class DriverExecutionController : BaseApiController
     public async Task<IActionResult> RecordHealthLog([FromRoute] string tripId, [FromBody] HealthLogInputDto dto)
     {
         var result = await _healthService.RecordHealthLogAsync(tripId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -128,7 +128,7 @@ public class DriverExecutionController : BaseApiController
         [FromBody] HealthLogAmendmentInputDto dto)
     {
         var result = await _healthService.AmendHealthLogAsync(tripId, healthLogId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -138,7 +138,7 @@ public class DriverExecutionController : BaseApiController
     public async Task<IActionResult> RecordVetAssessment([FromRoute] string tripId, [FromBody] VetAssessmentInputDto dto)
     {
         var result = await _healthService.RecordVetAssessmentAsync(tripId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -148,7 +148,7 @@ public class DriverExecutionController : BaseApiController
     public async Task<IActionResult> RecordExpense([FromRoute] string tripId, [FromBody] TripExpenseInputDto dto)
     {
         var result = await _driverService.RecordExpenseAsync(tripId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 }
 

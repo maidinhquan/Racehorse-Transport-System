@@ -16,7 +16,6 @@ import type {
   Trip,
   TripStatus,
 } from '../types';
-import { MS_COOLDOWN_SEC } from '../data/mockData';
 
 // ============================================================================
 // Nhãn hiển thị (VI)
@@ -68,16 +67,22 @@ export const modeLabel = (m: Trip['mode']) => (m === 'AIR' ? 'Hàng không' : '�
 // ============================================================================
 // Thời gian ('YYYY-MM-DD HH:mm')
 // ============================================================================
+/** '2026-11-19 06:00' → '19/11/2026 06:00' (ngày/tháng/năm, có số 0 đứng đầu) */
 export const fmtDateTime = (s?: string) => {
   if (!s) return '—';
   const [d, t] = s.replace('T', ' ').split(' ');
-  const [, m, day] = d.split('-');
-  return `${Number(day)}/${Number(m)}${t ? ', ' + t.slice(0, 5) : ''}`;
+  return t ? `${fmtDate(d)} ${t.slice(0, 5)}` : fmtDate(d);
 };
-export const fmtDate = (s?: string) => {
+/** '2026-11-19' → '19/11/2026' */
+export function fmtDate(s?: string) {
   if (!s) return '—';
   const [y, m, d] = s.slice(0, 10).split('-');
-  return `${Number(d)}/${Number(m)}/${y}`;
+  return d ? `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}` : s;
+}
+/** '2026-11-19 06:00' → '06:00' */
+export const fmtTime = (s?: string) => {
+  const t = s?.replace('T', ' ').split(' ')[1];
+  return t ? t.slice(0, 5) : '';
 };
 export const nowStamp = () => {
   const d = new Date();
@@ -139,13 +144,6 @@ export const delayPending = (t: Trip) => !!t.departureDelay && ['REPORTED', 'PEN
 
 /** Đã đến điểm giao, đang chờ bàn giao */
 export const handoverReady = (t: Trip) => t.status === 'IN_TRANSIT' && lastMilestone(t)?.type === 'ARRIVED_DESTINATION';
-
-/** Số giây còn phải chờ trước khi ghi mốc tiếp theo */
-export const cooldownLeft = (lastRecordedMs: number | undefined, now = Date.now()) => {
-  if (!lastRecordedMs) return 0;
-  const left = Math.ceil((lastRecordedMs + MS_COOLDOWN_SEC * 1000 - now) / 1000);
-  return left > 0 ? left : 0;
-};
 
 /** Vị trí hiện tại suy ra từ mốc gần nhất: đang ở trạm → tên trạm, đang chạy → đoạn tuyến */
 export function whereNow(t: Trip): string {

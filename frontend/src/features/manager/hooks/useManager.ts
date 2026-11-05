@@ -303,10 +303,14 @@ async function syncRequestsOnly(): Promise<void> {
       const rawRequests = await managerApi.getRequests();
       const isDemo = getDemoMode('manager');
       if (!isDemo) {
-        const readiness = await managerApi.getTripReadiness().catch(() => []);
+        const readiness = typeof managerApi.getTripReadiness === 'function'
+          ? await managerApi.getTripReadiness().catch(() => [])
+          : [];
+        const shared = getSharedRequests().map(toManagerRequest);
+        const merged = [...shared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
         setState((prev) => ({
           ...prev,
-          requests: mergeRequestList(rawRequests, prev.requests),
+          requests: mergeRequestList(merged.length ? merged : prev.requests, prev.requests),
           // Hồ sơ/bảo hiểm do Specialist cập nhật phải hiện lên Quản lý mà không cần tải lại trang
           trips: readiness.length ? prev.trips.map((t) => { const r = readiness.find((x) => cleanId(x.id) === cleanId(t.id)); return r ? { ...t, readiness: { ...t.readiness, ...r.readiness } } : t; }) : prev.trips,
         }));
@@ -372,15 +376,24 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
 
       const isDemo = getDemoMode('manager');
       if (!isDemo) {
+        const shared = getSharedRequests().map(toManagerRequest);
+        const merged = [...shared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+        const allRequests = merged.length ? merged : clone(mockRequests);
+        const baseTrips = trips?.length ? trips : clone(mockTrips);
+        const finalTrips = mergeTripsWithShared(baseTrips);
+
         setState((prev) => ({
           ...prev,
-          customers: customers || [],
-          horses: horses || [],
-          staff: staff || [],
-          requests: mergeRequestList(baseRequests, prev.requests),
-          trips: mergeTripsWithShared(trips || []),
-          transactions: transactions || [],
-          notifications: notifications || [],
+          customers: customers?.length ? customers : clone(mockCustomers),
+          horses: horses?.length ? horses : clone(mockHorses),
+          staff: staff?.length ? staff : clone(mockStaff),
+          requests: mergeRequestList(allRequests, prev.requests),
+          trips: finalTrips,
+          transactions: transactions?.length ? transactions : clone(mockTransactions),
+          incidents: prev.incidents?.length ? prev.incidents : clone(mockIncidents),
+          complaints: prev.complaints?.length ? prev.complaints : clone(mockComplaints),
+          actualCosts: prev.actualCosts?.length ? prev.actualCosts : clone(mockActualCosts),
+          notifications: notifications?.length ? notifications : clone(mockNotifications),
           loading: false,
           loaded: true,
         }));
@@ -819,17 +832,21 @@ const managerActions = {
     });
     return ok(approve ? 'Đã duyệt đề xuất điểm đón. Hãy gửi cho khách hàng.' : 'Đã từ chối đề xuất điểm đón.');
   },
-  approveDeparture(tripId: string): ActionResult {
+  async approveDeparture(tripId: string): Promise<ActionResult> {
     const t = tripIn(state, tripId);
     if (!t || t.status !== 'PLANNING') return fail('Chuyến không ở giai đoạn chuẩn bị.');
     const miss = readinessChecks(t).filter((c) => !c.ok);
     if (miss.length) return fail(`Chưa đủ điều kiện: ${miss[0].label}.`);
+    // Chế độ thật: chỉ cập nhật giao diện sau khi backend đã lưu việc duyệt
+    if (!getDemoMode('manager')) {
+      try { await managerApi.approveDeparture(tripId); } catch (error) { return fail(apiMessage(error)); }
+    }
     mutate((d) => {
       const x = tripIn(d, tripId)!, r = reqIn(d, x.requestId)!;
       x.status = 'READY_TO_DEPART'; x.departureApprovedAt = nowStamp(); r.status = 'SCHEDULED';
       log(d, r, 'Duyệt khởi hành', `${tripId} • khởi hành ${fmtDateTime(x.plannedDepart)}`);
     });
-    void managerApi.approveDeparture(tripId);
+    if (!getDemoMode('manager')) void refreshTripExecution(tripId).catch(() => undefined);
     return ok(`Đã duyệt khởi hành ${tripId}. Tài xế xác nhận khi thực tế xuất phát.`);
   },
   resolveRefusal(tripId: string, resolution: string): ActionResult {

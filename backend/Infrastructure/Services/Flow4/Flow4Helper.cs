@@ -134,6 +134,8 @@ public static class Flow4Helper
             .Where(tva => tva.TripId == trip.TripId)
             .Include(tva => tva.Vehicle)
             .Include(tva => tva.Driver)
+            .Include(tva => tva.CoDriver)
+            .Include(tva => tva.Veterinarian)
             .Include(tva => tva.Escort)
             .FirstOrDefault();
 
@@ -149,28 +151,18 @@ public static class Flow4Helper
 
         var crewList = new List<Flow4CrewAssignmentDto>();
         var crewUserIds = new List<string>();
+        void AddCrew(string? userId, string? name, string fallbackName, string duty)
+        {
+            if (string.IsNullOrEmpty(userId) || crewUserIds.Contains(userId)) return;
+            crewUserIds.Add(userId);
+            crewList.Add(new Flow4CrewAssignmentDto { UserId = userId, Name = name ?? fallbackName, Duty = duty });
+        }
         if (assignment != null)
         {
-            if (!string.IsNullOrEmpty(assignment.DriverId))
-            {
-                crewUserIds.Add(assignment.DriverId);
-                crewList.Add(new Flow4CrewAssignmentDto
-                {
-                    UserId = assignment.DriverId,
-                    Name = assignment.Driver?.FullName ?? "Tài xế chính",
-                    Duty = "MAIN_DRIVER"
-                });
-            }
-            if (!string.IsNullOrEmpty(assignment.EscortId))
-            {
-                crewUserIds.Add(assignment.EscortId);
-                crewList.Add(new Flow4CrewAssignmentDto
-                {
-                    UserId = assignment.EscortId,
-                    Name = assignment.Escort?.FullName ?? "Nhân viên áp tải",
-                    Duty = "VETERINARIAN"
-                });
-            }
+            AddCrew(assignment.DriverId, assignment.Driver?.FullName, "Tài xế chính", "MAIN_DRIVER");
+            AddCrew(assignment.CoDriverId, assignment.CoDriver?.FullName, "Phụ lái", "CO_DRIVER");
+            AddCrew(assignment.VeterinarianId, assignment.Veterinarian?.FullName, "Bác sĩ thú y", "VETERINARIAN");
+            AddCrew(assignment.EscortId, assignment.Escort?.FullName, "Nhân viên áp tải", "VETERINARIAN");
         }
 
         var milestones = context.TripMilestones

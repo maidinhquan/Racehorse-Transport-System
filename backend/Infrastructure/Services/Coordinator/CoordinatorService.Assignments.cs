@@ -44,8 +44,8 @@ namespace Infrastructure.Services
 
             // Lấy dữ liệu mặc định từ database (Dataset) thay vì hardcode chuỗi tĩnh
             var defaultVnVeh = await _context.Vehicles.FirstOrDefaultAsync(v => v.OperatingCountry == "VN" || !v.VehicleId.Contains("_JP_"));
-            var defaultVnDrivers = await _context.Users.Where(u => u.IsActive && (u.Role == "Driver" || u.Role == "STAFF") && !u.UserId.Contains("_JP_")).Take(2).ToListAsync();
-            var defaultVnVet = await _context.Users.FirstOrDefaultAsync(u => u.IsActive && (u.Role == "Escort" || u.Role == "Specialist" || u.Role == "STAFF") && !u.UserId.Contains("_JP_"));
+            var defaultVnDrivers = await _context.Users.Where(u => u.IsActive && (u.Role == "Driver" || u.Role == "STAFF" || (u.Role == "DRIVER_ESCORT" && (u.Username!.StartsWith("driver") || u.FullName.Contains("Tài xế")))) && !u.UserId.Contains("_JP_")).Take(2).ToListAsync();
+            var defaultVnVet = await _context.Users.FirstOrDefaultAsync(u => u.IsActive && (u.Role == "Escort" || u.Role == "Specialist" || u.Role == "STAFF" || (u.Role == "DRIVER_ESCORT" && (u.Username!.StartsWith("escort") || u.FullName.Contains("Bác sĩ") || u.FullName.Contains("Dr.")))) && !u.UserId.Contains("_JP_"));
 
             var vnVehId = vaVn?.VehicleId ?? defaultVnVeh?.VehicleId ?? "VEH_BOX_01";
             var vnPlate = vaVn?.Vehicle?.PlateNumber ?? defaultVnVeh?.PlateNumber ?? "51C-101.45";
@@ -360,7 +360,7 @@ namespace Infrastructure.Services
             {
                 if (!string.IsNullOrEmpty(id) && busy.TryGetValue(id, out var otherTrip))
                 {
-                    throw new InvalidOperationException(CrewBusyMessage(role, id, otherTrip));
+                    throw new InvalidOperationException("STAFF_BUSY_ON_ACTIVE_TRIP: " + CrewBusyMessage(role, id, otherTrip));
                 }
             }
 

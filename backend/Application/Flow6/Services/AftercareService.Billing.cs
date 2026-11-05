@@ -71,6 +71,8 @@ public sealed partial class AftercareService
     private async Task<object> PaymentSession(string invoice,string ip,CancellationToken ct)
     {
         Require(gateway.IsConfigured,"FEATURE_NOT_SUPPORTED","Configure VNPay before creating a session.",501);
+        // Hỏi lại VNPay trước: giao dịch chờ cũ có thể đã thành công/thất bại mà IPN chưa về được máy chủ
+        try { await ReconcilePending(ct,invoice); } catch (Exception e) when (e is not OperationCanceledException) { }
         var s=await One(SettlementSql+" WHERE FinalInvoiceID=@i",ct,("@i",invoice));
         Require(S(s,"status")=="AWAITING_PAYMENT","INVALID_STATE","Final settlement is not awaiting payment.");
         var pending=await Q("SELECT PaymentID FROM PAYMENT WHERE InvoiceID=@i AND (Status='PENDING_GATEWAY' OR FinancialReviewRequired=1)",ct,("@i",invoice));

@@ -43,6 +43,9 @@ public static class RegistrationServiceExtensions
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<RegistrationOptions>>().Value);
         services.AddSingleton<IRegistrationStore, MemoryRegistrationStore>();
         services.AddSingleton<IRegistrationRequestLimiter, MemoryRegistrationRequestLimiter>();
+        services.AddOptions<EmailValidationOptions>()
+            .Bind(configuration.GetSection("EmailValidation"));
+        services.AddSingleton(sp => sp.GetRequiredService<IOptions<EmailValidationOptions>>().Value);
 
         var emailMode =
             configuration["RegistrationEmail:Mode"]

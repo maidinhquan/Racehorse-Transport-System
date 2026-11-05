@@ -36,6 +36,18 @@ namespace WebApi.Middlewares
             }
         }
 
+        /// <summary>Mã lỗi nghiệp vụ biểu thị xung đột trạng thái (HTTP 409).</summary>
+        private static readonly HashSet<string> ConflictErrorCodes = new(StringComparer.Ordinal)
+        {
+            "TRIP_STATE_INVALID", "INVALID_SEQUENCE", "MILESTONE_NOT_NEXT", "MILESTONE_ALREADY_COMPLETED", "NOT_ASSIGNED_LEG", "CHECKPOINT_NOT_CLEARED",
+            "INCIDENT_BLOCKING", "HEALTH_CHECK_REQUIRED", "VET_CLEARANCE_REQUIRED", "EVIDENCE_INVALID", "INVALID_EVENT_TIME",
+            "STAFF_BUSY_ON_ACTIVE_TRIP", "STALE_VERSION", "READINESS_CHANGED",
+        };
+
+        /// <summary>Giá trị trong phần "errors" của phản hồi lỗi chỉ được dài tối đa 2000 ký tự theo contract.</summary>
+        private static string CapForContract(string? value) =>
+            string.IsNullOrEmpty(value) ? string.Empty : value.Length <= 1900 ? value : value[..1900] + "...";
+
         private async Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
             context.Response.ContentType = "application/json";
@@ -112,6 +124,14 @@ namespace WebApi.Middlewares
                         message = msg.Replace("DEPARTURE_GATE_FAILED: ", "");
                         blockers.Add(new BlockerDto { Code = "DEPARTURE_GATE_FAILED", Field = "readiness", Message = message });
                     }
+                    else if (System.Text.RegularExpressions.Regex.Match(msg, @"^([A-Z][A-Z0-9_]{2,}):\s*(.*)$", System.Text.RegularExpressions.RegexOptions.Singleline) is { Success: true } coded)
+                    {
+                        // Mã lỗi nghiệp vụ do dịch vụ chủ động ném ra: xung đột trạng thái trả 409, các lỗi còn lại trả 400
+                        errorCode = coded.Groups[1].Value;
+                        message = coded.Groups[2].Value;
+                        statusCode = ConflictErrorCodes.Contains(errorCode) ? (int)HttpStatusCode.Conflict : (int)HttpStatusCode.BadRequest;
+                        blockers.Add(new BlockerDto { Code = errorCode, Field = "business", Message = message });
+                    }
                     else
                     {
                         statusCode = (int)HttpStatusCode.InternalServerError;
@@ -157,7 +177,7 @@ namespace WebApi.Middlewares
                     ? new Dictionary<string, string[]>
                     {
                         { "exceptionType", new[] { exception.GetType().Name } },
-                        { "stackTrace", new[] { exception.StackTrace ?? string.Empty } }
+                        { "stackTrace", new[] { CapForContract(exception.StackTrace) } }
                     }
                     : null
             );
