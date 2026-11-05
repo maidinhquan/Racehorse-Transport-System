@@ -50,7 +50,8 @@ services:
       - frontend_node_modules:/app/node_modules
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     environment:
-      VITE_API_URL: http://localhost:5129/api
+      # Gọi API theo đường dẫn tương đối (/api); Vite chuyển tiếp sang backend để mở qua ngrok cho người khác dùng.
+      API_PROXY_TARGET: http://backend:8080
     depends_on:
       - backend
     restart: unless-stopped
@@ -72,7 +73,7 @@ services:
           echo "[tunnel] Chua co NGROK_AUTHTOKEN trong .env nen bo qua tunnel: VNPAY se khong gui duoc IPN ve may nay."
           exit 0
         fi
-        ngrok --config=/var/lib/ngrok/ngrok.yml http backend:8080 --log=stdout | while IFS= read -r line; do
+        ngrok --config=/var/lib/ngrok/ngrok.yml http frontend:5173 --log=stdout | while IFS= read -r line; do
           echo "$$line"
           case "$$line" in
             *"started tunnel"*) echo "[tunnel] IPN URL de dang ky voi VNPAY: $${line##*url=}/api/payments/vnpay/ipn" ;;
@@ -83,7 +84,7 @@ services:
     ports:
       - "4040:4040"
     depends_on:
-      - backend
+      - frontend
     restart: on-failure
 
   # Same purpose without any account (Cloudflare Quick Tunnel): set COMPOSE_PROFILES=quicktunnel.

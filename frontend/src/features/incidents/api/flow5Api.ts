@@ -63,12 +63,6 @@ export const flow5Api = {
   acceptIncident: (incidentId: string, idempotencyKey?: string): Promise<T.IncidentResponse> =>
     flow5Request<T.IncidentResponse>('F5-J06', { path: { incidentId }, idempotencyKey }),
 
-  /**
-   * F5-J06-ALT – Đường dẫn tiếp nhận thay thế (POST /api/incidents/{incidentId}/accept)
-   */
-  acceptIncidentAlt: (incidentId: string, idempotencyKey?: string): Promise<T.IncidentResponse> =>
-    flow5Request<T.IncidentResponse>('F5-J06-ALT', { path: { incidentId }, idempotencyKey }),
-
   // ─── IMPACT ASSESSMENT (F5-J07) ─────────────────────────────────────────────
 
   /**

@@ -13,7 +13,6 @@ export const flow5Endpoints = {
   'F5-J04':    { method: 'GET',    path: '/incidents/{incidentId}' },
   'F5-J05':    { method: 'GET',    path: '/trips/{tripId}/incidents' },
   'F5-J06':    { method: 'POST',   path: '/coordinator/incidents/{incidentId}/accept' },
-  'F5-J06-ALT':{ method: 'POST',   path: '/incidents/{incidentId}/accept' },
   'F5-J44':    { method: 'POST',   path: '/driver/trips/{tripId}/incidents' },
 
   // ─── EXTENDED LIFECYCLE & COORDINATOR / MANAGER RECOVERY ─────────────────────
