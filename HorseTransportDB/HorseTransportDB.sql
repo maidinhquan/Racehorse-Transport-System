@@ -1,3 +1,4 @@
+<<<<<<<< HEAD:HorseTransportDB/HorseTransportDB.sql
 -- =============================================================================
 -- HorseTransportDB.sql: FILE DATABASE DUY NHẤT (schema + dữ liệu mẫu, Flow 1 đến Flow 6)
 -- Gộp từ: HorseTransportDB_Reviewed.sql (schema Flow 1-3, 5, 6 và dữ liệu mẫu)
@@ -6,6 +7,22 @@
 -- Chạy từ thư mục gốc repository (bắt buộc có -f 65001 để giữ đúng tiếng Việt):
 --   sqlcmd -S ".\SQLEXPRESS" -E -C -b -f 65001 -i HorseTransportDB/HorseTransportDB.sql
 -- Các file HorseTransportDB_Reviewed.sql, modules/, 00_Init_Database.sql không còn cần để khởi tạo DB.
+========
+-- Canonical test schema: reset/recreate using this file; no numbered migrations are required.
+-- Includes RemoveRequestSharedDocuments: retired request attachment columns are omitted;
+-- customs fixtures use EXPORT/IMPORT only, so no legacy-data cleanup is needed.
+-- Flow 1 scope 2026-10-24: VNPAY only; progress via current Status, no history/audit tables.
+-- Reviewed sample only: do not run against an active database as a migration.
+-- Reviewed copy: source data/HorseTransportDB.sql is preserved.
+-- Creates ONLY HorseTransportDB. All timestamps in demo fixtures are UTC.
+-- Private/demo paths and example URLs are placeholders, not bundled file contents.
+-- SAMPLE DATABASE ONLY: this file DROPS and recreates HorseTransportDB.
+-- Not a migration. Do not apply old migration scripts to restore removed columns.
+-- Flow 1 and Flow 6 schema is defined directly below; all monetary amounts are VND.
+-- Flow 6: 5 additional tables, totaling 37 tables / 33 monotonic sequences.
+-- Backend still owns authorization, cross-table transitions, window scheduling and financial reconciliation.
+-- Monetary seed values are illustrative demo data, not market quotations. Ratios remain ratios.
+>>>>>>>> origin/feature/api-frontend-flow4-5-6:HorseTransportDB/HorseTransportDB_Reviewed.sql
 -- =============================================================================
 -- BƯỚC 1: TẠO VÀ CHUYỂN VÀO CƠ SỞ DỮ LIỆU CHÍNH THỨC
 -- =============================================================================

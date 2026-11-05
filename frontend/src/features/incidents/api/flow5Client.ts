@@ -162,13 +162,13 @@ export async function flow5Request<T>(operationId: string, options: Options = {}
   }
 
   // 4. Determine if upload or download
-  const isUpload = !!op.requestBody?.content?.['multipart/form-data'];
+  const isUpload = !!op.requestBody?.content?.['multipart/form-data'] || !!options.file;
   const isDownload =
     !op.responses['200']?.content?.['application/json'] &&
     (!!op.responses['200']?.content?.['image/jpeg'] || !!op.responses['200']?.content?.['application/pdf']);
 
   let data: unknown = options.body;
-  if (isUpload) {
+  if (isUpload && options.file) {
     const file = options.file;
     if (
       !(file instanceof File) ||
@@ -187,7 +187,6 @@ export async function flow5Request<T>(operationId: string, options: Options = {}
     }
     data = form;
   } else {
-    if (options.file) throw new Flow5ApiError('Endpoint này không nhận tệp.', 'CONTRACT_VALIDATION_ERROR');
     const bodySchema = op.requestBody?.content?.['application/json']?.schema;
     if (bodySchema) {
       validate(bodySchema, data);
@@ -237,7 +236,7 @@ export async function flow5Request<T>(operationId: string, options: Options = {}
     const jsonSchema = expectedResponse.content?.['application/json']?.schema;
     if (jsonSchema) validate(jsonSchema, result.data);
 
-    return (result.data as { data: T }).data;
+    return (result.data as { data: T })?.data !== undefined ? (result.data as { data: T }).data : (result.data as T);
   } catch (error) {
     if (error instanceof Flow5ApiError) throw error;
     if (isAxiosError(error) && error.response) {
