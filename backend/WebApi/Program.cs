@@ -136,6 +136,7 @@ builder.Services.AddScoped<ISpecialistService, SpecialistService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
 builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
 builder.Services.AddFlow4Services();
+builder.Services.AddFlow5Services();
 builder.Services.AddFlow6Module(builder.Configuration, builder.Environment);
 
 // =============================================================================
@@ -356,16 +357,13 @@ if (app.Environment.IsDevelopment())
         c.OrderByFlow();
         c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
         c.EnableFilter();
-        c.OrderByFlow();
-        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
-        c.EnableFilter();
     });
 }
 
 // Bật CORS cho Frontend trước Authentication và Authorization
 app.UseCors("AllowFrontend");
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
