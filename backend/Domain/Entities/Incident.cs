@@ -41,6 +41,23 @@ namespace Domain.Entities
         [StringLength(50)]
         public string? Status { get; set; }
 
+        [Column("CoordinatorId")]
+        [StringLength(50)]
+        public string? CoordinatorId { get; set; }
+
+        [Column("SafetyBlockerActive")]
+        public bool? SafetyBlockerActive { get; set; }
+
+        [Column("ResolvedAt")]
+        public DateTime? ResolvedAt { get; set; }
+
+        [Column("ResolutionType")]
+        [StringLength(50)]
+        public string? ResolutionType { get; set; }
+
+        [Column("ResolutionNotes")]
+        public string? ResolutionNotes { get; set; }
+
         // Navigation properties
         [ForeignKey(nameof(TripId))]
         [InverseProperty(nameof(TripPlan.Incidents))]
@@ -51,4 +68,3 @@ namespace Domain.Entities
         public virtual User? Approver { get; set; }
     }
 }
-
