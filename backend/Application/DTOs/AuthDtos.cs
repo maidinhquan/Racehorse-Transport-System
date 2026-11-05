@@ -60,6 +60,13 @@ namespace Application.DTOs
         public string RegistrationToken { get; set; } = null!;
     }
 
+    public class ValidateEmailRequestDto
+    {
+        [Required(ErrorMessage = "Email không được để trống")]
+        [EmailAddress(ErrorMessage = "Email không đúng định dạng")]
+        public string Email { get; set; } = null!;
+    }
+
     public class ForgotPasswordRequestDto
     {
         [Required(ErrorMessage = "Email không được để trống")]
@@ -128,5 +135,25 @@ namespace Application.DTOs
     {
         public int ExpiresIn { get; set; } = 300;
         public int ResendAfterSeconds { get; set; } = 60;
+    }
+
+    public class ValidateEmailResponseData
+    {
+        public bool IsValid { get; set; }
+        public bool ExistsInSystem { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? Deliverability { get; set; }
+        public bool? IsSmtpValid { get; set; }
+    }
+
+    public class QuickLoginAccountDto
+    {
+        public string Id { get; set; } = null!;
+        public string? Username { get; set; }
+        public string Role { get; set; } = null!;
+        public string Label { get; set; } = null!;
+        public string Email { get; set; } = null!;
+        public string? Phone { get; set; }
+        public string Password { get; set; } = null!;
     }
 }

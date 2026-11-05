@@ -50,7 +50,7 @@ public class CoordinatorExecutionController : BaseApiController
         [FromBody] AirNoticeInputDto dto)
     {
         var result = await _coordinatorService.RecordAirNoticeAsync(tripId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -62,7 +62,7 @@ public class CoordinatorExecutionController : BaseApiController
         [FromBody] EtaProposalInputDto dto)
     {
         var result = await _coordinatorService.ProposeCoordinatorEtaAsync(tripId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -100,7 +100,7 @@ public class CoordinatorExecutionController : BaseApiController
         [FromBody] Flow4ContactLogInputDto dto)
     {
         var result = await _coordinatorService.RecordContactLogAsync(tripId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 }
 

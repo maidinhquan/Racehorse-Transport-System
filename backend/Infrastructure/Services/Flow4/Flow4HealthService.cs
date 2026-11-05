@@ -50,6 +50,20 @@ public class Flow4HealthService : IFlow4HealthService
 
         bool isAbnormal = dto.Condition == "ABNORMAL";
 
+        // Nhật ký luôn gắn với mốc đang chờ: máy khách có thể gửi mốc cũ (đã hoàn tất) hoặc không gửi mốc
+        var milestoneId = dto.MilestoneId;
+        var current = string.IsNullOrEmpty(milestoneId)
+            ? null
+            : await _context.TripMilestones.FirstOrDefaultAsync(m => m.TripId == tripId && m.MilestoneId == milestoneId);
+        if (current == null || current.Status != "PENDING")
+        {
+            milestoneId = await _context.TripMilestones
+                .Where(m => m.TripId == tripId && m.Status == "PENDING")
+                .OrderBy(m => m.SequenceOrder)
+                .Select(m => m.MilestoneId)
+                .FirstOrDefaultAsync() ?? milestoneId;
+        }
+
         var log = new HealthLog
         {
             LogId = $"HL_{Guid.NewGuid():N}"[..20].ToUpper(),
@@ -68,7 +82,7 @@ public class Flow4HealthService : IFlow4HealthService
             PhotoFileIds = dto.PhotoFileIds.Any() ? JsonSerializer.Serialize(dto.PhotoFileIds) : null,
             IncidentId = dto.IncidentId,
             IncidentRequired = isAbnormal,
-            MilestoneId = dto.MilestoneId,
+            MilestoneId = milestoneId,
             LegType = dto.Leg ?? "road",
             LogTime = DateTime.TryParse(dto.ObservedAt, out var dt) ? dt : DateTime.UtcNow,
             RecordedAt = DateTime.UtcNow

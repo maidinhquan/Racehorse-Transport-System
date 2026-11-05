@@ -4,7 +4,7 @@ import { DriverLayout, Icon } from '../../components/DriverLayout';
 import { TripHero } from '../../components/TripHero/TripHero';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useDriver } from '../../hooks/useDriver';
-import { DELAY_LABEL, fmtDateTime, myPosition } from '../../hooks/driverRules';
+import { DELAY_LABEL, fmtDateTime, handoverReady, myPosition } from '../../hooks/driverRules';
 import type { TripDetailTab } from '../../types';
 import { OverviewTab } from './tabs/OverviewTab';
 import { StopsTab } from './tabs/StopsTab';
@@ -52,7 +52,7 @@ export const TripDetailPage: React.FC = () => {
         <div className="drv-head"><div><h2 className="drv-title">Chuyến đi</h2><p className="drv-subtitle">Chọn chuyến để xem thông tin, hồ sơ, sức khoẻ ngựa và bàn giao.</p></div></div>
         {activeTrips.length ? activeTrips.map((t) => (
           <TripHero key={t.id} trip={t} compact actions={<>
-            <button type="button" className="drv-btn drv-btn--solid" onClick={() => navigate(`/driver/trips/${t.id}/handover`)}>Thủ tục bàn giao (Flow 6)</button>
+            <button type="button" className="drv-btn drv-btn--solid" disabled={!handoverReady(t)} title={handoverReady(t) ? undefined : 'Chỉ mở khi đã đến mốc cuối cùng (điểm giao)'} onClick={() => navigate(`/driver/trips/${t.id}/handover`)}>Thủ tục bàn giao (Flow 6)</button>
             <button type="button" className="drv-btn" onClick={() => navigate(`/driver/trips/${t.id}`)}>Chi tiết</button>
           </>} />
         )) : <div className="drv-card drv-empty"><b>{loading ? 'Đang tải…' : 'Không có chuyến đang hoạt động'}</b>Chuyến đã hoàn tất nằm trong mục Lịch sử.</div>}

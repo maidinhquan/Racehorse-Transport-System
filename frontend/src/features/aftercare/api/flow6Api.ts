@@ -265,4 +265,9 @@ export const flow6Api = {
   reviewPayment(paymentId: string, body: T.ReasonInput): Promise<T.Payment> {
     return flow6Request<T.Payment>('F6-J48', { path: { paymentId }, body });
   },
+
+  /** F6-J49: Manager xác nhận thủ công thanh toán số dư khi VNPay chưa báo kết quả */
+  confirmPayment(paymentId: string, body: T.ReasonInput): Promise<T.Payment> {
+    return flow6Request<T.Payment>('F6-J49', { path: { paymentId }, body });
+  },
 };

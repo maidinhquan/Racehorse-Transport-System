@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Application.Common.Exceptions;
 using Application.Common.Registration;
@@ -14,11 +16,52 @@ using Domain.Interfaces.DAOs;
 
 namespace Application.Services;
 
-public sealed class RegistrationService(
-    IUserDAO users, IRegistrationStore store, IRegistrationRequestLimiter limiter,
-    IPasswordHasher passwordHasher, IRegistrationEmailSender emailSender,
-    TimeProvider clock, RegistrationOptions options) : IRegistrationService
+public sealed class RegistrationService : IRegistrationService
 {
+    private readonly IUserDAO users;
+    private readonly IRegistrationStore store;
+    private readonly IRegistrationRequestLimiter limiter;
+    private readonly IPasswordHasher passwordHasher;
+    private readonly IRegistrationEmailSender emailSender;
+    private readonly TimeProvider clock;
+    private readonly RegistrationOptions options;
+    private readonly EmailValidationOptions validationOptions;
+    private readonly HttpClient? httpClient;
+
+    public RegistrationService(
+        IUserDAO users,
+        IRegistrationStore store,
+        IRegistrationRequestLimiter limiter,
+        IPasswordHasher passwordHasher,
+        IRegistrationEmailSender emailSender,
+        TimeProvider clock,
+        RegistrationOptions options)
+        : this(users, store, limiter, passwordHasher, emailSender, clock, options, new EmailValidationOptions(), null)
+    {
+    }
+
+    public RegistrationService(
+        IUserDAO users,
+        IRegistrationStore store,
+        IRegistrationRequestLimiter limiter,
+        IPasswordHasher passwordHasher,
+        IRegistrationEmailSender emailSender,
+        TimeProvider clock,
+        RegistrationOptions options,
+        EmailValidationOptions validationOptions,
+        HttpClient? httpClient = null)
+    {
+        this.users = users;
+        this.store = store;
+        this.limiter = limiter;
+        this.passwordHasher = passwordHasher;
+        this.emailSender = emailSender;
+        this.clock = clock;
+        this.options = options;
+        this.validationOptions = validationOptions;
+        this.httpClient = httpClient;
+    }
+
     public async Task<RequestOtpResponseData> RequestOtpAsync(RegisterRequestOtpDto request, CancellationToken cancellationToken = default)
     {
         var fullName = request.FullName?.Trim() ?? "";
@@ -113,6 +156,170 @@ public sealed class RegistrationService(
                 ExpiresIn = SecondsRemaining(expiresAt), ResendAfterSeconds = SecondsRemaining(pending.ResendAvailableAt)
             };
         }, cancellationToken);
+    }
+
+    public async Task<ValidateEmailResponseData> ValidateEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        var cleanedEmail = email?.Trim().ToLowerInvariant() ?? "";
+
+        // 1. Kiểm tra định dạng cú pháp cơ bản
+        if (string.IsNullOrWhiteSpace(cleanedEmail) || cleanedEmail.Length > 100 || !new EmailAddressAttribute().IsValid(cleanedEmail) || cleanedEmail.Any(c => c > 127))
+        {
+            return new ValidateEmailResponseData
+            {
+                IsValid = false,
+                ExistsInSystem = false,
+                Message = "Định dạng email không hợp lệ hoặc vượt quá 100 ký tự."
+            };
+        }
+
+        // 2. Kiểm tra trùng lặp trong hệ thống
+        if (await users.ExistsByEmailAsync(cleanedEmail, cancellationToken))
+        {
+            return new ValidateEmailResponseData
+            {
+                IsValid = false,
+                ExistsInSystem = true,
+                Message = "Email này đã được sử dụng trong hệ thống."
+            };
+        }
+
+        // 3. Kiểm tra sự tồn tại của tên miền qua DNS
+        var atIndex = cleanedEmail.IndexOf('@');
+        var domain = atIndex > 0 ? cleanedEmail[(atIndex + 1)..] : "";
+        try
+        {
+            var hostEntry = await System.Net.Dns.GetHostEntryAsync(domain, cancellationToken);
+            if (hostEntry == null || hostEntry.AddressList.Length == 0)
+            {
+                return new ValidateEmailResponseData
+                {
+                    IsValid = false,
+                    ExistsInSystem = false,
+                    Message = "Tên miền email không tồn tại trên Internet."
+                };
+            }
+        }
+        catch (System.Net.Sockets.SocketException)
+        {
+            return new ValidateEmailResponseData
+            {
+                IsValid = false,
+                ExistsInSystem = false,
+                Message = "Tên miền email không tồn tại hoặc không thể nhận thư."
+            };
+        }
+        catch
+        {
+            // Bỏ qua lỗi timeout DNS cục bộ, chuyển sang kiểm tra API
+        }
+
+        // 4. Kiểm tra với AbstractAPI (theo yêu cầu demo/kiểm tra thủ công)
+        var apiKey = validationOptions.ApiKey;
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            return new ValidateEmailResponseData
+            {
+                IsValid = true,
+                ExistsInSystem = false,
+                Message = "Email hợp lệ (đã kiểm tra cú pháp, tên miền và hệ thống)."
+            };
+        }
+
+        try
+        {
+            using var client = httpClient != null ? httpClient : new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            var url = $"https://emailreputation.abstractapi.com/v1/?api_key={apiKey}&email={Uri.EscapeDataString(cleanedEmail)}";
+            using var response = await client.GetAsync(url, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string errorDetail = "mã HTTP " + (int)response.StatusCode;
+                try
+                {
+                    using var doc = JsonDocument.Parse(body);
+                    if (doc.RootElement.TryGetProperty("error", out var errProp) &&
+                        errProp.TryGetProperty("message", out var msgProp))
+                    {
+                        errorDetail = msgProp.GetString() ?? errorDetail;
+                    }
+                }
+                catch { }
+
+                return new ValidateEmailResponseData
+                {
+                    IsValid = false,
+                    ExistsInSystem = false,
+                    Message = $"Dịch vụ AbstractAPI báo: {errorDetail}. Vui lòng kiểm tra lại API key hoặc email kích hoạt."
+                };
+            }
+
+            using var json = JsonDocument.Parse(body);
+            var root = json.RootElement;
+
+            // AbstractAPI Email Reputation: email_deliverability.{status,is_smtp_valid}, email_quality.is_disposable
+            JsonElement deliv = default;
+            bool hasDeliv = root.TryGetProperty("email_deliverability", out deliv) && deliv.ValueKind == JsonValueKind.Object;
+            string? deliverability = hasDeliv && deliv.TryGetProperty("status", out var delProp) ? delProp.GetString() : null;
+            bool? isSmtpValid = hasDeliv && deliv.TryGetProperty("is_smtp_valid", out var smtpProp) && smtpProp.ValueKind is JsonValueKind.True or JsonValueKind.False ? smtpProp.GetBoolean() : null;
+            bool isDisposable = root.TryGetProperty("email_quality", out var quality) && quality.ValueKind == JsonValueKind.Object &&
+                                quality.TryGetProperty("is_disposable", out var dispProp) && dispProp.ValueKind == JsonValueKind.True;
+
+            if (isDisposable)
+            {
+                return new ValidateEmailResponseData
+                {
+                    IsValid = false,
+                    ExistsInSystem = false,
+                    Deliverability = deliverability,
+                    IsSmtpValid = isSmtpValid,
+                    Message = "Đây là email tạm thời (rác), không được phép đăng ký."
+                };
+            }
+
+            if (string.Equals(deliverability, "DELIVERABLE", StringComparison.OrdinalIgnoreCase) || isSmtpValid == true)
+            {
+                return new ValidateEmailResponseData
+                {
+                    IsValid = true,
+                    ExistsInSystem = false,
+                    Deliverability = deliverability,
+                    IsSmtpValid = isSmtpValid,
+                    Message = "Hộp thư có thật và có thể nhận thư."
+                };
+            }
+
+            if (string.Equals(deliverability, "UNDELIVERABLE", StringComparison.OrdinalIgnoreCase) || isSmtpValid == false)
+            {
+                return new ValidateEmailResponseData
+                {
+                    IsValid = false,
+                    ExistsInSystem = false,
+                    Deliverability = deliverability,
+                    IsSmtpValid = isSmtpValid,
+                    Message = "Địa chỉ email không tồn tại trên thực tế hoặc không thể nhận thư."
+                };
+            }
+
+            return new ValidateEmailResponseData
+            {
+                IsValid = true,
+                ExistsInSystem = false,
+                Deliverability = deliverability,
+                IsSmtpValid = isSmtpValid,
+                Message = $"Email hợp lệ (trạng thái: {deliverability ?? "Hợp lệ"})."
+            };
+        }
+        catch (Exception ex)
+        {
+            return new ValidateEmailResponseData
+            {
+                IsValid = false,
+                ExistsInSystem = false,
+                Message = $"Lỗi kết nối dịch vụ kiểm tra: {ex.Message}"
+            };
+        }
     }
 
     private async Task EnsureAvailableAsync(string email, string phone, CancellationToken cancellationToken)

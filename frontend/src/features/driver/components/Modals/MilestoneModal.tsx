@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { DateTimeInput } from '../../../../shared/components/DateTimeInput/DateTimeInput';
 import { Modal } from './Modal';
 import type { ActionResult, NextMilestone, Trip } from '../../types';
 import { MILESTONE_LABEL, nowStamp, toInputValue } from '../../hooks/driverRules';
@@ -27,7 +28,7 @@ export const MilestoneModal: React.FC<MilestoneModalProps> = ({ trip, next, onCl
       <p><b>{stop?.name}</b>. Bạn ghi nhận thủ công; hệ thống không gửi vị trí GPS.</p>
       <div className="drv-field">
         <label htmlFor="drv-ms-at">Thời điểm *</label>
-        <input id="drv-ms-at" className="drv-input" type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} />
+        <DateTimeInput id="drv-ms-at" className="drv-input" value={at} onChange={setAt} />
       </div>
       <div className="drv-field">
         <label htmlFor="drv-ms-note">Ghi chú</label>

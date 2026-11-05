@@ -147,32 +147,32 @@ export const driverApi = {
   /** Nhắc Transport Specialist ghi kết quả thông quan */
   remindClearance: (tripId: string) => send(DRIVER_ENDPOINTS.CLEARANCE_REMINDER(tripId)),
 
-  /** Hộ tống / bác sĩ thú y ghi nhật ký sức khoẻ ngựa */
-  addHealthLog: async (tripId: string, body: HealthLogRequestDto) => {
-    try {
-      const key = generateUuidV4();
-      await flow4Api.recordHealthLog(tripId, {
-        expectedVersion: 1,
-        horseId: body.horseId,
-        leg: 'road',
-        milestoneId: null,
-        incidentId: null,
-        observedAt: body.at,
-        condition: body.condition === 'ABNORMAL' ? 'ABNORMAL' : 'NORMAL',
-        observation: body.notes || 'Quan sát sức khỏe trên đường',
-        feeding: 'Bình thường',
-        water: 'Đầy đủ',
-        rest: 'Nghỉ ngơi theo lịch',
-        care: '',
-        temperatureC: body.temp,
-        heartRateBpm: body.hr,
-        respiratoryRatePerMin: 20,
-        photoFileIds: [],
-      }, key);
-      return true;
-    } catch {
-      return send(DRIVER_ENDPOINTS.HEALTH_LOGS(tripId), body);
-    }
+  /**
+   * Hộ tống / bác sĩ thú y ghi nhật ký sức khoẻ ngựa (Flow 4). Chế độ demo chỉ cập nhật cục bộ; chế độ thật dùng phiên bản
+   * hiện tại của backend, gắn nhật ký với mốc đang chờ, và ném lỗi từ backend ra để giao diện hiển thị.
+   */
+  addHealthLog: async (tripId: string, body: HealthLogRequestDto): Promise<boolean> => {
+    if (getDemoMode('driver')) return true;
+    const { binding } = await flow4Api.getTracking(tripId);
+    await flow4Api.recordHealthLog(tripId, {
+      expectedVersion: binding.executionVersion,
+      horseId: body.horseId,
+      leg: 'road',
+      milestoneId: body.milestoneId ?? null,
+      incidentId: null,
+      observedAt: body.at,
+      condition: body.condition === 'ABNORMAL' ? 'ABNORMAL' : 'NORMAL',
+      observation: body.notes || 'Quan sát sức khỏe trên đường',
+      feeding: 'Bình thường',
+      water: 'Đầy đủ',
+      rest: 'Nghỉ ngơi theo lịch',
+      care: '',
+      temperatureC: body.temp,
+      heartRateBpm: body.hr,
+      respiratoryRatePerMin: 20,
+      photoFileIds: [],
+    }, generateUuidV4());
+    return true;
   },
 
   /** Báo cáo sự cố (SOS) */

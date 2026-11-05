@@ -47,7 +47,7 @@ export const DepartStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
           hint="Giả lập tài xế xác nhận xuất phát; chuyến chuyển sang Đang vận chuyển." />
         {['IN_TRANSIT', 'COMPLETED'].includes(t.status) && <Link className="mgr-btn mgr-btn--solid" to={`/manager/trips/${t.id}/progress`}>Xem tiến độ hành trình →</Link>}
       </aside>
-      <Modal open={confirm} title={`Duyệt khởi hành ${t.id}`} okText="Duyệt khởi hành" onClose={() => setConfirm(false)} onOk={() => { if (actions.approveDeparture(t.id).ok) setConfirm(false); }}>
+      <Modal open={confirm} title={`Duyệt khởi hành ${t.id}`} okText="Duyệt khởi hành" onClose={() => setConfirm(false)} onOk={async () => { if ((await actions.approveDeparture(t.id)).ok) setConfirm(false); }}>
         <p>Mọi điều kiện đã đạt. Chuyến chuyển sang <b>Sẵn sàng khởi hành</b> (khởi hành dự kiến {fmtDateTime(t.plannedDepart)}) và yêu cầu của khách chuyển sang Sẵn sàng khởi hành.</p>
       </Modal>
     </div>

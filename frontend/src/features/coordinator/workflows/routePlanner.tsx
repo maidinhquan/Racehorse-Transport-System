@@ -854,7 +854,8 @@ function AddStopModalBody({ tid, segIndex }: { tid: string; segIndex: number }) 
   const places = db.places
     .filter((p: Any) => {
       if (p.status !== 'ACTIVE') return false;
-      if (p.functions.includes('AIRPORT') && t.mode === 'AIR') return false;
+      // Sân bay thuần chỉ chọn qua "Chọn sân bay" của chuyến hàng không; đường bộ không được thêm sân bay.
+      if (p.functions.includes('AIRPORT') && (t.mode === 'AIR' || p.functions.every((fn: string) => fn === 'AIRPORT'))) return false;
       if (fnFilter !== 'ALL' && !p.functions.includes(fnFilter)) return false;
       if (cFilter && p.country !== cFilter) return false;
       if (q.trim()) {
@@ -1167,7 +1168,9 @@ export function rpAirports(tid: string) {
     },
   });
 }
-export function rpDel(tid: string, i: number) { const t = trip(tid), rt = curRoute(t), s = rt.stops[i]; if (!rpEditable(t, rt) || s.required) return toast('Không bỏ được điểm bắt buộc.'); rt.stops.splice(i, 1); RP(tid).selStop = null; rpChanged(t); }
+/** Điểm dừng được phép bỏ: mọi điểm không bắt buộc; riêng sân bay chỉ bắt buộc khi chuyến đi bằng đường hàng không. */
+export const rpDeletable = (t: Any, s: Any) => s.type !== 'ORIGIN' && s.type !== 'DESTINATION' && (!s.required || (s.type === 'AIRPORT' && t.mode !== 'AIR'));
+export function rpDel(tid: string, i: number) { const t = trip(tid), rt = curRoute(t), s = rt.stops[i]; if (!rpEditable(t, rt) || !rpDeletable(t, s)) return toast(s.type === 'AIRPORT' ? 'Chuyến đi bằng đường hàng không bắt buộc có sân bay đi và sân bay đến; dùng "Đổi sân bay" để thay.' : 'Không bỏ được điểm bắt buộc.'); rt.stops.splice(i, 1); RP(tid).selStop = null; rpChanged(t); }
 export function rpMove(tid: string, k: number, d: number) {
   const t = trip(tid), rt = curRoute(t), j = k + d, s = rt.stops;
   if (!rpEditable(t, rt) || s[k].required) return; if (j <= 0 || j >= s.length - 1) return;

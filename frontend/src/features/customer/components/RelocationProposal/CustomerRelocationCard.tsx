@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import customerApi from '../../api/customerApi';
+import { fmtDateTime } from '../../hooks/customerRules';
 import type { CustomerPickupProposal } from '../../../coordinator/types/flow3.types';
 
 interface CustomerRelocationCardProps {
@@ -127,7 +128,7 @@ export const CustomerRelocationCard: React.FC<CustomerRelocationCardProps> = ({ 
         </div>
         {proposal.scheduleImpact && (
           <div style={{ marginTop: 4 }}>
-            <b>Thời gian bàn giao dự kiến:</b> {proposal.handoverAt} ({proposal.scheduleImpact})
+            <b>Thời gian bàn giao dự kiến:</b> {fmtDateTime(proposal.handoverAt)} ({proposal.scheduleImpact})
           </div>
         )}
         {proposal.customerResponsibilities && (

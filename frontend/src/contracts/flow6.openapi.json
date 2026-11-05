@@ -6598,6 +6598,126 @@
           }
         }
       }
+    },
+    "/manager/flow6/payments/{paymentId}/confirm": {
+      "post": {
+        "operationId": "F6-J49",
+        "summary": "Manager xác nhận thủ công thanh toán số dư đang chờ VNPay",
+        "description": "Payment PENDING_GATEWAY mà VNPay chưa báo kết quả (IPN không về). Manager đối chiếu sao kê, ghi lý do; hệ thống ghi SUCCESS và đặt cờ financialReviewRequired để đối soát sau (F6-J48).",
+        "x-role": "LOGISTICS_MANAGER",
+        "x-implementation-status": "implemented",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^PAYMENT_[0-9]{3,}$",
+              "maxLength": 50,
+              "description": "ID bản ghi thanh toán từ URL.",
+              "x-source": "Resource URL",
+              "example": "PAYMENT_008"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "": "#/components/schemas/ReasonInput"
+              },
+              "example": {
+                "reason": "Khách đã thanh toán trên cổng VNPay, đã đối chiếu sao kê"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/F6-J49Response"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Manager xác nhận thủ công thanh toán thành công",
+                  "data": {
+                    "id": "PAYMENT_008",
+                    "invoiceId": "INVOICE_008",
+                    "amountVnd": 780000,
+                    "status": "SUCCESS",
+                    "financialReviewRequired": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Common error; xem FLOW6.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -9899,6 +10019,26 @@
         "additionalProperties": false
       },
       "F6-J48Response": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "": "#/components/schemas/Payment"
+          }
+        },
+        "additionalProperties": false
+      },
+      "F6-J49Response": {
         "type": "object",
         "required": [
           "success",

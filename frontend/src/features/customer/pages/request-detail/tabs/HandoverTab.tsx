@@ -123,6 +123,8 @@ const MockHandoverTab: React.FC<{ request: TransportRequest }> = ({ request: r }
 
 /** Tab Bàn giao & Nghiệm thu (CHẾ ĐỘ GỌI BACKEND FLOW 6 THỰC TẾ) */
 const RealCustomerHandoverTab: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
+  const { actions: customerActions } = useCustomer();
+  const notify = (message: string) => customerActions.showToast(message);
   const [loading, setLoading] = useState(true);
   const [settlement, setSettlement] = useState<T6.Settlement | null>(null);
   const [delivery, setDelivery] = useState<T6.Revision | null>(null);
@@ -137,8 +139,8 @@ const RealCustomerHandoverTab: React.FC<{ request: TransportRequest }> = ({ requ
   const [comment, setComment] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const settlements = await flow6Api.getCustomerSettlements();
       const tripId = r.trip?.id || (r as any).tripId;
@@ -167,6 +169,9 @@ const RealCustomerHandoverTab: React.FC<{ request: TransportRequest }> = ({ requ
 
   useEffect(() => {
     void loadData();
+    // Tự làm mới để thấy hóa đơn cuối / kết quả thanh toán mà không cần tải lại trang
+    const timer = setInterval(() => { void loadData(true); }, 10000);
+    return () => clearInterval(timer);
   }, [r.id]);
 
   const handlePayBalance = async () => {
@@ -181,7 +186,7 @@ const RealCustomerHandoverTab: React.FC<{ request: TransportRequest }> = ({ requ
         window.location.href = session.paymentUrl;
       }
     } catch (err: any) {
-      alert(`Không thể tạo phiên thanh toán: ${err?.message || 'Lỗi kết nối'}`);
+      notify(`Không thể tạo phiên thanh toán: ${err?.message || 'Lỗi kết nối'}`);
     } finally {
       setPaying(false);
     }
@@ -199,7 +204,7 @@ const RealCustomerHandoverTab: React.FC<{ request: TransportRequest }> = ({ requ
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert(`Không tải được tệp PDF: ${err?.message || 'Biên bản chưa sẵn sàng'}`);
+      notify(`Không tải được tệp PDF: ${err?.message || 'Biên bản chưa sẵn sàng'}`);
     } finally {
       setDownloading(false);
     }
@@ -213,9 +218,9 @@ const RealCustomerHandoverTab: React.FC<{ request: TransportRequest }> = ({ requ
       const key = generateUuidV4();
       const res = await flow6Api.submitFeedback(settlement.id, { rating, comment }, key);
       setFeedback(res);
-      alert('Cảm ơn quý khách đã gửi đánh giá chất lượng chuyến đi!');
+      notify('Cảm ơn quý khách đã gửi đánh giá chất lượng chuyến đi!');
     } catch (err: any) {
-      alert(`Không thể gửi đánh giá: ${err?.message || 'Có lỗi xảy ra'}`);
+      notify(`Không thể gửi đánh giá: ${err?.message || 'Có lỗi xảy ra'}`);
     } finally {
       setSubmittingFeedback(false);
     }

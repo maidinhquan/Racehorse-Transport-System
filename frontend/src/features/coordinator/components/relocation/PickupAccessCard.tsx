@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { Any } from '../../store/coordinatorStore';
 import { commit, db, me, nowStamp, toast } from '../../store/coordinatorStore';
 import { flow3Api } from '../../api/flow3Api';
+import { dt } from '../../utils/format';
 import type { PickupCandidate } from '../../types/flow3.types';
 import { saveSharedRequest, getSharedRequests } from '../../../../shared/utils/sharedRequests';
 
@@ -459,7 +460,7 @@ export const PickupAccessCard: React.FC<PickupAccessCardProps> = ({ t, onUpdated
               <div style={{ fontSize: 12, color: '#334155', lineHeight: 1.5 }}>
                 <div><b>Điểm đón đề xuất:</b> {pr.placeName} ({pr.placeAddress})</div>
                 <div><b>Lý do:</b> {pr.reason}</div>
-                {pr.handoverAt && <div><b>Hẹn đón lúc:</b> {pr.handoverAt}</div>}
+                {pr.handoverAt && <div><b>Hẹn đón lúc:</b> {dt(pr.handoverAt)}</div>}
                 {pr.customerResponsibilities && <div><b>Phương án trung chuyển:</b> {pr.customerResponsibilities}</div>}
               </div>
 

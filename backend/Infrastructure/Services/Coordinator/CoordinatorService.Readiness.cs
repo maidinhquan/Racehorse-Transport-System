@@ -530,7 +530,8 @@ namespace Infrastructure.Services
             bool isAir = IsAirTrip(trip);
             bool planApproved = trip.RouteStatus == "APPROVED" || !string.IsNullOrWhiteSpace(trip.ApprovedPlanJson);
             bool noOpenChange = !trip.OpenChange;
-            bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue;
+            // Hồ sơ sẵn sàng: Specialist đã xác nhận Docs READY (DocsReadyAtUtc) hoặc trạng thái hồ sơ đã READY
+            bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue || trip.DocsReadyAtUtc.HasValue;
             bool opsReady = trip.OperationsStatus == "READY" || (trip.ResourcesConfirmedAt.HasValue && planApproved);
 
             DateTime? plannedDepart = trip.Request?.ExpectedDate ?? trip.EarliestDepartureDate;
@@ -619,9 +620,88 @@ namespace Infrastructure.Services
             };
         }
 
+        /// <summary>
+        /// Tạo dòng phân công xe và tổ xe từ phương án đã duyệt (nhân sự theo danh bạ EMP-xx được nối với tài khoản đăng nhập),
+        /// để tài xế thấy chuyến ở trang của mình. Chỉ tạo khi chuyến chưa có phân công và tài xế chính đã có tài khoản liên kết.
+        /// </summary>
+        private async Task EnsureCrewAssignmentFromPlanAsync(TripPlan trip)
+        {
+            if (trip.VehicleAssignments.Any() || string.IsNullOrWhiteSpace(trip.ApprovedPlanJson)) return;
+
+            string? mainDriver = null, coDriver = null, veterinarian = null, vehicleLabel = null;
+            try
+            {
+                using var document = JsonDocument.Parse(trip.ApprovedPlanJson);
+                var root = document.RootElement;
+                if (root.TryGetProperty("vehicleLabel", out var label) && label.ValueKind == JsonValueKind.String) vehicleLabel = label.GetString();
+                if (root.TryGetProperty("resources", out var resources) && resources.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var resource in resources.EnumerateArray())
+                    {
+                        if (resource.TryGetProperty("leg", out var leg) && leg.GetString() != "road") continue;
+                        if (resource.TryGetProperty("crew", out var crew) && crew.ValueKind == JsonValueKind.Object)
+                        {
+                            string? Code(string name) => crew.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? StaffDirectoryLinks.UserIdFor(v.GetString()) : null;
+                            mainDriver = Code("mainDriver"); coDriver = Code("coDriver"); veterinarian = Code("veterinarian");
+                        }
+                        break;
+                    }
+                }
+            }
+            catch (JsonException) { return; }
+
+            var plate = vehicleLabel?.Split(" • ")[0].Trim();
+            if (mainDriver == null || string.IsNullOrWhiteSpace(plate)) return;
+
+            // Mỗi nhân sự tổ xe chỉ được giao cho một chuyến chưa bàn giao xong
+            var busy = await CrewBusyOnOtherTripsAsync(trip.TripId);
+            foreach (var (role, id) in new[] { ("Tài xế chính", mainDriver), ("Phụ lái", coDriver), ("Bác sĩ thú y", veterinarian) })
+            {
+                if (!string.IsNullOrEmpty(id) && busy.TryGetValue(id, out var otherTrip))
+                {
+                    throw new InvalidOperationException("STAFF_BUSY_ON_ACTIVE_TRIP: " + CrewBusyMessage(role, id, otherTrip));
+                }
+            }
+
+            static int MaxNumber(IEnumerable<string> ids, string prefix) =>
+                ids.Select(id => id.StartsWith(prefix, StringComparison.Ordinal) && int.TryParse(id[prefix.Length..], out var n) ? n : 0).DefaultIfEmpty(0).Max();
+
+            var vehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.PlateNumber == plate);
+            if (vehicle == null)
+            {
+                // Xe trong danh bạ của Điều phối chưa có trong bảng VEHICLE: tạo theo biển số và loại xe ghi trong phương án
+                var separator = vehicleLabel!.IndexOf(" • ", StringComparison.Ordinal);
+                var model = separator >= 0 ? vehicleLabel[(separator + 3)..].Trim() : null;
+                vehicle = new Vehicle
+                {
+                    VehicleId = "VEHICLE_" + (MaxNumber(await _context.Vehicles.Select(v => v.VehicleId).ToListAsync(), "VEHICLE_") + 1).ToString("000"),
+                    PlateNumber = plate,
+                    Type = model is { Length: > 50 } ? model[..50] : model,
+                    OperatingCountry = "VN",
+                    Status = "READY",
+                };
+                _context.Vehicles.Add(vehicle);
+            }
+
+            var assignmentNumber = MaxNumber(await _context.TripVehicleAssignments.Select(a => a.AssignmentId).ToListAsync(), "TRIP_ASSIGNMENT_") + 1;
+            trip.VehicleAssignments.Add(new TripVehicleAssignment
+            {
+                AssignmentId = "TRIP_ASSIGNMENT_" + assignmentNumber.ToString("000"),
+                TripId = trip.TripId,
+                LegNumber = 1,
+                LegType = "OUTBOUND",
+                VehicleId = vehicle.VehicleId,
+                DriverId = mainDriver,
+                CoDriverId = coDriver,
+                VeterinarianId = veterinarian,
+                EscortId = veterinarian,
+            });
+        }
+
         /// <summary>Sinh các mốc hành trình (kèm tọa độ) từ phương án đã duyệt khi chuyến sẵn sàng khởi hành.</summary>
         private async Task EnsureExecutionMilestonesAsync(TripPlan trip)
         {
+            await EnsureCrewAssignmentFromPlanAsync(trip);
             if (await _context.TripMilestones.AnyAsync(m => m.TripId == trip.TripId)) return;
             var last = Infrastructure.Services.Flow4.Flow4MilestoneFactory.MaxMilestoneNumber(await _context.TripMilestones.Select(m => m.MilestoneId).ToListAsync());
             _context.TripMilestones.AddRange(Infrastructure.Services.Flow4.Flow4MilestoneFactory.FromApprovedPlan(trip, last));
@@ -656,7 +736,8 @@ namespace Infrastructure.Services
             }
 
             bool planApproved = trip.RouteStatus == "APPROVED" || !string.IsNullOrWhiteSpace(trip.ApprovedPlanJson);
-            bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue;
+            // Hồ sơ sẵn sàng: Specialist đã xác nhận Docs READY (DocsReadyAtUtc) hoặc trạng thái hồ sơ đã READY
+            bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue || trip.DocsReadyAtUtc.HasValue;
             bool opsReady = trip.OperationsStatus == "READY" || (trip.ResourcesConfirmedAt.HasValue && planApproved);
 
             if (!planApproved || !docsReady || !opsReady || trip.OpenChange)

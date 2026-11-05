@@ -6,10 +6,10 @@ namespace Application.Flow6.Services;
 public sealed partial class AftercareService
 {
     public IGatewayQuery? QueryGateway {private get;set;}
-    public async Task<int> ReconcilePending(CancellationToken ct)
+    public async Task<int> ReconcilePending(CancellationToken ct,string? invoiceId=null)
     {
         if(QueryGateway is null)return 0;
-        var rows=await Q("SELECT p.* FROM PAYMENT p JOIN INVOICE i ON i.InvoiceID=p.InvoiceID WHERE i.InvoiceType='FINAL_SETTLEMENT' AND p.Method='VNPAY' AND p.Status='PENDING_GATEWAY' AND p.VnpayCreatedAtUtc<=@before",ct,("@before",Now.AddSeconds(-20)));
+        var rows=await Q("SELECT p.* FROM PAYMENT p JOIN INVOICE i ON i.InvoiceID=p.InvoiceID WHERE i.InvoiceType='FINAL_SETTLEMENT' AND p.Method='VNPAY' AND p.Status='PENDING_GATEWAY' AND p.VnpayCreatedAtUtc<=@before AND (@inv IS NULL OR p.InvoiceID=@inv)",ct,("@before",Now.AddSeconds(-20)),("@inv",invoiceId));
         var recorded=0;
         foreach(var p in rows)
         {
@@ -22,5 +22,19 @@ public sealed partial class AftercareService
             recorded++;
         }
         return recorded;
+    }
+    /// <summary>Hỏi lại VNPay các giao dịch chờ của hóa đơn cuối thuộc hồ sơ này (IPN có thể chưa về được máy chủ); tối đa mỗi 10 giây.</summary>
+    private static readonly Dictionary<string,DateTime> LastSettlementQuery=new();
+    private async Task ReconcileSettlement(string settlementId,CancellationToken ct)
+    {
+        if(QueryGateway is null)return;
+        lock(LastSettlementQuery){if(LastSettlementQuery.TryGetValue(settlementId,out var last)&&(DateTime.UtcNow-last).TotalSeconds<10)return;LastSettlementQuery[settlementId]=DateTime.UtcNow;}
+        try
+        {
+            var inv=(await Q("SELECT FinalInvoiceID FROM TRIP_SETTLEMENT WHERE SettlementID=@s",ct,("@s",settlementId))).SingleOrDefault();
+            var invoice=inv is null?null:S(inv,"FinalInvoiceID");
+            if(!string.IsNullOrEmpty(invoice))await ReconcilePending(ct,invoice);
+        }
+        catch(Exception e)when(e is not OperationCanceledException){}
     }
 }

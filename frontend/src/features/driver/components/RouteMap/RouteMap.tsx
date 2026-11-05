@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import './RouteMap.css';
 import type { RouteStop } from '../../types';
 import { STOP_LABEL } from '../../hooks/driverRules';
+import { addGeoapifyTiles } from '../../../../shared/maps/GeoapifyTiles';
 
 type GeoPoint = { lat: number; lng: number };
 
@@ -35,11 +36,8 @@ function initMap(
     delete (el as unknown as { _leaflet_id?: number })._leaflet_id;
   }
   const map = L.map(el, { scrollWheelZoom: true }).setView([13, 106], 5);
-  const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  });
-  tiles.addTo(map);
+  // Nền bản đồ lấy qua backend (cùng nguồn với Quản lý và Khách hàng), khóa Geoapify không lộ ra trình duyệt
+  const cancelTiles = addGeoapifyTiles(map, () => undefined);
   const layers = L.layerGroup().addTo(map);
 
   const located = stops.flatMap((stop, index) =>
@@ -101,7 +99,7 @@ function initMap(
 
   return () => {
     resize.disconnect();
-    tiles.off();
+    cancelTiles();
     map.remove();
   };
 }
@@ -178,18 +176,13 @@ export function RouteMap({ stops, current = -1, height = 380, onPick, compact }:
     }
     const map = L.map(container.current, { scrollWheelZoom: true }).setView([13, 106], 5);
     mapRef.current = map;
-    const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    });
-    tiles.on('tileerror', () => setTileError(true));
-    tiles.addTo(map);
+    const cancelTiles = addGeoapifyTiles(map, () => setTileError(true));
     layersRef.current = L.layerGroup().addTo(map);
     const resize = new ResizeObserver(() => map.invalidateSize({ pan: false }));
     resize.observe(container.current);
     return () => {
       resize.disconnect();
-      tiles.off();
+      cancelTiles();
       map.remove();
       mapRef.current = null;
       layersRef.current = null;

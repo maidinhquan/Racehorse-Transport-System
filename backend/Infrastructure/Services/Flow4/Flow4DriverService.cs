@@ -17,12 +17,26 @@ public class Flow4DriverService : IFlow4DriverService
     }
 
     /// <summary>
+    /// Chỉ tài xế chính và phụ lái được cập nhật mốc hành trình. Bác sĩ thú y / hộ tống chỉ ghi nhật ký sức khỏe ngựa.
+    /// </summary>
+    private async Task EnsureCanRecordRouteAsync(string tripId, string userId)
+    {
+        var allowed = await _context.TripVehicleAssignments
+            .AnyAsync(a => a.TripId == tripId && (a.DriverId == userId || a.CoDriverId == userId));
+        if (!allowed)
+        {
+            throw new Application.Common.Exceptions.BusinessRuleException(
+                "Chỉ tài xế chính hoặc phụ lái mới được cập nhật mốc hành trình. Bác sĩ thú y ghi nhật ký sức khỏe ngựa.", 403, "FORBIDDEN");
+        }
+    }
+
+    /// <summary>
     /// F4-J02: Lấy danh sách nhiệm vụ vận chuyển được phân công cho tài xế/áp tải.
     /// </summary>
     public async Task<List<Flow4TripSummaryDto>> GetAssignedTripsAsync(string driverId, string? status = null)
     {
         var assignedTripIds = await _context.TripVehicleAssignments
-            .Where(tva => tva.DriverId == driverId || tva.EscortId == driverId)
+            .Where(tva => tva.DriverId == driverId || tva.CoDriverId == driverId || tva.VeterinarianId == driverId || tva.EscortId == driverId)
             .Select(tva => tva.TripId)
             .Distinct()
             .ToListAsync();
@@ -68,7 +82,7 @@ public class Flow4DriverService : IFlow4DriverService
 
         // 2. Kiểm tra phân công xe & tài xế
         var assignment = await _context.TripVehicleAssignments
-            .FirstOrDefaultAsync(tva => tva.TripId == tripId && (tva.DriverId == driverId || tva.EscortId == driverId));
+            .FirstOrDefaultAsync(tva => tva.TripId == tripId && (tva.DriverId == driverId || tva.CoDriverId == driverId || tva.VeterinarianId == driverId || tva.EscortId == driverId));
 
         if (assignment == null)
         {
@@ -120,6 +134,7 @@ public class Flow4DriverService : IFlow4DriverService
     /// </summary>
     public async Task<Flow4MutationResultDto> ConfirmDepartureAsync(string tripId, DriverDepartureInputDto dto, string driverId)
     {
+        await EnsureCanRecordRouteAsync(tripId, driverId);
         var strategy = _context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
@@ -191,6 +206,7 @@ public class Flow4DriverService : IFlow4DriverService
     /// </summary>
     public async Task<Flow4MutationResultDto> CompleteMilestoneAsync(string tripId, string milestoneId, MilestoneCompleteInputDto dto, string driverId)
     {
+        await EnsureCanRecordRouteAsync(tripId, driverId);
         var strategy = _context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
@@ -221,7 +237,7 @@ public class Flow4DriverService : IFlow4DriverService
             .AnyAsync(m => m.TripId == tripId && m.Status == "PENDING" && m.SequenceOrder < milestone.SequenceOrder);
 
         if (hasEarlierPending)
-            throw new InvalidOperationException("INVALID_SEQUENCE: Bắt buộc phải hoàn tất các mốc trước đó theo đúng trình tự tuần tự.");
+            throw new InvalidOperationException("MILESTONE_NOT_NEXT: Bắt buộc phải hoàn tất các mốc trước đó theo đúng trình tự tuần tự.");
 
         // 2. Chốt chặn y tế: Nếu mốc có cờ RequiresHealthCheck
         if (milestone.RequiresHealthCheck)
@@ -364,6 +380,7 @@ public class Flow4DriverService : IFlow4DriverService
     /// </summary>
     public async Task<Flow4MutationResultDto> HandoverAirAsync(string tripId, AirHandoverInputDto dto, string driverId)
     {
+        await EnsureCanRecordRouteAsync(tripId, driverId);
         var strategy = _context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
@@ -406,6 +423,7 @@ public class Flow4DriverService : IFlow4DriverService
     /// </summary>
     public async Task<Flow4MutationResultDto> ReceiveAirAsync(string tripId, AirReceiveInputDto dto, string driverId)
     {
+        await EnsureCanRecordRouteAsync(tripId, driverId);
         var strategy = _context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {

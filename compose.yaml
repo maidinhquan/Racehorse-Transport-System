@@ -15,6 +15,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       Flow6__LibreOfficeExecutable: /usr/bin/soffice
       ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=${SQL_DATABASE:-HorseTransportDB};User Id=${SQL_USER:?Set SQL_USER in .env};Password=${SQL_PASSWORD:?Set SQL_PASSWORD in .env};TrustServerCertificate=True;"
+      EmailValidation__ApiKey: ${EMAIL_VALIDATION_API_KEY:-}
       Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
       Smtp__Port: ${SMTP_PORT:-587}
       Smtp__Username: ${SMTP_USERNAME:-}
