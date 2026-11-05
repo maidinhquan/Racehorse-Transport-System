@@ -752,6 +752,11 @@ CREATE TABLE INCIDENT (
     ImageUrl VARCHAR(500) NULL,
     AdditionalCost DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NULL,
+    CoordinatorId VARCHAR(50) NULL,
+    SafetyBlockerActive BIT NULL,
+    ResolvedAt DATETIME2(7) NULL,
+    ResolutionType VARCHAR(50) NULL,
+    ResolutionNotes NVARCHAR(MAX) NULL,
     CONSTRAINT PK_Incident PRIMARY KEY (IncidentID),
     CONSTRAINT FK_Incident_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
     CONSTRAINT FK_Incident_ApprovedBy FOREIGN KEY (ApprovedBy) REFERENCES [USER](UserID)
