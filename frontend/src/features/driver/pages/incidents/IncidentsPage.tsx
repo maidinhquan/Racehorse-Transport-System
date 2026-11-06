@@ -86,12 +86,15 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
   );
 };
 
+const cleanId = (x?: string) => (x || '').replace(/-/g, '_').toLowerCase();
+const isMatchTrip = (a?: string, b?: string) => !!a && !!b && cleanId(a) === cleanId(b);
+
 export const IncidentsPage: React.FC = () => {
   const { tripId } = useParams<{ tripId?: string }>();
   const navigate = useNavigate();
   const { activeTrips, incidents } = useDriver();
-  const trip = activeTrips.find((t) => t.id === tripId) ?? activeTrips[0];
-  const list = trip ? incidents.filter((i) => i.tripId === trip.id) : [];
+  const trip = (tripId ? activeTrips.find((t) => isMatchTrip(t.id, tripId)) : null) ?? activeTrips[0];
+  const list = trip ? incidents.filter((i) => isMatchTrip(i.tripId, trip.id)) : [];
 
   return (
     <DriverLayout title="Báo cáo sự cố">

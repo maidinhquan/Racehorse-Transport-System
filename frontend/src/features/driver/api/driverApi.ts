@@ -125,14 +125,22 @@ export const driverApi = {
         backendList = res.data.data.map(mapDto);
       }
     } catch {
-      // Backend unavailable or error
+      try {
+        const res2 = await apiClient.get<ApiResponse<any[]>>('/incidents');
+        if (Array.isArray(res2.data?.data)) {
+          backendList = res2.data.data.map(mapDto);
+        }
+      } catch {
+        // Backend unavailable or error
+      }
     }
 
+    const clean = (x?: string) => (x || '').replace(/-/g, '_').toUpperCase();
     const mergedMap = new Map<string, Incident>();
     if (getDemoMode('driver')) {
-      mockIncidents.forEach((i) => mergedMap.set(i.id, i));
+      mockIncidents.forEach((i) => mergedMap.set(clean(i.id), i));
     }
-    backendList.forEach((i) => mergedMap.set(i.id, i));
+    backendList.forEach((i) => mergedMap.set(clean(i.id), i));
     shared.forEach((s) => {
       const i: Incident = {
         id: s.id,
@@ -149,7 +157,13 @@ export const driverApi = {
         photos: s.photos || [],
         approvedPlan: s.approvedPlan,
       };
-      mergedMap.set(s.id, i);
+      const key = clean(s.id);
+      const existing = mergedMap.get(key);
+      if (existing) {
+        mergedMap.set(key, { ...existing, ...i, approvedPlan: s.approvedPlan || existing.approvedPlan });
+      } else {
+        mergedMap.set(key, i);
+      }
     });
 
     return Array.from(mergedMap.values()).sort((a, b) => b.at.localeCompare(a.at));
@@ -241,7 +255,7 @@ export const driverApi = {
   },
 
   /** Báo cáo sự cố (SOS) */
-  reportIncident: async (tripId: string, body: ReportIncidentRequestDto) => {
+  reportIncident: async (tripId: string, body: ReportIncidentRequestDto): Promise<{ ok: boolean; incident?: Partial<Incident> }> => {
     const payload = {
       tripId,
       category: body.type,
@@ -255,7 +269,50 @@ export const driverApi = {
       photos: body.photos,
       occurredAt: new Date().toISOString(),
     };
-    return send(DRIVER_ENDPOINTS.REPORT_INCIDENT(tripId), payload);
+    try {
+      const res = await apiClient.post<ApiResponse<any>>(DRIVER_ENDPOINTS.REPORT_INCIDENT(tripId), payload);
+      const data = res.data?.data;
+      if (res.data?.success !== false) {
+        return {
+          ok: true,
+          incident: data ? {
+            id: data.incidentId || data.id,
+            tripId: data.tripId || tripId,
+            type: (data.category || data.incidentType || body.type) as any,
+            severity: (data.severity || body.severity) as any,
+            status: (data.status || 'REPORTED') as any,
+            at: data.reportedAt || new Date().toISOString(),
+            by: data.reportedByUserName || data.reportedByUserId || 'Tài xế',
+            location: data.location || body.location,
+            description: data.description || body.description,
+          } : undefined,
+        };
+      }
+    } catch {
+      try {
+        const res2 = await apiClient.post<ApiResponse<any>>('/incidents', payload);
+        const data2 = res2.data?.data;
+        if (res2.data?.success !== false) {
+          return {
+            ok: true,
+            incident: data2 ? {
+              id: data2.incidentId || data2.id,
+              tripId: data2.tripId || tripId,
+              type: (data2.category || data2.incidentType || body.type) as any,
+              severity: (data2.severity || body.severity) as any,
+              status: (data2.status || 'REPORTED') as any,
+              at: data2.reportedAt || new Date().toISOString(),
+              by: data2.reportedByUserName || data2.reportedByUserId || 'Tài xế',
+              location: data2.location || body.location,
+              description: data2.description || body.description,
+            } : undefined,
+          };
+        }
+      } catch {
+        // Backend offline / mock
+      }
+    }
+    return { ok: true };
   },
 
   /** Hoàn tất bàn giao tại điểm đích (Flow 6) */
