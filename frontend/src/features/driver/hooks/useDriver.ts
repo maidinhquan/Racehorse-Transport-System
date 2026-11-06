@@ -13,6 +13,7 @@ import type {
   Trip,
 } from '../types';
 import { saveIncidentPin } from '../../../shared/utils/sharedIncidentPins';
+import { saveSharedIncident } from '../../../shared/utils/sharedIncidents';
 import { driverApi } from '../api/driverApi';
 import { tripFromTracking } from '../api/flow4Mapper';
 import { flow4Api } from '../../tracking/api/flow4Api';
@@ -301,6 +302,7 @@ const actions = {
       id: `INC-${String(Date.now()).slice(-4)}`, tripId, type: body.type, severity: body.severity, status: 'NEW',
       at: nowStamp(), by: state.userId, location, lat: point?.lat, lng: point?.lng, description: body.description.trim(), photos,
     };
+    saveSharedIncident(inc as any);
     if (point) saveIncidentPin({ id: inc.id, tripId, label: INCIDENT_TYPE_LABEL[inc.type], lat: point.lat, lng: point.lng, where: location, description: inc.description, at: inc.at });
     setState((s) => ({ incidents: [inc, ...s.incidents], incidentPhotos: [] }));
     return ok(`Đã gửi báo cáo ${INCIDENT_TYPE_LABEL[inc.type].toLowerCase()}. Manager, Coordinator và khách hàng đã được thông báo.`);

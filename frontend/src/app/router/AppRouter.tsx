@@ -60,6 +60,7 @@ import {
 } from "../../features/manager";
 import {
   SpecialistDashboardPage,
+  SpecialistIncidentsPage,
   AssignedTripsPage,
   TripDetailPage as SpecialistTripDetailPage,
   DocumentReviewPage,
@@ -166,6 +167,7 @@ function AppRouter() {
         <Route path="/specialist/documents/:docId" element={<DocumentReviewPage />} />
         <Route path="/specialist/regulations" element={<RegulationsPage />} />
         <Route path="/specialist/regulations/:tab" element={<RegulationsPage />} />
+        <Route path="/specialist/incidents" element={<SpecialistIncidentsPage />} />
         <Route path="/specialist/audit" element={<AuditPage />} />
         {/* Legacy redirects */}
         <Route path="/specialist/master" element={<Navigate to="/specialist/regulations" replace />} />

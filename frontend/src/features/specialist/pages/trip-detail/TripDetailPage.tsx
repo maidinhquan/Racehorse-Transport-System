@@ -11,6 +11,7 @@ import { DocsReadyCard } from './sections/DocsReadyCard';
 import { CustomerDocsTab } from './tabs/CustomerDocsTab';
 import { CompanyDocsTab } from './tabs/CompanyDocsTab';
 import { InsuranceTab } from './tabs/InsuranceTab';
+import { IncidentsTab } from './tabs/IncidentsTab';
 import './TripDetailPage.css';
 
 /** Tải danh mục hồ sơ đi đường (CSV) để in và bàn giao cho tổ xe */
@@ -41,7 +42,7 @@ export const TripDetailPage: React.FC = () => {
   if (!t) {
     return <SpecialistLayout title="Chuyến được giao"><Note tone="grey" title="Không tìm thấy chuyến">Chuyến {tripId} không có trong danh sách được giao.</Note></SpecialistLayout>;
   }
-  const active: TripDetailTab = (['customer', 'required', 'insurance'] as const).includes(tab as TripDetailTab) ? (tab as TripDetailTab) : 'customer';
+  const active: TripDetailTab = (['customer', 'required', 'insurance', 'incidents'] as const).includes(tab as TripDetailTab) ? (tab as TripDetailTab) : 'customer';
   const x = tripTotals(data, t);
 
   return (
@@ -73,6 +74,7 @@ export const TripDetailPage: React.FC = () => {
               {active === 'customer' && <CustomerDocsTab trip={t} />}
               {active === 'required' && <CompanyDocsTab trip={t} />}
               {active === 'insurance' && <InsuranceTab trip={t} />}
+              {active === 'incidents' && <IncidentsTab trip={t} />}
             </div>
             <DemoPanel trip={t} />
           </div>

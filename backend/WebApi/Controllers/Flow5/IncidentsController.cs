@@ -1,4 +1,4 @@
-using Application.DTOs.Flow5;
+﻿using Application.DTOs.Flow5;
 using Application.Interfaces.Flow5;
 using Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -45,6 +45,17 @@ public class IncidentsController : BaseApiController
     /// <summary>
     /// F5-J02: Lấy danh sách sự cố theo điều kiện lọc
     /// </summary>
+    /// <summary>
+    /// Lấy danh sách sự cố cho tài xế
+    /// </summary>
+    [HttpGet("driver/incidents")]
+    [Authorize(Roles = $"{UserRoles.DriverEscort},{UserRoles.Admin}")]
+    public async Task<IActionResult> GetDriverIncidents([FromQuery] string? tripId, [FromQuery] string? status)
+    {
+        var result = await _incidentService.GetIncidentsAsync(tripId, status);
+        return Success(result);
+    }
+
     [HttpGet("incidents")]
     [Authorize]
     public async Task<IActionResult> GetIncidents([FromQuery] string? tripId, [FromQuery] string? status)

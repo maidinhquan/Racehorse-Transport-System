@@ -273,5 +273,5 @@ export interface ActionResult {
   id?: string;
 }
 
-export type TripDetailTab = 'customer' | 'required' | 'insurance';
+export type TripDetailTab = 'customer' | 'required' | 'insurance' | 'incidents';
 export type SetupTab = 'types' | 'regs' | 'sets';

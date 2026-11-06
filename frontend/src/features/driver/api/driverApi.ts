@@ -18,6 +18,7 @@ import { mockCrew, mockHorses, mockIncidents, mockTrips } from '../data/mockData
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { flow4Api } from '../../tracking/api/flow4Api';
 import { generateUuidV4 } from '../../../shared/utils/uuid';
+import { getSharedIncidents } from '../../../shared/utils/sharedIncidents';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
@@ -93,8 +94,66 @@ export const driverApi = {
   /** Thông tin ngựa trên các chuyến */
   getHorses: () => getOr<Horse[]>(DRIVER_ENDPOINTS.HORSES, mockHorses),
 
-  /** Sự cố của các chuyến được giao */
-  getIncidents: () => getOr<Incident[]>(DRIVER_ENDPOINTS.INCIDENTS, mockIncidents),
+  /** Sự cố của các chuyến được giao (kết hợp backend và shared storage) */
+  getIncidents: async (): Promise<Incident[]> => {
+    const shared = getSharedIncidents();
+    const mapDto = (dto: any): Incident => {
+      const coords = dto.locationCoordinates ? String(dto.locationCoordinates).split(',') : [];
+      const lat = coords.length === 2 ? parseFloat(coords[0]) : undefined;
+      const lng = coords.length === 2 ? parseFloat(coords[1]) : undefined;
+      return {
+        id: dto.incidentId || dto.id,
+        tripId: dto.tripId,
+        type: (dto.category || dto.incidentType || dto.type || 'OTHER') as any,
+        severity: (dto.severity || 'MEDIUM') as any,
+        status: (dto.status || 'NEW') as any,
+        at: dto.reportedAt || dto.at || new Date().toISOString(),
+        by: dto.reportedByUserName || dto.reportedByUserId || dto.by || 'Tài xế',
+        location: dto.immediateCare || dto.location || (lat && lng ? `${lat}, ${lng}` : 'Trên tuyến'),
+        lat: Number.isFinite(lat) ? lat : undefined,
+        lng: Number.isFinite(lng) ? lng : undefined,
+        description: dto.description || '',
+        photos: dto.imageUrl ? [dto.imageUrl] : Array.isArray(dto.photos) ? dto.photos : [],
+        approvedPlan: dto.resolutionNotes,
+      };
+    };
+
+    let backendList: Incident[] = [];
+    try {
+      const res = await apiClient.get<ApiResponse<any[]>>(DRIVER_ENDPOINTS.INCIDENTS);
+      if (Array.isArray(res.data?.data)) {
+        backendList = res.data.data.map(mapDto);
+      }
+    } catch {
+      // Backend unavailable or error
+    }
+
+    const mergedMap = new Map<string, Incident>();
+    if (getDemoMode('driver')) {
+      mockIncidents.forEach((i) => mergedMap.set(i.id, i));
+    }
+    backendList.forEach((i) => mergedMap.set(i.id, i));
+    shared.forEach((s) => {
+      const i: Incident = {
+        id: s.id,
+        tripId: s.tripId,
+        type: s.type as any,
+        severity: s.severity as any,
+        status: s.status as any,
+        at: s.at,
+        by: s.by,
+        location: s.location,
+        lat: s.lat,
+        lng: s.lng,
+        description: s.description,
+        photos: s.photos || [],
+        approvedPlan: s.approvedPlan,
+      };
+      mergedMap.set(s.id, i);
+    });
+
+    return Array.from(mergedMap.values()).sort((a, b) => b.at.localeCompare(a.at));
+  },
 
   /**
    * Ghi nhận mốc hành trình (Flow 4). Chế độ demo chỉ cập nhật cục bộ. Chế độ thật dùng đúng mã mốc và phiên bản
@@ -182,8 +241,22 @@ export const driverApi = {
   },
 
   /** Báo cáo sự cố (SOS) */
-  reportIncident: (tripId: string, body: ReportIncidentRequestDto) =>
-    send(DRIVER_ENDPOINTS.REPORT_INCIDENT(tripId), body),
+  reportIncident: async (tripId: string, body: ReportIncidentRequestDto) => {
+    const payload = {
+      tripId,
+      category: body.type,
+      type: body.type,
+      severity: body.severity,
+      description: body.description,
+      location: body.location,
+      immediateCare: body.location,
+      locationCoordinates: body.locationCoordinates,
+      imageUrl: body.photos?.[0],
+      photos: body.photos,
+      occurredAt: new Date().toISOString(),
+    };
+    return send(DRIVER_ENDPOINTS.REPORT_INCIDENT(tripId), payload);
+  },
 
   /** Hoàn tất bàn giao tại điểm đích (Flow 6) */
   completeHandover: (tripId: string, body: CompleteHandoverRequestDto) =>
