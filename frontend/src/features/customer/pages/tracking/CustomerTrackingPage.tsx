@@ -3,10 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { RouteMap } from '../../components/RouteMap/RouteMap';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
-import { LockedCard, Note, horseNames } from '../../components/Common/Common';
+import { LockedCard, Note } from '../../components/Common/Common';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useCustomer } from '../../hooks/useCustomer';
-import { MILESTONE_LABEL, STOP_LABEL, TRIP_STATUS_LABEL, cityLabel, fmtDateTime, tripSummary } from '../../hooks/customerRules';
+import { MILESTONE_LABEL, STOP_LABEL, TRIP_STATUS_LABEL, cityLabel, shortCity, fmtDateTime, tripSummary } from '../../hooks/customerRules';
 import type { Trip, TripStatus } from '../../types';
 import { CustomerRelocationCard } from '../../components/RelocationProposal/CustomerRelocationCard';
 import { flow4Api } from '../../../tracking/api/flow4Api';
@@ -23,7 +23,7 @@ export const CustomerTrackingPage: React.FC = () => {
   const navigate = useNavigate();
   const { requestId } = useParams<{ requestId: string }>();
   const [selectedId, setSelectedId] = useState<string | undefined>(requestId);
-  const { requests, horses, getRequest } = useCustomer(selectedId || requestId);
+  const { requests, getRequest } = useCustomer(selectedId || requestId);
 
   useEffect(() => {
     if (requestId) {
@@ -105,11 +105,20 @@ export const CustomerTrackingPage: React.FC = () => {
               navigate(`/customer/tracking/${nextId}`);
             }}
           >
-            {list.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.id}{x.trip ? ` • ${x.trip.id}` : ''}: {horseNames(x, horses)}{x.trip ? ` (${TRIP_STATUS_LABEL[x.trip.status]})` : ''}
-              </option>
-            ))}
+            {list.map((x) => {
+              const st = Object.values(sharedTrips).find(
+                (s) => cleanId(s.requestId) === cleanId(x.id) || cleanId(s.id) === cleanId(x.id)
+              );
+              const tripId = x.trip?.id || st?.id;
+              const tripStatus = (x.trip?.status || st?.status) as TripStatus | undefined;
+              const route = x.origin && x.destination ? `${shortCity(x.origin)} → ${shortCity(x.destination)}` : (x.origin || x.destination || "");
+              const statusText = tripStatus && TRIP_STATUS_LABEL[tripStatus] ? ` (${TRIP_STATUS_LABEL[tripStatus]})` : "";
+              return (
+                <option key={x.id} value={x.id}>
+                  {x.id}{tripId ? ` • ${tripId}` : ""}{route ? `: ${route}` : ""}{statusText}
+                </option>
+              );
+            })}
           </select>
         </label>
       )}

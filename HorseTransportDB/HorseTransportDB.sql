@@ -1,4 +1,3 @@
-<<<<<<<< HEAD:HorseTransportDB/HorseTransportDB.sql
 -- =============================================================================
 -- HorseTransportDB.sql: FILE DATABASE DUY NHẤT (schema + dữ liệu mẫu, Flow 1 đến Flow 6)
 -- Gộp từ: HorseTransportDB_Reviewed.sql (schema Flow 1-3, 5, 6 và dữ liệu mẫu)
@@ -7,22 +6,6 @@
 -- Chạy từ thư mục gốc repository (bắt buộc có -f 65001 để giữ đúng tiếng Việt):
 --   sqlcmd -S ".\SQLEXPRESS" -E -C -b -f 65001 -i HorseTransportDB/HorseTransportDB.sql
 -- Các file HorseTransportDB_Reviewed.sql, modules/, 00_Init_Database.sql không còn cần để khởi tạo DB.
-========
--- Canonical test schema: reset/recreate using this file; no numbered migrations are required.
--- Includes RemoveRequestSharedDocuments: retired request attachment columns are omitted;
--- customs fixtures use EXPORT/IMPORT only, so no legacy-data cleanup is needed.
--- Flow 1 scope 2026-10-24: VNPAY only; progress via current Status, no history/audit tables.
--- Reviewed sample only: do not run against an active database as a migration.
--- Reviewed copy: source data/HorseTransportDB.sql is preserved.
--- Creates ONLY HorseTransportDB. All timestamps in demo fixtures are UTC.
--- Private/demo paths and example URLs are placeholders, not bundled file contents.
--- SAMPLE DATABASE ONLY: this file DROPS and recreates HorseTransportDB.
--- Not a migration. Do not apply old migration scripts to restore removed columns.
--- Flow 1 and Flow 6 schema is defined directly below; all monetary amounts are VND.
--- Flow 6: 5 additional tables, totaling 37 tables / 33 monotonic sequences.
--- Backend still owns authorization, cross-table transitions, window scheduling and financial reconciliation.
--- Monetary seed values are illustrative demo data, not market quotations. Ratios remain ratios.
->>>>>>>> origin/feature/api-frontend-flow4-5-6:HorseTransportDB/HorseTransportDB_Reviewed.sql
 -- =============================================================================
 -- BƯỚC 1: TẠO VÀ CHUYỂN VÀO CƠ SỞ DỮ LIỆU CHÍNH THỨC
 -- =============================================================================
@@ -1519,11 +1502,13 @@ INSERT INTO INCIDENT (IncidentID, TripID, ApprovedBy, IncidentType, LocationCoor
 
 -- 22. Bảng HANDOVER: Biên bản tiếp nhận (Pickup) và giao ngựa (Delivery)
 INSERT INTO HANDOVER (HandoverID, TripID, HandedByUserID, Type, LocationName, ReceiverName, ReceiverPhone, IsAuthorized, Status) VALUES
-('HANDOVER_003', 'TRIP_002', 'USER_008', 'PICKUP', N'Trại ngựa Củ Chi, TP.HCM', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED');
+('HANDOVER_003', 'TRIP_002', 'USER_008', 'PICKUP', N'Trại ngựa Củ Chi, TP.HCM', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED'),
+('HANDOVER_004', 'TRIP_002', 'USER_008', 'DELIVERY', N'Trung tâm tiếp nhận ngựa Đà Nẵng', N'Nguyễn Minh', N'0902223344', 1, 'CONFIRMED');
 
 -- 23. Bảng HANDOVER_ITEM: Đối soát mã chip và thể trạng lúc giao nhận
 INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerified, ConditionStatus, AssetCheck, PhotoUrl) VALUES
-('HANDOVER_ITEM_005', 'HANDOVER_003', 'HORSE_003', 1, N'Thể trạng tốt', N'Đã xác nhận tiếp nhận ngựa tại điểm lấy.', 'https://storage.cbntransport.com/ho/pu_hrs3.jpg');
+('HANDOVER_ITEM_005', 'HANDOVER_003', 'HORSE_003', 1, N'Thể trạng tốt', N'Đã xác nhận tiếp nhận ngựa tại điểm lấy.', 'https://storage.cbntransport.com/ho/pu_hrs3.jpg'),
+('HANDOVER_ITEM_006', 'HANDOVER_004', 'HORSE_003', 1, N'Thể trạng tốt sau hành trình', N'Đã xác nhận giao ngựa tại điểm đến Đà Nẵng.', 'https://storage.cbntransport.com/ho/de_hrs3.jpg');
 
 -- =============================================================================
 -- PHÂN VÙNG 5: HỢP ĐỒNG & TÀI CHÍNH VND (CONTRACT & BILLING)
@@ -2516,13 +2501,13 @@ UPDATE TRIP_PLAN SET Status='PLANNING', ExecutionVersion=1, ExecutionPhase='AWAI
     ResourcesConfirmedAt='2026-11-04T15:00:00',ResourcesConfirmedBy='USER_006',DocumentsConfirmedAt='2026-11-04T15:00:00',DocumentsConfirmedBy='USER_005',
     DocsReadyAtUtc='2026-11-04T15:00:00',DocsReadyBy='USER_005',RouteApprovedAt='2026-11-04T14:00:00',RouteApprovedBy='USER_004',DepartureApprovedAt=NULL,DepartureApprovedBy=NULL
     WHERE TripID='TRIP_001';
-UPDATE TRIP_PLAN SET Status='IN_TRANSIT', ExecutionVersion=2, ExecutionPhase='IN_PROGRESS',DepartureApprovedAt='2026-11-05T06:45:00',DepartureApprovedBy='USER_004' WHERE TripID='TRIP_002';
+UPDATE TRIP_PLAN SET Status='COMPLETED', ExecutionVersion=2, ExecutionPhase='COMPLETED',DepartureApprovedAt='2026-11-05T06:45:00',DepartureApprovedBy='USER_004' WHERE TripID='TRIP_002';
 UPDATE TRIP_PLAN SET Status='READY_TO_DEPART', ExecutionVersion=1, ExecutionPhase='AWAITING_DEPARTURE',
     ResourcesConfirmedAt='2026-11-04T15:00:00',ResourcesConfirmedBy='USER_006',DocumentsConfirmedAt='2026-11-04T15:00:00',DocumentsConfirmedBy='USER_005',
     DocsReadyAtUtc='2026-11-04T15:00:00',DocsReadyBy='USER_005',RouteApprovedAt='2026-11-04T14:00:00',RouteApprovedBy='USER_004',DepartureApprovedAt='2026-11-12T08:00:00',DepartureApprovedBy='USER_004'
     WHERE TripID='TRIP_003';
 UPDATE TRANSPORT_REQUEST SET Status='ACTIVATED' WHERE RequestID='REQUEST_001';
-UPDATE TRANSPORT_REQUEST SET Status='IN_PROGRESS' WHERE RequestID='REQUEST_002';
+UPDATE TRANSPORT_REQUEST SET Status='DELIVERED' WHERE RequestID='REQUEST_002';
 UPDATE TRANSPORT_REQUEST SET Status='SCHEDULED' WHERE RequestID='REQUEST_003';
 
 UPDATE ROUTE_SEGMENT SET Status='PLANNED',ActualTime=NULL WHERE TripID IN ('TRIP_001','TRIP_003');
