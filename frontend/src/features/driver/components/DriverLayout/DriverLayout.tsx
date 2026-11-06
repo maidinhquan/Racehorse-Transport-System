@@ -67,7 +67,8 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
     navigate('/login');
   };
 
-  const openIncidents = incidents.filter((i) => activeTrips.some((t) => t.id === i.tripId) && !['RESOLVED', 'CLOSED'].includes(i.status)).length;
+  const isMatchTrip = (a?: string, b?: string) => !!a && !!b && (a === b || a.replace(/-/g, '_').toLowerCase() === b.replace(/-/g, '_').toLowerCase());
+  const openIncidents = incidents.filter((i) => activeTrips.some((t) => isMatchTrip(t.id, i.tripId)) && !['RESOLVED', 'CLOSED'].includes(i.status)).length;
   const NAV: Array<[string, string, string, number?]> = [
     ['/driver/journey', 'Hành trình', 'map', activeTrips.length],
     ['/driver/trips', 'Chuyến đi', 'truck'],

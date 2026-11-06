@@ -1,10 +1,554 @@
-.spc-incidents-list {
+/* ==========================================================================
+   Specialist Incidents Page — Bố cục & Giao diện chuyên nghiệp
+   ========================================================================== */
+
+.spc-incidents-page {
   display: flex;
   flex-direction: column;
+  gap: 20px;
+}
+
+/* ---------- 1. KPI Stats Cards ---------- */
+.spc-incidents-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 14px;
 }
 
-.spc-filter-card {
-  border: 1px solid var(--border-color, #e2e8f0);
-  background: var(--bg-surface, #ffffff);
+.spc-stat-card {
+  background: var(--spc-card);
+  border: 1px solid var(--spc-line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.spc-stat-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.spc-stat-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--spc-bg);
+  color: var(--spc-muted);
+}
+
+.spc-stat-card__icon .spc-i {
+  width: 22px;
+  height: 22px;
+}
+
+.spc-stat-card--warn .spc-stat-card__icon {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.spc-stat-card--bad .spc-stat-card__icon {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.spc-stat-card--ok .spc-stat-card__icon {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.spc-stat-card__info {
+  display: flex;
+  flex-direction: column;
+}
+
+.spc-stat-card__val {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--spc-ink);
+}
+
+.spc-stat-card__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--spc-muted);
+  margin-top: 2px;
+}
+
+.spc-stat-card__sub {
+  font-size: 11px;
+  color: var(--spc-muted);
+  margin-top: 3px;
+}
+
+/* ---------- 2. Filter Bar ---------- */
+.spc-incidents-filter {
+  background: var(--spc-card);
+  border: 1px solid var(--spc-line);
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.spc-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.spc-filter-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--spc-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.spc-filter-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--spc-bg);
+  border: 1px solid var(--spc-line);
+  border-radius: 9px;
+  padding: 0 12px;
+  height: 38px;
+  box-sizing: border-box;
+  min-width: 240px;
+}
+
+.spc-filter-search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font: 13px Inter, system-ui, sans-serif;
+  color: var(--spc-ink);
+  width: 100%;
+}
+
+.spc-filter-search .spc-i {
+  color: var(--spc-muted);
+  flex-shrink: 0;
+}
+
+/* Segmented Control Buttons */
+.spc-segmented-control {
+  display: inline-flex;
+  background: var(--spc-bg);
+  border: 1px solid var(--spc-line);
+  padding: 3px;
+  border-radius: 9px;
+  gap: 2px;
+}
+
+.spc-segmented-btn {
+  border: 0;
+  background: transparent;
+  padding: 6px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--spc-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.spc-segmented-btn:hover {
+  color: var(--spc-ink);
+}
+
+.spc-segmented-btn.active {
+  background: #ffffff;
+  color: var(--spc-orange-text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .spc-segmented-btn.active {
+  background: var(--spc-card);
+  color: var(--spc-orange);
+}
+
+.spc-segmented-count {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--spc-line);
+  color: var(--spc-muted);
+  font-weight: 700;
+}
+
+.spc-segmented-btn.active .spc-segmented-count {
+  background: var(--spc-orange-soft);
+  color: var(--spc-orange-text);
+}
+
+/* ---------- 3. Incidents List & Cards ---------- */
+.spc-incidents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.spc-incident-card {
+  background: var(--spc-card);
+  border: 1px solid var(--spc-line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.spc-incident-card:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  border-color: #cbd5e1;
+}
+
+/* Card Header */
+.spc-incident-card__header {
+  padding: 16px 20px;
+  background: var(--spc-card);
+  border-bottom: 1px solid var(--spc-line);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.spc-incident-card__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spc-incident-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.spc-incident-chip {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--spc-bg);
+  color: var(--spc-ink);
+  border: 1px solid var(--spc-line);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spc-incident-chip--trip {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.spc-incident-card__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--spc-ink);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spc-incident-card__route {
+  font-size: 13px;
+  color: var(--spc-muted);
+  font-weight: 500;
+}
+
+.spc-incident-card__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Card Content: 2-column layout */
+.spc-incident-card__content {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 0;
+}
+
+@media (max-width: 960px) {
+  .spc-incident-card__content {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Cột 1: Thông tin hiện trường */
+.spc-incident-card__left {
+  padding: 20px;
+  border-right: 1px solid var(--spc-line);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 960px) {
+  .spc-incident-card__left {
+    border-right: none;
+    border-bottom: 1px solid var(--spc-line);
+  }
+}
+
+/* Bảng Metadata hiện trường */
+.spc-incident-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px 14px;
+  background: var(--spc-bg);
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--spc-line);
+}
+
+.spc-incident-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spc-incident-meta-item span {
+  font-size: 11px;
+  color: var(--spc-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 600;
+}
+
+.spc-incident-meta-item b {
+  font-size: 13px;
+  color: var(--spc-ink);
+  word-break: break-word;
+}
+
+/* Khối mô tả */
+.spc-incident-desc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spc-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--spc-muted);
+  letter-spacing: 0.04em;
+}
+
+.spc-incident-desc-box {
+  background: #f8fafc;
+  border-left: 3px solid var(--spc-orange);
+  border-top: 1px solid var(--spc-line);
+  border-right: 1px solid var(--spc-line);
+  border-bottom: 1px solid var(--spc-line);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--spc-ink);
+}
+
+[data-theme="dark"] .spc-incident-desc-box {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Ảnh hiện trường */
+.spc-incident-photos {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spc-incident-photos-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.spc-photo-thumb-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--spc-line);
+  background: var(--spc-bg);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--spc-orange-text);
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.spc-photo-thumb-link:hover {
+  background: var(--spc-orange-soft);
+  border-color: var(--spc-orange);
+}
+
+/* Kế hoạch xử lý đã duyệt */
+.spc-approved-plan-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #166534;
+  line-height: 1.5;
+}
+
+.spc-approved-plan-box b {
+  display: block;
+  font-size: 12px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  color: #15803d;
+}
+
+/* Cột 2: Rà soát pháp lý của chuyên viên */
+.spc-incident-card__right {
+  padding: 20px;
+  background: #fcfcfd;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+[data-theme="dark"] .spc-incident-card__right {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.spc-compliance-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.spc-compliance-box__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--spc-line);
+}
+
+.spc-compliance-box__header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--spc-ink);
+}
+
+/* Chưa rà soát */
+.spc-compliance-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: #ffffff;
+  border: 1px solid var(--spc-line);
+  border-radius: 10px;
+}
+
+[data-theme="dark"] .spc-compliance-empty-state {
+  background: var(--spc-card);
+}
+
+.spc-compliance-empty-state p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--spc-muted);
+  line-height: 1.5;
+}
+
+/* Đã rà soát */
+.spc-compliance-done-card {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+[data-theme="dark"] .spc-compliance-done-card {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.spc-compliance-done-conclusion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.spc-compliance-done-text {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--spc-ink);
+}
+
+.spc-compliance-done-meta {
+  font-size: 12px;
+  color: var(--spc-muted);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 8px;
+  margin-top: 2px;
+}
+
+[data-theme="dark"] .spc-compliance-done-meta {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Form rà soát */
+.spc-compliance-form {
+  background: #ffffff;
+  border: 1px solid var(--spc-orange);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+[data-theme="dark"] .spc-compliance-form {
+  background: var(--spc-card);
+}
+
+.spc-compliance-form .spc-field {
+  margin-bottom: 0;
 }

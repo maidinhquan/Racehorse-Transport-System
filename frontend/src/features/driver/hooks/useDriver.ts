@@ -13,7 +13,7 @@ import type {
   Trip,
 } from '../types';
 import { saveIncidentPin } from '../../../shared/utils/sharedIncidentPins';
-import { saveSharedIncident } from '../../../shared/utils/sharedIncidents';
+import { getSharedIncidents, saveSharedIncident } from '../../../shared/utils/sharedIncidents';
 import { driverApi } from '../api/driverApi';
 import { tripFromTracking } from '../api/flow4Mapper';
 import { flow4Api } from '../../tracking/api/flow4Api';
@@ -75,12 +75,32 @@ const savedUser = () => {
 };
 
 const initialDemo = getDemoMode('driver');
-const emptyData = { trips: [] as Trip[], crew: [] as CrewMember[], horses: [] as Horse[], incidents: [] as Incident[] };
+const initialIncidents = (): Incident[] => {
+  if (getDemoMode('driver')) return clone(mockIncidents);
+  const shared = getSharedIncidents();
+  return shared.map((s) => ({
+    id: s.id,
+    tripId: s.tripId,
+    type: s.type as any,
+    severity: s.severity as any,
+    status: s.status as any,
+    at: s.at,
+    by: s.by,
+    location: s.location,
+    lat: s.lat,
+    lng: s.lng,
+    description: s.description,
+    photos: s.photos || [],
+    approvedPlan: s.approvedPlan,
+  }));
+};
+
+const emptyData = () => ({ trips: [] as Trip[], crew: [] as CrewMember[], horses: [] as Horse[], incidents: initialIncidents() });
 const demoData = () => ({ trips: clone(mockTrips), crew: clone(mockCrew), horses: clone(mockHorses), incidents: clone(mockIncidents) });
 
 let state: DriverState = {
   userId: savedUser(),
-  ...(initialDemo ? demoData() : emptyData),
+  ...(initialDemo ? demoData() : emptyData()),
   loading: false,
   loaded: false,
   loadedFor: '',
@@ -108,10 +128,22 @@ if (typeof window !== 'undefined') {
       setState({ ...demoData(), loading: false, loaded: true, drafts: {} });
       toast('Đã bật dữ liệu mẫu & hiển thị nút demo.');
     } else {
-      setState({ ...emptyData, loading: false, loaded: false, drafts: {} });
+      setState({ ...emptyData(), loading: false, loaded: false, drafts: {} });
       toast('Đã tắt dữ liệu mẫu & chuyển sang dữ liệu thật từ máy chủ.');
       void loadAll();
     }
+  });
+
+  const syncIncidents = () => {
+    void driverApi.getIncidents().then((incidents) => {
+      setState({ incidents });
+    }).catch(() => {
+      setState({ incidents: initialIncidents() });
+    });
+  };
+  window.addEventListener('rts_shared_incidents_changed', syncIncidents);
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'rts_shared_incidents') syncIncidents();
   });
 }
 
@@ -159,10 +191,15 @@ async function loadAll() {
   try {
     if (!getDemoMode('driver')) {
       try {
-        const [f4Res, f6Res] = await Promise.allSettled([flow4Api.getDriverTrips(), flow6Api.getTrips()]);
+        const [f4Res, f6Res, incRes] = await Promise.allSettled([
+          flow4Api.getDriverTrips(),
+          flow6Api.getTrips(),
+          driverApi.getIncidents(),
+        ]);
         if (f4Res.status === 'rejected' && f6Res.status === 'rejected') throw f6Res.reason;
         const f4 = f4Res.status === 'fulfilled' ? f4Res.value : [];
         const f6 = f6Res.status === 'fulfilled' ? f6Res.value : [];
+        const incidents = incRes.status === 'fulfilled' ? incRes.value : await driverApi.getIncidents().catch(() => initialIncidents());
         const ids = [...new Set([...f4.map((x) => x.tripId), ...f6.map((x) => x.tripId)])];
         const built = await Promise.all(ids.map((id) => buildLiveTrip(id, f6.find((x) => x.tripId === id))));
         const crewMap = new Map<string, CrewMember>();
@@ -172,7 +209,7 @@ async function loadAll() {
           trips: built.map((b) => b.trip),
           crew: [...crewMap.values()],
           horses: [...horseMap.values()],
-          incidents: [],
+          incidents,
           userId: tokenUser() || state.userId,
           loading: false,
           loaded: true,
@@ -181,7 +218,8 @@ async function loadAll() {
         return;
       } catch (err) {
         console.warn('[useDriver] Failed to fetch real trips:', err);
-        setState({ ...emptyData, loading: false, loaded: true });
+        const incidents = await driverApi.getIncidents().catch(() => initialIncidents());
+        setState({ ...emptyData(), incidents, loading: false, loaded: true });
         return;
       }
     }
@@ -191,7 +229,8 @@ async function loadAll() {
     ]);
     setState({ trips, crew, horses, incidents, loading: false, loaded: true });
   } catch {
-    setState({ ...(getDemoMode('driver') ? demoData() : emptyData), loading: false, loaded: true });
+    const incidents = await driverApi.getIncidents().catch(() => (getDemoMode('driver') ? mockIncidents : initialIncidents()));
+    setState({ ...(getDemoMode('driver') ? demoData() : emptyData()), incidents, loading: false, loaded: true });
   }
 }
 
@@ -297,14 +336,29 @@ const actions = {
     const location = incidentWhere(t, body.ratio) + (body.locationDetail.trim() ? ' – ' + body.locationDetail.trim() : '');
     const photos = state.incidentPhotos.map((p) => p.name);
     const locationCoordinates = point ? `${point.lat.toFixed(6)},${point.lng.toFixed(6)}` : undefined;
-    await driverApi.reportIncident(tripId, { type: body.type, severity: body.severity, description: body.description.trim(), location, locationCoordinates, photos });
+    const res = await driverApi.reportIncident(tripId, { type: body.type, severity: body.severity, description: body.description.trim(), location, locationCoordinates, photos });
+    const incId = res?.incident?.id || `INC-${String(Date.now()).slice(-4)}`;
     const inc: Incident = {
-      id: `INC-${String(Date.now()).slice(-4)}`, tripId, type: body.type, severity: body.severity, status: 'NEW',
-      at: nowStamp(), by: state.userId, location, lat: point?.lat, lng: point?.lng, description: body.description.trim(), photos,
+      id: incId,
+      tripId: res?.incident?.tripId || tripId,
+      type: body.type,
+      severity: body.severity,
+      status: (res?.incident?.status as any) || 'NEW',
+      at: res?.incident?.at || nowStamp(),
+      by: res?.incident?.by || state.userId,
+      location,
+      lat: point?.lat,
+      lng: point?.lng,
+      description: body.description.trim(),
+      photos,
     };
     saveSharedIncident(inc as any);
-    if (point) saveIncidentPin({ id: inc.id, tripId, label: INCIDENT_TYPE_LABEL[inc.type], lat: point.lat, lng: point.lng, where: location, description: inc.description, at: inc.at });
-    setState((s) => ({ incidents: [inc, ...s.incidents], incidentPhotos: [] }));
+    if (point) saveIncidentPin({ id: inc.id, tripId: inc.tripId, label: INCIDENT_TYPE_LABEL[inc.type], lat: point.lat, lng: point.lng, where: location, description: inc.description, at: inc.at });
+    const clean = (x?: string) => (x || '').replace(/-/g, '_').toUpperCase();
+    setState((s) => ({
+      incidents: [inc, ...s.incidents.filter((x) => clean(x.id) !== clean(inc.id))],
+      incidentPhotos: [],
+    }));
     return ok(`Đã gửi báo cáo ${INCIDENT_TYPE_LABEL[inc.type].toLowerCase()}. Manager, Coordinator và khách hàng đã được thông báo.`);
   },
 
@@ -397,7 +451,7 @@ export const useDriver = () => {
   useEffect(() => {
     // Đăng nhập tài khoản khác trong cùng phiên trang: bỏ dữ liệu chuyến của người trước rồi tải lại theo tài khoản mới
     if (state.loaded && !getDemoMode('driver') && state.loadedFor !== tokenUser()) {
-      setState({ ...emptyData, loaded: false, loadedFor: '', drafts: {} });
+      setState({ ...emptyData(), loaded: false, loadedFor: '', drafts: {} });
     }
     if (!state.loaded) void loadAll();
   }, []);
