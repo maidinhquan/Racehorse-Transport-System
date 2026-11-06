@@ -9,6 +9,9 @@ public interface IFlow4DriverService
     /// </summary>
     Task<List<Flow4TripSummaryDto>> GetAssignedTripsAsync(string driverId, string? status = null);
 
+    Task<object> GetAssignedHorseAsync(string tripId, string horseId, string driverId);
+    Task<(byte[] Bytes, string ContentType)> ReadAssignedHorseFileAsync(string tripId, string horseId, string kind, string driverId);
+
     /// <summary>
     /// F4-J04: Kiểm tra điều kiện xe, ngựa và chốt chặn trước khi xuất phát thực tế.
     /// </summary>

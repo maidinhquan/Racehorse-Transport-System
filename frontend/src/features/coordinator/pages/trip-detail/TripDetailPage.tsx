@@ -35,12 +35,6 @@ export function TripDetailPage() {
         <div style={{ display: 'flex', gap: 22, flex: 1 }}>
           {tabs.map((k) => <button type="button" key={k} className={k === on ? 'on' : ''} onClick={() => go(`f/trip/${t.id}/${k}`)}>{TAB_TITLES[k]}</button>)}
         </div>
-        <span className="rtabs-arrows" style={{ color: '#6b7280', fontSize: 13, userSelect: 'none', paddingRight: 4 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="7 9 12 4 17 9"></polyline>
-            <polyline points="7 15 12 20 17 15"></polyline>
-          </svg>
-        </span>
       </div>
       {on === 'overview' ? <OverviewTab t={t} /> : null}
       {on === 'route' ? <RouteTab t={t} /> : null}

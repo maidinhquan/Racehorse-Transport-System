@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Application.Flow1.Interfaces;
 using Application.DTOs.Flow4;
 using Application.Interfaces.Flow4;
 using Domain.Entities.Flow4;
@@ -10,10 +11,61 @@ namespace Infrastructure.Services.Flow4;
 public class Flow4DriverService : IFlow4DriverService
 {
     private readonly HorseTransportDbContext _context;
+    private readonly IPrivateFiles _files;
 
-    public Flow4DriverService(HorseTransportDbContext context)
+    public Flow4DriverService(HorseTransportDbContext context, IPrivateFiles files)
     {
         _context = context;
+        _files = files;
+    }
+
+    private async Task<Domain.Entities.Horse> AssignedHorseAsync(string tripId, string horseId, string driverId)
+    {
+        var trip = await _context.TripPlans.FirstOrDefaultAsync(t => t.TripId == tripId);
+        var assigned = await _context.TripVehicleAssignments.AnyAsync(a => a.TripId == tripId &&
+            (a.DriverId == driverId || a.CoDriverId == driverId || a.VeterinarianId == driverId || a.EscortId == driverId));
+        if (trip is null || !assigned || !await _context.RequestHorseMappings.AnyAsync(m => m.RequestId == trip.RequestId && m.HorseId == horseId))
+            throw new Application.Common.Exceptions.BusinessRuleException("Không tìm thấy ngựa trong chuyến được phân công.", 404, "NOT_FOUND");
+        return await _context.Horses.FirstOrDefaultAsync(h => h.HorseId == horseId)
+            ?? throw new Application.Common.Exceptions.BusinessRuleException("Không tìm thấy hồ sơ ngựa.", 404, "NOT_FOUND");
+    }
+
+    public async Task<object> GetAssignedHorseAsync(string tripId, string horseId, string driverId)
+    {
+        var h = await AssignedHorseAsync(tripId, horseId, driverId);
+        var trip = await _context.TripPlans.FirstAsync(t => t.TripId == tripId);
+        var medical = await _context.LegalMedicalRecords.Where(r => r.RequestId == trip.RequestId && r.HorseId == horseId)
+            .Select(r => new { r.RecordId, r.DocumentType, r.DocumentStatus, r.ExpiryDate, r.UploadedFileUrl }).ToListAsync();
+        object? file(string kind, string? key) => key is null ? null : new { name = kind + Path.GetExtension(key), url = $"/api/driver/trips/{tripId}/horses/{horseId}/files/{kind}" };
+        return new { id = h.HorseId, name = h.Name, breed = h.Breed, sex = h.Sex, dob = h.Dob?.ToString("yyyy-MM-dd"), microchip = h.MicrochipIso,
+            value = h.DeclaredValueVnd?.ToString("0"), currency = "VND", healthNotes = h.SpecialHealthNotes,
+            passport = new { number = h.FeiPassportNo, authority = h.PassportIssuedBy, issueDate = h.PassportIssuedDate?.ToString("yyyy-MM-dd"), expiryDate = h.PassportExpiryDate?.ToString("yyyy-MM-dd"), scan = file("passport", h.PassportScanUrl) },
+            photo = file("photo", h.PhotoUrl), ownership = file("ownership", h.OwnershipCertificateFileUrl), valueProof = file("value-proof", h.ValuationDocumentFileUrl),
+            medical = medical.Select(r => new { type = r.DocumentType, status = r.DocumentStatus, expiryDate = r.ExpiryDate?.ToString("yyyy-MM-dd"), file = r.UploadedFileUrl is null ? null : new { name = Path.GetFileName(r.UploadedFileUrl), url = $"/api/driver/trips/{tripId}/horses/{horseId}/files/medical-{r.RecordId}" } }) };
+    }
+
+    public async Task<(byte[] Bytes, string ContentType)> ReadAssignedHorseFileAsync(string tripId, string horseId, string kind, string driverId)
+    {
+        var h = await AssignedHorseAsync(tripId, horseId, driverId);
+        string? key = kind switch { "photo" => h.PhotoUrl, "passport" => h.PassportScanUrl, "ownership" => h.OwnershipCertificateFileUrl, "value-proof" => h.ValuationDocumentFileUrl, _ => null };
+        if (kind.StartsWith("medical-", StringComparison.Ordinal))
+            key = await _context.LegalMedicalRecords.Where(r => r.RecordId == kind[8..] && r.HorseId == horseId).Select(r => r.UploadedFileUrl).FirstOrDefaultAsync();
+        if (key is null) throw new Application.Common.Exceptions.BusinessRuleException("Không tìm thấy tệp.", 404, "NOT_FOUND");
+        return await _files.ReadAsync(key, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Chỉ tài xế chính và phụ lái được cập nhật mốc hành trình. Bác sĩ thú y / hộ tống chỉ ghi nhật ký sức khỏe ngựa.
+    /// </summary>
+    private async Task EnsureCanRecordRouteAsync(string tripId, string userId)
+    {
+        var allowed = await _context.TripVehicleAssignments
+            .AnyAsync(a => a.TripId == tripId && (a.DriverId == userId || a.CoDriverId == userId));
+        if (!allowed)
+        {
+            throw new Application.Common.Exceptions.BusinessRuleException(
+                "Chỉ tài xế chính hoặc phụ lái mới được cập nhật mốc hành trình. Bác sĩ thú y ghi nhật ký sức khỏe ngựa.", 403, "FORBIDDEN");
+        }
     }
 
     /// <summary>

@@ -64,7 +64,7 @@
 .cbn-coord .menu button b {display: block; color: var(--ink); font-weight: 600;}
 .cbn-coord .menu button span {display: block; margin-top: 2px; color: var(--muted); font-size: 11px;}
 .cbn-coord .menu hr {border: 0; border-top: 1px solid var(--line); margin: 6px 0;}
-.cbn-coord .view {padding: 32px; width: 100%; max-width: 1100px; margin: 0 auto;}
+.cbn-coord .view {padding: 32px; width: 100%; max-width: 1180px; margin: 0 auto; box-sizing: border-box;}
 .cbn-coord .page-title {font-size: 20px; font-weight: 700; color: var(--ink);}
 .cbn-coord .subtitle {margin-top: 8px; font-size: 12px; color: var(--muted);}
 .cbn-coord .card {background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 1px 2px rgba(15,23,42,.04);}
@@ -627,7 +627,7 @@
 .cbn-coord .geo-item svg {width:15px;height:15px;color:#df781e;flex:none;margin-top:2px}
 .cbn-coord .geo-item b {display:block;font-size:13px;font-weight:550;color:var(--ink);line-height:1.45}
 .cbn-coord .geo-coord {display:block;font-size:11.5px;color:#7b8797;font-variant-numeric:tabular-nums;margin-top:2px}
-.cbn-coord .fa-page {max-width:1440px;margin:auto}
+.cbn-coord .fa-page {width:100%;max-width:1180px;margin:auto}
 .cbn-coord .fa-notice {display:flex;gap:10px;align-items:flex-start;background:#f4f8fc;border:1px solid #dce7f1;border-radius:12px;padding:14px 16px;color:#52677d;font-size:12px;line-height:1.65;margin:16px 0}
 .cbn-coord .fa-notice svg {width:18px;flex:none;margin-top:2px}
 .cbn-coord .fa-metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:20px 0}

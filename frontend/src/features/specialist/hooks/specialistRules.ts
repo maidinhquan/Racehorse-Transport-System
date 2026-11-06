@@ -108,7 +108,7 @@ export const CUSTOMER_DOC_LABEL: Record<CustomerDocStatus, string> = {
 };
 export const CUSTOMER_DOC_NAME: Record<CustomerDocKey, string> = {
   passport: 'Hộ chiếu ngựa', ownership: 'Chứng nhận sở hữu ngựa', bio: 'Thông tin sinh học', valueProof: 'Giá trị thương mại',
-  flu: 'Sổ tiêm ngừa', health: 'Giấy chứng nhận sức khỏe', conditions: 'Ghi chú sức khỏe đặc biệt', vet: 'Bác sĩ thú y riêng',
+  flu: 'Sổ tiêm ngừa', health: 'Giấy chứng nhận sức khỏe', conditions: 'Ghi chú sức khỏe đặc biệt',
 };
 /** Giấy tờ của khách tương ứng với loại giấy tờ trong checklist chuyến */
 export const CUSTOMER_KEY_TYPE: Partial<Record<CustomerDocKey, string>> = { passport: 'DT-1', health: 'DT-2', flu: 'DT-3' };

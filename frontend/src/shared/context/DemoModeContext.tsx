@@ -25,24 +25,8 @@ if (typeof window !== 'undefined') {
 }
 
 /** Lấy trạng thái chế độ dữ liệu mẫu toàn hệ thống (hoặc theo vai trò) */
-export function getDemoMode(role?: DemoRole): boolean {
-  try {
-    if (typeof window === 'undefined') return false;
-    const sessionVal = sessionStorage.getItem(SESSION_STORAGE_KEY);
-    if (sessionVal !== null) {
-      return sessionVal === 'true';
-    }
-    if (role) {
-      const roleVal = sessionStorage.getItem(`${SESSION_PREFIX}${role}`);
-      if (roleVal !== null) {
-        return roleVal === 'true';
-      }
-    }
-    // Mặc định luôn luôn TẮT (false) khi bật trang web lên, người dùng cần thì mới bấm bật
-    return false;
-  } catch {
-    return false;
-  }
+export function getDemoMode(_role?: DemoRole): boolean {
+  return false;
 }
 
 /** Lưu trạng thái chế độ dữ liệu mẫu đồng bộ trong phiên làm việc */

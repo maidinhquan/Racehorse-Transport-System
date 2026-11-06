@@ -25,7 +25,12 @@ const tracking = (status: 'READY_TO_DEPART' | 'IN_TRANSIT', done: number): Track
     vehicle: { vehicleId: 'VEHICLE_001', plateNumber: '29C-123.45', type: 'HORSEBOX_3_STALLS', capacityStalls: 3, heightM: 3.6, grossWeightTons: 12.5 },
     crew: [{ userId: 'USER_007', name: 'Hoàng Hùng', duty: 'MAIN_DRIVER' }, { userId: 'USER_009', name: 'BS. Đỗ Hoa', duty: 'VETERINARIAN' }],
     from: 'Điểm đón', to: 'Điểm giao', milestoneIds: [] }],
-  milestones: [ms(1, 'DEPARTED', done > 0), ms(2, 'STOP_ARRIVED', done > 1), ms(3, 'AIRPORT_ORIGIN_ARRIVED', done > 2), ms(4, 'FINAL_ARRIVED', done > 3)],
+  milestones: [
+    ms(1, 'DEPARTED', done > 0),
+    ms(2, 'STOP_ARRIVED', done > 1),
+    ms(3, 'STOP_DEPARTED', done > 2),
+    ms(4, 'FINAL_ARRIVED', done > 3),
+  ],
   map: { routeSource: 'APPROVED_PLAN', locationSource: 'CONFIRMED_MILESTONE', lastConfirmedMilestoneId: null, markerGeo: null, isGps: false, routePoints: [] },
   policy: { version: 1, lateMilestoneMinutes: null, healthIntervalMinutes: null, minimumHealthPhotos: null, configured: false, note: '' },
   blockers: [], handoverAvailable: false,
@@ -33,12 +38,12 @@ const tracking = (status: 'READY_TO_DEPART' | 'IN_TRANSIT', done: number): Track
 
 describe('tripFromTracking', () => {
   it('maps route, ETA, crew, horses and vehicle from Flow 4 data', () => {
-    const { trip, crew, horses } = tripFromTracking(tracking('IN_TRANSIT', 2), { receiverName: 'Người nhận' });
+    const { trip, crew, horses } = tripFromTracking(tracking('IN_TRANSIT', 3), { receiverName: 'Người nhận' });
     expect(trip.origin).toBe('Trang trại xuất phát');
     expect(trip.destination).toBe('Trang trại đích');
     expect(trip.eta).toBe('2026-09-17 12:00');
     expect(trip.plannedDepart).toBe('2026-09-15 01:00');
-    expect(trip.stops.map((s) => s.id)).toEqual(['MILESTONE_001', 'MILESTONE_002', 'MILESTONE_003', 'MILESTONE_004']);
+    expect(trip.stops.map((s) => s.id)).toEqual(['MILESTONE_001', 'MILESTONE_002', 'MILESTONE_004']);
     expect(trip.vehicle).toEqual({ plate: '29C-123.45', model: 'HORSEBOX_3_STALLS' });
     expect(trip.crew).toEqual({ MAIN_DRIVER: 'USER_007', VETERINARIAN: 'USER_009' });
     expect(crew.map((c) => [c.id, c.role])).toEqual([['USER_007', 'DRIVER'], ['USER_009', 'VETERINARIAN']]);
@@ -46,10 +51,14 @@ describe('tripFromTracking', () => {
     expect(trip.receiver.name).toBe('Người nhận');
   });
 
-  it('turns completed milestones into a sequence whose next step is the next pending Flow 4 milestone', () => {
-    const { trip } = tripFromTracking(tracking('IN_TRANSIT', 2));
-    expect(trip.milestones.map((m) => [m.type, m.stopIndex])).toEqual([['DEPARTED', 0], ['LEFT_STOP', 1]]);
-    expect(nextMilestone(trip)).toMatchObject({ stopIndex: 2 });
+  it('turns completed milestones into arrival then departure before moving to next stop', () => {
+    const { trip: tripArrived } = tripFromTracking(tracking('IN_TRANSIT', 2));
+    expect(tripArrived.milestones.map((m) => [m.type, m.stopIndex])).toEqual([['DEPARTED', 0], ['ARRIVED_STOP', 1]]);
+    expect(nextMilestone(tripArrived)).toMatchObject({ type: 'LEFT_STOP', stopIndex: 1 });
+
+    const { trip: tripDeparted } = tripFromTracking(tracking('IN_TRANSIT', 3));
+    expect(tripDeparted.milestones.map((m) => [m.type, m.stopIndex])).toEqual([['DEPARTED', 0], ['ARRIVED_STOP', 1], ['LEFT_STOP', 1]]);
+    expect(nextMilestone(tripDeparted)).toMatchObject({ stopIndex: 2 });
   });
 
   it('passes milestone coordinates to the route stops so the map can draw the coordinator schedule', () => {
@@ -57,13 +66,42 @@ describe('tripFromTracking', () => {
     data.milestones[0].geo = { lat: 10.855, lng: 106.6565 };
     data.milestones[3].geo = { lat: 16.070091, lng: 108.208119 };
     const { trip } = tripFromTracking(data);
-    expect(trip.stops.map((s) => [s.lat, s.lng])).toEqual([[10.855, 106.6565], [undefined, undefined], [undefined, undefined], [16.070091, 108.208119]]);
+    expect(trip.stops.map((s) => [s.lat, s.lng])).toEqual([[10.855, 106.6565], [undefined, undefined], [16.070091, 108.208119]]);
   });
 
-  it('offers departure first and the destination arrival last', () => {
+  it('offers departure first, stop arrival/departure in sequence, and destination arrival last', () => {
     expect(nextMilestone(tripFromTracking(tracking('READY_TO_DEPART', 0)).trip)).toEqual({ type: 'DEPARTED', stopIndex: 0 });
-    const { trip } = tripFromTracking(tracking('IN_TRANSIT', 3));
-    expect(nextMilestone(trip)).toEqual({ type: 'ARRIVED_DESTINATION', stopIndex: 3 });
+    const { trip: inTransit1 } = tripFromTracking(tracking('IN_TRANSIT', 1));
+    expect(nextMilestone(inTransit1)).toEqual({ type: 'ARRIVED_STOP', stopIndex: 1 });
+    const { trip: inTransit2 } = tripFromTracking(tracking('IN_TRANSIT', 2));
+    expect(nextMilestone(inTransit2)).toEqual({ type: 'LEFT_STOP', stopIndex: 1 });
+    const { trip: inTransit3 } = tripFromTracking(tracking('IN_TRANSIT', 3));
+    expect(nextMilestone(inTransit3)).toEqual({ type: 'ARRIVED_DESTINATION', stopIndex: 2 });
     expect(nextMilestone(tripFromTracking(tracking('IN_TRANSIT', 4)).trip)).toBeNull();
+  });
+
+  it('blocks leaving stop until health log is recorded when stop requires health check', () => {
+    const data = tracking('IN_TRANSIT', 2);
+    data.milestones[1].requiresHealthCheck = true;
+    const { trip } = tripFromTracking(data);
+    expect(trip.stops[1].requiresHealthCheck).toBe(true);
+
+    // Chưa có health log -> bị khóa
+    const blockedNext = nextMilestone(trip);
+    expect(blockedNext).toMatchObject({ type: 'LEFT_STOP', stopIndex: 1, blocked: true, healthCheckRequired: true });
+
+    // Sau khi đã có health log tại trạm -> mở khóa
+    trip.health.push({
+      id: 'HL-1',
+      horseId: 'HORSE_001',
+      at: '2026-09-15 02:10',
+      temp: 38.0,
+      hr: 40,
+      condition: 'NORMAL',
+      notes: 'Ngựa khỏe',
+      by: 'USER_009',
+    });
+    const unblockedNext = nextMilestone(trip);
+    expect(unblockedNext).toEqual({ type: 'LEFT_STOP', stopIndex: 1 });
   });
 });

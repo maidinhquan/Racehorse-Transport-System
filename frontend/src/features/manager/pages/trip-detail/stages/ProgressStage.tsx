@@ -52,7 +52,7 @@ export const ProgressStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
             <div><span>ETA hiện tại</span><b>{fmtDateTime(t.eta)}</b></div>
             <div><span>Mốc gần nhất</span><b>{m ? `${milestoneLabel(t, m.type)} • ${fmtDateTime(m.at)}` : '—'}</b></div>
           </div>
-          {stops.some((s) => s.lat != null && s.lng != null) && <ManagerRouteMap stops={stops} focus={m ? Math.min(m.stopIndex, stops.length - 1) : null} />}
+          {stops.some((s) => s.lat != null && s.lng != null) && <ManagerRouteMap stops={stops} tripId={t.id} focus={m ? Math.min(m.stopIndex, stops.length - 1) : null} />}
           <div className="mgr-section-title">Các điểm trên tuyến</div>
           {stops.map((s, i) => {
             const at = t.milestones.filter((x) => x.stopIndex === i);

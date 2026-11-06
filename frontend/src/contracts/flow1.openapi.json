@@ -12131,6 +12131,12 @@
                   "mode"
                 ],
                 "additionalProperties": true
+              },
+              "minTransitDays": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 30,
+                "description": "Số ngày tối thiểu từ ngày lấy đến ngày giao của tuyến; ngày giao sớm hơn bị từ chối ngay khi tạo yêu cầu."
               }
             },
             "required": [

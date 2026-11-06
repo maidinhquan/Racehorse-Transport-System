@@ -25,12 +25,13 @@ export const ComplaintDetailPage: React.FC = () => {
       </ManagerLayout>
     );
   }
-  const r = getRequest(c.requestId)!, t = tripFor(r.id);
+  const r = c.requestId ? getRequest(c.requestId) : undefined;
+  const t = r ? tripFor(r.id) : undefined;
   const send = () => { if (actions.replyComplaint(c.id, text, propose, propose ? amount : 0).ok) { setText(''); setPropose(false); setAmount(0); } };
-  const history: Array<[string, string]> = [[c.createdAt, 'Khách hàng gửi khiếu nại']];
-  c.messages.slice(1).forEach((m) => history.push([m.at, `${m.from === 'MANAGER' ? 'Manager' : 'Khách hàng'} phản hồi`]));
+  const history: Array<[string, string]> = [[c.createdAt || '', 'Khách hàng gửi khiếu nại']];
+  (c.messages || []).slice(1).forEach((m) => history.push([m.at || '', `${m.from === 'MANAGER' ? 'Manager' : 'Khách hàng'} phản hồi`]));
   if (c.resolvedAt) history.push([c.resolvedAt, 'Đã giải quyết']);
-  history.sort((a, b) => b[0].localeCompare(a[0]));
+  history.sort((a, b) => (b[0] || '').localeCompare(a[0] || ''));
 
   return (
     <ManagerLayout title="Sự cố & khiếu nại">
@@ -38,7 +39,7 @@ export const ComplaintDetailPage: React.FC = () => {
       <div className="mgr-head">
         <div>
           <h2 className="mgr-title" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>{c.id} <StatusBadge kind="complaint" status={c.status} /></h2>
-          <p className="mgr-subtitle">{c.title} • {r.id} • {customer(r)?.company}</p>
+          <p className="mgr-subtitle">{c.title} • {c.requestId || '—'}{r ? ` • ${customer(r)?.company || '—'}` : ''}</p>
         </div>
         {['NEW', 'IN_PROGRESS'].includes(c.status) && <button type="button" className="mgr-btn" onClick={() => actions.escalateComplaint(c.id)}>Chuyển lên Ban giám đốc</button>}
       </div>
@@ -46,10 +47,10 @@ export const ComplaintDetailPage: React.FC = () => {
         <section className="mgr-card">
           <h3 className="mgr-card__title">Hội thoại</h3>
           <div className="mgr-thread">
-            {c.messages.map((m, k) => (
+            {(c.messages || []).map((m, k) => (
               <div key={`${m.at}-${k}`} className={`mgr-msg ${m.from === 'MANAGER' ? 'me' : ''}`}>
                 <b>{m.name}</b><small>{fmtDateTime(m.at)}</small><p>{m.text}</p>
-                {m.files && <div className="mgr-photos">{m.files.map((f) => <button key={f} type="button" className="mgr-photo" onClick={() => openSampleFile(f)}>{f}</button>)}</div>}
+                {m.files && <div className="mgr-photos">{(m.files || []).map((f) => <button key={f} type="button" className="mgr-photo" onClick={() => openSampleFile(f)}>{f}</button>)}</div>}
               </div>
             ))}
           </div>
@@ -78,12 +79,12 @@ export const ComplaintDetailPage: React.FC = () => {
           <section className="mgr-card">
             <h3 className="mgr-card__title">Thông tin</h3>
             <div className="mgr-kv" style={{ gridTemplateColumns: '1fr' }}>
-              <div><span>Loại</span><b>{COMPLAINT_TYPE_LABEL[c.type]}</b></div>
+              <div><span>Loại</span><b>{COMPLAINT_TYPE_LABEL[c.type] || c.type}</b></div>
               <div><span>Ngựa</span><b>{c.horseId ? horseName(data, c.horseId) : '—'}</b></div>
               <div><span>Gửi lúc</span><b>{fmtDateTime(c.createdAt)}</b></div>
               <div><span>Chuyến</span><b>{t ? `${t.id} • ${TRIP_STATUS_LABEL[t.status]}` : '—'}</b></div>
             </div>
-            <div className="mgr-actions"><Link className="mgr-btn mgr-btn--sm" to={`/manager/requests/${r.id}/closure`}>Bàn giao & đóng đơn {r.id}</Link></div>
+            {r && <div className="mgr-actions"><Link className="mgr-btn mgr-btn--sm" to={`/manager/requests/${r.id}/closure`}>Bàn giao & đóng đơn {r.id}</Link></div>}
           </section>
           <section className="mgr-card">
             <h3 className="mgr-card__title">Đề xuất giải quyết</h3>

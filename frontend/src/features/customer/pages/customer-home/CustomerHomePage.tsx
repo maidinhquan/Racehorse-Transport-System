@@ -4,7 +4,7 @@ import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { RouteText, horseNames } from '../../components/Common/Common';
 import { needsCustomerAction, useCustomer } from '../../hooks/useCustomer';
-import { fmtDate, fmtDateTime, isActive, tripSummary } from '../../hooks/customerRules';
+import { displayRequestId, fmtDate, fmtDateTime, isActive, tripSummary } from '../../hooks/customerRules';
 import './CustomerHomePage.css';
 
 /** Trang chủ khách hàng: chuyến hiện tại, việc cần làm, thông báo và yêu cầu gần đây */
@@ -77,7 +77,7 @@ export const CustomerHomePage: React.FC = () => {
             {todo.map((r) => (
               <button key={r.id} type="button" onClick={() => navigate(`/customer/requests/${r.id}`)}>
                 <span className="cus-home__todo-icon"><Icon name="alert" /></span>
-                <span><b>{r.id}</b><small><RouteText r={r} /></small></span>
+                <span><b>{displayRequestId(r.id)}</b><small><RouteText r={r} /></small></span>
                 <TripStatusBadge status={r.status} />
               </button>
             ))}
@@ -106,7 +106,7 @@ export const CustomerHomePage: React.FC = () => {
             <tbody>
               {recent.map((r) => (
                 <tr key={r.id} className="clickable" onClick={() => navigate(`/customer/requests/${r.id}`)}>
-                  <td className="cus-id">{r.id}</td>
+                  <td className="cus-id">{displayRequestId(r.id)}</td>
                   <td><RouteText r={r} /></td>
                   <td>{horseNames(r, horses)}</td>
                   <td>{fmtDate(r.date)}</td>

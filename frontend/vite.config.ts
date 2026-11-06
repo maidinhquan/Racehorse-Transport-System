@@ -1,5 +1,9 @@
+import http from "node:http";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+
+// Giữ kết nối tới backend để mỗi request /api không phải tra DNS của Docker lại (chậm ~0,5 giây mỗi lần).
+const apiAgent = new http.Agent({ keepAlive: true, maxSockets: 64 });
 
 export default defineConfig({
   plugins: [react()],
@@ -20,6 +24,7 @@ export default defineConfig({
           process.env.API_PROXY_TARGET ??
           "http://localhost:5129",
         changeOrigin: true,
+        agent: apiAgent,
       },
       "/hubs": {
         target:

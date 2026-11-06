@@ -28,13 +28,16 @@ public sealed class RequestScheduleTests(SqlFixture database) : IClassFixture<Sq
             origin = "Hanoi", destination = "Tokyo", originCountry = "VN", destinationCountry = "JP", mode = "AIR",
             expectedTransportDate = "2027-12-25", careInstructions = "Care" }))).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body( Input("2027-12-25", "2027-12-24")))).StatusCode);
-        var created = await Data(await client.PostAsync("/api/customer/requests", SubmissionTest.Body( Input("2027-12-25", "2027-12-25"))));
+        // Tuyến VN -> JP cần tối thiểu 2 ngày vận chuyển: giao trong ngày hoặc hôm sau bị từ chối ngay khi tạo yêu cầu.
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body( Input("2027-12-25", "2027-12-25")))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body( Input("2027-12-25", "2027-12-26")))).StatusCode);
+        var created = await Data(await client.PostAsync("/api/customer/requests", SubmissionTest.Body( Input("2027-12-25", "2027-12-27"))));
         var id = created.GetProperty("id").GetString()!;
-        Assert.Equal("2027-12-25", created.GetProperty("expectedDeliveryDate").GetString());
+        Assert.Equal("2027-12-27", created.GetProperty("expectedDeliveryDate").GetString());
         Assert.EndsWith("Z", created.GetProperty("createdAt").GetString());
-        var retry = await Data(await client.PostAsync("/api/customer/requests", SubmissionTest.Body( Input("2027-12-25", "2027-12-25"))));
+        var retry = await Data(await client.PostAsync("/api/customer/requests", SubmissionTest.Body( Input("2027-12-25", "2027-12-27"))));
         Assert.Equal(created.GetProperty("createdAt").GetString(), retry.GetProperty("createdAt").GetString());
-        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body( Input("2027-12-25", "2027-12-26")))).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body( Input("2027-12-25", "2027-12-28")))).StatusCode);
         await using var db = database.Context();
         var stored = await db.Set<TransportRequest>().SingleAsync(x => x.RequestID == id);
         Assert.Equal(new DateTime(2027, 12, 25), stored.ExpectedDate);

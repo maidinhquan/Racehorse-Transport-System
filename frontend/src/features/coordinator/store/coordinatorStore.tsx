@@ -351,6 +351,47 @@ export async function syncCoordinatorTrips(): Promise<void> {
         if (requestIndex >= 0) db.requests[requestIndex] = request;
         else db.requests.push(request);
       }
+
+      // Trích xuất nguồn lực xe & nhân sự từ approvedPlan hoặc draft của backend (nếu có)
+      const planRes: Any[] = context?.approvedPlan?.resources || context?.draft?.resources || [];
+      const resRoad = planRes.find((r: Any) => r.leg === 'road') || (planRes.length === 1 ? planRes[0] : null);
+      const resOutbound = planRes.find((r: Any) => r.leg === 'outbound');
+      const resInbound = planRes.find((r: Any) => r.leg === 'inbound');
+
+      const extractedRoadCrew = resRoad?.crew ? {
+        MAIN_DRIVER: resRoad.crew.MAIN_DRIVER || resRoad.crew.mainDriver || '',
+        CO_DRIVER: resRoad.crew.CO_DRIVER || resRoad.crew.coDriver || '',
+        VETERINARIAN: resRoad.crew.VETERINARIAN || resRoad.crew.veterinarian || '',
+      } : null;
+
+      const hasRoadCrew = extractedRoadCrew && Object.values(extractedRoadCrew).some(Boolean);
+      const finalCrew = (hasRoadCrew ? extractedRoadCrew : null) ?? bt.crew ?? previous?.crew ?? {};
+      const finalVehicleId = resRoad?.vehicleId || previous?.vehicleId || bt.vehicleId || null;
+
+      let finalGroundLegs = previous?.groundLegs;
+      if (resOutbound || resInbound) {
+        finalGroundLegs = {
+          outbound: {
+            vehicleId: resOutbound?.vehicleId || previous?.groundLegs?.outbound?.vehicleId || '',
+            crew: resOutbound?.crew ? {
+              MAIN_DRIVER: resOutbound.crew.MAIN_DRIVER || resOutbound.crew.mainDriver || '',
+              CO_DRIVER: resOutbound.crew.CO_DRIVER || resOutbound.crew.coDriver || '',
+              VETERINARIAN: resOutbound.crew.VETERINARIAN || resOutbound.crew.veterinarian || '',
+            } : (previous?.groundLegs?.outbound?.crew || {}),
+            history: previous?.groundLegs?.outbound?.history || [],
+          },
+          inbound: {
+            vehicleId: resInbound?.vehicleId || previous?.groundLegs?.inbound?.vehicleId || '',
+            crew: resInbound?.crew ? {
+              MAIN_DRIVER: resInbound.crew.MAIN_DRIVER || resInbound.crew.mainDriver || '',
+              CO_DRIVER: resInbound.crew.CO_DRIVER || resInbound.crew.coDriver || '',
+              VETERINARIAN: resInbound.crew.VETERINARIAN || resInbound.crew.veterinarian || '',
+            } : (previous?.groundLegs?.inbound?.crew || {}),
+            history: previous?.groundLegs?.inbound?.history || [],
+          },
+        };
+      }
+
       return {
         ...previous,
         id: cleanTripId,
@@ -370,6 +411,8 @@ export async function syncCoordinatorTrips(): Promise<void> {
         },
         coordinatorId: context?.coordinatorId || bt.coordinatorId || previous?.coordinatorId,
         specialistId: context?.specialistId || bt.specialistId || previous?.specialistId,
+        vehicleId: finalVehicleId,
+        groundLegs: finalGroundLegs,
         routes: (bt.routes ?? previous?.routes ?? []).map((rt: Any) => {
           if (!rt?.stops) return rt;
           return {
@@ -404,7 +447,7 @@ export async function syncCoordinatorTrips(): Promise<void> {
           };
         }),
         milestones: bt.milestones ?? previous?.milestones ?? [],
-        crew: bt.crew ?? previous?.crew ?? {},
+        crew: finalCrew,
         horses: context?.horseIds ?? bt.horses ?? previous?.horses ?? [],
         pickupAccess: context?.pickupAccess ?? previous?.pickupAccess,
         pickupRelocation: context?.pickupRelocation ?? previous?.pickupRelocation,

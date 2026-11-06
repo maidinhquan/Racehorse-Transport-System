@@ -25,8 +25,9 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
     <div className="cus-docs">
       {items.map((it) => {
         const rejected = it.status === 'ACTION_REQUIRED';
+        const missing = it.missing ?? [];
         return (
-          <div key={`${it.scope}-${it.key}`} className={`cus-doc ${rejected ? 'cus-doc--alert' : ''}`}>
+          <div key={`${it.scope}-${it.key}`} className={`cus-doc ${rejected || missing.length ? 'cus-doc--alert' : ''}`}>
             <div className="cus-doc__top">
               <b>{it.name}{it.optional && it.status !== 'OPTIONAL' && <small> (không bắt buộc)</small>}</b>
               <TripStatusBadge kind="doc" status={it.status} />
@@ -47,6 +48,7 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
               </div>
             </div>
             {it.note && <div className="cus-doc__meta">{it.note}</div>}
+            {missing.length > 0 && <div className="cus-doc__issue" role="alert"><b>Còn thiếu: </b>{missing.join(', ')}</div>}
             {it.issue && <div className="cus-doc__issue"><b>Lý do: </b>{it.issue}</div>}
             {(it.status === 'PENDING_REVIEW' || it.status === 'RESUBMITTED') && <div className="cus-doc__meta">Đã gửi – đang chờ Transport Specialist kiểm duyệt.</div>}
           </div>

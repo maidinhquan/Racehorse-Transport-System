@@ -175,16 +175,6 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
               ))}
             </ul>
           </div>
-          <div className="cus-card">
-            <div className="cus-eyebrow">Quy tắc hợp đồng</div>
-            <ul className="cus-rule-list" style={{ marginTop: 8 }}>
-              <li>Thanh toán + xác minh cọc rồi ký OTP trong hạn hoàn tất ghi trong hợp đồng. Manager có thể gia hạn.</li>
-              <li>Chỉ ký được phiên bản hiện hành còn hạn.</li>
-              <li>Hết hạn không hủy yêu cầu; Manager có thể gia hạn hoặc phát hành phiên bản mới.</li>
-              <li>Thứ tự: đồng ý điều khoản → thanh toán cọc → xác minh cọc → ký OTP.</li>
-              <li>Bạn có thể hủy yêu cầu bất cứ lúc nào trước khi ký.</li>
-            </ul>
-          </div>
           {(v.deadlineHistory?.length ?? 0) > 0 && (
             <div className="cus-card">
               <div className="cus-eyebrow">Thay đổi hạn ký</div>

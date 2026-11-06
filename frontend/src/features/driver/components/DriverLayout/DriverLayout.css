@@ -45,7 +45,6 @@
 .drv-nav a:hover { background: var(--drv-bg); }
 .drv-nav a.active { background: var(--drv-orange-soft); color: var(--drv-orange-text); }
 .drv-nav__count { margin-left: auto; font-style: normal; font-size: 11px; font-weight: 700; background: var(--drv-orange); color: #fff; border-radius: 999px; padding: 1px 7px; }
-.drv-sidebar__hint { margin-top: auto; font-size: 11px; line-height: 1.5; color: var(--drv-muted); padding: 0 8px; }
 .drv-i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
 /* ---------- main ---------- */

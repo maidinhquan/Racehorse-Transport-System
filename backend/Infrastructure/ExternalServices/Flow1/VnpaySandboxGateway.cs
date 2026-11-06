@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Application.Flow1.Interfaces;
+using Microsoft.AspNetCore.Http;
 using static Application.Common.Flow1.Flow1PricingPolicy;
 
 namespace Infrastructure.ExternalServices.Flow1;
@@ -16,12 +17,26 @@ public sealed class Flow1VnpayOptions
     public string HashSecret { get; set; } = "";
     public string PaymentUrl { get; set; } = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
     public string ReturnUrl { get; set; } = "";
+    /// <summary>Các origin của giao diện được phép nhận kết quả quay về (vd http://localhost:5173, https://xxx.ngrok-free.dev).</summary>
+    public string[] AllowedReturnOrigins { get; set; } = [];
 }
 
 /// <summary>Sandbox-only PAY 2.1.0. Canonical/HMAC logic follows the existing Payments/VnpayGateway module.
 /// No SandboxPaymentStore dependency; only the SQL ledger accepts verified IPN receipts.</summary>
-public sealed class VnpaySandboxGateway(Flow1VnpayOptions options, TimeProvider clock) : IPaymentGateway
+public sealed class VnpaySandboxGateway(Flow1VnpayOptions options, TimeProvider clock, IHttpContextAccessor? httpAccessor = null) : IPaymentGateway
 {
+    /// <summary>Quay về đúng origin nơi người dùng bắt đầu thanh toán (trình duyệt lưu đăng nhập theo origin); ngoài danh sách cho phép thì dùng ReturnUrl cấu hình.</summary>
+    private string ResolveReturnUrl()
+    {
+        var context = httpAccessor?.HttpContext;
+        var origin = context?.Request.Headers.Origin.ToString();
+        if (string.IsNullOrWhiteSpace(origin)) origin = context?.Request.Headers.Referer.ToString();
+        if (string.IsNullOrWhiteSpace(origin) || !Uri.TryCreate(origin, UriKind.Absolute, out var from)) return options.ReturnUrl;
+        var normalized = from.GetLeftPart(UriPartial.Authority);
+        var allowed = options.AllowedReturnOrigins.Any(o => string.Equals(o.TrimEnd('/'), normalized, StringComparison.OrdinalIgnoreCase));
+        if (!allowed || !Uri.TryCreate(options.ReturnUrl, UriKind.Absolute, out var configured)) return options.ReturnUrl;
+        return normalized + configured.PathAndQuery;
+    }
     public bool IsConfigured { get { try { Configure(); return true; } catch (Application.Common.Exceptions.BusinessRuleException) { return false; } } }
     private void Configure()
     {
@@ -55,7 +70,7 @@ public sealed class VnpaySandboxGateway(Flow1VnpayOptions options, TimeProvider 
             ["vnp_CreateDate"] = (request.CreatedAtUtc ?? clock.GetUtcNow()).ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
             ["vnp_ExpireDate"] = request.ExpiresAtUtc.ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture),
             ["vnp_IpAddr"] = clientIp, ["vnp_Locale"] = "vn", ["vnp_OrderType"] = "other",
-            ["vnp_OrderInfo"] = "Flow1 deposit " + request.PaymentId, ["vnp_ReturnUrl"] = options.ReturnUrl, ["vnp_TxnRef"] = request.PaymentId };
+            ["vnp_OrderInfo"] = "Flow1 deposit " + request.PaymentId, ["vnp_ReturnUrl"] = ResolveReturnUrl(), ["vnp_TxnRef"] = request.PaymentId };
         return Task.FromResult(new GatewaySessionResult(request.PaymentId, new Uri(options.PaymentUrl + "?" + Canonical(values) + "&vnp_SecureHash=" + Sign(values)), request.ExpiresAtUtc, options.TmnCode));
     }
     public Task<VerifiedGatewayResult> VerifyAsync(IReadOnlyDictionary<string, string> payload, CancellationToken ct = default)

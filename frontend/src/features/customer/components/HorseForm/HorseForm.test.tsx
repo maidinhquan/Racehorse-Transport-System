@@ -14,9 +14,9 @@ function Form() {
 }
 
 describe('Horse profile fields from the reference form', () => {
-  it('allows entering coat color, vaccination date and private veterinarian details', () => {
+  it('allows entering coat color and vaccination date', () => {
     render(<Form />);
-    for (const [label, value] of [['Màu lông', 'Nâu'], ['Tên bác sĩ', 'Nguyễn An'], ['Số điện thoại', '0901234567']]) {
+    for (const [label, value] of [['Màu lông', 'Nâu']]) {
       const input = screen.getByLabelText(label);
       expect(input).toBeEnabled();
       fireEvent.change(input, { target: { value } });

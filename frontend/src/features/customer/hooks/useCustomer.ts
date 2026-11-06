@@ -1183,7 +1183,11 @@ export function useCustomer(requestId?: string) {
     unread: snap.notifications.filter((n) => !n.read).length,
   }), [snap.requests, snap.notifications]);
 
-  const getRequest = (id?: string) => snap.requests.find((r) => r.id === id);
+  const getRequest = (id?: string) => {
+    if (!id) return undefined;
+    const target = cleanId(id);
+    return snap.requests.find((r) => r.id === id || cleanId(r.id) === target || (r.trip && cleanId(r.trip.id) === target));
+  };
   const getHorse = (id?: string) => snap.horses.find((h) => h.id === id);
   /** Giấy tờ chung + hồ sơ từng ngựa của một yêu cầu */
   const docsOf = (r: TransportRequest) => ({

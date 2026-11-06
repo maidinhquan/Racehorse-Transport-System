@@ -103,7 +103,8 @@ export const driverApi = {
   recordMilestone: async (tripId: string, body: RecordMilestoneRequestDto): Promise<boolean> => {
     if (getDemoMode('driver')) return true;
     const key = generateUuidV4();
-    const { binding } = await flow4Api.getTracking(tripId);
+    const tracking = await flow4Api.getTracking(tripId);
+    const { binding } = tracking;
     if (body.type === 'DEPARTED') {
       const check = await flow4Api.getDepartureCheck(tripId);
       await flow4Api.confirmDeparture(tripId, {
@@ -117,8 +118,13 @@ export const driverApi = {
       }, key);
       return true;
     }
-    if (!body.milestoneId) throw new Error('Không xác định được mã mốc của backend.');
-    await flow4Api.completeMilestone(tripId, body.milestoneId, {
+    // Tìm mốc PENDING kế tiếp trong tracking thực tế của backend
+    const orderedPending = [...tracking.milestones]
+      .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0))
+      .find((m) => m.status === 'PENDING');
+    const milestoneId = orderedPending?.id || body.milestoneId;
+    if (!milestoneId) throw new Error('Không xác định được mã mốc của backend.');
+    await flow4Api.completeMilestone(tripId, milestoneId, {
       expectedVersion: binding.executionVersion,
       occurredAt: body.at,
       note: body.note || '',

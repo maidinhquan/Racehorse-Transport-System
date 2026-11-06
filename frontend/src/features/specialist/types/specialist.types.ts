@@ -133,7 +133,7 @@ export interface SpecTrip {
 // Giấy tờ khách hàng cung cấp (cùng dữ liệu với cổng Khách hàng)
 // ---------------------------------------------------------------------------
 export type CustomerDocKey =
-  | 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu' | 'health' | 'conditions' | 'vet';
+  | 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu' | 'health' | 'conditions';
 
 export type CustomerDocStatus = 'MISSING' | 'OPTIONAL' | 'SUBMITTED' | 'APPROVED' | 'ACTION_REQUIRED';
 

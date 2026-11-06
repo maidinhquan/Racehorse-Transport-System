@@ -3,3 +3,4 @@ export * from './MilestoneModal';
 export * from './DelayModal';
 export * from './RefuseHandoverModal';
 export * from './ConfirmModal';
+export * from './HorseDetailModal';

@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../shared/api/apiClient";
 import ThemeToggle from "../../shared/components/ThemeToggle/ThemeToggle";
-import { DemoDataToggle } from "../../shared/components";
 import "./AdminDashboard.css";
 
 interface AdminStats {
@@ -235,7 +234,6 @@ const AdminDashboard: React.FC = () => {
           <p>Quản lý tài nguyên, giám sát hoạt động và điều phối người dùng</p>
         </div>
         <div className="admin-header-actions">
-          <DemoDataToggle role="admin" />
           <ThemeToggle />
           <span className="admin-user-info">
             Tài khoản: <strong>{currentAdminName}</strong>

@@ -18,3 +18,4 @@ export * from './pages/trip-detail/TripDetailPage';
 export * from './pages/document-review/DocumentReviewPage';
 export * from './pages/regulations/RegulationsPage';
 export * from './pages/audit/AuditPage';
+export * from './pages/profile/SpecialistProfilePage';

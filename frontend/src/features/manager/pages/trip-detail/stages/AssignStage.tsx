@@ -16,7 +16,7 @@ export const AssignStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
   return (
     <section className="mgr-card">
       <div className="mgr-between"><h3 className="mgr-card__title">Phân công người phụ trách</h3><StatusBadge kind="deployment" status={d.status} /></div>
-      <p className="mgr-hint" style={{ marginTop: 0 }}>Phân công hai người phụ trách để triển khai hồ sơ và kế hoạch vận chuyển song song.</p>
+
       {d.status === 'ON_HOLD' && <Note tone="red" title="Chuyến đang tạm dừng">{d.holdReason}</Note>}
       <div className="mgr-td__roles">
         <div><span className="mgr-td__role-code">HS</span><div><h4>Phụ trách hồ sơ</h4><small>Transport Specialist</small><p>{d.specialistId ? staffName(data, d.specialistId) : 'Chưa phân công'}</p><span>Chuẩn bị giấy tờ, kiểm dịch và bảo hiểm.</span></div></div>
@@ -33,7 +33,7 @@ export const AssignStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
           {d.status === 'CONFIRMED' && <button type="button" className="mgr-btn" onClick={() => setDialog('hold')}>Tạm dừng chuyến</button>}
         </div>
       )}
-      <p className="mgr-hint">Nhân viên nhận chuyến ngay sau khi giao việc, không cần xác nhận nhận việc.</p>
+
       <DeployModal open={dialog === 'deploy'} tripId={t.id} staff={staff} loadStaff={getDemoMode('manager') ? undefined : managerApi.getStaff} onClose={() => setDialog('')} onSubmit={async (sp, co) => (await actions.confirmDeployment(t.id, sp, co)).ok} />
       <ReasonModal open={dialog === 'hold'} title={`Tạm dừng ${t.id}`} okText="Tạm dừng" danger minLength={10}
         intro={<p>Specialist và Coordinator ngừng chuẩn bị cho đến khi Manager cho tiếp tục.</p>}

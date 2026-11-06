@@ -164,9 +164,8 @@ const NOTE: Partial<Record<CustomerDocKey, string>> = {
   bio: 'Giống, giới tính, ngày sinh, microchip',
   valueProof: 'Không bắt buộc',
   conditions: 'Không bắt buộc',
-  vet: 'Tên & số điện thoại bác sĩ thú y riêng',
 };
-const PER_HORSE: CustomerDocKey[] = ['passport', 'ownership', 'bio', 'valueProof', 'flu', 'health', 'conditions', 'vet'];
+const PER_HORSE: CustomerDocKey[] = ['passport', 'ownership', 'bio', 'valueProof', 'flu', 'health', 'conditions'];
 const OPTIONAL_KEYS: CustomerDocKey[] = ['valueProof', 'conditions'];
 
 function dossier(t: SpecTrip, base: CustomerDocStatus, over: Partial<Record<string, Partial<CustomerDoc>>> = {}): CustomerDoc[] {

@@ -755,6 +755,15 @@ const RealDriverHandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
 };
 
 export const HandoverTab: React.FC<{ trip: Trip }> = ({ trip }) => {
+  const isDone = trip.status === 'COMPLETED' || !!trip.handover;
+  if (!isDone && !handoverReady(trip)) {
+    return (
+      <div className="drv-card drv-empty">
+        <b>Chưa đến điểm đích</b>
+        Thủ tục bàn giao chỉ mở khi tài xế đã ghi nhận mốc “Đến điểm giao”. Vui lòng cập nhật hành trình tại mục Hành trình trước khi thực hiện bàn giao.
+      </div>
+    );
+  }
   const isDemo = getDemoMode('driver');
   if (isDemo) {
     return <MockDriverHandoverTab trip={trip} />;

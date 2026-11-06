@@ -9,6 +9,8 @@ import { db, useCoordinatorStore } from '../../store/coordinatorStore';
 import { STOP_LABEL, dt, incTypeVi } from '../../utils/format';
 import { fmtMin, kmBetween, PF, PF_COLOR, RP, plannerMap, ROUTE_POLICY, rpCalc, rpCandidates, rpCoords, rpEditable, rpFocus, rpGroups, rpPick, rpRoute, rpRouteKey, rpSeg } from '../../workflows/routePlanner';
 import { Empty } from '../common/ui';
+import { drawIncidentPins } from '../../../../shared/maps/incidentPinLayer';
+import { getIncidentPins, useIncidentPins } from '../../../../shared/utils/sharedIncidentPins';
 
 // Cấu hình icon mặc định Leaflet để tương thích Vite
 delete (L.Icon.Default.prototype as Any)._getIconUrl;
@@ -23,7 +25,10 @@ const esc = (s: string) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&
 
 /** báo cáo tình trạng tuyến của tài xế, đặt tại mốc đã ghi (không phải GPS) */
 function paintReports(t: Any, layer: L.LayerGroup | L.Map) {
-  if (!t || !db?.incidents) return;
+  if (!t) return;
+  // Sự cố có vị trí tài xế đã chọn trên đoạn đường giữa hai trạm
+  drawIncidentPins(layer, getIncidentPins(t.id).concat(t.tripId && t.tripId !== t.id ? getIncidentPins(t.tripId) : []));
+  if (!db?.incidents) return;
   const stops = tripStops(t) || [];
   (db.incidents || [])
     .filter((i: Any) => (i.tripId === t.id || i.tripId === t.tripId) && !['CLOSED', 'HALTED'].includes(i.status) && ['ROAD_CLOSURE', 'TRAFFIC_ACCIDENT', 'BORDER_DELAY', 'OTHER', 'BAD_WEATHER'].includes(i.type))
@@ -43,6 +48,7 @@ function paintReports(t: Any, layer: L.LayerGroup | L.Map) {
 // ---------------------------------------------------------------------------
 export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; current?: number }) {
   const ver = useCoordinatorStore();
+  const incidentPins = useIncidentPins(t?.id);
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -184,7 +190,7 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
         delete (el.current as unknown as { _leaflet_id?: number })._leaflet_id;
       }
     };
-  }, [ver, stops, current, t, geom]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ver, stops, current, t, geom, incidentPins]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!stops || !stops.length) return <div className="rmap"><Empty title="Chưa có điểm dừng" text="Điều phối chưa thêm điểm dừng cho tuyến này." /></div>;
   const air = t && t.mode === 'AIR';
@@ -244,6 +250,7 @@ export function RouteMap({ t, stops, current = -1 }: { t?: Any; stops: Any[]; cu
 // ---------------------------------------------------------------------------
 export function PlannerMap({ t, onTileError }: { t: Any; onTileError: () => void }) {
   const ver = useCoordinatorStore();
+  const incidentPins = useIncidentPins(t.id);
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const layers = useRef<L.LayerGroup | null>(null);
@@ -552,7 +559,7 @@ export function PlannerMap({ t, onTileError }: { t: Any; onTileError: () => void
     if (!fitted.current) {
       plannerMap.fitAll?.();
     }
-  }, [ver, t]);
+  }, [ver, t, incidentPins]);
 
   return <div id="rp-map" className="rp-map" ref={el} />;
 }

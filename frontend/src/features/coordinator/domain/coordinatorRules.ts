@@ -5,11 +5,44 @@
 import type { Any } from '../store/coordinatorStore';
 import { db, me, nowStamp, today } from '../store/coordinatorStore';
 import { addDays, city, cityLabel, date, dt, human, stampMs } from '../utils/format';
+import { QUICK_LOGIN_ACCOUNTS } from '../../auth/quickLoginAccounts';
 
-export const ACTIVE_TRIP = ['PLANNING', 'READY_TO_DEPART', 'IN_TRANSIT'];
+export const ACTIVE_TRIP = [
+  'PLANNING', 'READY_TO_DEPART', 'IN_TRANSIT', 'PENDING_APPROVAL', 'PLAN_APPROVED',
+  'RETURNED', 'ASSIGNED', 'SCHEDULED', 'EN_ROUTE', 'HALTED', 'CUSTOMS_HOLD', 'DELIVERED', 'DRAFT'
+];
 export const STALE_H = 3;
 
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+
+/** Bảng liên kết định danh nhân sự (mã danh bạ EMP-xx ↔ tài khoản USER_xx từ backend / QuickLogin) */
+export const STAFF_ALIASES: Record<string, string> = {
+  'EMP-21': 'USER_012', 'USER_012': 'EMP-21',
+  'EMP-22': 'USER_013', 'USER_013': 'EMP-22',
+  'EMP-23': 'USER_015', 'USER_015': 'EMP-23',
+  'EMP-25': 'USER_016', 'USER_016': 'EMP-25',
+  'EMP-26': 'USER_017', 'USER_017': 'EMP-26',
+  'EMP-31': 'USER_018', 'USER_018': 'EMP-31',
+  'EMP-32': 'USER_019', 'USER_019': 'EMP-32',
+  'EMP-35': 'USER_014', 'USER_014': 'EMP-35',
+  'EMP-07': 'USER_007', 'USER_007': 'EMP-07',
+  'EMP-08': 'USER_008', 'USER_008': 'EMP-08',
+  'EMP-09': 'USER_009', 'USER_009': 'EMP-09',
+  'EMP-10': 'USER_010', 'USER_010': 'EMP-10',
+};
+
+/** So khớp xem hai mã định danh (hoặc alias) có cùng chỉ một nhân sự hay không */
+export const isSameStaff = (idA?: string, idB?: string): boolean => {
+  if (!idA || !idB) return false;
+  const a = cleanId(idA).toUpperCase();
+  const b = cleanId(idB).toUpperCase();
+  if (a === b) return true;
+  const aliasA = STAFF_ALIASES[idA] || STAFF_ALIASES[a];
+  if (aliasA && cleanId(aliasA).toUpperCase() === b) return true;
+  const aliasB = STAFF_ALIASES[idB] || STAFF_ALIASES[b];
+  if (aliasB && cleanId(aliasB).toUpperCase() === a) return true;
+  return false;
+};
 
 // ---------- tra cứu ----------
 export const trip = (id?: string) => db.trips.find((t: Any) => t.id === id || cleanId(t.id) === cleanId(id) || t.tripId === id || cleanId(t.tripId) === cleanId(id));
@@ -19,7 +52,30 @@ export const tripOfReq = (rid: string) => db.trips.find((t: Any) => t.requestId 
 export const customer = (id?: string) => db.customers.find((c: Any) => c.id === id) || db.customers[0] || { company: '—', name: '—' };
 export const custOf = (r: Any) => customer(r?.customer || 'CUS-001');
 export const horse = (id: string) => db.horses.find((h: Any) => h.id === id || cleanId(h.id) === cleanId(id)) || { id, name: id };
-export const emp = (id?: string) => (id ? db.employees.find((e: Any) => e.id === id) : undefined);
+export const emp = (id?: string) => {
+  if (!id) return undefined;
+  const target = cleanId(id).toUpperCase();
+  const alias = STAFF_ALIASES[id] || STAFF_ALIASES[target];
+  const found = db.employees.find((e: Any) => {
+    const eid = cleanId(e.id).toUpperCase();
+    return eid === target || (alias && cleanId(alias).toUpperCase() === eid) || (e.userId && cleanId(e.userId).toUpperCase() === target);
+  });
+  if (found) return found;
+
+  const user = QUICK_LOGIN_ACCOUNTS.find((u) => cleanId(u.id).toUpperCase() === target || (alias && cleanId(u.id).toUpperCase() === cleanId(alias).toUpperCase()));
+  if (user) {
+    return {
+      id: user.id,
+      name: user.label.split('·')[0].trim(),
+      role: user.role === 'DRIVER_ESCORT' ? 'DRIVER' : user.role,
+      position: user.label.includes('Bác sĩ') ? 'VETERINARIAN' : 'DRIVER',
+      status: 'ACTIVE',
+      country: 'VN',
+      avail: { status: 'AVAILABLE', from: '', to: '', note: '' },
+    };
+  }
+  return undefined;
+};
 export const vehicle = (id?: string) => (id ? db.vehicles.find((v: Any) => v.id === id) : undefined);
 export const placeById = (id?: string) => (id ? db.places.find((p: Any) => p.id === id) : undefined);
 export const checkpoint = placeById;
@@ -106,19 +162,120 @@ export function groundLegs(t: Any) {
   }
   return t.groundLegs;
 }
-export const groundAssignedEmployees = (t: Any): string[] => (Object.values(groundLegs(t)) as Any[]).flatMap((l) => Object.values(l.crew || {})).filter(Boolean) as string[];
-export const tripVehicleIds = (t: Any): string[] => [...new Set([t.mode === 'ROAD' ? t.vehicleId : '', ...(t.mode === 'AIR' ? (Object.values(groundLegs(t)) as Any[]).map((l) => l.vehicleId) : [])].filter(Boolean))];
-export const tripPersonnelIds = (t: Any): string[] => [...new Set([...(Object.values(t.crew || {}) as string[]), ...(t.mode === 'AIR' ? groundAssignedEmployees(t) : [])].filter(Boolean))];
-export const vehicleConflict = (v: Any, t: Any) => db.trips.find((u: Any) => u.id !== t.id && tripVehicleIds(u).includes(v.id) && u.status !== 'COMPLETED' && overlaps(t, u));
+export const isTripHoldingCrew = (t: Any): boolean => {
+  if (!t) return false;
+  const s = String(t.status || 'PLANNING').toUpperCase();
+  return !['COMPLETED', 'CANCELLED', 'REJECTED', 'CLOSED', 'TERMINATED'].includes(s);
+};
+
+export const groundAssignedEmployees = (t: Any): string[] => {
+  const g = groundLegs(t);
+  const outbound = Object.values(g.outbound?.crew || {});
+  const inbound = Object.values(g.inbound?.crew || {});
+  return [...outbound, ...inbound].filter(Boolean) as string[];
+};
+
+export const tripVehicleIds = (t: Any): string[] => {
+  if (!t) return [];
+  const g = t.groundLegs;
+  const resVehs = Array.isArray(t.resources) ? t.resources.map((r: Any) => r.vehicleId) : [];
+  return [...new Set([
+    t.vehicleId,
+    g?.outbound?.vehicleId,
+    g?.inbound?.vehicleId,
+    ...resVehs,
+  ].filter(Boolean) as string[])];
+};
+
+export const tripPersonnelIds = (t: Any): string[] => {
+  if (!t) return [];
+  const ids: string[] = [];
+
+  const add = (val: Any) => {
+    if (!val) return;
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (trimmed) ids.push(trimmed);
+    } else if (typeof val === 'object' && val.id) {
+      ids.push(String(val.id).trim());
+    }
+  };
+
+  const addCrewObj = (crewObj: Any) => {
+    if (!crewObj || typeof crewObj !== 'object') return;
+    Object.values(crewObj).forEach(add);
+  };
+
+  // 1. Tổ lái đường bộ / mặc định
+  addCrewObj(t.crew);
+
+  // 2. Chặng đường bộ sân bay (cả trước và sau chuyến bay)
+  if (t.groundLegs) {
+    addCrewObj(t.groundLegs.outbound?.crew);
+    addCrewObj(t.groundLegs.inbound?.crew);
+  }
+
+  // 3. Phương án nguồn lực (resources từ draft / approvedPlan / root)
+  const allResources = [
+    ...(Array.isArray(t.resources) ? t.resources : []),
+    ...(Array.isArray(t.approvedPlan?.resources) ? t.approvedPlan.resources : []),
+    ...(Array.isArray(t.draft?.resources) ? t.draft.resources : []),
+  ];
+  allResources.forEach((r: Any) => {
+    if (!r) return;
+    addCrewObj(r.crew);
+    add(r.driverId);
+    add(r.coDriverId);
+    add(r.veterinarianId);
+    add(r.escortId);
+  });
+
+  // 4. Phân công từ backend DB
+  if (Array.isArray(t.vehicleAssignments)) {
+    t.vehicleAssignments.forEach((va: Any) => {
+      add(va.driverId);
+      add(va.coDriverId);
+      add(va.veterinarianId);
+      add(va.escortId);
+      addCrewObj(va.crew);
+    });
+  }
+
+  // 5. Chuyến bay (bác sĩ/hộ tống áp tải)
+  if (t.flight) {
+    add(t.flight.escortId);
+    add(t.flight.veterinarianId);
+    add(t.flight.vetId);
+  }
+
+  return [...new Set(ids)];
+};
+
+/** Kiểm tra xem nhân sự có đang được phân công vào chuyến hay không */
+export const isStaffAssignedToTrip = (e: Any | string, t: Any): boolean => {
+  const staffId = typeof e === 'string' ? e : e?.id;
+  if (!staffId || !t) return false;
+  const tripStaffIds = tripPersonnelIds(t);
+  return tripStaffIds.some((assignedId) => isSameStaff(staffId, assignedId));
+};
+
+export const vehicleConflict = (v: Any, t: Any) => db.trips.find((u: Any) => cleanId(u.id) !== cleanId(t?.id) && tripVehicleIds(u).some(id => cleanId(id) === cleanId(v?.id)) && isTripHoldingCrew(u) && overlaps(t, u));
 
 // tình trạng sẵn sàng của nhân sự (nghỉ phép, ốm…) – người không sẵn sàng trong thời gian chuyến không được gợi ý
 export const AVAIL: Record<string, [string, string]> = { AVAILABLE: ['AVAILABLE', 'Sẵn sàng'], LEAVE: ['PENDING', 'Nghỉ phép'], SICK: ['FAILED', 'Nghỉ ốm'], SUSPENDED: ['CANCELLED', 'Tạm ngưng phân công'], INACTIVE: ['CANCELLED', 'Ngừng hoạt động'] };
 const unavailableIn = (e: Any, from: string, to: string) => e.avail && e.avail.status !== 'AVAILABLE' && (e.avail.status === 'INACTIVE' || !e.avail.from || (e.avail.from <= to && (!e.avail.to || e.avail.to >= from)));
 export const availLabel = (e: Any) => AVAIL[e.avail.status][1] + (e.avail.status !== 'AVAILABLE' && e.avail.status !== 'INACTIVE' && e.avail.from ? ` ${date(e.avail.from)}${e.avail.to ? '–' + date(e.avail.to) : ''}` : '');
+
 /** một tài xế / áp tải / bác sĩ chỉ được gắn vào một chuyến đang hoạt động; người đang nghỉ cũng tính là trùng lịch */
 export function crewConflict(e: Any, t: Any): Any {
+  if (!e) return null;
   // Bận cho đến khi chuyến kia bàn giao xong (COMPLETED), không phụ thuộc ngày chuyến: mỗi người chỉ một chuyến chưa bàn giao
-  const busy = db.trips.find((u: Any) => u.id !== t.id && tripPersonnelIds(u).includes(e.id) && ACTIVE_TRIP.includes(u.status));
+  const busy = db.trips.find((u: Any) => {
+    if (!u) return false;
+    if (t && cleanId(u.id) === cleanId(t.id)) return false;
+    if (!isTripHoldingCrew(u)) return false;
+    return isStaffAssignedToTrip(e, u);
+  });
   if (busy) return busy;
   if (t && e.avail && unavailableIn(e, tripWindow(t)[0], tripWindow(t)[1])) return { id: availLabel(e) };
   return null;
@@ -205,7 +362,7 @@ export function readiness(t: Any) {
       it('road', 'Xe phù hợp sẵn sàng và đủ ngăn ngựa', vehOk, 'resources', veh ? `${veh.plate} • ${human(veh.status)} • ${veh.stalls} ngăn cho ${n} ngựa` : 'Chưa phân công'),
       it('road', 'Đã phân tài xế chính', isDriver(md), 'resources', md ? md.name : 'Chưa phân công'),
       it('road', 'Đã phân phụ xe (đồng thời đáp ứng yêu cầu người áp tải)', isDriver(cd) && (!md || cd.id !== md.id), 'resources', cd ? cd.name : 'Chưa phân công'),
-      it('road', 'Đã phân một bác sĩ thú y riêng làm người áp tải', isVet(vet) && ![crew.MAIN_DRIVER, crew.CO_DRIVER].includes(vet.id), 'resources', vet ? vet.name : 'Chưa phân công'),
+      it('road', 'Đã phân bác sĩ thú y làm người áp tải', isVet(vet) && ![crew.MAIN_DRIVER, crew.CO_DRIVER].includes(vet.id), 'resources', vet ? vet.name : 'Chưa phân công'),
       it('road', 'Chứng chỉ bác sĩ thú y còn hiệu lực cho chuyến', isVet(vet) && vet.certExpiry >= arr, 'resources', vet ? `${vet.name}${vet.certExpiry ? ` • hiệu lực đến ${date(vet.certExpiry)}` : ''}` : 'Chưa phân công'));
   }
   list.push(it('shared', 'Không trùng lịch xe hoặc nhân sự', !conflicts.length, 'resources', conflicts.join('; ') || 'Không có'));
@@ -323,13 +480,13 @@ export function staffError(e: Any, t: Any, role: string, wholeCrew = false) {
   if (role === 'VETERINARIAN' ? !isVet(e) : !isDriver(e)) return `${e.name} không đúng vị trí được phân công.`;
   if (role === 'VETERINARIAN' && e.certExpiry < t.eta.slice(0, 10)) return 'Chứng chỉ thú y không còn hiệu lực đến cuối chuyến.';
   const busy = crewConflict(e, t); if (busy) return `${e.name} đã được gán cho ${busy.id}. Mỗi nhân sự chỉ được gán một chuyến đang hoạt động.`;
-  if (!wholeCrew && t.mode === 'AIR' && groundAssignedEmployees(t).includes(e.id)) return 'Nhân sự này đã thuộc một chặng xe sân bay của chuyến; không phân thêm vị trí khác.';
-  if (!wholeCrew && Object.entries(t.crew || {}).some(([k, id]) => k !== role && id === e.id)) return 'Một người không kiêm hai vị trí trong cùng chuyến.';
+  if (!wholeCrew && t.mode === 'AIR' && groundAssignedEmployees(t).some((id) => isSameStaff(id, e.id))) return 'Nhân sự này đã thuộc một chặng xe sân bay của chuyến; không phân thêm vị trí khác.';
+  if (!wholeCrew && Object.entries(t.crew || {}).some(([k, id]) => k !== role && isSameStaff(id as string, e.id))) return 'Một người không kiêm hai vị trí trong cùng chuyến.';
   return '';
 }
 export const editableF3 = (t: Any) => !!t && canPlan(t) && !opsBlock(t, true) && (!curRoute(t) || curRoute(t).status === 'DRAFT');
 export const horseCountError = (r: Any) => { const n = Math.max(Number(r?.count || 0), (r?.horses || []).length); return !Number.isInteger(n) || n < 1 || n > 4 ? 'Mỗi yêu cầu vận chuyển chỉ được có từ 1 đến 4 ngựa.' : ''; };
 
 // ---------- lịch nhân sự / xe ----------
-export const busyTrips = (e: Any) => db.trips.filter((t: Any) => tripPersonnelIds(t).includes(e.id) && t.status !== 'COMPLETED');
+export const busyTrips = (e: Any) => db.trips.filter((t: Any) => isStaffAssignedToTrip(e, t) && isTripHoldingCrew(t));
 export const certSoon = (e: Any) => e.certExpiry && e.certExpiry < addDays(today(), 30);
