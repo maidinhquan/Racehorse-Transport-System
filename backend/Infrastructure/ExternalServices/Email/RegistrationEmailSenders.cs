@@ -37,11 +37,10 @@ public sealed class SmtpRegistrationEmailSender(IOptions<RegistrationSmtpOptions
             EnableSsl = settings.EnableSsl,
             Credentials = string.IsNullOrEmpty(settings.Username) ? null : new NetworkCredential(settings.Username, settings.Password)
         };
-        using var message = new MailMessage(settings.From, email)
-        {
-            Subject = "Xác minh đăng ký RaceHorse Transport",
-            Body = $"Mã xác minh đăng ký: {otp}\nHết hạn lúc {expiresAt:O}. Không chia sẻ mã với người khác."
-        };
+        using var message = OtpEmailTemplate.Create(settings.From, email, $"{OtpEmailTemplate.BrandName} - Mã xác minh đăng ký",
+            "Xác minh đăng ký tài khoản",
+            "Cảm ơn bạn đã đăng ký. Nhập mã bên dưới để hoàn tất việc tạo tài khoản.", otp,
+            [], expiresAt, "Không chia sẻ mã này cho bất kỳ ai, kể cả nhân viên của chúng tôi.");
         await client.SendMailAsync(message, cancellationToken);
     }
 }

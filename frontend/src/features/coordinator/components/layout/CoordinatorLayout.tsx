@@ -2,7 +2,6 @@
 import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { DemoDataToggle } from '../../../../shared/components';
 import type { Any } from '../../store/coordinatorStore';
 import { commit, db, go, me, setNavigator, toastState, useCoordinatorStore } from '../../store/coordinatorStore';
 import '../../styles/coordinator.css';
@@ -65,7 +64,6 @@ export function CoordinatorLayout({ title, children, active }: { title: string; 
         <header className="topbar">
           <h1>{title}</h1>
           <div className="user" ref={userRef}>
-            <DemoDataToggle role="coordinator" compact />
             <button type="button" className="icon-btn" aria-label="Thông báo" onClick={() => setMenu(menu === 'notif' ? '' : 'notif')}>
               <span className={`bell ${unread ? 'dot' : ''}`} data-count={unread ? (unread > 9 ? '9+' : String(unread)) : ''}><Icon name="bell" /></span>
             </button>

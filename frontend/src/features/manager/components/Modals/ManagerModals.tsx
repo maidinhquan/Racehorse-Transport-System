@@ -65,7 +65,7 @@ export const DeployModal: React.FC<{ open: boolean; tripId: string; staff: Staff
   };
   return (
     <Modal open={open} title={`Phân công người phụ trách • ${tripId}`} okText="Giao việc & xác nhận triển khai" onClose={onClose} onOk={submit} error={error} okDisabled={loading || !!loadError}>
-      <p>Chuyến chỉ được triển khai chính thức sau khi Manager phân công. Nhân viên nhận chuyến ngay, không cần xác nhận nhận việc.</p>
+
       <p className="mgr-hint">Hiển thị toàn bộ nhân sự đang hoạt động theo từng vai trò. (Recommend) là người có tài khoản đăng nhập nhanh ở trang đăng nhập.</p>
       {loading && <p role="status">Đang tải danh sách nhân sự…</p>}
       {loadError && <p role="alert">{loadError} <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => setRetry(v => v + 1)}>Thử lại</button></p>}

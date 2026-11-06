@@ -4,6 +4,7 @@ using Application.Flow6.Contracts;
 using Application.Flow6.Exceptions;
 using Application.Flow6.Interfaces;
 using Application.Flow6.Services;
+using Infrastructure.ExternalServices.Email;
 using Infrastructure.ExternalServices.Flow1;
 namespace Infrastructure.Flow6.Email;
 public sealed class DeliveryOtpSender(ContractSmtpOptions options,bool development) : IDeliveryOtpSender
@@ -39,7 +40,11 @@ public sealed class DeliveryOtpSender(ContractSmtpOptions options,bool developme
         {
             using var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct);timeout.CancelAfter(TimeSpan.FromSeconds(15));
             using var smtp=new SmtpClient(s.Host,s.Port){EnableSsl=s.EnableSsl,UseDefaultCredentials=false,Credentials=string.IsNullOrEmpty(s.Username)?null:new NetworkCredential(s.Username,s.Password)};
-            using var mail=new MailMessage(s.From,email){Subject="RaceHorse — Xác nhận biên bản bàn giao",Body=$"Phiên bản biên bản: {revisionId}\nMã đối chiếu nội dung: {documentHash}\nMã OTP: {code}\nHết hạn UTC: {expiresAtUtc:O}\nChỉ cung cấp mã cho nhân sự giao nhận sau khi đã xem và đồng ý đúng nội dung biên bản."};
+            using var mail=OtpEmailTemplate.Create(s.From,email,$"{OtpEmailTemplate.BrandName} - Mã xác nhận bàn giao ngựa",
+                "Xác nhận biên bản bàn giao",
+                "Nhân sự giao nhận đang yêu cầu mã để hoàn tất bàn giao ngựa. Chỉ cung cấp mã sau khi đã xem và đối chiếu đúng nội dung biên bản.",code,
+                [new("Biên bản", revisionId), new("Mã đối chiếu nội dung", documentHash)],
+                new DateTimeOffset(DateTime.SpecifyKind(expiresAtUtc,DateTimeKind.Utc)),"Không chia sẻ mã này cho bất kỳ ai ngoài nhân sự giao nhận đang có mặt.");
             await smtp.SendMailAsync(mail,timeout.Token);
         }
         catch(Exception e)when(e is SmtpException or InvalidOperationException or FormatException or OperationCanceledException)

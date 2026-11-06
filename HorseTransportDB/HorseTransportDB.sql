@@ -1344,14 +1344,16 @@ INSERT INTO BUSINESS_POLICY (PolicyID, Code, ValueType, NumberValue, TextValue, 
 ('BUSINESS_POLICY_005', 'SIGN_OTP_TTL_MINUTES', 'NUMBER', 5, NULL, NULL, 'MINUTE', 'GLOBAL', NULL, N'Thời gian hiệu lực của một mã OTP ký hợp đồng.', 'USER_004'),
 ('BUSINESS_POLICY_006', 'SIGN_OTP_RESEND_SECONDS', 'NUMBER', 60, NULL, NULL, 'SECOND', 'GLOBAL', NULL, N'Khoảng chờ tối thiểu trước khi cấp lại OTP ký hợp đồng.', 'USER_004'),
 ('BUSINESS_POLICY_007', 'SIGN_OTP_MAX_ATTEMPTS', 'NUMBER', 5, NULL, NULL, 'ATTEMPT', 'GLOBAL', NULL, N'Số lần nhập sai tối đa của một mã OTP ký hợp đồng.', 'USER_004'),
-('BUSINESS_POLICY_008', 'FEEDBACK_WINDOW_HOURS', 'NUMBER', 24, NULL, NULL, 'HOUR', 'GLOBAL', NULL, N'Thời lượng cửa sổ phản hồi sau tất toán hoặc sau khi khách chấp nhận kết quả giải quyết khiếu nại.', 'USER_004');
+('BUSINESS_POLICY_008', 'FEEDBACK_WINDOW_HOURS', 'NUMBER', 24, NULL, NULL, 'HOUR', 'GLOBAL', NULL, N'Thời lượng cửa sổ phản hồi sau tất toán hoặc sau khi khách chấp nhận kết quả giải quyết khiếu nại.', 'USER_004'),
+('BUSINESS_POLICY_012', 'MIN_TRANSIT_DAYS', 'NUMBER', 0, NULL, NULL, 'DAY', 'GLOBAL', NULL, N'Số ngày tối thiểu từ ngày lấy đến ngày giao mặc định (0 là được giao trong ngày).', 'USER_004'),
+('BUSINESS_POLICY_013', 'MIN_TRANSIT_DAYS', 'NUMBER', 2, NULL, NULL, 'DAY', 'COUNTRY', 'JP', N'Chuyến đi Nhật Bản gồm chặng bay quốc tế và thủ tục nên ngày giao phải sau ngày lấy ít nhất 2 ngày.', 'USER_004');
 
 -- 2. Bảng HORSE: Đa dạng cá thể (Ngựa đực Stallion, Ngựa cái Mare, Ngựa thiến Gelding)
 INSERT INTO HORSE (HorseID, OwnerID, Microchip_ISO, FEI_Passport_No, Name, Breed, Sex, ReproductiveStatus, Weight, DOB, PhotoUrl, PassportScanUrl) VALUES
 ('HORSE_001', 'USER_001', '981098102938475', 'VN_FEI_2026_01', N'Tia Chớp Đỏ (Red Lightning)', N'Thoroughbred', 'STALLION', 'INTACT', 520.50, '2020-04-15', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
 ('HORSE_002', 'USER_001', '981098102938476', 'VN_FEI_2026_02', N'Bão Táp Xanh (Blue Storm)', N'Arabian', 'MARE', 'NOT_PREGNANT', 485.00, '2021-06-20', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
-('HORSE_003', 'USER_002', '981098102938477', 'VN_FEI_2026_03', N'Bạch Mã Hoàng Tử (Prince)', N'Thoroughbred', 'GELDING', 'GELDED', 540.00, '2019-09-10', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
-('HORSE_004', 'USER_002', '981098102938478', 'VN_FEI_2026_04', N'Nữ Hoàng Cát (Desert Queen)', N'Warmblood', 'MARE', 'PREGNANT', 510.00, '2020-11-05', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
+('HORSE_003', 'USER_001', '981098102938477', 'VN_FEI_2026_03', N'Bạch Mã Hoàng Tử (Prince)', N'Thoroughbred', 'GELDING', 'GELDED', 540.00, '2019-09-10', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
+('HORSE_004', 'USER_001', '981098102938478', 'VN_FEI_2026_04', N'Nữ Hoàng Cát (Desert Queen)', N'Warmblood', 'MARE', 'PREGNANT', 510.00, '2020-11-05', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
 ('HORSE_005', 'USER_003', '981098102938479', 'VN_FEI_2026_05', N'Chiến Binh Đen (Black Knight)', N'Friesian', 'STALLION', 'INTACT', 560.00, '2018-03-12', NULL, NULL);
 
 -- 3. Bảng STAFF_DOCUMENT: Giấy phép, Hộ chiếu, Visa nhân sự (Có hồ sơ hợp lệ và hồ sơ sắp hết hạn)
@@ -1372,7 +1374,7 @@ INSERT INTO STAFF_DOCUMENT (DocumentID, UserID, DocType, CountryOfIssue, ValidFo
 INSERT INTO NOTIFICATION (NotificationID, UserID, ReferenceID, Type, Channel, Title, Message, IsRead, SentAt) VALUES
 ('NOTIFICATION_001', 'USER_001', 'REQUEST_001', 'ORDER_STATUS', 'APP_PUSH', N'Yêu cầu vận chuyển được duyệt', N'Đơn REQUEST_001 của bạn đã được phê duyệt.', 1, N'2026-09-03 08:30:00'),
 ('NOTIFICATION_002', 'USER_007', 'TRIP_001', 'TRIP_ASSIGN', 'SMS', N'Lệnh điều xe mới', N'Bạn được phân công làm tài xế chính chuyến TRIP_001.', 1, N'2026-09-04 16:30:00'),
-('NOTIFICATION_003', 'USER_002', 'INCIDENT_002', 'INCIDENT', 'EMAIL', N'Cảnh báo sự cố hiện trường', N'Ngựa HORSE_003 bị stress nhiệt; chuyến được theo dõi và giao muộn.', 1, N'2026-10-05 14:00:00'),
+('NOTIFICATION_003', 'USER_001', 'INCIDENT_002', 'INCIDENT', 'EMAIL', N'Cảnh báo sự cố hiện trường', N'Ngựa HORSE_003 bị stress nhiệt; chuyến được theo dõi và giao muộn.', 1, N'2026-10-05 14:00:00'),
 ('NOTIFICATION_004', 'USER_005', 'LEGAL_MEDICAL_RECORD_006', 'DOC_WARNING', 'WEB_ALERT', N'Hồ sơ xét nghiệm bị từ chối', N'Mã xét nghiệm Coggins của ngựa HORSE_005 đã quá 6 tháng.', 0, '2026-10-08 14:00:00');
 
 -- 5. Bảng POLICY_AND_TERM: Quản lý điều khoản và chính sách áp dụng
@@ -1436,9 +1438,9 @@ INSERT INTO FACILITY_CERTIFICATION (CertID, FacilityID, CertName, IssuedBy, Coun
 
 -- 10. Bảng TRANSPORT_REQUEST: 4 đơn đại diện cho 4 tình huống khác nhau
 INSERT INTO TRANSPORT_REQUEST (RequestID, CustomerID, Departure, Destination, Purpose, TransportType, ExpectedDate, CommittedDeadline, DesignatedReceiverName, DesignatedReceiverPhone, BaseCost, Status, OriginCountry, DestinationCountry, PreparationDays, PickupContactName, PickupContactPhone, PickupLatitude, PickupLongitude, DeliveryLatitude, DeliveryLongitude, DistanceKm, ManagerNotes) VALUES
-('REQUEST_001', 'USER_001', N'Trang trại Sóc Sơn, Hà Nội', N'Trung tâm tiếp nhận ngựa Narita, Nhật Bản', N'Thi đấu Cúp Hoàng Gia', N'AIR', '2026-09-15 06:00:00', '2026-09-18 18:00:00', N'Kenji Sato', N'+819012345678', 212500000.00, 'CLOSED', N'VN', N'JP', 7, N'Nguyễn Văn A', N'0901234567', 21.200000, 105.800000, 35.770000, 140.380000, NULL, NULL),
-('REQUEST_002', 'USER_002', N'Trại ngựa Củ Chi, TP.HCM', N'Trung tâm tiếp nhận ngựa Đà Nẵng', N'Giao lưu huấn luyện', 'ROAD', '2026-10-05 05:00:00', '2026-10-06 17:00:00', N'Nguyễn Minh', N'0902223344', 105000000.00, N'DELIVERED', N'VN', N'VN', 3, N'Trần Văn B', N'0908889999', 10.970000, 106.500000, 16.050000, 108.200000, 950.00, N'Đã giao muộn ngày 06/10; còn hóa đơn cuối chưa thanh toán, chưa đóng request.'),
-('REQUEST_003', 'USER_001', N'Trang trại Sóc Sơn, Hà Nội', N'Trại ngựa Phú Thọ, TP.HCM', N'Nhân giống thuần chủng', 'ROAD', '2026-10-08 07:00:00', '2026-10-11 20:00:00', N'Nguyễn Hoàng', '0903334455', 145000000.00, 'IN_PROGRESS', N'VN', N'VN', 3, N'Nguyễn Văn A', N'0901234567', 21.200000, 105.800000, 10.770000, 106.660000, 1720.00, NULL),
+('REQUEST_001', 'USER_001', N'Trang trại Sóc Sơn, Hà Nội', N'Trung tâm tiếp nhận ngựa Narita, Nhật Bản', N'Thi đấu Cúp Hoàng Gia', N'AIR', '2026-11-15 06:00:00', '2026-11-18 18:00:00', N'Kenji Sato', N'+819012345678', 212500000.00, 'SCHEDULED', N'VN', N'JP', 7, N'Nguyễn Văn A', N'0901234567', 21.200000, 105.800000, 35.770000, 140.380000, NULL, NULL),
+('REQUEST_002', 'USER_001', N'Trại ngựa Củ Chi, TP.HCM', N'Trung tâm tiếp nhận ngựa Đà Nẵng', N'Giao lưu huấn luyện', 'ROAD', '2026-11-05 05:00:00', '2026-11-06 17:00:00', N'Nguyễn Minh', N'0902223344', 105000000.00, N'IN_PROGRESS', N'VN', N'VN', 3, N'Nguyễn Văn A', N'0901234567', 10.970000, 106.500000, 16.050000, 108.200000, 950.00, N'Đã đến nơi; chờ lập biên bản bàn giao và nghiệm thu Flow 6.'),
+('REQUEST_003', 'USER_001', N'Trang trại Sóc Sơn, Hà Nội', N'Trại ngựa Phú Thọ, TP.HCM', N'Nhân giống thuần chủng', 'ROAD', '2026-11-12 07:00:00', '2026-11-15 20:00:00', N'Nguyễn Hoàng', '0903334455', 145000000.00, 'SCHEDULED', N'VN', N'VN', 3, N'Nguyễn Văn A', N'0901234567', 21.200000, 105.800000, 10.770000, 106.660000, 1720.00, NULL),
 ('REQUEST_004', 'USER_003', N'Khu huấn luyện Ba Vì, Hà Nội', N'Trung tâm tiếp nhận ngựa Narita, Nhật Bản', N'Bán chuyển nhượng', N'AIR', '2026-10-20 08:00:00', '2026-10-24 16:00:00', N'Kenji Sato', N'+819012345678', 300000000.00, 'REJECTED', N'VN', N'JP', 7, N'Lê Thị C', N'0911223344', 21.200000, 105.800000, 35.770000, 140.380000, NULL, N'Từ chối do hồ sơ xét nghiệm hết hạn; không tạo hợp đồng hoặc chuyến.');
 
 -- 11. Bảng REQUEST_HORSE_MAPPING: Gán các cá thể ngựa vào từng yêu cầu
@@ -1460,7 +1462,7 @@ INSERT INTO LEGAL_MEDICAL_RECORD (RecordID, HorseID, RequestID, VerifiedBy, Docu
 
 -- 13. Bảng QUARANTINE_BOOKING: Đặt lịch cách ly tiền xuất/hậu nhập cảnh
 INSERT INTO QUARANTINE_BOOKING (BookingID, RequestID, FacilityID, StationName, Country, ExpectedStartDate, ExpectedEndDate, ConfirmationNumber, Status) VALUES
-('QUARANTINE_BOOKING_001', 'REQUEST_001', 'FACILITY_002', N'Trạm thú y tiếp nhận Narita', N'Nhật Bản', N'2026-09-16 14:00:00', N'2026-09-17 08:00:00', N'CFM_DEMO_1', 'COMPLETED'),
+('QUARANTINE_BOOKING_001', 'REQUEST_001', 'FACILITY_002', N'Trạm thú y tiếp nhận Narita', N'Nhật Bản', N'2026-11-16 14:00:00', N'2026-11-17 08:00:00', N'CFM_DEMO_1', 'CONFIRMED'),
 ('QUARANTINE_BOOKING_002', 'REQUEST_002', 'FACILITY_004', N'Trung tâm thú y Đà Nẵng', N'Việt Nam', N'2026-10-06 12:00:00', N'2026-10-06 17:00:00', N'CFM_DEMO_2', 'COMPLETED');
 
 -- =============================================================================
@@ -1469,14 +1471,14 @@ INSERT INTO QUARANTINE_BOOKING (BookingID, RequestID, FacilityID, StationName, C
 
 -- 14. Bảng TRIP_PLAN: Kế hoạch các chuyến đi
 INSERT INTO TRIP_PLAN (TripID, RequestID, TotalDistance_km, T_Total_Hours, TotalCost, Status, DeploymentStatus, DeploymentReason, DeploymentBy, DeploymentAtUtc, HandoffEventId, AssignedSpecialistId, AssignedCoordinatorId) VALUES
-('TRIP_001', 'REQUEST_001', 4500.00, 59.50, 155000000.00, 'COMPLETED', N'CONFIRMED', N'Hợp đồng đã ký và cọc đã xác minh; bàn giao cho hai nhân sự.', N'USER_004', N'2026-09-04 16:30:00', N'HANDOFF_EVENT_001', N'USER_005', N'USER_006'),
-('TRIP_002', 'REQUEST_002', 950.00, 37.50, 77500000.00, 'COMPLETED', N'CONFIRMED', N'Hợp đồng đã ký và cọc đã xác minh; bàn giao cho hai nhân sự.', N'USER_004', N'2026-09-30 10:30:00', N'HANDOFF_EVENT_002', N'USER_005', N'USER_006'),
-('TRIP_003', 'REQUEST_003', 1720.00, 42.00, 107500000.00, 'IN_TRANSIT', N'CONFIRMED', N'Hợp đồng đã ký và cọc đã xác minh; bàn giao cho hai nhân sự.', N'USER_004', N'2026-10-04 16:00:00', N'HANDOFF_EVENT_003', N'USER_005', N'USER_006');
+('TRIP_001', 'REQUEST_001', 4500.00, 59.50, 155000000.00, 'PLANNING', N'CONFIRMED', N'Hợp đồng đã ký và cọc đã xác minh; Flow 2 và Flow 3 hoàn tất, chờ Quản lý mở chuyến.', N'USER_004', N'2026-11-05 16:30:00', N'HANDOFF_EVENT_001', N'USER_005', N'USER_006'),
+('TRIP_002', 'REQUEST_002', 950.00, 37.50, 77500000.00, 'IN_TRANSIT', N'CONFIRMED', N'Đã đến nơi; chờ bắt đầu bàn giao Flow 6.', N'USER_004', N'2026-09-30 10:30:00', N'HANDOFF_EVENT_002', N'USER_005', N'USER_006'),
+('TRIP_003', 'REQUEST_003', 1720.00, 42.00, 107500000.00, 'READY_TO_DEPART', N'CONFIRMED', N'Đã hoàn tất Flow 2 và Flow 3; sẵn sàng khởi hành, chưa ghi nhận tiến độ.', N'USER_004', N'2026-11-04 16:00:00', N'HANDOFF_EVENT_003', N'USER_005', N'USER_006');
 
 -- 15. Bảng VEHICLE: Đội xe chuyên dụng chở ngựa đua
 INSERT INTO VEHICLE (VehicleID, Type, CapacityStalls, MaxRange_km, FuelCost_Per_Km, Status) VALUES
 ('VEHICLE_001', 'HORSEBOX_3_STALLS', 3, 900.00, 30000.00, 'AVAILABLE'),
-('VEHICLE_002', 'HORSEBOX_6_STALLS', 6, 1200.00, 45000.00, 'ON_TRIP'),
+('VEHICLE_002', 'HORSEBOX_6_STALLS', 6, 1200.00, 45000.00, 'AVAILABLE'),
 ('VEHICLE_003', 'HORSEBOX_2_STALLS', 2, 750.00, 25000.00, 'MAINTENANCE');
 
 -- 16. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái
@@ -1489,17 +1491,17 @@ UPDATE TRIP_VEHICLE_ASSIGNMENT SET CoDriverID = 'USER_017', VeterinarianID = 'US
 -- 17. (MỚI) Bảng FLIGHT_BOOKING: Đặt dịch vụ vận chuyển hàng không mẫu
 SET IDENTITY_INSERT FLIGHT_BOOKING ON;
 INSERT INTO FLIGHT_BOOKING (FlightBookingID, TripID, BookingVersion, RouteVersionID, ProviderName, Airline, FlightNumber, DepartureAirportCheckpointId, ArrivalAirportCheckpointId, DepartureAt, ArrivalAt, DirectFlight, BookingReference, BookingConfirmed, HorseIds, Note, CreatedAt) VALUES
-(300, 'TRIP_001', 1, 120, N'Nippon Cargo Airlines', N'NCA Airlines', 'KZ-102', 101, 201, N'2026-09-16 05:00:00', N'2026-09-16 12:00:00', 1, N'NCA-HAN-NRT-DEMO-2026', 1, '["HORSE_001","HORSE_002"]', N'Chặng HAN → NRT của TRIP_001; mọi thời điểm lưu UTC.', N'2026-09-05 08:00:00');
+(300, 'TRIP_001', 1, 120, N'Nippon Cargo Airlines', N'NCA Airlines', 'KZ-102', 101, 201, N'2026-11-16 05:00:00', N'2026-11-16 12:00:00', 1, N'NCA-HAN-NRT-DEMO-2026', 1, '["HORSE_001","HORSE_002"]', N'Chặng HAN → NRT của TRIP_001; mọi thời điểm lưu UTC.', N'2026-11-05 08:00:00');
 SET IDENTITY_INSERT FLIGHT_BOOKING OFF;
 -- 18. Bảng ROUTE_SEGMENT: Phân đoạn lộ trình của các chuyến đi
 INSERT INTO ROUTE_SEGMENT (SegmentID, TripID, FacilityID, LocationName, SegmentType, TransportMode, CarrierName, Flight_Voyage_No, ExpectedETA, ActualTime, Status) VALUES
-('ROUTE_SEGMENT_001', 'TRIP_001', 'FACILITY_001', N'Sóc Sơn → khu tiếp nhận Nội Bài', 'REST_STOP', 'ROAD', NULL, NULL, '2026-09-15 15:00:00', '2026-09-15 14:50:00', 'COMPLETED'),
-('ROUTE_SEGMENT_002', 'TRIP_001', 'FACILITY_002', N'Nội Bài (HAN) → Narita (NRT)', N'QUARANTINE_STOP', N'AIR', N'NCA Airlines', N'KZ-102', N'2026-09-16 12:00:00', N'2026-09-16 12:00:00', 'COMPLETED'),
-('ROUTE_SEGMENT_003', 'TRIP_001', NULL, N'Trạm thú y Narita → trung tâm tiếp nhận Narita', 'DESTINATION', 'ROAD', NULL, NULL, '2026-09-17 18:00:00', '2026-09-17 17:30:00', 'COMPLETED'),
-('ROUTE_SEGMENT_004', 'TRIP_002', 'FACILITY_003', N'Củ Chi → trạm tiếp nhận Củ Chi', N'REST_STOP', 'ROAD', NULL, NULL, '2026-10-05 08:30:00', '2026-10-05 09:15:00', 'COMPLETED'),
-('ROUTE_SEGMENT_005', 'TRIP_002', 'FACILITY_004', N'TP.HCM → trung tâm tiếp nhận Đà Nẵng', 'DESTINATION', 'ROAD', NULL, NULL, N'2026-10-06 16:00:00', N'2026-10-06 18:30:00', 'COMPLETED'),
-('ROUTE_SEGMENT_006', 'TRIP_003', 'FACILITY_005', N'Hà Nội -> Trạm Nghỉ Đà Nẵng', 'REST_STOP', 'ROAD', NULL, NULL, '2026-10-09 10:00:00', '2026-10-09 10:30:00', 'COMPLETED'),
-('ROUTE_SEGMENT_007', 'TRIP_003', NULL, N'Đà Nẵng -> Trại Phú Thọ TP.HCM', 'DESTINATION', 'ROAD', NULL, NULL, '2026-10-11 18:00:00', NULL, 'IN_PROGRESS');
+('ROUTE_SEGMENT_001', 'TRIP_001', 'FACILITY_001', N'Sóc Sơn → khu tiếp nhận Nội Bài', 'REST_STOP', 'ROAD', NULL, NULL, '2026-11-15 15:00:00', NULL, 'PLANNED'),
+('ROUTE_SEGMENT_002', 'TRIP_001', 'FACILITY_002', N'Nội Bài (HAN) → Narita (NRT)', N'QUARANTINE_STOP', N'AIR', N'NCA Airlines', N'KZ-102', N'2026-11-16 12:00:00', NULL, 'PLANNED'),
+('ROUTE_SEGMENT_003', 'TRIP_001', NULL, N'Trạm thú y Narita → trung tâm tiếp nhận Narita', 'DESTINATION', 'ROAD', NULL, NULL, '2026-11-17 18:00:00', NULL, 'PLANNED'),
+('ROUTE_SEGMENT_004', 'TRIP_002', 'FACILITY_003', N'Củ Chi → trạm tiếp nhận Củ Chi', N'REST_STOP', 'ROAD', NULL, NULL, '2026-11-05 08:30:00', '2026-11-05 09:15:00', 'COMPLETED'),
+('ROUTE_SEGMENT_005', 'TRIP_002', 'FACILITY_004', N'TP.HCM → trung tâm tiếp nhận Đà Nẵng', 'DESTINATION', 'ROAD', NULL, NULL, N'2026-11-06 16:00:00', N'2026-11-06 18:30:00', 'COMPLETED'),
+('ROUTE_SEGMENT_006', 'TRIP_003', 'FACILITY_005', N'Hà Nội -> Trạm Nghỉ Đà Nẵng', 'REST_STOP', 'ROAD', NULL, NULL, '2026-11-13 10:00:00', NULL, 'PLANNED'),
+('ROUTE_SEGMENT_007', 'TRIP_003', NULL, N'Đà Nẵng -> Trại Phú Thọ TP.HCM', 'DESTINATION', 'ROAD', NULL, NULL, '2026-11-15 18:00:00', NULL, 'PLANNED');
 
 -- 19. Bảng CUSTOMS_CLEARANCE: Thủ tục thông quan biên giới
 INSERT INTO CUSTOMS_CLEARANCE (ClearanceID, TripID, SegmentID, BorderCrossingName, CustomsAgentName, DocumentType, DeclarationNumber, Status, ClearedAt) VALUES
@@ -1508,31 +1510,20 @@ INSERT INTO CUSTOMS_CLEARANCE (ClearanceID, TripID, SegmentID, BorderCrossingNam
 
 -- 20. Bảng HEALTH_LOG: Nhật ký sinh hiệu sức khỏe cá thể ngựa (Insert-Only)
 INSERT INTO HEALTH_LOG (LogID, TripID, HorseID, EscortID, LogType, LogTime, Temperature, HeartRate, HealthStatus, Description, MediaUrl) VALUES
-('HEALTH_LOG_001', 'TRIP_001', 'HORSE_001', 'USER_009', 'TRANSIT_CHECK', '2026-09-15 10:30:00', 38.1, 42, N'Ổn định', N'Ngựa uống 15L nước, ăn cỏ khô tốt.', 'https://storage.cbntransport.com/logs/log1.jpg'),
-('HEALTH_LOG_002', 'TRIP_001', 'HORSE_002', 'USER_009', 'TRANSIT_CHECK', '2026-09-15 10:30:00', 38.2, 44, N'Ổn định', N'Thể trạng bình thường, mắt lanh lợi.', 'https://storage.cbntransport.com/logs/log2.jpg'),
 ('HEALTH_LOG_003', 'TRIP_002', 'HORSE_003', 'USER_010', 'TRANSIT_CHECK', '2026-10-05 14:00:00', 39.2, 58, N'Căng thẳng/Sốt', N'Ngựa đổ mồ hôi nhiều lúc qua phà, đã truyền điện giải.', 'https://storage.cbntransport.com/logs/log3.jpg'),
-('HEALTH_LOG_004', 'TRIP_003', 'HORSE_001', 'USER_018', 'TRANSIT_CHECK', '2026-10-09 11:00:00', 38.0, 40, N'Rất tốt', N'Dừng nghỉ tại Đà Nẵng, vận động nhẹ 30 phút.', 'https://storage.cbntransport.com/logs/log4.jpg');
+('HEALTH_LOG_004', 'TRIP_003', 'HORSE_001', 'USER_018', 'OBSERVATION', '2026-11-12 07:00:00', 38.0, 40, N'Rất tốt', N'Kiểm tra sức khỏe trước khi xe khởi hành.', 'https://storage.cbntransport.com/logs/log4.jpg');
 
 -- 21. Bảng INCIDENT: Sự cố phát sinh khẩn cấp trên đường
 INSERT INTO INCIDENT (IncidentID, TripID, ApprovedBy, IncidentType, LocationCoordinates, Description, ImageUrl, AdditionalCost, Status) VALUES
-('INCIDENT_001', 'TRIP_001', 'USER_004', 'TIRE_PUNCTURE', N'21.2187,105.8042', N'Thủng lốp trên chặng đường bộ Sóc Sơn đến Nội Bài; thay lốp trước chuyến bay.', 'https://storage.cbntransport.com/incidents/tire1.jpg', 2000000.00, 'RESOLVED'),
 ('INCIDENT_002', 'TRIP_002', 'USER_004', 'EQUINE_STRESS', '11.2312,105.8821', N'Ngựa HORSE_003 bị sốt nhẹ do nắng nóng, phải dừng xe hạ nhiệt mất 1h30m.', 'https://storage.cbntransport.com/incidents/vet2.jpg', 3750000.00, 'RESOLVED');
 
 -- 22. Bảng HANDOVER: Biên bản tiếp nhận (Pickup) và giao ngựa (Delivery)
 INSERT INTO HANDOVER (HandoverID, TripID, HandedByUserID, Type, LocationName, ReceiverName, ReceiverPhone, IsAuthorized, Status) VALUES
-('HANDOVER_001', 'TRIP_001', 'USER_007', 'PICKUP', N'Trang trại Sóc Sơn, Hà Nội', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED'),
-('HANDOVER_002', 'TRIP_001', 'USER_007', 'DELIVERY', N'Trung tâm tiếp nhận ngựa Narita', N'Kenji Sato', N'+819012345678', 1, 'CONFIRMED'),
-('HANDOVER_003', 'TRIP_002', 'USER_008', 'PICKUP', N'Trại ngựa Củ Chi, TP.HCM', N'Trần Văn B', '0908889999', 1, 'CONFIRMED'),
-('HANDOVER_004', 'TRIP_002', 'USER_008', 'DELIVERY', N'Trung tâm tiếp nhận ngựa Đà Nẵng', N'Nguyễn Minh', N'0902223344', 1, 'CONFIRMED'),
-('HANDOVER_005', 'TRIP_003', 'USER_015', 'PICKUP', N'Trang trại Sóc Sơn, Hà Nội', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED');
+('HANDOVER_003', 'TRIP_002', 'USER_008', 'PICKUP', N'Trại ngựa Củ Chi, TP.HCM', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED');
 
 -- 23. Bảng HANDOVER_ITEM: Đối soát mã chip và thể trạng lúc giao nhận
 INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerified, ConditionStatus, AssetCheck, PhotoUrl) VALUES
-('HANDOVER_ITEM_001', 'HANDOVER_001', 'HORSE_001', 1, N'Khỏe mạnh', N'01 bộ yên cương, 02 chăn đắp ngựa', 'https://storage.cbntransport.com/ho/pu_hrs1.jpg'),
-('HANDOVER_ITEM_002', 'HANDOVER_001', 'HORSE_002', 1, N'Khỏe mạnh', N'01 hộp thuốc dinh dưỡng', 'https://storage.cbntransport.com/ho/pu_hrs2.jpg'),
-('HANDOVER_ITEM_003', 'HANDOVER_002', 'HORSE_001', 1, N'Thể trạng tốt', N'Bàn giao đầy đủ yên cương và chăn', 'https://storage.cbntransport.com/ho/dl_hrs1.jpg'),
-('HANDOVER_ITEM_004', 'HANDOVER_002', 'HORSE_002', 1, N'Thể trạng tốt', N'Bàn giao nguyên trạng', 'https://storage.cbntransport.com/ho/dl_hrs2.jpg'),
-('HANDOVER_ITEM_005', 'HANDOVER_004', 'HORSE_003', 1, N'Mệt mỏi nhẹ', N'Đã bàn giao thuốc bổ sung', 'https://storage.cbntransport.com/ho/dl_hrs3.jpg');
+('HANDOVER_ITEM_005', 'HANDOVER_003', 'HORSE_003', 1, N'Thể trạng tốt', N'Đã xác nhận tiếp nhận ngựa tại điểm lấy.', 'https://storage.cbntransport.com/ho/pu_hrs3.jpg');
 
 -- =============================================================================
 -- PHÂN VÙNG 5: HỢP ĐỒNG & TÀI CHÍNH VND (CONTRACT & BILLING)
@@ -1540,9 +1531,9 @@ INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerifie
 
 -- 24. Bảng CONTRACT: 3 hợp đồng vận chuyển
 INSERT INTO CONTRACT (ContractID, TripID, RequestID, CustomerID, CurrencyCode, TotalQuotedPrice, DepositRateStandard, SignedAt, ContractStatus, PublishedAtUtc, PublishedBy, PdfUrl, DepositAmount, CompletionDeadline, SignerEmail) VALUES
-('CONTRACT_001', 'TRIP_001', 'REQUEST_001', 'USER_001', 'VND', 212500000.00, 40.00, N'2026-09-04 16:00:00', 'SETTLED', N'2026-09-04 08:00:00', N'USER_004', N'private/demo/contract_1_v1.pdf', 85000000, N'2026-09-05 08:00:00', N'vana.horse@gmail.com'),
-('CONTRACT_002', 'TRIP_002', 'REQUEST_002', 'USER_002', 'VND', 105000000.00, 40.00, N'2026-09-30 10:00:00', N'EFFECTIVE', N'2026-09-30 08:00:00', N'USER_004', N'private/demo/contract_2_v1.pdf', 42000000, N'2026-10-01 08:00:00', N'tranb.racing@gmail.com'),
-('CONTRACT_003', 'TRIP_003', 'REQUEST_003', 'USER_001', 'VND', 145000000.00, 40.00, N'2026-10-04 15:00:00', 'EFFECTIVE', N'2026-10-04 06:00:00', N'USER_004', N'private/demo/contract_3_v1.pdf', 58000000, N'2026-10-05 06:00:00', N'vana.horse@gmail.com');
+('CONTRACT_001', 'TRIP_001', 'REQUEST_001', 'USER_001', 'VND', 212500000.00, 40.00, N'2026-11-04 16:00:00', 'EFFECTIVE', N'2026-11-04 08:00:00', N'USER_004', N'private/demo/contract_1_v1.pdf', 85000000, N'2026-11-20 08:00:00', N'vana.horse@gmail.com'),
+('CONTRACT_002', 'TRIP_002', 'REQUEST_002', 'USER_001', 'VND', 105000000.00, 40.00, N'2026-09-30 10:00:00', N'EFFECTIVE', N'2026-09-30 08:00:00', N'USER_004', N'private/demo/contract_2_v1.pdf', 42000000, N'2026-11-07 08:00:00', N'vana.horse@gmail.com'),
+('CONTRACT_003', 'TRIP_003', 'REQUEST_003', 'USER_001', 'VND', 145000000.00, 40.00, N'2026-10-04 15:00:00', 'EFFECTIVE', N'2026-10-04 06:00:00', N'USER_004', N'private/demo/contract_3_v1.pdf', 58000000, N'2026-11-16 06:00:00', N'vana.horse@gmail.com');
 
 -- Seed one preserved version for each sample contract before its invoices.
 -- Version snapshots use the illustrative VND values seeded above.
@@ -1585,21 +1576,17 @@ UPDATE CONTRACT SET CurrentVersionNo = 1;
 INSERT INTO COST_ITEM (CostItemID, ContractID, CategoryName, SubcodeName, Bearer, CurrencyCode, TotalMoney, EvidenceUrl) VALUES
 ('COST_ITEM_001', 'CONTRACT_001', N'Nhiên liệu', N'Xăng dầu xe chuyên dụng', 'COMPANY', 'VND', 37500000.00, 'https://storage.cbntransport.com/bills/fuel1.pdf'),
 ('COST_ITEM_002', 'CONTRACT_001', N'Phí dịch vụ trạm', N'Lưu chuồng kiểm dịch Narita', 'CUSTOMER', 'VND', 5000000.00, N'https://example.invalid/bills/narita.pdf'),
-('COST_ITEM_003', 'CONTRACT_001', N'Sự cố phát sinh', N'Sửa vá lốp khẩn cấp', 'COMPANY', 'VND', 2000000.00, 'https://storage.cbntransport.com/bills/tire1.jpg'),
 ('COST_ITEM_004', 'CONTRACT_002', N'Chi phí thú y', N'Khám cấp cứu sốt ngựa', 'COMPANY', 'VND', 3750000.00, N'https://example.invalid/bills/danang.pdf');
 
 -- 26. Bảng INVOICE: Các đợt hóa đơn (Đã trả xong, Đang nợ, Quá hạn)
 INSERT INTO INVOICE (InvoiceID, ContractID, ContractVersionNo, InvoiceType, CurrencyCode, TotalPayableAmount, PaidAmount, DueDate, PaymentStatus) VALUES
-('INVOICE_001', 'CONTRACT_001', 1, 'DEPOSIT', 'VND', 85000000.00, 85000000.00, N'2026-09-05 08:00:00', 'PAID'),
-('INVOICE_002', 'CONTRACT_001', 1, 'FINAL_SETTLEMENT', 'VND', 127500000.00, 127500000.00, '2026-09-20 23:59:59', 'PAID'),
+('INVOICE_001', 'CONTRACT_001', 1, 'DEPOSIT', 'VND', 85000000.00, 85000000.00, N'2026-11-05 08:00:00', 'PAID'),
 ('INVOICE_003', 'CONTRACT_002', 1, 'DEPOSIT', 'VND', 42000000.00, 42000000.00, N'2026-10-01 08:00:00', 'PAID'),
-('INVOICE_004', 'CONTRACT_002', 1, 'FINAL_SETTLEMENT', 'VND', 63000000.00, 0.00, '2026-10-10 23:59:59', 'UNPAID'),
 ('INVOICE_005', 'CONTRACT_003', 1, 'DEPOSIT', 'VND', 58000000.00, 58000000.00, N'2026-10-05 06:00:00', 'PAID');
 
 -- 27. Bảng PAYMENT: Giao dịch đối soát thực tế qua Cổng thanh toán hoặc Chuyển khoản
 INSERT INTO PAYMENT (PaymentID, InvoiceID, ConfirmedByUserID, CurrencyCode, Amount, Method, TransactionCode, Status, PaymentDate, VnpayTmnCode, VnpayResponseCode, VnpayTransactionStatus, VnpayCreatedAtUtc, VnpayExpiresAtUtc, VnpayReceivedAmount) VALUES
-('PAYMENT_001', 'INVOICE_001', NULL, 'VND', 85000000.00, N'VNPAY', N'DEMO_VNPAY_001', 'SUCCESS', '2026-09-04 15:30:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-09-04 15:30:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-09-04 15:30:00' AS DATETIME2)), 85000000.00),
-('PAYMENT_002', 'INVOICE_002', NULL, 'VND', 127500000.00, N'VNPAY', N'DEMO_VNPAY_002', 'SUCCESS', '2026-09-18 10:15:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-09-18 10:15:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-09-18 10:15:00' AS DATETIME2)), 127500000.00),
+('PAYMENT_001', 'INVOICE_001', NULL, 'VND', 85000000.00, N'VNPAY', N'DEMO_VNPAY_001', 'SUCCESS', '2026-11-04 15:30:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-11-04 15:30:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-11-04 15:30:00' AS DATETIME2)), 85000000.00),
 ('PAYMENT_003', 'INVOICE_003', NULL, 'VND', 42000000.00, N'VNPAY', N'DEMO_VNPAY_003', 'SUCCESS', '2026-09-30 09:20:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-09-30 09:20:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-09-30 09:20:00' AS DATETIME2)), 42000000.00),
 ('PAYMENT_004', 'INVOICE_005', NULL, 'VND', 58000000.00, N'VNPAY', N'DEMO_VNPAY_004', 'SUCCESS', '2026-10-04 14:45:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-10-04 14:45:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-10-04 14:45:00' AS DATETIME2)), 58000000.00);
 
@@ -1626,24 +1613,7 @@ INSERT INTO BUSINESS_POLICY (PolicyID,Code,ValueType,NumberValue,Unit,ScopeType,
 ('BUSINESS_POLICY_011','HANDOVER_OTP_MAX_ATTEMPTS','NUMBER',5,'ATTEMPT','GLOBAL',N'Số lần nhập sai tối đa OTP bàn giao.','USER_004');
 GO
 
--- FLOW 6 DEMO FIXTURES BEGIN
--- Demo confirmation timestamps/email are fixtures only; no real OTP was sent or verified.
-INSERT INTO HANDOVER_REVISION(HandoverRevisionID,HandoverID,TripID,RevisionNo,ContentSnapshot,CreatedBy,CreatedAtUtc) VALUES
-('HANDOVER_REVISION_001','HANDOVER_002','TRIP_001',1,N'{"demo":true,"receiver":"Kenji Sato","horses":["HORSE_001","HORSE_002"],"documents":["Original passports"]}','USER_007','2026-09-17T17:30:00'),
-('HANDOVER_REVISION_002','HANDOVER_004','TRIP_002',1,N'{"demo":true,"receiver":"Nguyen Minh","horses":["HORSE_003"],"documents":["Original passport"]}','USER_008','2026-10-06T18:30:00');
-UPDATE HANDOVER_ITEM SET DocumentsHandedOver=N'Original passport - demo',DocumentsReceivedAtUtc='2026-10-06T18:35:00' WHERE HandoverID='HANDOVER_004';
-UPDATE HANDOVER_REVISION SET Status='CONFIRMED',OtpEmail='receiver1@example.invalid',OtpSentAtUtc='2026-09-17T17:36:00',OtpExpiresAtUtc='2026-09-17T17:41:00',ConfirmedAtUtc='2026-09-17T17:40:00' WHERE HandoverRevisionID='HANDOVER_REVISION_001';
-UPDATE HANDOVER_REVISION SET Status='CONFIRMED',OtpEmail='receiver2@example.invalid',OtpSentAtUtc='2026-10-06T18:36:00',OtpExpiresAtUtc='2026-10-06T18:41:00',ConfirmedAtUtc='2026-10-06T18:40:00' WHERE HandoverRevisionID='HANDOVER_REVISION_002';
-INSERT INTO TRIP_SETTLEMENT(SettlementID,ContractID,TripID,CustomerID,ContractVersionNo,HandoverRevisionID,FinalInvoiceID,Status,PreparedBy,CreatedAtUtc,SettledBy,SettledAtUtc,ClosedAtUtc,FeedbackStartedAtUtc,FeedbackEndsAtUtc) VALUES
-('SETTLEMENT_001','CONTRACT_001','TRIP_001','USER_001',1,'HANDOVER_REVISION_001','INVOICE_002','CLOSED','USER_004','2026-09-17T17:30:00','USER_004','2026-09-18T10:15:00','2026-09-19T10:15:00','2026-09-18T10:15:00','2026-09-19T10:15:00'),
-('SETTLEMENT_002','CONTRACT_002','TRIP_002','USER_002',1,'HANDOVER_REVISION_002','INVOICE_004','AWAITING_PAYMENT','USER_004','2026-10-06T18:30:00',NULL,NULL,NULL,NULL,NULL);
-UPDATE CONTRACT SET ContractStatus='CLOSED' WHERE ContractID='CONTRACT_001';
-UPDATE TRIP_SETTLEMENT SET FeedbackStartedAtUtc='2026-09-18T10:15:00',FeedbackEndsAtUtc='2026-09-19T10:15:00' WHERE SettlementID='SETTLEMENT_001';
-INSERT INTO CUSTOMER_FEEDBACK(FeedbackID,SettlementID,Rating,Comment,CreatedAtUtc)
-VALUES ('CUSTOMER_FEEDBACK_001','SETTLEMENT_001',5,N'Demo feedback only','2026-09-18T12:00:00');
-INSERT INTO CUSTOMER_CASE(CaseID,SettlementID,CaseType,Status,Subject,Description,OpenedAtUtc)
-VALUES ('CUSTOMER_CASE_001','SETTLEMENT_002','COMPLAINT','OPEN',N'Giao trễ - demo',N'Customer yêu cầu giải thích giao trễ, chưa xác nhận kết quả.','2026-10-06T20:00:00');
--- FLOW 6 DEMO FIXTURES END
+-- Flow 6 begins on arrival; delivery handover, settlement and feedback are created by the workflow.
 GO
 
 -- Monotonic ID allocators. Created AFTER all explicit sample IDs.
@@ -1796,19 +1766,19 @@ ALTER TABLE dbo.[BUSINESS_POLICY] ADD CONSTRAINT [DF_BUSINESS_POLICY_ID]
 GO
 
 -- Flow 6 monotonic ID allocators (after fixtures).
-CREATE SEQUENCE dbo.[SEQ_HANDOVER_REVISION_ID] AS BIGINT START WITH 3 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+CREATE SEQUENCE dbo.[SEQ_HANDOVER_REVISION_ID] AS BIGINT START WITH 1 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[HANDOVER_REVISION] ADD CONSTRAINT [DF_HANDOVER_REVISION_ID] DEFAULT ('HANDOVER_REVISION_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_HANDOVER_REVISION_ID], '000', 'en-US')) FOR [HandoverRevisionID];
 GO
-CREATE SEQUENCE dbo.[SEQ_TRIP_SETTLEMENT_ID] AS BIGINT START WITH 3 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+CREATE SEQUENCE dbo.[SEQ_TRIP_SETTLEMENT_ID] AS BIGINT START WITH 1 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[TRIP_SETTLEMENT] ADD CONSTRAINT [DF_TRIP_SETTLEMENT_ID] DEFAULT ('SETTLEMENT_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_TRIP_SETTLEMENT_ID], '000', 'en-US')) FOR [SettlementID];
 GO
 CREATE SEQUENCE dbo.[SEQ_SETTLEMENT_ADJUSTMENT_ID] AS BIGINT START WITH 1 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[SETTLEMENT_ADJUSTMENT] ADD CONSTRAINT [DF_SETTLEMENT_ADJUSTMENT_ID] DEFAULT ('SETTLEMENT_ADJUSTMENT_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_SETTLEMENT_ADJUSTMENT_ID], '000', 'en-US')) FOR [AdjustmentID];
 GO
-CREATE SEQUENCE dbo.[SEQ_CUSTOMER_CASE_ID] AS BIGINT START WITH 2 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+CREATE SEQUENCE dbo.[SEQ_CUSTOMER_CASE_ID] AS BIGINT START WITH 1 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[CUSTOMER_CASE] ADD CONSTRAINT [DF_CUSTOMER_CASE_ID] DEFAULT ('CUSTOMER_CASE_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_CUSTOMER_CASE_ID], '000', 'en-US')) FOR [CaseID];
 GO
-CREATE SEQUENCE dbo.[SEQ_CUSTOMER_FEEDBACK_ID] AS BIGINT START WITH 2 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+CREATE SEQUENCE dbo.[SEQ_CUSTOMER_FEEDBACK_ID] AS BIGINT START WITH 1 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[CUSTOMER_FEEDBACK] ADD CONSTRAINT [DF_CUSTOMER_FEEDBACK_ID] DEFAULT ('CUSTOMER_FEEDBACK_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_CUSTOMER_FEEDBACK_ID], '000', 'en-US')) FOR [FeedbackID];
 GO
 GO
@@ -2353,16 +2323,16 @@ IF EXISTS (SELECT 1 FROM TRIP_PLAN WHERE TripID = 'TRIP_003')
 BEGIN
     UPDATE TRIP_PLAN 
     SET Status = 'READY_TO_DEPART',
-        ExecutionVersion = 1, 
-        ExecutionPhase = 'AWAITING_DEPARTURE', 
-        CurrentEta = '2026-10-10 18:00:00',
+        ExecutionVersion = 1,
+        ExecutionPhase = 'AWAITING_DEPARTURE',
+        CurrentEta = '2026-11-15 18:00:00',
         OperationsStatus = 'READY',
         DocumentsStatus = 'READY',
         RouteStatus = 'APPROVED',
         PlanVersion = 1,
         ContextVersion = 1,
         ReadinessVersion = 1,
-        EarliestDepartureDate = '2026-10-08 07:00:00',
+        EarliestDepartureDate = '2026-11-12 07:00:00',
         DocumentExpiryDate = '2027-05-10 00:00:00',
         ApprovedPlanJson = N'{"transportMode":"ROAD","legs":[{"leg":"road","origin":"Trang trại Sóc Sơn, Hà Nội","destination":"Trại ngựa Phú Thọ, TP.HCM"}]}'
     WHERE TripID = 'TRIP_003';
@@ -2373,40 +2343,40 @@ BEGIN
     WHERE RequestID = 'REQUEST_003';
 END
 
--- Chuyến 2: TRIP_001 (Đa phương thức Đường bộ + Hàng không Air Leg - Đang thực hiện IN_TRANSIT)
+-- REQUEST_001 is the end-to-end walkthrough's Flow 3 handoff point.
 IF EXISTS (SELECT 1 FROM TRIP_PLAN WHERE TripID = 'TRIP_001')
 BEGIN
     UPDATE TRIP_PLAN 
-    SET Status = 'IN_TRANSIT',
-        ExecutionVersion = 2, 
-        ExecutionPhase = 'IN_PROGRESS', 
-        CurrentEta = '2026-09-17 12:00:00',
+    SET Status = 'PLANNING',
+        ExecutionVersion = 1,
+        ExecutionPhase = 'AWAITING_DEPARTURE',
+        CurrentEta = '2026-11-17 12:00:00',
         OperationsStatus = 'READY',
         DocumentsStatus = 'READY',
         RouteStatus = 'APPROVED',
         PlanVersion = 1,
         ContextVersion = 1,
         ReadinessVersion = 1,
-        EarliestDepartureDate = '2026-09-15 06:00:00',
+        EarliestDepartureDate = '2026-11-15 06:00:00',
         DocumentExpiryDate = '2026-12-01 00:00:00',
-        PendingEtaProposalId = 'PROPOSAL_001',
+        PendingEtaProposalId = NULL,
         ApprovedPlanJson = N'{"transportMode":"AIR","legs":[{"leg":"road_outbound"},{"leg":"air","airline":"Nippon Cargo Airlines"},{"leg":"road_inbound"}]}'
     WHERE TripID = 'TRIP_001';
 
     UPDATE TRANSPORT_REQUEST
-    SET Status = 'IN_PROGRESS',
+    SET Status = 'ACTIVATED',
         DeclaredValueVnd = 350000000.00
     WHERE RequestID = 'REQUEST_001';
 END
 
--- Chuyến 3: TRIP_002 (Đường bộ phụ - Tài xế USER_008, Áp tải USER_010, Xe VEHICLE_003)
+-- REQUEST_002 starts Flow 6 after actual arrival; REQUEST_003 is the standalone Flow 4 start.
 IF EXISTS (SELECT 1 FROM TRIP_PLAN WHERE TripID = 'TRIP_002')
 BEGIN
     UPDATE TRIP_PLAN 
-    SET Status = 'READY_TO_DEPART',
-        ExecutionVersion = 1, 
-        ExecutionPhase = 'AWAITING_DEPARTURE', 
-        CurrentEta = '2026-10-02 18:00:00',
+    SET Status = 'IN_TRANSIT',
+        ExecutionVersion = 2,
+        ExecutionPhase = 'IN_PROGRESS',
+        CurrentEta = '2026-10-06 18:30:00',
         OperationsStatus = 'READY',
         DocumentsStatus = 'READY',
         RouteStatus = 'APPROVED',
@@ -2419,7 +2389,7 @@ BEGIN
     WHERE TripID = 'TRIP_002';
 
     UPDATE TRANSPORT_REQUEST
-    SET Status = 'SCHEDULED',
+    SET Status = 'IN_PROGRESS',
         DeclaredValueVnd = 80000000.00
     WHERE RequestID = 'REQUEST_002';
 END
@@ -2432,25 +2402,26 @@ DELETE FROM TRIP_MILESTONE WHERE TripID IN ('TRIP_003', 'TRIP_001', 'TRIP_002');
 INSERT INTO TRIP_MILESTONE (MilestoneID, TripID, Leg, MilestoneKind, SequenceOrder, Label, Status, PlannedTime, OccurredAt, RecordedAt, RecordedBy, Note, RequiresHealthCheck, Revision)
 VALUES 
 ('MILESTONE_001', 'TRIP_003', 'road', 'DEPARTED',      1, N'Xuất phát từ trang trại Sóc Sơn',               'PENDING', '2026-10-08 08:30:00', NULL, NULL, NULL, NULL, 0, 1),
-('MILESTONE_002', 'TRIP_003', 'road', 'STOP_ARRIVED',  2, N'Trạm dừng nghỉ Đà Nẵng (Kiểm tra y tế)',       'PENDING', '2026-10-09 11:00:00', NULL, NULL, NULL, NULL, 1, 1),
-('MILESTONE_003', 'TRIP_003', 'road', 'FINAL_ARRIVED', 3, N'Đến điểm giao CLB Ngựa Sài Gòn (Đích đến)', 'PENDING', '2026-10-10 18:00:00', NULL, NULL, NULL, NULL, 0, 1);
+('MILESTONE_002', 'TRIP_003', 'road', 'STOP_ARRIVED',  2, N'Đến trạm dừng Đà Nẵng (Kiểm tra y tế)',       'PENDING', '2026-10-09 11:00:00', NULL, NULL, NULL, NULL, 1, 1),
+('MILESTONE_003', 'TRIP_003', 'road', 'STOP_DEPARTED', 3, N'Rời trạm dừng Đà Nẵng',                       'PENDING', '2026-10-09 12:00:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_004', 'TRIP_003', 'road', 'FINAL_ARRIVED', 4, N'Đến điểm giao CLB Ngựa Sài Gòn (Đích đến)', 'PENDING', '2026-10-10 18:00:00', NULL, NULL, NULL, NULL, 0, 1);
 
 -- Mốc cho TRIP_001 (Đa phương thức hàng không - Kiểm thử Air Leg, Checkpoint, Đính chính)
 INSERT INTO TRIP_MILESTONE (MilestoneID, TripID, Leg, MilestoneKind, SequenceOrder, Label, Status, PlannedTime, OccurredAt, RecordedAt, RecordedBy, Note, RequiresHealthCheck, Revision)
 VALUES 
-('MILESTONE_010', 'TRIP_001', 'road',    'DEPARTED',               1, N'Khởi hành từ trại ngựa Hà Nội',               'COMPLETED', '2026-09-15 07:00:00', '2026-09-15 07:00:00', '2026-09-15 07:05:00', 'USER_007', N'Xuất phát đúng giờ', 0, 1),
-('MILESTONE_011', 'TRIP_001', 'road',    'AIRPORT_ORIGIN_ARRIVED', 2, N'Đến ga hàng hóa Nội Bài Cargo Terminal',     'COMPLETED', '2026-09-15 14:00:00', '2026-09-15 14:10:00', '2026-09-15 14:15:00', 'USER_007', N'Đã tập kết tại kho lạnh hàng không', 0, 1),
-('MILESTONE_012', 'TRIP_001', 'air',     'AIR_HANDOVER',           3, N'Bàn giao ngựa cho hãng bay NCA Airlines',     'COMPLETED', '2026-09-15 16:30:00', '2026-09-15 16:40:00', '2026-09-15 16:45:00', 'USER_007', N'Ký biên bản bàn giao kho Cargo', 0, 1),
-('MILESTONE_013', 'TRIP_001', 'air',     'AIR_DEPARTED',           4, N'Chuyến bay chở ngựa KZ-102 cất cánh',         'COMPLETED', '2026-09-16 05:30:00', '2026-09-16 05:30:00', '2026-09-16 05:35:00', 'USER_006', N'NCA xác nhận cất cánh', 0, 1),
-('MILESTONE_014', 'TRIP_001', 'air',     'AIR_ARRIVED',            5, N'Hạ cánh sân bay Narita (Tokyo, Nhật Bản)',     'PENDING',   '2026-09-16 12:30:00', NULL, NULL, NULL, NULL, 0, 1),
-('MILESTONE_015', 'TRIP_001', 'road',    'AIR_RECEIVED',           6, N'Tiếp nhận ngựa tại Cargo Terminal Narita',     'PENDING',   '2026-09-16 14:00:00', NULL, NULL, NULL, NULL, 0, 1),
-('MILESTONE_016', 'TRIP_001', 'road',    'FINAL_ARRIVED',          7, N'Đến trung tâm tiếp nhận ngựa Narita',          'PENDING',   '2026-09-17 12:00:00', NULL, NULL, NULL, NULL, 0, 1);
+('MILESTONE_010', 'TRIP_001', 'road',    'DEPARTED',               1, N'Khởi hành từ trại ngựa Hà Nội',               'PENDING', '2026-11-15 07:00:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_011', 'TRIP_001', 'road',    'AIRPORT_ORIGIN_ARRIVED', 2, N'Đến ga hàng hóa Nội Bài Cargo Terminal',     'PENDING', '2026-11-15 14:00:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_012', 'TRIP_001', 'air',     'AIR_HANDOVER',           3, N'Bàn giao ngựa cho hãng bay NCA Airlines',     'PENDING', '2026-11-15 16:30:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_013', 'TRIP_001', 'air',     'AIR_DEPARTED',           4, N'Chuyến bay chở ngựa KZ-102 cất cánh',         'PENDING', '2026-11-16 05:30:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_014', 'TRIP_001', 'air',     'AIR_ARRIVED',            5, N'Hạ cánh sân bay Narita (Tokyo, Nhật Bản)',     'PENDING', '2026-11-16 12:30:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_015', 'TRIP_001', 'road',    'AIR_RECEIVED',           6, N'Tiếp nhận ngựa tại Cargo Terminal Narita',     'PENDING', '2026-11-16 14:00:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_016', 'TRIP_001', 'road',    'FINAL_ARRIVED',          7, N'Đến trung tâm tiếp nhận ngựa Narita',          'PENDING', '2026-11-17 12:00:00', NULL, NULL, NULL, NULL, 0, 1);
 
 -- Mốc cho TRIP_002 (Đường bộ phụ cho USER_008)
 INSERT INTO TRIP_MILESTONE (MilestoneID, TripID, Leg, MilestoneKind, SequenceOrder, Label, Status, PlannedTime, OccurredAt, RecordedAt, RecordedBy, Note, RequiresHealthCheck, Revision)
 VALUES 
-('MILESTONE_020', 'TRIP_002', 'road', 'DEPARTED',      1, N'Xuất phát từ trang trại Đà Lạt',   'PENDING', '2026-10-01 07:00:00', NULL, NULL, NULL, NULL, 0, 1),
-('MILESTONE_021', 'TRIP_002', 'road', 'FINAL_ARRIVED', 2, N'Đến trang trại Bình Dương',       'PENDING', '2026-10-02 18:00:00', NULL, NULL, NULL, NULL, 0, 1);
+('MILESTONE_020', 'TRIP_002', 'road', 'DEPARTED',      1, N'Xuất phát từ trang trại Củ Chi',   'COMPLETED', '2026-11-05 07:00:00', '2026-11-05 07:00:00', '2026-11-05 07:05:00', 'USER_008', N'Đã xuất phát đúng lịch trình.', 0, 1),
+('MILESTONE_021', 'TRIP_002', 'road', 'FINAL_ARRIVED', 2, N'Đến trung tâm tiếp nhận Đà Nẵng', 'COMPLETED', '2026-11-06 10:00:00', '2026-11-06 10:00:00', '2026-11-06 10:05:00', 'USER_008', N'Đã đến nơi; chờ bắt đầu bàn giao Flow 6.', 0, 1);
 GO
 
 -- 5.4. BẢNG MILESTONE_CORRECTION_REQUEST: YÊU CẦU ĐÍNH CHÍNH MỐC
@@ -2472,7 +2443,7 @@ GO
 DELETE FROM VET_ASSESSMENT;
 INSERT INTO VET_ASSESSMENT (AssessmentID, TripID, HorseID, VetID, TransportFitness, Conclusion, CareInstructions, AssessedAt)
 VALUES 
-('ASSESSMENT_001', 'TRIP_003', 'HORSE_001', 'USER_018', 'FIT', N'Thể trạng ngựa khỏe mạnh, nhịp tim 38 bpm, hô hấp 14 l/p, mắt linh hoạt, niêm mạc hồng hào', N'Bổ sung nước điện giải mỗi 4 tiếng trên xe', '2026-10-08 07:45:00'),
+('ASSESSMENT_001', 'TRIP_003', 'HORSE_001', 'USER_018', 'FIT', N'Thể trạng ngựa khỏe mạnh, nhịp tim 38 bpm, hô hấp 14 l/p, mắt linh hoạt, niêm mạc hồng hào', N'Bổ sung nước điện giải mỗi 4 tiếng trên xe', '2026-11-12 07:45:00'),
 ('ASSESSMENT_002', 'TRIP_001', 'HORSE_001', 'USER_009', 'FIT', N'Thể trạng hoàn toàn đáp ứng điều kiện bay quốc tế chuẩn IATA Live Animals Regulations', N'Cho uống nước trước giờ bay 2 tiếng', '2026-09-15 15:00:00');
 GO
 
@@ -2480,8 +2451,6 @@ GO
 DELETE FROM TRIP_EXPENSE;
 INSERT INTO TRIP_EXPENSE (ExpenseID, TripID, RecordedBy, Category, AmountVnd, OccurredAt, Reason, Status, RecordedAt)
 VALUES 
-('EXPENSE_001', 'TRIP_003', 'USER_015', 'TOLL_FEE',        250000.00, '2026-10-08 12:00:00', N'Vé trạm thu phí BOT Phước Tượng',       'RECORDED', '2026-10-08 12:05:00'),
-('EXPENSE_002', 'TRIP_003', 'USER_015', 'FEED_SUPPLIES',   450000.00, '2026-10-09 11:30:00', N'Mua bổ sung cỏ khô và muối khoáng tại Đà Nẵng', 'RECORDED', '2026-10-09 11:35:00'),
 ('EXPENSE_003', 'TRIP_001', 'USER_007', 'OTHER',          1200000.00, '2026-09-15 15:30:00', N'Phí khử trùng xe và khu lưu chuồng ga hàng không Nội Bài', 'RECORDED', '2026-09-15 15:35:00');
 GO
 
@@ -2529,4 +2498,41 @@ BEGIN
     VALUES 
     ('LOG_005', 'TRIP_003', 'HORSE_001', 'USER_018', 'OBSERVATION', '2026-10-08 07:30:00', 38.0, 38, N'Tốt', N'Khám sức khỏe tổng quát trước giờ xuất phát', 'NORMAL', 14, N'Ăn cỏ khô bình thường', N'Uống 15L nước', N'Nghỉ ngơi tốt', N'Ngựa sẵn sàng lên đường', 'road', '2026-10-08 07:35:00');
 END
+GO
+
+-- Normalize operational fixtures to the three customer demo entry points.
+DELETE FROM MILESTONE_CORRECTION_REQUEST WHERE TripID IN ('TRIP_001','TRIP_003');
+DELETE FROM ETA_PROPOSAL WHERE TripID IN ('TRIP_001','TRIP_003');
+DELETE FROM LEGAL_CHECKPOINT_DECISION WHERE TripID='TRIP_001';
+DELETE FROM EXECUTION_ALERT WHERE TripID IN ('TRIP_001','TRIP_003');
+DELETE FROM EXECUTION_CONTACT_LOG WHERE TripID IN ('TRIP_001','TRIP_003');
+DELETE FROM TRIP_EXPENSE WHERE TripID IN ('TRIP_001','TRIP_003');
+DELETE FROM VET_ASSESSMENT WHERE TripID='TRIP_001';
+DELETE FROM HEALTH_LOG WHERE TripID='TRIP_001';
+DELETE FROM AIR_NOTICE WHERE TripID='TRIP_001';
+DELETE FROM EXECUTION_ATTACHMENT WHERE TripID='TRIP_001';
+
+UPDATE TRIP_PLAN SET Status='PLANNING', ExecutionVersion=1, ExecutionPhase='AWAITING_DEPARTURE', PendingEtaProposalId=NULL,
+    ResourcesConfirmedAt='2026-11-04T15:00:00',ResourcesConfirmedBy='USER_006',DocumentsConfirmedAt='2026-11-04T15:00:00',DocumentsConfirmedBy='USER_005',
+    DocsReadyAtUtc='2026-11-04T15:00:00',DocsReadyBy='USER_005',RouteApprovedAt='2026-11-04T14:00:00',RouteApprovedBy='USER_004',DepartureApprovedAt=NULL,DepartureApprovedBy=NULL
+    WHERE TripID='TRIP_001';
+UPDATE TRIP_PLAN SET Status='IN_TRANSIT', ExecutionVersion=2, ExecutionPhase='IN_PROGRESS',DepartureApprovedAt='2026-11-05T06:45:00',DepartureApprovedBy='USER_004' WHERE TripID='TRIP_002';
+UPDATE TRIP_PLAN SET Status='READY_TO_DEPART', ExecutionVersion=1, ExecutionPhase='AWAITING_DEPARTURE',
+    ResourcesConfirmedAt='2026-11-04T15:00:00',ResourcesConfirmedBy='USER_006',DocumentsConfirmedAt='2026-11-04T15:00:00',DocumentsConfirmedBy='USER_005',
+    DocsReadyAtUtc='2026-11-04T15:00:00',DocsReadyBy='USER_005',RouteApprovedAt='2026-11-04T14:00:00',RouteApprovedBy='USER_004',DepartureApprovedAt='2026-11-12T08:00:00',DepartureApprovedBy='USER_004'
+    WHERE TripID='TRIP_003';
+UPDATE TRANSPORT_REQUEST SET Status='ACTIVATED' WHERE RequestID='REQUEST_001';
+UPDATE TRANSPORT_REQUEST SET Status='IN_PROGRESS' WHERE RequestID='REQUEST_002';
+UPDATE TRANSPORT_REQUEST SET Status='SCHEDULED' WHERE RequestID='REQUEST_003';
+
+UPDATE ROUTE_SEGMENT SET Status='PLANNED',ActualTime=NULL WHERE TripID IN ('TRIP_001','TRIP_003');
+UPDATE CUSTOMS_CLEARANCE SET Status='PENDING',ClearedAt=NULL WHERE TripID='TRIP_001';
+UPDATE TRIP_MILESTONE SET Status='PENDING',OccurredAt=NULL,RecordedAt=NULL,RecordedBy=NULL,Note=NULL WHERE TripID='TRIP_001';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-12 08:30:00' WHERE MilestoneID='MILESTONE_001';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-13 11:00:00' WHERE MilestoneID='MILESTONE_002';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-13 12:00:00' WHERE MilestoneID='MILESTONE_003';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-15 18:00:00' WHERE MilestoneID='MILESTONE_004';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-06 18:30:00',OccurredAt='2026-11-06 18:30:00',RecordedAt='2026-11-06 18:35:00' WHERE MilestoneID='MILESTONE_021';
+UPDATE HEALTH_LOG SET LogTime='2026-11-12 07:30:00',RecordedAt='2026-11-12 07:35:00' WHERE LogID='LOG_005';
+UPDATE EXECUTION_ATTACHMENT SET UploadedAtUtc='2026-11-12 07:50:00' WHERE FileID='ATTACHMENT_002';
 GO

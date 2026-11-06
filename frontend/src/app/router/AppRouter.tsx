@@ -27,6 +27,7 @@ import {
   HorseFormPage,
   CustomerTrackingPage,
   CustomerHistoryPage,
+  CustomerProfilePage,
 } from "../../features/customer";
 
 // ==================== CONTRACT & PAYMENT ====================
@@ -40,6 +41,7 @@ import {
   TripDetailPage as DriverTripDetailPage,
   IncidentsPage as DriverIncidentsPage,
   HistoryPage as DriverHistoryPage,
+  DriverProfilePage,
 } from "../../features/driver";
 import {
   ManagerDashboardPage,
@@ -54,6 +56,7 @@ import {
   IncidentDetailPage,
   ComplaintDetailPage,
   ReportsPage as ManagerReportsPage,
+  ManagerProfilePage,
 } from "../../features/manager";
 import {
   SpecialistDashboardPage,
@@ -62,6 +65,7 @@ import {
   DocumentReviewPage,
   RegulationsPage,
   AuditPage,
+  SpecialistProfilePage,
 } from "../../features/specialist";
 import {
   CoordinatorDashboardPage,
@@ -109,13 +113,14 @@ function AppRouter() {
         <Route path="/driver/trip-detail" element={<DriverTripDetailPage />} />
         <Route path="/driver/handover" element={<Navigate to="/driver/journey" replace />} />
         <Route path="/driver/incidents" element={<DriverIncidentsPage />} />
+        <Route path="/driver/incidents/:tripId" element={<DriverIncidentsPage />} />
         <Route path="/driver/history" element={<DriverHistoryPage />} />
-        <Route path="/driver/profile" element={<DriverDashboard />} />
+        <Route path="/driver/profile" element={<DriverProfilePage />} />
 
         {/* ==================== MANAGER ==================== */}
         <Route path="/manager" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><Navigate to="/manager/dashboard" replace /></RequireAuth>} />
         <Route path="/manager/dashboard" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerDashboardPage /></RequireAuth>} />
-        <Route path="/manager/profile" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerDashboardPage /></RequireAuth>} />
+        <Route path="/manager/profile" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerProfilePage /></RequireAuth>} />
         <Route path="/manager/overview" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><Navigate to="/manager/dashboard" replace /></RequireAuth>} />
         <Route path="/manager/requests" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerRequestsPage /></RequireAuth>} />
         <Route path="/manager/requests/:requestId" element={<RequireAuth allowedRoles={['LOGISTICS_MANAGER']}><ManagerRequestDetailPage /></RequireAuth>} />
@@ -154,7 +159,7 @@ function AppRouter() {
         {/* ==================== SPECIALIST ==================== */}
         <Route path="/specialist" element={<Navigate to="/specialist/dashboard" replace />} />
         <Route path="/specialist/dashboard" element={<SpecialistDashboardPage />} />
-        <Route path="/specialist/profile" element={<SpecialistDashboardPage />} />
+        <Route path="/specialist/profile" element={<SpecialistProfilePage />} />
         <Route path="/specialist/trips" element={<AssignedTripsPage />} />
         <Route path="/specialist/trips/:tripId" element={<SpecialistTripDetailPage />} />
         <Route path="/specialist/trips/:tripId/:tab" element={<SpecialistTripDetailPage />} />
@@ -174,7 +179,7 @@ function AppRouter() {
         <Route path="/customer" element={<RequireAuth allowedRoles={['CUSTOMER']}><Navigate to="/customer/home" replace /></RequireAuth>} />
         <Route path="/customer/home" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerHomePage /></RequireAuth>} />
         <Route path="/customer/dashboard" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerHomePage /></RequireAuth>} />
-        <Route path="/customer/profile" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerHomePage /></RequireAuth>} />
+        <Route path="/customer/profile" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerProfilePage /></RequireAuth>} />
 
         {/* Requests & Wizard Flow */}
         <Route path="/customer/requests" element={<RequireAuth allowedRoles={['CUSTOMER']}><CustomerRequestsPage /></RequireAuth>} />

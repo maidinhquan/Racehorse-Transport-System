@@ -448,6 +448,8 @@ namespace Infrastructure.Services
                 throw new InvalidOperationException($"STALE_VERSION: Dữ liệu đã thay đổi trên máy chủ (phiên bản hiện tại: {trip.Version}, mong muốn: {dto.ExpectedVersion}). Vui lòng tải lại.");
             }
 
+            await EnsureCrewFreeAsync(cleanTripId, dto.Resources);
+
             bool isAir = IsAirTrip(trip) || dto.Resources.Any(r => r.Leg == "outbound" || r.Leg == "inbound");
             string mode = isAir ? "AIR" : "ROAD";
 
@@ -622,6 +624,8 @@ namespace Infrastructure.Services
             {
                 throw new InvalidOperationException($"STALE_VERSION: Phiên bản chuyến đi đã thay đổi ({trip.Version} != {dto.ExpectedVersion}). Vui lòng tải lại.");
             }
+
+            await EnsureCrewFreeFromPlanJsonAsync(cleanTripId, trip.DraftPlanJson);
 
             // Với chặng ROAD: bắt buộc có xe trước khi submit (xe đã phân công trong DB hoặc trong phương án nháp)
             bool isAir = IsAirTrip(trip);

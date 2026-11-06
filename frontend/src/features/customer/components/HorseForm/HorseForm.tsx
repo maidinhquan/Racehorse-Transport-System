@@ -45,7 +45,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
     if (onClearError) onClearError(k);
   };
 
-  const text = (label: string, k: 'name' | 'breed' | 'color' | 'microchip' | 'vetName' | 'vetPhone' | 'value', lock = false, type = 'text') => {
+  const text = (label: string, k: 'name' | 'breed' | 'color' | 'microchip' | 'value', lock = false, type = 'text') => {
     const errorMsg = getErr(k);
     const badClass = bad(k);
     return (
@@ -59,7 +59,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
           type={type}
           value={h[k] ?? ''}
           readOnly={lock && locked}
-          disabled={!demo && ['color', 'vetName', 'vetPhone'].includes(k)}
+          disabled={!demo && k === 'color'}
           onChange={(e) => {
             clearErr(k);
             set(k, e.target.value);
@@ -87,7 +87,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
   };
 
   const fileCard = (field: FileField | 'scan', empty: string) => {
-    if (!demo && (field === 'flu' || field === 'health')) return <p className="cus-subtitle">Tài liệu này chưa hỗ trợ lưu trực tuyến. Vui lòng liên hệ chuyên viên phụ trách.</p>;
+
     const file = field === 'scan' ? h.passport.scan : h[field];
     const update = (f?: FileRef) => (field === 'scan' ? setPass('scan', f) : set(field, f));
     return file ? (
@@ -111,7 +111,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
     <div className="cus-card cus-horse-form">
       <div className="cus-horse-form__heading">
         <h3 className="cus-card__title">Thông tin &amp; hồ sơ ngựa</h3>
-        <p className="cus-subtitle">Lưu một lần tại “Ngựa của tôi” để sử dụng khi tạo yêu cầu vận chuyển. Tải tài liệu lên không có nghĩa hồ sơ đã được chuyên viên duyệt.</p>
+
       </div>
       <section>
         <h4>01 · Ảnh nhận diện</h4>
@@ -279,7 +279,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
 
       <section>
         <h4>04 · Chứng nhận sở hữu & giá trị thương mại</h4>
-        <p className="cus-subtitle">Hồ sơ sở hữu và bằng chứng định giá (nếu có)</p>
+        <p className="cus-subtitle">Hồ sơ sở hữu và bằng chứng định giá</p>
         {fileCard('ownership', 'Chưa có giấy chứng nhận sở hữu')}
         <div className="cus-horse-form__grid" style={{ marginTop: 12 }}>
           {text('Giá trị khai báo (VND) *', 'value', false, 'number')}
@@ -295,7 +295,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
 
       <section>
         <h4>05 · Hồ sơ tiêm ngừa & sức khỏe</h4>
-        {!demo && <p className="cus-subtitle">Ngày tiêm và thông tin bác sĩ riêng chưa hỗ trợ lưu trực tuyến. Ghi chú sức khỏe vẫn được lưu cùng hồ sơ ngựa.</p>}
+
         <div className="cus-horse-form__grid">
           <div className="cus-field">
             <label htmlFor="hf-flu">Ngày tiêm cúm gần nhất</label>
@@ -311,13 +311,6 @@ export const HorseForm: React.FC<HorseFormProps> = ({
         </div>
       </section>
 
-      <section>
-        <h4>06 · Bác sĩ thú y riêng</h4>
-        <div className="cus-horse-form__grid">
-          {text('Tên bác sĩ', 'vetName')}
-          {text('Số điện thoại', 'vetPhone', false, 'tel')}
-        </div>
-      </section>
 
       <FilePreviewModal
         open={!!preview}

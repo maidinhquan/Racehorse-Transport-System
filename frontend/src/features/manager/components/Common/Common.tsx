@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../ManagerLayout';
 import type { CustomerInfo, TransportRequest } from '../../types';
-import { routeText } from '../../hooks/managerRules';
+import { cityLabel } from '../../hooks/managerRules';
 
 type NoteTone = 'yellow' | 'blue' | 'red' | 'grey' | 'green';
 
@@ -49,12 +49,42 @@ export const CheckList: React.FC<{ items: Array<[string, boolean]> }> = ({ items
 );
 
 /** Ô khách hàng trong bảng */
-export const CustomerCell: React.FC<{ c?: CustomerInfo }> = ({ c }) => (
-  <>{c?.company ?? '—'}<div className="mgr-muted">{c?.name}</div></>
-);
+export const CustomerCell: React.FC<{ c?: CustomerInfo }> = ({ c }) => {
+  const name = c?.name || c?.company || '—';
+  const sub = c?.company && c?.name && c.company !== c.name ? c.company : undefined;
+  return (
+    <div className="mgr-customer-cell">
+      <div className="mgr-customer-name" title={name} style={{ fontWeight: 600, color: 'var(--mgr-ink)' }}>
+        {name}
+      </div>
+      {sub && <div className="mgr-muted" style={{ fontSize: '11px' }}>{sub}</div>}
+      {c?.email && (
+        <div className="mgr-customer-email mgr-muted" style={{ fontSize: '11px', marginTop: '2px' }} title={c.email}>
+          {c.email}
+        </div>
+      )}
+    </div>
+  );
+};
 
-/** Ô tuyến đường trong bảng */
-export const RouteCell: React.FC<{ r: Pick<TransportRequest, 'origin' | 'destination'> }> = ({ r }) => <span className="mgr-nowrap">{routeText(r)}</span>;
+/** Ô tuyến đường trong bảng: hiển thị đầy đủ điểm xuất phát → điểm đến, tự động xuống dòng chống vỡ bảng */
+export const RouteCell: React.FC<{
+  r?: Pick<TransportRequest, 'origin' | 'destination'> | null;
+  detailed?: boolean;
+}> = ({ r }) => {
+  if (!r) return <span className="mgr-muted">—</span>;
+  const origin = cityLabel(r.origin);
+  const dest = cityLabel(r.destination);
+  if (!r.origin && !r.destination) return <span className="mgr-muted">—</span>;
+
+  return (
+    <div className="mgr-route-cell" title={`${origin} → ${dest}`}>
+      <span className="mgr-route-point">{origin}</span>
+      <span className="mgr-route-arrow" aria-hidden="true">→</span>
+      <span className="mgr-route-point">{dest}</span>
+    </div>
+  );
+};
 
 /** Nút quay lại */
 export const BackLink: React.FC<{ to: string; children: React.ReactNode }> = ({ to, children }) => (

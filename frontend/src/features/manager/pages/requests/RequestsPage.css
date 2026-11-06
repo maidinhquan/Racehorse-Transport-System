@@ -1,0 +1,428 @@
+/* ==========================================================================
+   Logistics Manager – Trang Yêu cầu vận chuyển (RequestsPage)
+   Thiết kế giao diện hiện đại, rõ ràng, chống vỡ layout
+   ========================================================================== */
+
+.mgr-requests-view {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ---------- KPI Stats Cards ---------- */
+.mgr-req-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1100px) {
+  .mgr-req-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .mgr-req-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.mgr-req-stat {
+  position: relative;
+  background: var(--mgr-card);
+  border: 1px solid var(--mgr-line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 84px;
+  color: inherit;
+  font: inherit;
+}
+
+.mgr-req-stat:hover {
+  border-color: var(--mgr-orange);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.mgr-req-stat.on {
+  border-color: var(--mgr-orange);
+  background: var(--mgr-orange-soft);
+  box-shadow: 0 0 0 2px var(--mgr-orange-soft);
+}
+
+.mgr-req-stat.warn {
+  border-left: 4px solid #f59e0b;
+}
+
+.mgr-req-stat.warn b {
+  color: #b45309;
+}
+
+[data-theme="dark"] .mgr-req-stat.warn b {
+  color: #fbbf24;
+}
+
+.mgr-req-stat.alert {
+  border-left: 4px solid #ef4444;
+}
+
+.mgr-req-stat.alert b {
+  color: #dc2626;
+}
+
+[data-theme="dark"] .mgr-req-stat.alert b {
+  color: #f87171;
+}
+
+.mgr-req-stat__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mgr-muted);
+}
+
+.mgr-req-stat__num {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.1;
+  margin: 6px 0 4px;
+  color: var(--mgr-ink);
+}
+
+.mgr-req-stat__sub {
+  font-size: 11px;
+  color: var(--mgr-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Toolbar & Filters ---------- */
+.mgr-req-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mgr-req-search {
+  flex: 1;
+  min-width: 260px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--mgr-line);
+  border-radius: 9px;
+  background: var(--mgr-card);
+  color: var(--mgr-muted);
+}
+
+.mgr-req-search:focus-within {
+  border-color: var(--mgr-orange);
+  box-shadow: 0 0 0 3px var(--mgr-orange-soft);
+}
+
+.mgr-req-search input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  font: 13px Inter, system-ui, sans-serif;
+  color: var(--mgr-ink);
+  background: transparent;
+}
+
+.mgr-req-clear-btn {
+  border: 0;
+  background: none;
+  color: var(--mgr-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 14px;
+  border-radius: 4px;
+}
+
+.mgr-req-clear-btn:hover {
+  color: var(--mgr-ink);
+}
+
+.mgr-req-select {
+  height: 40px;
+  border: 1px solid var(--mgr-line);
+  border-radius: 9px;
+  padding: 0 12px;
+  font: 13px Inter, system-ui, sans-serif;
+  background: var(--mgr-card);
+  color: var(--mgr-ink);
+  box-sizing: border-box;
+}
+
+.mgr-req-select:focus {
+  outline: none;
+  border-color: var(--mgr-orange);
+  box-shadow: 0 0 0 3px var(--mgr-orange-soft);
+}
+
+.mgr-req-urgent-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid var(--mgr-line);
+  background: var(--mgr-card);
+  color: var(--mgr-ink);
+  font: 600 13px Inter, system-ui, sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mgr-req-urgent-toggle:hover {
+  border-color: #f59e0b;
+}
+
+.mgr-req-urgent-toggle.on {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+[data-theme="dark"] .mgr-req-urgent-toggle.on {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.mgr-req-reset-btn {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px dashed var(--mgr-line);
+  background: transparent;
+  color: var(--mgr-muted);
+  font: 500 12px Inter, system-ui, sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mgr-req-reset-btn:hover {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+/* ---------- Table Layout & Columns ---------- */
+.mgr-req-table-card {
+  background: var(--mgr-card);
+  border: 1px solid var(--mgr-line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.mgr-req-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.mgr-req-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.mgr-req-table th {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mgr-muted);
+  font-weight: 600;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--mgr-line);
+  background: var(--mgr-bg);
+  white-space: nowrap;
+}
+
+.mgr-req-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--mgr-line);
+  vertical-align: middle;
+}
+
+.mgr-req-table tr.clickable {
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.mgr-req-table tr.clickable:hover td {
+  background: #fffaf3;
+}
+
+[data-theme="dark"] .mgr-req-table tr.clickable:hover td {
+  background: rgba(251, 146, 60, 0.05);
+}
+
+.mgr-req-table tr.mgr-row-attn td {
+  background: #fffdf5;
+}
+
+[data-theme="dark"] .mgr-req-table tr.mgr-row-attn td {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+/* Column specific styles */
+.col-id {
+  white-space: nowrap;
+  width: 140px;
+}
+
+.col-id__code {
+  font-weight: 700;
+  color: var(--mgr-ink);
+  font-size: 13px;
+  display: block;
+}
+
+.col-id__time {
+  font-size: 11px;
+  color: var(--mgr-muted);
+  margin-top: 2px;
+}
+
+.col-customer {
+  min-width: 160px;
+  max-width: 220px;
+}
+
+.col-customer__name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--mgr-ink);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-customer__email {
+  font-size: 11px;
+  color: var(--mgr-muted);
+  margin-top: 2px;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-route {
+  min-width: 220px;
+  max-width: 320px;
+}
+
+.col-date {
+  white-space: nowrap;
+  width: 140px;
+}
+
+.col-date__main {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--mgr-ink);
+}
+
+.col-date__sub {
+  font-size: 11px;
+  color: var(--mgr-muted);
+  margin-top: 2px;
+}
+
+.col-price {
+  text-align: right;
+  white-space: nowrap;
+  width: 140px;
+}
+
+.col-price__val {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--mgr-ink);
+}
+
+.col-status {
+  white-space: nowrap;
+  width: 160px;
+}
+
+/* Urgent & Attention Badges */
+.mgr-urgent-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+[data-theme="dark"] .mgr-urgent-tag {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.mgr-cancel-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+[data-theme="dark"] .mgr-cancel-tag {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Empty State */
+.mgr-req-empty {
+  padding: 48px 20px;
+  text-align: center;
+}
+
+.mgr-req-empty__icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 12px;
+  color: var(--mgr-muted);
+}
+
+.mgr-req-empty__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--mgr-ink);
+  margin: 0 0 6px;
+}
+
+.mgr-req-empty__desc {
+  font-size: 13px;
+  color: var(--mgr-muted);
+  margin: 0 0 16px;
+}

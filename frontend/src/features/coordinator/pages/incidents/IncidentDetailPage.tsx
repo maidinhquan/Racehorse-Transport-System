@@ -73,7 +73,9 @@ export function IncidentDetailPage() {
   const i = db.incidents.find((x: Any) => x.id === incidentId);
   if (!i) return <Navigate to="/coordinator/incidents" replace />;
   f5Status(i);
-  const t = trip(i.tripId), p = curPlan(i), S = i.status, miss = f5Conditions(i).filter((c) => !c.ok);
+  const realTrip = trip(i.tripId);
+  const t = realTrip || { id: i.tripId || '—', status: 'IN_TRANSIT', eta: '', stops: [], crew: {}, vehicleId: '', requestId: '' };
+  const p = curPlan(i), S = i.status, miss = f5Conditions(i).filter((c) => !c.ok);
   const btn = (key: string, label: string, run: () => void, cls = 'ghost', why = '') => (
     <span className="f5-act" key={key}><button type="button" className={`btn ${cls}`} disabled={!!why} onClick={run}>{label}</button>{why ? <small>{why}</small> : null}</span>
   );
@@ -99,8 +101,8 @@ export function IncidentDetailPage() {
         <div className="stack"><PlanCard i={i} /><InfoCard i={i} /></div>
         <div className="stack">
           <div className="card pad"><div className="eyebrow">Chuyến</div>
-            <div className="kv"><div><span>Chuyến</span><b>{t.id}</b></div><div><span>Tuyến</span><b><RouteText r={reqOfTrip(t)} /></b></div><div><span>Trạng thái</span><b>{human(t.status)}</b></div><div><span>ETA đã xác nhận</span><b>{dt(t.eta)}</b></div><div><span>Phụ trách</span><b>{i.owner || 'Chưa tiếp nhận'}</b></div></div>
-            <div className="btn-row"><button type="button" className="btn ghost sm" onClick={() => go(`f/trip/${t.id}/progress`)}>Theo dõi hành trình</button></div></div>
+            <div className="kv"><div><span>Chuyến</span><b>{t.id}</b></div><div><span>Tuyến</span><b>{reqOfTrip(t) ? <RouteText r={reqOfTrip(t)} /> : '—'}</b></div><div><span>Trạng thái</span><b>{human(t.status)}</b></div><div><span>ETA đã xác nhận</span><b>{dt(t.eta)}</b></div><div><span>Phụ trách</span><b>{i.owner || 'Chưa tiếp nhận'}</b></div></div>
+            {realTrip && <div className="btn-row"><button type="button" className="btn ghost sm" onClick={() => go(`f/trip/${t.id}/progress`)}>Theo dõi hành trình</button></div>}</div>
           <div className="card pad"><h3 className="card-title">Lịch sử xử lý</h3>
             <ul className="timeline">{[...i.log].reverse().map((x: Any, k: number) => { const [a, b, c, r] = x; return <li key={k}><b>{b}</b><span>{dt(a)}{c ? ' • ' + c : ''}{r ? ' (' + (ROLE_VI[r] || human(r)) + ')' : ''}</span></li>; })}</ul></div>
         </div>

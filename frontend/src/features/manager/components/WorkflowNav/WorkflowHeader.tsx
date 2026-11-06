@@ -31,7 +31,7 @@ export const WorkflowHeader: React.FC<Props> = ({ request: r, trip, customer, cu
             <p className="mgr-case__eyebrow">Hồ sơ vận chuyển <span>/ {section.name}</span></p>
             <div className="mgr-case__title"><h2>{r.id}</h2><StatusBadge status={r.status} /></div>
             <div className="mgr-case__meta">
-              <span>{customer?.company || customer?.name || 'Khách hàng'}</span>
+              <span>{customer?.company || customer?.name || 'Khách hàng'}{customer?.email ? ` (${customer.email})` : ''}</span>
               <span>{r.horses.length} ngựa</span>
               {trip && <span>Mã chuyến: <b>{trip.id}</b></span>}
             </div>

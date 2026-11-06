@@ -25,6 +25,7 @@ public sealed class CatalogService(IDataSession data, PolicyService policies)
         return new { currency = "VND", supportedRoutes = (await RoutesAsync(ct)).Select(r => new { id = r.RouteID,
             originCountry = r.OriginCountry, destinationCountry = r.DestinationCountry, mode = r.TransportMode }).ToArray(),
             preparationDays = await policies.NumberAsync("MIN_PREPARATION_DAYS", "DAY", destination, mode, 0, null, true, ct),
+            minTransitDays = await policies.NumberOrDefaultAsync("MIN_TRANSIT_DAYS", "DAY", destination, mode, 0, 30, true, 0, ct),
             defaultDepositPct = await policies.NumberAsync("DEFAULT_DEPOSIT_PERCENT", "PERCENT", destination, mode, 1, 100, false, ct),
             contractDeadlineHours = await policies.NumberAsync("CONTRACT_DEADLINE_HOURS", "HOUR", destination, mode, 1, null, false, ct) };
     }
@@ -38,6 +39,7 @@ public sealed class CatalogService(IDataSession data, PolicyService policies)
             currency = "VND",
             selectedRoute = new { id = route!.RouteID, originCountry = route.OriginCountry, destinationCountry = route.DestinationCountry, mode = route.TransportMode },
             preparationDays = await policies.NumberAsync("MIN_PREPARATION_DAYS", "DAY", destination, mode, 0, null, true, ct),
+            minTransitDays = await policies.NumberOrDefaultAsync("MIN_TRANSIT_DAYS", "DAY", destination, mode, 0, 30, true, 0, ct),
             defaultDepositPct = await policies.NumberAsync("DEFAULT_DEPOSIT_PERCENT", "PERCENT", destination, mode, 1, 100, false, ct),
             contractDeadlineHours = await policies.NumberAsync("CONTRACT_DEADLINE_HOURS", "HOUR", destination, mode, 1, null, false, ct)
         };

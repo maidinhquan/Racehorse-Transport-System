@@ -4,6 +4,22 @@ import { apiClient } from '../api/apiClient';
 /** Fetch through the authenticated backend so the Geoapify key never reaches the browser. */
 export function addGeoapifyTiles(map: L.Map, onError: () => void) {
   const pending = new Map<HTMLElement, AbortController>();
+  let fallbackLayer: L.TileLayer | null = null;
+  let hasFailed = false;
+
+  const triggerFallback = () => {
+    if (hasFailed) return;
+    hasFailed = true;
+    onError();
+    if (map && typeof (map as any).addLayer === 'function' && !fallbackLayer) {
+      fallbackLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      });
+      fallbackLayer.addTo(map);
+    }
+  };
+
   class Tiles extends L.TileLayer {
     createTile(coords: L.Coords, done: L.DoneCallback): HTMLElement {
       const img = document.createElement('img');
@@ -16,10 +32,13 @@ export function addGeoapifyTiles(map: L.Map, onError: () => void) {
         if (abort.signal.aborted) return;
         const url = URL.createObjectURL(data);
         img.onload = () => { URL.revokeObjectURL(url); done(undefined, img); };
-        img.onerror = () => { URL.revokeObjectURL(url); onError(); done(new Error('Map image failed'), img); };
+        img.onerror = () => { URL.revokeObjectURL(url); triggerFallback(); done(new Error('Map image failed'), img); };
         img.src = url;
       }).catch(() => {
-        if (!abort.signal.aborted) { onError(); done(new Error('Map background unavailable'), img); }
+        if (!abort.signal.aborted) {
+          triggerFallback();
+          done(new Error('Map background unavailable'), img);
+        }
       });
       return img;
     }
@@ -30,5 +49,14 @@ export function addGeoapifyTiles(map: L.Map, onError: () => void) {
   });
   tiles.on('tileunload', event => { pending.get(event.tile)?.abort(); pending.delete(event.tile); });
   tiles.addTo(map);
-  return () => { pending.forEach(abort => abort.abort()); pending.clear(); };
+  return () => {
+    pending.forEach(abort => abort.abort());
+    pending.clear();
+    if (fallbackLayer && map && typeof (map as any).removeLayer === 'function') {
+      try {
+        fallbackLayer.remove();
+      } catch {}
+      fallbackLayer = null;
+    }
+  };
 }

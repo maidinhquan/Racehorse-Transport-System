@@ -311,7 +311,7 @@ export interface TripReadiness {
   quarantineOk: boolean;
 }
 
-export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED_DESTINATION';
+export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED_CHECKPOINT' | 'PASSED_CHECKPOINT' | 'ARRIVED_DESTINATION';
 export interface Milestone {
   type: MilestoneType;
   stopIndex: number;

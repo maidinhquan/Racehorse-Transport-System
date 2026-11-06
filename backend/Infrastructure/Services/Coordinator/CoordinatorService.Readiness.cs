@@ -443,6 +443,9 @@ namespace Infrastructure.Services
                 }
             }
 
+            // Mỗi nhân sự tổ xe chỉ thuộc một chuyến chưa bàn giao xong: chặn từ bước xác nhận nguồn lực
+            await EnsureCrewFreeFromPlanJsonAsync(cleanTripId, trip.DraftPlanJson, trip.ApprovedPlanJson);
+
             trip.ResourcesConfirmedAt = DateTime.UtcNow;
             trip.ResourcesConfirmedBy = userId;
 

@@ -29,29 +29,21 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, 
   const original = [...(r.versions ?? [])].reverse().find((v) => v.snapshot?.requestedPickupAt)?.snapshot;
   const requestedPickup = original?.requestedPickupAt || r.pickupAt;
   const requestedDelivery = original?.requestedDate || r.date;
-  const isAdjusted = !!(requestedPickup && requestedPickup.slice(0, 10) < minDepartDate);
 
-  // Tự động gán ngày khởi hành và đến nơi: ưu tiên theo ngày khách yêu cầu nếu còn đủ điều kiện;
-  // nếu ngày khách yêu cầu quá sớm/đã qua (nhỏ hơn minDepartDate) thì tự động dời sang minDepartDate để đảm bảo hợp lệ.
+  // Giữ nguyên đúng ngày khách yêu cầu: không cộng dồn hay dời ngày; chỉ giữ lại giờ đã có (mặc định 08:00 / 18:00).
   useEffect(() => {
     if (requestedPickup && requestedDelivery) {
       const depDate = requestedPickup.slice(0, 10);
-      const effectiveDepDate = depDate < minDepartDate ? minDepartDate : depDate;
+      const arrDate = requestedDelivery.slice(0, 10);
       const depTime = draft.departAt && draft.departAt.length > 10 ? draft.departAt.slice(10) : ' 08:00';
-      const expectedDep = `${effectiveDepDate}${depTime}`;
-
-      let arrDate = requestedDelivery.slice(0, 10);
-      if (arrDate <= effectiveDepDate) {
-        arrDate = addDays(effectiveDepDate, 1);
-      }
       const arrTime = draft.arriveAt && draft.arriveAt.length > 10 ? draft.arriveAt.slice(10) : ' 18:00';
+      const expectedDep = `${depDate}${depTime}`;
       const expectedArr = `${arrDate}${arrTime}`;
-
       if (draft.departAt !== expectedDep || draft.arriveAt !== expectedArr) {
         set({ departAt: expectedDep, arriveAt: expectedArr });
       }
     }
-  }, [requestedPickup, requestedDelivery, minDepartDate, draft.departAt, draft.arriveAt, set]);
+  }, [requestedPickup, requestedDelivery, draft.departAt, draft.arriveAt, set]);
 
   return (
     <>
@@ -79,19 +71,16 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, 
         <div className="mgr-field">
           <label>Khởi hành dự kiến (chỉ xem)</label>
           <div className="mgr-input mgr-ce__readonly">
-            {fmtDate(draft.departAt || minDepartDate)}
+            {fmtDate(requestedPickup)}
           </div>
-          <p className="mgr-hint">
-            Khách yêu cầu lấy ngựa: {fmtDate(requestedPickup)}
-            {isAdjusted ? ` (Tự động dời sang ${fmtDate(minDepartDate)} để đảm bảo 24h ký hợp đồng và ${prepDays} ngày chuẩn bị).` : '.'}
-          </p>
+          <p className="mgr-hint">Theo ngày khách yêu cầu lấy ngựa.</p>
         </div>
         <div className="mgr-field">
           <label>Đến dự kiến (chỉ xem)</label>
           <div className="mgr-input mgr-ce__readonly">
-            {fmtDate(draft.arriveAt)}
+            {fmtDate(requestedDelivery)}
           </div>
-          <p className="mgr-hint">Khách yêu cầu giao ngựa: {fmtDate(requestedDelivery)}.</p>
+          <p className="mgr-hint">Theo ngày khách yêu cầu giao ngựa.</p>
         </div>
       </div>
     </>

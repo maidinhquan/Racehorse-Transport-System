@@ -169,6 +169,7 @@ export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
 export const ALL_STATUSES = Object.keys(REQUEST_STATUS_LABEL) as RequestStatus[];
 export const FINAL_STATUSES: RequestStatus[] = ['CLOSED', 'CANCELLED', 'REJECTED'];
 export const isActive = (r: TransportRequest) => !FINAL_STATUSES.includes(r.status);
+export const displayRequestId = (id?: string): string => (!id ? '' : id.startsWith('LOCAL_') ? 'Bản nháp' : id);
 
 export const CONTRACT_STATE_LABEL: Record<ContractState, string> = {
   SIGNED: 'Đã ký – chờ tiền cọc',
@@ -203,7 +204,7 @@ export const STOP_COLOR: Record<StopType, string> = {
   ORIGIN: '#0f172a', REST_STOP: '#d97706', CHECKPOINT: '#dc2626', AIRPORT: '#2563eb', DESTINATION: '#16a34a',
 };
 export const MILESTONE_LABEL: Record<MilestoneType, string> = {
-  DEPARTED: 'Đã rời điểm nhận', ARRIVED_STOP: 'Đến điểm dừng', LEFT_STOP: 'Rời điểm dừng', ARRIVED_DESTINATION: 'Đến điểm giao',
+  DEPARTED: 'Đã rời điểm nhận', ARRIVED_STOP: 'Đến điểm dừng', LEFT_STOP: 'Rời điểm dừng', ARRIVED_CHECKPOINT: 'Đến cửa khẩu / trạm', PASSED_CHECKPOINT: 'Qua cửa khẩu / trạm', ARRIVED_DESTINATION: 'Đến điểm giao',
 };
 export const TRIP_STATUS_LABEL: Record<Trip['status'], string> = {
   PLANNING: 'Lập kế hoạch', READY_TO_DEPART: 'Sẵn sàng khởi hành', IN_TRANSIT: 'Đang vận chuyển', COMPLETED: 'Hoàn tất',
@@ -475,7 +476,6 @@ export const DOC_NAME: Record<DocKey, string> = {
   flu: 'Sổ tiêm ngừa',
   health: 'Giấy chứng nhận sức khỏe',
   conditions: 'Ghi chú sức khỏe đặc biệt',
-  vet: 'Bác sĩ thú y riêng',
 };
 /** Tệp trong hồ sơ ngựa tương ứng với từng loại giấy tờ */
 export const HORSE_FILE_FIELD: Partial<Record<HorseDocKey, 'ownership' | 'valueProof' | 'flu' | 'health'>> = {
@@ -510,19 +510,32 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
     file: kind === 'file' ? fileOf(key) : undefined,
     issue: asked(key)?.status === 'SUBMITTED' ? undefined : rec(key)?.issue ?? asked(key)?.reason,
   });
+  const withMissing = (it: DocItem, missing: Array<[boolean, string]>): DocItem => {
+    const list = missing.filter(([bad]) => bad).map(([, label]) => label);
+    return list.length ? { ...it, missing: list } : it;
+  };
   return [
-    item('passport', 'file', fileOf('passport') && p.number ? 'SUBMITTED' : 'MISSING',
-      `Số: ${p.number || '—'} • Cơ quan cấp: ${p.authority || '—'} • Hết hạn: ${fmtDate(p.expiryDate)}`),
-    item('ownership', 'file', fileOf('ownership') ? 'SUBMITTED' : 'MISSING', fileOf('ownership')?.name ?? 'Chưa có bản scan'),
-    item('bio', 'info', h.breed && h.sex && h.dob && h.microchip ? 'SUBMITTED' : 'NEEDS_INPUT',
-      `Giống: ${h.breed || '—'} • Giới tính: ${SEX_LABEL[h.sex] ?? '—'} • Sinh: ${fmtDate(h.dob)} • Microchip: ${h.microchip || '—'}`),
-    item('valueProof', 'file', fileOf('valueProof') ? 'SUBMITTED' : 'OPTIONAL',
-      `Giá trị khai báo: ${h.value ? `${Number(h.value).toLocaleString('en-US')} ${h.currency}` : '—'}`, true),
-    item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : h.unsupportedFields?.includes('flu') ? 'NOT_REQUIRED_YET' : 'MISSING', `Tiêm cúm gần nhất: ${fmtDate(h.fluDate)}`),
+    withMissing(item('passport', 'file', fileOf('passport') && p.number ? 'SUBMITTED' : 'MISSING',
+      `Số: ${p.number || '—'} • Cơ quan cấp: ${p.authority || '—'} • Hết hạn: ${fmtDate(p.expiryDate)}`), [
+      [!p.number, 'số hộ chiếu'], [!p.authority, 'cơ quan cấp'], [!p.expiryDate, 'ngày hết hạn'], [!fileOf('passport'), 'bản scan hộ chiếu'],
+    ]),
+    withMissing(item('ownership', 'file', fileOf('ownership') ? 'SUBMITTED' : 'MISSING', fileOf('ownership')?.name ?? 'Chưa có bản scan'), [
+      [!fileOf('ownership'), 'tệp giấy chứng nhận sở hữu'],
+    ]),
+    withMissing(item('bio', 'info', h.breed && h.sex && h.dob && h.microchip ? 'SUBMITTED' : 'NEEDS_INPUT',
+      `Giống: ${h.breed || '—'} • Giới tính: ${SEX_LABEL[h.sex] ?? '—'} • Sinh: ${fmtDate(h.dob)} • Microchip: ${h.microchip || '—'}`), [
+      [!h.breed, 'giống ngựa'], [!h.sex, 'giới tính'], [!h.dob, 'ngày sinh'], [!h.microchip, 'số microchip'],
+    ]),
+    withMissing(item('valueProof', 'file', fileOf('valueProof') ? 'SUBMITTED' : 'OPTIONAL',
+      `Giá trị khai báo: ${h.value ? `${Number(h.value).toLocaleString('en-US')} ${h.currency}` : '—'}`, true), [
+      [!h.value, 'giá trị khai báo'],
+    ]),
+    withMissing(item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : h.unsupportedFields?.includes('flu') ? 'NOT_REQUIRED_YET' : 'MISSING', `Tiêm cúm gần nhất: ${fmtDate(h.fluDate)}`), [
+      [!fileOf('flu') && !h.unsupportedFields?.includes('flu'), 'tệp sổ tiêm ngừa'],
+    ]),
     item('health', 'file', fileOf('health') ? 'SUBMITTED' : 'NOT_REQUIRED_YET',
       fileOf('health') ? `Tệp: ${fileOf('health')!.name}` : 'Specialist kiểm tra yêu cầu hiệu lực trước khởi hành.'),
     item('conditions', 'info', h.conditions ? 'SUBMITTED' : 'OPTIONAL', h.conditions || 'Không khai báo tình trạng đặc biệt.', true),
-    item('vet', 'info', h.unsupportedFields?.includes('vetName') ? 'NOT_REQUIRED_YET' : h.vetName && h.vetPhone ? 'SUBMITTED' : 'NEEDS_INPUT', `Tên: ${h.vetName || '—'} • SĐT: ${h.vetPhone || '—'}`),
   ];
 }
 

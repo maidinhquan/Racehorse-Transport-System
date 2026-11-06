@@ -125,7 +125,7 @@ export const RequestPlacesFields: React.FC<Props> = ({ places, origin, destinati
         <p>{key === 'pickup' ? 'Nơi CBN đón ngựa và người bàn giao.' : 'Nơi CBN đưa ngựa đến và người nhận.'}</p>
       </div></div>
       <div className="cus-create__grid">
-        {input('name', key === 'pickup' ? 'Tên chuồng / câu lạc bộ' : 'Tên chuồng / trường đua', true, true)}
+        {input('name', key === 'pickup' ? 'Tên điểm đi' : 'Tên điểm đến', true, true)}
         <div className="cus-field cus-create__full"><label htmlFor={`request-${key}-city`}>Tỉnh/thành phố *</label>
           <select id={`request-${key}-city`} className={`cus-select ${tried && !selectedCity ? 'invalid' : ''}`} value={selectedCity} required disabled={locked('route')}
             onChange={event => {

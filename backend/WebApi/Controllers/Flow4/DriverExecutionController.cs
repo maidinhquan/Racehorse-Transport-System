@@ -32,6 +32,17 @@ public class DriverExecutionController : BaseApiController
         return Success(result);
     }
 
+    [HttpGet("{tripId}/horses/{horseId}")]
+    public async Task<IActionResult> GetAssignedHorse(string tripId, string horseId) =>
+        Success(await _driverService.GetAssignedHorseAsync(tripId, horseId, CurrentUserId));
+
+    [HttpGet("{tripId}/horses/{horseId}/files/{kind}")]
+    public async Task<IActionResult> GetAssignedHorseFile(string tripId, string horseId, string kind)
+    {
+        var file = await _driverService.ReadAssignedHorseFileAsync(tripId, horseId, kind, CurrentUserId);
+        return File(file.Bytes, file.ContentType);
+    }
+
     /// <summary>
     /// F4-J04: Kiểm tra xe và ngựa trước khi xuất phát thực tế
     /// </summary>

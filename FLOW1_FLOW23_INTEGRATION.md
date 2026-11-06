@@ -251,7 +251,7 @@ Giữ nguyên `USER.ResetOtpCode`/`ResetOtpExpiry` của luồng tài khoản v�
 - TRANSPORT_REQUEST thêm PickupStableName/PickupPostalCode/PickupInstructions, DeliveryStableName/DeliveryPostalCode/DeliveryInstructions, CareInstructions, DeclaredValueVnd (tổng do server tính khi gửi). REQUEST_HORSE_MAPPING chỉ thêm CareInstructions cho riêng ngựa trong chuyến.
 - FlowHandoff giữ declaredValueVnd và documents theo ngựa; không còn giấy tờ chung theo yêu cầu.
 - Specialist được chỉ định đọc file chung qua GET `/api/operations/flow1/trips/{tripId}/documents/{documentId}?eventId={eventId}`; kiểm tra assignment/event như baseline. File ngựa có thêm kind ownership/valuation, ngoài photo/passport.
-- Hồ sơ có sẵn UPLOADED chỉ có nghĩa đã nộp, không đồng nghĩa đã được Specialist kiểm duyệt. Sổ tiêm/ngày tiêm, chứng nhận sức khỏe và bác sĩ thú y riêng thuộc hồ sơ chuyến sau ký của Flow 3; dùng LEGAL_MEDICAL_RECORD và API do teammate phụ trách. Không chặn tạo request vì thiếu các giấy này, không tự sinh bản ghi hoặc sửa quy trình kiểm duyệt Flow 3.
+- Hồ sơ có sẵn UPLOADED chỉ có nghĩa đã nộp, không đồng nghĩa đã được Specialist kiểm duyệt. Sổ tiêm/ngày tiêm, chứng nhận sức khỏe và bác sĩ thú y theo xe thuộc hồ sơ chuyến sau ký của Flow 3; dùng LEGAL_MEDICAL_RECORD và API do teammate phụ trách. Không chặn tạo request vì thiếu các giấy này, không tự sinh bản ghi hoặc sửa quy trình kiểm duyệt Flow 3.
 - Giá trị VND từ request được dùng mặc định khi Manager dự toán bảo hiểm. declaredValueUsd cũ vẫn được giữ để không phá dữ liệu/consumer cũ; không quy đổi hoặc dùng làm VND. Chạy lại SQL 002 trước khi dùng backend mới.
 
 ## Hợp đồng và phương án sau cập nhật wizard (21/10/2026)

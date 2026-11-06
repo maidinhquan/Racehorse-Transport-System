@@ -23,3 +23,4 @@ export * from './pages/horse-detail/HorseDetailPage';
 export * from './pages/horse-form/HorseFormPage';
 export * from './pages/tracking/CustomerTrackingPage';
 export * from './pages/history/CustomerHistoryPage';
+export * from './pages/profile/CustomerProfilePage';

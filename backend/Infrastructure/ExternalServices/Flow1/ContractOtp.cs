@@ -43,8 +43,11 @@ public sealed class ContractSmtpSender(ContractSmtpOptions options, bool develop
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(TimeSpan.FromSeconds(20));
             using var client = new SmtpClient(s.Host, s.Port) { EnableSsl = s.EnableSsl, UseDefaultCredentials = false,
                 Credentials = string.IsNullOrEmpty(s.Username) ? null : new NetworkCredential(s.Username, s.Password) };
-            using var message = new MailMessage(s.From, email) { Subject = "RaceHorse Transport - Contract confirmation",
-                Body = $"Contract: {contractId}\nDocument reference: {documentHash}\nConfirmation code: {code}\nExpires: {expiresAt:O}\nDo not share this code. Only confirm the PDF you reviewed." };
+            using var message = OtpEmailTemplate.Create(s.From, email, $"{OtpEmailTemplate.BrandName} - Mã xác nhận ký hợp đồng {contractId}",
+                "Xác nhận ký hợp đồng vận chuyển",
+                "Bạn vừa yêu cầu ký hợp đồng vận chuyển. Nhập mã bên dưới vào màn hình ký để xác nhận.", code,
+                [new("Hợp đồng", contractId), new("Phiên bản", "V" + version.ToString(CultureInfo.InvariantCulture)), new("Tài liệu đối chiếu", documentHash)],
+                expiresAt, "Không chia sẻ mã này cho bất kỳ ai. Chỉ xác nhận khi bạn đã xem đúng bản PDF hợp đồng.");
             await client.SendMailAsync(message, timeout.Token);
         }
         catch (Exception e) when (e is SmtpException or FormatException or InvalidOperationException or OperationCanceledException)
