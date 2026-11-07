@@ -64,6 +64,13 @@ backend/FLOW*
 **/appsettings.Local.json
 HorseTransportDB/tools/
 
+/DIEU_KIEN_KHOI_HANH_FLOW3.md
+/DIEU_PHOI_KHA_THI_VA_NANG_LUC_VAN_CHUYEN.md
+/HorseTransportDB/SeedData_Flow3_Demo.sql
+/SeedData_Flow3_Demo.sql
+/frontend/src/features/tracking/
+/frontend/src/shared/test/signalrMock.ts
+
 # Private Flow 1 metadata, generated contract documents and spike outputs
 backend/WebApi/App_Data/
 
