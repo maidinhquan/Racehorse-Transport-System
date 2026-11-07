@@ -225,6 +225,25 @@ if (typeof window !== 'undefined') {
     }));
   });
 
+  const refreshIncidents = () => {
+    if (typeof managerApi.getIncidents !== 'function') return;
+    void managerApi.getIncidents().then((incidents) => {
+      if (incidents?.length) {
+        setState((s) => {
+          const existing = [...s.incidents];
+          for (const inc of incidents) {
+            const idx = existing.findIndex((x) => cleanId(x.id) === cleanId(inc.id));
+            if (idx >= 0) existing[idx] = { ...existing[idx], ...inc };
+            else existing.unshift(inc);
+          }
+          return { incidents: existing };
+        });
+      }
+    });
+  };
+  window.addEventListener('rts_incident_created', refreshIncidents);
+  window.addEventListener('rts_incident_pins_changed', refreshIncidents);
+
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const customEvent = event as CustomEvent<{ role: string; enabled: boolean }>;
     if (customEvent.detail && customEvent.detail.role === 'manager') {
@@ -375,25 +394,35 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
       }
 
       const isDemo = getDemoMode('manager');
+      const extra = await Promise.allSettled([
+        typeof managerApi.getIncidents === 'function' ? managerApi.getIncidents() : Promise.resolve([]),
+        typeof managerApi.getComplaints === 'function' ? managerApi.getComplaints() : Promise.resolve([]),
+        typeof managerApi.getActualCosts === 'function' ? managerApi.getActualCosts() : Promise.resolve([]),
+      ]);
+      if (seq !== currentLoadSeq) return;
+      const apiIncidents = extra[0].status === 'fulfilled' && extra[0].value?.length ? extra[0].value : [];
+      const apiComplaints = extra[1].status === 'fulfilled' && extra[1].value?.length ? extra[1].value : [];
+      const apiCosts = extra[2].status === 'fulfilled' && extra[2].value?.length ? extra[2].value : [];
+
       if (!isDemo) {
         const shared = getSharedRequests().map(toManagerRequest);
         const merged = [...shared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
-        const allRequests = merged.length ? merged : clone(mockRequests);
-        const baseTrips = trips?.length ? trips : clone(mockTrips);
+        const allRequests = merged;
+        const baseTrips = trips || [];
         const finalTrips = mergeTripsWithShared(baseTrips);
 
         setState((prev) => ({
           ...prev,
-          customers: customers?.length ? customers : clone(mockCustomers),
-          horses: horses?.length ? horses : clone(mockHorses),
-          staff: staff?.length ? staff : clone(mockStaff),
+          customers: customers || [],
+          horses: horses || [],
+          staff: staff || [],
           requests: mergeRequestList(allRequests, prev.requests),
           trips: finalTrips,
-          transactions: transactions?.length ? transactions : clone(mockTransactions),
-          incidents: prev.incidents?.length ? prev.incidents : clone(mockIncidents),
-          complaints: prev.complaints?.length ? prev.complaints : clone(mockComplaints),
-          actualCosts: prev.actualCosts?.length ? prev.actualCosts : clone(mockActualCosts),
-          notifications: notifications?.length ? notifications : clone(mockNotifications),
+          transactions: transactions || [],
+          incidents: apiIncidents.length ? apiIncidents : (prev.incidents?.length ? prev.incidents : []),
+          complaints: apiComplaints.length ? apiComplaints : (prev.complaints?.length ? prev.complaints : []),
+          actualCosts: apiCosts.length ? apiCosts : (prev.actualCosts?.length ? prev.actualCosts : []),
+          notifications: notifications || [],
           loading: false,
           loaded: true,
         }));
@@ -413,15 +442,13 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
         requests: allDemoRequests,
         trips: finalTrips,
         transactions: transactions?.length ? transactions : clone(mockTransactions),
+        incidents: apiIncidents.length ? apiIncidents : clone(mockIncidents),
+        complaints: apiComplaints.length ? apiComplaints : clone(mockComplaints),
+        actualCosts: apiCosts.length ? apiCosts : clone(mockActualCosts),
         notifications: notifications?.length ? notifications : clone(mockNotifications),
         loading: false,
         loaded: true,
       }));
-      const extra = await Promise.allSettled([managerApi.getIncidents(), managerApi.getComplaints(), managerApi.getActualCosts()]);
-      if (seq !== currentLoadSeq) return;
-      if (extra[0].status === 'fulfilled') setState({ incidents: extra[0].value?.length ? extra[0].value : clone(mockIncidents) });
-      if (extra[1].status === 'fulfilled') setState({ complaints: extra[1].value?.length ? extra[1].value : clone(mockComplaints) });
-      if (extra[2].status === 'fulfilled') setState({ actualCosts: extra[2].value?.length ? extra[2].value : clone(mockActualCosts) });
     } catch (error) {
       if (seq === currentLoadSeq) {
         setState({ loading: false, loaded: true });

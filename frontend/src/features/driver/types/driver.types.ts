@@ -172,6 +172,10 @@ export interface Incident {
   description: string;
   photos: string[];
   approvedPlan?: string;
+  resolutionType?: string;
+  resolutionNotes?: string;
+  immediateCare?: string;
+  acknowledged?: boolean;
 }
 
 export interface Photo {

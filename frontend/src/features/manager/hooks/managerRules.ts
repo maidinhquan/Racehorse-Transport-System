@@ -133,7 +133,13 @@ export const STOP_TYPE_LABEL: Record<StopType, string> = {
 export const MILESTONE_LABEL: Record<MilestoneType, string> = { DEPARTED: 'Xuất phát', ARRIVED_STOP: 'Đến điểm dừng', LEFT_STOP: 'Rời điểm dừng', ARRIVED_CHECKPOINT: 'Đến cửa khẩu / trạm', PASSED_CHECKPOINT: 'Qua cửa khẩu / trạm', ARRIVED_DESTINATION: 'Đến điểm giao' };
 export const INCIDENT_TYPE_LABEL: Record<IncidentType, string> = { DELAY: 'Chậm trễ', HORSE_HEALTH: 'Sức khỏe ngựa', VEHICLE: 'Sự cố xe', BORDER: 'Thông quan / cửa khẩu', OTHER: 'Khác' };
 export const SEVERITY_LABEL: Record<Severity, string> = { LOW: 'Thấp', MEDIUM: 'Trung bình', HIGH: 'Cao', CRITICAL: 'Nghiêm trọng' };
-export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = { NEW: 'Mới', IN_PROGRESS: 'Đang xử lý', CLOSED: 'Đã đóng' };
+export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = {
+  NEW: 'Mới',
+  IN_PROGRESS: 'Đang xử lý',
+  ESCALATED: 'Chờ Quản lý can thiệp',
+  RESOLVED: 'Đã khắc phục',
+  CLOSED: 'Đã đóng',
+};
 export const PLAN_STATUS_LABEL: Record<PlanStatus, string> = { PENDING_APPROVAL: 'Chờ Manager quyết định', APPROVED: 'Đã duyệt', REJECTED: 'Đã từ chối' };
 export const PAYER_LABEL: Record<Payer, string> = { COMPANY: 'CBN Transport', CUSTOMER: 'Khách hàng', INSURANCE: 'Bảo hiểm' };
 export const COMPLAINT_STATUS_LABEL: Record<ComplaintStatus, string> = {

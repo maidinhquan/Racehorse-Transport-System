@@ -44,6 +44,23 @@ public class Flow5IncidentService : IFlow5IncidentService
             .Include(t => t.Request)
             .FirstOrDefaultAsync(t => t.TripId == dto.TripId);
 
+        string rawCat = (dto.Category ?? dto.Type ?? "OTHER").Trim().ToUpperInvariant();
+        string normalizedCategory = rawCat switch
+        {
+            "ACCIDENT" or "TRAFFIC_ACCIDENT" => "TRAFFIC_ACCIDENT",
+            "BREAKDOWN" or "VEHICLE" or "VEHICLE_BREAKDOWN" or "VEHICLE_RESOURCE" => "VEHICLE_BREAKDOWN",
+            "HEALTH" or "HORSE_HEALTH" => "HORSE_HEALTH",
+            "DELAY" or "ROAD_CLOSURE" or "DELAY_AIR" => "ROAD_CLOSURE",
+            "BORDER" or "BORDER_DELAY" => "BORDER_DELAY",
+            _ => rawCat
+        };
+        dto.Category = normalizedCategory;
+
+        if (string.IsNullOrWhiteSpace(dto.ImageUrl) && dto.Photos != null && dto.Photos.Count > 0)
+        {
+            dto.ImageUrl = dto.Photos[0];
+        }
+
         string reasonLabel = dto.Category switch
         {
             "VEHICLE_RESOURCE" or "VEHICLE_BREAKDOWN" => "Hỏng xe",
@@ -158,18 +175,31 @@ public class Flow5IncidentService : IFlow5IncidentService
 
         var incidents = await query.ToListAsync();
 
-        return incidents.Select(i => new IncidentResponseDto
+        return incidents.Select(i =>
         {
-            IncidentId = i.IncidentId,
-            TripId = i.TripId,
-            Category = i.IncidentType ?? "OTHER",
-            Status = i.Status ?? "REPORTED",
-            Description = i.Description,
-            LocationCoordinates = i.LocationCoordinates,
-            ImageUrl = i.ImageUrl,
-            CoordinatorId = i.CoordinatorId,
-            ReportedAt = DateTime.UtcNow,
-            SafetyBlockerActive = i.SafetyBlockerActive ?? true
+            string? approvedPlan = i.ResolutionNotes;
+            if (string.IsNullOrWhiteSpace(approvedPlan) && _planStore.TryGetValue(i.IncidentId, out var plans) && plans.Count > 0)
+            {
+                var ap = plans.LastOrDefault(p => p.Status == "APPROVED" || p.Status == "APPLIED");
+                approvedPlan = ap?.Summary;
+            }
+
+            return new IncidentResponseDto
+            {
+                IncidentId = i.IncidentId,
+                TripId = i.TripId,
+                Category = i.IncidentType ?? "OTHER",
+                Status = i.Status ?? "REPORTED",
+                Description = i.Description,
+                LocationCoordinates = i.LocationCoordinates,
+                ImageUrl = i.ImageUrl,
+                CoordinatorId = i.CoordinatorId,
+                ReportedAt = DateTime.UtcNow,
+                SafetyBlockerActive = i.SafetyBlockerActive ?? true,
+                ApprovedPlan = approvedPlan,
+                ResolutionType = i.ResolutionType,
+                ResolutionNotes = i.ResolutionNotes
+            };
         }).ToList();
     }
 
@@ -191,6 +221,13 @@ public class Flow5IncidentService : IFlow5IncidentService
             };
         }
 
+        string? approvedPlan = incident.ResolutionNotes;
+        if (string.IsNullOrWhiteSpace(approvedPlan) && _planStore.TryGetValue(incident.IncidentId, out var plans) && plans.Count > 0)
+        {
+            var ap = plans.LastOrDefault(p => p.Status == "APPROVED" || p.Status == "APPLIED");
+            approvedPlan = ap?.Summary;
+        }
+
         return new IncidentResponseDto
         {
             IncidentId = incident.IncidentId,
@@ -202,7 +239,10 @@ public class Flow5IncidentService : IFlow5IncidentService
             ImageUrl = incident.ImageUrl,
             CoordinatorId = incident.CoordinatorId,
             ReportedAt = DateTime.UtcNow,
-            SafetyBlockerActive = incident.SafetyBlockerActive ?? true
+            SafetyBlockerActive = incident.SafetyBlockerActive ?? true,
+            ApprovedPlan = approvedPlan,
+            ResolutionType = incident.ResolutionType,
+            ResolutionNotes = incident.ResolutionNotes
         };
     }
 
@@ -645,21 +685,69 @@ public class Flow5IncidentService : IFlow5IncidentService
     public async Task<RecoveryApplyDto> ApplyRecoveryPlanAsync(string incidentId, string coordinatorUserId)
     {
         string planId = "REC_APPLIED";
+        string planSummary = "Phương án xử lý sự cố đã được điều phối viên duyệt và áp dụng.";
         if (_planStore.TryGetValue(incidentId, out var plans) && plans.Count > 0)
         {
             var p = plans.Last();
             p.Status = "APPLIED";
             planId = p.PlanId;
+            if (!string.IsNullOrWhiteSpace(p.Summary))
+            {
+                planSummary = p.Summary;
+            }
         }
 
         var incident = await _context.Incidents.FirstOrDefaultAsync(i => i.IncidentId == incidentId);
         if (incident != null)
         {
             incident.Status = "RECOVERY_APPLIED";
+            incident.ResolutionNotes = planSummary;
+            incident.ResolutionType = "COORDINATOR_APPLIED";
+
+            // Tự động gửi thông báo trực tiếp đến tài xế / người báo cáo sự cố
+            string? targetUserId = null;
+            if (_historyStore.TryGetValue(incidentId, out var records))
+            {
+                var reportRecord = records.FirstOrDefault(r => r.EventType == "INCIDENT_REPORTED");
+                if (reportRecord != null && !string.IsNullOrWhiteSpace(reportRecord.PerformedByUserId) && reportRecord.PerformedByUserId != "SYSTEM")
+                {
+                    targetUserId = reportRecord.PerformedByUserId;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(targetUserId))
+            {
+                var assignment = await _context.TripVehicleAssignments
+                    .FirstOrDefaultAsync(a => a.TripId == incident.TripId);
+                targetUserId = assignment?.DriverId;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetUserId))
+            {
+                var defaultDriver = await _context.Users.FirstOrDefaultAsync(u => u.Role == "DRIVER_ESCORT" || u.Role == "DRIVER");
+                targetUserId = defaultDriver?.UserId;
+            }
+
+            if (!string.IsNullOrWhiteSpace(targetUserId))
+            {
+                _context.Notifications.Add(new Notification
+                {
+                    NotificationId = $"NOTI_{Guid.NewGuid().ToString("N")[..10]}",
+                    UserId = targetUserId,
+                    ReferenceId = incidentId,
+                    Type = "INCIDENT_RECOVERY_APPROVED",
+                    Channel = "IN_APP",
+                    Title = $"Phương án xử lý sự cố - Chuyến {incident.TripId}",
+                    Message = $"Điều phối viên đã phê duyệt phương án cho sự cố [{incident.IncidentType}]: {planSummary}. Vui lòng phối hợp thực hiện!",
+                    IsRead = false,
+                    SentAt = DateTime.UtcNow
+                });
+            }
+
             await _context.SaveChangesAsync();
         }
 
-        AddHistoryRecord(incidentId, "PLAN_APPLIED", $"Đã áp dụng phương án khôi phục {planId} vào hành trình thực tế", coordinatorUserId);
+        AddHistoryRecord(incidentId, "PLAN_APPLIED", $"Đã áp dụng phương án khôi phục {planId} vào hành trình thực tế: {planSummary}", coordinatorUserId);
 
         return new RecoveryApplyDto
         {
@@ -744,6 +832,46 @@ public class Flow5IncidentService : IFlow5IncidentService
             ReportedAt = DateTime.UtcNow,
             SafetyBlockerActive = false
         };
+    }
+
+    public async Task<IncidentResponseDto> EscalateIncidentAsync(string incidentId, EscalateIncidentInputDto dto, string coordinatorUserId)
+    {
+        var incident = await _context.Incidents.FirstOrDefaultAsync(i => i.IncidentId == incidentId);
+        if (incident == null)
+        {
+            throw new KeyNotFoundException($"Không tìm thấy sự cố với mã {incidentId}");
+        }
+
+        incident.Status = "ESCALATED";
+        incident.ResolutionNotes = $"Điều phối viên từ chối hỗ trợ tại chỗ: {dto.Reason}";
+        incident.ResolutionType = "ESCALATED_TO_MANAGER";
+
+        AddHistoryRecord(incidentId, "INCIDENT_ESCALATED", $"Điều phối viên {coordinatorUserId} từ chối hỗ trợ tại chỗ và chuyển lên Quản lý giải quyết: {dto.Reason}", coordinatorUserId);
+
+        // Tự động gửi thông báo khẩn cấp đến toàn bộ Logistics Manager
+        var managers = await _context.Users
+            .Where(u => u.Role == Domain.Enums.UserRoles.LogisticsManager || u.Role == "LOGISTICS_MANAGER" || u.Role == "MANAGER")
+            .ToListAsync();
+
+        foreach (var mgr in managers)
+        {
+            _context.Notifications.Add(new Notification
+            {
+                NotificationId = $"NOTI_{Guid.NewGuid().ToString("N")[..10]}",
+                UserId = mgr.UserId,
+                ReferenceId = incidentId,
+                Type = "INCIDENT_ESCALATED",
+                Channel = "IN_APP",
+                Title = $"Khẩn cấp: Sự cố chuyến {incident.TripId} chuyển Quản lý giải quyết",
+                Message = $"Điều phối viên từ chối hỗ trợ tại chỗ cho sự cố [{incident.IncidentType}]. Lý do: {dto.Reason}. Vui lòng can thiệp xử lý ngay!",
+                IsRead = false,
+                SentAt = DateTime.UtcNow
+            });
+        }
+
+        await _context.SaveChangesAsync();
+
+        return await GetIncidentByIdAsync(incidentId);
     }
 
     public async Task<IncidentResponseDto> ReopenIncidentAsync(string incidentId, IncidentReopenInputDto dto, string coordinatorUserId)

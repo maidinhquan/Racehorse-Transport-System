@@ -44,7 +44,7 @@ const TONES: Record<BadgeKind, Record<string, BadgeTone>> = {
   deployment: { NOT_CONFIRMED: 'warn', CONFIRMED: 'ok', ON_HOLD: 'bad' } satisfies Record<DeploymentStatus, BadgeTone>,
   route: { PENDING_APPROVAL: 'warn', APPROVED: 'ok', CHANGES_REQUESTED: 'bad' } satisfies Record<RouteStatus, BadgeTone>,
   flight: { BUDGET_PENDING: 'warn', APPROVED: 'info', REJECTED: 'bad', BOOKED: 'ok' } satisfies Record<FlightStatus, BadgeTone>,
-  incident: { NEW: 'bad', IN_PROGRESS: 'warn', CLOSED: 'muted' } satisfies Record<IncidentStatus, BadgeTone>,
+  incident: { NEW: 'bad', IN_PROGRESS: 'warn', CLOSED: 'muted', ESCALATED: 'bad', RESOLVED: 'ok' } satisfies Record<IncidentStatus, BadgeTone>,
   severity: { LOW: 'muted', MEDIUM: 'warn', HIGH: 'bad', CRITICAL: 'bad' } satisfies Record<Severity, BadgeTone>,
   plan: { PENDING_APPROVAL: 'warn', APPROVED: 'ok', REJECTED: 'bad' } satisfies Record<PlanStatus, BadgeTone>,
   complaint: { NEW: 'bad', IN_PROGRESS: 'warn', PROPOSED: 'info', ESCALATED: 'bad', RESOLVED: 'ok' } satisfies Record<ComplaintStatus, BadgeTone>,

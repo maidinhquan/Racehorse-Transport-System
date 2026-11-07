@@ -134,9 +134,9 @@ public class CoordinatorIncidentsController : BaseApiController
     /// F5-J24: Áp dụng phương án khôi phục đã được phê duyệt vào chuyến đi thật
     /// </summary>
     [HttpPost("{incidentId}/recovery/apply")]
-    public async Task<IActionResult> ApplyRecoveryPlan([FromRoute] string incidentId)
+    public async Task<IActionResult> ApplyRecoveryPlan([FromRoute] string incidentId, [FromBody] ApplyRecoveryPlanInputDto? dto)
     {
-        var result = await _incidentService.ApplyRecoveryPlanAsync(incidentId, CurrentUserId);
+        var result = await _incidentService.ApplyRecoveryPlanAsync(incidentId, dto, CurrentUserId);
         return Success(result, "Phương án khôi phục đã được áp dụng vào lộ trình thực tế");
     }
 
@@ -158,6 +158,16 @@ public class CoordinatorIncidentsController : BaseApiController
     {
         var result = await _incidentService.ResolveIncidentAsync(incidentId, dto, CurrentUserId);
         return Success(result, "Sự cố đã được giải quyết và đóng lại thành công");
+    }
+
+    /// <summary>
+    /// Điều phối viên từ chối hỗ trợ tại chỗ và chuyển lên Quản lý xử lý
+    /// </summary>
+    [HttpPost("{incidentId}/escalate")]
+    public async Task<IActionResult> EscalateIncident([FromRoute] string incidentId, [FromBody] EscalateIncidentInputDto dto)
+    {
+        var result = await _incidentService.EscalateIncidentAsync(incidentId, dto, CurrentUserId);
+        return Success(result, "Đã từ chối hỗ trợ tại chỗ và chuyển sự cố lên Quản lý thành công");
     }
 
     /// <summary>

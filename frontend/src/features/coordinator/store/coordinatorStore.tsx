@@ -34,7 +34,7 @@ import { getSharedRequests } from '../../../shared/utils/sharedRequests';
 import { getSharedTrips } from '../../../shared/utils/sharedTrips';
 import { apiClient } from '../../../shared/api/apiClient';
 
-const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+export const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
 export const PLACES_STORAGE_KEY = 'rts_coord_places';
 export const VEHICLES_STORAGE_KEY = 'rts_coord_vehicles';
@@ -477,8 +477,67 @@ export async function syncCoordinatorTrips(): Promise<void> {
       db.trips = existing;
     }
     commit();
+    void syncCoordinatorIncidents();
   } catch (err) {
     console.error('[coordinator] Failed to sync trips from API:', err);
+  }
+}
+
+export async function syncCoordinatorIncidents(): Promise<void> {
+  try {
+    const res = await apiClient.get<Any>('/incidents');
+    const apiIncidents = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+    if (!Array.isArray(apiIncidents)) return;
+
+    let hasChange = false;
+    for (const bi of apiIncidents) {
+      const id = bi.incidentId || bi.id;
+      if (!id) continue;
+      const existing = db.incidents.find((x: Any) => cleanId(x.id) === cleanId(id));
+      if (existing) {
+        if (existing.status !== bi.status && bi.status) {
+          existing.status = bi.status;
+          hasChange = true;
+        }
+        if (!existing.reporterRole && bi.reportedByUserRole) {
+          existing.reporterRole = bi.reportedByUserRole;
+          hasChange = true;
+        }
+        if (!existing.reporterPhone && bi.reportedByUserPhone) {
+          existing.reporterPhone = bi.reportedByUserPhone;
+          hasChange = true;
+        }
+        if (!existing.immediateCare && bi.immediateCare) {
+          existing.immediateCare = bi.immediateCare;
+          hasChange = true;
+        }
+      } else {
+        const newInc: Any = {
+          id,
+          tripId: bi.tripId,
+          type: bi.category || bi.incidentType || 'OTHER',
+          severity: bi.severity || 'HIGH',
+          status: bi.status || 'REPORTED',
+          at: bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp(),
+          by: bi.reportedByUserName || bi.reportedByUserId || 'Tài xế / Áp tải',
+          reporterName: bi.reportedByUserName || '',
+          reporterRole: bi.reportedByUserRole || (bi.category === 'HORSE_HEALTH' ? 'VETERINARIAN' : 'MAIN_DRIVER'),
+          reporterPhone: bi.reportedByUserPhone || '',
+          immediateCare: bi.immediateCare || '',
+          location: bi.location || (bi.locationCoordinates ? `Tọa độ: ${bi.locationCoordinates}` : 'Trên đường vận chuyển'),
+          locationCoordinates: bi.locationCoordinates || '',
+          description: bi.description || '',
+          photos: bi.photos || (bi.imageUrl ? [bi.imageUrl] : []),
+          plans: [],
+          log: [[nowStamp(), 'Nhân sự tổ xe báo cáo sự cố qua hệ thống', bi.reportedByUserName || 'Driver/Escort', bi.reportedByUserRole || 'DRIVER']],
+        };
+        db.incidents.unshift(newInc);
+        hasChange = true;
+      }
+    }
+    if (hasChange) commit();
+  } catch (err) {
+    console.error('[coordinator] Failed to sync incidents from API:', err);
   }
 }
 

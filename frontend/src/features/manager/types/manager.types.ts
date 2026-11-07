@@ -394,7 +394,7 @@ export interface Trip {
 // ---------------------------------------------------------------------------
 export type IncidentType = 'DELAY' | 'HORSE_HEALTH' | 'VEHICLE' | 'BORDER' | 'OTHER';
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type IncidentStatus = 'NEW' | 'IN_PROGRESS' | 'CLOSED';
+export type IncidentStatus = 'NEW' | 'IN_PROGRESS' | 'CLOSED' | 'ESCALATED' | 'RESOLVED';
 export type PlanStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 export type Payer = 'COMPANY' | 'CUSTOMER' | 'INSURANCE';
 

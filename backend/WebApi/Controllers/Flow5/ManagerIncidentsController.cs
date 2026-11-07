@@ -21,6 +21,16 @@ public class ManagerIncidentsController : BaseApiController
     }
 
     /// <summary>
+    /// F5-J02-M: Lấy danh sách sự cố cho Quản lý
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> GetIncidents([FromQuery] string? tripId, [FromQuery] string? status)
+    {
+        var result = await _incidentService.GetIncidentsAsync(tripId, status);
+        return Success(result);
+    }
+
+    /// <summary>
     /// F5-J17: Manager phê duyệt hoặc trả lại phương án khôi phục
     /// </summary>
     [HttpPost("{incidentId}/recovery/decision")]

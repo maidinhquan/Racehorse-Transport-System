@@ -8,6 +8,9 @@ import type {
   HealthLogRequestDto,
   Horse,
   Incident,
+  IncidentSeverity,
+  IncidentStatus,
+  IncidentType,
   RecordMilestoneRequestDto,
   RefuseHandoverRequestDto,
   ReportIncidentRequestDto,
@@ -20,6 +23,51 @@ import { flow4Api } from '../../tracking/api/flow4Api';
 import { generateUuidV4 } from '../../../shared/utils/uuid';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+const mapIncidentDto = (d: any): Incident => {
+  const cat = String(d.category || d.incidentType || d.type || 'OTHER').toUpperCase();
+  const validTypes: IncidentType[] = [
+    'VEHICLE_BREAKDOWN',
+    'BORDER_DELAY',
+    'BAD_WEATHER',
+    'TRAFFIC_ACCIDENT',
+    'HORSE_HEALTH',
+    'CUSTOMS_HOLD',
+    'ROAD_CLOSURE',
+    'OTHER',
+  ];
+  const typeMap: Record<string, IncidentType> = {
+    BREAKDOWN: 'VEHICLE_BREAKDOWN',
+    ACCIDENT: 'TRAFFIC_ACCIDENT',
+    HEALTH: 'HORSE_HEALTH',
+    DELAY: 'ROAD_CLOSURE',
+  };
+  const type: IncidentType = validTypes.includes(cat as IncidentType)
+    ? (cat as IncidentType)
+    : (typeMap[cat] || 'OTHER');
+
+  const rawStatus = String(d.status || 'NEW').toUpperCase();
+  const status: IncidentStatus =
+    rawStatus === 'REPORTED' ? 'NEW' :
+    (['NEW', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].includes(rawStatus) ? (rawStatus as IncidentStatus) : 'IN_PROGRESS');
+
+  return {
+    id: d.incidentId || d.id,
+    tripId: d.tripId,
+    type,
+    severity: (d.severity || 'HIGH') as IncidentSeverity,
+    status,
+    at: d.reportedAt ? d.reportedAt.replace('T', ' ').slice(0, 16) : (d.at || new Date().toISOString().replace('T', ' ').slice(0, 16)),
+    by: d.reportedByUserName || d.reportedByUserId || d.by || 'Tài xế',
+    location: d.location || (d.locationCoordinates ? `Tọa độ: ${d.locationCoordinates}` : 'Trên đường vận chuyển'),
+    description: d.description || '',
+    photos: d.imageUrl ? [d.imageUrl] : (d.photos || []),
+    approvedPlan: d.approvedPlan || d.resolutionNotes || undefined,
+    resolutionType: d.resolutionType || undefined,
+    resolutionNotes: d.resolutionNotes || undefined,
+    immediateCare: d.immediateCare || undefined,
+  };
+};
 
 /**
  * GET có fallback về mock data CHỈ KHI demo mode đang bật.
@@ -94,7 +142,17 @@ export const driverApi = {
   getHorses: () => getOr<Horse[]>(DRIVER_ENDPOINTS.HORSES, mockHorses),
 
   /** Sự cố của các chuyến được giao */
-  getIncidents: () => getOr<Incident[]>(DRIVER_ENDPOINTS.INCIDENTS, mockIncidents),
+  getIncidents: async (): Promise<Incident[]> => {
+    try {
+      const res = await apiClient.get<ApiResponse<any[]>>(DRIVER_ENDPOINTS.INCIDENTS);
+      if (Array.isArray(res.data?.data)) {
+        return res.data.data.map(mapIncidentDto);
+      }
+    } catch {
+      // Backend error or offline
+    }
+    return getDemoMode('driver') ? clone(mockIncidents) : [];
+  },
 
   /**
    * Ghi nhận mốc hành trình (Flow 4). Chế độ demo chỉ cập nhật cục bộ. Chế độ thật dùng đúng mã mốc và phiên bản
@@ -182,8 +240,46 @@ export const driverApi = {
   },
 
   /** Báo cáo sự cố (SOS) */
-  reportIncident: (tripId: string, body: ReportIncidentRequestDto) =>
-    send(DRIVER_ENDPOINTS.REPORT_INCIDENT(tripId), body),
+  reportIncident: async (tripId: string, body: ReportIncidentRequestDto): Promise<{ incidentId: string } | null> => {
+    const categoryMap: Record<string, string> = {
+      ACCIDENT: 'TRAFFIC_ACCIDENT',
+      BREAKDOWN: 'VEHICLE_BREAKDOWN',
+      HEALTH: 'HORSE_HEALTH',
+      DELAY: 'ROAD_CLOSURE',
+      OTHER: 'OTHER',
+      VEHICLE_BREAKDOWN: 'VEHICLE_BREAKDOWN',
+      TRAFFIC_ACCIDENT: 'TRAFFIC_ACCIDENT',
+      HORSE_HEALTH: 'HORSE_HEALTH',
+      ROAD_CLOSURE: 'ROAD_CLOSURE',
+      BORDER_DELAY: 'BORDER_DELAY',
+    };
+    const category = categoryMap[body.type] || body.type || 'OTHER';
+    const payload = {
+      tripId,
+      category,
+      type: category,
+      severity: body.severity,
+      description: body.description,
+      location: body.location,
+      locationCoordinates: body.locationCoordinates,
+      photos: body.photos,
+      imageUrl: body.photos?.[0] || undefined,
+      immediateCare: 'Người và ngựa đã được sơ cứu hoặc đảm bảo an toàn',
+      occurredAt: new Date().toISOString(),
+    };
+    try {
+      const res = await apiClient.post<ApiResponse<{ incidentId: string }>>(
+        DRIVER_ENDPOINTS.REPORT_INCIDENT(tripId),
+        payload
+      );
+      if (res.data?.success !== false && res.data?.data) {
+        return res.data.data;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
 
   /** Hoàn tất bàn giao tại điểm đích (Flow 6) */
   completeHandover: (tripId: string, body: CompleteHandoverRequestDto) =>

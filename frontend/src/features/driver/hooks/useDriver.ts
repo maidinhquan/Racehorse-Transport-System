@@ -112,6 +112,27 @@ if (typeof window !== 'undefined') {
       void loadAll();
     }
   });
+
+  const reloadIncidents = async () => {
+    try {
+      const serverIncidents = await driverApi.getIncidents();
+      if (serverIncidents) {
+        setState((s) => {
+          const merged = [...serverIncidents];
+          s.incidents.forEach((loc) => {
+            if (!merged.some((srv) => srv.id === loc.id)) {
+              merged.unshift(loc);
+            }
+          });
+          return { incidents: merged };
+        });
+      }
+    } catch {
+      // ignore
+    }
+  };
+  window.addEventListener('rts_incident_created', reloadIncidents);
+  window.addEventListener('rts_incident_pins_changed', reloadIncidents);
 }
 
 const findTrip = (tripId: string) => state.trips.find((t) => t.id === tripId);
@@ -158,10 +179,15 @@ async function loadAll() {
   try {
     if (!getDemoMode('driver')) {
       try {
-        const [f4Res, f6Res] = await Promise.allSettled([flow4Api.getDriverTrips(), flow6Api.getTrips()]);
+        const [f4Res, f6Res, incRes] = await Promise.allSettled([
+          flow4Api.getDriverTrips(),
+          flow6Api.getTrips(),
+          driverApi.getIncidents(),
+        ]);
         if (f4Res.status === 'rejected' && f6Res.status === 'rejected') throw f6Res.reason;
         const f4 = f4Res.status === 'fulfilled' ? f4Res.value : [];
         const f6 = f6Res.status === 'fulfilled' ? f6Res.value : [];
+        const incidents = incRes.status === 'fulfilled' ? incRes.value : [];
         const ids = [...new Set([...f4.map((x) => x.tripId), ...f6.map((x) => x.tripId)])];
         const built = await Promise.all(ids.map((id) => buildLiveTrip(id, f6.find((x) => x.tripId === id))));
         const crewMap = new Map<string, CrewMember>();
@@ -171,7 +197,7 @@ async function loadAll() {
           trips: built.map((b) => b.trip),
           crew: [...crewMap.values()],
           horses: [...horseMap.values()],
-          incidents: [],
+          incidents,
           userId: tokenUser() || state.userId,
           loading: false,
           loaded: true,
@@ -294,15 +320,19 @@ const actions = {
     const { a, b } = incidentSegment(t);
     const point = a && b ? pointOnSegment(a, b, body.ratio) : null;
     const location = incidentWhere(t, body.ratio) + (body.locationDetail.trim() ? ' – ' + body.locationDetail.trim() : '');
-    const photos = state.incidentPhotos.map((p) => p.name);
+    const photos = state.incidentPhotos.map((p) => p.url || p.name);
     const locationCoordinates = point ? `${point.lat.toFixed(6)},${point.lng.toFixed(6)}` : undefined;
-    await driverApi.reportIncident(tripId, { type: body.type, severity: body.severity, description: body.description.trim(), location, locationCoordinates, photos });
+    const backendRes = await driverApi.reportIncident(tripId, { type: body.type, severity: body.severity, description: body.description.trim(), location, locationCoordinates, photos });
+    const realId = backendRes?.incidentId || `INC-${String(Date.now()).slice(-4)}`;
     const inc: Incident = {
-      id: `INC-${String(Date.now()).slice(-4)}`, tripId, type: body.type, severity: body.severity, status: 'NEW',
+      id: realId, tripId, type: body.type, severity: body.severity, status: 'NEW',
       at: nowStamp(), by: state.userId, location, lat: point?.lat, lng: point?.lng, description: body.description.trim(), photos,
     };
     if (point) saveIncidentPin({ id: inc.id, tripId, label: INCIDENT_TYPE_LABEL[inc.type], lat: point.lat, lng: point.lng, where: location, description: inc.description, at: inc.at });
     setState((s) => ({ incidents: [inc, ...s.incidents], incidentPhotos: [] }));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('rts_incident_created', { detail: inc }));
+    }
     return ok(`Đã gửi báo cáo ${INCIDENT_TYPE_LABEL[inc.type].toLowerCase()}. Manager, Coordinator và khách hàng đã được thông báo.`);
   },
 

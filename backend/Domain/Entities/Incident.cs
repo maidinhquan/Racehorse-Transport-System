@@ -30,8 +30,7 @@ namespace Domain.Entities
         [Column("Description")]
         public string? Description { get; set; }
 
-        [Column("ImageUrl")]
-        [StringLength(500)]
+        [Column("ImageUrl", TypeName = "nvarchar(max)")]
         public string? ImageUrl { get; set; }
 
         [Column("AdditionalCost", TypeName = "decimal(12, 2)")]

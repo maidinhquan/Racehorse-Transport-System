@@ -5,23 +5,27 @@
 // ============================================================================
 import { Chk, Field, Inp, Note, Sel, Txt } from '../components/common/ui';
 import { DateTimeInput } from '../components/forms/DateTime';
-import { changeEta, crewConflict, crewOf, dWhere, emp, horse, isStaffAssignedToTrip, lastMilestone, legHolds, legOf, livePos, reqOfTrip, staffError, trip, tripHalted, tripHorses, tripLabel, tripStops, vehicle, vehicleConflict } from '../domain/coordinatorRules';
+import { changeEta, crewConflict, crewOf, dWhere, emp, horse, isDriver, isStaffAssignedToTrip, isVet, lastMilestone, legHolds, legOf, livePos, reqOfTrip, staffError, trip, tripHalted, tripHorses, tripLabel, tripStops, vehicle, vehicleConflict } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
-import { audit, commit, db, go, me, nextId, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
-import { addHours, dt, human, incTypeVi, usd } from '../utils/format';
+import { audit, cleanId, commit, db, go, me, nextId, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
+import { apiClient } from '../../../shared/api/apiClient';
+import { dt, human, incTypeVi } from '../utils/format';
 
 export const F5_TYPES: Record<string, string> = {
   VEHICLE_BREAKDOWN: 'Hỏng xe', TRAFFIC_ACCIDENT: 'Va chạm / tai nạn', ROAD_CLOSURE: 'Kẹt / cấm đường', BORDER_DELAY: 'Ách tắc tại cửa khẩu', BAD_WEATHER: 'Thời tiết xấu',
   FLIGHT_DELAY: 'Hoãn / đổi chuyến bay', HORSE_HEALTH: 'Sức khỏe ngựa', OTHER: 'Sự cố khác ảnh hưởng chặng',
 };
 export const F5_PLAN: Record<string, string> = {
-  NO_CHANGE: 'Khắc phục tại chỗ, giữ nguyên kế hoạch', VEHICLE_SWAP: 'Thay xe', CREW_SWAP: 'Thay nhân sự', ROUTE_ADJUST: 'Điều chỉnh lộ trình trong tuyến pháp lý đã duyệt',
-  FLIGHT_CHANGE: 'Đổi / hoãn chuyến bay', EXTERNAL_SERVICE: 'Thuê dịch vụ ngoài (cứu hộ, thú y, chuồng tạm)',
+  NO_CHANGE: 'Khắc phục tại chỗ, giữ nguyên kế hoạch',
+  VEHICLE_SWAP: 'Thay xe',
+  CREW_SWAP: 'Thay nhân sự',
+  VEHICLE_AND_CREW_SWAP: 'Thay cả xe và nhân sự',
+  ROUTE_ADJUST: 'Điều chỉnh lộ trình trong tuyến pháp lý đã duyệt',
 };
 export const F5_ST: Record<string, [string, string]> = {
-  REPORTED: ['NEW', 'Mới báo – chờ tiếp nhận'], PLANNING: ['IN_PROGRESS', 'Đang lập phương án'], PENDING_APPROVAL: ['PENDING_APPROVAL', 'Chờ Manager duyệt'],
-  CHANGES_REQUESTED: ['FAILED', 'Manager yêu cầu chỉnh sửa'], EXECUTING: ['IN_PROGRESS', 'Đang thực hiện phương án'], CONTINUE_ALLOWED: ['APPROVED', 'Đã cho tiếp tục chặng'],
-  RESULT_REPORTED: ['PENDING', 'Chờ Điều phối kiểm tra'], ESCALATED: ['ESCALATED', 'Chờ Manager quyết định'], HALTED: ['ON_HOLD', 'Chuyến dừng theo quyết định Manager'], CLOSED: ['CLOSED', 'Đã đóng'],
+  REPORTED: ['NEW', 'Mới báo – chờ tiếp nhận'], PLANNING: ['IN_PROGRESS', 'Đang lập phương án'], PENDING_APPROVAL: ['PENDING_APPROVAL', 'Chờ phê duyệt'],
+  CHANGES_REQUESTED: ['FAILED', 'Yêu cầu chỉnh sửa'], EXECUTING: ['IN_PROGRESS', 'Đang thực hiện phương án'], CONTINUE_ALLOWED: ['APPROVED', 'Đã cho tiếp tục chặng'],
+  RESULT_REPORTED: ['PENDING', 'Chờ Điều phối kiểm tra'], ESCALATED: ['ESCALATED', 'Chờ quyết định'], HALTED: ['ON_HOLD', 'Chuyến dừng theo quyết định'], CLOSED: ['CLOSED', 'Đã đóng'],
 };
 export const f5Pill = (i: Any): [string, string] => (F5_ST[i.status] ? F5_ST[i.status] : [i.status, human(i.status)]);
 export const F5_DONE = ['CLOSED', 'HALTED'];
@@ -33,17 +37,13 @@ export const byVi = (b: string) => BY_VI[b] || b;
 
 const f5Log = (i: Any, text: string) => i.log.push([nowStamp(), text, me().name, 'FLEET_COORDINATOR']);
 export const curPlan = (i: Any) => i.plans[i.plans.length - 1] || null;
-const lastApproved = (i: Any) => [...i.plans].reverse().find((p: Any) => p.status === 'APPROVED') || null;
-const mgrSig = (p: Any) => JSON.stringify([p.kind === 'ROUTE_ADJUST', p.kind === 'FLIGHT_CHANGE' ? p.flightAt : '', Number(p.cost || 0), Number(p.cost || 0) ? p.payer || '' : '', p.etaTo || p.etaBase || '']);
-export const resSig = (p: Any) => JSON.stringify([p.vehicleId || '', p.crewRole || '', p.crewId || '', p.kind === 'FLIGHT_CHANGE' ? p.flightAt : '']);
-const f5NeedsApproval = (p: Any) => p.kind === 'ROUTE_ADJUST' || p.kind === 'FLIGHT_CHANGE' || Number(p.cost || 0) > 0 || (!!p.etaTo && p.etaTo !== p.etaBase);
-export const f5Why = (p: Any) => [p.kind === 'ROUTE_ADJUST' ? 'đổi lộ trình' : '', p.kind === 'FLIGHT_CHANGE' ? 'đổi chuyến bay' : '', Number(p.cost) > 0 ? `chi phí ${usd(p.cost)}` : '', p.etaTo && p.etaTo !== p.etaBase ? 'đổi thời gian giao đã cam kết' : ''].filter(Boolean);
+export const resSig = (p: Any) => JSON.stringify([p.vehicleId || '', p.newCrew ? Object.entries(p.newCrew).sort() : [p.crewRole || '', p.crewId || '']]);
 
 export function f5Status(i: Any) {
   if (F5_DONE.includes(i.status)) return i.status;
   const p = curPlan(i);
   i.status = i.escalation && !i.escalation.decision ? 'ESCALATED' : i.result ? 'RESULT_REPORTED' : i.continueAt ? 'CONTINUE_ALLOWED' : !i.ackAt ? 'REPORTED'
-    : !p || p.status === 'DRAFT' || (i.replan && p.v <= i.replanFrom) ? 'PLANNING' : p.status === 'PENDING_APPROVAL' ? 'PENDING_APPROVAL' : p.status === 'CHANGES_REQUESTED' ? 'CHANGES_REQUESTED' : 'EXECUTING';
+    : !p || p.status === 'DRAFT' || (i.replan && p.v <= i.replanFrom) ? 'PLANNING' : 'EXECUTING';
   return i.status;
 }
 
@@ -51,15 +51,22 @@ export function f5Status(i: Any) {
 export function f5Conditions(i: Any, own = false): Array<{ ok: boolean; label: string; by: string }> {
   const t = trip(i.tripId), p = curPlan(i), out: Array<{ ok: boolean; label: string; by: string }> = [];
   const add = (ok: boolean, label: string, by: string) => out.push({ ok, label, by });
-  add(!!p && p.status !== 'DRAFT', p ? `Phương án v${p.v} đã lưu và gửi/áp dụng` : 'Có phương án xử lý', 'Điều phối');
-  if (p && p.needsApproval) add(p.status === 'APPROVED', `Manager phê duyệt phương án v${p.v} (${f5Why(p).join(', ')})`, 'Manager');
-  add(!!(i.sceneReady && p && i.sceneReady.sig === resSig(p)), 'Driver / Escort xác nhận hiện trường sẵn sàng' + (i.sceneReady && p && i.sceneReady.sig !== resSig(p) ? ' (cần xác nhận lại vì xe/nhân sự/chuyến bay đã đổi)' : ''), 'Driver / Escort');
+  add(!!p && p.status !== 'DRAFT', p ? `Phương án v${p.v} đã lưu và áp dụng` : 'Có phương án xử lý', 'Điều phối');
+  add(!!(i.sceneReady && p && i.sceneReady.sig === resSig(p)), 'Driver / Escort xác nhận hiện trường sẵn sàng' + (i.sceneReady && p && i.sceneReady.sig !== resSig(p) ? ' (cần xác nhận lại vì xe/nhân sự đã đổi)' : ''), 'Driver / Escort');
   add(!!(i.resOk && p && i.resOk.sig === resSig(p)), `Xe & nhân sự đáp ứng phương án${p ? ' v' + p.v : ''}` + (i.resOk && p && i.resOk.sig !== resSig(p) ? ' (cần xác nhận lại)' : ''), 'Điều phối');
   if (i.type === 'HORSE_HEALTH') add(!!(i.vet && ['FIT', 'FIT_WITH_CONDITIONS'].includes(i.vet.conclusion)), i.vet && i.vet.conclusion === 'NOT_FIT' ? 'Bác sĩ kết luận chưa đủ sức khỏe tiếp tục' : 'Kết luận của bác sĩ bên ngoài cho phép tiếp tục', 'Driver / Escort');
   if (!own) db.incidents.filter((x: Any) => x !== i && x.tripId === i.tripId && x.blocking && !F5_DONE.includes(x.status) && !x.continueAt && f5Conditions(x, true).some((c) => !c.ok))
     .forEach((x: Any) => add(false, `Sự cố ${x.id} (${F5_TYPES[x.type] || incTypeVi(x.type)}) vẫn đang chặn chặng`, 'Điều phối'));
-  if (tripHalted(t)) add(false, 'Chuyến đang dừng theo quyết định Manager', 'Manager');
-  if (p?.crewId && t) { const error = staffError(emp(p.crewId), t, p.crewRole); out.push({ ok: !error, label: error || 'Nhân sự thay thế hợp lệ, không trùng chuyến khác', by: 'Điều phối' }); }
+  if (tripHalted(t)) add(false, 'Chuyến đang dừng theo quyết định', 'Điều phối');
+  if (p?.newCrew) {
+    for (const [r, cid] of Object.entries(p.newCrew)) {
+      const error = staffError(emp(cid as string), t, r);
+      if (error) out.push({ ok: false, label: error, by: 'Điều phối' });
+    }
+  } else if (p?.crewId && t) {
+    const error = staffError(emp(p.crewId), t, p.crewRole);
+    out.push({ ok: !error, label: error || 'Nhân sự thay thế hợp lệ, không trùng chuyến khác', by: 'Điều phối' });
+  }
   return out;
 }
 
@@ -67,11 +74,10 @@ export function f5Conditions(i: Any, own = false): Array<{ ok: boolean; label: s
 export function f5Next(i: Any): [string, string, string] {
   const p = curPlan(i), miss = f5Conditions(i).filter((c) => !c.ok), S = i.status;
   if (S === 'CLOSED') return ['done', 'Sự cố đã đóng', `Đóng bởi ${i.closedBy || '—'} lúc ${dt(i.closedAt)}. Đóng sự cố không hoàn tất chuyến; chuyến tiếp tục theo các mốc bình thường.`];
-  if (S === 'HALTED') return ['bad', 'Chuyến dừng theo quyết định Manager', i.escalation?.note || ''];
-  if (S === 'ESCALATED') return ['wait', 'Đang chờ Manager quyết định', 'Điều phối đã báo chuyến không thể tiếp tục: ' + i.escalation.reason];
+  if (S === 'HALTED') return ['bad', 'Chuyến dừng theo quyết định', i.escalation?.note || ''];
+  if (S === 'ESCALATED') return ['wait', 'Đang chờ quyết định', 'Điều phối đã báo chuyến không thể tiếp tục: ' + i.escalation.reason];
   if (S === 'REPORTED') return ['me', 'Tiếp nhận sự cố', 'Bạn là đầu mối từ tiếp nhận đến đóng sự cố.'];
-  if (S === 'PLANNING' && i.replan) return ['me', 'Lập lại kế hoạch theo quyết định Manager', (i.escalation?.note || '') + ' – phương án mới cần Manager duyệt.'];
-  if (S === 'PLANNING' || S === 'CHANGES_REQUESTED') return ['me', S === 'CHANGES_REQUESTED' ? 'Chỉnh sửa phương án theo yêu cầu của Manager' : (p ? `Hoàn thiện phương án v${p.v} và ${p.needsApproval ? 'gửi Manager duyệt' : 'áp dụng'}` : 'Lập phương án xử lý'), S === 'CHANGES_REQUESTED' ? 'Lý do: ' + ((p.approvals.slice(-1)[0] || {}).reason || '') : ''];
+  if (S === 'PLANNING') return ['me', p ? `Hoàn thiện phương án v${p.v} và áp dụng` : 'Lập phương án xử lý', ''];
   if (S === 'PENDING_APPROVAL') return ['wait', `Chờ Manager duyệt phương án v${p.v}`, 'Phê duyệt không đồng nghĩa với được tiếp tục chặng.'];
   if (S === 'EXECUTING') {
     const mine = miss.filter((c) => c.by === 'Điều phối');
@@ -106,9 +112,21 @@ export function nearestVets(t: Any) {
 // ---------- tác động của phương án đã duyệt / không cần duyệt lên chuyến ----------
 function f5Apply(i: Any, p: Any) {
   const t = trip(i.tripId);
-  if (p.vehicleId && p.vehicleId !== t.vehicleId) { f5Log(i, `Đổi xe ${vehicle(t.vehicleId) ? vehicle(t.vehicleId).plate : '—'} → ${vehicle(p.vehicleId).plate}`); t.vehicleId = p.vehicleId; }
-  if (p.crewId && p.crewRole) { t.crew = { ...(t.crew || {}), [p.crewRole]: p.crewId }; f5Log(i, `Thay ${human(p.crewRole)}: ${emp(p.crewId).name}`); }
-  if (p.kind === 'FLIGHT_CHANGE' && t.flight && p.flightAt) { const d = Date.parse(t.flight.arriveAt.replace(' ', 'T')) - Date.parse(t.flight.departAt.replace(' ', 'T')); t.flight.departAt = p.flightAt; t.flight.arriveAt = addHours(p.flightAt, d / 3600000); f5Log(i, `Chuyến bay dời sang ${dt(p.flightAt)}`); }
+  if (p.vehicleId && p.vehicleId !== t.vehicleId) {
+    f5Log(i, `Đổi xe ${vehicle(t.vehicleId) ? vehicle(t.vehicleId).plate : '—'} → ${vehicle(p.vehicleId)?.plate || p.vehicleId}`);
+    t.vehicleId = p.vehicleId;
+  }
+  if (p.newCrew && typeof p.newCrew === 'object') {
+    Object.entries(p.newCrew).forEach(([role, crewId]) => {
+      if (crewId && emp(crewId as string)) {
+        t.crew = { ...(t.crew || {}), [role]: crewId };
+        f5Log(i, `Thay ${human(role)}: ${emp(crewId as string)?.name}`);
+      }
+    });
+  } else if (p.crewId && p.crewRole) {
+    t.crew = { ...(t.crew || {}), [p.crewRole]: p.crewId };
+    f5Log(i, `Thay ${human(p.crewRole)}: ${emp(p.crewId)?.name || p.crewId}`);
+  }
   if (p.etaTo && p.etaTo !== t.eta) changeEta(t, p.etaTo, `${i.id} – phương án v${p.v}`, me().name);
   crewOf(t).forEach(([, e]) => notify(e, `Phương án v${p.v} cho ${i.id}`, p.desc.slice(0, 90), `d/incident/${i.id}`));
 }
@@ -127,80 +145,327 @@ export function f5Ack(id: string) {
 
 export function f5Plan(id: string) {
   const i = find(id), t = trip(i.tripId), p = curPlan(i) || {}, n = tripHorses(t).length;
-  const vOpts: Array<[string, string]> = [['', 'Giữ xe hiện tại'], ...db.vehicles.filter((v: Any) => v.id !== t.vehicleId && v.status === 'READY' && v.stalls >= n && !vehicleConflict(v, t)).map((v: Any) => [v.id, `${v.plate} • ${v.model} • ${v.stalls} ô • ${v.base}`] as [string, string])];
-  const cOpts: Array<[string, string]> = [['', 'Không thay'], ...db.employees.filter((e: Any) => e.status === 'ACTIVE' && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t)).map((e: Any) => [e.id, `${e.name} • ${human(e.position)}`] as [string, string])];
-  const guess = p.kind || (/BREAKDOWN|ACCIDENT/.test(i.type) ? 'VEHICLE_SWAP' : i.type === 'FLIGHT_DELAY' ? 'FLIGHT_CHANGE' : /ROAD|BORDER|WEATHER/.test(i.type) ? 'ROUTE_ADJUST' : i.type === 'HORSE_HEALTH' ? 'EXTERNAL_SERVICE' : 'NO_CHANGE');
+  const currentVeh = vehicle(t.vehicleId);
+  const curMD = t.crew?.MAIN_DRIVER ? emp(t.crew.MAIN_DRIVER) : null;
+  const curCD = t.crew?.CO_DRIVER ? emp(t.crew.CO_DRIVER) : null;
+  const curVet = t.crew?.VETERINARIAN ? emp(t.crew.VETERINARIAN) : null;
+
+  const vOpts: Array<[string, string]> = [
+    ['', `— Giữ xe hiện tại (${currentVeh?.plate || 'Chưa có xe'}) —`],
+    ...db.vehicles.filter((v: Any) => v.id !== t.vehicleId && v.status === 'READY' && v.stalls >= n && !vehicleConflict(v, t))
+      .map((v: Any) => [v.id, `${v.plate} • ${v.model} • ${v.stalls} ô • ${v.base}`] as [string, string]),
+  ];
+
+  const mainDriverOpts: Array<[string, string]> = [
+    ['', `— Giữ tài xế chính (${curMD?.name || 'Chưa phân công'}) —`],
+    ...db.employees.filter((e: Any) => isDriver(e) && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t))
+      .map((e: Any) => [e.id, `${e.name} • ${human(e.position)}`] as [string, string]),
+  ];
+
+  const coDriverOpts: Array<[string, string]> = [
+    ['', `— Giữ phụ lái (${curCD?.name || 'Chưa phân công'}) —`],
+    ...db.employees.filter((e: Any) => (isDriver(e) || (e.role === 'ESCORT' && e.position === 'ESCORT')) && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t))
+      .map((e: Any) => [e.id, `${e.name} • ${human(e.position)}`] as [string, string]),
+  ];
+
+  const vetOpts: Array<[string, string]> = [
+    ['', `— Giữ áp tải chăm sóc ngựa (${curVet?.name || 'Chưa phân công'}) —`],
+    ...db.employees.filter((e: Any) => (isVet(e) || e.position === 'VETERINARIAN') && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t) && (!e.certExpiry || e.certExpiry >= t.eta.slice(0, 10)))
+      .map((e: Any) => [e.id, `${e.name} • Thú y (Hạn chứng chỉ: ${e.certExpiry || '—'})`] as [string, string]),
+  ];
+
+  const guess = p.kind && F5_PLAN[p.kind] ? p.kind : (/BREAKDOWN|ACCIDENT/.test(i.type) ? 'VEHICLE_SWAP' : /ROAD|BORDER|WEATHER/.test(i.type) ? 'ROUTE_ADJUST' : i.type === 'HORSE_HEALTH' ? 'CREW_SWAP' : 'NO_CHANGE');
   const vets = i.type === 'HORSE_HEALTH' ? nearestVets(t) : [];
+
   openModal({
-    title: `${curPlan(i) && curPlan(i).status !== 'DRAFT' ? 'Sửa phương án → tạo phiên bản mới' : 'Phương án xử lý'} • ${i.id}`, ok: 'Lưu phương án', wide: true,
-    init: { k: guess, desc: p.desc || '', reason: p.reason || '', veh: p.vehicleId || '', crole: p.crewRole || '', cid: p.crewId || '', legal: p.legalRoute !== false,
-      flight: (p.flightAt || (t.flight && t.flight.departAt) || t.plannedDepart), eta: p.etaTo || t.eta, cost: String(p.cost || 0), payer: p.payer || 'COMPANY' },
-    body: () => (<>
-      <p className="subtitle" style={{ marginTop: 0 }}>{legOf(t, i.leg)} • ETA đã xác nhận {dt(t.eta)}</p>
-      <Field label="Hướng xử lý *"><Sel name="k" options={Object.entries(F5_PLAN)} /></Field>
-      {vets.length ? <Note tone="grey" icon="info" title="Cơ sở thú y gần vị trí hiện tại">{vets.map((v: Any, k: number) => <span key={v.id}>{k ? <br /> : null}{v.name} (~{v.est} km, {v.phone}, {v.hours})</span>)}</Note> : null}
-      <Field label="Nội dung phương án *"><Txt name="desc" placeholder="Việc cần làm, ai làm, khi nào" /></Field>
-      <Field label="Lý do *"><Inp name="reason" /></Field>
-      <div className="form-grid">
-        <Field label="Xe"><Sel name="veh" options={vOpts} /></Field>
-        <Field label="Thay nhân sự"><div style={{ display: 'flex', gap: 6 }}><Sel name="crole" options={[['', '—'], ['MAIN_DRIVER', 'Tài xế chính'], ['CO_DRIVER', 'Phụ lái / Escort'], ['VETERINARIAN', 'Áp tải chăm sóc ngựa']]} /><Sel name="cid" options={cOpts} /></div></Field>
-      </div>
-      <div id="f5-route-box"><Chk name="legal">Lộ trình mới vẫn trong tuyến pháp lý đã duyệt (giữ quốc gia và cửa khẩu)</Chk></div>
-      {t.mode === 'AIR' ? <Field label="Giờ bay mới (khi đổi / hoãn chuyến bay)"><DateTimeInput name="flight" /></Field> : null}
-      <div className="form-grid">
-        <Field label="Thời gian giao dự kiến *"><DateTimeInput name="eta" /></Field>
-        <Field label="Chi phí phát sinh (USD) *"><Inp name="cost" type="number" min="0" /></Field>
-        <Field label="Bên chịu chi phí"><Sel name="payer" options={[['COMPANY', 'CBN Transport'], ['CUSTOMER', 'Khách hàng (thỏa thuận riêng)'], ['INSURANCE', 'Bảo hiểm (dự kiến)']]} /></Field>
-      </div>
-    </>),
+    title: `${curPlan(i) && curPlan(i).status !== 'DRAFT' ? 'Sửa phương án → tạo phiên bản mới' : 'Phương án xử lý'} • ${i.id}`,
+    ok: 'Lưu phương án',
+    wide: true,
+    init: {
+      k: guess,
+      desc: p.desc || '',
+      reason: p.reason || '',
+      veh: p.vehicleId || '',
+      changeMainDriver: !!(p.newCrew?.MAIN_DRIVER || (p.crewRole === 'MAIN_DRIVER' && p.crewId)),
+      mainDriverId: p.newCrew?.MAIN_DRIVER || (p.crewRole === 'MAIN_DRIVER' ? p.crewId : '') || '',
+      changeCoDriver: !!(p.newCrew?.CO_DRIVER || (p.crewRole === 'CO_DRIVER' && p.crewId)),
+      coDriverId: p.newCrew?.CO_DRIVER || (p.crewRole === 'CO_DRIVER' ? p.crewId : '') || '',
+      changeVet: !!(p.newCrew?.VETERINARIAN || (p.crewRole === 'VETERINARIAN' && p.crewId)),
+      vetId: p.newCrew?.VETERINARIAN || (p.crewRole === 'VETERINARIAN' ? p.crewId : '') || '',
+      legal: p.legalRoute !== false,
+      eta: p.etaTo || t.eta,
+      cost: String(p.cost || 0),
+      payer: p.payer || 'COMPANY',
+    },
+    body: (f) => {
+      return (
+        <>
+          <p className="subtitle" style={{ marginTop: 0 }}>{legOf(t, i.leg)} • ETA đã xác nhận {dt(t.eta)}</p>
+          <Field label="Hướng xử lý *">
+            <Sel name="k" options={Object.entries(F5_PLAN)} />
+          </Field>
+          {vets.length ? (
+            <Note tone="grey" icon="info" title="Cơ sở thú y gần vị trí hiện tại">
+              {vets.map((v: Any, idx: number) => (
+                <span key={v.id}>{idx ? <br /> : null}{v.name} (~{v.est} km, {v.phone}, {v.hours})</span>
+              ))}
+            </Note>
+          ) : null}
+          <Field label="Nội dung phương án *">
+            <Txt name="desc" placeholder="Việc cần làm, ai làm, khi nào" />
+          </Field>
+          <Field label="Lý do *">
+            <Inp name="reason" placeholder="Lý do thực hiện phương án" />
+          </Field>
+
+          {/* KHỐI 1: XE - Chỉ hiển thị khi chọn Thay xe hoặc Thay cả xe và nhân sự */}
+          {(f.v.k === 'VEHICLE_SWAP' || f.v.k === 'VEHICLE_AND_CREW_SWAP') && (
+            <div style={{ marginTop: 14, padding: 12, border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8, background: 'var(--bg-surface, #fff)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <b style={{ fontSize: 14, color: 'var(--text-primary, #111827)' }}>
+                  1. Phương tiện vận chuyển (Xe điều động / thay thế)
+                </b>
+                <span className="muted" style={{ fontSize: 12 }}>Đã khóa xe đang trong chuyến / bận</span>
+              </div>
+              <Field label="Xe điều động / thay thế *" hint="Chọn xe sẵn sàng để điều đến hiện trường thay thế xe gặp sự cố">
+                <Sel name="veh" options={vOpts} />
+              </Field>
+            </div>
+          )}
+
+          {/* KHỐI 2: NHÂN SỰ TÁCH 3 VAI TRÒ - Chỉ hiển thị khi chọn Thay nhân sự hoặc Thay cả xe và nhân sự */}
+          {(f.v.k === 'CREW_SWAP' || f.v.k === 'VEHICLE_AND_CREW_SWAP') && (
+            <div style={{ marginTop: 14, padding: 12, border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8, background: 'var(--bg-surface, #fff)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <b style={{ fontSize: 14, color: 'var(--text-primary, #111827)' }}>
+                  2. Nhân sự tổ xe (3 vị trí riêng biệt)
+                </b>
+                <span className="muted" style={{ fontSize: 12 }}>Tích chọn từng vị trí để mở khóa phân công thay thế</span>
+              </div>
+
+              {/* Vị trí 1: Tài xế chính */}
+              <div style={{ marginBottom: 12, padding: 10, background: 'var(--bg-page, #f9fafb)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div>
+                    <b>Tài xế chính:</b> <span className="muted">{curMD ? curMD.name : 'Chưa phân công'}</span>
+                  </div>
+                  <Chk name="changeMainDriver">Thay tài xế chính / Cử tài xế lái xe cứu viện</Chk>
+                </div>
+                {f.v.changeMainDriver && (
+                  <Field label="Chọn tài xế chính mới *" hint="Chỉ hiển thị tài xế sẵn sàng và không có lịch chuyến nào đang chạy">
+                    <Sel name="mainDriverId" options={mainDriverOpts} />
+                  </Field>
+                )}
+              </div>
+
+              {/* Vị trí 2: Phụ lái / Escort */}
+              <div style={{ marginBottom: 12, padding: 10, background: 'var(--bg-page, #f9fafb)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div>
+                    <b>Phụ lái / Escort:</b> <span className="muted">{curCD ? curCD.name : 'Chưa phân công'}</span>
+                  </div>
+                  <Chk name="changeCoDriver">Thay phụ lái / Escort đi kèm</Chk>
+                </div>
+                {f.v.changeCoDriver && (
+                  <Field label="Chọn phụ lái / escort mới *" hint="Chỉ hiển thị nhân sự sẵn sàng và không có lịch chuyến nào đang chạy">
+                    <Sel name="coDriverId" options={coDriverOpts} />
+                  </Field>
+                )}
+              </div>
+
+              {/* Vị trí 3: Áp tải chăm sóc ngựa */}
+              <div style={{ padding: 10, background: 'var(--bg-page, #f9fafb)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div>
+                    <b>Áp tải chăm sóc ngựa / Thú y:</b> <span className="muted">{curVet ? curVet.name : 'Chưa phân công'}</span>
+                  </div>
+                  <Chk name="changeVet">Cử bác sĩ thú y / áp tải mới hỗ trợ</Chk>
+                </div>
+                {f.v.changeVet && (
+                  <Field label="Chọn người chăm sóc ngựa / bác sĩ thú y mới *" hint="Chỉ hiển thị bác sĩ thú y có chứng chỉ hợp lệ và đang sẵn sàng">
+                    <Sel name="vetId" options={vetOpts} />
+                  </Field>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div id="f5-route-box" style={{ marginTop: 12 }}>
+            <Chk name="legal">Lộ trình mới vẫn trong tuyến pháp lý đã duyệt (giữ quốc gia và cửa khẩu)</Chk>
+          </div>
+
+          <div className="form-grid" style={{ marginTop: 12 }}>
+            <Field label="Thời gian giao dự kiến *"><DateTimeInput name="eta" /></Field>
+            <Field label="Chi phí phát sinh (USD) *"><Inp name="cost" type="number" min="0" /></Field>
+            <Field label="Bên chịu chi phí"><Sel name="payer" options={[['COMPANY', 'CBN Transport'], ['CUSTOMER', 'Khách hàng (thỏa thuận riêng)'], ['INSURANCE', 'Bảo hiểm (dự kiến)']]} /></Field>
+          </div>
+        </>
+      );
+    },
     onOk: (v) => {
-      const k = v.k, cost = Number(v.cost || 0), eta = String(v.eta || '').replace('T', ' ');
+      const k = v.k;
+      const cost = Number(v.cost || 0), eta = String(v.eta || '').replace('T', ' ');
+
       if (String(v.desc).trim().length < 10) return 'Mô tả phương án ít nhất 10 ký tự.';
       if (String(v.reason).trim().length < 3) return 'Nhập lý do.';
-      if (k === 'ROUTE_ADJUST' && !v.legal) return 'Đổi quốc gia/cửa khẩu nằm ngoài Flow 5: dùng “Báo không thể tiếp tục” để Manager lập lại kế hoạch.';
-      if (k === 'VEHICLE_SWAP' && !v.veh) return 'Chọn xe thay thế.';
-      if (k === 'CREW_SWAP' && !(v.crole && v.cid)) return 'Chọn vị trí và người thay.';
-      if (v.cid) { const error = staffError(emp(v.cid), t, v.crole); if (error) return error; }
-      if (k === 'FLIGHT_CHANGE' && (t.mode !== 'AIR' || !v.flight)) return 'Chọn giờ bay mới.';
+      if (k === 'ROUTE_ADJUST' && !v.legal) return 'Đổi quốc gia/cửa khẩu nằm ngoài Flow 5: dùng “Báo không thể tiếp tục” để Điều phối lập lại kế hoạch.';
+
+      // Kiểm tra chọn xe khi phương án yêu cầu đổi xe
+      if ((k === 'VEHICLE_SWAP' || k === 'VEHICLE_AND_CREW_SWAP') && !v.veh) {
+        return 'Vui lòng chọn xe điều động / thay thế cho chuyến đi.';
+      }
+
+      // Kiểm tra nhân sự
+      const newCrew: Record<string, string> = {};
+      if (k === 'CREW_SWAP' || k === 'VEHICLE_AND_CREW_SWAP') {
+        if (v.changeMainDriver) {
+          if (!v.mainDriverId) return 'Vui lòng chọn tài xế chính mới.';
+          newCrew.MAIN_DRIVER = v.mainDriverId;
+        }
+        if (v.changeCoDriver) {
+          if (!v.coDriverId) return 'Vui lòng chọn phụ lái / escort mới.';
+          newCrew.CO_DRIVER = v.coDriverId;
+        }
+        if (v.changeVet) {
+          if (!v.vetId) return 'Vui lòng chọn áp tải chăm sóc ngựa mới.';
+          newCrew.VETERINARIAN = v.vetId;
+        }
+
+        if (k === 'CREW_SWAP' && Object.keys(newCrew).length === 0) {
+          return 'Bạn đã chọn hướng xử lý “Thay nhân sự”, vui lòng tích chọn và phân công ít nhất một vị trí nhân sự thay thế.';
+        }
+
+        const selectedIds = Object.values(newCrew);
+        if (new Set(selectedIds).size !== selectedIds.length) {
+          return 'Một nhân sự không thể đảm nhận đồng thời 2 vị trí trong cùng chuyến.';
+        }
+
+        for (const [role, cid] of Object.entries(newCrew)) {
+          const err = staffError(emp(cid), t, role);
+          if (err) return err;
+        }
+      }
+
       if (!eta) return 'Chọn thời gian giao dự kiến.';
       if (!(cost >= 0)) return 'Chi phí không hợp lệ.';
+
       const base = curPlan(i), draft = base && base.status === 'DRAFT';
-      const np: Any = { v: draft ? base.v : (base ? base.v + 1 : 1), id: draft ? base.id : nextId('PL'), kind: k, desc: String(v.desc).trim(), reason: String(v.reason).trim(), vehicleId: v.veh || '', crewRole: v.cid ? v.crole : '', crewId: v.cid || '',
-        legalRoute: true, flightAt: k === 'FLIGHT_CHANGE' ? String(v.flight).replace('T', ' ') : '', etaBase: t.eta, etaTo: eta === t.eta ? '' : eta, cost, payer: v.payer, by: me().name, at: nowStamp(), status: 'DRAFT', approvals: [] };
-      np.needsApproval = f5NeedsApproval(np) || !!i.replan;
+      const primaryRole = Object.keys(newCrew)[0] || '';
+      const primaryCid = Object.values(newCrew)[0] || '';
+
+      const np: Any = {
+        v: draft ? base.v : (base ? base.v + 1 : 1),
+        id: draft ? base.id : nextId('PL'),
+        kind: k,
+        desc: String(v.desc).trim(),
+        reason: String(v.reason).trim(),
+        vehicleId: v.veh || '',
+        crewRole: primaryRole,
+        crewId: primaryCid,
+        newCrew,
+        legalRoute: true,
+        etaBase: t.eta,
+        etaTo: eta === t.eta ? '' : eta,
+        cost,
+        payer: v.payer,
+        by: me().name,
+        at: nowStamp(),
+        status: 'DRAFT',
+        approvals: []
+      };
+
+      // Điều phối duyệt cuối trực tiếp, không cần gửi Manager
+      np.needsApproval = false;
+
       if (draft) i.plans[i.plans.length - 1] = np; else i.plans.push(np);
-      f5Log(i, `${draft ? 'Cập nhật nháp' : 'Lưu'} phương án v${np.v}: ${F5_PLAN[k]}${np.needsApproval ? ' (cần Manager duyệt)' : ''}`); f5Status(i);
-      toast(`Đã lưu phương án v${np.v}. ${np.needsApproval ? 'Bấm “Gửi Manager duyệt”.' : 'Bấm “Áp dụng phương án”.'}`);
+      f5Log(i, `${draft ? 'Cập nhật nháp' : 'Lưu'} phương án v${np.v}: ${F5_PLAN[k] || k}`);
+      f5Status(i);
+      commit();
+      toast(`Đã lưu phương án v${np.v}. Bấm “Duyệt & Áp dụng phương án” để kích hoạt.`);
     },
   });
 }
 
 export function f5Submit(id: string) {
   const i = find(id), t = trip(i.tripId), p = curPlan(i); if (!p || p.status !== 'DRAFT') return;
-  if (p.crewId) { const e = staffError(emp(p.crewId), t, p.crewRole); if (e) return toast(e); }
-  const prev = lastApproved(i);
-  if (p.needsApproval && prev && !i.replan && mgrSig(prev) === mgrSig(p)) {
-    p.status = 'APPROVED'; p.inherited = prev.v; p.approvals.push({ at: nowStamp(), by: 'Hệ thống', decision: 'INHERITED', reason: `Nội dung thuộc quyền Manager giống v${prev.v}` });
-    f5Log(i, `Phương án v${p.v} kế thừa phê duyệt v${prev.v} (chỉ đổi xe/nhân sự/mô tả)`); f5Apply(i, p);
-  } else if (p.needsApproval) {
-    p.status = 'PENDING_APPROVAL'; p.sentAt = nowStamp(); f5Log(i, `Gửi Manager duyệt phương án v${p.v} (${f5Why(p).join(', ')})`);
-    notify('LOGISTICS_MANAGER', `Cần duyệt phương án v${p.v} – ${i.id}`, `${F5_PLAN[p.kind]} • ${f5Why(p).join(', ')}`, `m/incident/${i.id}`);
-  } else { p.status = 'NOT_REQUIRED'; f5Log(i, `Áp dụng phương án v${p.v} – không cần Manager duyệt`); f5Apply(i, p); }
-  f5Status(i); toast(p.status === 'PENDING_APPROVAL' ? 'Đã gửi Manager duyệt.' : 'Đã áp dụng phương án. Xác nhận nguồn lực và chờ hiện trường sẵn sàng.');
+  if (p.newCrew) {
+    for (const [r, cid] of Object.entries(p.newCrew)) {
+      const err = staffError(emp(cid as string), t, r);
+      if (err) return toast(err);
+    }
+  } else if (p.crewId) {
+    const e = staffError(emp(p.crewId), t, p.crewRole);
+    if (e) return toast(e);
+  }
+  p.status = 'APPROVED';
+  p.approvedAt = nowStamp();
+  p.approvedBy = me().name;
+  p.approvals = p.approvals || [];
+  p.approvals.push({ at: nowStamp(), by: me().name, decision: 'APPROVED', reason: 'Điều phối viên trực tiếp phê duyệt và áp dụng' });
+  f5Log(i, `Điều phối viên phê duyệt và áp dụng phương án v${p.v}: ${F5_PLAN[p.kind] || p.kind}`);
+  f5Apply(i, p);
+
+  // Lưu phương án đã duyệt vào sự cố để tài xế xem được ngay
+  const planSummary = p.desc || p.reason || F5_PLAN[p.kind] || 'Đã duyệt phương án xử lý sự cố';
+  const vehInfo = p.vehicleId && vehicle(p.vehicleId) ? `${vehicle(p.vehicleId).plate} (${vehicle(p.vehicleId).model})` : p.vehicleId;
+  const crewInfo = p.newCrew && Object.keys(p.newCrew).length
+    ? Object.entries(p.newCrew).map(([r, cid]) => `${human(r)}: ${emp(cid as string)?.name || cid}`).join('; ')
+    : (p.crewId ? `${human(p.crewRole)}: ${emp(p.crewId)?.name || p.crewId}` : '');
+  const resolutionDetails = [
+    p.desc ? `Chỉ dẫn hiện trường: ${p.desc}` : '',
+    p.reason ? `Lý do: ${p.reason}` : '',
+    vehInfo ? `Phương tiện điều động: ${vehInfo}` : '',
+    crewInfo ? `Nhân sự cứu viện: ${crewInfo}` : '',
+    p.etaTo ? `ETA mới: ${p.etaTo}` : '',
+  ].filter(Boolean).join(' | ');
+
+  i.approvedPlan = planSummary;
+  i.resolutionType = p.kind;
+  i.resolutionNotes = resolutionDetails || planSummary;
+  f5Status(i);
+  commit();
+
+  // Đồng bộ lên backend API và tạo Notification cho tài xế
+  void (async () => {
+    try {
+      await apiClient.post(`/incidents/${cleanId(i.id)}/recovery/apply`, {
+        planSummary,
+        resolutionType: p.kind,
+        resolutionNotes: resolutionDetails || planSummary,
+      });
+    } catch (e) {
+      console.warn('[f5Submit] Failed to sync recovery apply to backend:', e);
+    }
+  })();
+
+  // Phát event thời gian thực cho các tab (Driver / Manager / Specialist)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('rts_incident_pins_changed', { detail: { id: i.id, approvedPlan: planSummary, status: i.status } }));
+    window.dispatchEvent(new CustomEvent('rts_incident_created', { detail: { id: i.id, approvedPlan: planSummary, status: i.status } }));
+  }
+
+  toast('Đã phê duyệt và áp dụng phương án. Phương án đã được gửi tới tài xế!');
 }
 
 export function f5Res(id: string) {
   const i = find(id), t = trip(i.tripId), p = curPlan(i), v = vehicle(p.vehicleId || t.vehicleId);
-  if (p.crewId) { const e = staffError(emp(p.crewId), t, p.crewRole); if (e) return toast(e); }
+  if (p.newCrew) {
+    for (const [r, cid] of Object.entries(p.newCrew)) {
+      const e = staffError(emp(cid as string), t, r);
+      if (e) return toast(e);
+    }
+  } else if (p.crewId) {
+    const e = staffError(emp(p.crewId), t, p.crewRole);
+    if (e) return toast(e);
+  }
   openModal({
     title: `Xác nhận nguồn lực cho phương án v${p.v}`, ok: 'Xác nhận', init: { ok: false },
     body: () => (<>
       <div className="kv2">
         <div><div className="label">Xe</div><div className="value sm">{v ? `${v.plate} • ${v.stalls} ô • ${human(v.status)}` : '—'}</div></div>
         <div><div className="label">Nhân sự</div><div className="value sm">{crewOf(t).length ? crewOf(t).map(([k, e], n) => <span key={k}>{n ? <br /> : null}{human(k)}: {emp(e)?.name}</span>) : '—'}</div></div>
-        {p.kind === 'FLIGHT_CHANGE' ? <div><div className="label">Chuyến bay</div><div className="value sm">{dt(p.flightAt)}</div></div> : null}
       </div>
-      <Chk name="ok">Xe và nhân sự đã bố trí đáp ứng phương án{p.kind === 'FLIGHT_CHANGE' ? ' (đã bố trí lại 2 chặng xe sân bay theo giờ bay mới)' : ''}</Chk>
+      <Chk name="ok">Xe và nhân sự đã bố trí đáp ứng phương án</Chk>
     </>),
     onOk: (vals) => {
       if (!vals.ok) return 'Tick xác nhận.';
@@ -245,12 +510,42 @@ export function f5Close(id: string) {
 export function f5Escalate(id: string) {
   const i = find(id);
   openModal({
-    title: 'Không thể tiếp tục – chuyển Manager quyết định', ok: 'Chuyển Manager', danger: true, init: { es: '' },
-    body: () => <Field label="Lý do *"><Txt name="es" placeholder="Vì sao không thể tiếp tục trong tuyến/kế hoạch hiện tại (VD: cần đổi cửa khẩu, ngựa không đủ sức khỏe…)" /></Field>,
+    title: 'Từ chối hỗ trợ tại chỗ – Chuyển Quản lý quyết định',
+    ok: 'Chuyển Quản lý',
+    danger: true,
+    init: { es: '' },
+    body: () => (
+      <Field label="Lý do từ chối hỗ trợ / không thể xử lý tại chỗ *">
+        <Txt name="es" placeholder="Vì sao không thể xử lý trong kế hoạch hiện tại (VD: ngựa nguy kịch cần bệnh viện lớn, xe hư hỏng toàn bộ, vượt ngân sách…)" />
+      </Field>
+    ),
     onOk: (v) => {
-      if (String(v.es).trim().length < 10) return 'Nhập lý do (ít nhất 10 ký tự).';
-      i.escalation = { at: nowStamp(), by: me().name, reason: String(v.es).trim(), decision: null }; f5Log(i, 'Báo không thể tiếp tục: ' + i.escalation.reason); f5Status(i);
-      notify('LOGISTICS_MANAGER', `${i.id}: chuyến không thể tiếp tục`, i.escalation.reason, `m/incident/${i.id}`); toast('Đã chuyển Manager quyết định.');
+      const reason = String(v.es).trim();
+      if (reason.length < 5) return 'Nhập lý do từ chối hỗ trợ (ít nhất 5 ký tự).';
+
+      i.escalation = { at: nowStamp(), by: me().name, reason, decision: null };
+      i.status = 'ESCALATED';
+      f5Log(i, 'Từ chối hỗ trợ tại chỗ – Chuyển Quản lý: ' + reason);
+      f5Status(i);
+      commit();
+
+      // Đồng bộ lên backend API để Quản lý nhận được request và thông báo
+      void (async () => {
+        try {
+          await apiClient.post(`/incidents/${cleanId(i.id)}/escalate`, { reason });
+        } catch (err) {
+          console.warn('[f5Escalate] Failed to sync escalate to backend:', err);
+        }
+      })();
+
+      notify('LOGISTICS_MANAGER', `${i.id}: Điều phối từ chối hỗ trợ – chuyển Quản lý`, reason, `m/incident/${i.id}`);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('rts_incident_pins_changed', { detail: { id: i.id, status: 'ESCALATED', reason } }));
+        window.dispatchEvent(new CustomEvent('rts_incident_created', { detail: { id: i.id, status: 'ESCALATED', reason } }));
+      }
+
+      toast('Đã từ chối hỗ trợ tại chỗ và chuyển sự cố lên Quản lý giải quyết.');
     },
   });
 }

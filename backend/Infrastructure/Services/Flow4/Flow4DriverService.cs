@@ -49,23 +49,12 @@ public class Flow4DriverService : IFlow4DriverService
         var h = await AssignedHorseAsync(tripId, horseId, driverId);
         string? key = kind switch { "photo" => h.PhotoUrl, "passport" => h.PassportScanUrl, "ownership" => h.OwnershipCertificateFileUrl, "value-proof" => h.ValuationDocumentFileUrl, _ => null };
         if (kind.StartsWith("medical-", StringComparison.Ordinal))
-            key = await _context.LegalMedicalRecords.Where(r => r.RecordId == kind[8..] && r.HorseId == horseId).Select(r => r.UploadedFileUrl).FirstOrDefaultAsync();
+        {
+            var recordId = kind.Substring(8);
+            key = await _context.LegalMedicalRecords.Where(r => r.RecordId == recordId && r.HorseId == horseId).Select(r => r.UploadedFileUrl).FirstOrDefaultAsync();
+        }
         if (key is null) throw new Application.Common.Exceptions.BusinessRuleException("Không tìm thấy tệp.", 404, "NOT_FOUND");
         return await _files.ReadAsync(key, CancellationToken.None);
-    }
-
-    /// <summary>
-    /// Chỉ tài xế chính và phụ lái được cập nhật mốc hành trình. Bác sĩ thú y / hộ tống chỉ ghi nhật ký sức khỏe ngựa.
-    /// </summary>
-    private async Task EnsureCanRecordRouteAsync(string tripId, string userId)
-    {
-        var allowed = await _context.TripVehicleAssignments
-            .AnyAsync(a => a.TripId == tripId && (a.DriverId == userId || a.CoDriverId == userId));
-        if (!allowed)
-        {
-            throw new Application.Common.Exceptions.BusinessRuleException(
-                "Chỉ tài xế chính hoặc phụ lái mới được cập nhật mốc hành trình. Bác sĩ thú y ghi nhật ký sức khỏe ngựa.", 403, "FORBIDDEN");
-        }
     }
 
     /// <summary>

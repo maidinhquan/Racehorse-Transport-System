@@ -42,6 +42,57 @@ const versionFromWire = (v: WireContract): ContractVersion => {
 const PLACE_TEXT = ['name', 'address', 'postal', 'contact', 'phone', 'notes', 'cityId', 'cityName'];
 const placeFromWire = (p: Record<string, unknown> | null | undefined) =>
   Object.fromEntries(Object.entries(p ?? {}).map(([k, v]) => [k, v == null && PLACE_TEXT.includes(k) ? '' : v])) as unknown as TransportRequest['pickup'];
+
+const incidentTypeMap: Record<string, Incident['type']> = {
+  VEHICLE_BREAKDOWN: 'VEHICLE',
+  VEHICLE_RESOURCE: 'VEHICLE',
+  VEHICLE: 'VEHICLE',
+  BREAKDOWN: 'VEHICLE',
+  HORSE_HEALTH: 'HORSE_HEALTH',
+  HEALTH: 'HORSE_HEALTH',
+  TRAFFIC_ACCIDENT: 'DELAY',
+  ROAD_CLOSURE: 'DELAY',
+  DELAY_AIR: 'DELAY',
+  FLIGHT_DELAY: 'DELAY',
+  DELAY: 'DELAY',
+  ACCIDENT: 'DELAY',
+  BORDER_DELAY: 'BORDER',
+  BORDER: 'BORDER',
+  OTHER: 'OTHER',
+};
+
+const incidentStatusMap: Record<string, Incident['status']> = {
+  REPORTED: 'NEW',
+  NEW: 'NEW',
+  PLANNING: 'IN_PROGRESS',
+  PENDING_APPROVAL: 'IN_PROGRESS',
+  CHANGES_REQUESTED: 'IN_PROGRESS',
+  EXECUTING: 'IN_PROGRESS',
+  CONTINUE_ALLOWED: 'IN_PROGRESS',
+  RESULT_REPORTED: 'IN_PROGRESS',
+  ESCALATED: 'IN_PROGRESS',
+  IN_PROGRESS: 'IN_PROGRESS',
+  RESOLVED: 'CLOSED',
+  CLOSED: 'CLOSED',
+  HALTED: 'CLOSED',
+};
+
+export const incidentFromWire = (r: Record<string, any>): Incident => ({
+  id: r.incidentId || r.id,
+  tripId: r.tripId,
+  type: incidentTypeMap[r.category || r.incidentType || r.type] || 'OTHER',
+  severity: r.severity || 'MEDIUM',
+  status: incidentStatusMap[r.status] || 'NEW',
+  at: r.reportedAt ? r.reportedAt.replace('T', ' ').slice(0, 16) : (r.at || ''),
+  by: r.reportedByUserName || r.reportedByUserId || r.by || 'Tài xế / Áp tải',
+  location: r.location || (r.locationCoordinates ? `Tọa độ: ${r.locationCoordinates}` : 'Trên đường vận chuyển'),
+  horseId: r.horseId,
+  description: r.description || '',
+  safety: r.safety || r.immediateCare || 'Người và ngựa an toàn hoặc đã được sơ cứu',
+  photos: Array.isArray(r.photos) ? r.photos : (r.imageUrl ? [r.imageUrl] : []),
+  plans: Array.isArray(r.plans) ? r.plans : [],
+  log: Array.isArray(r.log) ? r.log : [],
+});
 const requestFromWire = (r: WireRequest): TransportRequest => ({ ...r,
   id: r.id, customerId: r.customerId, origin: r.origin, destination: r.destination,
   horses: r.horses ?? [], pickup: placeFromWire(r.pickup), delivery: placeFromWire(r.delivery),
@@ -190,7 +241,10 @@ export const managerApi = {
   decidePickupRelocation: (tripId: string, body: { expectedVersion: number; relocationId: string; decision: 'APPROVE' | 'RETURN'; reason?: string }) =>
     apiRequest('post', E.RELOCATION_DECISION_F3(tripId), body),
   // Out-of-scope screens keep their existing routes; no fabricated successful response.
-  getIncidents: () => apiRequest<Incident[]>('get', E.INCIDENTS),
+  getIncidents: async (): Promise<Incident[]> => {
+    const list = await apiRequest<Record<string, any>[]>('get', E.INCIDENTS);
+    return Array.isArray(list) ? list.map(incidentFromWire) : [];
+  },
   getComplaints: () => apiRequest<Complaint[]>('get', E.COMPLAINTS),
   getActualCosts: () => apiRequest<ActualCost[]>('get', E.ACTUAL_COST_LIST),
   closeRequest: (id: string) => apiRequest('post', E.CLOSE_REQUEST(id)),
