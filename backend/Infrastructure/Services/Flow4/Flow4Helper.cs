@@ -196,24 +196,33 @@ public static class Flow4Helper
         var blockers = new List<Flow4BlockerDto>();
         // Check health blockers: Abnormal horse health
         var abnormalHorses = context.HealthLogs
-            .Where(h => h.TripId == trip.TripId && h.Condition == "ABNORMAL")
-            .Select(h => h.HorseId)
+            .Where(h => h.TripId == trip.TripId && h.Condition == "ABNORMAL" && h.HorseId != null)
+            .Select(h => h.HorseId!)
             .Distinct()
             .ToList();
 
         foreach (var horseId in abnormalHorses)
         {
-            var isCleared = context.VetAssessments
-                .Any(v => v.TripId == trip.TripId && v.HorseId == horseId && v.TransportFitness == "FIT");
+            var latestAbnormal = context.HealthLogs
+                .Where(h => h.TripId == trip.TripId && h.HorseId == horseId && h.Condition == "ABNORMAL")
+                .OrderByDescending(h => h.LogTime)
+                .FirstOrDefault();
 
-            if (!isCleared)
+            if (latestAbnormal != null)
             {
-                blockers.Add(new Flow4BlockerDto
+                var isCleared = context.VetAssessments
+                    .Any(v => v.TripId == trip.TripId && v.HorseId == horseId && v.TransportFitness == "FIT"
+                        && (v.AssessedAt >= latestAbnormal.LogTime || v.HealthLogId == latestAbnormal.LogId));
+
+                if (!isCleared)
                 {
-                    Code = "VET_CLEARANCE_REQUIRED",
-                    Field = $"horses[{horseId}]",
-                    Message = $"Ngựa {horseId} có chỉ số bất thường, đang chờ bác sĩ thú y đánh giá thể trạng FIT."
-                });
+                    blockers.Add(new Flow4BlockerDto
+                    {
+                        Code = "VET_CLEARANCE_REQUIRED",
+                        Field = $"horses[{horseId}]",
+                        Message = $"Ngựa {horseId} có chỉ số bất thường lúc {latestAbnormal.LogTime:HH:mm dd/MM}, đang chờ bác sĩ thú y đánh giá thể trạng FIT sau thời điểm này."
+                    });
+                }
             }
         }
 

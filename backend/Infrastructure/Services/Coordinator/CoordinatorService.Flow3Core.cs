@@ -596,6 +596,7 @@ namespace Infrastructure.Services
             var trip = await _context.TripPlans
                 .Include(t => t.Request)
                 .Include(t => t.VehicleAssignments)
+                .Include(t => t.RouteSegments)
                 .FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
 
             if (trip == null)
@@ -636,6 +637,13 @@ namespace Infrastructure.Services
             else
             {
                 plan.Mode = isAir ? "AIR" : "ROAD";
+            }
+
+            // Kiểm tra đảm bảo kế hoạch không vi phạm quy chuẩn phúc lợi ngựa trước khi cho phép nộp lên Manager
+            var welfareViolations = ValidatePlanEquineWelfareAndSafety(trip, plan, isAir);
+            if (welfareViolations.Any())
+            {
+                throw new InvalidOperationException($"EQUINE_WELFARE_VIOLATION: Không thể nộp kế hoạch vì vi phạm quy chuẩn phúc lợi ngựa: {string.Join("; ", welfareViolations)}");
             }
 
             plan.Status = "PENDING_APPROVAL";
@@ -694,6 +702,7 @@ namespace Infrastructure.Services
             var cleanTripId = tripId?.Trim() ?? string.Empty;
             var trip = await _context.TripPlans
                 .Include(t => t.Request)
+                .Include(t => t.RouteSegments)
                 .FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
 
             if (trip == null)
@@ -724,6 +733,12 @@ namespace Infrastructure.Services
 
             if (dto.Decision == "APPROVE")
             {
+                var severeErrors = ValidatePlanEquineWelfareAndSafety(trip, plan, isAir);
+                if (severeErrors.Any())
+                {
+                    throw new InvalidOperationException($"ROUTE_VALIDATION_FAILED: Không thể phê duyệt kế hoạch vì lộ trình còn lỗi vi phạm nghiêm trọng hoặc vi phạm quy định phúc lợi ngựa: {string.Join("; ", severeErrors)}");
+                }
+
                 plan.Status = "APPROVED";
                 trip.ApprovedPlanJson = JsonSerializer.Serialize(plan);
                 trip.RouteStatus = "APPROVED";
@@ -1079,6 +1094,107 @@ namespace Infrastructure.Services
                 _context.TripPlanningHistories.Add(history);
             }
             catch { }
+        }
+
+        private List<string> ValidatePlanEquineWelfareAndSafety(TripPlan trip, PlanDto? plan, bool isAir)
+        {
+            var errors = new List<string>();
+
+            // 1. Kiểm tra danh sách điểm dừng trong kế hoạch (PlanDto.Stops)
+            if (plan?.Stops != null && plan.Stops.Count >= 2)
+            {
+                var stops = plan.Stops;
+                for (int i = 0; i < stops.Count - 1; i++)
+                {
+                    var fromStop = stops[i];
+                    var toStop = stops[i + 1];
+
+                    // Kiểm tra thời gian lái xe liên tục giữa 2 điểm (không quá 6 tiếng theo quy định phúc lợi)
+                    if (DateTime.TryParse(fromStop.DepartAt, out var departAt) && DateTime.TryParse(toStop.ArriveAt, out var arriveAt))
+                    {
+                        var driveHours = (arriveAt - departAt).TotalHours;
+                        if (!isAir && driveHours > 6.0 && toStop.Type != "REST_STOP" && toStop.Type != "REST_STATION")
+                        {
+                            errors.Add($"Chặng từ '{fromStop.Name}' đến '{toStop.Name}' di chuyển liên tục {driveHours:F1}h (> 6h) không có trạm nghỉ.");
+                        }
+                    }
+
+                    // Nếu khoảng cách đường bộ quá lớn (> 360km) mà không có trạm dừng REST_STOP
+                    if (!isAir && fromStop.Geo != null && toStop.Geo != null)
+                    {
+                        var dist = _mapRoutingService.CalculateDistance(fromStop.Geo.Lat, fromStop.Geo.Lng, toStop.Geo.Lat, toStop.Geo.Lng);
+                        if (dist > 360.0 && toStop.Type != "REST_STOP" && toStop.Type != "REST_STATION")
+                        {
+                            errors.Add($"Chặng từ '{fromStop.Name}' đến '{toStop.Name}' ({dist:F0}km) vượt quá thời gian lái xe an toàn 6h liên tục.");
+                        }
+                    }
+                }
+
+                // Kiểm tra Lead time sân bay nếu là chặng bay đa phương thức (AIR)
+                if (isAir)
+                {
+                    var flightStopIdx = stops.FindIndex(s => s.Type == "AIR_LEG" || s.Type == "AIRPORT" || (s.Name != null && (s.Name.Contains("Sân bay") || s.Name.Contains("Airport") || s.Name.Contains("Nội Bài") || s.Name.Contains("Narita"))));
+                    if (flightStopIdx > 0)
+                    {
+                        var prevStop = stops[flightStopIdx - 1];
+                        var airportStop = stops[flightStopIdx];
+                        if (DateTime.TryParse(prevStop.DepartAt, out var groundDepart) && DateTime.TryParse(airportStop.ArriveAt, out var airportArrive) && DateTime.TryParse(airportStop.DepartAt, out var flightDepart))
+                        {
+                            var leadTimeHours = (flightDepart - airportArrive).TotalHours;
+                            if (leadTimeHours < 4.0 && leadTimeHours > 0)
+                            {
+                                errors.Add($"Thời gian đến sân bay trước giờ bay ({leadTimeHours:F1}h) không đạt chuẩn IATA LAR (tối thiểu 4 - 6 tiếng).");
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Kiểm tra danh sách RouteSegment trong cơ sở dữ liệu nếu có
+            if (trip.RouteSegments != null && trip.RouteSegments.Count >= 2)
+            {
+                var segments = trip.RouteSegments.OrderBy(s => s.SequenceOrder).ToList();
+                for (int i = 0; i < segments.Count - 1; i++)
+                {
+                    var curr = segments[i];
+                    var next = segments[i + 1];
+
+                    if (curr.TransportMode == "ROAD" && curr.ExpectedEta.HasValue && curr.PlannedTime.HasValue)
+                    {
+                        var hours = (curr.ExpectedEta.Value - curr.PlannedTime.Value).TotalHours;
+                        if (hours > 6.0 && curr.SegmentType != "REST_STOP" && curr.SegmentType != "REST_STATION")
+                        {
+                            errors.Add($"Chặng '{curr.LocationName}' lái xe liên tục {hours:F1}h (> 6h) không có trạm nghỉ.");
+                        }
+                    }
+
+                    if (curr.TransportMode == "ROAD" && next.TransportMode == "ROAD" && curr.Latitude.HasValue && curr.Longitude.HasValue && next.Latitude.HasValue && next.Longitude.HasValue)
+                    {
+                        var dist = _mapRoutingService.CalculateDistance((double)curr.Latitude.Value, (double)curr.Longitude.Value, (double)next.Latitude.Value, (double)next.Longitude.Value);
+                        if (dist > 360.0 && next.SegmentType != "REST_STOP" && next.SegmentType != "REST_STATION")
+                        {
+                            errors.Add($"Chặng từ '{curr.LocationName}' đến '{next.LocationName}' ({dist:F0}km) vượt quá thời gian lái xe an toàn 6h liên tục.");
+                        }
+                    }
+                }
+
+                // Kiểm tra lead time sân bay cho RouteSegments
+                var airSeg = segments.FirstOrDefault(s => s.TransportMode == "AIR");
+                if (airSeg != null)
+                {
+                    var prevSeg = segments.TakeWhile(s => s != airSeg).LastOrDefault();
+                    if (prevSeg != null && prevSeg.ExpectedEta.HasValue && airSeg.PlannedTime.HasValue)
+                    {
+                        var leadTime = (airSeg.PlannedTime.Value - prevSeg.ExpectedEta.Value).TotalHours;
+                        if (leadTime < 4.0)
+                        {
+                            errors.Add($"Thời gian tiếp nhận tại sân bay trước giờ cất cánh ({leadTime:F1}h) không đạt chuẩn IATA LAR (tối thiểu 4 - 6 tiếng).");
+                        }
+                    }
+                }
+            }
+
+            return errors;
         }
 
         private PlanDto BuildDefaultPlanFromTrip(TripPlan trip, string mode, bool isDraft)

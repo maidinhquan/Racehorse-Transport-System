@@ -82,24 +82,33 @@ public class Flow4DriverService : IFlow4DriverService
 
         // 3. Kiểm tra chốt y tế của các cá thể ngựa
         var abnormalHorses = await _context.HealthLogs
-            .Where(h => h.TripId == tripId && h.Condition == "ABNORMAL")
-            .Select(h => h.HorseId)
+            .Where(h => h.TripId == tripId && h.Condition == "ABNORMAL" && h.HorseId != null)
+            .Select(h => h.HorseId!)
             .Distinct()
             .ToListAsync();
 
         foreach (var horseId in abnormalHorses)
         {
-            var isCleared = await _context.VetAssessments
-                .AnyAsync(v => v.TripId == tripId && v.HorseId == horseId && v.TransportFitness == "FIT");
+            var latestAbnormal = await _context.HealthLogs
+                .Where(h => h.TripId == tripId && h.HorseId == horseId && h.Condition == "ABNORMAL")
+                .OrderByDescending(h => h.LogTime)
+                .FirstOrDefaultAsync();
 
-            if (!isCleared)
+            if (latestAbnormal != null)
             {
-                checks.Add(new Flow4BlockerDto
+                var isCleared = await _context.VetAssessments
+                    .AnyAsync(v => v.TripId == tripId && v.HorseId == horseId && v.TransportFitness == "FIT"
+                        && (v.AssessedAt >= latestAbnormal.LogTime || v.HealthLogId == latestAbnormal.LogId));
+
+                if (!isCleared)
                 {
-                    Code = "VET_CLEARANCE_REQUIRED",
-                    Field = $"horses[{horseId}]",
-                    Message = $"Ngựa {horseId} đang có dấu hiệu bất thường, cần bác sĩ thú y xác nhận FIT trước khi khởi hành."
-                });
+                    checks.Add(new Flow4BlockerDto
+                    {
+                        Code = "VET_CLEARANCE_REQUIRED",
+                        Field = $"horses[{horseId}]",
+                        Message = $"Ngựa {horseId} đang có dấu hiệu bất thường, cần bác sĩ thú y xác nhận FIT trước khi khởi hành."
+                    });
+                }
             }
         }
 
@@ -226,18 +235,27 @@ public class Flow4DriverService : IFlow4DriverService
 
         // 3. Chốt chặn an toàn: Ngựa ABNORMAL phải có xác nhận FIT từ bác sĩ thú y
         var abnormalHorses = await _context.HealthLogs
-            .Where(h => h.TripId == tripId && h.Condition == "ABNORMAL")
-            .Select(h => h.HorseId)
+            .Where(h => h.TripId == tripId && h.Condition == "ABNORMAL" && h.HorseId != null)
+            .Select(h => h.HorseId!)
             .Distinct()
             .ToListAsync();
 
         foreach (var horseId in abnormalHorses)
         {
-            var isCleared = await _context.VetAssessments
-                .AnyAsync(v => v.TripId == tripId && v.HorseId == horseId && v.TransportFitness == "FIT");
+            var latestAbnormal = await _context.HealthLogs
+                .Where(h => h.TripId == tripId && h.HorseId == horseId && h.Condition == "ABNORMAL")
+                .OrderByDescending(h => h.LogTime)
+                .FirstOrDefaultAsync();
 
-            if (!isCleared)
-                throw new InvalidOperationException($"VET_CLEARANCE_REQUIRED: Ngựa {horseId} đang có chỉ số bất thường, bắt buộc phải có kết luận FIT từ bác sĩ thú y.");
+            if (latestAbnormal != null)
+            {
+                var isCleared = await _context.VetAssessments
+                    .AnyAsync(v => v.TripId == tripId && v.HorseId == horseId && v.TransportFitness == "FIT"
+                        && (v.AssessedAt >= latestAbnormal.LogTime || v.HealthLogId == latestAbnormal.LogId));
+
+                if (!isCleared)
+                    throw new InvalidOperationException($"VET_CLEARANCE_REQUIRED: Ngựa {horseId} đang có chỉ số bất thường lúc {latestAbnormal.LogTime:HH:mm dd/MM}, bắt buộc phải có kết luận FIT từ bác sĩ thú y sau thời điểm này.");
+            }
         }
 
         // 4. Chốt chặn pháp lý: Nếu là mốc CHECKPOINT_DEPARTED, kiểm tra trạm kiểm soát đã được CLEARED

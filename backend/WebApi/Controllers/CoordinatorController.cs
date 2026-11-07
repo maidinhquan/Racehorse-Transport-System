@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Application.DTOs;
 using Application.Interfaces;
@@ -14,6 +15,7 @@ namespace WebApi.Controllers
     }
 
     [ApiController]
+    [Authorize]
     [Route("api/coordinator")]
     public class CoordinatorController : BaseApiController
     {

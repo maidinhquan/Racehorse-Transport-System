@@ -281,6 +281,7 @@ export interface RoutePlan {
   vehicle?: string;
   crew: Array<[string, string]>;
   resourcesConfirmed: boolean;
+  issues?: Array<{ msg?: string; seg?: number; stop?: number } | string>;
   note?: string;
   decisionNote?: string;
   decidedAt?: string;

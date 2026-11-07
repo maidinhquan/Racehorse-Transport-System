@@ -13,7 +13,7 @@ namespace WebApi.Controllers
     {
         protected string CurrentUserId => User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
                                        ?? User?.FindFirst("sub")?.Value
-                                       ?? "USR_COORD_01";
+                                       ?? throw new UnauthorizedAccessException("Yêu cầu cần xác thực đăng nhập hợp lệ.");
 
         protected IActionResult Success<T>(T data, string message = "OK")
         {

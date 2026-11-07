@@ -117,7 +117,9 @@ namespace Infrastructure.Services
                 // KIỂM TRA LUẬT PHÚC LỢI NGỰA (Equine Welfare Rule: F03-BR-16): ROAD không đứng xe quá 4-6 tiếng liên tục
                 if (mode == "ROAD" && legDriveHoursTotal > 6.0m)
                 {
-                    warnings.Add($"Chặng từ '{from.Name}' đến '{to.Name}' lái xe liên tục {legDriveHoursTotal:F1}h (> 6h). Theo quy định phúc lợi ngựa (Equine Welfare), bắt buộc phải chèn trạm dừng nghỉ 1-2 tiếng!");
+                    var welfareError = $"Chặng từ '{from.Name}' đến '{to.Name}' lái xe liên tục {legDriveHoursTotal:F1}h (> 6h). Theo quy định phúc lợi ngựa (Equine Welfare), bắt buộc phải chèn trạm dừng nghỉ 1-2 tiếng!";
+                    warnings.Add(welfareError);
+                    errors.Add(welfareError);
                 }
 
                 polylineCoords.AddRange(legPath);
@@ -213,15 +215,17 @@ namespace Infrastructure.Services
                 }
             }
 
+            var meetsEquineWelfare = !errors.Any(e => e.Contains("phúc lợi ngựa")) && !warnings.Any(w => w.Contains("phúc lợi ngựa"));
+
             return new RouteCalculateResponseDto
             {
                 TotalDistanceKm = Math.Round(totalDistance, 1),
                 TotalElapsedHours = Math.Round(totalDurationHours, 1),
                 EtaDestination = currentDeparture,
-                MeetsEquineWelfare = !warnings.Any(w => w.Contains("phúc lợi ngựa")),
+                MeetsEquineWelfare = meetsEquineWelfare,
                 Validation = new RouteValidationResultDto
                 {
-                    CanSubmit = !errors.Any(),
+                    CanSubmit = !errors.Any() && meetsEquineWelfare,
                     Errors = errors,
                     Warnings = warnings
                 },

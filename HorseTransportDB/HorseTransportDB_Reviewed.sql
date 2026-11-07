@@ -1,17 +1,11 @@
--- Canonical test schema: reset/recreate using this file; no numbered migrations are required.
--- Includes RemoveRequestSharedDocuments: retired request attachment columns are omitted;
--- customs fixtures use EXPORT/IMPORT only, so no legacy-data cleanup is needed.
--- Flow 1 scope 2026-10-24: VNPAY only; progress via current Status, no history/audit tables.
--- Reviewed sample only: do not run against an active database as a migration.
--- Reviewed copy: source data/HorseTransportDB.sql is preserved.
--- Creates ONLY HorseTransportDB_Reviewed. All timestamps in demo fixtures are UTC.
--- Private/demo paths and example URLs are placeholders, not bundled file contents.
--- SAMPLE DATABASE ONLY: this file DROPS and recreates HorseTransportDB_Reviewed.
--- Not a migration. Do not apply old migration scripts to restore removed columns.
--- Flow 1 and Flow 6 schema is defined directly below; all monetary amounts are VND.
--- Flow 6: 5 additional tables, totaling 37 tables / 33 monotonic sequences.
--- Backend still owns authorization, cross-table transitions, window scheduling and financial reconciliation.
--- Monetary seed values are illustrative demo data, not market quotations. Ratios remain ratios.
+-- =============================================================================
+-- HorseTransportDB.sql: FILE DATABASE DUY NHẤT (schema + dữ liệu mẫu, Flow 1 đến Flow 6)
+-- Gộp từ: HorseTransportDB_Reviewed.sql (schema Flow 1-3, 5, 6 và dữ liệu mẫu)
+--       + modules/05_Flow4_InTransit_Incidents.sql (schema Flow 4)
+-- Script xóa và tạo lại database HorseTransportDB; không dùng làm migration trên DB đang chạy.
+-- Chạy từ thư mục gốc repository (bắt buộc có -f 65001 để giữ đúng tiếng Việt):
+--   sqlcmd -S ".\SQLEXPRESS" -E -C -b -f 65001 -i HorseTransportDB/HorseTransportDB.sql
+-- Các file HorseTransportDB_Reviewed.sql, modules/, 00_Init_Database.sql không còn cần để khởi tạo DB.
 -- =============================================================================
 -- BƯỚC 1: TẠO VÀ CHUYỂN VÀO CƠ SỞ DỮ LIỆU CHÍNH THỨC
 -- =============================================================================
@@ -19,18 +13,18 @@ USE master;
 GO
 
 -- Buộc ngắt mọi kết nối đang mở vào Database cũ và xóa hẳn nếu đã tồn tại
-IF EXISTS (SELECT name FROM sys.databases WHERE name = 'HorseTransportDB_Reviewed')
+IF EXISTS (SELECT name FROM sys.databases WHERE name = 'HorseTransportDB')
 BEGIN
-    ALTER DATABASE HorseTransportDB_Reviewed SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE HorseTransportDB_Reviewed;
+    ALTER DATABASE HorseTransportDB SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE HorseTransportDB;
 END
 GO
 
 -- Tạo mới database hoàn toàn sạch sẽ
-CREATE DATABASE HorseTransportDB_Reviewed;
+CREATE DATABASE HorseTransportDB;
 GO
 
-USE HorseTransportDB_Reviewed;
+USE HorseTransportDB;
 GO
 
 SET ANSI_NULLS ON;
@@ -154,12 +148,21 @@ CREATE TABLE PARTNER_FACILITY (
     FacilityID VARCHAR(50) NOT NULL,
     Name NVARCHAR(200) NOT NULL,
     FacilityType VARCHAR(50) NULL, -- VET_CLINIC, REST_STATION, QUARANTINE
+    Purposes NVARCHAR(100) NULL, -- Flow 3 v2: REST, FUEL, QUARANTINE, BORDER, AIRPORT
     CountryCode VARCHAR(3) NOT NULL DEFAULT 'VN',
     State_Province NVARCHAR(100) NULL,
     City NVARCHAR(100) NULL,
     Address NVARCHAR(500) NULL,
     Coordinates VARCHAR(100) NULL,
+    Latitude DECIMAL(9,6) NULL,
+    Longitude DECIMAL(9,6) NULL,
     TimeZone VARCHAR(50) NULL, -- Múi giờ để tính ETA
+    OperatingHours VARCHAR(50) NULL DEFAULT '24/7', -- '24/7' hoặc '06:00-22:00'
+    SupportsOvernight BIT NOT NULL DEFAULT 0,
+    HasTruckParking BIT NOT NULL DEFAULT 1,
+    HasLoadingArea BIT NOT NULL DEFAULT 1,
+    HasStabling BIT NOT NULL DEFAULT 1,
+    HasWaterFeed BIT NOT NULL DEFAULT 1,
     CapacityStalls INT NULL,
     ContactPerson NVARCHAR(100) NULL,
     ContactPhone VARCHAR(20) NULL,
@@ -204,6 +207,7 @@ CREATE TABLE FACILITY_CERTIFICATION (
 
 -- 9. Bảng TRANSPORT_REQUEST: Yêu cầu vận chuyển
 CREATE TABLE TRANSPORT_REQUEST (
+    DeclaredValueVnd DECIMAL(18,2) NULL,
     PickupStableName NVARCHAR(200) NULL,
     PickupPostalCode NVARCHAR(20) NULL,
     PickupInstructions NVARCHAR(1000) NULL,
@@ -272,10 +276,11 @@ CREATE TABLE TRANSPORT_REQUEST (
 
 -- 10. Bảng REQUEST_HORSE_MAPPING: Khử quan hệ N-N giữa Request và Horse
 CREATE TABLE REQUEST_HORSE_MAPPING (
+    RequestHorseID VARCHAR(50) NOT NULL CONSTRAINT DF_REQUEST_HORSE_MAPPING_ID DEFAULT ('RHM_' + CONVERT(VARCHAR(36), NEWID())),
     CareInstructions NVARCHAR(2000) NULL,
     RequestID VARCHAR(50) NOT NULL,
     HorseID VARCHAR(50) NOT NULL,
-    CONSTRAINT PK_RequestHorseMapping PRIMARY KEY (RequestID, HorseID),
+    CONSTRAINT PK_RequestHorseMapping PRIMARY KEY (RequestHorseID),
     CONSTRAINT FK_RHM_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
     CONSTRAINT FK_RHM_Horse FOREIGN KEY (HorseID) REFERENCES HORSE(HorseID)
 );
@@ -283,7 +288,8 @@ CREATE TABLE REQUEST_HORSE_MAPPING (
 -- 11. Bảng LEGAL_MEDICAL_RECORD: Giấy tờ y tế của ngựa
 CREATE TABLE LEGAL_MEDICAL_RECORD (
     RecordID VARCHAR(50) NOT NULL,
-    HorseID VARCHAR(50) NOT NULL,
+    HorseID VARCHAR(50) NULL,
+    TripID VARCHAR(50) NULL,
     RequestID VARCHAR(50) NOT NULL,
     VerifiedBy VARCHAR(50) NULL,
     DocumentType VARCHAR(50) NULL,
@@ -291,10 +297,20 @@ CREATE TABLE LEGAL_MEDICAL_RECORD (
     DocumentStatus VARCHAR(50) NULL,
     UploadedFileUrl VARCHAR(500) NULL,
     ExpiryDate DATE NULL,
+    DocumentVersion INT NOT NULL DEFAULT 1,
+    DocumentNumber VARCHAR(100) NULL,
+    IssuingAuthority NVARCHAR(255) NULL,
+    IssuedDate DATE NULL,
+    PhysicalCopyCollected BIT NOT NULL DEFAULT 0,
+    ReviewedBy VARCHAR(50) NULL,
+    ReviewedAtUtc DATETIME2 NULL,
+    RejectionReason NVARCHAR(1000) NULL,
+    DocumentScope VARCHAR(50) NOT NULL DEFAULT 'PER_HORSE',
     CONSTRAINT PK_LegalMedicalRecord PRIMARY KEY (RecordID),
     CONSTRAINT FK_LMR_Horse FOREIGN KEY (HorseID) REFERENCES HORSE(HorseID),
     CONSTRAINT FK_LMR_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
-    CONSTRAINT FK_LMR_VerifiedBy FOREIGN KEY (VerifiedBy) REFERENCES [USER](UserID)
+    CONSTRAINT FK_LMR_VerifiedBy FOREIGN KEY (VerifiedBy) REFERENCES [USER](UserID),
+    CONSTRAINT FK_LMR_ReviewedBy FOREIGN KEY (ReviewedBy) REFERENCES [USER](UserID)
 );
 
 -- 12. Bảng QUARANTINE_BOOKING: Đặt lịch cách ly (Liên kết với Trạm)
@@ -325,6 +341,17 @@ CREATE TABLE TRIP_PLAN (
     T_Total_Hours DECIMAL(10, 2) NULL,
     TotalCost DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NOT NULL,
+
+    -- Quản lý Phiên bản & Khóa lạc quan (Flow 3 v2 Optimistic Concurrency & Binding)
+    [Version] INT NOT NULL DEFAULT 1,
+    PlanVersion INT NOT NULL DEFAULT 1,
+    ContextVersion INT NOT NULL DEFAULT 1,
+    ReadinessVersion INT NOT NULL DEFAULT 1,
+    DraftPlanJson NVARCHAR(MAX) NULL,
+    ApprovedPlanJson NVARCHAR(MAX) NULL,
+    OpenChange BIT NOT NULL DEFAULT 0,
+    EffectiveOriginPlaceId VARCHAR(50) NULL,
+
     -- Flow 1
     DeploymentStatus VARCHAR(12) NULL,
     DeploymentReason NVARCHAR(1000) NULL,
@@ -333,11 +360,127 @@ CREATE TABLE TRIP_PLAN (
     HandoffEventId VARCHAR(50) NULL,
     AssignedSpecialistId VARCHAR(50) NULL,
     AssignedCoordinatorId VARCHAR(50) NULL,
+
+    -- Xác nhận Điều phối viên (Coordinator / Operations READY - Flow 3)
+    OperationsStatus VARCHAR(20) NOT NULL DEFAULT 'NOT_READY', -- NOT_READY, READY
+    ResourcesConfirmedAt DATETIME2 NULL,
+    ResourcesConfirmedBy NVARCHAR(100) NULL,
+    
+    -- Xác nhận Chuyên viên pháp lý (Specialist / Documents READY - Flow 2)
+    DocumentsStatus VARCHAR(20) NOT NULL DEFAULT 'NOT_READY', -- NOT_READY, READY
+    EarliestDepartureDate DATETIME2 NULL,
+    DocumentExpiryDate DATETIME2 NULL,
+    SpecialistLegalNote NVARCHAR(500) NULL,
+    DocumentsConfirmedAt DATETIME2 NULL,
+    DocumentsConfirmedBy NVARCHAR(100) NULL,
+    
+    -- Thẩm định & Phê duyệt Lộ trình (Manager Route Review / Gate 1)
+    CurrentRouteVersion INT NOT NULL DEFAULT 1,
+    RouteStatus VARCHAR(30) NOT NULL DEFAULT 'DRAFT', -- DRAFT, PENDING_APPROVAL, APPROVED, RETURNED
+    RouteApprovedAt DATETIME2 NULL,
+    RouteApprovedBy VARCHAR(50) NULL,
+    RouteReturnReason NVARCHAR(500) NULL,
+    
+    -- Phê duyệt Khởi hành (Manager Gate 2 -> READY_TO_DEPART)
+    DepartureApprovedAt DATETIME2 NULL,
+    DepartureApprovedBy NVARCHAR(100) NULL,
+    RejectionReason NVARCHAR(500) NULL,
+    DocsReadyAtUtc DATETIME2 NULL,
+    DocsReadyBy VARCHAR(50) NULL,
+
     CONSTRAINT PK_TripPlan PRIMARY KEY (TripID),
     CONSTRAINT FK_TripPlan_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
+    CONSTRAINT FK_TripPlan_OriginPlace FOREIGN KEY (EffectiveOriginPlaceId) REFERENCES PARTNER_FACILITY(FacilityID),
+    CONSTRAINT CK_TRIP_PLAN_OperationsStatus CHECK (OperationsStatus IN ('NOT_READY', 'READY')),
+    CONSTRAINT CK_TRIP_PLAN_DocumentsStatus CHECK (DocumentsStatus IN ('NOT_READY', 'READY')),
+    CONSTRAINT CK_TRIP_PLAN_RouteStatus CHECK (RouteStatus IN ('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'RETURNED')),
     CONSTRAINT CK_F1S_TRIP_PLAN_Deployment CHECK ([DeploymentStatus] IS NULL OR ([DeploymentStatus] IS NOT NULL AND [DeploymentStatus] IN ('PENDING','CONFIRMED','ON_HOLD') AND [DeploymentReason] IS NOT NULL AND [DeploymentBy] IS NOT NULL AND [DeploymentAtUtc] IS NOT NULL AND (([DeploymentStatus]='PENDING' AND [HandoffEventId] IS NULL) OR ([DeploymentStatus] IN ('CONFIRMED','ON_HOLD') AND [HandoffEventId] IS NOT NULL)))),
     CONSTRAINT FK_F1_Specialist FOREIGN KEY (AssignedSpecialistId) REFERENCES [USER](UserID),
     CONSTRAINT FK_F1_Coordinator FOREIGN KEY (AssignedCoordinatorId) REFERENCES [USER](UserID)
+);
+
+-- Liên kết hồ sơ pháp lý vào chuyến sau khi TRIP_PLAN đã tạo
+ALTER TABLE LEGAL_MEDICAL_RECORD ADD CONSTRAINT FK_LMR_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID);
+
+-- 13.1. Bảng TRIP_INSURANCE: Bảo hiểm vận chuyển chuyến đi (Flow 2 Specialist)
+CREATE TABLE TRIP_INSURANCE (
+    InsuranceID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    Insurer NVARCHAR(150) NOT NULL,
+    PolicyNumber VARCHAR(100) NOT NULL,
+    CoverageAmount DECIMAL(18, 0) NOT NULL DEFAULT 0,
+    ValidFrom DATE NOT NULL,
+    ValidTo DATE NOT NULL,
+    Status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    CheckedBy VARCHAR(50) NULL,
+    CheckedAtUtc DATETIME2 NULL,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_TripInsurance PRIMARY KEY (InsuranceID),
+    CONSTRAINT FK_TripInsurance_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_TripInsurance_User FOREIGN KEY (CheckedBy) REFERENCES [USER](UserID)
+);
+
+-- 13.2. Bảng TRIP_REQUIREMENT_SET: Bộ quy định & checklist áp dụng cho chuyến (Flow 2 Specialist)
+CREATE TABLE TRIP_REQUIREMENT_SET (
+    SnapshotID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    PkgId VARCHAR(50) NOT NULL,
+    PkgVersion INT NOT NULL DEFAULT 1,
+    PkgName NVARCHAR(200) NOT NULL,
+    AppliedBy VARCHAR(50) NOT NULL,
+    AppliedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    SnapshotJson NVARCHAR(MAX) NULL,
+    CONSTRAINT PK_TripRequirementSet PRIMARY KEY (SnapshotID),
+    CONSTRAINT FK_TripRequirementSet_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_TripRequirementSet_User FOREIGN KEY (AppliedBy) REFERENCES [USER](UserID)
+);
+
+-- 13.3. Bảng TRIP_CHECKPOINT_CLEARANCE: Thông quan chốt kiểm soát / cửa khẩu chuyến đi (Flow 2 Specialist)
+CREATE TABLE TRIP_CHECKPOINT_CLEARANCE (
+    ClearanceID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    CheckpointIndex INT NOT NULL,
+    CheckpointName NVARCHAR(200) NOT NULL,
+    Result VARCHAR(50) NOT NULL,
+    RefNumber VARCHAR(100) NULL,
+    ClearedBy VARCHAR(50) NOT NULL,
+    ClearedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_TripCheckpointClearance PRIMARY KEY (ClearanceID),
+    CONSTRAINT FK_TripCheckpointClearance_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_TripCheckpointClearance_User FOREIGN KEY (ClearedBy) REFERENCES [USER](UserID)
+);
+
+-- 13.4. Bảng DOCUMENT_REQUEST: Yêu cầu bổ sung giấy tờ từ chuyên viên tới khách hàng (Flow 2 Specialist)
+CREATE TABLE DOCUMENT_REQUEST (
+    RequestDocID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    RequestID VARCHAR(50) NOT NULL,
+    KeyName VARCHAR(50) NOT NULL,
+    Scope VARCHAR(50) NOT NULL,
+    Reason NVARCHAR(1000) NOT NULL,
+    DueAt DATE NULL,
+    Status VARCHAR(50) NOT NULL DEFAULT 'OPEN',
+    CreatedBy VARCHAR(50) NOT NULL,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    FulfilledAtUtc DATETIME2 NULL,
+    CONSTRAINT PK_DocumentRequest PRIMARY KEY (RequestDocID),
+    CONSTRAINT FK_DocumentRequest_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_DocumentRequest_Request FOREIGN KEY (RequestID) REFERENCES TRANSPORT_REQUEST(RequestID),
+    CONSTRAINT FK_DocumentRequest_User FOREIGN KEY (CreatedBy) REFERENCES [USER](UserID)
+);
+
+-- 13.5. Bảng SPECIALIST_AUDIT_LOG: Nhật ký thao tác hồ sơ pháp lý chuyên viên (Flow 2 Specialist)
+CREATE TABLE SPECIALIST_AUDIT_LOG (
+    AuditID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NULL,
+    ActorId VARCHAR(50) NOT NULL,
+    Role VARCHAR(50) NOT NULL,
+    Action NVARCHAR(200) NOT NULL,
+    Entity NVARCHAR(100) NOT NULL,
+    Detail NVARCHAR(MAX) NULL,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_SpecialistAuditLog PRIMARY KEY (AuditID),
+    CONSTRAINT FK_SpecialistAuditLog_User FOREIGN KEY (ActorId) REFERENCES [USER](UserID)
 );
 
 -- 14. Bảng VEHICLE: Quản lý xe chuyên dụng
@@ -348,39 +491,60 @@ CREATE TABLE VEHICLE (
     MaxRange_km DECIMAL(10, 2) NULL,
     FuelCost_Per_Km DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NULL,
+    OperatingCountry VARCHAR(10) NULL DEFAULT 'VN', -- 'VN', 'JP', 'SG'
+    PlateNumber NVARCHAR(50) NULL, -- Biển số xe thực tế
+    -- Thông số kỹ thuật phục vụ kiểm soát cầu hầm & tải trọng (Flow 3 v2 Truck-Check)
+    Height_m DECIMAL(4, 2) NULL,
+    Width_m DECIMAL(4, 2) NULL,
+    Length_m DECIMAL(4, 2) NULL,
+    Gross_Weight_Tons DECIMAL(5, 2) NULL,
+    Axle_Weight_Tons DECIMAL(5, 2) NULL,
     CONSTRAINT PK_Vehicle PRIMARY KEY (VehicleID)
 );
 
--- 15. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái
+-- 15. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái theo từng chặng độc lập
 CREATE TABLE TRIP_VEHICLE_ASSIGNMENT (
     AssignmentID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
+    LegNumber INT NOT NULL DEFAULT 1, -- 1: Chặng đi VN, 2: Chặng đến (hoặc 3 nếu có)
+    LegType VARCHAR(50) NULL, -- 'OUTBOUND' (Chặng 1), 'INBOUND' (Chặng 2)
     VehicleID VARCHAR(50) NOT NULL,
-    DriverID VARCHAR(50) NOT NULL,
-    EscortID VARCHAR(50) NOT NULL,
+    DriverID VARCHAR(50) NOT NULL, -- Tài xế chính
+    CoDriverID VARCHAR(50) NULL, -- Phụ xe / Tài xế phụ
+    VeterinarianID VARCHAR(50) NULL, -- Bác sĩ thú y áp tải
+    EscortID VARCHAR(50) NULL, -- Người áp tải kiêm nhiệm (nullable)
     CONSTRAINT PK_TripVehicleAssignment PRIMARY KEY (AssignmentID),
     CONSTRAINT FK_TVA_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
     CONSTRAINT FK_TVA_Vehicle FOREIGN KEY (VehicleID) REFERENCES VEHICLE(VehicleID),
     CONSTRAINT FK_TVA_Driver FOREIGN KEY (DriverID) REFERENCES [USER](UserID),
+    CONSTRAINT FK_TVA_CoDriver FOREIGN KEY (CoDriverID) REFERENCES [USER](UserID),
+    CONSTRAINT FK_TVA_Vet FOREIGN KEY (VeterinarianID) REFERENCES [USER](UserID),
     CONSTRAINT FK_TVA_Escort FOREIGN KEY (EscortID) REFERENCES [USER](UserID)
 );
 
--- 16. Bảng ROUTE_SEGMENT: Chặng đường & Đa phương thức
+-- 16. Bảng ROUTE_SEGMENT: Chặng đường, điểm dừng nghỉ & Vận tải đa phương thức
 CREATE TABLE ROUTE_SEGMENT (
     SegmentID VARCHAR(50) NOT NULL,
     TripID VARCHAR(50) NOT NULL,
+    SequenceOrder INT NULL DEFAULT 1, -- Thứ tự điểm dừng trên lộ trình
     FacilityID VARCHAR(50) NULL, -- Trạm dừng liên kết
     LocationName NVARCHAR(255) NOT NULL,
     SegmentType VARCHAR(50) NULL,
     TransportMode VARCHAR(50) NOT NULL DEFAULT 'ROAD', -- ROAD, AIR, SEA
     CarrierName NVARCHAR(100) NULL, -- Hãng bay/tàu
     Flight_Voyage_No VARCHAR(50) NULL, -- Số chuyến bay/tàu
+    PlannedTime DATETIME NULL, -- Thời gian dự kiến đến trạm
     ExpectedETA DATETIME NULL,
     ActualTime DATETIME NULL,
+    -- Tọa độ kinh độ / vĩ độ của điểm dừng tự do (ngoài trạm liên kết Facility)
+    Latitude DECIMAL(9,6) NULL,
+    Longitude DECIMAL(9,6) NULL,
+    Coordinates VARCHAR(100) NULL,
     Status VARCHAR(50) NULL,
     CONSTRAINT PK_RouteSegment PRIMARY KEY (SegmentID),
     CONSTRAINT FK_RouteSegment_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
-    CONSTRAINT FK_RouteSegment_Facility FOREIGN KEY (FacilityID) REFERENCES PARTNER_FACILITY(FacilityID)
+    CONSTRAINT FK_RouteSegment_Facility FOREIGN KEY (FacilityID) REFERENCES PARTNER_FACILITY(FacilityID),
+    CONSTRAINT CK_RouteSegment_Coordinates CHECK ([Latitude] IS NULL AND [Longitude] IS NULL OR [Latitude] IS NOT NULL AND [Longitude] IS NOT NULL AND ([Latitude]>=(-90) AND [Latitude]<=(90)) AND ([Longitude]>=(-180) AND [Longitude]<=(180)))
 );
 
 -- 17. (MỚI) Bảng FLIGHT_BOOKING: Quản lý đặt vé & dịch vụ bay chuyên chở ngựa (Air Leg)
@@ -423,6 +587,124 @@ CREATE TABLE CUSTOMS_CLEARANCE (
     CONSTRAINT FK_Customs_Segment FOREIGN KEY (SegmentID) REFERENCES ROUTE_SEGMENT(SegmentID)
 );
 
+-- =============================================================================
+-- CÁC BẢNG BỔ SUNG CHO FLOW 3 PHIÊN BẢN 2.0.0 (API CONTRACT 27/10/2026)
+-- =============================================================================
+
+-- 18a. Bảng AIR_PARTNER: Quản lý danh mục đối tác dịch vụ vận tải hàng không (F3-J34..J38)
+CREATE TABLE AIR_PARTNER (
+    PartnerID VARCHAR(50) NOT NULL,
+    PartnerName NVARCHAR(200) NOT NULL,
+    CountryCode VARCHAR(3) NOT NULL DEFAULT 'VN',
+    ContactEmail VARCHAR(100) NULL,
+    ContactPhone VARCHAR(20) NULL,
+    Status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, INACTIVE
+    CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    UpdatedAt DATETIME2 NULL,
+    CONSTRAINT PK_AirPartner PRIMARY KEY (PartnerID),
+    CONSTRAINT CK_AirPartner_Status CHECK (Status IN ('ACTIVE', 'INACTIVE'))
+);
+
+-- 18b. Bảng FLIGHT_CATALOG: Danh mục lịch chuyến bay đối tác cung cấp (F3-J05, J50, J54)
+CREATE TABLE FLIGHT_CATALOG (
+    ServiceID VARCHAR(50) NOT NULL,
+    PartnerID VARCHAR(50) NOT NULL,
+    ProviderFlightCode VARCHAR(50) NOT NULL,
+    Airline NVARCHAR(100) NOT NULL,
+    OriginAirportPlaceId VARCHAR(50) NOT NULL,
+    DestAirportPlaceId VARCHAR(50) NOT NULL,
+    DepartureTime VARCHAR(5) NOT NULL, -- HH:mm (vd: 05:00)
+    ArrivalTime VARCHAR(5) NOT NULL,   -- HH:mm (vd: 11:00)
+    DepartureTimeZone VARCHAR(50) NOT NULL DEFAULT 'Asia/Ho_Chi_Minh',
+    ArrivalTimeZone VARCHAR(50) NOT NULL DEFAULT 'Asia/Tokyo',
+    PriceVND DECIMAL(14, 2) NOT NULL,
+    CapacityHorses INT NOT NULL DEFAULT 4,
+    CareProvider VARCHAR(50) NOT NULL DEFAULT 'AIRLINE',
+    DirectFlight BIT NOT NULL DEFAULT 1,
+    IsActive BIT NOT NULL DEFAULT 1,
+    CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_FlightCatalog PRIMARY KEY (ServiceID),
+    CONSTRAINT FK_FlightCatalog_Partner FOREIGN KEY (PartnerID) REFERENCES AIR_PARTNER(PartnerID)
+);
+
+-- 18c. Bảng PICKUP_RELOCATION: Quy trình đổi điểm nhận khi xe lớn không vào được (F3-J28..J33)
+CREATE TABLE PICKUP_RELOCATION (
+    RelocationID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    OriginalAddress NVARCHAR(500) NOT NULL,
+    AccessEvaluation VARCHAR(20) NOT NULL DEFAULT 'INACCESSIBLE', -- INACCESSIBLE, ACCESSIBLE
+    CandidatePlaceId VARCHAR(50) NOT NULL,
+    Reason NVARCHAR(500) NOT NULL,
+    Status VARCHAR(30) NOT NULL DEFAULT 'PROPOSED', -- PROPOSED, MANAGER_APPROVED, CUSTOMER_CONFIRMED, REJECTED
+    ProposedBy VARCHAR(50) NULL,
+    ProposedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    ManagerDecision VARCHAR(20) NULL, -- APPROVED, REJECTED
+    ManagerDecisionReason NVARCHAR(500) NULL,
+    ManagerDecisionBy VARCHAR(50) NULL,
+    ManagerDecisionAt DATETIME2 NULL,
+    CustomerConsentMethod VARCHAR(20) NULL, -- PHONE, EMAIL, WRITTEN
+    CustomerConsentNote NVARCHAR(500) NULL,
+    CustomerConsentConfirmedBy VARCHAR(50) NULL,
+    CustomerConsentConfirmedAt DATETIME2 NULL,
+    -- Các trường bổ sung cho Flow 3 v3 (Customer Relocation Decision)
+    ProposalVersion INT NOT NULL DEFAULT 1,
+    SentAt DATETIME2 NULL,
+    SentBy VARCHAR(50) NULL,
+    CustomerReplyAt DATETIME2 NULL,
+    CustomerReplyDecision VARCHAR(20) NULL,
+    CustomerReplyNote NVARCHAR(500) NULL,
+    ScheduleImpact NVARCHAR(500) NULL,
+    CustomerResponsibilities NVARCHAR(500) NULL,
+    IsActive BIT NOT NULL DEFAULT 1,
+    CONSTRAINT PK_PickupRelocation PRIMARY KEY (RelocationID),
+    CONSTRAINT FK_PickupRelocation_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_PickupRelocation_Candidate FOREIGN KEY (CandidatePlaceId) REFERENCES PARTNER_FACILITY(FacilityID),
+    CONSTRAINT CK_PickupRelocation_Status CHECK (Status IN ('PROPOSED', 'MANAGER_APPROVED', 'AWAITING_CUSTOMER', 'CUSTOMER_CONFIRMED', 'CUSTOMER_REJECTED', 'RETURNED', 'SUPERSEDED', 'REJECTED'))
+);
+
+-- 18d. Bảng IDEMPOTENCY_RECORD: Lưu cache khóa Idempotency-Key chống gửi trùng lặp (Conventions & Flow 3)
+CREATE TABLE IDEMPOTENCY_RECORD (
+    IdempotencyKey VARCHAR(64) NOT NULL,
+    ActorID VARCHAR(50) NOT NULL,
+    HttpMethod VARCHAR(10) NOT NULL,
+    RequestPath VARCHAR(255) NOT NULL,
+    RequestBodyHash VARCHAR(64) NOT NULL,
+    ResponseStatusCode INT NOT NULL,
+    ResponseBody NVARCHAR(MAX) NOT NULL,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    ExpiresAtUtc DATETIME2 NOT NULL,
+    CONSTRAINT PK_IdempotencyRecord PRIMARY KEY (IdempotencyKey)
+);
+
+-- 18e. Bảng TRIP_PLANNING_HISTORY: Lịch sử các bước lập kế hoạch và phê duyệt (F3-J19)
+CREATE TABLE TRIP_PLANNING_HISTORY (
+    HistoryID BIGINT IDENTITY(1,1) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    [Version] INT NOT NULL,
+    [Action] VARCHAR(50) NOT NULL,
+    ActorID VARCHAR(50) NOT NULL,
+    ActorRole VARCHAR(50) NOT NULL,
+    DetailsJson NVARCHAR(MAX) NULL,
+    CreatedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_TripPlanningHistory PRIMARY KEY (HistoryID),
+    CONSTRAINT FK_TripPlanningHistory_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID)
+);
+
+-- 18f. Bảng PLANNING_ATTACHMENT: Lưu chứng từ & file vé bay thật (F3-J42, J52)
+CREATE TABLE PLANNING_ATTACHMENT (
+    FileID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    FileName NVARCHAR(255) NOT NULL,
+    FileType VARCHAR(50) NOT NULL, -- FLIGHT_EVIDENCE, ACCESS_EVIDENCE, CONSENT_EVIDENCE
+    ContentType VARCHAR(100) NOT NULL,
+    FileSize BIGINT NOT NULL,
+    StoragePath NVARCHAR(500) NOT NULL,
+    UploadedBy VARCHAR(50) NULL,
+    UploadedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_PlanningAttachment PRIMARY KEY (FileID),
+    CONSTRAINT FK_PlanningAttachment_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID)
+);
+
 -- 19. Bảng HEALTH_LOG: Nhật ký sức khỏe ngựa trên đường
 CREATE TABLE HEALTH_LOG (
     LogID VARCHAR(50) NOT NULL,
@@ -453,6 +735,11 @@ CREATE TABLE INCIDENT (
     ImageUrl VARCHAR(500) NULL,
     AdditionalCost DECIMAL(12, 2) NULL,
     Status VARCHAR(50) NULL,
+    CoordinatorId VARCHAR(50) NULL,
+    SafetyBlockerActive BIT NULL,
+    ResolvedAt DATETIME2(7) NULL,
+    ResolutionType VARCHAR(50) NULL,
+    ResolutionNotes NVARCHAR(MAX) NULL,
     CONSTRAINT PK_Incident PRIMARY KEY (IncidentID),
     CONSTRAINT FK_Incident_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
     CONSTRAINT FK_Incident_ApprovedBy FOREIGN KEY (ApprovedBy) REFERENCES [USER](UserID)
@@ -501,6 +788,7 @@ CREATE TABLE CONTRACT_TEMPLATE (
     TemplateName NVARCHAR(255) NOT NULL,
     LanguageCode VARCHAR(10) NOT NULL DEFAULT 'VI',
     BodyContent NVARCHAR(MAX) NOT NULL,
+    Version VARCHAR(20) NOT NULL DEFAULT '1.0',
     IsActive BIT NOT NULL DEFAULT 1,
     CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
     UpdatedAt DATETIME NULL,
@@ -509,6 +797,10 @@ CREATE TABLE CONTRACT_TEMPLATE (
 
 -- 24. Bảng CONTRACT: Hợp đồng với khách hàng
 CREATE TABLE CONTRACT (
+    ContractCode VARCHAR(50) NULL,
+    ExchangeRateToLocal DECIMAL(10, 4) NULL,
+    BaseContractPrice_P DECIMAL(12, 2) NULL,
+    ActualGrossProfit_AGP DECIMAL(12, 2) NULL,
     CommercialNotes NVARCHAR(2000) NULL,
     ContractID VARCHAR(50) NOT NULL,
     -- Current working state; published content is preserved in CONTRACT_VERSION.
@@ -1003,7 +1295,19 @@ INSERT INTO [USER] (UserID, Username, PasswordHash, Role, FullName, Email, Phone
 ('USER_007', 'driver_hung', 'HASH_SECURE_07', 'DRIVER_ESCORT', N'Hoàng Hùng (Tài xế quốc tế 1)', 'hung.driver@cbntransport.com', '0945678901', NULL, NULL, 1),
 ('USER_008', 'driver_thanh', 'HASH_SECURE_08', 'DRIVER_ESCORT', N'Vũ Thành (Tài xế quốc tế 2)', 'thanh.driver@cbntransport.com', '0946789012', NULL, NULL, 1),
 ('USER_009', 'escort_hoa', 'HASH_SECURE_09', 'DRIVER_ESCORT', N'BS. Đỗ Hoa (Bác sĩ thú y áp tải)', 'hoa.escort@cbntransport.com', '0956789012', NULL, NULL, 1),
-('USER_010', 'escort_nam', 'HASH_SECURE_10', 'DRIVER_ESCORT', N'BS. Phan Nam (Kỹ thuật viên ngựa)', 'nam.escort@cbntransport.com', '0957890123', NULL, NULL, 1);
+('USER_010', 'escort_nam', 'HASH_SECURE_10', 'DRIVER_ESCORT', N'BS. Phan Nam (Kỹ thuật viên ngựa)', 'nam.escort@cbntransport.com', '0957890123', NULL, NULL, 1),
+('USER_012', 'driver_nvhung', 'HASH_SECURE_12', 'DRIVER_ESCORT', N'Nguyễn Văn Hùng (Tài xế chính)', 'nguyenvanhung.driver@cbntransport.com', '0905551021', NULL, NULL, 1),
+('USER_013', 'driver_lqtuan', 'HASH_SECURE_13', 'DRIVER_ESCORT', N'Lê Quốc Tuấn (Phụ lái)', 'lequoctuan.driver@cbntransport.com', '0905551022', NULL, NULL, 1),
+('USER_014', 'escort_lttrang', 'HASH_SECURE_14', 'DRIVER_ESCORT', N'Dr. Lê Thu Trang (Bác sĩ thú y)', 'lethutrang.escort@cbntransport.com', '0285550135', NULL, NULL, 1),
+('USER_015', 'driver_ptson', 'HASH_SECURE_15', 'DRIVER_ESCORT', N'Phạm Thanh Sơn (Tài xế)', 'phamthanhson.driver@cbntransport.com', '0905551023', NULL, NULL, 1),
+('USER_016', 'driver_blong', 'HASH_SECURE_16', 'DRIVER_ESCORT', N'Bùi Văn Long (Tài xế)', 'buivanlong.driver@cbntransport.com', '0905551025', NULL, NULL, 1),
+('USER_017', 'driver_dvkhoa', 'HASH_SECURE_17', 'DRIVER_ESCORT', N'Đặng Văn Khoa (Phụ lái)', 'dangvankhoa.driver@cbntransport.com', '0905551026', NULL, NULL, 1),
+('USER_018', 'escort_nmanh', 'HASH_SECURE_18', 'DRIVER_ESCORT', N'BS. Nguyễn Minh Anh (Bác sĩ thú y)', 'nguyenminhanh.escort@cbntransport.com', '0285550142', NULL, NULL, 1),
+('USER_019', 'escort_tqbao', 'HASH_SECURE_19', 'DRIVER_ESCORT', N'BS. Trần Quốc Bảo (Bác sĩ thú y)', 'tranquocbao.escort@cbntransport.com', '0245550177', NULL, NULL, 1),
+('USER_020', 'spec_hha', 'HASH_SECURE_20', 'TRANSPORT_SPECIALIST', N'Hoàng Thu Hà (Chuyên viên thẩm định hồ sơ)', 'ha.specialist@cbntransport.com', '0905556601', NULL, NULL, 1),
+('USER_021', 'spec_vmchau', 'HASH_SECURE_21', 'TRANSPORT_SPECIALIST', N'Vũ Minh Châu (Chuyên viên kiểm dịch & hải quan)', 'chau.specialist@cbntransport.com', '0905556602', NULL, NULL, 1),
+('USER_022', 'coord_tbngoc', 'HASH_SECURE_22', 'FLEET_ROUTE_COORDINATOR', N'Trần Bảo Ngọc (Điều phối xe & lịch trình)', 'ngoc.coord@cbntransport.com', '0905556603', NULL, NULL, 1),
+('USER_024', 'admin_system', 'HASH_SECURE_24', 'ADMIN', N'Quản trị viên Hệ thống (System Admin)', 'admin@cbntransport.com', '0905556605', NULL, NULL, 1);
 
 -- Sample catalogs and mutable policy values. These are data, not service constants.
 INSERT INTO COUNTRY (CountryCode, CountryName, IsActive) VALUES
@@ -1023,14 +1327,16 @@ INSERT INTO BUSINESS_POLICY (PolicyID, Code, ValueType, NumberValue, TextValue, 
 ('BUSINESS_POLICY_005', 'SIGN_OTP_TTL_MINUTES', 'NUMBER', 5, NULL, NULL, 'MINUTE', 'GLOBAL', NULL, N'Thời gian hiệu lực của một mã OTP ký hợp đồng.', 'USER_004'),
 ('BUSINESS_POLICY_006', 'SIGN_OTP_RESEND_SECONDS', 'NUMBER', 60, NULL, NULL, 'SECOND', 'GLOBAL', NULL, N'Khoảng chờ tối thiểu trước khi cấp lại OTP ký hợp đồng.', 'USER_004'),
 ('BUSINESS_POLICY_007', 'SIGN_OTP_MAX_ATTEMPTS', 'NUMBER', 5, NULL, NULL, 'ATTEMPT', 'GLOBAL', NULL, N'Số lần nhập sai tối đa của một mã OTP ký hợp đồng.', 'USER_004'),
-('BUSINESS_POLICY_008', 'FEEDBACK_WINDOW_HOURS', 'NUMBER', 24, NULL, NULL, 'HOUR', 'GLOBAL', NULL, N'Thời lượng cửa sổ phản hồi sau tất toán hoặc sau khi khách chấp nhận kết quả giải quyết khiếu nại.', 'USER_004');
+('BUSINESS_POLICY_008', 'FEEDBACK_WINDOW_HOURS', 'NUMBER', 24, NULL, NULL, 'HOUR', 'GLOBAL', NULL, N'Thời lượng cửa sổ phản hồi sau tất toán hoặc sau khi khách chấp nhận kết quả giải quyết khiếu nại.', 'USER_004'),
+('BUSINESS_POLICY_012', 'MIN_TRANSIT_DAYS', 'NUMBER', 0, NULL, NULL, 'DAY', 'GLOBAL', NULL, N'Số ngày tối thiểu từ ngày lấy đến ngày giao mặc định (0 là được giao trong ngày).', 'USER_004'),
+('BUSINESS_POLICY_013', 'MIN_TRANSIT_DAYS', 'NUMBER', 2, NULL, NULL, 'DAY', 'COUNTRY', 'JP', N'Chuyến đi Nhật Bản gồm chặng bay quốc tế và thủ tục nên ngày giao phải sau ngày lấy ít nhất 2 ngày.', 'USER_004');
 
 -- 2. Bảng HORSE: Đa dạng cá thể (Ngựa đực Stallion, Ngựa cái Mare, Ngựa thiến Gelding)
 INSERT INTO HORSE (HorseID, OwnerID, Microchip_ISO, FEI_Passport_No, Name, Breed, Sex, ReproductiveStatus, Weight, DOB, PhotoUrl, PassportScanUrl) VALUES
 ('HORSE_001', 'USER_001', '981098102938475', 'VN_FEI_2026_01', N'Tia Chớp Đỏ (Red Lightning)', N'Thoroughbred', 'STALLION', 'INTACT', 520.50, '2020-04-15', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
 ('HORSE_002', 'USER_001', '981098102938476', 'VN_FEI_2026_02', N'Bão Táp Xanh (Blue Storm)', N'Arabian', 'MARE', 'NOT_PREGNANT', 485.00, '2021-06-20', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
-('HORSE_003', 'USER_002', '981098102938477', 'VN_FEI_2026_03', N'Bạch Mã Hoàng Tử (Prince)', N'Thoroughbred', 'GELDING', 'GELDED', 540.00, '2019-09-10', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
-('HORSE_004', 'USER_002', '981098102938478', 'VN_FEI_2026_04', N'Nữ Hoàng Cát (Desert Queen)', N'Warmblood', 'MARE', 'PREGNANT', 510.00, '2020-11-05', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
+('HORSE_003', 'USER_001', '981098102938477', 'VN_FEI_2026_03', N'Bạch Mã Hoàng Tử (Prince)', N'Thoroughbred', 'GELDING', 'GELDED', 540.00, '2019-09-10', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
+('HORSE_004', 'USER_001', '981098102938478', 'VN_FEI_2026_04', N'Nữ Hoàng Cát (Desert Queen)', N'Warmblood', 'MARE', 'PREGNANT', 510.00, '2020-11-05', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
 ('HORSE_005', 'USER_003', '981098102938479', 'VN_FEI_2026_05', N'Chiến Binh Đen (Black Knight)', N'Friesian', 'STALLION', 'INTACT', 560.00, '2018-03-12', NULL, NULL);
 
 -- 3. Bảng STAFF_DOCUMENT: Giấy phép, Hộ chiếu, Visa nhân sự (Có hồ sơ hợp lệ và hồ sơ sắp hết hạn)
@@ -1039,13 +1345,19 @@ INSERT INTO STAFF_DOCUMENT (DocumentID, UserID, DocType, CountryOfIssue, ValidFo
 ('STAFF_DOCUMENT_002', 'USER_007', 'DRIVING_LICENSE', 'VN', N'VN', '2022-05-15', '2027-05-15', 'https://storage.cbntransport.com/docs/lic_hung.pdf', 'VALID'),
 ('STAFF_DOCUMENT_003', 'USER_009', 'PASSPORT', 'VN', N'VN, JP', '2024-02-01', '2034-02-01', 'https://storage.cbntransport.com/docs/pass_hoa.pdf', 'VALID'),
 ('STAFF_DOCUMENT_004', 'USER_008', 'PASSPORT', 'VN', N'VN, JP', '2022-08-10', '2032-08-10', 'https://storage.cbntransport.com/docs/pass_thanh.pdf', 'VALID'),
-('STAFF_DOCUMENT_005', 'USER_010', 'PASSPORT', 'VN', N'VN, JP', '2021-03-01', '2026-10-25', 'https://storage.cbntransport.com/docs/pass_nam.pdf', 'EXPIRING_SOON');
+('STAFF_DOCUMENT_005', 'USER_010', 'PASSPORT', 'VN', N'VN, JP', '2021-03-01', '2026-10-25', 'https://storage.cbntransport.com/docs/pass_nam.pdf', 'EXPIRING_SOON'),
+('STAFF_DOCUMENT_006', 'USER_012', 'DRIVING_LICENSE', 'VN', N'VN, JP', '2023-03-15', '2028-03-15', 'https://storage.cbntransport.com/docs/lic_nvhung.pdf', 'VALID'),
+('STAFF_DOCUMENT_007', 'USER_012', 'PASSPORT', 'VN', N'VN, JP', '2023-01-10', '2033-01-10', 'https://storage.cbntransport.com/docs/pass_nvhung.pdf', 'VALID'),
+('STAFF_DOCUMENT_008', 'USER_013', 'DRIVING_LICENSE', 'VN', N'VN, JP', '2023-04-20', '2028-04-20', 'https://storage.cbntransport.com/docs/lic_lqtuan.pdf', 'VALID'),
+('STAFF_DOCUMENT_009', 'USER_013', 'PASSPORT', 'VN', N'VN, JP', '2023-02-15', '2033-02-15', 'https://storage.cbntransport.com/docs/pass_lqtuan.pdf', 'VALID'),
+('STAFF_DOCUMENT_010', 'USER_014', 'VET_CERTIFICATE', 'VN', N'VN, JP', '2022-09-01', '2032-09-01', 'https://storage.cbntransport.com/docs/vet_lttrang.pdf', 'VALID'),
+('STAFF_DOCUMENT_011', 'USER_014', 'PASSPORT', 'VN', N'VN, JP', '2022-07-10', '2032-07-10', 'https://storage.cbntransport.com/docs/pass_lttrang.pdf', 'VALID');
 
 -- 4. Bảng NOTIFICATION: Lịch sử thông báo hệ thống gửi qua App/Email/SMS
 INSERT INTO NOTIFICATION (NotificationID, UserID, ReferenceID, Type, Channel, Title, Message, IsRead, SentAt) VALUES
 ('NOTIFICATION_001', 'USER_001', 'REQUEST_001', 'ORDER_STATUS', 'APP_PUSH', N'Yêu cầu vận chuyển được duyệt', N'Đơn REQUEST_001 của bạn đã được phê duyệt.', 1, N'2026-09-03 08:30:00'),
 ('NOTIFICATION_002', 'USER_007', 'TRIP_001', 'TRIP_ASSIGN', 'SMS', N'Lệnh điều xe mới', N'Bạn được phân công làm tài xế chính chuyến TRIP_001.', 1, N'2026-09-04 16:30:00'),
-('NOTIFICATION_003', 'USER_002', 'INCIDENT_002', 'INCIDENT', 'EMAIL', N'Cảnh báo sự cố hiện trường', N'Ngựa HORSE_003 bị stress nhiệt; chuyến được theo dõi và giao muộn.', 1, N'2026-10-05 14:00:00'),
+('NOTIFICATION_003', 'USER_001', 'INCIDENT_002', 'INCIDENT', 'EMAIL', N'Cảnh báo sự cố hiện trường', N'Ngựa HORSE_003 bị stress nhiệt; chuyến được theo dõi và giao muộn.', 1, N'2026-10-05 14:00:00'),
 ('NOTIFICATION_004', 'USER_005', 'LEGAL_MEDICAL_RECORD_006', 'DOC_WARNING', 'WEB_ALERT', N'Hồ sơ xét nghiệm bị từ chối', N'Mã xét nghiệm Coggins của ngựa HORSE_005 đã quá 6 tháng.', 0, '2026-10-08 14:00:00');
 
 -- 5. Bảng POLICY_AND_TERM: Quản lý điều khoản và chính sách áp dụng
@@ -1109,18 +1421,18 @@ INSERT INTO FACILITY_CERTIFICATION (CertID, FacilityID, CertName, IssuedBy, Coun
 
 -- 10. Bảng TRANSPORT_REQUEST: 4 đơn đại diện cho 4 tình huống khác nhau
 INSERT INTO TRANSPORT_REQUEST (RequestID, CustomerID, Departure, Destination, Purpose, TransportType, ExpectedDate, CommittedDeadline, DesignatedReceiverName, DesignatedReceiverPhone, BaseCost, Status, OriginCountry, DestinationCountry, PreparationDays, PickupContactName, PickupContactPhone, PickupLatitude, PickupLongitude, DeliveryLatitude, DeliveryLongitude, DistanceKm, ManagerNotes) VALUES
-('REQUEST_001', 'USER_001', N'Trang trại Sóc Sơn, Hà Nội', N'Trung tâm tiếp nhận ngựa Narita, Nhật Bản', N'Thi đấu Cúp Hoàng Gia', N'AIR', '2026-09-15 06:00:00', '2026-09-18 18:00:00', N'Kenji Sato', N'+819012345678', 212500000.00, 'CLOSED', N'VN', N'JP', 7, N'Nguyễn Văn A', N'0901234567', 21.200000, 105.800000, 35.770000, 140.380000, NULL, NULL),
-('REQUEST_002', 'USER_002', N'Trại ngựa Củ Chi, TP.HCM', N'Trung tâm tiếp nhận ngựa Đà Nẵng', N'Giao lưu huấn luyện', 'ROAD', '2026-10-05 05:00:00', '2026-10-06 17:00:00', N'Nguyễn Minh', N'0902223344', 105000000.00, N'DELIVERED', N'VN', N'VN', 3, N'Trần Văn B', N'0908889999', 10.970000, 106.500000, 16.050000, 108.200000, 950.00, N'Đã giao muộn ngày 06/10; còn hóa đơn cuối chưa thanh toán, chưa đóng request.'),
-('REQUEST_003', 'USER_001', N'Trang trại Sóc Sơn, Hà Nội', N'Trại ngựa Phú Thọ, TP.HCM', N'Nhân giống thuần chủng', 'ROAD', '2026-10-08 07:00:00', '2026-10-11 20:00:00', N'Nguyễn Hoàng', '0903334455', 145000000.00, 'IN_PROGRESS', N'VN', N'VN', 3, N'Nguyễn Văn A', N'0901234567', 21.200000, 105.800000, 10.770000, 106.660000, 1720.00, NULL),
+('REQUEST_001', 'USER_001', N'Trang trại Sóc Sơn, Hà Nội', N'Trung tâm tiếp nhận ngựa Narita, Nhật Bản', N'Thi đấu Cúp Hoàng Gia', N'AIR', '2026-11-15 06:00:00', '2026-11-18 18:00:00', N'Kenji Sato', N'+819012345678', 212500000.00, 'SCHEDULED', N'VN', N'JP', 7, N'Nguyễn Văn A', N'0901234567', 21.200000, 105.800000, 35.770000, 140.380000, NULL, NULL),
+('REQUEST_002', 'USER_001', N'Trại ngựa Củ Chi, TP.HCM', N'Trung tâm tiếp nhận ngựa Đà Nẵng', N'Giao lưu huấn luyện', 'ROAD', '2026-11-05 05:00:00', '2026-11-06 17:00:00', N'Nguyễn Minh', N'0902223344', 105000000.00, N'IN_PROGRESS', N'VN', N'VN', 3, N'Nguyễn Văn A', N'0901234567', 10.970000, 106.500000, 16.050000, 108.200000, 950.00, N'Đã đến nơi; chờ lập biên bản bàn giao và nghiệm thu Flow 6.'),
+('REQUEST_003', 'USER_001', N'Trang trại Sóc Sơn, Hà Nội', N'Trại ngựa Phú Thọ, TP.HCM', N'Nhân giống thuần chủng', 'ROAD', '2026-11-12 07:00:00', '2026-11-15 20:00:00', N'Nguyễn Hoàng', '0903334455', 145000000.00, 'SCHEDULED', N'VN', N'VN', 3, N'Nguyễn Văn A', N'0901234567', 21.200000, 105.800000, 10.770000, 106.660000, 1720.00, NULL),
 ('REQUEST_004', 'USER_003', N'Khu huấn luyện Ba Vì, Hà Nội', N'Trung tâm tiếp nhận ngựa Narita, Nhật Bản', N'Bán chuyển nhượng', N'AIR', '2026-10-20 08:00:00', '2026-10-24 16:00:00', N'Kenji Sato', N'+819012345678', 300000000.00, 'REJECTED', N'VN', N'JP', 7, N'Lê Thị C', N'0911223344', 21.200000, 105.800000, 35.770000, 140.380000, NULL, N'Từ chối do hồ sơ xét nghiệm hết hạn; không tạo hợp đồng hoặc chuyến.');
 
 -- 11. Bảng REQUEST_HORSE_MAPPING: Gán các cá thể ngựa vào từng yêu cầu
-INSERT INTO REQUEST_HORSE_MAPPING (RequestID, HorseID) VALUES
-('REQUEST_001', 'HORSE_001'),
-('REQUEST_001', 'HORSE_002'),
-('REQUEST_002', 'HORSE_003'),
-('REQUEST_003', 'HORSE_001'),
-('REQUEST_004', 'HORSE_005');
+INSERT INTO REQUEST_HORSE_MAPPING (RequestHorseID, RequestID, HorseID) VALUES
+('RHM_001', 'REQUEST_001', 'HORSE_001'),
+('RHM_002', 'REQUEST_001', 'HORSE_002'),
+('RHM_003', 'REQUEST_002', 'HORSE_003'),
+('RHM_004', 'REQUEST_003', 'HORSE_001'),
+('RHM_005', 'REQUEST_004', 'HORSE_005');
 
 -- 12. Bảng LEGAL_MEDICAL_RECORD: Giấy tờ thú y (Đủ điều kiện, Đang chờ duyệt, Bị từ chối do hết hạn)
 INSERT INTO LEGAL_MEDICAL_RECORD (RecordID, HorseID, RequestID, VerifiedBy, DocumentType, RequirementStatus, DocumentStatus, UploadedFileUrl, ExpiryDate) VALUES
@@ -1133,7 +1445,7 @@ INSERT INTO LEGAL_MEDICAL_RECORD (RecordID, HorseID, RequestID, VerifiedBy, Docu
 
 -- 13. Bảng QUARANTINE_BOOKING: Đặt lịch cách ly tiền xuất/hậu nhập cảnh
 INSERT INTO QUARANTINE_BOOKING (BookingID, RequestID, FacilityID, StationName, Country, ExpectedStartDate, ExpectedEndDate, ConfirmationNumber, Status) VALUES
-('QUARANTINE_BOOKING_001', 'REQUEST_001', 'FACILITY_002', N'Trạm thú y tiếp nhận Narita', N'Nhật Bản', N'2026-09-16 14:00:00', N'2026-09-17 08:00:00', N'CFM_DEMO_1', 'COMPLETED'),
+('QUARANTINE_BOOKING_001', 'REQUEST_001', 'FACILITY_002', N'Trạm thú y tiếp nhận Narita', N'Nhật Bản', N'2026-11-16 14:00:00', N'2026-11-17 08:00:00', N'CFM_DEMO_1', 'CONFIRMED'),
 ('QUARANTINE_BOOKING_002', 'REQUEST_002', 'FACILITY_004', N'Trung tâm thú y Đà Nẵng', N'Việt Nam', N'2026-10-06 12:00:00', N'2026-10-06 17:00:00', N'CFM_DEMO_2', 'COMPLETED');
 
 -- =============================================================================
@@ -1142,36 +1454,47 @@ INSERT INTO QUARANTINE_BOOKING (BookingID, RequestID, FacilityID, StationName, C
 
 -- 14. Bảng TRIP_PLAN: Kế hoạch các chuyến đi
 INSERT INTO TRIP_PLAN (TripID, RequestID, TotalDistance_km, T_Total_Hours, TotalCost, Status, DeploymentStatus, DeploymentReason, DeploymentBy, DeploymentAtUtc, HandoffEventId, AssignedSpecialistId, AssignedCoordinatorId) VALUES
-('TRIP_001', 'REQUEST_001', 4500.00, 59.50, 155000000.00, 'COMPLETED', N'CONFIRMED', N'Hợp đồng đã ký và cọc đã xác minh; bàn giao cho hai nhân sự.', N'USER_004', N'2026-09-04 16:30:00', N'HANDOFF_EVENT_001', N'USER_005', N'USER_006'),
-('TRIP_002', 'REQUEST_002', 950.00, 37.50, 77500000.00, 'COMPLETED', N'CONFIRMED', N'Hợp đồng đã ký và cọc đã xác minh; bàn giao cho hai nhân sự.', N'USER_004', N'2026-09-30 10:30:00', N'HANDOFF_EVENT_002', N'USER_005', N'USER_006'),
-('TRIP_003', 'REQUEST_003', 1720.00, 42.00, 107500000.00, 'IN_TRANSIT', N'CONFIRMED', N'Hợp đồng đã ký và cọc đã xác minh; bàn giao cho hai nhân sự.', N'USER_004', N'2026-10-04 16:00:00', N'HANDOFF_EVENT_003', N'USER_005', N'USER_006');
+('TRIP_001', 'REQUEST_001', 4500.00, 59.50, 155000000.00, 'PLANNING', N'CONFIRMED', N'Hợp đồng đã ký và cọc đã xác minh; Flow 2 và Flow 3 hoàn tất, chờ Quản lý mở chuyến.', N'USER_004', N'2026-11-05 16:30:00', N'HANDOFF_EVENT_001', N'USER_005', N'USER_006'),
+('TRIP_002', 'REQUEST_002', 950.00, 37.50, 77500000.00, 'IN_TRANSIT', N'CONFIRMED', N'Đã đến nơi; chờ bắt đầu bàn giao Flow 6.', N'USER_004', N'2026-09-30 10:30:00', N'HANDOFF_EVENT_002', N'USER_005', N'USER_006'),
+('TRIP_003', 'REQUEST_003', 1720.00, 42.00, 107500000.00, 'READY_TO_DEPART', N'CONFIRMED', N'Đã hoàn tất Flow 2 và Flow 3; sẵn sàng khởi hành, chưa ghi nhận tiến độ.', N'USER_004', N'2026-11-04 16:00:00', N'HANDOFF_EVENT_003', N'USER_005', N'USER_006');
 
 -- 15. Bảng VEHICLE: Đội xe chuyên dụng chở ngựa đua
 INSERT INTO VEHICLE (VehicleID, Type, CapacityStalls, MaxRange_km, FuelCost_Per_Km, Status) VALUES
 ('VEHICLE_001', 'HORSEBOX_3_STALLS', 3, 900.00, 30000.00, 'AVAILABLE'),
-('VEHICLE_002', 'HORSEBOX_6_STALLS', 6, 1200.00, 45000.00, 'ON_TRIP'),
+('VEHICLE_002', 'HORSEBOX_6_STALLS', 6, 1200.00, 45000.00, 'AVAILABLE'),
 ('VEHICLE_003', 'HORSEBOX_2_STALLS', 2, 750.00, 25000.00, 'MAINTENANCE');
 
 -- 16. Bảng TRIP_VEHICLE_ASSIGNMENT: Phân công xe và kíp lái
 INSERT INTO TRIP_VEHICLE_ASSIGNMENT (AssignmentID, TripID, VehicleID, DriverID, EscortID) VALUES
 ('TRIP_ASSIGNMENT_001', 'TRIP_001', 'VEHICLE_001', 'USER_007', 'USER_009'),
 ('TRIP_ASSIGNMENT_002', 'TRIP_002', 'VEHICLE_003', 'USER_008', 'USER_010'),
-('TRIP_ASSIGNMENT_003', 'TRIP_003', 'VEHICLE_002', 'USER_007', 'USER_009');
+('TRIP_ASSIGNMENT_003', 'TRIP_003', 'VEHICLE_002', 'USER_015', 'USER_018');
+UPDATE TRIP_VEHICLE_ASSIGNMENT SET CoDriverID = 'USER_017', VeterinarianID = 'USER_018' WHERE AssignmentID = 'TRIP_ASSIGNMENT_003';
 
 -- 17. (MỚI) Bảng FLIGHT_BOOKING: Đặt dịch vụ vận chuyển hàng không mẫu
 SET IDENTITY_INSERT FLIGHT_BOOKING ON;
 INSERT INTO FLIGHT_BOOKING (FlightBookingID, TripID, BookingVersion, RouteVersionID, ProviderName, Airline, FlightNumber, DepartureAirportCheckpointId, ArrivalAirportCheckpointId, DepartureAt, ArrivalAt, DirectFlight, BookingReference, BookingConfirmed, HorseIds, Note, CreatedAt) VALUES
-(300, 'TRIP_001', 1, 120, N'Nippon Cargo Airlines', N'NCA Airlines', 'KZ-102', 101, 201, N'2026-09-16 05:00:00', N'2026-09-16 12:00:00', 1, N'NCA-HAN-NRT-DEMO-2026', 1, '["HORSE_001","HORSE_002"]', N'Chặng HAN → NRT của TRIP_001; mọi thời điểm lưu UTC.', N'2026-09-05 08:00:00');
+(300, 'TRIP_001', 1, 120, N'Nippon Cargo Airlines', N'NCA Airlines', 'KZ-102', 101, 201, N'2026-11-16 05:00:00', N'2026-11-16 12:00:00', 1, N'NCA-HAN-NRT-DEMO-2026', 1, '["HORSE_001","HORSE_002"]', N'Chặng HAN → NRT của TRIP_001; mọi thời điểm lưu UTC.', N'2026-11-05 08:00:00');
 SET IDENTITY_INSERT FLIGHT_BOOKING OFF;
 -- 18. Bảng ROUTE_SEGMENT: Phân đoạn lộ trình của các chuyến đi
-INSERT INTO ROUTE_SEGMENT (SegmentID, TripID, FacilityID, LocationName, SegmentType, TransportMode, CarrierName, Flight_Voyage_No, ExpectedETA, ActualTime, Status) VALUES
-('ROUTE_SEGMENT_001', 'TRIP_001', 'FACILITY_001', N'Sóc Sơn → khu tiếp nhận Nội Bài', 'REST_STOP', 'ROAD', NULL, NULL, '2026-09-15 15:00:00', '2026-09-15 14:50:00', 'COMPLETED'),
-('ROUTE_SEGMENT_002', 'TRIP_001', 'FACILITY_002', N'Nội Bài (HAN) → Narita (NRT)', N'QUARANTINE_STOP', N'AIR', N'NCA Airlines', N'KZ-102', N'2026-09-16 12:00:00', N'2026-09-16 12:00:00', 'COMPLETED'),
-('ROUTE_SEGMENT_003', 'TRIP_001', NULL, N'Trạm thú y Narita → trung tâm tiếp nhận Narita', 'DESTINATION', 'ROAD', NULL, NULL, '2026-09-17 18:00:00', '2026-09-17 17:30:00', 'COMPLETED'),
-('ROUTE_SEGMENT_004', 'TRIP_002', 'FACILITY_003', N'Củ Chi → trạm tiếp nhận Củ Chi', N'REST_STOP', 'ROAD', NULL, NULL, '2026-10-05 08:30:00', '2026-10-05 09:15:00', 'COMPLETED'),
-('ROUTE_SEGMENT_005', 'TRIP_002', 'FACILITY_004', N'TP.HCM → trung tâm tiếp nhận Đà Nẵng', 'DESTINATION', 'ROAD', NULL, NULL, N'2026-10-06 16:00:00', N'2026-10-06 18:30:00', 'COMPLETED'),
-('ROUTE_SEGMENT_006', 'TRIP_003', 'FACILITY_005', N'Hà Nội -> Trạm Nghỉ Đà Nẵng', 'REST_STOP', 'ROAD', NULL, NULL, '2026-10-09 10:00:00', '2026-10-09 10:30:00', 'COMPLETED'),
-('ROUTE_SEGMENT_007', 'TRIP_003', NULL, N'Đà Nẵng -> Trại Phú Thọ TP.HCM', 'DESTINATION', 'ROAD', NULL, NULL, '2026-10-11 18:00:00', NULL, 'IN_PROGRESS');
+INSERT INTO ROUTE_SEGMENT (SegmentID, TripID, SequenceOrder, FacilityID, LocationName, SegmentType, TransportMode, CarrierName, Flight_Voyage_No, PlannedTime, ExpectedETA, ActualTime, Latitude, Longitude, Coordinates, Status) VALUES
+-- TRIP_001: Hàng không quốc tế đạt chuẩn IATA LAR (tiếp nhận trước giờ bay 4.5h) và ga hàng không AIRPORT
+('ROUTE_SEGMENT_001', 'TRIP_001', 1, 'FACILITY_001', N'Trang trại Sóc Sơn → Ga hàng hóa Nội Bài (HAN)', 'AIRPORT', 'ROAD', NULL, NULL, '2026-11-15 23:30:00', '2026-11-16 00:30:00', NULL, 21.218700, 105.804200, '21.2187,105.8042', 'PLANNED'),
+('ROUTE_SEGMENT_002', 'TRIP_001', 2, 'FACILITY_002', N'Nội Bài (HAN) → Narita (NRT)', 'AIRPORT', 'AIR', N'NCA Airlines', 'KZ-102', '2026-11-16 05:00:00', '2026-11-16 12:00:00', NULL, 35.772000, 140.392900, '35.7720,140.3929', 'PLANNED'),
+('ROUTE_SEGMENT_003', 'TRIP_001', 3, NULL, N'Ga hàng hóa Narita → Trung tâm tiếp nhận ngựa Narita', 'DESTINATION', 'ROAD', NULL, NULL, '2026-11-16 14:00:00', '2026-11-16 16:30:00', NULL, 35.770000, 140.380000, '35.7700,140.3800', 'PLANNED'),
+-- TRIP_002: Đường bộ dọc QL1A (Phan Thiết, Nha Trang, Quy Nhơn) đảm bảo mỗi chặng ≤ 4h
+('ROUTE_SEGMENT_004', 'TRIP_002', 1, 'FACILITY_003', N'Trại ngựa Củ Chi → Trạm dừng nghỉ QL1A Phan Thiết', 'REST_STOP', 'ROAD', NULL, NULL, '2026-11-05 07:00:00', '2026-11-05 10:30:00', '2026-11-05 10:35:00', 10.933300, 108.100000, '10.9333,108.1000', 'COMPLETED'),
+('ROUTE_SEGMENT_005', 'TRIP_002', 2, NULL, N'Trạm nghỉ Phan Thiết → Trạm dừng nghỉ QL1A Nha Trang', 'REST_STOP', 'ROAD', NULL, NULL, '2026-11-05 11:30:00', '2026-11-05 15:30:00', '2026-11-05 15:40:00', 12.238800, 109.196700, '12.2388,109.1967', 'COMPLETED'),
+('ROUTE_SEGMENT_008', 'TRIP_002', 3, NULL, N'Trạm nghỉ Nha Trang → Trạm dừng nghỉ QL1A Quy Nhơn', 'REST_STOP', 'ROAD', NULL, NULL, '2026-11-05 17:00:00', '2026-11-05 21:00:00', '2026-11-05 21:10:00', 13.782000, 109.219700, '13.7820,109.2197', 'COMPLETED'),
+('ROUTE_SEGMENT_009', 'TRIP_002', 4, 'FACILITY_004', N'Trạm nghỉ Quy Nhơn → Trung tâm tiếp nhận ngựa Đà Nẵng', 'DESTINATION', 'ROAD', NULL, NULL, '2026-11-06 06:00:00', '2026-11-06 10:00:00', '2026-11-06 10:05:00', 16.050000, 108.200000, '16.0500,108.2000', 'COMPLETED'),
+-- TRIP_003: Đường bộ Bắc - Nam dọc QL1A (Vinh, Huế, Quy Nhơn, Nha Trang lưu chuồng qua đêm, Phan Thiết) mỗi chặng ≤ 4h không qua Lào
+('ROUTE_SEGMENT_006', 'TRIP_003', 1, NULL, N'Trang trại Sóc Sơn → Trạm dừng nghỉ QL1A Vinh', 'REST_STOP', 'ROAD', NULL, NULL, '2026-11-12 07:00:00', '2026-11-12 11:00:00', NULL, 18.673800, 105.681300, '18.6738,105.6813', 'PLANNED'),
+('ROUTE_SEGMENT_007', 'TRIP_003', 2, NULL, N'Trạm nghỉ Vinh → Trạm dừng nghỉ QL1A Huế', 'REST_STOP', 'ROAD', NULL, NULL, '2026-11-12 12:30:00', '2026-11-12 16:30:00', NULL, 16.463700, 107.590900, '16.4637,107.5909', 'PLANNED'),
+('ROUTE_SEGMENT_010', 'TRIP_003', 3, 'FACILITY_005', N'Trạm nghỉ Huế → Trạm nghỉ chuyên dụng Đà Nẵng', 'REST_STOP', 'ROAD', NULL, NULL, '2026-11-12 18:00:00', '2026-11-12 20:30:00', NULL, 16.054400, 108.202200, '16.0544,108.2022', 'PLANNED'),
+('ROUTE_SEGMENT_011', 'TRIP_003', 4, NULL, N'Trạm nghỉ Đà Nẵng → Trạm dừng nghỉ QL1A Quy Nhơn', 'REST_STOP', 'ROAD', NULL, NULL, '2026-11-13 07:00:00', '2026-11-13 11:00:00', NULL, 13.782000, 109.219700, '13.7820,109.2197', 'PLANNED'),
+('ROUTE_SEGMENT_012', 'TRIP_003', 5, NULL, N'Trạm nghỉ Quy Nhơn → Trạm nghỉ lưu chuồng qua đêm Nha Trang', 'REST_STOP', 'ROAD', NULL, NULL, '2026-11-13 12:30:00', '2026-11-13 16:30:00', NULL, 12.238800, 109.196700, '12.2388,109.1967', 'PLANNED'),
+('ROUTE_SEGMENT_013', 'TRIP_003', 6, NULL, N'Trạm nghỉ Nha Trang → Trạm dừng nghỉ QL1A Phan Thiết', 'REST_STOP', 'ROAD', NULL, NULL, '2026-11-14 07:00:00', '2026-11-14 11:00:00', NULL, 10.933300, 108.100000, '10.9333,108.1000', 'PLANNED'),
+('ROUTE_SEGMENT_014', 'TRIP_003', 7, NULL, N'Trạm nghỉ Phan Thiết → Trại ngựa Phú Thọ, TP.HCM', 'DESTINATION', 'ROAD', NULL, NULL, '2026-11-14 12:30:00', '2026-11-14 16:00:00', NULL, 10.770000, 106.660000, '10.7700,106.6600', 'PLANNED');
 
 -- 19. Bảng CUSTOMS_CLEARANCE: Thủ tục thông quan biên giới
 INSERT INTO CUSTOMS_CLEARANCE (ClearanceID, TripID, SegmentID, BorderCrossingName, CustomsAgentName, DocumentType, DeclarationNumber, Status, ClearedAt) VALUES
@@ -1180,31 +1503,22 @@ INSERT INTO CUSTOMS_CLEARANCE (ClearanceID, TripID, SegmentID, BorderCrossingNam
 
 -- 20. Bảng HEALTH_LOG: Nhật ký sinh hiệu sức khỏe cá thể ngựa (Insert-Only)
 INSERT INTO HEALTH_LOG (LogID, TripID, HorseID, EscortID, LogType, LogTime, Temperature, HeartRate, HealthStatus, Description, MediaUrl) VALUES
-('HEALTH_LOG_001', 'TRIP_001', 'HORSE_001', 'USER_009', 'TRANSIT_CHECK', '2026-09-15 10:30:00', 38.1, 42, N'Ổn định', N'Ngựa uống 15L nước, ăn cỏ khô tốt.', 'https://storage.cbntransport.com/logs/log1.jpg'),
-('HEALTH_LOG_002', 'TRIP_001', 'HORSE_002', 'USER_009', 'TRANSIT_CHECK', '2026-09-15 10:30:00', 38.2, 44, N'Ổn định', N'Thể trạng bình thường, mắt lanh lợi.', 'https://storage.cbntransport.com/logs/log2.jpg'),
 ('HEALTH_LOG_003', 'TRIP_002', 'HORSE_003', 'USER_010', 'TRANSIT_CHECK', '2026-10-05 14:00:00', 39.2, 58, N'Căng thẳng/Sốt', N'Ngựa đổ mồ hôi nhiều lúc qua phà, đã truyền điện giải.', 'https://storage.cbntransport.com/logs/log3.jpg'),
-('HEALTH_LOG_004', 'TRIP_003', 'HORSE_001', 'USER_009', 'TRANSIT_CHECK', '2026-10-09 11:00:00', 38.0, 40, N'Rất tốt', N'Dừng nghỉ tại Đà Nẵng, vận động nhẹ 30 phút.', 'https://storage.cbntransport.com/logs/log4.jpg');
+('HEALTH_LOG_004', 'TRIP_003', 'HORSE_001', 'USER_018', 'OBSERVATION', '2026-11-12 07:00:00', 38.0, 40, N'Rất tốt', N'Kiểm tra sức khỏe trước khi xe khởi hành.', 'https://storage.cbntransport.com/logs/log4.jpg');
 
 -- 21. Bảng INCIDENT: Sự cố phát sinh khẩn cấp trên đường
 INSERT INTO INCIDENT (IncidentID, TripID, ApprovedBy, IncidentType, LocationCoordinates, Description, ImageUrl, AdditionalCost, Status) VALUES
-('INCIDENT_001', 'TRIP_001', 'USER_004', 'TIRE_PUNCTURE', N'21.2187,105.8042', N'Thủng lốp trên chặng đường bộ Sóc Sơn đến Nội Bài; thay lốp trước chuyến bay.', 'https://storage.cbntransport.com/incidents/tire1.jpg', 2000000.00, 'RESOLVED'),
 ('INCIDENT_002', 'TRIP_002', 'USER_004', 'EQUINE_STRESS', '11.2312,105.8821', N'Ngựa HORSE_003 bị sốt nhẹ do nắng nóng, phải dừng xe hạ nhiệt mất 1h30m.', 'https://storage.cbntransport.com/incidents/vet2.jpg', 3750000.00, 'RESOLVED');
 
 -- 22. Bảng HANDOVER: Biên bản tiếp nhận (Pickup) và giao ngựa (Delivery)
 INSERT INTO HANDOVER (HandoverID, TripID, HandedByUserID, Type, LocationName, ReceiverName, ReceiverPhone, IsAuthorized, Status) VALUES
-('HANDOVER_001', 'TRIP_001', 'USER_007', 'PICKUP', N'Trang trại Sóc Sơn, Hà Nội', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED'),
-('HANDOVER_002', 'TRIP_001', 'USER_007', 'DELIVERY', N'Trung tâm tiếp nhận ngựa Narita', N'Kenji Sato', N'+819012345678', 1, 'CONFIRMED'),
-('HANDOVER_003', 'TRIP_002', 'USER_008', 'PICKUP', N'Trại ngựa Củ Chi, TP.HCM', N'Trần Văn B', '0908889999', 1, 'CONFIRMED'),
-('HANDOVER_004', 'TRIP_002', 'USER_008', 'DELIVERY', N'Trung tâm tiếp nhận ngựa Đà Nẵng', N'Nguyễn Minh', N'0902223344', 1, 'CONFIRMED'),
-('HANDOVER_005', 'TRIP_003', 'USER_007', 'PICKUP', N'Trang trại Sóc Sơn, Hà Nội', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED');
+('HANDOVER_003', 'TRIP_002', 'USER_008', 'PICKUP', N'Trại ngựa Củ Chi, TP.HCM', N'Nguyễn Văn A', '0901234567', 1, 'CONFIRMED'),
+('HANDOVER_004', 'TRIP_002', 'USER_008', 'DELIVERY', N'Trung tâm tiếp nhận ngựa Đà Nẵng', N'Nguyễn Minh', N'0902223344', 1, 'CONFIRMED');
 
 -- 23. Bảng HANDOVER_ITEM: Đối soát mã chip và thể trạng lúc giao nhận
 INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerified, ConditionStatus, AssetCheck, PhotoUrl) VALUES
-('HANDOVER_ITEM_001', 'HANDOVER_001', 'HORSE_001', 1, N'Khỏe mạnh', N'01 bộ yên cương, 02 chăn đắp ngựa', 'https://storage.cbntransport.com/ho/pu_hrs1.jpg'),
-('HANDOVER_ITEM_002', 'HANDOVER_001', 'HORSE_002', 1, N'Khỏe mạnh', N'01 hộp thuốc dinh dưỡng', 'https://storage.cbntransport.com/ho/pu_hrs2.jpg'),
-('HANDOVER_ITEM_003', 'HANDOVER_002', 'HORSE_001', 1, N'Thể trạng tốt', N'Bàn giao đầy đủ yên cương và chăn', 'https://storage.cbntransport.com/ho/dl_hrs1.jpg'),
-('HANDOVER_ITEM_004', 'HANDOVER_002', 'HORSE_002', 1, N'Thể trạng tốt', N'Bàn giao nguyên trạng', 'https://storage.cbntransport.com/ho/dl_hrs2.jpg'),
-('HANDOVER_ITEM_005', 'HANDOVER_004', 'HORSE_003', 1, N'Mệt mỏi nhẹ', N'Đã bàn giao thuốc bổ sung', 'https://storage.cbntransport.com/ho/dl_hrs3.jpg');
+('HANDOVER_ITEM_005', 'HANDOVER_003', 'HORSE_003', 1, N'Thể trạng tốt', N'Đã xác nhận tiếp nhận ngựa tại điểm lấy.', 'https://storage.cbntransport.com/ho/pu_hrs3.jpg'),
+('HANDOVER_ITEM_006', 'HANDOVER_004', 'HORSE_003', 1, N'Thể trạng tốt sau hành trình', N'Đã xác nhận giao ngựa tại điểm đến Đà Nẵng.', 'https://storage.cbntransport.com/ho/de_hrs3.jpg');
 
 -- =============================================================================
 -- PHÂN VÙNG 5: HỢP ĐỒNG & TÀI CHÍNH VND (CONTRACT & BILLING)
@@ -1212,9 +1526,9 @@ INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerifie
 
 -- 24. Bảng CONTRACT: 3 hợp đồng vận chuyển
 INSERT INTO CONTRACT (ContractID, TripID, RequestID, CustomerID, CurrencyCode, TotalQuotedPrice, DepositRateStandard, SignedAt, ContractStatus, PublishedAtUtc, PublishedBy, PdfUrl, DepositAmount, CompletionDeadline, SignerEmail) VALUES
-('CONTRACT_001', 'TRIP_001', 'REQUEST_001', 'USER_001', 'VND', 212500000.00, 40.00, N'2026-09-04 16:00:00', 'SETTLED', N'2026-09-04 08:00:00', N'USER_004', N'private/demo/contract_1_v1.pdf', 85000000, N'2026-09-05 08:00:00', N'vana.horse@gmail.com'),
-('CONTRACT_002', 'TRIP_002', 'REQUEST_002', 'USER_002', 'VND', 105000000.00, 40.00, N'2026-09-30 10:00:00', N'EFFECTIVE', N'2026-09-30 08:00:00', N'USER_004', N'private/demo/contract_2_v1.pdf', 42000000, N'2026-10-01 08:00:00', N'tranb.racing@gmail.com'),
-('CONTRACT_003', 'TRIP_003', 'REQUEST_003', 'USER_001', 'VND', 145000000.00, 40.00, N'2026-10-04 15:00:00', 'EFFECTIVE', N'2026-10-04 06:00:00', N'USER_004', N'private/demo/contract_3_v1.pdf', 58000000, N'2026-10-05 06:00:00', N'vana.horse@gmail.com');
+('CONTRACT_001', 'TRIP_001', 'REQUEST_001', 'USER_001', 'VND', 212500000.00, 40.00, N'2026-11-04 16:00:00', 'EFFECTIVE', N'2026-11-04 08:00:00', N'USER_004', N'private/demo/contract_1_v1.pdf', 85000000, N'2026-11-20 08:00:00', N'vana.horse@gmail.com'),
+('CONTRACT_002', 'TRIP_002', 'REQUEST_002', 'USER_001', 'VND', 105000000.00, 40.00, N'2026-09-30 10:00:00', N'EFFECTIVE', N'2026-09-30 08:00:00', N'USER_004', N'private/demo/contract_2_v1.pdf', 42000000, N'2026-11-07 08:00:00', N'vana.horse@gmail.com'),
+('CONTRACT_003', 'TRIP_003', 'REQUEST_003', 'USER_001', 'VND', 145000000.00, 40.00, N'2026-10-04 15:00:00', 'EFFECTIVE', N'2026-10-04 06:00:00', N'USER_004', N'private/demo/contract_3_v1.pdf', 58000000, N'2026-11-16 06:00:00', N'vana.horse@gmail.com');
 
 -- Seed one preserved version for each sample contract before its invoices.
 -- Version snapshots use the illustrative VND values seeded above.
@@ -1257,21 +1571,17 @@ UPDATE CONTRACT SET CurrentVersionNo = 1;
 INSERT INTO COST_ITEM (CostItemID, ContractID, CategoryName, SubcodeName, Bearer, CurrencyCode, TotalMoney, EvidenceUrl) VALUES
 ('COST_ITEM_001', 'CONTRACT_001', N'Nhiên liệu', N'Xăng dầu xe chuyên dụng', 'COMPANY', 'VND', 37500000.00, 'https://storage.cbntransport.com/bills/fuel1.pdf'),
 ('COST_ITEM_002', 'CONTRACT_001', N'Phí dịch vụ trạm', N'Lưu chuồng kiểm dịch Narita', 'CUSTOMER', 'VND', 5000000.00, N'https://example.invalid/bills/narita.pdf'),
-('COST_ITEM_003', 'CONTRACT_001', N'Sự cố phát sinh', N'Sửa vá lốp khẩn cấp', 'COMPANY', 'VND', 2000000.00, 'https://storage.cbntransport.com/bills/tire1.jpg'),
 ('COST_ITEM_004', 'CONTRACT_002', N'Chi phí thú y', N'Khám cấp cứu sốt ngựa', 'COMPANY', 'VND', 3750000.00, N'https://example.invalid/bills/danang.pdf');
 
 -- 26. Bảng INVOICE: Các đợt hóa đơn (Đã trả xong, Đang nợ, Quá hạn)
 INSERT INTO INVOICE (InvoiceID, ContractID, ContractVersionNo, InvoiceType, CurrencyCode, TotalPayableAmount, PaidAmount, DueDate, PaymentStatus) VALUES
-('INVOICE_001', 'CONTRACT_001', 1, 'DEPOSIT', 'VND', 85000000.00, 85000000.00, N'2026-09-05 08:00:00', 'PAID'),
-('INVOICE_002', 'CONTRACT_001', 1, 'FINAL_SETTLEMENT', 'VND', 127500000.00, 127500000.00, '2026-09-20 23:59:59', 'PAID'),
+('INVOICE_001', 'CONTRACT_001', 1, 'DEPOSIT', 'VND', 85000000.00, 85000000.00, N'2026-11-05 08:00:00', 'PAID'),
 ('INVOICE_003', 'CONTRACT_002', 1, 'DEPOSIT', 'VND', 42000000.00, 42000000.00, N'2026-10-01 08:00:00', 'PAID'),
-('INVOICE_004', 'CONTRACT_002', 1, 'FINAL_SETTLEMENT', 'VND', 63000000.00, 0.00, '2026-10-10 23:59:59', 'UNPAID'),
 ('INVOICE_005', 'CONTRACT_003', 1, 'DEPOSIT', 'VND', 58000000.00, 58000000.00, N'2026-10-05 06:00:00', 'PAID');
 
 -- 27. Bảng PAYMENT: Giao dịch đối soát thực tế qua Cổng thanh toán hoặc Chuyển khoản
 INSERT INTO PAYMENT (PaymentID, InvoiceID, ConfirmedByUserID, CurrencyCode, Amount, Method, TransactionCode, Status, PaymentDate, VnpayTmnCode, VnpayResponseCode, VnpayTransactionStatus, VnpayCreatedAtUtc, VnpayExpiresAtUtc, VnpayReceivedAmount) VALUES
-('PAYMENT_001', 'INVOICE_001', NULL, 'VND', 85000000.00, N'VNPAY', N'DEMO_VNPAY_001', 'SUCCESS', '2026-09-04 15:30:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-09-04 15:30:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-09-04 15:30:00' AS DATETIME2)), 85000000.00),
-('PAYMENT_002', 'INVOICE_002', NULL, 'VND', 127500000.00, N'VNPAY', N'DEMO_VNPAY_002', 'SUCCESS', '2026-09-18 10:15:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-09-18 10:15:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-09-18 10:15:00' AS DATETIME2)), 127500000.00),
+('PAYMENT_001', 'INVOICE_001', NULL, 'VND', 85000000.00, N'VNPAY', N'DEMO_VNPAY_001', 'SUCCESS', '2026-11-04 15:30:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-11-04 15:30:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-11-04 15:30:00' AS DATETIME2)), 85000000.00),
 ('PAYMENT_003', 'INVOICE_003', NULL, 'VND', 42000000.00, N'VNPAY', N'DEMO_VNPAY_003', 'SUCCESS', '2026-09-30 09:20:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-09-30 09:20:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-09-30 09:20:00' AS DATETIME2)), 42000000.00),
 ('PAYMENT_004', 'INVOICE_005', NULL, 'VND', 58000000.00, N'VNPAY', N'DEMO_VNPAY_004', 'SUCCESS', '2026-10-04 14:45:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-10-04 14:45:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-10-04 14:45:00' AS DATETIME2)), 58000000.00);
 
@@ -1298,24 +1608,7 @@ INSERT INTO BUSINESS_POLICY (PolicyID,Code,ValueType,NumberValue,Unit,ScopeType,
 ('BUSINESS_POLICY_011','HANDOVER_OTP_MAX_ATTEMPTS','NUMBER',5,'ATTEMPT','GLOBAL',N'Số lần nhập sai tối đa OTP bàn giao.','USER_004');
 GO
 
--- FLOW 6 DEMO FIXTURES BEGIN
--- Demo confirmation timestamps/email are fixtures only; no real OTP was sent or verified.
-INSERT INTO HANDOVER_REVISION(HandoverRevisionID,HandoverID,TripID,RevisionNo,ContentSnapshot,CreatedBy,CreatedAtUtc) VALUES
-('HANDOVER_REVISION_001','HANDOVER_002','TRIP_001',1,N'{"demo":true,"receiver":"Kenji Sato","horses":["HORSE_001","HORSE_002"],"documents":["Original passports"]}','USER_007','2026-09-17T17:30:00'),
-('HANDOVER_REVISION_002','HANDOVER_004','TRIP_002',1,N'{"demo":true,"receiver":"Nguyen Minh","horses":["HORSE_003"],"documents":["Original passport"]}','USER_008','2026-10-06T18:30:00');
-UPDATE HANDOVER_ITEM SET DocumentsHandedOver=N'Original passport - demo',DocumentsReceivedAtUtc='2026-10-06T18:35:00' WHERE HandoverID='HANDOVER_004';
-UPDATE HANDOVER_REVISION SET Status='CONFIRMED',OtpEmail='receiver1@example.invalid',OtpSentAtUtc='2026-09-17T17:36:00',OtpExpiresAtUtc='2026-09-17T17:41:00',ConfirmedAtUtc='2026-09-17T17:40:00' WHERE HandoverRevisionID='HANDOVER_REVISION_001';
-UPDATE HANDOVER_REVISION SET Status='CONFIRMED',OtpEmail='receiver2@example.invalid',OtpSentAtUtc='2026-10-06T18:36:00',OtpExpiresAtUtc='2026-10-06T18:41:00',ConfirmedAtUtc='2026-10-06T18:40:00' WHERE HandoverRevisionID='HANDOVER_REVISION_002';
-INSERT INTO TRIP_SETTLEMENT(SettlementID,ContractID,TripID,CustomerID,ContractVersionNo,HandoverRevisionID,FinalInvoiceID,Status,PreparedBy,CreatedAtUtc,SettledBy,SettledAtUtc,ClosedAtUtc,FeedbackStartedAtUtc,FeedbackEndsAtUtc) VALUES
-('SETTLEMENT_001','CONTRACT_001','TRIP_001','USER_001',1,'HANDOVER_REVISION_001','INVOICE_002','CLOSED','USER_004','2026-09-17T17:30:00','USER_004','2026-09-18T10:15:00','2026-09-19T10:15:00','2026-09-18T10:15:00','2026-09-19T10:15:00'),
-('SETTLEMENT_002','CONTRACT_002','TRIP_002','USER_002',1,'HANDOVER_REVISION_002','INVOICE_004','AWAITING_PAYMENT','USER_004','2026-10-06T18:30:00',NULL,NULL,NULL,NULL,NULL);
-UPDATE CONTRACT SET ContractStatus='CLOSED' WHERE ContractID='CONTRACT_001';
-UPDATE TRIP_SETTLEMENT SET FeedbackStartedAtUtc='2026-09-18T10:15:00',FeedbackEndsAtUtc='2026-09-19T10:15:00' WHERE SettlementID='SETTLEMENT_001';
-INSERT INTO CUSTOMER_FEEDBACK(FeedbackID,SettlementID,Rating,Comment,CreatedAtUtc)
-VALUES ('CUSTOMER_FEEDBACK_001','SETTLEMENT_001',5,N'Demo feedback only','2026-09-18T12:00:00');
-INSERT INTO CUSTOMER_CASE(CaseID,SettlementID,CaseType,Status,Subject,Description,OpenedAtUtc)
-VALUES ('CUSTOMER_CASE_001','SETTLEMENT_002','COMPLAINT','OPEN',N'Giao trễ - demo',N'Customer yêu cầu giải thích giao trễ, chưa xác nhận kết quả.','2026-10-06T20:00:00');
--- FLOW 6 DEMO FIXTURES END
+-- Flow 6 begins on arrival; delivery handover, settlement and feedback are created by the workflow.
 GO
 
 -- Monotonic ID allocators. Created AFTER all explicit sample IDs.
@@ -1326,7 +1619,7 @@ GO
 -- Imports must synchronize the allocators without reducing previously issued high-water marks.
 GO
 CREATE SEQUENCE dbo.[SEQ_USER_ID] AS BIGINT
-    START WITH 11 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+    START WITH 20 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[USER] ADD CONSTRAINT [DF_USER_ID]
     DEFAULT ('USER_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_USER_ID], '000', 'en-US')) FOR [UserID];
 
@@ -1468,18 +1761,773 @@ ALTER TABLE dbo.[BUSINESS_POLICY] ADD CONSTRAINT [DF_BUSINESS_POLICY_ID]
 GO
 
 -- Flow 6 monotonic ID allocators (after fixtures).
-CREATE SEQUENCE dbo.[SEQ_HANDOVER_REVISION_ID] AS BIGINT START WITH 3 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+CREATE SEQUENCE dbo.[SEQ_HANDOVER_REVISION_ID] AS BIGINT START WITH 1 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[HANDOVER_REVISION] ADD CONSTRAINT [DF_HANDOVER_REVISION_ID] DEFAULT ('HANDOVER_REVISION_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_HANDOVER_REVISION_ID], '000', 'en-US')) FOR [HandoverRevisionID];
 GO
-CREATE SEQUENCE dbo.[SEQ_TRIP_SETTLEMENT_ID] AS BIGINT START WITH 3 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+CREATE SEQUENCE dbo.[SEQ_TRIP_SETTLEMENT_ID] AS BIGINT START WITH 1 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[TRIP_SETTLEMENT] ADD CONSTRAINT [DF_TRIP_SETTLEMENT_ID] DEFAULT ('SETTLEMENT_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_TRIP_SETTLEMENT_ID], '000', 'en-US')) FOR [SettlementID];
 GO
 CREATE SEQUENCE dbo.[SEQ_SETTLEMENT_ADJUSTMENT_ID] AS BIGINT START WITH 1 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[SETTLEMENT_ADJUSTMENT] ADD CONSTRAINT [DF_SETTLEMENT_ADJUSTMENT_ID] DEFAULT ('SETTLEMENT_ADJUSTMENT_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_SETTLEMENT_ADJUSTMENT_ID], '000', 'en-US')) FOR [AdjustmentID];
 GO
-CREATE SEQUENCE dbo.[SEQ_CUSTOMER_CASE_ID] AS BIGINT START WITH 2 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+CREATE SEQUENCE dbo.[SEQ_CUSTOMER_CASE_ID] AS BIGINT START WITH 1 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[CUSTOMER_CASE] ADD CONSTRAINT [DF_CUSTOMER_CASE_ID] DEFAULT ('CUSTOMER_CASE_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_CUSTOMER_CASE_ID], '000', 'en-US')) FOR [CaseID];
 GO
-CREATE SEQUENCE dbo.[SEQ_CUSTOMER_FEEDBACK_ID] AS BIGINT START WITH 2 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+CREATE SEQUENCE dbo.[SEQ_CUSTOMER_FEEDBACK_ID] AS BIGINT START WITH 1 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[CUSTOMER_FEEDBACK] ADD CONSTRAINT [DF_CUSTOMER_FEEDBACK_ID] DEFAULT ('CUSTOMER_FEEDBACK_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_CUSTOMER_FEEDBACK_ID], '000', 'en-US')) FOR [FeedbackID];
+GO
+GO
+
+-- Dữ liệu mẫu CONTRACT chưa có ContractCode nhưng entity backend yêu cầu không NULL.
+UPDATE CONTRACT SET ContractCode = ContractID WHERE ContractCode IS NULL;
+GO
+
+-- =============================================================================
+-- PHẦN FLOW 4: VẬN HÀNH HIỆN TRƯỜNG & GIÁM SÁT HÀNH TRÌNH (từ module 05)
+-- =============================================================================
+USE HorseTransportDB;
+GO
+
+-- =============================================================================
+-- BƯỚC 1: DỌN DẸP 10 BẢNG THUỘC SỞ HỮU RIÊNG CỦA FLOW 4 NẾU ĐÃ TỒN TẠI
+-- LƯU Ý BẢO VỆ TOÀN VẸN HỆ THỐNG:
+-- * TUYỆT ĐỐI KHÔNG DROP bảng INCIDENT vì bảng SETTLEMENT_ADJUSTMENT (Flow 6) đang tham chiếu FK_F6_AdjustmentIncident.
+-- * TUYỆT ĐỐI KHÔNG DROP bảng HEALTH_LOG vì đang chứa dữ liệu seed ban đầu của HorseTransportDB.sql.
+-- =============================================================================
+DROP TABLE IF EXISTS EXECUTION_ATTACHMENT;
+DROP TABLE IF EXISTS EXECUTION_CONTACT_LOG;
+DROP TABLE IF EXISTS EXECUTION_ALERT;
+DROP TABLE IF EXISTS LEGAL_CHECKPOINT_DECISION;
+DROP TABLE IF EXISTS AIR_NOTICE;
+DROP TABLE IF EXISTS TRIP_EXPENSE;
+DROP TABLE IF EXISTS VET_ASSESSMENT;
+DROP TABLE IF EXISTS ETA_PROPOSAL;
+DROP TABLE IF EXISTS MILESTONE_CORRECTION_REQUEST;
+DROP TABLE IF EXISTS TRIP_MILESTONE;
+GO
+
+-- =============================================================================
+-- BƯỚC 2: MỞ RỘNG BẢNG TRIP_PLAN CHO PHÂN HỆ FLOW 4
+-- GHI CHÚ NGUỒN GỐC (ORIGIN NOTE):
+-- * BẢNG TRIP_PLAN GỐC ĐƯỢC TẠO TẠI: HorseTransportDB.sql (Dòng 321)
+-- * ENTITY C# TƯƠNG ỨNG: backend/Domain/Entities/TripPlan.cs
+-- * MỤC ĐÍCH: Bổ sung các trường phục vụ giám sát tiến độ thực tế, khóa phiên bản
+--   lạc quan (ExecutionVersion), giai đoạn (ExecutionPhase) và đề xuất ETA.
+-- =============================================================================
+
+-- Các cột phục vụ Flow 4
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ExecutionVersion')
+    ALTER TABLE TRIP_PLAN ADD ExecutionVersion INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ExecutionPhase')
+    ALTER TABLE TRIP_PLAN ADD ExecutionPhase VARCHAR(30) NOT NULL DEFAULT 'AWAITING_DEPARTURE';
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'CurrentEta')
+    ALTER TABLE TRIP_PLAN ADD CurrentEta DATETIME2 NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'PendingEtaProposalId')
+    ALTER TABLE TRIP_PLAN ADD PendingEtaProposalId VARCHAR(50) NULL;
+
+-- Đảm bảo các cột phiên bản và phê duyệt của Backend được bổ sung an toàn nếu chưa có
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'Version')
+    ALTER TABLE TRIP_PLAN ADD [Version] INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'PlanVersion')
+    ALTER TABLE TRIP_PLAN ADD PlanVersion INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ContextVersion')
+    ALTER TABLE TRIP_PLAN ADD ContextVersion INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ReadinessVersion')
+    ALTER TABLE TRIP_PLAN ADD ReadinessVersion INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'DraftPlanJson')
+    ALTER TABLE TRIP_PLAN ADD DraftPlanJson NVARCHAR(MAX) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ApprovedPlanJson')
+    ALTER TABLE TRIP_PLAN ADD ApprovedPlanJson NVARCHAR(MAX) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'OpenChange')
+    ALTER TABLE TRIP_PLAN ADD OpenChange BIT NOT NULL DEFAULT 0;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'EffectiveOriginPlaceId')
+    ALTER TABLE TRIP_PLAN ADD EffectiveOriginPlaceId VARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'OperationsStatus')
+    ALTER TABLE TRIP_PLAN ADD OperationsStatus VARCHAR(30) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'DocumentsStatus')
+    ALTER TABLE TRIP_PLAN ADD DocumentsStatus VARCHAR(30) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'RouteStatus')
+    ALTER TABLE TRIP_PLAN ADD RouteStatus VARCHAR(30) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ResourcesConfirmedAt')
+    ALTER TABLE TRIP_PLAN ADD ResourcesConfirmedAt DATETIME2 NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'ResourcesConfirmedBy')
+    ALTER TABLE TRIP_PLAN ADD ResourcesConfirmedBy NVARCHAR(100) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'EarliestDepartureDate')
+    ALTER TABLE TRIP_PLAN ADD EarliestDepartureDate DATETIME2 NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'DocumentExpiryDate')
+    ALTER TABLE TRIP_PLAN ADD DocumentExpiryDate DATETIME2 NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'DocumentsConfirmedAt')
+    ALTER TABLE TRIP_PLAN ADD DocumentsConfirmedAt DATETIME2 NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'DocumentsConfirmedBy')
+    ALTER TABLE TRIP_PLAN ADD DocumentsConfirmedBy NVARCHAR(100) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'SpecialistLegalNote')
+    ALTER TABLE TRIP_PLAN ADD SpecialistLegalNote NVARCHAR(1000) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'CurrentRouteVersion')
+    ALTER TABLE TRIP_PLAN ADD CurrentRouteVersion INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'RouteApprovedAt')
+    ALTER TABLE TRIP_PLAN ADD RouteApprovedAt DATETIME2 NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'RouteApprovedBy')
+    ALTER TABLE TRIP_PLAN ADD RouteApprovedBy NVARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'RouteReturnReason')
+    ALTER TABLE TRIP_PLAN ADD RouteReturnReason NVARCHAR(500) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'DepartureApprovedAt')
+    ALTER TABLE TRIP_PLAN ADD DepartureApprovedAt DATETIME2 NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'DepartureApprovedBy')
+    ALTER TABLE TRIP_PLAN ADD DepartureApprovedBy VARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_PLAN') AND name = 'RejectionReason')
+    ALTER TABLE TRIP_PLAN ADD RejectionReason NVARCHAR(500) NULL;
+GO
+
+-- Bổ sung an toàn cho bảng TRANSPORT_REQUEST
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRANSPORT_REQUEST') AND name = 'DeclaredValueVnd')
+    ALTER TABLE TRANSPORT_REQUEST ADD DeclaredValueVnd DECIMAL(18, 2) NULL;
+GO
+
+-- Bổ sung an toàn cho bảng TRIP_VEHICLE_ASSIGNMENT
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_VEHICLE_ASSIGNMENT') AND name = 'LegNumber')
+    ALTER TABLE TRIP_VEHICLE_ASSIGNMENT ADD LegNumber INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_VEHICLE_ASSIGNMENT') AND name = 'LegType')
+    ALTER TABLE TRIP_VEHICLE_ASSIGNMENT ADD LegType VARCHAR(20) NOT NULL DEFAULT 'OUTBOUND';
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_VEHICLE_ASSIGNMENT') AND name = 'CoDriverID')
+    ALTER TABLE TRIP_VEHICLE_ASSIGNMENT ADD CoDriverID VARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('TRIP_VEHICLE_ASSIGNMENT') AND name = 'VeterinarianID')
+    ALTER TABLE TRIP_VEHICLE_ASSIGNMENT ADD VeterinarianID VARCHAR(50) NULL;
+GO
+
+-- Bổ sung an toàn cho bảng VEHICLE
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('VEHICLE') AND name = 'OperatingCountry')
+    ALTER TABLE VEHICLE ADD OperatingCountry VARCHAR(10) NOT NULL DEFAULT 'VN';
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('VEHICLE') AND name = 'PlateNumber')
+    ALTER TABLE VEHICLE ADD PlateNumber VARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('VEHICLE') AND name = 'Height_m')
+    ALTER TABLE VEHICLE ADD Height_m DECIMAL(4, 2) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('VEHICLE') AND name = 'Width_m')
+    ALTER TABLE VEHICLE ADD Width_m DECIMAL(4, 2) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('VEHICLE') AND name = 'Length_m')
+    ALTER TABLE VEHICLE ADD Length_m DECIMAL(4, 2) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('VEHICLE') AND name = 'Gross_Weight_Tons')
+    ALTER TABLE VEHICLE ADD Gross_Weight_Tons DECIMAL(5, 2) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('VEHICLE') AND name = 'Axle_Weight_Tons')
+    ALTER TABLE VEHICLE ADD Axle_Weight_Tons DECIMAL(5, 2) NULL;
+GO
+
+-- Bổ sung an toàn cho bảng ROUTE_SEGMENT
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ROUTE_SEGMENT') AND name = 'SequenceOrder')
+    ALTER TABLE ROUTE_SEGMENT ADD SequenceOrder INT NOT NULL DEFAULT 1;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ROUTE_SEGMENT') AND name = 'PlannedTime')
+    ALTER TABLE ROUTE_SEGMENT ADD PlannedTime DATETIME NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ROUTE_SEGMENT') AND name = 'Latitude')
+    ALTER TABLE ROUTE_SEGMENT ADD Latitude DECIMAL(9, 6) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ROUTE_SEGMENT') AND name = 'Longitude')
+    ALTER TABLE ROUTE_SEGMENT ADD Longitude DECIMAL(9, 6) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('ROUTE_SEGMENT') AND name = 'Coordinates')
+    ALTER TABLE ROUTE_SEGMENT ADD Coordinates NVARCHAR(100) NULL;
+GO
+
+-- =============================================================================
+-- BƯỚC 3: MỞ RỘNG BẢNG HEALTH_LOG CHO PHÂN HỆ FLOW 4 (APPEND-ONLY & CLINICAL)
+-- GHI CHÚ NGUỒN GỐC (ORIGIN NOTE):
+-- * BẢNG HEALTH_LOG GỐC ĐƯỢC TẠO TẠI: HorseTransportDB.sql (Bảng số 19, dòng 427)
+-- * ENTITY C# TƯƠNG ỨNG: backend/Domain/Entities/HealthLog.cs
+-- * MỤC ĐÍCH: Kế thừa 4 bản ghi seed mẫu đã có sẵn và bổ sung các chỉ số sinh hiệu
+--   chuyên sâu (nhịp thở, thức ăn, nước uống, tình trạng NORMAL/ABNORMAL kích hoạt
+--   Safety Blocker, cờ liên kết sự cố và cơ chế đính chính Append-Only qua SupersedesLogId).
+-- =============================================================================
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'MilestoneID')
+    ALTER TABLE HEALTH_LOG ADD MilestoneID VARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'LegType')
+    ALTER TABLE HEALTH_LOG ADD LegType VARCHAR(20) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'RespiratoryRatePerMin')
+    ALTER TABLE HEALTH_LOG ADD RespiratoryRatePerMin INT NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'Condition')
+    ALTER TABLE HEALTH_LOG ADD Condition VARCHAR(20) NOT NULL DEFAULT 'NORMAL';
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'PhotoFileIds')
+    ALTER TABLE HEALTH_LOG ADD PhotoFileIds NVARCHAR(MAX) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'HydrationStatus')
+    ALTER TABLE HEALTH_LOG ADD HydrationStatus NVARCHAR(100) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'AppetiteStatus')
+    ALTER TABLE HEALTH_LOG ADD AppetiteStatus NVARCHAR(100) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'FecesCondition')
+    ALTER TABLE HEALTH_LOG ADD FecesCondition NVARCHAR(100) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'Feeding')
+    ALTER TABLE HEALTH_LOG ADD Feeding NVARCHAR(500) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'Water')
+    ALTER TABLE HEALTH_LOG ADD Water NVARCHAR(500) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'RestStatus')
+    ALTER TABLE HEALTH_LOG ADD RestStatus NVARCHAR(500) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'CareNotes')
+    ALTER TABLE HEALTH_LOG ADD CareNotes NVARCHAR(MAX) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'IncidentID')
+    ALTER TABLE HEALTH_LOG ADD IncidentID VARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'IncidentRequired')
+    ALTER TABLE HEALTH_LOG ADD IncidentRequired BIT NOT NULL DEFAULT 0;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'SupersedesLogId')
+    ALTER TABLE HEALTH_LOG ADD SupersedesLogId VARCHAR(50) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'AmendmentReason')
+    ALTER TABLE HEALTH_LOG ADD AmendmentReason NVARCHAR(1000) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('HEALTH_LOG') AND name = 'RecordedAt')
+    ALTER TABLE HEALTH_LOG ADD RecordedAt DATETIME2 NOT NULL DEFAULT GETDATE();
+
+IF NOT EXISTS (SELECT * FROM sys.foreign_keys WHERE name = 'FK_HealthLog_Supersedes')
+BEGIN
+    ALTER TABLE HEALTH_LOG ADD CONSTRAINT FK_HealthLog_Supersedes 
+    FOREIGN KEY (SupersedesLogId) REFERENCES HEALTH_LOG(LogID);
+END
+GO
+
+-- Đảm bảo REQUEST_HORSE_MAPPING có cột CareInstructions (RULE/ID_NAME_RULE.md: Khóa chính ghép RequestID, HorseID)
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('REQUEST_HORSE_MAPPING') AND name = 'CareInstructions')
+BEGIN
+    ALTER TABLE REQUEST_HORSE_MAPPING ADD CareInstructions NVARCHAR(2000) NULL;
+END
+GO
+
+-- Chuẩn hóa dữ liệu cũ của HEALTH_LOG & TRIP_PLAN tránh lỗi SqlNullValueException
+UPDATE HEALTH_LOG SET Condition = 'NORMAL' WHERE Condition IS NULL;
+UPDATE HEALTH_LOG SET LegType = 'road' WHERE LegType IS NULL;
+UPDATE HEALTH_LOG SET RecordedAt = LogTime WHERE RecordedAt IS NULL;
+UPDATE HEALTH_LOG SET IncidentRequired = 0 WHERE IncidentRequired IS NULL;
+UPDATE TRIP_PLAN SET ExecutionPhase = 'AWAITING_DEPARTURE' WHERE ExecutionPhase IS NULL;
+UPDATE TRIP_PLAN SET RouteStatus = 'APPROVED' WHERE RouteStatus IS NULL;
+UPDATE TRIP_PLAN SET OperationsStatus = 'READY' WHERE OperationsStatus IS NULL;
+UPDATE TRIP_PLAN SET DocumentsStatus = 'READY' WHERE DocumentsStatus IS NULL;
+GO
+
+-- =============================================================================
+-- BƯỚC 4: TẠO 10 BẢNG MỚI ĐẶC THÙ RIÊNG PHỤC VỤ CHO 37 ENDPOINT FLOW 4
+-- Đồng bộ 100% tên cột với các Fluent API Configurations trong C# Backend:
+-- Infrastructure/Data/Configurations/Flow4/
+-- Chuẩn mã ID theo RULE/ID_NAME_RULE.md: <TIỀN_TỐ>_<SỐ_THỨ_TỰ>
+-- =============================================================================
+
+-- 1. BẢNG TRIP_MILESTONE: DANH SÁCH CÁC MỐC HÀNH TRÌNH TUẦN TỰ
+-- Cấu hình Entity: TripMilestoneConfiguration.cs (Entity: TripMilestone.cs)
+CREATE TABLE TRIP_MILESTONE (
+    MilestoneID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    Leg VARCHAR(20) NOT NULL DEFAULT 'road',         -- 'road', 'outbound', 'air', 'inbound'
+    MilestoneKind VARCHAR(50) NOT NULL,              -- DEPARTED, STOP_ARRIVED, STOP_DEPARTED, CHECKPOINT_ARRIVED, CHECKPOINT_DEPARTED, AIRPORT_ORIGIN_ARRIVED, AIR_HANDOVER, AIR_DEPARTED, AIR_ARRIVED, AIR_RECEIVED, FINAL_ARRIVED
+    SequenceOrder INT NOT NULL,                      -- Thứ tự tuần tự (1, 2, 3...)
+    Label NVARCHAR(255) NOT NULL,
+    Status VARCHAR(20) NOT NULL DEFAULT 'PENDING',   -- PENDING, COMPLETED
+    PlannedTime DATETIME2 NOT NULL,
+    OccurredAt DATETIME2 NULL,
+    RecordedAt DATETIME2 NULL,
+    RecordedBy VARCHAR(50) NULL,
+    Revision INT NOT NULL DEFAULT 1,
+    RequiresHealthCheck BIT NOT NULL DEFAULT 0,      -- Trạm dừng yêu cầu kiểm tra y tế bắt buộc
+    LocationCoordinates VARCHAR(100) NULL,
+    Latitude DECIMAL(9, 6) NULL,
+    Longitude DECIMAL(9, 6) NULL,
+    Note NVARCHAR(MAX) NULL,
+    EvidenceFileIds NVARCHAR(MAX) NULL,              -- JSON mảng các FileID chứng từ
+    CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    UpdatedAt DATETIME2 NULL,
+    CONSTRAINT PK_TripMilestone PRIMARY KEY (MilestoneID),
+    CONSTRAINT FK_TripMilestone_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_TripMilestone_RecordedBy FOREIGN KEY (RecordedBy) REFERENCES [USER](UserID)
+);
+GO
+
+-- 2. BẢNG MILESTONE_CORRECTION_REQUEST: YÊU CẦU ĐÍNH CHÍNH MỐC ĐÃ HOÀN TẤT
+-- Cấu hình Entity: MilestoneCorrectionRequestConfiguration.cs
+CREATE TABLE MILESTONE_CORRECTION_REQUEST (
+    CorrectionID VARCHAR(50) NOT NULL,
+    MilestoneID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    RequestedBy VARCHAR(50) NOT NULL,
+    RequestedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    ProposedOccurredAt DATETIME2 NOT NULL,
+    ProposedNote NVARCHAR(MAX) NULL,
+    ProposedEvidenceFileIds NVARCHAR(MAX) NULL,
+    OriginalOccurredAt DATETIME2 NULL,
+    OriginalNote NVARCHAR(MAX) NULL,
+    OriginalEvidenceFileIds NVARCHAR(MAX) NULL,
+    Reason NVARCHAR(2000) NOT NULL,
+    Status VARCHAR(30) NOT NULL DEFAULT 'PENDING',   -- PENDING, APPROVED, REJECTED
+    Version INT NOT NULL DEFAULT 1,
+    DecidedBy VARCHAR(50) NULL,
+    DecidedAt DATETIME2 NULL,
+    DecisionReason NVARCHAR(2000) NULL,
+    CONSTRAINT PK_MilestoneCorrection PRIMARY KEY (CorrectionID),
+    CONSTRAINT FK_MilestoneCorrection_Milestone FOREIGN KEY (MilestoneID) REFERENCES TRIP_MILESTONE(MilestoneID),
+    CONSTRAINT FK_MilestoneCorrection_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_MilestoneCorrection_RequestedBy FOREIGN KEY (RequestedBy) REFERENCES [USER](UserID),
+    CONSTRAINT FK_MilestoneCorrection_DecidedBy FOREIGN KEY (DecidedBy) REFERENCES [USER](UserID)
+);
+GO
+
+-- 3. BẢNG ETA_PROPOSAL: ĐỀ XUẤT ĐIỀU CHỈNH THỜI GIAN ĐẾN NƠI (ETA 2 CẤP)
+-- Cấu hình Entity: EtaProposalConfiguration.cs
+CREATE TABLE ETA_PROPOSAL (
+    ProposalID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    MilestoneID VARCHAR(50) NULL,
+    CurrentEtaSnapshot DATETIME2 NOT NULL,
+    ProposedEta DATETIME2 NOT NULL,
+    Reason NVARCHAR(2000) NOT NULL,
+    LinkedIncidentId VARCHAR(50) NULL,
+    Status VARCHAR(30) NOT NULL DEFAULT 'PENDING_COORDINATOR', -- PENDING_COORDINATOR, PENDING_MANAGER, APPROVED, REJECTED
+    RequiresManager BIT NOT NULL DEFAULT 0,          -- Vượt hạn giao hàng -> Manager duyệt
+    EscalationReason NVARCHAR(1000) NULL,
+    ProposedBy VARCHAR(50) NOT NULL,
+    ProposedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CoordinatorDecisionBy VARCHAR(50) NULL,
+    CoordinatorDecisionAt DATETIME2 NULL,
+    CoordinatorDecisionReason NVARCHAR(2000) NULL,
+    ManagerDecisionBy VARCHAR(50) NULL,
+    ManagerDecisionAt DATETIME2 NULL,
+    ManagerDecisionReason NVARCHAR(2000) NULL,
+    Version INT NOT NULL DEFAULT 1,
+    CONSTRAINT PK_EtaProposal PRIMARY KEY (ProposalID),
+    CONSTRAINT FK_EtaProposal_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_EtaProposal_Milestone FOREIGN KEY (MilestoneID) REFERENCES TRIP_MILESTONE(MilestoneID),
+    CONSTRAINT FK_EtaProposal_ProposedBy FOREIGN KEY (ProposedBy) REFERENCES [USER](UserID),
+    CONSTRAINT FK_EtaProposal_CoordDecisionBy FOREIGN KEY (CoordinatorDecisionBy) REFERENCES [USER](UserID),
+    CONSTRAINT FK_EtaProposal_ManagerDecisionBy FOREIGN KEY (ManagerDecisionBy) REFERENCES [USER](UserID)
+);
+GO
+
+-- 4. BẢNG VET_ASSESSMENT: KẾT LUẬN ĐÁNH GIÁ THỂ TRẠNG BÁC SĨ THÚ Y
+-- Cấu hình Entity: VetAssessmentConfiguration.cs
+CREATE TABLE VET_ASSESSMENT (
+    AssessmentID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    HorseID VARCHAR(50) NOT NULL,
+    VetID VARCHAR(50) NOT NULL,
+    HealthLogID VARCHAR(50) NULL,
+    TransportFitness VARCHAR(20) NOT NULL DEFAULT 'FIT', -- FIT, NOT_FIT, NEEDS_REVIEW
+    Conclusion NVARCHAR(MAX) NOT NULL,
+    CareInstructions NVARCHAR(MAX) NULL,
+    EvidenceFileIds NVARCHAR(MAX) NULL,
+    IncidentID VARCHAR(50) NULL,
+    AssessedAt DATETIME2 NOT NULL,
+    RecordedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_VetAssessment PRIMARY KEY (AssessmentID),
+    CONSTRAINT FK_VetAssessment_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_VetAssessment_Horse FOREIGN KEY (HorseID) REFERENCES HORSE(HorseID),
+    CONSTRAINT FK_VetAssessment_Vet FOREIGN KEY (VetID) REFERENCES [USER](UserID),
+    CONSTRAINT FK_VetAssessment_HealthLog FOREIGN KEY (HealthLogID) REFERENCES HEALTH_LOG(LogID)
+);
+GO
+
+-- 5. BẢNG TRIP_EXPENSE: CHI PHÍ PHÁT SINH TRÊN ĐƯỜNG CỦA TỔ XE (NỘI BỘ)
+-- Cấu hình Entity: TripExpenseConfiguration.cs
+CREATE TABLE TRIP_EXPENSE (
+    ExpenseID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    RecordedBy VARCHAR(50) NOT NULL,
+    MilestoneID VARCHAR(50) NULL,
+    Category VARCHAR(50) NOT NULL,                   -- TOLL, FUEL, HORSE_CARE, REPAIR, OTHER
+    AmountVnd DECIMAL(14, 2) NOT NULL,
+    OccurredAt DATETIME2 NOT NULL,
+    Reason NVARCHAR(2000) NOT NULL,
+    ReceiptPhotoUrl NVARCHAR(500) NULL,
+    ReceiptFileIds NVARCHAR(MAX) NULL,
+    Status VARCHAR(30) NOT NULL DEFAULT 'RECORDED',  -- RECORDED
+    RecordedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_TripExpense PRIMARY KEY (ExpenseID),
+    CONSTRAINT FK_TripExpense_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_TripExpense_RecordedBy FOREIGN KEY (RecordedBy) REFERENCES [USER](UserID),
+    CONSTRAINT FK_TripExpense_Milestone FOREIGN KEY (MilestoneID) REFERENCES TRIP_MILESTONE(MilestoneID)
+);
+GO
+
+-- 6. BẢNG AIR_NOTICE: THÔNG BÁO LỊCH BAY TỪ HÃNG HÀNG KHÔNG
+-- Cấu hình Entity: AirNoticeConfiguration.cs
+CREATE TABLE AIR_NOTICE (
+    NoticeID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    BookingID VARCHAR(50) NULL,
+    NoticeKind VARCHAR(50) NOT NULL,                 -- ESTIMATED_SCHEDULE, ACTUAL_DEPARTURE, ACTUAL_ARRIVAL
+    DepartureAt DATETIME2 NULL,
+    ArrivalAt DATETIME2 NULL,
+    ReceivedAt DATETIME2 NOT NULL,
+    SourceReference NVARCHAR(255) NOT NULL,
+    Reason NVARCHAR(2000) NOT NULL,
+    EvidenceFileIds NVARCHAR(MAX) NULL,
+    IncidentID VARCHAR(50) NULL,
+    RequiresPlanChange BIT NOT NULL DEFAULT 0,
+    MilestoneApplied BIT NOT NULL DEFAULT 0,
+    RecordedBy VARCHAR(50) NOT NULL,
+    RecordedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_AirNotice PRIMARY KEY (NoticeID),
+    CONSTRAINT FK_AirNotice_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_AirNotice_RecordedBy FOREIGN KEY (RecordedBy) REFERENCES [USER](UserID)
+);
+GO
+
+-- 7. BẢNG LEGAL_CHECKPOINT_DECISION: KẾT QUẢ KIỂM TRA PHÁP LÝ TẠI TRẠM KIỂM SOÁT
+-- Cấu hình Entity: CheckpointDecisionConfiguration.cs
+CREATE TABLE LEGAL_CHECKPOINT_DECISION (
+    DecisionID VARCHAR(50) NOT NULL,
+    CheckpointID VARCHAR(50) NOT NULL,
+    MilestoneID VARCHAR(50) NULL,
+    TripID VARCHAR(50) NOT NULL,
+    SpecialistID VARCHAR(50) NOT NULL,
+    Decision VARCHAR(30) NOT NULL,                   -- CLEARED, HELD, SUPPLEMENT_REQUIRED
+    OccurredAt DATETIME2 NOT NULL,
+    Reason NVARCHAR(2000) NOT NULL,
+    EvidenceFileIds NVARCHAR(MAX) NOT NULL,          -- Bắt buộc có bằng chứng biên bản kiểm tra
+    RecordedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    Version INT NOT NULL DEFAULT 1,
+    CONSTRAINT PK_CheckpointDecision PRIMARY KEY (DecisionID),
+    CONSTRAINT FK_CheckpointDecision_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_CheckpointDecision_Specialist FOREIGN KEY (SpecialistID) REFERENCES [USER](UserID),
+    CONSTRAINT FK_CheckpointDecision_Milestone FOREIGN KEY (MilestoneID) REFERENCES TRIP_MILESTONE(MilestoneID)
+);
+GO
+
+-- 8. BẢNG EXECUTION_ALERT: CẢNH BÁO TRỄ MỐC VÀ ĐẾN HẠN KIỂM TRA Y TẾ
+-- Cấu hình Entity: ExecutionAlertConfiguration.cs
+CREATE TABLE EXECUTION_ALERT (
+    AlertID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    MilestoneID VARCHAR(50) NULL,
+    AlertKind VARCHAR(50) NOT NULL,                  -- MILESTONE_OVERDUE, HEALTH_CHECK_DUE, ETA_CHANGE
+    Status VARCHAR(20) NOT NULL DEFAULT 'OPEN',       -- OPEN, ACKNOWLEDGED, RESOLVED
+    Message NVARCHAR(1000) NOT NULL,
+    AssigneeUserIds NVARCHAR(500) NULL,
+    AcknowledgedBy VARCHAR(50) NULL,
+    AcknowledgedAt DATETIME2 NULL,
+    CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_ExecutionAlert PRIMARY KEY (AlertID),
+    CONSTRAINT FK_ExecutionAlert_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_ExecutionAlert_Milestone FOREIGN KEY (MilestoneID) REFERENCES TRIP_MILESTONE(MilestoneID),
+    CONSTRAINT FK_ExecutionAlert_User FOREIGN KEY (AcknowledgedBy) REFERENCES [USER](UserID)
+);
+GO
+
+-- 9. BẢNG EXECUTION_CONTACT_LOG: NHẬT KÝ LIÊN HỆ KHẨN CẤP NGOÀI LUỒNG
+-- Cấu hình Entity: ExecutionContactLogConfiguration.cs
+CREATE TABLE EXECUTION_CONTACT_LOG (
+    ContactLogID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    ContactedUserID VARCHAR(50) NOT NULL,
+    RecordedBy VARCHAR(50) NOT NULL,
+    ContactedAt DATETIME2 NOT NULL,
+    Channel VARCHAR(30) NOT NULL DEFAULT 'PHONE',    -- PHONE, IN_PERSON, OTHER
+    Result NVARCHAR(2000) NOT NULL,
+    RecordedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_ContactLog PRIMARY KEY (ContactLogID),
+    CONSTRAINT FK_ContactLog_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_ContactLog_ContactedUser FOREIGN KEY (ContactedUserID) REFERENCES [USER](UserID),
+    CONSTRAINT FK_ContactLog_RecordedBy FOREIGN KEY (RecordedBy) REFERENCES [USER](UserID)
+);
+GO
+
+-- 10. BẢNG EXECUTION_ATTACHMENT: QUẢN LÝ METADATA CHỨNG TỪ & ẢNH HIỆN TRƯỜNG
+-- Cấu hình Entity: ExecutionAttachmentConfiguration.cs
+CREATE TABLE EXECUTION_ATTACHMENT (
+    FileID VARCHAR(50) NOT NULL,
+    TripID VARCHAR(50) NOT NULL,
+    HorseID VARCHAR(50) NULL,
+    FileName NVARCHAR(255) NOT NULL,
+    ContentType VARCHAR(100) NOT NULL,
+    FileSize BIGINT NOT NULL,
+    Purpose VARCHAR(30) NOT NULL,                    -- MILESTONE, AIR, CHECKPOINT, HEALTH, EXPENSE
+    StoragePath NVARCHAR(500) NOT NULL,
+    UploadedBy VARCHAR(50) NOT NULL,
+    UploadedAtUtc DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_ExecutionAttachment PRIMARY KEY (FileID),
+    CONSTRAINT FK_ExecutionAttachment_Trip FOREIGN KEY (TripID) REFERENCES TRIP_PLAN(TripID),
+    CONSTRAINT FK_ExecutionAttachment_Horse FOREIGN KEY (HorseID) REFERENCES HORSE(HorseID),
+    CONSTRAINT FK_ExecutionAttachment_User FOREIGN KEY (UploadedBy) REFERENCES [USER](UserID)
+);
+GO
+
+-- =============================================================================
+-- BƯỚC 5: KHỞI TẠO BỘ DỮ LIỆU SEED MẪU TOÀN DIỆN CHO FLOW 4 (FULL DATASET)
+-- Phục vụ kiểm thử 37 API Swagger: Happy Path đường bộ, Đa phương thức Air Leg,
+-- Bác sĩ thú y, Trạm kiểm soát, Điều phối viên, Quản lý và Khách hàng.
+-- =============================================================================
+
+-- 5.1. CẬP NHẬT XE CHUYÊN DỤNG (VEHICLE)
+UPDATE VEHICLE 
+SET PlateNumber = '29C-123.45', OperatingCountry = 'VN', Height_m = 3.60, Width_m = 2.45, Length_m = 9.80, Gross_Weight_Tons = 12.50, Axle_Weight_Tons = 7.00, Status = 'AVAILABLE'
+WHERE VehicleID = 'VEHICLE_001';
+
+UPDATE VEHICLE 
+SET PlateNumber = '29C-888.99', OperatingCountry = 'VN', Height_m = 3.80, Width_m = 2.50, Length_m = 12.00, Gross_Weight_Tons = 18.00, Axle_Weight_Tons = 9.50, Status = 'AVAILABLE'
+WHERE VehicleID = 'VEHICLE_002';
+
+UPDATE VEHICLE 
+SET PlateNumber = '29C-555.66', OperatingCountry = 'VN', Height_m = 3.20, Width_m = 2.20, Length_m = 7.50, Gross_Weight_Tons = 7.50, Axle_Weight_Tons = 4.50, Status = 'MAINTENANCE'
+WHERE VehicleID = 'VEHICLE_003';
+GO
+
+-- 5.2. ĐỒNG BỘ ĐƠN HÀNG VÀ CHUYẾN ĐI (TRIP_PLAN & TRANSPORT_REQUEST)
+-- Chuyến 1: TRIP_003 (Đường bộ Happy Path - Tài xế USER_015, Áp tải USER_018, Xe VEHICLE_002)
+IF EXISTS (SELECT 1 FROM TRIP_PLAN WHERE TripID = 'TRIP_003')
+BEGIN
+    UPDATE TRIP_PLAN 
+    SET Status = 'READY_TO_DEPART',
+        ExecutionVersion = 1,
+        ExecutionPhase = 'AWAITING_DEPARTURE',
+        CurrentEta = '2026-11-15 18:00:00',
+        OperationsStatus = 'READY',
+        DocumentsStatus = 'READY',
+        RouteStatus = 'APPROVED',
+        PlanVersion = 1,
+        ContextVersion = 1,
+        ReadinessVersion = 1,
+        EarliestDepartureDate = '2026-11-12 07:00:00',
+        DocumentExpiryDate = '2027-05-10 00:00:00',
+        ApprovedPlanJson = N'{"transportMode":"ROAD","legs":[{"leg":"road","origin":"Trang trại Sóc Sơn, Hà Nội","destination":"Trại ngựa Phú Thọ, TP.HCM"}]}'
+    WHERE TripID = 'TRIP_003';
+
+    UPDATE TRANSPORT_REQUEST
+    SET Status = 'SCHEDULED',
+        DeclaredValueVnd = 145000000.00
+    WHERE RequestID = 'REQUEST_003';
+END
+
+-- REQUEST_001 is the end-to-end walkthrough's Flow 3 handoff point.
+IF EXISTS (SELECT 1 FROM TRIP_PLAN WHERE TripID = 'TRIP_001')
+BEGIN
+    UPDATE TRIP_PLAN 
+    SET Status = 'PLANNING',
+        ExecutionVersion = 1,
+        ExecutionPhase = 'AWAITING_DEPARTURE',
+        CurrentEta = '2026-11-17 12:00:00',
+        OperationsStatus = 'READY',
+        DocumentsStatus = 'READY',
+        RouteStatus = 'APPROVED',
+        PlanVersion = 1,
+        ContextVersion = 1,
+        ReadinessVersion = 1,
+        EarliestDepartureDate = '2026-11-15 06:00:00',
+        DocumentExpiryDate = '2026-12-01 00:00:00',
+        PendingEtaProposalId = NULL,
+        ApprovedPlanJson = N'{"transportMode":"AIR","legs":[{"leg":"road_outbound"},{"leg":"air","airline":"Nippon Cargo Airlines"},{"leg":"road_inbound"}]}'
+    WHERE TripID = 'TRIP_001';
+
+    UPDATE TRANSPORT_REQUEST
+    SET Status = 'ACTIVATED',
+        DeclaredValueVnd = 350000000.00
+    WHERE RequestID = 'REQUEST_001';
+END
+
+-- REQUEST_002 starts Flow 6 after actual arrival; REQUEST_003 is the standalone Flow 4 start.
+IF EXISTS (SELECT 1 FROM TRIP_PLAN WHERE TripID = 'TRIP_002')
+BEGIN
+    UPDATE TRIP_PLAN 
+    SET Status = 'IN_TRANSIT',
+        ExecutionVersion = 2,
+        ExecutionPhase = 'IN_PROGRESS',
+        CurrentEta = '2026-10-06 18:30:00',
+        OperationsStatus = 'READY',
+        DocumentsStatus = 'READY',
+        RouteStatus = 'APPROVED',
+        PlanVersion = 1,
+        ContextVersion = 1,
+        ReadinessVersion = 1,
+        EarliestDepartureDate = '2026-10-01 07:00:00',
+        DocumentExpiryDate = '2027-01-15 00:00:00',
+        ApprovedPlanJson = N'{"transportMode":"ROAD"}'
+    WHERE TripID = 'TRIP_002';
+
+    UPDATE TRANSPORT_REQUEST
+    SET Status = 'IN_PROGRESS',
+        DeclaredValueVnd = 80000000.00
+    WHERE RequestID = 'REQUEST_002';
+END
+GO
+
+-- 5.3. BẢNG TRIP_MILESTONE: MỐC HÀNH TRÌNH TUẦN TỰ
+DELETE FROM TRIP_MILESTONE WHERE TripID IN ('TRIP_003', 'TRIP_001', 'TRIP_002');
+
+-- Mốc cho TRIP_003 (Đường bộ toàn trình - Sẵn sàng test xuất phát từ F4-J04 -> F4-J05 -> F4-J06)
+INSERT INTO TRIP_MILESTONE (MilestoneID, TripID, Leg, MilestoneKind, SequenceOrder, Label, Status, PlannedTime, OccurredAt, RecordedAt, RecordedBy, Note, RequiresHealthCheck, Revision)
+VALUES 
+('MILESTONE_001', 'TRIP_003', 'road', 'DEPARTED',      1, N'Xuất phát từ trang trại Sóc Sơn',               'PENDING', '2026-10-08 08:30:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_002', 'TRIP_003', 'road', 'STOP_ARRIVED',  2, N'Đến trạm dừng Đà Nẵng (Kiểm tra y tế)',       'PENDING', '2026-10-09 11:00:00', NULL, NULL, NULL, NULL, 1, 1),
+('MILESTONE_003', 'TRIP_003', 'road', 'STOP_DEPARTED', 3, N'Rời trạm dừng Đà Nẵng',                       'PENDING', '2026-10-09 12:00:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_004', 'TRIP_003', 'road', 'FINAL_ARRIVED', 4, N'Đến điểm giao CLB Ngựa Sài Gòn (Đích đến)', 'PENDING', '2026-10-10 18:00:00', NULL, NULL, NULL, NULL, 0, 1);
+
+-- Mốc cho TRIP_001 (Đa phương thức hàng không - Kiểm thử Air Leg, Checkpoint, Đính chính)
+INSERT INTO TRIP_MILESTONE (MilestoneID, TripID, Leg, MilestoneKind, SequenceOrder, Label, Status, PlannedTime, OccurredAt, RecordedAt, RecordedBy, Note, RequiresHealthCheck, Revision)
+VALUES 
+('MILESTONE_010', 'TRIP_001', 'road',    'DEPARTED',               1, N'Khởi hành từ trại ngựa Hà Nội',               'PENDING', '2026-11-15 07:00:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_011', 'TRIP_001', 'road',    'AIRPORT_ORIGIN_ARRIVED', 2, N'Đến ga hàng hóa Nội Bài Cargo Terminal',     'PENDING', '2026-11-15 14:00:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_012', 'TRIP_001', 'air',     'AIR_HANDOVER',           3, N'Bàn giao ngựa cho hãng bay NCA Airlines',     'PENDING', '2026-11-15 16:30:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_013', 'TRIP_001', 'air',     'AIR_DEPARTED',           4, N'Chuyến bay chở ngựa KZ-102 cất cánh',         'PENDING', '2026-11-16 05:30:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_014', 'TRIP_001', 'air',     'AIR_ARRIVED',            5, N'Hạ cánh sân bay Narita (Tokyo, Nhật Bản)',     'PENDING', '2026-11-16 12:30:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_015', 'TRIP_001', 'road',    'AIR_RECEIVED',           6, N'Tiếp nhận ngựa tại Cargo Terminal Narita',     'PENDING', '2026-11-16 14:00:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_016', 'TRIP_001', 'road',    'FINAL_ARRIVED',          7, N'Đến trung tâm tiếp nhận ngựa Narita',          'PENDING', '2026-11-17 12:00:00', NULL, NULL, NULL, NULL, 0, 1);
+
+-- Mốc cho TRIP_002 (Đường bộ phụ cho USER_008)
+INSERT INTO TRIP_MILESTONE (MilestoneID, TripID, Leg, MilestoneKind, SequenceOrder, Label, Status, PlannedTime, OccurredAt, RecordedAt, RecordedBy, Note, RequiresHealthCheck, Revision)
+VALUES 
+('MILESTONE_020', 'TRIP_002', 'road', 'DEPARTED',      1, N'Xuất phát từ trang trại Củ Chi',   'COMPLETED', '2026-11-05 07:00:00', '2026-11-05 07:00:00', '2026-11-05 07:05:00', 'USER_008', N'Đã xuất phát đúng lịch trình.', 0, 1),
+('MILESTONE_021', 'TRIP_002', 'road', 'FINAL_ARRIVED', 2, N'Đến trung tâm tiếp nhận Đà Nẵng', 'COMPLETED', '2026-11-06 10:00:00', '2026-11-06 10:00:00', '2026-11-06 10:05:00', 'USER_008', N'Đã đến nơi; chờ bắt đầu bàn giao Flow 6.', 0, 1);
+GO
+
+-- 5.4. BẢNG MILESTONE_CORRECTION_REQUEST: YÊU CẦU ĐÍNH CHÍNH MỐC
+DELETE FROM MILESTONE_CORRECTION_REQUEST;
+INSERT INTO MILESTONE_CORRECTION_REQUEST (CorrectionID, MilestoneID, TripID, RequestedBy, OriginalOccurredAt, ProposedOccurredAt, OriginalNote, ProposedNote, Reason, Status, DecidedBy, DecidedAt, DecisionReason, RequestedAt)
+VALUES 
+('CORRECTION_001', 'MILESTONE_010', 'TRIP_001', 'USER_007', '2026-09-15 07:00:00', '2026-09-15 07:15:00', N'Khởi hành đúng giờ', N'Khởi hành lúc 07:15 do kiểm tra lại chốt cửa', N'Bấm nhầm nút xuất phát trước khi xe thực sự lăn bánh', 'APPROVED', 'USER_006', '2026-09-15 08:00:00', N'Đã đối chiếu GPS, chấp thuận đính chính', '2026-09-15 07:30:00');
+GO
+
+-- 5.5. BẢNG ETA_PROPOSAL: ĐỀ XUẤT ĐIỀU CHỈNH ETA (2 CẤP)
+DELETE FROM ETA_PROPOSAL;
+INSERT INTO ETA_PROPOSAL (ProposalID, TripID, ProposedBy, ProposedEta, CurrentEtaSnapshot, Reason, RequiresManager, Status, CoordinatorDecisionBy, CoordinatorDecisionReason, CoordinatorDecisionAt, ProposedAt)
+VALUES 
+('PROPOSAL_001', 'TRIP_001', 'USER_007', '2026-09-17 12:00:00', '2026-09-16 18:00:00', N'Chuyến bay KZ-102 bị lùi giờ cất cánh do thời tiết xấu', 0, 'APPROVED', 'USER_006', N'Đã đối chiếu lịch bay hãng NCA, trong hạn hợp đồng', '2026-09-15 18:00:00', '2026-09-15 17:30:00'),
+('PROPOSAL_002', 'TRIP_003', 'USER_015', '2026-10-11 10:00:00', '2026-10-10 18:00:00', N'Mưa lớn gây sạt lở đèo Hải Vân phải đi vòng đường tránh', 1, 'PENDING_COORDINATOR', NULL, NULL, NULL, '2026-10-09 14:00:00');
+GO
+
+-- 5.6. BẢNG VET_ASSESSMENT: KẾT LUẬN THỂ TRẠNG BÁC SĨ THÚ Y
+DELETE FROM VET_ASSESSMENT;
+INSERT INTO VET_ASSESSMENT (AssessmentID, TripID, HorseID, VetID, TransportFitness, Conclusion, CareInstructions, AssessedAt)
+VALUES 
+('ASSESSMENT_001', 'TRIP_003', 'HORSE_001', 'USER_018', 'FIT', N'Thể trạng ngựa khỏe mạnh, nhịp tim 38 bpm, hô hấp 14 l/p, mắt linh hoạt, niêm mạc hồng hào', N'Bổ sung nước điện giải mỗi 4 tiếng trên xe', '2026-11-12 07:45:00'),
+('ASSESSMENT_002', 'TRIP_001', 'HORSE_001', 'USER_009', 'FIT', N'Thể trạng hoàn toàn đáp ứng điều kiện bay quốc tế chuẩn IATA Live Animals Regulations', N'Cho uống nước trước giờ bay 2 tiếng', '2026-09-15 15:00:00');
+GO
+
+-- 5.7. BẢNG TRIP_EXPENSE: CHI PHÍ PHÁT SINH TRÊN ĐƯỜNG
+DELETE FROM TRIP_EXPENSE;
+INSERT INTO TRIP_EXPENSE (ExpenseID, TripID, RecordedBy, Category, AmountVnd, OccurredAt, Reason, Status, RecordedAt)
+VALUES 
+('EXPENSE_003', 'TRIP_001', 'USER_007', 'OTHER',          1200000.00, '2026-09-15 15:30:00', N'Phí khử trùng xe và khu lưu chuồng ga hàng không Nội Bài', 'RECORDED', '2026-09-15 15:35:00');
+GO
+
+-- 5.8. BẢNG AIR_NOTICE: THÔNG BÁO LỊCH BAY TỪ HÃNG HÀNG KHÔNG
+DELETE FROM AIR_NOTICE;
+INSERT INTO AIR_NOTICE (NoticeID, TripID, BookingID, NoticeKind, DepartureAt, ArrivalAt, ReceivedAt, SourceReference, Reason, RecordedBy, RecordedAt)
+VALUES 
+('AIR_NOTICE_001', 'TRIP_001', '300', 'ESTIMATED_SCHEDULE', '2026-09-16 05:30:00', '2026-09-16 12:30:00', '2026-09-15 17:00:00', N'NCA-NOTAM-KZ102-REV1', N'Lùi lịch bay 30 phút do kiểm tra kỹ thuật máy bay chở hàng', 'USER_006', '2026-09-15 17:05:00');
+GO
+
+-- 5.9. BẢNG LEGAL_CHECKPOINT_DECISION: KẾT QUẢ KIỂM TRA PHÁP LÝ TẠI TRẠM KIỂM SOÁT
+DELETE FROM LEGAL_CHECKPOINT_DECISION;
+INSERT INTO LEGAL_CHECKPOINT_DECISION (DecisionID, CheckpointID, MilestoneID, TripID, SpecialistID, Decision, OccurredAt, Reason, EvidenceFileIds, RecordedAt, Version)
+VALUES 
+('DECISION_001', 'CP_NOI_BAI_01', 'MILESTONE_011', 'TRIP_001', 'USER_005', 'CLEARED', '2026-09-15 15:00:00', N'Hồ sơ Coggins test và chứng nhận kiểm dịch xuất cảnh hợp lệ, số vi chip trùng khớp', N'["ATTACHMENT_001"]', '2026-09-15 15:10:00', 1);
+GO
+
+-- 5.10. BẢNG EXECUTION_ALERT: CẢNH BÁO HÀNH TRÌNH
+DELETE FROM EXECUTION_ALERT;
+INSERT INTO EXECUTION_ALERT (AlertID, TripID, MilestoneID, AlertKind, Status, Message, AssigneeUserIds, CreatedAt)
+VALUES 
+('ALERT_001', 'TRIP_003', 'MILESTONE_002', 'HEALTH_CHECK_DUE', 'OPEN', N'Đến hạn kiểm tra y tế và đo sinh hiệu ngựa tại trạm dừng Đà Nẵng', N'["USER_015","USER_018"]', '2026-10-09 10:30:00'),
+('ALERT_002', 'TRIP_001', 'MILESTONE_014', 'ETA_CHANGE',       'RESOLVED', N'Lịch bay KZ-102 đã được cập nhật, ETA mới: 2026-09-17 12:00', N'["USER_006"]', '2026-09-15 17:30:00');
+GO
+
+-- 5.11. BẢNG EXECUTION_CONTACT_LOG: NHẬT KÝ LIÊN HỆ NGOÀI LUỒNG
+DELETE FROM EXECUTION_CONTACT_LOG;
+INSERT INTO EXECUTION_CONTACT_LOG (ContactLogID, TripID, ContactedUserID, RecordedBy, ContactedAt, Channel, Result, RecordedAt)
+VALUES 
+('CONTACT_LOG_001', 'TRIP_003', 'USER_015', 'USER_006', '2026-10-08 19:00:00', 'PHONE', N'Tài xế thông báo xe đang dừng nghỉ ngơi đúng lịch trình, ngựa khỏe mạnh, kết nối 4G ổn định', '2026-10-08 19:05:00');
+GO
+
+-- 5.12. BẢNG EXECUTION_ATTACHMENT: METADATA CHỨNG TỪ & ẢNH HIỆN TRƯỜNG
+DELETE FROM EXECUTION_ATTACHMENT;
+INSERT INTO EXECUTION_ATTACHMENT (FileID, TripID, HorseID, FileName, ContentType, FileSize, Purpose, StoragePath, UploadedBy, UploadedAtUtc)
+VALUES 
+('ATTACHMENT_001', 'TRIP_001', 'HORSE_001', N'bien_ban_kiem_dich_noi_bai.pdf', 'application/pdf', 1048576, 'CHECKPOINT', N'/storage/flow4/trips/TRIP_001/bien_ban_kiem_dich_noi_bai.pdf', 'USER_005', '2026-09-15 15:05:00'),
+('ATTACHMENT_002', 'TRIP_003', 'HORSE_001', N'anh_ngua_kham_khoi_hanh.jpg',     'image/jpeg',      2097152, 'HEALTH',     N'/storage/flow4/trips/TRIP_003/anh_ngua_kham_khoi_hanh.jpg',     'USER_018', '2026-10-08 07:50:00');
+GO
+
+-- 5.13. BỔ SUNG NHẬT KÝ SỨC KHỎE SINH HIỆU LÂM SÀNG (HEALTH_LOG)
+IF NOT EXISTS (SELECT 1 FROM HEALTH_LOG WHERE LogID = 'LOG_005')
+BEGIN
+    INSERT INTO HEALTH_LOG (LogID, TripID, HorseID, EscortID, LogType, LogTime, Temperature, HeartRate, HealthStatus, Description, Condition, RespiratoryRatePerMin, Feeding, Water, RestStatus, CareNotes, LegType, RecordedAt)
+    VALUES 
+    ('LOG_005', 'TRIP_003', 'HORSE_001', 'USER_018', 'OBSERVATION', '2026-10-08 07:30:00', 38.0, 38, N'Tốt', N'Khám sức khỏe tổng quát trước giờ xuất phát', 'NORMAL', 14, N'Ăn cỏ khô bình thường', N'Uống 15L nước', N'Nghỉ ngơi tốt', N'Ngựa sẵn sàng lên đường', 'road', '2026-10-08 07:35:00');
+END
+GO
+
+-- Normalize operational fixtures to the three customer demo entry points.
+DELETE FROM MILESTONE_CORRECTION_REQUEST WHERE TripID IN ('TRIP_001','TRIP_003');
+DELETE FROM ETA_PROPOSAL WHERE TripID IN ('TRIP_001','TRIP_003');
+DELETE FROM LEGAL_CHECKPOINT_DECISION WHERE TripID='TRIP_001';
+DELETE FROM EXECUTION_ALERT WHERE TripID IN ('TRIP_001','TRIP_003');
+DELETE FROM EXECUTION_CONTACT_LOG WHERE TripID IN ('TRIP_001','TRIP_003');
+DELETE FROM TRIP_EXPENSE WHERE TripID IN ('TRIP_001','TRIP_003');
+DELETE FROM VET_ASSESSMENT WHERE TripID='TRIP_001';
+DELETE FROM HEALTH_LOG WHERE TripID='TRIP_001';
+DELETE FROM AIR_NOTICE WHERE TripID='TRIP_001';
+DELETE FROM EXECUTION_ATTACHMENT WHERE TripID='TRIP_001';
+
+UPDATE TRIP_PLAN SET Status='PLANNING', ExecutionVersion=1, ExecutionPhase='AWAITING_DEPARTURE', PendingEtaProposalId=NULL,
+    ResourcesConfirmedAt='2026-11-04T15:00:00',ResourcesConfirmedBy='USER_006',DocumentsConfirmedAt='2026-11-04T15:00:00',DocumentsConfirmedBy='USER_005',
+    DocsReadyAtUtc='2026-11-04T15:00:00',DocsReadyBy='USER_005',RouteApprovedAt='2026-11-04T14:00:00',RouteApprovedBy='USER_004',DepartureApprovedAt=NULL,DepartureApprovedBy=NULL
+    WHERE TripID='TRIP_001';
+UPDATE TRIP_PLAN SET Status='COMPLETED', ExecutionVersion=2, ExecutionPhase='COMPLETED',DepartureApprovedAt='2026-11-05T06:45:00',DepartureApprovedBy='USER_004' WHERE TripID='TRIP_002';
+UPDATE TRIP_PLAN SET Status='READY_TO_DEPART', ExecutionVersion=1, ExecutionPhase='AWAITING_DEPARTURE',
+    ResourcesConfirmedAt='2026-11-04T15:00:00',ResourcesConfirmedBy='USER_006',DocumentsConfirmedAt='2026-11-04T15:00:00',DocumentsConfirmedBy='USER_005',
+    DocsReadyAtUtc='2026-11-04T15:00:00',DocsReadyBy='USER_005',RouteApprovedAt='2026-11-04T14:00:00',RouteApprovedBy='USER_004',DepartureApprovedAt='2026-11-12T08:00:00',DepartureApprovedBy='USER_004'
+    WHERE TripID='TRIP_003';
+UPDATE TRANSPORT_REQUEST SET Status='ACTIVATED' WHERE RequestID='REQUEST_001';
+UPDATE TRANSPORT_REQUEST SET Status='DELIVERED' WHERE RequestID='REQUEST_002';
+UPDATE TRANSPORT_REQUEST SET Status='SCHEDULED' WHERE RequestID='REQUEST_003';
+
+UPDATE ROUTE_SEGMENT SET Status='PLANNED',ActualTime=NULL WHERE TripID IN ('TRIP_001','TRIP_003');
+UPDATE CUSTOMS_CLEARANCE SET Status='PENDING',ClearedAt=NULL WHERE TripID='TRIP_001';
+UPDATE TRIP_MILESTONE SET Status='PENDING',OccurredAt=NULL,RecordedAt=NULL,RecordedBy=NULL,Note=NULL WHERE TripID='TRIP_001';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-12 08:30:00' WHERE MilestoneID='MILESTONE_001';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-13 11:00:00' WHERE MilestoneID='MILESTONE_002';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-13 12:00:00' WHERE MilestoneID='MILESTONE_003';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-15 18:00:00' WHERE MilestoneID='MILESTONE_004';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-06 18:30:00',OccurredAt='2026-11-06 18:30:00',RecordedAt='2026-11-06 18:35:00' WHERE MilestoneID='MILESTONE_021';
+UPDATE HEALTH_LOG SET LogTime='2026-11-12 07:30:00',RecordedAt='2026-11-12 07:35:00' WHERE LogID='LOG_005';
+UPDATE EXECUTION_ATTACHMENT SET UploadedAtUtc='2026-11-12 07:50:00' WHERE FileID='ATTACHMENT_002';
 GO

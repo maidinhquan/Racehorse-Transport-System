@@ -48,6 +48,20 @@ namespace Infrastructure.Services
                 missing.Add("Lộ trình chưa được Logistics Manager phê duyệt (ROUTE_APPROVED)");
             }
 
+            PlanDto? approvedPlan = null;
+            if (!string.IsNullOrWhiteSpace(trip.ApprovedPlanJson))
+            {
+                try { approvedPlan = JsonSerializer.Deserialize<PlanDto>(trip.ApprovedPlanJson); } catch { }
+            }
+            bool isAirForReadiness = IsAirTrip(trip);
+            var routeViolations = ValidatePlanEquineWelfareAndSafety(trip, approvedPlan, isAirForReadiness);
+            bool routeCompliant = !routeViolations.Any();
+            if (!routeCompliant)
+            {
+                routeApproved = false;
+                missing.Add($"Lộ trình vi phạm quy chuẩn nghiệp vụ/phúc lợi ngựa: {string.Join("; ", routeViolations)}");
+            }
+
             var horseCount = await _context.RequestHorseMappings.CountAsync(m => m.RequestId == trip.RequestId);
             if (horseCount <= 0) horseCount = 2;
 
@@ -75,7 +89,7 @@ namespace Infrastructure.Services
 
             var conditions = new List<ConditionItemDto>
             {
-                new() { Code = "ROUTE_STRUCTURALLY_VALID", Label = "Lộ trình hợp lệ về mặt cấu trúc", Met = routeCreated, Group = "route" },
+                new() { Code = "ROUTE_STRUCTURALLY_VALID", Label = "Lộ trình hợp lệ về mặt cấu trúc", Met = routeCreated && routeCompliant, Group = "route" },
                 new() { Code = "ROUTE_APPROVED", Label = "Lộ trình đã được Logistics Manager phê duyệt", Met = routeApproved, Group = "route" }
             };
 
@@ -221,7 +235,7 @@ namespace Infrastructure.Services
                 TripId = tripId ?? string.Empty,
                 RouteVersionId = 120,
                 AssignmentVersion = 3,
-                RouteCreated = routeCreated,
+                RouteCreated = routeCreated && routeCompliant,
                 RouteApproved = routeApproved,
                 VehicleAssigned = vehicleAssigned,
                 DriverAssigned = driverAssigned,
@@ -394,6 +408,7 @@ namespace Infrastructure.Services
             trip.Status = "READY_TO_DEPART";
             trip.DepartureApprovedAt = DateTime.UtcNow;
             trip.DepartureApprovedBy = "USR_MGR_01";
+            await EnsureExecutionMilestonesAsync(trip);
 
             foreach (var va in trip.VehicleAssignments)
             {
@@ -441,6 +456,9 @@ namespace Infrastructure.Services
                     throw new InvalidOperationException("FLIGHT_NOT_BOOKED: Chặng bay (AIR) bắt buộc phải có mã đặt chỗ vé máy bay (Flight Booking) trước khi xác nhận nguồn lực!");
                 }
             }
+
+            // Mỗi nhân sự tổ xe chỉ thuộc một chuyến chưa bàn giao xong: chặn từ bước xác nhận nguồn lực
+            await EnsureCrewFreeFromPlanJsonAsync(cleanTripId, trip.DraftPlanJson, trip.ApprovedPlanJson);
 
             trip.ResourcesConfirmedAt = DateTime.UtcNow;
             trip.ResourcesConfirmedBy = userId;
@@ -529,7 +547,8 @@ namespace Infrastructure.Services
             bool isAir = IsAirTrip(trip);
             bool planApproved = trip.RouteStatus == "APPROVED" || !string.IsNullOrWhiteSpace(trip.ApprovedPlanJson);
             bool noOpenChange = !trip.OpenChange;
-            bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue;
+            // Hồ sơ sẵn sàng: Specialist đã xác nhận Docs READY (DocsReadyAtUtc) hoặc trạng thái hồ sơ đã READY
+            bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue || trip.DocsReadyAtUtc.HasValue;
             bool opsReady = trip.OperationsStatus == "READY" || (trip.ResourcesConfirmedAt.HasValue && planApproved);
 
             DateTime? plannedDepart = trip.Request?.ExpectedDate ?? trip.EarliestDepartureDate;
@@ -618,14 +637,108 @@ namespace Infrastructure.Services
             };
         }
 
+        /// <summary>
+        /// Tạo dòng phân công xe và tổ xe từ phương án đã duyệt (nhân sự theo danh bạ EMP-xx được nối với tài khoản đăng nhập),
+        /// để tài xế thấy chuyến ở trang của mình. Chỉ tạo khi chuyến chưa có phân công và tài xế chính đã có tài khoản liên kết.
+        /// </summary>
+        private async Task EnsureCrewAssignmentFromPlanAsync(TripPlan trip)
+        {
+            if (trip.VehicleAssignments.Any() || string.IsNullOrWhiteSpace(trip.ApprovedPlanJson)) return;
+
+            string? mainDriver = null, coDriver = null, veterinarian = null, vehicleLabel = null;
+            try
+            {
+                using var document = JsonDocument.Parse(trip.ApprovedPlanJson);
+                var root = document.RootElement;
+                if (root.TryGetProperty("vehicleLabel", out var label) && label.ValueKind == JsonValueKind.String) vehicleLabel = label.GetString();
+                if (root.TryGetProperty("resources", out var resources) && resources.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var resource in resources.EnumerateArray())
+                    {
+                        if (resource.TryGetProperty("leg", out var leg) && leg.GetString() != "road") continue;
+                        if (resource.TryGetProperty("crew", out var crew) && crew.ValueKind == JsonValueKind.Object)
+                        {
+                            string? Code(string name) => crew.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String
+                                ? (StaffDirectoryLinks.UserIdFor(v.GetString()) ?? (v.GetString()?.StartsWith("USER_", StringComparison.OrdinalIgnoreCase) == true ? v.GetString() : null))
+                                : null;
+                            mainDriver = Code("mainDriver"); coDriver = Code("coDriver"); veterinarian = Code("veterinarian");
+                        }
+                        break;
+                    }
+                }
+            }
+            catch (JsonException) { return; }
+
+            var plate = vehicleLabel?.Split(" • ")[0].Trim();
+            if (mainDriver == null || string.IsNullOrWhiteSpace(plate)) return;
+
+            // Mỗi nhân sự tổ xe chỉ được giao cho một chuyến chưa bàn giao xong
+            var busy = await CrewBusyOnOtherTripsAsync(trip.TripId);
+            foreach (var (role, id) in new[] { ("Tài xế chính", mainDriver), ("Phụ lái", coDriver), ("Bác sĩ thú y", veterinarian) })
+            {
+                if (!string.IsNullOrEmpty(id) && busy.TryGetValue(id, out var otherTrip))
+                {
+                    throw new InvalidOperationException("STAFF_BUSY_ON_ACTIVE_TRIP: " + CrewBusyMessage(role, id, otherTrip));
+                }
+            }
+
+            static int MaxNumber(IEnumerable<string> ids, string prefix) =>
+                ids.Select(id => id.StartsWith(prefix, StringComparison.Ordinal) && int.TryParse(id[prefix.Length..], out var n) ? n : 0).DefaultIfEmpty(0).Max();
+
+            var vehicle = await _context.Vehicles.FirstOrDefaultAsync(v => v.PlateNumber == plate);
+            if (vehicle == null)
+            {
+                // Xe trong danh bạ của Điều phối chưa có trong bảng VEHICLE: tạo theo biển số và loại xe ghi trong phương án
+                var separator = vehicleLabel!.IndexOf(" • ", StringComparison.Ordinal);
+                var model = separator >= 0 ? vehicleLabel[(separator + 3)..].Trim() : null;
+                vehicle = new Vehicle
+                {
+                    VehicleId = "VEHICLE_" + (MaxNumber(await _context.Vehicles.Select(v => v.VehicleId).ToListAsync(), "VEHICLE_") + 1).ToString("000"),
+                    PlateNumber = plate,
+                    Type = model is { Length: > 50 } ? model[..50] : model,
+                    OperatingCountry = "VN",
+                    Status = "READY",
+                };
+                _context.Vehicles.Add(vehicle);
+            }
+
+            var assignmentNumber = MaxNumber(await _context.TripVehicleAssignments.Select(a => a.AssignmentId).ToListAsync(), "TRIP_ASSIGNMENT_") + 1;
+            trip.VehicleAssignments.Add(new TripVehicleAssignment
+            {
+                AssignmentId = "TRIP_ASSIGNMENT_" + assignmentNumber.ToString("000"),
+                TripId = trip.TripId,
+                LegNumber = 1,
+                LegType = "OUTBOUND",
+                VehicleId = vehicle.VehicleId,
+                DriverId = mainDriver,
+                CoDriverId = coDriver,
+                VeterinarianId = veterinarian,
+                EscortId = veterinarian,
+            });
+        }
+
+        /// <summary>Sinh các mốc hành trình (kèm tọa độ) từ phương án đã duyệt khi chuyến sẵn sàng khởi hành.</summary>
+        private async Task EnsureExecutionMilestonesAsync(TripPlan trip)
+        {
+            await EnsureCrewAssignmentFromPlanAsync(trip);
+            if (await _context.TripMilestones.AnyAsync(m => m.TripId == trip.TripId)) return;
+            var last = Infrastructure.Services.Flow4.Flow4MilestoneFactory.MaxMilestoneNumber(await _context.TripMilestones.Select(m => m.MilestoneId).ToListAsync());
+            _context.TripMilestones.AddRange(Infrastructure.Services.Flow4.Flow4MilestoneFactory.FromApprovedPlan(trip, last));
+        }
+
         public async Task<DepartureResultDto> ApproveDepartureV2Async(string tripId, DepartureInputDto dto, string managerId, string managerName)
         {
             var cleanTripId = tripId?.Trim() ?? string.Empty;
 
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
+            {
+            _context.ChangeTracker.Clear();
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             var trip = await _context.TripPlans
                 .Include(t => t.Request)
+                .Include(t => t.RouteSegments)
                 .Include(t => t.VehicleAssignments)
                     .ThenInclude(va => va.Vehicle)
                 .FirstOrDefaultAsync(t => t.TripId == cleanTripId || t.TripId == tripId);
@@ -643,8 +756,22 @@ namespace Infrastructure.Services
             }
 
             bool planApproved = trip.RouteStatus == "APPROVED" || !string.IsNullOrWhiteSpace(trip.ApprovedPlanJson);
-            bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue;
+            // Hồ sơ sẵn sàng: Specialist đã xác nhận Docs READY (DocsReadyAtUtc) hoặc trạng thái hồ sơ đã READY
+            bool docsReady = trip.DocumentsStatus == "READY" || trip.EarliestDepartureDate.HasValue || trip.DocsReadyAtUtc.HasValue;
             bool opsReady = trip.OperationsStatus == "READY" || (trip.ResourcesConfirmedAt.HasValue && planApproved);
+
+            // Đảm bảo chỉ cấp quyền APPROVE_DEPARTURE (Gate 2) khi lộ trình đã duyệt không có lỗi vi phạm nghiệp vụ
+            PlanDto? approvedPlanForDepart = null;
+            if (!string.IsNullOrWhiteSpace(trip.ApprovedPlanJson))
+            {
+                try { approvedPlanForDepart = JsonSerializer.Deserialize<PlanDto>(trip.ApprovedPlanJson); } catch { }
+            }
+            bool isAirForDepart = IsAirTrip(trip);
+            var departRouteViolations = ValidatePlanEquineWelfareAndSafety(trip, approvedPlanForDepart, isAirForDepart);
+            if (departRouteViolations.Any())
+            {
+                throw new InvalidOperationException($"DEPARTURE_GATE_FAILED: Lộ trình đã duyệt có lỗi vi phạm quy định phúc lợi ngựa hoặc nghiệp vụ: {string.Join("; ", departRouteViolations)}");
+            }
 
             if (!planApproved || !docsReady || !opsReady || trip.OpenChange)
             {
@@ -654,6 +781,7 @@ namespace Infrastructure.Services
             trip.Status = "READY_TO_DEPART";
             trip.DepartureApprovedAt = DateTime.UtcNow;
             trip.DepartureApprovedBy = managerId;
+            await EnsureExecutionMilestonesAsync(trip);
             if (trip.Request != null)
             {
                 trip.Request.Status = "SCHEDULED";
@@ -690,6 +818,7 @@ namespace Infrastructure.Services
                 ApprovedBy = new ActorDto { UserId = managerId, Name = managerName },
                 ApprovedAt = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm")
             };
+            });
         }
     }
 }

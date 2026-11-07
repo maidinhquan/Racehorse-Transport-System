@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Application.DTOs;
 using Application.Interfaces;
@@ -5,6 +6,7 @@ using Application.Interfaces;
 namespace WebApi.Controllers
 {
     [ApiController]
+    [Authorize]
     [Route("api/manager")]
     public class ManagerController : BaseApiController
     {

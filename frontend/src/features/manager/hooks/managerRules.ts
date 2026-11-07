@@ -371,7 +371,7 @@ export function readinessChecks(t: Trip): ReadyCheck[] {
     { key: 'docs', label: `Specialist xác nhận hồ sơ READY (${r.docsReady}/${r.docsTotal})`, ok: r.docsReady >= r.docsTotal && !!r.docsReadyAt },
     { key: 'insurance', label: 'Bảo hiểm đã được Specialist xác minh', ok: r.insurance === 'VERIFIED' },
     { key: 'quarantine', label: 'Lịch kiểm dịch theo tuyến đã xác nhận', ok: r.quarantineOk },
-    { key: 'route', label: t.route ? `Phương án tuyến v${t.route.v} được Manager duyệt` : 'Phương án tuyến được Manager duyệt', ok: t.route?.status === 'APPROVED' },
+    { key: 'route', label: t.route ? `Phương án tuyến v${t.route.v} được Manager duyệt` : 'Phương án tuyến được Manager duyệt', ok: t.route?.status === 'APPROVED' && (!t.route?.issues || t.route.issues.length === 0) },
     { key: 'resources', label: 'Coordinator xác nhận xe và nhân sự', ok: !!t.route?.resourcesConfirmed },
   ];
   if (t.mode === 'AIR') checks.push({ key: 'flight', label: 'Chuyến bay đã duyệt ngân sách và đặt chỗ', ok: t.flight?.status === 'BOOKED' });
