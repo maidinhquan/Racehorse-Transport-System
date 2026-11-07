@@ -1,4 +1,4 @@
-"""Generate Flow 3 v2 target contracts only; no server/DB/live provider operations."""
+"""Generate Flow 3 v3 target contracts only; no server/DB/live provider operations."""
 from pathlib import Path
 import copy
 import json
@@ -65,7 +65,7 @@ optional_note = st('', maxLength=2000)
 money = integer(105000000)
 mode = enum('ROAD', 'AIR')
 leg_key = enum('road', 'outbound', 'inbound')
-place_functions = arr(enum('REST', 'FUEL', 'QUARANTINE', 'BORDER', 'AIRPORT'), 1, 5)
+place_functions = arr(enum('REST', 'FUEL', 'QUARANTINE', 'BORDER', 'AIRPORT', 'MEETING_POINT'), 1, 6)
 place_functions['uniqueItems'] = True
 
 define('Actor', {'userId': ident('USER'), 'name': short})
@@ -80,7 +80,7 @@ define('Policy', {'version': v, 'label': st('Đề xuất cho đồ án — cấ
                   'shortRestMin': integer(45, 1), 'roadEpisodeH': num(12, .01), 'recoveryRestH': num(8, .01),
                   'truckFactor': num(1.2, .01), 'airportHandoverH': num(3, .01), 'airportReceiveH': num(2, .01),
                   'pickupHandoverMin': integer(30, 1), 'maxEndpointSnapM': integer(250, 1)})
-define('Capabilities', {'version': {'type': 'string', 'const': '2.0.0'}, 'implementationStatus': enum('DESIGNED_NOT_IMPLEMENTED', 'AVAILABLE'),
+define('Capabilities', {'version': {'type': 'string', 'const': '3.0.0'}, 'implementationStatus': enum('DESIGNED_NOT_IMPLEMENTED', 'AVAILABLE'),
                         'parallelPreparation': yes, 'documentValidityMode': enum('ASSUMED_VALID_FOR_TRIP'),
                         'feasibilityRequired': {'type': 'boolean', 'const': False}, 'timedDocumentsGate': {'type': 'boolean', 'const': False},
                         'roadConfirmBeforeSubmit': yes, 'airConfirmAfterBooking': yes, 'demoEnabled': {'type': 'boolean', 'example': False},
@@ -176,40 +176,55 @@ define('PickupAccess', {'result': enum('ACCESSIBLE', 'INACCESSIBLE'), 'proof': s
                         'valid': boolean, 'by': ref('Actor'), 'at': stamp})
 define('AccessInput', {'expectedVersion': integer(10, 1), 'result': enum('ACCESSIBLE', 'INACCESSIBLE'),
                        'proof': st('Đã khảo sát và đối chiếu kích thước xe', minLength=8, maxLength=2000), 'acknowledged': yes})
-define('Consent', {'channel': enum('PHONE', 'EMAIL', 'WRITTEN'), 'note': st('Khách đồng ý tự đưa ngựa đến điểm tiếp nhận lúc đã hẹn', minLength=10, maxLength=2000),
-                   'recordedBy': ref('Actor'), 'at': stamp})
-define('PickupRelocation', {'relocationId': opaque('MEETING_001'), 'status': enum('PROPOSED', 'MANAGER_APPROVED', 'CUSTOMER_CONFIRMED', 'REJECTED'),
-                           'placeSnapshot': ref('Place'), 'reason': note, 'handoverAt': stamp, 'customerConsent': nullable(ref('Consent')),
+define('Consent', {'channel': {'type': 'string', 'const': 'PORTAL'}, 'note': optional_note,
+                   'customerId': ident('USER', 1), 'recordedBy': ref('Actor'), 'at': stamp})
+define('PickupRelocation', {'relocationId': opaque('MEETING_001'), 'proposalVersion': v,
+                           'status': enum('PROPOSED', 'MANAGER_APPROVED', 'AWAITING_CUSTOMER', 'CUSTOMER_CONFIRMED', 'CUSTOMER_REJECTED', 'RETURNED', 'SUPERSEDED'),
+                           'placeSnapshot': ref('Place'), 'reason': note, 'handoverAt': stamp,
+                           'scheduleImpact': note, 'costImpactVnd': integer(0), 'customerResponsibilities': note,
+                           'sentAt': nullable(stamp), 'sentBy': nullable(ref('Actor')),
+                           'customerConsent': nullable(ref('Consent')), 'customerReply': nullable(note),
                            'valid': boolean, 'by': ref('Actor'), 'at': stamp})
+
 define('PickupCandidate', {'place': ref('Place'), 'straightLineKm': nullable(num(5)), 'eligible': boolean, 'blockers': arr(ref('Blocker'))})
 define('PickupProposalInput', {'expectedVersion': integer(10, 1), 'placeId': opaque(), 'placeVersion': v,
                               'reason': st('Lối vào hẹp, khách đưa ngựa đến cơ sở đã liên hệ', minLength=10, maxLength=2000),
-                              'handoverAt': stamp, 'facilityConfirmed': yes})
+                              'handoverAt': stamp, 'facilityConfirmed': yes, 'scheduleImpact': note, 'costImpactVnd': integer(0), 'customerResponsibilities': note})
 define('PickupDecisionInput', {'expectedVersion': integer(10, 1), 'relocationId': opaque('MEETING_001'),
                               'decision': enum('APPROVE', 'RETURN'), 'reason': note})
-define('ConsentInput', {'expectedVersion': integer(10, 1), 'relocationId': opaque('MEETING_001'), 'placeVersion': v,
-                        'channel': enum('PHONE', 'EMAIL', 'WRITTEN'), 'note': S['Consent']['properties']['note'], 'acknowledged': yes})
+define('PickupSendInput', {'expectedVersion': integer(10, 1), 'relocationId': opaque('MEETING_001'), 'proposalVersion': v})
+define('CustomerPickupDecisionInput', {'relocationId': opaque('MEETING_001'), 'proposalVersion': v,
+                                     'decision': enum('ACCEPT', 'REJECT'), 'note': optional_note, 'acknowledged': yes})
+S['CustomerPickupDecisionInput']['allOf'] = [{'if': {'properties': {'decision': {'const': 'REJECT'}}},
+    'then': {'properties': {'note': dict(note)}}}]
+define('CustomerPickupProposal', {'tripId': ident('TRIP'), 'requestId': ident('REQUEST'),
+    'relocationId': opaque('MEETING_001'), 'proposalVersion': v,
+    'status': enum('AWAITING_CUSTOMER', 'CUSTOMER_CONFIRMED', 'CUSTOMER_REJECTED', 'SUPERSEDED'),
+    'originalPickup': ref('Endpoint'), 'proposedPickup': ref('Endpoint'), 'handoverAt': stamp,
+    'reason': note, 'scheduleImpact': note, 'costImpactVnd': integer(0), 'customerResponsibilities': note,
+    'sentAt': nullable(stamp), 'replyAt': nullable(stamp), 'customerReply': nullable(note)})
+
 define('Plan', {'planVersion': v, 'status': enum('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'RETURNED', 'WITHDRAWN', 'SUPERSEDED'),
-                'mode': mode, 'plannedDepart': stamp, 'eta': nullable(st('2026-11-10 06:30', pattern=stamp['pattern'])),
+                'mode': mode, 'pickupAt': stamp, 'plannedDepart': stamp, 'reviewWarnings': arr(ref('Blocker')), 'eta': nullable(st('2026-11-10 06:30', pattern=stamp['pattern'])),
                 'stops': arr(ref('Stop'), 0, 100), 'resources': arr(ref('RoadResources'), 0, 2),
                 'flight': nullable(ref('FlightProposal')), 'routing': nullable(ref('Routing')), 'note': optional_note})
-define('PlanDraftInput', {'expectedVersion': integer(10, 1), 'plannedDepart': nullable(stamp), 'stops': arr(ref('StopInput'), 0, 100),
+define('PlanDraftInput', {'expectedVersion': integer(10, 1), 'pickupAt': stamp, 'stops': arr(ref('StopInput'), 0, 100),
                           'resources': arr(ref('RoadResources'), 0, 2), 'note': optional_note})
 define('PlanDecisionInput', {'expectedVersion': integer(10, 1), 'planVersion': v, 'decision': enum('APPROVE', 'RETURN'), 'reason': note}, ('reason',))
 define('Validation', {'binding': ref('Binding'), 'planVersion': v, 'valid': boolean, 'blockers': arr(ref('Blocker')),
-                      'eta': nullable(st('2026-11-10 06:30', pattern=stamp['pattern'])), 'resourceHoldsCreated': {'type': 'boolean', 'const': False}})
+                      'eta': nullable(st('2026-11-10 06:30', pattern=stamp['pattern'])), 'warnings': arr(ref('Blocker')), 'resourceHoldsCreated': {'type': 'boolean', 'const': False}})
 define('DocumentSummary', {'requirementSetApplied': boolean, 'required': integer(5, 0), 'approved': integer(5, 0),
                            'insuranceStatus': enum('VERIFIED', 'PENDING', 'MISSING'), 'quarantineConfirmed': boolean,
                            'validityMode': enum('ASSUMED_VALID_FOR_TRIP'), 'blockers': arr(ref('Blocker'))})
 define('Context', {'tripId': ident('TRIP'), 'requestId': ident('REQUEST'), 'contractId': ident('CONTRACT'),
-                   'status': enum('PLANNING', 'READY_TO_DEPART', 'IN_TRANSIT', 'COMPLETED'), 'mode': mode, 'binding': ref('Binding'),
+                   'status': enum('PLANNING', 'READY_TO_DEPART', 'IN_TRANSIT', 'COMPLETED'), 'mode': mode, 'contractVersion': v, 'modeSource': {'type': 'string', 'const': 'CONTRACT'}, 'pickupDate': st('2026-11-10', pattern=r'^\d{4}-\d{2}-\d{2}$'), 'binding': ref('Binding'),
                    'deployment': enum('CONFIRMED', 'AWAITING_DEPLOYMENT', 'ON_HOLD'), 'specialistId': ident('USER', 6), 'coordinatorId': ident('USER', 7),
                    'horseIds': {**arr(ident('HORSE'), 1, 4), 'uniqueItems': True}, 'pickup': ref('Endpoint'), 'delivery': ref('Endpoint'),
-                   'deliveryDeadline': st('2026-11-12 18:00', pattern=stamp['pattern']), 'draft': nullable(ref('Plan')), 'approvedPlan': nullable(ref('Plan')),
+                   'effectivePickup': ref('Endpoint'), 'effectivePickupRelocationId': nullable(opaque('MEETING_001')), 'deliveryDeadline': st('2026-11-12 18:00', pattern=stamp['pattern']), 'draft': nullable(ref('Plan')), 'approvedPlan': nullable(ref('Plan')),
                    'resourcesConfirmed': nullable(ref('ReadyStamp')), 'opsReady': nullable(ref('ReadyStamp')), 'docsReady': nullable(ref('ReadyStamp')),
                    'documents': ref('DocumentSummary'), 'pickupAccess': nullable(ref('PickupAccess')), 'pickupRelocation': nullable(ref('PickupRelocation')),
                    'booking': nullable(ref('Booking')), 'blockers': arr(ref('Blocker'))})
-define('TripListItem', {'tripId': ident('TRIP'), 'requestId': ident('REQUEST'), 'mode': mode, 'status': enum('PLANNING', 'READY_TO_DEPART', 'IN_TRANSIT', 'COMPLETED'),
+define('TripListItem', {'tripId': ident('TRIP'), 'requestId': ident('REQUEST'), 'mode': mode, 'contractVersion': v, 'modeSource': {'type': 'string', 'const': 'CONTRACT'}, 'pickupDate': st('2026-11-10', pattern=r'^\d{4}-\d{2}-\d{2}$'), 'status': enum('PLANNING', 'READY_TO_DEPART', 'IN_TRANSIT', 'COMPLETED'),
                         'planningState': enum('AWAITING_DEPLOYMENT', 'AWAITING_ROUTE', 'MISSING_RESOURCES', 'ROUTE_PENDING', 'ROUTE_RETURNED', 'PLANNED', 'READY'),
                         'plannedDepart': nullable(stamp), 'eta': nullable(stamp), 'deliveryDeadline': stamp, 'horseCount': integer(2, 1, 4),
                         'docsReady': boolean, 'opsReady': boolean, 'blockerCount': integer(0)})
@@ -270,16 +285,19 @@ for key, kind, lat, lng, at in [('stop-origin', 'ORIGIN', 10.7769, 106.7009, '20
     item.update(stopId='STOP_001' if not stops else 'STOP_002', clientKey=key, type=kind, placeId=None,
                 purposes=[], unload=False, required=True, geo={'lat': lat, 'lng': lng}, arriveAt=at, departAt=at, placeVersion=None)
     stops.append(item)
+stops[0]['departAt'] = '2026-11-10 06:30'
+stops[1].update(arriveAt='2026-11-10 07:00', departAt='2026-11-10 07:00')
 route = sample(ref('Routing'))
-route.update(stops=copy.deepcopy(stops), issues=[], segments=[{'fromStopKey': 'stop-origin', 'toStopKey': 'stop-destination',
+route.update(stops=copy.deepcopy(stops), issues=[], eta='2026-11-10 07:00', stopMin=30, segments=[{'fromStopKey': 'stop-origin', 'toStopKey': 'stop-destination',
             'leg': 'road', 'km': 20, 'driveMin': 30, 'geometry': [[10.7769, 106.7009], [10.90, 106.80]]}])
 plan = sample(ref('Plan'))
-plan.update(status='DRAFT', stops=copy.deepcopy(stops), resources=[resource], routing=route, eta=route['eta'])
+plan.update(status='DRAFT', pickupAt='2026-11-10 06:00', plannedDepart='2026-11-10 06:30', stops=copy.deepcopy(stops), resources=[resource], routing=route, eta=route['eta'])
 context = sample(ref('Context'))
 context.update(horseIds=['HORSE_001', 'HORSE_002'], draft=plan, blockers=[])
 context['binding']['planVersion'] = 1
 context['pickup'].update(name='Trại nhận ngựa', geo=stops[0]['geo'])
 context['delivery'].update(name='Trại giao ngựa', geo=stops[1]['geo'])
+context['effectivePickup'] = copy.deepcopy(context['pickup'])
 ready = sample(ref('ReadyStamp'))
 ready.update(planVersion=1, invalidatedReason=None)
 
@@ -327,11 +345,12 @@ def op(code, method, path, roles, title, response, body=None, rules='', queries=
 C = 'FLEET_ROUTE_COORDINATOR'
 M = 'LOGISTICS_MANAGER'
 T = 'TRANSPORT_SPECIALIST'
+CUSTOMER = 'CUSTOMER'
 trip_path = '/coordinator/trips/{tripId}'
-shared_conflicts = ['STALE_VERSION', 'DEPLOYMENT_REQUIRED', 'PLAN_LOCKED', 'DEPARTURE_APPROVAL_LOCKED']
+shared_conflicts = ['STALE_VERSION', 'DEPLOYMENT_REQUIRED', 'CONTRACT_MODE_REQUIRED', 'PLAN_LOCKED', 'DEPARTURE_APPROVAL_LOCKED']
 submit_conflicts = shared_conflicts + ['RESOURCE_CONFLICT', 'INVALID_CREW', 'RESOURCES_NOT_CONFIRMED', 'TRUCK_ROUTE_REQUIRED',
-    'PICKUP_CONSENT_REQUIRED', 'VEHICLE_ACCESS_RESTRICTED', 'CARE_POLICY_VIOLATION', 'DELIVERY_DEADLINE_EXCEEDED', 'FLIGHT_CATALOG_CHANGED']
-op('F3-J01', 'get', '/master/flow3-capabilities', [C, M, T], 'Khả năng triển khai và policy Flow 3 v2', ref('Capabilities'),
+    'PICKUP_CONSENT_REQUIRED', 'VEHICLE_ACCESS_RESTRICTED', 'CARE_POLICY_VIOLATION', 'FLIGHT_CATALOG_CHANGED', 'CONTRACT_MODE_MISMATCH']
+op('F3-J01', 'get', '/master/flow3-capabilities', [C, M, T], 'Khả năng triển khai và policy Flow 3 v3', ref('Capabilities'),
    rules='Metadata contract mục tiêu; flags thực tế chỉ true sau nghiệm thu. Không lộ API key. Chưa có persistence/provider thì false và mutation trả 501.')
 op('F3-J02', 'get', '/specialist/trips/{tripId}/planning-context', T, 'Context cho nhánh hồ sơ song song', ref('Context'), result=context,
    rules='Chỉ Trip được giao. Không tạo feasibility gate; không đợi Coordinator chốt lịch để chuẩn bị giấy.')
@@ -340,7 +359,7 @@ op('F3-J05', 'get', '/coordinator/flights', C, 'Tra chuyến bay đối tác (re
     ('tripId', ident('TRIP'), False), ('partnerId', opaque('PARTNER_001'), False), ('code', st('EQA-DEMO-01', minLength=1, maxLength=100), False)],
    result=[{**sample(ref('FlightService')), 'blockers': []}], rules='Có tripId thì kiểm assignment, lịch/country/số ngựa. Không có lịch phù hợp trả []; không tự tạo schedule. Giá VND báo giá đã xác nhận.')
 op('F3-J06', 'put', trip_path + '/plan-draft', C, 'Lưu nháp tuyến, lịch, xe và nhân sự', ref('Context'), ref('PlanDraftInput'),
-   result=context, errors=shared_conflicts, rules='PLANNING + deployed. Tạo nếu chưa có draft, sửa DRAFT/RETURNED; không sửa APPROVED tại chỗ. Server cấp planVersion nội dung mới, tính dependency và invalidation. Draft cho thiếu, không giữ mới; thay bộ đã confirm giải phóng hold draft không còn dùng. Không nhận deadline/ETA/geometry/status/actor. Chọn bay qua J39.')
+   result=context, errors=shared_conflicts, rules='PLANNING + deployed. Tạo nếu chưa có draft, sửa DRAFT/RETURNED; không sửa APPROVED tại chỗ. Server cấp planVersion nội dung mới, tính dependency và invalidation. Draft cho thiếu, không giữ mới; thay bộ đã confirm giải phóng hold draft không còn dùng. Không nhận deadline/ETA/geometry/status/actor. Chọn bay qua J39. pickupAt là ngày/giờ nhận do Coordinator sắp xếp từ pickupDate; không nhận mode vì lấy từ hợp đồng. plannedDepart là giờ rời ORIGIN do server tính sau bàn giao. Lệch ngày/hạn giao tạo reviewWarnings để Manager kiểm tra, không tự sửa cam kết.')
 op('F3-J07', 'post', trip_path + '/plan/validate', C, 'Kiểm nháp, không giữ nguồn lực', ref('Validation'), ref('PlanCommand'),
    result={**sample(ref('Validation')), 'blockers': [], 'eta': route['eta']}, errors=shared_conflicts,
    rules='Read-only: thiếu điều kiện trả 200 valid=false + blockers; stale binding 409. Không tạo hold hoặc dấu READY; không bắt feasibility/docs-ready/booking AIR.')
@@ -390,17 +409,22 @@ op('F3-J27', 'get', trip_path + '/vehicle-options', C, 'Lọc xe theo chặng/s�
 op('F3-J28', 'put', trip_path + '/pickup-access', C, 'Ghi xác minh xe có vào địa chỉ nhận', ref('Context'), ref('AccessInput'), result=context,
    errors=shared_conflicts + ['PICKUP_CONSENT_REQUIRED'], rules='DRAFT (hoặc chưa có route), xe/profile đã lưu; proof>=8, acknowledged. Bind server xe/profile/request endpoint. Consent đã chốt không sửa đè: J33 trước. Vô hiệu routing/confirm liên quan.')
 op('F3-J29', 'get', trip_path + '/pickup-relocation/candidates', C, 'Tìm cơ sở tiếp nhận thay thế', arr(ref('PickupCandidate')),
-   result=[sample(ref('PickupCandidate'))], rules='Cùng country active QUARANTINE, parking/loading/waterFeed/capacity và mở toàn khoảng handover; km đường thẳng gắn nhãn. Không đặt cơ sở realtime.')
+   result=[sample(ref('PickupCandidate'))], rules='Điểm tập kết phù hợp cùng country, active MEETING_POINT/REST hoặc cơ sở QUARANTINE thực sự có chức năng tiếp nhận; không bắt buộc y tế/cách ly. Có parking/loading/waterFeed/capacity và mở toàn khoảng handover; km đường thẳng gắn nhãn. Không đặt cơ sở realtime.')
 op('F3-J30', 'post', trip_path + '/pickup-relocation', C, 'Đề xuất điểm nhận thay thế', ref('Context'), ref('PickupProposalInput'), result=context,
    errors=shared_conflicts + ['PLACE_CHANGED', 'PICKUP_CONSENT_REQUIRED'],
    rules='Chỉ sau INACCESSIBLE đúng xe; DRAFT, placeVersion live, reason>=10 + facilityConfirmed. PROPOSED không đổi ORIGIN. Lưu place/access snapshot và notify Manager. Consent đang chốt cần J33 trước.')
 op('F3-J31', 'post', '/manager/trips/{tripId}/pickup-relocation/decision', M, 'Manager xét đề xuất điểm nhận', ref('Context'), ref('PickupDecisionInput'),
-   result=context, errors=shared_conflicts + ['PLACE_CHANGED'], rules='APPROVE PROPOSED→MANAGER_APPROVED sau recheck; RETURN PROPOSED/MANAGER_APPROVED→REJECTED reason>=5. Không tự coi khách đồng ý hoặc đổi ORIGIN.')
-op('F3-J32', 'post', '/manager/trips/{tripId}/pickup-relocation/customer-consent', M, 'Ghi nhận khách đã đồng ý thực tế', ref('Context'), ref('ConsentInput'),
-   result=context, errors=shared_conflicts + ['PLACE_CHANGED', 'PICKUP_CONSENT_REQUIRED'],
-   rules='Chỉ MANAGER_APPROVED đúng relocation/version/vehicle/profile/place/handoverAt. Channel PHONE/EMAIL/WRITTEN, note>=10, acknowledged; chuyển CUSTOMER_CONFIRMED, ORIGIN draft mới dùng place; giữ pickup gốc, invalidate routing/confirm, notify Coordinator. Không chỉ gửi thông báo là consent.')
+   result=context, errors=shared_conflicts + ['PLACE_CHANGED'], rules='APPROVE PROPOSED→MANAGER_APPROVED sau recheck; RETURN PROPOSED/MANAGER_APPROVED→RETURNED reason>=5. Không tự coi khách đồng ý hoặc đổi ORIGIN.')
+op('F3-J32', 'post', '/customer/trips/{tripId}/pickup-relocation/decision', CUSTOMER, 'Khách hàng đồng ý hoặc từ chối điểm nhận mới', ref('CustomerPickupProposal'), ref('CustomerPickupDecisionInput'),
+   errors=['STALE_PROPOSAL', 'PLACE_CHANGED', 'PICKUP_CONSENT_REQUIRED'],
+   rules='Chỉ chủ đơn, đúng snapshot proposalVersion đang AWAITING_CUSTOMER đã được Manager gửi. ACCEPT→CUSTOMER_CONFIRMED: ghi actor khách từ JWT, cập nhật ORIGIN nháp theo snapshot, giữ pickup gốc/hợp đồng, tăng trip/context/plan version và vô hiệu routing/confirm/Ops READY; tính lại tuyến. REJECT cần note>=5→CUSTOMER_REJECTED, giữ nguyên ORIGIN cũ và báo Manager/Coordinator đề xuất lại. Manager/Coordinator không xác nhận thay khách. Không trả Context nội bộ cho khách.')
+op('F3-J56', 'post', '/manager/trips/{tripId}/pickup-relocation/send', M, 'Manager gửi đề xuất điểm nhận cho khách', ref('Context'), ref('PickupSendInput'), result=context,
+   errors=shared_conflicts + ['PLACE_CHANGED', 'STALE_PROPOSAL'],
+   rules='Chỉ MANAGER_APPROVED và đúng proposalVersion; recheck nơi/xe/giờ bàn giao. Đóng băng địa chỉ, tọa độ, lý do, giờ, ảnh hưởng lịch/chi phí/trách nhiệm; chuyển AWAITING_CUSTOMER, lưu sentAt/sentBy và thông báo chủ đơn. Gửi đi không đổi ORIGIN hoặc coi là khách đồng ý. Chi phí phát sinh phải xử lý hợp đồng Flow 1, không thu tiền trong Flow 3.')
+op('F3-J57', 'get', '/customer/trips/{tripId}/pickup-relocation', CUSTOMER, 'Khách xem đề xuất điểm nhận được Manager gửi', ref('CustomerPickupProposal'),
+   rules='Chỉ chủ đơn; chỉ snapshot đã gửi cho khách. Không lộ bản đề xuất nội bộ/chưa gửi, chi phí vận hành, nhân sự hay plan nội bộ. Ngoài scope hoặc chưa có bản gửi trả 404.')
 op('F3-J33', 'post', trip_path + '/pickup-relocation/revisions', C, 'Mở lại đề xuất điểm nhận đã chốt', ref('Context'), ref('Expected'), result=context,
-   errors=shared_conflicts, rules='Chỉ draft chỉnh sửa; archive consent, clear access/relocation/routing/confirm hiện hành; giữ lịch sử, quay điểm gốc cho tới consent mới. Không overwrite thỏa thuận cũ.')
+   errors=shared_conflicts, rules='Chỉ draft chỉnh sửa; archive snapshot/consent trong lịch sử, tạo proposalVersion mới và vô hiệu routing/confirm liên quan; giữ điểm nhận có hiệu lực hiện tại cho tới khi khách chấp nhận đề xuất mới. Không overwrite thỏa thuận cũ.')
 op('F3-J34', 'get', '/coordinator/air-partners', C, 'Danh sách bên dịch vụ bay', arr(ref('Partner')), result=[sample(ref('Partner'))])
 op('F3-J35', 'post', '/coordinator/air-partners', C, 'Thêm bên dịch vụ', ref('Partner'), ref('PartnerInput'), created=True)
 op('F3-J36', 'put', '/coordinator/air-partners/{partnerId}', C, 'Sửa thông tin bên dịch vụ', ref('Partner'), ref('PartnerUpdate'), errors=['STALE_VERSION'],
@@ -453,7 +477,7 @@ op('F3-J55', 'get', '/coordinator/vehicles', C, 'Danh mục xe và thông số �
 # Replace generated generic examples with domain-consistent requests.
 by_id = {c: o for c, _, _, o in OPS}
 draft_body = by_id['F3-J06']['requestBody']['content']['application/json']['example']
-draft_body.update(plannedDepart='2026-11-10 06:00', resources=[resource],
+draft_body.update(pickupAt='2026-11-10 06:00', resources=[resource],
                   stops=[{k: s[k] for k in S['StopInput']['properties']} for s in stops])
 for code in ('F3-J34', 'F3-J35', 'F3-J36', 'F3-J37', 'F3-J43', 'F3-J44', 'F3-J45', 'F3-J46', 'F3-J48', 'F3-J49', 'F3-J55'):
     content = next(iter(by_id[code]['responses'].values()))['content']['application/json']['example']['data']
@@ -473,7 +497,7 @@ response = by_id['F3-J23']['responses']['200']['content']['application/json']['e
 response.update(planningState='AWAITING_ROUTE', docsReady=False, opsReady=False)
 by_id['F3-J27']['responses']['200']['content']['application/json']['example']['data'][0]['spec'] = sample(ref('VehicleSpec'))
 pickup_candidate = by_id['F3-J29']['responses']['200']['content']['application/json']['example']['data'][0]
-pickup_candidate['place'].update(functions=['QUARANTINE', 'REST'], rest=sample(ref('RestFacilities')), service=sample(ref('PlaceService')))
+pickup_candidate['place'].update(functions=['MEETING_POINT', 'REST'], rest=sample(ref('RestFacilities')), service=sample(ref('PlaceService')))
 def response_data(code):
     operation = by_id[code]
     response = next(value for status, value in operation['responses'].items() if status.startswith('2'))
@@ -498,28 +522,27 @@ response_data('F3-J09')['binding']['planVersion'] = None
 response_data('F3-J12').update(approvedPlan={**copy.deepcopy(plan), 'status': 'APPROVED'},
                               draft={**copy.deepcopy(plan), 'planVersion': 2, 'routing': None})
 response_data('F3-J12')['binding']['planVersion'] = 2
-for code in ('F3-J06', 'F3-J32', 'F3-J33', 'F3-J39'):
+for code in ('F3-J06', 'F3-J33', 'F3-J39'):
     data = response_data(code)
     data['binding']['planVersion'] = 2
     if data['draft']:
         data['draft'].update(planVersion=2, routing=None, eta=None)
     data.update(resourcesConfirmed=None, opsReady=None)
-for code in ('F3-J28', 'F3-J30', 'F3-J31'):
+for code in ('F3-J28', 'F3-J30', 'F3-J31', 'F3-J56'):
     data = response_data(code)
     data['draft'].update(routing=None, eta=None)
     data.update(resourcesConfirmed=None, opsReady=None)
 response_data('F3-J28')['pickupAccess'] = sample(ref('PickupAccess'))
-for code, state in [('F3-J30', 'PROPOSED'), ('F3-J31', 'MANAGER_APPROVED'), ('F3-J32', 'CUSTOMER_CONFIRMED')]:
+for code, state in [('F3-J30', 'PROPOSED'), ('F3-J31', 'MANAGER_APPROVED'), ('F3-J56', 'AWAITING_CUSTOMER')]:
     data = response_data(code)
     data['pickupAccess'] = {**sample(ref('PickupAccess')), 'result': 'INACCESSIBLE'}
     data['pickupRelocation'] = {**sample(ref('PickupRelocation')), 'status': state,
                                 'customerConsent': sample(ref('Consent')) if code == 'F3-J32' else None}
-    data['pickupRelocation']['placeSnapshot']['functions'] = ['QUARANTINE', 'REST']
+    data['pickupRelocation']['placeSnapshot']['functions'] = ['MEETING_POINT', 'REST']
+    if code == 'F3-J56':
+        data['pickupRelocation'].update(sentAt=stamp['example'], sentBy=sample(ref('Actor')))
     data['pickupRelocation']['placeSnapshot']['rest'] = sample(ref('RestFacilities'))
     data['pickupRelocation']['placeSnapshot']['service'] = sample(ref('PlaceService'))
-    if code == 'F3-J32':
-        data['draft']['stops'][0].update(placeId='PLACE_001', placeVersion=1,
-                                        name='Điểm tiếp nhận đã thống nhất', geo=data['pickupRelocation']['placeSnapshot']['geo'])
 response_data('F3-J15').update(draft=None, approvedPlan={**copy.deepcopy(plan), 'status': 'APPROVED'},
                               resourcesConfirmed=ready, opsReady=ready)
 response_data('F3-J17')['checks'] = [
@@ -561,7 +584,7 @@ air_resources[1].update(leg='inbound', vehicleId='VEHICLE_002',
 air_resources[1]['truckProfile']['vehicleId'] = 'VEHICLE_002'
 air_stops = []
 for i, (key, kind, place_id, arrive, depart, geo) in enumerate([
-    ('air-origin', 'ORIGIN', None, '2026-11-10 11:00', '2026-11-10 11:00', {'lat': 10.7769, 'lng': 106.7009}),
+    ('air-origin', 'ORIGIN', None, '2026-11-10 10:30', '2026-11-10 11:00', {'lat': 10.7769, 'lng': 106.7009}),
     ('air-departure', 'AIRPORT', 'AIRPORT_001', '2026-11-10 11:30', '2026-11-10 15:00', {'lat': 10.8188, 'lng': 106.6519}),
     ('air-arrival', 'AIRPORT', 'AIRPORT_002', '2026-11-10 20:30', '2026-11-10 22:30', {'lat': 35.772, 'lng': 140.3929}),
     ('air-destination', 'DESTINATION', None, '2026-11-10 23:00', '2026-11-10 23:00', {'lat': 35.80, 'lng': 140.40}),
@@ -571,12 +594,12 @@ for i, (key, kind, place_id, arrive, depart, geo) in enumerate([
         purposes=['AIRPORT'] if place_id else [], arriveAt=arrive, departAt=depart, geo=geo,
         dwellMin=210 if i == 1 else 120 if i == 2 else 0, name=key)
     air_stops.append(item)
-air_route = {**copy.deepcopy(route), 'stops': air_stops, 'flyMin': 330, 'driveMin': 60, 'stopMin': 330,
+air_route = {**copy.deepcopy(route), 'stops': air_stops, 'flyMin': 330, 'driveMin': 60, 'stopMin': 360,
              'eta': '2026-11-10 23:00', 'totalKm': 40, 'segments': []}
 for i, j, leg in [(0, 1, 'outbound'), (2, 3, 'inbound')]:
     air_route['segments'].append({'fromStopKey': air_stops[i]['clientKey'], 'toStopKey': air_stops[j]['clientKey'],
         'leg': leg, 'km': 20, 'driveMin': 30, 'geometry': [[s['geo']['lat'], s['geo']['lng']] for s in [air_stops[i], air_stops[j]]]})
-air_plan = {**copy.deepcopy(plan), 'mode': 'AIR', 'status': 'APPROVED', 'plannedDepart': '2026-11-10 11:00',
+air_plan = {**copy.deepcopy(plan), 'mode': 'AIR', 'status': 'APPROVED', 'pickupAt': '2026-11-10 10:30', 'plannedDepart': '2026-11-10 11:00',
             'eta': air_route['eta'], 'stops': air_stops, 'resources': air_resources, 'routing': air_route,
             'flight': {'flightVersion': 1, 'status': 'BUDGET_APPROVED', 'service': flight_service, 'careAcknowledged': True}}
 air_context = {**copy.deepcopy(context), 'mode': 'AIR', 'draft': None, 'approvedPlan': air_plan,
@@ -600,7 +623,67 @@ for code in ('F3-J13', 'F3-J20', 'F3-J39', 'F3-J40', 'F3-J41'):
 paths = {}
 for code, method, path, operation in OPS:
     paths.setdefault(path, {})[method] = operation
-spec = {'openapi': '3.1.0', 'info': {'title': 'Racehorse Transport — Flow 3 / Final_Flow3.html', 'version': '2.0.0',
+# v3: new customer responses contain only the customer-facing proposal.
+response_data('F3-J32').update(status='CUSTOMER_CONFIRMED', sentAt=stamp['example'], replyAt=stamp['example'], customerReply=None)
+response_data('F3-J57').update(status='AWAITING_CUSTOMER', sentAt=stamp['example'], replyAt=None, customerReply=None)
+
+# New v3 rules are reviewable contract targets, not assertions about the running backend.
+for code in ('F3-J07', 'F3-J08', 'F3-J14'):
+    by_id[code]['description'] += ' ETA vượt hạn hoặc lệch ngày nhận tạo cảnh báo để Manager xem xét; không tự đổi pickupDate/deliveryDeadline và không chặn gửi chỉ vì cảnh báo lịch.'
+by_id['F3-J11']['description'] += ' Manager kiểm tra toàn bộ tuyến, giờ nhận/đến/rời, thời gian nghỉ, xe/người, lịch bay và hạn giao. Có thể RETURN phương án chưa phù hợp. APPROVE chỉ khi đúng mode hợp đồng và ngày/hạn đã chốt; lý do không vượt qua cam kết. Nếu cần thay cam kết, Manager lấy đồng ý khách qua Flow 1, cập nhật contractVersion, yêu cầu tính/lập/gửi lại phương án.'
+for code in ('F3-J04', 'F3-J24', 'F3-J23'):
+    by_id[code]['description'] += ' mode/modeSource/contractVersion lấy từ hợp đồng có hiệu lực; pickupDate là ngày nhận đã thống nhất với khách. Không chọn mode từ Flow 3.'
+for code in ('F3-J25', 'F3-J26'):
+    by_id[code]['description'] += ' ORIGIN là effectivePickup, không phải bãi xe; giờ nhận pickupAt theo ngày khách chọn. Không tự thêm điểm y tế/cách ly khi không có yêu cầu thực tế.'
+# Explicit gates remain on manager approval and departure.
+for code in ('F3-J11', 'F3-J18'):
+    response = by_id[code]['responses']['409']['content']['application/json']['examples']
+    for error_code in ('DELIVERY_DEADLINE_EXCEEDED', 'PICKUP_DATE_MISMATCH', 'CONTRACT_MODE_MISMATCH'):
+        response[error_code] = {'value': {'success': False, 'message': 'Phương án chưa phù hợp hợp đồng', 'errorCode': error_code, 'data': None,
+            'blockers': [{'code': error_code, 'field': 'schedule', 'message': 'Trả lại phương án hoặc xử lý cam kết qua Manager và khách hàng trước khi duyệt'}]}}
+customer_proposal = response_data('F3-J57')
+customer_proposal['originalPickup'] = copy.deepcopy(context['pickup'])
+customer_proposal['proposedPickup'] = copy.deepcopy(context['pickup'])
+customer_proposal['proposedPickup'].update(name='Điểm tập kết đã đề xuất', address='Địa chỉ điểm tập kết phù hợp', geo={'lat': 10.78, 'lng': 106.71})
+customer_proposal['customerResponsibilities'] = 'Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất'
+customer_proposal['scheduleImpact'] = 'Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm'
+customer_proposal['costImpactVnd'] = 0
+accepted_customer = copy.deepcopy(customer_proposal)
+accepted_customer.update(status='CUSTOMER_CONFIRMED', replyAt=stamp['example'])
+by_id['F3-J32']['responses']['200']['content']['application/json']['example']['data'] = accepted_customer
+rejected_customer = copy.deepcopy(customer_proposal)
+rejected_customer.update(status='CUSTOMER_REJECTED', replyAt=stamp['example'], customerReply='Điểm đề xuất quá xa, vui lòng đề xuất điểm khác')
+by_id['F3-J32']['responses']['200']['content']['application/json']['examples'] = {
+    'accepted': {'value': {'success': True, 'message': 'OK', 'data': accepted_customer}},
+    'rejected': {'value': {'success': True, 'message': 'OK', 'data': rejected_customer}}}
+del by_id['F3-J32']['responses']['200']['content']['application/json']['example']
+# Every participant sees the same frozen proposal; only its public projection reaches the customer.
+for code in ('F3-J30', 'F3-J31', 'F3-J56'):
+    proposal = response_data(code)['pickupRelocation']
+    proposal['placeSnapshot'].update({k: copy.deepcopy(customer_proposal['proposedPickup'][k]) for k in ('name', 'address', 'country', 'geo')})
+    proposal.update(scheduleImpact=customer_proposal['scheduleImpact'], costImpactVnd=0,
+        customerResponsibilities=customer_proposal['customerResponsibilities'], reason=customer_proposal['reason'])
+    proposal['by'] = {'userId': 'USER_006', 'name': 'Điều phối viên'}
+    if code == 'F3-J56': proposal['sentBy'] = {'userId': 'USER_004', 'name': 'Quản lý'}
+accepted_context = copy.deepcopy(response_data('F3-J56'))
+accepted_context['binding'].update(version=12, contextVersion=2, planVersion=2)
+accepted_context.update(effectivePickup=copy.deepcopy(customer_proposal['proposedPickup']), effectivePickupRelocationId='MEETING_001', resourcesConfirmed=None, opsReady=None)
+accepted_context['pickupRelocation'].update(status='CUSTOMER_CONFIRMED',
+    customerConsent={'channel': 'PORTAL', 'note': '', 'customerId': 'USER_001',
+        'recordedBy': {'userId': 'USER_001', 'name': 'Khách hàng chủ đơn'}, 'at': stamp['example']})
+accepted_context['draft'].update(planVersion=2, routing=None, eta=None)
+accepted_context['draft']['stops'][0].update(name=customer_proposal['proposedPickup']['name'],
+    geo=copy.deepcopy(customer_proposal['proposedPickup']['geo']), placeId='PLACE_001', placeVersion=1)
+revision_context = response_data('F3-J33')
+revision_context.update(effectivePickup=copy.deepcopy(accepted_context['effectivePickup']), effectivePickupRelocationId='MEETING_001')
+revision_context['draft']['stops'][0] = copy.deepcopy(accepted_context['draft']['stops'][0])
+
+late_review = copy.deepcopy(response_data('F3-J08'))
+late_review['draft']['reviewWarnings'] = [{'code': 'DELIVERY_DEADLINE_EXCEEDED', 'field': 'draft.eta', 'message': 'Giờ giao dự kiến vượt hạn; cần Manager xem xét'}]
+late_review['draft']['eta'] = '2026-11-13 18:00'
+# Keep this target in examples separately so normal operation samples remain a coherent happy path.
+
+spec = {'openapi': '3.1.0', 'info': {'title': 'Racehorse Transport — Flow 3 / agreed workflow 2026-10-30', 'version': '3.0.0',
         'description': 'Target contract only. Parallel preparation; ROAD pre-confirm, AIR approve then book/confirm. Backend/DB not implemented by these artifacts.'},
         'servers': [{'url': '/api'}], 'security': [{'bearerAuth': []}], 'paths': paths,
         'components': {'securitySchemes': {'bearerAuth': {'type': 'http', 'scheme': 'bearer', 'bearerFormat': 'JWT'}}, 'schemas': S},
@@ -614,8 +697,37 @@ def dump(value):
     return json.dumps(value, ensure_ascii=False, indent=2) + '\n'
 
 
+spec['x-workflows'] = {
+    'pickupRelocation': {
+        'originChangesOnlyAfter': 'CUSTOMER_ACCEPT',
+        'transitions': [
+            {'from': None, 'action': 'PROPOSE', 'role': C, 'operationId': 'F3-J30', 'to': 'PROPOSED', 'changesOrigin': False},
+            {'from': 'PROPOSED', 'action': 'APPROVE', 'role': M, 'operationId': 'F3-J31', 'to': 'MANAGER_APPROVED', 'changesOrigin': False},
+            {'from': 'MANAGER_APPROVED', 'action': 'SEND', 'role': M, 'operationId': 'F3-J56', 'to': 'AWAITING_CUSTOMER', 'changesOrigin': False},
+            {'from': 'AWAITING_CUSTOMER', 'action': 'ACCEPT', 'role': CUSTOMER, 'operationId': 'F3-J32', 'to': 'CUSTOMER_CONFIRMED', 'changesOrigin': True},
+            {'from': 'AWAITING_CUSTOMER', 'action': 'REJECT', 'role': CUSTOMER, 'operationId': 'F3-J32', 'to': 'CUSTOMER_REJECTED', 'changesOrigin': False},
+            {'from': 'PROPOSED', 'action': 'RETURN', 'role': M, 'operationId': 'F3-J31', 'to': 'RETURNED', 'changesOrigin': False},
+            {'from': 'MANAGER_APPROVED', 'action': 'RETURN', 'role': M, 'operationId': 'F3-J31', 'to': 'RETURNED', 'changesOrigin': False},
+        ],
+        'revisionKeepsEffectivePickupUntilAccepted': True,
+        'customerMustOwnRequest': True,
+        'sentSnapshotImmutable': True,
+    },
+    'planningSchedule': {
+        'modeSource': 'CONTRACT', 'dayAnchor': 'pickupDate', 'pickupTimeInput': 'pickupAt',
+        'departureComputedAfterHandover': True, 'originSource': 'effectivePickup', 'depotTravelInHorseItinerary': False,
+        'lateEtaMayBeSubmittedForManagerReview': True, 'lateEtaMayBeApprovedWithoutCustomerAgreement': False,
+        'automaticMedicalOrQuarantineStops': False,
+    },
+}
+spec['x-retired-operations'].append({'operationId': 'F3-J32-LEGACY', 'method': 'POST',
+    'path': '/manager/trips/{tripId}/pickup-relocation/customer-consent',
+    'replacement': 'Manager J56 sends; customer J32 decides', 'errorCode': 'CONTRACT_SUPERSEDED'})
+
 (ROOT / 'flow3.openapi.json').write_text(dump(spec), encoding='utf-8')
-md = ['# Flow 3 v2 — JSON từng API', '', 'Cập nhật 27/10/2026 theo `Final_Flow3.html`, ghi đè contract cũ. **Chỉ tài liệu mục tiêu, chưa triển khai backend/DB.**',
+# Keep the v3 design mirror separate from the v2 schema imported by the live application.
+(ROOT.parents[2] / 'frontend/src/contracts/flow3.v3.openapi.json').write_text(dump(spec), encoding='utf-8')
+md = ['# Flow 3 v3 — JSON từng API', '', 'Cập nhật 30/10/2026 theo luồng đã thống nhất; thay thiết kế v2, chưa thay API đang chạy. **Chỉ tài liệu mục tiêu, chưa triển khai backend/DB.**',
       '', '[Quy tắc nghiệp vụ](FLOW3.md) · [OpenAPI](flow3.openapi.json) · [Kịch bản](flow3.examples.json).', '',
       'Base `/api`, Bearer JWT. Mẫu mỗi API độc lập; lấy ID/revision từ response thật, không chạy nối tiếp các mẫu có cùng version. GET/DELETE không body; DELETE gửi expectedVersion qua query. Mutation có Idempotency-Key UUID, riêng POST validate read-only không cần. List trả data array; binary tải xác thực. Actor/time/status/deadline/giá server cấp. Thời gian Asia/Ho_Chi_Minh; tiền nguyên VND.', '',
       '| Mã | Method | Endpoint | Chức năng |', '|---|---|---|---|']
@@ -640,7 +752,8 @@ for code, method, path, operation in OPS:
         if not content:
             md += [f'**Response {status}:** binary MIME từ metadata; Content-Disposition an toàn. Không envelope khi thành công.', '']
         elif status.startswith('2'):
-            md += [f'**Response {status} — mẫu mục tiêu**', '', '```json', dump(content['example']).rstrip(), '```', '']
+            for label, envelope in ({'success': {'value': content['example']}} if 'example' in content else content['examples']).items():
+                md += [f'**Response {status} — {label} — mẫu mục tiêu**', '', '```json', dump(envelope['value']).rstrip(), '```', '']
         else:
             codes = ', '.join(content['examples'])
             md += [f'**Response {status}:** `{codes}`; schema `Error`, JSON mẫu trong OpenAPI.', '']
@@ -664,9 +777,9 @@ scenarios = [
     ('care-rest-not-fuel', 'Tới điểm sau 4.1h, trước đó chỉ dừng nhiên liệu', ['careIntervalH=4', 'FUEL no REST'], ['409 CARE_POLICY_VIOLATION'], 'Không reset đồng hồ bằng đổ xăng'),
     ('short-rest-not-recovery', 'Đợt đường bộ 12.1h dù đã nghỉ ngắn', ['roadEpisodeH=12', 'REST 45min onboard'], ['409 CARE_POLICY_VIOLATION'], 'Nghỉ ngắn không reset đợt'),
     ('overnight-opening', 'Cơ sở mở 18:00–06:00, ghé 05:45 trong 45 phút', ['arrival=2026-11-10 05:45', 'dwell=45'], ['Rejected: end=06:30 after close'], 'Kiểm toàn khoảng ghé'),
-    ('delivery-deadline', 'ETA vượt cam kết', ['eta=2026-11-13 18:01', 'deadline=2026-11-13 18:00'], ['409 DELIVERY_DEADLINE_EXCEEDED'], 'Reason không vượt deadline'),
-    ('pickup-consent', 'Xe không vào được', ['J28 INACCESSIBLE', 'J30 PROPOSED', 'J31 APPROVE', 'J32 consent'], ['ORIGIN unchanged before J32', 'After consent recompute routing', 'Original pickup unchanged'], 'Gửi thông báo không là đồng ý'),
-    ('pickup-place-changed', 'Cơ sở đổi sau Manager approve', ['old placeVersion', 'J32'], ['409 PLACE_CHANGED', 're-propose'], 'Không giữ consent cho nơi mới'),
+    ('delivery-deadline', 'ETA vượt cam kết, Coordinator cần gửi Manager xem xét', ['eta=2026-11-13 18:01', 'deadline=2026-11-13 18:00'], ['J08 accepts with reviewWarnings', 'J11 APPROVE returns DELIVERY_DEADLINE_EXCEEDED until commitment updated'], 'Manager kiểm tra; reason không vượt cam kết'),
+    ('pickup-consent', 'Xe không vào được', ['J28 INACCESSIBLE', 'J30 PROPOSED', 'J31 APPROVE', 'J56 send', 'Customer J57 read', 'Customer J32 ACCEPT'], ['ORIGIN unchanged through Manager send', 'Only authenticated owner ACCEPT updates ORIGIN', 'After acceptance recompute routing', 'Original pickup unchanged'], 'Gửi thông báo không là đồng ý'),
+    ('pickup-place-changed', 'Cơ sở đổi sau Manager approve', ['old placeVersion', 'J32'], ['409 PLACE_CHANGED or STALE_PROPOSAL', 're-propose and obtain new customer decision'], 'Không giữ consent cho nơi mới'),
     ('pickup-revision', 'Thay điểm nhận đã CUSTOMER_CONFIRMED', ['J33'], ['Archive consent', 'Clear affected route/confirmation', 'Require new customer confirmation'], 'Không overwrite'),
     ('vehicle-access-limit', 'Xe dài 12m, pickup maxLengthM=10', ['J27'], ['eligible=false', 'VEHICLE_ACCESS_RESTRICTED'], 'Lọc ngay khi chọn xe'),
     ('truck-osrm-only', 'Có OSRM nhưng thiếu truck verification', ['J25', 'J08'], ['409 TRUCK_ROUTE_REQUIRED'], 'OSRM không chứng minh tải trọng cầu'),
@@ -687,10 +800,21 @@ scenarios = [
     ('locked-after-approval', 'Sửa plan sau READY_TO_DEPART', ['J06'], ['409 DEPARTURE_APPROVAL_LOCKED'], 'Không auto unlock'),
     ('driver-map-report', 'Báo tắc đường gắn mốc, không GPS', ['J53'], ['locationSource=MILESTONE_REPORT', 'isGps=false', 'Unknown geo stays null'], 'Không claim realtime traffic'),
 ]
-examples = {'contractVersion': '2.0.0', 'status': 'ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS',
-            'source': 'D:/Shared/Final_Flow3.html', 'road': {'draftRequest': draft_body, 'routing': route},
+scenarios += [
+    ('customer-rejects-pickup', 'Đề xuất đã được Manager gửi', ['Customer J32 REJECT with reason'], ['CUSTOMER_REJECTED', 'Effective ORIGIN unchanged', 'Notify Manager and Coordinator'], 'Khách từ chối không đổi điểm nhận'),
+    ('manager-send-not-consent', 'Manager đã duyệt đề xuất', ['J56 send succeeds'], ['AWAITING_CUSTOMER', 'Effective ORIGIN unchanged', 'No customerConsent'], 'Gửi đi không phải đồng ý'),
+    ('customer-ownership', 'Khách khác hoặc nhân viên gọi J32', ['Wrong owner or Manager/Coordinator token'], ['404 out of scope or 403 wrong role', 'No state change'], 'Chỉ chủ đơn quyết định'),
+    ('stale-customer-proposal', 'Khách mở đề xuất cũ', ['Proposal revised', 'ACCEPT old proposalVersion'], ['409 STALE_PROPOSAL', 'No endpoint update'], 'Đồng ý phải gắn đúng snapshot đã gửi'),
+    ('pickup-day-anchor', 'Khách chọn ngày nhận 10/11', ['Coordinator sets pickupAt and computes stop times'], ['ORIGIN at effectivePickup', 'Pickup date remains customer-agreed date', 'No depot stop in horse itinerary'], 'Tách điều xe nội bộ khỏi tuyến chở ngựa'),
+    ('contract-mode-locked', 'Hợp đồng có hiệu lực chọn AIR', ['Attempt ROAD in PlanDraftInput'], ['400 schema validation', 'Plan.mode remains AIR'], 'Flow 3 không đổi mode hợp đồng'),
+    ('no-automatic-medical-stop', 'Chuyến không có yêu cầu kiểm dịch tại điểm trung gian', ['Build ROAD or AIR route'], ['Only needed rest/airport/delivery stops', 'No mandatory medical/quarantine detour'], 'Hồ sơ Flow 2 không tự biến thành điểm dừng'),
+]
+examples = {'contractVersion': '3.0.0', 'status': 'ACCEPTANCE_TARGETS_NOT_EXECUTED_BACKEND_TESTS',
+            'source': 'Flow 3 agreed workflow 2026-10-30', 'road': {'draftRequest': draft_body, 'routing': route},
             'air': {'approvedPlan': air_plan, 'contextAfterApproval': air_context, 'routing': air_route},
             'flightService': flight_service,
+            'scheduleReview': {'submittedWithWarnings': late_review},
+            'pickupRelocationWorkflow': {'awaitingCustomer': customer_proposal, 'accepted': accepted_customer, 'rejected': rejected_customer, 'effectiveContextAfterAcceptance': accepted_context},
             'scenarios': [{'id': key, 'given': given, 'when': when, 'then': then, 'reason': why} for key, given, when, then, why in scenarios]}
 (ROOT / 'flow3.examples.json').write_text(dump(examples), encoding='utf-8')
-print(f'Generated Flow 3 v2: {len(OPS)} operations, {len(S)} schemas, {len(scenarios)} acceptance scenarios.')
+print(f'Generated Flow 3 v3: {len(OPS)} operations, {len(S)} schemas, {len(scenarios)} acceptance scenarios.')

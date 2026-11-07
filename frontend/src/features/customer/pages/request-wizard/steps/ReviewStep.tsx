@@ -65,9 +65,11 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
         Tôi xác nhận thông tin đã cung cấp là chính xác.
       </label>
       <div className="cus-wizard__actions">
-        <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(`/customer/requests/${r.id}/wizard/2`)}>Quay lại</button>
+        <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(`/customer/requests/${r.id}/wizard/2`)}>
+          ← Quay lại: Ngựa & hồ sơ
+        </button>
         <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" disabled={!agree || errs.length > 0 || submitting} onClick={submit}>
-          {submitting ? 'Đang gửi yêu cầu lên máy chủ...' : (r.status === 'CHANGES_REQUESTED' ? 'Gửi lại để xét duyệt' : 'Gửi yêu cầu để xét duyệt')}
+          {submitting ? 'Đang gửi yêu cầu lên máy chủ...' : (r.status === 'CHANGES_REQUESTED' ? 'Gửi lại để xét duyệt →' : 'Gửi yêu cầu để xét duyệt →')}
         </button>
       </div>
     </div>

@@ -1,0 +1,2420 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Flow 2 — Thẩm định hồ sơ, kiểm dịch và thủ tục vận chuyển ngựa",
+    "version": "1.0.0",
+    "description": "API Contract cho Flow 2 (Transport Specialist) — Tuân thủ ID_NAME_RULE_Reviewed và DATABASE_STATUS_CONVENTION"
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Specialist",
+      "description": "Nhiệp vụ kiểm định y tế, pháp lý, bảo hiểm và thông quan của chuyên viên"
+    }
+  ],
+  "paths": {
+    "/master/flow2-capabilities": {
+      "get": {
+        "operationId": "F2-J01",
+        "summary": "Tra cứu năng lực và cấu hình Flow 2",
+        "tags": [
+          "Specialist"
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin capabilities thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "OK"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string",
+                          "example": "1.0.0"
+                        },
+                        "role": {
+                          "type": "string",
+                          "example": "TRANSPORT_SPECIALIST"
+                        },
+                        "insuranceSupported": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "clearanceSupported": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "docsReadyGate": {
+                          "type": "string",
+                          "example": "GATE_1"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "role"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/trips": {
+      "get": {
+        "operationId": "F2-J02",
+        "summary": "Danh sách các chuyến đi Specialist phụ trách",
+        "tags": [
+          "Specialist"
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách chuyến đi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lấy danh sách chuyến đi thành công"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SpecTrip"
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/trips/{tripId}": {
+      "get": {
+        "operationId": "F2-J11",
+        "summary": "Chi tiết hồ sơ chuyến đi và checklist y tế",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết chuyến đi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lấy thông tin chi tiết chuyến đi thành công"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/SpecTrip"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/customer-documents": {
+      "get": {
+        "operationId": "F2-J03",
+        "summary": "Danh sách hồ sơ khách hàng nộp cần kiểm duyệt",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách hồ sơ khách hàng",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lấy danh sách giấy tờ khách hàng thành công"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustomerDoc"
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/trips/{tripId}/customer-documents/review": {
+      "post": {
+        "operationId": "F2-J15",
+        "summary": "Phê duyệt hoặc từ chối hồ sơ khách hàng nộp",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewCustomerDocInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Duyệt hồ sơ thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Duyệt giấy tờ khách hàng thành công"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/document-requests": {
+      "get": {
+        "operationId": "F2-J05",
+        "summary": "Danh sách các yêu cầu bổ sung giấy tờ",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách yêu cầu bổ sung",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lấy danh sách yêu cầu bổ sung thành công"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DocRequest"
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "F2-J16",
+        "summary": "Tạo yêu cầu bổ sung giấy tờ gửi khách hàng",
+        "tags": [
+          "Specialist"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDocRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tạo yêu cầu bổ sung thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Tạo yêu cầu bổ sung hồ sơ thành công"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/documents": {
+      "get": {
+        "operationId": "F2-J04",
+        "summary": "Danh sách hồ sơ pháp lý công ty (CBN)",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách chứng từ công ty",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lấy danh sách chứng từ thành công"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TripDocument"
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "F2-J19",
+        "summary": "Tạo mới hoặc lưu hồ sơ pháp lý công ty",
+        "tags": [
+          "Specialist"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordDocInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lưu chứng từ thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lưu chứng từ thành công"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/trips/{tripId}/insurance": {
+      "get": {
+        "operationId": "F2-J23",
+        "summary": "Lấy thông tin bảo hiểm của chuyến đi",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Thông tin bảo hiểm",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lấy thông tin bảo hiểm thành công"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Insurance"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "F2-J24",
+        "summary": "Cập nhật thông tin hợp đồng bảo hiểm vận chuyển",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveInsuranceInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật bảo hiểm thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lưu thông tin bảo hiểm thành công"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/trips/{tripId}/insurance/verify": {
+      "post": {
+        "operationId": "F2-J25",
+        "summary": "Xác minh hiệu lực hợp đồng bảo hiểm",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Xác minh bảo hiểm thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Xác minh bảo hiểm thành công"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/quarantine-bookings": {
+      "get": {
+        "operationId": "F2-J06",
+        "summary": "Danh sách đặt chỗ cơ sở cách ly kiểm dịch",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách đặt chỗ kiểm dịch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lấy danh sách đặt chỗ kiểm dịch thành công"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/QuarantineBooking"
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "F2-J26",
+        "summary": "Ghi nhận đặt chỗ cơ sở cách ly kiểm dịch",
+        "tags": [
+          "Specialist"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBookingInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ghi nhận đặt chỗ thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lưu thông tin đặt chỗ kiểm dịch thành công"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/trips/{tripId}/requirement-set": {
+      "put": {
+        "operationId": "F2-J14",
+        "summary": "Áp dụng bộ quy định kiểm dịch theo tuyến cho chuyến đi",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyRequirementSetInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Áp dụng bộ quy định thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Áp dụng bộ quy định thành công"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/trips/{tripId}/docs-ready": {
+      "post": {
+        "operationId": "F2-J28",
+        "summary": "Xác nhận Sẵn sàng Hồ sơ (Documents READY - Gate 1)",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Xác nhận Docs READY thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Đã xác nhận hồ sơ đầy đủ (Docs READY)"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/trips/{tripId}/clearances": {
+      "post": {
+        "operationId": "F2-J17",
+        "summary": "Ghi nhận thông quan và kiểm dịch tại trạm",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordClearanceInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ghi nhận thông quan thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Ghi nhận thông quan trạm thành công"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/document-types": {
+      "get": {
+        "operationId": "F2-J07",
+        "summary": "Danh mục các loại giấy tờ y tế và hải quan",
+        "tags": [
+          "Specialist"
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh mục loại giấy tờ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lấy danh mục loại giấy tờ thành công"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DocType"
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "F2-J30",
+        "summary": "Cập nhật danh mục loại giấy tờ",
+        "tags": [
+          "Specialist"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocType"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật loại giấy tờ thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lưu loại giấy tờ thành công"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/regulations": {
+      "get": {
+        "operationId": "F2-J08",
+        "summary": "Danh mục quy định kiểm dịch thú y hiện hành",
+        "tags": [
+          "Specialist"
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh mục quy định",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lấy danh mục quy định thành công"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Regulation"
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "F2-J32",
+        "summary": "Cập nhật quy định kiểm dịch thú y",
+        "tags": [
+          "Specialist"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Regulation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật quy định thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lưu quy định thành công"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/requirement-sets": {
+      "get": {
+        "operationId": "F2-J09",
+        "summary": "Danh mục các bộ quy định kiểm dịch theo tuyến",
+        "tags": [
+          "Specialist"
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh mục bộ quy định",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lấy danh mục gói quy định thành công"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RegPackage"
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "F2-J34",
+        "summary": "Cập nhật bộ quy định kiểm dịch theo tuyến",
+        "tags": [
+          "Specialist"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegPackage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật gói quy định thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lưu gói quy định thành công"
+                    },
+                    "data": {
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/audit": {
+      "get": {
+        "operationId": "F2-J10",
+        "summary": "Nhật ký kiểm toán hồ sơ và kiểm duyệt",
+        "tags": [
+          "Specialist"
+        ],
+        "parameters": [
+          {
+            "name": "tripId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nhật ký kiểm toán",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Lấy nhật ký kiểm toán thành công"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AuditEntry"
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SpecHorse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "HORSE_001"
+          },
+          "name": {
+            "type": "string",
+            "example": "Thunderbolt"
+          },
+          "microchip": {
+            "type": "string",
+            "example": "985112004571029"
+          },
+          "passportNo": {
+            "type": "string",
+            "example": "VN-PASS-2024-001"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "microchip",
+          "passportNo"
+        ]
+      },
+      "Insurance": {
+        "type": "object",
+        "properties": {
+          "insurer": {
+            "type": "string",
+            "example": "Bảo Việt Inter-Transit"
+          },
+          "policy": {
+            "type": "string",
+            "example": "BV-HORSE-2026-992"
+          },
+          "validFrom": {
+            "type": "string",
+            "example": "2026-11-01"
+          },
+          "validTo": {
+            "type": "string",
+            "example": "2026-11-30"
+          },
+          "coverage": {
+            "type": "number",
+            "example": 500000000
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "VERIFIED"
+            ],
+            "example": "VERIFIED"
+          },
+          "checkedBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "USER_005"
+          },
+          "checkedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "2026-11-02 10:00"
+          }
+        },
+        "required": [
+          "insurer",
+          "policy",
+          "validFrom",
+          "validTo",
+          "coverage",
+          "status"
+        ]
+      },
+      "ClearanceDetail": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "PASSED",
+              "HELD",
+              "FAILED"
+            ],
+            "example": "PASSED"
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-11-10 14:00"
+          },
+          "ref": {
+            "type": "string",
+            "example": "CUSTOMS_REF_001"
+          },
+          "by": {
+            "type": "string",
+            "example": "USER_005"
+          }
+        },
+        "required": [
+          "result",
+          "at",
+          "ref",
+          "by"
+        ]
+      },
+      "RouteCheckpoint": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Trạm kiểm dịch Cửa khẩu Mộc Bài"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "LAND_BORDER",
+              "AIRPORT",
+              "QUARANTINE_STATION"
+            ],
+            "example": "LAND_BORDER"
+          },
+          "country": {
+            "type": "string",
+            "example": "VN"
+          },
+          "plannedAt": {
+            "type": "string",
+            "example": "2026-11-10 12:00"
+          },
+          "arrivedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": null
+          },
+          "clearance": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ClearanceDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "country",
+          "plannedAt"
+        ]
+      },
+      "DocsReady": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "example": "2026-11-02 15:30"
+          },
+          "by": {
+            "type": "string",
+            "example": "USER_005"
+          }
+        },
+        "required": [
+          "at",
+          "by"
+        ]
+      },
+      "RequirementLine": {
+        "type": "object",
+        "properties": {
+          "typeId": {
+            "type": "string",
+            "example": "DOC_TYPE_001"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER",
+              "CBN"
+            ],
+            "example": "CUSTOMER"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "PER_HORSE",
+              "PER_TRIP"
+            ],
+            "example": "PER_HORSE"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "REQUIRED",
+              "CONDITIONAL",
+              "OPTIONAL"
+            ],
+            "example": "REQUIRED"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "BEFORE_SUBMIT",
+              "BEFORE_DEPART",
+              "AT_CHECKPOINT"
+            ],
+            "example": "BEFORE_DEPART"
+          },
+          "condition": {
+            "type": "string",
+            "example": ""
+          }
+        },
+        "required": [
+          "typeId",
+          "provider",
+          "scope",
+          "level",
+          "stage",
+          "condition"
+        ]
+      },
+      "ReqRule": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "example": "VN"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "DOMESTIC",
+              "EXPORT",
+              "IMPORT"
+            ],
+            "example": "DOMESTIC"
+          },
+          "regId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "REG_VN_001"
+          },
+          "regV": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "nullable": true,
+            "example": 1
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequirementLine"
+            }
+          }
+        },
+        "required": [
+          "country",
+          "direction",
+          "lines"
+        ]
+      },
+      "ReqSetSnapshot": {
+        "type": "object",
+        "properties": {
+          "pkgId": {
+            "type": "string",
+            "example": "PKG_VN_DOMESTIC"
+          },
+          "pkgV": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Bộ thủ tục nội địa VN"
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-11-02 09:00"
+          },
+          "by": {
+            "type": "string",
+            "example": "USER_005"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReqRule"
+            }
+          }
+        },
+        "required": [
+          "pkgId",
+          "pkgV",
+          "name",
+          "at",
+          "by",
+          "rules"
+        ]
+      },
+      "SpecTrip": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "TRIP_001"
+          },
+          "requestId": {
+            "type": "string",
+            "example": "REQUEST_001"
+          },
+          "customerName": {
+            "type": "string",
+            "example": "Nguyễn Văn A"
+          },
+          "origin": {
+            "type": "string",
+            "example": "Trang trại Long An"
+          },
+          "destination": {
+            "type": "string",
+            "example": "Sân vận động Phú Thọ"
+          },
+          "originCountry": {
+            "type": "string",
+            "example": "VN"
+          },
+          "destCountry": {
+            "type": "string",
+            "example": "VN"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "ROAD",
+              "AIR"
+            ],
+            "example": "ROAD"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLANNING",
+              "READY_TO_DEPART",
+              "IN_TRANSIT",
+              "COMPLETED"
+            ],
+            "example": "PLANNING"
+          },
+          "deployment": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "CONFIRMED",
+              "ON_HOLD"
+            ],
+            "example": "CONFIRMED"
+          },
+          "plannedDepart": {
+            "type": "string",
+            "example": "2026-11-10 07:00"
+          },
+          "eta": {
+            "type": "string",
+            "example": "2026-11-10 18:00"
+          },
+          "horses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpecHorse"
+            }
+          },
+          "reqSet": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReqSetSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "docsReady": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DocsReady"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "insurance": {
+            "nullable": true,
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Insurance"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checkpoints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteCheckpoint"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "requestId",
+          "customerName",
+          "origin",
+          "destination",
+          "originCountry",
+          "destCountry",
+          "mode",
+          "status",
+          "deployment",
+          "plannedDepart",
+          "eta",
+          "horses",
+          "checkpoints"
+        ]
+      },
+      "CustomerDoc": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "example": "TRIP_001"
+          },
+          "key": {
+            "type": "string",
+            "example": "passport"
+          },
+          "scope": {
+            "type": "string",
+            "example": "HORSE_001"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SUBMITTED",
+              "APPROVED",
+              "ACTION_REQUIRED",
+              "MISSING",
+              "OPTIONAL"
+            ],
+            "example": "SUBMITTED"
+          },
+          "optional": {
+            "type": "boolean",
+            "example": false
+          },
+          "file": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "passport_scan.pdf"
+          },
+          "note": {
+            "type": "string",
+            "example": "Hộ chiếu còn hạn 2 năm"
+          },
+          "issue": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": null
+          },
+          "expiry": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "2028-05-12"
+          },
+          "reviewedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": null
+          },
+          "reviewedBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": null
+          }
+        },
+        "required": [
+          "tripId",
+          "key",
+          "scope",
+          "status",
+          "optional",
+          "note"
+        ]
+      },
+      "DocRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "DOC_REQ_001"
+          },
+          "tripId": {
+            "type": "string",
+            "example": "TRIP_001"
+          },
+          "key": {
+            "type": "string",
+            "example": "health_cert"
+          },
+          "scope": {
+            "type": "string",
+            "example": "HORSE_001"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Giấy khám sức khỏe bị mờ dấu mộc"
+          },
+          "dueAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "2026-11-05 17:00"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "SUBMITTED",
+              "FULFILLED"
+            ],
+            "example": "OPEN"
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-11-02 08:30"
+          },
+          "createdBy": {
+            "type": "string",
+            "example": "USER_005"
+          }
+        },
+        "required": [
+          "id",
+          "tripId",
+          "key",
+          "scope",
+          "reason",
+          "status",
+          "createdAt",
+          "createdBy"
+        ]
+      },
+      "TripDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "DOC_CBN_001"
+          },
+          "tripId": {
+            "type": "string",
+            "example": "TRIP_001"
+          },
+          "typeId": {
+            "type": "string",
+            "example": "DOC_TYPE_PERMIT"
+          },
+          "horseId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": null
+          },
+          "number": {
+            "type": "string",
+            "example": "GVC-2026-091"
+          },
+          "issuer": {
+            "type": "string",
+            "example": "Cục Thú y TP.HCM"
+          },
+          "issuedAt": {
+            "type": "string",
+            "example": "2026-11-01"
+          },
+          "expiry": {
+            "type": "string",
+            "example": "2026-11-20"
+          },
+          "file": {
+            "type": "string",
+            "example": "permit_cbn.pdf"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ACTIVE",
+              "EXPIRED",
+              "REPLACED"
+            ],
+            "example": "ACTIVE"
+          }
+        },
+        "required": [
+          "id",
+          "tripId",
+          "typeId",
+          "number",
+          "issuer",
+          "issuedAt",
+          "expiry",
+          "file",
+          "status"
+        ]
+      },
+      "QuarantineBooking": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "QBK_001"
+          },
+          "tripId": {
+            "type": "string",
+            "example": "TRIP_001"
+          },
+          "station": {
+            "type": "string",
+            "example": "Cơ sở Kiểm dịch Tân Sơn Nhất"
+          },
+          "slot": {
+            "type": "string",
+            "example": "2026-11-08"
+          },
+          "ref": {
+            "type": "string",
+            "example": "QBK-REF-1029"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "REQUESTED",
+              "CONFIRMED",
+              "CANCELLED"
+            ],
+            "example": "CONFIRMED"
+          },
+          "notes": {
+            "type": "string",
+            "example": "Đã bố trí 2 chuồng độc lập"
+          }
+        },
+        "required": [
+          "id",
+          "tripId",
+          "station",
+          "slot",
+          "ref",
+          "status",
+          "notes"
+        ]
+      },
+      "DocType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "DOC_TYPE_001"
+          },
+          "name": {
+            "type": "string",
+            "example": "Sổ tiêm phòng cúm Equine"
+          },
+          "group": {
+            "type": "string",
+            "enum": [
+              "IDENTITY",
+              "MEDICAL",
+              "QUARANTINE",
+              "CUSTOMS",
+              "OTHER"
+            ],
+            "example": "MEDICAL"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "PER_HORSE",
+              "PER_TRIP"
+            ],
+            "example": "PER_HORSE"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER",
+              "CBN"
+            ],
+            "example": "CUSTOMER"
+          },
+          "validityDays": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "nullable": true,
+            "example": 180
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "RETIRED"
+            ],
+            "example": "ACTIVE"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "group",
+          "scope",
+          "provider",
+          "status"
+        ]
+      },
+      "Regulation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "REG_VN_001"
+          },
+          "country": {
+            "type": "string",
+            "example": "VN"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "DOMESTIC",
+              "EXPORT",
+              "IMPORT"
+            ],
+            "example": "DOMESTIC"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequirementLine"
+            }
+          },
+          "note": {
+            "type": "string",
+            "example": "Áp dụng vận chuyển đường bộ nội địa"
+          },
+          "v": {
+            "type": "integer",
+            "example": 1
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "example": "2026-01-01"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "RETIRED"
+            ],
+            "example": "ACTIVE"
+          }
+        },
+        "required": [
+          "id",
+          "country",
+          "direction",
+          "lines",
+          "note",
+          "v",
+          "effectiveFrom",
+          "status"
+        ]
+      },
+      "RegPackage": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "PKG_VN_DOMESTIC"
+          },
+          "name": {
+            "type": "string",
+            "example": "Bộ thủ tục nội địa VN"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "origin": {
+            "type": "string",
+            "example": "VN"
+          },
+          "dest": {
+            "type": "string",
+            "example": "VN"
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "ROAD",
+                "AIR"
+              ]
+            },
+            "example": [
+              "ROAD"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "example": "Quy định nội địa chuẩn"
+          },
+          "v": {
+            "type": "integer",
+            "example": 1
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "example": "2026-01-01"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "RETIRED"
+            ],
+            "example": "ACTIVE"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "items",
+          "origin",
+          "dest",
+          "modes",
+          "note",
+          "v",
+          "effectiveFrom",
+          "status"
+        ]
+      },
+      "AuditEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "AUDIT_001"
+          },
+          "tripId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "TRIP_001"
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-11-02 10:15"
+          },
+          "actor": {
+            "type": "string",
+            "example": "USER_005"
+          },
+          "role": {
+            "type": "string",
+            "example": "TRANSPORT_SPECIALIST"
+          },
+          "action": {
+            "type": "string",
+            "example": "REVIEW_CUSTOMER_DOC"
+          },
+          "entity": {
+            "type": "string",
+            "example": "HORSE_001:passport"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "Phê duyệt hộ chiếu đạt tiêu chuẩn"
+          }
+        },
+        "required": [
+          "id",
+          "at",
+          "actor",
+          "role",
+          "action",
+          "entity"
+        ]
+      },
+      "ReviewCustomerDocInput": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "passport"
+          },
+          "scope": {
+            "type": "string",
+            "example": "HORSE_001"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVED",
+              "REJECTED"
+            ],
+            "example": "APPROVED"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "Hồ sơ đạt tiêu chuẩn"
+          }
+        },
+        "required": [
+          "key",
+          "scope",
+          "decision"
+        ]
+      },
+      "CreateDocRequestInput": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "example": "TRIP_001"
+          },
+          "key": {
+            "type": "string",
+            "example": "flu_vaccine"
+          },
+          "scope": {
+            "type": "string",
+            "example": "HORSE_001"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Cần bổ sung chứng nhận tiêm vắc xin cúm mũi nhắc lại"
+          },
+          "dueAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "2026-11-05 17:00"
+          }
+        },
+        "required": [
+          "tripId",
+          "key",
+          "scope",
+          "reason"
+        ]
+      },
+      "RecordDocInput": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "example": "TRIP_001"
+          },
+          "typeId": {
+            "type": "string",
+            "example": "DOC_TYPE_PERMIT"
+          },
+          "horseId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": null
+          },
+          "number": {
+            "type": "string",
+            "example": "GVC-2026-091"
+          },
+          "issuer": {
+            "type": "string",
+            "example": "Cục Thú y TP.HCM"
+          },
+          "issuedAt": {
+            "type": "string",
+            "example": "2026-11-01"
+          },
+          "expiry": {
+            "type": "string",
+            "example": "2026-11-20"
+          },
+          "file": {
+            "type": "string",
+            "example": "permit_cbn.pdf"
+          }
+        },
+        "required": [
+          "tripId",
+          "typeId",
+          "number",
+          "issuer",
+          "issuedAt",
+          "expiry",
+          "file"
+        ]
+      },
+      "SaveInsuranceInput": {
+        "type": "object",
+        "properties": {
+          "insurer": {
+            "type": "string",
+            "example": "Bảo Việt Inter-Transit"
+          },
+          "policy": {
+            "type": "string",
+            "example": "BV-HORSE-2026-992"
+          },
+          "validFrom": {
+            "type": "string",
+            "example": "2026-11-01"
+          },
+          "validTo": {
+            "type": "string",
+            "example": "2026-11-30"
+          },
+          "coverage": {
+            "type": "number",
+            "example": 500000000
+          }
+        },
+        "required": [
+          "insurer",
+          "policy",
+          "validFrom",
+          "validTo",
+          "coverage"
+        ]
+      },
+      "ApplyRequirementSetInput": {
+        "type": "object",
+        "properties": {
+          "pkgId": {
+            "type": "string",
+            "example": "PKG_VN_DOMESTIC"
+          }
+        },
+        "required": [
+          "pkgId"
+        ]
+      },
+      "SaveBookingInput": {
+        "type": "object",
+        "properties": {
+          "tripId": {
+            "type": "string",
+            "example": "TRIP_001"
+          },
+          "station": {
+            "type": "string",
+            "example": "Cơ sở Kiểm dịch Tân Sơn Nhất"
+          },
+          "slot": {
+            "type": "string",
+            "example": "2026-11-08"
+          },
+          "ref": {
+            "type": "string",
+            "example": "QBK-REF-1029"
+          },
+          "notes": {
+            "type": "string",
+            "example": "Đã bố trí 2 chuồng độc lập"
+          }
+        },
+        "required": [
+          "tripId",
+          "station",
+          "slot"
+        ]
+      },
+      "RecordClearanceInput": {
+        "type": "object",
+        "properties": {
+          "checkpointIndex": {
+            "type": "integer",
+            "example": 0
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "PASSED",
+              "HELD",
+              "FAILED"
+            ],
+            "example": "PASSED"
+          },
+          "ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "CUSTOMS_REF_001"
+          },
+          "by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true,
+            "example": "USER_005"
+          }
+        },
+        "required": [
+          "checkpointIndex",
+          "result"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "message": {
+            "type": "string",
+            "example": "Lỗi thẩm định hồ sơ"
+          },
+          "errorCode": {
+            "type": "string",
+            "example": "VALIDATION_ERROR"
+          },
+          "data": {
+            "type": "null",
+            "example": null
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "errorCode",
+          "data"
+        ]
+      }
+    }
+  }
+}

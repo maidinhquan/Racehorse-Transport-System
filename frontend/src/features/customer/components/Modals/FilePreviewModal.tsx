@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import type { FileRef } from '../../types';
 import { downloadFile } from '../../../../shared/api/downloadFile';
+import { useAuthFile } from '../../../../shared/api/useAuthFileUrl';
 import { Icon } from '../CustomerLayout';
 import './Modals.css';
 
@@ -12,6 +13,7 @@ interface FilePreviewModalProps {
 }
 
 export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ open, file, onClose, title }) => {
+  const { url: viewUrl, type: viewType } = useAuthFile(open ? file?.url : undefined);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -23,8 +25,8 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ open, file, 
 
   if (!open || !file) return null;
 
-  const isImage = !!file.name?.match(/\.(png|jpe?g|webp|gif|svg)$/i) || !!file.file?.type?.startsWith('image/');
-  const isPdf = !!file.name?.match(/\.pdf$/i) || file.file?.type === 'application/pdf';
+  const isImage = !!file.name?.match(/\.(png|jpe?g|webp|gif|svg)$/i) || !!file.file?.type?.startsWith('image/') || !!viewType?.startsWith('image/');
+  const isPdf = !!file.name?.match(/\.pdf$/i) || file.file?.type === 'application/pdf' || viewType === 'application/pdf';
 
   const handleDownload = async () => {
     if (!file.url) return;
@@ -39,9 +41,8 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ open, file, 
   };
 
   const handleOpenNewTab = () => {
-    if (file.url) {
-      window.open(file.url, '_blank', 'noopener');
-    }
+    const target = viewUrl ?? file.url;
+    if (target) window.open(target, '_blank', 'noopener');
   };
 
   return (
@@ -70,13 +71,13 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ open, file, 
         </div>
 
         <div className="cus-preview-modal__body">
-          {isImage && file.url ? (
+          {isImage && viewUrl ? (
             <div className="cus-preview-modal__image-wrapper">
-              <img src={file.url} alt={file.name} className="cus-preview-modal__img" />
+              <img src={viewUrl} alt={file.name} className="cus-preview-modal__img" />
             </div>
-          ) : isPdf && file.url ? (
+          ) : isPdf && viewUrl ? (
             <div className="cus-preview-modal__pdf-wrapper">
-              <iframe src={file.url} title={file.name} className="cus-preview-modal__iframe" />
+              <iframe src={viewUrl} title={file.name} className="cus-preview-modal__iframe" />
             </div>
           ) : (
             <div className="cus-preview-modal__fallback">

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { DateTimeInput } from '../../../../../shared/components/DateTimeInput/DateTimeInput';
 import type { HorseCondition, Trip } from '../../../types';
 import { useDriver } from '../../../hooks/useDriver';
 import { CONDITION_LABEL, fmtDateTime, nowStamp, toInputValue } from '../../../hooks/driverRules';
@@ -41,7 +42,7 @@ export const HealthTab: React.FC<{ trip: Trip }> = ({ trip }) => {
             </div>
             <div className="drv-field">
               <label htmlFor="drv-hat">Thời điểm *</label>
-              <input id="drv-hat" className="drv-input" type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} />
+              <DateTimeInput id="drv-hat" className="drv-input" value={at} onChange={setAt} />
             </div>
             <div className="drv-field">
               <label htmlFor="drv-temp">Thân nhiệt (°C) *</label>

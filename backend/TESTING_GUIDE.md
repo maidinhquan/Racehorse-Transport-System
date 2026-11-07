@@ -21,7 +21,7 @@
 - Kiểm tra chuỗi kết nối trong `RaceHorse_Transport_WebApi/appsettings.json`:
   ```json
   "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Database=HorseTransportDB;uid=sa;Password=12345;TrustServerCertificate=True;"
+    "DefaultConnection": "Server=localhost;Database=HorseTransportDB;uid=sa;Password=<SQL_PASSWORD>;TrustServerCertificate=True;"
   }
   ```
 

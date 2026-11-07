@@ -1,12 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { DocItem, Horse, SupplementRequest } from '../../types';
+import type { DocItem, Horse } from '../../types';
 import { TripStatusBadge } from '../TripStatusBadge/TripStatusBadge';
 import { FilePickButton } from './FilePickButton';
 import { useCustomer } from '../../hooks/useCustomer';
-import { DOC_NAME } from '../../hooks/customerRules';
 import { FilePreviewModal } from '../Modals/FilePreviewModal';
 import './DocumentList.css';
+import { getDemoMode } from '../../../../shared/context/DemoModeContext';
 
 interface DocumentRowsProps {
   requestId: string;
@@ -25,8 +25,9 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
     <div className="cus-docs">
       {items.map((it) => {
         const rejected = it.status === 'ACTION_REQUIRED';
+        const missing = it.missing ?? [];
         return (
-          <div key={`${it.scope}-${it.key}`} className={`cus-doc ${rejected ? 'cus-doc--alert' : ''}`}>
+          <div key={`${it.scope}-${it.key}`} className={`cus-doc ${rejected || missing.length ? 'cus-doc--alert' : ''}`}>
             <div className="cus-doc__top">
               <b>{it.name}{it.optional && it.status !== 'OPTIONAL' && <small> (không bắt buộc)</small>}</b>
               <TripStatusBadge kind="doc" status={it.status} />
@@ -38,8 +39,8 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
                     {rejected ? 'Cập nhật thông tin' : 'Sửa thông tin'}
                   </button>
                 )}
-                {editable && it.kind === 'file' && (
-                  <FilePickButton disabled={it.scope === 'request'} label={it.scope === 'request' ? 'Chưa thể nộp trực tuyến' : rejected ? 'Tải lại tệp mới' : it.file ? 'Thay tệp' : 'Tải tệp'}
+                {editable && it.kind === 'file' && (getDemoMode('customer') || ['passport', 'ownership', 'valueProof'].includes(it.key) || (rejected && ['health', 'flu'].includes(it.key))) && (
+                  <FilePickButton label={rejected ? 'Tải lại tệp mới' : it.file ? 'Thay tệp' : 'Tải tệp'}
                     className={`cus-btn cus-btn--sm ${rejected ? 'cus-btn--solid' : ''}`}
                     onPick={(f) => actions.uploadDoc(requestId, it.key, it.scope, f)}
                     onError={actions.showToast} />
@@ -47,8 +48,9 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
               </div>
             </div>
             {it.note && <div className="cus-doc__meta">{it.note}</div>}
+            {missing.length > 0 && <div className="cus-doc__issue" role="alert"><b>Còn thiếu: </b>{missing.join(', ')}</div>}
             {it.issue && <div className="cus-doc__issue"><b>Lý do: </b>{it.issue}</div>}
-            {it.status === 'PENDING_REVIEW' && <div className="cus-doc__meta">Đã gửi – đang chờ Transport Specialist kiểm duyệt.</div>}
+            {(it.status === 'PENDING_REVIEW' || it.status === 'RESUBMITTED') && <div className="cus-doc__meta">Đã gửi – đang chờ Transport Specialist kiểm duyệt.</div>}
           </div>
         );
       })}
@@ -64,34 +66,15 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
 
 interface RequestDocumentsProps {
   requestId: string;
-  shared: DocItem[];
+  shared?: DocItem[];
   perHorse: Array<{ horse: Horse; items: DocItem[] }>;
   editable: boolean;
-  supplements?: SupplementRequest[];
   backTo?: string;
 }
 
-/** Giấy tờ chung của đơn + danh sách ngựa và hồ sơ từng ngựa */
-export const RequestDocuments: React.FC<RequestDocumentsProps> = ({ requestId, shared, perHorse, editable, supplements = [], backTo }) => (
+/** Danh sách ngựa và hồ sơ từng ngựa */
+export const RequestDocuments: React.FC<RequestDocumentsProps> = ({ requestId, perHorse, editable, backTo }) => (
   <div className="cus-req-docs">
-    {supplements.length > 0 && (
-      <div className="cus-note cus-note--yellow">
-        <div>
-          <b>Transport Specialist yêu cầu bổ sung</b>
-          {supplements.map((s) => (
-            <div key={s.id}>
-              {DOC_NAME[s.key]}{s.scope !== 'request' ? ` – ${perHorse.find((p) => p.horse.id === s.scope)?.horse.name ?? s.scope}` : ''}: {s.reason}
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
-    {shared && shared.length > 0 && (
-      <>
-        <div className="cus-doc-group">Giấy tờ chung của đơn vận chuyển</div>
-        <DocumentRows requestId={requestId} items={shared} editable={editable} backTo={backTo} />
-      </>
-    )}
     <div className="cus-doc-group">Danh sách ngựa và hồ sơ từng ngựa</div>
     {perHorse.length === 0 && <p className="cus-subtitle">Chưa chọn ngựa.</p>}
     {perHorse.map(({ horse, items }) => (

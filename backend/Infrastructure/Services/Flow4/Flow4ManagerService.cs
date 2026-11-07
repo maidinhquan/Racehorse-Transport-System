@@ -34,6 +34,10 @@ public class Flow4ManagerService : IFlow4ManagerService
     /// </summary>
     public async Task<Flow4MutationResultDto> DecideManagerEtaProposalAsync(string tripId, string proposalId, EtaDecisionInputDto dto, string managerId)
     {
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+        _context.ChangeTracker.Clear();
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         var trip = await _context.TripPlans.FirstOrDefaultAsync(t => t.TripId == tripId);
@@ -75,5 +79,6 @@ public class Flow4ManagerService : IFlow4ManagerService
         await transaction.CommitAsync();
 
         return Flow4Helper.BuildMutationResult(trip, proposal.ProposalId, _context);
+        });
     }
 }

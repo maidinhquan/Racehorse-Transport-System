@@ -30,3 +30,5 @@
 .drv-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
 .drv-two .drv-hint { text-align: center; }
 @media (max-width: 900px) { .drv-two { grid-template-columns: 1fr; } }
+
+.drv-tabs button:disabled { opacity: .45; cursor: not-allowed; }

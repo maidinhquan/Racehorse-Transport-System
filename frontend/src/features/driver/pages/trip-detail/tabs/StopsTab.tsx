@@ -2,9 +2,10 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Trip } from '../../../types';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
-import { STOP_COLOR, STOP_LABEL, clearanceFor, fmtDateTime, stopState } from '../../../hooks/driverRules';
+import { RouteMap } from '../../../components/RouteMap/RouteMap';
+import { STOP_COLOR, STOP_LABEL, clearanceFor, fmtDateTime, lastMilestone, stopState } from '../../../hooks/driverRules';
 
-/** Danh sách điểm dừng theo thứ tự – bản đồ nằm ở trang Hành trình */
+/** Danh sách điểm dừng theo thứ tự; chuyến đã hoàn tất có thêm bản đồ để xem lại hành trình đã đi */
 export const StopsTab: React.FC<{ trip: Trip }> = ({ trip }) => {
   const navigate = useNavigate();
   return (
@@ -13,6 +14,11 @@ export const StopsTab: React.FC<{ trip: Trip }> = ({ trip }) => {
         <p className="drv-hint" style={{ marginTop: 0, marginBottom: 6 }}>
           Bản đồ tuyến nằm ở mục Hành trình. <button type="button" className="drv-link" onClick={() => navigate(`/driver/journey/${trip.id}`)}>Mở Hành trình</button>
         </p>
+      )}
+      {trip.status === 'COMPLETED' && trip.stops.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <RouteMap stops={trip.stops} current={lastMilestone(trip)?.stopIndex ?? trip.stops.length - 1} height={380} />
+        </div>
       )}
       {trip.stops.length ? (
         <ul className="drv-stops">

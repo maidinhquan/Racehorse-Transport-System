@@ -90,6 +90,7 @@ export interface RouteStop {
   plannedAt: string; // 'YYYY-MM-DD HH:mm'
   lat?: number;
   lng?: number;
+  requiresHealthCheck?: boolean;
 }
 
 export interface Milestone {
@@ -165,6 +166,9 @@ export interface Incident {
   at: string;
   by: string;
   location: string;
+  /** Tọa độ do tài xế chọn trên đoạn đường giữa hai trạm */
+  lat?: number;
+  lng?: number;
   description: string;
   photos: string[];
   approvedPlan?: string;
@@ -244,6 +248,8 @@ export interface HandoverDraft {
 // REQUEST DTO
 // ---------------------------------------------------------------------------
 export interface RecordMilestoneRequestDto {
+  /** Mã mốc của backend (Flow 4); bắt buộc khi chạy chế độ thật */
+  milestoneId?: string;
   type: MilestoneType;
   stopIndex: number;
   at: string;
@@ -251,6 +257,8 @@ export interface RecordMilestoneRequestDto {
 }
 
 export interface HealthLogRequestDto {
+  /** Mốc hành trình (Flow 4) mà nhật ký này phục vụ: trạm dừng chỉ hoàn tất được khi đã có nhật ký sức khỏe của mốc đó */
+  milestoneId?: string;
   horseId: string;
   at: string;
   temp: number;
@@ -263,6 +271,8 @@ export interface ReportIncidentRequestDto {
   type: IncidentType;
   severity: IncidentSeverity;
   location: string;
+  /** "lat,lng" — backend lưu vào INCIDENT.LocationCoordinates */
+  locationCoordinates?: string;
   description: string;
   photos: string[];
 }
@@ -307,4 +317,5 @@ export interface NextMilestone {
   /** Đang chờ Specialist ghi kết quả thông quan */
   blocked?: boolean;
   clearance?: Clearance;
+  healthCheckRequired?: boolean;
 }

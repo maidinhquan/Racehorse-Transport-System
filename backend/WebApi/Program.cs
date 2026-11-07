@@ -1,31 +1,117 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Application.DTOs;
+using Application.Interfaces;
+using Application.Services;
+using Domain.Interfaces.DAOs;
+using Infrastructure.Data.Context;
+using Infrastructure.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Application.DTOs;
-using Application.Services;
-using Infrastructure.Data.Context;
-using Domain.Interfaces.DAOs;
-using Application.Interfaces;
-using Infrastructure.Services;
-
-using WebApi.Middlewares;
 using WebApi.Extensions;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using WebApi.Extensions.Flow1;
+using WebApi.Extensions.Flow6;
+using WebApi.Middlewares;
+using WebApi.Realtime;
 
 var builder = WebApplication.CreateBuilder(args);
-LoadDotEnvFile(builder.Environment.ContentRootPath);
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true).AddEnvironmentVariables();
-MapEnvironmentVariablesToConfiguration(builder.Configuration);
+if (builder.Environment.IsDevelopment())
+    builder.Configuration.AddJsonFile(
+        "App_Data/flow1/runtime-config/appsettings.Flow1Sandbox.Local.json",
+        optional: true
+    );
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true);
+if (builder.Environment.IsDevelopment())
+    builder.Configuration.AddJsonFile("appsettings.Flow1Sandbox.Local.json", optional: true);
+builder.Configuration.AddEnvironmentVariables();
+
+// Fallback mapping for standard SMTP_* environment variables into RegistrationEmail, Flow1, and Flow6
+var smtpHost = builder.Configuration["SMTP_HOST"];
+var smtpPort = builder.Configuration["SMTP_PORT"];
+var smtpUser = builder.Configuration["SMTP_USERNAME"];
+var smtpPass = builder.Configuration["SMTP_PASSWORD"];
+var smtpFrom = builder.Configuration["SMTP_FROM"];
+
+if (!string.IsNullOrWhiteSpace(smtpHost))
+{
+    builder.Configuration["RegistrationEmail:Smtp:Host"] ??= smtpHost;
+    builder.Configuration["Flow6:Email:Smtp:Host"] ??= smtpHost;
+    builder.Configuration["Flow1:Contracts:Email:Smtp:Host"] ??= smtpHost;
+    builder.Configuration["Smtp:Host"] ??= smtpHost;
+}
+if (!string.IsNullOrWhiteSpace(smtpPort))
+{
+    builder.Configuration["RegistrationEmail:Smtp:Port"] ??= smtpPort;
+    builder.Configuration["Flow6:Email:Smtp:Port"] ??= smtpPort;
+    builder.Configuration["Flow1:Contracts:Email:Smtp:Port"] ??= smtpPort;
+    builder.Configuration["Smtp:Port"] ??= smtpPort;
+}
+if (!string.IsNullOrWhiteSpace(smtpUser))
+{
+    builder.Configuration["RegistrationEmail:Smtp:Username"] ??= smtpUser;
+    builder.Configuration["Flow6:Email:Smtp:Username"] ??= smtpUser;
+    builder.Configuration["Flow1:Contracts:Email:Smtp:Username"] ??= smtpUser;
+    builder.Configuration["Smtp:Username"] ??= smtpUser;
+}
+if (!string.IsNullOrWhiteSpace(smtpPass))
+{
+    builder.Configuration["RegistrationEmail:Smtp:Password"] ??= smtpPass;
+    builder.Configuration["Flow6:Email:Smtp:Password"] ??= smtpPass;
+    builder.Configuration["Flow1:Contracts:Email:Smtp:Password"] ??= smtpPass;
+    builder.Configuration["Smtp:Password"] ??= smtpPass;
+}
+if (!string.IsNullOrWhiteSpace(smtpFrom))
+{
+    builder.Configuration["RegistrationEmail:Smtp:From"] ??= smtpFrom;
+    builder.Configuration["Flow6:Email:Smtp:From"] ??= smtpFrom;
+    builder.Configuration["Flow1:Contracts:Email:Smtp:From"] ??= smtpFrom;
+    builder.Configuration["Smtp:FromEmail"] ??= smtpFrom;
+}
+
+// Fallback mapping for standard VNPAY_* environment variables
+var vnpayReturnUrl = builder.Configuration["VNPAY_RETURN_URL"];
+if (!string.IsNullOrWhiteSpace(vnpayReturnUrl))
+{
+    builder.Configuration["Flow1:Vnpay:ReturnUrl"] = vnpayReturnUrl;
+}
+var vnpayTmn = builder.Configuration["VNPAY_TMN_CODE"];
+if (!string.IsNullOrWhiteSpace(vnpayTmn))
+{
+    builder.Configuration["Flow1:Vnpay:TmnCode"] = vnpayTmn;
+}
+var vnpayHash = builder.Configuration["VNPAY_HASH_SECRET"];
+if (!string.IsNullOrWhiteSpace(vnpayHash))
+{
+    builder.Configuration["Flow1:Vnpay:HashSecret"] = vnpayHash;
+}
+
+// The same private configuration is mounted under /app in Docker. Resolve it
+// against this checkout when running the approved localhost Swagger on Windows.
+if (builder.Environment.IsDevelopment() && OperatingSystem.IsWindows())
+    foreach (
+        var key in new[]
+        {
+            "Flow1:PrivateFiles:Root",
+            "Flow1:Contracts:WorkRoot",
+            "Flow1:LegacyImport:SourceRoot",
+        }
+    )   
+        if (
+            builder.Configuration[key] is string value
+            && value.StartsWith("/app/", StringComparison.Ordinal)
+        )
+            builder.Configuration[key] = value[5..];
 
 // =============================================================================
 // 1. KẾT NỐI DATABASE VỚI SQL SERVER
 // =============================================================================
 builder.Services.AddDbContext<HorseTransportDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
 
 // =============================================================================
 // 2. ĐĂNG KÝ CÁC DỊCH VỤ NỀN TẢNG (CACHE, TOKEN, EMAIL, DAO & AUTH SERVICE)
@@ -46,8 +132,12 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IMapRoutingService, MapRoutingService>();
 builder.Services.AddScoped<ICoordinatorService, CoordinatorService>();
+builder.Services.AddScoped<ISpecialistService, SpecialistService>();
 builder.Services.AddRegistration(builder.Configuration, builder.Environment);
+builder.Services.AddRequestModule(builder.Configuration, builder.Environment);
 builder.Services.AddFlow4Services();
+builder.Services.AddFlow5Services();
+builder.Services.AddFlow6Module(builder.Configuration, builder.Environment);
 
 // =============================================================================
 // 3. CẤU HÌNH CORS VĨNH VIỄN (ZERO-MAINTENANCE CORS CHO FRONTEND)
@@ -56,21 +146,26 @@ builder.Services.AddFlow4Services();
 // =============================================================================
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.SetIsOriginAllowed(_ => true) // Cho phép mọi origin từ local dev
-              .AllowAnyMethod()               // Cho phép mọi method: GET, POST, PUT, DELETE, PATCH, OPTIONS
-              .AllowAnyHeader()               // Cho phép mọi header: Content-Type, Authorization...
-              .AllowCredentials()            // Hỗ trợ truyền Cookie, JWT Bearer Token
-              .WithExposedHeaders("Content-Disposition", "X-Pagination", "X-Total-Count");
-    });
+    options.AddPolicy(
+        "AllowFrontend",
+        policy =>
+        {
+            policy
+                .SetIsOriginAllowed(_ => true) // Cho phép mọi origin từ local dev
+                .AllowAnyMethod() // Cho phép mọi method: GET, POST, PUT, DELETE, PATCH, OPTIONS
+                .AllowAnyHeader() // Cho phép mọi header: Content-Type, Authorization...
+                .AllowCredentials() // Hỗ trợ truyền Cookie, JWT Bearer Token
+                .WithExposedHeaders("Content-Disposition", "X-Pagination", "X-Total-Count");
+        }
+    );
 });
 
 // =============================================================================
 // 4. CẤU HÌNH CONTROLLERS & JSON SERIALIZER TOÀN CỤC
 // Tránh lỗi vòng lặp quan hệ EF Core khi thêm các bảng mới sau này.
 // =============================================================================
-builder.Services.AddControllers()
+builder
+    .Services.AddControllers()
     .AddJsonOptions(options =>
     {
         // Chống lỗi đệ quy vòng lặp khi entity có liên kết 1-nhiều, nhiều-nhiều (Horse, Trip, User...)
@@ -94,10 +189,13 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = actionContext =>
     {
-        var errors = actionContext.ModelState
-            .Where(e => e.Value?.Errors.Count > 0)
+        var errors = actionContext
+            .ModelState.Where(e => e.Value?.Errors.Count > 0)
             .ToDictionary(
-                kvp => string.IsNullOrEmpty(kvp.Key) ? "general" : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
+                kvp =>
+                    string.IsNullOrEmpty(kvp.Key)
+                        ? "general"
+                        : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
                 kvp => kvp.Value!.Errors.Select(x => x.ErrorMessage).ToArray()
             );
 
@@ -106,7 +204,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
             Success = false,
             Message = "Validation failed",
             Data = null,
-            Errors = errors
+            Errors = errors,
         };
 
         return new BadRequestObjectResult(errorResponse);
@@ -130,38 +228,63 @@ builder.Services.AddAuthentication(options =>
     options.RequireHttpsMetadata = false;
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtIssuer,
-        ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-    };
-
-    // Chuẩn hóa định dạng lỗi 401 & 403 theo đúng chuẩn JSON hợp đồng
-    options.Events = new JwtBearerEvents
-    {
-        OnChallenge = async context =>
         {
-            context.HandleResponse();
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            context.Response.ContentType = "application/json";
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        };
 
-            var response = ApiResponse<object?>.Fail("Unauthorized or invalid token");
-            await context.Response.WriteAsJsonAsync(response);
-        },
-        OnForbidden = async context =>
+        // Chuẩn hóa định dạng lỗi 401 & 403 theo đúng chuẩn JSON hợp đồng
+        options.Events = new JwtBearerEvents
         {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            context.Response.ContentType = "application/json";
+            OnMessageReceived = context =>
+            {
+                // WebSocket của SignalR không gửi được header Authorization nên token đi qua query string.
+                var hubToken = context.Request.Query["access_token"].ToString();
+                if (!string.IsNullOrEmpty(hubToken) && context.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = hubToken;
+                    return Task.CompletedTask;
+                }
+                var authHeader = context.Request.Headers.Authorization.ToString();
+                if (!string.IsNullOrEmpty(authHeader))
+                {
+                    if (authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Token = authHeader.Substring("Bearer ".Length).Trim();
+                    }
+                    else
+                    {
+                        context.Token = authHeader.Trim();
+                    }
+                }
+                return Task.CompletedTask;
+            },
+            OnChallenge = async context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                context.Response.ContentType = "application/json";
 
-            var response = ApiResponse<object?>.Fail("Forbidden: You do not have permission to access this resource");
-            await context.Response.WriteAsJsonAsync(response);
-        }
-    };
-});
+                var response = ApiResponse<object?>.Fail("Unauthorized or invalid token");
+                await context.Response.WriteAsJsonAsync(response);
+            },
+            OnForbidden = async context =>
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Response.ContentType = "application/json";
+
+                var response = ApiResponse<object?>.Fail(
+                    "Forbidden: You do not have permission to access this resource"
+                );
+                await context.Response.WriteAsJsonAsync(response);
+            },
+        };
+    });
 
 // =============================================================================
 // 6. CẤU HÌNH SWAGGER / OPENAPI (CÓ NÚT AUTHORIZE TEST JWT)
@@ -169,38 +292,52 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.CustomSchemaIds(type => type.FullName?.Replace("+", ".") ?? type.Name);
-    c.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "RaceHorse Transport API",
-        Version = "v1",
-        Description = "Cổng kết nối API giữa Frontend và Backend - RaceHorse Transport"
-    });
-
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "Nhập token JWT theo định dạng: Bearer {token}",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
+    c.SwaggerDoc(
+        "v1",
+        new OpenApiInfo
         {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
+            Title = "RaceHorse Transport API",
+            Version = "v1",
+            Description = "Cổng kết nối API giữa Frontend và Backend - RaceHorse Transport",
         }
-    });
+    );
+    c.OperationFilter<Flow1SwaggerExamples>();
+    c.SchemaFilter<NoteDescriptions>();
+    c.SchemaFilter<RequestExamples>();
+    c.OperationFilter<RequestExamples>();
+    c.DocumentFilter<FlowOrder>();
+
+    c.AddSecurityDefinition(
+        "Bearer",
+        new OpenApiSecurityScheme
+        {
+            Description = "Nhập token JWT theo định dạng: Bearer {token}",
+            Name = "Authorization",
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.ApiKey,
+            Scheme = "Bearer",
+        }
+    );
+
+    c.AddSecurityRequirement(
+        new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer",
+                    },
+                },
+                Array.Empty<string>()
+            },
+        }
+    );
 });
+
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -217,96 +354,27 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "RaceHorse Transport API v1");
+        c.OrderByFlow();
+        c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.None);
+        c.EnableFilter();
     });
 }
 
 // Bật CORS cho Frontend trước Authentication và Authorization
 app.UseCors("AllowFrontend");
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<RealtimeBroadcastMiddleware>();
 app.UseMiddleware<IdempotencyMiddleware>();
 app.UseRateLimiter();
 
 app.MapControllers();
+app.MapHub<NotificationHub>(NotificationHub.Path);
 
 app.Run();
 
-static void LoadDotEnvFile(string startDirectory)
-{
-    var dir = new DirectoryInfo(startDirectory);
-    while (dir is not null)
-    {
-        var envFile = Path.Combine(dir.FullName, ".env");
-        if (File.Exists(envFile))
-        {
-            foreach (var rawLine in File.ReadAllLines(envFile))
-            {
-                var line = rawLine.Trim();
-                if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
-                    continue;
-
-                var separatorIndex = line.IndexOf('=');
-                if (separatorIndex <= 0)
-                    continue;
-
-                var key = line[..separatorIndex].Trim();
-                var value = line[(separatorIndex + 1)..].Trim().Trim('"', '\'');
-
-                if (!string.IsNullOrWhiteSpace(key) &&
-                    !string.IsNullOrWhiteSpace(value) &&
-                    !value.StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase) &&
-                    string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(key)))
-                {
-                    Environment.SetEnvironmentVariable(key, value);
-                }
-            }
-            break;
-        }
-        dir = dir.Parent;
-    }
-}
-
-static void MapEnvironmentVariablesToConfiguration(ConfigurationManager config)
-{
-    var mappings = new (string EnvKey, string ConfigKey)[]
-    {
-        ("JWT_SECRET_KEY", "Jwt:Key"),
-        ("MAPBOX_ACCESS_TOKEN", "Maps:Mapbox:AccessToken"),
-        ("GEOAPIFY_API_KEY", "Maps:Geoapify:ApiKey"),
-        ("REGISTRATION_EMAIL_MODE", "RegistrationEmail:Mode"),
-        ("SMTP_HOST", "RegistrationEmail:Smtp:Host"),
-        ("SMTP_PORT", "RegistrationEmail:Smtp:Port"),
-        ("SMTP_USERNAME", "RegistrationEmail:Smtp:Username"),
-        ("SMTP_PASSWORD", "RegistrationEmail:Smtp:Password"),
-        ("SMTP_FROM", "RegistrationEmail:Smtp:From")
-    };
-
-    var overrides = new Dictionary<string, string?>();
-    foreach (var (envKey, configKey) in mappings)
-    {
-        var envVal = Environment.GetEnvironmentVariable(envKey);
-        if (!string.IsNullOrWhiteSpace(envVal) &&
-            !envVal.StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase) &&
-            string.IsNullOrWhiteSpace(config[configKey]))
-        {
-            overrides[configKey] = envVal;
-        }
-    }
-
-    if (overrides.TryGetValue("RegistrationEmail:Smtp:Username", out var smtpUser) &&
-        string.IsNullOrWhiteSpace(config["RegistrationEmail:Smtp:From"]) &&
-        !overrides.ContainsKey("RegistrationEmail:Smtp:From"))
-    {
-        overrides["RegistrationEmail:Smtp:From"] = smtpUser;
-    }
-
-    if (overrides.Count > 0)
-    {
-        config.AddInMemoryCollection(overrides);
-    }
-}
-
 public partial class Program { }
+

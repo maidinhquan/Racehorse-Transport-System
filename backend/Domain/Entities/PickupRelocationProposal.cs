@@ -72,6 +72,35 @@ namespace Domain.Entities
         [Column("CustomerConsentConfirmedAt")]
         public DateTime? CustomerConsentConfirmedAt { get; set; }
 
+        [Column("ProposalVersion")]
+        public int ProposalVersion { get; set; } = 1;
+
+        [Column("SentAt")]
+        public DateTime? SentAt { get; set; }
+
+        [Column("SentBy")]
+        [StringLength(50)]
+        public string? SentBy { get; set; }
+
+        [Column("CustomerReplyAt")]
+        public DateTime? CustomerReplyAt { get; set; }
+
+        [Column("CustomerReplyDecision")]
+        [StringLength(20)]
+        public string? CustomerReplyDecision { get; set; }
+
+        [Column("CustomerReplyNote")]
+        [StringLength(500)]
+        public string? CustomerReplyNote { get; set; }
+
+        [Column("ScheduleImpact")]
+        [StringLength(500)]
+        public string? ScheduleImpact { get; set; }
+
+        [Column("CustomerResponsibilities")]
+        [StringLength(500)]
+        public string? CustomerResponsibilities { get; set; }
+
         [Column("IsActive")]
         public bool IsActive { get; set; } = true;
 

@@ -43,11 +43,14 @@ namespace Application.Interfaces
         Task<PlanningFileDto> UploadPlanningFileAsync(string tripId, string fileName, string contentType, long size, string storagePath, string userId);
         Task<PlanningAttachment?> GetPlanningFileAsync(string tripId, string fileId);
 
-        // 6. Pickup Relocation (F3-J28..J33)
+        // 6. Pickup Relocation (F3-J28..J33, J56, J57)
         Task<PickupAccessDto> EvaluatePickupAccessAsync(string tripId, AccessInputDto dto, string userId);
         Task<List<PickupCandidateDto>> GetRelocationCandidatesAsync(string tripId);
         Task<PickupRelocationDto> ProposePickupRelocationAsync(string tripId, PickupProposalInputDto dto, string userId);
         Task<PickupRelocationDto> ManagerRelocationDecisionAsync(string tripId, PickupDecisionInputDto dto, string managerId);
+        Task<TripContextDto> SendPickupRelocationAsync(string tripId, PickupSendInputDto dto, string managerId);
+        Task<CustomerPickupProposalDto> GetCustomerPickupRelocationAsync(string tripId, string customerId);
+        Task<CustomerPickupProposalDto> CustomerRelocationDecisionAsync(string tripId, CustomerPickupDecisionInputDto dto, string customerId);
         Task<PickupRelocationDto> RecordCustomerConsentAsync(string tripId, ConsentInputDto dto, string managerId);
         Task<PickupRelocationDto> ReopenRelocationProposalAsync(string tripId, ExpectedDto dto, string userId);
 
@@ -122,6 +125,8 @@ namespace Application.Interfaces
         // 6. Manager Route Approval & Planning Queue
         Task<List<ManagerPlanningItemDto>> GetManagerPlanningTripsAsync();
         Task<RouteCalculateResponseDto?> GetManagerTripRouteAsync(string tripId);
+        /// <summary>Phương án (tuyến, xe, nhân sự) Điều phối đã gửi, kèm trạng thái duyệt hiện tại.</summary>
+        Task<PlanDto?> GetManagerPlanAsync(string tripId);
         Task<bool> ApproveRouteVersionAsync(string tripId, int routeVersionId, ManagerApproveRouteDto dto);
         Task<bool> ReturnRouteVersionAsync(string tripId, int routeVersionId, ManagerReturnRouteDto dto);
         Task<bool> ApproveDepartureAsync(string tripId, ManagerApproveDepartureDto? dto = null);

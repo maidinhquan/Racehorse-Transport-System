@@ -2,6 +2,9 @@
 export * from './types';
 export * from './api/specialistApi';
 export * from './api/specialistEndpoints';
+export * from './api/flow2Api';
+export * from './api/flow2Endpoints';
+export * from './api/flow2Client';
 export * from './data/mockData';
 export * from './hooks/useSpecialist';
 export * from './hooks/useSpecialistFilter';
@@ -15,3 +18,5 @@ export * from './pages/trip-detail/TripDetailPage';
 export * from './pages/document-review/DocumentReviewPage';
 export * from './pages/regulations/RegulationsPage';
 export * from './pages/audit/AuditPage';
+export * from './pages/incidents/SpecialistIncidentsPage';
+export * from './pages/profile/SpecialistProfilePage';

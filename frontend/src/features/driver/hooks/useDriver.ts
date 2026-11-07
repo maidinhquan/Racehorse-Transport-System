@@ -3,6 +3,7 @@ import type {
   ActionResult,
   CrewMember,
   HandoverDraft,
+  HealthLog,
   HealthLogRequestDto,
   Horse,
   Incident,
@@ -11,25 +12,30 @@ import type {
   ReportIncidentRequestDto,
   Trip,
 } from '../types';
+import { saveIncidentPin } from '../../../shared/utils/sharedIncidentPins';
+import { saveSharedIncident } from '../../../shared/utils/sharedIncidents';
 import { driverApi } from '../api/driverApi';
+import { tripFromTracking } from '../api/flow4Mapper';
+import { flow4Api } from '../../tracking/api/flow4Api';
 import { DEFAULT_DRIVER_USER, mockCrew, mockHorses, mockIncidents, mockTrips } from '../data/mockData';
 import {
   INCIDENT_TYPE_LABEL,
-  cooldownLeft,
   delayPending,
   emptyHandoverDraft,
   fromInputValue,
   handoverCheck,
   isActiveTrip,
-  lastMilestone,
   milestoneText,
   minutesBetween,
   nextMilestone,
   nowStamp,
   tripsOf,
-  whereNow,
+  incidentSegment,
+  incidentWhere,
+  pointOnSegment,
 } from './driverRules';
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
+import { flow6Api } from '../../aftercare/api/flow6Api';
 
 // ============================================================================
 // Store dùng chung cho mọi trang Tài xế (giữ state khi chuyển route)
@@ -42,9 +48,9 @@ interface DriverState {
   incidents: Incident[];
   loading: boolean;
   loaded: boolean;
+  /** Tài khoản mà dữ liệu chuyến đang giữ thuộc về (chế độ thật): đổi tài khoản thì phải tải lại */
+  loadedFor: string;
   toast: { id: number; message: string } | null;
-  /** Thời điểm thực (ms) ghi mốc gần nhất của từng chuyến – dùng tính thời gian chờ */
-  lastRecordedMs: Record<string, number>;
   /** Bản nháp bàn giao đang nhập */
   drafts: Record<string, HandoverDraft>;
   /** Ảnh đính kèm báo cáo sự cố đang soạn */
@@ -54,7 +60,17 @@ interface DriverState {
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const USER_KEY = 'rts_driver_user';
 
+/** Mã người dùng của tài khoản đang đăng nhập (claim `sub` trong access token) */
+const tokenUser = () => {
+  try {
+    const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
+    if (!token) return '';
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof payload.sub === 'string' ? payload.sub : '';
+  } catch { return ''; }
+};
 const savedUser = () => {
+  if (!getDemoMode('driver')) { const u = tokenUser(); if (u) return u; }
   try { return sessionStorage.getItem(USER_KEY) || DEFAULT_DRIVER_USER; } catch { return DEFAULT_DRIVER_USER; }
 };
 
@@ -67,8 +83,8 @@ let state: DriverState = {
   ...(initialDemo ? demoData() : emptyData),
   loading: false,
   loaded: false,
+  loadedFor: '',
   toast: null,
-  lastRecordedMs: {},
   drafts: {},
   incidentPhotos: [],
 };
@@ -88,8 +104,14 @@ if (typeof window !== 'undefined') {
   window.addEventListener('rts_demo_mode_change', (event: Event) => {
     const detail = (event as CustomEvent<{ role: string; enabled: boolean }>).detail;
     if (!detail || detail.role !== 'driver') return;
-    setState({ ...(detail.enabled ? demoData() : emptyData), loading: false, loaded: true, drafts: {}, lastRecordedMs: {} });
-    toast(detail.enabled ? 'Đã bật dữ liệu mẫu & hiển thị nút demo.' : 'Đã tắt dữ liệu mẫu & ẩn nút demo.');
+    if (detail.enabled) {
+      setState({ ...demoData(), loading: false, loaded: true, drafts: {} });
+      toast('Đã bật dữ liệu mẫu & hiển thị nút demo.');
+    } else {
+      setState({ ...emptyData, loading: false, loaded: false, drafts: {} });
+      toast('Đã tắt dữ liệu mẫu & chuyển sang dữ liệu thật từ máy chủ.');
+      void loadAll();
+    }
   });
 }
 
@@ -98,20 +120,78 @@ const updateTrip = (tripId: string, fn: (t: Trip) => Trip) =>
   setState((s) => ({ trips: s.trips.map((t) => (t.id === tripId ? fn(clone(t)) : t)) }));
 const crewName = (id: string) => state.crew.find((c) => c.id === id)?.name ?? id;
 const horseName = (id: string) => state.horses.find((h) => h.id === id)?.name ?? id;
-const isMine = (t: Trip) => Object.values(t.crew).includes(state.userId);
+// Chế độ thật: backend đã lọc chuyến theo tài khoản đăng nhập
+const isMine = (t: Trip) => !getDemoMode('driver') || Object.values(t.crew).includes(state.userId);
 const draftOf = (t: Trip) => state.drafts[t.id] ?? emptyHandoverDraft(t);
 
+/** Dựng một chuyến từ dữ liệu thật: Flow 4 (hành trình) kết hợp Flow 6 (người nhận, trạng thái bàn giao) */
+async function buildLiveTrip(id: string, f6?: { tripId: string; requestId: string; status: string }) {
+  const [trackingRes, ctxRes, healthRes] = await Promise.allSettled([flow4Api.getTracking(id), flow6Api.getTripContext(id), flow4Api.getHealthLogs(id)]);
+  const ctx = ctxRes.status === 'fulfilled' ? ctxRes.value : undefined;
+  // Nhật ký sức khỏe thật của chuyến (bản đã bị thay thế bởi bản đính chính không hiển thị)
+  const health: HealthLog[] = healthRes.status === 'fulfilled'
+    ? healthRes.value
+        .filter((h) => !healthRes.value.some((o) => o.supersedesId === h.id))
+        .map((h) => ({
+          id: h.id, horseId: h.entry.horseId, at: h.entry.observedAt, temp: h.entry.temperatureC ?? 0, hr: h.entry.heartRateBpm ?? 0,
+          condition: h.entry.condition, notes: h.entry.observation, by: h.recordedBy.userId,
+        }))
+    : [];
+  const extras = { customer: ctx?.designatedReceiverName || 'Khách hàng', receiverName: ctx?.designatedReceiverName || '', receiverPhone: ctx?.designatedReceiverPhone || '' };
+  if (trackingRes.status === 'fulfilled') {
+    const mapped = tripFromTracking(trackingRes.value, extras);
+    mapped.trip.health = health;
+    return mapped;
+  }
+  const trip: Trip = {
+    id, requestId: f6?.requestId ?? '', customer: extras.customer, mode: 'ROAD', origin: '', destination: '',
+    pickup: { name: '', address: '' }, delivery: { name: '', address: '' },
+    receiver: { name: extras.receiverName, phone: extras.receiverPhone }, horses: ctx?.horseIds || [],
+    plannedDepart: '', eta: '', status: (f6?.status as Trip['status']) || 'IN_TRANSIT', crew: {},
+    stops: [], milestones: [], clearances: [], health: [], documents: [], handoverAttempts: [],
+  };
+  return { trip, crew: [] as CrewMember[], horses: [] as Horse[] };
+}
+
 async function loadAll() {
-  if (state.loading || state.loaded) return;
+  if (state.loading) return;
   setState({ loading: true });
   try {
+    if (!getDemoMode('driver')) {
+      try {
+        const [f4Res, f6Res] = await Promise.allSettled([flow4Api.getDriverTrips(), flow6Api.getTrips()]);
+        if (f4Res.status === 'rejected' && f6Res.status === 'rejected') throw f6Res.reason;
+        const f4 = f4Res.status === 'fulfilled' ? f4Res.value : [];
+        const f6 = f6Res.status === 'fulfilled' ? f6Res.value : [];
+        const ids = [...new Set([...f4.map((x) => x.tripId), ...f6.map((x) => x.tripId)])];
+        const built = await Promise.all(ids.map((id) => buildLiveTrip(id, f6.find((x) => x.tripId === id))));
+        const crewMap = new Map<string, CrewMember>();
+        const horseMap = new Map<string, Horse>();
+        built.forEach((b) => { b.crew.forEach((c) => crewMap.set(c.id, c)); b.horses.forEach((h) => horseMap.set(h.id, h)); });
+        setState({
+          trips: built.map((b) => b.trip),
+          crew: [...crewMap.values()],
+          horses: [...horseMap.values()],
+          incidents: [],
+          userId: tokenUser() || state.userId,
+          loading: false,
+          loaded: true,
+          loadedFor: tokenUser(),
+        });
+        return;
+      } catch (err) {
+        console.warn('[useDriver] Failed to fetch real trips:', err);
+        setState({ ...emptyData, loading: false, loaded: true });
+        return;
+      }
+    }
+
     const [trips, crew, horses, incidents] = await Promise.all([
       driverApi.getMyTrips(), driverApi.getCrew(), driverApi.getHorses(), driverApi.getIncidents(),
     ]);
-    if (!getDemoMode('driver')) { setState({ ...emptyData, loading: false, loaded: true }); return; }
     setState({ trips, crew, horses, incidents, loading: false, loaded: true });
   } catch {
-    setState(getDemoMode('driver') ? { loading: false, loaded: true } : { ...emptyData, loading: false, loaded: true });
+    setState({ ...(getDemoMode('driver') ? demoData() : emptyData), loading: false, loaded: true });
   }
 }
 
@@ -121,6 +201,7 @@ async function loadAll() {
 const actions = {
   reload: async () => { setState({ loaded: false }); await loadAll(); },
   clearToast: () => setState({ toast: null }),
+  showToast: (message: string) => toast(message),
 
   /** Đổi tài khoản demo (tài xế / bác sĩ thú y) */
   switchUser(userId: string) {
@@ -132,20 +213,31 @@ const actions = {
   // ---------- Hành trình ----------
   async recordMilestone(tripId: string, atInput: string, note: string): Promise<ActionResult> {
     const t = findTrip(tripId); if (!t || !isMine(t)) return fail('Không tìm thấy chuyến được giao.');
+    // Bác sĩ thú y / hộ tống chỉ ghi nhật ký sức khỏe; mốc hành trình do tài xế cập nhật
+    const me = state.crew.find((c) => c.id === state.userId);
+    if (me && me.role !== 'DRIVER') return fail('Bác sĩ thú y không được cập nhật mốc hành trình. Hãy ghi nhật ký sức khỏe ngựa; mốc do tài xế ghi.');
     const n = nextMilestone(t); if (!n) return fail('Không còn mốc nào để ghi.');
     if (n.blocked) return fail('Đang chờ Specialist ghi kết quả thông quan.');
-    const wait = cooldownLeft(state.lastRecordedMs[tripId]);
-    if (wait) return fail(`Vừa ghi nhận mốc trước. Có thể ghi mốc tiếp sau ${wait} giây.`);
     const at = fromInputValue(atInput);
     if (!at) return fail('Nhập thời điểm.');
-    if (n.type === 'DEPARTED' && at.slice(0, 10) < t.plannedDepart.slice(0, 10)) return fail('Không thể xuất phát trước ngày khởi hành đã được phê duyệt.');
     if (n.type === 'DEPARTED' && delayPending(t)) return fail('Lịch khởi hành thay đổi đang chờ xử lý, chưa thể bắt đầu.');
-    const last = lastMilestone(t);
-    if (last && at < last.at) return fail(`Thời điểm phải sau mốc trước (${last.at}).`);
     const m = { type: n.type, stopIndex: n.stopIndex, at, by: state.userId, note: note.trim() || undefined };
-    await driverApi.recordMilestone(tripId, { type: m.type, stopIndex: m.stopIndex, at, note: m.note });
-    updateTrip(tripId, (x) => ({ ...x, milestones: [...x.milestones, m], status: n.type === 'DEPARTED' ? 'IN_TRANSIT' : x.status }));
-    setState((s) => ({ lastRecordedMs: { ...s.lastRecordedMs, [tripId]: Date.now() } }));
+    try {
+      await driverApi.recordMilestone(tripId, { type: m.type, stopIndex: m.stopIndex, at, note: m.note, milestoneId: t.stops[n.stopIndex]?.id });
+    } catch (error) {
+      return fail(error instanceof Error && error.message ? error.message : 'Không ghi nhận được mốc.');
+    }
+    if (!getDemoMode('driver')) {
+      // Backend đã ghi mốc: lỗi khi tải lại dữ liệu không được làm hỏng kết quả ghi nhận.
+      try {
+        const fresh = await buildLiveTrip(tripId);
+        setState((s) => ({ trips: s.trips.map((x) => (x.id === tripId ? { ...fresh.trip, handover: x.handover, handoverAttempts: x.handoverAttempts, handoverStatus: x.handoverStatus } : x)) }));
+      } catch (error) {
+        console.warn('[useDriver] Đã ghi mốc nhưng chưa làm mới được chuyến:', error);
+      }
+    } else {
+      updateTrip(tripId, (x) => ({ ...x, milestones: [...x.milestones, m], status: n.type === 'DEPARTED' ? 'IN_TRANSIT' : x.status }));
+    }
     const extra = n.type === 'ARRIVED_CHECKPOINT' ? ' Specialist đã được báo để ghi kết quả thông quan.'
       : n.type === 'ARRIVED_DESTINATION' ? ' Hãy tiến hành bàn giao.' : '';
     return ok(`Đã ghi nhận: ${milestoneText(t, n)}.${extra}`);
@@ -178,7 +270,13 @@ const actions = {
     if (!body.hr || body.hr < 20 || body.hr > 120) return fail('Nhập nhịp tim từ 20 đến 120 lần/phút.');
     if (body.condition !== 'NORMAL' && body.notes.trim().length < 5) return fail('Mô tả điều quan sát được khi tình trạng không bình thường.');
     const at = fromInputValue(body.at) || nowStamp();
-    await driverApi.addHealthLog(tripId, { ...body, at });
+    // Nhật ký gắn với mốc đang chờ: trạm dừng yêu cầu có nhật ký sức khỏe trước khi tài xế hoàn tất mốc
+    const pending = nextMilestone(t);
+    try {
+      await driverApi.addHealthLog(tripId, { ...body, at, milestoneId: pending ? t.stops[pending.stopIndex]?.id : undefined });
+    } catch (error) {
+      return fail(error instanceof Error && error.message ? error.message : 'Không lưu được nhật ký sức khỏe.');
+    }
     updateTrip(tripId, (x) => ({ ...x, health: [...x.health, { ...body, at, id: `HL-${Date.now()}`, notes: body.notes.trim(), by: state.userId }] }));
     if (body.condition === 'ABNORMAL') return ok('Đã lưu. Manager và Coordinator đã được cảnh báo – báo sự cố nếu cần.');
     if (body.condition !== 'NORMAL' || body.temp >= 38.6) return ok('Đã lưu. Coordinator đã được báo dấu hiệu bất thường.');
@@ -189,18 +287,23 @@ const actions = {
   addIncidentPhoto: (p: Photo) => setState((s) => ({ incidentPhotos: [...s.incidentPhotos, p] })),
   removeIncidentPhoto: (i: number) => setState((s) => ({ incidentPhotos: s.incidentPhotos.filter((_, k) => k !== i) })),
 
-  async reportIncident(tripId: string, body: Omit<ReportIncidentRequestDto, 'photos' | 'location'> & { locationDetail: string; safe: boolean }): Promise<ActionResult> {
+  async reportIncident(tripId: string, body: Omit<ReportIncidentRequestDto, 'photos' | 'location' | 'locationCoordinates'> & { locationDetail: string; safe: boolean; ratio: number }): Promise<ActionResult> {
     const t = findTrip(tripId); if (!t || t.status === 'COMPLETED') return fail('Chỉ báo cáo sự cố cho chuyến đang hoạt động.');
     if (!body.type || !body.severity) return fail('Chọn loại và mức độ sự cố.');
     if (body.description.trim().length < 10) return fail('Mô tả sự việc ít nhất 10 ký tự.');
     if (!body.safe) return fail('Xác nhận người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu.');
-    const location = whereNow(t) + (body.locationDetail.trim() ? ' – ' + body.locationDetail.trim() : '');
+    const { a, b } = incidentSegment(t);
+    const point = a && b ? pointOnSegment(a, b, body.ratio) : null;
+    const location = incidentWhere(t, body.ratio) + (body.locationDetail.trim() ? ' – ' + body.locationDetail.trim() : '');
     const photos = state.incidentPhotos.map((p) => p.name);
-    await driverApi.reportIncident(tripId, { type: body.type, severity: body.severity, description: body.description.trim(), location, photos });
+    const locationCoordinates = point ? `${point.lat.toFixed(6)},${point.lng.toFixed(6)}` : undefined;
+    await driverApi.reportIncident(tripId, { type: body.type, severity: body.severity, description: body.description.trim(), location, locationCoordinates, photos });
     const inc: Incident = {
       id: `INC-${String(Date.now()).slice(-4)}`, tripId, type: body.type, severity: body.severity, status: 'NEW',
-      at: nowStamp(), by: state.userId, location, description: body.description.trim(), photos,
+      at: nowStamp(), by: state.userId, location, lat: point?.lat, lng: point?.lng, description: body.description.trim(), photos,
     };
+    saveSharedIncident(inc as any);
+    if (point) saveIncidentPin({ id: inc.id, tripId, label: INCIDENT_TYPE_LABEL[inc.type], lat: point.lat, lng: point.lng, where: location, description: inc.description, at: inc.at });
     setState((s) => ({ incidents: [inc, ...s.incidents], incidentPhotos: [] }));
     return ok(`Đã gửi báo cáo ${INCIDENT_TYPE_LABEL[inc.type].toLowerCase()}. Manager, Coordinator và khách hàng đã được thông báo.`);
   },
@@ -280,10 +383,6 @@ const actions = {
     updateTrip(tripId, (x) => ({ ...x, handoverStatus: undefined }));
     return ok('Demo: Manager đã xử lý lần từ chối – có thể bàn giao lại.');
   },
-  demoFastForward(): ActionResult {
-    setState({ lastRecordedMs: {} });
-    return ok('Demo: bỏ qua thời gian chờ giữa 2 mốc.');
-  },
 };
 
 export type DriverActions = typeof actions;
@@ -294,10 +393,28 @@ export type DriverActions = typeof actions;
 export const useDriver = () => {
   const snap = useSyncExternalStore(subscribe, getSnapshot);
 
-  useEffect(() => { void loadAll(); }, []);
+  // Chỉ tải lần đầu: mỗi component gắn vào hook này không được kích hoạt tải lại (tránh vòng lặp khi màn hình đổi giữa "đang tải" và danh sách)
+  useEffect(() => {
+    // Đăng nhập tài khoản khác trong cùng phiên trang: bỏ dữ liệu chuyến của người trước rồi tải lại theo tài khoản mới
+    if (state.loaded && !getDemoMode('driver') && state.loadedFor !== tokenUser()) {
+      setState({ ...emptyData, loaded: false, loadedFor: '', drafts: {} });
+    }
+    if (!state.loaded) void loadAll();
+  }, []);
 
-  const me = useMemo(() => snap.crew.find((c) => c.id === snap.userId), [snap.crew, snap.userId]);
-  const myTrips = useMemo(() => tripsOf(snap.trips, snap.userId), [snap.trips, snap.userId]);
+  const me = useMemo(() => {
+    const found = snap.crew.find((c) => c.id === snap.userId);
+    if (found) return found;
+    const storedName = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null;
+    if (storedName) {
+      return { id: snap.userId, name: storedName, role: 'MAIN_DRIVER' as const, phone: '' };
+    }
+    return undefined;
+  }, [snap.crew, snap.userId]);
+  const myTrips = useMemo(() => {
+    if (!getDemoMode('driver')) return snap.trips;
+    return tripsOf(snap.trips, snap.userId);
+  }, [snap.trips, snap.userId]);
   const activeTrips = useMemo(() => myTrips.filter(isActiveTrip), [myTrips]);
   const completedTrips = useMemo(() => myTrips.filter((t) => !isActiveTrip(t)), [myTrips]);
   const getTrip = useCallback((id?: string) => myTrips.find((t) => t.id === id), [myTrips]);

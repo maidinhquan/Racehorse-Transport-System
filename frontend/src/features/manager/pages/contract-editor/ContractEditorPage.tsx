@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ManagerLayout } from '../../components/ManagerLayout';
 import { StatusBadge } from '../../components/StatusBadge/StatusBadge';
 import { BackLink, LockedCard, Note } from '../../components/Common/Common';
-import { WorkflowNav } from '../../components/WorkflowNav/WorkflowNav';
+import { WorkflowHeader } from '../../components/WorkflowNav/WorkflowHeader';
 import { ContractPreview } from '../../components/ContractPreview/ContractPreview';
 import { Modal, ReasonModal } from '../../components/Modals';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
@@ -22,21 +22,26 @@ import {
   isAccepted,
   isSigned,
   pendingTx,
-  routeText,
-  sumBudget,
+  receivedDepositTx,
   timeLeft,
   versionState,
 } from '../../hooks/managerRules';
 import { ContractWizard } from './ContractWizard';
 import './ContractEditorPage.css';
 
-type Dialog = '' | 'view' | 'cancel' | 'extend';
+type Dialog = '' | 'view' | 'cancel' | 'extend' | 'demo-cancel' | 'demo-change';
 
 /** Hợp đồng & giá của một yêu cầu: soạn 4 bước, phát hành, phản hồi yêu cầu sửa, gia hạn, lịch sử phiên bản */
 export const ContractEditorPage: React.FC = () => {
   const { requestId } = useParams();
   const navigate = useNavigate();
   const { data, getRequest, tripFor, customer, horses, actions } = useManager();
+  useEffect(() => {
+    if (!requestId) return;
+    void actions.loadRequest(requestId);
+    const timer = setInterval(() => { void actions.loadRequest(requestId); }, 15000);
+    return () => clearInterval(timer);
+  }, [requestId, actions]);
   const [editing, setEditing] = useState(false);
   const [response, setResponse] = useState('');
   const [dialog, setDialog] = useState<Dialog>('');
@@ -53,21 +58,8 @@ export const ContractEditorPage: React.FC = () => {
   }
   const t = tripFor(r.id), v = curVersion(r), state = v ? versionState(v) : undefined, c = customer(r);
   const head = (
-    <>
-      <BackLink to="/manager/contracts">Danh sách hợp đồng</BackLink>
-      <div className="mgr-head">
-        <div>
-          <h2 className="mgr-title mgr-ce__title">{v ? `Hợp đồng ${ctRef(v)}` : 'Hợp đồng nháp'} • {r.id} {state && <StatusBadge kind="contract" status={state} />}</h2>
-          <p className="mgr-subtitle">{c?.company} • {routeText(r)} • <StatusBadge status={r.status} /></p>
-        </div>
-        <div className="mgr-btn-row">
-          {v && <button type="button" className="mgr-btn" onClick={() => setDialog('view')}>Xem toàn bộ hợp đồng</button>}
-          <Link className="mgr-btn" to={`/manager/requests/${r.id}`}>Mở yêu cầu</Link>
-          {t && <Link className="mgr-btn mgr-btn--solid" to={`/manager/trips/${t.id}`}>Đến chuyến {t.id} →</Link>}
-        </div>
-      </div>
-      <WorkflowNav request={r} trip={t} current="contract" />
-    </>
+    <WorkflowHeader request={r} trip={t} customer={c} current="contract"
+      actions={v ? <button type="button" className="mgr-btn" onClick={() => setDialog('view')}>Xem toàn bộ hợp đồng</button> : undefined} />
   );
 
   if (!isAccepted(r)) {
@@ -82,9 +74,9 @@ export const ContractEditorPage: React.FC = () => {
   }
 
   const isVoid = state === 'VOID';
-  const blockedByMoney = verifiedDeposit(data, r) > 0 || depositPaid(data, r) || !!pendingTx(data, r);
+  const blockedByMoney = verifiedDeposit(data, r) > 0 || depositPaid(data, r) || !!receivedDepositTx(data, r);
   const canIssue = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) && !isSigned(r) && !blockedByMoney;
-  const editorOpen = canIssue && (!v || isVoid || state === 'CHANGES_REQUESTED' || state === 'EXPIRED' || editing);
+  const editorOpen = canIssue && (['CONTRACT_PREPARATION', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) || !v || isVoid || state === 'CHANGES_REQUESTED' || state === 'EXPIRED' || editing);
   const change = v?.change && !v.change.response ? v.change : undefined;
   const canManage = !!v && !v.signedAt && ['ISSUED', 'EXPIRED'].includes(state!) && ['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status);
   const processing = data.transactions.find((x) => x.requestId === r.id && x.status === 'PROCESSING');
@@ -103,24 +95,6 @@ export const ContractEditorPage: React.FC = () => {
 
       <div className="mgr-grid-main">
         <div className="mgr-stack">
-          {editorOpen && (
-            <section className="mgr-card" style={{ border: '2px solid #f97316' }}>
-              <ContractWizard key={`${r.id}-${v?.v ?? 0}`} request={r} customer={c} horses={horses}
-                onSave={async (d) => {
-                  return await actions.saveDraft(r.id, d);
-                }}
-                onIssue={async (d) => {
-                  const res = await actions.issueContract(r.id, d, response);
-                  if (res.ok) {
-                    setEditing(false);
-                    setResponse('');
-                  }
-                  return res;
-                }}
-                onCancel={editing && !isVoid ? () => setEditing(false) : undefined} />
-            </section>
-          )}
-
           {v && (
             <section className="mgr-card">
               <div className="mgr-between">
@@ -135,14 +109,13 @@ export const ContractEditorPage: React.FC = () => {
                 <div><span>Phiên bản</span><b>{ctRef(v)} • {CONTRACT_STATE_LABEL[state!]}</b></div>
                 <div><span>Giá hợp đồng</span><b>{fmtMoney(v.total)}</b></div>
                 <div><span>Tiền cọc ({v.depositPct}%)</span><b>{fmtMoney(depositOf(r))}</b></div>
-                <div><span>Dự toán nội bộ</span><b>{fmtMoney(sumBudget(v.budget))}</b><div className="mgr-muted">Biên {v.total ? Math.round(((v.total - sumBudget(v.budget)) / v.total) * 100) : 0}%</div></div>
                 <div><span>Phát hành</span><b>{fmtDateTime(v.issuedAt)}</b></div>
                 <div><span>{v.signedAt ? 'Ký OTP' : 'Hạn hoàn tất'}</span><b>{v.signedAt ? fmtDateTime(v.signedAt) : `${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)})`}</b></div>
                 <div><span>Khách đồng ý điều khoản</span><b>{v.termsAcceptedAt ? fmtDateTime(v.termsAcceptedAt) : 'Chưa'}</b></div>
                 <div><span>Tiền cọc</span><b>{depositPaid(data, r) ? 'Đã xác minh' : pendingTx(data, r) ? 'Đang chờ xác minh' : 'Chưa thanh toán'}</b></div>
               </div>
               {v.exception && <p className="mgr-hint">Lý do bán dưới giá sàn: {v.exception}</p>}
-              {blockedByMoney && !v.signedAt && <p className="mgr-hint">Khách đã thanh toán / đang thanh toán cọc cho phiên bản này nên không phát hành lại được.</p>}
+              {blockedByMoney && !v.signedAt && <p className="mgr-hint">Khách đã chuyển tiền cọc cho phiên bản này nên không phát hành lại được; cần đối soát/hoàn tiền trước.</p>}
             </section>
           )}
 
@@ -165,8 +138,9 @@ export const ContractEditorPage: React.FC = () => {
             </section>
           )}
 
+          {/* Single contract editor: placed after the change-request card ("soạn … ngay bên dưới"). */}
           {editorOpen && (
-            <section className="mgr-card">
+            <section className="mgr-card" style={{ border: '2px solid #f97316' }}>
               <ContractWizard key={`${r.id}-${v?.v ?? 0}`} request={r} customer={c} horses={horses}
                 onSave={async (d) => {
                   return await actions.saveDraft(r.id, d);
@@ -179,7 +153,7 @@ export const ContractEditorPage: React.FC = () => {
                   }
                   return res;
                 }}
-                onCancel={editing ? () => setEditing(false) : undefined} />
+                onCancel={editing && !isVoid ? () => setEditing(false) : undefined} />
             </section>
           )}
 
@@ -234,8 +208,8 @@ export const ContractEditorPage: React.FC = () => {
             { label: 'Khách hàng chuyển khoản tiền cọc', run: () => actions.demo.customerPayBank(r.id), primary: true, hidden: !(r.status === 'CONTRACT_READY' && state === 'ISSUED' && !!v?.termsAcceptedAt && !pendingTx(data, r) && !depositPaid(data, r)) },
             { label: `Cổng thanh toán xác nhận ${processing?.id ?? ''}`, run: () => actions.demo.gatewayConfirm(processing!.id), primary: true, hidden: !processing },
             { label: 'Khách hàng ký OTP', run: () => actions.demo.customerSign(r.id), primary: true, hidden: r.status !== 'DEPOSIT_VERIFIED' },
-            { label: 'Khách hàng yêu cầu sửa hợp đồng', run: () => actions.demo.customerRequestChange(r.id), hidden: !(r.status === 'CONTRACT_READY' && state === 'ISSUED' && !depositPaid(data, r) && !pendingTx(data, r)) },
-            { label: 'Khách hàng yêu cầu hủy', run: () => actions.demo.customerRequestCancel(r.id), hidden: !['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status) },
+            { label: 'Khách hàng yêu cầu sửa hợp đồng', run: () => setDialog('demo-change'), hidden: !(r.status === 'CONTRACT_READY' && state === 'ISSUED' && !depositPaid(data, r) && !pendingTx(data, r)) },
+            { label: 'Khách hàng yêu cầu hủy', run: () => setDialog('demo-cancel'), hidden: !['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status) },
           ]} hint="Giả lập thao tác của khách hàng và cổng thanh toán với hợp đồng này." />
         </aside>
       </div>
@@ -243,7 +217,7 @@ export const ContractEditorPage: React.FC = () => {
       {v && (
         <Modal open={dialog === 'view'} title={`Hợp đồng ${ctRef(v)}`} wide cancelText="Đóng" onClose={close}>
           <ContractPreview request={r} customer={c} horses={horses}
-            content={{ snapshot: v.snapshot, ref: ctRef(v), mode: v.mode, departAt: v.departAt, arriveAt: v.arriveAt, items: v.items, depositPct: v.depositPct, terms: v.terms, note: v.note, issuedAt: v.issuedAt, validUntil: v.validUntil, signedAt: v.signedAt }} />
+            content={{ snapshot: v.snapshot, ref: ctRef(v), mode: v.mode, modeDeferred: v.modeDeferred, departAt: v.departAt, arriveAt: v.arriveAt, items: v.items, depositPct: v.depositPct, terms: v.terms, note: v.note, issuedAt: v.issuedAt, validUntil: v.validUntil, signedAt: v.signedAt }} />
         </Modal>
       )}
       <ReasonModal open={dialog === 'extend'} title={`Gia hạn ${r.id}`} okText="Gia hạn theo chính sách" onClose={close}
@@ -257,6 +231,20 @@ export const ContractEditorPage: React.FC = () => {
             navigate(`/manager/requests/${r.id}`);
           }
           return res.ok;
+        }} />
+
+      <ReasonModal open={dialog === 'demo-cancel'} title={`Demo: Khách hàng yêu cầu hủy hợp đồng ${r.id}`} okText="Gửi yêu cầu hủy" danger minLength={5}
+        label="Lý do hủy hợp đồng *" placeholder="VD: Kế hoạch thay đổi, giải đua bị hoãn." onClose={close} onSubmit={async (reason) => {
+          actions.demo.customerRequestCancel(r.id, reason);
+          close();
+          return true;
+        }} />
+
+      <ReasonModal open={dialog === 'demo-change'} title={`Demo: Khách hàng yêu cầu sửa hợp đồng ${r.id}`} okText="Gửi yêu cầu sửa" minLength={5}
+        label="Nội dung đề nghị sửa *" placeholder="VD: Đề nghị dời ngày vận chuyển thêm 3 ngày và giảm 5% cước." onClose={close} onSubmit={async (text) => {
+          actions.demo.customerRequestChange(r.id, text);
+          close();
+          return true;
         }} />
     </ManagerLayout>
   );

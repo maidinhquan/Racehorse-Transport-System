@@ -7,10 +7,11 @@ import { RequestPlacesFields, type RequestPlaces } from '../../components/Reques
 import { Note } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
 import type { RequestField, TripInfoInput } from '../../types';
-import { FIELD_LABEL, addDays, city, emptyPlace, fmtDate, getCityId, getDefaultCoordinates, isSupportedRoute, today } from '../../hooks/customerRules';
+import { FIELD_LABEL, addDays, city, displayRequestId, emptyPlace, fmtDate, isSupportedRoute, today } from '../../hooks/customerRules';
 import { customerApi } from '../../api/customerApi';
 import type { FormOptions } from '../../../../shared/api/contractClient';
 import './CreateRequestPage.css';
+import { apiMessage } from '../../../../shared/api/apiError';
 
 /** First of three steps: schedule, pickup address/contact, delivery address/contact. */
 export const CreateRequestPage: React.FC = () => {
@@ -32,7 +33,7 @@ export const CreateRequestPage: React.FC = () => {
     let active = true; setOptions(null); setOptionsError('');
     if (isSupportedRoute(form.origin, form.destination)) {
       customerApi.getFormOptions(form.origin, form.destination).then(value => { if (active) setOptions(value); })
-        .catch(() => { if (active) setOptionsError('Chưa tải được quy định cho tuyến này. Vui lòng thử lại.'); });
+        .catch(error => { if (active) setOptionsError(`Chưa tải được quy định cho tuyến này: ${apiMessage(error)}`); });
     }
     return () => { active = false; };
   }, [form.origin, form.destination]);
@@ -45,40 +46,47 @@ export const CreateRequestPage: React.FC = () => {
   const revising = r?.status === 'CHANGES_REQUESTED';
   const allowed: RequestField[] = revising ? r?.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'] : ['route', 'date', 'places', 'horses', 'notes'];
   const lock = (field: RequestField) => !allowed.includes(field);
-  const minDate = addDays(today(), options?.preparationDays ?? 0);
+  const deadlineDays = Math.max(2, Math.ceil((options?.contractDeadlineHours ?? 24) / 24) + 1);
+  const prepDays = options?.preparationDays ?? (city(form.destination).country === 'JP' ? 7 : 3);
+  const minLeadDays = prepDays + deadlineDays;
+  const minDate = addDays(today(), minLeadDays);
+  // Thời gian vận chuyển tối thiểu theo tuyến: kiểm tra ngay tại đây để khách không phải sửa sau khi đã cọc và ký hợp đồng.
+  const minTransitDays = options?.minTransitDays ?? (city(form.destination).country === 'JP' ? 2 : 0);
+  const minDeliveryDate = addDays(form.pickupAt || form.date || minDate, minTransitDays);
   const routeEnabled = options?.supportedRoutes?.some(route => route.originCountry === city(form.origin).country && route.destinationCountry === city(form.destination).country && route.mode === (city(form.destination).country === 'JP' ? 'AIR' : 'ROAD')) ?? false;
-  const tripValid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!form.date && form.date >= minDate;
-  const placeValid = Object.values(places).every(p => p.name.trim() && p.address.trim() && p.contact.trim() && /^[+0-9 ()-]{8,}$/.test(p.phone.trim()));
+  const tripValid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!form.date && form.date >= minDate && form.date >= minDeliveryDate;
+  const placeValid = Object.values(places).every(p => p.name.trim() && p.address.trim() && p.contact.trim() && /^[+0-9 ()-]{8,}$/.test(p.phone.trim()) && p.cityId && p.latitude != null && p.longitude != null);
   const hint = !form.origin || !form.destination ? 'Chọn thành phố trong địa chỉ nhận và giao ngựa.'
     : form.origin === form.destination ? 'Thành phố nhận và giao phải khác nhau.'
     : !isSupportedRoute(form.origin, form.destination) ? 'Chỉ nhận vận chuyển trong Việt Nam và từ Việt Nam đến Nhật Bản.'
     : optionsError || (!options ? 'Đang tải quy định của tuyến…'
     : !routeEnabled ? 'Tuyến này hiện chưa nhận yêu cầu vận chuyển.'
     : !form.date ? 'Chọn ngày vận chuyển mong muốn.'
-    : form.date < minDate ? `Tuyến này cần chuẩn bị ${options?.preparationDays ?? 3} ngày, vui lòng chọn từ ${fmtDate(minDate)}.` : '');
+    : form.date < minDate ? `Tuyến này cần ít nhất ${minLeadDays} ngày (chuẩn bị & ký hợp đồng), vui lòng chọn từ ${fmtDate(minDate)}.`
+    : form.date < minDeliveryDate ? `Tuyến này cần ít nhất ${minTransitDays} ngày vận chuyển, ngày giao sớm nhất là ${fmtDate(minDeliveryDate)}.` : '');
   const back = r ? `/customer/requests/${r.id}` : '/customer/requests';
   const save = async () => {
     if (savingRef.current) return;
     setTried(true);
-    if (!tripValid || !placeValid) { actions.showToast(!tripValid ? hint : 'Điền đủ địa chỉ, người liên hệ và số điện thoại hợp lệ ở cả hai địa điểm.'); return; }
+    if (!tripValid || !placeValid) { actions.showToast(!tripValid ? hint : 'Điền đủ thông tin, chọn tỉnh/thành phố và xác định vị trí nhận/giao trên bản đồ.'); return; }
 
     const pickupCoords = places.pickup.latitude != null && places.pickup.longitude != null
       ? { latitude: places.pickup.latitude, longitude: places.pickup.longitude }
-      : getDefaultCoordinates(form.origin);
+      : {};
     const deliveryCoords = places.delivery.latitude != null && places.delivery.longitude != null
       ? { latitude: places.delivery.latitude, longitude: places.delivery.longitude }
-      : getDefaultCoordinates(form.destination);
+      : {};
 
     const readyPickup = {
       ...places.pickup,
       ...pickupCoords,
-      cityId: places.pickup.cityId || getCityId(form.origin),
+      cityId: places.pickup.cityId,
       cityName: form.origin,
     };
     const readyDelivery = {
       ...places.delivery,
       ...deliveryCoords,
-      cityId: places.delivery.cityId || getCityId(form.destination),
+      cityId: places.delivery.cityId,
       cityName: form.destination,
     };
     setPlaces({ pickup: readyPickup, delivery: readyDelivery });
@@ -97,8 +105,8 @@ export const CreateRequestPage: React.FC = () => {
   };
 
   return <CustomerLayout title="Yêu cầu vận chuyển"><div className="cus-create-flow">
-    <button type="button" className="cus-back" onClick={() => navigate(back)}><Icon name="back" />{r ? `Quay lại ${r.id}` : 'Yêu cầu vận chuyển'}</button>
-    <h2 className="cus-title">{revising ? `Sửa yêu cầu ${r!.id}` : 'Tạo yêu cầu vận chuyển'}</h2>
+    <button type="button" className="cus-back" onClick={() => navigate(back)}><Icon name="back" />{r ? `Quay lại ${displayRequestId(r.id)}` : 'Yêu cầu vận chuyển'}</button>
+    <h2 className="cus-title">{revising ? `Sửa yêu cầu ${displayRequestId(r!.id)}` : 'Tạo yêu cầu vận chuyển'}</h2>
     <p className="cus-subtitle">Nhập nơi nhận, nơi giao và ngày vận chuyển. Thông tin từng ngựa được khai báo ở bước tiếp theo.</p>
     <WizardStepper request={r ?? null} current={0} />
     {revising && r?.feedback && <Note tone="yellow" title="Góp ý của Manager">{r.feedback}<p>Được phép sửa: {allowed.map(field => FIELD_LABEL[field]).join(', ')}</p></Note>}
@@ -120,7 +128,7 @@ export const CreateRequestPage: React.FC = () => {
               min={minDate}
               disabled={lock('date') || saving}
               invalid={tried && (!form.pickupAt && !form.date)}
-              onChange={pickupAt => setForm(f => ({ ...f, pickupAt, date: f.date && f.date >= pickupAt ? f.date : pickupAt }))}
+              onChange={pickupAt => setForm(f => ({ ...f, pickupAt, date: f.date && f.date >= addDays(pickupAt, minTransitDays) ? f.date : addDays(pickupAt, minTransitDays) }))}
             />
           </div>
           <div className="cus-field cus-create__date-col">
@@ -129,18 +137,19 @@ export const CreateRequestPage: React.FC = () => {
               id="cr-date"
               ariaLabel="Ngày vận chuyển mong muốn"
               value={form.date}
-              min={form.pickupAt || minDate}
+              min={minDeliveryDate}
               disabled={lock('date') || saving}
-              invalid={tried && (!form.date || form.date < minDate)}
+              invalid={tried && (!form.date || form.date < minDate || form.date < minDeliveryDate)}
               onChange={date => setForm(f => ({ ...f, date, pickupAt: f.pickupAt || date }))}
             />
           </div>
         </div>
+        {minTransitDays > 0 && <p className="cus-muted">Tuyến này cần ít nhất {minTransitDays} ngày vận chuyển: ngày giao phải sau ngày lấy tối thiểu {minTransitDays} ngày.</p>}
       </section>
       <p className="cus-create__required">Các trường có dấu * là bắt buộc.</p>
       <RequestPlacesFields places={places} origin={form.origin} destination={form.destination} tried={tried} locked={lock}
         onPlaceChange={(key, place) => setPlaces(p => ({ ...p, [key]: place }))}
-        onCityChange={(key, value) => { setForm(f => ({ ...f, [key === 'pickup' ? 'origin' : 'destination']: value })); setPlaces(p => ({ ...p, [key]: { ...p[key], latitude: undefined, longitude: undefined } })); }} />
+        onCityChange={(key, value) => { setForm(f => ({ ...f, [key === 'pickup' ? 'origin' : 'destination']: value })); setPlaces(p => ({ ...p, [key]: { ...p[key], cityId: '', latitude: undefined, longitude: undefined } })); }} />
       {(tried || optionsError) && hint && <Note tone="red" title="Kiểm tra thông tin nhận/giao">{hint}</Note>}
       <div className="cus-create__actions">
         <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(back)}>Hủy</button>

@@ -1,5 +1,8 @@
 # Chỉ dẫn API — Role: Fleet & Route Coordinator (Điều phối viên)
 
+> **Flow 3 v3 — thiết kế 30/10/2026:** [nghiệp vụ](../../API-Flow/Flow3/FLOW3.md), [API/JSON](../../API-Flow/Flow3/FLOW3-API-JSON.md), [chuyển đổi v2→v3](../../API-Flow/Flow3/MIGRATION-V3.md). Mode từ hợp đồng; Coordinator lập lịch; Manager kiểm tra và gửi đề xuất đổi điểm nhận; Customer tự đồng ý/từ chối. Chưa tích hợp v3 vào backend/giao diện. Các chỉ dẫn v2 bên dưới là lịch sử khi khác v3.
+
+
 Xử lý sự cố dùng [Flow 5](../../API-Flow/Flow5/FLOW5.md) ngày 29/10/2026: Coordinator tiếp nhận, giao việc, recovery, kiểm tra cho tiếp tục và đóng incident có guard; Manager duyệt phần cần thẩm quyền. Không POST milestone thay tài xế hoặc đổi ETA trực tiếp để bỏ qua xử lý sự cố. Kết quả bàn giao đọc theo Flow 6 v1.1.
 
 > **Flow 3 đã thay thế ngày 27/10/2026:** [quy trình v2](../../API-Flow/Flow3/FLOW3.md) và [API/JSON chuẩn](../../API-Flow/Flow3/FLOW3-API-JSON.md) là nguồn hiện hành cho planning/nguồn lực/bay/READY/khởi hành. Bảng và quy tắc planning cũ bên dưới chỉ tra cứu lịch sử khi khác v2: hai nhánh song song, ba người mỗi ROAD; ROAD confirm trước submit, AIR approve rồi book/confirm; không feasibility/timed-documents gate. API role JSON cũ không thay schema v2.

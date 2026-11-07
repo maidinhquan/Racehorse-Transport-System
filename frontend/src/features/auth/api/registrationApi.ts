@@ -42,6 +42,25 @@ export async function resendRegistrationOtp(registrationToken: string): Promise<
   return response.data.data;
 }
 
+export interface ValidateEmailResponse {
+  isValid: boolean;
+  existsInSystem: boolean;
+  message: string;
+  deliverability?: string;
+  isSmtpValid?: boolean;
+}
+
+export async function validateEmailExistence(email: string): Promise<ValidateEmailResponse> {
+  const response = await registrationApi.post<ApiResponse<ValidateEmailResponse>>("/auth/validate-email", { email });
+  return (
+    response.data.data ?? {
+      isValid: false,
+      existsInSystem: false,
+      message: response.data.message || "Không thể kiểm tra email",
+    }
+  );
+}
+
 export function registrationErrorMessage(error: unknown): string {
   if (axios.isAxiosError<ApiResponse<unknown>>(error)) {
     const response = error.response?.data;

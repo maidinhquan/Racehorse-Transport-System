@@ -9,6 +9,9 @@ public interface IFlow4DriverService
     /// </summary>
     Task<List<Flow4TripSummaryDto>> GetAssignedTripsAsync(string driverId, string? status = null);
 
+    Task<object> GetAssignedHorseAsync(string tripId, string horseId, string driverId);
+    Task<(byte[] Bytes, string ContentType)> ReadAssignedHorseFileAsync(string tripId, string horseId, string kind, string driverId);
+
     /// <summary>
     /// F4-J04: Kiểm tra điều kiện xe, ngựa và chốt chặn trước khi xuất phát thực tế.
     /// </summary>
@@ -17,7 +20,7 @@ public interface IFlow4DriverService
     /// <summary>
     /// F4-J05: Xác nhận xuất phát thực tế (Trip -> IN_TRANSIT, Request -> IN_PROGRESS).
     /// </summary>
-    Task<Flow4MutationResultDto> ConfirmDepartureAsync(string tripId, DepartureInputDto dto, string driverId);
+    Task<Flow4MutationResultDto> ConfirmDepartureAsync(string tripId, DriverDepartureInputDto dto, string driverId);
 
     /// <summary>
     /// F4-J06: Hoàn tất mốc kế tiếp tuần tự theo SequenceOrder.

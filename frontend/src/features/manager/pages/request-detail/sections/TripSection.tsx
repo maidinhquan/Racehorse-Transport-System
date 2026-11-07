@@ -21,7 +21,7 @@ export const TripSection: React.FC<{ request: TransportRequest }> = ({ request: 
         <section className="mgr-card">
           <div className="mgr-between"><h3 className="mgr-card__title">Chuyến đi liên kết • {t.id}</h3><StatusBadge kind="trip" status={t.status} /></div>
           <div className="mgr-kv">
-            <div><span>Phương thức</span><b>{MODE_LABEL[t.mode]}</b></div>
+            <div><span>Phương thức</span><b>{t.mode ? MODE_LABEL[t.mode] : 'Chờ Coordinator lập phương án'}</b></div>
             <div><span>Phân công</span><b><StatusBadge kind="deployment" status={t.deployment.status} /></b></div>
             <div><span>Khởi hành dự kiến</span><b>{fmtDateTime(t.plannedDepart)}</b></div>
             <div><span>ETA</span><b>{fmtDateTime(t.eta)}</b></div>

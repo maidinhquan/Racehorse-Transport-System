@@ -9,6 +9,7 @@ import {
   curVersion,
   depositState,
   DEPOSIT_STATE_LABEL,
+  displayRequestId,
   fmtDate,
   fmtDateTime,
   horseLine,
@@ -74,7 +75,7 @@ export const OverviewTab: React.FC<{ request: TransportRequest }> = ({ request: 
         <div className="cus-card">
           <h3 className="cus-card__title">Thông tin yêu cầu</h3>
           <div className="cus-kv">
-            <div><span>Mã yêu cầu</span><b>{r.id}</b></div>
+            <div><span>Mã yêu cầu</span><b>{displayRequestId(r.id)}</b></div>
             <div><span>Trạng thái</span><b><TripStatusBadge status={r.status} /></b></div>
             <div><span>Ngày tạo</span><b>{fmtDate(r.requestedAt)}</b></div>
             <div><span>Ngày gửi</span><b>{r.submittedAt ? fmtDateTime(r.submittedAt) : 'Chưa gửi'}</b></div>

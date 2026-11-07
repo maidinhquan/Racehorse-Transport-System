@@ -1,0 +1,24 @@
+**/.git
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/*.user
+**/*.suo
+**/App_Data
+**/TestResults
+**/appsettings.Local.json
+**/appsettings.Flow1Sandbox.Local.json
+**/.env
+**/.env.local
+**/.env.*.local
+**/*.bak
+**/*.log
+
+# Any private environment/local configuration variant
+**/.env.*
+!**/.env.example
+**/appsettings.*.Local.json
+
+# Test projects are not part of the runtime image; excluding them keeps the build cache valid when tests change
+**/tests

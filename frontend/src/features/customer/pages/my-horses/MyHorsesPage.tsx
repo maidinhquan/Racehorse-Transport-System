@@ -4,14 +4,15 @@ import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useCustomer } from '../../hooks/useCustomer';
 import { useHorseFilter } from '../../hooks/useCustomerFilter';
-import { PROFILE_LABEL, fmtDate, horseLine, horseRequests, profileStatus, shortCity } from '../../hooks/customerRules';
+import { PROFILE_LABEL, fmtDate, horseRequests, profileStatus, shortCity } from '../../hooks/customerRules';
 import './MyHorsesPage.css';
+import { AuthImage } from '../../../../shared/components/AuthImage';
 
 /** Ngựa của tôi: thư viện hồ sơ ngựa riêng của khách hàng (không phải hàng chờ duyệt) */
 export const MyHorsesPage: React.FC = () => {
   const navigate = useNavigate();
   const { horses, requests } = useCustomer();
-  const usedIds = useMemo(() => new Set(requests.filter((r) => r.status !== 'DRAFT').flatMap((r) => r.horses.filter(Boolean))), [requests]);
+  const usedIds = useMemo(() => new Set(requests.filter((r) => r.status !== 'DRAFT' && r.status !== 'CANCELLED' && r.status !== 'REJECTED').flatMap((r) => r.horses.filter(Boolean))), [requests]);
   const f = useHorseFilter(horses, usedIds);
 
   return (
@@ -19,7 +20,7 @@ export const MyHorsesPage: React.FC = () => {
       <div className="cus-head">
         <div>
           <h2 className="cus-title">Ngựa của tôi</h2>
-          <p className="cus-subtitle">Thư viện hồ sơ ngựa riêng. Thêm hoặc sửa ngựa không gửi cho Specialist; kiểm duyệt chỉ bắt đầu với yêu cầu vận chuyển đã kích hoạt.</p>
+
         </div>
         <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={() => navigate('/customer/horses/new')}><Icon name="plus" />Thêm ngựa</button>
       </div>
@@ -40,12 +41,11 @@ export const MyHorsesPage: React.FC = () => {
           return (
             <article key={h.id} className="cus-card cus-horse-card">
               <div className="cus-horse-card__photo">
-                {h.photo?.url ? <img src={h.photo.url} alt={h.name} /> : <Icon name="horse" />}
+                <AuthImage framed src={h.photo?.url} alt={h.name} fallback={<Icon name="horse" />} />
                 <TripStatusBadge label={used.length ? 'Đã dùng trong yêu cầu' : 'Chưa dùng'} tone={used.length ? 'info' : 'muted'} />
               </div>
               <div className="cus-horse-card__body">
                 <div className="cus-horse-card__name"><b>{h.name}</b><span>{h.id}</span></div>
-                <p className="cus-muted">{horseLine(h)}</p>
                 <div className="cus-horse-card__info">
                   <div><span>Microchip</span><b>{h.microchip || 'Chưa có'}</b></div>
                   <div><span>Hồ sơ</span><TripStatusBadge label={PROFILE_LABEL[ps]} tone={ps === 'COMPLETE' ? 'ok' : ps === 'NEEDS_ATTENTION' ? 'bad' : 'warn'} /></div>

@@ -5,7 +5,8 @@ import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadg
 import { MiniProgress } from '../../components/Common/Common';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
-import { CUSTOMER_DOC_NAME, docEffective, fmtDate, fmtDateTime, horseName, shortName, tripTotals, typeName } from '../../hooks/specialistRules';
+import { CUSTOMER_DOC_NAME, countryName, docEffective, fmtDate, fmtDateTime, horseName, shortName, tripTotals, typeName } from '../../hooks/specialistRules';
+import { useSharedIncidents } from '../../../../shared/utils/sharedIncidents';
 import './SpecialistDashboardPage.css';
 
 type Alert = { tone: 'bad' | 'warn' | 'info'; title: string; sub: string; to: string };
@@ -14,19 +15,23 @@ type Alert = { tone: 'bad' | 'warn' | 'info'; title: string; sub: string; to: st
 export const SpecialistDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { data, trips, documents, customerDocs, requests, stats } = useSpecialist();
+  const incidents = useSharedIncidents();
   const active = trips.filter((t) => t.status !== 'COMPLETED');
 
   const alerts: Alert[] = [];
   trips.filter((t) => t.deployment === 'NOT_CONFIRMED').forEach((t) => alerts.push({ tone: 'info', title: `${t.id} chờ Manager giao`, sub: `${t.requestId} • khởi hành ${fmtDateTime(t.plannedDepart)}`, to: `/specialist/trips/${t.id}` }));
-  trips.filter((t) => t.deployment === 'CONFIRMED' && t.status === 'PLANNING' && !t.reqSet).forEach((t) => alerts.push({ tone: 'warn', title: `${t.id}: chưa áp dụng bộ yêu cầu hồ sơ`, sub: `${t.origin} → ${t.destination}`, to: `/specialist/trips/${t.id}` }));
-  customerDocs.filter((d) => d.status === 'SUBMITTED' && trips.find((t) => t.id === d.tripId)?.deployment === 'CONFIRMED').forEach((d) => {
-    const t = trips.find((x) => x.id === d.tripId)!;
-    alerts.push({ tone: 'warn', title: `${CUSTOMER_DOC_NAME[d.key]} chờ duyệt`, sub: `${t.id} • ${d.scope === 'request' ? 'Giấy tờ chung' : horseName(t, d.scope)}`, to: `/specialist/trips/${t.id}/customer` });
+  trips.filter((t) => t.deployment === 'CONFIRMED' && t.status === 'PLANNING' && !t.reqSet).forEach((t) => alerts.push({ tone: 'bad', title: `${t.id}: Giấy tờ đi đến ${countryName(t.destCountry)} chưa có`, sub: `${t.origin} → ${t.destination} • Vui lòng tạo bộ yêu cầu hồ sơ`, to: '/specialist/regulations/sets' }));
+  customerDocs.filter((d) => d.status === 'SUBMITTED' && trips.find((t) => t.id === d.tripId || t.id.replace(/-/g, '_') === d.tripId.replace(/-/g, '_'))?.deployment === 'CONFIRMED').forEach((d) => {
+    const t = trips.find((x) => x.id === d.tripId || x.id.replace(/-/g, '_') === d.tripId.replace(/-/g, '_'));
+    if (t) {
+      alerts.push({ tone: 'warn', title: `${CUSTOMER_DOC_NAME[d.key] || d.key} chờ duyệt`, sub: `${t.id} • ${horseName(t, d.scope)}`, to: `/specialist/trips/${t.id}/customer` });
+    }
   });
   documents.filter((d) => d.status === 'SUBMITTED').forEach((d) => alerts.push({ tone: 'warn', title: `${typeName(data, d.typeId)} chờ duyệt`, sub: `${d.tripId} • ${d.id} v${d.versions.length}`, to: `/specialist/documents/${d.id}` }));
   documents.filter((d) => d.status === 'REJECTED').forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} bị từ chối – cần bản mới`, sub: `${d.tripId} • ${d.rejectReason ?? ''}`, to: `/specialist/documents/${d.id}` }));
-  documents.filter((d) => docEffective(d) === 'EXPIRED' && active.some((t) => t.id === d.tripId)).forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} đã hết hạn`, sub: `${d.tripId} • hết hạn ${fmtDate(d.expiry)}`, to: `/specialist/documents/${d.id}` }));
-  requests.filter((q) => q.status === 'SUBMITTED').forEach((q) => alerts.push({ tone: 'info', title: `Khách đã phản hồi ${q.id}`, sub: `${CUSTOMER_DOC_NAME[q.key]} • ${q.tripId}`, to: `/specialist/trips/${q.tripId}/customer` }));
+  documents.filter((d) => docEffective(d) === 'EXPIRED' && active.some((t) => t.id === d.tripId || t.id.replace(/-/g, '_') === d.tripId.replace(/-/g, '_'))).forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} đã hết hạn`, sub: `${d.tripId} • hết hạn ${fmtDate(d.expiry)}`, to: `/specialist/documents/${d.id}` }));
+  requests.filter((q) => q.status === 'SUBMITTED').forEach((q) => alerts.push({ tone: 'info', title: `Khách đã phản hồi ${q.id}`, sub: `${CUSTOMER_DOC_NAME[q.key] || q.key} • ${q.tripId}`, to: `/specialist/trips/${q.tripId}/customer` }));
+  incidents.filter((i) => !i.complianceReview).forEach((i) => alerts.push({ tone: i.severity === 'CRITICAL' || i.severity === 'HIGH' ? 'bad' : 'warn', title: `${i.id}: Sự cố trên chuyến ${i.tripId}`, sub: `${i.type} • Cần chuyên viên rà soát pháp lý`, to: `/specialist/trips/${i.tripId}/incidents` }));
 
   const card = (to: string, icon: string, label: string, n: number, small: string, cls: 'warn' | 'bad' | '' = 'warn') => (
     <button type="button" className={`spc-stat ${n ? cls : ''}`} onClick={() => navigate(to)}>
@@ -34,11 +39,15 @@ export const SpecialistDashboardPage: React.FC = () => {
     </button>
   );
 
+  const storedName = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null)
+    || (typeof localStorage !== 'undefined' ? localStorage.getItem('userFullName') : null);
+  const firstName = (storedName ? storedName.split('(')[0].trim().split(' ').pop() : 'Hà') || 'Hà';
+
   return (
     <SpecialistLayout title="Tổng quan">
       <div className="spc-head">
         <div>
-          <h2 className="spc-title">Xin chào, Hà</h2>
+          <h2 className="spc-title">Xin chào, {firstName}</h2>
           <p className="spc-subtitle">Yêu cầu pháp lý và hồ sơ của mọi chuyến đã được giao.</p>
         </div>
       </div>

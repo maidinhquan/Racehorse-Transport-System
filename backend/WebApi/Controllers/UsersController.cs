@@ -103,10 +103,9 @@ namespace WebApi.Controllers
                 return BadRequest(new { message = "Họ và tên không được để trống." });
             }
 
-            // Tạo mã User mới nếu chưa có
+            // SQL Server allocates USER_<sequence> when the row is inserted.
             var newUser = new User
             {
-                UserId = "USR_" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper(),
                 Username = dto.Username,
                 PasswordHash = dto.Password, // Lưu trực tiếp mật khẩu bình thường (plain text)
                 Role = dto.Role ?? "Customer",

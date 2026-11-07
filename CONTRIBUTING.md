@@ -85,3 +85,28 @@ Các quy chuẩn và luật khi viết code backend (ASP.NET Core) được lưu
 2. PR cần được đặt tên rõ ràng, mô tả chi tiết những gì đã làm.
 3. Chờ ít nhất 1 thành viên khác (hoặc Tech Lead) review và Approve (chấp thuận) trước khi Merge.
 4. Xóa nhánh feature sau khi đã merge thành công để dọn dẹp kho lưu trữ.
+## 4. Lỗi thường gặp khi chạy bằng Docker
+
+### Vite báo `Failed to resolve import "<tên gói>"`
+
+Nguyên nhân: `node_modules` của frontend nằm trong volume Docker riêng, nên có thể còn bản cũ sau khi kéo code mới có thêm thư viện.
+
+`compose.yaml` đã tự chạy `npm install` mỗi lần khởi động frontend, nên thường chỉ cần:
+
+```bash
+docker compose restart frontend
+```
+
+Nếu vẫn lỗi, cài thủ công rồi khởi động lại:
+
+```bash
+docker compose exec frontend npm install
+docker compose restart frontend
+```
+
+Nếu vẫn không được, xóa volume `node_modules` để cài lại từ đầu:
+
+```bash
+docker compose down -v
+docker compose up --build
+```

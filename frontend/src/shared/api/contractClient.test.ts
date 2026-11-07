@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { apiClient } from './apiClient';
 import { contractClient } from './contractClient';
 import spec from '../../contracts/flow1.openapi.json';
-import { customerApi } from '../../features/customer/api/customerApi';
+import { customerApi, requestFromWire } from '../../features/customer/api/customerApi';
 import { managerApi } from '../../features/manager/api/managerApi';
 import type { HorseInput } from '../../features/customer/types';
 
@@ -15,6 +15,31 @@ const example = (path: string, method: string, status = '200') => {
 beforeEach(() => { request.mockReset(); sessionStorage.clear(); });
 
 describe('Flow 1 wire contract', () => {
+  it('sends the selected transport mode when saving a contract', async () => {
+    request.mockResolvedValue({ status: 200, data: example('/manager/requests/{requestId}/contract-draft', 'put') });
+    const input = structuredClone(spec.paths['/manager/requests/{requestId}/contract-draft'].put.requestBody.content['application/json'].example);
+    const draft = { ...input, mode: 'AIR' } as unknown as import('../../features/manager/types').ContractDraft;
+    await managerApi.saveContractDraft('REQUEST_001', draft);
+    expect(request.mock.calls[0][0]?.data).toHaveProperty('mode', 'AIR');
+  });
+  it('rejects saving a contract without a supported transport mode before sending it', async () => {
+    const input = structuredClone(spec.paths['/manager/requests/{requestId}/contract-draft'].put.requestBody.content['application/json'].example);
+    for (const mode of [undefined, null, 'SEA']) {
+      await expect(managerApi.saveContractDraft('REQUEST_001', { ...input, mode } as unknown as import('../../features/manager/types').ContractDraft)).rejects.toThrow('contract');
+    }
+    expect(request).not.toHaveBeenCalled();
+  });
+  it('accepts a frozen contract with the transport mode explicitly deferred', async () => {
+    const response = example('/customer/contracts/{contractId}/versions/{versionNo}', 'get');
+    delete response.data.mode;
+    response.data.modeDeferred = true;
+    response.data.snapshot.route.mode = null;
+    response.data.snapshot.route.transportModeDecision = 'FLOW3';
+    request.mockResolvedValue({ status: 200, data: response });
+    const result = await contractClient<any>('get', '/customer/contracts/CONTRACT_001/versions/1');
+    expect(result.modeDeferred).toBe(true);
+    expect(result.mode).toBeUndefined();
+  });
   it('keeps an empty list empty without introducing demo horses', async () => {
     request.mockResolvedValue({ status: 200, data: { success: true, message: 'OK', data: [] } });
     expect(await customerApi.getHorses()).toEqual([]);
@@ -27,9 +52,9 @@ describe('Flow 1 wire contract', () => {
   it('rejects missing data and missing frontend fields', async () => {
     request.mockResolvedValueOnce({ status: 200, data: { success: true, message: 'OK' } });
     await expect(customerApi.getHorses()).rejects.toThrow('contract');
-    const data = example('/customer/horses', 'get'); delete data.data[0].color;
+    const data = example('/customer/horses', 'get'); delete data.data[0].microchip;
     request.mockResolvedValueOnce({ status: 200, data });
-    await expect(customerApi.getHorses()).rejects.toThrow('color');
+    await expect(customerApi.getHorses()).rejects.toThrow('microchip');
   });
   it('rejects obsolete rowVersion and malformed OTP before sending', async () => {
     await expect(contractClient('post', '/customer/contracts/CONTRACT_001/sign', { versionNo: 1, otp: '482913', rowVersion: 'fake' })).rejects.toThrow('contract');
@@ -71,10 +96,11 @@ describe('Flow 1 wire contract', () => {
 describe('current Flow 1 request boundaries', () => {
   it('sends the UUID idempotency header without UI-only request fields', async () => {
     request.mockResolvedValue({ status: 201, data: example('/customer/requests', 'post', '201') });
-    const input = { origin: 'Ho Chi Minh City', destination: 'Tokyo', date: '2026-11-20', pickupAt: '2026-11-19', horseCount: 3, careNotes: '' };
+    const wire = (spec.paths['/customer/requests'].post.requestBody.content['application/json'] as any).example;
+    const input = requestFromWire({ ...wire, id: 'LOCAL_draft', status: 'DRAFT', customerId: 'USER_001' });
     const key = '1c1cab53-8dd1-4fa0-9658-cd4b3dd328bd';
     const result = await customerApi.createRequest(input, key);
-    expect(request.mock.calls[0][0]).toMatchObject({ headers: { 'Idempotency-Key': key }, data: { origin: input.origin, destination: input.destination, originCountry: 'VN', destinationCountry: 'JP', mode: 'AIR', date: input.date, pickupAt: input.pickupAt, careNotes: '' } });
+    expect(request.mock.calls[0][0]).toMatchObject({ headers: { 'Idempotency-Key': key }, data: { origin: input.origin, destination: input.destination, originCountry: 'VN', destinationCountry: 'JP', mode: 'AIR', expectedDeliveryDate: input.date, expectedTransportDate: input.pickupAt, careInstructions: input.careNotes } });
     expect(request.mock.calls[0][0]?.data).not.toHaveProperty('horseCount');
     expect(result.history).toEqual([]);
     expect(result.revisions).toEqual([]);
@@ -83,13 +109,13 @@ describe('current Flow 1 request boundaries', () => {
     const body = { origin: 'Ho Chi Minh City', destination: 'Tokyo', originCountry: 'VN', destinationCountry: 'JP', mode: 'AIR', date: '2026-11-20', pickupAt: '2026-11-19', careNotes: '' };
     await expect(contractClient('post', '/customer/requests', body)).rejects.toThrow('Idempotency-Key');
     await expect(contractClient('get', '/customer/horses/not-a-contract-id')).rejects.toThrow('horseId');
-    await expect(contractClient('post', '/manager/payments/PAYMENT_001/confirm', {})).rejects.toThrow('không có');
+    await expect(contractClient('post', '/manager/payments/PAYMENT_001/confirm', {})).rejects.toThrow('reason');
     await expect(contractClient('post', '/manager/payments/PAYMENT_001/reject', {})).rejects.toThrow('không có');
     expect(request).not.toHaveBeenCalled();
   });
   it('rejects undeclared query parameters and request bodies on bodyless operations', async () => {
     await expect(contractClient('get', '/customer/requests', undefined, { customerId: 'USER_002' })).rejects.toThrow('customerId');
-    await expect(contractClient('get', '/customer/horses/selectable')).rejects.toThrow('date');
+    await expect(contractClient('get', '/customer/horses/selectable')).rejects.toThrow('expectedTransportDate');
     await expect(contractClient('post', '/manager/contracts/CONTRACT_001/refund/complete', { reference: 'old' })).rejects.toThrow('không nhận request body');
     expect(request).not.toHaveBeenCalled();
   });
@@ -119,11 +145,11 @@ describe('current Flow 1 request boundaries', () => {
     expect(body).not.toHaveProperty('color'); expect(body).not.toHaveProperty('fluDate'); expect(body).not.toHaveProperty('vetName');
     expect(request.mock.calls[1][0]?.url).toBe('/customer/horses/HORSE_001/files/value-proof');
   });
-  it('reads per-request upload metadata from the nested file response', async () => {
-    request.mockResolvedValueOnce({ status: 201, data: example('/customer/requests/{requestId}/horses/{horseId}/documents', 'post', '201') });
+  it('sends health and vaccination files to the request document endpoint', async () => {
     const file = new File(['medical'], 'health.pdf', { type: 'application/pdf' });
-    const uploaded = await customerApi.uploadDocument('REQUEST_001', 'health', 'HORSE_001', { name: file.name, file });
-    expect(uploaded.file?.name).toBeTruthy();
+    request.mockResolvedValueOnce({ status: 201, data: { success: true, message: 'OK', data: { recordId: 'LMR_AB12CD34', key: 'health', scope: 'HORSE_001', status: 'SUBMITTED', file: { name: 'health.pdf', url: '/api/customer/requests/REQUEST_001/documents/LMR_AB12CD34' } } } });
+    await customerApi.uploadDocument('REQUEST_001', 'health', 'HORSE_001', { name: file.name, file });
+    expect(request.mock.calls[0][0]?.url).toBe('/customer/requests/REQUEST_001/horses/HORSE_001/documents');
     expect((request.mock.calls[0][0]?.data as FormData).get('documentType')).toBe('HEALTH_CERTIFICATE');
   });
   it('blocks invalid multipart fields, photo PDF files and unsupported fileType routes', async () => {
@@ -131,7 +157,7 @@ describe('current Flow 1 request boundaries', () => {
     await expect(contractClient('post', '/customer/horses/HORSE_001/files/photo', data)).rejects.toThrow('JPEG');
     await expect(contractClient('post', '/customer/horses/HORSE_001/files/flu', data)).rejects.toThrow('fileType');
     data.set('documentType', 'HEALTH_CERTIFICATE'); data.set('undeclared', 'x');
-    await expect(contractClient('post', '/customer/requests/REQUEST_001/horses/HORSE_001/documents', data)).rejects.toThrow('contract');
+    await expect(contractClient('post', '/customer/requests/REQUEST_001/horses/HORSE_001/documents', data)).rejects.toThrow('additional properties');
     expect(request).not.toHaveBeenCalled();
   });
 });
@@ -142,8 +168,8 @@ describe('Flow 1 server errors', () => {
     request.mockRejectedValueOnce({ response: { status: 409, data: error } });
     await expect(customerApi.signContract('CONTRACT_001', '123456', 1)).rejects.toMatchObject({ name: 'Flow1ApiError', message: error.message, errorCode: error.errorCode });
   });
-  it('detects malformed server errors instead of accepting a non-contract response', async () => {
+  it('accepts backend validation errors without an optional errorCode', async () => {
     request.mockRejectedValueOnce({ response: { status: 409, data: { success: false, message: 'Incomplete error' } } });
-    await expect(customerApi.signContract('CONTRACT_001', '123456', 1)).rejects.toThrow('contract');
+    await expect(customerApi.signContract('CONTRACT_001', '123456', 1)).rejects.toMatchObject({ message: 'Incomplete error' });
   });
 });

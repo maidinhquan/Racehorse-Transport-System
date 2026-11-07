@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
+import { ThemeToggle } from '../../../../shared/components';
 import { useDriver } from '../../hooks/useDriver';
-import { DRIVER_USERS } from '../../data/mockData';
 import './DriverLayout.css';
 
 // ---------------------------------------------------------------------------
@@ -23,6 +22,7 @@ const PATHS: Record<string, React.ReactNode> = {
   expand: <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
   users: <><circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-3.3 3.1-6 7-6s7 2.7 7 6" /></>,
+  user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
@@ -42,7 +42,7 @@ interface DriverLayoutProps {
 
 export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) => {
   const navigate = useNavigate();
-  const { me, crew, activeTrips, incidents, toast, actions } = useDriver();
+  const { me, activeTrips, incidents, toast, actions } = useDriver();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -74,7 +74,6 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
     ['/driver/incidents', 'Sự cố', 'alert', openIncidents],
     ['/driver/history', 'Lịch sử', 'clock'],
   ];
-  const demoUsers = DRIVER_USERS.map((id) => crew.find((c) => c.id === id)).filter((c): c is NonNullable<typeof c> => !!c);
 
   return (
     <div className="drv-app">
@@ -93,14 +92,12 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
             </NavLink>
           ))}
         </nav>
-        <p className="drv-sidebar__hint">Không có GPS trực tiếp: vị trí chuyến dựa trên các mốc bạn xác nhận.</p>
       </aside>
 
       <div className="drv-main">
         <header className="drv-topbar">
           <h1>{title}</h1>
           <div className="drv-topbar__right">
-            <DemoDataToggle role="driver" compact />
             <ThemeToggle showLabel={false} />
             <div className="drv-user" ref={menuRef}>
               <button type="button" className="drv-user__btn" onClick={() => setMenuOpen((v) => !v)} aria-expanded={menuOpen} aria-label="Menu tài khoản">
@@ -110,15 +107,9 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
               </button>
               {menuOpen && (
                 <div className="drv-user__menu" role="menu">
-                  {demoUsers.length > 0 && <div className="drv-user__label">Đổi tài khoản demo</div>}
-                  {demoUsers.map((c) => (
-                    <button key={c.id} type="button" role="menuitem" className={c.id === me?.id ? 'on' : ''}
-                      onClick={() => { setMenuOpen(false); actions.switchUser(c.id); navigate('/driver/journey'); }}>
-                      <span className="drv-avatar drv-avatar--sm">{initials(c.name)}</span>
-                      <span><b>{c.name}</b><small>{roleText(c.role)}</small></span>
-                      {c.id === me?.id && <Icon name="check" />}
-                    </button>
-                  ))}
+                  <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); navigate('/driver/profile'); }}>
+                    <Icon name="user" /> Hồ sơ của tôi
+                  </button>
                   <hr />
                   <button type="button" role="menuitem" className="drv-user__logout" onClick={logout}><Icon name="logout" /> Đăng xuất</button>
                 </div>

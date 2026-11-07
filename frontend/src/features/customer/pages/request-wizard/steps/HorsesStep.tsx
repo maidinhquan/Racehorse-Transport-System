@@ -8,6 +8,9 @@ import { Icon } from '../../../components/CustomerLayout';
 import { DocumentRows } from '../../../components/DocumentList/DocumentList';
 import { HorseForm } from '../../../components/HorseForm/HorseForm';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
+import { getDemoMode } from '../../../../../shared/context/DemoModeContext';
+import { apiMessage } from '../../../../../shared/api/apiError';
+import { AuthImage } from '../../../../../shared/components/AuthImage';
 
 /** Bước 2/3 – giấy tờ chung của đơn + chọn ngựa cho từng vị trí và hoàn thiện hồ sơ từng ngựa */
 export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
@@ -18,6 +21,7 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const [draft, setDraft] = useState<HorseInput>(emptyHorse());
   const [draftErrors, setDraftErrors] = useState<Record<string, string>>({});
   const [selectable, setSelectable] = useState<string[] | null>(null);
+  const [conflicts, setConflicts] = useState<Record<string, string>>({});
   const [availabilityError, setAvailabilityError] = useState('');
 
   const handleClearDraftError = (key: string) => {
@@ -30,21 +34,23 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   };
   useEffect(() => {
     let active = true;
+    if (getDemoMode('customer')) { setSelectable(horses.map(h => h.id)); return; }
+    setSelectable(null);
+    setConflicts({});
     customerApi.getSelectableHorses(r.date, r.id, r.pickupAt)
       .then(rows => {
         if (active) {
+          setConflicts(Object.fromEntries(rows.filter(h => h.conflict).map(h => [h.id, h.conflict!.code])));
           if (rows && rows.length > 0) {
             setSelectable(rows.filter(h => h.selectable).map(h => h.id));
-          } else {
-            setSelectable(horses.map(h => h.id));
-          }
+          } else setSelectable([]);
           setAvailabilityError('');
         }
       })
-      .catch(() => {
+      .catch(error => {
         if (active) {
-          setSelectable(horses.map(h => h.id));
-          setAvailabilityError('');
+          setSelectable([]);
+          setAvailabilityError(apiMessage(error));
         }
       });
     return () => { active = false; };
@@ -82,6 +88,12 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   const next = async () => {
     const empty = r.horses.findIndex((h) => !h);
     if (empty >= 0) { setSlot(empty); actions.showToast(`Hãy chọn ngựa cho vị trí ${empty + 1}.`); return; }
+    const unavailableSlot = r.horses.findIndex(id => !selectable?.includes(id));
+    if (unavailableSlot >= 0) {
+      setSlot(unavailableSlot);
+      actions.showToast('Ngựa đã chọn không khả dụng. Kiểm tra đơn đang giữ ngựa.');
+      return;
+    }
     const res = await actions.completeHorsesStep(r.id);
     if (res.ok) navigate(`/customer/requests/${r.id}/wizard/3`);
   };
@@ -89,38 +101,90 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
   return (
     <div className="cus-stack">
       {availabilityError && <p role="alert">{availabilityError}</p>}
-      <div className="cus-card">
-        <div className="cus-wizard__horse-head">
-          <div>
-            <span className="cus-eyebrow">Thông tin từng ngựa</span>
-            <h3 className="cus-card__title" style={{ marginTop: 4 }}>Danh sách ngựa & hồ sơ</h3>
-            <p className="cus-subtitle" style={{ marginTop: -6 }}>Chọn ngựa từ “Ngựa của tôi” hoặc thêm ngựa mới. Hồ sơ của từng ngựa được kiểm tra ngay tại đây.</p>
+
+      {/* Top Scope & Horse Count Card matching Step 1 Schedule */}
+      <section className="cus-card cus-create__schedule cus-horse-step__top-card">
+        <div className="cus-create__schedule-left">
+          <span className="cus-create__calendar" style={{ background: '#fff7ed', borderColor: '#ffedd5', color: '#ea580c' }}>
+            <Icon name="horse" />
+          </span>
+          <div className="cus-create__schedule-title-group">
+            <h3>Số lượng ngựa vận chuyển <span>*</span></h3>
+            <p>Mỗi chuyến vận chuyển hỗ trợ từ 1 đến 6 ngựa. Chọn số lượng ngựa cần chở.</p>
           </div>
-          <span className="cus-wizard__count">{r.horses.filter(Boolean).length}/{r.horseCount} ngựa</span>
+        </div>
+        <div className="cus-create__schedule-dates" style={{ alignItems: 'center' }}>
+          <div className="cus-create__date-col" style={{ width: '180px' }}>
+            <label htmlFor="request-horse-count">Quy mô đoàn ngựa <span>*</span></label>
+            <select
+              id="request-horse-count"
+              className="cus-select cus-date__field"
+              value={r.horseCount}
+              disabled={r.status === 'CHANGES_REQUESTED' && !(r.revisionFields ?? ['horses']).includes('horses')}
+              onChange={event => {
+                if (mode === 'new') { actions.showToast('Lưu ngựa đang nhập trước khi đổi số lượng.'); return; }
+                const count = Number(event.target.value);
+                const result = actions.setHorseCount(r.id, count);
+                if (result.ok) setSlot(current => Math.min(current, count - 1));
+              }}
+            >
+              {[1, 2, 3, 4, 5, 6].map(count => <option key={count} value={count}>{count} ngựa</option>)}
+            </select>
+          </div>
+          <span className="cus-wizard__count">{r.horses.filter(Boolean).length}/{r.horseCount} đã chọn</span>
+        </div>
+      </section>
+
+      {/* Main Horse Configuration Card */}
+      <div className="cus-card cus-horse-step__main-card">
+        <div className="cus-create__place-heading" style={{ marginBottom: 18 }}>
+          <span className="cus-badge cus-badge--cyan">Khai báo ngựa</span>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 650, color: 'var(--cus-ink)' }}>
+              Thông tin từng ngựa & hồ sơ kiểm dịch
+            </h3>
+            <p className="cus-subtitle" style={{ margin: 0, fontSize: '13px' }}>
+              Chọn từng vị trí bên dưới để gán ngựa đã lưu hoặc thêm mới. Hồ sơ giấy tờ và lưu ý chăm sóc được quản lý theo từng con.
+            </p>
+          </div>
         </div>
 
-        <div className="cus-field cus-wizard__horse-count"><label htmlFor="request-horse-count">Số lượng ngựa trong chuyến *</label>
-          <select id="request-horse-count" className="cus-select" value={r.horseCount} disabled={r.status === 'CHANGES_REQUESTED' && !(r.revisionFields ?? ['horses']).includes('horses')}
-            onChange={event => {
-              if (mode === 'new') { actions.showToast('Lưu ngựa đang nhập trước khi đổi số lượng.'); return; }
-              const count = Number(event.target.value);
-              const result = actions.setHorseCount(r.id, count);
-              if (result.ok) setSlot(current => Math.min(current, count - 1));
-            }}>
-            {[1, 2, 3, 4, 5, 6].map(count => <option key={count} value={count}>{count} ngựa</option>)}
-          </select>
-        </div>
-        <div className="cus-wizard__chips">
-          {r.horses.map((id, i) => (
-            <button key={i} type="button" className={`cus-chip ${i === slot ? 'on' : ''} ${id ? 'cus-chip--done' : ''}`} onClick={() => { setSlot(i); setMode('existing'); }}>
-              {id ? <><Icon name="check" />{horses.find((h) => h.id === id)?.name ?? id}</> : `Ngựa ${i + 1}`}
-            </button>
-          ))}
+        <div className="cus-horse-step__slots-wrap">
+          <div className="cus-horse-step__slots-list">
+            {r.horses.map((id, i) => {
+              const h = horses.find(item => item.id === id);
+              const isSelected = i === slot;
+              const hasHorse = Boolean(id);
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  className={`cus-horse-step__slot-btn ${isSelected ? 'active' : ''} ${hasHorse ? 'filled' : ''}`}
+                  onClick={() => { setSlot(i); setMode('existing'); }}
+                >
+                  <span className="cus-horse-step__slot-num">{i + 1}</span>
+                  <div className="cus-horse-step__slot-info">
+                    <span className="cus-horse-step__slot-title">
+                      {hasHorse ? (h?.name || id) : `Vị trí ${i + 1}`}
+                    </span>
+                    <span className="cus-horse-step__slot-sub">
+                      {hasHorse ? (h?.breed || 'Đã chọn') : 'Chưa chọn ngựa'}
+                    </span>
+                  </div>
+                  {hasHorse && <Icon name="check" className="cus-horse-step__slot-icon" />}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="cus-wizard__seg">
-          <button type="button" className={mode === 'existing' ? 'on' : ''} onClick={() => setMode('existing')}>Chọn ngựa đã lưu</button>
-          <button type="button" className={mode === 'new' ? 'on' : ''} onClick={() => setMode('new')}>Thêm ngựa mới</button>
+          <button type="button" className={mode === 'existing' ? 'on' : ''} onClick={() => setMode('existing')}>
+            Chọn ngựa đã lưu ({horses.length})
+          </button>
+          <button type="button" className={mode === 'new' ? 'on' : ''} onClick={() => setMode('new')}>
+            + Thêm ngựa mới
+          </button>
         </div>
 
         {mode === 'existing' ? (
@@ -131,10 +195,10 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
                 const unavailable = !selectable?.includes(h.id);
                 const locked = r.status === 'CHANGES_REQUESTED' && !(r.revisionFields ?? ['horses']).includes('horses');
                 return (
-                  <label key={h.id} className={`cus-pick ${selectedId === h.id ? 'selected' : ''} ${taken ? 'disabled' : ''}`}>
+                  <label key={h.id} className={`cus-pick ${selectedId === h.id ? 'selected' : ''} ${taken || unavailable ? 'disabled' : ''}`}>
                     <input type="radio" name="pick-horse" checked={selectedId === h.id} disabled={taken || unavailable || locked} onChange={() => pick(h.id)} />
-                    <span className="cus-pick__thumb">{h.photo?.url ? <img src={h.photo.url} alt="" /> : <Icon name="horse" />}</span>
-                    <span className="cus-pick__text"><b>{h.name}</b><small>{horseLine(h)}{taken ? ' • Đã chọn ở vị trí khác' : ''}</small></span>
+                    <span className="cus-pick__thumb"><AuthImage src={h.photo?.url} fallback={<Icon name="horse" />} /></span>
+                    <span className="cus-pick__text"><b>{h.name}</b><small>{horseLine(h)}{taken ? ' • Đã chọn ở vị trí khác' : conflicts[h.id] ? ' • Đang thuộc đơn chưa hoàn tất' : ''}</small></span>
                     <TripStatusBadge label={horseRequests(h, requests).length ? 'Đã dùng trong đơn' : 'Chưa dùng'} tone={horseRequests(h, requests).length ? 'info' : 'muted'} />
                   </label>
                 );
@@ -171,12 +235,6 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
               errors={draftErrors}
               onClearError={handleClearDraftError}
             />
-            {Object.keys(draftErrors).length > 0 && (
-              <div className="cus-horse-form-page__alert" style={{ marginTop: 16 }} role="alert">
-                <Icon name="alert" />
-                <span>Vui lòng kiểm tra và điền đủ các trường màu đỏ ở trên trước khi lưu hồ sơ.</span>
-              </div>
-            )}
             <div className="cus-btn-row" style={{ justifyContent: 'flex-end' }}>
               <button type="button" className="cus-btn cus-btn--solid" onClick={saveNew}>Lưu ngựa mới & chọn cho vị trí {slot + 1}</button>
             </div>
@@ -185,8 +243,12 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
       </div>
 
       <div className="cus-wizard__actions">
-        <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(`/customer/requests/${r.id}/edit`)}>Quay lại</button>
-        <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={next}>Lưu & xem lại yêu cầu</button>
+        <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(`/customer/requests/${r.id}/edit`)}>
+          ← Quay lại: Nhận & giao ngựa
+        </button>
+        <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={next}>
+          Tiếp tục: Kiểm tra & gửi →
+        </button>
       </div>
     </div>
   );

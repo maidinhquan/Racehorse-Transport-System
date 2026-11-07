@@ -6,6 +6,7 @@ import { Icon } from '../../../components/CustomerLayout';
 import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { LockedCard, Note } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
+import { CustomerRelocationCard } from '../../../components/RelocationProposal/CustomerRelocationCard';
 
 /** Tab Theo dõi: tóm tắt chuyến của yêu cầu, mở trang theo dõi đầy đủ */
 export const TrackingTab: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
@@ -17,10 +18,11 @@ export const TrackingTab: React.FC<{ request: TransportRequest }> = ({ request: 
     <div className="cus-grid-main">
       <div className="cus-card">
         <h3 className="cus-card__title">Chuyến {t.id} <TripStatusBadge kind="trip" status={t.status} /></h3>
+        <CustomerRelocationCard tripId={t.id} />
         <div className="cus-kv">
           <div><span>Dự kiến xuất phát</span><b>{fmtDateTime(t.plannedDepart)}</b></div>
           <div><span>{s.adjusted ? 'ETA điều chỉnh' : 'ETA'}</span><b>{fmtDateTime(t.eta)}</b></div>
-          <div><span>Phương thức</span><b>{t.mode === 'AIR' ? 'Hàng không + đường bộ' : 'Đường bộ'}</b></div>
+          <div><span>Phương thức</span><b>{t.mode === 'AIR' ? 'Hàng không + đường bộ' : t.mode === 'ROAD' ? 'Đường bộ' : 'Chờ Coordinator lập phương án'}</b></div>
           <div><span>Mốc xác nhận gần nhất</span><b>{s.m ? s.lastLabel : 'Chưa xuất phát'}</b></div>
           {s.m && <div><span>Xác nhận lúc</span><b>{fmtDateTime(s.m.at)}</b></div>}
           {s.adjusted && <div><span>ETA ban đầu</span><b><s>{fmtDateTime(t.etaOriginal)}</s></b></div>}

@@ -99,7 +99,8 @@ public static class Flow4Helper
             Revision = m.Revision,
             RequiresHealthCheck = m.RequiresHealthCheck,
             EvidenceFileIds = evidenceIds,
-            Note = m.Note,
+            Note = m.Note ?? "",
+            Geo = m.Latitude is decimal lat && m.Longitude is decimal lng ? new Flow4GeoDto { Lat = lat, Lng = lng } : null,
             Actions = actions
         };
     }
@@ -125,7 +126,7 @@ public static class Flow4Helper
                 HorseId = rhm.HorseId,
                 Name = rhm.Horse != null ? rhm.Horse.Name : rhm.HorseId,
                 Microchip = rhm.Horse != null ? rhm.Horse.MicrochipIso : "",
-                CareInstructions = null
+                CareInstructions = ""
             })
             .ToList();
 
@@ -133,6 +134,8 @@ public static class Flow4Helper
             .Where(tva => tva.TripId == trip.TripId)
             .Include(tva => tva.Vehicle)
             .Include(tva => tva.Driver)
+            .Include(tva => tva.CoDriver)
+            .Include(tva => tva.Veterinarian)
             .Include(tva => tva.Escort)
             .FirstOrDefault();
 
@@ -148,28 +151,18 @@ public static class Flow4Helper
 
         var crewList = new List<Flow4CrewAssignmentDto>();
         var crewUserIds = new List<string>();
+        void AddCrew(string? userId, string? name, string fallbackName, string duty)
+        {
+            if (string.IsNullOrEmpty(userId) || crewUserIds.Contains(userId)) return;
+            crewUserIds.Add(userId);
+            crewList.Add(new Flow4CrewAssignmentDto { UserId = userId, Name = name ?? fallbackName, Duty = duty });
+        }
         if (assignment != null)
         {
-            if (!string.IsNullOrEmpty(assignment.DriverId))
-            {
-                crewUserIds.Add(assignment.DriverId);
-                crewList.Add(new Flow4CrewAssignmentDto
-                {
-                    UserId = assignment.DriverId,
-                    Name = assignment.Driver?.FullName ?? "Tài xế chính",
-                    Duty = "MAIN_DRIVER"
-                });
-            }
-            if (!string.IsNullOrEmpty(assignment.EscortId))
-            {
-                crewUserIds.Add(assignment.EscortId);
-                crewList.Add(new Flow4CrewAssignmentDto
-                {
-                    UserId = assignment.EscortId,
-                    Name = assignment.Escort?.FullName ?? "Nhân viên áp tải",
-                    Duty = "ESCORT"
-                });
-            }
+            AddCrew(assignment.DriverId, assignment.Driver?.FullName, "Tài xế chính", "MAIN_DRIVER");
+            AddCrew(assignment.CoDriverId, assignment.CoDriver?.FullName, "Phụ lái", "CO_DRIVER");
+            AddCrew(assignment.VeterinarianId, assignment.Veterinarian?.FullName, "Bác sĩ thú y", "VETERINARIAN");
+            AddCrew(assignment.EscortId, assignment.Escort?.FullName, "Nhân viên áp tải", "VETERINARIAN");
         }
 
         var milestones = context.TripMilestones
@@ -183,7 +176,7 @@ public static class Flow4Helper
         {
             Key = "road",
             Mode = "ROAD",
-            Status = trip.Status == "READY_TO_DEPART" ? "PENDING" : trip.Status == "IN_TRANSIT" ? "IN_PROGRESS" : "COMPLETED",
+            Status = trip.Status == "READY_TO_DEPART" ? "PENDING" : trip.Status == "IN_TRANSIT" ? "ACTIVE" : "FINISHED",
             AssignedUserIds = crewUserIds,
             Crew = crewList,
             VehicleId = assignment?.VehicleId,
@@ -233,9 +226,9 @@ public static class Flow4Helper
                 RouteSource = "APPROVED_PLAN",
                 LocationSource = "CONFIRMED_MILESTONE",
                 LastConfirmedMilestoneId = milestones.LastOrDefault(m => m.Status == "COMPLETED")?.Id,
-                MarkerGeo = new Flow4GeoDto { Lat = 10.762622m, Lng = 106.660172m },
+                MarkerGeo = milestones.LastOrDefault(m => m.Status == "COMPLETED" && m.Geo != null)?.Geo ?? milestones.FirstOrDefault(m => m.Geo != null)?.Geo,
                 IsGps = false,
-                RoutePoints = milestones.Select(m => new Flow4GeoDto { Lat = 10.762622m, Lng = 106.660172m }).ToList()
+                RoutePoints = milestones.Where(m => m.Geo != null).Select(m => m.Geo!).ToList()
             },
             Policy = new Flow4PolicyDto
             {

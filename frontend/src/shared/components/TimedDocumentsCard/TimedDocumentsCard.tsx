@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { operationsApi } from '../../api/operationsApi';
 import { apiMessage } from '../../api/apiError';
 import type { TimedDocuments } from '../../types/operations';
+import { DateTimeInput } from '../DateTimeInput/DateTimeInput';
 import './TimedDocumentsCard.css';
 
 export const TimedDocumentsCard: React.FC<{ tripId: string; role: 'specialist' | 'coordinator'; onAllowed?: (allowed: boolean) => void }> = ({ tripId, role, onAllowed }) => {
@@ -38,7 +39,7 @@ export const TimedDocumentsCard: React.FC<{ tripId: string; role: 'specialist' |
         {role === 'specialist' && plan.status === 'DRAFT' && <button type="button" disabled={busy} onClick={save}>{busy ? 'Đang gửi…' : 'Gửi danh sách cho Coordinator'}</button>}
         {role === 'specialist' && plan.status === 'SENT' && <p>Chờ Coordinator xác nhận lịch trước khi chuẩn bị hồ sơ có thời hạn.</p>}
         {role === 'coordinator' && plan.status === 'DRAFT' && <p>Chờ Specialist gửi danh sách. Chưa thể chốt lịch.</p>}
-        {role === 'coordinator' && plan.status === 'SENT' && <div className="timed-docs__schedule"><label>Khởi hành dự kiến (giờ Việt Nam)<input type="datetime-local" value={departure} min={plan.earliestDeparture.replace(' ', 'T')} onChange={event => setDeparture(event.target.value)} /></label><button type="button" disabled={busy} onClick={save}>{busy ? 'Đang lưu…' : 'Chốt lịch & gửi Specialist'}</button></div>}
+        {role === 'coordinator' && plan.status === 'SENT' && <div className="timed-docs__schedule"><label>Khởi hành dự kiến (giờ Việt Nam)<DateTimeInput value={departure} min={plan.earliestDeparture} onChange={setDeparture} /></label><button type="button" disabled={busy} onClick={save}>{busy ? 'Đang lưu…' : 'Chốt lịch & gửi Specialist'}</button></div>}
       </>}
     </>}
   </section>;

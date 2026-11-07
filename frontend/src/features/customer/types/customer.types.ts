@@ -67,6 +67,8 @@ export interface HorsePassport {
 }
 
 export interface Horse {
+  reproductiveStatus?: 'INTACT' | 'NOT_PREGNANT' | 'PREGNANT' | 'GELDED' | null;
+  weight?: number | null;
   unsupportedFields?: string[];
   id: string;
   name: string;
@@ -131,12 +133,16 @@ export interface DeadlineChange {
 }
 
 export interface ContractVersion {
+  versionNo?: number;
+  contractStatus?: string;
+  pdfUrl?: string | null;
   v: number;
   number: string;
   contractId?: string;
   snapshot?: ContractSnapshot;
   terms?: Array<{ title: string; text: string }>;
   mode?: TransportMode;
+  modeDeferred?: boolean;
   departAt?: string;
   arriveAt?: string;
   depositAmount?: number;
@@ -179,6 +185,9 @@ export interface Payment {
   reason?: string;
   /** Mốc hết hạn mã QR (ms theo đồng hồ demo). QR có hiệu lực 5 phút. */
   qrExpiresAtMs?: number;
+  /** Funds VNPay confirmed but outside the open deposit window: CBN reconciles / refunds */
+  reviewRequired?: boolean;
+  reviewReason?: string | null;
 }
 
 export interface Refund {
@@ -192,13 +201,12 @@ export interface Refund {
 // ---------------------------------------------------------------------------
 // Giấy tờ
 // ---------------------------------------------------------------------------
-/** Giấy tờ chung của đơn */
-export type SharedDocKey = 'invite' | 'raceReg' | 'ataCarnet';
 /** Hồ sơ theo từng ngựa */
-export type HorseDocKey = 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu' | 'health' | 'conditions' | 'vet';
-export type DocKey = SharedDocKey | HorseDocKey;
+export type HorseDocKey = 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu' | 'health' | 'conditions';
+export type DocKey = HorseDocKey;
 
 export type DocStatus =
+  | 'RESUBMITTED'
   | 'MISSING'
   | 'NEEDS_INPUT'
   | 'OPTIONAL'
@@ -208,7 +216,7 @@ export type DocStatus =
   | 'APPROVED'
   | 'ACTION_REQUIRED';
 
-/** Bản ghi giấy tờ đã nộp trong một đơn ('request' = giấy tờ chung, hoặc mã ngựa) */
+/** Bản ghi giấy tờ đã nộp trong một đơn (scope = mã ngựa) */
 export interface DocRecord {
   key: DocKey;
   scope: string;
@@ -230,6 +238,8 @@ export interface DocItem {
   optional: boolean;
   file?: FileRef;
   issue?: string;
+  /** Các mục bắt buộc còn thiếu (hiển thị báo đỏ) */
+  missing?: string[];
 }
 
 /** Transport Specialist yêu cầu bổ sung một giấy tờ, kèm lý do */
@@ -240,7 +250,8 @@ export interface SupplementRequest {
   reason: string;
   at: string;
   by: string;
-  status: 'OPEN' | 'FULFILLED';
+  /** OPEN: khách cần nộp • SUBMITTED: khách đã nộp, chờ Specialist duyệt • FULFILLED: đã duyệt */
+  status: 'OPEN' | 'SUBMITTED' | 'FULFILLED';
 }
 
 /** Giấy tờ do CBN Transport tự xử lý (khách hàng chỉ xem) */
@@ -255,10 +266,14 @@ export interface CompanyDoc {
 export type TripStatus = 'PLANNING' | 'READY_TO_DEPART' | 'IN_TRANSIT' | 'COMPLETED';
 export type TransportMode = 'ROAD' | 'AIR';
 export type StopType = 'ORIGIN' | 'REST_STOP' | 'CHECKPOINT' | 'AIRPORT' | 'DESTINATION';
-export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED_DESTINATION';
+export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED_CHECKPOINT' | 'PASSED_CHECKPOINT' | 'ARRIVED_DESTINATION';
 export type HorseCondition = 'NORMAL' | 'MONITOR' | 'ABNORMAL';
 
 export interface TripStop {
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
   name: string;
   type: StopType;
   plannedAt: string;
@@ -290,7 +305,7 @@ export interface Handover {
 export interface Trip {
   id: string;
   status: TripStatus;
-  mode: TransportMode;
+  mode?: TransportMode;
   plannedDepart: string;
   eta: string;
   etaOriginal?: string;
@@ -346,6 +361,9 @@ export interface RequestRevision {
 }
 
 export interface TransportRequest {
+  editingLocally?: boolean;
+  mode?: TransportMode;
+  purpose?: string | null;
   id: string;
   origin: string;
   destination: string;
@@ -404,6 +422,7 @@ export interface CustomerNotification {
 // DTO & kết quả
 // ---------------------------------------------------------------------------
 export interface TripInfoInput {
+  mode?: TransportMode;
   pickupAt: string;
   origin: string;
   destination: string;
@@ -459,6 +478,9 @@ export type RequestDetailTab =
 /** Immutable published content; absent means the backend cannot provide a historical snapshot. */
 export interface ContractSnapshot {
   pickupAt?: string;
+  /** Ngày khách yêu cầu ban đầu (hợp đồng có thể đề xuất ngày khác) */
+  requestedPickupAt?: string;
+  requestedDate?: string;
   origin: string;
   destination: string;
   date: string;

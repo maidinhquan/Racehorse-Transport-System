@@ -2325,9 +2325,17 @@
               "type": "string",
               "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
             }
+          },
+          {
+            "name": "excludeRequestId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
-        "description": "selectable = true khi không trùng lịch. Thiếu file chỉ là documentWarnings, không chặn chọn ngựa."
+        "description": "selectable = true khi ngựa không thuộc đơn vận chuyển chưa hoàn tất, kể cả khi ngày đặt khác nhau. Đơn CANCELLED/REJECTED và bản nháp không giữ ngựa. Ngựa đã giao xong được đặt lại với bất kỳ điểm đón nào. Đơn CHANGES_REQUESTED và CANCELLATION_REQUESTED vẫn giữ ngựa. Thiếu file chỉ là documentWarnings."
       }
     },
     "/customer/horses/{horseId}/files/{fileType}": {
@@ -5038,7 +5046,8 @@
                     "title": "Thanh toán",
                     "text": "Tiền cọc theo tỷ lệ trong hợp đồng; thanh toán bằng VND."
                   }
-                ]
+                ],
+                "mode": "ROAD"
               }
             }
           }
@@ -10452,6 +10461,234 @@
         "security": [],
         "description": "Nhận thông báo server-to-server từ VNPay. Không dùng Bearer token Customer; xác thực bằng chữ ký provider. Path thống nhất endpoint sandbox hiện có, phần tích hợp Invoice/Contract là thiết kế đích.\n\n**Request body:** Không gửi body. Query nhận nguyên bộ tham số vnp_* do VNPay ký, gồm vnp_TmnCode, vnp_TxnRef, vnp_Amount, vnp_ResponseCode, vnp_TransactionStatus, vnp_TransactionNo, vnp_SecureHash và các tham số provider khác. Không cắt bỏ tham số trước khi kiểm tra chữ ký, từ chối query trùng khóa. vnp_Amount theo đơn vị provider, quy đổi đúng về VND để so khớp PAYMENT.Amount.\n\n**Response 200 — JSON provider, không dùng success/message/data**\n\n```json\n{\n  \"RspCode\": \"00\",\n  \"Message\": \"Confirm Success\"\n}\n```\n\n**Quy tắc:** Kiểm tra chữ ký, merchant, TxnRef đã lưu, amount/currency, Invoice và ContractVersion. Chỉ SUCCESS khi responseCode và transactionStatus cùng 00. Khóa giao dịch khi cập nhật PAYMENT và tính lại INVOICE.PaidAmount từ PAYMENT SUCCESS của đúng invoice/version; callback lặp không cộng tiền hai lần. Chỉ DEPOSIT_VERIFIED khi đủ cọc và Request còn hợp lệ; không tự tạo Trip. Callback sau hủy, trong lúc chờ hủy hoặc quá hạn phải giữ bằng chứng tiền, bật FinancialReviewRequired và không mở ký/kích hoạt. Payload không hợp lệ không được ghi SUCCESS; lỗi lưu trữ không trả xác nhận thành công. RspCode dùng hợp đồng adapter VNPay: 00 đã xử lý, 01 không thấy giao dịch, 02 đã xử lý, 04 sai số tiền, 97 sai xác thực, 99 lỗi khác. Các mã provider là chuỗi, không phải HTTP status. Browser Return chỉ đọc kết quả đã lưu; Customer kiểm tra bằng J44.\n\n\n**Kích hoạt sau IPN:** chỉ giao dịch hợp lệ của version đã ký mới được cộng tiền; đủ cọc → contract EFFECTIVE, Request ACTIVATED và tạo duy nhất một Trip PLANNING trong cùng transaction. IPN trùng không tạo thêm Trip. IPN thiếu chữ ký/sai số tiền hoặc version không hợp lệ không thay trạng thái."
       }
+    },
+    "/locations/tiles/{z}/{x}/{y}.png": {
+      "get": {
+        "operationId": "F1-J70",
+        "summary": "Ảnh nền Geoapify cho bản đồ khách hàng",
+        "description": "Backend dùng Geoapify key đã cấu hình; không trả key cho trình duyệt. PNG có cache riêng tư một giờ, giới hạn 300 yêu cầu/phút/tài khoản.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "z",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 19
+            }
+          },
+          {
+            "name": "x",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "y",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PNG map tile",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid tile coordinates"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Inactive account"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "503": {
+            "description": "Map provider unavailable"
+          }
+        }
+      }
+    },
+    "/manager/payments/{paymentId}/confirm": {
+      "post": {
+        "operationId": "F1-J71",
+        "summary": "Manager xác nhận thủ công giao dịch VNPay khi IPN không về: hỏi VNPay trước, nếu chưa có kết quả thì ghi cọc và gắn cờ đối soát. Role: **LOGISTICS_MANAGER**.",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J71Response200"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": true,
+                      "message": "OK",
+                      "data": {
+                        "id": "PAYMENT_006",
+                        "paymentId": "PAYMENT_006",
+                        "invoiceId": "INVOICE_006",
+                        "contractId": "CONTRACT_006",
+                        "versionNo": 1,
+                        "amount": 520000,
+                        "currency": "VND",
+                        "method": "VNPAY",
+                        "status": "SUCCESS",
+                        "databaseStatus": "SUCCESS",
+                        "receivedAmount": 520000,
+                        "paidAt": "2026-11-04T11:00:00",
+                        "reviewRequired": true,
+                        "reviewReason": "Manual confirmation by Manager (VNPAY did not report): VNPay báo thành công trên cổng quản trị nhưng IPN không về."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J71Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "The deposit window for this contract version is no longer open.",
+                      "errorCode": "PAYMENT_NOT_APPLICABLE",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 50,
+              "pattern": "^[A-Z_]+_\\d{3,}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/F1-J71Request"
+              },
+              "example": {
+                "reason": "VNPay báo thành công trên cổng quản trị nhưng IPN không về."
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -11695,6 +11932,12 @@
                   "mode"
                 ],
                 "additionalProperties": true
+              },
+              "minTransitDays": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 30,
+                "description": "Số ngày tối thiểu từ ngày lấy đến ngày giao của tuyến; ngày giao sớm hơn bị từ chối ngay khi tạo yêu cầu."
               }
             },
             "required": [
@@ -13326,6 +13569,14 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "availabilityStatus": {
+                  "type": "string",
+                  "enum": [
+                    "AVAILABLE",
+                    "IN_TRANSPORT_REQUEST",
+                    "DELIVERED"
+                  ]
                 }
               },
               "required": [
@@ -21778,7 +22029,11 @@
             }
           },
           "mode": {
-            "type": "null"
+            "type": "string",
+            "enum": [
+              "ROAD",
+              "AIR"
+            ]
           },
           "note": {
             "type": "string",
@@ -21813,7 +22068,8 @@
           "exception",
           "items",
           "note",
-          "terms"
+          "terms",
+          "mode"
         ],
         "additionalProperties": false
       },
@@ -26012,6 +26268,145 @@
         "required": [
           "success",
           "message"
+        ],
+        "additionalProperties": true
+      },
+      "F1-J71Request": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 900,
+            "minLength": 5
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "F1-J71Response200": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "paymentId": {
+                "type": "string"
+              },
+              "invoiceId": {
+                "type": "string"
+              },
+              "contractId": {
+                "type": "string"
+              },
+              "versionNo": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "amount": {
+                "type": "number",
+                "minimum": 0
+              },
+              "currency": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "method": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "databaseStatus": {
+                "type": "string"
+              },
+              "receivedAmount": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "paidAt": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reviewRequired": {
+                "type": "boolean"
+              },
+              "reviewReason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "invoiceId",
+              "amount",
+              "status"
+            ],
+            "additionalProperties": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "message",
+          "success"
+        ],
+        "additionalProperties": false
+      },
+      "F1-J71Response409": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "null"
+          },
+          "errorCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message",
+          "success"
         ],
         "additionalProperties": true
       }

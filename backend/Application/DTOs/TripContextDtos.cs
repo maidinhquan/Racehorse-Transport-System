@@ -41,7 +41,23 @@ namespace Application.DTOs
         public string Status { get; set; } = "PLANNING"; // PLANNING, READY_TO_DEPART, IN_TRANSIT, COMPLETED
 
         [JsonPropertyName("mode")]
-        public string Mode { get; set; } = "ROAD"; // ROAD, AIR
+        [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+        public string? Mode { get; set; } // Selected by the Coordinator's saved plan.
+
+        [JsonPropertyName("contractVersion")]
+        public int ContractVersion { get; set; } = 1;
+
+        [JsonPropertyName("modeSource")]
+        public string ModeSource { get; set; } = "CONTRACT";
+
+        [JsonPropertyName("pickupDate")]
+        public string PickupDate { get; set; } = string.Empty;
+
+        [JsonPropertyName("effectivePickup")]
+        public EndpointDto? EffectivePickup { get; set; }
+
+        [JsonPropertyName("effectivePickupRelocationId")]
+        public string? EffectivePickupRelocationId { get; set; }
 
         [JsonPropertyName("binding")]
         public BindingDto Binding { get; set; } = new();
@@ -107,7 +123,8 @@ namespace Application.DTOs
         public string RequestId { get; set; } = string.Empty;
 
         [JsonPropertyName("mode")]
-        public string Mode { get; set; } = "ROAD"; // ROAD, AIR
+        [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+        public string? Mode { get; set; }
 
         [JsonPropertyName("status")]
         public string Status { get; set; } = "PLANNING"; // PLANNING, READY_TO_DEPART, IN_TRANSIT, COMPLETED

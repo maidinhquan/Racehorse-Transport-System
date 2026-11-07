@@ -8,9 +8,11 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 {
     public void Configure(EntityTypeBuilder<User> builder)
     {
-        builder.ToTable("USER");
+        builder.ToTable("USER", table => table.UseSqlOutputClause(false));
         builder.HasKey(u => u.UserId).HasName("PK_User");
-        builder.Property(u => u.UserId).HasColumnName("UserID").HasColumnType("varchar(50)").ValueGeneratedNever();
+        builder.Property(u => u.UserId).HasColumnName("UserID").HasColumnType("varchar(50)")
+            .HasDefaultValueSql("'USER_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_USER_ID], '000', 'en-US')")
+            .ValueGeneratedOnAdd();
         builder.Property(u => u.Username).HasColumnType("varchar(50)");
         builder.Property(u => u.PasswordHash).HasColumnType("varchar(255)").IsRequired();
         builder.Property(u => u.Role).HasColumnType("varchar(50)").IsRequired();

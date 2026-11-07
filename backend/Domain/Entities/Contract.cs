@@ -6,6 +6,9 @@ namespace Domain.Entities
     [Table("CONTRACT")]
     public class Contract
     {
+        [Column("CommercialNotes", TypeName = "nvarchar(2000)")]
+        public string? CommercialNotes { get; set; }
+
         [Key]
         [Column("ContractID")]
         [StringLength(50)]
@@ -13,7 +16,15 @@ namespace Domain.Entities
 
         [Column("TripID")]
         [StringLength(50)]
-        public string TripId { get; set; } = null!;
+        public string? TripId { get; set; }
+
+        [Column("RequestID")]
+        [StringLength(50)]
+        public string RequestId { get; set; } = null!;
+
+        // UTC. Null for a draft and for legacy contracts without a recorded deadline.
+        [Column("CompletionDeadline", TypeName = "datetime2")]
+        public DateTime? CompletionDeadline { get; set; }
 
         [Column("CustomerID")]
         [StringLength(50)]
@@ -27,20 +38,11 @@ namespace Domain.Entities
         [StringLength(3)]
         public string CurrencyCode { get; set; } = "USD";
 
-        [Column("ExchangeRateToLocal", TypeName = "decimal(10, 4)")]
-        public decimal? ExchangeRateToLocal { get; set; }
-
         [Column("TotalQuotedPrice", TypeName = "decimal(12, 2)")]
         public decimal? TotalQuotedPrice { get; set; }
 
-        [Column("BaseContractPrice_P", TypeName = "decimal(12, 2)")]
-        public decimal? BaseContractPriceP { get; set; }
-
         [Column("DepositRateStandard", TypeName = "decimal(5, 2)")]
         public decimal? DepositRateStandard { get; set; }
-
-        [Column("ActualGrossProfit_AGP", TypeName = "decimal(12, 2)")]
-        public decimal? ActualGrossProfitAgp { get; set; }
 
         [Column("SignedAt")]
         public DateTime? SignedAt { get; set; }
@@ -53,6 +55,9 @@ namespace Domain.Entities
         [ForeignKey(nameof(TripId))]
         [InverseProperty(nameof(TripPlan.Contracts))]
         public virtual TripPlan? Trip { get; set; }
+
+        [ForeignKey(nameof(RequestId))]
+        public virtual TransportRequest? Request { get; set; }
 
         [ForeignKey(nameof(CustomerId))]
         [InverseProperty(nameof(Entities.User.CustomerContracts))]

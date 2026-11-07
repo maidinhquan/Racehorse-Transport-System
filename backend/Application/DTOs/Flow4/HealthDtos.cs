@@ -14,6 +14,7 @@ public class HealthLogInputDto
     public string Leg { get; set; } = "road";
 
     [JsonPropertyName("milestoneId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? MilestoneId { get; set; }
 
     [JsonPropertyName("observedAt")]
@@ -26,30 +27,38 @@ public class HealthLogInputDto
     public string Observation { get; set; } = null!;
 
     [JsonPropertyName("feeding")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? Feeding { get; set; }
 
     [JsonPropertyName("water")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? Water { get; set; }
 
     [JsonPropertyName("rest")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? Rest { get; set; }
 
     [JsonPropertyName("care")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? Care { get; set; }
 
     [JsonPropertyName("temperatureC")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public decimal? TemperatureC { get; set; }
 
     [JsonPropertyName("heartRateBpm")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public int? HeartRateBpm { get; set; }
 
     [JsonPropertyName("respiratoryRatePerMin")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public int? RespiratoryRatePerMin { get; set; }
 
     [JsonPropertyName("photoFileIds")]
     public List<string> PhotoFileIds { get; set; } = new();
 
     [JsonPropertyName("incidentId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? IncidentId { get; set; }
 }
 
@@ -68,9 +77,11 @@ public class HealthLogDto
     public string RecordedAt { get; set; } = null!;
 
     [JsonPropertyName("supersedesId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? SupersedesId { get; set; }
 
     [JsonPropertyName("amendmentReason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? AmendmentReason { get; set; }
 
     [JsonPropertyName("incidentRequired")]
@@ -113,6 +124,7 @@ public class VetAssessmentInputDto
     public List<string> EvidenceFileIds { get; set; } = new();
 
     [JsonPropertyName("incidentId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? IncidentId { get; set; }
 }
 

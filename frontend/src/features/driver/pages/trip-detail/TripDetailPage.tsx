@@ -1,13 +1,12 @@
 import React, { useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DriverLayout, Icon } from '../../components/DriverLayout';
 import { TripHero } from '../../components/TripHero/TripHero';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useDriver } from '../../hooks/useDriver';
-import { DELAY_LABEL, fmtDateTime, myPosition } from '../../hooks/driverRules';
+import { DELAY_LABEL, fmtDateTime, handoverReady, myPosition } from '../../hooks/driverRules';
 import type { TripDetailTab } from '../../types';
 import { OverviewTab } from './tabs/OverviewTab';
-import { StopsTab } from './tabs/StopsTab';
 import { DocumentsTab } from './tabs/DocumentsTab';
 import { HealthTab } from './tabs/HealthTab';
 import { HandoverTab } from './tabs/HandoverTab';
@@ -15,7 +14,6 @@ import './TripDetailPage.css';
 
 const TABS: Array<[TripDetailTab, string]> = [
   ['overview', 'Tổng quan'],
-  ['stops', 'Tuyến & điểm dừng'],
   ['docs', 'Hồ sơ'],
   ['health', 'Sức khoẻ ngựa'],
   ['handover', 'Bàn giao'],
@@ -23,6 +21,7 @@ const TABS: Array<[TripDetailTab, string]> = [
 
 export const TripDetailPage: React.FC = () => {
   const { tripId, tab } = useParams<{ tripId?: string; tab?: TripDetailTab }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { getTrip, activeTrips, userId, loading } = useDriver();
 
@@ -31,14 +30,29 @@ export const TripDetailPage: React.FC = () => {
     if (!tripId && activeTrips.length === 1) navigate(`/driver/trips/${activeTrips[0].id}`, { replace: true });
   }, [tripId, activeTrips, navigate]);
 
+  const queryTab = searchParams.get('tab') as TripDetailTab | null;
+  const activeTabKey = tab || queryTab;
   const trip = getTrip(tripId);
+
+  if (loading && !trip) {
+    return (
+      <DriverLayout title="Chuyến đi">
+        <div className="drv-card drv-empty">
+          <b>Đang tải dữ liệu từ máy chủ…</b>
+        </div>
+      </DriverLayout>
+    );
+  }
 
   if (!tripId) {
     return (
       <DriverLayout title="Chuyến đi">
         <div className="drv-head"><div><h2 className="drv-title">Chuyến đi</h2><p className="drv-subtitle">Chọn chuyến để xem thông tin, hồ sơ, sức khoẻ ngựa và bàn giao.</p></div></div>
         {activeTrips.length ? activeTrips.map((t) => (
-          <TripHero key={t.id} trip={t} compact actions={<button type="button" className="drv-btn drv-btn--solid" onClick={() => navigate(`/driver/trips/${t.id}`)}>Mở chuyến</button>} />
+          <TripHero key={t.id} trip={t} compact actions={<>
+            <button type="button" className="drv-btn drv-btn--solid" disabled={!handoverReady(t)} title={handoverReady(t) ? undefined : 'Chỉ mở khi đã đến mốc cuối cùng (điểm giao)'} onClick={() => navigate(`/driver/trips/${t.id}/handover`)}>Thủ tục bàn giao (Flow 6)</button>
+            <button type="button" className="drv-btn" onClick={() => navigate(`/driver/trips/${t.id}`)}>Chi tiết</button>
+          </>} />
         )) : <div className="drv-card drv-empty"><b>{loading ? 'Đang tải…' : 'Không có chuyến đang hoạt động'}</b>Chuyến đã hoàn tất nằm trong mục Lịch sử.</div>}
       </DriverLayout>
     );
@@ -55,7 +69,7 @@ export const TripDetailPage: React.FC = () => {
     );
   }
 
-  const on: TripDetailTab = TABS.some(([k]) => k === tab) ? (tab as TripDetailTab) : 'overview';
+  const on: TripDetailTab = TABS.some(([k]) => k === activeTabKey) ? (activeTabKey as TripDetailTab) : 'overview';
   const done = trip.status === 'COMPLETED';
 
   return (
@@ -85,14 +99,28 @@ export const TripDetailPage: React.FC = () => {
       )}
 
       <div className="drv-tabs" role="tablist">
-        {TABS.map(([k, label]) => (
-          <button key={k} type="button" role="tab" className={k === on ? 'on' : ''} onClick={() => navigate(`/driver/trips/${trip.id}/${k}`)}>{label}</button>
-        ))}
+        {TABS.map(([k, label]) => {
+          const isHandover = k === 'handover';
+          const isLocked = isHandover && !handoverReady(trip) && trip.status !== 'COMPLETED';
+
+          return (
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              disabled={isLocked}
+              title={isLocked ? 'Chỉ mở thủ tục bàn giao khi chuyến đi đã đến điểm giao (đích)' : undefined}
+              className={`${k === on ? 'on' : ''} ${isLocked ? 'is-locked' : ''}`}
+              onClick={() => !isLocked && navigate(`/driver/trips/${trip.id}/${k}`)}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {on === 'overview' && <OverviewTab trip={trip} />}
-      {on === 'stops' && <StopsTab trip={trip} />}
-      {on === 'docs' && <DocumentsTab trip={trip} />}
+            {on === 'docs' && <DocumentsTab trip={trip} />}
       {on === 'health' && <HealthTab trip={trip} />}
       {on === 'handover' && <HandoverTab trip={trip} />}
     </DriverLayout>

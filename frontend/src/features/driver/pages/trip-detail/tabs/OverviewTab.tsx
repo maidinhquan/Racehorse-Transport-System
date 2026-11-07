@@ -1,26 +1,39 @@
-import React from 'react';
-import type { Trip } from '../../../types';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { HorseDetailModal } from '../../../components/Modals';
+import type { Horse, Trip } from '../../../types';
 import { useDriver } from '../../../hooks/useDriver';
 import { Icon } from '../../../components/DriverLayout';
 import { SLOT_LABEL, crewList, fmtDateTime } from '../../../hooks/driverRules';
 
 /** Ngựa, điểm nhận/giao, người nhận, tổ xe và phương tiện */
 export const OverviewTab: React.FC<{ trip: Trip }> = ({ trip }) => {
+  const navigate = useNavigate();
   const { horse, crewMember, userId } = useDriver();
+  const [selectedHorse, setSelectedHorse] = useState<Horse | null>(null);
   const receiver = trip.altReceiver ?? trip.receiver;
 
   return (
+    <>
     <div className="drv-grid2">
       <div className="drv-card">
         <h3 className="drv-card__title">Ngựa trên chuyến</h3>
         {trip.horses.map((id) => {
           const h = horse(id);
           return (
-            <div key={id} className="drv-horse">
+            <div
+              key={id}
+              className="drv-horse"
+              style={{ cursor: 'pointer' }}
+              onClick={() => h && setSelectedHorse(h)}
+              role="button"
+              tabIndex={0}
+              title="Bấm để xem chi tiết thông tin ngựa"
+            >
               <span className="drv-horse__thumb">{(h?.name ?? id).slice(0, 1)}</span>
-              <div className="drv-horse__text">
+              <div className="drv-horse__text" style={{ flex: 1 }}>
                 <b>{h?.name ?? id}</b>
-                <span>{h ? `${h.breed} • ${h.sex} • ${h.age} tuổi • ${h.color}` : ''}</span>
+                <span>{h ? [h.breed, h.sex, h.age ? `${h.age} tuổi` : '', h.color].filter(Boolean).join(' • ') : ''}</span>
                 <span>Microchip <b style={{ userSelect: 'all' }}>{h?.microchip ?? '—'}</b></span>
               </div>
             </div>
@@ -52,6 +65,18 @@ export const OverviewTab: React.FC<{ trip: Trip }> = ({ trip }) => {
         {trip.flight && <p className="drv-hint">Chuyến bay {trip.flight.airline} {trip.flight.flightNo} • {fmtDateTime(trip.flight.departAt)}</p>}
       </div>
     </div>
+      {selectedHorse && (
+        <HorseDetailModal
+          horse={selectedHorse}
+          trip={trip}
+          onClose={() => setSelectedHorse(null)}
+          onOpenHealth={() => {
+            setSelectedHorse(null);
+            navigate(`/driver/trips/${trip.id}?tab=health`);
+          }}
+        />
+      )}
+    </>
   );
 };
 

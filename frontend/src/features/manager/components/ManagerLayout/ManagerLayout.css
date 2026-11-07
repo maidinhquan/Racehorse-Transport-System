@@ -227,6 +227,29 @@ button.mgr-stat:hover { border-color: var(--mgr-orange); }
 .mgr-id { font-weight: 700; white-space: nowrap; }
 .mgr-route { white-space: nowrap; }
 .mgr-arrow { color: #94a3b8; margin: 0 4px; }
+
+/* RouteCell hiển thị đẹp, đầy đủ và chống vỡ giao diện */
+.mgr-route-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--mgr-ink);
+  max-width: 320px;
+}
+.mgr-route-point {
+  word-break: break-word;
+  font-weight: 500;
+}
+.mgr-route-arrow {
+  color: var(--mgr-orange-text, #ea580c);
+  font-weight: 700;
+  font-size: 13px;
+  margin: 0 2px;
+  flex-shrink: 0;
+}
 .mgr-progress { height: 8px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
 .mgr-progress i { display: block; height: 100%; background: var(--mgr-orange); border-radius: inherit; }
 .mgr-progress--ok i { background: #16a34a; }

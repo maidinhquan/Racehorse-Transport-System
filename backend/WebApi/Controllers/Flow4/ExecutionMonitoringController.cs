@@ -136,7 +136,7 @@ public class ExecutionMonitoringController : BaseApiController
             horseId,
             CurrentUserId);
 
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>

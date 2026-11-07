@@ -7,6 +7,8 @@ import { SEX_LABEL, today } from '../../hooks/customerRules';
 import { useCustomer } from '../../hooks/useCustomer';
 import { FilePreviewModal } from '../Modals/FilePreviewModal';
 import './HorseForm.css';
+import { getDemoMode } from '../../../../shared/context/DemoModeContext';
+import { AuthImage } from '../../../../shared/components/AuthImage';
 
 interface HorseFormProps {
   value: HorseInput;
@@ -32,6 +34,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
   const { actions } = useCustomer();
   const [preview, setPreview] = useState<{ file: FileRef; title: string } | null>(null);
   const locked = lockedBy.length > 0;
+  const demo = getDemoMode('customer');
   const set = <K extends keyof HorseInput>(k: K, v: HorseInput[K]) => onChange({ ...h, [k]: v });
   const setPass = (k: keyof HorseInput['passport'], v: string | FileRef | undefined) => onChange({ ...h, passport: { ...h.passport, [k]: v } });
   
@@ -42,22 +45,21 @@ export const HorseForm: React.FC<HorseFormProps> = ({
     if (onClearError) onClearError(k);
   };
 
-  const text = (label: string, k: 'name' | 'breed' | 'color' | 'microchip' | 'vetName' | 'vetPhone' | 'value', lock = false, type = 'text') => {
+  const text = (label: string, k: 'name' | 'breed' | 'color' | 'microchip' | 'value', lock = false, type = 'text') => {
     const errorMsg = getErr(k);
     const badClass = bad(k);
     return (
       <div className={`cus-field ${isBad(k) ? 'has-error' : ''}`}>
         <label htmlFor={`hf-${k}`}>
           {label}
-          {h.unsupportedFields?.includes(k) && ' (chưa thể lưu trực tuyến)'}
         </label>
         <input
           id={`hf-${k}`}
           className={`cus-input ${badClass}`}
           type={type}
           value={h[k] ?? ''}
-          disabled={h.unsupportedFields?.includes(k)}
           readOnly={lock && locked}
+          disabled={!demo && k === 'color'}
           onChange={(e) => {
             clearErr(k);
             set(k, e.target.value);
@@ -78,12 +80,14 @@ export const HorseForm: React.FC<HorseFormProps> = ({
       case 'scan': return 'Bản scan hộ chiếu ngựa (FEI Passport)';
       case 'ownership': return 'Giấy tờ xác nhận sở hữu ngựa';
       case 'valueProof': return 'Chứng từ định giá ngựa';
+      case 'flu': return 'Sổ tiêm ngừa';
+      case 'health': return 'Giấy chứng nhận sức khỏe';
       default: return 'Tài liệu ngựa';
     }
   };
 
   const fileCard = (field: FileField | 'scan', empty: string) => {
-    if (field === 'flu' || field === 'health') return <p className="cus-hint">Nộp tài liệu này trong phần hồ sơ của từng ngựa khi tạo yêu cầu vận chuyển.</p>;
+
     const file = field === 'scan' ? h.passport.scan : h[field];
     const update = (f?: FileRef) => (field === 'scan' ? setPass('scan', f) : set(field, f));
     return file ? (
@@ -92,7 +96,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
         <div className="cus-file__text"><b>{file.name}</b><span>{file.file ? 'Đã chọn, chưa lưu' : 'Đã lưu'}</span></div>
         <button type="button" className="cus-btn cus-btn--sm" onClick={() => setPreview({ file, title: fileTitle(field) })}>Xem</button>
         <FilePickButton label="Thay tệp" onPick={update} onError={actions.showToast} types={field === 'photo' ? PHOTO_TYPES : undefined} />
-        <button type="button" className="cus-btn cus-btn--sm cus-btn--danger" onClick={() => update(undefined)}>Xóa</button>
+        {(demo || file.file) && <button type="button" className="cus-btn cus-btn--sm cus-btn--danger" onClick={() => update(undefined)}>Xóa</button>}
       </div>
     ) : (
       <div className={`cus-file cus-file--empty ${bad(field)}`}>
@@ -105,20 +109,34 @@ export const HorseForm: React.FC<HorseFormProps> = ({
 
   return (
     <div className="cus-card cus-horse-form">
+      <div className="cus-horse-form__heading">
+        <h3 className="cus-card__title">Thông tin &amp; hồ sơ ngựa</h3>
+
+      </div>
       <section>
         <h4>01 · Ảnh nhận diện</h4>
         <div className="cus-horse-form__photo">
-          <div
+          <button
+            type="button"
             className="cus-horse-form__thumb"
-            style={{ cursor: h.photo?.url ? 'pointer' : 'default' }}
+            disabled={!h.photo?.url}
+            aria-label={h.photo?.url ? 'Xem ảnh nhận diện ngựa' : 'Chưa có ảnh nhận diện ngựa'}
             title={h.photo?.url ? 'Bấm để xem ảnh phóng to' : undefined}
             onClick={() => {
               if (h.photo) setPreview({ file: h.photo, title: 'Ảnh nhận diện ngựa' });
             }}
           >
-            {h.photo?.url ? <img src={h.photo.url} alt={h.name || 'Ảnh ngựa'} /> : <Icon name="horse" />}
+            <AuthImage framed src={h.photo?.url} alt={h.name || 'Ảnh ngựa'} fallback={h.photo?.url ? 'Đang tải ảnh…' : 'Chưa có ảnh'} />
+          </button>
+          <div className="cus-horse-form__photo-info">
+            <b>{h.photo?.name || 'Chưa tải ảnh nhận diện'}</b>
+            <p>Định dạng: JPG, JPEG, PNG · tối đa 10 MB.</p>
+            <div className="cus-horse-form__file-actions">
+              <FilePickButton label={h.photo ? 'Thay ảnh' : 'Tải ảnh lên'} onPick={(file) => set('photo', file)} onError={actions.showToast}
+                types={PHOTO_TYPES} className={`cus-btn cus-btn--sm${h.photo ? '' : ' cus-btn--solid'}`} />
+              {h.photo && <button type="button" className="cus-btn cus-btn--sm cus-btn--danger" onClick={() => set('photo', undefined)}>Xóa ảnh</button>}
+            </div>
           </div>
-          {fileCard('photo', 'Chưa có ảnh')}
         </div>
       </section>
 
@@ -127,7 +145,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
         {locked && (
           <div className="cus-note cus-note--grey">
             <Icon name="lock" />
-            <div><b>Thông tin định danh đã khóa</b>Ngựa thuộc yêu cầu đã gửi ({lockedBy.join(', ')}). Muốn sửa tên, giống, giới tính, ngày sinh hoặc microchip, hãy liên hệ CBN Transport.</div>
+            <div><b>Thông tin định danh đã khóa</b>Ngựa đang trong chuyến vận chuyển ({lockedBy.join(', ')}). Muốn sửa tên, giống, giới tính, ngày sinh hoặc microchip, hãy liên hệ CBN Transport.</div>
           </div>
         )}
         <div className="cus-horse-form__grid">
@@ -180,6 +198,10 @@ export const HorseForm: React.FC<HorseFormProps> = ({
 
       <section>
         <h4>03 · Hộ chiếu ngựa</h4>
+        <div className="cus-horse-form__section-summary">
+          <p className="cus-subtitle">Thông tin hộ chiếu và bản scan</p>
+          <span className={`cus-horse-form__file-status${h.passport.scan ? ' is-uploaded' : ''}`}>{h.passport.scan ? 'Đã tải bản scan' : 'Chưa tải bản scan'}</span>
+        </div>
         <div className="cus-horse-form__grid">
           <div className={`cus-field ${isBad('passNumber') ? 'has-error' : ''}`}>
             <label htmlFor="hf-pass-no">Số hộ chiếu *</label>
@@ -257,6 +279,7 @@ export const HorseForm: React.FC<HorseFormProps> = ({
 
       <section>
         <h4>04 · Chứng nhận sở hữu & giá trị thương mại</h4>
+        <p className="cus-subtitle">Hồ sơ sở hữu và bằng chứng định giá</p>
         {fileCard('ownership', 'Chưa có giấy chứng nhận sở hữu')}
         <div className="cus-horse-form__grid" style={{ marginTop: 12 }}>
           {text('Giá trị khai báo (VND) *', 'value', false, 'number')}
@@ -271,29 +294,23 @@ export const HorseForm: React.FC<HorseFormProps> = ({
       </section>
 
       <section>
-        <h4>05 · Tiêm ngừa & sức khỏe</h4>
+        <h4>05 · Hồ sơ tiêm ngừa & sức khỏe</h4>
+
         <div className="cus-horse-form__grid">
           <div className="cus-field">
-            <label htmlFor="hf-flu">Ngày tiêm cúm gần nhất{h.unsupportedFields?.includes('fluDate') && ' (chưa thể lưu trực tuyến)'}</label>
-            <DateField id="hf-flu" disabled={h.unsupportedFields?.includes('fluDate')} value={h.fluDate ?? ''} max={today()} onChange={(v) => set('fluDate', v)} />
+            <label htmlFor="hf-flu">Ngày tiêm cúm gần nhất</label>
+            <DateField id="hf-flu" value={h.fluDate ?? ''} max={today()} disabled={!demo} onChange={(v) => set('fluDate', v)} />
           </div>
         </div>
         <div className="cus-horse-form__minor"><span className="cus-eyebrow">Sổ tiêm ngừa</span>{fileCard('flu', 'Chưa tải tệp')}</div>
         <div className="cus-horse-form__minor"><span className="cus-eyebrow">Giấy chứng nhận sức khỏe</span>{fileCard('health', 'Chưa tải tệp')}</div>
         <div className="cus-field" style={{ marginTop: 12 }}>
           <label htmlFor="hf-cond">Ghi chú sức khỏe đặc biệt</label>
-          <textarea id="hf-cond" className="cus-textarea" rows={2} value={h.conditions} placeholder="Dị ứng, bệnh nền, thuốc đang dùng hoặc để trống"
+          <textarea id="hf-cond" className="cus-textarea" rows={2} maxLength={2000} value={h.conditions} placeholder="Dị ứng, bệnh nền, thuốc đang dùng hoặc để trống"
             onChange={(e) => set('conditions', e.target.value)} />
         </div>
       </section>
 
-      <section>
-        <h4>06 · Bác sĩ thú y riêng</h4>
-        <div className="cus-horse-form__grid">
-          {text('Tên bác sĩ', 'vetName')}
-          {text('Số điện thoại', 'vetPhone', false, 'tel')}
-        </div>
-      </section>
 
       <FilePreviewModal
         open={!!preview}

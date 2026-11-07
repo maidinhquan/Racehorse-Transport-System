@@ -16,7 +16,7 @@ import './ContractPages.css';
 export const ContractViewPage: React.FC = () => {
   const navigate = useNavigate();
   const { requestId = '', version = '' } = useParams<{ requestId: string; version: string }>();
-  const { horses, getRequest, actions } = useCustomer();
+  const { horses, getRequest, actions } = useCustomer(requestId);
   const r = getRequest(requestId);
   const ref = r && curVersion(r);
   const selectedNo = version ? Number(version) : ref?.v;

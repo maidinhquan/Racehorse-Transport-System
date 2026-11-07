@@ -180,6 +180,10 @@ public class Flow4CoordinatorService : IFlow4CoordinatorService
     /// </summary>
     public async Task<Flow4MutationResultDto> DecideMilestoneCorrectionAsync(string tripId, string correctionId, MilestoneCorrectionDecisionInputDto dto, string coordinatorId)
     {
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+        _context.ChangeTracker.Clear();
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         var trip = await _context.TripPlans.FirstOrDefaultAsync(t => t.TripId == tripId);
@@ -224,6 +228,7 @@ public class Flow4CoordinatorService : IFlow4CoordinatorService
         await transaction.CommitAsync();
 
         return Flow4Helper.BuildMutationResult(trip, correction.MilestoneId, _context);
+        });
     }
 
     /// <summary>
@@ -409,6 +414,10 @@ public class Flow4CoordinatorService : IFlow4CoordinatorService
     /// </summary>
     public async Task<Flow4MutationResultDto> DecideEtaProposalAsync(string tripId, string proposalId, EtaDecisionInputDto dto, string coordinatorId)
     {
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+        _context.ChangeTracker.Clear();
         using var transaction = await _context.Database.BeginTransactionAsync();
 
         var trip = await _context.TripPlans.FirstOrDefaultAsync(t => t.TripId == tripId);
@@ -467,6 +476,7 @@ public class Flow4CoordinatorService : IFlow4CoordinatorService
         await transaction.CommitAsync();
 
         return Flow4Helper.BuildMutationResult(trip, proposal.ProposalId, _context);
+        });
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
-# Flow 3 v2 — JSON từng API
+# Flow 3 v3 — JSON từng API
 
-Cập nhật 27/10/2026 theo `Final_Flow3.html`, ghi đè contract cũ. **Chỉ tài liệu mục tiêu, chưa triển khai backend/DB.**
+Cập nhật 30/10/2026 theo luồng đã thống nhất; thay thiết kế v2, chưa thay API đang chạy. **Chỉ tài liệu mục tiêu, chưa triển khai backend/DB.**
 
 [Quy tắc nghiệp vụ](FLOW3.md) · [OpenAPI](flow3.openapi.json) · [Kịch bản](flow3.examples.json).
 
@@ -8,7 +8,7 @@ Base `/api`, Bearer JWT. Mẫu mỗi API độc lập; lấy ID/revision từ re
 
 | Mã | Method | Endpoint | Chức năng |
 |---|---|---|---|
-| F3-J01 | GET | `/master/flow3-capabilities` | Khả năng triển khai và policy Flow 3 v2 |
+| F3-J01 | GET | `/master/flow3-capabilities` | Khả năng triển khai và policy Flow 3 v3 |
 | F3-J02 | GET | `/specialist/trips/{tripId}/planning-context` | Context cho nhánh hồ sơ song song |
 | F3-J04 | GET | `/coordinator/trips/{tripId}/planning-context` | Context điều phối và cả hai nhánh chuẩn bị |
 | F3-J05 | GET | `/coordinator/flights` | Tra chuyến bay đối tác (read-only) |
@@ -36,7 +36,9 @@ Base `/api`, Bearer JWT. Mẫu mỗi API độc lập; lấy ID/revision từ re
 | F3-J29 | GET | `/coordinator/trips/{tripId}/pickup-relocation/candidates` | Tìm cơ sở tiếp nhận thay thế |
 | F3-J30 | POST | `/coordinator/trips/{tripId}/pickup-relocation` | Đề xuất điểm nhận thay thế |
 | F3-J31 | POST | `/manager/trips/{tripId}/pickup-relocation/decision` | Manager xét đề xuất điểm nhận |
-| F3-J32 | POST | `/manager/trips/{tripId}/pickup-relocation/customer-consent` | Ghi nhận khách đã đồng ý thực tế |
+| F3-J32 | POST | `/customer/trips/{tripId}/pickup-relocation/decision` | Khách hàng đồng ý hoặc từ chối điểm nhận mới |
+| F3-J56 | POST | `/manager/trips/{tripId}/pickup-relocation/send` | Manager gửi đề xuất điểm nhận cho khách |
+| F3-J57 | GET | `/customer/trips/{tripId}/pickup-relocation` | Khách xem đề xuất điểm nhận được Manager gửi |
 | F3-J33 | POST | `/coordinator/trips/{tripId}/pickup-relocation/revisions` | Mở lại đề xuất điểm nhận đã chốt |
 | F3-J34 | GET | `/coordinator/air-partners` | Danh sách bên dịch vụ bay |
 | F3-J35 | POST | `/coordinator/air-partners` | Thêm bên dịch vụ |
@@ -65,7 +67,7 @@ F3-J03/J21/J22 đã retired; xem bảng chuyển đổi trong FLOW3.md. Không c
 
 ## F3-J01 — GET /master/flow3-capabilities
 
-Khả năng triển khai và policy Flow 3 v2.
+Khả năng triển khai và policy Flow 3 v3.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`, `LOGISTICS_MANAGER`, `TRANSPORT_SPECIALIST`.
 
@@ -73,14 +75,14 @@ Khả năng triển khai và policy Flow 3 v2.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
   "success": true,
   "message": "OK",
   "data": {
-    "version": "2.0.0",
+    "version": "3.0.0",
     "implementationStatus": "DESIGNED_NOT_IMPLEMENTED",
     "parallelPreparation": true,
     "documentValidityMode": "ASSUMED_VALID_FOR_TRIP",
@@ -149,7 +151,7 @@ Context cho nhánh hồ sơ song song.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -161,6 +163,9 @@ Context cho nhánh hồ sơ song song.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 10,
       "contextVersion": 1,
@@ -193,13 +198,26 @@ Context cho nhánh hồ sơ song song.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
-      "eta": "2026-11-10 06:30",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
+      "eta": "2026-11-10 07:00",
       "stops": [
         {
           "stopId": "STOP_001",
@@ -217,7 +235,7 @@ Context cho nhánh hồ sơ song song.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -235,8 +253,8 @@ Context cho nhánh hồ sơ song song.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -305,7 +323,7 @@ Context cho nhánh hồ sơ song song.
             },
             "required": true,
             "arriveAt": "2026-11-10 06:00",
-            "departAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
             "placeVersion": null
           },
           {
@@ -323,16 +341,16 @@ Context cho nhánh hồ sơ song song.
               "lng": 106.8
             },
             "required": true,
-            "arriveAt": "2026-11-10 06:30",
-            "departAt": "2026-11-10 06:30",
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
             "placeVersion": null
           }
         ],
         "totalKm": 20,
         "driveMin": 30,
-        "stopMin": 0,
+        "stopMin": 30,
         "flyMin": 0,
-        "eta": "2026-11-10 06:30",
+        "eta": "2026-11-10 07:00",
         "issues": []
       },
       "note": ""
@@ -398,7 +416,7 @@ Context điều phối và cả hai nhánh chuẩn bị.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Điều kiện và ảnh hưởng:** Context điều phối và cả hai nhánh chuẩn bị
+**Điều kiện và ảnh hưởng:** Context điều phối và cả hai nhánh chuẩn bị mode/modeSource/contractVersion lấy từ hợp đồng có hiệu lực; pickupDate là ngày nhận đã thống nhất với khách. Không chọn mode từ Flow 3.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -406,7 +424,7 @@ Context điều phối và cả hai nhánh chuẩn bị.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -418,6 +436,9 @@ Context điều phối và cả hai nhánh chuẩn bị.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 10,
       "contextVersion": 1,
@@ -450,13 +471,26 @@ Context điều phối và cả hai nhánh chuẩn bị.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
-      "eta": "2026-11-10 06:30",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
+      "eta": "2026-11-10 07:00",
       "stops": [
         {
           "stopId": "STOP_001",
@@ -474,7 +508,7 @@ Context điều phối và cả hai nhánh chuẩn bị.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -492,8 +526,8 @@ Context điều phối và cả hai nhánh chuẩn bị.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -562,7 +596,7 @@ Context điều phối và cả hai nhánh chuẩn bị.
             },
             "required": true,
             "arriveAt": "2026-11-10 06:00",
-            "departAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
             "placeVersion": null
           },
           {
@@ -580,16 +614,16 @@ Context điều phối và cả hai nhánh chuẩn bị.
               "lng": 106.8
             },
             "required": true,
-            "arriveAt": "2026-11-10 06:30",
-            "departAt": "2026-11-10 06:30",
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
             "placeVersion": null
           }
         ],
         "totalKm": 20,
         "driveMin": 30,
-        "stopMin": 0,
+        "stopMin": 30,
         "flyMin": 0,
-        "eta": "2026-11-10 06:30",
+        "eta": "2026-11-10 07:00",
         "issues": []
       },
       "note": ""
@@ -665,7 +699,7 @@ Tra chuyến bay đối tác (read-only).
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -743,7 +777,7 @@ Lưu nháp tuyến, lịch, xe và nhân sự.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Điều kiện và ảnh hưởng:** PLANNING + deployed. Tạo nếu chưa có draft, sửa DRAFT/RETURNED; không sửa APPROVED tại chỗ. Server cấp planVersion nội dung mới, tính dependency và invalidation. Draft cho thiếu, không giữ mới; thay bộ đã confirm giải phóng hold draft không còn dùng. Không nhận deadline/ETA/geometry/status/actor. Chọn bay qua J39.
+**Điều kiện và ảnh hưởng:** PLANNING + deployed. Tạo nếu chưa có draft, sửa DRAFT/RETURNED; không sửa APPROVED tại chỗ. Server cấp planVersion nội dung mới, tính dependency và invalidation. Draft cho thiếu, không giữ mới; thay bộ đã confirm giải phóng hold draft không còn dùng. Không nhận deadline/ETA/geometry/status/actor. Chọn bay qua J39. pickupAt là ngày/giờ nhận do Coordinator sắp xếp từ pickupDate; không nhận mode vì lấy từ hợp đồng. plannedDepart là giờ rời ORIGIN do server tính sau bàn giao. Lệch ngày/hạn giao tạo reviewWarnings để Manager kiểm tra, không tự sửa cam kết.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -755,7 +789,7 @@ Lưu nháp tuyến, lịch, xe và nhân sự.
 ```json
 {
   "expectedVersion": 10,
-  "plannedDepart": "2026-11-10 06:00",
+  "pickupAt": "2026-11-10 06:00",
   "stops": [
     {
       "clientKey": "stop-origin",
@@ -800,7 +834,7 @@ Lưu nháp tuyến, lịch, xe và nhân sự.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -812,6 +846,9 @@ Lưu nháp tuyến, lịch, xe và nhân sự.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -844,12 +881,25 @@ Lưu nháp tuyến, lịch, xe và nhân sự.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 2,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
       "eta": null,
       "stops": [
         {
@@ -868,7 +918,7 @@ Lưu nháp tuyến, lịch, xe và nhân sự.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -886,8 +936,8 @@ Lưu nháp tuyến, lịch, xe và nhân sự.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -944,7 +994,7 @@ Lưu nháp tuyến, lịch, xe và nhân sự.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -976,7 +1026,7 @@ Kiểm nháp, không giữ nguồn lực.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Điều kiện và ảnh hưởng:** Read-only: thiếu điều kiện trả 200 valid=false + blockers; stale binding 409. Không tạo hold hoặc dấu READY; không bắt feasibility/docs-ready/booking AIR.
+**Điều kiện và ảnh hưởng:** Read-only: thiếu điều kiện trả 200 valid=false + blockers; stale binding 409. Không tạo hold hoặc dấu READY; không bắt feasibility/docs-ready/booking AIR. ETA vượt hạn hoặc lệch ngày nhận tạo cảnh báo để Manager xem xét; không tự đổi pickupDate/deliveryDeadline và không chặn gửi chỉ vì cảnh báo lịch.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -991,7 +1041,7 @@ Kiểm nháp, không giữ nguồn lực.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -1006,7 +1056,8 @@ Kiểm nháp, không giữ nguồn lực.
     "planVersion": 1,
     "valid": true,
     "blockers": [],
-    "eta": "2026-11-10 06:30",
+    "eta": "2026-11-10 07:00",
+    "warnings": [],
     "resourceHoldsCreated": false
   }
 }
@@ -1020,7 +1071,7 @@ Kiểm nháp, không giữ nguồn lực.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -1052,7 +1103,7 @@ Gửi tổng thể và giữ tạm nguyên tử.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Điều kiện và ảnh hưởng:** ROAD phải resourcesConfirmed hợp lệ. AIR chỉ đủ bộ dự kiến, chưa cần booking/confirm thực tế; tự submit budget nếu DRAFT/REJECTED. Cả hai kiểm server routing, truck, access, care, deadline, source, resource conflict và giữ tạm toàn bộ trong transaction. Không đợi Specialist feasibility/Docs READY.
+**Điều kiện và ảnh hưởng:** ROAD phải resourcesConfirmed hợp lệ. AIR chỉ đủ bộ dự kiến, chưa cần booking/confirm thực tế; tự submit budget nếu DRAFT/REJECTED. Cả hai kiểm server routing, truck, access, care, deadline, source, resource conflict và giữ tạm toàn bộ trong transaction. Không đợi Specialist feasibility/Docs READY. ETA vượt hạn hoặc lệch ngày nhận tạo cảnh báo để Manager xem xét; không tự đổi pickupDate/deliveryDeadline và không chặn gửi chỉ vì cảnh báo lịch.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -1068,7 +1119,7 @@ Gửi tổng thể và giữ tạm nguyên tử.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -1080,6 +1131,9 @@ Gửi tổng thể và giữ tạm nguyên tử.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -1112,13 +1166,26 @@ Gửi tổng thể và giữ tạm nguyên tử.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "PENDING_APPROVAL",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
-      "eta": "2026-11-10 06:30",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
+      "eta": "2026-11-10 07:00",
       "stops": [
         {
           "stopId": "STOP_001",
@@ -1136,7 +1203,7 @@ Gửi tổng thể và giữ tạm nguyên tử.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -1154,8 +1221,8 @@ Gửi tổng thể và giữ tạm nguyên tử.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -1224,7 +1291,7 @@ Gửi tổng thể và giữ tạm nguyên tử.
             },
             "required": true,
             "arriveAt": "2026-11-10 06:00",
-            "departAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
             "placeVersion": null
           },
           {
@@ -1242,16 +1309,16 @@ Gửi tổng thể và giữ tạm nguyên tử.
               "lng": 106.8
             },
             "required": true,
-            "arriveAt": "2026-11-10 06:30",
-            "departAt": "2026-11-10 06:30",
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
             "placeVersion": null
           }
         ],
         "totalKm": 20,
         "driveMin": 30,
-        "stopMin": 0,
+        "stopMin": 30,
         "flyMin": 0,
-        "eta": "2026-11-10 06:30",
+        "eta": "2026-11-10 07:00",
         "issues": []
       },
       "note": ""
@@ -1304,7 +1371,7 @@ Gửi tổng thể và giữ tạm nguyên tử.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, RESOURCE_CONFLICT, INVALID_CREW, RESOURCES_NOT_CONFIRMED, TRUCK_ROUTE_REQUIRED, PICKUP_CONSENT_REQUIRED, VEHICLE_ACCESS_RESTRICTED, CARE_POLICY_VIOLATION, DELIVERY_DEADLINE_EXCEEDED, FLIGHT_CATALOG_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, RESOURCE_CONFLICT, INVALID_CREW, RESOURCES_NOT_CONFIRMED, TRUCK_ROUTE_REQUIRED, PICKUP_CONSENT_REQUIRED, VEHICLE_ACCESS_RESTRICTED, CARE_POLICY_VIOLATION, FLIGHT_CATALOG_CHANGED, CONTRACT_MODE_MISMATCH`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -1352,7 +1419,7 @@ Rút nháp/chờ duyệt/trả lại.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -1364,6 +1431,9 @@ Rút nháp/chờ duyệt/trả lại.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -1396,6 +1466,17 @@ Rút nháp/chờ duyệt/trả lại.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": null,
     "approvedPlan": null,
@@ -1427,7 +1508,7 @@ Rút nháp/chờ duyệt/trả lại.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -1467,7 +1548,7 @@ Manager xem hai nhánh và bundle cần duyệt.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -1479,6 +1560,9 @@ Manager xem hai nhánh và bundle cần duyệt.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 10,
       "contextVersion": 1,
@@ -1511,13 +1595,26 @@ Manager xem hai nhánh và bundle cần duyệt.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
-      "eta": "2026-11-10 06:30",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
+      "eta": "2026-11-10 07:00",
       "stops": [
         {
           "stopId": "STOP_001",
@@ -1535,7 +1632,7 @@ Manager xem hai nhánh và bundle cần duyệt.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -1553,8 +1650,8 @@ Manager xem hai nhánh và bundle cần duyệt.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -1623,7 +1720,7 @@ Manager xem hai nhánh và bundle cần duyệt.
             },
             "required": true,
             "arriveAt": "2026-11-10 06:00",
-            "departAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
             "placeVersion": null
           },
           {
@@ -1641,16 +1738,16 @@ Manager xem hai nhánh và bundle cần duyệt.
               "lng": 106.8
             },
             "required": true,
-            "arriveAt": "2026-11-10 06:30",
-            "departAt": "2026-11-10 06:30",
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
             "placeVersion": null
           }
         ],
         "totalKm": 20,
         "driveMin": 30,
-        "stopMin": 0,
+        "stopMin": 30,
         "flyMin": 0,
-        "eta": "2026-11-10 06:30",
+        "eta": "2026-11-10 07:00",
         "issues": []
       },
       "note": ""
@@ -1716,7 +1813,7 @@ Duyệt/trả toàn bộ phương án.
 
 **Role:** `LOGISTICS_MANAGER`.
 
-**Điều kiện và ảnh hưởng:** Chỉ đúng pending snapshot. RETURN cần reason>=5, giải phóng hold draft. APPROVE recheck atomic; ROAD cần confirm còn đúng; AIR duyệt cả budget/nguồn lực dự kiến, chưa booking, xóa confirm thực tế cũ. Không yêu cầu Docs READY. Approved cũ chỉ SUPERSEDED khi approve mới thành công.
+**Điều kiện và ảnh hưởng:** Chỉ đúng pending snapshot. RETURN cần reason>=5, giải phóng hold draft. APPROVE recheck atomic; ROAD cần confirm còn đúng; AIR duyệt cả budget/nguồn lực dự kiến, chưa booking, xóa confirm thực tế cũ. Không yêu cầu Docs READY. Approved cũ chỉ SUPERSEDED khi approve mới thành công. Manager kiểm tra toàn bộ tuyến, giờ nhận/đến/rời, thời gian nghỉ, xe/người, lịch bay và hạn giao. Có thể RETURN phương án chưa phù hợp. APPROVE chỉ khi đúng mode hợp đồng và ngày/hạn đã chốt; lý do không vượt qua cam kết. Nếu cần thay cam kết, Manager lấy đồng ý khách qua Flow 1, cập nhật contractVersion, yêu cầu tính/lập/gửi lại phương án.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -1733,7 +1830,7 @@ Duyệt/trả toàn bộ phương án.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -1745,6 +1842,9 @@ Duyệt/trả toàn bộ phương án.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -1777,14 +1877,27 @@ Duyệt/trả toàn bộ phương án.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": null,
     "approvedPlan": {
       "planVersion": 1,
       "status": "APPROVED",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
-      "eta": "2026-11-10 06:30",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
+      "eta": "2026-11-10 07:00",
       "stops": [
         {
           "stopId": "STOP_001",
@@ -1802,7 +1915,7 @@ Duyệt/trả toàn bộ phương án.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -1820,8 +1933,8 @@ Duyệt/trả toàn bộ phương án.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -1890,7 +2003,7 @@ Duyệt/trả toàn bộ phương án.
             },
             "required": true,
             "arriveAt": "2026-11-10 06:00",
-            "departAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
             "placeVersion": null
           },
           {
@@ -1908,16 +2021,16 @@ Duyệt/trả toàn bộ phương án.
               "lng": 106.8
             },
             "required": true,
-            "arriveAt": "2026-11-10 06:30",
-            "departAt": "2026-11-10 06:30",
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
             "placeVersion": null
           }
         ],
         "totalKm": 20,
         "driveMin": 30,
-        "stopMin": 0,
+        "stopMin": 30,
         "flyMin": 0,
-        "eta": "2026-11-10 06:30",
+        "eta": "2026-11-10 07:00",
         "issues": []
       },
       "note": ""
@@ -1979,7 +2092,7 @@ Duyệt/trả toàn bộ phương án.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, RESOURCE_CONFLICT, INVALID_CREW, RESOURCES_NOT_CONFIRMED, TRUCK_ROUTE_REQUIRED, PICKUP_CONSENT_REQUIRED, VEHICLE_ACCESS_RESTRICTED, CARE_POLICY_VIOLATION, DELIVERY_DEADLINE_EXCEEDED, FLIGHT_CATALOG_CHANGED, OLD_BOOKING_ACTIVE`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, RESOURCE_CONFLICT, INVALID_CREW, RESOURCES_NOT_CONFIRMED, TRUCK_ROUTE_REQUIRED, PICKUP_CONSENT_REQUIRED, VEHICLE_ACCESS_RESTRICTED, CARE_POLICY_VIOLATION, FLIGHT_CATALOG_CHANGED, CONTRACT_MODE_MISMATCH, OLD_BOOKING_ACTIVE, DELIVERY_DEADLINE_EXCEEDED, PICKUP_DATE_MISMATCH`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -2027,7 +2140,7 @@ Tạo bản điều chỉnh approved/flight proposal.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -2039,6 +2152,9 @@ Tạo bản điều chỉnh approved/flight proposal.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -2071,13 +2187,26 @@ Tạo bản điều chỉnh approved/flight proposal.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 2,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
-      "eta": "2026-11-10 06:30",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
+      "eta": "2026-11-10 07:00",
       "stops": [
         {
           "stopId": "STOP_001",
@@ -2095,7 +2224,7 @@ Tạo bản điều chỉnh approved/flight proposal.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -2113,8 +2242,8 @@ Tạo bản điều chỉnh approved/flight proposal.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -2146,8 +2275,10 @@ Tạo bản điều chỉnh approved/flight proposal.
       "planVersion": 1,
       "status": "APPROVED",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
-      "eta": "2026-11-10 06:30",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
+      "eta": "2026-11-10 07:00",
       "stops": [
         {
           "stopId": "STOP_001",
@@ -2165,7 +2296,7 @@ Tạo bản điều chỉnh approved/flight proposal.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -2183,8 +2314,8 @@ Tạo bản điều chỉnh approved/flight proposal.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -2253,7 +2384,7 @@ Tạo bản điều chỉnh approved/flight proposal.
             },
             "required": true,
             "arriveAt": "2026-11-10 06:00",
-            "departAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
             "placeVersion": null
           },
           {
@@ -2271,16 +2402,16 @@ Tạo bản điều chỉnh approved/flight proposal.
               "lng": 106.8
             },
             "required": true,
-            "arriveAt": "2026-11-10 06:30",
-            "departAt": "2026-11-10 06:30",
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
             "placeVersion": null
           }
         ],
         "totalKm": 20,
         "driveMin": 30,
-        "stopMin": 0,
+        "stopMin": 30,
         "flyMin": 0,
-        "eta": "2026-11-10 06:30",
+        "eta": "2026-11-10 07:00",
         "issues": []
       },
       "note": ""
@@ -2313,7 +2444,7 @@ Tạo bản điều chỉnh approved/flight proposal.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -2368,7 +2499,7 @@ Ghi nhận booking đã xác nhận bởi đối tác.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -2380,6 +2511,9 @@ Ghi nhận booking đã xác nhận bởi đối tác.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "AIR",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -2412,13 +2546,26 @@ Ghi nhận booking đã xác nhận bởi đối tác.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": null,
     "approvedPlan": {
       "planVersion": 1,
       "status": "APPROVED",
       "mode": "AIR",
+      "pickupAt": "2026-11-10 10:30",
       "plannedDepart": "2026-11-10 11:00",
+      "reviewWarnings": [],
       "eta": "2026-11-10 23:00",
       "stops": [
         {
@@ -2436,7 +2583,7 @@ Ghi nhận booking đã xác nhận bởi đối tác.
             "lng": 106.7009
           },
           "required": true,
-          "arriveAt": "2026-11-10 11:00",
+          "arriveAt": "2026-11-10 10:30",
           "departAt": "2026-11-10 11:00",
           "placeVersion": null
         },
@@ -2632,7 +2779,7 @@ Ghi nhận booking đã xác nhận bởi đối tác.
               "lng": 106.7009
             },
             "required": true,
-            "arriveAt": "2026-11-10 11:00",
+            "arriveAt": "2026-11-10 10:30",
             "departAt": "2026-11-10 11:00",
             "placeVersion": null
           },
@@ -2700,7 +2847,7 @@ Ghi nhận booking đã xác nhận bởi đối tác.
         ],
         "totalKm": 40,
         "driveMin": 60,
-        "stopMin": 330,
+        "stopMin": 360,
         "flyMin": 330,
         "eta": "2026-11-10 23:00",
         "issues": []
@@ -2759,7 +2906,7 @@ Ghi nhận booking đã xác nhận bởi đối tác.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLAN_NOT_APPROVED, FLIGHT_CATALOG_CHANGED, BOOKING_REFERENCE_DUPLICATE`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLAN_NOT_APPROVED, FLIGHT_CATALOG_CHANGED, BOOKING_REFERENCE_DUPLICATE`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -2791,7 +2938,7 @@ Xác nhận bố trí xe/người và tính Ops READY.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Điều kiện và ảnh hưởng:** ROAD DRAFT đủ bộ trước submit, tạo hold nguyên tử; không cần plan approved. AIR sau approved+BOOKED đúng plan, kiểm thực tế. Không dùng chung gate booking AIR cho ROAD; opsReady chỉ valid khi toàn bộ điều kiện vận hành đã đủ.
+**Điều kiện và ảnh hưởng:** ROAD DRAFT đủ bộ trước submit, tạo hold nguyên tử; không cần plan approved. AIR sau approved+BOOKED đúng plan, kiểm thực tế. Không dùng chung gate booking AIR cho ROAD; opsReady chỉ valid khi toàn bộ điều kiện vận hành đã đủ. ETA vượt hạn hoặc lệch ngày nhận tạo cảnh báo để Manager xem xét; không tự đổi pickupDate/deliveryDeadline và không chặn gửi chỉ vì cảnh báo lịch.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -2807,7 +2954,7 @@ Xác nhận bố trí xe/người và tính Ops READY.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -2819,6 +2966,9 @@ Xác nhận bố trí xe/người và tính Ops READY.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -2851,13 +3001,26 @@ Xác nhận bố trí xe/người và tính Ops READY.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
-      "eta": "2026-11-10 06:30",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
+      "eta": "2026-11-10 07:00",
       "stops": [
         {
           "stopId": "STOP_001",
@@ -2875,7 +3038,7 @@ Xác nhận bố trí xe/người và tính Ops READY.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -2893,8 +3056,8 @@ Xác nhận bố trí xe/người và tính Ops READY.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -2963,7 +3126,7 @@ Xác nhận bố trí xe/người và tính Ops READY.
             },
             "required": true,
             "arriveAt": "2026-11-10 06:00",
-            "departAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
             "placeVersion": null
           },
           {
@@ -2981,16 +3144,16 @@ Xác nhận bố trí xe/người và tính Ops READY.
               "lng": 106.8
             },
             "required": true,
-            "arriveAt": "2026-11-10 06:30",
-            "departAt": "2026-11-10 06:30",
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
             "placeVersion": null
           }
         ],
         "totalKm": 20,
         "driveMin": 30,
-        "stopMin": 0,
+        "stopMin": 30,
         "flyMin": 0,
-        "eta": "2026-11-10 06:30",
+        "eta": "2026-11-10 07:00",
         "issues": []
       },
       "note": ""
@@ -3043,7 +3206,7 @@ Xác nhận bố trí xe/người và tính Ops READY.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, RESOURCE_CONFLICT, INVALID_CREW, PLAN_NOT_APPROVED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, RESOURCE_CONFLICT, INVALID_CREW, PLAN_NOT_APPROVED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -3091,7 +3254,7 @@ Kiểm tra/xác nhận lại Ops READY.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -3103,6 +3266,9 @@ Kiểm tra/xác nhận lại Ops READY.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -3135,14 +3301,27 @@ Kiểm tra/xác nhận lại Ops READY.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": null,
     "approvedPlan": {
       "planVersion": 1,
       "status": "APPROVED",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
-      "eta": "2026-11-10 06:30",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
+      "eta": "2026-11-10 07:00",
       "stops": [
         {
           "stopId": "STOP_001",
@@ -3160,7 +3339,7 @@ Kiểm tra/xác nhận lại Ops READY.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -3178,8 +3357,8 @@ Kiểm tra/xác nhận lại Ops READY.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -3248,7 +3427,7 @@ Kiểm tra/xác nhận lại Ops READY.
             },
             "required": true,
             "arriveAt": "2026-11-10 06:00",
-            "departAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
             "placeVersion": null
           },
           {
@@ -3266,16 +3445,16 @@ Kiểm tra/xác nhận lại Ops READY.
               "lng": 106.8
             },
             "required": true,
-            "arriveAt": "2026-11-10 06:30",
-            "departAt": "2026-11-10 06:30",
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
             "placeVersion": null
           }
         ],
         "totalKm": 20,
         "driveMin": 30,
-        "stopMin": 0,
+        "stopMin": 30,
         "flyMin": 0,
-        "eta": "2026-11-10 06:30",
+        "eta": "2026-11-10 07:00",
         "issues": []
       },
       "note": ""
@@ -3337,7 +3516,7 @@ Kiểm tra/xác nhận lại Ops READY.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLAN_NOT_APPROVED, RESOURCES_NOT_CONFIRMED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLAN_NOT_APPROVED, RESOURCES_NOT_CONFIRMED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -3384,7 +3563,7 @@ Xác nhận Docs READY độc lập nhánh điều phối.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -3396,6 +3575,9 @@ Xác nhận Docs READY độc lập nhánh điều phối.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -3428,13 +3610,26 @@ Xác nhận Docs READY độc lập nhánh điều phối.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
-      "eta": "2026-11-10 06:30",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
+      "eta": "2026-11-10 07:00",
       "stops": [
         {
           "stopId": "STOP_001",
@@ -3452,7 +3647,7 @@ Xác nhận Docs READY độc lập nhánh điều phối.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -3470,8 +3665,8 @@ Xác nhận Docs READY độc lập nhánh điều phối.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -3540,7 +3735,7 @@ Xác nhận Docs READY độc lập nhánh điều phối.
             },
             "required": true,
             "arriveAt": "2026-11-10 06:00",
-            "departAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
             "placeVersion": null
           },
           {
@@ -3558,16 +3753,16 @@ Xác nhận Docs READY độc lập nhánh điều phối.
               "lng": 106.8
             },
             "required": true,
-            "arriveAt": "2026-11-10 06:30",
-            "departAt": "2026-11-10 06:30",
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
             "placeVersion": null
           }
         ],
         "totalKm": 20,
         "driveMin": 30,
-        "stopMin": 0,
+        "stopMin": 30,
         "flyMin": 0,
-        "eta": "2026-11-10 06:30",
+        "eta": "2026-11-10 07:00",
         "issues": []
       },
       "note": ""
@@ -3651,7 +3846,7 @@ Xác nhận Docs READY độc lập nhánh điều phối.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -3847,7 +4042,7 @@ Duyệt khởi hành riêng.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -3881,7 +4076,7 @@ Duyệt khởi hành riêng.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `READINESS_CHANGED, STALE_VERSION, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `READINESS_CHANGED, STALE_VERSION, DEPARTURE_APPROVAL_LOCKED, DELIVERY_DEADLINE_EXCEEDED, PICKUP_DATE_MISMATCH, CONTRACT_MODE_MISMATCH`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -3921,7 +4116,7 @@ Lịch sử phương án, quyết định và bằng chứng.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -4003,7 +4198,7 @@ Ghi nhận hủy booking đã được đối tác xác nhận.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -4015,6 +4210,9 @@ Ghi nhận hủy booking đã được đối tác xác nhận.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "AIR",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -4047,13 +4245,26 @@ Ghi nhận hủy booking đã được đối tác xác nhận.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": null,
     "approvedPlan": {
       "planVersion": 1,
       "status": "APPROVED",
       "mode": "AIR",
+      "pickupAt": "2026-11-10 10:30",
       "plannedDepart": "2026-11-10 11:00",
+      "reviewWarnings": [],
       "eta": "2026-11-10 23:00",
       "stops": [
         {
@@ -4071,7 +4282,7 @@ Ghi nhận hủy booking đã được đối tác xác nhận.
             "lng": 106.7009
           },
           "required": true,
-          "arriveAt": "2026-11-10 11:00",
+          "arriveAt": "2026-11-10 10:30",
           "departAt": "2026-11-10 11:00",
           "placeVersion": null
         },
@@ -4267,7 +4478,7 @@ Ghi nhận hủy booking đã được đối tác xác nhận.
               "lng": 106.7009
             },
             "required": true,
-            "arriveAt": "2026-11-10 11:00",
+            "arriveAt": "2026-11-10 10:30",
             "departAt": "2026-11-10 11:00",
             "placeVersion": null
           },
@@ -4335,7 +4546,7 @@ Ghi nhận hủy booking đã được đối tác xác nhận.
         ],
         "totalKm": 40,
         "driveMin": 60,
-        "stopMin": 330,
+        "stopMin": 360,
         "flyMin": 330,
         "eta": "2026-11-10 23:00",
         "issues": []
@@ -4394,7 +4605,7 @@ Ghi nhận hủy booking đã được đối tác xác nhận.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, OLD_BOOKING_ACTIVE`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, OLD_BOOKING_ACTIVE`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -4426,7 +4637,7 @@ Danh sách chuyến được giao và KPI planning.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Điều kiện và ảnh hưởng:** Danh sách chuyến được giao và KPI planning
+**Điều kiện và ảnh hưởng:** Danh sách chuyến được giao và KPI planning mode/modeSource/contractVersion lấy từ hợp đồng có hiệu lực; pickupDate là ngày nhận đã thống nhất với khách. Không chọn mode từ Flow 3.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -4435,7 +4646,7 @@ Danh sách chuyến được giao và KPI planning.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -4446,6 +4657,9 @@ Danh sách chuyến được giao và KPI planning.
       "tripId": "TRIP_001",
       "requestId": "REQUEST_001",
       "mode": "ROAD",
+      "contractVersion": 1,
+      "modeSource": "CONTRACT",
+      "pickupDate": "2026-11-10",
       "status": "PLANNING",
       "planningState": "AWAITING_ROUTE",
       "plannedDepart": null,
@@ -4500,7 +4714,7 @@ Chi tiết chuyến, điểm nhận/giao, ngựa và readiness.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Điều kiện và ảnh hưởng:** Chi tiết chuyến, điểm nhận/giao, ngựa và readiness
+**Điều kiện và ảnh hưởng:** Chi tiết chuyến, điểm nhận/giao, ngựa và readiness mode/modeSource/contractVersion lấy từ hợp đồng có hiệu lực; pickupDate là ngày nhận đã thống nhất với khách. Không chọn mode từ Flow 3.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -4508,7 +4722,7 @@ Chi tiết chuyến, điểm nhận/giao, ngựa và readiness.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -4520,6 +4734,9 @@ Chi tiết chuyến, điểm nhận/giao, ngựa và readiness.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 10,
       "contextVersion": 1,
@@ -4552,13 +4769,26 @@ Chi tiết chuyến, điểm nhận/giao, ngựa và readiness.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
-      "eta": "2026-11-10 06:30",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
+      "eta": "2026-11-10 07:00",
       "stops": [
         {
           "stopId": "STOP_001",
@@ -4576,7 +4806,7 @@ Chi tiết chuyến, điểm nhận/giao, ngựa và readiness.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -4594,8 +4824,8 @@ Chi tiết chuyến, điểm nhận/giao, ngựa và readiness.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -4664,7 +4894,7 @@ Chi tiết chuyến, điểm nhận/giao, ngựa và readiness.
             },
             "required": true,
             "arriveAt": "2026-11-10 06:00",
-            "departAt": "2026-11-10 06:00",
+            "departAt": "2026-11-10 06:30",
             "placeVersion": null
           },
           {
@@ -4682,16 +4912,16 @@ Chi tiết chuyến, điểm nhận/giao, ngựa và readiness.
               "lng": 106.8
             },
             "required": true,
-            "arriveAt": "2026-11-10 06:30",
-            "departAt": "2026-11-10 06:30",
+            "arriveAt": "2026-11-10 07:00",
+            "departAt": "2026-11-10 07:00",
             "placeVersion": null
           }
         ],
         "totalKm": 20,
         "driveMin": 30,
-        "stopMin": 0,
+        "stopMin": 30,
         "flyMin": 0,
-        "eta": "2026-11-10 06:30",
+        "eta": "2026-11-10 07:00",
         "issues": []
       },
       "note": ""
@@ -4757,7 +4987,7 @@ Tính tuyến đường bộ tham khảo.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Điều kiện và ảnh hưởng:** Resolve current saved stops từ server; provider URL/key server, không SSRF URL client. Tính geometry/times theo policy; OSRM không truck verification. Lưu routing evidence tăng aggregate version; client refetch context. Dữ liệu demo chỉ Trip demo được bật.
+**Điều kiện và ảnh hưởng:** Resolve current saved stops từ server; provider URL/key server, không SSRF URL client. Tính geometry/times theo policy; OSRM không truck verification. Lưu routing evidence tăng aggregate version; client refetch context. Dữ liệu demo chỉ Trip demo được bật. ORIGIN là effectivePickup, không phải bãi xe; giờ nhận pickupAt theo ngày khách chọn. Không tự thêm điểm y tế/cách ly khi không có yêu cầu thực tế.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -4773,7 +5003,7 @@ Tính tuyến đường bộ tham khảo.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -4823,7 +5053,7 @@ Tính tuyến đường bộ tham khảo.
         },
         "required": true,
         "arriveAt": "2026-11-10 06:00",
-        "departAt": "2026-11-10 06:00",
+        "departAt": "2026-11-10 06:30",
         "placeVersion": null
       },
       {
@@ -4841,16 +5071,16 @@ Tính tuyến đường bộ tham khảo.
           "lng": 106.8
         },
         "required": true,
-        "arriveAt": "2026-11-10 06:30",
-        "departAt": "2026-11-10 06:30",
+        "arriveAt": "2026-11-10 07:00",
+        "departAt": "2026-11-10 07:00",
         "placeVersion": null
       }
     ],
     "totalKm": 20,
     "driveMin": 30,
-    "stopMin": 0,
+    "stopMin": 30,
     "flyMin": 0,
-    "eta": "2026-11-10 06:30",
+    "eta": "2026-11-10 07:00",
     "issues": []
   }
 }
@@ -4864,7 +5094,7 @@ Tính tuyến đường bộ tham khảo.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, ROUTING_REQUIRED, CARE_POLICY_VIOLATION`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, ROUTING_REQUIRED, CARE_POLICY_VIOLATION`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -4898,7 +5128,7 @@ Kiểm tuyến theo kích thước/tải trọng xe.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Điều kiện và ảnh hưởng:** HERE_TRUCK server-side từng ROAD với profile đúng xe; validate gross/current/axle/spec. Critical restriction hoặc snap>250m chặn. Lưu provider result/dependency, không tin client signature/ok; provider unavailable 503 không fallback OSRM thành verified. Refetch version sau thành công.
+**Điều kiện và ảnh hưởng:** HERE_TRUCK server-side từng ROAD với profile đúng xe; validate gross/current/axle/spec. Critical restriction hoặc snap>250m chặn. Lưu provider result/dependency, không tin client signature/ok; provider unavailable 503 không fallback OSRM thành verified. Refetch version sau thành công. ORIGIN là effectivePickup, không phải bãi xe; giờ nhận pickupAt theo ngày khách chọn. Không tự thêm điểm y tế/cách ly khi không có yêu cầu thực tế.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -4914,7 +5144,7 @@ Kiểm tuyến theo kích thước/tải trọng xe.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -4964,7 +5194,7 @@ Kiểm tuyến theo kích thước/tải trọng xe.
         },
         "required": true,
         "arriveAt": "2026-11-10 06:00",
-        "departAt": "2026-11-10 06:00",
+        "departAt": "2026-11-10 06:30",
         "placeVersion": null
       },
       {
@@ -4982,16 +5212,16 @@ Kiểm tuyến theo kích thước/tải trọng xe.
           "lng": 106.8
         },
         "required": true,
-        "arriveAt": "2026-11-10 06:30",
-        "departAt": "2026-11-10 06:30",
+        "arriveAt": "2026-11-10 07:00",
+        "departAt": "2026-11-10 07:00",
         "placeVersion": null
       }
     ],
     "totalKm": 20,
     "driveMin": 30,
-    "stopMin": 0,
+    "stopMin": 30,
     "flyMin": 0,
-    "eta": "2026-11-10 06:30",
+    "eta": "2026-11-10 07:00",
     "issues": []
   }
 }
@@ -5005,7 +5235,7 @@ Kiểm tuyến theo kích thước/tải trọng xe.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, TRUCK_ROUTE_REQUIRED, VEHICLE_ACCESS_RESTRICTED, CARE_POLICY_VIOLATION`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, TRUCK_ROUTE_REQUIRED, VEHICLE_ACCESS_RESTRICTED, CARE_POLICY_VIOLATION`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -5048,7 +5278,7 @@ Lọc xe theo chặng/sức chứa/quốc gia/lối vào.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -5133,7 +5363,7 @@ Ghi xác minh xe có vào địa chỉ nhận.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -5145,6 +5375,9 @@ Ghi xác minh xe có vào địa chỉ nhận.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -5177,12 +5410,25 @@ Ghi xác minh xe có vào địa chỉ nhận.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
       "eta": null,
       "stops": [
         {
@@ -5201,7 +5447,7 @@ Ghi xác minh xe có vào địa chỉ nhận.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -5219,8 +5465,8 @@ Ghi xác minh xe có vào địa chỉ nhận.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -5286,7 +5532,7 @@ Ghi xác minh xe có vào địa chỉ nhận.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PICKUP_CONSENT_REQUIRED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PICKUP_CONSENT_REQUIRED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -5318,7 +5564,7 @@ Tìm cơ sở tiếp nhận thay thế.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Điều kiện và ảnh hưởng:** Cùng country active QUARANTINE, parking/loading/waterFeed/capacity và mở toàn khoảng handover; km đường thẳng gắn nhãn. Không đặt cơ sở realtime.
+**Điều kiện và ảnh hưởng:** Điểm tập kết phù hợp cùng country, active MEETING_POINT/REST hoặc cơ sở QUARANTINE thực sự có chức năng tiếp nhận; không bắt buộc y tế/cách ly. Có parking/loading/waterFeed/capacity và mở toàn khoảng handover; km đường thẳng gắn nhãn. Không đặt cơ sở realtime.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -5326,7 +5572,7 @@ Tìm cơ sở tiếp nhận thay thế.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -5346,7 +5592,7 @@ Tìm cơ sở tiếp nhận thay thế.
           "lng": 106.7009
         },
         "functions": [
-          "QUARANTINE",
+          "MEETING_POINT",
           "REST"
         ],
         "hours": "24/7",
@@ -5435,11 +5681,14 @@ Tìm cơ sở tiếp nhận thay thế.
   "placeVersion": 1,
   "reason": "Lối vào hẹp, khách đưa ngựa đến cơ sở đã liên hệ",
   "handoverAt": "2026-11-10 06:00",
-  "facilityConfirmed": true
+  "facilityConfirmed": true,
+  "scheduleImpact": "Đã kiểm tra và xác nhận phương án",
+  "costImpactVnd": 0,
+  "customerResponsibilities": "Đã kiểm tra và xác nhận phương án"
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -5451,6 +5700,9 @@ Tìm cơ sở tiếp nhận thay thế.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -5483,12 +5735,25 @@ Tìm cơ sở tiếp nhận thay thế.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
       "eta": null,
       "stops": [
         {
@@ -5507,7 +5772,7 @@ Tìm cơ sở tiếp nhận thay thế.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -5525,8 +5790,8 @@ Tìm cơ sở tiếp nhận thay thế.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -5579,20 +5844,21 @@ Tìm cơ sở tiếp nhận thay thế.
     },
     "pickupRelocation": {
       "relocationId": "MEETING_001",
+      "proposalVersion": 1,
       "status": "PROPOSED",
       "placeSnapshot": {
         "id": "PLACE_001",
         "version": 1,
-        "name": "Cơ sở nghỉ chăm sóc ngựa",
+        "name": "Điểm tập kết đã đề xuất",
         "country": "VN",
         "province": "Thông tin đã xác minh",
-        "address": "Thông tin đã xác minh",
+        "address": "Địa chỉ điểm tập kết phù hợp",
         "geo": {
-          "lat": 10.7769,
-          "lng": 106.7009
+          "lat": 10.78,
+          "lng": 106.71
         },
         "functions": [
-          "QUARANTINE",
+          "MEETING_POINT",
           "REST"
         ],
         "hours": "24/7",
@@ -5619,11 +5885,17 @@ Tìm cơ sở tiếp nhận thay thế.
       },
       "reason": "Đã kiểm tra và xác nhận phương án",
       "handoverAt": "2026-11-10 06:00",
+      "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+      "costImpactVnd": 0,
+      "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+      "sentAt": null,
+      "sentBy": null,
       "customerConsent": null,
+      "customerReply": null,
       "valid": true,
       "by": {
-        "userId": "USER_001",
-        "name": "Thông tin đã xác minh"
+        "userId": "USER_006",
+        "name": "Điều phối viên"
       },
       "at": "2026-11-10 06:00"
     },
@@ -5641,7 +5913,7 @@ Tìm cơ sở tiếp nhận thay thế.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLACE_CHANGED, PICKUP_CONSENT_REQUIRED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLACE_CHANGED, PICKUP_CONSENT_REQUIRED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -5673,7 +5945,7 @@ Manager xét đề xuất điểm nhận.
 
 **Role:** `LOGISTICS_MANAGER`.
 
-**Điều kiện và ảnh hưởng:** APPROVE PROPOSED→MANAGER_APPROVED sau recheck; RETURN PROPOSED/MANAGER_APPROVED→REJECTED reason>=5. Không tự coi khách đồng ý hoặc đổi ORIGIN.
+**Điều kiện và ảnh hưởng:** APPROVE PROPOSED→MANAGER_APPROVED sau recheck; RETURN PROPOSED/MANAGER_APPROVED→RETURNED reason>=5. Không tự coi khách đồng ý hoặc đổi ORIGIN.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -5690,7 +5962,7 @@ Manager xét đề xuất điểm nhận.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -5702,6 +5974,9 @@ Manager xét đề xuất điểm nhận.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -5734,12 +6009,25 @@ Manager xét đề xuất điểm nhận.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
       "eta": null,
       "stops": [
         {
@@ -5758,7 +6046,7 @@ Manager xét đề xuất điểm nhận.
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
+          "departAt": "2026-11-10 06:30",
           "placeVersion": null
         },
         {
@@ -5776,8 +6064,8 @@ Manager xét đề xuất điểm nhận.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -5830,20 +6118,21 @@ Manager xét đề xuất điểm nhận.
     },
     "pickupRelocation": {
       "relocationId": "MEETING_001",
+      "proposalVersion": 1,
       "status": "MANAGER_APPROVED",
       "placeSnapshot": {
         "id": "PLACE_001",
         "version": 1,
-        "name": "Cơ sở nghỉ chăm sóc ngựa",
+        "name": "Điểm tập kết đã đề xuất",
         "country": "VN",
         "province": "Thông tin đã xác minh",
-        "address": "Thông tin đã xác minh",
+        "address": "Địa chỉ điểm tập kết phù hợp",
         "geo": {
-          "lat": 10.7769,
-          "lng": 106.7009
+          "lat": 10.78,
+          "lng": 106.71
         },
         "functions": [
-          "QUARANTINE",
+          "MEETING_POINT",
           "REST"
         ],
         "hours": "24/7",
@@ -5870,11 +6159,17 @@ Manager xét đề xuất điểm nhận.
       },
       "reason": "Đã kiểm tra và xác nhận phương án",
       "handoverAt": "2026-11-10 06:00",
+      "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+      "costImpactVnd": 0,
+      "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+      "sentAt": null,
+      "sentBy": null,
       "customerConsent": null,
+      "customerReply": null,
       "valid": true,
       "by": {
-        "userId": "USER_001",
-        "name": "Thông tin đã xác minh"
+        "userId": "USER_006",
+        "name": "Điều phối viên"
       },
       "at": "2026-11-10 06:00"
     },
@@ -5892,7 +6187,7 @@ Manager xét đề xuất điểm nhận.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLACE_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLACE_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -5918,13 +6213,160 @@ Manager xét đề xuất điểm nhận.
 }
 ```
 
-## F3-J32 — POST /manager/trips/{tripId}/pickup-relocation/customer-consent
+## F3-J32 — POST /customer/trips/{tripId}/pickup-relocation/decision
 
-Ghi nhận khách đã đồng ý thực tế.
+Khách hàng đồng ý hoặc từ chối điểm nhận mới.
+
+**Role:** `CUSTOMER`.
+
+**Điều kiện và ảnh hưởng:** Chỉ chủ đơn, đúng snapshot proposalVersion đang AWAITING_CUSTOMER đã được Manager gửi. ACCEPT→CUSTOMER_CONFIRMED: ghi actor khách từ JWT, cập nhật ORIGIN nháp theo snapshot, giữ pickup gốc/hợp đồng, tăng trip/context/plan version và vô hiệu routing/confirm/Ops READY; tính lại tuyến. REJECT cần note>=5→CUSTOMER_REJECTED, giữ nguyên ORIGIN cũ và báo Manager/Coordinator đề xuất lại. Manager/Coordinator không xác nhận thay khách. Không trả Context nội bộ cho khách.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+| header | `Idempotency-Key` | Có | `{"type": "string", "example": "b141a4d2-3221-4a68-9b0e-1bac88cc1f0a", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"}` |
+
+**Request JSON**
+
+```json
+{
+  "relocationId": "MEETING_001",
+  "proposalVersion": 1,
+  "decision": "ACCEPT",
+  "note": "",
+  "acknowledged": true
+}
+```
+
+**Response 200 — accepted — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "relocationId": "MEETING_001",
+    "proposalVersion": 1,
+    "status": "CUSTOMER_CONFIRMED",
+    "originalPickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "proposedPickup": {
+      "name": "Điểm tập kết đã đề xuất",
+      "address": "Địa chỉ điểm tập kết phù hợp",
+      "country": "VN",
+      "geo": {
+        "lat": 10.78,
+        "lng": 106.71
+      },
+      "access": null
+    },
+    "handoverAt": "2026-11-10 06:00",
+    "reason": "Đã kiểm tra và xác nhận phương án",
+    "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+    "costImpactVnd": 0,
+    "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+    "sentAt": "2026-11-10 06:00",
+    "replyAt": "2026-11-10 06:00",
+    "customerReply": null
+  }
+}
+```
+
+**Response 200 — rejected — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "relocationId": "MEETING_001",
+    "proposalVersion": 1,
+    "status": "CUSTOMER_REJECTED",
+    "originalPickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "proposedPickup": {
+      "name": "Điểm tập kết đã đề xuất",
+      "address": "Địa chỉ điểm tập kết phù hợp",
+      "country": "VN",
+      "geo": {
+        "lat": 10.78,
+        "lng": 106.71
+      },
+      "access": null
+    },
+    "handoverAt": "2026-11-10 06:00",
+    "reason": "Đã kiểm tra và xác nhận phương án",
+    "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+    "costImpactVnd": 0,
+    "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+    "sentAt": "2026-11-10 06:00",
+    "replyAt": "2026-11-10 06:00",
+    "customerReply": "Điểm đề xuất quá xa, vui lòng đề xuất điểm khác"
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_PROPOSAL, PLACE_CHANGED, PICKUP_CONSENT_REQUIRED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_PROPOSAL",
+  "errorCode": "STALE_PROPOSAL",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_PROPOSAL",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J56 — POST /manager/trips/{tripId}/pickup-relocation/send
+
+Manager gửi đề xuất điểm nhận cho khách.
 
 **Role:** `LOGISTICS_MANAGER`.
 
-**Điều kiện và ảnh hưởng:** Chỉ MANAGER_APPROVED đúng relocation/version/vehicle/profile/place/handoverAt. Channel PHONE/EMAIL/WRITTEN, note>=10, acknowledged; chuyển CUSTOMER_CONFIRMED, ORIGIN draft mới dùng place; giữ pickup gốc, invalidate routing/confirm, notify Coordinator. Không chỉ gửi thông báo là consent.
+**Điều kiện và ảnh hưởng:** Chỉ MANAGER_APPROVED và đúng proposalVersion; recheck nơi/xe/giờ bàn giao. Đóng băng địa chỉ, tọa độ, lý do, giờ, ảnh hưởng lịch/chi phí/trách nhiệm; chuyển AWAITING_CUSTOMER, lưu sentAt/sentBy và thông báo chủ đơn. Gửi đi không đổi ORIGIN hoặc coi là khách đồng ý. Chi phí phát sinh phải xử lý hợp đồng Flow 1, không thu tiền trong Flow 3.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -5937,14 +6379,11 @@ Ghi nhận khách đã đồng ý thực tế.
 {
   "expectedVersion": 10,
   "relocationId": "MEETING_001",
-  "placeVersion": 1,
-  "channel": "PHONE",
-  "note": "Khách đồng ý tự đưa ngựa đến điểm tiếp nhận lúc đã hẹn",
-  "acknowledged": true
+  "proposalVersion": 1
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -5956,10 +6395,13 @@ Ghi nhận khách đã đồng ý thực tế.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
-      "planVersion": 2
+      "planVersion": 1
     },
     "deployment": "CONFIRMED",
     "specialistId": "USER_006",
@@ -5988,32 +6430,45 @@ Ghi nhận khách đã đồng ý thực tế.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
-      "planVersion": 2,
+      "planVersion": 1,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
       "eta": null,
       "stops": [
         {
           "stopId": "STOP_001",
           "clientKey": "stop-origin",
           "type": "ORIGIN",
-          "placeId": "PLACE_001",
+          "placeId": null,
           "purposes": [],
           "dwellMin": 0,
           "unload": false,
           "careNote": "",
-          "name": "Điểm tiếp nhận đã thống nhất",
+          "name": "Thông tin đã xác minh",
           "geo": {
             "lat": 10.7769,
             "lng": 106.7009
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
-          "placeVersion": 1
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": null
         },
         {
           "stopId": "STOP_002",
@@ -6030,8 +6485,8 @@ Ghi nhận khách đã đồng ý thực tế.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -6084,20 +6539,21 @@ Ghi nhận khách đã đồng ý thực tế.
     },
     "pickupRelocation": {
       "relocationId": "MEETING_001",
-      "status": "CUSTOMER_CONFIRMED",
+      "proposalVersion": 1,
+      "status": "AWAITING_CUSTOMER",
       "placeSnapshot": {
         "id": "PLACE_001",
         "version": 1,
-        "name": "Cơ sở nghỉ chăm sóc ngựa",
+        "name": "Điểm tập kết đã đề xuất",
         "country": "VN",
         "province": "Thông tin đã xác minh",
-        "address": "Thông tin đã xác minh",
+        "address": "Địa chỉ điểm tập kết phù hợp",
         "geo": {
-          "lat": 10.7769,
-          "lng": 106.7009
+          "lat": 10.78,
+          "lng": 106.71
         },
         "functions": [
-          "QUARANTINE",
+          "MEETING_POINT",
           "REST"
         ],
         "hours": "24/7",
@@ -6124,19 +6580,20 @@ Ghi nhận khách đã đồng ý thực tế.
       },
       "reason": "Đã kiểm tra và xác nhận phương án",
       "handoverAt": "2026-11-10 06:00",
-      "customerConsent": {
-        "channel": "PHONE",
-        "note": "Khách đồng ý tự đưa ngựa đến điểm tiếp nhận lúc đã hẹn",
-        "recordedBy": {
-          "userId": "USER_001",
-          "name": "Thông tin đã xác minh"
-        },
-        "at": "2026-11-10 06:00"
+      "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+      "costImpactVnd": 0,
+      "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+      "sentAt": "2026-11-10 06:00",
+      "sentBy": {
+        "userId": "USER_004",
+        "name": "Quản lý"
       },
+      "customerConsent": null,
+      "customerReply": null,
       "valid": true,
       "by": {
-        "userId": "USER_001",
-        "name": "Thông tin đã xác minh"
+        "userId": "USER_006",
+        "name": "Điều phối viên"
       },
       "at": "2026-11-10 06:00"
     },
@@ -6154,7 +6611,99 @@ Ghi nhận khách đã đồng ý thực tế.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLACE_CHANGED, PICKUP_CONSENT_REQUIRED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, PLACE_CHANGED, STALE_PROPOSAL`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 500:** `INTERNAL_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 501:** `FEATURE_NOT_SUPPORTED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Mẫu lỗi nghiệp vụ (409)**
+
+```json
+{
+  "success": false,
+  "message": "Yêu cầu chưa đủ điều kiện: STALE_VERSION",
+  "errorCode": "STALE_VERSION",
+  "data": null,
+  "blockers": [
+    {
+      "code": "STALE_VERSION",
+      "field": "planning",
+      "message": "Tải lại dữ liệu và xử lý điều kiện trước khi gửi lại"
+    }
+  ]
+}
+```
+
+## F3-J57 — GET /customer/trips/{tripId}/pickup-relocation
+
+Khách xem đề xuất điểm nhận được Manager gửi.
+
+**Role:** `CUSTOMER`.
+
+**Điều kiện và ảnh hưởng:** Chỉ chủ đơn; chỉ snapshot đã gửi cho khách. Không lộ bản đề xuất nội bộ/chưa gửi, chi phí vận hành, nhân sự hay plan nội bộ. Ngoài scope hoặc chưa có bản gửi trả 404.
+
+| Vị trí | Tên | Bắt buộc | Schema |
+|---|---|---|---|
+| path | `tripId` | Có | `{"type": "string", "example": "TRIP_001", "pattern": "^TRIP_\\d{3,}$", "maxLength": 50}` |
+
+**Request body:** Không gửi.
+
+**Response 200 — success — mẫu mục tiêu**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "tripId": "TRIP_001",
+    "requestId": "REQUEST_001",
+    "relocationId": "MEETING_001",
+    "proposalVersion": 1,
+    "status": "AWAITING_CUSTOMER",
+    "originalPickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "proposedPickup": {
+      "name": "Điểm tập kết đã đề xuất",
+      "address": "Địa chỉ điểm tập kết phù hợp",
+      "country": "VN",
+      "geo": {
+        "lat": 10.78,
+        "lng": 106.71
+      },
+      "access": null
+    },
+    "handoverAt": "2026-11-10 06:00",
+    "reason": "Đã kiểm tra và xác nhận phương án",
+    "scheduleImpact": "Đổi nơi nhận, vẫn nhận trong ngày 10/11/2026; tính lại giờ đến từng điểm",
+    "costImpactVnd": 0,
+    "customerResponsibilities": "Khách tự đưa ngựa đến điểm tập kết và bàn giao vào giờ đã thống nhất",
+    "sentAt": "2026-11-10 06:00",
+    "replyAt": null,
+    "customerReply": null
+  }
+}
+```
+
+**Response 400:** `VALIDATION_ERROR`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 401:** `UNAUTHENTICATED`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 403:** `FORBIDDEN`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
+
+**Response 409:** `STALE_VERSION`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -6186,7 +6735,7 @@ Mở lại đề xuất điểm nhận đã chốt.
 
 **Role:** `FLEET_ROUTE_COORDINATOR`.
 
-**Điều kiện và ảnh hưởng:** Chỉ draft chỉnh sửa; archive consent, clear access/relocation/routing/confirm hiện hành; giữ lịch sử, quay điểm gốc cho tới consent mới. Không overwrite thỏa thuận cũ.
+**Điều kiện và ảnh hưởng:** Chỉ draft chỉnh sửa; archive snapshot/consent trong lịch sử, tạo proposalVersion mới và vô hiệu routing/confirm liên quan; giữ điểm nhận có hiệu lực hiện tại cho tới khi khách chấp nhận đề xuất mới. Không overwrite thỏa thuận cũ.
 
 | Vị trí | Tên | Bắt buộc | Schema |
 |---|---|---|---|
@@ -6201,7 +6750,7 @@ Mở lại đề xuất điểm nhận đã chốt.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -6213,6 +6762,9 @@ Mở lại đề xuất điểm nhận đã chốt.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "ROAD",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -6245,32 +6797,45 @@ Mở lại đề xuất điểm nhận đã chốt.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Điểm tập kết đã đề xuất",
+      "address": "Địa chỉ điểm tập kết phù hợp",
+      "country": "VN",
+      "geo": {
+        "lat": 10.78,
+        "lng": 106.71
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": "MEETING_001",
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 2,
       "status": "DRAFT",
       "mode": "ROAD",
-      "plannedDepart": "2026-11-10 06:00",
+      "pickupAt": "2026-11-10 06:00",
+      "plannedDepart": "2026-11-10 06:30",
+      "reviewWarnings": [],
       "eta": null,
       "stops": [
         {
           "stopId": "STOP_001",
           "clientKey": "stop-origin",
           "type": "ORIGIN",
-          "placeId": null,
+          "placeId": "PLACE_001",
           "purposes": [],
           "dwellMin": 0,
           "unload": false,
           "careNote": "",
-          "name": "Thông tin đã xác minh",
+          "name": "Điểm tập kết đã đề xuất",
           "geo": {
-            "lat": 10.7769,
-            "lng": 106.7009
+            "lat": 10.78,
+            "lng": 106.71
           },
           "required": true,
           "arriveAt": "2026-11-10 06:00",
-          "departAt": "2026-11-10 06:00",
-          "placeVersion": null
+          "departAt": "2026-11-10 06:30",
+          "placeVersion": 1
         },
         {
           "stopId": "STOP_002",
@@ -6287,8 +6852,8 @@ Mở lại đề xuất điểm nhận đã chốt.
             "lng": 106.8
           },
           "required": true,
-          "arriveAt": "2026-11-10 06:30",
-          "departAt": "2026-11-10 06:30",
+          "arriveAt": "2026-11-10 07:00",
+          "departAt": "2026-11-10 07:00",
           "placeVersion": null
         }
       ],
@@ -6345,7 +6910,7 @@ Mở lại đề xuất điểm nhận đã chốt.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -6381,7 +6946,7 @@ Danh sách bên dịch vụ bay.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -6462,7 +7027,7 @@ Thêm bên dịch vụ.
 }
 ```
 
-**Response 201 — mẫu mục tiêu**
+**Response 201 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -6543,7 +7108,7 @@ Sửa thông tin bên dịch vụ.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -6620,7 +7185,7 @@ Kích hoạt/ngừng bên dịch vụ.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -6691,7 +7256,7 @@ Xóa đối tác chưa từng tham chiếu.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -6764,7 +7329,7 @@ Chọn dịch vụ đúng partner/mã vào draft.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -6776,6 +7341,9 @@ Chọn dịch vụ đúng partner/mã vào draft.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "AIR",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -6808,12 +7376,25 @@ Chọn dịch vụ đúng partner/mã vào draft.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 2,
       "status": "DRAFT",
       "mode": "AIR",
+      "pickupAt": "2026-11-10 10:30",
       "plannedDepart": "2026-11-10 11:00",
+      "reviewWarnings": [],
       "eta": null,
       "stops": [
         {
@@ -6831,7 +7412,7 @@ Chọn dịch vụ đúng partner/mã vào draft.
             "lng": 106.7009
           },
           "required": true,
-          "arriveAt": "2026-11-10 11:00",
+          "arriveAt": "2026-11-10 10:30",
           "departAt": "2026-11-10 11:00",
           "placeVersion": null
         },
@@ -7008,7 +7589,7 @@ Chọn dịch vụ đúng partner/mã vào draft.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, FLIGHT_PROVIDER_MISMATCH, FLIGHT_CATALOG_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, FLIGHT_PROVIDER_MISMATCH, FLIGHT_CATALOG_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -7056,7 +7637,7 @@ Gửi riêng chi phí dịch vụ bay.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -7068,6 +7649,9 @@ Gửi riêng chi phí dịch vụ bay.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "AIR",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -7100,12 +7684,25 @@ Gửi riêng chi phí dịch vụ bay.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "DRAFT",
       "mode": "AIR",
+      "pickupAt": "2026-11-10 10:30",
       "plannedDepart": "2026-11-10 11:00",
+      "reviewWarnings": [],
       "eta": "2026-11-10 23:00",
       "stops": [
         {
@@ -7123,7 +7720,7 @@ Gửi riêng chi phí dịch vụ bay.
             "lng": 106.7009
           },
           "required": true,
-          "arriveAt": "2026-11-10 11:00",
+          "arriveAt": "2026-11-10 10:30",
           "departAt": "2026-11-10 11:00",
           "placeVersion": null
         },
@@ -7319,7 +7916,7 @@ Gửi riêng chi phí dịch vụ bay.
               "lng": 106.7009
             },
             "required": true,
-            "arriveAt": "2026-11-10 11:00",
+            "arriveAt": "2026-11-10 10:30",
             "departAt": "2026-11-10 11:00",
             "placeVersion": null
           },
@@ -7387,7 +7984,7 @@ Gửi riêng chi phí dịch vụ bay.
         ],
         "totalKm": 40,
         "driveMin": 60,
-        "stopMin": 330,
+        "stopMin": 360,
         "flyMin": 330,
         "eta": "2026-11-10 23:00",
         "issues": []
@@ -7432,7 +8029,7 @@ Gửi riêng chi phí dịch vụ bay.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, FLIGHT_CATALOG_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, FLIGHT_CATALOG_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -7481,7 +8078,7 @@ Manager xét ngân sách bay riêng.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -7493,6 +8090,9 @@ Manager xét ngân sách bay riêng.
     "contractId": "CONTRACT_001",
     "status": "PLANNING",
     "mode": "AIR",
+    "contractVersion": 1,
+    "modeSource": "CONTRACT",
+    "pickupDate": "2026-11-10",
     "binding": {
       "version": 11,
       "contextVersion": 1,
@@ -7525,12 +8125,25 @@ Manager xét ngân sách bay riêng.
       },
       "access": null
     },
+    "effectivePickup": {
+      "name": "Trại nhận ngựa",
+      "address": "Địa chỉ nhận ngựa theo hợp đồng",
+      "country": "VN",
+      "geo": {
+        "lat": 10.7769,
+        "lng": 106.7009
+      },
+      "access": null
+    },
+    "effectivePickupRelocationId": null,
     "deliveryDeadline": "2026-11-12 18:00",
     "draft": {
       "planVersion": 1,
       "status": "DRAFT",
       "mode": "AIR",
+      "pickupAt": "2026-11-10 10:30",
       "plannedDepart": "2026-11-10 11:00",
+      "reviewWarnings": [],
       "eta": "2026-11-10 23:00",
       "stops": [
         {
@@ -7548,7 +8161,7 @@ Manager xét ngân sách bay riêng.
             "lng": 106.7009
           },
           "required": true,
-          "arriveAt": "2026-11-10 11:00",
+          "arriveAt": "2026-11-10 10:30",
           "departAt": "2026-11-10 11:00",
           "placeVersion": null
         },
@@ -7744,7 +8357,7 @@ Manager xét ngân sách bay riêng.
               "lng": 106.7009
             },
             "required": true,
-            "arriveAt": "2026-11-10 11:00",
+            "arriveAt": "2026-11-10 10:30",
             "departAt": "2026-11-10 11:00",
             "placeVersion": null
           },
@@ -7812,7 +8425,7 @@ Manager xét ngân sách bay riêng.
         ],
         "totalKm": 40,
         "driveMin": 60,
-        "stopMin": 330,
+        "stopMin": 360,
         "flyMin": 330,
         "eta": "2026-11-10 23:00",
         "issues": []
@@ -7857,7 +8470,7 @@ Manager xét ngân sách bay riêng.
 
 **Response 404:** `NOT_FOUND`; schema `Error`, JSON mẫu trong OpenAPI.
 
-**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, FLIGHT_CATALOG_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
+**Response 409:** `STALE_VERSION, DEPLOYMENT_REQUIRED, CONTRACT_MODE_REQUIRED, PLAN_LOCKED, DEPARTURE_APPROVAL_LOCKED, FLIGHT_CATALOG_CHANGED`; schema `Error`, JSON mẫu trong OpenAPI.
 
 **Response 429:** `RATE_LIMITED`; schema `Error`, JSON mẫu trong OpenAPI.
 
@@ -7898,7 +8511,7 @@ Upload bằng chứng đối tác (tùy chọn booking).
 
 **Request multipart/form-data:** `expectedVersion` và `file` bytes thật PDF/JPEG/PNG <=10 MiB; trình duyệt tự sinh boundary. Không gửi JSON/base64/object URL.
 
-**Response 201 — mẫu mục tiêu**
+**Response 201 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -7972,7 +8585,7 @@ Danh mục đa chức năng cho bản đồ.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -8095,7 +8708,7 @@ Thêm địa điểm dùng chung.
 }
 ```
 
-**Response 201 — mẫu mục tiêu**
+**Response 201 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -8218,7 +8831,7 @@ Sửa địa điểm và giờ mở.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -8317,7 +8930,7 @@ Sửa địa điểm và giờ mở.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -8409,7 +9022,7 @@ Xóa địa điểm chưa được tham chiếu.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -8472,7 +9085,7 @@ Danh mục nhân sự và trạng thái vận hành.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -8553,7 +9166,7 @@ Danh mục nhân sự và trạng thái vận hành.
 }
 ```
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -8625,7 +9238,7 @@ Manager đọc catalogue bay.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -8707,7 +9320,7 @@ Manager đọc bên dịch vụ.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -8829,7 +9442,7 @@ Tải bằng chứng planning có xác thực.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -8902,7 +9515,7 @@ Tra mã chuyến trong đúng bên dịch vụ.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {
@@ -8982,7 +9595,7 @@ Danh mục xe và thông số đã xác minh.
 
 **Request body:** Không gửi.
 
-**Response 200 — mẫu mục tiêu**
+**Response 200 — success — mẫu mục tiêu**
 
 ```json
 {

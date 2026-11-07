@@ -1,5 +1,8 @@
 # Chỉ dẫn API — Role: Customer (Khách hàng)
 
+> **Flow 3 v3 — thiết kế 30/10/2026:** [nghiệp vụ](../../API-Flow/Flow3/FLOW3.md), [API/JSON](../../API-Flow/Flow3/FLOW3-API-JSON.md), [chuyển đổi v2→v3](../../API-Flow/Flow3/MIGRATION-V3.md). Mode từ hợp đồng; Coordinator lập lịch; Manager kiểm tra và gửi đề xuất đổi điểm nhận; Customer tự đồng ý/từ chối. Chưa tích hợp v3 vào backend/giao diện. Các chỉ dẫn v2 bên dưới là lịch sử khi khác v3.
+
+
 Sự cố dùng [Flow 5](../../API-Flow/Flow5/FLOW5.md), J29–J33/J36/J38/J41: xem thông tin được chia sẻ và phản hồi đúng đề nghị; không thu thêm phí sự cố. [Flow 6 v1.1](../../API-Flow/Flow6/FLOW6.md) quy định nghiệm thu trước trả số dư, giải quyết vấn đề trước nghiệm thu, Manager đóng sau đủ nghĩa vụ; không tự nghiệm thu/đóng vì im lặng.
 
 Theo dõi hành trình/sức khỏe sau duyệt khởi hành dùng [Flow 4](../../API-Flow/Flow4/FLOW4.md), F4-J32–J34 (29/10/2026): chỉ đơn/ngựa của khách, projection và file đã chia sẻ; không GPS realtime. Schema role cũ không thay schema Flow 4. Bàn giao/nghiệm thu/thanh toán dùng Flow 6 hiện hành.

@@ -6,7 +6,7 @@ import { DemoGuide } from '../../components/DemoGuide/DemoGuide';
 import { RouteText, horseNames } from '../../components/Common/Common';
 import { needsCustomerAction, useCustomer } from '../../hooks/useCustomer';
 import { useCustomerFilter, type RequestStatusFilter } from '../../hooks/useCustomerFilter';
-import { ALL_STATUSES, FINAL_STATUSES, REQUEST_STATUS_LABEL, curVersion, fmtDate, isActive, versionState } from '../../hooks/customerRules';
+import { ALL_STATUSES, FINAL_STATUSES, REQUEST_STATUS_LABEL, curVersion, displayRequestId, fmtDate, isActive, versionState } from '../../hooks/customerRules';
 import './CustomerRequestsPage.css';
 
 /** Danh sách yêu cầu vận chuyển đang xử lý */
@@ -54,7 +54,7 @@ export const CustomerRequestsPage: React.FC = () => {
                 const v = curVersion(r);
                 return (
                   <tr key={r.id} className="clickable" onClick={() => navigate(`/customer/requests/${r.id}`)}>
-                    <td className="cus-id">{r.id}{needsCustomerAction(r) && <span className="cus-req__dot" title="Cần bạn xử lý" />}</td>
+                    <td className="cus-id">{displayRequestId(r.id)}{needsCustomerAction(r) && <span className="cus-req__dot" title="Cần bạn xử lý" />}</td>
                     <td><RouteText r={r} /></td>
                     <td>{horseNames(r, horses)}</td>
                     <td>{fmtDate(r.requestedAt)}</td>

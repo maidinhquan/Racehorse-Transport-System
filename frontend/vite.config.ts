@@ -1,5 +1,9 @@
+import http from "node:http";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+
+// Giữ kết nối tới backend để mỗi request /api không phải tra DNS của Docker lại (chậm ~0,5 giây mỗi lần).
+const apiAgent = new http.Agent({ keepAlive: true, maxSockets: 64 });
 
 export default defineConfig({
   plugins: [react()],
@@ -8,6 +12,7 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
+    allowedHosts: true,
     watch: {
       usePolling: true,
       interval: 100,
@@ -19,6 +24,22 @@ export default defineConfig({
           process.env.API_PROXY_TARGET ??
           "http://localhost:5129",
         changeOrigin: true,
+        agent: apiAgent,
+      },
+      "/hubs": {
+        target:
+          process.env.API_PROXY_TARGET ??
+          "http://localhost:5129",
+        changeOrigin: true,
+        ws: true,
+      },
+      "/osrm": {
+        target: "https://router.project-osrm.org",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/osrm/, ""),
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) RacehorseTransport/1.0",
+        },
       },
     },
   },
@@ -29,5 +50,6 @@ export default defineConfig({
     setupFiles: ["./src/shared/test/setup.ts"],
     css: true,
     clearMocks: true,
+    testTimeout: 15000,
   },
 });

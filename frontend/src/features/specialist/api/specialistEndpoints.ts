@@ -15,6 +15,7 @@ export const SPECIALIST_ENDPOINTS = {
   DOCUMENTS: '/specialist/documents',
   DOCUMENT_DETAIL: (docId: string) => `/specialist/documents/${docId}`,
   REVIEW_DOCUMENT: (docId: string) => `/specialist/documents/${docId}/review`,
+  DOCUMENT_PHYSICAL_COPY: (docId: string) => `/specialist/documents/${docId}/physical-copy`,
 
   QUARANTINE_BOOKINGS: '/specialist/quarantine-bookings',
 

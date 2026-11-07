@@ -1,73 +1,110 @@
-import React, { useState } from 'react';
-import type { Trip } from '../../../types';
-import { useCoordinator } from '../../../hooks/useCoordinator';
-import { canPlan, fmtDateTime } from '../../../hooks/coordinatorRules';
-import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
-import { FlightModal } from '../../../components/Modals';
+// Chi tiết chuyến của Điều phối: Tổng quan • Tuyến đường (lập lộ trình) • Xe & nhân sự • Chuyến bay • Theo dõi hành trình
+import { AirCard } from '../../../components/air/AirCard';
+import { curRoute } from '../../../domain/coordinatorRules';
+import type { Any } from '../../../store/coordinatorStore';
+import { usd } from '../../../utils/format';
+import { airportLabel, charterFlightModal, charterLockMsg, selectAirportsModal, submitAirPlan } from '../../../workflows/airOperations';
 
-export const FlightTab: React.FC<{ trip: Trip }> = ({ trip }) => {
-  const { actions } = useCoordinator();
-  const [modal, setModal] = useState<'propose' | 'book' | null>(null);
-  const f = trip.flight, editable = canPlan(trip);
+export function FlightTab({ t }: { t: Any }) {
+  const f = t.flight;
+  const rt = curRoute(t);
+  const hasAirports = !!(f?.from && f?.to);
+  const hasContract = !!(f?.contractNo || f?.bookingRef || f?.flightNo);
+  const lock = charterLockMsg(t);
+
+  const isPending = rt?.status === 'PENDING_APPROVAL' || f?.status === 'BUDGET_PENDING';
+  const isApproved = rt?.status === 'APPROVED' || f?.status === 'APPROVED' || f?.status === 'BUDGET_APPROVED';
+  const isRejected = rt?.status === 'CHANGES_REQUESTED' || rt?.status === 'RETURNED' || f?.status === 'REJECTED';
 
   return (
-    <div className="crd-grid2">
-      <div className="crd-card">
-        <h3 className="crd-card__title"><span>Phương án bay</span>{f ? <TripStatusBadge status={f.status} /> : <TripStatusBadge tone="muted" label="Chưa lập" />}</h3>
-        {f ? (
-          <div className="crd-kv">
-            <div><span>Hãng bay</span><b>{f.airline}</b></div>
-            <div><span>Số hiệu</span><b>{f.flightNo}</b></div>
-            <div><span>Sân bay đi</span><b>{f.fromAirport}</b></div>
-            <div><span>Sân bay đến</span><b>{f.toAirport}</b></div>
-            <div><span>Cất cánh</span><b>{fmtDateTime(f.departAt)}</b></div>
-            <div><span>Hạ cánh</span><b>{fmtDateTime(f.arriveAt)}</b></div>
-            <div><span>Ngân sách</span><b>{f.cost.toLocaleString('en-US')} USD</b></div>
-            <div><span>Mã đặt chỗ</span><b>{f.bookingRef ?? 'Chưa có'}</b></div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {isPending ? (
+        <div className="note yellow" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <b>Đã gửi phương án chuyến bay &amp; tuyến lên Manager duyệt</b>
+            <div style={{ color: '#78350f', marginTop: 2, fontSize: 12 }}>
+              Hãng {f?.airline || 'Vietnam Airlines Cargo'} · Chuyến {f?.flightNo || f?.contractNo || 'VN-9310F'} · Ngân sách {f?.cost ? usd(f.cost) : usd(f?.budget || 6800)}
+            </div>
           </div>
-        ) : <p className="crd-muted">Chưa có phương án bay. Chỉ bay thẳng, không quá cảnh.</p>}
+          <span style={{ background: '#fef3c7', color: '#92400e', fontWeight: 600, padding: '4px 10px', borderRadius: 4, fontSize: 12, border: '1px solid #fde68a' }}>
+            Chờ Manager duyệt
+          </span>
+        </div>
+      ) : isApproved ? (
+        <div className="note green" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <b>Manager đã phê duyệt phương án chuyến bay &amp; tuyến</b>
+            <div style={{ color: '#166534', marginTop: 2, fontSize: 12 }}>
+              Ngân sách chuyến bay đã được phê duyệt. Điều phối viên có thể tiến hành liên hệ xác nhận đặt chỗ (Booking).
+            </div>
+          </div>
+          <span style={{ background: '#dcfce7', color: '#15803d', fontWeight: 600, padding: '4px 10px', borderRadius: 4, fontSize: 12, border: '1px solid #bbf7d0' }}>
+            Đã duyệt
+          </span>
+        </div>
+      ) : isRejected ? (
+        <div className="note red" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <b>Manager yêu cầu điều chỉnh phương án</b>
+            <div style={{ color: '#991b1b', marginTop: 2, fontSize: 12 }}>
+              {rt?.decisionNote || rt?.note || 'Vui lòng kiểm tra lại lộ trình hoặc dự toán ngân sách.'}
+            </div>
+          </div>
+          <button type="button" className="btn solid sm" onClick={() => submitAirPlan(t.id)}>
+            Gửi lại duyệt
+          </button>
+        </div>
+      ) : hasAirports && hasContract ? (
+        <div className="card pad" style={{ background: '#f0fdf4', borderColor: '#bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h4 style={{ margin: 0, color: '#15803d', fontSize: 14 }}>Sẵn sàng gửi Manager phê duyệt chuyến bay</h4>
+            <p style={{ margin: '4px 0 0', fontSize: 12.5, color: '#166534' }}>
+              Thông tin sân bay ({airportLabel(f.from)} → {airportLabel(f.to)}) và hợp đồng charter đã đầy đủ. Gửi phương án tuyến và ngân sách bay để Quản lý xét duyệt.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn solid sm"
+            style={{ background: '#16a34a', borderColor: '#16a34a', fontWeight: 600 }}
+            onClick={() => submitAirPlan(t.id)}
+          >
+            Gửi Manager duyệt phương án bay →
+          </button>
+        </div>
+      ) : null}
 
-        <div className="crd-btn-row">
-          {editable && (!f || ['DRAFT', 'REJECTED'].includes(f.status)) && (
-            <button type="button" className="crd-btn crd-btn--solid" onClick={() => setModal('propose')}>{f ? 'Sửa phương án bay' : 'Đề xuất chuyến bay'}</button>
-          )}
-          {editable && f?.status === 'BUDGET_APPROVED' && (
-            <button type="button" className="crd-btn crd-btn--solid" onClick={() => setModal('book')}>Nhập xác nhận đặt chỗ</button>
+      {hasAirports && !hasContract ? (
+        <div className="note yellow" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <b>Chưa nhập thông tin Hợp đồng Charter</b>
+            <div style={{ color: '#78350f', marginTop: 2, fontSize: 12 }}>
+              Sân bay: {airportLabel(f.from)} → {airportLabel(f.to)}.{lock ? ` ${lock}` : ' Hoàn tất số HĐ bay và mã số chuồng chuyên dụng (Jet Stall).'}
+            </div>
+          </div>
+          {lock ? null : (
+            <button
+              type="button"
+              className="btn solid sm"
+              onClick={() => charterFlightModal(t.id)}
+            >
+              Nhập HĐ Charter
+            </button>
           )}
         </div>
+      ) : !hasAirports ? (
+        <div className="note" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div>Chưa chọn cặp sân bay cất / hạ cánh cho chuyến đi.</div>
+          <button
+            type="button"
+            className="btn solid sm"
+            onClick={() => selectAirportsModal(t.id)}
+          >
+            Chọn sân bay
+          </button>
+        </div>
+      ) : null}
 
-        {f?.status === 'BUDGET_PENDING' && (
-          <div className="crd-demo">
-            <div className="crd-demo__title">Điều khiển demo</div>
-            <p>Giả lập Manager duyệt ngân sách thuê bay.</p>
-            <button type="button" className="crd-btn crd-btn--sm" onClick={() => actions.demoApproveFlightBudget(trip.id)}>Demo: Manager duyệt ngân sách</button>
-          </div>
-        )}
-      </div>
-
-      <div className="crd-card">
-        <h3 className="crd-card__title">Quy định chuyến bay</h3>
-        <ul className="crd-gap-list crd-gap-list--plain">
-          <li>Chỉ bay thẳng, không quá cảnh.</li>
-          <li>Sân bay đi/đến phải đúng quốc gia của chặng.</li>
-          <li>Manager duyệt ngân sách trước khi đặt chỗ.</li>
-          <li>Giờ cất cánh/hạ cánh thực tế do tổ xe ghi nhận.</li>
-          <li>Hãng bay chuyên chở ngựa lo chăm sóc và hỗ trợ thú y trên máy bay; bác sĩ mặt đất bàn giao tại mỗi sân bay.</li>
-        </ul>
-      </div>
-
-      {modal && (
-        <FlightModal
-          trip={trip}
-          mode={modal}
-          open
-          onClose={() => setModal(null)}
-          onPropose={async (body) => (await actions.proposeFlight(trip.id, body)).ok}
-          onBook={async (ref) => (await actions.bookFlight(trip.id, ref)).ok}
-        />
-      )}
+      <AirCard t={t} />
     </div>
   );
-};
-
-export default FlightTab;
+}

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Collections.Concurrent;
 using Application.Interfaces;
 using Domain.Entities;
@@ -37,6 +38,7 @@ public sealed class CapturingEmailSender : IRegistrationEmailSender
 
 public sealed class FakeUserDAO : IUserDAO
 {
+    private int nextUserId;
     public List<User> Users { get; } = [];
     public bool FailNextWrite { get; set; }
     private readonly object gate = new();
@@ -68,6 +70,7 @@ public sealed class FakeUserDAO : IUserDAO
         {
             if (FailNextWrite) { FailNextWrite = false; throw new InvalidOperationException("Simulated DB failure"); }
             if (Users.Any(u => u.Email == entity.Email || u.Phone == entity.Phone)) throw new DuplicateUserException();
+            entity.UserId ??= $"USER_{++nextUserId:000}";
             Users.Add(entity);
             return entity;
         }
@@ -83,6 +86,7 @@ public sealed class RegistrationTestFactory(string? sqlConnection = null) : WebA
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+        builder.ConfigureAppConfiguration((_,c)=>c.AddInMemoryCollection(new Dictionary<string,string?> { ["Jwt:Key"]="Fixture_Only_Not_A_Real_Secret_2026_AtLeast32Bytes" }));
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<TimeProvider>();

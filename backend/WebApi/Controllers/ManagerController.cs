@@ -70,13 +70,22 @@ namespace WebApi.Controllers
         }
 
         /// <summary>
-        /// F3-J32: Ghi nhận khách đã đồng ý thực tế
+        /// F3-J56: Manager gửi đề xuất điểm nhận cho khách
+        /// </summary>
+        [HttpPost("trips/{tripId}/pickup-relocation/send")]
+        public async Task<IActionResult> SendPickupRelocation(string tripId, [FromBody] PickupSendInputDto input)
+        {
+            var data = await _coordinatorService.SendPickupRelocationAsync(tripId, input, CurrentUserId);
+            return Success(data, "OK");
+        }
+
+        /// <summary>
+        /// F3-J32 v2 (RETIRED): Ghi nhận khách đã đồng ý thực tế - Thay thế bằng F3-J32 v3 cho khách tự quyết định
         /// </summary>
         [HttpPost("trips/{tripId}/pickup-relocation/customer-consent")]
-        public async Task<IActionResult> RecordCustomerConsent(string tripId, [FromBody] ConsentInputDto input)
+        public IActionResult RecordCustomerConsent(string tripId, [FromBody] ConsentInputDto input)
         {
-            var data = await _coordinatorService.RecordCustomerConsentAsync(tripId, input, CurrentUserId);
-            return Success(data, "OK");
+            return Failure("CONTRACT_SUPERSEDED: Endpoint này đã bị thay thế trong Flow 3 v3. Khách hàng phải tự quyết định qua /api/customer/trips/{tripId}/pickup-relocation/decision.", statusCode: StatusCodes.Status409Conflict);
         }
 
         /// <summary>
@@ -126,6 +135,14 @@ namespace WebApi.Controllers
         {
             var data = await _coordinatorService.GetManagerTripRouteAsync(tripId);
             return Success(data, "Lấy thông tin lộ trình chuyến đi thành công");
+        }
+
+        [HttpGet("trips/{tripId}/plan")]
+        public async Task<IActionResult> GetTripPlan(string tripId)
+        {
+            var data = await _coordinatorService.GetManagerPlanAsync(tripId);
+            if (data == null) return NotFoundFailure($"Chuyến {tripId} chưa có phương án tuyến");
+            return Success(data, "Lấy phương án tuyến thành công");
         }
 
         [HttpPost("trips/{tripId}/routes/{routeVersionId}/approve")]

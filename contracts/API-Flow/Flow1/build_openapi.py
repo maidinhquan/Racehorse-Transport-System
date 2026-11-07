@@ -335,6 +335,7 @@ use([14], arr(obj({
     'name': str_type,
     'horse': horse_view,
     'selectable': bool_type,
+    'availabilityStatus': {'type': 'string', 'enum': ['AVAILABLE', 'IN_TRANSPORT_REQUEST', 'DELIVERED']},
     'conflict': nullable({'type': 'object'}),
     'documentWarnings': arr(str_type)
 }, ['id', 'name', 'selectable', 'documentWarnings'], True)))
@@ -505,6 +506,10 @@ for opid, method, path, body, req, responses in operations:
             if name in ['expectedTransportDate', 'expectedDeliveryDate']: sch['pattern'] = r'^\d{4}-\d{2}-\d{2}$'
             req_param = (opid == 'F1-J10' and name == 'cityId') or (opid == 'F1-J14') or (opid == 'F1-J68')
             op['parameters'].append({'name': name, 'in': 'query', 'required': req_param, 'schema': sch})
+    if opid == 'F1-J14':
+        for name in ['excludeRequestId']:
+            op['parameters'].append({'name': name, 'in': 'query', 'required': False,
+                'schema': {'type': 'string'}})
     if opid == 'F1-J18':
         op['parameters'].append({'name': 'Idempotency-Key', 'in': 'header', 'required': True, 'schema': {'type': 'string', 'format': 'uuid'}})
     if req:
@@ -529,6 +534,9 @@ for opid, method, path, body, req, responses in operations:
 # Response schemas inferred from examples are then aligned with the real backend responses.
 from align_with_backend import patch as align_with_backend
 align_with_backend(spec)
+
+# Authenticated map-image endpoint; provider key remains server-side.
+spec['paths']['/locations/tiles/{z}/{x}/{y}.png'] = {'get': {'operationId': 'F1-J70', 'summary': 'Ảnh nền Geoapify cho bản đồ khách hàng', 'description': 'Backend dùng Geoapify key đã cấu hình; không trả key cho trình duyệt. PNG có cache riêng tư một giờ, giới hạn 300 yêu cầu/phút/tài khoản.', 'security': [{'bearerAuth': []}], 'parameters': [{'name': 'z', 'in': 'path', 'required': True, 'schema': {'type': 'integer', 'minimum': 0, 'maximum': 19}}, {'name': 'x', 'in': 'path', 'required': True, 'schema': {'type': 'integer', 'minimum': 0}}, {'name': 'y', 'in': 'path', 'required': True, 'schema': {'type': 'integer', 'minimum': 0}}], 'responses': {'200': {'description': 'PNG map tile', 'content': {'image/png': {'schema': {'type': 'string', 'format': 'binary'}}}}, '400': {'description': 'Invalid tile coordinates'}, '401': {'description': 'Authentication required'}, '403': {'description': 'Inactive account'}, '429': {'description': 'Rate limit exceeded'}, '503': {'description': 'Map provider unavailable'}}}}
 
 out = ROOT / 'flow1.openapi.json'
 out.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + '\n', encoding='utf-8', newline='\n')

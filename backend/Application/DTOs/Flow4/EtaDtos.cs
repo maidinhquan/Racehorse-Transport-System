@@ -17,6 +17,7 @@ public class EtaProposalInputDto
     public string MilestoneId { get; set; } = null!;
 
     [JsonPropertyName("incidentId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? IncidentId { get; set; }
 }
 
@@ -47,6 +48,7 @@ public class EtaProposalDto
     public string Reason { get; set; } = null!;
 
     [JsonPropertyName("incidentId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? IncidentId { get; set; }
 
     [JsonPropertyName("proposedBy")]
@@ -56,9 +58,11 @@ public class EtaProposalDto
     public string ProposedAt { get; set; } = null!;
 
     [JsonPropertyName("decidedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? DecidedAt { get; set; }
 
     [JsonPropertyName("decisionReason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? DecisionReason { get; set; }
 }
 

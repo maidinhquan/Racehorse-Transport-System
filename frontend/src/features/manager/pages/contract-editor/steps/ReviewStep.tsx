@@ -2,7 +2,7 @@ import React from 'react';
 import { ContractPreview } from '../../../components/ContractPreview/ContractPreview';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
 import type { ContractDraft, CustomerInfo, HorseRef, TransportRequest } from '../../../types';
-import { MODE_LABEL, curVersion, fmtDateTime, fmtMoney, sumItems } from '../../../hooks/managerRules';
+import { curVersion, fmtDateTime, fmtMoney, MODE_LABEL, sumItems } from '../../../hooks/managerRules';
 
 interface StepProps {
   request: TransportRequest;
@@ -15,7 +15,7 @@ interface StepProps {
 export const ReviewStep: React.FC<StepProps> = ({ request: r, draft, customer, horses }) => {
   const prev = curVersion(r), v = (prev?.v ?? 0) + 1, total = sumItems(draft.items);
   const checks: Array<[string, string]> = [
-    ['Phương án vận chuyển', `${MODE_LABEL[draft.mode]} • ${fmtDateTime(draft.departAt)} → ${fmtDateTime(draft.arriveAt)}`],
+    ['Lịch vận chuyển', `${fmtDateTime(draft.departAt)} → ${fmtDateTime(draft.arriveAt)} • ${draft.mode ? MODE_LABEL[draft.mode] : 'Chưa chọn phương thức'}`],
     ['Ngựa lấy từ yêu cầu', `${r.horses.length} ngựa – Manager không sửa dữ liệu ngựa trong hợp đồng`],
     ['Giá & cọc', `${fmtMoney(total)} • cọc ${draft.depositPct}% (${fmtMoney(Math.round((total * draft.depositPct) / 100))})`],
     ['Điều khoản', `12 điều khoản cơ bản${draft.terms.length > 12 ? ` + ${draft.terms.length - 12} bổ sung` : ''}`],
