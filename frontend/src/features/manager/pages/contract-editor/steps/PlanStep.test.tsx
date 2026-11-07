@@ -15,6 +15,16 @@ const draft: ContractDraft = {
 const request = { id: 'REQUEST_005', horses: [], versions: [], pickupAt: '2026-12-09', date: '2026-12-15' } as unknown as TransportRequest;
 
 describe('Contract transport mode', () => {
+  it('keeps same-day pickup and delivery in the draft and editor', () => {
+    const sameDay = { ...request, pickupAt: '2030-12-09', date: '2030-12-09', mode: 'ROAD' as const };
+    const generated = initialDraft(sameDay);
+    expect(generated.departAt).toBe('2030-12-09 08:00');
+    expect(generated.arriveAt).toBe('2030-12-09 18:00');
+    const set = vi.fn();
+    render(<PlanStep request={sameDay} draft={{ ...draft, departAt: '2030-12-09 08:00', arriveAt: '2030-12-10 18:00' }}
+      set={set} horses={[]} defaults={{ preparationDays: 3 } as any} policyReady={true} />);
+    expect(set).toHaveBeenCalledWith({ departAt: '2030-12-09 08:00', arriveAt: '2030-12-09 18:00' });
+  });
   it('lets the Manager select the method while drafting the contract', async () => {
     const set = vi.fn();
     const defaults = {

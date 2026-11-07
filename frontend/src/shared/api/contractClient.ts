@@ -8,6 +8,8 @@ export { apiMessage };
 export interface FormOptions {
   currency: 'VND';
   preparationDays: number;
+  minimumPickupLeadDays?: number | null;
+  earliestPickupDate?: string | null;
   defaultDepositPct: number;
   contractDeadlineHours: number;
   supportedRoutes: Array<{ id: string; originCountry: string; destinationCountry: string; mode: 'ROAD' | 'AIR' }>;
@@ -105,6 +107,10 @@ function normalizeFlow1ResponseBody(data: unknown): void {
       obj.forEach(walk);
       return;
     }
+    if (typeof obj.reviewId === 'string' && 'selectedOptionID' in obj) {
+      if (!('selectedOptionId' in obj)) obj.selectedOptionId = obj.selectedOptionID;
+      delete obj.selectedOptionID;
+    }
     if (Array.isArray(obj.terms)) {
       obj.terms = obj.terms.map((t: any) => {
         if (!t || typeof t !== 'object') return t;
@@ -115,6 +121,7 @@ function normalizeFlow1ResponseBody(data: unknown): void {
     }
     if (Array.isArray(obj.versions)) obj.versions.forEach(walk);
     if (obj.currentVersion) walk(obj.currentVersion);
+    if (obj.review) walk(obj.review);
   };
   walk(data);
 }

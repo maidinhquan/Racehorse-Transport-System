@@ -5,7 +5,7 @@ import type { ComplaintInput, ContractChangeInput, CustomerNotification, Custome
 import { city, getCityId, registerBackendCity } from '../hooks/customerRules';
 import { CUSTOMER_ENDPOINTS } from './customerEndpoints';
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
-import { attachContractFeedback, contractFromWire, documentKey, fileFromWire, paymentFromWire, utcMs, type WirePayment, type WireHorse, type WireContract } from '../../../shared/api/flow1Wire';
+import { attachContractFeedback, contractFromWire, documentKey, fileFromWire, paymentFromWire, refundFromWire, utcMs, type WirePayment, type WireHorse, type WireContract } from '../../../shared/api/flow1Wire';
 
 export const DEFAULT_FORM_OPTIONS: FormOptions = {
   currency: 'VND',
@@ -85,10 +85,11 @@ export const requestFromWire = (r: any): TransportRequest => {
     wizardStep: r?.wizardStep ?? (Array.isArray(r?.horses) && r.horses.length ? 3 : 1),
     revisions: Array.isArray(r?.revisions) ? r.revisions : [],
     versions,
+    refund: r?.refund?.refundStatus ? refundFromWire(r.refund) : r?.refund ?? undefined,
     payments: Array.isArray(r?.payments) ? r.payments.map((p: any) => ({ ...p,
       type: 'DEPOSIT', contractId: p.contractId,
       versionNo: p.versionNo, confirmedAmount: p.receivedAmount ?? 0,
-      status: p.status === 'PENDING_GATEWAY' || p.status === 'REVIEW_REQUIRED' ? 'PROCESSING' : p.status,
+      status: p.paymentOutcome === 'UNCONFIRMED' || p.status === 'PENDING_GATEWAY' || p.status === 'REVIEW_REQUIRED' ? 'PROCESSING' : p.paymentOutcome ?? p.status,
       createdAt: p.createdAt ?? '', confirmedAt: p.paidAt, qrExpiresAtMs: utcMs(p.expiresAt),
     })) : [],
     docs: Array.isArray(r?.docs) ? r.docs.map((d: any) => ({ ...d, key: documentKey(d.key), file: fileFromWire(d.file, documentKey(d.key)) })) : [],
@@ -374,7 +375,7 @@ export const customerApi = {
   getContractVersion: async (contractId: string, versionNo: number) => contractFromWire(await contractClient<WireContract>('get', `/customer/contracts/${contractId}/versions/${versionNo}`)) as ContractVersion,
   getDeposit: (requestId: string) => contractClient<{ invoiceId: string; canPay: boolean; transactions: Array<Payment & { receivedAmount?: number; paidAt?: string }> }>('get', `/customer/requests/${requestId}/deposit`),
   createPaymentSession: (invoiceId: string) => contractClient<PaymentSession>('post', `/customer/invoices/${invoiceId}/payment-session`, { method: 'VNPAY' }),
-  getPayment: async (paymentId: string) => paymentFromWire(await contractClient<WirePayment>('get', `/customer/payments/${paymentId}`)) as Payment,
+  getPayment: async (paymentId: string, refresh = false) => paymentFromWire(await contractClient<WirePayment>('get', `/customer/payments/${paymentId}`, undefined, refresh ? { refresh: true } : undefined)) as Payment,
   getContract: async (requestId: string) => {
     const result = await contractClient<{ currentVersion: WireContract | null }>('get', `/customer/requests/${requestId}/contract`);
     return { ...result, currentVersion: result.currentVersion ? contractFromWire(result.currentVersion) as ContractVersion : null };

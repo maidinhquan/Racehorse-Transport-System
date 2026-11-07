@@ -1,4 +1,6 @@
 import { downloadFile } from '../../../../../shared/api/downloadFile';
+import { RequestAssessmentPanel } from './RequestAssessmentPanel';
+import { getDemoMode } from '../../../../../shared/context/DemoModeContext';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
@@ -32,6 +34,7 @@ type Dialog = '' | 'accept' | 'revise' | 'reject' | 'cancel' | 'cancel-ok' | 'ca
 /** Mục 1: thông tin yêu cầu, hồ sơ (chỉ xem), quyết định của Manager, lịch sử */
 export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
   const { data, horses, customer, actions } = useManager();
+  const demo = getDemoMode('manager');
   const [dialog, setDialog] = useState<Dialog>('');
   const close = () => setDialog('');
   const c = customer(r), v = curVersion(r), held = moneyHeld(data, r);
@@ -40,12 +43,12 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
 
   return (
     <>
-      {r.status === 'PENDING_REVIEW' && shortLeadTime(r) && (
+      {demo && r.status === 'PENDING_REVIEW' && shortLeadTime(r) && (
         <Note tone="yellow" title={`Đơn gấp: còn ${Math.max(0, daysUntil(r.date))} ngày tới ngày vận chuyển`}>
           Thời gian chuẩn bị ngắn hơn 7 ngày. Kiểm tra năng lực đội xe và thời hạn giấy tờ trước khi chấp thuận.
         </Note>
       )}
-      {r.status === 'CHANGES_REQUESTED' && (
+      {demo && r.status === 'CHANGES_REQUESTED' && (
         <Note tone="blue" title="Đang chờ khách hàng chỉnh sửa">
           {r.feedback}<div className="mgr-hint">Mục cần sửa: {(r.revisionFields ?? []).map((f) => REVISION_FIELD_LABEL[f]).join(', ')}</div>
         </Note>
@@ -67,7 +70,7 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
           <section className="mgr-card">
             <h3 className="mgr-card__title">Thông tin vận chuyển</h3>
             <div className="mgr-kv">
-              <div><span>Khách hàng</span><b>{c?.company}</b><div className="mgr-muted">{c?.name} • {c?.email} • {c?.phone}</div></div>
+              <div><span>Khách hàng</span><b>{c?.company}</b><div className="mgr-muted">{[c?.name, c?.email, c?.phone].filter(Boolean).join(' • ') || 'Chưa có'}</div></div>
               <div><span>Tuyến</span><b>{cityLabel(r.origin)} → {cityLabel(r.destination)}</b></div>
               <div><span>Ngày vận chuyển mong muốn</span><b>{fmtDate(r.date)}</b></div>
               <div><span>Gửi lúc</span><b>{fmtDateTime(r.submittedAt)}</b></div>
@@ -103,10 +106,10 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
                   return (
                     <div key={d.name} className="mgr-row">
                       <div>
-                        <b>{d.name}</b>
-                        <span>{fileName ? <button type="button" className="mgr-link" onClick={() => downloadFile(fileName).catch(error => actions.showToast(error.message))}>{fileName}</button> : 'Chưa có tệp'}{d.note ? ` • ${d.note}` : ''}</span>
+                        <b>{{ photo: 'Ảnh nhận dạng', passport: 'Hộ chiếu FEI', ownership: 'Giấy chứng nhận sở hữu', valueProof: 'Chứng từ giá trị' }[d.name] || d.name}</b>
+                        <span>{fileName ? <button type="button" className="mgr-link" onClick={() => downloadFile(fileName).catch(error => actions.showToast(error.message))}>Tải tệp</button> : 'Chưa có tệp'}{d.note ? ` • ${d.note}` : ''}</span>
                       </div>
-                      <StatusBadge kind="dossier" status={d.status} />
+                      {demo ? <StatusBadge kind="dossier" status={d.status} /> : <StatusBadge tone="muted" label={fileName ? 'Đã cung cấp tệp' : 'Chưa có tệp'} />}
                     </div>
                   );
                 })}
@@ -116,7 +119,13 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
         </div>
 
         <aside className="mgr-stack">
-          {r.status === 'PENDING_REVIEW' && (
+          {!demo && ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) && (
+            <RequestAssessmentPanel key={r.id} requestId={r.id} pending={r.status === 'PENDING_REVIEW'}
+              accept={async key => (await actions.acceptRequest(r.id, key)).ok}
+              changes={async (feedback, key) => (await actions.requestRevision(r.id, feedback, key)).ok}
+              reject={r.status === 'PENDING_REVIEW' || r.status === 'CHANGES_REQUESTED' ? () => setDialog('reject') : undefined} />
+          )}
+          {demo && r.status === 'PENDING_REVIEW' && (
             <section className="mgr-card mgr-rd__decision">
               <h3 className="mgr-card__title">Quyết định của Manager</h3>
               <p className="mgr-hint" style={{ marginTop: 0, marginBottom: 12 }}>Chấp thuận để mở bước soạn hợp đồng và giá bán.</p>

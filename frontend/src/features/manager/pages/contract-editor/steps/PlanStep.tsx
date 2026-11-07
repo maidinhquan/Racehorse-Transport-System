@@ -27,23 +27,19 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, 
   // The customer's original dates. After a version is published the request carries the contract's dates,
   // so prefer the values recorded in the contract snapshot.
   const original = [...(r.versions ?? [])].reverse().find((v) => v.snapshot?.requestedPickupAt)?.snapshot;
-  const requestedPickup = original?.requestedPickupAt || r.pickupAt;
-  const requestedDelivery = original?.requestedDate || r.date;
+  const requestedPickup = r.pickupAt || original?.requestedPickupAt;
+  const requestedDelivery = r.date || original?.requestedDate;
   const isAdjusted = !!(requestedPickup && requestedPickup.slice(0, 10) < minDepartDate);
 
-  // Tự động gán ngày khởi hành và đến nơi: ưu tiên theo ngày khách yêu cầu nếu còn đủ điều kiện;
-  // nếu ngày khách yêu cầu quá sớm/đã qua (nhỏ hơn minDepartDate) thì tự động dời sang minDepartDate để đảm bảo hợp lệ.
+  // Hiển thị đúng lịch của yêu cầu, để backend kiểm tra thời gian chuẩn bị.
   useEffect(() => {
     if (requestedPickup && requestedDelivery) {
       const depDate = requestedPickup.slice(0, 10);
-      const effectiveDepDate = depDate < minDepartDate ? minDepartDate : depDate;
+      const effectiveDepDate = depDate;
       const depTime = draft.departAt && draft.departAt.length > 10 ? draft.departAt.slice(10) : ' 08:00';
       const expectedDep = `${effectiveDepDate}${depTime}`;
 
-      let arrDate = requestedDelivery.slice(0, 10);
-      if (arrDate <= effectiveDepDate) {
-        arrDate = addDays(effectiveDepDate, 1);
-      }
+      const arrDate = requestedDelivery.slice(0, 10);
       const arrTime = draft.arriveAt && draft.arriveAt.length > 10 ? draft.arriveAt.slice(10) : ' 18:00';
       const expectedArr = `${arrDate}${arrTime}`;
 
@@ -83,7 +79,7 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, 
           </div>
           <p className="mgr-hint">
             Khách yêu cầu lấy ngựa: {fmtDate(requestedPickup)}
-            {isAdjusted ? ` (Tự động dời sang ${fmtDate(minDepartDate)} để đảm bảo 24h ký hợp đồng và ${prepDays} ngày chuẩn bị).` : '.'}
+            {isAdjusted ? ' (Không còn đủ thời gian chuẩn bị, cần thống nhất lịch mới).' : '.'}
           </p>
         </div>
         <div className="mgr-field">

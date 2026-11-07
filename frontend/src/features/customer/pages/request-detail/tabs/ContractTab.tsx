@@ -6,6 +6,7 @@ import {
   canAcceptTerms,
   canCancel,
   canPayDeposit,
+  resumableDepositPayment,
   canRequestContractChange,
   canSign,
   ctRef,
@@ -17,21 +18,14 @@ import {
   fmtMoney,
   hasDepositMoney,
   signBlock,
-  today,
   versionState,
 } from '../../../hooks/customerRules';
 import { Icon } from '../../../components/CustomerLayout';
 import { ContractBody } from '../../../components/ContractBody/ContractBody';
-import { DateField } from '../../../components/DateField/DateField';
 import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
 import { AcceptTermsModal, Modal, ReasonModal } from '../../../components/Modals';
 import { LockedCard, Note } from '../../../components/Common/Common';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
-
-type ChangeItem = 'date' | 'notes' | 'commercial' | 'other';
-const CHANGE_ITEMS: Array<[ChangeItem, string]> = [
-  ['date', 'Ngày vận chuyển mong muốn'], ['notes', 'Yêu cầu chăm sóc đặc biệt'], ['commercial', 'Điều khoản thương mại (giá, thanh toán)'], ['other', 'Thay đổi khác'],
-];
 
 /** Tab Hợp đồng & chi phí: đồng ý điều khoản → xác minh cọc → ký OTP. */
 export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
@@ -41,7 +35,6 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
   const [termsOpen, setTermsOpen] = useState(false);
   const [changeOpen, setChangeOpen] = useState(params.get('change') === '1');
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [items, setItems] = useState<Partial<Record<ChangeItem, string>>>({});
   const [text, setText] = useState('');
   const v = curVersion(r);
 
@@ -73,12 +66,8 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
     }
     const res = await actions.requestContractChange(r.id, {
       text: text.trim(),
-      proposedDate: 'date' in items ? items.date ?? '' : undefined,
-      proposedNotes: items.notes?.trim() || undefined,
-      commercial: items.commercial?.trim() || undefined,
-      other: items.other?.trim() || undefined,
     });
-    if (res.ok) { setChangeOpen(false); setItems({}); setText(''); }
+    if (res.ok) { setChangeOpen(false); setText(''); }
   };
 
   const status: Record<string, [('blue' | 'yellow' | 'grey' | 'green'), string, string]> = {
@@ -133,7 +122,9 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
                   </button>
                 )}
                 {canCancel(r) && (
-                  <button type="button" className="cus-btn cus-btn--danger" onClick={() => setCancelOpen(true)}>
+                  <button type="button" className="cus-btn cus-btn--danger" disabled={ds === 'PENDING'}
+                    title={ds === 'PENDING' ? 'Chờ xác minh giao dịch cọc trước khi hủy.' : undefined}
+                    onClick={() => setCancelOpen(true)}>
                     Hủy hợp đồng
                   </button>
                 )}
@@ -141,6 +132,8 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
               <div>
                 {canAcceptTerms(r) && <button type="button" className="cus-btn cus-btn--solid" onClick={() => setTermsOpen(true)}>Đồng ý điều khoản</button>}
                 {canPayDeposit(r) && <button type="button" className="cus-btn cus-btn--solid" onClick={() => navigate(`/customer/requests/${r.id}/deposit`)}>{ds === 'FAILED' ? 'Thanh toán lại' : 'Thanh toán cọc'}</button>}
+                {ds === 'PENDING' && <button type="button" className="cus-btn cus-btn--solid" onClick={() => navigate(`/customer/requests/${r.id}/deposit`)}>
+                  {resumableDepositPayment(r) ? 'Tiếp tục thanh toán' : 'Kiểm tra giao dịch'}</button>}
                 {live && (
                   <button type="button" className={`cus-btn ${canSign(r) ? 'cus-btn--solid' : ''}`} disabled={!canSign(r)} title={signBlock(r)}
                     onClick={() => navigate(`/customer/requests/${r.id}/sign`)}>
@@ -209,32 +202,8 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
         onClose={() => setChangeOpen(false)}
       >
         <p className="cus-muted" style={{ marginTop: 0 }}>
-          Đổi tuyến hoặc số lượng ngựa cần Manager xét duyệt lại yêu cầu. {ctRef(v)} không thể ký cho tới khi Manager trả lời hoặc phát hành phiên bản mới.
+          {ctRef(v)} không thể ký cho tới khi Manager trả lời hoặc phát hành phiên bản mới.
         </p>
-        <div className="cus-field">
-          <label htmlFor="rc-add">Bạn muốn sửa nội dung nào?</label>
-          <select id="rc-add" className="cus-select" value="" onChange={(e) => { const k = e.target.value as ChangeItem; if (k) setItems((x) => ({ ...x, [k]: '' })); }}>
-            <option value="">— Chọn mục cần sửa —</option>
-            {CHANGE_ITEMS.filter(([k]) => !(k in items)).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select>
-        </div>
-        {(Object.keys(items) as ChangeItem[]).map((k) => (
-          <div key={k} className="cus-rc__item">
-            <div className="cus-rc__item-head">
-              <b>{CHANGE_ITEMS.find((x) => x[0] === k)?.[1]}</b>
-              <button type="button" className="cus-link" onClick={() => setItems((x) => { const n = { ...x }; delete n[k]; return n; })}>Bỏ</button>
-            </div>
-            {k === 'date' ? (
-              <>
-                <p className="cus-muted" style={{ margin: '0 0 6px' }}>Hiện tại: {fmtDate(r.date)}</p>
-                <DateField value={items.date ?? ''} min={today()} onChange={(d) => setItems((x) => ({ ...x, date: d }))} />
-              </>
-            ) : (
-              <textarea className="cus-textarea" rows={2} value={items[k] ?? ''} onChange={(e) => setItems((x) => ({ ...x, [k]: e.target.value }))}
-                placeholder={k === 'notes' ? 'Yêu cầu chăm sóc mới' : k === 'commercial' ? 'VD: Đề nghị giảm phí thủ tục' : 'Mô tả thay đổi'} />
-            )}
-          </div>
-        ))}
         <div className="cus-field" style={{ marginTop: 12 }}>
           <label htmlFor="rc-text">Giải thích nội dung cần sửa *</label>
           <textarea id="rc-text" className="cus-textarea" rows={3} value={text} onChange={(e) => setText(e.target.value)}
@@ -253,7 +222,7 @@ export const ContractTab: React.FC<{ request: TransportRequest }> = ({ request: 
             <p>Hủy hợp đồng sẽ dừng yêu cầu vận chuyển này. Yêu cầu vẫn được lưu trong lịch sử để bạn tham chiếu.</p>
             {hasDepositMoney(r) && (
               <Note tone="yellow" title="Đã có thanh toán tiền cọc">
-                Yêu cầu hủy được gửi tới CBN Transport; nhân viên sẽ đối soát khoản thanh toán và hoàn tiền cho bạn.
+                CBN Transport sẽ đối soát tiền cọc và thông báo kết quả xử lý yêu cầu hủy.
               </Note>
             )}
           </>

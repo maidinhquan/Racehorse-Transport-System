@@ -1,4 +1,6 @@
 import React from 'react';
+import { ReviewInbox } from '../../../../shared/components/RequestReview/ReviewInbox';
+import { getDemoMode } from '../../../../shared/context/DemoModeContext';
 import { useNavigate } from 'react-router-dom';
 import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
@@ -42,6 +44,7 @@ export const SpecialistDashboardPage: React.FC = () => {
 
   return (
     <SpecialistLayout title="Tổng quan">
+      {!getDemoMode('specialist') && <ReviewInbox role="specialist" button="spc-btn" />}
       <div className="spc-head">
         <div>
           <h2 className="spc-title">Xin chào, {firstName}</h2>

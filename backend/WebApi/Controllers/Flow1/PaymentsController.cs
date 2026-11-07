@@ -12,8 +12,8 @@ public sealed class PaymentsController(PaymentService payments) : EndpointContro
 {
     [HttpGet("customer/payments/{paymentId}")]
     [Authorize(Roles = UserRoles.Customer)]
-    public async Task<IActionResult> CustomerPaymentAsync(string paymentId, CancellationToken ct) =>
-        Reply(await payments.DetailAsync(Actor, paymentId, false, ct));
+    public async Task<IActionResult> CustomerPaymentAsync(string paymentId, CancellationToken ct, [FromQuery] bool refresh = false) =>
+        Reply(await payments.DetailAsync(Actor, paymentId, false, ct, refresh));
 
     [HttpGet("manager/payments/{paymentId}")]
     [Authorize(Roles = UserRoles.LogisticsManager)]
@@ -38,7 +38,7 @@ public sealed class PaymentsController(PaymentService payments) : EndpointContro
     [HttpPost("manager/payments/{paymentId}/confirm")]
     [Authorize(Roles = UserRoles.LogisticsManager)]
     public async Task<IActionResult> ConfirmAsync(string paymentId, ReasonInput input, CancellationToken ct) =>
-        Reply(await payments.ConfirmManuallyAsync(Actor, paymentId, input.Reason, ct));
+        Reply(await payments.ReconcileOrApplyAsync(Actor, paymentId, input.Reason, ct));
 
     [HttpGet("manager/payments")]
     [Authorize(Roles = UserRoles.LogisticsManager)]

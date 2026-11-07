@@ -45,7 +45,7 @@ export const ReviewSignPage: React.FC = () => {
         </div>
       </div>
       <Note tone="blue" title="Không thể chỉnh sửa tại đây">Nếu có sai sót, hãy hủy bước ký và yêu cầu Manager sửa hợp đồng hiện hành.</Note>
-      <Note tone="green" title={`Ký OTP • hạn ký ${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)})`}>Ký OTP xác nhận nội dung {ctRef(v)}. Tiếp theo bạn thanh toán cọc; backend xác minh đủ tiền mới kích hoạt yêu cầu.</Note>
+      <Note tone="green" title={`Ký OTP • hạn ký ${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)})`}>Tiền cọc đã được xác minh. Ký OTP để hợp đồng {ctRef(v)} có hiệu lực và kích hoạt yêu cầu vận chuyển.</Note>
 
       <div className="cus-grid-main" style={{ marginTop: 16 }}>
         <ContractBody request={r} v={v} horses={horses} />
@@ -55,13 +55,13 @@ export const ReviewSignPage: React.FC = () => {
             <div className="hl"><span>Tổng hợp đồng</span><b>{fmtMoney(v.total)}</b></div>
             <div><span>Tiền cọc ({v.depositPct}%)</span><b>{fmtMoney(depositAmount(r))}</b></div>
             <div><span>Số dư</span><b>{fmtMoney(v.total - depositAmount(r))}</b></div>
-            <div><span>Tiền cọc</span><b>Thanh toán sau khi ký OTP</b></div>
+            <div><span>Tiền cọc</span><b>Đã xác minh trước khi ký</b></div>
             <div><span>Hạn ký</span><b>{fmtDateTime(v.validUntil)}</b></div>
           </div>
           <Note tone="blue" title="Xác nhận lần cuối trước khi ký">Kiểm tra bản hợp đồng hiện hành và đủ {12} điều khoản. Sau khi xác nhận bạn mới có thể nhận mã OTP.</Note>
           <label className="cus-check">
             <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-            Tôi đã đọc, kiểm tra và đồng ý toàn bộ nội dung {ctRef(v)}. Tôi hiểu rằng cần thanh toán cọc sau khi ký để kích hoạt vận chuyển.
+            Tôi đã đọc, kiểm tra và đồng ý toàn bộ nội dung {ctRef(v)}. Tôi hiểu rằng ký OTP sẽ kích hoạt yêu cầu vận chuyển.
           </label>
           <button type="button" className="cus-btn cus-btn--solid cus-btn--block" style={{ marginTop: 14 }} disabled={!confirmed} onClick={sendOtp}>Gửi mã OTP để ký</button>
           <button type="button" className="cus-btn cus-btn--danger cus-btn--block" onClick={() => setCancelOpen(true)}>Hủy yêu cầu</button>

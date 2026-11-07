@@ -191,7 +191,7 @@ export interface Payment {
 }
 
 export interface Refund {
-  amount: number;
+  amount?: number;
   status: 'REQUESTED' | 'PROCESSING' | 'REFUNDED';
   at: string;
   refundedAt?: string;

@@ -76,8 +76,8 @@ export const ContractEditorPage: React.FC = () => {
   const isVoid = state === 'VOID';
   const blockedByMoney = verifiedDeposit(data, r) > 0 || depositPaid(data, r) || !!receivedDepositTx(data, r);
   const canIssue = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) && !isSigned(r) && !blockedByMoney;
-  const editorOpen = canIssue && (['CONTRACT_PREPARATION', 'CONTRACT_CHANGES_REQUESTED'].includes(r.status) || !v || isVoid || state === 'CHANGES_REQUESTED' || state === 'EXPIRED' || editing);
   const change = v?.change && !v.change.response ? v.change : undefined;
+  const editorOpen = canIssue && !change && (r.status === 'CONTRACT_PREPARATION' || !v || isVoid || state === 'EXPIRED' || editing);
   const canManage = !!v && !v.signedAt && ['ISSUED', 'EXPIRED'].includes(state!) && ['CONTRACT_READY', 'DEPOSIT_VERIFIED'].includes(r.status);
   const processing = data.transactions.find((x) => x.requestId === r.id && x.status === 'PROCESSING');
 
@@ -99,7 +99,7 @@ export const ContractEditorPage: React.FC = () => {
             <section className="mgr-card">
               <div className="mgr-between">
                 <h3 className="mgr-card__title">Lịch sử phiên bản: {ctRef(v)} {state && <StatusBadge kind="contract" status={state} />}</h3>
-                {!editorOpen && canIssue && (
+                {!editorOpen && canIssue && !change && (
                   <button type="button" className="mgr-btn mgr-btn--solid mgr-btn--sm" onClick={() => setEditing(true)}>
                     Soạn phiên bản mới
                   </button>
@@ -132,15 +132,15 @@ export const ContractEditorPage: React.FC = () => {
               </div>
               <div className="mgr-btn-row">
                 <button type="button" className="mgr-btn" onClick={async () => { if ((await actions.respondChange(r.id, 'KEPT', response)).ok) setResponse(''); }}>Từ chối sửa & giữ {ctRef(v!)}</button>
-                <button type="button" className="mgr-btn" onClick={async () => { if ((await actions.respondChange(r.id, 'RETURNED', response)).ok) setResponse(''); }}>Chấp nhận sửa và soạn bản mới</button>
+                <button type="button" className="mgr-btn" onClick={async () => { if ((await actions.respondChange(r.id, 'RETURNED', response)).ok) { setEditing(true); setResponse(''); } }}>Chấp nhận sửa và soạn bản mới</button>
               </div>
-              <p className="mgr-hint">Đồng ý sửa: soạn và phát hành phiên bản mới ngay bên dưới (ngày đề xuất được cập nhật vào yêu cầu, phản hồi ở trên được gửi kèm).</p>
+              <p className="mgr-hint">Nhập phản hồi rồi chọn Chấp nhận sửa và soạn bản mới để mở biểu mẫu hợp đồng.</p>
             </section>
           )}
 
           {/* Single contract editor: placed after the change-request card ("soạn … ngay bên dưới"). */}
           {editorOpen && (
-            <section className="mgr-card" style={{ border: '2px solid #f97316' }}>
+            <section className="mgr-card" style={{ borderColor: 'var(--accent-primary)' }}>
               <ContractWizard key={`${r.id}-${v?.v ?? 0}`} request={r} customer={c} horses={horses}
                 onSave={async (d) => {
                   return await actions.saveDraft(r.id, d);
@@ -160,7 +160,7 @@ export const ContractEditorPage: React.FC = () => {
           {!editorOpen && v && (
             <section className="mgr-card">
               <div className="mgr-between"><h3 className="mgr-card__title">Điều khoản hợp đồng ({v.terms.length})</h3>
-                {v.signedAt ? <StatusBadge tone="ok" label="Đã khóa sau ký OTP" /> : canIssue && <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => setEditing(true)}>Chỉnh sửa trước ký</button>}</div>
+                {v.signedAt ? <StatusBadge tone="ok" label="Đã khóa sau ký OTP" /> : canIssue && !change && <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => setEditing(true)}>Chỉnh sửa trước ký</button>}</div>
               <ol className="mgr-contract__terms">{v.terms.map((x, i) => <li key={i}><b>{x.title}.</b> {x.text}</li>)}</ol>
               {v.note && <p className="mgr-hint">Ghi chú gửi khách hàng: {v.note}</p>}
             </section>

@@ -5,6 +5,7 @@ frontend/playwright-report/
 frontend/test-results/
 frontend/.env
 frontend/.env.local
+.local/flow1-fixtures/
 CheckFlow3.html
 
 # Data files & Requirements

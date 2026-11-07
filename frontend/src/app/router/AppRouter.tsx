@@ -63,6 +63,8 @@ import {
   RegulationsPage,
   AuditPage,
 } from "../../features/specialist";
+import { SpecialistRequestReviewsPage } from "../../features/specialist/pages/request-reviews/SpecialistRequestReviewsPage";
+import { CoordinatorRequestReviewsPage } from "../../features/coordinator/pages/request-reviews/CoordinatorRequestReviewsPage";
 import {
   CoordinatorDashboardPage,
   TripDetailPage as CoordinatorTripDetailPage,
@@ -136,6 +138,7 @@ function AppRouter() {
         {/* ==================== COORDINATOR ==================== */}
         <Route path="/coordinator" element={<Navigate to="/coordinator/dashboard" replace />} />
         <Route path="/coordinator/dashboard" element={<CoordinatorDashboardPage />} />
+        <Route path="/coordinator/request-reviews" element={<CoordinatorRequestReviewsPage />} />
         <Route path="/coordinator/overview" element={<Navigate to="/coordinator/dashboard" replace />} />
         <Route path="/coordinator/trips" element={<Navigate to="/coordinator/monitor" replace />} />
         <Route path="/coordinator/trips/:tripId" element={<CoordinatorTripDetailPage />} />
@@ -154,6 +157,7 @@ function AppRouter() {
         {/* ==================== SPECIALIST ==================== */}
         <Route path="/specialist" element={<Navigate to="/specialist/dashboard" replace />} />
         <Route path="/specialist/dashboard" element={<SpecialistDashboardPage />} />
+        <Route path="/specialist/request-reviews" element={<SpecialistRequestReviewsPage />} />
         <Route path="/specialist/profile" element={<SpecialistDashboardPage />} />
         <Route path="/specialist/trips" element={<AssignedTripsPage />} />
         <Route path="/specialist/trips/:tripId" element={<SpecialistTripDetailPage />} />

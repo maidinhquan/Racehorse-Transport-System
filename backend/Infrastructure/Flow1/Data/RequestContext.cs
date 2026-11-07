@@ -9,6 +9,9 @@ public sealed class RequestContext(DbContextOptions<RequestContext> options) : D
     {
         model.ApplyConfigurationsFromAssembly(typeof(RequestContext).Assembly,
             type => type.Namespace == "Infrastructure.Flow1.Configurations");
+        model.Entity<ReviewVehicle>().ToTable("VEHICLE").HasKey(x => x.VehicleID);
+        model.Entity<ReviewFlight>().ToTable("FLIGHT_CATALOG").HasKey(x => x.ServiceID);
+        model.Entity<RequestScheduleOption>().HasOne<RequestAssessment>().WithMany().HasForeignKey(x => x.ReviewID);
         model.Entity<RequestHorse>().HasOne<TransportRequest>().WithMany().HasForeignKey(x => x.RequestID);
         model.Entity<RequestHorse>().HasOne<Horse>().WithMany().HasForeignKey(x => x.HorseID);
         model.Entity<ContractVersion>().HasOne<Contract>().WithMany().HasForeignKey(x => x.ContractID);

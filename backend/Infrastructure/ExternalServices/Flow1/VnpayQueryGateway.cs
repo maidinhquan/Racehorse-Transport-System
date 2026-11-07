@@ -32,9 +32,12 @@ public sealed class VnpayQueryGateway(HttpClient http,Flow1VnpayOptions options,
             using var document=JsonDocument.Parse(limited.ToArray());var root=document.RootElement;
             if(root.ValueKind!=JsonValueKind.Object || root.EnumerateObject().GroupBy(x=>x.Name).Any(g=>g.Count()!=1) || root.EnumerateObject().Count()>30)throw Error("Invalid provider response.","VNPAY_QUERY_INVALID",503);
             string G(string key)=>root.TryGetProperty(key,out var v)?v.ValueKind==JsonValueKind.String?v.GetString()??"":v.ValueKind==JsonValueKind.Number?v.GetRawText():"":"";
+            if (G("vnp_ResponseCode") == "99")
+                throw Error("VNPay Sandbox trả mã 99 (Unexpected error) khi truy vấn giao dịch. Chưa xác minh được kết quả thanh toán; cần thử đối soát lại hoặc kiểm tra trên cổng quản trị VNPay.", "VNPAY_QUERY_UNAVAILABLE", 503);
             var hash=G("vnp_SecureHash");var expected=Sign(options.HashSecret,ResponseFields.Select(G));
             var verified=hash.Length==128 && CryptographicOperations.FixedTimeEquals(Convert.FromHexString(hash),Convert.FromHexString(expected)) && G("vnp_Command")=="querydr" && G("vnp_TmnCode")==i.MerchantId && G("vnp_TxnRef")==i.PaymentId;
             if(!verified)throw Error("Provider reconciliation signature/binding invalid.","VNPAY_QUERY_INVALID",503);
+            if(G("vnp_ResponseCode")=="91")return new(true,i.PaymentId,i.MerchantId,"NOT_FOUND");
             if(G("vnp_ResponseCode")!="00" || G("vnp_TransactionType")!="01")return new(true,i.PaymentId,i.MerchantId,"UNRESOLVED");
             if(G("vnp_TransactionStatus")=="02")return new(true,i.PaymentId,i.MerchantId,"FAILED",TransactionStatus:"02");
             if(G("vnp_TransactionStatus")!="00")return new(true,i.PaymentId,i.MerchantId,"UNRESOLVED");

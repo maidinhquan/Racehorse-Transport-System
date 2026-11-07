@@ -77,6 +77,9 @@ public sealed class ContractSigningService(IDataSession data, AccessService acce
         Require(version.VersionStatus == "ISSUED" && version.TermsAcceptedAtUtc is not null, "TERMS_NOT_ACCEPTED", "Accept the current issued version.");
         Require(request.Status == "DEPOSIT_VERIFIED" && contract.CancellationStatus != "PENDING", "DEPOSIT_NOT_VERIFIED", "A verified deposit is required.");
         Require(contract.CompletionDeadline > clock.GetUtcNow().UtcDateTime && contract.SignedAt is null, "CONTRACT_EXPIRED", "Contract is not open for signing.");
+        Require(request.ExpectedDate is { } pickup && request.PreparationDays is { } preparation
+            && clock.GetUtcNow().UtcDateTime.AddDays(preparation) <= pickup,
+            "INSUFFICIENT_PREPARATION_TIME", "Không còn đủ thời gian chuẩn bị theo lịch hợp đồng.");
         var invoice = (await data.ListAsync<Invoice>(i => i.ContractID == contract.ContractID && i.ContractVersionNo == version.VersionNo && i.InvoiceType == "DEPOSIT", ct)).SingleOrDefault();
         Require(invoice is not null && invoice.PaymentStatus == "PAID" && invoice.PaidAmount >= contract.DepositAmount && contract.DepositAmount > 0,
             "DEPOSIT_NOT_VERIFIED", "Deposit for the current version is not fully verified.");

@@ -58,6 +58,13 @@ public sealed class ApiFactory(SqlFixture database) : WebApplicationFactory<Prog
         }
     }
     public HttpClient Customer() { var client = CreateClient(new() { BaseAddress = new Uri("https://localhost") }); client.DefaultRequestHeaders.Add("X-Test-Actor", "USER_001"); client.DefaultRequestHeaders.Add("X-Test-Role", "CUSTOMER"); return client; }
+    public HttpClient Reviewer(string actor, string role)
+    {
+        var client = CreateClient(new() { BaseAddress = new Uri("https://localhost") });
+        client.DefaultRequestHeaders.Add("X-Test-Actor", actor);
+        client.DefaultRequestHeaders.Add("X-Test-Role", role);
+        return client;
+    }
     public HttpClient Manager() { var client = CreateClient(new() { BaseAddress = new Uri("https://localhost") }); client.DefaultRequestHeaders.Add("X-Test-Actor", "USER_004"); client.DefaultRequestHeaders.Add("X-Test-Role", "LOGISTICS_MANAGER"); return client; }
 }
 public sealed class TestIdentity(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)

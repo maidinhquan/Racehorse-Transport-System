@@ -1,72 +1,55 @@
-using Application.Flow1.Interfaces;
-using Application.Flow1.Mapping;
 using Domain.Flow1.Entities;
 using static Application.Flow1.Rules.BusinessRules;
 
 namespace Application.Flow1.Services;
 
-public sealed class RequestReviewService(
-    IDataSession data,
-    AccessService access,
-    NotificationService notifications
-)
+public sealed partial class RequestAssessmentService
 {
-    public Task<object> AcceptAsync(string actor, string id, CancellationToken ct) =>
-        DecideAsync(actor, id, "CONTRACT_PREPARATION", null, ct);
-
-    public Task<object> RejectAsync(string actor, string id, string reason, CancellationToken ct) =>
-        DecideAsync(actor, id, "REJECTED", Required(reason), ct);
-
-    public Task<object> ChangesAsync(string actor, string id, string feedback, CancellationToken ct)
+    public Task<int> ExpireAsync(CancellationToken ct) => data.WriteAsync(async token =>
     {
-        Require(
-            feedback.Trim().Length >= 10,
-            "VALIDATION_ERROR",
-            "Explain the requested changes in at least ten characters.",
-            400
-        );
-        return DecideAsync(actor, id, "CHANGES_REQUESTED", Required(feedback), ct);
+        var now = Now;
+        var expired = await data.ListAsync<RequestAssessment>(x => x.CustomerDeadlineUtc <= now
+            && (x.Status == "CUSTOMER_SCHEDULE_PENDING" || x.Status == "CUSTOMER_CHANGES_PENDING"), token);
+        var cancelled = 0;
+        foreach (var review in expired)
+        {
+            var request = await data.FindAsync<TransportRequest>(token, review.RequestID);
+            if (request?.Status != "CHANGES_REQUESTED") continue;
+            var draft = (await data.ListAsync<Contract>(c => c.RequestID == request.RequestID, token)).SingleOrDefault();
+            if (draft is not null)
+            {
+                if (draft.ContractStatus != "DRAFT" || draft.SignedAt is not null || !await HasNoFundsAsync(draft, token))
+                    continue;
+                draft.ContractStatus = "CANCELLED";
+                foreach (var version in await data.ListAsync<ContractVersion>(v => v.ContractID == draft.ContractID && v.VersionStatus == "DRAFT", token))
+                    version.VersionStatus = "CANCELLED";
+            }
+            request.Status = "CANCELLED";
+            request.ManagerNotes = "Hết hạn phản hồi yêu cầu vận chuyển.";
+            review.Status = "CLOSED";
+            review.CustomerDeadlineUtc = null;
+            notifications.Add(request.CustomerID, request.RequestID, "REQUEST_REVIEWED", "Yêu cầu đã hết hạn", request.ManagerNotes);
+            cancelled++;
+        }
+        return cancelled;
+    }, ct);
+
+    private async Task<bool> HasNoFundsAsync(Contract contract, CancellationToken ct)
+    {
+        var invoices = await data.ListAsync<Invoice>(i => i.ContractID == contract.ContractID, ct);
+        var ids = invoices.Select(i => i.InvoiceID).ToArray();
+        return invoices.All(i => i.PaidAmount == 0)
+            && (await PaymentService.PendingAsync(data, ids, Now, ct)).Count == 0
+            && !(await data.ListAsync<Payment>(p => ids.Contains(p.InvoiceID) && p.VnpayReceivedAmount > 0, ct)).Any();
     }
 
-    private Task<object> DecideAsync(
-        string actor,
-        string id,
-        string next,
-        string? message,
-        CancellationToken ct
-    ) =>
-        data.WriteAsync<object>(
-            async token =>
-            {
-                var row = await access.RequestAsync(id, actor, true, token);
-                if (row.Status == next)
-                    return RequestMapper.View(
-                        row,
-                        await data.ListAsync<RequestHorse>(h => h.RequestID == id, token)
-                    );
-                Require(
-                    row.Status == "PENDING_REVIEW"
-                        || next == "REJECTED" && row.Status == "CHANGES_REQUESTED",
-                    "INVALID_STATE",
-                    "Only a submitted request can be reviewed."
-                );
-                row.Status = next;
-                if (next == "CHANGES_REQUESTED")
-                    row.RevisionFeedback = message;
-                else
-                    row.ManagerNotes = message;
-                notifications.Add(
-                    row.CustomerID,
-                    row.RequestID,
-                    "REQUEST_REVIEWED",
-                    "Request reviewed",
-                    message ?? "Request accepted; the contract is being prepared."
-                );
-                return RequestMapper.View(
-                    row,
-                    await data.ListAsync<RequestHorse>(h => h.RequestID == id, token)
-                );
-            },
-            ct
-        );
+    public async Task CloseForResubmissionAsync(string id, CancellationToken ct)
+    {
+        var review = await LatestAsync(id, ct);
+        if (review is null) return; // Requests returned before the assessment workflow.
+        Require(review.Status == "CUSTOMER_CHANGES_PENDING" && review.CustomerDeadlineUtc > Now,
+            "INVALID_STATE", "Yêu cầu đã hết hạn chỉnh sửa hoặc đang chờ xác nhận lịch.");
+        review.Status = "CLOSED";
+        review.CustomerDeadlineUtc = null;
+    }
 }

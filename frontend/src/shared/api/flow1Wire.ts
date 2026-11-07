@@ -20,9 +20,23 @@ export interface WireContract {
 }
 export interface WirePayment {
   id: string; contractId: string; invoiceId: string; versionNo: number; amount: number; method: string;
-  status: string; databaseStatus?: string; receivedAmount?: number | null; paidAt?: string | null;
+  status: string; paymentOutcome?: 'SUCCESS' | 'FAILED' | 'UNCONFIRMED'; databaseStatus?: string; receivedAmount?: number | null; paidAt?: string | null;
   reviewRequired?: boolean; reviewReason?: string | null; expiresAt?: string | null; createdAt?: string | null;
 }
+export interface WireRefund {
+  refundStatus: 'REQUESTED' | 'PROCESSING' | 'COMPLETED'; amount: number | null;
+  reference: string | null; refundedAtUtc: string | null; verifiedAtUtc: string | null;
+}
+export interface RefundEvidence { reference: string; amount: number; refundedAtUtc: string }
+export function refundFromWire(refund?: WireRefund | null) {
+  if (!refund) return undefined;
+  return {
+    status: refund.refundStatus === 'COMPLETED' ? 'REFUNDED' as const : refund.refundStatus,
+    amount: refund.amount ?? undefined, reference: refund.reference ?? undefined,
+    refundedAt: refund.refundedAtUtc ?? undefined, at: refund.verifiedAtUtc ?? '',
+  };
+}
+
 /** Customer's contract change request as returned on request details (`contractFeedback`). */
 export interface WireContractFeedback {
   text?: string | null; status?: string | null; managerReply?: string | null; receivedAt?: string | null; handledAt?: string | null;
@@ -32,21 +46,26 @@ const anyUtcMs = (s?: string | null) => {
   const iso = s.includes('T') ? s : s.replace(' ', 'T');
   return Date.parse(/(Z|[+-]\d\d:?\d\d)$/i.test(iso) ? iso : `${iso.length <= 16 ? `${iso}:00` : iso}Z`) || 0;
 };
-const minuteText = (s?: string | null) => (s ? s.replace('T', ' ').slice(0, 16) : '');
+// Contract timestamps arrive in UTC; view-model clock helpers expect Vietnam local time.
+const contractLocalStamp = (value?: string | null) => {
+  const milliseconds = anyUtcMs(value);
+  return milliseconds ? new Date(milliseconds + 7 * 60 * 60 * 1000).toISOString().slice(0, 16).replace('T', ' ') : '';
+};
+
 /**
  * The backend keeps one change request per contract without a version number. Attach it to the latest
  * version published before it was received; pending requests therefore land on the current version.
  */
 export function attachContractFeedback<V extends { issuedAt?: string }>(versions: V[], feedback?: WireContractFeedback | null): V[] {
   if (!feedback?.text) return versions;
-  const received = anyUtcMs(feedback.receivedAt);
+  const received = anyUtcMs(contractLocalStamp(feedback.receivedAt));
   const published = versions.filter(v => v.issuedAt);
   const target = [...published].reverse().find(v => !received || anyUtcMs(v.issuedAt) <= received) ?? published[published.length - 1];
   if (!target) return versions;
   const handled = feedback.status && feedback.status !== 'PENDING' && feedback.managerReply;
   const change = {
-    at: minuteText(feedback.receivedAt), text: feedback.text,
-    ...(handled ? { response: { at: minuteText(feedback.handledAt), text: feedback.managerReply!, decision: feedback.status === 'ACCEPTED' ? 'RETURNED' as const : 'KEPT' as const } } : {}),
+    at: contractLocalStamp(feedback.receivedAt), text: feedback.text,
+    ...(handled ? { response: { at: contractLocalStamp(feedback.handledAt), text: feedback.managerReply!, decision: feedback.status === 'ACCEPTED' ? 'RETURNED' as const : 'KEPT' as const } } : {}),
   };
   return versions.map(v => (v === target ? { ...v, change } : v));
 }
@@ -54,14 +73,16 @@ export function attachContractFeedback<V extends { issuedAt?: string }>(versions
 /** Server timestamps are UTC "yyyy-MM-dd HH:mm". */
 export const utcMs = (s?: string | null) => (s ? Date.parse(`${s.replace(' ', 'T')}:00Z`) || undefined : undefined);
 export const paymentFromWire = (p: WirePayment) => ({
-  ...p, qrExpiresAtMs: utcMs(p.expiresAt), type: 'DEPOSIT' as const, confirmedAmount: p.receivedAmount ?? 0,
+  ...p, status: p.paymentOutcome === 'UNCONFIRMED' ? 'PROCESSING' : p.paymentOutcome ?? p.status,
+  qrExpiresAtMs: utcMs(p.expiresAt), type: 'DEPOSIT' as const, confirmedAmount: p.receivedAmount ?? 0,
   createdAt: p.createdAt ?? '', confirmedAt: p.paidAt ?? undefined,
 });
 
 export const contractFromWire = (v: WireContract) => ({
-  ...v, v: v.versionNo, number: v.contractId, validUntil: v.currentDeadline ?? '',
-  state: v.versionStatus, issuedAt: v.issuedAt ?? '', signedAt: v.signedAt ?? undefined,
-  termsAcceptedAt: v.termsAcceptedAt ?? undefined, items: v.items ?? [], terms: v.terms ?? [],
+  ...v, v: v.versionNo, number: v.contractId, validUntil: contractLocalStamp(v.currentDeadline),
+  state: v.versionStatus === 'SIGNED' && ['EFFECTIVE', 'FULFILLED'].includes(v.contractStatus) ? v.contractStatus : v.versionStatus,
+  issuedAt: contractLocalStamp(v.issuedAt), signedAt: contractLocalStamp(v.signedAt) || undefined,
+  termsAcceptedAt: contractLocalStamp(v.termsAcceptedAt) || undefined, items: v.items ?? [], terms: v.terms ?? [],
   total: v.total ?? 0, depositPct: v.depositPct ?? 0, depositAmount: v.depositAmount ?? undefined,
   note: v.note ?? '', mode: v.mode ?? undefined, departAt: v.departAt ?? '', arriveAt: v.arriveAt ?? '',
   deadlineHistory: [], extensions: [],

@@ -66,8 +66,10 @@ public sealed class RequestSubmissionTests(SqlFixture database) : IClassFixture<
         var created = await customer.PostAsync("/api/customer/requests", SubmissionTest.Body(input));
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         using var result = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
-        var id = result.RootElement.GetProperty("data").GetProperty("id").GetString();
-        Assert.True((await manager.PostAsJsonAsync($"/api/manager/requests/{id}/request-changes", new { feedback = "Update contact" })).IsSuccessStatusCode);
+        var id = result.RootElement.GetProperty("data").GetProperty("id").GetString()!;
+        var (reviewId, _) = await RequestReviewTest.AssessAsync(factory, manager, id, false);
+        await RequestReviewTest.DataAsync(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/request-changes",
+            new { reviewId, requestRevision = 1, action = "SUPPLEMENT_DOCUMENTS", feedback = "Update contact" }));
         foreach (var type in new[] { "INVITATION_LETTER", "COMPETITION_REGISTRATION", "ATA_CARNET" })
         {
             var body = JsonSerializer.SerializeToNode(input, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;

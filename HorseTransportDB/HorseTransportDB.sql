@@ -1,4 +1,3 @@
-<<<<<<<< HEAD:HorseTransportDB/HorseTransportDB.sql
 -- =============================================================================
 -- HorseTransportDB.sql: FILE DATABASE DUY NHẤT (schema + dữ liệu mẫu, Flow 1 đến Flow 6)
 -- Gộp từ: HorseTransportDB_Reviewed.sql (schema Flow 1-3, 5, 6 và dữ liệu mẫu)
@@ -7,7 +6,6 @@
 -- Chạy từ thư mục gốc repository (bắt buộc có -f 65001 để giữ đúng tiếng Việt):
 --   sqlcmd -S ".\SQLEXPRESS" -E -C -b -f 65001 -i HorseTransportDB/HorseTransportDB.sql
 -- Các file HorseTransportDB_Reviewed.sql, modules/, 00_Init_Database.sql không còn cần để khởi tạo DB.
-========
 -- Canonical test schema: reset/recreate using this file; no numbered migrations are required.
 -- Includes RemoveRequestSharedDocuments: retired request attachment columns are omitted;
 -- customs fixtures use EXPORT/IMPORT only, so no legacy-data cleanup is needed.
@@ -22,7 +20,6 @@
 -- Flow 6: 5 additional tables, totaling 37 tables / 33 monotonic sequences.
 -- Backend still owns authorization, cross-table transitions, window scheduling and financial reconciliation.
 -- Monetary seed values are illustrative demo data, not market quotations. Ratios remain ratios.
->>>>>>>> origin/feature/api-frontend-flow4-5-6:HorseTransportDB/HorseTransportDB_Reviewed.sql
 -- =============================================================================
 -- BƯỚC 1: TẠO VÀ CHUYỂN VÀO CƠ SỞ DỮ LIỆU CHÍNH THỨC
 -- =============================================================================
@@ -290,6 +287,50 @@ CREATE TABLE TRANSPORT_REQUEST (
     -- The backend resolves the minimum from BUSINESS_POLICY and stores the applied days.
     CONSTRAINT CK_F1S_TRANSPORT_REQUEST_Preparation CHECK ([PreparationDays] IS NULL OR [OriginCountry] IS NOT NULL AND [DestinationCountry] IS NOT NULL AND [PreparationDays]>=0)
 );
+
+-- Flow 1: xét duyệt theo yêu cầu trước hợp đồng.
+CREATE TABLE REQUEST_REVIEW (
+    ReviewID VARCHAR(50) NOT NULL PRIMARY KEY,
+    RequestID VARCHAR(50) NOT NULL REFERENCES TRANSPORT_REQUEST(RequestID),
+    RequestRevision INT NOT NULL CHECK (RequestRevision > 0),
+    CoordinatorID VARCHAR(50) NOT NULL REFERENCES [USER](UserID),
+    SpecialistID VARCHAR(50) NOT NULL REFERENCES [USER](UserID),
+    Status VARCHAR(40) NOT NULL CHECK (Status IN (
+        'COORDINATOR_PENDING','SPECIALIST_PENDING','MANAGER_PENDING','CUSTOMER_SCHEDULE_PENDING',
+        'CUSTOMER_CHANGES_PENDING','CUSTOMER_ACCEPTED','CUSTOMER_REJECTED','APPROVED','CLOSED')),
+    SelectedOptionID VARCHAR(50) NULL,
+    CustomerDeadlineUtc DATETIME2(7) NULL,
+    CONSTRAINT UQ_RequestReview_Revision UNIQUE (RequestID, RequestRevision)
+);
+CREATE INDEX IX_RequestReview_Coordinator ON REQUEST_REVIEW(CoordinatorID, Status);
+CREATE INDEX IX_RequestReview_Specialist ON REQUEST_REVIEW(SpecialistID, Status);
+CREATE INDEX IX_RequestReview_Deadline ON REQUEST_REVIEW(CustomerDeadlineUtc) WHERE CustomerDeadlineUtc IS NOT NULL;
+
+CREATE TABLE REQUEST_SCHEDULE_OPTION (
+    OptionID VARCHAR(50) NOT NULL PRIMARY KEY,
+    ReviewID VARCHAR(50) NOT NULL REFERENCES REQUEST_REVIEW(ReviewID),
+    IsOriginal BIT NOT NULL,
+    Mode VARCHAR(10) NOT NULL CHECK (Mode IN ('ROAD','AIR')),
+    PickupDate DATE NOT NULL,
+    DeliveryDate DATE NOT NULL,
+    CoordinatorResult VARCHAR(30) NOT NULL CHECK (CoordinatorResult IN ('FEASIBLE','NOT_FEASIBLE')),
+    CoordinatorReason NVARCHAR(2000) NOT NULL,
+    ChecklistVersion VARCHAR(64) NULL,
+    SpecialistResult VARCHAR(30) NULL CHECK (SpecialistResult IN ('FEASIBLE','NOT_FEASIBLE','NEEDS_SUPPLEMENT')),
+    SpecialistNote NVARCHAR(2000) NULL,
+    ChecklistAssessmentJson NVARCHAR(MAX) NULL CHECK (ChecklistAssessmentJson IS NULL OR ISJSON(ChecklistAssessmentJson)=1),
+    CONSTRAINT UQ_RequestScheduleOption_Kind UNIQUE (ReviewID, IsOriginal),
+    CONSTRAINT UQ_RequestScheduleOption_Scope UNIQUE (ReviewID, OptionID),
+    CONSTRAINT CK_RequestScheduleOption_Dates CHECK (DeliveryDate >= PickupDate)
+);
+ALTER TABLE REQUEST_REVIEW ADD CONSTRAINT FK_RequestReview_Option
+    FOREIGN KEY (ReviewID, SelectedOptionID) REFERENCES REQUEST_SCHEDULE_OPTION(ReviewID, OptionID);
+CREATE SEQUENCE dbo.SEQ_REQUEST_REVIEW_ID AS BIGINT START WITH 1 INCREMENT BY 1 NO CYCLE;
+ALTER TABLE REQUEST_REVIEW ADD CONSTRAINT DF_REQUEST_REVIEW_ID
+    DEFAULT ('REQUEST_REVIEW_' + FORMAT(NEXT VALUE FOR dbo.SEQ_REQUEST_REVIEW_ID, '000', 'en-US')) FOR ReviewID;
+CREATE SEQUENCE dbo.SEQ_REQUEST_SCHEDULE_OPTION_ID AS BIGINT START WITH 1 INCREMENT BY 1 NO CYCLE;
+ALTER TABLE REQUEST_SCHEDULE_OPTION ADD CONSTRAINT DF_REQUEST_SCHEDULE_OPTION_ID
+    DEFAULT ('REQUEST_SCHEDULE_OPTION_' + FORMAT(NEXT VALUE FOR dbo.SEQ_REQUEST_SCHEDULE_OPTION_ID, '000', 'en-US')) FOR OptionID;
 
 -- 10. Bảng REQUEST_HORSE_MAPPING: Khử quan hệ N-N giữa Request và Horse
 CREATE TABLE REQUEST_HORSE_MAPPING (
@@ -632,6 +673,8 @@ CREATE TABLE FLIGHT_CATALOG (
     DestAirportPlaceId VARCHAR(50) NOT NULL,
     DepartureTime VARCHAR(5) NOT NULL, -- HH:mm (vd: 05:00)
     ArrivalTime VARCHAR(5) NOT NULL,   -- HH:mm (vd: 11:00)
+    DepartureDate DATE NULL,
+    ArrivalDate DATE NULL,
     DepartureTimeZone VARCHAR(50) NOT NULL DEFAULT 'Asia/Ho_Chi_Minh',
     ArrivalTimeZone VARCHAR(50) NOT NULL DEFAULT 'Asia/Tokyo',
     PriceVND DECIMAL(14, 2) NOT NULL,
@@ -860,6 +903,9 @@ CREATE TABLE CONTRACT (
     RefundAmount DECIMAL(12,2) NULL,
     RefundStatus VARCHAR(20) NULL,
     RefundReference VARCHAR(100) NULL,
+    RefundedAtUtc DATETIME2(7) NULL,
+    RefundVerifiedBy VARCHAR(50) NULL REFERENCES [USER](UserID),
+    RefundVerifiedAtUtc DATETIME2(7) NULL,
     CONSTRAINT CK_Contract_Currency CHECK (CurrencyCode = 'VND'),
     CONSTRAINT PK_Contract PRIMARY KEY (ContractID),
     CONSTRAINT CK_Contract_CurrentVersion CHECK (CurrentVersionNo IS NULL OR CurrentVersionNo > 0),
@@ -875,14 +921,16 @@ CREATE TABLE CONTRACT (
     CONSTRAINT CK_F1S_CONTRACT_Extension CHECK ([LastExtensionReason] IS NULL AND [LastExtensionBy] IS NULL AND [LastExtensionAtUtc] IS NULL OR [LastExtensionReason] IS NOT NULL AND [LastExtensionBy] IS NOT NULL AND [LastExtensionAtUtc] IS NOT NULL),
     CONSTRAINT CK_F1S_CONTRACT_Cancellation CHECK ([CancellationId] IS NULL AND [CancellationStatus] IS NULL AND [CancellationReason] IS NULL AND [CancellationRequestedAtUtc] IS NULL AND [CancellationDecisionReason] IS NULL AND [CancellationDecidedBy] IS NULL AND [CancellationDecidedAtUtc] IS NULL OR [CancellationId] IS NOT NULL AND [CancellationStatus] IS NOT NULL AND [CancellationReason] IS NOT NULL AND [CancellationRequestedAtUtc] IS NOT NULL AND ([CancellationStatus]='PENDING' AND [CancellationDecisionReason] IS NULL AND [CancellationDecidedBy] IS NULL AND [CancellationDecidedAtUtc] IS NULL OR ([CancellationStatus]='REJECTED' OR [CancellationStatus]='APPROVED') AND [CancellationDecisionReason] IS NOT NULL AND [CancellationDecidedBy] IS NOT NULL AND [CancellationDecidedAtUtc] IS NOT NULL)),
     CONSTRAINT CK_F1Final_Feedback CHECK ([FeedbackStatus] IS NULL OR ([FeedbackStatus]='REJECTED' OR [FeedbackStatus]='ACCEPTED' OR [FeedbackStatus]='PENDING') AND [CustomerFeedback] IS NOT NULL AND [FeedbackAtUtc] IS NOT NULL),
-    -- Flow 1 tracks refund status only; no transfer/evidence workflow is implemented.
-    -- Existing amount/reference are optional metadata, not proof that a transfer occurred.
+    -- A transfer is performed externally; the Manager records its reference and verifies the evidence.
     CONSTRAINT CK_F1Final_Refund CHECK (
         (RefundStatus IS NULL AND RefundAmount IS NULL AND RefundReference IS NULL)
         OR (RefundStatus IS NOT NULL AND RefundStatus IN ('REQUESTED','PROCESSING','COMPLETED')
             AND (RefundAmount IS NULL OR RefundAmount>0))),
     CONSTRAINT FK_Contract_Request FOREIGN KEY (RequestID) REFERENCES [TRANSPORT_REQUEST](RequestID)
 );
+
+CREATE UNIQUE INDEX UX_Flow1Refund_Reference ON CONTRACT(RefundReference)
+    WHERE RefundReference IS NOT NULL AND RefundVerifiedAtUtc IS NOT NULL;
 
 -- Contract content history, not a concurrency token.
 -- CONTRACT contains the current operational state; these snapshots preserve issued content.
@@ -1346,6 +1394,14 @@ INSERT INTO BUSINESS_POLICY (PolicyID, Code, ValueType, NumberValue, TextValue, 
 ('BUSINESS_POLICY_007', 'SIGN_OTP_MAX_ATTEMPTS', 'NUMBER', 5, NULL, NULL, 'ATTEMPT', 'GLOBAL', NULL, N'Số lần nhập sai tối đa của một mã OTP ký hợp đồng.', 'USER_004'),
 ('BUSINESS_POLICY_008', 'FEEDBACK_WINDOW_HOURS', 'NUMBER', 24, NULL, NULL, 'HOUR', 'GLOBAL', NULL, N'Thời lượng cửa sổ phản hồi sau tất toán hoặc sau khi khách chấp nhận kết quả giải quyết khiếu nại.', 'USER_004');
 
+INSERT INTO BUSINESS_POLICY (PolicyID, Code, ValueType, NumberValue, Unit, ScopeType, ScopeID, Description)
+VALUES
+    ('BUSINESS_POLICY_012', 'FLOW1_PREPARATION_DAYS', 'NUMBER', 3, 'DAY', 'TRANSPORT_MODE', 'ROAD', N'Flow 1: số ngày chuẩn bị vận chuyển đường bộ.'),
+    ('BUSINESS_POLICY_013', 'FLOW1_PREPARATION_DAYS', 'NUMBER', 7, 'DAY', 'TRANSPORT_MODE', 'AIR', N'Flow 1: số ngày chuẩn bị vận chuyển đường hàng không.'),
+    ('BUSINESS_POLICY_014', 'FLOW1_REVIEW_BUFFER_DAYS', 'NUMBER', 3, 'DAY', 'GLOBAL', NULL, N'Số ngày dự trù xét duyệt yêu cầu.'),
+    ('BUSINESS_POLICY_015', 'FLOW1_SIGNING_BUFFER_DAYS', 'NUMBER', 2, 'DAY', 'GLOBAL', NULL, N'Số ngày dự trù hoàn thành hợp đồng khi chọn ngày nhận ngựa.'),
+    ('BUSINESS_POLICY_016', 'FLOW1_CUSTOMER_RESPONSE_HOURS', 'NUMBER', 24, 'HOUR', 'GLOBAL', NULL, N'Hạn phản hồi chỉnh sửa hoặc xác nhận lịch trước hợp đồng.');
+
 -- 2. Bảng HORSE: Đa dạng cá thể (Ngựa đực Stallion, Ngựa cái Mare, Ngựa thiến Gelding)
 INSERT INTO HORSE (HorseID, OwnerID, Microchip_ISO, FEI_Passport_No, Name, Breed, Sex, ReproductiveStatus, Weight, DOB, PhotoUrl, PassportScanUrl) VALUES
 ('HORSE_001', 'USER_001', '981098102938475', 'VN_FEI_2026_01', N'Tia Chớp Đỏ (Red Lightning)', N'Thoroughbred', 'STALLION', 'INTACT', 520.50, '2020-04-15', 'private/e57ef0f3ee1e1213dfcdf70f412cf923a17972590b0e8e9a730b829c04437ae3.png', 'private/7f8f1e6c21f9e89ecb8b6f445e5eb2538ff6e42be497b8930a0be9beebdfe090.pdf'),
@@ -1789,7 +1845,7 @@ ALTER TABLE dbo.[SUPPORTED_ROUTE] ADD CONSTRAINT [DF_SUPPORTED_ROUTE_ID]
     DEFAULT ('ROUTE_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_SUPPORTED_ROUTE_ID], '000', 'en-US')) FOR [RouteID];
 
 CREATE SEQUENCE dbo.[SEQ_BUSINESS_POLICY_ID] AS BIGINT
-    START WITH 12 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+    START WITH 17 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[BUSINESS_POLICY] ADD CONSTRAINT [DF_BUSINESS_POLICY_ID]
     DEFAULT ('BUSINESS_POLICY_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_BUSINESS_POLICY_ID], '000', 'en-US')) FOR [PolicyID];
 

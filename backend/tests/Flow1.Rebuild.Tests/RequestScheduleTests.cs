@@ -21,9 +21,8 @@ public sealed class RequestScheduleTests(SqlFixture database) : IClassFixture<Sq
     {
         using var factory = new ApiFactory(database); using var client = factory.Customer();
         client.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
-        await SubmissionTest.ReadyHorseAsync(database);
-        object Input(string start, string end) => new { origin = "Hanoi", destination = "Tokyo", originCountry = "VN",
-            destinationCountry = "JP", mode = "AIR", expectedTransportDate = start, expectedDeliveryDate = end, careInstructions = "Care" };
+        var horseId = await SubmissionTest.NewHorseAsync(database);
+        object Input(string start, string end) => SubmissionTest.Input(start, end, horseId);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/customer/requests", SubmissionTest.Body( new {
             origin = "Hanoi", destination = "Tokyo", originCountry = "VN", destinationCountry = "JP", mode = "AIR",
             expectedTransportDate = "2027-12-25", careInstructions = "Care" }))).StatusCode);
@@ -43,13 +42,13 @@ public sealed class RequestScheduleTests(SqlFixture database) : IClassFixture<Sq
     }
 
     [Fact]
-    public async Task Selectable_checks_the_entire_range_and_drafts_do_not_block_editing()
+    public async Task Selectable_blocks_active_requests_and_excludes_the_request_being_edited()
     {
         using var factory = new ApiFactory(database); using var client = factory.Customer();
         client.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
-        await SubmissionTest.ReadyHorseAsync(database);
-        var created = await Data(await client.PostAsync("/api/customer/requests", SubmissionTest.Body( new { origin = "Hanoi", destination = "Tokyo",
-            originCountry = "VN", destinationCountry = "JP", mode = "AIR", expectedTransportDate = "2028-01-10", expectedDeliveryDate = "2028-01-15", careInstructions = "Care" })));
+        var horseId = await SubmissionTest.NewHorseAsync(database);
+        var created = await Data(await client.PostAsync("/api/customer/requests",
+            SubmissionTest.Body(SubmissionTest.Input("2028-01-10", "2028-01-15", horseId))));
         var id = created.GetProperty("id").GetString()!;
         await using (var db = database.Context())
         {
@@ -57,13 +56,13 @@ public sealed class RequestScheduleTests(SqlFixture database) : IClassFixture<Sq
             request.Status = "PENDING_REVIEW";
             await db.SaveChangesAsync();
         }
-        foreach (var (start, end, available) in new[] {
-            ("2028-01-01", "2028-01-09", true), ("2028-01-01", "2028-01-10", false),
-            ("2028-01-11", "2028-01-12", false), ("2028-01-01", "2028-01-20", false),
-            ("2028-01-16", "2028-01-20", true) })
+        foreach (var (start, end) in new[] {
+            ("2028-01-01", "2028-01-09"), ("2028-01-01", "2028-01-10"),
+            ("2028-01-11", "2028-01-12"), ("2028-01-01", "2028-01-20"),
+            ("2028-01-16", "2028-01-20") })
         {
             var horses = await Data(await client.GetAsync($"/api/customer/horses/selectable?expectedTransportDate={start}&expectedDeliveryDate={end}"));
-            Assert.Equal(available, horses.EnumerateArray().Single(h => h.GetProperty("id").GetString() == "HORSE_001").GetProperty("selectable").GetBoolean());
+            Assert.False(horses.EnumerateArray().Single(h => h.GetProperty("id").GetString() == horseId).GetProperty("selectable").GetBoolean());
         }
         foreach (var status in new[] { "DRAFT", "CHANGES_REQUESTED" })
         {
@@ -73,8 +72,8 @@ public sealed class RequestScheduleTests(SqlFixture database) : IClassFixture<Sq
                 request.Status = status;
                 await db.SaveChangesAsync();
             }
-            var editable = await Data(await client.GetAsync("/api/customer/horses/selectable?expectedTransportDate=2028-01-11&expectedDeliveryDate=2028-01-12"));
-            Assert.True(editable.EnumerateArray().Single(h => h.GetProperty("id").GetString() == "HORSE_001").GetProperty("selectable").GetBoolean());
+            var editable = await Data(await client.GetAsync($"/api/customer/horses/selectable?expectedTransportDate=2028-01-11&expectedDeliveryDate=2028-01-12&excludeRequestId={id}"));
+            Assert.True(editable.EnumerateArray().Single(h => h.GetProperty("id").GetString() == horseId).GetProperty("selectable").GetBoolean());
         }
         Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/customer/horses/selectable?expectedTransportDate=2028-01-12&expectedDeliveryDate=2028-01-11")).StatusCode);
     }

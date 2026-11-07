@@ -12,6 +12,7 @@ import { Icon, IconSprite } from '../common/ui';
 
 const NAV: Array<[string, string, string]> = [
   ['/coordinator/dashboard', 'Tổng quan', 'home'],
+  ['/coordinator/request-reviews', 'Thẩm định yêu cầu', 'list'],
   ['/coordinator/monitor', 'Giám sát hành trình', 'map'],
   ['/coordinator/places', 'Quản lý địa điểm', 'list'],
   ['/coordinator/fleet', 'Đội xe', 'truck'],

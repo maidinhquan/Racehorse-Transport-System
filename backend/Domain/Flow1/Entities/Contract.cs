@@ -41,4 +41,7 @@ public sealed class Contract
     public decimal? RefundAmount { get; set; }
     public string? RefundStatus { get; set; }
     public string? RefundReference { get; set; }
+    public DateTime? RefundedAtUtc { get; set; }
+    public string? RefundVerifiedBy { get; set; }
+    public DateTime? RefundVerifiedAtUtc { get; set; }
 }

@@ -10,11 +10,15 @@ public sealed class PaymentService(IDataSession data, AccessService access, IPay
     NotificationService notifications, TimeProvider clock, IGatewayQuery? query = null)
 {
     // Last VNPAY query per payment, so page polling and the background sweep do not flood the provider.
-    private static readonly ConcurrentDictionary<string, DateTime> lastQuery = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, (DateTime StartedAt, DateTime RetryAfter)> queries = new(StringComparer.Ordinal);
     public async Task<object> SessionAsync(string actor, string invoiceId, string method, string ip, CancellationToken ct)
     {
         Require(method == "VNPAY", "VALIDATION_ERROR", "Only VNPAY is supported.", 400);
         Require(gateway.IsConfigured, "VNPAY_NOT_CONFIGURED", "Configure VNPAY.", 503);
+        var existingInvoice = await data.FindAsync<Invoice>(ct, invoiceId) ?? throw Failure("NOT_FOUND", "Invoice not found.", 404);
+        await access.ContractAsync(existingInvoice.ContractID, actor, false, ct);
+        foreach (var attempt in await data.ListAsync<Payment>(p => p.InvoiceID == invoiceId && p.Status == "PENDING_GATEWAY", ct))
+            await ReconcileAsync(attempt.PaymentID, ct);
         var pending = await data.WriteAsync(async token =>
         {
             var invoice = await data.FindAsync<Invoice>(token, invoiceId) ?? throw Failure("NOT_FOUND", "Invoice not found.", 404);
@@ -27,8 +31,12 @@ public sealed class PaymentService(IDataSession data, AccessService access, IPay
             Require(version?.TermsAcceptedAtUtc is not null && version.VersionStatus == "ISSUED", "TERMS_NOT_ACCEPTED", "Accept this contract version first.");
             var amount = invoice.TotalPayableAmount - invoice.PaidAmount;
             Require(amount > 0, "PAYMENT_ALREADY_PROCESSED", "Deposit already paid.");
-            var attempts = await data.ListAsync<Payment>(p => p.InvoiceID == invoiceId && p.Status == "PENDING_GATEWAY" && p.VnpayExpiresAtUtc > clock.GetUtcNow().UtcDateTime, token);
-            var payment = attempts.FirstOrDefault(p => p.Amount == amount);
+            var nowUtc = clock.GetUtcNow().UtcDateTime;
+            var attempts = await PendingAsync(data, [invoiceId], nowUtc, token);
+            var payment = attempts.Count == 1 && attempts[0].Amount == amount && attempts[0].VnpayExpiresAtUtc > nowUtc ? attempts[0] : null;
+            Require(attempts.All(p => p == payment)
+                && !(await data.ListAsync<Payment>(p => p.InvoiceID == invoiceId && p.Status == "REVIEW_REQUIRED", token)).Any(),
+                "PAYMENT_RECONCILIATION_REQUIRED", "Chờ kết quả đối soát giao dịch cọc trước khi thanh toán lại.");
             if (payment is null)
             {
                 var timestamp = clock.GetUtcNow().UtcDateTime;
@@ -57,7 +65,7 @@ public sealed class PaymentService(IDataSession data, AccessService access, IPay
                 && payment.Status == "PENDING_GATEWAY" && contract.CompletionDeadline > clock.GetUtcNow().UtcDateTime,
                 "INVALID_STATE", "Payment state changed while creating the session.");
             payment.VnpayTmnCode = result.MerchantId;
-            return new { id = payment.PaymentID, invoiceId, amount = payment.Amount, currency = "VND", method = "VNPAY", status = "PROCESSING", paymentUrl = result.PaymentUrl.ToString(), expiresAt = result.ExpiresAtUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm") };
+            return new { id = payment.PaymentID, invoiceId, amount = payment.Amount, currency = "VND", method = "VNPAY", status = "PROCESSING", paymentOutcome = "UNCONFIRMED", paymentUrl = result.PaymentUrl.ToString(), expiresAt = result.ExpiresAtUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm") };
         }, ct);
     }
     public async Task<object> IpnAsync(IReadOnlyDictionary<string, string> payload, CancellationToken ct)
@@ -95,10 +103,13 @@ public sealed class PaymentService(IDataSession data, AccessService access, IPay
             var invoice = await data.FindAsync<Invoice>(token, payment.InvoiceID) ?? throw Failure("NOT_FOUND", "Invoice not found.", 404);
             var contract = await data.FindAsync<Contract>(token, invoice.ContractID) ?? throw Failure("NOT_FOUND", "Contract not found.", 404);
             var request = await data.FindAsync<TransportRequest>(token, contract.RequestID) ?? throw Failure("NOT_FOUND", "Request not found.", 404);
+            if (verified.Status != "SUCCESS" && verified.TransactionStatus != "02")
+                return new { RspCode = "00", Message = "Pending reconciliation" };
             payment.VnpayResponseCode = verified.ResponseCode;
             payment.VnpayTransactionStatus = verified.TransactionStatus;
             payment.VnpayBankCode = verified.BankCode; payment.TransactionCode = verified.ProviderTransactionId;
             payment.Status = verified.Status;
+            payment.FinancialReviewReason = null;
             if (verified.Status != "SUCCESS") return new { RspCode = "00", Message = "Recorded" };
             payment.VnpayReceivedAmount = verified.Amount; payment.PaymentDate = verified.PaidAtUtc!.Value.UtcDateTime;
             var valid = !successAfterFailure && contract.CurrentVersionNo == invoice.ContractVersionNo && invoice.PaymentStatus != "CANCELLED"
@@ -112,6 +123,9 @@ public sealed class PaymentService(IDataSession data, AccessService access, IPay
                 payment.FinancialReviewReason = successAfterFailure
                     ? "Verified funds arrived after a failed payment notification; reconciliation required."
                     : "Verified funds arrived outside the current open deposit window; reconciliation required.";
+                if (contract.ContractStatus == "CANCELLED" && contract.SignedAt is null && invoice.InvoiceType == "DEPOSIT"
+                    && contract.RefundStatus is null)
+                    contract.RefundStatus = "REQUESTED";
                 return new { RspCode = "00", Message = "Recorded for reconciliation" };
             }
             invoice.PaidAmount += payment.Amount;
@@ -136,13 +150,24 @@ public sealed class PaymentService(IDataSession data, AccessService access, IPay
         if (payment is null || payment.Status != "PENDING_GATEWAY" || payment.Method != "VNPAY" || payment.VnpayCreatedAtUtc is null || payment.VnpayTmnCode is null) return;
         var now = clock.GetUtcNow().UtcDateTime;
         if (!force && now - payment.VnpayCreatedAtUtc.Value < TimeSpan.FromSeconds(20)) return; // customer is still on the gateway page
-        if (!force && lastQuery.TryGetValue(paymentId, out var last) && now - last < TimeSpan.FromSeconds(10)) return;
-        lastQuery[paymentId] = now;
         var reference = TxnRef(payment.PaymentID, payment.VnpayCreatedAtUtc.Value);
+        var queryKey = payment.VnpayTmnCode + ":" + reference;
+        var attempt = (StartedAt: now, RetryAfter: now.AddSeconds(10));
+        while (true)
+        {
+            if (queries.TryGetValue(queryKey, out var previous))
+            {
+                if (now < previous.StartedAt.AddSeconds(10) || !force && now < previous.RetryAfter) return;
+                if (queries.TryUpdate(queryKey, attempt, previous)) break;
+            }
+            else if (queries.TryAdd(queryKey, attempt)) break;
+        }
         try
         {
             var created = new DateTimeOffset(DateTime.SpecifyKind(payment.VnpayCreatedAtUtc.Value, DateTimeKind.Utc));
             var result = await query.QueryAsync(new GatewayQueryRequest(reference, payment.VnpayTmnCode, created, "127.0.0.1"), ct);
+            Require(result.Verified && result.PaymentId == reference && result.MerchantId == payment.VnpayTmnCode,
+                "VNPAY_QUERY_INVALID", "Chưa xác minh được phản hồi VNPay.", 503);
             if (result.State is "SUCCESS" or "FAILED")
             {
                 var success = result.State == "SUCCESS";
@@ -151,110 +176,93 @@ public sealed class PaymentService(IDataSession data, AccessService access, IPay
                     result.MerchantId, result.BankCode, success ? "00" : null, result.TransactionStatus), ct);
                 return;
             }
-            // VNPAY does not accept payment after vnp_ExpireDate; with no transaction on record the customer was not charged.
-            if (payment.VnpayExpiresAtUtc is DateTime expires && now > expires.AddMinutes(15))
+            if (result.State == "NOT_FOUND" && payment.VnpayExpiresAtUtc is DateTime expires && now > expires.AddMinutes(15))
+            {
                 await data.WriteAsync<object>(async token =>
                 {
                     var row = await data.FindAsync<Payment>(token, paymentId);
                     if (row?.Status == "PENDING_GATEWAY")
                     {
                         row.Status = "FAILED";
-                        row.FinancialReviewReason = "VNPAY has no transaction for this expired session; nothing was charged.";
+                        row.FinancialReviewReason = "VNPay xác nhận không tìm thấy giao dịch sau khi phiên hết hạn và hết thời gian chờ đối soát.";
                     }
                     return true;
                 }, ct);
+                return;
+            }
+            await data.WriteAsync<object>(async token =>
+            {
+                var row = await data.FindAsync<Payment>(token, paymentId);
+                if (row?.Status == "PENDING_GATEWAY")
+                    row.FinancialReviewReason = result.State == "NOT_FOUND"
+                        ? "VNPay chưa tìm thấy giao dịch. Đang chờ phiên hết hạn và hoàn tất đối soát."
+                        : "VNPay đang xử lý giao dịch. Chưa có kết quả cuối cùng.";
+                return true;
+            }, ct);
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
-            // Provider unreachable or unverifiable: keep PENDING_GATEWAY and try again on the next poll or sweep.
+            queries.TryUpdate(queryKey, (now, now.AddMinutes(5)), attempt);
+            var message = error is Application.Common.Exceptions.BusinessRuleException failure
+                ? failure.ErrorCode == "VNPAY_QUERY_UNAVAILABLE" && failure.Message.Contains("99")
+                    ? failure.Message
+                    : "Chưa xác minh được phản hồi VNPay. Kiểm tra cấu hình kết nối và thử đối soát lại."
+                : "Không kết nối được VNPay để đối soát. Hệ thống sẽ thử lại.";
+            await data.WriteAsync<object>(async token =>
+            {
+                var row = await data.FindAsync<Payment>(token, paymentId);
+                if (row?.Status == "PENDING_GATEWAY") row.FinancialReviewReason = message;
+                return true;
+            }, ct);
         }
     }
-    /// <summary>
-    /// Manager cancels a payment stuck at the gateway. VNPAY is asked first, so a confirmed payment is recorded instead of
-    /// cancelled; only an expired session can be cancelled. A late VNPAY success afterwards still lands in reconciliation
-    /// (IPN "success after failure" → REVIEW_REQUIRED), so money is never lost. The customer can pay again.
-    /// </summary>
     public async Task<object> CancelAsync(string actor, string id, string reason, CancellationToken ct)
     {
         await access.AccountAsync(actor, Domain.Enums.UserRoles.LogisticsManager, ct);
-        var text = (reason ?? "").Trim();
-        Require(text.Length is >= 5 and <= 1000, "VALIDATION_ERROR", "Enter a cancellation reason of 5 to 1000 characters.", 400);
+        Required(reason, 1000);
         var payment = await data.FindAsync<Payment>(ct, id) ?? throw Failure("NOT_FOUND", "Payment not found.", 404);
         var invoice = await data.FindAsync<Invoice>(ct, payment.InvoiceID) ?? throw Failure("NOT_FOUND", "Invoice not found.", 404);
         await access.ContractAsync(invoice.ContractID, actor, true, ct);
-        if (payment.Status == "PENDING_GATEWAY")
-        {
-            await ReconcileAsync(id, ct, force: true);
-            payment = await data.FindAsync<Payment>(ct, id) ?? payment;
-        }
-        if (payment.Status != "PENDING_GATEWAY") return View(payment, invoice); // resolved by VNPAY: nothing to cancel
-        Require(payment.VnpayExpiresAtUtc is DateTime expires && expires <= clock.GetUtcNow().UtcDateTime,
-            "PAYMENT_SESSION_OPEN", "The VNPay session is still open; it can be cancelled after it expires.", 409);
-        await data.WriteAsync<object>(async token =>
-        {
-            var row = await data.FindAsync<Payment>(token, id);
-            if (row?.Status == "PENDING_GATEWAY")
-            {
-                row.Status = "FAILED";
-                var note = "Cancelled by Manager: " + text;
-                row.FinancialReviewReason = note.Length > 1000 ? note[..1000] : note;
-            }
-            return true;
-        }, ct);
-        payment = await data.FindAsync<Payment>(ct, id) ?? payment;
-        return View(payment, invoice);
+        await ReconcileAsync(id, ct, force: true);
+        return View(await data.FindAsync<Payment>(ct, id) ?? payment, invoice);
     }
-    /// <summary>
-    /// Manager confirms by hand a deposit that VNPAY has not reported (missed IPN). VNPAY is asked first, so a result it
-    /// already has is recorded normally. Otherwise the deposit is applied and flagged for financial reconciliation,
-    /// with the Manager and the reason stored on the payment.
-    /// </summary>
-    public async Task<object> ConfirmManuallyAsync(string actor, string id, string reason, CancellationToken ct)
+
+    public async Task<object> ReconcileOrApplyAsync(string actor, string id, string reason, CancellationToken ct)
     {
-        await access.AccountAsync(actor, Domain.Enums.UserRoles.LogisticsManager, ct);
-        var text = (reason ?? "").Trim();
-        Require(text.Length is >= 5 and <= 900, "VALIDATION_ERROR", "Enter a confirmation reason of 5 to 900 characters.", 400);
-        var payment = await data.FindAsync<Payment>(ct, id) ?? throw Failure("NOT_FOUND", "Payment not found.", 404);
-        var invoice = await data.FindAsync<Invoice>(ct, payment.InvoiceID) ?? throw Failure("NOT_FOUND", "Invoice not found.", 404);
-        await access.ContractAsync(invoice.ContractID, actor, true, ct);
-        if (payment.Status == "PENDING_GATEWAY")
+        var text = Required(reason, 900);
+        await CancelAsync(actor, id, reason, ct);
+        return await data.WriteAsync<object>(async token =>
         {
-            await ReconcileAsync(id, ct, force: true);
-            payment = await data.FindAsync<Payment>(ct, id) ?? payment;
-        }
-        if (payment.Status != "PENDING_GATEWAY") return View(payment, invoice); // resolved by VNPAY: nothing to confirm
-        await data.WriteAsync<object>(async token =>
-        {
-            var row = await data.FindAsync<Payment>(token, id);
-            if (row?.Status != "PENDING_GATEWAY") return true;
-            var inv = await data.FindAsync<Invoice>(token, row.InvoiceID) ?? throw Failure("NOT_FOUND", "Invoice not found.", 404);
-            var contract = await data.FindAsync<Contract>(token, inv.ContractID) ?? throw Failure("NOT_FOUND", "Contract not found.", 404);
-            var request = await data.FindAsync<TransportRequest>(token, contract.RequestID) ?? throw Failure("NOT_FOUND", "Request not found.", 404);
-            var open = contract.CurrentVersionNo == inv.ContractVersionNo && inv.PaymentStatus != "CANCELLED"
-                && (request.Status is "CONTRACT_READY" or "DEPOSIT_VERIFIED")
-                && contract.CancellationStatus != "PENDING" && contract.SignedAt is null
-                && inv.PaidAmount + row.Amount <= inv.TotalPayableAmount;
-            Require(open, "PAYMENT_NOT_APPLICABLE", "The deposit window for this contract version is no longer open.", 409);
+            var row = await data.FindAsync<Payment>(token, id) ?? throw Failure("NOT_FOUND", "Payment not found.", 404);
+            var invoice = await data.FindAsync<Invoice>(token, row.InvoiceID) ?? throw Failure("NOT_FOUND", "Invoice not found.", 404);
+            if (row.Status != "REVIEW_REQUIRED") return View(row, invoice);
+
+            var contract = await access.ContractAsync(invoice.ContractID, actor, true, token);
+            var request = await access.RequestAsync(contract.RequestID, actor, true, token);
+            var version = await data.FindAsync<ContractVersion>(token, contract.ContractID, invoice.ContractVersionNo);
+            var canApply = contract.CurrentVersionNo == invoice.ContractVersionNo && invoice.InvoiceType == "DEPOSIT"
+                && invoice.PaymentStatus != "CANCELLED" && request.Status == "CONTRACT_READY" && version?.TermsAcceptedAtUtc is not null
+                && contract.CancellationStatus != "PENDING" && contract.SignedAt is null && contract.LastExtensionAtUtc is not null
+                && contract.CompletionDeadline > clock.GetUtcNow().UtcDateTime
+                && request.ExpectedDate is { } pickup && request.PreparationDays is { } preparation
+                && contract.CompletionDeadline <= pickup.AddDays(-preparation)
+                && row.Method == "VNPAY" && row.VnpayResponseCode == "00" && row.VnpayTransactionStatus == "00"
+                && !string.IsNullOrWhiteSpace(row.TransactionCode) && row.VnpayReceivedAmount == row.Amount
+                && invoice.PaidAmount + row.Amount <= invoice.TotalPayableAmount;
+            Require(canApply, "PAYMENT_NOT_APPLICABLE", "Chỉ áp dụng khoản đã xác minh vào đúng phiên bản hợp đồng đã gia hạn hợp lệ.");
             row.Status = "SUCCESS";
-            row.VnpayResponseCode = "00"; row.VnpayTransactionStatus = "00";
-            row.TransactionCode = "MANUAL_" + row.PaymentID;
-            row.VnpayReceivedAmount = row.Amount;
-            row.PaymentDate = clock.GetUtcNow().UtcDateTime;
             row.ConfirmedByUserID = actor;
-            row.FinancialReviewRequired = true;
-            var note = "Manual confirmation by Manager (VNPAY did not report): " + text;
-            row.FinancialReviewReason = note.Length > 1000 ? note[..1000] : note;
-            inv.PaidAmount += row.Amount;
-            inv.PaymentStatus = inv.PaidAmount >= inv.TotalPayableAmount ? "PAID" : "PARTIALLY_PAID";
-            if (inv.PaymentStatus == "PAID")
+            row.FinancialReviewRequired = false;
+            row.FinancialReviewReason = text;
+            invoice.PaidAmount += row.Amount;
+            invoice.PaymentStatus = invoice.PaidAmount >= invoice.TotalPayableAmount ? "PAID" : "PARTIALLY_PAID";
+            if (invoice.PaymentStatus == "PAID")
             {
                 request.Status = "DEPOSIT_VERIFIED";
-                notifications.Add(request.CustomerID, request.RequestID, "DEPOSIT_VERIFIED", "Deposit verified", "You may now request the signing OTP.");
+                notifications.Add(request.CustomerID, request.RequestID, "DEPOSIT_VERIFIED", "Đã xác minh cọc", "Bạn có thể yêu cầu mã OTP để ký hợp đồng.");
             }
-            return true;
+            return View(row, invoice);
         }, ct);
-        payment = await data.FindAsync<Payment>(ct, id) ?? payment;
-        return View(payment, invoice);
     }
     /// <summary>Background sweep: resolves every payment still waiting for the gateway.</summary>
     public async Task<int> SweepAsync(CancellationToken ct)
@@ -281,14 +289,14 @@ public sealed class PaymentService(IDataSession data, AccessService access, IPay
             validUntil = invoice.DueDate?.ToString("yyyy-MM-dd HH:mm") ?? "",
             transactions = (await data.ListAsync<Payment>(p => p.InvoiceID == invoice.InvoiceID, ct)).Select(p => View(p, invoice)).ToArray() };
     }
-    public async Task<object> DetailAsync(string actor, string id, bool manager, CancellationToken ct)
+    public async Task<object> DetailAsync(string actor, string id, bool manager, CancellationToken ct, bool refresh = false)
     {
         var payment = await data.FindAsync<Payment>(ct, id) ?? throw Failure("NOT_FOUND", "Payment not found.", 404);
         var invoice = await data.FindAsync<Invoice>(ct, payment.InvoiceID) ?? throw Failure("NOT_FOUND", "Invoice not found.", 404);
         await access.ContractAsync(invoice.ContractID, actor, manager, ct);
         if (payment.Status == "PENDING_GATEWAY")
         {
-            await ReconcileAsync(id, ct);
+            await ReconcileAsync(id, ct, force: refresh || manager);
             payment = await data.FindAsync<Payment>(ct, id) ?? payment;
         }
         return View(payment, invoice);
@@ -309,13 +317,24 @@ public sealed class PaymentService(IDataSession data, AccessService access, IPay
         id = payment.PaymentID, paymentId = payment.PaymentID, invoiceId = payment.InvoiceID, contractId = invoice.ContractID,
         versionNo = invoice.ContractVersionNo, amount = payment.Amount, currency = payment.CurrencyCode, method = payment.Method,
         status = payment.Status == "PENDING_GATEWAY" ? "PROCESSING" : payment.Status == "FAILED" ? "REJECTED" : payment.Status == "REVIEW_REQUIRED" ? "PROCESSING" : "SUCCESS",
-        databaseStatus = payment.Status, receivedAmount = payment.VnpayReceivedAmount,
+        databaseStatus = payment.Status, paymentOutcome = Outcome(payment), receivedAmount = payment.VnpayReceivedAmount,
         paidAt = payment.VnpayReceivedAmount is null ? (DateTime?)null : payment.PaymentDate,
         reviewRequired = payment.FinancialReviewRequired, reviewReason = payment.FinancialReviewReason,
         // When an unpaid VNPay session stops being payable; the client treats abandoned sessions as no money in flight.
         expiresAt = payment.VnpayExpiresAtUtc?.ToString("yyyy-MM-dd HH:mm"),
         createdAt = payment.VnpayCreatedAtUtc?.ToString("yyyy-MM-dd HH:mm")
     };
+    internal static string Outcome(Payment payment) => payment.Status switch
+    {
+        "SUCCESS" when !payment.FinancialReviewRequired => "SUCCESS",
+        "FAILED" => "FAILED",
+        _ => "UNCONFIRMED",
+    };
+
+    internal static Task<List<Payment>> PendingAsync(IDataSession data, string[] invoiceIds, DateTime now, CancellationToken ct) =>
+        data.ListAsync<Payment>(p => invoiceIds.Contains(p.InvoiceID) && p.Status == "PENDING_GATEWAY"
+            && (p.VnpayTmnCode != null || p.VnpayExpiresAtUtc > now), ct);
+
     private static string TxnRef(string paymentId, DateTime createdAtUtc) =>
         paymentId.Replace("_", "", StringComparison.Ordinal) + "T" + createdAtUtc.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
 }

@@ -24,6 +24,8 @@ import {
   mockTransactions,
   mockTrips,
 } from '../data/mockData';
+import type { RefundEvidence } from '../../../shared/api/flow1Wire';
+import type { ChangeReview, OptionKey } from '../../../shared/api/requestReviewApi';
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { getSharedRequests, saveSharedRequest, toManagerRequest } from '../../../shared/utils/sharedRequests';
 import {
@@ -483,7 +485,9 @@ const managerActions = {
       notifySync('requests_updated');
       return p.status === 'SUCCESS'
         ? ok(`${id}: VNPay xác nhận khách ĐÃ thanh toán – không huỷ, đã ghi nhận cọc.`)
-        : ok(`Đã huỷ ${id}. Khách có thể thanh toán lại.`);
+        : ['FAILED', 'REJECTED'].includes(p.status)
+          ? ok(`${id}: giao dịch đã thất bại.`)
+          : ok(`${id}: chưa có kết quả cuối cùng từ VNPay.`);
     } catch (error) { return fail(apiMessage(error)); }
   },
   async confirmPayment(id: string, reason: string): Promise<ActionResult> {
@@ -492,8 +496,8 @@ const managerActions = {
       await loadAll({ force: true, silent: true });
       notifySync('requests_updated');
       return p.status === 'SUCCESS'
-        ? ok(`Đã ghi nhận cọc cho ${id}. Giao dịch được gắn cờ cần đối soát với VNPay.`)
-        : ok(`${id}: VNPay đã có kết quả, hệ thống đã cập nhật theo VNPay.`);
+        ? ok(`Đã ghi nhận khoản cọc đã xác minh cho ${id}.`)
+        : ok(`${id}: chưa ghi nhận khoản cọc mới.`);
     } catch (error) { return fail(apiMessage(error)); }
   },
   /** Reading a pending payment makes the server query VNPay (querydr) and record the result. */
@@ -504,20 +508,21 @@ const managerActions = {
       notifySync('requests_updated');
       return ok(p.status === 'SUCCESS' ? `${id}: VNPay xác nhận đã thanh toán – đã ghi nhận cọc.`
         : ['FAILED', 'REJECTED'].includes(p.status) ? `${id}: không có giao dịch thành công – khách có thể thanh toán lại.`
-        : `${id}: VNPay chưa trả kết quả. Hệ thống tự kiểm tra lại mỗi 5 phút.`);
+        : `${id}: ${p.reviewReason || 'VNPay chưa xác nhận kết quả. Hệ thống tự kiểm tra lại mỗi 5 phút.'}`);
     } catch (error) { return fail(apiMessage(error)); }
   },
   clearToast: () => setState({ toast: null }),
   showToast: (m: string) => toast(m),
   markAllRead: () => perform('notifications', () => managerApi.markAllRead(), 'Đã đánh dấu thông báo đã đọc.'),
   markRead: (id: string) => perform(id, () => managerApi.markRead(id), 'Đã đọc thông báo.'),
-  async acceptRequest(id: string): Promise<ActionResult> {
+  async acceptRequest(id: string, key?: OptionKey): Promise<ActionResult> {
     const r = reqIn(state, id);
     if (!r || r.status !== 'PENDING_REVIEW') return fail('Yêu cầu chưa ở hàng chờ xét duyệt.');
     const isDemo = getDemoMode('manager');
     if (!isDemo) {
       return perform(id, async () => {
-        const updated = await managerApi.acceptRequest(id);
+        if (!key) throw new Error('Chọn phương án đã được xét duyệt.');
+        const updated = await managerApi.acceptRequest(id, key);
         mutate((d) => {
           const target = reqIn(d, id);
           if (target) {
@@ -539,14 +544,15 @@ const managerActions = {
     notifySync('requests_updated');
     return ok('Đã chấp thuận yêu cầu.');
   },
-  async requestRevision(id: string, feedback: string): Promise<ActionResult> {
+  async requestRevision(id: string, feedback: string, key?: ChangeReview): Promise<ActionResult> {
     if (feedback.trim().length < 10) return fail('Nhập góp ý ít nhất 10 ký tự.');
     const r = reqIn(state, id);
     if (!r) return fail('Không tìm thấy yêu cầu.');
     const isDemo = getDemoMode('manager');
     if (!isDemo) {
       return perform(id, async () => {
-        const updated = await managerApi.requestRevision(id, feedback.trim());
+        if (!key) throw new Error('Chưa có phiên xét duyệt.');
+        const updated = await managerApi.requestRevision(id, feedback.trim(), key);
         mutate((d) => {
           const target = reqIn(d, id);
           if (target) {
@@ -688,10 +694,15 @@ const managerActions = {
     if (!v?.contractId) return Promise.resolve(fail('Không tìm thấy hợp đồng.'));
     return perform(id, () => managerApi.remindSign(v.contractId!, v.v), 'Đã gửi nhắc hoàn tất hợp đồng.');
   },
-  confirmRefund(requestId: string) {
+  startRefund(requestId: string) {
+    const request = reqIn(state, requestId), contractId = request?.contractId ?? (request && curVersion(request)?.contractId);
+    if (!contractId) return Promise.resolve(fail('Không tìm thấy hợp đồng để ghi nhận hoàn cọc.'));
+    return perform(requestId, () => managerApi.startRefund(contractId), 'Đã bắt đầu xử lý hoàn cọc.');
+  },
+  confirmRefund(requestId: string, evidence: RefundEvidence) {
     const request = reqIn(state, requestId), contractId = request?.contractId ?? (request && curVersion(request)?.contractId);
     if (!contractId) return Promise.resolve(fail('Không tìm thấy hợp đồng để ghi nhận trạng thái hoàn tiền.'));
-    return perform(requestId, () => managerApi.confirmRefund(contractId), 'Đã cập nhật trạng thái hoàn tiền theo máy chủ.');
+    return perform(requestId, () => managerApi.confirmRefund(contractId, evidence), 'Đã ghi nhận chứng từ hoàn cọc.');
   },
   confirmDeployment(id: string, specialistId: string, coordinatorId: string) {
       if (!specialistId || !coordinatorId) return Promise.resolve(fail('Chọn đủ người phụ trách.'));

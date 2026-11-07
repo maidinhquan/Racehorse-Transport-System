@@ -31,6 +31,14 @@ export const PaymentsPage: React.FC = () => {
   const navigate = useNavigate();
   const { data, transactions, requests, getRequest, actions } = useManager();
   const [refund, setRefund] = useState<TransportRequest | null>(null);
+  const [refundReference, setRefundReference] = useState('');
+  const [refundTime, setRefundTime] = useState('');
+  const [refundStarting, setRefundStarting] = useState('');
+  async function startRefund(requestId: string) {
+    setRefundStarting(requestId);
+    try { await actions.startRefund(requestId); }
+    finally { setRefundStarting(''); }
+  }
   const on: Tab = (['verify', 'overdue', 'all'] as Tab[]).includes(tab as Tab) ? (tab as Tab) : 'verify';
 
   const refunds = requests.filter(r => r.refund && ['REQUESTED', 'PROCESSING'].includes(r.refund.status));
@@ -38,7 +46,6 @@ export const PaymentsPage: React.FC = () => {
   const gateway = transactions.filter((x) => x.status === 'PROCESSING' && !x.reviewRequired);
   const review = transactions.filter((x) => x.reviewRequired);
   const [checking, setChecking] = useState('');
-  const [cancelPaymentId, setCancelPaymentId] = useState('');
   const [confirmPaymentId, setConfirmPaymentId] = useState('');
   const reconcile = async (id: string) => { setChecking(id); try { await actions.reconcilePayment(id); } finally { setChecking(''); } };
   const nowMs = Date.now();
@@ -79,7 +86,13 @@ export const PaymentsPage: React.FC = () => {
             <h3 className="mgr-card__title">Lệnh hoàn tiền chờ thực hiện ({refunds.length})</h3>
             {refunds.map(r => <div key={r.id} className="mgr-row">
               <div><b>{r.id} • {r.refund?.amount != null ? fmtMoney(r.refund.amount) : 'Số tiền theo đối soát'}</b><span>{customerOf(data, r)?.company} • {r.refund?.status}</span></div>
-              <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => setRefund(r)}>Ghi nhận trạng thái hoàn tiền</button>
+              {r.refund?.status === 'REQUESTED'
+                ? <button type="button" className="mgr-btn mgr-btn--sm" disabled={refundStarting === r.id}
+                  title={refundStarting === r.id ? 'Đang ghi nhận' : undefined}
+                  onClick={() => void startRefund(r.id)}>Bắt đầu xử lý hoàn cọc</button>
+                : <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => {
+                  setRefundReference(''); setRefundTime(''); setRefund(r);
+                }}>Nhập chứng từ hoàn cọc</button>}
             </div>)}
             {!refunds.length && <p className="mgr-hint" style={{ marginTop: 0 }}>Không có lệnh hoàn tiền nào.</p>}
           </section>
@@ -101,16 +114,13 @@ export const PaymentsPage: React.FC = () => {
                         {x.createdAt ? ` • tạo ${fmtDateTime(x.createdAt)}` : ''}
                         {x.qrExpiresAtMs ? ` • ${expired ? 'phiên đã hết hạn' : `hết hạn sau ${Math.max(1, Math.ceil((x.qrExpiresAtMs - nowMs) / 60000))} phút`}` : ''}
                       </span>
+                      {x.reviewReason && <span>{x.reviewReason}</span>}
                     </div>
                     <div className="mgr-btn-row" style={{ alignItems: 'center' }}>
                       <StatusBadge tone={expired ? 'warn' : 'brand'} label={expired ? 'Quá hạn – chờ đối soát' : 'Khách đang thanh toán'} />
                       <button type="button" className="mgr-btn mgr-btn--sm" disabled={checking === x.id} onClick={() => void reconcile(x.id)}>
                         {checking === x.id ? 'Đang hỏi VNPay…' : 'Kiểm tra với VNPay'}
                       </button>
-                      <button type="button" className="mgr-btn mgr-btn--sm mgr-btn--solid" onClick={() => setConfirmPaymentId(x.id)}>Xác nhận thủ công</button>
-                      {expired && (
-                        <button type="button" className="mgr-btn mgr-btn--sm mgr-btn--danger" onClick={() => setCancelPaymentId(x.id)}>Huỷ giao dịch</button>
-                      )}
                     </div>
                   </div>
                 );
@@ -121,14 +131,16 @@ export const PaymentsPage: React.FC = () => {
           {review.length > 0 && (
             <section className="mgr-card">
               <h3 className="mgr-card__title">Cần đối soát / hoàn tiền ({review.length})</h3>
-              <p className="mgr-hint" style={{ marginTop: 0 }}>Gồm khoản VNPAY xác nhận khách đã bị trừ tiền nhưng không áp được vào cọc hiện hành (đã đổi phiên bản hợp đồng, quá hạn, đã đủ cọc…) và khoản Manager xác nhận thủ công. Liên hệ khách để hoàn tiền hoặc đối soát với VNPAY.</p>
+              <p className="mgr-hint" style={{ marginTop: 0 }}>Gồm khoản VNPAY xác nhận khách đã bị trừ tiền nhưng không áp được vào cọc hiện hành (đã đổi phiên bản hợp đồng, quá hạn, đã đủ cọc…). Có thể áp dụng khoản đã xác minh vào hợp đồng hiện hành nếu hợp đồng được gia hạn và còn đủ thời gian chuẩn bị.</p>
               {review.map((x) => (
                 <div key={x.id} className="mgr-row">
                   <div>
                     <b>{x.id} • {fmtMoney(x.confirmedAmount ?? x.amount)}</b>
                     <span>{x.requestId ? <Link className="mgr-link" to={`/manager/requests/${x.requestId}`}>{x.requestId}</Link> : '—'} • {x.reviewReason ?? 'Cần đối soát'}</span>
                   </div>
-                  <StatusBadge tone="bad" label={x.status === 'SUCCESS' ? 'Xác nhận thủ công – cần đối soát' : 'Đã trừ tiền – cần xử lý'} />
+                  <StatusBadge tone="bad" label="Đã trừ tiền – cần xử lý" />
+                  {getRequest(x.requestId)?.status === 'CONTRACT_READY' && <button type="button" className="mgr-btn mgr-btn--sm"
+                    onClick={() => setConfirmPaymentId(x.id)}>Áp dụng cọc đã xác minh</button>}
                 </div>
               ))}
             </section>
@@ -160,8 +172,9 @@ export const PaymentsPage: React.FC = () => {
                         <td><div className="mgr-btn-row">
                           <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => actions.remindSign(r.id)}>Nhắc</button>
                           <Link className="mgr-btn mgr-btn--sm" to={`/manager/requests/${r.id}/contract`}>Gia hạn hợp đồng</Link>
-                          <button type="button" className="mgr-btn mgr-btn--sm mgr-btn--danger" disabled={!p} title={p ? undefined : 'Chưa có giao dịch thanh toán đang chờ để hủy'}
-                            onClick={() => p && setCancelPaymentId(p.id)}>Hủy giao dịch</button>
+                          <button type="button" className="mgr-btn mgr-btn--sm" disabled={!p || checking === p.id}
+                            title={!p ? 'Chưa có giao dịch cọc' : checking === p.id ? 'Đang hỏi VNPay' : undefined}
+                            onClick={() => p && void reconcile(p.id)}>Kiểm tra với VNPay</button>
                         </div></td>
                       </tr>
                     );
@@ -213,18 +226,26 @@ export const PaymentsPage: React.FC = () => {
         </>
       )}
 
-      <Modal open={!!refund} title={`Ghi nhận hoàn tiền • ${refund?.id ?? ''}`} okText="Ghi nhận đã hoàn tất" onClose={() => setRefund(null)}
-        onOk={async () => { if (refund && (await actions.confirmRefund(refund.id)).ok) setRefund(null); }}>
-        <p>Chỉ cập nhật trạng thái hoàn tiền sau khi hoàn tất xử lý bên ngoài hệ thống. Thao tác này không chuyển tiền.</p>
+      <Modal open={!!refund} title={`Chứng từ hoàn cọc • ${refund?.id ?? ''}`} okText="Xác minh chứng từ" onClose={() => setRefund(null)}
+        okDisabled={!refundReference.trim() || !refundTime || refund?.refund?.amount == null}
+        error={!refundReference.trim() || !refundTime ? 'Điền tham chiếu và thời điểm chuyển tiền.' : undefined}
+        onOk={async () => {
+          const amount = refund?.refund?.amount;
+          if (!refund || amount == null || !refundTime) return;
+          const refundedAtUtc = new Date(refundTime).toISOString();
+          if ((await actions.confirmRefund(refund.id, { reference: refundReference.trim(), amount, refundedAtUtc })).ok) setRefund(null);
+        }}>
+        {refund?.refund?.amount != null && <p>Số tiền phải hoàn <b>{fmtMoney(refund.refund.amount)}</b></p>}
+        <label>Tham chiếu giao dịch hoàn cọc
+          <input className="mgr-input" value={refundReference} maxLength={100} onChange={e => setRefundReference(e.target.value)} />
+        </label>
+        <label>Thời điểm chuyển tiền (giờ địa phương)
+          <input className="mgr-input" type="datetime-local" step={1} value={refundTime} onChange={e => setRefundTime(e.target.value)} />
+        </label>
       </Modal>
-      <ReasonModal open={!!confirmPaymentId} title={`Xác nhận thủ công ${confirmPaymentId}`} okText="Xác nhận đã thanh toán" minLength={5}
-        intro={<p>Hệ thống sẽ <b>hỏi VNPay trước</b>. Nếu VNPay chưa có kết quả, giao dịch được ghi nhận là đã thanh toán và <b>gắn cờ cần đối soát</b>: hãy tra cứu giao dịch trên cổng quản trị VNPay để chắc chắn khách đã bị trừ tiền.</p>}
-        placeholder="VD: VNPay báo thành công trên cổng quản trị nhưng IPN không về." onClose={() => setConfirmPaymentId('')}
+      <ReasonModal open={!!confirmPaymentId} title={`Áp dụng khoản cọc ${confirmPaymentId}`} okText="Áp dụng cọc" minLength={5}
+        placeholder="Nhập ghi chú đối soát." onClose={() => setConfirmPaymentId('')}
         onSubmit={async (x) => (await actions.confirmPayment(confirmPaymentId, x)).ok} />
-      <ReasonModal open={!!cancelPaymentId} title={`Huỷ giao dịch ${cancelPaymentId}`} okText="Huỷ giao dịch" danger minLength={5}
-        intro={<p>Hệ thống sẽ <b>hỏi VNPay trước</b>: nếu khách đã bị trừ tiền thì ghi nhận cọc thay vì huỷ. Nếu không, giao dịch chuyển <b>thất bại</b> và khách có thể thanh toán lại. Tiền VNPay báo muộn (nếu có) sẽ vào mục đối soát/hoàn tiền.</p>}
-        placeholder="VD: Khách xác nhận không thanh toán; phiên VNPay đã hết hạn." onClose={() => setCancelPaymentId('')}
-        onSubmit={async (x) => (await actions.cancelPayment(cancelPaymentId, x)).ok} />
     </ManagerLayout>
   );
 };

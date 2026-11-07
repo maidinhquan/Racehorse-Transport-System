@@ -4010,6 +4010,38 @@
         "operationId": "F1-J26",
         "summary": "Tiếp nhận đơn. Role: **LOGISTICS_MANAGER**.",
         "x-implementation-status": "aligned-with-backend",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reviewId": {
+                    "type": "string",
+                    "pattern": "^REQUEST_REVIEW_\\d{3,}$",
+                    "maxLength": 50
+                  },
+                  "requestRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "scheduleOptionId": {
+                    "type": "string",
+                    "pattern": "^REQUEST_SCHEDULE_OPTION_\\d{3,}$",
+                    "maxLength": 50
+                  }
+                },
+                "required": [
+                  "reviewId",
+                  "requestRevision",
+                  "scheduleOptionId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success",
@@ -4384,7 +4416,7 @@
             }
           }
         ],
-        "description": "feedback là trường nghiệp vụ chính thức.",
+        "description": "Yêu cầu bổ sung hoặc hỏi khách xác nhận lịch, với hạn phản hồi theo cấu hình.",
         "requestBody": {
           "required": true,
           "content": {
@@ -4393,7 +4425,10 @@
                 "$ref": "#/components/schemas/F1-J27Request"
               },
               "example": {
-                "feedback": "Vui lòng cập nhật lại người nhận tại điểm đến Tokyo"
+                "feedback": "Vui lòng bổ sung hồ sơ theo góp ý.",
+            "reviewId": "REQUEST_REVIEW_001",
+            "requestRevision": 1,
+            "action": "SUPPLEMENT_DOCUMENTS"
               }
             }
           }
@@ -7309,6 +7344,7 @@
           }
         },
         "parameters": [
+          {"name": "refresh", "in": "query", "required": false, "schema": {"type": "boolean"}, "description": "Yêu cầu đối soát thủ công, giới hạn mỗi 10 giây."},
           {
             "name": "paymentId",
             "in": "path",
@@ -7604,7 +7640,7 @@
     "/manager/payments/{paymentId}/cancel": {
       "post": {
         "operationId": "F1-J69",
-        "summary": "Huỷ giao dịch VNPay bị treo. Role: **LOGISTICS_MANAGER**.",
+        "summary": "Đối soát lại giao dịch VNPay",
         "x-implementation-status": "aligned-with-backend",
         "responses": {
           "200": {
@@ -7634,26 +7670,6 @@
                         "paidAt": null,
                         "reviewRequired": false
                       }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J69Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "The VNPay session is still open; it can be cancelled after it expires.",
-                      "errorCode": "PAYMENT_SESSION_OPEN",
-                      "data": null
                     }
                   }
                 }
@@ -7696,6 +7712,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J69Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "The VNPay session is still open; it can be cancelled after it expires.",
+                      "errorCode": "PAYMENT_SESSION_OPEN",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -7755,7 +7791,8 @@
               }
             }
           }
-        }
+        },
+        "description": "Giữ trạng thái chưa xác nhận đến khi có kết quả từ VNPay."
       }
     },
     "/customer/payments/{paymentId}/receipt": {
@@ -8649,10 +8686,10 @@
         }
       }
     },
-    "/manager/contracts/{contractId}/refund/complete": {
+    "/manager/contracts/{contractId}/refund/start": {
       "post": {
-        "operationId": "F1-J55",
-        "summary": "Ghi nhận trạng thái hoàn tiền (không chuyển tiền). Role: **LOGISTICS_MANAGER**.",
+        "operationId": "F1-J81",
+        "summary": "Ghi nhận bắt đầu xử lý hoàn cọc",
         "x-implementation-status": "aligned-with-backend",
         "responses": {
           "200": {
@@ -8666,31 +8703,18 @@
                   "case1": {
                     "value": {
                       "success": true,
-                      "message": "Đã cập nhật trạng thái hoàn tiền",
+                      "message": "OK",
                       "data": {
                         "contractId": "CONTRACT_001",
-                        "refundStatus": "COMPLETED"
+                        "requestId": "REQUEST_001",
+                        "refundStatus": "PROCESSING",
+                        "amount": 8000000,
+                        "currency": "VND",
+                        "reference": null,
+                        "refundedAtUtc": null,
+                        "verifiedAtUtc": null,
+                        "verifiedBy": null
                       }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J55Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "Trạng thái hiện tại không cho phép thao tác",
-                      "errorCode": "INVALID_STATE",
-                      "data": null
                     }
                   }
                 }
@@ -8733,6 +8757,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J55Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -8780,7 +8824,179 @@
             }
           }
         ],
-        "description": "Phạm vi Flow 1 chỉ theo dõi RefundStatus trên CONTRACT: REQUESTED/PROCESSING/COMPLETED; UI REFUNDED ánh xạ COMPLETED. Không gọi API hoàn tiền VNPay, không xây quy trình chuyển tiền/chứng từ. COMPLETED là trạng thái do Manager ghi nhận thủ công, không phải chứng minh hệ thống đã chuyển tiền. Amount/reference nếu có chỉ là metadata tùy chọn; duyệt hủy không tự chuyển COMPLETED. Chỉ cập nhật sau duyệt hủy và khi RefundStatus đang REQUESTED/PROCESSING; retry COMPLETED trả trạng thái hiện tại, không tạo giao dịch hoặc Payment mới. Giữ path cũ để tương thích."
+        "description": "Số tiền hoàn dựa trên giao dịch cọc đã xác minh."
+      }
+    },
+    "/manager/contracts/{contractId}/refund/complete": {
+      "post": {
+        "operationId": "F1-J55",
+        "summary": "Xác minh chứng từ hoàn cọc đã thực hiện",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J55Response200"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": true,
+                      "message": "OK",
+                      "data": {
+                        "contractId": "CONTRACT_001",
+                        "requestId": "REQUEST_001",
+                        "refundStatus": "COMPLETED",
+                        "amount": 8000000,
+                        "currency": "VND",
+                        "reference": "REF-DEMO-001",
+                        "refundedAtUtc": "2026-11-11T02:20:00Z",
+                        "verifiedAtUtc": "2026-11-11T02:25:00Z",
+                        "verifiedBy": "USER_004"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J55Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "Trạng thái hiện tại không cho phép thao tác",
+                      "errorCode": "INVALID_STATE",
+                      "data": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Shared error; 501 means capability not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "contractId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 50,
+              "pattern": "^[A-Z_]+_\\d{3,}$"
+            }
+          }
+        ],
+        "description": "Yêu cầu đã vào trạng thái PROCESSING. API ghi nhận chứng từ do Quản lý xác minh.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reference": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "amount": {
+                    "type": "number",
+                    "minimum": 1
+                  },
+                  "refundedAtUtc": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "reference",
+                  "amount",
+                  "refundedAtUtc"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
       }
     },
     "/manager/trips": {
@@ -10535,7 +10751,7 @@
     "/manager/payments/{paymentId}/confirm": {
       "post": {
         "operationId": "F1-J71",
-        "summary": "Manager xác nhận thủ công giao dịch VNPay khi IPN không về: hỏi VNPay trước, nếu chưa có kết quả thì ghi cọc và gắn cờ đối soát. Role: **LOGISTICS_MANAGER**.",
+        "summary": "Đối soát hoặc áp dụng khoản cọc đã xác minh",
         "x-implementation-status": "aligned-with-backend",
         "responses": {
           "200": {
@@ -10566,26 +10782,6 @@
                         "reviewRequired": true,
                         "reviewReason": "Manual confirmation by Manager (VNPAY did not report): VNPay báo thành công trên cổng quản trị nhưng IPN không về."
                       }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Business error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/F1-J71Response409"
-                },
-                "examples": {
-                  "case1": {
-                    "value": {
-                      "success": false,
-                      "message": "The deposit window for this contract version is no longer open.",
-                      "errorCode": "PAYMENT_NOT_APPLICABLE",
-                      "data": null
                     }
                   }
                 }
@@ -10628,6 +10824,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Business error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J71Response409"
+                },
+                "examples": {
+                  "case1": {
+                    "value": {
+                      "success": false,
+                      "message": "The deposit window for this contract version is no longer open.",
+                      "errorCode": "PAYMENT_NOT_APPLICABLE",
+                      "data": null
+                    }
+                  }
                 }
               }
             }
@@ -10687,7 +10903,1177 @@
               }
             }
           }
+        },
+        "description": "Chỉ áp dụng khoản đã xác minh vào phiên bản hiện hành đã gia hạn đủ thời gian."
+      }
+    },
+  "/manager/requests/{requestId}/reviews": {
+      "get": {
+        "operationId": "F1-J72-READ",
+        "summary": "Đọc phiên xét duyệt và danh sách nhân sự",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1J72READReviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^REQUEST_\\d{3,}$",
+              "maxLength": 50
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "F1-J72",
+        "summary": "Giao xét duyệt theo yêu cầu",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "201": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Flow1ReviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "requestRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "coordinatorId": {
+                    "type": "string",
+                    "pattern": "^USER_\\d{3,}$",
+                    "maxLength": 50
+                  },
+                  "specialistId": {
+                    "type": "string",
+                    "pattern": "^USER_\\d{3,}$",
+                    "maxLength": 50
+                  }
+                },
+                "required": [
+                  "requestRevision",
+                  "coordinatorId",
+                  "specialistId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^REQUEST_\\d{3,}$",
+              "maxLength": 50
+            }
+          }
+        ]
+      }
+    },
+    "/coordinator/request-reviews": {
+      "get": {
+        "operationId": "F1-J73",
+        "summary": "Danh sách yêu cầu của Điều phối",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Flow1ReviewQueueResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         }
+      }
+    },
+    "/coordinator/request-reviews/{reviewId}": {
+      "get": {
+        "operationId": "F1-J74",
+        "summary": "Lịch và danh mục tài nguyên tham khảo",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Flow1ReviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "reviewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^REQUEST_REVIEW_\\d{3,}$",
+              "maxLength": 50
+            }
+          }
+        ]
+      }
+    },
+    "/coordinator/request-reviews/{reviewId}/assessment": {
+      "post": {
+        "operationId": "F1-J75",
+        "summary": "Gửi kết luận Điều phối",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Flow1ReviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "requestRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "original": {
+                    "type": "object",
+                    "properties": {
+                      "result": {
+                        "type": "string",
+                        "enum": [
+                          "FEASIBLE",
+                          "NOT_FEASIBLE"
+                        ]
+                      },
+                      "reason": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "result",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "alternative": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "ROAD",
+                              "AIR"
+                            ]
+                          },
+                          "expectedTransportDate": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "expectedDeliveryDate": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "result": {
+                            "type": "string",
+                            "enum": [
+                              "FEASIBLE"
+                            ]
+                          },
+                          "reason": {
+                            "type": "string",
+                            "maxLength": 2000,
+                            "minLength": 1
+                          }
+                        },
+                        "required": [
+                          "mode",
+                          "expectedTransportDate",
+                          "expectedDeliveryDate",
+                          "result",
+                          "reason"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "requestRevision",
+                  "original"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "reviewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^REQUEST_REVIEW_\\d{3,}$",
+              "maxLength": 50
+            }
+          }
+        ]
+      }
+    },
+    "/specialist/request-reviews": {
+      "get": {
+        "operationId": "F1-J76",
+        "summary": "Danh sách yêu cầu của Chuyên viên kiểm dịch",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Flow1ReviewQueueResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/specialist/request-reviews/{reviewId}": {
+      "get": {
+        "operationId": "F1-J77",
+        "summary": "Phương án và checklist hồ sơ",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Flow1ReviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "reviewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^REQUEST_REVIEW_\\d{3,}$",
+              "maxLength": 50
+            }
+          }
+        ]
+      }
+    },
+    "/specialist/request-reviews/{reviewId}/options/{optionId}/checklist/{itemId}/file": {
+      "get": {
+        "operationId": "F1-J78",
+        "summary": "Tải tệp trong checklist được giao",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Tệp tài liệu riêng tư",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "reviewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^REQUEST_REVIEW_\\d{3,}$",
+              "maxLength": 50
+            }
+          },
+          {
+            "name": "optionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^REQUEST_SCHEDULE_OPTION_\\d{3,}$",
+              "maxLength": 50
+            }
+          },
+          {
+            "name": "itemId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/specialist/request-reviews/{reviewId}/options/{optionId}/assessment": {
+      "post": {
+        "operationId": "F1-J79",
+        "summary": "Gửi đánh giá hồ sơ của từng phương án",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Flow1ReviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "requestRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "checklistVersion": {
+                    "type": "string"
+                  },
+                  "result": {
+                    "type": "string",
+                    "enum": [
+                      "FEASIBLE",
+                      "NOT_FEASIBLE",
+                      "NEEDS_SUPPLEMENT"
+                    ]
+                  },
+                  "note": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "checklistItemId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "VERIFIED",
+                            "MISSING",
+                            "INVALID",
+                            "NEEDS_FOLLOW_UP"
+                          ]
+                        },
+                        "reason": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 2000
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "requiredByDate": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "estimatedProcessingDays": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 365
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "checklistItemId",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "requestRevision",
+                  "checklistVersion",
+                  "result",
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "reviewId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^REQUEST_REVIEW_\\d{3,}$",
+              "maxLength": 50
+            }
+          },
+          {
+            "name": "optionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^REQUEST_SCHEDULE_OPTION_\\d{3,}$",
+              "maxLength": 50
+            }
+          }
+        ]
+      }
+    },
+    "/customer/requests/{requestId}/schedule-response": {
+      "get": {
+        "operationId": "F1-J80-READ",
+        "summary": "Đọc yêu cầu phản hồi còn mở",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Thành công",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1J80READReviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^REQUEST_\\d{3,}$",
+              "maxLength": 50
+            }
+          }
+        ]
+      },
+      "post": {
+        "operationId": "F1-J80",
+        "summary": "Khách đồng ý hoặc từ chối lịch đề xuất",
+        "x-implementation-status": "aligned-with-backend",
+        "responses": {
+          "200": {
+            "description": "Đã ghi nhận phản hồi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F1-J26Response200"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Yêu cầu bị từ chối",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reviewId": {
+                    "type": "string",
+                    "pattern": "^REQUEST_REVIEW_\\d{3,}$",
+                    "maxLength": 50
+                  },
+                  "requestRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "scheduleOptionId": {
+                    "type": "string",
+                    "pattern": "^REQUEST_SCHEDULE_OPTION_\\d{3,}$",
+                    "maxLength": 50
+                  },
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "ACCEPTED",
+                      "REJECTED"
+                    ]
+                  }
+                },
+                "required": [
+                  "reviewId",
+                  "requestRevision",
+                  "scheduleOptionId",
+                  "decision"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "requestId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^REQUEST_\\d{3,}$",
+              "maxLength": 50
+            }
+          }
+        ]
       }
     }
   },
@@ -10699,6 +12085,799 @@
       }
     },
     "schemas": {
+      "Flow1ReviewResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Flow1Review"
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "Flow1ReviewQueueResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "reviewId": {
+                  "type": "string",
+                  "pattern": "^REQUEST_REVIEW_\\d{3,}$",
+                  "maxLength": 50
+                },
+                "requestRevision": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "requestId": {
+                  "type": "string",
+                  "pattern": "^REQUEST_\\d{3,}$",
+                  "maxLength": 50
+                },
+                "origin": {
+                  "type": "string"
+                },
+                "destination": {
+                  "type": "string"
+                },
+                "expectedTransportDate": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "reviewId",
+                "requestRevision",
+                "requestId",
+                "origin",
+                "destination",
+                "expectedTransportDate"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "F1J72READReviewResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "requestRevision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "review": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Flow1Review"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "coordinators": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^USER_\\d{3,}$",
+                      "maxLength": 50
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "specialists": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^USER_\\d{3,}$",
+                      "maxLength": 50
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "requestRevision",
+              "review",
+              "coordinators",
+              "specialists"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "F1J80READReviewResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "proposal": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "reviewId": {
+                        "type": "string",
+                        "pattern": "^REQUEST_REVIEW_\\d{3,}$",
+                        "maxLength": 50
+                      },
+                      "requestRevision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "scheduleOptionId": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^REQUEST_SCHEDULE_OPTION_\\d{3,}$",
+                            "maxLength": 50
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "mode": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "ROAD",
+                              "AIR"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "expectedTransportDate": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "expectedDeliveryDate": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "customerDeadlineUtc": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "feedback": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "SUPPLEMENT_DOCUMENTS",
+                          "CONFIRM_SCHEDULE"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "reviewId",
+                      "requestRevision",
+                      "scheduleOptionId",
+                      "mode",
+                      "expectedTransportDate",
+                      "expectedDeliveryDate",
+                      "customerDeadlineUtc",
+                      "feedback",
+                      "action"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "proposal"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "Flow1Review": {
+        "type": "object",
+        "properties": {
+          "reviewId": {
+            "type": "string",
+            "pattern": "^REQUEST_REVIEW_\\d{3,}$",
+            "maxLength": 50
+          },
+          "requestRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "requestId": {
+            "type": "string",
+            "pattern": "^REQUEST_\\d{3,}$",
+            "maxLength": 50
+          },
+          "origin": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "expectedTransportDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "COORDINATOR_PENDING",
+              "SPECIALIST_PENDING",
+              "MANAGER_PENDING",
+              "CUSTOMER_SCHEDULE_PENDING",
+              "CUSTOMER_CHANGES_PENDING",
+              "CUSTOMER_ACCEPTED",
+              "CUSTOMER_REJECTED",
+              "APPROVED"
+            ]
+          },
+          "coordinatorId": {
+            "type": "string",
+            "pattern": "^USER_\\d{3,}$",
+            "maxLength": 50
+          },
+          "specialistId": {
+            "type": "string",
+            "pattern": "^USER_\\d{3,}$",
+            "maxLength": 50
+          },
+          "selectedOptionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^REQUEST_SCHEDULE_OPTION_\\d{3,}$",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "customerDeadlineUtc": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "originCountry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "destinationCountry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ROAD",
+                  "AIR"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedDeliveryDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "horseCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "scheduleOptionId": {
+                  "type": "string",
+                  "pattern": "^REQUEST_SCHEDULE_OPTION_\\d{3,}$",
+                  "maxLength": 50
+                },
+                "isOriginal": {
+                  "type": "boolean"
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "ROAD",
+                    "AIR"
+                  ]
+                },
+                "expectedTransportDate": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "expectedDeliveryDate": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "coordinatorResult": {
+                  "type": "string",
+                  "enum": [
+                    "FEASIBLE",
+                    "NOT_FEASIBLE"
+                  ]
+                },
+                "coordinatorReason": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "specialistResult": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "FEASIBLE",
+                        "NOT_FEASIBLE",
+                        "NEEDS_SUPPLEMENT"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "specialistNote": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "checklistVersion": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "checklist": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "checklistItemId": {
+                            "type": "string"
+                          },
+                          "horseId": {
+                            "type": "string",
+                            "pattern": "^HORSE_\\d{3,}$",
+                            "maxLength": 50
+                          },
+                          "horseName": {
+                            "type": "string"
+                          },
+                          "documentType": {
+                            "type": "string",
+                            "enum": [
+                              "PASSPORT",
+                              "PHOTO",
+                              "OWNERSHIP",
+                              "VALUATION",
+                              "HEALTH_CERTIFICATE",
+                              "VACCINATION"
+                            ]
+                          },
+                          "stage": {
+                            "type": "string",
+                            "enum": [
+                              "BEFORE_CONTRACT",
+                              "BEFORE_DEPARTURE",
+                              "OPTIONAL"
+                            ]
+                          },
+                          "fileAvailable": {
+                            "type": "boolean"
+                          },
+                          "expiryDate": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "usable": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "checklistItemId",
+                          "horseId",
+                          "horseName",
+                          "documentType",
+                          "stage",
+                          "fileAvailable",
+                          "expiryDate",
+                          "usable"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "assessment": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "checklistItemId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "VERIFIED",
+                              "MISSING",
+                              "INVALID",
+                              "NEEDS_FOLLOW_UP"
+                            ]
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 2000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "requiredByDate": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "estimatedProcessingDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 365
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "checklistItemId",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "scheduleOptionId",
+                "isOriginal",
+                "mode",
+                "expectedTransportDate",
+                "expectedDeliveryDate",
+                "coordinatorResult",
+                "coordinatorReason",
+                "specialistResult",
+                "specialistNote",
+                "checklistVersion",
+                "checklist",
+                "assessment"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "resources": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "vehicles": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "plateNumber": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "operatingCountry": {
+                          "type": "string"
+                        },
+                        "capacityStalls": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "plateNumber",
+                        "operatingCountry",
+                        "capacityStalls"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "flights": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "airline": {
+                          "type": "string"
+                        },
+                        "providerFlightCode": {
+                          "type": "string"
+                        },
+                        "originAirportPlaceId": {
+                          "type": "string"
+                        },
+                        "destinationAirportPlaceId": {
+                          "type": "string"
+                        },
+                        "departureTime": {
+                          "type": "string"
+                        },
+                        "arrivalTime": {
+                          "type": "string"
+                        },
+                        "departureDate": { "type": ["string", "null"], "format": "date" },
+                        "arrivalDate": { "type": ["string", "null"], "format": "date" },
+                        "departureTimeZone": {
+                          "type": "string"
+                        },
+                        "arrivalTimeZone": {
+                          "type": "string"
+                        },
+                        "capacityHorses": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "airline",
+                        "providerFlightCode",
+                        "originAirportPlaceId",
+                        "destinationAirportPlaceId",
+                        "departureTime",
+                        "arrivalTime",
+                        "departureTimeZone",
+                        "arrivalTimeZone",
+                        "capacityHorses"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "vehicles",
+                  "flights"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "reviewId",
+          "requestRevision",
+          "requestId",
+          "origin",
+          "destination",
+          "expectedTransportDate",
+          "status",
+          "coordinatorId",
+          "specialistId",
+          "selectedOptionId",
+          "customerDeadlineUtc",
+          "originCountry",
+          "destinationCountry",
+          "mode",
+          "expectedDeliveryDate",
+          "horseCount",
+          "options",
+          "resources"
+        ],
+        "additionalProperties": false
+      },
       "F1-J01Response200": {
         "type": "object",
         "properties": {
@@ -11932,6 +14111,18 @@
                   "mode"
                 ],
                 "additionalProperties": true
+              },
+              "earliestPickupDate": { "anyOf": [{ "type": "string", "format": "date" }, { "type": "null" }] },
+              "minimumPickupLeadDays": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -14520,6 +16711,14 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "paymentOutcome": {
+                      "type": "string",
+                      "enum": [
+                        "SUCCESS",
+                        "FAILED",
+                        "UNCONFIRMED"
+                      ]
                     }
                   },
                   "required": [
@@ -15427,6 +17626,14 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "paymentOutcome": {
+                      "type": "string",
+                      "enum": [
+                        "SUCCESS",
+                        "FAILED",
+                        "UNCONFIRMED"
+                      ]
                     }
                   },
                   "required": [
@@ -16094,6 +18301,14 @@
                           "string",
                           "null"
                         ]
+                      },
+                      "paymentOutcome": {
+                        "type": "string",
+                        "enum": [
+                          "SUCCESS",
+                          "FAILED",
+                          "UNCONFIRMED"
+                        ]
                       }
                     },
                     "required": [
@@ -16759,6 +18974,14 @@
                       "type": [
                         "string",
                         "null"
+                      ]
+                    },
+                    "paymentOutcome": {
+                      "type": "string",
+                      "enum": [
+                        "SUCCESS",
+                        "FAILED",
+                        "UNCONFIRMED"
                       ]
                     }
                   },
@@ -17511,6 +19734,14 @@
                           "string",
                           "null"
                         ]
+                      },
+                      "paymentOutcome": {
+                        "type": "string",
+                        "enum": [
+                          "SUCCESS",
+                          "FAILED",
+                          "UNCONFIRMED"
+                        ]
                       }
                     },
                     "required": [
@@ -18177,6 +20408,14 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "paymentOutcome": {
+                      "type": "string",
+                      "enum": [
+                        "SUCCESS",
+                        "FAILED",
+                        "UNCONFIRMED"
+                      ]
                     }
                   },
                   "required": [
@@ -18842,6 +21081,14 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "paymentOutcome": {
+                      "type": "string",
+                      "enum": [
+                        "SUCCESS",
+                        "FAILED",
+                        "UNCONFIRMED"
+                      ]
                     }
                   },
                   "required": [
@@ -18944,10 +21191,41 @@
             "type": "string",
             "maxLength": 2000,
             "minLength": 10
+          },
+          "reviewId": {
+            "type": "string",
+            "pattern": "^REQUEST_REVIEW_\\d{3,}$",
+            "maxLength": 50
+          },
+          "requestRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "SUPPLEMENT_DOCUMENTS",
+              "CONFIRM_SCHEDULE"
+            ]
+          },
+          "scheduleOptionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^REQUEST_SCHEDULE_OPTION_\\d{3,}$",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
-          "feedback"
+          "feedback",
+          "reviewId",
+          "requestRevision",
+          "action"
         ],
         "additionalProperties": false
       },
@@ -19520,6 +21798,14 @@
                       "type": [
                         "string",
                         "null"
+                      ]
+                    },
+                    "paymentOutcome": {
+                      "type": "string",
+                      "enum": [
+                        "SUCCESS",
+                        "FAILED",
+                        "UNCONFIRMED"
                       ]
                     }
                   },
@@ -20209,6 +22495,14 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "paymentOutcome": {
+                      "type": "string",
+                      "enum": [
+                        "SUCCESS",
+                        "FAILED",
+                        "UNCONFIRMED"
+                      ]
                     }
                   },
                   "required": [
@@ -20876,6 +23170,14 @@
                           "type": [
                             "string",
                             "null"
+                          ]
+                        },
+                        "paymentOutcome": {
+                          "type": "string",
+                          "enum": [
+                            "SUCCESS",
+                            "FAILED",
+                            "UNCONFIRMED"
                           ]
                         }
                       },
@@ -23732,6 +26034,14 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "paymentOutcome": {
+                      "type": "string",
+                      "enum": [
+                        "SUCCESS",
+                        "FAILED",
+                        "UNCONFIRMED"
+                      ]
                     }
                   },
                   "required": [
@@ -23855,6 +26165,14 @@
                 "type": [
                   "string",
                   "null"
+                ]
+              },
+              "paymentOutcome": {
+                "type": "string",
+                "enum": [
+                  "SUCCESS",
+                  "FAILED",
+                  "UNCONFIRMED"
                 ]
               }
             },
@@ -23989,6 +26307,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "paymentOutcome": {
+                "type": "string",
+                "enum": [
+                  "SUCCESS",
+                  "FAILED",
+                  "UNCONFIRMED"
+                ]
               }
             },
             "required": [
@@ -24116,6 +26442,14 @@
                     "string",
                     "null"
                   ]
+                },
+                "paymentOutcome": {
+                  "type": "string",
+                  "enum": [
+                    "SUCCESS",
+                    "FAILED",
+                    "UNCONFIRMED"
+                  ]
                 }
               },
               "required": [
@@ -24241,6 +26575,14 @@
                 "type": [
                   "string",
                   "null"
+                ]
+              },
+              "paymentOutcome": {
+                "type": "string",
+                "enum": [
+                  "SUCCESS",
+                  "FAILED",
+                  "UNCONFIRMED"
                 ]
               }
             },
@@ -24373,6 +26715,14 @@
                 "type": [
                   "string",
                   "null"
+                ]
+              },
+              "paymentOutcome": {
+                "type": "string",
+                "enum": [
+                  "SUCCESS",
+                  "FAILED",
+                  "UNCONFIRMED"
                 ]
               }
             },
@@ -24899,38 +27249,107 @@
       "F1-J55Response200": {
         "type": "object",
         "properties": {
-          "data": {
-            "type": "object",
-            "additionalProperties": true,
-            "properties": {
-              "contractId": {
-                "type": "string"
-              },
-              "refundStatus": {
-                "type": [
-                  "string",
-                  "null"
-                ]
-              },
-              "statusOnly": {
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "contractId"
-            ]
+          "success": {
+            "const": true
           },
           "message": {
             "type": "string"
           },
-          "success": {
-            "type": "boolean"
+          "data": {
+            "type": "object",
+            "properties": {
+              "contractId": {
+                "type": "string"
+              },
+              "requestId": {
+                "type": "string"
+              },
+              "refundStatus": {
+                "type": "string",
+                "enum": [
+                  "REQUESTED",
+                  "PROCESSING",
+                  "COMPLETED"
+                ]
+              },
+              "amount": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "currency": {
+                "type": "string",
+                "enum": [
+                  "VND"
+                ]
+              },
+              "reference": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "refundedAtUtc": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "verifiedAtUtc": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "verifiedBy": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "contractId",
+              "requestId",
+              "refundStatus",
+              "amount",
+              "currency",
+              "reference",
+              "refundedAtUtc",
+              "verifiedAtUtc",
+              "verifiedBy"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
-          "data",
+          "success",
           "message",
-          "success"
+          "data"
         ],
         "additionalProperties": false
       },
@@ -26354,6 +28773,14 @@
                 "type": [
                   "string",
                   "null"
+                ]
+              },
+              "paymentOutcome": {
+                "type": "string",
+                "enum": [
+                  "SUCCESS",
+                  "FAILED",
+                  "UNCONFIRMED"
                 ]
               }
             },
