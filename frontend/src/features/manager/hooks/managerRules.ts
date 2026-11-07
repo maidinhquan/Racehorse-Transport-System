@@ -39,6 +39,7 @@ import type {
   Trip,
   TripStatus,
 } from '../types';
+import { cleanStopName } from '../../tracking/utils/progress';
 
 // ============================================================================
 // Đồng hồ chạy theo thời gian thực (đồng bộ với Backend C#)
@@ -83,10 +84,28 @@ export function timeLeft(s: string) {
 export const CITY_VI: Record<string, string> = {
   'Ho Chi Minh City': 'TP. Hồ Chí Minh', Hanoi: 'Hà Nội', 'Da Nang': 'Đà Nẵng', Tokyo: 'Tokyo', Osaka: 'Osaka', Bangkok: 'Bangkok', London: 'London', Dubai: 'Dubai',
 };
-const VN_CITIES = ['Ho Chi Minh City', 'Hanoi', 'Da Nang'];
-export const cityLabel = (c: string) => CITY_VI[c] ?? c;
-export const isInternational = (o: string, d: string) => !VN_CITIES.includes(o) || !VN_CITIES.includes(d);
-export const routeText = (r: Pick<TransportRequest, 'origin' | 'destination'>) => `${cityLabel(r.origin)} → ${cityLabel(r.destination)}`;
+export const VN_CITIES = ['Ho Chi Minh City', 'Hanoi', 'Da Nang', 'TP. Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng'];
+
+export const cityLabel = (c?: string | null) => (c ? (CITY_VI[c] ?? c) : '—');
+
+export const isInternational = (o?: string | null, d?: string | null) => {
+  const text = `${o || ''} ${d || ''}`.toLowerCase();
+  return (
+    text.includes('tokyo') ||
+    text.includes('japan') ||
+    text.includes('nhật bản') ||
+    text.includes('osaka') ||
+    text.includes('narita') ||
+    text.includes('bangkok') ||
+    text.includes('thái lan') ||
+    text.includes('thailand') ||
+    text.includes('london') ||
+    text.includes('dubai') ||
+    text.includes('singapore')
+  );
+};
+export const routeText = (r?: Pick<TransportRequest, 'origin' | 'destination'> | null) =>
+  r ? `${cityLabel(r.origin)} → ${cityLabel(r.destination)}` : '—';
 
 export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
   DRAFT: 'Bản nháp',
@@ -111,7 +130,7 @@ export const FLIGHT_STATUS_LABEL: Record<FlightStatus, string> = { BUDGET_PENDIN
 export const STOP_TYPE_LABEL: Record<StopType, string> = {
   ORIGIN: 'Điểm nhận', REST_STOP: 'Trạm nghỉ', CHECKPOINT: 'Cửa khẩu / kiểm soát', AIRPORT: 'Sân bay', QUARANTINE_STATION: 'Trạm kiểm dịch', DESTINATION: 'Điểm giao',
 };
-export const MILESTONE_LABEL: Record<MilestoneType, string> = { DEPARTED: 'Xuất phát', ARRIVED_STOP: 'Đến điểm dừng', LEFT_STOP: 'Rời điểm dừng', ARRIVED_DESTINATION: 'Đến điểm giao' };
+export const MILESTONE_LABEL: Record<MilestoneType, string> = { DEPARTED: 'Xuất phát', ARRIVED_STOP: 'Đến điểm dừng', LEFT_STOP: 'Rời điểm dừng', ARRIVED_CHECKPOINT: 'Đến cửa khẩu / trạm', PASSED_CHECKPOINT: 'Qua cửa khẩu / trạm', ARRIVED_DESTINATION: 'Đến điểm giao' };
 export const INCIDENT_TYPE_LABEL: Record<IncidentType, string> = { DELAY: 'Chậm trễ', HORSE_HEALTH: 'Sức khỏe ngựa', VEHICLE: 'Sự cố xe', BORDER: 'Thông quan / cửa khẩu', OTHER: 'Khác' };
 export const SEVERITY_LABEL: Record<Severity, string> = { LOW: 'Thấp', MEDIUM: 'Trung bình', HIGH: 'Cao', CRITICAL: 'Nghiêm trọng' };
 export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = { NEW: 'Mới', IN_PROGRESS: 'Đang xử lý', CLOSED: 'Đã đóng' };
@@ -154,10 +173,44 @@ export interface ManagerData {
   notifications: ManagerNotification[];
 }
 
-export const customerOf = (d: Pick<ManagerData, 'customers'>, r?: TransportRequest) => d.customers.find((c) => c.id === r?.customerId);
-export const horseName = (d: Pick<ManagerData, 'horses'>, id: string) => d.horses.find((h) => h.id === id)?.name ?? id;
-export const tripOfReq = (d: Pick<ManagerData, 'trips'>, id: string) => d.trips.find((t) => t.requestId === id);
-export const reqOfTrip = (d: Pick<ManagerData, 'requests'>, t: Trip) => d.requests.find((r) => r.id === t.requestId)!;
+export const customerOf = (d: Pick<ManagerData, 'customers'>, r?: TransportRequest) => {
+  if (!r) return undefined;
+  const found = d.customers.find((c) =>
+    c.id === r.customerId ||
+    (c as any).username === r.customerId ||
+    (r.customerId && c.name?.toLowerCase() === r.customerId.toLowerCase())
+  );
+  const custName = found?.name || (r as any).customerName || r.history?.find(h => h.role === 'CUSTOMER')?.actor || 'Khách hàng';
+  const custCompany = found?.company || (r as any).customerCompany || `${custName} (Cá nhân)`;
+  const rawEmail = found?.email || (r as any).customerEmail || (r as any).email;
+  const safeName = custName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  const custEmail = rawEmail || (safeName ? `${safeName}@example.com` : 'khachhang@example.com');
+  const custPhone = found?.phone || (r as any).customerPhone || r.pickup?.phone || '—';
+
+  return {
+    id: r.customerId || found?.id || 'CUS-001',
+    name: custName,
+    company: custCompany,
+    email: custEmail,
+    phone: custPhone,
+  };
+};
+const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
+export const horseName = (d: Pick<ManagerData, 'horses'>, id: string) => d.horses.find((h) => h.id === id || cleanId(h.id) === cleanId(id))?.name ?? id;
+export const tripOfReq = (d: Pick<ManagerData, 'trips'>, id: string) => d.trips.find((t) => t.requestId === id || cleanId(t.requestId) === cleanId(id));
+export const reqOfTrip = (d: Pick<ManagerData, 'requests'>, t: Trip): TransportRequest =>
+  d.requests.find((r) => r.id === t.requestId || cleanId(r.id) === cleanId(t.requestId)) || ({
+    id: t.requestId,
+    origin: '',
+    destination: '',
+    horses: [],
+    status: 'IN_TRANSIT',
+    versions: [],
+    history: [],
+    dossier: [],
+    pickup: { name: '', address: '', contact: '', phone: '', notes: '' },
+    delivery: { name: '', address: '', contact: '', phone: '', notes: '' },
+  } as unknown as TransportRequest);
 export const staffName = (d: Pick<ManagerData, 'staff'>, id?: string) => d.staff.find((s) => s.id === id)?.name ?? '—';
 
 // ============================================================================
@@ -183,11 +236,12 @@ export const DEFAULT_TERMS: ContractTerm[] = [
 
 export const curVersion = (r: TransportRequest): ContractVersion | undefined => r.versions[r.versions.length - 1];
 /** Trạng thái thực tế: phiên bản đã phát hành mà quá hạn chung thì hết hạn */
-export function versionState(v: ContractVersion): ContractState {
+export function versionState(v?: ContractVersion | null): ContractState {
+  if (!v || !v.state) return 'VOID';
   if (v.state === 'ISSUED' && !v.signedAt && isPast(v.validUntil)) return 'EXPIRED';
   return v.state;
 }
-export const ctRef = (v: Pick<ContractVersion, 'number' | 'v'>) => `${v.number} v${v.v}`;
+export const ctRef = (v?: Pick<ContractVersion, 'number' | 'v'> | null) => (v && v.number ? `${v.number} v${v.v}` : '—');
 export const sumItems = (items: ContractItem[]) => items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
 export const sumBudget = (b: Budget) =>
   (Number(b.TRANSPORT) || 0) +
@@ -227,6 +281,7 @@ export function initialDraft(r: TransportRequest): ContractDraft {
     if (d.budget && sumBudget(d.budget) < 100000) {
       d.budget = defaultBudget(r);
     }
+    d.mode ??= r.mode;
     return d;
   }
   const v = curVersion(r);
@@ -244,18 +299,19 @@ export function initialDraft(r: TransportRequest): ContractDraft {
       b.INSURANCE = fresh.INSURANCE;
       b.STAFF = fresh.STAFF;
     }
-    const mode = v.mode || defaultMode(r);
-    const minPrep = 0;
+    const mode = v.mode ?? r.mode;
+    const minPrep = (mode === 'AIR' ? 7 : 3) + 2;
     const minDepartDate = addDays(today(), minPrep);
 
-    let departAt = v.departAt || `${r.date || minDepartDate} 06:00`;
-    if (departAt.slice(0, 10) < minDepartDate) {
-      departAt = `${minDepartDate} 08:00`;
+    // Bắt đầu từ ngày khách yêu cầu; nếu ngày quá gần hoặc đã qua thì lấy ngày sớm nhất hợp lệ (đã +2 ngày đệm)
+    let departDate = (r.pickupAt || r.date || minDepartDate).slice(0, 10);
+    if (departDate < minDepartDate) departDate = minDepartDate;
+    const departAt = v.departAt && v.departAt.slice(0, 10) >= minDepartDate ? v.departAt : `${departDate} 08:00`;
+    let arriveDate = (r.date || addDays(departDate, 1)).slice(0, 10);
+    if (arriveDate <= departDate) {
+      arriveDate = addDays(departDate, 1);
     }
-    let arriveAt = v.arriveAt || `${mode === 'AIR' ? addDays(departAt.slice(0, 10), 1) : departAt.slice(0, 10)} ${mode === 'AIR' ? '18:00' : '20:00'}`;
-    if (arriveAt <= departAt) {
-      arriveAt = `${addDays(departAt.slice(0, 10), mode === 'AIR' ? 1 : 2)} 18:00`;
-    }
+    const arriveAt = v.arriveAt && v.arriveAt.slice(0, 10) > departDate ? v.arriveAt : `${arriveDate} 18:00`;
 
     const items = (v.items && v.items.length > 0) ? v.items.map((i) => ({ ...i })) : defaultItems(r);
     const terms = (v.terms && v.terms.length > 0) ? v.terms.map((t) => ({ ...t })) : DEFAULT_TERMS.map((t) => ({ ...t }));
@@ -272,14 +328,19 @@ export function initialDraft(r: TransportRequest): ContractDraft {
       terms,
     };
   }
-  const mode = defaultMode(r);
-  const minPrep = 0;
+  const mode = r.mode;
+  const minPrep = (mode === 'AIR' ? 7 : 3) + 2;
   const minDepartDate = addDays(today(), minPrep);
-  let departAt = `${r.date || minDepartDate} 06:00`;
-  if (departAt.slice(0, 10) < minDepartDate) {
-    departAt = `${minDepartDate} 08:00`;
+  let departDate = (r.pickupAt || minDepartDate).slice(0, 10);
+  if (departDate < minDepartDate) {
+    departDate = minDepartDate;
   }
-  let arriveAt = `${mode === 'AIR' ? addDays(departAt.slice(0, 10), 1) : departAt.slice(0, 10)} ${mode === 'AIR' ? '18:00' : '20:00'}`;
+  let arriveDate = (r.date || addDays(departDate, 1)).slice(0, 10);
+  if (arriveDate <= departDate) {
+    arriveDate = addDays(departDate, 1);
+  }
+  const departAt = `${departDate} 08:00`;
+  const arriveAt = `${arriveDate} 18:00`;
   return {
     mode, departAt, arriveAt,
     budget: defaultBudget(r), items: defaultItems(r), depositPct: DEPOSIT_PCT, note: '', exception: '', terms: DEFAULT_TERMS.map((t) => ({ ...t })),
@@ -288,14 +349,13 @@ export function initialDraft(r: TransportRequest): ContractDraft {
 
 /** Kiểm tra bản nháp trước khi phát hành; trả về '' nếu hợp lệ */
 export function draftError(d: ContractDraft): string {
+  if (d.mode !== 'ROAD' && d.mode !== 'AIR') return 'Chọn phương thức vận chuyển (Bước 1).';
   if (!d.departAt || !d.arriveAt) return 'Nhập ngày giờ khởi hành và đến dự kiến (Bước 1).';
   if (d.arriveAt <= d.departAt) return 'Thời gian đến phải sau thời gian khởi hành (Bước 1).';
 
-  if (!d.budget.VET || !d.budget.INSURANCE) return 'Dự toán nội bộ phải có chi phí bác sĩ thú y và bảo hiểm (Bước 2).';
   if (d.items.some((i) => i.required && !(Number(i.amount) > 0))) return 'Các khoản bắt buộc trong bảng giá phải lớn hơn 0 (Bước 2).';
   if (d.items.some((i) => Number(i.amount) < 0)) return 'Giá các khoản mục không được âm (Bước 2).';
   if (!(d.depositPct >= 1 && d.depositPct <= 100)) return 'Tỷ lệ cọc phải từ 1% đến 100% (Bước 2).';
-  if (sumItems(d.items) < floorPrice(d.budget) && d.exception.trim().length < 10) return `Giá bán thấp hơn giá sàn ${fmtMoney(floorPrice(d.budget))}: nhập lý do ngoại lệ (ít nhất 10 ký tự, Bước 2).`;
   const bad = d.terms.findIndex((t) => !t.title.trim() || t.text.trim().length < 10);
   if (bad >= 0) return `Điều ${bad + 1} cần có tiêu đề và nội dung (ít nhất 10 ký tự, Bước 3).`;
   return '';
@@ -314,6 +374,15 @@ export const verifiedDeposit = (d: Pick<ManagerData, 'transactions'>, r: Transpo
 export const depositPaid = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => depositOf(r) > 0 && verifiedDeposit(d, r) >= depositOf(r);
 export const pendingTx = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest, type: PaymentType = 'DEPOSIT') =>
   d.transactions.find((x) => x.requestId === r.id && x.type === type && (type !== 'DEPOSIT' || (x.contractId === curVersion(r)?.contractId && x.versionNo === curVersion(r)?.v)) && ['PENDING_CONFIRMATION', 'PROCESSING'].includes(x.status));
+/**
+ * Money actually received for the current version. An unpaid VNPay session (customer opened the gateway and left)
+ * is PROCESSING with no received amount and must not block re-issuing; the backend applies the same rule.
+ */
+export const receivedDepositTx = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => {
+  const v = curVersion(r);
+  return d.transactions.find((x) => x.requestId === r.id && x.type === 'DEPOSIT' && !!v?.contractId && x.contractId === v.contractId && x.versionNo === v.v
+    && (['SUCCESS', 'PENDING_CONFIRMATION'].includes(x.status) || (x.confirmedAmount ?? 0) > 0));
+};
 export const balanceDue = (r: TransportRequest) => Math.max(0, totalOf(r) - depositOf(r));
 export const verifiedBalance = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => sumTx(d, r, 'BALANCE', ['SUCCESS']);
 export const outstanding = (d: Pick<ManagerData, 'transactions'>, r: TransportRequest) => Math.max(0, balanceDue(r) - verifiedBalance(d, r));
@@ -385,8 +454,16 @@ export type StageKey = (typeof STAGE_KEYS)[number];
 export const STAGE_LABELS = ['Phân công', 'Chuẩn bị', 'Duyệt khởi hành', 'Vận chuyển'];
 
 /** Danh sách mốc theo thứ tự cần xác nhận */
+/** Tổ xe của chuyến: ưu tiên phân công thật (Flow 4), nếu chưa có thì lấy theo phương án của Điều phối */
+export const tripCrew = (t: Trip): Array<[string, string]> => (t.executionCrew?.length ? t.executionCrew : t.route?.crew ?? []);
+/** Xe của chuyến dạng "biển số • loại xe" */
+export const tripVehicle = (t: Trip): string => t.executionVehicle || t.route?.vehicle || '';
+
+/** Điểm dừng của lịch trình: ưu tiên lịch thực hiện Flow 4 (mỗi điểm một mốc), nếu chưa có thì dùng phương án tuyến */
+export const tripStops = (t: Trip) => (t.executionStops?.length ? t.executionStops : t.route?.stops ?? []);
+
 export function milestonePlan(t: Trip): Array<{ type: MilestoneType; stopIndex: number }> {
-  const n = t.route?.stops.length ?? 0;
+  const n = tripStops(t).length;
   if (n < 2) return [];
   const plan: Array<{ type: MilestoneType; stopIndex: number }> = [{ type: 'DEPARTED', stopIndex: 0 }];
   for (let i = 1; i < n - 1; i += 1) plan.push({ type: 'ARRIVED_STOP', stopIndex: i }, { type: 'LEFT_STOP', stopIndex: i });
@@ -396,8 +473,10 @@ export function milestonePlan(t: Trip): Array<{ type: MilestoneType; stopIndex: 
 export const nextMilestone = (t: Trip) => milestonePlan(t)[t.milestones.length];
 export const lastMilestone = (t: Trip) => t.milestones[t.milestones.length - 1];
 export const arrived = (t: Trip) => lastMilestone(t)?.type === 'ARRIVED_DESTINATION';
+/** Nhãn mốc: ở lịch trình Flow 4 mốc giữa chuyến là check-in tại điểm dừng (không có bước "rời trạm" riêng) */
+export const milestoneLabel = (_t: Trip, type: MilestoneType) => MILESTONE_LABEL[type];
 export const milestoneText = (t: Trip, m: { type: MilestoneType; stopIndex: number }) =>
-  `${MILESTONE_LABEL[m.type]} • ${t.route?.stops[m.stopIndex]?.name ?? ''}`;
+  `${milestoneLabel(t, m.type)} • ${cleanStopName(tripStops(t)[m.stopIndex]?.name ?? '')}`;
 
 // ============================================================================
 // Bàn giao & đóng đơn

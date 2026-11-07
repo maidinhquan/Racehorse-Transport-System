@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { startRealtime, stopRealtime } from '../../shared/utils/realtime';
 
 interface RequireAuthProps {
   children: React.ReactNode;
@@ -10,6 +11,15 @@ export const RequireAuth: React.FC<RequireAuthProps> = ({ children, allowedRoles
   const location = useLocation();
   const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
   const role = sessionStorage.getItem('userRole') || localStorage.getItem('userRole');
+
+  useEffect(() => {
+    if (!token) return;
+    startRealtime();
+    // Đăng xuất xóa token trước khi rời trang; chuyển trang trong phiên thì giữ nguyên kết nối
+    return () => {
+      if (!(sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken'))) stopRealtime();
+    };
+  }, [token]);
 
   if (!token) {
     return <Navigate to="/login" state={{ from: location }} replace />;

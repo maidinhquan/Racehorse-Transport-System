@@ -11,6 +11,7 @@ public class MilestoneCompleteInputDto
     public string OccurredAt { get; set; } = null!;
 
     [JsonPropertyName("note")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? Note { get; set; }
 
     [JsonPropertyName("evidenceFileIds")]
@@ -32,6 +33,7 @@ public class MilestoneCorrectionInputDto
     public string ProposedOccurredAt { get; set; } = null!;
 
     [JsonPropertyName("proposedNote")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? ProposedNote { get; set; }
 
     [JsonPropertyName("proposedEvidenceFileIds")]
@@ -47,6 +49,7 @@ public class MilestoneInputSnapshotDto
     public string OccurredAt { get; set; } = null!;
 
     [JsonPropertyName("note")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? Note { get; set; }
 
     [JsonPropertyName("evidenceFileIds")]
@@ -83,9 +86,11 @@ public class MilestoneCorrectionDto
     public MilestoneInputSnapshotDto Proposed { get; set; } = new();
 
     [JsonPropertyName("decidedBy")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public Flow4ActorDto? DecidedBy { get; set; }
 
     [JsonPropertyName("decidedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? DecidedAt { get; set; }
 }
 
@@ -122,15 +127,18 @@ public class CheckpointRecordDto
     public string Status { get; set; } = "PENDING"; // PENDING, HELD, SUPPLEMENT_REQUIRED, CLEARED
 
     [JsonPropertyName("reason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? Reason { get; set; }
 
     [JsonPropertyName("evidenceFileIds")]
     public List<string> EvidenceFileIds { get; set; } = new();
 
     [JsonPropertyName("recordedBy")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public Flow4ActorDto? RecordedBy { get; set; }
 
     [JsonPropertyName("recordedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? RecordedAt { get; set; }
 }
 

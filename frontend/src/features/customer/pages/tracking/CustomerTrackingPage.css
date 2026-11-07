@@ -13,3 +13,10 @@
 .cus-track__status > span { width: 36px; height: 36px; border-radius: 10px; background: #ffedd5; color: #ea580c; display: grid; place-items: center; }
 .cus-track__status b { display: block; }
 .cus-track__status small { color: #64748b; font-size: 12px; }
+
+.cus-track__tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cus-track__tabs button { min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid var(--cus-line); border-radius: 10px; background: var(--cus-card); color: var(--cus-muted); font: inherit; font-weight: 600; cursor: pointer; }
+.cus-track__tabs button.active { border-color: transparent; background: var(--cus-orange-soft); color: var(--cus-orange-text); }
+.cus-track__tabs button:focus-visible, .cus-track__activity-panel:focus-visible { outline: 2px solid var(--cus-orange-text); outline-offset: 2px; }
+.cus-track__activity { display: flex; flex-direction: column; min-height: 0; }
+.cus-track__activity-panel { flex: 1; min-height: 0; overflow-y: auto; margin-top: 14px; padding: 4px 8px 4px 14px; overscroll-behavior: contain; }

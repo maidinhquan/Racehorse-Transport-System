@@ -72,6 +72,7 @@
 .cus-avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--cus-orange-soft); color: var(--cus-orange-text); font-weight: 700; font-size: 12px; }
 .cus-user-name { font-weight: 600; font-size: 13px; }
 .cus-view { padding: 28px 32px 48px; max-width: 1180px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.cus-view--narrow { max-width: 760px; }
 
 .cus-toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 100;
@@ -246,6 +247,9 @@ button.cus-stat:hover { border-color: var(--cus-orange); }
 }
 
 .cus-grid-main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 16px; align-items: start; }
+.cus-grid-main.cus-track__layout { align-items: stretch; }
+.cus-grid-main.cus-track__layout > .cus-stack:last-child { display: flex; flex-direction: column; }
+.cus-grid-main.cus-track__layout > .cus-stack:last-child > .cus-track__activity { flex: 1; }
 .cus-grid-main > .cus-stack > .cus-card + .cus-card { margin-top: 16px; }
 @media (max-width: 1000px) { .cus-grid-main { grid-template-columns: 1fr; } }
 

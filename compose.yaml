@@ -1,22 +1,42 @@
 services:
   backend:
+    volumes:
+      - backend_app_data:/app/App_Data
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
       - "5129:8080"
+    # Secrets and keys come from .env (not committed). Values under `environment` override env_file,
+    # so keys that live in .env are not repeated here.
+    env_file:
+      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=HorseTransportDB;User Id=${SQL_USER};Password=${SQL_PASSWORD};Encrypt=True;TrustServerCertificate=True;"
-      Jwt__Key: "${JWT_SECRET_KEY:-}"
-      RegistrationEmail__Mode: "${REGISTRATION_EMAIL_MODE:-Development}"
-      RegistrationEmail__Smtp__Host: "${SMTP_HOST:-smtp.gmail.com}"
-      RegistrationEmail__Smtp__Port: "${SMTP_PORT:-587}"
-      RegistrationEmail__Smtp__Username: "${SMTP_USERNAME:-}"
-      RegistrationEmail__Smtp__Password: "${SMTP_PASSWORD:-}"
-      RegistrationEmail__Smtp__From: "${SMTP_FROM:-}"
-      Maps__Mapbox__AccessToken: "${MAPBOX_ACCESS_TOKEN:-}"
-      Maps__Geoapify__ApiKey: "${GEOAPIFY_API_KEY:-}"
+      Flow6__LibreOfficeExecutable: /usr/bin/soffice
+      ConnectionStrings__DefaultConnection: "Server=host.docker.internal,1433;Database=${SQL_DATABASE:-HorseTransportDB};User Id=${SQL_USER:?Set SQL_USER in .env};Password=${SQL_PASSWORD:?Set SQL_PASSWORD in .env};TrustServerCertificate=True;"
+      EmailValidation__ApiKey: ${EMAIL_VALIDATION_API_KEY:-}
+      Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__Username: ${SMTP_USERNAME:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__FromEmail: ${SMTP_FROM:-}
+      Smtp__FromName: ${SMTP_FROM_NAME:-RaceHorse Transport System}
+      Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      RegistrationEmail__Mode: ${REGISTRATION_EMAIL_MODE:-Development}
+      RegistrationEmail__Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
+      RegistrationEmail__Smtp__Port: ${SMTP_PORT:-587}
+      RegistrationEmail__Smtp__Username: ${SMTP_USERNAME:-}
+      RegistrationEmail__Smtp__Password: ${SMTP_PASSWORD:-}
+      RegistrationEmail__Smtp__From: ${SMTP_FROM:-}
+      RegistrationEmail__Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      Flow6__Email__Smtp__Host: ${SMTP_HOST:-smtp.gmail.com}
+      Flow6__Email__Smtp__Port: ${SMTP_PORT:-587}
+      Flow6__Email__Smtp__Username: ${SMTP_USERNAME:-}
+      Flow6__Email__Smtp__Password: ${SMTP_PASSWORD:-}
+      Flow6__Email__Smtp__From: ${SMTP_FROM:-}
+      Flow6__Email__Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      Flow6__Email__AllowDevelopmentLoopback: "true"
     restart: unless-stopped
 
   frontend:
@@ -28,12 +48,58 @@ services:
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
-    command: npm run dev -- --host 0.0.0.0
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     environment:
-      VITE_API_URL: http://localhost:5129/api
+      # Gọi API theo đường dẫn tương đối (/api); Vite chuyển tiếp sang backend để mở qua ngrok cho người khác dùng.
+      API_PROXY_TARGET: http://backend:8080
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Public HTTPS tunnel so VNPay can call the IPN on this machine (http://backend:8080/api/payments/vnpay/ipn).
+  # Starts with every `docker compose up`. It needs NGROK_AUTHTOKEN in .env (free account, see .env.example);
+  # without it the container prints a hint and exits, the rest of the stack is unaffected.
+  # The IPN URL to register with VNPay is printed in the logs: `docker compose logs tunnel`
+  # Inspect forwarded requests at http://localhost:4040
+  tunnel:
+    image: ngrok/ngrok:3
+    # A free ngrok account uses its permanent dev domain automatically (shown at http://localhost:4040
+    # and in the ngrok dashboard under Domains), so the IPN URL only has to be registered once.
+    entrypoint:
+      - sh
+      - -c
+      - |
+        if [ -z "$$NGROK_AUTHTOKEN" ]; then
+          echo "[tunnel] Chua co NGROK_AUTHTOKEN trong .env nen bo qua tunnel: VNPAY se khong gui duoc IPN ve may nay."
+          exit 0
+        fi
+        ngrok --config=/var/lib/ngrok/ngrok.yml http frontend:5173 --log=stdout | while IFS= read -r line; do
+          echo "$$line"
+          case "$$line" in
+            *"started tunnel"*) echo "[tunnel] IPN URL de dang ky voi VNPAY: $${line##*url=}/api/payments/vnpay/ipn" ;;
+          esac
+        done
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    ports:
+      - "4040:4040"
+    depends_on:
+      - frontend
+    restart: on-failure
+
+  # Same purpose without any account (Cloudflare Quick Tunnel): set COMPOSE_PROFILES=quicktunnel.
+  # The public URL is random and CHANGES on every restart, so the VNPay IPN URL must be updated each time.
+  # Current URL: open http://localhost:2000/quicktunnel  (or: docker compose logs quicktunnel)
+  quicktunnel:
+    image: cloudflare/cloudflared:2024.12.2
+    profiles: ["quicktunnel"]
+    command: ["tunnel", "--no-autoupdate", "--metrics", "0.0.0.0:2000", "--url", "http://backend:8080"]
+    ports:
+      - "2000:2000"
     depends_on:
       - backend
     restart: unless-stopped
 
 volumes:
+  backend_app_data:
   frontend_node_modules:

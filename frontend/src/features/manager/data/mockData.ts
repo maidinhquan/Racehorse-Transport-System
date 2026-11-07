@@ -47,7 +47,7 @@ export const mockStaff: Staff[] = [
   { id: 'USR_COORD_01', name: 'Phạm Hải (Coordinator)', role: 'FLEET_ROUTE_COORDINATOR', load: 1 },
   { id: 'EMP-11', name: 'Hoang Thu Ha', role: 'TRANSPORT_SPECIALIST', load: 5 },
   { id: 'EMP-12', name: 'Vu Minh Chau', role: 'TRANSPORT_SPECIALIST', load: 1 },
-  { id: 'EMP-15', name: 'Dang Minh Quan', role: 'FLEET_ROUTE_COORDINATOR', load: 5 },
+  { id: 'EMP-15', name: 'Phạm Hải', role: 'FLEET_ROUTE_COORDINATOR', load: 5 },
   { id: 'EMP-16', name: 'Tran Bao Ngoc', role: 'FLEET_ROUTE_COORDINATOR', load: 2 },
 ];
 
@@ -67,7 +67,7 @@ const PLACES = {
 };
 
 const NAMES: Record<ActorRole, string> = {
-  CUSTOMER: '', LOGISTICS_MANAGER: MANAGER_NAME, TRANSPORT_SPECIALIST: 'Hoang Thu Ha', FLEET_ROUTE_COORDINATOR: 'Dang Minh Quan', DRIVER_ESCORT: 'Pham Van Duc', SYSTEM: 'Hệ thống',
+  CUSTOMER: '', LOGISTICS_MANAGER: MANAGER_NAME, TRANSPORT_SPECIALIST: 'Hoang Thu Ha', FLEET_ROUTE_COORDINATOR: 'Phạm Hải', DRIVER_ESCORT: 'Pham Van Duc', SYSTEM: 'Hệ thống',
 };
 const hist = (at: string, role: ActorRole, action: string, detail?: string, actor?: string): HistoryEntry =>
   ({ at, role, action, detail, actor: actor ?? (NAMES[role] || 'Khách hàng') });
@@ -258,7 +258,7 @@ export const mockRequests: TransportRequest[] = [
     ],
     history: [
       hist('2026-10-03 08:30', 'CUSTOMER', 'Ký hợp đồng bằng OTP', 'CT-8924 v1 – yêu cầu được kích hoạt', 'Alex Equine'),
-      hist('2026-10-03 09:00', 'LOGISTICS_MANAGER', 'Phân công chuyến', 'TRP-902 → Hoang Thu Ha, Dang Minh Quan'),
+      hist('2026-10-03 09:00', 'LOGISTICS_MANAGER', 'Phân công chuyến', 'TRP-902 → Hoang Thu Ha, Phạm Hải'),
       hist('2026-10-03 14:10', 'TRANSPORT_SPECIALIST', 'Từ chối giấy tờ', 'Sổ tiêm ngừa – Shadowfax'),
       hist('2026-10-04 10:40', 'FLEET_ROUTE_COORDINATOR', 'Gửi phương án tuyến v1', 'Kèm đề xuất ngân sách chuyến bay'),
     ],

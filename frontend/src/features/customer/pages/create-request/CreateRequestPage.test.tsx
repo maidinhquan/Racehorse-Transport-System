@@ -4,11 +4,17 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateRequestPage } from './CreateRequestPage';
 
+vi.mock('../../components/RouteMap/LocationMap', () => ({ LocationMap: () => <div aria-label="Bản đồ vị trí địa chỉ" /> }));
+
 const mocks = vi.hoisted(() => ({
   createDraft: vi.fn(), saveRequestDetails: vi.fn(), showToast: vi.fn(), getFormOptions: vi.fn(),
 }));
 vi.mock('../../hooks/useCustomer', () => ({ useCustomer: () => ({ getRequest: () => undefined, actions: mocks }) }));
-vi.mock('../../api/customerApi', () => ({ customerApi: { getFormOptions: mocks.getFormOptions, searchLocations: vi.fn().mockResolvedValue([]) } }));
+vi.mock('../../api/customerApi', () => ({ customerApi: {
+  getFormOptions: mocks.getFormOptions,
+  getCities: vi.fn().mockImplementation(async (country: string) => [{ cityId: `0123456789abcdef012345${country}`, label: `Confirmed ${country}`, countryCode: country }]),
+  searchLocations: vi.fn().mockImplementation(async (_q: string, country: string) => [{ label: `123 Main Street, ${country}`, point: { latitude: 10.8, longitude: 106.7, countryCode: country } }]),
+} }));
 vi.mock('../../components/CustomerLayout', () => ({ CustomerLayout: ({ children }: { children: React.ReactNode }) => <main>{children}</main>, Icon: () => <span /> }));
 
 function renderForm() {
@@ -22,10 +28,18 @@ async function fillForm() {
   fireEvent.change(cities[0], { target: { value: 'Ho Chi Minh City' } });
   fireEvent.change(cities[1], { target: { value: 'Tokyo' } });
   await waitFor(() => expect(mocks.getFormOptions).toHaveBeenCalledWith('Ho Chi Minh City', 'Tokyo'));
+  // Tuyến VN -> JP cần tối thiểu 2 ngày vận chuyển: ngày giao phải sau ngày lấy ít nhất 2 ngày.
+  fireEvent.change(screen.getByLabelText('Mong muốn CBN đến lấy ngựa *'), { target: { value: '29/11/2099' } });
   fireEvent.change(screen.getByLabelText('Ngày vận chuyển mong muốn'), { target: { value: '01/12/2099' } });
-  fireEvent.change(screen.getByLabelText('Tên chuồng / câu lạc bộ *'), { target: { value: 'Pickup stable' } });
-  fireEvent.change(screen.getByLabelText('Tên chuồng / trường đua *'), { target: { value: 'Tokyo stable' } });
+  fireEvent.change(screen.getByLabelText('Tên điểm đi *'), { target: { value: 'Pickup stable' } });
+  fireEvent.change(screen.getByLabelText('Tên điểm đến *'), { target: { value: 'Tokyo stable' } });
   for (const input of screen.getAllByLabelText('Địa chỉ chi tiết *')) fireEvent.change(input, { target: { value: '123 Main Street' } });
+  // City boundary IDs resolve automatically; search is enabled once both are known.
+  await waitFor(() => screen.getAllByRole('button', { name: /Tìm vị trí/ }).forEach(button => expect((button as HTMLButtonElement).disabled).toBe(false)));
+  for (const [index, country] of ['VN', 'JP'].entries()) {
+    fireEvent.click(screen.getAllByRole('button', { name: /Tìm vị trí/ })[index]);
+    fireEvent.click(await screen.findByRole('button', { name: `123 Main Street, ${country}` }));
+  }
   for (const input of screen.getAllByLabelText('Họ và tên *')) fireEvent.change(input, { target: { value: 'Contact' } });
   for (const input of screen.getAllByLabelText('Số điện thoại *')) fireEvent.change(input, { target: { value: '+84901234567' } });
 }
@@ -45,12 +59,19 @@ describe('merged request details step', () => {
     expect(mocks.showToast).toHaveBeenCalled();
     expect(screen.getByRole('list').children).toHaveLength(3);
   });
+  it('moves the delivery date to at least the minimum transit time after the pickup date for an international route', async () => {
+    renderForm();
+    await fillForm();
+    fireEvent.change(screen.getByLabelText('Mong muốn CBN đến lấy ngựa *'), { target: { value: '30/11/2099' } });
+    fireEvent.click(screen.getByRole('button', { name: /Lưu & tiếp tục/ }));
+    await waitFor(() => expect(mocks.saveRequestDetails).toHaveBeenCalledWith('REQ-1', expect.objectContaining({ date: '2099-12-02' }), expect.anything(), expect.anything()));
+  });
   it('saves route, date and both places before opening the horse step', async () => {
     renderForm(); await fillForm();
     fireEvent.click(screen.getByRole('button', { name: /Lưu & tiếp tục/ }));
     await screen.findByText('Horse step reached');
     expect(mocks.createDraft).toHaveBeenCalledWith(expect.objectContaining({ origin: 'Ho Chi Minh City', destination: 'Tokyo', horseCount: 1, careNotes: '' }), expect.any(String));
-    expect(mocks.saveRequestDetails).toHaveBeenCalledWith('REQ-1', expect.objectContaining({ date: '2099-12-01' }), expect.objectContaining({ name: 'Pickup stable', address: '123 Main Street' }), expect.objectContaining({ name: 'Tokyo stable', phone: '+84901234567' }));
+    expect(mocks.saveRequestDetails).toHaveBeenCalledWith('REQ-1', expect.objectContaining({ date: '2099-12-01' }), expect.objectContaining({ name: 'Pickup stable', address: '123 Main Street, VN', cityId: '0123456789abcdef012345VN' }), expect.objectContaining({ name: 'Tokyo stable', phone: '+84901234567', cityId: '0123456789abcdef012345JP' }));
   });
   it('reuses a newly created draft if the details save fails and is retried', async () => {
     mocks.saveRequestDetails.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({ ok: true });

@@ -16,6 +16,7 @@ Cập nhật 29/10/2026 (bổ sung Flow 4). Áp dụng cho các flow có contrac
 - Toàn bộ ví dụ request/response: [FLOW1-API-JSON.md](API-Flow/Flow1/FLOW1-API-JSON.md).
 - Kiểu dữ liệu, required, nullable, enum và giới hạn: [flow1.openapi.json](API-Flow/Flow1/flow1.openapi.json).
 - Flow 2: [flow và đối chiếu frontend](API-Flow/Flow2/FLOW2.md), [JSON từng API](API-Flow/Flow2/FLOW2-API-JSON.md), [OpenAPI](API-Flow/Flow2/flow2.openapi.json). Flow 2 mới có contract; caller frontend chưa được tích hợp.
+- Flow 3 v3 (30/10/2026): [nghiệp vụ](API-Flow/Flow3/FLOW3.md), [API/JSON](API-Flow/Flow3/FLOW3-API-JSON.md), [migration](API-Flow/Flow3/MIGRATION-V3.md). Phương thức từ hợp đồng; Coordinator lập lịch từ ngày nhận; Manager duyệt toàn bộ phương án. Đổi điểm nhận: Coordinator đề xuất → Manager duyệt/gửi → Customer đồng ý mới áp dụng. Contract mục tiêu, chưa đổi runtime; mirror v3 được đặt riêng để không phá ứng dụng v2.
 - Flow 3 v2 (27/10/2026): [quy trình Final_Flow3.html](API-Flow/Flow3/FLOW3.md), [JSON từng API](API-Flow/Flow3/FLOW3-API-JSON.md), [OpenAPI](API-Flow/Flow3/flow3.openapi.json), [kịch bản](API-Flow/Flow3/flow3.examples.json). Hai nhánh hồ sơ/điều phối song song ngay sau giao việc; ROAD confirm trước submit, AIR duyệt tổng thể rồi booking/confirm; duyệt khởi hành riêng. Không còn feasibility/timed-documents gate. Chỉ cập nhật contract, chưa triển khai backend.
 - Khi thay đổi payload, cập nhật đồng thời tài liệu liên quan và frontend trong bước tích hợp. Nếu có khác biệt chưa giải quyết, dừng thao tác liên quan; không chọn một mẫu tùy ý.
 - Quy tắc ID và SQL do người dùng cung cấp tại `D:/Shared/ID_NAME_RULE.md`, `D:/Shared/HorseTransportDB.sql` là tài liệu tham khảo thiết kế. SQL trong repository là phiên bản khác; chưa kiểm chứng schema của DB đang chạy. Không sửa DB/backend trong công việc này.
@@ -44,6 +45,39 @@ Kiểm tra quyền sở hữu trên máy chủ; tài nguyên không có quyền 
 ## 3. Envelope, danh sách và lỗi
 
 Thành công JSON:
+## 3. Response envelope
+
+**Thành công:**
+
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {}
+}
+```
+
+**Thất bại:**
+
+```json
+{
+  "success": false,
+  "message": "Microchip ID already registered",
+  "errorCode": "HORSE_MICROCHIP_DUPLICATE",
+  "data": null,
+  "errors": {
+    "microchipId": ["Microchip ID already registered"]
+  }
+}
+```
+
+- `success` là `boolean`; `message` dùng để hiển thị cho người dùng.
+- `data` chứa dữ liệu thành công; khi lỗi là `null`.
+- `errorCode` là mã ổn định để FE xử lý; không dùng chuỗi `message` để rẽ nhánh.
+- `errors` chỉ được trả khi có lỗi xác thực dữ liệu ở từng trường: dictionary tên field -> danh sách message, khớp `ApiResponse<T>` đang chạy. Không đổi các API cũ sang array để tích hợp Flow 1. `errorCode` mới là optional để tương thích callers cũ.
+- Các endpoint hiện có được giữ envelope `success` / `message` / `data`; các trường lỗi bổ sung không làm thay đổi cấu trúc thành công.
+
+**Danh sách có phân trang:**
 
 ```json
 {"success":true,"message":"OK","data":{}}

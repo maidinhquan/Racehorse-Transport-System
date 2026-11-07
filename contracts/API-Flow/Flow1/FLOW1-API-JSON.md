@@ -208,6 +208,7 @@ Mỗi endpoint bên dưới có một lỗi đặc thù. Các lỗi chung sau c�
 | F1-J45 | GET | /manager/payments | Danh sách giao dịch Manager |
 | F1-J46 | GET | /manager/payments/{paymentId} | Chi tiết giao dịch |
 | F1-J69 | POST | /manager/payments/{paymentId}/cancel | Huỷ giao dịch VNPay bị treo |
+| F1-J71 | POST | /manager/payments/{paymentId}/confirm | Manager xác nhận thủ công giao dịch VNPay |
 | F1-J49 | GET | /customer/payments/{paymentId}/receipt | Biên nhận đã xác minh |
 | F1-J50 | POST | /customer/contracts/{contractId}/sign-otp | Gửi OTP ký |
 | F1-J51 | POST | /customer/contracts/{contractId}/sign | Ký và tạo một Trip |
@@ -1076,7 +1077,9 @@ Ngựa có thể chọn. Role: **CUSTOMER**.
 }
 ```
 
-**Quy tắc:** selectable = true khi không trùng lịch. Thiếu file chỉ là documentWarnings, không chặn chọn ngựa.
+**Query bổ sung (tuỳ chọn):** `excludeRequestId` (chỉ đơn thuộc người gọi).
+
+**Quy tắc:** selectable = true khi ngựa không thuộc đơn vận chuyển chưa hoàn tất, kể cả khi ngày đặt khác nhau. Đơn CANCELLED/REJECTED và bản nháp không giữ ngựa. Ngựa đã giao xong được đặt lại với bất kỳ điểm đón nào. Đơn CHANGES_REQUESTED và CANCELLATION_REQUESTED vẫn giữ ngựa. Thiếu file chỉ là documentWarnings.
 
 **Response lỗi 400 — VALIDATION_ERROR**
 
@@ -3469,6 +3472,63 @@ Huỷ giao dịch VNPay bị treo. Role: **LOGISTICS_MANAGER**.
 ```
 
 
+### F1-J71 — POST /manager/payments/{paymentId}/confirm
+
+Manager xác nhận thủ công giao dịch VNPay khi IPN không về. Role: **LOGISTICS_MANAGER**.
+
+**Path parameters**
+
+| Tên | Giá trị ví dụ |
+|---|---|
+| paymentId | PAYMENT_006 |
+
+**Request JSON**
+
+```json
+{
+  "reason": "VNPay báo thành công trên cổng quản trị nhưng IPN không về."
+}
+```
+
+**Response 200**
+
+```json
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "id": "PAYMENT_006",
+    "paymentId": "PAYMENT_006",
+    "invoiceId": "INVOICE_006",
+    "contractId": "CONTRACT_006",
+    "versionNo": 1,
+    "amount": 520000,
+    "currency": "VND",
+    "method": "VNPAY",
+    "status": "SUCCESS",
+    "databaseStatus": "SUCCESS",
+    "receivedAmount": 520000,
+    "paidAt": "2026-11-04T11:00:00",
+    "reviewRequired": true,
+    "reviewReason": "Manual confirmation by Manager (VNPAY did not report): VNPay báo thành công trên cổng quản trị nhưng IPN không về."
+  }
+}
+```
+
+**Quy tắc:** Lý do 5 đến 900 ký tự. Backend hỏi VNPay (querydr) trước: nếu VNPay đã có kết quả thì ghi nhận theo VNPay và không xác nhận tay. Nếu chưa, giao dịch được ghi là SUCCESS với mã giao dịch `MANUAL_<paymentId>`, lưu người xác nhận (`ConfirmedByUserID`), cộng vào hóa đơn cọc, chuyển yêu cầu sang DEPOSIT_VERIFIED khi đủ cọc, và gắn `reviewRequired = true` kèm lý do để đối soát với VNPay. Chỉ áp dụng khi phiên bản hợp đồng còn mở cọc (chưa ký, chưa hủy, không vượt tổng cọc).
+
+**Response lỗi 409 — PAYMENT_NOT_APPLICABLE**
+
+```json
+{
+  "success": false,
+  "message": "The deposit window for this contract version is no longer open.",
+  "errorCode": "PAYMENT_NOT_APPLICABLE",
+  "data": null
+}
+```
+
+
 ### F1-J49 — GET /customer/payments/{paymentId}/receipt
 
 Biên nhận đã xác minh. Role: **CUSTOMER**.
@@ -4377,3 +4437,11 @@ Nhận thông báo server-to-server từ VNPay. Không dùng Bearer token Custom
 ## Kiểm tra bộ hợp đồng hiện hành
 
 Chạy `python contracts/API-Flow/Flow1/build_openapi.py` rồi `python contracts/API-Flow/Flow1/validate_contract.py`. Có 65 operation: bỏ J47/J48 thủ công, thêm J67 IPN; giữ số J cũ để không làm sai tham chiếu. Bộ kiểm tra frontend cũ có thể còn kỳ vọng 66 operation/J47 và phải được cập nhật khi tích hợp frontend; không dùng kết quả đó để xác nhận backend đã hỗ trợ.
+
+
+### F1-J70 — GET /locations/tiles/{z}/{x}/{y}.png
+
+Ảnh nền Geoapify cho Leaflet. Cần Bearer token và tài khoản đang hoạt động. `z`: 0–19; `x`, `y`: 0 đến 2^z−1. Trả PNG, cache riêng tư 1 giờ; giới hạn riêng 300 yêu cầu/phút/tài khoản. Geoapify key lấy từ cấu hình backend, không trả ra trình duyệt. Lỗi: 400/401/403/429/503.
+
+
+Phương thức hợp đồng: Manager bắt buộc chọn `mode: ROAD | AIR` khi lưu bản nháp (F1-J30). Phương thức được lưu trong snapshot và cập nhật lên yêu cầu khi phát hành. Điều phối sử dụng phương thức hợp đồng, không tự đổi phương thức.

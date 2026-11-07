@@ -45,7 +45,7 @@ public class Flow4CustomerTrackingService : IFlow4CustomerTrackingService
                 HorseId = rhm.HorseId,
                 Name = rhm.Horse != null ? rhm.Horse.Name : rhm.HorseId,
                 Microchip = rhm.Horse != null ? rhm.Horse.MicrochipIso : "",
-                CareInstructions = rhm.CareInstructions
+                CareInstructions = rhm.CareInstructions ?? ""
             })
             .ToListAsync();
 
@@ -64,9 +64,14 @@ public class Flow4CustomerTrackingService : IFlow4CustomerTrackingService
             PlannedAt = m.PlannedTime.ToString("yyyy-MM-dd HH:mm"),
             OccurredAt = m.OccurredAt?.ToString("yyyy-MM-dd HH:mm"),
             RecordedAt = m.RecordedAt?.ToString("yyyy-MM-dd HH:mm"),
-            Note = m.Note,
+            Note = m.Note ?? "",
             Revision = m.Revision
         }).ToList();
+
+        // Tọa độ các mốc theo kế hoạch đã duyệt; vị trí hiện tại là mốc gần nhất đã xác nhận (không có GPS)
+        var geoMilestones = milestones.Where(m => m.Latitude != null && m.Longitude != null).ToList();
+        Flow4GeoDto Geo(Domain.Entities.Flow4.TripMilestone m) => new() { Lat = m.Latitude!.Value, Lng = m.Longitude!.Value };
+        var markerSource = geoMilestones.LastOrDefault(m => m.Status == "COMPLETED") ?? geoMilestones.FirstOrDefault();
 
         var publicHealthLogs = await GetCustomerHealthLogsAsync(requestId, customerId);
 
@@ -83,12 +88,12 @@ public class Flow4CustomerTrackingService : IFlow4CustomerTrackingService
                 RouteSource = "APPROVED_PLAN",
                 LocationSource = "CONFIRMED_MILESTONE",
                 LastConfirmedMilestoneId = publicMilestones.LastOrDefault(m => m.Status == "COMPLETED")?.Id,
-                MarkerGeo = new Flow4GeoDto { Lat = 10.762622m, Lng = 106.660172m },
+                MarkerGeo = markerSource == null ? null : Geo(markerSource),
                 IsGps = false,
-                RoutePoints = new List<Flow4GeoDto>()
+                RoutePoints = geoMilestones.Select(Geo).ToList()
             },
             Health = publicHealthLogs,
-            CustomerNotice = null
+            CustomerNotice = ""
         };
     }
 
@@ -110,9 +115,12 @@ public class Flow4CustomerTrackingService : IFlow4CustomerTrackingService
             .ToListAsync();
 
         var logs = await _context.HealthLogs
-            .Where(h => horseIds.Contains(h.HorseId))
+            .Where(h => h.HorseId != null && horseIds.Contains(h.HorseId))
             .OrderByDescending(h => h.RecordedAt ?? h.LogTime)
             .ToListAsync();
+
+        var escortIds = logs.Select(h => h.EscortId).Where(id => id != null).Distinct().ToList();
+        var names = await _context.Users.Where(u => escortIds.Contains(u.UserId)).ToDictionaryAsync(u => u.UserId, u => u.FullName ?? u.UserId);
 
         return logs.Select(h => new Flow4PublicHealthDto
         {
@@ -121,14 +129,17 @@ public class Flow4CustomerTrackingService : IFlow4CustomerTrackingService
             ObservedAt = h.LogTime.ToString("yyyy-MM-dd HH:mm"),
             Condition = h.Condition ?? "NORMAL",
             Observation = h.Description ?? "",
-            Feeding = h.Feeding,
-            Water = h.Water,
-            Rest = h.RestStatus,
+            RecordedAt = (h.RecordedAt ?? h.LogTime).ToString("yyyy-MM-dd HH:mm"),
+            RecordedBy = new Flow4ActorDto { UserId = h.EscortId ?? "", Name = h.EscortId != null && names.TryGetValue(h.EscortId, out var recorder) ? recorder : "Tổ xe", Role = "DRIVER_ESCORT" },
+            Feeding = h.Feeding ?? "",
+            Water = h.Water ?? "",
+            Rest = h.RestStatus ?? "",
+            Care = h.CareNotes ?? "",
             TemperatureC = h.Temperature,
             HeartRateBpm = h.HeartRate,
             PhotoFileIds = !string.IsNullOrEmpty(h.PhotoFileIds)
                 ? TryParsePhotoIds(h.PhotoFileIds)
-                : (!string.IsNullOrEmpty(h.MediaUrl) ? new List<string> { h.MediaUrl } : new List<string>())
+                : new List<string>()
         }).ToList();
     }
 
@@ -136,13 +147,16 @@ public class Flow4CustomerTrackingService : IFlow4CustomerTrackingService
     {
         try
         {
-            return JsonSerializer.Deserialize<List<string>>(jsonOrUrl) ?? new();
+            return (JsonSerializer.Deserialize<List<string>>(jsonOrUrl) ?? new()).Where(IsFileId).ToList();
         }
         catch
         {
-            return new List<string> { jsonOrUrl };
+            return IsFileId(jsonOrUrl) ? new List<string> { jsonOrUrl } : new List<string>();
         }
     }
+
+    /// <summary>Mã tệp hợp lệ theo contract; đường dẫn/URL cũ (MediaUrl) không phải mã tệp nên không công khai cho khách.</summary>
+    private static bool IsFileId(string value) => System.Text.RegularExpressions.Regex.IsMatch(value, "^[A-Za-z0-9_-]+$");
 
     /// <summary>
     /// F4-J34: Khách hàng tải ảnh/chứng từ hành trình đã được phân quyền chia sẻ cho đơn hàng của mình.

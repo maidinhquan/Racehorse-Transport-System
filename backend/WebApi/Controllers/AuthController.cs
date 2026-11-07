@@ -119,7 +119,6 @@ namespace WebApi.Controllers
             {
                 user = new User
                 {
-                    UserId = "USR_GG_" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper(),
                     Username = email.Split('@')[0],
                     FullName = fullName,
                     Email = email,
@@ -185,6 +184,17 @@ namespace WebApi.Controllers
         {
             var data = await _registrationService.ResendOtpAsync(dto, cancellationToken);
             return Ok(ApiResponse<ResendOtpResponseData>.Ok(data, "OTP resent successfully"));
+        }
+
+        // =========================================================================
+        // AUTH: VALIDATE EMAIL EXISTENCE (FOR DEMO/TESTING PURPOSE)
+        // POST /api/auth/validate-email
+        // =========================================================================
+        [HttpPost("validate-email")]
+        public async Task<IActionResult> ValidateEmail([FromBody] ValidateEmailRequestDto dto, CancellationToken cancellationToken)
+        {
+            var data = await _registrationService.ValidateEmailAsync(dto.Email, cancellationToken);
+            return Ok(ApiResponse<ValidateEmailResponseData>.Ok(data, data.Message));
         }
 
         // =========================================================================
@@ -286,13 +296,63 @@ namespace WebApi.Controllers
                 UserId = FormatUserId(user.UserId),
                 FullName = user.FullName,
                 Email = user.Email ?? string.Empty,
-                Role = UserRoles.NormalizeRole(user.Role)
+                Role = UserRoles.NormalizeRole(user.Role),
+                PhoneNumber = user.Phone
             };
 
             return Ok(ApiResponse<CurrentUserResponseData>.Ok(data, "User retrieved successfully"));
         }
 
         // =========================================================================
+        // =========================================================================
+        // AUTH-10: GET QUICK LOGIN / DEMO ACCOUNTS FROM DATABASE
+        // GET /api/auth/quick-login-accounts?role=...
+        // =========================================================================
+        [AllowAnonymous]
+        [HttpGet("quick-login-accounts")]
+        public async Task<IActionResult> GetQuickLoginAccounts([FromQuery] string? role = null)
+        {
+            var query = _context.Users.AsNoTracking().Where(u => u.IsActive);
+
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                var normalized = UserRoles.NormalizeRole(role);
+                if (normalized == UserRoles.DriverEscort)
+                {
+                    query = query.Where(u => u.Role == "DRIVER_ESCORT" || u.Role == "Driver" || u.Role == "Escort");
+                }
+                else if (normalized == UserRoles.Customer)
+                {
+                    query = query.Where(u => u.Role == "CUSTOMER" || u.Role == "CUST");
+                }
+                else
+                {
+                    query = query.Where(u => u.Role == normalized);
+                }
+            }
+
+            var users = await query.ToListAsync();
+
+            var result = users.Select(u =>
+            {
+                var normRole = UserRoles.NormalizeRole(u.Role);
+                string pwd = u.PasswordHash.StartsWith("HASH_SECURE_") ? u.PasswordHash : "Password123!";
+
+                return new QuickLoginAccountDto
+                {
+                    Id = u.UserId,
+                    Username = u.Username,
+                    Role = normRole,
+                    Label = u.FullName,
+                    Email = u.Email ?? u.Username ?? u.UserId,
+                    Phone = u.Phone,
+                    Password = pwd
+                };
+            }).ToList();
+
+            return Ok(ApiResponse<List<QuickLoginAccountDto>>.Ok(result, "Lấy danh sách tài khoản thành công"));
+        }
+
         // HELPER METHODS
         // =========================================================================
 
@@ -302,6 +362,13 @@ namespace WebApi.Controllers
 
             // 1. So khớp trực tiếp mật khẩu bình thường (plain text)
             if (string.Equals(inputPassword, storedHash))
+            {
+                return true;
+            }
+
+            // Hỗ trợ mật khẩu mặc định (Password123! hoặc 123456) cho các tài khoản seed
+            if ((inputPassword == "Password123!" || inputPassword == "123456") &&
+                (storedHash.StartsWith("HASH_SECURE_") || storedHash == "Password123!" || storedHash == "123456"))
             {
                 return true;
             }
@@ -317,15 +384,6 @@ namespace WebApi.Controllers
             catch
             {
                 // Không phải chuỗi BCrypt hash hợp lệ
-            }
-
-            // 3. Cho phép các mật khẩu dev phổ biến với các tài khoản seed sẵn trong database
-            if (inputPassword == "Password123!" ||
-                inputPassword == "123456" ||
-                inputPassword == "admin123" ||
-                inputPassword == "string")
-            {
-                return true;
             }
 
             return false;

@@ -41,7 +41,7 @@ export const HistoryPage: React.FC = () => {
                     <td>{fmtDateTime(t.milestones[0]?.at ?? t.plannedDepart)}</td>
                     <td>{arrived ? fmtDateTime(arrived.at) : '—'}</td>
                     <td>{t.milestones.length}</td>
-                    <td>{t.handover ? <TripStatusBadge tone="ok" label="Đã bàn giao" /> : '—'}</td>
+                    <td>{t.handover || t.status === 'COMPLETED' ? <TripStatusBadge tone="ok" label="Đã bàn giao" /> : '—'}</td>
                   </tr>
                 );
               })}

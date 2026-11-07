@@ -115,7 +115,7 @@ public sealed class RegistrationServiceTests
         Assert.Equal("user@example.com", user.Email);
         Assert.Equal("0901234567", user.Phone);
         Assert.Equal(Hasher.HashValue, user.PasswordHash);
-        Assert.Matches("^USR_CUST_[a-f0-9]{32}$", user.UserId);
+        Assert.Null(user.UserId); // The SQL default, not the service, allocates the ID.
         Assert.True(f.Pending.Completed);
         Assert.Empty(f.Store.Entries);
         await Assert.ThrowsAsync<BusinessRuleException>(() => f.Verify(f.Code));

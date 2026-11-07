@@ -136,8 +136,7 @@ export const DemoPanel: React.FC<{ request: TransportRequest }> = ({ request: r 
       <Modal open={dialog === 'supplement'} title={`Specialist yêu cầu bổ sung • ${r.id}`} okText="Gửi yêu cầu bổ sung" error={error}
         onClose={() => setDialog('')}
         onOk={() => {
-          const scope = ['invite', 'raceReg', 'ataCarnet'].includes(supKey) ? '' : supHorse;
-          const res = d.specialistAskSupplement(r.id, scope, supKey, supReason);
+          const res = d.specialistAskSupplement(r.id, supHorse, supKey, supReason);
           if (res.ok) setDialog(''); else setError(res.message);
         }}>
         <div className="cus-field">
@@ -146,14 +145,12 @@ export const DemoPanel: React.FC<{ request: TransportRequest }> = ({ request: r 
             {FILE_DOC_KEYS.map((k) => <option key={k} value={k}>{DOC_NAME[k]}</option>)}
           </select>
         </div>
-        {!['invite', 'raceReg', 'ataCarnet'].includes(supKey) && (
-          <div className="cus-field">
-            <label htmlFor="demo-sup-horse">Ngựa</label>
-            <select id="demo-sup-horse" className="cus-select" value={supHorse} onChange={(e) => setSupHorse(e.target.value)}>
-              {pickedHorses(r).map((id) => <option key={id} value={id}>{horses.find((h) => h.id === id)?.name ?? id}</option>)}
-            </select>
-          </div>
-        )}
+        <div className="cus-field">
+          <label htmlFor="demo-sup-horse">Ngựa</label>
+          <select id="demo-sup-horse" className="cus-select" value={supHorse} onChange={(e) => setSupHorse(e.target.value)}>
+            {pickedHorses(r).map((id) => <option key={id} value={id}>{horses.find((h) => h.id === id)?.name ?? id}</option>)}
+          </select>
+        </div>
         <div className="cus-field">
           <label htmlFor="demo-sup-reason">Lý do *</label>
           <textarea id="demo-sup-reason" className="cus-textarea" rows={3} value={supReason} onChange={(e) => setSupReason(e.target.value)}

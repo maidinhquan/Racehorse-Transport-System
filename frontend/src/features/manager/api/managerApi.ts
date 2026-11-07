@@ -1,7 +1,8 @@
 import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
 import { MANAGER_ENDPOINTS as E } from './managerEndpoints';
-import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, Staff, Transaction, TransportRequest, Trip } from '../types';
+import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, RoutePlan, Staff, Transaction, TransportMode, TransportRequest, Trip } from '../types';
+import { attachContractFeedback, contractFromWire, documentKey, paymentFromWire, type WireContract, type WireHorse, type WirePayment } from '../../../shared/api/flow1Wire';
 export interface CostPlanDto {
   costs: {
     transport: number;
@@ -27,23 +28,91 @@ export interface ContractEditorData {
   request: TransportRequest; customer: CustomerInfo; horses: HorseRef[];
   draft: ContractDraft | null; currentContract: ContractVersion | null;
   versions: ContractVersion[];
-  defaults: Omit<FormOptions, 'supportedRoutes'> & { terms: ContractDraft['terms'] };
+  defaults: FormOptions & { terms: ContractDraft['terms'] };
 }
-type WireRequest = Omit<TransportRequest, 'history' | 'status' | 'versions'> & { status: TransportRequest['status'] | 'IN_PROGRESS'; versions: Array<Omit<ContractVersion, 'extensions'>> };
-const versionFromWire = (v: Omit<ContractVersion, 'extensions'>): ContractVersion => ({ ...v, extensions: [] });
-const requestFromWire = (r: WireRequest): TransportRequest => ({ ...r, status: r.status === 'IN_PROGRESS' ? 'IN_TRANSIT' : r.status, history: [], versions: r.versions.map(versionFromWire) });
+type WireRequest = Record<string, any>;
+// Backend giữ versionStatus = SIGNED sau khi ký, còn trạng thái thực nằm ở contractStatus (EFFECTIVE/FULFILLED).
+// Hiển thị theo contractStatus để không còn báo "Đã ký – chờ cọc" khi hợp đồng đã có hiệu lực.
+const versionFromWire = (v: WireContract): ContractVersion => {
+  const c = contractFromWire(v) as unknown as ContractVersion;
+  if (v.versionStatus === 'SIGNED' && ['EFFECTIVE', 'FULFILLED'].includes(v.contractStatus)) c.state = v.contractStatus as ContractVersion['state'];
+  return c;
+};
+// Older requests can have null place fields (e.g. no postal code or city); the UI expects strings.
+const PLACE_TEXT = ['name', 'address', 'postal', 'contact', 'phone', 'notes', 'cityId', 'cityName'];
+const placeFromWire = (p: Record<string, unknown> | null | undefined) =>
+  Object.fromEntries(Object.entries(p ?? {}).map(([k, v]) => [k, v == null && PLACE_TEXT.includes(k) ? '' : v])) as unknown as TransportRequest['pickup'];
+const requestFromWire = (r: WireRequest): TransportRequest => ({ ...r,
+  id: r.id, customerId: r.customerId, origin: r.origin, destination: r.destination,
+  horses: r.horses ?? [], pickup: placeFromWire(r.pickup), delivery: placeFromWire(r.delivery),
+  date: r.expectedDeliveryDate ?? '', pickupAt: r.expectedTransportDate ?? '', careNotes: r.careInstructions ?? '',
+  submittedAt: r.createdAt ?? '', feedback: r.revisionFeedback ?? '',
+  reason: r.reason ?? r.rejectionReason ?? r.cancellation?.reason ?? '', status: r.status,
+  history: [], collection: [], versions: attachContractFeedback((r.versions ?? []).filter((v: WireContract) => v.versionStatus !== 'DRAFT').map(versionFromWire), r.contractFeedback),
+  dossier: (r.dossier ?? []).map((d: any) => ({ ...d, name: documentKey(d.key),
+    status: d.status === 'SUBMITTED' ? 'PENDING_REVIEW' : d.status, file: d.file?.url,
+  })),
+} as TransportRequest);
+/** Phương án Điều phối gửi (PlanDto của backend) → RoutePlan của trang Quản lý. Bản nháp chưa gửi thì bỏ qua. */
+const routeFromPlan = (p: any): RoutePlan | undefined => {
+  if (!p || !Array.isArray(p.stops) || p.status === 'DRAFT') return undefined;
+  return {
+    v: p.planVersion || 1,
+    status: (p.status === 'RETURNED' ? 'CHANGES_REQUESTED' : p.status) as RoutePlan['status'],
+    pickupAt: p.pickupAt || undefined,
+    submittedAt: p.submittedAt || '',
+    stops: p.stops.map((s: any) => ({ name: s.name, type: s.type, plannedAt: s.arriveAt || s.departAt || '', lat: s.geo?.lat, lng: s.geo?.lng })),
+    vehicle: p.vehicleLabel || undefined,
+    crew: (p.crewLabels || []).filter((x: any) => Array.isArray(x) && x.length >= 2).map((x: any) => [x[0], x[1]] as [string, string]),
+    resourcesConfirmed: true,
+    note: p.note || undefined,
+    decisionNote: p.decisionNote || undefined,
+    decidedAt: p.decidedAt || undefined,
+  };
+};
+const tripFromWire = (t: any): Trip => ({ ...t,
+  deployment: { ...t.deployment, specialistId: t.specialistId, coordinatorId: t.coordinatorId, holdReason: t.deployment?.reason },
+  milestones: [], etaHistory: [],
+  readiness: { insurance: 'MISSING', quarantineOk: false, ...t.readiness, docsReady: t.readiness?.docsReady ?? 0, docsTotal: t.readiness?.docsTotal ?? 0, docsReadyAt: t.readiness?.docsReadyAt || undefined },
+});
+const horseFromWire = (h: WireHorse): HorseRef => ({ ...h, breed: h.breed ?? '', passportNo: h.passport?.number ?? '' });
 export const managerApi = {
-  getCustomers: () => contractClient<CustomerInfo[]>('get', '/manager/customers'),
-  getHorses: () => contractClient<HorseRef[]>('get', '/manager/horses'),
+  getCustomers: async () => (await contractClient<Array<{ id: string; fullName: string; email: string; phone: string }>>('get', '/manager/customers')).map(p => ({ ...p, name: p.fullName, company: '' })),
+  getHorses: async () => (await contractClient<WireHorse[]>('get', '/manager/horses')).map(horseFromWire),
   getStaff: () => contractClient<Staff[]>('get', '/manager/staff'),
   getRequests: async () => (await contractClient<WireRequest[]>('get', '/manager/requests')).map(requestFromWire),
   getRequest: async (id: string) => requestFromWire(await contractClient<WireRequest>('get', `/manager/requests/${id}`)),
-  getTrip: (id: string) => contractClient<Trip>('get', `/manager/trips/${id}`),
-  getPayment: (id: string) => contractClient<Transaction>('get', `/manager/payments/${id}`),
-  getContractVersion: async (id: string, versionNo: number) => versionFromWire(await contractClient<Omit<ContractVersion, 'extensions'>>('get', `/manager/contracts/${id}/versions/${versionNo}`)),
-  getTrips: () => contractClient<Trip[]>('get', '/manager/trips'),
-  getTransactions: () => contractClient<Transaction[]>('get', '/manager/payments'),
-  getNotifications: () => contractClient<ManagerNotification[]>('get', '/manager/notifications'),
+  /** Phương án Điều phối gửi cho một chuyến (undefined nếu chưa gửi / đã hủy gửi). */
+  getTripPlan: async (id: string): Promise<RoutePlan | undefined> => {
+    try { return routeFromPlan(await apiRequest<any>('get', E.TRIP_PLAN(id))); } catch { return undefined; }
+  },
+  getTrip: async (id: string) => {
+    const t = tripFromWire(await contractClient('get', `/manager/trips/${id}`));
+    if (!t.route) { try { const r = routeFromPlan(await apiRequest<any>('get', E.TRIP_PLAN(t.id))); if (r) t.route = r; } catch { /* chưa có phương án */ } }
+    return t;
+  },
+  /** F1-J69: server asks VNPay first; only an expired, unconfirmed session is cancelled (customer can pay again). */
+  cancelPayment: async (id: string, reason: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('post', `/manager/payments/${id}/cancel`, { reason })), requestId: '' } as Transaction),
+  /** Manager xác nhận tay khi VNPay không báo IPN: server hỏi VNPay trước, nếu không có kết quả thì ghi cọc và gắn cờ đối soát. */
+  confirmPayment: async (id: string, reason: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('post', `/manager/payments/${id}/confirm`, { reason })), requestId: '' } as Transaction),
+  getPayment: async (id: string) => ({ ...paymentFromWire(await contractClient<WirePayment>('get', `/manager/payments/${id}`)), requestId: '' } as Transaction),
+  getContractVersion: async (id: string, versionNo: number) => versionFromWire(await contractClient<WireContract>('get', `/manager/contracts/${id}/versions/${versionNo}`)),
+  /** Chỉ lấy số liệu sẵn sàng (hồ sơ, bảo hiểm, kiểm dịch) của các chuyến để làm mới nhẹ, không gọi lại phương án tuyến */
+  getTripReadiness: async () => (await contractClient<any[]>('get', '/manager/trips')).map((t) => ({ id: t.id as string, readiness: tripFromWire(t).readiness })),
+  getTrips: async () => {
+    const list = (await contractClient<any[]>('get', '/manager/trips')).map(tripFromWire);
+    // Gắn phương án tuyến Điều phối đã gửi (lưu trên backend) cho các chuyến chưa có route
+    await Promise.all(list.map(async (t) => {
+      if (t.route) return;
+      try { const r = routeFromPlan(await apiRequest<any>('get', E.TRIP_PLAN(t.id))); if (r) t.route = r; } catch { /* chưa có phương án */ }
+    }));
+    return list;
+  },
+  getTransactions: async () => (await contractClient<WirePayment[]>('get', '/manager/payments')).map(p => ({ ...paymentFromWire(p), requestId: '' } as Transaction)),
+  // Backend sends `body` (same as customer) and customer-side links; map to the manager UI shape.
+  getNotifications: async (): Promise<ManagerNotification[]> =>
+    (await contractClient<Array<{ id: string; at: string; title?: string | null; body?: string | null; read: boolean; link?: string | null }>>('get', '/manager/notifications'))
+      .map(n => ({ id: n.id, at: n.at, title: n.title ?? '', text: n.body ?? '', read: n.read, link: (n.link ?? '').replace(/^\/customer\//, '/manager/') })),
   markRead: (id: string) => contractClient('post', `/manager/notifications/${id}/read`),
   markAllRead: () => contractClient('post', '/manager/notifications/read-all'),
   acceptRequest: async (id: string) => requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/accept`)),
@@ -51,32 +120,75 @@ export const managerApi = {
   rejectRequest: async (id: string, reason: string) => requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/reject`, { reason })),
   cancelRequest: (id: string, reason: string) => contractClient('post', `/manager/requests/${id}/cancel`, { reason }),
   decideCancellation: (id: string, approve: boolean, reason: string) => contractClient('post', `/manager/contracts/${id}/cancellation/decision`, { decision: approve ? 'APPROVED' : 'REJECTED', reason }),
-  getContractEditor: async (id: string, mode?: string): Promise<ContractEditorData> => {
-    const data = await contractClient<Omit<ContractEditorData, 'request' | 'versions' | 'currentContract'> & { request: WireRequest; versions: Array<Omit<ContractVersion, 'extensions'>>; currentContract: Omit<ContractVersion, 'extensions'> | null }>('get', `/manager/requests/${id}/contract-editor`, undefined, mode ? { mode } : undefined);
-    return { ...data, request: requestFromWire(data.request), versions: data.versions.map(versionFromWire), currentContract: data.currentContract ? versionFromWire(data.currentContract) : null };
+  getContractEditor: async (id: string, mode?: TransportMode): Promise<ContractEditorData> => {
+    const data = await contractClient<any>('get', `/manager/requests/${id}/contract-editor`, undefined, mode ? { mode } : undefined);
+    const budget: ContractDraft['budget'] = { TRANSPORT: 0, STAFF: 0, PROCEDURE: 0, VET: 0, INSURANCE: 0 };
+    const keys: Record<string, keyof typeof budget> = { TRANSPORT: 'TRANSPORT', CREW: 'STAFF', PERMIT: 'PROCEDURE', VET: 'VET', INSURANCE: 'INSURANCE' };
+    for (const item of data.internalCosts ?? []) {
+      const key = keys[item.categoryName]; if (key) budget[key] = item.totalMoney;
+    }
+    const draft = data.draft ? { ...versionFromWire(data.draft), budget, exception: '' } as ContractDraft : null;
+    return { ...data, draft, customer: { ...data.customer, company: '' }, horses: data.horses.map(horseFromWire),
+      request: requestFromWire(data.request), versions: attachContractFeedback(data.versions.map(versionFromWire), data.request?.contractFeedback), currentContract: data.currentContract ? versionFromWire(data.currentContract) : null };
   },
-  saveContractDraft: (id: string, draft: ContractDraft) => contractClient<{ requestId: string; contractId: string; versionNo: number; draft: ContractDraft }>('put', `/manager/requests/${id}/contract-draft`, {
-    mode: draft.mode, departAt: draft.departAt, arriveAt: draft.arriveAt, budget: draft.budget,
-    items: draft.items, depositPct: draft.depositPct, note: draft.note, exception: draft.exception, terms: draft.terms,
+  saveContractDraft: (id: string, draft: ContractDraft) => contractClient<{ requestId: string; contractId: string; versionNo: number; status: string; savedAt: string }>('put', `/manager/requests/${id}/contract-draft`, {
+    mode: draft.mode, departAt: draft.departAt, arriveAt: draft.arriveAt,
+    // Internal cost estimate was removed from the editor; backend still expects the field.
+    budget: { TRANSPORT: 0, PROCEDURE: 0, VET: 0, INSURANCE: 0, STAFF: 0 },
+    // Send only the fields in the contract (UI keeps extra keys such as ids on lines/terms).
+    items: draft.items.map(i => ({ desc: i.desc, amount: Math.round(Number(i.amount) || 0), required: !!i.required })),
+    depositPct: draft.depositPct, note: draft.note, exception: '',
+    terms: draft.terms.map(t => ({ title: t.title, text: t.text })),
   }),
   discardContractDraft: (id: string) => contractClient('delete', `/manager/requests/${id}/contract-draft`),
   publishContract: (id: string, versionNo: number) => contractClient<{ contractId: string; versionNo: number; validUntil: string }>('post', `/manager/requests/${id}/contract/publish`, { versionNo }),
   respondContractChange: (id: string, versionNo: number, decision: 'ACCEPTED' | 'REJECTED', text: string) => contractClient('post', `/manager/contracts/${id}/feedback/decision`, { versionNo, decision, text }),
-  extendContract: (id: string, versionNo: number, reason: string) => contractClient<{ validUntil: string }>('post', `/manager/contracts/${id}/extend-deadline`, { versionNo, reason }),
+  extendContract: (id: string, versionNo: number, reason: string) => contractClient<{ newDeadline: string }>('post', `/manager/contracts/${id}/extend-deadline`, { versionNo, reason }),
   remindSign: (id: string, _versionNo: number) => contractClient('post', `/manager/contracts/${id}/reminder`),
   getCostEstimate: (id: string, body: { transportMode: string; departureAt: string; deliveryAt: string }) => contractClient<CostPlanDto>('post', `/manager/requests/${id}/cost-estimate`, body),
   confirmRefund: (contractId: string) => contractClient('post', `/manager/contracts/${contractId}/refund/complete`),
-  deployTrip: (id: string, body: { specialistId: string; coordinatorId: string }) => contractClient<Trip>('post', `/manager/trips/${id}/assignment`, body),
-  holdTrip: (id: string, reason: string) => contractClient<Trip>('post', `/manager/trips/${id}/hold`, { reason }),
-  resumeTrip: (id: string) => contractClient<Trip>('post', `/manager/trips/${id}/resume`),
+  deployTrip: async (id: string, body: { specialistId: string; coordinatorId: string }) => tripFromWire(await contractClient('post', `/manager/trips/${id}/assignment`, body)),
+  holdTrip: async (id: string, reason: string) => tripFromWire(await contractClient('post', `/manager/trips/${id}/hold`, { reason })),
+  resumeTrip: async (id: string) => tripFromWire(await contractClient('post', `/manager/trips/${id}/resume`)),
   // Flow 3: Manager route review & planning endpoints
   getPlanningTrips: () => apiRequest('get', E.PLANNING),
   getTripRoute: (tripId: string) => apiRequest('get', E.TRIP_ROUTE(tripId)),
-  approveRoute: (tripId: string, routeVersionId: number, body?: { expectedVersion?: number; note?: string }) =>
-    apiRequest('post', E.APPROVE_ROUTE(tripId, routeVersionId), { expectedVersion: body?.expectedVersion ?? routeVersionId, note: body?.note ?? 'Approved by Manager' }),
-  returnRoute: (tripId: string, routeVersionId: number, reason: string, expectedVersion?: number) =>
-    apiRequest('post', E.RETURN_ROUTE(tripId, routeVersionId), { expectedVersion: expectedVersion ?? routeVersionId, reason }),
+  approveRoute: async (tripId: string, routeVersionId: number, body?: { expectedVersion?: number; note?: string }) => {
+    try {
+      return await apiRequest('post', E.PLAN_DECISION_F3(tripId), {
+        expectedVersion: body?.expectedVersion ?? 0,
+        planVersion: routeVersionId,
+        decision: 'APPROVE',
+        reason: body?.note ?? 'Approved by Manager',
+      });
+    } catch {
+      return await apiRequest('post', E.APPROVE_ROUTE(tripId, routeVersionId), {
+        expectedVersion: body?.expectedVersion ?? routeVersionId,
+        note: body?.note ?? 'Approved by Manager',
+      });
+    }
+  },
+  returnRoute: async (tripId: string, routeVersionId: number, reason: string, expectedVersion?: number) => {
+    try {
+      return await apiRequest('post', E.PLAN_DECISION_F3(tripId), {
+        expectedVersion: expectedVersion ?? 0,
+        planVersion: routeVersionId,
+        decision: 'RETURN',
+        reason,
+      });
+    } catch {
+      return await apiRequest('post', E.RETURN_ROUTE(tripId, routeVersionId), {
+        expectedVersion: expectedVersion ?? routeVersionId,
+        reason,
+      });
+    }
+  },
   getDepartureConditions: (tripId: string) => apiRequest('get', E.DEPARTURE_CONDITIONS(tripId)),
+  // Flow 3 v3 Relocation endpoints
+  sendPickupRelocation: (tripId: string, body: { expectedVersion: number; relocationId: string; proposalVersion: number }) =>
+    apiRequest('post', E.SEND_RELOCATION_F3(tripId), body),
+  decidePickupRelocation: (tripId: string, body: { expectedVersion: number; relocationId: string; decision: 'APPROVE' | 'RETURN'; reason?: string }) =>
+    apiRequest('post', E.RELOCATION_DECISION_F3(tripId), body),
   // Out-of-scope screens keep their existing routes; no fabricated successful response.
   getIncidents: () => apiRequest<Incident[]>('get', E.INCIDENTS),
   getComplaints: () => apiRequest<Complaint[]>('get', E.COMPLAINTS),
@@ -85,7 +197,15 @@ export const managerApi = {
   addCollectionNote: (id: string, note: string) => apiRequest('post', E.COLLECTION_NOTE(id), { note }),
   decideRoute: (id: string, body: unknown) => apiRequest('post', E.ROUTE_DECISION(id), body),
   decideFlight: (id: string, body: unknown) => apiRequest('post', E.FLIGHT_DECISION(id), body),
-  approveDeparture: (id: string) => apiRequest('post', E.APPROVE_DEPARTURE(id)),
+  /** F3-J17 rồi F3-J18: lấy phiên bản hiện tại của chuyến, backend kiểm tra lại điều kiện khởi hành khi duyệt */
+  approveDeparture: async (id: string) => {
+    const readiness = await apiRequest<{ binding?: { expectedVersion?: number }; approvedPlanVersion?: number; readinessVersion?: number }>('get', E.READINESS(id));
+    return apiRequest('post', E.APPROVE_DEPARTURE(id), {
+      expectedVersion: readiness.binding?.expectedVersion ?? 0,
+      approvedPlanVersion: readiness.approvedPlanVersion ?? 0,
+      readinessVersion: readiness.readinessVersion ?? 0,
+    });
+  },
   resolveHandover: (id: string, body: unknown) => apiRequest('post', E.HANDOVER_RESOLUTION(id), body),
   saveActualCosts: (id: string, body: unknown) => apiRequest('put', E.ACTUAL_COSTS(id), body),
   setIncidentStatus: (id: string, status: string) => apiRequest('put', E.INCIDENT_STATUS(id), { status }),

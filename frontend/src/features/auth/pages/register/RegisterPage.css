@@ -116,6 +116,80 @@
   font-weight: 600;
 }
 
+.register-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  margin-bottom: 7px;
+}
+
+.register-field-header label {
+  margin-bottom: 0;
+}
+
+.register-check-email-btn {
+  padding: 4px 10px;
+
+  border: 1px solid #dfe3e8;
+  border-radius: 6px;
+
+  background: #ffffff;
+
+  color: #475569;
+
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.2s ease,
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.register-check-email-btn:hover:not(:disabled) {
+  border-color: #ff7417;
+
+  background-color: #fff7ed;
+
+  color: #ff7417;
+}
+
+.register-check-email-btn:disabled {
+  opacity: 0.55;
+
+  cursor: not-allowed;
+}
+
+.register-email-feedback {
+  margin-top: 8px;
+  padding: 8px 12px;
+
+  border-radius: 6px;
+
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.register-email-feedback.success {
+  border: 1px solid #a7f3d0;
+
+  background: #ecfdf5;
+
+  color: #065f46;
+}
+
+.register-email-feedback.error {
+  border: 1px solid #fecaca;
+
+  background: #fef2f2;
+
+  color: #991b1b;
+}
+
 .register-form-group input {
   width: 100%;
   height: 48px;

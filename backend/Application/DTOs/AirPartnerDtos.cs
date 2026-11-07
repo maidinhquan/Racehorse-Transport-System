@@ -234,6 +234,27 @@ namespace Application.DTOs
 
         [JsonPropertyName("evidenceFileId")]
         public string? EvidenceFileId { get; set; }
+
+        [JsonPropertyName("providerName")]
+        public string? ProviderName { get; set; }
+
+        [JsonPropertyName("airline")]
+        public string? Airline { get; set; }
+
+        [JsonPropertyName("flightNumber")]
+        public string? FlightNumber { get; set; }
+
+        [JsonPropertyName("departureAt")]
+        public DateTime? DepartureAt { get; set; }
+
+        [JsonPropertyName("arrivalAt")]
+        public DateTime? ArrivalAt { get; set; }
+
+        [JsonPropertyName("jetStallId")]
+        public string? JetStallId { get; set; }
+
+        [JsonPropertyName("stallType")]
+        public string? StallType { get; set; }
     }
 
     public class BookingDto

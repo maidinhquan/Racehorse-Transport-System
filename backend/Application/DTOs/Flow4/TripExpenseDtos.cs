@@ -20,6 +20,7 @@ public class TripExpenseInputDto
     public string Reason { get; set; } = null!;
 
     [JsonPropertyName("milestoneId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? MilestoneId { get; set; }
 
     [JsonPropertyName("receiptFileIds")]

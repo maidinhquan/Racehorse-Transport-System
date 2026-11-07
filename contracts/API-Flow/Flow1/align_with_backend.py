@@ -117,10 +117,14 @@ def patch(d):
     j61['properties']['roadDistanceKm'] = dict(NUM)
     j61['properties']['insuredValueVnd'] = {'type': ['number', 'null']}
     log.append('F1-J61: decimal costs')
-    # Contracts defer the operational transport mode until Flow 3. Historic versions can still contain a mode.
+    # The Manager selects the contract transport mode before publication.
     request = S['F1-J30Request']
-    request['properties']['mode'] = {'type': 'null'}
-    optional(request, 'mode')
+    request['properties']['mode'] = {'type': 'string', 'enum': ['ROAD', 'AIR']}
+    if 'mode' not in request.setdefault('required', []): request['required'].append('mode')
+    for methods in d['paths'].values():
+        for operation in methods.values():
+            if operation.get('operationId') == 'F1-J30':
+                operation['requestBody']['content']['application/json'].setdefault('example', {})['mode'] = 'ROAD'
     for root in responses.values():
         for o in objects(root):
             p = o['properties']

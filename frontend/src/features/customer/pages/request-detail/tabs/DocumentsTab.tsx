@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TransportRequest } from '../../../types';
 import { useCustomer } from '../../../hooks/useCustomer';
-import { isActive, openSupplements } from '../../../hooks/customerRules';
+import { isActive } from '../../../hooks/customerRules';
 import { RequestDocuments } from '../../../components/DocumentList/DocumentList';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
@@ -35,7 +35,7 @@ export const DocumentsTab: React.FC<{ request: TransportRequest }> = ({ request:
           {inWizard && <Note tone="blue" title="Đang khai báo">Bạn có thể cập nhật giấy tờ ở đây hoặc trong bước “Ngựa & hồ sơ” của wizard.</Note>}
           <div style={{ marginTop: inWizard ? 14 : 0 }}>
             <RequestDocuments requestId={r.id} shared={docs.shared} perHorse={docs.perHorse} editable={isActive(r)}
-              supplements={openSupplements(r)} backTo={`/customer/requests/${r.id}/documents`} />
+              backTo={`/customer/requests/${r.id}/documents`} />
           </div>
           {inWizard && (
             <button type="button" className="cus-btn" style={{ marginTop: 14 }} onClick={() => navigate(`/customer/requests/${r.id}/wizard/${Math.max(1, Math.min(2, r.wizardStep))}`)}>
@@ -56,15 +56,6 @@ export const DocumentsTab: React.FC<{ request: TransportRequest }> = ({ request:
         )}
       </div>
       <div className="cus-stack">
-        <div className="cus-card">
-          <div className="cus-eyebrow">Quy tắc giấy tờ</div>
-          <ul className="cus-rule-list" style={{ marginTop: 8 }}>
-            <li>Trước khi gửi yêu cầu cần có: số microchip, số hộ chiếu, bản scan hộ chiếu và chứng nhận sở hữu của từng ngựa.</li>
-            <li>Giấy tờ bị từ chối hiển thị lý do; tải tệp mới sẽ gửi lại cho Specialist kiểm duyệt.</li>
-            <li>Khi Specialist yêu cầu bổ sung, nộp đúng giấy tờ được yêu cầu để đóng yêu cầu bổ sung.</li>
-            <li>Tệp tải lên cho ngựa cũng được lưu vào “Ngựa của tôi” nếu hồ sơ ngựa chưa có.</li>
-          </ul>
-        </div>
         <DemoPanel request={r} />
       </div>
     </div>

@@ -448,6 +448,34 @@ namespace Infrastructure.Services
             return await GetRouteVersionDetailAsync(120);
         }
 
+        public async Task<PlanDto?> GetManagerPlanAsync(string tripId)
+        {
+            var trip = await _context.TripPlans.FirstOrDefaultAsync(t => t.TripId == tripId);
+            if (trip == null || string.IsNullOrWhiteSpace(trip.DraftPlanJson)) return null;
+            PlanDto? plan = null;
+            try { plan = JsonSerializer.Deserialize<PlanDto>(trip.DraftPlanJson); } catch { }
+            if (plan == null) return null;
+            if (!string.IsNullOrWhiteSpace(trip.RouteStatus)) plan.Status = trip.RouteStatus;
+            if (trip.RouteStatus == "RETURNED" && !string.IsNullOrWhiteSpace(trip.RouteReturnReason)) plan.DecisionNote = trip.RouteReturnReason;
+            return plan;
+        }
+
+        /// <summary>Ghi kết quả duyệt vào phương án đã lưu để Điều phối và Quản lý cùng đọc được.</summary>
+        private static void StampPlanDecision(TripPlan trip, string status, string? note)
+        {
+            if (string.IsNullOrWhiteSpace(trip.DraftPlanJson)) return;
+            try
+            {
+                var plan = JsonSerializer.Deserialize<PlanDto>(trip.DraftPlanJson);
+                if (plan == null) return;
+                plan.Status = status;
+                plan.DecidedAt = DateTime.UtcNow.AddHours(7).ToString("yyyy-MM-dd HH:mm");
+                plan.DecisionNote = note;
+                trip.DraftPlanJson = JsonSerializer.Serialize(plan);
+            }
+            catch { }
+        }
+
         public async Task<bool> ApproveRouteVersionAsync(string tripId, int routeVersionId, ManagerApproveRouteDto dto)
         {
             var trip = await _context.TripPlans.FindAsync(tripId);
@@ -461,6 +489,7 @@ namespace Infrastructure.Services
             trip.RouteApprovedBy = dto?.ApprovedBy ?? "USR_MGR_01";
             trip.RejectionReason = null;
             trip.RouteReturnReason = null;
+            StampPlanDecision(trip, "APPROVED", null);
             await _context.SaveChangesAsync();
             return true;
         }
@@ -475,6 +504,7 @@ namespace Infrastructure.Services
             trip.RouteStatus = "RETURNED";
             trip.RouteReturnReason = dto.Reason;
             trip.RejectionReason = dto.Reason;
+            StampPlanDecision(trip, "RETURNED", dto.Reason);
             await _context.SaveChangesAsync();
             return true;
         }

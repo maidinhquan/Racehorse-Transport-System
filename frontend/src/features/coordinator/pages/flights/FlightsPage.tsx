@@ -1,63 +1,74 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CoordinatorLayout } from '../../components/CoordinatorLayout';
-import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import { useCoordinator } from '../../hooks/useCoordinator';
-import { fmtDateTime, unitGaps } from '../../hooks/coordinatorRules';
-import './FlightsPage.css';
+// Dịch vụ bay & đối tác: dịch vụ theo Trip và danh mục bên dịch vụ thuê máy bay
+import { AirCard } from '../../components/air/AirCard';
+import { DataTable, Icon, PillT } from '../../components/common/ui';
+import { CoordinatorLayout } from '../../components/layout/CoordinatorLayout';
+import type { Any } from '../../store/coordinatorStore';
+import { commit, db, ui, useCoordinatorStore } from '../../store/coordinatorStore';
+import { airBadge, charterFlightModal, myAirTrips, partnerDelete, partnerEdit, partnerStatus, used } from '../../workflows/airOperations';
 
-export const FlightsPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { trips, vehicles, staff } = useCoordinator();
-  const air = trips.filter((t) => t.mode === 'AIR' && t.status !== 'COMPLETED');
-  const pending = air.filter((t) => t.flight?.status === 'BUDGET_PENDING').length;
-  const toBook = air.filter((t) => t.flight?.status === 'BUDGET_APPROVED').length;
-
+export function FlightsPage() {
+  useCoordinatorStore();
+  const tab = ['trips', 'partners'].includes(ui.faAirTab) ? ui.faAirTab : 'trips';
+  const mine = myAirTrips();
+  const setTab = (k: string) => { ui.faAirTab = k; commit(); };
   return (
-    <CoordinatorLayout title="Chuyến bay">
-      <div className="crd-head">
-        <div>
-          <h2 className="crd-title">Điều phối chuyến bay</h2>
-          <p className="crd-subtitle">Đề xuất bay thẳng → Manager duyệt ngân sách → ghi nhận mã đặt chỗ → hoàn tất 2 chặng xe sân bay.</p>
-        </div>
-      </div>
-
-      <div className="crd-stats">
-        <div className="crd-stat"><span>Chuyến hàng không</span><b>{air.length}</b></div>
-        <div className="crd-stat"><span>Chờ Manager duyệt ngân sách</span><b>{pending}</b></div>
-        <div className="crd-stat"><span>Có thể đặt chỗ</span><b>{toBook}</b></div>
-      </div>
-
-      {air.map((t) => {
-        const f = t.flight;
-        const out = !unitGaps(t, vehicles, staff, trips, 'outbound').length;
-        const inb = !unitGaps(t, vehicles, staff, trips, 'inbound').length;
-        return (
-          <div key={t.id} className="crd-card crd-flight-card">
-            <div className="crd-flight-card__head">
-              <div>
-                <div className="crd-muted">{t.id} • {t.requestId} • {t.horses.length} ngựa</div>
-                <div className="crd-flight-card__route">{t.origin} → {t.destination}</div>
-                <div className="crd-muted">{f ? `${f.airline} • ${f.flightNo}` : 'Chưa có phương án bay'}</div>
-              </div>
-              {f ? <TripStatusBadge status={f.status} /> : <TripStatusBadge tone="muted" label="Chưa lập" />}
-            </div>
-            <div className="crd-kv crd-flight-card__kv">
-              <div><span>Sân bay đi</span><b>{f?.fromAirport ?? '—'}</b><div className="crd-muted">{fmtDateTime(f?.departAt)}</div></div>
-              <div><span>Sân bay đến</span><b>{f?.toAirport ?? '—'}</b><div className="crd-muted">{fmtDateTime(f?.arriveAt)}</div></div>
-              <div><span>Ngân sách</span><b>{f ? `${f.cost.toLocaleString('en-US')} USD` : '—'}</b><div className="crd-muted">{f?.bookingRef ? `Mã đặt chỗ ${f.bookingRef}` : 'Chưa đặt chỗ'}</div></div>
-              <div><span>Chặng xe sân bay</span><b>{out ? 'Chặng 1 ✓' : 'Chặng 1 chưa đủ'} • {inb ? 'Chặng 2 ✓' : 'Chặng 2 chưa đủ'}</b></div>
-            </div>
-            <div className="crd-btn-row">
-              <button type="button" className="crd-btn crd-btn--sm" onClick={() => navigate(`/coordinator/trips/${t.id}/resources`)}>Xe & nhân sự</button>
-              <button type="button" className="crd-btn crd-btn--solid crd-btn--sm" onClick={() => navigate(`/coordinator/trips/${t.id}/flight`)}>Chi tiết chuyến bay</button>
-            </div>
+    <CoordinatorLayout title="Dịch vụ bay & đối tác">
+      <div className="fa-page">
+        <div className="head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div className="eyebrow">FLOW 3 · DỊCH VỤ HÀNG KHÔNG</div>
+            <h2 className="page-title">Dịch vụ bay &amp; đối tác (Equine Air Charters)</h2>
+            <p className="subtitle">Chuyến bay charter chuyên dụng cho ngựa đua: Điều phối viên nhập trực tiếp Hợp đồng thuê chuyến, giờ bay và mã chuồng Jet Stall vào CSDL trước khi cất cánh.</p>
           </div>
-        );
-      })}
-      {!air.length && <div className="crd-card crd-empty">Không có chuyến hàng không đang hoạt động.</div>}
+          <button
+            type="button"
+            className="btn solid"
+            onClick={() => {
+              const targetTrip = mine.find((x: Any) => x.status !== 'COMPLETED') || db.trips.find((x: Any) => x.mode === 'AIR');
+              if (targetTrip) charterFlightModal(targetTrip.id);
+            }}
+          >
+            Nhập Hợp đồng Charter
+          </button>
+        </div>
+        <div className="fa-notice"><Icon name="info" /><span>Chuyến bay charter chuyên dụng cho ngựa đua mang tính đặc thù (không có sẵn trên GDS). Điều phối viên nhận Hợp đồng thuê chuyến từ đối tác/hãng bay và nhập trực tiếp vào hệ thống trước khi cất cánh.</span></div>
+        <div className="fa-metrics">
+          <div><small>Bên dịch vụ đang hợp tác</small><b>{db.air.partners.filter((p: Any) => p.status === 'ACTIVE').length}</b></div>
+          <div><small>Chuyến đã có HĐ Charter</small><b>{mine.filter((t: Any) => t.flight?.status === 'BOOKED').length}</b></div>
+          <div><small>Chuyến cần bố trí HĐ bay</small><b>{mine.filter((t: Any) => !t.flight || t.flight.status !== 'BOOKED').length}</b></div>
+        </div>
+        <div className="rtabs fa-tabs">
+          <button type="button" className={tab === 'trips' ? 'on' : ''} onClick={() => setTab('trips')}>Dịch vụ theo Trip</button>
+          <button type="button" className={tab === 'partners' ? 'on' : ''} onClick={() => setTab('partners')}>Bên dịch vụ thuê máy bay ({db.air.partners.length})</button>
+        </div>
+                {tab === 'trips' ? (
+          <>
+            <div className="fa-trip-list">{mine.filter((t: Any) => t.status !== 'COMPLETED').map((t: Any) => <AirCard key={t.id} t={t} />)}
+              {mine.filter((t: Any) => t.status !== 'COMPLETED').length ? null : <div className="card pad">Chưa có Trip hàng không đang được phân công.</div>}</div>
+            <details className="card pad"><summary>Lịch sử chuyến đã hoàn tất</summary>
+              {mine.filter((t: Any) => t.status === 'COMPLETED').map((t: Any) => <AirCard key={t.id} t={t} />)}
+              {mine.some((t: Any) => t.status === 'COMPLETED') ? null : <p className="hint">Chưa có chuyến hoàn tất.</p>}</details>
+          </>
+        ) : (
+          <>
+            <div className="between fa-section-head"><div><h3 className="card-title">Bên dịch vụ thuê máy bay</h3><p className="hint">Điều phối quản lý đối tác và bên môi giới hàng không chở ngựa chuyên dụng.</p></div>
+              <button type="button" className="btn solid" onClick={() => partnerEdit('')}><Icon name="plus" />Thêm đối tác</button></div>
+            <DataTable id="fa-partners" rows={db.air.partners} search={(x: Any) => JSON.stringify(x)} emptyTitle="Chưa có dữ liệu" empty="Điều phối bổ sung thông tin từ đối tác."
+              filters={[{ key: 'status', label: 'Mọi trạng thái', options: [['ACTIVE', 'Đang sử dụng'], ['INACTIVE', 'Ngừng sử dụng']], test: (x: Any, v) => x.status === v }]}
+              cols={[
+                { label: 'Đối tác', render: (p: Any) => <><b>{p.name}</b>{p.sample ? <small className="fa-sample">Mẫu</small> : null}<small>{p.services}</small></> },
+                { label: 'Liên hệ', render: (p: Any) => <>{p.contact}<small>{p.email || 'Chưa có email'} · {p.phone || 'Chưa có số điện thoại'}</small></> },
+                { label: 'Trạng thái', render: (p: Any) => <PillT p={airBadge(p.status)} /> },
+                { label: 'Thao tác', render: (p: Any) => <span className="btn-row">
+                  <button type="button" className="btn ghost sm" onClick={() => partnerEdit(p.id)}>Xem / sửa</button>
+                  <button type="button" className="btn ghost sm" onClick={() => partnerStatus(p.id)}>{p.status === 'INACTIVE' ? 'Kích hoạt' : 'Ngừng sử dụng'}</button>
+                  {used('partners', p.id) ? null : <button type="button" className="btn ghost sm" onClick={() => partnerDelete(p.id)}>Xóa</button>}</span> },
+              ]} />
+          </>
+        )}
+      </div>
     </CoordinatorLayout>
   );
-};
-
+}
 export default FlightsPage;
+

@@ -5,7 +5,7 @@ import { HorseForm } from '../../components/HorseForm/HorseForm';
 import { Note } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
 import type { HorseInput } from '../../types';
-import { emptyHorse, horseRequests, validateHorseForm, HORSE_FIELD_ELEMENT_IDS } from '../../hooks/customerRules';
+import { emptyHorse, transportingHorseRequests, validateHorseForm, HORSE_FIELD_ELEMENT_IDS } from '../../hooks/customerRules';
 import './HorseFormPage.css';
 
 /** Thêm ngựa mới (/customer/horses/new) hoặc sửa hồ sơ (/customer/horses/:horseId/edit?back=…) */
@@ -27,7 +27,7 @@ export const HorseFormPage: React.FC = () => {
   if (horseId && !h) {
     return <CustomerLayout title="Ngựa của tôi"><Note tone="grey" title="Không tìm thấy ngựa">Ngựa {horseId} không có trong thư viện của bạn.</Note></CustomerLayout>;
   }
-  const lockedBy = h ? horseRequests(h, requests).map((r) => r.id) : [];
+  const lockedBy = h ? transportingHorseRequests(h, requests).map((r) => r.id) : [];
 
   const handleClearError = (key: string) => {
     setErrors((prev) => {
@@ -59,7 +59,7 @@ export const HorseFormPage: React.FC = () => {
   };
 
   return (
-    <CustomerLayout title="Ngựa của tôi">
+    <CustomerLayout title="Ngựa của tôi" narrow>
       <button type="button" className="cus-back" onClick={() => navigate(back)}><Icon name="back" />{h ? `Quay lại` : 'Ngựa của tôi'}</button>
       <h2 className="cus-title">{h ? 'Sửa hồ sơ ngựa' : 'Thêm ngựa mới'}</h2>
       <p className="cus-subtitle" style={{ marginBottom: 16 }}>
@@ -79,12 +79,6 @@ export const HorseFormPage: React.FC = () => {
           errors={errors}
           onClearError={handleClearError}
         />
-        {Object.keys(errors).length > 0 && (
-          <div className="cus-horse-form-page__alert" style={{ marginTop: 16 }} role="alert">
-            <Icon name="alert" />
-            <span>Vui lòng kiểm tra và điền đủ các trường màu đỏ ở trên trước khi lưu hồ sơ.</span>
-          </div>
-        )}
         <div className="cus-btn-row cus-horse-form-page__actions">
           <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(back)}>Hủy</button>
           <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={save}>{h ? 'Lưu thay đổi' : 'Lưu hồ sơ ngựa'}</button>

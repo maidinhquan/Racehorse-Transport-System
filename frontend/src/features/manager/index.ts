@@ -21,3 +21,4 @@ export * from './pages/incidents/IncidentsPage';
 export * from './pages/incident-detail/IncidentDetailPage';
 export * from './pages/complaint-detail/ComplaintDetailPage';
 export * from './pages/reports/ReportsPage';
+export * from './pages/profile/ManagerProfilePage';

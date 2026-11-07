@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
@@ -10,12 +10,11 @@ import {
   DETAIL_TABS,
   canAcceptTerms,
   canPayDeposit,
-  cityLabel,
   ctRef,
   curVersion,
   depositState,
+  displayRequestId,
   docsNeedingAction,
-  fmtDate,
   fmtDateTime,
   isActive,
   isSupportedRoute,
@@ -48,8 +47,8 @@ function statusBanner(r: TransportRequest): [Tone, string, string] {
     case 'CONTRACT_READY':
       if (!v) return ['blue', 'Hợp đồng', ''];
       if (vs === 'EXPIRED') return ['grey', 'Phiên bản hợp đồng đã hết hạn', `${ctRef(v)} không thể ký nữa. Yêu cầu của bạn vẫn còn hiệu lực.`];
-      if (v.termsAcceptedAt) return ['blue', 'Đã đồng ý điều khoản', `Ký ${ctRef(v)} bằng OTP trước ${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)}).`];
-      return ['blue', 'Hợp đồng nháp đã sẵn sàng', `Xem ${ctRef(v)} và đồng ý điều khoản trước ${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)}). Sau đó ký OTP rồi thanh toán cọc.`];
+      if (v.termsAcceptedAt) return ['blue', 'Đã đồng ý điều khoản', `Thanh toán và xác minh tiền cọc, rồi ký ${ctRef(v)} trước ${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)}).`];
+      return ['blue', 'Hợp đồng đã sẵn sàng', `Xem ${ctRef(v)}, đồng ý điều khoản, thanh toán cọc và ký OTP trước ${fmtDateTime(v.validUntil)} (${timeLeft(v.validUntil)}).`];
     case 'AWAITING_DEPOSIT': return ['blue', 'Hợp đồng đã ký – chờ tiền cọc', ds === 'PENDING' ? 'VNPAY đang được backend xác minh. Chưa tạo chuyến.' : 'Thanh toán cọc của phiên bản đã ký. Xác minh đủ tiền mới kích hoạt yêu cầu và tạo chuyến.'];
     case 'DEPOSIT_VERIFIED':
       return v && vs === 'EXPIRED'
@@ -74,7 +73,12 @@ export const RequestDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { requestId = '', tab = 'overview' } = useParams<{ requestId: string; tab: string }>();
-  const { getRequest } = useCustomer();
+  const { getRequest, actions } = useCustomer();
+  useEffect(() => {
+    void actions.loadRequest(requestId);
+    const timer = setInterval(() => { void actions.loadRequest(requestId); }, 15000);
+    return () => clearInterval(timer);
+  }, [requestId, actions]);
   useClock(30000); // cập nhật thời gian còn lại của hạn ký
   const r = getRequest(requestId);
 
@@ -107,10 +111,7 @@ export const RequestDetailPage: React.FC = () => {
       </button>
       <div className="cus-head">
         <div>
-          <h2 className="cus-title cus-detail__title">{r.id} <TripStatusBadge status={r.status} /></h2>
-          <p className="cus-subtitle">
-            Gửi {r.submittedAt ? fmtDateTime(r.submittedAt) : 'chưa gửi'} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • Ngày vận chuyển {fmtDate(r.date)}
-          </p>
+          <h2 className="cus-title cus-detail__title">{displayRequestId(r.id)} <TripStatusBadge status={r.status} /></h2>
           {!isSupportedRoute(r.origin, r.destination) && <span className="cus-legacy">Tuyến lịch sử – không nhận đơn mới</span>}
         </div>
       </div>

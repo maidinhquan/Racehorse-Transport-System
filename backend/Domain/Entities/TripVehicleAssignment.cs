@@ -20,7 +20,7 @@ namespace Domain.Entities
 
         [Column("LegType")]
         [StringLength(20)]
-        public string LegType { get; set; } = "OUTBOUND";
+        public string? LegType { get; set; }
 
         [Column("VehicleID")]
         [StringLength(50)]

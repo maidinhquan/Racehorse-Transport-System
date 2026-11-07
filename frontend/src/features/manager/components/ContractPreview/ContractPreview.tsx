@@ -6,7 +6,8 @@ import './ContractPreview.css';
 export interface ContractContent {
   snapshot?: import('../../../customer/types').ContractSnapshot;
   ref: string;
-  mode: TransportMode;
+  mode?: TransportMode;
+  modeDeferred?: boolean;
   departAt: string;
   arriveAt: string;
   items: ContractItem[];
@@ -49,7 +50,7 @@ export const ContractPreview: React.FC<{ request: TransportRequest; customer?: C
         <h4>B. Phương án vận chuyển</h4>
         <div className="mgr-kv">
           <div><span>Tuyến</span><b>{cityLabel(r.origin)} → {cityLabel(r.destination)}</b></div>
-          <div><span>Phương thức</span><b>{MODE_LABEL[x.mode]}</b></div>
+          <div><span>Phương thức</span><b>{x.modeDeferred ? 'Coordinator quyết định khi lập kế hoạch vận chuyển' : x.mode ? MODE_LABEL[x.mode] : 'Chưa ghi nhận'}</b></div>
           <div><span>Điểm nhận</span><b>{r.pickup.name}</b><div className="mgr-muted">{r.pickup.address}</div></div>
           <div><span>Điểm giao</span><b>{r.delivery.name}</b><div className="mgr-muted">{r.delivery.address} • người nhận {r.delivery.contact}</div></div>
           <div><span>Khởi hành dự kiến</span><b>{fmtDateTime(x.departAt)}</b></div>

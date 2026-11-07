@@ -8,7 +8,7 @@ import { canPayDeposit, curVersion, depositAmount, fmtMoney, fmtDateTime } from 
 import './DepositPage.css';
 export const DepositPage: React.FC = () => {
   const { requestId = '' } = useParams(); const navigate = useNavigate();
-  const { getRequest, actions } = useCustomer(); const [busy, setBusy] = useState(false);
+  const { getRequest, actions } = useCustomer(requestId); const [busy, setBusy] = useState(false);
   const r = getRequest(requestId), v = r && curVersion(r);
   const pay = async () => {
     if (busy) return; setBusy(true);

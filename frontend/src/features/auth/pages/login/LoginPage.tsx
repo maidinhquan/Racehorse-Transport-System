@@ -1,10 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 
-import { login, googleLogin } from "../../api/authApi";
+import {
+  login,
+  googleLogin,
+  getQuickLoginAccounts,
+  type QuickLoginAccount,
+} from "../../api/authApi";
 import type { UserRole } from "../../types/auth.types";
+import { QUICK_LOGIN_ACCOUNTS } from "../../quickLoginAccounts";
 import { resetCustomerState } from "../../../customer/hooks/useCustomer";
 
 import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
@@ -23,13 +29,32 @@ function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Modal danh sách tài khoản từ DB theo vai trò
+  const [accountModalRole, setAccountModalRole] = useState<UserRole | null>(
+    null
+  );
+  const [modalAccounts, setModalAccounts] = useState<QuickLoginAccount[]>([]);
+  const [isLoadingModalAccounts, setIsLoadingModalAccounts] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setAccountModalRole(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const redirectByRole = (role: UserRole) => {
     const fromPath = (location.state as any)?.from?.pathname;
-    const hasQuote = Boolean(sessionStorage.getItem('preliminaryQuote'));
+    const hasQuote = Boolean(sessionStorage.getItem("preliminaryQuote"));
 
     switch (role) {
       case "CUSTOMER":
-        navigate(fromPath || (hasQuote ? "/customer/create-request" : "/customer/home"));
+        navigate(
+          fromPath || (hasQuote ? "/customer/create-request" : "/customer/home")
+        );
         break;
 
       case "LOGISTICS_MANAGER":
@@ -108,16 +133,68 @@ function LoginPage() {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         setErrorMessage(
-          error.response?.data?.message ??
-          "Đăng nhập thất bại."
+          error.response?.data?.message ?? "Đăng nhập thất bại."
         );
       } else {
-        setErrorMessage(
-          "Đã xảy ra lỗi khi đăng nhập."
-        );
+        setErrorMessage("Đã xảy ra lỗi khi đăng nhập.");
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getRoleModalTitle = (role: UserRole | null): string => {
+    switch (role) {
+      case "CUSTOMER":
+        return "Danh sách Khách hàng trong Database";
+      case "TRANSPORT_SPECIALIST":
+        return "Danh sách Chuyên viên thẩm định trong Database";
+      case "FLEET_ROUTE_COORDINATOR":
+        return "Danh sách Điều phối viên trong Database";
+      case "LOGISTICS_MANAGER":
+        return "Danh sách Quản lý vận tải trong Database";
+      case "DRIVER_ESCORT":
+        return "Danh sách Đội ngũ Tài xế & Áp tải trong Database";
+      case "ADMIN":
+        return "Danh sách Quản trị viên trong Database";
+      default:
+        return "Danh sách tài khoản trong Database";
+    }
+  };
+
+  const handleOpenAccountModal = async (role: UserRole) => {
+    setAccountModalRole(role);
+    setIsLoadingModalAccounts(true);
+
+    try {
+      const res = await getQuickLoginAccounts(role);
+      if (res.data && res.data.length > 0) {
+        setModalAccounts(res.data);
+      } else {
+        const fallback = QUICK_LOGIN_ACCOUNTS.filter(
+          (a) => a.role === role
+        ).map((a) => ({
+          id: a.id,
+          role: a.role,
+          label: a.label,
+          email: a.email,
+          password: a.password,
+        }));
+        setModalAccounts(fallback);
+      }
+    } catch {
+      const fallback = QUICK_LOGIN_ACCOUNTS.filter(
+        (a) => a.role === role
+      ).map((a) => ({
+        id: a.id,
+        role: a.role,
+        label: a.label,
+        email: a.email,
+        password: a.password,
+      }));
+      setModalAccounts(fallback);
+    } finally {
+      setIsLoadingModalAccounts(false);
     }
   };
 
@@ -151,24 +228,19 @@ function LoginPage() {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         setErrorMessage(
-          error.response?.data?.message ??
-          "Đăng nhập thất bại."
+          error.response?.data?.message ?? "Đăng nhập thất bại."
         );
       } else {
-        setErrorMessage(
-          "Đã xảy ra lỗi khi đăng nhập."
-        );
+        setErrorMessage("Đã xảy ra lỗi khi đăng nhập.");
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleSuccess = async (
-    credentialResponse: {
-      credential?: string;
-    }
-  ) => {
+  const handleGoogleSuccess = async (credentialResponse: {
+    credential?: string;
+  }) => {
     if (!credentialResponse.credential) {
       setErrorMessage(
         "Không nhận được thông tin xác thực từ Google."
@@ -200,13 +272,10 @@ function LoginPage() {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         setErrorMessage(
-          error.response?.data?.message ??
-          "Đăng nhập Google thất bại."
+          error.response?.data?.message ?? "Đăng nhập Google thất bại."
         );
       } else {
-        setErrorMessage(
-          "Đăng nhập Google thất bại."
-        );
+        setErrorMessage("Đăng nhập Google thất bại.");
       }
     } finally {
       setIsLoading(false);
@@ -214,9 +283,7 @@ function LoginPage() {
   };
 
   const handleGoogleError = () => {
-    setErrorMessage(
-      "Đăng nhập Google thất bại."
-    );
+    setErrorMessage("Đăng nhập Google thất bại.");
   };
 
   return (
@@ -232,57 +299,37 @@ function LoginPage() {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="email">
-              Email
-            </label>
+            <label htmlFor="email">Email</label>
 
             <input
               id="email"
               type="email"
               placeholder="Nhập email"
               value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
-              }
+              onChange={(event) => setEmail(event.target.value)}
               required
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">
-              Mật khẩu
-            </label>
+            <label htmlFor="password">Mật khẩu</label>
 
             <div className="password-input-wrapper">
               <input
                 id="password"
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
+                type={showPassword ? "text" : "password"}
                 placeholder="Nhập mật khẩu"
                 value={password}
-                onChange={(event) =>
-                  setPassword(
-                    event.target.value
-                  )
-                }
+                onChange={(event) => setPassword(event.target.value)}
                 required
               />
 
               <button
                 type="button"
                 className="password-toggle-button"
-                onClick={() =>
-                  setShowPassword(
-                    (current) => !current
-                  )
-                }
+                onClick={() => setShowPassword((current) => !current)}
               >
-                {showPassword
-                  ? "Ẩn"
-                  : "Hiện"}
+                {showPassword ? "Ẩn" : "Hiện"}
               </button>
             </div>
           </div>
@@ -292,11 +339,7 @@ function LoginPage() {
               <input
                 type="checkbox"
                 checked={rememberMe}
-                onChange={(event) =>
-                  setRememberMe(
-                    event.target.checked
-                  )
-                }
+                onChange={(event) => setRememberMe(event.target.checked)}
               />
 
               <span>Nhớ đăng nhập</span>
@@ -305,18 +348,14 @@ function LoginPage() {
             <button
               type="button"
               className="forgot-password"
-              onClick={() =>
-                navigate("/forgot-password")
-              }
+              onClick={() => navigate("/forgot-password")}
             >
               Quên mật khẩu?
             </button>
           </div>
 
           {errorMessage && (
-            <p className="login-error-message">
-              {errorMessage}
-            </p>
+            <p className="login-error-message">{errorMessage}</p>
           )}
 
           <button
@@ -324,9 +363,7 @@ function LoginPage() {
             className="login-button"
             disabled={isLoading}
           >
-            {isLoading
-              ? "Đang đăng nhập..."
-              : "Đăng nhập"}
+            {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
         </form>
 
@@ -344,89 +381,186 @@ function LoginPage() {
           width="100%"
         />
 
-        {/* DEMO ROLE SECTION - Đăng nhập nhanh tài khoản mẫu */}
+        {/* DEMO ROLE SECTION - Đăng nhập nhanh tài khoản theo vai trò */}
         <div className="demo-role-section">
-          <p className="demo-role-title">
-            ⚡ Đăng nhập nhanh tài khoản mẫu (Sử dụng mật khẩu lưu trong Database)
-          </p>
+          <div className="demo-role-header">
+            <span className="demo-role-title">Đăng nhập nhanh theo vai trò</span>
+            <span className="demo-role-subtitle">Tải dữ liệu tài khoản từ hệ thống</span>
+          </div>
 
           <div className="demo-role-grid">
             <button
               type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("vana.horse@gmail.com", "HASH_SECURE_01")
-              }
-              title="Khách hàng 1: vana.horse@gmail.com | Mật khẩu: HASH_SECURE_01"
+              className="demo-role-card"
+              disabled={isLoading}
+              onClick={() => handleOpenAccountModal("CUSTOMER")}
+              title="Tải danh sách các tài khoản Khách hàng từ cơ sở dữ liệu"
             >
-              🐴 KH 1: Nguyễn Văn A
+              <div className="demo-role-card-content">
+                <span className="demo-role-name">Khách hàng</span>
+                <span className="demo-role-desc">Chủ ngựa & Hợp đồng</span>
+              </div>
+              <span className="demo-role-arrow">→</span>
             </button>
 
             <button
               type="button"
-              className="demo-role-button"
+              className="demo-role-card"
+              disabled={isLoading}
               onClick={() =>
-                handleQuickLogin("tranb.racing@gmail.com", "HASH_SECURE_02")
+                handleQuickLogin(
+                  "linh.manager@cbntransport.com",
+                  "HASH_SECURE_04"
+                )
               }
-              title="Khách hàng 2: tranb.racing@gmail.com | Mật khẩu: HASH_SECURE_02"
+              title="Đăng nhập Quản lý vận tải: linh.manager@cbntransport.com (Linh Pham)"
             >
-              🐴 KH 2: Trần Văn B
+              <div className="demo-role-card-content">
+                <span className="demo-role-name">Quản lý vận tải</span>
+                <span className="demo-role-desc">Phê duyệt & Điều hành</span>
+              </div>
+              <span className="demo-role-arrow">→</span>
             </button>
 
             <button
               type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("linh.manager@cbntransport.com", "HASH_SECURE_04")
-              }
-              title="Quản lý: linh.manager@cbntransport.com | Mật khẩu: HASH_SECURE_04"
+              className="demo-role-card"
+              disabled={isLoading}
+              onClick={() => handleOpenAccountModal("TRANSPORT_SPECIALIST")}
+              title="Tải danh sách Chuyên viên thẩm định (Kiểm thử Chuyên viên A / Chuyên viên B)"
             >
-              📋 Logistics Manager
+              <div className="demo-role-card-content">
+                <span className="demo-role-name">Chuyên viên</span>
+                <span className="demo-role-desc">Hồ sơ pháp lý & Thú y</span>
+              </div>
+              <span className="demo-role-arrow">→</span>
             </button>
 
             <button
               type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("tuan.specialist@cbntransport.com", "HASH_SECURE_05")
-              }
-              title="Chuyên viên: tuan.specialist@cbntransport.com | Mật khẩu: HASH_SECURE_05"
+              className="demo-role-card"
+              disabled={isLoading}
+              onClick={() => handleOpenAccountModal("FLEET_ROUTE_COORDINATOR")}
+              title="Tải danh sách Điều phối viên (Kiểm thử Điều phối A / Điều phối B)"
             >
-              🩺 Specialist
+              <div className="demo-role-card-content">
+                <span className="demo-role-name">Điều phối viên</span>
+                <span className="demo-role-desc">Lộ trình & Xe/chuyến bay</span>
+              </div>
+              <span className="demo-role-arrow">→</span>
             </button>
 
             <button
               type="button"
-              className="demo-role-button"
-              onClick={() =>
-                handleQuickLogin("hai.coord@cbntransport.com", "HASH_SECURE_06")
-              }
-              title="Điều phối: hai.coord@cbntransport.com | Mật khẩu: HASH_SECURE_06"
+              className="demo-role-card"
+              disabled={isLoading}
+              onClick={() => handleOpenAccountModal("DRIVER_ESCORT")}
+              title="Tải danh sách Tài xế và Bác sĩ thú y áp tải từ cơ sở dữ liệu"
             >
-              🗺️ Coordinator
+              <div className="demo-role-card-content">
+                <span className="demo-role-name">Tài xế & Áp tải</span>
+                <span className="demo-role-desc">Tổ lái xe & Bác sĩ</span>
+              </div>
+              <span className="demo-role-arrow">→</span>
             </button>
 
             <button
               type="button"
-              className="demo-role-button"
+              className="demo-role-card"
+              disabled={isLoading}
               onClick={() =>
-                handleQuickLogin("hung.driver@cbntransport.com", "HASH_SECURE_07")
+                handleQuickLogin(
+                  "admin@cbntransport.com",
+                  "HASH_SECURE_24"
+                )
               }
-              title="Tài xế: hung.driver@cbntransport.com | Mật khẩu: HASH_SECURE_07"
+              title="Đăng nhập Quản trị viên hệ thống: admin@cbntransport.com"
             >
-              🚚 Driver / Escort
+              <div className="demo-role-card-content">
+                <span className="demo-role-name">Quản trị viên</span>
+                <span className="demo-role-desc">Cấu hình & Hệ thống</span>
+              </div>
+              <span className="demo-role-arrow">→</span>
             </button>
           </div>
         </div>
 
+        {/* MODAL DANH SÁCH TÀI KHOẢN TỪ DATABASE */}
+        {accountModalRole && (
+          <div
+            className="quick-accounts-modal-backdrop"
+            onClick={() => setAccountModalRole(null)}
+          >
+            <div
+              className="quick-accounts-modal"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="quick-accounts-header">
+                <div>
+                  <h3>{getRoleModalTitle(accountModalRole)}</h3>
+                  <p>
+                    Bấm vào tài khoản để đăng nhập tự động vào hệ thống
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="quick-accounts-close-btn"
+                  onClick={() => setAccountModalRole(null)}
+                  title="Đóng (Esc)"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="quick-accounts-body">
+                {isLoadingModalAccounts ? (
+                  <div className="quick-accounts-loading">
+                    Đang tải danh sách tài khoản từ cơ sở dữ liệu...
+                  </div>
+                ) : modalAccounts.length === 0 ? (
+                  <div className="quick-accounts-empty">
+                    Không tìm thấy tài khoản nào trong cơ sở dữ liệu.
+                  </div>
+                ) : (
+                  <div className="quick-accounts-list">
+                    {modalAccounts.map((acc) => (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        className="quick-account-item"
+                        disabled={isLoading}
+                        onClick={() => {
+                          setAccountModalRole(null);
+                          handleQuickLogin(
+                            acc.email,
+                            acc.password || "Password123!"
+                          );
+                        }}
+                      >
+                        <div className="quick-account-info">
+                          <span className="quick-account-name">
+                            {acc.label}
+                          </span>
+                          <span className="quick-account-meta">
+                            {acc.email} • ID: {acc.id}
+                            {acc.phone ? ` • SĐT: ${acc.phone}` : ""}
+                          </span>
+                        </div>
+                        <span className="quick-account-arrow">→</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <p className="register-text">
           Chưa có tài khoản?{" "}
-
           <button
             type="button"
-            onClick={() =>
-              navigate("/register")
-            }
+            onClick={() => navigate("/register")}
           >
             Đăng ký ngay
           </button>

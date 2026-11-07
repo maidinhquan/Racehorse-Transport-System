@@ -3,3 +3,10 @@
 .drv-inc-where b { font-size: 13px; }
 .drv-inc-where small { grid-column: 1 / -1; font-size: 11px; color: var(--drv-muted); line-height: 1.5; }
 @media (max-width: 600px) { .drv-inc-where { grid-template-columns: 1fr; } }
+
+.drv-inc-pick { margin-bottom: 12px; }
+.drv-inc-pick__ends { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.drv-inc-pick__ends span { display: block; font-size: 13px; }
+.drv-inc-pick__ends span:last-child { text-align: right; }
+.drv-inc-pick__ends small { display: block; font-size: 11px; color: var(--drv-muted); }
+.drv-inc-pick input[type="range"] { width: 100%; accent-color: var(--drv-accent, var(--accent-primary)); }

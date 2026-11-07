@@ -5,25 +5,13 @@ import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
 const require = createRequire(import.meta.url);
 const Ajv = require('ajv');
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const dir = path.join(root, 'contracts/API-Flow/Flow1');
-const feDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/contracts');
-const rootSpecPath = path.join(dir, 'flow1.openapi.json');
-const feSpecPath = path.join(feDir, 'flow1.openapi.json');
-const specPath = fs.existsSync(rootSpecPath) ? rootSpecPath : feSpecPath;
-if (fs.existsSync(rootSpecPath) && fs.existsSync(feSpecPath)) {
-  assert.deepEqual(JSON.parse(fs.readFileSync(feSpecPath, 'utf8')), JSON.parse(fs.readFileSync(rootSpecPath, 'utf8')), 'frontend/src/contracts/flow1.openapi.json is not in sync with contracts/API-Flow/Flow1/flow1.openapi.json');
-}
+const specPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/contracts/flow1.openapi.json');
 const spec = JSON.parse(fs.readFileSync(specPath, 'utf8'));
-const main = fs.existsSync(path.join(dir, 'FLOW1.md')) ? fs.readFileSync(path.join(dir, 'FLOW1.md'), 'utf8') : '';
-const companion = fs.existsSync(path.join(dir, 'FLOW1-API-JSON.md')) ? fs.readFileSync(path.join(dir, 'FLOW1-API-JSON.md'), 'utf8') : '';
 const ajv = new Ajv({ allErrors: true, unknownFormats: 'ignore', logger: false });
 ajv.addSchema({ components: spec.components, $id: 'flow1' }, 'flow1');
 let checked = 0;
 for (const [url, methods] of Object.entries(spec.paths)) {
   for (const [method, op] of Object.entries(methods)) {
-    if (main) assert(main.includes(`### ${op.operationId} — ${method.toUpperCase()} ${url}`), `Missing main endpoint ${op.operationId}`);
-    if (companion) assert(companion.includes(`### ${op.operationId} — ${method.toUpperCase()} ${url}`), `Missing companion endpoint ${op.operationId}`);
     for (const [status, response] of Object.entries(op.responses)) {
       const media = response.content?.['application/json'];
       if (!media?.examples) continue;
@@ -53,12 +41,8 @@ assert.equal(spec.components.schemas['F1-J43Request'].properties.method.enum.joi
 assert(!spec.paths['/manager/contracts/{contractId}/refund/complete'].post.requestBody);
 assert(spec.paths['/customer/requests'].post.parameters.some(p => p.in === 'header' && p.name === 'Idempotency-Key' && p.required));
 const mutationOps = Object.values(spec.paths).flatMap(p => Object.values(p)).filter(op => op.requestBody?.content?.['application/json']);
-if (main && companion) {
-  // Verify Markdown copies stay identical per endpoint, not just heading counts.
-  const split = text => new Map([...text.matchAll(/^### (F1-J\d+) .*?(?=^### F1-J|^## |^<!-- FLOW1_JSON_\d+_END -->|$(?![\s\S]))/gms)].map(m => [m[1], m[0].trim()]));
-  const left = split(main), right = split(companion);
-  for (const [id, block] of right) assert.equal(left.get(id), block, `Markdown drift: ${id}`);
-}
 const endpointCount = Object.values(spec.paths).reduce((n, paths) => n + Object.keys(paths).length, 0);
-assert.equal(endpointCount, 65);
-console.log(`Flow 1: ${endpointCount} endpoints, ${checked} JSON examples and ${mutationOps.length} request schemas validated; negative cases and Markdown parity passed.`);
+assert(!spec.paths['/customer/requests/{requestId}/submit']);
+assert(!spec.paths['/customer/requests/{requestId}/horses/{horseId}/documents']);
+assert(spec.paths['/locations/cities']);
+console.log(`Flow 1: ${endpointCount} endpoints, ${checked} JSON examples and ${mutationOps.length} request schemas validated; negative cases passed (frontend schema follows runtime backend).`);

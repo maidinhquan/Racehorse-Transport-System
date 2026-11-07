@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
 import { LockedCard, MiniProgress, Note } from '../../../components/Common/Common';
 import { Modal, ReasonModal } from '../../../components/Modals';
 import { DemoPanel } from '../../../components/DemoPanel/DemoPanel';
-import { useManager } from '../../../hooks/useManager';
+import { AssignStage } from './AssignStage';
+import { ManagerRouteMap } from '../../../components/RouteMap/ManagerRouteMap';
+import { refreshTripPlan, useManager } from '../../../hooks/useManager';
 import type { Trip } from '../../../types';
 import { STOP_TYPE_LABEL, fmtDateTime, fmtMoney, isReady, readinessChecks, staffName } from '../../../hooks/managerRules';
 
@@ -14,6 +16,14 @@ type Dialog = '' | 'approve' | 'return' | 'flight-ok' | 'flight-no';
 export const PrepareStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
   const { data, actions } = useManager();
   const [dialog, setDialog] = useState<Dialog>('');
+  const [focusStop, setFocusStop] = useState<number | null>(null);
+  // Tự cập nhật phương án Điều phối gửi / hủy gửi mỗi 15 giây khi đang mở trang (chỉ 1 request cho chuyến này)
+  useEffect(() => {
+    const tick = () => { if (document.visibilityState === 'visible') { void refreshTripPlan(t.id); void actions.refreshReadiness(); } };
+    tick();
+    const id = window.setInterval(tick, 15000);
+    return () => window.clearInterval(id);
+  }, [t.id]);
   const close = () => setDialog('');
   if (t.deployment.status === 'NOT_CONFIRMED') return <LockedCard title="Chưa phân công" text="Phân công Specialist và Coordinator ở bước 1 để bắt đầu chuẩn bị." />;
   const rd = t.readiness, rt = t.route, checks = readinessChecks(t);
@@ -23,7 +33,7 @@ export const PrepareStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
 
   return (
     <>
-      {t.deployment.status === 'ON_HOLD' && <Note tone="red" title="Chuyến đang tạm dừng">{t.deployment.holdReason}</Note>}
+      <AssignStage trip={t} />
       <div className="mgr-grid-main">
         <div className="mgr-stack">
           <details className="mgr-acc" open={!docsOk}>
@@ -52,11 +62,12 @@ export const PrepareStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
               {rt && (
                 <>
                   {rt.status === 'CHANGES_REQUESTED' && <Note tone="yellow" title="Đã yêu cầu Coordinator làm lại">{rt.decisionNote}</Note>}
+                  <ManagerRouteMap stops={rt.stops} focus={focusStop} />
                   <div className="mgr-td__grid">
                     <div className="mgr-inner">
                       <h4>1. Lộ trình (gửi {fmtDateTime(rt.submittedAt)})</h4>
                       {rt.stops.map((s, i) => (
-                        <div key={`${s.name}-${i}`} className="mgr-stop"><i>{i + 1}</i><div><b>{s.name}</b><span>{STOP_TYPE_LABEL[s.type]}</span></div><small>{fmtDateTime(s.plannedAt)}</small></div>
+                        <button type="button" key={`${s.name}-${i}`} className={`mgr-stop mgr-stop--btn${focusStop === i ? ' on' : ''}`} onClick={() => setFocusStop(i)}><i>{i + 1}</i><div><b>{s.name}</b><span>{STOP_TYPE_LABEL[s.type]}</span></div><small>{fmtDateTime(s.plannedAt)}</small></button>
                       ))}
                       {rt.note && <p className="mgr-hint">Ghi chú: {rt.note}</p>}
                     </div>
@@ -70,11 +81,65 @@ export const PrepareStage: React.FC<{ trip: Trip }> = ({ trip: t }) => {
                   </div>
                   {rt.status === 'PENDING_APPROVAL' && planning && (
                     <div className="mgr-actions">
-                      <button type="button" className="mgr-btn mgr-btn--solid" disabled={!rt.resourcesConfirmed || t.deployment.status !== 'CONFIRMED'} onClick={() => setDialog('approve')}>Chấp thuận phương án v{rt.v}</button>
+                      <button type="button" className="mgr-btn mgr-btn--solid" disabled={t.deployment.status !== 'CONFIRMED'} onClick={() => setDialog('approve')}>Chấp thuận phương án v{rt.v}</button>
                       <button type="button" className="mgr-btn" onClick={() => setDialog('return')}>Yêu cầu làm lại</button>
                     </div>
                   )}
                   {rt.status === 'APPROVED' && <p className="mgr-hint">Tuyến v{rt.v} được duyệt lúc {fmtDateTime(rt.decidedAt)}. Xe và nhân sự phải duy trì điều kiện đạt đến lúc khởi hành.</p>}
+                  {t.pickupRelocation && (
+                    <div className="mgr-inner" style={{ marginTop: 12 }}>
+                      <div className="mgr-between">
+                        <h4>Đề xuất đổi điểm đón ngựa (v{t.pickupRelocation.proposalVersion || 1})</h4>
+                        <StatusBadge
+                          tone={
+                            t.pickupRelocation.status === 'CUSTOMER_CONFIRMED'
+                              ? 'ok'
+                              : t.pickupRelocation.status === 'AWAITING_CUSTOMER' || t.pickupRelocation.status === 'MANAGER_APPROVED'
+                              ? 'warn'
+                              : 'bad'
+                          }
+                          label={
+                            t.pickupRelocation.status === 'PROPOSED'
+                              ? 'Chờ Manager duyệt'
+                              : t.pickupRelocation.status === 'MANAGER_APPROVED'
+                              ? 'Manager đã duyệt'
+                              : t.pickupRelocation.status === 'AWAITING_CUSTOMER'
+                              ? 'Chờ khách đồng ý'
+                              : t.pickupRelocation.status === 'CUSTOMER_CONFIRMED'
+                              ? 'Khách đã đồng ý'
+                              : 'Từ chối'
+                          }
+                        />
+                      </div>
+                      <p className="mgr-hint" style={{ marginTop: 4 }}>
+                        Lý do: {t.pickupRelocation.reason}
+                        {t.pickupRelocation.placeName ? ` • Địa điểm: ${t.pickupRelocation.placeName}` : ''}
+                      </p>
+                      {t.pickupRelocation.status === 'PROPOSED' && (
+                        <div className="mgr-actions">
+                          <button type="button" className="mgr-btn mgr-btn--solid mgr-btn--sm" onClick={() => actions.decidePickupRelocation(t.id, true)}>
+                            Duyệt đề xuất
+                          </button>
+                          <button type="button" className="mgr-btn mgr-btn--sm" onClick={() => actions.decidePickupRelocation(t.id, false, 'Quản lý từ chối đề xuất đổi điểm đón')}>
+                            Từ chối
+                          </button>
+                        </div>
+                      )}
+                      {t.pickupRelocation.status === 'MANAGER_APPROVED' && (
+                        <div className="mgr-actions">
+                          <button type="button" className="mgr-btn mgr-btn--solid mgr-btn--sm" onClick={() => actions.sendPickupRelocation(t.id)}>
+                            Gửi cho khách hàng xác nhận (F3-J56)
+                          </button>
+                        </div>
+                      )}
+                      {t.pickupRelocation.status === 'AWAITING_CUSTOMER' && (
+                        <p className="mgr-hint">Đã gửi khách hàng lúc {fmtDateTime(t.pickupRelocation.sentAt || '')}. Chờ khách phản hồi qua cổng khách hàng (F3-J32).</p>
+                      )}
+                      {t.pickupRelocation.status === 'CUSTOMER_CONFIRMED' && (
+                        <p className="mgr-hint" style={{ color: '#059669' }}>✓ Khách hàng đã chấp thuận điểm đón mới. Tuyến đường được áp dụng effectivePickup mới.</p>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
               {t.mode === 'AIR' && (

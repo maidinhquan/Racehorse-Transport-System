@@ -23,16 +23,20 @@ import {
   mockRequests,
   mockTrips,
 } from '../data/mockData';
+import { getDemoMode } from '../../../shared/context/DemoModeContext';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
-/** GET có fallback về mock data khi Backend chưa chạy */
-async function getOr<T>(url: string, fallback: T): Promise<T> {
+/**
+ * GET có fallback về mock data CHỈ KHI demo mode đang bật.
+ * Khi demo tắt và API lỗi, trả về emptyFallback (mảng rỗng).
+ */
+async function getOr<T>(url: string, mockFallback: T, emptyFallback: T = [] as unknown as T): Promise<T> {
   try {
     const res = await apiClient.get<ApiResponse<T>>(url);
-    return res.data?.data ?? clone(fallback);
+    return res.data?.data ?? (getDemoMode('specialist') ? clone(mockFallback) : emptyFallback);
   } catch {
-    return clone(fallback);
+    return getDemoMode('specialist') ? clone(mockFallback) : emptyFallback;
   }
 }
 
@@ -49,7 +53,42 @@ async function send(method: 'post' | 'put', url: string, body?: unknown): Promis
 }
 
 export const specialistApi = {
-  getTrips: () => getOr<SpecTrip[]>(SPECIALIST_ENDPOINTS.TRIPS, mockTrips),
+  getTrips: async (): Promise<SpecTrip[]> => {
+    try {
+      const res = await apiClient.get<ApiResponse<SpecTrip[]>>(SPECIALIST_ENDPOINTS.TRIPS);
+      if (res.data?.data && res.data.data.length > 0) return res.data.data;
+    } catch {
+      // Thử tiếp endpoint bàn giao Flow 1
+    }
+
+    try {
+      const res = await apiClient.get<any[]>('/operations/flow1/trips');
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data.map((t) => ({
+          id: `TRP-${(t.tripId || '').replace(/^TRIP[_-]/, '')}`,
+          requestId: t.requestId || '',
+          customerName: 'Khách hàng',
+          origin: 'Ho Chi Minh City',
+          destination: 'Tokyo',
+          originCountry: 'VN' as const,
+          destCountry: 'JP' as const,
+          mode: 'AIR' as const,
+          status: (t.status || 'PLANNING') as any,
+          deployment: 'CONFIRMED' as const,
+          plannedDepart: '2026-12-26 06:00',
+          eta: '2026-12-26 22:00',
+          horses: [{ id: 'HOR-1029', name: 'Thunderbolt', microchip: '985112004571029', passportNo: 'VN-EQ-2020-1029' }],
+          checkpoints: [],
+          specialistId: t.specialistId,
+          coordinatorId: t.coordinatorId,
+        })) as SpecTrip[];
+      }
+    } catch {
+      // bỏ qua lỗi handoff
+    }
+
+    return getDemoMode('specialist') ? clone(mockTrips) : [];
+  },
   getCustomerDocs: () => getOr<CustomerDoc[]>(SPECIALIST_ENDPOINTS.CUSTOMER_DOCS, mockCustomerDocs),
   getDocuments: () => getOr<TripDocument[]>(SPECIALIST_ENDPOINTS.DOCUMENTS, mockDocuments),
   getRequests: () => getOr<DocRequest[]>(SPECIALIST_ENDPOINTS.DOC_REQUESTS, mockRequests),
@@ -68,6 +107,7 @@ export const specialistApi = {
   createDocRequest: (body: unknown) => send('post', SPECIALIST_ENDPOINTS.DOC_REQUESTS, body),
   recordDocument: (body: unknown) => send('post', SPECIALIST_ENDPOINTS.DOCUMENTS, body),
   reviewDocument: (docId: string, body: unknown) => send('post', SPECIALIST_ENDPOINTS.REVIEW_DOCUMENT(docId), body),
+  setPhysicalCopy: (docId: string, collected: boolean) => send('post', SPECIALIST_ENDPOINTS.DOCUMENT_PHYSICAL_COPY(docId), { collected }),
   saveBooking: (body: unknown) => send('post', SPECIALIST_ENDPOINTS.QUARANTINE_BOOKINGS, body),
   saveDocType: (body: DocType) => send('put', SPECIALIST_ENDPOINTS.DOC_TYPES, body),
   saveRegulation: (body: Regulation) => send('put', SPECIALIST_ENDPOINTS.REGULATIONS, body),

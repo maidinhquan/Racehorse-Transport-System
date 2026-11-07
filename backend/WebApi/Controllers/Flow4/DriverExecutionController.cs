@@ -32,6 +32,17 @@ public class DriverExecutionController : BaseApiController
         return Success(result);
     }
 
+    [HttpGet("{tripId}/horses/{horseId}")]
+    public async Task<IActionResult> GetAssignedHorse(string tripId, string horseId) =>
+        Success(await _driverService.GetAssignedHorseAsync(tripId, horseId, CurrentUserId));
+
+    [HttpGet("{tripId}/horses/{horseId}/files/{kind}")]
+    public async Task<IActionResult> GetAssignedHorseFile(string tripId, string horseId, string kind)
+    {
+        var file = await _driverService.ReadAssignedHorseFileAsync(tripId, horseId, kind, CurrentUserId);
+        return File(file.Bytes, file.ContentType);
+    }
+
     /// <summary>
     /// F4-J04: Kiểm tra xe và ngựa trước khi xuất phát thực tế
     /// </summary>
@@ -46,7 +57,7 @@ public class DriverExecutionController : BaseApiController
     /// F4-J05: Xác nhận xuất phát thực tế
     /// </summary>
     [HttpPost("{tripId}/departure")]
-    public async Task<IActionResult> ConfirmDeparture([FromRoute] string tripId, [FromBody] DepartureInputDto dto)
+    public async Task<IActionResult> ConfirmDeparture([FromRoute] string tripId, [FromBody] DriverDepartureInputDto dto)
     {
         var result = await _driverService.ConfirmDepartureAsync(tripId, dto, CurrentUserId);
         return Success(result);
@@ -75,7 +86,7 @@ public class DriverExecutionController : BaseApiController
         [FromBody] MilestoneCorrectionInputDto dto)
     {
         var result = await _driverService.RequestCorrectionAsync(tripId, milestoneId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -105,7 +116,7 @@ public class DriverExecutionController : BaseApiController
     public async Task<IActionResult> ProposeEta([FromRoute] string tripId, [FromBody] EtaProposalInputDto dto)
     {
         var result = await _driverService.ProposeDriverEtaAsync(tripId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -115,7 +126,7 @@ public class DriverExecutionController : BaseApiController
     public async Task<IActionResult> RecordHealthLog([FromRoute] string tripId, [FromBody] HealthLogInputDto dto)
     {
         var result = await _healthService.RecordHealthLogAsync(tripId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -128,7 +139,7 @@ public class DriverExecutionController : BaseApiController
         [FromBody] HealthLogAmendmentInputDto dto)
     {
         var result = await _healthService.AmendHealthLogAsync(tripId, healthLogId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -138,7 +149,7 @@ public class DriverExecutionController : BaseApiController
     public async Task<IActionResult> RecordVetAssessment([FromRoute] string tripId, [FromBody] VetAssessmentInputDto dto)
     {
         var result = await _healthService.RecordVetAssessmentAsync(tripId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 
     /// <summary>
@@ -148,7 +159,7 @@ public class DriverExecutionController : BaseApiController
     public async Task<IActionResult> RecordExpense([FromRoute] string tripId, [FromBody] TripExpenseInputDto dto)
     {
         var result = await _driverService.RecordExpenseAsync(tripId, dto, CurrentUserId);
-        return Success(result);
+        return CreatedSuccess(result);
     }
 }
 

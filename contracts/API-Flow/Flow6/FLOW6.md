@@ -1,5 +1,8 @@
 # Flow 6 — Bàn giao, nghiệm thu, thanh toán và giải quyết tranh chấp
 
+> **Lưu ý phiên bản:** Nội dung 1.1 bên dưới là thiết kế cũ `/aftercare`. Backend hiện tại dùng 47 API `/flow6`, OTP bàn giao và không có Customer nghiệm thu riêng. Xem [API backend hiện tại](FLOW6-API-JSON.md) và [hướng dẫn triển khai](../../../backend/docs/Flow6/README.md). Field mã biên bản giao cuối hiện dùng `deliveryHandoverId`.
+
+
 **Bản review 1.1.0 — 29/10/2026.** Giữ quy tắc Flow 6 ngày 26/10/2026, bổ sung điểm nối Flow 4–5, JSON lỗi tại từng API và kịch bản máy đọc. Quy tắc này thay thế phần Flow 6 cũ trong HTML, Flow 1 lịch sử và Operations. Đây là API contract đích và SDK gọi API frontend, **chưa có backend/DB triển khai, chưa nối các màn hình cũ và chưa kiểm thử thanh toán thật**.
 
 - [Toàn bộ endpoint, JSON gửi/nhận](FLOW6-API-JSON.md).
@@ -29,7 +32,7 @@ Nhánh tranh chấp:
 - Im lặng/quá hạn không phải đồng ý. Hệ thống chỉ cảnh báo Manager, không tự nghiệm thu hay tự đóng.
 - Cho gia hạn có lý do, lưu hạn cũ và hạn mới. Không ghi đè đồng hồ về 0 mất lịch sử.
 - Giải quyết tranh chấp có thể kết thúc mà khách không nghiệm thu. Lưu `NOT_REQUIRED_BY_DISPUTE`, không tạo `acceptedAt/acceptedBy` giả.
-- Đóng đơn luôn là thao tác Manager có kiểm tra điều kiện; `Trip COMPLETED` không đồng nghĩa `Request CLOSED`.
+- Đóng đơn là thao tác Manager có kiểm tra điều kiện (đã SETTLED, không còn khiếu nại mở hay nghĩa vụ tài chính treo); Manager có quyền chủ động đóng bất kỳ lúc nào mà không bị chặn bởi thời hạn 24h feedback window. Hệ thống có worker tự động đóng sau 24h nếu Manager không đóng thủ công. `Trip COMPLETED` không đồng nghĩa `Request CLOSED`.
 
 ## 2. Vai trò và quyền theo tài nguyên
 
@@ -37,7 +40,7 @@ Nhánh tranh chấp:
 |---|---|
 | DRIVER_ESCORT | Chỉ chặng giao cuối được phân công: đọc thông tin bàn giao, upload bằng chứng, ghi lần giao thất bại, bàn giao thành công. |
 | CUSTOMER | Chỉ đơn của mình: đọc biên bản/tài chính liên quan, báo vấn đề trước nghiệm thu, trao đổi, đồng ý/từ chối đề xuất, nghiệm thu, tạo phiên thanh toán. |
-| LOGISTICS_MANAGER | Trong phạm vi quản lý: duyệt người nhận thay thế, gia hạn, đề xuất xử lý, áp dụng kết quả, xử lý tranh chấp, ghi nhận hoàn tiền có bằng chứng và đóng đơn. |
+| LOGISTICS_MANAGER | Trong phạm vi quản lý: duyệt người nhận thay thế, gia hạn, đề xuất xử lý, áp dụng kết quả, xử lý tranh chấp, duyệt đối soát thanh toán quá hạn (F6-J48), ghi nhận hoàn tiền có bằng chứng và đóng đơn. |
 | FLEET_ROUTE_COORDINATOR | Chỉ chuyến được giao: đọc kết quả và lần bàn giao thất bại để phối hợp; không có quyền nghiệm thu hay đóng đơn. |
 | TRANSPORT_SPECIALIST | Không có tác vụ Flow 6. |
 
@@ -79,6 +82,7 @@ Policy do server cung cấp. Giá trị **đề xuất để review**: nghiệm 
 - Gia hạn thủ công: chỉ khi chưa nghiệm thu và không có vụ/điều chỉnh đang mở; newDueAt phải lớn hơn now và hạn hiện tại, trong giới hạn policy. Không cho extend bằng giá trị 0 hoặc timestamp quá khứ. Lưu DeadlineEvent bất biến và gửi thông báo khách.
 - Nghiệm thu thành công: acceptanceWindow COMPLETED; mở paymentWindow riêng từ now. Nếu nợ bằng 0 thì không cần tạo phiên tiền 0. Có thể đóng sớm khi đủ nghĩa vụ, không chờ hết thời gian nghiệm thu.
 - Quá hạn trả tiền vẫn cho trả nếu các điều kiện khác đạt, đánh dấu trễ và cảnh báo Manager. Không tự xóa nợ.
+- Thanh toán đến muộn sau khi hết hạn phiên VNPay (hoặc chênh lệch) được ghi nhận thành công nhưng tự động gắn cờ `financialReviewRequired = true` (lý do `FLOW6_LATE_OR_STALE_PAYMENT`) để chặn tự ý tất toán (`/settle`). Manager cần kiểm tra sao kê thực tế và gọi `POST /api/manager/flow6/payments/{paymentId}/review` (F6-J48) kèm lý do xác nhận để gỡ cờ đối soát.
 - Mở tranh chấp sau nghiệm thu: pause paymentWindow, giữ ACCEPTED. Áp dụng kết quả mà còn phải thu thì mở lại paymentWindow riêng; hết nợ vẫn phải kiểm khoản hoàn/đối soát.
 
 ## 5. Bàn giao và bằng chứng
@@ -123,7 +127,8 @@ Kết quả được ghi nhận trước, áp dụng riêng trong transaction; p
 
 Thanh toán: POST tạo session, server tự lấy outstanding và kiểm invoiceVersion. Không nhận amount từ UI. Không tạo session 0 hoặc trùng phiên còn pending. Callback server dùng gateway hiện có `GET /payments/vnpay/ipn` (F1-J67), cần backend mở rộng cho BALANCE: xác minh checksum, merchant, transaction reference, provider result, currency và số tiền VND với quy tắc VNPay ×100; success ghi tiền một lần. Browser Return chỉ điều hướng và GET trạng thái. Flow 6 không tạo một endpoint IPN thứ hai hoặc cho Customer gọi xác minh tiền.
 
-Khi mở dispute/đổi invoice: vô hiệu hóa session cũ nếu được; nếu provider chưa thể xác nhận hủy thì giữ pending/reconciliation, chặn apply/đóng. Callback đến muộn dù đã hết session/dispute/closed vẫn phải ghi nhận tiền có thật một lần và tạo đối soát/hoàn nếu cần; không bỏ tiền và không tự đóng/mở lại đơn. Đơn đã đóng phát sinh đối soát phải thông báo Manager, giữ snapshot closure và tạo hồ sơ đối soát liên kết; nghiệp vụ mở lại closure chưa cung cấp ở bản này.
+Khi mở dispute/đổi invoice: vô hiệu hóa session cũ nếu được; nếu provider chưa thể xác nhận hủy thì giữ pending/reconciliation, chặn apply/đóng. Callback đến muộn dù đã hết session/dispute/closed vẫn phải ghi nhận tiền có thật một lần và tạo đối soát/hoàn nếu cần; không bỏ tiền và không tự đóng/mở lại đơn.
+- **Đối soát thanh toán (F6-J48):** Khi thanh toán thành công bị đánh dấu `financialReviewRequired = true` (do đến muộn hoặc phát sinh nghi vấn tài chính), Manager thực hiện đối soát ngân hàng và gọi `POST /api/manager/flow6/payments/{paymentId}/review` để xóa cờ review và giải phóng chốt chặn tất toán. Đơn đã đóng phát sinh đối soát phải thông báo Manager, giữ snapshot closure và tạo hồ sơ đối soát liên kết; nghiệp vụ mở lại closure chưa cung cấp ở bản này.
 
 Hoàn tiền: contract chỉ tạo nghĩa vụ từ ledger và cho Manager có quyền tài chính ghi nhận đã chuyển thật với reference/bằng chứng. Endpoint confirmation không thực hiện chuyển tiền. Không cho nhập lại amount tùy ý. Backend kiểm chứng theo tích hợp hoặc quy trình đối soát được tổ chức cho phép; nếu chưa có thì FEATURE_NOT_SUPPORTED. Reference dùng một lần và khớp số tiền; PENDING/FAILED refund vẫn chặn đóng.
 

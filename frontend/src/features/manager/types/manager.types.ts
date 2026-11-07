@@ -124,6 +124,7 @@ export interface TransportRequest {
   customerId: string;
   origin: string;
   destination: string;
+  mode?: TransportMode;
   /** Ngày vận chuyển mong muốn (YYYY-MM-DD) */
   date: string;
   status: RequestStatus;
@@ -194,7 +195,8 @@ export interface ContractVersion {
   issuedAt: string;
   /** Hạn chung 24 giờ: thanh toán cọc + xác minh + ký OTP */
   validUntil: string;
-  mode: TransportMode;
+  mode?: TransportMode;
+  modeDeferred?: boolean;
   departAt: string;
   arriveAt: string;
   items: ContractItem[];
@@ -214,7 +216,7 @@ export interface ContractVersion {
 
 /** Bản nháp trong trình soạn hợp đồng 4 bước */
 export interface ContractDraft {
-  mode: TransportMode;
+  mode?: TransportMode;
   departAt: string;
   arriveAt: string;
   budget: Budget;
@@ -249,6 +251,10 @@ export interface Transaction {
   createdAt: string;
   confirmedAt?: string;
   rejectReason?: string;
+  /** VNPay session expiry (ms) and reconciliation flags from the server */
+  qrExpiresAtMs?: number;
+  reviewRequired?: boolean;
+  reviewReason?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -262,13 +268,15 @@ export interface Staff {
   id: string;
   name: string;
   role: 'TRANSPORT_SPECIALIST' | 'FLEET_ROUTE_COORDINATOR';
-  load: number;
+  load?: number;
 }
 
 export interface RouteStop {
   name: string;
   type: StopType;
   plannedAt: string;
+  lat?: number;
+  lng?: number;
 }
 
 export type RouteStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'CHANGES_REQUESTED';
@@ -304,7 +312,7 @@ export interface TripReadiness {
   quarantineOk: boolean;
 }
 
-export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED_DESTINATION';
+export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED_CHECKPOINT' | 'PASSED_CHECKPOINT' | 'ARRIVED_DESTINATION';
 export interface Milestone {
   type: MilestoneType;
   stopIndex: number;
@@ -343,8 +351,13 @@ export interface EtaChange {
 export interface Trip {
   id: string;
   requestId: string;
-  mode: TransportMode;
+  mode?: TransportMode;
   status: TripStatus;
+  /** Lịch trình thực hiện (điểm dừng kèm tọa độ) từ Flow 4, cùng nguồn với tài xế và khách hàng */
+  executionStops?: RouteStop[];
+  /** Tổ xe và xe được phân công theo Flow 4 (tên vai trò, tên người) */
+  executionCrew?: Array<[string, string]>;
+  executionVehicle?: string;
   deployment: {
     status: DeploymentStatus;
     specialistId?: string;
@@ -362,6 +375,19 @@ export interface Trip {
   etaHistory: EtaChange[];
   handover?: Handover;
   refusal?: HandoverRefusal;
+  pickupRelocation?: {
+    relocationId: string;
+    proposalVersion?: number;
+    status: 'PROPOSED' | 'MANAGER_APPROVED' | 'AWAITING_CUSTOMER' | 'CUSTOMER_CONFIRMED' | 'CUSTOMER_REJECTED' | 'REJECTED';
+    reason: string;
+    placeName?: string;
+    placeAddress?: string;
+    handoverAt?: string;
+    scheduleImpact?: string;
+    customerResponsibilities?: string;
+    sentAt?: string;
+    customerReply?: { decision: string; note?: string; at: string };
+  };
 }
 
 // ---------------------------------------------------------------------------

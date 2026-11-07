@@ -12,11 +12,12 @@ import type {
   NextMilestone,
   RefuseCategory,
   RefuseNextStep,
+  RouteStop,
   StopType,
   Trip,
   TripStatus,
 } from '../types';
-import { MS_COOLDOWN_SEC } from '../data/mockData';
+import { cleanStopName } from '../../tracking/utils/progress';
 
 // ============================================================================
 // Nhãn hiển thị (VI)
@@ -68,16 +69,22 @@ export const modeLabel = (m: Trip['mode']) => (m === 'AIR' ? 'Hàng không' : '�
 // ============================================================================
 // Thời gian ('YYYY-MM-DD HH:mm')
 // ============================================================================
+/** '2026-11-19 06:00' → '19/11/2026 06:00' (ngày/tháng/năm, có số 0 đứng đầu) */
 export const fmtDateTime = (s?: string) => {
   if (!s) return '—';
   const [d, t] = s.replace('T', ' ').split(' ');
-  const [, m, day] = d.split('-');
-  return `${Number(day)}/${Number(m)}${t ? ', ' + t.slice(0, 5) : ''}`;
+  return t ? `${fmtDate(d)} ${t.slice(0, 5)}` : fmtDate(d);
 };
-export const fmtDate = (s?: string) => {
+/** '2026-11-19' → '19/11/2026' */
+export function fmtDate(s?: string) {
   if (!s) return '—';
   const [y, m, d] = s.slice(0, 10).split('-');
-  return `${Number(d)}/${Number(m)}/${y}`;
+  return d ? `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}` : s;
+}
+/** '2026-11-19 06:00' → '06:00' */
+export const fmtTime = (s?: string) => {
+  const t = s?.replace('T', ' ').split(' ')[1];
+  return t ? t.slice(0, 5) : '';
 };
 export const nowStamp = () => {
   const d = new Date();
@@ -111,6 +118,24 @@ export const lastMilestone = (t: Trip): Milestone | undefined => t.milestones[t.
 export const clearanceFor = (t: Trip, stopIndex: number) =>
   [...t.clearances].reverse().find((c) => c.stopIndex === stopIndex);
 
+
+export function stopRequiresHealthCheck(stop?: RouteStop): boolean {
+  if (!stop) return false;
+  return !!stop.requiresHealthCheck || stop.type === 'QUARANTINE_STATION';
+}
+
+export function hasHealthLogForStop(t: Trip, stopIndex: number): boolean {
+  const stop = t.stops[stopIndex];
+  if (!stop) return false;
+  const arrived = t.milestones.find((m) => m.type === 'ARRIVED_STOP' && m.stopIndex === stopIndex);
+  if (!arrived) return false;
+  return t.health.some((h) => {
+    if ((h as any).milestoneId && (h as any).milestoneId === stop.id) return true;
+    if (h.at && arrived.at && h.at >= arrived.at) return true;
+    return false;
+  });
+}
+
 const CROSSING: StopType[] = ['CHECKPOINT', 'AIRPORT', 'QUARANTINE_STATION'];
 
 /** Mốc tiếp theo dựa trên mốc vừa xác nhận; qua cửa khẩu cần có kết quả thông quan */
@@ -119,7 +144,18 @@ export function nextMilestone(t: Trip): NextMilestone | null {
   if (t.status === 'READY_TO_DEPART' && !m) return { type: 'DEPARTED', stopIndex: 0 };
   if (t.status !== 'IN_TRANSIT' || !m) return null;
   if (m.type === 'ARRIVED_DESTINATION') return null;
-  if (m.type === 'ARRIVED_STOP') return { type: 'LEFT_STOP', stopIndex: m.stopIndex };
+  if (m.type === 'ARRIVED_STOP') {
+    const stop = t.stops[m.stopIndex];
+    const reqHealth = stopRequiresHealthCheck(stop);
+    const hasHealth = reqHealth ? hasHealthLogForStop(t, m.stopIndex) : true;
+    const blocked = reqHealth && !hasHealth;
+    const res: NextMilestone = { type: 'LEFT_STOP', stopIndex: m.stopIndex };
+    if (blocked) {
+      res.blocked = true;
+      res.healthCheckRequired = true;
+    }
+    return res;
+  }
   if (m.type === 'ARRIVED_CHECKPOINT') {
     const cl = clearanceFor(t, m.stopIndex);
     return { type: 'PASSED_CHECKPOINT', stopIndex: m.stopIndex, blocked: !cl || cl.result !== 'PASSED', clearance: cl };
@@ -131,8 +167,11 @@ export function nextMilestone(t: Trip): NextMilestone | null {
   return { type, stopIndex: j };
 }
 
-export const milestoneText = (t: Trip, n: { type: MilestoneType; stopIndex: number }) =>
-  `${MILESTONE_LABEL[n.type]}${t.stops[n.stopIndex] ? ' – ' + t.stops[n.stopIndex].name : ''}`;
+export const milestoneText = (t: Trip, n: { type: MilestoneType; stopIndex: number }) => {
+  const stop = t.stops[n.stopIndex];
+  const name = stop ? cleanStopName(stop.name) : '';
+  return `${MILESTONE_LABEL[n.type]}${name ? ' – ' + name : ''}`;
+};
 
 /** Đang có báo chậm khởi hành chưa xử lý xong */
 export const delayPending = (t: Trip) => !!t.departureDelay && ['REPORTED', 'PENDING_APPROVAL'].includes(t.departureDelay.status);
@@ -140,20 +179,62 @@ export const delayPending = (t: Trip) => !!t.departureDelay && ['REPORTED', 'PEN
 /** Đã đến điểm giao, đang chờ bàn giao */
 export const handoverReady = (t: Trip) => t.status === 'IN_TRANSIT' && lastMilestone(t)?.type === 'ARRIVED_DESTINATION';
 
-/** Số giây còn phải chờ trước khi ghi mốc tiếp theo */
-export const cooldownLeft = (lastRecordedMs: number | undefined, now = Date.now()) => {
-  if (!lastRecordedMs) return 0;
-  const left = Math.ceil((lastRecordedMs + MS_COOLDOWN_SEC * 1000 - now) / 1000);
-  return left > 0 ? left : 0;
-};
-
 /** Vị trí hiện tại suy ra từ mốc gần nhất: đang ở trạm → tên trạm, đang chạy → đoạn tuyến */
 export function whereNow(t: Trip): string {
   const m = lastMilestone(t);
-  const name = (i: number) => t.stops[i]?.name ?? '';
+  const name = (i: number) => (t.stops[i]?.name ? cleanStopName(t.stops[i].name) : '');
   if (!m) return `Tại điểm nhận ${name(0) || t.pickup.name || t.origin}`;
   if (['ARRIVED_STOP', 'ARRIVED_CHECKPOINT', 'ARRIVED_DESTINATION'].includes(m.type)) return `Tại ${name(m.stopIndex)}`;
   return name(m.stopIndex + 1) ? `Trên tuyến ${name(m.stopIndex)} → ${name(m.stopIndex + 1)}` : `Gần ${name(m.stopIndex)}`;
+}
+
+const validGeo = (s?: RouteStop): s is RouteStop & { lat: number; lng: number } =>
+  !!s && typeof s.lat === 'number' && Number.isFinite(s.lat) && Math.abs(s.lat) <= 90
+  && typeof s.lng === 'number' && Number.isFinite(s.lng) && Math.abs(s.lng) <= 180;
+
+/** Đoạn đường tài xế đang đi: A = trạm mới rời (hoặc đang đứng), B = trạm sắp tới */
+export function incidentSegment(t: Trip): { a?: RouteStop; b?: RouteStop; aIndex: number } {
+  const m = lastMilestone(t);
+  const aIndex = m ? Math.min(m.stopIndex, Math.max(t.stops.length - 1, 0)) : 0;
+  return { a: t.stops[aIndex], b: t.stops[aIndex + 1], aIndex };
+}
+
+/** Tài xế có thể chọn vị trí trên đoạn A–B khi cả hai trạm đều có tọa độ */
+export const segmentPickable = (t: Trip) => {
+  const { a, b } = incidentSegment(t);
+  return validGeo(a) && validGeo(b);
+};
+
+/** Tỷ lệ mặc định: đang ở trạm thì 0 (tại trạm), đang chạy thì giữa đoạn */
+export const defaultSegmentRatio = (t: Trip) => {
+  const m = lastMilestone(t);
+  return !m || ['ARRIVED_STOP', 'ARRIVED_CHECKPOINT', 'ARRIVED_DESTINATION'].includes(m.type) ? 0 : 0.5;
+};
+
+/** Điểm nằm ở ratio (0–1) trên đường nối A và B */
+export function pointOnSegment(a: RouteStop, b: RouteStop, ratio: number): { lat: number; lng: number } | null {
+  if (!validGeo(a) || !validGeo(b)) return null;
+  const r = Math.min(1, Math.max(0, ratio));
+  return { lat: a.lat + (b.lat - a.lat) * r, lng: a.lng + (b.lng - a.lng) * r };
+}
+
+/** Chiếu một điểm bấm trên bản đồ vào đoạn A–B, trả về tỷ lệ 0–1 */
+export function ratioOnSegment(a: RouteStop, b: RouteStop, lat: number, lng: number): number | null {
+  if (!validGeo(a) || !validGeo(b)) return null;
+  const k = Math.cos((((a.lat + b.lat) / 2) * Math.PI) / 180);
+  const dx = (b.lng - a.lng) * k, dy = b.lat - a.lat;
+  const len = dx * dx + dy * dy;
+  if (len === 0) return 0;
+  return Math.min(1, Math.max(0, (((lng - a.lng) * k) * dx + (lat - a.lat) * dy) / len));
+}
+
+/** Mô tả vị trí sự cố: đã rời trạm A thì ghi đoạn A → B kèm phần trăm quãng đường */
+export function incidentWhere(t: Trip, ratio: number): string {
+  const { a, b } = incidentSegment(t);
+  if (!a || !b || ratio <= 0) return whereNow(t);
+  const name = (s: RouteStop) => cleanStopName(s.name);
+  const pct = Math.round(Math.min(1, ratio) * 100);
+  return ratio >= 1 ? `Sát ${name(b)}` : `Trên tuyến ${name(a)} → ${name(b)}, khoảng ${pct}% đoạn đường`;
 }
 
 /** Trạng thái từng điểm dừng để vẽ danh sách */

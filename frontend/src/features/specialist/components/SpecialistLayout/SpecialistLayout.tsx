@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
+import { ThemeToggle } from '../../../../shared/components';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { SPECIALIST_INITIALS, SPECIALIST_NAME } from '../../data/mockData';
+import { useSharedIncidents } from '../../../../shared/utils/sharedIncidents';
 import './SpecialistLayout.css';
 
 // ---------------------------------------------------------------------------
@@ -26,6 +27,7 @@ const PATHS: Record<string, React.ReactNode> = {
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
   download: <path d="M12 4v12M7 11l5 5 5-5M5 20h14" />,
   chevron: <path d="m6 9 6 6 6-6" />,
+  user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></>,
 };
 export const Icon: React.FC<{ name: string; className?: string }> = ({ name, className = '' }) => (
@@ -40,7 +42,9 @@ interface SpecialistLayoutProps {
 /** Layout trang Transport Specialist: sidebar + topbar + toast */
 export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, children }) => {
   const navigate = useNavigate();
-  const { stats, toast, actions } = useSpecialist();
+  const { trips, toast, actions } = useSpecialist();
+  const incidents = useSharedIncidents();
+  const unreviewedIncidents = incidents.filter((i) => !i.complianceReview).length;
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -72,12 +76,30 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
     navigate('/login');
   };
 
-  const NAV: Array<[string, string, string, number?]> = [
-    ['/specialist/dashboard', 'Tổng quan', 'home'],
-    ['/specialist/trips', 'Chuyến được giao', 'truck', stats.awaiting],
-    ['/specialist/regulations', 'Quy định & thiết lập', 'list'],
-    ['/specialist/audit', 'Lịch sử thao tác', 'clock'],
+  const NAV: Array<{ to: string; label: string; icon: string; count?: number; countTooltip?: string }> = [
+    { to: '/specialist/dashboard', label: 'Tổng quan', icon: 'home' },
+    {
+      to: '/specialist/trips',
+      label: 'Chuyến được giao',
+      icon: 'truck',
+      count: trips.length,
+      countTooltip: `${trips.length} chuyến được giao phụ trách`,
+    },
+    {
+      to: '/specialist/incidents',
+      label: 'Sự cố',
+      icon: 'alert',
+      count: unreviewedIncidents > 0 ? unreviewedIncidents : incidents.length > 0 ? incidents.length : undefined,
+      countTooltip: unreviewedIncidents > 0 ? `${unreviewedIncidents} sự cố cần rà soát pháp lý` : `${incidents.length} sự cố`,
+    },
+    { to: '/specialist/regulations', label: 'Quy định & thiết lập', icon: 'list' },
+    { to: '/specialist/audit', label: 'Lịch sử thao tác', icon: 'clock' },
   ];
+
+  const storedName = (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('userFullName') : null)
+    || (typeof localStorage !== 'undefined' ? localStorage.getItem('userFullName') : null);
+  const specialistName = storedName || SPECIALIST_NAME;
+  const specialistInitials = specialistName.split(' ').filter(Boolean).map((n) => n[0]).join('').slice(-2).toUpperCase() || SPECIALIST_INITIALS;
 
   return (
     <div className="spc-app">
@@ -87,9 +109,15 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
         </NavLink>
         <div className="spc-role"><b>Transport Specialist</b><span>Hồ sơ pháp lý & quy định</span></div>
         <nav className="spc-nav">
-          {NAV.map(([to, label, icon, count]) => (
+          {NAV.map(({ to, label, icon, count, countTooltip }) => (
             <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>
-              <Icon name={icon} /><span>{label}</span>{!!count && <em className="spc-nav__count">{count}</em>}
+              <Icon name={icon} />
+              <span>{label}</span>
+              {count !== undefined && count > 0 && (
+                <em className="spc-nav__count" title={countTooltip}>
+                  {count}
+                </em>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -98,7 +126,6 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
         <header className="spc-topbar">
           <h1>{title}</h1>
           <div className="spc-topbar__user">
-            <DemoDataToggle role="specialist" />
             <ThemeToggle showLabel={false} />
             <button type="button" className="spc-icon-btn" aria-label="Thông báo"><Icon name="bell" /></button>
             
@@ -110,29 +137,23 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
                 aria-label="Menu chuyên viên"
                 aria-expanded={userMenuOpen}
               >
-                <span className="spc-avatar">{SPECIALIST_INITIALS}</span>
-                <span className="spc-user-name">{SPECIALIST_NAME}</span>
+                <span className="spc-avatar">{specialistInitials}</span>
+                <span className="spc-user-name">{specialistName}</span>
                 <Icon name="chevron" className="spc-user-chevron" />
               </button>
 
               {userMenuOpen && (
                 <div className="spc-user-menu" role="menu">
                   <div className="spc-user-menu__header">
-                    <div className="spc-user-menu__avatar">{SPECIALIST_INITIALS}</div>
+                    <div className="spc-user-menu__avatar">{specialistInitials}</div>
                     <div className="spc-user-menu__info">
-                      <b>{SPECIALIST_NAME}</b>
+                      <b>{specialistName}</b>
                       <span>Transport Specialist</span>
                     </div>
                   </div>
                   <div className="spc-user-menu__divider" />
-                  <button type="button" className="spc-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/specialist/dashboard'); }}>
-                    <Icon name="home" /> Tổng quan
-                  </button>
-                  <button type="button" className="spc-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/specialist/trips'); }}>
-                    <Icon name="truck" /> Chuyến được giao
-                  </button>
-                  <button type="button" className="spc-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/specialist/regulations'); }}>
-                    <Icon name="list" /> Quy định & thiết lập
+                  <button type="button" className="spc-user-menu__item" onClick={() => { setUserMenuOpen(false); navigate('/specialist/profile'); }}>
+                    <Icon name="user" /> Hồ sơ của tôi
                   </button>
                   <div className="spc-user-menu__divider" />
                   <button type="button" className="spc-user-menu__item spc-user-menu__logout" onClick={handleLogout}>
@@ -144,7 +165,7 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
           </div>
         </header>
         <nav className="spc-mobile-nav">
-          {NAV.map(([to, label]) => <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}
+          {NAV.map(({ to, label }) => <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}
         </nav>
         <main className="spc-view">{children}</main>
       </div>

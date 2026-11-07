@@ -4,13 +4,17 @@ import type {
   CoordinatorDashboardStats,
   CrewAssignment,
   DelayProposalRequestDto,
+  DeploymentStatus,
   FlightProposalRequestDto,
   RescuePlanRequestDto,
   Incident,
   LegKey,
+  RouteStatus,
   RouteStop,
   Staff,
+  TransportMode,
   Trip,
+  TripStatus,
   Vehicle,
 } from '../types';
 import { coordinatorApi } from '../api/coordinatorApi';
@@ -198,7 +202,6 @@ async function loadAll() {
       loaded: true,
     });
   } catch {
-    const isDemo = getDemoMode('coordinator');
     setState({
       trips: clone(mockTrips),
       vehicles: clone(mockVehicles),

@@ -1,6 +1,10 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { registrationErrorMessage, requestRegistrationOtp } from "../../api/registrationApi";
+import {
+  registrationErrorMessage,
+  requestRegistrationOtp,
+  validateEmailExistence,
+} from "../../api/registrationApi";
 import { saveRegistrationSession } from "../../api/registrationSession";
 import AuthLayout from "../../../../shared/layouts/AuthLayout/AuthLayout";
 import "./RegisterPage.css";
@@ -14,6 +18,48 @@ function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [emailValidation, setEmailValidation] = useState<{
+    isValid: boolean;
+    message: string;
+  } | null>(null);
+
+  const handleCheckEmail = async () => {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setEmailValidation({
+        isValid: false,
+        message: "Vui lòng nhập địa chỉ email trước khi kiểm tra.",
+      });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      setEmailValidation({
+        isValid: false,
+        message: "Định dạng email chưa hợp lệ.",
+      });
+      return;
+    }
+
+    setIsCheckingEmail(true);
+    setEmailValidation(null);
+    try {
+      const result = await validateEmailExistence(trimmed);
+      setEmailValidation({
+        isValid: result.isValid,
+        message: result.message,
+      });
+    } catch (err) {
+      setEmailValidation({
+        isValid: false,
+        message: registrationErrorMessage(err),
+      });
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
   const [error, setError] = useState("");
   const submittingRef = useRef(false);
 
@@ -107,17 +153,41 @@ function RegisterPage() {
 
           {/* EMAIL */}
           <div className="register-form-group">
-            <label htmlFor="email">Email</label>
+            <div className="register-field-header">
+              <label htmlFor="email">Email</label>
+              <button
+                type="button"
+                className="register-check-email-btn"
+                onClick={handleCheckEmail}
+                disabled={isCheckingEmail || !email.trim()}
+                title="Bấm để kiểm tra email tồn tại thực tế và không trùng lặp"
+              >
+                {isCheckingEmail ? "Đang kiểm tra…" : "Kiểm tra email"}
+              </button>
+            </div>
             <input
               id="email"
               maxLength={100}
               type="email"
               placeholder="Nhập địa chỉ email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                if (emailValidation) setEmailValidation(null);
+              }}
               autoComplete="email"
               required
             />
+            {emailValidation && (
+              <div
+                className={`register-email-feedback ${
+                  emailValidation.isValid ? "success" : "error"
+                }`}
+                role="alert"
+              >
+                {emailValidation.message}
+              </div>
+            )}
           </div>
 
           {/* PHONE */}
