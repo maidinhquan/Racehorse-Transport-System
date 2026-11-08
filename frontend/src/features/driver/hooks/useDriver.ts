@@ -12,6 +12,8 @@ import type {
   ReportIncidentRequestDto,
   Trip,
 } from '../types';
+import { saveIncidentPin } from '../../../shared/utils/sharedIncidentPins';
+import { saveSharedIncident } from '../../../shared/utils/sharedIncidents';
 import { driverApi } from '../api/driverApi';
 import { tripFromTracking } from '../api/flow4Mapper';
 import { flow4Api } from '../../tracking/api/flow4Api';
@@ -28,7 +30,9 @@ import {
   nextMilestone,
   nowStamp,
   tripsOf,
-  whereNow,
+  incidentSegment,
+  incidentWhere,
+  pointOnSegment,
 } from './driverRules';
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { flow6Api } from '../../aftercare/api/flow6Api';
@@ -224,8 +228,13 @@ const actions = {
       return fail(error instanceof Error && error.message ? error.message : 'Không ghi nhận được mốc.');
     }
     if (!getDemoMode('driver')) {
-      const fresh = await buildLiveTrip(tripId);
-      setState((s) => ({ trips: s.trips.map((x) => (x.id === tripId ? { ...fresh.trip, handover: x.handover, handoverAttempts: x.handoverAttempts, handoverStatus: x.handoverStatus } : x)) }));
+      // Backend đã ghi mốc: lỗi khi tải lại dữ liệu không được làm hỏng kết quả ghi nhận.
+      try {
+        const fresh = await buildLiveTrip(tripId);
+        setState((s) => ({ trips: s.trips.map((x) => (x.id === tripId ? { ...fresh.trip, handover: x.handover, handoverAttempts: x.handoverAttempts, handoverStatus: x.handoverStatus } : x)) }));
+      } catch (error) {
+        console.warn('[useDriver] Đã ghi mốc nhưng chưa làm mới được chuyến:', error);
+      }
     } else {
       updateTrip(tripId, (x) => ({ ...x, milestones: [...x.milestones, m], status: n.type === 'DEPARTED' ? 'IN_TRANSIT' : x.status }));
     }
@@ -278,18 +287,23 @@ const actions = {
   addIncidentPhoto: (p: Photo) => setState((s) => ({ incidentPhotos: [...s.incidentPhotos, p] })),
   removeIncidentPhoto: (i: number) => setState((s) => ({ incidentPhotos: s.incidentPhotos.filter((_, k) => k !== i) })),
 
-  async reportIncident(tripId: string, body: Omit<ReportIncidentRequestDto, 'photos' | 'location'> & { locationDetail: string; safe: boolean }): Promise<ActionResult> {
+  async reportIncident(tripId: string, body: Omit<ReportIncidentRequestDto, 'photos' | 'location' | 'locationCoordinates'> & { locationDetail: string; safe: boolean; ratio: number }): Promise<ActionResult> {
     const t = findTrip(tripId); if (!t || t.status === 'COMPLETED') return fail('Chỉ báo cáo sự cố cho chuyến đang hoạt động.');
     if (!body.type || !body.severity) return fail('Chọn loại và mức độ sự cố.');
     if (body.description.trim().length < 10) return fail('Mô tả sự việc ít nhất 10 ký tự.');
     if (!body.safe) return fail('Xác nhận người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu.');
-    const location = whereNow(t) + (body.locationDetail.trim() ? ' – ' + body.locationDetail.trim() : '');
+    const { a, b } = incidentSegment(t);
+    const point = a && b ? pointOnSegment(a, b, body.ratio) : null;
+    const location = incidentWhere(t, body.ratio) + (body.locationDetail.trim() ? ' – ' + body.locationDetail.trim() : '');
     const photos = state.incidentPhotos.map((p) => p.name);
-    await driverApi.reportIncident(tripId, { type: body.type, severity: body.severity, description: body.description.trim(), location, photos });
+    const locationCoordinates = point ? `${point.lat.toFixed(6)},${point.lng.toFixed(6)}` : undefined;
+    await driverApi.reportIncident(tripId, { type: body.type, severity: body.severity, description: body.description.trim(), location, locationCoordinates, photos });
     const inc: Incident = {
       id: `INC-${String(Date.now()).slice(-4)}`, tripId, type: body.type, severity: body.severity, status: 'NEW',
-      at: nowStamp(), by: state.userId, location, description: body.description.trim(), photos,
+      at: nowStamp(), by: state.userId, location, lat: point?.lat, lng: point?.lng, description: body.description.trim(), photos,
     };
+    saveSharedIncident(inc as any);
+    if (point) saveIncidentPin({ id: inc.id, tripId, label: INCIDENT_TYPE_LABEL[inc.type], lat: point.lat, lng: point.lng, where: location, description: inc.description, at: inc.at });
     setState((s) => ({ incidents: [inc, ...s.incidents], incidentPhotos: [] }));
     return ok(`Đã gửi báo cáo ${INCIDENT_TYPE_LABEL[inc.type].toLowerCase()}. Manager, Coordinator và khách hàng đã được thông báo.`);
   },

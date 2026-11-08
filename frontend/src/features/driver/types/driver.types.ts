@@ -90,6 +90,7 @@ export interface RouteStop {
   plannedAt: string; // 'YYYY-MM-DD HH:mm'
   lat?: number;
   lng?: number;
+  requiresHealthCheck?: boolean;
 }
 
 export interface Milestone {
@@ -165,6 +166,9 @@ export interface Incident {
   at: string;
   by: string;
   location: string;
+  /** Tọa độ do tài xế chọn trên đoạn đường giữa hai trạm */
+  lat?: number;
+  lng?: number;
   description: string;
   photos: string[];
   approvedPlan?: string;
@@ -267,6 +271,8 @@ export interface ReportIncidentRequestDto {
   type: IncidentType;
   severity: IncidentSeverity;
   location: string;
+  /** "lat,lng" — backend lưu vào INCIDENT.LocationCoordinates */
+  locationCoordinates?: string;
   description: string;
   photos: string[];
 }
@@ -311,4 +317,5 @@ export interface NextMilestone {
   /** Đang chờ Specialist ghi kết quả thông quan */
   blocked?: boolean;
   clearance?: Clearance;
+  healthCheckRequired?: boolean;
 }

@@ -110,7 +110,7 @@ public sealed class RequestSubmissionTests(SqlFixture database) : IClassFixture<
     {
         using var factory=new ApiFactory(database);using var client=factory.Customer();
         var day=DateTime.UtcNow.AddDays(120).Date;
-        var input=SubmissionTest.Input(day.ToString("yyyy-MM-dd"),day.AddDays(2).ToString("yyyy-MM-dd"),"HORSE_003");
+        var input=SubmissionTest.Input(day.ToString("yyyy-MM-dd"),day.AddDays(2).ToString("yyyy-MM-dd"),"HORSE_005");
         client.DefaultRequestHeaders.Add("Idempotency-Key",Guid.NewGuid().ToString());
         await using var db=database.Context();var count=await db.Set<TransportRequest>().CountAsync();
         Assert.Equal(HttpStatusCode.NotFound,(await client.PostAsync("/api/customer/requests",SubmissionTest.Body(input))).StatusCode);

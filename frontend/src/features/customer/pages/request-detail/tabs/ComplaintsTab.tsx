@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { ComplaintStatus, TransportRequest } from '../../../types';
+import type { TransportRequest } from '../../../types';
 import { useCustomer } from '../../../hooks/useCustomer';
 import { canComplain, fmtDateTime } from '../../../hooks/customerRules';
 import { COMPLAINT_TYPE_LABEL, ComplaintModal } from '../../../components/Modals';
@@ -9,7 +9,10 @@ import { generateUuidV4 } from '../../../../../shared/utils/uuid';
 import { flow6Api } from '../../../../aftercare/api/flow6Api';
 import type * as T6 from '../../../../aftercare/types/flow6.types';
 
-const STATUS: Record<ComplaintStatus, [string, BadgeTone]> = {
+const STATUS: Record<string, [string, BadgeTone]> = {
+  NEW: ['Mới gửi', 'warn'],
+  PROPOSED: ['Chờ xác nhận', 'warn'],
+  ESCALATED: ['Chuyển cấp', 'bad'],
   OPEN: ['Mới gửi', 'warn'],
   IN_PROGRESS: ['Đang xử lý', 'info'],
   RESOLVED: ['Đã giải quyết', 'ok'],
@@ -29,7 +32,7 @@ const MockComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
           </button>
         )}
       </h3>
-      {r.complaints.length === 0 ? (
+      {(r.complaints || []).length === 0 ? (
         <p className="cus-empty">
           {canComplain(r)
             ? 'Bạn có thể gửi khiếu nại trong hạn chung 24 giờ kể từ khi bàn giao.'
@@ -37,7 +40,7 @@ const MockComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
         </p>
       ) : (
         <ul className="cus-complaint-list">
-          {[...r.complaints].reverse().map((c) => (
+          {[...(r.complaints || [])].reverse().map((c) => (
             <li key={c.id}>
               <div>
                 <b>{c.id} • {c.title}</b>
@@ -45,7 +48,7 @@ const MockComplaintsTab: React.FC<{ request: TransportRequest }> = ({ request: r
                 <p>{c.description}</p>
                 {c.response && <p><b style={{ display: 'inline' }}>Phản hồi:</b> {c.response}</p>}
               </div>
-              <TripStatusBadge label={STATUS[c.status][0]} tone={STATUS[c.status][1]} />
+              <TripStatusBadge label={STATUS[c.status]?.[0] || c.status} tone={STATUS[c.status]?.[1] || 'muted'} />
             </li>
           ))}
         </ul>

@@ -18,13 +18,24 @@ export const MilestoneModal: React.FC<MilestoneModalProps> = ({ trip, next, onCl
   const [error, setError] = useState('');
   const stop = trip.stops[next.stopIndex];
 
+  const [busy, setBusy] = useState(false);
+
   const submit = async () => {
-    const r = await onSubmit(at, note);
-    if (r.ok) onClose(); else setError(r.message);
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const r = await onSubmit(at, note);
+      if (r.ok) onClose(); else setError(r.message);
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : 'Không ghi nhận được mốc.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <Modal open title={MILESTONE_LABEL[next.type]} okText="Ghi nhận mốc" onOk={submit} onClose={onClose} okDisabled={!at} error={error}>
+    <Modal open title={MILESTONE_LABEL[next.type]} okText={busy ? 'Đang ghi nhận…' : 'Ghi nhận mốc'} onOk={submit} onClose={onClose} okDisabled={!at || busy} error={error}>
       <p><b>{stop?.name}</b>. Bạn ghi nhận thủ công; hệ thống không gửi vị trí GPS.</p>
       <div className="drv-field">
         <label htmlFor="drv-ms-at">Thời điểm *</label>

@@ -8,3 +8,131 @@
 .cus-terms { margin: 6px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.7; color: #334155; }
 .cus-rule-list { margin: 0 0 8px; padding-left: 18px; line-height: 1.7; font-size: 13px; color: #334155; }
 .cus-bad { color: #b91c1c; }
+
+/* Interactive Horse Item Link */
+.cus-contract__horse-link {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  background: none;
+  border: 1px solid transparent;
+  padding: 3px 8px;
+  margin: -3px -8px;
+  border-radius: 6px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+.cus-contract__horse-link:hover {
+  background: var(--bg-surface-secondary, #f1f5f9);
+  border-color: var(--border-color, #cbd5e1);
+}
+.cus-contract__horse-link:hover .cus-contract__horse-name {
+  color: var(--accent-primary, #ea580c);
+  text-decoration: underline;
+}
+.cus-contract__horse-name {
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+.cus-contract__horse-meta {
+  color: var(--text-secondary, #64748b);
+}
+.cus-contract__horse-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-primary, #ea580c);
+  background: rgba(234, 88, 12, 0.08);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Horse list section matching reference design */
+.cus-contract__horses-block {
+  margin-top: 14px;
+}
+.cus-contract__horses-title {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #64748b);
+}
+.cus-contract__horses-list {
+  display: flex;
+  flex-direction: column;
+}
+.cus-contract__horse-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  padding: 10px 4px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.15s ease;
+  font-family: inherit;
+}
+.cus-contract__horse-row:hover {
+  background-color: var(--bg-surface-secondary, #f8fafc);
+}
+.cus-contract__horse-row-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  line-height: 1.4;
+}
+.cus-contract__horse-row:hover .cus-contract__horse-row-name {
+  color: var(--accent-primary, #ea580c);
+}
+.cus-contract__horse-row-meta {
+  font-size: 13px;
+  color: var(--text-secondary, #64748b);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+/* Modal Popup 4-card 2x2 layout matching reference */
+.cus-modal__box--horse-popup {
+  max-width: 900px !important;
+  width: 95vw;
+}
+.cus-horse-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+@media (max-width: 768px) {
+  .cus-horse-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* File row inside horse cards */
+.cus-hd__file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color, #f1f5f9);
+  font-size: 13px;
+}
+.cus-hd__file > span {
+  color: var(--text-secondary, #64748b);
+  min-width: 140px;
+}
+.cus-hd__file b {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+}

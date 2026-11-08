@@ -15,6 +15,7 @@ public static class ProviderRegistration
     public static IServiceCollection AddFlow1Providers(this IServiceCollection services,IConfiguration config,IHostEnvironment environment)
     {
         services.AddSingleton(config.GetSection("Flow1:Vnpay").Get<Flow1VnpayOptions>() ?? new());
+        services.AddHttpContextAccessor();
         services.AddSingleton<IPaymentGateway, VnpaySandboxGateway>();
         // Resolve deposits whose IPN never arrived (not in automated tests, which control time and providers).
         if (!environment.IsEnvironment("Testing"))

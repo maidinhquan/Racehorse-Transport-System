@@ -9,7 +9,7 @@ using Domain.Flow1.Entities;
 using Domain.Enums;
 using static Application.Flow1.Rules.BusinessRules;
 namespace Application.Flow1.Services;
-public sealed class RequestService(IDataSession data, AccessService access, CatalogService catalogs, RequestSchedulePolicy schedule,
+public sealed class RequestService(IDataSession data, AccessService access, CatalogService catalogs, PolicyService policies, RequestSchedulePolicy schedule,
     TimeProvider clock, RequestAssessmentService assessments, ILocationVerifier? locations = null)
 {
     public async Task<object> DetailAsync(string actor, string id, bool manager, CancellationToken ct)
@@ -162,6 +162,10 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         row.OriginCountry = input.OriginCountry; row.DestinationCountry = input.DestinationCountry;
         Require(DateTime.TryParseExact(input.ExpectedDeliveryDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var endDate)
             && endDate >= date, "VALIDATION_ERROR", "expectedDeliveryDate must be yyyy-MM-dd and on or after expectedTransportDate.", 400);
+        // Thời gian vận chuyển tối thiểu theo tuyến: chặn ngay từ lúc tạo yêu cầu để không phải sửa sau khi đã cọc và ký hợp đồng.
+        var minTransitDays = (int)await policies.NumberOrDefaultAsync("MIN_TRANSIT_DAYS", "DAY", input.DestinationCountry, input.Mode, 0, 30, true, 0, ct);
+        Require(endDate >= date.AddDays(minTransitDays), "VALIDATION_ERROR",
+            $"Tuyến này cần ít nhất {minTransitDays} ngày vận chuyển: ngày giao sớm nhất là {date.AddDays(minTransitDays):dd/MM/yyyy}.", 400);
         row.TransportType = input.Mode; row.ExpectedDate = DateTime.SpecifyKind(date, DateTimeKind.Utc);
         row.CommittedDeadline = DateTime.SpecifyKind(endDate, DateTimeKind.Utc);
         row.CareInstructions = input.CareInstructions;

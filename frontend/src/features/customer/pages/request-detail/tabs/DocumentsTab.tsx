@@ -56,15 +56,6 @@ export const DocumentsTab: React.FC<{ request: TransportRequest }> = ({ request:
         )}
       </div>
       <div className="cus-stack">
-        <div className="cus-card">
-          <div className="cus-eyebrow">Quy tắc giấy tờ</div>
-          <ul className="cus-rule-list" style={{ marginTop: 8 }}>
-            <li>Trước khi gửi yêu cầu cần có: số microchip, số hộ chiếu, bản scan hộ chiếu và chứng nhận sở hữu của từng ngựa.</li>
-            <li>Giấy tờ bị từ chối hiển thị lý do; tải tệp mới sẽ gửi lại cho Specialist kiểm duyệt.</li>
-            <li>Khi Specialist yêu cầu bổ sung, nộp đúng giấy tờ được yêu cầu để đóng yêu cầu bổ sung.</li>
-            <li>Tệp tải lên cho ngựa cũng được lưu vào “Ngựa của tôi” nếu hồ sơ ngựa chưa có.</li>
-          </ul>
-        </div>
         <DemoPanel request={r} />
       </div>
     </div>

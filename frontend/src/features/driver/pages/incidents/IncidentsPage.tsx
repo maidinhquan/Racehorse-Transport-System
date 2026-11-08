@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DriverLayout, Icon } from '../../components/DriverLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
+import { IncidentLocationPicker } from '../../components/IncidentLocationPicker/IncidentLocationPicker';
 import { PhotoPicker } from '../../components/PhotoPicker/PhotoPicker';
 import { useDriver } from '../../hooks/useDriver';
-import { INCIDENT_TYPE_LABEL, SEVERITY_LABEL, fmtDateTime, nowStamp, whereNow } from '../../hooks/driverRules';
+import { INCIDENT_TYPE_LABEL, SEVERITY_LABEL, defaultSegmentRatio, fmtDateTime, incidentWhere, nowStamp, segmentPickable } from '../../hooks/driverRules';
 import type { IncidentSeverity, IncidentType, Trip } from '../../types';
 import './IncidentsPage.css';
 
@@ -17,6 +18,8 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
   const [type, setType] = useState<IncidentType | ''>('');
   const [severity, setSeverity] = useState<IncidentSeverity | ''>('');
   const [locationDetail, setLocationDetail] = useState('');
+  const [ratio, setRatio] = useState(() => defaultSegmentRatio(trip));
+  const pickable = segmentPickable(trip);
   const [description, setDescription] = useState('');
   const [safe, setSafe] = useState(false);
   const [error, setError] = useState('');
@@ -25,10 +28,10 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
   const send = async () => {
     if (!type || !severity) { setError('Chọn loại và mức độ sự cố.'); return; }
     setSending(true);
-    const r = await actions.reportIncident(trip.id, { type, severity, description, locationDetail, safe });
+    const r = await actions.reportIncident(trip.id, { type, severity, description, locationDetail, safe, ratio: pickable ? ratio : 0 });
     setSending(false);
     if (!r.ok) { setError(r.message); return; }
-    setError(''); setType(''); setSeverity(''); setLocationDetail(''); setDescription(''); setSafe(false);
+    setError(''); setType(''); setSeverity(''); setLocationDetail(''); setDescription(''); setSafe(false); setRatio(defaultSegmentRatio(trip));
   };
 
   return (
@@ -56,9 +59,9 @@ const ReportForm: React.FC<{ trip: Trip }> = ({ trip }) => {
       </div>
       <div className="drv-inc-where">
         <div><span>Thời điểm</span><b>{fmtDateTime(nowStamp())}</b></div>
-        <div><span>Vị trí</span><b>{whereNow(trip)}</b></div>
-        <small>Tự lấy theo thời điểm báo cáo và mốc gần nhất: đang ở trạm thì ghi trạm, đang chạy thì ghi đoạn tuyến.</small>
+        <div><span>Vị trí</span><b>{incidentWhere(trip, pickable ? ratio : 0)}</b></div>
       </div>
+      {pickable && <IncidentLocationPicker trip={trip} ratio={ratio} onChange={setRatio} />}
       <div className="drv-field">
         <label htmlFor="inc-loc">Chi tiết vị trí (không bắt buộc)</label>
         <input id="inc-loc" className="drv-input" value={locationDetail} onChange={(e) => setLocationDetail(e.target.value)} placeholder="VD: km 42, gần cây xăng Petrolimex" />
@@ -108,7 +111,7 @@ export const IncidentsPage: React.FC = () => {
             )}
           </div>
           <div className="drv-grid2">
-            <ReportForm trip={trip} />
+            <ReportForm key={trip.id} trip={trip} />
             <div className="drv-card">
               <h3 className="drv-card__title">Sự cố của chuyến này</h3>
               {list.length ? list.map((i) => (

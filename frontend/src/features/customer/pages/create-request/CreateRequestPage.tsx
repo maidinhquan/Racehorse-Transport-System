@@ -7,7 +7,7 @@ import { RequestPlacesFields, type RequestPlaces } from '../../components/Reques
 import { Note } from '../../components/Common/Common';
 import { useCustomer } from '../../hooks/useCustomer';
 import type { RequestField, TripInfoInput } from '../../types';
-import { FIELD_LABEL, addDays, city, emptyPlace, fmtDate, isSupportedRoute, today } from '../../hooks/customerRules';
+import { FIELD_LABEL, addDays, city, displayRequestId, emptyPlace, fmtDate, isSupportedRoute, today } from '../../hooks/customerRules';
 import { customerApi } from '../../api/customerApi';
 import type { FormOptions } from '../../../../shared/api/contractClient';
 import './CreateRequestPage.css';
@@ -47,12 +47,15 @@ export const CreateRequestPage: React.FC = () => {
   const allowed: RequestField[] = revising ? r?.revisionFields ?? ['route', 'date', 'places', 'horses', 'notes'] : ['route', 'date', 'places', 'horses', 'notes'];
   const lock = (field: RequestField) => !allowed.includes(field);
   const deadlineDays = Math.max(2, Math.ceil((options?.contractDeadlineHours ?? 24) / 24) + 1);
-  const minLeadDays = options?.minimumPickupLeadDays ?? ((options?.preparationDays ?? 0) + deadlineDays);
+  const prepDays = options?.preparationDays ?? (city(form.destination).country === 'JP' ? 7 : 3);
+  const minLeadDays = options?.minimumPickupLeadDays ?? (prepDays + deadlineDays);
   const minDate = options?.earliestPickupDate ?? addDays(today(), minLeadDays);
-  const routeEnabled = options?.supportedRoutes?.some(route => route.originCountry === city(form.origin).country && route.destinationCountry === city(form.destination).country && route.mode === (city(form.destination).country === 'JP' ? 'AIR' : 'ROAD')) ?? false;
+  const minTransitDays = options?.minTransitDays ?? (city(form.destination).country === 'JP' ? 2 : 0);
   const pickupDate = form.pickupAt || form.date;
+  const minDeliveryDate = addDays(pickupDate || minDate, minTransitDays);
+  const routeEnabled = options?.supportedRoutes?.some(route => route.originCountry === city(form.origin).country && route.destinationCountry === city(form.destination).country && route.mode === (city(form.destination).country === 'JP' ? 'AIR' : 'ROAD')) ?? false;
   const tripValid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!pickupDate
-    && pickupDate >= minDate && !!form.date && form.date >= pickupDate;
+    && pickupDate >= minDate && !!form.date && form.date >= pickupDate && form.date >= minDeliveryDate;
   const placeValid = Object.values(places).every(p => p.name.trim() && p.address.trim() && p.contact.trim() && /^[+0-9 ()-]{8,}$/.test(p.phone.trim()) && p.cityId && p.latitude != null && p.longitude != null);
   const hint = !form.origin || !form.destination ? 'Chọn thành phố trong địa chỉ nhận và giao ngựa.'
     : form.origin === form.destination ? 'Thành phố nhận và giao phải khác nhau.'
@@ -61,7 +64,9 @@ export const CreateRequestPage: React.FC = () => {
     : !routeEnabled ? 'Tuyến này hiện chưa nhận yêu cầu vận chuyển.'
     : !pickupDate ? 'Chọn ngày nhận ngựa.'
     : pickupDate < minDate ? `Ngày nhận ngựa sớm nhất là ${fmtDate(minDate)} (còn ${minLeadDays} ngày để xét duyệt, hoàn tất hợp đồng và chuẩn bị).`
-    : !form.date || form.date < pickupDate ? 'Chọn ngày giao ngựa từ ngày nhận trở đi.' : '');
+    : !form.date ? 'Chọn ngày giao ngựa.'
+    : form.date < pickupDate ? 'Ngày giao ngựa phải từ ngày nhận trở đi.'
+    : form.date < minDeliveryDate ? `Tuyến này cần ít nhất ${minTransitDays} ngày vận chuyển, ngày giao sớm nhất là ${fmtDate(minDeliveryDate)}.` : '');
   const loadingOptions = !options && !optionsError && isSupportedRoute(form.origin, form.destination);
   const back = r ? `/customer/requests/${r.id}` : '/customer/requests';
   const save = async () => {
@@ -104,8 +109,8 @@ export const CreateRequestPage: React.FC = () => {
   };
 
   return <CustomerLayout title="Yêu cầu vận chuyển"><div className="cus-create-flow">
-    <button type="button" className="cus-back" onClick={() => navigate(back)}><Icon name="back" />{r ? `Quay lại ${r.id}` : 'Yêu cầu vận chuyển'}</button>
-    <h2 className="cus-title">{revising ? `Sửa yêu cầu ${r!.id}` : 'Tạo yêu cầu vận chuyển'}</h2>
+    <button type="button" className="cus-back" onClick={() => navigate(back)}><Icon name="back" />{r ? `Quay lại ${displayRequestId(r.id)}` : 'Yêu cầu vận chuyển'}</button>
+    <h2 className="cus-title">{revising ? `Sửa yêu cầu ${displayRequestId(r!.id)}` : 'Tạo yêu cầu vận chuyển'}</h2>
     <p className="cus-subtitle">Nhập nơi nhận, nơi giao và ngày vận chuyển. Thông tin từng ngựa được khai báo ở bước tiếp theo.</p>
     <WizardStepper request={r ?? null} current={0} />
     {revising && r?.feedback && <Note tone="yellow" title="Góp ý của Manager">{r.feedback}<p>Được phép sửa: {allowed.map(field => FIELD_LABEL[field]).join(', ')}</p></Note>}
@@ -127,7 +132,7 @@ export const CreateRequestPage: React.FC = () => {
               min={minDate}
               disabled={lock('date') || saving}
               invalid={tried && (!form.pickupAt && !form.date)}
-              onChange={pickupAt => setForm(f => ({ ...f, pickupAt, date: f.date && f.date >= pickupAt ? f.date : pickupAt }))}
+              onChange={pickupAt => setForm(f => ({ ...f, pickupAt, date: f.date && f.date >= addDays(pickupAt, minTransitDays) ? f.date : addDays(pickupAt, minTransitDays) }))}
             />
           </div>
           <div className="cus-field cus-create__date-col">
@@ -136,13 +141,14 @@ export const CreateRequestPage: React.FC = () => {
               id="cr-date"
               ariaLabel="Ngày vận chuyển mong muốn"
               value={form.date}
-              min={form.pickupAt || minDate}
+              min={minDeliveryDate}
               disabled={lock('date') || saving}
-              invalid={tried && (!form.date || form.date < minDate)}
+              invalid={tried && (!form.date || form.date < minDate || form.date < minDeliveryDate)}
               onChange={date => setForm(f => ({ ...f, date, pickupAt: f.pickupAt || date }))}
             />
           </div>
         </div>
+        {minTransitDays > 0 && <p className="cus-muted">Tuyến này cần ít nhất {minTransitDays} ngày vận chuyển: ngày giao phải sau ngày lấy tối thiểu {minTransitDays} ngày.</p>}
       </section>
       <p className="cus-create__required">Các trường có dấu * là bắt buộc.</p>
       <RequestPlacesFields places={places} origin={form.origin} destination={form.destination} tried={tried} locked={lock}

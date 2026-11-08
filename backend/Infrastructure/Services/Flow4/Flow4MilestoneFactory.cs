@@ -7,7 +7,8 @@ namespace Infrastructure.Services.Flow4;
 
 /// <summary>
 /// Sinh các mốc hành trình (Flow 4) từ phương án tuyến mà Điều phối đã gửi và Manager đã duyệt (TRIP_PLAN.ApprovedPlanJson),
-/// để tài xế thấy đúng lịch trình và tọa độ các điểm dừng. Hiện chỉ hỗ trợ tuyến đường bộ; chuyến hàng không giữ nguyên.
+/// để tài xế thấy đúng lịch trình và tọa độ các điểm dừng. Mỗi trạm dừng/chốt kiểm soát có cả mốc đến và mốc rời đi tuần tự.
+/// Hiện chỉ hỗ trợ tuyến đường bộ; chuyến hàng không giữ nguyên.
 /// </summary>
 public static class Flow4MilestoneFactory
 {
@@ -31,19 +32,13 @@ public static class Flow4MilestoneFactory
 
             var count = stops.GetArrayLength();
             var index = 0;
+            var seq = 0;
             foreach (var stop in stops.EnumerateArray())
             {
                 var type = stop.TryGetProperty("type", out var t) ? t.GetString() ?? "" : "";
                 var name = stop.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
                 var last = index == count - 1;
-                var kind = index == 0 ? "DEPARTED" : last ? "FINAL_ARRIVED" : CheckpointTypes.Contains(type) ? "CHECKPOINT_ARRIVED" : "STOP_ARRIVED";
-                var label = kind switch
-                {
-                    "DEPARTED" => $"Xuất phát từ {name}",
-                    "FINAL_ARRIVED" => $"Đến điểm giao {name}",
-                    "CHECKPOINT_ARRIVED" => $"Đến chốt kiểm soát {name}",
-                    _ => $"Đến trạm dừng {name}",
-                };
+
                 decimal? lat = null, lng = null;
                 if (stop.TryGetProperty("geo", out var geo) && geo.ValueKind == JsonValueKind.Object
                     && geo.TryGetProperty("lat", out var la) && la.TryGetDecimal(out var latValue)
@@ -51,24 +46,96 @@ public static class Flow4MilestoneFactory
                 {
                     lat = latValue; lng = lngValue;
                 }
-                var planned = stop.TryGetProperty("arriveAt", out var at) && DateTime.TryParse(at.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
-                    ? parsed : DateTime.UtcNow;
-                lastNumber++;
-                index++;
-                result.Add(new TripMilestone
+
+                var arrivePlanned = stop.TryGetProperty("arriveAt", out var at) && DateTime.TryParse(at.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedArrive)
+                    ? parsedArrive : DateTime.UtcNow;
+                var departPlanned = stop.TryGetProperty("departAt", out var dt) && DateTime.TryParse(dt.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDepart)
+                    ? parsedDepart : arrivePlanned.AddMinutes(30);
+
+                if (index == 0)
                 {
-                    MilestoneId = "MILESTONE_" + lastNumber.ToString("000", CultureInfo.InvariantCulture),
-                    TripId = trip.TripId,
-                    Leg = "road",
-                    MilestoneKind = kind,
-                    SequenceOrder = index,
-                    Label = label.Length > 255 ? label[..255] : label,
-                    Status = "PENDING",
-                    PlannedTime = planned,
-                    RequiresHealthCheck = kind == "STOP_ARRIVED",
-                    Latitude = lat,
-                    Longitude = lng,
-                });
+                    lastNumber++;
+                    seq++;
+                    result.Add(new TripMilestone
+                    {
+                        MilestoneId = "MILESTONE_" + lastNumber.ToString("000", CultureInfo.InvariantCulture),
+                        TripId = trip.TripId,
+                        Leg = "road",
+                        MilestoneKind = "DEPARTED",
+                        SequenceOrder = seq,
+                        Label = $"Xuất phát từ {name}",
+                        Status = "PENDING",
+                        PlannedTime = arrivePlanned,
+                        RequiresHealthCheck = false,
+                        Latitude = lat,
+                        Longitude = lng,
+                    });
+                }
+                else if (last)
+                {
+                    lastNumber++;
+                    seq++;
+                    result.Add(new TripMilestone
+                    {
+                        MilestoneId = "MILESTONE_" + lastNumber.ToString("000", CultureInfo.InvariantCulture),
+                        TripId = trip.TripId,
+                        Leg = "road",
+                        MilestoneKind = "FINAL_ARRIVED",
+                        SequenceOrder = seq,
+                        Label = $"Đến điểm giao {name}",
+                        Status = "PENDING",
+                        PlannedTime = arrivePlanned,
+                        RequiresHealthCheck = false,
+                        Latitude = lat,
+                        Longitude = lng,
+                    });
+                }
+                else
+                {
+                    var isCheckpoint = CheckpointTypes.Contains(type);
+                    var arriveKind = isCheckpoint ? "CHECKPOINT_ARRIVED" : "STOP_ARRIVED";
+                    var departKind = isCheckpoint ? "CHECKPOINT_DEPARTED" : "STOP_DEPARTED";
+                    var arriveLabel = isCheckpoint ? $"Đến chốt kiểm soát {name}" : $"Đến trạm dừng {name}";
+                    var departLabel = isCheckpoint ? $"Rời chốt kiểm soát {name}" : $"Rời trạm dừng {name}";
+
+                    // 1. Đến trạm dừng / chốt kiểm soát
+                    lastNumber++;
+                    seq++;
+                    result.Add(new TripMilestone
+                    {
+                        MilestoneId = "MILESTONE_" + lastNumber.ToString("000", CultureInfo.InvariantCulture),
+                        TripId = trip.TripId,
+                        Leg = "road",
+                        MilestoneKind = arriveKind,
+                        SequenceOrder = seq,
+                        Label = arriveLabel.Length > 255 ? arriveLabel[..255] : arriveLabel,
+                        Status = "PENDING",
+                        PlannedTime = arrivePlanned,
+                        RequiresHealthCheck = arriveKind == "STOP_ARRIVED",
+                        Latitude = lat,
+                        Longitude = lng,
+                    });
+
+                    // 2. Rời trạm dừng / chốt kiểm soát
+                    lastNumber++;
+                    seq++;
+                    result.Add(new TripMilestone
+                    {
+                        MilestoneId = "MILESTONE_" + lastNumber.ToString("000", CultureInfo.InvariantCulture),
+                        TripId = trip.TripId,
+                        Leg = "road",
+                        MilestoneKind = departKind,
+                        SequenceOrder = seq,
+                        Label = departLabel.Length > 255 ? departLabel[..255] : departLabel,
+                        Status = "PENDING",
+                        PlannedTime = departPlanned,
+                        RequiresHealthCheck = false,
+                        Latitude = lat,
+                        Longitude = lng,
+                    });
+                }
+
+                index++;
             }
         }
         catch (JsonException)

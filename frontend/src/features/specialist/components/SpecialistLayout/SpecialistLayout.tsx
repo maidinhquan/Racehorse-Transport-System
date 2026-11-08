@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { DemoDataToggle, ThemeToggle } from '../../../../shared/components';
+import { ThemeToggle } from '../../../../shared/components';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { SPECIALIST_INITIALS, SPECIALIST_NAME } from '../../data/mockData';
+import { useSharedIncidents } from '../../../../shared/utils/sharedIncidents';
 import './SpecialistLayout.css';
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,8 @@ interface SpecialistLayoutProps {
 export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, children }) => {
   const navigate = useNavigate();
   const { trips, toast, actions } = useSpecialist();
+  const incidents = useSharedIncidents();
+  const unreviewedIncidents = incidents.filter((i) => !i.complianceReview).length;
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -83,6 +86,13 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
       count: trips.length,
       countTooltip: `${trips.length} chuyến được giao phụ trách`,
     },
+    {
+      to: '/specialist/incidents',
+      label: 'Sự cố',
+      icon: 'alert',
+      count: unreviewedIncidents > 0 ? unreviewedIncidents : incidents.length > 0 ? incidents.length : undefined,
+      countTooltip: unreviewedIncidents > 0 ? `${unreviewedIncidents} sự cố cần rà soát pháp lý` : `${incidents.length} sự cố`,
+    },
     { to: '/specialist/regulations', label: 'Quy định & thiết lập', icon: 'list' },
     { to: '/specialist/audit', label: 'Lịch sử thao tác', icon: 'clock' },
   ];
@@ -117,7 +127,6 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
         <header className="spc-topbar">
           <h1>{title}</h1>
           <div className="spc-topbar__user">
-            <DemoDataToggle role="specialist" />
             <ThemeToggle showLabel={false} />
             <button type="button" className="spc-icon-btn" aria-label="Thông báo"><Icon name="bell" /></button>
             

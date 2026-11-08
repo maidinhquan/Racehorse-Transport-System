@@ -1,20 +1,10 @@
 // Chi tiết chuyến của Điều phối: Tổng quan • Tuyến đường (lập lộ trình) • Xe & nhân sự • Chuyến bay • Theo dõi hành trình
-import { Cell, PillT } from '../../../components/common/ui';
+import { Cell } from '../../../components/common/ui';
 import { DemoCard } from '../../../components/demo/Demo';
-import { curRoute, custOf, deployed, deployPill, planPill, planState, reqOfTrip, resourceGaps, resourcePill, routePill, tripHorses, tripNextAction } from '../../../domain/coordinatorRules';
+import { custOf, reqOfTrip, tripHorses } from '../../../domain/coordinatorRules';
 import type { Any } from '../../../store/coordinatorStore';
-import { go } from '../../../store/coordinatorStore';
 import { city, date, dt, human } from '../../../utils/format';
 
-const NEXT_STEP: Record<string, (t: Any) => string> = {
-  AWAITING_DEPLOYMENT: () => 'Đang chờ Quản lý vận hành xác nhận triển khai. Việc lập kế hoạch chính thức bắt đầu sau đó.',
-  ON_HOLD: () => 'Triển khai đang tạm dừng. Kế hoạch hiện có được giữ ở chế độ chỉ xem cho đến khi Quản lý tiếp tục triển khai.',
-  AWAITING_ROUTE: (t) => (curRoute(t) ? `Lưu tuyến phiên bản ${curRoute(t).v}, phân công xe và nhân sự rồi gửi Quản lý duyệt.` : 'Bắt đầu lập tuyến.'),
-  ROUTE_PENDING: (t) => `Tuyến phiên bản ${curRoute(t) ? curRoute(t).v : ''} đang chờ Quản lý quyết định.`,
-  ROUTE_RETURNED: () => 'Quản lý đã trả lại tuyến. Hãy đọc nhận xét và tạo phiên bản chỉnh sửa.',
-  MISSING_RESOURCES: (t) => `Phân công nguồn lực còn thiếu: ${resourceGaps(t).join(', ')}.`,
-  PLANNED: () => 'Tuyến đã được duyệt và nguồn lực đã được phân công. Việc duyệt khởi hành do Quản lý quyết định.',
-};
 
 const COUNTRY_NAMES: Record<string, string> = {
   VN: 'Việt Nam (VN)',
@@ -30,7 +20,7 @@ const COUNTRY_NAMES: Record<string, string> = {
 };
 
 export function OverviewTab({ t }: { t: Any }) {
-  const r = reqOfTrip(t), ps = planState(t);
+  const r = reqOfTrip(t);
   const cust = custOf(r);
 
   const pickupCountry = r.pickup?.country || city(r.origin)[1] || 'VN';
@@ -112,26 +102,6 @@ export function OverviewTab({ t }: { t: Any }) {
                 </div>
               ) : null}
             </div>
-          </div>
-
-          <div className="kv2" style={{ marginTop: 18 }}>
-            <Cell label="Triển khai"><PillT p={deployPill(t)} /></Cell>
-            <Cell label="Duyệt tuyến"><PillT p={routePill(t)} /></Cell>
-            <Cell label="Nguồn lực">{deployed(t) ? <PillT p={resourcePill(t)} /> : <span className="muted">Sau khi triển khai</span>}</Cell>
-            <Cell label="Lập kế hoạch"><PillT p={planPill(t)} /></Cell>
-          </div>
-        </div>
-
-        <div className="card">
-          <h3 className="card-title">Bước tiếp theo</h3>
-          <p className="subtitle">{NEXT_STEP[ps] ? NEXT_STEP[ps](t) : tripNextAction(t)}</p>
-          <div className="btn-row">
-            {['AWAITING_ROUTE', 'ROUTE_PENDING', 'ROUTE_RETURNED'].includes(ps) ? (
-              <button type="button" className="btn solid" onClick={() => go(`f/trip/${t.id}/route`)}>Mở tuyến</button>
-            ) : null}
-            {ps === 'MISSING_RESOURCES' ? (
-              <button type="button" className="btn solid" onClick={() => go(`f/trip/${t.id}/resources`)}>Phân công nguồn lực</button>
-            ) : null}
           </div>
         </div>
       </div>

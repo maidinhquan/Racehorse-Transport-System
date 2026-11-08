@@ -1,9 +1,13 @@
-namespace Application.DTOs.Flow5;
+﻿namespace Application.DTOs.Flow5;
 
 public class ReportIncidentInputDto
 {
     public string? TripId { get; set; }
-    public string Category { get; set; } = null!; // VEHICLE_RESOURCE, DELAY_AIR, HORSE_HEALTH, OTHER
+    public string? Category { get; set; }
+    public string? Type { get; set; }
+    public string? Severity { get; set; }
+    public string? Location { get; set; }
+    public List<string>? Photos { get; set; }
     public string? Description { get; set; }
     public string? ImmediateCare { get; set; }
     public string? LocationCoordinates { get; set; }

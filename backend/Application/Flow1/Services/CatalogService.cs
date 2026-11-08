@@ -26,6 +26,7 @@ public sealed class CatalogService(IDataSession data, PolicyService policies, Re
             originCountry = r.OriginCountry, destinationCountry = r.DestinationCountry, mode = r.TransportMode }).ToArray(),
             preparationDays = mode is not null && schedule is not null ? await schedule.PreparationAsync(mode, ct)
                 : await policies.NumberAsync("MIN_PREPARATION_DAYS", "DAY", destination, mode, 0, null, true, ct),
+            minTransitDays = await policies.NumberOrDefaultAsync("MIN_TRANSIT_DAYS", "DAY", destination, mode, 0, 30, true, 0, ct),
             minimumPickupLeadDays = mode is not null && schedule is not null ? await schedule.MinimumLeadDaysAsync(mode, true, ct) : (int?)null,
             defaultDepositPct = await policies.NumberAsync("DEFAULT_DEPOSIT_PERCENT", "PERCENT", destination, mode, 1, 100, false, ct),
             contractDeadlineHours = await policies.NumberAsync("CONTRACT_DEADLINE_HOURS", "HOUR", destination, mode, 1, null, false, ct) };
@@ -42,6 +43,7 @@ public sealed class CatalogService(IDataSession data, PolicyService policies, Re
             selectedRoute = new { id = route!.RouteID, originCountry = route.OriginCountry, destinationCountry = route.DestinationCountry, mode = route.TransportMode },
             preparationDays = mode is not null && schedule is not null ? await schedule.PreparationAsync(mode, ct)
                 : await policies.NumberAsync("MIN_PREPARATION_DAYS", "DAY", destination, mode, 0, null, true, ct),
+            minTransitDays = await policies.NumberOrDefaultAsync("MIN_TRANSIT_DAYS", "DAY", destination, mode, 0, 30, true, 0, ct),
             minimumPickupLeadDays = lead,
             earliestPickupDate = lead is int days ? DateOnly.FromDateTime(schedule!.Today(origin).AddDays(days)) : (DateOnly?)null,
             defaultDepositPct = await policies.NumberAsync("DEFAULT_DEPOSIT_PERCENT", "PERCENT", destination, mode, 1, 100, false, ct),

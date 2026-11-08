@@ -7,12 +7,11 @@ import { useCustomer } from '../../hooks/useCustomer';
 import { FilePreviewModal } from '../../components/Modals/FilePreviewModal';
 import type { FileRef } from '../../types';
 import {
-  DOC_NAME,
   PASSPORT_LABEL,
   SEX_LABEL,
+  displayRequestId,
   fmtDate,
   horseIssues,
-  horseLine,
   horseRequests,
   passportStatus,
 } from '../../hooks/customerRules';
@@ -37,7 +36,6 @@ export const HorseDetailPage: React.FC = () => {
       {file ? <><b>{file.name}</b><button type="button" className="cus-btn cus-btn--sm" onClick={() => setPreview({ file, title: label })}>Xem tệp</button></> : <TripStatusBadge label="Còn thiếu" tone="bad" />}
     </div>
   );
-  const reqDocs = used.flatMap((r) => r.docs.filter((d) => d.scope === h.id).map((d) => ({ r, d })));
 
   return (
     <CustomerLayout title="Ngựa của tôi">
@@ -55,7 +53,7 @@ export const HorseDetailPage: React.FC = () => {
         </div>
         <div style={{ flex: 1, minWidth: 200 }}>
           <h2 className="cus-title cus-detail__title">{h.name} <TripStatusBadge label={used.length ? 'Đã dùng trong yêu cầu' : 'Chưa dùng'} tone={used.length ? 'info' : 'muted'} /></h2>
-          <p className="cus-subtitle">{horseLine(h)} • {h.id}</p>
+          <p className="cus-subtitle">{h.id}</p>
         </div>
         <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(`/customer/horses/${h.id}/edit`)}>Chỉnh sửa hồ sơ</button>
       </div>
@@ -100,37 +98,13 @@ export const HorseDetailPage: React.FC = () => {
             {fileRow('Bằng chứng định giá', h.valueProof)}
           </div>
           <div className="cus-card">
-            <h3 className="cus-card__title">Tiêm ngừa, sức khỏe & bác sĩ thú y</h3>
+            <h3 className="cus-card__title">Tiêm ngừa & sức khỏe</h3>
             <div className="cus-kv">
               <div><span>Tiêm cúm gần nhất</span><b>{fmtDate(h.fluDate)}</b></div>
               <div><span>Ghi chú sức khỏe</span><b>{h.conditions || 'Không khai báo'}</b></div>
-              <div><span>Bác sĩ thú y</span><b>{h.vetName || '—'}</b></div>
-              <div><span>Điện thoại bác sĩ</span><b>{h.vetPhone || '—'}</b></div>
             </div>
             {fileRow('Sổ tiêm ngừa', h.flu)}
             {fileRow('Giấy chứng nhận sức khỏe', h.health)}
-          </div>
-          <div className="cus-card" style={{ gridColumn: '1 / -1' }}>
-            <h3 className="cus-card__title">Trạng thái giấy tờ theo từng yêu cầu</h3>
-            <p className="cus-subtitle" style={{ marginTop: -6, marginBottom: 10 }}>Mỗi yêu cầu được Specialist kiểm duyệt độc lập; trạng thái ở đây không phải phê duyệt tự động.</p>
-            {reqDocs.length ? (
-              <div className="cus-table-wrap">
-                <table className="cus-table">
-                  <thead><tr><th>Giấy tờ</th><th>Yêu cầu</th><th>Tệp</th><th>Trạng thái</th><th>Ghi chú kiểm duyệt</th></tr></thead>
-                  <tbody>
-                    {reqDocs.map(({ r, d }) => (
-                      <tr key={`${r.id}-${d.key}`} className="clickable" onClick={() => navigate(`/customer/requests/${r.id}/documents`)}>
-                        <td><b>{DOC_NAME[d.key]}</b></td>
-                        <td className="cus-id">{r.id}</td>
-                        <td>{d.file?.name ?? '—'}</td>
-                        <td><TripStatusBadge kind="doc" status={d.status} /></td>
-                        <td style={{ maxWidth: 260 }}>{d.issue ?? '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : <p className="cus-muted">Chưa có giấy tờ nào của ngựa này thuộc một yêu cầu vận chuyển.</p>}
           </div>
         </div>
       ) : (
@@ -141,7 +115,7 @@ export const HorseDetailPage: React.FC = () => {
               <tbody>
                 {used.map((r) => (
                   <tr key={r.id} className="clickable" onClick={() => navigate(`/customer/requests/${r.id}`)}>
-                    <td className="cus-id">{r.id}</td><td><RouteText r={r} /></td><td>{fmtDate(r.date)}</td><td><TripStatusBadge status={r.status} /></td>
+                    <td className="cus-id">{displayRequestId(r.id)}</td><td><RouteText r={r} /></td><td>{fmtDate(r.date)}</td><td><TripStatusBadge status={r.status} /></td>
                   </tr>
                 ))}
                 {!used.length && <tr><td colSpan={4} className="cus-empty">Ngựa chưa tham gia chuyến vận chuyển nào.</td></tr>}

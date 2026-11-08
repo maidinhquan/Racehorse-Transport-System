@@ -39,6 +39,7 @@ import type {
   Trip,
   TripStatus,
 } from '../types';
+import { cleanStopName } from '../../tracking/utils/progress';
 
 // ============================================================================
 // Đồng hồ chạy theo thời gian thực (đồng bộ với Backend C#)
@@ -83,9 +84,26 @@ export function timeLeft(s: string) {
 export const CITY_VI: Record<string, string> = {
   'Ho Chi Minh City': 'TP. Hồ Chí Minh', Hanoi: 'Hà Nội', 'Da Nang': 'Đà Nẵng', Tokyo: 'Tokyo', Osaka: 'Osaka', Bangkok: 'Bangkok', London: 'London', Dubai: 'Dubai',
 };
-const VN_CITIES = ['Ho Chi Minh City', 'Hanoi', 'Da Nang'];
-export const cityLabel = (c: string) => CITY_VI[c] ?? c;
-export const isInternational = (o: string, d: string) => !VN_CITIES.includes(o) || !VN_CITIES.includes(d);
+export const VN_CITIES = ['Ho Chi Minh City', 'Hanoi', 'Da Nang', 'TP. Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng'];
+
+export const cityLabel = (c?: string | null) => (c ? (CITY_VI[c] ?? c) : '—');
+
+export const isInternational = (o?: string | null, d?: string | null) => {
+  const text = `${o || ''} ${d || ''}`.toLowerCase();
+  return (
+    text.includes('tokyo') ||
+    text.includes('japan') ||
+    text.includes('nhật bản') ||
+    text.includes('osaka') ||
+    text.includes('narita') ||
+    text.includes('bangkok') ||
+    text.includes('thái lan') ||
+    text.includes('thailand') ||
+    text.includes('london') ||
+    text.includes('dubai') ||
+    text.includes('singapore')
+  );
+};
 export const routeText = (r?: Pick<TransportRequest, 'origin' | 'destination'> | null) =>
   r ? `${cityLabel(r.origin)} → ${cityLabel(r.destination)}` : '—';
 
@@ -112,7 +130,7 @@ export const FLIGHT_STATUS_LABEL: Record<FlightStatus, string> = { BUDGET_PENDIN
 export const STOP_TYPE_LABEL: Record<StopType, string> = {
   ORIGIN: 'Điểm nhận', REST_STOP: 'Trạm nghỉ', CHECKPOINT: 'Cửa khẩu / kiểm soát', AIRPORT: 'Sân bay', QUARANTINE_STATION: 'Trạm kiểm dịch', DESTINATION: 'Điểm giao',
 };
-export const MILESTONE_LABEL: Record<MilestoneType, string> = { DEPARTED: 'Xuất phát', ARRIVED_STOP: 'Đến điểm dừng', LEFT_STOP: 'Rời điểm dừng', ARRIVED_DESTINATION: 'Đến điểm giao' };
+export const MILESTONE_LABEL: Record<MilestoneType, string> = { DEPARTED: 'Xuất phát', ARRIVED_STOP: 'Đến điểm dừng', LEFT_STOP: 'Rời điểm dừng', ARRIVED_CHECKPOINT: 'Đến cửa khẩu / trạm', PASSED_CHECKPOINT: 'Qua cửa khẩu / trạm', ARRIVED_DESTINATION: 'Đến điểm giao' };
 export const INCIDENT_TYPE_LABEL: Record<IncidentType, string> = { DELAY: 'Chậm trễ', HORSE_HEALTH: 'Sức khỏe ngựa', VEHICLE: 'Sự cố xe', BORDER: 'Thông quan / cửa khẩu', OTHER: 'Khác' };
 export const SEVERITY_LABEL: Record<Severity, string> = { LOW: 'Thấp', MEDIUM: 'Trung bình', HIGH: 'Cao', CRITICAL: 'Nghiêm trọng' };
 export const INCIDENT_STATUS_LABEL: Record<IncidentStatus, string> = { NEW: 'Mới', IN_PROGRESS: 'Đang xử lý', CLOSED: 'Đã đóng' };
@@ -157,8 +175,25 @@ export interface ManagerData {
 
 export const customerOf = (d: Pick<ManagerData, 'customers'>, r?: TransportRequest) => {
   if (!r) return undefined;
-  const found = d.customers.find((c) => c.id === r.customerId || (r.customerId && c.name === r.customerId));
-  return found;
+  const found = d.customers.find((c) =>
+    c.id === r.customerId ||
+    (c as any).username === r.customerId ||
+    (r.customerId && c.name?.toLowerCase() === r.customerId.toLowerCase())
+  );
+  const custName = found?.name || (r as any).customerName || r.history?.find(h => h.role === 'CUSTOMER')?.actor || 'Khách hàng';
+  const custCompany = found?.company || (r as any).customerCompany || `${custName} (Cá nhân)`;
+  const rawEmail = found?.email || (r as any).customerEmail || (r as any).email;
+  const safeName = custName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+  const custEmail = rawEmail || (safeName ? `${safeName}@example.com` : 'khachhang@example.com');
+  const custPhone = found?.phone || (r as any).customerPhone || r.pickup?.phone || '—';
+
+  return {
+    id: r.customerId || found?.id || 'CUS-001',
+    name: custName,
+    company: custCompany,
+    email: custEmail,
+    phone: custPhone,
+  };
 };
 const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 export const horseName = (d: Pick<ManagerData, 'horses'>, id: string) => d.horses.find((h) => h.id === id || cleanId(h.id) === cleanId(id))?.name ?? id;
@@ -423,8 +458,7 @@ export function milestonePlan(t: Trip): Array<{ type: MilestoneType; stopIndex: 
   const n = tripStops(t).length;
   if (n < 2) return [];
   const plan: Array<{ type: MilestoneType; stopIndex: number }> = [{ type: 'DEPARTED', stopIndex: 0 }];
-  if (t.executionStops?.length) for (let i = 1; i < n - 1; i += 1) plan.push({ type: 'LEFT_STOP', stopIndex: i });
-  else for (let i = 1; i < n - 1; i += 1) plan.push({ type: 'ARRIVED_STOP', stopIndex: i }, { type: 'LEFT_STOP', stopIndex: i });
+  for (let i = 1; i < n - 1; i += 1) plan.push({ type: 'ARRIVED_STOP', stopIndex: i }, { type: 'LEFT_STOP', stopIndex: i });
   plan.push({ type: 'ARRIVED_DESTINATION', stopIndex: n - 1 });
   return plan;
 }
@@ -432,9 +466,9 @@ export const nextMilestone = (t: Trip) => milestonePlan(t)[t.milestones.length];
 export const lastMilestone = (t: Trip) => t.milestones[t.milestones.length - 1];
 export const arrived = (t: Trip) => lastMilestone(t)?.type === 'ARRIVED_DESTINATION';
 /** Nhãn mốc: ở lịch trình Flow 4 mốc giữa chuyến là check-in tại điểm dừng (không có bước "rời trạm" riêng) */
-export const milestoneLabel = (t: Trip, type: MilestoneType) => (t.executionStops?.length && type === 'LEFT_STOP' ? 'Check-in' : MILESTONE_LABEL[type]);
+export const milestoneLabel = (_t: Trip, type: MilestoneType) => MILESTONE_LABEL[type];
 export const milestoneText = (t: Trip, m: { type: MilestoneType; stopIndex: number }) =>
-  `${milestoneLabel(t, m.type)} • ${tripStops(t)[m.stopIndex]?.name ?? ''}`;
+  `${milestoneLabel(t, m.type)} • ${cleanStopName(tripStops(t)[m.stopIndex]?.name ?? '')}`;
 
 // ============================================================================
 // Bàn giao & đóng đơn

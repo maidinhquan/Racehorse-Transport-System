@@ -11,6 +11,13 @@ public sealed class PolicyService(IDataSession data)
         var policies = await data.ListAsync<BusinessPolicy>(p => p.Code == code, ct);
         return Resolve(policies, code, unit, country, mode, minimum, maximum, whole);
     }
+    /// <summary>Như <see cref="NumberAsync"/> nhưng trả về <paramref name="fallback"/> khi chính sách chưa được cấu hình (DB cũ).</summary>
+    public async Task<decimal> NumberOrDefaultAsync(string code, string unit, string? country,
+        string? mode, decimal minimum, decimal? maximum, bool whole, decimal fallback, CancellationToken ct)
+    {
+        var policies = await data.ListAsync<BusinessPolicy>(p => p.Code == code, ct);
+        return policies.Count == 0 ? fallback : Resolve(policies, code, unit, country, mode, minimum, maximum, whole);
+    }
     public static decimal Resolve(IReadOnlyList<BusinessPolicy> policies, string code, string unit,
         string? country, string? mode, decimal minimum, decimal? maximum, bool whole)
     {

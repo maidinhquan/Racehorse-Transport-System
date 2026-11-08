@@ -4,7 +4,7 @@ import { CustomerLayout, Icon } from '../../components/CustomerLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { useCustomer } from '../../hooks/useCustomer';
 import { useHorseFilter } from '../../hooks/useCustomerFilter';
-import { PROFILE_LABEL, fmtDate, horseLine, horseRequests, profileStatus, shortCity } from '../../hooks/customerRules';
+import { PROFILE_LABEL, fmtDate, horseRequests, profileStatus, shortCity } from '../../hooks/customerRules';
 import './MyHorsesPage.css';
 import { AuthImage } from '../../../../shared/components/AuthImage';
 
@@ -20,7 +20,7 @@ export const MyHorsesPage: React.FC = () => {
       <div className="cus-head">
         <div>
           <h2 className="cus-title">Ngựa của tôi</h2>
-          <p className="cus-subtitle">Thư viện hồ sơ ngựa riêng. Thêm hoặc sửa ngựa không gửi cho Specialist; kiểm duyệt chỉ bắt đầu với yêu cầu vận chuyển đã kích hoạt.</p>
+
         </div>
         <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={() => navigate('/customer/horses/new')}><Icon name="plus" />Thêm ngựa</button>
       </div>
@@ -46,7 +46,6 @@ export const MyHorsesPage: React.FC = () => {
               </div>
               <div className="cus-horse-card__body">
                 <div className="cus-horse-card__name"><b>{h.name}</b><span>{h.id}</span></div>
-                <p className="cus-muted">{horseLine(h)}</p>
                 <div className="cus-horse-card__info">
                   <div><span>Microchip</span><b>{h.microchip || 'Chưa có'}</b></div>
                   <div><span>Hồ sơ</span><TripStatusBadge label={PROFILE_LABEL[ps]} tone={ps === 'COMPLETE' ? 'ok' : ps === 'NEEDS_ATTENTION' ? 'bad' : 'warn'} /></div>

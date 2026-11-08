@@ -242,6 +242,7 @@ export const customerApi = {
       return {
         ...DEFAULT_FORM_OPTIONS,
         preparationDays: destination && city(destination).country === 'JP' ? 7 : 3,
+        minTransitDays: destination && city(destination).country === 'JP' ? 2 : 0,
       };
     }
   },

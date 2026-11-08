@@ -1,7 +1,7 @@
 // Tab "Xe & nhân sự": chuyến đường bộ (một xe + tổ lái) hoặc chuyến AIR (hai chặng xe sân bay, mỗi chặng 3 nhân sự riêng)
 import { useEffect, useState } from 'react';
 import { Pill, Tabs, tabOn } from '../../../components/common/ui';
-import { canPlan, checkpoint, crewConflict, curRoute, emp, fleetCountry, groundCanEdit, groundLegCheck, groundLegEndDate, groundLegs, groundServiceArea, isDriver, isVet, reqOfTrip, crewGaps, resourceLockMsg, tripHorses, vehicle, vehicleAccessIssue, vehicleConflict } from '../../../domain/coordinatorRules';
+import { canPlan, checkpoint, crewConflict, curRoute, emp, fleetCountry, groundCanEdit, groundLegCheck, groundLegEndDate, groundLegs, groundServiceArea, isDriver, isSameStaff, isVet, reqOfTrip, crewGaps, tripHorses, vehicle, vehicleAccessIssue, vehicleConflict } from '../../../domain/coordinatorRules';
 import type { Any } from '../../../store/coordinatorStore';
 import { commit, db, go, ui, useCoordinatorStore } from '../../../store/coordinatorStore';
 import { city, cityLabel, date, dt } from '../../../utils/format';
@@ -19,9 +19,9 @@ function RoadResources({ t }: { t: Any }) {
   const options = db.vehicles.filter((x: Any) => usable(x) && x.id !== t.vehicleId);
   // Nhân sự: đúng vai trò, không bận chuyến khác, chứng chỉ thú y còn hạn, chưa được chọn ở vị trí khác
   const available = (role: string) => db.employees.filter((e: Any) => (role === 'VETERINARIAN' ? isVet(e) && e.certExpiry >= end : isDriver(e))
-    && !crewConflict(e, t) && !roles.some(([k]) => k !== role && pick[k] === e.id));
+    && !crewConflict(e, t) && !roles.some(([k]) => k !== role && isSameStaff(pick[k], e.id)));
   /** Người đúng vai trò nhưng đang bận chuyến trùng lịch hoặc hết hạn chứng chỉ – hiện mờ kèm lý do. */
-  const blocked = (role: string): Array<[string, string]> => db.employees.filter((e: Any) => (role === 'VETERINARIAN' ? isVet(e) : isDriver(e)) && !available(role).includes(e) && e.id !== pick[role] && !roles.some(([k]) => k !== role && pick[k] === e.id))
+  const blocked = (role: string): Array<[string, string]> => db.employees.filter((e: Any) => (role === 'VETERINARIAN' ? isVet(e) : isDriver(e)) && !available(role).includes(e) && !isSameStaff(pick[role], e.id) && !roles.some(([k]) => k !== role && isSameStaff(pick[k], e.id)))
     .map((e: Any) => [e.id, `${e.name} – ${crewConflict(e, t) ? `bận ${crewConflict(e, t).id}` : role === 'VETERINARIAN' && e.certExpiry < end ? `chứng chỉ hết hạn ${date(e.certExpiry)}` : 'không phù hợp'}`]);
   const vehicleOk = !!v && usable(v), crewOk = roles.every(([k]) => !!t.crew?.[k]);
   return (<>
@@ -70,10 +70,14 @@ function GroundLeg({ t, leg }: { t: Any; leg: string }) {
   const n = tripHorses(t).length, end = groundLegEndDate(t, leg), other = groundLegs(t)[isOrigin ? 'inbound' : 'outbound'];
   const base = db.vehicles.filter((v: Any) => fleetCountry(v) === co && groundServiceArea(v, co, area) && v.status === 'READY' && v.stalls >= n && !vehicleConflict(v, t) && other.vehicleId !== v.id);
   const options = base.filter((v: Any) => !vehicleAccessIssue(t, v, isOrigin ? 'pickup' : 'delivery') && v.id !== g.vehicleId);
-  const available = (role: string) => db.employees.filter((e: Any) => e.country === co && groundServiceArea(e, co, area) && (role === 'VETERINARIAN' ? isVet(e) && e.certExpiry >= end : isDriver(e)) && !crewConflict(e, t) && !Object.values(other.crew || {}).includes(e.id));
+  const available = (role: string) => db.employees.filter((e: Any) => e.country === co && groundServiceArea(e, co, area)
+    && (role === 'VETERINARIAN' ? isVet(e) && e.certExpiry >= end : isDriver(e))
+    && !crewConflict(e, t)
+    && !Object.values(other.crew || {}).some((assignedId) => isSameStaff(assignedId as string, e.id))
+    && !roles.some(([k]) => k !== role && isSameStaff(sel[k], e.id)));
   /** Người đúng vai trò/khu vực nhưng đang bận chuyến trùng lịch hoặc ở chặng còn lại – hiện mờ kèm lý do. */
-  const blocked = (role: string): Array<[string, string]> => db.employees.filter((e: Any) => e.country === co && groundServiceArea(e, co, area) && (role === 'VETERINARIAN' ? isVet(e) : isDriver(e)) && !available(role).includes(e) && e.id !== sel[role] && !roles.some(([k]) => k !== role && sel[k] === e.id))
-    .map((e: Any) => [e.id, `${e.name} – ${crewConflict(e, t) ? `bận ${crewConflict(e, t).id}` : Object.values(other.crew || {}).includes(e.id) ? 'đã ở chặng còn lại' : role === 'VETERINARIAN' && e.certExpiry < end ? `chứng chỉ hết hạn ${date(e.certExpiry)}` : 'không phù hợp'}`]);
+  const blocked = (role: string): Array<[string, string]> => db.employees.filter((e: Any) => e.country === co && groundServiceArea(e, co, area) && (role === 'VETERINARIAN' ? isVet(e) : isDriver(e)) && !available(role).includes(e) && !isSameStaff(sel[role], e.id) && !roles.some(([k]) => k !== role && isSameStaff(sel[k], e.id)))
+    .map((e: Any) => [e.id, `${e.name} – ${crewConflict(e, t) ? `bận ${crewConflict(e, t).id}` : Object.values(other.crew || {}).some((assignedId) => isSameStaff(assignedId as string, e.id)) ? 'đã ở chặng còn lại' : role === 'VETERINARIAN' && e.certExpiry < end ? `chứng chỉ hết hạn ${date(e.certExpiry)}` : 'không phù hợp'}`]);
   const [sel, setSel] = useState<Record<string, string>>({ ...(g.crew || {}) });
   useEffect(() => { setSel({ ...(g.crew || {}) }); }, [t.id, leg, JSON.stringify(g.crew || {})]); // eslint-disable-line react-hooks/exhaustive-deps
   const roles = ROLES(isOrigin);
@@ -126,9 +130,7 @@ export function ResourcesTab({ t }: { t: Any }) {
   useCoordinatorStore();
   if (!ui.tab['f-leg']) { ui.tab['f-leg'] = 'outbound'; }
   void commit;
-  const locked = !groundCanEdit(t);
   return (<>
-    {locked ? <div className="note grey" style={{ marginBottom: 14 }}><div>{resourceLockMsg(t)}</div></div> : null}
     {t.mode === 'AIR' ? <AirResources t={t} /> : <RoadResources t={t} />}
     <SubmitCard t={t} />
   </>);

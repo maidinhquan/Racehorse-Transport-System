@@ -12,13 +12,14 @@ interface ModalProps {
   okDisabled?: boolean;
   danger?: boolean;
   wide?: boolean;
+  className?: string;
   /** Lỗi hiển thị phía trên nút (modal vẫn mở) */
   error?: string;
 }
 
 /** Khung dialog dùng chung cho các modal của trang Khách hàng */
 export const Modal: React.FC<ModalProps> = ({
-  open, title, children, okText = 'Xác nhận', cancelText = 'Hủy', onOk, onClose, okDisabled, danger, wide, error,
+  open, title, children, okText = 'Xác nhận', cancelText = 'Hủy', onOk, onClose, okDisabled, danger, wide, className, error,
 }) => {
   const [busy, setBusy] = useState(false);
   const submit = async () => { if (busy || !onOk) return; setBusy(true); try { await onOk(); } finally { setBusy(false); } };
@@ -36,7 +37,7 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <div className="cus-modal" role="dialog" aria-modal="true" aria-label={title}>
       <div className="cus-modal__back" onClick={onClose} />
-      <div className={`cus-modal__box ${wide ? 'cus-modal__box--wide' : ''}`}>
+      <div className={`cus-modal__box ${wide ? 'cus-modal__box--wide' : ''} ${className || ''}`}>
         <div className="cus-modal__header">
           <h3 className="cus-modal__title" style={{ margin: 0 }}>{title}</h3>
           <button type="button" className="cus-modal__close-btn" onClick={onClose} aria-label="Đóng (Esc)" title="Đóng (Esc)">✕</button>

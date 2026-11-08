@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { useIncidentPins } from '../../../../shared/utils/sharedIncidentPins';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DriverLayout, Icon } from '../../components/DriverLayout';
 import { TripHero } from '../../components/TripHero/TripHero';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
 import { RouteMap } from '../../components/RouteMap/RouteMap';
-import { DelayModal, MilestoneModal } from '../../components/Modals';
+import { DelayModal, MilestoneModal, HorseDetailModal } from '../../components/Modals';
 import { useDriver } from '../../hooks/useDriver';
 import {
   CLEARANCE_LABEL,
@@ -18,7 +19,8 @@ import {
   myPosition,
   nextMilestone,
 } from '../../hooks/driverRules';
-import type { Trip } from '../../types';
+import { cleanStopName } from '../../../tracking/utils/progress';
+import type { Horse, Trip } from '../../types';
 import './JourneyPage.css';
 
 // ---------------------------------------------------------------------------
@@ -29,13 +31,12 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
   const { actions, isEscort } = useDriver();
   const [msOpen, setMsOpen] = useState(false);
   const [delayOpen, setDelayOpen] = useState(false);
-  const n = nextMilestone(trip);
   const delayed = delayPending(trip);
+  const n = nextMilestone(trip);
 
   return (
     <div className="drv-card">
       <h3 className="drv-card__title">Ghi nhận mốc tiếp theo</h3>
-      <p className="drv-subtitle" style={{ marginTop: -6 }}>Ghi nhận từng sự kiện khi thực tế xảy ra. Cập nhật thủ công, không có GPS trực tiếp.</p>
 
       {!isEscort && trip.status === 'READY_TO_DEPART' && !trip.milestones.length && (
         <>
@@ -52,10 +53,29 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
       ) : n ? (
         <>
           <button type="button" className="drv-btn drv-btn--solid drv-btn--lg drv-btn--block drv-journey__record"
-            disabled={!!n.blocked || (n.type === 'DEPARTED' && delayed)} onClick={() => setMsOpen(true)}>
+            disabled={!!n.blocked || (n.type === 'DEPARTED' && delayed)} title={n.healthCheckRequired ? 'Cần ghi nhật ký sức khỏe cho ngựa tại trạm dừng này trước khi tiếp tục' : undefined} onClick={() => setMsOpen(true)}>
             {milestoneText(trip, n)}
           </button>
-          {n.blocked && (
+          {n.blocked && n.healthCheckRequired && (
+            <>
+              <div className="drv-note drv-note--yellow" style={{ marginTop: 10 }}>
+                <Icon name="clock" />
+                <div>
+                  <b>Yêu cầu kiểm tra sức khỏe ngựa</b>
+                  Trạm dừng này yêu cầu ghi nhận nhật ký sức khỏe cho ngựa trước khi rời trạm. Nút rời điểm dừng sẽ mở sau khi hoàn tất kiểm tra y tế.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="drv-btn drv-btn--block"
+                style={{ marginTop: 10 }}
+                onClick={() => navigate(`/driver/trips/${trip.id}?tab=health`)}
+              >
+                Ghi nhật ký sức khỏe
+              </button>
+            </>
+          )}
+          {n.blocked && !n.healthCheckRequired && (
             <>
               <div className="drv-note drv-note--yellow">
                 <Icon name="clock" />
@@ -81,12 +101,9 @@ const RecordPanel: React.FC<{ trip: Trip }> = ({ trip }) => {
       )}
 
       {trip.status === 'IN_TRANSIT' && (
-        <>
-          <button type="button" className="drv-btn drv-btn--danger-solid drv-btn--lg drv-btn--block" style={{ marginTop: 14 }} onClick={() => navigate(`/driver/incidents/${trip.id}`)}>
-            <Icon name="alert" /> SOS – Báo sự cố
-          </button>
-          <p className="drv-hint">Cứu hộ khẩn cấp cho người và ngựa trước, không cần chờ duyệt; sau đó báo cáo để Coordinator lập phương án.</p>
-        </>
+        <button type="button" className="drv-btn drv-btn--danger-solid drv-btn--lg drv-btn--block" style={{ marginTop: 14 }} onClick={() => navigate(`/driver/incidents/${trip.id}`)}>
+          <Icon name="alert" /> SOS – Báo sự cố
+        </button>
       )}
 
       {msOpen && n && <MilestoneModal trip={trip} next={n} onClose={() => setMsOpen(false)} onSubmit={(at, note) => actions.recordMilestone(trip.id, at, note)} />}
@@ -107,7 +124,7 @@ const MilestoneHistory: React.FC<{ trip: Trip }> = ({ trip }) => {
         <ul className="drv-timeline">
           {[...trip.milestones].reverse().map((x, i) => (
             <li key={x.type + x.at + x.stopIndex} className={i ? 'green' : 'orange'}>
-              <b>{MILESTONE_LABEL[x.type]}{trip.stops[x.stopIndex] ? ' – ' + trip.stops[x.stopIndex].name : ''}</b>
+              <b>{MILESTONE_LABEL[x.type]}{trip.stops[x.stopIndex] ? ' – ' + cleanStopName(trip.stops[x.stopIndex].name) : ''}</b>
               <span>{fmtDateTime(x.at)} • {crewMember(x.by)?.name ?? x.by}{x.note ? ' • ' + x.note : ''}</span>
             </li>
           ))}
@@ -120,17 +137,68 @@ const MilestoneHistory: React.FC<{ trip: Trip }> = ({ trip }) => {
 // ---------------------------------------------------------------------------
 // Trang Hành trình của một chuyến: bản đồ ôm trang + ghi nhận mốc
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Thẻ thông tin ngựa trên chuyến – tài xế có thể xem trực tiếp thông tin cá thể
+// ---------------------------------------------------------------------------
+const TripHorsesCard: React.FC<{ trip: Trip; onSelectHorse: (h: Horse) => void }> = ({ trip, onSelectHorse }) => {
+  const { horse } = useDriver();
+
+  return (
+    <div className="drv-card">
+      <h3 className="drv-card__title">Ngựa trên chuyến ({trip.horses.length})</h3>
+      <div>
+        {trip.horses.map((id) => {
+          const h = horse(id);
+          const latestHealth = [...trip.health].reverse().find((hl) => hl.horseId === id);
+
+          return (
+            <div
+              key={id}
+              className="drv-horse"
+              style={{ cursor: 'pointer' }}
+              onClick={() => h && onSelectHorse(h)}
+              role="button"
+              tabIndex={0}
+              title="Bấm để xem chi tiết thông tin ngựa"
+            >
+              <span className="drv-horse__thumb">{(h?.name ?? id).slice(0, 1)}</span>
+              <div className="drv-horse__text" style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <b>{h?.name ?? id}</b>
+                  {latestHealth && (
+                    <span
+                      className={`drv-badge drv-badge--${
+                        latestHealth.condition === 'NORMAL'
+                          ? 'ok'
+                          : latestHealth.condition === 'MONITOR'
+                          ? 'warn'
+                          : 'bad'
+                      }`}
+                    >
+                      {latestHealth.condition === 'NORMAL' ? 'Bình thường' : latestHealth.condition === 'MONITOR' ? 'Theo dõi' : 'Bất thường'}
+                    </span>
+                  )}
+                </div>
+                <span>{h ? [h.breed, h.sex, h.age ? `${h.age} tuổi` : '', h.color].filter(Boolean).join(' • ') : ''}</span>
+                <span>Microchip <b style={{ userSelect: 'all' }}>{h?.microchip ?? '—'}</b></span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="drv-hint" style={{ marginTop: 8, marginBottom: 0 }}>Bấm vào từng cá thể ngựa để xem chi tiết thông tin và chỉ số sức khỏe.</p>
+    </div>
+  );
+};
+
 const Journey: React.FC<{ trip: Trip }> = ({ trip }) => {
   const navigate = useNavigate();
-  const { userId, actions } = useDriver();
-  const [full, setFull] = useState(false);
+  const { userId } = useDriver();
+  const [selectedHorse, setSelectedHorse] = useState<Horse | null>(null);
   const m = lastMilestone(trip);
-  const n = nextMilestone(trip);
+  const pins = useIncidentPins(trip.id);
 
-  useEffect(() => {
-    document.body.classList.toggle('drv-map-lock', full);
-    return () => document.body.classList.remove('drv-map-lock');
-  }, [full]);
 
   return (
     <div className="drv-journey">
@@ -138,10 +206,6 @@ const Journey: React.FC<{ trip: Trip }> = ({ trip }) => {
         <div>
           <div className="drv-eyebrow">Hành trình • {myPosition(trip, userId)}</div>
           <h2 className="drv-title">{trip.id} <TripStatusBadge status={trip.status} /></h2>
-          <p className="drv-subtitle">
-            {trip.origin} → {trip.destination} • Khởi hành {fmtDateTime(trip.plannedDepart)} • ETA {fmtDateTime(trip.eta)}
-            {m ? ` • Cập nhật gần nhất: ${MILESTONE_LABEL[m.type]} ${fmtDateTime(m.at)}` : ''}
-          </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button
@@ -167,37 +231,32 @@ const Journey: React.FC<{ trip: Trip }> = ({ trip }) => {
       )}
 
       <div className="drv-journey__body">
-        <div className={`drv-card drv-journey__map ${full ? 'is-full' : ''}`}>
+        <div className="drv-card drv-journey__map">
           <div className="drv-journey__mapbar">
-            <b>{full ? `${trip.id} • ${trip.origin} → ${trip.destination}` : 'Bản đồ tuyến'}</b>
-            <button type="button" className={`drv-btn drv-btn--sm ${full ? 'drv-btn--solid' : ''}`} onClick={() => setFull((v) => !v)}>
-              <Icon name={full ? 'close' : 'expand'} />{full ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
-            </button>
+            <b>{`${trip.id} • ${trip.origin} → ${trip.destination}`}</b>
           </div>
           {trip.stops.length
-            ? <RouteMap stops={trip.stops} current={m ? m.stopIndex : -1} height={full ? window.innerHeight - 150 : 440} compact={full} />
+            ? <RouteMap stops={trip.stops} current={m ? m.stopIndex : -1} height={440} pins={pins} />
             : <div className="drv-empty"><b>Chưa có tuyến</b>Điều phối viên chưa thêm điểm dừng.</div>}
-          {full && (
-            <div className="drv-journey__fullnext">
-              {n ? <span>Mốc tiếp theo: <b>{milestoneText(trip, n)}</b></span> : <span>Không còn mốc cần ghi.</span>}
-              <button type="button" className="drv-btn drv-btn--sm" onClick={() => setFull(false)}>Về ô ghi nhận mốc</button>
-            </div>
-          )}
         </div>
         <div className="drv-journey__side drv-stack">
           <RecordPanel trip={trip} />
+          <TripHorsesCard trip={trip} onSelectHorse={(h) => setSelectedHorse(h)} />
           <MilestoneHistory trip={trip} />
         </div>
       </div>
 
-      <div className="drv-demo">
-        <div className="drv-demo__title">Điều khiển demo</div>
-        <p>Giả lập thao tác của Specialist / Coordinator / Manager để trình bày luồng của tài xế.</p>
-        <div className="drv-btn-row" style={{ marginTop: 0 }}>
-          <button type="button" className="drv-btn drv-btn--sm" disabled={!n?.blocked} onClick={() => actions.demoClearance(trip.id)}>Demo: Specialist ghi thông quan đạt</button>
-          <button type="button" className="drv-btn drv-btn--sm" disabled={!delayPending(trip)} onClick={() => actions.demoApproveDelay(trip.id)}>Demo: Manager duyệt lịch khởi hành mới</button>
-        </div>
-      </div>
+      {selectedHorse && (
+        <HorseDetailModal
+          horse={selectedHorse}
+          trip={trip}
+          onClose={() => setSelectedHorse(null)}
+          onOpenHealth={() => {
+            setSelectedHorse(null);
+            navigate(`/driver/trips/${trip.id}?tab=health`);
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -238,7 +297,7 @@ export const JourneyPage: React.FC = () => {
       )) : (
         <div className="drv-card drv-empty">
           <b>{loading ? 'Đang tải…' : 'Chưa có chuyến đang hoạt động'}</b>
-          Chuyến Coordinator giao cho bạn sẽ hiện ở đây. Bật “Dữ liệu mẫu” ở thanh trên để xem demo.
+          Chuyến Coordinator giao cho bạn sẽ hiện ở đây.
         </div>
       )}
     </DriverLayout>

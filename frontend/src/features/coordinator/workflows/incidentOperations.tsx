@@ -5,7 +5,7 @@
 // ============================================================================
 import { Chk, Field, Inp, Note, Sel, Txt } from '../components/common/ui';
 import { DateTimeInput } from '../components/forms/DateTime';
-import { changeEta, crewConflict, crewOf, dWhere, emp, horse, lastMilestone, legHolds, legOf, livePos, reqOfTrip, staffError, trip, tripHalted, tripHorses, tripLabel, tripPersonnelIds, tripStops, vehicle, vehicleConflict } from '../domain/coordinatorRules';
+import { changeEta, crewConflict, crewOf, dWhere, emp, horse, isStaffAssignedToTrip, lastMilestone, legHolds, legOf, livePos, reqOfTrip, staffError, trip, tripHalted, tripHorses, tripLabel, tripStops, vehicle, vehicleConflict } from '../domain/coordinatorRules';
 import type { Any } from '../store/coordinatorStore';
 import { audit, commit, db, go, me, nextId, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
 import { addHours, dt, human, incTypeVi, usd } from '../utils/format';
@@ -59,7 +59,7 @@ export function f5Conditions(i: Any, own = false): Array<{ ok: boolean; label: s
   if (!own) db.incidents.filter((x: Any) => x !== i && x.tripId === i.tripId && x.blocking && !F5_DONE.includes(x.status) && !x.continueAt && f5Conditions(x, true).some((c) => !c.ok))
     .forEach((x: Any) => add(false, `Sự cố ${x.id} (${F5_TYPES[x.type] || incTypeVi(x.type)}) vẫn đang chặn chặng`, 'Điều phối'));
   if (tripHalted(t)) add(false, 'Chuyến đang dừng theo quyết định Manager', 'Manager');
-  if (p?.crewId) { const error = staffError(emp(p.crewId), t, p.crewRole); out.push({ ok: !error, label: error || 'Nhân sự thay thế hợp lệ, không trùng chuyến khác', by: 'Điều phối' }); }
+  if (p?.crewId && t) { const error = staffError(emp(p.crewId), t, p.crewRole); out.push({ ok: !error, label: error || 'Nhân sự thay thế hợp lệ, không trùng chuyến khác', by: 'Điều phối' }); }
   return out;
 }
 
@@ -128,7 +128,7 @@ export function f5Ack(id: string) {
 export function f5Plan(id: string) {
   const i = find(id), t = trip(i.tripId), p = curPlan(i) || {}, n = tripHorses(t).length;
   const vOpts: Array<[string, string]> = [['', 'Giữ xe hiện tại'], ...db.vehicles.filter((v: Any) => v.id !== t.vehicleId && v.status === 'READY' && v.stalls >= n && !vehicleConflict(v, t)).map((v: Any) => [v.id, `${v.plate} • ${v.model} • ${v.stalls} ô • ${v.base}`] as [string, string])];
-  const cOpts: Array<[string, string]> = [['', 'Không thay'], ...db.employees.filter((e: Any) => e.status === 'ACTIVE' && !tripPersonnelIds(t).includes(e.id) && !crewConflict(e, t)).map((e: Any) => [e.id, `${e.name} • ${human(e.position)}`] as [string, string])];
+  const cOpts: Array<[string, string]> = [['', 'Không thay'], ...db.employees.filter((e: Any) => e.status === 'ACTIVE' && !isStaffAssignedToTrip(e, t) && !crewConflict(e, t)).map((e: Any) => [e.id, `${e.name} • ${human(e.position)}`] as [string, string])];
   const guess = p.kind || (/BREAKDOWN|ACCIDENT/.test(i.type) ? 'VEHICLE_SWAP' : i.type === 'FLIGHT_DELAY' ? 'FLIGHT_CHANGE' : /ROAD|BORDER|WEATHER/.test(i.type) ? 'ROUTE_ADJUST' : i.type === 'HORSE_HEALTH' ? 'EXTERNAL_SERVICE' : 'NO_CHANGE');
   const vets = i.type === 'HORSE_HEALTH' ? nearestVets(t) : [];
   openModal({

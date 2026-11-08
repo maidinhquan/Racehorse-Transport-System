@@ -309,7 +309,7 @@ Backend tính tổng declaredValueVnd từ ngựa được chọn, lưu trên re
 
 Chi tiết yêu cầu chỉ liệt kê hồ sơ ngựa và medical record hiện có; không còn danh sách giấy tờ chung theo yêu cầu.
 
-Sổ tiêm, ngày tiêm, giấy chứng nhận sức khỏe và bác sĩ thú y riêng được xử lý sau ký bởi Flow 3. Không yêu cầu nộp trước ký, không tạo trạng thái đã duyệt giả. Checkbox xác nhận và nút tiếp tục giữa các bước do frontend giữ; chưa có API lưu nháp từng bước. Gửi cuối dùng Idempotency-Key ổn định để retry không tạo trùng request.
+Sổ tiêm, ngày tiêm, giấy chứng nhận sức khỏe và bác sĩ thú y theo xe được xử lý sau ký bởi Flow 3. Không yêu cầu nộp trước ký, không tạo trạng thái đã duyệt giả. Checkbox xác nhận và nút tiếp tục giữa các bước do frontend giữ; chưa có API lưu nháp từng bước. Gửi cuối dùng Idempotency-Key ổn định để retry không tạo trùng request.
 
 ## Wizard hợp đồng: nháp → phát hành (21/10/2026)
 

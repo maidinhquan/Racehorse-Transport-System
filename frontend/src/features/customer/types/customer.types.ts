@@ -202,7 +202,7 @@ export interface Refund {
 // Giấy tờ
 // ---------------------------------------------------------------------------
 /** Hồ sơ theo từng ngựa */
-export type HorseDocKey = 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu' | 'health' | 'conditions' | 'vet';
+export type HorseDocKey = 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu' | 'health' | 'conditions';
 export type DocKey = HorseDocKey;
 
 export type DocStatus =
@@ -238,6 +238,8 @@ export interface DocItem {
   optional: boolean;
   file?: FileRef;
   issue?: string;
+  /** Các mục bắt buộc còn thiếu (hiển thị báo đỏ) */
+  missing?: string[];
 }
 
 /** Transport Specialist yêu cầu bổ sung một giấy tờ, kèm lý do */
@@ -264,7 +266,7 @@ export interface CompanyDoc {
 export type TripStatus = 'PLANNING' | 'READY_TO_DEPART' | 'IN_TRANSIT' | 'COMPLETED';
 export type TransportMode = 'ROAD' | 'AIR';
 export type StopType = 'ORIGIN' | 'REST_STOP' | 'CHECKPOINT' | 'AIRPORT' | 'DESTINATION';
-export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED_DESTINATION';
+export type MilestoneType = 'DEPARTED' | 'ARRIVED_STOP' | 'LEFT_STOP' | 'ARRIVED_CHECKPOINT' | 'PASSED_CHECKPOINT' | 'ARRIVED_DESTINATION';
 export type HorseCondition = 'NORMAL' | 'MONITOR' | 'ABNORMAL';
 
 export interface TripStop {

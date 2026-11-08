@@ -133,7 +133,7 @@ export interface SpecTrip {
 // Giấy tờ khách hàng cung cấp (cùng dữ liệu với cổng Khách hàng)
 // ---------------------------------------------------------------------------
 export type CustomerDocKey =
-  | 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu' | 'health' | 'conditions' | 'vet';
+  | 'passport' | 'ownership' | 'bio' | 'valueProof' | 'flu' | 'health' | 'conditions';
 
 export type CustomerDocStatus = 'MISSING' | 'OPTIONAL' | 'SUBMITTED' | 'APPROVED' | 'ACTION_REQUIRED';
 
@@ -273,5 +273,5 @@ export interface ActionResult {
   id?: string;
 }
 
-export type TripDetailTab = 'customer' | 'required' | 'insurance';
+export type TripDetailTab = 'customer' | 'required' | 'insurance' | 'incidents';
 export type SetupTab = 'types' | 'regs' | 'sets';

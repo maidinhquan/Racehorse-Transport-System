@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { addGeoapifyTiles } from './GeoapifyTiles';
+import { drawIncidentPins } from '../../../../shared/maps/incidentPinLayer';
+import type { IncidentPin } from '../../../../shared/utils/sharedIncidentPins';
 
 export interface MapPoint {
   latitude?: number;
@@ -14,8 +16,8 @@ export const validPoint = (p: MapPoint) => typeof p.latitude === 'number' && Num
   && Math.abs(p.latitude) <= 90 && typeof p.longitude === 'number' && Number.isFinite(p.longitude) && Math.abs(p.longitude) <= 180;
 
 /** Read-only map shared by customer tracking and address previews. */
-export function LocationMap({ points, current = -1, height = 240, center, route = false }: {
-  points: MapPoint[]; current?: number; height?: number;
+export function LocationMap({ points, current = -1, height = 240, center, route = false, incidentPins = [] }: {
+  points: MapPoint[]; current?: number; height?: number; incidentPins?: IncidentPin[];
   center?: { latitude: number; longitude: number }; route?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
@@ -23,6 +25,7 @@ export function LocationMap({ points, current = -1, height = 240, center, route 
   const [failed, setFailed] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const pointsKey = JSON.stringify(points);
+  const pinsKey = JSON.stringify(incidentPins);
 
   useEffect(() => {
     if (!isMaximized) return;
@@ -71,11 +74,12 @@ export function LocationMap({ points, current = -1, height = 240, center, route 
         fillColor: index === current ? '#f57c00' : (index === 0 || index === located.length - 1) ? '#0f172a' : (point.color ?? '#f08a2b'),
       }).addTo(map).bindTooltip(label);
     });
+    drawIncidentPins(map, JSON.parse(pinsKey) as IncidentPin[]);
     if (located.length) map.fitBounds(L.latLngBounds(located.map(p => p.position)), { padding: [30, 30], maxZoom: 15 });
     const observer = new ResizeObserver(() => map.invalidateSize({ pan: false }));
     observer.observe(container.current);
     return () => { observer.disconnect(); cancelTiles(); map.remove(); mapRef.current = null; };
-  }, [pointsKey, current, center?.latitude, center?.longitude, route]);
+  }, [pointsKey, pinsKey, current, center?.latitude, center?.longitude, route]);
 
   return (
     <div className={`cus-location-map-wrap ${isMaximized ? 'is-maximized' : ''}`} style={{ position: 'relative' }}>

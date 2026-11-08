@@ -10,12 +10,11 @@ import {
   DETAIL_TABS,
   canAcceptTerms,
   canPayDeposit,
-  cityLabel,
   ctRef,
   curVersion,
   depositState,
+  displayRequestId,
   docsNeedingAction,
-  fmtDate,
   fmtDateTime,
   isActive,
   isSupportedRoute,
@@ -112,10 +111,7 @@ export const RequestDetailPage: React.FC = () => {
       </button>
       <div className="cus-head">
         <div>
-          <h2 className="cus-title cus-detail__title">{r.id} <TripStatusBadge status={r.status} /></h2>
-          <p className="cus-subtitle">
-            Gửi {r.submittedAt ? fmtDateTime(r.submittedAt) : 'chưa gửi'} • {cityLabel(r.origin)} → {cityLabel(r.destination)} • Ngày vận chuyển {fmtDate(r.date)}
-          </p>
+          <h2 className="cus-title cus-detail__title">{displayRequestId(r.id)} <TripStatusBadge status={r.status} /></h2>
           {!isSupportedRoute(r.origin, r.destination) && <span className="cus-legacy">Tuyến lịch sử – không nhận đơn mới</span>}
         </div>
       </div>

@@ -7,7 +7,6 @@ import { useDriver } from '../../hooks/useDriver';
 import { DELAY_LABEL, fmtDateTime, handoverReady, myPosition } from '../../hooks/driverRules';
 import type { TripDetailTab } from '../../types';
 import { OverviewTab } from './tabs/OverviewTab';
-import { StopsTab } from './tabs/StopsTab';
 import { DocumentsTab } from './tabs/DocumentsTab';
 import { HealthTab } from './tabs/HealthTab';
 import { HandoverTab } from './tabs/HandoverTab';
@@ -15,7 +14,6 @@ import './TripDetailPage.css';
 
 const TABS: Array<[TripDetailTab, string]> = [
   ['overview', 'Tổng quan'],
-  ['stops', 'Tuyến & điểm dừng'],
   ['docs', 'Hồ sơ'],
   ['health', 'Sức khoẻ ngựa'],
   ['handover', 'Bàn giao'],
@@ -101,14 +99,28 @@ export const TripDetailPage: React.FC = () => {
       )}
 
       <div className="drv-tabs" role="tablist">
-        {TABS.map(([k, label]) => (
-          <button key={k} type="button" role="tab" className={k === on ? 'on' : ''} onClick={() => navigate(`/driver/trips/${trip.id}/${k}`)}>{label}</button>
-        ))}
+        {TABS.map(([k, label]) => {
+          const isHandover = k === 'handover';
+          const isLocked = isHandover && !handoverReady(trip) && trip.status !== 'COMPLETED';
+
+          return (
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              disabled={isLocked}
+              title={isLocked ? 'Chỉ mở thủ tục bàn giao khi chuyến đi đã đến điểm giao (đích)' : undefined}
+              className={`${k === on ? 'on' : ''} ${isLocked ? 'is-locked' : ''}`}
+              onClick={() => !isLocked && navigate(`/driver/trips/${trip.id}/${k}`)}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {on === 'overview' && <OverviewTab trip={trip} />}
-      {on === 'stops' && <StopsTab trip={trip} />}
-      {on === 'docs' && <DocumentsTab trip={trip} />}
+            {on === 'docs' && <DocumentsTab trip={trip} />}
       {on === 'health' && <HealthTab trip={trip} />}
       {on === 'handover' && <HandoverTab trip={trip} />}
     </DriverLayout>

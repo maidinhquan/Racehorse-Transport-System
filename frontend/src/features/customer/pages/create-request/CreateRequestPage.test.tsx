@@ -28,9 +28,11 @@ async function fillForm() {
   fireEvent.change(cities[0], { target: { value: 'Ho Chi Minh City' } });
   fireEvent.change(cities[1], { target: { value: 'Tokyo' } });
   await waitFor(() => expect(mocks.getFormOptions).toHaveBeenCalledWith('Ho Chi Minh City', 'Tokyo'));
+  // Tuyến VN -> JP cần tối thiểu 2 ngày vận chuyển: ngày giao phải sau ngày lấy ít nhất 2 ngày.
+  fireEvent.change(screen.getByLabelText('Mong muốn CBN đến lấy ngựa *'), { target: { value: '29/11/2099' } });
   fireEvent.change(screen.getByLabelText('Ngày vận chuyển mong muốn'), { target: { value: '01/12/2099' } });
-  fireEvent.change(screen.getByLabelText('Tên chuồng / câu lạc bộ *'), { target: { value: 'Pickup stable' } });
-  fireEvent.change(screen.getByLabelText('Tên chuồng / trường đua *'), { target: { value: 'Tokyo stable' } });
+  fireEvent.change(screen.getByLabelText('Tên điểm đi *'), { target: { value: 'Pickup stable' } });
+  fireEvent.change(screen.getByLabelText('Tên điểm đến *'), { target: { value: 'Tokyo stable' } });
   for (const input of screen.getAllByLabelText('Địa chỉ chi tiết *')) fireEvent.change(input, { target: { value: '123 Main Street' } });
   // City boundary IDs resolve automatically; search is enabled once both are known.
   await waitFor(() => screen.getAllByRole('button', { name: /Tìm vị trí/ }).forEach(button => expect((button as HTMLButtonElement).disabled).toBe(false)));
@@ -56,6 +58,13 @@ describe('merged request details step', () => {
     expect(mocks.createDraft).not.toHaveBeenCalled();
     expect(mocks.showToast).toHaveBeenCalled();
     expect(screen.getByRole('list').children).toHaveLength(3);
+  });
+  it('moves the delivery date to at least the minimum transit time after the pickup date for an international route', async () => {
+    renderForm();
+    await fillForm();
+    fireEvent.change(screen.getByLabelText('Mong muốn CBN đến lấy ngựa *'), { target: { value: '30/11/2099' } });
+    fireEvent.click(screen.getByRole('button', { name: /Lưu & tiếp tục/ }));
+    await waitFor(() => expect(mocks.saveRequestDetails).toHaveBeenCalledWith('REQ-1', expect.objectContaining({ date: '2099-12-02' }), expect.anything(), expect.anything()));
   });
   it('saves route, date and both places before opening the horse step', async () => {
     renderForm(); await fillForm();

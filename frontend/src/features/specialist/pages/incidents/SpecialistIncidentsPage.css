@@ -1,0 +1,10 @@
+.spc-incidents-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.spc-filter-card {
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-surface, #ffffff);
+}

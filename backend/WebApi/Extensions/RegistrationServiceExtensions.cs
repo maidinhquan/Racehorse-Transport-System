@@ -47,10 +47,11 @@ public static class RegistrationServiceExtensions
             .Bind(configuration.GetSection("EmailValidation"));
         services.AddSingleton(sp => sp.GetRequiredService<IOptions<EmailValidationOptions>>().Value);
 
+        var isDevOrTest = environment.IsDevelopment() || environment.IsEnvironment("Testing");
         var emailMode =
             configuration["RegistrationEmail:Mode"]
-            ?? (environment.IsDevelopment() ? "Development" : "Smtp");
-        if (emailMode == "Development" && environment.IsDevelopment())
+            ?? (isDevOrTest ? "Development" : "Smtp");
+        if (emailMode == "Development" && isDevOrTest)
             services.AddSingleton<IRegistrationEmailSender, DevelopmentRegistrationEmailSender>();
         else if (emailMode == "Smtp")
         {

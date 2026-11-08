@@ -8,6 +8,8 @@ export { apiMessage };
 export interface FormOptions {
   currency: 'VND';
   preparationDays: number;
+  /** Số ngày tối thiểu từ ngày lấy đến ngày giao của tuyến (backend: MIN_TRANSIT_DAYS). */
+  minTransitDays?: number;
   minimumPickupLeadDays?: number | null;
   earliestPickupDate?: string | null;
   defaultDepositPct: number;

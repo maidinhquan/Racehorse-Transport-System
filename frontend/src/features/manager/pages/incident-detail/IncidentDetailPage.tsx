@@ -22,14 +22,15 @@ export const IncidentDetailPage: React.FC = () => {
       </ManagerLayout>
     );
   }
-  const t = getTrip(i.tripId)!, r = reqOfTrip(data, t);
+  const t = i.tripId ? getTrip(i.tripId) : undefined;
+  const r = t ? reqOfTrip(data, t) : undefined;
   return (
     <ManagerLayout title="Sự cố & khiếu nại">
       <BackLink to="/manager/incidents">Sự cố & khiếu nại</BackLink>
       <div className="mgr-head">
         <div>
           <h2 className="mgr-title" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>{i.id} <StatusBadge kind="incident" status={i.status} /> <StatusBadge kind="severity" status={i.severity} /></h2>
-          <p className="mgr-subtitle">{INCIDENT_TYPE_LABEL[i.type]} • {i.tripId} • {routeText(r)}</p>
+          <p className="mgr-subtitle">{INCIDENT_TYPE_LABEL[i.type] || i.type} • {i.tripId || '—'}{r ? ` • ${routeText(r)}` : ''}</p>
         </div>
         <div className="mgr-btn-row">
           {i.status === 'NEW' && <button type="button" className="mgr-btn" onClick={() => actions.ackIncident(i.id)}>Tiếp nhận xử lý</button>}
@@ -45,14 +46,14 @@ export const IncidentDetailPage: React.FC = () => {
               <div><span>Báo lúc</span><b>{fmtDateTime(i.at)}</b></div>
               <div><span>Người báo</span><b>{i.by}</b></div>
               <div><span>Địa điểm</span><b>{i.location}</b></div>
-              <div><span>Ngựa liên quan</span><b>{i.horseId ? horseName(data, i.horseId) : r.horses.map((h) => horseName(data, h)).join(', ')}</b></div>
+              <div><span>Ngựa liên quan</span><b>{i.horseId ? horseName(data, i.horseId) : (r?.horses || []).map((h) => horseName(data, h)).join(', ') || 'Không'}</b></div>
             </div>
             <Note tone={i.safety ? 'green' : 'grey'} title="Biện pháp an toàn tức thời">{i.safety || 'Người báo xác nhận người và ngựa an toàn. Chăm sóc khẩn cấp không cần chờ phê duyệt.'}</Note>
-            {i.photos.length > 0 && <div className="mgr-photos">{i.photos.map((p) => <button key={p} type="button" className="mgr-photo" onClick={() => openSampleFile(p)}>{p}</button>)}</div>}
+            {(i.photos || []).length > 0 && <div className="mgr-photos">{(i.photos || []).map((p) => <button key={p} type="button" className="mgr-photo" onClick={() => openSampleFile(p)}>{p}</button>)}</div>}
           </section>
           <section className="mgr-card">
             <h3 className="mgr-card__title">Phương án xử lý</h3>
-            {i.plans.map((p) => (
+            {(i.plans || []).map((p) => (
               <div key={p.id} className="mgr-inner">
                 <div className="mgr-between"><b>{p.kind} • {p.id}</b><StatusBadge kind="plan" status={p.status} /></div>
                 <p style={{ margin: '8px 0', lineHeight: 1.6 }}>{p.desc}</p>
@@ -77,16 +78,19 @@ export const IncidentDetailPage: React.FC = () => {
           <section className="mgr-card">
             <h3 className="mgr-card__title">Chuyến đi</h3>
             <div className="mgr-kv" style={{ gridTemplateColumns: '1fr' }}>
-              <div><span>Chuyến</span><b>{t.id}</b></div>
-              <div><span>Tuyến</span><b>{routeText(r)}</b></div>
-              <div><span>Trạng thái</span><b>{TRIP_STATUS_LABEL[t.status]}</b></div>
-              <div><span>ETA</span><b>{fmtDateTime(t.eta)}</b></div>
+              <div><span>Chuyến</span><b>{t?.id || i.tripId || '—'}</b></div>
+              <div><span>Tuyến</span><b>{r ? routeText(r) : '—'}</b></div>
+              <div><span>Trạng thái</span><b>{t ? TRIP_STATUS_LABEL[t.status] : '—'}</b></div>
+              <div><span>ETA</span><b>{t ? fmtDateTime(t.eta) : '—'}</b></div>
             </div>
-            <div className="mgr-actions"><Link className="mgr-btn mgr-btn--sm" to={`/manager/trips/${t.id}/progress`}>Tiến độ chuyến</Link><Link className="mgr-btn mgr-btn--sm" to={`/manager/requests/${r.id}/trip`}>Yêu cầu {r.id}</Link></div>
+            <div className="mgr-actions">
+              {t && <Link className="mgr-btn mgr-btn--sm" to={`/manager/trips/${t.id}/progress`}>Tiến độ chuyến</Link>}
+              {r && <Link className="mgr-btn mgr-btn--sm" to={`/manager/requests/${r.id}/trip`}>Yêu cầu {r.id}</Link>}
+            </div>
           </section>
           <section className="mgr-card">
             <h3 className="mgr-card__title">Nhật ký</h3>
-            <ul className="mgr-timeline">{[...i.log].reverse().map(([at, text], k) => <li key={`${at}-${k}`} className={k === 0 ? 'now' : 'done'}><b>{text}</b><span>{fmtDateTime(at)}</span></li>)}</ul>
+            <ul className="mgr-timeline">{[...(i.log || [])].reverse().map(([at, text], k) => <li key={`${at}-${k}`} className={k === 0 ? 'now' : 'done'}><b>{text}</b><span>{fmtDateTime(at)}</span></li>)}</ul>
           </section>
         </aside>
       </div>
@@ -96,7 +100,7 @@ export const IncidentDetailPage: React.FC = () => {
         intro={decision?.approve ? <p>Chi phí do công ty chịu được cộng vào chi phí thực tế của chuyến.</p> : undefined}
         onClose={() => setDecision(null)} onSubmit={(x) => actions.decidePlan(i.id, decision!.planId, decision!.approve, x).ok} />
       <Modal open={closing} title={`Đóng ${i.id}`} okText="Đóng sự cố" onClose={() => setClosing(false)} onOk={() => { if (actions.closeIncident(i.id).ok) setClosing(false); }}>
-        <p>Xác nhận sự cố đã được xử lý xong. Sự cố mở sẽ chặn việc đóng yêu cầu {r.id}.</p>
+        <p>Xác nhận sự cố đã được xử lý xong. Sự cố mở sẽ chặn việc đóng yêu cầu {r?.id || i.tripId || ''}.</p>
       </Modal>
     </ManagerLayout>
   );
