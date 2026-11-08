@@ -166,7 +166,7 @@ namespace Infrastructure.Services
                 }
                 catch { }
             }
-            else if (trip.RouteStatus == "APPROVED" || trip.Status == "READY_TO_DEPART" || trip.Status == "IN_TRANSIT")
+            else if (trip.RouteStatus == "APPROVED" || trip.Status == "READY_TO_DEPART" || trip.Status == "IN_TRANSIT" || trip.Status == "COMPLETED")
             {
                 approvedPlan = BuildDefaultPlanFromTrip(trip, mode, isDraft: false);
             }

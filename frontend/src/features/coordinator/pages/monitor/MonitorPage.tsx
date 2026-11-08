@@ -63,7 +63,9 @@ function PlanCard({ t }: { t: Any }) {
 export function MonitorPage() {
   useCoordinatorStore(); useAutoRefresh();
   useEffect(() => { void syncCoordinatorTrips(); }, []);
-  const mine = coordTrips(), planning = mine.filter((t: Any) => t.status === 'PLANNING');
+  const mine = coordTrips();
+  const planning = mine.filter((t: Any) => t.status === 'PLANNING');
+  const completed = mine.filter((t: Any) => t.status === 'COMPLETED');
   const live = mine.filter((t: Any) => ['IN_TRANSIT', 'READY_TO_DEPART'].includes(t.status)).sort((a: Any, b: Any) => Number(b.status === 'IN_TRANSIT') - Number(a.status === 'IN_TRANSIT'));
   const stale = live.filter((t: Any) => t.status === 'IN_TRANSIT' && (hoursSince((lastMilestone(t) || {}).at) as number) > STALE_H).length;
   const late = live.filter((t: Any) => t.etaOriginal && t.eta > t.etaOriginal).length;
@@ -74,12 +76,18 @@ export function MonitorPage() {
       <EmptyPlanLaunch />
       <div className="head"><div><h2 className="page-title">Giám sát hành trình</h2><p className="subtitle">Cập nhật lúc {dt(nowStamp())}</p></div></div>
       <div className="dr-stats" style={{ gridTemplateColumns: 'repeat(5,minmax(0,1fr))', marginTop: 16 }}>
-        {stat('Đang chạy / chờ xuất phát', live.length)}{stat('Đang lập kế hoạch', planning.length)}{stat('Trễ so với ETA ban đầu', late, true)}{stat(`Quá ${STALE_H} giờ chưa cập nhật`, stale, true)}{stat('Sự cố đang mở', openInc, true)}
+        {stat('Đang chạy / chờ xuất phát', live.length)}{stat('Đang lập kế hoạch', planning.length)}{stat('Đã hoàn thành', completed.length)}{stat('Trễ so với ETA ban đầu', late, true)}{stat(`Quá ${STALE_H} giờ chưa cập nhật`, stale, true)}{stat('Sự cố đang mở', openInc, true)}
       </div>
       <h3 className="card-title mon-sec">Đang chạy &amp; chờ xuất phát ({live.length})</h3>
       {live.length ? <div className="mon-grid">{live.map((t: Any) => <MonitorCard key={t.id} t={t} />)}</div> : <div className="card" style={{ marginTop: 12 }}><Empty title="Không có chuyến đang chạy" text="Chuyến được Manager duyệt khởi hành sẽ hiện ở đây." /></div>}
       <h3 className="card-title mon-sec">Đang lập kế hoạch ({planning.length})</h3>
       {planning.length ? <div className="mon-grid">{planning.map((t: Any) => <PlanCard key={t.id} t={t} />)}</div> : <div className="card" style={{ marginTop: 12 }}><Empty title="Không có chuyến đang lập kế hoạch" text="Chuyến được Manager giao cho bạn sẽ hiện ở đây." /></div>}
+      {completed.length ? (
+        <>
+          <h3 className="card-title mon-sec">Đã hoàn thành ({completed.length})</h3>
+          <div className="mon-grid">{completed.map((t: Any) => <MonitorCard key={t.id} t={t} />)}</div>
+        </>
+      ) : null}
     </CoordinatorLayout>
   );
 }
