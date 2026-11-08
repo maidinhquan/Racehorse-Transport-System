@@ -78,7 +78,7 @@ describe('backend DTO alignment', () => {
     const v = contractFromWire({ contractId: 'CONTRACT_001', requestId: 'REQUEST_001', versionNo: 3, requestStatus: 'DEPOSIT_VERIFIED', contractStatus: 'ISSUED', versionStatus: 'ISSUED', currentDeadline: '2027-01-01 12:00',
       snapshot: { route: { departureAtUtc: '2027-01-03T00:00:00Z', deliveryAtUtc: '2027-01-04T00:00:00Z' }, pickup: { cityName: 'Hanoi' }, delivery: { cityName: 'Tokyo' }, careInstructions: 'Care', horses: [{ id: 'HORSE_001', microchip_ISO: '981000000000001', feI_Passport_No: 'P001' }] },
     });
-    expect(v).toMatchObject({ v: 3, state: 'ISSUED', validUntil: '2027-01-01 12:00' });
+    expect(v).toMatchObject({ v: 3, state: 'ISSUED', validUntil: '2027-01-01 19:00' });
     expect(v.snapshot?.horses[0]).toMatchObject({ microchip: '981000000000001', passportNo: 'P001' });
   });
   it('sends the schedule and excludes the request being edited from horse reservations', async () => {

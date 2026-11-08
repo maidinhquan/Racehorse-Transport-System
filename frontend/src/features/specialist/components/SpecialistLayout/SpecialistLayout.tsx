@@ -78,6 +78,7 @@ export const SpecialistLayout: React.FC<SpecialistLayoutProps> = ({ title, child
 
   const NAV: Array<{ to: string; label: string; icon: string; count?: number; countTooltip?: string }> = [
     { to: '/specialist/dashboard', label: 'Tổng quan', icon: 'home' },
+    { to: '/specialist/request-reviews', label: 'Thẩm định yêu cầu', icon: 'file' },
     {
       to: '/specialist/trips',
       label: 'Chuyến được giao',

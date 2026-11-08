@@ -83,7 +83,8 @@ public sealed class RequestExamples : ISchemaFilter, IOperationFilter
         if (type == typeof(BudgetInput)) return Budget();
         if (type == typeof(PriceItem)) return Items()[0];
         if (type == typeof(ContractTerm)) return Terms()[0];
-        if (type == typeof(ReviewInput)) return new ReviewInput("Vui lòng kiểm tra và cập nhật lại số điện thoại của người nhận ngựa.");
+        if (type == typeof(ReviewInput)) return new ReviewInput("Vui lòng bổ sung hồ sơ theo góp ý.", "REQUEST_REVIEW_001", 1, "SUPPLEMENT_DOCUMENTS", null);
+        if (type == typeof(RefundEvidenceInput)) return new RefundEvidenceInput("REF-DEMO-001", 8000000, DateTimeOffset.Parse("2026-11-11T02:20:00Z"));
         if (type == typeof(ReasonInput)) return new ReasonInput("Khách hàng thay đổi kế hoạch và không còn nhu cầu vận chuyển theo lịch này.");
         if (type == typeof(VersionInput)) return new VersionInput(1);
         if (type == typeof(FeedbackInput)) return new FeedbackInput(1, "Tôi đề nghị điều chỉnh giờ nhận ngựa sang buổi sáng theo lịch đã trao đổi.");

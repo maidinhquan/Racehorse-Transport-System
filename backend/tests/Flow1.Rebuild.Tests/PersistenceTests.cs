@@ -30,9 +30,9 @@ public sealed class PersistenceTests(SqlFixture fixture) : IClassFixture<SqlFixt
     [Fact] public async Task Request_create_retry_is_idempotent_and_different_input_conflicts()
     {
         using var factory = new ApiFactory(fixture); using var client = factory.Customer();
-        await SubmissionTest.ReadyHorseAsync(fixture);
+        var horseId = await SubmissionTest.NewHorseAsync(fixture);
         client.DefaultRequestHeaders.Add("Idempotency-Key", Guid.NewGuid().ToString());
-        var input = SubmissionTest.Input(DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd"), DateTime.UtcNow.AddDays(32).ToString("yyyy-MM-dd"));
+        var input = SubmissionTest.Input(DateTime.UtcNow.AddDays(30).ToString("yyyy-MM-dd"), DateTime.UtcNow.AddDays(32).ToString("yyyy-MM-dd"), horseId);
         var first = await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input));
         var retry = await client.PostAsync("/api/customer/requests", SubmissionTest.Body(input));
         Assert.True(first.IsSuccessStatusCode,await first.Content.ReadAsStringAsync());

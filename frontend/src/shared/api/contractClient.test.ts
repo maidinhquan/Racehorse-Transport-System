@@ -15,6 +15,11 @@ const example = (path: string, method: string, status = '200') => {
 beforeEach(() => { request.mockReset(); sessionStorage.clear(); });
 
 describe('Flow 1 wire contract', () => {
+  it('allows explicit customer reconciliation through the declared refresh parameter', async () => {
+    request.mockResolvedValue({ status: 200, data: example('/customer/payments/{paymentId}', 'get') });
+    await customerApi.getPayment('PAYMENT_001', true);
+    expect(request.mock.calls[0][0]?.params).toEqual({ refresh: true });
+  });
   it('sends the selected transport mode when saving a contract', async () => {
     request.mockResolvedValue({ status: 200, data: example('/manager/requests/{requestId}/contract-draft', 'put') });
     const input = structuredClone(spec.paths['/manager/requests/{requestId}/contract-draft'].put.requestBody.content['application/json'].example);
@@ -116,16 +121,19 @@ describe('current Flow 1 request boundaries', () => {
   it('rejects undeclared query parameters and request bodies on bodyless operations', async () => {
     await expect(contractClient('get', '/customer/requests', undefined, { customerId: 'USER_002' })).rejects.toThrow('customerId');
     await expect(contractClient('get', '/customer/horses/selectable')).rejects.toThrow('expectedTransportDate');
-    await expect(contractClient('post', '/manager/contracts/CONTRACT_001/refund/complete', { reference: 'old' })).rejects.toThrow('không nhận request body');
+    await expect(contractClient('post', '/manager/contracts/CONTRACT_001/refund/start', { reference: 'old' })).rejects.toThrow('không nhận request body');
+    await expect(contractClient('post', '/manager/contracts/CONTRACT_001/refund/complete', { reference: 'old' })).rejects.toThrow('amount');
     expect(request).not.toHaveBeenCalled();
   });
-  it('sends only feedback for manager revision and no body for refund completion', async () => {
+  it('sends the review revision and action with manager feedback', async () => {
     request.mockResolvedValueOnce({ status: 200, data: example('/manager/requests/{requestId}/request-changes', 'post') });
-    await managerApi.requestRevision('REQUEST_001', 'Please update the transport date.');
-    expect(request.mock.calls[0][0]?.data).toEqual({ feedback: 'Please update the transport date.' });
+    const key = { reviewId: 'REQUEST_REVIEW_001', requestRevision: 2, action: 'SUPPLEMENT_DOCUMENTS' } as const;
+    await managerApi.requestRevision('REQUEST_001', 'Please update the transport date.', key);
+    expect(request.mock.calls[0][0]?.data).toEqual({ ...key, feedback: 'Please update the transport date.' });
     request.mockResolvedValueOnce({ status: 200, data: example('/manager/contracts/{contractId}/refund/complete', 'post') });
-    await managerApi.confirmRefund('CONTRACT_001');
-    expect(request.mock.calls[1][0]?.data).toBeUndefined();
+    const evidence = { reference: 'REF-DEMO-001', amount: 8000000, refundedAtUtc: '2026-11-11T02:20:00Z' };
+    await managerApi.confirmRefund('CONTRACT_001', evidence);
+    expect(request.mock.calls[1][0]?.data).toEqual(evidence);
   });
   it('uses the contract hold and resume endpoints', async () => {
     request.mockResolvedValueOnce({ status: 200, data: example('/manager/trips/{tripId}/hold', 'post') });

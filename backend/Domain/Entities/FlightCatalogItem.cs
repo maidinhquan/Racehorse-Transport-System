@@ -39,6 +39,12 @@ namespace Domain.Entities
         [StringLength(5)]
         public string ArrivalTime { get; set; } = "11:00";
 
+        [Column("DepartureDate", TypeName = "date")]
+        public DateTime? DepartureDate { get; set; }
+
+        [Column("ArrivalDate", TypeName = "date")]
+        public DateTime? ArrivalDate { get; set; }
+
         [Column("DepartureTimeZone")]
         [StringLength(50)]
         public string DepartureTimeZone { get; set; } = "Asia/Ho_Chi_Minh";

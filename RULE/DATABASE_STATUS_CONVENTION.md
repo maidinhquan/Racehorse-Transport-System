@@ -1,4 +1,10 @@
-## Quyết định Flow 1 hiện hành — 24/10/2026
+## Bổ sung Flow 1 trên nhánh MoreBusinessRuleFlow1
+
+- Phiên xét duyệt riêng cho Request đi từ `COORDINATOR_PENDING` đến `SPECIALIST_PENDING` rồi `MANAGER_PENDING`. Lịch đề xuất được chốt sau `CUSTOMER_ACCEPTED`. Yêu cầu bổ sung hoặc xác nhận quá hạn chuyển Request sang `CANCELLED` nếu chưa có khoản cần đối soát.
+- `paymentOutcome` trả `SUCCESS`, `FAILED` hoặc `UNCONFIRMED`. Các cột trạng thái thanh toán gốc tiếp tục lưu thông tin chi tiết để đối soát.
+- Hoàn cọc đi qua `REQUESTED`, `PROCESSING`, `COMPLETED`. Khi hoàn tất, lưu số tiền, tham chiếu, thời điểm chuyển tiền và người xác minh. Giao dịch chuyển tiền được thực hiện bên ngoài hệ thống.
+
+## Quyết định Flow 1 trước nhánh MoreBusinessRuleFlow1 — 24/10/2026
 
 - Chỉ thu tiền qua VNPAY. Tạo phiên → Customer thanh toán → backend xác minh IPN → cập nhật PAYMENT/INVOICE trong transaction → đủ cọc đúng version mới mở OTP. Return không xác nhận tiền. Không có API Manager confirm/reject thanh toán thủ công.
 - Theo dõi tiến độ bằng status hiện tại; không xây timeline history hoặc audit riêng. Chỉ giữ metadata nghiệp vụ cần thiết: feedback gần nhất, trạng thái trước hủy, xác nhận điều khoản, metadata phát hành/ký/gia hạn/triển khai. Collection history/revisions/deadlineHistory/extensions cũ được bỏ khỏi DTO Flow 1.

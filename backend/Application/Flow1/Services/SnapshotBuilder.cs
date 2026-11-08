@@ -20,7 +20,10 @@ public sealed class SnapshotBuilder(IDataSession data, Flow1ContractOptions opti
         var links = await data.ListAsync<RequestHorse>(h => h.RequestID == request.RequestID, ct);
         var ids = links.Select(h => h.HorseID).ToArray();
         var horses = await data.ListAsync<Horse>(h => ids.Contains(h.HorseID), ct);
-        var preparation = await policies.NumberAsync("MIN_PREPARATION_DAYS", "DAY", request.DestinationCountry, input.Mode, 0, null, true, ct);
+        var approved = (await data.ListAsync<RequestAssessment>(x => x.RequestID == request.RequestID && x.Status == "APPROVED", ct)).SingleOrDefault();
+        var preparation = approved is not null
+            ? await policies.NumberAsync("FLOW1_PREPARATION_DAYS", "DAY", null, input.Mode, 1, 365, true, ct)
+            : await policies.NumberAsync("MIN_PREPARATION_DAYS", "DAY", request.DestinationCountry, input.Mode, 0, null, true, ct);
         var hours = await policies.NumberAsync("CONTRACT_DEADLINE_HOURS", "HOUR", request.DestinationCountry, input.Mode, 1, null, false, ct);
         // Only these explicitly selected public fields can become part of a customer contract.
         var snapshot = new

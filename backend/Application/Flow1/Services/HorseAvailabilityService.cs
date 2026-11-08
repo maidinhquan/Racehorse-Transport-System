@@ -21,7 +21,7 @@ public sealed class HorseAvailabilityService(IDataSession data, AccessService ac
             conflict = states[h.HorseID].ConflictCode is { } code ? new { code } : null,
             documentWarnings = new[] { h.PhotoUrl is null ? "PHOTO_MISSING" : null, h.PassportScanUrl is null ? "PASSPORT_MISSING" : null,
                 h.OwnershipCertificateFileUrl is null ? "OWNERSHIP_MISSING" : null,
-                h.PassportExpiryDate is null || h.PassportExpiryDate <= end ? "PASSPORT_EXPIRED_OR_MISSING" : null,
+                h.PassportExpiryDate is null || h.PassportExpiryDate < end ? "PASSPORT_EXPIRED_OR_MISSING" : null,
                 h.DeclaredValueVnd is null or <= 0 ? "VALUE_MISSING" : null }.Where(x => x is not null).ToArray() }).ToArray();
     }
 }

@@ -48,22 +48,26 @@ export const CreateRequestPage: React.FC = () => {
   const lock = (field: RequestField) => !allowed.includes(field);
   const deadlineDays = Math.max(2, Math.ceil((options?.contractDeadlineHours ?? 24) / 24) + 1);
   const prepDays = options?.preparationDays ?? (city(form.destination).country === 'JP' ? 7 : 3);
-  const minLeadDays = prepDays + deadlineDays;
-  const minDate = addDays(today(), minLeadDays);
-  // Thời gian vận chuyển tối thiểu theo tuyến: kiểm tra ngay tại đây để khách không phải sửa sau khi đã cọc và ký hợp đồng.
+  const minLeadDays = options?.minimumPickupLeadDays ?? (prepDays + deadlineDays);
+  const minDate = options?.earliestPickupDate ?? addDays(today(), minLeadDays);
   const minTransitDays = options?.minTransitDays ?? (city(form.destination).country === 'JP' ? 2 : 0);
-  const minDeliveryDate = addDays(form.pickupAt || form.date || minDate, minTransitDays);
+  const pickupDate = form.pickupAt || form.date;
+  const minDeliveryDate = addDays(pickupDate || minDate, minTransitDays);
   const routeEnabled = options?.supportedRoutes?.some(route => route.originCountry === city(form.origin).country && route.destinationCountry === city(form.destination).country && route.mode === (city(form.destination).country === 'JP' ? 'AIR' : 'ROAD')) ?? false;
-  const tripValid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!form.date && form.date >= minDate && form.date >= minDeliveryDate;
+  const tripValid = !!routeEnabled && isSupportedRoute(form.origin, form.destination) && !!pickupDate
+    && pickupDate >= minDate && !!form.date && form.date >= pickupDate && form.date >= minDeliveryDate;
   const placeValid = Object.values(places).every(p => p.name.trim() && p.address.trim() && p.contact.trim() && /^[+0-9 ()-]{8,}$/.test(p.phone.trim()) && p.cityId && p.latitude != null && p.longitude != null);
   const hint = !form.origin || !form.destination ? 'Chọn thành phố trong địa chỉ nhận và giao ngựa.'
     : form.origin === form.destination ? 'Thành phố nhận và giao phải khác nhau.'
     : !isSupportedRoute(form.origin, form.destination) ? 'Chỉ nhận vận chuyển trong Việt Nam và từ Việt Nam đến Nhật Bản.'
     : optionsError || (!options ? 'Đang tải quy định của tuyến…'
     : !routeEnabled ? 'Tuyến này hiện chưa nhận yêu cầu vận chuyển.'
-    : !form.date ? 'Chọn ngày vận chuyển mong muốn.'
-    : form.date < minDate ? `Tuyến này cần ít nhất ${minLeadDays} ngày (chuẩn bị & ký hợp đồng), vui lòng chọn từ ${fmtDate(minDate)}.`
+    : !pickupDate ? 'Chọn ngày nhận ngựa.'
+    : pickupDate < minDate ? `Ngày nhận ngựa sớm nhất là ${fmtDate(minDate)} (còn ${minLeadDays} ngày để xét duyệt, hoàn tất hợp đồng và chuẩn bị).`
+    : !form.date ? 'Chọn ngày giao ngựa.'
+    : form.date < pickupDate ? 'Ngày giao ngựa phải từ ngày nhận trở đi.'
     : form.date < minDeliveryDate ? `Tuyến này cần ít nhất ${minTransitDays} ngày vận chuyển, ngày giao sớm nhất là ${fmtDate(minDeliveryDate)}.` : '');
+  const loadingOptions = !options && !optionsError && isSupportedRoute(form.origin, form.destination);
   const back = r ? `/customer/requests/${r.id}` : '/customer/requests';
   const save = async () => {
     if (savingRef.current) return;
@@ -150,11 +154,13 @@ export const CreateRequestPage: React.FC = () => {
       <RequestPlacesFields places={places} origin={form.origin} destination={form.destination} tried={tried} locked={lock}
         onPlaceChange={(key, place) => setPlaces(p => ({ ...p, [key]: place }))}
         onCityChange={(key, value) => { setForm(f => ({ ...f, [key === 'pickup' ? 'origin' : 'destination']: value })); setPlaces(p => ({ ...p, [key]: { ...p[key], cityId: '', latitude: undefined, longitude: undefined } })); }} />
-      {(tried || optionsError) && hint && <Note tone="red" title="Kiểm tra thông tin nhận/giao">{hint}</Note>}
+      {loadingOptions && <p className="cus-subtitle" role="status">Đang tải quy định của tuyến…</p>}
+      {(tried || optionsError) && !loadingOptions && hint && <Note tone="red" title="Kiểm tra thông tin nhận/giao">{hint}</Note>}
       <div className="cus-create__actions">
         <button type="button" className="cus-btn cus-btn--lg" onClick={() => navigate(back)}>Hủy</button>
-        <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={save} disabled={saving}>
-          {saving ? 'Đang lưu…' : 'Lưu & tiếp tục: Ngựa & hồ sơ →'}
+        <button type="button" className="cus-btn cus-btn--solid cus-btn--lg" onClick={save} disabled={saving || loadingOptions}
+          title={loadingOptions ? 'Đang tải quy định của tuyến' : saving ? 'Đang lưu thông tin' : undefined}>
+          {saving ? 'Đang lưu…' : loadingOptions ? 'Đang tải quy định…' : 'Lưu & tiếp tục: Ngựa & hồ sơ →'}
         </button>
       </div>
     </fieldset>

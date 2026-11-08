@@ -65,7 +65,10 @@ public static class ServiceRegistration
         services.AddScoped<ChecklistService>();
         services.AddScoped<RequestDetailsService>();
         services.AddScoped<RequestService>();
-        services.AddScoped<RequestReviewService>();
+        services.AddScoped<RequestAssessmentService>();
+        services.AddScoped<RequestAssessmentChecklist>();
+        services.AddScoped<RequestReviewResources>();
+        services.AddScoped<RequestSchedulePolicy>();
         services.AddScoped<NotificationService>();
         services.AddScoped<SnapshotBuilder>();
         services.AddScoped<ContractService>();

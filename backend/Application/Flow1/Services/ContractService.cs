@@ -10,7 +10,7 @@ namespace Application.Flow1.Services;
 
 public sealed class ContractService(IDataSession data, AccessService access, CatalogService catalogs,
     SnapshotBuilder snapshots, IContractRenderer renderer, IPrivateFiles files,
-    NotificationService notifications, Flow1ContractOptions issuer, TimeProvider clock, RequestDetailsService details)
+    NotificationService notifications, Flow1ContractOptions issuer, TimeProvider clock, RequestDetailsService details, RequestAssessmentService? assessments = null)
 {
     public async Task<object> EditorAsync(string actor, string request, CancellationToken ct, string? mode = null)
     {
@@ -24,9 +24,11 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         var published = versions.Where(x => x.PublishedAtUtc is not null).OrderByDescending(x => x.VersionNo).FirstOrDefault();
         var clauses = (await data.ListAsync<ContractClause>(c => c.IsActive, ct)).Select(c => new { id = c.TemplateID, title = c.TemplateName, text = c.BodyContent, language = c.LanguageCode }).ToArray();
         var savedMode = current is null ? null : JsonNode.Parse(current.ContentSnapshot)?["route"]?["mode"]?.GetValue<string>();
-        var defaults = JsonSerializer.SerializeToNode(await catalogs.FormAsync(row.OriginCountry!, row.DestinationCountry!, mode ?? savedMode ?? row.TransportType!, ct))!.AsObject();
+        var approved = (await data.ListAsync<RequestAssessment>(x => x.RequestID == request && x.Status == "APPROVED", ct)).Any();
+        var selectedMode = approved ? row.TransportType : mode ?? savedMode ?? row.TransportType;
+        var defaults = JsonSerializer.SerializeToNode(await catalogs.FormAsync(row.OriginCountry!, row.DestinationCountry!, selectedMode!, ct))!.AsObject();
         defaults["supportedRoutes"] = JsonSerializer.SerializeToNode((await catalogs.RoutesAsync(ct))
-            .Where(r => r.OriginCountry == row.OriginCountry && r.DestinationCountry == row.DestinationCountry)
+            .Where(r => r.OriginCountry == row.OriginCountry && r.DestinationCountry == row.DestinationCountry && (!approved || r.TransportMode == selectedMode))
             .Select(r => new { id = r.RouteID, originCountry = r.OriginCountry, destinationCountry = r.DestinationCountry, mode = r.TransportMode })
             .ToArray());
         defaults["terms"] = JsonSerializer.SerializeToNode(clauses);
@@ -45,6 +47,8 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
     {
         var row = await access.RequestAsync(request, actor, true, token);
         Require(row.Status is "CONTRACT_PREPARATION" or "CONTRACT_CHANGES_REQUESTED", "INVALID_STATE", "Request is not open for drafting.");
+        var approved = (await data.ListAsync<RequestAssessment>(x => x.RequestID == request && x.Status == "APPROVED", token)).Any();
+        Require(!approved || row.TransportType == input.Mode, "SCHEDULE_LOCKED", "Hợp đồng phải giữ phương thức vận chuyển đã duyệt.");
         await catalogs.ValidateAsync(row.OriginCountry!, row.DestinationCountry!, input.Mode, token);
         Require(SnapshotBuilder.Timestamp(input.DepartAt).Date == row.ExpectedDate?.Date, "VALIDATION_ERROR", "The plan must keep the customer departure date.", 400);
         Require(row.CommittedDeadline is null || SnapshotBuilder.Timestamp(input.ArriveAt).Date == row.CommittedDeadline.Value.Date,
@@ -60,6 +64,8 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         Require(input.Items.Sum(x => x.Amount) >= costs.Values.Sum() || !string.IsNullOrWhiteSpace(input.Exception), "VALIDATION_ERROR", "Explain a sale below internal cost.", 400);
         Require(SnapshotBuilder.Timestamp(input.ArriveAt) > SnapshotBuilder.Timestamp(input.DepartAt), "VALIDATION_ERROR", "Delivery must follow departure.", 400);
         var contract = (await data.ListAsync<Contract>(c => c.RequestID == request, token)).SingleOrDefault();
+        Require(contract?.FeedbackStatus != "PENDING", "FEEDBACK_NOT_DECIDED",
+            "Cần chấp nhận yêu cầu sửa của khách trước khi soạn bản hợp đồng mới.");
         if (contract is null)
         {
             contract = new Contract { RequestID = request, CustomerID = row.CustomerID, CurrencyCode = "VND", ContractStatus = "DRAFT" };
@@ -75,6 +81,8 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
             Require(priorInvoices.Count == 0, "PAYMENT_RECONCILIATION_REQUIRED", "Resolve received funds before issuing a replacement version.");
             var allInvoices = await data.ListAsync<Invoice>(i => i.ContractID == contract.ContractID, token);
             var ids = allInvoices.Select(i => i.InvoiceID).ToArray();
+            Require((await PaymentService.PendingAsync(data, ids, clock.GetUtcNow().UtcDateTime, token)).Count == 0,
+                "PAYMENT_RECONCILIATION_REQUIRED", "Cần đối soát giao dịch cọc trước khi sửa phiên bản hợp đồng.");
             Require(!(await data.ListAsync<Payment>(p => ids.Contains(p.InvoiceID) && p.VnpayReceivedAmount > 0, token)).Any(),
                 "PAYMENT_RECONCILIATION_REQUIRED", "Resolve every verified receipt before replacing the contract.");
             draft = new ContractVersion { ContractID = contract.ContractID,
@@ -124,9 +132,19 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
             Require(row.Status is "CONTRACT_PREPARATION" or "CONTRACT_CHANGES_REQUESTED", "INVALID_STATE", "Request cannot be published.");
             await RequireHorsesFreeAsync(request, token);
             await catalogs.ValidateAsync(row.OriginCountry!, row.DestinationCountry!, node["route"]!["mode"]!.GetValue<string>(), token);
-            Require(clock.GetUtcNow().UtcDateTime < deadline, "CONTRACT_EXPIRED", "Publication window elapsed.");
+            if (assessments is not null)
+                await assessments.ValidatePublicationAsync(row, node["route"]!["mode"]!.GetValue<string>(), departure,
+                    node["route"]!["deliveryAtUtc"]!.GetValue<DateTime>(), token);
+            var publicationTime = clock.GetUtcNow().UtcDateTime;
+            Require(publicationTime < deadline && publicationTime.AddHours((double)hours) <= departure.AddDays(-preparation),
+                "INSUFFICIENT_PREPARATION_TIME", "Không đủ thời gian hoàn tất hợp đồng và chuẩn bị theo lịch đã duyệt.");
             foreach (var old in await data.ListAsync<ContractVersion>(v => v.ContractID == contract.ContractID && v.VersionStatus == "ISSUED" && v.VersionNo != version, token)) old.VersionStatus = "SUPERSEDED";
-            foreach (var invoice in await data.ListAsync<Invoice>(i => i.ContractID == contract.ContractID && i.ContractVersionNo != version, token))
+            var previousInvoices = await data.ListAsync<Invoice>(i => i.ContractID == contract.ContractID && i.ContractVersionNo != version, token);
+            var previousInvoiceIds = previousInvoices.Select(i => i.InvoiceID).ToArray();
+            Require((await PaymentService.PendingAsync(data, previousInvoiceIds, publicationTime, token)).Count == 0
+                && !(await data.ListAsync<Payment>(p => previousInvoiceIds.Contains(p.InvoiceID) && p.VnpayReceivedAmount > 0, token)).Any(),
+                "PAYMENT_RECONCILIATION_REQUIRED", "Cần đối soát hoặc xử lý tiền ở phiên bản cũ trước khi phát hành.");
+            foreach (var invoice in previousInvoices)
             { Require(invoice.PaidAmount == 0, "PAYMENT_RECONCILIATION_REQUIRED", "Old version has received money."); invoice.PaymentStatus = "CANCELLED"; }
             var total = node["commercial"]!["totalPrice"]!.GetValue<decimal>();
             var amount = node["commercial"]!["depositAmount"]!.GetValue<decimal>();
@@ -179,6 +197,10 @@ public sealed class ContractService(IDataSession data, AccessService access, Cat
         var row = await access.RequestAsync(contract.RequestID, actor, false, token);
         Require(contract.SignedAt is null && row.Status == "CONTRACT_READY" && contract.CompletionDeadline > clock.GetUtcNow().UtcDateTime,
             "INVALID_STATE", "Contract is not open for feedback.");
+        var invoiceIds = (await data.ListAsync<Invoice>(i => i.ContractID == id && i.InvoiceType == "DEPOSIT", token)).Select(i => i.InvoiceID).ToArray();
+        Require((await PaymentService.PendingAsync(data, invoiceIds, clock.GetUtcNow().UtcDateTime, token)).Count == 0
+            && !(await data.ListAsync<Payment>(p => invoiceIds.Contains(p.InvoiceID) && p.VnpayReceivedAmount > 0, token)).Any(),
+            "PAYMENT_RECONCILIATION_REQUIRED", "Cần xử lý giao dịch cọc trước khi yêu cầu sửa hợp đồng.");
         contract.CustomerFeedback = Required(input.Text); contract.FeedbackStatus = "PENDING"; contract.FeedbackAtUtc = clock.GetUtcNow().UtcDateTime;
         contract.ManagerFeedback = null; contract.FeedbackHandledAtUtc = null; row.Status = "CONTRACT_CHANGES_REQUESTED";
         return new { requestId = row.RequestID, contractId = id, versionNo = input.VersionNo, status = row.Status, feedback = contract.CustomerFeedback };
