@@ -68,6 +68,10 @@ const incidentStatusMap: Record<string, Incident['status']> = {
   PENDING_APPROVAL: 'IN_PROGRESS',
   CHANGES_REQUESTED: 'IN_PROGRESS',
   EXECUTING: 'IN_PROGRESS',
+  RECOVERY_APPLIED: 'IN_PROGRESS',
+  RECOVERY_APPROVED: 'IN_PROGRESS',
+  RECOVERY_REJECTED: 'IN_PROGRESS',
+  IN_TRANSIT: 'IN_PROGRESS',
   CONTINUE_ALLOWED: 'IN_PROGRESS',
   RESULT_REPORTED: 'IN_PROGRESS',
   ESCALATED: 'IN_PROGRESS',
@@ -77,22 +81,38 @@ const incidentStatusMap: Record<string, Incident['status']> = {
   HALTED: 'CLOSED',
 };
 
-export const incidentFromWire = (r: Record<string, any>): Incident => ({
-  id: r.incidentId || r.id,
-  tripId: r.tripId,
-  type: incidentTypeMap[r.category || r.incidentType || r.type] || 'OTHER',
-  severity: r.severity || 'MEDIUM',
-  status: incidentStatusMap[r.status] || 'NEW',
-  at: r.reportedAt ? r.reportedAt.replace('T', ' ').slice(0, 16) : (r.at || ''),
-  by: r.reportedByUserName || r.reportedByUserId || r.by || 'Tài xế / Áp tải',
-  location: r.location || (r.locationCoordinates ? `Tọa độ: ${r.locationCoordinates}` : 'Trên đường vận chuyển'),
-  horseId: r.horseId,
-  description: r.description || '',
-  safety: r.safety || r.immediateCare || 'Người và ngựa an toàn hoặc đã được sơ cứu',
-  photos: Array.isArray(r.photos) ? r.photos : (r.imageUrl ? [r.imageUrl] : []),
-  plans: Array.isArray(r.plans) ? r.plans : [],
-  log: Array.isArray(r.log) ? r.log : [],
-});
+export const incidentFromWire = (r: Record<string, any>): Incident => {
+  const hasPlan = Boolean(r.approvedPlan || r.resolutionNotes);
+  const status = incidentStatusMap[r.status] || (hasPlan ? 'IN_PROGRESS' : 'NEW');
+
+  return {
+    id: r.incidentId || r.id,
+    tripId: r.tripId,
+    type: incidentTypeMap[r.category || r.incidentType || r.type] || 'OTHER',
+    severity: r.severity || 'MEDIUM',
+    status,
+    at: r.reportedAt ? r.reportedAt.replace('T', ' ').slice(0, 16) : (r.at || ''),
+    by: r.reportedByUserName || r.reportedByUserId || r.by || 'Tài xế / Áp tải',
+    location: r.location || (r.locationCoordinates ? `Tọa độ: ${r.locationCoordinates}` : 'Trên đường vận chuyển'),
+    horseId: r.horseId,
+    description: r.description || '',
+    safety: r.safety || r.immediateCare || 'Người và ngựa an toàn hoặc đã được sơ cứu',
+    photos: Array.isArray(r.photos) ? r.photos : (r.imageUrl ? [r.imageUrl] : []),
+    plans: Array.isArray(r.plans) && r.plans.length
+      ? r.plans
+      : (hasPlan ? [{
+          id: 'PLAN-APPROVED',
+          kind: r.resolutionType || 'NO_CHANGE',
+          desc: r.approvedPlan || r.resolutionNotes || 'Phương án xử lý đã được duyệt',
+          cost: 0,
+          payer: 'COMPANY',
+          status: 'APPROVED',
+          at: r.reportedAt || '',
+          by: 'Điều phối viên',
+        }] : []),
+    log: Array.isArray(r.log) ? r.log : [],
+  };
+};
 const requestFromWire = (r: WireRequest): TransportRequest => ({ ...r,
   id: r.id, customerId: r.customerId, origin: r.origin, destination: r.destination,
   horses: r.horses ?? [], pickup: placeFromWire(r.pickup), delivery: placeFromWire(r.delivery),

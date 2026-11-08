@@ -61,10 +61,11 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
   }, [menuOpen]);
 
   const logout = () => {
-    ['accessToken', 'user', 'userFullName', 'userEmail', 'userRole'].forEach((k) => sessionStorage.removeItem(k));
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    navigate('/login');
+    ['accessToken', 'user', 'userFullName', 'userEmail', 'userRole', 'token'].forEach((k) => {
+      sessionStorage.removeItem(k);
+      localStorage.removeItem(k);
+    });
+    window.location.href = '/login';
   };
 
   const openIncidents = incidents.filter((i) => activeTrips.some((t) => t.id === i.tripId) && !['RESOLVED', 'CLOSED'].includes(i.status)).length;
@@ -81,7 +82,7 @@ export const DriverLayout: React.FC<DriverLayoutProps> = ({ title, children }) =
         <NavLink to="/driver/journey" className="drv-brand">CBN Transport</NavLink>
         <div className="drv-role">
           <b>Tài xế &amp; Hộ tống</b>
-          <span>Driver / Escort portal</span>
+          <span>Cổng Tài xế &amp; Áp tải</span>
         </div>
         <nav className="drv-nav">
           {NAV.map(([to, label, icon, count]) => (

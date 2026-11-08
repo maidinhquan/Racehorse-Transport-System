@@ -81,13 +81,13 @@ export const placeById = (id?: string) => (id ? db.places.find((p: Any) => p.id 
 export const checkpoint = placeById;
 export const placeByName = (n: string) => db.places.find((p: Any) => p.name === n || (p.aliases || []).includes(n));
 
-export const curRoute = (t: Any) => (t?.routes?.length ? t.routes[t.routes.length - 1] : null);
-export const approvedRoute = (t: Any) => [...(t.routes || [])].reverse().find((r: Any) => r.status === 'APPROVED') || null;
+export const curRoute = (t: Any) => (Array.isArray(t?.routes) && t.routes.length ? t.routes[t.routes.length - 1] : null);
+export const approvedRoute = (t: Any) => (Array.isArray(t?.routes) ? [...t.routes].reverse().find((r: Any) => r.status === 'APPROVED') || null : null);
 export const tripStops = (t: Any): Any[] => (approvedRoute(t) || curRoute(t) || { stops: [] }).stops || [];
-export const lastMilestone = (t: Any) => (t?.milestones?.length ? t.milestones[t.milestones.length - 1] : null);
-export const tripHorses = (t: Any): string[] => reqOfTrip(t).horses || [];
+export const lastMilestone = (t: Any) => (Array.isArray(t?.milestones) && t.milestones.length ? t.milestones[t.milestones.length - 1] : null);
+export const tripHorses = (t: Any): string[] => reqOfTrip(t)?.horses || [];
 export const horseCount = (r: Any) => r?.count || r?.horses?.length || 1;
-export const crewOf = (t: Any): [string, string][] => Object.entries(t.crew || {}).filter(([, v]) => v) as [string, string][];
+export const crewOf = (t: Any): [string, string][] => (t?.crew ? (Object.entries(t.crew).filter(([, v]) => v) as [string, string][]) : []);
 export const tripLabel = (t: Any) => { const r = reqOfTrip(t); return `${t.id} • ${r.origin === 'Ho Chi Minh City' ? 'HCMC' : r.origin} → ${r.destination === 'Ho Chi Minh City' ? 'HCMC' : r.destination}`; };
 export const assignedOperator = (t: Any, role: 'coordinator' | 'specialist') => {
   if (role === 'coordinator') {

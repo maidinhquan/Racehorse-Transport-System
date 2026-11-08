@@ -15,6 +15,9 @@ public class ReportIncidentInputDto
     public string? ImageUrl { get; set; }
     public List<string>? Photos { get; set; }
     public DateTime? OccurredAt { get; set; }
+    public string? HorseId { get; set; }
+    public string? HorseName { get; set; }
+    public string? HealthIssueType { get; set; } // HORSE_FEVER, HORSE_COLIC, HORSE_SHOCK
 }
 
 public class EscalateIncidentInputDto
@@ -53,4 +56,13 @@ public class IncidentResponseDto
     public string? ApprovedPlan { get; set; }
     public string? ResolutionType { get; set; }
     public string? ResolutionNotes { get; set; }
+    public bool IsSceneReady { get; set; }
+    public string? SceneAckRole { get; set; }
+    public string? SceneAckByName { get; set; }
+    public string? HorseId { get; set; }
+    public string? HorseName { get; set; }
+    public string? HealthIssueType { get; set; }
+    public string? VetStatus { get; set; }
+    public string? TargetVetStation { get; set; }
+    public string? VetResolutionNote { get; set; }
 }

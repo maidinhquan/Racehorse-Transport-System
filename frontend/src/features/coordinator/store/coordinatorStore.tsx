@@ -483,6 +483,15 @@ export async function syncCoordinatorTrips(): Promise<void> {
   }
 }
 
+const DELETED_SPAM_IDS = new Set([
+  'INC_20261102_17F406', 'INC_20261106_44A3AF', 'INC_20261107_26EACE', 'INC_20261107_552507',
+  'INC_20261107_59E0B0', 'INC_20261107_619E30', 'INC_20261107_71DBE2', 'INC_20261107_AFD75F',
+  'INC_20261107_BE43C1', 'INC_20261107_E6F8D1', 'INC_20261108_09C04D', 'INC_20261108_1E5D35',
+  'INC_20261108_402208', 'INC_20261108_4C75B1', 'INC_20261108_59699D', 'INC_20261108_63E037',
+  'INC_20261108_9EA7FB', 'INC_20261108_A6D8E9', 'INC_20261108_B18836', 'INC_20261108_BD39EC',
+  'INC_20261108_C40695', 'INC_20261107_D190C1',
+]);
+
 export async function syncCoordinatorIncidents(): Promise<void> {
   try {
     const res = await apiClient.get<Any>('/incidents');
@@ -490,14 +499,56 @@ export async function syncCoordinatorIncidents(): Promise<void> {
     if (!Array.isArray(apiIncidents)) return;
 
     let hasChange = false;
+    const origLen = db.incidents.length;
+    db.incidents = db.incidents.filter((x: Any) => !DELETED_SPAM_IDS.has(cleanId(x.id)) && !DELETED_SPAM_IDS.has(x.id));
+    if (db.incidents.length !== origLen) hasChange = true;
+
     for (const bi of apiIncidents) {
       const id = bi.incidentId || bi.id;
-      if (!id) continue;
+      if (!id || DELETED_SPAM_IDS.has(cleanId(id)) || DELETED_SPAM_IDS.has(id)) continue;
+      const isApplied = bi.status === 'RECOVERY_APPLIED' || bi.status === 'EXECUTING';
       const existing = db.incidents.find((x: Any) => cleanId(x.id) === cleanId(id));
       if (existing) {
-        if (existing.status !== bi.status && bi.status) {
-          existing.status = bi.status;
+        if (bi.status && existing.status !== bi.status) {
+          existing.status = isApplied ? 'EXECUTING' : bi.status;
           hasChange = true;
+        }
+        if (bi.status && bi.status !== 'REPORTED' && !existing.ackAt) {
+          existing.ackAt = bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp();
+          hasChange = true;
+        }
+        if (bi.approvedPlan && !existing.approvedPlan) {
+          existing.approvedPlan = bi.approvedPlan;
+          existing.resolutionNotes = bi.resolutionNotes || bi.approvedPlan;
+          existing.resolutionType = bi.resolutionType;
+          hasChange = true;
+        }
+        if (existing.approvedPlan && (!existing.plans || existing.plans.length === 0)) {
+          existing.plans = [{
+            v: 1,
+            kind: existing.resolutionType || 'NO_CHANGE',
+            status: 'APPROVED',
+            desc: existing.approvedPlan,
+            reason: existing.resolutionNotes || '',
+            approvedAt: nowStamp(),
+            approvals: [],
+          }];
+          hasChange = true;
+        }
+        if (!existing.log) {
+          existing.log = [
+            [existing.at || nowStamp(), 'Báo cáo sự cố', existing.description || '', existing.reporterRole || 'DRIVER']
+          ];
+        }
+        if (!existing.updates) {
+          existing.updates = [];
+        }
+        if (!existing.plans) {
+          existing.plans = [];
+        } else {
+          for (const pl of existing.plans) {
+            if (!pl.approvals) pl.approvals = [];
+          }
         }
         if (!existing.reporterRole && bi.reportedByUserRole) {
           existing.reporterRole = bi.reportedByUserRole;
@@ -511,13 +562,42 @@ export async function syncCoordinatorIncidents(): Promise<void> {
           existing.immediateCare = bi.immediateCare;
           hasChange = true;
         }
+        if (bi.horseId && !existing.horseId) {
+          existing.horseId = bi.horseId;
+          hasChange = true;
+        }
+        if (bi.horseName && !existing.horseName) {
+          existing.horseName = bi.horseName;
+          hasChange = true;
+        }
+        if (bi.healthIssueType && !existing.healthIssueType) {
+          existing.healthIssueType = bi.healthIssueType;
+          hasChange = true;
+        }
+        if (bi.vetStatus && existing.vetStatus !== bi.vetStatus) {
+          existing.vetStatus = bi.vetStatus;
+          hasChange = true;
+        }
+        if (bi.targetVetStation && !existing.targetVetStation) {
+          existing.targetVetStation = bi.targetVetStation;
+          hasChange = true;
+        }
+        if (bi.vetResolutionNote && !existing.vetResolutionNote) {
+          existing.vetResolutionNote = bi.vetResolutionNote;
+          hasChange = true;
+        }
       } else {
+        const isPastReported = bi.status && bi.status !== 'REPORTED';
         const newInc: Any = {
           id,
           tripId: bi.tripId,
           type: bi.category || bi.incidentType || 'OTHER',
           severity: bi.severity || 'HIGH',
-          status: bi.status || 'REPORTED',
+          status: isApplied ? 'EXECUTING' : (bi.status || 'REPORTED'),
+          ackAt: isPastReported ? (bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp()) : undefined,
+          approvedPlan: bi.approvedPlan,
+          resolutionNotes: bi.resolutionNotes,
+          resolutionType: bi.resolutionType,
           at: bi.reportedAt ? bi.reportedAt.replace('T', ' ').slice(0, 16) : nowStamp(),
           by: bi.reportedByUserName || bi.reportedByUserId || 'Tài xế / Áp tải',
           reporterName: bi.reportedByUserName || '',
@@ -528,7 +608,22 @@ export async function syncCoordinatorIncidents(): Promise<void> {
           locationCoordinates: bi.locationCoordinates || '',
           description: bi.description || '',
           photos: bi.photos || (bi.imageUrl ? [bi.imageUrl] : []),
-          plans: [],
+          horseId: bi.horseId || '',
+          horseName: bi.horseName || '',
+          healthIssueType: bi.healthIssueType || '',
+          vetStatus: bi.vetStatus || '',
+          targetVetStation: bi.targetVetStation || '',
+          vetResolutionNote: bi.vetResolutionNote || '',
+          plans: bi.approvedPlan ? [{
+            v: 1,
+            kind: bi.resolutionType || 'NO_CHANGE',
+            status: 'APPROVED',
+            desc: bi.approvedPlan,
+            reason: bi.resolutionNotes || '',
+            approvedAt: nowStamp(),
+            approvals: [],
+          }] : [],
+          updates: [],
           log: [[nowStamp(), 'Nhân sự tổ xe báo cáo sự cố qua hệ thống', bi.reportedByUserName || 'Driver/Escort', bi.reportedByUserRole || 'DRIVER']],
         };
         db.incidents.unshift(newInc);

@@ -9,7 +9,29 @@ import { changeEta, crewConflict, crewOf, dWhere, emp, horse, isDriver, isStaffA
 import type { Any } from '../store/coordinatorStore';
 import { audit, cleanId, commit, db, go, me, nextId, notify, nowStamp, openModal, toast } from '../store/coordinatorStore';
 import { apiClient } from '../../../shared/api/apiClient';
+import { notifySync } from '../../../shared/utils/syncChannel';
 import { dt, human, incTypeVi } from '../utils/format';
+
+function syncIncidentToLocal(id: string, patch: Record<string, Any>) {
+  if (typeof window === 'undefined') return;
+  const cid = cleanId(id);
+  try {
+    const raw = localStorage.getItem('rts_driver_reported_incidents');
+    if (raw) {
+      const list = JSON.parse(raw);
+      const updatedList = list.map((x: Any) => {
+        if (cleanId(x.id) === cid || x.id === id) {
+          return { ...x, ...patch };
+        }
+        return x;
+      });
+      localStorage.setItem('rts_driver_reported_incidents', JSON.stringify(updatedList));
+    }
+  } catch {
+    // ignore
+  }
+  notifySync('requests_updated');
+}
 
 export const F5_TYPES: Record<string, string> = {
   VEHICLE_BREAKDOWN: 'Hỏng xe', TRAFFIC_ACCIDENT: 'Va chạm / tai nạn', ROAD_CLOSURE: 'Kẹt / cấm đường', BORDER_DELAY: 'Ách tắc tại cửa khẩu', BAD_WEATHER: 'Thời tiết xấu',
@@ -29,19 +51,33 @@ export const F5_ST: Record<string, [string, string]> = {
 };
 export const f5Pill = (i: Any): [string, string] => (F5_ST[i.status] ? F5_ST[i.status] : [i.status, human(i.status)]);
 export const F5_DONE = ['CLOSED', 'HALTED'];
-export const ROLE_VI: Record<string, string> = { DRIVER: 'Driver / Escort', FLEET_COORDINATOR: 'Điều phối', LOGISTICS_MANAGER: 'Manager', CUSTOMER: 'Khách hàng', SYSTEM: 'Hệ thống' };
+export const ROLE_VI: Record<string, string> = { DRIVER: 'Tài xế / Áp tải', FLEET_COORDINATOR: 'Điều phối viên', LOGISTICS_MANAGER: 'Quản lý vận hành', CUSTOMER: 'Khách hàng', SYSTEM: 'Hệ thống' };
 export const CMP_VI: Record<string, string> = { NEW: 'Mới', OPEN: 'Đang mở', SUBMITTED: 'Đã gửi', IN_PROGRESS: 'Đang xử lý', ESCALATED: 'Đã chuyển cấp trên', PENDING_CUSTOMER_CONFIRMATION: 'Chờ khách xác nhận', RESOLVED: 'Đã giải quyết', CLOSED: 'Đã đóng' };
 export const PAYER_VI: Record<string, string> = { COMPANY: 'Công ty', CUSTOMER: 'Khách hàng', INSURANCE: 'Bảo hiểm' };
-const BY_VI: Record<string, string> = { 'Điều phối': 'Điều phối', Manager: 'Quản lý', 'Driver / Escort': 'Tài xế / Áp tải' };
+const BY_VI: Record<string, string> = { 'Điều phối': 'Điều phối', Manager: 'Quản lý', 'Quản lý': 'Quản lý', 'Driver / Escort': 'Tài xế / Áp tải', 'Tài xế / Áp tải': 'Tài xế / Áp tải' };
 export const byVi = (b: string) => BY_VI[b] || b;
 
-const f5Log = (i: Any, text: string) => i.log.push([nowStamp(), text, me().name, 'FLEET_COORDINATOR']);
-export const curPlan = (i: Any) => i.plans[i.plans.length - 1] || null;
+const f5Log = (i: Any, text: string) => {
+  if (!i) return;
+  i.log = Array.isArray(i.log) ? i.log : [];
+  i.log.push([nowStamp(), text, me().name, 'FLEET_COORDINATOR']);
+};
+export const curPlan = (i: Any) => (Array.isArray(i?.plans) && i.plans.length ? i.plans[i.plans.length - 1] : null);
 export const resSig = (p: Any) => JSON.stringify([p.vehicleId || '', p.newCrew ? Object.entries(p.newCrew).sort() : [p.crewRole || '', p.crewId || '']]);
 
 export function f5Status(i: Any) {
   if (F5_DONE.includes(i.status)) return i.status;
   const p = curPlan(i);
+
+  // Sự cố đã có phương án duyệt/áp dụng từ hệ thống hoặc đang thực thi thì luôn coi là đã tiếp nhận và ở trạng thái EXECUTING
+  if (i.status === 'RECOVERY_APPLIED' || i.status === 'EXECUTING' || i.approvedPlan || (p && p.status !== 'DRAFT')) {
+    i.ackAt = i.ackAt || i.at || nowStamp();
+    if (!i.result && !i.continueAt && !i.escalation) {
+      i.status = 'EXECUTING';
+      return i.status;
+    }
+  }
+
   i.status = i.escalation && !i.escalation.decision ? 'ESCALATED' : i.result ? 'RESULT_REPORTED' : i.continueAt ? 'CONTINUE_ALLOWED' : !i.ackAt ? 'REPORTED'
     : !p || p.status === 'DRAFT' || (i.replan && p.v <= i.replanFrom) ? 'PLANNING' : 'EXECUTING';
   return i.status;
@@ -51,10 +87,89 @@ export function f5Status(i: Any) {
 export function f5Conditions(i: Any, own = false): Array<{ ok: boolean; label: string; by: string }> {
   const t = trip(i.tripId), p = curPlan(i), out: Array<{ ok: boolean; label: string; by: string }> = [];
   const add = (ok: boolean, label: string, by: string) => out.push({ ok, label, by });
-  add(!!p && p.status !== 'DRAFT', p ? `Phương án v${p.v} đã lưu và áp dụng` : 'Có phương án xử lý', 'Điều phối');
-  add(!!(i.sceneReady && p && i.sceneReady.sig === resSig(p)), 'Driver / Escort xác nhận hiện trường sẵn sàng' + (i.sceneReady && p && i.sceneReady.sig !== resSig(p) ? ' (cần xác nhận lại vì xe/nhân sự đã đổi)' : ''), 'Driver / Escort');
-  add(!!(i.resOk && p && i.resOk.sig === resSig(p)), `Xe & nhân sự đáp ứng phương án${p ? ' v' + p.v : ''}` + (i.resOk && p && i.resOk.sig !== resSig(p) ? ' (cần xác nhận lại)' : ''), 'Điều phối');
-  if (i.type === 'HORSE_HEALTH') add(!!(i.vet && ['FIT', 'FIT_WITH_CONDITIONS'].includes(i.vet.conclusion)), i.vet && i.vet.conclusion === 'NOT_FIT' ? 'Bác sĩ kết luận chưa đủ sức khỏe tiếp tục' : 'Kết luận của bác sĩ bên ngoài cho phép tiếp tục', 'Driver / Escort');
+
+  // Phân định rõ trách nhiệm: Bác sĩ thú y phụ trách sức khỏe ngựa, Tài xế phụ trách xe và lộ trình
+  const isHorseHealth = i.type === 'HORSE_HEALTH' || i.reporterRole === 'VETERINARIAN';
+  const targetRoleLabel = isHorseHealth ? 'Bác sĩ thú y' : 'Tài xế';
+
+  let isRoleAck = false;
+  if (typeof window !== 'undefined') {
+    try {
+      const rawAck =
+        localStorage.getItem(`rts_driver_ack_${cleanId(i.id)}`) ||
+        localStorage.getItem(`rts_driver_ack_${i.id}`) ||
+        localStorage.getItem(`rts_ack_${cleanId(i.id)}`) ||
+        localStorage.getItem(`rts_ack_${i.id}`);
+      if (rawAck) {
+        const parsed = JSON.parse(rawAck);
+        // Chỉ chấp nhận khi người xác nhận là tổ xe tại hiện trường, KHÔNG PHẢI Điều phối
+        if (parsed?.ok && parsed?.role !== 'COORDINATOR' && !parsed?.by?.includes('Điều phối')) {
+          isRoleAck = true;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (!isRoleAck && (i.isSceneReady || i.sceneReady)) {
+    isRoleAck = true;
+  }
+  if (!isRoleAck && i.updates && Array.isArray(i.updates)) {
+    isRoleAck = i.updates.some((u: Any) =>
+      String(u.text || u.notes || '').toLowerCase().includes('tiếp nhận phương án') ||
+      String(u.text || u.notes || '').toLowerCase().includes('sẵn sàng phối hợp')
+    );
+  }
+
+  if (isHorseHealth) {
+    // SỰ CỐ Y TẾ NGỰA
+    let isVetResolved = Boolean(i.vetStatus === 'STABILIZED');
+    let isVetTransferApproved = Boolean(i.resolutionType === 'VET_TRANSFER' || (i.approvedPlan && i.approvedPlan.includes('Chuyển ngựa cấp cứu')));
+
+    if (typeof window !== 'undefined') {
+      try {
+        const rawRes = localStorage.getItem(`rts_vet_resolved_${cleanId(i.id)}`) || localStorage.getItem(`rts_vet_resolved_${i.id}`);
+        if (rawRes) isVetResolved = true;
+        const rawRef = localStorage.getItem(`rts_vet_referral_${cleanId(i.id)}`) || localStorage.getItem(`rts_vet_referral_${i.id}`);
+        if (rawRef && isVetTransferApproved) isVetTransferApproved = true;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!isVetResolved && i.updates && Array.isArray(i.updates)) {
+      isVetResolved = i.updates.some((u: Any) =>
+        String(u.text || u.notes || '').includes('Sự cố đã được xử lý') ||
+        String(u.text || u.notes || '').includes('đã ổn định')
+      );
+    }
+
+    add(
+      isVetResolved || isVetTransferApproved,
+      isVetResolved
+        ? 'Bác sĩ thú y xác nhận sức khỏe ngựa đã ổn định'
+        : (isVetTransferApproved ? 'Đã duyệt chuyển viện khẩn cấp đến cơ sở y tế' : 'Chờ Bác sĩ thú y xử lý ổn định hoặc đề xuất chuyển viện'),
+      'Bác sĩ thú y'
+    );
+
+    add(
+      isRoleAck || isVetResolved || isVetTransferApproved,
+      isVetResolved ? 'Tổ xe và ngựa sẵn sàng tiếp tục chặng' : 'Hiện trường sẵn sàng phối hợp',
+      'Bác sĩ thú y'
+    );
+  } else {
+    // SỰ CỐ XE / TAI NẠN / ĐƯỜNG SÁ
+    add(!!p && p.status !== 'DRAFT', p ? `Phương án v${p.v} đã lưu và áp dụng` : 'Có phương án xử lý', 'Điều phối');
+    add(isRoleAck, `${targetRoleLabel} xác nhận hiện trường sẵn sàng`, targetRoleLabel);
+
+    // Xe & nhân sự tự động đạt khi phương án đã được Điều phối áp dụng
+    const isResConfirmed = !!(p && p.status !== 'DRAFT') || !!(i.resOk && p && i.resOk.sig === resSig(p));
+    add(isResConfirmed, `Xe & nhân sự đáp ứng phương án${p ? ' v' + p.v : ''}`, 'Điều phối');
+  }
+
+  if (i.type === 'HORSE_HEALTH' && i.vet) {
+    add(['FIT', 'FIT_WITH_CONDITIONS'].includes(i.vet.conclusion), i.vet.conclusion === 'NOT_FIT' ? 'Bác sĩ kết luận chưa đủ sức khỏe tiếp tục' : 'Kết luận của bác sĩ bên ngoài cho phép tiếp tục', 'Bác sĩ thú y');
+  }
   if (!own) db.incidents.filter((x: Any) => x !== i && x.tripId === i.tripId && x.blocking && !F5_DONE.includes(x.status) && !x.continueAt && f5Conditions(x, true).some((c) => !c.ok))
     .forEach((x: Any) => add(false, `Sự cố ${x.id} (${F5_TYPES[x.type] || incTypeVi(x.type)}) vẫn đang chặn chặng`, 'Điều phối'));
   if (tripHalted(t)) add(false, 'Chuyến đang dừng theo quyết định', 'Điều phối');
@@ -74,24 +189,38 @@ export function f5Conditions(i: Any, own = false): Array<{ ok: boolean; label: s
 export function f5Next(i: Any): [string, string, string] {
   const p = curPlan(i), miss = f5Conditions(i).filter((c) => !c.ok), S = i.status;
   if (S === 'CLOSED') return ['done', 'Sự cố đã đóng', `Đóng bởi ${i.closedBy || '—'} lúc ${dt(i.closedAt)}. Đóng sự cố không hoàn tất chuyến; chuyến tiếp tục theo các mốc bình thường.`];
-  if (S === 'HALTED') return ['bad', 'Chuyến dừng theo quyết định', i.escalation?.note || ''];
-  if (S === 'ESCALATED') return ['wait', 'Đang chờ quyết định', 'Điều phối đã báo chuyến không thể tiếp tục: ' + i.escalation.reason];
+  if (S === 'HALTED') return ['bad', 'Chuyến dừng theo quyết định', i.escalation?.note || i.escalation?.reason || ''];
+  if (S === 'ESCALATED') return ['wait', 'Đang chờ quyết định', 'Điều phối đã báo chuyến không thể tiếp tục: ' + (i.escalation?.reason || i.description || '')];
   if (S === 'REPORTED') return ['me', 'Tiếp nhận sự cố', 'Bạn là đầu mối từ tiếp nhận đến đóng sự cố.'];
   if (S === 'PLANNING') return ['me', p ? `Hoàn thiện phương án v${p.v} và áp dụng` : 'Lập phương án xử lý', ''];
-  if (S === 'PENDING_APPROVAL') return ['wait', `Chờ Manager duyệt phương án v${p.v}`, 'Phê duyệt không đồng nghĩa với được tiếp tục chặng.'];
+  if (S === 'PENDING_APPROVAL') return ['me', `Duyệt & Áp dụng phương án v${p.v}`, 'Điều phối viên trực tiếp phê duyệt và chuyển hướng dẫn cho tổ xe.'];
   if (S === 'EXECUTING') {
-    const mine = miss.filter((c) => c.by === 'Điều phối');
+    const isHorseHealth = i.type === 'HORSE_HEALTH' || i.reporterRole === 'VETERINARIAN';
+    const targetRole = isHorseHealth ? 'Bác sĩ thú y' : 'Tài xế';
     if (!miss.length) return ['me', 'Đủ điều kiện – cho phép tiếp tục chặng', 'Cho phép tiếp tục không đóng sự cố.'];
+    const ackMiss = miss.find((c) => c.label.includes('xác nhận'));
+    if (ackMiss) {
+      return ['wait', `Chờ ${targetRole} xác nhận tiếp nhận phương án`, `Điều phối viên đã phê duyệt phương án. Đang chờ ${targetRole.toLowerCase()} bấm xác nhận tiếp nhận ngoài hiện trường trước khi mở chặng.`];
+    }
+    const mine = miss.filter((c) => c.by === 'Điều phối');
     if (mine.length) return ['me', 'Hoàn tất điều kiện còn thiếu để tiếp tục chặng', mine.map((c) => c.label).join(' • ')];
     return ['wait', 'Đang chờ các bên khác', miss.map((c) => `${c.label} (${byVi(c.by)})`).join(' • ')];
   }
-  if (S === 'CONTINUE_ALLOWED') return ['wait', 'Chờ Driver / Escort báo kết quả thực hiện', 'Chặng đã tiếp tục; sự cố chưa đóng.'];
+  if (S === 'CONTINUE_ALLOWED') {
+    const isHorseHealth = i.type === 'HORSE_HEALTH' || i.reporterRole === 'VETERINARIAN';
+    return ['done', 'Sự cố đã được xử lý', isHorseHealth ? 'Bác sĩ thú y xác nhận ngựa đã ổn định thể trạng, chuyến xe tiếp tục lộ trình.' : 'Sự cố đã được khắc phục, chuyến xe tiếp tục lộ trình.'];
+  }
   if (S === 'RESULT_REPORTED') return ['me', 'Kiểm tra kết quả và đóng sự cố', 'Đóng sự cố không hoàn tất chuyến.'];
   return ['wait', '', ''];
 }
-export const waitingFor = (i: Any) => (i.status === 'REPORTED' ? 'Điều phối' : i.status === 'PENDING_APPROVAL' || i.status === 'ESCALATED' ? 'Quản lý' : i.status === 'CONTINUE_ALLOWED' ? 'Tài xế / Áp tải'
-  : ['PLANNING', 'CHANGES_REQUESTED', 'RESULT_REPORTED'].includes(i.status) ? 'Điều phối'
-    : i.status === 'EXECUTING' ? ([...new Set(f5Conditions(i).filter((c) => !c.ok).map((c) => byVi(c.by)))].join(', ') || 'Điều phối') : '—');
+export const waitingFor = (i: Any) => (
+  i.status === 'REPORTED' ? 'Điều phối' :
+  i.status === 'PENDING_APPROVAL' || i.status === 'ESCALATED' ? 'Quản lý' :
+  i.status === 'CONTINUE_ALLOWED' ? 'Điều phối' :
+  ['PLANNING', 'CHANGES_REQUESTED', 'RESULT_REPORTED'].includes(i.status) ? 'Điều phối' :
+  i.status === 'EXECUTING' ? ([...new Set(f5Conditions(i).filter((c) => !c.ok).map((c) => byVi(c.by)))].join(', ') || 'Điều phối') :
+  '—'
+);
 
 /** số sự cố cần Điều phối thao tác (huy hiệu trên thanh bên) */
 export function coordNavCount() {
@@ -134,13 +263,58 @@ function f5Apply(i: Any, p: Any) {
 // ============================================================================
 // Thao tác của Điều phối
 // ============================================================================
-const find = (id: string) => db.incidents.find((x: Any) => x.id === id);
+const find = (id: string) => db.incidents.find((x: Any) => cleanId(x.id) === cleanId(id) || x.id === id);
 
 export function f5Ack(id: string) {
-  const i = find(id), t = trip(i.tripId); if (i.ackAt) return;
-  i.ackAt = nowStamp(); i.owner = me().name; f5Log(i, 'Tiếp nhận sự cố, xác định chặng: ' + legOf(t, i.leg)); f5Status(i);
-  crewOf(t).forEach(([, e]) => notify(e, `Điều phối đã tiếp nhận ${i.id}`, 'Giữ an toàn, gửi cập nhật hiện trường khi có diễn biến.', `d/incident/${i.id}`));
-  toast('Đã tiếp nhận. Lập phương án xử lý.');
+  const i = find(id), t = trip(i?.tripId);
+  if (!i || i.ackAt) return;
+  i.ackAt = nowStamp();
+  i.owner = me().name;
+  f5Log(i, 'Tiếp nhận sự cố, xác định chặng: ' + legOf(t, i.leg));
+  f5Status(i);
+  commit();
+
+  const cid = cleanId(id);
+  try {
+    localStorage.setItem(`rts_coord_ack_${cid}`, JSON.stringify({ ok: true, at: nowStamp(), by: me().name }));
+    localStorage.setItem(`rts_coord_ack_${id}`, JSON.stringify({ ok: true, at: nowStamp(), by: me().name }));
+    localStorage.removeItem(`rts_driver_ack_${cid}`);
+    localStorage.removeItem(`rts_driver_ack_${id}`);
+    localStorage.removeItem(`rts_ack_${cid}`);
+    localStorage.removeItem(`rts_ack_${id}`);
+    localStorage.setItem(`rts_incident_status_${cid}`, 'IN_PROGRESS');
+    localStorage.setItem(`rts_incident_status_${id}`, 'IN_PROGRESS');
+  } catch {
+    // ignore
+  }
+
+  syncIncidentToLocal(id, {
+    status: 'IN_PROGRESS',
+    isCoordAccepted: true,
+    ackAt: nowStamp(),
+  });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('rts_incident_created', { detail: { id, status: 'IN_PROGRESS' } }));
+    window.dispatchEvent(new CustomEvent('rts_incident_pins_changed', { detail: { id, status: 'IN_PROGRESS' } }));
+  }
+
+  void (async () => {
+    try {
+      await apiClient.post(`/coordinator/incidents/${cleanId(id)}/accept`);
+    } catch {
+      try {
+        await apiClient.post(`/incidents/${cleanId(id)}/accept`);
+      } catch {
+        // ignore
+      }
+    }
+  })();
+
+  if (t) {
+    crewOf(t).forEach(([, e]) => notify(e, `Điều phối đã tiếp nhận ${i.id}`, 'Giữ an toàn, gửi cập nhật hiện trường khi có diễn biến.', `d/incident/${i.id}`));
+  }
+  toast('Đã tiếp nhận sự cố thành công.');
 }
 
 export function f5Plan(id: string) {
@@ -258,16 +432,16 @@ export function f5Plan(id: string) {
                 )}
               </div>
 
-              {/* Vị trí 2: Phụ lái / Escort */}
+              {/* Vị trí 2: Phụ lái / Áp tải */}
               <div style={{ marginBottom: 12, padding: 10, background: 'var(--bg-page, #f9fafb)', border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 6 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                   <div>
-                    <b>Phụ lái / Escort:</b> <span className="muted">{curCD ? curCD.name : 'Chưa phân công'}</span>
+                    <b>Phụ lái / Áp tải:</b> <span className="muted">{curCD ? curCD.name : 'Chưa phân công'}</span>
                   </div>
-                  <Chk name="changeCoDriver">Thay phụ lái / Escort đi kèm</Chk>
+                  <Chk name="changeCoDriver">Thay phụ lái / Áp tải đi kèm</Chk>
                 </div>
                 {f.v.changeCoDriver && (
-                  <Field label="Chọn phụ lái / escort mới *" hint="Chỉ hiển thị nhân sự sẵn sàng và không có lịch chuyến nào đang chạy">
+                  <Field label="Chọn phụ lái / áp tải mới *" hint="Chỉ hiển thị nhân sự sẵn sàng và không có lịch chuyến nào đang chạy">
                     <Sel name="coDriverId" options={coDriverOpts} />
                   </Field>
                 )}
@@ -425,6 +599,28 @@ export function f5Submit(id: string) {
   f5Status(i);
   commit();
 
+  const cid = cleanId(i.id);
+  try {
+    localStorage.setItem(`rts_incident_plan_${cid}`, planSummary);
+    localStorage.setItem(`rts_incident_plan_${i.id}`, planSummary);
+    localStorage.setItem(`rts_incident_status_${cid}`, 'EXECUTING');
+    localStorage.setItem(`rts_incident_status_${i.id}`, 'EXECUTING');
+    localStorage.removeItem(`rts_driver_ack_${cid}`);
+    localStorage.removeItem(`rts_driver_ack_${i.id}`);
+    localStorage.removeItem(`rts_ack_${cid}`);
+    localStorage.removeItem(`rts_ack_${i.id}`);
+  } catch {
+    // ignore
+  }
+
+  syncIncidentToLocal(i.id, {
+    status: 'EXECUTING',
+    approvedPlan: planSummary,
+    resolutionType: p.kind,
+    resolutionNotes: resolutionDetails || planSummary,
+    isCoordAccepted: true,
+  });
+
   // Đồng bộ lên backend API và tạo Notification cho tài xế
   void (async () => {
     try {
@@ -482,16 +678,61 @@ export function f5Continue(id: string) {
     title: `Cho phép tiếp tục ${legOf(t, i.leg)}`, ok: 'Cho phép tiếp tục',
     body: () => <p>Chặng được mở lại cho tổ xe ghi mốc tiếp theo. Hành động này <b>không đóng sự cố</b> và <b>không hoàn tất chuyến</b>.</p>,
     onOk: () => {
-      i.continueAt = nowStamp(); i.continueBy = me().name; f5Log(i, 'Cho phép tiếp tục chặng'); f5Status(i);
+      i.continueAt = nowStamp();
+      i.continueBy = me().name;
+      f5Log(i, 'Cho phép tiếp tục chặng');
+      f5Status(i);
+      commit();
+
+      const cid = cleanId(id);
+      try {
+        localStorage.setItem(`rts_incident_continue_${cid}`, nowStamp());
+        localStorage.setItem(`rts_incident_continue_${id}`, nowStamp());
+        localStorage.setItem(`rts_incident_status_${cid}`, 'CONTINUE_ALLOWED');
+        localStorage.setItem(`rts_incident_status_${id}`, 'CONTINUE_ALLOWED');
+      } catch {
+        // ignore
+      }
+
+      syncIncidentToLocal(id, {
+        status: 'CONTINUE_ALLOWED',
+        continueAt: nowStamp(),
+        isCoordAccepted: true,
+      });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('rts_incident_created', { detail: { id, status: 'CONTINUE_ALLOWED' } }));
+        window.dispatchEvent(new CustomEvent('rts_incident_pins_changed', { detail: { id, status: 'CONTINUE_ALLOWED' } }));
+      }
+
       crewOf(t).forEach(([, e]) => notify(e, `${t.id}: được phép tiếp tục chặng`, `Sau khi thực hiện xong, báo kết quả cho ${i.id}.`, `d/incident/${i.id}`));
       toast(legHolds(t).length ? `Chặng chạy lại khi ${legHolds(t).map((x: Any) => x.id).join(', ')} cũng được cho tiếp tục.` : 'Đã cho phép tiếp tục chặng. Sự cố vẫn mở tới khi có kết quả.');
+
+      // Đồng bộ trạng thái CONTINUE_ALLOWED xuống Backend API để không bị lặp lại trạng thái cũ
+      void (async () => {
+        try {
+          await apiClient.post(`/incidents/${cleanId(i.id)}/continue`, {
+            notes: 'Điều phối viên đã xác nhận cho phép tiếp tục chặng sau khi kiểm tra hiện trường.',
+          });
+        } catch (e) {
+          console.warn('[f5Continue] Failed to sync continue to backend:', e);
+        }
+      })();
     },
   });
 }
 
 export function f5Close(id: string) {
   const i = find(id);
-  if (!i.result) return toast('Chỉ đóng khi Driver / Escort đã báo kết quả thực hiện.');
+  const isHorseHealth = i.type === 'HORSE_HEALTH' || i.reporterRole === 'VETERINARIAN';
+  const targetRoleLabel = isHorseHealth ? 'Bác sĩ thú y' : 'Tài xế';
+  if (!i.result) {
+    i.result = {
+      by: targetRoleLabel,
+      at: i.continueAt || nowStamp(),
+      text: isHorseHealth ? 'Sự cố đã được xử lý, thể trạng ngựa đã ổn định.' : 'Sự cố đã được xử lý, xe tiếp tục hành trình an toàn.',
+    };
+  }
   openModal({
     title: `Đóng sự cố ${i.id}`, ok: 'Đóng sự cố', init: { ok: false, note: '' },
     body: () => (<>
@@ -503,6 +744,17 @@ export function f5Close(id: string) {
       if (!v.ok) return 'Tick xác nhận đã kiểm tra.'; if (String(v.note).trim().length < 5) return 'Nhập ghi chú.';
       i.status = 'CLOSED'; i.closedAt = nowStamp(); i.closedBy = me().name; i.closeNote = String(v.note).trim(); f5Log(i, 'Đóng sự cố: ' + i.closeNote);
       notify('LOGISTICS_MANAGER', `${i.id} đã đóng`, i.closeNote, `m/incident/${i.id}`); toast('Đã đóng sự cố. Chuyến vẫn tiếp tục theo các mốc.');
+
+      void (async () => {
+        try {
+          await apiClient.post(`/incidents/${cleanId(i.id)}/resolve`, {
+            resolutionSummary: i.closeNote,
+            requiresCustomerFollowUp: false,
+          });
+        } catch (e) {
+          console.warn('[f5Close] Failed to sync close to backend:', e);
+        }
+      })();
     },
   });
 }
@@ -596,6 +848,98 @@ export function cmpView(id: string) {
       </div>
     </>),
   });
+}
+
+export function f5ApproveVetTransfer(id: string) {
+  const i = find(id), t = trip(i?.tripId);
+  if (!i) return;
+
+  // Lấy thông tin trạm y tế đề xuất
+  let stationName = i.targetVetStation || 'Cơ sở thú y cấp cứu';
+  let address = '';
+  let phone = '';
+  let reason = '';
+
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(`rts_vet_referral_${cleanId(i.id)}`) || localStorage.getItem(`rts_vet_referral_${i.id}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.station) stationName = parsed.station;
+        if (parsed.address) address = parsed.address;
+        if (parsed.phone) phone = parsed.phone;
+        if (parsed.reason) reason = parsed.reason;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const planDesc = `Chuyển ngựa cấp cứu khẩn cấp đến: ${stationName}${address ? ` (${address})` : ''}${phone ? ` • SĐT: ${phone}` : ''}.${reason ? ` Lý do: ${reason}` : ''}`;
+
+  i.status = 'EXECUTING';
+  i.approvedPlan = planDesc;
+  i.resolutionType = 'VET_TRANSFER';
+  i.resolutionNotes = planDesc;
+  i.plans = i.plans || [];
+  i.plans.push({
+    v: (i.plans.length || 0) + 1,
+    kind: 'VET_TRANSFER',
+    status: 'APPROVED',
+    desc: planDesc,
+    reason: reason || 'Chuyển viện khẩn cấp theo yêu cầu của Bác sĩ thú y',
+    approvedAt: nowStamp(),
+    approvals: [{ at: nowStamp(), by: me().name, decision: 'APPROVED', reason: 'Điều phối viên duyệt chuyển trạm y tế' }],
+  });
+
+  f5Log(i, `Điều phối viên phê duyệt chuyển viện khẩn cấp đến: ${stationName}`);
+  f5Status(i);
+  commit();
+
+  const cid = cleanId(id);
+  try {
+    localStorage.setItem(`rts_vet_transfer_approved_${cid}`, JSON.stringify({ at: nowStamp(), station: stationName }));
+    localStorage.setItem(`rts_vet_transfer_approved_${id}`, JSON.stringify({ at: nowStamp(), station: stationName }));
+    localStorage.setItem(`rts_incident_status_${cid}`, 'EXECUTING');
+    localStorage.setItem(`rts_incident_status_${id}`, 'EXECUTING');
+    localStorage.setItem(`rts_incident_plan_${cid}`, planDesc);
+    localStorage.setItem(`rts_incident_plan_${id}`, planDesc);
+  } catch {
+    // ignore
+  }
+
+  syncIncidentToLocal(id, {
+    status: 'EXECUTING',
+    approvedPlan: planDesc,
+    resolutionType: 'VET_TRANSFER',
+    resolutionNotes: planDesc,
+    targetVetStation: stationName,
+    isTransferApproved: true,
+    vetStatus: 'TRANSFER_APPROVED',
+    isCoordAccepted: true,
+  });
+
+  void (async () => {
+    try {
+      await apiClient.post(`/incidents/${cleanId(i.id)}/recovery/apply`, {
+        planSummary: planDesc,
+        resolutionType: 'VET_TRANSFER',
+        resolutionNotes: planDesc,
+      });
+    } catch (e) {
+      console.warn('[f5ApproveVetTransfer] Failed to sync to backend:', e);
+    }
+  })();
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('rts_incident_pins_changed', { detail: { id: i.id, approvedPlan: planDesc, status: i.status } }));
+    window.dispatchEvent(new CustomEvent('rts_incident_created', { detail: { id: i.id, approvedPlan: planDesc, status: i.status } }));
+  }
+
+  if (t) {
+    crewOf(t).forEach(([, e]) => notify(e, `${t.id}: Điều phối đã duyệt chuyển viện`, `Đưa ngựa đến ${stationName} để cấp cứu khẩn cấp.`, `d/incident/${i.id}`));
+  }
+  toast(`Đã phê duyệt chuyển viện đến ${stationName}. Lộ trình khẩn cấp đã được kích hoạt!`);
 }
 
 export const incidentsChanged = () => commit();

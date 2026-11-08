@@ -157,6 +157,8 @@ export interface DepartureDelay {
   proposedDepart?: string;
 }
 
+export type HorseHealthIssue = 'HORSE_FEVER' | 'HORSE_COLIC' | 'HORSE_SHOCK';
+
 export interface Incident {
   id: string;
   tripId: string;
@@ -176,6 +178,13 @@ export interface Incident {
   resolutionNotes?: string;
   immediateCare?: string;
   acknowledged?: boolean;
+  isSceneReady?: boolean;
+  horseId?: string;
+  horseName?: string;
+  healthIssueType?: HorseHealthIssue;
+  vetStatus?: 'EXAMINING' | 'STABILIZED' | 'REFERRAL_REQUESTED';
+  targetVetStation?: string;
+  vetResolutionNote?: string;
 }
 
 export interface Photo {
@@ -279,6 +288,10 @@ export interface ReportIncidentRequestDto {
   locationCoordinates?: string;
   description: string;
   photos: string[];
+  horseId?: string;
+  horseName?: string;
+  healthIssueType?: HorseHealthIssue;
+  immediateCare?: string;
 }
 
 export interface DepartureDelayRequestDto {

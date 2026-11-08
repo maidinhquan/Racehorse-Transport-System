@@ -13,7 +13,8 @@ import type {
   Trip,
 } from '../types';
 import { saveIncidentPin } from '../../../shared/utils/sharedIncidentPins';
-import { driverApi } from '../api/driverApi';
+import { driverApi, saveLocalIncident } from '../api/driverApi';
+import { notifySync } from '../../../shared/utils/syncChannel';
 import { tripFromTracking } from '../api/flow4Mapper';
 import { flow4Api } from '../../tracking/api/flow4Api';
 import { DEFAULT_DRIVER_USER, mockCrew, mockHorses, mockIncidents, mockTrips } from '../data/mockData';
@@ -118,7 +119,20 @@ if (typeof window !== 'undefined') {
       const serverIncidents = await driverApi.getIncidents();
       if (serverIncidents) {
         setState((s) => {
-          const merged = [...serverIncidents];
+          const merged = serverIncidents.map((srv) => {
+            const loc = s.incidents.find((li) => li.id === srv.id);
+            if (loc) {
+              return {
+                ...srv,
+                horseId: srv.horseId || loc.horseId,
+                horseName: srv.horseName || loc.horseName,
+                healthIssueType: srv.healthIssueType || loc.healthIssueType,
+                immediateCare: srv.immediateCare || loc.immediateCare,
+                tripId: loc.tripId || srv.tripId,
+              };
+            }
+            return srv;
+          });
           s.incidents.forEach((loc) => {
             if (!merged.some((srv) => srv.id === loc.id)) {
               merged.unshift(loc);
@@ -193,11 +207,13 @@ async function loadAll() {
         const crewMap = new Map<string, CrewMember>();
         const horseMap = new Map<string, Horse>();
         built.forEach((b) => { b.crew.forEach((c) => crewMap.set(c.id, c)); b.horses.forEach((h) => horseMap.set(h.id, h)); });
+        const currentLocals = state.incidents.filter((li) => !incidents.some((srv) => srv.id === li.id));
+        const finalIncidents = [...currentLocals, ...incidents];
         setState({
           trips: built.map((b) => b.trip),
           crew: [...crewMap.values()],
           horses: [...horseMap.values()],
-          incidents,
+          incidents: finalIncidents,
           userId: tokenUser() || state.userId,
           loading: false,
           loaded: true,
@@ -313,25 +329,60 @@ const actions = {
   removeIncidentPhoto: (i: number) => setState((s) => ({ incidentPhotos: s.incidentPhotos.filter((_, k) => k !== i) })),
 
   async reportIncident(tripId: string, body: Omit<ReportIncidentRequestDto, 'photos' | 'location' | 'locationCoordinates'> & { locationDetail: string; safe: boolean; ratio: number }): Promise<ActionResult> {
-    const t = findTrip(tripId); if (!t || t.status === 'COMPLETED') return fail('Chỉ báo cáo sự cố cho chuyến đang hoạt động.');
+    let t = findTrip(tripId);
+    if (!t || t.status === 'COMPLETED') {
+      const activeFallback = state.trips.find((x) => x.status === 'IN_TRANSIT') || state.trips.find((x) => x.status !== 'COMPLETED') || state.trips[0];
+      if (activeFallback) {
+        t = activeFallback;
+        tripId = activeFallback.id;
+      }
+    }
+    if (!t) return fail('Không tìm thấy thông tin chuyến đi phù hợp.');
     if (!body.type || !body.severity) return fail('Chọn loại và mức độ sự cố.');
-    if (body.description.trim().length < 10) return fail('Mô tả sự việc ít nhất 10 ký tự.');
+    if (body.description.trim().length < 5) return fail('Vui lòng mô tả sự việc ít nhất 5 ký tự.');
     if (!body.safe) return fail('Xác nhận người và ngựa đã an toàn hoặc đã bắt đầu sơ cứu.');
     const { a, b } = incidentSegment(t);
     const point = a && b ? pointOnSegment(a, b, body.ratio) : null;
     const location = incidentWhere(t, body.ratio) + (body.locationDetail.trim() ? ' – ' + body.locationDetail.trim() : '');
     const photos = state.incidentPhotos.map((p) => p.url || p.name);
     const locationCoordinates = point ? `${point.lat.toFixed(6)},${point.lng.toFixed(6)}` : undefined;
-    const backendRes = await driverApi.reportIncident(tripId, { type: body.type, severity: body.severity, description: body.description.trim(), location, locationCoordinates, photos });
+    const backendRes = await driverApi.reportIncident(tripId, {
+      type: body.type,
+      severity: body.severity,
+      description: body.description.trim(),
+      location,
+      locationCoordinates,
+      photos,
+      horseId: body.horseId,
+      horseName: body.horseName,
+      healthIssueType: body.healthIssueType,
+      immediateCare: body.immediateCare,
+    });
     const realId = backendRes?.incidentId || `INC-${String(Date.now()).slice(-4)}`;
     const inc: Incident = {
-      id: realId, tripId, type: body.type, severity: body.severity, status: 'NEW',
-      at: nowStamp(), by: state.userId, location, lat: point?.lat, lng: point?.lng, description: body.description.trim(), photos,
+      id: realId,
+      tripId,
+      type: body.type,
+      severity: body.severity,
+      status: 'NEW',
+      at: nowStamp(),
+      by: state.userId,
+      location,
+      lat: point?.lat,
+      lng: point?.lng,
+      description: body.description.trim(),
+      photos,
+      horseId: body.horseId,
+      horseName: body.horseName,
+      healthIssueType: body.healthIssueType,
+      immediateCare: body.immediateCare,
     };
     if (point) saveIncidentPin({ id: inc.id, tripId, label: INCIDENT_TYPE_LABEL[inc.type], lat: point.lat, lng: point.lng, where: location, description: inc.description, at: inc.at });
-    setState((s) => ({ incidents: [inc, ...s.incidents], incidentPhotos: [] }));
+    saveLocalIncident(inc);
+    setState((s) => ({ incidents: [inc, ...s.incidents.filter((x) => x.id !== inc.id)], incidentPhotos: [] }));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('rts_incident_created', { detail: inc }));
+      notifySync('requests_updated');
     }
     return ok(`Đã gửi báo cáo ${INCIDENT_TYPE_LABEL[inc.type].toLowerCase()}. Manager, Coordinator và khách hàng đã được thông báo.`);
   },

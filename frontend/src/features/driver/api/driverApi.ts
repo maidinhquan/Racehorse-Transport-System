@@ -38,6 +38,7 @@ const mapIncidentDto = (d: any): Incident => {
   ];
   const typeMap: Record<string, IncidentType> = {
     BREAKDOWN: 'VEHICLE_BREAKDOWN',
+    VEHICLE_RESOURCE: 'VEHICLE_BREAKDOWN',
     ACCIDENT: 'TRAFFIC_ACCIDENT',
     HEALTH: 'HORSE_HEALTH',
     DELAY: 'ROAD_CLOSURE',
@@ -51,13 +52,33 @@ const mapIncidentDto = (d: any): Incident => {
     rawStatus === 'REPORTED' ? 'NEW' :
     (['NEW', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].includes(rawStatus) ? (rawStatus as IncidentStatus) : 'IN_PROGRESS');
 
+  const rawAt = d.reportedAt || d.at;
+  let formattedAt = '';
+  if (rawAt) {
+    try {
+      const dObj = new Date(rawAt);
+      if (!isNaN(dObj.getTime())) {
+        const p = (n: number) => String(n).padStart(2, '0');
+        formattedAt = `${dObj.getFullYear()}-${p(dObj.getMonth() + 1)}-${p(dObj.getDate())} ${p(dObj.getHours())}:${p(dObj.getMinutes())}`;
+      } else {
+        formattedAt = String(rawAt).replace('T', ' ').slice(0, 16);
+      }
+    } catch {
+      formattedAt = String(rawAt).replace('T', ' ').slice(0, 16);
+    }
+  } else {
+    const dObj = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    formattedAt = `${dObj.getFullYear()}-${p(dObj.getMonth() + 1)}-${p(dObj.getDate())} ${p(dObj.getHours())}:${p(dObj.getMinutes())}`;
+  }
+
   return {
     id: d.incidentId || d.id,
     tripId: d.tripId,
     type,
     severity: (d.severity || 'HIGH') as IncidentSeverity,
     status,
-    at: d.reportedAt ? d.reportedAt.replace('T', ' ').slice(0, 16) : (d.at || new Date().toISOString().replace('T', ' ').slice(0, 16)),
+    at: formattedAt,
     by: d.reportedByUserName || d.reportedByUserId || d.by || 'Tài xế',
     location: d.location || (d.locationCoordinates ? `Tọa độ: ${d.locationCoordinates}` : 'Trên đường vận chuyển'),
     description: d.description || '',
@@ -66,6 +87,14 @@ const mapIncidentDto = (d: any): Incident => {
     resolutionType: d.resolutionType || undefined,
     resolutionNotes: d.resolutionNotes || undefined,
     immediateCare: d.immediateCare || undefined,
+    acknowledged: Boolean(d.isSceneReady || d.acknowledged),
+    isSceneReady: Boolean(d.isSceneReady || d.acknowledged),
+    horseId: d.horseId || undefined,
+    horseName: d.horseName || undefined,
+    healthIssueType: d.healthIssueType || undefined,
+    vetStatus: d.vetStatus || undefined,
+    targetVetStation: d.targetVetStation || undefined,
+    vetResolutionNote: d.vetResolutionNote || undefined,
   };
 };
 
@@ -89,6 +118,50 @@ async function send(url: string, body?: unknown): Promise<boolean> {
     return res.data?.success !== false;
   } catch {
     return false;
+  }
+}
+
+const LOCAL_INCIDENTS_KEY = 'rts_driver_reported_incidents';
+
+export function saveLocalIncident(inc: Incident) {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(LOCAL_INCIDENTS_KEY);
+    const list: Incident[] = raw ? JSON.parse(raw) : [];
+    const filtered = list.filter((x) => x.id !== inc.id);
+    filtered.unshift(inc);
+    localStorage.setItem(LOCAL_INCIDENTS_KEY, JSON.stringify(filtered.slice(0, 50)));
+  } catch {
+    // ignore
+  }
+}
+
+export function loadLocalIncidents(): Incident[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(LOCAL_INCIDENTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function updateLocalIncident(id: string, patch: Partial<Incident>) {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(LOCAL_INCIDENTS_KEY);
+    const list: Incident[] = raw ? JSON.parse(raw) : [];
+    const cleanTarget = (id || '').replace(/-/g, '_').toUpperCase();
+    const updated = list.map((item) => {
+      const c = (item.id || '').replace(/-/g, '_').toUpperCase();
+      if (c === cleanTarget || item.id === id) {
+        return { ...item, ...patch };
+      }
+      return item;
+    });
+    localStorage.setItem(LOCAL_INCIDENTS_KEY, JSON.stringify(updated.slice(0, 50)));
+  } catch {
+    // ignore
   }
 }
 
@@ -143,15 +216,113 @@ export const driverApi = {
 
   /** Sự cố của các chuyến được giao */
   getIncidents: async (): Promise<Incident[]> => {
+    let local = loadLocalIncidents();
+    const cleanTargetId = (x?: string) => (x || '').replace(/-/g, '_').toUpperCase();
+
+    // Làm giàu dữ liệu local với trạng thái đã lưu từ các thao tác của Điều phối viên
+    local = local.map((inc) => {
+      const cid = cleanTargetId(inc.id);
+      try {
+        const customStatus = localStorage.getItem(`rts_incident_status_${cid}`) || localStorage.getItem(`rts_incident_status_${inc.id}`);
+        const customAck = localStorage.getItem(`rts_ack_${cid}`) || localStorage.getItem(`rts_ack_${inc.id}`);
+        const transferApproved = localStorage.getItem(`rts_vet_transfer_approved_${cid}`) || localStorage.getItem(`rts_vet_transfer_approved_${inc.id}`);
+        const contAllowed = localStorage.getItem(`rts_incident_continue_${cid}`) || localStorage.getItem(`rts_incident_continue_${inc.id}`);
+        const planApproved = localStorage.getItem(`rts_incident_plan_${cid}`) || localStorage.getItem(`rts_incident_plan_${inc.id}`);
+
+        const res: Incident = { ...inc };
+        if (customStatus) res.status = customStatus as IncidentStatus;
+        if (customAck) (res as any).isCoordAccepted = true;
+        if (planApproved) {
+          res.approvedPlan = planApproved;
+          res.resolutionNotes = planApproved;
+        }
+        if (transferApproved) {
+          (res as any).isTransferApproved = true;
+          (res as any).vetStatus = 'TRANSFER_APPROVED';
+        }
+        if (contAllowed) {
+          (res as any).continueAt = contAllowed;
+          res.status = 'CONTINUE_ALLOWED' as any;
+        }
+        return res;
+      } catch {
+        return inc;
+      }
+    });
+
     try {
       const res = await apiClient.get<ApiResponse<any[]>>(DRIVER_ENDPOINTS.INCIDENTS);
       if (Array.isArray(res.data?.data)) {
-        return res.data.data.map(mapIncidentDto);
+        const fromServer = res.data.data.map(mapIncidentDto);
+        const merged: Incident[] = [];
+
+        fromServer.forEach((si) => {
+          const loc = local.find((li) => li.id === si.id || cleanTargetId(li.id) === cleanTargetId(si.id));
+          if (loc) {
+            merged.push({
+              ...loc,
+              ...si,
+              status: (si.status && si.status !== 'NEW') ? si.status : (loc.status || si.status),
+              approvedPlan: si.approvedPlan || loc.approvedPlan,
+              resolutionNotes: si.resolutionNotes || loc.resolutionNotes,
+              resolutionType: si.resolutionType || loc.resolutionType,
+              vetStatus: si.vetStatus || loc.vetStatus,
+              horseId: si.horseId || loc.horseId,
+              horseName: si.horseName || loc.horseName,
+              healthIssueType: si.healthIssueType || loc.healthIssueType,
+              immediateCare: si.immediateCare || loc.immediateCare,
+              tripId: loc.tripId || si.tripId,
+            });
+          } else {
+            merged.push(si);
+          }
+        });
+
+        const DELETED_SPAM_IDS = new Set([
+          'INC_20261102_17F406', 'INC_20261106_44A3AF', 'INC_20261107_26EACE', 'INC_20261107_552507',
+          'INC_20261107_59E0B0', 'INC_20261107_619E30', 'INC_20261107_71DBE2', 'INC_20261107_AFD75F',
+          'INC_20261107_BE43C1', 'INC_20261107_E6F8D1', 'INC_20261108_09C04D', 'INC_20261108_1E5D35',
+          'INC_20261108_402208', 'INC_20261108_4C75B1', 'INC_20261108_63E037',
+          'INC_20261108_9EA7FB', 'INC_20261108_A6D8E9', 'INC_20261108_B18836', 'INC_20261108_BD39EC',
+          'INC_20261108_C40695', 'INC_20261107_D190C1',
+        ]);
+
+        local.forEach((li) => {
+          if (DELETED_SPAM_IDS.has(li.id) || DELETED_SPAM_IDS.has(cleanTargetId(li.id))) return;
+          if (!merged.some((m) => m.id === li.id || cleanTargetId(m.id) === cleanTargetId(li.id))) {
+            merged.unshift(li);
+          }
+        });
+
+        // Luôn sắp xếp toàn bộ danh sách: mới nhất lên đầu
+        merged.sort((a, b) => {
+          const tA = new Date(a.at || 0).getTime() || 0;
+          const tB = new Date(b.at || 0).getTime() || 0;
+          if (tB !== tA) return tB - tA;
+          return b.id.localeCompare(a.id);
+        });
+
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(LOCAL_INCIDENTS_KEY, JSON.stringify(merged.slice(0, 100)));
+          } catch {
+            // ignore
+          }
+        }
+        return merged;
       }
     } catch {
       // Backend error or offline
     }
-    return getDemoMode('driver') ? clone(mockIncidents) : [];
+
+    const fallback = getDemoMode('driver') ? clone(mockIncidents) : [];
+    const merged = [...local];
+    fallback.forEach((fi) => {
+      if (!merged.some((li) => li.id === fi.id || cleanTargetId(li.id) === cleanTargetId(fi.id))) {
+        merged.push(fi);
+      }
+    });
+    return merged;
   },
 
   /**
@@ -264,7 +435,10 @@ export const driverApi = {
       locationCoordinates: body.locationCoordinates,
       photos: body.photos,
       imageUrl: body.photos?.[0] || undefined,
-      immediateCare: 'Người và ngựa đã được sơ cứu hoặc đảm bảo an toàn',
+      immediateCare: body.immediateCare || 'Người và ngựa đã được sơ cứu hoặc đảm bảo an toàn',
+      horseId: body.horseId,
+      horseName: body.horseName,
+      healthIssueType: body.healthIssueType,
       occurredAt: new Date().toISOString(),
     };
     try {

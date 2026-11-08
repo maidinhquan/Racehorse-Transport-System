@@ -4942,86 +4942,104 @@
   },
   "vetStations": [
     {
-      "id": "VS-1",
-      "name": "Trạm thú y cấp cứu Tây Ninh (gần cửa khẩu Mộc Bài)",
+      "id": "VS-JP-MIHO",
+      "name": "JRA Miho Training Center Equine Hospital (Bệnh viện Thú y Miho – JRA)",
       "near": [
-        "Moc Bai Border Gate",
-        "Trang Bang rest area"
+        "Narita International Airport",
+        "Tokyo",
+        "Ibaraki"
       ],
-      "country": "VN",
-      "phone": "+84 276 3822 xxx",
+      "country": "JP",
+      "address": "2500-2 Mikoma, Miho-mura, Inashiki-gun, Ibaraki 300-0493, Japan",
+      "phone": "+81 29 885 2111",
       "hours": "24/7",
-      "km": 9
+      "km": 8
     },
     {
-      "id": "VS-2",
-      "name": "Bệnh viện Thú y – ĐH Nông Lâm TP.HCM",
+      "id": "VS-JP-RITTO",
+      "name": "JRA Ritto Training Center Equine Hospital (Bệnh viện Thú y Ritto – JRA)",
       "near": [
-        "Saigon Riding Club",
-        "Ho Chi Minh City"
+        "Kansai International Airport",
+        "Osaka",
+        "Kyoto",
+        "Shiga"
+      ],
+      "country": "JP",
+      "address": "1028 Mikogawa, Ritto-shi, Shiga 520-3085, Japan",
+      "phone": "+81 77 558 1111",
+      "hours": "24/7",
+      "km": 10
+    },
+    {
+      "id": "VS-JP-SHADAI",
+      "name": "Shadai Horse Clinic (Bệnh viện Thú y Ngựa Shadai – Hokkaido)",
+      "near": [
+        "New Chitose Airport",
+        "Tomakomai",
+        "Hokkaido"
+      ],
+      "country": "JP",
+      "address": "100-12 Uenae, Tomakomai-shi, Hokkaido 059-1365, Japan",
+      "phone": "+81 144 58 2211",
+      "hours": "24/7",
+      "km": 6
+    },
+    {
+      "id": "VS-VN-VNUA",
+      "name": "Bệnh viện Thú y – Học viện Nông nghiệp Việt Nam (VNUA)",
+      "near": [
+        "Soc Son",
+        "Noi Bai International Airport",
+        "Hanoi",
+        "Gia Lam"
       ],
       "country": "VN",
-      "phone": "+84 28 3896 xxx",
-      "hours": "07:00–21:00",
+      "address": "Ngô Xuân Quảng, TT. Trâu Quỳ, H. Gia Lâm, Hà Nội",
+      "phone": "+84 24 3876 9621",
+      "hours": "24/7",
+      "km": 12
+    },
+    {
+      "id": "VS-VN-NLU",
+      "name": "Bệnh viện Thú y – Trường Đại học Nông Lâm TP.HCM",
+      "near": [
+        "Ho Chi Minh City",
+        "Tan Son Nhat International Airport",
+        "Thu Duc"
+      ],
+      "country": "VN",
+      "address": "Khu phố 6, P. Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh",
+      "phone": "+84 28 3896 6780",
+      "hours": "24/7",
       "km": 14
     },
     {
-      "id": "VS-3",
-      "name": "Phnom Penh Equine Veterinary Clinic",
+      "id": "VS-VN-MOCBAI",
+      "name": "Trạm Kiểm dịch Động vật Cửa khẩu Quốc tế Mộc Bài",
       "near": [
-        "Bavet Border Gate",
-        "Phnom Penh overnight stable"
+        "Moc Bai Border Gate",
+        "Tay Ninh",
+        "Bavet Border Gate"
       ],
-      "country": "KH",
-      "phone": "+855 23 xxx",
+      "country": "VN",
+      "address": "Khu kinh tế Cửa khẩu Mộc Bài, Xã Lợi Thuận, H. Bến Cầu, Tây Ninh",
+      "phone": "+84 276 3876 123",
       "hours": "24/7",
-      "km": 18
+      "km": 5
     },
     {
-      "id": "VS-4",
-      "name": "Sa Kaeo Livestock Emergency Unit",
+      "id": "VS-TH-KASETSART",
+      "name": "Kasetsart University Large Animal Teaching Hospital",
       "near": [
-        "Poipet – Aranyaprathet",
-        "Sa Kaeo fuel station"
+        "Bangkok",
+        "Suvarnabhumi Airport",
+        "Nakhon Pathom"
       ],
       "country": "TH",
-      "phone": "+66 37 xxx",
-      "hours": "24/7",
-      "km": 11
-    },
-    {
-      "id": "VS-5",
-      "name": "Kasetsart University Veterinary Hospital",
-      "near": [
-        "Bangkok Polo Club",
-        "Bangkok"
-      ],
-      "country": "TH",
-      "phone": "+66 2 xxx",
+      "address": "1 Malaiman Road, Kamphaeng Saen, Nakhon Pathom 73140, Thailand",
+      "phone": "+66 34 351 901",
       "hours": "24/7",
       "km": 16
-    },
-    {
-      "id": "VS-6",
-      "name": "Trạm thú y cấp cứu Đà Nẵng",
-      "near": [
-        "Da Nang"
-      ],
-      "country": "VN",
-      "phone": "+84 236 xxx",
-      "hours": "24/7",
-      "km": 7
-    },
-    {
-      "id": "VS-7",
-      "name": "Bệnh viện thú y Hà Nội (ngựa & gia súc lớn)",
-      "near": [
-        "Hanoi"
-      ],
-      "country": "VN",
-      "phone": "+84 24 xxx",
-      "hours": "24/7",
-      "km": 12
     }
   ],
   "policy": {
