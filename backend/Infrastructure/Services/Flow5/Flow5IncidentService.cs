@@ -682,16 +682,16 @@ public class Flow5IncidentService : IFlow5IncidentService
     // J24-J28: APPLY, CONTINUATION & CLOSURE
     // ==========================================
 
-    public async Task<RecoveryApplyDto> ApplyRecoveryPlanAsync(string incidentId, string coordinatorUserId)
+    public async Task<RecoveryApplyDto> ApplyRecoveryPlanAsync(string incidentId, ApplyRecoveryPlanInputDto? dto, string coordinatorUserId)
     {
         string planId = "REC_APPLIED";
-        string planSummary = "Phương án xử lý sự cố đã được điều phối viên duyệt và áp dụng.";
+        string planSummary = dto?.PlanSummary ?? "Phương án xử lý sự cố đã được điều phối viên duyệt và áp dụng.";
         if (_planStore.TryGetValue(incidentId, out var plans) && plans.Count > 0)
         {
             var p = plans.Last();
             p.Status = "APPLIED";
             planId = p.PlanId;
-            if (!string.IsNullOrWhiteSpace(p.Summary))
+            if (string.IsNullOrWhiteSpace(dto?.PlanSummary) && !string.IsNullOrWhiteSpace(p.Summary))
             {
                 planSummary = p.Summary;
             }
@@ -701,8 +701,8 @@ public class Flow5IncidentService : IFlow5IncidentService
         if (incident != null)
         {
             incident.Status = "RECOVERY_APPLIED";
-            incident.ResolutionNotes = planSummary;
-            incident.ResolutionType = "COORDINATOR_APPLIED";
+            incident.ResolutionNotes = dto?.ResolutionNotes ?? planSummary;
+            incident.ResolutionType = dto?.ResolutionType ?? "COORDINATOR_APPLIED";
 
             // Tự động gửi thông báo trực tiếp đến tài xế / người báo cáo sự cố
             string? targetUserId = null;
