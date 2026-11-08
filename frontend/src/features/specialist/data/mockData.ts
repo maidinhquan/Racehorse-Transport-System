@@ -45,27 +45,21 @@ const line = (typeId: string, provider: RequirementLine['provider'], scope: Requ
 export const mockRegulations: Regulation[] = [
   {
     id: 'REG-1', country: 'VN', direction: 'EXPORT', v: 1, effectiveFrom: '2026-08-12', status: 'ACTIVE',
-    note: 'Giấy chứng nhận sức khỏe do Cục Thú y cấp trong vòng 10 ngày trước khởi hành.',
+    note: 'Thủ tục kiểm dịch và hải quan xuất khẩu qua Cục Thú y và Hải quan Việt Nam.',
     lines: [
-      line('DT-1', 'CUSTOMER', 'PER_HORSE', 'BEFORE_SUBMIT'),
-      line('DT-2', 'CUSTOMER', 'PER_HORSE', 'BEFORE_DEPART', 'Cấp trong vòng 10 ngày trước khởi hành'),
-      line('DT-3', 'CUSTOMER', 'PER_HORSE'),
       line('DT-4', 'CBN', 'PER_TRIP'),
       line('DT-7', 'CBN', 'PER_TRIP'),
     ],
   },
   {
     id: 'REG-5', country: 'VN', direction: 'DOMESTIC', v: 1, effectiveFrom: '2026-05-10', status: 'ACTIVE',
-    note: 'Giấy phép vận chuyển thú y cấp tỉnh.',
-    lines: [line('DT-1', 'CUSTOMER', 'PER_HORSE', 'BEFORE_SUBMIT'), line('DT-3', 'CUSTOMER', 'PER_HORSE'), line('DT-8', 'CBN', 'PER_TRIP')],
+    note: 'Giấy phép vận chuyển thú y cấp tỉnh cho tuyến trong nước.',
+    lines: [line('DT-8', 'CBN', 'PER_TRIP')],
   },
   {
     id: 'REG-10', country: 'JP', direction: 'IMPORT', v: 1, effectiveFrom: '2026-10-01', status: 'ACTIVE',
     note: 'Giấy phép nhập khẩu và kiểm dịch nhập cảnh tại Cơ quan Kiểm dịch Động vật (AQS) – cách ly tại sân bay đến.',
     lines: [
-      line('DT-1', 'CUSTOMER', 'PER_HORSE', 'BEFORE_SUBMIT'),
-      line('DT-2', 'CUSTOMER', 'PER_HORSE'),
-      line('DT-3', 'CUSTOMER', 'PER_HORSE'),
       line('DT-5', 'CBN', 'PER_TRIP'),
       line('DT-6', 'CBN', 'PER_HORSE', 'AT_CHECKPOINT', 'Kiểm dịch nhập cảnh do AQS thực hiện khi ngựa đến sân bay'),
     ],
@@ -74,8 +68,6 @@ export const mockRegulations: Regulation[] = [
     id: 'REG-2', country: 'TH', direction: 'IMPORT', v: 1, effectiveFrom: '2026-07-30', status: 'ACTIVE',
     note: 'Giấy phép nhập khẩu DLD trước khi tới cửa khẩu; kiểm dịch tại biên giới.',
     lines: [
-      line('DT-1', 'CUSTOMER', 'PER_HORSE', 'BEFORE_SUBMIT'),
-      line('DT-2', 'CUSTOMER', 'PER_HORSE'),
       line('DT-5', 'CBN', 'PER_TRIP'),
       line('DT-6', 'CBN', 'PER_HORSE', 'AT_CHECKPOINT', 'Kiểm dịch tại cửa khẩu Poipet'),
     ],
@@ -162,11 +154,11 @@ export const mockTrips: SpecTrip[] = [
 // ---------------------------------------------------------------------------
 const NOTE: Partial<Record<CustomerDocKey, string>> = {
   bio: 'Giống, giới tính, ngày sinh, microchip',
-  valueProof: 'Không bắt buộc',
-  conditions: 'Không bắt buộc',
+  valueProof: 'Chứng nhận giá trị khai báo',
+  conditions: 'Ghi chú sức khỏe đặc biệt',
 };
-const PER_HORSE: CustomerDocKey[] = ['passport', 'ownership', 'bio', 'valueProof', 'flu', 'health', 'conditions'];
-const OPTIONAL_KEYS: CustomerDocKey[] = ['valueProof', 'conditions'];
+const PER_HORSE: CustomerDocKey[] = ['passport', 'ownership', 'bio', 'valueProof', 'flu', 'health'];
+const OPTIONAL_KEYS: CustomerDocKey[] = [];
 
 function dossier(t: SpecTrip, base: CustomerDocStatus, over: Partial<Record<string, Partial<CustomerDoc>>> = {}): CustomerDoc[] {
   const make = (key: CustomerDocKey, scope: string): CustomerDoc => {

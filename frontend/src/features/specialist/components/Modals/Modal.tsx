@@ -14,15 +14,16 @@ interface ModalProps {
   wide?: boolean;
   /** Lỗi hiển thị phía trên nút (modal vẫn mở) */
   error?: string;
+  zIndex?: number;
 }
 
 /** Khung dialog dùng chung cho các modal của trang Khách hàng */
 export const Modal: React.FC<ModalProps> = ({
-  open, title, children, okText = 'Xác nhận', cancelText = 'Hủy', onOk, onClose, okDisabled, danger, wide, error,
+  open, title, children, okText = 'Xác nhận', cancelText = 'Hủy', onOk, onClose, okDisabled, danger, wide, error, zIndex,
 }) => {
   if (!open) return null;
   return (
-    <div className="spc-modal" role="dialog" aria-modal="true" aria-label={title}>
+    <div className="spc-modal" role="dialog" aria-modal="true" aria-label={title} style={zIndex ? { zIndex } : undefined}>
       <div className="spc-modal__back" onClick={onClose} />
       <div className={`spc-modal__box ${wide ? 'spc-modal__box--wide' : ''}`}>
         <h3 className="spc-modal__title">{title}</h3>

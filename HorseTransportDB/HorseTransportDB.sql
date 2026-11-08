@@ -1455,7 +1455,7 @@ INSERT INTO QUARANTINE_BOOKING (BookingID, RequestID, FacilityID, StationName, C
 -- 14. Bảng TRIP_PLAN: Kế hoạch các chuyến đi
 INSERT INTO TRIP_PLAN (TripID, RequestID, TotalDistance_km, T_Total_Hours, TotalCost, Status, DeploymentStatus, DeploymentReason, DeploymentBy, DeploymentAtUtc, HandoffEventId, AssignedSpecialistId, AssignedCoordinatorId) VALUES
 ('TRIP_001', 'REQUEST_001', 4500.00, 59.50, 155000000.00, 'PLANNING', N'CONFIRMED', N'Hợp đồng đã ký và cọc đã xác minh; Flow 2 và Flow 3 hoàn tất, chờ Quản lý mở chuyến.', N'USER_004', N'2026-11-05 16:30:00', N'HANDOFF_EVENT_001', N'USER_005', N'USER_006'),
-('TRIP_002', 'REQUEST_002', 950.00, 37.50, 77500000.00, 'IN_TRANSIT', N'CONFIRMED', N'Đã đến nơi; chờ bắt đầu bàn giao Flow 6.', N'USER_004', N'2026-09-30 10:30:00', N'HANDOFF_EVENT_002', N'USER_005', N'USER_006'),
+('TRIP_002', 'REQUEST_002', 950.00, 37.50, 77500000.00, 'COMPLETED', N'CONFIRMED', N'Đã hoàn thành bàn giao và tất toán chi phí.', N'USER_004', N'2026-09-30 10:30:00', N'HANDOFF_EVENT_002', N'USER_005', N'USER_006'),
 ('TRIP_003', 'REQUEST_003', 1720.00, 42.00, 107500000.00, 'READY_TO_DEPART', N'CONFIRMED', N'Đã hoàn tất Flow 2 và Flow 3; sẵn sàng khởi hành, chưa ghi nhận tiến độ.', N'USER_004', N'2026-11-04 16:00:00', N'HANDOFF_EVENT_003', N'USER_005', N'USER_006');
 
 -- 15. Bảng VEHICLE: Đội xe chuyên dụng chở ngựa đua
@@ -1509,6 +1509,11 @@ INSERT INTO HANDOVER (HandoverID, TripID, HandedByUserID, Type, LocationName, Re
 INSERT INTO HANDOVER_ITEM (HandoverItemID, HandoverID, HorseID, MicrochipVerified, ConditionStatus, AssetCheck, PhotoUrl) VALUES
 ('HANDOVER_ITEM_005', 'HANDOVER_003', 'HORSE_003', 1, N'Thể trạng tốt', N'Đã xác nhận tiếp nhận ngựa tại điểm lấy.', 'https://storage.cbntransport.com/ho/pu_hrs3.jpg'),
 ('HANDOVER_ITEM_006', 'HANDOVER_004', 'HORSE_003', 1, N'Thể trạng tốt sau hành trình', N'Đã xác nhận giao ngựa tại điểm đến Đà Nẵng.', 'https://storage.cbntransport.com/ho/de_hrs3.jpg');
+
+-- 23.1. Bảng HANDOVER_REVISION: Phiên bản bàn giao cho chuyến hoàn thành TRIP_002
+INSERT INTO HANDOVER_REVISION (HandoverRevisionID, HandoverID, TripID, RevisionNo, Status, ContentSnapshot, OtpEmail, OtpHash, OtpSentAtUtc, OtpExpiresAtUtc, OtpFailedAttempts, ConfirmedAtUtc, RefusalReason, RefusedAtUtc, CreatedBy, CreatedAtUtc)
+VALUES
+('HR_002', 'HANDOVER_004', 'TRIP_002', 1, 'CONFIRMED', N'{"handoverId":"HANDOVER_004","receiverName":"Nguyễn Minh","receiverPhone":"0902223344","notes":"Ngựa đã bàn giao nguyên vẹn, khỏe mạnh"}', 'minh.nguyen@example.com', NULL, '2026-11-06 17:00:00', '2026-11-06 17:30:00', 0, '2026-11-06 17:15:00', NULL, NULL, 'USER_008', '2026-11-06 16:50:00');
 
 -- =============================================================================
 -- PHÂN VÙNG 5: HỢP ĐỒNG & TÀI CHÍNH VND (CONTRACT & BILLING)
@@ -1567,15 +1572,23 @@ INSERT INTO COST_ITEM (CostItemID, ContractID, CategoryName, SubcodeName, Bearer
 INSERT INTO INVOICE (InvoiceID, ContractID, ContractVersionNo, InvoiceType, CurrencyCode, TotalPayableAmount, PaidAmount, DueDate, PaymentStatus) VALUES
 ('INVOICE_001', 'CONTRACT_001', 1, 'DEPOSIT', 'VND', 85000000.00, 85000000.00, N'2026-11-05 08:00:00', 'PAID'),
 ('INVOICE_003', 'CONTRACT_002', 1, 'DEPOSIT', 'VND', 42000000.00, 42000000.00, N'2026-10-01 08:00:00', 'PAID'),
+('INVOICE_004', 'CONTRACT_002', 1, 'FINAL_SETTLEMENT', 'VND', 63000000.00, 63000000.00, N'2026-11-06 18:00:00', 'PAID'),
 ('INVOICE_005', 'CONTRACT_003', 1, 'DEPOSIT', 'VND', 58000000.00, 58000000.00, N'2026-10-05 06:00:00', 'PAID');
 
 -- 27. Bảng PAYMENT: Giao dịch đối soát thực tế qua Cổng thanh toán hoặc Chuyển khoản
 INSERT INTO PAYMENT (PaymentID, InvoiceID, ConfirmedByUserID, CurrencyCode, Amount, Method, TransactionCode, Status, PaymentDate, VnpayTmnCode, VnpayResponseCode, VnpayTransactionStatus, VnpayCreatedAtUtc, VnpayExpiresAtUtc, VnpayReceivedAmount) VALUES
 ('PAYMENT_001', 'INVOICE_001', NULL, 'VND', 85000000.00, N'VNPAY', N'DEMO_VNPAY_001', 'SUCCESS', '2026-11-04 15:30:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-11-04 15:30:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-11-04 15:30:00' AS DATETIME2)), 85000000.00),
 ('PAYMENT_003', 'INVOICE_003', NULL, 'VND', 42000000.00, N'VNPAY', N'DEMO_VNPAY_003', 'SUCCESS', '2026-09-30 09:20:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-09-30 09:20:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-09-30 09:20:00' AS DATETIME2)), 42000000.00),
-('PAYMENT_004', 'INVOICE_005', NULL, 'VND', 58000000.00, N'VNPAY', N'DEMO_VNPAY_004', 'SUCCESS', '2026-10-04 14:45:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-10-04 14:45:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-10-04 14:45:00' AS DATETIME2)), 58000000.00);
+('PAYMENT_004', 'INVOICE_005', NULL, 'VND', 58000000.00, N'VNPAY', N'DEMO_VNPAY_004', 'SUCCESS', '2026-10-04 14:45:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-10-04 14:45:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-10-04 14:45:00' AS DATETIME2)), 58000000.00),
+('PAYMENT_005', 'INVOICE_004', 'USER_004', 'VND', 63000000.00, N'VNPAY', N'DEMO_VNPAY_005', 'SUCCESS', '2026-11-06 18:15:00', 'DEMOTMN1', '00', '00', DATEADD(MINUTE,-5,CAST('2026-11-06 18:15:00' AS DATETIME2)), DATEADD(MINUTE,10,CAST('2026-11-06 18:15:00' AS DATETIME2)), 63000000.00);
 
 GO
+
+
+-- 27.1. Bảng TRIP_SETTLEMENT: Tất toán tài chính chuyến hoàn thành TRIP_002
+INSERT INTO TRIP_SETTLEMENT (SettlementID, ContractID, TripID, CustomerID, ContractVersionNo, HandoverRevisionID, FinalInvoiceID, Status, PreparedBy, CreatedAtUtc, SettledBy, SettledAtUtc, ClosedAtUtc, FeedbackStartedAtUtc, FeedbackEndsAtUtc)
+VALUES
+('SETTLEMENT_002', 'CONTRACT_002', 'TRIP_002', 'USER_001', 1, 'HR_002', 'INVOICE_004', 'CLOSED', 'USER_004', '2026-11-06 18:00:00', 'USER_004', '2026-11-06 18:30:00', '2026-11-06 19:00:00', '2026-11-06 18:30:00', '2026-11-13 18:30:00');
 
 -- Flow 1: 10 don gia VND; ty le bao hiem 0.5% la gia dinh cua du an.
 INSERT INTO COST_RATE (CostRateID, Code, CostGroup, CalculationUnit, Rate, CurrencyCode, IsActive) VALUES
@@ -1609,7 +1622,7 @@ GO
 -- Imports must synchronize the allocators without reducing previously issued high-water marks.
 GO
 CREATE SEQUENCE dbo.[SEQ_USER_ID] AS BIGINT
-    START WITH 20 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
+    START WITH 25 INCREMENT BY 1 MINVALUE 1 NO MAXVALUE NO CYCLE CACHE 50;
 ALTER TABLE dbo.[USER] ADD CONSTRAINT [DF_USER_ID]
     DEFAULT ('USER_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_USER_ID], '000', 'en-US')) FOR [UserID];
 
@@ -2436,7 +2449,14 @@ GO
 DELETE FROM TRIP_EXPENSE;
 INSERT INTO TRIP_EXPENSE (ExpenseID, TripID, RecordedBy, Category, AmountVnd, OccurredAt, Reason, Status, RecordedAt)
 VALUES 
-('EXPENSE_003', 'TRIP_001', 'USER_007', 'OTHER',          1200000.00, '2026-09-15 15:30:00', N'Phí khử trùng xe và khu lưu chuồng ga hàng không Nội Bài', 'RECORDED', '2026-09-15 15:35:00');
+('EXPENSE_001', 'TRIP_002', 'USER_008', 'FUEL',           14200000.00, '2026-11-05 12:00:00', N'Nhiên liệu toàn tuyến Củ Chi - Đà Nẵng', 'APPROVED', '2026-11-05 12:05:00'),
+('EXPENSE_002', 'TRIP_002', 'USER_008', 'TOLL_FEE',        3200000.00, '2026-11-05 18:00:00', N'Phí cầu đường BOT quốc lộ 1A', 'APPROVED', '2026-11-05 18:05:00'),
+('EXPENSE_003', 'TRIP_002', 'USER_010', 'OTHER',           8000000.00, '2026-11-06 12:00:00', N'Công tác phí tài xế và nhân viên áp tải ngựa', 'APPROVED', '2026-11-06 12:05:00'),
+('EXPENSE_004', 'TRIP_002', 'USER_010', 'EMERGENCY_CARE',  3750000.00, '2026-11-06 14:00:00', N'Thuốc hạ sốt và dịch truyền cấp cứu ngựa', 'APPROVED', '2026-11-06 14:05:00'),
+('EXPENSE_005', 'TRIP_002', 'USER_008', 'FEED_SUPPLIES',   4000000.00, '2026-11-06 18:00:00', N'Cỏ khô, nước điện giải và lưu chuồng trạm Đà Nẵng', 'APPROVED', '2026-11-06 18:05:00'),
+('EXPENSE_006', 'TRIP_002', 'USER_004', 'OTHER',          40000000.00, '2026-11-06 19:00:00', N'Chi phí khấu hao phương tiện xe chuyên dụng và bảo dưỡng', 'APPROVED', '2026-11-06 19:05:00'),
+('EXPENSE_007', 'TRIP_002', 'USER_004', 'OTHER',           2500000.00, '2026-11-06 19:00:00', N'Phí bảo hiểm vận chuyển hàng hóa trách nhiệm cao', 'APPROVED', '2026-11-06 19:05:00'),
+('EXPENSE_008', 'TRIP_001', 'USER_007', 'OTHER',           1200000.00, '2026-09-15 15:30:00', N'Phí khử trùng xe và khu lưu chuồng ga hàng không Nội Bài', 'RECORDED', '2026-09-15 15:35:00');
 GO
 
 -- 5.8. BẢNG AIR_NOTICE: THÔNG BÁO LỊCH BAY TỪ HÃNG HÀNG KHÔNG

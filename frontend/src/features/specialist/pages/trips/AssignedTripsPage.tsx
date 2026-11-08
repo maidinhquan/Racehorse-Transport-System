@@ -7,7 +7,7 @@ import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { useSpecialistFilter } from '../../hooks/useSpecialistFilter';
 import type { SpecTrip } from '../../types';
-import { COUNTRY_VI, countryName, DEPLOYMENT_LABEL, MODE_VI, checklist, deployed, fmtDateTime, shortName, tripTotals, type SpecialistData } from '../../hooks/specialistRules';
+import { COUNTRY_VI, countryName, TRIP_STATUS_LABEL, MODE_VI, checklist, deployed, fmtDateTime, shortName, tripTotals, type SpecialistData } from '../../hooks/specialistRules';
 import './AssignedTripsPage.css';
 
 const ISSUES: Array<[string, string]> = [
@@ -33,7 +33,7 @@ export const AssignedTripsPage: React.FC = () => {
   const [params] = useSearchParams();
   const { data, trips } = useSpecialist();
   const f = useSpecialistFilter(trips, (t) => [t.id, t.requestId, t.origin, t.destination, ...t.horses.map((h) => h.name)].join(' '), {
-    dep: (t, v) => t.deployment === v,
+    status: (t, v) => t.status === v,
     check: (t, v) => (tripTotals(data, t).done === tripTotals(data, t).total ? 'READY' : 'NOT_READY') === v,
     issue: (t, v) => hasIssue(data, t, v),
   }, 10, { issue: params.get('issue') ?? '' });
@@ -45,14 +45,13 @@ export const AssignedTripsPage: React.FC = () => {
       <div className="spc-head">
         <div>
           <h2 className="spc-title">Chuyến được giao</h2>
-          <p className="spc-subtitle">Chọn một chuyến để xem giấy tờ khách hàng cung cấp, giấy tờ công ty phải làm và duyệt từng giấy tờ ngay trong chuyến. Muốn khách bổ sung giấy tờ nào thì bấm “Yêu cầu bổ sung” ngay tại giấy tờ đó.</p>
         </div>
       </div>
       <div className="spc-toolbar">
         <label className="spc-search"><Icon name="search" /><input value={f.search} onChange={(e) => f.setSearch(e.target.value)} placeholder="Tìm mã chuyến, mã yêu cầu, thành phố, tên ngựa…" /></label>
-        <select className="spc-select" value={f.value('dep')} onChange={(e) => f.setValue('dep', e.target.value)} aria-label="Giao việc">
-          <option value="">Mọi trạng thái giao việc</option>
-          {Object.entries(DEPLOYMENT_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        <select className="spc-select" value={f.value('status')} onChange={(e) => f.setValue('status', e.target.value)} aria-label="Trạng thái">
+          <option value="">Mọi trạng thái</option>
+          {Object.entries(TRIP_STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
         <select className="spc-select" value={f.value('check')} onChange={(e) => f.setValue('check', e.target.value)} aria-label="Tổng giấy tờ">
           <option value="">Mọi mức hồ sơ</option><option value="READY">Đủ giấy tờ</option><option value="NOT_READY">Chưa đủ</option>
@@ -65,7 +64,7 @@ export const AssignedTripsPage: React.FC = () => {
       <div className="spc-card" style={{ padding: 0 }}>
         <div className="spc-table-wrap">
           <table className="spc-table">
-            <thead><tr><th>Chuyến</th><th>Tuyến</th><th>Quốc gia</th><th>Phương thức</th><th>Khởi hành</th><th>Bộ yêu cầu</th><th>Tổng giấy tờ</th><th>Giao việc</th><th /></tr></thead>
+            <thead><tr><th>Chuyến</th><th>Tuyến</th><th>Quốc gia</th><th>Phương thức</th><th>Khởi hành</th><th>Bộ yêu cầu</th><th>Tổng giấy tờ</th><th>Trạng thái</th><th /></tr></thead>
             <tbody>
               {rows.map((t) => {
                 const x = tripTotals(data, t);
@@ -79,9 +78,8 @@ export const AssignedTripsPage: React.FC = () => {
                     <td>{t.reqSet ? <span className="spc-wrap">{t.reqSet.name} <span className="spc-muted">v{t.reqSet.pkgV}</span></span> : <TripStatusBadge label={`Chưa có giấy tờ đến ${countryName(t.destCountry)}`} tone="bad" />}</td>
                     <td>
                       {x.done}/{x.total} <TripStatusBadge label={x.done === x.total ? 'Đủ' : 'Chưa đủ'} tone={x.done === x.total ? 'ok' : 'warn'} />
-                      <div className="spc-muted">Khách {x.cu.done}/{x.cu.total} • Công ty {x.coDone}/{x.coTotal}</div>
                     </td>
-                    <td><TripStatusBadge kind="deployment" status={t.deployment} /><div style={{ marginTop: 4 }}><TripStatusBadge kind="trip" status={t.status} /></div></td>
+                    <td><TripStatusBadge kind="trip" status={t.status} /></td>
                     <td><button type="button" className="spc-btn spc-btn--solid spc-btn--sm">Mở chuyến</button></td>
                   </tr>
                 );
@@ -98,3 +96,10 @@ export const AssignedTripsPage: React.FC = () => {
 };
 
 export default AssignedTripsPage;
+
+
+
+
+
+
+

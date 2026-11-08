@@ -71,6 +71,7 @@ const cleanId = (x?: string) => (x || '').replace(/-/g, '_');
 
 import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
 import { getSharedTrips, saveSharedTrip } from '../../../shared/utils/sharedTrips';
+import { saveSharedNotification } from '../../../shared/utils/sharedNotifications';
 import { flow4Api } from '../../tracking/api/flow4Api';
 import { progressFromMilestones } from '../../tracking/utils/progress';
 
@@ -685,8 +686,24 @@ const managerActions = {
   },
   remindSign(id: string) {
     const r = reqIn(state, id), v = r && curVersion(r);
-    if (!v?.contractId) return Promise.resolve(fail('Không tìm thấy hợp đồng.'));
-    return perform(id, () => managerApi.remindSign(v.contractId!, v.v), 'Đã gửi nhắc hoàn tất hợp đồng.');
+    if (!r || !v?.contractId) return Promise.resolve(fail('Không tìm thấy hợp đồng.'));
+    saveSharedNotification({
+      id: `NOTIF-${Date.now()}`,
+      userId: r.customerId,
+      requestId: r.id,
+      title: 'Nhắc nhở cọc & ký hợp đồng',
+      body: `Quản lý vận hành đã gửi nhắc hoàn tất đặt cọc và ký hợp đồng cho yêu cầu ${r.id}.`,
+      at: nowStamp(),
+      read: false,
+      link: `/customer/requests/${r.id}`,
+    });
+    return perform(id, async () => {
+      try {
+        await managerApi.remindSign(v.contractId!, v.v);
+      } catch (err) {
+        if (!getDemoMode('manager')) throw err;
+      }
+    }, 'Đã gửi nhắc hoàn tất hợp đồng tới khách hàng.');
   },
   confirmRefund(requestId: string) {
     const request = reqIn(state, requestId), contractId = request?.contractId ?? (request && curVersion(request)?.contractId);

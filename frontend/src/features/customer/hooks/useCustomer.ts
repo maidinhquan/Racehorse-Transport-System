@@ -81,6 +81,7 @@ interface CustomerState {
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { mockHorses, mockNotifications, mockRequests } from '../data/mockData';
 import { getSharedRequests, saveSharedRequest, toCustomerRequest } from '../../../shared/utils/sharedRequests';
+import { getSharedNotifications, markSharedNotificationRead, markAllSharedNotificationsRead, type SharedNotification } from '../../../shared/utils/sharedNotifications';
 import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -278,16 +279,37 @@ let currentLoadSeq = 0;
 let inFlightPromise: Promise<void> | null = null;
 let inFlightSyncPromise: Promise<void> | null = null;
 
+function mergeNotificationsWithShared(apiNotifs: CustomerNotification[]): CustomerNotification[] {
+  const shared = getSharedNotifications().map((s: SharedNotification) => ({
+    id: s.id,
+    title: s.title,
+    body: s.body,
+    at: s.at,
+    read: s.read,
+    link: s.link || '/customer/requests',
+  }));
+  const merged = [...shared, ...apiNotifs.filter((a: CustomerNotification) => !shared.some((s: CustomerNotification) => s.id === a.id))];
+  return merged;
+}
+
 async function syncRequestsOnly(): Promise<void> {
   if (inFlightSyncPromise) return inFlightSyncPromise;
   inFlightSyncPromise = (async () => {
     try {
-      const rawRequests = await customerApi.getRequests();
+      const [requestsRes, notifsRes] = await Promise.allSettled([
+        customerApi.getRequests(),
+        customerApi.getNotifications(),
+      ]);
+      const rawRequests = requestsRes.status === 'fulfilled' && requestsRes.value ? requestsRes.value : [];
+      const apiNotifs = notifsRes.status === 'fulfilled' && notifsRes.value ? notifsRes.value : [];
+      const mergedNotifs = mergeNotificationsWithShared(apiNotifs);
+
       const isDemo = getDemoMode('customer');
       if (!isDemo) {
         setState((prev) => ({
           ...prev,
           requests: mergeRequestDrafts(rawRequests, prev.requests),
+          notifications: mergedNotifs.length > 0 ? mergedNotifs : prev.notifications,
         }));
         return;
       }
@@ -295,7 +317,11 @@ async function syncRequestsOnly(): Promise<void> {
       const merged = [...shared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
       const mock = clone(mockRequests);
       const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
-      setState((prev) => ({ ...prev, requests: allDemoRequests }));
+      setState((prev) => ({
+        ...prev,
+        requests: allDemoRequests,
+        notifications: mergedNotifs.length > 0 ? mergedNotifs : (prev.notifications.length > 0 ? prev.notifications : clone(mockNotifications)),
+      }));
     } catch {
       // Ignore background sync errors
     } finally {
@@ -349,6 +375,7 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
         }
       }
       const notifications: CustomerNotification[] = notificationsRes.status === 'fulfilled' && notificationsRes.value ? notificationsRes.value : [];
+      const mergedNotifications = mergeNotificationsWithShared(notifications);
 
       try {
         const u = currentUserRes.status === 'fulfilled' ? currentUserRes.value?.data : null;
@@ -393,7 +420,7 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
           profile,
           horses: horses || [],
           requests: mergeRequestDrafts(baseRequests, prev.requests),
-          notifications: notifications || [],
+          notifications: mergedNotifications,
           loading: false,
           loaded: true,
         }));
@@ -409,7 +436,7 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
         profile,
         horses: horses && horses.length > 0 ? horses : clone(mockHorses),
         requests: allDemoRequests,
-        notifications: notifications && notifications.length > 0 ? notifications : clone(mockNotifications),
+        notifications: mergedNotifications.length > 0 ? mergedNotifications : clone(mockNotifications),
         loading: false,
         loaded: true,
       }));
@@ -465,12 +492,16 @@ const customerActions = {
   clearToast: () => setState({ toast: null }),
   showToast: (message: string) => toast(message),
   async markNotificationRead(id: string) {
-    try { await customerApi.markNotificationRead(id); setState(s => ({ notifications: s.notifications.map(n => n.id === id ? { ...n, read: true } : n) })); }
-    catch (error) { toast(apiMessage(error)); }
+    markSharedNotificationRead(id);
+    setState(s => ({ notifications: s.notifications.map(n => n.id === id ? { ...n, read: true } : n) }));
+    try { await customerApi.markNotificationRead(id); }
+    catch (error) { /* silent on demo / offline */ }
   },
   async markAllNotificationsRead() {
-    try { await customerApi.markAllNotificationsRead(); setState(s => ({ notifications: s.notifications.map(n => ({ ...n, read: true })) })); }
-    catch (error) { toast(apiMessage(error)); }
+    markAllSharedNotificationsRead();
+    setState(s => ({ notifications: s.notifications.map(n => ({ ...n, read: true })) }));
+    try { await customerApi.markAllNotificationsRead(); }
+    catch (error) { /* silent on demo / offline */ }
   },
 
   // ----- Bước 1: thông tin chuyến -----

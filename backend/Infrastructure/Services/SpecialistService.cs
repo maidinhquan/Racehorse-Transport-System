@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -41,7 +41,7 @@ namespace Infrastructure.Services
 
             if (role == "TRANSPORT_SPECIALIST" && !string.IsNullOrEmpty(userId))
             {
-                query = query.Where(t => t.Status == "PLANNING" || t.Status == "SCHEDULED" || t.Status == "IN_TRANSIT" || t.Status == "COMPLETED" || t.Status == "CONFIRMED");
+                query = query.Where(t => t.Status == "PLANNING" || t.Status == "READY_TO_DEPART" || t.Status == "SCHEDULED" || t.Status == "IN_TRANSIT" || t.Status == "COMPLETED" || t.Status == "CONFIRMED");
             }
 
             query = query.OrderByDescending(t => t.TripId);
@@ -170,7 +170,7 @@ namespace Infrastructure.Services
                 {
                     var h = map.Horse;
                     if (h == null) continue;
-                    string? FileUrl(string key, string? stored) => string.IsNullOrEmpty(stored) ? null : $"/api/specialist/trips/{t.TripId}/customer-documents/{key}/file?scope={h.HorseId}";
+                    string? FileUrl(string key, string? stored) => $"/api/specialist/trips/{t.TripId}/customer-documents/{key}/file?scope={h.HorseId}";
 
                     // 1. Passport
                     var passReq = openRequests.FirstOrDefault(r => r.TripId == t.TripId && r.Scope == h.HorseId && r.KeyName == "passport");
@@ -192,40 +192,53 @@ namespace Infrastructure.Services
 
                     // 2. Ownership
                     var ownReq = openRequests.FirstOrDefault(r => r.TripId == t.TripId && r.Scope == h.HorseId && r.KeyName == "ownership");
+                    var ownRecord = legalRecords.FirstOrDefault(r => r.RequestId == req.RequestId && r.HorseId == h.HorseId && (r.DocumentType == "OWNERSHIP" || r.DocumentType == "ownership"));
                     result.Add(new CustomerDocDto
                     {
                         TripId = t.TripId,
                         Key = "ownership",
                         Scope = h.HorseId,
-                        Status = ownReq != null ? "ACTION_REQUIRED" : (!string.IsNullOrEmpty(h.OwnershipCertificateFileUrl) ? "APPROVED" : "OPTIONAL"),
-                        Optional = true,
-                        File = FileUrl("ownership", h.OwnershipCertificateFileUrl),
+                        Status = ownReq != null ? "ACTION_REQUIRED" : (ownRecord?.DocumentStatus ?? (!string.IsNullOrEmpty(h.OwnershipCertificateFileUrl) ? "APPROVED" : "MISSING")),
+                        Optional = false,
+                        File = FileUrl("ownership", ownRecord?.UploadedFileUrl ?? h.OwnershipCertificateFileUrl),
                         Note = "Chứng nhận sở hữu ngựa",
-                        Issue = ownReq?.Reason
+                        Issue = ownReq?.Reason,
+                        ReviewedAt = ownRecord?.ReviewedAtUtc?.ToString("yyyy-MM-dd HH:mm"),
+                        ReviewedBy = ownRecord?.ReviewedBy
                     });
 
                     // 3. Bio / Photo
+                    var bioReq = openRequests.FirstOrDefault(r => r.TripId == t.TripId && r.Scope == h.HorseId && r.KeyName == "bio");
+                    var bioRecord = legalRecords.FirstOrDefault(r => r.RequestId == req.RequestId && r.HorseId == h.HorseId && (r.DocumentType == "BIO" || r.DocumentType == "bio"));
                     result.Add(new CustomerDocDto
                     {
                         TripId = t.TripId,
                         Key = "bio",
                         Scope = h.HorseId,
-                        Status = !string.IsNullOrEmpty(h.PhotoUrl) ? "APPROVED" : "OPTIONAL",
-                        Optional = true,
-                        File = FileUrl("bio", h.PhotoUrl),
-                        Note = $"Màu: {h.Breed}, Giống: {h.Breed}, Vi mạch: {h.MicrochipIso}"
+                        Status = bioReq != null ? "ACTION_REQUIRED" : (bioRecord?.DocumentStatus ?? (!string.IsNullOrEmpty(h.PhotoUrl) || !string.IsNullOrEmpty(h.MicrochipIso) ? "APPROVED" : "MISSING")),
+                        Optional = false,
+                        File = FileUrl("bio", bioRecord?.UploadedFileUrl ?? h.PhotoUrl),
+                        Note = $"Màu: {h.Breed}, Giống: {h.Breed}, Vi mạch: {h.MicrochipIso}",
+                        Issue = bioReq?.Reason,
+                        ReviewedAt = bioRecord?.ReviewedAtUtc?.ToString("yyyy-MM-dd HH:mm"),
+                        ReviewedBy = bioRecord?.ReviewedBy
                     });
 
                     // 4. Value proof
+                    var valReq = openRequests.FirstOrDefault(r => r.TripId == t.TripId && r.Scope == h.HorseId && r.KeyName == "valueProof");
+                    var valRecord = legalRecords.FirstOrDefault(r => r.RequestId == req.RequestId && r.HorseId == h.HorseId && (r.DocumentType == "VALUE_PROOF" || r.DocumentType == "valueProof"));
                     result.Add(new CustomerDocDto
                     {
                         TripId = t.TripId,
                         Key = "valueProof",
                         Scope = h.HorseId,
-                        Status = !string.IsNullOrEmpty(h.ValuationDocumentFileUrl) ? "APPROVED" : "OPTIONAL",
-                        Optional = true,
-                        File = FileUrl("valueProof", h.ValuationDocumentFileUrl),
-                        Note = h.DeclaredValueVnd.HasValue ? $"Giá trị khai báo: {h.DeclaredValueVnd.Value:N0} VND" : "Chứng nhận giá trị"
+                        Status = valReq != null ? "ACTION_REQUIRED" : (valRecord?.DocumentStatus ?? (!string.IsNullOrEmpty(h.ValuationDocumentFileUrl) || h.DeclaredValueVnd.HasValue ? "APPROVED" : "MISSING")),
+                        Optional = false,
+                        File = FileUrl("valueProof", valRecord?.UploadedFileUrl ?? h.ValuationDocumentFileUrl),
+                        Note = h.DeclaredValueVnd.HasValue ? $"Giá trị khai báo: {h.DeclaredValueVnd.Value:N0} VND" : "Chứng nhận giá trị",
+                        Issue = valReq?.Reason,
+                        ReviewedAt = valRecord?.ReviewedAtUtc?.ToString("yyyy-MM-dd HH:mm"),
+                        ReviewedBy = valRecord?.ReviewedBy
                     });
 
                     // 5. Equine Flu vaccination (Sổ tiêm cúm)
@@ -885,12 +898,9 @@ namespace Infrastructure.Services
                 new RegulationDto
                 {
                     Id = "REG-1", Country = "VN", Direction = "EXPORT", V = 1, EffectiveFrom = "2026-08-12", Status = "ACTIVE",
-                    Note = "Giấy chứng nhận sức khỏe do Cục Thú y cấp trong vòng 10 ngày trước khởi hành.",
+                    Note = "Thủ tục kiểm dịch và hải quan xuất khẩu qua Cục Thú y và Hải quan Việt Nam.",
                     Lines = new List<RequirementLineDto>
                     {
-                        new RequirementLineDto { TypeId = "DT-1", Provider = "CUSTOMER", Scope = "PER_HORSE", Stage = "BEFORE_SUBMIT", Level = "REQUIRED" },
-                        new RequirementLineDto { TypeId = "DT-2", Provider = "CUSTOMER", Scope = "PER_HORSE", Stage = "BEFORE_DEPART", Condition = "Cấp trong vòng 10 ngày trước khởi hành", Level = "REQUIRED" },
-                        new RequirementLineDto { TypeId = "DT-3", Provider = "CUSTOMER", Scope = "PER_HORSE", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
                         new RequirementLineDto { TypeId = "DT-4", Provider = "CBN", Scope = "PER_TRIP", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
                         new RequirementLineDto { TypeId = "DT-7", Provider = "CBN", Scope = "PER_TRIP", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
                     }
@@ -901,8 +911,6 @@ namespace Infrastructure.Services
                     Note = "Giấy phép vận chuyển thú y cấp tỉnh.",
                     Lines = new List<RequirementLineDto>
                     {
-                        new RequirementLineDto { TypeId = "DT-1", Provider = "CUSTOMER", Scope = "PER_HORSE", Stage = "BEFORE_SUBMIT", Level = "REQUIRED" },
-                        new RequirementLineDto { TypeId = "DT-3", Provider = "CUSTOMER", Scope = "PER_HORSE", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
                         new RequirementLineDto { TypeId = "DT-8", Provider = "CBN", Scope = "PER_TRIP", Stage = "BEFORE_DEPART", Level = "REQUIRED" },
                     }
                 },
@@ -982,3 +990,4 @@ namespace Infrastructure.Services
         }
     }
 }
+

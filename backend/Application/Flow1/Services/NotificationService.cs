@@ -12,7 +12,7 @@ public sealed class NotificationService(IDataSession data, AccessService access,
         return (await data.ListAsync<Notification>(n => n.UserID == actor, ct)).OrderByDescending(n => n.SentAt)
             .Select(n => new { id = n.NotificationID, referenceId = n.ReferenceID, type = n.Type, title = n.Title,
                 body = n.Message, at = n.SentAt.ToString("yyyy-MM-dd HH:mm"), read = n.IsRead,
-                link = n.ReferenceID?.StartsWith("REQUEST_", StringComparison.Ordinal) == true ? $"/customer/requests/{n.ReferenceID}" : null }).ToArray();
+                link = n.ReferenceID?.StartsWith("REQUEST_", StringComparison.Ordinal) == true ? $"/customer/requests/{n.ReferenceID}" : (n.ReferenceID?.StartsWith("CONTRACT_", StringComparison.Ordinal) == true ? "/customer/requests" : null) }).ToArray();
     }
     public Task<object> ReadAsync(string actor, string? id, CancellationToken ct) => data.WriteAsync<object>(async token =>
     {

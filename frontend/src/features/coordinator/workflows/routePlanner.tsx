@@ -220,12 +220,12 @@ export function needsVietnamDomesticCorridor(pA: number[], pB: number[]): boolea
   if (!isPointInVietnam(pA[0], pA[1]) || !isPointInVietnam(pB[0], pB[1])) return false;
   const minLat = Math.min(pA[0], pB[0]), maxLat = Math.max(pA[0], pB[0]);
   const minLng = Math.min(pA[1], pB[1]);
-  // Tuyến nối giữa miền Nam (lat < 13.5, lng < 107.5) và Bắc/Bắc Trung Bộ (lat >= 16.6)
-  return minLat < 13.5 && minLng < 107.5 && maxLat >= 16.6;
+  // Tuyến nối giữa miền Nam (lat < 13.5, lng < 108.0) và Duyên hải Miền Trung / Miền Bắc (lat >= 13.7: Bình Định, Quảng Ngãi, Đà Nẵng, Huế...)
+  return minLat < 13.5 && minLng < 108.0 && maxLat >= 13.7;
 }
 
 // ---- routing (OSRM, Geoapify hoặc mô phỏng do người dùng chọn); yêu cầu mới nhất thắng; nhớ đệm theo tọa độ ----
-const ROUTE_CACHE_VER = 'v2_corridor';
+const ROUTE_CACHE_VER = 'v3_coastal_ql1a';
 const routeCache = new Map<string, Any>();
 export function rpClearRouteCache() { routeCache.clear(); }
 
@@ -1408,18 +1408,20 @@ const COUNTRY_NAMES: Record<string, string> = {
 const COUNTRIES = ['VN', 'CN', 'KH', 'LA', 'TH', 'MY', 'SG', 'JP', 'KR', 'TW', 'AU', 'US', 'FR', 'DE', 'GB'];
 export function placeEdit(id: string) {
   const p = id ? placeById(id) : null;
+  const used = p ? placeUsedIn(p) : [];
   const h = String(p?.hours || '24/7'), all = h === '24/7', parts = h.split(/[–-]/);
   const r = p?.rest || {}, f = p?.fuel || {}, a = p?.airport || {}, s = p?.service || {};
   openModal({
     title: p ? `Địa điểm • ${p.name}` : 'Thêm địa điểm', ok: p ? 'Lưu thay đổi' : 'Thêm', wide: true,
     init: {
       name: p?.name || '', country: p?.country || 'VN', prov: p?.province || '', addr: p?.address || '',
+      st: p?.status || 'ACTIVE', statusReason: p?.statusReason || '',
       fn: p ? [...p.functions] : ['REST'], lat: p && p.lat != null ? String(p.lat) : '', lng: p && p.lng != null ? String(p.lng) : '',
       hAll: all, hOpen: all ? '06:00' : parts[0] || '', hClose: all ? '22:00' : parts[1] || '',
       r1: r.truckParking !== false, r2: !!r.onboardCare, r3: !!r.waterFeed, r4: !!r.loadingArea, r5: !!r.stabling, r6: String(r.capacity || 4),
       f1: f.fuels || 'Diesel', f2: f.heavyAccess !== false, a1: a.iata || '', a2: a.horseHandling !== false, s1: s.kind || '', s2: s.capacity || '',
     },
-    body: (fm) => <PlaceForm p={p} fm={fm} />,
+    body: (fm) => <PlaceForm p={p} fm={fm} used={used} />,
     onOk: (v) => {
       let fn: string[] = Array.isArray(v.fn) ? v.fn : [];
       if (!fn.length) fn = ['REST'];
@@ -1452,11 +1454,15 @@ export function placeEdit(id: string) {
 
       const now = nowStamp();
       const nowMs = Date.now();
+      const oldStatus = p?.status;
+      const nextStatus = v.st || p?.status || 'ACTIVE';
       const data = {
         name,
         country: v.country || 'VN',
         province: prov || addr,
         address: addr,
+        status: nextStatus,
+        statusReason: String(v.statusReason || '').trim(),
         functions: fn,
         lat,
         lng,
@@ -1486,7 +1492,7 @@ export function placeEdit(id: string) {
         db.places.unshift(p);
         savedPlace = p;
       } else {
-        savedPlace = Object.assign({ id: nextId('PL'), type: 'SERVICE', status: 'ACTIVE', sample: false }, data);
+        savedPlace = Object.assign({ id: nextId('PL'), type: 'SERVICE', status: nextStatus, sample: false }, data);
         db.places.unshift(savedPlace);
       }
 
@@ -1501,7 +1507,12 @@ export function placeEdit(id: string) {
       ui.lastSavedPlaceId = savedPlace.id;
 
       commit();
-      audit(p ? 'Updated place' : 'Added place', data.name, fn.join(', '));
+      if (p && oldStatus === 'ACTIVE' && nextStatus !== 'ACTIVE') {
+        used.filter((t: Any) => t.status !== 'COMPLETED').forEach((t: Any) =>
+          notify('FLEET_COORDINATOR', `Địa điểm “${data.name}” ${PLACE_ST[nextStatus][1].toLowerCase()}`, `Kế hoạch ${t.id} có dùng địa điểm này – kiểm tra và thay thế nếu cần.`, `f/trip/${t.id}/route`)
+        );
+      }
+      audit(p ? 'Updated place' : 'Added place', data.name, `${fn.join(', ')} • ${PLACE_ST[nextStatus][1]}`);
       toast(p ? `Đã lưu địa điểm “${data.name}” và đưa lên đầu danh sách.` : `Đã thêm địa điểm “${data.name}” vào đầu danh sách.`);
     
       const pending = ui?.pendingAddStop;
@@ -1564,7 +1575,7 @@ async function fetchReverseWithFallbacks(la: number, lo: number, signal?: AbortS
   return null;
 }
 // phần thân form địa điểm (bản đồ chọn tọa độ ở components/LeafletMaps)
-function PlaceForm({ p, fm }: { p: Any; fm: { v: Any; set: (k: string, v: Any) => void } }) {
+function PlaceForm({ p, fm, used = [] }: { p: Any; fm: { v: Any; set: (k: string, v: Any) => void }; used?: Any[] }) {
   const fns: string[] = fm.v.fn;
   const toggle = (fn: string, on: boolean) => fm.set('fn', on ? [...fns, fn] : fns.filter((x) => x !== fn));
   const onPickCoord = (la: number, lo: number) => {
@@ -1649,9 +1660,25 @@ function PlaceForm({ p, fm }: { p: Any; fm: { v: Any; set: (k: string, v: Any) =
     ...(fm.v.country ? [fm.v.country] : []),
   ]));
   return (<>
+    {used && used.length ? (
+      <div className="note yellow" style={{ marginBottom: 12 }}>
+        <div>
+          <b>Đang dùng trong {used.length} kế hoạch:</b> {used.map((t: Any) => `${t.id} (${human(t.status)})`).join(', ')}. Tạm ngừng/ngừng hoạt động sẽ cảnh báo các kế hoạch này; kế hoạch đã duyệt không tự bị sửa.
+        </div>
+      </div>
+    ) : null}
     <div className="form-grid">
       <Field label="Tên địa điểm *"><Inp name="name" /></Field>
+      <Field label="Trạng thái *">
+        <Sel
+          name="st"
+          options={Object.keys(PLACE_ST).map((k) => [k, PLACE_ST[k][1]] as [string, string])}
+        />
+      </Field>
+    </div>
+    <div className="form-grid">
       <Field label="Quốc gia *"><Sel name="country" options={countryOptions.map((c) => [c, COUNTRY_NAMES[c] || c] as [string, string])} /></Field>
+      <Field label="Lý do trạng thái (nếu có)"><Inp name="statusReason" placeholder="Ví dụ: Đang bảo trì, ngập lụt, kiểm dịch..." /></Field>
     </div>
     <div className="form-grid">
       <Field label="Tỉnh/thành *"><Inp name="prov" /></Field>

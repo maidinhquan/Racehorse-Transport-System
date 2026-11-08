@@ -30,12 +30,22 @@ import {
 type Dialog = '' | 'accept' | 'revise' | 'reject' | 'cancel' | 'cancel-ok' | 'cancel-no' | 'demo-cancel';
 
 /** Mục 1: thông tin yêu cầu, hồ sơ (chỉ xem), quyết định của Manager, lịch sử */
+const HorseIcon: React.FC<{ size?: number }> = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M22 17a3 3 0 0 1-3 3H8a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4h2.5a2 2 0 0 1 2 2v1.5a1.5 1.5 0 0 0 1.5 1.5H16a2 2 0 0 1 2 2v2" />
+    <circle cx="10" cy="8" r="1" />
+    <path d="M18 13l4 4" />
+  </svg>
+);
+
 export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
   const { data, horses, customer, actions } = useManager();
   const [dialog, setDialog] = useState<Dialog>('');
   const close = () => setDialog('');
   const c = customer(r), v = curVersion(r), held = moneyHeld(data, r);
+  const [selectedHorseId, setSelectedHorseId] = useState<string | null>(null);
   const horseInfo = (id: string) => horses.find((h) => h.id === id || h.id.replace(/-/g, '_') === id.replace(/-/g, '_'));
+  const selectedHorse = selectedHorseId ? horseInfo(selectedHorseId) : null;
   const dossierScopes = Array.from(new Set((r.dossier ?? []).map((d) => d.scope)));
 
   return (
@@ -80,21 +90,58 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
           </section>
 
           <section className="mgr-card">
-            <h3 className="mgr-card__title">Ngựa ({r.horses.length})</h3>
-            {r.horses.map((id) => {
-              const h = horseInfo(id);
-              return (
-                <div key={id} className="mgr-row">
-                  <div><b>{h?.name ?? id}</b><span>{id} • {h?.breed} • Microchip {h?.microchip || 'chưa khai báo'} • Hộ chiếu {h?.passportNo}</span></div>
-                  {!h?.microchip && <StatusBadge tone="warn" label="Thiếu microchip" />}
-                </div>
-              );
-            })}
+            <h3 className="mgr-card__title">
+              <span>Ngựa ({r.horses.length})</span>
+            </h3>
+            <div className="mgr-horse-btn-list">
+              {r.horses.map((id) => {
+                const h = horseInfo(id);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className="mgr-horse-btn-card"
+                    onClick={() => setSelectedHorseId(id)}
+                    title="Bấm để xem thông tin chi tiết cá thể ngựa"
+                  >
+                    <div className="mgr-horse-btn-left">
+                      <div className="mgr-horse-avatar" aria-hidden="true"><HorseIcon size={20} /></div>
+                      <div className="mgr-horse-info">
+                        <div className="mgr-horse-name-row">
+                          <span className="mgr-horse-name">{h?.name ?? id}</span>
+                          <span className="mgr-horse-id-pill">{id}</span>
+                          {!h?.microchip && <StatusBadge tone="warn" label="Thiếu microchip" />}
+                        </div>
+                        <div className="mgr-horse-meta">
+                          {h?.breed && (
+                            <span className="mgr-horse-meta-item">
+                              <b>Giống:</b> {h.breed}
+                            </span>
+                          )}
+                          <span className="mgr-horse-meta-item">
+                            <b>Microchip:</b> {h?.microchip || <span style={{ color: '#d97706' }}>Chưa khai báo</span>}
+                          </span>
+                          {h?.passportNo && (
+                            <span className="mgr-horse-meta-item">
+                              <b>Hộ chiếu:</b> {h.passportNo}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mgr-horse-btn-right">
+                      <span className="mgr-horse-cta">
+                        Xem chi tiết ↗
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </section>
 
           <section className="mgr-card">
             <div className="mgr-between"><h3 className="mgr-card__title">Hồ sơ khách hàng</h3><StatusBadge tone="muted" label="Chỉ xem" /></div>
-            <p className="mgr-hint" style={{ marginTop: 0 }}>Transport Specialist duyệt giấy tờ; Manager chỉ theo dõi để đánh giá yêu cầu.</p>
             {dossierScopes.map((scope) => (
               <div key={scope}>
                 <div className="mgr-section-title">{horseName(data, scope)}</div>
@@ -195,6 +242,66 @@ export const ReviewSection: React.FC<{ request: TransportRequest }> = ({ request
           close();
           return true;
         }} />
+
+      {selectedHorseId && (
+        <Modal
+          open={!!selectedHorseId}
+          title={`Thông tin cá thể ngựa: ${selectedHorse?.name || selectedHorseId}`}
+          onClose={() => setSelectedHorseId(null)}
+          cancelText="Đóng"
+          wide
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+              <div style={{ width: 56, height: 56, borderRadius: 14, background: '#ffedd5', border: '1.5px solid #fdba74', color: '#c2410c', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <HorseIcon size={30} />
+              </div>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>{selectedHorse?.name || selectedHorseId}</div>
+                <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>
+                  Mã cá thể: <b>{selectedHorseId}</b> • Giống: <b>{selectedHorse?.breed || 'Chưa rõ'}</b>
+                </div>
+              </div>
+            </div>
+
+            <div className="mgr-kv" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              <div><span>Số Microchip ISO</span><b>{selectedHorse?.microchip || 'Chưa khai báo'}</b></div>
+              <div><span>Số hộ chiếu FEI</span><b>{selectedHorse?.passportNo || 'Chưa khai báo'}</b></div>
+              <div><span>Giống loài</span><b>{selectedHorse?.breed || '—'}</b></div>
+              <div><span>Yêu cầu vận chuyển</span><b>{r.id} ({cityLabel(r.origin)} → {cityLabel(r.destination)})</b></div>
+            </div>
+
+            {((r as any).horseNotes?.[selectedHorseId] || r.careNotes) && (
+              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
+                <b style={{ color: '#b45309' }}>Ghi chú chăm sóc: </b>
+                {(r as any).horseNotes?.[selectedHorseId] || r.careNotes}
+              </div>
+            )}
+
+            <div>
+              <h4 style={{ fontSize: 14, fontWeight: 600, margin: '8px 0 8px', color: '#334155' }}>Hồ sơ & chứng từ của ngựa này</h4>
+              {((r.dossier ?? []).filter((d) => d.scope === selectedHorseId)).length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {(r.dossier ?? []).filter((d) => d.scope === selectedHorseId).map((d) => {
+                    const fileName = typeof d.file === 'object' && d.file ? ((d.file as any).name || '') : (d.file || '');
+                    return (
+                      <div key={d.name} className="mgr-row" style={{ padding: '8px 12px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                        <div>
+                          <b>{d.name}</b>
+                          <span>{fileName ? <button type="button" className="mgr-link" onClick={() => downloadFile(fileName).catch(err => actions.showToast(err.message))}>{fileName}</button> : 'Chưa có tệp'}{d.note ? ` • ${d.note}` : ''}</span>
+                        </div>
+                        <StatusBadge kind="dossier" status={d.status} />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mgr-hint" style={{ margin: 0 }}>Chưa có hồ sơ riêng cho ngựa này.</p>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
     </>
   );
 };

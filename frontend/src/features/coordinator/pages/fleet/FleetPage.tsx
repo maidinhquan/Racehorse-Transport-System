@@ -5,7 +5,7 @@ import { ACTIVE_TRIP, fleetCountry, tripVehicleIds, tripWindow } from '../../dom
 import type { Any } from '../../store/coordinatorStore';
 import { db, ui, useCoordinatorStore } from '../../store/coordinatorStore';
 import { date, human } from '../../utils/format';
-import { vehicleDelete, vehicleEdit, vehicleStatusModal } from '../../workflows/coordinatorActions';
+import { vehicleDelete, vehicleEdit } from '../../workflows/coordinatorActions';
 
 export function FleetPage() {
   useCoordinatorStore();
@@ -62,7 +62,6 @@ export function FleetPage() {
             return (
               <span className="btn-row" style={{ margin: 0, flexWrap: 'nowrap', gap: 6 }} onClick={(e) => e.stopPropagation()}>
                 <button type="button" className="btn ghost sm" onClick={() => vehicleEdit(v.id)}>Xem/sửa</button>
-                <button type="button" className="btn ghost sm" onClick={() => vehicleStatusModal(v.id)}>Trạng thái</button>
                 {isUsed ? null : <button type="button" className="btn danger sm" onClick={() => vehicleDelete(v.id)}>Xóa</button>}
               </span>
             );

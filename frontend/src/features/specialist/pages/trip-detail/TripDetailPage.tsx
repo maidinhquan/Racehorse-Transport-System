@@ -6,7 +6,7 @@ import { LockedCard, Note } from '../../components/Common/Common';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import type { SpecTrip, TripDetailTab } from '../../types';
-import { CHECKLIST_LABEL, CUSTOMER_DOC_LABEL, CUSTOMER_DOC_NAME, MODE_VI, checklist, fmtDateTime, horseName, itemName, tripTotals, type SpecialistData } from '../../hooks/specialistRules';
+import { CHECKLIST_LABEL, CUSTOMER_DOC_LABEL, CUSTOMER_DOC_NAME, checklist, horseName, itemName, tripTotals, type SpecialistData } from '../../hooks/specialistRules';
 import { DocsReadyCard } from './sections/DocsReadyCard';
 import { CustomerDocsTab } from './tabs/CustomerDocsTab';
 import { CompanyDocsTab } from './tabs/CompanyDocsTab';
@@ -51,8 +51,8 @@ export const TripDetailPage: React.FC = () => {
       <div className="spc-head">
         <div>
           <h2 className="spc-title spc-trip__title">{t.id} <TripStatusBadge kind="trip" status={t.status} /> <TripStatusBadge kind="deployment" status={t.deployment} /></h2>
-          <p className="spc-subtitle">{t.requestId} • {t.customerName} • {t.origin} → {t.destination} • {MODE_VI[t.mode]} • khởi hành {fmtDateTime(t.plannedDepart)} • dự kiến đến {fmtDateTime(t.eta)}</p>
-          <p className="spc-muted" style={{ marginTop: 4 }}>Ngựa: {t.horses.map((h) => `${h.name} (${h.microchip || 'chưa có microchip'})`).join(', ')}</p>
+          <p className="spc-subtitle">{t.requestId} • {t.customerName} • {t.origin} → {t.destination}</p>
+
         </div>
         <div className="spc-btn-row" style={{ margin: 0, alignItems: 'center' }}>
           <TripStatusBadge label={`Tổng giấy tờ ${x.done}/${x.total}`} tone={x.done === x.total ? 'ok' : 'warn'} />

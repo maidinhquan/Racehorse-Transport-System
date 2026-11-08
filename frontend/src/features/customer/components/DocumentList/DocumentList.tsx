@@ -14,10 +14,12 @@ interface DocumentRowsProps {
   editable: boolean;
   /** Đường dẫn quay lại sau khi sửa thông tin ngựa */
   backTo?: string;
+  /** Callback mở form sửa ngựa trực tiếp tại chỗ (in-place) */
+  onEditHorse?: (horseId: string) => void;
 }
 
 /** Các dòng giấy tờ: trạng thái, lý do từ chối, xem tệp, tải tệp / sửa thông tin */
-export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, editable, backTo }) => {
+export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, editable, backTo, onEditHorse }) => {
   const navigate = useNavigate();
   const { actions } = useCustomer();
   const [preview, setPreview] = React.useState<{ file: import('../../types').FileRef; title: string } | null>(null);
@@ -33,9 +35,9 @@ export const DocumentRows: React.FC<DocumentRowsProps> = ({ requestId, items, ed
               <TripStatusBadge kind="doc" status={it.status} />
               <div className="cus-doc__actions">
                 {it.file && <button type="button" className="cus-btn cus-btn--sm" onClick={() => setPreview({ file: it.file!, title: it.name })}>Xem tệp</button>}
-                {editable && it.kind === 'info' && (
+                {editable && (it.kind === 'info' || it.key === 'passport') && (
                   <button type="button" className="cus-btn cus-btn--sm"
-                    onClick={() => navigate(`/customer/horses/${it.scope}/edit${backTo ? `?back=${encodeURIComponent(backTo)}` : ''}`)}>
+                    onClick={() => onEditHorse ? onEditHorse(it.scope) : navigate(`/customer/horses/${it.scope}/edit${backTo ? `?back=${encodeURIComponent(backTo)}` : ''}`)}>
                     {rejected ? 'Cập nhật thông tin' : 'Sửa thông tin'}
                   </button>
                 )}
@@ -70,17 +72,18 @@ interface RequestDocumentsProps {
   perHorse: Array<{ horse: Horse; items: DocItem[] }>;
   editable: boolean;
   backTo?: string;
+  onEditHorse?: (horseId: string) => void;
 }
 
 /** Danh sách ngựa và hồ sơ từng ngựa */
-export const RequestDocuments: React.FC<RequestDocumentsProps> = ({ requestId, perHorse, editable, backTo }) => (
+export const RequestDocuments: React.FC<RequestDocumentsProps> = ({ requestId, perHorse, editable, backTo, onEditHorse }) => (
   <div className="cus-req-docs">
     <div className="cus-doc-group">Danh sách ngựa và hồ sơ từng ngựa</div>
     {perHorse.length === 0 && <p className="cus-subtitle">Chưa chọn ngựa.</p>}
     {perHorse.map(({ horse, items }) => (
       <div key={horse.id} className="cus-doc-horse">
         <div className="cus-eyebrow">{horse.name} • {horse.id}</div>
-        <DocumentRows requestId={requestId} items={items} editable={editable} backTo={backTo} />
+        <DocumentRows requestId={requestId} items={items} editable={editable} backTo={backTo} onEditHorse={onEditHorse} />
       </div>
     ))}
   </div>

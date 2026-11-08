@@ -27,8 +27,10 @@ export const DocsReadyCard: React.FC<{ trip: SpecTrip; active: TripDetailTab; on
   const co = c.items.filter((i) => i.counted && i.provider === 'CBN');
   const block = docsReadyBlock(data, t), ins = insuranceState(t);
   const blockers = blockingOf(data, t);
-  const can = t.status === 'PLANNING';
   const incidents = useSharedIncidents(t.id);
+  const hasIncident = (t.status as string) === 'INCIDENT' || incidents.length > 0;
+  const isDocsLocked = Boolean(t.docsReady) && !hasIncident;
+  const can = t.status === 'PLANNING' && !t.docsReady;
   const unreviewedCount = incidents.filter((i) => !i.complianceReview).length;
 
   const originName = countryName(t.originCountry);
@@ -140,7 +142,25 @@ export const DocsReadyCard: React.FC<{ trip: SpecTrip; active: TripDetailTab; on
       </div>
 
       {t.docsReady ? (
-        <p className="spc-subtitle">Đã xác nhận lúc {fmtDateTime(t.docsReady.at)} bởi {t.docsReady.by}. Nếu hồ sơ hoặc bảo hiểm thay đổi, xác nhận tự hết hiệu lực.</p>
+        <div style={{ marginTop: 10 }}>
+          {isDocsLocked ? (
+            <div className="spc-ready-locked-alert">
+              <Icon name="lock" />
+              <div>
+                <b>Đã xác nhận lúc {fmtDateTime(t.docsReady.at)} bởi {t.docsReady.by}.</b>
+                <div>Hồ sơ và bảo hiểm đã khoá toàn bộ — không thể chỉnh sửa trừ khi có sự cố vận chuyển phát sinh trên tuyến.</div>
+              </div>
+            </div>
+          ) : (
+            <div className="spc-incident-unlocked-alert">
+              <Icon name="alert" />
+              <div>
+                <b>Đã xác nhận lúc {fmtDateTime(t.docsReady.at)} bởi {t.docsReady.by}.</b>
+                <div>Chuyến đang phát sinh sự cố vận chuyển ({incidents.length} sự cố) — mở quyền cập nhật bổ sung hồ sơ & bảo hiểm.</div>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <>
           <p className="spc-subtitle">Xác nhận khi toàn bộ hồ sơ đã duyệt và bảo hiểm đã xác minh. Manager chỉ duyệt khởi hành được sau bước này.</p>

@@ -91,13 +91,14 @@
   background: var(--bg-page);
 }
 
-.cbn-coord .places-table th:nth-child(1) { width: 23%; }
-.cbn-coord .places-table th:nth-child(2) { width: 18%; }
-.cbn-coord .places-table th:nth-child(3) { width: 9%; }
+.cbn-coord .places-table th { white-space: normal; word-break: break-word; }
+.cbn-coord .places-table th:nth-child(1) { width: 24%; }
+.cbn-coord .places-table th:nth-child(2) { width: 17%; }
+.cbn-coord .places-table th:nth-child(3) { width: 11%; }
 .cbn-coord .places-table th:nth-child(4) { width: 12%; }
-.cbn-coord .places-table th:nth-child(5) { width: 10%; }
-.cbn-coord .places-table th:nth-child(6) { width: 13%; }
-.cbn-coord .places-table th:nth-child(7) { width: 15%; }
+.cbn-coord .places-table th:nth-child(5) { width: 13%; }
+.cbn-coord .places-table th:nth-child(6) { width: 12%; }
+.cbn-coord .places-table th:nth-child(7) { width: 11%; }
 
 .cbn-coord .table-card.places-table td:first-child {
   white-space: normal;

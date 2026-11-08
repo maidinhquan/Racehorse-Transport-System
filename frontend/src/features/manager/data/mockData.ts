@@ -557,6 +557,7 @@ export const mockComplaints: Complaint[] = [
 // Chi phí thực tế
 // ---------------------------------------------------------------------------
 export const mockActualCosts: ActualCost[] = [
+  { tripId: 'TRIP_002', enteredAt: '2026-11-06 20:00', costs: { TRANSPORT: 40000000, PROCEDURE: 3200000, VET: 3750000, INSURANCE: 2500000, STAFF: 8000000, FUEL: 14200000 }, extra: [{ label: 'Lưu chuồng & điện giải trạm dừng Đà Nẵng', amount: 4000000, payer: 'COMPANY' }] },
   { tripId: 'TRP-720', enteredAt: '2026-08-17 10:00', costs: { TRANSPORT: 980, PROCEDURE: 240, VET: 110, INSURANCE: 70, STAFF: 130, FUEL: 55 }, extra: [] },
   { tripId: 'TRP-895', enteredAt: '2026-10-03 09:00', costs: { TRANSPORT: 190, PROCEDURE: 50, VET: 100, INSURANCE: 70, STAFF: 95, FUEL: 80 }, extra: [] },
   { tripId: 'TRP-901', enteredAt: '2026-10-04 11:00', costs: { TRANSPORT: 0, PROCEDURE: 260, VET: 0, INSURANCE: 70, STAFF: 0, FUEL: 40 }, extra: [{ label: 'Phí lưu bãi Mộc Bài', amount: 35, payer: 'COMPANY' }] },

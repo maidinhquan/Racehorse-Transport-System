@@ -42,7 +42,6 @@ export const ReviewStep: React.FC<{ request: TransportRequest }> = ({ request: r
         </div>
       </>)}
       {section('Ngựa & hồ sơ', 2, <>
-        <p className="cus-subtitle">{r.horseCount} ngựa trong chuyến. Hướng dẫn chăm sóc được ghi theo từng con.</p>
         {docs.perHorse.map(({ horse, items }) => <section key={horse.id} className="cus-wizard__review-horse">
           <h4>{horse.name}<small>{horse.microchip}</small></h4>
           <div className="cus-wizard__review-care"><b>Chăm sóc trong chuyến</b><p className="cus-lines">{r.horseNotes[horse.id] || 'Không có yêu cầu riêng.'}</p></div>

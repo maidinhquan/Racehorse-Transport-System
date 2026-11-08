@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
-import { DocTypeModal, PackageModal, RegulationModal } from '../../components/Modals';
+import { DocTypeModal, DocGroupModal, PackageModal, RegulationModal } from '../../components/Modals';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { useSpecialistFilter } from '../../hooks/useSpecialistFilter';
 import type { ConfigStatus, DocType, RegPackage, Regulation, SetupTab } from '../../types';
-import { COUNTRY_VI, DIRECTION_VI, GROUP_VI, LEVEL_VI, MODE_VI, PROVIDER_VI, SCOPE_VI, STAGE_VI, fmtDate, regFor, ruleLabel, typeName } from '../../hooks/specialistRules';
+import { COUNTRY_VI, DIRECTION_VI, GROUP_VI, LEVEL_VI, MODE_VI, PROVIDER_VI, SCOPE_VI, fmtDate, regFor, ruleLabel } from '../../hooks/specialistRules';
 import './RegulationsPage.css';
 
 const StatusBadge: React.FC<{ s: ConfigStatus }> = ({ s }) => <TripStatusBadge label={s === 'ACTIVE' ? 'Đang áp dụng' : 'Ngừng áp dụng'} tone={s === 'ACTIVE' ? 'ok' : 'muted'} />;
@@ -19,9 +19,21 @@ export const RegulationsPage: React.FC = () => {
   const active: SetupTab = (['types', 'regs', 'sets'] as const).includes(tab as SetupTab) ? (tab as SetupTab) : 'types';
   const [editType, setEditType] = useState<DocType | 'new' | null>(null);
   const [editReg, setEditReg] = useState<Regulation | 'new' | null>(null);
-  const [editPkg, setEditPkg] = useState<RegPackage | 'new' | null>(null);
+  const [editPkg, setEditPkg] = useState<RegPackage | 'new' | null>(null);
+  const [addGroupOpen, setAddGroupOpen] = useState(false);
+  const [, setGroupTick] = useState(0);
+
+  React.useEffect(() => {
+    const onUpdate = () => setGroupTick((t) => t + 1);
+    window.addEventListener('rts_custom_groups_updated', onUpdate);
+    window.addEventListener('rts_custom_countries_updated', onUpdate);
+    return () => {
+      window.removeEventListener('rts_custom_groups_updated', onUpdate);
+      window.removeEventListener('rts_custom_countries_updated', onUpdate);
+    };
+  }, []);
 
-  const typeFilter = useSpecialistFilter(docTypes, (d) => [d.id, d.name, GROUP_VI[d.group]].join(' '), {}, 20);
+  const typeFilter = useSpecialistFilter(docTypes, (d) => [d.id, d.name, d.note, GROUP_VI[d.group]].filter(Boolean).join(' '), {}, 20);
   const regFilter = useSpecialistFilter(regulations, (g) => [g.id, COUNTRY_VI[g.country], DIRECTION_VI[g.direction], g.note].join(' '), {
     dir: (g, v) => g.direction === v, status: (g, v) => g.status === v,
   }, 20);
@@ -48,13 +60,8 @@ export const RegulationsPage: React.FC = () => {
           <p className="spc-subtitle">Thêm và quản lý loại giấy tờ, yêu cầu theo quốc gia/tuyến và bộ yêu cầu hồ sơ dùng để lập checklist cho chuyến.</p>
         </div>
       </div>
-      <div className="spc-legend">
-        <div><b>Loại giấy tờ</b><span>Định nghĩa tài liệu (tên, nhóm, hiệu lực mặc định).</span></div>
-        <div><b>Bộ yêu cầu theo tuyến</b><span>Tập hợp giấy tờ áp dụng theo Tuyến (nơi đi, nơi đến, phương thức). Hệ thống tự động chọn gói phù hợp cho chuyến.</span></div>
-        <div><b>Chứng từ</b><span>Tệp / bằng chứng thực tế đã nộp cho chuyến.</span></div>
-      </div>
       <div className="spc-tabs">
-        {([['types', 'Danh mục giấy tờ', docTypes.length], ['sets', 'Bộ yêu cầu hồ sơ theo tuyến', packages.length]] as const).map(([k, l, n]) => (
+        {([['types', 'Danh mục giấy tờ', docTypes.length], ['regs', 'Quy định theo quốc gia', regulations.length], ['sets', 'Bộ yêu cầu hồ sơ theo tuyến', packages.length]] as const).map(([k, l, n]) => (
           <button key={k} type="button" className={active === k ? 'on' : ''} onClick={() => navigate(`/specialist/regulations/${k}`)}>{l} <span className="spc-muted">{n}</span></button>
         ))}
       </div>
@@ -63,6 +70,7 @@ export const RegulationsPage: React.FC = () => {
         <>
           <div className="spc-toolbar">
             <label className="spc-search"><Icon name="search" /><input value={typeFilter.search} onChange={(e) => typeFilter.setSearch(e.target.value)} placeholder="Tìm loại giấy tờ…" /></label>
+            <button type="button" className="spc-btn" onClick={() => setAddGroupOpen(true)}><Icon name="plus" />Thêm nhóm giấy tờ</button>
             <button type="button" className="spc-btn spc-btn--solid" onClick={() => setEditType('new')}><Icon name="plus" />Thêm loại giấy tờ</button>
           </div>
           <div className="spc-card" style={{ padding: 0 }}>
@@ -114,9 +122,8 @@ export const RegulationsPage: React.FC = () => {
                       <tr key={g.id}>
                         <td><b>{ruleLabel(g.country, g.direction)}</b><div className="spc-muted">{g.id}</div></td>
                         <td>
-                          {g.lines.length} giấy tờ: {n('REQUIRED')} bắt buộc{n('CONDITIONAL') ? `, ${n('CONDITIONAL')} có điều kiện` : ''}{n('OPTIONAL') ? `, ${n('OPTIONAL')} tùy chọn` : ''}
-                          <div className="spc-muted spc-wrap" style={{ maxWidth: 420 }}>{g.lines.map((l) => `${typeName(data, l.typeId)} (${PROVIDER_VI[l.provider]}, ${STAGE_VI[l.stage]})`).join('; ')}</div>
-                          {g.note && <div className="spc-muted spc-wrap" style={{ maxWidth: 420 }}>{g.note}</div>}
+                          <b>{g.lines.length} loại giấy tờ</b>
+                          <div className="spc-muted">{n('REQUIRED')} bắt buộc{n('CONDITIONAL') ? `, ${n('CONDITIONAL')} có điều kiện` : ''}{n('OPTIONAL') ? `, ${n('OPTIONAL')} tùy chọn` : ''}</div>
                         </td>
                         <td><b>v{g.v}</b><div className="spc-muted">hiệu lực {fmtDate(g.effectiveFrom)}</div></td>
                         <td>{tripLinks(usedByReg(g.id))}</td>
@@ -165,6 +172,7 @@ export const RegulationsPage: React.FC = () => {
         </>
       )}
 
+      <DocGroupModal open={addGroupOpen} onClose={() => setAddGroupOpen(false)} />
       <DocTypeModal
         open={!!editType}
         value={editType && editType !== 'new' ? editType : undefined}
