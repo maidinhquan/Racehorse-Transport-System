@@ -30,7 +30,7 @@ export const DocumentsTab: React.FC<{ request: TransportRequest }> = ({ request:
           <p className="cus-subtitle" style={{ marginTop: -6, marginBottom: 14 }}>
             {reviewing
               ? 'Transport Specialist kiểm duyệt từng giấy tờ. Tệp vừa gửi không tự động được duyệt.'
-              : 'Việc kiểm duyệt giấy tờ chỉ bắt đầu sau khi hợp đồng được ký và yêu cầu được kích hoạt.'}
+              : 'Chuyên viên kiểm tra hồ sơ theo từng phương án lịch trước khi lập hợp đồng.'}
           </p>
           {inWizard && <Note tone="blue" title="Đang khai báo">Bạn có thể cập nhật giấy tờ ở đây hoặc trong bước “Ngựa & hồ sơ” của wizard.</Note>}
           <div style={{ marginTop: inWizard ? 14 : 0 }}>

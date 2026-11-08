@@ -304,14 +304,11 @@ export function initialDraft(r: TransportRequest): ContractDraft {
     const minDepartDate = addDays(today(), minPrep);
 
     // Bắt đầu từ ngày khách yêu cầu; nếu ngày quá gần hoặc đã qua thì lấy ngày sớm nhất hợp lệ (đã +2 ngày đệm)
-    let departDate = (r.pickupAt || r.date || minDepartDate).slice(0, 10);
-    if (departDate < minDepartDate) departDate = minDepartDate;
+    const departDate = (r.pickupAt || r.date || minDepartDate).slice(0, 10);
+
     const departAt = v.departAt && v.departAt.slice(0, 10) >= minDepartDate ? v.departAt : `${departDate} 08:00`;
-    let arriveDate = (r.date || addDays(departDate, 1)).slice(0, 10);
-    if (arriveDate <= departDate) {
-      arriveDate = addDays(departDate, 1);
-    }
-    const arriveAt = v.arriveAt && v.arriveAt.slice(0, 10) > departDate ? v.arriveAt : `${arriveDate} 18:00`;
+    const arriveDate = (r.date || departDate).slice(0, 10);
+    const arriveAt = v.arriveAt && v.arriveAt.slice(0, 10) >= departDate ? v.arriveAt : `${arriveDate} 18:00`;
 
     const items = (v.items && v.items.length > 0) ? v.items.map((i) => ({ ...i })) : defaultItems(r);
     const terms = (v.terms && v.terms.length > 0) ? v.terms.map((t) => ({ ...t })) : DEFAULT_TERMS.map((t) => ({ ...t }));
@@ -331,14 +328,9 @@ export function initialDraft(r: TransportRequest): ContractDraft {
   const mode = r.mode;
   const minPrep = (mode === 'AIR' ? 7 : 3) + 2;
   const minDepartDate = addDays(today(), minPrep);
-  let departDate = (r.pickupAt || minDepartDate).slice(0, 10);
-  if (departDate < minDepartDate) {
-    departDate = minDepartDate;
-  }
-  let arriveDate = (r.date || addDays(departDate, 1)).slice(0, 10);
-  if (arriveDate <= departDate) {
-    arriveDate = addDays(departDate, 1);
-  }
+  const departDate = (r.pickupAt || minDepartDate).slice(0, 10);
+
+  const arriveDate = (r.date || departDate).slice(0, 10);
   const departAt = `${departDate} 08:00`;
   const arriveAt = `${arriveDate} 18:00`;
   return {
@@ -397,7 +389,7 @@ export const awaitingDeposit = (d: ManagerData) => d.requests.filter((r) => r.st
 // Yêu cầu
 // ============================================================================
 /** Trạng thái còn hủy được bởi Manager (trước khi kích hoạt) */
-export const CANCELLABLE: RequestStatus[] = ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT'];
+export const CANCELLABLE: RequestStatus[] = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT'];
 export const CONTRACT_OPEN: RequestStatus[] = ['CONTRACT_PREPARATION', 'CONTRACT_READY', 'CONTRACT_CHANGES_REQUESTED', 'DEPOSIT_VERIFIED', 'AWAITING_DEPOSIT'];
 export const ACTIVE_REQ: RequestStatus[] = ['ACTIVATED', 'SCHEDULED', 'IN_TRANSIT', 'DELIVERED'];
 const NOT_ACCEPTED: RequestStatus[] = ['PENDING_REVIEW', 'CHANGES_REQUESTED', 'REJECTED'];

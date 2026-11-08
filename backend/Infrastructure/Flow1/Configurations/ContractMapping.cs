@@ -49,6 +49,7 @@ public sealed class ContractMapping : IEntityTypeConfiguration<Contract>
         entity.Property(row => row.RefundAmount).HasColumnType("decimal(12,2)");
         entity.Property(row => row.RefundStatus).HasColumnType("varchar(20)");
         entity.Property(row => row.RefundReference).HasColumnType("varchar(100)");
+        entity.Property(row => row.RefundVerifiedBy).HasColumnType("varchar(50)");
         entity.Property(row => row.ContractID).HasDefaultValueSql("'CONTRACT_' + FORMAT(NEXT VALUE FOR dbo.[SEQ_CONTRACT_ID], '000', 'en-US')").ValueGeneratedOnAdd();
     }
 }

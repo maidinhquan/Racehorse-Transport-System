@@ -410,8 +410,7 @@ export const verifiedPaymentAmount = (p: Payment) => p.confirmedAmount ?? (p.met
 export const balancePayments = (r: TransportRequest) => (r.payments || []).filter((p) => p.type === 'BALANCE');
 const last = <T,>(list: T[]) => list[list.length - 1];
 
-/** QR đang xử lý nhưng đã quá 5 phút thì coi như thất bại */
-/** Mã QR thanh toán cọc có hiệu lực 5 phút (tách biệt với hạn chung 24 giờ của hợp đồng) */
+/** Thời hạn QR mẫu; phiên VNPay thực dùng hạn do backend trả về. */
 export const QR_MINUTES = 5;
 export const qrExpired = (p?: Payment) => !!p && p.status === 'PROCESSING' && !!p.qrExpiresAtMs && clockMs() >= p.qrExpiresAtMs;
 
@@ -419,21 +418,18 @@ export function depositState(r: TransportRequest): DepositState {
   const payments = depositPayments(r);
   const paid = payments.filter(p => p.status === 'SUCCESS').reduce((sum, p) => sum + verifiedPaymentAmount(p), 0);
   if (depositAmount(r) > 0 && paid >= depositAmount(r)) return 'VERIFIED';
-  // A gateway session that expired without payment no longer blocks paying again (the server reconciles it with VNPay).
-  if (payments.some(p => ['PROCESSING', 'PENDING_CONFIRMATION'].includes(p.status) && !abandonedSession(p) && !p.reviewRequired)) return 'PENDING';
+  if (payments.some(p => ['PROCESSING', 'PENDING_CONFIRMATION'].includes(p.status))) return 'PENDING';
   if (['FAILED', 'REJECTED'].includes(last(payments)?.status ?? '')) return 'FAILED';
   return 'NONE';
 }
 export const DEPOSIT_STATE_LABEL: Record<DepositState, string> = {
   NONE: 'Chưa đủ cọc', PENDING: 'Chờ xác minh', VERIFIED: 'Đã xác minh đủ cọc', FAILED: 'Thanh toán thất bại',
 };
-// A VNPay session the customer left without paying expires (15 min); allow 5 more minutes for a late gateway callback.
-const abandonedSession = (p: Payment) => p.status === 'PROCESSING' && !!p.qrExpiresAtMs && clockMs() >= p.qrExpiresAtMs + 5 * 60_000;
 // Money actually received for the current version (a VNPay page opened but not paid does not count).
 // The backend refuses to replace a version that received money, and late payments go to reconciliation.
 export const hasReceivedDeposit = (r: TransportRequest) =>
   depositPayments(r).some(p => ['PENDING_CONFIRMATION', 'SUCCESS'].includes(p.status) || (p.confirmedAmount ?? 0) > 0);
-export const hasDepositMoney = (r: TransportRequest) => depositPayments(r).some(p => ['PROCESSING', 'PENDING_CONFIRMATION', 'SUCCESS'].includes(p.status) && !abandonedSession(p));
+export const hasDepositMoney = (r: TransportRequest) => depositPayments(r).some(p => ['PROCESSING', 'PENDING_CONFIRMATION', 'SUCCESS'].includes(p.status));
 export const depositPaidAmount = (r: TransportRequest) => depositPayments(r).filter(p => p.status === 'SUCCESS').reduce((sum, p) => sum + verifiedPaymentAmount(p), 0);
 
 export const canAcceptTerms = (r: TransportRequest) => {
@@ -444,6 +440,12 @@ export const canPayDeposit = (r: TransportRequest) => {
   const v = curVersion(r);
   return !!v && r.status === 'CONTRACT_READY' && versionState(v) === 'ISSUED' && !!v.termsAcceptedAt && !v.signedAt && !isPast(v.validUntil)
     && ['NONE', 'FAILED'].includes(depositState(r));
+};
+export const resumableDepositPayment = (r: TransportRequest) => {
+  const v = curVersion(r);
+  if (!v || r.status !== 'CONTRACT_READY' || versionState(v) !== 'ISSUED' || !v.termsAcceptedAt || isPast(v.validUntil)) return undefined;
+  return depositPayments(r).find(p => p.method === 'VNPAY' && p.status === 'PROCESSING' && !p.reviewRequired
+    && !!p.qrExpiresAtMs && clockMs() < p.qrExpiresAtMs);
 };
 export function signBlock(r: TransportRequest): string {
   const v = curVersion(r);

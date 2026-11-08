@@ -45,9 +45,10 @@ public sealed class HorsesController(HorseService horses, HorseAvailabilityServi
     public async Task<IActionResult> SelectableAsync(
         [FromQuery] string expectedTransportDate,
         [FromQuery] string expectedDeliveryDate,
+        [FromQuery] string? excludeRequestId,
         CancellationToken ct
     ) =>
         Reply(
-            await availability.SelectAsync(Actor, expectedTransportDate, expectedDeliveryDate, ct)
+            await availability.SelectAsync(Actor, expectedTransportDate, expectedDeliveryDate, ct, excludeRequestId)
         );
 }

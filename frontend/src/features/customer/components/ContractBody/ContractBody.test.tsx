@@ -1,13 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ContractBody } from './ContractBody';
-import { canAcceptTerms, canSign, depositState } from '../../hooks/customerRules';
+import { canAcceptTerms, canSign, depositState, canPayDeposit, resumableDepositPayment } from '../../hooks/customerRules';
 import spec from '../../../../contracts/flow1.openapi.json';
 import type { ContractVersion, TransportRequest } from '../../types';
 import { contractFromWire, type WireContract } from '../../../../shared/api/flow1Wire';
 const sample = contractFromWire(spec.paths['/customer/contracts/{contractId}/versions/{versionNo}'].get.responses['200'].content['application/json'].examples.case1.value.data as unknown as WireContract);
 
 describe('Published contract content', () => {
+  it('resumes an open session but keeps an expired unconfirmed session pending', () => {
+    const version = { ...sample, v: 1, state: 'ISSUED', signedAt: undefined, termsAcceptedAt: '2026-11-07 08:00',
+      validUntil: '2030-12-31 18:00' } as ContractVersion;
+    const request = { status: 'CONTRACT_READY', versions: [version], payments: [{
+      id: 'PAYMENT_TEST', contractId: version.contractId, versionNo: 1, type: 'DEPOSIT', method: 'VNPAY',
+      status: 'PROCESSING', amount: 8000000, qrExpiresAtMs: Date.now() + 60000,
+    }] } as TransportRequest;
+    expect(resumableDepositPayment(request)?.id).toBe('PAYMENT_TEST');
+    request.payments[0].qrExpiresAtMs = Date.now() - 3600000;
+    expect(depositState(request)).toBe('PENDING');
+    expect(canPayDeposit(request)).toBe(false);
+    expect(resumableDepositPayment(request)).toBeUndefined();
+    request.payments[0].status = 'REJECTED';
+    expect(depositState(request)).toBe('FAILED');
+    expect(canPayDeposit(request)).toBe(true);
+  });
   it('renders a complete contract whose transport mode is deferred to planning', () => {
     const version = { ...structuredClone(sample), mode: undefined, modeDeferred: true } as unknown as ContractVersion;
     const request = { id: 'REQUEST_001', versions: [version] } as unknown as TransportRequest;

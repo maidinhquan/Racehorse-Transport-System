@@ -9,8 +9,8 @@ using Domain.Flow1.Entities;
 using Domain.Enums;
 using static Application.Flow1.Rules.BusinessRules;
 namespace Application.Flow1.Services;
-public sealed class RequestService(IDataSession data, AccessService access, CatalogService catalogs, PolicyService policies,
-    TimeProvider clock, ILocationVerifier? locations = null)
+public sealed class RequestService(IDataSession data, AccessService access, CatalogService catalogs, PolicyService policies, RequestSchedulePolicy schedule,
+    TimeProvider clock, RequestAssessmentService assessments, ILocationVerifier? locations = null)
 {
     public async Task<object> DetailAsync(string actor, string id, bool manager, CancellationToken ct)
     {
@@ -23,7 +23,9 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         var requests = await data.ListAsync<TransportRequest>(x => (manager && x.Status != "DRAFT") || (!manager && x.CustomerID == actor), ct);
         var ids = requests.Select(x => x.RequestID).ToArray();
         var links = await data.ListAsync<RequestHorse>(x => ids.Contains(x.RequestID), ct);
-        return requests.OrderByDescending(x => x.ExpectedDate).Select(x => RequestMapper.View(x, links.Where(l => l.RequestID == x.RequestID).ToArray())).ToArray();
+        var contracts = (await data.ListAsync<Contract>(c => ids.Contains(c.RequestID), ct)).ToDictionary(c => c.RequestID);
+        return requests.OrderByDescending(x => x.ExpectedDate).Select(x => RequestMapper.View(x,
+            links.Where(l => l.RequestID == x.RequestID).ToArray(), contracts.GetValueOrDefault(x.RequestID))).ToArray();
     }
     public async Task<object> CreateAsync(string actor, string key, RequestUpdateInput input, CancellationToken ct)
     {
@@ -60,6 +62,7 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         {
             var row = await access.RequestAsync(id, actor, false, token);
             Require(row.Status == "CHANGES_REQUESTED", "INVALID_STATE", "Only requests returned for changes can be resubmitted.");
+            await assessments.CloseForResubmissionAsync(id, token);
             await ApplySubmissionAsync(row, input, prepared, token);
             await ValidateReadyAsync(actor, row, input.Horses, token);
             foreach (var link in await data.ListAsync<RequestHorse>(x => x.RequestID == id, token)) data.Remove(link);
@@ -137,15 +140,15 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
     }
     private async Task ValidateReadyAsync(string actor, TransportRequest row, IReadOnlyList<string> selected, CancellationToken token)
     {
-        Require(row.ExpectedDate is not null && row.CommittedDeadline >= row.ExpectedDate && row.PreparationDays is not null
-            // Compare calendar dates, like the form: the earliest pickup date is today + PreparationDays.
-            && row.ExpectedDate.Value.Date.AddDays(-row.PreparationDays.Value) >= clock.GetUtcNow().UtcDateTime.Date,
-            "VALIDATION_ERROR", $"Departure is inside the preparation window: choose a pickup date on or after {clock.GetUtcNow().UtcDateTime.Date.AddDays(row.PreparationDays ?? 0):yyyy-MM-dd}.", 400);
+        var earliest = await schedule.EarliestPickupAsync(row.OriginCountry, row.TransportType, true, token);
+        Require(row.ExpectedDate is not null && row.CommittedDeadline >= row.ExpectedDate && row.ExpectedDate.Value.Date >= earliest,
+            "VALIDATION_ERROR", $"Chọn ngày nhận ngựa từ {earliest:dd/MM/yyyy} trở đi.", 400);
         foreach (var horseId in selected)
         {
             var horse = await access.HorseAsync(horseId, actor, token);
             Require(horse.PhotoUrl is not null && horse.PassportScanUrl is not null && horse.OwnershipCertificateFileUrl is not null
-                && horse.PassportExpiryDate > row.CommittedDeadline && horse.DeclaredValueVnd > 0,
+                && !string.IsNullOrWhiteSpace(horse.FEI_Passport_No)
+                && horse.PassportExpiryDate >= row.CommittedDeadline && horse.DeclaredValueVnd > 0,
                 "REQUIRED_DOCUMENT_MISSING", "Complete horse profile and ownership documents before submission.", 400);
         }
         await HorseBookingRules.RequireAvailableAsync(data, selected.ToArray(), row, token);
@@ -166,7 +169,7 @@ public sealed class RequestService(IDataSession data, AccessService access, Cata
         row.TransportType = input.Mode; row.ExpectedDate = DateTime.SpecifyKind(date, DateTimeKind.Utc);
         row.CommittedDeadline = DateTime.SpecifyKind(endDate, DateTimeKind.Utc);
         row.CareInstructions = input.CareInstructions;
-        row.PreparationDays = (int)await policies.NumberAsync("MIN_PREPARATION_DAYS", "DAY", input.DestinationCountry, input.Mode, 0, null, true, ct);
+        row.PreparationDays = (int)await schedule.PreparationAsync(input.Mode, ct);
     }
     private static void ApplyContacts(TransportRequest row, ContactInput pickup, ContactInput delivery)
     {

@@ -1,8 +1,9 @@
+import type { ChangeReview, OptionKey } from '../../../shared/api/requestReviewApi';
 import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
 import { MANAGER_ENDPOINTS as E } from './managerEndpoints';
 import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, RoutePlan, Staff, Transaction, TransportMode, TransportRequest, Trip } from '../types';
-import { attachContractFeedback, contractFromWire, documentKey, paymentFromWire, type WireContract, type WireHorse, type WirePayment } from '../../../shared/api/flow1Wire';
+import { attachContractFeedback, contractFromWire, documentKey, paymentFromWire, refundFromWire, type RefundEvidence, type WireContract, type WireHorse, type WirePayment } from '../../../shared/api/flow1Wire';
 export interface CostPlanDto {
   costs: {
     transport: number;
@@ -48,6 +49,7 @@ const requestFromWire = (r: WireRequest): TransportRequest => ({ ...r,
   date: r.expectedDeliveryDate ?? '', pickupAt: r.expectedTransportDate ?? '', careNotes: r.careInstructions ?? '',
   submittedAt: r.createdAt ?? '', feedback: r.revisionFeedback ?? '',
   reason: r.reason ?? r.rejectionReason ?? r.cancellation?.reason ?? '', status: r.status,
+  refund: r.refund?.refundStatus ? refundFromWire(r.refund) : r.refund ?? undefined,
   history: [], collection: [], versions: attachContractFeedback((r.versions ?? []).filter((v: WireContract) => v.versionStatus !== 'DRAFT').map(versionFromWire), r.contractFeedback),
   dossier: (r.dossier ?? []).map((d: any) => ({ ...d, name: documentKey(d.key),
     status: d.status === 'SUBMITTED' ? 'PENDING_REVIEW' : d.status, file: d.file?.url,
@@ -115,8 +117,9 @@ export const managerApi = {
       .map(n => ({ id: n.id, at: n.at, title: n.title ?? '', text: n.body ?? '', read: n.read, link: (n.link ?? '').replace(/^\/customer\//, '/manager/') })),
   markRead: (id: string) => contractClient('post', `/manager/notifications/${id}/read`),
   markAllRead: () => contractClient('post', '/manager/notifications/read-all'),
-  acceptRequest: async (id: string) => requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/accept`)),
-  requestRevision: async (id: string, feedback: string) => requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/request-changes`, { feedback })),
+  acceptRequest: async (id: string, key: OptionKey) => requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/accept`, key)),
+  requestRevision: async (id: string, feedback: string, key: ChangeReview) =>
+    requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/request-changes`, { ...key, feedback })),
   rejectRequest: async (id: string, reason: string) => requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/reject`, { reason })),
   cancelRequest: (id: string, reason: string) => contractClient('post', `/manager/requests/${id}/cancel`, { reason }),
   decideCancellation: (id: string, approve: boolean, reason: string) => contractClient('post', `/manager/contracts/${id}/cancellation/decision`, { decision: approve ? 'APPROVED' : 'REJECTED', reason }),
@@ -146,7 +149,9 @@ export const managerApi = {
   extendContract: (id: string, versionNo: number, reason: string) => contractClient<{ newDeadline: string }>('post', `/manager/contracts/${id}/extend-deadline`, { versionNo, reason }),
   remindSign: (id: string, _versionNo: number) => contractClient('post', `/manager/contracts/${id}/reminder`),
   getCostEstimate: (id: string, body: { transportMode: string; departureAt: string; deliveryAt: string }) => contractClient<CostPlanDto>('post', `/manager/requests/${id}/cost-estimate`, body),
-  confirmRefund: (contractId: string) => contractClient('post', `/manager/contracts/${contractId}/refund/complete`),
+  startRefund: (contractId: string) => contractClient('post', `/manager/contracts/${contractId}/refund/start`),
+  confirmRefund: (contractId: string, evidence: RefundEvidence) =>
+    contractClient('post', `/manager/contracts/${contractId}/refund/complete`, evidence),
   deployTrip: async (id: string, body: { specialistId: string; coordinatorId: string }) => tripFromWire(await contractClient('post', `/manager/trips/${id}/assignment`, body)),
   holdTrip: async (id: string, reason: string) => tripFromWire(await contractClient('post', `/manager/trips/${id}/hold`, { reason })),
   resumeTrip: async (id: string) => tripFromWire(await contractClient('post', `/manager/trips/${id}/resume`)),

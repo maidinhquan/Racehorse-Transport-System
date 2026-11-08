@@ -28,6 +28,13 @@ public sealed class SchemaCheck(string connectionString)
                     AND COL_LENGTH('dbo.TRANSPORT_REQUEST','PickupCityName') IS NOT NULL
                     AND COL_LENGTH('dbo.TRANSPORT_REQUEST','DeliveryCityName') IS NOT NULL
                     AND OBJECT_ID('dbo.BUSINESS_POLICY') IS NOT NULL
+                    AND OBJECT_ID('dbo.REQUEST_REVIEW') IS NOT NULL
+                    AND OBJECT_ID('dbo.REQUEST_SCHEDULE_OPTION') IS NOT NULL
+                    AND COL_LENGTH('dbo.CONTRACT','RefundVerifiedAtUtc') IS NOT NULL
+                    AND COL_LENGTH('dbo.CONTRACT','RefundVerifiedBy') IS NOT NULL
+                    AND COL_LENGTH('dbo.CONTRACT','RefundedAtUtc') IS NOT NULL
+                    AND OBJECT_ID('dbo.SEQ_REQUEST_REVIEW_ID', 'SO') IS NOT NULL
+                    AND OBJECT_ID('dbo.SEQ_REQUEST_SCHEDULE_OPTION_ID', 'SO') IS NOT NULL
                     AND OBJECT_ID('dbo.SUPPORTED_ROUTE') IS NOT NULL
                     AND COL_LENGTH('dbo.HORSE','RowVersion') IS NULL
                     AND COL_LENGTH('dbo.CONTRACT','PdfSha256') IS NULL
