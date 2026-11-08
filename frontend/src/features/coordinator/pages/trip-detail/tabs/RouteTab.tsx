@@ -228,7 +228,7 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
                 </span>
               ) : segIss.length ? (
                 <span style={{ color: '#dc2626', fontSize: 11, fontWeight: 700 }}>
-                  ⚠️ Cần thêm điểm dừng
+                  Cần thêm điểm dừng
                 </span>
               ) : null}
             </div>
@@ -273,23 +273,26 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
                 borderRadius: 6,
                 border: '1px solid ' + (isLegOk ? '#bbf7d0' : '#fecaca'),
                 fontSize: 11.5,
+                boxSizing: 'border-box',
+                width: '100%',
+                overflow: 'hidden',
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                <span style={{ fontWeight: 700, color: '#334155' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+                <span style={{ fontWeight: 700, color: '#334155', flex: '1 1 auto' }}>
                   Kiểm tra chi tiết: {s.name} → {rt.stops[i + 1]?.name}
                 </span>
-                <span style={{ color: isLegOk ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
-                  {isLegOk ? '✓ Đạt chính sách (≤ 4 giờ lái liên tục)' : '⚠️ Chưa đạt chính sách nghỉ'}
+                <span style={{ color: isLegOk ? '#16a34a' : '#dc2626', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {isLegOk ? '✓ Đạt chính sách (≤ 4 giờ lái liên tục)' : 'Chưa đạt chính sách nghỉ'}
                 </span>
               </div>
-              <div style={{ color: '#64748b' }}>
+              <div style={{ color: '#64748b', lineHeight: 1.4 }}>
                 Thời gian lái xe: <b>{fmtMin(legDuration)}</b> (quy định tối đa: <b>{ROUTE_POLICY.careIntervalH} giờ</b> giữa 2 lần nghỉ chăm sóc).
               </div>
 
               {segIss.map((x: Any, k: number) => (
-                <div key={k} className="rp-leg-err" style={{ display: 'flex', gap: 6, color: '#b42318', marginTop: 4 }}>
+                <div key={k} className="rp-leg-err" style={{ display: 'flex', gap: 6, color: '#b42318', marginTop: 4, flexWrap: 'wrap' }}>
                   <Icon name="alert" />
                   <span>{x.msg}</span>
                   {x.msg.includes('lãnh thổ') && edit ? (
@@ -305,6 +308,7 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
                         fontSize: 10.5,
                         border: 'none',
                         cursor: 'pointer',
+                        whiteSpace: 'nowrap',
                       }}
                       onClick={() => rpFixDomesticRoute(t.id, i)}
                     >
@@ -315,19 +319,19 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
               ))}
 
               {edit ? (
-                <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+                <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                   <button
                     type="button"
                     className="btn solid sm"
-                    style={{ fontSize: 11, padding: '3px 10px' }}
+                    style={{ fontSize: 11, padding: '4px 10px', flex: '1 1 auto', whiteSpace: 'nowrap' }}
                     onClick={() => rpOpenAddStop(t.id, i)}
                   >
-                    ＋ Mở danh mục chọn điểm dừng cho đoạn này
+                    ＋ Chọn điểm dừng cho đoạn này
                   </button>
                   <button
                     type="button"
                     className="btn ghost sm"
-                    style={{ fontSize: 11, padding: '3px 10px' }}
+                    style={{ fontSize: 11, padding: '4px 10px', flex: '0 0 auto', whiteSpace: 'nowrap' }}
                     onClick={() => rpSeg(t.id, i)}
                   >
                     Đóng kiểm tra
@@ -600,7 +604,7 @@ function Summary({ t }: { t: Any }) {
             <div style={{ background: '#ffffff', padding: '8px 12px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
               <span style={{ fontSize: 11, color: '#64748b', display: 'block' }}>Đánh giá đoạn này</span>
               <b style={{ fontSize: 13, color: isSegOk ? '#16a34a' : '#dc2626' }}>
-                {isSegOk ? '✓ Đạt chuẩn (≤ 4h)' : `⚠️ Chưa đạt (${segIssues.length} lỗi)`}
+                {isSegOk ? '✓ Đạt chuẩn (≤ 4h)' : `Chưa đạt (${segIssues.length} lỗi)`}
               </b>
             </div>
           </div>
