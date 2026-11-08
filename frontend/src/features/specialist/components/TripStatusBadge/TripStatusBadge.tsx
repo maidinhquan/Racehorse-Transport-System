@@ -27,7 +27,7 @@ interface TripStatusBadgeProps {
 
 /** Huy hiệu trạng thái: chuyến, giao việc, checklist, giấy tờ khách hàng, yêu cầu bổ sung */
 export const TripStatusBadge: React.FC<TripStatusBadgeProps> = ({ status = '', kind = 'trip', label, tone, className = '' }) => (
-  <span className={`spc-badge spc-badge--${tone ?? TONES[kind][status] ?? 'muted'} ${className}`}>{label ?? LABELS[kind][status] ?? status}</span>
+  <span className={`spc-badge spc-badge--${tone ?? TONES[kind]?.[status] ?? 'muted'} ${className}`}>{label ?? LABELS[kind]?.[status] ?? status}</span>
 );
 
 export default TripStatusBadge;

@@ -575,7 +575,7 @@ export function rpCandidates(t: Any) {
     const { flight } = rpGroups(t, rt); if (flight && seg === flight[0]) return [];
     const geom = ps.routing.legs[seg].geom, step = Math.max(1, Math.floor(geom.length / 300)), pts = geom.filter((_: Any, k: number) => k % step === 0);
     const leg = ps.routing.legs[seg];
-    const care = calc.rows[seg].sinceCareAfter || 0, departA = calc.rows[seg].depart;
+    const care = calc.rows?.[seg]?.sinceCareAfter || 0, departA = calc.rows?.[seg]?.depart || '';
     const isStrategicFacility = (p: Any) => (p.functions || []).some((fn: string) => ['AIRPORT', 'BORDER', 'QUARANTINE'].includes(fn));
     const maxRadius = f.radius === 0 ? 999999 : (f.radius || 25);
 
@@ -622,7 +622,7 @@ export function rpCandidates(t: Any) {
 }
 
 export function rpWriteTimes(t: Any, rt: Any, calc: Any) {
-  rt.stops.forEach((s: Any, i: number) => { const r = calc.rows[i]; s.plannedAt = (i === 0 ? r.depart : r.arrive) || s.plannedAt; s.departAt = r.depart || ''; s.type = s.type === 'ORIGIN' || s.type === 'DESTINATION' || s.required ? s.type : stopTypeFor(s.purposes); });
+  rt.stops.forEach((s: Any, i: number) => { const r = calc.rows?.[i]; if (r) { s.plannedAt = (i === 0 ? r.depart : r.arrive) || s.plannedAt; s.departAt = r.depart || ''; } s.type = s.type === 'ORIGIN' || s.type === 'DESTINATION' || s.required ? s.type : stopTypeFor(s.purposes); });
   rt.metrics = { km: Math.round(calc.km), driveMin: Math.round(calc.driveMin), stopMin: Math.round(calc.stopMin), flyMin: Math.round(calc.flyMin), eta: calc.eta, provider: t.demoFlow3 ? 'SIM' : ROUTING.provider, at: nowStamp() };
   rt.geom = (RP(t.id).routing.legs || []).map((l: Any) => (l ? l.geom : null));
   rt.stops.forEach((s: Any) => { if (s.placeId && placeById(s.placeId)) s.placeSnapshot = clone(placeById(s.placeId)); });

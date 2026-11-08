@@ -295,7 +295,7 @@ function StopRow({ t, rt, s, i, calc, edit }: { t: Any; rt: Any; s: Any; i: numb
                 <div key={k} className="rp-leg-err" style={{ display: 'flex', gap: 6, color: '#b42318', marginTop: 4, flexWrap: 'wrap' }}>
                   <Icon name="alert" />
                   <span>{x.msg}</span>
-                  {x.msg.includes('lãnh thổ') && edit ? (
+                  {Boolean(x.msg?.includes('lãnh thổ')) && edit ? (
                     <button
                       type="button"
                       style={{
@@ -562,7 +562,7 @@ function Summary({ t }: { t: Any }) {
                   ＋ Thêm điểm dừng vào đoạn này
                 </button>
               ) : null}
-              {segIssues.some((x: Any) => x.msg.includes('lãnh thổ')) && edit ? (
+              {segIssues.some((x: Any) => Boolean(x.msg?.includes('lãnh thổ'))) && edit ? (
                 <button
                   type="button"
                   className="btn sm"
