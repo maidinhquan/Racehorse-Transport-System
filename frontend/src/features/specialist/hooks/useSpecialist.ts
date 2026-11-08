@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import type {
   ActionResult,
   AuditEntry,
@@ -78,7 +78,7 @@ export function autoApplyMatchingPackages(trips: SpecTrip[], packages: RegPackag
       if (match) {
         const dummyData: SpecialistData = dataContext ?? {
           trips,
-          docTypes: (state && state.docTypes) ? state.docTypes : (getDemoMode('specialist') ? clone(mockDocTypes) : []),
+          docTypes: (state && state.docTypes) ? state.docTypes.filter((d: any) => d.provider !== 'CUSTOMER' && !['DT-1', 'DT-2', 'DT-3'].includes(d.id)) : (getDemoMode('specialist') ? clone(mockDocTypes) : []),
           regulations: (state && state.regulations) ? state.regulations : (getDemoMode('specialist') ? clone(mockRegulations) : []),
           packages,
           customerDocs: (state && state.customerDocs) ? state.customerDocs : [],
@@ -461,9 +461,11 @@ async function loadAll() {
     const activePackages = (packages && packages.length > 0) ? packages : (getDemoMode('specialist') ? clone(mockPackages) : []);
     const activeRegs = ((regulations && regulations.length > 0) ? regulations : (getDemoMode('specialist') ? clone(mockRegulations) : []))
       .map((g) => ({ ...g, lines: (g.lines || []).filter((l: any) => l.provider !== 'CUSTOMER') }));
+    const rawDocTypes = (docTypes && docTypes.length > 0) ? docTypes : (getDemoMode('specialist') ? clone(mockDocTypes) : []);
+    const activeDocTypes = rawDocTypes.filter((d: any) => d.provider !== 'CUSTOMER' && !['DT-1', 'DT-2', 'DT-3'].includes(d.id));
     const dummyCtx: SpecialistData = {
       trips: mergedTrips,
-      docTypes: docTypes || [],
+      docTypes: activeDocTypes,
       regulations: activeRegs,
       packages: activePackages,
       customerDocs: mergedDocs,
@@ -475,12 +477,12 @@ async function loadAll() {
     autoApplyMatchingPackages(mergedTrips, activePackages, dummyCtx);
 
     if (!getDemoMode('specialist')) {
-      setState({ trips: mergedTrips, customerDocs: mergedDocs, documents: documents || [], requests: requests || [], bookings: bookings || [], docTypes, regulations: activeRegs, packages, audit: auditLog || [], loading: false, loaded: true });
+      setState({ trips: mergedTrips, customerDocs: mergedDocs, documents: documents || [], requests: requests || [], bookings: bookings || [], docTypes: activeDocTypes, regulations: activeRegs, packages, audit: auditLog || [], loading: false, loaded: true });
       return;
     }
     const allDemoTrips = [...mergedTrips, ...clone(mockTrips).filter((m) => !mergedTrips.some((t) => cleanId(t.id) === cleanId(m.id)))];
     const allDemoDocs = [...mergedDocs, ...clone(mockCustomerDocs).filter((m) => !mergedDocs.some((d) => cleanId(d.tripId) === cleanId(m.tripId) && d.key === m.key))];
-    setState({ trips: allDemoTrips, customerDocs: allDemoDocs, documents: documents?.length ? documents : clone(mockDocuments), requests: requests?.length ? requests : clone(mockRequests), bookings: bookings?.length ? bookings : clone(mockBookings), docTypes, regulations: activeRegs, packages, audit: auditLog?.length ? auditLog : clone(mockAudit), loading: false, loaded: true });
+    setState({ trips: allDemoTrips, customerDocs: allDemoDocs, documents: documents?.length ? documents : clone(mockDocuments), requests: requests?.length ? requests : clone(mockRequests), bookings: bookings?.length ? bookings : clone(mockBookings), docTypes: activeDocTypes, regulations: activeRegs, packages, audit: auditLog?.length ? auditLog : clone(mockAudit), loading: false, loaded: true });
   } catch {
     const sh = sharedTripsAndDocs();
     if (!getDemoMode('specialist')) {

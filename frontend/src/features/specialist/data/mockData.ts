@@ -26,9 +26,6 @@ export const SPECIALIST_INITIALS = 'HH';
 // Danh mục giấy tờ
 // ---------------------------------------------------------------------------
 export const mockDocTypes: DocType[] = [
-  { id: 'DT-1', name: 'Hộ chiếu ngựa', group: 'IDENTITY', scope: 'PER_HORSE', provider: 'CUSTOMER', validityDays: null, status: 'ACTIVE' },
-  { id: 'DT-2', name: 'Giấy chứng nhận sức khỏe', group: 'MEDICAL', scope: 'PER_HORSE', provider: 'CUSTOMER', validityDays: 10, status: 'ACTIVE' },
-  { id: 'DT-3', name: 'Sổ tiêm phòng cúm ngựa', group: 'MEDICAL', scope: 'PER_HORSE', provider: 'CUSTOMER', validityDays: 365, status: 'ACTIVE' },
   { id: 'DT-4', name: 'Giấy phép xuất khẩu', group: 'CUSTOMS', scope: 'PER_TRIP', provider: 'CBN', validityDays: 30, status: 'ACTIVE' },
   { id: 'DT-5', name: 'Giấy phép nhập khẩu', group: 'CUSTOMS', scope: 'PER_TRIP', provider: 'CBN', validityDays: 30, status: 'ACTIVE' },
   { id: 'DT-6', name: 'Giấy chứng nhận kiểm dịch', group: 'QUARANTINE', scope: 'PER_HORSE', provider: 'CBN', validityDays: 14, status: 'ACTIVE' },

@@ -33,7 +33,8 @@ export const RegulationsPage: React.FC = () => {
     };
   }, []);
 
-  const typeFilter = useSpecialistFilter(docTypes, (d) => [d.id, d.name, d.note, GROUP_VI[d.group]].filter(Boolean).join(' '), {}, 20);
+  const companyDocTypes = docTypes.filter((d) => d.provider !== 'CUSTOMER' && !['DT-1', 'DT-2', 'DT-3'].includes(d.id));
+  const typeFilter = useSpecialistFilter(companyDocTypes, (d) => [d.id, d.name, d.note, GROUP_VI[d.group]].filter(Boolean).join(' '), {}, 20);
   const regFilter = useSpecialistFilter(regulations, (g) => [g.id, COUNTRY_VI[g.country], DIRECTION_VI[g.direction], g.note].join(' '), {
     dir: (g, v) => g.direction === v, status: (g, v) => g.status === v,
   }, 20);
@@ -61,7 +62,7 @@ export const RegulationsPage: React.FC = () => {
         </div>
       </div>
       <div className="spc-tabs">
-        {([['types', 'Danh mục giấy tờ', docTypes.length], ['regs', 'Quy định theo quốc gia', regulations.length], ['sets', 'Bộ yêu cầu hồ sơ theo tuyến', packages.length]] as const).map(([k, l, n]) => (
+        {([['types', 'Danh mục giấy tờ', companyDocTypes.length], ['regs', 'Quy định theo quốc gia', regulations.length], ['sets', 'Bộ yêu cầu hồ sơ theo tuyến', packages.length]] as const).map(([k, l, n]) => (
           <button key={k} type="button" className={active === k ? 'on' : ''} onClick={() => navigate(`/specialist/regulations/${k}`)}>{l} <span className="spc-muted">{n}</span></button>
         ))}
       </div>

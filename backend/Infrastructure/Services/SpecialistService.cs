@@ -880,9 +880,6 @@ namespace Infrastructure.Services
         {
             return Task.FromResult(new List<DocTypeDto>
             {
-                new DocTypeDto { Id = "DT-1", Name = "Hộ chiếu ngựa", Group = "IDENTITY", Scope = "PER_HORSE", Provider = "CUSTOMER", ValidityDays = null, Status = "ACTIVE" },
-                new DocTypeDto { Id = "DT-2", Name = "Giấy chứng nhận sức khỏe", Group = "MEDICAL", Scope = "PER_HORSE", Provider = "CUSTOMER", ValidityDays = 10, Status = "ACTIVE" },
-                new DocTypeDto { Id = "DT-3", Name = "Sổ tiêm phòng cúm ngựa", Group = "MEDICAL", Scope = "PER_HORSE", Provider = "CUSTOMER", ValidityDays = 365, Status = "ACTIVE" },
                 new DocTypeDto { Id = "DT-4", Name = "Giấy phép xuất khẩu", Group = "CUSTOMS", Scope = "PER_TRIP", Provider = "CBN", ValidityDays = 30, Status = "ACTIVE" },
                 new DocTypeDto { Id = "DT-5", Name = "Giấy phép nhập khẩu", Group = "CUSTOMS", Scope = "PER_TRIP", Provider = "CBN", ValidityDays = 30, Status = "ACTIVE" },
                 new DocTypeDto { Id = "DT-6", Name = "Giấy chứng nhận kiểm dịch", Group = "QUARANTINE", Scope = "PER_HORSE", Provider = "CBN", ValidityDays = 14, Status = "ACTIVE" },
