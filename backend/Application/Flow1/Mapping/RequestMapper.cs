@@ -4,7 +4,7 @@ namespace Application.Flow1.Mapping;
 
 public static class RequestMapper
 {
-    public static object View(TransportRequest request, IReadOnlyList<RequestHorse> horses) =>
+    public static object View(TransportRequest request, IReadOnlyList<RequestHorse> horses, Contract? contract = null) =>
         new
         {
             createdAt = request.CreatedAtUtc is DateTime created
@@ -26,6 +26,8 @@ public static class RequestMapper
             horseNotes = horses.ToDictionary(x => x.HorseID, x => x.CareInstructions ?? ""),
             careInstructions = request.CareInstructions,
             preparationDays = request.PreparationDays,
+            contractId = contract?.ContractID,
+            refund = RefundMapper.View(contract),
             pickup = new
             {
                 cityId = request.PickupCityId,
@@ -55,7 +57,9 @@ public static class RequestMapper
             revisionFeedback = request.RevisionFeedback,
             rejectionReason = request.Status == "REJECTED" ? request.ManagerNotes : null,
             cancellation = request.CancellationReason is null
-                ? null
+                ? request.Status == "CANCELLED" && request.ManagerNotes is not null
+                    ? new { reason = request.ManagerNotes, requestedAt = (DateTime?)null, previousStatus = (string?)null }
+                    : null
                 : new
                 {
                     reason = request.CancellationReason,

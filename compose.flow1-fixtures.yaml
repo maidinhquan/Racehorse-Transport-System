@@ -1,0 +1,52 @@
+services:
+  fixture-backend:
+    image: racehorse-transport-system-backend:latest
+    env_file: .env
+    ports:
+      - "127.0.0.1:5130:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: ${FLOW1_FIXTURE_CONNECTION:?Run Prepare-Flow1Fixtures.ps1}
+      ConnectionStrings__Flow1: ${FLOW1_FIXTURE_CONNECTION:?Run Prepare-Flow1Fixtures.ps1}
+      Flow1__Vnpay__Enabled: "false"
+      Flow1__Contracts__Email__AllowDevelopmentLoopback: "true"
+      Flow1__Contracts__Email__Smtp__Host: "127.0.0.1"
+      Flow1__Contracts__Email__Smtp__Port: "2525"
+      Flow1__Contracts__Email__Smtp__From: "fixture@example.invalid"
+      Flow1__Contracts__Email__Smtp__EnableSsl: "false"
+      Flow1__Contracts__Email__Smtp__Username: ""
+      Flow1__Contracts__Email__Smtp__Password: ""
+      RegistrationEmail__Mode: Development
+    volumes:
+      - fixture_data:/app/App_Data
+      - ./data/Flow1Fixtures:/fixture-output
+    restart: unless-stopped
+  fixture-mail:
+    image: python:3.12-alpine
+    network_mode: service:fixture-backend
+    depends_on:
+      - fixture-backend
+    volumes:
+      - ./backend/tools/Flow1Fixtures/mail_sink.py:/mail_sink.py:ro
+    command: python -u /mail_sink.py
+    restart: unless-stopped
+  fixture-frontend:
+    image: racehorse-transport-system-frontend:latest
+    ports:
+      - "127.0.0.1:5174:5173"
+    environment:
+      API_PROXY_TARGET: http://fixture-backend:8080
+    volumes:
+      - ./frontend:/app
+      - fixture_modules:/app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      - fixture-backend
+    restart: unless-stopped
+volumes:
+  fixture_data:
+    external: true
+    name: racehorse-flow1-fixtures-data
+  fixture_modules:
+    external: true
+    name: ${FIXTURE_NODE_MODULES_VOLUME:?Run Prepare-Flow1Fixtures.ps1}

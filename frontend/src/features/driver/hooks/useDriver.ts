@@ -15,6 +15,7 @@ import type {
 import { saveIncidentPin } from '../../../shared/utils/sharedIncidentPins';
 import { driverApi, saveLocalIncident } from '../api/driverApi';
 import { notifySync } from '../../../shared/utils/syncChannel';
+import { saveSharedIncident } from '../../../shared/utils/sharedIncidents';
 import { tripFromTracking } from '../api/flow4Mapper';
 import { flow4Api } from '../../tracking/api/flow4Api';
 import { DEFAULT_DRIVER_USER, mockCrew, mockHorses, mockIncidents, mockTrips } from '../data/mockData';
@@ -377,6 +378,7 @@ const actions = {
       healthIssueType: body.healthIssueType,
       immediateCare: body.immediateCare,
     };
+    saveSharedIncident(inc as any);
     if (point) saveIncidentPin({ id: inc.id, tripId, label: INCIDENT_TYPE_LABEL[inc.type], lat: point.lat, lng: point.lng, where: location, description: inc.description, at: inc.at });
     saveLocalIncident(inc);
     setState((s) => ({ incidents: [inc, ...s.incidents.filter((x) => x.id !== inc.id)], incidentPhotos: [] }));

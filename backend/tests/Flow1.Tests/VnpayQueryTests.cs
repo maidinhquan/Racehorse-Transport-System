@@ -10,13 +10,27 @@ namespace Flow1.Tests;
 
 public sealed class VnpayQueryTests
 {
+    [Fact]
+    public async Task Querydr_reports_sandbox_error_99_without_confirming_failure()
+    {
+        var options = new Flow1VnpayOptions { Enabled = true, TmnCode = "TEST0001", HashSecret = "fixture-query-key" };
+        var time = new RelationalFlow1Tests.Clock();
+        using var http = new HttpClient(new Handler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new { vnp_ResponseCode = "99", vnp_Message = "Unexpected error" }),
+        })));
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            new VnpayQueryGateway(http, options, time).QueryAsync(new("p123", options.TmnCode, time.Value, "127.0.0.1"), default));
+        Assert.Equal("VNPAY_QUERY_UNAVAILABLE", error.ErrorCode);
+        Assert.Contains("99", error.Message);
+    }
     private sealed class Handler(Func<HttpRequestMessage,Task<HttpResponseMessage>> callback):HttpMessageHandler
     {protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken ct)=>callback(request);}
     [Theory]
     [InlineData("00","00","SUCCESS")]
     [InlineData("00","02","FAILED")]
     [InlineData("00","01","UNRESOLVED")]
-    [InlineData("91","00","UNRESOLVED")]
+    [InlineData("91","00","NOT_FOUND")]
     public async Task Querydr_uses_its_distinct_checksum_and_never_treats_pending_or_not_found_as_failure(string response,string status,string expected)
     {
         var options=new Flow1VnpayOptions{Enabled=true,TmnCode="TEST0001",HashSecret="fixture-query-key"};var time=new RelationalFlow1Tests.Clock();

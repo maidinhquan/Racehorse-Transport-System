@@ -1,4 +1,6 @@
 import React from 'react';
+import { ReviewInbox } from '../../../../shared/components/RequestReview/ReviewInbox';
+import { getDemoMode } from '../../../../shared/context/DemoModeContext';
 import { useNavigate } from 'react-router-dom';
 import { SpecialistLayout, Icon } from '../../components/SpecialistLayout';
 import { TripStatusBadge } from '../../components/TripStatusBadge/TripStatusBadge';
@@ -6,6 +8,7 @@ import { MiniProgress } from '../../components/Common/Common';
 import { DemoPanel } from '../../components/DemoPanel/DemoPanel';
 import { useSpecialist } from '../../hooks/useSpecialist';
 import { CUSTOMER_DOC_NAME, countryName, docEffective, fmtDate, fmtDateTime, horseName, shortName, tripTotals, typeName } from '../../hooks/specialistRules';
+import { useSharedIncidents } from '../../../../shared/utils/sharedIncidents';
 import './SpecialistDashboardPage.css';
 
 type Alert = { tone: 'bad' | 'warn' | 'info'; title: string; sub: string; to: string };
@@ -14,6 +17,7 @@ type Alert = { tone: 'bad' | 'warn' | 'info'; title: string; sub: string; to: st
 export const SpecialistDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { data, trips, documents, customerDocs, requests, stats } = useSpecialist();
+  const incidents = useSharedIncidents();
   const active = trips.filter((t) => t.status !== 'COMPLETED');
 
   const alerts: Alert[] = [];
@@ -29,6 +33,7 @@ export const SpecialistDashboardPage: React.FC = () => {
   documents.filter((d) => d.status === 'REJECTED').forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} bị từ chối – cần bản mới`, sub: `${d.tripId} • ${d.rejectReason ?? ''}`, to: `/specialist/documents/${d.id}` }));
   documents.filter((d) => docEffective(d) === 'EXPIRED' && active.some((t) => t.id === d.tripId || t.id.replace(/-/g, '_') === d.tripId.replace(/-/g, '_'))).forEach((d) => alerts.push({ tone: 'bad', title: `${typeName(data, d.typeId)} đã hết hạn`, sub: `${d.tripId} • hết hạn ${fmtDate(d.expiry)}`, to: `/specialist/documents/${d.id}` }));
   requests.filter((q) => q.status === 'SUBMITTED').forEach((q) => alerts.push({ tone: 'info', title: `Khách đã phản hồi ${q.id}`, sub: `${CUSTOMER_DOC_NAME[q.key] || q.key} • ${q.tripId}`, to: `/specialist/trips/${q.tripId}/customer` }));
+  incidents.filter((i) => !i.complianceReview).forEach((i) => alerts.push({ tone: i.severity === 'CRITICAL' || i.severity === 'HIGH' ? 'bad' : 'warn', title: `${i.id}: Sự cố trên chuyến ${i.tripId}`, sub: `${i.type} • Cần chuyên viên rà soát pháp lý`, to: `/specialist/trips/${i.tripId}/incidents` }));
 
   const card = (to: string, icon: string, label: string, n: number, small: string, cls: 'warn' | 'bad' | '' = 'warn') => (
     <button type="button" className={`spc-stat ${n ? cls : ''}`} onClick={() => navigate(to)}>
@@ -42,6 +47,7 @@ export const SpecialistDashboardPage: React.FC = () => {
 
   return (
     <SpecialistLayout title="Tổng quan">
+      {!getDemoMode('specialist') && <ReviewInbox role="specialist" button="spc-btn" />}
       <div className="spc-head">
         <div>
           <h2 className="spc-title">Xin chào, {firstName}</h2>

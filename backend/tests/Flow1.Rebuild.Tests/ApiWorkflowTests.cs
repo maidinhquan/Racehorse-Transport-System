@@ -13,23 +13,27 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         var text = await response.Content.ReadAsStringAsync(); Assert.True(response.IsSuccessStatusCode, $"{response.StatusCode}: {text}");
         return JsonDocument.Parse(text).RootElement.GetProperty("data").Clone();
     }
-    [Fact] public async Task Runtime_uses_reviewed_routes_and_has_no_mock_or_manual_payment_endpoints()
+    [Fact] public async Task Runtime_uses_reviewed_routes_and_restricts_payment_reconciliation_to_manager()
     {
         using var factory = new ApiFactory(database); using var client = factory.Customer();
         await Data(await client.GetAsync("/api/customer/profile"));
         var routes = await Data(await client.GetAsync("/api/master/supported-routes")); Assert.Equal(3,routes.GetArrayLength());
         var options = await Data(await client.GetAsync("/api/customer/request-form-options?originCountry=VN&destinationCountry=JP&mode=AIR"));
-        Assert.Equal(7,options.GetProperty("preparationDays").GetDecimal());
+        Assert.Equal(7, options.GetProperty("preparationDays").GetDecimal());
+        Assert.Equal(12, options.GetProperty("minimumPickupLeadDays").GetInt32());
+        var road = await Data(await client.GetAsync("/api/customer/request-form-options?originCountry=VN&destinationCountry=VN&mode=ROAD"));
+        Assert.Equal(3, road.GetProperty("preparationDays").GetDecimal());
+        Assert.Equal(8, road.GetProperty("minimumPickupLeadDays").GetInt32());
         Assert.Equal(HttpStatusCode.NotFound,(await client.PostAsJsonAsync("/api/customer/contracts/CONTRACT_001/mock-sign",new {})).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound,(await client.PostAsJsonAsync("/api/manager/payments/PAYMENT_001/confirm",new {})).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden,(await client.PostAsJsonAsync("/api/manager/payments/PAYMENT_001/confirm",new { reason = "Check provider" })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,(await client.PostAsJsonAsync("/api/public/estimates/demo",new {})).StatusCode);
     }
     [Fact] public async Task Concurrent_create_retry_allocates_one_request_and_unknown_fields_are_rejected()
     {
         using var factory=new ApiFactory(database); using var client=factory.Customer();
         client.DefaultRequestHeaders.Add("Idempotency-Key",Guid.NewGuid().ToString());
-        await SubmissionTest.ReadyHorseAsync(database);
-        var input=new {origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",expectedTransportDate=DateTime.UtcNow.AddDays(80).ToString("yyyy-MM-dd"),expectedDeliveryDate=DateTime.UtcNow.AddDays(82).ToString("yyyy-MM-dd"),careInstructions="Care"};
+        var horseId = await SubmissionTest.NewHorseAsync(database);
+        var input = SubmissionTest.Input(DateTime.UtcNow.AddDays(80).ToString("yyyy-MM-dd"), DateTime.UtcNow.AddDays(82).ToString("yyyy-MM-dd"), horseId);
         var responses=await Task.WhenAll(client.PostAsync("/api/customer/requests", SubmissionTest.Body(input)),client.PostAsync("/api/customer/requests", SubmissionTest.Body(input)));
         var first=await Data(responses[0]); var second=await Data(responses[1]);
         Assert.Equal(first.GetProperty("id").GetString(),second.GetProperty("id").GetString());
@@ -88,7 +92,9 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         Assert.Equal(HttpStatusCode.Conflict,(await customer.PutAsync($"/api/customer/requests/{id}",SubmissionTest.Body(input))).StatusCode);
         var detail=await Data(await customer.GetAsync($"/api/customer/requests/{id}"));
         Assert.DoesNotContain(detail.GetProperty("docs").EnumerateArray(), d => d.GetProperty("scope").GetString() == "REQUEST");
-        await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/request-changes",new {feedback="Please update the pickup contact details."}));
+        var (reviewId, _) = await RequestReviewTest.AssessAsync(factory, manager, id, false);
+        await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/request-changes",
+            new {reviewId, requestRevision=1, action="SUPPLEMENT_DOCUMENTS", feedback="Please update the pickup contact details."}));
         var revised=input with { Pickup=input.Pickup with { Contact="Updated customer" } };
         var result=await Data(await customer.PutAsync($"/api/customer/requests/{id}",SubmissionTest.Body(revised)));
         Assert.Equal("PENDING_REVIEW",result.GetProperty("status").GetString());
@@ -98,15 +104,18 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/reject",new {reason="Cannot serve this route"}));
         Assert.Equal(HttpStatusCode.Conflict,(await customer.PutAsync($"/api/customer/requests/{id}",SubmissionTest.Body(revised))).StatusCode);
     }
-    [Fact] public async Task Deposit_ipn_terms_otp_activation_and_assignment_use_real_sql()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Deposit_ipn_terms_otp_activation_and_assignment_use_real_sql(bool managerCancels)
     {
         using var factory = new ApiFactory(database); using var customer = factory.Customer(); using var manager = factory.Manager();
         var date=DateTime.UtcNow.AddDays(40).Date;
         customer.DefaultRequestHeaders.Add("Idempotency-Key",Guid.NewGuid().ToString());
-        await SubmissionTest.ReadyHorseAsync(database, "HORSE_002");
-        var created=await Data(await customer.PostAsync("/api/customer/requests", SubmissionTest.Body(new { origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",expectedTransportDate=date.ToString("yyyy-MM-dd"),expectedDeliveryDate=date.AddDays(2).ToString("yyyy-MM-dd"),careInstructions="Care",horses=new[]{"HORSE_002"} })));
+        var horseId = await SubmissionTest.NewHorseAsync(database);
+        var created=await Data(await customer.PostAsync("/api/customer/requests", SubmissionTest.Body(new { origin="Hanoi",destination="Tokyo",originCountry="VN",destinationCountry="JP",mode="AIR",expectedTransportDate=date.ToString("yyyy-MM-dd"),expectedDeliveryDate=date.AddDays(2).ToString("yyyy-MM-dd"),careInstructions="Care",horses=new[]{horseId} })));
         var id=created.GetProperty("id").GetString()!;
-        await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/accept",new {}));
+        await RequestReviewTest.AcceptAsync(factory, manager, id);
         var draft=await Data(await manager.PutAsJsonAsync($"/api/manager/requests/{id}/contract-draft",new
         { arriveAt=date.AddDays(2).ToString("yyyy-MM-dd HH:mm"),departAt=date.ToString("yyyy-MM-dd HH:mm"),mode="AIR",depositPct=40,
           budget=new {TRANSPORT=100,PROCEDURE=100,VET=100,INSURANCE=100,STAFF=100},exception="",note="Includes listed charges",
@@ -131,13 +140,30 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         await Data(await manager.PostAsJsonAsync($"/api/manager/contracts/{contract}/extend-deadline",new {versionNo=1,reason="Extend within preparation cutoff"}));
         var afterExtension = await Data(await customer.GetAsync($"/api/customer/requests/{id}/contract"));
         Assert.Equal(frozen,afterExtension.GetProperty("currentVersion").GetProperty("snapshot").GetRawText());
+        DateTime preparationCutoff;
+        await using (var db = database.Context())
+        {
+            var row = await db.Set<TransportRequest>().SingleAsync(x => x.RequestID == id);
+            preparationCutoff = row.ExpectedDate!.Value.AddDays(-row.PreparationDays!.Value);
+            (await db.Set<Contract>().SingleAsync(x => x.ContractID == contract)).CompletionDeadline = preparationCutoff.AddHours(-1);
+            await db.SaveChangesAsync();
+        }
+        await Data(await manager.PostAsJsonAsync($"/api/manager/contracts/{contract}/extend-deadline",
+            new { versionNo = 1, reason = "Extend to latest allowed preparation cutoff" }));
+        await using (var db = database.Context())
+            Assert.Equal(preparationCutoff, (await db.Set<Contract>().SingleAsync(x => x.ContractID == contract)).CompletionDeadline);
+        Assert.Equal(HttpStatusCode.Conflict, (await manager.PostAsJsonAsync($"/api/manager/contracts/{contract}/extend-deadline",
+            new { versionNo = 1, reason = "No more preparation time available" })).StatusCode);
         await Data(await customer.PostAsJsonAsync($"/api/customer/contracts/{contract}/accept-terms",new {versionNo=1}));
         var deposit=await Data(await customer.GetAsync($"/api/customer/requests/{id}/deposit"));var invoice=deposit.GetProperty("invoiceId").GetString()!;
         var session=await Data(await customer.PostAsJsonAsync($"/api/customer/invoices/{invoice}/payment-session",new {method="VNPAY"}));
         var payment=session.GetProperty("id").GetString()!;
+        var resumed = await Data(await customer.PostAsJsonAsync($"/api/customer/invoices/{invoice}/payment-session", new { method = "VNPAY" }));
+        Assert.Equal(payment, resumed.GetProperty("id").GetString());
+        Assert.Equal(session.GetProperty("expiresAt").GetString(), resumed.GetProperty("expiresAt").GetString());
         var before=await customer.PostAsJsonAsync($"/api/customer/contracts/{contract}/sign-otp",new {versionNo=1});Assert.Equal(HttpStatusCode.Conflict,before.StatusCode);
         var payload=new Dictionary<string,string> { ["vnp_TmnCode"]="DEMO1234",["vnp_TxnRef"]=payment.Replace("_",""),["vnp_Amount"]="40000000",["vnp_CurrCode"]="VND",
-            ["vnp_ResponseCode"]="00",["vnp_TransactionStatus"]="00",["vnp_TransactionNo"]="123456789",["vnp_PayDate"]=DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss") };
+            ["vnp_ResponseCode"]="00",["vnp_TransactionStatus"]="00",["vnp_TransactionNo"]=DateTime.UtcNow.Ticks.ToString(),["vnp_PayDate"]=DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss") };
         payload["vnp_SecureHash"]=factory.Gateway.Sign(payload);
         var query=string.Join("&",payload.Select(x=>Uri.EscapeDataString(x.Key)+"="+Uri.EscapeDataString(x.Value)));
         var ipn=await customer.GetFromJsonAsync<JsonElement>("/api/payments/vnpay/ipn?"+query);Assert.Equal("00",ipn.GetProperty("RspCode").GetString());
@@ -147,6 +173,23 @@ public sealed class ApiWorkflowTests(SqlFixture database) : IClassFixture<SqlFix
         var rejected = await Data(await manager.PostAsJsonAsync($"/api/manager/contracts/{contract}/cancellation/decision",new {decision="REJECTED",reason="Customer agrees to continue transport"}));
         Assert.Equal("DEPOSIT_VERIFIED",rejected.GetProperty("status").GetString());
         Assert.Equal(HttpStatusCode.NotImplemented,(await customer.GetAsync($"/api/customer/payments/{payment}/receipt")).StatusCode);
+        if (managerCancels)
+        {
+            var cancelled = await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/cancel",
+                new { reason = "Manager cannot serve this transport schedule" }));
+            Assert.Equal("CANCELLED", cancelled.GetProperty("status").GetString());
+            var retryCancellation = await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/cancel",
+                new { reason = "Manager retry" }));
+            Assert.Equal("CANCELLED", retryCancellation.GetProperty("status").GetString());
+            await using var check = database.Context();
+            var row = await check.Set<Contract>().SingleAsync(c => c.ContractID == contract);
+            Assert.Equal("CANCELLED", row.ContractStatus);
+            Assert.Equal("APPROVED", row.CancellationStatus);
+            Assert.Equal("REQUESTED", row.RefundStatus);
+            Assert.Equal("CANCELLED", (await check.Set<Invoice>().SingleAsync(i => i.InvoiceID == invoice)).PaymentStatus);
+            Assert.Empty(await check.Set<Trip>().Where(t => t.RequestID == id).ToListAsync());
+            return;
+        }
         await Data(await customer.PostAsJsonAsync($"/api/customer/contracts/{contract}/sign-otp",new {versionNo=1}));
         var code=factory.Sender.Codes[contract];var wrong=code=="000000"?"111111":"000000";
         Assert.Equal(HttpStatusCode.BadRequest,(await customer.PostAsJsonAsync($"/api/customer/contracts/{contract}/sign",new {versionNo=1,otp=wrong})).StatusCode);

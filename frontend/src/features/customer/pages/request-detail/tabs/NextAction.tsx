@@ -1,3 +1,4 @@
+import { ReviewResponse } from './ReviewResponse';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { TransportRequest } from '../../../types';
@@ -35,7 +36,7 @@ export const NextAction: React.FC<{ request: TransportRequest }> = ({ request: r
 
   let main: React.ReactNode = <p className="cus-subtitle" style={{ margin: 0 }}>Hiện không cần bạn thao tác.</p>;
   if (r.status === 'DRAFT') main = btn('Tiếp tục khai báo', () => navigate(r.wizardStep >= 1 ? `/customer/requests/${r.id}/wizard/${Math.min(3, r.wizardStep)}` : `/customer/requests/${r.id}/edit`));
-  else if (r.status === 'CHANGES_REQUESTED') main = btn('Sửa & gửi lại', () => go('/edit'));
+  else if (r.status === 'CHANGES_REQUESTED') main = <ReviewResponse key={r.id} requestId={r.id} />;
   else if (canAcceptTerms(r)) main = btn('Xem & đồng ý hợp đồng', () => go('/contract'));
   else if (canPayDeposit(r)) main = btn(depositState(r) === 'FAILED' ? 'Thanh toán lại tiền cọc' : 'Thanh toán tiền cọc', () => go('/deposit'), true, 'card');
   else if (r.status === 'AWAITING_DEPOSIT' && depositState(r) === 'PENDING') main = btn('Xem trạng thái thanh toán', () => go('/payment'), false);

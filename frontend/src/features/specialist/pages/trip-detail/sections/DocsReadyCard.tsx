@@ -16,6 +16,7 @@ import {
 import { Icon } from '../../../components/SpecialistLayout';
 import { TripStatusBadge } from '../../../components/TripStatusBadge/TripStatusBadge';
 import { ApplySetModal } from '../../../components/Modals';
+import { useSharedIncidents } from '../../../../../shared/utils/sharedIncidents';
 
 /** Thẻ "Xác nhận hồ sơ sẵn sàng (Docs READY)" + 3 ô chuyển nhóm giấy tờ + thông tin bộ yêu cầu */
 export const DocsReadyCard: React.FC<{ trip: SpecTrip; active: TripDetailTab; onTab: (k: TripDetailTab) => void }> = ({ trip: t, active, onTab }) => {
@@ -27,6 +28,8 @@ export const DocsReadyCard: React.FC<{ trip: SpecTrip; active: TripDetailTab; on
   const block = docsReadyBlock(data, t), ins = insuranceState(t);
   const blockers = blockingOf(data, t);
   const can = t.status === 'PLANNING';
+  const incidents = useSharedIncidents(t.id);
+  const unreviewedCount = incidents.filter((i) => !i.complianceReview).length;
 
   const originName = countryName(t.originCountry);
   const destName = countryName(t.destCountry);
@@ -130,6 +133,9 @@ export const DocsReadyCard: React.FC<{ trip: SpecTrip; active: TripDetailTab; on
         </button>
         <button type="button" className={active === 'insurance' ? 'on' : ''} onClick={() => onTab('insurance')}>
           <span>Bảo hiểm vận chuyển</span><b>{ins === 'VERIFIED' ? 'Đã xác minh' : ins === 'PENDING' ? 'Chờ xác minh' : 'Chưa có'}</b><small>{t.insurance?.insurer ?? 'bắt buộc'}</small>
+        </button>
+        <button type="button" className={active === 'incidents' ? 'on' : ''} onClick={() => onTab('incidents')}>
+          <span>Sự cố vận chuyển</span><b>{incidents.length ? `${incidents.length} sự cố` : '0 sự cố'}</b><small>{unreviewedCount > 0 ? `${unreviewedCount} cần rà soát` : incidents.length ? 'Đã rà soát' : 'Bình thường'}</small>
         </button>
       </div>
 

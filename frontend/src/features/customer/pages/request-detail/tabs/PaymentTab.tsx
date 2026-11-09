@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import type { TransportRequest } from '../../../types';
 import {
   canPayDeposit,
+  resumableDepositPayment,
   canSign,
   cityLabel,
   ctRef,
@@ -41,7 +42,7 @@ export const PaymentTab: React.FC<{ request: TransportRequest }> = ({ request: r
   const last = [...r.payments].reverse().find((p) => p.type === 'DEPOSIT');
   const note: Record<typeof ds, ['blue' | 'yellow' | 'green' | 'red' | 'grey', string, string]> = {
     NONE: ['blue', 'Chờ thanh toán', `Thanh toán và xác minh tiền cọc ${fmtMoney(depositAmount(r))}, rồi ký OTP trước ${fmtDateTime(v.validUntil)}.`],
-    PENDING: ['yellow', 'Đang xử lý / chờ xác minh', 'Cổng thanh toán chưa xác nhận giao dịch. Bấm nút không đồng nghĩa đã thanh toán.'],
+    PENDING: ['yellow', 'Đang xử lý / chờ xác minh', last?.reviewReason || 'Bạn đã mở phiên thanh toán. Nếu rời VNPay bằng nút quay lại của trình duyệt, hệ thống vẫn cần đối soát kết quả trước khi cho thanh toán lại.'],
     VERIFIED: r.status === 'CANCELLED' || r.status === 'CANCELLATION_REQUESTED'
       ? ['grey', 'Đã xác minh cọc – yêu cầu hủy trước khi ký', 'Hợp đồng chưa ký nên chưa có hiệu lực. Tiền cọc được hoàn đầy đủ; trạng thái hoàn tiền hiển thị bên dưới.']
       : isSigned(r) ? ['green', 'Thanh toán thành công', `Tiền cọc đã xác minh. Hợp đồng ${ctRef(sv)} có hiệu lực.`]
@@ -59,7 +60,7 @@ export const PaymentTab: React.FC<{ request: TransportRequest }> = ({ request: r
             <div className="cus-card">
               <h3 className="cus-card__title">Hoàn tiền cọc <TripStatusBadge label={REFUND_LABEL[r.refund.status]} tone={r.refund.status === 'REFUNDED' ? 'ok' : 'warn'} /></h3>
               <ul className="cus-check-list">
-                <li className="ok"><Icon name="check" /><span>Đã yêu cầu hoàn {fmtMoney(r.refund.amount)} • {fmtDateTime(r.refund.at)}</span></li>
+                <li className="ok"><Icon name="check" /><span>Đã ghi nhận yêu cầu hoàn cọc{r.refund.amount == null ? '' : ` · ${fmtMoney(r.refund.amount)}`}</span></li>
                 <li className={r.refund.status !== 'REQUESTED' ? 'ok' : ''}><Icon name={r.refund.status !== 'REQUESTED' ? 'check' : 'clock'} /><span>Đang xử lý hoàn tiền</span></li>
                 <li className={r.refund.status === 'REFUNDED' ? 'ok' : ''}><Icon name={r.refund.status === 'REFUNDED' ? 'check' : 'clock'} />
                   <span>Đã hoàn tiền{r.refund.refundedAt ? ` ${fmtDateTime(r.refund.refundedAt)} • mã ${r.refund.reference}` : ''}</span></li>
@@ -81,6 +82,8 @@ export const PaymentTab: React.FC<{ request: TransportRequest }> = ({ request: r
               <button type="button" className="cus-btn" onClick={() => navigate(`/customer/requests/${r.id}/contract/v/${sv.v}`)}><Icon name="file" />Xem hợp đồng</button>
               {canSign(r) && <button type="button" className="cus-btn cus-btn--solid" onClick={() => navigate(`/customer/requests/${r.id}/sign`)}>Xem lại & ký OTP</button>}
               {canPayDeposit(r) && <button type="button" className="cus-btn cus-btn--solid" onClick={() => navigate(`/customer/requests/${r.id}/deposit`)}>{ds === 'FAILED' ? 'Thử lại – tạo QR mới' : 'Thanh toán tiền cọc'}</button>}
+              {ds === 'PENDING' && <button type="button" className="cus-btn cus-btn--solid" onClick={() => navigate(`/customer/requests/${r.id}/deposit`)}>
+                {resumableDepositPayment(r) ? 'Tiếp tục thanh toán' : 'Kiểm tra giao dịch'}</button>}
             </div>
           </div>
 

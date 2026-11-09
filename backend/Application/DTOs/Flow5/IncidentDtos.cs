@@ -8,10 +8,10 @@ public class ReportIncidentInputDto
     public string Category { get; set; } = null!; // VEHICLE_RESOURCE, DELAY_AIR, HORSE_HEALTH, OTHER
     public string? Type { get => Category; set => Category = value ?? Category; }
     public string? Severity { get; set; }
+    public string? Location { get; set; }
     public string? Description { get; set; }
     public string? ImmediateCare { get; set; }
     public string? LocationCoordinates { get; set; }
-    public string? Location { get; set; }
     public string? ImageUrl { get; set; }
     public List<string>? Photos { get; set; }
     public DateTime? OccurredAt { get; set; }

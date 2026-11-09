@@ -29,6 +29,7 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, 
   const original = [...(r.versions ?? [])].reverse().find((v) => v.snapshot?.requestedPickupAt)?.snapshot;
   const requestedPickup = original?.requestedPickupAt || r.pickupAt;
   const requestedDelivery = original?.requestedDate || r.date;
+  const isAdjusted = !!(requestedPickup && requestedPickup.slice(0, 10) < minDepartDate);
 
   // Giữ nguyên đúng ngày khách yêu cầu: không cộng dồn hay dời ngày; chỉ giữ lại giờ đã có (mặc định 08:00 / 18:00).
   useEffect(() => {
@@ -73,7 +74,10 @@ export const PlanStep: React.FC<StepProps> = ({ request: r, draft, set, horses, 
           <div className="mgr-input mgr-ce__readonly">
             {fmtDate(requestedPickup)}
           </div>
-          <p className="mgr-hint">Theo ngày khách yêu cầu lấy ngựa.</p>
+          <p className="mgr-hint">
+            Theo ngày khách yêu cầu lấy ngựa: {fmtDate(requestedPickup)}
+            {isAdjusted ? ' (Không còn đủ thời gian chuẩn bị, cần thống nhất lịch mới).' : '.'}
+          </p>
         </div>
         <div className="mgr-field">
           <label>Đến dự kiến (chỉ xem)</label>

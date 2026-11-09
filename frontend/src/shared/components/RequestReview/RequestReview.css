@@ -1,0 +1,30 @@
+.request-review {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  color: var(--text-primary);
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.request-review h3, .request-review h4, .request-review p, .request-review ul { margin-block: 0; }
+.request-review form, .request-review fieldset, .request-review label { display: grid; gap: 0.5rem; min-width: 0; }
+.request-review fieldset { border: 1px solid var(--border-color); border-radius: 0.5rem; margin: 0; }
+.request-review input, .request-review select, .request-review textarea {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 0.35rem;
+  color: inherit;
+  font: inherit;
+  min-width: 0;
+  padding: 0.45rem;
+}
+.request-review input[type="checkbox"] { justify-self: start; }
+.request-review .review-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.request-review .review-rows { display: grid; gap: 0.75rem; }
+.request-review .review-columns { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); }
+.request-review .review-item { border-block-start: 1px solid var(--border-color); padding-block: 0.65rem; overflow-wrap: anywhere; }
+.request-review .review-caption { color: var(--text-secondary); }
+.request-review [role="alert"] { font-weight: 600; }

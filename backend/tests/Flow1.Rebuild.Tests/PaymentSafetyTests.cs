@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Domain.Flow1.Entities;
@@ -32,7 +33,7 @@ public sealed class PaymentSafetyTests(SqlFixture database) : IClassFixture<SqlF
             (await db.Set<TransportRequest>().SingleAsync(x=>x.RequestID==id)).Status="PENDING_REVIEW";
             await db.SaveChangesAsync();
         }
-        await Data(await manager.PostAsJsonAsync($"/api/manager/requests/{id}/accept",new {}));
+        await RequestReviewTest.AcceptAsync(factory, manager, id);
         var draft=await Data(await manager.PutAsJsonAsync($"/api/manager/requests/{id}/contract-draft",new {
             arriveAt=date.AddDays(2).ToString("yyyy-MM-dd HH:mm"),departAt=date.ToString("yyyy-MM-dd HH:mm"),mode="AIR",depositPct=40,
             budget=new {TRANSPORT=100,PROCEDURE=100,VET=100,INSURANCE=100,STAFF=100},exception="",note="Test",
@@ -45,7 +46,13 @@ public sealed class PaymentSafetyTests(SqlFixture database) : IClassFixture<SqlF
         await Data(await customer.PostAsJsonAsync($"/api/customer/contracts/{contract}/accept-terms",new {versionNo=1}));
         var session=await Data(await customer.PostAsJsonAsync($"/api/customer/invoices/{invoice}/payment-session",new {method="VNPAY"}));
         var payment=session.GetProperty("id").GetString()!;
-        if(scenario=="cancelled") await Data(await customer.PostAsJsonAsync($"/api/customer/requests/{id}/cancel",new {reason="Cancel before payment settles"}));
+        if (scenario == "cancelled")
+        {
+            var blocked = await customer.PostAsJsonAsync($"/api/customer/requests/{id}/cancel", new { reason = "Cancel before payment settles" });
+            Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+            var pending = await Data(await manager.PostAsJsonAsync($"/api/manager/payments/{payment}/confirm", new { reason = "Waiting for provider verification" }));
+            Assert.Equal("UNCONFIRMED", pending.GetProperty("paymentOutcome").GetString());
+        }
         var payload=new Dictionary<string,string> { ["vnp_TmnCode"]="DEMO1234",["vnp_TxnRef"]=payment.Replace("_",""),["vnp_Amount"]=scenario=="amount"?"10000":"40000000",["vnp_CurrCode"]="VND",
             ["vnp_ResponseCode"]="00",["vnp_TransactionStatus"]="00",["vnp_TransactionNo"]=DateTime.UtcNow.Ticks.ToString(),["vnp_PayDate"]=DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(7)).ToString("yyyyMMddHHmmss") };
         async Task<JsonElement> Send()
@@ -54,10 +61,12 @@ public sealed class PaymentSafetyTests(SqlFixture database) : IClassFixture<SqlF
             var query=string.Join("&",payload.Select(x=>Uri.EscapeDataString(x.Key)+"="+Uri.EscapeDataString(x.Value)));
             return await customer.GetFromJsonAsync<JsonElement>("/api/payments/vnpay/ipn?"+query);
         }
-        if(scenario=="failed")
+        if(scenario is "failed" or "cancelled")
         {
             payload["vnp_ResponseCode"]="24"; payload["vnp_TransactionStatus"]="02";
             Assert.Equal("00",(await Send()).GetProperty("RspCode").GetString());
+            if (scenario == "cancelled")
+                await Data(await customer.PostAsJsonAsync($"/api/customer/requests/{id}/cancel", new { reason = "Cancel after provider confirmed failure" }));
             payload["vnp_ResponseCode"]="00"; payload["vnp_TransactionStatus"]="00";
         }
         Assert.Equal(expectedCode,(await Send()).GetProperty("RspCode").GetString());
@@ -67,5 +76,20 @@ public sealed class PaymentSafetyTests(SqlFixture database) : IClassFixture<SqlF
         Assert.Equal(expectedStatus,row.Status);
         if(expectedStatus=="REVIEW_REQUIRED") { Assert.Equal(400000,row.VnpayReceivedAmount); Assert.True(row.FinancialReviewRequired); }
         Assert.Empty(await check.Set<Trip>().Where(x=>x.RequestID==id).ToListAsync());
+        if (scenario == "cancelled")
+        {
+            var refund = $"/api/manager/contracts/{contract}/refund";
+            var evidence = new { amount = 400000, reference = "REFUND-" + id, refundedAtUtc = DateTimeOffset.UtcNow };
+            Assert.Equal(HttpStatusCode.Conflict, (await manager.PostAsJsonAsync(refund + "/complete", evidence)).StatusCode);
+            var started = await Data(await manager.PostAsync(refund + "/start", null));
+            Assert.Equal("PROCESSING", started.GetProperty("refundStatus").GetString());
+            Assert.Equal(400000, started.GetProperty("amount").GetDecimal());
+            Assert.Equal(HttpStatusCode.Conflict, (await manager.PostAsJsonAsync(refund + "/complete", evidence with { amount = 1 })).StatusCode);
+            var completed = await Data(await manager.PostAsJsonAsync(refund + "/complete", evidence));
+            Assert.Equal("COMPLETED", completed.GetProperty("refundStatus").GetString());
+            Assert.Equal("USER_004", completed.GetProperty("verifiedBy").GetString());
+            var repeated = await Data(await manager.PostAsJsonAsync(refund + "/complete", evidence));
+            Assert.Equal(completed.GetProperty("verifiedAtUtc").GetString(), repeated.GetProperty("verifiedAtUtc").GetString());
+        }
     }
 }

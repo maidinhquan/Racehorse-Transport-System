@@ -21,6 +21,7 @@ import { mockCrew, mockHorses, mockIncidents, mockTrips } from '../data/mockData
 import { getDemoMode } from '../../../shared/context/DemoModeContext';
 import { flow4Api } from '../../tracking/api/flow4Api';
 import { generateUuidV4 } from '../../../shared/utils/uuid';
+import { getSharedIncidents } from '../../../shared/utils/sharedIncidents';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
@@ -218,6 +219,28 @@ export const driverApi = {
   getIncidents: async (): Promise<Incident[]> => {
     let local = loadLocalIncidents();
     const cleanTargetId = (x?: string) => (x || '').replace(/-/g, '_').toUpperCase();
+
+    const shared = getSharedIncidents();
+    shared.forEach((s) => {
+      const cid = cleanTargetId(s.id);
+      if (!local.some((li) => li.id === s.id || cleanTargetId(li.id) === cid)) {
+        local.push({
+          id: s.id,
+          tripId: s.tripId,
+          type: s.type as any,
+          severity: s.severity as any,
+          status: s.status as any,
+          at: s.at,
+          by: s.by,
+          location: s.location,
+          lat: s.lat,
+          lng: s.lng,
+          description: s.description,
+          photos: s.photos || [],
+          approvedPlan: s.approvedPlan,
+        });
+      }
+    });
 
     // Làm giàu dữ liệu local với trạng thái đã lưu từ các thao tác của Điều phối viên
     local = local.map((inc) => {

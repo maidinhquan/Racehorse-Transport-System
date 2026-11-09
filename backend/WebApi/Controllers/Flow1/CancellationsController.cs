@@ -25,9 +25,14 @@ public sealed class CancellationsController(CancellationService cancellations) :
     public async Task<IActionResult> DecideAsync(string contractId, CancellationDecision input, CancellationToken ct) =>
         Reply(await cancellations.DecideAsync(Actor, contractId, input.Decision, input.Reason, ct));
 
+    [HttpPost("manager/contracts/{contractId}/refund/start")]
+    [Authorize(Roles = UserRoles.LogisticsManager)]
+    public async Task<IActionResult> StartRefundAsync(string contractId, CancellationToken ct) =>
+        Reply(await cancellations.StartRefundAsync(Actor, contractId, ct));
+
     [HttpPost("manager/contracts/{contractId}/refund/complete")]
     [Authorize(Roles = UserRoles.LogisticsManager)]
-    public async Task<IActionResult> RefundAsync(string contractId, CancellationToken ct) =>
-        Reply(await cancellations.CompleteRefundAsync(Actor, contractId, ct));
+    public async Task<IActionResult> RefundAsync(string contractId, RefundEvidenceInput input, CancellationToken ct) =>
+        Reply(await cancellations.CompleteRefundAsync(Actor, contractId, input, ct));
 
 }

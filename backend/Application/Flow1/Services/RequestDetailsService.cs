@@ -12,8 +12,8 @@ public sealed class RequestDetailsService(IDataSession data, AccessService acces
     {
         var request = await access.RequestAsync(id, actor, manager, ct);
         var links = await data.ListAsync<RequestHorse>(x => x.RequestID == id, ct);
-        var view = JsonSerializer.SerializeToNode(RequestMapper.View(request, links))!.AsObject();
         var contract = (await data.ListAsync<Contract>(x => x.RequestID == id, ct)).SingleOrDefault();
+        var view = JsonSerializer.SerializeToNode(RequestMapper.View(request, links, contract))!.AsObject();
         var versions = contract is null ? [] : await data.ListAsync<ContractVersion>(x => x.ContractID == contract.ContractID && (manager || x.PublishedAtUtc != null), ct);
         view["versions"] = JsonSerializer.SerializeToNode(versions.OrderBy(x => x.VersionNo).Select(x => ContractMapper.View(contract!, x, request)));
         var invoices = contract is null ? [] : await data.ListAsync<Invoice>(x => x.ContractID == contract.ContractID, ct);
@@ -22,7 +22,7 @@ public sealed class RequestDetailsService(IDataSession data, AccessService acces
         view["payments"] = JsonSerializer.SerializeToNode(payments.Select(x => new
         {
             id = x.PaymentID, invoiceId = x.InvoiceID, amount = x.Amount, currency = x.CurrencyCode,
-            method = x.Method, status = x.Status, receivedAmount = x.VnpayReceivedAmount,
+            method = x.Method, status = x.Status, paymentOutcome = PaymentService.Outcome(x), receivedAmount = x.VnpayReceivedAmount,
             paidAt = x.VnpayReceivedAmount is null ? null : x.PaymentDate.ToString("yyyy-MM-dd HH:mm"),
             reviewRequired = x.FinancialReviewRequired
         }));

@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Application.DTOs.Flow5;
 using Application.Interfaces.Flow5;
 using Domain.Entities;
@@ -53,6 +53,11 @@ public class Flow5IncidentService : IFlow5IncidentService
             throw new ArgumentException("Mã chuyến đi (TripId) là bắt buộc.");
         }
 
+        dto.TripId = dto.TripId.Replace("-", "_");
+        dto.Category = !string.IsNullOrWhiteSpace(dto.Category) ? dto.Category : (!string.IsNullOrWhiteSpace(dto.Type) ? dto.Type : "OTHER");
+        dto.Description = !string.IsNullOrWhiteSpace(dto.Description) ? dto.Description : dto.Location;
+        dto.ImageUrl = !string.IsNullOrWhiteSpace(dto.ImageUrl) ? dto.ImageUrl : (dto.Photos != null && dto.Photos.Count > 0 ? dto.Photos[0] : null);
+        dto.ImmediateCare = !string.IsNullOrWhiteSpace(dto.ImmediateCare) ? dto.ImmediateCare : dto.Location;
         string targetTripId = dto.TripId;
         var trip = await _context.TripPlans
             .Include(t => t.Request)

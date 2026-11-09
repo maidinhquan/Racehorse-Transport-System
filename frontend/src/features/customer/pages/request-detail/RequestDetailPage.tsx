@@ -40,7 +40,7 @@ function statusBanner(r: TransportRequest): [Tone, string, string] {
   switch (r.status) {
     case 'DRAFT': return ['grey', 'Bản nháp', 'Hoàn tất các bước còn lại và gửi yêu cầu để Manager xét duyệt.'];
     case 'PENDING_REVIEW': return ['yellow', 'Đang chờ Manager xét duyệt', 'CBN Transport đang xem xét yêu cầu. Bạn sẽ nhận thông báo khi có kết quả.'];
-    case 'CHANGES_REQUESTED': return ['yellow', 'Manager yêu cầu chỉnh sửa', 'Xem góp ý của Manager và cập nhật yêu cầu.'];
+    case 'CHANGES_REQUESTED': return ['yellow', 'Quản lý đang chờ phản hồi', r.feedback || 'Xem yêu cầu phản hồi trong phần tổng quan.'];
     case 'REJECTED': return ['red', 'Yêu cầu bị từ chối', r.reason ?? ''];
     case 'CONTRACT_PREPARATION': return ['blue', 'Yêu cầu đã được chấp nhận', 'Logistics Manager đang soạn hợp đồng với giá chính thức.'];
     case 'CONTRACT_CHANGES_REQUESTED': return ['yellow', 'Đã gửi yêu cầu sửa hợp đồng', 'Logistics Manager đang xem xét nội dung bạn đề nghị sửa.'];

@@ -12,8 +12,13 @@ public sealed class ContractLifecycleService(IDataSession data, AccessService ac
         Require(contract.SignedAt is null && contract.ContractStatus == "ISSUED" && contract.CancellationStatus != "PENDING", "INVALID_STATE", "Only an open unsigned contract can be extended.");
         var hours = await policies.NumberAsync("CONTRACT_DEADLINE_HOURS", "HOUR", request.DestinationCountry, request.TransportType, 1, null, false, token);
         var now = clock.GetUtcNow().UtcDateTime; var deadline = (contract.CompletionDeadline > now ? contract.CompletionDeadline.Value : now).AddHours((double)hours);
-        Require(request.ExpectedDate is not null && request.PreparationDays is not null && deadline <= request.ExpectedDate.Value.AddDays(-request.PreparationDays.Value),
-            "INVALID_STATE", "Extension would cross the preparation cutoff.");
+        Require(request.ExpectedDate is not null && request.PreparationDays is not null,
+            "INVALID_STATE", "Chưa có lịch đi hoặc số ngày chuẩn bị để tính hạn gia hạn.");
+        var latestDeadline = request.ExpectedDate!.Value.AddDays(-request.PreparationDays!.Value);
+        if (deadline > latestDeadline) deadline = latestDeadline;
+        Require(deadline > now && deadline > contract.CompletionDeadline,
+            "INSUFFICIENT_PREPARATION_TIME",
+            $"Không thể gia hạn thêm. Hạn tối đa là {latestDeadline.AddHours(7):dd/MM/yyyy HH:mm} (giờ Việt Nam) để đủ {request.PreparationDays} ngày chuẩn bị trước lịch đi. Cần thống nhất lịch đi mới để tiếp tục.");
         contract.CompletionDeadline = deadline; contract.LastExtensionReason = Required(input.Reason, 1000);
         contract.LastExtensionBy = actor; contract.LastExtensionAtUtc = now;
         foreach (var invoice in await data.ListAsync<Invoice>(i => i.ContractID == id && i.ContractVersionNo == input.VersionNo && i.InvoiceType == "DEPOSIT", token)) invoice.DueDate = deadline;
