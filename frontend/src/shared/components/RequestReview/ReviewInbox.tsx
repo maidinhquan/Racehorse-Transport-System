@@ -6,6 +6,9 @@ import type { ChecklistAssessment, Feasibility, ItemStatus, Mode, QueueItem, Rev
 import { documentName, documentStage, itemStatus, reviewDay, reviewMode, reviewResult } from './labels';
 import './RequestReview.css';
 
+const isHiddenChecklistDoc = (documentType: string) =>
+  documentType === 'HEALTH_CERTIFICATE' || documentType === 'VACCINATION';
+
 export function ReviewInbox({ role, button }: { role: Reviewer; button: string }) {
   const [queue, setQueue] = useState<QueueItem[] | null>(null);
   const [selected, setSelected] = useState<ReviewDetail | null>(null);
@@ -21,10 +24,11 @@ export function ReviewInbox({ role, button }: { role: Reviewer; button: string }
     return () => { current = false; clearInterval(timer); };
   }, [role]);
 
-  async function run(action: () => Promise<void>) {
+  async function run(action: () => Promise<void>): Promise<string | null> {
     setBusy(true);
     setError('');
-    try { await action(); } catch (error) { setError(apiMessage(error)); }
+    try { await action(); return null; }
+    catch (error) { const message = apiMessage(error); setError(message); return message; }
     finally { setBusy(false); }
   }
 
@@ -66,7 +70,7 @@ export function ReviewInbox({ role, button }: { role: Reviewer; button: string }
   </section>;
 }
 
-type Submit = (action: () => Promise<ReviewDetail>) => Promise<void>;
+type Submit = (action: () => Promise<ReviewDetail>) => Promise<string | null>;
 interface FormProps { review: ReviewDetail; button: string; busy: boolean; submit: Submit }
 
 function CoordinatorForm({ review, button, busy, submit }: FormProps) {
@@ -102,12 +106,6 @@ function CoordinatorForm({ review, button, busy, submit }: FormProps) {
           <li key={vehicle.id}>{vehicle.plateNumber || vehicle.id} · {vehicle.operatingCountry} · {vehicle.capacityStalls} ô{vehicle.type ? ` · ${vehicle.type}` : ''}</li>)}</ul>
           : <p>Chưa có xe phù hợp trong danh mục.</p>}
       </details>
-      <details><summary>Danh mục chuyến bay ({review.resources?.flights.length ?? 0})</summary>
-        {review.resources?.flights.length ? <ul>{review.resources.flights.map(flight =>
-          <li key={flight.id}>{flight.airline} {flight.providerFlightCode} · {flight.originAirportPlaceId} {flight.departureDate ? flight.departureDate.split('-').reverse().join('/') : 'Chưa có ngày bay'} {flight.departureTime} ({flight.departureTimeZone})
-            {' → '}{flight.destinationAirportPlaceId} {flight.arrivalDate ? flight.arrivalDate.split('-').reverse().join('/') : 'Chưa có ngày đến'} {flight.arrivalTime} ({flight.arrivalTimeZone}) · {flight.capacityHorses} ngựa</li>)}</ul>
-          : <p>Chưa có chuyến bay phù hợp trong danh mục.</p>}
-      </details>
     </div>
     {review.status === 'COORDINATOR_PENDING' && <form onSubmit={onSubmit}>
       <fieldset disabled={busy}>
@@ -135,29 +133,48 @@ function CoordinatorForm({ review, button, busy, submit }: FormProps) {
 function SpecialistForm({ review, option, button, busy, submit, download }: FormProps & { option: ScheduleOption; download: (action: () => Promise<void>) => void }) {
   const [statuses, setStatuses] = useState<Record<string, ItemStatus>>({});
   const [result, setResult] = useState<SpecialistResult | ''>('');
+  const [formError, setFormError] = useState('');
   const sources = option.checklist ?? [];
+  const visibleSources = sources.filter(source => !isHiddenChecklistDoc(source.documentType));
   const title = option.isOriginal ? 'Lịch khách yêu cầu' : 'Lịch đề xuất';
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!result || !option.checklistVersion) return;
+    if (!result || !option.checklistVersion) {
+      setFormError(!option.checklistVersion ? 'Chưa tải được danh sách giấy tờ. Bấm Tải lại rồi gửi đánh giá.' : 'Chọn kết luận hồ sơ trước khi gửi.');
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const items: ChecklistAssessment[] = sources.map(source => {
       const id = source.checklistItemId;
+      if (isHiddenChecklistDoc(source.documentType)) {
+        return {
+          checklistItemId: id,
+          status: source.usable ? 'VERIFIED' : 'NEEDS_FOLLOW_UP',
+          reason: source.usable ? null : 'Bổ sung trước khởi hành',
+          requiredByDate: source.usable ? null : option.expectedTransportDate,
+          estimatedProcessingDays: null,
+        };
+      }
       return {
-        checklistItemId: id, status: statuses[id], reason: String(form.get(id + ':reason') || '') || null,
+        checklistItemId: id,
+        status: statuses[id],
+        reason: String(form.get(id + ':reason') || '') || null,
         requiredByDate: String(form.get(id + ':due') || '') || null,
         estimatedProcessingDays: null,
       };
     });
+    setFormError('');
     void submit(() => requestReviewApi.specialist(review.reviewId, option.scheduleOptionId,
-      { requestRevision: review.requestRevision, checklistVersion: option.checklistVersion!, result, note: String(form.get('note') || ''), items }));
+      { requestRevision: review.requestRevision, checklistVersion: option.checklistVersion!, result, note: String(form.get('note') || ''), items }))
+      .then(message => { if (message) setFormError(message); });
   };
 
   return <div className="review-rows review-item">
     <h4>{title} · {reviewMode(option.mode)} · {reviewDay(option.expectedTransportDate)} → {reviewDay(option.expectedDeliveryDate)}</h4>
     <p>Điều phối: {option.coordinatorReason}</p>
-    {option.specialistResult ? <p>Đã gửi đánh giá: {reviewResult[option.specialistResult]}</p> : <form onSubmit={onSubmit}>
-      {sources.map(source => {
+    {option.specialistResult ? <p>Đã gửi đánh giá: {reviewResult[option.specialistResult]}</p> : <form onSubmit={onSubmit}
+      onChange={() => setFormError('')} onInvalidCapture={() => setFormError('Kiểm tra và điền đủ các mục bắt buộc trước khi gửi đánh giá.')}>
+      {visibleSources.map(source => {
         const id = source.checklistItemId;
         const needsPlan = statuses[id] === 'NEEDS_FOLLOW_UP' && source.stage === 'BEFORE_DEPARTURE';
         return <fieldset key={id} disabled={busy}>
@@ -191,6 +208,7 @@ function SpecialistForm({ review, option, button, busy, submit, download }: Form
         </select>
       </label>
       <label>Ghi chú gửi Quản lý<textarea name="note" required={!!result && result !== 'FEASIBLE'} maxLength={2000} /></label>
+      {formError && <p role="alert">{formError}</p>}
       <div className="review-buttons"><button type="submit" className={button} disabled={busy} title={busy ? 'Đang lưu' : undefined}>Gửi đánh giá hồ sơ</button></div>
     </form>}
   </div>;

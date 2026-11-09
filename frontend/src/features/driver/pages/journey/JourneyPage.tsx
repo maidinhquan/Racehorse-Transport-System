@@ -236,7 +236,7 @@ const Journey: React.FC<{ trip: Trip }> = ({ trip }) => {
             <b>{`${trip.id} • ${trip.origin} → ${trip.destination}`}</b>
           </div>
           {trip.stops.length
-            ? <RouteMap stops={trip.stops} current={m ? m.stopIndex : -1} height={440} pins={pins} />
+            ? <RouteMap stops={trip.stops} mode={trip.mode} current={m ? m.stopIndex : -1} height={440} pins={pins} />
             : <div className="drv-empty"><b>Chưa có tuyến</b>Điều phối viên chưa thêm điểm dừng.</div>}
         </div>
         <div className="drv-journey__side drv-stack">

@@ -64,6 +64,10 @@ public class Flow4HealthService : IFlow4HealthService
                 .FirstOrDefaultAsync() ?? milestoneId;
         }
 
+        var pendingStop = await _context.TripMilestones.FirstOrDefaultAsync(m => m.TripId == tripId && m.MilestoneId == milestoneId && (m.MilestoneKind == "STOP_ARRIVED" || m.MilestoneKind == "STOP_DEPARTED"));
+        if (pendingStop != null && Flow4Helper.HasHealthLogForStop(pendingStop, _context, dto.HorseId))
+            throw new InvalidOperationException("HEALTH_LOG_ALREADY_RECORDED: Ngựa này đã được kiểm tra sức khỏe tại trạm dừng hiện tại.");
+
         var log = new HealthLog
         {
             LogId = $"HL_{Guid.NewGuid():N}"[..20].ToUpper(),

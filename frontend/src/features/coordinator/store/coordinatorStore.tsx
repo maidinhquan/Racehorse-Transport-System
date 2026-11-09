@@ -681,7 +681,7 @@ export interface ModalSpec {
 export const modalState: { spec: ModalSpec | null; key: number } = { spec: null, key: 0 };
 export function openModal(spec: ModalSpec) { modalState.spec = spec; modalState.key++; commit(); }
 export function closeModal() { modalState.spec = null; commit(); }
-export function confirmAction(title: ReactNode, body: ReactNode, ok: string, run: () => string | void, danger = false) {
+export function confirmAction(title: ReactNode, body: ReactNode, ok: string, run: () => string | void | Promise<string | void>, danger = false) {
   openModal({ title, body: () => <p>{body}</p>, ok, danger, onOk: () => run() });
 }
 

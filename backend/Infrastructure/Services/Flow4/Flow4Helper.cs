@@ -56,8 +56,32 @@ public static class Flow4Helper
         };
     }
 
+    public static bool RequiresDepartureHealthCheck(TripMilestone m, HorseTransportDbContext context) =>
+        m.MilestoneKind == "STOP_DEPARTED" && (m.RequiresHealthCheck || context.TripMilestones.Any(previous =>
+            previous.TripId == m.TripId && previous.SequenceOrder == m.SequenceOrder - 1 &&
+            previous.MilestoneKind == "STOP_ARRIVED" && previous.RequiresHealthCheck));
+
+    public static bool HasHealthLogForStop(TripMilestone m, HorseTransportDbContext context, string? horseId = null)
+    {
+        var pairedId = m.MilestoneKind == "STOP_DEPARTED"
+            ? context.TripMilestones.Where(other => other.TripId == m.TripId && other.SequenceOrder == m.SequenceOrder - 1 && other.MilestoneKind == "STOP_ARRIVED").Select(other => other.MilestoneId).FirstOrDefault()
+            : m.MilestoneKind == "STOP_ARRIVED"
+                ? context.TripMilestones.Where(other => other.TripId == m.TripId && other.SequenceOrder == m.SequenceOrder + 1 && other.MilestoneKind == "STOP_DEPARTED").Select(other => other.MilestoneId).FirstOrDefault()
+                : null;
+        return context.HealthLogs.Any(h => h.TripId == m.TripId && (h.MilestoneId == m.MilestoneId || pairedId != null && h.MilestoneId == pairedId)
+            && (horseId == null || h.HorseId == horseId));
+    }
+
+    public static bool HasRequiredHealthLogsForStop(TripMilestone m, HorseTransportDbContext context)
+    {
+        var requestId = context.TripPlans.Where(trip => trip.TripId == m.TripId).Select(trip => trip.RequestId).FirstOrDefault();
+        var horseIds = context.RequestHorseMappings.Where(horse => horse.RequestId == requestId).Select(horse => horse.HorseId).Distinct().ToList();
+        return horseIds.Count > 0 && horseIds.All(horseId => HasHealthLogForStop(m, context, horseId));
+    }
+
     public static Flow4MilestoneDto BuildMilestoneDto(TripMilestone m, string? role, HorseTransportDbContext context)
     {
+        var requiresHealthCheck = RequiresDepartureHealthCheck(m, context);
         var actions = new Flow4MilestoneActionsDto
         {
             CanComplete = m.Status == "PENDING",
@@ -66,11 +90,12 @@ public static class Flow4Helper
         };
 
         // Nếu mốc yêu cầu kiểm tra sức khỏe
-        if (m.RequiresHealthCheck && m.Status == "PENDING")
+        if (requiresHealthCheck && m.Status == "PENDING")
         {
-            var hasLogs = context.HealthLogs.Any(h => h.TripId == m.TripId && h.MilestoneId == m.MilestoneId);
+            var hasLogs = HasRequiredHealthLogsForStop(m, context);
             if (!hasLogs)
             {
+                actions.CanComplete = false;
                 actions.Blockers.Add(new Flow4BlockerDto
                 {
                     Code = "HEALTH_CHECK_REQUIRED",
@@ -97,7 +122,7 @@ public static class Flow4Helper
             PlannedAt = m.PlannedTime.ToString("yyyy-MM-dd HH:mm"),
             OccurredAt = m.OccurredAt?.ToString("yyyy-MM-dd HH:mm"),
             Revision = m.Revision,
-            RequiresHealthCheck = m.RequiresHealthCheck,
+            RequiresHealthCheck = requiresHealthCheck,
             EvidenceFileIds = evidenceIds,
             Note = m.Note ?? "",
             Geo = m.Latitude is decimal lat && m.Longitude is decimal lng ? new Flow4GeoDto { Lat = lat, Lng = lng } : null,

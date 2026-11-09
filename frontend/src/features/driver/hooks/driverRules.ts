@@ -124,16 +124,46 @@ export function stopRequiresHealthCheck(stop?: RouteStop): boolean {
   return !!stop.requiresHealthCheck || stop.type === 'QUARANTINE_STATION';
 }
 
-export function hasHealthLogForStop(t: Trip, stopIndex: number): boolean {
+export function hasHealthLogForStop(t: Trip, stopIndex: number, horseId?: string): boolean {
   const stop = t.stops[stopIndex];
   if (!stop) return false;
-  const arrived = t.milestones.find((m) => m.type === 'ARRIVED_STOP' && m.stopIndex === stopIndex);
+  const arrived = t.milestones.find((m) =>
+    (m.type === 'ARRIVED_STOP' || m.type === 'ARRIVED_CHECKPOINT' || (m.type === 'DEPARTED' && stopIndex === 0)) &&
+    m.stopIndex === stopIndex
+  );
   if (!arrived) return false;
-  return t.health.some((h) => {
-    if ((h as any).milestoneId && (h as any).milestoneId === stop.id) return true;
-    if (h.at && arrived.at && h.at >= arrived.at) return true;
+
+  const norm = (id?: string) => (id || '').trim().toLowerCase();
+  const ids = [stop.id, stop.departureMilestoneId].filter(Boolean).map(norm);
+  const horses = horseId ? [horseId] : t.horses;
+
+  const safeMs = (s?: string) => {
+    if (!s) return 0;
+    const ms = stampMs(s);
+    return isNaN(ms) ? 0 : ms;
+  };
+
+  const arrivedStamp = safeMs(arrived.at);
+  const nextStop = t.stops[stopIndex + 1];
+  const nextMilestoneRecorded = nextStop ? t.milestones.find((m) => m.stopIndex === stopIndex + 1) : null;
+  const nextStamp = nextMilestoneRecorded ? safeMs(nextMilestoneRecorded.at) : Infinity;
+
+  return horses.length > 0 && horses.every((id) => t.health.some((h) => {
+    if (h.horseId !== id) return false;
+    // 1. Khi co milestoneId (du lieu backend/that): BAT BUOC phai khop ma moc den hoac moc roi cua chinh tram nay
+    if (h.milestoneId) {
+      return ids.includes(norm(h.milestoneId));
+    }
+    // 2. Du phong khi khong co milestoneId (demo/mock): so sanh thoi diem trong thoi gian dung tai tram nay
+    if (arrivedStamp > 0 && h.at) {
+      const logStamp = safeMs(h.at);
+      if (logStamp > 0) {
+        return logStamp >= (arrivedStamp - 60 * 1000) && (nextStamp === Infinity || logStamp < nextStamp);
+      }
+      return h.at.slice(0, 16) >= arrived.at.slice(0, 16);
+    }
     return false;
-  });
+  }));
 }
 
 const CROSSING: StopType[] = ['CHECKPOINT', 'AIRPORT', 'QUARANTINE_STATION'];

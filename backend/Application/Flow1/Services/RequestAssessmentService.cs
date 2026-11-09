@@ -22,8 +22,7 @@ public sealed partial class RequestAssessmentService(
     {
         var request = await access.RequestAsync(id, actor, true, ct);
         var review = await LatestAsync(id, ct);
-        var staff = request.Status == Pending && (review is null || review.Status == "CLOSED")
-            ? await data.ListAsync<Account>(x => x.IsActive, ct) : [];
+        var staff = await data.ListAsync<Account>(x => x.IsActive, ct);
         return new
         {
             requestRevision = review is null ? 1 : review.RequestRevision + (review.Status == "CLOSED" ? 1 : 0),

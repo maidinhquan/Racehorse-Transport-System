@@ -501,7 +501,9 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
                       : settlement.status === 'SETTLED'
                       ? 'Đã tất toán (SETTLED)'
                       : settlement.status === 'AWAITING_PAYMENT'
-                      ? 'Chờ thanh toán (AWAITING_PAYMENT)'
+                      ? (balance && balance.remainingVnd <= 0
+                        ? 'Chờ nghiệm thu & tất toán'
+                        : 'Chờ thanh toán (AWAITING_PAYMENT)')
                       : 'Bản nháp (DRAFT)'
                   }
                   tone={
@@ -509,6 +511,8 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
                       ? 'muted'
                       : settlement.status === 'SETTLED'
                       ? 'ok'
+                      : settlement.status === 'AWAITING_PAYMENT' && balance && balance.remainingVnd <= 0
+                      ? 'info'
                       : 'warn'
                   }
                 />

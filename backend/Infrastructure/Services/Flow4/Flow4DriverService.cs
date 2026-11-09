@@ -281,10 +281,9 @@ public class Flow4DriverService : IFlow4DriverService
             throw new InvalidOperationException("MILESTONE_NOT_NEXT: Bắt buộc phải hoàn tất các mốc trước đó theo đúng trình tự tuần tự.");
 
         // 2. Chốt chặn y tế: Nếu mốc có cờ RequiresHealthCheck
-        if (milestone.RequiresHealthCheck)
+        if (Flow4Helper.RequiresDepartureHealthCheck(milestone, _context))
         {
-            var hasLogs = await _context.HealthLogs
-                .AnyAsync(h => h.TripId == tripId && h.MilestoneId == milestoneId);
+            var hasLogs = Flow4Helper.HasRequiredHealthLogsForStop(milestone, _context);
 
             if (!hasLogs)
                 throw new InvalidOperationException("HEALTH_CHECK_REQUIRED: Trạm dừng này yêu cầu ghi nhận nhật ký sức khỏe cho ngựa trước khi hoàn tất.");

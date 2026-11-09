@@ -1,3 +1,4 @@
+import { QUICK_LOGIN_ACCOUNTS } from '../../../../auth/quickLoginAccounts';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { apiMessage } from '../../../../../shared/api/contractClient';
@@ -33,6 +34,20 @@ export function RequestAssessmentPanel({ requestId, pending, accept, changes, re
   const review = state?.review;
   const working = review?.status === 'MANAGER_PENDING' || review?.status === 'CUSTOMER_ACCEPTED' || review?.status === 'CUSTOMER_REJECTED';
   const canRequestChanges = pending && working;
+
+  const resolveStaffName = (id?: string) => {
+    if (!id) return '';
+    const fromCoordinator = state?.coordinators?.find(x => x.id === id)?.name;
+    if (fromCoordinator) return fromCoordinator;
+    const fromSpecialist = state?.specialists?.find(x => x.id === id)?.name;
+    if (fromSpecialist) return fromSpecialist;
+    const fallback = QUICK_LOGIN_ACCOUNTS.find((a: { id: string; label: string }) => a.id === id);
+    if (fallback) return fallback.label.split('·')[0].trim() || fallback.label;
+    return id;
+  };
+
+  const coordinatorName = resolveStaffName(review?.coordinatorId);
+  const specialistName = resolveStaffName(review?.specialistId);
 
   async function run(command: () => Promise<boolean>) {
     setBusy(true);
@@ -77,30 +92,53 @@ export function RequestAssessmentPanel({ requestId, pending, accept, changes, re
         title={busy ? 'Đang phân công' : undefined}>Giao xét duyệt</button></div>
     </form>}
     {review && <>
-      <p aria-live="polite">{reviewStatus[review.status]}{review.customerDeadlineUtc ? ` · Hạn ${new Date(review.customerDeadlineUtc).toLocaleString('vi-VN')}` : ''}</p>
-      {review.options.map(option => <div key={option.scheduleOptionId} className="review-item review-rows">
-        <b>{option.isOriginal ? 'Lịch khách yêu cầu' : option.coordinatorResult === 'FEASIBLE' ? 'Lịch đề xuất' : 'Phương án đã loại'} · {reviewMode(option.mode)}</b>
-        <p>{reviewDay(option.expectedTransportDate)} → {reviewDay(option.expectedDeliveryDate)}</p>
-        <p>Điều phối: {reviewResult[option.coordinatorResult]} · {option.coordinatorReason}</p>
-        {option.specialistResult && <p>Chuyên viên: {reviewResult[option.specialistResult]}{option.specialistNote ? ` · ${option.specialistNote}` : ''}</p>}
-        {!!option.assessment?.length && <div>
-          <b>Kết quả thẩm định giấy tờ</b>
-          <ul>{option.assessment.map(item => {
-            const [horseId, type] = item.checklistItemId.split(':');
-            return <li key={item.checklistItemId}>{horseId} · {documentName[type]} · {itemStatus[item.status]}
-              {item.reason ? ` · ${item.reason}` : ''}{item.requiredByDate ? ` · Hạn ${reviewDay(item.requiredByDate)}` : ''}
-              </li>;
-          })}</ul>
-        </div>}
-        {pending && working && <div className="review-buttons">
-          {canApprove(option) && <button type="button" className="mgr-btn mgr-btn--solid" disabled={busy}
-            title={busy ? 'Đang lưu quyết định' : undefined}
-            onClick={() => void run(() => accept({ reviewId: review.reviewId, requestRevision: review.requestRevision, scheduleOptionId: option.scheduleOptionId }))}>
-            Chấp thuận lịch này</button>}
-          {!option.isOriginal && review.status === 'MANAGER_PENDING' && option.specialistResult === 'FEASIBLE' &&
-            <button type="button" className="mgr-btn" onClick={() => { setAction(option.scheduleOptionId); setFeedback(''); }}>Hỏi khách về lịch này</button>}
-        </div>}
-      </div>)}
+      <div className="review-status-box">
+        <p aria-live="polite">
+          <span className="review-caption">Trạng thái:</span> <b>{reviewStatus[review.status] ?? review.status}</b>
+          {review.customerDeadlineUtc ? ` · Hạn ${new Date(review.customerDeadlineUtc).toLocaleString('vi-VN')}` : ''}
+        </p>
+        <div className="review-assigned-staff">
+          <p>
+            <span className="review-caption">Điều phối:</span>{' '}
+            <b>{coordinatorName || review.coordinatorId}</b>
+            {review.status === 'COORDINATOR_PENDING' && <span className="review-pending-tag"> (Đang chờ xử lý)</span>}
+          </p>
+          <p>
+            <span className="review-caption">Chuyên viên kiểm dịch:</span>{' '}
+            <b>{specialistName || review.specialistId}</b>
+            {review.status === 'SPECIALIST_PENDING' && <span className="review-pending-tag"> (Đang chờ xử lý)</span>}
+          </p>
+        </div>
+      </div>
+      {review.options.map(option => {
+        const visibleAssessments = option.assessment?.filter(item => {
+          const [, type] = item.checklistItemId.split(':');
+          return type !== 'HEALTH_CERTIFICATE' && type !== 'VACCINATION';
+        }) ?? [];
+        return <div key={option.scheduleOptionId} className="review-item review-rows">
+          <b>{option.isOriginal ? 'Lịch khách yêu cầu' : option.coordinatorResult === 'FEASIBLE' ? 'Lịch đề xuất' : 'Phương án đã loại'} · {reviewMode(option.mode)}</b>
+          <p>{reviewDay(option.expectedTransportDate)} → {reviewDay(option.expectedDeliveryDate)}</p>
+          <p>Điều phối: {reviewResult[option.coordinatorResult]} · {option.coordinatorReason}</p>
+          {option.specialistResult && <p>Chuyên viên: {reviewResult[option.specialistResult]}{option.specialistNote ? ` · ${option.specialistNote}` : ''}</p>}
+          {visibleAssessments.length > 0 && <div>
+            <b>Kết quả thẩm định giấy tờ</b>
+            <ul>{visibleAssessments.map(item => {
+              const [horseId, type] = item.checklistItemId.split(':');
+              return <li key={item.checklistItemId}>{horseId} · {documentName[type] ?? type} · {itemStatus[item.status] ?? item.status}
+                {item.reason ? ` · ${item.reason}` : ''}{item.requiredByDate ? ` · Hạn ${reviewDay(item.requiredByDate)}` : ''}
+                </li>;
+            })}</ul>
+          </div>}
+          {pending && working && <div className="review-buttons">
+            {canApprove(option) && <button type="button" className="mgr-btn mgr-btn--solid" disabled={busy}
+              title={busy ? 'Đang lưu quyết định' : undefined}
+              onClick={() => void run(() => accept({ reviewId: review.reviewId, requestRevision: review.requestRevision, scheduleOptionId: option.scheduleOptionId }))}>
+              Chấp thuận lịch này</button>}
+            {!option.isOriginal && review.status === 'MANAGER_PENDING' && option.specialistResult === 'FEASIBLE' &&
+              <button type="button" className="mgr-btn" onClick={() => { setAction(option.scheduleOptionId); setFeedback(''); }}>Hỏi khách về lịch này</button>}
+          </div>}
+        </div>;
+      })}
       {canRequestChanges && <button type="button" className="mgr-btn"
         onClick={() => { setAction('SUPPLEMENT_DOCUMENTS'); setFeedback(''); }}>
         Yêu cầu khách bổ sung

@@ -35,7 +35,7 @@ export const IncidentLocationPicker: React.FC<Props> = ({ trip, ratio, onChange 
       <p className="drv-hint">
         {pct === 0 ? `Đang tại ${cleanStopName(a.name)}` : `Cách trạm A khoảng ${pct}% đoạn đường`}. Kéo trực tiếp biểu tượng sự cố (!) trên bản đồ hoặc bấm vào cung đường để chọn vị trí.
       </p>
-      <RouteMap stops={trip.stops} current={aIndex} height={280} compact onPick={onPick} pins={pins} draggablePin />
+      <RouteMap stops={trip.stops} mode={trip.mode} current={aIndex} height={280} compact onPick={onPick} pins={pins} draggablePin />
     </div>
   );
 };

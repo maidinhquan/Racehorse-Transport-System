@@ -1362,16 +1362,17 @@ export function submitRoadRoute(id: string, extraCheck?: () => string, onSubmitt
   const err = validateRoute(t, rt);
   if (err) return setRouteError(err);
   routeSubmitError = '';
-  confirmAction(`Gửi tuyến ${t.id} v${rt.v} cho Manager duyệt?`, `${rt.stops.length} điểm dừng, kèm xe và tổ lái đã phân công.`, 'Gửi Manager duyệt', () => {
+  confirmAction(`Gửi tuyến ${t.id} v${rt.v} cho Manager duyệt?`, `${rt.stops.length} điểm dừng, kèm xe và tổ lái đã phân công.`, 'Gửi Manager duyệt', async () => {
     if (rt.status !== 'DRAFT' || opsBlock(t)) { toast(opsBlock(t) || 'Phiên bản này đã được gửi.'); return; }
     const again = extraCheck?.(); if (again) return again;
+    const sendError = demoOn() ? '' : await pushPlanToBackend(t);
+    if (sendError) return `Chưa gửi được phương án lên máy chủ: ${sendError}`;
     onSubmitted?.();
     rt.status = 'PENDING_APPROVAL';
     rt.submittedAt = nowStamp();
     flushTripStateToStorage();
     saveSharedTrip(t);
     flushTripStateToStorage();
-    void pushPlanToBackend(t).then((err) => { if (err && !demoOn()) toast('Chưa gửi được phương án lên máy chủ: ' + err); });
     notify('LOGISTICS_MANAGER', `Tuyến ${t.id} cần duyệt`, `v${rt.v} · ${rt.stops.length} điểm dừng`, `m/trip/${t.id}/route`);
     audit('Submitted road route', id, `Version ${rt.v}`);
     toast(`Đã gửi tuyến phiên bản ${rt.v} cho Manager duyệt.`);

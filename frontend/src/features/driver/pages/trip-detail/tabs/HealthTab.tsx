@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { DateTimeInput } from '../../../../../shared/components/DateTimeInput/DateTimeInput';
 import type { HorseCondition, Trip } from '../../../types';
 import { useDriver } from '../../../hooks/useDriver';
-import { CONDITION_LABEL, fmtDateTime, nowStamp, toInputValue } from '../../../hooks/driverRules';
+import { CONDITION_LABEL, fmtDateTime, hasHealthLogForStop, nextMilestone, nowStamp, toInputValue } from '../../../hooks/driverRules';
 
 const CONDITIONS: HorseCondition[] = ['NORMAL', 'MONITOR', 'ABNORMAL'];
 const TONE: Record<HorseCondition, string> = { NORMAL: 'green', MONITOR: 'orange', ABNORMAL: 'red' };
@@ -19,6 +19,19 @@ export const HealthTab: React.FC<{ trip: Trip }> = ({ trip }) => {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const canWrite = isEscort && trip.status !== 'COMPLETED';
+  const next = nextMilestone(trip);
+  const currentStopIndex = next ? next.stopIndex : -1;
+  const checkedAtStop = currentStopIndex >= 0 && hasHealthLogForStop(trip, currentStopIndex, horseId);
+
+  useEffect(() => {
+    if (!horseId && trip.horses.length > 0) {
+      setHorseId(trip.horses[0]);
+    }
+  }, [trip.horses, horseId]);
+
+  useEffect(() => {
+    setAt(toInputValue(nowStamp()));
+  }, [currentStopIndex]);
 
   const save = async () => {
     setSaving(true);
@@ -68,7 +81,8 @@ export const HealthTab: React.FC<{ trip: Trip }> = ({ trip }) => {
             <textarea id="drv-hn" className="drv-textarea" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ăn, uống, hành vi, xử trí đã thực hiện" />
           </div>
           {error && <p className="drv-error" role="alert">{error}</p>}
-          <button type="button" className="drv-btn drv-btn--solid drv-btn--lg drv-btn--block" disabled={saving || !horseId} onClick={save}>{saving ? 'Đang lưu…' : 'Lưu quan sát'}</button>
+          {checkedAtStop && <p className="drv-hint">Ngựa này đã được kiểm tra sức khỏe tại trạm dừng hiện tại.</p>}
+          <button type="button" className="drv-btn drv-btn--solid drv-btn--lg drv-btn--block" disabled={saving || !horseId || checkedAtStop} title={checkedAtStop ? 'Đã kiểm tra sức khỏe tại trạm dừng hiện tại' : undefined} onClick={save}>{saving ? 'Đang lưu…' : 'Lưu quan sát'}</button>
         </div>
       ) : (
         <div className="drv-card">

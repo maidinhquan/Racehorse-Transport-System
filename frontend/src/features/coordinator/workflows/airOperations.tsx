@@ -391,9 +391,11 @@ export function submitAirPlan(id: string) {
   rpWriteTimes(t, rt, calc);
   const routeError = validateRoute(t, rt); if (routeError) return toast(routeError);
   const signature = providerSignature(t.flight);
-  confirmAction(`Gửi tuyến ${t.id} v${rt.v} cho Manager duyệt?`, 'Gồm lộ trình, cặp sân bay và lịch bay dự kiến.', 'Gửi Manager duyệt', () => {
+  confirmAction(`Gửi tuyến ${t.id} v${rt.v} cho Manager duyệt?`, 'Gồm lộ trình, cặp sân bay và lịch bay dự kiến.', 'Gửi Manager duyệt', async () => {
     const latest = rpCalc(t);
     if (editableTrip(t) || curRoute(t) !== rt || rt.status !== 'DRAFT' || signature !== providerSignature(t.flight) || !latest || latest.issues.length) { toast('Kế hoạch đã thay đổi; kiểm tra lại trước khi gửi.'); return; }
+    const sendError = demoOn() ? '' : await pushPlanToBackend(t);
+    if (sendError) return `Chưa gửi được phương án lên máy chủ: ${sendError}`;
     rt.status = 'PENDING_APPROVAL';
     rt.submittedAt = nowStamp();
     if (t.flight) {
@@ -405,7 +407,6 @@ export function submitAirPlan(id: string) {
     flushTripStateToStorage();
     commit();
 
-    void pushPlanToBackend(t).then((err) => { if (err && !demoOn()) toast('Chưa gửi được phương án lên máy chủ: ' + err); });
     try {
       if (t.flight) {
         void flow3Api.submitFlightProposal(t.id, { expectedVersion: 0, flightVersion: 1 }, `fp-${t.id}-${Date.now()}`).catch(() => {});

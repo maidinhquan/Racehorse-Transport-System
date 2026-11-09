@@ -49,6 +49,26 @@ export interface HorseRef {
   breed: string;
   microchip: string;
   passportNo: string;
+  sex?: string | null;
+  dob?: string | null;
+  color?: string | null;
+  value?: string | number | null;
+  currency?: string | null;
+  healthNotes?: string | null;
+  conditions?: string | null;
+  fluDate?: string | null;
+  passport?: {
+    number?: string | null;
+    authority?: string | null;
+    issueDate?: string | null;
+    expiryDate?: string | null;
+    scan?: { name?: string; url?: string } | string | null;
+  } | null;
+  photo?: { name?: string; url?: string } | string | null;
+  ownership?: { name?: string; url?: string } | string | null;
+  valueProof?: { name?: string; url?: string } | string | null;
+  flu?: { name?: string; url?: string } | string | null;
+  health?: { name?: string; url?: string } | string | null;
 }
 
 export interface Place {

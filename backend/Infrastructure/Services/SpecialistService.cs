@@ -41,7 +41,7 @@ namespace Infrastructure.Services
 
             if (role == "TRANSPORT_SPECIALIST" && !string.IsNullOrEmpty(userId))
             {
-                query = query.Where(t => t.Status == "PLANNING" || t.Status == "READY_TO_DEPART" || t.Status == "SCHEDULED" || t.Status == "IN_TRANSIT" || t.Status == "COMPLETED" || t.Status == "CONFIRMED");
+                query = query.Where(t => t.AssignedSpecialistId == userId && (t.Status == "PLANNING" || t.Status == "READY_TO_DEPART" || t.Status == "SCHEDULED" || t.Status == "IN_TRANSIT" || t.Status == "COMPLETED" || t.Status == "CONFIRMED"));
             }
 
             query = query.OrderByDescending(t => t.TripId);
@@ -118,6 +118,7 @@ namespace Infrastructure.Services
                     Mode = req?.TransportType ?? "ROAD",
                     Status = t.Status,
                     Deployment = t.DeploymentStatus ?? "CONFIRMED",
+                    SpecialistId = t.AssignedSpecialistId,
                     PlannedDepart = req?.ExpectedDate?.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm"),
                     Eta = req?.CommittedDeadline?.ToString("yyyy-MM-dd HH:mm") ?? DateTime.UtcNow.AddDays(3).ToString("yyyy-MM-dd HH:mm"),
                     Horses = horses,

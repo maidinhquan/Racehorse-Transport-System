@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Horse, HorseInput, TransportRequest } from '../../../types';
 import { customerApi } from '../../../api/customerApi';
 import { useCustomer } from '../../../hooks/useCustomer';
-import { emptyHorse, horseDocItems, horseLine, horseRequests, validateHorseForm, HORSE_FIELD_ELEMENT_IDS } from '../../../hooks/customerRules';
+import { emptyHorse, horseDocItems, horseLine, activeHorseRequests, validateHorseForm, HORSE_FIELD_ELEMENT_IDS } from '../../../hooks/customerRules';
 import { Icon } from '../../../components/CustomerLayout';
 import { DocumentRows } from '../../../components/DocumentList/DocumentList';
 import { HorseForm } from '../../../components/HorseForm/HorseForm';
@@ -255,7 +255,7 @@ export const HorsesStep: React.FC<{ request: TransportRequest }> = ({ request: r
                     <input type="radio" name="pick-horse" checked={selectedId === h.id} disabled={taken || unavailable || locked} onChange={() => pick(h.id)} />
                     <span className="cus-pick__thumb"><AuthImage src={h.photo?.url} fallback={<Icon name="horse" />} /></span>
                     <span className="cus-pick__text"><b>{h.name}</b><small>{horseLine(h)}{taken ? ' • Đã chọn ở vị trí khác' : conflicts[h.id] ? ' • Đang thuộc đơn chưa hoàn tất' : ''}</small></span>
-                    <TripStatusBadge label={horseRequests(h, requests).length ? 'Đã dùng trong đơn' : 'Chưa dùng'} tone={horseRequests(h, requests).length ? 'info' : 'muted'} />
+                    <TripStatusBadge label={conflicts[h.id] ? 'Đang trong đơn' : activeHorseRequests(h, requests).length ? 'Đang trong đơn' : 'Khả dụng'} tone={conflicts[h.id] || activeHorseRequests(h, requests).length ? 'info' : 'ok'} />
                   </label>
                 );
               })}

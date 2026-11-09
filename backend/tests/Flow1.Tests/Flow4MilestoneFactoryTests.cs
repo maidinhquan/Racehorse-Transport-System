@@ -29,8 +29,8 @@ public class Flow4MilestoneFactoryTests
         Assert.Equal(10.9289m, milestones[2].Latitude);
         Assert.Equal(new DateTime(2026, 11, 19, 8, 31, 0), milestones[1].PlannedTime);
         Assert.Equal(new DateTime(2026, 11, 19, 9, 31, 0), milestones[2].PlannedTime);
-        Assert.True(milestones[1].RequiresHealthCheck);
-        Assert.False(milestones[2].RequiresHealthCheck);
+        Assert.False(milestones[1].RequiresHealthCheck);
+        Assert.True(milestones[2].RequiresHealthCheck);
         Assert.False(milestones[5].RequiresHealthCheck);
     }
 

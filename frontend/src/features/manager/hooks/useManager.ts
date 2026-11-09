@@ -474,6 +474,10 @@ const managerActions = {
       setState(s => ({ requests: s.requests.some(r => r.id === id) ? s.requests.map(r => r.id === id ? request : r) : [...s.requests, request],
         transactions: s.transactions.map(p => request.versions.some(v => v.contractId === p.contractId) ? { ...p, requestId: id } : p),
       }));
+      if (isSigned(request) && !tripOfReq(state, id)) {
+        const trip = (await managerApi.getTrips()).find(t => cleanId(t.requestId) === cleanId(id));
+        if (trip) setState(s => ({ trips: [...s.trips.filter(t => cleanId(t.id) !== cleanId(trip.id)), trip] }));
+      }
     } catch (error) { toast(apiMessage(error)); }
   },
   reload: () => { void loadAll({ force: true, silent: false }); },

@@ -24,6 +24,7 @@ describe('progressFromMilestones', () => {
       ['MILESTONE_002', 'REST_STOP', 11, 108],
       ['MILESTONE_004', 'DESTINATION', undefined, undefined],
     ]);
+    expect(stops[1].departureMilestoneId).toBe('MILESTONE_003');
   });
 
   it('reports arrival and departure milestones linked to their stop index', () => {

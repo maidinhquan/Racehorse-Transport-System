@@ -100,7 +100,7 @@ export const HorseDetailPage: React.FC = () => {
           <div className="cus-card">
             <h3 className="cus-card__title">Tiêm ngừa & sức khỏe</h3>
             <div className="cus-kv">
-              <div><span>Tiêm cúm gần nhất</span><b>{fmtDate(h.fluDate)}</b></div>
+              {h.fluDate ? <div><span>Tiêm cúm gần nhất</span><b>{fmtDate(h.fluDate)}</b></div> : null}
               <div><span>Ghi chú sức khỏe</span><b>{h.conditions || 'Không khai báo'}</b></div>
             </div>
             {fileRow('Sổ tiêm ngừa', h.flu)}

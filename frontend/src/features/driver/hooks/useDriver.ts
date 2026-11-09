@@ -12,6 +12,7 @@ import type {
   ReportIncidentRequestDto,
   Trip,
 } from '../types';
+import { createSyncController, notifySync } from '../../../shared/utils/syncChannel';
 import { saveIncidentPin } from '../../../shared/utils/sharedIncidentPins';
 import { getSharedIncidents, saveSharedIncident } from '../../../shared/utils/sharedIncidents';
 import { driverApi } from '../api/driverApi';
@@ -24,6 +25,7 @@ import {
   emptyHandoverDraft,
   fromInputValue,
   handoverCheck,
+  hasHealthLogForStop,
   isActiveTrip,
   milestoneText,
   minutesBetween,
@@ -113,7 +115,20 @@ const setState = (patch: Partial<DriverState> | ((s: DriverState) => Partial<Dri
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
   listeners.forEach((l) => l());
 };
-const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+let unsubscribeSyncController: (() => void) | null = null;
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  if (listeners.size === 1 && syncController) {
+    unsubscribeSyncController = syncController.subscribe();
+  }
+  return () => {
+    listeners.delete(l);
+    if (listeners.size === 0 && unsubscribeSyncController) {
+      unsubscribeSyncController();
+      unsubscribeSyncController = null;
+    }
+  };
+};
 const getSnapshot = () => state;
 
 const toast = (message: string) => setState({ toast: { id: Date.now(), message } });
@@ -166,7 +181,7 @@ async function buildLiveTrip(id: string, f6?: { tripId: string; requestId: strin
         .filter((h) => !healthRes.value.some((o) => o.supersedesId === h.id))
         .map((h) => ({
           id: h.id, horseId: h.entry.horseId, at: h.entry.observedAt, temp: h.entry.temperatureC ?? 0, hr: h.entry.heartRateBpm ?? 0,
-          condition: h.entry.condition, notes: h.entry.observation, by: h.recordedBy.userId,
+          condition: h.entry.condition, notes: h.entry.observation, by: h.recordedBy.userId, milestoneId: h.entry.milestoneId ?? undefined,
         }))
     : [];
   const extras = { customer: ctx?.designatedReceiverName || 'Khách hàng', receiverName: ctx?.designatedReceiverName || '', receiverPhone: ctx?.designatedReceiverPhone || '' };
@@ -185,9 +200,9 @@ async function buildLiveTrip(id: string, f6?: { tripId: string; requestId: strin
   return { trip, crew: [] as CrewMember[], horses: [] as Horse[] };
 }
 
-async function loadAll() {
+async function loadAll(opts: { silent?: boolean; force?: boolean } = {}) {
   if (state.loading) return;
-  setState({ loading: true });
+  if (!opts.silent) setState({ loading: true });
   try {
     if (!getDemoMode('driver')) {
       try {
@@ -205,21 +220,31 @@ async function loadAll() {
         const crewMap = new Map<string, CrewMember>();
         const horseMap = new Map<string, Horse>();
         built.forEach((b) => { b.crew.forEach((c) => crewMap.set(c.id, c)); b.horses.forEach((h) => horseMap.set(h.id, h)); });
-        setState({
-          trips: built.map((b) => b.trip),
+        setState((s) => ({
+          trips: built.map((b) => {
+            const existing = s.trips.find((t) => t.id === b.trip.id);
+            return existing
+              ? {
+                  ...b.trip,
+                  handover: existing.handover ?? b.trip.handover,
+                  handoverAttempts: existing.handoverAttempts?.length ? existing.handoverAttempts : b.trip.handoverAttempts,
+                  handoverStatus: existing.handoverStatus ?? b.trip.handoverStatus,
+                }
+              : b.trip;
+          }),
           crew: [...crewMap.values()],
           horses: [...horseMap.values()],
           incidents,
-          userId: tokenUser() || state.userId,
+          userId: tokenUser() || s.userId,
           loading: false,
           loaded: true,
           loadedFor: tokenUser(),
-        });
+        }));
         return;
       } catch (err) {
         console.warn('[useDriver] Failed to fetch real trips:', err);
         const incidents = await driverApi.getIncidents().catch(() => initialIncidents());
-        setState({ ...emptyData(), incidents, loading: false, loaded: true });
+        setState({ ...(opts.silent ? {} : emptyData()), incidents, loading: false, loaded: true });
         return;
       }
     }
@@ -230,9 +255,15 @@ async function loadAll() {
     setState({ trips, crew, horses, incidents, loading: false, loaded: true });
   } catch {
     const incidents = await driverApi.getIncidents().catch(() => (getDemoMode('driver') ? mockIncidents : initialIncidents()));
-    setState({ ...(getDemoMode('driver') ? demoData() : emptyData()), incidents, loading: false, loaded: true });
+    setState({ ...(opts.silent ? {} : (getDemoMode('driver') ? demoData() : emptyData())), incidents, loading: false, loaded: true });
   }
 }
+
+const syncController = createSyncController({
+  intervalMs: 10000,
+  onRefresh: ({ silent, force }) => loadAll({ silent, force }),
+  eventType: 'requests_updated',
+});
 
 // ============================================================================
 // Actions
@@ -277,6 +308,7 @@ const actions = {
     } else {
       updateTrip(tripId, (x) => ({ ...x, milestones: [...x.milestones, m], status: n.type === 'DEPARTED' ? 'IN_TRANSIT' : x.status }));
     }
+    notifySync('refresh_all');
     const extra = n.type === 'ARRIVED_CHECKPOINT' ? ' Specialist đã được báo để ghi kết quả thông quan.'
       : n.type === 'ARRIVED_DESTINATION' ? ' Hãy tiến hành bàn giao.' : '';
     return ok(`Đã ghi nhận: ${milestoneText(t, n)}.${extra}`);
@@ -288,6 +320,7 @@ const actions = {
     if (reason.trim().length < 10) return fail('Mô tả lý do ít nhất 10 ký tự.');
     await driverApi.reportDepartureDelay(tripId, { reason: reason.trim() });
     updateTrip(tripId, (x) => ({ ...x, departureDelay: { status: 'REPORTED', at: nowStamp(), by: state.userId, reason: reason.trim() } }));
+    notifySync('refresh_all');
     return ok('Đã báo Coordinator để đề xuất lịch mới.');
   },
 
@@ -296,6 +329,7 @@ const actions = {
     if (t.pingAt && minutesBetween(t.pingAt, nowStamp()) < 10) return ok(`Đã nhắc lúc ${t.pingAt.slice(11)}. Đợi 10 phút rồi nhắc lại.`);
     await driverApi.remindClearance(tripId);
     updateTrip(tripId, (x) => ({ ...x, pingAt: nowStamp() }));
+    notifySync('refresh_all');
     return ok('Đã nhắc Specialist ghi kết quả thông quan.');
   },
 
@@ -311,12 +345,25 @@ const actions = {
     const at = fromInputValue(body.at) || nowStamp();
     // Nhật ký gắn với mốc đang chờ: trạm dừng yêu cầu có nhật ký sức khỏe trước khi tài xế hoàn tất mốc
     const pending = nextMilestone(t);
+    const currentStopIndex = pending ? pending.stopIndex : -1;
+    if (currentStopIndex >= 0 && hasHealthLogForStop(t, currentStopIndex, body.horseId)) return fail('Ngựa này đã được kiểm tra sức khỏe tại trạm dừng hiện tại.');
+    const stop = pending && t.stops[pending.stopIndex];
+    const milestoneId = stop?.departureMilestoneId ?? stop?.id;
     try {
-      await driverApi.addHealthLog(tripId, { ...body, at, milestoneId: pending ? t.stops[pending.stopIndex]?.id : undefined });
+      await driverApi.addHealthLog(tripId, { ...body, at, milestoneId });
     } catch (error) {
       return fail(error instanceof Error && error.message ? error.message : 'Không lưu được nhật ký sức khỏe.');
     }
-    updateTrip(tripId, (x) => ({ ...x, health: [...x.health, { ...body, at, id: `HL-${Date.now()}`, notes: body.notes.trim(), by: state.userId }] }));
+    // Cập nhật local state ngay để unblock nút 'Rời điểm dừng' trước khi backend confirm
+    updateTrip(tripId, (x) => ({ ...x, health: [...x.health, { ...body, at, milestoneId, id: `HL-${Date.now()}`, notes: body.notes.trim(), by: state.userId }] }));
+    // Chế độ thật: reload lại chuyến từ backend để tránh race condition khi loadAll chạy lại và overwrite local state
+    if (!getDemoMode('driver')) {
+      try {
+        const fresh = await buildLiveTrip(tripId);
+        setState((s) => ({ trips: s.trips.map((x) => (x.id === tripId ? { ...fresh.trip, handover: x.handover, handoverAttempts: x.handoverAttempts, handoverStatus: x.handoverStatus } : x)) }));
+      } catch { /* giữ local state nếu reload thất bại */ }
+    }
+    notifySync('refresh_all');
     if (body.condition === 'ABNORMAL') return ok('Đã lưu. Manager và Coordinator đã được cảnh báo – báo sự cố nếu cần.');
     if (body.condition !== 'NORMAL' || body.temp >= 38.6) return ok('Đã lưu. Coordinator đã được báo dấu hiệu bất thường.');
     return ok('Đã lưu nhật ký sức khoẻ.');

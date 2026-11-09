@@ -84,6 +84,7 @@ export interface Horse {
 
 export interface RouteStop {
   id: string;
+  departureMilestoneId?: string;
   name: string;
   type: StopType;
   country: string;
@@ -122,6 +123,7 @@ export interface Receiver {
 
 export interface HealthLog {
   id: string;
+  milestoneId?: string;
   horseId: string;
   at: string;
   temp: number;

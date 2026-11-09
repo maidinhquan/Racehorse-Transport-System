@@ -1,4 +1,5 @@
 import { apiClient } from '../../../shared/api/apiClient';
+import axios from 'axios';
 import { DRIVER_ENDPOINTS } from './driverEndpoints';
 import type {
   ApiResponse,
@@ -21,6 +22,27 @@ import { generateUuidV4 } from '../../../shared/utils/uuid';
 import { getSharedIncidents } from '../../../shared/utils/sharedIncidents';
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+const roadGeometryCache = new Map<string, Promise<Array<Array<[number, number]>>>>();
+
+/** Hình học từng chặng đường bộ; OSRM nhận kinh độ trước vĩ độ. */
+export function roadLegGeometry(points: Array<[number, number]>): Promise<Array<Array<[number, number]>>> {
+  if (points.length < 2) return Promise.resolve([]);
+  const path = points.map(([lat, lng]) => `${lng},${lat}`).join(';');
+  const cached = roadGeometryCache.get(path);
+  if (cached) return cached;
+  const base = import.meta.env.DEV ? `${window.location.origin}/osrm` : 'https://router.project-osrm.org';
+  const request = axios.get<{ code: string; routes?: Array<{ legs: Array<{ steps: Array<{ geometry: { coordinates: number[][] } }> }> }> }>(
+    `${base}/route/v1/driving/${path}`, { params: { overview: 'false', geometries: 'geojson', steps: 'true' }, timeout: 15000 })
+    .then(({ data }) => {
+      const legs = data.routes?.[0]?.legs;
+      if (data.code !== 'Ok' || legs?.length !== points.length - 1) throw new Error('Không tìm được tuyến đường bộ.');
+      const geometry = legs.map((leg) => leg.steps.flatMap((step) => step.geometry.coordinates.map(([lng, lat]) => [lat, lng] as [number, number])));
+      if (geometry.some((leg) => leg.length < 2)) throw new Error('Tuyến đường bộ thiếu hình học.');
+      return geometry;
+    }).catch((error) => { roadGeometryCache.delete(path); throw error; });
+  roadGeometryCache.set(path, request);
+  return request;
+}
 
 /**
  * GET có fallback về mock data CHỈ KHI demo mode đang bật.

@@ -1526,7 +1526,7 @@ INSERT INTO QUARANTINE_BOOKING (BookingID, RequestID, FacilityID, StationName, C
 INSERT INTO TRIP_PLAN (TripID, RequestID, TotalDistance_km, T_Total_Hours, TotalCost, Status, DeploymentStatus, DeploymentReason, DeploymentBy, DeploymentAtUtc, HandoffEventId, AssignedSpecialistId, AssignedCoordinatorId) VALUES
 ('TRIP_001', 'REQUEST_001', 4500.00, 59.50, 155000000.00, 'PLANNING', N'CONFIRMED', N'Hợp đồng đã ký và cọc đã xác minh; Flow 2 và Flow 3 hoàn tất, chờ Quản lý mở chuyến.', N'USER_004', N'2026-11-05 16:30:00', N'HANDOFF_EVENT_001', N'USER_005', N'USER_006'),
 ('TRIP_002', 'REQUEST_002', 950.00, 37.50, 77500000.00, 'COMPLETED', N'CONFIRMED', N'Đã hoàn thành bàn giao và tất toán chi phí.', N'USER_004', N'2026-09-30 10:30:00', N'HANDOFF_EVENT_002', N'USER_005', N'USER_006'),
-('TRIP_003', 'REQUEST_003', 1720.00, 42.00, 107500000.00, 'READY_TO_DEPART', N'CONFIRMED', N'Đã hoàn tất Flow 2 và Flow 3; sẵn sàng khởi hành, chưa ghi nhận tiến độ.', N'USER_004', N'2026-11-04 16:00:00', N'HANDOFF_EVENT_003', N'USER_005', N'USER_006');
+('TRIP_003', 'REQUEST_003', 1720.00, 42.00, 107500000.00, 'READY_TO_DEPART', N'CONFIRMED', N'Đã hoàn tất Flow 2 và Flow 3; sẵn sàng khởi hành, chưa ghi nhận tiến độ.', N'USER_004', N'2026-11-04 16:00:00', N'HANDOFF_EVENT_003', N'USER_020', N'USER_006');
 
 -- 15. Bảng VEHICLE: Đội xe chuyên dụng chở ngựa đua
 INSERT INTO VEHICLE (VehicleID, Type, CapacityStalls, MaxRange_km, FuelCost_Per_Km, Status) VALUES
@@ -2470,8 +2470,8 @@ DELETE FROM TRIP_MILESTONE WHERE TripID IN ('TRIP_003', 'TRIP_001', 'TRIP_002');
 INSERT INTO TRIP_MILESTONE (MilestoneID, TripID, Leg, MilestoneKind, SequenceOrder, Label, Status, PlannedTime, OccurredAt, RecordedAt, RecordedBy, Note, RequiresHealthCheck, Revision)
 VALUES 
 ('MILESTONE_001', 'TRIP_003', 'road', 'DEPARTED',      1, N'Xuất phát từ trang trại Sóc Sơn',               'PENDING', '2026-10-08 08:30:00', NULL, NULL, NULL, NULL, 0, 1),
-('MILESTONE_002', 'TRIP_003', 'road', 'STOP_ARRIVED',  2, N'Đến trạm dừng Đà Nẵng (Kiểm tra y tế)',       'PENDING', '2026-10-09 11:00:00', NULL, NULL, NULL, NULL, 1, 1),
-('MILESTONE_003', 'TRIP_003', 'road', 'STOP_DEPARTED', 3, N'Rời trạm dừng Đà Nẵng',                       'PENDING', '2026-10-09 12:00:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_002', 'TRIP_003', 'road', 'STOP_ARRIVED',  2, N'Đến trạm dừng Đà Nẵng (Kiểm tra y tế)',       'PENDING', '2026-10-09 11:00:00', NULL, NULL, NULL, NULL, 0, 1),
+('MILESTONE_003', 'TRIP_003', 'road', 'STOP_DEPARTED', 3, N'Rời trạm dừng Đà Nẵng',                       'PENDING', '2026-10-09 12:00:00', NULL, NULL, NULL, NULL, 1, 1),
 ('MILESTONE_004', 'TRIP_003', 'road', 'FINAL_ARRIVED', 4, N'Đến điểm giao CLB Ngựa Sài Gòn (Đích đến)', 'PENDING', '2026-10-10 18:00:00', NULL, NULL, NULL, NULL, 0, 1);
 
 -- Mốc cho TRIP_001 (Đa phương thức hàng không - Kiểm thử Air Leg, Checkpoint, Đính chính)
@@ -2592,22 +2592,29 @@ UPDATE TRIP_PLAN SET Status='PLANNING', ExecutionVersion=1, ExecutionPhase='AWAI
     DocsReadyAtUtc='2026-11-04T15:00:00',DocsReadyBy='USER_005',RouteApprovedAt='2026-11-04T14:00:00',RouteApprovedBy='USER_004',DepartureApprovedAt=NULL,DepartureApprovedBy=NULL
     WHERE TripID='TRIP_001';
 UPDATE TRIP_PLAN SET Status='COMPLETED', ExecutionVersion=2, ExecutionPhase='COMPLETED',DepartureApprovedAt='2026-11-05T06:45:00',DepartureApprovedBy='USER_004' WHERE TripID='TRIP_002';
-UPDATE TRIP_PLAN SET Status='READY_TO_DEPART', ExecutionVersion=1, ExecutionPhase='AWAITING_DEPARTURE',
+UPDATE TRIP_PLAN SET Status='IN_TRANSIT', ExecutionVersion=1, ExecutionPhase='IN_TRANSIT',
     ResourcesConfirmedAt='2026-11-04T15:00:00',ResourcesConfirmedBy='USER_006',DocumentsConfirmedAt='2026-11-04T15:00:00',DocumentsConfirmedBy='USER_005',
     DocsReadyAtUtc='2026-11-04T15:00:00',DocsReadyBy='USER_005',RouteApprovedAt='2026-11-04T14:00:00',RouteApprovedBy='USER_004',DepartureApprovedAt='2026-11-12T08:00:00',DepartureApprovedBy='USER_004'
     WHERE TripID='TRIP_003';
 UPDATE TRANSPORT_REQUEST SET Status='ACTIVATED' WHERE RequestID='REQUEST_001';
 UPDATE TRANSPORT_REQUEST SET Status='DELIVERED' WHERE RequestID='REQUEST_002';
-UPDATE TRANSPORT_REQUEST SET Status='SCHEDULED' WHERE RequestID='REQUEST_003';
+UPDATE TRANSPORT_REQUEST SET Status='IN_PROGRESS' WHERE RequestID='REQUEST_003';
 
-UPDATE ROUTE_SEGMENT SET Status='PLANNED',ActualTime=NULL WHERE TripID IN ('TRIP_001','TRIP_003');
+UPDATE ROUTE_SEGMENT SET Status='PLANNED',ActualTime=NULL WHERE TripID = 'TRIP_001';
+UPDATE ROUTE_SEGMENT SET Status='COMPLETED',ActualTime='2026-11-13 09:30:00' WHERE TripID='TRIP_003' AND SegmentID='ROUTE_SEGMENT_006';
+UPDATE ROUTE_SEGMENT SET Status='COMPLETED',ActualTime='2026-11-15 17:30:00' WHERE TripID='TRIP_003' AND SegmentID='ROUTE_SEGMENT_007';
 UPDATE CUSTOMS_CLEARANCE SET Status='PENDING',ClearedAt=NULL WHERE TripID='TRIP_001';
 UPDATE TRIP_MILESTONE SET Status='PENDING',OccurredAt=NULL,RecordedAt=NULL,RecordedBy=NULL,Note=NULL WHERE TripID='TRIP_001';
-UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-12 08:30:00' WHERE MilestoneID='MILESTONE_001';
-UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-13 11:00:00' WHERE MilestoneID='MILESTONE_002';
-UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-13 12:00:00' WHERE MilestoneID='MILESTONE_003';
-UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-15 18:00:00' WHERE MilestoneID='MILESTONE_004';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-12 08:30:00',Status='COMPLETED',OccurredAt='2026-11-12 08:30:00',RecordedAt='2026-11-12 08:35:00',RecordedBy='USER_015' WHERE MilestoneID='MILESTONE_001';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-13 11:00:00',Status='COMPLETED',OccurredAt='2026-11-13 11:00:00',RecordedAt='2026-11-13 11:05:00',RecordedBy='USER_015' WHERE MilestoneID='MILESTONE_002';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-13 12:00:00',Status='COMPLETED',OccurredAt='2026-11-13 12:00:00',RecordedAt='2026-11-13 12:05:00',RecordedBy='USER_015' WHERE MilestoneID='MILESTONE_003';
+UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-15 18:00:00',Status='COMPLETED',OccurredAt='2026-11-15 17:30:00',RecordedAt='2026-11-15 17:35:00',RecordedBy='USER_015' WHERE MilestoneID='MILESTONE_004';
 UPDATE TRIP_MILESTONE SET PlannedTime='2026-11-06 18:30:00',OccurredAt='2026-11-06 18:30:00',RecordedAt='2026-11-06 18:35:00' WHERE MilestoneID='MILESTONE_021';
 UPDATE HEALTH_LOG SET LogTime='2026-11-12 07:30:00',RecordedAt='2026-11-12 07:35:00' WHERE LogID='LOG_005';
 UPDATE EXECUTION_ATTACHMENT SET UploadedAtUtc='2026-11-12 07:50:00' WHERE FileID='ATTACHMENT_002';
+
+-- Đảm bảo CONTRACT_VERSION của CONTRACT_003 có commercial.totalPrice chuẩn phục vụ tính quyết toán Flow 6
+UPDATE CONTRACT_VERSION
+SET ContentSnapshot = JSON_MODIFY(ContentSnapshot, '$.commercial', JSON_QUERY('{"totalPrice":145000000}'))
+WHERE ContractID = 'CONTRACT_003' AND VersionNo = 1;
 GO

@@ -14,7 +14,7 @@ function Form() {
 }
 
 describe('Horse profile fields from the reference form', () => {
-  it('allows entering coat color and vaccination date', () => {
+  it('allows entering coat color and hides vaccination date', () => {
     render(<Form />);
     for (const [label, value] of [['Màu lông', 'Nâu']]) {
       const input = screen.getByLabelText(label);
@@ -22,7 +22,7 @@ describe('Horse profile fields from the reference form', () => {
       fireEvent.change(input, { target: { value } });
       expect(input).toHaveValue(value);
     }
-    expect(screen.getByLabelText('Ngày tiêm cúm gần nhất')).toBeEnabled();
+    expect(screen.queryByLabelText('Ngày tiêm cúm gần nhất')).not.toBeInTheDocument();
     expect(screen.queryByText(/chưa thể lưu trực tuyến/)).not.toBeInTheDocument();
   });
 

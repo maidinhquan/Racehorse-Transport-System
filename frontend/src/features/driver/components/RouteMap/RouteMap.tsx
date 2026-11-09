@@ -7,11 +7,13 @@ import { STOP_LABEL } from '../../hooks/driverRules';
 import { addGeoapifyTiles } from '../../../../shared/maps/GeoapifyTiles';
 import { drawIncidentPins } from '../../../../shared/maps/incidentPinLayer';
 import type { IncidentPin } from '../../../../shared/utils/sharedIncidentPins';
+import { roadLegGeometry } from '../../api/driverApi';
 
 type GeoPoint = { lat: number; lng: number };
 
 interface RouteMapProps {
   stops: RouteStop[];
+  mode?: 'ROAD' | 'AIR';
   current?: number;
   height?: number;
   onPick?: (point: GeoPoint) => void;
@@ -34,6 +36,7 @@ function hasCoordinates(stop: RouteStop) {
 /** Bản đồ lộ trình cho Tài xế: đồng bộ bố cục và giao diện như trang Khách hàng */
 export const RouteMap: React.FC<RouteMapProps> = ({
   stops,
+  mode = 'ROAD',
   current = -1,
   height = 280,
   onPick,
@@ -46,9 +49,23 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   const layersRef = useRef<L.LayerGroup | null>(null);
   const lastBounds = useRef('');
   const [tileError, setTileError] = useState(false);
+  const [routeError, setRouteError] = useState(false);
+  const [roadLegs, setRoadLegs] = useState<Array<Array<[number, number]>>>([]);
   const [isMaximized, setIsMaximized] = useState(false);
   const missing = stops.filter((stop) => !hasCoordinates(stop));
   const pinsKey = JSON.stringify(pins ?? []);
+  const routeKey = JSON.stringify(stops.map((stop) => [stop.lat, stop.lng]));
+
+  useEffect(() => {
+    if (mode !== 'ROAD' || stops.length < 2 || stops.some((stop) => !hasCoordinates(stop))) { setRoadLegs([]); setRouteError(false); return; }
+    let active = true;
+    setRoadLegs([]);
+    setRouteError(false);
+    void roadLegGeometry(stops.map((stop) => [stop.lat!, stop.lng!])).then((legs) => {
+      if (active) setRoadLegs(legs);
+    }).catch(() => { if (active) { setRoadLegs([]); setRouteError(true); } });
+    return () => { active = false; };
+  }, [routeKey, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isMaximized) return;
@@ -119,7 +136,8 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       const previous = located[i - 1], next = located[i];
       if (next.index !== previous.index + 1) continue;
       const confirmed = next.index <= lastConfirmed;
-      L.polyline([previous.position, next.position], {
+      L.polyline(mode === 'ROAD' && roadLegs.length === stops.length - 1 && roadLegs[previous.index]?.length > 1
+        ? roadLegs[previous.index] : [previous.position, next.position], {
         color: confirmed ? '#f57c00' : '#2563eb',
         weight: 5,
         dashArray: confirmed ? undefined : '7 8',
@@ -174,7 +192,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       }
       lastBounds.current = boundsKey;
     }
-  }, [stops, current, pinsKey, draggablePin, onPick]);
+  }, [stops, current, pinsKey, draggablePin, onPick, roadLegs, mode]);
 
   return (
     <div className={`drv-geo-map ${isMaximized ? 'is-maximized' : ''}`}>
@@ -228,7 +246,8 @@ export const RouteMap: React.FC<RouteMapProps> = ({
           Chưa tải được nền bản đồ Geoapify. Vui lòng thử lại sau.
         </p>
       )}
-      <p className="drv-geo-map__notice">Đường nối thể hiện thứ tự điểm dừng, vị trí theo mốc được xác nhận.</p>
+      {routeError && <p className="drv-geo-map__notice" role="status">Chưa tải được tuyến đường bộ. Đang nối tạm các điểm dừng.</p>}
+      <p className="drv-geo-map__notice">{mode === 'ROAD' && roadLegs.length === stops.length - 1 ? 'Đường vẽ theo tuyến đường bộ; vị trí theo mốc được xác nhận.' : 'Đường nối tạm thể hiện thứ tự điểm dừng; vị trí theo mốc được xác nhận.'}</p>
 
       {!compact && (
         <div className="drv-geo-map__legend">

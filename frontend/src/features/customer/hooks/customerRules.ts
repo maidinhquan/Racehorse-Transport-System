@@ -237,8 +237,8 @@ export function horseIssues(h: Horse) {
   if (ps === 'MISSING') list.push('Hộ chiếu ngựa còn thiếu số hoặc bản scan');
   if (ps === 'EXPIRED') list.push('Hộ chiếu ngựa đã hết hạn');
   if (!h.ownership) list.push('Chưa có giấy chứng nhận sở hữu');
-  if (!h.unsupportedFields?.includes('fluDate') && !h.fluDate) list.push('Chưa có ngày tiêm cúm gần nhất');
-  else if (h.fluDate && (stampToMs(today()) - stampToMs(h.fluDate)) / 86400000 > 365) list.push('Tiêm phòng cúm đã quá 12 tháng');
+
+
   return list;
 }
 export function profileStatus(h: Horse): HorseProfileStatus {
@@ -532,7 +532,7 @@ export function horseDocItems(r: TransportRequest, h: Horse): DocItem[] {
       `Giá trị khai báo: ${h.value ? `${Number(h.value).toLocaleString('en-US')} ${h.currency}` : '—'}`, true), [
       [!h.value, 'giá trị khai báo'],
     ]),
-    withMissing(item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : h.unsupportedFields?.includes('flu') ? 'NOT_REQUIRED_YET' : 'MISSING', `Tiêm cúm gần nhất: ${fmtDate(h.fluDate)}`), [
+    withMissing(item('flu', 'file', fileOf('flu') ? 'SUBMITTED' : h.unsupportedFields?.includes('flu') ? 'NOT_REQUIRED_YET' : 'MISSING', h.fluDate ? `Tiêm cúm gần nhất: ${fmtDate(h.fluDate)}` : 'Sổ tiêm ngừa'), [
       [!fileOf('flu') && !h.unsupportedFields?.includes('flu'), 'tệp sổ tiêm ngừa'],
     ]),
     item('health', 'file', fileOf('health') ? 'SUBMITTED' : 'NOT_REQUIRED_YET',

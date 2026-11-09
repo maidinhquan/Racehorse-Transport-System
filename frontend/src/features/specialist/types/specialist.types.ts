@@ -121,6 +121,7 @@ export interface SpecTrip {
   mode: TransportMode;
   status: TripStatus;
   deployment: DeploymentStatus;
+  specialistId?: string;
   plannedDepart: string;
   eta: string;
   horses: SpecHorse[];

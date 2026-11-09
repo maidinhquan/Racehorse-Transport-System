@@ -4,14 +4,14 @@ import { StatusBadge } from '../../../components/StatusBadge/StatusBadge';
 import { LockedCard } from '../../../components/Common/Common';
 import { useManager } from '../../../hooks/useManager';
 import type { TransportRequest } from '../../../types';
-import { INCIDENT_TYPE_LABEL, MODE_LABEL, fmtDateTime, lastMilestone, milestoneText, staffName } from '../../../hooks/managerRules';
+import { INCIDENT_TYPE_LABEL, MODE_LABEL, fmtDateTime, isSigned, lastMilestone, milestoneText, staffName } from '../../../hooks/managerRules';
 
 /** Mục 2: chuyến đi liên kết và các sự cố phát sinh */
 export const TripSection: React.FC<{ request: TransportRequest }> = ({ request: r }) => {
   const { data, tripFor } = useManager();
   const t = tripFor(r.id);
   if (!t) {
-    return <LockedCard title="Chưa có chuyến đi" text="Chuyến đi chỉ được tạo sau khi tiền cọc được xác minh và khách hàng ký OTP hợp lệ." />;
+    return <LockedCard title="Chưa có chuyến đi" text={isSigned(r) ? 'Chuyến đi chưa được tạo hoặc chưa tải xong. Vui lòng tải lại trang.' : 'Chuyến đi chỉ được tạo sau khi tiền cọc được xác minh và khách hàng ký OTP hợp lệ.'} />;
   }
   const inc = data.incidents.filter((i) => i.tripId === t.id);
   const m = lastMilestone(t);

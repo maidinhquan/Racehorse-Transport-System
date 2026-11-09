@@ -16,6 +16,7 @@ export type ProgressMilestoneType =
 
 export interface ProgressStop {
   id: string;
+  departureMilestoneId?: string;
   name: string;
   type: ProgressStopType;
   plannedAt: string;
@@ -96,6 +97,7 @@ export function progressFromMilestones(
 
     if (isDepartureOfPrev) {
       milestoneStopIndices.push(stops.length - 1);
+      stops[stops.length - 1].departureMilestoneId = m.id;
       if (m.requiresHealthCheck) stops[stops.length - 1].requiresHealthCheck = true;
     } else {
       const stopIndex = stops.length;
