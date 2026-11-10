@@ -211,17 +211,34 @@ export function isPointInVietnam(lat: number, lng: number): boolean {
   return !isPointOutsideVietnam(lat, lng).outside;
 }
 
-/** Tọa độ hành lang ven biển QL1A (Quy Nhơn, Bình Định) dùng để ép OSRM giữ tuyến trong nước cho các chặng Bắc-Nam */
+/** Hành lang ven biển QL1A / Cao tốc Bắc-Nam để ép OSRM giữ tuyến trong nước cho các chặng nội địa */
+export const VN_CORRIDORS: Array<{ lat: number; lng: number; desc: string }> = [
+  { lat: 18.6800, lng: 105.6800, desc: 'Vinh - Nghệ An' },
+  { lat: 16.0500, lng: 108.2000, desc: 'Đà Nẵng' },
+  { lat: 13.7800, lng: 109.2200, desc: 'Quy Nhơn - Bình Định' },
+  { lat: 12.2400, lng: 109.1900, desc: 'Nha Trang - Khánh Hòa' },
+  { lat: 10.9300, lng: 108.1000, desc: 'Phan Thiết - Bình Thuận' },
+];
+
+/** Tọa độ hành lang ven biển QL1A giữ lại để tương thích ngược */
 export const VN_CORRIDOR_WAYPOINT = [13.7820, 109.2190];
 
-/** Kiểm tra xem một chặng đường bộ giữa 2 điểm nội địa có nguy cơ bị OSRM cắt qua Lào/Campuchia hay không */
-export function needsVietnamDomesticCorridor(pA: number[], pB: number[]): boolean {
-  if (!pA || !pB || pA.length < 2 || pB.length < 2) return false;
-  if (!isPointInVietnam(pA[0], pA[1]) || !isPointInVietnam(pB[0], pB[1])) return false;
+/** Lấy danh sách tọa độ hành lang ven biển giữa 2 điểm nếu là chặng nội địa có nguy cơ cắt qua Lào/Campuchia */
+export function getDomesticCorridors(pA: number[], pB: number[]): number[][] {
+  if (!pA || !pB || pA.length < 2 || pB.length < 2) return [];
+  if (!isPointInVietnam(pA[0], pA[1]) || !isPointInVietnam(pB[0], pB[1])) return [];
   const minLat = Math.min(pA[0], pB[0]), maxLat = Math.max(pA[0], pB[0]);
-  const minLng = Math.min(pA[1], pB[1]);
-  // Tuyến nối giữa miền Nam (lat < 13.5, lng < 107.5) và Bắc/Bắc Trung Bộ (lat >= 16.6)
-  return minLat < 13.5 && minLng < 107.5 && maxLat >= 16.6;
+  if (maxLat - minLat < 2.5) return [];
+
+  const goingSouth = pA[0] > pB[0];
+  const filtered = VN_CORRIDORS.filter((c) => c.lat > minLat + 0.3 && c.lat < maxLat - 0.3);
+  const sorted = goingSouth ? filtered.sort((a, b) => b.lat - a.lat) : filtered.sort((a, b) => a.lat - b.lat);
+  return sorted.map((c) => [c.lat, c.lng]);
+}
+
+/** Kiểm tra xem một chặng đường bộ giữa 2 điểm nội địa có cần chèn hành lang duyên hải hay không */
+export function needsVietnamDomesticCorridor(pA: number[], pB: number[]): boolean {
+  return getDomesticCorridors(pA, pB).length > 0;
 }
 
 // ---- routing (OSRM, Geoapify hoặc mô phỏng do người dùng chọn); yêu cầu mới nhất thắng; nhớ đệm theo tọa độ ----
@@ -275,10 +292,13 @@ export async function routeVia(points: number[][]): Promise<Any> {
       const segLegCount: number[] = [];
       for (let i = 0; i < points.length - 1; i++) {
         const pA = points[i], pB = points[i + 1];
-        if (ROUTING.avoidBorders !== false && needsVietnamDomesticCorridor(pA, pB)) {
-          osrmPoints.push(VN_CORRIDOR_WAYPOINT);
+        const corridors = ROUTING.avoidBorders !== false ? getDomesticCorridors(pA, pB) : [];
+        if (corridors.length > 0) {
+          for (const c of corridors) {
+            osrmPoints.push(c);
+          }
           osrmPoints.push(pB);
-          segLegCount.push(2);
+          segLegCount.push(1 + corridors.length);
         } else {
           osrmPoints.push(pB);
           segLegCount.push(1);
@@ -675,34 +695,41 @@ export async function rpDetour(tid: string, pid: string) {
   ps.detour[pid] = res.ok ? { status: 'ok', firstMin: res.legs[0].min * ROUTE_POLICY.truckFactor, km: res.legs[0].km + res.legs[1].km - base.km, min: (res.legs[0].min + res.legs[1].min - base.min) * ROUTE_POLICY.truckFactor, sim: !!res.sim } : { status: 'error', error: res.noroute ? 'Không tìm được đường qua địa điểm này.' : res.error };
   if (ps.sel === pid) commit();
 }
-/** Helper tính hình chiếu và sắp xếp mảng stops theo đúng tiến trình địa lý từ điểm nhận đến điểm giao */
+/** Helper sắp xếp mảng stops theo đúng tiến trình địa lý từ điểm nhận đến điểm giao (Greedy TSP with destination heuristic) */
 export function autoSortStopsArray(t: Any, rt: Any) {
   if (!rt || !rt.stops || rt.stops.length <= 3) return;
   rpCoords(t, rt);
   const grouping = rpGroups(t, rt);
 
-  const projectScalar = (start: Any, end: Any, p: Any): number => {
-    if (start.lat == null || start.lng == null || end.lat == null || end.lng == null || p.lat == null || p.lng == null) return 0;
-    const vLat = end.lat - start.lat;
-    const vLng = end.lng - start.lng;
-    const vLenSq = vLat * vLat + vLng * vLng;
-    if (vLenSq === 0) return 0;
-    const wLat = p.lat - start.lat;
-    const wLng = p.lng - start.lng;
-    return (wLat * vLat + wLng * vLng) / vLenSq;
-  };
-
   const sortLegStops = (startStop: Any, endStop: Any, intermediateStops: Any[]) => {
-    return [...intermediateStops].sort((a, b) => {
-      const scalarA = projectScalar(startStop, endStop, a);
-      const scalarB = projectScalar(startStop, endStop, b);
-      if (Math.abs(scalarA - scalarB) > 0.0001) {
-        return scalarA - scalarB;
+    let curr = startStop;
+    const remaining = [...intermediateStops];
+    const sorted: Any[] = [];
+
+    while (remaining.length > 0) {
+      let bestIdx = 0;
+      let bestCost = Infinity;
+
+      for (let i = 0; i < remaining.length; i++) {
+        const p = remaining[i];
+        if (p.lat == null || p.lng == null) {
+          continue;
+        }
+        const dCurr = kmBetween([curr.lat, curr.lng], [p.lat, p.lng]);
+        const dEnd = kmBetween([p.lat, p.lng], [endStop.lat, endStop.lng]);
+        // Chi phí tối ưu: Khoảng cách từ điểm hiện tại + trọng số tiến về đích đến
+        const cost = dCurr + dEnd * 0.35;
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestIdx = i;
+        }
       }
-      const distA = kmBetween([startStop.lat, startStop.lng], [a.lat, a.lng]);
-      const distB = kmBetween([startStop.lat, startStop.lng], [b.lat, b.lng]);
-      return distA - distB;
-    });
+
+      const [chosen] = remaining.splice(bestIdx, 1);
+      sorted.push(chosen);
+      curr = chosen;
+    }
+    return sorted;
   };
 
   if (t.mode === 'AIR' && grouping.flight && grouping.flight.length >= 2) {

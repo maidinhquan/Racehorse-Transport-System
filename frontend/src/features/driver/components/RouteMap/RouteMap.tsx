@@ -7,6 +7,7 @@ import { STOP_LABEL } from '../../hooks/driverRules';
 import { addGeoapifyTiles } from '../../../../shared/maps/GeoapifyTiles';
 import { drawIncidentPins } from '../../../../shared/maps/incidentPinLayer';
 import type { IncidentPin } from '../../../../shared/utils/sharedIncidentPins';
+import { fetchRoadRoute } from '../../../../shared/maps/roadRouting';
 
 type GeoPoint = { lat: number; lng: number };
 
@@ -107,6 +108,8 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     const layers = layersRef.current;
     if (!map || !layers) return;
     layers.clearLayers();
+    let isCancelled = false;
+
     const located = stops.flatMap((stop, index) =>
       hasCoordinates(stop)
         ? [{ stop, index, position: [stop.lat!, stop.lng!] as L.LatLngTuple }]
@@ -119,12 +122,21 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       const previous = located[i - 1], next = located[i];
       if (next.index !== previous.index + 1) continue;
       const confirmed = next.index <= lastConfirmed;
-      L.polyline([previous.position, next.position], {
+      const poly = L.polyline([previous.position, next.position], {
         color: confirmed ? '#f57c00' : '#2563eb',
         weight: 5,
         dashArray: confirmed ? undefined : '7 8',
         interactive: false,
       }).addTo(layers);
+
+      void fetchRoadRoute([
+        { lat: previous.position[0], lng: previous.position[1] },
+        { lat: next.position[0], lng: next.position[1] },
+      ]).then((roadCoords) => {
+        if (!isCancelled && roadCoords && roadCoords.length > 1) {
+          (poly as any).setLatLngs?.(roadCoords);
+        }
+      });
     }
 
     located.forEach(({ stop, index, position }) => {
@@ -174,6 +186,10 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       }
       lastBounds.current = boundsKey;
     }
+
+    return () => {
+      isCancelled = true;
+    };
   }, [stops, current, pinsKey, draggablePin, onPick]);
 
   return (

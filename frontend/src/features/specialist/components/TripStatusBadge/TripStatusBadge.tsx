@@ -7,7 +7,7 @@ export type BadgeTone = 'ok' | 'info' | 'warn' | 'bad' | 'muted' | 'brand';
 type BadgeKind = 'trip' | 'deployment' | 'check' | 'customer' | 'request';
 
 const TONES: Record<BadgeKind, Record<string, BadgeTone>> = {
-  trip: { PLANNING: 'info', READY_TO_DEPART: 'ok', IN_TRANSIT: 'brand', COMPLETED: 'muted' } satisfies Record<TripStatus, BadgeTone>,
+  trip: { PLANNING: 'info', READY_TO_DEPART: 'ok', IN_TRANSIT: 'brand', COMPLETED: 'ok' } satisfies Record<TripStatus, BadgeTone>,
   deployment: { NOT_CONFIRMED: 'warn', CONFIRMED: 'ok', ON_HOLD: 'bad' } satisfies Record<DeploymentStatus, BadgeTone>,
   check: { NOT_SUBMITTED: 'bad', SUBMITTED: 'warn', APPROVED: 'ok', REJECTED: 'bad', EXPIRED: 'bad', NOT_CONFIGURED: 'bad' } satisfies Record<ChecklistStatus, BadgeTone>,
   customer: { MISSING: 'bad', OPTIONAL: 'muted', SUBMITTED: 'warn', APPROVED: 'ok', ACTION_REQUIRED: 'bad' } satisfies Record<CustomerDocStatus, BadgeTone>,

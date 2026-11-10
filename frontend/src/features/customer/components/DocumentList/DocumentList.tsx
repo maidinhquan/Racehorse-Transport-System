@@ -73,17 +73,74 @@ interface RequestDocumentsProps {
 }
 
 /** Danh sách ngựa và hồ sơ từng ngựa */
-export const RequestDocuments: React.FC<RequestDocumentsProps> = ({ requestId, perHorse, editable, backTo }) => (
-  <div className="cus-req-docs">
-    <div className="cus-doc-group">Danh sách ngựa và hồ sơ từng ngựa</div>
-    {perHorse.length === 0 && <p className="cus-subtitle">Chưa chọn ngựa.</p>}
-    {perHorse.map(({ horse, items }) => (
-      <div key={horse.id} className="cus-doc-horse">
-        <div className="cus-eyebrow">{horse.name} • {horse.id}</div>
-        <DocumentRows requestId={requestId} items={items} editable={editable} backTo={backTo} />
+export const RequestDocuments: React.FC<RequestDocumentsProps> = ({ requestId, perHorse, editable, backTo }) => {
+  const [openHorses, setOpenHorses] = React.useState<Record<string, boolean>>({});
+  const toggleHorse = (id: string) => {
+    setOpenHorses((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  return (
+    <div className="cus-req-docs">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="cus-doc-group" style={{ margin: 0, border: 0, padding: 0 }}>
+          Danh sách ngựa và hồ sơ từng ngựa ({perHorse.length} con)
+        </div>
+        {perHorse.length > 1 && (
+          <div style={{ display: 'flex', gap: 8, fontSize: 12 }}>
+            <button
+              type="button"
+              className="cus-link"
+              onClick={() => {
+                const allOpen: Record<string, boolean> = {};
+                perHorse.forEach((h) => {
+                  allOpen[h.horse.id] = true;
+                });
+                setOpenHorses(allOpen);
+              }}
+            >
+              Mở tất cả
+            </button>
+            <span style={{ color: '#cbd5e1' }}>•</span>
+            <button type="button" className="cus-link" onClick={() => setOpenHorses({})}>
+              Thu gọn tất cả
+            </button>
+          </div>
+        )}
       </div>
-    ))}
-  </div>
-);
+
+      {perHorse.length === 0 && <p className="cus-subtitle">Chưa chọn ngựa.</p>}
+      {perHorse.map(({ horse, items }, idx) => {
+        const isOpen = perHorse.length === 1 || !!openHorses[horse.id];
+        return (
+          <div key={horse.id} className={`cus-doc-horse-card ${isOpen ? 'is-open' : ''}`}>
+            <button
+              type="button"
+              className="cus-doc-horse-toggle"
+              onClick={() => toggleHorse(horse.id)}
+              aria-expanded={isOpen}
+            >
+              <div className="cus-doc-horse-info">
+                <span className="cus-doc-horse-index">{idx + 1}</span>
+                <div>
+                  <b className="cus-doc-horse-name">{horse.name}</b>
+                  <span className="cus-doc-horse-chip">{horse.microchip || horse.id}</span>
+                </div>
+              </div>
+              <div className="cus-doc-horse-actions">
+                <span className="cus-doc-horse-count">{items.length} giấy tờ</span>
+                <span className="cus-badge-hint">{isOpen ? 'Thu gọn ▲' : 'Xem hồ sơ ▼'}</span>
+              </div>
+            </button>
+            {isOpen && (
+              <div className="cus-doc-horse-body">
+                <DocumentRows requestId={requestId} items={items} editable={editable} backTo={backTo} />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 export default RequestDocuments;

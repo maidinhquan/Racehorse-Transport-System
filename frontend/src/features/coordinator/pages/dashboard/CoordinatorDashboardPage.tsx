@@ -55,7 +55,7 @@ export function CoordinatorDashboardPage() {
               { label: 'Chuyến', render: (t: Any) => <><b style={{ color: 'var(--ink)' }}>{t.id}</b><br /><small className="muted">{t.mode ? human(t.mode) : 'Chưa chọn phương thức'}</small></> },
               { label: 'Tuyến đường', render: (t: Any) => <RouteCell r={reqOfTrip(t)} /> },
               { label: 'Khởi hành', render: (t: Any) => dt(t.plannedDepart) },
-              { label: 'Lập kế hoạch', render: (t: Any) => <><PillT p={planPill(t)} />{deployed(t) && (resourceGaps(t) || []).length && planState(t) !== 'MISSING_RESOURCES' ? <><br /><small className="muted" style={{ whiteSpace: 'normal' }}>{(resourceGaps(t) || []).join(', ')}</small></> : null}</> },
+              { label: 'Lập kế hoạch', render: (t: Any) => <PillT p={planPill(t)} /> },
             ]} />
         </div>
         <div className="stack">

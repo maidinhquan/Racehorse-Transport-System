@@ -99,8 +99,8 @@ export const ActualCostModal: React.FC<{ open: boolean; tripId: string; current?
     if (onSubmit(costs, extra)) onClose();
   };
   return (
-    <Modal open={open} title={`Chi phí thực tế • ${tripId}`} wide okText="Lưu chi phí" onClose={onClose} onOk={submit} error={error}>
-      <p>Nhập chi phí thực tế (USD) từ hóa đơn của chuyến. Khoản phát sinh do khách hàng hoặc bảo hiểm chi trả không tính vào chi phí của công ty.</p>
+    <Modal open={open} title={`Chi phí thực tế vận hành • ${tripId}`} wide okText="Lưu chi phí" onClose={onClose} onOk={submit} error={error}>
+      <p>Nhập chi phí thực tế phát sinh (VND) từ hóa đơn vận hành chuyến xe (xăng dầu, trạm dừng, ăn nghỉ tài xế...). Khoản này phục vụ quản lý nội bộ và không làm thay đổi giá trị hợp đồng đã ký với khách hàng.</p>
       <div className="mgr-modal__grid">
         {KEYS.map((k) => (
           <div className="mgr-field" key={k}>

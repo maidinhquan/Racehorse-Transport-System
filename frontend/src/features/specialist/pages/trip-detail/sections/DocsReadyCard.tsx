@@ -39,7 +39,7 @@ export const DocsReadyCard: React.FC<{ trip: SpecTrip; active: TripDetailTab; on
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
         <h3 className="spc-card__title" style={{ margin: 0 }}>
           <span>Xác nhận hồ sơ sẵn sàng (Docs READY) <span className="spc-muted">• Tổng giấy tờ {totals.done}/{totals.total}</span></span>
-          {t.docsReady ? (
+          {t.docsReady || t.status === 'COMPLETED' ? (
             <TripStatusBadge label="Đã xác nhận" tone="ok" />
           ) : !t.reqSet ? (
             <TripStatusBadge label={`Chưa có giấy tờ đến ${destName}`} tone="bad" />

@@ -36,11 +36,11 @@ const TONES: Record<BadgeKind, Record<string, BadgeTone>> = {
   request: {
     DRAFT: 'muted', PENDING_REVIEW: 'warn', CHANGES_REQUESTED: 'muted', REJECTED: 'bad', CONTRACT_PREPARATION: 'info', CONTRACT_READY: 'info',
     CONTRACT_CHANGES_REQUESTED: 'warn', AWAITING_DEPOSIT: 'warn', DEPOSIT_VERIFIED: 'info', CANCELLATION_REQUESTED: 'bad', ACTIVATED: 'brand', SCHEDULED: 'ok',
-    IN_TRANSIT: 'brand', DELIVERED: 'ok', CLOSED: 'muted', CANCELLED: 'muted',
+    IN_TRANSIT: 'brand', DELIVERED: 'ok', CLOSED: 'ok', CANCELLED: 'muted',
   } satisfies Record<RequestStatus, BadgeTone>,
   contract: { SIGNED: 'warn', ISSUED: 'info', CHANGES_REQUESTED: 'warn', EXPIRED: 'bad', SUPERSEDED: 'muted', EFFECTIVE: 'ok', FULFILLED: 'muted', VOID: 'muted' } satisfies Record<ContractState, BadgeTone>,
   payment: { PENDING_CONFIRMATION: 'warn', PROCESSING: 'info', SUCCESS: 'ok', FAILED: 'bad', REJECTED: 'bad' } satisfies Record<PaymentStatus, BadgeTone>,
-  trip: { PLANNING: 'info', READY_TO_DEPART: 'ok', IN_TRANSIT: 'brand', COMPLETED: 'muted' } satisfies Record<TripStatus, BadgeTone>,
+  trip: { PLANNING: 'info', READY_TO_DEPART: 'ok', IN_TRANSIT: 'brand', COMPLETED: 'ok' } satisfies Record<TripStatus, BadgeTone>,
   deployment: { NOT_CONFIRMED: 'warn', CONFIRMED: 'ok', ON_HOLD: 'bad' } satisfies Record<DeploymentStatus, BadgeTone>,
   route: { PENDING_APPROVAL: 'warn', APPROVED: 'ok', CHANGES_REQUESTED: 'bad' } satisfies Record<RouteStatus, BadgeTone>,
   flight: { BUDGET_PENDING: 'warn', APPROVED: 'info', REJECTED: 'bad', BOOKED: 'ok' } satisfies Record<FlightStatus, BadgeTone>,

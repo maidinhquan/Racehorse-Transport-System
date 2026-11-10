@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { ThemeToggle } from '../../../../shared/components';
+import { formatNotification } from '../../../../shared/utils/notificationFormat';
 import { useManager } from '../../hooks/useManager';
 import { fmtDateTime } from '../../hooks/managerRules';
 import { MANAGER_INITIALS, MANAGER_NAME } from '../../data/mockData';
@@ -133,12 +134,15 @@ export const ManagerLayout: React.FC<ManagerLayoutProps> = ({ title, children })
                     <span>Thông báo</span>
                     <button type="button" className="mgr-link" onClick={() => actions.markAllRead()}>Đánh dấu đã đọc</button>
                   </div>
-                  {notifications.slice(0, 8).map((n) => (
+                  {notifications.slice(0, 8).map((raw) => {
+                    const n = formatNotification({ id: raw.id, title: raw.title, body: raw.text, at: raw.at, read: raw.read, link: raw.link });
+                    return (
                     <button key={n.id} type="button" className={`mgr-notif__item ${n.read ? '' : 'unread'}`}
                       onClick={() => { actions.markRead(n.id); setOpen(false); navigate(n.link); }}>
-                      <b>{n.title}</b><span>{n.text}</span><small>{fmtDateTime(n.at)}</small>
+                      <b>{n.title}</b><span>{n.body}</span><small>{fmtDateTime(n.at)}</small>
                     </button>
-                  ))}
+                    );
+                  })}
                   {!notifications.length && <p className="mgr-hint" style={{ padding: 8 }}>Không có thông báo.</p>}
                 </div>
               )}

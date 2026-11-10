@@ -1,6 +1,7 @@
 import type { ChangeReview, OptionKey } from '../../../shared/api/requestReviewApi';
 import { apiRequest } from '../../../shared/api/apiRequest';
 import { contractClient, type FormOptions } from '../../../shared/api/contractClient';
+import { formatNotification } from '../../../shared/utils/notificationFormat';
 import { MANAGER_ENDPOINTS as E } from './managerEndpoints';
 import type { ActualCost, Complaint, ContractDraft, ContractVersion, CustomerInfo, HorseRef, Incident, ManagerNotification, RoutePlan, Staff, Transaction, TransportMode, TransportRequest, Trip } from '../types';
 import { attachContractFeedback, contractFromWire, documentKey, paymentFromWire, refundFromWire, type RefundEvidence, type WireContract, type WireHorse, type WirePayment } from '../../../shared/api/flow1Wire';
@@ -185,7 +186,17 @@ export const managerApi = {
   // Backend sends `body` (same as customer) and customer-side links; map to the manager UI shape.
   getNotifications: async (): Promise<ManagerNotification[]> =>
     (await contractClient<Array<{ id: string; at: string; title?: string | null; body?: string | null; read: boolean; link?: string | null }>>('get', '/manager/notifications'))
-      .map(n => ({ id: n.id, at: n.at, title: n.title ?? '', text: n.body ?? '', read: n.read, link: (n.link ?? '').replace(/^\/customer\//, '/manager/') })),
+      .map(n => {
+        const formatted = formatNotification({ id: n.id, title: n.title, body: n.body, at: n.at, read: n.read, link: n.link });
+        return {
+          id: formatted.id,
+          at: formatted.at,
+          title: formatted.title,
+          text: formatted.body,
+          read: formatted.read,
+          link: (formatted.link || '').replace(/^\/customer\//, '/manager/'),
+        };
+      }),
   markRead: (id: string) => contractClient('post', `/manager/notifications/${id}/read`),
   markAllRead: () => contractClient('post', '/manager/notifications/read-all'),
   acceptRequest: async (id: string, key: OptionKey) => requestFromWire(await contractClient<WireRequest>('post', `/manager/requests/${id}/accept`, key)),

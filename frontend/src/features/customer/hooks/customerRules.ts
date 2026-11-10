@@ -162,7 +162,7 @@ export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
   ACTIVATED: 'Đã kích hoạt – chuẩn bị',
   SCHEDULED: 'Đã lên lịch',
   IN_TRANSIT: 'Đang vận chuyển',
-  DELIVERED: 'Đã giao – chưa đóng',
+  DELIVERED: 'Đã giao',
   CLOSED: 'Đã đóng',
   CANCELLED: 'Đã hủy',
 };
@@ -708,7 +708,7 @@ export const DEMO_GUIDE: Record<'active' | 'history', Array<[string, string, str
     ['TRN-8924', 'Đang chuẩn bị – có giấy tờ bị từ chối', 'Xem lý do từ chối / yêu cầu bổ sung và tải lại giấy tờ.'],
     ['TRN-8945', 'Đã lên lịch', 'Dùng nút demo tổ xe xuất phát để bắt đầu hành trình.'],
     ['TRN-8923', 'Đang vận chuyển', 'Theo dõi các mốc hành trình đã được xác nhận; nút demo chạy tiếp tới bàn giao.'],
-    ['TRN-8810', 'Đã giao – chưa đóng', 'Nghiệm thu, thanh toán số dư bằng VNPay hoặc gửi khiếu nại.'],
+    ['TRN-8810', 'Đã giao', 'Xác nhận nghiệm thu hoặc gửi khiếu nại nếu có.'],
   ],
   history: [
     ['TRN-8750', 'Đã đóng – hợp đồng đã hoàn thành', 'Đã giao, thanh toán đủ, hết 24 giờ phản hồi; hợp đồng hết hiệu lực, chỉ xem.'],

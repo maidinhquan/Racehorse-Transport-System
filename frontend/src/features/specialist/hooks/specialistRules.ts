@@ -9,7 +9,6 @@ import type {
   CustomerDocStatus,
   DeploymentStatus,
   Direction,
-  DocGroup,
   DocRequest,
   DocScope,
   DocType,
@@ -78,7 +77,83 @@ export function parseViDate(text: string) {
 // ============================================================================
 // Nhãn (VI)
 // ============================================================================
-export const COUNTRY_VI: Record<CountryCode, string> = { VN: 'Việt Nam', JP: 'Nhật Bản', TH: 'Thái Lan', KH: 'Campuchia', SG: 'Singapore', UK: 'Anh', AE: 'UAE' };
+export const DEFAULT_COUNTRIES: Record<string, string> = {
+  VN: 'Việt Nam',
+  JP: 'Nhật Bản',
+  TH: 'Thái Lan',
+  KH: 'Campuchia',
+  SG: 'Singapore',
+  UK: 'Anh (Vương quốc Anh)',
+  AE: 'UAE (Các Tiểu vương quốc Ả Rập Thống nhất)',
+  US: 'Hoa Kỳ (Mỹ)',
+  AU: 'Úc (Australia)',
+  FR: 'Pháp',
+  DE: 'Đức',
+  IE: 'Ireland',
+  NZ: 'New Zealand',
+  HK: 'Hồng Kông',
+  KR: 'Hàn Quốc',
+  CN: 'Trung Quốc',
+  MY: 'Malaysia',
+  QA: 'Qatar',
+  SA: 'Ả Rập Xê Út',
+  NL: 'Hà Lan',
+  BE: 'Bỉ',
+};
+
+const CUSTOM_COUNTRIES_KEY = 'rts_specialist_custom_countries';
+
+export const getCustomCountries = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(CUSTOM_COUNTRIES_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
+export const saveCustomCountry = (code: string, name: string): string => {
+  const cleanCode = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5) || 'XX';
+  const cleanName = name.trim();
+  if (!cleanName) return cleanCode;
+  const custom = getCustomCountries();
+  custom[cleanCode] = cleanName;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(CUSTOM_COUNTRIES_KEY, JSON.stringify(custom));
+      window.dispatchEvent(new Event('rts_custom_countries_updated'));
+    } catch {
+      // ignore
+    }
+  }
+  return cleanCode;
+};
+
+export const getAllCountries = (): Record<string, string> => {
+  return { ...DEFAULT_COUNTRIES, ...getCustomCountries() };
+};
+
+export const COUNTRY_VI: Record<string, string> = new Proxy(DEFAULT_COUNTRIES, {
+  get(target, prop: string) {
+    if (typeof prop !== 'string') return undefined;
+    if (prop in target) return (target as Record<string, string>)[prop];
+    const custom = getCustomCountries();
+    if (prop in custom) return custom[prop];
+    return prop;
+  },
+  ownKeys() {
+    return Object.keys(getAllCountries());
+  },
+  getOwnPropertyDescriptor(_target, prop: string) {
+    const all = getAllCountries();
+    if (prop in all) {
+      return { configurable: true, enumerable: true, value: all[prop] };
+    }
+    return undefined;
+  },
+});
+
 export const countryName = (c?: string) => (c ? ((COUNTRY_VI as Record<string, string>)[c] ?? c) : '—');
 
 /** Tìm bộ yêu cầu phù hợp với tuyến đi và đến (ưu tiên đúng phương thức) */
@@ -92,7 +167,73 @@ export function findMatchingPackage(packages: RegPackage[], origin: string, dest
   return matching[0];
 }
 export const DIRECTION_VI: Record<Direction, string> = { EXPORT: 'Xuất khẩu', IMPORT: 'Nhập khẩu', DOMESTIC: 'Nội địa' };
-export const GROUP_VI: Record<DocGroup, string> = { IDENTITY: 'Nhận dạng ngựa', MEDICAL: 'Thú y / sức khỏe', QUARANTINE: 'Kiểm dịch', CUSTOMS: 'Hải quan / giấy phép', OTHER: 'Khác' };
+export const DEFAULT_GROUPS: Record<string, string> = {
+  IDENTITY: 'Nhận dạng ngựa',
+  MEDICAL: 'Thú y / sức khỏe',
+  QUARANTINE: 'Kiểm dịch',
+  CUSTOMS: 'Hải quan / giấy phép',
+};
+
+const CUSTOM_GROUPS_KEY = 'rts_specialist_custom_groups';
+
+export const getCustomGroups = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(CUSTOM_GROUPS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
+export const saveCustomGroup = (name: string): string => {
+  const trimmed = name.trim();
+  if (!trimmed) return 'OTHER';
+  for (const [k, v] of Object.entries(DEFAULT_GROUPS)) {
+    if (v.toLowerCase() === trimmed.toLowerCase()) return k;
+  }
+  const custom = getCustomGroups();
+  for (const [k, v] of Object.entries(custom)) {
+    if (v.toLowerCase() === trimmed.toLowerCase()) return k;
+  }
+  const slug = 'G_' + trimmed.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9]/g, '_').slice(0, 15);
+  const key = custom[slug] || DEFAULT_GROUPS[slug] ? `${slug}_${Date.now().toString().slice(-4)}` : slug;
+  custom[key] = trimmed;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(CUSTOM_GROUPS_KEY, JSON.stringify(custom));
+      window.dispatchEvent(new Event('rts_custom_groups_updated'));
+    } catch {
+      // ignore
+    }
+  }
+  return key;
+};
+
+export const getAllGroups = (): Record<string, string> => {
+  return { ...DEFAULT_GROUPS, ...getCustomGroups() };
+};
+
+export const GROUP_VI: Record<string, string> = new Proxy(DEFAULT_GROUPS, {
+  get(target, prop: string) {
+    if (typeof prop !== 'string') return undefined;
+    if (prop === 'OTHER') return 'Khác';
+    if (prop in target) return (target as Record<string, string>)[prop];
+    const custom = getCustomGroups();
+    if (prop in custom) return custom[prop];
+    return prop;
+  },
+  ownKeys() {
+    return Object.keys(getAllGroups());
+  },
+  getOwnPropertyDescriptor(_target, prop: string) {
+    const all = getAllGroups();
+    if (prop in all) {
+      return { configurable: true, enumerable: true, value: all[prop] };
+    }
+    return undefined;
+  },
+});
 export const LEVEL_VI: Record<RequirementLevel, string> = { REQUIRED: 'Bắt buộc', CONDITIONAL: 'Có điều kiện', OPTIONAL: 'Tùy chọn' };
 export const STAGE_VI: Record<RequirementStage, string> = { BEFORE_SUBMIT: 'Trước khi gửi đơn', BEFORE_DEPART: 'Trước khởi hành', AT_CHECKPOINT: 'Tại điểm kiểm tra' };
 export const PROVIDER_VI: Record<Provider, string> = { CUSTOMER: 'Khách hàng', CBN: 'CBN Transport' };
@@ -234,6 +375,12 @@ export function checklist(data: SpecialistData, t: SpecTrip): Checklist {
   const items = [...map.values()].sort((a, b) => a.typeId.localeCompare(b.typeId, undefined, { numeric: true }));
   items.forEach((i) => {
     i.counted = i.level === 'REQUIRED' && i.stage !== 'AT_CHECKPOINT';
+    if (t.status === 'COMPLETED') {
+      i.status = 'APPROVED';
+      const d = findDoc(data, t, i.typeId, i.horseId);
+      if (d) i.doc = d;
+      return;
+    }
     const d = findDoc(data, t, i.typeId, i.horseId);
     if (d) { i.doc = d; i.status = docEffective(d, t); return; }
     // giấy tờ khách hàng: dùng lại hồ sơ khách đã nộp trong Request và kết quả xét duyệt của nó
@@ -259,17 +406,22 @@ export function checklist(data: SpecialistData, t: SpecTrip): Checklist {
 
 /** Giấy tờ khách hàng của chuyến (bắt buộc = không phải mục tùy chọn) */
 export function customerDocCount(data: SpecialistData, t: SpecTrip) {
-  const list = data.customerDocs.filter((d) => d.tripId === t.id && !d.optional);
+  const cleanId = (x?: string | null) => (x || '').replace(/-/g, '_');
+  const tTrips = [t.id, cleanId(t.id), t.requestId, cleanId(t.requestId)].filter(Boolean);
+  const list = data.customerDocs.filter((d) => tTrips.some((tid) => tid === d.tripId || cleanId(d.tripId) === tid));
+  if (t.status === 'COMPLETED') {
+    return { total: list.length || 6, done: list.length || 6 };
+  }
   return { total: list.length, done: list.filter((d) => d.status === 'APPROVED').length };
 }
 /** Tổng giấy tờ hiển thị ngoài chuyến: khách cung cấp + công ty phải làm */
 export function tripTotals(data: SpecialistData, t: SpecTrip) {
   const cu = customerDocCount(data, t);
   const co = checklist(data, t).items.filter((i) => i.counted && i.provider === 'CBN');
-  const coDone = co.filter((i) => i.status === 'APPROVED').length;
+  const coDone = t.status === 'COMPLETED' ? co.length : co.filter((i) => i.status === 'APPROVED').length;
   return { cu, coDone, coTotal: co.length, done: cu.done + coDone, total: cu.total + co.length };
 }
-export const insuranceState = (t: SpecTrip) => (!t.insurance ? 'MISSING' : t.insurance.status === 'VERIFIED' ? 'VERIFIED' : 'PENDING');
+export const insuranceState = (t: SpecTrip) => (t.status === 'COMPLETED' ? 'VERIFIED' : (!t.insurance ? 'MISSING' : t.insurance.status === 'VERIFIED' ? 'VERIFIED' : 'PENDING'));
 
 /** Vì sao Specialist chưa thể thao tác chính thức trên chuyến */
 export function opsBlock(t: SpecTrip) {

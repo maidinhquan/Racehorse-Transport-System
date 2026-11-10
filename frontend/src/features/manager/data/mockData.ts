@@ -557,9 +557,12 @@ export const mockComplaints: Complaint[] = [
 // Chi phí thực tế
 // ---------------------------------------------------------------------------
 export const mockActualCosts: ActualCost[] = [
-  { tripId: 'TRP-720', enteredAt: '2026-08-17 10:00', costs: { TRANSPORT: 980, PROCEDURE: 240, VET: 110, INSURANCE: 70, STAFF: 130, FUEL: 55 }, extra: [] },
-  { tripId: 'TRP-895', enteredAt: '2026-10-03 09:00', costs: { TRANSPORT: 190, PROCEDURE: 50, VET: 100, INSURANCE: 70, STAFF: 95, FUEL: 80 }, extra: [] },
-  { tripId: 'TRP-901', enteredAt: '2026-10-04 11:00', costs: { TRANSPORT: 0, PROCEDURE: 260, VET: 0, INSURANCE: 70, STAFF: 0, FUEL: 40 }, extra: [{ label: 'Phí lưu bãi Mộc Bài', amount: 35, payer: 'COMPANY' }] },
+  { tripId: 'TRP-720', enteredAt: '2026-08-17 10:00', costs: { TRANSPORT: 98000000, PROCEDURE: 24000000, VET: 11000000, INSURANCE: 7000000, STAFF: 13000000, FUEL: 5500000 }, extra: [] },
+  { tripId: 'TRP-895', enteredAt: '2026-10-03 09:00', costs: { TRANSPORT: 34000000, PROCEDURE: 2800000, VET: 3800000, INSURANCE: 3000000, STAFF: 6400000, FUEL: 4800000 }, extra: [] },
+  { tripId: 'TRP-901', enteredAt: '2026-10-04 11:00', costs: { TRANSPORT: 45000000, PROCEDURE: 5000000, VET: 4000000, INSURANCE: 3000000, STAFF: 7000000, FUEL: 6000000 }, extra: [{ label: 'Phí lưu bãi Mộc Bài', amount: 3500000, payer: 'COMPANY' }] },
+  { tripId: 'TRIP_002', enteredAt: '2026-11-06 18:30', costs: { TRANSPORT: 45000000, PROCEDURE: 5000000, VET: 4500000, INSURANCE: 3000000, STAFF: 8000000, FUEL: 6150000 }, extra: [{ label: 'Lưu chuồng & điện giải trạm dừng Đà Nẵng', amount: 4000000, payer: 'COMPANY' }] },
+  { tripId: 'TRIP_004', enteredAt: '2026-11-08 15:00', costs: { TRANSPORT: 38000000, PROCEDURE: 3000000, VET: 4000000, INSURANCE: 3200000, STAFF: 7500000, FUEL: 5500000 }, extra: [] },
+  { tripId: 'TRIP_005', enteredAt: '2026-11-09 11:00', costs: { TRANSPORT: 34000000, PROCEDURE: 2800000, VET: 3800000, INSURANCE: 3000000, STAFF: 6400000, FUEL: 4800000 }, extra: [] },
 ];
 
 export const mockNotifications: ManagerNotification[] = [

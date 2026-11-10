@@ -821,9 +821,7 @@ const RealManagerClosureSection: React.FC<{ request: TransportRequest }> = ({ re
               )}
 
               {settlement.status === 'CLOSED' && (
-                <Note tone="green" title="Hồ sơ đã đóng hoàn tất">
-                  Hồ sơ tất toán, Yêu cầu và Hợp đồng đã hoàn thành trọn vẹn chu kỳ Flow 6.
-                </Note>
+                <Note tone="green" title="Hồ sơ đã đóng hoàn tất" />
               )}
             </section>
           )}

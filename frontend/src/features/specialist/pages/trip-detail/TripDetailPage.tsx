@@ -50,7 +50,7 @@ export const TripDetailPage: React.FC = () => {
       <button type="button" className="spc-back" onClick={() => navigate('/specialist/trips')}><Icon name="back" />Chuyến được giao</button>
       <div className="spc-head">
         <div>
-          <h2 className="spc-title spc-trip__title">{t.id} <TripStatusBadge kind="trip" status={t.status} /> <TripStatusBadge kind="deployment" status={t.deployment} /></h2>
+          <h2 className="spc-title spc-trip__title">{t.id} <TripStatusBadge kind="trip" status={t.status} />{t.deployment !== 'CONFIRMED' && <TripStatusBadge kind="deployment" status={t.deployment} />}</h2>
           <p className="spc-subtitle">{t.requestId} • {t.customerName} • {t.origin} → {t.destination} • {MODE_VI[t.mode]} • khởi hành {fmtDateTime(t.plannedDepart)} • dự kiến đến {fmtDateTime(t.eta)}</p>
           <p className="spc-muted" style={{ marginTop: 4 }}>Ngựa: {t.horses.map((h) => `${h.name} (${h.microchip || 'chưa có microchip'})`).join(', ')}</p>
         </div>

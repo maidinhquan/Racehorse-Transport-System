@@ -162,7 +162,7 @@ let state: ManagerState = {
   transactions: initialDemo ? clone(mockTransactions) : [],
   incidents: initialDemo ? clone(mockIncidents) : [],
   complaints: initialDemo ? clone(mockComplaints) : [],
-  actualCosts: initialDemo ? clone(mockActualCosts) : [],
+  actualCosts: clone(mockActualCosts),
   notifications: initialDemo ? clone(mockNotifications) : [],
   loading: false,
   loaded: false,
@@ -313,8 +313,9 @@ let currentLoadSeq = 0;
 let inFlightPromise: Promise<void> | null = null;
 let inFlightSyncPromise: Promise<void> | null = null;
 const mergeRequestList = (incoming: TransportRequest[], current: TransportRequest[]) => incoming.map(r => {
-  const previous = current.find(p => p.id === r.id);
-  return previous?.status === r.status ? { ...r, versions: previous.versions, dossier: previous.dossier, draft: previous.draft } : r;
+  const previous = current.find(p => p.id === r.id || cleanId(p.id) === cleanId(r.id));
+  const prevVersions = (previous?.versions && previous.versions.length > 0) ? previous.versions : r.versions;
+  return previous?.status === r.status ? { ...r, versions: prevVersions, dossier: previous.dossier ?? r.dossier, draft: previous.draft ?? r.draft } : r;
 });
 
 async function syncRequestsOnly(): Promise<void> {
@@ -328,7 +329,14 @@ async function syncRequestsOnly(): Promise<void> {
           ? await managerApi.getTripReadiness().catch(() => [])
           : [];
         const shared = getSharedRequests().map(toManagerRequest);
-        const merged = [...shared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+        const enrichedShared = shared.map((s) => {
+          const b = rawRequests.find((br) => cleanId(br.id) === cleanId(s.id));
+          if (b && (!s.versions || s.versions.length === 0) && b.versions?.length) {
+            return { ...s, versions: b.versions, total: (b as any).total ?? (b.versions[0]?.total || s.total) };
+          }
+          return s;
+        });
+        const merged = [...enrichedShared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
         setState((prev) => ({
           ...prev,
           requests: mergeRequestList(merged.length ? merged : prev.requests, prev.requests),
@@ -338,7 +346,14 @@ async function syncRequestsOnly(): Promise<void> {
         return;
       }
       const shared = getSharedRequests().map(toManagerRequest);
-      const merged = [...shared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+        const enrichedShared = shared.map((s) => {
+          const b = rawRequests.find((br) => cleanId(br.id) === cleanId(s.id));
+          if (b && (!s.versions || s.versions.length === 0) && b.versions?.length) {
+            return { ...s, versions: b.versions, total: (b as any).total ?? (b.versions[0]?.total || s.total) };
+          }
+          return s;
+        });
+        const merged = [...enrichedShared, ...rawRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
       const mock = clone(mockRequests);
       const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
       setState((prev) => ({ ...prev, requests: allDemoRequests }));
@@ -408,7 +423,14 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
 
       if (!isDemo) {
         const shared = getSharedRequests().map(toManagerRequest);
-        const merged = [...shared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+        const enrichedShared = shared.map((s) => {
+          const b = baseRequests.find((br) => cleanId(br.id) === cleanId(s.id));
+          if (b && (!s.versions || s.versions.length === 0) && b.versions?.length) {
+            return { ...s, versions: b.versions, total: (b as any).total ?? (b.versions[0]?.total || s.total) };
+          }
+          return s;
+        });
+        const merged = [...enrichedShared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
         const allRequests = merged;
         const baseTrips = trips || [];
         const finalTrips = mergeTripsWithShared(baseTrips);
@@ -423,7 +445,7 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
           transactions: transactions || [],
           incidents: apiIncidents.length ? apiIncidents : (prev.incidents?.length ? prev.incidents : []),
           complaints: apiComplaints.length ? apiComplaints : (prev.complaints?.length ? prev.complaints : []),
-          actualCosts: apiCosts.length ? apiCosts : (prev.actualCosts?.length ? prev.actualCosts : []),
+          actualCosts: apiCosts.length ? apiCosts : (prev.actualCosts?.length ? prev.actualCosts : clone(mockActualCosts)),
           notifications: notifications || [],
           loading: false,
           loaded: true,
@@ -431,7 +453,14 @@ async function loadAll(options: { force?: boolean; silent?: boolean } = {}) {
         return;
       }
       const shared = getSharedRequests().map(toManagerRequest);
-      const merged = [...shared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
+        const enrichedShared = shared.map((s) => {
+          const b = baseRequests.find((br) => cleanId(br.id) === cleanId(s.id));
+          if (b && (!s.versions || s.versions.length === 0) && b.versions?.length) {
+            return { ...s, versions: b.versions, total: (b as any).total ?? (b.versions[0]?.total || s.total) };
+          }
+          return s;
+        });
+        const merged = [...enrichedShared, ...baseRequests.filter((b) => !shared.some((s) => cleanId(s.id) === cleanId(b.id)))];
       const mock = clone(mockRequests);
       const allDemoRequests = [...merged, ...mock.filter((m) => !merged.some((r) => cleanId(r.id) === cleanId(m.id)))];
       const baseTrips = trips?.length ? trips : clone(mockTrips);
