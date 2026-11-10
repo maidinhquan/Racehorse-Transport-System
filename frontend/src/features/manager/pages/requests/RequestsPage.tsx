@@ -256,17 +256,6 @@ export const RequestsPage: React.FC = () => {
             <Icon name="alert" />
             <span>Đơn khẩn cấp</span>
           </button>
-
-          {hasFilterActive && (
-            <button
-              type="button"
-              className="mgr-req-reset-btn"
-              onClick={handleResetFilters}
-              title="Khôi phục về trạng thái mặc định"
-            >
-              Đặt lại bộ lọc
-            </button>
-          )}
         </div>
 
         {/* Bảng danh sách yêu cầu vận chuyển */}
