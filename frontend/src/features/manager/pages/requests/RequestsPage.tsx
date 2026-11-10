@@ -190,32 +190,7 @@ export const RequestsPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Tab lọc nhanh trạng thái */}
-        <div className="mgr-chips" style={{ marginBottom: 0 }}>
-          {GROUPS.map(([k, label, st]) => {
-            const count =
-              k === 'attention'
-                ? attentionCount
-                : st.length
-                ? requests.filter((r) => st.includes(r.status)).length
-                : requests.length;
 
-            return (
-              <button
-                key={k || 'all'}
-                type="button"
-                className={`mgr-chip ${f.value('group') === k && !f.value('status') && !f.value('urgentOnly') ? 'on' : ''}`}
-                onClick={() => {
-                  f.setValue('status', '');
-                  f.setValue('urgentOnly', '');
-                  f.setValue('group', k);
-                }}
-              >
-                {label} ({count})
-              </button>
-            );
-          })}
-        </div>
 
         {/* Thanh công cụ tìm kiếm và bộ lọc */}
         <div className="mgr-req-toolbar">
